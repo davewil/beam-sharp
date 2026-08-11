@@ -1,7 +1,7 @@
 # 01 — What does a page of idiomatic beam-sharp look like?
 
 Type: prototype
-Status: resolved
+Status: claimed
 
 ## Question
 
@@ -24,12 +24,20 @@ genuinely open, show two variants side by side rather than picking silently.
 The resolution should record which choices felt right, which felt wrong, and — most
 valuable — which arguments the concrete code settled that prose was circling.
 
-## Answer
+## Interim — not resolved
+
+> **Closed prematurely on 2026-08-11 and reopened.** Variant A was chosen on the evidence of a
+> single four-clause function; every substantial example in the first prototype was written in
+> Variant B. The clause shape cannot be judged from a toy, and the point of this ticket is a
+> long considered look. A second prototype writes a realistic module set entirely in Variant A.
+> What follows below stands, except that "settled" now means "chosen, pending reading it at
+> length".
 
 Prototype: [`wayfinder/prototypes/01-sample-code.md`](../prototypes/01-sample-code.md), with a
 runnable Erlang lowering at [`01_counter_lowering.erl`](../prototypes/01_counter_lowering.erl).
+Second pass: [`01b-variant-a-at-length.md`](../prototypes/01b-variant-a-at-length.md).
 
-**Settled: Variant A — equations under a signature.**
+**Chosen: Variant A — equations under a signature.**
 
 ```csharp
 Verdict Classify(Reading r);
