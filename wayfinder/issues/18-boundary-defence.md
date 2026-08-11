@@ -35,8 +35,17 @@ Decide:
   neither Gleam nor purerl defends at all — both document FFI types as trusted and push
   safety to a library. So doing anything here is a departure from BEAM precedent and needs a
   reason better than tidiness.
+- **Do FFI declarations get a `-spec`?** Ticket 06 recommends emitting `-spec` generally —
+  cheap, and both Gleam and purerl do it — but left this sub-decision open: for a foreign
+  declaration, the spec is an **unverified claim**, asserting to the ecosystem a type nothing
+  checked. Emit it anyway, omit it, or mark it distinguishably?
 - **What does the language then claim?** The answer determines the honest one-sentence
   statement of the guarantee that ticket 11 has to produce.
+
+Note on the only precedent: purerl's `--checked` emits a **parallel `@checked` module** rather
+than modifying the normal one, is off by default, and lets types it cannot check fall through
+unchecked. The shape of that design — opt-in, parallel, admittedly partial — is itself a
+candidate answer, not just evidence.
 
 ## Notes
 

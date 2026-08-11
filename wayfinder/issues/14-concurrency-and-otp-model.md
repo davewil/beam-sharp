@@ -36,9 +36,21 @@ unavailable here: ticket 00 makes `handle_call/3` and `handle_info/2` the headli
 showcase, so this language must actually inhabit the OTP callback contract — which makes
 **mailbox defence unavoidable** rather than deferrable to a library.
 
-Useful and cheap: `-behaviour` has **no runtime effect**. A module with no such attribute runs
-fine as a `gen_server`; only the exports matter. So the attribute is a compile-time assertion
-the language can choose to emit for the ecosystem's benefit, not a constraint on its design.
+Useful and cheap: `-behaviour` has **no runtime effect**, verified locally on OTP 28. A module
+with no such attribute starts and answers calls under `gen_server:start_link/3`; one that
+declares it but omits `handle_cast/2` still compiles. `gen_server` dispatches via
+`fun Mod:handle_call/3` and gates optional callbacks with `erlang:function_exported/3` — it
+never reads behaviour metadata. Only exports matter. Neither Gleam nor purerl/Pinto emits
+`-behaviour` anywhere.
+
+**The alternative shape, from purerl/Pinto**: closures-as-messages through one generic callback
+module. Rather than the user's module implementing the callbacks, a single generic module does,
+and messages carry the closure that handles them. Worth weighing against per-module callbacks
+with multi-clause heads — it is the other end of the design space and it ships today.
+
+**A free guarantee worth knowing about**: the violation channel runs both ways. OTP *validates
+the shapes you return* from callbacks and kills the process if they are wrong. So return
+positions are already runtime-checked by the platform, at no cost to this language.
 
 ## Prior art to consult first (from ticket 03)
 

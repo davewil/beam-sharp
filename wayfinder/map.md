@@ -30,6 +30,11 @@ spec exists.
 - **Research findings land on `master`** as files under `wayfinder/research/`, linked from
   their ticket — not on throwaway branches, which parallel agents would collide over.
 - The effort is understood to be large. The map exists so it need not fit in one session.
+- **Evidence provenance**: research files mark claims `doc` / `src` / `local`, where `local`
+  means directly observed here (OTP 28, Elixir 1.19.5). Known gaps carried forward, recorded
+  so nobody assumes they were checked: Gleam is not installed locally so every Gleam claim is
+  `doc` or `src`, and Gleam's stance on foreign callers is *inferred from the absence of guard
+  emission* rather than documented first-party; Elixir 1.20 was not exercised.
 
 ## Decisions so far
 
