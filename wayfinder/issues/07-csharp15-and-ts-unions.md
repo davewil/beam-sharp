@@ -38,10 +38,12 @@ Write findings to `wayfinder/research/07-csharp15-and-ts-unions.md` and link her
 Findings: [`wayfinder/research/07-csharp15-and-ts-unions.md`](../research/07-csharp15-and-ts-unions.md).
 
 **Three premises in this ticket were wrong.** The champion issue is now
-[#9662](https://github.com/dotnet/csharplang/issues/9662), not #8928; `union` is a **preview**
-feature needing `<LangVersion>preview</LangVersion>` (Roslyn still lists it *In Progress*), not
-shipped; and no primary source supports "GA November 2026". The design is live — pattern
-targeting changed semantics in Preview 7 and the LDM revisits it again on 12 Aug 2026.
+[#9662](https://github.com/dotnet/csharplang/issues/9662), not #8928. `union` first appeared in
+**.NET 11 Preview 5 (9 Jun 2026)**, not April, and is `<LangVersion>preview</LangVersion>`-gated
+— Roslyn still lists it *In Progress*. And "GA November 2026" is the right date for the wrong
+thing: **10 Nov 2026 is .NET 11's GA**, documented; nothing commits *unions* to it. The design is
+live — pattern targeting changed semantics in Preview 7 (released today) and the LDM revisits it
+tomorrow, 12 Aug 2026.
 
 **C# unions** compose existing standalone types into a **nominal, closed struct wrapper** —
 `union Pet(Cat, Dog)` lowers to `[Union] struct Pet : IUnion` with one `object? Value` field, so
@@ -62,9 +64,16 @@ is no negation (proposal open 11 years, team PR closed unmerged), and exhaustive
 opt-in `never` idiom — a missing case in a `void` switch compiles clean under every
 configuration TypeScript offers.
 
-**For ticket 09**: the corpus contains a two-sentence, never-developed hybrid —
-`role NamedAOrB : (A | B);`, a name over a structural union with equivalency to the underlying
-type — which is the shape ticket 09 names as a legitimate answer.
+**For ticket 09**, one premise deserves grilling before it is relied on. The ticket assumes a
+nominal closed model *needs* a wrapping layer at every interop boundary. In C# the wrapper is
+there because the CLR needed a runtime witness and Microsoft refused to change the runtime — the
+rejected runtime-union design was **named yet wrapper-free**, "represented at runtime as a simple
+object reference". If neither rock that forced C# to a wrapper exists on the BEAM, it is not
+obvious what would force one there, and compile-time-only nominality may be available at zero
+boundary cost. That would partly dissolve the tension the ticket is built on. The corpus also
+contains a two-sentence, never-developed hybrid — `role NamedAOrB : (A | B);`, a name over a
+structural union with equivalency to the underlying type — matching the shape ticket 09 names as
+a legitimate answer, though it supplies no semantics or exhaustiveness story.
 
 ## Notes
 

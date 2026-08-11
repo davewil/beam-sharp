@@ -22,21 +22,24 @@ ticket 00 to a blog post. Against primary sources:
 |---|---|
 | Champion issue is [csharplang #8928](https://github.com/dotnet/csharplang/issues/8928) | 8928 is the older *union overview* issue. The current champion issue is **[#9662](https://github.com/dotnet/csharplang/issues/9662)** — cited as "Champion issue" at the top of `proposals/unions.md` and as the umbrella in the working-group overview. |
 | "Shipping in .NET 11" | `union` shipped as a **preview language feature** requiring `<LangVersion>preview</LangVersion>`, first in **.NET 11 Preview 5**. Roslyn's own status table still lists Unions as **In Progress** on branch `features/Unions`. |
-| "GA expected November 2026" | **No primary source found for this.** The LDM's only version statement about unions is a hedge, quoted below. Treat the GA date as unverified. |
+| "first preview April 2026" | .NET 11 **Preview 1 was 10 Feb 2026**; April 2026 was Preview 3. Neither carried unions — `union` first appeared in **Preview 5, 9 June 2026**. |
+| "GA expected November 2026" | **The date is right for the wrong thing.** .NET 11 is an STS release "supported for two years, from **November 10, 2026** to November 9, 2028" — that is *.NET 11's* GA, and it is well documented. **Nothing commits unions to it.** Unions are `LangVersion=preview`-gated, and the Preview 6 note says to "expect the surface to keep evolving **before the feature ships**". Treat "unions GA in Nov 2026" as an unsupported conflation of the two. |
 
-What is actually true, with dates:
+What is actually true, with dates (channel state as of 2026-08-11: `latest-release
+11.0.0-preview.7`, `support-phase: preview`):
 
-- **Preview 5** — `union` declarations and union patterns land
+- **Preview 5, 9 Jun 2026** — `union` declarations and union patterns land
   ([roslyn#83705](https://github.com/dotnet/roslyn/pull/83705)). Projects had to hand-author
   `UnionAttribute` and `IUnion` themselves.
-- **Preview 6** — `System.Runtime.CompilerServices.UnionAttribute` and `IUnion` ship in the
-  framework; `System.Text.Json` serializes union values, **writing the active case directly**
-  ([runtime#128162](https://github.com/dotnet/runtime/pull/128162)). "Unions remain a preview
-  feature; enable `<LangVersion>preview</LangVersion>` to try them, and expect the surface to
-  keep evolving before the feature ships."
-- **Preview 7** — pattern matching switches to the **Try-Both** model: a pattern is tested
-  against the union instance first, then against its `Value`. So `pet is Pet` is now `true`.
-  This is a semantic change to shipped preview behaviour, three previews in.
+- **Preview 6, 14 Jul 2026** — `System.Runtime.CompilerServices.UnionAttribute` and `IUnion`
+  ship in the framework; `System.Text.Json` serializes union values, **writing the active case
+  directly** ([runtime#128162](https://github.com/dotnet/runtime/pull/128162)). "Unions remain a
+  preview feature; enable `<LangVersion>preview</LangVersion>` to try them, and expect the
+  surface to keep evolving before the feature ships."
+- **Preview 7, 11 Aug 2026 (today)** — pattern matching switches to the **Try-Both** model: a
+  pattern is tested against the union instance first, then against its `Value`. So `pet is Pet`
+  is now `true`. This is a semantic change to shipped preview behaviour, three previews in, and
+  it is one day old.
 
 > We'll be continuing design work here and are hopeful that C# 15 will at least have preview
 > versions of features in this area.
@@ -76,6 +79,15 @@ ship in-box in Preview 6. The release note is the more specific, dated source; p
 
 ## 1. C# 15 unions as they exist
 
+> **Read this section as the speclet at `881b703`, not as compiler behaviour.** Quotes below
+> come from `proposals/unions.md` unless attributed otherwise, and the preview implementation
+> lags it — Microsoft Learn states plainly that "Some features from the proposal specification
+> aren't yet implemented. Those features are coming in future previews." Known lag at Preview 7:
+> the speclet's own Open Questions list is still populated (non-boxing member lookup rules,
+> `TryGetValue` nullability, the `IUnion` namespace), and the pattern-target rule the speclet
+> describes is one day old and scheduled for re-litigation tomorrow (§0). Where a claim below is
+> confirmed by a release note rather than the speclet, it is marked **[shipped]**.
+
 ### 1.1 Declaration syntax
 
 ```csharp
@@ -85,6 +97,11 @@ public record class Bird(string Name);
 
 public union Pet(Cat, Dog, Bird);
 ```
+
+**[shipped]** — this exact form compiles under Preview 5+ with `LangVersion=preview`; the
+Preview 5 release note carries it verbatim as `public union Pet(Dog, Cat);`, along with "The
+compiler generates a public constructor for each case type" and "A case value converts
+implicitly to the union type".
 
 The grammar, from the speclet:
 
@@ -224,6 +241,9 @@ arrived here after two reversals (§2.5, §2.6).
 > };
 > ```
 
+**[shipped]** — "switch expressions are exhaustive when they handle every case type" is in the
+Preview 5 release note, with a worked example carrying no default arm.
+
 Five qualifications matter more than the headline:
 
 1. **It suppresses a warning, not an error.** The unhandled-case diagnostic is `CS8509`, a
@@ -292,10 +312,14 @@ Consequences, each sourced:
   because it is a generic virtual method, "bad for AOT compilation". `IUnionUnboxed` was
   "summarily dismissed… we want to start from a position of **preferring potential boxing to
   the risks of GVMs**" (LDM 2025-07-30:127, 146).
-- **A non-boxing opt-out exists but only for hand-written unions.** `HasValue` +
-  per-case `TryGetValue(out T)`; the compiler prefers these when present. `union` declarations
-  are opinionated single-reference structs and do not get them. Correctness of the opt-out is
-  unchecked — the author must guarantee it matches `Value`.
+- **A non-boxing opt-out exists, but a `union` declaration cannot benefit from it.** `HasValue`
+  + per-case `TryGetValue(out T)`; the compiler prefers these when present. A `union`
+  declaration's body does admit `struct_member_declaration*`, so those members are *writable* —
+  but the generated storage is the single `object? Value` auto-property, so a hand-written
+  `TryGetValue` would read `Value` and unbox. You get the strongly-typed access path without the
+  storage benefit that motivates it. Real non-boxing requires hand-writing the whole union with
+  `[Union]` and your own layout. Correctness of the opt-out is unchecked either way — the author
+  must guarantee it matches `Value`.
 - **The wrapper struct is not tear-free.** "The specification likely can't claim that a struct
   union with a single field of a reference type is set/read atomically. C# and ECMA-335 do not
   guarantee this for non-primitive types" (LDM 2025-09-10:30-33). The speclet's own last open
@@ -327,14 +351,14 @@ is a hardening of exactly one:
 
 ```mermaid
 flowchart TD
-  A["Class hierarchy"] --> A1["Closed Hierarchies"]
-  B["Object reference"] --> B1["Runtime Type Unions"]
-  C["Wrapper type"] --> C1["Nominal Type Unions"]
+  A["Baseline: class hierarchy"] --> A1["Closed Hierarchies"]
+  B["Baseline: object reference"] --> B1["Runtime Type Unions"]
+  C["Baseline: wrapper type"] --> C1["Nominal Type Unions"]
   A1 --> D["Shipped preview: closed"]
-  B1 --> E["Rejected 2025-06-25"]
   C1 --> F["Shipped preview: union"]
-  E --> G["Only design scoring anonymous syntax"]
-  E --> H["Needed new CLR support"]
+  B1 --> G["Only design scoring anonymous syntax"]
+  B1 --> H["Only design with no runtime wrapper"]
+  B1 -->|"needed new CLR support"| E["Rejected 2025-06-25"]
 ```
 
 The trade-off matrix, reproduced faithfully (blank = no value in source, *italic* = qualified):
@@ -551,10 +575,12 @@ A **nominal alias over a structural union, with the nominal name deliberately
 non-load-bearing.** Two sentences in a 2022 minute, never developed, because C# roles were
 themselves shelved.
 
-**BEAM relevance: this is arguably the design ticket 09 is looking for.** It gives the C#
-audience a declared name to read and write, while the type it names remains structural and
-open, and the name confers no identity that interop has to strip. Nothing in the C# corpus
-argues against it on its merits; it died because its host feature did.
+**BEAM relevance: it is the only design in the corpus matching the hybrid shape ticket 09
+describes** — a declared name for the C# audience to read and write, over a type that remains
+structural and open, with the name conferring no identity that interop has to strip. Weight it
+accordingly, though: it is two sentences in a 2022 minute with no spec, no semantics and no
+exhaustiveness story. Nothing in the corpus argues against it on its merits; it also never got
+far enough to attract an argument, and it died because C# roles did.
 
 ### 2.8 Syntax roads, briefly
 
@@ -811,7 +837,7 @@ negation; emptiness is decidable, so `t1 ≤ t2` reduces to `t1 ∧ ¬t2 = ∅`.
 | **Negation** | Yes. `¬t` is a first-class type; the reason emptiness is decidable. | **Absent.** No negation anywhere in the proposal. | **Absent.** #4196 open 11 years; team implementation closed unmerged; `Exclude<T,U>` is a distributive filter over enumerated union members, powerless on a non-union `T`. |
 | **Exhaustiveness** | Falls out of the algebra: the clause union covers the domain iff `domain ∧ ¬(⋃ clauses) = ∅`. | **Enforced by the compiler as a warning** (`CS8509`), computable only because the case set is closed and module-bounded. Unsettled for `switch` statements and `void` methods. An exhaustive switch still emits a throwing default. Set-theoretic regularity was explicitly rejected where it conflicted with intent. | **Not enforced at all.** An opt-in idiom (`const _: never = x`). Omitting a case in a `void` function is accepted under every compiler configuration. Declined as a compiler flag; "should be a lint rule". |
 | **Runtime witness** | Design choice; the *type* is a set predicate, so it is testable if values carry enough structure. | **Yes, and mandatory** — the union is a real struct wrapper, independently pattern-matchable (`pet is Pet` is `true`). Visible to reflection, generics and serialization. | **None.** Fully erased. |
-| **Interop with untyped structural data** | Near zero — the types *describe* the terms that are already there. A predicate holds or it doesn't. | **A wrapping layer at every boundary.** Every incoming value must be converted into a declared union instance and unwrapped on the way out. On the CLR that means boxing value types; on the BEAM it would mean an extra term per crossing, and raw Erlang callers seeing a shape nobody declared. `System.Text.Json` needed a special case to write the *contents* rather than the wrapper. | **Zero cost, zero guarantee.** `any` flows in unchecked; narrowing gives no runtime obligation; a lying type predicate compiles clean. |
+| **Interop with untyped structural data** | Near zero — the types *describe* the terms that are already there. A predicate holds or it doesn't. | **A wrapping layer at every boundary, on the CLR.** Every incoming value is converted into a declared union instance and unwrapped on the way out; value types box; `System.Text.Json` needed a special case to write the *contents* rather than the wrapper. **Whether that cost is intrinsic to nominality or specific to the CLR's need for a runtime witness is exactly the open question in §5.0** — do not carry it across to a BEAM target unexamined. | **Zero cost, zero guarantee.** `any` flows in unchecked; narrowing gives no runtime obligation; a lying type predicate compiles clean. |
 
 **The plain statement the ticket asks for:**
 
@@ -843,7 +869,43 @@ negation; emptiness is decidable, so `t1 ≤ t2` reduces to `t1 ∧ ¬t2 = ∅`.
 
 ## 5. What this feeds into ticket 09
 
-Recorded as evidence, not as a decision:
+Recorded as evidence, not as a decision.
+
+### 5.0 The sharpest thing the corpus raises: nominal may not imply wrapping
+
+Ticket 09 states as a premise that **"a nominal closed model needs a wrapping layer at every
+interop boundary — cost paid on every call in and out."** The evidence gathered here suggests
+that premise may be an inherited CLR constraint rather than a property of nominality, and it is
+load-bearing enough for the decision that it should be tested before it is relied on.
+
+The wrapper in C# is not there because the unions are nominal. It is there because C# needed a
+*runtime witness* and refused to change the runtime to provide one:
+
+- Runtime type unions — which are **named** (`union Pet(Cat, Dog, Bird);`, a nominal
+  declaration) and yet **carry no wrapper**, being "actually represented at runtime as a simple
+  object reference" — were rejected because `is-a` "would either leak through or **need runtime
+  support** for", and because "the timelines for it are also shorter" for the wrapper.
+- The wrapper design's own stated justification is `Back-Compat`, `Non-ABI Breaking` and
+  "Any Time Soon" — three properties of shipping into a mature ecosystem, none of them about
+  types.
+- Erasure died on *reified generic type arguments*, which §2.9 establishes have no BEAM analogue.
+- And the erasure camp named the wrapper as the cost, not the benefit: it "interferes with
+  simple operations like type tests and casts" (`TypeUnions.md:835-836`).
+
+So the open question for ticket 09 is: **can nominality be compile-time-only on a BEAM target?**
+Declared names for readability and diagnostics; statically checked exhaustiveness; erased at
+runtime to the raw term, with no wrapping tuple and no conversion at the boundary. Section 2.9's
+table says neither rock that forced C# to a runtime wrapper exists here — so it is not obvious
+what *would* force one.
+
+If that holds, ticket 09's cost model for the nominal side is wrong, and the tension the ticket
+frames ("nominal costs a wrapping layer, structural does not") partly dissolves. If it does not
+hold, the reason will be a BEAM-specific one this research has not found, and naming it is worth
+more than re-arguing the C# trade-off. Either way this is ticket 09's call to make, not this
+file's — it is HITL, and the point here is only that the premise deserves a grilling rather than
+an assumption.
+
+### 5.1 The rest
 
 1. **The strongest C# arguments for nominal-closed do not survive the change of target.** The
    deciding rejection of runtime/structural unions cited back-compat with older runtimes, the
@@ -856,10 +918,12 @@ Recorded as evidence, not as a decision:
    distinguish two cases with the same payload shape, and imposing order is equivalent to
    imposing a tag. The BEAM supplies a free structural tag (the leading atom), so this is
    satisfiable without nominal identity.
-4. **A hybrid has prior art in the corpus, in two sentences that were never developed** —
+4. **A hybrid has prior art in the corpus, in two undeveloped sentences** —
    `role NamedAOrB : (A | B);`, a name over a structural union with equivalency to the
-   underlying type. That is the shape of "structural underneath, optional nominal declarations
-   as a convenience" that ticket 09 names as a legitimate answer.
+   underlying type. It matches the shape of "structural underneath, optional nominal
+   declarations as a convenience" that ticket 09 names as a legitimate answer. It supplies no
+   semantics and no exhaustiveness story; it is a precedent that the shape occurred to
+   competent language designers, not a design to adopt.
 5. **Whatever is chosen, exhaustiveness needs the permitted set written at the declaration**,
    not discovered by scanning — the `allows.md` argument, made about compiler performance, and
    the LDM's counter-caution that this should be measured rather than assumed.
@@ -880,6 +944,9 @@ Working-group and proposal paths below are relative to
 | Champion issue for Unions is #9662, not #8928 | `proposals/unions.md` (header); `meetings/working-groups/discriminated-unions/union-proposals-overview.md` |
 | Unions listed **In Progress** on branch `features/Unions`; closed hierarchies **merged as preview into .NET 11p5** | [roslyn `docs/Language Feature Status.md`](https://github.com/dotnet/roslyn/blob/main/docs/Language%20Feature%20Status.md) |
 | Closed enums absent from the Roslyn status table | ibid. (full-table search) |
+| .NET 11 is STS, "supported for two years, from November 10, 2026 to November 9, 2028" | [dotnet/core release-notes/11.0/README.md](https://github.com/dotnet/core/blob/main/release-notes/11.0/README.md) |
+| Preview dates: P1 2026/02/10, P3 2026/04/14, P5 2026/06/09, P6 2026/07/14, P7 2026/08/11 | ibid. (release notes table) |
+| Channel state on 2026-08-11: `latest-release 11.0.0-preview.7`, `support-phase: preview`, `release-type: sts` | [release-notes/11.0/releases.json](https://github.com/dotnet/core/blob/main/release-notes/11.0/releases.json) |
 | `union` declarations + patterns land in Preview 5 | [dotnet/core release-notes/11.0/preview/preview5/csharp.md](https://github.com/dotnet/core/blob/main/release-notes/11.0/preview/preview5/csharp.md) |
 | `UnionAttribute`/`IUnion` ship in-box in Preview 6; STJ writes the active case directly; unions remain preview, `LangVersion=preview` | [preview6/csharp.md](https://github.com/dotnet/core/blob/main/release-notes/11.0/preview/preview6/csharp.md) |
 | Preview 7 switches to Try-Both matching; `pet is Pet` is true | [preview7/csharp.md](https://github.com/dotnet/core/blob/main/release-notes/11.0/preview/preview7/csharp.md) |
