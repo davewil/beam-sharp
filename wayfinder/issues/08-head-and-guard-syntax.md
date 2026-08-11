@@ -46,6 +46,30 @@ Decide:
   (`[first, .., last]`) are not one-pass expressible over cons cells. Decide what subset of
   list patterns survives, and whether a non-one-pass pattern is permitted at a cost.
 
+## Reformulation from prototype 01f — tested against OTP 28
+
+Running the `Orders` lowering ([01f_orders_lowering.erl](../prototypes/01f_orders_lowering.erl))
+found two errors in sample code that had only been read, and both change this ticket:
+
+**"Patterns count, guards don't" is the wrong rule.** `{ Status: not :shipped }` cannot be an
+Erlang pattern — the BEAM has no negation pattern — and lowers to `when S =/= shipped`. Yet it is
+still checkable, because the *type system* computes `Status \ :shipped` as a set difference. The
+exhaustiveness credit comes from the type system, not from what codegen emits. The rule is:
+
+> **The checker credits any condition it can translate into a type operation.**
+> `not :shipped` → set difference. `n > 1` → interval refinement. `HasSku(lines, sku)` → nothing.
+
+So this ticket's real question is not "guard or pattern" but **which surface conditions have a
+type-level meaning** — a far more tractable question, and one shared with ticket 11.
+
+**Friction #1 may be soluble rather than merely survivable.** `when amt >= Total(o)` is illegal
+(user function in a guard) and had to be hand-lowered to a clause dispatching to a `pay/3` helper.
+**The compiler could perform that hoist automatically** — and Erlang cannot, because it has no
+purity guarantee, while beam-sharp does. Costs to weigh: the hoisted call is evaluated even when
+an earlier clause would have matched, and a diverging or crashing call changes semantics (which
+interacts with ticket 12's totality stance). But this is the first evidence the biggest ergonomic
+threat to the design has an answer rather than a workaround.
+
 ## Binding constraint from ticket 04 — signatures are not optional
 
 **Exhaustiveness is only well-posed against a declared input type.** Redundancy is *relative*

@@ -29,6 +29,11 @@ feature unusable in the domain the BEAM is most used for. Establish what a binar
 clause head would have to mean type-theoretically before deciding, rather than assuming it
 falls out.
 
+[Ticket 25](25-exemplar-programs.md) sharpens this considerably: of six ordinary BEAM workloads,
+**three are binary work** — dynamic web pages, WebSocket frames and event-queue payloads. The most
+common things people build on this platform sit precisely where the theory is missing. That should
+be weighed before the type system is settled, not after.
+
 Also weigh a product risk named by Castagna himself as an open problem: **readable error
 messages and type pretty-printing** — and note that under the map's standing constraint (written
 by agents, read by humans) this is a *product* problem rather than a cosmetic one, since the
