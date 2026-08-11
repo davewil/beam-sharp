@@ -120,6 +120,10 @@ spec exists.
 - **Module and namespace system**, and function identity — BEAM identifies functions by
   name *and arity*, which multi-clause heads and optional parameters both disturb.
 - **The language's name.**
+- **Imports and cross-module scope** — if a directory is a module, what do files in it share
+  automatically, and what must be imported? Slipped into a prototype example unexamined.
+- **Where DDD invariants live** — not commands, not types. An `Invariants` module, refinement in
+  the type declarations, or nothing.
 - **Stdlib shape as a principle** — Erlang-ish flat modules, C#-ish namespaced statics, or
   Gleam-ish. Breadth is out of scope; the shape is not.
 - **Runtime behaviour against untyped callers** — what, if anything, the compiler emits to

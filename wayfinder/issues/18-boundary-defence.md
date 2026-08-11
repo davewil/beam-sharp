@@ -51,6 +51,17 @@ than modifying the normal one, is off by default, and lets types it cannot check
 unchecked. The shape of that design — opt-in, parallel, admittedly partial — is itself a
 candidate answer, not just evidence.
 
+## Coupled to ticket 22
+
+**Elm validates values crossing a port at runtime**, so its guarantees survive its escape hatch —
+where ticket 06 found Gleam and purerl validate nothing at all. If that holds (→ ticket 21, which
+is establishing it), it is the working precedent for this ticket's central question, and the only
+one found so far in which a language *does* defend its boundary.
+
+This ticket also cannot be settled before [ticket 22](22-how-opinionated.md) says how much the
+core claims. A language that merely offers types owes its boundary less than one that enforces
+domain invariants — you can only defend a claim once you know what it is.
+
 ## Notes
 
 HITL. Surfaced by ticket 06. Blocked by 11 (what the type system claims) and 12 (whether
