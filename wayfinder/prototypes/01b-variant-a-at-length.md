@@ -300,14 +300,322 @@ list<string> ActiveSkus(list<Order> orders) =>
 
 ---
 
+## Module 4 — recursion, which is Variant A's strongest case
+
+Header once, implementation as equations. This is the shape ML, Haskell and Erlang all
+converged on, and it is where the repeated function name stops being repetition and starts
+being structure.
+
+### Structural recursion over a tree
+
+```csharp
+type Tree = :leaf | (:node, Tree, int, Tree);
+
+Tree Insert(Tree t, int x);
+
+Insert(:leaf, x)                        => (:node, :leaf, x, :leaf);
+Insert((:node, l, v, r), x) when x < v  => (:node, Insert(l, x), v, r);
+Insert((:node, l, v, r), x) when x > v  => (:node, l, v, Insert(r, x));
+Insert((:node, _, _, _) t, _)           => t;              // already present
+```
+
+Four equations, no `case`, no scrutinee named, and the recursive calls sit inside the
+constructed result where you can see them. The last clause uses a **designation** —
+`(:node, _, _, _) t` binds the whole node while matching its shape. That is C#'s existing
+pattern-designation syntax doing the work of Erlang's `T = {node,_,_,_}`, and it is the third
+thing C# turned out to already have.
+
+### The public/private accumulator pair
+
+The most common recursive idiom on the BEAM, and the one that shows the header cost honestly.
+
+```csharp
+list<int> ToList(Tree t) => ToList(t, []);
+
+list<int> ToList(Tree t, list<int> acc);
+
+ToList(:leaf, acc)             => acc;
+ToList((:node, l, v, r), acc)  => ToList(l, [v, ..ToList(r, acc)]);
+```
+
+`ToList/1` and `ToList/2` are different functions sharing a name — BEAM identity is name *and*
+arity, so the pair costs nothing conceptually. But count the lines: **four occurrences of
+`ToList` to express two equations.** For a two-clause helper the header is pure overhead, and
+almost every accumulator helper is two clauses.
+
+### Mutual recursion
+
+```csharp
+bool IsEven(int n);
+bool IsOdd(int n);
+
+IsEven(0)             => true;
+IsEven(n) when n > 0  => IsOdd(n - 1);
+
+IsOdd(0)              => false;
+IsOdd(n) when n > 0   => IsEven(n - 1);
+```
+
+Variant A has a layout question here that Variant B could not have had: **do the two headers
+group at the top, or does each sit above its own clauses?** Grouped, as above, the mutual
+relationship is visible at a glance and the clauses read as one system. Separated, each function
+is self-contained but the mutual dependency is invisible until you read the bodies. Neither is
+obviously right, and nothing in the syntax forces either.
+
+### Merge sort — where guards do real work
+
+```csharp
+list<int> MergeSorted(list<int> a, list<int> b);
+
+MergeSorted([], b)                                 => b;
+MergeSorted(a, [])                                 => a;
+MergeSorted([x, ..xs] a, [y, ..ys] b) when x <= y  => [x, ..MergeSorted(xs, b)];
+MergeSorted([x, ..xs] a, [y, ..ys] b)              => [y, ..MergeSorted(a, ys)];
+```
+
+This is the prototype's prettiest function and it is worth saying why. Both arguments are
+destructured *and* bound whole in the same head — `[x, ..xs] a` gives you the first element, the
+tail, and the original list at once — so the recursive calls can pass whichever they need without
+rebuilding anything. In Erlang this is `MergeSorted([X|Xs] = A, [Y|Ys] = B)`; here the designation
+carries it.
+
+### The friction recursion exposes: intermediate values
+
+```csharp
+list<int> Sort(list<int> xs);
+
+Sort([])  => [];
+Sort([x]) => [x];
+Sort(xs)  => ???                      // Split(xs) returns a pair. Now what?
+```
+
+**You cannot pattern-match the result of a call in the parameter position** — the head matches
+arguments, and `Split(xs)` is not an argument. Erlang solves this in the body with
+`{L, R} = split(Xs),`. Variant A has two answers, and neither is free:
+
+```csharp
+// (a) a block body, using C# tuple deconstruction
+Sort(xs)
+{
+    var (l, r) = Split(xs);
+    return MergeSorted(Sort(l), Sort(r));
+}
+
+// (b) a helper function that exists only to destructure
+list<int> SortHalves((list<int>, list<int>) halves);
+SortHalves((l, r)) => MergeSorted(Sort(l), Sort(r));
+
+Sort(xs) => SortHalves(Split(xs));
+```
+
+(a) is what a C# programmer will write and it is perfectly readable — but the moment a function
+needs one intermediate value, it leaves the equation style entirely and becomes a block. (b)
+keeps the equation style at the cost of a function nobody wanted, named for nothing.
+
+**The equation form is only available for functions that never need an intermediate.** That is a
+sharper constraint than it first appears, and it is the reason ML languages have `let … in`.
+Whether beam-sharp needs a binding form that keeps you inside an expression — a `let`, or C#'s
+`switch` expression, or something else — is now a real question. → ticket 08 or 17.
+
+### Error propagation, and the feature paying off
+
+Recursion over a type that can fail is where multi-clause heads justify themselves outside a
+dispatch table.
+
+```csharp
+type Expr =
+    (:num, int)
+  | (:var, string)
+  | (:neg, Expr)
+  | (:add, Expr, Expr)
+  | (:let, string, Expr, Expr);
+
+type Env    = map<string, int>;
+type Evaled = (:ok, int) | (:error, (:unbound, string));
+
+Evaled Eval(Expr e, Env env);
+
+Eval((:num, n), _)                    => (:ok, n);
+Eval((:var, name), env) when env.HasKey(name)
+                                      => (:ok, env[name]);
+Eval((:var, name), _)                 => (:error, (:unbound, name));
+Eval((:neg, e), env)                  => Negate(Eval(e, env));
+Eval((:add, l, r), env)               => Combine(Eval(l, env), Eval(r, env));
+Eval((:let, name, bound, body), env)  => Bind(name, Eval(bound, env), body, env);
+```
+
+The three helpers do the error propagation *in their heads*, which is the whole argument for the
+feature in one place:
+
+```csharp
+Evaled Negate(Evaled v);
+
+Negate((:ok, n))        => (:ok, -n);
+Negate((:error, _) e)   => e;
+
+Evaled Combine(Evaled a, Evaled b);
+
+Combine((:ok, x), (:ok, y))  => (:ok, x + y);
+Combine((:error, _) e, _)    => e;
+Combine(_, (:error, _) e)    => e;
+
+Evaled Bind(string name, Evaled bound, Expr body, Env env);
+
+Bind(name, (:ok, v), body, env)  => Eval(body, env.Put(name, v));
+Bind(_, (:error, _) e, _, _)     => e;
+```
+
+`Combine` is the clearest three lines in this document: two successes combine, either failure
+short-circuits, and the ordering of the last two clauses *is* the left-biased choice. No `case`,
+no `match`, no monad, no `?` operator — the dispatch is the head.
+
+But note what it cost: **`Eval` needed three helper functions purely to sequence results.** A
+language with a binding form, or a `Result`-aware operator, would fold all three into `Eval`
+itself. Whether that is a virtue (every step named and independently testable) or a tax (three
+functions where one would do) is genuinely arguable, and it is ticket 15's decision as much as
+ticket 08's.
+
+---
+
+## Module 5 — `Fib`, and the guard that breaks the guarantee
+
+No builtins, no `reduce`, no library. The simplest recursive function anyone writes, and the
+sharpest test in this document.
+
+```csharp
+int Fib(int n);
+
+Fib(0)            => 0;
+Fib(1)            => 1;
+Fib(n) when n > 1 => Fib(n - 1) + Fib(n - 2);
+```
+
+**This does not compile, and the reason is structural rather than incidental.**
+
+Ticket 04 established exhaustiveness as `t \ (Acc(p₁)|…|Acc(pₙ)) ≃ 0`, where `Acc(p)` is the type
+a **pattern** accepts. A guard is not a pattern. A checker reading patterns alone sees the third
+clause accepting all of `int` but cannot see that `when n > 1` is what makes it safe — and
+conservatively, a guarded clause contributes *nothing provable* to coverage.
+
+Two distinct failures follow:
+
+1. The declared domain `int` includes negatives, which no clause handles.
+2. Narrow the domain to non-negative and the residual is still everything `≥ 2` — covered only by
+   a clause whose guard the checker will not credit.
+
+**So no function can be total if its totality rests on a guard** — and that describes most
+arithmetic recursion: `Fib`, `Fact`, `Gcd`, every bounded countdown. The headline guarantee would
+be unavailable in the first program anyone writes.
+
+### The fix, and the inversion it produces
+
+```csharp
+type Nat = 0..;                       // an interval type, not an alias
+
+int Fib(Nat n);
+
+Fib(0)            => 0;
+Fib(1)            => 1;
+Fib(n) when n > 1 => Fib(n - 1) + Fib(n - 2);
+```
+
+Two things must hold for this to check. The type language needs **integer interval types** — and
+CDuce has them, so this is not hypothetical. And the exhaustiveness checker must read
+`when n > 1` as **refining** `Nat` to `2..`, leaving residual zero.
+
+Guard-aware exhaustiveness is hard in general. It is tractable here for a reason peculiar to this
+platform: **BEAM guards are a closed set of BIFs with no user function calls.** Friction #1 —
+named below as the biggest threat to the design — is precisely what makes this decidable. A
+small, closed, mostly-comparison guard language is the one you *can* build refinement for.
+
+That inversion is the most useful thing in this prototype. The platform restriction everyone
+treats as the language's wound is also its enabling condition, and the two cannot be separated:
+open the guard language up for ergonomics and you lose the ability to check `Fib`.
+
+→ tickets 04 (does the residual account for guards?), 08 (what may appear in a guard), 11
+(does the type language have intervals?), 12 (what totality means when guards carry it).
+
+### The same function, three more ways
+
+Tail-recursive, threading two accumulators:
+
+```csharp
+int Fib(Nat n) => Fib(n, 0, 1);
+
+int Fib(Nat n, int a, int b);
+
+Fib(0, a, _)            => a;
+Fib(n, a, b) when n > 0 => Fib(n - 1, b, a + b);
+```
+
+The first `n` values as a list, built by hand rather than by any library function:
+
+```csharp
+list<int> FibList(Nat count) => FibList(count, 0, 1);
+
+list<int> FibList(Nat remaining, int a, int b);
+
+FibList(0, _, _)            => [];
+FibList(n, a, b) when n > 0 => [a, ..FibList(n - 1, b, a + b)];
+```
+
+Both read cleanly, and both are two equations under a header — the accumulator-pair shape again,
+with its four occurrences of the name to express two rules.
+
+Memoised, which walks straight back into the intermediate-value problem. Two sequential calls
+each thread the map, so the result of the first is an argument to the second:
+
+```csharp
+(int, map<int, int>) Fib(Nat n, map<int, int> memo);
+
+Fib(0, m)                   => (0, m);
+Fib(1, m)                   => (1, m);
+Fib(n, m) when m.HasKey(n)  => (m[n], m);
+
+Fib(n, m)
+{
+    var (x, m1) = Fib(n - 1, m);
+    var (y, m2) = Fib(n - 2, m1);
+    return (x + y, m2.Put(n, x + y));
+}
+```
+
+Three equations and then a block, in a nine-line function. That is the shape of the tax the
+equation form charges the moment a function needs an intermediate value — and note that this is
+not an exotic case. Threading state through sequential calls is ordinary BEAM code.
+
+Also note the arity collision: `Fib/1`, `Fib/2` and `Fib/2` again — the tail-recursive
+`Fib(Nat, int, int)` is `Fib/3`, but the memoised `Fib(Nat, map)` is `Fib/2`, which is the same
+arity as nothing here yet would be if the accumulator version took one accumulator. **Name-plus-
+arity identity means a function's name is only half its identity, and two unrelated helpers can
+collide silently.** → ticket 08.
+
+---
+
 ## What writing this actually surfaced
 
 Nine things, ordered by how much they should worry you.
 
+0. **Guards must participate in exhaustiveness, or the guarantee is unavailable in `Fib`.** A
+   guard is not a pattern, so a checker reading patterns alone credits a guarded clause with
+   nothing — and no function can be total if its totality rests on a guard. That is most
+   arithmetic recursion. Needs interval types in the type language *and* guard refinement in the
+   checker. **This outranks everything below it: it is the guarantee failing on the first
+   program anyone writes.** → tickets 04, 11, 12.
+
 1. **Guards cannot call user functions, and nothing in the syntax shows which calls are legal.**
    `s.Orders.HasKey(id)` works because `is_map_key/2` is a BIF; `HasSku(o.Lines, sku)` does not,
    and they look identical. Every predicate you want and cannot have pushes code out of the
-   clause table into an `if`. **This is the biggest threat to the whole design.** → ticket 08.
+   clause table into an `if`. **This is the biggest threat to the everyday ergonomics** — but see
+   item 0: the same restriction is what makes guard-aware exhaustiveness decidable. The two
+   cannot be separated, and loosening the guard language for ergonomics costs the guarantee.
+   → ticket 08.
+
+1b. **The equation form is unavailable to any function needing an intermediate value.** Matching
+   the result of a call is impossible in the parameter position, so `Sort`, memoised `Fib`, and
+   anything threading state through sequential calls must drop into a block body or invent a
+   helper that exists only to destructure. This is ordinary BEAM code, not an exotic case, and it
+   is why ML languages have `let … in`. → ticket 08 or 17.
 
 2. **The catch-all clause switches off the guarantee.** `Apply(o, e) => (:error, …)` makes the
    function total and therefore unfalsifiable — the compiler can never again tell you a case is
