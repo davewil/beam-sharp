@@ -165,9 +165,12 @@ the open question below.
 
 **Exposed.**
 
-1. **Twelve files for one gen_server.** Four are one-liners. Whether that is admirable separation
-   or ceremony is not answerable from a single example — it needs a real application's worth of
-   modules before anyone can judge honestly.
+1. ~~**Twelve files for one gen_server.** Four are one-liners.~~ **Largely withdrawn** — the map's
+   standing constraint (written by agents, read by humans, scaffolded by tooling) makes this a
+   write-cost objection, and write cost is near-free. What survives is the *read* question: twelve
+   files is worse for understanding the whole server at once and better for finding one operation.
+   And the split actively helps review — an agent's change to one operation is a single small diff
+   readable in full context, rather than a hunk inside a long module.
 2. **`Self` is undefined.** `StartLink` needs to name its own module, Erlang's `?MODULE`. Under
    directory-as-module there is no obvious spelling. → ticket 08.
 3. **`()` for a zero-argument clause.** Same family as the `(0)` ambiguity from 01c: with the name

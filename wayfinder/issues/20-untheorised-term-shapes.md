@@ -30,7 +30,9 @@ clause head would have to mean type-theoretically before deciding, rather than a
 falls out.
 
 Also weigh a product risk named by Castagna himself as an open problem: **readable error
-messages and type pretty-printing**. For a language whose entire pitch is "the compiler proves
+messages and type pretty-printing** — and note that under the map's standing constraint (written
+by agents, read by humans) this is a *product* problem rather than a cosmetic one, since the
+diagnostic is consumed by an agent in a loop. See [ticket 23](23-what-the-language-owes-an-agent.md). For a language whose entire pitch is "the compiler proves
 your clauses cover the input", an unreadable proof failure is not a cosmetic defect — it is
 the feature failing in the only place a user meets it.
 

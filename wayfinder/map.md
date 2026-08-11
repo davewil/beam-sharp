@@ -30,6 +30,22 @@ spec exists.
 - **Research findings land on `master`** as files under `wayfinder/research/`, linked from
   their ticket — not on throwaway branches, which parallel agents would collide over.
 - The effort is understood to be large. The map exists so it need not fit in one session.
+- **STANDING CONSTRAINT — beam-sharp is written by agents and read by humans** (David,
+  2026-08-12). Humans will generally not author these files; agents will, with tooling
+  (mix/dotnet-style generators) scaffolding them. Humans review. The file-per-function separation
+  exists for convention and separating concerns, not for typing ergonomics. Consequences that
+  bind every ticket:
+  - **Write-cost objections carry little weight.** Ceremony, boilerplate and file proliferation
+    are near-free. Do not reject a design for verbosity alone.
+  - **Read and review cost carry full weight.** Ambiguities that hurt a reader — `(0)`, `()`,
+    colliding short names — remain real defects.
+  - **Diagnostics are consumed by an agent in a loop**, so they should be machine-readable by
+    design. Ticket 04's finding that the exhaustiveness residual *is* the missing case turns the
+    compiler into something that hands an agent the clause it must write.
+  - **Enforced conventions are guardrails on the agent**, which shifts ticket 22 toward more
+    opinionation than a human-authorship analysis would justify.
+  - **One function per file makes `write_scope` a file** — bounded blast radius, no merge
+    conflicts between agents working different operations, and reviewable single-file diffs.
 - **Evidence provenance**: research files mark claims `doc` / `src` / `local`, where `local`
   means directly observed here (OTP 28, Elixir 1.19.5). Known gaps carried forward, recorded
   so nobody assumes they were checked: Gleam is not installed locally so every Gleam claim is

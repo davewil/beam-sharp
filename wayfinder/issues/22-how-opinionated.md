@@ -35,6 +35,20 @@ found BEAM languages die of **no users and no ecosystem**, and narrowing the add
 precisely that failure mode. And architecture is fashion on a far shorter cycle than a language —
 Phoenix's contexts changed more than once while Elixir's `defmodule` did not.
 
+### The agent-authorship argument, which the original analysis missed
+
+The map's standing constraint — **written by agents, read by humans** — adds an argument for
+opinionation that a human-authorship analysis does not produce: **an enforced convention is a
+guardrail on the agent.** A general, flexible language gives an agent more rope, and the
+characteristic failure of agent-written code is plausible-looking structural drift — code that
+compiles, reads acceptably, and quietly diverges from how the rest of the system is built.
+Conventions the compiler enforces are exactly what prevents that.
+
+Weigh this against the arguments above; it does not cancel them. Narrowing the addressable set
+still risks the ecosystem failure mode ticket 03 identified, and a grammar still cannot be
+retracted. But "conventions cost the author effort" is a much weaker objection when the author is
+a program, and "conventions keep the author honest" is a much stronger benefit.
+
 ### The candidate synthesis
 
 Split by kind rather than by strength:
