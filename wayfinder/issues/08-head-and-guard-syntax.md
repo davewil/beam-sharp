@@ -31,6 +31,23 @@ Decide:
   (`[first, .., last]`) are not one-pass expressible over cons cells. Decide what subset of
   list patterns survives, and whether a non-one-pass pattern is permitted at a cost.
 
+## Prior art to consult first (from ticket 03)
+
+- **Gleam prototyped this and dropped it silently.** An abandoned `examples/clauses.glm`,
+  described by lpil as "an experiment to see how we could represent multiple function clauses
+  without duplicating the name". No reason was recorded for dropping it. Worth finding and
+  reading before designing from scratch — the phrasing suggests the sticking point was
+  notational (name duplication), which is exactly this ticket's first decision.
+- **Do not accept lpil's "no function overloading results in a much simpler language" as
+  evidence about this feature.** It answers a question about same-name-different-arity
+  overloading. Multi-clause heads are same name, *same arity*, one signature. Two independent
+  searches flagged this conflation; expect to meet it again.
+- **purerl's successor backend compiles PureScript equations to native Erlang clause heads** —
+  a working precedent for the codegen, worth reading alongside ticket 13.
+- **Alpaca shipped a constructor-pattern-in-head parse ambiguity and never fixed it.** A
+  concrete, known grammar hazard sitting exactly where this ticket designs. Find what the
+  ambiguity was before choosing a clause syntax, not after.
+
 ## Notes
 
 HITL. The headline feature's surface. Depends on ticket 01 for something concrete to react

@@ -27,6 +27,39 @@ Decide, and state explicitly what the losing side costs. A hybrid — structural
 with optional nominal declarations as a convenience — is a legitimate answer but must be
 specified precisely enough that exhaustiveness checking still has one story, not two.
 
+## Reframing from ticket 07 — read before deciding
+
+**The question is probably not "do we follow C#?" but "we can have what C# wanted and
+couldn't."** C# considered two structural, TypeScript-shaped union designs — runtime type
+unions (anonymous `(int or string)`, erased to an object reference) and ad-hoc erased unions
+(order-insensitive, structural) — and killed both on **CLR artefacts**: reified generic type
+arguments make `o is T` lie, and nominal identity makes a non-erased wrapper order-sensitive.
+**Neither constraint exists on the BEAM.** The rejected designs deserve more weight here than
+the chosen one.
+
+Two further facts that bear on this decision:
+
+- **C# unions are preview, not shipped**, and the design is live — pattern targeting changed
+  semantics in Preview 7. Committing to match C#'s surface means committing to a moving target.
+  Their exhaustiveness check also only suppresses a *warning*, is module-bounded, and is
+  unsettled for switch statements and `void` methods — so it is a weaker guarantee than this
+  language has already committed to.
+- **A hybrid already exists in the corpus, undeveloped**: `role NamedAOrB : (A | B);` — a name
+  over a structural union, equivalent to the underlying type. That is the shape this ticket
+  names as a legitimate answer, sketched and abandoned by someone at Microsoft. Worth reading
+  before reinventing it.
+
+The one C# finding that transfers cleanly: **two cases with the same payload need a tag**, and
+the BEAM provides tagged tuples for free.
+
+## Prior art to consult first (from ticket 03)
+
+**purerl's `Erl.Untagged.Union` rejects at compile time any union whose members cannot be
+discriminated at runtime.** This is the mechanism that makes structural unions safe on an
+untagged runtime, and it is a direct precedent for the structural side of this decision — a
+structural union of two shapes that erase to the same BEAM term is not checkable, and the
+compiler can say so up front rather than failing at a match site. Read it before deciding.
+
 ## Notes
 
 HITL. Probably the sharpest design tension in the map: the headline feature pulls

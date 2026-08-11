@@ -28,6 +28,22 @@ Decide:
   untyped Erlang code, from monitors, from timers, and from `:EXIT` signals?
 - Links, monitors, and process identity in the type system, if at all.
 
+## Prior art to consult first (from ticket 03)
+
+- **Alpaca typed process messages by whole-call-graph inference** — it worked out the message
+  type of a process from every send site, rather than requiring a declaration. That is a real,
+  shipped answer to this ticket's hardest sub-question and should be understood before
+  designing an alternative.
+- **`Pid[τ]`** — a process identifier parameterised by the message type it accepts. Simple and
+  probably necessary in some form.
+- **The Uniform-Reply rule is recorded as a *rejection*, not a candidate.** It requires every
+  reply from a process to have one type — the explicit opposite of the union-of-clause-types
+  approach ticket 00 committed to. Useful precisely as the thing this language does not do.
+- **Gleam's actor and message typing is a known gap in the evidence.** Ticket 03 could not
+  establish it from primary sources and deferred it here rather than filling it from memory.
+  Establish it properly as part of this ticket — Gleam's typed `Subject` machinery is the
+  closest existing answer to exhaustive `handle_info` and must not be characterised second-hand.
+
 ## Notes
 
 HITL. The layer where the headline feature best justifies itself, which is why OTP is inside

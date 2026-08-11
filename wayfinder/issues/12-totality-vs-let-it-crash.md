@@ -28,6 +28,17 @@ elsewhere; or totality enforced at typed boundaries and abandoned at dynamic one
 Then state how it interacts with **supervision** — if a clause is proven exhaustive but the
 runtime value defies it, what happens, and does the process still die cleanly?
 
+## Prior art to consult first (from ticket 03)
+
+**PureScript records partiality in the type and discharges it at a named site** — a
+propagating `Partial` constraint. A partial function is not an error; it is a function whose
+type says it is partial, and the obligation travels with it until someone explicitly accepts
+it. That is a fourth option beyond the candidates above, and it maps unusually well onto
+let-it-crash: the crash site becomes a declared, greppable place rather than an accident.
+
+**Hamler removed exactly this mechanism and kept only a warning.** That is a natural
+experiment in the option space — worth understanding why before repeating either choice.
+
 ## Notes
 
 HITL. This is where the language's philosophy gets decided, not merely its semantics.

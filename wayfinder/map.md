@@ -39,6 +39,21 @@ spec exists.
   language exists for the multi-clause heads Gleam explicitly refuses; typing is
   static-by-default set-theoretic with enforced cross-clause exhaustiveness; tooling,
   stdlib breadth, macros and alternative backends are out of scope.
+- [Prior art: static types plus multi-clause heads](issues/03-prior-art-static-multiclause.md)
+  — **Gleam never rejected multi-clause heads; it never considered them.** No rationale
+  exists, and the soundness hypothesis is affirmatively weakened (Gleam's shipped checker
+  already runs Jules Jacobs' algorithm over nested multi-column patterns). Projects stall on
+  **commercial dependency**, not type theory — purerl survives because a company ships on it;
+  Hamler, Caramel and Alpaca each had zero internal consumers. The core bet is proven
+  feasible: Alpaca shipped multi-clause heads on an HM BEAM language. **NVLang is a citation
+  hazard** — see the ticket before citing it anywhere.
+- [C# 15 `union` and TypeScript discriminated unions](issues/07-csharp15-and-ts-unions.md)
+  — C# unions are **preview, not shipped**, and the design is still moving (champion issue is
+  #9662, not #8928; no primary source for "GA Nov 2026"). They are nominal, closed struct
+  wrappers; exhaustiveness only suppresses a *warning*. **The rejected designs matter more**:
+  C# killed both structural/erased union designs on CLR artefacts — reified generics and
+  nominal identity — **and neither rock exists on the BEAM**. TypeScript is structural but
+  stops short of set-theoretic (syntactic intersections, no negation, opt-in exhaustiveness).
 - [C# functional feature inventory](issues/05-csharp-functional-inventory.md) — LINQ query
   comprehension is portable (ECMA-334 makes it a pure syntactic rewrite, bound before type
   binding, with no `IEnumerable<T>` dependency); extension-method chaining *is* already a

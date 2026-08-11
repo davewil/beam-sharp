@@ -1,7 +1,7 @@
 # 03 — Prior art: static typing plus multi-clause heads on the BEAM
 
 Type: research
-Status: open
+Status: resolved
 
 ## Question
 
@@ -27,6 +27,35 @@ reason is compiler simplicity, that is a different risk than if the reason is a 
 or exhaustiveness problem.
 
 Write findings to `wayfinder/research/03-prior-art-static-multiclause.md` and link here.
+
+## Answer
+
+Findings: [wayfinder/research/03-prior-art-static-multiclause.md](../research/03-prior-art-static-multiclause.md)
+
+- **The combination is proven.** Alpaca shipped multi-clause heads on an HM BEAM language
+  with message-typed PIDs; purerl's successor backend compiles PureScript equations to
+  *native* Erlang clause heads. Not blocked on type theory.
+- **Gleam has no stated rationale — because multi-clause heads were never proposed, so
+  never rejected.** The rule landed pre-v0.1 as a bare premise (issue #64: empty body, zero
+  comments); all 143 `suggestions` issues contain no request for it; `DuplicateName` has no
+  explanatory comment. Hypothesis (c), a soundness/exhaustiveness problem, is *affirmatively
+  weakened*: Gleam's shipped Jules Jacobs exhaustiveness checker already handles nested
+  multi-column patterns. lpil's "no function overloading" quote is about arity/type
+  overloading and must **not** be cited as the rationale.
+- **Nothing died of a type-theory wall.** Caramel's author: *"why is Erlang hard to type? –
+  and as it turns out, it is not!"* The discriminator between survival and death is
+  **commercial dependency** — purerl lives because id3as ships on it; Hamler, Caramel and
+  Alpaca had no internal consumer. Secondary causes: bus factor of one, and the ecosystem
+  tail (stdlib, CLI, LSP, formatter) carried alone.
+- **NVLang is close to a null result and its credibility is questionable** — plain HM,
+  single-headed functions, a rule that *unifies* branches to one type, an exhaustiveness
+  check that is asserted but never specified, a fabricated-looking citation, and no
+  locatable implementation. Its one usable idea is `Pid[τ]`.
+- **Mechanisms worth carrying**: PureScript's exhaustiveness-as-a-propagating-`Partial`-
+  constraint (→ 12); purerl's compile-time rejection of runtime-ambiguous unions and
+  Alpaca's whole-call-graph inference of a process's message type (→ 14); Alpaca's
+  never-fixed constructor-pattern-in-head parse ambiguity (→ 08).
+- Gleam's actor typing was **not** established from primary sources — deferred to ticket 14.
 
 ## Notes
 
