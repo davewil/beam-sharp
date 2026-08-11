@@ -3,6 +3,13 @@
 > **Throwaway. Not a commitment.** This exists to be reacted to, and every token in it is
 > negotiable. It answers one question: *what does this language look like when you read it?*
 > Ticket [01](../issues/01-sample-code.md).
+>
+> **RESOLVED — read the ticket, not this file, for what was decided.** In short: **Variant A**
+> (§1) was chosen; §1's argument for Variant B did not carry. Variant B also exposed that
+> multi-clause heads are notationally rather than semantically distinct from Gleam's
+> multi-subject `case`, which amended the differentiator in
+> [ticket 00](../issues/00-charting-decisions.md). The atom sigil (§5) and guard punctuation
+> (§2) remain open on tickets 10 and 08.
 
 ---
 

@@ -35,6 +35,43 @@ Two supporting observations, recorded because they shape later tickets:
   headline feature and the OTP interop model are therefore not separable questions — which
   is why OTP is inside the destination rather than deferred.
 
+### AMENDED 2026-08-11 by ticket 01 — the differentiator is a preference, not a capability gap
+
+The framing above ("the gap is a **semantic** one") is **wrong**, and ticket 01's prototype
+exposed it.
+
+[Gleam supports multi-subject `case`](https://tour.gleam.run/flow-control/multiple-subjects/) —
+"you can give multiple subjects and multiple patterns, separated by commas" — with
+exhaustiveness checked across the combinations. Joint multi-argument dispatch is therefore
+already available in Gleam.
+
+Worse, [ticket 02](02-compilation-targets.md) contains the proof and it was read straight past:
+to target Core Erlang the frontend rewrites multi-clause heads into "one `fun` over fresh vars,
+one `case` over the value list, one clause each, order preserved". **A total, mechanical,
+order-preserving rewrite between two constructs demonstrates they are the same construct**, and
+Erlang's own compiler performs it on every module. Multi-clause heads ≡ a multi-subject `case`.
+
+So Gleam lacks the **notation**, not the **capability**. The original framing measured the
+wrong thing.
+
+**Decision (David, 2026-08-11): proceed anyway, on the stated grounds that multi-clause heads
+are the syntax he wants.** *"Multi-function heads is exactly what I want so forget Gleam. This
+is understood to be a big project, so let's start where I want the syntax to be, and work out
+how to get there."*
+
+This is recorded as a **design preference**, and the effort should stop justifying itself
+against Gleam. Practical consequences:
+
+- **Do not re-derive this.** The equivalence is settled; a later session finding it again should
+  read this section rather than treating it as a new discovery.
+- **Do not use "Gleam can't do this" as an argument** anywhere in the spec. It is false for the
+  headline feature.
+- The genuinely architectural differences from Gleam remain available if a rationale is ever
+  wanted — Gleam's nominal ADTs cannot describe raw Erlang terms or form ad-hoc unions like
+  `Known | dynamic`, which is why [ticket 06](06-interop-surface.md) found it treats FFI as
+  trusted-and-unverified and declines the `gen_server` contract outright. But that is a
+  *fallback justification*, not the reason the language exists.
+
 ### Two premises corrected during charting
 
 - **Static typing on the BEAM is not novel.** Gleam is fully static, using

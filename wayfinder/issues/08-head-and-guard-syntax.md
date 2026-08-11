@@ -8,13 +8,28 @@ Blocked by: 01, 05
 
 What is the concrete syntax for multiple clauses of one function, and for guards?
 
+**SETTLED by [ticket 01](01-sample-code.md): Variant A — equations under a signature.**
+
+```csharp
+Verdict Classify(Reading r);
+
+Classify((:ok, n)) when n > 0 => :positive;
+Classify((:ok, 0))            => :zero;
+```
+
+Chosen as a design preference. This ticket no longer decides the clause shape; it decides
+everything around it, and must **mitigate rather than revisit** the two known costs of Variant A:
+
+- **Signature and clauses can drift apart in a file.** Is contiguity required? Enforced?
+- **Repeated declarations read as C# overloads** to the audience this syntax courts — different
+  methods dispatched on static type, which is the wrong mental model and the misconception most
+  likely to stick. What in the syntax, tooling or error messages prevents it?
+
 Decide:
 
-- **Clause shape.** Does it reuse C#'s overload appearance — repeated
-  `T Name(pattern) { ... }` declarations — or a single declaration containing an internal
-  clause list, or something else? The overload shape is visually familiar but means one
-  name has several declarations whose relationship is implicit; a clause list is explicit
-  but less C#-like.
+- **Doubled parentheses.** `Classify((:ok, n))` — the outer pair is the parameter list, the inner
+  the tuple pattern. Every single-argument clause looks like this. Accept it, or find a form that
+  doesn't?
 - **Patterns in parameter position.** How are literal, tuple, map, list and constructor
   patterns written where C# expects `Type name`? What happens to type annotations — are
   they per-clause, or declared once for the function?

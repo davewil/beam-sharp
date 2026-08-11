@@ -60,6 +60,14 @@ spec exists.
   **Net for ticket 13: no BEAM backend fed by a curried functional frontend emits clause heads.**
   The only two that keep heads are LFE and Elixir, whose surface syntax has them natively —
   which is beam-sharp's position, making this a counter-example rather than a template.
+- [A page of idiomatic beam-sharp](issues/01-sample-code.md) — **Variant A settled**: equations
+  under a signature. The design is smaller than expected — **C# already supplies every pattern
+  form needed**, so the language is one structural move: C#'s pattern grammar out of `switch`
+  arms and into the parameter position, N declarations where C# allows one. The showcase was
+  lowered to Erlang and **run on OTP 28**: five clauses in, five native clause heads out.
+  **It also amended ticket 00** — multi-clause heads are notationally, not semantically,
+  distinct from Gleam's multi-subject `case`; the differentiator is now a stated design
+  preference. Do not re-derive this.
 - [Compilation targets](issues/02-compilation-targets.md) — **three tiers, not a binary.** The
   **Abstract Format expresses multi-clause heads natively** (a function *is* a clause list);
   Core Erlang does not at the head but hands you the primitive one level down, costing a
