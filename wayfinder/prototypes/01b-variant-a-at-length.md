@@ -592,6 +592,106 @@ collide silently.** → ticket 08.
 
 ---
 
+## Module 6 — two proposals about elision, and what they turned up
+
+### 6a. Module-as-focus: the module declares the function, clauses drop the name
+
+```csharp
+module OrderServer.HandleCast : (:noreply, State) HandleCast(:flush | (:preload, list<Order>), State);
+
+(:flush, s)         => (:noreply, s with { Orders = #{} });
+((:preload, os), s) => (:noreply, s with { Orders = IndexById(os) });
+```
+
+Fixes friction #3 outright — the two-clause case stops paying three occurrences of a name for two
+rules — and the left margin becomes patterns rather than repetition.
+
+**Fits modern C# better than a conventional module does.** C# has drifted toward
+single-responsibility types with one public entry point; "one module, one function, same name" is
+closer to a 2026 C# codebase than "a module with thirty functions". And it buys something novel:
+a module is the BEAM's unit of hot code loading, so module-per-function gives **per-function hot
+swap**, finer-grained than Erlang has ever offered.
+
+Three objections, none fatal, none free:
+
+1. **The name returns in the recursive call.** You can elide it in the head, never in the body:
+   `(n) when n > 1 => Fib(n - 1) + Fib(n - 2);`. A recursive function saves nothing. A
+   `recur(…)`/`self(…)` keyword closes it (Clojure precedent) at the cost of a construct that
+   reads worse than the name.
+2. **A one-argument head becomes ambiguous.** `(0) => 0;` is visually a parenthesised expression.
+   `Fib(0)` was not.
+3. **Helpers.** Either separate modules — and a BEAM module is a real atom, code-server entry and
+   purge unit, so thousands is an operational question — or helpers keep their names in the focal
+   module, making named-vs-unnamed the marker for helper-vs-focus. C# local functions are a third
+   answer (ticket 05 found them portable).
+
+And the resemblance worth naming: **a signature declared once with unnamed clauses beneath it is
+Variant B, with a module where the braces were.** The heavier container genuinely changes the
+trade — a file boundary makes signature-clause drift impossible, and gives the type declarations
+somewhere to live — but it is the same shape.
+
+### 6b. Eliding the subject argument — and why the answer runs the other way
+
+If `Apply`'s left argument is always an `Order`, can it be implicit too?
+
+**It could, and it shouldn't** — because the subject is where the most valuable patterns belong,
+and eliding it removes them.
+
+Every clause in the original `Apply` tested `o.Status` in a **guard**, and friction item 0 says
+guards contribute nothing provable to exhaustiveness. Pushing the opposite way:
+
+```csharp
+Outcome Apply(Order o, Event e);
+
+Apply({ Status: :draft } o, (:add_line, l))           => (:ok, o with { Lines = [l, ..o.Lines] });
+Apply({ Status: :draft } o, (:remove_line, sku))      => RemoveLine(o, sku);
+Apply({ Status: :draft, Lines: [_, .._] } o, :place)  => (:ok, o with { Status = :placed });
+Apply({ Status: :draft }, :place)                     => (:error, :empty_order);
+Apply({ Status: :placed } o, (:pay, amt)) when amt >= Total(o)
+                                                      => (:ok, o with { Status = :paid, Paid = amt });
+Apply({ Status: :placed } o, (:pay, amt))             => (:error, (:underpaid, Total(o) - amt));
+Apply({ Status: :paid } o, (:ship, _))                => (:ok, o with { Status = :shipped });
+Apply({ Status: not :shipped } o, :cancel)            => (:ok, o with { Status = :cancelled });
+Apply(o, e)                                           => (:error, (:not_allowed, o.Status, e));
+```
+
+**Eight of nine guards became patterns.** `o.Lines != []` became `Lines: [_, .._]`. The catch-all
+is now the only clause the checker cannot credit, instead of the entire table.
+
+#### The finding this produced
+
+`{ Status: not :shipped }` is a **negation type in pattern position**, and it is checkable
+because set-theoretic types are closed under negation by construction. Gleam cannot express it —
+a nominal ADT gives constructors, and "every constructor but one" must be enumerated or fall to a
+catch-all. C# 15's closed unions cannot either.
+
+So a chain runs through the whole design:
+
+> set-theoretic types → negation and interval types are expressible **as patterns** → more of
+> each clause's condition moves out of guards and into patterns → **exhaustiveness can prove more
+> of the program**.
+
+This is the first place the type system and the syntax reinforce each other rather than trading
+off, and it materially raises the value of the ticket 00 typing decision: it is not only about
+describing raw Erlang terms, it determines how much of any program the compiler can check.
+
+It also reframes friction item 0. Guard refinement is still needed for arithmetic recursion
+(`Fib`), but for *data* dispatch the better answer is to stop using guards at all and put the
+condition in the pattern where the checker can see it. → tickets 08, 11, 12.
+
+#### The other reason not to elide
+
+An implicit subject bound at module level still needs a name in guards and bodies, and that name
+is `this`. A module fixing a receiver, with functions dispatching on the remaining arguments, is
+a class — ruled out in the opening brief.
+
+What the instinct does buy, kept as **subject-first by convention** rather than elision:
+`Orders.Apply(order, event)`, `order.Apply(event)` and `order |> Orders.Apply(event)` are the same
+static rewrite (ticket 05), so fixing the subject as the first parameter yields all three call
+forms free. That is Elixir's design, and the reason `|>` works there at all. → ticket 17.
+
+---
+
 ## What writing this actually surfaced
 
 Nine things, ordered by how much they should worry you.
