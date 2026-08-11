@@ -1,7 +1,7 @@
 # 01 — What does a page of idiomatic beam-sharp look like?
 
 Type: prototype
-Status: open
+Status: claimed
 
 ## Question
 
