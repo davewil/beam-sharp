@@ -39,6 +39,12 @@ spec exists.
   language exists for the multi-clause heads Gleam explicitly refuses; typing is
   static-by-default set-theoretic with enforced cross-clause exhaustiveness; tooling,
   stdlib breadth, macros and alternative backends are out of scope.
+- [C# functional feature inventory](issues/05-csharp-functional-inventory.md) — LINQ query
+  comprehension is portable (ECMA-334 makes it a pure syntactic rewrite, bound before type
+  binding, with no `IEnumerable<T>` dependency); extension-method chaining *is* already a
+  pipeline rewrite; `with` becomes more central than in C#. Dropped: `init`/`readonly`,
+  nullable reference types, iterators and `async`/`await`. Two debts left open — no ad-hoc
+  polymorphism story, and slice patterns over cons cells.
 
 ## Not yet specified
 
@@ -46,13 +52,10 @@ spec exists.
 
 - **The walking skeleton**: which slice of the spec it implements, and what language the
   compiler itself is written in. Cannot be phrased sharply until the language surface exists.
-- **Pipelines**: `|>` as in Elixir/Gleam, extension-method chaining, LINQ-style fluent, or
-  none of these. Waits on the sample code and the head-syntax decision.
 - **Data modelling**: records, structs, `with` expressions, and how they relate to Erlang
   maps and tuples. Entangled with the union-representation decision.
 - **Module and namespace system**, and function identity — BEAM identifies functions by
   name *and arity*, which multi-clause heads and optional parameters both disturb.
-- **Whether anything LINQ-shaped survives** absent `IEnumerable<T>` and extension methods.
 - **The language's name.**
 - **Stdlib shape as a principle** — Erlang-ish flat modules, C#-ish namespaced statics, or
   Gleam-ish. Breadth is out of scope; the shape is not.

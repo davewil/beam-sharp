@@ -1,7 +1,7 @@
 # 06 — The Erlang/Elixir interop surface a new BEAM language must satisfy
 
 Type: research
-Status: open
+Status: claimed
 
 ## Question
 

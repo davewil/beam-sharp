@@ -1,7 +1,7 @@
 # 05 — C# functional feature inventory: what survives without OOP and the CLR
 
 Type: research
-Status: open
+Status: resolved
 
 ## Question
 
@@ -27,6 +27,30 @@ Also note which features exist principally because C# is object-oriented and wou
 reason to exist here.
 
 Write findings to `wayfinder/research/05-csharp-functional-inventory.md` and link here.
+
+## Answer
+
+Full inventory: [research/05-csharp-functional-inventory.md](../research/05-csharp-functional-inventory.md)
+— five grouped tables over ~45 features, plus a 43-row claim→source table.
+
+**LINQ is three separable things and only one is a language feature.** ECMA-334 §12.22.3.1
+says the query translation "is a syntactic mapping that occurs **before any type binding or
+overload resolution** has been performed", and `IEnumerable<T>` appears in the query-expression
+pattern only in a *note* about what `System.Linq` provides. Query comprehension is therefore
+**portable** — it needs a rule for resolving eleven names, nothing more. Deferred execution
+belongs to the operator implementations, not the language, and becomes an explicit stream type.
+Extension-method invocation is a static rewrite `C.M(expr, args)`, so the fluent chain
+**already is a pipeline**: `xs.Where(f)` and `xs |> where(f)` are the same rewrite.
+
+**Portable**: tuples/deconstruction, most patterns, lambdas, local functions, collection
+expressions and spread — plus `with`, which becomes *more* central here than in C#.
+**Droppable**: `init`/`readonly`/`required` (vacuous under immutability), extension members,
+primary constructors, nullable reference types, static abstract interface members, and both
+compiled-state-machine features (iterators, `async`/`await`). **Altered with real loss**: type
+patterns, `when` guards, `params`/optional parameters (they collide with name+arity identity),
+ranges and indices. Two debts flagged not resolved: dropping extension methods *and* static
+abstract interface members leaves no ad-hoc polymorphism story; interior/suffix slice patterns
+aren't one-pass expressible over cons cells. C# 15 (preview) changes no verdict.
 
 ## Notes
 

@@ -27,6 +27,10 @@ Decide:
 - **Arity.** BEAM identifies functions by name *and* arity. Must every clause of a function
   have the same arity? What becomes of C#'s optional parameters and overloads-by-arity?
 
+- **List patterns.** Ticket 05 flagged that C#'s interior and suffix slice patterns
+  (`[first, .., last]`) are not one-pass expressible over cons cells. Decide what subset of
+  list patterns survives, and whether a non-one-pass pattern is permitted at a cost.
+
 ## Notes
 
 HITL. The headline feature's surface. Depends on ticket 01 for something concrete to react

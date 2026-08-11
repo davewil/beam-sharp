@@ -1,7 +1,7 @@
 # 04 — Cross-clause exhaustiveness with set-theoretic types
 
 Type: research
-Status: open
+Status: claimed
 
 ## Question
 
