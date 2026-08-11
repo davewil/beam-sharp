@@ -754,7 +754,9 @@ binary_to_term(Bin, [safe]).   %% => the atom -- it exists now
 
 # Claim → source
 
-Load-bearing claims only — the ones a later ticket would build on.
+Load-bearing claims only — the ones a later ticket would build on. Rows marked **local** are
+this session's own observations, not citations; claims 5, 9, 11, 15, 19 and 20 are reproducible
+from the snippets in the section above.
 
 | # | Claim | Source | Class |
 |---|---|---|---|
