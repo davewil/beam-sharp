@@ -52,6 +52,14 @@ spec exists.
   Hamler, Caramel and Alpaca each had zero internal consumers. The core bet is proven
   feasible: Alpaca shipped multi-clause heads on an HM BEAM language. **NVLang is a citation
   hazard** — see the ticket before citing it anywhere.
+- [Compilation targets](issues/02-compilation-targets.md) — **three tiers, not a binary.** The
+  **Abstract Format expresses multi-clause heads natively** (a function *is* a clause list);
+  Core Erlang does not at the head but hands you the primitive one level down, costing a
+  mechanical ~50-line wrapper; BEAM bytecode needs a full match compiler. The cliff is between
+  Core and bytecode, not between Abstract Format and Core. **Dialyzer is the sharpest
+  discriminator and it fails silently**: compiling from `.core` emits an empty abstract chunk
+  with no warning, and a `-spec` is lost through that path — which collides directly with
+  ticket 06's recommendation to emit specs.
 - [Cross-clause exhaustiveness](issues/04-crossclause-exhaustiveness.md) — **the mechanism is
   not a research risk; it has been solved and shipped since 2003.** But exhaustiveness is only
   well-posed against a **declared** input type: redundancy is relative, exhaustiveness is

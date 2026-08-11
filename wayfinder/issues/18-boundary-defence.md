@@ -35,6 +35,10 @@ Decide:
   neither Gleam nor purerl defends at all — both document FFI types as trusted and push
   safety to a library. So doing anything here is a departure from BEAM precedent and needs a
   reason better than tidiness.
+- **`-spec` emission may not be available at all.** Ticket 02 found a `-spec` survives the
+  Abstract Format path by construction but is **lost through Core Erlang**, where Dialyzer
+  cannot read the resulting beam and fails silently. So "emit `-spec`" is contingent on ticket
+  13's target choice, not a free-standing decision.
 - **Do FFI declarations get a `-spec`?** Ticket 06 recommends emitting `-spec` generally —
   cheap, and both Gleam and purerl do it — but left this sub-decision open: for a foreign
   declaration, the spec is an **unverified claim**, asserting to the ecosystem a type nothing
