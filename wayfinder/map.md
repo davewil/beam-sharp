@@ -52,6 +52,14 @@ spec exists.
   Hamler, Caramel and Alpaca each had zero internal consumers. The core bet is proven
   feasible: Alpaca shipped multi-clause heads on an HM BEAM language. **NVLang is a citation
   hazard** — see the ticket before citing it anywhere.
+- [Cross-clause exhaustiveness](issues/04-crossclause-exhaustiveness.md) — **the mechanism is
+  not a research risk; it has been solved and shipped since 2003.** But exhaustiveness is only
+  well-posed against a **declared** input type: redundancy is relative, exhaustiveness is
+  absolute. CDuce checks it because functions carry a mandatory interface; Elixir cannot,
+  because it *builds* the function type from the clauses, making the check vacuous.
+  **Therefore multi-clause functions in this language must carry signatures — inference alone
+  doesn't weaken the guarantee, it makes the question disappear.** That is a binding constraint
+  on tickets 08 and 11. Also: Elixir v1.20 ships **redundancy only, not exhaustiveness**.
 - [Erlang/Elixir interop surface](issues/06-interop-surface.md) — the surface is **smaller than
   expected** (`-behaviour` has no runtime effect; Elixir needs no special machinery), but the
   violation surface is **eight channels**, not one. The load-bearing finding: **an untyped
@@ -80,6 +88,9 @@ spec exists.
 
 - **The walking skeleton**: which slice of the spec it implements, and what language the
   compiler itself is written in. Cannot be phrased sharply until the language surface exists.
+  One requirement is already known: it should **measure checker cost at the clause counts the
+  showcase implies**. Ticket 04 found Etylizer's pathological inputs are `case` expressions
+  with 40+ branches — precisely the large multi-clause `handle_info` this language advertises.
 - **Data modelling**: records, structs, `with` expressions, and how they relate to Erlang
   maps and tuples. Entangled with the union-representation decision.
 - **Module and namespace system**, and function identity — BEAM identifies functions by

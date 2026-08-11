@@ -31,6 +31,25 @@ Decide:
   (`[first, .., last]`) are not one-pass expressible over cons cells. Decide what subset of
   list patterns survives, and whether a non-one-pass pattern is permitted at a cost.
 
+## Binding constraint from ticket 04 — signatures are not optional
+
+**Exhaustiveness is only well-posed against a declared input type.** Redundancy is *relative*
+(clause i against clauses before it); exhaustiveness is *absolute* (the union of clauses
+against a domain someone hands you). Elixir cannot check exhaustiveness precisely because it
+*builds* the function type as an intersection from the clauses themselves — checking the union
+of clause domains against a domain defined as that same union is vacuous. CDuce can check it
+only because functions carry a mandatory interface, and it checks once **per arrow** of that
+interface.
+
+So this language's headline guarantee **requires a signature on every multi-clause function**.
+Inference alone does not weaken the guarantee — it makes the question disappear. This ticket
+must therefore decide not only the clause syntax but **where the signature lives**: once above
+the clause group, repeated per clause, or somewhere else. That is a language-surface decision,
+not a type-theory one, which is why it lands here.
+
+Note the knock-on: an interface may have **several arrows**, and the check runs per arrow. A
+syntax that admits only one input type per function forecloses overloading across arrows.
+
 ## Prior art to consult first (from ticket 03)
 
 - **Gleam prototyped this and dropped it silently.** An abandoned `examples/clauses.glm`,

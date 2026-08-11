@@ -31,33 +31,26 @@ Write findings to `wayfinder/research/04-crossclause-exhaustiveness.md` and link
 
 Findings: [research/04-crossclause-exhaustiveness.md](../research/04-crossclause-exhaustiveness.md).
 
-**This is not a research risk — it is a solved, shipped mechanism.** Exhaustiveness and
-redundancy are the *same* operation: an emptiness test on a difference type, run against two
-inputs. Semantic subtyping *defines* `s ≤ t` as `s ∧ ¬t ≃ 0`, so one solver answers both.
-A pattern becomes a type via the accepted type `Acc(p)` (literals are singleton type-tests,
-tuples are products, records are cofinite label maps, sequences desugar to recursive pair
-patterns, `&`/`|` are intersection/union). Exhaustiveness is `t \ (Acc(p₁)|…|Acc(pₙ)) ≃ 0`,
-and the residual *is* the missing case — CDuce prints it plus a sampled counter-value.
-Clause `i` is redundant iff its slice `(t \ Acc(p₁) \ … \ Acc(pᵢ₋₁)) ∧ Acc(pᵢ)` is empty, so
-first-match ordering is just the subtraction. CDuce's overloaded functions type-check the
-body **once per arrow** of the declared interface, which is the whole reason overloading
-beats a type-case.
+**Not a research risk — a solved, shipped mechanism.** A pattern becomes a type via its
+accepted type `Acc(p)`; exhaustiveness is `t \ (Acc(p₁)|…|Acc(pₙ)) ≃ 0`; clause `i` is
+redundant iff `(t \ Acc(p₁) \ … \ Acc(pᵢ₋₁)) ∧ Acc(pᵢ)` is empty. Both are the *same*
+emptiness query, because semantic subtyping defines `s ≤ t` as `s ∧ ¬t ≃ 0`. Ordering is just
+the subtraction, so first-match-wins is handled natively. The residual *is* the missing case:
+CDuce has printed it, plus a sampled counter-value, since 2003.
 
 Three findings that change the design:
 
-- **Exhaustiveness needs a *declared* input type.** Elixir infers the function type as an
-  intersection built from the clauses, making the check vacuous. **The headline feature
-  requires signatures on multi-clause functions.** → 09, 11, 12.
-- **Elixir v1.20 ships redundancy only, not exhaustiveness** (verified against changelog,
-  source and live probes) — the papers show the exhaustiveness warning, the compiler does not
-  emit it. No user signatures yet, and signatures are explicitly gated on making recursive
-  and parametric types efficient.
-- **Redundancy must warn, never error** — attainability is provably non-compositional, since
-  a clause dead under one arrow is live under another.
+1. **Exhaustiveness needs a *declared* input type.** Elixir builds the function type as an
+   intersection *from* the clauses, making the check vacuous — so the headline feature
+   requires signatures on multi-clause functions. → 09, 11, 12.
+2. **Elixir v1.20 ships redundancy only, not exhaustiveness** (changelog, source comment and
+   live probes agree; the papers show a warning the compiler does not emit).
+3. **Redundancy must warn, never error** — attainability is provably non-compositional, since
+   a clause dead under one arrow of an overloaded type is live under another.
 
-Cost is real but bounded in practice (2–9% of Elixir compile time) with an unbounded tail;
-"EXPTIME-complete" is citation drift. Untheorised gaps beam-sharp inherits: binaries,
-improper lists, recursive/parametric types, row polymorphism, OTP behaviours.
+Cost is 2–9% of Elixir compile time with an unbounded tail; "EXPTIME-complete" is citation
+drift. Gaps inherited: binaries, improper lists, recursive/parametric types, row
+polymorphism, OTP behaviours.
 
 ## Notes
 

@@ -28,6 +28,28 @@ Decide:
 - **What is checked at compile time versus what is trusted.** Name the guarantee the
   language actually offers, in one sentence a user would understand.
 
+## Binding constraints from ticket 04
+
+- **Signatures are mandatory on multi-clause functions** — see ticket 08. This settles this
+  ticket's "inference strength" sub-question at one end: full inference with no annotations is
+  not available if the exhaustiveness guarantee is to mean anything.
+- **Redundancy must warn, never error.** Attainability is provably non-compositional: with
+  intersection types the body is re-checked once per arrow, so a clause dead under one arrow
+  may be live under another. Both CDuce and Elixir accumulate liveness across arrows and warn
+  post-hoc. A checker that errors on a locally-dead clause makes overloading unwritable.
+- **Good diagnostics come free if you compute the difference rather than asking a boolean.**
+  Exhaustiveness is `t \ (Acc(p₁)|…|Acc(pₙ)) ≃ 0`, and the residual *is* the missing case —
+  CDuce prints the residual type plus a sampled counter-value. First-match ordering is the
+  subtraction itself, baked into the type-level operator rather than bolted on.
+- **Do not repeat the complexity folklore.** "Set-theoretic subtyping is EXPTIME-complete" is
+  citation drift: that result is for regular tree types *without arrows*, and the 2^O(n) bound
+  is for a μ-calculus encoding, not CDuce's algorithm. Frisch says the real algorithm's
+  complexity was never studied and expects a *larger* lower bound; no bound for tallying exists.
+- **Measured cost**: 2–9% of Elixir compile time on real projects, with an unbounded tail. The
+  inner loop is emptiness, and BDD expansion grows exponentially on consecutive unions.
+  **Uncomfortable overlap**: Etylizer's pathological inputs are `case` expressions with 40+
+  branches — which is exactly the large multi-clause `handle_info` this language showcases.
+
 ## Constraints from ticket 06
 
 - **The violation surface is eight channels**, not one: direct calls, mailboxes, `EXIT`/`DOWN`
