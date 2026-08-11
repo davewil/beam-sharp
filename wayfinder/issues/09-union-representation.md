@@ -63,6 +63,23 @@ Two further facts that bear on this decision:
 The one C# finding that transfers cleanly: **two cases with the same payload need a tag**, and
 the BEAM provides tagged tuples for free.
 
+## Evidence from ticket 01's prototype
+
+Rewriting a nine-clause transition table with its conditions as patterns rather than guards
+produced `{ Status: not :shipped }` — **a negation type in pattern position**. It is checkable
+only because set-theoretic types are closed under negation by construction.
+
+Neither candidate on the nominal side can express it. A nominal ADT gives you constructors, so
+"every constructor but one" must be enumerated by hand or fall to a catch-all — and a catch-all
+is precisely what destroys the exhaustiveness guarantee. C# 15's closed unions are in the same
+position.
+
+This is **direct evidence for the structural side of this decision**, and it is stronger than the
+interop argument the ticket was originally built on, because it bears on how much of an ordinary
+program the compiler can check rather than on boundary cost. Weigh it against the ticket 07
+finding that nominality may be available at zero boundary cost — that finding removes a cost of
+nominal, but it does not give nominal negation.
+
 ## Prior art to consult first (from ticket 03)
 
 **purerl's `Erl.Untagged.Union` rejects at compile time any union whose members cannot be
