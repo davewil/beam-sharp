@@ -28,6 +28,18 @@ Decide:
   untyped Erlang code, from monitors, from timers, and from `:EXIT` signals?
 - Links, monitors, and process identity in the type system, if at all.
 
+## Constraint from ticket 06 — the easy route is closed
+
+**Gleam's answer to typed OTP was to not implement the behaviour contract at all.** It emits
+no `-behaviour` attribute and builds its own typed abstractions instead. That option is
+unavailable here: ticket 00 makes `handle_call/3` and `handle_info/2` the headline feature's
+showcase, so this language must actually inhabit the OTP callback contract — which makes
+**mailbox defence unavoidable** rather than deferrable to a library.
+
+Useful and cheap: `-behaviour` has **no runtime effect**. A module with no such attribute runs
+fine as a `gen_server`; only the exports matter. So the attribute is a compile-time assertion
+the language can choose to emit for the ecosystem's benefit, not a constraint on its design.
+
 ## Prior art to consult first (from ticket 03)
 
 - **Alpaca typed process messages by whole-call-graph inference** — it worked out the message

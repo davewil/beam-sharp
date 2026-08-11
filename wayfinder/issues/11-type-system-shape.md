@@ -28,6 +28,23 @@ Decide:
 - **What is checked at compile time versus what is trusted.** Name the guarantee the
   language actually offers, in one sentence a user would understand.
 
+## Constraints from ticket 06
+
+- **The violation surface is eight channels**, not one: direct calls, mailboxes, `EXIT`/`DOWN`
+  signals, timers, ETS reads, decoded external terms, `code_change/3` state written by a
+  *previous version of this module's own types*, and ambient config. A `dynamic()` design that
+  only considers direct calls is under-specified.
+- **Two term-model traps for a naive type system**: a binary *is* a bitstring, and map key
+  order is the opposite of term order for integers versus floats.
+- **Do not build a `debug_info` backend for dialyzer.** Success typings are strictly weaker
+  than the committed type system, and Elixir's v1.20 checker offers foreign languages nothing —
+  its roadmap phases Erlang typespecs out rather than adopting them. Emitting `-spec` is cheap
+  and worth doing for Erlang callers and docs; that is the whole of it.
+
+The one-sentence statement of the guarantee this ticket must produce is now harder and more
+important, because ticket 06 showed the guarantee can be silently false rather than loudly
+broken. Ticket 18 decides how it is defended.
+
 ## Notes
 
 HITL. Waits on ticket 04 for the algorithms, ticket 03 for what has and has not worked

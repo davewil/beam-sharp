@@ -28,6 +28,17 @@ elsewhere; or totality enforced at typed boundaries and abandoned at dynamic one
 Then state how it interacts with **supervision** — if a clause is proven exhaustive but the
 runtime value defies it, what happens, and does the process still die cleanly?
 
+## Sharpening from ticket 06
+
+The ticket's framing assumed the choice is between crashing and not crashing. Ticket 06 showed
+there is a **third outcome that is worse than either**: silent unsoundness, where a badly-typed
+value never crashes at all and the type system is simply wrong. `add(1.5, 2.5)` on a function
+typed `Int, Int -> Int` returns `4.0`, quietly.
+
+That reframes let-it-crash as an *ally* of the type system rather than its opponent — a crash
+is the honest outcome, and the real enemy is the silent one. Weigh that before treating
+totality and let-it-crash as opposed. Ticket 18 handles the emitted-guard question this raises.
+
 ## Prior art to consult first (from ticket 03)
 
 **PureScript records partiality in the type and discharges it at a named site** — a

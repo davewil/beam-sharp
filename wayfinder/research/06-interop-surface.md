@@ -632,12 +632,17 @@ The reasoning turns on *who the analysis is for*:
   set-theoretic system that is strict by default and proves clause exhaustiveness (ticket 00)
   is strictly stronger inside its own code. Building a `Backend:debug_info/4` to get a weaker
   checker to re-examine code a stronger one already rejected is effort spent on the wrong end.
-- **One genuine caveat**, and it is the argument for revisiting this later: a `-spec` derived
-  from our types is a *claim*, and at the FFI boundary it is an unverified one — exactly
-  Gleam's situation, where an `@external`'s spec is emitted with the same confidence as a
-  checked function's (**src**). So `-spec` emission slightly *over*-states what we know at
-  precisely the boundary Part 2 says is unguarded. That is an argument for guards, not against
-  specs.
+- **One genuine caveat, which is a sub-decision for ticket 12 rather than a settled point.**
+  A `-spec` derived from our types is a *claim*, and at the FFI boundary it is an unverified
+  one — exactly Gleam's situation, where an `@external`'s spec is emitted with the same
+  confidence as a checked function's (**src**). So blanket `-spec` emission *over*-states what
+  we know at precisely the boundary Part 2 says is unguarded. The split to decide:
+  **for functions whose types the compiler proved, emit `-spec` unqualified.** For
+  `@external`-equivalent declarations there are two defensible answers — emit anyway (Gleam's
+  choice; consistent with the ecosystem, and keeps dialyzer's inference chains intact through
+  the boundary), or omit (more honest about what is known, at the cost of breaking those
+  chains). This note does not pick one; it belongs with the guards decision, because the same
+  fact drives both.
 - **Note also that `debug_info` has non-dialyzer consumers**: "Tools such as Debugger, Xref,
   and Cover require the debug information to be included" (**doc**:
   [compile](https://www.erlang.org/doc/apps/compiler/compile.html)). If coverage tooling ever
@@ -665,6 +670,85 @@ Recorded so later tickets do not treat these as settled.
 - **Elixir 1.20 was not exercised.** Local observations are 1.19.5.
 - **The exact OTP version** in which the pluggable `Dbgi` chunk landed was not pinned to a
   release-notes page.
+
+---
+
+# Reproducing the local observations
+
+The **local** claims were produced in a session scratchpad that does not survive. The two
+that later tickets lean on hardest are reproduced here in full so they can be re-run. Both
+are a few seconds' work on any OTP 28 install.
+
+**Claims 9 and 11 — `-behaviour` has no runtime effect.** Note there is no `-behaviour`
+attribute, and no `handle_info/2`, `terminate/2` or `code_change/3`:
+
+```erlang
+-module(no_attr_server).
+-export([init/1, handle_call/3, handle_cast/2]).
+init(A) -> {ok, A}.
+handle_call(ping, _F, S) -> {reply, {pong, S}, S}.
+handle_cast(_, S) -> {noreply, S}.
+```
+
+```erlang
+{ok, P} = gen_server:start_link(no_attr_server, initial_state, []),
+gen_server:call(P, ping).                     %% => {pong, initial_state}
+no_attr_server:module_info(attributes).       %% => [{vsn, ...}]  -- no behaviour entry
+gen_server:behaviour_info(optional_callbacks).
+```
+
+Adding `-behaviour(gen_server).` to a module missing `handle_cast/2` compiles with exit
+status 0 and emits only
+`Warning: undefined callback function handle_cast/2 (behaviour 'gen_server')`.
+
+**Claims 19 and 20 — an untyped caller violates types silently.** A module written the way a
+Gleam/purerl-style compiler emits code: no argument guards, tagged tuples for union variants,
+binaries for strings.
+
+```erlang
+-module(violate).
+-export([add/2, gadd/2, shout/1, area/1, hold/1]).
+
+add(A, B) -> A + B.                              %% typed Int, Int -> Int
+gadd(A, B) when is_integer(A), is_integer(B) -> A + B.   %% the guarded variant
+shout(S) -> <<S/binary, "!">>.                   %% typed String -> String
+area({circle, R}) -> 3.14159 * R * R;            %% typed Shape -> Float
+area({square, S}) -> S * S.
+hold(X) -> {box, X}.                             %% typed Int -> Box(Int)
+```
+
+```erlang
+violate:add(1.5, 2.5).    %% => 4.0            SILENT: an Int-typed function returned a Float
+violate:add(1, 2.0).      %% => 3.0            SILENT
+violate:hold(self()).     %% => {box, <0.x.0>} SILENT: a pid inside a Box(Int)
+violate:add(a, b).        %% => error:badarith      immediate crash
+violate:shout("hi").      %% => error:badarg        immediate crash (charlist, not binary)
+violate:area({triangle, 1}). %% => error:function_clause  immediate crash
+violate:gadd(1.5, 2.5).   %% => error:function_clause  the guard converts silent to loud
+```
+
+**Claim 15 — Elixir without the `:elixir` application started.** Run a bare node with only
+the code path, no started app:
+
+```
+erl -noshell -pa "$(elixir -e 'IO.puts :code.lib_dir(:elixir)')/ebin" -eval '...'
+```
+
+`'Elixir.Enum':map/2`, `'Elixir.String':upcase/1` and struct constructors work;
+`'Elixir.System':argv()` and `'Elixir.Code':compiler_options()` raise `badarg`; and
+`'Elixir.URI':default_port(<<"http">>)` returns `nil` — then `80` after
+`application:ensure_all_started(elixir)`.
+
+**Claim 5 — `binary_to_term` `safe`.** Build the external term format for an atom by hand so
+it cannot already be interned (`131` = version, `119` = `SMALL_ATOM_UTF8_EXT`):
+
+```erlang
+Name = "atom_that_never_existed_" ++ integer_to_list(erlang:unique_integer([positive])),
+Bin = <<131, 119, (length(Name)), (list_to_binary(Name))/binary>>,
+binary_to_term(Bin, [safe]).   %% => badarg
+binary_to_term(Bin).           %% => the atom
+binary_to_term(Bin, [safe]).   %% => the atom -- it exists now
+```
 
 ---
 

@@ -47,6 +47,14 @@ spec exists.
   Hamler, Caramel and Alpaca each had zero internal consumers. The core bet is proven
   feasible: Alpaca shipped multi-clause heads on an HM BEAM language. **NVLang is a citation
   hazard** — see the ticket before citing it anywhere.
+- [Erlang/Elixir interop surface](issues/06-interop-surface.md) — the surface is **smaller than
+  expected** (`-behaviour` has no runtime effect; Elixir needs no special machinery), but the
+  violation surface is **eight channels**, not one. The load-bearing finding: **an untyped
+  caller does not always crash** — there are three outcomes, and the third is *silent
+  unsoundness* (`add(1.5, 2.5)` returning `4.0` from an `Int, Int -> Int` function). Only that
+  third case argues for emitted guards. Neither Gleam nor purerl defends against any of it.
+  Gleam's answer to typed OTP was to not implement the behaviour contract at all — a route
+  closed to this language, since ticket 00 makes `handle_call/3` the showcase.
 - [C# 15 `union` and TypeScript discriminated unions](issues/07-csharp15-and-ts-unions.md)
   — C# unions are **preview, not shipped**, and the design is still moving (champion issue is
   #9662, not #8928; no primary source for "GA Nov 2026"). They are nominal, closed struct
