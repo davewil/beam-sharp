@@ -33,8 +33,11 @@ Write findings to `wayfinder/research/03-prior-art-static-multiclause.md` and li
 Findings: [wayfinder/research/03-prior-art-static-multiclause.md](../research/03-prior-art-static-multiclause.md)
 
 - **The combination is proven.** Alpaca shipped multi-clause heads on an HM BEAM language
-  with message-typed PIDs; purerl's successor backend compiles PureScript equations to
-  *native* Erlang clause heads. Not blocked on type theory.
+  with message-typed PIDs. Not blocked on type theory.
+  **Correction (ticket 19):** this bullet also claimed purerl's successor backend compiles
+  PureScript equations to native Erlang clause heads. **It does not** — it emits exactly one
+  clause per function, always, with no guard. The claim misread commit `1be3f06`, which reports
+  a *bug* caused by all source clauses sharing one head. Alpaca's half stands unaffected.
 - **Gleam has no stated rationale — because multi-clause heads were never proposed, so
   never rejected.** The rule landed pre-v0.1 as a bare premise (issue #64: empty body, zero
   comments); all 143 `suggestions` issues contain no request for it; `DuplicateName` has no

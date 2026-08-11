@@ -50,6 +50,18 @@ let-it-crash: the crash site becomes a declared, greppable place rather than an 
 **Hamler removed exactly this mechanism and kept only a warning.** That is a natural
 experiment in the option space — worth understanding why before repeating either choice.
 
+**But ticket 19 found `Partial` does not survive to codegen.** It is erased before CoreFn
+(`unsafePartial` compiles to applying the argument to the atom `unit`), so the backend has
+*zero* coverage knowledge and unconditionally emits `erlang:error({fail, …})` on every
+non-total branch. Contrast with ticket 02's finding that the Erlang compiler **omits
+`match_fail` when it can see exhaustiveness**: that backend can never make the call, so it pays
+for a failure arm it may not need, every time.
+
+**beam-sharp's ticket-04 checker computes exactly the fact that backend lacks.** A checker that
+proves the clauses cover the input can tell the code generator to omit the failure arm. That is
+a concrete, measurable payoff for the exhaustiveness work — worth stating in the spec, because
+it turns the guarantee into emitted-code savings rather than only a compile-time promise.
+
 ## Notes
 
 HITL. This is where the language's philosophy gets decided, not merely its semantics.

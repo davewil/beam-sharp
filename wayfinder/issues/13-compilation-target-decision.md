@@ -42,9 +42,39 @@ The survey is done; this ticket only has to choose. The decisive facts:
 - **`from_abstr` allows an out-of-process frontend in any language** to emit `.abstr` text and
   shell out to `erlc` — which decouples this decision from the compiler's host language.
 
-Note that Gleam and LFE both route through Core Erlang, so choosing the Abstract Format would
-be a departure from the closest precedents. Ticket 02 could not establish a stated rationale
-for *any* project's target choice except Gleam's — so precedent here is weak evidence.
+**A correction to an earlier note on this ticket.** It previously said "Gleam and LFE both
+route through Core Erlang, so choosing the Abstract Format would be a departure from the
+closest precedents." Ticket 02 contradicts both halves: **Gleam has never emitted Core Erlang**
+(claim 15), and **LFE left Core Erlang for the Abstract Format in January 2018** (claim 19),
+for `debug_info`. The Abstract Format is not the departure; it is where the neighbours went.
+
+Ticket 02 could not establish a stated rationale for *any* project's target choice except
+Gleam's, so precedent remains weak evidence either way.
+
+## What ticket 19 established — the premise inverts
+
+`purescript-backend-erl` was briefed as "the closest existing implementation of the codegen
+beam-sharp needs". **It is the opposite: a counter-example.** It emits exactly one clause per
+function, always, with no guard — and the cause is upstream and unreachable from any backend.
+`purs` collapses N equations into a single CoreFn `ExprCase` before `corefn.json` is written,
+and the optimiser then compiles the pattern matrix into a chain of boolean tests whose IR has
+**no pattern node at all**. Its target choice is therefore not what constrains it; it would
+emit identical single-clause functions targeting the Abstract Format.
+
+Combined with ticket 02's survey: **no BEAM backend fed by a curried functional frontend emits
+clause heads.** Gleam refuses them in the surface; Hamler and Alpaca flatten to one `c_fun`
+plus `c_case`; purerl emits one clause plus `case`; its successor one clause plus an `if` chain.
+**The only two that keep heads are LFE and Elixir — whose surface syntax has multi-clause heads
+natively.**
+
+Be careful with the causation: LFE and Elixir do not keep heads *because* they target the
+Abstract Format. LFE preserved heads for years on Core Erlang and switched in 2018 for
+`debug_info`. **The target enables preservation; the frontend decides whether there is anything
+to preserve.** beam-sharp is in LFE's position — a native multi-clause surface with no
+pattern-matrix flattening upstream — which is exactly why the backend-erl audit is a
+counter-example rather than a template. Net: **no evidence against the Abstract Format.**
+
+## Notes
 
 ## Notes
 

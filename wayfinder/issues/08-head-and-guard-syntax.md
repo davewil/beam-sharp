@@ -61,8 +61,15 @@ syntax that admits only one input type per function forecloses overloading acros
   evidence about this feature.** It answers a question about same-name-different-arity
   overloading. Multi-clause heads are same name, *same arity*, one signature. Two independent
   searches flagged this conflation; expect to meet it again.
-- **purerl's successor backend compiles PureScript equations to native Erlang clause heads** —
-  a working precedent for the codegen, worth reading alongside ticket 13.
+- ~~**purerl's successor backend compiles PureScript equations to native Erlang clause heads.**~~
+  **Retracted by ticket 19** — it emits exactly one clause, always, with no guard. Read ticket
+  19 instead: it is a **counter-example**, not a precedent, and it carries a guard finding that
+  bears directly here. `purescript-backend-erl` emits **no guards at all** (`when` appears zero
+  times across all 44 golden files). It carries a hardcoded 36-name whitelist — Erlang's guard
+  set minus `is_record` — routing guard-legal conditions into an Erlang `if` and demoting
+  everything else to `case Cond of true -> …`. That sidesteps the fail-to-false subtleties
+  ticket 02 documents, at the cost of never using a guard. Decide deliberately whether to do
+  the same.
 - **Alpaca shipped a constructor-pattern-in-head parse ambiguity and never fixed it.** A
   concrete, known grammar hazard sitting exactly where this ticket designs. Find what the
   ambiguity was before choosing a clause syntax, not after.

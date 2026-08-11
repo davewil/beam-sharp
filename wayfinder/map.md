@@ -51,7 +51,15 @@ spec exists.
   **commercial dependency**, not type theory — purerl survives because a company ships on it;
   Hamler, Caramel and Alpaca each had zero internal consumers. The core bet is proven
   feasible: Alpaca shipped multi-clause heads on an HM BEAM language. **NVLang is a citation
-  hazard** — see the ticket before citing it anywhere.
+  hazard** — see the ticket before citing it anywhere. *(One claim in this ticket was later
+  retracted by ticket 19 — see there.)*
+- [Audit of `purescript-backend-erl`](issues/19-purescript-backend-erl-audit.md) — **retracts a
+  ticket 03 claim**: it emits **exactly one clause per function, always, with no guard**, not
+  native clause heads. The cause is upstream and unreachable from any backend — `purs` merges
+  equations into one CoreFn `ExprCase` and the optimiser's IR has no pattern node at all.
+  **Net for ticket 13: no BEAM backend fed by a curried functional frontend emits clause heads.**
+  The only two that keep heads are LFE and Elixir, whose surface syntax has them natively —
+  which is beam-sharp's position, making this a counter-example rather than a template.
 - [Compilation targets](issues/02-compilation-targets.md) — **three tiers, not a binary.** The
   **Abstract Format expresses multi-clause heads natively** (a function *is* a clause list);
   Core Erlang does not at the head but hands you the primitive one level down, costing a
