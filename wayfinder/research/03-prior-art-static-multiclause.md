@@ -116,12 +116,20 @@ surface has an advantage here — parentheses around the parameter list remove t
 juxtaposition ambiguity by construction — but the hazard should be designed against
 explicitly. Feeds [ticket 08](../issues/08-head-and-guard-syntax.md).
 
-Related, and less obvious: **source clauses surviving to native Erlang clause heads is a
-non-trivial optimisation, not a free win.** A July 2026 bugfix in `purescript-backend-erl`
-describes pattern-demand analysis stamping a refutable constructor tag "in the worst case
-[into] the function head, making the source function's Nothing clauses unreachable and
-crashing live code paths with `function_clause`" ([4]) — a miscompile in
-production code. Feeds [ticket 13](../issues/13-compilation-target-decision.md).
+Related, and less obvious — **but reversed by [ticket 19](../issues/19-purescript-backend-erl-audit.md)**.
+This paragraph originally read that "source clauses surviving to native Erlang clause heads is
+a non-trivial optimisation, not a free win", citing a July 2026 `purescript-backend-erl` bugfix
+in which pattern-demand analysis stamped a refutable constructor tag "in the worst case [into]
+the function head, making the source function's Nothing clauses unreachable and crashing live
+code paths with `function_clause`" ([4]) — a miscompile in production code.
+
+The bug is real; the moral was backwards. That backend emits **one** clause per function, so
+every source equation shares a single head, and **that sharing is what made the bug possible**:
+a fact true on only one path was hoisted into a head governing all of them. A backend emitting
+one clause per equation could not have had this bug, because a per-clause pattern is scoped to
+its clause by construction. So the correct reading is that **merging clauses is the non-trivial
+and hazardous operation** — and the hazard was paid for in a shipped product. Feeds
+[ticket 13](../issues/13-compilation-target-decision.md).
 
 ---
 
