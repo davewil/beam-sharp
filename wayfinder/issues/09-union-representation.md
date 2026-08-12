@@ -77,7 +77,7 @@ misleads.
 The one case where an alias cannot be substituted away: expansion never terminates.
 
 ```
-type Json = null | bool | float | string
+type Json = :null | bool | float | string
           | list<Json>
           | map<string, Json>;
 
@@ -215,6 +215,17 @@ nominal's favour.~~**
   it a precise vocabulary (BEAM guards) it did not have before.
 - **[Ticket 20](20-untheorised-term-shapes.md)**: the newtype gap is now explicit and named.
   Tags cover it today; refinement types are the alternative and belong there.
+- **[Ticket 10](10-atoms-in-a-csharp-skin.md)** *(resolved 2026-08-12, feeding back)*: two
+  amendments to this file. **The Json example above was corrected `null` → `:null`** — ticket 10
+  gives keyword spellings only to `true`/`false`, on the grounds that C#'s `null` means
+  *reference absence*, which this language does not have; `:null` is also what OTP's own `json`
+  module returns. And **§6 now has a shipped proof**: Gleam's `Colour` erases to
+  `red | green | blue`, a structural atom union with no runtime witness of construction, and raw
+  Erlang passes `red` into it having constructed nothing
+  ([`prototypes/10c_gleam_forge.erl`](../prototypes/10c_gleam_forge.erl)). The claim that erased
+  nominality *is* an alias was derived here; it now holds against the BEAM's flagship statically
+  typed language, not only against Elixir structs. Ticket 10 also verified §4's normalisation
+  rule (`:ok | atom` *is* `atom`) directly in Elixir's `Module.Types.Descr`.
 - **[Ticket 04](04-crossclause-exhaustiveness.md)** is confirmed rather than changed. It bound
   exhaustiveness to a *declared input type*, and ticket 08 settled that same-arity dispatch is
   a union parameter — so **the function signature is the declaration site for the permitted

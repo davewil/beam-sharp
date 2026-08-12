@@ -66,6 +66,40 @@ Elixir's roadmap is gated on implementing both efficiently. Ticket 09 has commit
 language to **equirecursive types with coinductive subtyping and a contractiveness rule** — so
 the recursive half is decided, and only the interaction with parametricity is still open here.
 
+## Added by ticket 10 — resolved 2026-08-12
+
+**Value provenance (taint): can the language express that a value arrived from outside, and
+should it?**
+
+Ticket 10 went looking for a rule that prevents exhausting the BEAM's atom table (bounded at
+1,048,576 by default, ~10,449 gone at a bare boot, never garbage collected) and found that no
+rule available to the type system does the job. The reason is sharp:
+
+- **Minting from a literal is not a runtime operation.** `erlc` constant-folds
+  `binary_to_atom/1` on a literal binary, so the atom lands in the atom chunk and interns at
+  module load — indistinguishable from writing `:foo`
+  ([`prototypes/10b_atom_interning.erl`](../prototypes/10b_atom_interning.erl)).
+- **So the table can only ever be exhausted by a string built at runtime**, and only when that
+  string derives from untrusted input. The operative property is the value's *provenance*, not
+  its type.
+
+**No BEAM language expresses this.** Gleam's own documentation states the rule as prose
+precisely because it cannot be checked: *"Never convert **user input** into atoms as filling
+the atom table will cause the virtual machine to crash!"* — note "user input", not "strings".
+Ticket 10 §4 responded by keeping minting out of the prelude, which is containment by omission
+rather than by checking, and leaves the underlying question here.
+
+This sits alongside the other entries on this ticket as a capability set-theoretic types do not
+supply. It is worth deciding explicitly rather than by default, because the answer is plausibly
+**no** — ticket 21 found that opinionated languages control *who may be on the other side*
+rather than *what the data is*, and a taint system is a large surface for one hazard that a
+prelude omission already blunts. If the answer is no, say so and say what a programmer relies
+on instead.
+
+Note the boundary with **[ticket 18](18-boundary-defence.md)**: that ticket owns checks emitted
+*where an external term becomes a typed value*. Provenance is a different claim — that the
+property travels *with* the value afterwards — which is why it is filed here rather than there.
+
 ## Notes
 
 HITL. Surfaced by ticket 04's gap analysis. Blocked by 11, since what the type system *is*

@@ -91,10 +91,11 @@ spec exists.
   - **One function per file makes `write_scope` a file** — bounded blast radius, no merge
     conflicts between agents working different operations, and reviewable single-file diffs.
 - **Evidence provenance**: research files mark claims `doc` / `src` / `local`, where `local`
-  means directly observed here (OTP 28, Elixir 1.19.5). Known gaps carried forward, recorded
-  so nobody assumes they were checked: Gleam is not installed locally so every Gleam claim is
-  `doc` or `src`, and Gleam's stance on foreign callers is *inferred from the absence of guard
-  emission* rather than documented first-party; Elixir 1.20 was not exercised. **Provenance
+  means directly observed here (OTP 28, Elixir 1.19.5, **Gleam 1.18.1**). **The Gleam gap is
+  closed** (2026-08-12, ticket 10): Gleam is installed via `mise use -g gleam@1.18.1`, and its
+  stance on foreign callers is now *observed* rather than inferred from the absence of guard
+  emission — see [`prototypes/10c_gleam_forge.erl`](prototypes/10c_gleam_forge.erl). Prefer
+  measuring Gleam to citing it. Remaining gap: Elixir 1.20 was not exercised. **Provenance
   warning for Roc**: `roc-lang.org` is stale — `/functional` still describes the *removed* `Task`
   design. Use `docs/langref/` in the `roc-lang/roc` repo.
 
@@ -217,6 +218,22 @@ spec exists.
   pipeline rewrite; `with` becomes more central than in C#. Dropped: `init`/`readonly`,
   nullable reference types, iterators and `async`/`await`. Two debts left open — no ad-hoc
   polymorphism story, and slice patterns over cons cells.
+- [Atoms in a C# skin](issues/10-atoms-in-a-csharp-skin.md) — **the atom universe is open**:
+  `:ok` is a singleton type, `atom` the cofinite top, and nothing declares an atom. Declare-
+  before-use was not a live option — it contradicts ticket 09's "no syntax that declares a type"
+  — and **Gleam supplies the empirical case against it**, having taken that fork and needed a
+  carve-out for `ok`/`error`/booleans in the shipped language. **`true`/`false` are the only
+  keyword atoms** (semantics coincide with C#'s `bool`; `null` fails the same test `union`
+  failed), `bool` is a prelude alias not a builtin, and there is **no truthiness** — so ticket
+  09's Json example is corrected to `:null`. Module identifiers in value position are checked
+  atom singletons. **The prelude cannot mint**, because minting from a literal is already
+  spelled `:foo`. Three findings the ticket did not anticipate: the sigil's last objection is
+  visual not lexical and is **withdrawn**; **atoms appearing only in type positions are not
+  interned**, a codegen obligation Erlang does not have (→ 13); and **`erlc` constant-folds
+  `binary_to_atom` on literals**, so the table can only be exhausted by a runtime-built string,
+  which makes provenance — not minting — the real rule (→ 20). **Gleam is now installed and
+  ticket 06's silent unsoundness is demonstrated**: a Gleam function spec'd `-> float()`
+  returned a binary when called from raw Erlang.
 
 ## Not yet specified
 

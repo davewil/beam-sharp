@@ -118,6 +118,34 @@ is defended by checking *shape*, never by trusting provenance — which is the s
 ticket 21 reached from the other direction (no precedent language defends by checking data;
 they all control who may be on the other side, a property the BEAM denies).
 
+## Sharpened by ticket 10 — resolved 2026-08-12
+
+**Forging the tag is caught. Forging the payload is not.** That is a more precise statement of
+this ticket's problem than the map previously held, and it is now *observed* in Gleam rather
+than argued ([`prototypes/10c_gleam_forge.erl`](../prototypes/10c_gleam_forge.erl), Gleam 1.18.1
+/ OTP 28):
+
+```
+describe(purple) forged        : {caught,error,case_clause}   % bad TAG   -> crashes
+area({circle, <<"str">>})      : {ok,<<"str">>}               % bad PAYLOAD -> returns it
+```
+
+The second line is a function spec'd `shape() -> float()` returning a **binary**. Ticket 06's
+third outcome — silent unsoundness — demonstrated in the BEAM's flagship statically typed
+language. The asymmetry has a cause worth carrying into the design: a clause head tests the
+tag because the tag is what pattern matching *is*, and the payload is bound, not checked. So
+any defence has to be emitted **where a term becomes a typed value**, which is ticket 21's
+conclusion arrived at from the other direction.
+
+Two smaller inheritances:
+
+- **`ToExistingAtom(string) -> atom | :nothing`** (ticket 10 §4) is a boundary operation and
+  belongs in this ticket's inventory of places an external value enters.
+- **`ParseAtom<T>(string)`** is *not* — it lowers to a binary match returning compile-time-known
+  atom literals, touching neither the atom table nor `binary_to_existing_atom`. It is the same
+  discriminator machinery ticket 09 §7 already assigned here, in its cheapest form: worth noting
+  as the shape emitted checks should aim for.
+
 ## Notes
 
 HITL. Surfaced by ticket 06. Blocked by 11 (what the type system claims) and 12 (whether

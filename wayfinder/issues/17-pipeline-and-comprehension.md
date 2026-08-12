@@ -31,6 +31,25 @@ So decide:
 - Does anything lazy exist, or are all collection operations strict with an explicit stream
   type for the cases that need laziness?
 
+## Routed here by ticket 10 — resolved 2026-08-12
+
+Prototype 01g proposed making `if` an **expression** and noted this is a language-wide
+statement-versus-expression decision, not an atoms one, routing it to "ticket 08 or 17".
+**Ticket 08 is closed, so this ticket owns it.** Two parts, one settled and one open:
+
+- **Settled by ticket 10 §2: `if` requires `bool`, and there is no truthiness.** `if (count)`
+  is a type error, not a test against zero. Elixir's truthy/falsy split (only `nil` and `false`
+  falsy; `0` and `[]` truthy) forces two operator families — `&&`/`||`/`!` over any term versus
+  `and`/`or`/`not` strictly boolean, with `nil and true` raising `BadBooleanError`. Ticket 01's
+  `&&`/`||` guard operators already committed this language the other way, and C# has no
+  truthiness either, so this costs nothing with the audience.
+- **Open, and this ticket's to decide: what does a one-armed `if` evaluate to?** Elixir returns
+  `nil` (`if false, do: 1` → `nil`, verified locally). Under ticket 10 §5 the beam-sharp analogue
+  would be `option<T>` — i.e. `T | :nothing` — which would mean every `else`-less `if` in
+  expression position produces a union the caller must destructure. The alternative is requiring
+  `else` whenever an `if` is used as an expression, keeping the type `T`. This interacts with the
+  intermediate-value friction 01b raised, which expression-`if` was partly meant to relieve.
+
 ## Notes
 
 HITL. Graduated from the map's fog after ticket 05 established the question sharply. Blocked

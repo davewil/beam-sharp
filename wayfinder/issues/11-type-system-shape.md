@@ -97,6 +97,27 @@ binds here:
   no construction discipline. Whatever the sentence says, it is a claim about the *shape* of a
   term, never about where it came from.
 
+## Constraints from ticket 10 — resolved 2026-08-12
+
+- **Atoms are singletons and `atom` is the cofinite top.** Verified against a shipping
+  implementation of the same theory (Elixir 1.19.5 `Module.Types.Descr`): `:ok` is
+  `%{atom: {:union, %{ok: []}}}`, `atom()` is `%{atom: {:negation, %{}}}`, and `:ok | atom()`
+  normalises to `atom()`. Ticket 09's normalisation rule is therefore verified, not asserted,
+  and the cofinite residual is a real representation.
+- **`bool` is a prelude alias, not a builtin** — `type bool = true | false;`. Elixir's own
+  checker represents `boolean()` as exactly that two-atom union. Do not add a primitive.
+- **`if` requires `bool`. There is no truthiness.** Elixir's truthy/falsy split forces two
+  operator families (`&&` vs `and`, with `nil and true` raising); ticket 01's `&&`/`||` guard
+  operators already committed this language the other way.
+- **Typo exposure lands here.** Under an open atom universe, a misspelled atom is caught
+  wherever a declared type is in scope, because the signature is the declaration site for the
+  permitted set (ticket 04). It is *not* caught in `dynamic` positions — which makes "what
+  operations are permitted on a `dynamic` value" a question with a concrete new consequence.
+- **Open question inherited**: ticket 10 §5 puts `type option<T> = T | :nothing;` in the
+  prelude, which assumes the alias mechanism admits **type parameters**. Ticket 09 already
+  writes `list<Json>` and `map<string, Json>`, but a parametric *alias* is a type-level
+  function and this ticket owns whether that is in scope.
+
 ## Notes
 
 HITL. Waits on ticket 04 for the algorithms, ticket 03 for what has and has not worked

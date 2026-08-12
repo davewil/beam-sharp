@@ -60,6 +60,18 @@ Findings: [wayfinder/research/03-prior-art-static-multiclause.md](../research/03
   never-fixed constructor-pattern-in-head parse ambiguity (→ 08).
 - Gleam's actor typing was **not** established from primary sources — deferred to ticket 14.
 
+## Provenance upgrade from ticket 10 — 2026-08-12
+
+**Gleam is now installed locally** (1.18.1, via `mise use -g gleam@1.18.1`), so Gleam claims in
+this file that were `doc` or `src` can be re-checked by measurement rather than citation.
+Prefer measuring. Two claims already re-checked and confirmed
+([`prototypes/10c_gleam_atoms.gleam`](../prototypes/10c_gleam_atoms.gleam)):
+
+- Fieldless variants compile to bare atoms, variants with fields to tagged tuples, PascalCase
+  to snake_case — `-type colour() :: red | green | blue.`
+- Gleam has **no atom literal**: `pub fn f() { :ok }` is a syntax error. Atoms exist only as
+  fieldless variants, with a built-in carve-out for `ok`, `error` and booleans.
+
 ## Notes
 
 AFK. Feeds tickets 11 and 12.

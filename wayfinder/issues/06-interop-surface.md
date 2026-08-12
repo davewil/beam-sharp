@@ -60,6 +60,30 @@ Evidence is marked **doc** / **src** / **local** (verified here on OTP 28, Elixi
   the committed type system. Elixir's v1.20 checker offers foreign languages nothing, and its
   roadmap phases Erlang typespecs out rather than adopting them.
 
+## The third outcome, demonstrated — from ticket 10, 2026-08-12
+
+This file's load-bearing finding is that **an untyped caller does not always crash**, and that
+the third outcome — *silent unsoundness* — is the only one arguing for emitted guards. It also
+recorded that neither Gleam nor purerl defends against any of it, a claim the map flagged as
+**inferred from the absence of guard emission** rather than observed.
+
+**It is now observed.** Gleam 1.18.1 / OTP 28, calling a compiled Gleam module from raw Erlang
+([`prototypes/10c_gleam_forge.erl`](../prototypes/10c_gleam_forge.erl)):
+
+```
+describe(red) from raw Erlang  : {ok,<<"r">>}     % foreign atom accepted as a nominal Colour
+describe(purple) forged        : {caught,error,case_clause}
+area({circle, <<"str">>})      : {ok,<<"str">>}   % -spec area(shape()) -> float().
+```
+
+The last line is the third outcome in the flesh, and **worse than this file's own example**:
+`add(1.5, 2.5)` returning `4.0` is a wrong number, whereas this is a wrong *kind of term* —
+a binary leaving a function whose spec says `float()`. No crash, no coercion, nothing logged.
+
+The asymmetry between lines 2 and 3 is new and belongs to ticket 18: forging the **tag** is
+caught, because the tag is what a clause head tests; forging the **payload** is not, because
+the payload is bound rather than checked.
+
 ## Notes
 
 AFK. Feeds tickets 14 and 15, and the fog around runtime defence against untyped callers.

@@ -72,6 +72,24 @@ worse than useless — it locks in whatever the agent did. Boundary tests writte
 its conventions can enforce that distinction is an open question, and probably a convention rather
 than a language matter (→ ticket 22).
 
+## A testing trap from ticket 10 — resolved 2026-08-12
+
+**A test written with literal strings cannot measure atom-minting behaviour**, because `erlc`
+constant-folds `binary_to_atom/1` on a literal binary: the atom lands in the atom chunk and is
+interned at module load, before the code under test runs. The "not yet interned" state is
+unobservable, so the test passes while measuring nothing. Any such test must build the string
+at runtime ([`prototypes/10b_atom_interning.erl`](../prototypes/10b_atom_interning.erl)).
+
+The general shape is worth more than the instance: **compile-time evaluation can make a test's
+precondition unreachable**, and the test still goes green. This bit twice while producing ticket
+10's evidence — once via constant folding, once via the probe mentioning its own atom in value
+position, which interned it. Both times the failure mode was a *passing* test.
+
+That argues this ticket should decide something about **tests whose preconditions the compiler
+can erase** — whether the language or its test tooling can detect them, or whether it is purely
+a discipline. It bears directly on the standing constraint: an agent writing tests in a loop
+will not notice a green test that measures nothing.
+
 ## Notes
 
 HITL. Raised 2026-08-12 after the observation that test support had never been charted. Blocked by

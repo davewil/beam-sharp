@@ -76,6 +76,25 @@ counter-example rather than a template. Net: **no evidence against the Abstract 
 
 ## Notes
 
+## A codegen obligation from ticket 10 — resolved 2026-08-12
+
+**Every atom appearing in a type position must be emitted into the module's atom chunk.** This
+is an obligation Erlang does not have, and whichever target is chosen must be able to discharge it.
+
+Verified ([`prototypes/10b_atom_interning.erl`](../prototypes/10b_atom_interning.erl), OTP 28):
+an atom appearing **only** in a `-type`/`-spec` is absent from the compiled atom chunk, and
+`binary_to_existing_atom` rejects it. Erlang tolerates this because its specs are documentation.
+Ticket 09 made beam-sharp's types **erased aliases** while keeping them load-bearing, so a
+`type Outcome = :ok | :error;` whose `:error` never reaches a pattern or expression would leave
+that atom uninterned — and ticket 10 §4's `ToExistingAtom` would then reject a value the type
+system says is legal. Type says yes, runtime says no: ticket 06's third outcome through an
+unwatched door.
+
+The exposure is narrow (atoms in clause heads are already value-position literals) and the cost
+is bounded by source size. **But note how it compounds with ticket 02's sharpest finding**:
+compiling from `.core` emits an empty abstract chunk *with no warning*. Both are silent failures
+in the same layer, and a target chosen without checking either will fail quietly.
+
 ## Notes
 
 HITL, but heavily fact-led — most of the work is in ticket 02. Blocked by ticket 11 because
