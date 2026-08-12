@@ -1,0 +1,458 @@
+<title>The One-Way Door</title>
+
+<style>
+  :root {
+    --ground:   #EEF1F4;
+    --surface:  #FFFFFF;
+    --sunken:   #E3E8ED;
+    --ink:      #15191E;
+    --ink-soft: #414B56;
+    --muted:    #6B7681;
+    --rule:     #CBD3DA;
+    --accent:   #5A3A96;
+    --accent-s: #EDE7F7;
+    --edge:     #9A551B;
+    --edge-s:   #F7ECE0;
+    --good:     #1F6B4A;
+    --panel:    #F1F3F5;
+
+    --display: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    --body: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+    --util: ui-sans-serif, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:   #131619;
+      --surface:  #1B1F24;
+      --sunken:   #22272D;
+      --ink:      #E7EBEF;
+      --ink-soft: #BAC3CC;
+      --muted:    #8B959F;
+      --rule:     #333B44;
+      --accent:   #B29AE0;
+      --accent-s: #2A2340;
+      --edge:     #D89B5E;
+      --edge-s:   #33261A;
+      --good:     #6BC79C;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:   #131619;
+    --surface:  #1B1F24;
+    --sunken:   #22272D;
+    --ink:      #E7EBEF;
+    --ink-soft: #BAC3CC;
+    --muted:    #8B959F;
+    --rule:     #333B44;
+    --accent:   #B29AE0;
+    --accent-s: #2A2340;
+    --edge:     #D89B5E;
+    --edge-s:   #33261A;
+    --good:     #6BC79C;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 17px;
+    line-height: 1.62;
+    margin: 0;
+    padding: 0 1.25rem 6rem;
+  }
+
+  .wrap { max-width: 46rem; margin: 0 auto; }
+  .wide { max-width: 62rem; margin: 0 auto; }
+
+  header.masthead {
+    padding: 4.5rem 0 2rem;
+    border-bottom: 2px solid var(--ink);
+    display: flex; flex-direction: column; gap: 1.1rem;
+  }
+  .eyebrow {
+    font-family: var(--display);
+    font-size: .72rem;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: flex; flex-wrap: wrap; gap: .4rem 1.1rem;
+  }
+  .eyebrow b { color: var(--accent); font-weight: 600; }
+  h1 {
+    font-family: var(--display);
+    font-size: clamp(2rem, 6vw, 3.1rem);
+    line-height: 1.04;
+    letter-spacing: -.03em;
+    font-weight: 600;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .standfirst {
+    font-size: 1.16rem;
+    color: var(--ink-soft);
+    margin: 0;
+    max-width: 34rem;
+    text-wrap: pretty;
+  }
+
+  h2 {
+    font-family: var(--display);
+    font-size: 1.02rem;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: var(--accent);
+    margin: 3.6rem 0 .2rem;
+    padding-bottom: .5rem;
+    border-bottom: 1px solid var(--rule);
+  }
+  h3 {
+    font-family: var(--display);
+    font-size: 1.02rem;
+    font-weight: 600;
+    letter-spacing: -.01em;
+    margin: 2.2rem 0 .4rem;
+    color: var(--ink);
+  }
+  p { margin: .95rem 0; text-wrap: pretty; }
+  a { color: var(--accent); }
+
+  code {
+    font-family: var(--display);
+    font-size: .87em;
+    background: var(--sunken);
+    padding: .1em .34em;
+    border-radius: 3px;
+  }
+
+  .verdict {
+    margin: 2.4rem 0 0;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 4px solid var(--accent);
+    padding: 1.6rem 1.7rem;
+    display: flex; flex-direction: column; gap: .7rem;
+  }
+  .verdict .lab {
+    font-family: var(--display);
+    font-size: .7rem; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--muted);
+  }
+  .verdict .sentence {
+    font-family: var(--display);
+    font-size: clamp(1.05rem, 2.6vw, 1.32rem);
+    line-height: 1.4;
+    letter-spacing: -.015em;
+    margin: 0;
+  }
+  .verdict .gloss {
+    font-size: .95rem; color: var(--ink-soft); margin: 0;
+    padding-top: .7rem; border-top: 1px solid var(--rule);
+  }
+
+  figure { margin: 2rem 0; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid #C4CBD1;
+    border-radius: 4px;
+    padding: 1.4rem 1rem;
+    overflow-x: auto;
+  }
+  .panel pre.mermaid { margin: 0; display: flex; justify-content: center; min-width: 30rem; }
+  figcaption {
+    font-family: var(--util);
+    font-size: .84rem;
+    color: var(--muted);
+    margin-top: .7rem;
+    line-height: 1.5;
+  }
+
+  .tablewrap { overflow-x: auto; margin: 1.4rem 0; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-family: var(--util);
+    font-size: .88rem;
+    background: var(--surface);
+    min-width: 34rem;
+  }
+  caption {
+    font-family: var(--display);
+    font-size: .72rem; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--muted); text-align: left; padding-bottom: .55rem;
+  }
+  th, td {
+    border: 1px solid var(--rule);
+    padding: .58rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  thead th {
+    background: var(--sunken);
+    font-weight: 600;
+    font-size: .78rem;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  tbody th { font-weight: 600; background: var(--sunken); white-space: nowrap; }
+  td.win { color: var(--good); font-weight: 600; }
+  td.lose { color: var(--edge); }
+  td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  .decisions { list-style: none; padding: 0; margin: 1.5rem 0 0; display: flex; flex-direction: column; gap: 1.6rem; }
+  .decisions > li {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 1.2rem 1.4rem 1.35rem;
+  }
+  .decisions h3 { margin-top: 0; }
+  .decisions p { font-size: .97rem; }
+  .tag {
+    display: inline-block;
+    font-family: var(--display);
+    font-size: .67rem; letter-spacing: .12em; text-transform: uppercase;
+    padding: .18rem .5rem; border-radius: 3px; margin-bottom: .7rem;
+  }
+  .tag.kept { background: var(--accent-s); color: var(--accent); }
+  .tag.rej  { background: var(--edge-s);  color: var(--edge); }
+
+  .rejected {
+    margin-top: .95rem; padding-top: .8rem;
+    border-top: 1px dashed var(--rule);
+    font-size: .92rem; color: var(--ink-soft);
+  }
+  .rejected b { color: var(--edge); font-weight: 600; }
+
+  pre.code {
+    font-family: var(--display);
+    font-size: .82rem;
+    line-height: 1.55;
+    background: var(--sunken);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: .9rem 1rem;
+    overflow-x: auto;
+    margin: 1rem 0;
+  }
+  pre.code .c { color: var(--muted); }
+  pre.code .k { color: var(--accent); font-weight: 600; }
+  pre.code .e { color: var(--edge); }
+  pre.code .g { color: var(--good); }
+
+  .pair { display: grid; gap: 1.1rem; margin: 1.4rem 0; }
+  @media (min-width: 54rem) { .pair { grid-template-columns: 1fr 1fr; } }
+  .pair .lab {
+    font-family: var(--display);
+    font-size: .7rem; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--muted); display: block; margin-bottom: .4rem;
+  }
+  .pair pre.code { margin: 0; }
+
+  .callout {
+    background: var(--edge-s);
+    border-left: 3px solid var(--edge);
+    padding: 1rem 1.2rem;
+    margin: 1.6rem 0;
+    font-size: .95rem;
+  }
+  .callout p:first-child { margin-top: 0; }
+  .callout p:last-child { margin-bottom: 0; }
+  .callout strong { color: var(--edge); }
+
+  footer {
+    margin-top: 4.5rem; padding-top: 1.4rem;
+    border-top: 1px solid var(--rule);
+    font-family: var(--util); font-size: .83rem; color: var(--muted);
+  }
+  footer code { background: none; padding: 0; }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <div class="eyebrow">
+      <span><b>beam-sharp</b></span>
+      <span>Ticket 13 &middot; ENG-179</span>
+      <span>Resolved 12 Aug 2026</span>
+      <span>Commit 0c3e223</span>
+    </div>
+    <h1>The One-Way Door</h1>
+    <p class="standfirst">The ticket arrived with five findings already stacked against Core Erlang. None of them is the reason to record — a sixth fact subsumes them all, and it was not in the ticket.</p>
+  </header>
+
+  <div class="verdict">
+    <span class="lab">The decision</span>
+    <p class="sentence">The compiler emits the Erlang Abstract Format.</p>
+    <p class="gloss">Recorded on reversibility, not on any of the five. <code>.abstr&nbsp;&rarr;&nbsp;Core</code> is a compiler flag, with OTP performing the translation. <code>.core&nbsp;&rarr;&nbsp;abstract&nbsp;forms</code> does not exist. This is the side of the door that keeps both rooms.</p>
+  </div>
+
+  <h2>Five findings pointing one way is not an argument</h2>
+
+  <p>The ticket had accumulated ticket 02's silent <code>-spec</code> loss, ticket 19's no-evidence-against, ticket 12's &ldquo;third strike&rdquo;, ticket 10's atom obligation, and the observation that LFE left Core Erlang in January 2018. All true, all pointing at the Abstract Format. <strong>A sixth recap of why Core Erlang loses would not have been a resolution.</strong></p>
+
+  <p>What was missing is that ticket 02 framed the three targets as a <em>ladder of increasing cost</em> — bytecode dearest, Core in the middle, Abstract Format cheapest. Measured, they are not a ladder. They are a door that opens once.</p>
+
+  <figure class="wide">
+    <div class="panel">
+<pre class="mermaid">
+%%{init: {"theme": "base", "themeVariables": {
+  "background": "#F1F3F5", "mainBkg": "#FFFFFF", "primaryColor": "#FFFFFF",
+  "primaryTextColor": "#1C2127", "textColor": "#1C2127",
+  "nodeBorder": "#5C6670", "lineColor": "#5C6670",
+  "edgeLabelBackground": "#F1F3F5", "labelTextColor": "#1C2127",
+  "clusterBkg": "#F1F3F5", "clusterBorder": "#C4CBD1"
+}}}%%
+flowchart TD
+  A["Abstract format forms"] -->|"erlc +from_abstr"| B["Working beam, spec intact"]
+  A -->|"erlc +to_core"| C["Core Erlang, if ever wanted"]
+  D["Core Erlang as the target"] -->|"erlc +from_core"| E["Working beam, exit 0, no warning"]
+  E --> F["Abstract chunk present but empty"]
+  F -.->|"no path back"| A
+</pre>
+    </div>
+    <figcaption>The asymmetry that decides it. Choosing the Abstract Format forfeits nothing a flag cannot recover; choosing Core Erlang forfeits the abstract chunk permanently, and does it without a warning.</figcaption>
+  </figure>
+
+  <div class="tablewrap">
+    <table>
+      <caption>Reversibility, measured on OTP 28.5</caption>
+      <thead><tr><th>Direction</th><th>Command</th><th>Result</th></tr></thead>
+      <tbody>
+        <tr><th><code>.abstr</code> &rarr; Core</th><td><code>erlc +from_abstr +to_core</code></td><td class="win">Works — OTP does the translation</td></tr>
+        <tr><th>Core &rarr; <code>.abstr</code></th><td><code>beam_lib:chunks/2</code></td><td class="lose"><code>{raw_abstract_v1,[]}</code> — unrecoverable</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p><strong>State it this way in the spec</strong>, because it is the form of the argument that survives new evidence. A future finding favouring Core Erlang would still have to explain why it is worth walking through a door that does not open again.</p>
+
+  <div class="callout">
+    <p><strong>The failure mode matters more than the fact.</strong> Ticket 02 reported that a <code>.core</code>-built beam loses its <code>-spec</code>. Measured, the chunk is not <em>missing</em> — it is <em>present and empty</em>. A missing chunk is something Dialyzer can complain about. An empty one is something Dialyzer reads successfully and learns nothing from. That is the same shape as ticket 10's uninterned-atom trap: both are silent failures in the codegen layer, and a target chosen without checking either would fail quietly.</p>
+  </div>
+
+  <h2>Core Erlang's one live advantage was already spent</h2>
+
+  <p>It is worth naming what the decision did <em>not</em> cost, because the ticket left it open. Ticket 02 found Core Erlang's <code>when</code> is strictly <strong>wider</strong> than Erlang's guard grammar — a genuine capability the Abstract Format cannot match.</p>
+
+  <p>It buys nothing here. <strong>Ticket 09 fixed the discriminability vocabulary to the BEAM guard set</strong>, and ticket 08 committed guards to the same set via the expansion rule. The wider <code>when</code> has nothing left to express. Ticket 12's failure-arm omission is the only other Core-only capability, and ticket 12 had already decided against using it — so the Core path's remaining advantage was a saving nobody wanted, on a target that fails Dialyzer silently.</p>
+
+  <h2>The contract is the forms, not the function call</h2>
+
+  <p>The decision is <em>a sequence of abstract-format forms</em>, with a standing obligation attached: <strong>the frontend must never depend on in-process compiler state</strong>, so serialising the forms and shelling out to <code>erlc +from_abstr</code> always works. Verified — it builds a working module with no <code>.erl</code> anywhere on disk.</p>
+
+  <p>Without the obligation, a frontend drifts into parse transforms and shared state, and the text route quietly stops working precisely when someone wants to rewrite the frontend in another language. Keeping the promise is cheap now and unrecoverable later — the same reasoning ticket 11 used when it rejected higher-order contract wrapping as reversible-if-deferred.</p>
+
+  <p><strong>What it buys:</strong> the compiler's host language is genuinely open. The walking skeleton need not be a BEAM program, which removes a constraint from that fog patch.</p>
+
+  <p><strong>What it costs, permanently:</strong> <code>erl_syntax</code> and <code>merl</code> are foreclosed. They are the standard abstraction over Abstract Format drift, and they require a BEAM-hosted frontend. That is why the churn mitigation is a <strong>pinned OTP range proved by a CI corpus</strong> — current and previous two majors — rather than a library.</p>
+
+  <div class="callout">
+    <p><strong>The range is provisional.</strong> <code>+from_abstr</code> is confirmed on OTP 28.5 only, because that is what is installed. Confirming it on the oldest supported release is work the walking skeleton owes, and the range is not real until then.</p>
+  </div>
+
+  <h2>Source-only sub-modules, and an objection that turned out to be false</h2>
+
+  <p>Sub-modules are <strong>source-only</strong> — one <code>.beam</code> per aggregate, not one per operation. Per-function hot code loading is <em>rejected</em>, not deferred.</p>
+
+  <p>Prototype 01d recommended this on four grounds but recorded one real cost: the sub-module structure is &ldquo;a source fiction the runtime does not know about&rdquo;, so a crash would name the aggregate rather than the file the programmer wrote. <strong>On this target that is largely false.</strong> A <code>file</code> attribute may appear repeatedly mid-module and re-points every form after it — the mechanism Elixir and LFE use to attribute generated code to original source.</p>
+
+<pre class="code"><span class="c">%% two functions, ONE beam module, TWO source files</span>
+total/1 crash: {<span class="k">'Shop.Orders.Order'</span>,total,[99],[{file,<span class="g">"Order/Total.bs"</span>},{line,42}]}
+apply/1 crash: {<span class="k">'Shop.Orders.Order'</span>,apply,[99],[{file,<span class="g">"Order/Apply.bs"</span>},{line,7}]}</pre>
+
+  <p>So source-only keeps per-sub-module crash reports, <code>dbg</code> locations and debugger positions. Its remaining cost is narrower than 01d thought: the compiler owns a module abstraction the BEAM does not share, and every tool integration must translate.</p>
+
+  <p><strong>Note the coupling this exposes.</strong> The repair depends on annotations surviving into the beam — which is exactly what the Core Erlang path discards. Had ticket 13 chosen Core, source-only would have cost its observability after all. The target choice and the sub-module choice are far more entangled than the ticket assumed.</p>
+
+  <h2>Every function publishes a type, even when Erlang cannot spell it</h2>
+
+  <p>A <code>-spec</code> is emitted for every function whose beam-sharp type is known. Where a set-theoretic type has no Erlang spelling — the grammar has no negation, and expresses intersection only as an overloaded spec — the compiler <strong>widens to the nearest expressible supertype</strong>, ultimately <code>term()</code>.</p>
+
+  <p>A widened spec is <em>sound</em>: never a false claim, only a weak one. And it is <strong>silent</strong> — <code>-Wunderspecs</code> and <code>-Wspecdiffs</code> both turn warnings <em>on</em> and are off by default, so widening costs precision rather than noise.</p>
+
+  <div class="tablewrap">
+    <table>
+      <caption>The rejected alternatives, and why</caption>
+      <thead><tr><th>Option</th><th>Why not</th></tr></thead>
+      <tbody>
+        <tr><th>Omit the spec</th><td>Leaves functions publishing nothing, and the boundary between &ldquo;precise&rdquo; and &ldquo;absent&rdquo; is invisible to a consumer.</td></tr>
+        <tr><th>Refuse to compile</th><td>Bans legitimate set-theoretic types from the exported surface to satisfy a weaker language's grammar.</td></tr>
+        <tr><th>Emit Erlang source text</th><td>More churn-resistant and human-readable, but <code>-file("X",&nbsp;42)</code> occupies the line it names, so every line number becomes arithmetic. Annotations are simply exact.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>What this does to the rest of the map</h2>
+
+  <p>The sharpest consequence <em>removes</em> an argument rather than adding one.</p>
+
+  <figure class="wide">
+    <div class="panel">
+<pre class="mermaid">
+%%{init: {"theme": "base", "themeVariables": {
+  "background": "#F1F3F5", "mainBkg": "#FFFFFF", "primaryColor": "#FFFFFF",
+  "primaryTextColor": "#1C2127", "textColor": "#1C2127",
+  "nodeBorder": "#5C6670", "lineColor": "#5C6670",
+  "edgeLabelBackground": "#F1F3F5", "labelTextColor": "#1C2127",
+  "clusterBkg": "#F1F3F5", "clusterBorder": "#C4CBD1"
+}}}%%
+flowchart LR
+  T13["Ticket 13 — Abstract Format"] --> T18["18 loses the byte argument"]
+  T13 --> T14["14 has no facade to design"]
+  T13 --> T06["06 spec recommendation confirmed"]
+  T13 --> T12["12 arm enforced by the target"]
+  T13 --> T10["10 atom obligation has a home"]
+  T13 --> SK["Skeleton host language freed"]
+</pre>
+    </div>
+    <figcaption>Six propagations. Only the first changes what another ticket has to decide; the rest confirm or simplify.</figcaption>
+  </figure>
+
+  <ul class="decisions">
+    <li>
+      <span class="tag rej">Argument withdrawn</span>
+      <h3>Ticket 18 was told guards were the only route to a saving</h3>
+      <p>It reads: &ldquo;emitted boundary guards are the only sound route to the codegen saving&rdquo; of ticket 12's omitted failure arm. <strong>That saving does not exist on this target.</strong> <code>erlc</code> inserts the <code>match_fail</code> arm itself and there is no way to suppress it from the Abstract Format — visible in the generated Core as a clause beam-sharp did not write.</p>
+      <p class="rejected">So ticket 18's remaining motivation for emitting guards is <b>silent unsoundness alone</b> — ticket 06's third outcome. Narrower, and decided on honesty rather than bytes.</p>
+    </li>
+    <li>
+      <span class="tag kept">Coupling discharged</span>
+      <h3>13 and 18 no longer have to be decided together</h3>
+      <p>The ticket said twice that they must be, &ldquo;or ticket 06's spec recommendation withdrawn&rdquo;. That coupling was <strong>conditional on the Core Erlang branch</strong>, where <code>-spec</code> is lost. Choosing the Abstract Format dissolves it.</p>
+      <p class="rejected">This matters practically: ticket 18 is blocked behind the deferred ticket 22, so a genuine joint decision was <b>structurally impossible</b> this session. Ticket 06's recommendation stands unwithdrawn instead.</p>
+    </li>
+  </ul>
+
+  <h2>Claim &rarr; evidence</h2>
+
+  <div class="tablewrap">
+    <table>
+      <caption>All observed on Erlang/OTP 28.5, not cited</caption>
+      <thead><tr><th>Claim</th><th>How it was checked</th><th>Where</th></tr></thead>
+      <tbody>
+        <tr><td>A frontend can emit <code>.abstr</code> text with no <code>.erl</code> present</td><td><code>erlc +from_abstr</code>, source file removed</td><td>13a &sect;1</td></tr>
+        <tr><td><code>.abstr</code> is one term per form, not a list</td><td>Feeding a list crashes <code>erl_lint</code></td><td>13a &sect;1</td></tr>
+        <tr><td>Abstract Format preserves <code>-spec</code></td><td><code>beam_lib:chunks/2</code> on the built beam</td><td>13a &sect;2</td></tr>
+        <tr><td>Core path loses it silently</td><td>Exit 0, no warning, <code>{raw_abstract_v1,[]}</code></td><td>13a &sect;2</td></tr>
+        <tr><td>AF &rarr; Core is free; Core &rarr; AF impossible</td><td><code>erlc +from_abstr +to_core</code> vs chunk read</td><td>13a &sect;3</td></tr>
+        <tr><td><code>erlc</code> enforces module-name/filename match</td><td>Build refused until file renamed</td><td>13a &sect;4</td></tr>
+        <tr><td>Widened specs are silent by default</td><td><code>dialyzer --help</code> legend: <code>***</code> turns warnings <em>on</em></td><td>13a &sect;5</td></tr>
+        <tr><td>Sub-modules survive into crash reports</td><td>Repeated <code>file</code> attributes; two traces, two files</td><td>13b</td></tr>
+        <tr><td>Source-text route works but loses exact lines</td><td><code>-file("X",42)</code> reported line 43</td><td>13b header</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <footer>
+    <p>Ticket: <code>wayfinder/issues/13-compilation-target-decision.md</code> &middot; evidence: <code>wayfinder/prototypes/13a_target_measurements.md</code>, <code>wayfinder/prototypes/13b_aggregate_attribution.erl</code> &middot; commit <code>0c3e223</code> on <code>master</code>.</p>
+    <p>Not measured: <code>+from_abstr</code> below OTP 28.5, and cross-release Abstract Format churn — which is what the CI matrix exists to catch.</p>
+  </footer>
+</div>
