@@ -188,10 +188,23 @@ case Bin of
 end
 ```
 
-No `binary_to_existing_atom`, no interning, and the result atoms are literals in the generated
-code — so they are in the atom chunk by construction, which sidesteps §6.2 for this path
-entirely. The discriminator vocabulary is ticket 09 §4's, which ticket 09 §7 already routes to
-ticket 18's emitted-check machinery: *same mechanism, do not build it twice.*
+**Measured** ([`prototypes/10d_parseatom_lowering.erl`](../prototypes/10d_parseatom_lowering.erl),
+OTP 28) — and the result is stronger than expected. A single module carrying both a type-only
+union and a lowered one reports:
+
+```
+lowering members in chunk?    : true true      <- zzz_alpha, zzz_beta
+type-only members in chunk?   : false false    <- qqq_gamma, qqq_delta
+calls binary_to_existing_atom : false
+```
+
+So the lowering does not merely *avoid* the atom table — **it forces `T`'s members into value
+position, which cures that union's §6.2 interning gap.** `ToExistingAtom` cannot do this: not
+knowing the permitted set, it must ask the atom table, and therefore depends on §6.2's codegen
+obligation actually being discharged.
+
+The discriminator vocabulary is ticket 09 §4's, which ticket 09 §7 already routes to ticket
+18's emitted-check machinery: *same mechanism, do not build it twice.*
 
 `ToExistingAtom` is the genuine interop escape — a peer node's reply, a dynamically named
 module — and must use `binary_to_existing_atom` with the badarg caught. It returns bare `atom`

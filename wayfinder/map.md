@@ -245,17 +245,36 @@ spec exists.
   showcase implies**. Ticket 04 found Etylizer's pathological inputs are `case` expressions
   with 40+ branches — precisely the large multi-clause `handle_info` this language advertises.
 - **Module and namespace system**, and function identity — BEAM identifies functions by
-  name *and arity*, which multi-clause heads and optional parameters both disturb.
+  name *and arity*, which multi-clause heads and optional parameters both disturb. **Ticket 10
+  §3 adds one requirement**: a module identifier in value position is an atom singleton, so this
+  fog owes an answer to *what atom is actually emitted* — a bare snake_cased name, which risks
+  colliding with Erlang modules, or something prefixed as Elixir's `Elixir.` is. Ticket 10
+  deliberately did not decide it.
 - **The language's name.**
 - **Imports and cross-module scope** — if a directory is a module, what do files in it share
   automatically, and what must be imported? Slipped into a prototype example unexamined.
 - **Where DDD invariants live** — not commands, not types. An `Invariants` module, refinement in
   the type declarations, or nothing.
 - **Stdlib shape as a principle** — Erlang-ish flat modules, C#-ish namespaced statics, or
-  Gleam-ish. Breadth is out of scope; the shape is not.
-- **Runtime behaviour against untyped callers** — what, if anything, the compiler emits to
-  defend a typed function called from raw Erlang.
-- **Consuming Gleam and Elixir libraries** — possible, and at what ergonomic cost.
+  Gleam-ish. Breadth is out of scope; the shape is not. **The prelude now has known contents**
+  from ticket 10 — `type bool = true | false;`, `type option<T> = T | :nothing;`,
+  `ParseAtom<T>` and `ToExistingAtom` — which makes "what is in the prelude versus a module you
+  import" a live sub-question rather than a hypothetical one.
+- **Consuming Gleam and Elixir libraries** — possible, and at what ergonomic cost. **Sharper
+  after ticket 10 §7**, which measured Gleam's representation rather than reading it: fieldless
+  variants are bare atoms, variants with fields are tagged tuples, PascalCase becomes
+  snake_case, `Nil` is the atom `nil` and `Result` is `{ok, _} | {error, _}`. So a Gleam type is
+  already a structural shape beam-sharp can write directly — the ergonomic cost looks low, and
+  the open part is what happens to Gleam's *nominal* intent when beam-sharp has no nominality to
+  receive it.
+
+<!--
+  GRADUATED 2026-08-12 (ticket 10): "Runtime behaviour against untyped callers — what, if
+  anything, the compiler emits to defend a typed function called from raw Erlang." This is
+  ticket 18's question verbatim, and ticket 10 §7 supplied its sharpest evidence (the tag /
+  payload asymmetry, observed in Gleam). Removed from the fog so it lives only as the ticket.
+-->
+
 
 ## Out of scope
 
