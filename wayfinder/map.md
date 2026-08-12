@@ -36,6 +36,23 @@ spec exists.
 - **Research findings land on `master`** as files under `wayfinder/research/`, linked from
   their ticket — not on throwaway branches, which parallel agents would collide over.
 - The effort is understood to be large. The map exists so it need not fit in one session.
+- **AUDIENCE — C# *or* TypeScript developers** (David, 2026-08-12). The target reader is fluent in
+  one of the two, not necessarily both. This widens tier 1 of the heuristic below: a construct
+  familiar to *either* audience qualifies as borrowed rather than invented.
+
+  Consequences already visible, which later tickets must respect:
+  - **TypeScript supplies what C# lacks for arrows.** TS overload signatures — several signatures,
+    one implementation — are ticket 04's per-arrow interface with a different spelling. Union
+    parameters (`Describe(int | Order)`) are TS-native too. Neither needs justifying from theory.
+  - **`as` collides.** C#'s `as` is a **checked conversion**, null on failure — which is what makes
+    the ticket 08 guard answer work, since lifted comparison then yields false. TypeScript's `as`
+    is an **unchecked type assertion**: compile-time only, no runtime check, deliberately unsound.
+    beam-sharp takes the C# meaning. **State this in the spec** — a TS reader will expect a no-op.
+  - **`with` is C#-only**; a TS reader reaches for spread (`{...o, balance: x}`). Decide whether
+    both spellings exist or one wins. → ticket 17 or the data-modelling fog.
+  - **`->` for clauses holds up better under the wider audience**, since TS uses `=>` for arrow
+    functions *and* for function types.
+
 - **DESIGN HEURISTIC — borrow before inventing, in this order** (2026-08-12). Every good answer
   in ticket 01 came from an existing construct doing double duty, not from a new one.
   1. **Reach for C# first.** Before specifying a rule, check whether an existing C# construct's
