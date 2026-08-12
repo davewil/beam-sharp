@@ -447,6 +447,10 @@ flowchart TD
 <div class="wrap">
   <p><strong>40 bytes. 4.8%.</strong> What it buys is the wrong error class — <code>if_clause</code>, for a failure with no <code>if</code> in it — an arity in place of the offending argument, and no file or line. The surprise is that omission does not produce undefined behaviour or a silent fall-through: it produces a crash that <strong>mislabels itself</strong>, so you pay failure's cost without getting the information failure normally buys.</p>
 
+  <div class="callout">
+    <p><strong>Do not cite <code>if_clause</code> as the general rule.</strong> That is what <em>this</em> lowering produced — a Core <code>case</code> with its last clause removed. The behaviour of a Core Erlang <code>case</code> with no matching clause is not specified to be <code>if_clause</code> in general. The decision does not rest on which class it is: <code>if_clause</code>, <code>case_clause</code> and genuine undefined behaviour are all strictly worse than <code>function_clause</code> carrying the offending argument.</p>
+  </div>
+
   <p>That frame is the property this project has twice identified as most valuable. Ticket 04: the residual <em>is</em> the missing clause. Ticket 23: what diagnostics owe an agent in a loop. <code>{partial, [c], …}</code> is the runtime analogue — it hands you the exact value that defied the types.</p>
 
   <p>So the ticket's second explicit ask answers itself. <em>If a clause is proven exhaustive but the runtime value defies it, does the process still die cleanly?</em> <strong>Yes</strong> — <code>function_clause</code>, naming module, function, offending argument, file and line, which is what a supervisor should log. Deliberately paid for.</p>
@@ -462,7 +466,7 @@ flowchart TD
         <tr><th>Claim</th><th>Source</th><th>Provenance</th></tr>
       </thead>
       <tbody>
-        <tr><td>The failure arm is compiler-generated; omitting it yields <code>if_clause</code> and loses the argument</td><td><code>prototypes/12a_failure_arm.erl</code>, OTP 28</td><td class="win">local</td></tr>
+        <tr><td>The failure arm is compiler-generated; omitting it loses the offending argument, the file and the line <em>— and on this lowering reported <code>if_clause</code>, which is not the general rule</em></td><td><code>prototypes/12a_failure_arm.erl</code>, OTP 28</td><td class="win">local</td></tr>
         <tr><td><code>erlc</code> removes the whole dispatch when coverage is over all terms</td><td>same, <code>total/1</code> lowers to <code>fun (_0) -&gt; 1</code></td><td class="win">local</td></tr>
         <tr><td><code>raise</code> produces the <em>error</em> class, not <code>throw</code>'s</td><td><code>prototypes/12b_raise_classes.exs</code>, Elixir 1.19.5</td><td class="win">local</td></tr>
         <tr><td>Gleam's <code>panic</code> is a keyword and is bottom-typed</td><td><code>prototypes/12c_gleam_panic.gleam</code>, Gleam 1.18.1</td><td class="win">local</td></tr>

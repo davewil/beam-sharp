@@ -302,6 +302,13 @@ line. The surprise is that omission does not produce undefined behaviour or a si
 it produces a crash that **mislabels itself**, so you pay failure's cost without getting the
 information failure buys, and a reader is actively misled.
 
+> **Do not cite `if_clause` as the general rule.** That is what *this* lowering produced — a Core
+> `case` with its last clause removed. The behaviour of a Core Erlang `case` with no matching
+> clause is not specified to be `if_clause` in general, and a different lowering may well differ.
+> The decision does not rest on which class it is: `if_clause`, `case_clause` and genuine undefined
+> behaviour are all strictly worse than `function_clause` carrying the offending argument. Measure
+> again before quoting the class anywhere else.
+
 **That frame is the property this project has twice identified as most valuable.** Ticket 04: the
 residual *is* the missing clause. Ticket 23: what do diagnostics owe an agent in a loop.
 `{partial, [c], ...}` is the runtime analogue — it hands you the exact value you failed to handle.
