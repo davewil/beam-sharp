@@ -88,3 +88,28 @@ on for `Map`. What it means here:
    *compiler-visible syntax recovers type relations that a function signature would need a variable
    for* — is now load-bearing in two places, and this ticket is where it gets designed rather than
    merely relied upon.
+
+## Constraints from ticket 15 — resolved 2026-08-12
+
+**This ticket now owns the sequencing construct for fallible steps, and inherits two constraints.**
+
+Ticket 15 settled the error model as `result<T, E> = T | (:error, E)` and found that pipelines of
+fallible steps cost a named helper function per stage. It deliberately did **not** spell the
+sequencing construct, because 15 owns the error *model* and this ticket owns the sequencing
+*idiom* — and the two must match.
+
+- **`with` is unavailable.** Elixir's sequencing construct is `with`; C#'s `with` is record update,
+  which ticket 26 owns and ticket 05 found becomes *more* central here than in C#, since there is
+  no mutation at all. Do not reach for it.
+- **LINQ query syntax is the leading candidate.** Ticket 05 established the query translation is a
+  pure syntactic rewrite bound before type binding, needing a rule for eleven names and no
+  `IEnumerable<T>` — which is exactly why C# programmers already use query syntax as do-notation
+  over non-collection types. **It costs nothing new if this ticket adopts LINQ for collections
+  anyway, and is expensive if this ticket chooses `|>` chaining and the construct then exists
+  solely for error sequencing.** That conditional is the decision this ticket must make with both
+  cases in view.
+
+Recorded and not chosen: a **`?` postfix operator**, Rust's spelling. Smallest thing that removes
+the tax and independent of whatever this ticket picks for collections — but it introduces early
+return into a language otherwise built entirely from total clauses, putting a hidden exit in the
+middle of an expression.

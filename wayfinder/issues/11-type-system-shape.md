@@ -324,3 +324,19 @@ is **not enforced by Dialyzer** — the variables read as `any()`. So the guaran
 *"Every case your types admit has a clause, and everything from outside is a `term` until you match
 it"* — is unchanged inside the language, but the *published* evidence for it is weaker for
 polymorphic functions than for monomorphic ones. → ticket 18.
+
+## Amendment from ticket 15 — resolved 2026-08-12
+
+**`ValidateAs<T>` returns `result<T, ValidationError>`, not `T | :error`.**
+
+This ticket left the payload question open and ticket 15 settled it, but the reason is not the one
+this ticket anticipated. It is not only that a bare `:error` is a thin diagnostic — it is that
+**`T | :error` is degenerate for exactly the `T` a deep validator is most likely to be generated
+over.** Measured (Elixir 1.19.5, [`prototypes/15a_untagged_failure_collapse.exs`](../prototypes/15a_untagged_failure_collapse.exs)):
+`atom | :error` normalises to `atom`, because ticket 09's normalisation rule absorbs a singleton
+into a cofinite top before discriminability is ever asked. The failure channel disappears silently.
+
+Giving the reason a payload makes the member a tuple, and `atom | (:error, binary)` does **not**
+collapse. So the payload is what makes the channel survive, not merely what makes it informative.
+
+`ValidationError` is a path into the term plus the expected type — Gleam's decoder shape.

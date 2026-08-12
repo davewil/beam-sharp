@@ -153,3 +153,22 @@ should be looking for.
 **Also**: 27 §6 measured that emitted polymorphic `-spec`s are not enforced by Dialyzer. If any part
 of the testing story leans on Dialyzer over emitted output, it does not cover polymorphic
 functions.
+
+## Constraints from ticket 15 — resolved 2026-08-12
+
+**One test category retired, one created.**
+
+*Retired*: a test asserting that a function's failure channel is reachable. Ticket 15 §1 makes an
+absorbed failure member a **declaration error**, so `option<atom>` does not compile. A test that the
+error case is distinguishable from the success case is testing the compiler.
+
+*Created*: `option<T>` is now the first **partial** prelude type — legal for most `T`, rejected for
+some. That is exactly the kind of rule that gets rediscovered painfully at an instantiation three
+modules away, and it is worth an exemplar exercising it at the boundary rather than a unit test of
+the checker.
+
+Also relevant to this ticket's boundary question: ticket 15 measured that `monitor` + `receive`
+converts a callee crash into a value with a **better reason** than `try` does
+([`15c`](../prototypes/15c_surviving_a_callee_crash.erl)). Testing a client API's failure path
+therefore means killing a real process, not stubbing an exception — which pushes the default test
+boundary further toward the process API and away from the individual operation.

@@ -300,3 +300,29 @@ Dialyzer does not enforce the relation across them**, reading `A` and `B` as `an
 **Unchanged**: ticket 13 already removed 18's other motivation (ticket 12's 40-byte saving is
 unavailable on the Abstract Format target), so **silent unsoundness remains 18's sole remaining
 motivation** — and 27 has just widened it.
+
+## Constraints from ticket 15 — resolved 2026-08-12
+
+**One of the eight violation channels now has a declared defence, decided elsewhere.** Ticket 15
+settled that a foreign function declared to return `result<T, E>` gets a compiler-emitted
+`try`/`catch` wrapper, yielding a compiler-known
+`type foreign_error = (:error, term) | (:throw, term) | (:exit, term);`.
+
+Three things that bind this ticket:
+
+- **This is ticket 21's mechanism, instantiated.** 21 concluded the only defence reaching all eight
+  channels is a check emitted where beam-sharp already compiles. The foreign wrapper is one such
+  point. This ticket decides the other seven, and should treat the wrapper as the worked precedent
+  for shape rather than re-deriving it.
+- **It defends the *outbound* direction only** — beam-sharp calling foreign code. The silent
+  unsoundness this ticket exists for is *inbound*, an untyped caller entering a typed function, and
+  nothing in 15 touches it.
+- **Exit signals are not catchable** (measured, OTP 28,
+  [`prototypes/15d_which_classes_a_wrapper_catches.erl`](../prototypes/15d_which_classes_a_wrapper_catches.erl)).
+  A locally-raised `exit/1` and an exit *signal* are different mechanisms sharing a keyword. Any
+  defence this ticket designs around process termination must not assume a wrapper can observe one.
+
+**Also: ticket 15 recorded a correction relevant to this ticket's Elm question.** No Elm claim is
+load-bearing anywhere in the error model; the narrow question this ticket owns — does Elm validate
+values crossing a port at runtime — is untouched and still open. The standing instruction not to
+let it expand stands.

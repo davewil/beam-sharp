@@ -492,3 +492,26 @@ generic function. 27 §8 adds that **a codegen obligation requires a ground type
 `ParseAtom<TSource>` inside a polymorphic function is rejected — consistent with this ticket's
 existing requirement that `T` be a finite atom union, which a type variable can never be known to
 be.
+
+## Correction from ticket 15 — resolved 2026-08-12
+
+**§5's worked example is degenerate, and the instantiation is now rejected.**
+
+This ticket wrote:
+
+```
+a := ToExistingAtom(input);       // atom | :nothing      — honest weak residual
+```
+
+That declared type **is `atom`**. Measured (Elixir 1.19.5,
+[`prototypes/15a_untagged_failure_collapse.exs`](../prototypes/15a_untagged_failure_collapse.exs)):
+`atom | :nothing` normalises to `%{atom: {:negation, %{}}}`, identical to bare `atom()`, because
+ticket 09's normalisation rule absorbs a singleton into a cofinite top. The comment was true of the
+intent and false of the type — a caller cannot write the failure clause, because after
+normalisation there is no failure member to match.
+
+Ticket 15 §1 makes this instantiation an **error at the declaration**. So `ToExistingAtom` must be
+respelled — a tagged failure member, or a narrower success type than the atom top.
+
+This does not disturb §5's decision that `type option<T> = T | :nothing;` is the right shape; it
+disturbs the assumption that the shape is total.

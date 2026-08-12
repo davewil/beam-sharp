@@ -137,3 +137,23 @@ deliberately declined to hard-code.**
 
 Standing constraint reminder from the map: write-cost objections carry little weight here, so
 "the generator emits a lot" is not an argument against any of the above.
+
+## Constraints from ticket 15 — resolved 2026-08-12
+
+**A concrete instance of this ticket's diagnostics-as-interface question, already decided.**
+
+Ticket 15's foreign wrapper yields
+`foreign_error = (:error, term) | (:throw, term) | (:exit, term)`, and the class tag was kept
+rather than flattened **specifically on this ticket's grounds**: `(:exit, (:noproc, _))` means *the
+process is gone* and `(:error, :badarg)` means *your argument was wrong*, which are different
+repairs for an agent in a loop. A flattened reason is not self-describing — measured,
+`{noproc, {gen_server, call, [...]}}` needs the `exit` tag to be legible as a death rather than a
+returned value.
+
+So the language now has **two** worked examples of a diagnostic designed as a data structure an
+agent dispatches on rather than prose it parses: ticket 04's exhaustiveness residual, and this.
+Both are ordinary clause-head material. That is a candidate general principle for this ticket to
+state: *a diagnostic an agent must act on should be a value the language can already match.*
+
+Also inherited: `ValidationError` is a path into the term plus the expected type, chosen because a
+bare `:error` from a synthesised O(n) traversal tells the consumer only that the traversal ran.

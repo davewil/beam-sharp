@@ -385,6 +385,37 @@ spec exists.
   inference. **Ticket 16 is unblocked**, and inherits the rule that names its own boundary: *a type
   variable is a slot for values you carry; a union is a slot for values you examine.*
 
+- [Error model](issues/15-error-model.md) — **the headline question was already closed and the
+  ticket did not know it**: ticket 12 §3's signature-directed stance means there is no global
+  error-model preference to pick. What was open was the *shape* of failure, and it had a defect in
+  it. **The untagged failure channel collapses** — measured on Elixir 1.19.5, `option<atom>`,
+  `ValidateAs<atom>` and `option<option<int>>` all normalise to their success type, because ticket
+  09's own normalisation rule absorbs a singleton into a cofinite top before discriminability is
+  ever asked. **Ticket 10 §5 had already written a degenerate line** (`ToExistingAtom // atom |
+  :nothing` *is* `atom`). The shape stays untagged and **the collapse is an error at the
+  declaration** — 09's rule turned on the prelude, diagnostic landing where the fix is; tagging both
+  channels was refused because the cost falls on `as T`, the showcase narrowing. The rule for the
+  two spellings is **absence carries nothing, failure carries a reason**: `option<T> = T |
+  :nothing` bare, `result<T, E> = T | (:error, E)` tagged — **and the tag is a consequence of the
+  payload, not a separate choice**, since `atom | (:error, binary)` does *not* collapse where `atom
+  | :error` does. So the payload is what makes the channel survive, not merely what makes it
+  informative. **Amends ticket 11**: `ValidateAs<T>` returns `result<T, ValidationError>`. `raise`
+  takes **any term** (exactly `:erlang.error/1`) sharing its vocabulary with `E`, which makes
+  escalation an ordinary three-line function rather than a `?` operator. **There is no `try` in the
+  surface**: measured, `monitor`+`receive` replaces it for *remote* failure using only ticket 14's
+  `receive`, and yields a **better** reason than `try` does — leaving foreign in-process throws as
+  the only gap, closed by a compiler-emitted wrapper from the declared return type, the fourth
+  codegen obligation. **Gleam was measured into this position, not the stricter one** — no surface
+  `rescue`, nine `try`/`catch` in its FFI — so the question was never whether the `try` exists but
+  whether it is *checked* or a human's unverified assertion. `throw` and `exit` get **no spelling to
+  produce** (clause heads and `(:stop, …)` already do their jobs) and the wrapper catches all three
+  classes into `foreign_error`, **safe because exit *signals* are uncatchable** — a locally-raised
+  `exit/1` and a signal are different mechanisms sharing a keyword, so no supervision decision can
+  be swallowed. Sequencing is **required and handed to ticket 17**: `with` is spoken for by ticket
+  26's record update. *A methodological note kept in the file: the first run of 15c reported every
+  case surviving, because the harness wrapped each in `catch` — supplying the protection the probe
+  existed to measure.*
+
 ## Not yet specified
 
 <!-- in-scope fog: real, but not yet sharp enough to phrase as a ticket -->
@@ -421,6 +452,12 @@ spec exists.
   *recursive plus parametric* would be the combination that breaks the budget is now bounded by
   the four things 27 refused — no inference, no intersection arrows, no bounds, no row variables —
   so what the skeleton measures is a matching problem, not tallying in its general form.
+  **Ticket 15 adds a sixth measurement and a new obligation.** The **compiler-emitted foreign
+  wrapper** is the fourth codegen obligation, and the first whose cost is per *call site* rather
+  than per type — it stacks with `ValidateAs<T>`'s traversal, and a program calling Erlang in a
+  loop pays it repeatedly where the traversal is paid once. Also owed: confirmation that the
+  emitted `try` survives the abstract-format path unchanged across the pinned OTP range, since
+  ticket 13's `-spec` widening was already found to be silent about what it loses.
 - **The typed model of OTP itself** — new with ticket 14, and distinct from the corpus that proves
   it. The language knows behaviour contracts and system-message shapes as types. Open: which
   behaviours ship built in (gen_server, supervisor, application, gen_statem, gen_event), how a
@@ -468,7 +505,13 @@ spec exists.
   `ValidateAs<T>`) and OTP's system-message shapes. 27 also gives stratum 2 its first hard rule —
   **a codegen obligation requires a ground type argument** — which is a property no stratum-1
   definition has, and is therefore a candidate for what actually distinguishes the two strata,
-  rather than "could a user have written it".
+  rather than "could a user have written it". **Ticket 15 populates both strata further and adds a
+  wrinkle**: `result<T, E>` joins stratum 1 (an ordinary parametric alias), `foreign_error` joins
+  stratum 2 — but `foreign_error` is *not* a codegen obligation and takes no type argument, so it
+  fails 27's candidate criterion while still belonging to the compiler-known stratum. **So the
+  distinguishing property is neither "could a user have written it" nor "requires a ground type
+  argument"**; the open question is sharper than either. A third candidate: stratum 2 is what the
+  compiler *draws inferences from*, whether or not it generates it.
 - **Consuming Gleam and Elixir libraries** — possible, and at what ergonomic cost. **Sharper
   after ticket 10 §7**, which measured Gleam's representation rather than reading it: fieldless
   variants are bare atoms, variants with fields are tagged tuples, PascalCase becomes

@@ -80,6 +80,30 @@ An interned constant, written `:name`. Each atom is its own singleton type; the 
 and nothing declares an atom.
 _Avoid_: symbol, enum member, constant, tag
 
+**option&lt;T&gt;**:
+`T | :nothing`. The **absence** channel: a value is missing, and there is nothing further to say
+about why. Bare because absence carries no information. Partial — an instantiation whose `T`
+absorbs `:nothing` is rejected at the declaration.
+_Avoid_: maybe, nullable, optional
+
+**result&lt;T, E&gt;**:
+`T | (:error, E)`. The **failure** channel: something went wrong and there is a reason to carry.
+Tagged because it carries a payload, not for discrimination's own sake. The success side is
+untagged — there is no `:ok`.
+_Avoid_: either, try, outcome, Result with an ok tag
+
+**foreign_error**:
+`(:error, term) | (:throw, term) | (:exit, term)`. The `E` produced by a compiler-emitted foreign
+wrapper, preserving *which* of the BEAM's three exception classes fired. Compiler-known: a user
+cannot mint one.
+_Avoid_: exception, error tuple, catch result
+
+**Exit signal**:
+A process-termination signal delivered from another process. **Not catchable** — distinct from a
+locally-raised `exit`, which is, despite sharing the keyword. The distinction is why a foreign
+wrapper may catch all three classes without swallowing a supervision decision.
+_Avoid_: exit, exception, kill
+
 **Prelude**:
 The definitions and codegen obligations available without import.
 _Avoid_: stdlib, core, builtins, runtime
@@ -93,9 +117,20 @@ though the language has those.
 _Avoid_: generic, template, macro, intrinsic
 
 **ValidateAs&lt;T&gt;**:
-A generated deep structural check that a `term` inhabits `T`, called explicitly. Rejects arrow
-types at compile time, since a fun's type is not recoverable at runtime.
+A generated deep structural check that a `term` inhabits `T`, called explicitly. Returns
+`result<T, ValidationError>`. Rejects arrow types at compile time, since a fun's type is not
+recoverable at runtime.
 _Avoid_: cast, coercion, decoder, parser, validator
+
+**ValidationError**:
+`ValidateAs<T>`'s reason: a path into the offending term plus the type expected there. A tuple
+today; a record candidate if one is ever introduced.
+_Avoid_: DecodeError, error message, failure
+
+**Foreign wrapper**:
+The `try`/`catch` the compiler emits around a foreign call declared to return a `result`. The only
+place exception handling exists — there is no `try` in the surface language.
+_Avoid_: FFI shim, catch block, rescue, guard
 
 **ParseAtom&lt;T&gt;**:
 A generated check that a runtime-built value is one of `T`'s atoms.

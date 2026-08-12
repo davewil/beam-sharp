@@ -124,3 +124,19 @@ problem we are working on"*).
 
 **What is not expressible, so this ticket should not design around it**: a shared function over
 unrelated record types that happen to share a field. That is a capability constraint → ticket 16.
+
+## Constraints from ticket 15 — resolved 2026-08-12
+
+**Two, one of which narrows this ticket's construction-syntax question.**
+
+- **`with` is spoken for.** Ticket 15 needed a sequencing construct for fallible steps and could not
+  use Elixir's `with`, because this ticket owns `with` as record update and ticket 05 found it
+  becomes *more* central here than in C#, there being no mutation at all. The sequencing spelling
+  went to ticket 17 instead. **So this ticket's `with`-versus-spread question is now free of that
+  collision** — but it should decide knowing that `with` has been reserved on its behalf, and that
+  reserving it is what pushed a construct onto another ticket.
+- **`ValidationError` is a record candidate.** Ticket 15 fixed `ValidateAs<T>`'s reason as a path
+  into the offending term plus the type expected there, spelled as a tuple *because this ticket has
+  not settled what a record is*. If a record form lands, this is the first compiler-generated value
+  that would plausibly become one — and it is generated, not written, so it is also a test of
+  whether the record surface is something codegen can emit cleanly.
