@@ -128,6 +128,15 @@ spec exists.
   **It also amended ticket 00** — multi-clause heads are notationally, not semantically,
   distinct from Gleam's multi-subject `case`; the differentiator is now a stated design
   preference. Do not re-derive this.
+- [Head and guard syntax](issues/08-head-and-guard-syntax.md) — **the surface is settled.**
+  Guards use the **expansion rule** (verified on Elixir 1.19.5: *"Only macros can be invoked
+  inside a guard"*), with a **`guard` modifier** for named guards — `defguard` with a different
+  spelling. Same-arity dispatch is a **union parameter**, not overload signatures, which means
+  **one arrow per arity** and simplifies ticket 04's per-arrow check to a single pass. Defaults
+  and variadics both kept, with arity generation as codegen — but **defaults cannot express the
+  accumulator pair**, since they cannot change a parameter's type. `dynamic` narrowing is
+  **always written**, never inferred: neither audience expects implicit cast insertion.
+  Declarations file is `index.bs`. List patterns are prefix-plus-rest only.
 - [Compilation targets](issues/02-compilation-targets.md) — **three tiers, not a binary.** The
   **Abstract Format expresses multi-clause heads natively** (a function *is* a clause list);
   Core Erlang does not at the head but hands you the primitive one level down, costing a

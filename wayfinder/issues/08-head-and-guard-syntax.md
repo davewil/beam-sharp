@@ -1,7 +1,65 @@
 # 08 — Multi-clause head and guard syntax
 
 Type: grilling
-Status: claimed
+Status: resolved
+
+## Answer — the surface is settled
+
+Decided 2026-08-12 under the map's audience constraint (**C# *or* TypeScript**), so a construct
+familiar to either counts as borrowed.
+
+| | Decision |
+|---|---|
+| Clause shape | Variant A — signature names the function once, clauses are bare (ticket 01) |
+| Clause arrow | `->`; `=>` reserved for lambdas |
+| Guards | Expansion rule; `guard` modifier for named guards |
+| Guard operators | `&&` / `||` |
+| `dynamic` in a guard | Always written — `(d as int) > 0`, or a type pattern in the head. **No inference.** |
+| Same-arity dispatch | Union parameter — `string Describe(int \| Order)`. **One arrow per arity.** |
+| Defaults & variadics | Both kept; arity generation is codegen |
+| Accumulator pairs | Two functions sharing a name — defaults cannot express it |
+| List patterns | Prefix-plus-rest only |
+| Parameter names in signatures | Dropped — types only |
+| Declarations file | `index.bs` |
+| `Self` | No keyword — the compiler supplies the module |
+| Short-name collisions | Convention, not a language rule |
+
+### `dynamic` narrowing is always written
+
+**Neither audience expects implicit cast insertion.** TypeScript narrows explicitly — `typeof x
+=== 'number'`, or an `as` the programmer writes — and never inserts one. C# has no implicit
+narrowing conversions either. Gradual-typing cast insertion would be theoretically correct and
+unfamiliar to both.
+
+It also avoids a silent divergence: inferring `as number` for `when d > 0` makes `:foo > 0`
+**false**, where Erlang says **true** via the standard term order. Written narrowing puts that
+divergence in the source where a reader can see it.
+
+Explicit costs keystrokes, which is a **write** cost, and the standing constraint says those carry
+little weight. It buys visibility, which is a **read** cost, and those carry full weight.
+
+### Three items closed by decisions made elsewhere
+
+- **`(0)` and `()` at unary and nullary arity.** The objection was that a nameless clause head
+  reads as a C# lambda. `->` removed it: `(0) -> 0;` cannot be a lambda where lambdas take `=>`.
+- **Signature-to-clause drift.** Impossible under directory-as-module with one function per file —
+  the signature and its clauses are the only things in the file.
+- **Nested directories.** Fine when they are a *distinct module* (`order/` and `order/server/` are
+  two modules). Forbidden for *grouping within* one module (`server/api/`, `server/callbacks/`),
+  which is what would reintroduce the OTP facade problem. Clears a fog item.
+
+### Module references are first-class values
+
+A module name in value position is its BEAM atom. Forced by interop — `spawn(Mod, Fun, Args)`,
+`apply/3`, supervisor child specs and `code:which` all take one — and it costs nothing, since the
+name already resolves.
+
+### Note on the prototypes
+
+Prototypes 01–01g predate several of these and are **stale in places**: they use `=>` for clauses
+throughout, and `#{}` for map literals, which the map-versus-record syntax question has not
+settled. They are throwaway artifacts and will not be rewritten; read this ticket for the surface,
+not them.
 Blocked by: 01, 05
 
 ## Question

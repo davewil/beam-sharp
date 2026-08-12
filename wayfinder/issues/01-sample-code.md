@@ -1,7 +1,7 @@
 # 01 — What does a page of idiomatic beam-sharp look like?
 
 Type: prototype
-Status: claimed
+Status: resolved
 
 ## Question
 
@@ -24,14 +24,27 @@ genuinely open, show two variants side by side rather than picking silently.
 The resolution should record which choices felt right, which felt wrong, and — most
 valuable — which arguments the concrete code settled that prose was circling.
 
-## Interim — not resolved
+## Answer
 
-> **Closed prematurely on 2026-08-11 and reopened.** Variant A was chosen on the evidence of a
-> single four-clause function; every substantial example in the first prototype was written in
-> Variant B. The clause shape cannot be judged from a toy, and the point of this ticket is a
-> long considered look. A second prototype writes a realistic module set entirely in Variant A.
-> What follows below stands, except that "settled" now means "chosen, pending reading it at
-> length".
+> **Closed prematurely on 2026-08-11 and reopened**, because Variant A had been chosen on the
+> evidence of a single four-clause function while every substantial example was written in
+> Variant B. Six further prototypes followed — Variant A at length, module-as-focus,
+> source-versus-real sub-modules measured on OTP 28, OTP callbacks under directory-as-module,
+> and the closing syntax questions. **Resolved properly 2026-08-12**, after
+> [ticket 08](08-head-and-guard-syntax.md) settled the three items handed to it.
+
+**Seven prototypes**, two of them executable: `01-sample-code.md`, `01b-variant-a-at-length.md`,
+`01c-module-as-focus.md`, `01d-submodule-realisation.md`, `01e-otp-under-directory-module.md`,
+`01g-closing-the-syntax.md`, plus the runnable `01_counter_lowering.erl` and
+`01f_orders_lowering.erl`.
+
+**What the ticket settled**: Variant A · module-as-focus · directory-as-module · source-only
+sub-modules · `->` for clauses and `=>` for lambdas · `&&`/`||` guards · `:atom` · expression-`if`.
+Everything else went to ticket 08, which has since closed it.
+
+**Two things the prototypes overturned that prose had not**: multi-clause heads are notationally
+rather than semantically distinct from Gleam's multi-subject `case`, and running the lowerings
+found two errors in sample code that had only been read.
 
 Prototype: [`wayfinder/prototypes/01-sample-code.md`](../prototypes/01-sample-code.md), with a
 runnable Erlang lowering at [`01_counter_lowering.erl`](../prototypes/01_counter_lowering.erl).
@@ -74,19 +87,18 @@ ticket 02's mechanical Core Erlang rewrite proves the equivalence. The different
 [ticket 00](00-charting-decisions.md) has been amended to a stated design preference; see the
 amendment there, and do not re-derive it.
 
-**Left open, and now owned by their own tickets:**
+**Handed on, and now all closed except the last:**
 
-- **Atom literal** — `:atom` versus `#atom`. `:` collides with both the ternary operator and
-  the base-type list separator (`module Counter : GenServer`), visible in the prototype itself.
-  → [ticket 10](10-atoms-in-a-csharp-skin.md).
-- **Guard punctuation** — the prototype's ugliest line is `when amt > 0, amt <= a.Balance`,
-  keeping Erlang's `,`/`;` conjunction with its fail-to-false semantics rather than `&&`/`||`.
-  → [ticket 08](08-head-and-guard-syntax.md).
-- **Doubled parentheses** on single-argument clauses — `Classify((:ok, n))` — afflict Variant A
-  as much as B. → [ticket 08](08-head-and-guard-syntax.md).
-- No binary patterns appear anywhere in the prototype, deliberately: ticket 04 found binaries
-  are *untheorised* in the set-theoretic literature, so inventing syntax would have been
-  fiction. → [ticket 20](20-untheorised-term-shapes.md).
+- ~~**Atom literal**~~ — `:atom`, after both objections against it failed: no BEAM language has a
+  ternary, and `{ Status: :draft }` is exactly what Elixir writes as `%{status: :draft}`.
+  → [ticket 10](10-atoms-in-a-csharp-skin.md), settled.
+- ~~**Guard punctuation**~~ — `&&`/`||`, because a guard over typed values cannot fail, which is
+  the only thing fail-to-false exists to handle. → [ticket 08](08-head-and-guard-syntax.md), settled.
+- ~~**Doubled parentheses** on single-argument clauses~~ — closed by choosing `->` for clauses;
+  `(0) -> 0;` cannot be read as a lambda. → [ticket 08](08-head-and-guard-syntax.md), settled.
+- **No binary patterns appear anywhere in the prototypes**, deliberately: ticket 04 found binaries
+  are *untheorised* in the set-theoretic literature, so inventing syntax would have been fiction.
+  **Still the largest gap in the design.** → [ticket 20](20-untheorised-term-shapes.md).
 
 ## Notes
 
