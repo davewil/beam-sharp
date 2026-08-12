@@ -80,3 +80,31 @@ for opinionation that a human-authorship analysis would not produce.
   agents author and humans review, so generated code is the one place that constraint has no
   purchase. Decide what the language owes a reviewer here — emitted source, a documented lowering,
   or nothing.
+
+## Constraints from ticket 12 — resolved 2026-08-12
+
+**A runtime analogue of ticket 04's residual now exists, and it was nearly thrown away.**
+
+This ticket records that the exhaustiveness residual *is* the clause an agent needs to write — a
+compile-time diagnostic. Ticket 12 §6 found the runtime counterpart: the compiler-generated
+failure arm produces `error:function_clause` with the frame
+`{Module, Function, [c], [{file,…},{line,…}]}` — **naming the exact value that defied the types**.
+Omitting the arm to save 40 bytes (4.8%) replaces it with `error:if_clause` and
+`{Module, Function, 1, []}`: the wrong error class, an arity instead of the argument, no file, no
+line. Measured on OTP 28, [`prototypes/12a_failure_arm.erl`](../prototypes/12a_failure_arm.erl).
+
+So the diagnostic question this ticket owns extends past compile time. **An agent debugging a
+running system reads crash reports**, and the same principle applies: the frame that names the
+offending value is the one that hands the agent its next task. Add to this ticket's scope whether
+the runtime failure carries a machine-readable form too, not only the compile-time diagnostic.
+
+**A scaffolding obligation, from ticket 12 §3.** The boundary stance is signature-directed — write
+the honest value your return type admits, `raise` only where it admits none — but the language
+cannot *enforce* it, because the clause body is user code. So the stance reappears here as a
+**generator default**: what does scaffolding put in a mandatory boundary clause? Under agent
+authorship the generated default becomes what most code actually does, which makes this a real
+decision rather than a cosmetic one.
+
+**And a related surface**: ticket 12 §2 makes `_` an error over a *closed* residual — the compiler
+knows the case names. That diagnostic should therefore be able to emit the missing clause heads
+directly, which is the strongest instance yet of "the residual is the clause you must write".

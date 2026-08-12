@@ -64,3 +64,27 @@ HITL for the reactions; the lowerings are AFK. Raised 2026-08-12.
 
 Unblocked — any exemplar can be written at any time — but most valuable written *after* the ticket
 it exercises has a candidate answer, so it tests something rather than inventing it.
+
+## A question ticket 12 hands to these exemplars — 2026-08-12
+
+Ticket 12 §2 decided a catch-all is legal **only over an open residual**: `_` is permitted where
+what remains contains an unbounded top (`term`, `atom`), and is an **error** where the residual is
+closed and the compiler knows the case names.
+
+That decision rests on an empirical claim these exemplars can test: **that deliberately closing a
+finite residual is rare.** If it turns out common, forcing every case to be named is a real tax and
+a marked spelling for a deliberate close is worth inventing; if rare, such a spelling is ceremony.
+
+Ticket 12 accepted the rule as a **tier-3 invention** — neither audience expects `_` to be
+conditionally legal — so evidence either way is worth having before the spec is written.
+
+Where it should bite hardest:
+
+- **Database querying** — result-set shapes and column unions, where a `_` over a known set of
+  column types is the tempting move.
+- **Event-queue consumer** — a large, closed domain event union, handled partially on purpose
+  because most events are not this consumer's business.
+- **HTTP API server** — routing as multi-clause dispatch over a closed route union.
+
+Record, for each: how many times a closed residual was closed deliberately, and whether naming the
+cases instead read better or worse.

@@ -1,8 +1,8 @@
 # 12 — Totality versus let-it-crash
 
 Type: grilling
-Status: open
-Blocked by: 04, 11
+Status: resolved
+Blocked by: 04, 11 — both resolved
 
 ## Question
 
@@ -81,3 +81,270 @@ HITL. This is where the language's philosophy gets decided, not merely its seman
   Decide whether that generalises or is an exception.
 - **There is no `dynamic`**, so "let it crash" cannot be reached by weakening a type. The only
   routes into a crash are an explicit clause body or an unhandled foreign term.
+
+## Answer — resolved 2026-08-12
+
+**Totality is enforced, and let-it-crash is how you spell partiality.** The two were never
+opposed; ticket 06 had already shown the enemy is *silence*, not the crash. Six decisions.
+
+### 1. A non-exhaustive function is a hard error, with no opt-out
+
+Being partial means writing a clause whose body crashes. There is no `Partial` constraint, no
+`[partial]` attribute, and no warning level.
+
+**Two of this ticket's own four candidates were already dead** when it was picked up. "Total only
+where the input type is fully known, and dynamic elsewhere" and "totality at typed boundaries,
+abandoned at dynamic ones" both presuppose a dynamic region to abandon totality *to*, and
+[ticket 11](11-type-system-shape.md) removed it. Every argument carries a declared type, `term`
+*is* a declared type, and exhaustiveness against `term` is well-posed — the residual stays
+non-empty until a catch-all exists. So the choice was only ever about enforcement strength.
+
+Three prior decisions pointed the same way:
+
+- **Ticket 04 makes the question always answerable.** Exhaustiveness is only well-posed against a
+  *declared* input type — which is why Elixir cannot check it (it builds the function type *from*
+  the clauses, making the check vacuous) and CDuce can. Ticket 04 turned that into a binding
+  constraint: multi-clause functions carry signatures. A warning is what you ship when the check
+  is sometimes unavailable; here it always is.
+- **[Ticket 21](21-escape-hatch-precedents.md) supplies the discriminator**: Microsoft's named
+  successor to Code Contracts was nullable reference types — *the contract that survived is the
+  one that became a type*. A warning-level exhaustiveness check is precisely a contract that did
+  not become a type. [Ticket 07](07-csharp15-and-ts-unions.md) found C# 15's unions do exactly
+  that (exhaustiveness suppresses a *warning*), and Elixir 1.20 ships redundancy only. If
+  beam-sharp's guarantee is also warning-shaped, [ticket 00](00-charting-decisions.md)'s
+  differentiator evaporates.
+- **The standing constraint**: a warning is something an agent in a loop steps over; an error is a
+  task. Ticket 04 established the residual *is* the missing clause, so the error hands the agent
+  the code it must write — which only works if the compiler stops.
+
+**What was given up**: PureScript's `Partial` was the most attractive option on the table, and it
+maps unusually well onto let-it-crash (a declared, greppable, propagating crash obligation). It
+lost on two counts. [Ticket 19](19-purescript-backend-erl-audit.md) found `Partial` **does not
+survive to codegen** — erased before CoreFn, so it is a compile-time fiction in a language whose
+checker computes exactly the fact that backend lacks. And a propagating constraint is a second
+effect system running alongside a set-theoretic type system whose tallying algorithm ticket 04
+found has **no complexity bound in the literature**. See §5 — the greppable-crash-site benefit
+came back anyway, through the bottom type.
+
+### 2. A catch-all is legal only over an *open* residual
+
+When the checker computes a residual it is one of two shapes, and the language treats them
+differently:
+
+- **Closed** — built only from cases you declared. `type Event = OrderPlaced | OrderShipped |
+  OrderCancelled;` with two handled leaves the residual `OrderCancelled`, and **the compiler knows
+  its name**. `_` here is an error: name the case. This is the defect the language exists to catch,
+  and a catch-all would make the function unfalsifiable when a fourth event is added.
+- **Open** — contains an unbounded top. A `term` argument's residual is `term \ (what you
+  matched)`; [ticket 10](10-atoms-in-a-csharp-skin.md) made `atom` the cofinite top with exactly
+  this representation. It cannot be enumerated because a foreign sender chooses the inhabitants, so
+  a catch-all is the only possible answer — and ticket 11 already *forces* one.
+
+This answers the tension [ticket 01](01-sample-code.md) raised: *a catch-all makes a function total
+and therefore unfalsifiable*. Under a hard error the catch-all would otherwise be the universal
+escape, and the cheapest way to satisfy the compiler is always to stop telling it things.
+
+**The showcase lands on the permissive side without special pleading.** `handle_info` receives
+OTP's `{'EXIT', pid, reason}`, `{'DOWN', ...}`, timeouts and stray messages; those arrive as `term`,
+the residual is open, and the catch-all is legal because it is genuinely unavoidable.
+
+**Cost, stated honestly**: this is a tier-3 invention. C#'s `_` in a switch arm is just a pattern
+and TypeScript's `default` is just a branch; neither audience expects `_` to be *conditionally
+legal*, so it fails the read-on-sight test. It was accepted because the alternative fails a more
+expensive test — a uniform `_` puts the headline guarantee one character from being switched off,
+silently, with no trace in the diff. Ticket 21's finding applies: the mechanism that works is the
+one **the tool that already builds the code** runs, and the checker is already computing the
+residual.
+
+**Open question handed to [ticket 25](25-exemplar-programs.md)**: how often closing a *finite*
+residual is genuinely wanted. If common, forcing every case to be named is a tax and a marked
+spelling for a deliberate close is worth inventing; if rare, it is ceremony. The database and
+event-queue exemplars are where this should bite.
+
+### 3. The boundary stance is signature-directed
+
+**Write the honest value your return type admits; `raise` only where it admits none.**
+
+Ticket 11 left the boundary clause *forced to be written, but not forced to do anything*. The
+candidate answer was positional — crash in a call, continue in a loop — and writing the two rules
+out showed they are one rule:
+
+```csharp
+(:reply, int, Account) HandleCall(term, From, Account);
+
+((:withdraw, amt), _, a) when amt > 0 && amt <= a.Balance -> (:reply, a.Balance - amt, a);
+((:balance), _, a)                                        -> (:reply, a.Balance, a);
+(_, _, _)                                                 -> raise :bad_request;
+```
+
+```csharp
+(:noreply, Account) HandleInfo(term, Account);
+
+((:DOWN, _, :process, pid, _), a) -> Accounts.Detach(a, pid);
+((:timeout, _), a)                -> Accounts.Sweep(a);
+(_, a)                            -> (:noreply, a);
+```
+
+`HandleCall`'s declared return `(:reply, int, Account)` contains **no honest value** for an
+unrecognised request — the alternatives to crashing are fabricating an integer (a lie the type
+system accepts) or not returning (unavailable). `HandleInfo`'s `(:noreply, Account)` makes
+`(:noreply, a)` completely honest: the message was not addressed to you, and saying so is the
+declared behaviour, not silence. **The position was never the operative fact; the return type was.**
+
+The test is wanting the other behaviour. You do not reach for a different rule — you widen the
+signature, and the value channel appears:
+
+```csharp
+(:reply, int | :bad_request, Account) HandleCall(term, From, Account);
+...
+(_, _, a)                                                 -> (:reply, :bad_request, a);
+```
+
+The crash disappeared because the author declared somewhere for the failure to go. **This is
+ticket 21's discriminator applied to this ticket**: the crash-versus-value decision *became a
+type*, visible in the contract a caller sees, rather than a convention a reviewer must police.
+
+**So `ValidateAs<T>` returning `T | :error` is not an exception to a rule** — it is a signature
+that declared a failure channel. The interrogative/declarative distinction considered earlier is
+unnecessary; the signature already says it.
+
+Two honest limits. *Honest* is not a compiler check — the compiler says what is **available**, only
+the author knows whether `(:noreply, a)` is truthful or a shrug; what the language guarantees is
+that the shrug was deliberate, because the clause had to exist. And the language cannot enforce a
+stance at all, since the clause body is user code: what a stance buys is what the spec recommends
+and what scaffolding generates (→ [ticket 23](23-what-the-language-owes-an-agent.md)).
+
+### 4. The bottom type is `none`, fully first-class
+
+For `raise` to type-check in a position declared `(:reply, int, Account)`, the language needs a
+type inhabited by nothing and therefore a subtype of every type. Ticket 11 named the top and never
+named the bottom.
+
+**Ticket 11's reasoning for `term` transfers without adjustment.** It overrode the borrow heuristic
+there — TypeScript's `unknown` is tier 1 and was rejected — because the top is a *set* you take
+complements of rather than an epistemic state, and because it matches the emitted `-spec`. Both
+hold for the bottom. Taking TypeScript's `never` while the top is `term` would name one lattice
+from two heritages, in the one place where both names are always read together.
+
+Verified locally (OTP 28, see [`prototypes/12d_bottom_type.erl`](../prototypes/12d_bottom_type.erl)):
+`none()` and `no_return()` are predefined; `never()` is undefined (`type never() undefined`); and
+`erl_types:t_none()` prints the empty type as `none()`.
+
+**First-class, not checker-internal.** Diagnostics are an interface here: ticket 04 established the
+residual *is* the missing clause, and when a function is exhaustive that residual is the bottom, so
+the name appears in compiler output whether or not it appears in source. A type an agent reads in a
+diagnostic but cannot write in a signature is a gratuitous asymmetry, and `term` is writable.
+
+**Known false friend, to be stated in the spec**: `none` (a type with no values) against the
+prelude's `:nothing` (a value meaning absence, ticket 10 §5). They read as near-synonyms and are
+opposites — `-> none` means *does not return*, not *returns nothing*. Same treatment as `as`
+meaning C#'s checked conversion rather than TypeScript's unchecked assertion.
+
+### 5. A deliberate crash is spelled `raise`
+
+A tier-2 borrow — Elixir's — not an invention and not C#'s `throw`.
+
+**C#'s `throw` was the tier-1 candidate and it is stronger than it first looks**: C# 7 already made
+`throw` an expression (`x ?? throw new ArgumentNullException()`), which is exactly the bottom-typed
+form needed. It fails on semantics, which is what tier 1 is explicitly about. **The BEAM already
+uses `throw` for the *catchable* non-local-return class**, so a BEAM reader would read recoverable
+where the language means fatal — a false friend that fails unsafe.
+
+Verified (Elixir 1.19.5, [`prototypes/12b_raise_classes.exs`](../prototypes/12b_raise_classes.exs)):
+
+| spelling | class |
+| -- | -- |
+| `raise "boom"` | `{:error, %RuntimeError{}}` |
+| `:erlang.error(:boom)` | `{:error, :boom}` |
+| `throw(:boom)` | `{:throw, :boom}` |
+| `exit(:boom)` | `{:exit, :boom}` |
+
+`raise` produces the **same class as `:erlang.error/1`** — the one that kills processes and that
+`function_clause` belongs to. No collision.
+
+**Both neighbours chose a keyword over a function**, which settles the other half. A crash could
+have been an ordinary prelude function typed `-> none`, needing no grammar change at all; it was
+rejected on read cost — lexically identical to a call, the callee's signature in a *different file*
+under one-function-per-file, and no single token that finds every crash site. Gleam is the decisive
+evidence: a statically typed BEAM language that had the function option available and declined it.
+Verified on Gleam 1.18.1 ([`prototypes/12c_gleam_panic.gleam`](../prototypes/12c_gleam_panic.gleam)),
+`panic as "..."` compiles in a `case` arm whose siblings return `String`, so it is bottom-typed
+exactly as `raise` must be. Elixir's `raise` was preferred over Gleam's `panic` because `panic`
+connotes an impossible state where the common case here is an ordinary foreign term, and Elixir is
+the larger interop surface (ticket 06).
+
+**The `Partial` benefit returns here.** A user may declare their own `none Reject(Reason);`, and
+its type says it never returns — a named, greppable, type-checked crash site, obtained from the
+lattice rather than from a propagating constraint. `raise` is simply the primitive.
+
+Payload, and whether `throw`/`exit` also surface, is [ticket 15](15-error-model.md)'s.
+
+### 6. The failure arm is always emitted — *this reverses this ticket's own prior note*
+
+The "Prior art" section above argued that beam-sharp's checker computes exactly the fact
+purescript-backend-erl lacks, so proving coverage should let codegen omit the failure arm, and
+called that *"a concrete, measurable payoff... worth stating in the spec"*. **Measured, it is not.**
+
+Method (OTP 28, [`prototypes/12a_failure_arm.erl`](../prototypes/12a_failure_arm.erl)): compile to
+Core Erlang, strip the `compiler_generated` `match_fail` clause, recompile with `+from_core`.
+
+| | error class | top stack frame | size |
+| -- | -- | -- | -- |
+| **with** the arm | `error:function_clause` | `{partial, [c], [{file,...},{line,28}]}` | 832 b |
+| **without** | `error:if_clause` | `{partial, 1, []}` | 792 b |
+
+**40 bytes, 4.8%.** What it costs is the whole crash report: the wrong error class — `if_clause`,
+for a failure with no `if` in it — an arity in place of the offending argument, and no file or
+line. The surprise is that omission does not produce undefined behaviour or a silent fall-through;
+it produces a crash that **mislabels itself**, so you pay failure's cost without getting the
+information failure buys, and a reader is actively misled.
+
+**That frame is the property this project has twice identified as most valuable.** Ticket 04: the
+residual *is* the missing clause. Ticket 23: what do diagnostics owe an agent in a loop.
+`{partial, [c], ...}` is the runtime analogue — it hands you the exact value you failed to handle.
+
+**A second reason, independent of diagnostics: `erlc`'s omission and beam-sharp's are not the same
+operation.** When `erlc` drops the arm it has proved coverage over **all terms** — `total/1` lowers
+to `fun (_0) -> 1` with no `case` at all — so nothing can defy it. beam-sharp's exhaustiveness is
+over the **declared type**, a strictly smaller set, and ticket 06 found values outside it arrive
+through eight channels. Ticket 21 closes the escape: no link-time closure on the BEAM (`apply/3`,
+no visibility modifiers, hot code loading), so "no foreign caller exists" is unprovable.
+
+**Restricting omission to non-exported functions does not work** — a foreign value entering through
+an exported function reaches private ones unchallenged. It collapses into the sound version, which
+is: omit only where a boundary guard has already rejected defying values. That is
+[ticket 18](18-boundary-defence.md)'s decision, and it now has a concrete reason to emit guards.
+
+**This answers the ticket's second explicit ask.** *If a clause is proven exhaustive but the runtime
+value defies it, what happens, and does the process still die cleanly?* **Yes — `function_clause`,
+naming module, function, offending argument, file and line, which is what a supervisor should log.**
+That is deliberately paid for at ~40 bytes per function.
+
+**Alignment for [ticket 13](13-compilation-target-decision.md)**: this is only a *choice* on the
+Core Erlang path. Emitting Abstract Format means `erlc` inserts the arm and it cannot be
+suppressed — so the target ticket 02 favours makes the safe answer free, and only the Core path,
+which already forfeits `-spec` and Dialyzer, offers the 40 bytes.
+
+### The guarantee is unchanged
+
+Ticket 11 chose its sentence to be stable whichever way this ticket went, and it is:
+
+> **Every case your types admit has a clause — and everything from outside is a `term` until you
+> match it.**
+
+### Consequences propagated
+
+- **[14 — concurrency and the OTP model](14-concurrency-and-otp-model.md)** — inherits real weight.
+  Callback return types now carry the crash decision (§3), so choosing `HandleInfo`'s and
+  `HandleCall`'s return types decides where crashing is the only honest answer.
+- **[15 — error model](15-error-model.md)** — `raise` exists and produces the error class. Payload,
+  the `throw`/`exit` trio, and `try`/`catch` remain 15's.
+- **[18 — boundary defence](18-boundary-defence.md)** — emitted guards are the only sound route to
+  the codegen saving (§6). Still blocked on 22.
+- **[13 — compilation target](13-compilation-target-decision.md)** — Abstract Format makes §6 free;
+  Core Erlang is the only path where the 40 bytes are even available.
+- **[23 — what the language owes an agent](23-what-the-language-owes-an-agent.md)** — the
+  `function_clause` frame is the runtime analogue of ticket 04's residual; and scaffolding must
+  generate a boundary-clause body, so §3's stance reappears as a generator default.
+- **[25 — exemplar programs](25-exemplar-programs.md)** — owes the empirical answer on how often a
+  *closed* residual is deliberately closed (§2).

@@ -265,6 +265,34 @@ spec exists.
   generics** (→ ticket 27), and my own claim that OTP prefers MFA because funs go stale is true of
   **closures only** — `fun M:F/1` is late-bound and survived a purge that killed a closure.
 
+- [Totality versus let-it-crash](issues/12-totality-vs-let-it-crash.md) — **the two were never
+  opposed; let-it-crash is how you spell partiality.** Exhaustiveness is a **hard error with no
+  opt-out** — two of the ticket's four candidates were already dead, since both presupposed a
+  dynamic region ticket 11 removed. PureScript's `Partial` lost twice over: ticket 19 found it
+  **erased before codegen**, and a propagating constraint is a second effect system beside an
+  algorithm ticket 04 found has no complexity bound. A **catch-all is legal only over an *open*
+  residual** — permitted where an unbounded top remains (and ticket 11 already forces it), an error
+  where the residual is closed and the compiler knows the case names; a tier-3 invention, accepted
+  because a uniform `_` puts the headline guarantee one character from being switched off
+  invisibly. The boundary stance is **signature-directed**: write the honest value your return type
+  admits, `raise` only where it admits none — so "crash in a call, ignore in a loop" is only the
+  shadow cast by two return types, and **`ValidateAs<T>`'s `T | :error` is not an exception but a
+  declared failure channel**. This is ticket 21's discriminator again: the decision *became a type*.
+  The bottom is **`none`, first-class** (verified: `never()` is undefined on OTP 28, `erl_types`
+  prints `none()`), mirroring ticket 11's `term` override — one heritage names the whole lattice;
+  its false friend is the prelude's `:nothing`. A deliberate crash is **`raise`**, tier-2 from
+  Elixir, verified to produce the **error** class, so C#'s `throw` is out on semantics — the BEAM's
+  `throw` is the *catchable* class. **Both neighbours chose a keyword**, Gleam's bottom-typed
+  `panic` decisively so, having had the function option and declined it — and the `Partial` benefit
+  returns anyway, since a user-declared `none Reject(Reason);` *is* a greppable typed crash site.
+  Finally, **this ticket reverses its own prior note**: the failure arm is **always emitted**.
+  Omitting it saves **40 bytes (4.8%)** and destroys the crash report — `error:if_clause` (the
+  wrong class) with an arity in place of the offending argument. `erlc`'s omission proves coverage
+  over *all terms*; beam-sharp's is over the *declared type*, and ticket 21 says no foreign caller
+  can be ruled out. So **yes, the process still dies cleanly**, deliberately paid for. Emitted
+  guards (→ 18) are the only sound route to the saving, and it is only *available* on the Core
+  Erlang path at all (→ 13).
+
 ## Not yet specified
 
 <!-- in-scope fog: real, but not yet sharp enough to phrase as a ticket -->
@@ -277,7 +305,10 @@ spec exists.
   **Ticket 11 adds a second requirement**: the skeleton must **generate at least one
   `ValidateAs<T>`**, over a recursive type. It is the first codegen obligation whose cost is
   entirely unmeasured — a synthesised O(n) structural traversal — and it stacks with the
-  recursive-type measurement ticket 09 already asked for.
+  recursive-type measurement ticket 09 already asked for. **Ticket 12 adds a third**: measure the
+  retained failure arm at showcase clause counts. It was measured at 40 bytes (4.8%) on a
+  two-clause function; the decision to keep it everywhere was taken without knowing the cost on a
+  40-clause `handle_info`, which is the shape this language advertises.
 - **Module and namespace system**, and function identity — BEAM identifies functions by
   name *and arity*, which multi-clause heads and optional parameters both disturb. **Ticket 10
   §3 adds one requirement**: a module identifier in value position is an atom singleton, so this

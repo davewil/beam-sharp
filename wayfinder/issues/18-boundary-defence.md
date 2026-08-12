@@ -168,3 +168,33 @@ which only makes sense once the claim exists.
   uncallable), so there is no fun-shaped violation to defend against — only MFA, which is data.
 - **The rejected option is recorded as reversible**: higher-order contract wrapping is purely
   additive later. If this ticket wants defended arrows, nothing in ticket 11 blocks it.
+
+## Constraints from ticket 12 — resolved 2026-08-12
+
+**This ticket now has a concrete, measured reason to emit guards** — one that did not exist when it
+was charted.
+
+Ticket 12 §6 rejected omitting the compiler-generated failure arm for functions proved exhaustive.
+Measured on OTP 28: omission saves **40 bytes (4.8%)** and costs the entire crash report — the
+error class becomes `if_clause` (wrong, and there is no `if` involved), and the frame carries an
+arity instead of the offending argument, with no file or line. Evidence:
+[`prototypes/12a_failure_arm.erl`](../prototypes/12a_failure_arm.erl).
+
+The reason the saving is *unsound* rather than merely unattractive is this ticket's subject.
+`erlc` omits the arm only when coverage is proved over **all terms**, so nothing can defy it.
+beam-sharp's exhaustiveness is over the **declared type**, a strictly smaller set, and ticket 06
+found values outside it arrive through eight channels — while ticket 21 established there is no
+link-time closure on the BEAM, so "no foreign caller exists" is unprovable.
+
+**Therefore: emitted boundary guards are the only sound route to the codegen saving.** If this
+ticket decides to emit guards at exported functions, defying values are rejected at the edge and
+internal omission becomes sound rather than optimistic. If it decides not to, the arm stays
+everywhere and the 40 bytes are simply forgone.
+
+Restricting omission to non-exported functions is *not* an alternative — a foreign value entering
+through an exported function reaches private ones unchallenged. It collapses into the guard
+question.
+
+Note also that ticket 12 §6 aligns with ticket 13: on the Abstract Format path `erlc` inserts the
+arm and it cannot be suppressed, so the saving is only *available* on the Core Erlang path, which
+already forfeits `-spec` and Dialyzer.

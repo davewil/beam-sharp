@@ -53,3 +53,34 @@ Three things to settle here that follow directly:
 
 Note there is **no `dynamic`** and no exception-like escape: a `term` is narrowed by a clause head
 or by `ValidateAs<T>`, so every boundary failure is reachable as ordinary control flow.
+
+## Constraints from ticket 12 — resolved 2026-08-12
+
+Ticket 12 settled the *mechanism* for failing-by-crashing and left this ticket everything about
+the *shape* of failure.
+
+**Decided there, binding here:**
+
+- **`raise` is the spelling** for a deliberate crash — a tier-2 borrow from Elixir, verified to
+  produce the **error** class (`{:error, %RuntimeError{}}`), the same class as `:erlang.error/1`.
+  It is deliberately *not* C#'s `throw`, because the BEAM's `throw` is the catchable non-local-
+  return class. Evidence: [`prototypes/12b_raise_classes.exs`](../prototypes/12b_raise_classes.exs).
+- **`none` is the bottom type**, first-class and writable. So a user may declare
+  `none Reject(Reason);` — a named, greppable, type-checked crash site. Any error-model design
+  here can use `-> none` as its "does not return" marker without inventing one.
+- **The stance is signature-directed**: fail through the channel your signature declares; `raise`
+  where it declares none. So *whether* a function fails as a value is a property of its return
+  type, not of a global error-model preference.
+
+**Left open for this ticket:**
+
+- **What `raise` takes.** Elixir's takes a message or an exception struct; beam-sharp has no
+  structs decided (→ ticket 26). An atom? A tagged tuple? A structured value?
+- **Whether `throw` and `exit` surface at all.** The language cannot opt out of the platform's
+  three classes, only decide how it presents them. Ticket 12 committed only to the error class.
+- **Whether `try`/`catch` exists**, unchanged.
+- **The two failure spellings still have no rule.** `ValidateAs<T>` returns `T | :error` and
+  `option<T>` is `T | :nothing`. Ticket 12 §3 explains *when* a failure value rather than a crash
+  is used, but not *which* value.
+- **A false friend to design around**: `none` is a type with no values; `:nothing` is a value
+  meaning absence. They read as near-synonyms and are opposites.

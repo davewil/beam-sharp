@@ -114,3 +114,27 @@ type-derived runtime checks at boundaries.
 - **Arrow types are rejected by `ValidateAs<T>` at compile time**, so no fun-wrapping codegen is
   needed. If ticket 11's deferred option (a runtime type registry keyed by module, to validate an
   external fun against its declared `-spec`) is ever taken up, that lands here.
+
+## Constraints from ticket 12 — resolved 2026-08-12
+
+**A new discriminator between the two live targets, and it favours the Abstract Format.**
+
+Ticket 12 §6 decided the compiler-generated failure arm is **always emitted** — never omitted for
+functions proved exhaustive. Measured on OTP 28: omission saves 40 bytes (4.8%) and destroys the
+crash report, replacing `error:function_clause` carrying `{partial, [c], [{file,…},{line,…}]}` with
+`error:if_clause` carrying `{partial, 1, []}`. Evidence:
+[`prototypes/12a_failure_arm.erl`](../prototypes/12a_failure_arm.erl).
+
+**The interaction with this ticket**: omission is only a *choice* on the Core Erlang path.
+
+- **Abstract Format** — `erlc` inserts the `match_fail` arm itself and there is no way to suppress
+  it from the Abstract Format. The safe answer is free, and unavailable to get wrong.
+- **Core Erlang** — beam-sharp writes the `case` itself and chooses whether to include the
+  `primop 'match_fail'` clause. The 40 bytes are available, and so is the mistake.
+
+So the Core path's only extra capability here is one ticket 12 decided against using, on a target
+that ticket 02 already found forfeits `-spec` publication and fails Dialyzer silently. That is a
+third strike against Core Erlang rather than a point in its favour.
+
+Should this ticket nonetheless choose Core Erlang, ticket 12 §6 binds: emit the arm anyway, unless
+ticket 18 decides to emit boundary guards, which is the only sound route to omitting it.

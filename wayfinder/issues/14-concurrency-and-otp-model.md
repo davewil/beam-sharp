@@ -72,3 +72,34 @@ positions are already runtime-checked by the platform, at no cost to this langua
 
 HITL. The layer where the headline feature best justifies itself, which is why OTP is inside
 the destination rather than deferred.
+
+## Constraints from ticket 12 — resolved 2026-08-12
+
+**This ticket now carries the crash decision.** Ticket 12 settled that the boundary stance is
+**signature-directed**: write the honest value your return type admits, `raise` only where it
+admits none. That makes the callback return types decided here the thing that determines where
+crashing is the only honest answer.
+
+Worked, from ticket 12 §3:
+
+- `(:reply, int, Account) HandleCall(term, From, Account);` admits **no honest value** for an
+  unrecognised request — fabricating an `int` is a lie the type system accepts — so the boundary
+  clause must `raise`.
+- `(:noreply, Account) HandleInfo(term, Account);` makes `(:noreply, a)` completely honest: the
+  message was not addressed to you. No crash needed, and this is *not* silence.
+- Widening to `(:reply, int | :bad_request, Account)` makes the value channel appear and the crash
+  disappear. **The decision moves into the signature**, where a caller can see it.
+
+So: when specifying `HandleCall`, `HandleCast`, `HandleInfo` and `Init` return types, decide
+deliberately whether each admits a failure alternative. That choice *is* the crash policy, and
+"crash in a call, ignore in a loop" is only the shadow it casts — ticket 12 rejected the positional
+rule for exactly this reason.
+
+Two further inheritances:
+
+- **Every callback taking a `term` gets a mandatory catch-all**, per ticket 11, and it is legal
+  because the residual is open (ticket 12 §2). Mailbox defence is unavoidable, as this ticket
+  already noted — but the checker now *forces* the clause rather than merely recommending it.
+- **`raise` exists** (ticket 12 §5) and produces the BEAM error class, so a callback that crashes
+  dies with `function_clause`-shaped information intact and the supervisor sees a well-formed exit
+  reason (ticket 12 §6).
