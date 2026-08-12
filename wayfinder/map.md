@@ -30,6 +30,27 @@ spec exists.
 - **Research findings land on `master`** as files under `wayfinder/research/`, linked from
   their ticket — not on throwaway branches, which parallel agents would collide over.
 - The effort is understood to be large. The map exists so it need not fit in one session.
+- **DESIGN HEURISTIC — borrow before inventing, in this order** (2026-08-12). Every good answer
+  in ticket 01 came from an existing construct doing double duty, not from a new one.
+  1. **Reach for C# first.** Before specifying a rule, check whether an existing C# construct's
+     semantics already produce it. Not merely its *syntax* — its **semantics**. Worked examples:
+     `as` gives fail-to-false in guards for free, because C#'s lifted comparison operators already
+     return false when an operand is null (→ ticket 08); `[module: GenServer]` is C#'s own
+     attribute-target syntax and needed no invention (→ prototype 01e); property patterns,
+     positional patterns, `when`, `with`, pattern designations acting as as-patterns, and
+     collection expressions with spread were all already there (→ ticket 01).
+  2. **Reach for the BEAM second**, when no C# construct fits. `->` as the clause arrow is
+     Erlang's; `:atom` is Elixir's. Both were chosen over inventing a spelling, and both are
+     instantly legible to the ecosystem being joined.
+  3. **Invent last, and say so.** Where neither applies, record it in the spec as a deliberate
+     divergence with its reason — e.g. `as T` yielding `T | :nothing` for any `T`, where C#
+     requires a reference or nullable value type (CS0077).
+
+  The test for whether this is working: a construct a C# developer reads on sight, versus one they
+  must be taught. Rules that have to be learned are the tax this heuristic exists to avoid — and
+  it compounds under the standing constraint below, since anything a human must be taught is also
+  something an agent must be prompted about.
+
 - **STANDING CONSTRAINT — beam-sharp is written by agents and read by humans** (David,
   2026-08-12). Humans will generally not author these files; agents will, with tooling
   (mix/dotnet-style generators) scaffolding them. Humans review. The file-per-function separation
