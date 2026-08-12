@@ -198,3 +198,36 @@ question.
 Note also that ticket 12 §6 aligns with ticket 13: on the Abstract Format path `erlc` inserts the
 arm and it cannot be suppressed, so the saving is only *available* on the Core Erlang path, which
 already forfeits `-spec` and Dialyzer.
+
+## Constraints from ticket 13 — resolved 2026-08-12
+
+**This ticket loses an argument rather than gaining one, and the loss makes it narrower and
+cleaner.**
+
+Ticket 13 chose the **Erlang Abstract Format**. Three consequences land here.
+
+1. **Ticket 12's codegen saving no longer exists.** The section above concludes that "emitted
+   boundary guards are the only sound route to the codegen saving" of the omitted failure arm.
+   That saving was only ever *available* on the Core Erlang path — and on the Abstract Format
+   `erlc` inserts the `match_fail` arm itself, with no way to suppress it (visible in the
+   generated Core: [`prototypes/13a_target_measurements.md`](../prototypes/13a_target_measurements.md) §3).
+   **So there is nothing to buy.** This ticket's remaining motivation for emitting guards is
+   **ticket 06's third outcome — silent unsoundness — alone.** Decide it on honesty, not on bytes.
+
+2. **The `-spec` availability question is closed, and the ordinary case is decided.** This ticket
+   listed "`-spec` emission may not be available at all" as contingent on ticket 13. It is
+   available: a `-spec` survives the Abstract Format path by construction and is lost silently
+   through `.core`, both measured (13a §2). Ticket 13 §6 rules that **the compiler emits a `-spec`
+   for every function whose beam-sharp type is known**, widening to the nearest expressible
+   supertype where a set-theoretic type has no Erlang spelling — sound, and silent by default since
+   `-Wunderspecs`/`-Wspecdiffs` turn warnings *on*.
+
+   **What remains this ticket's, unchanged, is the FFI sub-decision**: whether a foreign
+   declaration gets a `-spec`, given that there the spec is an unverified claim asserted to the
+   ecosystem. That is a boundary-defence question, not a target question.
+
+3. **The 13/18 joint-decision requirement is discharged.** Ticket 13 said twice that the two
+   "must be decided together, or ticket 06's recommendation withdrawn". That coupling was
+   **conditional on the Core Erlang branch**, so choosing the Abstract Format dissolves it.
+   Ticket 06's recommendation stands unwithdrawn, and this ticket is no longer on its critical
+   path — which matters, since this ticket is blocked behind the deferred ticket 22.

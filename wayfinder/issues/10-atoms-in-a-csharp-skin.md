@@ -454,3 +454,24 @@ Resolved 2026-08-12. Evidence: [`prototypes/10b_atom_interning.erl`](../prototyp
 [`prototypes/10c_gleam_forge.erl`](../prototypes/10c_gleam_forge.erl). All claims marked
 `local` were observed on OTP 28 / Elixir 1.19.5 / Gleam 1.18.1 on 2026-08-12; Gleam's
 cheat-sheet and `gleam_erlang` documentation quotes are `doc`.
+
+## Constraints from ticket 13 — resolved 2026-08-12
+
+**§3's codegen obligation now has a defined home, and the adjacent silent failure is out of play.**
+
+This ticket established that **every atom appearing only in a type position must still be emitted
+into the module's atom chunk** — an obligation Erlang does not have, since its specs are
+documentation. Ticket 13 chose the **Erlang Abstract Format**, so the compiler emits forms and can
+add whatever forms discharge the obligation.
+
+It also removes the failure this ticket paired the obligation with. Ticket 02's finding that
+compiling from `.core` emits an empty abstract chunk *with no warning* is now measured rather than
+cited ([`prototypes/13a_target_measurements.md`](../prototypes/13a_target_measurements.md) §2) —
+and it no longer applies, because that path was not taken. Of the two silent failures in the same
+layer this ticket warned about, one is closed by the target choice and one remains this ticket's
+own.
+
+**§3's open question is sharpened but still open.** What atom a module identifier lowers to now has
+a build-layout consequence as well as a collision one: `erlc` **enforces module-name/filename
+matching on the `from_abstr` path** (13a §4), so the emitted `.abstr` filename must equal the module
+atom. A dotted atom — `'Shop.Orders.Order'`, Elixir's convention — works unchanged.

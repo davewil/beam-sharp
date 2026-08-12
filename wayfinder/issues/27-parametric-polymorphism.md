@@ -49,3 +49,17 @@ Decide:
 HITL. This ticket is **ticket 16's blocker in place of ticket 11** — ad-hoc polymorphism cannot
 be settled without knowing whether type variables exist. It also owns the parametric-alias
 question outright, so [ticket 26](26-data-modelling.md) should not decide it.
+
+## Constraints from ticket 13 — resolved 2026-08-12
+
+**Ticket 13 §6 supplies the publication half of the codegen-obligation story.**
+
+`ParseAtom<T>` and `ValidateAs<T>` are monomorphic at every use and are *generated*, not written —
+this ticket exists partly to keep them from being mistaken for evidence of generics. Ticket 13 rules
+that the compiler emits a `-spec` for every function whose beam-sharp type is known, **widening to
+the nearest expressible supertype** where a set-theoretic type has no Erlang spelling (Erlang's spec
+grammar has no negation, and expresses intersection only as an overloaded spec).
+
+So what a codegen obligation publishes to the Erlang world is a **widened monomorphic spec**, never
+a generic one — which is consistent with, and further evidence for, the position this ticket is
+likely to take. Worth confirming rather than assuming when this ticket is resolved.

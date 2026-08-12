@@ -293,6 +293,29 @@ spec exists.
   guards (→ 18) are the only sound route to the saving, and it is only *available* on the Core
   Erlang path at all (→ 13).
 
+- [Compilation target decision](issues/13-compilation-target-decision.md) — **the Erlang Abstract
+  Format**, and the decisive reason is none of the five the ticket had stacked: the choice is a
+  **one-way door, not a rung on a ladder**. `.abstr → Core` is `erlc +from_abstr +to_core`, free,
+  OTP doing the translation; `.core → abstract forms` is `{raw_abstract_v1,[]}`, unrecoverable.
+  Core's one live advantage — a `when` wider than Erlang's — was already spent by tickets 08 and 09
+  fixing the guard vocabulary to the BEAM guard set. The emission contract is **a sequence of
+  abstract-format forms**, with a standing obligation that the frontend **never depend on
+  in-process compiler state**, so `erlc +from_abstr` always works (verified: builds with no `.erl`
+  on disk) — which **frees the compiler's host language** and costs `erl_syntax`/`merl` as a churn
+  abstraction, permanently; §4's pinned OTP range (current + previous two majors) proved by a CI
+  corpus is the replacement. **Sub-modules are source-only**, one `.beam` per aggregate, and 01d's
+  sharpest objection is **largely false on this target**: repeated `{attribute, ANNO, file, …}`
+  forms re-point everything after them, so two functions in one BEAM module report crashes against
+  two different `.bs` files — per-function hot swap is rejected, not deferred. **A `-spec` is
+  emitted for every function whose type is known**, widening to the nearest expressible supertype
+  where set-theoretic types have no Erlang spelling (silent: `-Wunderspecs`/`-Wspecdiffs` turn
+  warnings *on*). **This discharges the 13/18 coupling** rather than deferring it — it was
+  conditional on the Core branch — so ticket 06's recommendation stands. Sharpest downstream
+  consequence: **ticket 18 loses an argument.** Ticket 12's 40-byte saving is unavailable on this
+  target at all (`erlc` inserts the `match_fail` arm and it cannot be suppressed), so emitted
+  guards are no longer the route to a saving that exists — **18's remaining motivation is silent
+  unsoundness alone**. Ticket 14 inherits no facade to design.
+
 ## Not yet specified
 
 <!-- in-scope fog: real, but not yet sharp enough to phrase as a ticket -->
@@ -308,13 +331,29 @@ spec exists.
   recursive-type measurement ticket 09 already asked for. **Ticket 12 adds a third**: measure the
   retained failure arm at showcase clause counts. It was measured at 40 bytes (4.8%) on a
   two-clause function; the decision to keep it everywhere was taken without knowing the cost on a
-  40-clause `handle_info`, which is the shape this language advertises.
+  40-clause `handle_info`, which is the shape this language advertises. **Ticket 13 removes one
+  constraint and adds two requirements.** Removed: **the compiler's host language is no longer
+  constrained** — the emission contract is abstract-format forms, and `erlc +from_abstr` builds
+  from serialised text with no `.erl` present, so the skeleton need not be a BEAM program. Added:
+  it owes the **CI corpus** proving the pinned OTP range (current and previous two majors), and it
+  owes **confirmation that `+from_abstr` exists on the oldest supported release** — only OTP 28.5
+  is installed here, so the range is provisional until measured. Note the third measurement
+  requirement above is now moot in one direction: ticket 12's failure arm cannot be suppressed on
+  this target, so what remains to measure is its cost at showcase clause counts, not whether to
+  keep it.
 - **Module and namespace system**, and function identity — BEAM identifies functions by
   name *and arity*, which multi-clause heads and optional parameters both disturb. **Ticket 10
   §3 adds one requirement**: a module identifier in value position is an atom singleton, so this
   fog owes an answer to *what atom is actually emitted* — a bare snake_cased name, which risks
   colliding with Erlang modules, or something prefixed as Elixir's `Elixir.` is. Ticket 10
-  deliberately did not decide it.
+  deliberately did not decide it. **Ticket 13 sharpens this with two measured facts and settles one
+  half of it.** Settled: **sub-modules are source-only**, so the *aggregate* is the BEAM module and
+  a sub-module is not a module at all — while still being named in crash reports, via repeated
+  `file` attributes. Sharpened: `erlc` **enforces module-name/filename matching on the
+  `from_abstr` path**, so whatever atom a module identifier lowers to, the emitted `.abstr`
+  filename must equal it — which makes the emitted-atom question a *build-layout* question too, not
+  only a collision-avoidance one. A dotted atom (`'Shop.Orders.Order'`, Elixir's convention)
+  works unchanged.
 - **The language's name.**
 - **Imports and cross-module scope** — if a directory is a module, what do files in it share
   automatically, and what must be imported? Slipped into a prototype example unexamined.

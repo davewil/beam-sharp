@@ -87,3 +87,23 @@ the payload is bound rather than checked.
 ## Notes
 
 AFK. Feeds tickets 14 and 15, and the fog around runtime defence against untyped callers.
+
+## Constraints from ticket 13 — resolved 2026-08-12
+
+**This ticket's `-spec` recommendation is confirmed, not withdrawn.**
+
+The recommendation was contingent: ticket 02 found a `-spec` is lost through Core Erlang, where
+Dialyzer cannot read the resulting beam and fails *silently*. Ticket 13 chose the **Erlang Abstract
+Format**, on which a `-spec` survives by construction — both halves measured
+([`prototypes/13a_target_measurements.md`](../prototypes/13a_target_measurements.md) §2): the
+Abstract Format path preserves the spec attribute intact, while the `.core` path exits 0, emits no
+warning, produces a working module, and leaves `{raw_abstract_v1,[]}` — a chunk that is *present
+but empty*, which Dialyzer reads successfully and learns nothing from.
+
+Ticket 13 §6 rules that the compiler **emits a `-spec` for every function whose beam-sharp type is
+known**, widening to the nearest expressible supertype where a set-theoretic type has no Erlang
+spelling. The FFI case this ticket left open — where a spec is an unverified claim — remains with
+ticket 18.
+
+Source-only sub-modules (ticket 13 §3) also settle this ticket's related ask directly: an Erlang
+caller sees a normal module, `'Shop.Orders.Order':apply(O, E)`, with no facade.

@@ -1,8 +1,8 @@
 # 13 — Compilation target decision
 
 Type: grilling
-Status: open
-Blocked by: 02, 11
+Status: resolved
+Blocked by: 02, 11, 19 — all resolved
 
 ## Question
 
@@ -138,3 +138,191 @@ third strike against Core Erlang rather than a point in its favour.
 
 Should this ticket nonetheless choose Core Erlang, ticket 12 §6 binds: emit the arm anyway, unless
 ticket 18 decides to emit boundary guards, which is the only sound route to omitting it.
+
+## Answer — resolved 2026-08-12
+
+**The compiler emits the Erlang Abstract Format.** Evidence for everything below is
+[`prototypes/13a_target_measurements.md`](../prototypes/13a_target_measurements.md) and
+[`prototypes/13b_aggregate_attribution.erl`](../prototypes/13b_aggregate_attribution.erl), both
+observed on OTP 28.5 rather than cited.
+
+### 1. The decisive reason is reversibility, not any of the five the ticket had stacked
+
+The file arrived with five findings pointing the same way — ticket 02's silent `-spec` loss,
+ticket 19's no-evidence-against, ticket 12's third strike, ticket 10's atom obligation, LFE
+leaving Core in 2018. **None of them is the reason to record**, because a sixth fact subsumes
+them and was not in the ticket:
+
+| Direction | Result |
+|---|---|
+| `.abstr` → Core Erlang | ✅ `erlc +from_abstr +to_core` — OTP performs the translation itself |
+| `.core` → abstract forms | ❌ `{raw_abstract_v1,[]}` — unrecoverable |
+
+Ticket 02 framed the three targets as a **ladder of increasing cost**. They are better understood
+as a **one-way door**. Choosing the Abstract Format forfeits nothing that a compiler flag cannot
+recover; choosing Core Erlang forfeits the abstract chunk permanently. Every other advantage —
+native clause heads, `-spec`, Dialyzer, `debug_info` — rides along behind that one.
+
+State it this way in the spec, because it is the form of the argument that survives new evidence:
+a future finding favouring Core Erlang would still have to explain why it is worth walking
+through a door that does not open again.
+
+**The one live argument for Core Erlang was already spent.** Ticket 02 found its `when` is
+strictly *wider* than Erlang's guard grammar — but ticket 09 fixed the discriminability
+vocabulary to the BEAM guard set and ticket 08 committed guards to the same set via the expansion
+rule. The wider `when` has nothing left to express. Ticket 12's failure-arm saving is the only
+other Core-only capability, and ticket 12 decided against using it (see §7).
+
+### 2. The emission contract is *a sequence of abstract-format forms*
+
+Not "the compiler calls `compile:forms/2`". The contract is the forms themselves, and it carries
+a standing obligation: **the frontend must never depend on in-process compiler state**, so that
+serialising the forms to `.abstr` and shelling out to `erlc +from_abstr` always works.
+
+Verified: `erlc +from_abstr` builds a working module with **no `.erl` anywhere on disk**. The file
+format is a *sequence of terms, one per form*, each terminated with `.` — feeding it a single list
+crashes `erl_lint` (13a §1).
+
+**Why the obligation and not just the observation**: without it a frontend drifts into parse
+transforms, shared PLT state and incremental term reuse, and the text route quietly stops working
+precisely when someone wants to rewrite the frontend in another language. Keeping the promise is
+cheap now and unrecoverable later — the same reversibility logic ticket 11 used to reject
+higher-order contract wrapping.
+
+**What this buys**: the compiler's host language is genuinely open. This removes a constraint from
+the walking skeleton, which need not be a BEAM program.
+
+**What it costs, permanently**: `erl_syntax`/`merl` are foreclosed as a churn abstraction. They are
+the standard answer to Abstract Format drift and they require a BEAM-hosted frontend. This is the
+sharpest cost of the decision and §4 exists because of it.
+
+### 3. Sub-modules are source-only — one `.beam` per aggregate
+
+Ticket 01's prototype 01d recommended this on four grounds; it is adopted, and **per-function hot
+code loading is rejected rather than deferred**. What would flip it is unchanged from 01d: wanting
+the *operation* to be the unit of deployment. Observability was the other candidate trigger and is
+now closed (below).
+
+**01d's sharpest objection against source-only is largely false on this target.** It held that the
+sub-module structure is "a source fiction the runtime does not know about", so a crash would name
+the aggregate. Measured (13b): `{attribute, ANNO, file, {Name, Line}}` may appear **repeatedly
+mid-module** and re-points every form after it — the mechanism Elixir and LFE use to attribute
+generated code to original source. Two functions in one BEAM module reporting against two source
+files:
+
+```erlang
+total/1 crash: {'Shop.Orders.Order',total,[99],[{file,"Order/Total.bs"},{line,42}]}
+apply/1 crash: {'Shop.Orders.Order',apply,[99],[{file,"Order/Apply.bs"},{line,7}]}
+```
+
+So source-only keeps per-sub-module crash reports, `dbg` locations and debugger positions. Its
+remaining cost is only that the compiler owns a module abstraction the BEAM does not share, and
+every tool integration must translate.
+
+**Note the repair is target-specific**, which couples §1 and §3 more tightly than the ticket
+assumed: it depends on annotations surviving into the beam, which is exactly what the Core Erlang
+path discards. Had this ticket chosen Core, source-only would have cost its observability after all.
+
+### 4. OTP churn: a pinned range, proved in CI
+
+The exposure is real and visible in the beam itself — the chunk tag is `raw_abstract_v1`, an
+explicit version marker on the committed format. Ticket 02 found OTP's own source saying the
+representation can change between releases.
+
+**Mitigation: declare a supported OTP range and keep a corpus of beam-sharp modules compiled on
+every release in it, in CI.** A format change then surfaces as a build break at a time of our
+choosing rather than a user's runtime surprise.
+
+The `erl_syntax`/`merl` mitigation is **unavailable** — it requires a BEAM-hosted frontend, which
+§2 gave up. That is a deliberate trade, recorded here so it is not rediscovered as a surprise:
+§2 bought host-language freedom and paid for it with the standard churn abstraction, and §4 is the
+replacement.
+
+Rejected: emitting **Erlang source text** instead of forms. It is the most churn-resistant
+interface OTP offers and produces output a human reviewer can read, which the standing constraint
+makes attractive. It loses on precision — `-file("X", 42)` occupies the line it names, so the
+following line reports as 43 and every line number becomes arithmetic the compiler must get right,
+where an annotation is simply exact (13b). Also rejected: absorbing churn with no mitigation.
+
+### 5. Supported range: current and previous two majors
+
+Two columns is the minimum that can detect a diff; three matches the BEAM ecosystem norm for
+libraries and puts real pressure on the emitter to stay on the format's stable core.
+
+**Open verification this ticket does not close**: `+from_abstr` is confirmed on **OTP 28.5 only**,
+because that is what is installed. §2's guarantee assumes it exists across the whole supported
+range. Confirming it on the oldest supported release is work the walking skeleton owes, and the
+range is provisional until then.
+
+### 6. The compiler emits a `-spec` for every function whose beam-sharp type is known
+
+**The 13/18 coupling is discharged, not deferred.** This ticket said twice that it and ticket 18
+"must be decided together, or ticket 06's spec recommendation withdrawn". That coupling was
+**conditional on the Core Erlang branch**: `-spec` is lost through `.core` and survives the
+Abstract Format path by construction (13a §2, measured both ways). Choosing the Abstract Format
+discharges it. Ticket 06's recommendation stands, unwithdrawn, and 18 — blocked behind the
+deferred ticket 22 — is not on the critical path for it.
+
+**Where a beam-sharp type has no Erlang spec spelling, widen to the nearest expressible
+supertype**, ultimately `term()`. Erlang's spec grammar has no negation, and only expresses
+intersection as an overloaded spec, so a set-theoretic type is not always publishable exactly.
+A widened spec is *sound* — never a false claim, only a weak one — and it is **silent**:
+`-Wunderspecs` and `-Wspecdiffs` both turn warnings *on* and are off by default (13a §5). So
+widening costs precision, not noise, and every function still publishes a type.
+
+Rejected: omitting the spec where the type does not fit (leaves functions publishing nothing, and
+the boundary between "precise" and "absent" is invisible to a consumer), and refusing to compile
+(bans legitimate set-theoretic types from the exported surface to satisfy a weaker language's
+grammar).
+
+**FFI declarations remain ticket 18's**, unchanged. There the spec is an *unverified claim*
+asserted to the ecosystem, which is a boundary-defence question, not a target question.
+
+### 7. What the choice costs, in semantics and in tooling
+
+Closing the ticket's remaining `State:` items explicitly.
+
+**Expressible semantics — the frontend owes nothing.** A function form *is* a list of
+`{clause, ANNO, Patterns, Guards, Body}`, so multi-clause dispatch is **inherited from the target,
+not synthesised**. The question of whether frontend clause-merging can be made to agree with the
+exhaustiveness checker **does not arise**: beam-sharp does no merging. Ticket 19 established that
+this is exactly what breaks every curried functional frontend — `purs` collapses equations into a
+single `ExprCase` upstream, and no backend can recover them. beam-sharp is in LFE's position, with
+a native multi-clause surface and nothing flattening it, so heads written are heads emitted
+(ticket 01's showcase: five clauses in, five native clause heads out).
+
+**Tooling — everything is retained.** `-spec` and Dialyzer (§6), `debug_info` and therefore the
+debugger, stack traces and crash reports naming the correct sub-module source file and line (§3).
+Hot code loading works at aggregate granularity, which §3 chose deliberately: the consistency unit
+and the deployment unit coincide, so `relup` is simple and torn upgrades are impossible by
+construction rather than by discipline.
+
+**One capability is given up, permanently.** Ticket 12 §6's 40-byte (4.8%) failure-arm omission is
+**not available on this target at all** — `erlc` inserts the `match_fail` arm itself and there is
+no way to suppress it from the Abstract Format. This is visible in the generated Core (13a §3).
+Ticket 12 had already decided against taking the saving; the target now removes the choice. The
+safe answer is free, and unavailable to get wrong.
+
+### Consequences propagated
+
+- **Ticket 18 loses an argument rather than gaining one.** It was told that emitted boundary
+  guards are "the only sound route to the codegen saving" of ticket 12 §6. **That saving no longer
+  exists** — it was only ever available on the Core Erlang path (§7). So 18's remaining motivation
+  for emitting guards is **silent unsoundness alone** (ticket 06's third outcome), which is a
+  narrower and cleaner question than it was charted with. Also: the 13/18 joint-decision
+  requirement is discharged (§6), and the ordinary `-spec` case is settled, leaving 18 the FFI
+  sub-decision only.
+- **Ticket 06's recommendation to emit `-spec` is confirmed, not withdrawn** (§6).
+- **Ticket 14 inherits a settled shape**: source-only sub-modules mean OTP callbacks land in the
+  aggregate module where `gen_server` already looks for them. **There is no facade to design** —
+  prototype 01c's problem does not get solved, it stops existing.
+- **Ticket 12 §6 is now enforced by the target rather than by policy.** The failure arm is always
+  emitted because it cannot be suppressed.
+- **Ticket 10's atom-interning obligation has a defined home.** Atoms appearing only in type
+  positions must still be emitted into the module's atom chunk; the Abstract Format path gives the
+  compiler a place to add the forms that do it, and the `.core` route's empty abstract chunk —
+  the other silent failure in the same layer — is no longer in play.
+- **Ticket 27** should note that `-spec` widening (§6) is the publication half of the
+  codegen-obligation story: `ParseAtom<T>` and `ValidateAs<T>` are monomorphic at every use, and
+  what gets published for them is a widened spec, not a generic one.
+

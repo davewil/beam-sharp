@@ -358,3 +358,24 @@ Ticket 11 chose its sentence to be stable whichever way this ticket went, and it
   generate a boundary-clause body, so §3's stance reappears as a generator default.
 - **[25 — exemplar programs](25-exemplar-programs.md)** — owes the empirical answer on how often a
   *closed* residual is deliberately closed (§2).
+
+## Constraints from ticket 13 — resolved 2026-08-12
+
+**§6's decision is now enforced by the target rather than by policy.**
+
+Ticket 13 chose the **Erlang Abstract Format**, on which `erlc` inserts the `match_fail` arm itself
+and there is no way to suppress it. So the failure arm is always emitted because it *cannot* be
+omitted — the 40-byte (4.8%) saving this ticket declined is not merely declined, it is unavailable.
+
+Two consequences:
+
+- **The conditional at the end of §6 is discharged.** It bound a future Core Erlang choice to emit
+  the arm anyway "unless ticket 18 decides to emit boundary guards". Ticket 13 did not choose Core,
+  so that branch is closed, and ticket 18 has correspondingly lost the codegen saving as a
+  motivation for emitting guards.
+- **The safe answer is free, and unavailable to get wrong** — which is the outcome this ticket
+  argued for on diagnostic grounds, now obtained structurally.
+
+Visible in the Core generated *out of* the emitted abstract forms
+([`prototypes/13a_target_measurements.md`](../prototypes/13a_target_measurements.md) §3): the
+`( <_1> when 'true' ->` clause is `erlc`'s, not beam-sharp's.

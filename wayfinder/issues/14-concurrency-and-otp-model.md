@@ -103,3 +103,23 @@ Two further inheritances:
 - **`raise` exists** (ticket 12 §5) and produces the BEAM error class, so a callback that crashes
   dies with `function_clause`-shaped information intact and the supervisor sees a well-formed exit
   reason (ticket 12 §6).
+
+## Constraints from ticket 13 — resolved 2026-08-12
+
+**There is no OTP facade to design. The problem stops existing.**
+
+Ticket 13 §3 settled that **sub-modules are source-only** — one `.beam` per aggregate, not one per
+operation. So `gen_server`'s `Mod:handle_call/3` lands in the aggregate module, exactly where OTP
+looks for it, with no generated delegation. Prototype 01c's facade problem is not solved here; it
+is deleted. Erlang callers likewise get a normal module for free (`'Shop.Orders.Order':apply(O, E)`),
+which is what ticket 06 asked for.
+
+What this ticket still owns is unchanged: the concurrency and OTP model itself. But it should not
+budget for facade machinery, and it should assume **the aggregate is the unit of hot code loading**
+— consistency unit and deployment unit coincide, so `relup` is per aggregate and torn upgrades are
+impossible by construction rather than by discipline.
+
+One inherited nuance worth keeping: the sub-module a programmer wrote **is still named in crash
+reports**, because repeated `{attribute, ANNO, file, …}` forms re-point source attribution within
+one module ([`prototypes/13b_aggregate_attribution.erl`](../prototypes/13b_aggregate_attribution.erl)).
+Supervisor and crash-report legibility therefore does not pay for source-only sub-modules.
