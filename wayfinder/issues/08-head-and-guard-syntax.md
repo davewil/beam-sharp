@@ -46,6 +46,39 @@ Decide:
   (`[first, .., last]`) are not one-pass expressible over cons cells. Decide what subset of
   list patterns survives, and whether a non-one-pass pattern is permitted at a cost.
 
+## `Self` — resolved, and the answer is to remove the need
+
+Prototype 01e left `Self` undefined: `StartLink` needs to name its own module, Erlang's `?MODULE`.
+
+**C# has no `?MODULE` idiom.** There is no way to say "the current type" without naming it —
+`this` is an instance reference, `typeof(X)` requires writing `X`, and reflection via
+`MethodBase.GetCurrentMethod().DeclaringType` is something nobody writes deliberately. In a static
+class a C# developer simply writes the class name. So *any* self-reference keyword would be new
+vocabulary; `Self` is Rust and Swift, not C#.
+
+**The better answer removes the need.** `[module: GenServer]` already declares the behaviour, and
+the compiler knows which module it is in, so the module argument should not be exposed:
+
+```csharp
+(:ok, Pid) | (:error, dynamic) StartLink();
+
+() -> GenServer.StartLink(:no_args, []);          // not StartLink(Self, :no_args, [])
+```
+
+This matches how C# developers experience frameworks — you never hand "this class" to ASP.NET or
+to DI; the framework knows through an attribute, a base class or a registration. Passing a module
+handle to `gen_server:start_link/3` is a BEAM idiom with no C# analogue, so exposing it would
+import unfamiliarity rather than avoid it. It also removes a class of error: the `?MODULE`
+argument and the `[module: GenServer]` attribute cannot disagree if there is only one of them.
+
+**Residual cases still need a module as a value** — `spawn(Mod, Fun, Args)`, `apply/3`, supervisor
+child specs, `code:which`. Those name *another* module anyway (`Child(:orders,
+OrderServer.StartLink, …)`), so writing the name covers them.
+
+**Decide here**: whether module references are first-class values (a module name in value position
+being the BEAM atom), and which OTP entry points get the compiler-supplied module treatment versus
+requiring an explicit name.
+
 ## Reformulation from prototype 01f — tested against OTP 28
 
 Running the `Orders` lowering ([01f_orders_lowering.erl](../prototypes/01f_orders_lowering.erl))
