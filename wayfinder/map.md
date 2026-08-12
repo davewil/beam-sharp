@@ -22,6 +22,12 @@ spec exists.
 - **Tracker deviation**: map at `wayfinder/map.md`, tickets at
   `wayfinder/issues/NN-<slug>.md`, research findings at `wayfinder/research/NN-<slug>.md`,
   prototypes at `wayfinder/prototypes/`. **Not** the local tracker's default `.scratch/`.
+- **Canonicality is split with Linear** (2026-08-12). **Linear owns state** — status, native
+  blocking relations, assignment, and the frontier query, because it renders the frontier
+  *visually* where a `Blocked by:` line cannot. **This repo owns content** — ticket bodies,
+  research files, prototypes. Map is [ENG-165](https://linear.app/davewil/issue/ENG-165);
+  **ticket NN is ENG-(166+NN)**. Resolving a ticket means updating *both*: the answer here, the
+  state there.
 - **Execution override**: wayfinder is plan-only by default. This map sanctions execution
   for the **walking skeleton only**. Every other ticket produces a decision.
 - **Skills each session should consult**: `/grilling` and `/domain-modeling` for decision
