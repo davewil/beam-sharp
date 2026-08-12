@@ -270,6 +270,14 @@ A widened spec is *sound* — never a false claim, only a weak one — and it is
 `-Wunderspecs` and `-Wspecdiffs` both turn warnings *on* and are off by default (13a §5). So
 widening costs precision, not noise, and every function still publishes a type.
 
+**One caveat on that silence.** "Off by default" is weakest evidence for exactly the audience this
+decision serves: the point of emitting `-spec` at all (ticket 06) is Dialyzer consumers, and a
+consumer who has gone to the trouble of running Dialyzer is more likely than average to have
+turned those flags on. The decision stands — a widened spec is still sound, and the alternatives
+are worse — but the spec should say plainly that a beam-sharp module analysed with `-Wunderspecs`
+will report underspecified functions **by design**, so it reads as a known consequence rather than
+a defect.
+
 Rejected: omitting the spec where the type does not fit (leaves functions publishing nothing, and
 the boundary between "precise" and "absent" is invisible to a consumer), and refusing to compile
 (bans legitimate set-theoretic types from the exported surface to satisfy a weaker language's

@@ -327,7 +327,7 @@ flowchart TD
       <thead><tr><th>Direction</th><th>Command</th><th>Result</th></tr></thead>
       <tbody>
         <tr><th><code>.abstr</code> &rarr; Core</th><td><code>erlc +from_abstr +to_core</code></td><td class="win">Works — OTP does the translation</td></tr>
-        <tr><th>Core &rarr; <code>.abstr</code></th><td><code>beam_lib:chunks/2</code></td><td class="lose"><code>{raw_abstract_v1,[]}</code> — unrecoverable</td></tr>
+        <tr><th>Core &rarr; abstract forms</th><td>No command exists</td><td class="lose">After <code>erlc +from_core</code> the chunk reads <code>{raw_abstract_v1,[]}</code></td></tr>
       </tbody>
     </table>
   </div>
