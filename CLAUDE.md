@@ -14,11 +14,13 @@ exhaustiveness**.
 | What | Where | Canonical for |
 |---|---|---|
 | Map | [ENG-165](https://linear.app/davewil/issue/ENG-165) · `wayfinder/map.md` | Linear: status. Repo: the full body |
-| Tickets | ENG-166 … ENG-191 · `wayfinder/issues/NN-<slug>.md` | **Linear**: status, blocking, assignment, frontier. **Repo**: the question, the answer, all cross-references |
+| Tickets | ENG-166 … ENG-192 · `wayfinder/issues/NN-<slug>.md` | **Linear**: status, blocking, assignment, frontier. **Repo**: the question, the answer, all cross-references |
 | Research findings | `wayfinder/research/NN-<slug>.md` | Repo only (~380KB; issues link to them) |
 | Prototypes | `wayfinder/prototypes/` | Repo only |
 
-**Ticket NN maps to ENG-(166+NN)** — ticket 00 is ENG-166, ticket 25 is ENG-191.
+**Ticket NN maps to ENG-(166+NN)** — ticket 00 is ENG-166, ticket 26 is ENG-192. Verify the
+mapping still holds when creating a ticket; it depends on nothing else being created in the
+Engineering team between them.
 
 Linear is canonical for state because it renders the frontier *visually* through native blocking
 relations, which a `Blocked by:` line in markdown never will. The repo is canonical for content
