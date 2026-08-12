@@ -82,8 +82,9 @@ _Avoid_: symbol, enum member, constant, tag
 
 **option&lt;T&gt;**:
 `T | :nothing`. The **absence** channel: a value is missing, and there is nothing further to say
-about why. Bare because absence carries no information. Partial — an instantiation whose `T`
-absorbs `:nothing` is rejected at the declaration.
+about why. Bare because absence carries no information. Partial — an instantiation is rejected at
+the declaration when `T | :nothing` ≡ `T`, which catches an atom top, a nested `option`, and a
+colliding tuple shape alike.
 _Avoid_: maybe, nullable, optional
 
 **result&lt;T, E&gt;**:

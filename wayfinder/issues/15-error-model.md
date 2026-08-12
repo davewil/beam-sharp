@@ -191,6 +191,17 @@ Three consequences, in ascending order of how much they cost:
 
 **Decided: the shape stays untagged, and the collapse is rejected at the declaration.**
 
+**The check is one predicate, not a list of cases.** Reject an instantiation when
+
+> `T | <failure member>` ≡ `T`
+
+Stated as absorption by an atom top it would cover only `option<atom>` and an implementer would
+write the cofinite check alone. The equation covers all three measured cases with one criterion,
+across both channels: `option<atom>` (`:nothing` ⊆ `atom`); `option<option<int>>` (`:nothing` ⊆
+`int | :nothing` — literally `Descr.equal?(outer, inner)` returning true in 15a); and
+`(atom, binary) | (:error, binary)` from the tagged measurements, where the collision is a tuple
+shape rather than an atom. It is also decidable with the equality the algebra already provides.
+
 ```
 type option<T> = T | :nothing;      // unchanged
 
@@ -305,7 +316,14 @@ Note this typechecks under [ticket 27](27-parametric-polymorphism.md) §1's opac
 matches *structure around* `E`, clause 2 binds the opaque `T`. And it exercises §1 of this ticket
 honestly — if `T` were instantiated to something containing `(:error, _)`, clause 1 would fire on a
 **success** value, which is precisely the instantiation the declaration check now rejects. The two
-decisions are consistent rather than merely compatible.
+decisions are consistent for every non-pathological instantiation.
+
+**A known limit, stated rather than claimed away.** The check is `T | failure ≡ T`, which a success
+type that is *itself* an `(:error, _)` tuple with a **different payload type** escapes. Verified:
+for `result<(:error, int), binary>`, the union `(:error, int) | (:error, binary)` normalises to
+`(:error, int|binary)`, which is **not** `T` — so the declaration is accepted, and yet `Unwrap`'s
+first clause matches a *success* value. Pathological, and it changes none of the six decisions;
+recorded because every other limit in this map is.
 
 **Rejected: restricting to atom or tagged tuple.** It would guarantee cheap logging and trivial
 discrimination, and it matches what OTP itself does (`:noproc`, `{:badmatch, V}`). But it is a

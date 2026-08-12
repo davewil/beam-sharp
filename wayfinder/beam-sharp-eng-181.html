@@ -345,15 +345,14 @@ flowchart TD
 }}}%%
 flowchart LR
   D["a failure channel is declared"] --> N["the algebra normalises it"]
-  N --> Q{"does the success type absorb the failure member?"}
-  Q -->|"no"| OK["two members, dispatchable"]
-  Q -->|"yes, bare atom"| C["one member, channel gone"]
-  Q -->|"no, tagged member"| OK
+  N --> Q{"does T or failure normalise back to T?"}
+  Q -->|"no, two members remain"| OK["dispatchable by clause head"]
+  Q -->|"yes"| C["one member, channel gone"]
   C --> E["error at the declaration"]
   E --> H["hint: tag it"]
 </pre>
     </div>
-    <figcaption>The middle path is silent without the check: the algebra is behaving correctly, and ticket 09's discriminability rule never fires because after normalisation there is only one member left to check.</figcaption>
+    <figcaption>The check is one predicate &mdash; reject when <code>T | failure</code> is equivalent to <code>T</code> &mdash; which catches an atom top, a nested <code>option</code> and a colliding tuple shape with one criterion. Stated as &ldquo;absorbed by an atom top&rdquo; it would catch only the first. The rejected path is silent without it: the algebra is behaving correctly, and ticket 09's discriminability rule never fires because after normalisation there is only one member left to check.</figcaption>
   </figure>
 
   <table>

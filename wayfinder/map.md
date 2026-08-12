@@ -505,8 +505,12 @@ spec exists.
   `ValidateAs<T>`) and OTP's system-message shapes. 27 also gives stratum 2 its first hard rule —
   **a codegen obligation requires a ground type argument** — which is a property no stratum-1
   definition has, and is therefore a candidate for what actually distinguishes the two strata,
-  rather than "could a user have written it". **Ticket 15 populates both strata further and adds a
-  wrinkle**: `result<T, E>` joins stratum 1 (an ordinary parametric alias), `foreign_error` joins
+  rather than "could a user have written it". **One concrete obligation is owed here, not just a
+  question**: ticket 15 §1 rejects `atom | :nothing`, so **`ToExistingAtom` must be respelled** —
+  a tagged failure member, or a success type narrower than the atom top. Left as a spec-drafting
+  detail rather than a ticket because it is one prelude signature with two known-good answers, but
+  it is *owed*, and it lives here rather than only as a correction on closed ticket 10.
+  **Ticket 15 populates both strata further and adds a wrinkle**: `result<T, E>` joins stratum 1 (an ordinary parametric alias), `foreign_error` joins
   stratum 2 — but `foreign_error` is *not* a codegen obligation and takes no type argument, so it
   fails 27's candidate criterion while still belonging to the compiler-known stratum. **So the
   distinguishing property is neither "could a user have written it" nor "requires a ground type
