@@ -113,3 +113,21 @@ Recorded and not chosen: a **`?` postfix operator**, Rust's spelling. Smallest t
 the tax and independent of whatever this ticket picks for collections — but it introduces early
 return into a language otherwise built entirely from total clauses, putting a hidden exit in the
 middle of an expression.
+
+## Constraint from ticket 16 — 2026-08-12
+
+**This ticket inherits nothing new, and that is the finding.**
+[Ticket 16](16-ad-hoc-polymorphism.md) §6 established that C#'s extension methods were
+miscategorised by ticket 05 as an ad-hoc polymorphism mechanism. They are not. Their call-syntax
+half — `xs.Where(f)` reading left to right — has belonged to this ticket all along.
+
+The constraint that comes with it: **whatever this ticket picks for `.` versus `|>`, it is a
+static rewrite with no dispatch in it.** Ticket 16 settled that the language has exactly one
+dispatch mechanism, the clause head; the dot is not a second one and must not be read as one. A
+`.` that resolved by looking at the receiver's runtime shape would be reintroducing the protocol
+dispatch ticket 16 refused.
+
+Also relevant to the LINQ conditional in the section above: ticket 16 §4 makes serialisation a
+**codegen obligation** with a language-published mapping, so a JSON-shaped pipeline stage is
+generated rather than chained. That removes one motivating case for adopting LINQ query syntax as
+do-notation, without settling the conditional either way.

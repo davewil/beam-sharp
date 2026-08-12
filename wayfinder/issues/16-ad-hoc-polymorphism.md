@@ -1,7 +1,7 @@
 # 16 — Ad-hoc polymorphism: what replaces interfaces and extension methods?
 
 Type: grilling
-Status: open
+Status: resolved 2026-08-12
 Blocked by: 09, 27 — both resolved
 
 ## Question
@@ -175,3 +175,246 @@ anywhere, which was the correct half of David's input.
 **One new fact from 27 §6 to weigh**: an emitted polymorphic `-spec` is **not enforced** by
 Dialyzer, measured. If this ticket's mechanism produces polymorphic signatures, they defend nothing
 at the Erlang boundary.
+
+---
+
+# Answer — resolved 2026-08-12
+
+**The language gets no ad-hoc polymorphism construct, and the hole ticket 05 flagged turns
+out to be smaller than it recorded — because half of it was never a hole.**
+
+The ticket's three motivating capabilities — "anything comparable", "anything with a length",
+"anything serialisable" — were measured before being designed for, and they land in three
+*different* buckets. None of the three wants a dispatch mechanism. Evidence:
+[`prototypes/16b_which_capabilities_are_already_primitive.erl`](../prototypes/16b_which_capabilities_are_already_primitive.erl)
+and [`prototypes/16c_two_equalities_and_who_agrees.erl`](../prototypes/16c_two_equalities_and_who_agrees.erl),
+both runnable, both `local` on OTP 28 / erts 16.4.
+
+## 1. No construct. Three buckets, keyed on a property of the capability
+
+| The capability is… | Mechanism | Open to third parties? |
+|---|---|---|
+| determined by the type | a **codegen obligation** — the compiler writes it | yes: every type has it, nothing registers |
+| not determined, set of types known at the definition | a **union parameter** with a clause each | no |
+| not determined, set of types not known | **passed as an argument**, an ordinary value | yes, at the call site's cost |
+
+The bucket is chosen by what the capability *is*, not by preference. That matters because it
+is what stops bucket 1 from growing by taste — see §4.
+
+**What was ruled out, and why each is dead rather than merely costly:**
+
+- **Type classes** — dead on ticket 09, unchanged. Resolution keys on a nominal head; there
+  are no nominal heads. `instance Show OrderId` and `instance Show CustomerId` are instances
+  for the same type. This was already established in the section above and is not revisited.
+- **Protocols with open extension, Elixir's shape** — dead on ticket 13. Open extension needs
+  every impl collected, which is either a whole-program consolidation pass or a runtime
+  lookup. Consolidation fights aggregate-granularity compilation and has no story for hot code
+  loading — **the same argument ticket 27 used to reject monomorphising per call site**, and it
+  fails in the same place: at a shared library type that lives outside the aggregate.
+- **Protocols resolved at runtime, unconsolidated** — dead on the headline claim. It accepts
+  `Protocol.UndefinedError` as a live failure mode in a language whose pitch is that every case
+  has a clause.
+- **Static protocols over a closed set** — not dead, but empty. Static resolution needs the tag
+  set known at the definition; a known tag set is a closed union; a closed union with a clause
+  each is bucket 2 with extra ceremony. **This corrects a line in the section above**: "beam-sharp
+  would get consolidation by construction" is true *only over a closed union*, at which point
+  there is nothing left to consolidate.
+
+**The cost, stated plainly.** A third party cannot teach *your* function about *their* type for a
+capability the compiler cannot derive. They must change your code, or you must have taken the
+capability as a parameter. This is the expression problem and this answer picks a side of it.
+
+## 2. Comparison is same-type only, with the platform's order kept as a named escape
+
+**Measured**: the BEAM's term order is **total across every type** — `1 < :ok`, `#{a => 1} < []`,
+`ok < {1}` all evaluate to `true` with nothing declared anywhere. "Anything comparable" therefore
+needs *no mechanism at all*; it is the one motivating capability the runtime hands over free.
+
+The decision is that beam-sharp does not pass that on unchanged. **`<`, `>`, `<=`, `>=` require
+both operands to be the same type**, so `1 < :ok` does not compile. Tier-1 borrow: C# defines
+comparison per type and refuses unrelated operands, and a comparison across unrelated types is
+overwhelmingly a bug the compiler was in a position to catch.
+
+The universal order is **not** thrown away — it is reachable as a **named prelude function**
+rather than an operator. It is genuinely needed: it is what `ordered_set` ETS tables sort by,
+and it is what lets a heterogeneous list sort without a hand-written comparator. Naming it
+rather than spelling it `<` means using it is a visible act. The spelling is a spec-drafting
+detail; what is decided is that it exists, is named, and is not the operator.
+
+## 3. `==` is exact — one equality, and it agrees with the clause head
+
+Erlang ships two equalities. beam-sharp ships one, and it is `=:=`. **`1 == 1.0` is `false`
+where it is reachable at all.**
+
+The reason is not fidelity to Erlang and not the C#/TS reader's expectation — it is internal
+agreement, and it was measured. Erlang's coercing `==` is **not consistently coercing**:
+
+| | `==` | `=:=` |
+|---|---|---|
+| `1` vs `1.0` | true | false |
+| `{1}` vs `{1.0}` | true | false |
+| `#{a => 1}` vs `#{a => 1.0}` (map **value**) | true | false |
+| `#{1 => a}` vs `#{1.0 => a}` (map **key**) | **false** | false |
+
+The coercion runs deep through tuples, lists and map values, then stops dead at map keys. And
+the two constructs this language is built on do not coerce at all:
+
+- **A clause head does not.** `f(1)` does not fire for `1.0`; it falls through. Pattern matching
+  is `=:=`, so *the headline feature already picked a side*.
+- **A map key lookup does not.** `maps:get(1.0, #{1 => x})` is `{badkey, 1.0}`.
+
+So a coercing `==` would put the guard in disagreement with the clause head directly above it —
+two different answers to "is this value 1" on adjacent lines. Choosing `=:=` agrees with two
+constructs and disagrees with none.
+
+**A third disagreement worth recording**: in the *order*, `1` and `1.0` tie — neither `1 < 1.0`
+nor `1.0 < 1` holds — while `=:=` says they differ. Under §2's same-type rule this is unreachable
+in ordinary code (`int` and `float` are distinct types), so it bites only for a union containing
+both and for a bare `term`. Those are exactly the boundary cases where a quiet wrong answer costs
+the most, which is the argument for closing it rather than leaving it to the platform.
+
+## 4. The generation rule: the type determines the result — inherently, or by decree
+
+Bucket 1 needs a boundary or it becomes a grab-bag. The rule:
+
+> A capability becomes a **codegen obligation** when the type determines the result uniquely —
+> either **inherently**, or because **the language publishes the mapping** that fills the gap.
+
+The four existing obligations (`ValidateAs<T>`, `ParseAtom<T>`, `ToExistingAtom`, the foreign
+wrapper) qualify inherently: there is exactly one correct answer to "does this term inhabit `T`",
+and the compiler holds information the author does not.
+
+**Serialisation qualifies by decree, and the measurement is why it is worth the decree.**
+`json:encode/1` (OTP 27+) **fails on tuples, at any depth, and only at runtime**:
+
+```
+#{a => 1}                  => <<"{\"a\":1}">>
+ok                         => <<"\"ok\"">>
+{a, b}                     => {failed, {unsupported_type, {a,b}}}
+#{k => {1, 2}}             => {failed, {unsupported_type, {1,2}}}
+#{lines => [{sku, …, 2}]}  => {failed, {unsupported_type, {sku,<<"A">>,2}}}
+```
+
+**The tuple is beam-sharp's own workhorse** — ticket 09's remedy for the newtype gap is a tagged
+tuple, and ticket 15's `result<T, E> = T | (:error, E)` is a tuple. So a large share of declared
+types are un-encodable by the platform's own encoder, and the platform says so in production.
+
+A generated `ToJson<T>` reads the *declared* type and refuses at compile time, naming the member
+that has no encoding. **A runtime protocol could never do this** — that is the argument for
+generation over dispatch, measured rather than asserted. The price is that the language now
+carries an opinion about a wire format; the escape is bucket 3, where a different shape is a
+function you write and pass.
+
+**Only the encode direction is new.** Decoding is already built: parse to a `term`, then
+`ValidateAs<T>`. The decree adds one obligation, not two.
+
+## 5. Type variables are comparable, and bounds are refused outright
+
+**`<` and `==` work on two values of the same bare type variable.** `Sort<T>(list<T>)`,
+`Max<T>(T, T)` and `Min<T>` need nothing at all. Ticket 27 §2's opacity rule does not block this,
+and the distinction is clean: opacity exists so a generic function cannot **dispatch** on its
+`T` — which is what would make reachability unanswerable at the definition. Ordering is not
+dispatch. It returns a bool, reveals nothing about `T`'s shape, and **cannot fail**, because the
+order measured in §2 is total over every term. It is also *defined* identically at every
+instantiation.
+
+**Bounds (`where T : …`) are refused.** Not deferred, not deprioritised — they have **no
+implementable meaning here**, and ticket 27's four requirements are discharged rather than
+carried:
+
+1. A bound is only worth writing if the body can **call** the bounded capability.
+2. Calling a generated capability on `T` inside a generic function requires either **one copy per
+   instantiation** — monomorphisation, which ticket 27 rejected because it fights ticket 13's
+   aggregate granularity — or a **runtime dictionary**, which needs the nominal resolution key
+   ticket 09 removed.
+3. Both routes are closed, so a bound would be undischargeable: documentation with a colon in it.
+4. And the capability case is already served — take it as an argument:
+   `TSource Max<TSource>(TSource, TSource, fn(TSource, TSource) -> bool)`. This is ticket 27 §3's
+   own third option, and the same move ticket 14 made putting the message type on the client API
+   function rather than on the pid.
+
+**This retires ticket 27's cost measurement.** 27 §3 requirement 3 made bounds conditional on
+measuring constraint-solving cost at showcase clause counts, and named it "the serious one".
+That measurement is now moot: the feature it gated is refused for a structural reason, so the
+walking skeleton no longer owes it. **Instantiation stays matching, not solving** — the property
+27 §1 accepted generics on — and it is now protected by four refusals rather than three.
+
+## 6. Ticket 05 miscategorised extension methods — one debt, not two
+
+**Raised by David, 2026-08-12: extension methods are for extending class types in C#, and this
+is functional, so they do not really make sense here.** Correct, and it corrects a closed ticket.
+
+Ticket 05 recorded: *"dropping extension methods **and** static abstract interface members leaves
+no ad-hoc polymorphism story."* That is **one** debt written as two. C# needs extension methods
+because a type's methods are sealed inside its declaration — you cannot add to `string`.
+beam-sharp has no methods on types at all; every operation is already a free function taking the
+value, so "extend a type you do not own" is not a feature, it is the default.
+
+The two genuine halves of C#'s extension methods split, and **neither is ad-hoc polymorphism**:
+
+- **Call syntax** — `xs.Where(f)` reading left to right. Ticket 05 itself already found this is a
+  static rewrite `C.M(expr, args)` and *is* the pipeline, so → **[ticket 17](17-pipeline-and-comprehension.md)**,
+  which has owned it all along. Nothing new is handed over.
+- **Overloading** — several same-named extensions on different types, resolved by static type.
+  → **[ticket 08](08-head-and-guard-syntax.md)**, already settled: one arrow per arity, union
+  parameters, no overload signatures.
+
+**Static abstract interface members were the whole of the real hole**, and §1's bucket 1 fills it.
+The C#-audience framing worth putting in the spec: **a codegen obligation *is* a static abstract
+interface member with the compiler writing the implementation.** `ValidateAs<T>` is `T.TryParse`
+where no type had to declare it.
+
+**One leftover that is not polymorphism**: C# lets you put your function in *someone else's
+namespace* so it appears on their type without an import. That is name resolution, and it has no
+beam-sharp answer yet → the map's **imports and cross-module scope** fog.
+
+## 7. There is one dispatch mechanism — stated, not decided
+
+The ticket demanded a story about which of two dispatch systems fires when. There is one:
+**the clause head**.
+
+- Generated capabilities do not dispatch — the type argument resolves them at compile time, and
+  ticket 27 requires it to be **ground**.
+- Passed capabilities do not dispatch — the caller already chose.
+- Union parameters **are** clause heads.
+
+Ticket 09's "put the name in the term" tag is likewise not a dispatch registry: it is how union
+members stay **discriminable**, which 09 settled. This ticket does not promote it into a
+mechanism.
+
+## 8. Consequences forced elsewhere
+
+- **[Ticket 05](05-csharp-functional-inventory.md)** — corrected: one debt, not two. See §6.
+- **[Ticket 08](08-head-and-guard-syntax.md)** — inherits nothing new; named as the owner of the
+  overloading half of §6, which it already settled.
+- **[Ticket 17](17-pipeline-and-comprehension.md)** — inherits nothing new either, but the
+  constraint is now explicit: whatever it picks for `.` versus `|>`, it is a **static rewrite with
+  no dispatch in it**. §6 removes the temptation to read the dot as a polymorphism feature.
+- **[Ticket 18](18-boundary-defence.md)** — gains a case. A generated `ToJson<T>` **trusts its
+  input**: it is emitted from the declared type, so a term arriving from raw Erlang that does not
+  actually inhabit `T` is encoded against the wrong shape, or crashes inside generated code the
+  author never wrote. That is 18's silent-unsoundness problem at a new site, and the generated
+  code is *harder* to reason about than a hand-written encoder because nobody read it.
+- **[Ticket 20](20-untheorised-term-shapes.md)** — the newtype gap keeps its status. §1 does not
+  supply a dispatch key, so if 20 answers with refinement types, that answer is still free to
+  supply one; nothing here forecloses it. Row polymorphism remains 27's refusal, not revisited.
+- **[Ticket 27](27-parametric-polymorphism.md)** — **debt discharged.** §3's deferral of capability
+  constraints is answered "refused", with the reason and all four requirements addressed in §5.
+- **Prelude strata fog** — `ToJson<T>` is a fifth codegen obligation, joining stratum 2. It does
+  **not** settle the open criterion but it does discriminate: it satisfies ticket 27's candidate
+  ("requires a ground type argument") *and* ticket 15's third candidate ("what the compiler draws
+  inferences from"), while `foreign_error` still satisfies only the latter. **So 15's third
+  candidate survives another test and 27's does not** — the fog patch narrows by one.
+- **Imports and cross-module scope fog** — gains the name-resolution leftover from §6.
+- **Walking skeleton fog** — **loses a precondition.** Ticket 27's bounded-type-variable cost
+  measurement is retired by §5.
+
+## Not decided here
+
+- The **spelling** of the universal-order escape function (§2) and of the JSON mapping's
+  published rules (§4). Both are spec-drafting details with the decision above already binding.
+- Whether **`ToJson<T>` ships at all** is stdlib *breadth*, which ticket 00 put out of scope.
+  What is decided is the **rule** that admits it (§4) and that serialisation is the worked case
+  the rule was tested against.
+- Whether a user may **add** to prelude stratum 2. Unchanged and still open; §8 narrows the
+  criterion question without answering it.

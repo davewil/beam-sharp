@@ -326,3 +326,26 @@ Three things that bind this ticket:
 load-bearing anywhere in the error model; the narrow question this ticket owns — does Elm validate
 values crossing a port at runtime — is untouched and still open. The standing instruction not to
 let it expand stands.
+
+## New case from ticket 16 — 2026-08-12
+
+[Ticket 16](16-ad-hoc-polymorphism.md) §4 adds a fifth **codegen obligation**: a serialisation
+encoder generated from the declared type, against a mapping the language publishes. It was adopted
+on a measured argument — OTP's `json:encode/1` fails on **tuples at any depth, at runtime**, with
+`{unsupported_type, Offender}`, and tuples are beam-sharp's workhorse (ticket 09's newtype remedy,
+ticket 15's `(:error, E)`). Generating the encoder moves that failure to compile time.
+
+**The consequence for this ticket: a generated encoder trusts its input.** It is emitted from the
+*declared* type, so a term arriving through any of the eight violation channels that does not
+actually inhabit `T` is either encoded against the wrong shape or crashes inside generated code
+**the author never wrote and cannot read in a diff**. That is this ticket's silent-unsoundness
+problem at a new site, and it is *worse* than the hand-written case for review purposes.
+
+This stacks with what ticket 27 §6 already handed over — an emitted polymorphic `-spec` is inert,
+so choosing generics made the boundary strictly weaker. Ticket 16 does not widen the eight
+channels; it adds a consumer that assumes they were defended.
+
+**Blocker removed 2026-08-12**: the Linear relation making this ticket blocked by ticket 22 was
+stale. Ticket 22's own deferral note says in bold that the coupling is weaker than originally
+stated and **this ticket is not blocked by it**. The relation has been dropped; this ticket is on
+the frontier.

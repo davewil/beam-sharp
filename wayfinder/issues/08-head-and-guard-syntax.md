@@ -416,3 +416,13 @@ language entirely — external values arrive as `term`, and the only way to use 
 So the rule holds, more strongly than before: narrowing is always written, and what it is written
 *as* is **a clause head**. Nothing is ever narrowed implicitly, because there is no construct that
 could do it. Read every occurrence of `dynamic` in this ticket as `term`.
+
+## Named by ticket 16 — 2026-08-12
+
+No change to anything settled here. [Ticket 16](16-ad-hoc-polymorphism.md) §6 corrected ticket 05's
+claim that dropping C# extension methods left an ad-hoc polymorphism hole, and routed the
+**overloading** half of that feature — several same-named functions over different types, resolved
+by static type — to this ticket, where it is **already answered**: one arrow per arity, union
+parameters, no overload signatures.
+
+Recorded so the decision trail does not leave the question looking open.

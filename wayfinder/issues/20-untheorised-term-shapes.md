@@ -132,3 +132,19 @@ modelled, a binary is a `term` and must be matched.
 
 HITL. Surfaced by ticket 04's gap analysis. Was blocked by 11, since what the type system *is*
 determines what these questions even mean; ticket 11 closed 2026-08-12.
+
+## Status after ticket 16 — 2026-08-12
+
+**Nothing foreclosed.** [Ticket 16](16-ad-hoc-polymorphism.md) refused an ad-hoc polymorphism
+construct, so it supplies **no dispatch key**. The newtype gap ticket 09 §5 left open (`Meters` and
+`Feet` over `float` are one type) therefore keeps exactly the status it had: if this ticket answers
+it with **refinement types**, that answer is still free to supply a discrimination key, and ticket
+16 does not compete with it.
+
+Row polymorphism remains ticket 27 §7's refusal, unchanged and not revisited here.
+
+One thing ticket 16 *does* hand over: its §4 decree that the language publishes a serialisation
+mapping presumes every modelled shape has one. **Binaries and bitstrings — this ticket's headline
+gap — are exactly where that presumption is untested**, and ticket 25 notes three of six ordinary
+BEAM workloads are binary work. Whatever this ticket decides about `<<>>` typing owes a line on
+what those shapes encode to.

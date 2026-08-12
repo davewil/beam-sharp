@@ -45,8 +45,10 @@ _Avoid_: declaration, definition, nominal type, newtype
 **Type variable**:
 A parameter standing for a type, declared on a signature or an alias (`Map<TSource, TResult>`) and
 named by C#'s convention. **Opaque**: no clause head or guard may inspect a value whose declared
-type is a bare type variable. **Unbounded**: it ranges over every type, and carries no constraint.
-_Avoid_: generic parameter, type argument, rigid variable, `a`
+type is a bare type variable — though comparison and equality between two values of the same
+variable are permitted, being non-dispatching and total. **Unbounded**: it ranges over every type,
+and carries no constraint; there is no syntax for a bound.
+_Avoid_: generic parameter, type argument, rigid variable, `a`, bounded type variable
 
 ## The language surface
 
@@ -105,6 +107,20 @@ locally-raised `exit`, which is, despite sharing the keyword. The distinction is
 wrapper may catch all three classes without swallowing a supervision decision.
 _Avoid_: exit, exception, kill
 
+**Capability**:
+An operation wanted over many types ("comparable", "serialisable", "has a length"). **Not a
+construct** — the language has no ad-hoc polymorphism mechanism. A capability is served in one of
+three ways, chosen by what the capability is: a codegen obligation where the type determines the
+result, a union parameter where the set of types is known at the definition, or an ordinary
+argument where it is not.
+_Avoid_: type class, protocol, interface, trait, constraint
+
+**Term order**:
+The BEAM's total order over all values, which compares any two terms of any types. Reachable as a
+named prelude function; it is **not** what `<` means, since comparison operators require operands
+of the same type.
+_Avoid_: natural order, default ordering, universal comparison
+
 **Prelude**:
 The definitions and codegen obligations available without import.
 _Avoid_: stdlib, core, builtins, runtime
@@ -114,8 +130,11 @@ _Avoid_: stdlib, core, builtins, runtime
 **Codegen obligation**:
 A construct the compiler *generates* from a type rather than one a programmer writes. Monomorphic
 at every use, and requires a **ground** type argument — so it is not a generic function, even
-though the language has those.
-_Avoid_: generic, template, macro, intrinsic
+though the language has those. Admitted when the type determines the result uniquely, either
+inherently or because the language publishes the mapping that fills the gap. The functional
+equivalent of C#'s static abstract interface member, with the compiler supplying the
+implementation.
+_Avoid_: generic, template, macro, intrinsic, derive
 
 **ValidateAs&lt;T&gt;**:
 A generated deep structural check that a `term` inhabits `T`, called explicitly. Returns

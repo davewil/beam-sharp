@@ -474,3 +474,30 @@ identically whatever `TSource` is. Redundancy stays well-posed only because vari
   *write* `Map<Order, Money>(...)` explicitly is unstated, and may decide how large the parsing
   problem is. → **[ticket 28](28-generic-bracket-parsing.md)**, raised here, which also inherits
   the provisional `[h, ..t]` spelling.
+
+## Debt discharged by ticket 16 — 2026-08-12
+
+**§3 deferred capability constraints to [ticket 16](16-ad-hoc-polymorphism.md). The answer is
+"refused", and all four requirements are addressed rather than carried.**
+
+Bounds have **no implementable meaning** in this language. A bound is only worth writing if the
+body can *call* the bounded capability; calling a generated capability on `T` inside a polymorphic
+function needs either one copy per instantiation — the monomorphisation §1 already rejected against
+ticket 13's aggregate granularity — or a runtime dictionary, which needs the nominal resolution key
+ticket 09 removed. Both routes closed, so a bound would be undischargeable.
+
+**Requirement 3 — the cost measurement at showcase clause counts — is retired.** §3 called it "the
+serious one" and made bounds conditional on it. The feature it gated is refused for a structural
+reason, so the walking skeleton no longer owes that number. **Instantiation stays matching, not
+solving**, now protected by four refusals rather than three.
+
+**§2's opacity rule gains a stated limit.** Ticket 16 §5 permits `<`, `>`, `<=`, `>=` and `==` on
+two values of the same bare type variable, so `Sort<T>` and `Max<T>` need no constraint at all.
+This is not a hole in opacity: opacity exists so a generic function cannot **dispatch** on its `T`,
+and ordering is not dispatch — it returns a bool, reveals nothing about the shape, and cannot fail,
+because the BEAM's term order is total over every term (measured:
+[`prototypes/16b_which_capabilities_are_already_primitive.erl`](../prototypes/16b_which_capabilities_are_already_primitive.erl)).
+
+**§6's finding is amplified, not softened.** The inert polymorphic `-spec` now has a second
+consumer: ticket 16's generated encoder trusts a declared type the Erlang boundary does not
+enforce → [ticket 18](18-boundary-defence.md).

@@ -416,6 +416,35 @@ spec exists.
   case surviving, because the harness wrapped each in `catch` — supplying the protection the probe
   existed to measure.*
 
+- [Ad-hoc polymorphism](issues/16-ad-hoc-polymorphism.md) — **the language gets no ad-hoc
+  polymorphism construct, and the hole ticket 05 flagged was half imaginary.** The three
+  motivating capabilities were *measured* before being designed for and land in three different
+  buckets, none of which is dispatch: a capability the type determines becomes a **codegen
+  obligation**; a capability over a set known at the definition is a **union parameter** with a
+  clause each; a capability over an unknown set is **passed as an argument**. Protocols died on
+  ticket 13, not on taste — open extension needs whole-program consolidation, which fights
+  aggregate granularity and hot loading, *the same argument 27 used against monomorphisation* —
+  and the static-closed variant is bucket 2 with ceremony, which **corrects this ticket's earlier
+  "consolidation by construction"** line. Measured: the BEAM's term order is **total across every
+  type** (`1 < :ok` is `true`), so "anything comparable" needs no mechanism — but `<` is
+  restricted to **same-type operands** with the universal order kept as a *named* prelude escape
+  (`ordered_set`, mixed-key sorting). **`==` means `=:=`**, decided on internal agreement rather
+  than familiarity: Erlang's `==` coerces through tuples, lists and map *values* then **stops at
+  map keys**, while the clause head and `maps:get` do not coerce at all — so the exact spelling
+  agrees with two constructs and disagrees with none. The generation rule is **the type determines
+  the result, inherently or by published decree**; serialisation qualifies by decree because
+  `json:encode/1` **fails on tuples at any depth, at runtime**, and tuples are this language's
+  workhorse (09's newtype remedy, 15's `(:error, E)`) — generation moves that to compile time, and
+  **only the encode direction is new** since decode is `ValidateAs<T>` after a parse. `<` and `==`
+  work on **bare type variables** (total, non-dispatching, cannot fail), so `Sort<T>` and `Max<T>`
+  are free — and **bounds are refused outright**, not deferred: both routes to discharging one are
+  closed by 09 and 27, which **retires 27's cost measurement**. Finally, **ticket 05 miscategorised
+  extension methods** (David) — one debt, not two; the call-syntax half was always 17's and the
+  overloading half was always 08's, leaving *static abstract interface members* as the whole real
+  hole, and **a codegen obligation is exactly that with the compiler writing the implementation**.
+  Sharpest downstream consequence: **ticket 18 gains a consumer** — a generated encoder trusts a
+  declared type the boundary does not enforce, and crashes inside code no one reviewed.
+
 ## Not yet specified
 
 <!-- in-scope fog: real, but not yet sharp enough to phrase as a ticket -->
@@ -445,10 +474,12 @@ spec exists.
   signatures against (§4) and the **system-message shapes** in the compiler-known prelude stratum
   (§6). Whether either differs across the pinned range is **unmeasured** — only OTP 28.5 was
   installed when 14 was resolved. **Ticket 27 adds a fifth measurement and removes a worry.**
-  Added: if ticket 16 later wants **bounded type variables**, bounds are the feature that turns
+  ~~Added: if ticket 16 later wants **bounded type variables**, bounds are the feature that turns
   instantiation from matching into constraint solving, so their cost must be measured at showcase
-  clause counts before they are accepted — this is a precondition on 16, not on the skeleton
-  itself, but the skeleton is where it gets measured. Removed: the ticket's own fear that
+  clause counts before they are accepted.~~ **RETIRED 2026-08-12 by ticket 16 §5** — bounds are
+  refused outright, not deferred: a bound is undischargeable here because monomorphisation is
+  closed by 13 and dictionary passing by 09, so the skeleton never owes that number and
+  instantiation stays matching, not solving. Removed: the ticket's own fear that
   *recursive plus parametric* would be the combination that breaks the budget is now bounded by
   the four things 27 refused — no inference, no intersection arrows, no bounds, no row variables —
   so what the skeleton measures is a matching problem, not tallying in its general form.
@@ -458,6 +489,11 @@ spec exists.
   loop pays it repeatedly where the traversal is paid once. Also owed: confirmation that the
   emitted `try` survives the abstract-format path unchanged across the pinned OTP range, since
   ticket 13's `-spec` widening was already found to be silent about what it loses.
+  **Ticket 16 adds a seventh measurement and retires the fifth.** Added: the generated
+  **serialisation encoder** (§4) is the fifth codegen obligation and the second whose cost is a
+  synthesised structural traversal — it stacks with `ValidateAs<T>` over the *same* recursive type,
+  so the skeleton should measure them together rather than separately. Retired: 27's
+  bounded-type-variable measurement, above — bounds are refused, not deferred.
 - **The typed model of OTP itself** — new with ticket 14, and distinct from the corpus that proves
   it. The language knows behaviour contracts and system-message shapes as types. Open: which
   behaviours ship built in (gen_server, supervisor, application, gen_statem, gen_event), how a
@@ -481,6 +517,11 @@ spec exists.
 - **The language's name.**
 - **Imports and cross-module scope** — if a directory is a module, what do files in it share
   automatically, and what must be imported? Slipped into a prototype example unexamined.
+  **Ticket 16 §6 adds one concrete leftover**: C# lets you put a function in *another* namespace so
+  it appears on that type without an import — the half of extension methods that is neither call
+  syntax (17's) nor overloading (08's). It is **name resolution, not polymorphism**, it has no
+  beam-sharp answer, and it is the only part of C#'s extension-method feature this map has not
+  placed.
 - **Where DDD invariants live** — not commands, not types. An `Invariants` module, refinement in
   the type declarations, or nothing.
 - **Stdlib shape as a principle** — Erlang-ish flat modules, C#-ish namespaced statics, or
@@ -515,7 +556,15 @@ spec exists.
   fails 27's candidate criterion while still belonging to the compiler-known stratum. **So the
   distinguishing property is neither "could a user have written it" nor "requires a ground type
   argument"**; the open question is sharper than either. A third candidate: stratum 2 is what the
-  compiler *draws inferences from*, whether or not it generates it.
+  compiler *draws inferences from*, whether or not it generates it. **Ticket 16 narrows this by
+  one.** Its §4 adds a *fifth* codegen obligation — a serialisation encoder generated against a
+  language-published mapping — which satisfies **both** 27's candidate (it requires a ground type
+  argument) **and** 15's third (the compiler draws inferences from it). Since `foreign_error`
+  satisfies only the third, **15's candidate survives a second test and 27's does not**. Still not
+  a settled criterion, but the field is down to one live answer. 16 also leaves one *named* debt
+  here beyond `ToExistingAtom`'s respelling: what the published serialisation mapping says about
+  the shapes ticket 20 calls untheorised — binaries and bitstrings above all, since 25 puts three
+  of six ordinary workloads there.
 - **Consuming Gleam and Elixir libraries** — possible, and at what ergonomic cost. **Sharper
   after ticket 10 §7**, which measured Gleam's representation rather than reading it: fieldless
   variants are bare atoms, variants with fields are tagged tuples, PascalCase becomes

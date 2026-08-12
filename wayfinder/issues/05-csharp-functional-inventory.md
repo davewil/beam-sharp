@@ -55,3 +55,31 @@ aren't one-pass expressible over cons cells. C# 15 (preview) changes no verdict.
 ## Notes
 
 AFK. Feeds tickets 08, 14 and the fog around LINQ and pipelines.
+
+## Correction from ticket 16 — 2026-08-12
+
+**The "two debts" above is one debt.** This ticket recorded that *"dropping extension methods
+**and** static abstract interface members leaves no ad-hoc polymorphism story."* Raised by David
+while resolving [ticket 16](16-ad-hoc-polymorphism.md): extension methods extend *class types* in
+C#, and that has no meaning in a functional language.
+
+C# needs them because a type's methods are sealed inside its declaration — you cannot add to
+`string`. beam-sharp has no methods on types at all; every operation is already a free function
+taking the value, so "extend a type you do not own" is the default, not a feature.
+
+The two genuine halves split, and **neither is ad-hoc polymorphism**:
+
+- **Call syntax** (`xs.Where(f)`) — this ticket already found it is a static rewrite
+  `C.M(expr, args)` and *is* the pipeline → [ticket 17](17-pipeline-and-comprehension.md), which
+  has owned it all along.
+- **Overloading** (same name, different types, resolved by static type) →
+  [ticket 08](08-head-and-guard-syntax.md), already settled: one arrow per arity, union
+  parameters, no overload signatures.
+
+**Static abstract interface members were the whole of the real hole**, and ticket 16 §1 fills it:
+a **codegen obligation is a static abstract interface member with the compiler writing the
+implementation**. `ValidateAs<T>` is `T.TryParse` where no type had to declare it.
+
+One leftover that is *not* polymorphism: C# lets you put a function in another namespace so it
+appears on that type without an import. That is name resolution → the map's **imports and
+cross-module scope** fog.
