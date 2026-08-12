@@ -113,3 +113,31 @@ Three inheritances that bind this ticket:
 Also relevant: ticket 14 §5 makes `receive` a **filter**, so a message that no `receive` clause
 matches is not an error condition — it stays in the mailbox. An error model must not treat an
 unmatched selective receive as a failure; the failure is the *timeout*, if one is declared.
+
+## Constraints from ticket 27 — resolved 2026-08-12
+
+**`T` is now a real type variable, which changes what this ticket's central question is asking.**
+
+This ticket reasons about `option<T>` and `ValidateAs<T>`'s `T | :error` as though both were
+prelude aliases of the same kind. After 27 they are **different kinds of thing**, and the two
+failure spellings question has to be re-read accordingly:
+
+- **`option<T>` is an ordinary parametric alias** — a real type-level function over a real type
+  variable, which a user could have written. 27 §4 fixes the spelling as declared and
+  C#-`T`-conventioned.
+- **`ValidateAs<T>` is a codegen obligation, and 27 §8 gives it a hard new rule: it requires a
+  ground type argument.** `ValidateAs<TSource>` inside a polymorphic function is **rejected at
+  compile time** — you cannot generate a structural check for a type nobody has chosen yet. This
+  joins ticket 11's existing rule that it rejects arrows.
+
+**The sharpest consequence for this ticket**: the two failure channels are not symmetric in where
+they can appear. `option<TSource>` is writable anywhere, including inside a polymorphic function.
+`ValidateAs<...> -> T | :error` is only writable where the type is ground — which means **a
+polymorphic function cannot perform boundary validation at all**, and must take already-validated
+values or take the validator as an argument. If this ticket wants a uniform rule for "when does a
+failure become a value rather than a crash", that rule cannot be stated over `ValidateAs` alone,
+because `ValidateAs` is unavailable in a region of the language where `option<T>` is fine.
+
+**Also relevant**: 27 §6 measured that an emitted polymorphic `-spec` is not enforced by Dialyzer.
+If this ticket's error model surfaces failure through the *type*, that surfacing is inert at the
+Erlang boundary for any polymorphic function. → shared with ticket 18.

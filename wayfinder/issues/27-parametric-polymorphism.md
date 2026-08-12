@@ -1,8 +1,8 @@
 # 27 — Parametric polymorphism: does the language have generics at all?
 
 Type: grilling
-Status: open
-Blocked by: 09
+Status: resolved
+Blocked by: 09 — resolved
 
 ## Question
 
@@ -145,3 +145,329 @@ expansion is exactly what this ticket decides.
 **Do not re-derive**: ticket 14 already removed `Pid[τ]`, the map's clearest demand for a genuine
 type parameter. Collections are now the strongest surviving case, so this ticket largely turns on
 what the type of `Map` is.
+
+---
+
+# ANSWER — resolved 2026-08-12
+
+**The language has real parametric polymorphism, and it is the smallest version of it that
+works.** Type variables are declared, opaque, unbounded, and never annotated for variance.
+Seven decisions.
+
+The ticket's own question — *"does the language have generics at all?"* — turned out to be three
+questions wearing one coat, and only the third was live. Do not re-derive the split.
+
+- **(a) Parameterised type constructors** — `list<int>`, `map<string, Json>`, `list<term>`.
+  **Already forced**, and not polymorphism: `list<int>` is a ground type with no variable in it.
+  Ticket 09 writes both in the `Json` example; ticket 11 makes `list<term>` versus `list<int>`
+  the guard-decidability boundary. A "no generics" answer would have required re-spelling three
+  closed tickets.
+- **(b) Parametric aliases** — `type option<T> = T | :nothing;` (ticket 10 §5). A variable at the
+  declaration only; `option<int>` expands to `int | :nothing` and the variable is gone before the
+  algebra sees it. Consistent with ticket 09's "the name never enters the algebra". **Near-settled
+  on arrival**, and confirmed here.
+- **(c) Polymorphic function signatures** — a variable quantified in a *value*-level signature,
+  instantiated at each call site. **This was the live question**, and the answer is yes.
+
+The costs are asymmetric and they do not chain: declining (c) would have left (a) and (b)
+untouched. What (c) buys is exactly one thing — the ability to relate a function's output type to
+its input type — and that one thing is the shared container library.
+
+## 1. Yes to prenex parametric polymorphism, on a cost argument the other decisions must protect
+
+The literature's frightening results attach to **inference** (type reconstruction is undecidable,
+[79]) and to **intersection-typed functions** (where tallying instances get large). beam-sharp has
+neither, and not by luck:
+
+- **Ticket 04 made signatures mandatory** for multi-clause functions — inference is not being
+  asked for.
+- **Ticket 08 settled one arrow per arity**, dispatching on a *union parameter* rather than
+  overload signatures. So a beam-sharp function type is `(A|B) -> (C|D)`, never
+  `(A->C) & (B->D)`. The intersection arrow, which is where tallying gets nasty, was already
+  refused for unrelated reasons.
+
+What remains is instantiating a *declared* prenex polymorphic arrow at a call site: match
+`list<Order>` against `list<TSource>`, read off `TSource = Order`. Structural, cheap, unique
+answer.
+
+**This is the premise the rest of the ticket exists to protect.** Decisions 3 (unbounded) and 7
+(no row polymorphism) are not independent preferences — each is the thing that keeps instantiation
+a matching problem rather than a constraint-solving one. Reopening either reopens this.
+
+**The cost of saying no, for the record, since it is why the answer is yes.** Without (c), `Map` is
+`(list<term>, fn(term) -> term) -> list<term>`, and ticket 11 makes a `term` something you must
+narrow with a clause head before use. Recovering `list<Money>` needs `ValidateAs<list<Money>>` — an
+**O(n) traversal of data that never left the program**. Declining (c) does not cost ergonomics; it
+turns an internal operation into a boundary crossing.
+
+**Rejected: monomorphise per call site.** The ticket named this as the middle path and it does not
+survive contact with ticket 13. A specialisation has to be emitted somewhere. In the *caller's*
+aggregate: `List` no longer owns its own code, a fix to `Map` requires recompiling every caller,
+and hot-loading `List` updates nothing — against ticket 13 §3, which chose the aggregate as **the
+consistency unit** for hot code loading, deliberately. In `List`'s *own* aggregate: you must know
+every instantiation when `List` is compiled, which is whole-program compilation, against ticket
+13's standing obligation that the frontend never depend on in-process compiler state. Monomorphisation
+is a whole-program technique (Rust, C++, MLton); the BEAM is separately compiled and hot-swappable
+per module. **It works inside an aggregate and fails at exactly the boundary where a shared
+`List.Map` lives.**
+
+## 2. Type variables are opaque in clause heads and guards
+
+**A bare type-variable parameter admits exactly one clause: bind it.** No pattern test, no guard.
+Structure *around* a variable matches freely.
+
+```csharp
+list<TResult> Map<TSource, TResult>(list<TSource>, fn(TSource) -> TResult);
+
+([], _)       -> [];
+([h, ..t], f) -> [f(h), ..Map(t, f)];
+```
+
+Exhaustive **at the definition**, for every instantiation, because `list<TSource>` is
+`[] | [TSource, ..list<TSource>]` regardless of what `TSource` is. `h` has type `TSource`: bound,
+handed to `f`, never inspected.
+
+```csharp
+option<TSource> First<TSource>(list<TSource>);
+([])      -> :nothing;
+([h, ..]) -> h;
+
+TSource Identity<TSource>(TSource);
+(x) -> x;                              // the only clause a bare variable admits
+```
+
+Rejected:
+
+```csharp
+TSource Pick<TSource>(TSource, TSource);
+(x, _) when is_integer(x) -> x;        // ✗
+(_, y)                    -> y;
+```
+
+```
+error: guard inspects a value whose type is the variable `TSource`
+  is_integer/1 tests a runtime shape, and `TSource` has no shape until a caller chooses one
+  hint: to dispatch on shape, take a union parameter instead of a type variable
+```
+
+**Two reasons, and the second is the one that generalises.**
+
+*The signature stops being a promise.* `TSource Pick<TSource>(TSource, TSource)` tells a reviewer
+the whole story only if the variable is opaque: it returns one of its arguments, and which one
+cannot depend on the type. Allow the test and `Pick(1, 2)` returns `2` while `Pick("a", "b")`
+returns `"a"` — from a **character-for-character identical signature**. Under a standing constraint
+that puts full weight on review cost, that is a signature that lies to its reviewer.
+
+*Reachability stops being answerable where the function is defined.* Given
+
+```csharp
+string Describe<TSource>(TSource);
+(x) when is_integer(x) -> "a number";
+(x)                    -> "something else";
+```
+
+clause 2 is dead under `Describe<int>` and clause 1 is dead under `Describe<string>`. The compiler
+checks the function once, at its definition, where it knows neither. Its three options are all bad:
+say nothing (lose the check for every polymorphic function), warn about both (each is dead
+*sometimes*), or defer to call sites (the warning lands in a different file from the code it is
+about). **This is ticket 04's distinction biting**: exhaustiveness is absolute and answerable at
+the definition; redundancy is relative. Type variables push redundancy out of reach of the only
+place it can usefully be reported — and ticket 04's finding that the residual *is* the missing
+clause is worth nothing to an agent if the reachability warning beside it is true half the time.
+
+**This is a tier-3 divergence and is recorded as one.** C# permits `if (x is int i)` on a `T`;
+TypeScript narrows a generic with `typeof`. Both audiences will expect the permissive rule and must
+be told. The reason it is affordable here and not there: the check must run at the *definition*,
+which is a constraint the map imposed on itself with ticket 04, not one Castagna imposed.
+
+**The rule in one line, which ticket 16 inherits**: *a type variable is a slot for values you
+carry; a union is a slot for values you examine.* Parametric and ad-hoc polymorphism get separate
+spellings that cannot be confused.
+
+## 3. Variables are unbounded — capability constraints are ticket 16's
+
+No `where TSource <: ...`. A variable ranges over all types.
+
+A bound is almost always "this type must support some operation" — comparison, arithmetic,
+printing. **That is ad-hoc polymorphism wearing a bracket**, and ticket 09 already handed ticket 16
+its mechanism (dispatch on an atom in the data, Elixir's `__struct__` pattern, resolvable
+statically here where Elixir needs a consolidation pass). Adding bounds in 27 would pre-decide 16
+badly — routing capability constraints through type-variable syntax before 16 has chosen how
+capabilities are expressed at all.
+
+It is also what keeps §1's cost argument true. Bounds turn each call site into an accumulated
+constraint set to be solved; unbounded variables keep instantiation a matching problem.
+
+**The cost is honest**: no generic `Max` or `Sum` until 16 resolves. Available in the meantime —
+`MaxInt`/`MaxFloat`, a union parameter, or **passing the capability as an argument**:
+`TSource Max<TSource>(TSource, TSource, fn(TSource, TSource) -> bool)` needs no bound, because the
+capability arrives as a value. That is the same move ticket 14 made putting the message type on the
+client API function rather than on the pid.
+
+**Deferred-option requirements** — what bounds would need if ticket 16 wants them:
+
+1. A syntax that does not collide with `when` (guards) or with `type X = ...` (aliases).
+2. A decision on whether a bound may mention another variable (`TA <: TB`), which is what
+   separates a finite check from general constraint solving.
+3. A cost measurement at showcase clause counts, since bounds are the feature that makes
+   instantiation a solving problem — this joins the walking skeleton's measurement list.
+4. A rule for what a bound publishes to the Erlang world, given §6 below.
+
+## 4. Variables are declared, and named with C#'s `T` convention
+
+```csharp
+list<TResult> Map<TSource, TResult>(list<TSource>, fn(TSource) -> TResult);
+```
+
+**Declaration is forced, not chosen**, by a fact about this language that neither neighbour shares:
+**beam-sharp's builtin type names are lowercase** — `int`, `float`, `string`, `atom`, `term`,
+`none`, `bool`, `list`, `map` — while user types are PascalCase.
+
+- **Lowercase-implicit** (Gleam, ML) is ambiguous here: in `list<a>`, is `a` a variable or a
+  builtin you have not met? Gleam escapes this only because *its* builtins are `Int` and `Float`.
+- **Uppercase-implicit** (Erlang's own specs, `-spec map([A], fun((A) -> B)) -> [B]`) is worse:
+  `Order` in a signature would become a fresh variable rather than your type.
+
+So variables must be declared — which is also what C# and TS both require, so no divergence is
+spent. **Naming follows C#'s convention** (`T`, `TSource`, `TKey`, `TValue`), matching what tickets
+10 and 11 already wrote on the page: `option<T>`, `ValidateAs<T>`, `ParseAtom<T>`. Naming is
+**convention, not a language rule**, consistent with ticket 08's stance on short-name collisions.
+
+Rejected: lowercase-declared (`Map<a, b>`), which reads more lightly inside a dense signature but
+costs consistency with three already-written prelude entries; and single uppercase letters
+(`Map<T, U>`), which read as type names in a language where `Order` is a type — the ambiguity C#'s
+`T`-prefix convention exists to avoid.
+
+## 5. Variance is not a concept in the language
+
+No `in`/`out`, and nothing inferred either — **there is nothing to infer.**
+
+C# needs variance annotations because its interfaces are **nominal**: the compiler is *told* that
+`IEnumerable<Order>` is usable as `IEnumerable<term>`. Ticket 09 abolished nominality — a type *is*
+the set of its values and subtyping is plain set containment, decided coinductively. So
+`list<Order> ≤ list<term>` holds because every value in the first set is in the second, not because
+`list` was declared covariant. Ticket 11's measured arrow contravariance
+(`subtype?(fn(int)->int, fn(none)->term) = true`, `subtype?(fn(int)->int, fn(term)->term) = false`)
+is the same phenomenon: nobody declared it and nobody could have declared it otherwise.
+
+Variance is emergent *description*, like "integers are ordered" — not machinery. The only thing
+that would need an annotation is a type whose body the compiler cannot see, and ticket 09 abolished
+those too.
+
+**Carries one obligation**: when a containment check fails for a variance-shaped reason, the
+diagnostic must **name the position that went the wrong way**, not print two type expressions and
+leave an agent to diff them. Standing constraint, applied.
+
+## 6. An emitted polymorphic `-spec` is documentation, not enforcement — measured
+
+The ticket asked to *confirm rather than assume* what a polymorphic function publishes to the
+Erlang world under ticket 13 §6. Measured on OTP 28.5 with `dialyzer` against a PLT of
+erts/kernel/stdlib — [`prototypes/27b_polymorphic_spec_enforcement.erl`](../prototypes/27b_polymorphic_spec_enforcement.erl),
+control at [`27c`](../prototypes/27c_polymorphic_spec_control.erl):
+
+```erlang
+-spec map([A], fun((A) -> B)) -> [B].              %% Ys is [binary()]; hd(Ys) + 1  ->  SILENT
+-spec map_mono([integer()], fun((integer()) -> binary())) -> [binary()].
+                                                   %% hd(Ys) + 1  ->  CAUGHT
+```
+
+The control fires, so the probe is sensitive and the negative result is real. **Erlang's spec
+grammar accepts type variables; Dialyzer does not enforce the relation across them** — it reads `A`
+and `B` as `any()`.
+
+Three consequences:
+
+1. **Not a widening problem.** Ticket 13 §6 obliges widening where a set-theoretic type has no
+   Erlang spelling; parametric types *have* one (Gleam emits `-spec map(list(ACJ), fun((ACJ) ->
+   ACL)) -> list(ACL)`). The spec is emitted faithfully and is simply inert as a check.
+2. **A ninth face of ticket 06's silent unsoundness, and it is a regression.** A raw Erlang caller
+   of a *monomorphic* beam-sharp function at least gets a Dialyzer warning if it runs Dialyzer; a
+   caller of a polymorphic one gets nothing. **Choosing generics made the boundary strictly weaker,
+   not neutral.** → ticket 18 must not count the emitted spec as a defence for polymorphic
+   functions.
+3. **Not an argument against the decision.** Dialyzer is opt-in, and ticket 06 already established
+   that neither Gleam nor purerl defends against any of the eight channels.
+
+## 7. No row polymorphism — and the reason is a measurement, not a retreat
+
+No row variables. A function generic over *any record containing at least these fields* is not
+expressible.
+
+Decisions 3 and 2 already close the two doors it could arrive through — it cannot come as a bound,
+and it cannot come by inspection — so it would need to be a **second kind of variable**
+(`{ Total: Money | r }`), which is new machinery rather than an extension of anything decided.
+
+Ticket 04's research flagged this as sitting directly on beam-sharp's path: *"an open problem we
+are working on"*, with tallying completeness achieved only for restricted solution shapes, and the
+note **"every OTP state map wants it"** ([86]). That worry is weaker here than it looks, for the
+same reason `Map` turned out to be:
+
+- A gen_server's state type is **concrete per module** (ticket 14), so nothing generic types it.
+- Record update is `with` / spread — **syntax**, which types structurally against a known record
+  type with no variable involved.
+
+That second point is [`prototypes/27a`](../prototypes/27a_comprehension_vs_hof_typing.erl)'s
+finding generalised, and it is why 27a remains load-bearing even though the ticket chose generics:
+*syntax recovers an element-type relation with zero polymorphism*, measured — `roundtrip` preserves
+`[integer()] -> [binary()]` under an analysis with no type variables at all, while the same
+computation through an opaque fun argument collapses to `[any()]`. **The operation you would reach
+for a row variable to express is already covered by a construct the compiler writes the typing rule
+for.**
+
+What genuinely is not expressible: a shared function over unrelated record types that happen to
+share a field. That is "this type must support something" — decision 3's territory, → ticket 16.
+
+**Deferred-option requirements**: row variables would need a spelling distinct from `T`-style
+variables (they range over field sets, not types); a rule for whether a row variable may appear in
+a clause head, which §2 would answer no; and a resolution to the completeness gap the literature
+records. → also flagged to ticket 26.
+
+## 8. Consequences that are forced rather than chosen
+
+**Codegen obligations require a ground type argument.** `ValidateAs<T>` and `ParseAtom<T>` now look
+exactly like generic calls and are not — they are type-directed codegen, monomorphic at every use.
+You cannot generate a structural check for a type nobody has chosen yet, so
+`ValidateAs<TSource>` inside a polymorphic function is **rejected at compile time**. This joins
+ticket 11's existing rule that `ValidateAs<T>` rejects arrows, and it is a *good* error: it catches
+a real misconception at the point it is made. Ticket 11's caution that neither mechanism is evidence
+of generics survives the decision intact — generics exist, and these are still not it.
+
+**Polymorphic recursion is permitted, and `Map` is not an instance of it.** Distinguish carefully:
+
+```csharp
+([h, ..t], f) -> [f(h), ..Map(t, f)];       // ordinary recursion AT THE SAME variables
+```
+
+`Map` calls itself at the `TSource`/`TResult` currently bound — monomorphic recursion inside a
+polymorphic function. *Polymorphic* recursion is calling yourself at **different** variables
+(`f<T>` invoking `f<list<T>>`). Ticket 04's research records that **inferring** it is long known
+undecidable ([88]) — but ticket 04 also made signatures mandatory, and the undecidability is about
+inference. A declared polymorphic signature makes a polymorphically-recursive function
+straightforwardly *checkable*. **The map gets this for free because it already paid for mandatory
+signatures.**
+
+**Exhaustiveness is unharmed; redundancy is protected by §2.** Exhaustiveness over parametric
+structure is provable once, at the definition, for all instantiations — `list<TSource>` decomposes
+identically whatever `TSource` is. Redundancy stays well-posed only because variables are opaque.
+
+## Surface syntax used above — provenance
+
+- Signature carries **types only, no parameter names**; clauses **do not repeat the function
+  name** — ticket 08, settled table and used consistently across its examples
+  (`(n) when n > 0 -> ...`, `() -> GenServer.StartLink(...)`).
+- Clause arrow is `->`, not ticket 01's `=>` — map Notes, under the widened C#/TS audience.
+- `..` spread is a borrowed C# collection expression — map Notes.
+- **Provisional**: the *pattern* spelling `[h, ..t]` for prefix-plus-rest. Ticket 08 settles the
+  restriction but pins no spelling; `[h, ..t]` follows C#'s `[first, ..rest]` and should be
+  confirmed when the grammar is written.
+
+## Not decided here
+
+- **Whether `List.Map` and friends are prelude stratum 1 or 2** (ticket 14 §6). With generics, they
+  are now definitions a user *could* have written, which moves them toward stratum 1 and changes
+  the fog's prelude question. Not this ticket's call.
+- **Bounds** (§3) and **row polymorphism** (§7) — deferred with requirements captured above.
+- **Inference of type arguments at call sites.** Every example above writes the arguments nowhere
+  and relies on them being recovered by matching. That matching is §1's cheap case, but the rule
+  for when a call site must *write* `Map<Order, Money>(...)` explicitly is unstated. → belongs with
+  the grammar.

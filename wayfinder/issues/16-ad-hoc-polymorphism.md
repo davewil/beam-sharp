@@ -2,7 +2,7 @@
 
 Type: grilling
 Status: open
-Blocked by: 09, 27
+Blocked by: 09, 27 — both resolved
 
 ## Question
 
@@ -132,3 +132,46 @@ types, that answer may also supply a dispatch key — worth checking before deci
 HITL. Surfaced by ticket 05's inventory, which named the gap rather than papering over it.
 Blocked by 09 (nominal vs structural changes what dispatch can even key on) and 11 (whether
 the type system supports constraints).
+
+## Constraints from ticket 27 — resolved 2026-08-12
+
+**This ticket is unblocked, and 27 handed it both a boundary and a debt.**
+
+**The boundary, which is this ticket's own framing in one line**: *a type variable is a slot for
+values you carry; a union is a slot for values you examine.* Parametric polymorphism is now the
+pass-through mechanism and it is deliberately incapable of dispatch — 27 §2 makes type variables
+**opaque in clause heads and guards**, so no clause may test a value whose declared type is a bare
+variable. Whatever this ticket chooses, it cannot be "let a generic function look at its argument";
+that door is closed by decision, not by omission.
+
+**The debt: bounds are yours.** 27 §3 made type variables **unbounded**, explicitly deferring
+capability constraints here, on the reasoning that a bound is almost always *"this type must
+support some operation"* — which is ad-hoc polymorphism wearing a bracket. If this ticket wants
+`where TSource <: ...`, four requirements were captured with the deferral:
+
+1. A syntax that collides with neither `when` (guards) nor `type X = ...` (aliases).
+2. A decision on whether a bound may mention **another variable** (`TA <: TB`) — the line between
+   a finite check and general constraint solving.
+3. **A cost measurement at showcase clause counts.** This is the serious one. 27 §1 accepted
+   generics on the argument that instantiation is *matching*, not solving, because beam-sharp has
+   no inference (04), no intersection arrows (08), no bounds and no row variables. **Bounds are the
+   feature that breaks that argument**, so they cannot be adopted on taste — they need the number.
+4. A rule for what a bound publishes to the Erlang world, given that 27 §6 measured emitted
+   polymorphic specs to be inert.
+
+**What is available without bounds, and may make them unnecessary** — 27 §3 records all three:
+monomorphic functions per type (`MaxInt`/`MaxFloat`), a **union parameter** (which is dispatchable,
+unlike a variable), and **passing the capability as an argument** —
+`TSource Max<TSource>(TSource, TSource, fn(TSource, TSource) -> bool)` needs no bound at all,
+because the capability arrives as a value. That third one is the same move ticket 14 made when it
+put the message type on the client API function rather than on the pid, and it is worth weighing
+seriously before reaching for constraints.
+
+**Ticket 09's mechanism is unchanged and still the front-runner**: dispatch on an atom *in the
+data* (Elixir's `__struct__`, resolvable statically here where Elixir needs a consolidation pass).
+27 confirms this was never in tension with generics — `Enumerable` involves no type parameters
+anywhere, which was the correct half of David's input.
+
+**One new fact from 27 §6 to weigh**: an emitted polymorphic `-spec` is **not enforced** by
+Dialyzer, measured. If this ticket's mechanism produces polymorphic signatures, they defend nothing
+at the Erlang boundary.

@@ -54,3 +54,37 @@ statement-versus-expression decision, not an atoms one, routing it to "ticket 08
 
 HITL. Graduated from the map's fog after ticket 05 established the question sharply. Blocked
 by 01 because this is exactly the kind of argument the sample code settles fastest.
+
+## Constraints from ticket 27 — resolved 2026-08-12
+
+**A measurement was made for another ticket that sizes this one.**
+
+[`prototypes/27a`](../prototypes/27a_comprehension_vs_hof_typing.erl), OTP 28.5, `typer` against a
+PLT of erts/kernel/stdlib:
+
+```
+-spec via_comprehension([number()]) -> [number()].          % syntax: relation preserved
+-spec roundtrip([integer()]) -> [binary()].                 % a -> b, precise on BOTH sides
+-spec via_lists_map([any()]) -> [number()].                 % inline fun: input element type LOST
+-spec via_fun_arg([any()], fun((_) -> any())) -> [any()].   % opaque fun arg: everything collapses
+```
+
+**A comprehension relates output element type to input element type exactly, under an analysis with
+no parametric polymorphism whatsoever.** The relation survives because the comprehension is *syntax
+the analyser sees through* — the typing rule is written by the compiler rather than solved for.
+Route the identical computation through an opaque fun argument and every element type degrades to
+`any()`.
+
+Ticket 27 chose real parametric polymorphism, so this is **not** the mechanism the language depends
+on for `Map`. What it means here:
+
+1. **The comprehension's typing rule is beam-sharp's to write, and it should be at least this
+   precise.** The measurement is a lower bound on what is achievable, established on the target.
+2. **It covers map and filter cleanly. It does not cover fold** — there is no comprehension syntax
+   for `foldl`, and 27 did not create one. Whether the pipeline idiom this ticket designs should
+   reach fold, and how, is now a live question rather than a stylistic one.
+3. **It is the reason ticket 27 declined row polymorphism** (§7), via the parallel argument that
+   record update is `with`/spread and therefore also syntax. So the general principle —
+   *compiler-visible syntax recovers type relations that a function signature would need a variable
+   for* — is now load-bearing in two places, and this ticket is where it gets designed rather than
+   merely relied upon.

@@ -127,3 +127,29 @@ type-directed generation is available.
   Ticket 14 §6 closes it in the compiler, but it is worth asking here whether the testing story
   should make "the catch-all ran" observable, since that is the signal a silent absorption
   produces.
+
+## Constraints from ticket 27 — resolved 2026-08-12
+
+**Type-directed generation now has a boundary it did not have.**
+
+This ticket noted that type-directed generation is available. 27 §8 puts a hard limit on it:
+**a codegen obligation requires a ground type argument.** `ValidateAs<T>` and `ParseAtom<T>` are
+generated, monomorphic at every use, and `ValidateAs<TSource>` inside a polymorphic function is
+rejected at compile time — you cannot generate a structural check for a type nobody has chosen yet.
+
+If generated test data or generated property tests follow the same mechanism, **they inherit the
+same limit**: there is nothing to generate for a bare type variable. The open question this ticket
+now owns is whether generation for a polymorphic function means (a) generating at a chosen set of
+ground instantiations, (b) generating only for the ground parts of a signature, or (c) something
+that does not exist yet.
+
+**A second, sharper consequence.** 27 §2 makes type variables opaque, which means a polymorphic
+function's behaviour **cannot depend on the type it was instantiated at** — that is exactly what
+the restriction buys. So testing a polymorphic function at *one* ground instantiation is, for the
+first time in this language, defensible as evidence about all of them. That is a real reduction in
+test surface and it follows from a type-system decision, which is the kind of thing this ticket
+should be looking for.
+
+**Also**: 27 §6 measured that emitted polymorphic `-spec`s are not enforced by Dialyzer. If any part
+of the testing story leans on Dialyzer over emitted output, it does not cover polymorphic
+functions.

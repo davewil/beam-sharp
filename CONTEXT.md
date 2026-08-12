@@ -37,8 +37,16 @@ _Avoid_: disjoint, tagged, distinguishable
 
 **Alias**:
 A name bound to a type by `type X = ...`. The single naming construct in the language; the name
-never enters the type algebra, so two names over the same set are the same type.
+never enters the type algebra, so two names over the same set are the same type. May take type
+parameters (`type option<T> = T | :nothing;`), in which case it is a type-level function whose
+application is substitution.
 _Avoid_: declaration, definition, nominal type, newtype
+
+**Type variable**:
+A parameter standing for a type, declared on a signature or an alias (`Map<TSource, TResult>`) and
+named by C#'s convention. **Opaque**: no clause head or guard may inspect a value whose declared
+type is a bare type variable. **Unbounded**: it ranges over every type, and carries no constraint.
+_Avoid_: generic parameter, type argument, rigid variable, `a`
 
 ## The language surface
 
@@ -80,7 +88,8 @@ _Avoid_: stdlib, core, builtins, runtime
 
 **Codegen obligation**:
 A construct the compiler *generates* from a type rather than one a programmer writes. Monomorphic
-at every use, so it is not evidence that the language has generics.
+at every use, and requires a **ground** type argument — so it is not a generic function, even
+though the language has those.
 _Avoid_: generic, template, macro, intrinsic
 
 **ValidateAs&lt;T&gt;**:

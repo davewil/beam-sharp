@@ -293,3 +293,34 @@ represents `dynamic`, the two relations, and arrow subtyping including the `none
 top. [`prototypes/11b_fun_evidence.erl`](../prototypes/11b_fun_evidence.erl) (+ `_v1`, `_v2`) —
 what a fun carries at runtime, and closure staleness versus external-fun late binding across a
 code upgrade.
+
+## Amendment from ticket 27 — resolved 2026-08-12
+
+**The open question this ticket inherited and split out is closed, and both of its cautions
+survived.**
+
+This ticket's §"Open question inherited" flagged that ticket 10 §5's `type option<T> = T |
+:nothing;` assumes an alias may be a **type-level function**, and split the generics half out as
+ticket 27. Resolved: **the language has real prenex parametric polymorphism** — parametric aliases
+are genuine type-level functions, variables are **declared** and named by C#'s `T` convention,
+**opaque in clause heads and guards**, **unbounded**, and **variance is not a concept** (this
+ticket's measured arrow contravariance is emergent from set containment, not an annotation anyone
+could have written differently).
+
+**This ticket's caution held exactly as written.** `ParseAtom<T>` and `ValidateAs<T>` are still
+**not** generics — and now that real generics exist, 27 §8 turns that observation into an enforced
+rule: **a codegen obligation requires a ground type argument**, so `ValidateAs<TSource>` inside a
+polymorphic function is **rejected at compile time**. This is a second rejection rule alongside
+this ticket's existing one for arrow types, and for the same underlying reason — you cannot
+generate a runtime structural check for something whose shape is not known at generation time.
+
+**`list<term>` versus `list<int>` is untouched.** §2's rule that a pattern over a `term` may mention
+only what a BEAM guard decides in O(1) is orthogonal to type variables; 27 §2's restriction is
+about *variables*, this one is about *depth*. A clause head may not test a `TSource`, and may not
+test the element type of a `list<term>`, for two different reasons.
+
+**One thing this ticket should know it lost.** 27 §6 measured that an emitted polymorphic `-spec`
+is **not enforced by Dialyzer** — the variables read as `any()`. So the guarantee stated here —
+*"Every case your types admit has a clause, and everything from outside is a `term` until you match
+it"* — is unchanged inside the language, but the *published* evidence for it is weaker for
+polymorphic functions than for monomorphic ones. → ticket 18.

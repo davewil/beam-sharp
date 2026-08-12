@@ -475,3 +475,20 @@ own.
 a build-layout consequence as well as a collision one: `erlc` **enforces module-name/filename
 matching on the `from_abstr` path** (13a §4), so the emitted `.abstr` filename must equal the module
 atom. A dotted atom — `'Shop.Orders.Order'`, Elixir's convention — works unchanged.
+
+## Amendment from ticket 27 — resolved 2026-08-12
+
+**§5's `type option<T> = T | :nothing;` is confirmed, and the assumption under it is now paid for.**
+
+This ticket put a parametric alias in the prelude while ticket 11 flagged that doing so assumes an
+alias may be a **type-level function** — an assumption neither ticket owned. Ticket 27 resolved it:
+the language has real parametric polymorphism, aliases genuinely are type-level functions, and the
+`T` spelling written here is the settled one. Variables are **declared** (forced — this language's
+builtins are lowercase, so lowercase-implicit variables would be ambiguous where Gleam's are not)
+and named by C#'s convention, which is what §5 already wrote.
+
+**§4's `ParseAtom<T>` is unaffected but gains a rule.** It remains type-directed **codegen**, not a
+generic function. 27 §8 adds that **a codegen obligation requires a ground type argument**, so
+`ParseAtom<TSource>` inside a polymorphic function is rejected — consistent with this ticket's
+existing requirement that `T` be a finite atom union, which a type variable can never be known to
+be.

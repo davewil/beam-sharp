@@ -69,6 +69,16 @@ spec exists.
      divergence with its reason — e.g. `as T` yielding `T | :nothing` for any `T`, where C#
      requires a reference or nullable value type (CS0077).
 
+  **Amendment — the bar for tier 3 is lower than "invent last" suggests** (David, 2026-08-12,
+  ticket 27). *"It drifts from C#/TS, but it's 'like' those languages, not a perfect recreation on
+  BEAM."* The goal is **resemblance, not reproduction**. A divergence needs a stated reason; it
+  does not need an apology, and it does not need the borrowed construct to be unavailable. Ticket
+  27 §2 is the worked case: C# permits `if (x is int i)` on a `T` and TypeScript narrows a generic
+  with `typeof`, so the permissive rule was fully available as a tier-1 borrow — and was refused
+  anyway, because beam-sharp checks clauses at the *definition* and the borrow would have made
+  reachability unanswerable there. **Read tier 3 as "diverge deliberately", not "diverge only as a
+  last resort".**
+
   The test for whether this is working: a construct a C# developer reads on sight, versus one they
   must be taught. Rules that have to be learned are the tax this heuristic exists to avoid — and
   it compounds under the standing constraint below, since anything a human must be taught is also
@@ -344,6 +354,37 @@ spec exists.
   consequence: **ticket 27 loses a motivating case** — `Pid[τ]` was the clearest demand for a real
   type parameter in the map.
 
+- [Parametric polymorphism](issues/27-parametric-polymorphism.md) — **the language has real
+  parametric polymorphism, and it is the smallest version of it that works.** The ticket's question
+  was three questions wearing one coat, and only one was live: parameterised *constructors*
+  (`list<int>`) were already forced by 09/11 and are not polymorphism at all, parametric *aliases*
+  (`option<T>`) arrived near-settled from 10, and only **polymorphic function signatures** were
+  open. Yes — on a cost argument the map must now protect: the frightening results attach to
+  *inference* and to *intersection-typed* functions, and **beam-sharp had already refused both for
+  unrelated reasons** (04 made signatures mandatory; 08 settled one arrow per arity with union
+  parameters, so a function type is `(A|B) -> (C|D)`, never `(A->C) & (B->D)`). Instantiation is
+  therefore matching, not solving — and **§3 unbounded and §7 no-row-polymorphism are what keep
+  that true**, not independent preferences. Four rules: variables are **opaque in clause heads and
+  guards** (a bare variable admits exactly one clause — bind it; structure *around* it matches
+  freely, so `Map`'s `[]`/`[h, ..t]` are exhaustive at the definition for every instantiation);
+  **unbounded**, with capability constraints deferred to ticket 16 because a bound is *ad-hoc*
+  polymorphism wearing a bracket; **declared, C# `T`-convention** — forced, because beam-sharp's
+  builtins are lowercase, so lowercase-implicit is ambiguous where Gleam's is not; and **variance
+  is not a concept**, since 09's abolition of nominality leaves nothing to annotate or infer.
+  *Rejected: monomorphise per call site* — it fights ticket 13's aggregate-granularity hot loading
+  and separate compilation, working *inside* an aggregate and failing exactly where a shared
+  `List.Map` lives. Two measurements: **an emitted polymorphic `-spec` is documentation, not
+  enforcement** (Dialyzer reads the variables as `any()`; the monomorphic control fires), so
+  **choosing generics made the boundary strictly weaker → ticket 18**; and **syntax recovers an
+  element-type relation with zero polymorphism** (`roundtrip` preserves `[integer()] -> [binary()]`
+  where the same computation through an opaque fun collapses to `[any()]`), which is why row
+  polymorphism was declined — `with`/spread already covers the case that would demand a row
+  variable. Forced consequences: **codegen obligations require a ground type argument**, so
+  `ValidateAs<TSource>` is rejected inside a polymorphic function; and **polymorphic recursion is
+  permitted** because 04 already paid for mandatory signatures — the undecidability is about
+  inference. **Ticket 16 is unblocked**, and inherits the rule that names its own boundary: *a type
+  variable is a slot for values you carry; a union is a slot for values you examine.*
+
 ## Not yet specified
 
 <!-- in-scope fog: real, but not yet sharp enough to phrase as a ticket -->
@@ -372,7 +413,14 @@ spec exists.
   of OTP* rather than only emitting for it: the **behaviour contracts** it checks callback
   signatures against (§4) and the **system-message shapes** in the compiler-known prelude stratum
   (§6). Whether either differs across the pinned range is **unmeasured** — only OTP 28.5 was
-  installed when 14 was resolved.
+  installed when 14 was resolved. **Ticket 27 adds a fifth measurement and removes a worry.**
+  Added: if ticket 16 later wants **bounded type variables**, bounds are the feature that turns
+  instantiation from matching into constraint solving, so their cost must be measured at showcase
+  clause counts before they are accepted — this is a precondition on 16, not on the skeleton
+  itself, but the skeleton is where it gets measured. Removed: the ticket's own fear that
+  *recursive plus parametric* would be the combination that breaks the budget is now bounded by
+  the four things 27 refused — no inference, no intersection arrows, no bounds, no row variables —
+  so what the skeleton measures is a matching problem, not tallying in its general form.
 - **The typed model of OTP itself** — new with ticket 14, and distinct from the corpus that proves
   it. The language knows behaviour contracts and system-message shapes as types. Open: which
   behaviours ship built in (gen_server, supervisor, application, gen_statem, gen_event), how a
@@ -413,7 +461,14 @@ spec exists.
   wins resolution and which the compiler draws inferences from. Still open: **whether a user can
   add to the second stratum**, how the two are documented differently, and what "in the prelude
   versus in a module you import" means once the answer is a compiler guarantee rather than a
-  definition.
+  definition. **Ticket 27 moves the boundary.** With real type variables, `List.Map` and friends
+  are now definitions **a user could have written**, which is stratum 1's own test — so the
+  collection library drops out of the compiler-known stratum and the question becomes narrower and
+  sharper: stratum 2 now holds only the *codegen obligations* (`ParseAtom<T>`, `ToExistingAtom`,
+  `ValidateAs<T>`) and OTP's system-message shapes. 27 also gives stratum 2 its first hard rule —
+  **a codegen obligation requires a ground type argument** — which is a property no stratum-1
+  definition has, and is therefore a candidate for what actually distinguishes the two strata,
+  rather than "could a user have written it".
 - **Consuming Gleam and Elixir libraries** — possible, and at what ergonomic cost. **Sharper
   after ticket 10 §7**, which measured Gleam's representation rather than reading it: fieldless
   variants are bare atoms, variants with fields are tagged tuples, PascalCase becomes

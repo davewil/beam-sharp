@@ -262,3 +262,41 @@ compile-time answer.**
   prelude stratum. If that proves insufficient, the residue is a boundary-defence question.
 
 Blocking note: this ticket remains blocked by ticket 22, which is `deferred`.
+
+## Constraints from ticket 27 — resolved 2026-08-12
+
+**Choosing generics made your problem strictly worse, and it was measured rather than argued.**
+
+27 §6 probed whether an emitted polymorphic `-spec` — which ticket 13 §6 obliges the compiler to
+emit for every function whose type is known — is enforced by anything downstream. Measured on OTP
+28.5, `dialyzer` against a PLT of erts/kernel/stdlib
+([`27b`](../prototypes/27b_polymorphic_spec_enforcement.erl), control
+[`27c`](../prototypes/27c_polymorphic_spec_control.erl)):
+
+```erlang
+-spec map([A], fun((A) -> B)) -> [B].      %% Ys is [binary()]; hd(Ys) + 1  ->  SILENT
+-spec map_mono([integer()], fun((integer()) -> binary())) -> [binary()].
+                                           %% hd(Ys) + 1  ->  CAUGHT
+```
+
+The control fires, so the probe is sensitive. **Erlang's spec grammar accepts type variables;
+Dialyzer does not enforce the relation across them**, reading `A` and `B` as `any()`.
+
+**Three consequences for this ticket.**
+
+1. **Do not count the emitted spec as a defence for polymorphic functions.** For a monomorphic
+   beam-sharp function, a raw Erlang caller that runs Dialyzer at least gets a warning. For a
+   polymorphic one it gets nothing. This is a **regression**, not a neutral gap — the defence
+   inventory now has to be taken per-function-kind, not per-language.
+2. **It is a ninth face of ticket 06's silent unsoundness**, and of a new sort: 06's eight channels
+   are about a *value* arriving badly typed, while this is the *published contract* failing to
+   check. Worth naming separately when this ticket tallies the surface.
+3. **It is not an argument for emitting guards on polymorphic functions.** 27 §2 makes type
+   variables opaque precisely so that nothing inspects a value of type `TSource` — a guard emitted
+   at the boundary of a polymorphic function would have nothing to test, since the shape is chosen
+   by the caller. Whatever this ticket decides about emitted guards applies to the **ground** parts
+   of a signature only.
+
+**Unchanged**: ticket 13 already removed 18's other motivation (ticket 12's 40-byte saving is
+unavailable on the Abstract Format target), so **silent unsoundness remains 18's sole remaining
+motivation** — and 27 has just widened it.

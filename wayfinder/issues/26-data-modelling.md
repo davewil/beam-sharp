@@ -94,3 +94,33 @@ ticket 14 §6 makes calling `Monitor` with no `Down` handler in the compilation 
 is a name doing work, in a language where ticket 09 settled that names never enter the algebra.
 **The reconciliation is that the inference is about the *call*, not the type**, but this ticket
 should say so explicitly, because it looks like nominality and is not.
+
+## Constraints from ticket 27 — resolved 2026-08-12
+
+**Two things settled elsewhere that this ticket must not re-decide, and one it now owns more of.**
+
+**Parametric aliases exist and are 27's, not yours.** 27 confirmed `type option<T> = T | :nothing;`
+denotes a real type-level function, with variables **declared** and named by C#'s `T` convention
+(`TSource`, `TKey`, `TValue`) — forced, because beam-sharp's builtins are lowercase, so
+lowercase-implicit variables would be ambiguous where Gleam's are not. This ticket writes record
+types against that spelling; it does not choose it.
+
+**Row polymorphism is ruled out — and the reason lands squarely here.** 27 §7 declined row
+variables, and the load-bearing argument is about *this ticket's* construct: **record update is
+`with` / spread, which is syntax**, so it types structurally against a concrete record type with no
+variable involved. That is
+[`prototypes/27a`](../prototypes/27a_comprehension_vs_hof_typing.erl) generalised — measured on OTP
+28.5, an analysis with *no* type variables preserves `[integer()] -> [binary()]` through a
+comprehension while the same computation through an opaque fun argument collapses to `[any()]`.
+
+**So this ticket now carries the weight of that argument.** If `with`/spread turns out *not* to be
+the answer to record update — if it is dropped, or if the C#-`with`-versus-TS-spread question
+resolves toward something that is not compiler-visible syntax — then 27 §7's justification for
+declining row polymorphism weakens, and 27 must be told rather than left to rot. 27 recorded the
+deferred-option requirements: a spelling distinct from `T`-style variables (row variables range
+over field sets, not types), a rule for whether a row variable may appear in a clause head (§2
+would answer no), and a resolution to the completeness gap the literature records ([86], *"an open
+problem we are working on"*).
+
+**What is not expressible, so this ticket should not design around it**: a shared function over
+unrelated record types that happen to share a field. That is a capability constraint → ticket 16.
