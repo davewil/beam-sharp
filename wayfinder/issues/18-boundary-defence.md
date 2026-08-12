@@ -1,8 +1,8 @@
 # 18 — Boundary defence: does the compiler emit runtime guards, and where?
 
 Type: grilling
-Status: open
-Blocked by: 11, 12, 22
+Status: claimed
+Blocked by: 11 (done), 12 (done) — the 22 relation was dropped 2026-08-12 as stale, see below
 
 ## Question
 
