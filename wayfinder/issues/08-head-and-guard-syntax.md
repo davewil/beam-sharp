@@ -46,6 +46,63 @@ Decide:
   (`[first, .., last]`) are not one-pass expressible over cons cells. Decide what subset of
   list patterns survives, and whether a non-one-pass pattern is permitted at a cost.
 
+## SETTLED — arity, defaults, variadics, and same-arity dispatch
+
+Decided under the map's audience constraint: **C# *or* TypeScript developers**, so a construct
+familiar to either counts as borrowed.
+
+### Same-arity dispatch on different types → a union parameter, not overload signatures
+
+```csharp
+string Describe(int | Order);
+
+(n) when n > 0  -> "positive number";
+(n)             -> "number";
+({ Status: s }) -> "order: " + s;
+```
+
+Native to TypeScript, and readable to a C# developer as soon as unions exist — which C# 15 is
+adding anyway. TS-style overload signatures (several signatures, one clause set) were the
+alternative and were rejected: the whole clause set is checked **once per arrow**, so every clause
+is checked against every signature, which *reads* as though clauses belong to one arrow or another
+when they do not.
+
+**Knock-on that simplifies ticket 04 and ticket 11**: **one arrow per arity**. The per-arrow check
+therefore runs *once*, not once per signature, and the question of which clause belongs to which
+arrow disappears. Multiple arrows remain expressible only if a later ticket reintroduces them.
+
+### Defaults and variadics — both kept, because both audiences have both
+
+C# has `b = 0` and `params T[]`; TypeScript has `b?` and `...args`. The reader sees one function,
+as in either language. Arity generation is **codegen**, not surface.
+
+```csharp
+Money Total(Order o, Money acc = 0);      // source: one function; emits Total/1 and Total/2
+
+void Log(...list<string> parts);          // Log("a", "b")  ->  Log(["a", "b"]); always Log/1
+```
+
+Variadics never vary the arity — rest lowers to a single list-taking function and the call site is
+rewritten, exactly as C# constructs an array at the call site.
+
+**The leak, stated rather than hidden**: Erlang callers see the generated exports, and so do stack
+traces. That is an interop-surface consequence, not a source-surface one.
+
+### Defaults do NOT subsume the accumulator pair
+
+`Money Total(Order o, Money acc = 0)` generates `Total/1` and `Total/2` — but **both take an
+`Order` first**. The recursive helper needs `Total(list<Line>, Money)`, a different first parameter
+type. A default value cannot change a parameter's type.
+
+So two distinct mechanisms both produce multiple arities, and the spec must distinguish them:
+
+- **Defaults** — for genuinely optional arguments of the same type.
+- **Two functions sharing a name** — for the public/private accumulator pattern, exactly as the
+  prototypes have it. Name-plus-arity identity makes this free, and it is the BEAM idiom.
+
+Otherwise someone reaches for a default where they need a second function, and the types will not
+line up.
+
 ## SETTLED — guards use the expansion rule, and named guards take a `guard` modifier
 
 **The rule** (adopted from Elixir, verified locally on 1.19.5 / OTP 28): *a guard may contain
