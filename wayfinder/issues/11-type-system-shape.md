@@ -1,7 +1,7 @@
 # 11 — Type system shape and the `dynamic()` boundary
 
 Type: grilling
-Status: open
+Status: closed
 Blocked by: 03, 04, 09
 
 ## Question
@@ -118,7 +118,175 @@ binds here:
   writes `list<Json>` and `map<string, Json>`, but a parametric *alias* is a type-level
   function and this ticket owns whether that is in scope.
 
+## Scope split — David, 2026-08-12
+
+This ticket was charted holding at least six decisions. It is the keystone (it blocks seven
+tickets), so it was split rather than answered thinly:
+
+- **This ticket keeps**: the `dynamic` boundary, the subtyping relation, and the one-sentence
+  guarantee. → unblocks 12, 13, 18, 23, 24.
+- **Spun out to a new ticket 27 — parametric polymorphism**: whether the language has generics
+  at all, generic syntax, and parametric *aliases* (`type option<T> = T | :nothing;`, the debt
+  ticket 10 §5 left). That ticket becomes ticket 16's blocker in place of this one, and it —
+  not ticket 26 — owns the parametric-alias question.
+- **Folded into ticket 20**: integer interval types and guard refinement (ticket 01's `Fib`
+  debt).
+- **Not reopened**: inference strength. Tickets 04 and 08 already settled it — signatures are
+  mandatory on multi-clause functions.
+
+## Answer — in progress, 2026-08-12
+
+### 1. There is no `dynamic` in this language
+
+The ticket's own framing — "where is `dynamic()` introduced" — treats it as a *place*. Both
+shipping implementations treat it as something else, and beam-sharp takes neither:
+
+| | Elixir 1.19.5 (`local`) | Gleam 1.18.1 (`local`) | **beam-sharp** |
+|---|---|---|---|
+| In the type system? | yes — `%{dynamic: :term}`, a field on every type | no — `pub type Dynamic`, a library type | **no such type at all** |
+| Entry | free | `@external(erlang, "gleam_stdlib", "identity")` — free cast | arrives as `term` |
+| Exit | `compatible?`, a second and weaker relation | `decode.run/2`, a hand-written decoder | **a clause head** |
+| Who writes the check? | nobody | the user, per shape | the pattern already is one |
+
+External values arrive typed `term`, the set-theoretic top. The only way to use one is to
+match it, and the exhaustiveness checker computes `term \ (Acc(p₁)|…|Acc(pₙ))` — so the
+residual *is* the boundary case you failed to handle, and it is not empty until you do.
+
+**One relation, not two.** Because nothing is gradual, subtyping stays plain set-theoretic
+containment (coinductive over the equirecursive types ticket 09 settled). Elixir needs
+`subtype?` *and* `compatible?` precisely because `dynamic` relates to nothing under the sound
+relation — observed: `subtype?(integer, dynamic) = false`, `compatible?(dynamic, integer) =
+true`. beam-sharp has no such value, so it needs no such second judgement.
+
+**The borrow heuristic does not discriminate here, and that is itself the finding.** Tier 1
+supplies a construct for *both* poles — C# has `dynamic` (a real type, runtime-bound) and
+TypeScript has `unknown` (narrow-before-use) alongside `any`. Neither audience needs teaching
+either shape, so the eight-channel problem decides it, not familiarity.
+
+**Consequence for ticket 08**: its line "`dynamic` narrowing is always written, never inferred"
+survives in spirit and loses its keyword. Narrowing is written — as a clause head.
+
+### 2. Patterns over a `term` are O(1) guard-decidable only
+
+Narrowing a `term` compiles to BEAM guards, and guards decide some types and not others:
+`is_integer`, `is_atom`, `is_list`, tuple shape and size in O(1); element types and function
+signatures never. So a pattern over a `term` may mention **only what a guard decides in O(1)**.
+`list<term>` is writable; `list<int>` is a compile error in that position.
+
+This is ticket 09's discriminability rule extended verbatim — **BEAM guards are the vocabulary**
+— rather than a new rule.
+
+Deep validation exists, as an explicit call to a **compiler-generated `ValidateAs<T>`**:
+
+```
+list<term> xs = ...;                              // O(1), is_list
+list<int> | :error ys = ValidateAs<list<int>>(xs); // O(n), at a visible call site
+```
+
+Rejected: emitting the traversal *inside* the clause head. The cost is O(n·depth) and **the
+sender chooses n** — ticket 06's channels are mailboxes, ETS reads and decoded external terms,
+none of them yours. A construct that looks like constant-time dispatch must not become
+unbounded work chosen by a foreign process. Also rejected: checking `is_list` and trusting the
+elements, which is ticket 06's silent unsoundness reintroduced one decision after `dynamic` was
+dropped to avoid exactly that.
+
+**`ValidateAs<T>` is codegen, not generics.** It is the same type-directed codegen obligation
+ticket 10 established for `ParseAtom<T>`: `<T>` is a compile-time argument driving generation,
+monomorphic at every use. **Ticket 27 must not read either as evidence that the language has
+parametric polymorphism** — that question is still open there.
+
+### 3. `ValidateAs<T>` rejects arrow types at compile time
+
+A fun carries no runtime evidence of its signature, and this is not a BEAM wart — a function's
+type is absent from its runtime value in every language. It surfaces here only because
+validation was made first-class.
+
+Measured (OTP 28, `prototypes/11b_fun_evidence.erl`): `erlang:fun_info` yields
+`{module,hotmod},{name,f},{arity,1},{type,external}` for an external fun and `{name,[]}` for a
+closure. **Identity, never types.**
+
+The trap that decides it: arrow subtyping is contravariant in the argument, so the top arrow is
+`none() -> term()`, whose parameter type is `none` — **there is no value you can legally pass
+it**. Verified: `subtype?(fn(int)->int, fn(none)->term) = true` but
+`subtype?(fn(int)->int, fn(term)->term) = false`. So "narrow it to `fn(term)->term` and call it"
+is unsound; that type claims the fun accepts *every* term.
+
+Therefore `ValidateAs<T>` is **illegal for any T containing an arrow**. A foreign fun can be
+held and passed back to Erlang; it cannot be called from beam-sharp. The idiomatic boundary is
+**MFA** — `{atom, atom, int}`, three guard-decidable leaves, which validates with no special
+case.
+
+Rejected: **higher-order contract wrapping** (validate each argument in, the result out). It is
+the literature's correct answer and the only sound way to *call* a foreign fun — rejected on the
+same hidden-cost grounds that decided §2, plus its need for blame tracking. **Chosen partly for
+reversibility**: wrapping is purely additive later and would invalidate no program written under
+this rule, whereas arity-and-trust is not reversible, since programs come to depend on the
+unsoundness.
+
+**A claim of my own, corrected by measurement.** I argued OTP prefers MFA because funs go stale
+across hot code loading. That is true of **closures only**: after loading v2, a closure still
+returned `{v1,closure,1}` and died `badfun` once v1 was purged, while `fun M:F/1` returned
+`{v2,1}` and survived the purge — late-bound, exactly like MFA. The argument for MFA is
+narrower than I stated.
+
+**Deferred option, with its requirement recorded**: because an external fun *is* recoverable to
+an MFA at runtime, and beam-sharp compiles its own modules and already emits `-spec`, a future
+check could look up the target's declared signature and compare. **Requirement: a runtime type
+registry** keyed by module. Not designed here; it is a whole mechanism, and nothing yet needs it.
+
+### 4. The top type is spelled `term`
+
+Not `unknown`, not `object`, not `any`.
+
+The borrow heuristic points the other way — TypeScript's `unknown` is a tier-1 construct meaning
+exactly "narrow before use" — so **this is a deliberate override of the heuristic, recorded as
+the heuristic's own tier 3 requires.** The reason:
+
+- In a set-theoretic system the top type is **a set**, and it participates in the algebra. The
+  exhaustiveness residual is literally `term \ (Acc(p₁)|…|Acc(pₙ))`. `unknown` names an
+  epistemic state; you cannot take the complement of your own ignorance. `term` names a domain.
+- **Source and emitted artefact then agree.** Ticket 06 recommends emitting `-spec`, and the
+  spec says `term()`. One word, not two, for a reviewer reading both. (Erlang's `term()` and
+  `any()` are synonyms — `doc`; an attempt to verify this locally via `erl_types` failed, the
+  API is internal.)
+- Neither audience has the word, so neither mis-imports a meaning. `object` would drag C#'s
+  root-class and boxing connotations into a language with neither; `any` is TypeScript's
+  *unsound* top, assignable in both directions, which is the opposite of this.
+
+**Gleam has no answer here, and structurally cannot.** Its only candidate is
+`pub type Dynamic` — an opaque library type documented as *"data that we don't know the type of
+yet"*. Hindley-Milner has no subtyping, so nothing can be a supertype of everything and the
+question never arises. Gleam's epistemic name is honest *for an opaque box*; beam-sharp's is not
+a box. This is the same shape as ticket 03's finding: not a fork Gleam considered and rejected,
+but one its machinery never put in front of it.
+
+### 5. The guarantee, in one sentence
+
+> **Every case your types admit has a clause — and everything from outside is a `term` until
+> you match it.**
+
+With the gloss that follows it in the spec, kept verbatim:
+
+> beam-sharp checks that your clauses cover every value your signatures admit; it does not check
+> where a value came from, so anything crossing the boundary is a `term` until proven otherwise.
+
+**The sentence is deliberately stable under ticket 18.** The rejected candidate was the one that
+*sounded* most rigorous — "so long as every caller is beam-sharp, no function receives a value
+outside its declared type" — and it fails because it pins the guarantee to **who called you**,
+which ticket 09 §5 already established the BEAM cannot enforce. Candidates that pin it to
+**shape** survive whichever way ticket 18 decides, because guards check shape and never origin.
+
+**This ticket does not decide whether the compiler emits defensive guards.** That is ticket 18,
+and the sentence above is true either way.
+
 ## Notes
 
 HITL. Waits on ticket 04 for the algorithms, ticket 03 for what has and has not worked
 before, and ticket 09 because the union model determines what a type even is here.
+
+**Evidence** (all `local`, OTP 28 / Elixir 1.19.5 / Gleam 1.18.1):
+[`prototypes/11a_dynamic_descr.exs`](../prototypes/11a_dynamic_descr.exs) — how Elixir
+represents `dynamic`, the two relations, and arrow subtyping including the `none() -> term()`
+top. [`prototypes/11b_fun_evidence.erl`](../prototypes/11b_fun_evidence.erl) (+ `_v1`, `_v2`) —
+what a fun carries at runtime, and closure staleness versus external-fun late binding across a
+code upgrade.

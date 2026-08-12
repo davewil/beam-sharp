@@ -235,6 +235,34 @@ spec exists.
   ticket 06's silent unsoundness is demonstrated**: a Gleam function spec'd `-> float()`
   returned a binary when called from raw Erlang.
 
+- [Type system shape and the `dynamic` boundary](issues/11-type-system-shape.md) — **there is no
+  `dynamic` in this language.** The ticket's own framing treated it as a *place*; both shipping
+  implementations treat it as something else, and beam-sharp takes neither — Elixir makes it a
+  **field on every type** (`%{dynamic: :term}`) needing a **second, weaker relation**
+  (`subtype?(integer, dynamic) = false` but `compatible?(dynamic, integer) = true`), Gleam makes
+  it an **opaque library type** entered by a free `identity` cast and exited by a hand-written
+  decoder. beam-sharp has neither: external values arrive as `term`, **the clause head is the
+  decoder**, and the exhaustiveness residual *is* the boundary case you failed to handle. So
+  **one relation, not two** — plain set-theoretic containment, coinductive per ticket 09.
+  Patterns over a `term` are **O(1) guard-decidable only** (ticket 09's discriminability rule
+  extended verbatim — BEAM guards are the vocabulary); deep validation is an explicit call to a
+  generated **`ValidateAs<T>`**, because emitting the traversal inside a clause head would make a
+  dispatch construct do unbounded work **whose size a foreign sender chooses**. `ValidateAs<T>`
+  **rejects arrow types at compile time**: `erlang:fun_info` yields identity, never types, and
+  the top arrow is `none() -> term()` — uncallable, since arrow subtyping is contravariant, so
+  "narrow it to `fn(term)->term`" is unsound. Foreign funs are holdable and returnable, never
+  callable; the boundary is **MFA**, which is guard-decidable data. Higher-order contract
+  wrapping is the literature's correct answer and was rejected on the same hidden-cost grounds,
+  **chosen partly for reversibility** — wrapping is purely additive later. The top type is
+  spelled **`term`**, a deliberate **override of the borrow heuristic** (TS's `unknown` is tier
+  1): the top here is a *set* you take complements of, not an epistemic state, and it matches the
+  emitted `-spec`. The guarantee: **"Every case your types admit has a clause — and everything
+  from outside is a `term` until you match it."** Deliberately **stable under ticket 18**; the
+  rejected candidate pinned it to *who called you*, which ticket 09 §5 says the BEAM cannot
+  enforce. **Two cautions**: `ParseAtom<T>` and `ValidateAs<T>` are type-directed **codegen, not
+  generics** (→ ticket 27), and my own claim that OTP prefers MFA because funs go stale is true of
+  **closures only** — `fun M:F/1` is late-bound and survived a purge that killed a closure.
+
 ## Not yet specified
 
 <!-- in-scope fog: real, but not yet sharp enough to phrase as a ticket -->
@@ -259,7 +287,11 @@ spec exists.
   Gleam-ish. Breadth is out of scope; the shape is not. **The prelude now has known contents**
   from ticket 10 — `type bool = true | false;`, `type option<T> = T | :nothing;`,
   `ParseAtom<T>` and `ToExistingAtom` — which makes "what is in the prelude versus a module you
-  import" a live sub-question rather than a hypothetical one.
+  import" a live sub-question rather than a hypothetical one. **Ticket 11 adds `ValidateAs<T>`**,
+  and with it a sharper version of the question: `ParseAtom<T>` and `ValidateAs<T>` are
+  compiler-generated rather than written, so the prelude is not only a set of definitions but a
+  set of **codegen obligations** — and where those are documented, and whether a user can extend
+  them, is unanswered.
 - **Consuming Gleam and Elixir libraries** — possible, and at what ergonomic cost. **Sharper
   after ticket 10 §7**, which measured Gleam's representation rather than reading it: fieldless
   variants are bare atoms, variants with fields are tagged tuples, PascalCase becomes

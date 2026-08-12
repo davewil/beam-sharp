@@ -405,3 +405,14 @@ syntax that admits only one input type per function forecloses overloading acros
 
 HITL. The headline feature's surface. Depends on ticket 01 for something concrete to react
 to, and ticket 05 for what C# syntax is available to borrow.
+
+## Amended by ticket 11 — 2026-08-12
+
+**This ticket's `dynamic` narrowing rule survives in spirit and loses its keyword.** Ticket 08
+recorded that "`dynamic` narrowing is **always written**, never inferred: neither audience expects
+implicit cast insertion." [Ticket 11](11-type-system-shape.md) then removed `dynamic` from the
+language entirely — external values arrive as `term`, and the only way to use one is to match it.
+
+So the rule holds, more strongly than before: narrowing is always written, and what it is written
+*as* is **a clause head**. Nothing is ever narrowed implicitly, because there is no construct that
+could do it. Read every occurrence of `dynamic` in this ticket as `term`.

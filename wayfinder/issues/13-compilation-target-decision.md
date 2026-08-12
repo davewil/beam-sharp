@@ -100,3 +100,17 @@ in the same layer, and a target chosen without checking either will fail quietly
 HITL, but heavily fact-led — most of the work is in ticket 02. Blocked by ticket 11 because
 a type system that erases entirely has different target needs than one wanting to emit
 type-derived runtime checks at boundaries.
+
+## Constraints from ticket 11 — resolved 2026-08-12
+
+- **A second type-directed codegen obligation lands here.** Ticket 10 established `ParseAtom<T>`;
+  ticket 11 adds **`ValidateAs<T>`**, which must synthesise an O(n) structural traversal from a
+  type. Both require full type information *at codegen time*, which is an argument about the tier
+  chosen — and it compounds ticket 02's finding that compiling from `.core` emits an empty
+  abstract chunk **with no warning**, losing `-spec` silently.
+- **Patterns over a `term` lower to guards.** Where a typed parameter needs no runtime test
+  (the checker proved it), a `term` pattern does: `{:tick, int n}` needs `is_integer(N)`. So the
+  backend must emit guards from pattern type annotations, and only for `term`-typed positions.
+- **Arrow types are rejected by `ValidateAs<T>` at compile time**, so no fun-wrapping codegen is
+  needed. If ticket 11's deferred option (a runtime type registry keyed by module, to validate an
+  external fun against its declared `-spec`) is ever taken up, that lands here.

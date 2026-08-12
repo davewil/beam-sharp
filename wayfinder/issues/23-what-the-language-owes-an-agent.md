@@ -66,3 +66,17 @@ format depends on what the type system actually computes and can name.
 
 Interacts with ticket 22: enforced conventions are guardrails on an agent, which is an argument
 for opinionation that a human-authorship analysis would not produce.
+
+## Constraints from ticket 11 — resolved 2026-08-12
+
+- **The residual is the missing clause**, and ticket 11 kept it that way deliberately: an
+  unhandled boundary case shows up as a non-empty `term \ (Acc(p₁)|…|Acc(pₙ))`, which is the
+  clause the agent must write, handed over rather than described.
+- **A compile error can name its own fix.** `ValidateAs<T>` on an arrow type is rejected, and the
+  error's useful form is *"an arrow has no runtime evidence — take `{M,F,A}` instead"*. That is
+  the diagnostics-as-instructions property this ticket is about, in a second concrete instance.
+- **Counterweight, and this ticket owns it**: `ParseAtom<T>` and `ValidateAs<T>` are
+  **compiler-generated bodies nobody writes and no reviewer reads**. The standing constraint says
+  agents author and humans review, so generated code is the one place that constraint has no
+  purchase. Decide what the language owes a reviewer here — emitted source, a documented lowering,
+  or nothing.

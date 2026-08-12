@@ -151,3 +151,20 @@ Two smaller inheritances:
 HITL. Surfaced by ticket 06. Blocked by 11 (what the type system claims) and 12 (whether
 partial functions are permitted at all) — this ticket decides how the claim is *defended*,
 which only makes sense once the claim exists.
+
+## Constraints from ticket 11 — resolved 2026-08-12
+
+- **Ticket 11 deliberately did not decide this**, and its guarantee sentence was chosen to be
+  **stable either way** — it pins the guarantee to the *shape* of a term, never its provenance,
+  because guards check shape too. So whichever way this goes, the sentence stands unchanged.
+- **The language-level half of the answer is already built.** External values arrive as `term`;
+  the clause head is the decoder; the exhaustiveness residual forces the boundary case. This
+  ticket owns only the remaining question: whether a **typed** parameter gets defensive guards
+  emitted against a foreign caller — ticket 06's `add(1.5, 2.5)` returning `4.0`.
+- **`ValidateAs<T>` is a mechanism this ticket can reuse** rather than invent: a generated,
+  type-directed structural check, already specified, already O(n) and already explicit.
+- **One channel is closed by construction.** A foreign fun cannot be called from beam-sharp at
+  all (arrows carry no runtime evidence of their signature; the top arrow `none() -> term()` is
+  uncallable), so there is no fun-shaped violation to defend against — only MFA, which is data.
+- **The rejected option is recorded as reversible**: higher-order contract wrapping is purely
+  additive later. If this ticket wants defended arrows, nothing in ticket 11 blocks it.

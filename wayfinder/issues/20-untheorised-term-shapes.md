@@ -100,7 +100,35 @@ Note the boundary with **[ticket 18](18-boundary-defence.md)**: that ticket owns
 *where an external term becomes a typed value*. Provenance is a different claim — that the
 property travels *with* the value afterwards — which is why it is filed here rather than there.
 
+## Added by ticket 11 — resolved 2026-08-12
+
+**Integer intervals and guard refinement — folded in here from ticket 11.** Ticket 11 was the
+keystone and held six decisions; it kept the `dynamic` boundary, the subtyping relation and the
+guarantee, and sent this debt here because it is the same *kind* of question as the rest of this
+ticket: a capability the type language may or may not have.
+
+The debt comes from ticket 01's prototype. **No function whose totality rests on a guard can be
+proved total without it** — which is most arithmetic recursion. `Fib` is the worked case:
+`Fib(int n) when n <= 1` and `Fib(int n)` are only exhaustive and only terminating if the type
+system can see that the second clause receives `n > 1`. That needs two things ticket 11 did not
+decide:
+
+- **Integer interval types** — CDuce has them, so this is a paved path rather than an invention.
+- **Guard refinement** — narrowing a parameter's type inside a clause by the guard that selected
+  it. Note this is *narrowing by a predicate*, which is the same machinery the refinement-type
+  option above would need, so it converges with the newtype gap rather than adding a fourth
+  mechanism.
+
+**What ticket 11 settled that bounds this**: patterns over a `term` are **O(1) guard-decidable
+only**, and BEAM guards are the vocabulary. Guard refinement therefore has an obvious ceiling —
+whatever a BEAM guard can decide is refinable, and nothing else is. Decide whether the *type
+language* is allowed to be richer than that ceiling in positions that are not boundary patterns.
+
+**Also from ticket 11**: the top type is spelled **`term`**, and there is **no `dynamic`** — so
+none of the gaps on this ticket can be papered over by weakening a type. If binaries are not
+modelled, a binary is a `term` and must be matched.
+
 ## Notes
 
-HITL. Surfaced by ticket 04's gap analysis. Blocked by 11, since what the type system *is*
-determines what these questions even mean.
+HITL. Surfaced by ticket 04's gap analysis. Was blocked by 11, since what the type system *is*
+determines what these questions even mean; ticket 11 closed 2026-08-12.

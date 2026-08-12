@@ -65,3 +65,19 @@ it turns the guarantee into emitted-code savings rather than only a compile-time
 ## Notes
 
 HITL. This is where the language's philosophy gets decided, not merely its semantics.
+
+## Constraints from ticket 11 — resolved 2026-08-12
+
+- **The guarantee sentence now exists** and this ticket must not contradict it: *"Every case your
+  types admit has a clause — and everything from outside is a `term` until you match it."* It was
+  chosen to be stable whichever way this ticket and ticket 18 go.
+- **The boundary clause is now forced to be written, but not forced to do anything.** A `term`
+  argument leaves a non-empty exhaustiveness residual until a catch-all clause exists, so the
+  checker makes you *name* the foreign case. What that clause does — crash, return an error
+  value, log and ignore — is exactly this ticket's question, and the type system now guarantees
+  there is somewhere to put the answer.
+- **A precedent has been set in one direction already**: `ValidateAs<T>` returns `T | :error`, so
+  the one boundary construct the language has decided so far **fails as a value, not a crash**.
+  Decide whether that generalises or is an exception.
+- **There is no `dynamic`**, so "let it crash" cannot be reached by weakening a type. The only
+  routes into a crash are an explicit clause body or an unhandled foreign term.

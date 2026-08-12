@@ -65,3 +65,12 @@ HITL. The map's fog entry is retired by this ticket; do not re-add it. Consult
 record machinery (`init`/`readonly`, nullable reference types), and
 [ticket 06](06-interop-surface.md) on the term-model traps — a binary *is* a bitstring, and map
 key order is the opposite of term order for integers versus floats.
+
+## Constraints from ticket 11 — resolved 2026-08-12
+
+- **The top type is spelled `term`**, chosen over `unknown`/`object`/`any` as a deliberate
+  override of the borrow heuristic. Any modelling syntax here must use that word.
+- **Parametric aliases are NOT this ticket's to decide.** Ticket 11 spun the generics half out to
+  [ticket 27](27-parametric-polymorphism.md), which owns whether `type option<T> = T | :nothing;`
+  is even well-formed. Do not settle it here.
+- **`with` versus spread is still this ticket's**, unchanged.

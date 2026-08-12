@@ -95,3 +95,14 @@ will not notice a green test that measures nothing.
 HITL. Raised 2026-08-12 after the observation that test support had never been charted. Blocked by
 11 because what the type system computes determines both what testing is retired and whether
 type-directed generation is available.
+
+## Constraints from ticket 11 — resolved 2026-08-12
+
+- **The guarantee bounds what tests are still for.** *"Every case your types admit has a clause —
+  and everything from outside is a `term` until you match it."* Exhaustiveness is proved, so
+  case-coverage tests are largely redundant; **provenance is not checked at all**, so the tests
+  that still earn their place are the ones exercising foreign callers and boundary terms.
+- **`ValidateAs<T>` failure paths are testable surface**: it returns `T | :error`, and the
+  `:error` branch is ordinary code that a test can reach without a foreign process.
+- **A foreign fun cannot be called**, so no test needs to fake one — but a test may need to check
+  that a fun is correctly *held and returned* to Erlang unchanged.
