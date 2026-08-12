@@ -63,3 +63,28 @@ grammar has no negation, and expresses intersection only as an overloaded spec).
 So what a codegen obligation publishes to the Erlang world is a **widened monomorphic spec**, never
 a generic one — which is consistent with, and further evidence for, the position this ticket is
 likely to take. Worth confirming rather than assuming when this ticket is resolved.
+
+## Constraints from ticket 14 — resolved 2026-08-12
+
+**A motivating case has been removed.** Ticket 03 recommended `Pid[τ]` — a process identifier
+parameterised by the message type it accepts — and it was one of the clearest demands in the map
+for a genuine type parameter. Ticket 14 §1 **declines it**, on three grounds:
+
+1. It is not expressible. Ticket 09 makes types sets of values with no nominality, so
+   `pid<Order.Msg>` and `pid<Payment.Msg>` denote the same set and are therefore the same type.
+   Gleam can carry the phantom parameter only because its type system is nominal — `subject(τ)`
+   lowers to `{subject, Pid, Ref}` with τ erased.
+2. It is not needed. The message type belongs on the client API function's signature, which is
+   where it was going to be written anyway.
+3. It would not buy soundness, since ticket 21 rules out ruling out foreign senders.
+
+So this ticket decides generics on the remaining evidence — `option<T>`, `ParseAtom<T>`,
+`ValidateAs<T>` — which ticket 11 already flagged as **type-directed codegen rather than
+generics**. With `Pid[τ]` gone, there may be no surviving case that demands parametric
+polymorphism proper, which materially changes this ticket's default answer.
+
+**A phantom-parameter carve-out was considered and rejected** in §1, so if this ticket revisits
+phantom types it is reopening 14's first decision, not deciding fresh ground. The recorded
+alternative there is a *tagged handle* `(:order_msg, pid)` — an atom singleton per ticket 10
+making the two handles genuinely different sets — which is the non-generic way to get the same
+distinction and remains available.

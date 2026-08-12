@@ -88,3 +88,31 @@ Where it should bite hardest:
 
 Record, for each: how many times a closed residual was closed deliberately, and whether naming the
 cases instead read better or worse.
+
+## Constraints from ticket 14 — resolved 2026-08-12
+
+**The OTP showcase is now specified enough to write — but prototype 01e is stale in three ways and
+must not be copied verbatim.** See the correction header on
+[`01e-otp-under-directory-module.md`](../prototypes/01e-otp-under-directory-module.md). In short:
+the clause arrow is `->` not `=>` (prototype 01g), there is no `dynamic` (ticket 11), and
+`HandleCall`'s argument is `term`, not `Request` (ticket 14 §4 — narrowing the argument is the
+unsound direction).
+
+What an exemplar can now assume:
+
+- **`pid` is untyped** (§1). The message type lives on the client API function's signature, so an
+  exemplar's client wrappers are where the `Request` union is written and checked.
+- **No `async`/`await`, no `Task`** (§2).
+- **`[module: GenServer]` names a typed contract and the user narrows it** (§4), so a showcase
+  `HandleCall` signature is genuinely narrow — `(:reply, int, Account) HandleCall(term, From,
+  Account);` — and per ticket 12 that narrowing *is* the crash policy the exemplar demonstrates.
+- **`receive` exists and is a filter** (§5), so an exemplar may show a non-OTP process, and should
+  make clear that unmatched messages stay in the mailbox.
+- **The prelude's OTP message types are compiler-known** (§6), so `handle_info` clauses in an
+  exemplar should *name* `Down` / `Exit` / `Timeout` rather than spell the tuples.
+
+**One question ticket 12 handed here is now sharper.** Ticket 12 asked how often closing a *finite*
+residual is genuinely wanted. Ticket 14 §6 supplies a case where the residual is unavoidably open
+and a clause silently never fires ([`14g`](../prototypes/14g_handle_info_blind_spot.erl)) — so an
+exemplar `handle_info` is exactly the place to judge whether the open residual plus a
+compiler-known message type feels sufficient in practice.

@@ -1,5 +1,27 @@
 # PROTOTYPE 01e — OTP callbacks under directory-as-module
 
+> ⚠️ **STALE IN THREE WAYS — do not copy the code below verbatim.** Later tickets superseded
+> parts of it. The *structure* (directory-as-module, `[module: GenServer]`, callbacks in the
+> aggregate, the API/declarations split) all stands; the *spelling* does not.
+>
+> 1. **The clause arrow is `->`, not `=>`.** [Prototype 01g](01g-closing-the-syntax.md) settled
+>    this: `=>` stays the lambda arrow, `->` is the clause arrow, because `(0) => 0` is
+>    ambiguous with a C# lambda on sight.
+> 2. **There is no `dynamic`.** [Ticket 11](../issues/11-type-system-shape.md) removed it
+>    entirely — external values arrive as `term` and the clause head is the decoder. So
+>    `HandleInfo(Info | dynamic, State)` is now `HandleInfo(term, State)`, and
+>    `(:error, dynamic)` is `(:error, term)`.
+> 3. **`HandleCall`'s argument is `term`, not `Request`.**
+>    [Ticket 14 §4](../issues/14-concurrency-and-otp-model.md) — narrowing a callback's argument
+>    is the *unsound* direction, since OTP calls it with whatever a sender chose. Dialyzer permits
+>    it silently and you get `function_clause` at runtime
+>    ([14e](14e_callback_contract_containment.md)). beam-sharp rejects it by contravariance. The
+>    correct signature is ticket 12's: `(:reply, int, Account) HandleCall(term, From, Account);`
+>
+> Also from ticket 14: the `Info` type declaration below is not how exhaustiveness works — the
+> argument is `term`, the residual is open, and the catch-all is mandatory. Prelude types
+> (`Down`, `Exit`, `Timeout`) are the sanctioned spelling for system messages, per §6.
+
 > **Throwaway.** Ticket [01](../issues/01-sample-code.md), fifth pass. §5 of
 > [01c](01c-module-as-focus.md) found that splitting OTP callbacks into sub-modules puts the
 > exports in the wrong place and breaks the behaviour contract. This shows what happens under

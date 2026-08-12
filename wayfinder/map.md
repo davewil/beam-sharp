@@ -316,6 +316,34 @@ spec exists.
   guards are no longer the route to a saving that exists — **18's remaining motivation is silent
   unsoundness alone**. Ticket 14 inherits no facade to design.
 
+- [Concurrency and the OTP model](issues/14-concurrency-and-otp-model.md) — **the concurrency
+  vocabulary is OTP's, and nothing in it is parameterised by a message type.** Ticket 03's
+  `Pid[τ]` is **declined**: it is inexpressible (ticket 09 has no nominality, so `pid<A>` and
+  `pid<B>` are the same set — Gleam's phantom parameter works only because Gleam is nominal),
+  unnecessary (the message type belongs on the **client API function's signature**, where it was
+  going to be written anyway), and unsound-proof-free (ticket 21 rules out ruling out foreign
+  senders). Measured: **four of the five wrong-pid failures are exits**, so the type system can
+  decline to model process identity and lose almost nothing; only a *shape collision* returns a
+  wrong value, and that is ticket 18's. **No `async`/`await`/`Task`** — `async` colours functions,
+  which is the second effect system ticket 12 already refused. **Pinto's closures-as-messages is
+  inadmissible** under ticket 11's arrow rule, so callbacks are per-module multi-clause functions.
+  **`[module: GenServer]` names a contract the compiler knows as a type**; the user writes a
+  narrower signature and the compiler checks containment — **Dialyzer already does exactly this**
+  for the return direction and silently misses the *argument* direction, which beam-sharp gets
+  free from contravariance. That choice is the reversible one: the wide contract is reachable as a
+  signature a user writes, or a generator default (→ 23). **`receive` is syntax and a *filter*,
+  exempt from exhaustiveness** — unmatched messages stay in the mailbox, which is what
+  `gen_server:call`'s own reply correlation runs on. **The prelude is stratified** à la Elixir's
+  `Kernel.SpecialForms`, with OTP's message shapes in the compiler-known stratum. That last one
+  closes a hole the ticket found and nothing else catches: a **mis-shaped `handle_info` clause
+  never fires and the mandatory catch-all absorbs it in silence** — invisible to exhaustiveness
+  (open residual) and to redundancy (every clause reachable against `term`). **Ticket 03's Gleam
+  gap is closed by measurement**: `Subject` types the send side only, receive is a runtime
+  `{tag, arity}` map lookup, unmatched messages are logged and dropped, and **named subjects are
+  forgeable from raw Erlang** via `registered()/0`. Corrects prototype 01e. Sharpest downstream
+  consequence: **ticket 27 loses a motivating case** — `Pid[τ]` was the clearest demand for a real
+  type parameter in the map.
+
 ## Not yet specified
 
 <!-- in-scope fog: real, but not yet sharp enough to phrase as a ticket -->
@@ -340,7 +368,18 @@ spec exists.
   is installed here, so the range is provisional until measured. Note the third measurement
   requirement above is now moot in one direction: ticket 12's failure arm cannot be suppressed on
   this target, so what remains to measure is its cost at showcase clause counts, not whether to
-  keep it.
+  keep it. **Ticket 14 adds two things to the CI corpus**, because the language now ships a *model
+  of OTP* rather than only emitting for it: the **behaviour contracts** it checks callback
+  signatures against (§4) and the **system-message shapes** in the compiler-known prelude stratum
+  (§6). Whether either differs across the pinned range is **unmeasured** — only OTP 28.5 was
+  installed when 14 was resolved.
+- **The typed model of OTP itself** — new with ticket 14, and distinct from the corpus that proves
+  it. The language knows behaviour contracts and system-message shapes as types. Open: which
+  behaviours ship built in (gen_server, supervisor, application, gen_statem, gen_event), how a
+  **user-declared** contract is spelled — ticket 21 named Roc's `requires` as the stealable
+  mechanism and 14 left generalising it as purely additive — and what happens to a *library*
+  behaviour defined in Elixir. Not yet sharp enough to ticket, because it hangs on the prelude
+  question below.
 - **Module and namespace system**, and function identity — BEAM identifies functions by
   name *and arity*, which multi-clause heads and optional parameters both disturb. **Ticket 10
   §3 adds one requirement**: a module identifier in value position is an atom singleton, so this
@@ -367,7 +406,14 @@ spec exists.
   and with it a sharper version of the question: `ParseAtom<T>` and `ValidateAs<T>` are
   compiler-generated rather than written, so the prelude is not only a set of definitions but a
   set of **codegen obligations** — and where those are documented, and whether a user can extend
-  them, is unanswered.
+  them, is unanswered. **Ticket 14 §6 answers half of this and sharpens the rest.** Answered: the
+  prelude has **two strata**, modelled on Elixir's `Kernel.SpecialForms` — ordinary aliases a user
+  could have written (`bool`, `option<T>`) versus a **compiler-known** stratum they could not
+  (`ParseAtom<T>`, `ToExistingAtom`, `ValidateAs<T>`, and now OTP's `Down`/`Exit`/`Timeout`), which
+  wins resolution and which the compiler draws inferences from. Still open: **whether a user can
+  add to the second stratum**, how the two are documented differently, and what "in the prelude
+  versus in a module you import" means once the answer is a compiler guarantee rather than a
+  definition.
 - **Consuming Gleam and Elixir libraries** — possible, and at what ergonomic cost. **Sharper
   after ticket 10 §7**, which measured Gleam's representation rather than reading it: fieldless
   variants are bare atoms, variants with fields are tagged tuples, PascalCase becomes

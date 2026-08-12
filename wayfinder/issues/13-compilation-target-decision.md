@@ -334,3 +334,20 @@ safe answer is free, and unavailable to get wrong.
   codegen-obligation story: `ParseAtom<T>` and `ValidateAs<T>` are monomorphic at every use, and
   what gets published for them is a widened spec, not a generic one.
 
+
+## Obligations added by ticket 14 — resolved 2026-08-12
+
+Ticket 13 §4 pinned a supported OTP range (current plus the previous two majors), proved by a CI
+corpus owned by the walking skeleton. Ticket 14 adds two things that corpus must prove, because
+the language now ships a **model of OTP** rather than only emitting for it:
+
+- **Behaviour contracts** (§4). `[module: GenServer]` names a contract the compiler knows as a
+  type, against which user-narrowed callback signatures are checked for containment. Whether those
+  contracts differ across the pinned range is **unmeasured** — only OTP 28.5 was installed when
+  ticket 14 was resolved.
+- **System-message shapes** (§6). `Down`, `Exit`, `Timeout` and friends are compiler-known prelude
+  types, so their shapes must hold across the same range.
+
+Both failure modes are *being out of date* rather than *being wrong*, and both live in a data file
+rather than in language semantics — but they are new reasons the corpus exists, alongside proving
+`+from_abstr` on the oldest supported release.

@@ -74,3 +74,23 @@ key order is the opposite of term order for integers versus floats.
   [ticket 27](27-parametric-polymorphism.md), which owns whether `type option<T> = T | :nothing;`
   is even well-formed. Do not settle it here.
 - **`with` versus spread is still this ticket's**, unchanged.
+
+## Constraints from ticket 14 — resolved 2026-08-12
+
+**The prelude has two strata, and this ticket's records-and-aliases story must accommodate the
+second.** Ticket 14 §6 settled that the prelude is stratified in the manner of Elixir's
+`Kernel.SpecialForms`:
+
+- **Ordinary aliases** a user could have written — `type bool = true | false;`,
+  `type option<T> = T | :nothing;`.
+- **A compiler-known stratum** they could not: `ParseAtom<T>` and `ToExistingAtom` (ticket 10),
+  `ValidateAs<T>` (ticket 11), and now OTP's system-message shapes (`Down`, `Exit`, `Timeout`).
+  These are compiler-implemented and win resolution — verified locally on Elixir 1.19.5, where a
+  module defining its own `receive/1` macro still gets the special form at the call site.
+
+So "what a named type erases to" now has a second answer for the second stratum: a compiler-known
+type is not merely an alias whose name vanishes, because the compiler draws inferences from it —
+ticket 14 §6 makes calling `Monitor` with no `Down` handler in the compilation unit an error. That
+is a name doing work, in a language where ticket 09 settled that names never enter the algebra.
+**The reconciliation is that the inference is about the *call*, not the type**, but this ticket
+should say so explicitly, because it looks like nominality and is not.

@@ -84,3 +84,32 @@ the *shape* of failure.
   is used, but not *which* value.
 - **A false friend to design around**: `none` is a type with no values; `:nothing` is a value
   meaning absence. They read as near-synonyms and are opposites.
+
+## Constraints from ticket 14 — resolved 2026-08-12
+
+**The crash policy at the OTP boundary is already decided; this ticket inherits it rather than
+setting it.** Ticket 14 §4 settled that `[module: GenServer]` names a contract the compiler knows
+as a *type*, and the user writes a **narrower** callback signature which the compiler checks for
+containment. Per ticket 12 that narrowing *is* the crash policy, so the error model at the OTP
+layer is a consequence of signatures, not a separate mechanism.
+
+Three inheritances that bind this ticket:
+
+- **A failed call surfaces as an exit, not as a typed value**, in four of the five ways a client
+  function can be handed the wrong pid ([`14d`](../prototypes/14d_wrong_pid_outcomes.erl)):
+  `noproc` for a dead pid, the callee's own crash propagated for an unrecognised request, and
+  `timeout` for a process that is not a gen_server. Only a *shape collision* returns a wrong
+  value, and that is ticket 18's. So an error model that assumes failures arrive as values will be
+  wrong about the OTP boundary specifically.
+- **The argument position of a callback is `term`, and narrowing it is unsound** — Dialyzer permits
+  it silently and you get `function_clause` at runtime
+  ([`14e`](../prototypes/14e_callback_contract_containment.md)). beam-sharp rejects it by
+  contravariance. Any error-model construct that appears in an argument position inherits this.
+- **`(:noreply, s)` is the evasion to watch for.** Ticket 14 §4 rejected the wide OTP contract
+  because it makes an evasive `(:noreply, s)` always type-correct on an unrecognised request,
+  producing a **five-second silent hang** and then a `timeout` exit *at the caller* — the failure
+  reported in the wrong process, at the wrong time, with the wrong reason.
+
+Also relevant: ticket 14 §5 makes `receive` a **filter**, so a message that no `receive` clause
+matches is not an error condition — it stays in the mailbox. An error model must not treat an
+unmatched selective receive as a failure; the failure is the *timeout*, if one is declared.

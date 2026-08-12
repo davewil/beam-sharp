@@ -108,3 +108,32 @@ decision rather than a cosmetic one.
 **And a related surface**: ticket 12 §2 makes `_` an error over a *closed* residual — the compiler
 knows the case names. That diagnostic should therefore be able to emit the missing clause heads
 directly, which is the strongest instance yet of "the residual is the clause you must write".
+
+## Constraints from ticket 14 — resolved 2026-08-12
+
+**Two jobs land on the scaffolding generator, and one of them is a policy knob the language
+deliberately declined to hard-code.**
+
+- **Default callback signatures are a generator setting, not language semantics.** Ticket 14 §4
+  settled that the user writes a *narrower* callback signature and the compiler checks containment
+  against a typed OTP contract. That choice was taken partly on reversibility: a project that
+  wants OTP's full six-way union, or a fixed narrow subset, gets it by configuring what the
+  generator emits — no language change either way. So this ticket owns the question of what the
+  generated default *is*, and it is a real decision with a real cost: the wide default makes an
+  evasive `(:noreply, s)` always type-correct, and per ticket 12 that is where the crash policy
+  quietly disappears.
+- **Generate system-message clause heads.** Ticket 14 §6 found a blind spot nothing in the checker
+  catches: a `handle_info` clause written with the wrong *shape* for a system message never fires,
+  and the mandatory catch-all absorbs it in silence
+  ([`14g`](../prototypes/14g_handle_info_blind_spot.erl)). The primary mitigation is the
+  compiler-known prelude stratum, but generating the clause head for whichever system messages a
+  module subscribes to means the shape is never hand-written at all.
+- **The prelude is stratified, which changes what "the language owes" means.** Ordinary aliases a
+  user could have written, versus a compiler-known stratum they could not — modelled on Elixir's
+  `Kernel.SpecialForms`, verified locally on Elixir 1.19.5 to win resolution against a
+  same-named user macro. `ParseAtom<T>`, `ValidateAs<T>` and now OTP's message shapes live there.
+  An agent writing beam-sharp needs to know which stratum a name is in, because one is
+  documentation and the other is a compiler guarantee.
+
+Standing constraint reminder from the map: write-cost objections carry little weight here, so
+"the generator emits a lot" is not an argument against any of the above.

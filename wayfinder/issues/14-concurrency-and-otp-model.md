@@ -329,8 +329,14 @@ because against `term` every clause is reachable, so ticket 04's warning has not
 headline guarantee has a blind spot exactly at the showcase, and the failure mode is silence.
 
 Naming the type instead of spelling the tuple turns a mis-shape into a compile error. And because
-the compiler *knows* what produces a `Down`, **calling `Monitor` in an aggregate with no `Down`
-clause is an error** — the blind spot closed rather than mitigated.
+the compiler *knows* what produces a `Down`, **calling `Monitor` in an aggregate that handles no
+`Down` is an error** — the blind spot closed rather than mitigated.
+
+**The check is satisfied by a `Down` clause anywhere in the compilation unit — a `handle_info`
+clause *or* a `receive`.** §5 makes `receive` a filter, so monitoring and then awaiting the
+notification in a `receive`, in a module with no callbacks at all, is correct code; a check keyed
+only to `handle_info` would fire on it. The pairing is between the call and *a handler*, not
+between the call and a callback.
 
 **This is not a second effect system.** Nothing propagates through signatures and no constraint
 travels up a call graph; it is a local query over one compilation unit, which ticket 13 made the

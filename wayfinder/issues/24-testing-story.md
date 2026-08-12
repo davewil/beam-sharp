@@ -106,3 +106,24 @@ type-directed generation is available.
   `:error` branch is ordinary code that a test can reach without a foreign process.
 - **A foreign fun cannot be called**, so no test needs to fake one — but a test may need to check
   that a fun is correctly *held and returned* to Erlang unchanged.
+
+## Constraints from ticket 14 — resolved 2026-08-12
+
+- **Draining a mailbox and selectively receiving are different operations.** Ticket 14 §5 makes
+  `receive` a **filter**: unmatched messages stay in the mailbox by design, so no catch-all is
+  forced and no exhaustiveness applies. A test helper that "waits for a message" therefore has two
+  meanings, and picking the wrong one leaves messages behind that the next assertion then sees.
+  Gleam demonstrates the confusion this causes when it is left implicit — it ships both behaviours
+  at two layers and names neither ([`14f`](../prototypes/14f_gleam_selective_receive.md)).
+- **Test doubles are bare pids.** Ticket 14 §1 declined `Pid[τ]`, so a fake server is any process,
+  and nothing in the type system distinguishes it from the real one. What *does* distinguish them
+  is the client API function's signature, which is where the message type lives — so testing at
+  the boundary means calling the client API, not sending tuples at a pid.
+- **Four of five wrong-recipient failures are exits, not values**
+  ([`14d`](../prototypes/14d_wrong_pid_outcomes.erl)), so tests for the unhappy path at the OTP
+  boundary assert on process exits and exit reasons rather than on returned error values.
+- **The blind spot is a test-shaped problem.** A mis-shaped system-message clause never fires and
+  the catch-all absorbs it silently ([`14g`](../prototypes/14g_handle_info_blind_spot.erl)).
+  Ticket 14 §6 closes it in the compiler, but it is worth asking here whether the testing story
+  should make "the catch-all ran" observable, since that is the signal a silent absorption
+  produces.

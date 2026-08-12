@@ -231,3 +231,34 @@ Ticket 13 chose the **Erlang Abstract Format**. Three consequences land here.
    **conditional on the Core Erlang branch**, so choosing the Abstract Format dissolves it.
    Ticket 06's recommendation stands unwithdrawn, and this ticket is no longer on its critical
    path — which matters, since this ticket is blocked behind the deferred ticket 22.
+
+## Constraints from ticket 14 — resolved 2026-08-12
+
+**This ticket inherits one new instance of its own problem, and loses part of its scope to a
+compile-time answer.**
+
+- **The reply channel is 18's, not 14's.** Ticket 14 §1 measured five ways a client API function
+  can be handed a pid that is not the server it expects
+  ([`14d`](../prototypes/14d_wrong_pid_outcomes.erl)). Four are exits. The fifth — two servers
+  accepting the **same request shape** and replying with **different types** — returns a wrongly
+  typed value silently (`{ok,4200}` where a binary was declared). That is ticket 06's third
+  outcome reappearing in the *reply* channel, and 14 explicitly assigned it here. Note a typed
+  process handle would not have caught it either: the pid arrived from outside, and ticket 21 says
+  the foreign caller cannot be ruled out.
+- **Part of the mailbox case is answered at compile time.** Ticket 14 §4 established that
+  narrowing a callback's *argument* is unsound and that beam-sharp rejects it by contravariance —
+  a check Dialyzer does not perform. So the "typed function called from raw Erlang" case, in the
+  specific shape of a callback that declares it accepts less than `term`, is a compile error here
+  rather than something runtime guards must defend.
+- **Gleam's mailbox is now measured, not inferred.** Unmatched messages are `logger:warning`-ed
+  and discarded ([`14b`](../prototypes/14b_gleam_mailbox_probe.erl)); an ill-typed payload on a
+  valid subject is not detected at all; and Gleam's *named* subjects are forgeable from raw Erlang
+  by enumerating `registered()/0` ([`14c`](../prototypes/14c_gleam_named_forgery.erl)). Ticket 06's
+  finding that neither Gleam nor purerl defends against any of this now has direct evidence at the
+  mailbox, which is the channel this ticket cares most about.
+- **A blind spot this ticket may want to own more of.** Ticket 14 §6 found that a *mis-shaped*
+  clause for a system message never fires and the mandatory catch-all absorbs it in silence
+  ([`14g`](../prototypes/14g_handle_info_blind_spot.erl)). 14 closes it via the compiler-known
+  prelude stratum. If that proves insufficient, the residue is a boundary-defence question.
+
+Blocking note: this ticket remains blocked by ticket 22, which is `deferred`.
