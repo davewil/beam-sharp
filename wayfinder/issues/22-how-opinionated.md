@@ -1,8 +1,72 @@
 # 22 — How opinionated is the language? Grammar, attributes, or convention
 
 Type: grilling
-Status: open
+Status: deferred
 Blocked by: 21
+
+## DEFERRED 2026-08-12 — revisit when there is a walking skeleton
+
+**Trigger**: a walking skeleton exists to decide against. Not before.
+
+**Reason** (David): *"I don't have an answer now, and not walking skeleton to decide on."* The
+decision is close to irreversible — ticket 21 established that **no model has both enforcement and
+revisability** — and every argument currently on this ticket is made from precedent rather than
+from code that exists. Deciding it from precedent alone would be choosing an architecture for a
+language nobody has written a program in yet.
+
+**Check the trigger has actually fired before picking this up.** A skeleton that compiles one
+function is not enough to judge whether a DDD grammar narrows the addressable set; ticket 25's
+exemplars are the real test, and at least one of the non-aggregate shapes (WebSocket handler,
+protocol parser) needs to exist.
+
+### What each deferred option would need, so the work is not lost
+
+**If domain keywords in the grammar** — `aggregate`, `command`, `query`:
+- A decision on what each *enforces*, not merely marks. Of four candidate DDD invariants, three are
+  worthless: "a query may not mutate" is vacuous under immutability, "a command returns the
+  aggregate" is a trivial signature check, and "invariants hold" needs refinement types (→ ticket
+  20). Only **aggregate boundary enforcement** is checkable and non-vacuous.
+- Evidence from ticket 25 that a gateway, parser or game server does *not* fight the grammar.
+- Acceptance that it cannot be migrated behind an option later.
+
+**If domain attributes** — `[Aggregate]`, `[Command]`, `[Port]`:
+- They must be read by the **beam-sharp compiler**, never a separate analyser. Ticket 21: the one
+  precedent that needed a second tool in the build (.NET Code Contracts) was simply not run, and
+  is archived.
+- A statement of what each enforces, same as above.
+- Note that ticket 21 leaves `[Port]` with **no enforcement job**: the only mechanism reaching all
+  eight violation channels is a check emitted where an external term becomes a typed value, which
+  is codegen and belongs to ticket 18. `[Port]` would be documentation only — decide whether that
+  is worth a language feature.
+
+**If neutral module visibility** (the reframing that prompted the deferral):
+- **Work out what visibility means when the directory is the module.** Between `apply.bs` and
+  `total.bs` it is *intra*-module and vacuous — everything already sees everything. The useful
+  boundary is **which modules may name this one**, which is a different feature from C#'s
+  `internal` and should not borrow its spelling without borrowing its semantics.
+- Accept and document that this is **compile-time visibility over beam-sharp source only**. Ticket
+  06: the BEAM has no visibility modifiers and *"no way to publish a function to your own compiler
+  but not to `erl`"*. Exactly Roc's situation — the design half transplants, the enforcement half
+  does not.
+- **Decide whether it is worth having independently of the DDD question.** It probably is, in which
+  case it should be split out rather than held hostage here.
+
+### Two open questions recorded with it
+
+- **Does the guardrail argument survive?** The case for opinionation leans on "enforced conventions
+  constrain the agent". But if the only enforced thing is visibility, an agent can still put a
+  handler in the wrong place, name it badly, or reach for the wrong shape — none of which
+  visibility catches. The guardrail may be much thinner than this ticket assumes.
+- **Is this one decision or two?** "Does DDD go in the language" and "is there a visibility feature"
+  are bundled here, and the second may be worth having regardless of the first.
+
+### Consequence for ticket 18
+
+This ticket was coupled to [18](18-boundary-defence.md) on the grounds that you can only defend a
+claim once you know what it is. **That coupling is weaker than it was.** Ticket 21 concluded the
+only mechanism reaching all eight channels is a check emitted at the points beam-sharp already
+compiles — which is decidable without knowing how much domain opinion the core carries. **Ticket 18
+should not be treated as blocked by this deferral**; re-check its blockers before assuming it is.
 
 ## Question
 

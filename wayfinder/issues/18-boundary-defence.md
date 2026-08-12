@@ -67,9 +67,20 @@ it fails, and how the `Json.Decode.Value` convention differs from a simple typed
 docs-and-source question, not a community-history one. **Do not let it expand** into The Elm
 Architecture or the 0.19 history — that expansion is what stalled ticket 21.
 
-This ticket also cannot be settled before [ticket 22](22-how-opinionated.md) says how much the
-core claims. A language that merely offers types owes its boundary less than one that enforces
-domain invariants — you can only defend a claim once you know what it is.
+~~This ticket also cannot be settled before [ticket 22](22-how-opinionated.md) says how much the
+core claims.~~ **Coupling weakened, and ticket 22 is now deferred pending a walking skeleton.**
+
+Ticket 21 concluded that the only mechanism reaching all eight violation channels is **a check
+emitted where an external term becomes a typed value** — codegen, at the points beam-sharp already
+compiles (the `receive`, the `handle_info`, the ETS wrapper, the decode wrapper, `code_change`).
+That is decidable without knowing how much *domain* opinion the core carries. **Do not treat this
+ticket as blocked by ticket 22's deferral.**
+
+What ticket 21 adds directly here: **no language it examined defends its boundary by checking
+data.** Roc trusts the host; Unison's handler receives whatever the runtime hands it — consistent
+with ticket 06 on Gleam and purerl. They defend by controlling *who may be on the other side*,
+which is precisely the property the BEAM denies. So if beam-sharp emits checks, it is doing
+something none of the precedents do, and the spec should say so rather than implying it is normal.
 
 ## Notes
 
