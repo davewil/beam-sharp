@@ -1,0 +1,484 @@
+<title>The Term Boundary</title>
+
+<style>
+  :root {
+    --ground:   #EEF1F4;
+    --surface:  #FFFFFF;
+    --sunken:   #E3E8ED;
+    --ink:      #15191E;
+    --ink-soft: #414B56;
+    --muted:    #6B7681;
+    --rule:     #CBD3DA;
+    --accent:   #5A3A96;
+    --accent-s: #EDE7F7;
+    --edge:     #9A551B;
+    --edge-s:   #F7ECE0;
+    --good:     #1F6B4A;
+    --panel:    #F1F3F5;
+    --panel-ink:#1C2127;
+
+    --display: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    --body: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+    --util: ui-sans-serif, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:   #131619;
+      --surface:  #1B1F24;
+      --sunken:   #22272D;
+      --ink:      #E7EBEF;
+      --ink-soft: #BAC3CC;
+      --muted:    #8B959F;
+      --rule:     #333B44;
+      --accent:   #B29AE0;
+      --accent-s: #2A2340;
+      --edge:     #D89B5E;
+      --edge-s:   #33261A;
+      --good:     #6BC79C;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:   #131619;
+    --surface:  #1B1F24;
+    --sunken:   #22272D;
+    --ink:      #E7EBEF;
+    --ink-soft: #BAC3CC;
+    --muted:    #8B959F;
+    --rule:     #333B44;
+    --accent:   #B29AE0;
+    --accent-s: #2A2340;
+    --edge:     #D89B5E;
+    --edge-s:   #33261A;
+    --good:     #6BC79C;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 17px;
+    line-height: 1.62;
+    margin: 0;
+    padding: 0 1.25rem 6rem;
+  }
+
+  .wrap { max-width: 46rem; margin: 0 auto; }
+  .wide { max-width: 62rem; margin: 0 auto; }
+
+  header.masthead {
+    padding: 4.5rem 0 2rem;
+    border-bottom: 2px solid var(--ink);
+    display: flex; flex-direction: column; gap: 1.1rem;
+  }
+  .eyebrow {
+    font-family: var(--display);
+    font-size: .72rem;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: flex; flex-wrap: wrap; gap: .4rem 1.1rem;
+  }
+  .eyebrow b { color: var(--accent); font-weight: 600; }
+  h1 {
+    font-family: var(--display);
+    font-size: clamp(2rem, 6vw, 3.1rem);
+    line-height: 1.04;
+    letter-spacing: -.03em;
+    font-weight: 600;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .standfirst {
+    font-size: 1.16rem;
+    color: var(--ink-soft);
+    margin: 0;
+    max-width: 34rem;
+    text-wrap: pretty;
+  }
+
+  h2 {
+    font-family: var(--display);
+    font-size: 1.02rem;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: var(--accent);
+    margin: 3.6rem 0 .2rem;
+    padding-bottom: .5rem;
+    border-bottom: 1px solid var(--rule);
+  }
+  h3 {
+    font-family: var(--display);
+    font-size: 1.02rem;
+    font-weight: 600;
+    letter-spacing: -.01em;
+    margin: 2.2rem 0 .4rem;
+    color: var(--ink);
+  }
+  p { margin: .95rem 0; text-wrap: pretty; }
+  a { color: var(--accent); }
+
+  code {
+    font-family: var(--display);
+    font-size: .87em;
+    background: var(--sunken);
+    padding: .1em .34em;
+    border-radius: 3px;
+  }
+
+  .verdict {
+    margin: 2.4rem 0 0;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 4px solid var(--accent);
+    padding: 1.6rem 1.7rem;
+    display: flex; flex-direction: column; gap: .7rem;
+  }
+  .verdict .lab {
+    font-family: var(--display);
+    font-size: .7rem; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--muted);
+  }
+  .verdict .sentence {
+    font-family: var(--display);
+    font-size: clamp(1.05rem, 2.6vw, 1.32rem);
+    line-height: 1.4;
+    letter-spacing: -.015em;
+    margin: 0;
+  }
+  .verdict .gloss {
+    font-size: .95rem; color: var(--ink-soft); margin: 0;
+    padding-top: .7rem; border-top: 1px solid var(--rule);
+  }
+
+  figure { margin: 2rem 0; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid #C4CBD1;
+    border-radius: 4px;
+    padding: 1.4rem 1rem;
+    overflow-x: auto;
+  }
+  .panel pre.mermaid { margin: 0; display: flex; justify-content: center; min-width: 30rem; }
+  figcaption {
+    font-family: var(--util);
+    font-size: .84rem;
+    color: var(--muted);
+    margin-top: .7rem;
+    line-height: 1.5;
+  }
+
+  .tablewrap { overflow-x: auto; margin: 1.4rem 0; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-family: var(--util);
+    font-size: .88rem;
+    background: var(--surface);
+    min-width: 34rem;
+  }
+  caption {
+    font-family: var(--display);
+    font-size: .72rem; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--muted); text-align: left; padding-bottom: .55rem;
+  }
+  th, td {
+    border: 1px solid var(--rule);
+    padding: .58rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  thead th {
+    background: var(--sunken);
+    font-weight: 600;
+    font-size: .78rem;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  tbody th { font-weight: 600; background: var(--sunken); white-space: nowrap; }
+  td.win { color: var(--good); font-weight: 600; }
+  td.lose { color: var(--edge); }
+
+  .decisions { list-style: none; padding: 0; margin: 1.5rem 0 0; display: flex; flex-direction: column; gap: 1.6rem; }
+  .decisions > li {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 1.2rem 1.4rem 1.35rem;
+  }
+  .decisions h3 { margin-top: 0; }
+  .decisions p { font-size: .97rem; }
+  .tag {
+    display: inline-block;
+    font-family: var(--display);
+    font-size: .67rem; letter-spacing: .12em; text-transform: uppercase;
+    padding: .18rem .5rem; border-radius: 3px; margin-bottom: .7rem;
+  }
+  .tag.kept { background: var(--accent-s); color: var(--accent); }
+  .tag.rej  { background: var(--edge-s);  color: var(--edge); }
+
+  .rejected {
+    margin-top: .95rem; padding-top: .8rem;
+    border-top: 1px dashed var(--rule);
+    font-size: .92rem; color: var(--ink-soft);
+  }
+  .rejected b { color: var(--edge); font-weight: 600; }
+
+  pre.code {
+    font-family: var(--display);
+    font-size: .82rem;
+    line-height: 1.55;
+    background: var(--sunken);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: .9rem 1rem;
+    overflow-x: auto;
+    margin: 1rem 0;
+  }
+  pre.code .c { color: var(--muted); }
+  pre.code .k { color: var(--accent); font-weight: 600; }
+  pre.code .e { color: var(--edge); }
+
+  .callout {
+    background: var(--edge-s);
+    border-left: 3px solid var(--edge);
+    padding: 1rem 1.2rem;
+    margin: 1.6rem 0;
+    font-size: .95rem;
+  }
+  .callout p:first-child { margin-top: 0; }
+  .callout p:last-child { margin-bottom: 0; }
+  .callout strong { color: var(--edge); }
+
+  footer {
+    margin-top: 4.5rem; padding-top: 1.4rem;
+    border-top: 1px solid var(--rule);
+    font-family: var(--util); font-size: .83rem; color: var(--muted);
+  }
+  footer code { background: none; padding: 0; }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <div class="eyebrow">
+      <span><b>beam-sharp</b></span>
+      <span>Ticket 11 &middot; ENG-177</span>
+      <span>Resolved 12 Aug 2026</span>
+      <span>Commit 52a0b3e</span>
+    </div>
+    <h1>The Term Boundary</h1>
+    <p class="standfirst">The keystone ticket asked where <code>dynamic</code> is introduced. The answer is that it isn&rsquo;t — because it doesn&rsquo;t exist.</p>
+  </header>
+
+  <div class="verdict">
+    <span class="lab">The guarantee</span>
+    <p class="sentence">Every case your types admit has a clause — and everything from outside is a <code>term</code> until you match it.</p>
+    <p class="gloss">beam-sharp checks that your clauses cover every value your signatures admit; it does not check where a value came from, so anything crossing the boundary is a <code>term</code> until proven otherwise.</p>
+  </div>
+
+  <h2>Why there is no dynamic</h2>
+
+  <p>The ticket body treated <code>dynamic</code> as a <em>place</em> — where is it introduced, what may you do there. Both shipping BEAM checkers treat it as something else entirely, and they disagree with each other. Measuring both was what dissolved the question.</p>
+
+  <p>Elixir makes it a <strong>type in the algebra</strong>: a field present on every descr, carrying a bound. That forces a <strong>second subtyping relation</strong>, because a sound one relates <code>dynamic</code> to nothing. Gleam makes it an <strong>opaque library type</strong> outside the checker: you enter by a free identity cast and leave through a decoder you wrote by hand.</p>
+
+  <p>beam-sharp takes neither. External values arrive typed <code>term</code>, and the only thing you can do with one is match it — so <strong>the clause head is the decoder</strong>. The exhaustiveness residual <code>term \ (Acc(p₁)|…|Acc(pₙ))</code> stays non-empty until you have written the boundary case, which means the checker hands you the clause you forgot rather than describing it.</p>
+
+  <div class="tablewrap">
+    <table>
+      <caption>Three answers to the same question</caption>
+      <thead>
+        <tr><th></th><th>Elixir 1.19.5</th><th>Gleam 1.18.1</th><th>beam-sharp</th></tr>
+      </thead>
+      <tbody>
+        <tr><th>In the type system?</th><td>Yes — <code>%{dynamic: :term}</code>, a field on every type</td><td>No — <code>pub type Dynamic</code>, a library type</td><td class="win">No such type at all</td></tr>
+        <tr><th>Entry</th><td>Free</td><td>Free <code>identity</code> cast</td><td>Arrives as <code>term</code></td></tr>
+        <tr><th>Exit</th><td><code>compatible?</code>, a second weaker relation</td><td><code>decode.run/2</code>, hand-written</td><td class="win">A clause head</td></tr>
+        <tr><th>Who writes the check?</th><td>Nobody</td><td>The user, per shape</td><td class="win">The pattern already is one</td></tr>
+        <tr><th>Relations needed</th><td class="lose">Two</td><td>One</td><td class="win">One</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>The design heuristic — borrow from C# first, the BEAM second, invent last — <strong>failed to discriminate here, and that is itself the finding</strong>. Tier one supplies a construct for both poles: C# has <code>dynamic</code>, TypeScript has <code>unknown</code>. Neither audience needs teaching either shape, so familiarity could not pick the winner and the eight-channel interop problem had to.</p>
+</div>
+
+<div class="wide">
+  <figure>
+    <div class="panel">
+<pre class="mermaid">
+%%{init: {"theme": "base", "themeVariables": {
+  "background": "#F1F3F5", "mainBkg": "#FFFFFF", "primaryColor": "#FFFFFF",
+  "primaryTextColor": "#1C2127", "textColor": "#1C2127",
+  "nodeBorder": "#5C6670", "lineColor": "#5C6670",
+  "edgeLabelBackground": "#F1F3F5", "labelTextColor": "#1C2127",
+  "clusterBkg": "#F1F3F5", "clusterBorder": "#C4CBD1"
+}}}%%
+flowchart LR
+  EXT[Value from outside] --> T["typed term"]
+  T --> H{Clause head}
+  H -->|guard decides in O_1| N[Narrowed typed value]
+  H -->|residual not empty| F[Compiler demands a clause]
+  F --> N
+  T --> V[Call ValidateAs of T]
+  V -->|explicit O_n traversal| N
+  V --> X[Arrow type rejected]
+  X --> M["Use M F A instead"]
+  M --> T
+</pre>
+    </div>
+    <figcaption>Every route from outside the language to a typed value. Two are cheap and implicit in the head; one is an explicit call whose cost you can see; one is closed at compile time. Nothing crosses without passing through a check the reader can point at.</figcaption>
+  </figure>
+</div>
+
+<div class="wrap">
+  <h2>The five decisions</h2>
+
+  <ol class="decisions">
+    <li>
+      <span class="tag kept">Kept</span>
+      <h3>1 &nbsp;No <code>dynamic</code>; one relation, not two</h3>
+      <p>Subtyping stays plain set-theoretic containment, decided coinductively over the equirecursive types ticket 09 settled. Nothing in the algebra bends soundness, so no gradual judgement is needed.</p>
+      <div class="rejected"><b>Rejected:</b> Elixir&rsquo;s pair model, which needs <code>subtype?</code> <em>and</em> <code>compatible?</code> — two relations to specify, implement and teach, in exchange for deliberate unsoundness that ticket 06 already showed can be silent.</div>
+    </li>
+
+    <li>
+      <span class="tag kept">Kept</span>
+      <h3>2 &nbsp;Patterns over a <code>term</code> are O(1) guard-decidable only</h3>
+      <p>BEAM guards are the vocabulary — ticket 09&rsquo;s discriminability rule extended verbatim rather than a new rule. <code>list&lt;term&gt;</code> is writable in a head; <code>list&lt;int&gt;</code> is not, because no O(1) guard decides element types. Deep validation is an explicit call to a compiler-generated <code>ValidateAs&lt;T&gt;</code>, the same type-directed codegen obligation ticket 10 established for <code>ParseAtom&lt;T&gt;</code>.</p>
+<pre class="code"><span class="c">// O(1) — is_list, and nothing more</span>
+f(list&lt;term&gt; xs) -&gt; ...
+
+<span class="c">// O(n), at a call site you can see</span>
+list&lt;int&gt; | :error ys = <span class="k">ValidateAs</span>&lt;list&lt;int&gt;&gt;(xs);</pre>
+      <div class="rejected"><b>Rejected:</b> emitting the traversal <em>inside</em> the clause head. The cost is O(n·depth) and <strong>the sender chooses n</strong> — ticket 06&rsquo;s channels are mailboxes, ETS reads and decoded external terms, none of them yours. A construct that looks like constant-time dispatch must not become unbounded work chosen by a foreign process. Also rejected: checking <code>is_list</code> and trusting the elements, which is ticket 06&rsquo;s silent unsoundness reintroduced one decision after <code>dynamic</code> was dropped to avoid exactly that.</div>
+    </li>
+
+    <li>
+      <span class="tag rej">Closed</span>
+      <h3>3 &nbsp;<code>ValidateAs&lt;T&gt;</code> rejects arrow types at compile time</h3>
+      <p>A fun carries no runtime evidence of its signature. This is not a BEAM wart — a function&rsquo;s type is absent from its runtime value in every language; it surfaces here only because validation was made first-class. And arrow subtyping is contravariant in the argument, so the top arrow is <code>none() -&gt; term()</code>, whose parameter type is <code>none</code>: <strong>there is no value you can legally pass it</strong>.</p>
+<pre class="code"><span class="c">// measured, OTP 28</span>
+subtype?(fn(int)-&gt;int, fn(none)-&gt;term)  = <span class="k">true</span>   <span class="c">// the top arrow</span>
+subtype?(fn(int)-&gt;int, fn(term)-&gt;term)  = <span class="e">false</span>  <span class="c">// NOT a supertype</span></pre>
+      <p>So &ldquo;narrow it to <code>fn(term)-&gt;term</code> and call it&rdquo; is unsound — that type claims the fun accepts <em>every</em> term. A foreign fun is holdable and returnable to Erlang, never callable. The boundary is MFA, which is <code>{atom, atom, int}</code> and validates with no special case.</p>
+      <div class="rejected"><b>Rejected:</b> higher-order contract wrapping — the literature&rsquo;s correct answer, and the only sound way to actually call a foreign fun. Turned down on the same hidden-cost grounds as decision 2, plus its need for blame tracking. <b>Chosen partly for reversibility:</b> wrapping is purely additive later and would invalidate no program written under this rule, whereas arity-and-trust is irreversible, since programs come to depend on the unsoundness.</div>
+    </li>
+
+    <li>
+      <span class="tag kept">Kept</span>
+      <h3>4 &nbsp;The top type is spelled <code>term</code></h3>
+      <p>A deliberate <strong>override of the borrow heuristic</strong>, recorded as the heuristic&rsquo;s own third tier requires. In a set-theoretic system the top type is a <em>set</em> that participates in the algebra — the residual is computed by subtracting from it. <code>unknown</code> names an epistemic state, and you cannot take the complement of your own ignorance. It also keeps source and emitted <code>-spec</code> using one word rather than two.</p>
+      <div class="rejected"><b>Rejected:</b> <code>unknown</code> (TypeScript, tier one, free for half the audience); <code>object</code>, which drags C#&rsquo;s root-class and boxing connotations into a language with neither; <code>any</code>, which in TypeScript is the <em>unsound</em> top, assignable in both directions.</div>
+    </li>
+
+    <li>
+      <span class="tag kept">Kept</span>
+      <h3>5 &nbsp;The guarantee, stable under ticket 18</h3>
+      <p>The rejected candidate was the one that sounded most rigorous: <em>&ldquo;so long as every caller is beam-sharp, no function receives a value outside its declared type.&rdquo;</em> It fails because it pins the guarantee to <strong>who called you</strong> — which ticket 09 §5 already established the BEAM cannot enforce. Candidates pinned to <strong>shape</strong> survive whichever way ticket 18 decides, because guards check shape and never origin.</p>
+      <div class="rejected"><b>Explicitly not decided here:</b> whether the compiler emits defensive guards on a typed parameter against a foreign caller. That is ticket 18, and the sentence above is true either way.</div>
+    </li>
+  </ol>
+
+  <h2>Claim to source</h2>
+
+  <p>Every load-bearing claim below was measured on this machine rather than cited. Both evidence files are committed alongside the ticket.</p>
+</div>
+
+<div class="wide">
+  <div class="tablewrap">
+    <table>
+      <caption>Evidence</caption>
+      <thead>
+        <tr><th>Claim</th><th>Observed</th><th>Source</th><th>Provenance</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>dynamic</code> is a field on every Elixir type, and it is bounded</td>
+          <td><code>dynamic()</code> = <code>%{dynamic: :term}</code>; <code>dynamic(integer())</code> = <code>%{dynamic: %{bitmap: 4}}</code></td>
+          <td><code>prototypes/11a_dynamic_descr.exs</code></td>
+          <td>local · Elixir 1.19.5</td>
+        </tr>
+        <tr>
+          <td>Gradual flow needs a second, weaker relation</td>
+          <td><code>subtype?(integer, dynamic) = false</code>; <code>compatible?(dynamic, integer) = true</code>; <code>compatible?(dynamic(atom), integer) = false</code></td>
+          <td><code>prototypes/11a_dynamic_descr.exs</code></td>
+          <td>local · Elixir 1.19.5</td>
+        </tr>
+        <tr>
+          <td>The top arrow is <code>none() -&gt; term()</code> and is uncallable</td>
+          <td><code>subtype?(fn(int)-&gt;int, fn(none)-&gt;term) = true</code>; the same against <code>fn(term)-&gt;term</code> is <code>false</code></td>
+          <td><code>prototypes/11a_dynamic_descr.exs</code></td>
+          <td>local · Elixir 1.19.5</td>
+        </tr>
+        <tr>
+          <td>Gleam&rsquo;s <code>Dynamic</code> is a library type, entered by a free cast</td>
+          <td><code>pub type Dynamic</code> with no variants; every constructor is <code>@external(erlang, "gleam_stdlib", "identity")</code></td>
+          <td><code>gleam_stdlib/src/gleam/dynamic.gleam</code></td>
+          <td>src · Gleam 1.18.1</td>
+        </tr>
+        <tr>
+          <td>Gleam has no top type and structurally cannot</td>
+          <td>No candidate in the stdlib but <code>Dynamic</code>; Hindley-Milner has no subtyping, so nothing can be a supertype of everything</td>
+          <td>stdlib search</td>
+          <td>src · Gleam 1.18.1</td>
+        </tr>
+        <tr>
+          <td>A fun carries identity, never types</td>
+          <td><code>fun_info</code> external → <code>{module,hotmod},{name,f},{arity,1}</code>; closure → <code>{name,[]}</code></td>
+          <td><code>prototypes/11b_fun_evidence.erl</code></td>
+          <td>local · OTP 28</td>
+        </tr>
+        <tr>
+          <td><strong>Correction:</strong> only <em>closures</em> go stale across a code upgrade</td>
+          <td>After loading v2 a closure returned <code>{v1,closure,1}</code> and died <code>badfun</code> on purge; <code>fun M:F/1</code> returned <code>{v2,1}</code> and survived</td>
+          <td><code>prototypes/11b_fun_evidence.erl</code></td>
+          <td>local · OTP 28</td>
+        </tr>
+        <tr>
+          <td>Erlang&rsquo;s <code>term()</code> and <code>any()</code> are synonyms</td>
+          <td><em>Not verified locally</em> — two attempts via <code>erl_types</code> failed; it is an internal API</td>
+          <td>Erlang typespec docs</td>
+          <td class="lose">doc only</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="wrap">
+  <h2>What moved on the map</h2>
+
+  <p>This was the keystone — seven tickets blocked on it — and it held at least six decisions, so it was <strong>split rather than answered thinly</strong>. It kept the boundary, the subtyping relation and the guarantee. Inference strength was not reopened: tickets 04 and 08 had already settled that signatures are mandatory.</p>
+
+  <div class="tablewrap">
+    <table>
+      <caption>Frontier delta</caption>
+      <thead><tr><th>Ticket</th><th>Was</th><th>Now</th></tr></thead>
+      <tbody>
+        <tr><th>12, 13, 18, 23, 24</th><td>Blocked on 11</td><td class="win">Unblocked</td></tr>
+        <tr><th>20</th><td>Blocked on 11</td><td class="win">Unblocked, and inherits the interval / guard-refinement debt from ticket 01&rsquo;s <code>Fib</code></td></tr>
+        <tr><th>16</th><td>Blocked on 09, 11</td><td>Blocked on 09 and the <strong>new ticket 27</strong></td></tr>
+        <tr><th>27 &mdash; new</th><td>&mdash;</td><td class="win">On the frontier. Does the language have generics at all, and are parametric aliases well-formed?</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout">
+    <p><strong>Two cautions carried forward.</strong> <code>ParseAtom&lt;T&gt;</code> and <code>ValidateAs&lt;T&gt;</code> both take a type argument, but neither is parametric polymorphism — <code>&lt;T&gt;</code> is a compile-time argument driving codegen, monomorphic at every use, with no type variable surviving into the algebra. <strong>Ticket 27 must not read them as evidence that generics already exist.</strong></p>
+    <p>And a deferred option with its requirement attached: an external fun <em>is</em> recoverable to an MFA at runtime, so a future check could compare it against the target module&rsquo;s declared <code>-spec</code>. That needs a <strong>runtime type registry keyed by module</strong>. Not designed — recorded so it is not lost.</p>
+  </div>
+
+  <footer>
+    beam-sharp wayfinder &middot; ticket 11 &rarr; <code>wayfinder/issues/11-type-system-shape.md</code> &middot; map <code>ENG-165</code><br>
+    Measured on OTP 28, Elixir 1.19.5, Gleam 1.18.1. Commits <code>52a0b3e</code>, <code>8c2480a</code>.
+  </footer>
+</div>
