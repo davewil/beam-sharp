@@ -206,8 +206,11 @@ spec exists.
   nominality is exactly an alias — the wrapper premise was a CLR artefact, but removing that cost
   never addressed the capability gap (negation, union closure, boundary enforceability). Sharpest
   downstream consequence: **[ticket 16](issues/16-ad-hoc-polymorphism.md) loses its resolution
-  key** — with no nominal identity, dispatch cannot key on a name, so type classes as
-  PureScript/Haskell/Rust know them are not merely costly here, they are unresolvable.
+  key** — **dispatch cannot key on a name that is not in the term**, so type classes as
+  PureScript/Haskell/Rust know them are not merely costly here, they are unresolvable. *Elixir's
+  structs and protocols are not a counter-example but the worked remedy* — `__struct__` is an atom
+  **in the data**, so the name is a tag, and beam-sharp can resolve it statically where Elixir
+  needs a consolidation pass (verified: `prototypes/16a_elixir_protocol_dispatch.exs`).
 - [C# functional feature inventory](issues/05-csharp-functional-inventory.md) — LINQ query
   comprehension is portable (ECMA-334 makes it a pure syntactic rewrite, bound before type
   binding, with no `IEnumerable<T>` dependency); extension-method chaining *is* already a

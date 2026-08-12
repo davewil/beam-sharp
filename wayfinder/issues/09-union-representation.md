@@ -167,6 +167,13 @@ free:
   06's third outcome — *silent unsoundness* — by design. Either you pay for a runtime witness
   (the wrapper ticket 07 §2.9 established nothing forces here) or the nominality is a lie the
   moment a term arrives from outside.
+  **This was derived here rather than taken from a source, and it now has direct local
+  evidence** (Elixir 1.19.5 / OTP 28,
+  [`prototypes/16a_elixir_protocol_dispatch.exs`](../prototypes/16a_elixir_protocol_dispatch.exs)):
+  a hand-built plain map `%{__struct__: Admin, name: "forged", age: 99}` dispatches as an
+  `Admin` and satisfies `is_struct/2`, having gone through no constructor. Even Elixir's
+  nominal-*looking* mechanism is defeated by a forged term, because there is nowhere on the BEAM
+  to enforce construction.
 - **Union closure and negation are lost outright under a load-bearing name.** Nested named
   unions do not merge — C#'s "an `Animal` is never directly a `Cat`, but it might be a `Pet`
   that is a `Cat`" is a direct consequence — and `not PaymentResult.Ok` needs hand enumeration.
@@ -194,10 +201,14 @@ nominal's favour.~~**
 - **[Ticket 11](11-type-system-shape.md)** inherits equirecursive types, coinductive subtyping
   with a memo table, and the contractiveness rule — with the checker cost that goes with them.
   It also inherits `type` as the single naming construct.
-- **[Ticket 16](16-ad-hoc-polymorphism.md)** gets a sharp new constraint: **with no nominal
-  identity, dispatch cannot key on a name.** Typeclass- and interface-style resolution as C#,
-  Rust and PureScript know it is unavailable; dispatch must key on structure. This is the
-  central constraint on that ticket now, and it should not be discovered late.
+- **[Ticket 16](16-ad-hoc-polymorphism.md)** gets a sharp new constraint: **dispatch cannot key
+  on a name that is not in the term.** Typeclass- and interface-style resolution as C#, Rust and
+  PureScript know it is unavailable; dispatch must key on structure. This is the central
+  constraint on that ticket now, and it should not be discovered late.
+  *(Amended 2026-08-12, after David raised Elixir's structs and protocols. First stated as
+  "cannot key on a name", which was too strong — Elixir puts the name **in the term** as an atom
+  and dispatches on it, which is §5's tag remedy at ecosystem scale. See ticket 16's correction
+  section and the verified probe.)*
 - **[Ticket 18](18-boundary-defence.md)**: the discriminator synthesiser of §4 **is** the
   emitted-check machinery ticket 21 concluded was the only mechanism reaching all eight
   violation channels. Same mechanism, two uses — do not build it twice, and note that §4 gives

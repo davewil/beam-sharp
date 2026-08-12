@@ -51,10 +51,72 @@ every dictionary-passing scheme resolves against:
   waiting for it: ticket 09 §4 requires the compiler to synthesise a **BEAM guard expression**
   deciding membership for each member of a union, and rejects unions where it cannot. That
   synthesiser is a structural discriminator — the same thing structural dispatch needs.
-- **Elixir-style protocols sit between the two** and inherit the problem in a weaker form:
+- ~~**Elixir-style protocols sit between the two** and inherit the problem in a weaker form:
   protocol dispatch keys on term shape, which is structural, so it survives — but the
-  *registration* step is nominal in Elixir and would need a structural replacement.
+  *registration* step is nominal in Elixir and would need a structural replacement.~~
+  **Wrong, corrected 2026-08-12 — see the next section. Nothing about Elixir's mechanism is
+  nominal, and no replacement is needed.**
 - **"Nothing" (explicit function passing) is unaffected**, and its cost is unchanged.
+
+## Correction — Elixir's structs and protocols, verified
+
+**Raised by David, 2026-08-12: "Elixir solves dispatch by using structs and protocols."**
+Correct, and the bullet struck through above got the reason wrong. Verified locally on Elixir
+1.19.5 / OTP 28 — [`prototypes/16a_elixir_protocol_dispatch.exs`](../prototypes/16a_elixir_protocol_dispatch.exs),
+runnable:
+
+| Observed | Result |
+|---|---|
+| What a struct is | `%{name: "d", __struct__: User, age: 1}` — a plain map carrying an **atom** |
+| Two structs with identical field sets | Dispatch differently; the tag is the whole discriminator |
+| How the impl is found | `Describe.impl_for(u)` → `Describe.User` — a module named from the tag |
+| **Hand-built plain map with `__struct__: Admin`** | **Dispatches as an Admin; `is_struct/2` returns `true`** |
+
+**There is no nominal type identity anywhere in this mechanism.** Elixir has no static types at
+all. `defimpl ... for: User` names a module at compile time, but what dispatch *reads* is an atom
+sitting in the term. **The name is data.** So this is not a counter-example to the constraint —
+it is the worked demonstration of ticket 09 §5's remedy, at ecosystem scale, in map form rather
+than tuple form.
+
+### The constraint, restated precisely
+
+Not *"dispatch cannot key on a name"* but: **dispatch cannot key on a name that is not in the
+term.** Elixir's answer is to put the name in the term. beam-sharp can do exactly that, and
+ticket 09 already commits it to the mechanism — a tag makes two otherwise-identical field sets
+genuinely distinct *sets*.
+
+What still does not work is unchanged: **type-class resolution keyed on a compile-time name with
+no runtime witness.** `instance Show OrderId` where `type OrderId = string` has nothing in the
+term to dispatch on, and `OrderId` and `CustomerId` are the same type. That option stays dead.
+
+### What this makes newly available, and it is better than Elixir's version
+
+The ticket body complains that protocol dispatch "is dynamic, which sits awkwardly against
+enforced exhaustiveness". **Under ticket 09 that complaint mostly dissolves**, because the tag is
+part of the *type*, not merely of the value:
+
+- The compiler knows the tag **statically** from the declared type, so an impl can be **resolved
+  at compile time** rather than by a runtime `impl_for` lookup.
+- **Impl coverage becomes an exhaustiveness question the type system already answers** — the set
+  of tags in a union is exactly the set of impls required, computed by the same subtraction
+  ticket 04 specified. A missing impl is a residual, not a runtime `Protocol.UndefinedError`.
+- Elixir needs **protocol consolidation** as a Mix build step precisely because it cannot know
+  any of this statically. beam-sharp would get consolidation by construction.
+
+**Consequence for framing this ticket**: "protocols" and "structural dispatch" are not two of the
+four candidates — they are the same candidate, and the protocol version is what it looks like once
+you give the dispatch table a name. The live question is narrower than the ticket's list suggests:
+whether that mechanism earns a language construct, and how it relates to multi-clause head
+dispatch, which keys on the same tags. **Still open; still HITL. This section sharpens the
+options, it does not choose between them.**
+
+### One caution carried forward
+
+Result 4 above — the forged tag — is also **independent local evidence for ticket 09 §5's derived
+claim** that the BEAM has no construction discipline. Even Elixir's nominal-*looking* dispatch is
+defeated by a hand-built term. So whatever dispatch mechanism this ticket picks, it inherits
+[ticket 18](18-boundary-defence.md)'s problem: a tag arriving from raw Erlang is an assertion, not
+a guarantee.
 
 The interaction question this ticket already asks — how the mechanism relates to multi-clause
 head dispatch — gets sharper rather than easier: if dispatch keys on structure, then it and
