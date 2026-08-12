@@ -159,7 +159,9 @@ spec exists.
   **one arrow per arity** and simplifies ticket 04's per-arrow check to a single pass. Defaults
   and variadics both kept, with arity generation as codegen — but **defaults cannot express the
   accumulator pair**, since they cannot change a parameter's type. `dynamic` narrowing is
-  **always written**, never inferred: neither audience expects implicit cast insertion.
+  **always written**, never inferred: neither audience expects implicit cast insertion —
+  **amended by ticket 11**, where the rule holds and loses its keyword, since narrowing is
+  written *as a clause head* and no `dynamic` exists.
   Declarations file is `index.bs`. List patterns are prefix-plus-rest only.
 - [Compilation targets](issues/02-compilation-targets.md) — **three tiers, not a binary.** The
   **Abstract Format expresses multi-clause heads natively** (a function *is* a clause list);
