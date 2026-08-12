@@ -14,7 +14,7 @@ exhaustiveness**.
 | What | Where | Canonical for |
 |---|---|---|
 | Map | [ENG-165](https://linear.app/davewil/issue/ENG-165) · `wayfinder/map.md` | Linear: status. Repo: the full body |
-| Tickets | ENG-166 … ENG-193 · `wayfinder/issues/NN-<slug>.md` | **Linear**: status, blocking, assignment, frontier. **Repo**: the question, the answer, all cross-references |
+| Tickets | ENG-166 … ENG-194 · `wayfinder/issues/NN-<slug>.md` | **Linear**: status, blocking, assignment, frontier. **Repo**: the question, the answer, all cross-references |
 | Research findings | `wayfinder/research/NN-<slug>.md` | Repo only (~380KB; issues link to them) |
 | Prototypes | `wayfinder/prototypes/` | Repo only |
 | Glossary | `CONTEXT.md` | Repo only. **Terms only** — what a word *means*, never why it was chosen |
@@ -24,7 +24,7 @@ A term appears there only once it is settled, and the reasoning stays in the tic
 it. It exists because the vocabulary outgrew what a reader could reconstruct from the decision
 trail, and it is expected to be lifted into the spec's terminology section when the spec is drafted.
 
-**Ticket NN maps to ENG-(166+NN)** — ticket 00 is ENG-166, ticket 27 is ENG-193. Verify the
+**Ticket NN maps to ENG-(166+NN)** — ticket 00 is ENG-166, ticket 28 is ENG-194. Verify the
 mapping still holds when creating a ticket; it depends on nothing else being created in the
 Engineering team between them.
 

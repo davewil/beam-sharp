@@ -467,7 +467,10 @@ identically whatever `TSource` is. Redundancy stays well-posed only because vari
   are now definitions a user *could* have written, which moves them toward stratum 1 and changes
   the fog's prelude question. Not this ticket's call.
 - **Bounds** (§3) and **row polymorphism** (§7) — deferred with requirements captured above.
-- **Inference of type arguments at call sites.** Every example above writes the arguments nowhere
-  and relies on them being recovered by matching. That matching is §1's cheap case, but the rule
-  for when a call site must *write* `Map<Order, Money>(...)` explicitly is unstated. → belongs with
-  the grammar.
+- **Inference of type arguments at call sites**, and **the parser consequence this ticket listed
+  and did not answer** — `<` is also a comparison operator, and ticket 08 settled `&&`/`||` guards
+  with comparisons, so `F(a < b, c > d)` is ambiguous. Every example above writes type arguments
+  nowhere and relies on them being recovered by matching; the rule for when a call site must
+  *write* `Map<Order, Money>(...)` explicitly is unstated, and may decide how large the parsing
+  problem is. → **[ticket 28](28-generic-bracket-parsing.md)**, raised here, which also inherits
+  the provisional `[h, ..t]` spelling.
