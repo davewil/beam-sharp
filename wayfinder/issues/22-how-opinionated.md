@@ -49,6 +49,29 @@ still risks the ecosystem failure mode ticket 03 identified, and a grammar still
 retracted. But "conventions cost the author effort" is a much weaker objection when the author is
 a program, and "conventions keep the author honest" is a much stronger benefit.
 
+### What ticket 21 established, which constrains the synthesis below
+
+**Every model that enforces anything enforces it with the tool that already builds the code.** Roc:
+module resolution plus the linker. Unison: the typechecker. Eiffel: the compiler. The one entry
+that failed outright — .NET Code Contracts — needed a *second* tool in the build, and everyone
+simply did not run it. **So an attribute is worth something only if the beam-sharp compiler reads
+it.** An attribute checked by a separate analyser in CI is Code Contracts again, and Code Contracts
+is archived.
+
+**The contract that survived is the one that became a type.** Microsoft's named successor to Code
+Contracts is nullable reference types. Eiffel's `require`/`ensure` are still grammar; Ada's
+`Pre`/`Post` are still aspects. The library form is the one that died — so the discriminator is
+tooling weight, not language-versus-library.
+
+**No model has both enforcement and revisability.** Phoenix moved contexts three times because
+nothing in Elixir depended on them; Roc apps are bound to one named platform and the FAQ answers
+"No" to swapping. **That trade is real and must be chosen consciously rather than escaped.**
+
+**Roc's `requires` is directly stealable**, even though its enforcement mechanism is not: the
+platform declares the shape the application must have, and can hold an app type opaque via
+`[Model : model]`. A typed, compiler-checked `requires` is strictly better than Erlang's
+`-callback` attributes and works regardless of what the runtime permits.
+
 ### The candidate synthesis
 
 Split by kind rather than by strength:

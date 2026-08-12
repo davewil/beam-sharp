@@ -60,8 +60,14 @@ Cover, from primary sources — language docs, RFCs, release notes, the designer
 
 ### And for contrast, at least briefly
 
-- **Eiffel's Design by Contract** — a methodology baked into a language. What happened to it, and
-  why DbC survived as libraries and annotations elsewhere rather than as language features.
+- ~~**Eiffel's Design by Contract** — a methodology baked into a language. What happened to it, and
+  why DbC survived as libraries and annotations elsewhere rather than as language features.~~
+  **This premise was wrong and the research inverted it.** Eiffel's `require`/`ensure`/`invariant`
+  are *still grammar*; Ada's `Pre`/`Post` are *still aspects*. It is the **library** form that died
+  — .NET Code Contracts is unsupported in .NET 5+, repo archived 2023-07-15. The discriminator is
+  **tooling weight**: Code Contracts needed a binary rewriter, a separate static checker and a
+  `CONTRACTS_FULL` define, all of which could simply not be run. **Microsoft's named successor is
+  nullable reference types — the contract that survived is the one that became a type.**
 - **Rails and Phoenix** — convention layered *above* a neutral language. What that separation
   bought when the conventions changed (Phoenix contexts changed more than once without touching
   Elixir).

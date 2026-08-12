@@ -94,7 +94,9 @@ spec exists.
   means directly observed here (OTP 28, Elixir 1.19.5). Known gaps carried forward, recorded
   so nobody assumes they were checked: Gleam is not installed locally so every Gleam claim is
   `doc` or `src`, and Gleam's stance on foreign callers is *inferred from the absence of guard
-  emission* rather than documented first-party; Elixir 1.20 was not exercised.
+  emission* rather than documented first-party; Elixir 1.20 was not exercised. **Provenance
+  warning for Roc**: `roc-lang.org` is stale — `/functional` still describes the *removed* `Task`
+  design. Use `docs/langref/` in the `roc-lang/roc` repo.
 
 ## Decisions so far
 
@@ -144,7 +146,11 @@ spec exists.
   both enforcement and revisability** — Phoenix could move contexts three times because nothing
   depended on them, and Roc's FAQ answers "No" to swapping platforms; and Roc's **`requires`**
   clause is directly stealable as a typed, compiler-checked OTP behaviour contract, strictly better
-  than Erlang's `-callback`.
+  than Erlang's `-callback`. **A premise in my own brief was inverted by the research**: DbC did not
+  survive as libraries — Eiffel's `require`/`ensure` are *still grammar*, Ada's `Pre`/`Post` are
+  *still aspects*, and it is the **library** form that died (.NET Code Contracts, archived
+  2023-07-15). The discriminator is **tooling weight**, and **Microsoft's named successor is
+  nullable reference types — the contract that survived is the one that became a type.**
 - [Head and guard syntax](issues/08-head-and-guard-syntax.md) — **the surface is settled.**
   Guards use the **expansion rule** (verified on Elixir 1.19.5: *"Only macros can be invoked
   inside a guard"*), with a **`guard` modifier** for named guards — `defguard` with a different
