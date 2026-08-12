@@ -30,6 +30,41 @@ Whatever is chosen must answer: how does it interact with **multi-clause head di
 which is already a dispatch mechanism? Two dispatch systems in one language need a clear
 story about which fires when.
 
+## The central constraint, from ticket 09 — resolved 2026-08-12
+
+The "(probably)" in the structural-dispatch candidate above is now settled, and it is a harder
+constraint than that bullet suggests.
+
+**With no nominal identity anywhere in the language, dispatch cannot key on a name.** Ticket 09
+made types structural and open, made naming pure aliasing, and left the language with *no*
+nominal construct — so two names over the same set are the same type. That removes the thing
+every dictionary-passing scheme resolves against:
+
+- **Type classes are not simply "powerful but costly" here — their resolution key is gone.**
+  PureScript, Haskell and Rust all select an instance by the *nominal head* of a type. With
+  aliasing, `instance Show OrderId` and `instance Show CustomerId` are instances for the same
+  type, and the language cannot tell which was meant. Adopting classes would require
+  reintroducing nominal identity for exactly this purpose — which is a reversal of ticket 09,
+  not an extension of it, and would need to answer ticket 09 §5's finding that nominal identity
+  is unenforceable across the Erlang boundary.
+- **Structural dispatch is the candidate that survives unchanged**, and it now has machinery
+  waiting for it: ticket 09 §4 requires the compiler to synthesise a **BEAM guard expression**
+  deciding membership for each member of a union, and rejects unions where it cannot. That
+  synthesiser is a structural discriminator — the same thing structural dispatch needs.
+- **Elixir-style protocols sit between the two** and inherit the problem in a weaker form:
+  protocol dispatch keys on term shape, which is structural, so it survives — but the
+  *registration* step is nominal in Elixir and would need a structural replacement.
+- **"Nothing" (explicit function passing) is unaffected**, and its cost is unchanged.
+
+The interaction question this ticket already asks — how the mechanism relates to multi-clause
+head dispatch — gets sharper rather than easier: if dispatch keys on structure, then it and
+clause-head matching are **the same kind of operation**, and the story about which fires when is
+now mandatory rather than tidy-minded.
+
+Related: the newtype gap ticket 09 §5 leaves open (`Meters` and `Feet` are one type; tag them
+to distinguish) is the *same* gap in a different place. If ticket 20 answers it with refinement
+types, that answer may also supply a dispatch key — worth checking before deciding here.
+
 ## Notes
 
 HITL. Surfaced by ticket 05's inventory, which named the gap rather than papering over it.

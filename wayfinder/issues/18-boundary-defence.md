@@ -82,6 +82,42 @@ with ticket 06 on Gleam and purerl. They defend by controlling *who may be on th
 which is precisely the property the BEAM denies. So if beam-sharp emits checks, it is doing
 something none of the precedents do, and the spec should say so rather than implying it is normal.
 
+## The mechanism already exists — from ticket 09, resolved 2026-08-12
+
+**Do not design the emitted check from scratch. Ticket 09 has already specified it, for a
+different purpose, and given it a vocabulary.**
+
+[Ticket 09](09-union-representation.md) §4 requires that the compiler be able to **synthesise a
+BEAM guard expression deciding membership** for every member of a structural union, and rejects
+at the declaration any union where it cannot. That synthesiser is precisely the check ticket 21
+concluded was the only mechanism reaching all eight violation channels — "a check emitted where
+an external term becomes a typed value". Same machinery, two uses.
+
+What this hands the ticket:
+
+- **A precise boundary on what is checkable**, which this ticket did not previously have. The
+  vocabulary is the BEAM guard set — `is_integer`, `is_binary`, `is_atom`, `is_tuple` plus
+  arity, `binary_to_existing_atom` for literal atoms — the same set ticket 08 committed to for
+  guards. Anything outside it is not defensible by an emitted check, and that is now a stated
+  limit rather than an open question.
+- **A reason the numeric-tower case is cheap**: `is_integer/1` is exactly the discriminator the
+  union machinery already emits for an `int` member, so defending ticket 06's outcome 3
+  (`add(1.5, 2.5)` returning `4.0`) costs nothing new to build.
+- **A partial answer to "is it opt-out?"** — the discriminator is *not* optional inside the
+  language, since exhaustive matching on a union depends on it. What remains genuinely optional
+  is emitting it at the **exported boundary**, which is this ticket's decision and unchanged.
+- **A warning about scope.** purerl's `--checked` is incomplete by design: types it cannot check
+  fall through unchecked. Under ticket 09's rule the beam-sharp compiler *refuses* the
+  undecidable case at the declaration instead — so the incompleteness surfaces earlier and in a
+  different place. That is a genuine difference from the only precedent, and the spec should say
+  so.
+
+Also relevant: ticket 09 §5 establishes that **nominal identity is unenforceable across the
+Erlang boundary**, because the BEAM has no construction discipline. So whatever is defended here
+is defended by checking *shape*, never by trusting provenance — which is the same conclusion
+ticket 21 reached from the other direction (no precedent language defends by checking data;
+they all control who may be on the other side, a property the BEAM denies).
+
 ## Notes
 
 HITL. Surfaced by ticket 06. Blocked by 11 (what the type system claims) and 12 (whether

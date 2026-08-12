@@ -49,7 +49,7 @@ spec exists.
     is an **unchecked type assertion**: compile-time only, no runtime check, deliberately unsound.
     beam-sharp takes the C# meaning. **State this in the spec** — a TS reader will expect a no-op.
   - **`with` is C#-only**; a TS reader reaches for spread (`{...o, balance: x}`). Decide whether
-    both spellings exist or one wins. → ticket 17 or the data-modelling fog.
+    both spellings exist or one wins. → [ticket 26](issues/26-data-modelling.md).
   - **`->` for clauses holds up better under the wider audience**, since TS uses `=>` for arrow
     functions *and* for function types.
 
@@ -191,6 +191,23 @@ spec exists.
   C# killed both structural/erased union designs on CLR artefacts — reified generics and
   nominal identity — **and neither rock exists on the BEAM**. TypeScript is structural but
   stops short of set-theoretic (syntactic intersections, no negation, opt-in exhaustiveness).
+- [Union representation](issues/09-union-representation.md) — **structural and open; there is no
+  nominal type in the language and no union declaration form.** Naming is **aliasing**: `type X =
+  ...` is the single naming construct for records, tuples, scalars and unions alike, the name
+  never enters the algebra, and two names over the same set are the same type. `union` was
+  rejected on the borrow heuristic's own terms — C#'s spelling carries closed nominal semantics
+  this language does not deliver, while C#'s `using` alias and TS's `type` both match the
+  semantics exactly. Recursion is **equirecursive and must be contractive**, so subtyping is
+  decided coinductively. Indiscriminable unions are an **error at the declaration**, normalised
+  first, with **BEAM guards as the vocabulary** for what "discriminable" means. **The cost is
+  newtypes** — `Meters` and `Feet` over `float` are one type; the remedy is the BEAM's free tuple
+  tag, with refinement types the alternative (→ ticket 20). **This answers ticket 07 §5.0**:
+  compile-time-only nominality *is* available on the BEAM and buys nothing, because erased
+  nominality is exactly an alias — the wrapper premise was a CLR artefact, but removing that cost
+  never addressed the capability gap (negation, union closure, boundary enforceability). Sharpest
+  downstream consequence: **[ticket 16](issues/16-ad-hoc-polymorphism.md) loses its resolution
+  key** — with no nominal identity, dispatch cannot key on a name, so type classes as
+  PureScript/Haskell/Rust know them are not merely costly here, they are unresolvable.
 - [C# functional feature inventory](issues/05-csharp-functional-inventory.md) — LINQ query
   comprehension is portable (ECMA-334 makes it a pure syntactic rewrite, bound before type
   binding, with no `IEnumerable<T>` dependency); extension-method chaining *is* already a
@@ -207,8 +224,6 @@ spec exists.
   One requirement is already known: it should **measure checker cost at the clause counts the
   showcase implies**. Ticket 04 found Etylizer's pathological inputs are `case` expressions
   with 40+ branches — precisely the large multi-clause `handle_info` this language advertises.
-- **Data modelling**: records, structs, `with` expressions, and how they relate to Erlang
-  maps and tuples. Entangled with the union-representation decision.
 - **Module and namespace system**, and function identity — BEAM identifies functions by
   name *and arity*, which multi-clause heads and optional parameters both disturb.
 - **The language's name.**
