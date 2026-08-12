@@ -128,6 +128,23 @@ spec exists.
   **It also amended ticket 00** — multi-clause heads are notationally, not semantically,
   distinct from Gleam's multi-subject `case`; the differentiator is now a stated design
   preference. Do not re-derive this.
+- [Escape-hatch precedents](issues/21-escape-hatch-precedents.md) — **neither Roc's nor Unison's
+  mechanism transplants, and they fail for the same reason in opposite directions: both control
+  what a program may *reach*, where ticket 06's problem is what may reach the *program*.** Roc's
+  guarantee rests on **link-time closure**, which the BEAM is committed to not having — `apply/3`,
+  no visibility modifiers, hot code loading, and "no way to publish a function to your own compiler
+  but not to `erl`". Unison's abilities discharge at a *call site*, so they reach **1 of the 8
+  violation channels** — nothing invokes your handler when a monitor fires. **No language in the
+  file defends its boundary by checking data; they defend it by controlling who may be on the other
+  side.** So the only mechanism reaching all eight is a **check emitted where an external term
+  becomes a typed value** — a codegen obligation, and available precisely because beam-sharp
+  compiles the `receive`, the `handle_info`, the ETS wrapper and `code_change`. Three further
+  findings: every model that enforces anything does so **with the tool that already builds the
+  code** (the one needing a second tool, .NET Code Contracts, was simply not run); **no model has
+  both enforcement and revisability** — Phoenix could move contexts three times because nothing
+  depended on them, and Roc's FAQ answers "No" to swapping platforms; and Roc's **`requires`**
+  clause is directly stealable as a typed, compiler-checked OTP behaviour contract, strictly better
+  than Erlang's `-callback`.
 - [Head and guard syntax](issues/08-head-and-guard-syntax.md) — **the surface is settled.**
   Guards use the **expansion rule** (verified on Elixir 1.19.5: *"Only macros can be invoked
   inside a guard"*), with a **`guard` modifier** for named guards — `defguard` with a different
