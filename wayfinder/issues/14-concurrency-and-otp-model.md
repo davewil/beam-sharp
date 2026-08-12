@@ -126,7 +126,8 @@ Supervisor and crash-report legibility therefore does not pay for source-only su
 
 ## Answer — resolved 2026-08-12
 
-> Decision brief: [`../beam-sharp-eng-180.html`](../beam-sharp-eng-180.html)
+> Decision brief: [`../beam-sharp-eng-180.html`](../beam-sharp-eng-180.html) ·
+> [published artifact](https://claude.ai/code/artifact/0fc9859c-b9ab-4158-bab1-957092993dd9)
 
 **The concurrency vocabulary is OTP's, and nothing about it is parameterised by a message
 type.** Six decisions. The load-bearing one is that ticket 03's `Pid[τ]` recommendation is

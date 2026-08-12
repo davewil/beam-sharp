@@ -1,0 +1,495 @@
+<title>The Bare Pid</title>
+
+<style>
+<style>
+  :root {
+    --ground:   #EEF1F4;
+    --surface:  #FFFFFF;
+    --sunken:   #E3E8ED;
+    --ink:      #15191E;
+    --ink-soft: #414B56;
+    --muted:    #6B7681;
+    --rule:     #CBD3DA;
+    --accent:   #5A3A96;
+    --accent-s: #EDE7F7;
+    --edge:     #9A551B;
+    --edge-s:   #F7ECE0;
+    --good:     #1F6B4A;
+    --panel:    #F1F3F5;
+
+    --display: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    --body: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+    --util: ui-sans-serif, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:   #131619;
+      --surface:  #1B1F24;
+      --sunken:   #22272D;
+      --ink:      #E7EBEF;
+      --ink-soft: #BAC3CC;
+      --muted:    #8B959F;
+      --rule:     #333B44;
+      --accent:   #B29AE0;
+      --accent-s: #2A2340;
+      --edge:     #D89B5E;
+      --edge-s:   #33261A;
+      --good:     #6BC79C;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:   #131619;
+    --surface:  #1B1F24;
+    --sunken:   #22272D;
+    --ink:      #E7EBEF;
+    --ink-soft: #BAC3CC;
+    --muted:    #8B959F;
+    --rule:     #333B44;
+    --accent:   #B29AE0;
+    --accent-s: #2A2340;
+    --edge:     #D89B5E;
+    --edge-s:   #33261A;
+    --good:     #6BC79C;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 17px;
+    line-height: 1.62;
+    margin: 0;
+    padding: 0 1.25rem 6rem;
+  }
+
+  .wrap { max-width: 46rem; margin: 0 auto; }
+  .wide { max-width: 62rem; margin: 0 auto; }
+
+  header.masthead {
+    padding: 4.5rem 0 2rem;
+    border-bottom: 2px solid var(--ink);
+    display: flex; flex-direction: column; gap: 1.1rem;
+  }
+  .eyebrow {
+    font-family: var(--display);
+    font-size: .72rem;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: flex; flex-wrap: wrap; gap: .4rem 1.1rem;
+  }
+  .eyebrow b { color: var(--accent); font-weight: 600; }
+  h1 {
+    font-family: var(--display);
+    font-size: clamp(2rem, 6vw, 3.1rem);
+    line-height: 1.04;
+    letter-spacing: -.03em;
+    font-weight: 600;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .standfirst {
+    font-size: 1.16rem;
+    color: var(--ink-soft);
+    margin: 0;
+    max-width: 34rem;
+    text-wrap: pretty;
+  }
+
+  h2 {
+    font-family: var(--display);
+    font-size: 1.02rem;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: var(--accent);
+    margin: 3.6rem 0 .2rem;
+    padding-bottom: .5rem;
+    border-bottom: 1px solid var(--rule);
+  }
+  h3 {
+    font-family: var(--display);
+    font-size: 1.02rem;
+    font-weight: 600;
+    letter-spacing: -.01em;
+    margin: 2.2rem 0 .4rem;
+    color: var(--ink);
+  }
+  p { margin: .95rem 0; text-wrap: pretty; }
+  a { color: var(--accent); }
+
+  code {
+    font-family: var(--display);
+    font-size: .87em;
+    background: var(--sunken);
+    padding: .1em .34em;
+    border-radius: 3px;
+  }
+
+  .verdict {
+    margin: 2.4rem 0 0;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 4px solid var(--accent);
+    padding: 1.6rem 1.7rem;
+    display: flex; flex-direction: column; gap: .7rem;
+  }
+  .verdict .lab {
+    font-family: var(--display);
+    font-size: .7rem; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--muted);
+  }
+  .verdict .sentence {
+    font-family: var(--display);
+    font-size: clamp(1.05rem, 2.6vw, 1.32rem);
+    line-height: 1.4;
+    letter-spacing: -.015em;
+    margin: 0;
+  }
+  .verdict .gloss {
+    font-size: .95rem; color: var(--ink-soft); margin: 0;
+    padding-top: .7rem; border-top: 1px solid var(--rule);
+  }
+
+  figure { margin: 2rem 0; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid #C4CBD1;
+    border-radius: 4px;
+    padding: 1.4rem 1rem;
+    overflow-x: auto;
+  }
+  .panel pre.mermaid { margin: 0; display: flex; justify-content: center; min-width: 30rem; }
+  figcaption {
+    font-family: var(--util);
+    font-size: .84rem;
+    color: var(--muted);
+    margin-top: .7rem;
+    line-height: 1.5;
+  }
+
+  .tablewrap { overflow-x: auto; margin: 1.4rem 0; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-family: var(--util);
+    font-size: .88rem;
+    background: var(--surface);
+    min-width: 34rem;
+  }
+  caption {
+    font-family: var(--display);
+    font-size: .72rem; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--muted); text-align: left; padding-bottom: .55rem;
+  }
+  th, td {
+    border: 1px solid var(--rule);
+    padding: .58rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  thead th {
+    background: var(--sunken);
+    font-weight: 600;
+    font-size: .78rem;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  tbody th { font-weight: 600; background: var(--sunken); white-space: nowrap; }
+  td.win { color: var(--good); font-weight: 600; }
+  td.lose { color: var(--edge); }
+  td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  .decisions { list-style: none; padding: 0; margin: 1.5rem 0 0; display: flex; flex-direction: column; gap: 1.6rem; }
+  .decisions > li {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 1.2rem 1.4rem 1.35rem;
+  }
+  .decisions h3 { margin-top: 0; }
+  .decisions p { font-size: .97rem; }
+  .tag {
+    display: inline-block;
+    font-family: var(--display);
+    font-size: .67rem; letter-spacing: .12em; text-transform: uppercase;
+    padding: .18rem .5rem; border-radius: 3px; margin-bottom: .7rem;
+  }
+  .tag.kept { background: var(--accent-s); color: var(--accent); }
+  .tag.rej  { background: var(--edge-s);  color: var(--edge); }
+
+  .rejected {
+    margin-top: .95rem; padding-top: .8rem;
+    border-top: 1px dashed var(--rule);
+    font-size: .92rem; color: var(--ink-soft);
+  }
+  .rejected b { color: var(--edge); font-weight: 600; }
+
+  pre.code {
+    font-family: var(--display);
+    font-size: .82rem;
+    line-height: 1.55;
+    background: var(--sunken);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: .9rem 1rem;
+    overflow-x: auto;
+    margin: 1rem 0;
+  }
+  pre.code .c { color: var(--muted); }
+  pre.code .k { color: var(--accent); font-weight: 600; }
+  pre.code .e { color: var(--edge); }
+  pre.code .g { color: var(--good); }
+
+  .pair { display: grid; gap: 1.1rem; margin: 1.4rem 0; }
+  @media (min-width: 54rem) { .pair { grid-template-columns: 1fr 1fr; } }
+  .pair .lab {
+    font-family: var(--display);
+    font-size: .7rem; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--muted); display: block; margin-bottom: .4rem;
+  }
+  .pair pre.code { margin: 0; }
+
+  .callout {
+    background: var(--edge-s);
+    border-left: 3px solid var(--edge);
+    padding: 1rem 1.2rem;
+    margin: 1.6rem 0;
+    font-size: .95rem;
+  }
+  .callout p:first-child { margin-top: 0; }
+  .callout p:last-child { margin-bottom: 0; }
+  .callout strong { color: var(--edge); }
+
+  footer {
+    margin-top: 4.5rem; padding-top: 1.4rem;
+    border-top: 1px solid var(--rule);
+    font-family: var(--util); font-size: .83rem; color: var(--muted);
+  }
+  footer code { background: none; padding: 0; }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <div class="eyebrow">
+      <span><b>beam-sharp</b></span>
+      <span>Ticket 14 &middot; ENG-180</span>
+      <span>Resolved 12 Aug 2026</span>
+      <span>Commit ad552cc</span>
+    </div>
+    <h1>The Bare Pid</h1>
+    <p class="standfirst">The ticket arrived recommending a process identifier parameterised by its message type. The recommendation was declined in one sentence &mdash; and the sentence was David's, not the analysis's.</p>
+  </header>
+
+  <div class="verdict">
+    <span class="lab">The decision</span>
+    <p class="sentence">Process identity is untyped. A <code>pid</code> is a <code>pid</code>.</p>
+    <p class="gloss">The message type lives on the <b>client API function's signature</b>, where it was going to be written anyway. Five more decisions follow from refusing to put it anywhere else.</p>
+  </div>
+
+  <h2>Why <code>Pid[&tau;]</code> could not be written here</h2>
+
+  <p>Ticket 03 surveyed prior art and recommended <code>Pid[&tau;]</code> as &ldquo;simple and probably necessary in some form&rdquo;. Three things kill it, and they compound.</p>
+
+  <p><strong>It is inexpressible.</strong> Ticket 09 settled that types are <em>sets of values</em>, that a name never enters the algebra, and that two names over the same set are the same type. A pid is one runtime value class with the payload erased &mdash; so <code>pid&lt;Order.Msg&gt;</code> and <code>pid&lt;Payment.Msg&gt;</code> denote the identical set and are therefore the same type. Gleam carries the phantom parameter only because its type system is nominal: <code>Subject(msg)</code> lowers to <code>{subject, Pid, Ref}</code> with &tau; gone.</p>
+
+  <p><strong>It is unnecessary</strong>, which is the part the analysis missed and the question caught. Nobody writes <code>Pid ! {apply, Id, E}</code> in OTP; they call <code>orders:apply(Server, Id, E)</code>. The message is constructed inside a client function whose own signature is checked, and the <code>Request</code> union that <code>HandleCall</code> proves exhaustive over is the same union the client API constructs. Both ends typed, at the two places a type was going to be written, with the pid left alone.</p>
+
+  <p><strong>And it would not buy soundness.</strong> Ticket 21 established that no foreign caller can be ruled out, so a typed handle constrains only this language's senders while raw <code>!</code> from Erlang goes through regardless.</p>
+
+  <figure class="wide">
+    <div class="panel">
+<pre class="mermaid">
+%%{init: {"theme": "base", "themeVariables": {
+  "background": "#F1F3F5", "mainBkg": "#FFFFFF", "primaryColor": "#FFFFFF",
+  "primaryTextColor": "#1C2127", "textColor": "#1C2127",
+  "nodeBorder": "#5C6670", "lineColor": "#5C6670",
+  "edgeLabelBackground": "#F1F3F5", "labelTextColor": "#1C2127",
+  "clusterBkg": "#F1F3F5", "clusterBorder": "#C4CBD1"
+}}}%%
+flowchart LR
+  A["Client API function"] -->|"signature checked here"| B["GenServer.Call"]
+  B --> M["Mailbox"]
+  F["Raw Erlang sender"] -->|"unconstrainable"| M
+  M -->|"arrives as term"| C["Clause head"]
+  C --> D["Typed value"]
+  C -->|"open residual"| E["Mandatory catch-all"]
+</pre>
+    </div>
+    <figcaption>The type has exactly one place to live that is worth defending. A parameterised handle would have guarded the top edge only &mdash; the edge the client function's own signature already guards &mdash; while the bottom edge stays open by construction.</figcaption>
+  </figure>
+
+  <h2>The worry it was meant to address is mostly not a worry</h2>
+
+  <p>The objection to a bare pid is that a client function declares a return type for a reply arriving from a process it cannot identify. Measured on OTP 28, five ways that can go wrong:</p>
+
+  <div class="tablewrap">
+    <table>
+      <caption>What actually happens when a client API is handed the wrong pid</caption>
+      <thead><tr><th>Case</th><th>Outcome</th><th>Reading</th></tr></thead>
+      <tbody>
+        <tr><th>Right server</th><td><code>{ok,&lt;&lt;"an order"&gt;&gt;}</code></td><td class="win">Declared type holds</td></tr>
+        <tr><th>Dead pid</th><td><code>{'EXIT',noproc}</code></td><td>Crash, no value returned</td></tr>
+        <tr><th>Wrong server, no such clause</th><td><code>{'EXIT',unhandled}</code></td><td>Crash &mdash; and the callee dies too</td></tr>
+        <tr><th>Not a gen_server at all</th><td><code>{'EXIT',timeout}</code></td><td>Crash, no value returned</td></tr>
+        <tr><th>Shape collision</th><td><code>{ok,4200}</code></td><td class="lose">An integer where a binary was declared</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>Four of the five are exits, which ticket 12's signature-directed stance already accepts and which no type could have prevented. Only the last returns a wrong value, and it needs two servers to accept the <em>same request shape</em> and reply with <em>different types</em> &mdash; ticket 06's silent unsoundness reappearing in the reply channel, and ticket 18's problem rather than this ticket's.</p>
+
+  <div class="callout">
+    <p><strong>The platform is paying for the design.</strong> On a runtime without supervised isolated processes, &ldquo;wrong recipient&rdquo; degrades into arbitrary misbehaviour, so the type system has to carry process identity. On the BEAM, four of five failure modes are already crashes with well-formed exit reasons &mdash; so the type system can decline to model process identity and lose almost nothing. Same shape as ticket 12's finding that let-it-crash <em>is</em> how you spell partiality.</p>
+  </div>
+
+  <h2>Gleam, measured rather than characterised</h2>
+
+  <p>Ticket 03 flagged this as a known evidence gap and refused to fill it from memory. Gleam 1.18.1 with <code>gleam_otp</code> 1.3.0, on OTP 28:</p>
+
+  <ul class="decisions">
+    <li>
+      <span class="tag rej">Send side only</span>
+      <p><code>Subject(msg)</code> lowers to <code>{subject, Pid, Ref}</code>; <code>send</code> wraps as <code>{Ref, Message}</code>; the type parameter is erased. The receive side is a <b>runtime map lookup keyed on <code>{element(1, Msg), tuple_size(Msg)}</code></b> &mdash; a dispatch table doing at runtime what a beam-sharp clause head does at compile time, keyed on precisely ticket 09's discriminability vocabulary.</p>
+    </li>
+    <li>
+      <span class="tag rej">No exhaustiveness at all</span>
+      <p>The actor installs <code>select_other(Unexpected)</code>. Unmatched messages are logged and discarded and the process survives. An ill-typed payload on a valid subject is not detected: <code>12345</code> entered a <code>List(String)</code> and came back out of a function spec'd <code>-&gt; binary()</code>.</p>
+    </li>
+    <li>
+      <span class="tag rej">The ref is real, and Gleam's own remedy removes it</span>
+      <p>An anonymous subject's <code>make_ref()</code> tag genuinely is unguessable &mdash; <code>sys:get_state</code> returns user state only, so it could not be recovered. But <code>process.new_name/1</code> + <code>actor.named</code>, Gleam's recommended fix for passing subjects around, replaces it with a registered atom that <code>registered()/0</code> enumerates. Discovering it by registry diff and forging a well-typed message took four lines.</p>
+    </li>
+    <li>
+      <span class="tag kept">Both mailbox behaviours, neither named</span>
+      <p>Low level, <code>process.receive</code> is a <b>filter</b>: three messages queued, the wanted one plucked from the middle, queue length 3&nbsp;&rarr;&nbsp;2. Actor level, it is <b>dispatch</b>, via the opt-in catch-all. A Gleam user's answer to &ldquo;does my mailbox keep this message?&rdquo; depends on which layer they called, and nothing in the type system says.</p>
+    </li>
+  </ul>
+
+  <p>None of it transplants. beam-sharp cannot use the ref trick even in principle, because ticket 00 makes <code>handle_call/3</code> the showcase and <code>{'$gen_call', From, Request}</code> is a public shape by construction. <strong>Alpaca's whole-call-graph inference is excluded by a decision already made</strong>: ticket 04 requires a <em>declared</em> input type, because a type built from the program makes the check vacuous &mdash; and inference over send sites cannot see the foreign sender ticket 21 says cannot be ruled out.</p>
+
+  <h2>The contract is a type, and the user narrows it</h2>
+
+  <p><code>[module: GenServer]</code> names a contract the compiler knows <em>as a type</em>; the user writes a narrower callback signature and the compiler checks <b>containment</b>. This is ticket 21's finding cashed in &mdash; Roc's <code>requires</code> clause, recorded there as strictly better than Erlang's <code>-callback</code>.</p>
+
+  <p>It is not an invention. Dialyzer already does it, and its gap is exactly the half beam-sharp gets free:</p>
+
+  <div class="tablewrap">
+    <table>
+      <caption>Three callback specs through Dialyzer, OTP 28.5</caption>
+      <thead><tr><th>What it declares</th><th>Dialyzer</th><th>Reading</th></tr></thead>
+      <tbody>
+        <tr><th>Return narrowed to <code>{reply, integer(), state()}</code></th><td class="win">passed</td><td>Ticket 12's exact signature is already legal</td></tr>
+        <tr><th>Return outside the contract</th><td>warned</td><td>Names the gen_server callback in the diagnostic</td></tr>
+        <tr><th><b>Argument</b> narrowed to <code>request()</code></th><td class="lose">passed &mdash; silently</td><td>Unsound; <code>function_clause</code> at runtime</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>beam-sharp catches the third because containment here <em>is</em> function subtyping, which is contravariant in arguments &mdash; the relation ticket 11 already leans on when rejecting arrow types in <code>ValidateAs&lt;T&gt;</code>. One relation, both directions, no special case. <strong>This corrects prototype 01e</strong>, which wrote <code>HandleCall(Request, From, State)</code>; the argument must be <code>term</code>.</p>
+
+  <div class="callout">
+    <p><strong>Why the wide contract lost, in operational terms.</strong> OTP's real <code>handle_call</code> return is six alternatives, with <code>Action</code> a further seven-way union. If a callback carried that union, <code>(:noreply, s)</code> would always be available and always type-correct on an unrecognised request &mdash; and always a lie, since nobody will call <code>reply/2</code>. The caller then sits for five seconds and exits with <code>{timeout, ...}</code>: <b>the failure reported in the wrong process, at the wrong time, with the wrong reason.</b> The narrow signature turns that into an immediate <code>raise</code> in the server, which the supervisor sees with the offending message intact.</p>
+  </div>
+
+  <p><strong>And it is the reversible choice</strong>, which is why it is safe to take now. Narrowing strictly contains the alternatives: a user who writes OTP's full union gets the wide behaviour exactly, and a project wanting a fixed narrow subset sets its scaffolding generator. Neither needs a language change. The reverse is a language change &mdash; under a fixed contract nobody ever wrote a narrowed signature, so adding narrowing later means adding the check <em>and</em> rewriting every callback.</p>
+
+  <h2>A hole nothing in the design catches</h2>
+
+  <p>Working out what <code>handle_info</code> actually looks like turned up a defect class that was not in the ticket. Ticket 11 makes the argument <code>term</code>; ticket 12 makes the catch-all mandatory and legal because that residual is open. Both are right. Together they mean a clause written with the <em>wrong shape</em> for a system message never fires, and the catch-all absorbs the message in silence.</p>
+
+  <figure class="wide">
+    <div class="panel">
+<pre class="mermaid">
+%%{init: {"theme": "base", "themeVariables": {
+  "background": "#F1F3F5", "mainBkg": "#FFFFFF", "primaryColor": "#FFFFFF",
+  "primaryTextColor": "#1C2127", "textColor": "#1C2127",
+  "nodeBorder": "#5C6670", "lineColor": "#5C6670",
+  "edgeLabelBackground": "#F1F3F5", "labelTextColor": "#1C2127",
+  "clusterBkg": "#F1F3F5", "clusterBorder": "#C4CBD1"
+}}}%%
+flowchart TD
+  A["Monitored worker dies"] --> B["Five-element DOWN message"]
+  B --> C["Hand-spelled four-element clause"]
+  C -->|"cannot ever match"| D["Mandatory catch-all"]
+  D --> E["noreply, and the worker looks alive"]
+  X["Exhaustiveness check"] -.->|"residual is open, nothing missing"| C
+  Y["Redundancy check"] -.->|"against term, all clauses reachable"| C
+</pre>
+    </div>
+    <figcaption>Measured, not hypothesised: the DOWN arrived, the clause did not fire, the catch-all ran once. Both of the language's checks look straight at this clause and have nothing to say about it.</figcaption>
+  </figure>
+
+  <p>The fix came from the question &ldquo;prelude being a bit like Elixir Kernel special forms&rdquo;, and it is better than the mitigation on offer. The prelude is <b>stratified</b>: ordinary aliases a user could have written (<code>bool</code>, <code>option&lt;T&gt;</code>) versus a <b>compiler-known</b> stratum they could not (<code>ParseAtom&lt;T&gt;</code>, <code>ValidateAs&lt;T&gt;</code>, and now <code>Down</code>, <code>Exit</code>, <code>Timeout</code>). Verified on Elixir 1.19.5: a module defining its own <code>receive/1</code> macro still gets the special form at the call site.</p>
+
+  <p>Naming the type turns a mis-shape into a compile error. And because the compiler <em>knows</em> what produces a <code>Down</code>, calling <code>Monitor</code> with no <code>Down</code> handler in the compilation unit is an error &mdash; the hole closed rather than mitigated. <strong>This is not a second effect system</strong>: nothing propagates through signatures, it is a local query over one compilation unit, which ticket 13 made the aggregate.</p>
+
+  <h2>The other three decisions, briefly</h2>
+
+  <ul class="decisions">
+    <li>
+      <span class="tag rej">No <code>async</code>, no <code>await</code>, no <code>Task</code></span>
+      <p>&ldquo;The goal is a C#-like language on the BEAM to take advantage of its concurrency model &mdash; seems pointless then to bring over C#'s.&rdquo; The mechanical objection agrees: <code>async</code> colours functions and the colour propagates up the call graph, which is the second effect system ticket 12 already refused for <code>Partial</code>. <b>The spec must state the omission</b>, because a C# reader will go looking and silence reads as an oversight.</p>
+    </li>
+    <li>
+      <span class="tag rej">Closures-as-messages is inadmissible</span>
+      <p>purerl/Pinto's generic callback module is not merely off-showcase. Ticket 11 made arrow types unvalidatable at a boundary, so a message carrying a closure is the rejected case exactly: guard-match <code>is_function(F)</code>, call it, and unknown code with unknown types has run inside a construct that claims exhaustiveness. MFA-carrying messages are unaffected &mdash; <code>{M, F, A}</code> is guard-decidable data, and OTP's own child specs are built from it.</p>
+    </li>
+    <li>
+      <span class="tag kept"><code>receive</code> survives, as a filter</span>
+      <p>Clause-headed syntax, <b>exempt from exhaustiveness</b>, because selective receive leaves unmatched messages in place &mdash; an unmatched message is not unhandled, it is <em>not yet</em>. Forcing a catch-all would delete the correlate-a-reply idiom <code>gen_server:call</code> itself runs on. Deleting <code>receive</code> was the live alternative and lost on consequences: without it <code>spawn</code> can only make processes that never read their mailbox, so the language would have exactly one way to make a concurrent thing, and it would be OTP or nothing.</p>
+    </li>
+  </ul>
+
+  <h2>What this does to the rest of the map</h2>
+
+  <ul class="decisions">
+    <li>
+      <span class="tag rej">Ticket 27 loses a motivating case</span>
+      <p><code>Pid[&tau;]</code> was the clearest demand in the map for a genuine type parameter, and it is declined. Parametric polymorphism now rests on <code>option&lt;T&gt;</code>, <code>ParseAtom&lt;T&gt;</code> and <code>ValidateAs&lt;T&gt;</code> &mdash; which ticket 11 already flagged as <b>type-directed codegen rather than generics</b>. That materially changes 27's default answer.</p>
+    </li>
+    <li>
+      <span class="tag kept">Ticket 23 gains a policy knob</span>
+      <p>Default callback signatures are a <b>generator setting, not language semantics</b>. Which means a project's narrow-versus-wide policy &mdash; and per ticket 12, its crash policy &mdash; is configuration.</p>
+    </li>
+    <li>
+      <span class="tag kept">Ticket 13's CI corpus gains two obligations</span>
+      <p>The language now ships a <em>model of OTP</em>: behaviour contracts and system-message shapes, both tracking the pinned release range. <b>Unmeasured</b> &mdash; only OTP 28.5 was installed.</p>
+    </li>
+  </ul>
+
+  <h2>Claim &rarr; evidence</h2>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Claim</th><th>How it was established</th><th>Where</th></tr></thead>
+      <tbody>
+        <tr><td><code>Subject</code> types the send side only</td><td><code>{subject, Pid, Ref}</code> in emitted Erlang; <code>send</code> wraps as <code>{Ref, Msg}</code></td><td>14a</td></tr>
+        <tr><td>Gleam's receive is a runtime tag/arity lookup</td><td><code>is_map_key({element(1,Msg), tuple_size(Msg)}, Handlers)</code></td><td><code>gleam_erlang_ffi</code></td></tr>
+        <tr><td>Unmatched messages are logged and dropped</td><td>Raw tuple and bare atom both survived; warning emitted</td><td>14b</td></tr>
+        <tr><td>Ill-typed payload undetected</td><td><code>12345</code> out of a <code>List(String)</code> spec'd <code>-&gt; binary()</code></td><td>14b</td></tr>
+        <tr><td>Named subjects are forgeable</td><td><code>registered()/0</code> diff, then <code>{Name, {push, junk}}</code></td><td>14c</td></tr>
+        <tr><td>Four of five wrong-pid failures are exits</td><td><code>noproc</code>, <code>unhandled</code>, <code>timeout</code>; one <code>{ok,4200}</code></td><td>14d</td></tr>
+        <tr><td>Dialyzer permits return narrowing, misses argument narrowing</td><td>Three specs, three runs</td><td>14e</td></tr>
+        <tr><td>Selective receive leaves messages in place</td><td>Queue length 3 &rarr; 2, wanted message taken from the middle</td><td>14f</td></tr>
+        <tr><td>Mis-shaped system-message clause is absorbed silently</td><td>DOWN arrived, clause did not fire, catch-all ran once</td><td>14g</td></tr>
+        <tr><td>Special forms win resolution</td><td>Module-local <code>receive/1</code> macro; special form still used</td><td>Elixir 1.19.5</td></tr>
+        <tr><td>OTP's <code>handle_call</code> contract is six-way</td><td><code>-callback</code> read from source</td><td><code>stdlib-7.3</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <footer>
+    <p>Ticket: <code>wayfinder/issues/14-concurrency-and-otp-model.md</code> &middot; evidence: <code>wayfinder/prototypes/14a</code>&ndash;<code>14g</code> &middot; commit <code>ad552cc</code> on <code>master</code>.</p>
+    <p>Not measured: whether OTP's behaviour contracts or system-message shapes differ across ticket 13's pinned release range &mdash; only OTP 28.5 was installed. Elixir 1.20 remains unexercised.</p>
+  </footer>
+</div>
