@@ -115,15 +115,36 @@ integer). Ternary survives, `#{}` survives, property patterns read cleanly.
 different things — an atom and a binary. Every Erlang newcomer trips over it, and a C# reader
 arrives expecting quotes to mean string.
 
-### Where this lands
+### Where this lands — REVISED, both of my objections to `:atom` fail
 
-No option is free. `:atom` costs the ternary and reads noisily in the place atoms appear most.
-`#atom` costs the map literal, or forces map syntax to change. `'atom'` costs nothing
-syntactically and everything in the string/atom confusion it inherits.
+**The ternary cost is not a cost.** No BEAM language has a ternary operator: not Erlang, not
+Elixir, not LFE, and [Gleam explicitly replaces it with `case`](https://tour.gleam.run/flow-control/case-expressions/)
+— "Gleam doesn't have a traditional ternary operator like `condition ? trueValue : falseValue`".
+The objection was imported from C#, not from the platform, and the only people who would miss `?:`
+are C# developers losing something the ecosystem they are joining never had.
 
-If the map literal is willing to move — `{| … |}`, or plain `{ }` with records distinguished by
-their keys — then **`#atom` is the cleanest**, because it is the only candidate whose cost can be
-paid off entirely rather than lived with.
+**And the replacement is better than the thing given up: make `if` an expression.**
+
+```csharp
+Outcome RemoveLine(Order, string);
+
+(o, sku) -> if (Found(o, sku)) (:ok, Removed(o, sku))
+            else               (:error, (:no_such_line, sku));
+```
+
+Rust and Kotlin both do this; Elixir's `if` already returns a value and `if cond, do: a, else: b`
+is the compact form Elixir programmers reach for daily. Expression-`if` is strictly more capable
+than `?:` — it takes blocks as well as expressions — and it is a *more* familiar keyword to a C#
+developer than the symbol they are losing. This also partly answers the intermediate-value
+friction from 01b, since a conditional no longer forces a drop into a block body.
+
+**The adjacent-colon objection also fails.** `{ Status: :draft }` is exactly the shape Elixir
+writes as `%{status: :draft}` — the most-read syntax in that ecosystem, and nobody minds. That was
+an aesthetic objection dressed as a technical one.
+
+So `:atom` costs `[module: GenServer]` sharing a character in a positionally distinct place, and
+nothing else. `#atom` still collides with the `#{}` map literal; `'atom'` still inherits Erlang's
+oldest confusion. **`:atom` wins on the corrected analysis.**
 
 ---
 
