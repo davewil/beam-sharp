@@ -53,10 +53,19 @@ candidate answer, not just evidence.
 
 ## Coupled to ticket 22
 
-**Elm validates values crossing a port at runtime**, so its guarantees survive its escape hatch —
-where ticket 06 found Gleam and purerl validate nothing at all. If that holds (→ ticket 21, which
-is establishing it), it is the working precedent for this ticket's central question, and the only
-one found so far in which a language *does* defend its boundary.
+### One question inherited from ticket 21, which was descoped
+
+**Does Elm validate values crossing a port at runtime?** If it does, Elm's guarantees survive its
+escape hatch — where ticket 06 found Gleam and purerl validate nothing at all — making it the only
+known precedent for a language that actually defends its boundary, and therefore the working model
+for this ticket's central question.
+
+This was ticket 21's, but Elm was descoped there after that ticket stalled on a bundled narrative
+question. **The technical half is small and worth doing here**, scoped tightly: what types may
+cross a port, what the generated JavaScript actually does to an incoming value, what happens when
+it fails, and how the `Json.Decode.Value` convention differs from a simple typed port. That is a
+docs-and-source question, not a community-history one. **Do not let it expand** into The Elm
+Architecture or the 0.19 history — that expansion is what stalled ticket 21.
 
 This ticket also cannot be settled before [ticket 22](22-how-opinionated.md) says how much the
 core claims. A language that merely offers types owes its boundary less than one that enforces

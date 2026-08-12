@@ -9,9 +9,22 @@ beam-sharp is considering enforced conventions in the core (a DDD-shaped structu
 **ports and adapters out to everything else**. That is a known language-design shape with real
 precedents, and the precedents have known failure modes. Establish them before committing.
 
+> **DESCOPED 2026-08-12: Elm is out of this ticket, by instruction.** The agent working it made
+> no progress in ~48 minutes and had claimed nothing. Diagnosis: the brief bundled two different
+> research shapes — a crisp technical question (what Elm validates at a port) and a *narrative*
+> question (what Elm 0.19's removal of native modules cost). A fact either is or is not in a
+> source; a narrative absorbs unbounded reading without ever feeling finished. They were bundled
+> because they arrived in one conversation, not because they are one investigation.
+>
+> The Elm section below is struck. **One question from it survives and has moved to
+> [ticket 18](18-boundary-defence.md)**: whether Elm validates values crossing a port at runtime.
+> That is the only known candidate for a language that defends its boundary — ticket 06 found
+> Gleam and purerl validate nothing — so it is worth ten minutes there rather than being lost
+> with the rest.
+
 Cover, from primary sources — language docs, RFCs, release notes, the designers' own writing:
 
-### Elm — the closest analogue
+### ~~Elm — the closest analogue~~ — DESCOPED, see above
 
 - **How ports work**: what types may cross, synchronous versus asynchronous, and — the decisive
   question for [ticket 18](18-boundary-defence.md) — **what validation happens to a value
