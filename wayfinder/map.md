@@ -445,6 +445,40 @@ spec exists.
   Sharpest downstream consequence: **ticket 18 gains a consumer** — a generated encoder trusts a
   declared type the boundary does not enforce, and crashes inside code no one reviewed.
 
+- [Pipeline and comprehension idiom](issues/17-pipeline-and-comprehension.md) — **four constructs
+  removed, one added.** The chaining form is `|>` with **qualified** names, and the dot fell to a
+  *mechanism* rather than to taste: `xs.Filter(f)` needs type-directed resolution of an unqualified
+  name, which 08 (no overloading) and 16 (one dispatch mechanism) both closed and 16 §6 had already
+  parked in the fog. **LINQ dies to the identical argument** — ECMA-334's translation emits
+  unqualified names — so **this ticket's stated conditional was answered by rejecting its premise**:
+  the cost was never in the type system, and LINQ pays exactly what the dot pays. The dot is not
+  abolished but *narrowed to never being a call* (→ 26). **There is no comprehension syntax, because
+  precision is a lowering decision, measured**: emitting an inlined comprehension recovers 27a's
+  exact `[integer()] -> [binary()]`, where emitting a call to the generic prelude loses **both**
+  sides — worse than `lists:map/2` loses, since beam-sharp's own declared spec overrides its body's
+  success typing. Fusion is free and lossless. So one rule: **the compiler-known prelude is inlined,
+  user code is called, and precision follows the inlining** — which creates a **two-tier emitted
+  boundary** the spec must state (→ 18). **27a's fold limit is corrected**: inlined monomorphic
+  recursion keeps both sides for fold too, so the mechanism was never "comprehension" but *a
+  monomorphic body the analyser sees through*, and one rule covers map, filter and fold. Fallible
+  sequencing is **the valve, `|?>`** — chosen over a generated `[Propagates]` clause because that
+  would have been the **sixth codegen obligation**, and over `Result.Then` because only the
+  combinator forces a function-as-value spelling; the fully implicit rule was closed by 08's
+  *narrowing is always written, never inferred*. `?` is free (10 dropped the ternary) and is a
+  **tier-1 borrow for both audiences at once** — C#'s `?.` and TS's optional chaining are the same
+  semantics, and 15's untagged `result` makes `(:error, E)` the exact analogue of `null`. **There is
+  no `if`**: `switch` is the only branching construct, *the way Go has one loop* (David), with a
+  **tuple subject** for the subject-less ladder — tier-1 C#, Gleam's multi-subject `case`, and the
+  clause head's own shape, converging. Measured, not cited: **Gleam has no `if` at all** and its
+  error text hands you `case`; **`else` is an `if`-only keyword** — Elixir's `case` and `cond` reject
+  it outright, and `cond`'s catch-all is a *clause*. The structural reading is what decided it —
+  `else` is what a binary unnamed conditional needs, and keeping it would have added the only
+  construct whose fall-through is not expressible as a pattern. Two questions die with `if`: the
+  one-armed case 10 routed here, and 15's `option<atom>` collapse landmine. Strict only; **lazy
+  deferred, not refused** (David), and cheap to add *because* names are qualified. Bonus finding:
+  **Gleam's inexhaustive-`case` error prints the missing pattern**, which is 04's residual observed
+  live (→ 23).
+
 ## Not yet specified
 
 <!-- in-scope fog: real, but not yet sharp enough to phrase as a ticket -->
@@ -494,6 +528,15 @@ spec exists.
   synthesised structural traversal — it stacks with `ValidateAs<T>` over the *same* recursive type,
   so the skeleton should measure them together rather than separately. Retired: 27's
   bounded-type-variable measurement, above — bounds are refused, not deferred.
+  **Ticket 17 adds an eighth, and it is the first that is a cost rather than a capability.**
+  17 §2 buys emitted *precision* by **inlining** every compiler-known prelude collection operation at
+  every call site, and it priced only the benefit. The skeleton owes the **code-size** number at the
+  pipeline lengths the showcase implies — this is a straight trade of emitted size for emitted type
+  information, and no codegen obligation so far has had to be weighed that way. It also owes a check
+  on the assumption 17 §8 records rather than establishes: **inlining a prelude function into a
+  caller means a change to the prelude does not reach that caller without recompiling it**, which
+  runs against ticket 13's aggregate-granularity hot loading. Probably benign because the prelude is
+  compiler-known, but unverified.
 - **The typed model of OTP itself** — new with ticket 14, and distinct from the corpus that proves
   it. The language knows behaviour contracts and system-message shapes as types. Open: which
   behaviours ship built in (gen_server, supervisor, application, gen_statem, gen_event), how a
@@ -564,7 +607,17 @@ spec exists.
   a settled criterion, but the field is down to one live answer. 16 also leaves one *named* debt
   here beyond `ToExistingAtom`'s respelling: what the published serialisation mapping says about
   the shapes ticket 20 calls untheorised — binaries and bitstrings above all, since 25 puts three
-  of six ordinary workloads there.
+  of six ordinary workloads there. **Ticket 17 adds a third candidate criterion, and it is the
+  first that is observable in the output**: stratum 2 is **what the compiler inlines**. 17 §2
+  established that emitted precision is a privilege of inlining — a compiler-known `List.Map`
+  recovers `[integer()] -> [binary()]` where an identical user-written generic emits `[any()]` — so
+  the two strata are not merely documented differently, they **produce measurably different emitted
+  types**. Unlike 27's criterion (which `foreign_error` fails) and 15's (a claim about the
+  compiler's inferences), this one can be checked by reading the `.beam`. Whether it *coincides*
+  with 15's surviving criterion or cuts across it is unexamined: `foreign_error` is a type, not an
+  operation, so it has nothing to inline and the test may simply not apply to it — which would mean
+  the criterion is well-formed only for the stratum's *operations*, and the stratum's *types* need a
+  separate one.
 - **Consuming Gleam and Elixir libraries** — possible, and at what ergonomic cost. **Sharper
   after ticket 10 §7**, which measured Gleam's representation rather than reading it: fieldless
   variants are bare atoms, variants with fields are tagged tuples, PascalCase becomes
@@ -572,6 +625,26 @@ spec exists.
   already a structural shape beam-sharp can write directly — the ergonomic cost looks low, and
   the open part is what happens to Gleam's *nominal* intent when beam-sharp has no nominality to
   receive it.
+- **Laziness and `stream<T>`** — new with ticket 17 §5, and **deferred rather than refused**
+  (David: *"defer lazy, we will want it"*). Nothing is lazy today: 17's fusion measurement showed
+  the intermediate-list argument is already answered by the lowering, at no cost in precision. What
+  the deferred option needs, recorded so it is not rediscovered: **compiler-known status in the
+  prelude's second stratum with a fused lowering of its own** — without it, `xs |> Stream.Map(f)` is
+  an ordinary user-level generic and degrades to `[any()]` under §2's two-tier rule, which is the
+  worst outcome (it works, and is opaque); **an answer to how a lazy source meets ticket 14's
+  process model**, since a stream over a mailbox or a socket is a process rather than a data
+  structure, with different failure semantics; and **a position on early termination**, the one case
+  fusion does not cover — `|> List.First()` after a map over a million rows still traverses a
+  million rows. Cheap to add *because* 17 §1 chose qualified names: `Stream.Map` is a new module and
+  nothing existing changes.
+- **`cond`, or whatever serves a long ladder of unrelated conditions** — new with ticket 17 §6,
+  which made `switch` the only branching construct and takes a **tuple subject** for compound
+  conditions. That is clean at two or three conditions and clumsy at five, where
+  `(a, b, c, d, e) switch` is hard to read even with `_` absorbing the tail. Deliberately not paid
+  for with a keyword until the shape is shown to occur: **ticket 25 owes a report on whether the six
+  exemplars produce it.** Adding `cond` later is purely additive, and its catch-all would be a
+  clause (`_ =>`), never an `else` — 17c measured that `else` is an `if`-only keyword on this
+  platform and both Elixir pattern constructs reject it.
 
 <!--
   GRADUATED 2026-08-12 (ticket 10): "Runtime behaviour against untyped callers — what, if

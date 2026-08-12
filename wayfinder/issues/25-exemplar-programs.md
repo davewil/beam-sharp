@@ -116,3 +116,36 @@ residual is genuinely wanted. Ticket 14 §6 supplies a case where the residual i
 and a clause silently never fires ([`14g`](../prototypes/14g_handle_info_blind_spot.erl)) — so an
 exemplar `handle_info` is exactly the place to judge whether the open residual plus a
 compiler-known message type feels sufficient in practice.
+
+## Two jobs from ticket 17 — resolved 2026-08-13
+
+[Ticket 17](17-pipeline-and-comprehension.md) deferred two decisions onto evidence this ticket is
+the standing resource for. Both are answerable by writing exemplars, and neither by argument.
+
+**1. Does a long ladder of unrelated conditions actually occur?** 17 §6 made `switch` the only
+branching construct — no `if`, no `else`, no `cond` — with a **tuple subject** for compound
+conditions. That is clean at two or three conditions:
+
+```csharp
+(user.IsAdmin, o.Total > 100) switch {
+    (true, true) => :priority,
+    (_,    true) => :large,
+    _            => :normal
+}
+```
+
+and clumsy at five, where `(a, b, c, d, e) switch` is hard to read even with `_` absorbing the tail.
+17 declined to pay a keyword for `cond` until the shape is shown to exist. **The database and HTTP
+exemplars are the likeliest place** — request validation and query-building are where unrelated
+boolean ladders usually live. Report whether they produce one, and at what width.
+
+**2. Does the pipe read well where the lowering is least precise?** 17 §3 found that fold's inlined
+lowering widens a binary accumulator at the recursive fixpoint (`bitstring()` rather than
+`binary()`). Three of this ticket's six exemplars are binary work — dynamic web pages, WebSocket
+frames, event-queue payloads — and all three build output by accumulation. **Write those three with
+the pipe and the valve, and lower them**, per this ticket's non-negotiable second requirement. If
+binary construction reads badly under `|>`, that is a finding 17 could not have reached from a
+single measurement.
+
+Note the exemplar table's `Decides` column is now partly historical for 17: the ticket is resolved,
+so these exemplars *test* its answers rather than inform them.

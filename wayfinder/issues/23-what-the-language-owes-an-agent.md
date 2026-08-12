@@ -157,3 +157,37 @@ state: *a diagnostic an agent must act on should be a value the language can alr
 
 Also inherited: `ValidationError` is a path into the term plus the expected type, chosen because a
 bare `:error` from a synthesised O(n) traversal tells the consumer only that the traversal ran.
+
+## Evidence from ticket 17 — 2026-08-13
+
+**The residual-as-the-missing-case is not a research finding any more. A shipping BEAM compiler
+prints it today**, and ticket 17 measured it rather than citing it
+([`prototypes/17c`](../prototypes/17c_else_in_the_neighbourhood.md), Gleam 1.18.1):
+
+```
+error: Inexhaustive patterns
+This case expression does not have a pattern for all possible values.
+
+The missing patterns are:
+
+    False
+```
+
+Ticket 04 established this from CDuce, which prints a residual type plus a sampled counter-value.
+This is the same behaviour in a statically typed BEAM language, in a diagnostic a user sees today.
+
+**So this ticket's question narrows.** It is no longer *"could a compiler hand an agent the clause
+it must write"* — one does. It is:
+
+- **Should the residual be a machine-readable output as well as prose?** Gleam's is prose with the
+  pattern embedded in it. An agent parsing `The missing patterns are:` is screen-scraping a string
+  that is not part of any compatibility contract.
+- **Is the prose form even the right primary?** Under the standing constraint the primary consumer
+  is a program, and the human reads the same information at review time. Gleam optimised for the
+  human because that is Gleam's only reader.
+
+A second, smaller datum in the same prototype: **Gleam's refusal of `if` is expressed as a designed
+diagnostic** — *"Gleam doesn't have if expressions. If you want to write a conditional expression you
+can use a `case`:"* with a template. That is a compiler telling an author what to write instead, for
+a construct it deliberately does not have. Under agent authorship that is exactly the shape this
+ticket is asking about, applied to a *language surface* question rather than a type error.

@@ -349,3 +349,44 @@ channels; it adds a consumer that assumes they were defended.
 stale. Ticket 22's own deferral note says in bold that the coupling is weaker than originally
 stated and **this ticket is not blocked by it**. The relation has been dropped; this ticket is on
 the frontier.
+
+## Constraint from ticket 17 — resolved 2026-08-13
+
+**A partial repair arrives, and it hands this ticket a two-tier boundary to argue over rather than
+a uniform one.**
+
+Ticket 27 §6 found that choosing generics made the emitted boundary strictly weaker — a polymorphic
+`-spec` is documentation, Dialyzer reads the variables as `any()` — and handed that here.
+[Ticket 17](17-pipeline-and-comprehension.md) §2 measured the repair
+([`prototypes/17a`](../prototypes/17a_lowering_recovers_the_relation.erl), OTP 28):
+
+```
+-spec roundtrip_lowered_to_comprehension([integer()]) -> [binary()].   % inlined: exact
+-spec roundtrip_lowered_to_generic_call([any()])      -> [any()].      % called: everything gone
+```
+
+Lowering a compiler-known prelude operation to an **inlined** form recovers the element relation
+exactly. Emitting a **call** to the generic prelude function loses both sides — and loses *more*
+than calling `lists:map/2` would, because beam-sharp's own declared spec overrides the success
+typing of its body.
+
+**Three consequences for this ticket.**
+
+1. **The emitted boundary is two-tier, and the tiers are not a documentation distinction — they are
+   observable in the `.beam`.** Compiler-known operations emit precise types; identical user-written
+   generics emit `[any()]`. Whatever this ticket decides about emitted guards has to say which tier
+   it applies to, and whether a user-written generic is defended *more* because its spec says less.
+2. **Ticket 17 §3 extends this to fold**, so the rule is uniform across the collection surface: the
+   mechanism is inlining a monomorphic body the analyser can see through, not comprehensions
+   specifically.
+3. **The valve is new surface.** `|?>` emits a `case` per stage matching `(:error, _)`. What a
+   foreign caller can put into a valve chain — and whether a term that is neither the success type
+   nor a well-formed `(:error, E)` is caught, crashes, or flows on — is this ticket's question, not
+   17's. 17 §4 deliberately did not defend it.
+
+**One argument this ticket had is now stronger.** Ticket 13 already removed the 40-byte saving as a
+motivation, leaving silent unsoundness alone. Ticket 17 adds a second consumer of undefended data
+alongside 16 §4's generated encoder: an **inlined** prelude operation is emitted against the declared
+element type, so a foreign term that does not inhabit it is operated on inside code the author never
+wrote — the same objection 16 raised for the encoder, now at every pipeline stage rather than at
+serialisation boundaries only.

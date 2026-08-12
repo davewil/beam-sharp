@@ -77,3 +77,28 @@ via_fun_arg(Xs, F) -> lists:map(F, Xs).
 
 %% a -> b: does a CHANGE of element type survive a comprehension?
 roundtrip(Xs) -> [integer_to_binary(X) || X <- Xs].
+
+%%% ---------------------------------------------------------------------------
+%%% CORRECTION — ticket 17, 2026-08-13.
+%%%
+%%% The CONCLUSION above states, as the second of three places this measurement stays
+%%% load-bearing: "It sizes what the syntax route covers for ticket 17 (pipeline and
+%%% comprehension idiom): map and filter cleanly, fold not at all."
+%%%
+%%% THE SECOND HALF IS WRONG, and 17b falsified it directly. Fold is covered just as
+%%% cleanly, by an inlined monomorphic recursive function rather than by a comprehension:
+%%%
+%%%   -spec join_via_inlined_recursion([integer()]) -> bitstring().   % both sides kept
+%%%   -spec join_via_generic_fold([any()])          -> any().
+%%%
+%%% What this file actually measured was never a property of COMPREHENSIONS. It is a
+%%% property of INLINING A MONOMORPHIC BODY THE ANALYSER CAN SEE THROUGH — and for map and
+%%% filter, a comprehension is merely the shortest spelling of that. Erlang has no
+%%% comprehension syntax for foldl, which is what made fold look like a gap; the gap was in
+%%% Erlang's surface syntax, not in achievable precision.
+%%%
+%%% Ticket 17 §2 and §3 therefore state one rule where this file implied two: the
+%%% compiler-known prelude is inlined, user code is called, and precision follows the
+%%% inlining — uniformly across map, filter and fold.
+%%%
+%%% See prototypes/17b_what_fold_costs.erl and issues/17-pipeline-and-comprehension.md §3.

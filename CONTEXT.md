@@ -77,6 +77,24 @@ The construct that deliberately crashes. Typed `none`, and produces the BEAM's *
 not its `throw` class, which is catchable.
 _Avoid_: throw, panic, crash, abort, fail
 
+**Pipe**:
+`|>`, the single chaining form. `x |> F(a)` rewrites to `F(x, a)`; the name is always **qualified**,
+so nothing is resolved by the type of `x`. There is no dot-call and no comprehension syntax.
+_Avoid_: chain, fluent call, method call, forward operator
+
+**Valve**:
+`|?>`, the pipe that stops the flow. Where its left operand is `(:error, _)` the remaining stages do
+not run and that error is the result; otherwise the stage applies. Named for what it is: a valve
+stops flow in a pipe.
+_Avoid_: bind, andThen, try operator, safe pipe, monadic pipe
+
+**switch**:
+The only branching construct, written postfix — `subject switch { pattern => expr, … }`. The clause
+head's pattern grammar in expression position, so exhaustiveness is a hard error and the residual is
+the missing arm. A ladder of unrelated conditions takes a tuple subject. There is no `if`, no `else`,
+no `cond` and no ternary.
+_Avoid_: case, match, if, cond, conditional expression
+
 **Atom**:
 An interned constant, written `:name`. Each atom is its own singleton type; the universe is open
 and nothing declares an atom.
@@ -159,8 +177,11 @@ _Avoid_: to_atom, intern, atom cast
 ## The design effort
 
 **Lowering**:
-A hand-written translation of beam-sharp source into Erlang that compiles and runs, used to falsify
-sample code. Every lowering written so far has found errors in code that had only been read.
+The translation of a beam-sharp construct into the form actually emitted. Two senses, deliberately
+one word: the **compiler's** lowering, which is a design choice with consequences for what the
+emitted code's types say; and a **hand-written** lowering, a translation into Erlang that compiles
+and runs, used to falsify sample code. Every hand-written lowering so far has found errors in code
+that had only been read.
 _Avoid_: compilation, transpilation, desugaring, example
 
 **Silent unsoundness**:

@@ -148,3 +148,31 @@ mapping presumes every modelled shape has one. **Binaries and bitstrings — thi
 gap — are exactly where that presumption is untested**, and ticket 25 notes three of six ordinary
 BEAM workloads are binary work. Whatever this ticket decides about `<<>>` typing owes a line on
 what those shapes encode to.
+
+## Datum from ticket 17 — resolved 2026-08-13
+
+**A third independent sighting of binaries as the place precision goes to die**, and this one is in
+beam-sharp's own emitted code rather than in the literature.
+
+[Ticket 17](17-pipeline-and-comprehension.md) §3 measured fold under the lowering that ticket
+adopted ([`prototypes/17b`](../prototypes/17b_what_fold_costs.erl), OTP 28):
+
+```
+-spec join_via_inlined_recursion([integer()]) -> bitstring().   % adopted lowering
+-spec join_via_foldl([any()])                 -> binary().      % rejected lowering
+```
+
+The accumulator **widens at the recursive fixpoint** — `bitstring()` where `lists:foldl` gave the
+tighter `binary()`. It is a sound supertype rather than a wrong answer, and 17 accepted it because
+losing the input element type is the worse loss. But note *where* the imprecision landed: at a
+binary, in the one operation whose lowering is a synthesised recursion rather than a comprehension.
+
+So this ticket now has three: **no `<<>>` typing anywhere in either Elixir paper** (ticket 04);
+**ticket 16 §4's published serialisation mapping presumes every modelled shape has one, and binaries
+are exactly where that is untested**; and now **beam-sharp's own emission loses binary precision at
+a fixpoint**. Ticket 25 puts three of six ordinary workloads on these shapes.
+
+Whatever this ticket decides about `<<>>` typing should say whether the fixpoint widening is
+avoidable — i.e. whether a declared binary type in the surface language would let the compiler emit
+`binary()` instead of `bitstring()`, which would make it a *surface* type-system question rather
+than a codegen artefact.

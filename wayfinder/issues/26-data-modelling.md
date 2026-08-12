@@ -140,3 +140,33 @@ unrelated record types that happen to share a field. That is a capability constr
   not settled what a record is*. If a record form lands, this is the first compiler-generated value
   that would plausibly become one — and it is generated, not written, so it is also a test of
   whether the record surface is something codegen can emit cleanly.
+
+## Constraint from ticket 17 — resolved 2026-08-13
+
+**This ticket now owns the whole of the dot, and gains back one construct it was told it already
+had.**
+
+[Ticket 17](17-pipeline-and-comprehension.md) §1 refused dot-*chaining*: `xs.Filter(f)` requires
+type-directed resolution of an unqualified name, which ticket 08 closed (one arrow per arity, no
+overload set) and ticket 16 closed again (one dispatch mechanism, the clause head). The chaining
+form is `|>` with qualified names.
+
+**What that settles for this ticket, and what it does not.**
+
+- **Settled: the dot is never a call.** Nothing is dispatched by writing one. This removes the
+  ambiguity the field-access sub-question was carrying — whether `o.Total` and `o.Apply(e)` were the
+  same mechanism. They are not, and only the first is still a candidate.
+- **Still this ticket's: whether the dot projects at all.** `o.Total` as ordinary field access
+  remains open exactly as before. Ticket 01 settled that property patterns work in the parameter
+  position, so destructuring already exists; this ticket asks whether projection does too.
+- **`with` is confirmed free.** 17 never needed it — the valve `|?>` handles fallible sequencing and
+  requires no borrowed keyword — so the constraint 17 inherited from ticket 15 (*"`with` is
+  unavailable, it is 26's record update"*) is discharged without cost. If this ticket wants `with`
+  for record update, nothing now competes for it.
+
+**One thing to weigh that 17 could not.** 17 §1's failure case for the dot was a *second collection
+type*: with `list<T>` and a deferred `stream<T>`, `xs.Filter(f)` has no rule to break the tie. The
+same argument does not obviously apply to projection — `o.Total` names a field, not a function, and
+a record type's fields are known from its declaration. So the refusal of dot-call does **not** carry
+over automatically, and this ticket should decide projection on its own merits rather than treat it
+as already settled.

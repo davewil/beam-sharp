@@ -754,3 +754,28 @@ No binary patterns anywhere, again, and this module set would use them in realit
 serialisation, anything on a wire. Ticket 04 found binaries are *untheorised* in the
 set-theoretic literature. **The largest gap in this design is the one it is not yet possible to
 prototype.** → ticket 20.
+
+---
+
+## SUPERSEDED IN PART — ticket 17, 2026-08-13
+
+[Ticket 17](../issues/17-pipeline-and-comprehension.md) changed the surface this prototype is
+written against. What is superseded here:
+
+- **Dot-chaining is gone.** `xs.Filter(f).Map(g)` required type-directed resolution of an
+  unqualified name — closed by ticket 08 (one arrow per arity, no overload set) and ticket 16 (one
+  dispatch mechanism). The chaining form is `|>` with **qualified** names:
+  `xs |> List.Filter(f) |> List.Map(g)`. The dot survives only as a candidate for *projection*
+  (`o.Total`), which is ticket 26's to settle; it is **never a call**.
+- **The three-spelling equivalence loses a member.** `Orders.Apply(o, e)` and
+  `o |> Orders.Apply(e)` remain one rewrite. `o.Apply(e)` does not exist.
+- **There is no `if`.** `switch` is the only branching construct, taking a **tuple subject** for a
+  ladder of unrelated conditions. So any expression-`if` proposed here — including the one-armed
+  case ticket 10 routed to 17 — has no spelling. Ticket 17 §6 and
+  [`prototypes/17c`](17c_else_in_the_neighbourhood.md) carry the measurement: Gleam refuses `if`
+  outright, and `else` is an `if`-only keyword on this platform.
+- **There is no comprehension syntax**, and none is needed: ticket 17 §2 measured that the
+  precision a comprehension buys is available from the compiler's *lowering* choice instead.
+
+Everything else in this file stands. The patterns, the atom decision, the module structure and the
+lowerings are unaffected — only the chaining and branching surface changed.
