@@ -1,0 +1,691 @@
+<title>The Valve</title>
+
+<style>
+  :root {
+    --ground:   #EEF1F4;
+    --surface:  #FFFFFF;
+    --sunken:   #E3E8ED;
+    --ink:      #15191E;
+    --ink-soft: #414B56;
+    --muted:    #6B7681;
+    --rule:     #CBD3DA;
+    --accent:   #5A3A96;
+    --accent-s: #EDE7F7;
+    --edge:     #9A551B;
+    --edge-s:   #F7ECE0;
+    --good:     #1F6B4A;
+    --panel:    #F1F3F5;
+
+    --display: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    --body: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+    --util: ui-sans-serif, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:   #131619;
+      --surface:  #1B1F24;
+      --sunken:   #22272D;
+      --ink:      #E7EBEF;
+      --ink-soft: #BAC3CC;
+      --muted:    #8B959F;
+      --rule:     #333B44;
+      --accent:   #B29AE0;
+      --accent-s: #2A2340;
+      --edge:     #D89B5E;
+      --edge-s:   #33261A;
+      --good:     #6BC79C;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:   #131619;
+    --surface:  #1B1F24;
+    --sunken:   #22272D;
+    --ink:      #E7EBEF;
+    --ink-soft: #BAC3CC;
+    --muted:    #8B959F;
+    --rule:     #333B44;
+    --accent:   #B29AE0;
+    --accent-s: #2A2340;
+    --edge:     #D89B5E;
+    --edge-s:   #33261A;
+    --good:     #6BC79C;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 17px;
+    line-height: 1.62;
+    margin: 0;
+    padding: 0 1.25rem 6rem;
+  }
+
+  .wrap { max-width: 46rem; margin: 0 auto; }
+  .wide { max-width: 62rem; margin: 0 auto; }
+
+  header.masthead {
+    padding: 4.5rem 0 2rem;
+    border-bottom: 2px solid var(--ink);
+    display: flex; flex-direction: column; gap: 1.1rem;
+  }
+  .eyebrow {
+    font-family: var(--display);
+    font-size: .72rem;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: flex; flex-wrap: wrap; gap: .4rem 1.1rem;
+  }
+  .eyebrow b { color: var(--accent); font-weight: 600; }
+  h1 {
+    font-family: var(--display);
+    font-size: clamp(2rem, 6vw, 3.1rem);
+    line-height: 1.04;
+    letter-spacing: -.03em;
+    font-weight: 600;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .standfirst {
+    font-size: 1.16rem;
+    color: var(--ink-soft);
+    margin: 0;
+    max-width: 34rem;
+    text-wrap: pretty;
+  }
+
+  h2 {
+    font-family: var(--display);
+    font-size: 1.02rem;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: var(--accent);
+    margin: 3.6rem 0 .2rem;
+    padding-bottom: .5rem;
+    border-bottom: 1px solid var(--rule);
+  }
+  h3 {
+    font-family: var(--display);
+    font-size: 1.02rem;
+    font-weight: 600;
+    letter-spacing: -.01em;
+    margin: 2.2rem 0 .4rem;
+    color: var(--ink);
+  }
+  p { margin: .95rem 0; text-wrap: pretty; }
+  a { color: var(--accent); }
+
+  code {
+    font-family: var(--display);
+    font-size: .87em;
+    background: var(--sunken);
+    padding: .1em .34em;
+    border-radius: 3px;
+  }
+
+  .verdict {
+    margin: 2.4rem 0 0;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 4px solid var(--accent);
+    padding: 1.6rem 1.7rem;
+    display: flex; flex-direction: column; gap: .7rem;
+  }
+  .verdict .lab {
+    font-family: var(--display);
+    font-size: .7rem; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--muted);
+  }
+  .verdict .sentence {
+    font-family: var(--display);
+    font-size: clamp(1.05rem, 2.6vw, 1.32rem);
+    line-height: 1.4;
+    letter-spacing: -.015em;
+    margin: 0;
+  }
+  .verdict .gloss {
+    font-size: .95rem; color: var(--ink-soft); margin: 0;
+    padding-top: .7rem; border-top: 1px solid var(--rule);
+  }
+
+  figure { margin: 2rem 0; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid #C4CBD1;
+    border-radius: 4px;
+    padding: 1.4rem 1rem;
+    overflow-x: auto;
+  }
+  .panel pre.mermaid { margin: 0; display: flex; justify-content: center; min-width: 30rem; }
+  figcaption {
+    font-family: var(--util);
+    font-size: .84rem;
+    color: var(--muted);
+    margin-top: .7rem;
+    line-height: 1.5;
+  }
+
+  .tablewrap { overflow-x: auto; margin: 1.4rem 0; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-family: var(--util);
+    font-size: .88rem;
+    background: var(--surface);
+    min-width: 34rem;
+  }
+  caption {
+    font-family: var(--display);
+    font-size: .72rem; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--muted); text-align: left; padding-bottom: .55rem;
+  }
+  th, td {
+    border: 1px solid var(--rule);
+    padding: .58rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  thead th {
+    background: var(--sunken);
+    font-weight: 600;
+    font-size: .78rem;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  tbody th { font-weight: 600; background: var(--sunken); white-space: nowrap; }
+  td.win { color: var(--good); font-weight: 600; }
+  td.lose { color: var(--edge); }
+  td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  .decisions { list-style: none; padding: 0; margin: 1.5rem 0 0; display: flex; flex-direction: column; gap: 1.6rem; }
+  .decisions > li {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 1.2rem 1.4rem 1.35rem;
+  }
+  .decisions h3 { margin-top: 0; }
+  .decisions p { font-size: .97rem; }
+  .tag {
+    display: inline-block;
+    font-family: var(--display);
+    font-size: .67rem; letter-spacing: .12em; text-transform: uppercase;
+    padding: .18rem .5rem; border-radius: 3px; margin-bottom: .7rem;
+  }
+  .tag.kept { background: var(--accent-s); color: var(--accent); }
+  .tag.rej  { background: var(--edge-s);  color: var(--edge); }
+
+  .rejected {
+    margin-top: .95rem; padding-top: .8rem;
+    border-top: 1px dashed var(--rule);
+    font-size: .92rem; color: var(--ink-soft);
+  }
+  .rejected b { color: var(--edge); font-weight: 600; }
+
+  pre.code {
+    font-family: var(--display);
+    font-size: .82rem;
+    line-height: 1.55;
+    background: var(--sunken);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: .9rem 1rem;
+    overflow-x: auto;
+    margin: 1rem 0;
+  }
+  pre.code .c { color: var(--muted); }
+  pre.code .k { color: var(--accent); font-weight: 600; }
+  pre.code .e { color: var(--edge); }
+  pre.code .g { color: var(--good); }
+
+  .pair { display: grid; gap: 1.1rem; margin: 1.4rem 0; }
+  @media (min-width: 54rem) { .pair { grid-template-columns: 1fr 1fr; } }
+  .pair .lab {
+    font-family: var(--display);
+    font-size: .7rem; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--muted); display: block; margin-bottom: .4rem;
+  }
+  .pair pre.code { margin: 0; }
+
+  .callout {
+    background: var(--edge-s);
+    border-left: 3px solid var(--edge);
+    padding: 1rem 1.2rem;
+    margin: 1.6rem 0;
+    font-size: .95rem;
+  }
+  .callout p:first-child { margin-top: 0; }
+  .callout p:last-child { margin-bottom: 0; }
+  .callout strong { color: var(--edge); }
+
+  footer {
+    margin-top: 4.5rem; padding-top: 1.4rem;
+    border-top: 1px solid var(--rule);
+    font-family: var(--util); font-size: .83rem; color: var(--muted);
+  }
+  footer code { background: none; padding: 0; }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">
+      <span>beam-sharp · decision brief</span>
+      <span><b>ENG-183</b> · ticket 17</span>
+      <span>2026-08-13</span>
+      <span>OTP 28 · Gleam 1.18.1 · Elixir 1.19.5</span>
+    </div>
+    <h1>The Valve</h1>
+    <p class="standfirst">Four constructs left the language and one arrived. The ticket asked which
+    chaining syntax to adopt; the answer was that two of the three candidates need a mechanism this
+    map closed twice.</p>
+  </div>
+</header>
+
+<div class="wrap">
+
+<div class="verdict">
+  <span class="lab">The decision</span>
+  <p class="sentence">The pipe is the only chaining form and it carries <b>qualified</b> names.
+  Fallible steps chain through <b>the valve</b>, <code>|?&gt;</code>. There is no comprehension
+  syntax, no <code>if</code>, and no <code>else</code>.</p>
+  <p class="gloss">Precision was the thing comprehensions were wanted for, and it turned out to be a
+  <em>lowering</em> decision rather than a surface one — so the syntax could be deleted and the
+  benefit kept. That single measurement removed two of this ticket's four questions.</p>
+</div>
+
+<h2>The dot fell to a mechanism, not to taste</h2>
+
+<p>Ticket 05 recorded that <code>xs.Where(f)</code> and <code>xs |&gt; where(f)</code> are "the same
+rewrite", and ticket 16 handed the call-syntax half of extension methods here. Both were true, and
+both concealed the same cost.</p>
+
+<p>The rewrite target in <code>xs.Filter(f)</code> is an <em>unqualified</em> name. Something must
+pick <code>List.Filter</code>, and the only available clue is that <code>xs : list&lt;T&gt;</code>.
+That is type-directed name resolution — and this map has closed both routes to it, in tickets
+decided for entirely unrelated reasons.</p>
+
+<p><b>LINQ query syntax falls to the identical argument</b>, which is what makes the ticket's own
+stated conditional unanswerable as posed. ECMA-334's translation is a pure syntactic rewrite bound
+before type binding, exactly as ticket 05 said — and it emits <code>xs.Where(…)</code>, unqualified.
+The cost was never in the type system. It is in name resolution, and LINQ pays precisely what the
+dot pays.</p>
+
+</div>
+
+<div class="wide">
+<figure>
+  <div class="panel">
+<pre class="mermaid">
+%%{init: {"theme": "base", "themeVariables": {
+  "background": "#F1F3F5", "mainBkg": "#FFFFFF", "primaryColor": "#FFFFFF",
+  "primaryTextColor": "#1C2127", "textColor": "#1C2127",
+  "nodeBorder": "#5C6670", "lineColor": "#5C6670",
+  "edgeLabelBackground": "#F1F3F5", "labelTextColor": "#1C2127",
+  "clusterBkg": "#F1F3F5", "clusterBorder": "#C4CBD1"
+}}}%%
+flowchart TD
+  Q["every chaining form must resolve a name"]
+  Q --> DOT["the dot: xs.Filter(p)"]
+  Q --> LINQ["LINQ: from x in xs where p"]
+  Q --> PIPE["the pipe: List.Filter(p)"]
+
+  DOT --> TD["resolve it from the receiver's type"]
+  LINQ --> TD
+
+  TD --> T8["ticket 08: no overload set exists"]
+  TD --> T16["ticket 16: one dispatch mechanism only"]
+  T8 --> X["nothing can break the tie"]
+  T16 --> X
+
+  PIPE --> OK["the name is written; nothing to resolve"]
+
+  style X fill:#F7ECE0,stroke:#9A551B
+  style OK fill:#E6F1EB,stroke:#1F6B4A
+</pre>
+  </div>
+  <figcaption>Two of the three candidates converge on the same missing mechanism. The failure case is
+  not hypothetical: add the lazy <code>stream&lt;T&gt;</code> this ticket defers, and
+  <code>xs.Filter(p)</code> has two valid answers and no rule to choose between them.</figcaption>
+</figure>
+</div>
+
+<div class="wrap">
+
+<div class="callout">
+  <p><strong>The borrow heuristic failed on semantics, not syntax.</strong> LINQ is cheap
+  <em>in C#</em> because extension methods and overload resolution are already there — the query
+  rewrite is a borrow sitting on top of machinery beam-sharp deleted twice over. The borrow arrives
+  with its foundation missing, which is exactly the failure mode tier 1 exists to catch.</p>
+</div>
+
+<p>The dot is not abolished, only narrowed: it is <b>never a call</b>. Whether it projects
+(<code>o.Total</code>) is ticket 26's, and that argument does not carry over — a field name is known
+from the record's declaration, where a function name is not.</p>
+
+<h2>Precision turned out to be a lowering decision</h2>
+
+<p>Ticket 27's prototype 27a had established that a comprehension preserves the element-type relation
+exactly, under an analysis with no type variables at all. Ticket 27 then chose real polymorphism,
+which left this ticket apparently having to buy comprehension <em>syntax</em> to keep the precision.
+It does not. The compiler gets the same result by lowering <code>List.Map</code> to an inlined
+comprehension instead of to a call.</p>
+
+<div class="pair">
+  <div>
+    <span class="lab">Emitted as an inlined comprehension</span>
+<pre class="code">roundtrip(Xs) -&gt;
+    [integer_to_binary(X) || X &lt;- Xs].
+
+<span class="c">%% typer, OTP 28</span>
+<span class="g">[integer()] -&gt; [binary()]</span></pre>
+  </div>
+  <div>
+    <span class="lab">Emitted as a call to the generic prelude</span>
+<pre class="code">roundtrip(Xs) -&gt;
+    list_map(fun integer_to_binary/1, Xs).
+
+<span class="c">%% typer, OTP 28</span>
+<span class="e">[any()] -&gt; [any()]</span></pre>
+  </div>
+</div>
+
+<p>Same computation, same surface syntax, one lowering decision apart. So the rule the spec needs is
+one line: <b>the compiler-known prelude is inlined, user code is called, and precision follows the
+inlining.</b></p>
+
+<div class="tablewrap">
+<table>
+  <caption>prototypes/17a and 17b · typer against a PLT of erts/kernel/stdlib · OTP 28</caption>
+  <thead>
+    <tr><th>Operation and lowering</th><th>Input element</th><th>Output element</th></tr>
+  </thead>
+  <tbody>
+    <tr><th>map, inlined comprehension</th><td class="win">integer()</td><td class="win">binary()</td></tr>
+    <tr><th>map, generic call</th><td class="lose">any()</td><td class="lose">any()</td></tr>
+    <tr><th>filter, inlined comprehension</th><td>any()</td><td class="win">pos_integer()</td></tr>
+    <tr><th>two stages, fused</th><td>any()</td><td class="win">binary()</td></tr>
+    <tr><th>fold, inlined recursion</th><td class="win">integer()</td><td class="win">bitstring()</td></tr>
+    <tr><th>fold, generic call</th><td class="lose">any()</td><td class="lose">any()</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Three findings arrived that nobody went looking for.</p>
+
+<p><b>The generic call loses more than <code>lists:map/2</code> does.</b> 27a's inline fun kept the
+result element type because the fun's body stayed visible through Erlang's own <code>map</code>.
+Here it does not — beam-sharp's <code>list_map/2</code> carries a <em>declared</em> spec, ticket 27
+§6's widened emission, and a contract overrides the success typing of the body. Emitting our own
+generic is strictly worse than calling theirs.</p>
+
+<p><b>The lowering is more precise than the surface signature can be.</b> Filter emits
+<code>[pos_integer()]</code>, narrowed out of the guards, where
+<code>List.Filter&lt;T&gt;(list&lt;T&gt;, fn(T) -&gt; bool) -&gt; list&lt;T&gt;</code> can only say
+<code>list&lt;T&gt;</code>. The emitted code knows something the language's own type system throws
+away.</p>
+
+<p><b>Fold is not a second tier, which corrects 27a.</b> Its note that the syntax route "covers map
+and filter cleanly, fold not at all" was about Erlang's <em>available syntax</em>, not about
+achievable precision. An inlined monomorphic recursion keeps both sides. So the mechanism was never
+comprehensions at all — it is a monomorphic body the analyser can see through, and one rule covers
+map, filter and fold alike.</p>
+
+</div>
+
+<div class="wide">
+<figure>
+  <div class="panel">
+<pre class="mermaid">
+%%{init: {"theme": "base", "themeVariables": {
+  "background": "#F1F3F5", "mainBkg": "#FFFFFF", "primaryColor": "#FFFFFF",
+  "primaryTextColor": "#1C2127", "textColor": "#1C2127",
+  "nodeBorder": "#5C6670", "lineColor": "#5C6670",
+  "edgeLabelBackground": "#F1F3F5", "labelTextColor": "#1C2127",
+  "clusterBkg": "#F1F3F5", "clusterBorder": "#C4CBD1"
+}}}%%
+flowchart TD
+  SRC["one surface form: List.Map(f) in a pipeline"]
+  SRC --> WHO{"is it compiler-known?"}
+  WHO -->|"prelude"| INL["inlined: comprehension or recursion"]
+  WHO -->|"user code"| CALL["called: the declared spec is all there is"]
+  INL --> P1["emits [integer()] -&gt; [binary()]"]
+  CALL --> P2["emits [any()] -&gt; [any()]"]
+  P1 --> TWO["a two-tier emitted boundary"]
+  P2 --> TWO
+  TWO --> T18["ticket 18 now argues over two tiers, not one"]
+  TWO --> FOG["candidate criterion for prelude stratum 2"]
+
+  style P1 fill:#E6F1EB,stroke:#1F6B4A
+  style P2 fill:#F7ECE0,stroke:#9A551B
+</pre>
+  </div>
+  <figcaption>Ticket 27 §6 found that choosing generics made the emitted boundary strictly weaker and
+  handed that to ticket 18. This is the repair — and its limit is the interesting half: precision is
+  a privilege of whatever the compiler inlines, so an identical user-written generic stays at
+  <code>[any()]</code> no matter what.</figcaption>
+</figure>
+</div>
+
+<div class="wrap">
+
+<h2>The valve</h2>
+
+<p>Ticket 15 settled <code>result&lt;T, E&gt; = T | (:error, E)</code> and found the tax: pipelines
+of fallible steps cost a named helper per stage. It deliberately left the spelling here. Three
+candidates were live, and the winner was chosen on cost of mechanism.</p>
+
+<pre class="code"><span class="c">// stage signatures stay honest — CheckStock takes a Valid, not a result</span>
+<span class="k">result</span>&lt;Valid, Error&gt; Validate(Request r);
+<span class="k">result</span>&lt;Stock, Error&gt; CheckStock(Valid v);
+<span class="k">result</span>&lt;Order, Error&gt; Charge(Stock s);
+
+<span class="k">result</span>&lt;Order, Error&gt; Place(Request r) =&gt;
+    Validate(r) <span class="k">|?&gt;</span> CheckStock() <span class="k">|?&gt;</span> Charge() <span class="k">|?&gt;</span> Confirm();
+
+<span class="c">// failure: Validate yields (:error, :bad_request), nothing downstream runs,</span>
+<span class="c">// Place returns that error unchanged. The escape hatch is the operator's</span>
+<span class="c">// ABSENCE — write |&gt; and handle (:error, _) in your own clause.</span></pre>
+
+<ul class="decisions">
+  <li>
+    <span class="tag rej">rejected</span>
+    <h3>Result.Then in the ordinary pipe</h3>
+    <p>Elm's <code>andThen</code>, Gleam's <code>result.try</code> — two BEAM-neighbour precedents,
+    and no new syntax at all. It reads noisily at length, which is why Gleam eventually added
+    <code>use</code>; and it is the only candidate that forces this ticket to spell "the function
+    <code>CheckStock</code> as a value".</p>
+  </li>
+  <li>
+    <span class="tag rej">rejected</span>
+    <h3>The error-propagating clause, written by hand</h3>
+    <p>Add <code>CheckStock((:error, _) e) -&gt; e;</code> to every fallible function and the ordinary
+    pipe works unchanged. This reads best of the three at the call site, and ticket 15's
+    <em>untagged</em> result makes it better than it looks — a caller holding a plain
+    <code>Valid</code> still type-checks, since <code>Valid</code> is a member of
+    <code>result&lt;Valid, Error&gt;</code> — while exhaustiveness <em>forces</em> the clause to
+    exist.</p>
+    <p class="rejected">Sunk by <b>review cost</b>. The clause is byte-identical in every fallible
+    function in the program, and a reviewer reads two lines that have nothing to do with the function
+    they are reviewing. Write cost is near-free under the standing constraint; read cost is not.</p>
+  </li>
+  <li>
+    <span class="tag rej">rejected</span>
+    <h3>Generating that clause from a [Propagates] attribute</h3>
+    <p>The clause is fully determined by the signature — nothing about the body informs it — so the
+    compiler can synthesise it and the boilerplate disappears. Textbook ticket 16 §1, and C# attribute
+    syntax is a tier-1 borrow this map has used twice already.</p>
+    <p class="rejected">Sunk by <b>cost of mechanism</b>. It would be the language's
+    <b>sixth codegen obligation</b>, each of which owes the walking skeleton an unmeasured cost. It
+    also widens the declared arrow, so the signature describes the function's pipeline position
+    rather than the function — and it moves the short-circuit out of the code the reviewer is
+    reading.</p>
+  </li>
+  <li>
+    <span class="tag kept">kept</span>
+    <h3>The valve, |?&gt;</h3>
+    <p>One operator token, zero codegen obligations, signatures untouched, no boilerplate, and the
+    short-circuit visible exactly where someone reads the pipeline.</p>
+    <p>The <code>?</code> is free because ticket 10 already paid for it, accepting the loss of C#'s
+    ternary as the price of <code>:atom</code> — and no BEAM language has one. It is not decoration:
+    C#'s <code>a?.B()</code> and TypeScript's optional chaining carry the <em>same semantics</em> —
+    if the left is the absent case, the rest of the chain does not run and that case is the result —
+    and ticket 15's untagged result makes <code>(:error, E)</code> the exact analogue of
+    <code>null</code>. A <b>tier-1 borrow for both halves of the audience at once</b>, which is rare
+    in this map.</p>
+  </li>
+</ul>
+
+<div class="callout">
+  <p><strong>A fully implicit rule was closed by precedent, not by taste.</strong> "If a
+  <code>result&lt;T, E&gt;</code> meets a parameter of type <code>T</code>, propagate" is inferred
+  narrowing at a call site, and ticket 08 already settled that narrowing is <em>always written, never
+  inferred</em> — neither audience expects implicit cast insertion. So a marker was mandatory; the
+  only question was where it sits.</p>
+</div>
+
+<p>Elixir ships <code>|&gt;</code> alongside <code>tap/2</code> and <code>then/2</code>, so the
+pipeline being a small <em>family</em> is the neighbourhood's own habit rather than an oddity
+(David). That also means a <code>tap</code> equivalent costs nothing here —
+<code>xs |&gt; Debug.Tap(f)</code> is an ordinary prelude function in the ordinary pipe.</p>
+
+<h2>There is no if, and the measurement is why</h2>
+
+<p>Prototype 01g made <code>if</code> an expression and left the one-armed case open; ticket 10
+routed it here. David's question during the grilling — <em>does <code>else</code> exist in Elixir or
+Gleam?</em> — looked like a vocabulary check and settled the decision instead.</p>
+
+<div class="pair">
+  <div>
+    <span class="lab">Gleam 1.18.1 — measured, not cited</span>
+<pre class="code"><span class="c">error: Syntax error</span>
+if total &gt; 100 { "large" } else { "small" }
+<span class="e">^^ Gleam doesn't have if expressions</span>
+
+If you want to write a conditional
+expression you can use a `case`:
+
+    case condition {
+      True -&gt; todo
+      False -&gt; todo
+    }</pre>
+  </div>
+  <div>
+    <span class="lab">Elixir 1.19.5 — measured, not cited</span>
+<pre class="code">one-armed if, false branch: <span class="e">nil</span>
+cond: :b                <span class="c">% catch-all is `true -&gt;`</span>
+
+<span class="e">error: unexpected option :else in "cond"</span>
+<span class="e">error: unexpected option :else in "case"</span></pre>
+  </div>
+</div>
+
+<p><b>Gleam has no <code>if</code> at all</b>, and the error is written for this case specifically,
+with the replacement supplied. A deliberate refusal carrying a designed diagnostic — not a feature
+never reached. And since there is no <code>if</code>, there is no <code>else</code> anywhere in the
+language. <b>In Elixir, <code>else</code> belongs to <code>if</code> and nothing else</b>: both
+pattern constructs reject it outright, and <code>cond</code>'s catch-all is a <em>clause</em>.</p>
+
+<div class="verdict">
+  <span class="lab">The structural reading</span>
+  <p class="sentence"><code>else</code> is what a language needs when its conditional is
+  <b>binary and unnamed</b>. A pattern construct never needs one, because its fall-through is just
+  another pattern.</p>
+  <p class="gloss">So keeping <code>if</code>/<code>else</code> would not merely have added a keyword.
+  It would have added the only construct in the language whose fall-through case is not expressible
+  as a pattern — in a language whose entire thesis is that patterns and exhaustiveness are the
+  mechanism.</p>
+</div>
+
+<p>What replaces it is the clause head's own grammar, in expression position. Compound conditions
+take a tuple subject, which is C#'s native tuple pattern, Gleam's multi-subject <code>case</code>,
+and the shape beam-sharp's function heads already have — three heritages converging on one
+construct.</p>
+
+<pre class="code"><span class="k">int</span> Discount(Order o) =&gt;
+    o <span class="k">switch</span> {
+        { Total: &gt; 100, Status: :open } =&gt; 10,
+        { Status: :frozen }             =&gt; 0,
+        _                               =&gt; 5
+    };
+
+<span class="c">// the subject-less ladder: a tuple subject, not an else-if staircase</span>
+(user.IsAdmin, o.Total &gt; 100) <span class="k">switch</span> {
+    (<span class="k">true</span>, <span class="k">true</span>) =&gt; :priority,
+    (_,    <span class="k">true</span>) =&gt; :large,
+    _                =&gt; :normal
+}</pre>
+
+<p><b>One branching construct, the way Go has one looping construct</b> (David). <code>switch</code>
+subsumes <code>if</code>, <code>else</code>, <code>else if</code>, <code>cond</code>,
+<code>case</code> and the ternary the language had already dropped — and it inherits ticket 12's
+hard-error exhaustiveness and ticket 04's residual for free.</p>
+
+<p><b>Two questions die with <code>if</code>.</b> The one-armed case has no spelling left to have
+semantics. And ticket 15's collapse landmine never fires: had a one-armed <code>if</code> yielded
+<code>option&lt;T&gt;</code>, then <code>if (ready) { :ok }</code> would produce
+<code>atom | :nothing</code>, which ticket 15 §1 makes an <b>error at the declaration</b> — a compile
+failure reported against a union the programmer never wrote, under one of the most ordinary shapes in
+the language.</p>
+
+<h2>What this hands on</h2>
+
+<div class="tablewrap">
+<table>
+  <caption>claim → source</caption>
+  <thead>
+    <tr><th>Claim</th><th>Source</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Inlined comprehension keeps both element types; a generic call loses both</td><td><code>prototypes/17a</code> · typer · OTP 28</td></tr>
+    <tr><td>Fusion into one comprehension is lossless</td><td><code>prototypes/17a</code> · case 4</td></tr>
+    <tr><td>Fold keeps both sides via inlined recursion, correcting 27a</td><td><code>prototypes/17b</code></td></tr>
+    <tr><td>A binary accumulator widens to <code>bitstring()</code> at the recursive fixpoint</td><td><code>prototypes/17b</code> · → ticket 20</td></tr>
+    <tr><td>Gleam has no <code>if</code>; its error hands you <code>case</code></td><td><code>prototypes/17c</code> · Gleam 1.18.1</td></tr>
+    <tr><td>Gleam's inexhaustive <code>case</code> names the missing pattern</td><td><code>prototypes/17c</code> · → ticket 23</td></tr>
+    <tr><td><code>else</code> rejected outright by Elixir's <code>case</code> and <code>cond</code></td><td><code>prototypes/17c</code> · Elixir 1.19.5</td></tr>
+    <tr><td>LINQ's translation is a pre-binding syntactic rewrite emitting unqualified names</td><td>ECMA-334 §12.22.3.1 · via ticket 05</td></tr>
+    <tr><td>No overload set exists to resolve against</td><td>ticket 08</td></tr>
+    <tr><td>One dispatch mechanism, the clause head</td><td>ticket 16 §7</td></tr>
+    <tr><td>Narrowing is always written, never inferred</td><td>ticket 08</td></tr>
+    <tr><td><code>option&lt;atom&gt;</code> collapses; an error at the declaration</td><td>ticket 15 §1</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p><b>Ticket 18</b> gains the repair and its limit, and now argues over a two-tier emitted boundary
+rather than a uniform one — plus the valve as new undefended surface. <b>Ticket 20</b> gains a third
+independent sighting of binaries as where precision dies, this one in beam-sharp's own emitted code.
+<b>Ticket 23</b> gains live evidence rather than a citation, and its question narrows from "could a
+compiler do this" to "should the residual be machine-readable as well as prose". <b>Ticket 25</b>
+inherits two jobs: whether a long ladder of unrelated conditions occurs in the six exemplars, and
+whether the pipe reads well in the three binary-heavy ones. <b>Ticket 26</b> keeps
+<code>with</code> free and now owns the whole of the dot.</p>
+
+<p>Two things were deferred rather than refused, with their requirements recorded so they are not
+rediscovered. <b>Laziness</b> — "defer lazy, we will want it" — needs compiler-known status in the
+prelude's second stratum with a fused lowering, an answer to how a lazy source meets ticket 14's
+process model, and a position on early termination, the one case fusion does not cover. It stays
+cheap to add <em>because</em> the pipe carries qualified names: <code>Stream.Map</code> is a new
+module and nothing existing changes. <b><code>cond</code></b> waits on evidence that a five-condition
+ladder actually occurs.</p>
+
+<footer>
+  <div class="wrap">
+    <p>beam-sharp · ticket 17 · <code>ENG-183</code> · resolved 2026-08-13. Content canonical in
+    <code>wayfinder/issues/17-pipeline-and-comprehension.md</code>; state canonical in Linear.
+    Measurements: <code>prototypes/17a</code>, <code>17b</code>, <code>17c</code> — OTP 28,
+    Gleam 1.18.1, Elixir 1.19.5, all observed locally.</p>
+  </div>
+</footer>
+
+</div>
