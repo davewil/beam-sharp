@@ -28,3 +28,28 @@ Decide, and state:
 
 HITL. Blocked by ticket 14 because the answer differs sharply depending on whether the
 language leans on supervision or on in-process error handling.
+
+## Constraints from ticket 11 — resolved 2026-08-12
+
+**The language now has its first error-*shaped* commitment, and this ticket owns whether it
+generalises.** `ValidateAs<T>` — the generated deep validator for a value arriving as a `term` —
+returns **`T | :error`**. So the one boundary construct decided so far **fails as a value, not a
+crash**, and it does so with a bare atom rather than a structured error.
+
+Three things to settle here that follow directly:
+
+- **Does `:error` carry a payload?** A bare `:error` says validation failed and nothing about
+  *where* — which under the standing constraint is a diagnostics problem, since the consumer is an
+  agent in a loop (→ [ticket 23](23-what-the-language-owes-an-agent.md)). Gleam's decoders return
+  `Result(t, List(DecodeError))` with a path into the term; ticket 11 did not decide whether
+  beam-sharp owes the same.
+- **Does the `T | :error` shape generalise to every fallible operation**, or is it specific to
+  boundary validation? Ticket 10 already put `type option<T> = T | :nothing;` in the prelude, so
+  there are now **two** failure spellings in play — `:nothing` and `:error` — and no rule saying
+  which is used when.
+- **How does this sit against ticket 12?** That ticket owns totality versus let-it-crash;
+  `ValidateAs<T>` has effectively voted "value, not crash" for one case. Whether that is precedent
+  or exception is a joint question.
+
+Note there is **no `dynamic`** and no exception-like escape: a `term` is narrowed by a clause head
+or by `ValidateAs<T>`, so every boundary failure is reachable as ordinary control flow.

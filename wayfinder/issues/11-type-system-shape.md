@@ -124,7 +124,10 @@ This ticket was charted holding at least six decisions. It is the keystone (it b
 tickets), so it was split rather than answered thinly:
 
 - **This ticket keeps**: the `dynamic` boundary, the subtyping relation, and the one-sentence
-  guarantee. → unblocks 12, 13, 18, 23, 24.
+  guarantee. → unblocks **12, 13, 20, 23, 24**. **Ticket 18 is *not* unblocked** — verified in
+  Linear, ENG-184 is blocked by 11, **12 and 22**, and 22 is deferred pending a walking skeleton.
+  (The repo file for ticket 18 listed only 11 and 12; **Linear is canonical for blocking** and the
+  repo was stale. Corrected below.)
 - **Spun out to a new ticket 27 — parametric polymorphism**: whether the language has generics
   at all, generic syntax, and parametric *aliases* (`type option<T> = T | :nothing;`, the debt
   ticket 10 §5 left). That ticket becomes ticket 16's blocker in place of this one, and it —

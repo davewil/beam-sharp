@@ -274,6 +274,10 @@ spec exists.
   One requirement is already known: it should **measure checker cost at the clause counts the
   showcase implies**. Ticket 04 found Etylizer's pathological inputs are `case` expressions
   with 40+ branches — precisely the large multi-clause `handle_info` this language advertises.
+  **Ticket 11 adds a second requirement**: the skeleton must **generate at least one
+  `ValidateAs<T>`**, over a recursive type. It is the first codegen obligation whose cost is
+  entirely unmeasured — a synthesised O(n) structural traversal — and it stacks with the
+  recursive-type measurement ticket 09 already asked for.
 - **Module and namespace system**, and function identity — BEAM identifies functions by
   name *and arity*, which multi-clause heads and optional parameters both disturb. **Ticket 10
   §3 adds one requirement**: a module identifier in value position is an atom singleton, so this

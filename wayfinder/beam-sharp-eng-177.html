@@ -464,9 +464,11 @@ subtype?(fn(int)-&gt;int, fn(term)-&gt;term)  = <span class="e">false</span>  <s
       <caption>Frontier delta</caption>
       <thead><tr><th>Ticket</th><th>Was</th><th>Now</th></tr></thead>
       <tbody>
-        <tr><th>12, 13, 18, 23, 24</th><td>Blocked on 11</td><td class="win">Unblocked</td></tr>
+        <tr><th>12, 13, 23, 24</th><td>Blocked on 11</td><td class="win">Unblocked</td></tr>
         <tr><th>20</th><td>Blocked on 11</td><td class="win">Unblocked, and inherits the interval / guard-refinement debt from ticket 01&rsquo;s <code>Fib</code></td></tr>
         <tr><th>16</th><td>Blocked on 09, 11</td><td>Blocked on 09 and the <strong>new ticket 27</strong></td></tr>
+        <tr><th>18</th><td>Blocked on 11, 12, 22</td><td class="lose">Still blocked &mdash; on 12, and on 22, which is deferred</td></tr>
+        <tr><th>15</th><td>&mdash;</td><td>Unchanged, but now inherits the first error-<em>shaped</em> commitment: <code>ValidateAs&lt;T&gt;</code> returns <code>T | :error</code></td></tr>
         <tr><th>27 &mdash; new</th><td>&mdash;</td><td class="win">On the frontier. Does the language have generics at all, and are parametric aliases well-formed?</td></tr>
       </tbody>
     </table>
