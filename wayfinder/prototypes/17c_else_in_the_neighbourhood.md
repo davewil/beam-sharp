@@ -6,6 +6,13 @@ alongside a `switch` expression. It looked like a vocabulary check. It settled t
 Measured locally: **Gleam 1.18.1**, **Elixir 1.19.5 (compiled with Erlang/OTP 28)**. Provenance
 `local` throughout — both were run, not read.
 
+**Reproduce**: the probes are source in this directory, not just results in this file.
+
+- [`17c_gleam_no_if.gleam`](17c_gleam_no_if.gleam) — `gleam new probe --name probe`, drop it in as
+  `src/probe.gleam`, `gleam build`. The two rejected cases are commented out with their exact
+  errors, because a file containing either does not compile; uncomment one at a time.
+- [`17c_elixir_else.exs`](17c_elixir_else.exs) — `elixir 17c_elixir_else.exs`.
+
 ## 1. Gleam has no `if` at all, and says so by design
 
 ```gleam
