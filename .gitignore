@@ -1,3 +1,7 @@
 # Orchestration-layer operational state — not part of the effort's record
 .omc/
 .DS_Store
+
+# Build artefacts from running the prototypes
+*.beam
+*.plt
