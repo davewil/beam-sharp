@@ -46,6 +46,92 @@ Decide:
   (`[first, .., last]`) are not one-pass expressible over cons cells. Decide what subset of
   list patterns survives, and whether a non-one-pass pattern is permitted at a cost.
 
+## `dynamic` in a guard — candidate answer: the `as` operator
+
+Guards use `&&`/`||` because a guard over typed values cannot fail. A guard mentioning a
+`dynamic` value *can*, so something must give. Five options were weighed; **the strongest is
+David's suggestion of `as`** (2026-08-12).
+
+```csharp
+(d, s) when (d as int) > 0 -> ...;
+```
+
+**`as` is total** — it never raises, yielding a nothing-value on failure. And **C#'s lifted
+comparison operators already return `false` when an operand is null**. So if `d` is not an
+integer, the comparison is false, the guard fails, and the next clause is tried.
+
+That is Erlang's fail-to-false arrived at through *standard C# semantics* rather than a special
+guard rule — which gains the benefit of the fail-to-false option (existing BEAM code shapes work,
+nothing needs restructuring) without its cost. `&&` never changes meaning; the possibility of
+failure is **visible in the expression** as a nullable rather than implied by the operand types.
+
+**And it satisfies the prototype 01f rule below**: `as` is a *type operation*, so the
+exhaustiveness checker can credit it — `when (d as int) > 0` tells the checker the clause accepts
+integers greater than zero. A fail-to-false guard rule would have been invisible to the checker.
+
+Three things to settle with it:
+
+1. **It requires an option type**, which set-theoretic unions give free: `d as int` has type
+   `int | :nothing`. Ticket 05 dropped C#'s *nullable reference types* as CLR-dependent, but that
+   is a different mechanism; a union with a nothing case needs no CLR support. → ticket 11.
+2. **It diverges from C# in the simplifying direction.** In C#, `o as int` is a compile error
+   (CS0077) — `as` requires a reference or nullable value type, so one writes `o as int?`.
+   beam-sharp has no reference/value distinction, so `as T` yielding `T | :nothing` for any `T`
+   is simpler than C#'s rule. State it in the spec as a deliberate divergence.
+3. **It inherits a known C# gotcha**: with lifted comparison, `x > 0` and `x <= 0` can both be
+   false. Arguably correct here — "not an integer" satisfies neither — but it will catch someone.
+
+### Or infer the narrowing — and a correction about Erlang that changes it
+
+The compiler could **insert the narrowing** rather than requiring `as` be written: `when d > 0`
+becomes `when (d as number) > 0` because `>` demands a number. This is not an invention — it is
+standard gradual typing, Siek and Taha's cast insertion, and it is what a BEAM programmer would
+write and an agent would generate.
+
+**But a correction, verified locally on OTP 28.** Erlang's comparison operators **never
+fail-to-false, because they never fail** — they are total across all term types via the standard
+order (`number < atom < reference < fun < port < pid < tuple < map < nil < list < bitstring`):
+
+```
+foo > 0      -> true          {a} > foo -> true          [] > 0 -> true
+
+guard X > 0         on foo  -> comparison_succeeded   (does NOT fall through)
+guard X + 1 > 0     on foo  -> fell_through           (arithmetic raises)
+guard length(X) > 0 on foo  -> fell_through           (BIF raises)
+```
+
+Fail-to-false applies to **arithmetic and BIFs**, not to comparison. So inferring `d as number`
+for `when d > 0` makes `:foo > 0` **false**, where Erlang says **true**. Inference does not
+reproduce Erlang's behaviour — it *diverges* from it.
+
+Arguably in the right direction: `:foo > 0` being true is an artefact of Erlang needing a total
+order for sorting and reusing the operators for it. But it is a divergence and must be a stated
+design decision, not something a BEAM programmer discovers when a comparator misbehaves.
+
+**Candidate rule**: infer where the operation determines the type unambiguously (`d > 0`,
+`d + 1` — one candidate, no guessing); require `as` where it does not (`d.Length` — list, binary
+and map all have one). **Ambiguity is an error, not a guess**: *"cannot infer the narrowing for
+`d.Length`; write `d as list<T>`"*.
+
+Residual cost: an inferred narrowing is invisible, so a failure occurs in code nobody wrote and
+the diagnostic must point somewhere sensible — sharper under the standing constraint, since an
+agent must be able to act on that message. → ticket 23.
+
+### The four alternatives, for the record
+
+- **Total predicates plus narrowing in the guard** — `when IsList(d) && d.Length > 0`, relying on
+  short-circuit to narrow. Familiar from C# null-state analysis and TypeScript. Needs
+  flow-sensitive narrowing inside a guard expression. Composes with `as` rather than competing.
+- **Forbid `dynamic` in guards** — narrow in the head with a type pattern instead. Simplest
+  semantics, and pushes conditions into patterns where the checker credits them. Rejects code that
+  would have worked. **Note it is forward-compatible**: every program legal under this rule stays
+  legal if `as` or narrowing is added later.
+- **Fail-to-false as a guard rule when `dynamic` is involved** — matches the platform, requires no
+  restructuring, but makes `&&` mean two things depending on operand types, invisibly.
+- **Hoist and let it raise** — honest C# semantics via 01f's hoisting mechanism, and fits
+  let-it-crash. Diverges from every BEAM language, and degrades the diagnostic from
+  `function_clause` at the call site to a `badarg` from a hoisted expression.
+
 ## `Self` — resolved, and the answer is to remove the need
 
 Prototype 01e left `Self` undefined: `StartLink` needs to name its own module, Erlang's `?MODULE`.
