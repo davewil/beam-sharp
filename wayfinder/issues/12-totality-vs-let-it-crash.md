@@ -84,6 +84,9 @@ HITL. This is where the language's philosophy gets decided, not merely its seman
 
 ## Answer — resolved 2026-08-12
 
+> Decision brief: [`../beam-sharp-eng-178.html`](../beam-sharp-eng-178.html) ·
+> [published artifact](https://claude.ai/code/artifact/540cd745-ee79-40b4-ba7c-903ecbb962fe)
+
 **Totality is enforced, and let-it-crash is how you spell partiality.** The two were never
 opposed; ticket 06 had already shown the enemy is *silence*, not the crash. Six decisions.
 
