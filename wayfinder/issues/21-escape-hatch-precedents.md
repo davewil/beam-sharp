@@ -9,6 +9,12 @@ beam-sharp is considering enforced conventions in the core (a DDD-shaped structu
 **ports and adapters out to everything else**. That is a known language-design shape with real
 precedents, and the precedents have known failure modes. Establish them before committing.
 
+> **ATTEMPT LOG.** Two agents have died on this ticket without writing anything — the first
+> stalled for ~48 minutes without claiming it, the second was interrupted at ~52 minutes with
+> nothing on disk. Neither produced a partial file. If a third attempt also fails, the ticket is
+> the problem rather than the agent, and it should be split into one narrow question per
+> language rather than a comparison across five.
+>
 > **DESCOPED 2026-08-12: Elm is out of this ticket, by instruction.** The agent working it made
 > no progress in ~48 minutes and had claimed nothing. Diagnosis: the brief bundled two different
 > research shapes — a crisp technical question (what Elm validates at a port) and a *narrative*

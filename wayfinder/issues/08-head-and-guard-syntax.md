@@ -1,7 +1,7 @@
 # 08 — Multi-clause head and guard syntax
 
 Type: grilling
-Status: open
+Status: claimed
 Blocked by: 01, 05
 
 ## Question
@@ -45,6 +45,60 @@ Decide:
 - **List patterns.** Ticket 05 flagged that C#'s interior and suffix slice patterns
   (`[first, .., last]`) are not one-pass expressible over cons cells. Decide what subset of
   list patterns survives, and whether a non-one-pass pattern is permitted at a cost.
+
+## SETTLED — guards use the expansion rule, and named guards take a `guard` modifier
+
+**The rule** (adopted from Elixir, verified locally on 1.19.5 / OTP 28): *a guard may contain
+anything that **expands** to guard-legal operations, and nothing requiring a runtime call.*
+
+Elixir enforces the same restriction Erlang does, and states the principle in its own error text:
+
+```
+error: cannot find or invoke local big?/1 inside a guard.
+       Only macros can be invoked inside a guard and they must be
+       defined before their invocation.
+```
+
+…and ships the escape as `defguard`, which is a **macro** — compile-time expansion, not a call.
+
+**The spelling**: a `guard` modifier on an ordinary function declaration, in the position C#
+already uses for `static`, `async` and `partial`.
+
+```csharp
+guard bool IsPositive(int n) -> n > 0;
+guard bool IsDraft(Order o)  -> o.Status == :draft;
+
+(o, (:pay, amt)) when IsPositive(amt) -> ...;    // expands to: when amt > 0
+
+(o, sku) when HasSku(o.Lines, sku) -> ...;       // error: HasSku iterates, cannot expand
+```
+
+**Why expansion beats verification.** The properties fall out rather than being checked:
+non-recursion (a recursive macro cannot expand finitely), boundedness (the expansion contains only
+guard-legal operations), and cost visibility (there is no hidden call, because there is no call).
+An earlier proposal had the compiler *verify* a function body and inline it; expansion means there
+is nothing to verify.
+
+**Two prior objections resolved by this.**
+
+- *"Friction #1 is the biggest threat to the design."* Downgraded. Under the map's standing
+  constraint the hand-restructuring cost is a **write** cost, and those carry little weight. What
+  survives is the read cost — the restructured form is two functions where the clause table was
+  one.
+- *"Auto-hoist any pure call."* Rejected. Hoisting **hides the cost**: `when amt >= Total(o)` reads
+  as a cheap test and is O(n), and in a `receive` clause that is paid per message. Erlang's
+  restriction is what forces the expense into view. Also, the bounded-guard guarantee is protected
+  **across the BEAM**, not only in Erlang — two independent language designs arrived at the same
+  restriction plus a compile-time abbreviation, and Elixir had every chance to relax it.
+- *"Is `[Guard]` premature, before ticket 22 decides about attributes?"* Moot — it is `defguard`
+  with a different spelling, an established BEAM idiom rather than an invention, and the modifier
+  form avoids loading semantics onto an attribute.
+
+**Composes with the `as` answer below**: `as` is an operator, not a call, so it expands cleanly;
+and an inferred narrowing inserts an operator too. No conflict.
+
+Not checked locally: Gleam and LFE (Gleam is not installed — see the map's evidence-provenance
+note). Their positions are doc-level.
 
 ## `dynamic` in a guard — candidate answer: the `as` operator
 
