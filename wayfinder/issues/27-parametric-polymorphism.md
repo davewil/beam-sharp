@@ -88,3 +88,60 @@ phantom types it is reopening 14's first decision, not deciding fresh ground. Th
 alternative there is a *tagged handle* `(:order_msg, pid)` — an atom singleton per ticket 10
 making the two handles genuinely different sets — which is the non-generic way to get the same
 distinction and remains available.
+
+## Input from David — 2026-08-12
+
+> "Generics in Elixir are modelled via protocols and behaviours. I don't think generics are
+> particularly required on BEAM, think `Enum`, `Stream` etc."
+
+**Half of this is already banked, and the other half is contradicted by `Enum`'s own spec.**
+Both measured locally (Elixir 1.19.5, Gleam 1.18.1, OTP 28).
+
+**Ad-hoc polymorphism — agreed, and ticket 09 settled the mechanism.** `Enumerable` is a genuine
+protocol with four callbacks (`count/1`, `member?/2`, `reduce/3`, `slice/1`), dispatching on
+`__struct__` — an atom *in the data*, which is precisely ticket 09's remedy and ticket 16's
+resolution key. No type parameters are involved anywhere in it.
+
+**Parametric polymorphism — `Enum` is evidence the other way.** Its real spec, read from the beam:
+
+```
+Enum.map/2 :: map(t(), (element() -> any())) :: list()
+              element() :: any()
+              t()       :: Enumerable.t()
+```
+
+Elixir does not *avoid* the type parameter; it **discards the information**. `map` cannot relate
+the output list's element type to the input's, so it says `list()` and stops. That is free in a
+dynamically typed language because there was no static element type to lose. Gleam — the
+statically typed BEAM neighbour — keeps it, and the parameter survives into the emitted Erlang:
+
+```gleam
+pub fn map(list: List(a), with fun: fn(a) -> b) -> List(b)
+```
+```erlang
+-spec map(list(ACJ), fun((ACJ) -> ACL)) -> list(ACL).
+```
+
+So the split is **static versus dynamic, not BEAM versus not**, and beam-sharp is on Gleam's side
+of it.
+
+**Why the cost lands harder here than elsewhere.** Without type variables, `Map` is
+`(list<term>, term -> term) -> list<term>` — and ticket 11 makes a `term` the thing you must
+narrow with a clause head before use. Mapping over a list of orders would return something the
+caller has to re-validate. The tax falls on the commonest operation in the language, not on an
+exotic corner.
+
+**The real argument in the neighbourhood, which this ticket should weigh.** Polymorphic
+set-theoretic types are exactly where **tallying** is required, and ticket 04 found tallying has
+**no complexity bound in the literature**. So parametric polymorphism may be the feature that makes
+checker cost unpredictable — a cost argument, not a platform one.
+
+**And the middle path**, already gestured at by ticket 11 when it called `ParseAtom<T>` and
+`ValidateAs<T>` "type-directed codegen, not generics": **monomorphise per call site**. That
+preserves element types without asking the checker to solve for a variable. Note the prelude's
+`option<T>` (ticket 10) is already parametric *syntax* — whether it denotes real polymorphism or
+expansion is exactly what this ticket decides.
+
+**Do not re-derive**: ticket 14 already removed `Pid[τ]`, the map's clearest demand for a genuine
+type parameter. Collections are now the strongest surviving case, so this ticket largely turns on
+what the type of `Map` is.
