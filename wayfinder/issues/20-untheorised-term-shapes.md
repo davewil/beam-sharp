@@ -216,6 +216,9 @@ failure mode any approximate answer to this ticket would risk.
 
 # Answer — resolved 2026-08-13
 
+> Decision brief: [`../beam-sharp-eng-186.html`](../beam-sharp-eng-186.html) ·
+> [published artifact](https://claude.ai/code/artifact/bdcae90e-5667-47b6-949b-7cb41534bb36)
+
 **The five sightings of "binaries are where precision dies" have one cause, and it is not
 binaries.** Every one of them traces to a *join* that over-approximates on the way in — not to a
 subtraction failing on the way out. `erl_types` collapses `<<_:32>> | <<_:64>>` into the
