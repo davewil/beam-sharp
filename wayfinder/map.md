@@ -548,6 +548,36 @@ spec exists.
   halves** (exhaustiveness never needed intervals; termination was never promised), and **refinements
   do not settle 09's newtype gap** — a refinement is a set, so `Meters` and `Feet` as
   `float where value >= 0` are still one type and **09's tuple tag stands**.
+  **AMENDED 2026-08-13 by [ticket 29](issues/29-refinement-type-prior-art.md), which checked this
+  ticket against the prior art it was resolved without. Nothing decided is wrong; four things
+  change and one is reopened.** **The two-tier cut is a tier-3 divergence, not the O(1) line
+  applied again** — *no shipping language cuts refinements on the cost of deciding the predicate*,
+  Ada included, and Ada 2012 divides on the predicate's **syntactic form** instead (measured on
+  GNAT 12.2: `Odd mod 2 = 1` is rejected as not predicate-static while `Positive_Ish > 0` is
+  accepted — identical runtime cost, opposite tiers). The relation is **containment**: every Ada
+  static predicate is one BEAM guard and the converse fails, so beam-sharp's cut liberalises a line
+  Ada drew syntactically for want of a platform-given decidable predicate language. **Ada
+  corroborates the structure independently**, having barred its dynamic tier since 2012 from every
+  construct where the compiler must enumerate or bound the subtype. **CDuce is measured at last**
+  — `doc` → `local`, pinned at **0.6.0 (2017-03-17)**, installed via `archive.debian.org`: its
+  interval algebra is exact at every operation *including complement*, and **no SMT library is
+  linked**, so 20's affordability argument is demonstrated rather than asserted; 29 also publishes
+  the cost nobody had, below the measurement floor at 40 clauses and quadratic past ~200. **The
+  `string`/`binary` split is a tier-1 borrow 20 did not claim** — but both audiences silently
+  substitute U+FFFD on invalid UTF-8, which is 06's outcome 3 in the two languages beam-sharp
+  borrows from, so the *behaviour* is a deliberate divergence; .NET's serialiser independently
+  reaches 20 §4's base64 while node does not. **A third `erl_types` lossiness** (verified here:
+  `t_bitstr(8,72)` → `<<_:64,_:_*8>>`) and its motive is worse than the other two — a
+  **finite-height lattice, exactness traded for termination** by the platform's own designers, in
+  the domain 20 commits to exactness in. **beam-sharp escapes it, and the skeleton is the
+  evidence**: 04 made signatures mandatory, so nothing iterates to a fixpoint and the residual only
+  shrinks — the skeleton's unbounded interval lattice terminates at every clause count measured.
+  **Reopened for David**: whether users may declare *opaque* refinements at all. Ada permits them
+  and contains them with the same placement rule beam-sharp already applies, so the ban on
+  *declaring* one may do no safety work the placement rule is not already doing — against which
+  beam-sharp's checks have **no opt-out** where Ada's switch off with `-gnata`. **Gap [g3]:
+  GNATprove was never run**, and SPARK is the one system that both permits arbitrary user
+  predicates and proves some statically.
 
 - [The walking skeleton, first slice](../compiler/README.md) — **built 2026-08-13, and the premise
   that delayed it was stale.** The fog said the slice "cannot be phrased sharply until the language

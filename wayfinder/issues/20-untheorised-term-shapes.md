@@ -463,3 +463,86 @@ ticket 16's finding that it supplies no dispatch key is unaffected.
 | `json:encode/1` crashes on non-UTF-8 binaries and on all bitstrings | [`20e_json_binary_encoding.md`](../prototypes/20e_json_binary_encoding.md) |
 
 All measured locally on **OTP 28.5**, 2026-08-13.
+
+## Amended by ticket 29 — 2026-08-13
+
+[Ticket 29](29-refinement-type-prior-art.md) checked this ticket's decisions against prior art it
+was resolved without. **Nothing decided here is wrong.** Four corrections follow; a fifth
+(user-declared opaque refinements) is a design question and sits with David.
+
+**1. §5's two-tier cut is a tier-3 divergence, not the O(1) line applied a fifth time.** This
+ticket presents the cut as the map's recurring rule reaching a fourth domain, which is true
+internally and reads as though the line were borrowed. It is not: **no shipping language cuts
+refinements on the cost of deciding the predicate** — not Ada, and not Liquid Haskell, F\*, Nim,
+Whiley or Dafny. Ada 2012 comes closest and divides on the **syntactic form** of the predicate
+expression instead, measured on GNAT 12.2:
+
+```ada
+Static_Predicate => Odd mod 2 = 1      -- error: expression is not predicate-static
+Static_Predicate => Positive_Ish > 0   -- accepted
+```
+
+Two predicates of identical runtime cost, opposite tiers. The relation is **containment, not
+conflict**: every Ada static predicate is decidable by one BEAM guard and the converse fails, so
+beam-sharp's cut is a strict liberalisation of a line Ada had to draw syntactically for want of a
+platform-given decidable predicate language. **That is the reason to record**, and it is better
+than the one given above — the BEAM guard set is a gift this platform makes and Ada's did not.
+
+**2. Ada corroborates the *structure* independently.** Two tiers, the privileged one legal in a
+dispatch construct and participating in the compiler's coverage check, shipped since 2012. Ada
+bars its dynamic tier from case alternatives, loop parameters, index subtypes, slice ranges and
+`'First`/`'Last`/`'Range` — every construct where the compiler must enumerate or bound the subtype,
+which is §5's "never reasoned about" arrived at independently on an unrelated platform.
+
+**3. CDuce is measured, not cited — `doc` upgraded to `local`.** §5 leaned on *"CDuce has them, so
+this is a paved path"*, inherited from ticket 11 and never checked; the map cites CDuce 88 times
+and had never run it. It installs (Debian stretch via `archive.debian.org`), and its interval
+algebra is **exact at every operation including complement**: `Int \ 1--10` → `*--0 | 11--*`. **No
+SMT library is linked**, at binary or package level, so this ticket's affordability argument —
+intervals are affordable *because* they are not SMT — is now demonstrated rather than asserted.
+Pinned: **CDuce 0.6.0, built 2017-03-17**. Ticket 29 also publishes the cost nobody had: at ticket
+04's 40-clause shape the check is **below the measurement floor** and stays there to 100 clauses,
+going quadratic past ~200 with no cliff and no non-termination.
+
+**4. The `string`/`binary` split is a tier-1 borrow this ticket did not claim, and its *behaviour*
+is a deliberate divergence.** C# has `string` and `byte[]`; TypeScript has `string` and
+`Uint8Array`. But **both audiences silently substitute U+FFFD on invalid UTF-8** and make throwing
+opt-in — which is ticket 06's outcome 3 in the two languages beam-sharp borrows from, and exactly
+the case §4's entry check exists to prevent. State the divergence. Also: **.NET's JSON serialiser
+independently encodes `byte[]` as base64**, reaching §4's mapping on its own, while node encodes
+`Uint8Array` as an index-keyed object — so that choice follows C# rather than being unanimous.
+
+**5. A third `erl_types` lossiness, in the binary domain, and its motive is worse than the other
+two.** Verified locally on OTP 28.5:
+
+```
+t_bitstr(8, 64)  -> <<_:64,_:_*8>>
+t_bitstr(8, 72)  -> <<_:64,_:_*8>>     % widened
+t_bitstr(8, 200) -> <<_:64,_:_*8>>     % widened
+```
+
+The base is capped and everything above it silently widens. §2's two sightings — the union collapse
+and the integer quantisation ladder — are **optimism**, which a success-typing tool may indulge.
+This one is a **finite-height lattice: exactness traded for termination**, by the platform's own
+designers, in precisely the domain this ticket commits beam-sharp to being exact in. That is a
+sharper objection to an exact binary union than either sighting this ticket answered, and the spec
+must say why beam-sharp escapes it rather than leave it implied.
+
+**It does escape it, and the walking skeleton is the evidence.** Termination of a lattice-climbing
+analysis is only at risk where the checker iterates to a fixpoint over an unbounded lattice.
+Ticket 04 made signatures **mandatory**, so beam-sharp never infers a type by iteration — the
+declared type is given and the residual only ever *shrinks* by subtraction. The skeleton's algebra
+([`compiler/src/bs_types.erl`](../../compiler/src/bs_types.erl)) has an unbounded integer lattice
+with no height cap and terminates at every clause count measured. **Exactness costs beam-sharp
+nothing here because it bought mandatory signatures earlier**, which is the same trade ticket 27
+noticed when it observed the frightening results attach to inference.
+
+**Still open, and David's to decide:** whether users may declare opaque (O(n)) refinements at all.
+§5 bars it outright, reasoning from ticket 11 that an arbitrary user predicate could be quadratic
+or fail to terminate. **Ada permits exactly this and has since 2012**, containing it with the same
+placement rule beam-sharp already applies — so the prohibition on *declaring* one may be doing no
+safety work the placement rule is not already doing. Against that: beam-sharp's checks have **no
+opt-out** where Ada's are switchable off with `-gnata`, so beam-sharp pays for every one, always.
+See ticket 29's amendment B for the full argument on both sides, and note its gap [g3] — **SPARK's
+GNATprove was never run**, and it is the one system that both permits arbitrary user predicates and
+proves some of them statically.
