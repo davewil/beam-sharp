@@ -200,3 +200,139 @@ function whose value reaches a generated encoder.
 One thing 18 *does* remove from this ticket's field of worry: 18 §4 makes the analysis
 **function-local**, so the guard emitted for a record parameter depends only on that function, never
 on what some other file in the aggregate does with the value.
+
+---
+
+# Answer — in progress, 2026-08-13
+
+> Grilling session of 2026-08-13. Sub-questions are settled one at a time and recorded here as
+> they land. Brief: [`beam-sharp-eng-192.html`](../beam-sharp-eng-192.html).
+> Evidence: [`26a`](../prototypes/26a_record_erasure_cost.erl) (Erlang, erasure cost),
+> [`26b`](../prototypes/26b_struct_field_set.exs) and
+> [`26c`](../prototypes/26c_descr.exs) (Elixir, struct discipline and type representation).
+
+## 1. The erasure is a MAP, and a record is sugar for a minted tag — SETTLED (David)
+
+**A record erases to a map. `type X = { ... }` remains a structural alias exactly as ticket 09
+says. A second declaration form — provisionally `record` — desugars to a `type` whose field set
+carries a minted discriminating tag.**
+
+```csharp
+record Order { Id: string, Total: Money }
+
+// desugars to, and is interchangeable with:
+type Order = { Kind: :order, Id: string, Total: Money };
+```
+
+**Everything stays structural. `record` mints a discriminator; it does not create an identity.**
+The name enters the *term*, as data, never the *type algebra*. The test that proves it is not
+nominality: a hand-written `type` with the same tag **is** the same type, and passing one where a
+`record`-declared `Order` is expected compiles. Ticket 09's rule survives verbatim on the
+construct 09 was written about.
+
+### Why a map and not a tuple
+
+Two refusals, both ticket 09's, reached from opposite directions:
+
+- **A bare tuple loses the field *set*.** Measured (26a §4.4): `{order,1,2} =/= {order,2,1}` while
+  `#{b=>1,a=>2} =:= #{a=>2,b=>1}`. Ticket 09 says a record type *is* its field set, and a set has
+  no order — so a tuple erasure must invent a canonical ordering and put it in the wire format.
+- **A tag derived from the name gains a nominal *identity*.** That is the thing 09 ruled out, and
+  it is why the minting is *sugar over a writable field* rather than a property of the type.
+
+Two corroborations that cost nothing: `json:encode/1` takes a map directly and refuses a tuple at
+any depth (26a §5, re-verifying ticket 16 §4), and an Elixir struct arrives as a map with one
+extra key rather than needing conversion (ticket 06).
+
+### The cost, measured — the number ticket 18 owed
+
+Ticket 18 asserted without measuring that a map discriminator would be "strictly larger" than the
+tuple's +13 bytes. It is, but the shape is friendlier than assumed, and **the tagged map lands
+within one byte of the tuple** (26a §1–2, OTP 28.5, noise floor 0):
+
+| discriminator | 3 fields | 8 fields | slope | instrs |
+|---|---|---|---|---|
+| tuple — tag + arity | +13 B | +13 B | flat | +4 |
+| map — exact field set | +29 B | +34 B | +1 B/field | +5 |
+| map — exact set + 2 value tests | +44 B | — | — | +8 |
+| **tagged map — one `map_get`** | **+14 B** | **+14 B** | **flat** | **+3** |
+
+Two mechanisms explain it. The exact-set check emits **one** `has_map_fields` instruction carrying
+the whole key list, so the +1 B/field is operand growth rather than a test per field. And
+**`map_get/2` on an absent key fails a guard silently rather than raising** (26a §4.3, measured
+with a runtime-built key so the compiler could not fold it) — which is why a single test is a
+complete discriminator: no `is_map`, no `map_size`, no per-field presence check.
+
+Projection time, 3-field record, best of three at 2M reps: tuple 2.17 ns unguarded, **7.04 ns
+guarded**; map 8.76 ns guarded; tagged map 8.78 ns. The 4× gap is between the *unguarded* forms;
+ticket 18 emits a guard on every exported function taking a record, so the comparison that ships
+is 7.04 vs 8.78 — the tag itself costs nothing measurable.
+
+**So the DDD requirement and the cheapest possible ticket-18 boundary guard want the same thing**,
+and it is not a coincidence: both ask "is this term the aggregate it claims to be", and a tag
+answers in one instruction.
+
+### What forced the tag: DDD identity (David)
+
+The ticket was heading for "the author writes a discriminating field by hand" until David named
+the requirement it fails: *in DDD it is very important that `Order` and `Invoice` are not the same
+type — `Update(Order o)` called with an `Invoice` must be an error.* Under ticket 09 as written,
+two records with identical field sets **are** one type, so that call compiles, and `Order | Invoice`
+is not even a union of two things. A hand-written tag fixes it — but it is *omittable*, and an
+omitted tag silently unifies two aggregates with no diagnostic, which is precisely the
+plausible-looking structural drift the standing constraint names as agent authorship's
+characteristic failure.
+
+Rejected alongside:
+
+- **Author-written tag only.** 09 intact, but correct-only-if-remembered, and the failure is silent.
+- **Mint a tag for every record type.** Correct by default, but removes the choice: `Point` and
+  `Vector` over the same fields become different types with no way to spell that they are one, and
+  ticket 27 §7 already declined row polymorphism, so there is no escape hatch to loosen it again.
+
+### Elixir is this design, and that is measured rather than argued
+
+`Module.Types.Descr` types a struct as an **open map whose tag is an atom singleton** — no nominal
+construct anywhere (26c):
+
+```
+%{map: {:open, %{id: %{bitmap: 4}, __struct__: %{atom: {:union, %{Order => []}}}}}}
+```
+
+Two struct types with identical fields and different tags are **disjoint**; strip the tags and they
+are **equal**. Elixir fails the nominality test in exactly the place this design does, for exactly
+the same reason — which makes it ecosystem-scale evidence that the shape carries a domain-modelling
+codebase, and retires the worry that this is a middle ground nobody has shipped. `defstruct` is
+also the precedent that the minting can be blessed syntax rather than ceremony in every literal.
+
+**This amends ticket 09's inventory, not its reasoning.** 09's line *"there is no `record` keyword
+to design"* becomes *"there is one, and it is sugar for a minted discriminator field, not a second
+kind of type"*. All four capabilities 09 refused nominality to keep are intact: union closure
+(`Order | Invoice` is an ordinary discriminable union), negation (`not Order` is set subtraction),
+the boundary (the tag is *in the term*, so one guard decides it — where nominal identity would be
+09 §5's compile-time-true and runtime-false), and exhaustiveness (ticket 04's residual is
+arithmetic over sets). Codegen needs the hand-written door left open too: ticket 15's
+`ValidationError` is compiler-generated, ticket 18's foreign declarations name shapes without
+minting, and `ValidateAs<T>` constructs one — under real nominality each needs a privileged back
+door into the constructor, and under this design the compiler writes what a user could.
+
+### One constraint this imposes on the module-naming fog
+
+If the tag is minted from the **short** name, `Shop.Orders.Order` and `Billing.Invoices.Order`
+both mint `:order` and two aggregates from different bounded contexts silently unify — the exact
+failure the minting exists to prevent, at a different scale and invisible. **So the tag must be
+minted from the qualified name**, which hands the map's *Module and namespace system* fog patch a
+requirement it did not have: whatever atom a module identifier lowers to must be unique enough to
+carry aggregate identity, not only to avoid Erlang module collisions. Recorded here because it
+constrains that patch rather than blocking this ticket.
+
+### Owed by this section
+
+- **The spelling is not settled** — `record X { ... }` versus a modifier on `type`. The semantics
+  are decided; the surface follows, and it touches ticket 22's deferred question about which
+  opinions live in the grammar.
+- **Whether the boundary guard is the cheap tag test or the exact-set test** is not uniform. Extra
+  fields are harmless to projection and to exhaustiveness, but ticket 16 §4's generated encoder
+  would serialise them — so 18 §1's own rule (*guard where the body would not object*) appears to
+  split this two ways rather than one. Settle it before this ticket closes.
+
