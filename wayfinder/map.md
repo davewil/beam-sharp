@@ -549,22 +549,65 @@ spec exists.
   do not settle 09's newtype gap** — a refinement is a set, so `Meters` and `Feet` as
   `float where value >= 0` are still one type and **09's tuple tag stands**.
 
+- [The walking skeleton, first slice](../compiler/README.md) — **built 2026-08-13, and the premise
+  that delayed it was stale.** The fog said the slice "cannot be phrased sharply until the language
+  surface exists"; that was written at charting, before any of the twenty-three resolutions, and it
+  is true only of the *whole* surface. A slice touching **only closed decisions** existed and was
+  invisible because nobody re-tested the claim. `.bs` in, callable `.beam` out: lex → parse →
+  exhaustiveness check → abstract format → `erlc +from_abstr`. **Host is Erlang** — `leex` and
+  `yecc` ship with OTP, and `merl`'s `?Q` quasi-quoting rides on a parse transform Elixir cannot
+  use, so ticket 13's freeing of the host language was exercised rather than merely enjoyed.
+  In: 01/04/08's multi-clause heads under a mandatory signature, 09/10's atoms and structural
+  unions, **20's exact-union algebra and real integer intervals**, 08's guards-as-type-operations,
+  12's failure arm, 13's Abstract Format with an emitted `-spec`. Out on purpose: records, generic
+  syntax, modules, imports, FFI, OTP behaviours, refinements, binaries. **Ticket 01's hand-verified
+  finding is now produced by a compiler** — four beam-sharp clauses, four native Erlang clause
+  heads, guard firing, and a *precise* spec (`{ok, integer()} | {error, atom()}`), not a widened
+  one. **Two of the eleven skeleton debts are discharged** (see the two struck-through entries
+  below), and **two bugs were found by tests, one of them a soundness bug**: an uncreditable guard
+  was subtracting its whole pattern, so `F(n) when Weird(n)` reported exhaustive — ticket 08's
+  "credits nothing" must mean the clause contributes *nothing*, and `Certain`/`Possible` are now
+  separate bounds. The other grew a lower bound from nothing on disjoint range subtraction
+  (`{64,64} \ {32,32}` gave `{33,64}`), which breaks the one property ticket 20 exists to
+  guarantee. **Names are emitted losslessly and quoted** (`'Readings':'Classify'`) — provisional,
+  and deliberately the option that pre-empts the modules fog least.
+
 ## Not yet specified
 
 <!-- in-scope fog: real, but not yet sharp enough to phrase as a ticket -->
 
 - **The walking skeleton**: which slice of the spec it implements, and what language the
   compiler itself is written in. Cannot be phrased sharply until the language surface exists.
-  One requirement is already known: it should **measure checker cost at the clause counts the
+  **The first slice is BUILT (2026-08-13) — see Decisions-so-far. Two debts below are struck
+  through as paid; the rest stand, and now have somewhere to be measured.**
+  ~~One requirement is already known: it should **measure checker cost at the clause counts the
   showcase implies**. Ticket 04 found Etylizer's pathological inputs are `case` expressions
-  with 40+ branches — precisely the large multi-clause `handle_info` this language advertises.
+  with 40+ branches — precisely the large multi-clause `handle_info` this language advertises.~~
+  **PAID 2026-08-13** (`compiler/bench/bs_bench.erl`, OTP 28.5, JIT warmed, 20 reps): the
+  exhaustiveness check is **linear through the advertised shape and costs 59 µs at 40 clauses** —
+  8.5 µs at 5, 29 µs at 20, 59 µs at 40, 151 µs at 80, all at 1.3–1.9 µs/clause. **There is no
+  cliff where ticket 04 feared one.** It does begin to bend at **160 clauses (656 µs, 4.1
+  µs/clause)**, which is the first observed sign of the complexity bound ticket 04 said does not
+  exist — worth re-measuring when the algebra gains records and binaries, since both widen the
+  product decomposition.
   **Ticket 11 adds a second requirement**: the skeleton must **generate at least one
   `ValidateAs<T>`**, over a recursive type. It is the first codegen obligation whose cost is
   entirely unmeasured — a synthesised O(n) structural traversal — and it stacks with the
-  recursive-type measurement ticket 09 already asked for. **Ticket 12 adds a third**: measure the
+  recursive-type measurement ticket 09 already asked for. ~~**Ticket 12 adds a third**: measure the
   retained failure arm at showcase clause counts. It was measured at 40 bytes (4.8%) on a
   two-clause function; the decision to keep it everywhere was taken without knowing the cost on a
-  40-clause `handle_info`, which is the shape this language advertises. **Ticket 13 removes one
+  40-clause `handle_info`, which is the shape this language advertises.~~
+  **PAID 2026-08-13, and it lands the reassuring way**: the arm is **constant-size, not
+  proportional** — ~15 bytes of the `Code` chunk regardless of clause count, so its share *falls*
+  as clauses grow: **10.6% at 2 clauses, 4.95% at 20, 2.76% at 40**. Ticket 12 kept it everywhere
+  while worrying what forty clauses would cost; forty clauses cost proportionally less than two.
+  Two honesty notes. The absolute two-clause figure here (11 bytes) does **not** reproduce ticket
+  12's (40 bytes) — different harnesses measuring different things, and neither has been reconciled
+  against the other, so treat the *shape* of this result as the finding and not the constant. And
+  the first run of this benchmark was an **artefact**: with every clause returning the same atom
+  the optimiser folded them all into the catch-all, pinning the baseline at 70 bytes for 2 clauses
+  and 40 alike and reporting the arm as 66% of the chunk. Distinct return values fixed it. Recorded
+  because the artefact was plausible and would have been believed. **Ticket 13 removes one
   constraint and adds two requirements.** Removed: **the compiler's host language is no longer
   constrained** — the emission contract is abstract-format forms, and `erlc +from_abstr` builds
   from serialised text with no `.erl` present, so the skeleton need not be a BEAM program. Added:
