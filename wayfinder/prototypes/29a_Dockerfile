@@ -1,0 +1,23 @@
+# CDuce 0.6.0, the last packaged release (2017-03-17).
+#
+# CDuce is cited 88 times across this map and had never been run. It is not in opam
+# (`opam search cduce` -> no matches, verified on opam 2.1.6), and the last Debian suite
+# carrying it is stretch (Debian 9, EOL). archive.debian.org still serves it, and the
+# security suite is needed too or libgnutls30 pulls the dependency chain apart.
+#
+# amd64 only: no arm64 build of a 2017 Debian suite exists. Runs under emulation on
+# Apple Silicon (OrbStack), which is fine for algebra probes and is why 29b reports
+# scaling ratios rather than absolute times.
+FROM debian/eol:stretch
+
+RUN cat > /etc/apt/sources.list <<L
+deb http://archive.debian.org/debian stretch main
+deb http://archive.debian.org/debian-security stretch/updates main
+L
+
+RUN printf 'Acquire::Check-Valid-Until "false";\n' > /etc/apt/apt.conf.d/99no-check-valid \
+ && apt-get -o Acquire::AllowInsecureRepositories=true update -qq \
+ && apt-get install -y --allow-unauthenticated cduce \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /work
