@@ -277,6 +277,8 @@ natural next one to write.
 
 ## RESULTS — third exemplar, the event-queue consumer, 2026-08-13
 
+> Decision brief: <https://claude.ai/code/artifact/21cb916f-5151-4f3b-8956-2b726f2d3a2a>
+
 [`25c-event-queue-consumer.md`](../prototypes/25c-event-queue-consumer.md) — AMQP 0-9-1, with a
 lowering that compiles with no warnings and runs on OTP 28, and a residual probe run against the
 walking skeleton.
