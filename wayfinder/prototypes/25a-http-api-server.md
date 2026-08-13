@@ -153,9 +153,24 @@ total.** `(true, true, true, true, true)` is the only remaining case, and the co
 a fall-through `else` would not be checked at all. So the tuple subject buys exhaustiveness on
 exactly the construct where an `if` ladder silently drops a case.
 
-**Recommendation to ticket 17's fog patch: the shape occurs, at width five, in the most ordinary
-handler in the exemplar set.** Whether that is worth a `cond` keyword is David's call — but the
-evidence 17 asked for exists now, and it is not marginal.
+~~**Recommendation to ticket 17's fog patch: the shape occurs, at width five, in the most ordinary
+handler in the exemplar set.**~~
+
+**RETRACTED 2026-08-13 (David). This function is contrived, and the criticism is correct.** *"In a
+web server you'd basically have a pipeline and pluggable middleware, e.g. Plug in Elixir. So
+something like the switch in that example is unlikely to be written."*
+
+Admission control is not one function with five booleans in any web stack worth copying — Plug,
+Rack and ASP.NET Core all distribute those five concerns across **separate middleware**, each
+halting the pipeline on failure. Authentication does not know about quota; body-size limits do not
+know about feature flags. **The architecture dissolves the ladder**, which is why nobody writes it.
+
+So this section did the thing ticket 25 exists to prevent: it **constructed a shape to answer a
+question** instead of writing the workload honestly and reporting what the workload demanded. The
+five conditions were assembled because 17 asked for a ladder, and an invented ladder is evidence
+about my invention, not about web servers. → 17's `cond` patch loses this data point entirely.
+
+**What the criticism exposes is worse than the ladder, and it is the real finding — see friction 1.**
 
 ---
 
@@ -198,9 +213,33 @@ Six things, ordered by how much they should worry you.
    That leaves `result`'s `(:error, E)` still a tuple, which is a genuine open question, since
    ticket 15 chose the tag *because* an untagged failure channel collapses. → tickets 15, 16, 26.
 
-1. **A ladder of unrelated conditions occurs at width five, and the tuple subject is bad at it.**
-   Ticket 17's job 1, answered above with the code. The `_` ceremony grows quadratically and the
-   test is separated from its consequence by the tuple's width. → ticket 17's `cond` fog patch.
+1. **The exemplar has no middleware layer, and that is the largest thing wrong with it.**
+   *(Rewritten 2026-08-13 after David's criticism of `admit.bs`; the previous item claimed a
+   width-five ladder as evidence for 17's `cond` patch and is retracted above.)*
+
+   A web application on this platform is a **pipeline of composable middleware** — Plug is the
+   reference, and Rack and ASP.NET Core are the same idea. Each stage takes the request, may
+   modify it, and may **halt** it by returning a response. Routing is one stage near the end, not
+   the whole program. **This exemplar wrote the router and skipped the pipeline**, which is why it
+   needed an invented five-condition function to have anything to say about request admission.
+
+   That is not a small omission, because **the pipeline is where the language's own constructs
+   would have been exercised** and the router is where they aren't. It also explains the
+   *"what did not appear"* note below, and corrects its reasoning: the absence of `|>` was not
+   because request handling is dispatch rather than transformation. It was because the
+   transformation layer is the part I did not write.
+
+   **The sharp question it raises, which no ticket has asked: is `|?>` already the middleware
+   mechanism?** Ticket 17 §4's valve short-circuits a pipeline on `(:error, _)` and runs no
+   further stage, which is structurally what Plug's `halt/1` does. If so, a beam-sharp web stack
+   is `req |?> Auth.Check() |?> Quota.Check() |?> Router.Dispatch()` and needs no new construct —
+   a strong result for 17. If not, the gap is load-bearing, because middleware composition is how
+   every serious web framework on this platform is built. **Two things have to be checked before
+   claiming it**: Plug's halt carries a *`conn` with a response already written*, not an error, so
+   the beam-sharp shape is `result<Request, Response>` and the "failure" channel is an ordinary
+   200 — which ticket 15's `result<T, E>` admits but never anticipated; and Plug stages are
+   **registered and composed at compile time** by a behaviour, which is ticket 14's territory and
+   ticket 16's refused open extension. → tickets 17, 15, 14, 16; needs a ticket of its own.
 
 2. **Ticket 12's catch-all rule permits the right thing for the wrong reason.** A router's final
    clause is legal because `list<string>` is infinite, not because a 404 is the specified

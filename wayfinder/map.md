@@ -1109,17 +1109,21 @@ spec exists.
   conditions. That is clean at two or three conditions and clumsy at five, where
   `(a, b, c, d, e) switch` is hard to read even with `_` absorbing the tail. Deliberately not paid
   for with a keyword until the shape is shown to occur: ~~**ticket 25 owes a report on whether the six
-  exemplars produce it.**~~ **REPORTED 2026-08-13 — the shape occurs, at width five**
-  ([`25a`](prototypes/25a-http-api-server.md)). HTTP request admission — authentication,
-  verification, quota, body size, feature flag — has no structural relationship between its five
-  conditions, so the tuple subject is the only spelling available. It reads **worse than an `if`
-  ladder**, for three reasons visible in the code: the test is separated from its consequence by
-  the tuple's width, so at five wide everybody counts columns; the `_` ceremony grows as O(width²);
-  and the subject line runs to 70 characters before the first arm. Against that, one win an `if`
-  ladder cannot have — the final all-`true` arm makes the ladder **exhaustive**, where a
-  fall-through `else` is checked by nothing. **So the fog patch is now a decision waiting on David
-  rather than on evidence**, and the trade is stated: a keyword, against exhaustiveness on the one
-  construct that most often silently drops a case. Adding `cond` later is still purely additive, and
+  exemplars produce it.**~~ ~~**REPORTED 2026-08-13 — the shape occurs, at width five**
+  ([`25a`](prototypes/25a-http-api-server.md)).~~ **THAT REPORT IS RETRACTED THE SAME DAY (David):
+  25a's width-five ladder is contrived and is not evidence.** *"In a web server you'd basically have
+  a pipeline and pluggable middleware, e.g. Plug in Elixir. So something like the switch in that
+  example is unlikely to be written."* Correct — Plug, Rack and ASP.NET Core all distribute those
+  five concerns across **separate middleware**, each halting the pipeline on failure, so the
+  architecture dissolves the ladder and nobody writes it. 25a **constructed a shape to answer the
+  question** instead of writing the workload honestly, which is the one failure ticket 25 exists to
+  prevent. **So the evidence rests on 25c alone, and 25c reports the shape at width four reading
+  *fine*** — with the additional note that lifting two of its four conditions into named functions
+  to fit the tuple *improved* the code, which a `cond` ladder would have inlined and made worse.
+  **Net: there is still no case for `cond`, and the tuple subject may be a forcing function rather
+  than a defect.** The readability cliff between 4 and 5 is real but is now measured only from one
+  side. **David has asked for `switch` to be revisited regardless** — the live question is no longer
+  "does the ladder occur" but whether the positional encoding is the right shape at any width. Adding `cond` later is still purely additive, and
   its catch-all would be a clause (`_ =>`), never an `else` — 17c measured that `else` is an
   `if`-only keyword on this platform and both Elixir pattern constructs reject it.
   **A second data point 2026-08-13 ([`25c`](prototypes/25c-event-queue-consumer.md)) locates the

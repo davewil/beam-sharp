@@ -172,7 +172,19 @@ remain.
 
 ### The three questions this ticket was holding, answered
 
-**1. Ticket 17 job 1 — does a long ladder of unrelated conditions occur? YES, at width five.**
+**1. Ticket 17 job 1 — RETRACTED the same day. 25a's ladder is contrived and is not evidence.**
+David: *"In a web server you'd basically have a pipeline and pluggable middleware, e.g. Plug in
+Elixir. So something like the switch in that example is unlikely to be written."* Correct, and it
+lands on the one failure this ticket exists to prevent: `admit.bs` **constructed a shape to answer
+17's question** rather than writing the workload honestly and reporting what it demanded. Plug, Rack
+and ASP.NET Core all distribute those five concerns across separate middleware, each halting the
+pipeline, so the architecture dissolves the ladder. **The evidence for 17 job 1 now rests on 25c
+alone — width four, reads fine, no case for `cond`.** The larger consequence is recorded as 25a's
+friction 1: the exemplar has **no middleware layer**, which is where the language's own constructs
+would have been exercised, and it raises a question no ticket has asked — **is `|?>` already the
+middleware mechanism?** → new ticket. The struck-through original follows.
+
+~~**1. Ticket 17 job 1 — does a long ladder of unrelated conditions occur? YES, at width five.**~~
 HTTP request admission (authentication, verification, quota, body size, feature flag) has no
 structural relationship between its five conditions, so 17 §6's tuple subject is the only spelling.
 It reads worse than an `if` ladder: the test is separated from its consequence by the tuple's
