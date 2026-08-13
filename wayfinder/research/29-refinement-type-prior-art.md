@@ -166,9 +166,25 @@ compiler must *enumerate or bound* the subtype, only the static tier is admitted
 
 **Verdict.** Structure corroborated: two tiers, the privileged one reasoned about and legal in the
 dispatch construct, the other merely checked. Cut contradicted: Ada's is `predicate-static` form,
-beam-sharp's is O(1) runtime decidability. The two lines cross — `mod 2 = 1` is beam-sharp tier 1
-(`rem` is a BEAM guard BIF) and Ada tier 2; a large `case_expression` over a wide enumeration is
-Ada tier 1 and would be beam-sharp tier 1 too, so the disagreement is one-directional but real.
+beam-sharp's is O(1) runtime decidability.
+
+**And the relation between the two cuts is containment, not crossing — beam-sharp's tier 1 is a
+strict liberalisation of Ada's.** Take the seven predicate-static forms in turn against the BEAM
+guard set: a static expression is a literal; a static membership test is a comparison chain over a
+fixed finite set; a `case_expression` on the current instance with static arms is the same; a
+predefined equality or ordering operator against a static expression is `=:=`/`<`/`>`; `and`, `or`,
+`xor` and `not` are `andalso`/`orelse`/`xor`/`not`, all guard-legal; short-circuit and parentheses
+add nothing. **Every Ada static predicate is decidable by one BEAM guard in O(1).** The converse
+fails, and `mod 2 = 1` is the witness [L3]: `rem` is a guard BIF, so that predicate is beam-sharp
+tier 1 and Ada tier 2. So Ada's static tier ⊂ beam-sharp's guard tier, properly.
+
+That is a stronger reading than "the lines cross", and it changes what the divergence costs. Ada's
+tier 1 is an approximation of decidability, reached syntactically because Ada has no
+platform-given predicate language to point at; beam-sharp has one — the BEAM guard set — and can
+therefore name the real criterion directly. **This is marked as inference, not measurement**: it is
+the ARM's seven forms read against the guard set, not a probe. It would take a probe to be
+certain, and the one form worth checking is a static membership test over an enumeration wide
+enough that the compiled comparison chain stops being O(1).
 
 ### 1.3 Type identity — Ada separates *subtype* from *derived type*, and beam-sharp cannot
 
@@ -525,9 +541,16 @@ reasoning too, but gated behind a pragma, emitting warnings only, with no user-d
 [s3]. Nobody had published a cost for the solver-free side; [`29b`](../prototypes/29b_cduce_clause_scaling.sh)
 now does — **free at ticket 04's 40-clause shape, quadratic past ~200** [L7].
 
-**3. Do ticket 20's decisions need amending?** **One decision needs a stated reason it does not
-have; one needs its refusal narrowed or its argument strengthened; three claims upgrade.** Nothing
-ticket 20 decided is *wrong*. Details below.
+**3. Do ticket 20's decisions need amending?** **Yes, two, and neither is a reversal.** §5's
+two-tier cut needs recording as a **tier-3 divergence with its reason**, because it is presented as
+the map's recurring O(1) line applied again and no shipping language cuts there (amendment A).
+§5's blanket refusal of user-declared opaque refinements should be **narrowed to a placement rule**
+— barred from clause heads and foreign declarations, not barred outright — because Ada permits
+them, contains them the same way beam-sharp already does, and has done since 2012 (amendment B).
+Three further claims **upgrade** rather than change: CDuce to `local` at a pinned version, the
+`string`/`binary` split to a tier-1 borrow, and ticket 20 §2's evidence gains a third `erl_types`
+lossiness whose motive is termination rather than optimism. **Nothing ticket 20 decided is
+wrong.**
 
 ## Amendments ticket 20 should take
 
@@ -544,26 +567,41 @@ approximate syntactically. That is a better justification than the ticket curren
 map's amendment to the heuristic ("diverge deliberately", not "diverge only as a last resort")
 already sanctions it.
 
-**B. Narrow the refusal of user-declared opaque refinements, or strengthen its argument.**
-*(Recommended: record the option and its requirements; the decision is David's.)* Ticket 20 §5
-bars users from the second tier entirely, reasoning from ticket 11 that an arbitrary user predicate
-"could be quadratic or could fail to terminate". **Ada permits exactly this and has since 2012**
-[L5], and contains the hazard by *placement* — the check goes at subtype conversion, parameter
-passing and default initialisation, never in a dispatch construct, and the dynamic tier is barred
-from `case` alternatives and loop parameters outright (§1.2, §1.4). Ticket 11's hazard is
-specifically about clause heads. The narrower rule the evidence supports is:
+**B. Narrow the refusal of user-declared opaque refinements.** *(Recommended: take it. The
+counter-argument is real and is stated, but the default should be the narrower rule.)*
+
+Ticket 20 §5 bars users from the second tier entirely, reasoning from ticket 11 that an arbitrary
+user predicate "could be quadratic or could fail to terminate". **Ada permits exactly this and has
+since 2012** [L5].
+
+The framing that makes this a small amendment rather than a large one: **Ada and ticket 20 already
+agree on the containment, and disagree only on who may declare a member.** Ada's dynamic tier is
+barred from every construct where the compiler must enumerate or bound the subtype — case
+alternatives, loop parameters, index subtypes, slice ranges, `'First`/`'Last`/`'Range` (§1.2) —
+which *is* ticket 20's rule that tier 2 is never reasoned about, arrived at independently. Ticket
+11's hazard, in turn, is specifically about unbounded work in a **clause head**, and beam-sharp
+already bars tier 2 from clause heads and from foreign declarations for exactly that reason. So the
+prohibition on *declaring* one is doing no safety work that the placement rule is not already
+doing. The rule the evidence supports:
 
 > user-declared opaque refinements are barred **from clause heads and from foreign declarations**,
 > not barred entirely.
 
-What the deferred option would need, captured now so it is not lost: a decision on whether the
+What taking it requires, captured so it is not rediscovered later: a decision on whether the
 compiler may emit a call to arbitrary user code at a boundary (Ada does, invisibly, at parameter
-passing); a spelling for where the check is inserted; and a rule for what happens when the
-predicate itself raises. **The counter-argument ticket 20 can keep**: beam-sharp's opaque tier is
+passing); a spelling for where the check is inserted, since beam-sharp has no `subtype conversion`
+site to hang it on and would need one; and a rule for what happens when the predicate itself raises
+— ticket 15's `result<T, E>` is the obvious answer and Ada's `Predicate_Failure` aspect is the
+worked precedent [g4].
+
+**The counter-argument, kept because it is why David might decline.** beam-sharp's opaque tier is
 established by *generated* code at an entry the user does not see, which is a heavier obligation
-than Ada's, and ticket 20's `string` is currently the only member — admitting user predicates turns
-one compiler-known check into an open-ended codegen surface. Both readings are defensible; this
-file recommends recording the option rather than either taking or discarding it.
+than Ada's: `string` is currently the tier's only member and its check is compiler-known and linear
+per byte, where admitting user predicates turns one known check into an open-ended codegen surface
+whose cost the compiler cannot bound. Ada can afford it partly because its predicate checks are
+switchable off (§1.1) and beam-sharp's are not (ticket 18, no opt-out) — so beam-sharp pays for
+every one, always, with no escape valve. **If that decides it, the refusal should say so**, because
+"a user predicate could be quadratic" is true of Ada too and did not stop Ada.
 
 **C. Upgrade CDuce from `doc` to `local`, at a pinned version.** *(Recommended: take it.)* Ticket
 20 §5's *"CDuce ships exactly this"* is now measured, not inherited from ticket 11 — and the
