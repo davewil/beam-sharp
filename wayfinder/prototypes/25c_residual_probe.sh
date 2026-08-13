@@ -51,6 +51,18 @@ Classify(3) -> :body;
 Classify(8) -> :heartbeat;
 Classify(t) when t >= 0 && t <= 255 -> :reserved;'
 
+echo "=== 2b. CONTROL: is each half of that guard credited independently? ==="
+echo "If a single-sided guard leaves exactly \`int <= -1\`, the checker's interval"
+echo "reasoning is sound and the gap in probe 2 is the SIGNATURE's, not the checker's."
+probe octet_one_sided 'module P2b;
+type FrameType = :method | :header | :body | :heartbeat | :reserved;
+FrameType Classify(int t);
+Classify(1) -> :method;
+Classify(2) -> :header;
+Classify(3) -> :body;
+Classify(8) -> :heartbeat;
+Classify(t) when t >= 0 -> :reserved;'
+
 echo "=== 3. Is a catch-all refused over a CLOSED residual? (ticket 12 §2) ==="
 echo "Residual here is :method | :header | :heartbeat — closed, every case named."
 probe closed_catchall 'module P3;

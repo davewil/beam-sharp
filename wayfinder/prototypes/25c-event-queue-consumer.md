@@ -152,7 +152,16 @@ walking skeleton ([`25c_residual_probe.sh`](25c_residual_probe.sh)):
 
 2. the same, plus a guard bounding the octet to 0..255
    Classify(int <= -1 | int >= 256) -> ...
+
+2b. CONTROL — the same with a single-sided guard (`t >= 0` alone)
+   Classify(int <= -1) -> ...
 ```
+
+**Probe 2b matters more than it looks.** The residual in probe 2 is what you would see if the
+checker credited both bounds *or* if it credited only one and the other came free; 2b settles it —
+a single-sided guard leaves exactly `int <= -1` and nothing else, so each comparison is credited
+independently and the interval reasoning is sound. **The gap is therefore the signature's, not the
+checker's**, which is the stronger and less escapable form of the finding.
 
 **The surface cannot state that a field is eight bits wide.** A parameter is declared `int`; ticket
 20 put intervals in the *type* language, and the skeleton's own README records that intervals arise
