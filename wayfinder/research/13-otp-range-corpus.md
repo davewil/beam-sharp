@@ -152,8 +152,8 @@ format version is simply refused — but it fixes the shape of what ticket 13's 
 {escript_emu_args, "%%! -escript main bsc_cli\n"}.
 ```
 
-while the module is `bsc` (`compiler/src/bsc.erl` line 13, exporting `main/1`). So the escript
-built by `rebar3 escriptize` dies immediately [src, L4]:
+while the module is `bsc` (`compiler/src/bsc.erl` line 13, exporting `main/1`) [3]. So the escript
+built by `rebar3 escriptize` dies immediately [L4]:
 
 ```
 escript: exception error: undefined function bsc_cli:main/1
