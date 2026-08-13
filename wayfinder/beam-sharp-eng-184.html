@@ -1,0 +1,721 @@
+<title>Never Silently</title>
+
+<style>
+  :root {
+    --ground:   #EEF1F4;
+    --surface:  #FFFFFF;
+    --sunken:   #E3E8ED;
+    --ink:      #15191E;
+    --ink-soft: #414B56;
+    --muted:    #6B7681;
+    --rule:     #CBD3DA;
+    --accent:   #5A3A96;
+    --accent-s: #EDE7F7;
+    --edge:     #9A551B;
+    --edge-s:   #F7ECE0;
+    --good:     #1F6B4A;
+    --panel:    #F1F3F5;
+
+    --display: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    --body: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+    --util: ui-sans-serif, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:   #131619;
+      --surface:  #1B1F24;
+      --sunken:   #22272D;
+      --ink:      #E7EBEF;
+      --ink-soft: #BAC3CC;
+      --muted:    #8B959F;
+      --rule:     #333B44;
+      --accent:   #B29AE0;
+      --accent-s: #2A2340;
+      --edge:     #D89B5E;
+      --edge-s:   #33261A;
+      --good:     #6BC79C;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:   #131619;
+    --surface:  #1B1F24;
+    --sunken:   #22272D;
+    --ink:      #E7EBEF;
+    --ink-soft: #BAC3CC;
+    --muted:    #8B959F;
+    --rule:     #333B44;
+    --accent:   #B29AE0;
+    --accent-s: #2A2340;
+    --edge:     #D89B5E;
+    --edge-s:   #33261A;
+    --good:     #6BC79C;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 17px;
+    line-height: 1.62;
+    margin: 0;
+    padding: 0 1.25rem 6rem;
+  }
+
+  .wrap { max-width: 46rem; margin: 0 auto; }
+  .wide { max-width: 62rem; margin: 0 auto; }
+
+  header.masthead {
+    padding: 4.5rem 0 2rem;
+    border-bottom: 2px solid var(--ink);
+    display: flex; flex-direction: column; gap: 1.1rem;
+  }
+  .eyebrow {
+    font-family: var(--display);
+    font-size: .72rem;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: flex; flex-wrap: wrap; gap: .4rem 1.1rem;
+  }
+  .eyebrow b { color: var(--accent); font-weight: 600; }
+  h1 {
+    font-family: var(--display);
+    font-size: clamp(2rem, 6vw, 3.1rem);
+    line-height: 1.04;
+    letter-spacing: -.03em;
+    font-weight: 600;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .standfirst {
+    font-size: 1.16rem;
+    color: var(--ink-soft);
+    margin: 0;
+    max-width: 34rem;
+    text-wrap: pretty;
+  }
+
+  h2 {
+    font-family: var(--display);
+    font-size: 1.02rem;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: var(--accent);
+    margin: 3.6rem 0 .2rem;
+    padding-bottom: .5rem;
+    border-bottom: 1px solid var(--rule);
+  }
+  h3 {
+    font-family: var(--display);
+    font-size: 1.02rem;
+    font-weight: 600;
+    letter-spacing: -.01em;
+    margin: 2.2rem 0 .4rem;
+    color: var(--ink);
+  }
+  p { margin: .95rem 0; text-wrap: pretty; }
+  a { color: var(--accent); }
+
+  code {
+    font-family: var(--display);
+    font-size: .87em;
+    background: var(--sunken);
+    padding: .1em .34em;
+    border-radius: 3px;
+  }
+
+  .verdict {
+    margin: 2.4rem 0 0;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 4px solid var(--accent);
+    padding: 1.6rem 1.7rem;
+    display: flex; flex-direction: column; gap: .7rem;
+  }
+  .verdict .lab {
+    font-family: var(--display);
+    font-size: .7rem; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--muted);
+  }
+  .verdict .sentence {
+    font-family: var(--display);
+    font-size: clamp(1.05rem, 2.6vw, 1.32rem);
+    line-height: 1.4;
+    letter-spacing: -.015em;
+    margin: 0;
+  }
+  .verdict .gloss {
+    font-size: .95rem; color: var(--ink-soft); margin: 0;
+    padding-top: .7rem; border-top: 1px solid var(--rule);
+  }
+
+  figure { margin: 2rem 0; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid #C4CBD1;
+    border-radius: 4px;
+    padding: 1.4rem 1rem;
+    overflow-x: auto;
+  }
+  .panel pre.mermaid { margin: 0; display: flex; justify-content: center; min-width: 30rem; }
+  figcaption {
+    font-family: var(--util);
+    font-size: .84rem;
+    color: var(--muted);
+    margin-top: .7rem;
+    line-height: 1.5;
+  }
+
+  .tablewrap { overflow-x: auto; margin: 1.4rem 0; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-family: var(--util);
+    font-size: .88rem;
+    background: var(--surface);
+    min-width: 34rem;
+  }
+  caption {
+    font-family: var(--display);
+    font-size: .72rem; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--muted); text-align: left; padding-bottom: .55rem;
+  }
+  th, td {
+    border: 1px solid var(--rule);
+    padding: .58rem .7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  thead th {
+    background: var(--sunken);
+    font-weight: 600;
+    font-size: .78rem;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  tbody th { font-weight: 600; background: var(--sunken); white-space: nowrap; }
+  td.win { color: var(--good); font-weight: 600; }
+  td.lose { color: var(--edge); }
+  td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  .decisions { list-style: none; padding: 0; margin: 1.5rem 0 0; display: flex; flex-direction: column; gap: 1.6rem; }
+  .decisions > li {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 1.2rem 1.4rem 1.35rem;
+  }
+  .decisions h3 { margin-top: 0; }
+  .decisions p { font-size: .97rem; }
+  .tag {
+    display: inline-block;
+    font-family: var(--display);
+    font-size: .67rem; letter-spacing: .12em; text-transform: uppercase;
+    padding: .18rem .5rem; border-radius: 3px; margin-bottom: .7rem;
+  }
+  .tag.kept { background: var(--accent-s); color: var(--accent); }
+  .tag.rej  { background: var(--edge-s);  color: var(--edge); }
+
+  .rejected {
+    margin-top: .95rem; padding-top: .8rem;
+    border-top: 1px dashed var(--rule);
+    font-size: .92rem; color: var(--ink-soft);
+  }
+  .rejected b { color: var(--edge); font-weight: 600; }
+
+  pre.code {
+    font-family: var(--display);
+    font-size: .82rem;
+    line-height: 1.55;
+    background: var(--sunken);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: .9rem 1rem;
+    overflow-x: auto;
+    margin: 1rem 0;
+  }
+  pre.code .c { color: var(--muted); }
+  pre.code .k { color: var(--accent); font-weight: 600; }
+  pre.code .e { color: var(--edge); }
+  pre.code .g { color: var(--good); }
+
+  .pair { display: grid; gap: 1.1rem; margin: 1.4rem 0; }
+  @media (min-width: 54rem) { .pair { grid-template-columns: 1fr 1fr; } }
+  .pair .lab {
+    font-family: var(--display);
+    font-size: .7rem; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--muted); display: block; margin-bottom: .4rem;
+  }
+  .pair pre.code { margin: 0; }
+
+  .callout {
+    background: var(--edge-s);
+    border-left: 3px solid var(--edge);
+    padding: 1rem 1.2rem;
+    margin: 1.6rem 0;
+    font-size: .95rem;
+  }
+  .callout p:first-child { margin-top: 0; }
+  .callout p:last-child { margin-bottom: 0; }
+  .callout strong { color: var(--edge); }
+
+  footer {
+    margin-top: 4.5rem; padding-top: 1.4rem;
+    border-top: 1px solid var(--rule);
+    font-family: var(--util); font-size: .83rem; color: var(--muted);
+  }
+  footer code { background: none; padding: 0; }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">
+      <span>beam-sharp · decision brief</span>
+      <span><b>ENG-184</b> · ticket 18</span>
+      <span>2026-08-13</span>
+      <span>OTP 28.5 · Gleam 1.18.1 · Elm 0.19.1</span>
+    </div>
+    <h1>Never Silently</h1>
+    <p class="standfirst">The ticket asked which of eight violation channels to defend. Five were
+    already closed, and what remained turned on one question the map had never put plainly: is a
+    declaration a claim, or a promise?</p>
+  </div>
+</header>
+
+<div class="wrap">
+
+<div class="verdict">
+  <span class="lab">The decision</span>
+  <p class="sentence">A foreign term that breaks your types will crash — <b>not always where it
+  entered, but never silently</b>.</p>
+  <p class="gloss">Guards are emitted only where the function's own body would not already object,
+  and always where generated code consumes the value. A foreign declaration may promise only what
+  one BEAM guard decides in O(1). No opt-out.</p>
+</div>
+
+<h2>Eight channels were never eight questions</h2>
+
+<p>Ticket 06 charted eight ways a value can enter a beam-sharp program badly typed, and the ticket
+carried them as eight open decisions. Tallied against what the closed tickets had already settled,
+they sort into two piles on a single test: <b>did the term arrive somewhere beam-sharp had to
+<i>match</i> it, or somewhere beam-sharp <i>declared</i> a type for it?</b></p>
+
+</div>
+
+<div class="wide">
+<figure>
+  <div class="panel">
+<pre class="mermaid">
+%%{init: {"theme": "base", "themeVariables": {
+  "background": "#F1F3F5", "mainBkg": "#FFFFFF", "primaryColor": "#FFFFFF",
+  "primaryTextColor": "#1C2127", "textColor": "#1C2127",
+  "nodeBorder": "#5C6670", "lineColor": "#5C6670",
+  "edgeLabelBackground": "#F1F3F5", "labelTextColor": "#1C2127",
+  "clusterBkg": "#F1F3F5", "clusterBorder": "#C4CBD1"
+}}}%%
+flowchart TB
+  T["a foreign term arrives"]
+  T --> Q{"matched, or declared?"}
+
+  Q -->|"you had to match it"| M
+  Q -->|"you declared a type"| D
+
+  subgraph M["self-defending"]
+    m1["mailbox"]
+    m2["EXIT and DOWN"]
+    m3["timers"]
+    m4["decoded external terms"]
+    m5["ambient config"]
+  end
+
+  subgraph D["undefended"]
+    d1["direct calls"]
+    d2["ETS reads"]
+    d3["the state channel"]
+    d4["the reply channel"]
+  end
+
+  M --> R1["closed by ticket 11 — narrowing is syntactic"]
+  D --> R2["this ticket"]
+</pre>
+  </div>
+  <figcaption>Ticket 11 made narrowing <i>syntactic</i>: you write the clause head, and 11 §2
+  restricts what you may write there to what a BEAM guard decides in O(1). The check is not a policy
+  the compiler applies — it is a consequence of the only spelling available. Channels that force a
+  match defend themselves; channels that accept a declaration do not.</figcaption>
+</figure>
+</div>
+
+<div class="wrap">
+
+<h2>Erlang does not guard its own boundary, and measuring that moved the answer</h2>
+
+<p>The opening recommendation was to guard every ground parameter of every exported function, partly
+on the argument that the ecosystem already writes those guards by hand and beam-sharp would merely
+automate them. <b>That argument is false, and the census that killed it is the most useful number in
+the ticket.</b> Every exported function in <code>stdlib</code> and <code>kernel</code>, OTP 28,
+abstract code read from the shipped <code>.beam</code> files — a parameter counts as defended only
+if <i>every</i> clause constrains it structurally or names it in a guard.</p>
+
+<div class="tablewrap">
+<table>
+  <caption>OTP 28 · stdlib + kernel · 199 modules</caption>
+  <thead><tr><th>Measure</th><th>Count</th><th>Share</th></tr></thead>
+  <tbody>
+    <tr><th>exported functions</th><td class="num">4193</td><td>—</td></tr>
+    <tr><th>every parameter defended</th><td class="num">512</td><td class="lose">12.2%</td></tr>
+    <tr><th>exported parameter positions</th><td class="num">7606</td><td>—</td></tr>
+    <tr><th>defended: matched or guarded</th><td class="num">1273</td><td>16.7%</td></tr>
+    <tr><th>bare variable, no guard</th><td class="num">6333</td><td class="lose">83.3%</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout">
+<p><strong>Why the platform gets away with it.</strong> Erlang has no static claim to break, and its
+runtime checks everything <i>eventually</i> — pass a float where a list was meant and
+<code>length/1</code> badargs at first touch. Erlang buys ticket 06's <b>outcome 2</b>, the deferred
+crash, for free from its BIFs and pays nothing at the boundary.</p>
+<p><b>Outcome 3 — silent unsoundness — only happens when a wrong term traverses the entire body
+without meeting one operation that objects.</b> That is why the numeric tower is the canonical case:
+<code>+</code> is one of the few operations total over both integers and floats.</p>
+</div>
+
+<p>So the chosen answer is deliberately the <i>smallest</i> departure that closes outcome 3. It
+converges with the platform rather than departing from it — Erlang already achieves "crash
+eventually" for free, and beam-sharp tops it up only where the free check is absent. Which, after
+tickets 16 and 17, is precisely where <b>generated code has replaced a body you could read</b>.</p>
+
+<h2>Four cases, and they are the whole rule</h2>
+
+<div class="pair">
+  <div>
+    <span class="lab">Body objects — nothing emitted</span>
+<pre class="code"><span class="c">// beam-sharp</span>
+int LineCount(list&lt;Line&gt; ls);
+([])       -&gt; 0;
+([_, ..t]) -&gt; 1 + LineCount(t);
+
+<span class="c">%% emitted</span>
+line_count([])    -&gt; 0;
+line_count([_|T]) -&gt; 1 + line_count(T).
+<span class="g">%% line_count(42) =&gt; function_clause</span></pre>
+  </div>
+  <div>
+    <span class="lab">Body total over the wrong term — guard emitted</span>
+<pre class="code"><span class="c">// beam-sharp</span>
+int Add(int a, int b);
+(a, b) -&gt; a + b;
+
+<span class="c">%% without a guard</span>
+add(A, B) -&gt; A + B.
+<span class="e">%% add(1.5, 2.5) =&gt; 4.0</span>
+<span class="c">%% what is emitted</span>
+add(A, B) <span class="k">when</span> is_integer(A), is_integer(B) -&gt;</pre>
+  </div>
+</div>
+
+<p>The third case is the one that made the decision. <b>16 §4's generated encoder is emitted from
+the <i>declared</i> type</b>, so it walks the shape it was told to expect and has no reason to look.
+Undefended, it produces well-formed JSON with the wrong type on the wire, from code the author never
+wrote and cannot read in a diff:</p>
+
+<pre class="code">to_json(#{id =&gt; &lt;&lt;"7"&gt;&gt;, customer =&gt; &lt;&lt;"acme"&gt;&gt;, lines =&gt; []})
+  <span class="e">=&gt;  &lt;&lt;"{\"id\":\"7\",\"customer\":\"acme\",\"lines\":[]}"&gt;&gt;</span></pre>
+
+<p>So every parameter feeding a codegen obligation — the encoder, <code>ValidateAs&lt;T&gt;</code>,
+17 §2's inlined prelude operations — is guarded unconditionally, no analysis. The fourth case is the
+conservative default: not visible at this compile, so guard. <b>The rule is <i>emit unless the body
+demonstrably objects</i></b>, never "emit where it looks risky" — the burden sits on omission, which
+is what keeps it an analysis rather than a judgement call.</p>
+
+<h2>A declaration is a claim until the compiler makes it a promise</h2>
+
+<p>Four of the live channels were one question wearing four coats: what is a foreign function's
+declared return type actually worth? The only language on the platform with that exact construct
+answers it, and the answer was measured rather than read.</p>
+
+<div class="pair">
+  <div>
+    <span class="lab">Gleam 1.18.1 — the declaration</span>
+<pre class="code"><span class="k">@external</span>(erlang, "probe_ffi", "lookup")
+<span class="k">pub fn</span> lookup(id: Int) -&gt; List(Order)
+
+<span class="k">@external</span>(erlang, "probe_ffi", "count")
+<span class="k">pub fn</span> count() -&gt; Int
+<span class="c">%% Erlang side returns 41.5</span></pre>
+  </div>
+  <div>
+    <span class="lab">What Gleam emitted, and what it returned</span>
+<pre class="code">-spec count() -&gt; integer().
+count() -&gt;
+    probe_ffi:count().  <span class="c">%% entire body</span>
+
+first_id(1) : <span class="e">&lt;&lt;"7"&gt;&gt;</span>
+add_one()   : <span class="e">42.5</span></pre>
+  </div>
+</div>
+
+<div class="callout">
+<p><strong>Gleam trusts the declaration and publishes the false claim as a <code>-spec</code>.</strong>
+A raw Erlang caller running Dialyzer against that module is <i>actively misled</i>, not merely
+unhelped. And the generated consumer shows why the tempting middle option fails —
+<code>[{order, Oid, _} | _] -&gt; Oid</code> tested the tag and the arity and <b>bound the payload
+bare</b>. The match succeeded and handed the binary through.</p>
+</div>
+
+<p><b>Erlang and Elixir are not precedents at all</b>, and the reason is precise: neither has a
+construct that declares a foreign function's type. NIFs and ports return arbitrary terms;
+<code>-spec</code> and <code>@spec</code> are Dialyzer-only, never runtime. Having no static claim,
+they cannot break one. Erlang's single built-in boundary check confirms the shape of the gap —
+<code>binary_to_term/2</code> with <code>[safe]</code> refuses an unknown atom and passes a
+wrong-shaped term straight through. <b>It protects a resource, not a claim.</b></p>
+
+<p>So a foreign declaration may promise only what one guard decides in O(1). Structured types cross
+in two steps, and the second step's type forces you to have a plan for bad data:</p>
+
+<pre class="code"><span class="c">// promises only "it's a list" — checkable, so checked</span>
+list&lt;term&gt; EtsLookup(int id) = [Erlang("ets", "lookup")];
+
+<span class="c">// the crossing — one line, and its type says it can fail</span>
+result&lt;list&lt;Order&gt;, ValidationError&gt; Lookup(int id) =&gt;
+    EtsLookup(id) |&gt; ValidateAs&lt;list&lt;Order&gt;&gt;();
+
+(id) -&gt; Lookup(id) <span class="k">switch</span> {
+    [o, ..rest]  =&gt; Format(o),
+    []           =&gt; &lt;&lt;"no such order"&gt;&gt;,
+    <span class="g">(:error, e)  =&gt; Report(e)</span>   <span class="c">// cannot be omitted — ticket 12</span>
+};</pre>
+
+<p>This is <b>ticket 11 §2's rule applied verbatim at a second site</b>, not a new rule — it refuses
+to let the FFI declaration be a back door around the cap the clause head already obeys. It also
+<i>dissolves</i> the FFI <code>-spec</code> sub-question rather than answering it: a declared type
+that is always O(1)-decidable and guarded on return makes the emitted spec a checked claim like any
+other.</p>
+
+<div class="callout">
+<p><strong>And the two-step crossing is not new discipline — it is the platform's own idiom, applied
+at one channel out of eight.</strong> Ecto's <code>cast</code> → <code>validate_*</code> →
+<code>{:ok, struct} | {:error, _}</code> is <code>ValidateAs&lt;T&gt;</code> hand-written, and the
+whole Phoenix world runs on it. Measured in a local Elixir application: <b>9 changeset pipelines and
+29 <code>validate_*</code> calls, beside 5 ETS reads that every one bind the payload bare</b> — the
+same shape the Gleam probe produced, arrived at independently, because there is no reason to
+distrust a table you filled yourself.</p>
+<p>Which is exactly what ticket 21 established you cannot prove on this platform.</p>
+</div>
+
+</div>
+
+<div class="wrap">
+
+<h2>The state channel was wider than charted</h2>
+
+<p>Ticket 14 narrowed a callback's <i>request</i> argument to <code>term</code> by contravariance —
+but its own example still declares the <b>state</b>, and 14 never justified that position. It is
+reachable by a documented OTP function any process can call.</p>
+
+<pre class="code">sys:replace_state(P, fun(_Old) -&gt; {account, &lt;&lt;"one"&gt;&gt;, &lt;&lt;"lots"&gt;&gt;} end).
+
+normal                     : 100
+after sys:replace_state    : <span class="e">&lt;&lt;"lots"&gt;&gt;</span>
+  is_integer(that balance) : <span class="e">false</span></pre>
+
+<p>The state is structured and touched on <i>every message</i>, so checking it per callback is
+<code>ValidateAs&lt;State&gt;</code> at message rates — the unbounded-work-per-message shape ticket 11
+§2 refused. Checking at the <b>entrances</b> costs one validate per hot upgrade.</p>
+</div>
+
+<div class="wide">
+<figure>
+  <div class="panel">
+<pre class="mermaid">
+%%{init: {"theme": "base", "themeVariables": {
+  "background": "#F1F3F5", "mainBkg": "#FFFFFF", "primaryColor": "#FFFFFF",
+  "primaryTextColor": "#1C2127", "textColor": "#1C2127",
+  "nodeBorder": "#5C6670", "lineColor": "#5C6670",
+  "edgeLabelBackground": "#F1F3F5", "labelTextColor": "#1C2127",
+  "clusterBkg": "#F1F3F5", "clusterBorder": "#C4CBD1"
+}}}%%
+flowchart LR
+  i["init/1"] -->|"your own typed code — trusted"| S["the typed state"]
+  c["code_change/3"] -->|"validated once per upgrade"| S
+  r["sys:replace_state/2"] -->|"unreachable — inside OTP's own loop"| S
+  S -->|"no check, ever"| m["every message"]
+</pre>
+  </div>
+  <figcaption>Ticket 21's principle — <i>check where a term becomes a typed value</i> — applied a
+  third time, and the first time it has bought a large saving rather than cost one.
+  <code>sys:replace_state</code> is a named limit rather than a decision: OTP applies the supplied
+  fun inside a loop beam-sharp does not compile, so codegen cannot reach it. Getting there takes a
+  shell and a deliberate act.</figcaption>
+</figure>
+</div>
+
+<div class="wrap">
+
+<h2>How far the analysis looks</h2>
+
+<p>C asks "would the body object?", and that question needs a stopping point. <b>It looks at the
+exported function's own clause heads and body, and no further.</b></p>
+
+<div class="pair">
+  <div>
+    <span class="lab">describe.bs</span>
+<pre class="code">binary Describe(int id);
+(id) -&gt; Format(id);
+
+<span class="c">%% emitted, function-local</span>
+describe(Id) <span class="k">when</span> is_integer(Id) -&gt;
+    format(Id).</pre>
+  </div>
+  <div>
+    <span class="lab">format.bs — edited alone, later</span>
+<pre class="code">binary Format(int n);
+<span class="c">// was: Integer.ToBinary(n) — badargs</span>
+(n) -&gt; Cache.Put(n);
+
+<span class="e">%% whole-aggregate: describe.bs's boundary
+%% just changed, with no diff to show it</span></pre>
+  </div>
+</div>
+
+<p><b>The standing constraint decides it.</b> One function per file exists so an agent's
+<code>write_scope</code> is a file with bounded blast radius and a reviewable single-file diff.
+Whole-aggregate analysis reintroduces exactly the blast radius that rule removed. Ticket 12 made the
+structurally identical call — keeping the failure arm everywhere rather than accepting a saving
+whose soundness depended on something not locally visible.</p>
+
+<h2>Elm defends its boundary, and it does not transplant</h2>
+
+<p>Elm was the one candidate for a language whose static guarantees survive its escape hatch, and it
+does: <code>Optimize/Port.hs toDecoder</code> synthesises a decoder from each port's declared type,
+<code>_Platform_setupIncomingPort</code> runs it on every incoming value, and Elm code is unreachable
+unless it succeeded — byte-identical under <code>--optimize</code>. <b>This partially retracts ticket
+21</b>, whose conclusion was that no language defends by checking data.</p>
+
+<p>But Elm owns <b>the one door</b> — <code>return { send: send }</code>. beam-sharp's callers arrive
+by mailbox, ETS, timer, <code>DOWN</code> and <code>code_change</code>, none of which traverse
+compiler-emitted code. The mechanism transfers; the coverage does not. The sharpened claim, and the
+one this ticket used: <b>checking data is what you do at a door you own, and the BEAM's problem was
+never that checking is unusual — it is that there is no door.</b></p>
+
+<div class="callout">
+<p><strong>Two things from Elm that cut in opposite directions.</strong></p>
+<p><b>Corroboration:</b> Elm's admissible port type set is a closed whitelist rejecting functions,
+type variables, <code>Dict</code>, <code>Set</code>, <code>Result</code> and every custom union —
+including a payload-free enum. That is exactly "types with a decidable structural test":
+<b>ticket 09 §4's rule reached independently on a different runtime.</b></p>
+<p><b>Caution:</b> outcome 3 survives <i>inside</i> Elm's checking boundary.
+<code>_Json_decodeInt</code> accepts any finite whole number, so <code>1e300</code> crosses an
+<code>Int</code> port and <code>n + 1 == n</code>. beam-sharp does not inherit this —
+<code>is_integer/1</code> is exact and BEAM integers are arbitrary precision — but it is the measured
+reason a maximal claim is harder to keep than it sounds.</p>
+</div>
+
+<h2>What it costs</h2>
+
+<div class="tablewrap">
+<table>
+  <caption>OTP 28.5 · arm64 Darwin · prototypes/18a</caption>
+  <thead><tr><th>Case</th><th>Code chunk</th><th>.beam file</th><th>Call time</th></tr></thead>
+  <tbody>
+    <tr><th>one <code>is_integer</code></th><td class="num">+3 to +5 B</td><td class="num">+0.7%</td><td>below resolution</td></tr>
+    <tr><th>two <code>is_integer</code></th><td class="num">+10 B</td><td class="num">+1.5%</td><td>below resolution</td></tr>
+    <tr><th>tuple discriminator</th><td class="num">+13 B (+17.8%)</td><td class="num win">−4 B</td><td>below resolution</td></tr>
+    <tr><th>four <code>is_integer</code></th><td class="num">+22 B</td><td class="num">+4.3%</td><td class="lose">+0.44–0.87 ns, confounded</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Resolution of the timing method is ±0.09 ns/call, and only the four-guard case clears it — with
+that figure confounded by body optimisation the guards themselves enabled. <b>The qualitative return
+is larger than the numbers.</b> A guard turns a silent <code>4.0</code> into a
+<code>function_clause</code> naming the offending argument, and in the tuple case it moves the blame
+from a compiler-generated literal inside <code>erlang:element/2</code> to <i>the caller's own term in
+the caller's own function</i>.</p>
+
+<div class="callout">
+<p><strong>One structural finding killed a design option mid-session.</strong> Elision is
+<b>exported vs local-only</b>, not local-call vs remote-call: a BEAM function has one entry label
+shared by both call kinds. So "emit a guarded public entry plus an unguarded internal one" — floated
+as the cost mitigation for the maximal claim — <b>cannot be done with one function</b>. Interior
+functions already pay nothing, which is the shape the chosen answer wanted anyway.</p>
+</div>
+
+<h2>The decisions</h2>
+
+<ul class="decisions">
+  <li>
+    <span class="tag kept">kept</span>
+    <h3>Guards where the body would not object</h3>
+    <p>Never on type variables — 27 §3 makes them opaque, so there is nothing to test and the shape
+    is the caller's. Always on anything feeding a codegen obligation.</p>
+    <div class="rejected"><b>Rejected:</b> guarding every ground parameter — unprecedented, and the
+    census shows the platform's implicit safety net already covers most of it.
+    <b>Rejected:</b> guarding nothing — 16's encoder and 17's inlined operations would then run on
+    unvalidated data inside code nobody reviewed.</div>
+  </li>
+  <li>
+    <span class="tag kept">kept</span>
+    <h3>A foreign declaration promises only what one guard checks</h3>
+    <p>Closes ETS reads, decoded terms, ambient config and the reply channel together, and dissolves
+    the FFI <code>-spec</code> sub-question.</p>
+    <div class="rejected"><b>Rejected:</b> declare anything, check one level deep — that is Gleam's
+    measured failure with one extra layer of tag. <b>Rejected:</b> trust the declaration — the thing
+    the guarantee exists to rule out.</div>
+  </li>
+  <li>
+    <span class="tag kept">kept</span>
+    <h3>The state is defended at its entrances</h3>
+    <p><code>ValidateAs&lt;State&gt;</code> in <code>code_change/3</code>, <code>init</code> trusted,
+    nothing per-message. <code>sys:replace_state</code> is a named limit.</p>
+    <div class="rejected"><b>Rejected:</b> an O(1) tag check per callback — two instructions, but it
+    would claim a defence one level deep, which is what was refused for the FFI.
+    <b>Rejected:</b> a full check per callback — O(n) at message rates.</div>
+  </li>
+  <li>
+    <span class="tag kept">kept</span>
+    <h3>Function-local analysis, and no opt-out</h3>
+    <p>A guard can only move when you edit the function it sits on.</p>
+    <div class="rejected"><b>Rejected:</b> whole-aggregate analysis, with or without an emitted
+    manifest — the manifest recovers visibility but adds a build artefact the spec must version, and
+    hands ticket 23 a dependency it did not ask for.</div>
+  </li>
+</ul>
+
+<h2>Claim → source</h2>
+
+<div class="tablewrap">
+<table>
+  <thead><tr><th>Claim</th><th>Source</th><th>Provenance</th></tr></thead>
+  <tbody>
+    <tr><th>83.3% of OTP exported parameters are bare</th><td>stdlib + kernel abstract code, 199 modules</td><td>local · OTP 28</td></tr>
+    <tr><th>Gleam publishes a false <code>-spec</code> for <code>@external</code></th><td>generated Erlang + runtime probe</td><td>local · Gleam 1.18.1</td></tr>
+    <tr><th>A typed gen_server state is replaceable by any process</th><td><code>sys:replace_state/2</code> probe</td><td>local · OTP 28</td></tr>
+    <tr><th><code>[safe]</code> defends the atom table, not the shape</th><td><code>binary_to_term/2</code> probe</td><td>local · OTP 28</td></tr>
+    <tr><th>Guard cost, and elision is exported-vs-local</th><td><code>prototypes/18a_guard_cost.md</code></td><td>local · OTP 28.5 arm64</td></tr>
+    <tr><th>Ecto's idiom is used at one channel only</th><td>local Elixir app: 9 cast pipelines, 5 bare ETS reads</td><td>local</td></tr>
+    <tr><th>Elm synthesises and runs a decoder per port</th><td><code>research/18-elm-port-validation.md</code></td><td>local + src · Elm 0.19.1</td></tr>
+    <tr><th><code>1e300</code> crosses an Elm <code>Int</code> port</th><td>same file, <code>_Json_decodeInt</code></td><td>local · Elm 0.19.1</td></tr>
+  </tbody>
+</table>
+</div>
+
+<footer>
+  <p>Ticket 18 · <code>wayfinder/issues/18-boundary-defence.md</code> · resolved 2026-08-13.
+  Constraints pushed to tickets 20, 21, 23 and 26. The tag/payload asymmetry — a clause head testing
+  the tag and binding the payload bare — was sighted three times in one session: Gleam's FFI, a real
+  Elixir ETS read, and an OTP callback head. That is the ticket's strongest evidence that a pattern
+  match is not a check.</p>
+</footer>
+
+</div>
