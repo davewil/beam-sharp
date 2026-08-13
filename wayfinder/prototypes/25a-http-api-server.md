@@ -247,6 +247,24 @@ Six things, ordered by how much they should worry you.
    and never declared** — I did not notice until reviewing, which is itself the finding, since an
    agent author would not have either. → tickets 23, 08, and the module/namespace fog.
 
+8. **Every `string` field costs an O(n) UTF-8 traversal at the boundary, and a request is mostly
+   string fields.** Ticket 20 §4 made `string` a `binary` refined by valid UTF-8 — an **opaque**
+   refinement, established by generated code where a value enters, and the map's *sixth* codegen
+   obligation. `CreateOrder` has two `string` fields (`Id`, and `Sku` on every `Line`), so
+   validating one order with *n* lines is *n+1* full traversals **on top of** `ValidateAs<T>`'s own
+   structural walk. The lowering makes this concrete — `is_utf8/1` is a real function doing a real
+   pass. Ticket 20 noted the obligation *"lands on the language's most-passed value"* and asked the
+   skeleton to measure it *"on a realistic string-handling path rather than in isolation"*.
+   **An HTTP request parser is that path**, and it is now written. → ticket 20, and the skeleton's
+   tenth measurement.
+
+9. **`Json.Encode` is invented, like the map literal in item 6.** The exemplar needs a prelude name
+   for serialisation and none is settled. This matters more than a naming quibble because ticket
+   17 §2's two-tier rule makes prelude membership determine the **emitted type** — a compiler-known
+   encoder inlines and keeps its precision, a user-level one degrades to `any()`. So "what is
+   `Json.Encode`" is a question about the *type* of every response, not about spelling.
+   → the stdlib-shape fog patch, tickets 16, 17.
+
 ### What did not appear
 
 **No pipes.** Not one `|>` in the whole exemplar, and no `|?>` either. Request handling here is

@@ -238,6 +238,32 @@ Five things, ordered by how much they should worry you.
    numeric interval where most values share one meaning. An interval **pattern** would fix it, and
    ticket 20 put intervals in the type language only. → ticket 12, 20.
 
+2b. **The obvious workaround for item 2 is lossy, and exhaustiveness catches it in the wrong
+   function.** Collapsing all eleven reserved opcodes to a single `:reserved` atom — which is what
+   `opcode.bs` above does, and what anyone would do to stop the tax spreading — **destroys which of
+   the eleven it was**. So the inverse is uninhabitable:
+
+   ```csharp
+   int OpCode(Opcode);
+
+   (:continuation) -> 0;
+   (:text)         -> 1;
+   // ... and then :reserved, which has no integer to return
+   ```
+
+   `Opcode` has seven members, so exhaustiveness demands a `(:reserved)` clause, and there is no
+   honest body for it. The compiler is right and it complains **in `encode.bs`, about a mistake made
+   in `opcode.bs`** — one file away from the decision that caused it, which is exactly the
+   blast-radius property ticket 13's one-function-per-file was supposed to bound.
+
+   **The evidence is that I made this mistake while writing this exemplar and did not notice.** The
+   Erlang lowering returns *distinct* atoms (`reserved_3` … `reserved_f`, all eleven) and its
+   `op_code/1` covers only the six real opcodes — a partial function that crashes on the rest. The
+   beam-sharp source above returns the *collapsed* `:reserved`. **The two artifacts silently
+   disagree**, and the lowering is the one that is right. So item 2's tax is worse than item 2 says:
+   round-tripping needs **eleven distinct atoms**, not one, and the cheap-looking escape is a
+   correctness bug the type system only reveals downstream. → tickets 12, 20, 04.
+
 3. **Ticket 17 §3's accumulator widening collides with ticket 20 §4.** The declared `binary` and
    the inferred `bitstring()` disagree, and a single non-byte-aligned chunk crashes at runtime with
    a `badarg` whose `error_info` names the offending segment. The pipe itself reads fine — **17's
@@ -248,6 +274,15 @@ Five things, ordered by how much they should worry you.
    second form: without a catch-all, unmatched messages accumulate invisibly rather than being
    dropped. Ticket 24 made the client API the test boundary, and this is invisible from there —
    nothing in the client API observes mailbox depth. → tickets 14, 24.
+
+5. **I invented four prelude names and the exemplar should say so.** `Binary.Append`, `List.Fold`,
+   `ByteSize` and `Unmask` are written above as though they exist. Ticket 17 §1 fixed that chaining
+   uses **qualified** names, and ticket 27 dropped the collection library out of the compiler-known
+   stratum — but *which* module a binary-building operation lives in, and whether `Binary` is a
+   prelude module at all, is unanswered. The map's stdlib-shape fog patch owns this; it is worth
+   recording that a binary-heavy exemplar cannot be written without inventing at least a
+   `Binary.Append`, since ticket 17's inlining rule makes prelude membership determine the
+   **emitted type**, not merely the spelling. → the stdlib-shape fog patch, ticket 17.
 
 ### What ticket 22 can now take from this
 

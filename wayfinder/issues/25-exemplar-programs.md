@@ -196,7 +196,19 @@ ticket 20, closed and finite. Five values are named by RFC 6455; **eleven are re
 Naming the cases read **worse**, unambiguously. The fix is an interval *pattern*, and ticket 20 put
 intervals in the type language only. The HTTP exemplar's route table, by contrast, gets its
 catch-all legally — but *by accident*: it is legal because `list<string>` is infinite, not because
-a 404 is the specified response to an unmatched request. → tickets 12, 20.
+a 404 is the specified response to an unmatched request.
+
+**And the tax is worse than that, because the obvious escape from it is a correctness bug.**
+Collapsing all eleven reserved opcodes to a single `:reserved` atom — the natural move, and the one
+the beam-sharp source made — **destroys which of the eleven it was**, so the inverse function is
+uninhabitable: exhaustiveness demands a `(:reserved)` clause of `int OpCode(Opcode)` and there is no
+honest integer to return. The compiler is right, and it complains **in `encode.bs` about a decision
+made in `opcode.bs`** — one file away, which is the blast radius ticket 13's one-function-per-file
+was meant to bound. **The evidence is that I made this mistake while writing the exemplar and did
+not notice**: the Erlang lowering carries eleven *distinct* reserved atoms while the beam-sharp
+source carries one, and the two artifacts silently disagreed until this was checked. So
+round-tripping needs eleven distinct atoms, not one — the cheap-looking escape trades a verbosity
+tax for a silent loss of information. → tickets 12, 20, 04.
 
 ### The finding neither ticket asked for, and it is the sharpest
 
