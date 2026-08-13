@@ -1,7 +1,7 @@
 # 32 — The FFI surface: how a foreign function is declared and called
 
 Type: grilling
-Status: open
+Status: claimed (measured 2026-08-14; three forks open for David)
 
 Raised 2026-08-13 from the map's **Bootstrapping** fog patch, axis (b). Everything about what a
 foreign declaration may *mean* is decided; nothing about how one is *written* is.
@@ -89,8 +89,87 @@ own OTP layer rather than only compiler-known types over Erlang's, this is the c
 layer is written in. Ticket 00 made `handle_call/3` the showcase, so the headline demo's
 implementation strategy waits on this.
 
+## Measurements, 2026-08-14
+
+The prior art the ticket said to consult first was **run rather than read**, per the map's
+provenance rule. Four prototypes, all `local`: Gleam 1.18.1, OTP 28.5, Elixir 1.19.5, .NET 9.0.306.
+
+| # | Prototype | What it settles |
+|---|---|---|
+| 32a | [Gleam's `@external` lowering](../prototypes/32a_gleam_external.md) | borrow the syntax, refuse the **lowering** too |
+| 32b | [Name-mapping census](../prototypes/32b_name_census.md) | §3 and §4, by counting |
+| 32c | [C#'s `DllImport`, run](../prototypes/32c_csharp_foreign_declaration.md) | §1, and a correction to this ticket's framing |
+| 32d | [Where the boundary code lives](../prototypes/32d_where_boundary_code_lives.md) | prices a fork the ticket did not know it had |
+
+**A. The sub-questions that measurement closes on its own.**
+
+- **§4 — one arity per declaration, no defaults, and the reason is stronger than "safe".** 23.3% of
+  stdlib+kernel name/arity pairs carry more than one arity, and **45 of those 756 have gaps** in the
+  arity set (`inet_udp:send/2,4` with no `/3`; `io_lib:write/1,2,3,5`). A default-argument reading
+  generates a *contiguous* ladder, so a foreign arity family is not ticket 08's generated arities and
+  cannot be described as them.
+- **§2 — per function.** Per-module import cannot select an arity, and §4 makes arity the thing being
+  named. This also follows Gleam and C# together.
+- **§6 — the call site is not specially marked.** Ticket 17 §1 already made every call qualified, and
+  the foreign module name carries it.
+
+**B. A finding the ticket did not anticipate: the tier-1 borrow has the same hole as Gleam.**
+Two C# names over one foreign symbol with **different declared return types** both compiled and both
+ran (32c). This ticket framed unchecked FFI as Gleam's flaw against a clean C# borrow; measured,
+`extern` is unchecked too. So ticket 18's guard is a **deliberate divergence from both audiences**,
+not merely from Gleam, and the spec owes that sentence — a C# reader expects `extern` to be a
+promise nobody checks. The compensation is real and worth stating beside it: because 18 checks,
+**beam-sharp can emit the `-spec` Gleam emits and unlike Gleam's it is not a lie.**
+
+**C. A fork the ticket did not know it had — and it is a *lowering* question, not a syntax one.**
+Gleam's `@external` emits a wrapper function where the **module's API** needs one and never where
+the **boundary** does: a public external that is never called still gets a function and a `-spec`,
+while a private external that *is* called is erased entirely, its call inlined (32a). beam-sharp
+cannot copy that, because ticket 15's `try` wrapper and ticket 18's guard have to live somewhere.
+Priced in 32d: **~60 bytes once as a function, versus ~65 bytes per call site inlined** — flat
+against linear, 43× apart at 40 call sites. Gleam's inlining is affordable *only because it checks
+nothing*.
+
+This ticket decides syntax and says so. **The number is recorded here; the choice is not taken
+here** — see fork 3 below.
+
+## Open forks — David's call
+
+**Fork 1 — does the foreign marker share ticket 23 §7's clauseless-signature construct?**
+23 §7 made a signature with no clauses legal with an explicit marker and left the *marker's
+spelling* to [ticket 22](22-how-opinionated.md), which is deferred. A foreign declaration is the
+same construct with a different marker (confirmed against C# in 32c). Folding them together gains
+the language an FFI for the cost of an attribute — and decides a slice of 22 from here, which is a
+scoping call rather than a routine one.
+
+**Fork 2 — naming: identity-plus-override, or always both spellings?** The two candidates are not
+symmetric and the asymmetry is measured (32b):
+
+- *Mechanical mapping* reaches **1,920 of 1,924** stdlib+kernel names (99.8%), failing only on a
+  segment that begins with a digit (`bin_is_7bit`, `read_4`). But across the whole loadable tree
+  **265 module names cannot be spelled at all** (`'PKCS-1'`, `'OTP-PKIX'`, `'ELDAPv3'`), so a
+  mapping *must* carry an override or part of OTP is unnameable.
+- *Always both spellings* (Gleam's) has **no failure case anywhere**, and pays ceremony on the 1,920
+  names where the mapping would have worked — which the standing constraint prices at near-free to
+  write and non-free to read.
+- C#'s own answer is a third shape: **identity by default, `EntryPoint` override when they differ**
+  (32c). Note Elixir inverts the problem — its module atoms are already dotted PascalCase and map
+  losslessly, while **a quarter of its function names cannot be spelled by any mapping** (`fetch!`,
+  `valid?`, `&&&`).
+
+**Fork 3 — is the lowering 32's to decide?** The measurement is unambiguous, but this ticket's own
+scope line says it adds no checking rule and decides syntax. Either it takes the lowering as an
+explicit sub-answer, or the number lands as a note the spec owes and the choice moves elsewhere.
+
 ## Notes
 
 Grilling. Blocked by nothing. The skeleton lists FFI as out of slice, so nothing forces it yet —
 but it gates the bootstrapping patch and ticket 31, and it is the smallest of the three
 bootstrapping axes.
+
+**One measured fact belongs to the bootstrapping patch rather than to this ticket.** Elixir exports
+its macros as `MACRO-`-prefixed functions (`MACRO-__using__`, `MACRO-defcallback`), which are
+compile-time constructs of Elixir's compiler and **not callable from another language** (32b). So an
+FFI to Elixir reaches its functions and never its macros, and `use GenServer` is unreachable across
+the boundary — which means bootstrapping axis (c), *"a beam-sharp `GenServer`, as Elixir has one"*,
+cannot be Elixir's shape at that seam even after this ticket lands.
