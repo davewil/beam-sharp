@@ -191,7 +191,7 @@ demo() ->
     after 1000 -> io:format("conn_loop          -> TIMEOUT~n") end,
 
     %% Timeout path
-    P3 = spawn(fun() -> Self ! {result3, conn_loop(state0)} end),
+    _P3 = spawn(fun() -> Self ! {result3, conn_loop(state0)} end),
     receive {result3, R3} -> io:format("conn_loop timeout  -> ~p~n", [R3])
     after 1000 -> io:format("conn_loop timeout  -> TIMEOUT~n") end,
 
