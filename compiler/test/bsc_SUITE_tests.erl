@@ -212,3 +212,47 @@ tuple_subtraction_decomposes_test() ->
     R = bs_types:subtract(T, bs_types:tuple([Ok, bs_types:int()])),
     ?assertEqual("(:error, atom)", bs_types:to_string(R)),
     ?assert(bs_types:is_none(bs_types:subtract(R, bs_types:tuple([Err, bs_types:atom_top()])))).
+
+%%% ---------------------------------------------------------------------------
+%%% The built escript
+%%%
+%%% `escript_emu_args` named a module that does not exist (`bsc_cli`), so the
+%%% README's documented quickstart died with `undefined function bsc_cli:main/1`
+%%% while every test above passed — because none of them executed the artefact
+%%% users are told to run. Found by a teammate building the OTP corpus, who had
+%%% to route around it.
+%%%
+%%% Two tests: one that reads the config and needs no build, so it fails wherever
+%%% it is run; one that executes the escript when it has been built.
+%%% ---------------------------------------------------------------------------
+
+escript_entry_point_exists_test() ->
+    {ok, Terms} = file:consult(project_root() ++ "/rebar.config"),
+    Args = proplists:get_value(escript_emu_args, Terms),
+    ?assertNotEqual(undefined, Args),
+    %% "%%! -escript main bsc\n" -> bsc
+    [_, "-escript", "main", ModStr | _] = string:lexemes(Args, " \n"),
+    Mod = list_to_atom(ModStr),
+    ?assertMatch({module, Mod}, code:ensure_loaded(Mod)),
+    ?assert(erlang:function_exported(Mod, main, 1)).
+
+built_escript_compiles_a_file_test() ->
+    Escript = project_root() ++ "/_build/default/bin/bsc",
+    case filelib:is_regular(Escript) of
+        false ->
+            %% Nothing built; the config test above still guards the regression.
+            ok;
+        true ->
+            Out = ?OUT ++ "/escript",
+            ok = filelib:ensure_dir(Out ++ "/x"),
+            Src = Out ++ "/in.bs",
+            ok = file:write_file(Src, showcase_src()),
+            Result = os:cmd(Escript ++ " -o " ++ Out ++ " " ++ Src ++ " 2>&1; echo rc:$?"),
+            ?assert(string:find(Result, "rc:0") =/= nomatch),
+            ?assert(filelib:is_regular(Out ++ "/Readings.beam"))
+    end.
+
+%% eunit runs from _build/test/lib/bsc, so walk back to the project.
+project_root() ->
+    filename:join(lists:takewhile(fun(C) -> C =/= "_build" end,
+                                  filename:split(element(2, file:get_cwd())))).

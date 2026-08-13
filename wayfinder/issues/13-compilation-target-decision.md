@@ -351,3 +351,46 @@ the language now ships a **model of OTP** rather than only emitting for it:
 Both failure modes are *being out of date* rather than *being wrong*, and both live in a data file
 rather than in language semantics — but they are new reasons the corpus exists, alongside proving
 `+from_abstr` on the oldest supported release.
+
+## Amended by the OTP range corpus — 2026-08-13
+
+Measured once the walking skeleton existed to generate real forms:
+[`research/13-otp-range-corpus.md`](../research/13-otp-range-corpus.md),
+[`prototypes/13c_otp_range_corpus.sh`](../prototypes/13c_otp_range_corpus.sh).
+
+**§5's "provisional" is discharged.** `erlc +from_abstr` exists on **OTP 24, 25, 26, 27 and 28**,
+the forms `bs_emit` produces build unchanged on all five, the modules are callable and return
+correct values, and **the emitted `-spec` survives byte-identically** — equal `phash2` per module
+across the range, which closes the *backwards* half of §6 that nobody had checked. Nothing found is
+version-sensitive at all.
+
+**The range holds and is conservative by two majors.** 24 and 25 pass the identical corpus, so the
+floor is not a cliff. The pin stays at three, because §5's reason was never "older ones fail" — it
+was matching the ecosystem norm and keeping pressure on the emitter to stay on the format's stable
+core, and that reasoning survives 24/25 passing. Recorded rather than acted on.
+
+**§4 gains a sentence it needed and did not have: the range is a property of the *target runtime*,
+not the build host.** A 28-built beam-sharp `.beam` is `{error,badfile}` on 26 and 27 — and so is
+this compiler's own `.beam`. **The portable artefact is the `.abstr`, not the `.beam`.** §2 already
+implies the host is unconstrained; §4 never said it, and §4's own artefact is the one that does not
+travel. That raises a question neither this ticket nor the compiler's README answers: **distributing
+a beam-sharp library across the range means shipping `.abstr` or building per target.** Left as an
+open consequence rather than decided here — it is a packaging question, and packaging is out of
+scope on the map.
+
+**§4's CI corpus should be grown from the emitter's vocabulary, not from the examples.** The two
+committed examples exercise only **6 of `bs_emit`'s 11 type forms and 7 of its 11 operators** — a
+corpus that grows only when someone writes a new `.bs` will drift behind the emitter silently. A
+synthetic `Coverage` module, hand-derived from `bs_emit.erl`, covers the rest and builds everywhere
+too. **This is the durable form of the obligation**, and it is a stricter rule than "run the
+examples on every release".
+
+**One methodological warning worth keeping.** `erlc -h` does **not** list `from_abstr` on any
+release, 28.5 included, where it demonstrably works — it is a `+`-passed compile option rather than
+a documented flag, so the only honest test is to build with it. The corpus nearly reported it
+*absent* on 26 and 27 off the help output. Anything else this ticket asserts about `erlc`'s option
+surface should be tested the same way.
+
+**Five gaps recorded rather than papered over**: Linux/arm64 only; three modules is not a corpus;
+OTP 29 is unreleased; only `+debug_info` was exercised; and Dialyzer was not run on the older
+releases — which matters, because §6's `-spec` emission is the thing Dialyzer consumes.

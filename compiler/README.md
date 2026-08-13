@@ -46,3 +46,15 @@ numbers that would *falsify* a decision rather than confirm it. Two are now paid
   snake_case, or prefixed as Elixir's `Elixir.` is); quoting pre-empts it least.
 - **A variable the body never uses lowers to `_`-prefixed**, so a named-but-unused parameter does
   not draw an Erlang warning. Found by running the emitter, not by reading it.
+- **`bs_emit:int_part/1`'s bounded branches are not reachable from the surface yet.** Intervals are
+  in the algebra and the checker uses them, but they arise only from *guards*, and a guard refines a
+  clause rather than a signature — so a parameter declared `int` emits `integer()` whatever its
+  clauses test. The surface owes ticket 20 §5's `type Positive = int where value > 0;`. **That is
+  the next slice increment.**
+
+## Verified across the OTP range
+
+The `.abstr` this compiler emits builds unchanged on **OTP 24, 25, 26, 27 and 28**, with the modules
+callable and the emitted `-spec` byte-identical on all five — see
+`wayfinder/research/13-otp-range-corpus.md`. Note the portable artefact is the **`.abstr`**, not the
+`.beam`: a 28-built `.beam` is `{error,badfile}` on 26.

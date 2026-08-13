@@ -174,6 +174,20 @@ parts(#{atoms := As, ints := Is, tuples := Ts}) ->
 atom_parts({finite, L})    -> [{atom, ?A, A} || A <- L];
 atom_parts({cofinite, _})  -> [{type, ?A, atom, []}].   % widened: the exclusion is lost
 
+%% NOT DEAD, BUT NOT YET REACHABLE. Every branch below except the first is
+%% unreachable from the current surface, and it is worth being precise about why
+%% rather than deleting them or leaving it to be rediscovered.
+%%
+%% These read an interval out of a *declared* type. Ticket 20 put intervals in the
+%% algebra and the checker genuinely uses them — it is what makes `math.bs`
+%% exhaustive with no catch-all — but they only ever arise from a **guard**, and a
+%% guard refines a clause rather than a signature. A parameter declared `int` is
+%% `int` in the spec whatever its clauses test.
+%%
+%% The surface owes the syntax that would reach them: ticket 20 §5's guard
+%% refinement, `type Positive = int where value > 0;`, which the parser does not
+%% yet implement. That is the next slice increment, not a defect here.
+%% Found by a teammate measuring emitter coverage for the OTP corpus.
 int_part({neg_inf, pos_inf}) -> {type, ?A, integer, []};
 int_part({Lo, Hi}) when is_integer(Lo), is_integer(Hi) ->
     {type, ?A, range, [{integer, ?A, Lo}, {integer, ?A, Hi}]};
