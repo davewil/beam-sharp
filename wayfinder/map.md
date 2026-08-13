@@ -758,10 +758,22 @@ spec exists.
 - **The boundary manifest's concrete format** — new with ticket 24, which gave it three consumers
   (the boundary classification, the missing-observation advisory, and the elision list) and
   deliberately named it one artefact rather than three, since 18 §5 already priced a build artefact
-  as something the spec must define, version and keep stable. Not yet sharp because what a consumer
-  wants of it is exactly what ticket 25's exemplars would show, and none exist. Note it is the
+  as something the spec must define, version and keep stable. ~~Not yet sharp because what a consumer
+  wants of it is exactly what ticket 25's exemplars would show, and none exist.~~ Note it is the
   map's first capability serving testing alone; it clears the scope bar on the 2026-08-13
   clarification as *one capability the language owes its author*, not the ecosystem track.
+  **THE BLOCKING PREMISE IS STALE — 2026-08-13. Two exemplars now exist**
+  ([`25a`](prototypes/25a-http-api-server.md), [`25b`](prototypes/25b-websocket-handler.md)), so
+  "none exist" is simply no longer true, and this patch is unblocked whether or not it is yet
+  sharp. **This is the second time the map has held a patch behind a premise nobody re-tested** —
+  the walking skeleton's *"cannot be phrased sharply until the language surface exists"* was found
+  to be *"true only of the whole surface… and it was invisible because nobody re-tested the
+  claim."* Recorded here rather than repeated. What the two exemplars actually show a consumer
+  wants: **the elision list is the half with teeth**, since 25a's route table and 25b's frame
+  decoder both dispatch on shapes whose boundary guards 18 would elide, and a test of those paths
+  then measures nothing; and **the client-API boundary is not observable for a raw `receive`
+  process** — 25b's connection loop is not a `gen_server`, so 24's "client API against a running
+  process" has no client API to name, which the manifest must either classify or admit it cannot.
 
 - **The walking skeleton**: which slice of the spec it implements, and what language the
   compiler itself is written in. Cannot be phrased sharply until the language surface exists.
@@ -1021,7 +1033,21 @@ spec exists.
   a settled criterion, but the field is down to one live answer. 16 also leaves one *named* debt
   here beyond `ToExistingAtom`'s respelling: what the published serialisation mapping says about
   the shapes ticket 20 calls untheorised — binaries and bitstrings above all, since 25 puts three
-  of six ordinary workloads there. **Ticket 17 adds a third candidate criterion, and it is the
+  of six ordinary workloads there. **Ticket 25 adds a SECOND named debt to that mapping, measured
+  2026-08-13, and it inverts the direction 16 §4 was reasoning in.** 16 §4 cited `json:encode/1`'s
+  *refusal* of tuples as the reason generation is owed — but the language's own types **force the
+  mapping to define a tuple encoding rather than reject one**: `result<T, E>`'s failure member is
+  `(:error, E)` and `ValidationError` is a tuple, so a 422 response body and any response embedding
+  a `result` are both unencodable ([`25a`](prototypes/25a-http-api-server.md), measured:
+  `{crashed, error, unsupported_type}`). Serialisation is admitted **by decree**, so a published
+  mapping saying `(:error, E)` → `{"error": …}` settles it without disturbing ticket 15's tag —
+  which is why this is a debt on the *mapping* and not a reopening of 15. Note the one part that
+  needs no decree: **`ValidationError` should simply be respelled as a record**, since 26 shipped
+  records the same day CONTEXT.md was still calling it *"a record candidate if one is ever
+  introduced"*, and a record erases to a map. Third debt, smaller and also 25a's: **a record's
+  minted tag reaches the serialiser** as ordinary data, so the mapping must say whether the wire
+  format carries `"kind":"Shop.Orders.Order"` — and "always strip" is not obviously right, since a
+  discriminated union on the wire is exactly what a tag is for. **Ticket 17 adds a third candidate criterion, and it is the
   first that is observable in the output**: stratum 2 is **what the compiler inlines**. 17 §2
   established that emitted precision is a privilege of inlining — a compiler-known `List.Map`
   recovers `[integer()] -> [binary()]` where an identical user-written generic emits `[any()]` — so

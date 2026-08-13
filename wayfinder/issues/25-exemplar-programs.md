@@ -211,8 +211,16 @@ handler does, which is putting its own error reason on the wire.
 **The fix already exists and nobody had connected it.** CONTEXT.md records `ValidationError` as
 *"a tuple today; a record candidate if one is ever introduced"* — and ticket 26 introduced records
 the same day. A record erases to a map and `json:encode` takes a map directly. **`ValidationError`
-should be respelled as a record.** `result`'s `(:error, E)` remains genuinely open, since ticket 15
-chose the tag precisely because an untagged failure channel collapses. → tickets 15, 16, 26.
+should be respelled as a record.**
+
+`result`'s `(:error, E)` needs a different fix, and "unserialisable" overstates it: ticket 16 §4
+admits serialisation **by decree**, so a published mapping saying `(:error, E)` → `{"error": …}`
+settles it without disturbing ticket 15's tag. **The sharper statement is that the language's own
+types force the mapping to *define* a tuple encoding rather than reject one** — which is the
+opposite of the direction 16 §4 was reasoning in when it cited `json:encode`'s refusal of tuples as
+the motive for generating an encoder at all. What is open is the mapping's content, not ticket 15's
+decision. → tickets 15, 16, 26; recorded on the map's stdlib-shape fog patch, which is where the
+serialisation mapping's debts live.
 
 ### What the WebSocket exemplar says to ticket 22
 

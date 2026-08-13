@@ -228,6 +228,25 @@ Six things, ordered by how much they should worry you.
    the residual algebra, which ticket 20 settled for binaries as *types* (`<<_:M, _:_*N>>`) and not
    for literal values. → ticket 04, 20.
 
+6. **I had to invent a map-literal separator, and the exemplar should say so rather than pick
+   silently.** `#{ error = "invalid", at = e }` above uses `=`, by analogy with ticket 26's
+   construction rule — but **26 settled record construction, not map literals**, and the only
+   attested map syntax anywhere in the prototypes is the empty `#{}`. 01b's friction #6 is still
+   open verbatim: *"map literals versus record literals are unresolved… the language needs one
+   story here, not two syntaxes."* A response body is a map far more often than it is a record,
+   so this is not a corner. → fog, or ticket 26's leftover.
+
+7. **`CreateOrder` is a record type and a function name in the same module, and nothing
+   disambiguates them.** `route.bs` calls `CreateOrder(body)`; `index.bs` declares
+   `record CreateOrder`. Under ticket 26 §3's casing rule both are PascalCase, and the dot rule
+   does not help because neither is a projection. This is exactly the colliding-short-names defect
+   [ticket 23](../issues/23-what-the-language-owes-an-agent.md) §10 warns about — *"`Order.Server.Apply`
+   beside `Order.Apply`"* — arriving unprompted in the first exemplar written after it. The
+   standing constraint says read cost carries full weight, and a reader cannot tell which
+   `CreateOrder` a bare occurrence means. **Also honest: `Request` is used in `Admit`'s signature
+   and never declared** — I did not notice until reviewing, which is itself the finding, since an
+   agent author would not have either. → tickets 23, 08, and the module/namespace fog.
+
 ### What did not appear
 
 **No pipes.** Not one `|>` in the whole exemplar, and no `|?>` either. Request handling here is
