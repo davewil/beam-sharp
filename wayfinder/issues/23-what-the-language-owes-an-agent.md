@@ -191,3 +191,41 @@ diagnostic** — *"Gleam doesn't have if expressions. If you want to write a con
 can use a `case`:"* with a template. That is a compiler telling an author what to write instead, for
 a construct it deliberately does not have. Under agent authorship that is exactly the shape this
 ticket is asking about, applied to a *language surface* question rather than a type error.
+
+## Evidence from ticket 18 — resolved 2026-08-13
+
+**A worked anti-example, and one question 18 declined to pay for and handed here.**
+
+**The anti-example: Elm defends its boundary correctly and then makes the rejection unreadable.**
+Measured, Elm 0.19.1 ([`research/18-elm-port-validation.md`](../research/18-elm-port-validation.md)).
+Elm synthesises a decoder from each port's declared type and runs it on every incoming value, so the
+mechanism is sound — and then:
+
+- a rejection is a **synchronous JavaScript `throw`** into the caller's stack frame; **Elm code never
+  sees it**, so nothing in the language can log, report or recover;
+- **under `--optimize` the entire message collapses to a bare URL** — `https://github.com/elm/core/blob/1.0.0/hints/4.md`
+  — with no port name and no offending value;
+- even in dev builds it prints `[object Object]`, because flags call `_Json_errorToString` and ports
+  do not (elm/core #1043, **open since 2019-09-16**).
+
+This is the exact inverse of ticket 04's finding that the exhaustiveness residual *is* the missing
+case. Elm's compiler **knows** which decoder failed and on what value, and discards both. Under this
+map's standing constraint the consumer is an agent in a loop, and an agent handed a URL has nothing
+to act on — it cannot even name the port to a human. **Whatever this ticket decides about
+machine-readable diagnostics, the boundary rejection is a case it must cover**, not only the
+type-error and exhaustiveness cases: it is a *runtime* diagnostic, and 17's Gleam evidence and 04's
+CDuce evidence are both compile-time.
+
+**The question handed here.** Ticket 18 §1 and §4 make the emitted boundary **invisible in the
+surface language** — the beam-sharp source is byte-identical whether a guard was emitted or not, and
+§4 confines the analysis to one function so it is at least *predictable*, but never *visible*.
+18 considered emitting a manifest of what was guarded and **rejected it there** as a build artefact
+the spec would have to define, version and keep stable — explicitly noting it would hand this ticket
+a dependency it had not asked for.
+
+So the question arrives here on its own terms rather than as 18's leftover: **should an agent be able
+to ask the compiler what it defended?** Note it is the same question as the diagnostics one wearing
+different clothes — a machine-readable residual tells an agent *what clause to write*, and a
+machine-readable boundary tells it *what the emitted code will actually trust*. If this ticket
+concludes the compiler owes an agent a structured output at all, the boundary is a second consumer
+of that same channel, not a separate feature.

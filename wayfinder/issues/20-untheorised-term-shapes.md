@@ -176,3 +176,38 @@ Whatever this ticket decides about `<<>>` typing should say whether the fixpoint
 avoidable — i.e. whether a declared binary type in the surface language would let the compiler emit
 `binary()` instead of `bitstring()`, which would make it a *surface* type-system question rather
 than a codegen artefact.
+
+## Constraint from ticket 18 — resolved 2026-08-13
+
+**"What one BEAM guard decides in O(1)" is now a load-bearing *set*, not a vocabulary — and binaries
+are where it is unspecified.**
+
+Ticket 18 §2 made that set the **admissible foreign return type set**: a foreign function's declared
+return type may mention only what a guard decides in O(1), and anything deeper is a compile error at
+the declaration. Until now the same phrase was doing lighter work — ticket 09 §4's union
+discriminability rule and 11 §2's cap on clause-head patterns. It has now been promoted to deciding
+what an FFI declaration may legally *say*.
+
+**This ticket already holds three sightings of binaries as where precision dies** (no `<<>>` typing
+in either Elixir paper; 16 §4's serialisation mapping untested exactly there; 17 §3's accumulator
+widening to `bitstring()` at the fixpoint). This is a fourth, and it is the most concrete: `is_binary/1`
+and `is_bitstring/1` are O(1), but **a binary's declared structure is not** — a binary declared as a
+4-byte header plus a payload has no guard that decides it, and binary pattern matching in a clause
+head is idiomatic Erlang precisely because that structure is what you match on. So this ticket owes
+an answer to: **what may a foreign declaration say about a binary?** `binary` and nothing more, or is
+there a structural binary type, and if so how does it cross the boundary — a `ValidateAs<T>` over a
+bit syntax pattern?
+
+**Corroboration this ticket can use, from a different runtime.** Elm's admissible port type set,
+measured in [`research/18-elm-port-validation.md`](../research/18-elm-port-validation.md), is a
+closed whitelist that rejects functions, type variables, `Dict`, `Set`, `Result` and *every* custom
+union including a payload-free enum. That set is exactly "types with a decidable structural test" —
+**ticket 09 §4's rule reached independently on a different platform**, which is the strongest
+external evidence the map has that the discriminability criterion is the right one to build on.
+
+**And a caution from the same file, aimed at whatever this ticket decides about numeric types.**
+Elm defends its boundary and *still* admits ticket 06's outcome 3: `_Json_decodeInt` accepts any
+finite whole number, so `1e300` crosses an `Int` port and `n + 1 == n`. beam-sharp does not inherit
+this — `is_integer/1` is exact and BEAM integers are arbitrary precision — but it is a worked example
+of a checking boundary whose *check* was weaker than the type it claimed to enforce, which is the
+failure mode any approximate answer to this ticket would risk.

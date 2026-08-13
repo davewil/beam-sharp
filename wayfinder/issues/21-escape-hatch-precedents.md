@@ -110,3 +110,45 @@ thing a grammar keyword forfeits: two conventions coexisting during a migration.
 
 AFK. Feeds [ticket 22](22-how-opinionated.md) directly and [ticket 18](18-boundary-defence.md)
 substantially. Raised 2026-08-12 out of ticket 01's design conversation.
+
+---
+
+# Partial retraction — ticket 18, 2026-08-13
+
+**This ticket's claim that no language defends its boundary by checking data is false as stated.**
+Elm does, and Elm was descoped here after this ticket stalled on a bundled narrative question. The
+narrow technical half was picked up by [ticket 18](18-boundary-defence.md) and measured:
+[`research/18-elm-port-validation.md`](../research/18-elm-port-validation.md), Elm 0.19.1, mostly
+`local` rather than cited.
+
+**What was wrong.** This ticket concluded: *"No language in the file defends its boundary by checking
+data; they defend by controlling who may be on the other side."* The second clause is right and the
+first is not. `Optimize/Port.hs toDecoder` synthesises a JSON decoder from each port's declared type,
+and `_Platform_setupIncomingPort` runs it on **every** incoming value — `send` *is* the decode, and
+`sendToApp` is unreachable unless it succeeded, byte-identical under `--optimize`. Elm does **both**:
+it owns the door *and* checks what comes through it.
+
+**The sharpened claim, which is what ticket 18 actually used:** *checking data is what you do at a
+door you own.* Roc trusts its host and Unison's handler receives whatever the runtime hands it
+because neither has a door where a foreign value becomes a typed one; Elm has exactly one
+(`return { send: send }`) and checks there. **The BEAM's problem was never that checking data is
+unusual — it is that there is no door.** That is why ticket 18's answer is a check emitted at every
+point beam-sharp *compiles*, which is this ticket's original conclusion reached by the route this
+ticket got wrong.
+
+**Two findings that survive intact and were load-bearing for 18.**
+
+- Elm's admissible port type set is a closed whitelist — measured rejections include functions, type
+  variables, extended records, `Dict`, `Set`, `Char`, `Result` and **every** custom union, including a
+  payload-free enum. That set is precisely *"types with a decidable structural test"*: **ticket 09
+  §4's rule, and ticket 11 §3's arrow exclusion, reached independently on a different runtime.**
+- **A checking boundary can still be unsound.** `_Json_decodeInt` accepts any finite whole number, so
+  `1e300` crosses an `Int` port, `String.fromInt` yields `"1e+300"` and `n + 1 == n`. Ticket 06's
+  outcome 3, inside a language that defends. beam-sharp does not inherit it — `is_integer/1` is exact
+  — but it is the measured reason the strongest possible claim ("your types hold, whoever calls you")
+  is harder to keep than it sounds, and it is why 18 chose a claim with its concession stated.
+
+**Not retracted**: everything about Roc's link-time closure, Unison's abilities reaching one of the
+eight channels, the DbC survival analysis, and `requires` as a stealable contract mechanism. Elm's
+inclusion changes the *general* claim about how languages defend, not any finding about the languages
+this ticket actually examined.

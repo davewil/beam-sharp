@@ -170,3 +170,33 @@ same argument does not obviously apply to projection — `o.Total` names a field
 a record type's fields are known from its declaration. So the refusal of dot-call does **not** carry
 over automatically, and this ticket should decide projection on its own merits rather than treat it
 as already settled.
+
+## Constraint from ticket 18 — resolved 2026-08-13
+
+**The erasure choice now has a boundary cost, and it is measured.**
+
+Ticket 18 §1 settled that the compiler emits a guard wherever an exported function's own body would
+not object, and §1(c) makes that *unconditional* for any value feeding a codegen obligation — 16 §4's
+generated encoder above all, which is a record encoder. **Guards test shape, and a record's shape on
+the BEAM is this ticket's open question.**
+
+- **Tagged tuple** — the discriminator is one tag test plus arity. 18 §2 notes this is the form that
+  makes union discriminability free.
+- **Map** — the discriminator needs key presence *and* value tests, since two record types with the
+  same field names differ only in their values.
+
+Measured, OTP 28.5 ([`prototypes/18a_guard_cost.md`](../prototypes/18a_guard_cost.md) §1): the tuple
+discriminator `is_tuple(X), tuple_size(X) =:= 3, element(1,X) =:= order` costs **+13 bytes (+17.8%)
+of the `Code` chunk** — the most expensive case in that measurement set, and it is the *cheap*
+erasure. A map erasure's discriminator is strictly larger. Against that, the tuple case is the only
+one in the set that *shrinks* the `.beam` file (−4 bytes), because the tag literal displaces
+import-table entries.
+
+**Ticket 18 does not settle erasure and explicitly declines to.** What it hands over is that the
+choice is no longer only about matching speed and wire format: it also sets the size of every
+emitted boundary guard on every exported function taking a record, which after §1(c) includes every
+function whose value reaches a generated encoder.
+
+One thing 18 *does* remove from this ticket's field of worry: 18 §4 makes the analysis
+**function-local**, so the guard emitted for a record parameter depends only on that function, never
+on what some other file in the aggregate does with the value.
