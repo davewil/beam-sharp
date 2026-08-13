@@ -531,7 +531,11 @@ the other established and never reasoned about — reached independently, on an 
 shipped since 2012. The *cut* is contradicted: Ada's is the syntactic form of the predicate
 expression, and two predicates of identical O(1) cost land on opposite tiers [L3]. **Ticket 20's
 line is unattested anywhere in the prior art surveyed**, Ada included and all five of Part 2's
-candidates included.
+candidates included. But the two cuts stand in **containment, not conflict**: every Ada static
+predicate is decidable by one BEAM guard in O(1) and the converse fails, so Ada's privileged tier
+is properly inside beam-sharp's, and beam-sharp's cut is a **strict liberalisation** of a line Ada
+had to draw syntactically for want of a platform-given predicate language (§1.2, marked as
+inference).
 
 **2. Is interval-only refinement reasoning without a solver a thing anyone ships?** **Yes.** CDuce
 0.6.0 does exact union, intersection, complement and difference over integer intervals, with
