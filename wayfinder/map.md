@@ -633,6 +633,40 @@ spec exists.
   guarantee. **Names are emitted losslessly and quoted** (`'Readings':'Classify'`) — provisional,
   and deliberately the option that pre-empts the modules fog least.
 
+- [What the language owes an agent that writes it](issues/23-what-the-language-owes-an-agent.md) —
+  **the ticket's premise was wrong in the language's favour**: the platform already has three
+  diagnostic channels and beam-sharp inherits all of them, measured in
+  [`23a`](prototypes/23a_otp_diagnostic_channels.sh) — `compile:file/2`'s
+  `{Location, Module, Descriptor}` with prose derived by `format_error/1`, the `abstract_code`
+  chunk carrying the emitted forms verbatim, and `error_info` carrying a structured `cause` at
+  runtime since OTP 24. **So Elm's port failure was never inevitable.** What *is* attested is the
+  failure mode: **`erlc` publishes none of its own structured form** — no flag recovers it — so the
+  platform builds the value and destroys it exactly where the consumer stands. **The term is the
+  diagnostic and the prose is a pure function of it**, published at the CLI, with JSON as a second
+  encoding reusing 16 §4's owed serialisation mapping (`json` ships in stdlib and **refuses
+  tuples**, which is what these diagnostics are made of). **The compiler synthesises the clause
+  head and never the body** — a head is derived from the residual and cannot be wrong, a body is a
+  guess — and **where the residual is not guard-expressible it says so and offers nothing**, which
+  is exactly ticket 20's opaque tier. **Only a named subset is contractual** (`inexhaustive`,
+  `defended`, `unreachable_clause`), the test being *does it hand the agent something to write*;
+  payloads are **maps not tuples** so additive change cannot break a matcher. That is narrower than
+  OTP, which documents the envelope and leaves the descriptor opaque — a position that works for
+  `{unbound_var,'Y'}` and fails for a residual. **18's boundary question is answered on that same
+  channel**, its objection dissolved rather than overruled. **A stub is legal**: its residual is the
+  whole declared type, so refusing to compile withholds the most informative diagnostic the language
+  has, and `no_clauses` stops being a special case. **The generator smuggles in no crash policy**,
+  and emits a *named* stub type rather than `term` because a `term` return decays invisibly.
+  **Blast radius is complete within the compilation unit** — free, because 13 made the directory the
+  module — and silent beyond it. Two rules did work here rather than decorating: `error_info` is
+  attached **only to compiler-generated code**, because that is where a reviewer has no source
+  (11's counterweight, answered), and *read cost keeps full weight* **changed an answer** — three
+  markers per scaffolded operation became one, with the compiler enumerating the holes, since an
+  unwritten clause is a residual it can compute. One line of skeleton prose was cut in the session
+  as a worked instance: *"the residual is the clause you must write"* narrated the mechanism where
+  the two lines above it stated the fact. **Scope clarification, general (David)**: the map's
+  out-of-scope *tooling* entry rules out the **ecosystem track**, not any capability that happens to
+  serve tooling — a `bsc --api` query mode is in.
+
 ## Not yet specified
 
 <!-- in-scope fog: real, but not yet sharp enough to phrase as a ticket -->
@@ -736,6 +770,20 @@ spec exists.
   the exhaustiveness algorithm ticket 04 found has **no complexity bound**, and the skeleton owes the
   residual-computation cost at showcase clause counts over a *binary* subject — which is exactly the
   40-clause `handle_info` shape, now with a second domain in the algebra.
+  **Ticket 23 adds a twelfth, and it is the second whose cost lands in emitted code rather than in
+  the compiler.** 23 §6 attaches an `error_info` **cause map** to every compiler-*generated* check —
+  boundary guards, `ValidateAs<T>`, `string`'s UTF-8 entry check — so the skeleton owes its
+  **code-size cost at showcase clause counts, stacked on ticket 12's failure arm**. It is the same
+  measurement 12 already has a harness for, and the honest worry is that a cause map is plausibly
+  proportional to the type it describes where 12's arm was constant. Note the marker on the other
+  side of the ledger: 23 §6 deliberately leaves the arm over *user-written* clauses untouched, so
+  what is being measured is the generated-code sites only.
+- **How the `[incomplete]` marker is spelled** — new with [ticket 23](issues/23-what-the-language-owes-an-agent.md)
+  §7, which made a stub legal and the marker a fact in the file so the release gate is a text search
+  rather than a diagnostic-parsing job. Attribute, keyword or convention is **ticket 22's** question
+  — grammar versus attributes versus convention is 22's subject exactly — and 22 is deferred until a
+  skeleton and ticket 25's non-aggregate exemplars exist. Recorded here so the marker is not spelled
+  by accident in the meantime.
 - **The typed model of OTP itself** — new with ticket 14, and distinct from the corpus that proves
   it. The language knows behaviour contracts and system-message shapes as types. Open: which
   behaviours ship built in (gen_server, supervisor, application, gen_statem, gen_event), how a
@@ -904,6 +952,12 @@ spec exists.
 - **Tooling and ecosystem** — package manager, build tool, hex/rebar3/mix integration, LSP,
   formatter, docs generation. Every decision here is downstream of the language surface,
   and Gleam's experience suggests it is a multi-year track of its own.
+  **Clarified 2026-08-13 (David, ticket 23): this rules out the ecosystem *track*, not any
+  capability that happens to serve tooling** — *"tooling is not out of scope if there's a genuine
+  need"*. A compiler mode answering a question an agent has (23 §10's `bsc --api`) is in; a package
+  manager is not. Read the boundary as "is this the multi-year track, or one capability the
+  language owes its author", and note ticket 23 raised the bar for what counts as a genuine need by
+  making the compiler an interlocutor rather than only a gate.
 - **Standard library breadth** — module-by-module design. The spec names stdlib *shape* as
   a design principle only.
 - **Macros and metaprogramming** — quote/unquote, source generators, compile-time

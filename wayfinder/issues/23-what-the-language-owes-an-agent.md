@@ -1,8 +1,8 @@
 # 23 — What does the language owe an agent that writes it?
 
 Type: grilling
-Status: open
-Blocked by: 11
+Status: resolved 2026-08-13
+Blocked by: 11 — resolved
 
 ## Question
 
@@ -229,3 +229,226 @@ different clothes — a machine-readable residual tells an agent *what clause to
 machine-readable boundary tells it *what the emitted code will actually trust*. If this ticket
 concludes the compiler owes an agent a structured output at all, the boundary is a second consumer
 of that same channel, not a separate feature.
+
+## Answer — 2026-08-13
+
+Probe: [`23a_otp_diagnostic_channels.sh`](../prototypes/23a_otp_diagnostic_channels.sh), OTP 28.5.
+Every `[L*]` below is measured there.
+
+**The premise the ticket was written on is wrong in the language's favour.** It asks whether
+diagnostics *should* have a machine-readable form, as though one had to be invented. The platform
+already has three channels and beam-sharp inherits all of them:
+
+- **Compile time** — `compile:file/2` returns `{ErrorLocation, Module, ErrorDescriptor}` and
+  `Module:format_error/1` renders the prose from the descriptor. The term is primary; the string is
+  derived [L1].
+- **The artefact** — the `abstract_code` chunk carries the forms that were compiled, verbatim; on
+  the `+from_abstr` path that is exactly what beam-sharp emitted [L4].
+- **Runtime** — `erlang:error/3`'s `error_info` carries an arbitrary structured `cause` in the
+  stacktrace frame, rendered by a `format_error/2` callback. Since OTP 24 [L6].
+
+So **Elm's port failure was never inevitable** — it is a mechanism the BEAM has shipped for years
+and Elm's runtime had no equivalent of. What *is* attested here is the failure mode: **`erlc`
+publishes none of its own structured form** — no flag on `erlc -h` recovers it [L2] — so the
+platform builds the value correctly and destroys it at the boundary where the consumer stands.
+That is the defect this ticket exists to not repeat, and it is the same defect as Elm's, one layer
+out.
+
+### 1. The diagnostic is a term; prose is a pure function of it
+
+Decided, borrowing OTP's split (tier 2). The CLI publishes both, and the prose is generated from
+the term rather than alongside it, so they cannot drift.
+
+**The prose is terse, and states the fact rather than narrating the mechanism.** The skeleton
+printed `the residual is the clause you must write.` under the diagnostic; it was cut (David:
+*"Yuck. Is that line even required"*) because `no clause matches:` plus the head already says it.
+The general rule: **the term carries what to act on, so the prose owes only the fact.** A
+diagnostic explaining its own theory is a design document leaking into a compiler.
+
+### 2. The compiler synthesises the head, never the body
+
+The residual is a *set*; a clause head is a *pattern plus a guard*; lowering one to the other is a
+real compilation step and the compiler owns it, so that consumers never each invert it differently.
+The skeleton does **not** do this today — measured, it renders type expressions into argument
+position, none of them paste-able:
+
+```
+Classify((:error, atom)) -> ...     %% `atom` sits where a binder belongs
+Classify(int <= -1)      -> ...     %% real head: Classify(n) when n <= -1
+Classify(atom \ (:ok))   -> ...     %% real head: Classify(a) when a /= :ok
+```
+
+**Where the residual is not guard-expressible the term says so and offers nothing.** Tier-1
+refinements always lower, because tier 1 *is* the BEAM guard set; ticket 20's opaque tier does not,
+because `binary where valid_utf8` has no guard. Emitting an approximation there would be the Elm
+defect in its most dangerous form — output that reads as actionable and silently is not.
+
+**The compiler may not synthesise a body.** A head is *derived* from the residual and cannot be
+wrong; a body is a guess. This line is load-bearing and is why §9 below refuses to let the compiler
+propose a boundary value: a suggestion that is wrong *in content* is what makes an agent stop
+trusting the channel, and one bad suggestion poisons every good one.
+
+### 3. The boundary answers on the same channel
+
+Ticket 18's question — may an agent ask what the compiler defended — is answered **yes, as an
+informational diagnostic on this channel**, in beam-sharp's vocabulary, at the moment the agent is
+compiling.
+
+18 rejected a manifest because it would be "a build artefact the spec would have to define, version
+and keep stable". **That objection is dissolved rather than overruled**: the channel is not a new
+artefact, and separately the `abstract_code` chunk already answers the same question faithfully and
+durably, for free, with no decision required [L4]. The chunk is *not* chosen as the answer, for two
+reasons: it speaks Erlang (`{error, _E}` where the language said `(:error, e)`), which asks the
+consumer to invert the lowering §2 just made the compiler own; and `beam_lib:strip/1` removes it,
+which release builds routinely do. It remains available as a durable fallback whether or not the
+spec blesses it.
+
+### 4. A named subset is contractual; the remainder is opaque
+
+Q1's cost — a versioned surface — is paid only where it buys something. **The spec freezes the
+descriptors that hand an agent something to write** (`inexhaustive` with residual and head,
+`defended`, `unreachable_clause`); every other diagnostic is structured and renderable but carries
+no shape promise.
+
+The test for membership is §2's: *does it hand the agent something to write?* A syntax error does
+not — nobody repairs one from a structured term; they re-read the source.
+
+This is **narrower than OTP's own position and wider than nothing**. OTP documents the envelope
+exactly and says nothing about the descriptor beyond "pass it to `format_error/1`" [L3] — the
+payload is opaque *by documentation*. That works for `{unbound_var,'Y'}`, which is a label for a
+sentence, and fails for `{inexhaustive, …}`, which is the thing being acted on.
+
+**Payloads are maps, not tuples**, because a map gains a key without breaking a matcher and a tuple
+cannot. Additive-only evolution is therefore expressible in the data rather than promised in prose.
+
+### 5. Both encodings; the term is canonical
+
+JSON is a **published encoding of the term**, not a rival form. OTP 28.5 ships `json` in stdlib but
+it refuses tuples — `{unsupported_type,{neg_inf,-1}}` [L5] — and tuples are what these diagnostics
+are made of, so an encoding needs a defined mapping.
+
+**It reuses ticket 16 §4's language-published serialisation mapping.** Inventing a diagnostics-only
+JSON spelling would leave beam-sharp with two renderings of `(:ok, 5)`: one for programs, one for
+the compiler that compiles them. This takes a dependency on a mapping that is **owed and not yet
+written** (it sits in the map's *Not yet specified*), and inherits whatever it decides.
+
+### 6. `error_info` on compiler-generated code only
+
+Boundary guards, `ValidateAs<T>` and `string`'s UTF-8 entry check attach a structured `cause`; the
+retained failure arm over user-written clauses does not.
+
+The line is **where the reader has no source to consult** — which is ticket 11's counterweight,
+recorded on this ticket and now answered: `ParseAtom<T>` and `ValidateAs<T>` are bodies nobody
+writes and no reviewer reads, so when one fails the cause map is the whole story. Over user clauses
+the frame ticket 12 measured already names the offending value with file and line, and 12 fought to
+keep that arm at a constant ~15 bytes; a cause map at every site would grow it, plausibly in
+proportion to the type rather than constantly.
+
+**Cost, and it is an unusual one for this map: it lands in emitted code, not in the compiler.** The
+standing constraint's "write-cost objections carry little weight" does not apply — this is runtime
+size in every shipped module. The skeleton owes the number (see the debt recorded in the map).
+
+### 7. A stub is legal, with an explicit marker
+
+A signature with no clauses is **not** a hard error. Under agent authorship the compiler is an
+interlocutor as well as a gate: a stub's residual is the *entire declared parameter type*, which is
+the most informative diagnostic the language can produce, and refusing to compile withholds it
+exactly when it is most useful. Forcing the agent to write something plausible first is the worst
+possible input to a feedback loop.
+
+`no_clauses` therefore stops being a special case — it is the ordinary inexhaustive diagnostic at
+its maximum — and ticket 12 already settled what such a function does when called: a body of
+nothing but the retained failure arm.
+
+The marker makes the incompleteness **a fact in the file**, so the release gate is a text search
+rather than a diagnostic-parsing job. **How it is spelled** — attribute, keyword or convention —
+is deliberately not decided here; it is ticket 22's question and 22 is deferred. Recorded as fog.
+
+### 8. A named stub type in the payload, and the compiler emits the corrected signature
+
+Ticket 14 settled that callback signatures **narrow** and the compiler checks containment; it left
+the generated default here, noting the wide default makes an evasive `(:noreply, s)` always
+type-correct. Narrow has **two axes** and 14's argument covers one: the generator can get the
+*action* union right, because the behaviour determines it, and cannot know the *payload*, because
+it writes the file before any clause exists.
+
+The payload position gets a **named stub type**, not `term`. A `term` return decays invisibly — it
+type-checks forever and review sees a plausible signature; a named stub decays loudly and is
+greppable.
+
+And **when a clause returns outside its signature, the diagnostic carries the corrected signature
+to paste**. This is §2 applied to signatures and needs no new machinery — it is another contractual
+descriptor under §4's test. The risk is named and accepted: it makes widening frictionless, which
+is a virtue only if widening is meant to be *deliberate* rather than *rare*. It is bounded by what
+the clauses actually do, never by OTP's six-way union, so the drift ceiling is the honest signature.
+
+### 9. The generator smuggles in no crash policy
+
+The body of a mandatory boundary clause is the author's decision, per boundary.
+
+Read literally, ticket 12's rule — *write the honest value your return type admits, `raise` only
+where it admits none* — would make the generated default `raise`, because §8's stub type admits
+nothing. **That is an artefact of ordering, not a decision**, and defaulting to `raise` is how a
+crash policy disappears quietly, which is the failure 12 exists to prevent. A defaulted `raise` is
+also indistinguishable at review time from a deliberate one, which is precisely the case where 12's
+reasoning applies.
+
+The compiler proposing a value was refused on §2's line: choosing `:unhandled` over `:bad_request`
+is inventing semantics.
+
+### 10. A compiler query mode answers what operations exist
+
+`bsc --api <Module>` reads source and answers on this channel, in beam-sharp's vocabulary, with no
+build. The directory listing (one function per file) and the built artefact
+(`module_info(exports)` plus the `-spec` from the chunk [L4]) both remain true for free, but the
+first gives names without types and the second requires a build and answers in Erlang.
+
+**Scope clarification, and it is general (David, 2026-08-13):** *"Tooling is not out of scope if
+there's a genuine need."* The map's out-of-scope entry rules out the **ecosystem track** — package
+manager, build tool, LSP, formatter, docs generation — not any capability that happens to serve
+tooling. Later tickets should read that boundary the same way.
+
+### 11. Blast radius is complete within the compilation unit
+
+A compile error names every file in the module that must change, and **says that is what it means**.
+
+The line falls on the compilation unit for a structural reason: ticket 13 made the directory the
+BEAM module, so the compiler has every file of the unit in front of it and completeness is free.
+Beyond it, a cross-module dependency graph is the build tool's, which *is* on the out-of-scope
+list — so promising completeness there would either drag build tooling into the spec or promise
+what the compiler cannot keep. Best-effort was refused because an agent cannot distinguish "no more
+files" from "did not look", which makes a derived task list worthless.
+
+The ticket's other blast-radius question — should anything **forbid** an edit in one file changing
+another's meaning — does not survive contact: type declarations are shared by construction, so
+forbidding it means restating types per file or having no shared types. Making the dependency
+*explicit* is real, and it is the map's **imports and cross-module scope** fog, not this ticket's.
+
+### 12. What must not be optimised for agents
+
+Restating the ticket's own rule, and then applying it to this ticket's output:
+
+- **Read and review cost keeps full weight.** `(0)` and `()` at nullary and unary arity, and
+  `Order.Server.Apply` colliding with `Order.Apply`, remain defects. Agent authorship does not
+  excuse them — and §10 makes filenames more load-bearing, not less.
+- **Verbosity is not a virtue.** That a generator can emit anything is not a reason to require
+  more of it.
+
+**Applied here, this rule changed an answer.** §7, §8 and §9 each introduced a marker, so a
+scaffolded operation would have arrived three-quarters placeholder — cheap to generate, and exactly
+what the rule warns against. Instead: **the debt lives on the channel, not in the source.** The
+generator emits only what it *knows*; the function carries **one** marker; the compiler enumerates
+the holes, because an unwritten clause and a missing boundary clause are both residuals it can
+compute exactly. The decisions of §7 and §9 stand — the author still chooses, the gate still
+refuses a marker — only their spelling moves.
+
+That is the fourth section deciding a design question rather than decorating one: cost moved off
+the human reviewer and onto the channel whose primary consumer is a program.
+
+### What this ticket owes
+
+- **A measurement**, recorded in the map: the code-size cost of §6's `cause` map on generated
+  checks at showcase clause counts, stacked on ticket 12's failure arm.
+- **A dependency**: §5's JSON encoding inherits ticket 16 §4's serialisation mapping, which is owed
+  and unwritten.
+- **Fog**: how §7's marker is spelled, which is ticket 22's deferred question.

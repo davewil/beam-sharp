@@ -129,8 +129,7 @@ verbose(_, _, _) -> ok.
 report(Path, {error, Line, Fn, {inexhaustive, Residual}}) ->
     io:format(standard_error,
               "~s:~p: error: ~s is not exhaustive~n"
-              "  no clause matches:~n~s"
-              "  the residual is the clause you must write.~n",
+              "  no clause matches:~n~s",
               [Path, Line, Fn, heads(Fn, Residual)]);
 report(Path, {error, Line, Fn, no_clauses}) ->
     io:format(standard_error, "~s:~p: error: ~s has a signature but no clauses~n",

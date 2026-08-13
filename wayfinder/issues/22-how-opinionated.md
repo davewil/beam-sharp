@@ -17,7 +17,19 @@ language nobody has written a program in yet.
 **Check the trigger has actually fired before picking this up.** A skeleton that compiles one
 function is not enough to judge whether a DDD grammar narrows the addressable set; ticket 25's
 exemplars are the real test, and at least one of the non-aggregate shapes (WebSocket handler,
-protocol parser) needs to exist.
+protocol parser) needs to exist. **The skeleton now exists (2026-08-13); the exemplars do not**, so
+the trigger has half fired.
+
+**Inherited from [ticket 23](23-what-the-language-owes-an-agent.md) §7, 2026-08-13.** 23 made a
+signature-with-no-clauses legal when carrying an explicit `[incomplete]` marker, and deliberately
+did **not** spell it: attribute, keyword or convention is this ticket's subject exactly. Three
+things 23 fixed about it regardless of spelling, so this ticket decides the form and not the
+function — it is **a fact in the file** rather than only a diagnostic, because the release gate
+should be a text search; it is **one per function**, not one per hole, because 23 §12 moved the
+enumeration of holes onto the diagnostic channel; and **CI refuses any marker**, which makes it the
+first construct in the language whose purpose is to be removed before shipping. That last property
+is a live argument for this ticket: a construct that must not survive a release is a strong case
+for enforcement, which is precisely the axis 21 found nothing can give you along with revisability.
 
 ### What each deferred option would need, so the work is not lost
 
