@@ -175,6 +175,8 @@ boundary further toward the process API and away from the individual operation.
 
 ## Answer — 2026-08-13
 
+Decision brief: <https://claude.ai/code/artifact/0c88956f-8591-4190-8e3f-455f9700ad64>
+
 **The headline: exhaustiveness does not reduce the number of tests, and the map's own framing
 assumed it would.** Three test categories genuinely retire, and the ticket found them. What it did
 not anticipate is that ticket 23's clause synthesis *adds* code needing value tests at the same
