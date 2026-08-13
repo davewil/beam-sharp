@@ -112,6 +112,43 @@ therefore never executable, only provable [9]. That third tier is cut on yet ano
 (**executability**), which is itself worth noticing: the Ada family has three tiers on three
 different criteria, and none of the three is cost.
 
+**And SPARK really does discharge them, including the O(n) one.** Measured on GNATprove 12.1.0
+[L10]. Each subtype appears twice: once with a precondition entailing the predicate, once with
+nothing known about the argument.
+
+| Subtype | Ada tier | with an entailing precondition | without |
+|---|---|---|---|
+| `Small`, `range 1 .. 10` | *constraint* | `range check proved` | **`high`**: range check might fail |
+| `Odd`, `Dynamic_Predicate => Odd mod 2 = 1` | dynamic | **`predicate check proved`** | `medium`: might fail |
+| `Pos`, `Static_Predicate => Pos > 0` | static | `predicate check proved` | `medium`: might fail |
+| `Shouty`, `Dynamic_Predicate => All_Upper (Shouty)` | dynamic, **O(n)** | **`predicate check proved`** | `medium`: might fail |
+
+Three things fall out, and each of them matters to a different question.
+
+**SPARK's line is not Ada's line.** `Odd mod 2 = 1` is refused Ada's static tier on *form* (§1.2)
+and `Pos > 0` is admitted, at identical cost — and **SPARK treats the two identically**. Ada's
+static/dynamic split is a *front-end legality* distinction about which contexts a subtype may
+appear in; SPARK's is about whether the surrounding contract *entails* the predicate. They are two
+different lines drawn for two different purposes, which is the same conclusion §1.2 reaches from
+the other side, now observed rather than inferred.
+
+**The O(n) content predicate is proved.** `All_Upper` scans every character, and `Shouty_Ok` is
+discharged at compile time from a matching precondition, the induction carried by an ordinary loop
+invariant. This is the direct analogue of `binary where valid_utf8`, and it is the single most
+consequential measurement in this file for amendment B: **Ada's permissiveness is not "permit and
+check later"** — the arbitrary user predicate is a first-class proof obligation, and a caller that
+can establish it pays nothing at run time.
+
+**The obligation lands at the conversion, in the caller.** `Consume (X : Odd)` carries no check of
+its own; the check appears at `Odd (X)` inside each calling procedure, proved in the one with a
+precondition and `medium` in the one without. So the placement rule §1.4 describes is not merely
+where a *runtime* check goes — it is where the *proof obligation* goes too, and the callee's
+declared subtype is what creates it.
+
+One asymmetry worth keeping: an unprovable **constraint** is reported `high` and an unprovable
+**predicate** `medium`. GNATprove grades them differently, which is §1.1's constraint-versus-
+assertion distinction surviving all the way into the prover's severity model.
+
 ### 1.2 `Static_Predicate` versus `Dynamic_Predicate` — the ticket's highest-value question
 
 **The cut is syntactic form.** ARM 3.2.4(15/3): *"The expression of a Static_Predicate
@@ -644,20 +681,25 @@ Recorded rather than filled by inference.
   at the surface. Whether the representation is a sorted disjoint list of intervals — the obvious
   encoding, and the one whose quadratic behaviour §3.4 is consistent with — is inferred from the
   timings, not established from source. Marked as inference in the prose and not relied on.
-- **[g3] SPARK was attempted and not finished.** §1.1's account of what GNATprove discharges
-  statically is `doc` from the SPARK Reference Manual and User's Guide only. What was established
-  in trying to make it `local`: **GNATprove is packaged in no Debian suite** — the `spark` package
-  is SPARK *2005*, last seen in stretch, not SPARK 2014 (Debian sources API); it is available as an
-  **Alire crate at 12.1.1**, and `alr install gnatprove` yields **FSF 16.1.0**, whose `gnatwhy3`,
-  `alt-ergo` and `z3` binaries require **glibc ≥ 2.38** and therefore will not run on Debian 12. A
-  trixie image resolves the glibc problem, and the build was **abandoned after ~30 minutes** — the
-  Alire toolchain plus GNATprove is a ~4 GB image and this machine builds it under amd64 emulation.
-  So **GNATprove was never run**, and the probe drafted against it is **not committed**, because an
-  uncommitted probe that has not run is exactly the fake completion this repo's rules forbid.
-  **If amendment B is taken, close
-  this first** — SPARK is the one system that both permits arbitrary user predicates and proves
-  some of them statically, which is precisely the design being considered, and the remaining work
-  is one `docker build` plus the four-subprogram probe already drafted.
+- **[g3] CLOSED** (2026-08-13). §1.1's SPARK claims are now `local` [L10], measured with
+  [`29f`](../prototypes/29f_spark_proves_predicates.sh). The route is recorded because the obvious
+  one does not work and cost two abandoned builds before the crate manifest was read.
+  **GNATprove is packaged in no Debian suite** — the `spark` package is SPARK *2005*, last seen in
+  stretch, not SPARK 2014 (Debian sources API). It is an **Alire crate**, and the manifest
+  publishes **x86-64 builds only**: Windows, macOS and Linux x86-64, and **no aarch64 build of any
+  kind** [12]. The Linux x86-64 build (FSF 16.1.0) needs **glibc ≥ 2.38**, so Debian 12 will not
+  run its `gnatwhy3`, `alt-ergo` or `z3`. Debian 13 would — but **debian:13 amd64 containers do
+  not start on this machine at all**: a bare `docker run --platform linux/amd64 debian:13 echo`
+  hangs indefinitely, where the identical command on `debian:12` returns at once, and every other
+  amd64 image in this ticket (stretch, bookworm) built and ran normally. Two trixie builds were
+  abandoned at ~30 and ~47 minutes before that was diagnosed. **The emulation layer, not the
+  toolchain, is the wall** — so waiting longer was never going to work.
+  **What does work needs no container**: the **macOS x86-64 build under Rosetta 2**, run directly,
+  ~194 MB. One residual limit — `alt-ergo` wants an x86_64 `libgmp` that an arm64 Homebrew does
+  not supply, so `29f` runs `--prover=cvc4,z3`; both ship working in the bundle and every
+  obligation in the probe is discharged without alt-ergo. **A third prover may close obligations
+  these two cannot**, so a negative result on some harder predicate should not be read as "SPARK
+  cannot prove it" until alt-ergo is running.
 - **[g4] Ada's `Predicate_Failure` aspect is described but not measured.** ARM 3.2.4(14.2/4) and
   the `Text_IO` example show it can be a `raise_expression`, making the failure channel
   user-chosen — which is a closer analogue to ticket 15's `result<T, E>` than anything else in
@@ -685,6 +727,7 @@ Recorded rather than filled by inference.
 | 9 | **SPARK User's Guide, Specification Features** — `Ghost_Predicate` for predicates mentioning ghost state — <https://docs.adacore.com/spark2014-docs/html/ug/en/source/specification_features.html> | **doc** |
 | 10 | Debian sources API — `cduce` last present in **stretch** at 0.6.0-5; absent from buster onward — <https://sources.debian.org/api/src/cduce/> | **src** |
 | 11 | CDuce download page — 0.6.0 is the last source release, "for OCaml 4.00 and 4.01"; development tree at `gitlab.math.univ-paris-diderot.fr/cduce/cduce` — <https://www.cduce.org/download.html> | **doc** |
+| 12 | Alire index, `gnatprove` crate manifest — `[origin."case(os)"…]` publishes x86-64 for Windows, macOS and Linux and no aarch64 build — <https://raw.githubusercontent.com/alire-project/alire-index/stable-1.3.0/index/gn/gnatprove/gnatprove-12.1.1.toml> | **src** |
 | s1 | Liquid Haskell — `liquid-fixpoint` `Types/Refinements.hs` (`isTautoPred`), `Solver/Worklist.hs`, `Solver/Monad.hs` (`filterValid_`), `Solver/Common.hs` (`askSMT`), `Solver/Stats.hs`; Vazou et al., *Refinement Types For Haskell* (ICFP 2014) Table 1, and *LiquidHaskell: Experience with Refinement Types in the Real World* (Haskell Symposium 2014) Table 1 | **src** + **doc** |
 | s2 | F\* — `FStarC.TypeChecker.Common.fsti` (`guard_formula`), `Rel.fst` (`simplify_guard_full_norm`, `smt_ok`), `Options.fst` (`--no_smt`, `--query_stats`); *Proof-oriented Programming in F\** book, `uth_smt.rst`; *Verified Low-Level Programming Embedded in F\** (ICFP 2017) Table 1; Meta-F\* (ESOP 2019) | **src** + **doc** |
 | s3 | Nim — manual, *Subrange types* (*"one must specify its limiting values"*) <https://nim-lang.org/docs/manual.html>; `compiler/semfold.nim` (`rangeCheck`), `compiler/sempass2.nim` (`checkLe`, `optStaticBoundsCheck`), `compiler/guards.nim` (`proveLe`, `beSmart`), `compiler/ccgexprs.nim` (`raiseRangeErrorI`), `config/nim.cfg`; DrNim guide (*"combines the Nim frontend with the Z3 proof engine"*) <https://nim-lang.org/docs/drnim.html> | **src** + **doc** |
@@ -699,8 +742,10 @@ Recorded rather than filled by inference.
 | L7 | [`29b_cduce_clause_scaling.sh`](../prototypes/29b_cduce_clause_scaling.sh) — checker cost from 10 to 1600 interval clauses, both the exhaustiveness and redundancy paths | **local** |
 | L8 | [`29e_binary_structure_in_types.sh`](../prototypes/29e_binary_structure_in_types.sh) — `erl_types:t_bitstr/2` widens any base at or above `U*9` (OTP 28.5); Gleam 1.18.1 rejects `BitArray(32)` and accepts a size mismatch silently | **local** |
 | L9 | [`29d_string_vs_bytes.sh`](../prototypes/29d_string_vs_bytes.sh) — C# and TypeScript both substitute U+FFFD by default and throw only on opt-in; .NET serialises `byte[]` as base64, node serialises `Uint8Array` as an index-keyed object. node 22.22.3, .NET 9.0.10 | **local** |
-| g1–g6 | Gaps — see [Gaps](#gaps-and-where-i-looked) | gap |
+| L10 | [`29f_spark_proves_predicates.sh`](../prototypes/29f_spark_proves_predicates.sh) — GNATprove 12.1.0 proves a `Dynamic_Predicate` from an entailing precondition, including an O(n) content predicate; treats Ada's static and dynamic tiers identically; puts the obligation at the conversion in the caller; grades an unprovable constraint `high` and an unprovable predicate `medium` | **local** |
+| g1–g6 | Gaps — see [Gaps](#gaps-and-where-i-looked); **[g3] is closed** | gap |
 
-Reference 6 was allocated during drafting and not used; numbering is left intact so that
-quotations in the body keep their marks. There is no [L2]: the probe that would have carried it
-(GNATprove) is gap [g3].
+Reference 6 was allocated during drafting and not used, and reference 11 is CDuce's download
+page above; numbering is left intact so that quotations in the body keep their marks. There is no
+[L2]: it was reserved for the GNATprove probe while that was gap [g3], and the probe landed as
+[L10] rather than renumber the marks already in the body.
