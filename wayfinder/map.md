@@ -1104,6 +1104,57 @@ spec exists.
   fusion does not cover — `|> List.First()` after a map over a million rows still traverses a
   million rows. Cheap to add *because* 17 §1 chose qualified names: `Stream.Map` is a new module and
   nothing existing changes.
+- **Bootstrapping — how much of beam-sharp is written in beam-sharp** (David, 2026-08-13). Three
+  axes, and the map has **nothing** on any of them: a grep for self-hosting or bootstrapping returns
+  zero, and `FFI` appears only as a *constraint* on what a foreign declaration may promise, never as
+  a surface with a home.
+
+  **The Elixir precedent is measured, not cited** (local, Elixir 1.19.5 — `module_info(compile)`'s
+  source extension per module):
+
+  | Erlang (`.erl`) | Elixir (`.ex`) |
+  |---|---|
+  | `elixir_parser`, `elixir_tokenizer`, `elixir_erl`, `elixir_bootstrap`, `elixir` | `Kernel`, `GenServer`, `Supervisor`, `Agent`, `Task` |
+
+  **Elixir never self-hosted its front end.** Fourteen years in, the tokenizer, parser and emitter
+  are still Erlang — `yecc` and `leex`, the same tools ticket 13 chose the skeleton's host for.
+  What *is* written in Elixir is the standard library and the OTP layer. **That splits this patch
+  the way the evidence does rather than the way ambition would**, and it says the achievable and
+  valuable target is (c), not (a).
+
+  **(a) The compiler in its own language, emitting BEAM bytecode.** *Optional, and ticket 13 already
+  removed the pressure* — the emission contract is abstract-format forms and `erlc +from_abstr`
+  builds from serialised text with no `.erl` present, so the host language is free and self-hosting
+  buys no capability. What it would buy is **evidence**: a compiler is the hardest exemplar there
+  is, and ticket 25's set does not contain one. Against that, the front end is where `leex`/`yecc`
+  and `merl`'s parse-transform-based `?Q` live, which is precisely what Elixir kept in Erlang and
+  what ticket 13 named as the reason the skeleton is an Erlang program. **So the honest question is
+  not "does it self-host" but "which layer", and Elixir's answer is available for free.**
+
+  **(b) The Erlang stdlib interface — the FFI *surface*.** *The sharp one, and ticket-ready.* What
+  a foreign declaration may **promise** is decided (ticket 18: only what one BEAM guard decides in
+  O(1); `list<Order>` is an error at the declaration and crosses as `list<term>` plus
+  `ValidateAs<T>`), and what happens when one **raises** is decided (ticket 15's compiler-emitted
+  wrapper, `foreign_error`). **Nobody has decided how one is spelled** — the syntax for declaring
+  and calling `:lists.keyfind/3`. The skeleton lists FFI as out of slice, so nothing forces it yet;
+  everything in (c) is blocked on it, since Elixir's `GenServer` is Elixir code calling
+  `:gen_server` directly.
+
+  **(c) A beam-sharp `GenServer`, as Elixir has one.** Ticket 14 decided that `[module: GenServer]`
+  **names a contract the compiler knows as a type** and that the user writes a narrower signature
+  the compiler checks by containment. It did **not** decide whether the thing on the other side —
+  the `start_link`, the loop integration, the client-API wrappers — is *beam-sharp code over
+  `:gen_server`* or *compiler-known types over Erlang's module with no beam-sharp module at all*.
+  This is the one that matters most, because ticket 00 made `handle_call/3` the **showcase**: the
+  language's headline demo currently has no stated implementation strategy underneath it. It also
+  interacts with the prelude-strata fog — a beam-sharp `GenServer` is stratum 1 by the "could a
+  user have written it" test and stratum 2 by "the compiler draws inferences from it", which is the
+  discriminator that fog patch is down to one live answer on.
+
+  **The dependency runs (b) → (c) → optionally (a)**, and it is worth noting that (c) is where
+  ticket 31's `Plug.Builder` question also lands: composable middleware is a library written in the
+  language over a compiler-known contract, which is structurally the same problem as GenServer.
+
 - **`cond`, or whatever serves a long ladder of unrelated conditions** — new with ticket 17 §6,
   which made `switch` the only branching construct and takes a **tuple subject** for compound
   conditions. That is clean at two or three conditions and clumsy at five, where
