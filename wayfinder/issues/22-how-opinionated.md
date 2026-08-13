@@ -17,8 +17,27 @@ language nobody has written a program in yet.
 **Check the trigger has actually fired before picking this up.** A skeleton that compiles one
 function is not enough to judge whether a DDD grammar narrows the addressable set; ticket 25's
 exemplars are the real test, and at least one of the non-aggregate shapes (WebSocket handler,
-protocol parser) needs to exist. **The skeleton now exists (2026-08-13); the exemplars do not**, so
-the trigger has half fired.
+protocol parser) needs to exist. ~~**The skeleton now exists (2026-08-13); the exemplars do not**, so
+the trigger has half fired.~~
+
+**THE TRIGGER HAS NOW FIRED — 2026-08-13.** The skeleton exists, and so does one of the two
+non-aggregate shapes this ticket named: the **WebSocket handler**
+([`25b`](../prototypes/25b-websocket-handler.md), with a lowering that runs). What it reports is a
+result for this ticket, and it is *not* the one the deferral feared:
+
+- **The DDD constructs did not narrow anything — they never appeared.** `record`, the minted tag,
+  `with` and projection are absent from every file of the WebSocket handler except its
+  declarations. A protocol handler is patterns, integers and binaries. Nothing about the
+  aggregate-shaped design made it miserable, which is the empirical answer this ticket was
+  deferred to get.
+- **What made it awkward was the type system's treatment of binaries** — length-prefixed framing
+  sits outside ticket 20's grammar, and ticket 12's closed-residual rule costs eleven clauses to
+  say "reserved". Both are orthogonal to how opinionated the language is.
+
+**So the risk this ticket was deferred over is not the risk the exemplar found.** Two honest
+limits before anyone reads that as a green light: it is **one** data point, and the **protocol
+parser** — the other non-aggregate shape named above — has not been written. Whether one exemplar
+is enough to decide a near-irreversible question is David's call, not the exemplar's.
 
 **Inherited from [ticket 23](23-what-the-language-owes-an-agent.md) §7, 2026-08-13.** 23 made a
 signature-with-no-clauses legal when carrying an explicit `[incomplete]` marker, and deliberately

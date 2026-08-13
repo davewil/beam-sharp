@@ -1062,10 +1062,20 @@ spec exists.
   which made `switch` the only branching construct and takes a **tuple subject** for compound
   conditions. That is clean at two or three conditions and clumsy at five, where
   `(a, b, c, d, e) switch` is hard to read even with `_` absorbing the tail. Deliberately not paid
-  for with a keyword until the shape is shown to occur: **ticket 25 owes a report on whether the six
-  exemplars produce it.** Adding `cond` later is purely additive, and its catch-all would be a
-  clause (`_ =>`), never an `else` — 17c measured that `else` is an `if`-only keyword on this
-  platform and both Elixir pattern constructs reject it.
+  for with a keyword until the shape is shown to occur: ~~**ticket 25 owes a report on whether the six
+  exemplars produce it.**~~ **REPORTED 2026-08-13 — the shape occurs, at width five**
+  ([`25a`](prototypes/25a-http-api-server.md)). HTTP request admission — authentication,
+  verification, quota, body size, feature flag — has no structural relationship between its five
+  conditions, so the tuple subject is the only spelling available. It reads **worse than an `if`
+  ladder**, for three reasons visible in the code: the test is separated from its consequence by
+  the tuple's width, so at five wide everybody counts columns; the `_` ceremony grows as O(width²);
+  and the subject line runs to 70 characters before the first arm. Against that, one win an `if`
+  ladder cannot have — the final all-`true` arm makes the ladder **exhaustive**, where a
+  fall-through `else` is checked by nothing. **So the fog patch is now a decision waiting on David
+  rather than on evidence**, and the trade is stated: a keyword, against exhaustiveness on the one
+  construct that most often silently drops a case. Adding `cond` later is still purely additive, and
+  its catch-all would be a clause (`_ =>`), never an `else` — 17c measured that `else` is an
+  `if`-only keyword on this platform and both Elixir pattern constructs reject it.
 
 <!--
   GRADUATED 2026-08-12 (ticket 10): "Runtime behaviour against untyped callers — what, if

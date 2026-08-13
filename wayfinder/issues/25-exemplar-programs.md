@@ -149,3 +149,116 @@ single measurement.
 
 Note the exemplar table's `Decides` column is now partly historical for 17: the ticket is resolved,
 so these exemplars *test* its answers rather than inform them.
+
+---
+
+## RESULTS — first two exemplars written 2026-08-13
+
+**Two of the six exist**, both with a lowering that compiles and runs on OTP 28.5, both with a
+friction list. This is the first section on this ticket that records *results* rather than
+incoming constraints. **The ticket stays open** — it is a standing resource, and four exemplars
+remain.
+
+| Exemplar | Files | Status |
+|---|---|---|
+| HTTP API server | [`25a-http-api-server.md`](../prototypes/25a-http-api-server.md), [`25a_http_lowering.erl`](../prototypes/25a_http_lowering.erl) | **written, runs** |
+| WebSocket handler | [`25b-websocket-handler.md`](../prototypes/25b-websocket-handler.md), [`25b_websocket_lowering.erl`](../prototypes/25b_websocket_lowering.erl) | **written, runs** |
+| Database querying | — | not written |
+| Event-queue consumer | — | not written |
+| Async processing | — | not written |
+| Dynamic web page | — | not written |
+
+### The three questions this ticket was holding, answered
+
+**1. Ticket 17 job 1 — does a long ladder of unrelated conditions occur? YES, at width five.**
+HTTP request admission (authentication, verification, quota, body size, feature flag) has no
+structural relationship between its five conditions, so 17 §6's tuple subject is the only spelling.
+It reads worse than an `if` ladder: the test is separated from its consequence by the tuple's
+width, the `_` ceremony grows as O(width²), and the subject line runs to 70 characters before the
+first arm. One genuine win against that — the final `(true, true, true, true, true)` arm makes the
+ladder *exhaustive*, which an `else` fall-through never is. **The shape 17 declined to pay a
+keyword for exists in the most ordinary handler in the set.** Whether that buys `cond` is David's
+call; the evidence 17 asked for is now on the table. → 17's `cond` fog patch.
+
+**2. Ticket 17 job 2 — does the pipe read well where the lowering is least precise? The pipe is
+fine; the accumulator's type is not.** Binary construction under `|>` reads cleanly. What breaks
+is 17 §3's fixpoint widening colliding with ticket 20 §4: the author declares `binary`, the
+emitted spec says `bitstring()`, and a single non-byte-aligned chunk crashes the fold at runtime
+(`badarg`, with an `error_info` cause naming the segment — ticket 23's third channel observed
+live). **17's job 2 was worried about the wrong half.**
+
+**3. Ticket 12 — how often is a closed residual closed deliberately? Once in two exemplars, and it
+cost eleven clauses to say one word.** A WebSocket opcode is 4 bits — interval `0..15` under
+ticket 20, closed and finite. Five values are named by RFC 6455; **eleven are reserved**. Ticket 12
+§2 makes `_ -> :reserved` an error over a closed residual, so all eleven must be written out.
+Naming the cases read **worse**, unambiguously. The fix is an interval *pattern*, and ticket 20 put
+intervals in the type language only. The HTTP exemplar's route table, by contrast, gets its
+catch-all legally — but *by accident*: it is legal because `list<string>` is infinite, not because
+a 404 is the specified response to an unmatched request. → tickets 12, 20.
+
+### The finding neither ticket asked for, and it is the sharpest
+
+**The language's own failure values are unserialisable.** `ValidationError` is *"a tuple today"*
+(CONTEXT.md) and `result<T, E>`'s failure member is `(:error, E)` — also a tuple. Ticket 16 §4
+established that `json:encode/1` refuses tuples at any depth. **Measured**: the 422 response body
+carrying a `ValidationError`, and any response embedding a `result`, both return
+`{crashed, error, unsupported_type}`. Ticket 16 §4 converts that runtime crash into a compile
+error, which is right — but the compile error then lands on the single most common thing an HTTP
+handler does, which is putting its own error reason on the wire.
+
+**The fix already exists and nobody had connected it.** CONTEXT.md records `ValidationError` as
+*"a tuple today; a record candidate if one is ever introduced"* — and ticket 26 introduced records
+the same day. A record erases to a map and `json:encode` takes a map directly. **`ValidationError`
+should be respelled as a record.** `result`'s `(:error, E)` remains genuinely open, since ticket 15
+chose the tag precisely because an untagged failure channel collapses. → tickets 15, 16, 26.
+
+### What the WebSocket exemplar says to ticket 22
+
+**The DDD constructs did not get in the way — they never appeared.** `record`, the minted tag,
+`with` and projection are absent from every file of the WebSocket handler except its declarations.
+A protocol handler is patterns, integers and binaries. Nothing about the aggregate-shaped design
+made it miserable.
+
+**What made it awkward was the type system's treatment of binaries, which is orthogonal to how
+opinionated the language is.** That is a real result for 22 and not the one it was deferred over:
+the risk it feared is not the risk the exemplar found. One exemplar is one data point, and the
+protocol-parser shape 22 also names has not been written.
+
+### Two gaps in ticket 20 that only a protocol handler exposes
+
+Both from `decode.bs`, and neither is covered by ticket 20's resolution:
+
+- **A segment whose size is a bound variable** (`payload:len`) is not expressible in
+  `<<_:M, _:_*N>>`, where `M` and `N` are literals. Every length-prefixed wire format needs it.
+- **The three RFC 6455 header shapes are discriminated by an integer *value* inside the binary**
+  (the 126/127 length sentinels), not by shape. Ticket 09's discriminability rule and ticket 20's
+  exact-union algebra both look straight past the field doing the work.
+
+Ticket 20 answered *"what must the type system model"* for binaries as **values on a boundary**.
+This is binaries as a **parsing grammar**, and it is untouched. → tickets 20, 09.
+
+### Ticket 26's remedy is more expensive than 26 predicted
+
+A WebSocket frame's payload is `string` (UTF-8, ticket 20's opaque refinement) when the opcode is
+`:text` and bare `binary` when it is `:binary` — **a field whose type depends on another field's
+value**. That is not optionality, so `option<T>` does not apply; 26 §4's own advice does — *two
+record types wearing one name*. Correct, and it **doubles the clause count of every function that
+handles a frame**. 26 §4 predicted this remedy would be cheap; in a protocol handler it is not.
+
+### One process-model finding
+
+**A process can time out with a non-empty mailbox.** Measured: an unmatched message was sent first,
+a `tcp` message second; the process selectively received the second, recursed, and fired its
+`after` timeout with the first still sitting in the mailbox. Correct BEAM semantics, and the same
+hole ticket 14 §6 found one level up — *without* a catch-all, unmatched messages accumulate
+invisibly rather than being dropped, and ticket 24's client-API test boundary cannot see it.
+→ tickets 14, 24.
+
+### Note for whoever writes the next exemplar
+
+**No `|>` and no `|?>` appeared in the HTTP exemplar at all.** Request handling is dispatch and
+validation, not transformation. The valve's absence is the more surprising half — `CreateOrder` is
+exactly 17 §4's "validate then act" sequence, and it came out cleaner as a two-arm `switch` on the
+`ValidateAs<T>` result, because there is only **one** fallible stage. `|?>` looks like it earns its
+place at three stages, not one. **The database exemplar is the place to test that**, and it is the
+natural next one to write.
