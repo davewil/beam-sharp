@@ -1,7 +1,7 @@
 # 29 — Refinement types in shipping languages: what did ticket 20 reinvent?
 
 Type: research
-Status: open
+Status: resolved 2026-08-13
 Blocked by: —
 
 ## Question
@@ -93,6 +93,54 @@ A findings file at `research/29-refinement-type-prior-art.md`, claims marked `do
 - Does Ada's static/dynamic predicate split corroborate or contradict ticket 20's two tiers?
 - Is interval-only refinement reasoning without a solver a thing anyone ships?
 - Do ticket 20's decisions need amending, and if so which?
+
+## Answer — 2026-08-13
+
+Findings: [`research/29-refinement-type-prior-art.md`](../research/29-refinement-type-prior-art.md).
+Probes: [`29a`](../prototypes/29a_cduce_intervals.sh), [`29b`](../prototypes/29b_cduce_clause_scaling.sh),
+[`29c`](../prototypes/29c_ada_predicate_tiers.sh), [`29d`](../prototypes/29d_string_vs_bytes.sh),
+[`29e`](../prototypes/29e_binary_structure_in_types.sh), [`29f`](../prototypes/29f_spark_proves_predicates.sh).
+
+**Nothing ticket 20 decided is wrong.** The three questions this ticket owed:
+
+1. **Ada corroborates the structure and contradicts the cut.** Two tiers, the privileged one legal
+   in a dispatch construct and participating in coverage checking, shipped since 2012 — reached
+   independently on an unrelated platform. But Ada cuts on the predicate's **syntactic form**, not
+   its cost: `Odd mod 2 = 1` is refused the static tier while `Positive_Ish > 0` is accepted, at
+   identical runtime cost (GNAT 12.2 [L3]). **Ticket 20's line is attested nowhere in the prior art
+   surveyed.** The two cuts stand in **containment, not conflict** — every Ada static predicate is
+   one BEAM guard and the converse fails — so beam-sharp liberalises a line Ada drew syntactically
+   for want of a platform-given decidable predicate language.
+2. **Yes — solver-free interval refinement ships.** CDuce 0.6.0 (2017-03-17, installed via
+   `archive.debian.org`) is exact at union, intersection, complement and difference over integer
+   intervals with **no SMT library linked** at binary or package level [L6], which turns ticket 20's
+   affordability argument from asserted into demonstrated. Nim carries solver-free interval
+   reasoning too, but pragma-gated, warning-only, with no user-declarable predicate [s3]. Nobody had
+   published the cost; [`29b`](../prototypes/29b_cduce_clause_scaling.sh) now does — **below the
+   measurement floor at ticket 04's 40-clause shape, quadratic past ~200** [L7].
+3. **Five amendments, all taken; a sixth carried as a caution.** A (record the cut as a tier-3
+   divergence with its reason), C (CDuce `doc` → `local`, pinned), D (the `string`/`binary` split is
+   a tier-1 borrow, and U+FFFD substitution is the deliberate divergence), E (a third `erl_types`
+   lossiness — `t_bitstr(8,72)` → `<<_:64,_:_*8>>`, motive *termination*, and beam-sharp escapes it
+   because ticket 04 made signatures mandatory) are recorded in
+   [ticket 20 §"Amended by ticket 29"](20-untheorised-term-shapes.md). **B was David's call and was
+   taken narrowed**: user-declared opaque refinements are **barred from clause heads and foreign
+   declarations, permitted elsewhere** — not barred outright. F is a caution, not an amendment: Ada's
+   predicate checks are absent without `-gnata` where beam-sharp's have no opt-out, so a reader
+   arriving from Ada will expect an assertion policy that does not exist.
+
+**Gap [g3] is closed** — the one gap the amendments turned on. GNATprove 12.1.0 **discharges a
+`Dynamic_Predicate` statically whenever the caller's contract entails it, including an O(n) content
+predicate** [L10], so Ada's permissiveness is not "permit and check later". It is also why B narrowed
+to placement rather than opening: SPARK proves it where the caller is inside the verified subset, and
+at beam-sharp's boundary the caller never is. Residual limit: `alt-ergo` would not run, so a
+*negative* proof result from these probes must not be read as unprovable.
+
+**What this leaves owed** — recorded on [ticket 20](20-untheorised-term-shapes.md) §5 and surfaced in
+the map's **Not yet specified**: whether the compiler may emit a call to arbitrary user code at a
+boundary; a spelling for the check site, since beam-sharp has no subtype-conversion site to hang one
+on; and what happens when a user predicate itself raises (ticket 15's `result<T, E>`, with Ada's
+`Predicate_Failure` as the worked precedent).
 
 ## Notes
 

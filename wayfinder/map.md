@@ -594,6 +594,22 @@ spec exists.
   predicate raises → 15's `result<T, E>`, Ada's `Predicate_Failure` the precedent). Residual limit:
   `alt-ergo` would not run, so a *negative* proof result must not be read as unprovable.
 
+- [Refinement types in shipping languages: what did ticket 20 reinvent?](issues/29-refinement-type-prior-art.md)
+  — the prior-art pass ticket 20 was resolved without. **Nothing it decided is wrong**, and the
+  amendments are folded into 20's entry above; what belongs to *this* ticket is the verdict.
+  **Ada corroborates the two-tier structure and contradicts the cut** — it divides on the
+  predicate's *syntactic form*, not its cost, so beam-sharp's O(1) line is **attested nowhere in the
+  prior art surveyed** (Ada, Liquid Haskell, F\*, Nim, Whiley, Dafny) and is a tier-3 divergence
+  rather than the map's recurring rule applied again. The relation is **containment**: every Ada
+  static predicate is one BEAM guard, so beam-sharp liberalises a line Ada drew for want of a
+  platform-given decidable predicate language. **Solver-free interval refinement does ship** — CDuce
+  0.6.0 measured at last, exact including complement, no SMT linked, free at 40 clauses and quadratic
+  past ~200 — which is what turns 20's affordability argument from asserted into demonstrated. And
+  **GNATprove discharges an O(n) content predicate statically when the caller's contract entails
+  it**, the measurement that narrowed 20's blanket refusal to a placement rule. Method note worth
+  keeping: the borrow heuristic ran *correctly* and still missed this, because it has no rung for a
+  language neither audience uses which solved exactly this problem — the reason to raise a prior-art
+  ticket is the mechanism being invented, not the heuristic misfiring.
 - [The walking skeleton, first slice](../compiler/README.md) — **built 2026-08-13, and the premise
   that delayed it was stale.** The fog said the slice "cannot be phrased sharply until the language
   surface exists"; that was written at charting, before any of the twenty-three resolutions, and it
@@ -762,6 +778,24 @@ spec exists.
   type; *"this email address is well-formed"* is O(n), is not user-declarable, and still has
   nowhere to live. What remains is therefore narrower than the patch was written for — it is only
   about the **non-guard-expressible** invariants, and ticket 22 inherits that narrowing.
+  **Amended 2026-08-13 by ticket 29's amendment B**: the non-guard-expressible invariant *is* now
+  user-declarable as an opaque refinement — just not in a clause head or a foreign declaration. So
+  this patch narrows again: what still has nowhere to live is only the invariant a user wants
+  enforced **at the boundary**, which is exactly where the placement rule bars it.
+- **How a user-declared opaque refinement is actually checked** — new with
+  [ticket 29](issues/29-refinement-type-prior-art.md)'s amendment B, recorded in full on
+  [ticket 20 §5](issues/20-untheorised-term-shapes.md). Three owed items: **whether the compiler may
+  emit a call to arbitrary user code at a boundary** (Ada does, invisibly, at parameter passing —
+  and it interacts with ticket 18's rule that generated code is exactly where a guard is emitted
+  unconditionally); **a spelling for the check site**, since beam-sharp has no subtype-conversion
+  site to hang one on, and SPARK puts the obligation at the *conversion in the caller* rather than
+  on the callee, so whatever site is chosen governs the proof obligation and not merely the runtime
+  check; and **what happens when the predicate raises** — ticket 15's `result<T, E>` the obvious
+  answer, Ada's `Predicate_Failure` the worked precedent. The first is sharp enough to ticket on its
+  own. It is left as fog because the *site* has no answer until
+  [ticket 26](issues/26-data-modelling.md) settles how a named type carrying a `where` clause is
+  spelled and what it erases to — an inference, not an established dependency — and deciding item 1
+  alone would fix the visible half of a rule whose invisible half is still open.
 - **Stdlib shape as a principle** — Erlang-ish flat modules, C#-ish namespaced statics, or
   Gleam-ish. Breadth is out of scope; the shape is not. **The prelude now has known contents**
   from ticket 10 — `type bool = true | false;`, `type option<T> = T | :nothing;`,
