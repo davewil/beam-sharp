@@ -167,6 +167,30 @@ named prelude function; it is **not** what `<` means, since comparison operators
 of the same type.
 _Avoid_: natural order, default ordering, universal comparison
 
+**Record**:
+A type whose values are maps of named fields. Declared with `record`, which is sugar for a `type`
+whose field set carries a **minted tag**. `type X = { ... }` declares the same shape without one.
+Every declared field is always present in the term; there are no absent fields.
+_Avoid_: struct, class, object, entity, POCO
+
+**Minted tag**:
+The discriminating field a `record` declaration adds, valued from the type's **qualified** name. It
+is data *in the term*, not identity *in the type* — a hand-written `type` carrying the same tag is
+the same type. It is what makes two records with otherwise identical fields distinct.
+_Avoid_: type name, nominal tag, class marker, discriminant, `__struct__`
+
+**Projection**:
+`o.Field`, reading a field from a record value. The receiver's case decides what a dot means —
+lowercase is a value and projects, PascalCase is a module and qualifies. Legal over a union where
+every member carries the field. **Never a call**: nothing is dispatched by writing a dot.
+_Avoid_: member access, property access, getter, attribute lookup
+
+**Update**:
+`o with { Field = v }`, producing a new record differing in the named fields. **Width-preserving** —
+it cannot add or remove a field, because a different field set is a different type. There is no
+spread form.
+_Avoid_: spread, merge, copy-with, mutation, setter
+
 **Prelude**:
 The definitions and codegen obligations available without import.
 _Avoid_: stdlib, core, builtins, runtime

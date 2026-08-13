@@ -684,6 +684,41 @@ spec exists.
   Tests are ordinary beam-sharp, no exemption. Closes 14's catch-all question with a **no**: cause
   the real event and the boundary test catches a mis-shaped clause.
 
+- [Data modelling: records, and what named types erase to](issues/26-data-modelling.md) — **a record
+  erases to a map, and `record` is sugar for a minted tag — but everything stays structural.**
+  `type X = { ... }` remains the alias ticket 09 settled; a second form desugars to a `type` whose
+  field set carries a discriminating tag minted from the type's *qualified* name. **The name enters
+  the term, as data, never the type algebra** — the test that proves it is not nominality is that a
+  hand-written `type` with the same tag *is* the same type, which is also why codegen (15's
+  `ValidationError`, 18's foreign declarations, `ValidateAs<T>`) needs no privileged constructor.
+  **This amends 09's inventory and not its reasoning**: union closure, negation, the boundary and
+  exhaustiveness all survive, where real nominality would have cost all four. **David forced it on
+  DDD identity** — under 09 as written, `Order` and `Invoice` over identical fields are one type, so
+  `Update(Order o)` accepts an `Invoice` and `Order | Invoice` is not a union of two things; a
+  hand-written tag fixes that but is *omittable*, and an omitted tag unifies two aggregates in
+  silence. **Elixir is measured into this position rather than cited**: `Module.Types.Descr` types a
+  struct as an **open map over an atom singleton** with no nominal construct anywhere, identical
+  fields with different tags come back disjoint, and struct exactness is a compile-time courtesy the
+  term model does not carry (`Map.put` widens one and it still satisfies `is_struct/2`). **The number
+  ticket 18 asserted is now measured and lands the good way**: the map discriminator is +29 B against
+  the tuple's +13 B, but a *tagged* map is **+14 B and flat in field count**, because `map_get/2`
+  fails a guard silently on an absent key — so **the DDD requirement and the cheapest possible
+  boundary guard want the same thing**. Guard content follows 18's own rule with no new one: tag test
+  always, presence and value tests per 18 §1, exact-set test only where a codegen obligation consumes
+  the record. Surface: **`with` alone, spread refused** — spread's defining capability is widening,
+  which 27 §7 closed, and a non-widening spread is `with` with a second spelling, so **27 §7's debt
+  is paid rather than reopened**; **construction names the type** (`Order { Id = "A-1" }`),
+  target-typing refused on read cost; **the separator is `=` where declarations and patterns use
+  `:`** — C#'s own split, forced independently because `Status: :placed` puts two colons adjacent;
+  **the dot projects**, disambiguated *lexically* by casing rather than by type (`o.Status` vs
+  `List.Map`), legal over a union where every member carries the field and **free there only because
+  §1 chose maps** — a tuple erasure would have needed real dispatch. **No absent fields**: every
+  declared field is always present, optionality is `option<T>`, and `?` is refused because *k*
+  optional fields denote **2^k shapes** for a guard 18 emits everywhere — with the modelling
+  consequence being the point, since an optional field is usually two record types wearing one name
+  and §1 just made that cheap. Sharpest downstream consequence: **ticket 25 is unblocked in
+  practice**, four of its six exemplars having waited on exactly these constructs.
+
 ## Not yet specified
 
 <!-- in-scope fog: real, but not yet sharp enough to phrase as a ticket -->
@@ -840,6 +875,15 @@ spec exists.
   surface, so tests either sit in it — and an `ls` no longer shows only operations — or somewhere
   this patch has not defined. 24 declined to answer it as a tooling detail precisely because 23 §10
   says it is not one.
+  **Ticket 26 adds a fifth consumer, and it is the first that is a correctness requirement rather
+  than a discovery or build one.** 26 §1 mints a record's discriminating tag from its type name, and
+  that tag *is* aggregate identity — so if the mint uses the **short** name, `Shop.Orders.Order` and
+  `Billing.Invoices.Order` both produce `:order` and two bounded contexts silently unify, which is
+  the exact failure the minting exists to prevent, at a different scale and invisible. **So the tag
+  must mint from the qualified name**, and whatever atom this patch settles on must be unique enough
+  to carry aggregate identity, not merely to avoid colliding with Erlang modules. This raises the
+  stakes on the emitted-atom question rather than adding a new one: 13 already made it a
+  build-layout question and 23 §10 an API-surface question; 26 makes it a *type* question.
 - **The language's name.**
 - **Imports and cross-module scope** — if a directory is a module, what do files in it share
   automatically, and what must be imported? Slipped into a prototype example unexamined.
@@ -866,6 +910,17 @@ spec exists.
   user-declarable as an opaque refinement — just not in a clause head or a foreign declaration. So
   this patch narrows again: what still has nowhere to live is only the invariant a user wants
   enforced **at the boundary**, which is exactly where the placement rule bars it.
+  **Amended 2026-08-13 by ticket 26 §1, which splits this patch's subject in two and settles the
+  half nobody had named.** *Aggregate identity* — that an `Invoice` cannot be passed where an
+  `Order` is wanted — is now enforced, by a minted tag, checked at compile time and at the boundary
+  for +14 bytes. That was never written down as part of this patch and was silently missing from the
+  language: under ticket 09 as written, two records with the same field set were one type. What
+  remains here is *construction-time* invariants only, and the reason they are hard is now precisely
+  stated rather than assumed: **the language guarantees shape, never provenance** (09 §5, ticket 21,
+  re-verified in [`26b`](prototypes/26b_struct_field_set.exs) — a hand-built map compares `==` to a
+  real Elixir struct). So no tag, keyword or type can express *"this was validated on the way in"*;
+  only ticket 15's `result<T, E>` and ticket 18's boundary guards can, and they say it about a
+  *call*, not about a value's history. **Do not re-raise aggregate identity here — it is decided.**
 - **How a user-declared opaque refinement is actually checked** — new with
   [ticket 29](issues/29-refinement-type-prior-art.md)'s amendment B, recorded in full on
   [ticket 20 §5](issues/20-untheorised-term-shapes.md). Three owed items: **whether the compiler may

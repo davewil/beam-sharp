@@ -288,11 +288,11 @@
       <span><b>ENG-192</b> &middot; ticket 26</span>
       <span>2026-08-13</span>
       <span>OTP 28.5 &middot; Elixir 1.19.5</span>
-      <span style="color:var(--edge)">open &mdash; awaiting decision</span>
+      <span style="color:var(--good)">resolved 2026-08-13</span>
     </div>
     <h1>Who Writes The Tag</h1>
     <p class="standfirst">A record has to erase to something, and every candidate needs a way to
-    tell two same-shaped records apart. That is a tag &mdash; and the whole decision turns out to
+    tell two same-shaped records apart. That is a tag &mdash; and the whole decision turned out to
     rest not on <em>which</em> erasure carries one, but on whether the compiler or the author
     puts the value in it.</p>
   </div>
@@ -300,15 +300,28 @@
 
 <div class="wrap">
 
-<div class="verdict">
-  <span class="lab">The fork &mdash; not yet decided</span>
-  <p class="sentence">Map or tuple is the <b>visible</b> question. The one that decides it is
-  whether a record&rsquo;s tag is <b>synthesised from its type name</b>.</p>
-  <p class="gloss">If the compiler derives the tag from the name, then <code>type Order</code> and
-  <code>type Invoice</code> over identical fields become different terms and therefore different
-  types &mdash; which is nominality, and ticket 09 ruled it out. If the author writes the tag as an
-  ordinary field, nothing is violated: that is ticket 09 &sect;5&rsquo;s own newtype remedy. The
-  erasure then follows from the answer rather than driving it.</p>
+<div class="verdict" style="border-left-color:var(--accent)">
+  <span class="lab">The decision</span>
+  <p class="sentence">A record erases to a <b>map</b>, and <code>record</code> mints a tag from the
+  type&rsquo;s <b>qualified name</b> &mdash; but everything stays <b>structural</b>.</p>
+  <p class="gloss">The name enters the <em>term</em>, as data, never the <em>type algebra</em>. The
+  test that proves it is not nominality: a hand-written <code>type</code> carrying the same tag
+  <em>is</em> the same type. So ticket 09&rsquo;s reasoning survives whole &mdash; union closure,
+  negation, the boundary and exhaustiveness all intact &mdash; and only its inventory is amended:
+  <em>&ldquo;there is no <code>record</code> keyword to design&rdquo;</em> becomes
+  <em>&ldquo;there is one, and it is sugar for a minted discriminator field&rdquo;</em>.</p>
+</div>
+
+<div class="callout" style="background:var(--accent-s);border-left-color:var(--accent)">
+  <p><strong style="color:var(--accent)">What forced it.</strong> The ticket was heading for
+  &ldquo;the author writes a discriminating field by hand&rdquo; until David named the requirement
+  that fails: <em>in DDD it is very important that <code>Order</code> and <code>Invoice</code> are
+  not the same type &mdash; <code>Update(Order o)</code> called with an <code>Invoice</code> must be
+  an error.</em> Under ticket 09 as written that call <b>compiles</b>, and
+  <code>Order | Invoice</code> is not even a union of two things. A hand-written tag fixes it, but
+  it is <em>omittable</em> &mdash; and an omitted tag unifies two aggregates in silence, which is
+  exactly the plausible-looking structural drift the standing constraint names as agent
+  authorship&rsquo;s characteristic failure.</p>
 </div>
 
 <h2>The correction this brief exists to make</h2>
@@ -360,27 +373,31 @@ flowchart TB
   TU --> D1["field order becomes the identity"]
   D1 --> R1["refused: 09 says a type IS its field set"]
 
-  MP --> OK["09 holds at the term level, free"]
-  OK --> Q2{"how are same-shaped records told apart?"}
+  MP --> Q2{"how are same-shaped records told apart?"}
 
-  Q2 -->|nothing| SAME["they are one type. 09, as written"]
-  Q2 -->|a tag| T{"who puts the value in the tag?"}
+  Q2 -->|nothing| SAME["refused: Update(Order) accepts an Invoice"]
+  Q2 -->|a tag| T{"can that tag be written by hand?"}
 
-  T -->|compiler, from the type name| SYN["refused: the name enters the algebra"]
-  T -->|author, as a field| USR["kept: 09 section 5 newtype remedy"]
+  T -->|"no, only the declaration mints one"| NOM["refused: that is nominality"]
+  T -->|"yes, record is sugar for a type"| KEPT["KEPT: tag minted from the qualified name"]
 
-  SYN -.->|this is the fork| USR
+  NOM --> C1["costs union closure, negation, the boundary"]
+  KEPT --> C2["structural throughout. 09 survives verbatim"]
 
   style R1 fill:#F7ECE0,stroke:#9A551B
-  style SYN fill:#F7ECE0,stroke:#9A551B
-  style USR fill:#EDE7F7,stroke:#5A3A96
-  style SAME fill:#EDE7F7,stroke:#5A3A96
+  style SAME fill:#F7ECE0,stroke:#9A551B
+  style NOM fill:#F7ECE0,stroke:#9A551B
+  style C1 fill:#F7ECE0,stroke:#9A551B
+  style KEPT fill:#EDE7F7,stroke:#5A3A96
+  style C2 fill:#EDE7F7,stroke:#5A3A96
 </pre>
   </div>
-  <figcaption>The two refusals are ticket 09&rsquo;s, reached from opposite directions: a bare
-  tuple loses the field <em>set</em>, a name-derived tag gains a nominal <em>identity</em>. Only the
-  middle path leaves 09 intact &mdash; and it is the path where the author, not the compiler,
-  decides that two records are different things.</figcaption>
+  <figcaption>Three refusals, and the middle one is the whole decision. A bare tuple loses the field
+  <em>set</em>; no tag at all loses aggregate <em>identity</em>, which is where ticket 09 as written
+  left DDD; and a tag reachable <em>only</em> through its declaration would be genuine nominality,
+  costing the four capabilities 09 refused it for. What is kept is a tag the compiler mints and a
+  hand-written <code>type</code> can reproduce &mdash; so the name is in the term, not in the
+  algebra.</figcaption>
 </figure>
 </div>
 
@@ -487,17 +504,18 @@ it is weaker than its reputation, and in a direction that matters here.</p>
     is discrimination, not dispatch &mdash; worth keeping the words apart.</p>
   </li>
   <li>
-    <span class="tag kept">live, and unowned</span>
+    <span class="tag kept">settled here</span>
     <h3>Identity &mdash; that an <code>Order</code> is not an <code>Invoice</code></h3>
-    <p>This is ticket 09&rsquo;s named newtype gap. 09 said tags cover it and pointed at refinement
-    types as the alternative; ticket 20 came back and <strong>handed it straight back</strong> &mdash;
-    <em>&ldquo;a refinement is a set, so <code>Meters</code> and <code>Feet</code> are still one
-    type and 09&rsquo;s tuple tag stands&rdquo;</em>.</p>
-    <p class="rejected"><b>Nobody owns the spelling.</b> 09 &rarr; 20 &rarr; back to 09, and no
-    ticket has ever written down how an opt-in tag is actually spelled. The record surface is the
-    natural home for it, which makes it plausibly this ticket&rsquo;s &mdash; and Elixir&rsquo;s
-    <code>defstruct</code> is the precedent that it can be blessed syntax rather than hand-written
-    ceremony in every literal.</p>
+    <p>This was ticket 09&rsquo;s named newtype gap, and it had been passed in a circle: 09 said
+    tags cover it and pointed at refinement types; ticket 20 came back and <strong>handed it
+    straight back</strong> &mdash; <em>&ldquo;a refinement is a set, so <code>Meters</code> and
+    <code>Feet</code> are still one type and 09&rsquo;s tuple tag stands&rdquo;</em>. No ticket had
+    ever written down how an opt-in tag is spelled.</p>
+    <p class="rejected"><b>This ticket writes it down.</b> <code>record</code> is the blessed
+    spelling, minting from the qualified name &mdash; Elixir&rsquo;s <code>defstruct</code> being
+    the precedent that it need not be hand-written ceremony in every literal. The gap is closed for
+    records; whether the same form serves <code>Meters</code>/<code>Feet</code> over a scalar is not
+    settled here, and 09 &sect;5&rsquo;s tuple tag still stands for that case.</p>
   </li>
 </ul>
 
@@ -527,26 +545,102 @@ it is weaker than its reputation, and in a direction that matters here.</p>
 </table>
 </div>
 
-<div class="ask">
-  <span class="lab">What is being asked</span>
-  <p><b>1.</b> Is the erasure a <b>map</b> &mdash; accepting ~+16 bytes per boundary guard and
-  ~1.7 ns per guarded projection over a tuple, in exchange for ticket 09&rsquo;s aliasing rule
-  holding at the term level, direct <code>json:encode</code>, and Elixir structs arriving without
-  conversion?</p>
-  <p><b>2.</b> Is a discriminating tag <b>always the author&rsquo;s</b>, written as an ordinary
-  field &mdash; or does the compiler synthesise one from the type name, which buys +14-byte
-  discrimination and the newtype distinction, at the cost of ticket 09&rsquo;s rule that two names
-  over one set are one type?</p>
-  <p><b>3.</b> If the tag is the author&rsquo;s: does this ticket also owe it a <b>blessed
-  spelling</b> &mdash; the unowned seam between 09 and 20 &mdash; or does that graduate as its own
-  ticket?</p>
+<h2>The surface, settled</h2>
+
+<pre class="code"><span class="k">record</span> Order { Id: string, Status: Status, Lines: list&lt;Line&gt;, Paid: Money }
+
+<span class="c">// desugars to, and is interchangeable with:</span>
+<span class="k">type</span> Order = { Kind: <span class="g">:order</span>, Id: string, Status: Status, Lines: list&lt;Line&gt;, Paid: Money };
+
+Order o    = Order { Id <span class="k">=</span> "A-1", Status <span class="k">=</span> <span class="g">:draft</span>, Lines <span class="k">=</span> [], Paid <span class="k">=</span> 0 };
+Order paid = o <span class="k">with</span> { Status <span class="k">=</span> <span class="g">:paid</span>, Paid <span class="k">=</span> 500 };
+
+o.Status                <span class="c">// lowercase receiver  -> projection</span>
+List.Map(f, xs)         <span class="c">// PascalCase receiver -> module qualification</span>
+
+<span class="e">{ ...o, Extra = true }</span>  <span class="c">// refused: spread widens, and 27 s7 closed that</span>
+<span class="e">record P { Notes?: string }</span> <span class="c">// refused: k optional fields = 2^k shapes to guard</span></pre>
+
+<ul class="decisions">
+  <li>
+    <span class="tag kept">kept</span>
+    <h3><code>with</code> alone &mdash; and it <em>pays</em> ticket 27&rsquo;s debt</h3>
+    <p>27 &sect;7 declined row polymorphism on the assumption that record update would be
+    compiler-visible, <b>width-preserving</b> syntax, and asked to be told if that changed. It did
+    not. Spread is refused because its defining capability is the one thing the type system closed:
+    <code>{ ...o, Extra = true }</code> widens, producing a term that carries a minted
+    <code>:order</code> tag while not being an <code>Order</code> &mdash; and typing &ldquo;an Order
+    plus whatever else&rdquo; is precisely the row variable 27 declined.</p>
+    <p class="rejected"><b>And a non-widening spread</b> is <code>with</code> with a second
+    spelling &mdash; the redundancy ticket 17 refused when it killed <code>else</code>.</p>
+  </li>
+  <li>
+    <span class="tag kept">kept</span>
+    <h3>Construction names the type; the separator is <code>=</code></h3>
+    <p>The tag has to enter the term somewhere, so something must name the type at the construction
+    site. Target-typed construction was refused on <b>read cost</b>: mandatory signatures mean most
+    positions carry an expected type, which is what makes the exception nasty &mdash; it would work
+    almost everywhere, and the diagnostic would land at the use rather than the literal.</p>
+    <p class="rejected"><b>A correction made during the session:</b> a three-way agreement on
+    <code>:</code> across declaration, pattern and construction was proposed and is wrong. C#
+    deliberately splits colon-for-matching from equals-for-assigning, prototype 01b already wrote it
+    that way, and the atom sigil forces it independently &mdash; <code>Status: :placed</code> puts
+    two colons adjacent where <code>Status = :placed</code> reads clean.</p>
+  </li>
+  <li>
+    <span class="tag kept">kept</span>
+    <h3>The dot projects, disambiguated lexically</h3>
+    <p>Ticket 17&rsquo;s refusal does not reach this, for a mechanical reason:
+    <code>xs.Filter(f)</code> needs type-directed resolution of an unqualified name against a
+    candidate set, where <code>o.Total</code> resolves against one declared field set with nothing
+    to dispatch on. Casing settles it <em>before types exist</em> &mdash; a type-directed rule would
+    drag back exactly what 17 refused.</p>
+    <p>Union projection is legal where every member carries the field, and <b>&sect;1 paid for it
+    without knowing</b>: under a map, <code>map_get</code> is one instruction whichever member
+    arrived; under the tuple erasure it would have needed real dispatch.</p>
+  </li>
+  <li>
+    <span class="tag rej">refused</span>
+    <h3>Absent fields, and the <code>?</code> modifier</h3>
+    <p>The exponential decides it: <em>k</em> optional fields denote <b>2<sup>k</sup> shapes</b>,
+    and ticket 18 emits a discriminator on every exported function taking a record. Two spellings
+    for absence would also collide &mdash; <code>Notes?: option&lt;string&gt;</code> has three
+    states, two meaning the same thing. TypeScript ships that hazard and grew
+    <code>exactOptionalPropertyTypes</code> for it.</p>
+    <p class="rejected"><b>The modelling consequence is the point, not the consolation:</b> an
+    optional field is usually two record types wearing one name, and &sect;1 just made that cheap
+    to fix. Refusing <code>?</code> pushes toward illegal states being unrepresentable.</p>
+  </li>
+</ul>
+
+<h2>What this leaves owed</h2>
+
+<p>Three items, all recorded on the ticket rather than left to rot. The <b>spelling</b> of the
+minting form &mdash; <code>record X { }</code> versus a modifier on <code>type</code> &mdash; is a
+grammar-opinion question and lands in ticket 22&rsquo;s territory. Ticket 16 &sect;4&rsquo;s
+generated encoder must <b>pick between <code>"notes": null</code> and omitting the key</b> for an
+<code>option&lt;T&gt;</code> holding <code>:nothing</code>, since the type model no longer
+distinguishes them. And the map&rsquo;s module-and-namespace fog gains a correctness requirement it
+did not have: <b>the tag must mint from the qualified name</b>, or <code>Shop.Orders.Order</code>
+and <code>Billing.Invoices.Order</code> both produce <code>:order</code> and two bounded contexts
+unify in silence.</p>
+
+<div class="callout">
+  <p><strong>One limit worth stating plainly, because DDD usually wants more.</strong> The language
+  guarantees <em>shape</em>, never <em>provenance</em>. Tagged, <code>Update(Order)</code> cannot be
+  called with an <code>Invoice</code>. What no BEAM language can guarantee is that an
+  <code>Order</code>-shaped term came from your constructor &mdash; ticket 09 &sect;5 and ticket 21
+  settled it, and prototype 26b re-verified it: a hand-built map compares <code>==</code> to a real
+  Elixir struct. Construction-time invariants stay with ticket 15&rsquo;s
+  <code>result&lt;T, E&gt;</code> and ticket 18&rsquo;s boundary guards, which say it about a
+  <em>call</em> rather than about a value&rsquo;s history.</p>
 </div>
 
 <footer>
-  <p>beam-sharp &middot; ticket 26 &middot; <code>ENG-192</code> &middot; brief generated during the
-  grilling session of 2026-08-13, before resolution. Prototypes 26a (Erlang), 26b and 26c (Elixir)
-  are reproducible; every figure above is <code>local</code> evidence measured on this machine
-  &mdash; OTP 28.5 <code>erts-16.4</code>, compiler 9.0.6, Elixir 1.19.5, arm64 Darwin. Nothing on
-  this page is decided.</p>
+  <p>beam-sharp &middot; ticket 26 &middot; <code>ENG-192</code> &middot; resolved 2026-08-13 in a
+  grilling session with David. Prototypes 26a (Erlang), 26b and 26c (Elixir) are reproducible and
+  live in <code>wayfinder/prototypes/</code>; every figure above is <code>local</code> evidence
+  measured on this machine &mdash; OTP 28.5 <code>erts-16.4</code>, compiler 9.0.6, Elixir 1.19.5,
+  arm64 Darwin.</p>
 </footer>
 </div>

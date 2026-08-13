@@ -1,7 +1,7 @@
 # 26 — Data modelling: records, and what named types erase to
 
 Type: grilling
-Status: open
+Status: resolved 2026-08-13
 Blocked by: 09
 
 ## Question
@@ -326,13 +326,222 @@ requirement it did not have: whatever atom a module identifier lowers to must be
 carry aggregate identity, not only to avoid Erlang module collisions. Recorded here because it
 constrains that patch rather than blocking this ticket.
 
+### What the boundary guard actually contains — derived from ticket 18, not amending it
+
+The cheap tag test and the exact-set test are not competing options; they answer different
+questions, and **ticket 18 §1's existing rule already allocates them** without needing a new one.
+
+- **The tag test is always emitted** on a record parameter. It establishes *which record this
+  claims to be*, and no function body ever checks that — a body projects fields, so it cannot
+  object to a term wearing the wrong identity. That is 18 §1's "the body would not object" clause
+  applying to a check no body performs. One `map_get`, +14 bytes, flat in field count.
+- **Field presence and value tests follow 18 §1 unchanged**, function by function. A body that
+  computes with a field (`o.Total + o.Paid`) already crashes on a wrong type — outcome 2, free,
+  no guard needed. A body that only *compares* (`o.Status == :draft`) silently yields false on a
+  wrong type, which is ticket 06's outcome 3, and 18 already emits there.
+- **The exact-set test is emitted only where a codegen obligation consumes the record**, per
+  18 §1(c), which is unconditional. Ticket 16 §4's generated encoder is the case that forces it:
+  extra fields are harmless to projection and to exhaustiveness, but the encoder would
+  *serialise* them, publishing fields no type declares.
+
+So the erasure decision costs +14 bytes at the ordinary boundary and the full +29 only where
+generated code reads the whole record — which is the same two-tier shape ticket 17 §2 established
+for emitted precision, arrived at independently.
+
 ### Owed by this section
 
 - **The spelling is not settled** — `record X { ... }` versus a modifier on `type`. The semantics
   are decided; the surface follows, and it touches ticket 22's deferred question about which
   opinions live in the grammar.
-- **Whether the boundary guard is the cheap tag test or the exact-set test** is not uniform. Extra
-  fields are harmless to projection and to exhaustiveness, but ticket 16 §4's generated encoder
-  would serialise them — so 18 §1's own rule (*guard where the body would not object*) appears to
-  split this two ways rather than one. Settle it before this ticket closes.
+
+## 2. Construction and update — SETTLED (David)
+
+**`with` alone. Spread is not in the language. Construction names the type. The separator is `=`.**
+
+```csharp
+Order o    = Order { Id = "A-1", Status = :draft, Lines = [], Paid = 0 };
+Order paid = o with { Status = :paid, Paid = 500 };
+```
+
+### `with`, and why spread is refused
+
+**This pays ticket 27 §7's debt rather than reopening it.** 27 declined row polymorphism, and its
+load-bearing argument was about *this* construct: record update is `with`/spread, which is
+**syntax**, so it types structurally against a concrete record type with no variable involved. 27
+recorded that if update turned out not to be compiler-visible syntax, its justification weakened
+and it must be told. It is syntax, and it is width-preserving. **27 §7 stands as written.**
+
+Spread is refused because **its defining capability is the one thing the type system closed**.
+`{ ...o, Extra = true }` widens, and under exact field sets that is a different type — one that
+carries a minted `:order` tag while not being an `Order`, and which no signature can be written
+against, because typing "an `Order` plus whatever else" is precisely the row variable 27 declined.
+Remove the widening and `{ ...o, Status = :paid }` is `with` with a second spelling — the
+redundancy ticket 17 refused when it killed `else` and ticket 16 refused when it settled on one
+dispatch mechanism.
+
+Three supports beyond that. `with` is a tier-1 borrow for the C# half of the audience and, for the
+TypeScript half, a new spelling of semantics they already have — a **write** cost, which the
+standing constraint says carries little weight, against ambiguity, which carries full weight.
+Ticket 05 found `with` becomes *more* central here than in C# because there is no mutation at all,
+so it earns a keyword on frequency. And **ticket 15 was pushed off `with` onto ticket 17
+explicitly to reserve it for this ticket** — declining it would have meant 15 gave up a construct
+for nothing.
+
+### Construction names the type, and target-typing is refused
+
+The tag has to enter the term somewhere, so something must name the type at the construction site.
+The alternative was target-typed construction (`Order o = { Id = "A-1", ... }`, C# 9's `new()`
+inference filling the tag from the expected type). Refused on **read cost**, not soundness:
+
+```csharp
+var draft = Order { Id = "A-1", Status = :draft, Lines = [], Paid = 0 };   // always an Order
+var draft = { Id = "A-1", Status = :draft, Lines = [], Paid = 0 };         // untagged, anonymous
+```
+
+Mandatory signatures (ticket 04) mean most positions *do* carry an expected type, which is what
+makes the exception nasty — it would work almost everywhere, so the case where it does not is the
+surprising one, and the diagnostic lands at the use rather than at the literal. Ticket 08's
+*narrowing is always written, never inferred* is the nearest precedent; it is an analogy rather
+than the same rule, since construction is not narrowing, but it points the same way and ticket 17
+§7 closed the fully-implicit option for the valve on the same instinct.
+
+`new` is dropped: it has no job here, there being no allocation or reference semantics to
+distinguish — which is also why Elixir writes `%Order{}` rather than a constructor call. The result
+mirrors the declaration: `record Order { ... }` declares, `Order { ... }` constructs.
+
+### The separator is `=`, and the atom sigil forces it
+
+Declarations and patterns use `:` (`Sku: string`, ticket 01's property pattern `{ Balance: 0 }`);
+construction and update use `=`. That is **C#'s own split — colon for matching, equals for
+assigning** — and prototype 01b already wrote it that way (`o with { Status = :placed }`) without
+the question being decided.
+
+It is also forced independently: atoms are spelled `:placed`, so a colon separator yields
+`Status: :placed`, two colons adjacent, where `Status = :placed` reads clean. *A three-way
+agreement between declaration, pattern and construction was proposed during the session and was
+wrong* — C# distinguishes the two deliberately, and the atom sigil means this language must too.
+
+## 3. Field access — SETTLED (David)
+
+**The dot projects. Disambiguation from module qualification is lexical. Projection over a union
+is legal where every member carries the field.**
+
+```csharp
+o.Status            // lowercase receiver  -> value projection
+List.Map(f, xs)     // PascalCase receiver -> module qualification
+Total(o)            // PascalCase, no receiver -> function call
+```
+
+**Ticket 17's refusal does not reach this, and the reason is mechanical.** `xs.Filter(f)` needs
+type-directed resolution of an *unqualified name* against a candidate set — closed by ticket 08
+(one arrow per arity, no overload set) and ticket 16 (one dispatch mechanism). `o.Total` resolves
+against one record type's declared field set, known from the signature, with no candidate set and
+nothing to dispatch on. 17 explicitly handed this over rather than settling it, and prototype 01b's
+transition table — the passage ticket 01 called the reason the language exists — had been using
+`o.Status` and `o.Lines` all along.
+
+**The disambiguation is decided before types exist**, which matters: a type-directed one would drag
+back exactly what 17 refused. Values are lowercase and modules and functions PascalCase throughout,
+so the parser settles it. A consequence worth stating in the spec: a record field `Total` and a
+module function `Total` coexist without collision, distinguished by syntax rather than resolution.
+
+**Union projection is legal where every member carries the field**, and it is free. It is decidable
+at compile time from the declared union with no dispatch — the same shape as ticket 16 allowing `<`
+and `==` on bare type variables because they are total and non-dispatching. **§1's map erasure is
+what makes it one instruction**: `map_get(total, X)` regardless of which member arrived. Under the
+tuple erasure §1 rejected, the field sits at a different offset per member and this would have
+required real dispatch — so §1 paid for this without knowing it. Where a member lacks the field it
+is an error, and the fix is to discriminate on the tag first, which is the language's own idiom.
+
+## 4. Optional and absent fields — SETTLED (David)
+
+**There are no absent fields. Every declared field is always present in the term; optionality is a
+value, spelled `option<T>`. There is no `?` field modifier.**
+
+```csharp
+record Profile { Id: string, Notes: option<string> }   // kept
+record Profile { Id: string, Notes?: string }          // refused
+```
+
+### Why, in the order the arguments actually weigh
+
+**The exponential is the argument that decides it.** With every field always present, a record's
+field set is fixed and the exact-set check is one `has_map_fields` plus `map_size`. With *k*
+optional fields the type denotes **2^k shapes** and the discriminator becomes a disjunction over
+all of them — `{Id}`, `{Id,Notes}`, `{Id,Phone}`, `{Id,Notes,Phone}` for k=2. Ticket 18 emits that
+guard on every exported function taking a record and unconditionally wherever the value feeds a
+codegen obligation. An exponential in the declaration is not a cost this language can absorb.
+
+**Two spellings for absence would collide.** `Notes?: option<string>` has three states — key
+absent, key present holding `:nothing`, key present holding a string — two of which mean the same
+thing with nothing to say which one a given function produces. TypeScript ships this hazard and
+grew a compiler flag for it (`exactOptionalPropertyTypes`), which is the audience half most likely
+to reach for `?` having its own toolchain reach back.
+
+**It needs no new rule for ticket 15's collapse landmine.** `option<string>` is `string | :nothing`
+and discriminates fine; only `option<atom>` collapses, because 09's normalisation absorbs a
+singleton into a cofinite top — and ticket 15 already makes that an error at the declaration. So
+record fields inherit an existing rule rather than acquiring a special case.
+
+**The wire distinction does not disappear, it moves to the boundary** — where this map already puts
+everything else. `ValidateAs<T>` maps an absent JSON key to `:nothing` for an `option<T>` field,
+which is the anti-corruption layer doing its job rather than the type system carrying two notions
+of absence.
+
+**Measured, not argued**: Elixir has no absent fields either (26b §5) — every struct key is always
+present and "unset" is spelled `nil`. The largest shipped instance of this erasure declined the
+distinction.
+
+### The modelling consequence, which is the point rather than a consolation
+
+An optional field is usually **two record types wearing one name**, and §1 just made that cheap to
+fix: tagged records discriminate in one instruction, so `record Draft {...} | record Placed {...}`
+costs what an optional field would have cost and makes the illegal states unrepresentable. Refusing
+`?` pushes toward the modelling the language exists to support rather than costing expressiveness —
+the same instinct that made `Order` and `Invoice` distinct in §1.
+
+### Owed by this section
+
+- **The encoder must pick.** An `option<T>` holding `:nothing` — does ticket 16 §4's generated
+  encoder emit `"notes": null` or omit the key? The type model no longer distinguishes them, so
+  the encoder decides, and it is a published-mapping question belonging with 16's owed
+  serialisation debt rather than with the record surface.
+
+## 5. Consequences for other tickets
+
+- **[Ticket 27](27-parametric-polymorphism.md) — its §7 debt is PAID, not merely unbroken.** 27
+  declined row polymorphism on the assumption that record update would be compiler-visible,
+  width-preserving syntax, and asked to be told if that changed. §2 confirms it: `with` is syntax,
+  spread is refused *because* it widens. 27 §7 needs no amendment and its deferred-option
+  requirements stay filed.
+- **[Ticket 09](09-union-representation.md) — its inventory is amended, its reasoning is not.**
+  *"There is no `record` keyword to design"* becomes *"there is one, and it is sugar for a minted
+  discriminator field, not a second kind of type"*. All four capabilities 09 refused nominality to
+  keep are intact (§1).
+- **[Ticket 18](18-boundary-defence.md) — gains a two-tier guard, derived from its own rule.** The
+  tag test always; presence and value tests per 18 §1 unchanged; the exact-set test only where a
+  codegen obligation consumes the record (§1). 18's asserted "strictly larger" is now measured, and
+  is +14 rather than the +29 it feared.
+- **[Ticket 16](16-ad-hoc-polymorphism.md) — owed the null-versus-omit decision** for an
+  `option<T>` field in the generated encoder (§4), on top of the binaries debt it already carries.
+- **[Ticket 15](15-error-model.md) — `ValidationError` can now be a record**, which 15 spelled as a
+  tuple only because this ticket had not settled what a record was. It is also the test 15 named:
+  a compiler-*generated* record value, which §1's design supports without a privileged constructor
+  because the desugaring is writable.
+- **[Ticket 25](25-exemplar-programs.md) — unblocked in practice.** Four of its six exemplars
+  construct or destructure records, and every construct they need now exists.
+- **[Ticket 22](22-how-opinionated.md)** — the *spelling* of the minting form is a grammar-opinion
+  question and lands in 22's territory even though the semantics are settled here.
+- **The map's module-and-namespace fog** gains a hard requirement: **the tag must mint from the
+  qualified name**, or `Shop.Orders.Order` and `Billing.Invoices.Order` both mint `:order` and two
+  bounded contexts silently unify (§1).
+- **The map's DDD-invariants fog narrows again.** §1 gives aggregate *identity* — an `Invoice`
+  cannot be passed where an `Order` is wanted. It does not give construction-time *invariants*:
+  the language guarantees shape, never provenance (09 §5, ticket 21, re-verified in 26b §6). What
+  still has nowhere to live is the invariant enforced at construction, which stays with ticket 15's
+  `result<T, E>` and ticket 18's boundary guards.
+- **Extensibility is closed rather than handed on.** The ticket's scope boundary said to hand
+  record extensibility to ticket 20. With 27 §7's exact field sets, §2's width-preserving update
+  and §4's absence of optional fields, there is nothing left to hand over — a wider record is
+  simply a different type.
 
