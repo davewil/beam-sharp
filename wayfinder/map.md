@@ -738,11 +738,15 @@ spec exists.
   out of a guard, so nothing is there for a bracket to attach to. Two things the platform had
   already given free, neither chosen for this purpose: **`a < b > c` is a syntax error today**
   (`Nonassoc 300`, in the skeleton's operator table for readability), which removes the C++ chained
-  case entirely; and **`>>` is not a token**, so `list<list<int>>` parses. The loose end is closed:
-  **`[h, ..t]` adopted in both pattern and construction position**, tier-1 C# collection expressions,
-  and measured free against the two things that could have collided — ticket 26's projection dot, and
-  float literals, where **`1..5` lexes as `1 .. 5` and not `1.` `.5`**, leaving `..` unclaimed as a
-  range spelling should ticket 20's intervals ever want one. Sharpest downstream consequence:
+  case entirely; and **no `>>` operator exists**, so `list<list<int>>` parses — though ticket 20's
+  binary grammar needs `>>` as a *delimiter*, so that half is **owed a re-check when binaries land**.
+  The loose end is closed: **`[h, ..t]` adopted in both pattern and construction position**, tier-1 C#
+  collection expressions, and free against ticket 26's projection dot outright. Against float
+  literals it is **earned rather than free**: **`1..5` lexes as `1 .. 5` and not `1.` `.5`** *because*
+  the float rule demands digits on both sides of its dot — the skeleton has no float literal at all,
+  so this is a **constraint `..` imposes on whoever settles them** (Erlang draws the same line, so it
+  is cheap), and `..` staying unclaimed as a range spelling for 20's intervals rides on it.
+  Sharpest downstream consequence:
   **27's stratum-2 rule gains a second job** — *"a codegen obligation requires a ground type
   argument"* was a typing rule and is now **the parser's disambiguator**, so the compiler-known set is
   load-bearing in the grammar, and **stratum 2's membership is fixed at lex time**.

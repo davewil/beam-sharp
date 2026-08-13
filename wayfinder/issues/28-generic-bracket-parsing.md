@@ -188,8 +188,16 @@ Nobody chose `Nonassoc` for this reason — it was there for readability — and
 half of this ticket before the ticket was raised.
 
 **A second thing the platform gives free: `>>` is not a token.** `list<list<int>>` parses (28a).
-C++'s famous right-shift collision requires a `>>` operator, and ticket 08's settled vocabulary has
-no bit-shift operators at all.
+C++'s famous right-shift collision requires a `>>` **operator**, and ticket 08's settled vocabulary
+has no bit-shift operators at all — that half is permanent.
+
+**But the *delimiter* half is not settled, and this is measured on the slice.** Ticket 20 committed
+to the full `<<_:M, _:_*N>>` binary grammar, which needs `<<` and `>>` as **delimiters**; the
+skeleton has neither, since binaries are on its "out on purpose" list. So when binaries land,
+`list<list<int>>` must be re-checked against a lexer that has a `>>` token — and if longest-match
+takes the two closing angles as one delimiter, nested generics need either a `> >` space rule
+(C++98's answer, later abandoned) or the delimiter handled contextually. **Recorded as owed below**
+rather than assumed benign.
 
 ## 5. The loose end — `[h, ..t]` is adopted, and it is free
 
@@ -207,14 +215,23 @@ grounds that do not apply to a list.
 things that could have collided with it:
 
 - **Ticket 26's projection dot.** `o.Status..t` lexes cleanly as `o . Status .. t` — `..` ordered
-  before `.`, and leex's longest-match settles the rest.
-- **Float literals** — the classic Pascal/Rust hazard. **`1..5` lexes as `1 .. 5`, not `1.` `.5`**,
-  because the float rule demands digits on *both* sides of its dot, so longest-match declines it and
-  falls back to the integer rule.
+  before `.`, and leex's longest-match settles the rest. **This one is established outright.**
+- **Float literals** — the classic Pascal/Rust hazard. **`1..5` lexes as `1 .. 5`, not `1.` `.5`** —
+  **but read the condition, because this result is earned rather than free.** The skeleton's lexer
+  has **no float literal at all**; 28b supplies one, and it demands digits on **both** sides of its
+  dot (`{D}+\.{D}+`), which is exactly why longest-match declines it at `1..5`. A float rule spelled
+  `{D}+\.` — accepting a trailing dot, as Pascal did — would swallow the first dot and the collision
+  would be real.
 
-**Bonus, unclaimed:** that leaves `..` available as a **range** spelling should ticket 20's integer
-intervals ever want a surface syntax. 20 added intervals to the algebra and spelled refinements with
-predicates; it never claimed `..`, and nothing here takes it.
+  **So this is an obligation `..` places on whoever settles float literals, not a property already
+  established.** It is a cheap one — Erlang's own lexer already requires digits on both sides (`1.0`
+  legal, `1.` not), so honouring it costs nothing and matches the platform — but it must be
+  honoured, and it is recorded in *What this ticket owes* below rather than left in a prototype.
+
+**Bonus, and conditional on the same thing:** that leaves `..` available as a **range** spelling
+should ticket 20's integer intervals ever want a surface syntax. 20 added intervals to the algebra
+and spelled refinements with predicates; it never claimed `..`, and nothing here takes it — but the
+availability rides on the float rule above.
 
 ## 6. Consequences for other tickets
 
@@ -248,6 +265,14 @@ predicates; it never claimed `..`, and nothing here takes it.
 - **The skeleton does not implement any of this yet** — it has no generic syntax, no `..`, no
   projection dot, and no module identifiers in value position. 28a and 28b measure *patched* copies
   of its grammar and lexer. The rules are proven expressible, not yet shipped.
+- **A constraint on float literals, owed to whoever settles them.** §5's `1..5` result is earned by
+  the float rule requiring digits on **both** sides of its dot. A trailing-dot float (`1.`) would
+  make the collision real. Erlang already draws the line in the right place, so this costs nothing —
+  but it is a constraint `..` *imposes*, and the range spelling staying free for ticket 20's
+  intervals rides on it.
+- **`>>` must be re-checked when binaries land.** §4's finding covers the *operator*, which will
+  never exist. Ticket 20's `<<_:M, _:_*N>>` grammar needs `>>` as a **delimiter**, and nested
+  generics (`list<list<int>>`) meet it at exactly the same two characters.
 
 ## Evidence
 

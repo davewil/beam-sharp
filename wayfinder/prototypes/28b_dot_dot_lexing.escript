@@ -85,7 +85,20 @@ tok(T) ->
 
 verdict() ->
     "VERDICT: `1..5` lexes as integer(1) '..' integer(5), NOT as `1.` `.5`.\n"
-    "The float rule requires digits on both sides of its dot, so longest-match\n"
-    "declines it and falls back to the integer rule. `..` therefore costs nothing\n"
-    "against floats or against ticket 26's projection dot -- and the range\n"
-    "spelling stays available should ticket 20's integer intervals ever want it.".
+    "\n"
+    "READ THE CONDITION, THOUGH -- this result is not free, it is EARNED by one\n"
+    "property of the float rule this probe supplies. The skeleton's lexer has NO\n"
+    "float literal at all; the rule above is added here. It demands digits on\n"
+    "BOTH sides of its dot (`{D}+\\.{D}+`), which is why longest-match declines it\n"
+    "at `1..5` and falls back to the integer rule. A float rule spelled `{D}+\\.`\n"
+    "-- accepting a trailing dot, as Pascal did -- would swallow the first dot and\n"
+    "the collision would be real.\n"
+    "\n"
+    "So this is an OBLIGATION `..` places on whoever settles float literals, not a\n"
+    "property already established. It is a cheap one: Erlang's own lexer already\n"
+    "requires digits on both sides (`1.0` is legal, `1.` is not), so honouring it\n"
+    "costs nothing and matches the platform. But it must be honoured, and the\n"
+    "range spelling staying available for ticket 20's intervals depends on it too.\n"
+    "\n"
+    "Against ticket 26's projection dot there is no such condition: `..` ordered\n"
+    "before `.` settles it outright, and that IS established here.".
