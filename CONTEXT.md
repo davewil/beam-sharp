@@ -214,6 +214,25 @@ The three ways a value reaches a process's declared state type — `init`, `code
 the per-message path. Wider than the `code_change/3` state alone.
 _Avoid_: state boundary, process state, code_change channel
 
+**The boundary manifest**:
+What the compiler publishes about an aggregate's exported surface: which functions are the client
+API, which are contract callbacks, which are neither; where an asynchronous operation has no
+synchronous observation; and which checks were **elided** rather than emitted. One artefact with
+three outputs, not three artefacts.
+_Avoid_: API dump, export list, manifest file, test manifest
+
+**Elision**:
+A check the compiler decided not to emit because something else already makes it unnecessary — a
+literal that is a `string` by construction, a body whose own clause heads would reject the term, an
+inlined prelude operation. Named because an elided check makes a test of that path measure nothing.
+_Avoid_: optimisation, omission, skipped check
+
+**The test boundary**:
+The client API function exercised against a running process — the default level at which a
+beam-sharp program is asserted on. Distinct from the **boundary guard**'s boundary, which is every
+exported function; the test boundary is the narrower surface a caller is meant to use.
+_Avoid_: unit, test level, public API, system boundary
+
 ## The design effort
 
 **Lowering**:
