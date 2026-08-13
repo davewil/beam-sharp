@@ -1131,14 +1131,11 @@ spec exists.
   what ticket 13 named as the reason the skeleton is an Erlang program. **So the honest question is
   not "does it self-host" but "which layer", and Elixir's answer is available for free.**
 
-  **(b) The Erlang stdlib interface — the FFI *surface*.** *The sharp one, and ticket-ready.* What
-  a foreign declaration may **promise** is decided (ticket 18: only what one BEAM guard decides in
-  O(1); `list<Order>` is an error at the declaration and crosses as `list<term>` plus
-  `ValidateAs<T>`), and what happens when one **raises** is decided (ticket 15's compiler-emitted
-  wrapper, `foreign_error`). **Nobody has decided how one is spelled** — the syntax for declaring
-  and calling `:lists.keyfind/3`. The skeleton lists FFI as out of slice, so nothing forces it yet;
-  everything in (c) is blocked on it, since Elixir's `GenServer` is Elixir code calling
-  `:gen_server` directly.
+  **(b) The Erlang stdlib interface — the FFI *surface*.** ~~*The sharp one, and ticket-ready.*~~
+  **GRADUATED 2026-08-13 to [ticket 32](issues/32-ffi-surface.md)** — it lives there now, not here.
+  In short: what a foreign declaration may **promise** and what happens when one **raises** are both
+  decided (18, 15), and **nobody has decided how one is spelled**. Everything in (c) is blocked on
+  it, since Elixir's `GenServer` is Elixir code calling `:gen_server` directly.
 
   **(c) A beam-sharp `GenServer`, as Elixir has one.** Ticket 14 decided that `[module: GenServer]`
   **names a contract the compiler knows as a type** and that the user writes a narrower signature
