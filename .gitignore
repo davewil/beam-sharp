@@ -6,6 +6,10 @@
 *.beam
 *.plt
 
+# A crashed `erl` writes one of these wherever it was run. Committed once by
+# accident (069fda7) and modified by a later session before being caught.
+erl_crash.dump
+
 # compiler build artefacts
 compiler/_build/
 compiler/bench/*.beam
