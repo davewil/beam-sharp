@@ -50,6 +50,28 @@ variable are permitted, being non-dispatching and total. **Unbounded**: it range
 and carries no constraint; there is no syntax for a bound.
 _Avoid_: generic parameter, type argument, rigid variable, `a`, bounded type variable
 
+**Binary type**:
+`<<_:M, _:_*N>>` — a base of `M` bits followed by any number of repetitions of an `N`-bit unit.
+`M` alone is a fixed size and a **closed** set; any `N > 0` makes the type **open**. Both halves
+are decided by one BEAM guard in O(1), `M` by `byte_size`/`bit_size` and `N` by a modulus. Unions
+over binary types are exact: two members where one contains the other absorb, and two that overlap
+without containment are indiscriminable and rejected at the declaration.
+_Avoid_: bitstring pattern, size specifier, binary spec
+
+**Refinement**:
+A predicate narrowing a type without changing its representation. Two tiers, divided by whether
+the predicate is a BEAM guard: a **guard refinement** is reasoned about by the checker and is legal
+in a clause head and in a foreign declaration, and may be user-declared; an **opaque refinement** is
+O(n), is established once by generated code where a value enters and never reasoned about
+afterwards, and is compiler-known only. A refinement is a set, so it does not confer type identity.
+_Avoid_: predicate type, dependent type, constraint, subset type, newtype
+
+**Interval**:
+A set of integers with a lower and upper bound, unbounded at either end. Finite unions of them are
+closed under union, intersection and complement, which is what lets a guard like `n > 1` be
+credited as a type operation.
+_Avoid_: range, bounded int, refined integer
+
 ## The language surface
 
 **Clause**:
@@ -99,6 +121,12 @@ _Avoid_: case, match, if, cond, conditional expression
 An interned constant, written `:name`. Each atom is its own singleton type; the universe is open
 and nothing declares an atom.
 _Avoid_: symbol, enum member, constant, tag
+
+**string**:
+`binary` refined by valid UTF-8, and the language's only opaque refinement. A literal is a `string`
+by construction, checked at compile time; a binary built or received at runtime becomes one only
+through the generated entry check. Distinct from a bare `binary`, which is bytes.
+_Avoid_: text, char list, String, utf8 binary
 
 **option&lt;T&gt;**:
 `T | :nothing`. The **absence** channel: a value is missing, and there is nothing further to say
@@ -200,6 +228,11 @@ _Avoid_: compilation, transpilation, desugaring, example
 The outcome where a badly-typed value from an untyped caller neither crashes nor is rejected, and
 the type system is simply wrong. Worse than a crash, and the reason a crash counts as honest.
 _Avoid_: type hole, unsafety, corruption
+
+**Named limit**:
+A case the design knowingly does not defend, recorded in the spec with the reason it is
+unreachable rather than left to be discovered. Distinct from an open question: a limit is decided.
+_Avoid_: known issue, caveat, gap, TODO
 
 **Standing constraint**:
 The premise that beam-sharp is written by agents and read by humans — so write cost carries little

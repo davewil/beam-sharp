@@ -519,6 +519,36 @@ spec exists.
   was sighted **three times in one session** — Gleam's FFI, a real Elixir ETS read, an OTP callback
   head — which is the ticket's strongest evidence that a pattern match is not a check.
 
+- [Untheorised term shapes](issues/20-untheorised-term-shapes.md) — **the five sightings of
+  "binaries are where precision dies" have one cause, and it is not binaries.** Every one traces to a
+  *join* that over-approximates on the way in, never to a subtraction failing on the way out:
+  `erl_types` collapses `<<_:32>> | <<_:64>>` into `<<_:32,_:_*32>>`, which admits a 96-bit value
+  nobody declared, and 04's residual then subtracts correctly and walks forever. The same failure
+  appears in a **second domain** — integer ranges are quantised onto a fixed ladder, `5..20` snapping
+  to `1..255` — so the finding generalises: **beam-sharp inherits this platform's type *grammar* and
+  cannot inherit its *algebra*, in any domain**, because Dialyzer is a success-typing tool that may
+  only ever be optimistic. **The surface admits the full `<<_:M, _:_*N>>` grammar with an exact
+  union**; a fixed size is closed and provable, a repeating unit is open and takes 12's catch-all,
+  and exact negation is never needed since only emptiness and openness must be decided. **Ticket 18's
+  boundary question answers "anything the grammar can spell"** — `byte_size` and `bit_size rem N` are
+  guard BIFs, measured O(1) at 8 B and 8 MiB alike — which lands opposite to expectation: **binaries
+  need no `ValidateAs` where 26's records do**. **17 §3's fixpoint widening was never a codegen
+  artefact** (its probe declared no spec; a declared one lands in the abstract chunk verbatim).
+  **`json:encode/1` crashes on non-UTF-8 binaries and on all bitstrings**, a fifth sighting 16 §4
+  assumed away — so **`string` is `binary` refined by valid UTF-8**, a bare `binary` encodes as
+  base64, a non-byte-aligned bitstring is a compile-time error, and **a literal is a `string` by
+  construction**. That forces **refinements, in two tiers cut on the map's recurring line**: guard
+  refinements are reasoned about, legal in clause heads and at FFI, and **user-declarable**; opaque
+  O(n) refinements are **compiler-known only** (11's *"size a foreign sender chooses"* at a second
+  site), which **answers the fog's question about adding to the prelude's second stratum — no**.
+  **Integer intervals join the algebra**, buying guarded partitions without a catch-all and `-spec`
+  precision — *not* `Fib`. **Improper lists are a named limit**: `is_list` admits `[1,2|3]` so
+  `list<T>` is not O(1)-decidable, but the adopted lowering gives `function_clause`, so 18's
+  guarantee holds. **Taint refused**, per 21. Two corrections: **11 overstated its own debt in both
+  halves** (exhaustiveness never needed intervals; termination was never promised), and **refinements
+  do not settle 09's newtype gap** — a refinement is a set, so `Meters` and `Feet` as
+  `float where value >= 0` are still one type and **09's tuple tag stands**.
+
 ## Not yet specified
 
 <!-- in-scope fog: real, but not yet sharp enough to phrase as a ticket -->
@@ -588,6 +618,20 @@ spec exists.
   says what a boundary guard costs at a cold or megamorphic call site. Note also that 18 §4's
   function-local rule makes the guard count predictable per function, so the corpus can *count* the
   emitted guards rather than estimate them.
+  **Ticket 20 adds a tenth and an eleventh, and the eleventh is the first that is a cost in the
+  *checker* rather than in emitted code.** Added: **`string`'s UTF-8 entry check is the sixth codegen
+  obligation**, and the third whose cost is a synthesised O(n) traversal — it stacks with
+  `ValidateAs<T>` and with 16's encoder, and unlike either it lands on the language's most-passed
+  value, so the skeleton should measure it on a realistic string-handling path rather than in
+  isolation. Note 20 §4 removes the obvious worst case by making a **literal a `string` by
+  construction**, so what is owed is the runtime-built and foreign-received cost only. Added: **the
+  exact binary union and the interval domain are two new algebra components the platform does not
+  supply** — 20 measured that `erl_types` collapses same-constructor binary unions and quantises
+  integer ranges, so beam-sharp implements both itself. Neither is expensive in principle (finite
+  unions of intervals have a decision procedure; binary unions are pairs of integers), but both feed
+  the exhaustiveness algorithm ticket 04 found has **no complexity bound**, and the skeleton owes the
+  residual-computation cost at showcase clause counts over a *binary* subject — which is exactly the
+  40-clause `handle_info` shape, now with a second domain in the algebra.
 - **The typed model of OTP itself** — new with ticket 14, and distinct from the corpus that proves
   it. The language knows behaviour contracts and system-message shapes as types. Open: which
   behaviours ship built in (gen_server, supervisor, application, gen_statem, gen_event), how a
@@ -624,7 +668,12 @@ spec exists.
   beam-sharp answer, and it is the only part of C#'s extension-method feature this map has not
   placed.
 - **Where DDD invariants live** — not commands, not types. An `Invariants` module, refinement in
-  the type declarations, or nothing.
+  the type declarations, or nothing. **Ticket 20 §5 settles half of it and splits the rest by a
+  sharp line**: refinement in the type declarations *is* available, but only where the predicate is
+  a BEAM guard. So *"this order has at least one line"* is `when length(lines) > 0` and lives in the
+  type; *"this email address is well-formed"* is O(n), is not user-declarable, and still has
+  nowhere to live. What remains is therefore narrower than the patch was written for — it is only
+  about the **non-guard-expressible** invariants, and ticket 22 inherits that narrowing.
 - **Stdlib shape as a principle** — Erlang-ish flat modules, C#-ish namespaced statics, or
   Gleam-ish. Breadth is out of scope; the shape is not. **The prelude now has known contents**
   from ticket 10 — `type bool = true | false;`, `type option<T> = T | :nothing;`,
@@ -637,10 +686,17 @@ spec exists.
   prelude has **two strata**, modelled on Elixir's `Kernel.SpecialForms` — ordinary aliases a user
   could have written (`bool`, `option<T>`) versus a **compiler-known** stratum they could not
   (`ParseAtom<T>`, `ToExistingAtom`, `ValidateAs<T>`, and now OTP's `Down`/`Exit`/`Timeout`), which
-  wins resolution and which the compiler draws inferences from. Still open: **whether a user can
-  add to the second stratum**, how the two are documented differently, and what "in the prelude
-  versus in a module you import" means once the answer is a compiler guarantee rather than a
-  definition. **Ticket 27 moves the boundary.** With real type variables, `List.Map` and friends
+  wins resolution and which the compiler draws inferences from. ~~Still open: **whether a user can
+  add to the second stratum**~~ — **ANSWERED 2026-08-13 by ticket 20 §5: no.** A user may declare a
+  refinement whose predicate is a BEAM guard, and may not declare one that is O(n); the second
+  stratum is compiler-known, and 11's refusal of unbounded work *"whose size a foreign sender
+  chooses"* is the reason, applied at a second site. Still open: how the two strata are documented
+  differently, and what "in the prelude versus in a module you import" means once the answer is a
+  compiler guarantee rather than a definition. **Ticket 20 also adds `string` to stratum 2** and with
+  it a fourth candidate criterion, since `string` is a *type* whose membership is established by
+  *generated code* — it satisfies 15's "the compiler draws inferences from it" and 16's ground-type
+  test alike, so it does not discriminate between the surviving candidates, but any criterion
+  proposed from here must admit it. **Ticket 27 moves the boundary.** With real type variables, `List.Map` and friends
   are now definitions **a user could have written**, which is stratum 1's own test — so the
   collection library drops out of the compiler-known stratum and the question becomes narrower and
   sharper: stratum 2 now holds only the *codegen obligations* (`ParseAtom<T>`, `ToExistingAtom`,
