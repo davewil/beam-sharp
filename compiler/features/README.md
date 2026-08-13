@@ -52,12 +52,19 @@ Erlang back to the decision that required it is one grep.
 | Feature | Status | Unblocks |
 |---|---|---|
 | [F1 — walking skeleton](F1-walking-skeleton.md) | **done** | the baseline; `examples/*.bs` |
-| [F2 — interval refinements and interval patterns](F2-interval-refinements.md) | not started | 25b, 25c wire dispatch |
-| F3 — records | not started | all three exemplars |
+| [F2 — interval refinements and interval patterns](F2-interval-refinements.md) | **blocked** — two decisions owed | 25b, 25c wire dispatch |
+| [F3 — records](F3-records.md) | not started — **build next** | the record half of all three |
 | F4 — angle brackets and parametric types | not started | all three exemplars |
 | F5 — `switch` | not started | all three exemplars |
 | F6 — binaries | not started | 25b, 25c |
 | F7 — pipe and valve | not started | 25b, 25c |
 
-F3 onward are named but not written — deliberately. The map's own fog-of-war rule applies: don't
-chart what you can't yet see, and F2's outcome will change what F3 should say.
+F4 onward are named but not written — deliberately. The map's own fog-of-war rule applies: don't
+chart what you can't yet see.
+
+**F3 was written ahead of F2, and F2 is why.** F2's own file says in bold that it must not be
+implemented until the spelling of an interval pattern and the summarised form of a wide residual are
+answered, and both are *"a decision, not a feature"*. The ordering rule then decides the rest:
+records block all three exemplars where refinements block two, and ticket 26 closed on 2026-08-13
+with four sections settled. The claim that *"F2's outcome will change what F3 should say"* was an
+expectation with no probe behind it; F3 records it as an assumption and states where it would break.
