@@ -154,6 +154,8 @@ so these exemplars *test* its answers rather than inform them.
 
 ## RESULTS — first two exemplars written 2026-08-13
 
+> Decision brief: <https://claude.ai/code/artifact/6d927928-e5fd-4a15-9e1f-5722b092f2db>
+
 **Two of the six exist**, both with a lowering that compiles and runs on OTP 28.5, both with a
 friction list. This is the first section on this ticket that records *results* rather than
 incoming constraints. **The ticket stays open** — it is a standing resource, and four exemplars
