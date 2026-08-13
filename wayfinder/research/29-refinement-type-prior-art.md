@@ -336,7 +336,7 @@ file typechecks instead, which is itself the answer.
 | arbitrary bound | `5--20` | `5--20` |
 | half-open | `500--2000 \| 3000--*` | `500--2000 \| 3000--*` |
 
-Every one is exact. Set this beside ticket 20 §1's measurement that `erl_types` snaps `5..20` to
+Every one is exact. Set this beside ticket 20's measurement that `erl_types` snaps `5..20` to
 `1..255` and `500..2000` to `1..1114111`: **the two bounds CDuce preserves verbatim are the two
 Dialyzer destroys.** Ticket 20's "beam-sharp can inherit this platform's type grammar, not its
 algebra" is confirmed from the other side — the algebra it wants exists, and it is CDuce's.
@@ -447,9 +447,9 @@ unoccupied.
 
 ### 4.1 A third `erl_types` lossiness ticket 20 did not record [L8]
 
-Ticket 20 §1 found two places `erl_types` trades exactness for optimism — the same-constructor
-union collapse and the integer quantisation ladder. Measured on OTP 28.5, there is a third, in the
-binary domain, and its motive is different:
+Ticket 20 found two places `erl_types` trades exactness for optimism — the same-constructor union
+collapse (§2) and the integer quantisation ladder (its headline). Measured on OTP 28.5, there is a
+third, in the binary domain, and its motive is different:
 
 ```erlang
 t_bitstr(U, B) ->
@@ -640,12 +640,18 @@ Recorded rather than filled by inference.
   at the surface. Whether the representation is a sorted disjoint list of intervals — the obvious
   encoding, and the one whose quadratic behaviour §3.4 is consistent with — is inferred from the
   timings, not established from source. Marked as inference in the prose and not relied on.
-- **[g3] SPARK was not run.** §1.1's account of what GNATprove discharges statically is `doc` from
-  the SPARK Reference Manual and User's Guide only. GNATprove is not in Debian's `gnat` package and
-  installing the Alire toolchain was judged out of proportion, since the predicate-tier question was
-  already settled by GNAT and the ARM. **If ticket 20's amendment B is taken, this gap should be
-  closed first** — SPARK is the one system that both permits arbitrary user predicates and proves
-  some of them statically, which is precisely the design being considered.
+- **[g3] SPARK was attempted and not finished.** §1.1's account of what GNATprove discharges
+  statically is `doc` from the SPARK Reference Manual and User's Guide only. What was established
+  in trying to make it `local`: **GNATprove is packaged in no Debian suite** — the `spark` package
+  is SPARK *2005*, last seen in stretch, not SPARK 2014 (Debian sources API); it is available as an
+  **Alire crate at 12.1.1**, and `alr install gnatprove` yields **FSF 16.1.0**, whose `gnatwhy3`,
+  `alt-ergo` and `z3` binaries require **glibc ≥ 2.38** and therefore will not run on Debian 12. A
+  trixie image resolves that and was building when this file was finished; the probe written
+  against it is in the scratch tree and is **not committed**, because an uncommitted probe that has
+  not run is exactly the fake completion this repo's rules forbid. **If amendment B is taken, close
+  this first** — SPARK is the one system that both permits arbitrary user predicates and proves
+  some of them statically, which is precisely the design being considered, and the remaining work
+  is one `docker build` plus the four-subprogram probe already drafted.
 - **[g4] Ada's `Predicate_Failure` aspect is described but not measured.** ARM 3.2.4(14.2/4) and
   the `Text_IO` example show it can be a `raise_expression`, making the failure channel
   user-chosen — which is a closer analogue to ticket 15's `result<T, E>` than anything else in
