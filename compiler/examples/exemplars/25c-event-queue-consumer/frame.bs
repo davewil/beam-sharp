@@ -1,0 +1,28 @@
+// EXTRACTED — do not edit here.
+// Source: wayfinder/prototypes/25c-event-queue-consumer.md, section `frame.bs`
+// Regenerate: compiler/bin/extract-exemplars.sh
+//
+// This file is OUT OF THE WALKING SKELETON SLICE and does not parse today.
+// It is a target for the compiler, not a passing example. The write-up it
+// came from carries the friction list explaining what is wrong with it and
+// why that is the point.
+
+result<(Frame, binary), FrameError> DecodeFrame(binary);
+
+(<<1:8, ch:16, size:32, payload:size, 0xCE:8, rest>>)
+    -> (Frame { Type = :method,    Channel = ch, Payload = payload }, rest);
+(<<2:8, ch:16, size:32, payload:size, 0xCE:8, rest>>)
+    -> (Frame { Type = :header,    Channel = ch, Payload = payload }, rest);
+(<<3:8, ch:16, size:32, payload:size, 0xCE:8, rest>>)
+    -> (Frame { Type = :body,      Channel = ch, Payload = payload }, rest);
+(<<8:8, ch:16, 0:32, 0xCE:8, rest>>)
+    -> (Frame { Type = :heartbeat, Channel = ch, Payload = "" }, rest);
+
+(<<t:8, _:16, size:32, _:size, bad:8, _>>) when bad != 0xCE -> (:error, (:bad_frame_end, t, bad));
+(<<t:8, _>>) when t != 1 && t != 2 && t != 3 && t != 8      -> (:error, (:unknown_frame_type, t));
+(_)                                                          -> (:error, :incomplete);
+
+(binary, binary) ShortStr(binary);
+
+(<<len:8, s:len, rest>>) -> (s, rest);
+

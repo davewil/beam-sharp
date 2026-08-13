@@ -1,0 +1,18 @@
+// EXTRACTED — do not edit here.
+// Source: wayfinder/prototypes/25b-websocket-handler.md, section `index.bs`
+// Regenerate: compiler/bin/extract-exemplars.sh
+//
+// This file is OUT OF THE WALKING SKELETON SLICE and does not parse today.
+// It is a target for the compiler, not a passing example. The write-up it
+// came from carries the friction list explaining what is wrong with it and
+// why that is the point.
+
+type Opcode =
+    :continuation | :text | :binary | :close | :ping | :pong | :reserved;
+
+record Frame { Fin: bool, Op: Opcode, Payload: binary }
+
+type Decoded = result<(Frame, binary), DecodeError>;
+
+type DecodeError = :incomplete | :unmasked_client_frame | :reserved_bit_set;
+

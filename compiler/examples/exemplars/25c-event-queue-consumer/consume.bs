@@ -1,0 +1,25 @@
+// EXTRACTED — do not edit here.
+// Source: wayfinder/prototypes/25c-event-queue-consumer.md, section `consume.bs`
+// Regenerate: compiler/bin/extract-exemplars.sh
+//
+// This file is OUT OF THE WALKING SKELETON SLICE and does not parse today.
+// It is a target for the compiler, not a passing example. The write-up it
+// came from carries the friction list explaining what is wrong with it and
+// why that is the point.
+
+result<Delivery, ConsumeError> Consume(binary);
+
+(raw) -> raw |?> DecodeFrame()
+             |?> DecodeMethod()
+             |?> ValidateAs<OrderPlaced>();
+
+result<Delivery, ConsumeError> Consume(binary);
+
+(raw) -> switch (DecodeFrame(raw)) {
+    (:error, e)                     => (:error, e),
+    (Frame { Type = :method } f, rest) =>
+        f.Payload |?> DecodeMethod()
+                  |?> WithBody(rest),
+    (f, _)                          => (:error, (:want_method, f.Type))
+};
+

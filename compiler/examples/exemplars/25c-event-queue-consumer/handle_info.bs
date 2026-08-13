@@ -1,0 +1,18 @@
+// EXTRACTED — do not edit here.
+// Source: wayfinder/prototypes/25c-event-queue-consumer.md, section `handle_info.bs`
+// Regenerate: compiler/bin/extract-exemplars.sh
+//
+// This file is OUT OF THE WALKING SKELETON SLICE and does not parse today.
+// It is a target for the compiler, not a passing example. The write-up it
+// came from carries the friction list explaining what is wrong with it and
+// why that is the point.
+
+(:noreply, State) HandleInfo(term, State);
+
+((:deliver, raw), s) when s.InFlight >= s.Prefetch -> (:noreply, Defer(s, raw));
+((:deliver, raw), s)                               -> (:noreply, Handle(s, raw));
+((:settle, n), s)                                  -> (:noreply, Settle(s, n));
+(Timeout, s)                                       -> (:noreply, Reap(s));
+(other, s)                                         -> { Log.Warn("unexpected", other);
+                                                        (:noreply, s); };
+

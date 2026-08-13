@@ -1,0 +1,20 @@
+// EXTRACTED — do not edit here.
+// Source: wayfinder/prototypes/25a-http-api-server.md, section `admit.bs`
+// Regenerate: compiler/bin/extract-exemplars.sh
+//
+// This file is OUT OF THE WALKING SKELETON SLICE and does not parse today.
+// It is a target for the compiler, not a passing example. The write-up it
+// came from carries the friction list explaining what is wrong with it and
+// why that is the point.
+
+Response Admit(Request);
+
+(r) -> (r.Authed, r.Verified, r.Quota > 0, r.Size <= 1048576, r.Beta) switch {
+           (false, _,     _,     _,     _)     => (401, :unauthenticated),
+           (_,     false, _,     _,     _)     => (403, :unverified),
+           (_,     _,     false, _,     _)     => (429, :quota_exceeded),
+           (_,     _,     _,     false, _)     => (413, :too_large),
+           (_,     _,     _,     _,     false) => (404, :not_in_beta),
+           (true,  true,  true,  true,  true)  => (200, :ok)
+       };
+

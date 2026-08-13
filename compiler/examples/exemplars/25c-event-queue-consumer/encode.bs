@@ -1,0 +1,20 @@
+// EXTRACTED — do not edit here.
+// Source: wayfinder/prototypes/25c-event-queue-consumer.md, section `encode.bs`
+// Regenerate: compiler/bin/extract-exemplars.sh
+//
+// This file is OUT OF THE WALKING SKELETON SLICE and does not parse today.
+// It is a target for the compiler, not a passing example. The write-up it
+// came from carries the friction list explaining what is wrong with it and
+// why that is the point.
+
+binary EncodeAck(int deliveryTag, bool multiple);
+
+(tag, multiple) -> {
+    payload: binary = <<60:16, 80:16, tag:64, 0:7, Bit(multiple):1>>;
+    Wrap(1, 1, payload);
+};
+
+binary Wrap(int type, int channel, binary payload);
+
+(t, ch, p) -> <<t:8, ch:16, ByteSize(p):32, p, 0xCE:8>>;
+
