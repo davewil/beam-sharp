@@ -650,9 +650,11 @@ Recorded rather than filled by inference.
   is SPARK *2005*, last seen in stretch, not SPARK 2014 (Debian sources API); it is available as an
   **Alire crate at 12.1.1**, and `alr install gnatprove` yields **FSF 16.1.0**, whose `gnatwhy3`,
   `alt-ergo` and `z3` binaries require **glibc ≥ 2.38** and therefore will not run on Debian 12. A
-  trixie image resolves that and was building when this file was finished; the probe written
-  against it is in the scratch tree and is **not committed**, because an uncommitted probe that has
-  not run is exactly the fake completion this repo's rules forbid. **If amendment B is taken, close
+  trixie image resolves the glibc problem, and the build was **abandoned after ~30 minutes** — the
+  Alire toolchain plus GNATprove is a ~4 GB image and this machine builds it under amd64 emulation.
+  So **GNATprove was never run**, and the probe drafted against it is **not committed**, because an
+  uncommitted probe that has not run is exactly the fake completion this repo's rules forbid.
+  **If amendment B is taken, close
   this first** — SPARK is the one system that both permits arbitrary user predicates and proves
   some of them statically, which is precisely the design being considered, and the remaining work
   is one `docker build` plus the four-subprogram probe already drafted.
