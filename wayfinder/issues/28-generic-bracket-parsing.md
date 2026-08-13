@@ -77,6 +77,8 @@ Every claim below is measured against the walking skeleton's real grammar
 [`28b`](../prototypes/28b_dot_dot_lexing.escript)) or against a real C# compiler
 ([`28c`](../prototypes/28c_csharp_disambiguation.md), dotnet 9.0.306), not cited.
 
+> Decision brief: <https://claude.ai/code/artifact/e40ee94f-aa30-4747-9c03-6ccec619c127>
+
 ## 1. Explicit instantiation is needed — on exactly three names, all compiler-known
 
 The ticket said to establish this first. It does not collapse to *never*, and it does not stay
