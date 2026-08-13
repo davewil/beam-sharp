@@ -394,3 +394,62 @@ surface should be tested the same way.
 **Five gaps recorded rather than papered over**: Linux/arm64 only; three modules is not a corpus;
 OTP 29 is unreleased; only `+debug_info` was exercised; and Dialyzer was not run on the older
 releases — which matters, because §6's `-spec` emission is the thing Dialyzer consumes.
+
+## §6 verified, and one of its claims corrected — 2026-08-13
+
+Measured: [`research/13-dialyzer-on-emitted-specs.md`](../research/13-dialyzer-on-emitted-specs.md),
+[`prototypes/13d_dialyzer_on_emitted_specs.sh`](../prototypes/13d_dialyzer_on_emitted_specs.sh),
+and the standing check at [`compiler/bin/spec-check.sh`](../../compiler/bin/spec-check.sh).
+
+**§6 does what it promised.** Dialyzer reads the specs `bs_emit` emits — the `.beam` carries
+`raw_abstract_v1` — and passes clean on the default warning set on OTP 26, 27 and 28. Under
+`-Wspecdiffs` every function reports *"is a subtype of the success typing"*: **our specs are
+strictly more precise than anything Dialyzer infers.** Verified independently here.
+
+Three readings, each answering something §6 asserted without evidence:
+
+- **`Fib` is where a declaration beats inference outright.** Success typing is `(_) -> any()`,
+  because the recursion defeats it; Dialyzer accepts our `(integer()) -> integer()` without
+  complaint. That is §6's entire case, measured rather than argued.
+- **Ticket 12's retained failure arm does not widen the inferred domain.** Dialyzer infers
+  `{'error', _} | {'ok', _}` — the union of the clause-head shapes. `match_fail` contributes
+  nothing, which was the live worry.
+- **The Core contrast is worse than §1 records.** That path yields an abstract chunk that is
+  *present but empty* (0 forms, 0 specs) and Dialyzer **refuses the file outright** — *"Could not
+  get Core Erlang code"* — rather than analysing a spec-less module. **The Core branch would have
+  put modules out of Dialyzer's reach entirely**, not merely cost precision. §1's "fails silently"
+  understates it.
+
+**CORRECTION — §6's claim that the widening is observable through `-Wunderspecs` is false**, and
+false *by construction* rather than by corpus artefact. Measured: a module whose declared return is
+the atom top and whose body only returns `:ok` is a textbook underspec, and `-Wunderspecs` stays
+silent; only `-Wspecdiffs` reports it, as *"not equal"*. A hand-written control isolates why —
+`same_dom(any()) -> atom()` (domain identical, range wider) **fires** `-Wunderspecs`;
+`narrow_dom(integer()) -> atom()` (domain narrower, range wider) does **not**. Dialyzer classifies a
+spec **as a whole**, and narrower-somewhere-wider-elsewhere is neither supertype nor subtype.
+
+**beam-sharp is always the second shape**, because ticket 04 made signatures mandatory, so every
+emitted spec has a domain narrower than the `_` success typing infers. So the accurate sentence is:
+**the widening is observable through `-Wspecdiffs` only.** Corrected here and in `bs_emit.erl`'s
+header, which carried the same wrong sentence.
+
+**§4's CI corpus gains a cheap and strict member.** A default-warning-set Dialyzer run over the
+emitted `.beam` costs 0.05 s against a 9 s PLT and catches a wrong spec outright. It is now
+`compiler/bin/spec-check.sh`, and it carries **two negative controls built by corrupting a real
+emitted `.abstr` in exactly one respect** — because a clean Dialyzer run is worthless as evidence
+unless a wrong spec would fail it. (Ticket 15 lost a session to a harness that supplied the
+protection it was measuring; this is that lesson applied rather than re-learnt.) If widening is ever
+to be *monitored* rather than merely checked, classify `-Wspecdiffs` by message phrase and not by
+count: it reports every function, so a count means nothing — *"is a subtype"* is healthy,
+*"is a supertype"* or *"is not equal"* is the one to look at.
+
+**Ticket 18's tag/payload asymmetry, sighted a fourth time and the first inside beam-sharp's own
+output.** Dialyzer recovers `{'ok', _}` where we declared `{'ok', integer()}`: it sees the **tag**,
+because a clause head matches it, and cannot see the **payload**, because nothing checks it. That is
+precisely the shape ticket 18 measured three times in one session, and it marks exactly where 18's
+boundary guards earn their keep.
+
+**One gap worth naming**: no function in the corpus emits a `range` spec, because those `int_part`
+branches are unreachable from the current surface. `range` is the branch most likely to behave
+differently, since Dialyzer quantises integer ranges onto a fixed ladder (ticket 20). **When the
+next slice makes intervals reachable, re-run this first.**

@@ -12,8 +12,19 @@
 %%%
 %%%   * **A `-spec` for every function whose type is known**, widened to the
 %%%     nearest expressible supertype where a set-theoretic type has no Erlang
-%%%     spelling. `spec_type/2` is that widening, and it is silent by design —
-%%%     `-Wunderspecs`/`-Wspecdiffs` turn warnings *on* rather than off.
+%%%     spelling. `spec_type/1` is that widening.
+%%%
+%%%     CORRECTED 2026-08-13, measured: the widening is observable through
+%%%     **`-Wspecdiffs` only**. Ticket 13 §6 and an earlier version of this
+%%%     comment both said `-Wunderspecs`/`-Wspecdiffs`, and `-Wunderspecs` can
+%%%     never see it — not as a corpus artefact but *by construction*. Dialyzer
+%%%     classifies a spec as a whole, and ticket 04 made signatures mandatory, so
+%%%     every spec we emit has a domain **narrower** than the `_` success typing
+%%%     infers while its range may be wider. Narrower somewhere and wider
+%%%     elsewhere is neither supertype nor subtype, so it lands in "not equal",
+%%%     which `-Wunderspecs` does not report. Verified: a hand-written
+%%%     `same_dom(any()) -> atom()` fires `-Wunderspecs`; `narrow_dom(integer())
+%%%     -> atom()` does not, and beam-sharp is always the second shape.
 %%%
 %%%   * **Nothing emitted for the failure arm.** Ticket 12 decided to retain it
 %%%     and ticket 13 then found the decision was not ours to make on this target:

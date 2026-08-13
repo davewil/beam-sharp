@@ -52,6 +52,18 @@ numbers that would *falsify* a decision rather than confirm it. Two are now paid
   clauses test. The surface owes ticket 20 §5's `type Positive = int where value > 0;`. **That is
   the next slice increment.**
 
+## Checking the emitted specs
+
+```
+./bin/spec-check.sh        # ~9 s once for the PLT, then ~0.05 s
+```
+
+Dialyzer is the tool ticket 13 §6's `-spec` emission exists for, so a wrong spec is a defect it will
+name and the unit suite cannot see. The script compiles the examples, runs Dialyzer's default
+warning set over the result, and then **corrupts a real emitted `.abstr` in exactly one respect** —
+a wrong return type, a wrong argument type — and requires both to be caught. A clean run proves
+nothing unless a wrong spec would fail it.
+
 ## Verified across the OTP range
 
 The `.abstr` this compiler emits builds unchanged on **OTP 24, 25, 26, 27 and 28**, with the modules
