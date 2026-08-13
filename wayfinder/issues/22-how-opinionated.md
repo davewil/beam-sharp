@@ -31,6 +31,28 @@ first construct in the language whose purpose is to be removed before shipping. 
 is a live argument for this ticket: a construct that must not survive a release is a strong case
 for enforcement, which is precisely the axis 21 found nothing can give you along with revisability.
 
+**Inherited from [ticket 24](24-testing-story.md) §2, 2026-08-13, and it sharpens the visibility
+half of this ticket by giving it a consumer.** 24 made the client API the test boundary and had the
+compiler publish it, using ticket 14's behaviour contract as the discriminator — which classifies
+callbacks and client API without needing visibility at all. What it cannot classify is the
+remainder: a helper like `RecomputeTotal/1` is neither, and lands `unclassified`. 24 left it there
+rather than inventing a rule, so this ticket inherits it with the field narrowed.
+
+Two things that changes here. **The neutral-visibility option now has a concrete job** it did not
+have when this ticket was deferred — 22's own note observed that if the only enforced thing is
+visibility then the guardrail may be much thinner than assumed, and this is a case where it is not:
+an agent writing tests in a loop targets `unclassified` functions **because they are the easiest
+thing in the directory to test**, which is structural drift of exactly the kind agent authorship
+produces. And **the useful boundary reading is confirmed by a second route**: 22 already suspected
+that with directory-as-module the useful notion is *which modules may name this one* rather than
+which functions are exported, and 18 §5's measurement says the same from the other side — elision is
+exported-vs-local with one entry label per function, so per-function export control is not a thing
+the BEAM offers cheaply.
+
+Note what this does **not** hand over: 24 §1's carve-out — unit-testing a genuinely complex
+operation whose edge the client API cannot reach — is a judgement, not a visibility rule, and
+survives whatever this ticket decides.
+
 ### What each deferred option would need, so the work is not lost
 
 **If domain keywords in the grammar** — `aggregate`, `command`, `query`:

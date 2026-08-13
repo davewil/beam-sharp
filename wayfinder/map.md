@@ -667,9 +667,34 @@ spec exists.
   out-of-scope *tooling* entry rules out the **ecosystem track**, not any capability that happens to
   serve tooling — a `bsc --api` query mode is in.
 
+- [The testing story](issues/24-testing-story.md) — **exhaustiveness converts coverage tests into
+  value tests; it does not reduce their number**, because 23's clause synthesis adds guessed bodies
+  at the same rate it removes coverage questions. Four categories genuinely retire, and 27 §2's is
+  the one to notice: opaque type variables make **one ground instantiation evidence about all of
+  them**. The unit is the **client API against a running process** — the OTP callback is the most
+  compiler-owned function in the language, so testing it directly tests the compiler — and the
+  boundary is **published by `bsc --api` with the behaviour contract as discriminator**, needing no
+  visibility feature and so not waiting on 22. **Ticket 04's "sampled counter-value" is retracted**:
+  measured, every CDuce sample is a *type*, never an inhabitant, so no generator is inherited and
+  the language publishes the residual instead — 09's contractivity turns out to be what would make
+  one terminate. Measured too: `sys:get_state` buys **no** determinism a client-API call does not,
+  and a cross-process cast passes 200/200 on scheduling bias, flipping to 0/200 with a 20 ms head
+  start — hence *every async operation owes a synchronous observation in the same client API*.
+  §2, §5 and the compiler's published **elisions** consolidate into one **boundary manifest**.
+  Tests are ordinary beam-sharp, no exemption. Closes 14's catch-all question with a **no**: cause
+  the real event and the boundary test catches a mis-shaped clause.
+
 ## Not yet specified
 
 <!-- in-scope fog: real, but not yet sharp enough to phrase as a ticket -->
+
+- **The boundary manifest's concrete format** — new with ticket 24, which gave it three consumers
+  (the boundary classification, the missing-observation advisory, and the elision list) and
+  deliberately named it one artefact rather than three, since 18 §5 already priced a build artefact
+  as something the spec must define, version and keep stable. Not yet sharp because what a consumer
+  wants of it is exactly what ticket 25's exemplars would show, and none exist. Note it is the
+  map's first capability serving testing alone; it clears the scope bar on the 2026-08-13
+  clarification as *one capability the language owes its author*, not the ecosystem track.
 
 - **The walking skeleton**: which slice of the spec it implements, and what language the
   compiler itself is written in. Cannot be phrased sharply until the language surface exists.
@@ -810,6 +835,11 @@ spec exists.
   the build layout. That strengthens 23's own warning that colliding short names
   (`Order.Server.Apply` beside `Order.Apply`) are defects, and it means whatever this patch decides
   about emitted atoms has to be legible to a reader with nothing but `ls`.
+  **Ticket 24 adds a fourth consumer, and it is the one that stresses the rule hardest**: where a
+  *test* lives under one function per file. 23 §10 made the directory listing part of the API
+  surface, so tests either sit in it — and an `ls` no longer shows only operations — or somewhere
+  this patch has not defined. 24 declined to answer it as a tooling detail precisely because 23 §10
+  says it is not one.
 - **The language's name.**
 - **Imports and cross-module scope** — if a directory is a module, what do files in it share
   automatically, and what must be imported? Slipped into a prototype example unexamined.
