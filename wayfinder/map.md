@@ -575,9 +575,24 @@ spec exists.
   **Reopened for David**: whether users may declare *opaque* refinements at all. Ada permits them
   and contains them with the same placement rule beam-sharp already applies, so the ban on
   *declaring* one may do no safety work the placement rule is not already doing — against which
-  beam-sharp's checks have **no opt-out** where Ada's switch off with `-gnata`. **Gap [g3]:
-  GNATprove was never run**, and SPARK is the one system that both permits arbitrary user
-  predicates and proves some statically.
+  beam-sharp's checks have **no opt-out** where Ada's switch off with `-gnata`.
+  **RESOLVED same day — the refusal is narrowed to a placement rule (David).** ~~Gap [g3]:
+  GNATprove was never run.~~ **[g3] closed**: GNATprove 12.1.0 **discharges a `Dynamic_Predicate`
+  statically whenever the caller's contract entails it — including an O(n) content predicate**, the
+  direct analogue of `binary where valid_utf8`, induction carried by an ordinary loop invariant. So
+  Ada's permissiveness is *not* "permit and check later". Also measured: **SPARK's line is not
+  Ada's** — `Odd mod 2 = 1` is refused Ada's static tier on form while `Pos > 0` is admitted, and
+  SPARK treats them identically, so Ada's split is front-end *legality* where SPARK's is
+  *entailment*. **The evidence and the rule are the same shape**: SPARK proves it where the caller
+  is inside the verified subset, and at beam-sharp's boundary the caller never is (21 rules out
+  ruling out a foreign sender). So **user-declared opaque refinements are barred from clause heads
+  and foreign declarations, and permitted elsewhere** — interior, caller known, the predicate is a
+  dischargeable obligation; boundary, caller unknown, it is unbounded cost with nothing to discharge
+  it against. Accepted with the cost open-eyed: **beam-sharp pays for every check, always**, where
+  Ada's switch off with `-gnata`. Three things this owes are recorded on the ticket (may the
+  compiler call user code at a boundary; a spelling for the check site; what happens when the
+  predicate raises → 15's `result<T, E>`, Ada's `Predicate_Failure` the precedent). Residual limit:
+  `alt-ergo` would not run, so a *negative* proof result must not be read as unprovable.
 
 - [The walking skeleton, first slice](../compiler/README.md) — **built 2026-08-13, and the premise
   that delayed it was stale.** The fog said the slice "cannot be phrased sharply until the language
@@ -760,10 +775,17 @@ spec exists.
   could have written (`bool`, `option<T>`) versus a **compiler-known** stratum they could not
   (`ParseAtom<T>`, `ToExistingAtom`, `ValidateAs<T>`, and now OTP's `Down`/`Exit`/`Timeout`), which
   wins resolution and which the compiler draws inferences from. ~~Still open: **whether a user can
-  add to the second stratum**~~ — **ANSWERED 2026-08-13 by ticket 20 §5: no.** A user may declare a
+  add to the second stratum**~~ — ~~**ANSWERED 2026-08-13 by ticket 20 §5: no.** A user may declare a
   refinement whose predicate is a BEAM guard, and may not declare one that is O(n); the second
   stratum is compiler-known, and 11's refusal of unbounded work *"whose size a foreign sender
-  chooses"* is the reason, applied at a second site. Still open: how the two strata are documented
+  chooses"* is the reason, applied at a second site.~~ **REOPENED the same day**, and sharper than
+  before: ticket 20 §5's amendment permits users to declare **opaque** refinements after all
+  (barred only from clause heads and foreign declarations), so the justification for the "no" is
+  gone. A user-declared opaque refinement is something the compiler **generates a check for** —
+  which is the property ticket 15's surviving criterion for stratum 2 turns on — while plainly not
+  being in the prelude. **So the question is no longer "may a user add to stratum 2" but whether
+  *prelude membership* and *compiler-generated* are the same thing at all**, given they have just
+  been shown to come apart. Still open too: how the two strata are documented
   differently, and what "in the prelude versus in a module you import" means once the answer is a
   compiler guarantee rather than a definition. **Ticket 20 also adds `string` to stratum 2** and with
   it a fourth candidate criterion, since `string` is a *type* whose membership is established by

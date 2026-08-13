@@ -546,3 +546,63 @@ opt-out** where Ada's are switchable off with `-gnata`, so beam-sharp pays for e
 See ticket 29's amendment B for the full argument on both sides, and note its gap [g3] — **SPARK's
 GNATprove was never run**, and it is the one system that both permits arbitrary user predicates and
 proves some of them statically.
+
+### §5 amended — user-declared opaque refinements are permitted (David, 2026-08-13)
+
+**The blanket refusal is narrowed to a placement rule.** §5 barred users from the opaque tier
+entirely, reasoning from ticket 11 that an arbitrary user predicate *"could be quadratic or could
+fail to terminate"*. That reason does not survive contact with the prior art: **Ada permits exactly
+this and has since 2012**, and it is true of Ada too and did not stop Ada. The rule is now:
+
+> **User-declared opaque refinements are barred from clause heads and from foreign declarations,
+> not barred entirely.**
+
+Ticket 11's hazard is specifically about unbounded work in a **clause head** whose size a foreign
+sender chooses — and the placement rule already forbids that. The prohibition on *declaring* one was
+doing no safety work the placement rule was not already doing.
+
+**What decided it was measured, and it is the most consequential number in ticket 29.** GNATprove
+12.1.0 discharges a `Dynamic_Predicate` **statically** whenever the caller's contract entails it —
+including an **O(n) content predicate**, the direct analogue of `binary where valid_utf8`, with the
+induction carried by an ordinary loop invariant. So Ada's permissiveness is not "permit and check
+later"; the arbitrary user predicate is a first-class proof obligation, and a caller that can
+establish it pays nothing at run time.
+
+**And the evidence and the placement rule turn out to be the same shape.** SPARK proves it *when the
+caller is inside the verified subset*. At beam-sharp's boundary the caller never is — ticket 21
+rules out ruling out a foreign sender, and ticket 18's guarantee exists precisely because a foreign
+term arrives with no contract. So:
+
+- **Interior, caller known** → the predicate is a dischargeable obligation. Permitted.
+- **Clause head or foreign declaration, caller unknown** → it is unbounded runtime cost with nothing
+  to discharge it against. Still barred.
+
+The counter-argument, kept because it is the real cost and it was accepted with open eyes:
+**beam-sharp's checks have no opt-out where Ada's switch off with `-gnata`**, so beam-sharp pays for
+every one, always. Ada can afford permissiveness partly because its predicate checks are absent by
+default — which corroborates ticket 18's no-opt-out by contrast, and means a reader arriving from
+Ada will expect a policy switch and find none.
+
+**What taking this requires, recorded so it is not rediscovered:**
+
+1. **Whether the compiler may emit a call to arbitrary user code at a boundary.** Ada does, and does
+   it invisibly at parameter passing. This is the substantive open question, and it interacts with
+   ticket 18's rule that generated code is exactly where a guard is emitted unconditionally.
+2. **A spelling for where the check is inserted.** beam-sharp has no `subtype conversion` site to
+   hang it on and would need one. Note ticket 29's third finding: in SPARK the obligation lands **at
+   the conversion in the caller**, not on the callee — so whatever site is chosen governs the *proof
+   obligation* and not merely the runtime check.
+3. **What happens when the predicate itself raises.** Ticket 15's `result<T, E>` is the obvious
+   answer and Ada's `Predicate_Failure` aspect is the worked precedent.
+
+**One consequence the map must not be left contradicting**: §5's answer to the fog's *"can a user add
+to the prelude's second stratum"* was **no**, justified by users being unable to declare opaque
+refinements. That justification is gone. A user-declared opaque refinement is something the compiler
+**generates a check for**, which is the property ticket 15's surviving criterion for stratum 2 turns
+on — so the question is **reopened**, and reopened sharper: it is now about whether *prelude
+membership* and *compiler-generated* are the same thing, when they have just been shown to come
+apart.
+
+**Residual limit on the evidence**: `alt-ergo` would not run in ticket 29's environment, so its probe
+used `cvc4,z3` only. Every obligation was discharged without it, but a *negative* result on a harder
+predicate must not be read as "SPARK cannot prove it" until alt-ergo runs.
