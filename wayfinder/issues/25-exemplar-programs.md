@@ -165,8 +165,8 @@ remain.
 |---|---|---|
 | HTTP API server | [`25a-http-api-server.md`](../prototypes/25a-http-api-server.md), [`25a_http_lowering.erl`](../prototypes/25a_http_lowering.erl) | **written, runs** |
 | WebSocket handler | [`25b-websocket-handler.md`](../prototypes/25b-websocket-handler.md), [`25b_websocket_lowering.erl`](../prototypes/25b_websocket_lowering.erl) | **written, runs** |
+| Event-queue consumer | [`25c-event-queue-consumer.md`](../prototypes/25c-event-queue-consumer.md), [`25c_queue_lowering.erl`](../prototypes/25c_queue_lowering.erl), [`25c_residual_probe.sh`](../prototypes/25c_residual_probe.sh) | **written, runs** (2026-08-13) |
 | Database querying | — | not written |
-| Event-queue consumer | — | not written |
 | Async processing | — | not written |
 | Dynamic web page | — | not written |
 
@@ -272,3 +272,113 @@ exactly 17 §4's "validate then act" sequence, and it came out cleaner as a two-
 `ValidateAs<T>` result, because there is only **one** fallible stage. `|?>` looks like it earns its
 place at three stages, not one. **The database exemplar is the place to test that**, and it is the
 natural next one to write.
+
+---
+
+## RESULTS — third exemplar, the event-queue consumer, 2026-08-13
+
+[`25c-event-queue-consumer.md`](../prototypes/25c-event-queue-consumer.md) — AMQP 0-9-1, with a
+lowering that compiles with no warnings and runs on OTP 28, and a residual probe run against the
+walking skeleton.
+
+**Written out of the order this ticket recommended, deliberately.** 25a's closing note nominated the
+database exemplar next, on the `|?>` question alone. AMQP answers that question *and* is the second
+**parser-shaped** exemplar, which is [ticket 30](30-binaries-as-a-parsing-grammar.md)'s stated
+condition for being decidable and the non-aggregate shape
+[ticket 22](22-how-opinionated.md)'s trigger still wanted. **The database exemplar is still owed**
+and is again the natural next one.
+
+### The correction, and it lands on this ticket's own results section
+
+**Ticket 12's closed-residual tax has never been paid by anything that runs, because the surface
+cannot state that a wire field has a width.** Result 3 above records the WebSocket opcode as a
+closed `0..15` costing eleven clauses. Measured against the skeleton
+([`25c_residual_probe.sh`](../prototypes/25c_residual_probe.sh)):
+
+- four named frame types over a bare `int` → residual `int <= 0 | 4..7 | int >= 9` — **open**;
+- the same plus a guard bounding the octet to `0..255` → residual `int <= -1 | int >= 256`,
+  **values the wire cannot produce**, still open.
+
+A parameter is declared `int`; ticket 20 put intervals in the *type* language, and intervals arise
+only from guards, which refine a clause and never a signature. So the eleven-clause finding is a
+correct claim about the **design** and not about the language as it stands — and the reversal is
+worse than the current state. When ticket 20 §5's `type Octet = int where ...` lands (the skeleton
+README names it as the next slice increment), every wire dispatch acquires a **closed** residual:
+252 unnamed values for an AMQP frame type, ~2³² for a class/method pair. **Interval patterns and
+interval refinements must land in the same increment or wire parsing breaks.** Neither ticket
+records that coupling. → tickets 12, 20, 04.
+
+**Separately, the skeleton does not implement ticket 12 §2 at all** — it accepts a catch-all over a
+genuinely closed atom residual, exit 0, no diagnostic. A skeleton gap rather than a design change,
+and the first known place the skeleton is behind a closed decision.
+
+### The residual does not scale as a diagnostic
+
+40 singleton clauses — one AMQP class — produce a residual of **41 disjoint intervals on one line**.
+Exact, per ticket 20's algebra, and useless to read or to synthesise a clause head from, which is
+what ticket 23 makes it for. **First case in the map where exactness and legibility pull apart**,
+and an argument that the diagnostic should report the residual's *shape* at some width rather than
+enumerate it. → tickets 23, 04, 20.
+
+### `|?>` — 25a's question answered, with a narrower scope than it assumed
+
+**Yes at three fallible stages; no for a parser.** The valve short-circuits correctly across the
+consumer's four stages that have the shape it wants (measured, all four failure paths). But a
+decoder stage has type `A -> result<(B, A), E>` — it threads a value **and a remainder** — and the
+valve threads one value. **The shape most reliably producing three fallible stages in a row is the
+shape the valve cannot compose.** Nothing here argues against 17 §4's choice; it says the parser
+shape needs its own answer and does not have one. → tickets 17, 15.
+
+### Ticket 17 job 1 — the second data point locates the cliff
+
+25a found the ladder at **width 5** and reported it reads worse than an `if` ladder. 25c found it at
+**width 4** (ack / requeue / dead-letter from outcome, permanence, redelivered, delivery count) and
+it reads fine. **Consistent, and together they put the readability cliff between 4 and 5.** Two
+notes for 17's `cond` patch: lifting two of the four conditions into named functions (`Ok`,
+`Permanent`) to fit the tuple *improved* it, which a `cond` ladder would have inlined and made
+worse; and the width-4 ladder collapses to four rows with a positional wildcard, which ticket 12 §2
+does not touch — it is not a catch-all clause. **No case for `cond` from this exemplar.** → 17.
+
+### A new limit on the pipe, stronger than 17 §3's
+
+**A length-prefixed frame cannot be built by left-to-right accumulation.** The header carries the
+payload's size, so construction is build-measure-wrap and no ordering of `|>` expresses it. Measured:
+building the *payload* by fold and then wrapping is byte-identical to the direct form, so **the pipe
+is fine within a length-delimited region and cannot cross one**. 25b's `bitstring()` widening
+reproduces on top of this, in a second format and on frame construction rather than payloads.
+→ tickets 17, 20.
+
+### Ticket 30's evidence condition is met
+
+Both of 30's gaps reproduce in AMQP independently of RFC 6455, and the evidence is stronger:
+the bound-variable segment is **nested two deep** (`payload:size`, then `shortstr`'s `s:len` inside
+it), and the value-discriminated union is an **octet** rather than a 4-bit field. New with this
+exemplar: AMQP's trailing `0xCE` sentinel means **a pattern performs a consistency check between two
+fields the type system cannot relate** — 30's missing "given", in the *validating* direction rather
+than the parsing one, and it is the check that catches a lying length field. **30 is HITL and is not
+resolved here.** → ticket 30.
+
+### Back-pressure makes ticket 14's mailbox hole deliberate
+
+Measured with prefetch 2 and four deliveries: two processed, two in flight, **two still in the
+mailbox**, process reporting itself healthy. 25b found this accumulation as an accident behind a
+selective receive; here it is **the intended design**, because declining work on the BEAM means
+leaving it in the mailbox. Mailbox depth is the quantity separating a healthy consumer from an
+outage, and ticket 24's client-API boundary cannot observe it — nor can `sys:get_state`, since the
+depth is not in the state. → tickets 14, 24.
+
+### What ticket 22 can take
+
+**The protocol-parser shape 22's trigger was still missing now exists, and it repeats 25b's answer.**
+`record` appears in `index.bs` and nowhere else; the minted tag never matters; `with` never appears.
+A queue consumer is patterns, integers and binaries — the DDD constructs did not narrow anything
+because they never showed up, and what made it awkward (field widths, residual legibility, the
+valve's shape) is orthogonal to how opinionated the language is. **Both non-aggregate shapes 22
+named now agree.** Whether that fires the trigger is David's call.
+
+### Note for whoever writes the next exemplar
+
+**The database exemplar is now doubly owed** — it is the one 25a nominated, and it is the remaining
+place to test whether an untyped result set crossing a boundary behaves like the queue body did.
+Expect `ValidateAs<T>` per row and check whether that is affordable at result-set scale; 25c only
+paid it once per message.

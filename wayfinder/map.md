@@ -882,6 +882,26 @@ spec exists.
   proportional to the type it describes where 12's arm was constant. Note the marker on the other
   side of the ledger: 23 §6 deliberately leaves the arm over *user-written* clauses untouched, so
   what is being measured is the generated-code sites only.
+  **Ticket 25's third exemplar adds a thirteenth item, and it is the first that is a *blocker on the
+  next increment* rather than a measurement.** Measured against the skeleton
+  ([`25c_residual_probe.sh`](prototypes/25c_residual_probe.sh)): **the surface cannot state that a
+  wire field has a width.** A parameter is declared `int`, ticket 20 put intervals in the *type*
+  language, and intervals arise only from guards — which refine a clause, never a signature. So an
+  octet bounded by a guard leaves the residual `int <= -1 | int >= 256`, values the wire cannot
+  produce, and every wire dispatch is open. The skeleton README names
+  `type Octet = int where value >= 0 && value <= 255;` as **the next slice increment**, and landing
+  it alone would convert every wire dispatch to a **closed** residual — 252 unnamed values for an
+  AMQP frame type, ~2³² for a class/method pair — which ticket 12 §2 makes an error.
+  **So interval *patterns* must land in the same increment as interval *refinements*, or wire
+  parsing breaks.** Neither ticket records that coupling; it is the sharpest thing 25c found.
+  Two smaller skeleton facts from the same probe: **the skeleton does not implement ticket 12 §2 at
+  all** — it accepts a catch-all over a genuinely closed atom residual, exit 0, no diagnostic, the
+  first known place the skeleton is behind a closed decision; and **the residual does not scale as a
+  diagnostic**, 40 singleton clauses producing **41 disjoint intervals on one line**, exact per
+  ticket 20's algebra and useless to read or to synthesise a clause head from, which is what ticket
+  23 makes it for. That last one is the first case in the map where **exactness and legibility pull
+  apart**, and it argues the diagnostic should report the residual's shape at some width rather than
+  enumerate it.
 - **The typed model of OTP itself** — new with ticket 14, and distinct from the corpus that proves
   it. The language knows behaviour contracts and system-message shapes as types. Open: which
   behaviours ship built in (gen_server, supervisor, application, gen_statem, gen_event), how a
@@ -1102,6 +1122,16 @@ spec exists.
   construct that most often silently drops a case. Adding `cond` later is still purely additive, and
   its catch-all would be a clause (`_ =>`), never an `else` — 17c measured that `else` is an
   `if`-only keyword on this platform and both Elixir pattern constructs reject it.
+  **A second data point 2026-08-13 ([`25c`](prototypes/25c-event-queue-consumer.md)) locates the
+  cliff between four and five.** A queue consumer's ack / requeue / dead-letter decision is width
+  **four** — outcome, permanence, redelivered, delivery count — and it reads **fine**; none of 25a's
+  three complaints bites at that width. Two findings that argue *against* the keyword rather than
+  merely failing to argue for it: lifting two of the four conditions into named functions to fit the
+  tuple **improved** the code, and a `cond` ladder would have inlined them as expressions and read
+  worse; and the width-four ladder collapses from five rows to four with a **positional wildcard**,
+  which ticket 12 §2 does not touch — that rule is about a catch-all clause, not a `_` inside a
+  pattern. So the evidence is now two points with opposite verdicts and a locatable boundary, which
+  is a better basis for David's decision than 25a's single reading.
 
 <!--
   GRADUATED 2026-08-12 (ticket 10): "Runtime behaviour against untyped callers — what, if
