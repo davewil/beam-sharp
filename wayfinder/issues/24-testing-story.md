@@ -1,7 +1,7 @@
 # 24 — The testing story
 
 Type: grilling
-Status: claimed
+Status: resolved 2026-08-13
 Blocked by: 11
 
 ## Question
@@ -172,3 +172,246 @@ converts a callee crash into a value with a **better reason** than `try` does
 ([`15c`](../prototypes/15c_surviving_a_callee_crash.erl)). Testing a client API's failure path
 therefore means killing a real process, not stubbing an exception — which pushes the default test
 boundary further toward the process API and away from the individual operation.
+
+## Answer — 2026-08-13
+
+**The headline: exhaustiveness does not reduce the number of tests, and the map's own framing
+assumed it would.** Three test categories genuinely retire, and the ticket found them. What it did
+not anticipate is that ticket 23's clause synthesis *adds* code needing value tests at the same
+time — the compiler hands an agent a head it cannot get wrong and the agent fills a body that is a
+guess, so the pre-scaffolded guess is precisely the untested thing. Exhaustiveness converts coverage
+tests into value tests. It does not delete them.
+
+**And the ticket's single strongest hope was resting on a misreading.** §3 asked whether CDuce's
+sampled counter-value is good enough to be a property-test generator, on ticket 04's report that it
+"prints a sampled counter-value". Measured at last ([`24a`](../prototypes/24a_cduce_sampling.sh),
+CDuce 0.6.0): **it prints a *type*, never a value** — `51--100` and not `51`, `[ Int ]` and not
+`[7]` — and `--help` carries no flag that asks for an inhabitant. There is no inherited generator.
+Nobody shipped one.
+
+### 1. The unit is the client API, exercised against a running process
+
+Ticket 13 made the directory the BEAM module, so *"test the exported surface"* does not
+discriminate: the client API and the OTP callbacks are exported from the same `.beam`, the latter
+because OTP requires it. The default boundary is the **client API function** — `StartLink`, `Apply`,
+`Fetch` — driven against a live process. `HandleCall/3` and its siblings are not a test target.
+
+Three beam-sharp facts push harder here than the general heuristic does. The callback is the
+**most compiler-owned function in the language** — 14 §4 checks its signature against the
+`GenServer` contract, 04 proves its clauses exhaustive against the declared request type, 23
+synthesises its missing heads, 18 §3 writes code into `code_change/3` — so a direct callback test
+asserting "an unknown request is rejected" is testing the compiler. Hand-building a state to pass it
+constructs an aggregate no production path ever constructed. And moving a guard from `HandleCall`
+up into `Apply` is behaviour-preserving, which only the client-API test survives.
+
+The cost is real and measured on the other side: ticket 15 found that reaching a crash path through
+the process means killing a real process and reading a monitor's exit reason. That is heavier than
+calling a function, and it is why almost everyone tests the callback directly. Paid anyway.
+
+**Carve-out**: unchanged from the team's own rule — a genuinely complex operation whose edge the
+client API cannot reach, and only that edge.
+
+### 2. The boundary is published, and the behaviour contract is the discriminator
+
+§1 is a phrase, not something the compiler knows. Visibility is undecided and belongs to
+[ticket 22](22-how-opinionated.md), which is deferred, so **every function in an aggregate is
+exported today** and `ls orders/` returns `Apply.bs`, `Fetch.bs`, `HandleCall.bs`,
+`RecomputeTotal.bs` undifferentiated — a listing 23 §10 deliberately made part of the API surface.
+
+It does not need visibility. Ticket 14 §4 already has the compiler know the `GenServer` contract as
+a type, so **the contract names every callback and the remainder is the client API**:
+
+```
+boundary:    Apply/2, Fetch/1, StartLink/1
+callbacks:   GenServer — HandleCall/3, Init/1, HandleInfo/2, CodeChange/3
+unclassified: RecomputeTotal/1
+```
+
+`RecomputeTotal` is why this is a decision rather than a derivation: it is neither, the compiler has
+nothing to say about it, and **an agent writing tests in a loop will target it because it is the
+easiest thing in the directory to test.** It stays `unclassified` and goes to ticket 22 unresolved —
+inventing a visibility rule here would answer 22's question from the wrong ticket.
+
+### 3. Exhaustiveness retires coverage tests; the count does not fall
+
+**Retired, and the spec says so plainly** so that codebases stop writing them:
+
+- *"an unknown event is rejected"* — 04 proves clause coverage against the declared request type.
+- *"the error case is distinguishable from success"* — 15 §1 makes an absorbed failure member a
+  declaration error, so `option<atom>` does not compile.
+- *per-instantiation tests of a polymorphic function* — 27 §2 makes type variables opaque, so
+  behaviour cannot depend on instantiation and **one ground instantiation is evidence about all of
+  them.** This is the first real reduction in test surface the map has produced from a type
+  decision, and it is the one most likely to be missed.
+- *coverage of compiler-generated code* — 16's encoder, 20's opaque refinements, 18 §3's
+  `code_change` validation. A test asserting a generated encoder round-trips is testing the
+  compiler. The **contract** it enforces is still the user's, tested at the boundary.
+
+**Not retired.** Clause *ordering* among overlapping clauses that are each reachable — 23's
+`unreachable_clause` catches the dead one and nothing catches two live ones in the wrong sequence.
+Guards the checker cannot credit, which the skeleton's own soundness bug was: an uncreditable guard
+now contributes nothing to coverage (`Certain` and `Possible` are separate bounds), so its logic is
+untested by construction. And everything foreign, since 11 checks shape and 18's guarantee is only
+*"will crash, never silently"* — whether supervision handles that crash is behaviour.
+
+**The spec must state that the test count does not fall.** Claiming the reduction is the flattering
+reading and it is false; worse, a codebase that believes it skips the value tests the compiler never
+had.
+
+### 4. No inherited generator; the language publishes the residual instead
+
+[`24a`](../prototypes/24a_cduce_sampling.sh), CDuce 0.6.0, `local`:
+
+| Declared | Handled | CDuce's "sample" |
+|---|---|---|
+| `` `red \| `green \| `blue `` | two | `` `blue `` |
+| five atoms | two | `` `blue \| `cyan \| `magenta `` |
+| `1--100` | `1--50` | `51--100` |
+| `1--100` | `1--39 \| 61--100` | `40--60` |
+| `Int` | `0--10000` | `*--1 \| 10001--*` |
+| `[ Int* ]` | `[]` | `[ Int ]` |
+| `Tree` | leaf only | ``(`node,(X1,X1)) where X1 = (`leaf,Int)`` |
+| `(S,E)` 3×3 | one pair | ``(`void \| `closed, E)`` |
+
+**Retracts a ticket 04 claim.** Every one is a type. CDuce's error reporter is proving
+non-subtyping, and a type is all that needs.
+
+Two findings worth more than the retraction. The recursive case **terminates by emitting a binder**
+rather than unrolling to a depth — which makes ticket 09's contractivity requirement, adopted for
+subtyping decidability, also the property that would make a generator terminate. And the product
+case is **partial**: `(S,E) \ (`open,`add)` is `` (`closed|`void,E) | (`open,`remove|`ship) `` and
+CDuce printed one rectangle. beam-sharp's checker computes the full residual (04's algebra, the
+skeleton's `Certain`/`Possible`), so this is a shortcut it does not inherit.
+
+So the language **publishes the residual as a structured term and generates nothing.** Value
+generation is a library, out of scope on the tooling track, consuming a guarantee that is in scope.
+27 §8 bounds it before it is built — a codegen obligation requires a ground type argument — which
+settles §3's own open (a)/(b)/(c): generation happens at ground instantiations or not at all.
+
+CDuce formats its residual into a string at exactly the point a consumer wants it, which is the
+failure 23 measured in `erlc` and refused. beam-sharp's residual is a term by decision.
+
+### 5. Every asynchronous operation owes a synchronous observation
+
+§1 makes every test concurrent, which makes determinism the language's problem. Measured,
+[`24b`](../prototypes/24b_cast_observability.erl), OTP 28.5, 200 reps:
+
+| Shape | Observed |
+|---|---|
+| same process: `cast` then client-API `call` | 200/200 |
+| same process: `cast` then `sys:get_state/1` | 200/200 |
+| different processes, genuine race, caller released first | 200/200 |
+| **positive control**, caller given a 20 ms head start | **0/200** |
+
+**`sys:get_state/1` buys no determinism at all** — identical to a client-API call, because both are
+messages riding the same pairwise ordering guarantee. Its only purchase is state the client API does
+not expose, which is the implementation test through the back door and the read half of the channel
+18 §3 named a limit. **A test that reaches for it is a defect, and not even a useful one.**
+
+**The trap is the third row.** A cast sent from a process other than the observer passed 200/200 on
+scheduling bias alone — `gen_server:call` sets up its monitor before sending and hands the caster a
+head start. Twenty milliseconds flips it to 0/200. That is a test that passes two hundred times
+locally and fails in CI, and nothing in the type system can see it.
+
+So the rule is a constraint on the **client API**, not on a test framework: *every asynchronous
+operation must have a synchronous observation in the same client API, or it cannot be tested at the
+boundary §1 chose.* The manifest advises where one is missing — **advisory, not an error**, because
+a genuinely fire-and-forget aggregate (a logger, a metrics sink) has no natural observation and
+would otherwise be nagged forever.
+
+### 6. The compiler publishes its elisions — one boundary manifest
+
+Ticket 10 found `erlc` constant-folds `binary_to_atom` on a literal, making a test's precondition
+unreachable and the test green while measuring nothing. **beam-sharp has at least three of its own,
+and unlike Erlang's they are enumerable by decision**: 20 §4 makes a literal a `string` by
+construction so its UTF-8 entry check is elided; 18 §1 emits a boundary guard only where the body
+would not object; 17 §2 inlines compiler-known prelude operations, so what runs is not what was
+called.
+
+The compiler knows exactly which it did — 18 §4 made the analysis function-local so the guard count
+is predictable per function, and said the corpus can *count* emitted guards rather than estimate
+them. Throwing that away is `erlc`'s failure again.
+
+**§2, §5 and this consolidate into one artefact, the boundary manifest** — what the boundary is,
+what it promises, and what the compiler decided not to check. Named as one thing deliberately: 18 §5
+weighed a build artefact and noted it must be defined, versioned and kept stable, and that cost is
+paid once here rather than three times. It is the first capability in the map serving testing alone,
+and it clears the scope bar on the 2026-08-13 clarification — one capability the language owes its
+author, not the ecosystem track.
+
+### 7. Tests are ordinary beam-sharp, with no exemption
+
+Exhaustiveness applies to a test. The universal BEAM idiom is a partial destructuring bind whose
+crash *is* the assertion; in beam-sharp `Fetch` returns `Order | (:error, atom)` per 15's untagged
+shape, the residual `(:error, atom)` is open because `atom` is cofinite, and 12 therefore permits a
+catch-all. **The idiom survives, but the failure arm must be written:**
+
+```csharp
+switch Fetch(pid) {
+    Order o => Assert(o.Total == 100),
+    _       => Fail("expected an order, got an error")
+}
+```
+
+Near-free to write under the standing constraint, and it earns its place on the read side, which
+carries full weight: the arm forces the test to state what it expected. **The cost is paid where it
+hurts most** — 12 measured that the compiler's *emitted* failure arm gives `function_clause` with
+the offending argument, a good crash report for free, and this idiom opts out of it at exactly the
+moment a test wants it. A hand-written `Fail` is only as good as what the agent typed.
+
+A `test` construct exempting partial matches was refused on 12's own grounds: it is a second
+semantics for the headline guarantee, and 12 already rejected a uniform `_` for putting that
+guarantee one character from being switched off invisibly.
+
+### 8. `handle_info` is boundary-testable, by causing the event
+
+Ticket 14 §6 asked whether the testing story should make *"the catch-all ran"* observable, since a
+mis-shaped `handle_info` clause never fires and the mandatory catch-all absorbs it in silence.
+
+**No, and the reason is §1.** Nothing in the client API produces a `handle_info` message, so the
+apparent conclusion is that this path is unreachable from the boundary. It is not: a monitor fires
+because a monitored process died, and a test can kill it. **Cause the real event and assert the
+effect** — if the clause is mis-shaped the effect does not happen and the test fails. Sending a
+fabricated message at the pid is the implementation test, the exact analogue of calling `HandleCall`
+directly, and it is what would make the blind spot invisible.
+
+Consistent with the same section's other measured facts: four of five wrong-recipient failures are
+exits ([`14d`](../prototypes/14d_wrong_pid_outcomes.erl)), so boundary tests of the unhappy path
+assert on **exits and exit reasons**, and 15 measured `monitor`+`receive` yields a better reason
+than `try`.
+
+### Out of scope
+
+- **Test runner and framework.** Already the map's tooling track. The language-level part is
+  answered: 13 emits ordinary BEAM modules with specs, so any BEAM runner works and beam-sharp needs
+  no runner of its own.
+- **A mailbox-drain helper.** Ticket 14's finding that *"wait for a message"* has two meanings —
+  drain versus selectively receive, which Gleam ships at two layers and names at neither
+  ([`14f`](../prototypes/14f_gleam_selective_receive.md)) — is real, but a `Drain` is a prelude
+  function and that is standard-library breadth. Under §1 a test rarely does a raw `receive` at all;
+  where it does, 14 §5's filter semantics already govern it.
+
+### What this ticket owes
+
+- **The boundary manifest's concrete format** — a spec-drafting detail, but a versioned one, and it
+  now has three consumers.
+- **A question to [ticket 22](22-how-opinionated.md)**: `unclassified` functions. §2 works without
+  visibility and stops there; what a helper *is* remains 22's.
+- **A question to the map's _module and namespace system_ fog**: test file layout under one function
+  per file. 23 §10 made file names part of the API surface, so where a test lives is that patch's
+  business, not a tooling detail.
+- **A measurement for the skeleton**: nothing new. §5's determinism rests on the BEAM's pairwise
+  ordering guarantee, which is the platform's and not beam-sharp's to prove.
+
+### Evidence
+
+| Source | Claim | Provenance |
+|---|---|---|
+| [`24a_cduce_sampling.sh`](../prototypes/24a_cduce_sampling.sh) | CDuce's inexhaustive-match "sample" is a type, never a value; recursive types terminate via a `where` binder; product residuals are partial; no CLI flag requests an inhabitant | `local`, CDuce 0.6.0 |
+| [`24b_cast_observability.erl`](../prototypes/24b_cast_observability.erl) | cast-then-call from the same process observes 200/200; `sys:get_state/1` identical, no better; cross-process cast passes 200/200 on scheduling bias and 0/200 with a 20 ms head start | `local`, OTP 28.5 |
+
+*Method note kept because it repeats this ticket's own subject: the first version of 24b's
+cross-process probe had the caster signal the observer before it called, creating a happens-before
+chain. It reported 200/200 like every other row and could not have recorded a miss if one existed —
+the §"testing trap" reproduced while measuring it. The positive control was added for that reason
+and is the only row proving the harness works.*
