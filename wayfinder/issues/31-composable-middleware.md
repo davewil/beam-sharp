@@ -67,3 +67,11 @@ without answering this would just produce a second guess.
 
 **Do not re-raise** ticket 17's choice of `|?>` over `Result.Then`, or its refusal of an implicit
 propagation rule. This ticket asks what the valve *reaches*, not whether it was the right spelling.
+
+**And do not re-derive the macro question.** `Plug.Builder` is a macro, and if §2 concludes that
+middleware composition needs compile-time assembly then this ticket is asking for something Elixir
+does with one — which the map rules **out of scope**. The answer is already written on the map's
+macros entry: the line is **who may generate**, not whether generation happens, since six codegen
+obligations already do. Compile-time assembly the *compiler* owns is a codegen obligation and is
+available; a *user-extensible* generation mechanism is a redrawing of the destination, not an
+increment. Read that entry before proposing anything shaped like a DSL.

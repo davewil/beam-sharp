@@ -1163,6 +1163,35 @@ spec exists.
 - **Macros and metaprogramming** — quote/unquote, source generators, compile-time
   evaluation. A large semantic surface that interacts hard with a type system, and nothing
   about the core bet needs it.
+
+  **The neighbours are split, and the split is informative** (2026-08-13, measured locally where
+  installed). **Elixir** has full macros, hygienic by default and escapable with `var!` — and its
+  AST is genuinely homoiconic, verified here: `quote do: 1 + f(x)` yields
+  `{:+, meta, [1, {:f, [], [{:x, [], Elixir}]}]}`, every node a `{form, meta, args}` triple.
+  **LFE** and **Clojerl** have real Lisp macros. **Gleam refuses them outright** — the same shape
+  as its refusal of `if` (→ 17c), and the closest neighbour to this language does without.
+  **purerl**, **Caramel** and **Alpaca** have none. **Erlang has two weaker things and the
+  underrated one is not the preprocessor**: `epp`'s `-define`/`?M` is C-like token substitution,
+  but a **parse transform** receives an entire module's abstract forms and returns whatever forms
+  it likes — cruder than Elixir's macros in ergonomics (no hygiene, module-wide rather than
+  call-site) and strictly wider in reach. This map already depends on that mechanism: ticket 13's
+  host-language choice turned partly on `merl`'s `?Q` riding a parse transform Elixir cannot use.
+
+  **The first pressure on this exclusion comes from inside, and it is worth recording rather than
+  acting on.** The standing constraint says beam-sharp is written by agents with generators
+  scaffolding files, and Elixir's macros exist substantially so libraries can define DSLs.
+  [Ticket 31](issues/31-composable-middleware.md) now hangs on `Plug.Builder`, which is exactly
+  that — `@plugs` accumulated at compile time and a pipeline function generated. **If 31 concludes
+  that middleware composition needs compile-time assembly, it is asking for something Elixir does
+  with a macro.**
+
+  **This does not reopen the exclusion, and the reason is already decided**: the map's answer to
+  "the compiler writes it" is a **codegen obligation** (ticket 16 §4, ticket 27's ground-type rule),
+  which is compile-time generation *the compiler owns* rather than a facility the user wields. The
+  line to hold is **who may generate** — not whether generation happens, since six codegen
+  obligations already do. Recorded here so that the next ticket to feel this pressure finds the
+  answer rather than re-deriving it, and so that a *user-extensible* generation mechanism is
+  recognised as a redrawing of the destination rather than an increment.
 - **Alternative backends** — a JavaScript or WASM target of the kind Gleam ships alongside
   its Erlang backend. Doubles the codegen surface and forces semantic compromises that
   would muddy a BEAM-native design.
