@@ -47,7 +47,9 @@ A parameter standing for a type, declared on a signature or an alias (`Map<TSour
 named by C#'s convention. **Opaque**: no clause head or guard may inspect a value whose declared
 type is a bare type variable — though comparison and equality between two values of the same
 variable are permitted, being non-dispatching and total. **Unbounded**: it ranges over every type,
-and carries no constraint; there is no syntax for a bound.
+and carries no constraint; there is no syntax for a bound. **Recoverable**: it must appear in at
+least one parameter position, so instantiation is always determined by matching the arguments — user
+code never writes a type argument.
 _Avoid_: generic parameter, type argument, rigid variable, `a`, bounded type variable
 
 **Binary type**:
@@ -190,6 +192,19 @@ _Avoid_: member access, property access, getter, attribute lookup
 it cannot add or remove a field, because a different field set is a different type. There is no
 spread form.
 _Avoid_: spread, merge, copy-with, mutation, setter
+
+**Rest pattern**:
+`[h, ..t]` — a fixed prefix of elements followed by the remainder bound as a list. Prefix-plus-rest
+only: the rest is always final, and there is no form matching a suffix or an interior span. The same
+spelling constructs (`[f(h), ..Map(t, f)]`).
+_Avoid_: cons pattern, spread, splat, slice pattern, tail pattern
+
+**Instantiation bracket**:
+The `<...>` carrying a ground type argument to a codegen obligation, as in `ValidateAs<Order>(x)`.
+Admissible **only** after a compiler-known codegen obligation, which is what makes `<` elsewhere
+unconditionally a comparison. User code has no instantiation syntax, because a type variable is
+always recoverable by matching.
+_Avoid_: type argument list, generic argument, turbofish, explicit instantiation
 
 **Prelude**:
 The definitions and codegen obligations available without import.

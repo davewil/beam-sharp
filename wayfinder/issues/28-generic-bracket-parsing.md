@@ -1,7 +1,7 @@
 # 28 — Angle brackets versus less-than: how does the parser disambiguate?
 
 Type: grilling
-Status: open
+Status: resolved 2026-08-13
 Blocked by: 27 — resolved
 
 ## Question
@@ -66,3 +66,193 @@ second bullet may collapse it. Also carries one loose end 27 recorded and did no
 provisional list-pattern spelling `[h, ..t]`**, which ticket 08 constrains ("prefix-plus-rest
 only") but pins no spelling for. It is a grammar question and belongs here unless a later ticket
 claims it.
+
+---
+
+# Answer — 2026-08-13
+
+**The second bullet did collapse it, and the ticket's own motivating premise is measured false.**
+Every claim below is measured against the walking skeleton's real grammar
+([`28a`](../prototypes/28a_bracket_disambiguation.escript),
+[`28b`](../prototypes/28b_dot_dot_lexing.escript)) or against a real C# compiler
+([`28c`](../prototypes/28c_csharp_disambiguation.md), dotnet 9.0.306), not cited.
+
+## 1. Explicit instantiation is needed — on exactly three names, all compiler-known
+
+The ticket said to establish this first. It does not collapse to *never*, and it does not stay
+large: it collapses to a **closed set the compiler knows before parsing begins**.
+
+**Why user code never needs a bracket.** Ticket 27 §1 made instantiation *matching, not solving*.
+At a call site the argument types are known, so any type variable appearing in a **parameter**
+position is recovered by matching — which covers every polymorphic function 27 wrote down (`Map`,
+`First`, `Identity`, and 16 §5's `Sort<T>` / `Max<T>`). The only variable matching cannot recover
+is one appearing in **no** parameter position, and recovering *that* needs the expected type to
+flow inwards. That is inference — the thing 27 refused first and hardest, and on which its entire
+cost argument rests.
+
+**So this ticket states the rule 27 implied and did not write: every type variable in a user
+function's signature must appear in at least one parameter position.** It is not a new preference.
+It is the condition under which *"matching, not solving"* is a true sentence; without it the phrase
+is false at the first return-only variable, and 27's cost argument has a hole in it. A user wanting
+`list<T> Empty<T>()` writes the monomorphic type instead — and the literals `[]` and `:nothing`
+mean the case barely arises.
+
+**Codegen obligations break that rule by design, which is precisely why they are not generics.**
+`ValidateAs<Order>` takes a `term` and returns `result<Order, ValidationError>`: the type argument
+appears **only in the return**. Ticket 27 line 427 already said so outright — they *"look exactly
+like generic calls and are not — they are type-directed codegen, monomorphic at every use"* — and
+forced them to carry a **ground type argument**.
+
+So: **user code never writes a type argument; `ValidateAs`, `ParseAtom` and `ToExistingAtom` always
+do.** Those are stratum 2 (14 §6): compiler-known, and closed.
+
+## 2. The rule — the bracket belongs to a token class, not to a lookahead
+
+> **`<` opens an instantiation bracket after a compiler-known codegen-obligation name, and is
+> comparison everywhere else.**
+
+No lookahead, no speculative parse, no backtracking, no turbofish. It is **one lexer rule**: names
+in the closed set lex as their own token class, so the parser never faces the choice. Measured in
+[`28a`](../prototypes/28a_bracket_disambiguation.escript): variant C is the only one of four that
+gets both the instantiation rows and the comparison rows right, in a plain LALR(1) grammar.
+
+### C#'s rule was measured, it is correct, and it is not available here
+
+Bullet 1 asked to *confirm it is expressible for beam-sharp's grammar rather than assuming*.
+**Confirmed — it is not**, and the negative is measured twice rather than assumed once.
+
+*C# works, and here is what it actually does* ([`28c`](../prototypes/28c_csharp_disambiguation.md),
+dotnet 9.0.306, a generic `Foo<A,B>` in scope):
+
+| Source | Error | Reading C# took |
+|---|---|---|
+| `F(Foo < b, c > d)` | CS0019 — operator `<` on `method group` and `int` | **comparison** |
+| `F(Foo < b, c > (d))` | CS0118 — `'b' is a variable but is used like a type` | **generic** |
+
+So C#'s rule is a **follow-token test after a candidate type-argument list**, and it gives the right
+answer in both directions. But it needs **unbounded lookahead** — the candidate list is arbitrarily
+long — followed by a re-decision. **LALR(1) cannot do that.** Variant D is what you get if you
+encode the production anyway: the parser must commit at `<`, takes the type-argument list, and dies
+at `d`. That is not a strawman, it is the only thing an LALR(1) grammar *can* do with that rule.
+
+beam-sharp's parser is `yecc`, and that is not incidental — ticket 13 chose the Abstract Format and
+the skeleton is built on `leex`/`yecc` because they ship with OTP.
+
+**This is therefore a tier-3 divergence with a stated reason**, on the map's amended heuristic
+(*resemblance, not reproduction*): the borrowed rule was fully specified, fully understood, and
+refused because the toolchain the rest of the map already chose cannot express it. Same shape as
+27 §2 — a tier-1 borrow that was available and declined for a reason internal to this language.
+
+**And the divergence costs almost nothing, measured.** Variant C and C# **agree** on case A, the
+one that occurs. They differ on case B — but in beam-sharp `Foo<b, c>` is not an instantiable form
+at all, because §1 removed explicit instantiation from user code. **The reading they differ on does
+not exist here to be chosen.**
+
+### Turbofish rejected, and not on taste
+
+It would be a marked spelling for something users never write. §1 leaves exactly three call sites,
+all compiler-known, all of which already read as generic calls throughout tickets 11, 15, 16, 18
+and 20. `::<>` would rewrite every one of them to buy a disambiguation the closed set supplies free.
+
+## 3. Guards are exempt — and the ticket's "why it bites harder here" is false
+
+The ticket's motivating claim was that `<` appears in guard position routinely, hard against dense
+clause heads. **The density is real; the ambiguity is not.**
+
+**Guards contain no types.** Ticket 08 fixed the guard vocabulary to BEAM guard BIFs with no user
+function calls, and ticket 11 put deep validation in an explicit `ValidateAs<T>` call *precisely so
+a clause head does no unbounded work*. A codegen obligation therefore cannot appear in a guard, and
+there is nothing for a bracket to attach to. So `<` in a guard is comparison **unconditionally**,
+and the exemption **falls out rather than being written** — no guard sub-grammar, no special case.
+
+[`28a`](../prototypes/28a_bracket_disambiguation.escript) runs ticket 08's own example,
+`(x, y) when x < y && Total(x) > 0`, through all four variants: it parses identically in every one,
+including the two that have generics.
+
+Worth recording where the enforcement lives: the skeleton restricts guards **semantically**
+(`bs_check`), not grammatically. That does not weaken the result — the *parse* is unambiguous
+either way, so the checker never has to re-read a guard the parser already resolved.
+
+## 4. Chained comparison was already illegal, which had removed the harder half
+
+**`a < b > c` is a syntax error today**, in expression and guard position alike — `Nonassoc 300` on
+the comparison operators, in the skeleton's operator table since it was written, measured in
+[`28a`](../prototypes/28a_bracket_disambiguation.escript).
+
+This matters more than it looks. The C++ disaster case is a **chain** of relational operators that
+could also be a type-argument list. **beam-sharp cannot write the chain at all**, so the only
+ambiguous shape remaining is the comma-separated one the ticket names, which §1 and §2 dispose of.
+Nobody chose `Nonassoc` for this reason — it was there for readability — and it had quietly removed
+half of this ticket before the ticket was raised.
+
+**A second thing the platform gives free: `>>` is not a token.** `list<list<int>>` parses (28a).
+C++'s famous right-shift collision requires a `>>` operator, and ticket 08's settled vocabulary has
+no bit-shift operators at all.
+
+## 5. The loose end — `[h, ..t]` is adopted, and it is free
+
+Ticket 27 left it provisional; ticket 08 fixed the restriction (prefix-plus-rest only) and pinned no
+spelling. **Adopted as written**, in both positions — the pattern `[h, ..t]` and the construction
+`[f(h), ..Map(t, f)]` — which is what 27's samples and 18's already use.
+
+**Tier 1 for one audience and unobjectionable to the other.** C# collection expressions spell it
+`[first, ..rest]` exactly. TypeScript's spread is `...`, so a TS reader meets a two-dot variant of
+something they already know rather than something new. Note this is *collection* spread, which
+ticket 26 did not touch: 26 refused **record** spread (`{...o}`) in favour of `with`, on widening
+grounds that do not apply to a list.
+
+**It costs nothing lexically** ([`28b`](../prototypes/28b_dot_dot_lexing.escript)), against the two
+things that could have collided with it:
+
+- **Ticket 26's projection dot.** `o.Status..t` lexes cleanly as `o . Status .. t` — `..` ordered
+  before `.`, and leex's longest-match settles the rest.
+- **Float literals** — the classic Pascal/Rust hazard. **`1..5` lexes as `1 .. 5`, not `1.` `.5`**,
+  because the float rule demands digits on *both* sides of its dot, so longest-match declines it and
+  falls back to the integer rule.
+
+**Bonus, unclaimed:** that leaves `..` available as a **range** spelling should ticket 20's integer
+intervals ever want a surface syntax. 20 added intervals to the algebra and spelled refinements with
+predicates; it never claimed `..`, and nothing here takes it.
+
+## 6. Consequences for other tickets
+
+- **[Ticket 27](27-parametric-polymorphism.md) — its §4 gains the rule it implied.** Every type
+  variable must appear in at least one parameter position. 27 needs no amendment, but **the spec
+  must carry this line** or *"instantiation is matching, not solving"* is false at the first
+  return-only variable.
+- **27's stratum-2 rule gains a second job.** *"A codegen obligation requires a ground type
+  argument"* was a **typing** rule; it is now also **the parser's disambiguator**. The
+  compiler-known set has become load-bearing in the *grammar*, not only in the checker.
+- **The map's prelude-stratum fog loses a candidate answer, on new grounds.** The fog asks what
+  distinguishes stratum 2 and whether a user may add to it. Independently of that question,
+  **stratum 2's membership is now fixed at lex time**, so the set must be **closed and known before
+  parsing** — a user cannot introduce a name that takes an instantiation bracket. That does not
+  settle the fog; it rules out an open, user-extensible stratum 2 on *grammar* grounds, where
+  20 §5 had ruled it out on safety grounds and then narrowed that refusal to a placement rule.
+- **[Ticket 15](15-error-model.md)'s owed `ToExistingAtom` respelling is now also a grammar item.**
+  Whatever it is respelled to, the name stays in the closed lexer set — so a respelling that
+  *renames* it must update the lexer, not only the prelude signature.
+- **[Ticket 25](25-exemplar-programs.md) gains a settled surface.** All six exemplars can now be
+  written without inventing a bracket rule or a rest spelling. That was the reason to take this
+  ticket before writing them.
+- **[Ticket 22](22-how-opinionated.md) inherits nothing new.** The `[incomplete]` marker's spelling
+  is still 22's, and this ticket adds no attribute grammar for it to collide with.
+
+## What this ticket owes
+
+- **The companion rule in §1 is a real restriction on user code** and is the one thing here a reader
+  might want to argue with: a signature whose type variable appears only in the return type is
+  rejected. It is forced by 27's refusal of inference, but it was never written down before now.
+- **The skeleton does not implement any of this yet** — it has no generic syntax, no `..`, no
+  projection dot, and no module identifiers in value position. 28a and 28b measure *patched* copies
+  of its grammar and lexer. The rules are proven expressible, not yet shipped.
+
+## Evidence
+
+| Claim | Where |
+|---|---|
+| Four grammar variants built from the real `bs_parser.yrl`; C is the only one that reads both instantiation and comparison correctly | [`28a_bracket_disambiguation.escript`](../prototypes/28a_bracket_disambiguation.escript) |
+| `a < b > c` is already a syntax error (`Nonassoc 300`); `>>` is not a token so `list<list<int>>` parses; ticket 08's guard shape parses identically under every variant | [`28a`](../prototypes/28a_bracket_disambiguation.escript) |
+| yecc resolves shift/reduce conflicts **silently** via the precedence table — every variant reports zero conflicts, including the one that gets the answer wrong | [`28a`](../prototypes/28a_bracket_disambiguation.escript) header |
+| `1..5` lexes as `1 .. 5`, not `1.` `.5`; `o.Status..t` lexes cleanly | [`28b_dot_dot_lexing.escript`](../prototypes/28b_dot_dot_lexing.escript) |
+| C#'s rule is a follow-token test: CS0019 (comparison) for a bare identifier after `>`, CS0118 (generic) for `(` after `>` | [`28c_csharp_disambiguation.md`](../prototypes/28c_csharp_disambiguation.md) |

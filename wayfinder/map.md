@@ -719,6 +719,34 @@ spec exists.
   and §1 just made that cheap. Sharpest downstream consequence: **ticket 25 is unblocked in
   practice**, four of its six exemplars having waited on exactly these constructs.
 
+- [Angle brackets versus less-than](issues/28-generic-bracket-parsing.md) — **the second bullet
+  collapsed the ticket, and its own motivating premise is measured false.** Explicit instantiation
+  *is* needed, on **exactly three names** — `ValidateAs`, `ParseAtom`, `ToExistingAtom` — because a
+  codegen obligation's type argument appears **only in the return type**, which is the one thing
+  matching cannot recover. Everywhere else instantiation is recoverable, so **user code never writes
+  a type argument**, and the rule is one line: **`<` opens a bracket after a compiler-known
+  codegen-obligation name and is comparison everywhere else** — a *lexer* rule on a closed set, with
+  no lookahead, no backtracking and no turbofish. That forces the rule 27 implied and never wrote:
+  **every type variable in a user signature must appear in at least one parameter position**, which
+  is the condition under which *"matching, not solving"* is a true sentence. **C#'s rule was
+  measured, not cited** (dotnet 9.0.306): a follow-token test that is correct in both directions —
+  `CS0019` for a bare identifier after `>`, `CS0118` for `(` — and it is **not LALR(1)-expressible**,
+  since the decision point sits after an unbounded suffix while `yecc` must commit at the `<`. So
+  this is a **tier-3 divergence with a stated reason**, and it is unobservable: the two rules agree
+  on the case that occurs and differ only on a form beam-sharp cannot express. **Guards are exempt
+  and the exemption falls out rather than being written** — 08 and 11 between them keep every type
+  out of a guard, so nothing is there for a bracket to attach to. Two things the platform had
+  already given free, neither chosen for this purpose: **`a < b > c` is a syntax error today**
+  (`Nonassoc 300`, in the skeleton's operator table for readability), which removes the C++ chained
+  case entirely; and **`>>` is not a token**, so `list<list<int>>` parses. The loose end is closed:
+  **`[h, ..t]` adopted in both pattern and construction position**, tier-1 C# collection expressions,
+  and measured free against the two things that could have collided — ticket 26's projection dot, and
+  float literals, where **`1..5` lexes as `1 .. 5` and not `1.` `.5`**, leaving `..` unclaimed as a
+  range spelling should ticket 20's intervals ever want one. Sharpest downstream consequence:
+  **27's stratum-2 rule gains a second job** — *"a codegen obligation requires a ground type
+  argument"* was a typing rule and is now **the parser's disambiguator**, so the compiler-known set is
+  load-bearing in the grammar, and **stratum 2's membership is fixed at lex time**.
+
 ## Not yet specified
 
 <!-- in-scope fog: real, but not yet sharp enough to phrase as a ticket -->
@@ -999,7 +1027,14 @@ spec exists.
   with 15's surviving criterion or cuts across it is unexamined: `foreign_error` is a type, not an
   operation, so it has nothing to inline and the test may simply not apply to it — which would mean
   the criterion is well-formed only for the stratum's *operations*, and the stratum's *types* need a
-  separate one.
+  separate one. **Ticket 28 rules out one candidate answer on entirely new grounds, without settling
+  the criterion.** Its disambiguation rule keys on the codegen obligations by *token class*, so
+  **stratum 2's membership is now fixed at lex time** and the set must be closed and known before
+  parsing begins — a user cannot introduce a name that takes an instantiation bracket. That kills an
+  **open, user-extensible stratum 2** on *grammar* grounds, where ticket 20 §5 had killed it on
+  safety grounds and then narrowed that refusal to a placement rule. Note it constrains only the
+  bracket-taking members: it says nothing about whether `foreign_error` or `string` belong, which is
+  where the live question actually sits.
 - **Consuming Gleam and Elixir libraries** — possible, and at what ergonomic cost. **Sharper
   after ticket 10 §7**, which measured Gleam's representation rather than reading it: fieldless
   variants are bare atoms, variants with fields are tagged tuples, PascalCase becomes
