@@ -5,3 +5,10 @@
 # Build artefacts from running the prototypes
 *.beam
 *.plt
+
+# compiler build artefacts
+compiler/_build/
+compiler/bench/*.beam
+compiler/*.beam
+compiler/src/bs_lexer.erl
+compiler/src/bs_parser.erl
