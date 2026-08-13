@@ -1,7 +1,7 @@
 # 24 — The testing story
 
 Type: grilling
-Status: open
+Status: claimed
 Blocked by: 11
 
 ## Question
