@@ -569,21 +569,27 @@ in **O(1)**. Anything deeper is a **compile error at the declaration**.
 
 ```csharp
 // ALLOWED — checkable in one guard, so the compiler checks it
-int        Count()        = [Erlang("ets", "info")];
-binary     Read(int fd)   = [Erlang("file", "read")];
-list<term> Lookup(int id) = [Erlang("ets", "lookup")];
+int                  Now()                        = [Erlang("erlang", "system_time")];
+binary               Encode(term t)               = [Erlang("erlang", "term_to_binary")];
+pid | port | :undefined Whereis(atom name)        = [Erlang("erlang", "whereis")];
+list<term>           EtsLookup(atom tab, term key) = [Erlang("ets", "lookup")];
 
 // REJECTED at the declaration
-list<Order> Lookup(int id) = [Erlang("ets", "lookup")];
+list<Order> EtsLookup(atom tab, term key) = [Erlang("ets", "lookup")];
 //          ^ error: a foreign return type must be checkable in one guard.
 //            `list<Order>` needs every element inspected. Use `list<term>` and validate.
 ```
+
+Note `whereis` in that list: `erlang:whereis/1` really does return `pid() | port() | undefined`, and
+**all three members are guard-decidable** (`is_pid`, `is_port`, `=:= undefined`), so the honest
+signature is *also* the legal one. That is the rule working rather than biting — the union you were
+going to have to write anyway is exactly what the compiler will check.
 
 The crossing is one visible line, and its type forces the failure arm:
 
 ```csharp
 result<list<Order>, ValidationError> Lookup(int id) =>
-    EtsLookup(id) |> ValidateAs<list<Order>>();
+    EtsLookup(:orders, id) |> ValidateAs<list<Order>>();
 
 binary Describe(int id);
 
@@ -693,9 +699,15 @@ filled that table yourself"* is exactly what ticket 21 established you cannot pr
 
 **The cost, stated honestly**: those five ETS reads would each grow a validate step. That is a real
 change to how code reads, not a free win. Most FFI pays nothing — `erlang:system_time`,
-`term_to_binary`, `erlang:whereis` are all declarable as-is. The tax lands precisely where a
-*structured* type is being claimed from foreign data, which is where the claim is expensive to keep
-and where Gleam's silently was not.
+`term_to_binary` and `erlang:whereis` are all declarable as-is, the last of them at its *true* return
+type. The tax lands precisely where a *structured* type is being claimed from foreign data, which is
+where the claim is expensive to keep and where Gleam's silently was not.
+
+**Worth noting what the rule does to a sloppy declaration.** `ets:lookup/2` returns `[tuple()]` and
+`file:read/2` returns `{ok, Data} | eof | {error, _}` — a author reaching for `binary Read(...)` is
+already wrong about OTP, and the O(1) rule catches that at the declaration rather than at the first
+`eof`. The check that exists for foreign *callers* turns out to also catch the author's own
+misreading of the function they are importing.
 
 ## 3. The state channel is defended at its entrances, not on the message path
 
@@ -861,10 +873,9 @@ ordinary analysis.
 
 | Source | What it established | Provenance |
 |---|---|---|
-| stdlib + kernel census, OTP 28 | 83.3% of exported parameter positions are bare variables; 12.2% of functions defend every parameter | `local` |
+| [`prototypes/18b_otp_guard_census.erl`](../prototypes/18b_otp_guard_census.erl) | 83.3% of exported parameter positions are bare variables; 12.2% of functions defend every parameter | `local`, OTP 28 |
 | [`prototypes/18a_guard_cost.md`](../prototypes/18a_guard_cost.md) | +3–5 bytes/`is_integer`, +13 bytes tuple discriminator; call cost below ±0.09 ns/call resolution; elision is exported-vs-local, one entry label per function | `local`, OTP 28.5 arm64 |
-| Gleam `@external` probe | Gleam emits a `-spec` and no check; `-> Int` returned `41.5`, `-> List(Order)` yielded a binary id | `local`, Gleam 1.18.1 |
-| `sys:replace_state/2` probe | a typed gen_server state is replaceable by any process; declared-integer field returned a binary | `local`, OTP 28 |
-| `binary_to_term/2 [safe]` | defends the atom table, not the shape | `local`, OTP 28 |
+| [`prototypes/18c_gleam_ffi_trust.gleam`](../prototypes/18c_gleam_ffi_trust.gleam) | Gleam emits a `-spec` and no check; `-> Int` returned `41.5`, `-> List(Order)` yielded a binary id bound bare by the clause head | `local`, Gleam 1.18.1 |
+| [`prototypes/18d_state_channel.erl`](../prototypes/18d_state_channel.erl) | `sys:replace_state/2` replaces a typed gen_server state from any process, declared-integer field returning a binary; and `binary_to_term/2 [safe]` defends the atom table, not the shape | `local`, OTP 28 |
 | `predictex` (local Elixir app) | 9 changeset pipelines / 29 `validate_*` beside 5 ETS reads that bind the payload bare | `local` |
 | [`research/18-elm-port-validation.md`](../research/18-elm-port-validation.md) | Elm synthesises and runs a decoder per incoming value; admissible set = decidable structural tests; `_Json_decodeInt` accepts `1e300`; `--optimize` collapses the error to a URL | `local` + `src`, Elm 0.19.1 |

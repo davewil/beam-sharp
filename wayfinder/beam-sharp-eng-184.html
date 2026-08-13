@@ -324,11 +324,7 @@ they sort into two piles on a single test: <b>did the term arrive somewhere beam
 }}}%%
 flowchart TB
   T["a foreign term arrives"]
-  T --> Q{"matched, or declared?"}
-
-  Q -->|"you had to match it"| M
-  Q -->|"you declared a type"| D
-
+  Q{"matched, or declared?"}
   subgraph M["self-defending"]
     m1["mailbox"]
     m2["EXIT and DOWN"]
@@ -336,16 +332,19 @@ flowchart TB
     m4["decoded external terms"]
     m5["ambient config"]
   end
-
   subgraph D["undefended"]
     d1["direct calls"]
     d2["ETS reads"]
     d3["the state channel"]
     d4["the reply channel"]
   end
-
-  M --> R1["closed by ticket 11 — narrowing is syntactic"]
-  D --> R2["this ticket"]
+  R1["closed by ticket 11 — narrowing is syntactic"]
+  R2["this ticket"]
+  T --> Q
+  Q -->|"you had to match it"| M
+  Q -->|"you declared a type"| D
+  M --> R1
+  D --> R2
 </pre>
   </div>
   <figcaption>Ticket 11 made narrowing <i>syntactic</i>: you write the clause head, and 11 §2
@@ -548,7 +547,7 @@ after sys:replace_state    : <span class="e">&lt;&lt;"lots"&gt;&gt;</span>
 flowchart LR
   i["init/1"] -->|"your own typed code — trusted"| S["the typed state"]
   c["code_change/3"] -->|"validated once per upgrade"| S
-  r["sys:replace_state/2"] -->|"unreachable — inside OTP's own loop"| S
+  r["sys:replace_state/2"] -->|"no check possible — OTP's own loop"| S
   S -->|"no check, ever"| m["every message"]
 </pre>
   </div>

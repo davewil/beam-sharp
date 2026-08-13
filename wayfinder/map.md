@@ -594,7 +594,14 @@ spec exists.
   **user-declared** contract is spelled — ticket 21 named Roc's `requires` as the stealable
   mechanism and 14 left generalising it as purely additive — and what happens to a *library*
   behaviour defined in Elixir. Not yet sharp enough to ticket, because it hangs on the prelude
-  question below.
+  question below. **Ticket 18 §3 adds a second axis to this patch, and it is not the one the patch
+  currently asks about.** Beyond *which* behaviours ship built in and how a user declares one, the
+  compiler now **emits code inside the callbacks it knows**: `code_change/3` carries a generated
+  `ValidateAs<State>`, decided because that entrance is rare where the per-message path is not. So a
+  behaviour contract is not only a signature the compiler checks against — it is a set of callbacks
+  the compiler may *write into*. Open with it: which other known callbacks earn emitted code, and
+  what a **user-declared** contract can ask the compiler to emit, given ticket 21 named Roc's
+  `requires` as the stealable mechanism and 14 left generalising it as purely additive.
 - **Module and namespace system**, and function identity — BEAM identifies functions by
   name *and arity*, which multi-clause heads and optional parameters both disturb. **Ticket 10
   §3 adds one requirement**: a module identifier in value position is an atom singleton, so this

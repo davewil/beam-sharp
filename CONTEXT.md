@@ -174,6 +174,18 @@ _Avoid_: FFI shim, catch block, rescue, guard
 A generated check that a runtime-built value is one of `T`'s atoms.
 _Avoid_: to_atom, intern, atom cast
 
+**Boundary guard**:
+A guard the compiler emits on an exported function's parameter, testing that the term supplied
+inhabits the declared type. Emitted only where the function's own body would not already reject a
+wrong term, and always where generated code will consume the value. Tests **shape**, never origin.
+_Avoid_: runtime check, assertion, contract, precondition, type check
+
+**The state channel**:
+The three ways a value reaches a process's declared state type — `init`, `code_change/3`, and
+`sys:replace_state`. Named as one channel because the defence sits at the entrances rather than on
+the per-message path. Wider than the `code_change/3` state alone.
+_Avoid_: state boundary, process state, code_change channel
+
 ## The design effort
 
 **Lowering**:
