@@ -264,6 +264,18 @@ Five things, ordered by how much they should worry you.
    round-tripping needs **eleven distinct atoms**, not one, and the cheap-looking escape is a
    correctness bug the type system only reveals downstream. → tickets 12, 20, 04.
 
+   **Reconciled with 25c's correction (2026-08-13).** The event-queue exemplar measured item 2's
+   tax against the actual skeleton and found it **is not yet levied**: a parameter declared `int`
+   has an *open* residual, because ticket 20 put intervals in the type language and intervals arise
+   only from guards, which refine a clause and never a signature. So item 2 is a correct claim about
+   the **design** and not about the language as it stands — 25c is right and item 2 should be read
+   with that caveat. **This item is unaffected**, and worth keeping separate for the reason: the
+   exhaustiveness demand here comes from `Opcode` being a closed union of **seven atoms**, which the
+   compiler does know by name today, not from the `int` parameter's width. And it sharpens 25c's
+   forecast rather than competing with it — when `type Octet = int where ...` lands and wire dispatch
+   acquires a genuinely closed residual, the collapse-to-one-atom escape is exactly what an author
+   will reach for, and it will be silently lossy on arrival.
+
 3. **Ticket 17 §3's accumulator widening collides with ticket 20 §4.** The declared `binary` and
    the inferred `bitstring()` disagree, and a single non-byte-aligned chunk crashes at runtime with
    a `badarg` whose `error_info` names the offending segment. The pipe itself reads fine — **17's
