@@ -367,16 +367,16 @@ and the atom universe open. <em>A tagged map needs no new machinery in this lang
 }}}%%
 flowchart TB
   Q{"what does a record erase to?"}
-  Q -->|positional| TU["bare tuple"]
-  Q -->|self-describing| MP["map"]
+  Q -->|"positional"| TU["bare tuple"]
+  Q -->|"self-describing"| MP["map"]
 
   TU --> D1["field order becomes the identity"]
   D1 --> R1["refused: 09 says a type IS its field set"]
 
   MP --> Q2{"how are same-shaped records told apart?"}
 
-  Q2 -->|nothing| SAME["refused: Update(Order) accepts an Invoice"]
-  Q2 -->|a tag| T{"can that tag be written by hand?"}
+  Q2 -->|"nothing"| SAME["refused: an Invoice passes as an Order"]
+  Q2 -->|"a tag"| T{"can that tag be written by hand?"}
 
   T -->|"no, only the declaration mints one"| NOM["refused: that is nominality"]
   T -->|"yes, record is sugar for a type"| KEPT["KEPT: tag minted from the qualified name"]

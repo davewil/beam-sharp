@@ -185,7 +185,7 @@ lowercase is a value and projects, PascalCase is a module and qualifies. Legal o
 every member carries the field. **Never a call**: nothing is dispatched by writing a dot.
 _Avoid_: member access, property access, getter, attribute lookup
 
-**Update**:
+**Record update**:
 `o with { Field = v }`, producing a new record differing in the named fields. **Width-preserving** —
 it cannot add or remove a field, because a different field set is a different type. There is no
 spread form.
