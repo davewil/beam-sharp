@@ -437,10 +437,26 @@ Restating the ticket's own rule, and then applying it to this ticket's output:
 **Applied here, this rule changed an answer.** §7, §8 and §9 each introduced a marker, so a
 scaffolded operation would have arrived three-quarters placeholder — cheap to generate, and exactly
 what the rule warns against. Instead: **the debt lives on the channel, not in the source.** The
-generator emits only what it *knows*; the function carries **one** marker; the compiler enumerates
-the holes, because an unwritten clause and a missing boundary clause are both residuals it can
-compute exactly. The decisions of §7 and §9 stand — the author still chooses, the gate still
-refuses a marker — only their spelling moves.
+generator emits only what it *knows*; the compiler enumerates the holes, because an unwritten clause
+and a missing boundary clause are both residuals it can compute exactly. The decisions of §7 and §9
+stand — the author still chooses, the gate still refuses a marker — only their spelling moves.
+
+**The rule is one marker per _declaration_, not one per hole.** The distinction matters and the
+first draft of this answer got it wrong: dropping to literally one marker per *function* would
+leave §8's stub type undeclared, and a signature naming a type that does not exist is not a
+deferred decision, it is a broken file. So:
+
+```csharp
+[incomplete]                                  // the function: holes enumerated by the compiler
+(:ok, ApplyReply) Apply(Order o, Command c);
+
+type ApplyReply = [incomplete];               // a separate declaration, so its own marker
+```
+
+Two markers, not three and not one. What collapses into the function's single marker is everything
+*internal* to it — the missing clauses and the undecided boundary body — because those are residuals
+the compiler computes rather than facts only the author knows. What keeps its own marker is anything
+that must **resolve as a name**, because an unresolvable name is an error rather than a deferral.
 
 That is the fourth section deciding a design question rather than decorating one: cost moved off
 the human reviewer and onto the channel whose primary consumer is a program.
@@ -451,4 +467,10 @@ the human reviewer and onto the channel whose primary consumer is a program.
   checks at showcase clause counts, stacked on ticket 12's failure arm.
 - **A dependency**: §5's JSON encoding inherits ticket 16 §4's serialisation mapping, which is owed
   and unwritten.
-- **Fog**: how §7's marker is spelled, which is ticket 22's deferred question.
+- **A question to [ticket 22](22-how-opinionated.md)**: how §7's marker is spelled — attribute,
+  keyword or convention is 22's subject exactly. Recorded on that ticket rather than in the map's
+  fog, since it belongs to a live (if deferred) ticket. Three properties are fixed regardless of
+  spelling: it is a fact in the file, it is one per declaration, and CI refuses it.
+- **A question to the map's _imports and cross-module scope_ fog**: §11 declined to decide whether
+  anything should *forbid* an edit in one file changing another's meaning, because making the
+  dependency explicit is that patch's business.

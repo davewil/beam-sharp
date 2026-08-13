@@ -446,14 +446,19 @@ type ApplyReply = [incomplete];
 (:ok, ApplyReply) Apply(Order o, Command c);
 Apply(o, c) -&gt; [incomplete];
 
-<span class="c">// after: one marker, and the compiler enumerates what is owed</span>
+<span class="c">// after: one marker per declaration, holes enumerated by the compiler</span>
 [incomplete]
-(:ok, ApplyReply) Apply(Order o, Command c);</pre>
+(:ok, ApplyReply) Apply(Order o, Command c);
 
-<p>The substance of 7 and 9 survives &mdash; the author still chooses, and CI still refuses any
-marker &mdash; but the enumeration moves onto the diagnostic channel, because an unwritten clause
-and a missing boundary clause are both residuals the compiler can already compute. Cost moved off
-the human reviewer and onto the channel whose primary consumer is a program.</p>
+type ApplyReply = [incomplete];</pre>
+
+<p>Two markers, not three and not one. The rule is <b>one per declaration, not one per
+hole</b>: what collapses into the function&rsquo;s marker is everything internal to it &mdash; the
+missing clauses, the undecided boundary body &mdash; because those are residuals the compiler
+computes rather than facts only the author knows. What keeps its own marker is anything that must
+<i>resolve as a name</i>, since an unresolvable name is a broken file rather than a deferred
+decision. The substance of 7 and 9 survives; the enumeration moves onto the diagnostic channel, and
+cost moves off the human reviewer.</p>
 
 <p>A smaller instance from the same session, applied to the skeleton itself: the diagnostic printed
 <code>the residual is the clause you must write.</code> beneath every inexhaustive error. It was

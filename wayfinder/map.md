@@ -778,12 +778,6 @@ spec exists.
   proportional to the type it describes where 12's arm was constant. Note the marker on the other
   side of the ledger: 23 §6 deliberately leaves the arm over *user-written* clauses untouched, so
   what is being measured is the generated-code sites only.
-- **How the `[incomplete]` marker is spelled** — new with [ticket 23](issues/23-what-the-language-owes-an-agent.md)
-  §7, which made a stub legal and the marker a fact in the file so the release gate is a text search
-  rather than a diagnostic-parsing job. Attribute, keyword or convention is **ticket 22's** question
-  — grammar versus attributes versus convention is 22's subject exactly — and 22 is deferred until a
-  skeleton and ticket 25's non-aggregate exemplars exist. Recorded here so the marker is not spelled
-  by accident in the meantime.
 - **The typed model of OTP itself** — new with ticket 14, and distinct from the corpus that proves
   it. The language knows behaviour contracts and system-message shapes as types. Open: which
   behaviours ship built in (gen_server, supervisor, application, gen_statem, gen_event), how a
@@ -810,7 +804,12 @@ spec exists.
   `from_abstr` path**, so whatever atom a module identifier lowers to, the emitted `.abstr`
   filename must equal it — which makes the emitted-atom question a *build-layout* question too, not
   only a collision-avoidance one. A dotted atom (`'Shop.Orders.Order'`, Elixir's convention)
-  works unchanged.
+  works unchanged. **Ticket 23 §10 adds a third consumer of the naming question, and it is the
+  first that is not a build concern**: the directory listing is a legitimate way for an agent to
+  discover what operations exist, so **file names are part of the API surface** rather than only of
+  the build layout. That strengthens 23's own warning that colliding short names
+  (`Order.Server.Apply` beside `Order.Apply`) are defects, and it means whatever this patch decides
+  about emitted atoms has to be legible to a reader with nothing but `ls`.
 - **The language's name.**
 - **Imports and cross-module scope** — if a directory is a module, what do files in it share
   automatically, and what must be imported? Slipped into a prototype example unexamined.
@@ -818,7 +817,14 @@ spec exists.
   it appears on that type without an import — the half of extension methods that is neither call
   syntax (17's) nor overloading (08's). It is **name resolution, not polymorphism**, it has no
   beam-sharp answer, and it is the only part of C#'s extension-method feature this map has not
-  placed.
+  placed. **Ticket 23 §11 adds a second concrete leftover, and it is the sharper half of this
+  patch**: should anything *forbid* an edit in one file changing another file's meaning? 23 found
+  the prohibition unworkable as stated — type declarations are shared by construction, so forbidding
+  it means restating types per file or having none — and concluded that the live version of the
+  question is whether a file **declares what it depends on**, which is this patch's subject rather
+  than 23's. Note what 23 settled around it: the compiler already names every affected file *within
+  the compilation unit*, free, because ticket 13 made the directory the module. So this patch owes
+  only the **cross-module** half, where the dependency graph belongs to a build tool.
 - **Where DDD invariants live** — not commands, not types. An `Invariants` module, refinement in
   the type declarations, or nothing. **Ticket 20 §5 settles half of it and splits the rest by a
   sharp line**: refinement in the type declarations *is* available, but only where the predicate is
