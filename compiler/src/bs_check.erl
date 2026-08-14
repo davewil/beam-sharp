@@ -28,6 +28,13 @@
 
 -record(fn, {name, line, ret, params, clauses = []}).
 
+%% Everything the body check (ticket 33, F5) needs to answer a question about
+%% one clause. `types` is the surface-to-algebra environment and is the ONLY
+%% field `resolve/2` sees, because the emitter calls `resolve/2` with that map
+%% directly — widening it in place would put a checker concern in the emitter's
+%% argument list.
+-record(ctx, {types = #{}, callees = #{}, ret, fname, arity = 0, binds = #{}}).
+
 %%% ---------------------------------------------------------------------------
 %%% Entry point
 %%% ---------------------------------------------------------------------------
@@ -37,7 +44,8 @@ check(Decls) ->
     Env = type_env(Decls),
     Module = module_name(Decls),
     Fns = collect(Decls),
-    Results = [check_fn(F, Env) || F <- Fns],
+    Ctx = #ctx{types = Env, callees = callees(Decls, Env)},
+    Results = [check_fn(F, Ctx) || F <- Fns],
     Diags = lists:append([D || {_, D} <- Results]),
     case [D || D <- Diags, element(1, D) =:= error] of
         []     -> {ok, #{module => Module, functions => Fns, env => Env,
@@ -69,6 +77,22 @@ collect(Decls) ->
     [F#fn{clauses = [C || C = {clause, _, Name, _, _, _} <- Decls,
                           Name =:= F#fn.name]}
      || F <- Sigs].
+
+%% The callee environment — ticket 33 §6. `collect/1` above excludes foreign
+%% declarations on purpose, and that exclusion is right for clause checking and
+%% WRONG here: a foreign declaration is a signature attached to the name Erlang
+%% already has (ticket 32), so its callees are declared exactly like any other
+%% and site 1 applies to them verbatim. Local names key on the atom; foreign
+%% ones on `{Module, Function}`, which is the pair `e_foreign_call` carries.
+callees(Decls, Env) ->
+    Local = [{N, sig(Ps, R, Env)} || {signature, _, N, R, Ps} <- Decls],
+    Foreign = [{{Mod, N}, sig(Ps, R, Env)}
+               || {foreign, _, Mod, Sigs} <- Decls,
+                  {foreign_sig, _, N, R, Ps} <- Sigs],
+    maps:from_list(Local ++ Foreign).
+
+sig(Params, Ret, Env) ->
+    {[resolve(T, Env) || {param, T, _} <- Params], resolve(Ret, Env)}.
 
 %%% ---------------------------------------------------------------------------
 %%% Resolving surface types into the algebra
@@ -142,19 +166,19 @@ builtin(B)    -> erlang:error({unknown_builtin, B}).
 %%% Checking one function
 %%% ---------------------------------------------------------------------------
 
-check_fn(F = #fn{name = Name, line = Line, params = Params}, Env) ->
+check_fn(F = #fn{name = Name, line = Line, params = Params, ret = Ret}, Ctx0) ->
+    Env = Ctx0#ctx.types,
     %% The argument list is treated as a product, so exhaustiveness across all
     %% parameters is one subtraction rather than one per column. This is the
     %% cross-clause part of ticket 04: a clause need not be redundant in any
     %% single column to be redundant overall.
     Declared = bs_types:tuple([resolve(T, Env) || {param, T, _} <- Params]),
+    Ctx = Ctx0#ctx{ret = resolve(Ret, Env), fname = Name, arity = length(Params)},
     case F#fn.clauses of
         [] ->
             {F, [{error, Line, Name, no_clauses}]};
         Clauses ->
-            Scope = lists:append([scope_diags(C) || C <- Clauses]),
-            {Residual, Diags0} = walk(Clauses, Declared, Env, [], 1),
-            Diags = Scope ++ Diags0,
+            {Residual, Diags} = walk(Clauses, Declared, Ctx, [], 1),
             Final =
                 case bs_types:is_none(Residual) of
                     true  -> Diags;
@@ -189,11 +213,11 @@ check_scope({e_block, _, Binds, Final}, Bound0, Name, Line, Acc0) ->
     {Bound, Acc} =
         lists:foldl(
           fun({bind, L, V, E}, {B, A}) ->
-                  A1 = unbound(E, B, L, Name, A),
-                  case lists:member(V, B) of
-                      true  -> {B, [{error, L, Name, {rebinding, V}} | A1]};
-                      false -> {[V | B], A1}
-                  end
+                  bind_names(E, [V], B, L, Name, A);
+             %% A destructuring bind names everything its pattern names, and
+             %% every one of them obeys the same no-shadowing rule.
+             ({dbind, L, P, E}, {B, A}) ->
+                  bind_names(E, pattern_vars(P), B, L, Name, A)
           end, {Bound0, Acc0}, Binds),
     %% The final expression carries no line of its own — the parser keeps one
     %% per binding and one per clause — so an unbound name in it is reported
@@ -201,6 +225,18 @@ check_scope({e_block, _, Binds, Final}, Bound0, Name, Line, Acc0) ->
     unbound(Final, Bound, Line, Name, Acc);
 check_scope(Final, Bound, Name, Line, Acc) ->
     unbound(Final, Bound, Line, Name, Acc).
+
+%% One binding: its right-hand side is read in the scope BEFORE it, and the
+%% names it introduces may not already be bound.
+bind_names(Expr, Vars, Bound, Line, Name, Acc) ->
+    Acc1 = unbound(Expr, Bound, Line, Name, Acc),
+    lists:foldl(
+      fun(V, {B, A}) ->
+              case lists:member(V, B) of
+                  true  -> {B, [{error, Line, Name, {rebinding, V}} | A]};
+                  false -> {[V | B], A}
+              end
+      end, {Bound, Acc1}, Vars).
 
 unbound(Expr, Bound, Line, Name, Acc) ->
     [{error, Line, Name, {unbound_variable, V}}
@@ -231,12 +267,287 @@ expr_vars({e_list, _, Items, Rest})    ->
     lists:append([expr_vars(E) || E <- Items])
         ++ case Rest of nil -> []; R -> expr_vars(R) end;
 expr_vars({e_block, _, Binds, Final})  ->
-    lists:append([expr_vars(E) || {bind, _, _, E} <- Binds]) ++ expr_vars(Final);
+    lists:append([expr_vars(element(4, B)) || B <- Binds]) ++ expr_vars(Final);
 expr_vars(_)                           -> [].
 
-walk([], Residual, _Env, Diags, _N) ->
+%%% ---------------------------------------------------------------------------
+%%% The body check — ticket 33, F5.
+%%%
+%%% Two halves, and conflating them is what made ticket 33's own sub-question 1
+%%% the wrong cut:
+%%%
+%%%   SYNTHESIS  — every expression gets a type. Total over the twelve forms,
+%%%                unavoidable, and nothing in it is inferred: every
+%%%                non-structural form reads a type some other declaration
+%%%                already wrote down, which is ticket 04's mandatory signature
+%%%                paying for a second thing it was not bought for.
+%%%
+%%%   OBLIGATION — where containment is CHECKED. Five sites, every one of them a
+%%%                place a type was already declared: call argument,
+%%%                construction, projection, clause return, destructuring bind.
+%%%                There is no sixth site because there is no sixth place a type
+%%%                is written — `e_op`, `e_tuple`, `e_list` and `e_block`
+%%%                declare nothing, so they synthesise and never check.
+%%%
+%%% Four of the five hand back a residual the existing printer renders as a
+%%% clause head. Construction is the exception and is honest about it: two
+%%% closed maps over different key sets are simply disjoint, so the subtraction
+%%% names the type you were building rather than the field you forgot, and the
+%%% residual there is field NAMES (see field_delta/2).
+%%% ---------------------------------------------------------------------------
+
+clause_diags(C = {clause, Line, _, Patterns, _, Body}, Domain, Bindings, Ctx0) ->
+    case scope_diags(C) of
+        [] ->
+            Ctx = Ctx0#ctx{binds = Bindings},
+            Scope = clause_scope(Patterns, Bindings, Domain),
+            {Ty, Diags} = type_of(Body, Scope, Ctx),
+            Diags ++ return_diags(Ty, Line, Ctx);
+        Errors ->
+            %% A clause whose names do not resolve is not typed. Every unbound
+            %% name would answer `term`, and `term` fails most containments — so
+            %% the author would meet a pile of type errors about a typo.
+            Errors
+    end.
+
+%% SITE 4 — the clause return. Not in ticket 33's table of what was waiting, and
+%% forced by ticket 18's own criticism of Gleam: 13 emits a `-spec` for every
+%% function, and 18 measured Gleam trusting an `@external` and publishing the
+%% false claim as a `-spec`. Without this, beam-sharp publishes exactly the same
+%% unverified claim from its own bodies.
+return_diags(Ty, Line, #ctx{ret = Ret, fname = Name}) ->
+    case bs_types:subtract(Ty, Ret) of
+        R ->
+            case bs_types:is_none(R) of
+                true  -> [];
+                false -> [{error, Line, Name, {return_not_declared, R}}]
+            end
+    end.
+
+%% A body variable's type is read off the clause's REFINED DOMAIN at the path
+%% the pattern recorded — never off the pattern itself, which answers `term` for
+%% a bare variable and would fail every call site in the corpus.
+clause_scope(Patterns, Bindings, Domain) ->
+    Named = lists:append([pattern_vars(P) || P <- Patterns]),
+    maps:from_list([{V, var_type(V, Bindings, Domain)} || V <- Named]).
+
+var_type(V, Bindings, Domain) ->
+    case maps:get(V, Bindings, undefined) of
+        %% A variable nested inside a list item is named but not addressable.
+        %% `term` is the truthful answer and it is an over-approximation, so it
+        %% is sound and merely imprecise.
+        undefined -> bs_types:term();
+        no_path   -> bs_types:term();
+        Path      -> at_path(Domain, Path)
+    end.
+
+%% The read-only twin of refine_at/3. It UNIONS across the alternatives at each
+%% step rather than indexing one, because the domain's tuple part is a list of
+%% products and its map part a list of members — an earlier clause narrowing to
+%% a union is the ordinary case, not the exotic one.
+at_path(Ty, []) -> Ty;
+at_path(#{tuples := top}, [I | _]) when is_integer(I) -> bs_types:term();
+at_path(#{tuples := Products}, [I | Rest]) when is_integer(I) ->
+    at_path(union_of([lists:nth(I, P) || P <- Products, length(P) >= I]), Rest);
+at_path(#{maps := top}, [{field, _} | _]) -> bs_types:term();
+at_path(#{maps := Members}, [{field, K} | Rest]) ->
+    at_path(union_of([maps:get(K, Fs) || {_, Fs} <- Members, maps:is_key(K, Fs)]), Rest);
+at_path(Ty, [{elem} | Rest]) ->
+    at_path(elem_of(Ty), Rest);
+%% The tail of a non-empty list is a list over the same elements — including the
+%% empty one, since `[x, ..t]` says nothing about how long the tail is.
+at_path(Ty, [{tail} | Rest]) ->
+    at_path(bs_types:list(elem_of(Ty)), Rest).
+
+elem_of(#{lists := {_, none}}) -> bs_types:none();
+elem_of(#{lists := {_, any}})  -> bs_types:term();
+elem_of(#{lists := {_, E}})    -> E.
+
+union_of([]) -> bs_types:none();
+union_of(Ts) -> bs_types:union(Ts).
+
+%%% --- synthesis, and the checks that hang off it ----------------------------
+
+%% Returns {Type, Diags}. Checking happens DURING synthesis rather than in a
+%% pass after it, because an argument's type is only known by synthesising it
+%% and a nested call is the ordinary case.
+type_of({e_int, _, N}, _S, _C)  -> {bs_types:range(N, N), []};
+type_of({e_atom, _, A}, _S, _C) -> {bs_types:atom_lit(A), []};
+type_of({e_var, _, V}, S, _C)   -> {maps:get(V, S, bs_types:term()), []};
+%% `_` is an expression only so that `(a, _) = pair` parses — see the parser.
+%% Used as a VALUE it is rejected here, so the author does not meet
+%% `variable '_' is unbound` from `erlc` against a file they did not write.
+type_of({e_wild, L}, _S, C) ->
+    {reported(), [{error, L, C#ctx.fname, wildcard_as_value}]};
+type_of({e_tuple, _, Es}, S, C) ->
+    {Tys, D} = type_of_all(Es, S, C),
+    {bs_types:tuple(Tys), D};
+%% Ticket 16 §2. `e_op` declares nothing, so it synthesises and never checks —
+%% and `1 + 2` is `int`, not `range(3,3)`: exact interval arithmetic is F2's.
+type_of({e_op, _, Op, A, B}, S, C) ->
+    {_, D1} = type_of(A, S, C),
+    {_, D2} = type_of(B, S, C),
+    {op_type(Op), D1 ++ D2};
+type_of({e_nil, _}, _S, _C) -> {bs_types:nil(), []};
+type_of({e_list, _, Items, Rest}, S, C) ->
+    {Tys, D1} = type_of_all(Items, S, C),
+    {RestElem, D2} =
+        case Rest of
+            nil -> {bs_types:none(), []};
+            R   -> {RT, RD} = type_of(R, S, C), {elem_of(RT), RD}
+        end,
+    {bs_types:cons(union_of(Tys ++ [RestElem])), D1 ++ D2};
+type_of({e_block, _, Binds, Final}, S, C) ->
+    {S1, D1} = lists:foldl(fun(B, Acc) -> bind_step(B, Acc, C) end, {S, []}, Binds),
+    {T, D2} = type_of(Final, S1, C),
+    {T, D1 ++ D2};
+%% SITE 3 — projection. Legal exactly where every member of the receiver's type
+%% carries the field, and the residual IS the member that lacks it, which is the
+%% sentence F3.8 deferred: the tag to discriminate on.
+type_of({e_proj, L, V, Field}, S, C) ->
+    Recv = maps:get(V, S, bs_types:term()),
+    Lacking = bs_types:subtract(Recv, bs_types:map_open(#{Field => bs_types:term()})),
+    case bs_types:is_none(Lacking) of
+        true  -> {field_type(Recv, Field), []};
+        false -> {reported(),
+                  [{error, L, C#ctx.fname, {field_absent, Field, Lacking}}]}
+    end;
+%% SITE 2 — construction. F3 shipped without this and said so: a body could
+%% build a map wearing an `Order` tag without `Order`'s fields and nothing
+%% rejected it.
+type_of({e_record, L, Name, Fields}, S, C) ->
+    {_, D} = type_of_all([E || {_, E} <- Fields], S, C),
+    case maps:get(Name, C#ctx.types, undefined) of
+        undefined ->
+            {reported(), [{error, L, C#ctx.fname, {unknown_record, Name}} | D]};
+        Ty ->
+            case declared_fields(Ty) of
+                unknown -> {Ty, D};
+                Declared ->
+                    case field_delta([K || {K, _} <- Fields], Declared) of
+                        {[], []} -> {Ty, D};
+                        {Missing, Extra} ->
+                            {Ty, [{error, L, C#ctx.fname,
+                                   {field_set_mismatch, Name, Missing, Extra}} | D]}
+                    end
+            end
+    end;
+%% `with` is width-preserving (ticket 26 §2), so the base's type passes through
+%% unchanged. The assigned VALUES are not checked: that would be a sixth site,
+%% and ticket 33 enumerated five.
+type_of({e_with, _, Base, Fields}, S, C) ->
+    {T, D1} = type_of(Base, S, C),
+    {_, D2} = type_of_all([E || {_, E} <- Fields], S, C),
+    {T, D1 ++ D2};
+type_of({e_call, L, Name, Args}, S, C) ->
+    call(L, Name, Name, Args, S, C);
+%% Ticket 32 dissolved the foreign case before it was asked: a foreign
+%% declaration is a signature attached to the name Erlang already has, so site 1
+%% applies verbatim.
+type_of({e_foreign_call, L, Mod, Fun, Args}, S, C) ->
+    call(L, {Mod, Fun}, foreign_name(Mod, Fun), Args, S, C);
+type_of(_, _S, _C) ->
+    {bs_types:term(), []}.
+
+%% The type of an expression that has ALREADY produced a diagnostic. `none` is a
+%% subtype of everything, so every site above it passes vacuously and the author
+%% gets one error rather than a cascade — a failed projection would otherwise
+%% also fail the clause's return check and name a type nobody wrote.
+reported() -> bs_types:none().
+
+type_of_all(Es, S, C) ->
+    {Tys, Ds} = lists:unzip([type_of(E, S, C) || E <- Es]),
+    {Tys, lists:append(Ds)}.
+
+op_type('+') -> bs_types:int();
+op_type('-') -> bs_types:int();
+op_type('*') -> bs_types:int();
+op_type(_)   -> bs_types:union(bs_types:atom_lit(true), bs_types:atom_lit(false)).
+
+%% A binding declares no type, so it is synthesis only — there is no site here.
+bind_step({bind, _, V, E}, {S, D}, C) ->
+    {T, D1} = type_of(E, S, C),
+    {S#{V => T}, D ++ D1};
+%% SITE 5 — the destructuring bind ticket 34 deferred here rather than refusing.
+%% Provably irrefutable IFF the residual is empty, which is the mechanism 34
+%% named and 33 routed to this feature.
+bind_step({dbind, L, P, E}, {S, D}, C) ->
+    {T, D1} = type_of(E, S, C),
+    {PTy, PBinds, Exact} = pattern_type(P, [], C#ctx.types),
+    Residual = bs_types:subtract(T, PTy),
+    D2 = case {Exact, bs_types:is_none(Residual)} of
+             {true, true}  -> [];
+             {_, false}    -> [{error, L, C#ctx.fname, {bind_may_fail, Residual}}];
+             %% An inexact pattern OVER-states what it matches, so its residual
+             %% under-states what is left. The bind is refutable and the honest
+             %% residual is the whole right-hand side.
+             {false, true} -> [{error, L, C#ctx.fname, {bind_may_fail, T}}]
+         end,
+    Bound = maps:from_list([{V, at_path(T, Path)} || {V, Path} <- maps:to_list(PBinds)]),
+    {maps:merge(S, Bound), D ++ D1 ++ D2}.
+
+%% SITE 1 — the call argument, and ticket 26 §1's requirement David named:
+%% reject `Update(Order o)` called with an `Invoice`.
+call(L, Key, Shown, Args, S, C) ->
+    {ATys, D} = type_of_all(Args, S, C),
+    case maps:get(Key, C#ctx.callees, undefined) of
+        undefined ->
+            {reported(),
+             [{error, L, C#ctx.fname, {unknown_callee, Shown, length(Args)}} | D]};
+        {Ps, Ret} when length(Ps) =/= length(ATys) ->
+            {Ret, [{error, L, C#ctx.fname,
+                    {arity_mismatch, Shown, length(ATys), length(Ps)}} | D]};
+        {Ps, Ret} ->
+            {Ret, arg_diags(L, Shown, Args, ATys, Ps, 1, C) ++ D}
+    end.
+
+arg_diags(_L, _Callee, [], [], [], _I, _C) -> [];
+arg_diags(L, Callee, [A | As], [T | Ts], [P | Ps], I, C) ->
+    Rest = arg_diags(L, Callee, As, Ts, Ps, I + 1, C),
+    case bs_types:subtract(T, P) of
+        R ->
+            case bs_types:is_none(R) of
+                true  -> Rest;
+                %% The residual is the clause the CALLER must write — ticket 04's
+                %% guarantee at a second site. It proposes an edit to the function
+                %% being checked and never to the callee, which is ticket 18 §4's
+                %% function-local rule showing up in a diagnostic.
+                false -> [{error, L, C#ctx.fname,
+                           {arg_not_accepted, Callee, I, R, head_hint(A, C)}} | Rest]
+            end
+    end.
+
+%% A head can only be synthesised when the argument IS a whole parameter; an
+%% arbitrary expression has no position in the caller's head to put a pattern in.
+head_hint({e_var, _, V}, #ctx{binds = B, arity = N}) ->
+    case maps:get(V, B, undefined) of
+        [I] when is_integer(I) -> {I, N};
+        _                      -> none
+    end;
+head_hint(_, _) -> none.
+
+foreign_name(Mod, Fun) ->
+    list_to_atom(":" ++ atom_to_list(Mod) ++ "." ++ atom_to_list(Fun)).
+
+%% Site 2's residual is field NAMES, not a type — ticket 33 §4. `Order{Id} \
+%% Order` is `{ Kind: :'Shop.Order' }`: correct, and worthless, because it names
+%% the type you were building rather than the field you forgot.
+field_delta(Supplied, Declared) ->
+    {lists:sort(Declared -- Supplied), lists:sort(Supplied -- Declared)}.
+
+%% The declared field set, read off the RESOLVED type rather than the surface
+%% one `record_fields/1` reads for the emitter. `Kind` is minted, never assigned.
+declared_fields(#{maps := [{closed, Fs}]}) -> maps:keys(Fs) -- ['Kind'];
+declared_fields(_)                         -> unknown.
+
+field_type(#{maps := top}, _Field) -> bs_types:term();
+field_type(#{maps := Members}, Field) ->
+    union_of([maps:get(Field, Fs) || {_, Fs} <- Members, maps:is_key(Field, Fs)]).
+
+walk([], Residual, _Ctx, Diags, _N) ->
     {Residual, lists:reverse(Diags)};
-walk([C = {clause, CLine, Name, _, _, _} | Rest], Residual, Env, Diags, N) ->
+walk([C = {clause, CLine, Name, _, _, _} | Rest], Residual, Ctx, Diags, N) ->
+    Env = Ctx#ctx.types,
     %% Two bounds, and conflating them is a soundness bug rather than an
     %% imprecision. `Certain` is what the clause is *guaranteed* to match, and is
     %% the only thing that may be subtracted from the residual — an over-estimate
@@ -245,7 +556,7 @@ walk([C = {clause, CLine, Name, _, _, _} | Rest], Residual, Env, Diags, N) ->
     %% an under-estimate there would call a live clause dead.
     %%
     %% They differ exactly when a guard is not translatable to a type operation.
-    {Certain, Possible} = clause_type(C, Env),
+    {Certain, Possible, Bindings} = clause_type(C, Env),
     %% Redundancy is *relative* — clause i against the clauses before it — which
     %% is why it is checked against the running residual rather than the declared
     %% type. Ticket 04 drew that distinction and it falls straight out here.
@@ -254,25 +565,40 @@ walk([C = {clause, CLine, Name, _, _, _} | Rest], Residual, Env, Diags, N) ->
             true  -> [{warning, CLine, Name, {unreachable_clause, N}} | Diags];
             false -> Diags
         end,
-    walk(Rest, bs_types:subtract(Residual, Certain), Env, Diags1, N + 1).
+    %% THE BODY CHECK — ticket 33, and the whole of why walk/5 changed. The
+    %% domain is the running residual intersected with `Possible`, which is a
+    %% value this function already computed and threw away, so this is not a
+    %% second pass over the AST.
+    %%
+    %% `Possible`, never `Certain`: an untranslatable guard makes `Certain`
+    %% `none`, and a body typed against `none` does not fail loudly — every
+    %% containment over `none` passes, so the check silently stops checking.
+    %% That is the failure mode that ships.
+    Domain = bs_types:intersect(Residual, Possible),
+    Diags2 = clause_diags(C, Domain, Bindings, Ctx) ++ Diags1,
+    walk(Rest, bs_types:subtract(Residual, Certain), Ctx, Diags2, N + 1).
 
 %%% ---------------------------------------------------------------------------
 %%% What a clause matches
 %%% ---------------------------------------------------------------------------
 
-%% Returns {Certain, Possible} — see walk/5 for why both are needed.
+%% Returns {Certain, Possible, Bindings} — see walk/5 for why both bounds are
+%% needed. The bindings come back out because the body check reads each
+%% variable's type off the domain at the path recorded here, rather than off its
+%% pattern: a bare `p_var` is `term`, and typing a body from its patterns fails
+%% every call site in the corpus (ticket 33 §5).
 clause_type({clause, _, _, Patterns, Guard, _}, Env) ->
     {Components, Bindings, Exact} = pattern_row(Patterns, Env),
     Base = bs_types:tuple(Components),
     {Certain, Possible} = apply_guard(Base, Bindings, Guard),
     case Exact of
-        true  -> {Certain, Possible};
+        true  -> {Certain, Possible, Bindings};
         %% An inexact pattern over-states what it matches — `[0, ..t]` is not
         %% every non-empty list — so it may bound Possible but must credit
         %% NOTHING to Certain. Same rule as an untranslatable guard, and the same
         %% reason: crediting an over-estimate is what makes a compiler claim
         %% coverage it does not have.
-        false -> {bs_types:none(), Possible}
+        false -> {bs_types:none(), Possible, Bindings}
     end.
 
 pattern_row(Patterns, Env) ->
@@ -316,21 +642,35 @@ pattern_type({p_nil, _}, _Path, _Env) -> {bs_types:nil(), #{}, true};
 %% rejected rather than approximated.
 pattern_type({p_list, Line, _Items, nil}, _Path, _Env) ->
     erlang:error({list_pattern_needs_rest, Line});
-pattern_type({p_list, _, Items, Rest}, _Path, _Env) ->
+pattern_type({p_list, _, Items, Rest}, Path, _Env) ->
     %% `[h, ..t]` matches every non-empty list; `[0, ..t]` matches only some, so
     %% it is an upper bound and credits nothing.
     Exact = lists:all(fun open_pattern/1, Items) andalso open_pattern(Rest),
-    Binds = lists:foldl(fun maps:merge/2, #{}, [binding(P) || P <- Items ++ [Rest]]),
+    Binds = lists:foldl(fun maps:merge/2, #{},
+                        [binding(P, Path ++ [{elem}]) || P <- Items]
+                        ++ [binding(Rest, Path ++ [{tail}])]),
     {bs_types:cons(bs_types:term()), Binds, Exact}.
 
 open_pattern({p_var, _, _}) -> true;
 open_pattern({p_wild, _})   -> true;
 open_pattern(_)             -> false.
 
-%% List elements are bound but have no tuple path, so a guard over one is not
-%% refinable — refine_all/3 treats that conservatively.
-binding({p_var, _, V}) -> #{V => no_path};
-binding(_)             -> #{}.
+%% A list element's address. It is a REAL path — F5 needs to read `rest` back
+%% out of `Reverse([x, ..rest], acc)` and answer `list<int>`, and answering
+%% `term` there rejects a shipped example with a checker that is working
+%% correctly on wrong information.
+%%
+%% A guard over one is still not refinable: `refine_all/3` rejects any path
+%% carrying a list step, which is exactly what it did with `no_path` before.
+%% Reading a component and refining one are different capabilities over the same
+%% address, and the list part of the algebra supports the first and not the
+%% second.
+binding({p_var, _, V}, Path) -> #{V => Path};
+binding(_, _)                -> #{}.
+
+list_step({elem}) -> true;
+list_step({tail}) -> true;
+list_step(_)      -> false.
 
 %%% ---------------------------------------------------------------------------
 %%% Guards as type operations
@@ -417,7 +757,15 @@ refine_all(Ty, Bindings, Constraints) ->
                   %% exists to prevent.
                   undefined -> none_marker;
                   no_path   -> none_marker;
-                  Path      -> refine_at(Acc, Path, C)
+                  Path      ->
+                      %% A path through a list element is unrefinable for the
+                      %% same reason `no_path` was: `refine_at/3` cannot address
+                      %% one. Kept identical rather than improved, so F5's
+                      %% readable paths change nothing a guard credits.
+                      case lists:any(fun list_step/1, Path) of
+                          true  -> none_marker;
+                          false -> refine_at(Acc, Path, C)
+                      end
               end;
          (unknown, Acc) -> Acc
       end, Ty, Constraints).

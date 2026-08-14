@@ -413,6 +413,11 @@ atoms do. Binaries are the other widening the note names, and they will stack on
   *gate* cannot be claimed green and is not F3's to fix.
 - **F3.3's call-site enforcement, F3.8's projection error, F3.10** — deferred as written, ids
   reserved, no test asserts them. → [ticket 33](../../wayfinder/issues/33-body-check-site.md).
+  **All three closed on 2026-08-14 in [F5](F5-body-check-site.md)**, at sites 1, 3 and 2, and each
+  is now asserted by a test. Two of the three needed no new machinery beyond a place to run:
+  `subtract/2` and `to_pattern/1` already answered them, and the projection residual **is** the
+  member lacking the field — the exact sentence F3.8 deferred. F3.10 needed the one thing the
+  algebra could not say, a difference of field **names** rather than of values.
 - **F3.9 is narrower than "an exported record parameter"** in two ways, both pinned by tests so
   that widening either is a decision rather than a surprise: no tag test on a **union** parameter
   (a disjunction over tags is a different shape), and none where the clause head already

@@ -63,8 +63,8 @@ Erlang back to the decision that required it is one grep.
 | [F2 — interval refinements and interval patterns](F2-interval-refinements.md) | **blocked** — two decisions owed | 25b, 25c wire dispatch |
 | [F3 — records](F3-records.md) | **done 2026-08-14** | the record half of all three; `examples/shop.bs` |
 | [F4 — local bindings](F4-local-bindings.md) | **done 2026-08-14** | nothing — it removes a papercut |
-| F5 — the body check site | not started — **build next** | F3.3, F3.8, F3.10; 34's destructuring binds |
-| F6 — angle brackets and parametric types | not started | all three exemplars |
+| [F5 — the body check site](F5-body-check-site.md) | **done 2026-08-14** | F3.3, F3.8, F3.10; 34's destructuring binds |
+| F6 — angle brackets and parametric types | not started — **build next** | all three exemplars |
 | F7 — `switch` | not started | all three exemplars |
 | F8 — binaries | not started | 25b, 25c |
 | F9 — pipe and valve | not started | 25b, 25c |
@@ -99,6 +99,25 @@ the three hours between raising it and resolving it — F4's scope pass made *"`
 visits a function body"* false, and the Question's expression inventory was short by eight forms.
 A ticket raised out of a feature is a **timestamped claim about the compiler**, so re-measuring its
 Question is the first step of resolving it, not the last.
+
+**F5 built it, and the corpus gate is what earned its keep.** All thirteen scenarios pass and the
+three F3 deferred with their ids reserved are asserted rather than reserved; 106 tests, up from 79.
+Ticket 33's compiler delta was accurate and its site enumeration complete — **and it missed the one
+thing that would have broken the build**, because that thing is not about where a check runs but
+about whether the checker can *address* the value it is checking. A list element had no path, so
+`Reverse([x, ..rest], acc) -> Reverse(rest, …)` typed `rest` as `term` and a shipped example was
+rejected by a checker working correctly on wrong information. Reverting the fix turns **7 of 106
+tests red**, which is the rule at the top of this file arriving through the back door: *a capability
+that closes a residual without supplying a way to name the cases makes previously-valid programs
+invalid.* **Run the corpus gate before writing a single rejection test** — a regression otherwise
+hides behind a green new test.
+
+**And the trap that does not fail loudly.** Ticket 33 §5 warned the domain must use `Possible`,
+never `Certain`. Built with `Certain`, the suite goes **1 test red** and the compiler is *quieter*,
+not broken: `Certain` is `none` under an untranslatable guard, and every containment over `none`
+passes vacuously. A check that fails by going silent cannot be tested by a passing test — it needs a
+scenario asserting an error the wrong build **omits**, and both traps were confirmed by mutating the
+source rather than by the suite being green.
 
 **Two things F3 found that the next feature inherits.** The **benchmark had been broken on
 master** since the `;` terminator was dropped, so the skeleton's recorded numbers were not

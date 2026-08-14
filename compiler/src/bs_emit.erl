@@ -131,13 +131,26 @@ binds([{bind, L, Name, E} | Rest], Final, Ctx) ->
     %% would be about a variable the author did write, unlike the parameter case.
     %% Kept rather than rejected — binding a name to say what a value IS is a
     %% legitimate reason to write one, and ticket 23 puts the reader first.
-    Later = lists:foldl(fun({bind, _, _, RE}, A) -> used_vars(RE, A) end,
-                        used_vars(Final, sets:new([{version, 2}])), Rest),
+    Later = later_vars(Rest, Final),
     Var = case sets:is_element(Name, Later) of
               true  -> var_name(Name);
               false -> list_to_atom([$_ | atom_to_list(var_name(Name))])
           end,
-    [{match, L, {var, L, Var}, expr(E, Ctx)} | binds(Rest, Final, Ctx)].
+    [{match, L, {var, L, Var}, expr(E, Ctx)} | binds(Rest, Final, Ctx)];
+%% A destructuring bind — F5, site 5. The checker has already proved it cannot
+%% fail, so this is the same `{match, …}` with a pattern on the left and needs
+%% nothing the emitter did not already have: `pattern/2` is what a clause head
+%% is lowered through.
+%% `pattern/2` already takes the used-variable set and underscores a name
+%% nothing reads, which is the same rule a plain binding applies above — so a
+%% destructuring bind needs no new lowering, only the set it is judged against.
+binds([{dbind, L, P, E} | Rest], Final, Ctx) ->
+    [{match, L, pattern(P, later_vars(Rest, Final)), expr(E, Ctx)}
+     | binds(Rest, Final, Ctx)].
+
+later_vars(Rest, Final) ->
+    lists:foldl(fun(B, A) -> used_vars(element(4, B), A) end,
+                used_vars(Final, sets:new([{version, 2}])), Rest).
 
 %%% ---------------------------------------------------------------------------
 %%% The boundary guard — ticket 18 §1, reaching records
@@ -238,7 +251,7 @@ used_vars({e_op, _, _, A, B}, Acc)   -> used_vars(B, used_vars(A, Acc));
 used_vars({e_nil, _}, Acc)           -> Acc;
 used_vars({e_proj, _, V, _}, Acc)    -> sets:add_element(V, Acc);
 used_vars({e_block, _, Binds, Final}, Acc) ->
-    lists:foldl(fun({bind, _, _, E}, A) -> used_vars(E, A) end,
+    lists:foldl(fun(B, A) -> used_vars(element(4, B), A) end,
                 used_vars(Final, Acc), Binds);
 used_vars({e_record, _, _, Fs}, Acc) ->
     lists:foldl(fun({_, E}, A) -> used_vars(E, A) end, Acc, Fs);

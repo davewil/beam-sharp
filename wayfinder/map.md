@@ -901,7 +901,19 @@ spec exists.
   caller, so no proof about a body discharges an obligation about a caller; 18's *elision is
   exported-vs-local* closes the last route. **This is therefore the first checking capability in
   the language that is purely a frontend concern**, where every previous one arrived as a codegen
-  obligation. Nothing new is needed in `bs_types`.
+  obligation. Nothing new is needed in `bs_types`. **BUILT the same day as
+  [F5](../compiler/features/F5-body-check-site.md)** — all five sites, 106 tests up from 79, and
+  F3's three reserved scenarios now asserted rather than reserved. The delta held and the site
+  enumeration was complete; **what the ticket could not have found is that a list element has no
+  address**, so reading a body variable off the domain answers `term` for it and rejects
+  `examples/fib.bs` — reverting that fix turns 7 of 106 tests red. Measuring *where a check runs*
+  cannot surface a question about *whether the checker can address the value it is checking*, which
+  is a different axis from the one this ticket was framed on. Both of §5's traps were confirmed by
+  **mutating the source rather than by a green suite**: built with `Certain`, the compiler goes
+  quieter rather than broken (1 test red), which is why the scenario has to assert an error a wrong
+  build **omits**. F5 shipped one hole named rather than discovered — a field's assigned **value**
+  is unchecked at construction and at `with` alike, because §2's relation is the field *set* and §1's
+  principle says otherwise → [ticket 36](issues/36-field-value-obligations.md).
 
 ## Not yet specified
 

@@ -306,8 +306,100 @@ report(Path, {error, Line, Fn, {unbound_variable, V}}) ->
               "~s:~p: error: ~s uses ~s, which nothing binds~n"
               "  a name comes from a clause head or a binding above it.~n",
               [Path, Line, Fn, V]);
+%%% Ticket 33's five sites, F5. Four of them carry a residual the printer above
+%%% already renders as a clause head, which is why the language does not acquire
+%%% its first empty-handed diagnostic here — ticket 23's cost does not fall due.
+%%% Construction is the exception and says so in field names instead.
+
+%% SITE 1. The residual is the clause the CALLER must write. It proposes an edit
+%% to the function being checked and never to the callee: ticket 18 §4's
+%% function-local rule is what stops this from suggesting you widen `Update`.
+report(Path, {error, Line, Fn, {arg_not_accepted, Callee, Pos, Residual, Head}}) ->
+    io:format(standard_error,
+              "~s:~p: error: ~s hands ~s an argument it does not accept~n"
+              "  argument ~p is not covered by ~s's declared type:~n"
+              "    ~s~n~s",
+              [Path, Line, Fn, Callee, Pos, Callee,
+               bs_types:to_pattern(Residual), caller_head(Fn, Head, Residual)]);
+%% SITE 2. `Order{Id} \ Order` names the type you were BUILDING rather than the
+%% field you forgot — correct, and worthless — so this one site answers in field
+%% names. It still hands back something to write, which is what ticket 23 asks.
+report(Path, {error, Line, Fn, {field_set_mismatch, Record, Missing, Extra}}) ->
+    io:format(standard_error,
+              "~s:~p: error: ~s builds an ~s with the wrong fields~n~s~s",
+              [Path, Line, Fn, Record,
+               field_list("  missing, and must be supplied", Missing),
+               field_list("  not declared by " ++ atom_to_list(Record), Extra)]);
+%% SITE 3. The residual IS the member that lacks the field, which is the tag to
+%% discriminate on — the sentence F3.8 deferred, needing no new machinery.
+report(Path, {error, Line, Fn, {field_absent, Field, Residual}}) ->
+    io:format(standard_error,
+              "~s:~p: error: ~s projects ~s from a value that may not carry it~n"
+              "  this member has no ~s:~n"
+              "    ~s~n"
+              "  discriminate on the tag first, in a clause head.~n",
+              [Path, Line, Fn, Field, Field, bs_types:to_pattern(Residual)]);
+%% SITE 4. Without this, beam-sharp emits a `-spec` claiming what its own body
+%% does not deliver — the defect ticket 18 measured in Gleam, from a body rather
+%% than from an FFI declaration.
+report(Path, {error, Line, Fn, {return_not_declared, Residual}}) ->
+    io:format(standard_error,
+              "~s:~p: error: ~s returns a value its signature does not declare~n"
+              "  not covered by the declared return type:~n"
+              "    ~s~n",
+              [Path, Line, Fn, bs_types:to_pattern(Residual)]);
+%% SITE 5. Ticket 34 deferred the destructuring bind here rather than refusing
+%% it: provably irrefutable exactly when this residual is empty.
+report(Path, {error, Line, Fn, {bind_may_fail, Residual}}) ->
+    io:format(standard_error,
+              "~s:~p: error: this bind in ~s can fail~n"
+              "  the pattern does not match:~n"
+              "    ~s~n"
+              "  a bind that can fail is a branch the exhaustiveness checker~n"
+              "  never sees. Match it in a clause head instead.~n",
+              [Path, Line, Fn, bs_types:to_pattern(Residual)]);
+report(Path, {error, Line, Fn, {unknown_callee, Callee, Arity}}) ->
+    io:format(standard_error,
+              "~s:~p: error: ~s calls ~s/~p, which nothing declares~n"
+              "  every function has a signature. Write one, or fix the name.~n",
+              [Path, Line, Fn, Callee, Arity]);
+report(Path, {error, Line, Fn, {arity_mismatch, Callee, Got, Want}}) ->
+    io:format(standard_error,
+              "~s:~p: error: ~s calls ~s with ~p arguments, and it takes ~p~n",
+              [Path, Line, Fn, Callee, Got, Want]);
+report(Path, {error, Line, Fn, {unknown_record, Name}}) ->
+    io:format(standard_error,
+              "~s:~p: error: ~s builds an ~s, which no record or type declares~n",
+              [Path, Line, Fn, Name]);
+%% F5's own grammar opens this hole: `_` is an expression only so that
+%% `(a, _) = pair` parses. Caught here rather than by `erlc` against a file the
+%% author did not write, which is F4.7's rule.
+report(Path, {error, Line, Fn, wildcard_as_value}) ->
+    io:format(standard_error,
+              "~s:~p: error: ~s uses `_` as a value~n"
+              "  `_` is a pattern. It may stand on the left of `=` or in a~n"
+              "  clause head; it names nothing to read back.~n",
+              [Path, Line, Fn]);
 report(Path, D) ->
     io:format(standard_error, "~s: ~p~n", [Path, D]).
+
+%% The caller's head with the rejected values in the position that rejected
+%% them. Only synthesised when the argument IS a whole parameter — an arbitrary
+%% expression has no position in the head to put a pattern in, and inventing one
+%% would hand back something that does not compile.
+caller_head(_Fn, none, _Residual) -> "";
+caller_head(Fn, {Pos, Arity}, Residual) ->
+    Slots = [case I of
+                 Pos -> bs_types:to_pattern(Residual);
+                 _   -> "_"
+             end || I <- lists:seq(1, Arity)],
+    io_lib:format("  the clause to add here:~n    ~s(~s) -> ...~n",
+                  [Fn, string:join(Slots, ", ")]).
+
+field_list(_Label, [])     -> "";
+field_list(Label, Fields)  ->
+    io_lib:format("~s:~n    ~s~n",
+                  [Label, string:join([atom_to_list(F) || F <- Fields], ", ")]).
 
 %% beam-sharp has no statement terminator, and both audiences type one from
 %% habit — so this is the most likely error in the language and it gets the

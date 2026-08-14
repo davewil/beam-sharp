@@ -51,9 +51,24 @@ Squared(o) ->
 ```
 
 **Bindings do not shadow.** A name means one thing in a clause: rebinding is an error, including
-rebinding what the head bound, because there is no mutation to assign with. A **destructuring**
-bind (`(a, b) = pair`) is not in the language — it can fail, and a failing bind is a branch
-exhaustiveness would not see. **shipped**
+rebinding what the head bound, because there is no mutation to assign with. **shipped**
+
+A **destructuring** bind is in the language, and only where it **cannot fail**:
+
+<!-- check:
+-->
+```csharp
+int Sum((int, int) pair)
+
+Sum(pair) ->
+    (a, b) = pair
+    a + b
+```
+
+The compiler proves it by subtraction — the bind is legal exactly when nothing the right-hand side
+can be is left over after the pattern — so a bind is never a branch exhaustiveness would not see.
+Where it can fail, the residual comes back as the case to match in a clause head instead. `_` may
+stand anywhere in the pattern and nowhere else: it is a pattern, not a value. **shipped**
 
 `=>` is the lambda arrow and a `switch` arm, never a clause. Two arrows, two jobs.
 
@@ -548,9 +563,10 @@ the parser accepts back exactly what the printer emits. **shipped**
 | `bsc` run mode and the `ibs` REPL | **shipped** |
 | records — declaration, construction, `with`, the dot, tag dispatch | **shipped** |
 | local bindings in a body, with rebinding and unbound names rejected | **shipped** |
-| destructuring binds (`(a, b) = pair`) | deferred — needs a typed body |
+| destructuring binds (`(a, b) = pair`), where they cannot fail | **shipped** |
 | the boundary tag guard on an exported record parameter | **shipped** |
-| exact field sets at a construction site | **not checked** — there is no body check site |
+| exact field sets at a construction site | **shipped** |
+| call arguments, projections and clause returns checked in a body | **shipped** |
 | refinements + interval patterns | blocked on two spellings |
 | `switch` | not started |
 | binaries | not started |

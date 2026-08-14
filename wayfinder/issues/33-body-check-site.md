@@ -407,8 +407,12 @@ all shipped and all exercised above.
 - **Interval arithmetic on `e_op`.** `1 + 2` synthesises `int`, not `range(3,3)`. Exact interval
   arithmetic is [F2](../../compiler/features/F2-interval-refinements.md)'s business and pulling it
   in here would be F2 leaking into a feature that is not waiting on F2's two owed decisions.
-- **Where it is built.** It is a feature, not more of this ticket, and it goes **before angle
-  brackets**: `option<T>` fields multiply construction sites, and site 2 is the hole F3 shipped
+- **Where it is built.** Built 2026-08-14 as [F5](../../compiler/features/F5-body-check-site.md):
+  all five sites, 106 tests. The delta above held; the site enumeration was complete; and the one
+  thing this ticket did not find was that a **list element has no address**, so reading a body
+  variable off the domain answers `term` for it and rejects a shipped example. That is not a
+  question about where a check runs, which is why measuring the sites could not surface it. It is a
+  feature, not more of this ticket, and it went **before angle brackets**: `option<T>` fields multiply construction sites, and site 2 is the hole F3 shipped
   with. The ticket's original note said *"most valuable before F4"*; F4 landed first and changed
   nothing about the argument except which feature it names.
 - **Nothing was left for David to arbitrate.** Three sub-questions closed on mechanism and the

@@ -29,6 +29,10 @@ Rootsymbol program.
 %% Guards and expressions share an operator table. Ticket 08 settled `&&`/`||`
 %% over Erlang's `,`/`;`, on the grounds that a guard over typed values cannot
 %% fail — so there is nothing for fail-to-false to do.
+%% `=` is not an expression operator — a binding is a body form (ticket 34) —
+%% but it needs a precedence so that `x = 1 + 2` shifts the operator instead of
+%% reducing the binding. Lowest, so everything binds tighter than the bind.
+Nonassoc  50 '='.
 Left  100 '||'.
 Left  200 '&&'.
 Nonassoc 300 '==' '!=' '<' '>' '<=' '>='.
@@ -176,7 +180,17 @@ body -> binding body :
         Final -> {e_block, element(2, '$1'), ['$1'], Final}
     end.
 
-binding -> lident '=' expr : {bind, line('$1'), value('$1'), '$3'}.
+%% The left of `=` is parsed as an EXPRESSION and narrowed to a pattern in the
+%% action. `binding -> pattern '=' expr` is the obvious rule and it reports
+%% TWELVE reduce/reduce conflicts — measured, not feared: yecc has one token of
+%% lookahead and every pattern form shares its first token with an expression
+%% form, so after `(` the parser cannot tell `(a, b) = pair` from the tuple
+%% `(a, b)`. Parsing the wider language and narrowing afterwards is the standard
+%% escape, and it is what Erlang itself does, where `=` IS an expression.
+%%
+%% `x = e` still produces the `{bind, …}` node ticket 34 shipped, so nothing
+%% downstream of the parser learns a new shape for the case that already worked.
+binding -> expr '=' expr : bind(line('$2'), '$1', '$3').
 
 patterns -> '$empty'     : [].
 patterns -> pattern_list : '$1'.
@@ -232,6 +246,10 @@ guard_expr -> expr : '$1'.
 expr -> integer  : {e_int, line('$1'), value('$1')}.
 expr -> atom_lit : {e_atom, line('$1'), value('$1')}.
 expr -> lident   : {e_var, line('$1'), value('$1')}.
+%% `_` is an expression ONLY so that `(a, _) = pair` parses — the left of a bind
+%% is an expression (see `binding` above). Used as a value it is rejected by
+%% `bs_check`, not by `erlc` against an emitted file the author never wrote.
+expr -> '_'      : {e_wild, line('$1')}.
 
 %% A local call. The slice has no qualified names, so ticket 17's `|>` and the
 %% module-qualified form are both out of scope here.
@@ -303,3 +321,24 @@ Erlang code.
 
 line(T) -> element(2, T).
 value(T) -> element(3, T).
+
+%% A plain name keeps ticket 34's node; anything else is a destructuring bind
+%% carrying a real pattern, which ticket 34 deferred to ticket 33 and F5 built.
+bind(_L, {e_var, VL, V}, E) -> {bind, VL, V, E};
+bind(L, Lhs, E)             -> {dbind, L, to_pattern(Lhs), E}.
+
+%% Only the forms that are a pattern AND an expression can appear here. A bare
+%% `{ Kind: :x }` is not an expression, so map destructuring does not reach this
+%% function — recorded in F5's out-of-scope rather than half-supported.
+to_pattern({e_var, L, V})   -> {p_var, L, V};
+to_pattern({e_wild, L})     -> {p_wild, L};
+to_pattern({e_int, L, N})   -> {p_int, L, N};
+to_pattern({e_atom, L, A})  -> {p_atom, L, A};
+to_pattern({e_tuple, L, Es})-> {p_tuple, L, [to_pattern(E) || E <- Es]};
+to_pattern({e_nil, L})      -> {p_nil, L};
+to_pattern({e_list, L, Items, Rest}) ->
+    {p_list, L, [to_pattern(I) || I <- Items],
+     case Rest of nil -> nil; R -> to_pattern(R) end};
+to_pattern(E) ->
+    return_error(element(2, E),
+                 "the left of `=` must be a name or a pattern").
