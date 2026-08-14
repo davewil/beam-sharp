@@ -336,6 +336,29 @@ to test it is to assert an error that a wrong build **omits**.
   answer.
 - **`wildcard_as_value`.** A hole F5's own grammar opened, closed in the same feature.
 
+### The hole the checker's own tests could not see
+
+F5.11 says `_` used as a value is rejected by `bsc`. It was — **in a body**. In a **guard** it was a
+`bs_emit:expr/2` function-clause **crash**, because `clause_diags` types the body and a guard is not
+a site. Found by asking where else the new grammar reaches, after the suite was green: a passing
+test for a body says nothing about a guard, and F5 is the feature that made `_ > 1` parse at all.
+
+Two fixes, both syntactic, neither a new site:
+
+| Was | Now |
+|---|---|
+| `F(n) when _ > 1` → compiler crash | `error: F uses `_` as a value` |
+| `F(n) when x > 1` → `erlc: variable 'X' is unbound` | `error: F uses x, which nothing binds` |
+
+The second predates F5 and is the one place **F4's own rule was false** — an unbound name was a
+`bsc` error everywhere except a guard, where it reached the author as an `erlc` complaint about a
+file they did not write. Fixed here because F5 was already in that function, and pinned by a test,
+along with the case that makes it non-trivial: a guard calling a user function names only its
+arguments, so the callee must not read as an unbound name.
+
+**The lesson is the one F4 already recorded, in a third place.** A rule stated in a diagnostic, a
+reference, or a feature file is a *claim*, and F5.11's was true of the half that had a test.
+
 ### The grammar cost, and what it bought
 
 `binding -> pattern '=' expr`: **12 reduce/reduce conflicts**. `binding -> expr '=' expr` plus
@@ -354,5 +377,12 @@ the case that already worked.
   refinable means turning the list part into a head/tail product — ticket 09's equirecursive
   machinery arriving for real, which is a decision and not a feature. Pinned by a test so that
   changing it is a choice.
-- **`bin/spec-check.sh` is still red** on `counter.bs`'s undefined GenServer callbacks. Pre-existing,
-  recorded by F3, untouched here and not F5's to close.
+- **`bin/spec-check.sh` is still red** on `counter.bs`'s undefined GenServer callbacks — **run, not
+  assumed**: those three warnings and nothing else, so F5 added no Dialyzer finding. Pre-existing,
+  recorded by F3, → [ticket 35](../../wayfinder/issues/35-behaviour-callback-names.md), and it is
+  commented out in CI, so `master` is not red on it.
+- **A destructuring bind does not work at the `ibs` prompt.** `binding/1` splits on the first `=`
+  and requires a name on the left, so `(a, b) = pair` falls through to being read as an expression.
+  Checked deliberately, because F4's stale-diagnostic lesson says the REPL states language claims
+  too — and **nothing in the REPL now says anything false**. The prompt's bindings are a property of
+  the shell, not of the language, so this is a gap rather than a lie.

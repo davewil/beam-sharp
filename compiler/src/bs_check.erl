@@ -205,9 +205,16 @@ check_fn(F = #fn{name = Name, line = Line, params = Params, ret = Ret}, Ctx0) ->
 %%% a language that has no mutation to assign with.
 %%% ---------------------------------------------------------------------------
 
-scope_diags({clause, Line, Name, Patterns, _, Body}) ->
+scope_diags({clause, Line, Name, Patterns, Guard, Body}) ->
     Bound = lists:append([pattern_vars(P) || P <- Patterns]),
-    check_scope(Body, Bound, Name, Line, []).
+    %% A guard is read in the scope of the CLAUSE HEAD alone — bindings come
+    %% after it. Scanned here because F4's rule is that an unbound name is a
+    %% `bsc` error, and a guard was the one place it still reached `erlc` as
+    %% `variable 'X' is unbound` against a file the author did not write.
+    guard_scope(Guard, Bound, Line, Name) ++ check_scope(Body, Bound, Name, Line, []).
+
+guard_scope(none, _Bound, _Line, _Name)        -> [];
+guard_scope({guard, G}, Bound, Line, Name)     -> unbound(G, Bound, Line, Name, []).
 
 check_scope({e_block, _, Binds, Final}, Bound0, Name, Line, Acc0) ->
     {Bound, Acc} =
@@ -296,7 +303,8 @@ expr_vars(_)                           -> [].
 %%% residual there is field NAMES (see field_delta/2).
 %%% ---------------------------------------------------------------------------
 
-clause_diags(C = {clause, Line, _, Patterns, _, Body}, Domain, Bindings, Ctx0) ->
+clause_diags(C = {clause, Line, _, Patterns, Guard, Body}, Domain, Bindings, Ctx0) ->
+    guard_diags(Guard, Ctx0) ++
     case scope_diags(C) of
         [] ->
             Ctx = Ctx0#ctx{binds = Bindings},
@@ -309,6 +317,24 @@ clause_diags(C = {clause, Line, _, Patterns, _, Body}, Domain, Bindings, Ctx0) -
             %% the author would meet a pile of type errors about a typo.
             Errors
     end.
+
+%% A guard is not typed — ticket 33 enumerated five sites and a guard is not one
+%% of them — but `_` in a guard is the same authoring mistake as `_` in a body,
+%% and it is a hole F5's OWN grammar opened: before `_` was an expression this
+%% did not parse. Left alone it reaches `bs_emit:expr/2` as a function-clause
+%% CRASH, which is worse than the `erlc` error F4.7 exists to prevent.
+%%
+%% Scanned syntactically rather than typed, which is all the question needs.
+guard_diags(none, _Ctx) -> [];
+guard_diags({guard, Expr}, C) ->
+    [{error, L, C#ctx.fname, wildcard_as_value} || L <- wildcards(Expr)].
+
+%% Generic, because a guard shares the whole expression grammar and enumerating
+%% it a third time to find one node would be three copies of the same walk.
+wildcards({e_wild, L})           -> [L];
+wildcards(T) when is_tuple(T)    -> wildcards(tuple_to_list(T));
+wildcards(L) when is_list(L)     -> lists:append([wildcards(E) || E <- L]);
+wildcards(_)                     -> [].
 
 %% SITE 4 — the clause return. Not in ticket 33's table of what was waiting, and
 %% forced by ticket 18's own criticism of Gleam: 13 emits a `-spec` for every

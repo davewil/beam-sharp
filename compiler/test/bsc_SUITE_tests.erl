@@ -1221,6 +1221,31 @@ a_wildcard_used_as_a_value_is_an_error_test() ->
     Src = "module M\nint Bad(int n)\nBad(n) -> _\n",
     ?assertMatch([{error, _, 'Bad', wildcard_as_value}], errors(Src)).
 
+%% A guard is not typed — no site is a guard — but `_` in one is the same
+%% authoring mistake, and it is a hole F5's own grammar opened: before `_` was an
+%% expression this did not parse. Left alone it reached `bs_emit:expr/2` as a
+%% function-clause CRASH, which is worse than the erlc error F4.7 prevents.
+a_wildcard_in_a_guard_is_an_error_not_a_crash_test() ->
+    Src = "module M\natom F(int n)\nF(n) when _ > 1 -> :yes\nF(n) -> :no\n",
+    ?assertMatch([{error, _, 'F', wildcard_as_value}], errors(Src)).
+
+%% The same gap for names, which predates F5 and was the one place F4's rule was
+%% false: `variable 'X' is unbound` from erlc, against a file nobody wrote.
+an_unbound_name_in_a_guard_is_caught_by_bsc_test() ->
+    Src = "module M\natom F(int n)\nF(n) when x > 1 -> :yes\nF(n) -> :no\n",
+    ?assertMatch([{error, _, 'F', {unbound_variable, x}}], errors(Src)).
+
+%% ...and a guard calling a user function still names only its ARGUMENTS, so the
+%% callee is not mistaken for an unbound variable.
+a_guard_calling_a_function_is_not_an_unbound_name_test() ->
+    Src = "module M\n"
+          "atom Weird(int n)\n"
+          "Weird(n) -> :yes\n"
+          "atom F(int n)\n"
+          "F(n) when Weird(n) -> :yes\n"
+          "F(n)               -> :no\n",
+    ?assertMatch({ok, _, _}, check_only(Src)).
+
 %% Everything else on the left of `=` is a parse error naming what belongs
 %% there, rather than an obscure failure further down.
 a_non_pattern_on_the_left_of_a_bind_is_rejected_test() ->
