@@ -88,6 +88,23 @@ against a file the author did not write.
 F4 therefore does **not** pre-empt ticket 33, and nothing here should be read as the beginning of
 a body type-checker.
 
+## The stale diagnostic, and why it is worth recording
+
+When bindings did not exist, the REPL told you so: *"`x = 1` is a binding, and beam-sharp has
+none."* Half an hour after F4 shipped, David typed `x = 1` and got that message — **now false**.
+
+It is the same failure as `LANGUAGE.md` advertising syntax the compiler never had, running in the
+opposite direction: **a diagnostic that states a language rule is a claim, and it goes stale
+exactly like a reference does.** Worth holding onto, because the map's answer to *"the compiler is
+an interlocutor"* (ticket 23) makes diagnostics carry more of these claims over time, and nothing
+tests them.
+
+The fix was not only the wording. **The prompt now holds bindings** — a property of the shell, not
+of the language, since ticket 34 put bindings in a *body*. `t = 9`, then `Squared({… Total = t})`,
+and a name resolves **at any depth**: without that the inner `t` fell through to the Erlang reader
+and returned the atom `t`, failing arithmetic three frames later. Same silent-wrong-value shape as
+the binary fallback, in a different place.
+
 ## Out of scope
 
 - **Destructuring binds** — → ticket 33, above.

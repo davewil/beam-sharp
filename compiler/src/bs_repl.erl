@@ -17,13 +17,13 @@
 
 start(File, Dir, Mod) ->
     banner(File, Mod),
-    loop(File, Dir, Mod).
+    loop(File, Dir, Mod, #{}).
 
 banner(File, Mod) ->
     io:format("beam-sharp REPL — ~s~n", [File]),
     io:format("~s~n", [exports_line(Mod)]),
     io:format("  :reload   recompile the file    :exports  list functions~n"
-              "  :quit     leave                 Ctrl-D    leave~n~n").
+              "  :quit     leave                 :env      list bindings~n~n").
 
 exports_line(Mod) ->
     case exports(Mod) of
@@ -36,20 +36,27 @@ exports(Mod) ->
     try [{F, A} || {F, A} <- Mod:module_info(exports), F =/= module_info]
     catch _:_ -> [] end.
 
-loop(File, Dir, Mod) ->
+loop(File, Dir, Mod, Env) ->
     case io:get_line("bs> ") of
         eof -> io:format("~n"), ok;
         {error, _} -> ok;
-        Line -> dispatch(string:trim(Line), File, Dir, Mod)
+        Line -> dispatch(string:trim(Line), File, Dir, Mod, Env)
     end.
 
-dispatch("", File, Dir, Mod) -> loop(File, Dir, Mod);
-dispatch(":quit", _, _, _) -> ok;
-dispatch(":q", _, _, _) -> ok;
-dispatch(":exports", File, Dir, Mod) ->
+dispatch("", File, Dir, Mod, Env) -> loop(File, Dir, Mod, Env);
+dispatch(":quit", _, _, _, _) -> ok;
+dispatch(":q", _, _, _, _) -> ok;
+dispatch(":exports", File, Dir, Mod, Env) ->
     io:format("~s~n", [exports_line(Mod)]),
-    loop(File, Dir, Mod);
-dispatch(":reload", File, Dir, Mod) ->
+    loop(File, Dir, Mod, Env);
+dispatch(":env", File, Dir, Mod, Env) ->
+    case maps:size(Env) of
+        0 -> io:format("  (no bindings)~n");
+        _ -> [io:format("  ~s = ~s~n", [K, bs_run:format_value(V)])
+              || {K, V} <- lists:sort(maps:to_list(Env))]
+    end,
+    loop(File, Dir, Mod, Env);
+dispatch(":reload", File, Dir, Mod, Env) ->
     case bsc:file_to_dir(File, Dir) of
         {ok, _} ->
             code:purge(Mod),
@@ -60,13 +67,95 @@ dispatch(":reload", File, Dir, Mod) ->
         _ ->
             io:format(standard_error, "not reloaded~n", [])
     end,
-    loop(File, Dir, Mod);
-dispatch([$: | Unknown], File, Dir, Mod) ->
+    loop(File, Dir, Mod, Env);
+dispatch([$: | Unknown], File, Dir, Mod, Env) ->
     io:format(standard_error, "unknown command :~s~n", [Unknown]),
-    loop(File, Dir, Mod);
-dispatch(Line, File, Dir, Mod) ->
-    eval(Line, Mod),
-    loop(File, Dir, Mod).
+    loop(File, Dir, Mod, Env);
+dispatch(Line, File, Dir, Mod, Env) ->
+    loop(File, Dir, Mod, run(Line, Mod, Env)).
+
+%%% ---------------------------------------------------------------------------
+%%% Bindings at the prompt.
+%%%
+%%% Ticket 34 put bindings in the LANGUAGE, where they belong to a body. Holding
+%%% one across prompts is a different thing — a property of this shell, not of
+%%% beam-sharp — and it is here because a REPL you cannot name a value in makes
+%%% you retype the value instead, which is exactly what the tool exists to avoid.
+%%%
+%%% The environment does not survive `:reload`; that is deliberate, since the
+%%% values in it were produced by code that has just been replaced.
+%%% ---------------------------------------------------------------------------
+
+run(Line, Mod, Env) ->
+    case binding(Line) of
+        {Name, Rhs} ->
+            case value_of(Rhs, Mod, Env) of
+                {ok, V} ->
+                    io:format("~s = ~s~n", [Name, bs_run:format_value(V)]),
+                    Env#{Name => V};
+                {error, Msg} ->
+                    io:format(standard_error, "~ts~n", [Msg]),
+                    Env
+            end;
+        none ->
+            case value_of(Line, Mod, Env) of
+                {ok, V}      -> io:format("~s~n", [bs_run:format_value(V)]), Env;
+                {error, Msg} -> io:format(standard_error, "~ts~n", [Msg]), Env
+            end
+    end.
+
+%% `x = ...` where the name is a beam-sharp variable. Split on the FIRST `=`,
+%% since the right-hand side may contain more of them — a record is
+%% `{Kind = ..., Id = ...}`.
+binding(Line) ->
+    case string:split(Line, "=") of
+        [Lhs, Rhs] ->
+            case is_name(string:trim(Lhs)) of
+                %% Keyed by the name AS TYPED, because that is what the reader
+                %% has to match when it meets the name nested in a literal.
+                true  -> {string:trim(Lhs), string:trim(Rhs)};
+                false -> none
+            end;
+        _ -> none
+    end.
+
+%% A call, or a value — the two things worth typing at a prompt.
+value_of(S, Mod, Env) ->
+    case parse_call(S) of
+        {error, CallMsg} ->
+            case resolve(S, Env) of
+                {ok, V} -> {ok, V};
+                %% A PascalCase word is a function name someone forgot the
+                %% parentheses on, not a value that failed to read.
+                {error, ValueMsg} ->
+                    case construction(S) orelse pascal(S) of
+                        true  -> {error, CallMsg};
+                        false -> {error, ValueMsg}
+                    end
+            end;
+        {Fn, RawArgs} ->
+            case read_args(RawArgs, Env) of
+                {error, Msg} -> {error, Msg};
+                {ok, Args}   -> apply_call(Mod, Fn, Args)
+            end
+    end.
+
+%% A bare name resolves from the environment before anything else tries to read
+%% it — otherwise `Squared(t)` would pass the ATOM `t`, which is the Erlang
+%% reader's fallback showing through and never what anyone meant. beam-sharp
+%% spells an atom `:t`, so nothing is lost.
+resolve(S, Env) ->
+    case maps:find(S, Env) of
+        {ok, V} -> {ok, V};
+        error ->
+            case is_name(S) of
+                true  -> {error, io_lib:format("~ts is not bound -- :env lists "
+                                               "what is", [S])};
+                %% Anything compound goes to the reader WITH the environment, so
+                %% a bound name nested in a literal resolves too.
+                false -> bs_run:read_arg(S, Env)
+            end
+    end.
 
 %%% ---------------------------------------------------------------------------
 %%% One form: Name(arg, arg, ...)
@@ -76,21 +165,10 @@ dispatch(Line, File, Dir, Mod) ->
 %% module's own export list, on a module the user just compiled from their own
 %% source, in a local dev shell. That is what a REPL is; there is no wider
 %% evaluation and no untrusted input path.
-eval(Line, Mod) ->
-    case parse_call(Line) of
-        {error, R} ->
-            io:format(standard_error, "~s~n", [R]);
-        {Fn, RawArgs} ->
-            case read_args(RawArgs) of
-                {error, Msg} -> io:format(standard_error, "~ts~n", [Msg]);
-                {ok, Args}   -> apply_call(Mod, Fn, Args)
-            end
-    end.
-
-read_args(Raw) ->
+read_args(Raw, Env) ->
     lists:foldr(fun(_, {error, M}) -> {error, M};
                    (A, {ok, Acc}) ->
-                        case bs_run:read_arg(A) of
+                        case resolve(A, Env) of
                             {ok, V}      -> {ok, [V | Acc]};
                             {error, Msg} -> {error, Msg}
                         end
@@ -99,14 +177,10 @@ read_args(Raw) ->
 apply_call(Mod, Fn, Args) ->
     case lists:member({Fn, length(Args)}, exports(Mod)) of
         false ->
-            io:format(standard_error, "no ~s/~p — try :exports~n",
-                      [Fn, length(Args)]);
+            {error, io_lib:format("no ~s/~p -- try :exports", [Fn, length(Args)])};
         true ->
-            try apply(Mod, Fn, Args) of
-                V -> io:format("~s~n", [bs_run:format_value(V)])
-            catch
-                C:R -> io:format(standard_error, "crashed: ~p:~p~n", [C, R])
-            end
+            try {ok, apply(Mod, Fn, Args)}
+            catch C:R -> {error, io_lib:format("crashed: ~p:~p", [C, R])} end
     end.
 
 parse_call(Line) ->
@@ -123,31 +197,28 @@ parse_call(Line) ->
             {error, no_call(Line)}
     end.
 
-%% The prompt reads one call, so anything else has to say what it got rather
-%% than only what it wanted — `expected a call, e.g. Fib(5)` left a reader who
-%% typed `Which` or `o = Order{...}` to guess which half was wrong.
+%% The prompt reads a call or a value, so anything else has to say what it got
+%% rather than only what it wanted.
+%%
+%% This used to carry a third branch telling the reader that **beam-sharp has no
+%% bindings**. It did not, for about half an hour: ticket 34 shipped them, and
+%% the message outlived the fact it was describing — which is the same failure
+%% as LANGUAGE.md showing syntax the compiler had never had, in the opposite
+%% direction. A diagnostic that states a language rule is a claim, and it goes
+%% stale exactly like a reference does.
 no_call(Line) ->
-    case {binding(Line), construction(Line)} of
-        {true, _} ->
-            io_lib:format("~ts is a binding, and beam-sharp has none -- a name is "
-                          "bound by a clause head, and a function body is one "
-                          "expression. At this prompt, call a function: Fib(5)",
-                          [Line]);
-        {_, true} ->
+    case construction(Line) of
+        true ->
             io_lib:format("~ts constructs a record, and this prompt evaluates a "
-                          "call. Pass the value to one: Pay({Kind = :'Shop.Order', "
-                          "Id = 1, Total = 0})", [Line]);
-        _ ->
-            io_lib:format("~ts is a name, not a call -- write Fib(5), and :exports "
-                          "lists what there is", [Line])
+                          "call or a value. Pass the value to one: "
+                          "Pay({Kind = :'Shop.Order', Id = 1, Total = 0})", [Line]);
+        false ->
+            io_lib:format("~ts is a name, not a call -- write Fib(5), bind it with "
+                          "x = ..., or :exports to see what there is", [Line])
     end.
 
-%% `o = ...`, the mistake a C# or TypeScript reader makes first.
-binding(Line) ->
-    case string:split(Line, "=") of
-        [Lhs, _] -> Lhs =/= Line andalso is_name(string:trim(Lhs));
-        _        -> false
-    end.
+pascal([C | _]) when C >= $A, C =< $Z -> true;
+pascal(_) -> false.
 
 is_name([C | Rest]) when C >= $a, C =< $z ->
     lists:all(fun(X) ->

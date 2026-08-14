@@ -12,7 +12,8 @@
 %%% `positive` — because the person reading the output is reading beam-sharp.
 -module(bs_run).
 
--export([run/3, format_value/1, parse_arg/1, read_arg/1, split_top_level/1]).
+-export([run/3, format_value/1, parse_arg/1, read_arg/1, read_arg/2,
+         split_top_level/1]).
 
 %%% ---------------------------------------------------------------------------
 %%% Running
@@ -102,27 +103,43 @@ pascal(S) -> list_to_atom(S).
 %% A quoted atom — `:'Shop.Order'`. Records made this reachable from the command
 %% line, because ticket 26 §1's tag mints from a qualified name and a dot is not
 %% something the bare sigil can spell.
-parse_arg([$:, $' | Rest]) when Rest =/= [] ->
+%% An environment of names the REPL has bound. Threaded through the compound
+%% forms so a bound name works at any DEPTH — `Pay({Total = t})` and not only
+%% `Squared(t)`. Without it the inner `t` fell through to the Erlang reader and
+%% came back as the atom `t`, which then failed arithmetic three frames later:
+%% the same silent-wrong-value shape as the binary fallback this replaced.
+%%
+%% Purely additive — a name the environment does not hold behaves exactly as
+%% before, so the CLI, which never has one, is unchanged.
+parse_arg(S) -> parse_arg(S, #{}).
+
+parse_arg(S0, Env) ->
+    S = string:trim(S0),
+    case maps:find(S, Env) of
+        {ok, V} -> V;
+        error   -> parse_bare(S, Env)
+    end.
+
+parse_bare([$:, $' | Rest], _Env) when Rest =/= [] ->
     case lists:last(Rest) of
         $' -> list_to_atom(lists:sublist(Rest, length(Rest) - 1));
         _  -> list_to_atom([$' | Rest])
     end;
-parse_arg([$: | Name]) -> list_to_atom(Name);
-parse_arg(S0) ->
-    S = string:trim(S0),
+parse_bare([$: | Name], _Env) -> list_to_atom(Name);
+parse_bare(S, Env) ->
     case string:to_integer(S) of
         {Int, ""} -> Int;
-        _         -> parse_compound(S)
+        _         -> parse_compound(S, Env)
     end.
 
 %% beam-sharp spells a tuple `(a, b)` and a list `[a, b]`, and `format_value/1`
 %% prints them that way — so the REPL must accept back what it just printed.
 %% Erlang term syntax stays available underneath for anything not yet spelled.
-parse_compound(S) ->
+parse_compound(S, Env) ->
     case {hd_or(S), last_or(S)} of
-        {$(, $)} -> list_to_tuple(parse_inner(S));
-        {$[, $]} -> parse_inner(S);
-        {${, $}} -> parse_braced(S);
+        {$(, $)} -> list_to_tuple(parse_inner(S, Env));
+        {$[, $]} -> parse_inner(S, Env);
+        {${, $}} -> parse_braced(S, Env);
         _        -> parse_term(S)
     end.
 
@@ -131,32 +148,32 @@ parse_compound(S) ->
 %% top-level `=` in EVERY part, which a term never has and a record always does.
 %% Anything else falls through to the Erlang reader, so nothing that worked
 %% before stops working.
-parse_braced(S) ->
+parse_braced(S, Env) ->
     Parts = case string:trim(lists:sublist(S, 2, length(S) - 2)) of
                 ""    -> [];
                 Inner -> split_top_level(Inner)
             end,
-    Fields = [field(P) || P <- Parts],
+    Fields = [field(P, Env) || P <- Parts],
     case Parts =/= [] andalso not lists:member(none, Fields) of
         true  -> maps:from_list(Fields);
         false -> parse_term(S)
     end.
 
-field(P) ->
+field(P, Env) ->
     case string:split(P, "=") of
         [K, V] ->
             case string:trim(K) of
                 ""   -> none;
-                Name -> {list_to_atom(Name), parse_arg(string:trim(V))}
+                Name -> {list_to_atom(Name), parse_arg(string:trim(V), Env)}
             end;
         _ -> none
     end.
 
-parse_inner(S) ->
+parse_inner(S, Env) ->
     Inner = string:trim(lists:sublist(S, 2, length(S) - 2)),
     case Inner of
         "" -> [];
-        _  -> [parse_arg(P) || P <- split_top_level(Inner)]
+        _  -> [parse_arg(P, Env) || P <- split_top_level(Inner)]
     end.
 
 hd_or([C | _]) -> C;
@@ -182,8 +199,10 @@ split_top_level([C | T], D, Cur, Acc) ->
 
 %% Returns {ok, Term} | {error, Message}. The inner parser throws rather than
 %% returning a result type, so the recursive cases stay readable.
-read_arg(S) ->
-    try {ok, parse_arg(S)}
+read_arg(S) -> read_arg(S, #{}).
+
+read_arg(S, Env) ->
+    try {ok, parse_arg(S, Env)}
     catch throw:{unreadable, Msg} -> {error, Msg} end.
 
 parse_term(S) ->

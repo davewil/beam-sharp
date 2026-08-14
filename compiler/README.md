@@ -69,10 +69,22 @@ reloaded examples/fib.bs
 REPL reads exactly one form — a call — because the parser in this slice reads declarations, not
 expressions. A wider prompt waits on the surface growing an expression parser.
 
-Two things it will now tell you rather than leaving you to guess, both from a real session:
-`o = Order{...}` reports that **beam-sharp has no bindings** — a name is bound by a clause head,
-and a body is one expression (→ [ticket 34](../wayfinder/issues/34-local-bindings.md)) — and a
-bare `Which` reports that a name is not a call.
+**The prompt holds bindings**, which is a property of this shell rather than of the language —
+ticket 34 put bindings in a *body*; keeping one across prompts is what stops you retyping a value:
+
+```
+bs> t = 9
+bs> o = {Kind = :'Shop.Order', Id = 1, Total = 41}
+bs> n = Bump(o)
+n = {Kind = :'Shop.Order', Id = 1, Total = 42}
+bs> Squared({Kind = :'Shop.Order', Id = 1, Total = t})
+81
+bs> :env
+```
+
+A bound name resolves **at any depth**, not only as a whole argument. The environment does not
+survive `:reload` — the values in it came from code that has just been replaced. An unbound name
+says so rather than silently arriving as an atom.
 
 **Underneath, if you want the `.beam`:**
 

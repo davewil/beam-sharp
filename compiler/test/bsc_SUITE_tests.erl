@@ -892,6 +892,24 @@ a_record_value_round_trips_through_the_reader_test() ->
     ?assertEqual("{Kind = :'Shop.Order', Id = 1, Total = 0}",
                  lists:flatten(bs_run:format_value(an_order()))).
 
+%% A name the REPL has bound resolves at any DEPTH, not only as a whole
+%% argument. Without this the inner `t` fell through to the Erlang reader and
+%% came back as the atom `t`, failing arithmetic three frames later — the same
+%% silent-wrong-value shape as the binary fallback.
+a_bound_name_resolves_inside_a_literal_test() ->
+    Env = #{"t" => 9},
+    ?assertEqual({ok, 9}, bs_run:read_arg("t", Env)),
+    ?assertEqual({ok, #{'Kind' => 'Shop.Order', 'Total' => 9}},
+                 bs_run:read_arg("{Kind = :'Shop.Order', Total = t}", Env)),
+    ?assertEqual({ok, [1, 9]}, bs_run:read_arg("[1, t]", Env)),
+    ?assertEqual({ok, {9, 2}}, bs_run:read_arg("(t, 2)", Env)).
+
+%% ...and an empty environment behaves exactly as before, which is what makes
+%% the change additive and leaves the CLI untouched.
+an_empty_environment_changes_nothing_test() ->
+    ?assertEqual(bs_run:read_arg("[1, 2]"), bs_run:read_arg("[1, 2]", #{})),
+    ?assertEqual({ok, {ok, 5}}, bs_run:read_arg("{ok,5}", #{"t" => 9})).
+
 %% An Erlang term is still readable — the fallback that was removed was the
 %% SILENT one, not this.
 an_erlang_term_is_still_readable_test() ->
