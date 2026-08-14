@@ -67,6 +67,47 @@ So F3 is built against the settled desugaring, and every sugar is a front end ov
    the dotted spelling `:'Shop.Order'`, **confined to a single emission point** so the fog patch can
    change it without touching anything else.
 
+## New compiler capability this feature requires
+
+Two things `bsc` does not have. Both were **checked against the source rather than assumed**, and the
+second changes what this feature is allowed to claim.
+
+### 1. A fourth constructor in the algebra — the largest item here
+
+`bs_types` holds a type as a disjunctive normal form **partitioned by constructor**, and the
+partitions are `atoms`, `ints`, `tuples`. There is no map. Union, intersection and subtraction are
+componentwise across those three, and the module exports exactly
+`none/0, term/0, atom_lit/1, atom_top/0, int/0, range/2, tuple/1`.
+
+**So records are new algebra, not new surface.** A record needs a fourth partition with exact union,
+intersection and subtraction — exact in ticket 20's sense, since nothing in this module widens — and
+a residual that ticket 23 can synthesise a clause head from. The field product decomposes the way
+the tuple part already does, which is the nearest prior art in the module and should be read before
+the map part is written.
+
+The map anticipated this without connecting it to a feature. The benchmark note says the checker's
+measured linearity is worth re-measuring *"when the algebra gains records and binaries, since both
+widen the product decomposition."* **F3 is the event that note is waiting for**, so re-running
+`bench/bs_bench.erl` at the advertised clause counts is part of this feature and not a follow-up.
+
+### 2. There is no body checking — and it is why two scenarios below are deferred
+
+`bs_check` never visits `e_call`. It gathers signatures, checks clause-head exhaustiveness against
+the parameter product, and translates guards — the only expression forms it reads are `e_op`,
+`e_var`, `e_int` and `e_atom`, and it reads them **inside guards only**. `bs_emit` lowers `e_call`
+straight to an Erlang call with nothing checked in between. **A function body is emitted, not
+typed.**
+
+This is not a defect of this feature, and F3 should not fix it. It is **the same absence F2 already
+ran into from the other side**: F2 bars opaque refinements from clause heads and foreign
+declarations because they *"need a check site the surface does not yet have"*. Two features have now
+independently hit one missing check site, which is worth a ticket rather than an ad-hoc pass bolted
+onto whichever feature notices it second.
+
+The consequence for F3 is precise, and it is the reason the scenarios below are shaped the way they
+are: **every claim is routed through exhaustiveness**, which is the one place the checker decides
+anything, and any error that would have to be raised *in a body* is deferred with its id reserved.
+
 ## Scenarios
 
 ### F3.1 — a record is declared and constructed, and the term is a tagged map
@@ -97,43 +138,55 @@ module Shop;
 
 record Order { Id: int, Total: int }
 type Spelled = { Kind: :'Shop.Order', Id: int, Total: int };
+type Either  = Order | Spelled;
 
-Order Pass(Spelled s);
-Pass(s) -> s;
+atom Which(Either);
+Which({ Kind: :'Shop.Order' }) -> :order;
 ```
 
-Expect: compiles, exit `0`. **This is §1's own stated test that the minting is not nominality** —
-*"a hand-written `type` with the same tag **is** the same type, and passing one where a
-`record`-declared `Order` is expected compiles."* Ticket 09's rule surviving verbatim on the
-construct 09 was written about, checked by a compiler rather than asserted.
+Expect: exhaustive, exit `0`, **from one clause**. This is §1's own stated test that the minting is
+not nominality — *"a hand-written `type` with the same tag **is** the same type"* — and ticket 09's
+rule surviving verbatim on the construct 09 was written about.
 
-### F3.3 — two records over identical field sets are distinct
+**Routed through exhaustiveness deliberately**, per §2 above. The obvious phrasing is a signature
+taking `Spelled` and returning `Order`, but a body is emitted rather than typed, so that program
+compiles whether or not the two are one type and the scenario would assert nothing. Here the
+checker has to decide: if the minting created an *identity*, `Either` is a union of two things and
+one clause leaves a residual.
+
+### F3.3 — two records over identical field sets are two types
 
 ```csharp
 record Order   { Id: int, Total: int }
 record Invoice { Id: int, Total: int }
-
-int Total(Order o);
-Total(o) -> o.Total;
-```
-
-called with an `Invoice`. Expect: **error**, exit non-zero. This is the DDD requirement that forced
-the tag — *"in DDD it is very important that `Order` and `Invoice` are not the same type"* — and
-under ticket 09 as written, before the minting, this call compiled.
-
-### F3.4 — a union of two records is exhaustive on the tag, and the residual names the missing one
-
-```csharp
 type Doc = Order | Invoice;
 
 atom Which(Doc);
-Which({ Kind: :'Shop.Order' })   -> :order;
+Which({ Kind: :'Shop.Order' }) -> :order;
 ```
 
-Expect: **error**, exit non-zero, and the diagnostic synthesises the clause the author must write —
-`Which({ Kind: :'Shop.Invoice' }) -> ...` — exactly as F1.2 does for atoms. Adding that clause
-compiles clean. This is ticket 04's guarantee and ticket 23's synthesised head reaching the
-construct ticket 26 §5 says four of six exemplars are built from.
+Expect: **error**, exit non-zero. Identical field sets, different tags, and the checker treats them
+as two — which under ticket 09 before the minting it would not have, because `Doc` would be a union
+of one thing and the single clause would be exhaustive. Paired with F3.2 this is the whole of the
+tag's job: F3.2 shows the same tag unifies, F3.3 shows a different tag separates.
+
+**What this scenario cannot do is reject `Update(Order o)` called with an `Invoice`**, which is how
+ticket 26 §1 phrases the requirement David named. There is no call site to reject it at — see §2.
+**F3 establishes aggregate identity in the algebra; enforcing it at a call site waits on the missing
+check site.** That is a real reduction in what this feature delivers against the ticket, and it is
+recorded here rather than discovered by whoever builds it.
+
+### F3.4 — the residual over a record union synthesises the head you must write
+
+F3.3's program, read for its **diagnostic** rather than its exit code — the same split F1 makes
+between rejecting an inexhaustive function and naming the case it missed, which the existing suite
+already carries as two separate tests.
+
+Expect the message to synthesise `Which({ Kind: :'Shop.Invoice' }) -> ...`, and adding that clause
+to compile clean. This is ticket 04's guarantee and ticket 23's synthesised head reaching the
+construct ticket 26 §5 says four of six exemplars are built from — and it is the scenario that
+proves the fourth algebra partition produces a residual a human can act on, not merely an empty-set
+answer.
 
 ### F3.5 — `with` is width-preserving, and the tag survives it
 
@@ -179,8 +232,9 @@ distinguished by syntax rather than by resolution.
 without knowing it"*, since under the tuple erasure §1 rejected, the field sits at a different
 offset per member and this needs real dispatch.
 
-Projecting a field only one member carries is an **error** naming the member that lacks it, and the
-fix the diagnostic points at is discriminating on the tag first.
+**Deferred, id reserved:** projecting a field only one member carries should be an error naming the
+member that lacks it, with the fix being to discriminate on the tag first. The projection sits in a
+body, so there is nowhere to raise it — §2. It lands with the check site, not here.
 
 ### F3.9 — an exported function taking a record emits the tag test and nothing more
 
@@ -194,11 +248,17 @@ consumes the record** per 18 §1(c), and no codegen obligation exists yet, which
 here is the correct observation and not a gap. Cost, measured in 26a: **+14 bytes, flat in field
 count**, against the +29 ticket 18 feared.
 
-### F3.10 — construction supplies exactly the declared field set
+### F3.10 — construction supplies exactly the declared field set — **DEFERRED, id reserved**
 
-A missing field and an extra field are both **errors** at the construction site, exit non-zero.
-Exact field sets are what §4's argument rests on and what makes the discriminator one
-`has_map_fields` rather than a disjunction.
+A missing field and an extra field should both be **errors** at the construction site. Exact field
+sets are what §4's argument rests on and what makes the discriminator one `has_map_fields` rather
+than a disjunction, so this matters — but a construction expression sits in a body, and §2 says
+there is no check site for it.
+
+**The honest consequence: in F3, a record's field set is exact in the type algebra and unpoliced at
+the construction site.** A body can build a map that wears an `Order` tag and does not have
+`Order`'s fields, and nothing rejects it. That is the single largest hole this feature ships with,
+and it closes with the check site rather than with more record surface.
 
 ### F3.11 — there is no `?` field modifier
 
@@ -222,6 +282,10 @@ a clean run proves nothing unless a wrong spec would fail it.
 
 ## Out of scope
 
+- **The body check site itself** — §2. F3 needs it, F2 needs it, and neither should grow it as a
+  side effect. **Raise it as a ticket**: whether a function body is typed at all, where the check
+  runs, and what it does with a call whose callee is foreign. Until it exists, F3.3's call-site
+  enforcement, F3.8's projection error and F3.10 are deferred with their ids reserved.
 - **`option<T>` fields**, and therefore the affirmative half of §4 — angle brackets are F4.
   Ticket 27's parametric record types go with them.
 - **The exact-set guard tier and the generated encoder.** §1 emits it only where a codegen
@@ -252,8 +316,16 @@ three stops being the blocker**, and the observable proof of that is a new passi
 ## Done when
 
 A `.bs` file declaring, constructing, updating, projecting and dispatching over records compiles to
-a callable `.beam`; the emitted term is a map carrying a tag minted from the qualified name; a union
-of two records is checked exhaustively and its residual synthesises the missing head; an exported
-record parameter's guard is one `map_get` and no more; the emitted `-spec` is a precise map type and
-survives `bin/spec-check.sh`'s deliberate corruption; `rebar3 eunit` is green with the new cases at
-the same boundary the existing suite uses; and `examples/` has a third file that compiles and runs.
+a callable `.beam`; the emitted term is a map carrying a tag minted from the qualified name; **the
+algebra has a fourth constructor partition** whose union, intersection and subtraction are exact;
+two records with one tag are one type and two records with two tags are two, both decided through
+exhaustiveness; the residual over a record union synthesises the missing head; an exported record
+parameter's guard is one `map_get` and no more; the emitted `-spec` is a precise map type and
+survives `bin/spec-check.sh`'s deliberate corruption; **`bench/bs_bench.erl` has been re-run at the
+advertised clause counts**, since this is the widening of the product decomposition the skeleton's
+benchmark note said to re-measure at; `rebar3 eunit` is green with the new cases at the same
+boundary the existing suite uses; and `examples/` has a third file that compiles and runs.
+
+**Not in "done": F3.3's call-site enforcement, F3.8's projection error, and F3.10.** All three wait
+on the check site, and a build that claims them without one has not found a way around §2 — it has
+stopped checking.
