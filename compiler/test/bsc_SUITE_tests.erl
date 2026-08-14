@@ -619,16 +619,28 @@ the_residual_over_records_synthesises_the_missing_head_test() ->
     ?assertEqual("{ Kind: :'Shop.Invoice' }", bs_types:to_pattern(Arg)).
 
 %% ...and pasting it in compiles clean, which is the half that makes it useful.
+%%
+%% The head is taken from the FAILING RUN and spliced in, rather than written
+%% out here. Transcribing it would test that a head someone already knows works
+%% works, which is adjacent to the claim: what F3.4 asserts is that the string
+%% the compiler *emits* is something you can paste. Ticket 23 — the compiler
+%% synthesises the head and a head derived from the residual cannot be wrong —
+%% is only worth anything if that is checked rather than assumed.
 the_synthesised_head_compiles_when_pasted_in_test() ->
-    Src = "module Shop\n"
-          "record Order { Id: int, Total: int }\n"
-          "record Invoice { Id: int, Total: int }\n"
-          "type Doc = Order | Invoice\n"
-          "atom Which(Doc)\n"
-          "Which({ Kind: :'Shop.Order' }) -> :order\n"
-          "Which({ Kind: :'Shop.Invoice' }) -> :invoice\n",
-    M = build_and_load(Src, 'Shop'),
-    ?assertEqual(invoice, M:'Which'(#{'Kind' => 'Shop.Invoice', 'Id' => 2, 'Total' => 9})).
+    Base = "module Shop\n"
+           "record Order { Id: int, Total: int }\n"
+           "record Invoice { Id: int, Total: int }\n"
+           "type Doc = Order | Invoice\n"
+           "atom Which(Doc)\n"
+           "Which({ Kind: :'Shop.Order' }) -> :order\n",
+    {error, Diags} = check_only(Base),
+    [{error, _, 'Which', {inexhaustive, Residual}}] =
+        [D || D <- Diags, element(1, D) =:= error],
+    #{tuples := [[Arg]]} = Residual,
+    Synthesised = "Which(" ++ bs_types:to_pattern(Arg) ++ ") -> :invoice\n",
+    M = build_and_load(Base ++ Synthesised, 'Shop'),
+    ?assertEqual(invoice, M:'Which'(#{'Kind' => 'Shop.Invoice', 'Id' => 2, 'Total' => 9})),
+    ?assertEqual(order, M:'Which'(an_order())).
 
 %% F3.5 — `with` is width-preserving and the tag survives it. §2's sentence,
 %% which is what pays ticket 27 §7's debt rather than reopening row polymorphism.
