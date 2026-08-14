@@ -100,13 +100,36 @@ sig(Params, Ret, Env) ->
 
 type_env(Decls) ->
     Mod = module_name(Decls),
-    Aliases = [{N, T} || {type_alias, _, N, T} <- Decls],
+    Aliases = [{N, alias(Params, T)} || {type_alias, _, N, Params, T} <- Decls],
     Records = [{N, record_surface(Mod, L, N, Fs)}
                || {record_decl, L, N, Fs} <- Decls],
-    Env = maps:from_list(Aliases ++ Records),
-    %% Ticket 09 made recursion equirecursive and contractive; this slice has no
-    %% recursive aliases yet, so a single non-recursive resolution pass is enough.
-    maps:map(fun(_, T) -> resolve(T, Env) end, Env).
+    Env = maps:merge(prelude(), maps:from_list(Aliases ++ Records)),
+    %% The environment is HETEROGENEOUS after F6, and deliberately so. A ground
+    %% entry is pre-resolved to an algebra type here, once; a parametric one
+    %% cannot be — its body has free variables — so it stays a surface template
+    %% and is resolved per use site, after substitution.
+    maps:map(fun(_, {parametric, _, _} = P) -> P;
+                (_, T) -> resolve(T, Env)
+             end, Env).
+
+alias([], Body)     -> Body;
+alias(Params, Body) -> {parametric, Params, Body}.
+
+%% Ticket 10 §5 and LANGUAGE.md §7 put these in the PRELUDE, and there is no
+%% import system for a prelude file to arrive through — so they are held here,
+%% spelled in the language's own alias mechanism rather than as a special case in
+%% `resolve/2`. Lowercase because the prelude owns that namespace exactly as
+%% `list` does; a user's own parametric alias is PascalCase like every other user
+%% type, so the two cannot collide.
+%%
+%% This implements a decided prelude entry. It does not answer the map's
+%% prelude-stratum fog: nothing here lets a user add to this map.
+prelude() ->
+    #{option => {parametric, ['T'],
+                 {t_union, [{t_ref, 'T'}, {t_atom, nothing}]}},
+      result => {parametric, ['T', 'E'],
+                 {t_union, [{t_ref, 'T'},
+                            {t_tuple, [{t_atom, error}, {t_ref, 'E'}]}]}}}.
 
 %% Ticket 26 §1: a record IS a map type carrying a minted tag, so there is no
 %% record node in the algebra — the declaration desugars to the anonymous map
@@ -135,24 +158,90 @@ record_fields({t_map, Fields}) -> [N || {field, N, _} <- Fields, N =/= 'Kind'].
 
 %% An already-resolved type passes through, so the emitter can hand this either
 %% a surface type or one the environment has already reduced.
-resolve(T, _Env) when is_map(T)  -> T;
-resolve({t_atom, A}, _Env)    -> bs_types:atom_lit(A);
-resolve({t_builtin, B}, _Env) -> builtin(B);
-resolve({t_ref, N}, Env) ->
+%%
+%% `Seen` is the chain of alias names this resolution has already entered, and it
+%% exists because without it a cyclic alias does not error — it HANGS. Measured
+%% on master before F6: `type A = B` / `type B = A` spins until killed. A hang is
+%% invisible to a green suite, which is why the guard arrives with the feature
+%% that makes recursive aliases the natural thing to write (`type Tree<T> =
+%% (T, list<Tree<T>>)`), not with the feature that finally implements them.
+resolve(T, Env) -> resolve(T, Env, []).
+
+resolve(T, _Env, _Seen) when is_map(T) -> T;
+resolve({t_atom, A}, _Env, _Seen)    -> bs_types:atom_lit(A);
+%% A lowercase name is a builtin OR a prelude entry, and the two failure modes
+%% read differently: `option` alone is not an unknown type, it is a known one
+%% written without its bracket. Checked here rather than in `builtin/1` because
+%% only the environment knows what the prelude holds.
+resolve({t_builtin, B}, Env, _Seen) ->
+    case maps:get(B, Env, undefined) of
+        {parametric, Params, _} ->
+            erlang:error({needs_type_args, B, length(Params)});
+        _ -> builtin(B)
+    end;
+resolve({t_ref, N}, Env, Seen) ->
+    seen(N, Seen),
     case maps:get(N, Env, undefined) of
         undefined -> erlang:error({unknown_type, N});
+        {parametric, Params, _} ->
+            erlang:error({needs_type_args, N, length(Params)});
         T when is_map(T) -> T;
-        Surface -> resolve(Surface, Env)
+        Surface -> resolve(Surface, Env, [N | Seen])
     end;
-resolve({t_tuple, Cs}, Env)   -> bs_types:tuple([resolve(C, Env) || C <- Cs]);
+resolve({t_tuple, Cs}, Env, Seen) ->
+    bs_types:tuple([resolve(C, Env, Seen) || C <- Cs]);
 %% A DECLARED map type is closed — it fixes its domain. Ticket 26 §4's "no
 %% absent fields" is what makes that sound, and §5 then closes row polymorphism
 %% rather than deferring it: a wider record is simply a different type.
-resolve({t_map, Fields}, Env) ->
-    bs_types:map_closed(maps:from_list([{N, resolve(T, Env)} || {field, N, T} <- Fields]));
-resolve({t_generic, list, T}, Env) -> bs_types:list(resolve(T, Env));
-resolve({t_generic, N, _}, _Env)   -> erlang:error({unknown_generic, N});
-resolve({t_union, Ms}, Env)   -> bs_types:union([resolve(M, Env) || M <- Ms]).
+resolve({t_map, Fields}, Env, Seen) ->
+    bs_types:map_closed(
+      maps:from_list([{N, resolve(T, Env, Seen)} || {field, N, T} <- Fields]));
+%% `list<T>` is algebra-primitive — the list part is a pair of flags, not an
+%% alias body — so it is the one bracket that cannot be written as a prelude
+%% alias and is resolved here.
+resolve({t_generic, list, [T]}, Env, Seen) -> bs_types:list(resolve(T, Env, Seen));
+resolve({t_generic, list, Args}, _Env, _Seen) ->
+    erlang:error({generic_arity, list, 1, length(Args)});
+%% Ticket 27 §(b), executable: substitute the ground arguments into the alias
+%% body and resolve THAT. The variable is gone before `bs_types` sees anything,
+%% which is why F6 adds no node to the algebra and no case to any operation on
+%% it — and why `option<int>` and a hand-written `int | :nothing` are the same
+%% type rather than two types that agree (F6.3).
+resolve({t_generic, N, Args}, Env, Seen) ->
+    seen(N, Seen),
+    case maps:get(N, Env, undefined) of
+        undefined -> erlang:error({unknown_generic, N});
+        {parametric, Params, Body} when length(Params) =:= length(Args) ->
+            %% Arguments are resolved in the CALLER's chain, not the callee's:
+            %% they are siblings of this application, not steps below it.
+            Sub = maps:from_list(
+                    lists:zip(Params, [resolve(A, Env, Seen) || A <- Args])),
+            resolve(subst(Body, Sub), Env, [N | Seen]);
+        {parametric, Params, _} ->
+            erlang:error({generic_arity, N, length(Params), length(Args)});
+        _Ground ->
+            erlang:error({not_parametric, N})
+    end;
+resolve({t_union, Ms}, Env, Seen) ->
+    bs_types:union([resolve(M, Env, Seen) || M <- Ms]).
+
+seen(N, Seen) ->
+    case lists:member(N, Seen) of
+        false -> ok;
+        true  -> erlang:error({cyclic_type, N})
+    end.
+
+%% Substitution is over the SURFACE type, and what it substitutes IN is an
+%% already-resolved algebra type — which `resolve/3`'s first clause then passes
+%% straight through. So a parameter is replaced exactly once and never re-walked.
+subst(T, _Sub) when is_map(T)      -> T;
+subst({t_ref, N} = T, Sub)         -> maps:get(N, Sub, T);
+subst({t_union, Ms}, Sub)          -> {t_union, [subst(M, Sub) || M <- Ms]};
+subst({t_tuple, Cs}, Sub)          -> {t_tuple, [subst(C, Sub) || C <- Cs]};
+subst({t_generic, N, Args}, Sub)   -> {t_generic, N, [subst(A, Sub) || A <- Args]};
+subst({t_map, Fields}, Sub) ->
+    {t_map, [{field, N, subst(T, Sub)} || {field, N, T} <- Fields]};
+subst(T, _Sub)                     -> T.
 
 %% Builtins are lowercase — ticket 27 forced that, since a lowercase-implicit
 %% type-variable convention would then be ambiguous.

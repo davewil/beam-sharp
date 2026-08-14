@@ -282,6 +282,23 @@ type option<T> = T | :nothing
 type result<T, E> = T | (:error, E)
 ```
 
+Both are **in the compiler**, and the block above stays planned surface for one reason: they are
+**prelude** entries and the prelude namespace is lowercase, while `type` declares a PascalCase name.
+So this is what the prelude holds, not something you can type. What you can type is the use:
+
+<!-- check:
+type Weighed = result<int, atom>
+-->
+```csharp
+atom Grade(Weighed w)
+Grade((:error, e))     -> e
+Grade(n) when n > 1000 -> :heavy
+Grade(n)               -> :light
+```
+
+Exhaustive, and nothing in those clause heads knows about a bracket: `result<int, atom>` is
+`int | (:error, atom)` before the checker sees it.
+
 **Absence carries nothing; failure carries a reason.** The tag is a consequence of the payload, not
 a style choice: `atom | :error` collapses (`:error` is absorbed into the atom top) while
 `atom | (:error, binary)` does not.
@@ -318,7 +335,31 @@ recovers precise emitted types that a call to a generic function loses.
 
 ## 9. Generics
 
-Real parametric polymorphism, in its smallest working form.
+Real parametric polymorphism, in its smallest working form. **Two halves, and only the first is
+built** — the split is ticket 27's own: *"the costs are asymmetric and they do not chain."*
+
+### Parametric types — shipped
+
+Ground applications and parametric aliases. `list<T>`, `option<T>` and `result<T, E>` come from the
+prelude; your own take a parameter at the declaration and are PascalCase like any other user type.
+
+```csharp
+type Pair<T> = (T, T)
+
+int Sum(Pair<int> p)
+Sum((a, b)) -> a + b
+```
+
+**The variable is gone before the type algebra sees anything.** `Pair<int>` is the tuple, and
+`option<int>` and a hand-written `int | :nothing` are not two types that agree — they are one type.
+So a bracket costs no new node in the checker and nothing in the emitted code: what is published is
+the expanded ground `-spec`.
+
+A recursive type is **refused by name** rather than expanded: `type Tree<T> = (T, list<Tree<T>>)` is
+an error today. Recursion is decided (equirecursive, contractive) and the algebra cannot hold one
+yet.
+
+### Polymorphic function signatures — next
 
 ```csharp not-yet
 list<U> Map<T, U>(list<T> xs, fn(T) -> U f)
@@ -334,6 +375,12 @@ list<U> Map<T, U>(list<T> xs, fn(T) -> U f)
 
 Instantiation is matching, not constraint solving — which is what keeps the cost sane, and why the
 three bullets above are load-bearing rather than preferences.
+
+**Why this half is not built yet, plainly.** `Map` above needs `fn(T) -> U` in a signature and a
+lambda to pass to it, and the language has neither — there is no arrow in the type algebra. And
+matching a variable that sits **inside a union** (`int Unwrap<T>(option<T> o)` asks for
+`int | :nothing` against `T | :nothing`) is a question about subtraction that nothing has decided.
+The first half needed neither.
 
 **User code never writes a type argument.** Only three compiler-known names take an explicit one:
 `ValidateAs<T>`, `ParseAtom<T>`, `ToExistingAtom`. So `<` opens a bracket after one of those names
@@ -571,7 +618,8 @@ the parser accepts back exactly what the printer emits. **shipped**
 | `switch` | not started |
 | binaries | not started |
 | pipe and valve | not started |
-| generics | **next** |
+| parametric types — `result<T, E>`, `option<T>`, `type Pair<T>`, nesting | **shipped** |
+| polymorphic function signatures (`Map<T, U>`) | not started — needs an arrow type |
 | modules, imports, `using` | not started |
 | foreign calls (`using :lists {...}`) | **shipped**, without the boundary guard |
 | `behaviour GenServer` (behaviour attribute) | **shipped**, without the contract check |

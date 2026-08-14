@@ -57,7 +57,8 @@ Ordered by how many exemplars each unblocks, which is roughly the order to build
 | Capability | Blocks | Slice status | Ticket |
 |---|---|---|---|
 | **Records** — declaration, construction, `with`, projection | all three | out (26 was open when the slice was cut; **26 is now closed**) | 26 |
-| **Angle brackets** — `list<T>`, `option<T>`, `ValidateAs<T>` | all three | out (28 was open; **28 is now closed**) | 27, 28 |
+| **Angle brackets** — `list<T>`, `option<T>`, `result<T, E>` | all three | **in** — F6, 2026-08-14 | 27, 28 |
+| **`ValidateAs<T>`** — a codegen obligation, not a generic call | 25a, 25c | out | 11, 27 §8 |
 | **Binaries** — `<<_:M, _:_*N>>` patterns and construction | 25b, 25c | out | 20, 30 |
 | **`switch` expression** — including the tuple subject | all three | out | 17 |
 | **Pipe and valve** — `\|>`, `\|?>` | 25b, 25c | out | 17 |
@@ -67,9 +68,16 @@ Ordered by how many exemplars each unblocks, which is roughly the order to build
 | **Imports / multi-file modules** | all three | out (fog) | fog |
 | **OTP behaviours** — `[module: GenServer]`, callbacks | 25b, 25c | out | 14 |
 
-**Two of these are stale rather than open.** The slice was cut when tickets 26 and 28 were still
-open; both closed on 2026-08-13. Records and angle brackets are now decided and buildable, and the
-README's "out" table has not caught up.
+**Records and angle brackets are now built, not merely decided** — F3 on 2026-08-14 and F6 the same
+day. The rows above say `in` and the ones below them are what is actually left.
+
+**A bracket claim is not a compiles claim.** F6 makes `result<Delivery, ConsumeError>` and
+`list<Line>` parse and resolve; not one of these files compiles as a result. `list<string>` still
+fails, on `unknown_builtin` rather than on the bracket — `string` and `binary` are not builtin types
+yet — and every file here also waits on binaries, `switch`, pipe, string and map literals, or
+imports. Splitting `ValidateAs<T>` onto its own row above is the same correction: it shares a
+character with the bracket and nothing else, being type-directed codegen (27 §8) rather than a
+generic call.
 
 **One coupling is recorded in 25c and in neither ticket**: interval *patterns* and interval
 *refinements* must land in the **same** increment. Today a parameter declared `int` has an open

@@ -205,13 +205,43 @@ resolve_error(Path, {unknown_type, N}) ->
 resolve_error(Path, {unknown_builtin, B}) ->
     io:format(standard_error,
               "~s: error: ~s is not a builtin type~n"
-              "  this slice has `int`, `atom`, `term` and `list<T>`.~n",
+              "  this slice has `int`, `atom`, `term`, `bool` and `list<T>`.~n",
               [Path, B]),
     handled;
 resolve_error(Path, {unknown_generic, N}) ->
     io:format(standard_error,
-              "~s: error: ~s does not take a type argument~n"
-              "  `list<T>` is the only one this slice has.~n",
+              "~s: error: no type named ~s takes a type argument~n"
+              "  the prelude has `list<T>`, `option<T>` and `result<T, E>`;~n"
+              "  your own take one with `type ~s<T> = ...`.~n",
+              [Path, N, N]),
+    handled;
+%% F6.6. A bracket the compiler KNOWS at the wrong arity is a different mistake
+%% from a bracket it does not know, and the fix is a different edit.
+resolve_error(Path, {generic_arity, N, Want, Got}) ->
+    io:format(standard_error,
+              "~s: error: ~s takes ~p type argument~s, and got ~p~n",
+              [Path, N, Want, plural(Want), Got]),
+    handled;
+resolve_error(Path, {needs_type_args, N, Want}) ->
+    io:format(standard_error,
+              "~s: error: ~s is parametric and was written without a bracket~n"
+              "  it takes ~p type argument~s: write `~s<...>`.~n",
+              [Path, N, Want, plural(Want), N]),
+    handled;
+resolve_error(Path, {not_parametric, N}) ->
+    io:format(standard_error,
+              "~s: error: ~s takes no type arguments~n"
+              "  declare it as `type ~s<T> = ...` if it should.~n",
+              [Path, N, N]),
+    handled;
+%% F6.8. The alternative is not a worse message — it is no message, because the
+%% resolver loops. Ticket 09 decided recursion is equirecursive and contractive;
+%% the algebra cannot hold one, so this refuses by name rather than pretending.
+resolve_error(Path, {cyclic_type, N}) ->
+    io:format(standard_error,
+              "~s: error: the type ~s is defined in terms of itself~n"
+              "  a recursive type has no representation in the checker's algebra~n"
+              "  yet, so it is refused rather than expanded forever.~n",
               [Path, N]),
     handled;
 resolve_error(Path, {kind_field_is_minted, Line, Name}) ->
@@ -270,6 +300,9 @@ strip_status(Out) ->
 
 verbose(#opts{verbose = true}, F, A) -> io:format(F, A);
 verbose(_, _, _) -> ok.
+
+plural(1) -> "";
+plural(_) -> "s".
 
 %%% ---------------------------------------------------------------------------
 %%% Diagnostics

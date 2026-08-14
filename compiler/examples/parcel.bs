@@ -1,0 +1,30 @@
+// F6 — the prelude's two parametric aliases, doing the job LANGUAGE.md §7
+// describes: absence carries nothing, failure carries a reason.
+//
+//   type option<T>    = T | :nothing
+//   type result<T, E> = T | (:error, E)
+//
+// Neither name reaches the type algebra. `Weighed` is `int | (:error, atom)`
+// by the time the checker sees it, which is why the clause heads below dispatch
+// on the payload with no bracket-aware pattern form: there isn't one, and
+// ticket 27 §(b) is the reason there doesn't need to be.
+module Parcel
+
+type Weighed = result<int, atom>
+
+record Parcel { Id: int, Note: option<int> }
+
+// Exhaustive over the expansion: the `(:error, e)` arm and the two integer arms
+// together cover `int | (:error, atom)`. Drop the first and the residual is
+// `Grade((:error, e))` — the bracket produces a type the residual printer
+// already knows how to talk about.
+atom Grade(Weighed w)
+Grade((:error, e))     -> e
+Grade(n) when n > 1000 -> :heavy
+Grade(n)               -> :light
+
+// `option<int>` in a record field is what ticket 26 §4's "there are no absent
+// fields" costs: absence is a value, so it is matched rather than tested for.
+int Weigh(Parcel p)
+Weigh({ Note: :nothing }) -> 0
+Weigh(p)                  -> p.Note

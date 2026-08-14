@@ -64,8 +64,8 @@ Erlang back to the decision that required it is one grep.
 | [F3 — records](F3-records.md) | **done 2026-08-14** | the record half of all three; `examples/shop.bs` |
 | [F4 — local bindings](F4-local-bindings.md) | **done 2026-08-14** | nothing — it removes a papercut |
 | [F5 — the body check site](F5-body-check-site.md) | **done 2026-08-14** | F3.3, F3.8, F3.10; 34's destructuring binds |
-| F6 — angle brackets and parametric types | not started — **build next** | all three exemplars |
-| F7 — `switch` | not started | all three exemplars |
+| [F6 — angle brackets and parametric types](F6-angle-brackets.md) | **done 2026-08-14** | the *bracket* in all three; `examples/parcel.bs` |
+| F7 — `switch` | not started — **build next** | all three exemplars |
 | F8 — binaries | not started | 25b, 25c |
 | F9 — pipe and valve | not started | 25b, 25c |
 
@@ -126,7 +126,27 @@ independently of F3: `counter.bs` declares `behaviour GenServer` without definin
 so Dialyzer reports three undefined callbacks. Whoever owns the OTP callbacks should close it; it
 is a gate nobody can currently pass.
 
-F4 onward are named but not written — deliberately. The map's own fog-of-war rule applies: don't
+**F6 took ticket 27's own cut, and the ticket wrote it before the feature did.** Generics is three
+questions wearing one coat; F6 built parameterised constructors and parametric aliases — both
+**substitution with ground arguments** — and left polymorphic function *signatures*, which are
+**matching**, to [ticket 37](../../wayfinder/issues/37-instantiation-by-matching.md). 27's line
+*"the costs are asymmetric and they do not chain"* is the licence, and three measurements back it:
+`Map` cannot be written at all (no arrow in the algebra, no lambda), no exemplar declares a
+polymorphic function, and matching a variable **inside a union** — `option<T>` against
+`int | :nothing` — is a question about subtraction that nothing has decided.
+
+**The gate F6 owed was not a rejection test, it was a stopwatch.** A cyclic alias did not error on
+master — it **hung**, and `type_env/1`'s own comment said why (*"this slice has no recursive aliases
+yet"*). Parameters make `type Tree<T> = (T, list<Tree<T>>)` the first thing anyone tries, so the
+guard shipped with the feature that made the hazard reachable rather than with the one that finally
+implements recursion. **A hang is invisible to a green suite**, which is F5.7's lesson in a second
+costume: the mutation had to be measured by a clock, not by a red test.
+
+**And it is a shared-function change.** F6 edits `resolve/2` — the single funnel the checker and the
+emitter both go through, which F5 exported precisely so there would not be two. The corpus gate ran
+first for that reason and not by ritual.
+
+F7 onward are named but not written — deliberately. The map's own fog-of-war rule applies: don't
 chart what you can't yet see.
 
 **F3 was written ahead of F2, and F2 is why.** F2's own file says in bold that it must not be

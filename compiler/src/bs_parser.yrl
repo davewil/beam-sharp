@@ -9,7 +9,7 @@ Nonterminals
   program decls decl
   module_decl type_decl signature clause foreign_decl foreign_sigs foreign_sig
   behaviour_decl record_decl field_decls field_decl
-  type_expr type_union_members type_prim type_list
+  type_expr type_union_members type_prim type_list type_params
   params param_list param
   patterns pattern_list pattern plist_items pat_fields pat_field
   guard guard_expr
@@ -71,13 +71,13 @@ field_decls -> field_decl ',' field_decls : ['$1' | '$3'].
 field_decl -> uident ':' type_expr : {field, value('$1'), '$3'}.
 
 %% Ticket 26 §4: there are no absent fields. The kept form is
-%% `Notes: option<int>`, which needs the angle brackets F4 has not landed — so
-%% the diagnostic says what the language does NOT have rather than naming a
-%% spelling that cannot yet parse.
+%% `Notes: option<int>`, which F6 landed — so the diagnostic can now name the
+%% spelling to write instead of only saying what the language does not have.
 field_decl -> uident '?' ':' type_expr :
     return_error(line('$2'),
                  "no optional fields: a record's field set is exact, so '" ++
-                 atom_to_list(value('$1')) ++ "?' is not a thing it can have").
+                 atom_to_list(value('$1')) ++ "?' is not a thing it can have -- "
+                 "write `" ++ atom_to_list(value('$1')) ++ ": option<T>`").
 
 %% `Id:int` lexes `:int` as an atom, because longest-match prefers the sigil.
 %% Catching the shape here turns what would be an opaque syntax error into the
@@ -117,7 +117,21 @@ module_decl -> 'module' uident : {module, line('$1'), value('$2')}.
 %% Ticket 09: `type X = ...` is the single naming construct, the name never
 %% enters the algebra, and there is no `union` keyword to design.
 type_decl -> 'type' uident '=' type_expr :
-    {type_alias, line('$1'), value('$2'), '$4'}.
+    {type_alias, line('$1'), value('$2'), [], '$4'}.
+
+%% A PARAMETRIC alias — ticket 27 §(b). The variable is bound here, substituted
+%% at the use, and gone before `bs_types` sees anything: `Pair<int>` resolves to
+%% the tuple, never to a node the algebra has to know about.
+%%
+%% A parameter is lexed as `uident`, exactly like a user type name (ticket 27 §4
+%% forced declaration for that reason — builtins are lowercase, so a lowercase
+%% implicit convention could not tell `a` from a builtin you have not met). So
+%% nothing but this list distinguishes the two, which is what F6.7 asserts.
+type_decl -> 'type' uident '<' type_params '>' '=' type_expr :
+    {type_alias, line('$1'), value('$2'), '$4', '$7'}.
+
+type_params -> uident                 : [value('$1')].
+type_params -> uident ',' type_params : [value('$1') | '$3'].
 
 type_expr -> type_union_members :
     case '$1' of [One] -> One; Many -> {t_union, Many} end.
@@ -136,10 +150,18 @@ type_prim -> '(' type_list ')' : {t_tuple, '$2'}.
 %% type as the record whose tag mints to the same atom.
 type_prim -> '{' field_decls '}' : {t_map, '$2'}.
 
-%% `list<int>`. Ticket 28's disambiguation rule is about VALUE position, where a
-%% `<` could be a comparison; in type position nothing compares, so the bracket
-%% is unambiguous and costs no lookahead.
-type_prim -> lident '<' type_expr '>' : {t_generic, value('$1'), '$3'}.
+%% `list<int>`, `result<Delivery, ConsumeError>`, `Pair<int>`. Ticket 28's
+%% disambiguation rule is about VALUE position, where a `<` could be a
+%% comparison; in type position nothing compares, so the bracket is unambiguous
+%% and costs no lookahead. F6.9 asserts the value side did not learn it.
+%%
+%% Lowercase is the prelude namespace (`list`, `option`, `result`) and PascalCase
+%% is a user alias; both are the same node, because after resolution neither name
+%% exists. Arity is checked where the parameters are known, not here — a bracket
+%% with the wrong number of arguments is a diagnostic (F6.6), and the parser has
+%% no way to know the right number.
+type_prim -> lident '<' type_list '>' : {t_generic, value('$1'), '$3'}.
+type_prim -> uident '<' type_list '>' : {t_generic, value('$1'), '$3'}.
 
 type_list -> type_expr               : ['$1'].
 type_list -> type_expr ',' type_list : ['$1' | '$3'].
