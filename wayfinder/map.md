@@ -774,6 +774,22 @@ spec exists.
   **27's stratum-2 rule gains a second job** — *"a codegen obligation requires a ground type
   argument"* was a typing rule and is now **the parser's disambiguator**, so the compiler-known set is
   load-bearing in the grammar, and **stratum 2's membership is fixed at lex time**.
+  **Built 2026-08-14 as [F6](../compiler/features/F6-angle-brackets.md)** — the *type-position* half
+  only, 124 tests up from 109. `result<T, E>`, `option<T>`, nesting, and user-declared
+  `type Pair<T>`, all by **substitution**: the variable is gone before the algebra sees it, so the
+  bracket added no node to `bs_types` and nothing to the emitted code. **The value-position rule was
+  not written and did not need to be** — with `ValidateAs`/`ParseAtom`/`ToExistingAtom` unbuilt the
+  closed set is *empty*, so `<` is comparison unconditionally, and F6 pins that against the **real**
+  grammar where 28a measured a patched copy. `list<list<int>>` now has a test, which is where the
+  owed `>>` re-check will trip. Ticket 27's §(c) — polymorphic function *signatures*, which are
+  **matching and not substitution** — was cut on the ticket's own *"the costs are asymmetric and
+  they do not chain"*, with three measurements behind it (`Map` needs an arrow type the algebra
+  lacks; no exemplar declares one; matching a variable **inside a union** is undecided)
+  → [ticket 37](issues/37-instantiation-by-matching.md). **The hazard F6 found was not a rejection,
+  it was a hang**: a cyclic alias did not error on master, it spun — invisible to a green suite, and
+  reachable for the first time because a parameter is what makes `type Tree<T>` natural to write.
+  Guarded, and the control is a stopwatch (0.093s versus no output at all) because a test that never
+  returns is not a failing test.
 
 - [The FFI surface](issues/32-ffi-surface.md) — **a foreign function is declared, and the
   declaration carries both spellings.** Settled by David reading the three shapes written out as
