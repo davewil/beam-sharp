@@ -38,8 +38,10 @@
 -type bound() :: integer() | neg_inf | pos_inf.
 -type int_part() :: [{bound(), bound()}].
 
-%% A tuple part: a union of products, each a list of component types.
--type tuple_part() :: [[ty()]].
+%% A tuple part: a union of products, each a list of component types - or `top`,
+%% every tuple of every arity, which is what `term` contains and what no finite
+%% product list can express.
+-type tuple_part() :: top | [[ty()]].
 
 %% A list part: whether `[]` is included, and the element type of the non-empty
 %% lists included (`none` for none of them, `any` for "any element").
@@ -64,7 +66,7 @@ none() -> #{atoms => {finite, []}, ints => [], tuples => [], lists => {false, no
 %% slice has no arity-polymorphic tuple top, and ticket 11 says a foreign value
 %% must be matched rather than assumed, so nothing here needs one yet.
 term() ->
-    #{atoms => {cofinite, []}, ints => [{neg_inf, pos_inf}], tuples => [],
+    #{atoms => {cofinite, []}, ints => [{neg_inf, pos_inf}], tuples => top,
       lists => {true, any}}.
 
 atom_lit(A) when is_atom(A) -> (none())#{atoms => {finite, [A]}}.
@@ -103,7 +105,8 @@ tuple(Components) when is_list(Components) ->
 %%% Emptiness
 %%% ---------------------------------------------------------------------------
 
-is_none(#{atoms := {finite, []}, ints := [], tuples := Ts, lists := {false, none}}) ->
+is_none(#{atoms := {finite, []}, ints := [], tuples := Ts, lists := {false, none}})
+  when Ts =/= top ->
     lists:all(fun(Cs) -> lists:any(fun is_none/1, Cs) end, Ts);
 is_none(_) ->
     false.
@@ -125,7 +128,7 @@ union(A, B) ->
       %% member contained in another does not survive, but two overlapping
       %% products are BOTH kept — collapsing them is exactly the widening
       %% ticket 20 measured and refused.
-      tuples => t_absorb(maps:get(tuples, A) ++ maps:get(tuples, B)),
+      tuples => t_union(maps:get(tuples, A), maps:get(tuples, B)),
       lists  => l_union(maps:get(lists, A), maps:get(lists, B))}.
 
 %%% ---------------------------------------------------------------------------
@@ -253,6 +256,12 @@ b_pred(N)       -> N - 1.
 %%% Tuple part
 %%% ---------------------------------------------------------------------------
 
+t_union(top, _) -> top;
+t_union(_, top) -> top;
+t_union(As, Bs) -> t_absorb(As ++ Bs).
+
+t_intersect(top, Bs) -> Bs;
+t_intersect(As, top) -> As;
 t_intersect(As, Bs) ->
     t_absorb([P || A <- As, B <- Bs, length(A) =:= length(B),
                    (P = product_meet(A, B)) =/= empty]).
@@ -264,6 +273,12 @@ product_meet(A, B) ->
         false -> Cs
     end.
 
+%% `top \\ anything` stays `top`: the algebra cannot name "every tuple except
+%% these", so it keeps the residual too BIG rather than too small - a false
+%% inexhaustive rather than a false exhaustive. `anything \\ top` is empty, which
+%% is exact, and is what makes a `_` catch-all remove every tuple.
+t_subtract(_, top) -> [];
+t_subtract(top, _) -> top;
 t_subtract(As, Bs) -> lists:foldl(fun(B, Acc) -> t_minus_all(Acc, B) end, As, Bs).
 
 t_minus_all(As, B) -> t_absorb(lists:append([product_minus(A, B) || A <- As])).
@@ -361,7 +376,10 @@ to_string(T) ->
     end.
 
 parts(#{atoms := As, ints := Is, tuples := Ts, lists := Ls}) ->
-    a_str(As) ++ [i_str(R) || R <- Is] ++ [t_str(P) || P <- Ts] ++ l_str(Ls).
+    a_str(As) ++ [i_str(R) || R <- Is] ++ ts_str(Ts) ++ l_str(Ls).
+
+ts_str(top) -> ["tuple"];
+ts_str(Ps)  -> [t_str(P) || P <- Ps].
 
 a_str({finite, []})   -> [];
 a_str({finite, L})    -> [":" ++ atom_to_list(A) || A <- L];

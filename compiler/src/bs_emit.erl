@@ -51,11 +51,23 @@
 %%% from Erlang as `'Readings':'Classify'(X)`.
 %%% ---------------------------------------------------------------------------
 
-forms(#{module := Mod, functions := Fns, env := Env}) ->
+forms(Module = #{module := Mod, functions := Fns, env := Env}) ->
     Exports = [{F, arity(F)} || F <- Fns],
+    Behaviours = maps:get(behaviours, Module, []),
     [{attribute, ?A, module, Mod},
      {attribute, ?A, export, [{name(F), A} || {F, A} <- Exports]}]
+    ++ [{attribute, ?A, behaviour, otp_name(B)} || B <- Behaviours]
     ++ lists:append([[spec_attr(F, Env), function(F)] || F <- Fns]).
+
+%% A FIXED, compiler-known table of five — not a derivation rule. The language
+%% has no snake_case mapping anywhere and this does not introduce one; these are
+%% names the compiler knows, the way it knows `ValidateAs`.
+otp_name('GenServer')   -> gen_server;
+otp_name('Supervisor')  -> supervisor;
+otp_name('Application') -> application;
+otp_name('GenStatem')   -> gen_statem;
+otp_name('GenEvent')    -> gen_event;
+otp_name(Other)         -> erlang:error({unknown_behaviour, Other}).
 
 name(F) -> element(2, F).                       % #fn.name
 arity(F) -> length(element(5, F)).              % length(#fn.params)
@@ -208,8 +220,11 @@ spec_type(Ty) ->
     end.
 
 parts(#{atoms := As, ints := Is, tuples := Ts, lists := Ls}) ->
-    atom_parts(As) ++ [int_part(R) || R <- Is] ++ [tuple_part(P) || P <- Ts]
+    atom_parts(As) ++ [int_part(R) || R <- Is] ++ tuple_parts(Ts)
         ++ list_parts(Ls).
+
+tuple_parts(top) -> [{type, ?A, tuple, any}];
+tuple_parts(Ps)  -> [tuple_part(P) || P <- Ps].
 
 %% Erlang spells "list of T" and "non-empty list of T" but has no way to say
 %% "either, with this element type" beyond the former, so a cons-only part

@@ -364,21 +364,38 @@ not yet caught at the boundary. That is the gap between §10's guarantee and wha
 The concurrency vocabulary is OTP's, and **nothing in it is parameterised by a message type**.
 
 ```csharp
-[module: GenServer]
+module Counter
+
+uses GenServer
+
+type Request = :get | (:add, int)
+type Reply   = (:reply, int, int)
+
+Reply HandleCall(Request request, term from, int state)
+
+HandleCall(:get, from, state)      -> (:reply, state, state)
+HandleCall((:add, n), from, state) -> (:reply, state + n, state + n)
 ```
 
-names a contract the compiler knows as a type; you write a narrower signature and the compiler
-checks containment. There is no typed `Pid<T>` — a process identifier is a `pid`, and the message
-type belongs on the client API function's signature, where you were going to write it anyway.
+**shipped** — `uses GenServer` emits `-behaviour(gen_server)`, and the two clauses are proved to
+cover `Request` with no catch-all.
+
+**`uses`, not `using`.** `using GenServer` is the same three tokens as a single-segment import, and
+only a symbol table could tell them apart — the type-directed resolution the language refuses
+everywhere else. `uses` reads as a fact about the module and is one letter from Elixir's
+`use GenServer`, which is this exact construct.
+
+A behaviour **names a contract the compiler knows as a type**: you write a narrower signature and
+the compiler checks containment. **decided** — today the attribute is emitted and `erlc` reports a
+missing callback, which is a useful diagnostic but not the containment check.
+
+There is no typed `Pid<T>` — a process identifier is a `pid`, and the message type belongs on the
+client API function's signature, where you were going to write it anyway.
 
 **No `async`, `await` or `Task`.** `async` colours functions, which is a second effect system.
 
 `receive` is a **filter**, exempt from exhaustiveness — unmatched messages stay in the mailbox,
-which is what `gen_server:call`'s own reply correlation runs on.
-
-**decided**
-
----
+which is what `gen_server:call`'s own reply correlation runs on. **decided**
 
 ## 13. Refinements
 
@@ -489,7 +506,7 @@ the parser accepts back exactly what the printer emits. **shipped**
 | generics | not started |
 | modules, imports, `using` | not started |
 | foreign calls (`using :lists {...}`) | **shipped**, without the boundary guard |
-| OTP behaviours | decided, not started |
+| `uses GenServer` (behaviour attribute) | **shipped**, without the contract check |
 
 ### Known inconsistencies
 

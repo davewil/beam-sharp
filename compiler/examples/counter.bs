@@ -1,0 +1,24 @@
+// A gen_server in B#.
+//
+// `uses GenServer`, not `using GenServer`: the latter is the same three tokens
+// as a single-segment import, and only a symbol table could tell them apart —
+// which is the type-directed resolution this language refuses everywhere else.
+// `uses` reads as a fact about the module, and is one letter from Elixir's
+// `use GenServer`, which is this exact construct.
+module Counter
+
+uses GenServer
+
+type Request = :get | (:add, int)
+type Reply   = (:reply, int, int)
+
+(:ok, int) Init(int seed)
+
+Init(seed) -> (:ok, seed)
+
+// Exhaustive over Request with no catch-all: the compiler proves the two
+// clauses cover `:get | (:add, int)`.
+Reply HandleCall(Request request, term from, int state)
+
+HandleCall(:get, from, state)      -> (:reply, state, state)
+HandleCall((:add, n), from, state) -> (:reply, state + n, state + n)

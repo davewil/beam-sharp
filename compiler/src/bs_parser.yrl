@@ -8,6 +8,7 @@
 Nonterminals
   program decls decl
   module_decl type_decl signature clause foreign_decl foreign_sigs foreign_sig
+  behaviour_decl
   type_expr type_union_members type_prim type_list
   params param_list param
   patterns pattern_list pattern plist_items
@@ -16,7 +17,7 @@ Nonterminals
   .
 
 Terminals
-  'module' 'type' 'when' 'using'
+  'module' 'type' 'when' 'using' 'uses'
   uident lident atom_lit integer '_'
   '->' '&&' '||' '==' '!=' '<=' '>=' '<' '>' '+' '-' '*'
   '=' '|' ',' '(' ')' '[' ']' '{' '}' '..' '.'
@@ -43,6 +44,15 @@ decl -> type_decl   : '$1'.
 decl -> signature   : '$1'.
 decl -> clause      : '$1'.
 decl -> foreign_decl : '$1'.
+decl -> behaviour_decl : '$1'.
+
+%% --- behaviours -------------------------------------------------------------
+%% `uses GenServer`, not `using GenServer`: the latter is the same three tokens
+%% as a single-segment import, and only a symbol table could tell them apart —
+%% which is the type-directed resolution this language refuses everywhere else.
+%% `uses` also reads as a fact about the module rather than a directive, and it
+%% is one letter from Elixir's `use GenServer`, which is this exact construct.
+behaviour_decl -> 'uses' uident : {behaviour, line('$1'), value('$2')}.
 
 %% --- foreign modules --------------------------------------------------------
 %% On the BEAM a module IS an atom, so the module is written as one and the

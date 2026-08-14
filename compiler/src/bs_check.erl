@@ -36,9 +36,15 @@ check(Decls) ->
     Results = [check_fn(F, Env) || F <- Fns],
     Diags = lists:append([D || {_, D} <- Results]),
     case [D || D <- Diags, element(1, D) =:= error] of
-        []     -> {ok, #{module => Module, functions => Fns, env => Env}, Diags};
+        []     -> {ok, #{module => Module, functions => Fns, env => Env,
+                         behaviours => behaviours(Decls)}, Diags};
         _Fatal -> {error, Diags}
     end.
+
+%% The behaviours this module implements. Checking the callback contract against
+%% them is decided and not built; what is emitted today is the attribute, which
+%% makes `erlc` itself report a missing callback.
+behaviours(Decls) -> [N || {behaviour, _, N} <- Decls].
 
 module_name(Decls) ->
     case [N || {module, _, N} <- Decls] of

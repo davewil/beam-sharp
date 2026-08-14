@@ -25,6 +25,7 @@ module                  : {token, {'module', TokenLine}}.
 type                    : {token, {'type', TokenLine}}.
 when                    : {token, {'when', TokenLine}}.
 using                   : {token, {'using', TokenLine}}.
+uses                    : {token, {'uses', TokenLine}}.
 
 %% :atom — ticket 10 settled the sigil, and the universe is open, so nothing
 %% declares an atom and the lexer simply interns what it sees.
