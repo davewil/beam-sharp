@@ -256,6 +256,44 @@ built_escript_compiles_a_file_test() ->
     end.
 
 %%% ---------------------------------------------------------------------------
+%%% Calling Erlang
+%%%
+%%% The module is an atom, so the call site is Elixir's and nothing is renamed.
+%%% ---------------------------------------------------------------------------
+
+interop_src() ->
+    "module Interop\n"
+    "using :lists {\n"
+    "    int sum(list<int> xs)\n"
+    "    list<int> reverse(list<int> xs)\n"
+    "}\n"
+    "int Total(list<int> xs)\n"
+    "Total(xs) -> :lists.sum(xs)\n"
+    "list<int> Backwards(list<int> xs)\n"
+    "Backwards(xs) -> :lists.reverse(xs)\n".
+
+a_foreign_call_runs_test() ->
+    M = build_and_load(interop_src(), 'Interop'),
+    ?assertEqual(10, M:'Total'([1, 2, 3, 4])),
+    ?assertEqual([3, 2, 1], M:'Backwards'([1, 2, 3])).
+
+%% A `using` block is a declaration, not an unfinished function: it must not be
+%% reported as a signature with no clauses.
+a_foreign_block_is_not_a_stub_test() ->
+    ?assertMatch({ok, _, []}, check_only(interop_src())).
+
+%% It emits an ordinary BEAM remote call.
+a_foreign_call_is_a_remote_call_test() ->
+    {ok, _} = compile(interop_src()),
+    {ok, {_, [{abstract_code, {_, Forms}}]}} =
+        beam_lib:chunks(?OUT ++ "/Interop.beam", [abstract_code]),
+    Remotes = [{M, F} || {function, _, _, _, Cs} <- Forms,
+                         {clause, _, _, _, Body} <- Cs,
+                         {call, _, {remote, _, {atom, _, M}, {atom, _, F}}, _} <- Body],
+    ?assert(lists:member({lists, sum}, Remotes)),
+    ?assert(lists:member({lists, reverse}, Remotes)).
+
+%%% ---------------------------------------------------------------------------
 %%% No statement terminator
 %%%
 %%% Both audiences type `;` from habit, so it is the likeliest error in the

@@ -95,6 +95,7 @@ used_vars({e_tuple, _, Es}, Acc)     -> lists:foldl(fun used_vars/2, Acc, Es);
 used_vars({e_call, _, _, As}, Acc)   -> lists:foldl(fun used_vars/2, Acc, As);
 used_vars({e_op, _, _, A, B}, Acc)   -> used_vars(B, used_vars(A, Acc));
 used_vars({e_nil, _}, Acc)           -> Acc;
+used_vars({e_foreign_call, _, _, _, As}, Acc) -> lists:foldl(fun used_vars/2, Acc, As);
 used_vars({e_list, _, Items, Rest}, Acc) ->
     R = case Rest of nil -> Acc; _ -> used_vars(Rest, Acc) end,
     lists:foldl(fun used_vars/2, R, Items);
@@ -146,6 +147,10 @@ expr({e_tuple, L, Es})    -> {tuple, L, [expr(E) || E <- Es]};
 expr({e_call, L, F, As})  -> {call, L, {atom, L, F}, [expr(A) || A <- As]};
 expr({e_op, L, Op, A, B}) -> {op, L, erl_op(Op), expr(A), expr(B)};
 expr({e_nil, L})          -> {nil, L};
+%% A foreign call is an ordinary BEAM remote call. The compiler-emitted wrapper
+%% and boundary guard the design calls for are NOT here yet - see LANGUAGE.md.
+expr({e_foreign_call, L, Mod, Fn, As}) ->
+    {call, L, {remote, L, {atom, L, Mod}, {atom, L, Fn}}, [expr(A) || A <- As]};
 expr({e_list, L, Items, Rest}) ->
     lists:foldr(fun(E, Acc) -> {cons, L, expr(E), Acc} end,
                 case Rest of

@@ -24,6 +24,7 @@ Rules.
 module                  : {token, {'module', TokenLine}}.
 type                    : {token, {'type', TokenLine}}.
 when                    : {token, {'when', TokenLine}}.
+using                   : {token, {'using', TokenLine}}.
 
 %% :atom — ticket 10 settled the sigil, and the universe is open, so nothing
 %% declares an atom and the lexer simply interns what it sees.
@@ -42,6 +43,10 @@ _                       : {token, {'_', TokenLine}}.
 {LOWER}{ALNUM}*         : {token, {lident, TokenLine, list_to_atom(TokenChars)}}.
 
 %% Two-character operators before their one-character prefixes.
+%% `.` calls into a foreign module (`:ets.lookup`) and projects a record field.
+%% `..` is matched first by longest-match, so the two never collide.
+\.                      : {token, {'.', TokenLine}}.
+
 %% `..` is the rest marker in `[h, ..t]` — ticket 28 adopted the C# collection
 %% expression spelling in both pattern and construction position.
 \.\.                    : {token, {'..', TokenLine}}.
@@ -63,6 +68,8 @@ _                       : {token, {'_', TokenLine}}.
 ,                       : {token, {',', TokenLine}}.
 \(                      : {token, {'(', TokenLine}}.
 \)                      : {token, {')', TokenLine}}.
+\{                      : {token, {'{', TokenLine}}.
+\}                      : {token, {'}', TokenLine}}.
 \[                      : {token, {'[', TokenLine}}.
 \]                      : {token, {']', TokenLine}}.
 

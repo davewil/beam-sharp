@@ -314,34 +314,50 @@ both unchecked, and both will hand you a `float` from a function declared to ret
 
 ## 11. Calling Erlang and Elixir
 
+**A module is an atom, because on the BEAM a module *is* an atom.** So the call site is Elixir's,
+and nothing is renamed:
+
 ```csharp
-[external: erlang, "ets"]
-module Ets {
-    list<term> Lookup(atom table, term key)
-    true       Insert(atom table, term row)
+using :lists {
+    int       sum(list<int> xs)
+    list<int> reverse(list<int> xs)
 }
 
-[external: erlang, "erlang"]
-module Erlang {
-    int SystemTime(atom unit)
+using :erlang {
+    int system_time(atom unit)
 }
+
+int Total(list<int> xs)
+
+Total(xs) -> :lists.sum(xs)
 ```
 
-Then `Ets.Lookup(table, id)` is an ordinary call.
+**shipped** — `bsc examples/interop.bs Total "[1, 2, 3, 4]"` prints `10`.
 
-- **The declaration binds the module**; each function carries its own signature and **exactly one
-  arity**. Foreign arity families are not defaults — `inet_udp:send/2` and `/4` exist with no `/3`.
-- **Both spellings are written**, the Erlang atom in quotes and the B# name in the declaration.
-  There is no snake_case ⇄ PascalCase rule anywhere in the language.
-- **Elixir is the same construct**, `[external: elixir, "Enum"]`. Its *macros* are unreachable —
-  they are exported as `MACRO-`-prefixed functions and are not callable from another language, so
-  `use GenServer` cannot cross.
+The declaration **attaches types to the name Erlang already has**. It does not introduce a B# name,
+which is why the language needs no snake_case ⇄ PascalCase mapping anywhere — and why the parts of
+OTP no mapping could reach (`'PKCS-1'`, `'OTP-PKIX'`) cost nothing.
+
+Three dot-forms coexist, told apart by the **token class** of the left side rather than by any
+casing convention:
+
+| Form | Left side | Means |
+|---|---|---|
+| `o.Status` | a variable | field projection |
+| `List.Map(x)` | a B# module | qualified call |
+| `:ets.lookup(x)` | an atom | foreign call |
+
+- **Exactly one arity per declaration.** Foreign arity families are not defaults — `inet_udp:send/2`
+  and `/4` exist with no `/3`.
+- **Elixir is the same construct**, `using :"Elixir.Enum"`. Its *macros* are unreachable: they are
+  exported as `MACRO-`-prefixed functions and are not callable from another language, so
+  `use GenServer` cannot cross. **decided** — quoted atoms are not lexed yet.
 - A foreign declaration may promise only what one BEAM guard decides in O(1). `list<Order>` is an
-  error at the declaration; it crosses as `list<term>` plus `ValidateAs<T>`.
+  error at the declaration; it crosses as `list<term>` plus `ValidateAs<T>`. **decided**
 
-**decided**
-
----
+**Owed:** the compiler-written wrapper and the boundary guard of §10 are *not* emitted yet — a
+foreign call currently compiles to a bare remote call, so a foreign term that breaks your types is
+not yet caught at the boundary. That is the gap between §10's guarantee and what runs today.
 
 ## 12. Processes
 
@@ -472,7 +488,7 @@ the parser accepts back exactly what the printer emits. **shipped**
 | pipe and valve | not started |
 | generics | not started |
 | modules, imports, `using` | not started |
-| FFI | decided, not started |
+| foreign calls (`using :lists {...}`) | **shipped**, without the boundary guard |
 | OTP behaviours | decided, not started |
 
 ### Known inconsistencies

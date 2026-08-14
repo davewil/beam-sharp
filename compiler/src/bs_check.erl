@@ -51,6 +51,9 @@ module_name(Decls) ->
 %%% ---------------------------------------------------------------------------
 
 collect(Decls) ->
+    %% A foreign declaration is FINISHED, not unfinished: it is a signature with
+    %% no clauses that will never have any, so it must not be collected here or
+    %% it reports `no_clauses`.
     Sigs = [#fn{name = N, line = L, ret = R, params = P}
             || {signature, L, N, R, P} <- Decls],
     [F#fn{clauses = [C || C = {clause, _, Name, _, _, _} <- Decls,

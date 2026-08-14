@@ -7,7 +7,7 @@
 
 Nonterminals
   program decls decl
-  module_decl type_decl signature clause
+  module_decl type_decl signature clause foreign_decl foreign_sigs foreign_sig
   type_expr type_union_members type_prim type_list
   params param_list param
   patterns pattern_list pattern plist_items
@@ -16,10 +16,10 @@ Nonterminals
   .
 
 Terminals
-  'module' 'type' 'when'
+  'module' 'type' 'when' 'using'
   uident lident atom_lit integer '_'
   '->' '&&' '||' '==' '!=' '<=' '>=' '<' '>' '+' '-' '*'
-  '=' '|' ',' '(' ')' '[' ']' '..'
+  '=' '|' ',' '(' ')' '[' ']' '{' '}' '..' '.'
   .
 
 Rootsymbol program.
@@ -42,6 +42,21 @@ decl -> module_decl : '$1'.
 decl -> type_decl   : '$1'.
 decl -> signature   : '$1'.
 decl -> clause      : '$1'.
+decl -> foreign_decl : '$1'.
+
+%% --- foreign modules --------------------------------------------------------
+%% On the BEAM a module IS an atom, so the module is written as one and the
+%% call site is Elixir's: `:ets.lookup(t, k)`. Nothing is renamed — the
+%% declaration attaches types to the name Erlang already has, which is why no
+%% snake_case/PascalCase mapping exists anywhere in the language.
+foreign_decl -> 'using' atom_lit '{' foreign_sigs '}' :
+    {foreign, line('$1'), value('$2'), '$4'}.
+
+foreign_sigs -> foreign_sig              : ['$1'].
+foreign_sigs -> foreign_sig foreign_sigs : ['$1' | '$2'].
+
+foreign_sig -> type_prim lident '(' params ')' :
+    {foreign_sig, line('$2'), value('$2'), '$1', '$4'}.
 
 %% --- module -----------------------------------------------------------------
 module_decl -> 'module' uident : {module, line('$1'), value('$2')}.
@@ -135,6 +150,13 @@ expr -> lident   : {e_var, line('$1'), value('$1')}.
 %% A local call. The slice has no qualified names, so ticket 17's `|>` and the
 %% module-qualified form are both out of scope here.
 expr -> uident '(' expr_list ')' : {e_call, line('$1'), value('$1'), '$3'}.
+
+%% `:ets.lookup(t, k)` — an atom literal on the left, so no variable and no
+%% casing convention is involved in telling this from a field projection.
+expr -> atom_lit '.' lident '(' expr_list ')' :
+    {e_foreign_call, line('$1'), value('$1'), value('$3'), '$5'}.
+expr -> atom_lit '.' lident '(' ')' :
+    {e_foreign_call, line('$1'), value('$1'), value('$3'), []}.
 expr -> uident '(' ')'           : {e_call, line('$1'), value('$1'), []}.
 
 expr -> '(' expr_list ')' :

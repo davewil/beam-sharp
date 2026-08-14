@@ -1,0 +1,29 @@
+// Calling Erlang from B#.
+//
+// The module is an ATOM, because on the BEAM a module is an atom — so the call
+// site is Elixir's, `:erlang.system_time(:second)`, and nothing is renamed. The
+// declaration attaches types to the name Erlang already has, which is why the
+// language needs no snake_case/PascalCase mapping anywhere.
+module Interop
+
+using :erlang {
+    int system_time(atom unit)
+    int byte_size(term bin)
+}
+
+using :lists {
+    int sum(list<int> xs)
+    list<int> reverse(list<int> xs)
+}
+
+int Now()
+
+Now() -> :erlang.system_time(:second)
+
+int Total(list<int> xs)
+
+Total(xs) -> :lists.sum(xs)
+
+list<int> Backwards(list<int> xs)
+
+Backwards(xs) -> :lists.reverse(xs)
