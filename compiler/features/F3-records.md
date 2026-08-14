@@ -4,6 +4,7 @@
 **Implements**  ticket 26 §§1–4, and 18 §1's guard rule applied to them — decides nothing
 **Unblocks**    the record half of all three exemplars; a third `examples/*.bs`
 **Depends on**  F1
+**Linear**      [ENG-199](https://linear.app/davewil/issue/ENG-199/f3-feature-not-a-map-ticket-records-a-tagged-map-with-and-the-dot) — the spec in PRD form, and where status lives. **Not** a wayfinder ticket and not in the `NN → ENG-(166+NN)` mapping.
 
 ## Why this one now, and not F2
 
