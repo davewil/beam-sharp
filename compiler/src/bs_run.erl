@@ -87,6 +87,14 @@ pascal(S) -> list_to_atom(S).
 %%% literal parser this slice does not have.
 %%% ---------------------------------------------------------------------------
 
+%% A quoted atom — `:'Shop.Order'`. Records made this reachable from the command
+%% line, because ticket 26 §1's tag mints from a qualified name and a dot is not
+%% something the bare sigil can spell.
+parse_arg([$:, $' | Rest]) when Rest =/= [] ->
+    case lists:last(Rest) of
+        $' -> list_to_atom(lists:sublist(Rest, length(Rest) - 1));
+        _  -> list_to_atom([$' | Rest])
+    end;
 parse_arg([$: | Name]) -> list_to_atom(Name);
 parse_arg(S0) ->
     S = string:trim(S0),
@@ -102,7 +110,34 @@ parse_compound(S) ->
     case {hd_or(S), last_or(S)} of
         {$(, $)} -> list_to_tuple(parse_inner(S));
         {$[, $]} -> parse_inner(S);
+        {${, $}} -> parse_braced(S);
         _        -> parse_term(S)
+    end.
+
+%% Braces are overloaded: `{Id = 1, Kind = :'Shop.Order'}` is a record in
+%% beam-sharp notation, `{ok, 5}` is an Erlang term. The discriminator is a
+%% top-level `=` in EVERY part, which a term never has and a record always does.
+%% Anything else falls through to the Erlang reader, so nothing that worked
+%% before stops working.
+parse_braced(S) ->
+    Parts = case string:trim(lists:sublist(S, 2, length(S) - 2)) of
+                ""    -> [];
+                Inner -> split_top_level(Inner)
+            end,
+    Fields = [field(P) || P <- Parts],
+    case Parts =/= [] andalso not lists:member(none, Fields) of
+        true  -> maps:from_list(Fields);
+        false -> parse_term(S)
+    end.
+
+field(P) ->
+    case string:split(P, "=") of
+        [K, V] ->
+            case string:trim(K) of
+                ""   -> none;
+                Name -> {list_to_atom(Name), parse_arg(string:trim(V))}
+            end;
+        _ -> none
     end.
 
 parse_inner(S) ->
@@ -147,7 +182,10 @@ parse_term(S) ->
 %%% Rendering a result in beam-sharp notation
 %%% ---------------------------------------------------------------------------
 
-format_value(A) when is_atom(A) -> [$:, atom_to_list(A)];
+%% Quoted where the bare sigil cannot spell it, using the SAME rule the residual
+%% printer uses — so a record's minted tag round-trips through the shell rather
+%% than printing as something that cannot be typed back in.
+format_value(A) when is_atom(A) -> bs_types:atom_str(A);
 format_value(I) when is_integer(I) -> integer_to_list(I);
 format_value(F) when is_float(F) -> io_lib:format("~p", [F]);
 format_value(B) when is_binary(B) ->
@@ -159,7 +197,14 @@ format_value(T) when is_tuple(T) ->
     ["(", lists:join(", ", [format_value(E) || E <- tuple_to_list(T)]), ")"];
 format_value(L) when is_list(L) ->
     ["[", lists:join(", ", [format_value(E) || E <- L]), "]"];
+%% `Kind` first: it is the discriminator, so it is what a reader looks for to
+%% know which record they are holding. The rest sort, so output is stable.
 format_value(M) when is_map(M) ->
-    ["{", lists:join(", ", [[atom_to_list(K), " = ", format_value(V)]
-                            || {K, V} <- maps:to_list(M)]), "}"];
+    Keys = lists:sort(maps:keys(M)),
+    Ordered = case lists:member('Kind', Keys) of
+                  true  -> ['Kind' | lists:delete('Kind', Keys)];
+                  false -> Keys
+              end,
+    ["{", lists:join(", ", [[atom_to_list(K), " = ", format_value(maps:get(K, M))]
+                            || K <- Ordered]), "}"];
 format_value(Other) -> io_lib:format("~p", [Other]).

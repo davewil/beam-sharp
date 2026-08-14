@@ -28,7 +28,7 @@
 -export([nil/0, cons/1, list/1]).
 -export([map_closed/1, map_open/1]).
 -export([union/2, union/1, intersect/2, subtract/2]).
--export([is_none/1, is_subtype/2, to_string/1, to_pattern/1]).
+-export([is_none/1, is_subtype/2, to_string/1, to_pattern/1, atom_str/1]).
 
 -export_type([ty/0]).
 
@@ -467,13 +467,47 @@ m_decompose(Kind, FA, FB) ->
 
 %%% --- absorption -------------------------------------------------------------
 
+%% Absorption is the checker's hot spot at scale, because it runs after every
+%% subtraction and is quadratic in the number of members with a `subtract` per
+%% field inside it. Measured before this was added: a 40-record dispatch cost
+%% 6.1 ms and an 80-record one 47 ms, growing cubically in the clause count.
+%%
+%% The fix is the language's own discriminability rule (ticket 09) turned into
+%% an index. **Absorption can only ever succeed between members that agree on
+%% their discriminator**: `m_subset` requires the tag of the contained member to
+%% subtract away against the container's, and two distinct singleton atoms never
+%% do. So members are grouped by tag and compared only within their group —
+%% plus against the members that carry no singleton tag, which are the only ones
+%% that can swallow a member from any group.
+%%
+%% Nothing is merged that was not merged before; this changes which pairs are
+%% CONSIDERED, not what containment means.
 m_absorb(Ms0) ->
     %% `usort` first: absorption compares DISTINCT members, so two members that
     %% are the same term survive each other and a union of one record with
     %% itself would report two. Deduplication is not widening — the members are
     %% equal, so nothing is merged that was not already identical.
     Ms = lists:usort([M || M <- Ms0, not m_empty(M)]),
-    [M || M <- Ms, not lists:any(fun(N) -> N =/= M andalso m_subset(M, N) end, Ms)].
+    Groups = maps:groups_from_list(fun discriminator/1, Ms),
+    Untagged = maps:get(none, Groups, []),
+    [M || M <- Ms,
+          not lists:any(fun(N) -> N =/= M andalso m_subset(M, N) end,
+                        rivals(M, Groups, Untagged, Ms))].
+
+%% A member's tag, where it has exactly one. Anything else — no `Kind`, a
+%% cofinite one, a union of tags — is `none` and is compared against everything.
+discriminator({_Kind, Fields}) ->
+    case maps:find('Kind', Fields) of
+        {ok, #{atoms := {finite, [Tag]}, ints := [], tuples := [],
+               lists := {false, none}, maps := []}} -> Tag;
+        _ -> none
+    end.
+
+rivals(M, Groups, Untagged, All) ->
+    case discriminator(M) of
+        none -> All;
+        Tag  -> maps:get(Tag, Groups, []) ++ Untagged
+    end.
 
 %% Is P contained in Q?
 m_subset({_, FP}, {open, FQ}) ->

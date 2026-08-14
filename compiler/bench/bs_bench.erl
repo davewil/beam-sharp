@@ -16,10 +16,11 @@
 %%%        -pa bench -eval 'bs_bench:main(),halt().'
 
 -module(bs_bench).
--export([main/0, checker_cost/0, failure_arm_cost/0]).
+-export([main/0, checker_cost/0, record_cost/0, failure_arm_cost/0]).
 
 main() ->
     checker_cost(),
+    record_cost(),
     failure_arm_cost(),
     ok.
 
@@ -44,17 +45,56 @@ checker_cost() ->
      end || N <- [5, 10, 20, 40, 80, 160]],
     ok.
 
+%%% ---------------------------------------------------------------------------
+%%% 1b. The same, over records — F3's obligation
+%%% ---------------------------------------------------------------------------
+
+record_cost() ->
+    io:format("~n=== F3: exhaustiveness check cost vs clause count, over RECORDS ===~n"),
+    _ = [check(record_ladder(20)) || _ <- lists:seq(1, 20)],
+    io:format("~-8s ~-12s ~-12s ~s~n", ["clauses", "check (us)", "us/clause", "verdict"]),
+    [begin
+         Src = record_ladder(N),
+         Reps = 20,
+         {Total, Result} = timer:tc(fun() -> last([check(Src) || _ <- lists:seq(1, Reps)]) end),
+         Us = Total / Reps,
+         io:format("~-8w ~-12.1f ~-12.2f ~s~n", [N, Us, Us / N, verdict(Result)])
+     end || N <- [5, 10, 20, 40, 80]],
+    ok.
+
 last(L) -> lists:last(L).
 
 %% The shape the language advertises: a wide dispatch over a closed atom union,
 %% which is what a large `handle_info` is.
+%% Rewritten 2026-08-14: this generated `;` and the language has none, so the
+%% benchmark had been failing at the lexer since the terminator was dropped. The
+%% numbers in the map's skeleton entry predate that and were not re-measurable
+%% until now.
 atom_ladder(N) ->
     Members = [io_lib:format(":m~p", [I]) || I <- lists:seq(1, N)],
-    Clauses = [io_lib:format("Handle(:m~p) -> :ok;\n", [I]) || I <- lists:seq(1, N)],
+    Clauses = [io_lib:format("Handle(:m~p) -> :ok\n", [I]) || I <- lists:seq(1, N)],
     lists:flatten(
-      ["module Bench;\n",
-       "type Msg = ", string:join(Members, " | "), ";\n",
-       "atom Handle(Msg m);\n",
+      ["module Bench\n",
+       "type Msg = ", string:join(Members, " | "), "\n",
+       "atom Handle(Msg m)\n",
+       Clauses]).
+
+%% The same dispatch shape over RECORDS rather than atoms. F3 is the event the
+%% skeleton's benchmark note was waiting for — *"worth re-measuring when the
+%% algebra gains records and binaries, since both widen the product
+%% decomposition"* — and this is the widening: every subtraction is now a closed
+%% member minus an open pattern, decomposed over the field the pattern names,
+%% where the atom ladder subtracts a singleton from a finite set.
+record_ladder(N) ->
+    Records = [io_lib:format("record R~p { Id: int, Total: int }\n", [I])
+               || I <- lists:seq(1, N)],
+    Members = [io_lib:format("R~p", [I]) || I <- lists:seq(1, N)],
+    Clauses = [io_lib:format("Handle({ Kind: :'Bench.R~p' }) -> :ok\n", [I])
+               || I <- lists:seq(1, N)],
+    lists:flatten(
+      ["module Bench\n", Records,
+       "type Doc = ", string:join(Members, " | "), "\n",
+       "atom Handle(Doc d)\n",
        Clauses]).
 
 check(Src) ->
