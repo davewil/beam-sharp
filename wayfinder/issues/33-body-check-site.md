@@ -293,9 +293,23 @@ F(0) -> :zero
 F(n) -> :other      // n : int \ 0, because clause 1 already took 0
 ```
 
-That is 08's *narrowing is always written* falling out with nothing written: **the earlier clause
-head is the narrowing**. It also means the body check is **not a second pass over the AST** — it is
-`walk/5` keeping a value it currently computes and discards.
+Measured over the shipped algebra rather than reasoned about, because **the two clauses take their
+narrowing from different halves of the intersection** and a reader implementing this from one
+sentence could reach for the wrong half:
+
+```
+clause 1 domain:            (0)                        <- from the PATTERN, via Possible
+residual after clause 1:    (int <= -1 | int >= 1)
+clause 2 domain:            (int <= -1 | int >= 1)     <- from the RESIDUAL
+clause 2 without residual:  (int)                      <- control
+domain from Certain = none: none                       <- the trap above, confirmed
+```
+
+The control is the load-bearing row: intersecting the *declared* type with the pattern gives clause
+2 a bare `int`, so the narrowing in a later body is genuinely the residual's contribution and not
+the pattern's. That is 08's *narrowing is always written* falling out with nothing written — **the
+earlier clause head is the narrowing** — and it means the body check is **not a second pass over
+the AST**, but `walk/5` keeping a value it currently computes and discards.
 
 ### 6. Foreign calls are not a special case — ticket 32 dissolved it, confirmed
 

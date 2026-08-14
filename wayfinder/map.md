@@ -890,7 +890,10 @@ spec exists.
   type a running body's variable as a value that cannot exist. `walk/5` already computes that
   domain (running residual ∩ `Possible`) and discards it, so **the body check is not a second pass
   and an earlier clause narrows a later body for free** — 08's *narrowing is always written* falling
-  out with nothing written. **Ticket 32 dissolved sub-question 2 exactly as predicted** (a foreign
+  out with nothing written. **Measured, because the two halves of that intersection do the work in
+  different clauses**: over `F(0) -> …` / `F(n) -> …`, clause 1's body gets `(0)` from the *pattern*
+  and clause 2's gets `(int <= -1 | int >= 1)` from the *residual*, where intersecting the declared
+  type with the pattern alone leaves clause 2 a bare `(int)`. **Ticket 32 dissolved sub-question 2 exactly as predicted** (a foreign
   callee has a declared signature; how far it is trusted was decided by 18 §2), leaving one
   mechanical delta: `collect/1` excludes foreign declarations by design, and a callee environment
   needs both kinds. **Sub-question 4 answers *nothing changes in the emitted code*** — 18's guards
