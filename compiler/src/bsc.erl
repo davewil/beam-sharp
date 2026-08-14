@@ -266,8 +266,8 @@ report_fatal(Path, Reason) ->
 heads(Fn, Residual) ->
     #{tuples := Products} = Residual,
     case Products of
-        [] -> io_lib:format("    ~s~n", [bs_types:to_string(Residual)]);
+        [] -> io_lib:format("    ~s~n", [bs_types:to_pattern(Residual)]);
         _  -> [io_lib:format("    ~s(~s) -> ...~n",
-                             [Fn, string:join([bs_types:to_string(C) || C <- P], ", ")])
+                             [Fn, string:join([bs_types:to_pattern(C) || C <- P], ", ")])
                || P <- Products]
     end.

@@ -26,8 +26,9 @@
 
 -export([none/0, term/0, atom_lit/1, atom_top/0, int/0, range/2, tuple/1]).
 -export([nil/0, cons/1, list/1]).
+-export([map_closed/1, map_open/1]).
 -export([union/2, union/1, intersect/2, subtract/2]).
--export([is_none/1, is_subtype/2, to_string/1]).
+-export([is_none/1, is_subtype/2, to_string/1, to_pattern/1]).
 
 -export_type([ty/0]).
 
@@ -53,21 +54,39 @@
 -type elem() :: none | any | ty().
 -type list_part() :: {boolean(), elem()}.
 
+%% A map part — ticket 26's records, and the anonymous map types they are equal
+%% to. A member is a field set plus whether that set is the WHOLE domain:
+%%
+%%   `closed` — exactly these fields. A declared record, or a `type` written out.
+%%   `open`   — at least these fields. What a property pattern matches, since
+%%              `{ Kind: :'Shop.Order' }` says nothing about the other fields.
+%%
+%% The two are not decoration. A declared type is closed and a pattern is open,
+%% so every subtraction the checker performs is closed-minus-open, and keeping
+%% them apart is what lets one clause cover a record by naming only its tag.
+%%
+%% Like the tuple part, members are kept separate and only absorbed — never
+%% merged into a wider one. The field product decomposes exactly the way the
+%% tuple product does, keyed by field name instead of by position.
+-type map_member() :: {closed | open, #{atom() => ty()}}.
+-type map_part() :: top | [map_member()].
+
 -type ty() :: #{atoms := atom_part(), ints := int_part(), tuples := tuple_part(),
-                lists := list_part()}.
+                lists := list_part(), maps := map_part()}.
 
 %%% ---------------------------------------------------------------------------
 %%% Constructors
 %%% ---------------------------------------------------------------------------
 
-none() -> #{atoms => {finite, []}, ints => [], tuples => [], lists => {false, none}}.
+none() -> #{atoms => {finite, []}, ints => [], tuples => [], lists => {false, none},
+            maps => []}.
 
 %% `term` in the surface language. The tuple part is deliberately absent: this
 %% slice has no arity-polymorphic tuple top, and ticket 11 says a foreign value
 %% must be matched rather than assumed, so nothing here needs one yet.
 term() ->
     #{atoms => {cofinite, []}, ints => [{neg_inf, pos_inf}], tuples => top,
-      lists => {true, any}}.
+      lists => {true, any}, maps => top}.
 
 atom_lit(A) when is_atom(A) -> (none())#{atoms => {finite, [A]}}.
 
@@ -101,15 +120,34 @@ tuple(Components) when is_list(Components) ->
         false -> (none())#{tuples => [Components]}
     end.
 
+%% Exactly these fields — a declared record, or the `type` a user writes that is
+%% equal to it. Ticket 26 §1: the minting is not nominality, so a hand-written
+%% type carrying the same tag IS the same type, and that falls out here because
+%% nothing distinguishes them once both are a closed field set.
+map_closed(Fields) -> map_member(closed, Fields).
+
+%% At least these fields — what a property pattern matches.
+map_open(Fields) -> map_member(open, Fields).
+
+map_member(Kind, Fields) when is_map(Fields) ->
+    case lists:any(fun is_none/1, maps:values(Fields)) of
+        true  -> none();          % a field with an empty type admits no map
+        false -> (none())#{maps => [{Kind, Fields}]}
+    end.
+
 %%% ---------------------------------------------------------------------------
 %%% Emptiness
 %%% ---------------------------------------------------------------------------
 
-is_none(#{atoms := {finite, []}, ints := [], tuples := Ts, lists := {false, none}})
-  when Ts =/= top ->
-    lists:all(fun(Cs) -> lists:any(fun is_none/1, Cs) end, Ts);
+is_none(#{atoms := {finite, []}, ints := [], tuples := Ts, lists := {false, none},
+          maps := Ms})
+  when Ts =/= top, Ms =/= top ->
+    lists:all(fun(Cs) -> lists:any(fun is_none/1, Cs) end, Ts)
+        andalso lists:all(fun m_empty/1, Ms);
 is_none(_) ->
     false.
+
+m_empty({_Kind, Fields}) -> lists:any(fun is_none/1, maps:values(Fields)).
 
 is_subtype(A, B) -> is_none(subtract(A, B)).
 
@@ -129,7 +167,8 @@ union(A, B) ->
       %% products are BOTH kept — collapsing them is exactly the widening
       %% ticket 20 measured and refused.
       tuples => t_union(maps:get(tuples, A), maps:get(tuples, B)),
-      lists  => l_union(maps:get(lists, A), maps:get(lists, B))}.
+      lists  => l_union(maps:get(lists, A), maps:get(lists, B)),
+      maps   => m_union(maps:get(maps, A), maps:get(maps, B))}.
 
 %%% ---------------------------------------------------------------------------
 %%% Intersection
@@ -139,7 +178,8 @@ intersect(A, B) ->
     #{atoms  => a_intersect(maps:get(atoms, A), maps:get(atoms, B)),
       ints   => i_intersect(maps:get(ints, A), maps:get(ints, B)),
       tuples => t_intersect(maps:get(tuples, A), maps:get(tuples, B)),
-      lists  => l_intersect(maps:get(lists, A), maps:get(lists, B))}.
+      lists  => l_intersect(maps:get(lists, A), maps:get(lists, B)),
+      maps   => m_intersect(maps:get(maps, A), maps:get(maps, B))}.
 
 %%% ---------------------------------------------------------------------------
 %%% Subtraction — this is what computes ticket 04's residual
@@ -149,7 +189,8 @@ subtract(A, B) ->
     #{atoms  => a_subtract(maps:get(atoms, A), maps:get(atoms, B)),
       ints   => i_subtract(maps:get(ints, A), maps:get(ints, B)),
       tuples => t_subtract(maps:get(tuples, A), maps:get(tuples, B)),
-      lists  => l_subtract(maps:get(lists, A), maps:get(lists, B))}.
+      lists  => l_subtract(maps:get(lists, A), maps:get(lists, B)),
+      maps   => m_subtract(maps:get(maps, A), maps:get(maps, B))}.
 
 %%% ---------------------------------------------------------------------------
 %%% Atom part
@@ -312,6 +353,148 @@ product_subset(P, Q) ->
         lists:all(fun({X, Y}) -> is_none(subtract(X, Y)) end, lists:zip(P, Q)).
 
 %%% ---------------------------------------------------------------------------
+%%% Map part — ticket 26's records.
+%%%
+%%% The nearest prior art is the tuple part above, and this is deliberately its
+%%% mirror: members kept separate, absorption but never merging, and a product
+%%% decomposition for subtraction. The only difference is that the product is
+%%% keyed by field NAME rather than by position, which is exactly what §1's map
+%%% erasure bought — under the tuple erasure ticket 26 rejected, a field sits at
+%%% a different offset per member and none of this would compose.
+%%%
+%%% One asymmetry with tuples is real and is why `closed`/`open` exist. Two
+%%% tuples of different arity are disjoint, full stop. Two maps of different
+%%% field sets are disjoint only if BOTH fix their domain — and a pattern never
+%%% does, since `{ Kind: :'Shop.Order' }` constrains one field and says nothing
+%%% about the rest.
+%%% ---------------------------------------------------------------------------
+
+m_union(top, _) -> top;
+m_union(_, top) -> top;
+m_union(As, Bs) -> m_absorb(As ++ Bs).
+
+m_intersect(top, Bs) -> Bs;
+m_intersect(As, top) -> As;
+m_intersect(As, Bs) ->
+    m_absorb([M || A <- As, B <- Bs, (M = m_meet(A, B)) =/= empty]).
+
+%% Same reasoning as `t_subtract`: the algebra cannot name "every map except
+%% these", so `top` minus anything stays `top` — a residual kept too BIG, which
+%% reports a false inexhaustive rather than a false exhaustive. `anything \ top`
+%% is empty, which is what makes a `_` catch-all remove every map.
+m_subtract(_, top) -> [];
+m_subtract(top, _) -> top;
+m_subtract(As, Bs) -> lists:foldl(fun(B, Acc) -> m_minus_all(Acc, B) end, As, Bs).
+
+m_minus_all(As, B) -> m_absorb(lists:append([m_minus(A, B) || A <- As])).
+
+%%% --- meet -------------------------------------------------------------------
+
+m_meet({closed, FA}, {closed, FB}) ->
+    %% Both fix the domain, so they must fix the same one.
+    case same_keys(FA, FB) of
+        true  -> m_check({closed, m_zip_intersect(FA, FB)});
+        false -> empty
+    end;
+m_meet({closed, FA}, {open, FB}) ->
+    %% The closed side fixes the domain; the open side may only constrain fields
+    %% that domain has.
+    case keys_subset(FB, FA) of
+        true  -> m_check({closed, m_zip_intersect(FA, FB)});
+        false -> empty
+    end;
+m_meet(A = {open, _}, B = {closed, _}) ->
+    m_meet(B, A);
+m_meet({open, FA}, {open, FB}) ->
+    %% Neither fixes the domain, so the result constrains the union of the two
+    %% field sets and stays open.
+    m_check({open, m_zip_intersect(FA, FB)}).
+
+%% Intersect on shared keys; keep the unshared ones as they are.
+m_zip_intersect(FA, FB) ->
+    maps:fold(fun(K, VB, Acc) ->
+                      case maps:find(K, Acc) of
+                          {ok, VA} -> Acc#{K => intersect(VA, VB)};
+                          error    -> Acc#{K => VB}
+                      end
+              end, FA, FB).
+
+m_check(M) -> case m_empty(M) of true -> empty; false -> M end.
+
+%%% --- subtraction ------------------------------------------------------------
+
+%% (F1 × … × Fn) \ (G1 × … × Gn) over the subtrahend's keys, exactly as
+%% `product_minus` does over a tuple's positions:
+%%
+%%   ⋃ᵢ  F where k₁…kᵢ₋₁ are intersected, kᵢ is subtracted, the rest untouched
+%%
+%% Componentwise subtraction would be plain wrong here for the same reason it is
+%% wrong for tuples.
+m_minus({closed, FA}, {closed, FB}) ->
+    case same_keys(FA, FB) of
+        true  -> m_decompose(closed, FA, FB);
+        false -> [{closed, FA}]           % disjoint domains
+    end;
+m_minus({closed, FA}, {open, FB}) ->
+    case keys_subset(FB, FA) of
+        true  -> m_decompose(closed, FA, FB);
+        false -> [{closed, FA}]           % the pattern names a field this record has not got
+    end;
+m_minus({open, FA}, {open, FB}) ->
+    case keys_subset(FB, FA) of
+        true  -> m_decompose(open, FA, FB);
+        false -> [{open, FA}]
+    end;
+m_minus({open, FA}, {closed, _FB}) ->
+    %% An open member contains maps with fields the closed one has not got, and
+    %% "these fields, plus at least one more" is not something this algebra can
+    %% name. Keep the minuend whole: too big rather than too small, the same
+    %% honesty the list part applies to its cons element.
+    [{open, FA}].
+
+m_decompose(Kind, FA, FB) ->
+    Ks = lists:sort(maps:keys(FB)),
+    Members =
+        [begin
+             {Before, [K | _]} = lists:splitwith(fun(X) -> X =/= K end, Ks),
+             Narrowed = lists:foldl(
+                          fun(J, Acc) ->
+                                  Acc#{J => intersect(maps:get(J, FA), maps:get(J, FB))}
+                          end, FA, Before),
+             {Kind, Narrowed#{K => subtract(maps:get(K, FA), maps:get(K, FB))}}
+         end || K <- Ks],
+    [M || M <- Members, not m_empty(M)].
+
+%%% --- absorption -------------------------------------------------------------
+
+m_absorb(Ms0) ->
+    %% `usort` first: absorption compares DISTINCT members, so two members that
+    %% are the same term survive each other and a union of one record with
+    %% itself would report two. Deduplication is not widening — the members are
+    %% equal, so nothing is merged that was not already identical.
+    Ms = lists:usort([M || M <- Ms0, not m_empty(M)]),
+    [M || M <- Ms, not lists:any(fun(N) -> N =/= M andalso m_subset(M, N) end, Ms)].
+
+%% Is P contained in Q?
+m_subset({_, FP}, {open, FQ}) ->
+    %% Q constrains only its own keys, so P must have them and be narrower there.
+    keys_subset(FQ, FP) andalso
+        lists:all(fun(K) -> is_none(subtract(maps:get(K, FP), maps:get(K, FQ))) end,
+                  maps:keys(FQ));
+m_subset({closed, FP}, {closed, FQ}) ->
+    same_keys(FP, FQ) andalso
+        lists:all(fun(K) -> is_none(subtract(maps:get(K, FP), maps:get(K, FQ))) end,
+                  maps:keys(FQ));
+m_subset({open, _}, {closed, _}) ->
+    %% An open member admits extra fields; a closed one does not.
+    false.
+
+same_keys(A, B) -> lists:sort(maps:keys(A)) =:= lists:sort(maps:keys(B)).
+
+keys_subset(Sub, Sup) ->
+    lists:all(fun(K) -> maps:is_key(K, Sup) end, maps:keys(Sub)).
+
+%%% ---------------------------------------------------------------------------
 %%% List part
 %%%
 %%% The nil flag is an ordinary boolean lattice. The cons part carries an element
@@ -375,16 +558,88 @@ to_string(T) ->
         false -> string:join(parts(T), " | ")
     end.
 
-parts(#{atoms := As, ints := Is, tuples := Ts, lists := Ls}) ->
-    a_str(As) ++ [i_str(R) || R <- Is] ++ ts_str(Ts) ++ l_str(Ls).
+parts(#{atoms := As, ints := Is, tuples := Ts, lists := Ls, maps := Ms}) ->
+    a_str(As) ++ [i_str(R) || R <- Is] ++ ts_str(Ts) ++ l_str(Ls) ++ ms_str(Ms).
+
+ms_str(top) -> ["map"];
+ms_str(Members) -> [m_str(M) || M <- Members].
+
+%% Printed the way the surface spells it, because ticket 04 found the residual
+%% IS the missing case and ticket 23 makes it the thing an agent is handed to
+%% write. `Kind` is printed first when present — it is the discriminator, so it
+%% is the field a reader needs to see to know which record is missing a clause.
+m_str({Kind, Fields}) ->
+    Ks = case maps:is_key('Kind', Fields) of
+             true  -> ['Kind' | lists:sort(maps:keys(maps:remove('Kind', Fields)))];
+             false -> lists:sort(maps:keys(Fields))
+         end,
+    Printed = [atom_to_list(K) ++ ": " ++ to_string(maps:get(K, Fields)) || K <- Ks],
+    Tail = case Kind of open -> Printed ++ [".."]; closed -> Printed end,
+    "{ " ++ string:join(Tail, ", ") ++ " }".
 
 ts_str(top) -> ["tuple"];
 ts_str(Ps)  -> [t_str(P) || P <- Ps].
 
+%%% What you WRITE to match a type, as against what the type IS. The two coincide
+%%% everywhere the surface's type syntax and pattern syntax coincide — which is
+%%% most of this slice — and come apart at records.
+%%%
+%%% A record's whole field set is a correct description of the residual and a bad
+%%% clause head: pasted in, `{ Kind: :'Shop.Invoice', Id: int, Total: int }` binds
+%%% variables named `int` twice, because a lowercase name in pattern position is a
+%%% variable. The head that covers the case is its **discriminator** — 26 §1 put
+%%% the tag in the term precisely so one field decides it — so that is what is
+%%% synthesised. Ticket 23: the compiler synthesises the head and never the body,
+%%% and a head derived from the residual cannot be wrong.
+to_pattern(T) ->
+    case is_none(T) of
+        true  -> "none";
+        false -> string:join(pat_parts(T), " | ")
+    end.
+
+pat_parts(#{atoms := As, ints := Is, tuples := Ts, lists := Ls, maps := Ms}) ->
+    a_str(As) ++ [i_str(R) || R <- Is] ++ ts_pat(Ts) ++ l_str(Ls) ++ ms_pat(Ms).
+
+ts_pat(top) -> ["tuple"];
+ts_pat(Ps)  -> ["(" ++ string:join([to_pattern(C) || C <- P], ", ") ++ ")" || P <- Ps].
+
+ms_pat(top)     -> ["map"];
+ms_pat(Members) -> [m_pat(M) || M <- Members].
+
+m_pat({_Kind, Fields}) ->
+    case maps:find('Kind', Fields) of
+        {ok, #{atoms := {finite, [Tag]}, ints := [], tuples := [],
+               lists := {false, none}, maps := []}} ->
+            "{ Kind: " ++ atom_str(Tag) ++ " }";
+        _ ->
+            %% No discriminator to name, so every field is bound and ignored.
+            %% Still pasteable, which is the property that matters here.
+            Ks = lists:sort(maps:keys(Fields)),
+            "{ " ++ string:join([atom_to_list(K) ++ ": _" || K <- Ks], ", ") ++ " }"
+    end.
+
 a_str({finite, []})   -> [];
-a_str({finite, L})    -> [":" ++ atom_to_list(A) || A <- L];
+a_str({finite, L})    -> [atom_str(A) || A <- L];
 a_str({cofinite, []}) -> ["atom"];
-a_str({cofinite, L})  -> ["atom \\ (" ++ string:join([":" ++ atom_to_list(A) || A <- L], " | ") ++ ")"].
+a_str({cofinite, L})  -> ["atom \\ (" ++ string:join([atom_str(A) || A <- L], " | ") ++ ")"].
+
+%% Quoted where the bare sigil cannot spell it. Ticket 04 makes the residual the
+%% missing case and ticket 23 makes it the clause an agent is handed to write —
+%% so it has to be something that lexes. A record's minted tag is the case in
+%% point: `:Shop.Invoice` is not a token, `:'Shop.Invoice'` is.
+atom_str(A) ->
+    case atom_to_list(A) of
+        S = [C | Rest] when C >= $a, C =< $z ->
+            case lists:all(fun bare_char/1, Rest) of
+                true  -> ":" ++ S;
+                false -> ":'" ++ S ++ "'"
+            end;
+        S -> ":'" ++ S ++ "'"
+    end.
+
+bare_char(C) ->
+    (C >= $a andalso C =< $z) orelse (C >= $A andalso C =< $Z)
+        orelse (C >= $0 andalso C =< $9) orelse C =:= $_.
 
 i_str({neg_inf, pos_inf}) -> "int";
 i_str({Lo, Lo})           -> integer_to_list(Lo);

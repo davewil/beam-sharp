@@ -21,6 +21,10 @@
 -module(bs_check).
 
 -export([check/1]).
+%% Exported so the emitter resolves surface types through THIS function rather
+%% than its own copy. The copy predates records and adding a second minting site
+%% to it would have put ticket 26 §1's qualified-name rule in two places.
+-export([resolve/2, qualified/2, record_fields/1]).
 
 -record(fn, {name, line, ret, params, clauses = []}).
 
@@ -71,12 +75,43 @@ collect(Decls) ->
 %%% ---------------------------------------------------------------------------
 
 type_env(Decls) ->
+    Mod = module_name(Decls),
     Aliases = [{N, T} || {type_alias, _, N, T} <- Decls],
-    Env = maps:from_list(Aliases),
+    Records = [{N, record_surface(Mod, L, N, Fs)}
+               || {record_decl, L, N, Fs} <- Decls],
+    Env = maps:from_list(Aliases ++ Records),
     %% Ticket 09 made recursion equirecursive and contractive; this slice has no
     %% recursive aliases yet, so a single non-recursive resolution pass is enough.
     maps:map(fun(_, T) -> resolve(T, Env) end, Env).
 
+%% Ticket 26 §1: a record IS a map type carrying a minted tag, so there is no
+%% record node in the algebra — the declaration desugars to the anonymous map
+%% type a user could have written, which is the whole of F3.2.
+record_surface(Mod, Line, Name, Fields) ->
+    %% The mint would otherwise silently overwrite a field the user declared.
+    %% Erroring at the DECLARATION rather than at a use is ticket 15's collapse
+    %% rule applied to the same kind of hazard.
+    case [F || F = {field, 'Kind', _} <- Fields] of
+        [] -> ok;
+        _  -> erlang:error({kind_field_is_minted, Line, Name})
+    end,
+    {t_map, [{field, 'Kind', {t_atom, qualified(Mod, Name)}} | Fields]}.
+
+%% THE SINGLE MINTING POINT. Ticket 26 §1 makes it a hard requirement that the
+%% tag mints from the QUALIFIED name — with the short name, `Shop.Orders.Order`
+%% and `Billing.Invoices.Order` both mint `:order` and two bounded contexts
+%% silently unify. What a qualified name lowers to belongs to the map's module
+%% fog, so it is confined here: one function, changed in one place.
+qualified(Mod, Name) ->
+    list_to_atom(atom_to_list(Mod) ++ "." ++ atom_to_list(Name)).
+
+%% The declared field order, for the emitter. `Kind` is dropped: it is minted,
+%% never assigned.
+record_fields({t_map, Fields}) -> [N || {field, N, _} <- Fields, N =/= 'Kind'].
+
+%% An already-resolved type passes through, so the emitter can hand this either
+%% a surface type or one the environment has already reduced.
+resolve(T, _Env) when is_map(T)  -> T;
 resolve({t_atom, A}, _Env)    -> bs_types:atom_lit(A);
 resolve({t_builtin, B}, _Env) -> builtin(B);
 resolve({t_ref, N}, Env) ->
@@ -86,6 +121,11 @@ resolve({t_ref, N}, Env) ->
         Surface -> resolve(Surface, Env)
     end;
 resolve({t_tuple, Cs}, Env)   -> bs_types:tuple([resolve(C, Env) || C <- Cs]);
+%% A DECLARED map type is closed — it fixes its domain. Ticket 26 §4's "no
+%% absent fields" is what makes that sound, and §5 then closes row polymorphism
+%% rather than deferring it: a wider record is simply a different type.
+resolve({t_map, Fields}, Env) ->
+    bs_types:map_closed(maps:from_list([{N, resolve(T, Env)} || {field, N, T} <- Fields]));
 resolve({t_generic, list, T}, Env) -> bs_types:list(resolve(T, Env));
 resolve({t_generic, N, _}, _Env)   -> erlang:error({unknown_generic, N});
 resolve({t_union, Ms}, Env)   -> bs_types:union([resolve(M, Env) || M <- Ms]).
@@ -187,6 +227,20 @@ pattern_type({p_tuple, _, Ps}, Path, Env) ->
     {bs_types:tuple([T || {T, _, _} <- Triples]),
      lists:foldl(fun maps:merge/2, #{}, [B || {_, B, _} <- Triples]),
      lists:all(fun({_, _, E}) -> E end, Triples)};
+%% A property pattern is OPEN: it constrains the fields it names and nothing
+%% else. That is what lets `Which({ Kind: :'Shop.Order' })` cover a whole record
+%% in one clause, and it is exact — the pattern matches precisely the maps whose
+%% named fields lie in those types, so it credits `Certain` in full.
+%%
+%% Field paths are real rather than `no_path`. Handing these to the guard
+%% machinery as unrefinable would be worse than imprecise: `refine_all/3` turns
+%% an unknown path into `none_marker`, so a clause with both a record pattern
+%% and a guard would credit NOTHING and the function would report inexhaustive.
+pattern_type({p_map, _, Fields}, Path, Env) ->
+    Triples = [{K, pattern_type(P, Path ++ [{field, K}], Env)} || {K, P} <- Fields],
+    {bs_types:map_open(maps:from_list([{K, T} || {K, {T, _, _}} <- Triples])),
+     lists:foldl(fun maps:merge/2, #{}, [B || {_, {_, B, _}} <- Triples]),
+     lists:all(fun({_, {_, _, E}}) -> E end, Triples)};
 pattern_type({p_nil, _}, _Path, _Env) -> {bs_types:nil(), #{}, true};
 %% Ticket 08 settled prefix-plus-rest only, so a list pattern without a rest is
 %% rejected rather than approximated.
@@ -298,6 +352,25 @@ refine_all(Ty, Bindings, Constraints) ->
          (unknown, Acc) -> Acc
       end, Ty, Constraints).
 
+%% Descend into a record field. The map part of a pattern's type is always a
+%% list of members — `top` only ever arises from `term`, which no pattern
+%% produces at this position — so narrowing it away is unreachable rather than
+%% conservative, and it is written that way so a future `top` under-credits
+%% instead of silently over-crediting.
+refine_at(Ty = #{maps := top}, [{field, _} | _], _C) ->
+    Ty#{maps := []};
+refine_at(Ty = #{maps := Members}, [{field, K} | Rest], C) ->
+    Refined =
+        [begin
+             Comp = maps:get(K, Fields),
+             New = case Rest of
+                       [] -> apply_constraint(Comp, C);
+                       _  -> refine_at(Comp, Rest, C)
+                   end,
+             {Kind, Fields#{K => New}}
+         end || {Kind, Fields} <- Members, maps:is_key(K, Fields)],
+    Ty#{maps := [M || M = {_, Fs} <- Refined,
+                      not lists:any(fun bs_types:is_none/1, maps:values(Fs))]};
 %% Replace the component at a path with its intersection (or difference).
 refine_at(Ty, [I | Rest], C) ->
     #{tuples := Products} = Ty,

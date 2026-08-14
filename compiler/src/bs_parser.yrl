@@ -8,19 +8,19 @@
 Nonterminals
   program decls decl
   module_decl type_decl signature clause foreign_decl foreign_sigs foreign_sig
-  behaviour_decl
+  behaviour_decl record_decl field_decls field_decl
   type_expr type_union_members type_prim type_list
   params param_list param
-  patterns pattern_list pattern plist_items
+  patterns pattern_list pattern plist_items pat_fields pat_field
   guard guard_expr
-  expr expr_list elist_items
+  expr expr_list elist_items assign_fields assign_field
   .
 
 Terminals
-  'module' 'type' 'when' 'using' 'behaviour'
+  'module' 'type' 'when' 'using' 'behaviour' 'record' 'with'
   uident lident atom_lit integer '_'
   '->' '&&' '||' '==' '!=' '<=' '>=' '<' '>' '+' '-' '*'
-  '=' '|' ',' '(' ')' '[' ']' '{' '}' '..' '.'
+  '=' '|' ',' '(' ')' '[' ']' '{' '}' '..' '.' ':' '?'
   .
 
 Rootsymbol program.
@@ -33,6 +33,9 @@ Left  200 '&&'.
 Nonassoc 300 '==' '!=' '<' '>' '<=' '>='.
 Left  400 '+' '-'.
 Left  500 '*'.
+%% `with` binds tighter than any operator: `o with { Total = 1 } == x` reads as
+%% a comparison of the updated record, which is the only sensible parse.
+Nonassoc 600 'with'.
 
 program -> decls : '$1'.
 
@@ -45,6 +48,39 @@ decl -> signature   : '$1'.
 decl -> clause      : '$1'.
 decl -> foreign_decl : '$1'.
 decl -> behaviour_decl : '$1'.
+decl -> record_decl : '$1'.
+
+%% --- records ----------------------------------------------------------------
+%% Ticket 26 §1. A record erases to a MAP carrying a tag minted from its
+%% qualified type name; everything stays structural, so the tag is an ordinary
+%% field and a hand-written `type` with the same tag is the same type.
+%%
+%% The spelling is §1's own provisional `record`; whether it stays a keyword or
+%% becomes a modifier on `type` is ticket 22's, and nothing below depends on it.
+record_decl -> 'record' uident '{' field_decls '}' :
+    {record_decl, line('$1'), value('$2'), '$4'}.
+
+field_decls -> field_decl                 : ['$1'].
+field_decls -> field_decl ',' field_decls : ['$1' | '$3'].
+
+field_decl -> uident ':' type_expr : {field, value('$1'), '$3'}.
+
+%% Ticket 26 §4: there are no absent fields. The kept form is
+%% `Notes: option<int>`, which needs the angle brackets F4 has not landed — so
+%% the diagnostic says what the language does NOT have rather than naming a
+%% spelling that cannot yet parse.
+field_decl -> uident '?' ':' type_expr :
+    return_error(line('$2'),
+                 "no optional fields: a record's field set is exact, so '" ++
+                 atom_to_list(value('$1')) ++ "?' is not a thing it can have").
+
+%% `Id:int` lexes `:int` as an atom, because longest-match prefers the sigil.
+%% Catching the shape here turns what would be an opaque syntax error into the
+%% one-character fix.
+field_decl -> uident atom_lit :
+    return_error(line('$2'),
+                 "write 'Id: int' with a space -- ':" ++
+                 atom_to_list(value('$2')) ++ "' lexes as an atom literal").
 
 %% --- behaviours -------------------------------------------------------------
 %% `behaviour GenServer` — the platform's own word, and literally what is
@@ -88,6 +124,12 @@ type_prim -> atom_lit          : {t_atom, value('$1')}.
 type_prim -> lident            : {t_builtin, value('$1')}.
 type_prim -> uident            : {t_ref, value('$1')}.
 type_prim -> '(' type_list ')' : {t_tuple, '$2'}.
+
+%% The anonymous map type. Ticket 09's naming rule means this is not a second
+%% construct beside `record` — it is what a record IS, and F3.2 turns that into
+%% a test: `type Spelled = { Kind: :'Shop.Order', Id: int }` must be the same
+%% type as the record whose tag mints to the same atom.
+type_prim -> '{' field_decls '}' : {t_map, '$2'}.
 
 %% `list<int>`. Ticket 28's disambiguation rule is about VALUE position, where a
 %% `<` could be a comparison; in type position nothing compares, so the bracket
@@ -139,6 +181,20 @@ pattern -> '(' pattern_list ')' :
 %% The rest marker lives INSIDE the items nonterminal rather than as a separate
 %% `pattern_list ',' '..' pattern` rule, because the latter needs two tokens of
 %% lookahead past the comma and yecc has one.
+%% The property pattern, which ticket 01 already had working in the parameter
+%% position. The tag is an ordinary field, so dispatching over a union of records
+%% needs no record-specific pattern form — `{ Kind: :'Shop.Order' }` is it.
+%%
+%% A record pattern is OPEN: it constrains the fields it names and says nothing
+%% about the rest. That is what lets one clause cover a whole record by naming
+%% only its tag, and it is why the algebra carries `closed`/`open` at all.
+pattern -> '{' pat_fields '}' : {p_map, line('$1'), '$2'}.
+
+pat_fields -> pat_field                : ['$1'].
+pat_fields -> pat_field ',' pat_fields : ['$1' | '$3'].
+
+pat_field -> uident ':' pattern : {value('$1'), '$3'}.
+
 pattern -> '[' ']'          : {p_nil, line('$1')}.
 pattern -> '[' plist_items ']' :
     begin {Items, Rest} = '$2', {p_list, line('$1'), Items, Rest} end.
@@ -175,6 +231,30 @@ expr -> '(' expr_list ')' :
         [Single] -> Single;
         Many     -> {e_tuple, line('$1'), Many}
     end.
+
+%% --- records in expression position -----------------------------------------
+%% Construction names the type. Ticket 26 §2's separator split: `=` assigns here,
+%% `:` matches in a pattern and declares in the type.
+expr -> uident '{' assign_fields '}' :
+    {e_record, line('$1'), value('$1'), '$3'}.
+
+assign_fields -> assign_field                   : ['$1'].
+assign_fields -> assign_field ',' assign_fields : ['$1' | '$3'].
+
+assign_field -> uident '=' expr : {value('$1'), '$3'}.
+
+%% Ticket 26 §2: width-preserving update. Not spread — §2 refused it, because a
+%% widened record would carry a minted tag while not being that record, and no
+%% signature could be written against it without the row variable ticket 27
+%% declined. `{ ...o, X = 1 }` has no production and is a syntax error.
+expr -> expr 'with' '{' assign_fields '}' :
+    {e_with, line('$2'), '$1', '$4'}.
+
+%% The dot PROJECTS and is never a call — ticket 17 narrowed it to exactly this.
+%% The disambiguation is lexical and happens before types exist: a lowercase
+%% receiver is a value, a PascalCase one is a module. So a record field `Total`
+%% and a function `Total` coexist, told apart by syntax rather than resolution.
+expr -> lident '.' uident : {e_proj, line('$2'), value('$1'), value('$3')}.
 
 expr -> '[' ']'          : {e_nil, line('$1')}.
 expr -> '[' elist_items ']' :
