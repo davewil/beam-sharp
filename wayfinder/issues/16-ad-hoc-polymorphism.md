@@ -409,6 +409,52 @@ mechanism.
 - **Walking skeleton fog** — **loses a precondition.** Ticket 27's bounded-type-variable cost
   measurement is retired by §5.
 
+## AMENDED 2026-08-14 — one of this ticket's two reasons for refusing protocols has been invalidated
+
+**David, stating the intent behind ticket 26**: *"Exactly records, that's why they were introduced
+alongside `type` — for protocol dispatch."*
+
+This ticket refused protocols on **two** grounds, and [ticket 26](26-data-modelling.md) removed one
+of them without either ticket noticing.
+
+| This ticket's reason | Status |
+|---|---|
+| Dispatch cannot key on a name that is not in the term ([09](09-union-representation.md) §5, cited here as making type classes *unresolvable*, not merely costly) | **Invalidated.** 26 §1 mints a record's discriminating tag from its qualified type name and puts it **in the term as data** — the same move this ticket credited Elixir's `__struct__` with, and 26 states beam-sharp resolves it *statically* where Elixir needs a consolidation pass. |
+| Open extension needs a whole-program consolidation pass, which fights [13](13-compilation-target-decision.md)'s aggregate granularity and hot loading | **Stands, untouched.** |
+
+**So the refusal narrows from "no protocols" to "no *open* protocols".** What this ticket called
+"bucket 2 with ceremony" — a capability over a set known at the definition, spelled as a union
+parameter with a clause each — is not a consolation prize for a missing feature. **With 26's tag in
+the term it *is* protocol dispatch**, checked exhaustive at the definition:
+
+```csharp
+module Shapes;
+
+record Circle { Radius: float }
+record Rect   { W: float, H: float }
+
+type Shape = Circle | Rect;
+
+float Area(Shape s);
+
+Area(Circle c) -> 3.14159 * c.Radius * c.Radius;
+Area(Rect r)   -> r.W * r.H;
+```
+
+That is a protocol in everything but the keyword, and it needs no dispatch construct because the
+language's headline feature already *is* the dispatch construct. This ticket's §1 three-bucket
+finding survives intact; what changes is that bucket 2 was written up as a workaround and is in fact
+the answer.
+
+**What remains genuinely refused is open extension** — a second aggregate adding `Triangle` without
+editing `Shapes`. That is ticket 13's constraint, not this one's, so **13 is the ticket that would
+have to give**, and this ticket should not be re-litigated for it.
+
+**Consequence for the record**: this ticket's headline — *"the language gets no ad-hoc polymorphism
+construct"* — is still true and now reads as a stronger result rather than a gap, because the
+capability arrives without one. And **26 was not a data-modelling decision that happened to help
+here; records were introduced for this**, which the map's entry for 26 does not say.
+
 ## Not decided here
 
 - The **spelling** of the universal-order escape function (§2) and of the JSON mapping's

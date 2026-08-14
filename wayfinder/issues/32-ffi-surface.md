@@ -1,7 +1,7 @@
 # 32 — The FFI surface: how a foreign function is declared and called
 
 Type: grilling
-Status: claimed (measured 2026-08-14; three forks open for David)
+Status: resolved 2026-08-14
 
 Raised 2026-08-13 from the map's **Bootstrapping** fog patch, axis (b). Everything about what a
 foreign declaration may *mean* is decided; nothing about how one is *written* is.
@@ -133,7 +133,147 @@ nothing*.
 This ticket decides syntax and says so. **The number is recorded here; the choice is not taken
 here** — see fork 3 below.
 
-## Open forks — David's call
+## Answer — 2026-08-14
+
+**A foreign function is declared, and the declaration carries both spellings.** David, reading the
+three shapes written out as ordinary code in [`32e`](../prototypes/32e-ffi-on-the-page.md):
+*"A clearly reads better."*
+
+**That is the standing constraint reaching its own conclusion, not a preference.** The three shapes
+divide exactly along the constraint's line: declaring up front is **write cost**, priced near-free;
+narrowing a `term` at each use is **read cost**, which carries full weight. Elixir's zero-ceremony
+shape is shorter to write and noisier to read, and its cost is *regressive* — nearly free on values
+you were going to validate anyway, most annoying on `system_time`, `byte_size`, `length`, the
+trivial calls made most often. Recorded because the answer was available from the constraint before
+any of the four measurements were taken, and nobody derived it.
+
+### 1. The construct — and fork 1 dissolves rather than being decided
+
+**A foreign declaration is a signature with no clauses carrying an `[external: …]` attribute.** It
+shares its *grammar* with [ticket 23](23-what-the-language-owes-an-agent.md) §7's stub — signature,
+no clause list, one attribute — and shares nothing else, because the two markers mean opposite
+things:
+
+| | 23 §7's stub | a foreign declaration |
+|---|---|---|
+| Means | **not finished** — clauses are owed | **finished elsewhere** — no clauses will ever exist |
+| Residual | the entire declared parameter type, as a diagnostic | none; there is nothing to be inexhaustive about |
+| Release gate | **must** trip a text search for incompleteness | **must not** |
+
+So they must stay distinguishable *because* of the gate 23 §7 built the marker for. **Ticket 32
+therefore does not decide any part of deferred [ticket 22](22-how-opinionated.md)** — 22 still owns
+how the *stub* marker is spelled; 32 owns the *foreign* one, and answers it independently as a
+tier-1 borrow of C#'s `[DllImport]` on the attribute-target syntax `[module: GenServer]` already
+established.
+
+### 2. The declaration binds the module; functions are declared under it
+
+The flat form invents a beam-sharp name per foreign function and collides immediately, so you prefix
+(`EtsLookup`, `EtsInsert`) — Hungarian notation reinvented, and a name that lies about where the
+function lives. Binding the *module* removes both:
+
+```csharp
+// index.bs
+[external: erlang, "ets"]
+module Ets {
+    list<term> Lookup(atom, term);
+    true       Insert(atom, term);
+}
+
+[external: erlang, "erlang"]
+module Erlang {
+    int SystemTime(atom);
+    int ByteSize(binary);
+}
+```
+
+```csharp
+(table, id) -> Ets.Lookup(table, id) switch { ... };
+(s) when s.ExpiresAt > Erlang.SystemTime(:second) -> s;
+```
+
+**This is not per-module import** — §2's measured answer stands, and each function still carries its
+own signature and its own single arity. What is per module is the *name binding*, which is the part
+that has no arity to select. Ticket 26's casing rule reads `Ets.Lookup` as a call because both
+segments are uppercase; a lowercase foreign name would have lexed as a field projection, which is
+what closed the C# "identity by default" shape (32e §C).
+
+### 3. Naming — no mapping rule exists, and 32b's census answered a question nobody had
+
+Both spellings are written: the Erlang atom in quotes, the beam-sharp name in the declaration.
+**There is no snake_case ⇄ PascalCase rule anywhere in the language.** The census stands as the
+evidence for *why not* rather than as the input to one: a mapping reaches 1,920 of 1,924
+stdlib+kernel names but cannot spell `'PKCS-1'`, `'OTP-PKIX'` or `'ELDAPv3'` at all, and cannot
+spell a quarter of Elixir's function names (`fetch!`, `valid?`, `&&&`) under any rule. A quoted
+string has no failure case, and the 265 unspellable module names cost nothing.
+
+**This also settles the direction of the module-naming fog patch that runs inwards.** That patch
+owes an answer for what atom a beam-sharp module *emits*; the incoming direction needs no answer at
+all, because nothing is derived. One detail is genuinely owed and recorded below.
+
+### 4. Arity — exactly one per declaration, no defaults
+
+Measured (32b): 23.3% of stdlib+kernel name/arity pairs carry more than one arity and **45 of those
+756 have gaps** — `inet_udp:send/2,4` with no `/3`, `io_lib:write/1,2,3,5`. Ticket 08's generated
+arities produce a *contiguous* ladder, so a foreign arity family is not that and cannot be described
+as it. Two arities of one Erlang function are two declarations, which the module block makes cheap.
+
+### 5. Elixir is the same construct with a different module spelling
+
+```csharp
+[external: elixir, "Enum"]
+module Enum { list<term> Map(list<term>, fn(term) -> term); }
+```
+
+The `elixir` tag selects the `'Elixir.'` prefix; nothing else differs, and Elixir's module atoms are
+already dotted PascalCase so they arrive unchanged. **But its macros are unreachable** — measured,
+Elixir exports them as `MACRO-`-prefixed functions (`MACRO-__using__`, `MACRO-defcallback`) which
+are compile-time constructs of Elixir's own compiler and not callable from another language. So
+`use GenServer` cannot cross this boundary, ever. That is a fact for the bootstrapping patch, not a
+limit of this construct.
+
+### 6. The call site is not marked, and the module binding is what makes that safe
+
+Ticket 17 §1 already made every call qualified. Under §2's binding the qualifier is a name the
+reader can look up in `index.bs` and find an `[external: …]` on — so the seam is discoverable
+without being decorated. Note this is the one place Elixir's shape was better on read cost: `:ets.`
+marks every crossing for free with no rule at all. The trade is deliberate.
+
+### 7. The lowering — recorded, and the choice is taken
+
+Fork 3 asked whether the lowering is 32's to decide given the ticket's "decides syntax" line. **It
+is, because §2 just made the declaration a named thing with a signature** — that *is* a function,
+and the question stops being open. A foreign declaration lowers to **a real emitted function**
+carrying ticket 15's `try` wrapper and ticket 18's guard, called normally.
+
+Measured (32d): **~60 bytes once, flat at every call count, against ~65 bytes per call site if
+inlined** — 43× apart at 40 call sites. Gleam does the opposite, emitting a wrapper where the
+*module's API* needs one and never where the boundary does, erasing private externals entirely
+(32a); it can afford that only because it checks nothing. **Borrow Gleam's syntax, refuse its
+semantics (already decided by 18), refuse its lowering (decided here).**
+
+### 8. A correction this ticket owes the spec
+
+This ticket framed unchecked FFI as Gleam's flaw against a clean C# borrow. **Measured, `extern` is
+unchecked too** — two C# names over one foreign symbol with different declared return types both
+compiled and ran (32c). So ticket 18's guard is a deliberate divergence from **both** audiences, and
+a C# reader will expect `[external: …]` to be a promise nobody checks. The compensation belongs in
+the same sentence: because 18 checks, **beam-sharp emits the `-spec` Gleam emits and unlike Gleam's
+it is not a lie.**
+
+## Owed, small, and named
+
+- **A foreign module binding introduces an identifier that is not a beam-sharp module.** `Ets` is an
+  alias to an atom, and nothing yet says what happens when a real beam-sharp module wants that name.
+  A resolution rule is owed — it belongs with the module-and-namespace fog patch, which is where
+  the outgoing direction already lives.
+- **Whether a foreign module block may be declared outside `index.bs`.** Assumed yes; not decided.
+
+## Superseded forks — kept for the record, all three closed above
+
+*Fork 1 dissolved (§1: the markers mean opposites, so 22 is untouched). Fork 2 answered by the page
+rather than the census (§3: no mapping rule exists). Fork 3 answered yes (§7: §2 made the
+declaration a named thing with a signature, so the lowering stopped being open).*
 
 **Fork 1 — does the foreign marker share ticket 23 §7's clauseless-signature construct?**
 23 §7 made a signature with no clauses legal with an explicit marker and left the *marker's
