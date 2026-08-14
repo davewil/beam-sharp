@@ -27,6 +27,15 @@ int Amount(Doc d)
 
 Amount(d) -> d.Total
 
+// Construction supplies EXACTLY the declared field set — no more, and no fewer.
+// The tag is not written here and cannot be: it is minted, so `Kind` is the one
+// key a construction may not name. Drop `Total` and the compiler names the field
+// that is missing rather than building a map that wears an `Order` tag without
+// being one.
+Order New(int id)
+
+New(id) -> Order{ Id = id, Total = 0 }
+
 // `with` is width-preserving: `:=` updates a key that is already there and
 // raises on one that is not, so a record cannot grow through this construct.
 // The tag is not among the keys assigned, so it survives untouched.

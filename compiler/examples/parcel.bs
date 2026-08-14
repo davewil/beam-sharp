@@ -28,3 +28,12 @@ Grade(n)               -> :light
 int Weigh(Parcel p)
 Weigh({ Note: :nothing }) -> 0
 Weigh(p)                  -> p.Note
+
+// Your own parametric alias. Lowercase is the prelude's namespace, so a user's
+// is PascalCase like every other user type; `T` is bound at the declaration,
+// substituted at the use, and gone before the type algebra sees anything —
+// `Span<int>` simply IS `(int, int)`.
+type Span<T> = (T, T)
+
+int Width(Span<int> s)
+Width((lo, hi)) -> hi - lo

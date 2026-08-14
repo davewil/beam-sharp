@@ -21,3 +21,16 @@ Band Classify(int n)
 Classify(n) when n < 10             -> :low
 Classify(n) when n >= 10 && n < 100 -> :mid
 Classify(n) when n >= 100           -> :high
+
+// A destructuring bind, which is legal here for one reason: it CANNOT FAIL.
+// `range` is declared `(int, int)`, so subtracting what the pattern matches
+// leaves nothing, and the compiler proves that before emitting. Widen the
+// parameter to `(int, int) | atom` and this same line is an error carrying the
+// residual — irrefutability is checked, not assumed.
+//
+// `bool` is a type like any other: `:true | :false`, two atoms, no primitive.
+bool InBand(int n, (int, int) range)
+
+InBand(n, range) ->
+    (lo, hi) = range
+    n >= lo && n <= hi

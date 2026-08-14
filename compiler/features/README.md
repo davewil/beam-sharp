@@ -36,6 +36,21 @@ is verified through it: `bsc FILE.bs [FUNCTION] [ARG...]` compiles and runs a pr
 this compiler development by actually runnable code."* See the compiler README. A feature is done
 when you can see it run, not only when its scenarios pass.
 
+**And that is now enforced rather than intended.** `examples/` is the *must run* surface, and
+`every_shipped_surface_form_has_an_example_test` fails by **name** when a shipped surface form has
+nothing to look at. Added 2026-08-14 after David asked whether the examples showed every capability
+as it was built: they did not, and four forms had shipped with tests and no example — record
+**construction** sharpest among them, since `shop.bs` demonstrated every record operation except
+building one. The list of forms is hand-maintained on purpose; a capability is a sentence and a probe
+is a token, and only a person can say which token demonstrates which sentence. One row per feature is
+the price of a capability never shipping invisible.
+
+**It cannot cover everything, and the boundary is worth knowing.** Every example must compile, so no
+capability whose whole behaviour is a *rejection* can be demonstrated there — the call-site check,
+the projection error, exact field sets. Those live in the suite. Three surfaces, gated separately:
+`examples/` must run, `LANGUAGE.md`'s blocks must compile or must not, and the tests carry what only
+a rejection can show.
+
 ## Anatomy of a feature file
 
 ```
