@@ -62,10 +62,17 @@ Erlang back to the decision that required it is one grep.
 | [F1 — walking skeleton](F1-walking-skeleton.md) | **done** | the baseline; `examples/*.bs` |
 | [F2 — interval refinements and interval patterns](F2-interval-refinements.md) | **blocked** — two decisions owed | 25b, 25c wire dispatch |
 | [F3 — records](F3-records.md) | **done 2026-08-14** | the record half of all three; `examples/shop.bs` |
-| F4 — angle brackets and parametric types | not started — **build next** | all three exemplars |
-| F5 — `switch` | not started | all three exemplars |
-| F6 — binaries | not started | 25b, 25c |
-| F7 — pipe and valve | not started | 25b, 25c |
+| [F4 — local bindings](F4-local-bindings.md) | **done 2026-08-14** | nothing — it removes a papercut |
+| F5 — angle brackets and parametric types | not started — **build next** | all three exemplars |
+| F6 — `switch` | not started | all three exemplars |
+| F7 — binaries | not started | 25b, 25c |
+| F8 — pipe and valve | not started | 25b, 25c |
+
+**F4 was built out of order and the rule was not bent quietly.** No exemplar is blocked on
+bindings — the three that exist contain zero. It was built because David reached for one in the
+first minute of using the compiler, which is a different ground from the ordering rule and is
+stated as such in the file: *the first thing a fluent reader reaches for should not be absent by
+accident.* The placeholders below it shifted by one; none had a file.
 
 **F3 raised the map's first ticket from a feature**:
 [ticket 33](../../wayfinder/issues/33-body-check-site.md) — *is a function body typed at all, and

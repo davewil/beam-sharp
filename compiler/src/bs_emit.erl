@@ -105,7 +105,39 @@ clause({clause, Line, _Name, Patterns, Guard, Body}, Params, Ctx) ->
     {clause, Line,
      [pattern(P, Used) || P <- Patterns1],
      guard(Guard1, Ctx),
-     [expr(Body, Ctx)]}.
+     body_exprs(Body, Ctx)}.
+
+%%% ---------------------------------------------------------------------------
+%%% Bodies — ticket 34's bindings
+%%%
+%%% An Erlang clause body is already a SEQUENCE and `{match, …}` is an ordinary
+%%% form, so a binding needs no block, no `begin`, and nothing new in the
+%%% emission contract. Measured before building: `f(O) -> B = O + 1, B * 2` and
+%%% a destructuring `{A, B} = P` both compile and run through `compile:forms/2`.
+%%% Keeping the body a flat list rather than wrapping it in a `{block, …}` also
+%%% keeps the last expression in tail position, which ticket 13's tail-call test
+%%% asserts on.
+%%% ---------------------------------------------------------------------------
+
+body_exprs({e_block, _, Binds, Final}, Ctx) ->
+    binds(Binds, Final, Ctx) ++ [expr(Final, Ctx)];
+body_exprs(E, Ctx) ->
+    [expr(E, Ctx)].
+
+binds([], _Final, _Ctx) -> [];
+binds([{bind, L, Name, E} | Rest], Final, Ctx) ->
+    %% A bound name nothing later mentions lowers to `_`-prefixed, for the same
+    %% reason a parameter does: Erlang warns about it otherwise, and the warning
+    %% would be about a variable the author did write, unlike the parameter case.
+    %% Kept rather than rejected — binding a name to say what a value IS is a
+    %% legitimate reason to write one, and ticket 23 puts the reader first.
+    Later = lists:foldl(fun({bind, _, _, RE}, A) -> used_vars(RE, A) end,
+                        used_vars(Final, sets:new([{version, 2}])), Rest),
+    Var = case sets:is_element(Name, Later) of
+              true  -> var_name(Name);
+              false -> list_to_atom([$_ | atom_to_list(var_name(Name))])
+          end,
+    [{match, L, {var, L, Var}, expr(E, Ctx)} | binds(Rest, Final, Ctx)].
 
 %%% ---------------------------------------------------------------------------
 %%% The boundary guard — ticket 18 §1, reaching records
@@ -205,6 +237,9 @@ used_vars({e_call, _, _, As}, Acc)   -> lists:foldl(fun used_vars/2, Acc, As);
 used_vars({e_op, _, _, A, B}, Acc)   -> used_vars(B, used_vars(A, Acc));
 used_vars({e_nil, _}, Acc)           -> Acc;
 used_vars({e_proj, _, V, _}, Acc)    -> sets:add_element(V, Acc);
+used_vars({e_block, _, Binds, Final}, Acc) ->
+    lists:foldl(fun({bind, _, _, E}, A) -> used_vars(E, A) end,
+                used_vars(Final, Acc), Binds);
 used_vars({e_record, _, _, Fs}, Acc) ->
     lists:foldl(fun({_, E}, A) -> used_vars(E, A) end, Acc, Fs);
 used_vars({e_with, _, Base, Fs}, Acc) ->

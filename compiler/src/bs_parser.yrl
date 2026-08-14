@@ -13,6 +13,7 @@ Nonterminals
   params param_list param
   patterns pattern_list pattern plist_items pat_fields pat_field
   guard guard_expr
+  body binding
   expr expr_list elist_items assign_fields assign_field
   .
 
@@ -156,8 +157,26 @@ param -> type_prim lident : {param, '$1', value('$2')}.
 param -> type_prim        : {param, '$1', '_'}.
 
 %% --- clauses ----------------------------------------------------------------
-clause -> uident '(' patterns ')' guard '->' expr :
+clause -> uident '(' patterns ')' guard '->' body :
     {clause, line('$1'), value('$1'), '$3', '$5', '$7'}.
+
+%% A body is zero or more bindings followed by one expression. Ticket 34: a name
+%% may be bound in a body, and the value is the last expression — so a body is
+%% still an expression, with names in front of it, rather than a statement list
+%% that happens to end in a value.
+%%
+%% No terminator is needed and none is introduced: a binding is the only thing
+%% that can put `=` after a lowercase name, and `=` is not an expression
+%% operator (equality is `==`), so one token of lookahead separates `x = 1` from
+%% a body whose value is the variable `x`.
+body -> expr : '$1'.
+body -> binding body :
+    case '$2' of
+        {e_block, BL, Binds, Final} -> {e_block, BL, ['$1' | Binds], Final};
+        Final -> {e_block, element(2, '$1'), ['$1'], Final}
+    end.
+
+binding -> lident '=' expr : {bind, line('$1'), value('$1'), '$3'}.
 
 patterns -> '$empty'     : [].
 patterns -> pattern_list : '$1'.

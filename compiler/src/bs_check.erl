@@ -152,7 +152,9 @@ check_fn(F = #fn{name = Name, line = Line, params = Params}, Env) ->
         [] ->
             {F, [{error, Line, Name, no_clauses}]};
         Clauses ->
-            {Residual, Diags} = walk(Clauses, Declared, Env, [], 1),
+            Scope = lists:append([scope_diags(C) || C <- Clauses]),
+            {Residual, Diags0} = walk(Clauses, Declared, Env, [], 1),
+            Diags = Scope ++ Diags0,
             Final =
                 case bs_types:is_none(Residual) of
                     true  -> Diags;
@@ -163,6 +165,74 @@ check_fn(F = #fn{name = Name, line = Line, params = Params}, Env) ->
                 end,
             {F, Final}
     end.
+
+%%% ---------------------------------------------------------------------------
+%%% Scope — ticket 34's bindings
+%%%
+%%% This walks a BODY, which ticket 33 says the checker does not do. The two are
+%%% not in tension: 33 is about whether a body is *typed*, and nothing here asks
+%%% what type anything has. These are name questions, decidable syntactically,
+%%% and they are here because the alternative is `erlc` reporting them against
+%%% the emitted `.abstr` — a file the author did not write.
+%%%
+%%% Bindings do not shadow. A name means one thing in a clause, so rebinding is
+%%% an error rather than a new scope: ticket 08's rule that narrowing is always
+%%% written applies to names too, and a second `x =` reads as an assignment in
+%%% a language that has no mutation to assign with.
+%%% ---------------------------------------------------------------------------
+
+scope_diags({clause, Line, Name, Patterns, _, Body}) ->
+    Bound = lists:append([pattern_vars(P) || P <- Patterns]),
+    check_scope(Body, Bound, Name, Line, []).
+
+check_scope({e_block, _, Binds, Final}, Bound0, Name, Line, Acc0) ->
+    {Bound, Acc} =
+        lists:foldl(
+          fun({bind, L, V, E}, {B, A}) ->
+                  A1 = unbound(E, B, L, Name, A),
+                  case lists:member(V, B) of
+                      true  -> {B, [{error, L, Name, {rebinding, V}} | A1]};
+                      false -> {[V | B], A1}
+                  end
+          end, {Bound0, Acc0}, Binds),
+    %% The final expression carries no line of its own — the parser keeps one
+    %% per binding and one per clause — so an unbound name in it is reported
+    %% against the clause, which is the smallest span that is certainly right.
+    unbound(Final, Bound, Line, Name, Acc);
+check_scope(Final, Bound, Name, Line, Acc) ->
+    unbound(Final, Bound, Line, Name, Acc).
+
+unbound(Expr, Bound, Line, Name, Acc) ->
+    [{error, Line, Name, {unbound_variable, V}}
+     || V <- lists:usort(expr_vars(Expr)), not lists:member(V, Bound)] ++ Acc.
+
+pattern_vars({p_var, _, V})            -> [V];
+pattern_vars({p_tuple, _, Ps})         -> lists:append([pattern_vars(P) || P <- Ps]);
+pattern_vars({p_map, _, Fs})           -> lists:append([pattern_vars(P) || {_, P} <- Fs]);
+pattern_vars({p_list, _, Items, Rest}) ->
+    lists:append([pattern_vars(P) || P <- Items])
+        ++ case Rest of nil -> []; R -> pattern_vars(R) end;
+pattern_vars(_)                        -> [].
+
+%% Every variable an expression READS. Deliberately not shared with the
+%% emitter's `used_vars/2`, which answers a different question — whether to
+%% underscore a name it is about to emit — and would drag a lowering concern
+%% into the checker to save ten lines.
+expr_vars({e_var, _, V})               -> [V];
+expr_vars({e_proj, _, V, _})           -> [V];
+expr_vars({e_tuple, _, Es})            -> lists:append([expr_vars(E) || E <- Es]);
+expr_vars({e_call, _, _, As})          -> lists:append([expr_vars(A) || A <- As]);
+expr_vars({e_foreign_call, _, _, _, As}) -> lists:append([expr_vars(A) || A <- As]);
+expr_vars({e_op, _, _, A, B})          -> expr_vars(A) ++ expr_vars(B);
+expr_vars({e_record, _, _, Fs})        -> lists:append([expr_vars(E) || {_, E} <- Fs]);
+expr_vars({e_with, _, Base, Fs})       ->
+    expr_vars(Base) ++ lists:append([expr_vars(E) || {_, E} <- Fs]);
+expr_vars({e_list, _, Items, Rest})    ->
+    lists:append([expr_vars(E) || E <- Items])
+        ++ case Rest of nil -> []; R -> expr_vars(R) end;
+expr_vars({e_block, _, Binds, Final})  ->
+    lists:append([expr_vars(E) || {bind, _, _, E} <- Binds]) ++ expr_vars(Final);
+expr_vars(_)                           -> [].
 
 walk([], Residual, _Env, Diags, _N) ->
     {Residual, lists:reverse(Diags)};

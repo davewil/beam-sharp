@@ -46,3 +46,20 @@ Band({ Total: t }) when t <= 0 -> :unpaid
 int Total(int n)
 
 Total(n) -> n + 1
+
+// A body is bindings followed by one expression. A name is read once and used
+// twice, which is the shape neither the clause head nor the pipe can express —
+// `o.Total * o.Total` would emit two `map_get`s.
+int Squared(Order o)
+
+Squared(o) ->
+    t = o.Total
+    t * t
+
+// Bindings compose with everything else: this reads the field once, computes
+// once, and updates width-preservingly.
+Order Bump(Order o)
+
+Bump(o) ->
+    next = o.Total + 1
+    o with { Total = next }

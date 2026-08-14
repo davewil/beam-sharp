@@ -247,6 +247,19 @@ report(Path, {warning, Line, Fn, {unreachable_clause, N}}) ->
               "~s:~p: warning: clause ~p of ~s is unreachable~n"
               "  every value it matches is matched by an earlier clause.~n",
               [Path, Line, N, Fn]);
+%% Ticket 34. Both of these would otherwise reach the author as an `erlc` error
+%% against the emitted `.abstr` — a file they did not write and cannot fix.
+report(Path, {error, Line, Fn, {rebinding, V}}) ->
+    io:format(standard_error,
+              "~s:~p: error: ~s binds ~s twice~n"
+              "  a name means one thing in a clause. There is no mutation to~n"
+              "  assign with, so rename the second one.~n",
+              [Path, Line, Fn, V]);
+report(Path, {error, Line, Fn, {unbound_variable, V}}) ->
+    io:format(standard_error,
+              "~s:~p: error: ~s uses ~s, which nothing binds~n"
+              "  a name comes from a clause head or a binding above it.~n",
+              [Path, Line, Fn, V]);
 report(Path, D) ->
     io:format(standard_error, "~s: ~p~n", [Path, D]).
 

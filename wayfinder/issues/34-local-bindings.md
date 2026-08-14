@@ -1,7 +1,24 @@
 # 34 — Does the language have local bindings, and is a body one expression?
 
 Type: grilling
-Status: open
+Status: **resolved 2026-08-14** — see [Answer](#answer) at the end. Built the same day as
+[F4](../../compiler/features/F4-local-bindings.md).
+
+> **TWO CORRECTIONS TO THIS TICKET, BOTH MINE, BOTH MADE BEFORE IT WAS RESOLVED.**
+> They are left in place rather than edited away, because one of them is a lesson about the
+> map's method and not just about this ticket.
+>
+> **1. The headline evidence is a selection effect and was presented as a finding.** *"Zero
+> binding-shaped lines across 25a and 25c"* measures **nobody trying**, not nobody wanting: those
+> exemplars were written by agents inside a language that had no bindings, in sessions where the
+> absence went unnoticed. David reached for one within a minute of getting a prompt. **The
+> anecdote was the stronger evidence and this ticket buried it as the raising note.** Guard
+> against this generally: a measurement taken inside a constraint cannot test the constraint.
+>
+> **2. §"Why it is worth a ticket anyway", point 3 is factually wrong.** It says a binding
+> *"lowers to a `case … of` or a `begin … end` block, which is a real emission question"*.
+> Measured: an Erlang clause body is **already a sequence** and `{match, …}` is an ordinary form,
+> so the lowering is a flat list and needs neither. Nothing was at stake in the emission target.
 
 Raised 2026-08-14 by David typing `o = Order{Id = 1, Total = 500}` at the REPL, one minute after
 records shipped. It is the first thing he reached for, and the language has no such construct.
@@ -115,3 +132,49 @@ current evidence is two programs written before the question was asked.
 
 **Linear**: ENG-201. The `NN → ENG-(166+NN)` mapping is already offset by one from ticket 33 — see
 the map's Notes — so this is ENG-(167+34).
+
+---
+
+## Answer
+
+**The language has local bindings.** David, 2026-08-14: *"x = 1, y = ("a", "b") etc. are very
+useful concepts."* Built the same day as [F4](../../compiler/features/F4-local-bindings.md).
+
+**A body is zero or more bindings followed by one expression**, and the body's value is that last
+expression — so a body remains an *expression with names in front of it*, not a statement list. It
+is the smallest form that answers the question, and it is a tier-1 borrow both audiences read on
+sight.
+
+**Bindings do not shadow.** Rebinding is an error, including rebinding a name the clause head
+bound. There is no mutation to assign with, so a second `x =` can only be a mistake, and ticket
+08's *narrowing is always written, never inferred* extends to names.
+
+**Three things the resolution turned out to owe, and none was on the ticket:**
+
+- **Two diagnostics, or `erlc` reports them against the emitted `.abstr`** — a file the author did
+  not write. Rebinding and unbound names are now `bsc` errors that state the fix. This means a
+  scope pass **walks a body**, which [ticket 33](33-body-check-site.md) says the checker does not
+  do; the two are not in tension, because **33 is about whether a body is *typed*** and nothing
+  here asks a type question. Keep that line sharp — F4 is not the start of a body type-checker.
+- **An unused binding stays legal and warning-free.** Naming a value to say what it *is* is a
+  reason to write one, and ticket 23 puts the reader first. It lowers `_`-prefixed.
+- **The body stays a flat list rather than a block**, which keeps the last expression in tail
+  position — verified by recursing 1000 deep with a binding before the self-call.
+
+**Destructuring binds are deferred to [ticket 33](33-body-check-site.md), not refused.** `(a, b) =
+pair` can fail, and a failing bind is a branch exhaustiveness never sees, which cuts against
+ticket 12. The map already has the machinery to settle it — require
+`subtract(TypeOfExpr, TypeOfPattern)` empty, making the bind **provably irrefutable** by the same
+residual the clause head uses — but that needs a typed body, which is 33's subject. **This is the
+second capability 33 now gates**, after F3's three.
+
+**On §3's worry — does a binding weaken the diagnostics?** It introduces a value no signature
+describes, which the ticket flagged against ticket 04's position. In practice it does not arise
+*yet*, because no body is typed at all; when 33 lands it becomes the first real instance, and the
+answer is likely synthesis rather than inference, since ticket 27 already made instantiation
+matching rather than solving.
+
+**Note what did not need deciding.** `y = ("a", "b")` — David's own second example — is still not
+writable, because **string literals do not exist**: ticket 20 makes `string` a `binary` refined by
+valid UTF-8, and binaries are a later feature. The binding half of that line shipped; the literal
+half did not.

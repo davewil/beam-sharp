@@ -31,12 +31,21 @@ A **signature** declares the type. **Clauses** follow it, one per case, each rep
 function name. The clause arrow is `->`. **There is no `;`** — a declaration ends where the next
 one begins. **shipped**
 
-**A clause body is one expression, and there are no local bindings.** No `let`, no `x = e`; a
-name is bound by a clause head and nowhere else. Intermediate values are parameters — usually of
-a helper whose head destructures what you would have bound — or stages of a pipe. Every exemplar
-written so far contains **zero** bindings, so the style holds; whether that stays a deliberate
-position or the language grows a binding form is
-[ticket 34](wayfinder/issues/34-local-bindings.md), and **undecided** rather than settled.
+**A body is zero or more bindings followed by one expression**, and the body's value is that last
+expression — so a body is still an expression, with names in front of it.
+
+```csharp
+int Squared(Order o)
+
+Squared(o) ->
+    t = o.Total
+    t * t
+```
+
+**Bindings do not shadow.** A name means one thing in a clause: rebinding is an error, including
+rebinding what the head bound, because there is no mutation to assign with. A **destructuring**
+bind (`(a, b) = pair`) is not in the language — it can fail, and a failing bind is a branch
+exhaustiveness would not see. **shipped**
 
 `=>` is the lambda arrow and a `switch` arm, never a clause. Two arrows, two jobs.
 
@@ -527,6 +536,8 @@ the parser accepts back exactly what the printer emits. **shipped**
 | abstract-format emission with `-spec` and the failure arm | **shipped** |
 | `bsc` run mode and the `ibs` REPL | **shipped** |
 | records — declaration, construction, `with`, the dot, tag dispatch | **shipped** |
+| local bindings in a body, with rebinding and unbound names rejected | **shipped** |
+| destructuring binds (`(a, b) = pair`) | deferred — needs a typed body |
 | the boundary tag guard on an exported record parameter | **shipped** |
 | exact field sets at a construction site | **not checked** — there is no body check site |
 | refinements + interval patterns | blocked on two spellings |
