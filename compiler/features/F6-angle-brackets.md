@@ -252,12 +252,16 @@ compiles and runs.
 
 ### The corpus gate passed on the first run, and the reason is the finding
 
-F5's gate caught a shipped example being rejected. F6's caught nothing, and that is not luck — it is
-what §(a) and §(b) being **substitution** means. Every expansion happens strictly *before* the
-algebra, so no existing program's type changed and F6 added no way for a valid program to be
-rejected. **A capability that adds no rejection path cannot break the corpus**, which is worth
-stating because it is the first one in this compiler that does not, and the next feature should not
-read the clean gate as evidence the gate is cheap.
+F5's gate caught a shipped example being rejected. F6's caught nothing, and that is not luck — but
+the tempting explanation is wrong and worth correcting here rather than in a later feature file.
+**F6 adds four rejection paths**: `cyclic_type`, `generic_arity`, `needs_type_args` and
+`not_parametric`. So "it adds none" is false.
+
+The true claim is narrower. §(a) and §(b) are **substitution**, and every expansion happens strictly
+*before* the algebra — so **no existing program's type changed**. And all four new rejections are
+unreachable from any program already in the corpus, because each targets source that previously
+failed to parse or, in the cyclic case, did not terminate. *That* is why the gate was clean, and the
+next feature should not read it as evidence the gate is cheap.
 
 ### Two mutations, and the first one has no red test to give
 
@@ -298,6 +302,15 @@ asserting the checker still worked at all. **A control has to be aimed at the cl
 cover** — deleting the *other* one gives the residual `Report(int)`. The scenario text now says so,
 because the mistake is easy and silent: a green control reads exactly like a passing one.
 
+### The REPL was pointed at it, and for once there was no hole
+
+F4 found a stale diagnostic at the `ibs` prompt and F5 found a destructuring bind that does not work
+there. F6 is the third feature in a row to add surface syntax, so `ibs -S examples/parcel.bs` was run
+before this was written rather than after: `Grade(1500)` → `:heavy`, the `(:error, …)` arm, and a
+record carrying an `option<int>` field all answer correctly. Nothing in the REPL knows what an alias
+is — it loads compiled code — which is *why* it is clean, and one command is cheaper than the
+assumption.
+
 ### A workflow trap worth one line
 
 `rebar3 compile` does not rebuild the `bsc` escript. The first scenario appeared to fail on a syntax
@@ -319,6 +332,11 @@ error inside `result<int, atom>` with a grammar that was already correct — the
   The refusal is an improvement on a hang and is not an implementation.
 - **`>>` is pinned but not solved.** `list<list<int>>` parses and has a test. Ticket 28's owed item
   stands: when binaries land and `>>` becomes a delimiter, that test is what trips.
+- **A type parameter shadows a type of the same name**, silently. `type Box<Order> = (Order, int)`
+  binds `Order` as a variable inside the body even where a `record Order` is declared, and
+  `type Pair<T, T>` is accepted with the last binding winning. Unreachable from anything in the
+  corpus and stated rather than found: a parameter and a type name are the same token class, so
+  telling them apart is a rule someone must choose, not a bug to fix.
 - **`string`, `binary` and `map<K, V>`.** Measured, not assumed: `list<string>` fails with
   *"string is not a builtin type"*. So the exemplars gained a bracket and not a compile, and the
   exemplar README now says which.

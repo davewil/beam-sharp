@@ -144,7 +144,10 @@ costume: the mutation had to be measured by a clock, not by a red test.
 
 **And it is a shared-function change.** F6 edits `resolve/2` — the single funnel the checker and the
 emitter both go through, which F5 exported precisely so there would not be two. The corpus gate ran
-first for that reason and not by ritual.
+first for that reason and not by ritual, and it passed — but **not because F6 adds no rejection
+path.** It adds four. It passed because expansion happens strictly before the algebra, so no
+existing program's type changed, and because all four new rejections target source that previously
+failed to parse or failed to terminate. The narrower sentence is the true one.
 
 F7 onward are named but not written — deliberately. The map's own fog-of-war rule applies: don't
 chart what you can't yet see.
