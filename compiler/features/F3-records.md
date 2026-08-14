@@ -1,6 +1,7 @@
 # F3 — Records: a tagged map, `with`, and the dot
 
-**Status**      not started
+**Status**      **done 2026-08-14** — see [Built](#built-2026-08-14) at the end for what
+                landed, what was measured, and the three scenarios that stayed deferred
 **Implements**  ticket 26 §§1–4, and 18 §1's guard rule applied to them — decides nothing
 **Unblocks**    the record half of all three exemplars; a third `examples/*.bs`
 **Depends on**  F1
@@ -73,6 +74,14 @@ Two things `bsc` does not have. Both were **checked against the source rather th
 second changes what this feature is allowed to claim.
 
 ### 1. A fourth constructor in the algebra — the largest item here
+
+> **CORRECTED 2026-08-14 while building: it is the FIFTH, not the fourth.** `bs_types` had
+> gained a `lists` partition — and `nil/0, cons/1, list/1` alongside the exports listed
+> below — after this file was written. Nothing in the reasoning changes, and the list part
+> turned out to be the second-nearest prior art after tuples: it is where the honesty rule
+> for an inexpressible subtraction is already written down. Recorded rather than silently
+> fixed, because this file is read as canonical and a stale premise in it is exactly what
+> the map has twice caught itself acting on.
 
 `bs_types` holds a type as a disjunctive normal form **partitioned by constructor**, and the
 partitions are `atoms`, `ints`, `tuples`. There is no map. Union, intersection and subtraction are
@@ -329,3 +338,82 @@ boundary the existing suite uses; and `examples/` has a third file that compiles
 **Not in "done": F3.3's call-site enforcement, F3.8's projection error, and F3.10.** All three wait
 on the check site, and a build that claims them without one has not found a way around §2 — it has
 stopped checking.
+
+---
+
+## Built 2026-08-14
+
+**All nine live scenarios pass and the three deferred ones stayed deferred.** 64 tests, up from
+39, and `examples/shop.bs` compiles, runs, and exercises every construct from the CLI.
+
+### The shape the algebra took
+
+A record is **not a node in the algebra**. It desugars to the anonymous map type a user could
+have written, which is what makes F3.2 a real test rather than a tautology. Members carry
+`closed` (a declared type fixes its domain) or `open` (a property pattern constrains the fields
+it names and no others) — a distinction the feature file did not anticipate and which turns out
+to be the load-bearing one: **every subtraction the checker performs is closed-minus-open**, and
+that is precisely what lets one clause cover a whole record by naming only its tag.
+
+The asymmetry with tuples is worth keeping: two tuples of different arity are disjoint, full
+stop; two maps of different field sets are disjoint only if **both** fix their domain.
+
+### Three things found by building that reading would not have
+
+**1. The residual's *type* and the head you *write* are different strings.** Printing the full
+field set gives `Which({ Kind: :'Shop.Invoice', Id: int, Total: int })`, which is a correct
+description and a broken clause head — pasted in, `int` is a lowercase name in pattern position,
+so it binds a variable, twice. `to_pattern/1` now synthesises the **discriminator alone**, which
+is exactly what this file's F3.4 specifies and what ticket 26 §1 put the tag in the term for.
+The same rule made atoms quote (`:'Shop.Invoice'`, not `:Shop.Invoice`) in the residual, in the
+runner's output, and in the runner's argument parser — a record's minted tag is the first atom
+in the language the bare sigil cannot spell.
+
+**2. Map-pattern bindings had to carry real field paths.** The obvious implementation is to treat
+a field as unaddressable the way a list element is. That is not conservative in a harmless
+direction: `refine_all/3` turns an unknown path into `none_marker`, so a clause with both a
+record pattern **and** a guard credits *nothing*, and the function reports inexhaustive. Pinned
+by `a_guard_over_a_record_field_still_credits_the_clause_test`.
+
+**3. The benchmark had been broken on master since the terminator was dropped** — it generates
+`;`, so it failed at the lexer, and the numbers in the map's skeleton entry were not
+re-measurable. Fixed; the atom ladder reproduces them.
+
+### The measurement this feature owed
+
+The skeleton's benchmark note said to re-measure *"when the algebra gains records and binaries,
+since both widen the product decomposition."* It widens, and the first run was bad:
+
+| clauses | atoms | records, first run | records, after |
+|---|---|---|---|
+| 5 | 9.3 µs | 91 µs | 25.6 µs |
+| 20 | 32.5 µs | 1.08 ms | 287 µs |
+| 40 | 69.3 µs | 6.07 ms | 963 µs |
+| 80 | 165 µs | 46.7 ms | 3.18 ms |
+
+The first column is linear through the advertised shape. The second was **cubic** — the first
+place in this compiler where ticket 04's "no complexity bound" is visible rather than argued.
+
+The cause is absorption: it runs after every subtraction, is quadratic in the number of members,
+and does a `subtract` per field inside. The fix is **ticket 09's discriminability rule turned
+into an index** — absorption can only ever succeed between members that agree on their tag, since
+containment requires the contained member's tag to subtract away against the container's and two
+distinct singletons never do. Grouping by tag is 15× at 80 clauses and takes the growth back to
+roughly quadratic. It changes which pairs are *considered*, never what containment means.
+
+**Still an open worry, and it belongs to whoever lands F6.** Records at 40 clauses cost 14× what
+atoms do. Binaries are the other widening the note names, and they will stack on this.
+
+### What is NOT claimed
+
+- **`bin/spec-check.sh` is red, and was red before this feature.** `counter.bs` declares
+  `behaviour GenServer` without defining its callbacks, so Dialyzer reports three undefined
+  callbacks and the gate fails. Verified by removing `shop.bs` and re-running: identical failure.
+  Dialyzer emits **nothing** about `Shop`, so F3.12's emitted map specs are clean — but the
+  *gate* cannot be claimed green and is not F3's to fix.
+- **F3.3's call-site enforcement, F3.8's projection error, F3.10** — deferred as written, ids
+  reserved, no test asserts them. → [ticket 33](../../wayfinder/issues/33-body-check-site.md).
+- **F3.9 is narrower than "an exported record parameter"** in two ways, both pinned by tests so
+  that widening either is a decision rather than a surprise: no tag test on a **union** parameter
+  (a disjunction over tags is a different shape), and none where the clause head already
+  constrains `Kind` (the head performs the identical test).

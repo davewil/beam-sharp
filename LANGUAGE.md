@@ -205,7 +205,20 @@ Order o2 = o with { Total = 600 }
 Note `:` in declarations and patterns, `=` in construction and update. **No optional fields** —
 every declared field is always present, and absence is `option<T>`.
 
-**decided** — this is the next feature to build.
+`with` is **width-preserving**: it updates fields that are already there and raises on one that is
+not, so a record cannot grow through it. There is no spread — a widened record would carry a
+minted tag while not being that record, and no signature could be written against it.
+
+**shipped**, with two things worth knowing:
+
+- **The pattern spelling is the property pattern.** Dispatch is written
+  `Area({ Kind: :'Shapes.Circle' })`, not `Area(Circle c)`. The tag is an ordinary field, so no
+  record-specific pattern form is needed; whether a sugar mirroring construction is added is a
+  grammar-opinion question left to ticket 22. The `Circle c` form above is illustrative and does
+  **not** compile today.
+- **A construction site is not checked.** A record's field set is exact in the type algebra and
+  unpoliced where it is built, so a body can produce a map wearing an `Order` tag without
+  `Order`'s fields. The compiler has no body check site at all → ticket 33.
 
 ---
 
@@ -498,12 +511,14 @@ the parser accepts back exactly what the printer emits. **shipped**
 | `list<T>`, `[]` / `[h, ..t]`, tail calls | **shipped** |
 | abstract-format emission with `-spec` and the failure arm | **shipped** |
 | `bsc` run mode and the `ibs` REPL | **shipped** |
-| records | **next** |
+| records — declaration, construction, `with`, the dot, tag dispatch | **shipped** |
+| the boundary tag guard on an exported record parameter | **shipped** |
+| exact field sets at a construction site | **not checked** — there is no body check site |
 | refinements + interval patterns | blocked on two spellings |
 | `switch` | not started |
 | binaries | not started |
 | pipe and valve | not started |
-| generics | not started |
+| generics | **next** |
 | modules, imports, `using` | not started |
 | foreign calls (`using :lists {...}`) | **shipped**, without the boundary guard |
 | `behaviour GenServer` (behaviour attribute) | **shipped**, without the contract check |

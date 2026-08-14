@@ -28,8 +28,20 @@ spec exists.
   research files, prototypes. Map is [ENG-165](https://linear.app/davewil/issue/ENG-165);
   **ticket NN is ENG-(166+NN)**. Resolving a ticket means updating *both*: the answer here, the
   state there.
+  **THE ARITHMETIC BROKE ON 2026-08-14, exactly as its own caveat warned.** ENG-199 was created for
+  the **F3 feature PRD** — a compiler feature, not a wayfinder ticket — so ticket 33 is **ENG-200**
+  and everything after it is offset by one. Read the rule as *"00–32 is ENG-(166+NN), from 33 it is
+  ENG-(167+NN)"*, and keep **verifying rather than computing**: the compiler's features now raise
+  issues in the same team, so the gap will widen again.
 - **Execution override**: wayfinder is plan-only by default. This map sanctions execution
   for the **walking skeleton only**. Every other ticket produces a decision.
+  **Widened in practice since 2026-08-13**: the skeleton is built and now grows through
+  **feature files** in [`compiler/features/`](../compiler/features/README.md) — numbered
+  capabilities, each citing the tickets it implements and deciding none, in the feature-driven
+  style of [magic-lisp](https://github.com/andrealaforgia/magic-lisp/tree/main/features) (David:
+  *"I'm not saying adopt gherkin btw, but a feature driven style"*). **A feature that needs a
+  decision raises a ticket rather than making one** — F3 raised ticket 33 that way, which is the
+  seam between the two working consistently.
 - **Skills each session should consult**: `/grilling` and `/domain-modeling` for decision
   tickets, `/research` for research tickets, `/prototype` for prototype tickets,
   `/diagram-artifact` before writing any mermaid.

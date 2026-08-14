@@ -61,11 +61,25 @@ Erlang back to the decision that required it is one grep.
 |---|---|---|
 | [F1 — walking skeleton](F1-walking-skeleton.md) | **done** | the baseline; `examples/*.bs` |
 | [F2 — interval refinements and interval patterns](F2-interval-refinements.md) | **blocked** — two decisions owed | 25b, 25c wire dispatch |
-| [F3 — records](F3-records.md) | not started — **build next** | the record half of all three |
-| F4 — angle brackets and parametric types | not started | all three exemplars |
+| [F3 — records](F3-records.md) | **done 2026-08-14** | the record half of all three; `examples/shop.bs` |
+| F4 — angle brackets and parametric types | not started — **build next** | all three exemplars |
 | F5 — `switch` | not started | all three exemplars |
 | F6 — binaries | not started | 25b, 25c |
 | F7 — pipe and valve | not started | 25b, 25c |
+
+**F3 raised the map's first ticket from a feature**:
+[ticket 33](../../wayfinder/issues/33-body-check-site.md) — *is a function body typed at all, and
+where does the check run?* `bs_check` never visits a body, F2 and F3 hit that from opposite
+directions, and three of F3's scenarios are deferred on it with their ids reserved. **Worth
+resolving before F4**, since angle brackets bring `option<T>` fields and therefore more
+construction sites, which F3.10 already cannot police.
+
+**Two things F3 found that the next feature inherits.** The **benchmark had been broken on
+master** since the `;` terminator was dropped, so the skeleton's recorded numbers were not
+re-measurable — fixed, and the atom ladder reproduces them. And **`bin/spec-check.sh` is red**
+independently of F3: `counter.bs` declares `behaviour GenServer` without defining its callbacks,
+so Dialyzer reports three undefined callbacks. Whoever owns the OTP callbacks should close it; it
+is a gate nobody can currently pass.
 
 F4 onward are named but not written — deliberately. The map's own fog-of-war rule applies: don't
 chart what you can't yet see.
