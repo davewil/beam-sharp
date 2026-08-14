@@ -82,7 +82,7 @@ Blocked by nothing. Worth answering **before angle brackets**, for the same reas
 **Do not re-derive whether a record's field set is exact.** 26 §4 settled it and F5 enforces it.
 This ticket is about the *values*, not the *names*.
 
-**Linear**: to be created. The `NN → ENG-(166+NN)` mapping has been offset by one since ticket 33
-(ENG-199 went to F3's feature PRD, so 33 is ENG-200 and 34 is ENG-201) — verify the arithmetic
-against the workspace rather than extending the offset on faith, which is the map's own instruction
-and the thing that has now failed twice.
+**Linear**: [ENG-203](https://linear.app/davewil/issue/ENG-203). Verified against the workspace
+rather than derived: ticket 35 is ENG-202, so the *"from 33 it is ENG-(167+NN)"* offset does still
+hold here — but it was checked, because the map's own instruction is to verify the arithmetic and
+the rule has already broken once.
