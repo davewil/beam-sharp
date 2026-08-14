@@ -42,6 +42,9 @@ _                       : {token, {'_', TokenLine}}.
 {LOWER}{ALNUM}*         : {token, {lident, TokenLine, list_to_atom(TokenChars)}}.
 
 %% Two-character operators before their one-character prefixes.
+%% `..` is the rest marker in `[h, ..t]` — ticket 28 adopted the C# collection
+%% expression spelling in both pattern and construction position.
+\.\.                    : {token, {'..', TokenLine}}.
 ->                      : {token, {'->', TokenLine}}.
 &&                      : {token, {'&&', TokenLine}}.
 \|\|                    : {token, {'||', TokenLine}}.
@@ -61,5 +64,7 @@ _                       : {token, {'_', TokenLine}}.
 ,                       : {token, {',', TokenLine}}.
 \(                      : {token, {'(', TokenLine}}.
 \)                      : {token, {')', TokenLine}}.
+\[                      : {token, {'[', TokenLine}}.
+\]                      : {token, {']', TokenLine}}.
 
 Erlang code.

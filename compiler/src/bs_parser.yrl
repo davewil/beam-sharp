@@ -10,16 +10,16 @@ Nonterminals
   module_decl type_decl signature clause
   type_expr type_union_members type_prim type_list
   params param_list param
-  patterns pattern_list pattern
+  patterns pattern_list pattern plist_items
   guard guard_expr
-  expr expr_list
+  expr expr_list elist_items
   .
 
 Terminals
   'module' 'type' 'when'
   uident lident atom_lit integer '_'
   '->' '&&' '||' '==' '!=' '<=' '>=' '<' '>' '+' '-' '*'
-  '=' '|' ';' ',' '(' ')'
+  '=' '|' ';' ',' '(' ')' '[' ']' '..'
   .
 
 Rootsymbol program.
@@ -63,6 +63,11 @@ type_prim -> lident            : {t_builtin, value('$1')}.
 type_prim -> uident            : {t_ref, value('$1')}.
 type_prim -> '(' type_list ')' : {t_tuple, '$2'}.
 
+%% `list<int>`. Ticket 28's disambiguation rule is about VALUE position, where a
+%% `<` could be a comparison; in type position nothing compares, so the bracket
+%% is unambiguous and costs no lookahead.
+type_prim -> lident '<' type_expr '>' : {t_generic, value('$1'), '$3'}.
+
 type_list -> type_expr               : ['$1'].
 type_list -> type_expr ',' type_list : ['$1' | '$3'].
 
@@ -102,6 +107,21 @@ pattern -> '(' pattern_list ')' :
         Many     -> {p_tuple, line('$1'), Many}
     end.
 
+%% Lists. Ticket 08 settled prefix-plus-rest only, and ticket 28 adopted C#'s
+%% collection-expression spelling: `[]`, `[a, b]`, `[h, ..t]`.
+%%
+%% The rest marker lives INSIDE the items nonterminal rather than as a separate
+%% `pattern_list ',' '..' pattern` rule, because the latter needs two tokens of
+%% lookahead past the comma and yecc has one.
+pattern -> '[' ']'          : {p_nil, line('$1')}.
+pattern -> '[' plist_items ']' :
+    begin {Items, Rest} = '$2', {p_list, line('$1'), Items, Rest} end.
+
+plist_items -> pattern                 : {['$1'], nil}.
+plist_items -> '..' pattern            : {[], '$2'}.
+plist_items -> pattern ',' plist_items :
+    begin {Items, Rest} = '$3', {['$1' | Items], Rest} end.
+
 guard -> '$empty'            : none.
 guard -> 'when' guard_expr   : {guard, '$2'}.
 
@@ -122,6 +142,15 @@ expr -> '(' expr_list ')' :
         [Single] -> Single;
         Many     -> {e_tuple, line('$1'), Many}
     end.
+
+expr -> '[' ']'          : {e_nil, line('$1')}.
+expr -> '[' elist_items ']' :
+    begin {Items, Rest} = '$2', {e_list, line('$1'), Items, Rest} end.
+
+elist_items -> expr                 : {['$1'], nil}.
+elist_items -> '..' expr            : {[], '$2'}.
+elist_items -> expr ',' elist_items :
+    begin {Items, Rest} = '$3', {['$1' | Items], Rest} end.
 
 expr -> expr '+'  expr : {e_op, line('$2'), '+',  '$1', '$3'}.
 expr -> expr '-'  expr : {e_op, line('$2'), '-',  '$1', '$3'}.

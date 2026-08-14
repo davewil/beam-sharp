@@ -94,6 +94,10 @@ used_vars({e_var, _, V}, Acc)        -> sets:add_element(V, Acc);
 used_vars({e_tuple, _, Es}, Acc)     -> lists:foldl(fun used_vars/2, Acc, Es);
 used_vars({e_call, _, _, As}, Acc)   -> lists:foldl(fun used_vars/2, Acc, As);
 used_vars({e_op, _, _, A, B}, Acc)   -> used_vars(B, used_vars(A, Acc));
+used_vars({e_nil, _}, Acc)           -> Acc;
+used_vars({e_list, _, Items, Rest}, Acc) ->
+    R = case Rest of nil -> Acc; _ -> used_vars(Rest, Acc) end,
+    lists:foldl(fun used_vars/2, R, Items);
 used_vars(_, Acc)                    -> Acc.
 
 guard(none)           -> [];
@@ -107,6 +111,15 @@ pattern({p_int, L, N}, _U)     -> {integer, L, N};
 pattern({p_atom, L, A}, _U)    -> {atom, L, A};
 pattern({p_wild, L}, _U)       -> {var, L, '_'};
 pattern({p_tuple, L, Ps}, U)   -> {tuple, L, [pattern(P, U) || P <- Ps]};
+pattern({p_nil, L}, _U)        -> {nil, L};
+%% `[a, b, ..rest]` is a right fold of cons cells onto the rest.
+pattern({p_list, L, Items, Rest}, U) ->
+    lists:foldr(fun(P, Acc) -> {cons, L, pattern(P, U), Acc} end,
+                case Rest of
+                    nil -> {nil, L};
+                    R   -> pattern(R, U)
+                end,
+                Items);
 pattern({p_var, L, V}, Used)   ->
     case sets:is_element(V, Used) of
         true  -> {var, L, var_name(V)};
@@ -131,7 +144,15 @@ expr({e_atom, L, A})      -> {atom, L, A};
 expr({e_var, L, V})       -> {var, L, var_name(V)};
 expr({e_tuple, L, Es})    -> {tuple, L, [expr(E) || E <- Es]};
 expr({e_call, L, F, As})  -> {call, L, {atom, L, F}, [expr(A) || A <- As]};
-expr({e_op, L, Op, A, B}) -> {op, L, erl_op(Op), expr(A), expr(B)}.
+expr({e_op, L, Op, A, B}) -> {op, L, erl_op(Op), expr(A), expr(B)};
+expr({e_nil, L})          -> {nil, L};
+expr({e_list, L, Items, Rest}) ->
+    lists:foldr(fun(E, Acc) -> {cons, L, expr(E), Acc} end,
+                case Rest of
+                    nil -> {nil, L};
+                    R   -> expr(R)
+                end,
+                Items).
 
 %% Ticket 16 settled that `==` means `=:=`, and decided it on internal agreement
 %% rather than familiarity: Erlang's `==` coerces through tuples, lists and map
@@ -166,6 +187,8 @@ bs_check_resolve({t_builtin, atom}, _) -> bs_types:atom_top();
 bs_check_resolve({t_builtin, term}, _) -> bs_types:term();
 bs_check_resolve({t_tuple, Cs}, Env) ->
     bs_types:tuple([bs_check_resolve(C, Env) || C <- Cs]);
+bs_check_resolve({t_generic, list, T}, Env) ->
+    bs_types:list(bs_check_resolve(T, Env));
 bs_check_resolve({t_union, Ms}, Env) ->
     bs_types:union([bs_check_resolve(M, Env) || M <- Ms]).
 
@@ -179,8 +202,19 @@ spec_type(Ty) ->
         Ps  -> {type, ?A, union, Ps}
     end.
 
-parts(#{atoms := As, ints := Is, tuples := Ts}) ->
-    atom_parts(As) ++ [int_part(R) || R <- Is] ++ [tuple_part(P) || P <- Ts].
+parts(#{atoms := As, ints := Is, tuples := Ts, lists := Ls}) ->
+    atom_parts(As) ++ [int_part(R) || R <- Is] ++ [tuple_part(P) || P <- Ts]
+        ++ list_parts(Ls).
+
+%% Erlang spells "list of T" and "non-empty list of T" but has no way to say
+%% "either, with this element type" beyond the former, so a cons-only part
+%% emits `nonempty_list(T)` and the pair emits `[T]`.
+list_parts({false, none}) -> [];
+list_parts({true, none})  -> [{type, ?A, nil, []}];
+list_parts({false, any})  -> [{type, ?A, nonempty_list, [{type, ?A, any, []}]}];
+list_parts({true, any})   -> [{type, ?A, list, [{type, ?A, any, []}]}];
+list_parts({false, T})    -> [{type, ?A, nonempty_list, [spec_type(T)]}];
+list_parts({true, T})     -> [{type, ?A, list, [spec_type(T)]}].
 
 atom_parts({finite, L})    -> [{atom, ?A, A} || A <- L];
 atom_parts({cofinite, _})  -> [{type, ?A, atom, []}].   % widened: the exclusion is lost

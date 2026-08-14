@@ -25,6 +25,7 @@
 -module(bs_types).
 
 -export([none/0, term/0, atom_lit/1, atom_top/0, int/0, range/2, tuple/1]).
+-export([nil/0, cons/1, list/1]).
 -export([union/2, union/1, intersect/2, subtract/2]).
 -export([is_none/1, is_subtype/2, to_string/1]).
 
@@ -40,19 +41,31 @@
 %% A tuple part: a union of products, each a list of component types.
 -type tuple_part() :: [[ty()]].
 
--type ty() :: #{atoms := atom_part(), ints := int_part(), tuples := tuple_part()}.
+%% A list part: whether `[]` is included, and the element type of the non-empty
+%% lists included (`none` for none of them, `any` for "any element").
+%%
+%% Two flags rather than a recursive type, because the pattern language can only
+%% ask two questions of a list — is it empty, is it not — which is exactly
+%% ticket 08's prefix-plus-rest restriction showing up in the algebra. `any`
+%% exists so `term()` can contain lists without recursing into itself.
+-type elem() :: none | any | ty().
+-type list_part() :: {boolean(), elem()}.
+
+-type ty() :: #{atoms := atom_part(), ints := int_part(), tuples := tuple_part(),
+                lists := list_part()}.
 
 %%% ---------------------------------------------------------------------------
 %%% Constructors
 %%% ---------------------------------------------------------------------------
 
-none() -> #{atoms => {finite, []}, ints => [], tuples => []}.
+none() -> #{atoms => {finite, []}, ints => [], tuples => [], lists => {false, none}}.
 
 %% `term` in the surface language. The tuple part is deliberately absent: this
 %% slice has no arity-polymorphic tuple top, and ticket 11 says a foreign value
 %% must be matched rather than assumed, so nothing here needs one yet.
 term() ->
-    #{atoms => {cofinite, []}, ints => [{neg_inf, pos_inf}], tuples => []}.
+    #{atoms => {cofinite, []}, ints => [{neg_inf, pos_inf}], tuples => [],
+      lists => {true, any}}.
 
 atom_lit(A) when is_atom(A) -> (none())#{atoms => {finite, [A]}}.
 
@@ -66,6 +79,20 @@ range(Lo, Hi) ->
         false -> (none())#{ints => [{Lo, Hi}]}
     end.
 
+%% `[]` alone.
+nil() -> (none())#{lists => {true, none}}.
+
+%% Every non-empty list whose elements are in T.
+cons(T) ->
+    case is_none(T) of
+        true  -> none();
+        false -> (none())#{lists => {false, T}}
+    end.
+
+%% `list<T>` — the two together, which is what a signature declares and what the
+%% pair `[]` / `[h, ..t]` must cover to be exhaustive.
+list(T) -> union(nil(), cons(T)).
+
 tuple(Components) when is_list(Components) ->
     case lists:any(fun is_none/1, Components) of
         true  -> none();          % a product with an empty factor is empty
@@ -76,7 +103,7 @@ tuple(Components) when is_list(Components) ->
 %%% Emptiness
 %%% ---------------------------------------------------------------------------
 
-is_none(#{atoms := {finite, []}, ints := [], tuples := Ts}) ->
+is_none(#{atoms := {finite, []}, ints := [], tuples := Ts, lists := {false, none}}) ->
     lists:all(fun(Cs) -> lists:any(fun is_none/1, Cs) end, Ts);
 is_none(_) ->
     false.
@@ -98,7 +125,8 @@ union(A, B) ->
       %% member contained in another does not survive, but two overlapping
       %% products are BOTH kept — collapsing them is exactly the widening
       %% ticket 20 measured and refused.
-      tuples => t_absorb(maps:get(tuples, A) ++ maps:get(tuples, B))}.
+      tuples => t_absorb(maps:get(tuples, A) ++ maps:get(tuples, B)),
+      lists  => l_union(maps:get(lists, A), maps:get(lists, B))}.
 
 %%% ---------------------------------------------------------------------------
 %%% Intersection
@@ -107,7 +135,8 @@ union(A, B) ->
 intersect(A, B) ->
     #{atoms  => a_intersect(maps:get(atoms, A), maps:get(atoms, B)),
       ints   => i_intersect(maps:get(ints, A), maps:get(ints, B)),
-      tuples => t_intersect(maps:get(tuples, A), maps:get(tuples, B))}.
+      tuples => t_intersect(maps:get(tuples, A), maps:get(tuples, B)),
+      lists  => l_intersect(maps:get(lists, A), maps:get(lists, B))}.
 
 %%% ---------------------------------------------------------------------------
 %%% Subtraction — this is what computes ticket 04's residual
@@ -116,7 +145,8 @@ intersect(A, B) ->
 subtract(A, B) ->
     #{atoms  => a_subtract(maps:get(atoms, A), maps:get(atoms, B)),
       ints   => i_subtract(maps:get(ints, A), maps:get(ints, B)),
-      tuples => t_subtract(maps:get(tuples, A), maps:get(tuples, B))}.
+      tuples => t_subtract(maps:get(tuples, A), maps:get(tuples, B)),
+      lists  => l_subtract(maps:get(lists, A), maps:get(lists, B))}.
 
 %%% ---------------------------------------------------------------------------
 %%% Atom part
@@ -267,6 +297,57 @@ product_subset(P, Q) ->
         lists:all(fun({X, Y}) -> is_none(subtract(X, Y)) end, lists:zip(P, Q)).
 
 %%% ---------------------------------------------------------------------------
+%%% List part
+%%%
+%%% The nil flag is an ordinary boolean lattice. The cons part carries an element
+%%% type so a `-spec` can say `[integer()]` rather than `list()`, but subtraction
+%%% deliberately does NOT try to be exact on it: a non-empty list of ints minus a
+%%% non-empty list of atoms is not a list of anything the grammar can spell. So a
+%%% cons is removed only when the subtrahend demonstrably covers it, and kept
+%%% otherwise — which leaves the residual too BIG rather than too small, and a
+%%% residual that is too big reports a false inexhaustive rather than a false
+%%% exhaustive. Ticket 20's exactness applies where the surface can express the
+%%% distinction; here it cannot, and the honest move is to say so.
+%%% ---------------------------------------------------------------------------
+
+l_union({N1, C1}, {N2, C2}) -> {N1 orelse N2, e_union(C1, C2)}.
+
+l_intersect({N1, C1}, {N2, C2}) -> {N1 andalso N2, e_intersect(C1, C2)}.
+
+l_subtract({N1, C1}, {N2, C2}) ->
+    {N1 andalso not N2,
+     case e_covers(C2, C1) of
+         true  -> none;
+         false -> C1
+     end}.
+
+e_union(none, C) -> C;
+e_union(C, none) -> C;
+e_union(any, _)  -> any;
+e_union(_, any)  -> any;
+e_union(A, B)    -> union(A, B).
+
+e_intersect(none, _) -> none;
+e_intersect(_, none) -> none;
+e_intersect(any, C)  -> C;
+e_intersect(C, any)  -> C;
+e_intersect(A, B)    -> intersect(A, B).
+
+%% Does B cover A?
+e_covers(_, none)  -> true;
+e_covers(none, _)  -> false;
+e_covers(any, _)   -> true;
+e_covers(_, any)   -> false;
+e_covers(B, A)     -> is_none(subtract(A, B)).
+
+l_str({false, none}) -> [];
+l_str({true, none})  -> ["[]"];
+l_str({false, any})  -> ["[term, ..]"];
+l_str({true, any})   -> ["list<term>"];
+l_str({false, T})    -> ["[" ++ to_string(T) ++ ", ..]"];
+l_str({true, T})     -> ["list<" ++ to_string(T) ++ ">"].
+
+%%% ---------------------------------------------------------------------------
 %%% Printing — the residual is the diagnostic, so this is a product surface.
 %%%
 %%% Ticket 04: the residual *is* the missing case. Ticket 23 will decide whether
@@ -279,8 +360,8 @@ to_string(T) ->
         false -> string:join(parts(T), " | ")
     end.
 
-parts(#{atoms := As, ints := Is, tuples := Ts}) ->
-    a_str(As) ++ [i_str(R) || R <- Is] ++ [t_str(P) || P <- Ts].
+parts(#{atoms := As, ints := Is, tuples := Ts, lists := Ls}) ->
+    a_str(As) ++ [i_str(R) || R <- Is] ++ [t_str(P) || P <- Ts] ++ l_str(Ls).
 
 a_str({finite, []})   -> [];
 a_str({finite, L})    -> [":" ++ atom_to_list(A) || A <- L];

@@ -77,6 +77,8 @@ resolve({t_ref, N}, Env) ->
         Surface -> resolve(Surface, Env)
     end;
 resolve({t_tuple, Cs}, Env)   -> bs_types:tuple([resolve(C, Env) || C <- Cs]);
+resolve({t_generic, list, T}, Env) -> bs_types:list(resolve(T, Env));
+resolve({t_generic, N, _}, _Env)   -> erlang:error({unknown_generic, N});
 resolve({t_union, Ms}, Env)   -> bs_types:union([resolve(M, Env) || M <- Ms]).
 
 %% Builtins are lowercase — ticket 27 forced that, since a lowercase-implicit
@@ -141,26 +143,61 @@ walk([C = {clause, CLine, Name, _, _, _} | Rest], Residual, Env, Diags, N) ->
 
 %% Returns {Certain, Possible} — see walk/5 for why both are needed.
 clause_type({clause, _, _, Patterns, Guard, _}, Env) ->
-    {Components, Bindings} = pattern_row(Patterns, Env),
+    {Components, Bindings, Exact} = pattern_row(Patterns, Env),
     Base = bs_types:tuple(Components),
-    apply_guard(Base, Bindings, Guard).
+    {Certain, Possible} = apply_guard(Base, Bindings, Guard),
+    case Exact of
+        true  -> {Certain, Possible};
+        %% An inexact pattern over-states what it matches — `[0, ..t]` is not
+        %% every non-empty list — so it may bound Possible but must credit
+        %% NOTHING to Certain. Same rule as an untranslatable guard, and the same
+        %% reason: crediting an over-estimate is what makes a compiler claim
+        %% coverage it does not have.
+        false -> {bs_types:none(), Possible}
+    end.
 
 pattern_row(Patterns, Env) ->
-    {Tys, Binds} =
-        lists:unzip([pattern_type(P, [I], Env)
-                     || {P, I} <- lists:zip(Patterns, lists:seq(1, length(Patterns)))]),
-    {Tys, lists:foldl(fun maps:merge/2, #{}, Binds)}.
+    Triples = [pattern_type(P, [I], Env)
+               || {P, I} <- lists:zip(Patterns, lists:seq(1, length(Patterns)))],
+    Tys   = [T || {T, _, _} <- Triples],
+    Binds = [B || {_, B, _} <- Triples],
+    Exact = lists:all(fun({_, _, E}) -> E end, Triples),
+    {Tys, lists:foldl(fun maps:merge/2, #{}, Binds), Exact}.
 
 %% A pattern yields the set of values it matches, plus where each variable sits,
 %% so a guard can refine that position afterwards.
-pattern_type({p_int, _, N}, _Path, _Env)  -> {bs_types:range(N, N), #{}};
-pattern_type({p_atom, _, A}, _Path, _Env) -> {bs_types:atom_lit(A), #{}};
-pattern_type({p_wild, _}, _Path, _Env)    -> {bs_types:term(), #{}};
-pattern_type({p_var, _, V}, Path, _Env)   -> {bs_types:term(), #{V => Path}};
+%% Returns {Type, Bindings, Exact}. `Exact` is whether the type is exactly what
+%% the pattern matches rather than an upper bound — see clause_type/2.
+pattern_type({p_int, _, N}, _Path, _Env)  -> {bs_types:range(N, N), #{}, true};
+pattern_type({p_atom, _, A}, _Path, _Env) -> {bs_types:atom_lit(A), #{}, true};
+pattern_type({p_wild, _}, _Path, _Env)    -> {bs_types:term(), #{}, true};
+pattern_type({p_var, _, V}, Path, _Env)   -> {bs_types:term(), #{V => Path}, true};
 pattern_type({p_tuple, _, Ps}, Path, Env) ->
     Indexed = lists:zip(Ps, lists:seq(1, length(Ps))),
-    {Tys, Binds} = lists:unzip([pattern_type(P, Path ++ [I], Env) || {P, I} <- Indexed]),
-    {bs_types:tuple(Tys), lists:foldl(fun maps:merge/2, #{}, Binds)}.
+    Triples = [pattern_type(P, Path ++ [I], Env) || {P, I} <- Indexed],
+    {bs_types:tuple([T || {T, _, _} <- Triples]),
+     lists:foldl(fun maps:merge/2, #{}, [B || {_, B, _} <- Triples]),
+     lists:all(fun({_, _, E}) -> E end, Triples)};
+pattern_type({p_nil, _}, _Path, _Env) -> {bs_types:nil(), #{}, true};
+%% Ticket 08 settled prefix-plus-rest only, so a list pattern without a rest is
+%% rejected rather than approximated.
+pattern_type({p_list, Line, _Items, nil}, _Path, _Env) ->
+    erlang:error({list_pattern_needs_rest, Line});
+pattern_type({p_list, _, Items, Rest}, _Path, _Env) ->
+    %% `[h, ..t]` matches every non-empty list; `[0, ..t]` matches only some, so
+    %% it is an upper bound and credits nothing.
+    Exact = lists:all(fun open_pattern/1, Items) andalso open_pattern(Rest),
+    Binds = lists:foldl(fun maps:merge/2, #{}, [binding(P) || P <- Items ++ [Rest]]),
+    {bs_types:cons(bs_types:term()), Binds, Exact}.
+
+open_pattern({p_var, _, _}) -> true;
+open_pattern({p_wild, _})   -> true;
+open_pattern(_)             -> false.
+
+%% List elements are bound but have no tuple path, so a guard over one is not
+%% refinable — refine_all/3 treats that conservatively.
+binding({p_var, _, V}) -> #{V => no_path};
+binding(_)             -> #{}.
 
 %%% ---------------------------------------------------------------------------
 %%% Guards as type operations
@@ -184,8 +221,11 @@ apply_guard(Ty, Bindings, {guard, Expr}) ->
             %% guarantee exists to rule out; a test caught it.
             {bs_types:none(), Ty};
         Alts ->
-            Refined = bs_types:union([refine_all(Ty, Bindings, A) || A <- Alts]),
-            {Refined, Refined}
+            Results = [refine_all(Ty, Bindings, A) || A <- Alts],
+            case lists:member(none_marker, Results) of
+                true  -> {bs_types:none(), Ty};
+                false -> Refined = bs_types:union(Results), {Refined, Refined}
+            end
     end.
 
 %% [] means "no constraint"; unknown means "not translatable".
@@ -233,9 +273,17 @@ flip(Op)   -> Op.
 
 refine_all(Ty, Bindings, Constraints) ->
     lists:foldl(
-      fun({V, C}, Acc) ->
+      fun(_, none_marker) -> none_marker;
+         ({V, C}, Acc) ->
               case maps:get(V, Bindings, undefined) of
-                  undefined -> Acc;          % guard mentions an unbound name
+                  %% A guard naming something no pattern bound, or bound
+                  %% somewhere the algebra cannot address (a list element),
+                  %% cannot be credited. Returning Acc unchanged would credit
+                  %% the clause with its whole pattern despite an unread guard,
+                  %% which is the soundness bug the `Certain`/`Possible` split
+                  %% exists to prevent.
+                  undefined -> none_marker;
+                  no_path   -> none_marker;
                   Path      -> refine_at(Acc, Path, C)
               end;
          (unknown, Acc) -> Acc
