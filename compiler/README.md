@@ -42,8 +42,13 @@ that convention: an explicit name, or the only export. With no arguments at all 
 as before.
 
 Arguments and results are in **beam-sharp** notation, and the parser accepts back exactly what the
-printer emits: `:positive`, `(:ok, 7)`, `[1, 2]`. Erlang term syntax (`{ok,7}`) also works, for
-shapes the surface cannot yet spell.
+printer emits: `:positive`, `(:ok, 7)`, `[1, 2]`, `{Kind = :'Shop.Order', Id = 1, Total = 0}`.
+Erlang term syntax (`{ok,7}`) also works, for shapes the surface cannot yet spell.
+
+**Arguments are values, not expressions.** There is nothing here to evaluate a call or a
+construction with, so a record is passed as the map it is — `Pay({Kind = :'Shop.Order', ...})`,
+not `Pay(Order{...})`. An argument the reader cannot read **says so**; it used to become a binary
+and crash inside your function with your own source text in the error.
 
 **Or stay in a shell.**
 
@@ -63,6 +68,11 @@ reloaded examples/fib.bs
 `:reload` is the point of it: edit the file, reload, call again, without leaving the shell. The
 REPL reads exactly one form — a call — because the parser in this slice reads declarations, not
 expressions. A wider prompt waits on the surface growing an expression parser.
+
+Two things it will now tell you rather than leaving you to guess, both from a real session:
+`o = Order{...}` reports that **beam-sharp has no bindings** — a name is bound by a clause head,
+and a body is one expression (→ [ticket 34](../wayfinder/issues/34-local-bindings.md)) — and a
+bare `Which` reports that a name is not a call.
 
 **Underneath, if you want the `.beam`:**
 

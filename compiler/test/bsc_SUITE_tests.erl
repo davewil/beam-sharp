@@ -760,6 +760,56 @@ a_field_without_a_space_says_what_to_do_test() ->
     ?assert(string:find(lists:flatten(Message), "lexes as an atom") =/= nomatch).
 
 %%% ---------------------------------------------------------------------------
+%%% The reader's diagnostics.
+%%%
+%%% Every case below is one David actually typed at the prompt on 2026-08-14.
+%%% The reader used to answer all of them with `expected a call, e.g. Fib(5)` or,
+%%% worse, by silently turning the text into a BINARY and letting it crash inside
+%%% the function — `{badmap, <<"Order{Id = 1}">>}`, which shows a person their own
+%%% source inside an error about a map. Ticket 23's rule is that the compiler
+%%% hands you the thing to write, and the prompt is where that matters most.
+%%% ---------------------------------------------------------------------------
+
+%% Construction is not available in an argument: arguments are values.
+an_unreadable_argument_says_what_it_could_not_read_test() ->
+    {error, Msg} = bs_run:read_arg("Order{Id = 1, Total = 0}"),
+    Flat = lists:flatten(Msg),
+    ?assert(string:find(Flat, "Order{Id = 1, Total = 0}") =/= nomatch),
+    ?assert(string:find(Flat, "record construction is not available") =/= nomatch).
+
+%% ...and neither is a nested call.
+a_call_in_an_argument_is_named_as_such_test() ->
+    {error, Msg} = bs_run:read_arg("Pay(x)"),
+    ?assert(string:find(lists:flatten(Msg), "arguments are values, not calls")
+            =/= nomatch).
+
+%% The record value itself still reads, and reads back to what the printer emits.
+a_record_value_round_trips_through_the_reader_test() ->
+    ?assertEqual({ok, an_order()},
+                 bs_run:read_arg("{Kind = :'Shop.Order', Id = 1, Total = 0}")),
+    ?assertEqual("{Kind = :'Shop.Order', Id = 1, Total = 0}",
+                 lists:flatten(bs_run:format_value(an_order()))).
+
+%% An Erlang term is still readable — the fallback that was removed was the
+%% SILENT one, not this.
+an_erlang_term_is_still_readable_test() ->
+    ?assertEqual({ok, {ok, 5}}, bs_run:read_arg("{ok,5}")),
+    ?assertEqual({ok, [1, 2]}, bs_run:read_arg("[1, 2]")).
+
+%% The CLI reports it rather than crashing inside the function.
+the_cli_reports_an_unreadable_argument_test() ->
+    case filelib:is_regular(escript()) of
+        false -> ok;
+        true ->
+            with_src("shop.bs", shop_src(), fun(Path, Out) ->
+                R = run_cli("-o " ++ Out ++ " " ++ Path ++ " Pay 'Order{Id = 1}'"),
+                ?assert(string:find(R, "record construction is not available")
+                        =/= nomatch),
+                ?assertEqual(nomatch, string:find(R, "badmap"))
+            end)
+    end.
+
+%%% ---------------------------------------------------------------------------
 %%% The map partition's own laws.
 %%%
 %%% Tested directly rather than at the boundary for the reason the header gives:

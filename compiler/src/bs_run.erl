@@ -12,7 +12,7 @@
 %%% `positive` — because the person reading the output is reading beam-sharp.
 -module(bs_run).
 
--export([run/3, format_value/1, parse_arg/1, split_top_level/1]).
+-export([run/3, format_value/1, parse_arg/1, read_arg/1, split_top_level/1]).
 
 %%% ---------------------------------------------------------------------------
 %%% Running
@@ -32,12 +32,24 @@ resolve_and_call(Mod, Argv) ->
     case resolve(Mod, Exports, Argv) of
         {error, _} = E -> E;
         {Fn, RawArgs} ->
-            Args = [parse_arg(A) || A <- RawArgs],
-            case lists:member({Fn, length(Args)}, Exports) of
-                false -> {error, {bad_arity, Fn, length(Args), arities(Fn, Exports)}};
-                true  -> call(Mod, Fn, Args)
+            case read_args(RawArgs) of
+                {error, Msg} -> {error, {unreadable_argument, Msg}};
+                {ok, Args} ->
+                    case lists:member({Fn, length(Args)}, Exports) of
+                        false -> {error, {bad_arity, Fn, length(Args), arities(Fn, Exports)}};
+                        true  -> call(Mod, Fn, Args)
+                    end
             end
     end.
+
+read_args(Raw) ->
+    lists:foldr(fun(_, {error, M}) -> {error, M};
+                   (A, {ok, Acc}) ->
+                        case read_arg(A) of
+                            {ok, V}      -> {ok, [V | Acc]};
+                            {error, Msg} -> {error, Msg}
+                        end
+                end, {ok, []}, Raw).
 
 %% Three ways to name the function, in order. The middle one is the rule that
 %% matters: under one function per file the file name *is* the function name, so
@@ -168,15 +180,54 @@ split_top_level([C | T], D, Cur, Acc) when C =:= $); C =:= $}; C =:= $] ->
 split_top_level([C | T], D, Cur, Acc) ->
     split_top_level(T, D, [C | Cur], Acc).
 
+%% Returns {ok, Term} | {error, Message}. The inner parser throws rather than
+%% returning a result type, so the recursive cases stay readable.
+read_arg(S) ->
+    try {ok, parse_arg(S)}
+    catch throw:{unreadable, Msg} -> {error, Msg} end.
+
 parse_term(S) ->
     case erl_scan:string(S ++ ".") of
         {ok, Toks, _} ->
             case erl_parse:parse_term(Toks) of
                 {ok, Term} -> Term;
-                {error, _} -> list_to_binary(S)
+                {error, _} -> unreadable(S)
             end;
-        {error, _, _} -> list_to_binary(S)
+        {error, _, _} -> unreadable(S)
     end.
+
+%% This used to be `list_to_binary(S)`, which meant an argument the reader could
+%% not understand was silently handed to the function as a binary — so
+%% `Pay(Order{Id = 1})` crashed with `{badmap, <<"Order{Id = 1}">>}`, showing the
+%% user their own source text inside an error about a map. A reader that cannot
+%% read something should say so, which is ticket 23's rule reaching the one
+%% place a person actually types at.
+%%
+%% The two named cases are the two mistakes the surface invites: arguments here
+%% are VALUES, so neither construction nor a nested call is available.
+unreadable(S) ->
+    throw({unreadable, explain(S)}).
+
+explain(S) ->
+    case {construction(S), lists:member($(, S)} of
+        {true, _} ->
+            io_lib:format("cannot read ~ts: record construction is not available "
+                          "in an argument. Pass the value instead, as "
+                          "{Kind = :'Module.Name', Field = ...}", [S]);
+        {_, true} ->
+            io_lib:format("cannot read ~ts: arguments are values, not calls -- "
+                          "there is nothing here to evaluate one with", [S]);
+        _ ->
+            io_lib:format("cannot read ~ts as a value", [S])
+    end.
+
+%% `Order{...}` — a PascalCase name against a brace.
+construction([C | Rest]) when C >= $A, C =< $Z ->
+    case lists:dropwhile(fun(X) -> X =/= ${ end, Rest) of
+        [${ | _] -> true;
+        _        -> false
+    end;
+construction(_) -> false.
 
 %%% ---------------------------------------------------------------------------
 %%% Rendering a result in beam-sharp notation

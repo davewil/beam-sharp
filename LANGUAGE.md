@@ -31,6 +31,13 @@ A **signature** declares the type. **Clauses** follow it, one per case, each rep
 function name. The clause arrow is `->`. **There is no `;`** — a declaration ends where the next
 one begins. **shipped**
 
+**A clause body is one expression, and there are no local bindings.** No `let`, no `x = e`; a
+name is bound by a clause head and nowhere else. Intermediate values are parameters — usually of
+a helper whose head destructures what you would have bound — or stages of a pipe. Every exemplar
+written so far contains **zero** bindings, so the style holds; whether that stays a deliberate
+position or the language grows a binding form is
+[ticket 34](wayfinder/issues/34-local-bindings.md), and **undecided** rather than settled.
+
 `=>` is the lambda arrow and a `switch` arm, never a clause. Two arrows, two jobs.
 
 A **module** is a directory; one function per file; `index.bs` holds the declarations shared across
@@ -195,11 +202,19 @@ Area(Rect r)   -> r.W * r.H
 That is a protocol without a protocol construct. What it does **not** give you is *open* extension —
 another module cannot add `Triangle` without editing `Shape`.
 
-Construction names the type; the dot projects; `with` updates:
+Construction names the type; the dot projects; `with` updates. **There are no local
+bindings** — see §1 — so each of these is a function, and that is what the language looks
+like:
 
 ```csharp
-Order o  = Order { Id = "A-1", Total = 500, Lines = [] }
-Order o2 = o with { Total = 600 }
+Order Draft()
+Draft() -> Order { Id = "A-1", Total = 500, Lines = [] }
+
+Order Pay(Order o)
+Pay(o) -> o with { Total = 600 }
+
+int Amount(Order o)
+Amount(o) -> o.Total
 ```
 
 Note `:` in declarations and patterns, `=` in construction and update. **No optional fields** —

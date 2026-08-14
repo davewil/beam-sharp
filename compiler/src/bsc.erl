@@ -111,6 +111,12 @@ report_run({error, {bad_arity, Fn, Got, Want}}) ->
     io:format(standard_error, "bsc: ~s takes ~s argument(s), got ~p~n",
               [Fn, lists:join(" or ", [integer_to_list(A) || A <- Want]), Got]),
     halt(2);
+%% The reader already built the sentence; printing it with `~p` would hand back
+%% a list of character codes, which is the generic clause below doing exactly
+%% the kind of damage this message exists to undo.
+report_run({error, {unreadable_argument, Msg}}) ->
+    io:format(standard_error, "bsc: ~ts~n", [Msg]),
+    halt(2);
 report_run({error, R}) ->
     io:format(standard_error, "bsc: ~p~n", [R]),
     halt(1).

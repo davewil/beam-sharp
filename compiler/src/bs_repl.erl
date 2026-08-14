@@ -81,17 +81,31 @@ eval(Line, Mod) ->
         {error, R} ->
             io:format(standard_error, "~s~n", [R]);
         {Fn, RawArgs} ->
-            Args = [bs_run:parse_arg(A) || A <- RawArgs],
-            case lists:member({Fn, length(Args)}, exports(Mod)) of
-                false ->
-                    io:format(standard_error, "no ~s/~p — try :exports~n",
-                              [Fn, length(Args)]);
-                true ->
-                    try apply(Mod, Fn, Args) of
-                        V -> io:format("~s~n", [bs_run:format_value(V)])
-                    catch
-                        C:R -> io:format(standard_error, "crashed: ~p:~p~n", [C, R])
-                    end
+            case read_args(RawArgs) of
+                {error, Msg} -> io:format(standard_error, "~ts~n", [Msg]);
+                {ok, Args}   -> apply_call(Mod, Fn, Args)
+            end
+    end.
+
+read_args(Raw) ->
+    lists:foldr(fun(_, {error, M}) -> {error, M};
+                   (A, {ok, Acc}) ->
+                        case bs_run:read_arg(A) of
+                            {ok, V}      -> {ok, [V | Acc]};
+                            {error, Msg} -> {error, Msg}
+                        end
+                end, {ok, []}, Raw).
+
+apply_call(Mod, Fn, Args) ->
+    case lists:member({Fn, length(Args)}, exports(Mod)) of
+        false ->
+            io:format(standard_error, "no ~s/~p — try :exports~n",
+                      [Fn, length(Args)]);
+        true ->
+            try apply(Mod, Fn, Args) of
+                V -> io:format("~s~n", [bs_run:format_value(V)])
+            catch
+                C:R -> io:format(standard_error, "crashed: ~p:~p~n", [C, R])
             end
     end.
 
@@ -103,8 +117,44 @@ parse_call(Line) ->
                     Inner = string:trim(lists:reverse(RevInner)),
                     {list_to_atom(string:trim(Name)), bs_run:split_top_level(Inner)};
                 _ ->
-                    {error, "missing closing )"}
+                    {error, io_lib:format("missing closing ) in ~ts", [Line])}
             end;
         _ ->
-            {error, "expected a call, e.g. Fib(5)"}
+            {error, no_call(Line)}
     end.
+
+%% The prompt reads one call, so anything else has to say what it got rather
+%% than only what it wanted — `expected a call, e.g. Fib(5)` left a reader who
+%% typed `Which` or `o = Order{...}` to guess which half was wrong.
+no_call(Line) ->
+    case {binding(Line), construction(Line)} of
+        {true, _} ->
+            io_lib:format("~ts is a binding, and beam-sharp has none -- a name is "
+                          "bound by a clause head, and a function body is one "
+                          "expression. At this prompt, call a function: Fib(5)",
+                          [Line]);
+        {_, true} ->
+            io_lib:format("~ts constructs a record, and this prompt evaluates a "
+                          "call. Pass the value to one: Pay({Kind = :'Shop.Order', "
+                          "Id = 1, Total = 0})", [Line]);
+        _ ->
+            io_lib:format("~ts is a name, not a call -- write Fib(5), and :exports "
+                          "lists what there is", [Line])
+    end.
+
+%% `o = ...`, the mistake a C# or TypeScript reader makes first.
+binding(Line) ->
+    case string:split(Line, "=") of
+        [Lhs, _] -> Lhs =/= Line andalso is_name(string:trim(Lhs));
+        _        -> false
+    end.
+
+is_name([C | Rest]) when C >= $a, C =< $z ->
+    lists:all(fun(X) ->
+                      (X >= $a andalso X =< $z) orelse (X >= $A andalso X =< $Z)
+                          orelse (X >= $0 andalso X =< $9) orelse X =:= $_
+              end, Rest);
+is_name(_) -> false.
+
+construction([C | Rest]) when C >= $A, C =< $Z -> lists:member(${, Rest);
+construction(_) -> false.
