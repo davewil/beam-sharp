@@ -63,10 +63,11 @@ Erlang back to the decision that required it is one grep.
 | [F2 — interval refinements and interval patterns](F2-interval-refinements.md) | **blocked** — two decisions owed | 25b, 25c wire dispatch |
 | [F3 — records](F3-records.md) | **done 2026-08-14** | the record half of all three; `examples/shop.bs` |
 | [F4 — local bindings](F4-local-bindings.md) | **done 2026-08-14** | nothing — it removes a papercut |
-| F5 — angle brackets and parametric types | not started — **build next** | all three exemplars |
-| F6 — `switch` | not started | all three exemplars |
-| F7 — binaries | not started | 25b, 25c |
-| F8 — pipe and valve | not started | 25b, 25c |
+| F5 — the body check site | not started — **build next** | F3.3, F3.8, F3.10; 34's destructuring binds |
+| F6 — angle brackets and parametric types | not started | all three exemplars |
+| F7 — `switch` | not started | all three exemplars |
+| F8 — binaries | not started | 25b, 25c |
+| F9 — pipe and valve | not started | 25b, 25c |
 
 **F4 was built out of order and the rule was not bent quietly.** No exemplar is blocked on
 bindings — the three that exist contain zero. It was built because David reached for one in the
@@ -76,10 +77,28 @@ accident.* The placeholders below it shifted by one; none had a file.
 
 **F3 raised the map's first ticket from a feature**:
 [ticket 33](../../wayfinder/issues/33-body-check-site.md) — *is a function body typed at all, and
-where does the check run?* `bs_check` never visits a body, F2 and F3 hit that from opposite
-directions, and three of F3's scenarios are deferred on it with their ids reserved. **Worth
-resolving before F4**, since angle brackets bring `option<T>` fields and therefore more
-construction sites, which F3.10 already cannot police.
+where does the check run?* F2 and F3 hit the missing seam from opposite directions, and three of
+F3's scenarios were deferred on it with their ids reserved. **RESOLVED 2026-08-14**, and F5 is now
+what implements it: a body is typed, checking is containment at five sites (call argument,
+construction, projection, clause return, destructuring bind), and the residual survives at four of
+them — `subtract/2` + `to_pattern/1` hand a call site the clause head the *caller* must write, and
+hand a projection the union member that lacks the field. **It takes the F5 slot ahead of angle
+brackets**, since `option<T>` fields multiply construction sites and F3.10 is the hole F3 shipped
+with; the placeholders below it shifted by one, and none had a file. The ticket carries the
+compiler delta stated against the shipped source, so F5 has nothing to design.
+
+**Two things the ticket found that F5 must not get backwards.** A body variable's type is read off
+the clause's **refined domain** at the path `pattern_type/3` already records — a bare `p_var` is
+`term`, so typing a body from its patterns fails every call site — and the intersection must use
+**`Possible`, never `Certain`**, since an untranslatable guard makes `Certain` `none` and would
+type a running body's variable as a value that cannot exist. `walk/5` already computes the right
+domain and discards it, so the check is not a second pass.
+
+**And a lesson about this seam rather than about this ticket.** Two of 33's premises went stale in
+the three hours between raising it and resolving it — F4's scope pass made *"`bs_check` never
+visits a function body"* false, and the Question's expression inventory was short by eight forms.
+A ticket raised out of a feature is a **timestamped claim about the compiler**, so re-measuring its
+Question is the first step of resolving it, not the last.
 
 **Two things F3 found that the next feature inherits.** The **benchmark had been broken on
 master** since the `;` terminator was dropped, so the skeleton's recorded numbers were not

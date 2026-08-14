@@ -852,6 +852,54 @@ spec exists.
   now **walks a body**, and the line against 33 must stay sharp — **33 is about whether a body is
   *typed***, and rebinding, shadowing and unbound-name checks ask no type question at all.
 
+- [The body check site](issues/33-body-check-site.md) — **a body is typed; synthesis is total and
+  there was never a cheaper option; checking is containment at five sites; and the residual
+  survives at four of them.** Resolved 2026-08-14, three hours after being raised, and **two of its
+  own premises had already gone stale in that time** — F4's scope pass made *"`bs_check` never
+  visits a function body"* false at 16:12, and the Question's expression inventory was short by
+  eight forms. **That is the map's third stale premise**, after the walking skeleton's *"cannot be
+  phrased sharply"* and the boundary manifest's *"no exemplars exist"*, and all three were **raised
+  before a build and read after one**; the rule extracted is that re-measuring a feature-raised
+  ticket's Question is the *first* step of resolving it. **The ticket's cheap/general fork
+  dissolves**: checking a call argument requires typing an arbitrary expression, because the
+  argument position is not a smaller grammar — so the "cheap" option is eleven-twelfths of the
+  general one with a different name. What the fork was really hiding is a split the ticket never
+  made: **synthesis** (every expression gets a type — total, twelve clauses, every non-structural
+  one reading a type another file *declared*, which is 04's mandatory signature paying for a second
+  thing) versus **obligation** (where containment is checked). The obligation sites are the
+  enumeration of the places this language writes a type down: **call argument, construction,
+  projection, clause return, destructuring bind** — five, with no sixth because `e_op`, `e_tuple`,
+  `e_list` and `e_block` declare nothing. Two of those were not in the ticket's table: **the return
+  check is forced by 18's own criticism of Gleam** (13 emits a `-spec` for every function, and
+  without it beam-sharp publishes an unverified claim from its own bodies exactly as Gleam does
+  from its FFI), and **site 5 is 34's deferred destructuring bind**. **Sub-question 3 was settled by
+  running the algebra rather than by argument, and its assumption was wrong**: `subtract/2` +
+  `to_pattern/1` — the two functions that already print 04's residual — return
+  `{ Kind: :'Shop.Invoice' }` at a call site and `{ Kind: :'Shop.Note' }` at a projection, so **the
+  call-site residual is the clause the caller must write** and **the projection residual is
+  literally the member lacking the field**, which is F3.8's deferred sentence needing no machinery.
+  So 23's cost never falls due and the language gains no empty-handed diagnostic. **Construction is
+  the one exception and is recorded as one**: two closed maps over different key sets are disjoint,
+  so the residual names the type you were building rather than the field you forgot — containment
+  still catches it in both directions (measured: neither a short record nor a wide one is a
+  subtype), and the diagnostic takes a **field-name difference** instead. **The finding a builder
+  must not get backwards**: a body variable's type is read off the clause's refined domain at the
+  path `pattern_type/3` already records, *not* off its pattern — a bare `p_var` is `term`, so
+  without the intersection every argument fails every call site — and it must intersect
+  **`Possible`, never `Certain`**, since an untranslatable guard makes `Certain` `none` and would
+  type a running body's variable as a value that cannot exist. `walk/5` already computes that
+  domain (running residual ∩ `Possible`) and discards it, so **the body check is not a second pass
+  and an earlier clause narrows a later body for free** — 08's *narrowing is always written* falling
+  out with nothing written. **Ticket 32 dissolved sub-question 2 exactly as predicted** (a foreign
+  callee has a declared signature; how far it is trusted was decided by 18 §2), leaving one
+  mechanical delta: `collect/1` excludes foreign declarations by design, and a callee environment
+  needs both kinds. **Sub-question 4 answers *nothing changes in the emitted code*** — 18's guards
+  sit at entries, the analysis is function-local (18 §4), and 21 rules out ruling out a foreign
+  caller, so no proof about a body discharges an obligation about a caller; 18's *elision is
+  exported-vs-local* closes the last route. **This is therefore the first checking capability in
+  the language that is purely a frontend concern**, where every previous one arrived as a codegen
+  obligation. Nothing new is needed in `bs_types`.
+
 ## Not yet specified
 
 <!-- in-scope fog: real, but not yet sharp enough to phrase as a ticket -->

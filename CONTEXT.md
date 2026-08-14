@@ -74,6 +74,21 @@ closed under union, intersection and complement, which is what lets a guard like
 credited as a type operation.
 _Avoid_: range, bounded int, refined integer
 
+**Synthesis**:
+Computing the type of an expression. Total over every expression form, and never solves: each form
+either composes its parts or reads a type some declaration already fixed — a call's return, a
+field, a record. Distinct from a **check site**, which is where a synthesised type is compared
+against a declared one.
+_Avoid_: inference, reconstruction, elaboration, deduction
+
+**Check site**:
+A place where a synthesised type must be contained in a declared one, and the only place a body
+raises a type error. There are five — a call argument, a construction, a projection, a clause
+return, and a destructuring bind — and the list is the enumeration of the places the language
+writes a type down. Failure yields a residual, which at every site but construction is a clause
+head; construction yields a field-name difference instead.
+_Avoid_: check point, obligation, assertion, coercion site, boundary
+
 ## The language surface
 
 **Clause**:
