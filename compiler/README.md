@@ -86,6 +86,20 @@ A bound name resolves **at any depth**, not only as a whole argument. The enviro
 survive `:reload` — the values in it came from code that has just been replaced. An unbound name
 says so rather than silently arriving as an atom.
 
+**Checking the reference.** Every beam-sharp block in `LANGUAGE.md` is compiled and checked
+against what it claims to be — untagged blocks must compile, ```` ```csharp not-yet ```` blocks
+must **not**:
+
+```
+./bin/check-language.sh        # -v to see the source and the compiler's output
+```
+
+The second half is the one that pays. When a feature lands, this names the paragraphs that now
+need promoting, rather than waiting for a reader to trip over them — which is how the reference
+came to be showing two constructs the language had never had. A block that is an excerpt gets its
+missing declarations from a `<!-- check: ... -->` comment before the fence, invisible in rendered
+Markdown.
+
 **Underneath, if you want the `.beam`:**
 
 ```

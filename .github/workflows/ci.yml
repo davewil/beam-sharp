@@ -1,0 +1,77 @@
+# CI for the beam-sharp compiler.
+#
+# There was none before 2026-08-14. That is the background to what this file
+# does and does not run: the repo already had three verification scripts, and
+# on the day CI was added TWO OF THEM FAILED ON MASTER. Nothing was watching, so
+# nothing said. The gates below are the ones that pass; the ones that do not are
+# named at the bottom rather than quietly left out, because an unlisted broken
+# check is how this happened in the first place.
+
+name: ci
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  compiler:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: erlef/setup-beam@v1
+        with:
+          # Ticket 13 §4 pins the supported range at the current release and the
+          # previous two majors. Only the current one is exercised here; the
+          # corpus proving the full range is a debt the skeleton still owes.
+          otp-version: "28"
+          rebar3-version: "3"
+
+      - name: Tests
+        working-directory: compiler
+        run: rebar3 eunit
+
+      # Every beam-sharp block in LANGUAGE.md is compiled and checked against
+      # what it claims to be — untagged blocks must compile, `not-yet` blocks
+      # must NOT. The second half is the one that pays: when a feature lands,
+      # this names the paragraphs that now need promoting.
+      #
+      # It exists because the reference is written from the decisions rather
+      # than from the compiler, and on 2026-08-14 it was showing two constructs
+      # the language had never had.
+      - name: LANGUAGE.md compiles
+        working-directory: compiler
+        run: ./bin/check-language.sh
+
+      - name: Examples compile and run
+        working-directory: compiler
+        run: |
+          rebar3 escriptize
+          for f in examples/*.bs; do
+            echo "  $f"
+            ./_build/default/bin/bsc -o "$(mktemp -d)" "$f"
+          done
+
+# NOT RUN HERE, AND WHY — both fail on master for reasons that are decisions,
+# not defects in the scripts:
+#
+#   bin/spec-check.sh
+#     `counter.bs` declares `behaviour GenServer` and emits `Init/1` and
+#     `HandleCall/3`, while `-behaviour(gen_server)` demands `init/1` and
+#     `handle_call/3`. Ticket 32 established there is no snake_case⇄PascalCase
+#     rule anywhere in the language, so the emitted callbacks can never satisfy
+#     the attribute. That needs a decision about how a B# callback maps to an
+#     OTP callback name — a compiler-known table, the way `otp_name/1` already
+#     maps the behaviour itself. Until then Dialyzer reports three undefined
+#     callbacks and the gate cannot pass.
+#
+#   bin/extract-exemplars.sh --check
+#     17 files differ, and regenerating makes them WORSE: the prototypes under
+#     wayfinder/ still write `;`, which the language dropped, so the extractor's
+#     output re-adds a terminator the compiler rejects. The committed exemplars
+#     were hand-corrected and the canonical write-ups were not. Fixing it means
+#     editing ticket 25's write-ups, which are a standing resource.
+#
+# Both should join this workflow once resolved. Neither is a reason to have no
+# CI, which was the status quo.

@@ -175,14 +175,60 @@ with_stages(Path, Opts, Src) ->
     end.
 
 check_and_emit(Path, Opts, Decls) ->
-    case bs_check:check(Decls) of
+    %% The checker signals a handful of conditions by raising rather than by
+    %% returning a diagnostic, because they are found while RESOLVING types —
+    %% below the level that carries a line and a function name. Uncaught, they
+    %% reached the author as an escript stack trace, which is the worst
+    %% diagnostic this compiler produced: found by running LANGUAGE.md's own
+    %% examples through it, where two blocks hit `unknown_type`.
+    try bs_check:check(Decls) of
         {error, Diags} ->
             [report(Path, D) || D <- Diags],
             {error, check};
         {ok, Module, Diags} ->
             [report(Path, D) || D <- Diags],
             emit(Path, Opts, Module)
+    catch
+        error:Reason when is_tuple(Reason) ->
+            case resolve_error(Path, Reason) of
+                handled  -> {error, check};
+                unhandled -> erlang:error(Reason)
+            end
     end.
+
+resolve_error(Path, {unknown_type, N}) ->
+    io:format(standard_error,
+              "~s: error: no type named ~s~n"
+              "  declare it with `type ~s = ...` or `record ~s { ... }`.~n",
+              [Path, N, N, N]),
+    handled;
+resolve_error(Path, {unknown_builtin, B}) ->
+    io:format(standard_error,
+              "~s: error: ~s is not a builtin type~n"
+              "  this slice has `int`, `atom`, `term` and `list<T>`.~n",
+              [Path, B]),
+    handled;
+resolve_error(Path, {unknown_generic, N}) ->
+    io:format(standard_error,
+              "~s: error: ~s does not take a type argument~n"
+              "  `list<T>` is the only one this slice has.~n",
+              [Path, N]),
+    handled;
+resolve_error(Path, {kind_field_is_minted, Line, Name}) ->
+    io:format(standard_error,
+              "~s:~p: error: ~s declares a field named Kind~n"
+              "  the tag is minted from the type's qualified name, so a record~n"
+              "  cannot also declare one. Rename the field.~n",
+              [Path, Line, Name]),
+    handled;
+resolve_error(Path, {list_pattern_needs_rest, Line}) ->
+    io:format(standard_error,
+              "~s:~p: error: a list pattern needs a rest~n"
+              "  write `[h, ..t]`. Prefix-plus-rest is the only list pattern.~n",
+              [Path, Line]),
+    handled;
+resolve_error(_Path, _Other) ->
+    unhandled.
 
 emit(_Path, Opts = #opts{outdir = Dir}, Module) ->
     Forms = bs_emit:forms(Module),

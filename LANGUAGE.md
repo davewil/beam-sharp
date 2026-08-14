@@ -18,6 +18,11 @@ Every construct is marked with its status:
 
 ## 1. The shape of a program
 
+<!-- check:
+list<int> Series(int n, int a, int b, list<int> acc)
+Series(n, a, b, acc) when n <= 0 -> acc
+Series(n, a, b, acc) when n > 0  -> Series(n - 1, b, a + b, [a, ..acc])
+-->
 ```csharp
 module Fib
 
@@ -34,6 +39,9 @@ one begins. **shipped**
 **A body is zero or more bindings followed by one expression**, and the body's value is that last
 expression — so a body is still an expression, with names in front of it.
 
+<!-- check:
+record Order { Id: int, Total: int }
+-->
 ```csharp
 int Squared(Order o)
 
@@ -60,6 +68,9 @@ compiler currently takes one file at a time)
 The one structural move the language rests on: C#'s pattern grammar moves out of `switch` arms and
 into the **parameter position**, and N declarations are allowed where C# allows one.
 
+<!-- check:
+type Verdict = :positive | :zero | :negative | :unknown
+-->
 ```csharp
 type Reading = (:ok, int) | (:error, atom)
 
@@ -152,7 +163,7 @@ truthiness**. **shipped**
 
 **`switch` is the only branching construct.** There is no `if`, no `else`, no ternary.
 
-```csharp
+```csharp not-yet
 Verdict Describe(Order o)
 
 Describe(o) -> o.Status switch {
@@ -165,7 +176,7 @@ Describe(o) -> o.Status switch {
 For compound conditions, the subject is a **tuple** — which is the clause head's own shape, one
 level down:
 
-```csharp
+```csharp not-yet
 Disposition Decide(bool ok, bool permanent, bool redelivered)
 
 Decide(o, p, r) -> (o, p, r) switch {
@@ -186,7 +197,7 @@ so far: a four-wide tuple reads fine.
 
 ## 6. Records
 
-```csharp
+```csharp not-yet
 record Order { Id: string, Total: int, Lines: list<Line> }
 record Line  { Sku: string, Qty: int }
 ```
@@ -199,7 +210,7 @@ structural — a hand-written `type` with the same tag *is* the same type — bu
 **Records exist for dispatch.** The tag is in the term, so a union of records is dispatched by an
 ordinary clause head and checked exhaustive:
 
-```csharp
+```csharp not-yet
 type Shape = Circle | Rect
 
 float Area(Shape s)
@@ -215,7 +226,7 @@ Construction names the type; the dot projects; `with` updates. **There are no lo
 bindings** — see §1 — so each of these is a function, and that is what the language looks
 like:
 
-```csharp
+```csharp not-yet
 Order Draft()
 Draft() -> Order { Id = "A-1", Total = 500, Lines = [] }
 
@@ -251,7 +262,7 @@ minted tag while not being that record, and no signature could be written agains
 There is no global error-model preference: **write the honest value your return type admits**, and
 `raise` only where it admits none.
 
-```csharp
+```csharp not-yet
 type option<T> = T | :nothing
 type result<T, E> = T | (:error, E)
 ```
@@ -270,7 +281,7 @@ which yields a better reason than `try` does.
 
 ## 8. Pipelines
 
-```csharp
+```csharp not-yet
 xs |> List.Map(f) |> List.Filter(g)
 ```
 
@@ -279,7 +290,7 @@ resolution of an unqualified name, which the language has deliberately closed of
 
 `|?>` is the **valve**: it stops on the first `(:error, _)` and runs no further stage.
 
-```csharp
+```csharp not-yet
 Load(id) -> Users.Fetch(id) |?> Accounts.For()
 ```
 
@@ -294,7 +305,7 @@ recovers precise emitted types that a call to a generic function loses.
 
 Real parametric polymorphism, in its smallest working form.
 
-```csharp
+```csharp not-yet
 list<U> Map<T, U>(list<T> xs, fn(T) -> U f)
 ```
 
@@ -325,7 +336,7 @@ second weaker subtyping relation.
 The **clause head is the decoder**, and the exhaustiveness residual is the case you failed to
 handle:
 
-```csharp
+```csharp not-yet
 Verdict Handle(term msg)
 
 Handle((:ok, n)) when is_int(n) -> :fine
@@ -436,7 +447,7 @@ which is what `gen_server:call`'s own reply correlation runs on. **decided**
 
 ## 13. Refinements
 
-```csharp
+```csharp not-yet
 type Octet = int where value >= 0 && value <= 255
 ```
 
