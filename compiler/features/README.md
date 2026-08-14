@@ -28,6 +28,14 @@ One rule learned the hard way and recorded in 25c: **interval patterns and inter
 must land in the same feature.** A capability that closes a residual without supplying a way to
 name the cases makes previously-valid programs invalid.
 
+## The harness the features are driven through
+
+**Not a numbered feature** — it decides nothing and implements no ticket — but every feature below
+is verified through it: `bsc FILE.bs [FUNCTION] [ARG...]` compiles and runs a program, and
+`ibs -S FILE.bs` opens a REPL over it with `:reload`. Added 2026-08-14 on David's *"I want to drive
+this compiler development by actually runnable code."* See the compiler README. A feature is done
+when you can see it run, not only when its scenarios pass.
+
 ## Anatomy of a feature file
 
 ```

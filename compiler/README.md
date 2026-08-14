@@ -12,8 +12,53 @@ Ticket 13 freed the host language; this is a choice, not a constraint.
 ## Running it
 
 ```
-rebar3 eunit                                    # 17 tests, all at the boundary
-rebar3 escriptize && ./_build/default/bin/bsc -o /tmp examples/readings.bs
+rebar3 eunit                                    # 24 tests, all at the boundary
+rebar3 escriptize
+```
+
+**Run a program.** Development is driven by runnable code, so the compiler runs one:
+
+```
+$ bsc examples/fib.bs 5
+5
+$ bsc examples/fib.bs 10
+55
+$ bsc examples/readings.bs Classify "(:ok, 7)"
+:positive
+```
+
+`bsc FILE.bs [FUNCTION] [ARG...]`. The function name is optional because **under one function per
+file the file names the function** — `fib.bs` holds `Fib` — with two fallbacks for files predating
+that convention: an explicit name, or the only export. With no arguments at all it just compiles,
+as before.
+
+Arguments and results are in **beam-sharp** notation, and the parser accepts back exactly what the
+printer emits: `:positive`, `(:ok, 7)`, `[1, 2]`. Erlang term syntax (`{ok,7}`) also works, for
+shapes the surface cannot yet spell.
+
+**Or stay in a shell.**
+
+```
+$ ibs -S examples/fib.bs
+beam-sharp REPL — examples/fib.bs
+  Fib/1
+  :reload   recompile the file    :exports  list functions
+  :quit     leave                 Ctrl-D    leave
+
+bs> Fib(10)
+55
+bs> :reload
+reloaded examples/fib.bs
+```
+
+`:reload` is the point of it: edit the file, reload, call again, without leaving the shell. The
+REPL reads exactly one form — a call — because the parser in this slice reads declarations, not
+expressions. A wider prompt waits on the surface growing an expression parser.
+
+**Underneath, if you want the `.beam`:**
+
+```
+./_build/default/bin/bsc -o /tmp examples/readings.bs
 erl -pa /tmp -eval "io:format(\"~p~n\", ['Readings':'Classify'({ok,5})])."
 ```
 

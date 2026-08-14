@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+# ibs — the beam-sharp interactive shell.
+#
+#     ibs -S fib.bs
+#
+# A thin front end on `bsc --repl`, the way `iex -S mix` is a front end on the
+# same runtime `mix` uses. Kept as a script rather than a second escript so
+# there is one compiler binary and one code path through it.
+set -e
+here=$(cd "$(dirname "$0")" && pwd)
+exec "$here/../_build/default/bin/bsc" --repl "$@"

@@ -19,7 +19,10 @@ compile(Src) ->
     ok = filelib:ensure_dir(?OUT ++ "/x"),
     Path = ?OUT ++ "/in.bs",
     ok = file:write_file(Path, Src),
-    Result = bsc:file(Path, {opts, ?OUT, true, false}),
+    %% `bsc:file_to_dir/2` rather than a hand-built `{opts, ...}` tuple: the
+    %% suite should not know the shape of a private record, and did — adding a
+    %% field to it broke six tests that were otherwise unaffected.
+    Result = bsc:file_to_dir(Path, ?OUT),
     code:add_patha(?OUT),
     Result.
 
@@ -251,6 +254,105 @@ built_escript_compiles_a_file_test() ->
             ?assert(string:find(Result, "rc:0") =/= nomatch),
             ?assert(filelib:is_regular(Out ++ "/Readings.beam"))
     end.
+
+%%% ---------------------------------------------------------------------------
+%%% Running a program — `bsc fib.bs 5`
+%%%
+%%% Development is driven by runnable code (David, 2026-08-14), so these assert
+%%% on what the CLI prints, not on internals.
+%%% ---------------------------------------------------------------------------
+
+fib_src() ->
+    "module Fib;\n"
+    "int Fib(int n);\n"
+    "Fib(n) when n <= 1 -> n;\n"
+    "Fib(n) when n > 1  -> Fib(n - 1) + Fib(n - 2);\n".
+
+escript() -> project_root() ++ "/_build/default/bin/bsc".
+
+run_cli(Args) ->
+    os:cmd(escript() ++ " " ++ Args ++ " 2>&1; echo rc:$?").
+
+with_src(Name, Src, Fun) ->
+    Out = ?OUT ++ "/run",
+    ok = filelib:ensure_dir(Out ++ "/x"),
+    Path = Out ++ "/" ++ Name,
+    ok = file:write_file(Path, Src),
+    Fun(Path, Out).
+
+%% The rule that makes `bsc fib.bs 5` need no function name: under one function
+%% per file, the file names the function.
+run_infers_the_function_from_the_file_name_test() ->
+    case filelib:is_regular(escript()) of
+        false -> ok;
+        true ->
+            with_src("fib.bs", fib_src(), fun(Path, Out) ->
+                R = run_cli("-o " ++ Out ++ " " ++ Path ++ " 5"),
+                ?assert(string:find(R, "rc:0") =/= nomatch),
+                ?assertEqual("5", hd(string:lexemes(R, "\n")))
+            end)
+    end.
+
+run_computes_rather_than_parrots_test() ->
+    case filelib:is_regular(escript()) of
+        false -> ok;
+        true ->
+            with_src("fib.bs", fib_src(), fun(Path, Out) ->
+                R = run_cli("-o " ++ Out ++ " " ++ Path ++ " 10"),
+                ?assertEqual("55", hd(string:lexemes(R, "\n")))
+            end)
+    end.
+
+%% Results print in beam-sharp notation, and the argument parser accepts back
+%% exactly what the printer emits — `(:ok, 7)`, not `{ok,7}`.
+run_round_trips_beam_sharp_notation_test() ->
+    case filelib:is_regular(escript()) of
+        false -> ok;
+        true ->
+            with_src("readings.bs", showcase_src(), fun(Path, Out) ->
+                R = run_cli("-o " ++ Out ++ " " ++ Path ++ " Classify \"(:ok, 7)\""),
+                ?assertEqual(":positive", hd(string:lexemes(R, "\n")))
+            end)
+    end.
+
+%% A file with several functions cannot infer one, and says so rather than
+%% guessing.
+run_names_the_choice_when_it_cannot_infer_test() ->
+    case filelib:is_regular(escript()) of
+        false -> ok;
+        true ->
+            Src = showcase_src() ++
+                  "\nVerdict Second(Reading r);\n"
+                  "Second((:ok, n)) when n > 0 -> :positive;\n"
+                  "Second((:ok, 0))            -> :zero;\n"
+                  "Second((:ok, n))            -> :negative;\n"
+                  "Second((:error, e))         -> :unknown;\n",
+            with_src("many.bs", Src, fun(Path, Out) ->
+                R = run_cli("-o " ++ Out ++ " " ++ Path ++ " 5"),
+                ?assert(string:find(R, "rc:2") =/= nomatch),
+                ?assert(string:find(R, "which function") =/= nomatch)
+            end)
+    end.
+
+%% What `:reload` does, asserted where it can be: a piped stdin cannot edit a
+%% file mid-session, so this drives the same recompile-purge-load path the REPL
+%% command drives and checks the NEW source is what answers.
+reload_picks_up_a_changed_file_test() ->
+    Out = ?OUT ++ "/reload",
+    ok = filelib:ensure_dir(Out ++ "/x"),
+    Path = Out ++ "/Fib.bs",
+    ok = file:write_file(Path, fib_src()),
+    {ok, _} = bsc:file_to_dir(Path, Out),
+    true = code:add_patha(Out),
+    {module, 'Fib'} = code:ensure_loaded('Fib'),
+    ?assertEqual(8, 'Fib':'Fib'(6)),
+    Changed = "module Fib;\nint Fib(int n);\nFib(n) when n <= 1 -> 100;\n"
+              "Fib(n) when n > 1  -> 100;\n",
+    ok = file:write_file(Path, Changed),
+    {ok, _} = bsc:file_to_dir(Path, Out),
+    code:purge('Fib'), code:delete('Fib'), code:purge('Fib'),
+    {module, 'Fib'} = code:ensure_loaded('Fib'),
+    ?assertEqual(100, 'Fib':'Fib'(6)).
 
 %% eunit runs from _build/test/lib/bsc, so walk back to the project.
 project_root() ->

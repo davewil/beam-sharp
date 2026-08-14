@@ -12,6 +12,9 @@ erl_crash.dump
 
 # compiler build artefacts
 compiler/_build/
+
+# `bsc` with no -o writes the serialised abstract format beside the source.
+*.abstr
 compiler/bench/*.beam
 compiler/*.beam
 compiler/src/bs_lexer.erl
