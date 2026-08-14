@@ -17,7 +17,7 @@ Nonterminals
   .
 
 Terminals
-  'module' 'type' 'when' 'using' 'uses'
+  'module' 'type' 'when' 'using' 'behaviour'
   uident lident atom_lit integer '_'
   '->' '&&' '||' '==' '!=' '<=' '>=' '<' '>' '+' '-' '*'
   '=' '|' ',' '(' ')' '[' ']' '{' '}' '..' '.'
@@ -47,12 +47,13 @@ decl -> foreign_decl : '$1'.
 decl -> behaviour_decl : '$1'.
 
 %% --- behaviours -------------------------------------------------------------
-%% `uses GenServer`, not `using GenServer`: the latter is the same three tokens
-%% as a single-segment import, and only a symbol table could tell them apart —
-%% which is the type-directed resolution this language refuses everywhere else.
-%% `uses` also reads as a fact about the module rather than a directive, and it
-%% is one letter from Elixir's `use GenServer`, which is this exact construct.
-behaviour_decl -> 'uses' uident : {behaviour, line('$1'), value('$2')}.
+%% `behaviour GenServer` — the platform's own word, and literally what is
+%% emitted. Not `using GenServer`, which is the same three tokens as a
+%% single-segment import and would need a symbol table to disambiguate; not
+%% `use`, which in Elixir is a macro that injects default callback bodies B#
+%% will never generate; not `implements` or `instance`, each of which carries
+%% baggage from a paradigm this construct does not belong to.
+behaviour_decl -> 'behaviour' uident : {behaviour, line('$1'), value('$2')}.
 
 %% --- foreign modules --------------------------------------------------------
 %% On the BEAM a module IS an atom, so the module is written as one and the

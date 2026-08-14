@@ -366,7 +366,7 @@ The concurrency vocabulary is OTP's, and **nothing in it is parameterised by a m
 ```csharp
 module Counter
 
-uses GenServer
+behaviour GenServer
 
 type Request = :get | (:add, int)
 type Reply   = (:reply, int, int)
@@ -377,7 +377,7 @@ HandleCall(:get, from, state)      -> (:reply, state, state)
 HandleCall((:add, n), from, state) -> (:reply, state + n, state + n)
 ```
 
-**shipped** — `uses GenServer` emits `-behaviour(gen_server)`, and the two clauses are proved to
+**shipped** — `behaviour GenServer` emits `-behaviour(gen_server)`, and the two clauses are proved to
 cover `Request` with no catch-all.
 
 **`uses`, not `using`.** `using GenServer` is the same three tokens as a single-segment import, and
@@ -506,7 +506,7 @@ the parser accepts back exactly what the printer emits. **shipped**
 | generics | not started |
 | modules, imports, `using` | not started |
 | foreign calls (`using :lists {...}`) | **shipped**, without the boundary guard |
-| `uses GenServer` (behaviour attribute) | **shipped**, without the contract check |
+| `behaviour GenServer` (behaviour attribute) | **shipped**, without the contract check |
 
 ### Known inconsistencies
 

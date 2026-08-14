@@ -69,6 +69,18 @@ spec exists.
      divergence with its reason — e.g. `as T` yielding `T | :nothing` for any `T`, where C#
      requires a reference or nullable value type (CS0077).
 
+  **Amendment — the tiers rank *sources*, not *precedence*** (David, 2026-08-14, ticket 32 follow-on).
+  *"I'm not dogmatic about sticking to C# style, if there's a better word I'll use it, if behaviour
+  is BEAM native I'll use it."* The worked case is the OTP behaviour declaration: C# offers
+  `interface`, a tier-1 borrow that was available and was refused because it carries OOP vocabulary
+  the construct does not belong to; `implements` (Roc), `instance` (Haskell) and `use` (Elixir) were
+  each refused for a *specific* false friend — `use` in Elixir injects default callback bodies B#
+  will never generate, and ticket 23 already settled that the compiler synthesises heads and never
+  bodies. The winner is **`behaviour`**, tier 2, chosen because it is the thing's actual name on this
+  platform and literally what is emitted. **Read the heuristic as "survey all three tiers, then take
+  the most accurate word", not "take the highest tier that fits"** — the ordering exists to stop
+  gratuitous invention, not to make C# win ties it should lose.
+
   **Amendment — the bar for tier 3 is lower than "invent last" suggests** (David, 2026-08-12,
   ticket 27). *"It drifts from C#/TS, but it's 'like' those languages, not a perfect recreation on
   BEAM."* The goal is **resemblance, not reproduction**. A divergence needs a stated reason; it

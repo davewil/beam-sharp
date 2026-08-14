@@ -1,13 +1,14 @@
 // A gen_server in B#.
 //
-// `uses GenServer`, not `using GenServer`: the latter is the same three tokens
-// as a single-segment import, and only a symbol table could tell them apart —
-// which is the type-directed resolution this language refuses everywhere else.
-// `uses` reads as a fact about the module, and is one letter from Elixir's
-// `use GenServer`, which is this exact construct.
+// `behaviour` is the platform's own word and literally what is emitted. Not
+// `using GenServer` — the same three tokens as a single-segment import, which
+// would need a symbol table to disambiguate. Not `use` — in Elixir that is a
+// macro injecting default callback bodies B# will never generate. Not
+// `implements` or `instance`, each carrying baggage from a paradigm this
+// construct does not belong to.
 module Counter
 
-uses GenServer
+behaviour GenServer
 
 type Request = :get | (:add, int)
 type Reply   = (:reply, int, int)

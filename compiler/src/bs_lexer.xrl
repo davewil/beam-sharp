@@ -25,7 +25,11 @@ module                  : {token, {'module', TokenLine}}.
 type                    : {token, {'type', TokenLine}}.
 when                    : {token, {'when', TokenLine}}.
 using                   : {token, {'using', TokenLine}}.
-uses                    : {token, {'uses', TokenLine}}.
+%% The BEAM's own word for this, and what gets emitted. Erlang accepts either
+%% spelling and keeps whichever you wrote (measured); B# accepts both and emits
+%% the British one, because following the platform costs nothing here.
+behaviour               : {token, {'behaviour', TokenLine}}.
+behavior                : {token, {'behaviour', TokenLine}}.
 
 %% :atom — ticket 10 settled the sigil, and the universe is open, so nothing
 %% declares an atom and the lexer simply interns what it sees.

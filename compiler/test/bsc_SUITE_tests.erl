@@ -261,14 +261,14 @@ built_escript_compiles_a_file_test() ->
 
 counter_src() ->
     "module Counter\n"
-    "uses GenServer\n"
+    "behaviour GenServer\n"
     "type Request = :get | (:add, int)\n"
     "type Reply = (:reply, int, int)\n"
     "Reply HandleCall(Request request, term from, int state)\n"
     "HandleCall(:get, from, state)      -> (:reply, state, state)\n"
     "HandleCall((:add, n), from, state) -> (:reply, state + n, state + n)\n".
 
-uses_emits_a_behaviour_attribute_test() ->
+behaviour_decl_emits_the_attribute_test() ->
     {ok, _} = compile(counter_src()),
     {ok, {_, [{abstract_code, {_, Forms}}]}} =
         beam_lib:chunks(?OUT ++ "/Counter.beam", [abstract_code]),
