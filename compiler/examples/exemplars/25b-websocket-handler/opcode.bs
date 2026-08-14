@@ -7,22 +7,22 @@
 // came from carries the friction list explaining what is wrong with it and
 // why that is the point.
 
-Opcode Opcode(int);
+Opcode Opcode(int)
 
-(0)  -> :continuation;
-(1)  -> :text;
-(2)  -> :binary;
-(8)  -> :close;
-(9)  -> :ping;
-(10) -> :pong;
-(3)  -> :reserved;
-(4)  -> :reserved;
-(5)  -> :reserved;
-(6)  -> :reserved;
-(7)  -> :reserved;
-(11) -> :reserved;
-(12) -> :reserved;
-(13) -> :reserved;
-(14) -> :reserved;
-(15) -> :reserved;
+(0)  -> :continuation
+(1)  -> :text
+(2)  -> :binary
+(8)  -> :close
+(9)  -> :ping
+(10) -> :pong
+(3)  -> :reserved
+(4)  -> :reserved
+(5)  -> :reserved
+(6)  -> :reserved
+(7)  -> :reserved
+(11) -> :reserved
+(12) -> :reserved
+(13) -> :reserved
+(14) -> :reserved
+(15) -> :reserved
 

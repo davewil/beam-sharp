@@ -7,14 +7,14 @@
 // came from carries the friction list explaining what is wrong with it and
 // why that is the point.
 
-binary EncodeAck(int deliveryTag, bool multiple);
+binary EncodeAck(int deliveryTag, bool multiple)
 
 (tag, multiple) -> {
-    payload: binary = <<60:16, 80:16, tag:64, 0:7, Bit(multiple):1>>;
-    Wrap(1, 1, payload);
-};
+    payload: binary = <<60:16, 80:16, tag:64, 0:7, Bit(multiple):1>>
+    Wrap(1, 1, payload)
+}
 
-binary Wrap(int type, int channel, binary payload);
+binary Wrap(int type, int channel, binary payload)
 
-(t, ch, p) -> <<t:8, ch:16, ByteSize(p):32, p, 0xCE:8>>;
+(t, ch, p) -> <<t:8, ch:16, ByteSize(p):32, p, 0xCE:8>>
 

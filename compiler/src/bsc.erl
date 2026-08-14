@@ -244,6 +244,20 @@ report(Path, {warning, Line, Fn, {unreachable_clause, N}}) ->
 report(Path, D) ->
     io:format(standard_error, "~s: ~p~n", [Path, D]).
 
+%% beam-sharp has no statement terminator, and both audiences type one from
+%% habit — so this is the most likely error in the language and it gets the
+%% sharpest message rather than leex's raw tuple.
+report_fatal(Path, {lex, {Line, _Mod, {illegal, ";"}}}) ->
+    io:format(standard_error,
+              "~s:~p: error: beam-sharp has no `;`~n"
+              "  a declaration ends where the next one begins. Remove it.~n",
+              [Path, Line]);
+report_fatal(Path, {lex, {Line, Mod, Reason}}) ->
+    io:format(standard_error, "~s:~p: error: ~s~n",
+              [Path, Line, Mod:format_error(Reason)]);
+report_fatal(Path, {parse, {Line, Mod, Reason}}) ->
+    io:format(standard_error, "~s:~p: error: ~s~n",
+              [Path, Line, Mod:format_error(Reason)]);
 report_fatal(Path, Reason) ->
     io:format(standard_error, "~s: ~p~n", [Path, Reason]).
 

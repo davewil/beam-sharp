@@ -113,12 +113,12 @@ anything, and any error that would have to be raised *in a body* is deferred wit
 ### F3.1 — a record is declared and constructed, and the term is a tagged map
 
 ```csharp
-module Shop;
+module Shop
 
 record Order { Id: int, Total: int }
 
-Order Draft();
-Draft() -> Order { Id = 1, Total = 0 };
+Order Draft()
+Draft() -> Order { Id = 1, Total = 0 }
 ```
 
 Expect: compiles, exit `0`, and from Erlang
@@ -134,14 +134,14 @@ the atom sigil, since `Status: :placed` puts two colons together.
 ### F3.2 — the hand-written `type` with the same tag is the same type
 
 ```csharp
-module Shop;
+module Shop
 
 record Order { Id: int, Total: int }
-type Spelled = { Kind: :'Shop.Order', Id: int, Total: int };
-type Either  = Order | Spelled;
+type Spelled = { Kind: :'Shop.Order', Id: int, Total: int }
+type Either  = Order | Spelled
 
-atom Which(Either);
-Which({ Kind: :'Shop.Order' }) -> :order;
+atom Which(Either)
+Which({ Kind: :'Shop.Order' }) -> :order
 ```
 
 Expect: exhaustive, exit `0`, **from one clause**. This is §1's own stated test that the minting is
@@ -159,10 +159,10 @@ one clause leaves a residual.
 ```csharp
 record Order   { Id: int, Total: int }
 record Invoice { Id: int, Total: int }
-type Doc = Order | Invoice;
+type Doc = Order | Invoice
 
-atom Which(Doc);
-Which({ Kind: :'Shop.Order' }) -> :order;
+atom Which(Doc)
+Which({ Kind: :'Shop.Order' }) -> :order
 ```
 
 Expect: **error**, exit non-zero. Identical field sets, different tags, and the checker treats them
@@ -191,8 +191,8 @@ answer.
 ### F3.5 — `with` is width-preserving, and the tag survives it
 
 ```csharp
-Order Pay(Order o);
-Pay(o) -> o with { Total = 500 };
+Order Pay(Order o)
+Pay(o) -> o with { Total = 500 }
 ```
 
 Expect: compiles, exit `0`; the result is `#{'Kind' => 'Shop.Order', 'Id' => 1, 'Total' => 500}`.

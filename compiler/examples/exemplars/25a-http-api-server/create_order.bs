@@ -7,10 +7,10 @@
 // came from carries the friction list explaining what is wrong with it and
 // why that is the point.
 
-Response CreateOrder(term);
+Response CreateOrder(term)
 
 (body) -> ValidateAs<CreateOrder>(body) switch {
               (:error, e)  => (422, #{ error = "invalid", at = e }),
               cmd          => (201, Orders.Place(cmd))
-          };
+          }
 

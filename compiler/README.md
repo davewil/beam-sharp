@@ -16,6 +16,15 @@ rebar3 eunit                                    # 24 tests, all at the boundary
 rebar3 escriptize
 ```
 
+**There is no `;`.** A declaration ends where the next one begins; the grammar needs no terminator
+and yecc reports no conflict without one. A stray `;` is the likeliest error in the language, since
+both audiences type one from habit, so it gets a named diagnostic rather than a lexer tuple:
+
+```
+fib.bs:5: error: beam-sharp has no `;`
+  a declaration ends where the next one begins. Remove it.
+```
+
 **Run a program.** Development is driven by runnable code, so the compiler runs one:
 
 ```

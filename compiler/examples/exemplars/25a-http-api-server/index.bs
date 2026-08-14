@@ -7,11 +7,11 @@
 // came from carries the friction list explaining what is wrong with it and
 // why that is the point.
 
-using Shop.Orders;
+using Shop.Orders
 
-type Method = :get | :post | :put | :delete | :patch;
+type Method = :get | :post | :put | :delete | :patch
 
-type Response = (int, term);
+type Response = (int, term)
 
 record CreateOrder { Id: string, Total: int, Lines: list<Line> }
 

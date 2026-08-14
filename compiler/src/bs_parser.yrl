@@ -19,7 +19,7 @@ Terminals
   'module' 'type' 'when'
   uident lident atom_lit integer '_'
   '->' '&&' '||' '==' '!=' '<=' '>=' '<' '>' '+' '-' '*'
-  '=' '|' ';' ',' '(' ')' '[' ']' '..'
+  '=' '|' ',' '(' ')' '[' ']' '..'
   .
 
 Rootsymbol program.
@@ -44,12 +44,12 @@ decl -> signature   : '$1'.
 decl -> clause      : '$1'.
 
 %% --- module -----------------------------------------------------------------
-module_decl -> 'module' uident ';' : {module, line('$1'), value('$2')}.
+module_decl -> 'module' uident : {module, line('$1'), value('$2')}.
 
 %% --- type aliases -----------------------------------------------------------
 %% Ticket 09: `type X = ...` is the single naming construct, the name never
 %% enters the algebra, and there is no `union` keyword to design.
-type_decl -> 'type' uident '=' type_expr ';' :
+type_decl -> 'type' uident '=' type_expr :
     {type_alias, line('$1'), value('$2'), '$4'}.
 
 type_expr -> type_union_members :
@@ -74,7 +74,7 @@ type_list -> type_expr ',' type_list : ['$1' | '$3'].
 %% --- signatures -------------------------------------------------------------
 %% Ticket 04's binding constraint: exhaustiveness is only well posed against a
 %% *declared* input type, so a multi-clause function must carry a signature.
-signature -> type_prim uident '(' params ')' ';' :
+signature -> type_prim uident '(' params ')' :
     {signature, line('$2'), value('$2'), '$1', '$4'}.
 
 params -> '$empty'    : [].
@@ -88,7 +88,7 @@ param -> type_prim lident : {param, '$1', value('$2')}.
 param -> type_prim        : {param, '$1', '_'}.
 
 %% --- clauses ----------------------------------------------------------------
-clause -> uident '(' patterns ')' guard '->' expr ';' :
+clause -> uident '(' patterns ')' guard '->' expr :
     {clause, line('$1'), value('$1'), '$3', '$5', '$7'}.
 
 patterns -> '$empty'     : [].

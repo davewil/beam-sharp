@@ -8,11 +8,11 @@
 // why that is the point.
 
 type Opcode =
-    :continuation | :text | :binary | :close | :ping | :pong | :reserved;
+    :continuation | :text | :binary | :close | :ping | :pong | :reserved
 
 record Frame { Fin: bool, Op: Opcode, Payload: binary }
 
-type Decoded = result<(Frame, binary), DecodeError>;
+type Decoded = result<(Frame, binary), DecodeError>
 
-type DecodeError = :incomplete | :unmasked_client_frame | :reserved_bit_set;
+type DecodeError = :incomplete | :unmasked_client_frame | :reserved_bit_set
 

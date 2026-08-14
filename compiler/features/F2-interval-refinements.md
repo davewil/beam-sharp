@@ -38,13 +38,13 @@ features README, and it is here because it was learned rather than assumed.
 Input:
 
 ```csharp
-module Wire;
+module Wire
 
-type Octet = int where value >= 0 && value <= 255;
+type Octet = int where value >= 0 && value <= 255
 
-Octet Clamp(Octet);
+Octet Clamp(Octet)
 
-Clamp(n) -> n;
+Clamp(n) -> n
 ```
 
 Expect: compiles, exit `0`, and the emitted `-spec` says `0..255` rather than `integer()`. This is
@@ -64,15 +64,15 @@ failure it prevents.
 Input:
 
 ```csharp
-FrameType Classify(Octet);
+FrameType Classify(Octet)
 
-Classify(1)      -> :method;
-Classify(2)      -> :header;
-Classify(3)      -> :body;
-Classify(8)      -> :heartbeat;
-Classify(4..7)   -> :reserved;
-Classify(0)      -> :reserved;
-Classify(9..255) -> :reserved;
+Classify(1)      -> :method
+Classify(2)      -> :header
+Classify(3)      -> :body
+Classify(8)      -> :heartbeat
+Classify(4..7)   -> :reserved
+Classify(0)      -> :reserved
+Classify(9..255) -> :reserved
 ```
 
 Expect: exhaustive, exit `0`. **The spelling `4..7` is not settled** — ticket 28 §5 measured that

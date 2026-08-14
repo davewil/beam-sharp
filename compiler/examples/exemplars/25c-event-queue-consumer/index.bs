@@ -9,7 +9,7 @@
 
 [module: GenServer]
 
-type FrameType = :method | :header | :body | :heartbeat;
+type FrameType = :method | :header | :body | :heartbeat
 
 record Frame { Type: FrameType, Channel: int, Payload: binary }
 
@@ -23,9 +23,9 @@ record Delivery {
 
 record OrderPlaced { Id: string, Qty: int }
 
-type FrameError   = :incomplete | (:bad_frame_end, int) | (:unknown_frame_type, int);
-type MethodError  = (:unhandled_method, int, int) | :malformed_method;
-type ConsumeError = FrameError | MethodError | ValidationError;
+type FrameError   = :incomplete | (:bad_frame_end, int) | (:unknown_frame_type, int)
+type MethodError  = (:unhandled_method, int, int) | :malformed_method
+type ConsumeError = FrameError | MethodError | ValidationError
 
-type Disposition = :ack | :requeue | :dead_letter;
+type Disposition = :ack | :requeue | :dead_letter
 

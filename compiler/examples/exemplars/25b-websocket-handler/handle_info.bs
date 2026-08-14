@@ -7,12 +7,12 @@
 // came from carries the friction list explaining what is wrong with it and
 // why that is the point.
 
-(:noreply, State) HandleInfo(term, State);
+(:noreply, State) HandleInfo(term, State)
 
-((Down, pid, reason), s)   -> (:noreply, DropWorker(s, pid, reason));
-((Exit, pid, reason), s)   -> (:noreply, Closing(s, pid, reason));
-((:tcp, _, data), s)       -> (:noreply, Feed(s, data));
-(Timeout, s)               -> (:noreply, Reap(s));
-(other, s)                 -> { Log.Warn("unexpected frame", other);
+((Down, pid, reason), s)   -> (:noreply, DropWorker(s, pid, reason))
+((Exit, pid, reason), s)   -> (:noreply, Closing(s, pid, reason))
+((:tcp, _, data), s)       -> (:noreply, Feed(s, data))
+(Timeout, s)               -> (:noreply, Reap(s))
+(other, s)                 -> { Log.Warn("unexpected frame", other)
                                 (:noreply, s); }
 

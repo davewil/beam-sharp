@@ -43,14 +43,14 @@ check_only(Src) ->
 %%% ---------------------------------------------------------------------------
 
 showcase_src() ->
-    "module Readings;\n"
-    "type Verdict = :positive | :zero | :negative | :unknown;\n"
-    "type Reading = (:ok, int) | (:error, atom);\n"
-    "Verdict Classify(Reading r);\n"
-    "Classify((:ok, n)) when n > 0 -> :positive;\n"
-    "Classify((:ok, 0))            -> :zero;\n"
-    "Classify((:ok, n))            -> :negative;\n"
-    "Classify((:error, e))         -> :unknown;\n".
+    "module Readings\n"
+    "type Verdict = :positive | :zero | :negative | :unknown\n"
+    "type Reading = (:ok, int) | (:error, atom)\n"
+    "Verdict Classify(Reading r)\n"
+    "Classify((:ok, n)) when n > 0 -> :positive\n"
+    "Classify((:ok, 0))            -> :zero\n"
+    "Classify((:ok, n))            -> :negative\n"
+    "Classify((:error, e))         -> :unknown\n".
 
 showcase_runs_test() ->
     M = build_and_load(showcase_src(), 'Readings'),
@@ -93,31 +93,31 @@ foreign_term_crashes_rather_than_lying_test() ->
 %%% ---------------------------------------------------------------------------
 
 inexhaustive_is_rejected_test() ->
-    Src = "module R;\n"
-          "type Reading = (:ok, int) | (:error, atom);\n"
-          "atom Classify(Reading r);\n"
-          "Classify((:ok, n)) when n > 0 -> :positive;\n"
-          "Classify((:error, e))         -> :unknown;\n",
+    Src = "module R\n"
+          "type Reading = (:ok, int) | (:error, atom)\n"
+          "atom Classify(Reading r)\n"
+          "Classify((:ok, n)) when n > 0 -> :positive\n"
+          "Classify((:error, e))         -> :unknown\n",
     {error, Diags} = check_only(Src),
     ?assertMatch([{error, _, 'Classify', {inexhaustive, _}}], Diags).
 
 %% The residual IS the missing case — not a count, not "some value".
 residual_names_the_missing_case_test() ->
-    Src = "module R;\n"
-          "type Reading = (:ok, int) | (:error, atom);\n"
-          "atom Classify(Reading r);\n"
-          "Classify((:ok, n)) when n > 0 -> :positive;\n"
-          "Classify((:error, e))         -> :unknown;\n",
+    Src = "module R\n"
+          "type Reading = (:ok, int) | (:error, atom)\n"
+          "atom Classify(Reading r)\n"
+          "Classify((:ok, n)) when n > 0 -> :positive\n"
+          "Classify((:error, e))         -> :unknown\n",
     {error, [{error, _, _, {inexhaustive, Residual}}]} = check_only(Src),
     ?assertEqual("((:ok, int <= 0))", bs_types:to_string(Residual)).
 
 unreachable_clause_is_warned_test() ->
-    Src = "module R;\n"
-          "type Reading = (:ok, int) | (:error, atom);\n"
-          "atom Classify(Reading r);\n"
-          "Classify((:ok, n))            -> :positive;\n"
-          "Classify((:ok, n)) when n > 0 -> :zero;\n"
-          "Classify((:error, e))         -> :unknown;\n",
+    Src = "module R\n"
+          "type Reading = (:ok, int) | (:error, atom)\n"
+          "atom Classify(Reading r)\n"
+          "Classify((:ok, n))            -> :positive\n"
+          "Classify((:ok, n)) when n > 0 -> :zero\n"
+          "Classify((:error, e))         -> :unknown\n",
     {ok, _, Diags} = check_only(Src),
     ?assertMatch([{warning, _, 'Classify', {unreachable_clause, 2}}], Diags).
 
@@ -127,17 +127,17 @@ unreachable_clause_is_warned_test() ->
 
 %% Exhaustive ONLY if the checker sees that `n <= 1` and `n > 1` partition int.
 guarded_integer_partition_is_exhaustive_test() ->
-    Src = "module M;\n"
-          "int Fib(int n);\n"
-          "Fib(n) when n <= 1 -> n;\n"
-          "Fib(n) when n > 1  -> Fib(n - 1) + Fib(n - 2);\n",
+    Src = "module M\n"
+          "int Fib(int n)\n"
+          "Fib(n) when n <= 1 -> n\n"
+          "Fib(n) when n > 1  -> Fib(n - 1) + Fib(n - 2)\n",
     ?assertMatch({ok, _, []}, check_only(Src)).
 
 fib_actually_computes_test() ->
-    Src = "module M;\n"
-          "int Fib(int n);\n"
-          "Fib(n) when n <= 1 -> n;\n"
-          "Fib(n) when n > 1  -> Fib(n - 1) + Fib(n - 2);\n",
+    Src = "module M\n"
+          "int Fib(int n)\n"
+          "Fib(n) when n <= 1 -> n\n"
+          "Fib(n) when n > 1  -> Fib(n - 1) + Fib(n - 2)\n",
     M = build_and_load(Src, 'M'),
     ?assertEqual(0,  M:'Fib'(0)),
     ?assertEqual(1,  M:'Fib'(1)),
@@ -145,30 +145,30 @@ fib_actually_computes_test() ->
 
 %% A hole in the middle of a partition must be found and named exactly.
 interval_hole_is_found_test() ->
-    Src = "module M;\n"
-          "type Band = :low | :mid | :high;\n"
-          "Band Classify(int n);\n"
-          "Classify(n) when n < 10   -> :low;\n"
-          "Classify(n) when n >= 100 -> :high;\n",
+    Src = "module M\n"
+          "type Band = :low | :mid | :high\n"
+          "Band Classify(int n)\n"
+          "Classify(n) when n < 10   -> :low\n"
+          "Classify(n) when n >= 100 -> :high\n",
     {error, [{error, _, _, {inexhaustive, Residual}}]} = check_only(Src),
     ?assertEqual("(10..99)", bs_types:to_string(Residual)).
 
 conjunction_in_a_guard_is_credited_test() ->
-    Src = "module M;\n"
-          "type Band = :low | :mid | :high;\n"
-          "Band Classify(int n);\n"
-          "Classify(n) when n < 10             -> :low;\n"
-          "Classify(n) when n >= 10 && n < 100 -> :mid;\n"
-          "Classify(n) when n >= 100           -> :high;\n",
+    Src = "module M\n"
+          "type Band = :low | :mid | :high\n"
+          "Band Classify(int n)\n"
+          "Classify(n) when n < 10             -> :low\n"
+          "Classify(n) when n >= 10 && n < 100 -> :mid\n"
+          "Classify(n) when n >= 100           -> :high\n",
     ?assertMatch({ok, _, []}, check_only(Src)).
 
 %% Ticket 08: a condition the checker cannot translate credits nothing. That must
 %% make the function *inexhaustive*, never accidentally exhaustive — an
 %% uncreditable guard may not be read as full coverage.
 uncreditable_guard_credits_nothing_test() ->
-    Src = "module M;\n"
-          "int F(int n);\n"
-          "F(n) when Weird(n) -> n;\n",
+    Src = "module M\n"
+          "int F(int n)\n"
+          "F(n) when Weird(n) -> n\n",
     {error, Diags} = check_only(Src),
     ?assertMatch([{error, _, 'F', {inexhaustive, _}}], Diags).
 
@@ -256,6 +256,29 @@ built_escript_compiles_a_file_test() ->
     end.
 
 %%% ---------------------------------------------------------------------------
+%%% No statement terminator
+%%%
+%%% Both audiences type `;` from habit, so it is the likeliest error in the
+%%% language and owes the sharpest message.
+%%% ---------------------------------------------------------------------------
+
+no_semicolon_is_needed_test() ->
+    Src = "module T\nint F(int n)\nF(n) when n > 0 -> n\nF(n) when n <= 0 -> 0\n",
+    ?assertMatch({ok, _, []}, check_only(Src)).
+
+a_stray_semicolon_says_what_to_do_test() ->
+    case filelib:is_regular(escript()) of
+        false -> ok;
+        true ->
+            Src = "module T\nint F(int n)\nF(n) when n > 0 -> n;\nF(n) when n <= 0 -> 0\n",
+            with_src("semi.bs", Src, fun(Path, Out) ->
+                R = run_cli("-o " ++ Out ++ " " ++ Path),
+                ?assert(string:find(R, "rc:1") =/= nomatch),
+                ?assert(string:find(R, "beam-sharp has no `;`") =/= nomatch)
+            end)
+    end.
+
+%%% ---------------------------------------------------------------------------
 %%% Lists
 %%%
 %%% `[]` and `[h, ..t]` partition list<T>, which is what lets a list function be
@@ -265,16 +288,16 @@ built_escript_compiles_a_file_test() ->
 series_src() ->
     %% Not `Fib`: the reload test defines its own scalar `Fib` module and the two
     %% would clobber one another's .beam and loaded code.
-    "module FibL;\n"
-    "list<int> Fib(int n);\n"
-    "Fib(n) when n <= 0 -> [];\n"
-    "Fib(n) when n > 0  -> Series(n, 0, 1, []);\n"
-    "list<int> Series(int n, int a, int b, list<int> acc);\n"
-    "Series(n, a, b, acc) when n <= 0 -> Reverse(acc, []);\n"
-    "Series(n, a, b, acc) when n > 0  -> Series(n - 1, b, a + b, [a, ..acc]);\n"
-    "list<int> Reverse(list<int> xs, list<int> acc);\n"
-    "Reverse([], acc)          -> acc;\n"
-    "Reverse([x, ..rest], acc) -> Reverse(rest, [x, ..acc]);\n".
+    "module FibL\n"
+    "list<int> Fib(int n)\n"
+    "Fib(n) when n <= 0 -> []\n"
+    "Fib(n) when n > 0  -> Series(n, 0, 1, [])\n"
+    "list<int> Series(int n, int a, int b, list<int> acc)\n"
+    "Series(n, a, b, acc) when n <= 0 -> Reverse(acc, [])\n"
+    "Series(n, a, b, acc) when n > 0  -> Series(n - 1, b, a + b, [a, ..acc])\n"
+    "list<int> Reverse(list<int> xs, list<int> acc)\n"
+    "Reverse([], acc)          -> acc\n"
+    "Reverse([x, ..rest], acc) -> Reverse(rest, [x, ..acc])\n".
 
 a_list_function_computes_test() ->
     M = build_and_load(series_src(), 'FibL'),
@@ -293,8 +316,8 @@ nil_and_cons_partition_a_list_test() ->
 
 %% Drop `Reverse([], acc)` and the residual must name the empty list.
 missing_nil_clause_is_caught_test() ->
-    Src = "module L;\nlist<int> Rev(list<int> xs, list<int> acc);\n"
-          "Rev([x, ..rest], acc) -> Rev(rest, [x, ..acc]);\n",
+    Src = "module L\nlist<int> Rev(list<int> xs, list<int> acc)\n"
+          "Rev([x, ..rest], acc) -> Rev(rest, [x, ..acc])\n",
     {ok, Toks, _} = bs_lexer:string(Src),
     {ok, Decls} = bs_parser:parse(Toks),
     {error, Diags} = bs_check:check(Decls),
@@ -334,10 +357,10 @@ tail_calls_do_not_grow_the_stack_test() ->
 %%% ---------------------------------------------------------------------------
 
 fib_src() ->
-    "module Fib;\n"
-    "int Fib(int n);\n"
-    "Fib(n) when n <= 1 -> n;\n"
-    "Fib(n) when n > 1  -> Fib(n - 1) + Fib(n - 2);\n".
+    "module Fib\n"
+    "int Fib(int n)\n"
+    "Fib(n) when n <= 1 -> n\n"
+    "Fib(n) when n > 1  -> Fib(n - 1) + Fib(n - 2)\n".
 
 escript() -> project_root() ++ "/_build/default/bin/bsc".
 
@@ -393,11 +416,11 @@ run_names_the_choice_when_it_cannot_infer_test() ->
         false -> ok;
         true ->
             Src = showcase_src() ++
-                  "\nVerdict Second(Reading r);\n"
-                  "Second((:ok, n)) when n > 0 -> :positive;\n"
-                  "Second((:ok, 0))            -> :zero;\n"
-                  "Second((:ok, n))            -> :negative;\n"
-                  "Second((:error, e))         -> :unknown;\n",
+                  "\nVerdict Second(Reading r)\n"
+                  "Second((:ok, n)) when n > 0 -> :positive\n"
+                  "Second((:ok, 0))            -> :zero\n"
+                  "Second((:ok, n))            -> :negative\n"
+                  "Second((:error, e))         -> :unknown\n",
             with_src("many.bs", Src, fun(Path, Out) ->
                 R = run_cli("-o " ++ Out ++ " " ++ Path ++ " 5"),
                 ?assert(string:find(R, "rc:2") =/= nomatch),
@@ -417,8 +440,8 @@ reload_picks_up_a_changed_file_test() ->
     true = code:add_patha(Out),
     {module, 'Fib'} = code:ensure_loaded('Fib'),
     ?assertEqual(8, 'Fib':'Fib'(6)),
-    Changed = "module Fib;\nint Fib(int n);\nFib(n) when n <= 1 -> 100;\n"
-              "Fib(n) when n > 1  -> 100;\n",
+    Changed = "module Fib\nint Fib(int n)\nFib(n) when n <= 1 -> 100\n"
+              "Fib(n) when n > 1  -> 100\n",
     ok = file:write_file(Path, Changed),
     {ok, _} = bsc:file_to_dir(Path, Out),
     code:purge('Fib'), code:delete('Fib'), code:purge('Fib'),

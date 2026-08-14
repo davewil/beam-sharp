@@ -7,7 +7,7 @@
 // came from carries the friction list explaining what is wrong with it and
 // why that is the point.
 
-Response Admit(Request);
+Response Admit(Request)
 
 (r) -> (r.Authed, r.Verified, r.Quota > 0, r.Size <= 1048576, r.Beta) switch {
            (false, _,     _,     _,     _)     => (401, :unauthenticated),
@@ -16,5 +16,5 @@ Response Admit(Request);
            (_,     _,     _,     false, _)     => (413, :too_large),
            (_,     _,     _,     _,     false) => (404, :not_in_beta),
            (true,  true,  true,  true,  true)  => (200, :ok)
-       };
+       }
 

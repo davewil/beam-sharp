@@ -5,19 +5,19 @@
 // clause below is unguarded, so this function is exhaustive ONLY if the checker
 // can see that `n <= 1` and `n > 1` partition `int`. Without intervals it would
 // be rejected, and the author would have to weaken the last clause.
-module Math;
+module Math
 
-int Fib(int n);
+int Fib(int n)
 
-Fib(n) when n <= 1 -> n;
-Fib(n) when n > 1  -> Fib(n - 1) + Fib(n - 2);
+Fib(n) when n <= 1 -> n
+Fib(n) when n > 1  -> Fib(n - 1) + Fib(n - 2)
 
 // A closed partition with a hole in the middle, to prove the residual is exact
 // rather than merely non-empty.
-type Band = :low | :mid | :high;
+type Band = :low | :mid | :high
 
-Band Classify(int n);
+Band Classify(int n)
 
-Classify(n) when n < 10             -> :low;
-Classify(n) when n >= 10 && n < 100 -> :mid;
-Classify(n) when n >= 100           -> :high;
+Classify(n) when n < 10             -> :low
+Classify(n) when n >= 10 && n < 100 -> :mid
+Classify(n) when n >= 100           -> :high

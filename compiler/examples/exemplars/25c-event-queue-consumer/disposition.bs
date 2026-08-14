@@ -7,7 +7,7 @@
 // came from carries the friction list explaining what is wrong with it and
 // why that is the point.
 
-Disposition Decide(result<Delivery, ConsumeError> outcome, bool redelivered, int deliveries);
+Disposition Decide(result<Delivery, ConsumeError> outcome, bool redelivered, int deliveries)
 
 (o, r, n) -> (Ok(o), Permanent(o), r, n >= 5) switch {
     (true,  _,     _,     _)     => :ack,
@@ -15,5 +15,5 @@ Disposition Decide(result<Delivery, ConsumeError> outcome, bool redelivered, int
     (false, false, _,     true)  => :dead_letter,
     (false, false, false, false) => :requeue,
     (false, false, true,  false) => :requeue
-};
+}
 

@@ -7,12 +7,12 @@
 // came from carries the friction list explaining what is wrong with it and
 // why that is the point.
 
-binary Encode(Opcode, binary);
+binary Encode(Opcode, binary)
 
 (op, payload) -> Header(op, ByteSize(payload))
-              |> Binary.Append(payload);
+              |> Binary.Append(payload)
 
-binary Fragments(list<binary>);
+binary Fragments(list<binary>)
 
-(chunks) -> chunks |> List.Fold("", (acc, c) => Binary.Append(acc, c));
+(chunks) -> chunks |> List.Fold("", (acc, c) => Binary.Append(acc, c))
 

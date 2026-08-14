@@ -60,7 +60,6 @@ _                       : {token, {'_', TokenLine}}.
 \*                      : {token, {'*', TokenLine}}.
 =                       : {token, {'=', TokenLine}}.
 \|                      : {token, {'|', TokenLine}}.
-;                       : {token, {';', TokenLine}}.
 ,                       : {token, {',', TokenLine}}.
 \(                      : {token, {'(', TokenLine}}.
 \)                      : {token, {')', TokenLine}}.

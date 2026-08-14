@@ -1,12 +1,12 @@
 // The ticket 01 showcase, in the surface ticket 01 and ticket 08 settled.
-module Readings;
+module Readings
 
-type Verdict = :positive | :zero | :negative | :unknown;
-type Reading = (:ok, int) | (:error, atom);
+type Verdict = :positive | :zero | :negative | :unknown
+type Reading = (:ok, int) | (:error, atom)
 
-Verdict Classify(Reading r);
+Verdict Classify(Reading r)
 
-Classify((:ok, n)) when n > 0 -> :positive;
-Classify((:ok, 0))            -> :zero;
-Classify((:ok, n))            -> :negative;
-Classify((:error, e))         -> :unknown;
+Classify((:ok, n)) when n > 0 -> :positive
+Classify((:ok, 0))            -> :zero
+Classify((:ok, n))            -> :negative
+Classify((:error, e))         -> :unknown

@@ -7,13 +7,13 @@
 // came from carries the friction list explaining what is wrong with it and
 // why that is the point.
 
-result<Delivery, ConsumeError> Consume(binary);
+result<Delivery, ConsumeError> Consume(binary)
 
 (raw) -> raw |?> DecodeFrame()
              |?> DecodeMethod()
-             |?> ValidateAs<OrderPlaced>();
+             |?> ValidateAs<OrderPlaced>()
 
-result<Delivery, ConsumeError> Consume(binary);
+result<Delivery, ConsumeError> Consume(binary)
 
 (raw) -> switch (DecodeFrame(raw)) {
     (:error, e)                     => (:error, e),
@@ -21,5 +21,5 @@ result<Delivery, ConsumeError> Consume(binary);
         f.Payload |?> DecodeMethod()
                   |?> WithBody(rest),
     (f, _)                          => (:error, (:want_method, f.Type))
-};
+}
 

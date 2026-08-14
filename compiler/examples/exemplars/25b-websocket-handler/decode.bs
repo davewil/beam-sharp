@@ -7,17 +7,17 @@
 // came from carries the friction list explaining what is wrong with it and
 // why that is the point.
 
-Decoded Decode(binary);
+Decoded Decode(binary)
 
 (<<fin:1, 0:3, op:4, 1:1, 126:7, len:16, mask:32, payload:len, rest>>)
-    -> (Frame { Fin = fin, Op = Opcode(op), Payload = Unmask(payload, mask) }, rest);
+    -> (Frame { Fin = fin, Op = Opcode(op), Payload = Unmask(payload, mask) }, rest)
 
 (<<fin:1, 0:3, op:4, 1:1, 127:7, len:64, mask:32, payload:len, rest>>)
-    -> (Frame { Fin = fin, Op = Opcode(op), Payload = Unmask(payload, mask) }, rest);
+    -> (Frame { Fin = fin, Op = Opcode(op), Payload = Unmask(payload, mask) }, rest)
 
 (<<fin:1, 0:3, op:4, 1:1, len:7, mask:32, payload:len, rest>>) when len < 126
-    -> (Frame { Fin = fin, Op = Opcode(op), Payload = Unmask(payload, mask) }, rest);
+    -> (Frame { Fin = fin, Op = Opcode(op), Payload = Unmask(payload, mask) }, rest)
 
-(<<_:1, 0:3, _:4, 0:1, _>>)  -> (:error, :unmasked_client_frame);
-(_)                          -> (:error, :incomplete);
+(<<_:1, 0:3, _:4, 0:1, _>>)  -> (:error, :unmasked_client_frame)
+(_)                          -> (:error, :incomplete)
 

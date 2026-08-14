@@ -7,11 +7,11 @@
 // came from carries the friction list explaining what is wrong with it and
 // why that is the point.
 
-Response Route(Method, list<string>, term);
+Response Route(Method, list<string>, term)
 
-(:get,    ["orders"],     _)     -> (200, Orders.All());
-(:get,    ["orders", id], _)     -> Fetch(id);
-(:post,   ["orders"],     body)  -> CreateOrder(body);
-(:delete, ["orders", id], _)     -> Delete(id);
-(_,       _,              _)     -> (404, #{ error = "no route" });
+(:get,    ["orders"],     _)     -> (200, Orders.All())
+(:get,    ["orders", id], _)     -> Fetch(id)
+(:post,   ["orders"],     body)  -> CreateOrder(body)
+(:delete, ["orders", id], _)     -> Delete(id)
+(_,       _,              _)     -> (404, #{ error = "no route" })
 

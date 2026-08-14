@@ -7,8 +7,8 @@
 // came from carries the friction list explaining what is wrong with it and
 // why that is the point.
 
-(int, binary) EncodeResponse(Response);
+(int, binary) EncodeResponse(Response)
 
-((status, :no_content)) -> (status, "");
-((status, body))        -> (status, Json.Encode(body));
+((status, :no_content)) -> (status, "")
+((status, body))        -> (status, Json.Encode(body))
 

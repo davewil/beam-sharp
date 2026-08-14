@@ -5,21 +5,21 @@
 // naive `[a, ..Series(n - 1, ...)]` is not — the cons happens after the call
 // returns, so the stack grows with n. An accumulator plus a reverse keeps it
 // flat, which is the ordinary BEAM idiom.
-module Fib;
+module Fib
 
-list<int> Fib(int n);
+list<int> Fib(int n)
 
-Fib(n) when n <= 0 -> [];
-Fib(n) when n > 0  -> Series(n, 0, 1, []);
+Fib(n) when n <= 0 -> []
+Fib(n) when n > 0  -> Series(n, 0, 1, [])
 
 // The accumulator pair ticket 08 noted defaults cannot express, written out.
-list<int> Series(int n, int a, int b, list<int> acc);
+list<int> Series(int n, int a, int b, list<int> acc)
 
-Series(n, a, b, acc) when n <= 0 -> Reverse(acc, []);
-Series(n, a, b, acc) when n > 0  -> Series(n - 1, b, a + b, [a, ..acc]);
+Series(n, a, b, acc) when n <= 0 -> Reverse(acc, [])
+Series(n, a, b, acc) when n > 0  -> Series(n - 1, b, a + b, [a, ..acc])
 
 // Exhaustive with no catch-all: `[]` and `[x, ..rest]` partition list<int>.
-list<int> Reverse(list<int> xs, list<int> acc);
+list<int> Reverse(list<int> xs, list<int> acc)
 
-Reverse([], acc)          -> acc;
-Reverse([x, ..rest], acc) -> Reverse(rest, [x, ..acc]);
+Reverse([], acc)          -> acc
+Reverse([x, ..rest], acc) -> Reverse(rest, [x, ..acc])

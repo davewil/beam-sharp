@@ -7,10 +7,10 @@
 // came from carries the friction list explaining what is wrong with it and
 // why that is the point.
 
-result<Delivery, MethodError> DecodeMethod(binary);
+result<Delivery, MethodError> DecodeMethod(binary)
 
-(<<60:16, 60:16, args>>) -> DecodeDeliver(args);
-(<<60:16, 80:16, _>>)    -> (:error, :unexpected_ack);
-(<<c:16, m:16, _>>)      -> (:error, (:unhandled_method, c, m));
-(_)                      -> (:error, :malformed_method);
+(<<60:16, 60:16, args>>) -> DecodeDeliver(args)
+(<<60:16, 80:16, _>>)    -> (:error, :unexpected_ack)
+(<<c:16, m:16, _>>)      -> (:error, (:unhandled_method, c, m))
+(_)                      -> (:error, :malformed_method)
 
