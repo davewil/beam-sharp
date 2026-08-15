@@ -1,0 +1,18 @@
+{
+  "grammars": [
+    {
+      "name": "beam_sharp",
+      "camelcase": "BeamSharp",
+      "scope": "source.beam-sharp",
+      "path": ".",
+      "file-types": ["bs"],
+      "highlights": "queries/highlights.scm",
+      "injection-regex": "^(beam-sharp|bs)$"
+    }
+  ],
+  "metadata": {
+    "version": "0.1.0",
+    "license": "UNLICENSED",
+    "description": "beam-sharp grammar for tree-sitter"
+  }
+}

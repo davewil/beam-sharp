@@ -1,0 +1,9 @@
+# `src/` is COMMITTED on purpose -- `src/parser.c` is what lets neovim and a
+# packager build the parser without the tree-sitter CLI. Only the build output
+# and the node toolchain are ignored.
+node_modules/
+build/
+*.so
+*.dylib
+*.wasm
+package-lock.json

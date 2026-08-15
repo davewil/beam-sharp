@@ -1,0 +1,141 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "beam-sharp",
+  "scopeName": "source.beam-sharp",
+  "fileTypes": ["bs"],
+
+  "_comment": [
+    "Derived from compiler/src/bs_lexer.xrl, which is the source of truth.",
+    "Pattern ORDER is significant: the first entry that matches at a position",
+    "wins, so the atom rule must precede the ':' operator and the comment rule",
+    "must precede everything (a '//' line may contain any token at all)."
+  ],
+
+  "patterns": [
+    { "include": "#comment" },
+    { "include": "#atom" },
+    { "include": "#keyword" },
+    { "include": "#builtin-type" },
+    { "include": "#parametric-builtin" },
+    { "include": "#number" },
+    { "include": "#field" },
+    { "include": "#function-name" },
+    { "include": "#type-name" },
+    { "include": "#wildcard" },
+    { "include": "#operator" },
+    { "include": "#variable" }
+  ],
+
+  "repository": {
+    "comment": {
+      "name": "comment.line.double-slash.beam-sharp",
+      "match": "//.*$"
+    },
+
+    "atom": {
+      "patterns": [
+        {
+          "_comment": "A quoted atom, for what the bare sigil cannot spell. A record's minted tag is the case in point: :'Shop.Order'. Must precede the bare rule.",
+          "name": "constant.other.symbol.quoted.beam-sharp",
+          "match": ":'[^']*'"
+        },
+        {
+          "_comment": "The lexer's rule exactly: ':' then a lowercase start. Note there is NO space allowed, which is what makes `Id:int` colour ':int' as an atom while `Id: int` does not -- the same one-character trap the parser catches by name.",
+          "name": "constant.other.symbol.beam-sharp",
+          "match": ":[a-z][a-zA-Z0-9_]*"
+        }
+      ]
+    },
+
+    "keyword": {
+      "patterns": [
+        {
+          "_comment": "`switch` is the only branching construct (ticket 17 §6); `when` introduces a guard on a clause or on a switch arm.",
+          "name": "keyword.control.beam-sharp",
+          "match": "\\b(switch|when)\\b"
+        },
+        {
+          "name": "keyword.declaration.beam-sharp",
+          "match": "\\b(module|type|record|using|behaviour|behavior|with)\\b"
+        },
+        {
+          "_comment": "The two keyword atoms. Bare, not sigilled -- and colouring them as constants rather than variables is the whole point: as identifiers they would be VARIABLES matching everything, which is the defect F7 found in the lexer.",
+          "name": "constant.language.beam-sharp",
+          "match": "\\b(true|false)\\b"
+        }
+      ]
+    },
+
+    "builtin-type": {
+      "name": "support.type.beam-sharp",
+      "match": "\\b(int|atom|term|bool)\\b"
+    },
+
+    "parametric-builtin": {
+      "_comment": "Only where a bracket follows. `list`, `option` and `result` are errors written without one (needs_type_args), so requiring the '<' is more accurate than a bare word list -- and it leaves `result` free to be an ordinary variable name, which it very plausibly is.",
+      "name": "support.type.beam-sharp",
+      "match": "\\b(list|option|result)\\b(?=\\s*<)"
+    },
+
+    "number": {
+      "name": "constant.numeric.integer.beam-sharp",
+      "match": "\\b[0-9]+\\b"
+    },
+
+    "field": {
+      "_comment": "A PascalCase name before ':' is a field -- in a record declaration, in an anonymous map type, or in a property pattern. All three are `uident ':'` in the grammar.",
+      "name": "variable.other.property.beam-sharp",
+      "match": "\\b[A-Z][a-zA-Z0-9_]*\\b(?=\\s*:)"
+    },
+
+    "function-name": {
+      "_comment": "HEURISTIC, and the one place this grammar is guessing. A type and a function are the SAME token class (uident) -- only the compiler's symbol table can tell `Order` from `Describe`. A '(' after the name is the best a regex has. Semantic tokens over an LSP would fix this properly.",
+      "name": "entity.name.function.beam-sharp",
+      "match": "\\b[A-Z][a-zA-Z0-9_]*\\b(?=\\s*\\()"
+    },
+
+    "type-name": {
+      "name": "entity.name.type.beam-sharp",
+      "match": "\\b[A-Z][a-zA-Z0-9_]*\\b"
+    },
+
+    "wildcard": {
+      "_comment": "Exactly `_`. An identifier cannot START with an underscore in this language -- the lexer has no rule for one -- so `_foo` does not lex at all and is deliberately not matched here.",
+      "name": "variable.language.wildcard.beam-sharp",
+      "match": "(?<![a-zA-Z0-9_])_(?![a-zA-Z0-9_])"
+    },
+
+    "operator": {
+      "patterns": [
+        {
+          "_comment": "Two arrows, two jobs: `->` is a clause, `=>` is a switch arm. Scoped apart so a theme can keep them apart.",
+          "name": "keyword.operator.arrow.beam-sharp",
+          "match": "->|=>"
+        },
+        {
+          "_comment": "The rest marker in [h, ..t].",
+          "name": "keyword.operator.rest.beam-sharp",
+          "match": "\\.\\."
+        },
+        {
+          "name": "keyword.operator.logical.beam-sharp",
+          "match": "&&|\\|\\|"
+        },
+        {
+          "name": "keyword.operator.comparison.beam-sharp",
+          "match": "==|!=|<=|>="
+        },
+        {
+          "_comment": "`<` and `>` are BOTH a comparison and a generic bracket, and nothing in a regex can tell them apart -- see the README. Ticket 28 settled the rule positionally and F6.9 pins it.",
+          "name": "keyword.operator.beam-sharp",
+          "match": "[<>+\\-*=|?]"
+        }
+      ]
+    },
+
+    "variable": {
+      "name": "variable.other.beam-sharp",
+      "match": "\\b[a-z][a-zA-Z0-9_]*\\b"
+    }
+  }
+}

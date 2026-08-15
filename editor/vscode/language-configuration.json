@@ -1,0 +1,28 @@
+{
+  "comments": {
+    "lineComment": "//"
+  },
+  "brackets": [
+    ["{", "}"],
+    ["[", "]"],
+    ["(", ")"]
+  ],
+  "autoClosingPairs": [
+    { "open": "{", "close": "}" },
+    { "open": "[", "close": "]" },
+    { "open": "(", "close": ")" },
+    { "open": "'", "close": "'", "notIn": ["comment"] }
+  ],
+  "surroundingPairs": [
+    ["{", "}"],
+    ["[", "]"],
+    ["(", ")"],
+    ["'", "'"]
+  ],
+  "_comment": [
+    "Angle brackets are deliberately NOT an auto-closing pair. `<` is a generic",
+    "bracket in type position and a comparison everywhere else (ticket 28), so",
+    "auto-closing it would insert a '>' into the middle of `a < b && c > d`."
+  ],
+  "wordPattern": "([A-Za-z][A-Za-z0-9_]*)"
+}

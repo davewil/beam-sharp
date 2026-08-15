@@ -1,0 +1,30 @@
+{
+  "name": "beam-sharp",
+  "displayName": "beam-sharp",
+  "description": "Syntax highlighting for beam-sharp (.bs). Grammar only -- no language server yet.",
+  "version": "0.1.0",
+  "publisher": "davewil",
+  "private": true,
+  "license": "UNLICENSED",
+  "engines": {
+    "vscode": "^1.70.0"
+  },
+  "categories": ["Programming Languages"],
+  "contributes": {
+    "languages": [
+      {
+        "id": "beam-sharp",
+        "aliases": ["beam-sharp", "B#"],
+        "extensions": [".bs"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "beam-sharp",
+        "scopeName": "source.beam-sharp",
+        "path": "./syntaxes/beam-sharp.tmLanguage.json"
+      }
+    ]
+  }
+}
