@@ -7,6 +7,9 @@ point of it.
 
 Started 2026-08-15 (David: *"I want to see if beam-sharp can solve AoC problems"*).
 
+**→ [The write-up](../reports/2026-08-15-aoc-and-state.md)** — what these puzzles established, the
+four-language benchmark, and where the project stands as a result.
+
 | Puzzle | Result |
 |---|---|
 | [2019 Day 1](2019/day01/day01.bs) — The Tyranny of the Rocket Equation | **solved**, both parts, against the real input |
