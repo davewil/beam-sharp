@@ -1,0 +1,52 @@
+// Advent of Code 2019, Day 1 — The Tyranny of the Rocket Equation
+//
+//   fuel(mass) = floor(mass / 3) - 2, summed over every module
+//
+//   bsc aoc/2019/day01/day01.bs Fuel 100756          -> 33583
+//   bsc aoc/2019/day01/day01.bs Sum '[12, 14, 1969, 100756]'  -> 34241
+//
+// THE ONE THING THE LANGUAGE DOES NOT HAVE: division. The operator table is
+// `+ - *` and there is no `/` in the lexer at all, so integer division comes
+// through the FFI. That is not a workaround — ticket 32 makes a foreign
+// declaration a signature attached to the name Erlang already has, and
+// `erlang:'div'/2` is an exported BIF (measured: `erlang:'div'(7, 2)` is 3).
+// It does mean the most ordinary arithmetic in the puzzle crosses the boundary.
+
+module Day01
+
+using :erlang {
+    int div(int a, int b)
+}
+
+// Part one, per module. `div` truncates toward zero, which is floor for the
+// positive masses the puzzle supplies.
+int Fuel(int mass)
+Fuel(m) -> :erlang.div(m, 3) - 2
+
+// The fold, written as the language wants it: two clauses, one per list shape,
+// exhaustive with no catch-all. `[]` covers the empty list and `[m, ..rest]`
+// covers the non-empty one, which is the whole of `list<int>`.
+int Total(list<int> masses, int acc)
+Total([], acc)          -> acc
+Total([m, ..rest], acc) -> Total(rest, acc + Fuel(m))
+
+int Sum(list<int> masses)
+Sum(ms) -> Total(ms, 0)
+
+// --- part two: fuel for the fuel, until it stops needing any ----------------
+//
+// The recursion terminates where the fuel requirement reaches zero, and the
+// guard states that boundary as an interval rather than testing the result:
+// `div(m, 3) - 2` is at most 0 exactly when m is at most 8. The checker credits
+// `m <= 8` as an interval refinement (ticket 08, ticket 20), so the two clauses
+// are exhaustive over `int` with no catch-all — the same property `math.bs` has.
+int FuelAll(int mass)
+FuelAll(m) when m <= 8 -> 0
+FuelAll(m)             -> Fuel(m) + FuelAll(Fuel(m))
+
+int TotalAll(list<int> masses, int acc)
+TotalAll([], acc)          -> acc
+TotalAll([m, ..rest], acc) -> TotalAll(rest, acc + FuelAll(m))
+
+int SumAll(list<int> masses)
+SumAll(ms) -> TotalAll(ms, 0)
