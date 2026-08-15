@@ -1496,18 +1496,53 @@ spec exists.
   mentions WASM or a JavaScript target, where the prelude, tooling and macro entries were each
   contradicted by decisions taken elsewhere in this same document.
 
-  One thing worth recording so it is not mistaken for a crack in the refusal. Ticket 13's emission
-  contract — the frontend never depends on in-process compiler state, and what is emitted is a
-  serialised text file — is precisely the property that would make a second backend *cheap* to
-  bolt on later. That lowers the price; it does not answer the objection, which is about the
-  language's semantics rather than the compiler's plumbing. **Nobody has asked for one.**
+  **CONFIRMED 2026-08-15 (David): *"yeah alternative backends out, too much work."*** Nobody has
+  asked for one.
 
-  **CONFIRMED 2026-08-15 (David): *"yeah alternative backends out, too much work."*** The refusal
-  stands, and the two reasons behind it are worth keeping apart rather than merging. The entry's
-  original argument is **design** — semantic compromises that would muddy a BEAM-native language.
-  David's is **cost**. They agree on the answer today and they do not expire together: the design
-  objection does not care what a second backend costs, whereas a cost objection is exactly the one
-  the paragraph above could later erode, since ticket 13's emission contract makes bolting a
-  backend on cheaper than it looks. So the entry rests on the **design** argument, with the cost
-  argument alongside it rather than underneath it — and if anyone ever returns with "it is cheap
-  now", that is an answer to the second reason and not to the first.
+  ~~Ticket 13's emission contract — the frontend never depends on in-process compiler state, and
+  what is emitted is a serialised text file — is precisely the property that would make a second
+  backend *cheap* to bolt on later, so the **cost** argument is the erodable one and the entry
+  should rest on the **design** argument instead.~~
+
+  **RETRACTED WITHIN THE HOUR, and measured rather than argued.** David: *"hang on, you said it
+  might be cheap?"* It is not. The claim conflated a clean **seam** with a small **job**, and the
+  correction runs the opposite way to the sentence it replaces.
+
+  What the emission contract genuinely buys is frontend reuse, and the split looks encouraging:
+  **2,254 lines of lexer, parser, checker and algebra against a 499-line emitter** — 82% reusable,
+  and a second emitter really can be plugged in without touching any of it.
+
+  **The line count is the trap.** The emitter is small *because the BEAM already supplies the
+  semantics*: atoms as first-class values, clause-head pattern matching, tail calls, immutable
+  maps, binaries, and a failure arm `erlc` inserts and **cannot be suppressed** — `bs_emit`'s own
+  header records that one as coming *free*. A JavaScript or WASM target does not translate to those
+  things, it has to **implement** them, as a runtime, before the first line of beam-sharp runs.
+
+  And the entanglement is not confined to the emitter. **36 of 38 tickets name BEAM, OTP,
+  `gen_server` or Erlang mechanism in their decisions** — records erase to BEAM maps with minted
+  atom tags (26 §1), the FFI is module-as-atom (32), `-behaviour` and `-spec` are emitted verbatim
+  (13, 14), and the whole concurrency story is OTP. This language is not BEAM-*hosted*, it is
+  BEAM-*defined*. **Gleam is the control**: it ships a JavaScript backend and drops OTP entirely on
+  it, shipping a runtime library and, in effect, a different language per target.
+
+  **And the neighbourhood was checked rather than cited (2026-08-15, David asking what else compiles
+  to JS). Every BEAM-family project that ships JavaScript routes *around* the hard problem rather
+  than solving it:**
+
+  - **Gleam** — an official JS target, with OTP dropped on it.
+  - **[Hologram](https://github.com/bartblast/hologram)** — *"intelligently compiles Elixir
+    client-side code to JavaScript"*. It builds a **call graph** to decide which code runs on the
+    client and transpiles only that, through an IR; the server stays on the BEAM and the two halves
+    talk over websockets. So it is a **subset** strategy, not a language port. *(Whether it
+    implements processes client-side was not established — checked and not found, rather than
+    assumed.)*
+  - **ElixirScript** — the earlier Elixir-to-JS attempt, dormant.
+
+  Three projects, three ways of not bringing OTP to JavaScript. That is the strongest available
+  evidence for this entry, and it is evidence about the *semantics* rather than the effort — which
+  is why the design objection outlives the cost one.
+
+  **So the cost argument is the better-supported of the two, not the weaker one.** David's *"too
+  much work"* is what the measurement backs. The design objection stands beside it and is stronger
+  still, since it would hold even if the work were free. Neither is in danger from the emission
+  contract, which makes the *seam* clean and says nothing whatever about the *runtime*.
