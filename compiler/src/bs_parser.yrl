@@ -15,12 +15,13 @@ Nonterminals
   guard guard_expr
   body binding
   expr expr_list elist_items assign_fields assign_field
+  switch_arms switch_arm
   .
 
 Terminals
-  'module' 'type' 'when' 'using' 'behaviour' 'record' 'with'
+  'module' 'type' 'when' 'using' 'behaviour' 'record' 'with' 'switch'
   uident lident atom_lit integer '_'
-  '->' '&&' '||' '==' '!=' '<=' '>=' '<' '>' '+' '-' '*'
+  '->' '=>' '&&' '||' '==' '!=' '<=' '>=' '<' '>' '+' '-' '*'
   '=' '|' ',' '(' ')' '[' ']' '{' '}' '..' '.' ':' '?'
   .
 
@@ -41,6 +42,12 @@ Left  500 '*'.
 %% `with` binds tighter than any operator: `o with { Total = 1 } == x` reads as
 %% a comparison of the updated record, which is the only sensible parse.
 Nonassoc 600 'with'.
+%% Tighter still, which is C#'s own reading: a switch expression's subject is a
+%% *range expression*, so `a + b switch { … }` is `a + (b switch { … })` there
+%% and here. Nonassoc because `x switch { … } switch { … }` has no reading worth
+%% having — the brace block already makes the subject unambiguous, so a chain
+%% would be legible only to a parser.
+Nonassoc 700 'switch'.
 
 program -> decls : '$1'.
 
@@ -314,6 +321,28 @@ expr -> expr 'with' '{' assign_fields '}' :
 %% receiver is a value, a PascalCase one is a module. So a record field `Total`
 %% and a function `Total` coexist, told apart by syntax rather than resolution.
 expr -> lident '.' uident : {e_proj, line('$2'), value('$1'), value('$3')}.
+
+%% --- switch -----------------------------------------------------------------
+%% Ticket 17 §6. The one structural move, run backwards: ticket 01 moved C#'s
+%% pattern grammar OUT of switch arms and into the parameter position, and this
+%% puts the same grammar back into expression position. So `pattern` below is
+%% the clause head's own nonterminal, not a copy of it, and the construct
+%% inherits exhaustiveness, guards and the residual with nothing added.
+%%
+%% An arm's body is a single `expr` rather than a `body`. That is a grammar
+%% fact, not a view about bodies: arms are comma-separated and a body is
+%% bindings-then-expression with no terminator, so `p => x = 1, x + 2` cannot be
+%% told from two arms with the one token of lookahead yecc has.
+expr -> expr 'switch' '{' switch_arms '}' :
+    {e_switch, line('$2'), '$1', '$4'}.
+
+switch_arms -> switch_arm                 : ['$1'].
+switch_arms -> switch_arm ',' switch_arms : ['$1' | '$3'].
+
+%% The arm carries the `=>`'s line, because that token is present in every arm
+%% while a pattern's own line may belong to a token the reader is not looking at.
+switch_arm -> pattern guard '=>' expr :
+    {arm, line('$3'), '$1', '$2', '$4'}.
 
 expr -> '[' ']'          : {e_nil, line('$1')}.
 expr -> '[' elist_items ']' :

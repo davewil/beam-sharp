@@ -1,0 +1,57 @@
+// queue.bs -- `switch`, the only branching construct (F7, ticket 17 §6).
+//
+// There is no `if`, no `else`, no `cond` and no ternary for this to sit beside.
+// What makes that affordable is that a switch arm is the clause head's own
+// pattern grammar, one level down -- so everything the head can dispatch on, an
+// arm can dispatch on, and the exhaustiveness check is the same check.
+//
+//     bsc examples/queue.bs Decide false true false   -> :dead_letter
+//     bsc examples/queue.bs Attempt 3                 -> :retried
+//     bsc examples/queue.bs Route '#{Kind => ...}'    -- see below
+//
+// Every switch here is exhaustive with NO catch-all. That is the property worth
+// looking at: a `_` would satisfy the compiler in every one of them, and none of
+// them needs one.
+
+module Queue
+
+type Disposition = :ack | :dead_letter | :requeue
+type Verdict     = :fresh | :retried | :exhausted
+
+record Message { Id: int, Deliveries: int }
+
+// THE TUPLE SUBJECT. A ladder of unrelated conditions takes a tuple, which is
+// the clause head's own shape -- ticket 17 §6 made `switch` the only branching
+// construct on the strength of exactly this. Prototypes 25a and 25c measured
+// the readability cliff between four conditions and five; this is three.
+//
+// `true` and `false` are the language's two keyword atoms, so they are atoms
+// here and not variables. That distinction is load-bearing: as identifiers they
+// would match everything and the first arm would swallow the other three.
+Disposition Decide(bool ok, bool permanent, bool redelivered)
+Decide(o, p, r) -> (o, p, r) switch {
+    (true,  _,     _)     => :ack,
+    (false, true,  _)     => :dead_letter,
+    (false, false, false) => :requeue,
+    (false, false, true)  => :requeue
+}
+
+// A GUARD ON AN ARM. C#'s relational pattern -- `{ Deliveries: > 5 }` -- is F2's
+// and F2 is blocked on two decisions, so a guard is how a switch asks a numeric
+// question today. The intervals are credited to the exhaustiveness check, which
+// is why three arms cover `int` and the compiler agrees without a `_`.
+Verdict Attempt(int deliveries)
+Attempt(n) -> n switch {
+    m when m <= 1 => :fresh,
+    m when m < 5  => :retried,
+    m when m >= 5 => :exhausted
+}
+
+// The subject is any expression, not just a parameter -- which is ticket 17's
+// answer to 01b's intermediate-value friction: you can branch on a projection
+// without inventing a parameter to dispatch on.
+Disposition Route(Message m)
+Route(m) -> m.Deliveries switch {
+    n when n < 3  => :requeue,
+    n when n >= 3 => :dead_letter
+}

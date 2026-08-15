@@ -172,13 +172,25 @@ checker that must prove a residual empty cannot afford an optimistic join.
 `true` and `false` are the only keyword atoms, `bool` is an ordinary alias, and **there is no
 truthiness**. **shipped**
 
+> **CORRECTED 2026-08-15, F7.** This paragraph said **shipped** and the keyword-atom half was not.
+> The lexer had `:true` and `:false` and no bare rule, so `true` in a pattern was an ordinary
+> lowercase identifier — a **variable**, matching everything. `Decide(true, p) -> :ack` /
+> `Decide(false, p) -> :requeue` compiled, and returned `:ack` for `false`. Found by running ticket
+> 17 §6's own tuple-subject example. `bin/check-language.sh` could not have caught it: the claim is
+> prose, not a fenced block, and the defect is a program that compiles and means something else
+> rather than one that fails.
+
 ---
 
 ## 5. Control flow
 
 **`switch` is the only branching construct.** There is no `if`, no `else`, no ternary.
 
-```csharp not-yet
+<!-- check:
+type Verdict = :new | :gone | :unknown
+record Order { Id: int, Status: atom }
+-->
+```csharp
 Verdict Describe(Order o)
 
 Describe(o) -> o.Status switch {
@@ -188,10 +200,18 @@ Describe(o) -> o.Status switch {
 }
 ```
 
+The `_` here is legal because `Status` is an `atom` and the atom universe is open, so the residual
+cannot be enumerated — which is the only shape ticket 12 §2 admits a catch-all over. Over a *closed*
+residual, where the compiler knows the missing case by name, §2 makes `_` an error telling you to
+name it. **That rule is decided and is not yet enforced**, at a switch arm or at a clause head.
+
 For compound conditions, the subject is a **tuple** — which is the clause head's own shape, one
 level down:
 
-```csharp not-yet
+<!-- check:
+type Disposition = :ack | :dead_letter | :requeue
+-->
+```csharp
 Disposition Decide(bool ok, bool permanent, bool redelivered)
 
 Decide(o, p, r) -> (o, p, r) switch {
@@ -202,7 +222,11 @@ Decide(o, p, r) -> (o, p, r) switch {
 }
 ```
 
-**decided** — the compiler does not parse `switch` yet.
+Exhaustive with **no catch-all**, and the compiler agrees. An arm may also carry a guard —
+`n when n < 5 => :retried` — which is how a switch asks a numeric question until the relational
+pattern `{ Deliveries: > 5 }` lands with refinements.
+
+**shipped** — F7.
 
 `else` is absent because it is what a *binary unnamed* conditional needs; every fall-through here is
 a pattern. `cond` is **open** — deliberately unpaid-for until the shape is shown to occur. Measured
@@ -615,7 +639,7 @@ the parser accepts back exactly what the printer emits. **shipped**
 | exact field sets at a construction site | **shipped** |
 | call arguments, projections and clause returns checked in a body | **shipped** |
 | refinements + interval patterns | blocked on two spellings |
-| `switch` | not started |
+| `switch`, including a tuple subject and a guard on an arm | **shipped** |
 | binaries | not started |
 | pipe and valve | not started |
 | parametric types — `result<T, E>`, `option<T>`, `type Pair<T>`, nesting | **shipped** |

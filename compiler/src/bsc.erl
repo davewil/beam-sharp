@@ -321,6 +321,34 @@ report(Path, {error, Line, Fn, {inexhaustive, Residual}}) ->
 report(Path, {error, Line, Fn, no_clauses}) ->
     io:format(standard_error, "~s:~p: error: ~s has a signature but no clauses~n",
               [Path, Line, Fn]);
+%% Ticket 17 §6, and ticket 04's residual at a third site. Deliberately NOT
+%% routed through `heads/2`: that prints `Fn(:cancelled) -> ...`, and a switch
+%% has no function name and its arrow is `=>`. What is printed is the arm, which
+%% `to_pattern/1` already renders for every shape the subject can have — a tuple
+%% subject as `(false, false, true)`, a union of records as its discriminator.
+report(Path, {error, Line, Fn, {switch_inexhaustive, Residual}}) ->
+    io:format(standard_error,
+              "~s:~p: error: this switch in ~s is not exhaustive~n"
+              "  no arm matches:~n"
+              "    ~s => ...~n",
+              [Path, Line, Fn, bs_types:to_pattern(Residual)]);
+%% Arm, not clause. The word is the whole of the message's usefulness: a
+%% construct with no clauses in it cannot be told which clause is dead.
+report(Path, {warning, Line, Fn, {unreachable_arm, N}}) ->
+    io:format(standard_error,
+              "~s:~p: warning: arm ~p of this switch in ~s is unreachable~n"
+              "  every value it matches is matched by an earlier arm.~n",
+              [Path, Line, N, Fn]);
+%% F7's own grammar opens this, the way F5's opened `_`-as-a-value: a guard
+%% shares the whole expression grammar, so a switch parses inside one. Erlang's
+%% guards are a restricted sublanguage with no `case`, so this would otherwise
+%% arrive as `illegal guard expression` from `erlc`.
+report(Path, {error, Line, Fn, switch_in_guard}) ->
+    io:format(standard_error,
+              "~s:~p: error: ~s has a switch in a guard~n"
+              "  a guard asks a question about the values a clause already~n"
+              "  matched; it cannot branch. Move the switch into the body.~n",
+              [Path, Line, Fn]);
 report(Path, {warning, Line, Fn, {unreachable_clause, N}}) ->
     io:format(standard_error,
               "~s:~p: warning: clause ~p of ~s is unreachable~n"

@@ -60,7 +60,7 @@ Ordered by how many exemplars each unblocks, which is roughly the order to build
 | **Angle brackets** — `list<T>`, `option<T>`, `result<T, E>` | all three | **in** — F6, 2026-08-14 | 27, 28 |
 | **`ValidateAs<T>`** — a codegen obligation, not a generic call | 25a, 25c | out | 11, 27 §8 |
 | **Binaries** — `<<_:M, _:_*N>>` patterns and construction | 25b, 25c | out | 20, 30 |
-| **`switch` expression** — including the tuple subject | all three | out | 17 |
+| **`switch` expression** — including the tuple subject and a guard on an arm | all three | **in** — F7, 2026-08-15 | 17 |
 | **Pipe and valve** — `\|>`, `\|?>` | 25b, 25c | out | 17 |
 | **Interval refinements** — `type Octet = int where ...` | 25b, 25c | out, **named as the next increment** | 20 §5 |
 | **String and map literals** | 25a, 25c | out | 20, fog |
@@ -68,8 +68,22 @@ Ordered by how many exemplars each unblocks, which is roughly the order to build
 | **Imports / multi-file modules** | all three | out (fog) | fog |
 | **OTP behaviours** — `[module: GenServer]`, callbacks | 25b, 25c | out | 14 |
 
-**Records and angle brackets are now built, not merely decided** — F3 on 2026-08-14 and F6 the same
-day. The rows above say `in` and the ones below them are what is actually left.
+**Records, angle brackets and `switch` are now built, not merely decided** — F3 and F6 on
+2026-08-14, F7 on 2026-08-15. The rows above say `in` and the ones below them are what is actually
+left.
+
+**A branching claim is not a compiles claim either**, and F7's first draft of this paragraph got it
+wrong — corrected here by measurement rather than left standing. The `switch` **construct** is built:
+a tuple subject, a guard on an arm, exhaustiveness, and the residual printed as the missing arm.
+None of these files parses as a result. `disposition.bs` still fails at line 12, and **not on the
+switch** — on `(o, r, n) -> …`, a clause head written without repeating the function name, which is
+a spelling these prototypes use and ticket 01's Variant A does not have. That is a drift between the
+prototypes and the shipped grammar, and it is nobody's feature yet.
+
+What F7 *did* change for these files is smaller than the row suggests and sharper than the parse:
+**their `true`s and `false`es were being read as variables.** Had they parsed, `disposition.bs` and
+`admit.bs` would have compiled into ladders whose first arm swallowed every other one, silently.
+Fixed in the lexer; the write-up is in `features/README.md`.
 
 **A bracket claim is not a compiles claim.** F6 makes `result<Delivery, ConsumeError>` and
 `list<Line>` parse and resolve; not one of these files compiles as a result. `list<string>` still

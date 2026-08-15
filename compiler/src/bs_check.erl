@@ -303,7 +303,7 @@ scope_diags({clause, Line, Name, Patterns, Guard, Body}) ->
     guard_scope(Guard, Bound, Line, Name) ++ check_scope(Body, Bound, Name, Line, []).
 
 guard_scope(none, _Bound, _Line, _Name)        -> [];
-guard_scope({guard, G}, Bound, Line, Name)     -> unbound(G, Bound, Line, Name, []).
+guard_scope({guard, G}, Bound, Line, Name)     -> name_diags(G, Bound, Line, Name, []).
 
 check_scope({e_block, _, Binds, Final}, Bound0, Name, Line, Acc0) ->
     {Bound, Acc} =
@@ -318,14 +318,14 @@ check_scope({e_block, _, Binds, Final}, Bound0, Name, Line, Acc0) ->
     %% The final expression carries no line of its own — the parser keeps one
     %% per binding and one per clause — so an unbound name in it is reported
     %% against the clause, which is the smallest span that is certainly right.
-    unbound(Final, Bound, Line, Name, Acc);
+    name_diags(Final, Bound, Line, Name, Acc);
 check_scope(Final, Bound, Name, Line, Acc) ->
-    unbound(Final, Bound, Line, Name, Acc).
+    name_diags(Final, Bound, Line, Name, Acc).
 
 %% One binding: its right-hand side is read in the scope BEFORE it, and the
 %% names it introduces may not already be bound.
 bind_names(Expr, Vars, Bound, Line, Name, Acc) ->
-    Acc1 = unbound(Expr, Bound, Line, Name, Acc),
+    Acc1 = name_diags(Expr, Bound, Line, Name, Acc),
     lists:foldl(
       fun(V, {B, A}) ->
               case lists:member(V, B) of
@@ -334,9 +334,41 @@ bind_names(Expr, Vars, Bound, Line, Name, Acc) ->
               end
       end, {Bound, Acc1}, Vars).
 
-unbound(Expr, Bound, Line, Name, Acc) ->
+%% The two name questions an expression can answer wrongly, asked together
+%% because they are asked at the same points and against the same running scope.
+%% F7 is what made the second one necessary: until a switch arm existed, the only
+%% thing that introduced a name mid-expression was a binding, and `bind_names/6`
+%% above already had it.
+name_diags(Expr, Bound, Line, Name, Acc) ->
     [{error, Line, Name, {unbound_variable, V}}
-     || V <- lists:usort(expr_vars(Expr)), not lists:member(V, Bound)] ++ Acc.
+     || V <- lists:usort(expr_vars(Expr)), not lists:member(V, Bound)]
+        ++ rebinds(Expr, Bound, Name) ++ Acc.
+
+%% A switch arm may not rebind a name already in scope, and this is a stronger
+%% rule than ticket 34's applied evenly. In Erlang a `case` arm pattern naming an
+%% already-bound variable is not a binding at all — it is an EQUALITY TEST
+%% against the existing value. So accepting it would emit a silently different
+%% program from the one that reads like a fresh binding, with no diagnostic
+%% anywhere. Refusing it is what keeps the surface honest.
+%%
+%% Generic below the switch case, for `wildcards/1`'s reason: a switch can sit
+%% anywhere an expression can, and enumerating the grammar a fourth time to find
+%% one node would be a fourth copy of the same walk.
+rebinds({e_switch, _, Subject, Arms}, Bound, Name) ->
+    rebinds(Subject, Bound, Name)
+        ++ lists:append([arm_rebinds(A, Bound, Name) || A <- Arms]);
+rebinds(T, Bound, Name) when is_tuple(T) -> rebinds(tuple_to_list(T), Bound, Name);
+rebinds(L, Bound, Name) when is_list(L) ->
+    lists:append([rebinds(E, Bound, Name) || E <- L]);
+rebinds(_, _, _) -> [].
+
+arm_rebinds({arm, Line, P, Guard, Body}, Bound, Name) ->
+    Vars = pattern_vars(P),
+    Inner = Bound ++ Vars,
+    [{error, Line, Name, {rebinding, V}}
+     || V <- lists:usort(Vars), lists:member(V, Bound)]
+        ++ rebinds(Body, Inner, Name)
+        ++ case Guard of none -> []; {guard, G} -> rebinds(G, Inner, Name) end.
 
 pattern_vars({p_var, _, V})            -> [V];
 pattern_vars({p_tuple, _, Ps})         -> lists:append([pattern_vars(P) || P <- Ps]);
@@ -364,7 +396,19 @@ expr_vars({e_list, _, Items, Rest})    ->
         ++ case Rest of nil -> []; R -> expr_vars(R) end;
 expr_vars({e_block, _, Binds, Final})  ->
     lists:append([expr_vars(element(4, B)) || B <- Binds]) ++ expr_vars(Final);
+%% An arm's pattern names are readable in THAT ARM and nowhere else, so the
+%% subtraction is per-arm and not per-switch. Getting this wrong in either
+%% direction is silent: subtract nothing and a name the arm itself bound is
+%% reported unbound; subtract the whole switch's names and a genuine typo in one
+%% arm is covered by a sibling arm that happens to bind the same name.
+expr_vars({e_switch, _, Subject, Arms}) ->
+    expr_vars(Subject) ++ lists:append([arm_free_vars(A) || A <- Arms]);
 expr_vars(_)                           -> [].
+
+arm_free_vars({arm, _, P, Guard, Body}) ->
+    Bound = pattern_vars(P),
+    Read = case Guard of none -> []; {guard, G} -> expr_vars(G) end ++ expr_vars(Body),
+    [V || V <- Read, not lists:member(V, Bound)].
 
 %%% ---------------------------------------------------------------------------
 %%% The body check — ticket 33, F5.
@@ -414,9 +458,17 @@ clause_diags(C = {clause, Line, _, Patterns, Guard, Body}, Domain, Bindings, Ctx
 %% CRASH, which is worse than the `erlc` error F4.7 exists to prevent.
 %%
 %% Scanned syntactically rather than typed, which is all the question needs.
+%%
+%% A switch in a guard is the same hole in a second costume, and F7 opened it the
+%% same way F5 opened the first: a guard shares the whole expression grammar, so
+%% `when x switch { … }` parses the moment the production exists. Erlang's guards
+%% are a restricted sublanguage with no `case` in them, so left alone this reaches
+%% the author as `illegal guard expression` from `erlc`, against the `.abstr` file
+%% they did not write — which is exactly what F4.7's rule exists to prevent.
 guard_diags(none, _Ctx) -> [];
 guard_diags({guard, Expr}, C) ->
-    [{error, L, C#ctx.fname, wildcard_as_value} || L <- wildcards(Expr)].
+    [{error, L, C#ctx.fname, wildcard_as_value} || L <- wildcards(Expr)]
+        ++ [{error, L, C#ctx.fname, switch_in_guard} || L <- switches(Expr)].
 
 %% Generic, because a guard shares the whole expression grammar and enumerating
 %% it a third time to find one node would be three copies of the same walk.
@@ -424,6 +476,14 @@ wildcards({e_wild, L})           -> [L];
 wildcards(T) when is_tuple(T)    -> wildcards(tuple_to_list(T));
 wildcards(L) when is_list(L)     -> lists:append([wildcards(E) || E <- L]);
 wildcards(_)                     -> [].
+
+%% The same walk, and it stops AT a switch rather than descending through it:
+%% one error per guard is what the author needs, and a switch nested inside a
+%% refused switch is not a second mistake.
+switches({e_switch, L, _, _})    -> [L];
+switches(T) when is_tuple(T)     -> switches(tuple_to_list(T));
+switches(L) when is_list(L)      -> lists:append([switches(E) || E <- L]);
+switches(_)                      -> [].
 
 %% SITE 4 — the clause return. Not in ticket 33's table of what was waiting, and
 %% forced by ticket 18's own criticism of Gleam: 13 emits a `-spec` for every
@@ -554,6 +614,26 @@ type_of({e_with, _, Base, Fields}, S, C) ->
     {T, D1} = type_of(Base, S, C),
     {_, D2} = type_of_all([E || {_, E} <- Fields], S, C),
     {T, D1 ++ D2};
+%% Ticket 17 §6 — `walk/5` over ONE COLUMN. A clause row's domain is a product of
+%% declared parameter types and a switch's is a single synthesised type, and that
+%% is the whole of the difference: the same `pattern_type/3`, the same
+%% `apply_guard/3`, the same `Certain`/`Possible` split, the same residual.
+%%
+%% A switch DECLARES nothing, so it opens no sixth site — ticket 33 enumerated
+%% five and F7 adds none. It synthesises the union of its arms, which is what
+%% makes site 4 (the clause return) reachable from a place it could not be
+%% reached from before.
+type_of({e_switch, L, Subject, Arms}, S, C) ->
+    {SubjTy, D0} = type_of(Subject, S, C),
+    {Tys, Residual, D1} = arms(Arms, SubjTy, S, C, 1, [], []),
+    D2 = case bs_types:is_none(Residual) of
+             true  -> [];
+             %% The residual IS the missing arm — ticket 04's finding at a third
+             %% site, and it needs no new printer: `to_pattern/1` already renders
+             %% a tuple as `(a, b, c)` and a record union as its discriminator.
+             false -> [{error, L, C#ctx.fname, {switch_inexhaustive, Residual}}]
+         end,
+    {union_of(Tys), D0 ++ D1 ++ D2};
 type_of({e_call, L, Name, Args}, S, C) ->
     call(L, Name, Name, Args, S, C);
 %% Ticket 32 dissolved the foreign case before it was asked: a foreign
@@ -573,6 +653,38 @@ reported() -> bs_types:none().
 type_of_all(Es, S, C) ->
     {Tys, Ds} = lists:unzip([type_of(E, S, C) || E <- Es]),
     {Tys, lists:append(Ds)}.
+
+%% One arm at a time against a running residual, which is `walk/5`'s shape and
+%% for `walk/5`'s reason: redundancy is RELATIVE — arm i against the arms before
+%% it — so it is judged against what is left rather than against the subject.
+arms([], Residual, _S, _C, _N, Tys, Diags) ->
+    {Tys, Residual, Diags};
+arms([{arm, AL, P, Guard, Body} | Rest], Residual, S, C, N, Tys, Diags) ->
+    {PTy, Binds, Exact} = pattern_type(P, [], C#ctx.types),
+    {Certain0, Possible} = apply_guard(PTy, Binds, Guard),
+    %% An inexact pattern over-states what it matches, so it may bound Possible
+    %% and must credit nothing to Certain. Identical to `clause_type/2`, and for
+    %% the identical reason: crediting an over-estimate is what makes a compiler
+    %% claim coverage it does not have.
+    Certain = case Exact of true -> Certain0; false -> bs_types:none() end,
+    D1 = case bs_types:is_none(bs_types:intersect(Possible, Residual)) of
+             true  -> [{warning, AL, C#ctx.fname, {unreachable_arm, N}}];
+             false -> []
+         end,
+    %% `Possible`, never `Certain` — F5.7's trap, at a second site and with the
+    %% same failure mode. `Certain` is `none` under an untranslatable guard, and
+    %% a body typed against `none` does not fail loudly: every containment over
+    %% `none` passes, so the arm silently stops being checked.
+    Domain = bs_types:intersect(Residual, Possible),
+    %% An arm variable's type is read off the refined domain at the path the
+    %% pattern recorded, exactly as a clause's is — the paths simply start at `[]`
+    %% here, because a switch has one subject where a clause head has a product.
+    Scope = maps:merge(S, maps:from_list(
+                            [{V, at_path(Domain, Path)}
+                             || {V, Path} <- maps:to_list(Binds)])),
+    {BodyTy, D2} = type_of(Body, Scope, C),
+    arms(Rest, bs_types:subtract(Residual, Certain), S, C, N + 1,
+         Tys ++ [BodyTy], Diags ++ D1 ++ guard_diags(Guard, C) ++ D2).
 
 op_type('+') -> bs_types:int();
 op_type('-') -> bs_types:int();
@@ -885,6 +997,14 @@ refine_all(Ty, Bindings, Constraints) ->
          (unknown, Acc) -> Acc
       end, Ty, Constraints).
 
+%% THE WHOLE VALUE, which is what a switch arm refines. `at_path/2` has had this
+%% clause since F5 and its refining twin never needed one, because a clause-head
+%% path always begins with a parameter index and so is never empty. A switch
+%% subject is one value, so `n switch { m when m > 0 => … }` is the first thing
+%% ever to ask for it — and without this clause it does not report anything, it
+%% leaves the checker through a `function_clause`.
+refine_at(Ty, [], C) ->
+    apply_constraint(Ty, C);
 %% Descend into a record field. The map part of a pattern's type is always a
 %% list of members — `top` only ever arises from `term`, which no pattern
 %% produces at this position — so narrowing it away is unreachable rather than

@@ -80,8 +80,8 @@ Erlang back to the decision that required it is one grep.
 | [F4 — local bindings](F4-local-bindings.md) | **done 2026-08-14** | nothing — it removes a papercut |
 | [F5 — the body check site](F5-body-check-site.md) | **done 2026-08-14** | F3.3, F3.8, F3.10; 34's destructuring binds |
 | [F6 — angle brackets and parametric types](F6-angle-brackets.md) | **done 2026-08-14** | the *bracket* in all three; `examples/parcel.bs` |
-| F7 — `switch` | not started — **build next** | all three exemplars |
-| F8 — binaries | not started | 25b, 25c |
+| [F7 — `switch`](F7-switch.md) | **done 2026-08-15** | the *branching* in all three; `examples/queue.bs` |
+| F8 — binaries | not started — **build next** | 25b, 25c |
 | F9 — pipe and valve | not started | 25b, 25c |
 
 **F4 was built out of order and the rule was not bent quietly.** No exemplar is blocked on
@@ -141,6 +141,36 @@ independently of F3: `counter.bs` declares `behaviour GenServer` without definin
 so Dialyzer reports three undefined callbacks. Whoever owns the OTP callbacks should close it; it
 is a gate nobody can currently pass.
 
+**A third thing no feature owns: a type name may be declared twice, silently.** Measured on master
+2026-08-15 — four probes, all four compile clean and exit 0: `record Order` twice, `type Doc` twice,
+and `type Order` / `record Order` in either order. `type_env/1` builds the environment with
+`maps:from_list(Aliases ++ Records)` and `maps:from_list/1` keeps the **rightmost** duplicate, so the
+rule is not source order — which is what makes it worth writing down rather than assuming. **A record
+beats an alias of the same name whichever was written first**, because records are the right operand
+of that `++`; between two records, or between two aliases, the later one in the file wins. The losing
+declaration's fields simply vanish, and the function declared over the name is then checked for
+exhaustiveness against a type its author did not write, which is the one guarantee the whole project
+rests on. Found while answering why `shop.bs` may declare two records where Elixir allows one struct
+per module: qualification (`Shop.Order`) is what makes the *two-record* case sound, and qualification
+does nothing at all about the *same* name twice.
+
+**It should be an error at the second declaration, and three shipped precedents settle that rather
+than taste.** `kind_field_is_minted` already errors at a *declaration*, and its comment names ticket
+15's collapse rule as the reason; rebinding is an error because *"a name means one thing in a
+clause"* (34, F4); a cyclic alias is refused by name rather than expanded (F6.8). A warning would
+leave a program whose meaning depends on which declaration the compiler happened to keep. And
+`record Order` against `type Order` is the **same** error, not a second one — ticket 26 §1 makes a
+record an alias for a tagged map and F3.2 asserts the two spellings are the same type, so there is
+one namespace for them to collide in.
+
+**The delta, so nothing needs designing.** `type_env/1`'s alias arm drops the line
+(`{type_alias, _, N, …}`) — keep it, check `Aliases ++ Records` for a repeated key before
+`maps:from_list/1`, and raise `{type_redeclared, Name, Line}` into the path `bsc:resolve_error/2`
+already catches, which is the route `kind_field_is_minted` takes and the reason it can report a line.
+One new `resolve_error/2` clause carries the message. This is a **sibling of, not the same as**, F6's
+*"a type parameter shadows a type of the same name"*: that one is inside a single declaration, this
+one is across two.
+
 **F6 took ticket 27's own cut, and the ticket wrote it before the feature did.** Generics is three
 questions wearing one coat; F6 built parameterised constructors and parametric aliases — both
 **substitution with ground arguments** — and left polymorphic function *signatures*, which are
@@ -164,7 +194,27 @@ path.** It adds four. It passed because expansion happens strictly before the al
 existing program's type changed, and because all four new rejections target source that previously
 failed to parse or failed to terminate. The narrower sentence is the true one.
 
-F7 onward are named but not written — deliberately. The map's own fog-of-war rule applies: don't
+**F7 found a defect that was never about `switch`, and it is the worst shape one can take here.**
+`LANGUAGE.md` §4 said `true` and `false` are the language's only keyword atoms and marked it
+**shipped**; the lexer had `:true` and `:false` and no bare rule, so a bare `true` lexed as an
+ordinary lowercase identifier — which in pattern position is a **variable**. `Decide(true, p)`
+bound a name, matched everything, and returned `:ack` for `false`. The program **compiled and meant
+something else**, and the only trace was an unreachable-clause warning that reads like a remark
+about the code rather than a report of a misparse.
+
+Two things follow that are worth more than the fix. **`bin/check-language.sh` could not have caught
+it**: the claim is prose, not a fenced block, and the gate distinguishes compiles from does-not, not
+means-what-it-says. And **it was reachable only by running ticket 17 §6's own example** — every
+tuple-subject switch in `examples/exemplars/` is written in bare `true`/`false`, so the defect sat
+directly under the feature nobody had built yet. A capability's own motivating example is a probe,
+and running it before writing the feature is cheaper than trusting the reference's own status column.
+
+**And F7 is the third feature in a row to find a hole at the `ibs` prompt** — F4 a stale diagnostic,
+F5 a destructuring bind that did not work there, F7 the keyword atoms reported as unbound names. The
+REPL has **no tests at all**: `bs_repl` appears zero times in the suite. Each feature has fixed what
+it tripped over and none has closed the gap, which is now a pattern rather than three incidents.
+
+F8 onward are named but not written — deliberately. The map's own fog-of-war rule applies: don't
 chart what you can't yet see.
 
 **F3 was written ahead of F2, and F2 is why.** F2's own file says in bold that it must not be

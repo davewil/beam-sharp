@@ -258,6 +258,19 @@ used_vars({e_record, _, _, Fs}, Acc) ->
 used_vars({e_with, _, Base, Fs}, Acc) ->
     lists:foldl(fun({_, E}, A) -> used_vars(E, A) end, used_vars(Base, Acc), Fs);
 used_vars({e_foreign_call, _, _, _, As}, Acc) -> lists:foldl(fun used_vars/2, Acc, As);
+%% Descending into arms is not optional and the failure is not a warning. A
+%% parameter read ONLY inside an arm body would otherwise look unused, lower to
+%% `_N` in the clause head, and the arm body would then emit `N` — which is a
+%% compile ERROR in the emitted Erlang, against a file the author did not write.
+%% Same shape as F1's spurious-warning finding, one degree worse.
+%%
+%% Arm-bound names are added along with everything else, and cannot pollute the
+%% decision they are not part of: an arm may not rebind a name already in scope,
+%% so no arm variable is ever the head variable being judged.
+used_vars({e_switch, _, Subject, Arms}, Acc) ->
+    lists:foldl(fun({arm, _, _, G, Body}, A) ->
+                        used_vars(Body, sets:union(A, guard_vars(G)))
+                end, used_vars(Subject, Acc), Arms);
 used_vars({e_list, _, Items, Rest}, Acc) ->
     R = case Rest of nil -> Acc; _ -> used_vars(Rest, Acc) end,
     lists:foldl(fun used_vars/2, R, Items);
@@ -352,7 +365,23 @@ expr({e_list, L, Items, Rest}, C) ->
                     nil -> {nil, L};
                     R   -> expr(R, C)
                 end,
-                Items).
+                Items);
+
+%% Ticket 17 §6 lowers to Erlang's own `case`, and needs nothing the emitter did
+%% not already have: `pattern/2` is what a clause head goes through and an arm is
+%% a one-pattern clause. The correspondence is the point — ticket 01 moved this
+%% grammar out of switch arms and into the parameter position, so putting it back
+%% lands on the construct Erlang always had underneath both.
+%%
+%% Nothing is emitted for the failure arm, for ticket 13's reason one level down:
+%% the BEAM raises `case_clause` on a term no arm matches, exactly as it raises
+%% `function_clause`, so ticket 12's retained failure arm comes free here too.
+expr({e_switch, L, Subject, Arms}, C) ->
+    {'case', L, expr(Subject, C), [arm(A, C) || A <- Arms]}.
+
+arm({arm, L, P, Guard, Body}, C) ->
+    Used = used_vars(Body, guard_vars(Guard)),
+    {clause, L, [pattern(P, Used)], guard(Guard, C), [expr(Body, C)]}.
 
 %% Ticket 16 settled that `==` means `=:=`, and decided it on internal agreement
 %% rather than familiarity: Erlang's `==` coerces through tuples, lists and map

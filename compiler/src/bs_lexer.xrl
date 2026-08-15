@@ -35,6 +35,25 @@ record                  : {token, {'record', TokenLine}}.
 %% `o with { Total = 500 }` — ticket 26 §2, width-preserving update. C#-only of
 %% the two audiences; ticket 26 refused spread, so this is the single form.
 with                    : {token, {'with', TokenLine}}.
+%% Ticket 17 §6: the only branching construct, spelled postfix as C# spells it.
+%% There is no `if`, no `else`, no `cond` and no ternary for this to sit beside,
+%% so it is a keyword with nothing to be told apart from.
+switch                  : {token, {'switch', TokenLine}}.
+
+%% THE TWO KEYWORD ATOMS. Ticket 10 and `LANGUAGE.md` §4 — *"`true` and `false`
+%% are the only keyword atoms, `bool` is an ordinary alias"* — which the reference
+%% marked **shipped** and which was not. Without these two rules a bare `true`
+%% lexes as an ordinary lowercase identifier, and in pattern position that is a
+%% VARIABLE: `Decide(true, p) -> :ack` binds a variable named `true`, matches
+%% everything, and the second clause is dead.
+%%
+%% Found by running ticket 17 §6's own tuple-subject example, not by reading. It
+%% is the worst shape a defect can take here — the program COMPILES and means
+%% something else — and the only trace is an unreachable-clause warning that
+%% reads like a comment on the code rather than a report of a misparse. It has
+%% nothing to do with `switch`: `Decide(false, p)` returned `:ack` on master.
+true                    : {token, {atom_lit, TokenLine, true}}.
+false                   : {token, {atom_lit, TokenLine, false}}.
 
 %% :atom — ticket 10 settled the sigil, and the universe is open, so nothing
 %% declares an atom and the lexer simply interns what it sees.
@@ -68,6 +87,10 @@ _                       : {token, {'_', TokenLine}}.
 %% expression spelling in both pattern and construction position.
 \.\.                    : {token, {'..', TokenLine}}.
 ->                      : {token, {'->', TokenLine}}.
+%% The arrow ticket 08 reserved and nothing used until F7. `->` is a clause and
+%% `=>` is a switch arm; two arrows, two jobs. Longest-match keeps it off the
+%% `=` rule below without depending on rule order.
+=>                      : {token, {'=>', TokenLine}}.
 &&                      : {token, {'&&', TokenLine}}.
 \|\|                    : {token, {'||', TokenLine}}.
 ==                      : {token, {'==', TokenLine}}.

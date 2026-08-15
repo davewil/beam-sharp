@@ -144,6 +144,16 @@ value_of(S, Mod, Env) ->
 %% it — otherwise `Squared(t)` would pass the ATOM `t`, which is the Erlang
 %% reader's fallback showing through and never what anyone meant. beam-sharp
 %% spells an atom `:t`, so nothing is lost.
+%% The two keyword atoms, which are NOT names — they are the one place the
+%% language spells an atom without the sigil (ticket 10, `LANGUAGE.md` §4). The
+%% lookup above them is what made this necessary: a bare word resolves from the
+%% environment first, so `true` reached `is_name/1` and was reported unbound.
+%%
+%% Found by running `ibs -S examples/queue.bs` before writing F7's build note
+%% rather than after, which is the fourth surface feature in a row to find
+%% something at this prompt.
+resolve("true", _Env)  -> {ok, true};
+resolve("false", _Env) -> {ok, false};
 resolve(S, Env) ->
     case maps:find(S, Env) of
         {ok, V} -> {ok, V};
