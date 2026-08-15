@@ -140,7 +140,9 @@ spec exists.
 - [Charting: differentiator, typing stance, scope](issues/00-charting-decisions.md) — the
   language exists for the multi-clause heads Gleam explicitly refuses; typing is
   static-by-default set-theoretic with enforced cross-clause exhaustiveness; tooling,
-  stdlib breadth, macros and alternative backends are out of scope.
+  stdlib breadth, macros and alternative backends are out of scope. **Audited 2026-08-15 —
+  three of those four are boundaries on *this map*, not refusals; only alternative backends
+  rests on a mechanism. See Out of scope, which now says which is which.**
 - [Prior art: static types plus multi-clause heads](issues/03-prior-art-static-multiclause.md)
   — **Gleam never rejected multi-clause heads; it never considered them.** No rationale
   exists, and the soundness hypothesis is affirmatively weakened (Gleam's shipped checker
@@ -1384,9 +1386,26 @@ spec exists.
 
 ## Out of scope
 
-<!-- ruled beyond the destination; closed, never graduates -->
+<!-- AUDITED 2026-08-15 (David: "audit the rest of out of scope"). This section used to carry the
+     single marker `ruled beyond the destination; closed, never graduates`, and that marker was the
+     defect rather than the entries. Three of the four below are BOUNDARIES written in the costume
+     of REFUSALS, and two of those three had already been narrowed by hand within three days of
+     each other — which is the symptom.
 
-- **Tooling and ecosystem** — package manager, build tool, hex/rebar3/mix integration, LSP,
+     Two kinds of entry live here and they are NOT the same claim:
+
+       REFUSAL (mechanism) — a reason in the design that does not expire. Argue with the mechanism
+                             or the entry stands.
+       BOUNDARY (this map) — not being decided by THIS effort. No claim about the language. May
+                             return when a use case arrives that nothing else serves.
+
+     Every entry now states which it is. The pattern the audit found: the only entry that survives
+     as a refusal is the one resting on a mechanism, which is the map's own rule about refusing on
+     mechanism and never on taste, arriving from the other direction. A reader outside this effort
+     — an implementer handed the spec — would otherwise treat all four as walls. -->
+
+
+- **BOUNDARY — Tooling and ecosystem** — package manager, build tool, hex/rebar3/mix integration, LSP,
   formatter, docs generation. Every decision here is downstream of the language surface,
   and Gleam's experience suggests it is a multi-year track of its own.
   **Clarified 2026-08-13 (David, ticket 23): this rules out the ecosystem *track*, not any
@@ -1395,9 +1414,27 @@ spec exists.
   manager is not. Read the boundary as "is this the multi-year track, or one capability the
   language owes its author", and note ticket 23 raised the bar for what counts as a genuine need by
   making the compiler an interlocutor rather than only a gate.
-- **Standard library breadth** — module-by-module design. The spec names stdlib *shape* as
+- **BOUNDARY — Standard library breadth** — module-by-module design. The spec names stdlib *shape* as
   a design principle only.
-- **Macros and metaprogramming** — quote/unquote, source generators, compile-time
+
+  **AUDITED 2026-08-15: this entry was already narrower than it reads, and the narrowing was
+  written somewhere else.** The fog patch *"Stdlib shape as a principle"* says in its own words
+  **"Breadth is out of scope; the shape is not"**, and goes further — *"the prelude now has known
+  contents"* (ticket 10's `bool`, `option<T>`, `ParseAtom<T>`, `ToExistingAtom`; ticket 11's
+  `ValidateAs<T>`), which makes *what is in the prelude versus a module you import* a **live
+  sub-question rather than a hypothetical one**. Ticket 17 §2 then decided that every
+  compiler-known prelude collection operation is **inlined** at the call site, and ticket 14 §6
+  answered *"may a user add to the prelude's second stratum"* — **no**. That is a lot of stdlib
+  content decided inside a map whose Out of scope section appeared to forbid the subject.
+
+  So the boundary is: **a broad library designed module by module is not this effort's work; the
+  prelude is, and always has been.** Three things sit on the in side and are named here because
+  David listed them 2026-08-15 as owed before any handoff: *what is in the prelude*, **wrapping
+  the Erlang stdlib in beam-sharp happy forms**, and hex-package interop. The middle one is
+  genuinely **deferrable rather than refused** — measured the same day,
+  `bsc examples/interop.bs Total '[1,2,3,4]'` → `10` through `:lists.sum`, so `using :erlang { … }`
+  serves it today at the cost of the wrapper's ergonomics, which is a price and not a wall.
+- **BOUNDARY — Macros and metaprogramming** — quote/unquote, source generators, compile-time
   evaluation. A large semantic surface that interacts hard with a type system, and nothing
   about the core bet needs it.
 
@@ -1446,6 +1483,21 @@ spec exists.
   obligations already do. Recorded here so that the next ticket to feel this pressure finds the
   answer rather than re-deriving it, and so that a *user-extensible* generation mechanism is
   recognised as a redrawing of the destination rather than an increment.
-- **Alternative backends** — a JavaScript or WASM target of the kind Gleam ships alongside
+- **REFUSAL — Alternative backends** — a JavaScript or WASM target of the kind Gleam ships alongside
   its Erlang backend. Doubles the codegen surface and forces semantic compromises that
   would muddy a BEAM-native design.
+
+  **AUDITED 2026-08-15: this is the only one of the four that survives as a refusal, and the reason
+  it survives is instructive.** It is the only entry arguing from a **mechanism** — a doubled
+  codegen surface and semantic compromises against a BEAM-native design — rather than from this
+  effort's scope. The other three said, in effect, *we are not doing this now*; this one says *doing
+  this would make the language worse*, which is a claim that does not expire when someone finds a
+  use case. It is also the only one with no counter-evidence anywhere in the map: nothing else
+  mentions WASM or a JavaScript target, where the prelude, tooling and macro entries were each
+  contradicted by decisions taken elsewhere in this same document.
+
+  One thing worth recording so it is not mistaken for a crack in the refusal. Ticket 13's emission
+  contract — the frontend never depends on in-process compiler state, and what is emitted is a
+  serialised text file — is precisely the property that would make a second backend *cheap* to
+  bolt on later. That lowers the price; it does not answer the objection, which is about the
+  language's semantics rather than the compiler's plumbing. **Nobody has asked for one.**
