@@ -154,14 +154,23 @@ parse_compound(S, Env) ->
 %%
 %% **The cause was one layer up and is fixed**: he reached for braces because
 %% `(1, 2)` was being eaten by `parse_call/1`, which took any text before a `(`
-%% for a function name. The beam-sharp spelling now works, so braces are no
-%% longer the only way to type a tuple.
+%% for a function name.
 %%
-%% **What remains is a genuine open question, not a bug.** Reading `{ok, 5}` is
-%% a second dialect at the one surface a person types at — but it is *deliberate*
-%% and tested (`an_erlang_term_is_still_readable_test`: "the fallback that was
-%% removed was the SILENT one, not this"). Removing it is a decision that
-%% supersedes that one, and it is David's, not this comment's.
+%% **RULED 2026-08-15 (David): *"I don't want to fight the erlang compiler if
+%% tuples are better expressed with {} over (). If () for tuples to match C# is
+%% doable that is preferable."*** It is doable, and it is already done — measured
+%% rather than assumed: `type Pair = (int, int)`, `Swap((a, b)) -> (b, a)` and
+%% `(:ok, n)` all compile and run, and lower to `{tuple, L, …}` abstract-format
+%% terms. **There was never a fight to have**, because ticket 13 emits *terms*
+%% rather than Erlang source text, so Erlang's own `{}` syntax appears nowhere a
+%% person or the compiler writes.
+%%
+%% So the Erlang fallback goes. It was not a second spelling for a tuple — `{}`
+%% is *taken* in beam-sharp, it means a record or a map type, so `{1, 2}` was
+%% malformed record syntax being silently reinterpreted as something else. That
+%% supersedes `an_erlang_term_is_still_readable_test`'s reasoning ("the fallback
+%% that was removed was the SILENT one, not this"): this one was silent too, just
+%% about a different thing.
 parse_braced(S, Env) ->
     Parts = case string:trim(lists:sublist(S, 2, length(S) - 2)) of
                 ""    -> [];
@@ -170,13 +179,15 @@ parse_braced(S, Env) ->
     Fields = [field(P, Env) || P <- Parts],
     case Parts =/= [] andalso not lists:member(none, Fields) of
         true  -> maps:from_list(Fields);
-        %% STILL the Erlang reader, and that is now a live question rather than
-        %% an oversight — see the comment above. Changing it fails
-        %% `an_erlang_term_is_still_readable_test`, which protects a decision
-        %% ("the fallback that was removed was the SILENT one, not this") that
-        %% predates the complaint. Left standing until David rules on it.
-        false -> parse_term(S)
+        false -> throw({unreadable, brace_advice(S)})
     end.
+
+%% Names both spellings, because the mistake is a spelling and the fix is one
+%% character at each end.
+brace_advice(S) ->
+    io_lib:format("cannot read ~ts~n"
+                  "  a brace is a record: `{ Id = 1, Total = 500 }`~n"
+                  "  a tuple is parenthesised: `(1, 2)`", [S]).
 
 field(P, Env) ->
     case string:split(P, "=") of
