@@ -1,6 +1,6 @@
 # 42 — How is a span of integers named in a clause head?
 
-Status: claimed 2026-08-15
+Status: resolved 2026-08-15 — a span is a relational pattern; `4..7` refused
 Raised by: F2 (`compiler/features/F2-interval-refinements.md`, scenario F2.3)
 Blocks: F2
 Type: `wayfinder:grilling`
@@ -229,7 +229,12 @@ written above. Neither outcome changes the relational pattern itself.
 
 ### What the compiler gains
 
-- **Lexer**: nothing. No new token — `and`/`or` are keywords in pattern position only.
+- **Lexer**: two keyword rules. **Corrected 2026-08-15** — the first draft of this table said
+  *"nothing, no new token"*, which was asserted without reading `src/bs_lexer.xrl` and is wrong.
+  Measured: `&&` and `||` are lexed as tokens (lines 112–113); **`and` and `or` are not reserved**,
+  so today they lex as ordinary lowercase identifiers. Making them keywords is a real lexer change
+  and it removes both from the variable namespace — a parameter named `and` becomes illegal. Small,
+  but it is a cost, and the table understated it.
 - **Parser**: a relational pattern form (`p_rel(Op, Literal)`) and `p_and` / `p_or` combinators.
 - **Checker**: each relational lowers to an interval the algebra already has (`>= 4` → `int >= 4`);
   `and` is intersection and `or` is union, both already implemented. No new theory, which was

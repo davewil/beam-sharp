@@ -928,7 +928,9 @@
   and reads **wrong**. A glyph borrowed without its semantics converts "I must be taught this",
   paid once, into "I read this fluently and wrongly", never paid at all.
 
-  **Compiler delta:** no new token; a relational pattern form plus `and`/`or` combinators; each
+  **Compiler delta:** two keyword rules (`and` and `or` are *not* reserved today — measured in
+  `src/bs_lexer.xrl`, where `&&`/`||` are tokens at lines 112–113 — so reserving them is a real
+  lexer change that also removes both from the variable namespace); a relational pattern form; each
   relational lowers to an interval the algebra already carries, with `and` as intersection and `or`
   as union; the emitter is unchanged (`when N >= 4, N =< 7`). It **pays a debt** — F7 recorded
   `{ Total: > 100 }` as *"a C# relational pattern, which this grammar does not have"* — and it

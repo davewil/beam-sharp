@@ -93,6 +93,14 @@ resolving.
 So this is a real migration rather than a spec edit, though a small one. It is also the cheapest it
 will ever be: F2 is unbuilt, and every later feature that writes a guard makes it dearer.
 
+**And the lexer half is already paid.** Measured in `src/bs_lexer.xrl`: `&&` and `||` are tokens
+(lines 112–113) and **`and` / `or` are not reserved today** — they lex as ordinary lowercase
+identifiers. Ticket 42 reserves them anyway, for the pattern combinator. So whichever way this
+ticket goes, the keywords exist and the variable namespace has already lost them; **44's marginal
+lexer cost is zero.** What remains is a parser rule, a migration of three call sites, and the
+decision itself. That is worth knowing before weighing it, because the obvious objection to moving
+guards — *"a new keyword pair for a rename"* — is not true here.
+
 ## What this ticket owes
 
 1. One spelling or two.
