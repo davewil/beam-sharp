@@ -3,8 +3,22 @@
 A BEAM language with C#-family syntax, Erlang-style multi-clause function heads, and a
 set-theoretic type system that **proves every function covers its declared input**.
 
-This is the reference: what the language *is*. It carries no decision history and no ticket
-numbers — those live in `wayfinder/`, and you should not need them to read this.
+This is the reference: what the language *is*. It carries no decision history, and **the prose you
+read carries no ticket numbers** — those live in `wayfinder/`, and you should not need them to read
+this. That rule is load-bearing rather than tidy: the eventual clean-room handoff gives an
+implementer this document and **no access to `wayfinder/`**, so a ticket number in the running text
+is a pointer to something they do not have.
+
+Traceability still exists, in HTML comments the reader never sees:
+
+```
+<!-- decided by ticket 44, amending ticket 08 -->
+```
+
+`bin/check-surface.sh` requires one for every decision the map tags `syntax` or `patterns`, so a
+construct cannot be decided without this document being opened at the paragraph that describes it.
+**A handful of older paragraphs still name tickets inline** — they predate the convention and are
+the exception this note is written against.
 
 Every construct is marked with its status:
 
@@ -34,11 +48,12 @@ Fib(n) when n > 0  -> Series(n, 0, 1, [])
 
 A **signature** declares the type. **Clauses** follow it, one per case, each repeating the
 function name. The clause arrow is `->`. **There is no `;`** — a declaration ends where the next
-one begins. **shipped** (ticket 01, Variant A: the signature names the function once and the
-clauses are bare)
+one begins. **shipped**
+<!-- decided by ticket 01 (Variant A: signature names the function once, clauses are bare) -->
 
 **A body is zero or more bindings followed by one expression**, and the body's value is that last
-expression — so a body is still an expression, with names in front of it. (ticket 34)
+expression — so a body is still an expression, with names in front of it.
+<!-- decided by ticket 34 -->
 
 <!-- check:
 record Order { Id: int, Total: int }
@@ -116,9 +131,10 @@ Classify(n) when n >= 100           -> :high
 That is exhaustive over `int`, with no catch-all, because the checker carries real integer
 intervals.
 
-**The conjunction is changing to `and` / `or`, and `&&` / `||` are going away** (ticket 44,
-amending ticket 08). The block above is what compiles **today**; the block below is the decided
-form, and the two differ only in the operator. **decided**
+**The conjunction is changing to `and` / `or`, and `&&` / `||` are going away.** The block above is
+what compiles **today**; the block below is the decided form, and the two differ only in the
+operator. **decided**
+<!-- decided by ticket 44, amending ticket 08 -->
 
 ```csharp not-yet
 Classify(n) when n >= 10 and n < 100 -> :mid
@@ -129,9 +145,10 @@ puts patterns in the *parameter* position, so a pattern and a guard sit on the s
 non-trivial function. C# separates its pattern `and` from its expression `&&` deliberately, and can
 afford to because patterns and expressions rarely touch there; here they always do.
 
-**A span of integers is a relational pattern** (ticket 42). `4..7` was refused: C#'s `..` builds a
-half-open slice over *indices*, is not enumerable, and in pattern position already means "the rest"
-— which this language uses for lists. **decided**
+**A span of integers is a relational pattern.** `4..7` was refused: C#'s `..` builds a half-open
+slice over *indices*, is not enumerable, and in pattern position already means "the rest" — which
+this language uses for lists. **decided**
+<!-- decided by ticket 42 -->
 
 ```csharp not-yet
 Classify(>= 4 and <= 7) -> :reserved
@@ -146,9 +163,10 @@ and costs a false friend.
 
 ## 3. Exhaustiveness
 
-**A function that does not cover its declared input does not compile.** No opt-out, no flag.
-(ticket 04 — and its finding that the **residual is the missing case**, which is why the diagnostic
-below hands you a clause rather than a complaint.)
+**A function that does not cover its declared input does not compile.** No opt-out, no flag. The
+**residual is the missing case**, which is why the diagnostic below hands you a clause to paste
+rather than a complaint to interpret.
+<!-- decided by ticket 04 -->
 
 ```
 readings.bs:4: error: Classify is not exhaustive
@@ -179,8 +197,9 @@ type Band    = :low | :mid | :high
 `type X = ...` is the **single naming construct** — for unions, tuples, scalars, records alike. The
 name never enters the algebra; it is an alias. **shipped**
 
-**An atom is `:name`, and nothing declares one** (ticket 10). The universe of atoms is open; a type
-naming some of them is a union like any other, which is why `Verdict` above needs no special form.
+**An atom is `:name`, and nothing declares one.** The universe of atoms is open; a type naming some
+of them is a union like any other, which is why `Verdict` above needs no special form.
+<!-- decided by ticket 10 -->
 
 | Type | Notes | Status |
 |---|---|---|
@@ -232,8 +251,8 @@ truthiness**. **shipped**
 
 ## 5. Control flow
 
-**`switch` is the only branching construct.** There is no `if`, no `else`, no ternary. (ticket 17,
-which also settled `|>` and `|?>`)
+**`switch` is the only branching construct.** There is no `if`, no `else`, no ternary.
+<!-- decided by ticket 17, which also settled `|>` and `|?>` -->
 
 <!-- check:
 type Verdict = :new | :gone | :unknown
@@ -463,7 +482,7 @@ The first half needed neither.
 **User code never writes a type argument.** Only three compiler-known names take an explicit one:
 `ValidateAs<T>`, `ParseAtom<T>`, `ToExistingAtom`. So `<` opens a bracket after one of those names
 and is comparison everywhere else — a lexer rule on a closed set, with no lookahead and no turbofish.
-(ticket 28, measured against four grammar variants; the same ticket cleared `..` for list rest.)
+<!-- decided by ticket 28, measured against four grammar variants; same ticket cleared `..` for list rest -->
 
 **decided**
 
@@ -616,13 +635,14 @@ type Octet = int where value >= 0 and value <= 255
 
 Where the predicate is a **single BEAM guard**, a refinement is reasoned about by the checker and
 may appear in a clause head and at a foreign boundary. The predicate takes the same `and` / `or` as
-guards and patterns (ticket 44) — one conjunction everywhere.
+guards and patterns — one conjunction everywhere.
 
-**Refinements and interval patterns must land together** (ticket 12 §2, and F2). Today a parameter
+**Refinements and interval patterns must land together.** Today a parameter
 declared `int` has an **open** residual, so a dispatch over it gets its `_` for free. The moment a
 refinement bounds the type, that residual **closes** — and a catch-all over a closed residual is an
 error. So a refinement without a way to name a span turns working programs into rejected ones,
 which is why the span pattern above is part of the same change rather than a later convenience.
+<!-- decided by ticket 12 §2; the coupling is F2's -->
 
 An **opaque** refinement — `binary where valid_utf8`, O(n) — may be declared, but is **barred from
 clause heads and foreign declarations**. Inside, the caller is known and the obligation is
@@ -636,9 +656,10 @@ or wire parsing breaks. A parameter declared `int` leaves every byte-wide dispat
 
 ## 14. What is deliberately absent
 
-Most of this table is ticket 05's inventory of C#'s functional surface, sorted into what ports and
-what is **subsumed** by moving patterns into the parameter position. A construct is absent here
-because something else already covers it, not because it was disliked.
+Most of this table is an inventory of C#'s functional surface, sorted into what ports and what is
+**subsumed** by moving patterns into the parameter position. A construct is absent here because
+something else already covers it, not because it was disliked.
+<!-- decided by ticket 05 -->
 
 | Absent | Because |
 |---|---|

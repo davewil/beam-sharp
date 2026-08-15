@@ -32,6 +32,17 @@
 # because it makes the trail one grep, which is the same rule the feature files
 # already keep with their scenario ids.
 #
+# CITE IN AN HTML COMMENT, NOT IN THE PROSE:
+#
+#     <!-- decided by ticket 44, amending ticket 08 -->
+#
+# LANGUAGE.md's header states it carries no ticket numbers, and that rule is
+# load-bearing rather than tidy: the clean-room handoff gives an implementer
+# this document and NO ACCESS TO `wayfinder/`, so a ticket number in the running
+# text is a pointer to something they do not have. The first cut of this gate
+# put seven of them in the prose and contradicted the document it was meant to
+# protect. A comment satisfies both — greppable here, invisible there.
+#
 # It does NOT check that the prose is CORRECT — nothing mechanical can. What it
 # guarantees is that no syntax decision can land without somebody opening
 # LANGUAGE.md, which is where 44 would have been caught: going to add the
