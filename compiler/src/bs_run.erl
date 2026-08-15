@@ -258,6 +258,34 @@ unreadable(S) ->
     throw({unreadable, explain(S)}).
 
 explain(S) ->
+    case declaration(S) of
+        {true, Word} -> declaration_advice(S, Word);
+        false        -> explain_value(S)
+    end.
+
+%% A DECLARATION typed at the prompt. `record Order { … }` is the shape David
+%% reached for on 2026-08-15, and the old answer — *"cannot read … as a value"* —
+%% was true and useless: it named what the prompt wanted rather than where the
+%% thing he was typing actually goes.
+%%
+%% The prompt evaluates calls and values against a module that is already
+%% compiled; it is not an evaluator and has never claimed to be. So the honest
+%% answer names the route that works, which is the file plus `:reload`.
+declaration(S) ->
+    Word = string:trim(hd(string:split(string:trim(S), " "))),
+    case lists:member(Word, ["module", "type", "record", "using", "behaviour"]) of
+        true  -> {true, Word};
+        false -> false
+    end.
+
+declaration_advice(S, Word) ->
+    io_lib:format("cannot read ~ts: `~s` declares something, and the prompt "
+                  "evaluates calls and values against a module that is already "
+                  "compiled.~n"
+                  "  put the declaration in the .bs file and `:reload`",
+                  [S, Word]).
+
+explain_value(S) ->
     case {construction(S), lists:member($(, S)} of
         {true, _} ->
             io_lib:format("cannot read ~ts: record construction is not available "
