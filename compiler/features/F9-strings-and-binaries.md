@@ -339,6 +339,23 @@ tests**. They go through the CLI and `bs_run` rather than naming the module, whi
 boundary doctrine working as intended. The gap is narrower than "no tests at all" — what the REPL
 lacks is coverage of *values*, which is exactly where F9's hole was.
 
+**Two sites the scenarios missed, and both are the first thing anyone types.** A string literal in a
+**guard** (`when s == "hello"`) and in a **body binding** (`s = "x"`) were in none of F9.1–F9.11,
+because the scenarios were written around the type and the literal reached only return position.
+Guards go through a different emitter than `expr/2` and crash rather than reject on a form they do
+not know, so this was a real exposure and not a tidiness point. Both work, and both are now pinned.
+The guard is correctly **uncreditable** — there is no value-level singleton in the binary part, so
+`Pick(s) when s == "hello"` earns no exhaustiveness credit and dropping the catch-all is an error
+rather than a silent pass. F7's rule again: run the capability's own motivating example instead of
+trusting that a form working in one position works everywhere the grammar admits it.
+
+**A short-circuit in `opaque_refinement/1` worth knowing about before it bites.** The
+`#{tuples := top}` clause returns `false` without checking the list or map components. Only
+`term()` produces `tuples => top` today, so it is unreachable — but the failure direction is
+**permissive**: a `string` nested under whatever else acquires a tuple top would slip past the
+boundary check. Recorded rather than fixed, because inventing a case for a shape nothing produces is
+the fog rule in reverse.
+
 **The corpus gate earned its place again, in the negative.** It was run before a single rejection
 test, per F5's rule. It stayed green through the algebra change — and unlike F6, that is not because
 this feature adds no rejection path. It adds three. It passed because a new component starts empty

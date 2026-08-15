@@ -172,6 +172,47 @@ string_is_a_proper_subtype_of_binary_test() ->
     ?assertNot(bs_types:is_subtype(bs_types:binary_top(), bs_types:string())).
 
 %%% ---------------------------------------------------------------------------
+%%% The two sites a new expression form reaches that nothing above exercises
+%%%
+%%% Added after the scenarios were written, because neither was in them and both
+%%% are the first thing anyone types once literals exist. F7's lesson: run the
+%%% capability's own motivating example rather than trusting that a form which
+%%% works in return position works everywhere the grammar admits it.
+%%% ---------------------------------------------------------------------------
+
+%% Guards share the expression grammar, so a string literal reaches the guard
+%% emitter — a different function from `expr/2`, and one that crashes on a form
+%% it does not know rather than rejecting it.
+a_string_literal_works_in_a_guard_test() ->
+    M = build_and_load("module Gd\n"
+                       "atom Pick(string s)\n"
+                       "Pick(s) when s == \"hello\" -> :hit\n"
+                       "Pick(s)                   -> :miss\n", 'Gd'),
+    ?assertEqual(hit, M:'Pick'(<<"hello">>)),
+    ?assertEqual(miss, M:'Pick'(<<"nope">>)).
+
+%% ...and it is UNCREDITABLE, which is the right answer rather than a gap. The
+%% checker translates `var == literal` into a type operation only where the
+%% literal is a member of a part it can subtract, and there is no value-level
+%% singleton in the binary part (see the pattern-position note in the parser).
+%% So the guard is `Possible`, the clause earns no exhaustiveness credit, and
+%% dropping the catch-all is an ERROR rather than a silent pass.
+a_string_guard_earns_no_exhaustiveness_credit_test() ->
+    ?assertMatch([{error, _, 'Pick', {inexhaustive, _}}],
+                 errors("module Gu\n"
+                        "atom Pick(string s)\n"
+                        "Pick(s) when s == \"hello\" -> :hit\n")).
+
+%% F5's fifth site — a body binding, which none of the scenarios above reach.
+a_string_literal_binds_in_a_body_test() ->
+    M = build_and_load("module Bd\n"
+                       "string Local()\n"
+                       "Local() ->\n"
+                       "    s = \"x\"\n"
+                       "    s\n", 'Bd'),
+    ?assertEqual(<<"x">>, M:'Local'()).
+
+%%% ---------------------------------------------------------------------------
 %%% F9.10–F9.11 — the boundary
 %%% ---------------------------------------------------------------------------
 
