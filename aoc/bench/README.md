@@ -77,6 +77,60 @@ sequence, and not the spec. The remaining candidate is why the compiler's type a
 from beam-sharp's abstract forms than from equivalent Erlang source — which is a real question and
 not one to answer at 4am by guessing.
 
+## A second workload, and it is the contrast that matters
+
+David: *"Do fib(100,000,000) in each language"*, then *"or fib(100,000)"*.
+
+**10⁸ is not slow, it is impossible.** `examples/fib.bs` returns a *list* of the first n Fibonacci
+numbers, and the nth has ~0.209n decimal digits. Measured scaling on beam-sharp:
+
+| n | time | last number |
+|---|---|---|
+| 10,000 | 1.8 ms | 2,090 digits |
+| 50,000 | 56.8 ms | 10,449 digits |
+| 100,000 | 544 ms | 20,899 digits |
+| 200,000 | 4,292 ms | 41,797 digits |
+
+Roughly **O(n²)** — n additions whose operands grow linearly — so 10⁸ extrapolates to about *six
+years*, and the list alone would need ~10¹⁵ bytes. The shape of the answer, not the speed of the
+compiler, is what rules it out.
+
+**At n = 100,000, all four are indistinguishable.** Two consecutive runs, 9 runs each:
+
+```
+             min ms  med ms    rel        min ms  med ms    rel
+Erlang        188.7   190.9  1.11x         197.2   203.3  1.19x
+Elixir        181.4   189.8  1.07x         211.7   232.5  1.28x
+Gleam         180.5   202.9  1.07x         165.8   170.9  1.00x
+beam-sharp    169.3   188.1  1.00x         171.1   175.3  1.03x
+```
+
+**The ordering flips between runs** — beam-sharp fastest in the first, Gleam in the second — so
+run-to-run variance exceeds any difference between the languages. The honest reading is a dead heat,
+and reporting a winner here would be reporting noise.
+
+### That contrast is the actual result
+
+| workload | dominated by | beam-sharp |
+|---|---|---|
+| Day 1 part two — 673k tight integer iterations | **the emitted loop** | **consistently 20% behind** |
+| fib(100,000) — bignum arithmetic, 100k cons cells, GC | **the runtime** | indistinguishable |
+
+So beam-sharp's gap is **not a general overhead**. It appears exactly where the emitted instructions
+are the whole cost, and vanishes where the time goes into BIFs, allocation and garbage collection —
+which every language on this VM shares. That localises [ticket 39](../../wayfinder/issues/39-emitted-code-quality.md)
+considerably: whatever it is, it lives in code the JIT would otherwise specialise.
+
+### The fib harness measured garbage collection first
+
+Worth recording beside the guard mistake above, because it is the same class of error. Timing the
+calls in one process gave an 8× min/median spread for Elixir — 82 ms against 832 ms — because each
+run's garbage was still being collected while the next ran, and whoever went first paid for whoever
+went last. Every run now happens in a **fresh process that then exits**, so its heap is discarded
+wholesale rather than collected.
+
+**Two benchmarks, two ways of accidentally measuring something else.** That is the honest rate.
+
 ## Reproducing
 
 ```

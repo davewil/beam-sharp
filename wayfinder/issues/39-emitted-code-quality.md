@@ -76,8 +76,25 @@ tension worth stating plainly, not a defect.
 3. **Can `bs_emit` supply what the analyser is missing?** The algebra has the ranges. Whether the
    Abstract Format can carry them into the optimiser — and whether the optimiser trusts them — is
    unmeasured. If it can, the ceiling is above Erlang's, not below.
-4. **Does it survive a second shape?** One tight integer loop is one data point. Records, list
-   building and a dispatch-heavy workload would each stress a different part of the emitter.
+4. ~~**Does it survive a second shape?** One tight integer loop is one data point.~~
+   **ANSWERED THE SAME NIGHT, and it narrows the question considerably.** `fib(100,000)` — the same
+   four languages building a 100,000-element list of bignums — is a **dead heat**. Two consecutive
+   runs put beam-sharp fastest and then Gleam fastest, so run-to-run variance exceeds any difference
+   between them.
+
+   | workload | dominated by | beam-sharp |
+   |---|---|---|
+   | 673k tight integer iterations | the emitted loop | **consistently 20% behind** |
+   | fib(100,000) — bignums, cons cells, GC | the runtime | indistinguishable |
+
+   So this is **not a general overhead**. It appears exactly where the emitted instructions are the
+   whole cost and vanishes where time goes into BIFs, allocation and garbage collection — which
+   every language on this VM shares equally. Whatever the cause is, it lives in code the JIT would
+   otherwise specialise, which is consistent with the missing `{tr, …}` annotations and rules out a
+   broad class of explanations.
+
+   Still open on this axis: **records and dispatch**. Neither workload touches a record, so the
+   boundary tag guard (ticket 18, F3) has never been measured at all.
 
 ## §4. The thing this ticket is not
 
