@@ -126,6 +126,25 @@ Candidates, with what each collides with. **The feature must not start until one
 has, with the meaning it already has, and needs no new token in the lexer. `[==acc, ..rest]` says
 *an element equal to acc*, which is exactly what it does.
 
+**RAISED AS A TICKET AT LAST — 2026-08-15.** This section named a decision the file *"must not
+make"* and no ticket existed for it, which is the same gap that stalled F2: a blocker recorded in
+prose, in one file, where no query could find it. It is now
+[ticket 45](../../wayfinder/issues/45-match-token.md) ·
+[ENG-216](https://linear.app/davewil/issue/ENG-216).
+
+**And the recommendation got materially stronger the same day, from a ticket that has nothing to do
+with this one.** [Ticket 42](../../wayfinder/issues/42-interval-pattern-spelling.md) put
+**relational patterns** in the parameter position, so a pattern may now be `>= 4`, `<= 7` or
+`>= 4 and <= 7`. Before that, `==acc` would have been the only operator-shaped thing in a pattern —
+a lone oddity needing its own explanation. After it, `== acc` is simply the **equality member of a
+family that already exists**, and a reader who has met `>= 4` in a head reads it on sight.
+
+Note also what 42's rule says about it: C#'s relational patterns are `<`, `>`, `<=`, `>=` and
+**`==` is not among them**, because C# writes a constant pattern bare. So `== acc` is not a borrow
+at all — it is this language extending its own relational family to reach a case C# cannot express,
+carrying the meaning `==` already has here (ticket 16: `==` is `=:=`). Tier 3, and the safe kind:
+no glyph is being taken from a language that uses it for something else.
+
 ## Scenarios
 
 ### F8.1 — `var` binds, and the parser takes a pattern

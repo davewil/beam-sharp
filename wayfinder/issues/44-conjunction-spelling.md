@@ -1,6 +1,6 @@
 # 44 — One conjunction or two? `and`/`or` against `&&`/`||`, now that patterns have taken `and`
 
-Status: open
+Status: resolved 2026-08-15 — one conjunction, `and`/`or`; `&&`/`||` removed
 Amends: ticket 08 (guard operators)
 Raised by: ticket 42, and by David — *"For ticket 8, I think with more info, and/or would probably sit better"* (2026-08-15)
 Type: `wayfinder:grilling`
@@ -112,4 +112,114 @@ guards — *"a new keyword pair for a rename"* — is not true here.
 
 ## Answer
 
-<!-- recorded on resolution -->
+**Resolved 2026-08-15. One conjunction: `and` / `or`, in every position. `&&` and `||` are
+removed, not kept as synonyms.**
+
+```csharp
+type Octet = int where value >= 0 and value <= 255    // refinement predicate
+
+Classify(>= 4 and <= 7)           -> :reserved        // pattern position
+Classify(n) when n >= 4 and n < 8 -> :reserved        // guard position
+```
+
+### 1. One spelling, not two
+
+David's call — *"For ticket 8, I think with more info, and/or would probably sit better"* — and the
+information that made it safe is measured rather than argued. The one thing that could have made
+`and` a false friend on this platform is Erlang's own `and`, which does not short-circuit where
+`andalso` does. Measured on OTP 28 in
+[`44a_guard_operator_probe.escript`](../prototypes/44a_guard_operator_probe.escript), using
+`10 div X` with `X = 0` so the second operand genuinely raises:
+
+```
+GUARD context:       `,` fell_through   `and` fell_through   `andalso` fell_through
+EXPRESSION context:  `and` {raised,error,badarith}   `andalso` false
+```
+
+**In guard context the distinction is unobservable** — a guard that raises simply fails, so
+non-short-circuit evaluation cannot be detected. beam-sharp's guards are a restricted predicate set
+lowered to BEAM guards, so this is the only context where the question arises, and there it has no
+answer to get wrong.
+
+### 2. This is ticket 42's new rule applied in the opposite direction, and that is the point
+
+[Ticket 42](42-interval-pattern-spelling.md) minted *"borrow the construct, or don't borrow the
+glyph"* while refusing `4..7`. A rule that only ever forbids is a rule nobody can apply, so its
+second use being a **permission** matters more than its first being a refusal.
+
+The test is whether the glyph's meanings diverge:
+
+- **`..` diverged.** C#: a half-open slice specification over *indices*, not enumerable. Proposed
+  use: a span of integer values. Different denotations — a reader who reads fluently reads wrong.
+- **`and` does not diverge.** C#'s pattern `and` is conjunction. Elixir's `and` is conjunction.
+  Erlang's `and`, in the only context beam-sharp uses it, is conjunction and observably identical to
+  the alternatives. A reader who reads "both must hold" is correct in every case.
+
+That C# spells its *expression* conjunction `&&` and its *pattern* conjunction `and` is a fact about
+C#'s grammar, not about what `and` means. **The rule is about meaning, not about position** — and
+this ticket is where that gets stated, because 42 alone could be misread as "only ever use a C#
+symbol exactly where C# uses it", which would have forbidden this and been wrong.
+
+### 3. And the reason to unify is beam-sharp's, not C#'s
+
+C#'s split costs nothing there because **patterns and expressions rarely touch** — patterns live in
+`switch` arms and `is` tests. beam-sharp's defining move puts patterns in the parameter position, so
+a pattern and a guard sit **on the same line**, in the language's central construct, in every
+non-trivial function:
+
+```csharp
+Classify(>= 4 and <= 7)           -> :reserved
+Classify(n) when n >= 4 && n < 8  -> :reserved
+```
+
+Two spellings for one meaning, one line apart. The condition that makes C#'s split free is precisely
+the condition this language does not satisfy — which is the map's *"deviate where this language is
+better served"* clause with a mechanism attached rather than a preference.
+
+### 4. Ticket 08's `as` answer survives — checked, not assumed
+
+08 made `(d as int) > 0` the answer to `dynamic` in a guard, and its reasoning names the operator:
+
+> *"`as` is total — it never raises, yielding a nothing-value on failure. And C's lifted comparison…
+> `&&` never changes meaning; the possibility of failure is visible in the expression as a nullable
+> rather than implied by the operand types."*
+
+**The lifting is on the comparison, not on the conjunction.** `(d as int) > 0` yields `false` on
+failure before any conjunction sees it, so the operator joining it to anything else is irrelevant to
+the mechanism. The sentence *"`&&` never changes meaning"* is a claim that the conjunction needs no
+special guard-failure rule — and that claim is about the *absence* of special behaviour, which
+survives a rename intact. Renaming it `and` changes nothing 08 relied on.
+
+**08's own table row is amended** rather than contradicted: `Guard operators | &&/||` becomes
+`and`/`or`, and the `as` answer beneath it stands unaltered.
+
+### 5. `&&` and `||` are removed, not kept as synonyms
+
+The standing constraint settles this: **write cost carries little weight, read cost carries full
+weight.** Synonyms are nearly free to lex and expensive to read — a reader meeting both spellings in
+one codebase must ask whether the difference is meaningful, and the answer being "no" is a question
+they should never have been made to ask. Two spellings for one meaning is the exact thing this
+ticket exists to remove, so keeping them would resolve it in name only.
+
+**This is the piece of the answer most worth overruling**, and it is flagged as such: it is the only
+part not forced by the reasoning above, and a synonym is the cheapest possible migration.
+
+### 6. What this does NOT do, deliberately
+
+**No source changes here.** The map is plan-by-default and this ticket produces a decision. The
+migration — `math.bs`, `LANGUAGE.md`, and F2's refinement predicates — belongs to a feature.
+
+**And it cannot be done first, which is a real sequencing constraint.** `LANGUAGE.md` is gated
+*bidirectionally*: its code blocks must compile. The compiler does not lex `and` today (measured:
+`src/bs_lexer.xrl` has `&&` and `||` at lines 112–113 and no `and`/`or` rule), so editing the doc
+before the lexer would turn the gate red. **Lexer first, then the doc and the example, in one
+change.** F2 is the natural home, since 42 already obliges it to reserve the keywords.
+
+### 7. What it costs, now that 42 has landed
+
+- **Lexer**: nothing further. Ticket 42 reserves `and` / `or` for the pattern combinator regardless,
+  and the variable namespace has already paid for them there. **44's marginal lexer cost is zero.**
+- **Parser**: the guard grammar's `&&` / `||` productions take the new tokens; `expr` loses two.
+- **Migration**: three call sites — `compiler/examples/math.bs` (two occurrences),
+  `LANGUAGE.md` (prose and blocks), and F2's own scenarios.
+- **Removed**: two lexer rules, which is a rare direction of travel for a language decision.

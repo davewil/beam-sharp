@@ -13,7 +13,7 @@ familiar to either counts as borrowed.
 | Clause shape | Variant A — signature names the function once, clauses are bare (ticket 01) |
 | Clause arrow | `->`; `=>` reserved for lambdas |
 | Guards | Expansion rule; `guard` modifier for named guards |
-| Guard operators | `&&` / `||` |
+| Guard operators | ~~`&&` / `||`~~ → **`and` / `or`**, amended 2026-08-15 by [ticket 44](44-conjunction-spelling.md). `&&`/`||` are removed, not kept as synonyms. The `dynamic`-in-a-guard row below is **unaffected** — 44 checked it rather than assuming: the lifting that makes `(d as int) > 0` yield false is on the *comparison*, so the conjunction joining it to anything else is irrelevant to the mechanism |
 | `dynamic` in a guard | Always written — `(d as int) > 0`, or a type pattern in the head. **No inference.** |
 | Same-arity dispatch | Union parameter — `string Describe(int \| Order)`. **One arrow per arity.** |
 | Defaults & variadics | Both kept; arity generation is codegen |

@@ -75,13 +75,13 @@ Erlang back to the decision that required it is one grep.
 | Feature | Status | Unblocks |
 |---|---|---|
 | [F1 — walking skeleton](F1-walking-skeleton.md) | **done** | the baseline; `examples/*.bs` |
-| [F2 — interval refinements and interval patterns](F2-interval-refinements.md) | **blocked** — [43](../../wayfinder/issues/43-residual-summarised-form.md), [44](../../wayfinder/issues/44-conjunction-spelling.md) ([42](../../wayfinder/issues/42-interval-pattern-spelling.md) answered) | 25b, 25c wire dispatch |
+| [F2 — interval refinements and interval patterns](F2-interval-refinements.md) | **blocked** — [43](../../wayfinder/issues/43-residual-summarised-form.md) only; [42](../../wayfinder/issues/42-interval-pattern-spelling.md) and [44](../../wayfinder/issues/44-conjunction-spelling.md) answered, and 44 adds a migration | 25b, 25c wire dispatch |
 | [F3 — records](F3-records.md) | **done 2026-08-14** | the record half of all three; `examples/shop.bs` |
 | [F4 — local bindings](F4-local-bindings.md) | **done 2026-08-14** | nothing — it removes a papercut |
 | [F5 — the body check site](F5-body-check-site.md) | **done 2026-08-14** | F3.3, F3.8, F3.10; 34's destructuring binds |
 | [F6 — angle brackets and parametric types](F6-angle-brackets.md) | **done 2026-08-14** | the *bracket* in all three; `examples/parcel.bs` |
 | [F7 — `switch`](F7-switch.md) | **done 2026-08-15** | the *branching* in all three; `examples/queue.bs` |
-| [F8 — `var` binds, `=` matches](F8-bind-and-match.md) | **drafted, blocked** — one token owed | nothing; it goes first to avoid rewriting later features' files |
+| [F8 — `var` binds, `=` matches](F8-bind-and-match.md) | **drafted, blocked** — [45](../../wayfinder/issues/45-match-token.md) | nothing; it goes first to avoid rewriting later features' files |
 | [F9 — `string` and `binary` as values](F9-strings-and-binaries.md) | **done 2026-08-15** | the `string` **fields** in all three, `list<string>`; **not** I/O |
 | [F10 — OTP callbacks](F10-otp-callbacks.md) | **done 2026-08-15** | **`bin/spec-check.sh`**; the `behaviour` half of 25b, 25c |
 | F11 — binary patterns | not started, **blocked** — ticket 30 is open | 25b, 25c |
@@ -105,9 +105,20 @@ A feature file's header is a copy, and copies drift.
 prose, in two places, with nothing to reconcile them. F2 is now
 [ENG-214](https://linear.app/davewil/issue/ENG-214) with native blocking edges to
 [ENG-212](https://linear.app/davewil/issue/ENG-212) and
-[ENG-213](https://linear.app/davewil/issue/ENG-213). **F8, F11 and F12 still have no issues** —
-the same gap, left open deliberately rather than fixed in passing, because each needs its blockers
-stated before an issue means anything.
+[ENG-213](https://linear.app/davewil/issue/ENG-213).
+
+**The same gap was then found on F8, and closed before it cost anything.** F8's *The token* section
+named a decision the file *"must not make"* and no ticket existed for it — identical to F2, one
+feature along. It is now [ticket 45](../../wayfinder/issues/45-match-token.md) ·
+[ENG-216](https://linear.app/davewil/issue/ENG-216), and F8 is
+[ENG-217](https://linear.app/davewil/issue/ENG-217), blocked by it.
+
+**So the rule, stated once here rather than rediscovered a third time:** *a feature file naming a
+decision it needs **is** raising a ticket, and it does not count as raised until the repo file and
+the Linear issue both exist.* Naming a blocker in prose feels like recording it and is not — a
+blocker no query can find does not exist as far as the frontier is concerned, which is precisely
+how F2 sat takeable-looking for a day. **F11 and F12 still have no issues**, deliberately: F11's
+blocker is ticket 30, which is already on the map, and F12 has no file to state blockers from.
 
 **F4 was built out of order and the rule was not bent quietly.** No exemplar is blocked on
 bindings — the three that exist contain zero. It was built because David reached for one in the

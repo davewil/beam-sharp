@@ -3,7 +3,7 @@
 **Status**      **blocked** — two decisions owed, see [below](#two-decisions-this-feature-needs-before-it-can-be-built)
 **Implements**  tickets 20 §5, 12 §2, 04 — decides nothing
 **Unblocks**    `bs_emit:int_part/1`'s bounded branches; wire dispatch in 25b and 25c
-**Depends on**  F1; tickets 43 and 44 still open, 42 answered 2026-08-15
+**Depends on**  F1; **ticket 43 is the last blocker** — 42 and 44 both answered 2026-08-15
 
 **The header said `not started` until 2026-08-15 while the README's table said `blocked`.** Two
 files disagreed about whether this feature was takeable, and the table was the one that was right —
@@ -137,13 +137,18 @@ recorded here so the coupling is not discovered mid-build:
 2. **The residual's summarised form at width** (F2.4) →
    [ticket 43](../../wayfinder/issues/43-residual-summarised-form.md) ·
    [ENG-213](https://linear.app/davewil/issue/ENG-213) — **still open**
-3. **And a third arrived with the first one's answer.** The pattern combinator is `and`/`or`; ticket
-   42 left open whether *guards* follow, and this feature's own F2.1 writes a refinement predicate
-   with `&&` (`where value >= 0 && value <= 255`). If
-   [ticket 44](../../wayfinder/issues/44-conjunction-spelling.md) ·
-   [ENG-215](https://linear.app/davewil/issue/ENG-215) flips that spelling, every scenario here
-   changes with it — so it blocks this feature too, and settling it before the build is strictly
-   cheaper than after.
+3. ~~**And a third arrived with the first one's answer.**~~ → **ANSWERED 2026-08-15**, and it
+   flipped the spelling: [ticket 44](../../wayfinder/issues/44-conjunction-spelling.md) ·
+   [ENG-215](https://linear.app/davewil/issue/ENG-215). **One conjunction, `and`/`or`, in every
+   position — `&&`/`||` are removed, not kept as synonyms.**
+
+   **So this feature inherits a migration it did not have yesterday, and it must run in a specific
+   order.** `LANGUAGE.md` is gated *bidirectionally*, and the compiler does not lex `and` today, so
+   editing the doc first turns the gate red. **Lexer, then parser, then the doc and `math.bs`, in
+   one change.** The keywords are already this feature's obligation — ticket 42 makes it reserve
+   `and`/`or` for the pattern combinator regardless — so 44 adds a parser rule and three call sites,
+   and *removes* two lexer rules. Every scenario in this file is written with `&&` and must be
+   rewritten before it is implemented.
 
 **Raised 2026-08-15, and they should have been raised when this file was written.** F2.3 already
 said *"raise a ticket before writing this scenario's implementation"* and F2.4 said *"also a ticket,

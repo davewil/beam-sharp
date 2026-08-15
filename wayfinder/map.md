@@ -272,6 +272,9 @@ Bodies in [`decisions.md`](decisions.md). Ticket text in `issues/`.
 - **A span in a clause head is a relational pattern** `#42` `syntax` `patterns` `types`
   `4..7` refused — C#'s `..` is a half-open *index* slice that already means "the rest" in pattern
   position. Spans are `>= 4 and <= 7`; borrow the construct, or don't borrow the glyph
+- **One conjunction: `and` / `or`** `#44` `syntax` `patterns` `agent`
+  amends 08; `&&`/`||` **removed**, not aliased. Erlang's `and`/`andalso` difference is
+  unobservable in a guard — so 42's rule is shown permitting, not only forbidding
 
 ---
 

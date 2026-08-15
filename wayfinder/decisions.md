@@ -946,3 +946,55 @@
   *guards* follow is [ticket 44](issues/44-conjunction-spelling.md), amending ticket 08 —
   David: *"For ticket 8, I think with more info, and/or would probably sit better"*. F2 loses one
   blocker and remains blocked on [ticket 43](issues/43-residual-summarised-form.md).
+
+- **One conjunction: `and` / `or`** — [ticket 44](issues/44-conjunction-spelling.md), resolved
+  2026-08-15, amending [ticket 08](issues/08-head-and-guard-syntax.md). Raised by ticket 42, which
+  put relational patterns in the parameter position and took C#'s `and`/`or` combinators with them,
+  leaving the language spelling conjunction two ways. David: *"For ticket 8, I think with more info,
+  and/or would probably sit better."* **One spelling now, in every position — pattern, guard and
+  refinement predicate — and `&&`/`||` are removed rather than kept as synonyms.**
+
+  **Safe because measured, not argued.** The only thing that could have made `and` a false friend
+  here is Erlang's own `and`, which does not short-circuit where `andalso` does. On OTP 28
+  ([`44a`](prototypes/44a_guard_operator_probe.escript)), using `10 div X` with `X = 0` so the
+  second operand genuinely raises: in **guard** context `,`, `and` and `andalso` all fell through
+  identically, because a guard that raises simply fails — **non-short-circuit evaluation is
+  unobservable there**. In expression context the difference is real (`and` raises `badarith`,
+  `andalso` returns false). beam-sharp's guards are a restricted predicate set, so the only context
+  it uses is the one where the question has no answer to get wrong.
+
+  **This is ticket 42's new rule applied in the opposite direction, and that is why the entry is
+  worth reading.** 42 minted *"borrow the construct, or don't borrow the glyph"* while **refusing**
+  `4..7`. A rule that only ever forbids is a rule nobody can apply, so its second use being a
+  **permission** matters more than its first being a refusal. The test is whether the glyph's
+  meanings diverge: `..` diverged (a half-open slice over *indices* against a span of *values* — a
+  reader who reads fluently reads wrong), and `and` does not (conjunction in C#, in Elixir, and
+  observably in Erlang guards). That C# spells its expression conjunction `&&` and its pattern
+  conjunction `and` is a fact about C#'s grammar, not about what `and` means. **The rule is about
+  meaning, not position** — recorded because 42 alone could be misread as *"only use a C# symbol
+  exactly where C# uses it"*, which would have forbidden this and been wrong.
+
+  **And the reason to unify is beam-sharp's own.** C#'s split costs nothing there because patterns
+  and expressions rarely touch. This language's defining move puts patterns in the *parameter*
+  position, so a pattern and a guard sit on the **same line**, in the central construct, in every
+  non-trivial function. The condition that makes C#'s split free is exactly the one beam-sharp does
+  not satisfy.
+
+  **Ticket 08's `as` answer survives, and was checked rather than assumed.** 08 made
+  `(d as int) > 0` the answer to `dynamic` in a guard, reasoning that *"`&&` never changes
+  meaning"*. The lifting that yields false on failure is on the **comparison** — it produces `false`
+  before any conjunction sees it — so 08's sentence is a claim about the *absence* of special
+  conjunction behaviour, and an absence survives a rename. 08's table row is amended; the row
+  beneath it stands.
+
+  **`&&`/`||` are removed rather than aliased**, on the standing constraint: write cost carries
+  little weight, read cost carries full weight, and a reader meeting both spellings must ask whether
+  the difference is meaningful — a question they should never have been made to ask. **Flagged in
+  the ticket as the piece most worth overruling**, being the only part not forced by the reasoning.
+
+  **No source changed, and it could not have.** `LANGUAGE.md` is gated bidirectionally and the
+  compiler does not lex `and` today (`src/bs_lexer.xrl` carries `&&`/`||` at lines 112–113 and no
+  `and`/`or` rule), so editing the doc before the lexer turns the gate red. Lexer first, then doc and
+  example, in one change — F2's job, since 42 already obliges it to reserve the keywords. **44's own
+  marginal lexer cost is therefore zero**, and it *removes* two rules, which is a rare direction of
+  travel for a language decision.
