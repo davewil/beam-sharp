@@ -1501,3 +1501,13 @@ spec exists.
   serialised text file — is precisely the property that would make a second backend *cheap* to
   bolt on later. That lowers the price; it does not answer the objection, which is about the
   language's semantics rather than the compiler's plumbing. **Nobody has asked for one.**
+
+  **CONFIRMED 2026-08-15 (David): *"yeah alternative backends out, too much work."*** The refusal
+  stands, and the two reasons behind it are worth keeping apart rather than merging. The entry's
+  original argument is **design** — semantic compromises that would muddy a BEAM-native language.
+  David's is **cost**. They agree on the answer today and they do not expire together: the design
+  objection does not care what a second backend costs, whereas a cost objection is exactly the one
+  the paragraph above could later erode, since ticket 13's emission contract makes bolting a
+  backend on cheaper than it looks. So the entry rests on the **design** argument, with the cost
+  argument alongside it rather than underneath it — and if anyone ever returns with "it is cheap
+  now", that is an answer to the second reason and not to the first.
