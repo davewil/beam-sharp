@@ -81,8 +81,9 @@ Erlang back to the decision that required it is one grep.
 | [F5 — the body check site](F5-body-check-site.md) | **done 2026-08-14** | F3.3, F3.8, F3.10; 34's destructuring binds |
 | [F6 — angle brackets and parametric types](F6-angle-brackets.md) | **done 2026-08-14** | the *bracket* in all three; `examples/parcel.bs` |
 | [F7 — `switch`](F7-switch.md) | **done 2026-08-15** | the *branching* in all three; `examples/queue.bs` |
-| F8 — binaries | not started — **build next** | 25b, 25c |
-| F9 — pipe and valve | not started | 25b, 25c |
+| [F8 — `var` binds, `=` matches](F8-bind-and-match.md) | **drafted, blocked** — one token owed | nothing; it goes first to avoid rewriting later features' files |
+| F9 — binaries | not started | 25b, 25c |
+| F10 — pipe and valve | not started | 25b, 25c |
 
 **F4 was built out of order and the rule was not bent quietly.** No exemplar is blocked on
 bindings — the three that exist contain zero. It was built because David reached for one in the
@@ -214,7 +215,25 @@ F5 a destructuring bind that did not work there, F7 the keyword atoms reported a
 REPL has **no tests at all**: `bs_repl` appears zero times in the suite. Each feature has fixed what
 it tripped over and none has closed the gap, which is now a pattern rather than three incidents.
 
-F8 onward are named but not written — deliberately. The map's own fog-of-war rule applies: don't
+**F8 takes the slot ahead of binaries, and the argument is cost rather than capability.** It
+unblocks no exemplar. It goes first because it **rewrites every `.bs` file in the repo**, and every
+later feature adds more of them — doing it after binaries and the pipe means rewriting their files
+too. Same precedent as F5 taking the slot ahead of angle brackets: the features below had no file,
+so binaries and pipe shift to F9 and F10 and nothing is lost.
+
+**It is drafted and BLOCKED, which is F2's status for the same kind of reason.** The feature needs
+one token — how to mark a name in a pattern that means *the value it holds* rather than a new
+binding — and that is a spelling every future `.bs` file will carry, so it is a decision and not a
+feature's to make. The file names the candidates, their collisions and a recommendation (`==acc`,
+the only one reusing a spelling the language already has), and stops there.
+
+**The capability behind it is the one Elixir spends `^` on**, and David named the reason: *"Elixir's
+bind and ^ pin is for a reason, it's to bypass matching/binding."* Measured — beam-sharp cannot
+match against a value computed at run time at all, so a reduce whose accumulator is *tested* rather
+than rebound has no spelling, and the guard workaround costs the exhaustiveness credit because the
+checker translates `var == literal` and not `var == var`.
+
+F9 onward are named but not written — deliberately. The map's own fog-of-war rule applies: don't
 chart what you can't yet see.
 
 **Editor support landed outside the compiler, and asked a question this file can answer.** `editor/`
