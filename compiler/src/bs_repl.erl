@@ -88,6 +88,19 @@ dispatch(Line, File, Dir, Mod, Env) ->
 
 run(Line, Mod, Env) ->
     case binding(Line) of
+        {match, Pat, Rhs} ->
+            case value_of(Rhs, Mod, Env) of
+                {ok, V} ->
+                    case match(Pat, V, Env) of
+                        {ok, Env1} ->
+                            io:format("~s~n", [bs_run:format_value(V)]),
+                            Env1;
+                        {error, Msg} ->
+                            io:format(standard_error, "~ts~n", [Msg]), Env
+                    end;
+                {error, Msg} ->
+                    io:format(standard_error, "~ts~n", [Msg]), Env
+            end;
         {Name, Rhs} ->
             case value_of(Rhs, Mod, Env) of
                 {ok, V} ->
@@ -107,17 +120,140 @@ run(Line, Mod, Env) ->
 %% `x = ...` where the name is a beam-sharp variable. Split on the FIRST `=`,
 %% since the right-hand side may contain more of them — a record is
 %% `{Kind = ..., Id = ...}`.
+%% A LINE THAT IS A CALL IS NEVER A BINDING, and this guard is not decoration:
+%% a record argument carries `=` inside it, so `Squared({Kind = :'M.Order',
+%% Id = 1})` split on the first `=` and — once the left side stopped having to be
+%% a plain name — was read as a pattern match against `Squared({Kind`. Caught by
+%% the two oldest tests in this file, which is the whole point of having them.
 binding(Line) ->
+    %% `{error, _}` first: a call result is also a two-tuple, so the general
+    %% clause would swallow it.
+    case parse_call(Line) of
+        {error, _}   -> split_binding(Line);
+        {_Fn, _Args} -> none
+    end.
+
+split_binding(Line) ->
     case string:split(Line, "=") of
-        [Lhs, Rhs] ->
-            case is_name(string:trim(Lhs)) of
+        [Lhs0, Rhs] ->
+            Lhs = string:trim(Lhs0),
+            case {is_name(Lhs), Lhs} of
                 %% Keyed by the name AS TYPED, because that is what the reader
                 %% has to match when it meets the name nested in a literal.
-                true  -> {string:trim(Lhs), string:trim(Rhs)};
-                false -> none
+                {true, _}  -> {Lhs, string:trim(Rhs)};
+                {false, ""} -> none;
+                %% Anything else on the left is a PATTERN, not a name — David,
+                %% 2026-08-15: *"I do want Elixir matching behaviour. e.g x = 1,
+                %% then 1 = x, 2 = x is an error."*
+                {false, _} -> {match, Lhs, string:trim(Rhs)}
             end;
         _ -> none
     end.
+
+%%% ---------------------------------------------------------------------------
+%%% `=` is a MATCH, not an assignment
+%%%
+%%% The language already had this and the prompt did not. In a file:
+%%%
+%%%     x = 1
+%%%     1 = x        accepted — F5 proves the bind cannot fail
+%%%     2 = x        error: "this bind in Bad can fail"
+%%%
+%%% and beam-sharp's version is STRONGER than the one being asked for, because
+%%% F5 rejects the second at COMPILE TIME where Elixir raises `MatchError` at run
+%%% time. The residual it prints is the value the name can hold that the pattern
+%%% does not cover.
+%%%
+%%% At the prompt there is no compile step for a bind, so the check happens
+%%% against the value the name actually holds. Same rule, same message shape,
+%%% earlier information.
+%%%
+%%% A name already bound is matched against, never rebound — which is ticket 34's
+%%% rule ("a name means one thing") and removes Elixir's need for a pin operator:
+%%% there is no `^x` because there is nothing to disambiguate.
+%%% ---------------------------------------------------------------------------
+
+match(Text, Value, Env) ->
+    case pattern(string:trim(Text), Env) of
+        {error, Msg} -> {error, Msg};
+        %% The whole value travels with the recursion so a nested failure
+        %% reports what the author typed against what they typed it at —
+        %% reporting the failing COMPONENT said "(9, _) does not match 1",
+        %% which names a number nobody wrote.
+        {ok, Pat}    -> unify(Pat, Value, Env, {Text, Value})
+    end.
+
+%% A pattern is read from the same surface the value reader takes, with one
+%% difference: an unbound lowercase name is a BINDER rather than an error.
+pattern("_", _Env) -> {ok, wild};
+pattern(S, Env) ->
+    case is_name(S) of
+        true ->
+            case maps:find(S, Env) of
+                %% ALREADY BOUND — so it MATCHES against the value it holds,
+                %% rather than rebinding it. Every name is pinned, because
+                %% ticket 34 says a name means one thing, which is why the
+                %% language needs no `^`: there is nothing to disambiguate.
+                {ok, V} -> {ok, {lit, V}};
+                error   -> {ok, {bind, S}}
+            end;
+        false -> compound_pattern(S, Env)
+    end.
+
+compound_pattern(S, Env) ->
+    case {hd(S), lists:last(S)} of
+        {$(, $)} -> sub_patterns(S, Env, fun(Ps) -> {tuple, Ps} end);
+        {$[, $]} -> sub_patterns(S, Env, fun(Ps) -> {list, Ps} end);
+        _ ->
+            %% Not a binder and not a structure, so it is a literal — read it
+            %% with the ordinary value reader, which already knows atoms,
+            %% integers, the keyword atoms and records.
+            case bs_run:read_arg(S, Env) of
+                {ok, V}      -> {ok, {lit, V}};
+                {error, Msg} -> {error, Msg}
+            end
+    end.
+
+sub_patterns(S, Env, Wrap) ->
+    Inner = string:trim(lists:sublist(S, 2, length(S) - 2)),
+    Parts = case Inner of "" -> []; _ -> bs_run:split_top_level(Inner) end,
+    fold_patterns(Parts, Env, [], Wrap).
+
+fold_patterns([], _Env, Acc, Wrap) -> {ok, Wrap(lists:reverse(Acc))};
+fold_patterns([P | Rest], Env, Acc, Wrap) ->
+    case pattern(string:trim(P), Env) of
+        {error, Msg} -> {error, Msg};
+        {ok, Pat}    -> fold_patterns(Rest, Env, [Pat | Acc], Wrap)
+    end.
+
+unify(wild, _V, Env, _T)        -> {ok, Env};
+unify({bind, N}, V, Env, _T)    -> {ok, Env#{N => V}};
+unify({lit, L}, V, Env, T)      ->
+    case L =:= V of
+        true  -> {ok, Env};
+        false -> {error, no_match(T)}
+    end;
+unify({tuple, Ps}, V, Env, T) when is_tuple(V), length(Ps) =:= tuple_size(V) ->
+    unify_all(Ps, tuple_to_list(V), Env, T);
+unify({list, Ps}, V, Env, T) when is_list(V), length(Ps) =:= length(V) ->
+    unify_all(Ps, V, Env, T);
+unify(_Pat, _V, _Env, T) ->
+    {error, no_match(T)}.
+
+unify_all([], [], Env, _T) -> {ok, Env};
+unify_all([P | Ps], [V | Vs], Env, T) ->
+    case unify(P, V, Env, T) of
+        {error, Msg} -> {error, Msg};
+        {ok, Env1}   -> unify_all(Ps, Vs, Env1, T)
+    end.
+
+%% Says what it matched against, because at a prompt the value is the one thing
+%% the reader knows and the author may not.
+no_match({Pattern, Value}) ->
+    io_lib:format("~ts does not match ~ts~n"
+                  "  `=` matches, it does not assign. In a file this is a "
+                  "compile error, not a crash.",
+                  [string:trim(Pattern), bs_run:format_value(Value)]).
 
 %% A call, or a value — the two things worth typing at a prompt.
 value_of(S, Mod, Env) ->

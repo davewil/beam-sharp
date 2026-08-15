@@ -149,6 +149,60 @@ a_declaration_says_where_declarations_go_test() ->
             said(Out, ":reload")
     end.
 
+%%% --- `=` is a match, not an assignment -------------------------------------
+%%%
+%%% David, 2026-08-15: *"I do want Elixir matching behaviour. e.g x = 1, then
+%%% 1 = x, 2 = x is an error."* The LANGUAGE already had it — and stronger, since
+%%% F5 rejects the failing case at compile time where Elixir raises at run time.
+%%% The prompt did not: `binding/1` required a plain name on the left, so
+%%% `1 = x` never reached a match at all.
+
+a_literal_on_the_left_matches_test() ->
+    case built() of
+        false -> ok;
+        true  ->
+            Out = repl(["x = 1", "1 = x"]),
+            silent(Out, "cannot read")
+    end.
+
+a_literal_that_cannot_match_is_refused_test() ->
+    case built() of
+        false -> ok;
+        true  -> said(repl(["x = 1", "2 = x"]), "does not match")
+    end.
+
+%% Closes the hole F5 left at this prompt: a destructuring bind that binds.
+a_destructuring_match_binds_every_name_test() ->
+    case built() of
+        false -> ok;
+        true  ->
+            Out = repl(["p = (1, 2)", "(a, b) = p", "Echo(b)"]),
+            said(Out, "2"),
+            silent(Out, "does not match")
+    end.
+
+%% EVERY NAME IS PINNED. A bound name inside a pattern matches the value it
+%% holds rather than rebinding it, which is ticket 34's "a name means one thing"
+%% and is why the language needs no `^`.
+a_bound_name_in_a_pattern_matches_rather_than_rebinds_test() ->
+    case built() of
+        false -> ok;
+        true  ->
+            Ok = repl(["p = (1, 2)", "n = 1", "(n, b) = p"]),
+            silent(Ok, "does not match"),
+            No = repl(["p = (1, 2)", "m = 9", "(m, _) = p"]),
+            said(No, "does not match")
+    end.
+
+%% The message names what was typed against what it was typed at. Reporting the
+%% failing COMPONENT said "(9, _) does not match 1", naming a number nobody
+%% wrote.
+a_failed_match_names_the_whole_value_test() ->
+    case built() of
+        false -> ok;
+        true  -> said(repl(["p = (1, 2)", "(9, _) = p"]), "does not match (1, 2)")
+    end.
+
 %%% --- the diagnostics that were already right, pinned so they stay right -----
 
 an_unbound_name_says_so_test() ->
