@@ -83,8 +83,9 @@ Erlang back to the decision that required it is one grep.
 | [F7 — `switch`](F7-switch.md) | **done 2026-08-15** | the *branching* in all three; `examples/queue.bs` |
 | [F8 — `var` binds, `=` matches](F8-bind-and-match.md) | **drafted, blocked** — one token owed | nothing; it goes first to avoid rewriting later features' files |
 | [F9 — `string` and `binary` as values](F9-strings-and-binaries.md) | **done 2026-08-15** | the `string` **fields** in all three, `list<string>`; **not** I/O |
-| F10 — binary patterns | not started, **blocked** — ticket 30 is open | 25b, 25c |
-| F11 — pipe and valve | not started | 25b, 25c |
+| [F10 — OTP callbacks](F10-otp-callbacks.md) | **done 2026-08-15** | **`bin/spec-check.sh`**; the `behaviour` half of 25b, 25c |
+| F11 — binary patterns | not started, **blocked** — ticket 30 is open | 25b, 25c |
+| F12 — pipe and valve | not started | 25b, 25c |
 
 **F4 was built out of order and the rule was not bent quietly.** No exemplar is blocked on
 bindings — the three that exist contain zero. It was built because David reached for one in the
@@ -266,7 +267,33 @@ each time: **a defect that fails by going quiet cannot be found by a passing tes
 line at the boundary rather than at the caller, because emitting per-byte integers would have fixed
 strings and left the trap set for the next non-ASCII thing to reach a form.
 
-F10 onward are named but not written — deliberately. The map's own fog-of-war rule applies: don't
+**F10 was chosen by a red gate rather than by the ordering rule, and that is a third criterion this
+file did not have.** F4 was built because David reached for a binding in the first minute; F8 took
+its slot on rewrite cost. F10 unblocks no exemplar outright — it was built because
+`bin/spec-check.sh` had failed on `master` since the day CI was added, and the cause was a decision
+nobody had taken rather than a defect in the script. **A gate that cannot pass is not a backlog
+item**, because every other gate's credibility rests on the set being green.
+
+**The decision it needed turned out to be smaller than it looked, and mechanism is why.** Ticket 35
+asked what name a callback lowers to and offered "a compiler-known table, or something the user
+writes". The second **cannot be written down**: `signature -> type_prim uident '(' params ')'` and
+`uident` is `[A-Z]{ALNUM}*`, so a beam-sharp function name is PascalCase by construction and
+`handle_call` is not a spellable function name. That is a grammar fact, not a preference, and it
+collapsed the sub-question — which is worth repeating as a habit: **check whether the alternative
+can be expressed before weighing it.**
+
+**And the answer is a table rather than a rule because it is contract-scoped.** A row fires only for
+a name *and arity* that is a callback of a behaviour the module *declares*, so `HandleCall/3` in a
+module with no `behaviour` line, or one declaring `Supervisor`, keeps its spelling. That is the
+sentence answering 35's own worry that renaming would be "a naming rule by another route".
+
+**Two CI exclusions came out, and only one of them was this feature's.** `extract-exemplars.sh
+--check` had been excluded for a reason that stopped being true when an earlier session unified the
+exemplar dialect, and nothing came back to re-enable it. **An exclusion that outlives its reason is
+the same failure the CI file was written about** — so the block is gone and the rule is now that a
+removed gate goes back with its reason, and the reason gets re-checked rather than inherited.
+
+F11 onward are named but not written — deliberately. The map's own fog-of-war rule applies: don't
 chart what you can't yet see.
 
 **Editor support landed outside the compiler, and asked a question this file can answer.** `editor/`

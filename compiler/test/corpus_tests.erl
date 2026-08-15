@@ -56,6 +56,11 @@ demonstrated_surface() ->
      {"a foreign module declaration",            "^using :"},
      {"a foreign call",                          ":[a-z]+\\.[a-z_]+\\("},
      {"an OTP behaviour",                        "^behaviour "},
+     %% F10. The attribute alone was already demonstrated; a CALLBACK is a second
+     %% sentence, because the behaviour line means nothing until the contract it
+     %% names is actually satisfied — which is exactly the state that kept
+     %% `spec-check.sh` red.
+     {"an OTP callback",                         "^HandleCast\\("},
      {"bool as a declared type",                 "^bool "},
      {"an atom literal",                         ":[a-z]"},
      %% F7. Four rows, because a switch, a tuple subject, a guarded arm and the

@@ -54,23 +54,30 @@
 forms(Module = #{module := Mod, functions := Fns, env := Env}) ->
     Exports = [{F, arity(F)} || F <- Fns],
     Behaviours = maps:get(behaviours, Module, []),
+    %% The behaviours travel in the emit context because a function name is not
+    %% self-describing: whether `HandleCall/3` lowers to `handle_call/3` depends
+    %% on what the MODULE declares. Ticket 35's contract scoping, carried.
+    Ctx = #{module => Mod, env => Env, behaviours => Behaviours},
     [{attribute, ?A, module, Mod},
-     {attribute, ?A, export, [{name(F), A} || {F, A} <- Exports]}]
-    ++ [{attribute, ?A, behaviour, otp_name(B)} || B <- Behaviours]
-    ++ lists:append([[spec_attr(F, Env), function(F, #{module => Mod, env => Env})]
+     {attribute, ?A, export, [{name(F, Behaviours), A} || {F, A} <- Exports]}]
+    ++ [{attribute, ?A, behaviour, bs_otp:behaviour_name(B)} || B <- Behaviours]
+    ++ lists:append([[spec_attr(F, Env, Behaviours), function(F, Ctx)]
                      || F <- Fns]).
 
-%% A FIXED, compiler-known table of five — not a derivation rule. The language
-%% has no snake_case mapping anywhere and this does not introduce one; these are
-%% names the compiler knows, the way it knows `ValidateAs`.
-otp_name('GenServer')   -> gen_server;
-otp_name('Supervisor')  -> supervisor;
-otp_name('Application') -> application;
-otp_name('GenStatem')   -> gen_statem;
-otp_name('GenEvent')    -> gen_event;
-otp_name(Other)         -> erlang:error({unknown_behaviour, Other}).
+%% THE ONE PLACE A B# FUNCTION NAME BECOMES AN ERLANG ONE.
+%%
+%% Four sites need it — the export list, the `-spec`, the function definition and
+%% every local call — and they must agree or the module exports a name nothing
+%% defines. Ticket 35's table is consulted here and nowhere else so they cannot
+%% drift apart.
+name(F, Behaviours) -> emitted_name(element(2, F), arity(F), Behaviours).
 
-name(F) -> element(2, F).                       % #fn.name
+emitted_name(Name, Arity, Behaviours) ->
+    case bs_otp:callback_name(Name, Arity, Behaviours) of
+        none -> Name;
+        Otp  -> Otp
+    end.
+
 arity(F) -> length(element(5, F)).              % length(#fn.params)
 
 %%% ---------------------------------------------------------------------------
@@ -83,7 +90,7 @@ arity(F) -> length(element(5, F)).              % length(#fn.params)
 %%% ---------------------------------------------------------------------------
 
 function(F, Ctx) ->
-    Name = name(F),
+    Name = name(F, maps:get(behaviours, Ctx, [])),
     Arity = arity(F),
     Params = element(5, F),                     % #fn.params
     Clauses = element(6, F),                    % #fn.clauses
@@ -334,7 +341,14 @@ expr({e_str, L, Bytes}, _C)   ->
     {bin, L, [{bin_element, L, {string, L, Bytes}, default, default}]};
 expr({e_var, L, V}, _C)       -> {var, L, var_name(V)};
 expr({e_tuple, L, Es}, C)     -> {tuple, L, [expr(E, C) || E <- Es]};
-expr({e_call, L, F, As}, C)   -> {call, L, {atom, L, F}, [expr(A, C) || A <- As]};
+%% THE FOURTH NAMING SITE, and the one that fails silently if it disagrees with
+%% the other three. A beam-sharp function calling `HandleCall(...)` inside a
+%% `GenServer` module must emit `handle_call(...)`, because that is what the
+%% export list and the definition now say. Get this wrong and the module compiles
+%% and calls a function it does not have.
+expr({e_call, L, F, As}, C)   ->
+    Name = emitted_name(F, length(As), maps:get(behaviours, C, [])),
+    {call, L, {atom, L, Name}, [expr(A, C) || A <- As]};
 expr({e_op, L, Op, A, B}, C)  -> {op, L, erl_op(Op), expr(A, C), expr(B, C)};
 expr({e_nil, L}, _C)          -> {nil, L};
 
@@ -405,13 +419,13 @@ erl_op(Op)   -> Op.                              % + - * < > >=
 %%% Specs — ticket 13's widening rule, made concrete
 %%% ---------------------------------------------------------------------------
 
-spec_attr(F, Env) ->
+spec_attr(F, Env, Behaviours) ->
     Params = element(5, F),
     Ret = element(4, F),
     ArgTypes = [spec_type(bs_check_resolve(T, Env)) || {param, T, _} <- Params],
     RetType = spec_type(bs_check_resolve(Ret, Env)),
     {attribute, ?A, spec,
-     {{name(F), length(Params)},
+     {{name(F, Behaviours), length(Params)},
       [{type, ?A, 'fun', [{type, ?A, product, ArgTypes}, RetType]}]}}.
 
 %% This used to be a second copy of `bs_check:resolve/2`. Records made the

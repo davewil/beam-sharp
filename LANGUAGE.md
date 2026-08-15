@@ -526,14 +526,33 @@ behaviour GenServer
 type Request = :get | (:add, int)
 type Reply   = (:reply, int, int)
 
+(:ok, int) Init(int seed)
+
+Init(seed) -> (:ok, seed)
+
 Reply HandleCall(Request request, term from, int state)
 
 HandleCall(:get, from, state)      -> (:reply, state, state)
 HandleCall((:add, n), from, state) -> (:reply, state + n, state + n)
+
+(:noreply, int) HandleCast(term msg, int state)
+
+HandleCast(msg, state) -> (:noreply, state)
 ```
 
-**shipped** — `behaviour GenServer` emits `-behaviour(gen_server)`, and the two clauses are proved to
-cover `Request` with no catch-all.
+**shipped** — `behaviour GenServer` emits `-behaviour(gen_server)`, and the two `HandleCall` clauses
+are proved to cover `Request` with no catch-all.
+
+**All three callbacks are here because all three are mandatory**, and declaring the behaviour
+without them is now an **error at the `behaviour` line**. This block previously showed `HandleCall`
+alone; the emitted module then declared a contract it could not satisfy, and `bin/spec-check.sh` was
+red on `master` for a day because of it.
+
+**A callback lowers to its OTP name** — `HandleCall` emits `handle_call`, which is what `gen_server`
+actually calls. That is a **compiler-known table, not a rule**: ticket 32 measured that a
+snake_case⇄PascalCase mapping cannot spell `'PKCS-1'` or a quarter of Elixir's function names, so
+the language has none. The table is **contract-scoped and keyed by name *and* arity** — `HandleCall`
+in a module declaring no behaviour, or declaring `Supervisor`, stays `'HandleCall'`.
 
 **`uses`, not `using`.** `using GenServer` is the same three tokens as a single-segment import, and
 only a symbol table could tell them apart — the type-directed resolution the language refuses
@@ -541,8 +560,11 @@ everywhere else. `uses` reads as a fact about the module and is one letter from 
 `use GenServer`, which is this exact construct.
 
 A behaviour **names a contract the compiler knows as a type**: you write a narrower signature and
-the compiler checks containment. **decided** — today the attribute is emitted and `erlc` reports a
-missing callback, which is a useful diagnostic but not the containment check.
+the compiler checks containment. **partly shipped** — the compiler knows the callback set and
+enforces **presence**, so a missing mandatory callback is an error naming what to write. The
+**type** half is not the compiler's yet, and measurement says it is largely free: Dialyzer checks a
+callback's spec against OTP's own `-callback` at the boundary, accepts the narrower signature this
+paragraph promises, and still reports a wrong one as `Invalid type specification`.
 
 There is no typed `Pid<T>` — a process identifier is a `pid`, and the message type belongs on the
 client API function's signature, where you were going to write it anyway.
@@ -669,7 +691,8 @@ the parser accepts back exactly what the printer emits. **shipped**
 | polymorphic function signatures (`Map<T, U>`) | not started — needs an arrow type |
 | modules, imports, `using` | not started |
 | foreign calls (`using :lists {...}`) | **shipped**, without the boundary guard |
-| `behaviour GenServer` (behaviour attribute) | **shipped**, without the contract check |
+| `behaviour GenServer` — the attribute, callback names, and mandatory-callback presence | **shipped** — F10 |
+| behaviour contract checked as a **type** (14 §4) | not started — Dialyzer does it at the boundary today |
 
 ### Known inconsistencies
 

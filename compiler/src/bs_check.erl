@@ -53,10 +53,34 @@ check(Decls) ->
         _Fatal -> {error, Diags}
     end.
 
-%% The behaviours this module implements. Checking the callback contract against
-%% them is decided and not built; what is emitted today is the attribute, which
-%% makes `erlc` itself report a missing callback.
-behaviours(Decls) -> [N || {behaviour, _, N} <- Decls].
+%% The behaviours this module implements, checked for completeness — ticket 35 §3.
+%%
+%% BEFORE THIS, THE ATTRIBUTE WAS EMITTED FOR A CONTRACT THE MODULE COULD NEVER
+%% SATISFY, and the consequence landed on the wrong desk: `erlc` and Dialyzer
+%% reported three undefined callbacks against an emitted `.abstr` the author never
+%% wrote. That is the same complaint F4 made about scope errors, and the same
+%% answer applies — the compiler owns a diagnostic about the author's source.
+%%
+%% It is an ERROR at the declaration rather than a quietly-omitted attribute, and
+%% three shipped precedents settle that rather than taste: `kind_field_is_minted`
+%% errors at a declaration, a rebinding errors because a name means one thing, and
+%% a cyclic alias is refused by name. Silently dropping the attribute would leave
+%% a program whose `behaviour GenServer` line means nothing — the compiles-and-
+%% means-something-else shape F7 was bitten by.
+%%
+%% Presence only. Ticket 14 §4's type containment is not owed here: Dialyzer
+%% already does it at the boundary against OTP's own `-callback` declarations,
+%% and it was measured before this was written — a narrowed callback spec is
+%% accepted, a wrong one is still reported `Invalid type specification`.
+behaviours(Decls) ->
+    Defined = [{N, length(Ps)} || {signature, _, N, _, Ps} <- Decls],
+    [begin
+         case bs_otp:missing(N, Defined) of
+             []      -> ok;
+             Missing -> erlang:error({behaviour_not_satisfied, L, N, Missing})
+         end,
+         N
+     end || {behaviour, L, N} <- Decls].
 
 module_name(Decls) ->
     case [N || {module, _, N} <- Decls] of

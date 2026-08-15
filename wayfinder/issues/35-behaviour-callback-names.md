@@ -1,7 +1,7 @@
 # 35 — What name does a behaviour callback emit?
 
 Type: grilling
-Status: open
+Status: resolved 2026-08-15
 
 Raised 2026-08-14 while wiring up CI. `bin/spec-check.sh` fails on `master`, and the cause is a
 decision nobody has taken rather than a defect in the script.
@@ -69,3 +69,118 @@ Blocked by nothing. **Small**, and sub-question 3 may be resolvable on its own.
 
 **Linear**: ENG-202. The `NN → ENG-(166+NN)` mapping is offset by one from ticket 33 — see the
 map's Notes.
+
+---
+
+# Answer — resolved 2026-08-15
+
+**A compiler-known callback table, contract-scoped and keyed by `{behaviour, name, arity}`. The
+name changes; no wrapper. A behaviour declared without its mandatory callbacks is an error at the
+declaration.** Built the same day as F10; the gate it blocked is green.
+
+## 1. A table, and sub-question 1 answers itself on mechanism
+
+Not a preference — **the alternative cannot be written down.** Sub-question 1 offered "something
+the user writes", i.e. the author spells the OTP name themselves. They cannot: the grammar's
+function productions are
+
+```
+signature -> type_prim uident '(' params ')'
+clause    -> uident '(' patterns ')' guard '->' body
+```
+
+and `uident` is `[A-Z]{ALNUM}*` in the lexer. **A beam-sharp function name is PascalCase by
+construction**, so `handle_call` is not a spellable function name and never will be without
+changing the rule that lets the grammar tell a type from a function without a symbol table.
+
+That leaves the table, which is what ticket 32 already pointed at: the behaviour *name* lowers
+through a fixed table of five, "not a derivation rule… names the compiler knows, the way it knows
+`ValidateAs`". The callback table is that construct one level down, exactly as the Question said.
+
+**Both tables now live in `bs_otp`**, and that is a real move rather than tidiness. A behaviour
+whose name the compiler knows and whose callbacks it does not is precisely the state that produced
+this ticket, so the pairing is the thing that would rot if they were apart. Both `bs_check` (the
+presence check) and `bs_emit` (the lowering) read from the one table — the rule F5 applied when it
+exported `resolve/2` rather than letting the emitter keep a copy.
+
+## 2. The name changes. No wrapper — and the objection is answered by scoping, not waved away
+
+The Question's own worry was that renaming is *"one function, two spellings, which is a naming rule
+by another route"*. It is not, and the reason is that **a row fires only for a name AND arity that
+is a callback of a behaviour the module DECLARES**:
+
+- `HandleCall/3` in a module with no `behaviour` line stays `'HandleCall'/3`.
+- `HandleCall/3` in a module declaring `Supervisor` stays `'HandleCall'/3` — it is a gen_server
+  callback, not a supervisor one.
+- `HandleCall/2` anywhere stays `'HandleCall'/2`.
+
+A rule is a derivation applied to every name. This is finite, hand-written, and **contract-scoped**:
+it says nothing about any name that is not in a contract the author asked for. All three cases above
+are asserted in `otp_tests`.
+
+**Why rename rather than wrapper**: the shipped precedent one level up. `otp_name/1` renames
+`GenServer` to `gen_server` and does not also emit `'GenServer'`. Doing the opposite one level down
+would be the inconsistency. The wrapper's measured ~60 bytes was never the deciding cost.
+
+**The arity key earns itself twice.** `FormatStatus` is a genuine gen_server callback at *both* `/1`
+and `/2`, so the table needs arity to tell its own rows apart — and it is what stops a future
+same-named helper being captured silently.
+
+## 3. The attribute is not emitted for a contract that cannot be satisfied — it is refused
+
+Sub-question 3 asked whether to emit the attribute when callbacks are absent. **Neither emit nor
+silently omit: error at the declaration**, naming the missing callbacks in the spelling the author
+must write.
+
+```
+examples/counter.bs:11: error: behaviour GenServer is declared and not satisfied
+  these callbacks are mandatory and this module does not define them:
+    HandleCast/2
+```
+
+Silently dropping the attribute would leave a program whose `behaviour GenServer` line means
+nothing, which is the compiles-and-means-something-else shape F7 was bitten by. Erroring matches
+three shipped precedents: `kind_field_is_minted` errors at a declaration, rebinding errors because
+a name means one thing in a clause, and a cyclic alias is refused by name.
+
+The mandatory sets were **read off the runtime**, not written from memory —
+`M:behaviour_info(callbacks) -- M:behaviour_info(optional_callbacks)` on OTP 28:
+
+| behaviour | mandatory |
+|---|---|
+| `gen_server` | `init/1`, `handle_call/3`, `handle_cast/2` |
+| `supervisor` | `init/1` |
+| `application` | `start/2`, `stop/1` |
+| `gen_statem` | `init/1`, `callback_mode/0` |
+| `gen_event` | `init/1`, `handle_event/2`, `handle_call/2` |
+
+## 4. What is deliberately NOT in the table, and it is the interesting row
+
+`gen_statem` lists `{'StateName', 3}` among its callbacks. **It is absent here on purpose.** That
+entry is OTP's placeholder for state functions in `state_functions` mode, whose names are the
+*user's* — so they are ordinary beam-sharp functions and must not lower. A table of known names
+cannot contain a name nobody knows yet, and inventing one would be ticket 32's derivation rule
+arriving through the one door left open.
+
+## 5. Ticket 14 §4's type containment is not owed here, and that is measured rather than deferred
+
+14 §4 says a behaviour names a contract the compiler knows **as a type**, with the user's narrower
+signature checked by containment. This ticket ships the **presence** half only — and the type half
+turns out to be largely free at the boundary, which was checked before the code was written rather
+than assumed:
+
+- A **narrowed** callback spec — `handle_call('get' | {'add', integer()}, any(), integer())` against
+  OTP's `handle_call(term(), {pid(), term()}, term())` — is **accepted** by Dialyzer and by `erlc`.
+  So 14 §4's promise survives contact with the platform; contravariance does not bite in practice,
+  because Dialyzer's behaviour check is success-typing rather than strict subtyping.
+- A **wrong** one is still reported `Invalid type specification`, so the behaviour attribute does
+  **not** make Dialyzer more permissive about specs — which matters, because it means the gate this
+  ticket unblocks is as strong with a behaviour module in it as it was without.
+
+Doing it in the compiler as well would buy a better diagnostic and no additional safety. That is a
+feature nobody has asked for yet, and it is named in F10's out-of-scope rather than left implied.
+
+## What this cost the map
+
+Nothing was re-raised. The four rows in *"already decided"* above all stand, and this answer is
+built on two of them rather than around them.

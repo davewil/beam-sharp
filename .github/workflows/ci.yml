@@ -63,31 +63,39 @@ jobs:
       - name: Examples compile and run
         working-directory: compiler
         run: |
-          rebar3 escriptize
           for f in examples/*.bs; do
             echo "  $f"
             ./_build/default/bin/bsc -o "$(mktemp -d)" "$f"
           done
 
-# NOT RUN HERE, AND WHY — both fail on master for reasons that are decisions,
-# not defects in the scripts:
+      # Dialyzer over every emitted spec, plus two negative controls that corrupt
+      # a real emitted artefact and REQUIRE the corruption to be caught — because
+      # a clean run proves nothing unless a wrong spec would fail it.
+      #
+      # Excluded from this workflow until 2026-08-15, when F10 resolved ticket 35.
+      # `counter.bs` had declared `behaviour GenServer` while emitting `'Init'/1`
+      # and `'HandleCall'/3`, so the attribute named a contract the module could
+      # never satisfy. Callbacks now lower through a compiler-known table and a
+      # missing mandatory one is an error at the declaration.
+      - name: Emitted specs survive Dialyzer
+        working-directory: compiler
+        run: ./bin/spec-check.sh
+
+      # The exemplars are generated from ticket 25's write-ups, which are
+      # canonical; this fails if the committed copies have drifted.
+      #
+      # Also excluded until 2026-08-15, and by then it had been fixed by someone
+      # else — the write-ups were brought onto the unified dialect in an earlier
+      # session and nothing came back to re-enable the gate. An exclusion that
+      # outlives its reason is the same failure this file was written about.
+      - name: Exemplars are not stale
+        working-directory: compiler
+        run: ./bin/extract-exemplars.sh --check
+
+# NOTHING IS EXCLUDED FROM THIS WORKFLOW.
 #
-#   bin/spec-check.sh
-#     `counter.bs` declares `behaviour GenServer` and emits `Init/1` and
-#     `HandleCall/3`, while `-behaviour(gen_server)` demands `init/1` and
-#     `handle_call/3`. Ticket 32 established there is no snake_case⇄PascalCase
-#     rule anywhere in the language, so the emitted callbacks can never satisfy
-#     the attribute. That needs a decision about how a B# callback maps to an
-#     OTP callback name — a compiler-known table, the way `otp_name/1` already
-#     maps the behaviour itself. Until then Dialyzer reports three undefined
-#     callbacks and the gate cannot pass.
-#
-#   bin/extract-exemplars.sh --check
-#     17 files differ, and regenerating makes them WORSE: the prototypes under
-#     wayfinder/ still write `;`, which the language dropped, so the extractor's
-#     output re-adds a terminator the compiler rejects. The committed exemplars
-#     were hand-corrected and the canonical write-ups were not. Fixing it means
-#     editing ticket 25's write-ups, which are a standing resource.
-#
-# Both should join this workflow once resolved. Neither is a reason to have no
-# CI, which was the status quo.
+# There was a block here naming two scripts that failed on master, on the
+# principle that an unlisted broken check is how the repo ended up with three
+# verification scripts and no CI. Both are now steps above. Keep it that way: if
+# a gate has to come out, it goes back in this block with the reason, and the
+# reason gets re-checked rather than inherited.

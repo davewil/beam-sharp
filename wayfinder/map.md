@@ -235,6 +235,9 @@ Bodies in [`decisions.md`](decisions.md). Ticket text in `issues/`.
   a body is bindings then one expression; rebinding is an error
 - **The body check site** `#33` `types` `built:F5`
   a body is typed; checking is containment at five sites, and the residual survives at four
+- **Behaviour callback names** `#35` `otp` `codegen` `built:F10`
+  a compiler-known table, contract-scoped and keyed by name *and* arity; the name changes, no
+  wrapper, and a behaviour without its mandatory callbacks is an error at the declaration
 
 ---
 

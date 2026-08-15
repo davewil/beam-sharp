@@ -23,3 +23,20 @@ Reply HandleCall(Request request, term from, int state)
 
 HandleCall(:get, from, state)      -> (:reply, state, state)
 HandleCall((:add, n), from, state) -> (:reply, state + n, state + n)
+
+// `handle_cast/2` is MANDATORY for gen_server, and until 2026-08-15 this file
+// did not define it — so the emitted module declared a contract it could not
+// satisfy and `spec-check.sh` had been red on master ever since. The compiler
+// now refuses that at the `behaviour` line rather than letting Dialyzer report
+// it against an emitted file the author never wrote.
+//
+// The callback names lower through a compiler-known table, so `HandleCast`
+// emits `handle_cast`. It is a table and not a rule: it fires only for a name
+// AND arity that is a callback of a behaviour this module declares.
+type Cast     = (:add, int) | :reset
+type NoReply  = (:noreply, int)
+
+NoReply HandleCast(Cast msg, int state)
+
+HandleCast((:add, n), state) -> (:noreply, state + n)
+HandleCast(:reset, state)    -> (:noreply, 0)

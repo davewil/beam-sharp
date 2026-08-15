@@ -196,6 +196,27 @@ check_and_emit(Path, Opts, Decls) ->
             end
     end.
 
+%% Ticket 35 §3. The message names the callbacks in the spelling the AUTHOR must
+%% write — `HandleCast(term, int)`, not `handle_cast/2` — because the residual is
+%% the missing case (04) and the compiler synthesises the head, never the body
+%% (23). Naming OTP's spelling here would hand back a name that does not lex.
+resolve_error(Path, {behaviour_not_satisfied, Line, Behaviour, Missing}) ->
+    io:format(standard_error,
+              "~s:~p: error: behaviour ~s is declared and not satisfied~n"
+              "  these callbacks are mandatory and this module does not define them:~n"
+              "~s"
+              "  a `behaviour` attribute is emitted for the whole contract, so a~n"
+              "  partial one would fail when the process starts rather than here.~n",
+              [Path, Line, Behaviour,
+               [io_lib:format("    ~s/~p~n", [N, A]) || {N, A} <- Missing]]),
+    handled;
+resolve_error(Path, {unknown_behaviour, B}) ->
+    io:format(standard_error,
+              "~s: error: no behaviour named ~s~n"
+              "  the compiler knows `GenServer`, `Supervisor`, `Application`,~n"
+              "  `GenStatem` and `GenEvent`.~n",
+              [Path, B]),
+    handled;
 resolve_error(Path, {unknown_type, N}) ->
     io:format(standard_error,
               "~s: error: no type named ~s~n"
