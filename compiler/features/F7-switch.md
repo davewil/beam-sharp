@@ -165,11 +165,11 @@ Check(n) -> n switch {
 → **error**: inexhaustive, residual `int => ...`. A guard the checker cannot read might always fail,
 so the arm is guaranteed to match nothing.
 
-**This is F5.7's lesson at a second site.** Build the arm's body domain from `Certain` instead of
-`Possible` and the compiler does not break — it goes *quiet*. `Certain` is `none` under an
-untranslatable guard, every containment over `none` passes vacuously, and the body of a guarded arm
-stops being checked with no test to notice. So the scenario has to assert an error the wrong build
-does not print, and the mutation is recorded in the build note rather than assumed.
+**This scenario does NOT guard the `Certain`/`Possible` trap**, and saying so is the point. The
+residual above is computed from `Certain` either way, so this arm of F7.5 stays green under that
+mutation. F7.14 is what catches it, and the reason it is a separate id rather than a sentence here
+is that a scenario which cannot fail under the mutation it is credited with is worse than no
+scenario at all.
 
 ### F7.6 — an unreachable arm is a warning, and it names an arm
 
@@ -264,7 +264,70 @@ bidirectional check that pays.
 F6's `resolve/2`, which was one shared funnel. So all three gates run after the grammar lands and
 **before** the first new test is written, not after the feature is finished.
 
-## Out of scope
+### F7.14 — an arm body under an unreadable guard is still checked
+
+```csharp
+atom Tag(atom a)
+
+atom Check(int n)
+Check(n) -> n switch {
+    m when Big(m) => Tag(m),
+    _             => :small
+}
+```
+
+→ **error** at site 1: `Tag` does not accept an `int`.
+
+**This is the scenario that guards the `Certain`/`Possible` trap, and F7.5 is not.** Build the arm's
+body domain from `Certain` instead of `Possible` and the compiler does not break — it goes *quiet*.
+`Certain` is `none` under an untranslatable guard, `m` is then `none`, `subtract(none, atom)` is
+empty, and the call is accepted in silence.
+
+F5.7 established that a check which fails by going quiet cannot be caught by a passing test. What is
+new here is that it cannot be caught by the **adjacent** test either: F7.5 asserts the residual, the
+residual comes from `Certain` either way, and F7.5 therefore stays green under exactly the mutation
+its own prose sounds like it covers. Numbered last because it was written last — after the mutation
+run showed F7.5 surviving.
+
+### F7.15 — a binding, then a switch on the name it bound
+
+```csharp
+Verdict Grade(Order o)
+Grade(o) ->
+    total = o.Total
+    total switch {
+        n when n > 100 => :large,
+        n when n <= 100 => :small
+    }
+```
+
+Runs. This is ticket 17 §6's own stated reason for the construct — *"you can branch on an
+intermediate without inventing a parameter to dispatch on"*, which is 01b's friction — and it is the
+first shape that puts F4 and F7 through the same clause. Four paths meet here and every one of them
+is new or changed by F7: `check_scope/5` → `name_diags/5` → `rebinds/3` in the scope pass,
+`bind_step/3` → `type_of/3` for the switch's subject, and `binds/3` → `expr/2` in the emitter.
+None of the scenarios above crosses that seam, and `examples/queue.bs` contains no bindings at all.
+
+And the arm that rebinds the bound name — `total => …` — must report rebinding, which is F7.8's rule
+reached from the other side: there the name came from a clause head, here from a binding.
+
+### F7.16 — a switch in tail position keeps the tail call
+
+```csharp
+int Down(int n, int acc)
+Down(n, acc) -> n switch {
+    m when m <= 0 => acc,
+    m when m > 0  => Down(m - 1, acc + m)
+}
+```
+
+Asserted on the **emitted bytecode**, like `recursion_is_a_tail_call_test`: a `call` or `call_ext`
+op means a stack frame was built. `bs_emit`'s header says the body is kept a flat list rather than a
+`begin` block precisely so the last expression stays in tail position — and F7 makes a switch the
+ordinary thing to put there, since a process loop branches on a message and recurses in one arm.
+Erlang's `case` preserves it and nothing had asserted that. This is the one property an OTP loop
+silently depends on, so it is pinned before F8 rather than after somebody's `handle_info` grows a
+stack.
 
 - **Ticket 12 §2 — the catch-all rule — is inherited unenforced, and this is a cost taken
   deliberately.** §2 says a `_` is legal only over an *open* residual: where the residual is closed
@@ -314,9 +377,23 @@ and every `.bs` in `examples/` still compiles and runs.
 
 ## Built 2026-08-15
 
-**All thirteen scenarios pass.** 142 tests, up from 126. `LANGUAGE.md` §5's two blocks are promoted
+**All sixteen scenarios pass.** 145 tests, up from 126. `LANGUAGE.md` §5's two blocks are promoted
 from `not-yet` to must-compile, and `examples/queue.bs` is new and runnable:
 `bsc examples/queue.bs Decide false true false` → `:dead_letter`.
+
+**Three of the sixteen were written after the mutation run and a review, not before**, and they are
+named rather than folded in: F7.14 because F7.5 turned out not to guard what its prose implied,
+F7.15 because nothing anywhere crossed the F4/F7 seam, and F7.16 because a switch in tail position
+is the one property an OTP loop depends on and nothing asserted it. Scenarios 1–13 were written
+before the first line of the implementation, which is what this file is for; the last three are what
+the discipline caught, and hiding that would make the count look tidier than the process was.
+
+### Which gates ran
+
+`rebar3 eunit`, `bin/check-language.sh`, and every `.bs` in `examples/` compiled and run.
+**`bin/spec-check.sh` was not run** — it is red independently of F7 and has been since F3: `counter.bs`
+declares `behaviour GenServer` without defining its callbacks, so Dialyzer reports three undefined
+callbacks. F6 skipped it for the same reason. Stated so the omission is a decision rather than a gap.
 
 ### The defect this feature found was not in this feature
 
@@ -421,3 +498,9 @@ variable; and it changed the meaning of source only where that meaning was alrea
   rather than half-closed.
 - **Relational patterns** — `{ Total: > 100 }`, ticket 17 §6's own spelling. F2's, and blocked.
   A guard is what stands in for them, which is why arms have one.
+- **`Route` in `examples/queue.bs` cannot be run from the command line**, and the header says so
+  rather than pretending otherwise. `bs_run`'s argument reader has no spelling for a record, so
+  `#{Kind => :'Queue.Message', …}` is refused as unreadable — measured. It is covered by a test and
+  compiles, but it is the one demonstration in `examples/` that nobody can watch work, which is a
+  gap in the harness rather than in the language. Named because `examples/` exists so that a
+  capability is lookable-at, and a projection subject is the half of ticket 17 §6 that answers 01b.

@@ -7,7 +7,13 @@
 //
 //     bsc examples/queue.bs Decide false true false   -> :dead_letter
 //     bsc examples/queue.bs Attempt 3                 -> :retried
-//     bsc examples/queue.bs Route '#{Kind => ...}'    -- see below
+//
+// `Route` below compiles and is covered by a test, but CANNOT be run from this
+// command line: `bs_run`'s argument reader has no spelling for a record, so
+// `#{Kind => :'Queue.Message', ...}` is refused as unreadable. Measured, not
+// assumed. It is the one function here you cannot watch work, which is a gap in
+// the harness rather than in the language -- and worth naming, since `examples/`
+// exists precisely so a capability is lookable-at.
 //
 // Every switch here is exhaustive with NO catch-all. That is the property worth
 // looking at: a `_` would satisfy the compiler in every one of them, and none of

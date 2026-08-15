@@ -1776,6 +1776,70 @@ a_switch_in_a_guard_is_refused_test() ->
           "F(x) -> :no\n",
     ?assertMatch([{error, _, 'F', switch_in_guard} | _], errors(Src)).
 
+%% F7.15. The first shape that puts F4 and F7 through the same clause, and
+%% ticket 17 §6's own stated reason for the construct: *"you can branch on an
+%% intermediate without inventing a parameter to dispatch on"* — 01b's friction.
+%%
+%% Four paths meet here and every one is new or changed by F7: `check_scope/5` →
+%% `name_diags/5` → `rebinds/3` in the scope pass, `bind_step/3` → `type_of/3`
+%% for the subject, and `binds/3` → `expr/2` in the emitter. Nothing else in this
+%% section crosses that seam, and `examples/queue.bs` has no bindings at all.
+a_binding_then_a_switch_on_the_bound_name_test() ->
+    Src = "module Bound\n"
+          "type Verdict = :large | :small\n"
+          "record Order { Id: int, Total: int }\n"
+          "Verdict Grade(Order o)\n"
+          "Grade(o) ->\n"
+          "    total = o.Total\n"
+          "    total switch {\n"
+          "        n when n > 100  => :large,\n"
+          "        n when n <= 100 => :small\n"
+          "    }\n",
+    M = build_and_load(Src, 'Bound'),
+    Order = fun(T) -> #{'Kind' => 'Bound.Order', 'Id' => 1, 'Total' => T} end,
+    ?assertEqual(large, M:'Grade'(Order(500))),
+    ?assertEqual(small, M:'Grade'(Order(50))).
+
+%% ...and F7.8's rule reached from the other side: there the name came from a
+%% clause head, here from a binding above the switch. Erlang would have turned
+%% this into an equality test against the bound value.
+an_arm_may_not_rebind_a_name_a_binding_introduced_test() ->
+    Src = "module Bound2\n"
+          "atom Grade(int t)\n"
+          "Grade(t) ->\n"
+          "    total = t + 1\n"
+          "    total switch {\n"
+          "        total => :same,\n"
+          "        _     => :other\n"
+          "    }\n",
+    ?assertMatch([{error, _, 'Grade', {rebinding, total}} | _], errors(Src)).
+
+%% A `switch` in tail position keeps the tail call. `bs_emit`'s header says the
+%% body is a flat list rather than a `begin` block precisely so the last
+%% expression stays in tail position, and F7 makes a switch the ordinary thing to
+%% put there — an OTP process loop branches on a message and recurses in one arm.
+%% Erlang's `case` preserves it; nothing asserted that until now.
+%%
+%% Asserted on the emitted bytecode, like `recursion_is_a_tail_call_test`: a
+%% `call` or `call_ext` op means a stack frame was built.
+a_switch_in_tail_position_keeps_the_tail_call_test() ->
+    Src = "module LoopS\n"
+          "int Down(int n, int acc)\n"
+          "Down(n, acc) -> n switch {\n"
+          "    m when m <= 0 => acc,\n"
+          "    m when m > 0  => Down(m - 1, acc + m)\n"
+          "}\n",
+    {ok, _} = compile(Src),
+    {beam_file, _, _, _, _, Fns} = beam_disasm:file(?OUT ++ "/LoopS.beam"),
+    Bad = [{Name, Op}
+           || {function, Name, _A, _E, Is} <- Fns,
+              Name =/= module_info,
+              {Op} <- [{element(1, I)} || I <- Is, is_tuple(I)],
+              Op =:= call orelse Op =:= call_ext],
+    ?assertEqual([], Bad),
+    M = build_and_load(Src, 'LoopS'),
+    ?assertEqual(500500, M:'Down'(1000, 0)).
+
 %%% ---------------------------------------------------------------------------
 %%% Every shipped surface form is demonstrated by a program that runs
 %%%
