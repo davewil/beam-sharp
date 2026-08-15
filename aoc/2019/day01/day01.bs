@@ -2,8 +2,18 @@
 //
 //   fuel(mass) = floor(mass / 3) - 2, summed over every module
 //
-//   bsc aoc/2019/day01/day01.bs Fuel 100756          -> 33583
-//   bsc aoc/2019/day01/day01.bs Sum '[12, 14, 1969, 100756]'  -> 34241
+//   bsc aoc/2019/day01/day01.bs Fuel 100756     -> 33583   (from the puzzle text)
+//   bsc aoc/2019/day01/day01.bs FuelAll 1969    -> 966     (from the puzzle text)
+//
+// SOLVED against the real input, both parts: 3358992 and 5035632. beam-sharp
+// cannot read `input.txt`, so the shell turns it into a list literal:
+//
+//   LIST="[$(paste -sd, - < input.txt)]"
+//   bsc day01.bs Sum    "$LIST"   -> 3358992
+//   bsc day01.bs SumAll "$LIST"   -> 5035632
+//
+// That shell line is the finding. See ../../README.md, including the false
+// start that claimed this was solved before any input existed.
 //
 // THE ONE THING THE LANGUAGE DOES NOT HAVE: division. The operator table is
 // `+ - *` and there is no `/` in the lexer at all, so integer division comes
