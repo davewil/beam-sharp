@@ -28,6 +28,22 @@ jobs:
           otp-version: "28"
           rebar3-version: "3"
 
+      # THE ESCRIPT IS BUILT BEFORE THE TESTS, AND THE ORDER IS LOAD-BEARING.
+      #
+      # Several tests drive `bsc` as a subprocess, because a feature is done
+      # when you can see it run and the CLI is what a person actually types.
+      # Those tests resolve it at `_build/default/bin/bsc`, so with `eunit`
+      # first they either fail on a fresh checkout or — worse — skip silently.
+      #
+      # Both happened. `cli_tests:built_escript_compiles_a_file_test` guarded
+      # itself with `is_regular/1` and had therefore never once executed in CI,
+      # and F9 then added two CLI tests without that guard, which turned the
+      # blind spot into a red build. Building first is what makes either kind
+      # of test mean anything here.
+      - name: Build the escript
+        working-directory: compiler
+        run: rebar3 escriptize
+
       - name: Tests
         working-directory: compiler
         run: rebar3 eunit

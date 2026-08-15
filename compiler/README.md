@@ -12,9 +12,13 @@ Ticket 13 freed the host language; this is a choice, not a constraint.
 ## Running it
 
 ```
-rebar3 eunit                                    # 24 tests, all at the boundary
-rebar3 escriptize
+rebar3 escriptize                               # FIRST — several tests drive `bsc` itself
+rebar3 eunit                                    # the suite, all at the boundary
 ```
+
+**The order matters.** Tests that drive the CLI resolve `_build/default/bin/bsc`, so running
+`eunit` on a fresh checkout fails on them. CI had the two steps the other way round and one of
+those tests guarded itself into never running at all; both are fixed, and this is the order.
 
 **There is no `;`.** A declaration ends where the next one begins; the grammar needs no terminator
 and yecc reports no conflict without one. A stray `;` is the likeliest error in the language, since

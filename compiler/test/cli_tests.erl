@@ -30,21 +30,29 @@ escript_entry_point_exists_test() ->
     ?assertMatch({module, Mod}, code:ensure_loaded(Mod)),
     ?assert(erlang:function_exported(Mod, main, 1)).
 
+%% THE SILENT SKIP THIS USED TO HAVE IS WHY IT NEVER RAN IN CI.
+%%
+%% It guarded itself with `is_regular/1` and returned `ok` when the escript was
+%% absent — and CI ran `rebar3 eunit` BEFORE `rebar3 escriptize`, so the artefact
+%% was always absent and this test passed without ever executing anything. A test
+%% written because the documented quickstart was broken had itself been green and
+%% empty since the day it was written.
+%%
+%% The workflow now builds the escript first, so the guard is removed rather than
+%% kept: a missing escript is a real failure with a message that says what to run.
+%% This repo's own rule, from the spec-check harness — a clean run proves nothing
+%% unless the broken case would fail it.
 built_escript_compiles_a_file_test() ->
     Escript = project_root() ++ "/_build/default/bin/bsc",
-    case filelib:is_regular(Escript) of
-        false ->
-            %% Nothing built; the config test above still guards the regression.
-            ok;
-        true ->
-            Out = ?OUT ++ "/escript",
-            ok = filelib:ensure_dir(Out ++ "/x"),
-            Src = Out ++ "/in.bs",
-            ok = file:write_file(Src, showcase_src()),
-            Result = os:cmd(Escript ++ " -o " ++ Out ++ " " ++ Src ++ " 2>&1; echo rc:$?"),
-            ?assert(string:find(Result, "rc:0") =/= nomatch),
-            ?assert(filelib:is_regular(Out ++ "/Readings.beam"))
-    end.
+    ?assert(filelib:is_regular(Escript)
+            orelse throw({no_escript, Escript, "run `rebar3 escriptize` first"})),
+    Out = ?OUT ++ "/escript",
+    ok = filelib:ensure_dir(Out ++ "/x"),
+    Src = Out ++ "/in.bs",
+    ok = file:write_file(Src, showcase_src()),
+    Result = os:cmd(Escript ++ " -o " ++ Out ++ " " ++ Src ++ " 2>&1; echo rc:$?"),
+    ?assert(string:find(Result, "rc:0") =/= nomatch),
+    ?assert(filelib:is_regular(Out ++ "/Readings.beam")).
 
 %%% ---------------------------------------------------------------------------
 %%% Running a program — `bsc fib.bs 5`
