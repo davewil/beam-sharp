@@ -143,11 +143,25 @@ parse_compound(S, Env) ->
         _        -> parse_term(S)
     end.
 
-%% Braces are overloaded: `{Id = 1, Kind = :'Shop.Order'}` is a record in
-%% beam-sharp notation, `{ok, 5}` is an Erlang term. The discriminator is a
-%% top-level `=` in EVERY part, which a term never has and a record always does.
-%% Anything else falls through to the Erlang reader, so nothing that worked
-%% before stops working.
+%% In beam-sharp a brace is a RECORD — `{Id = 1, Kind = :'Shop.Order'}`. The
+%% discriminator is a top-level `=` in every part, which a record always has.
+%%
+%% When the parts have no `=` this falls through to the Erlang reader, so
+%% `{1, 2}` is accepted as an Erlang tuple — and printed back as `(1, 2)`,
+%% because `format_value/1` prints beam-sharp. David caught the asymmetry at the
+%% prompt on 2026-08-15: *"we've got a weird syntax on tuples here — entered as
+%% `x = {1, 2}`, output as `(1,2)`."*
+%%
+%% **The cause was one layer up and is fixed**: he reached for braces because
+%% `(1, 2)` was being eaten by `parse_call/1`, which took any text before a `(`
+%% for a function name. The beam-sharp spelling now works, so braces are no
+%% longer the only way to type a tuple.
+%%
+%% **What remains is a genuine open question, not a bug.** Reading `{ok, 5}` is
+%% a second dialect at the one surface a person types at — but it is *deliberate*
+%% and tested (`an_erlang_term_is_still_readable_test`: "the fallback that was
+%% removed was the SILENT one, not this"). Removing it is a decision that
+%% supersedes that one, and it is David's, not this comment's.
 parse_braced(S, Env) ->
     Parts = case string:trim(lists:sublist(S, 2, length(S) - 2)) of
                 ""    -> [];
@@ -156,6 +170,11 @@ parse_braced(S, Env) ->
     Fields = [field(P, Env) || P <- Parts],
     case Parts =/= [] andalso not lists:member(none, Fields) of
         true  -> maps:from_list(Fields);
+        %% STILL the Erlang reader, and that is now a live question rather than
+        %% an oversight — see the comment above. Changing it fails
+        %% `an_erlang_term_is_still_readable_test`, which protects a decision
+        %% ("the fallback that was removed was the SILENT one, not this") that
+        %% predates the complaint. Left standing until David rules on it.
         false -> parse_term(S)
     end.
 

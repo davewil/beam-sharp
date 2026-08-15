@@ -193,18 +193,30 @@ apply_call(Mod, Fn, Args) ->
             catch C:R -> {error, io_lib:format("crashed: ~p:~p", [C, R])} end
     end.
 
+%% A call's name must be PascalCase, because that is what the grammar says a
+%% call IS — `expr -> uident '(' expr_list ')'`. Without this check ANY text
+%% before a `(` was taken for a function name, which is how David's
+%% `x = (1, 2)` became a call to a nameless function and answered
+%% *"no /2 -- try :exports"* (2026-08-15). It is also why braces looked like the
+%% only way to type a tuple: the correct spelling was being eaten one layer up.
 parse_call(Line) ->
     case string:split(Line, "(") of
-        [Name, Rest0] ->
-            case lists:reverse(string:trim(Rest0)) of
-                [$) | RevInner] ->
-                    Inner = string:trim(lists:reverse(RevInner)),
-                    {list_to_atom(string:trim(Name)), bs_run:split_top_level(Inner)};
-                _ ->
-                    {error, io_lib:format("missing closing ) in ~ts", [Line])}
+        [Name0, Rest0] ->
+            case pascal(string:trim(Name0)) of
+                false -> {error, no_call(Line)};
+                true  -> closed_call(string:trim(Name0), Rest0, Line)
             end;
         _ ->
             {error, no_call(Line)}
+    end.
+
+closed_call(Name, Rest0, Line) ->
+    case lists:reverse(string:trim(Rest0)) of
+        [$) | RevInner] ->
+            Inner = string:trim(lists:reverse(RevInner)),
+            {list_to_atom(Name), bs_run:split_top_level(Inner)};
+        _ ->
+            {error, io_lib:format("missing closing ) in ~ts", [Line])}
     end.
 
 %% The prompt reads a call or a value, so anything else has to say what it got
