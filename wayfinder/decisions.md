@@ -1,0 +1,810 @@
+# Decisions so far — the bodies
+
+> **Split out of [`map.md`](map.md) on 2026-08-15**, which had reached 1,564 lines while its own
+> comment promised *"one line per closed ticket"*. The split was verified to reconstruct the
+> original byte-for-byte; **nothing here was edited, only moved**. `map.md` carries the index —
+> headline, ticket number and topic tags per entry — and this file carries the bodies.
+>
+> One entry per closed ticket. The ticket itself, in `issues/`, is still where the full reasoning lives; these entries are the cross-ticket view of it.
+
+## Decisions so far
+
+<!-- one line per closed ticket: enough to judge relevance, then open the ticket for detail -->
+
+- [Charting: differentiator, typing stance, scope](issues/00-charting-decisions.md) — the
+  language exists for the multi-clause heads Gleam explicitly refuses; typing is
+  static-by-default set-theoretic with enforced cross-clause exhaustiveness; tooling,
+  stdlib breadth, macros and alternative backends are out of scope. **Audited 2026-08-15 — all
+  four are boundaries on *this map*, and none is a refusal: three wait on a use case, and
+  alternative runtimes/backends wait on traction and a request. See Out of scope, which now says
+  which is which and what a requester inherits.**
+- [Prior art: static types plus multi-clause heads](issues/03-prior-art-static-multiclause.md)
+  — **Gleam never rejected multi-clause heads; it never considered them.** No rationale
+  exists, and the soundness hypothesis is affirmatively weakened (Gleam's shipped checker
+  already runs Jules Jacobs' algorithm over nested multi-column patterns). Projects stall on
+  **commercial dependency**, not type theory — purerl survives because a company ships on it;
+  Hamler, Caramel and Alpaca each had zero internal consumers. The core bet is proven
+  feasible: Alpaca shipped multi-clause heads on an HM BEAM language. **NVLang is a citation
+  hazard** — see the ticket before citing it anywhere. *(One claim in this ticket was later
+  retracted by ticket 19 — see there.)*
+- [Audit of `purescript-backend-erl`](issues/19-purescript-backend-erl-audit.md) — **retracts a
+  ticket 03 claim**: it emits **exactly one clause per function, always, with no guard**, not
+  native clause heads. The cause is upstream and unreachable from any backend — `purs` merges
+  equations into one CoreFn `ExprCase` and the optimiser's IR has no pattern node at all.
+  **Net for ticket 13: no BEAM backend fed by a curried functional frontend emits clause heads.**
+  The only two that keep heads are LFE and Elixir, whose surface syntax has them natively —
+  which is beam-sharp's position, making this a counter-example rather than a template.
+- [A page of idiomatic beam-sharp](issues/01-sample-code.md) — **Variant A settled**: equations
+  under a signature. The design is smaller than expected — **C# already supplies every pattern
+  form needed**, so the language is one structural move: C#'s pattern grammar out of `switch`
+  arms and into the parameter position, N declarations where C# allows one. The showcase was
+  lowered to Erlang and **run on OTP 28**: five clauses in, five native clause heads out.
+  **It also amended ticket 00** — multi-clause heads are notationally, not semantically,
+  distinct from Gleam's multi-subject `case`; the differentiator is now a stated design
+  preference. Do not re-derive this.
+- [Escape-hatch precedents](issues/21-escape-hatch-precedents.md) — **neither Roc's nor Unison's
+  mechanism transplants, and they fail for the same reason in opposite directions: both control
+  what a program may *reach*, where ticket 06's problem is what may reach the *program*.** Roc's
+  guarantee rests on **link-time closure**, which the BEAM is committed to not having — `apply/3`,
+  no visibility modifiers, hot code loading, and "no way to publish a function to your own compiler
+  but not to `erl`". Unison's abilities discharge at a *call site*, so they reach **1 of the 8
+  violation channels** — nothing invokes your handler when a monitor fires. **No language in the
+  file defends its boundary by checking data; they defend it by controlling who may be on the other
+  side.** So the only mechanism reaching all eight is a **check emitted where an external term
+  becomes a typed value** — a codegen obligation, and available precisely because beam-sharp
+  compiles the `receive`, the `handle_info`, the ETS wrapper and `code_change`. Three further
+  findings: every model that enforces anything does so **with the tool that already builds the
+  code** (the one needing a second tool, .NET Code Contracts, was simply not run); **no model has
+  both enforcement and revisability** — Phoenix could move contexts three times because nothing
+  depended on them, and Roc's FAQ answers "No" to swapping platforms; and Roc's **`requires`**
+  clause is directly stealable as a typed, compiler-checked OTP behaviour contract, strictly better
+  than Erlang's `-callback`. **A premise in my own brief was inverted by the research**: DbC did not
+  survive as libraries — Eiffel's `require`/`ensure` are *still grammar*, Ada's `Pre`/`Post` are
+  *still aspects*, and it is the **library** form that died (.NET Code Contracts, archived
+  2023-07-15). The discriminator is **tooling weight**, and **Microsoft's named successor is
+  nullable reference types — the contract that survived is the one that became a type.**
+- [Head and guard syntax](issues/08-head-and-guard-syntax.md) — **the surface is settled.**
+  Guards use the **expansion rule** (verified on Elixir 1.19.5: *"Only macros can be invoked
+  inside a guard"*), with a **`guard` modifier** for named guards — `defguard` with a different
+  spelling. Same-arity dispatch is a **union parameter**, not overload signatures, which means
+  **one arrow per arity** and simplifies ticket 04's per-arrow check to a single pass. Defaults
+  and variadics both kept, with arity generation as codegen — but **defaults cannot express the
+  accumulator pair**, since they cannot change a parameter's type. `dynamic` narrowing is
+  **always written**, never inferred: neither audience expects implicit cast insertion —
+  **amended by ticket 11**, where the rule holds and loses its keyword, since narrowing is
+  written *as a clause head* and no `dynamic` exists.
+  Declarations file is `index.bs`. List patterns are prefix-plus-rest only.
+- [Compilation targets](issues/02-compilation-targets.md) — **three tiers, not a binary.** The
+  **Abstract Format expresses multi-clause heads natively** (a function *is* a clause list);
+  Core Erlang does not at the head but hands you the primitive one level down, costing a
+  mechanical ~50-line wrapper; BEAM bytecode needs a full match compiler. The cliff is between
+  Core and bytecode, not between Abstract Format and Core. **Dialyzer is the sharpest
+  discriminator and it fails silently**: compiling from `.core` emits an empty abstract chunk
+  with no warning, and a `-spec` is lost through that path — which collides directly with
+  ticket 06's recommendation to emit specs.
+- [Cross-clause exhaustiveness](issues/04-crossclause-exhaustiveness.md) — **the mechanism is
+  not a research risk; it has been solved and shipped since 2003.** But exhaustiveness is only
+  well-posed against a **declared** input type: redundancy is relative, exhaustiveness is
+  absolute. CDuce checks it because functions carry a mandatory interface; Elixir cannot,
+  because it *builds* the function type from the clauses, making the check vacuous.
+  **Therefore multi-clause functions in this language must carry signatures — inference alone
+  doesn't weaken the guarantee, it makes the question disappear.** That is a binding constraint
+  on tickets 08 and 11. Also: Elixir v1.20 ships **redundancy only, not exhaustiveness**.
+- [Erlang/Elixir interop surface](issues/06-interop-surface.md) — the surface is **smaller than
+  expected** (`-behaviour` has no runtime effect; Elixir needs no special machinery), but the
+  violation surface is **eight channels**, not one. The load-bearing finding: **an untyped
+  caller does not always crash** — there are three outcomes, and the third is *silent
+  unsoundness* (`add(1.5, 2.5)` returning `4.0` from an `Int, Int -> Int` function). Only that
+  third case argues for emitted guards. Neither Gleam nor purerl defends against any of it.
+  Gleam's answer to typed OTP was to not implement the behaviour contract at all — a route
+  closed to this language, since ticket 00 makes `handle_call/3` the showcase.
+- [C# 15 `union` and TypeScript discriminated unions](issues/07-csharp15-and-ts-unions.md)
+  — C# unions are **preview, not shipped**, and the design is still moving (champion issue is
+  #9662, not #8928; no primary source for "GA Nov 2026"). They are nominal, closed struct
+  wrappers; exhaustiveness only suppresses a *warning*. **The rejected designs matter more**:
+  C# killed both structural/erased union designs on CLR artefacts — reified generics and
+  nominal identity — **and neither rock exists on the BEAM**. TypeScript is structural but
+  stops short of set-theoretic (syntactic intersections, no negation, opt-in exhaustiveness).
+- [Union representation](issues/09-union-representation.md) — **structural and open; there is no
+  nominal type in the language and no union declaration form.** Naming is **aliasing**: `type X =
+  ...` is the single naming construct for records, tuples, scalars and unions alike, the name
+  never enters the algebra, and two names over the same set are the same type. `union` was
+  rejected on the borrow heuristic's own terms — C#'s spelling carries closed nominal semantics
+  this language does not deliver, while C#'s `using` alias and TS's `type` both match the
+  semantics exactly. Recursion is **equirecursive and must be contractive**, so subtyping is
+  decided coinductively. Indiscriminable unions are an **error at the declaration**, normalised
+  first, with **BEAM guards as the vocabulary** for what "discriminable" means. **The cost is
+  newtypes** — `Meters` and `Feet` over `float` are one type; the remedy is the BEAM's free tuple
+  tag, with refinement types the alternative (→ ticket 20). **This answers ticket 07 §5.0**:
+  compile-time-only nominality *is* available on the BEAM and buys nothing, because erased
+  nominality is exactly an alias — the wrapper premise was a CLR artefact, but removing that cost
+  never addressed the capability gap (negation, union closure, boundary enforceability). Sharpest
+  downstream consequence: **[ticket 16](issues/16-ad-hoc-polymorphism.md) loses its resolution
+  key** — **dispatch cannot key on a name that is not in the term**, so type classes as
+  PureScript/Haskell/Rust know them are not merely costly here, they are unresolvable. *Elixir's
+  structs and protocols are not a counter-example but the worked remedy* — `__struct__` is an atom
+  **in the data**, so the name is a tag, and beam-sharp can resolve it statically where Elixir
+  needs a consolidation pass (verified: `prototypes/16a_elixir_protocol_dispatch.exs`).
+- [C# functional feature inventory](issues/05-csharp-functional-inventory.md) — LINQ query
+  comprehension is portable (ECMA-334 makes it a pure syntactic rewrite, bound before type
+  binding, with no `IEnumerable<T>` dependency); extension-method chaining *is* already a
+  pipeline rewrite; `with` becomes more central than in C#. Dropped: `init`/`readonly`,
+  nullable reference types, iterators and `async`/`await`. Two debts left open — no ad-hoc
+  polymorphism story, and slice patterns over cons cells.
+- [Atoms in a C# skin](issues/10-atoms-in-a-csharp-skin.md) — **the atom universe is open**:
+  `:ok` is a singleton type, `atom` the cofinite top, and nothing declares an atom. Declare-
+  before-use was not a live option — it contradicts ticket 09's "no syntax that declares a type"
+  — and **Gleam supplies the empirical case against it**, having taken that fork and needed a
+  carve-out for `ok`/`error`/booleans in the shipped language. **`true`/`false` are the only
+  keyword atoms** (semantics coincide with C#'s `bool`; `null` fails the same test `union`
+  failed), `bool` is a prelude alias not a builtin, and there is **no truthiness** — so ticket
+  09's Json example is corrected to `:null`. Module identifiers in value position are checked
+  atom singletons. **The prelude cannot mint**, because minting from a literal is already
+  spelled `:foo`. Three findings the ticket did not anticipate: the sigil's last objection is
+  visual not lexical and is **withdrawn**; **atoms appearing only in type positions are not
+  interned**, a codegen obligation Erlang does not have (→ 13); and **`erlc` constant-folds
+  `binary_to_atom` on literals**, so the table can only be exhausted by a runtime-built string,
+  which makes provenance — not minting — the real rule (→ 20). **Gleam is now installed and
+  ticket 06's silent unsoundness is demonstrated**: a Gleam function spec'd `-> float()`
+  returned a binary when called from raw Erlang.
+
+- [Type system shape and the `dynamic` boundary](issues/11-type-system-shape.md) — **there is no
+  `dynamic` in this language.** The ticket's own framing treated it as a *place*; both shipping
+  implementations treat it as something else, and beam-sharp takes neither — Elixir makes it a
+  **field on every type** (`%{dynamic: :term}`) needing a **second, weaker relation**
+  (`subtype?(integer, dynamic) = false` but `compatible?(dynamic, integer) = true`), Gleam makes
+  it an **opaque library type** entered by a free `identity` cast and exited by a hand-written
+  decoder. beam-sharp has neither: external values arrive as `term`, **the clause head is the
+  decoder**, and the exhaustiveness residual *is* the boundary case you failed to handle. So
+  **one relation, not two** — plain set-theoretic containment, coinductive per ticket 09.
+  Patterns over a `term` are **O(1) guard-decidable only** (ticket 09's discriminability rule
+  extended verbatim — BEAM guards are the vocabulary); deep validation is an explicit call to a
+  generated **`ValidateAs<T>`**, because emitting the traversal inside a clause head would make a
+  dispatch construct do unbounded work **whose size a foreign sender chooses**. `ValidateAs<T>`
+  **rejects arrow types at compile time**: `erlang:fun_info` yields identity, never types, and
+  the top arrow is `none() -> term()` — uncallable, since arrow subtyping is contravariant, so
+  "narrow it to `fn(term)->term`" is unsound. Foreign funs are holdable and returnable, never
+  callable; the boundary is **MFA**, which is guard-decidable data. Higher-order contract
+  wrapping is the literature's correct answer and was rejected on the same hidden-cost grounds,
+  **chosen partly for reversibility** — wrapping is purely additive later. The top type is
+  spelled **`term`**, a deliberate **override of the borrow heuristic** (TS's `unknown` is tier
+  1): the top here is a *set* you take complements of, not an epistemic state, and it matches the
+  emitted `-spec`. The guarantee: **"Every case your types admit has a clause — and everything
+  from outside is a `term` until you match it."** Deliberately **stable under ticket 18**; the
+  rejected candidate pinned it to *who called you*, which ticket 09 §5 says the BEAM cannot
+  enforce. **Two cautions**: `ParseAtom<T>` and `ValidateAs<T>` are type-directed **codegen, not
+  generics** (→ ticket 27), and my own claim that OTP prefers MFA because funs go stale is true of
+  **closures only** — `fun M:F/1` is late-bound and survived a purge that killed a closure.
+
+- [Totality versus let-it-crash](issues/12-totality-vs-let-it-crash.md) — **the two were never
+  opposed; let-it-crash is how you spell partiality.** Exhaustiveness is a **hard error with no
+  opt-out** — two of the ticket's four candidates were already dead, since both presupposed a
+  dynamic region ticket 11 removed. PureScript's `Partial` lost twice over: ticket 19 found it
+  **erased before codegen**, and a propagating constraint is a second effect system beside an
+  algorithm ticket 04 found has no complexity bound. A **catch-all is legal only over an *open*
+  residual** — permitted where an unbounded top remains (and ticket 11 already forces it), an error
+  where the residual is closed and the compiler knows the case names; a tier-3 invention, accepted
+  because a uniform `_` puts the headline guarantee one character from being switched off
+  invisibly. The boundary stance is **signature-directed**: write the honest value your return type
+  admits, `raise` only where it admits none — so "crash in a call, ignore in a loop" is only the
+  shadow cast by two return types, and **`ValidateAs<T>`'s `T | :error` is not an exception but a
+  declared failure channel**. This is ticket 21's discriminator again: the decision *became a type*.
+  The bottom is **`none`, first-class** (verified: `never()` is undefined on OTP 28, `erl_types`
+  prints `none()`), mirroring ticket 11's `term` override — one heritage names the whole lattice;
+  its false friend is the prelude's `:nothing`. A deliberate crash is **`raise`**, tier-2 from
+  Elixir, verified to produce the **error** class, so C#'s `throw` is out on semantics — the BEAM's
+  `throw` is the *catchable* class. **Both neighbours chose a keyword**, Gleam's bottom-typed
+  `panic` decisively so, having had the function option and declined it — and the `Partial` benefit
+  returns anyway, since a user-declared `none Reject(Reason);` *is* a greppable typed crash site.
+  Finally, **this ticket reverses its own prior note**: the failure arm is **always emitted**.
+  Omitting it saves **40 bytes (4.8%)** and destroys the crash report — `error:if_clause` (the
+  wrong class) with an arity in place of the offending argument. `erlc`'s omission proves coverage
+  over *all terms*; beam-sharp's is over the *declared type*, and ticket 21 says no foreign caller
+  can be ruled out. So **yes, the process still dies cleanly**, deliberately paid for. Emitted
+  guards (→ 18) are the only sound route to the saving, and it is only *available* on the Core
+  Erlang path at all (→ 13).
+
+- [Compilation target decision](issues/13-compilation-target-decision.md) — **the Erlang Abstract
+  Format**, and the decisive reason is none of the five the ticket had stacked: the choice is a
+  **one-way door, not a rung on a ladder**. `.abstr → Core` is `erlc +from_abstr +to_core`, free,
+  OTP doing the translation; `.core → abstract forms` is `{raw_abstract_v1,[]}`, unrecoverable.
+  Core's one live advantage — a `when` wider than Erlang's — was already spent by tickets 08 and 09
+  fixing the guard vocabulary to the BEAM guard set. The emission contract is **a sequence of
+  abstract-format forms**, with a standing obligation that the frontend **never depend on
+  in-process compiler state**, so `erlc +from_abstr` always works (verified: builds with no `.erl`
+  on disk) — which **frees the compiler's host language** and costs `erl_syntax`/`merl` as a churn
+  abstraction, permanently; §4's pinned OTP range (current + previous two majors) proved by a CI
+  corpus is the replacement. **Sub-modules are source-only**, one `.beam` per aggregate, and 01d's
+  sharpest objection is **largely false on this target**: repeated `{attribute, ANNO, file, …}`
+  forms re-point everything after them, so two functions in one BEAM module report crashes against
+  two different `.bs` files — per-function hot swap is rejected, not deferred. **A `-spec` is
+  emitted for every function whose type is known**, widening to the nearest expressible supertype
+  where set-theoretic types have no Erlang spelling (silent: `-Wunderspecs`/`-Wspecdiffs` turn
+  warnings *on*). **This discharges the 13/18 coupling** rather than deferring it — it was
+  conditional on the Core branch — so ticket 06's recommendation stands. Sharpest downstream
+  consequence: **ticket 18 loses an argument.** Ticket 12's 40-byte saving is unavailable on this
+  target at all (`erlc` inserts the `match_fail` arm and it cannot be suppressed), so emitted
+  guards are no longer the route to a saving that exists — **18's remaining motivation is silent
+  unsoundness alone**. Ticket 14 inherits no facade to design.
+
+- [Concurrency and the OTP model](issues/14-concurrency-and-otp-model.md) — **the concurrency
+  vocabulary is OTP's, and nothing in it is parameterised by a message type.** Ticket 03's
+  `Pid[τ]` is **declined**: it is inexpressible (ticket 09 has no nominality, so `pid<A>` and
+  `pid<B>` are the same set — Gleam's phantom parameter works only because Gleam is nominal),
+  unnecessary (the message type belongs on the **client API function's signature**, where it was
+  going to be written anyway), and unsound-proof-free (ticket 21 rules out ruling out foreign
+  senders). Measured: **four of the five wrong-pid failures are exits**, so the type system can
+  decline to model process identity and lose almost nothing; only a *shape collision* returns a
+  wrong value, and that is ticket 18's. **No `async`/`await`/`Task`** — `async` colours functions,
+  which is the second effect system ticket 12 already refused. **Pinto's closures-as-messages is
+  inadmissible** under ticket 11's arrow rule, so callbacks are per-module multi-clause functions.
+  **`[module: GenServer]` names a contract the compiler knows as a type**; the user writes a
+  narrower signature and the compiler checks containment — **Dialyzer already does exactly this**
+  for the return direction and silently misses the *argument* direction, which beam-sharp gets
+  free from contravariance. That choice is the reversible one: the wide contract is reachable as a
+  signature a user writes, or a generator default (→ 23). **`receive` is syntax and a *filter*,
+  exempt from exhaustiveness** — unmatched messages stay in the mailbox, which is what
+  `gen_server:call`'s own reply correlation runs on. **The prelude is stratified** à la Elixir's
+  `Kernel.SpecialForms`, with OTP's message shapes in the compiler-known stratum. That last one
+  closes a hole the ticket found and nothing else catches: a **mis-shaped `handle_info` clause
+  never fires and the mandatory catch-all absorbs it in silence** — invisible to exhaustiveness
+  (open residual) and to redundancy (every clause reachable against `term`). **Ticket 03's Gleam
+  gap is closed by measurement**: `Subject` types the send side only, receive is a runtime
+  `{tag, arity}` map lookup, unmatched messages are logged and dropped, and **named subjects are
+  forgeable from raw Erlang** via `registered()/0`. Corrects prototype 01e. Sharpest downstream
+  consequence: **ticket 27 loses a motivating case** — `Pid[τ]` was the clearest demand for a real
+  type parameter in the map.
+
+- [Parametric polymorphism](issues/27-parametric-polymorphism.md) — **the language has real
+  parametric polymorphism, and it is the smallest version of it that works.** The ticket's question
+  was three questions wearing one coat, and only one was live: parameterised *constructors*
+  (`list<int>`) were already forced by 09/11 and are not polymorphism at all, parametric *aliases*
+  (`option<T>`) arrived near-settled from 10, and only **polymorphic function signatures** were
+  open. Yes — on a cost argument the map must now protect: the frightening results attach to
+  *inference* and to *intersection-typed* functions, and **beam-sharp had already refused both for
+  unrelated reasons** (04 made signatures mandatory; 08 settled one arrow per arity with union
+  parameters, so a function type is `(A|B) -> (C|D)`, never `(A->C) & (B->D)`). Instantiation is
+  therefore matching, not solving — and **§3 unbounded and §7 no-row-polymorphism are what keep
+  that true**, not independent preferences. Four rules: variables are **opaque in clause heads and
+  guards** (a bare variable admits exactly one clause — bind it; structure *around* it matches
+  freely, so `Map`'s `[]`/`[h, ..t]` are exhaustive at the definition for every instantiation);
+  **unbounded**, with capability constraints deferred to ticket 16 because a bound is *ad-hoc*
+  polymorphism wearing a bracket; **declared, C# `T`-convention** — forced, because beam-sharp's
+  builtins are lowercase, so lowercase-implicit is ambiguous where Gleam's is not; and **variance
+  is not a concept**, since 09's abolition of nominality leaves nothing to annotate or infer.
+  *Rejected: monomorphise per call site* — it fights ticket 13's aggregate-granularity hot loading
+  and separate compilation, working *inside* an aggregate and failing exactly where a shared
+  `List.Map` lives. Two measurements: **an emitted polymorphic `-spec` is documentation, not
+  enforcement** (Dialyzer reads the variables as `any()`; the monomorphic control fires), so
+  **choosing generics made the boundary strictly weaker → ticket 18**; and **syntax recovers an
+  element-type relation with zero polymorphism** (`roundtrip` preserves `[integer()] -> [binary()]`
+  where the same computation through an opaque fun collapses to `[any()]`), which is why row
+  polymorphism was declined — `with`/spread already covers the case that would demand a row
+  variable. Forced consequences: **codegen obligations require a ground type argument**, so
+  `ValidateAs<TSource>` is rejected inside a polymorphic function; and **polymorphic recursion is
+  permitted** because 04 already paid for mandatory signatures — the undecidability is about
+  inference. **Ticket 16 is unblocked**, and inherits the rule that names its own boundary: *a type
+  variable is a slot for values you carry; a union is a slot for values you examine.*
+
+- [Error model](issues/15-error-model.md) — **the headline question was already closed and the
+  ticket did not know it**: ticket 12 §3's signature-directed stance means there is no global
+  error-model preference to pick. What was open was the *shape* of failure, and it had a defect in
+  it. **The untagged failure channel collapses** — measured on Elixir 1.19.5, `option<atom>`,
+  `ValidateAs<atom>` and `option<option<int>>` all normalise to their success type, because ticket
+  09's own normalisation rule absorbs a singleton into a cofinite top before discriminability is
+  ever asked. **Ticket 10 §5 had already written a degenerate line** (`ToExistingAtom // atom |
+  :nothing` *is* `atom`). The shape stays untagged and **the collapse is an error at the
+  declaration** — 09's rule turned on the prelude, diagnostic landing where the fix is; tagging both
+  channels was refused because the cost falls on `as T`, the showcase narrowing. The rule for the
+  two spellings is **absence carries nothing, failure carries a reason**: `option<T> = T |
+  :nothing` bare, `result<T, E> = T | (:error, E)` tagged — **and the tag is a consequence of the
+  payload, not a separate choice**, since `atom | (:error, binary)` does *not* collapse where `atom
+  | :error` does. So the payload is what makes the channel survive, not merely what makes it
+  informative. **Amends ticket 11**: `ValidateAs<T>` returns `result<T, ValidationError>`. `raise`
+  takes **any term** (exactly `:erlang.error/1`) sharing its vocabulary with `E`, which makes
+  escalation an ordinary three-line function rather than a `?` operator. **There is no `try` in the
+  surface**: measured, `monitor`+`receive` replaces it for *remote* failure using only ticket 14's
+  `receive`, and yields a **better** reason than `try` does — leaving foreign in-process throws as
+  the only gap, closed by a compiler-emitted wrapper from the declared return type, the fourth
+  codegen obligation. **Gleam was measured into this position, not the stricter one** — no surface
+  `rescue`, nine `try`/`catch` in its FFI — so the question was never whether the `try` exists but
+  whether it is *checked* or a human's unverified assertion. `throw` and `exit` get **no spelling to
+  produce** (clause heads and `(:stop, …)` already do their jobs) and the wrapper catches all three
+  classes into `foreign_error`, **safe because exit *signals* are uncatchable** — a locally-raised
+  `exit/1` and a signal are different mechanisms sharing a keyword, so no supervision decision can
+  be swallowed. Sequencing is **required and handed to ticket 17**: `with` is spoken for by ticket
+  26's record update. *A methodological note kept in the file: the first run of 15c reported every
+  case surviving, because the harness wrapped each in `catch` — supplying the protection the probe
+  existed to measure.*
+
+- [Ad-hoc polymorphism](issues/16-ad-hoc-polymorphism.md) — **the language gets no ad-hoc
+  polymorphism construct, and the hole ticket 05 flagged was half imaginary.** The three
+  motivating capabilities were *measured* before being designed for and land in three different
+  buckets, none of which is dispatch: a capability the type determines becomes a **codegen
+  obligation**; a capability over a set known at the definition is a **union parameter** with a
+  clause each; a capability over an unknown set is **passed as an argument**. Protocols died on
+  ticket 13, not on taste — open extension needs whole-program consolidation, which fights
+  aggregate granularity and hot loading, *the same argument 27 used against monomorphisation* —
+  and the static-closed variant is bucket 2 with ceremony, which **corrects this ticket's earlier
+  "consolidation by construction"** line. Measured: the BEAM's term order is **total across every
+  type** (`1 < :ok` is `true`), so "anything comparable" needs no mechanism — but `<` is
+  restricted to **same-type operands** with the universal order kept as a *named* prelude escape
+  (`ordered_set`, mixed-key sorting). **`==` means `=:=`**, decided on internal agreement rather
+  than familiarity: Erlang's `==` coerces through tuples, lists and map *values* then **stops at
+  map keys**, while the clause head and `maps:get` do not coerce at all — so the exact spelling
+  agrees with two constructs and disagrees with none. The generation rule is **the type determines
+  the result, inherently or by published decree**; serialisation qualifies by decree because
+  `json:encode/1` **fails on tuples at any depth, at runtime**, and tuples are this language's
+  workhorse (09's newtype remedy, 15's `(:error, E)`) — generation moves that to compile time, and
+  **only the encode direction is new** since decode is `ValidateAs<T>` after a parse. `<` and `==`
+  work on **bare type variables** (total, non-dispatching, cannot fail), so `Sort<T>` and `Max<T>`
+  are free — and **bounds are refused outright**, not deferred: both routes to discharging one are
+  closed by 09 and 27, which **retires 27's cost measurement**. Finally, **ticket 05 miscategorised
+  extension methods** (David) — one debt, not two; the call-syntax half was always 17's and the
+  overloading half was always 08's, leaving *static abstract interface members* as the whole real
+  hole, and **a codegen obligation is exactly that with the compiler writing the implementation**.
+  Sharpest downstream consequence: **ticket 18 gains a consumer** — a generated encoder trusts a
+  declared type the boundary does not enforce, and crashes inside code no one reviewed.
+
+- [Pipeline and comprehension idiom](issues/17-pipeline-and-comprehension.md) — **four constructs
+  removed, one added.** The chaining form is `|>` with **qualified** names, and the dot fell to a
+  *mechanism* rather than to taste: `xs.Filter(f)` needs type-directed resolution of an unqualified
+  name, which 08 (no overloading) and 16 (one dispatch mechanism) both closed and 16 §6 had already
+  parked in the fog. **LINQ dies to the identical argument** — ECMA-334's translation emits
+  unqualified names — so **this ticket's stated conditional was answered by rejecting its premise**:
+  the cost was never in the type system, and LINQ pays exactly what the dot pays. The dot is not
+  abolished but *narrowed to never being a call* (→ 26). **There is no comprehension syntax, because
+  precision is a lowering decision, measured**: emitting an inlined comprehension recovers 27a's
+  exact `[integer()] -> [binary()]`, where emitting a call to the generic prelude loses **both**
+  sides — worse than `lists:map/2` loses, since beam-sharp's own declared spec overrides its body's
+  success typing. Fusion is free and lossless. So one rule: **the compiler-known prelude is inlined,
+  user code is called, and precision follows the inlining** — which creates a **two-tier emitted
+  boundary** the spec must state (→ 18). **27a's fold limit is corrected**: inlined monomorphic
+  recursion keeps both sides for fold too, so the mechanism was never "comprehension" but *a
+  monomorphic body the analyser sees through*, and one rule covers map, filter and fold. Fallible
+  sequencing is **the valve, `|?>`** — chosen over a generated `[Propagates]` clause because that
+  would have been the **sixth codegen obligation**, and over `Result.Then` because only the
+  combinator forces a function-as-value spelling; the fully implicit rule was closed by 08's
+  *narrowing is always written, never inferred*. `?` is free (10 dropped the ternary) and is a
+  **tier-1 borrow for both audiences at once** — C#'s `?.` and TS's optional chaining are the same
+  semantics, and 15's untagged `result` makes `(:error, E)` the exact analogue of `null`. **There is
+  no `if`**: `switch` is the only branching construct, *the way Go has one loop* (David), with a
+  **tuple subject** for the subject-less ladder — tier-1 C#, Gleam's multi-subject `case`, and the
+  clause head's own shape, converging. Measured, not cited: **Gleam has no `if` at all** and its
+  error text hands you `case`; **`else` is an `if`-only keyword** — Elixir's `case` and `cond` reject
+  it outright, and `cond`'s catch-all is a *clause*. The structural reading is what decided it —
+  `else` is what a binary unnamed conditional needs, and keeping it would have added the only
+  construct whose fall-through is not expressible as a pattern. Two questions die with `if`: the
+  one-armed case 10 routed here, and 15's `option<atom>` collapse landmine. Strict only; **lazy
+  deferred, not refused** (David), and cheap to add *because* names are qualified. Bonus finding:
+  **Gleam's inexhaustive-`case` error prints the missing pattern**, which is 04's residual observed
+  live (→ 23).
+
+- [Boundary defence](issues/18-boundary-defence.md) — **the eight channels were never eight
+  questions.** Ticket 11 had already defended every `term → typed` transition *inside* the language
+  by making narrowing syntactic, so five channels were closed on arrival and what remained was every
+  point where a **type is declared at an entry**. The guarantee is **"a foreign term that breaks your
+  types will crash — not always where it entered, but never silently"**: outcome 1-or-2, never
+  outcome 3, with a guard emitted **only where the function's own body would not object** and
+  **always** where generated code consumes the value (16's encoder, 17's inlined operations),
+  **never** on type variables. **The census is why it is that and not more**: measured across all of
+  stdlib and kernel, **83.3% of exported parameter positions are bare variables** — Erlang buys
+  outcome 2 for free from its BIFs and pays nothing at the boundary, so C tops up only where the free
+  check is absent, which after 16 and 17 is exactly where *generated code replaced a body you could
+  read*. **Foreign declarations may promise only what one BEAM guard decides in O(1)**; `list<Order>`
+  is an error at the declaration and crosses as `list<term>` + `ValidateAs<T>`, whose `result` forces
+  the failure arm — **ticket 11 §2's rule at a second site, closing channels 5/6/8/10 together and
+  dissolving the FFI `-spec` sub-question** (a checked claim needs no exception). This is **Ecto's
+  idiom made uniform**: measured in a local app, 9 changeset pipelines beside 5 ETS reads that all
+  bind the payload bare — *the same shape the Gleam probe produced*, because "you filled that table
+  yourself" is what 21 says you cannot prove. **Gleam trusts its `@external` and publishes the false
+  claim as a `-spec`** (measured: `-> Int` returned `41.5`), and **Erlang and Elixir are not
+  precedents at all** — no construct declares a foreign type, so they cannot break a claim they never
+  made. **The state channel is wider than charted and 14 left it open**: `sys:replace_state/2` let any
+  process substitute a state whose declared-`int` field returned a binary, so defence sits at the
+  *entrances* — `ValidateAs<State>` in `code_change/3`, `init` trusted, nothing per-message — with
+  `sys:replace_state` a **named limit**, a point 21's mechanism cannot reach because OTP applies the
+  fun inside a loop beam-sharp does not compile. The analysis is **function-local**, decided by the
+  standing constraint: whole-aggregate would let an edit to one file silently move another file's
+  boundary, reintroducing the blast radius one-function-per-file removed. **No opt-out.** Cost
+  measured and small (+3–5 bytes per `is_integer`, call time below the ±0.09 ns/call resolution), and
+  one structural finding kills a design option: **elision is exported-vs-local, not local-call vs
+  remote-call**, since a BEAM function has one entry label — so a guarded-public/unguarded-internal
+  pair is impossible, and interior functions already pay nothing. **Elm is the one language that
+  genuinely defends its boundary and it does not transplant** — it synthesises a decoder per incoming
+  value, but owns *the one door*; **this partially retracts ticket 21**, whose "no language defends by
+  checking data" is false, sharpened to *checking data is what you do at a door you own*. Two
+  corroborations worth keeping: Elm's admissible port set is **exactly ticket 09 §4's rule reached
+  independently**, and **outcome 3 survives inside Elm's checking boundary** (`1e300` through an `Int`
+  port) — a leak beam-sharp does not inherit, since `is_integer` is exact. The tag/payload asymmetry
+  was sighted **three times in one session** — Gleam's FFI, a real Elixir ETS read, an OTP callback
+  head — which is the ticket's strongest evidence that a pattern match is not a check.
+
+- [Untheorised term shapes](issues/20-untheorised-term-shapes.md) — **the five sightings of
+  "binaries are where precision dies" have one cause, and it is not binaries.** Every one traces to a
+  *join* that over-approximates on the way in, never to a subtraction failing on the way out:
+  `erl_types` collapses `<<_:32>> | <<_:64>>` into `<<_:32,_:_*32>>`, which admits a 96-bit value
+  nobody declared, and 04's residual then subtracts correctly and walks forever. The same failure
+  appears in a **second domain** — integer ranges are quantised onto a fixed ladder, `5..20` snapping
+  to `1..255` — so the finding generalises: **beam-sharp inherits this platform's type *grammar* and
+  cannot inherit its *algebra*, in any domain**, because Dialyzer is a success-typing tool that may
+  only ever be optimistic. **The surface admits the full `<<_:M, _:_*N>>` grammar with an exact
+  union**; a fixed size is closed and provable, a repeating unit is open and takes 12's catch-all,
+  and exact negation is never needed since only emptiness and openness must be decided. **Ticket 18's
+  boundary question answers "anything the grammar can spell"** — `byte_size` and `bit_size rem N` are
+  guard BIFs, measured O(1) at 8 B and 8 MiB alike — which lands opposite to expectation: **binaries
+  need no `ValidateAs` where 26's records do**. **17 §3's fixpoint widening was never a codegen
+  artefact** (its probe declared no spec; a declared one lands in the abstract chunk verbatim).
+  **`json:encode/1` crashes on non-UTF-8 binaries and on all bitstrings**, a fifth sighting 16 §4
+  assumed away — so **`string` is `binary` refined by valid UTF-8**, a bare `binary` encodes as
+  base64, a non-byte-aligned bitstring is a compile-time error, and **a literal is a `string` by
+  construction**. That forces **refinements, in two tiers cut on the map's recurring line**: guard
+  refinements are reasoned about, legal in clause heads and at FFI, and **user-declarable**; opaque
+  O(n) refinements are **compiler-known only** (11's *"size a foreign sender chooses"* at a second
+  site), which **answers the fog's question about adding to the prelude's second stratum — no**.
+  **Integer intervals join the algebra**, buying guarded partitions without a catch-all and `-spec`
+  precision — *not* `Fib`. **Improper lists are a named limit**: `is_list` admits `[1,2|3]` so
+  `list<T>` is not O(1)-decidable, but the adopted lowering gives `function_clause`, so 18's
+  guarantee holds. **Taint refused**, per 21. Two corrections: **11 overstated its own debt in both
+  halves** (exhaustiveness never needed intervals; termination was never promised), and **refinements
+  do not settle 09's newtype gap** — a refinement is a set, so `Meters` and `Feet` as
+  `float where value >= 0` are still one type and **09's tuple tag stands**.
+  **AMENDED 2026-08-13 by [ticket 29](issues/29-refinement-type-prior-art.md), which checked this
+  ticket against the prior art it was resolved without. Nothing decided is wrong; four things
+  change and one is reopened.** **The two-tier cut is a tier-3 divergence, not the O(1) line
+  applied again** — *no shipping language cuts refinements on the cost of deciding the predicate*,
+  Ada included, and Ada 2012 divides on the predicate's **syntactic form** instead (measured on
+  GNAT 12.2: `Odd mod 2 = 1` is rejected as not predicate-static while `Positive_Ish > 0` is
+  accepted — identical runtime cost, opposite tiers). The relation is **containment**: every Ada
+  static predicate is one BEAM guard and the converse fails, so beam-sharp's cut liberalises a line
+  Ada drew syntactically for want of a platform-given decidable predicate language. **Ada
+  corroborates the structure independently**, having barred its dynamic tier since 2012 from every
+  construct where the compiler must enumerate or bound the subtype. **CDuce is measured at last**
+  — `doc` → `local`, pinned at **0.6.0 (2017-03-17)**, installed via `archive.debian.org`: its
+  interval algebra is exact at every operation *including complement*, and **no SMT library is
+  linked**, so 20's affordability argument is demonstrated rather than asserted; 29 also publishes
+  the cost nobody had, below the measurement floor at 40 clauses and quadratic past ~200. **The
+  `string`/`binary` split is a tier-1 borrow 20 did not claim** — but both audiences silently
+  substitute U+FFFD on invalid UTF-8, which is 06's outcome 3 in the two languages beam-sharp
+  borrows from, so the *behaviour* is a deliberate divergence; .NET's serialiser independently
+  reaches 20 §4's base64 while node does not. **A third `erl_types` lossiness** (verified here:
+  `t_bitstr(8,72)` → `<<_:64,_:_*8>>`) and its motive is worse than the other two — a
+  **finite-height lattice, exactness traded for termination** by the platform's own designers, in
+  the domain 20 commits to exactness in. **beam-sharp escapes it, and the skeleton is the
+  evidence**: 04 made signatures mandatory, so nothing iterates to a fixpoint and the residual only
+  shrinks — the skeleton's unbounded interval lattice terminates at every clause count measured.
+  **Reopened for David**: whether users may declare *opaque* refinements at all. Ada permits them
+  and contains them with the same placement rule beam-sharp already applies, so the ban on
+  *declaring* one may do no safety work the placement rule is not already doing — against which
+  beam-sharp's checks have **no opt-out** where Ada's switch off with `-gnata`.
+  **RESOLVED same day — the refusal is narrowed to a placement rule (David).** ~~Gap [g3]:
+  GNATprove was never run.~~ **[g3] closed**: GNATprove 12.1.0 **discharges a `Dynamic_Predicate`
+  statically whenever the caller's contract entails it — including an O(n) content predicate**, the
+  direct analogue of `binary where valid_utf8`, induction carried by an ordinary loop invariant. So
+  Ada's permissiveness is *not* "permit and check later". Also measured: **SPARK's line is not
+  Ada's** — `Odd mod 2 = 1` is refused Ada's static tier on form while `Pos > 0` is admitted, and
+  SPARK treats them identically, so Ada's split is front-end *legality* where SPARK's is
+  *entailment*. **The evidence and the rule are the same shape**: SPARK proves it where the caller
+  is inside the verified subset, and at beam-sharp's boundary the caller never is (21 rules out
+  ruling out a foreign sender). So **user-declared opaque refinements are barred from clause heads
+  and foreign declarations, and permitted elsewhere** — interior, caller known, the predicate is a
+  dischargeable obligation; boundary, caller unknown, it is unbounded cost with nothing to discharge
+  it against. Accepted with the cost open-eyed: **beam-sharp pays for every check, always**, where
+  Ada's switch off with `-gnata`. Three things this owes are recorded on the ticket (may the
+  compiler call user code at a boundary; a spelling for the check site; what happens when the
+  predicate raises → 15's `result<T, E>`, Ada's `Predicate_Failure` the precedent). Residual limit:
+  `alt-ergo` would not run, so a *negative* proof result must not be read as unprovable.
+
+- [Refinement types in shipping languages: what did ticket 20 reinvent?](issues/29-refinement-type-prior-art.md)
+  — the prior-art pass ticket 20 was resolved without. **Nothing it decided is wrong**, and the
+  amendments are folded into 20's entry above; what belongs to *this* ticket is the verdict.
+  **Ada corroborates the two-tier structure and contradicts the cut** — it divides on the
+  predicate's *syntactic form*, not its cost, so beam-sharp's O(1) line is **attested nowhere in the
+  prior art surveyed** (Ada, Liquid Haskell, F\*, Nim, Whiley, Dafny) and is a tier-3 divergence
+  rather than the map's recurring rule applied again. The relation is **containment**: every Ada
+  static predicate is one BEAM guard, so beam-sharp liberalises a line Ada drew for want of a
+  platform-given decidable predicate language. **Solver-free interval refinement does ship** — CDuce
+  0.6.0 measured at last, exact including complement, no SMT linked, free at 40 clauses and quadratic
+  past ~200 — which is what turns 20's affordability argument from asserted into demonstrated. And
+  **GNATprove discharges an O(n) content predicate statically when the caller's contract entails
+  it**, the measurement that narrowed 20's blanket refusal to a placement rule. Method note worth
+  keeping: the borrow heuristic ran *correctly* and still missed this, because it has no rung for a
+  language neither audience uses which solved exactly this problem — the reason to raise a prior-art
+  ticket is the mechanism being invented, not the heuristic misfiring.
+- [The walking skeleton, first slice](../compiler/README.md) — **built 2026-08-13, and the premise
+  that delayed it was stale.** The fog said the slice "cannot be phrased sharply until the language
+  surface exists"; that was written at charting, before any of the twenty-three resolutions, and it
+  is true only of the *whole* surface. A slice touching **only closed decisions** existed and was
+  invisible because nobody re-tested the claim. `.bs` in, callable `.beam` out: lex → parse →
+  exhaustiveness check → abstract format → `erlc +from_abstr`. **Host is Erlang** — `leex` and
+  `yecc` ship with OTP, and `merl`'s `?Q` quasi-quoting rides on a parse transform Elixir cannot
+  use, so ticket 13's freeing of the host language was exercised rather than merely enjoyed.
+  In: 01/04/08's multi-clause heads under a mandatory signature, 09/10's atoms and structural
+  unions, **20's exact-union algebra and real integer intervals**, 08's guards-as-type-operations,
+  12's failure arm, 13's Abstract Format with an emitted `-spec`. Out on purpose: records, generic
+  syntax, modules, imports, FFI, OTP behaviours, refinements, binaries. **Ticket 01's hand-verified
+  finding is now produced by a compiler** — four beam-sharp clauses, four native Erlang clause
+  heads, guard firing, and a *precise* spec (`{ok, integer()} | {error, atom()}`), not a widened
+  one. **Two of the eleven skeleton debts are discharged** (see the two struck-through entries
+  below), and **two bugs were found by tests, one of them a soundness bug**: an uncreditable guard
+  was subtracting its whole pattern, so `F(n) when Weird(n)` reported exhaustive — ticket 08's
+  "credits nothing" must mean the clause contributes *nothing*, and `Certain`/`Possible` are now
+  separate bounds. The other grew a lower bound from nothing on disjoint range subtraction
+  (`{64,64} \ {32,32}` gave `{33,64}`), which breaks the one property ticket 20 exists to
+  guarantee. **Names are emitted losslessly and quoted** (`'Readings':'Classify'`) — provisional,
+  and deliberately the option that pre-empts the modules fog least.
+
+- [What the language owes an agent that writes it](issues/23-what-the-language-owes-an-agent.md) —
+  **the ticket's premise was wrong in the language's favour**: the platform already has three
+  diagnostic channels and beam-sharp inherits all of them, measured in
+  [`23a`](prototypes/23a_otp_diagnostic_channels.sh) — `compile:file/2`'s
+  `{Location, Module, Descriptor}` with prose derived by `format_error/1`, the `abstract_code`
+  chunk carrying the emitted forms verbatim, and `error_info` carrying a structured `cause` at
+  runtime since OTP 24. **So Elm's port failure was never inevitable.** What *is* attested is the
+  failure mode: **`erlc` publishes none of its own structured form** — no flag recovers it — so the
+  platform builds the value and destroys it exactly where the consumer stands. **The term is the
+  diagnostic and the prose is a pure function of it**, published at the CLI, with JSON as a second
+  encoding reusing 16 §4's owed serialisation mapping (`json` ships in stdlib and **refuses
+  tuples**, which is what these diagnostics are made of). **The compiler synthesises the clause
+  head and never the body** — a head is derived from the residual and cannot be wrong, a body is a
+  guess — and **where the residual is not guard-expressible it says so and offers nothing**, which
+  is exactly ticket 20's opaque tier. **Only a named subset is contractual** (`inexhaustive`,
+  `defended`, `unreachable_clause`), the test being *does it hand the agent something to write*;
+  payloads are **maps not tuples** so additive change cannot break a matcher. That is narrower than
+  OTP, which documents the envelope and leaves the descriptor opaque — a position that works for
+  `{unbound_var,'Y'}` and fails for a residual. **18's boundary question is answered on that same
+  channel**, its objection dissolved rather than overruled. **A stub is legal**: its residual is the
+  whole declared type, so refusing to compile withholds the most informative diagnostic the language
+  has, and `no_clauses` stops being a special case. **The generator smuggles in no crash policy**,
+  and emits a *named* stub type rather than `term` because a `term` return decays invisibly.
+  **Blast radius is complete within the compilation unit** — free, because 13 made the directory the
+  module — and silent beyond it. Two rules did work here rather than decorating: `error_info` is
+  attached **only to compiler-generated code**, because that is where a reviewer has no source
+  (11's counterweight, answered), and *read cost keeps full weight* **changed an answer** — three
+  markers per scaffolded operation became one, with the compiler enumerating the holes, since an
+  unwritten clause is a residual it can compute. One line of skeleton prose was cut in the session
+  as a worked instance: *"the residual is the clause you must write"* narrated the mechanism where
+  the two lines above it stated the fact. **Scope clarification, general (David)**: the map's
+  out-of-scope *tooling* entry rules out the **ecosystem track**, not any capability that happens to
+  serve tooling — a `bsc --api` query mode is in.
+
+- [The testing story](issues/24-testing-story.md) — **exhaustiveness converts coverage tests into
+  value tests; it does not reduce their number**, because 23's clause synthesis adds guessed bodies
+  at the same rate it removes coverage questions. Four categories genuinely retire, and 27 §2's is
+  the one to notice: opaque type variables make **one ground instantiation evidence about all of
+  them**. The unit is the **client API against a running process** — the OTP callback is the most
+  compiler-owned function in the language, so testing it directly tests the compiler — and the
+  boundary is **published by `bsc --api` with the behaviour contract as discriminator**, needing no
+  visibility feature and so not waiting on 22. **Ticket 04's "sampled counter-value" is retracted**:
+  measured, every CDuce sample is a *type*, never an inhabitant, so no generator is inherited and
+  the language publishes the residual instead — 09's contractivity turns out to be what would make
+  one terminate. Measured too: `sys:get_state` buys **no** determinism a client-API call does not,
+  and a cross-process cast passes 200/200 on scheduling bias, flipping to 0/200 with a 20 ms head
+  start — hence *every async operation owes a synchronous observation in the same client API*.
+  §2, §5 and the compiler's published **elisions** consolidate into one **boundary manifest**.
+  Tests are ordinary beam-sharp, no exemption. Closes 14's catch-all question with a **no**: cause
+  the real event and the boundary test catches a mis-shaped clause.
+
+- [Data modelling: records, and what named types erase to](issues/26-data-modelling.md) — **a record
+  erases to a map, and `record` is sugar for a minted tag — but everything stays structural.**
+  `type X = { ... }` remains the alias ticket 09 settled; a second form desugars to a `type` whose
+  field set carries a discriminating tag minted from the type's *qualified* name. **The name enters
+  the term, as data, never the type algebra** — the test that proves it is not nominality is that a
+  hand-written `type` with the same tag *is* the same type, which is also why codegen (15's
+  `ValidationError`, 18's foreign declarations, `ValidateAs<T>`) needs no privileged constructor.
+  **This amends 09's inventory and not its reasoning**: union closure, negation, the boundary and
+  exhaustiveness all survive, where real nominality would have cost all four. **David forced it on
+  DDD identity** — under 09 as written, `Order` and `Invoice` over identical fields are one type, so
+  `Update(Order o)` accepts an `Invoice` and `Order | Invoice` is not a union of two things; a
+  hand-written tag fixes that but is *omittable*, and an omitted tag unifies two aggregates in
+  silence. **Elixir is measured into this position rather than cited**: `Module.Types.Descr` types a
+  struct as an **open map over an atom singleton** with no nominal construct anywhere, identical
+  fields with different tags come back disjoint, and struct exactness is a compile-time courtesy the
+  term model does not carry (`Map.put` widens one and it still satisfies `is_struct/2`). **The number
+  ticket 18 asserted is now measured and lands the good way**: the map discriminator is +29 B against
+  the tuple's +13 B, but a *tagged* map is **+14 B and flat in field count**, because `map_get/2`
+  fails a guard silently on an absent key — so **the DDD requirement and the cheapest possible
+  boundary guard want the same thing**. Guard content follows 18's own rule with no new one: tag test
+  always, presence and value tests per 18 §1, exact-set test only where a codegen obligation consumes
+  the record. Surface: **`with` alone, spread refused** — spread's defining capability is widening,
+  which 27 §7 closed, and a non-widening spread is `with` with a second spelling, so **27 §7's debt
+  is paid rather than reopened**; **construction names the type** (`Order { Id = "A-1" }`),
+  target-typing refused on read cost; **the separator is `=` where declarations and patterns use
+  `:`** — C#'s own split, forced independently because `Status: :placed` puts two colons adjacent;
+  **the dot projects**, disambiguated *lexically* by casing rather than by type (`o.Status` vs
+  `List.Map`), legal over a union where every member carries the field and **free there only because
+  §1 chose maps** — a tuple erasure would have needed real dispatch. **No absent fields**: every
+  declared field is always present, optionality is `option<T>`, and `?` is refused because *k*
+  optional fields denote **2^k shapes** for a guard 18 emits everywhere — with the modelling
+  consequence being the point, since an optional field is usually two record types wearing one name
+  and §1 just made that cheap. Sharpest downstream consequence: **ticket 25 is unblocked in
+  practice**, four of its six exemplars having waited on exactly these constructs.
+
+- [Angle brackets versus less-than](issues/28-generic-bracket-parsing.md) — **the second bullet
+  collapsed the ticket, and its own motivating premise is measured false.** Explicit instantiation
+  *is* needed, on **exactly three names** — `ValidateAs`, `ParseAtom`, `ToExistingAtom` — because a
+  codegen obligation's type argument appears **only in the return type**, which is the one thing
+  matching cannot recover. Everywhere else instantiation is recoverable, so **user code never writes
+  a type argument**, and the rule is one line: **`<` opens a bracket after a compiler-known
+  codegen-obligation name and is comparison everywhere else** — a *lexer* rule on a closed set, with
+  no lookahead, no backtracking and no turbofish. That forces the rule 27 implied and never wrote:
+  **every type variable in a user signature must appear in at least one parameter position**, which
+  is the condition under which *"matching, not solving"* is a true sentence. **C#'s rule was
+  measured, not cited** (dotnet 9.0.306): a follow-token test that is correct in both directions —
+  `CS0019` for a bare identifier after `>`, `CS0118` for `(` — and it is **not LALR(1)-expressible**,
+  since the decision point sits after an unbounded suffix while `yecc` must commit at the `<`. So
+  this is a **tier-3 divergence with a stated reason**, and it is unobservable: the two rules agree
+  on the case that occurs and differ only on a form beam-sharp cannot express. **Guards are exempt
+  and the exemption falls out rather than being written** — 08 and 11 between them keep every type
+  out of a guard, so nothing is there for a bracket to attach to. Two things the platform had
+  already given free, neither chosen for this purpose: **`a < b > c` is a syntax error today**
+  (`Nonassoc 300`, in the skeleton's operator table for readability), which removes the C++ chained
+  case entirely; and **no `>>` operator exists**, so `list<list<int>>` parses — though ticket 20's
+  binary grammar needs `>>` as a *delimiter*, so that half is **owed a re-check when binaries land**.
+  The loose end is closed: **`[h, ..t]` adopted in both pattern and construction position**, tier-1 C#
+  collection expressions, and free against ticket 26's projection dot outright. Against float
+  literals it is **earned rather than free**: **`1..5` lexes as `1 .. 5` and not `1.` `.5`** *because*
+  the float rule demands digits on both sides of its dot — the skeleton has no float literal at all,
+  so this is a **constraint `..` imposes on whoever settles them** (Erlang draws the same line, so it
+  is cheap), and `..` staying unclaimed as a range spelling for 20's intervals rides on it.
+  Sharpest downstream consequence:
+  **27's stratum-2 rule gains a second job** — *"a codegen obligation requires a ground type
+  argument"* was a typing rule and is now **the parser's disambiguator**, so the compiler-known set is
+  load-bearing in the grammar, and **stratum 2's membership is fixed at lex time**.
+  **Built 2026-08-14 as [F6](../compiler/features/F6-angle-brackets.md)** — the *type-position* half
+  only, 124 tests up from 109. `result<T, E>`, `option<T>`, nesting, and user-declared
+  `type Pair<T>`, all by **substitution**: the variable is gone before the algebra sees it, so the
+  bracket added no node to `bs_types` and nothing to the emitted code. **The value-position rule was
+  not written and did not need to be** — with `ValidateAs`/`ParseAtom`/`ToExistingAtom` unbuilt the
+  closed set is *empty*, so `<` is comparison unconditionally, and F6 pins that against the **real**
+  grammar where 28a measured a patched copy. `list<list<int>>` now has a test, which is where the
+  owed `>>` re-check will trip. Ticket 27's §(c) — polymorphic function *signatures*, which are
+  **matching and not substitution** — was cut on the ticket's own *"the costs are asymmetric and
+  they do not chain"*, with three measurements behind it (`Map` needs an arrow type the algebra
+  lacks; no exemplar declares one; matching a variable **inside a union** is undecided)
+  → [ticket 37](issues/37-instantiation-by-matching.md). **The hazard F6 found was not a rejection,
+  it was a hang**: a cyclic alias did not error on master, it spun — invisible to a green suite, and
+  reachable for the first time because a parameter is what makes `type Tree<T>` natural to write.
+  Guarded, and the control is a stopwatch (0.093s versus no output at all) because a test that never
+  returns is not a failing test.
+
+- [The FFI surface](issues/32-ffi-surface.md) — **a foreign function is declared, and the
+  declaration carries both spellings.** Settled by David reading the three shapes written out as
+  ordinary code ([`32e`](prototypes/32e-ffi-on-the-page.md)) — *"A clearly reads better"* — which is
+  **the standing constraint reaching its own conclusion**: declaring up front is write cost, priced
+  near-free, and narrowing a `term` at each use is read cost, which carries full weight. Elixir's
+  zero-ceremony shape loses on a cost that is **regressive**, nearly free on values you were going to
+  validate anyway and most annoying on `system_time`/`byte_size`/`length`. The answer was derivable
+  before any measurement and nobody derived it. **The declaration binds the module**
+  (`[external: erlang, "ets"] module Ets { list<term> Lookup(atom, term); }` → `Ets.Lookup(t, k)`),
+  which is *not* per-module import — each function keeps its own signature and its single arity;
+  only the name binding is per module, and that is the part with no arity to select. **Fork 1
+  dissolved rather than being decided**: this shares its grammar with 23 §7's stub and nothing else,
+  because the markers mean opposites — a stub is *unfinished* and **must** trip a release-gate text
+  search, a foreign declaration is *finished elsewhere* and must not — so **32 decides no part of
+  deferred ticket 22**. **There is no snake_case⇄PascalCase rule anywhere in the language**, and
+  [`32b`](prototypes/32b_name_census.md) stands as the evidence for why not rather than the input to
+  one: a mapping reaches 1,920 of 1,924 stdlib+kernel names but cannot spell `'PKCS-1'`,
+  `'OTP-PKIX'` or a quarter of Elixir's function names (`fetch!`, `valid?`, `&&&`) under any rule.
+  **Exactly one arity per declaration** — measured, 45 of 756 multi-arity stdlib pairs have **gaps**
+  (`inet_udp:send/2,4` with no `/3`), so a foreign arity family is not 08's contiguous generated
+  ladder and cannot be described as it. **A third shape died on contact with the page, not with a
+  measurement**: C#'s identity-by-default needs a lowercase name, which 26's casing rule lexes as a
+  field projection. **The lowering is decided too, because §2 made the declaration a named thing with
+  a signature** — a real emitted function carrying 15's `try` and 18's guard, measured at **~60 bytes
+  once, flat, against ~65 bytes per call site if inlined** ([`32d`](prototypes/32d_where_boundary_code_lives.md),
+  43× apart at 40 call sites). **Gleam emits a wrapper where the *module's API* needs one and never
+  where the boundary does** — a public external never called still gets a function and a `-spec`; a
+  private one that *is* called is erased ([`32a`](prototypes/32a_gleam_external.md)) — affordable only
+  because it checks nothing. So: **borrow Gleam's syntax, refuse its semantics (18), refuse its
+  lowering (here).** **A correction the ticket owes the spec**: it framed unchecked FFI as Gleam's
+  flaw against a clean C# borrow, and measured, **`extern` is unchecked too** — two C# names over one
+  symbol with different declared return types both ran ([`32c`](prototypes/32c_csharp_foreign_declaration.md))
+  — so 18's guard diverges from **both** audiences, compensated by the fact that beam-sharp emits the
+  `-spec` Gleam emits and **unlike Gleam's it is not a lie**. Sharpest downstream consequence:
+  **bootstrapping axis (b) is closed and (c) is unblocked** — but `use GenServer` can never cross,
+  because Elixir exports macros as `MACRO-`-prefixed functions that are not callable from another
+  language.
+
+- **AMENDMENT 2026-08-14 to [ticket 16](issues/16-ad-hoc-polymorphism.md) — one of its two reasons
+  for refusing protocols was invalidated by ticket 26 and nobody went back.** David, stating 26's
+  intent: *"Exactly records, that's why they were introduced alongside `type` — for protocol
+  dispatch."* 16 refused protocols because **dispatch cannot key on a name that is not in the term**
+  (09 §5) *and* because open extension needs whole-program consolidation (13). **26 §1 put the name
+  in the term** — a minted tag, as data — so the first reason is gone and only the second stands.
+  **The refusal narrows from "no protocols" to "no *open* protocols".** What 16 wrote up as "bucket 2
+  with ceremony" — a union parameter with a clause each — **is** protocol dispatch once the tag is in
+  the term, checked exhaustive at the definition, and needs no construct because the language's
+  headline feature already is the dispatch construct. What remains refused is a second aggregate
+  adding a case without editing the first, which is **13's constraint, so 13 is the ticket that would
+  have to give**. 16's headline survives and reads stronger: the capability arrives *without* an
+  ad-hoc polymorphism construct. Note for the record — **26 was not a data-modelling decision that
+  happened to help here; records were introduced for this**, and 26's own entry does not say so.
+
+- [Local bindings](issues/34-local-bindings.md) — **the language has them, and their absence was an
+  accident rather than a position.** Raised and resolved 2026-08-14 by David typing
+  `o = Order{Id = 1, Total = 500}` at the REPL one minute after records shipped. Twenty-four tickets
+  had settled the type system, the error model, dispatch, pipelines and records **without anyone
+  writing down whether you can name a value** — a grep for it across every ticket, this map and
+  `CONTEXT.md` returned nothing. A body is now **zero or more bindings followed by one expression**,
+  so a body is still an expression with names in front of it; **bindings do not shadow**, since
+  there is no mutation to assign with and 08's *narrowing is always written* extends to names.
+  **The methodological lesson is the part worth keeping**: this ticket's headline evidence was
+  *"zero binding-shaped lines across 25a and 25c"*, which measures **nobody trying, not nobody
+  wanting** — those exemplars were written by agents inside a language that had no bindings. *A
+  measurement taken inside a constraint cannot test the constraint*, and the map should treat
+  exemplar silence as weak evidence wherever the exemplars were written by the same process that
+  set the constraint. Two smaller corrections, both recorded on the ticket: the lowering was
+  claimed to need a `case`/`begin` block and needs **neither** — an Erlang clause body is already a
+  sequence and `{match, …}` an ordinary form, so the body stays a flat list and the last expression
+  stays in **tail position**. **Destructuring binds are deferred to
+  [ticket 33](issues/33-body-check-site.md), not refused** — `(a, b) = pair` can fail, which is a
+  branch exhaustiveness never sees, and the map already has the machinery to make it *provably
+  irrefutable* (`subtract(TypeOfExpr, TypeOfPattern)` empty) as soon as a body is typed. **That is
+  the second capability 33 gates**, after F3's three. Sharpest downstream consequence: a scope pass
+  now **walks a body**, and the line against 33 must stay sharp — **33 is about whether a body is
+  *typed***, and rebinding, shadowing and unbound-name checks ask no type question at all.
+
+- [The body check site](issues/33-body-check-site.md) — **a body is typed; synthesis is total and
+  there was never a cheaper option; checking is containment at five sites; and the residual
+  survives at four of them.** Resolved 2026-08-14, three hours after being raised, and **two of its
+  own premises had already gone stale in that time** — F4's scope pass made *"`bs_check` never
+  visits a function body"* false at 16:12, and the Question's expression inventory was short by
+  eight forms. **That is the map's third stale premise**, after the walking skeleton's *"cannot be
+  phrased sharply"* and the boundary manifest's *"no exemplars exist"*, and all three were **raised
+  before a build and read after one**; the rule extracted is that re-measuring a feature-raised
+  ticket's Question is the *first* step of resolving it. **The ticket's cheap/general fork
+  dissolves**: checking a call argument requires typing an arbitrary expression, because the
+  argument position is not a smaller grammar — so the "cheap" option is eleven-twelfths of the
+  general one with a different name. What the fork was really hiding is a split the ticket never
+  made: **synthesis** (every expression gets a type — total, twelve clauses, every non-structural
+  one reading a type another file *declared*, which is 04's mandatory signature paying for a second
+  thing) versus **obligation** (where containment is checked). The obligation sites are the
+  enumeration of the places this language writes a type down: **call argument, construction,
+  projection, clause return, destructuring bind** — five, with no sixth because `e_op`, `e_tuple`,
+  `e_list` and `e_block` declare nothing. Two of those were not in the ticket's table: **the return
+  check is forced by 18's own criticism of Gleam** (13 emits a `-spec` for every function, and
+  without it beam-sharp publishes an unverified claim from its own bodies exactly as Gleam does
+  from its FFI), and **site 5 is 34's deferred destructuring bind**. **Sub-question 3 was settled by
+  running the algebra rather than by argument, and its assumption was wrong**: `subtract/2` +
+  `to_pattern/1` — the two functions that already print 04's residual — return
+  `{ Kind: :'Shop.Invoice' }` at a call site and `{ Kind: :'Shop.Note' }` at a projection, so **the
+  call-site residual is the clause the caller must write** and **the projection residual is
+  literally the member lacking the field**, which is F3.8's deferred sentence needing no machinery.
+  So 23's cost never falls due and the language gains no empty-handed diagnostic. **Construction is
+  the one exception and is recorded as one**: two closed maps over different key sets are disjoint,
+  so the residual names the type you were building rather than the field you forgot — containment
+  still catches it in both directions (measured: neither a short record nor a wide one is a
+  subtype), and the diagnostic takes a **field-name difference** instead. **The finding a builder
+  must not get backwards**: a body variable's type is read off the clause's refined domain at the
+  path `pattern_type/3` already records, *not* off its pattern — a bare `p_var` is `term`, so
+  without the intersection every argument fails every call site — and it must intersect
+  **`Possible`, never `Certain`**, since an untranslatable guard makes `Certain` `none` and would
+  type a running body's variable as a value that cannot exist. `walk/5` already computes that
+  domain (running residual ∩ `Possible`) and discards it, so **the body check is not a second pass
+  and an earlier clause narrows a later body for free** — 08's *narrowing is always written* falling
+  out with nothing written. **Measured, because the two halves of that intersection do the work in
+  different clauses**: over `F(0) -> …` / `F(n) -> …`, clause 1's body gets `(0)` from the *pattern*
+  and clause 2's gets `(int <= -1 | int >= 1)` from the *residual*, where intersecting the declared
+  type with the pattern alone leaves clause 2 a bare `(int)`. **Ticket 32 dissolved sub-question 2 exactly as predicted** (a foreign
+  callee has a declared signature; how far it is trusted was decided by 18 §2), leaving one
+  mechanical delta: `collect/1` excludes foreign declarations by design, and a callee environment
+  needs both kinds. **Sub-question 4 answers *nothing changes in the emitted code*** — 18's guards
+  sit at entries, the analysis is function-local (18 §4), and 21 rules out ruling out a foreign
+  caller, so no proof about a body discharges an obligation about a caller; 18's *elision is
+  exported-vs-local* closes the last route. **This is therefore the first checking capability in
+  the language that is purely a frontend concern**, where every previous one arrived as a codegen
+  obligation. Nothing new is needed in `bs_types`. **BUILT the same day as
+  [F5](../compiler/features/F5-body-check-site.md)** — all five sites, 106 tests up from 79, and
+  F3's three reserved scenarios now asserted rather than reserved. The delta held and the site
+  enumeration was complete; **what the ticket could not have found is that a list element has no
+  address**, so reading a body variable off the domain answers `term` for it and rejects
+  `examples/fib.bs` — reverting that fix turns 7 of 106 tests red. Measuring *where a check runs*
+  cannot surface a question about *whether the checker can address the value it is checking*, which
+  is a different axis from the one this ticket was framed on. Both of §5's traps were confirmed by
+  **mutating the source rather than by a green suite**: built with `Certain`, the compiler goes
+  quieter rather than broken (1 test red), which is why the scenario has to assert an error a wrong
+  build **omits**. F5 shipped one hole named rather than discovered — a field's assigned **value**
+  is unchecked at construction and at `with` alike, because §2's relation is the field *set* and §1's
+  principle says otherwise → [ticket 36](issues/36-field-value-obligations.md).
+

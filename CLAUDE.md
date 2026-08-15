@@ -13,7 +13,8 @@ exhaustiveness**.
 
 | What | Where | Canonical for |
 |---|---|---|
-| Map | [ENG-165](https://linear.app/davewil/issue/ENG-165) · `wayfinder/map.md` | Linear: status. Repo: the full body |
+| Map (index) | [ENG-165](https://linear.app/davewil/issue/ENG-165) · `wayfinder/map.md` | Linear: status. Repo: destination, working notes, and a tagged index of every entry |
+| Map (bodies) | `wayfinder/decisions.md`, `fog.md`, `scope.md` | Repo only. Split out 2026-08-15 when the map hit 1,564 lines; the index links to each |
 | Tickets | ENG-166 … ENG-194 · `wayfinder/issues/NN-<slug>.md` | **Linear**: status, blocking, assignment, frontier. **Repo**: the question, the answer, all cross-references |
 | Research findings | `wayfinder/research/NN-<slug>.md` | Repo only (~380KB; issues link to them) |
 | Prototypes | `wayfinder/prototypes/` | Repo only |
@@ -39,7 +40,13 @@ issue's state and paste the gist into its description. Both, not one.
 Project: <https://linear.app/davewil/project/beam-sharp-design-map-bfc1fc086d36>
 
 Start every session by reading `wayfinder/map.md` — it is the low-resolution view of the
-whole effort. Do not read every ticket; zoom into individual tickets on demand.
+whole effort, and since 2026-08-15 it is **only** that: ~280 lines of destination, working notes
+and a tagged index. Do not read every ticket; zoom in on demand.
+
+**Zooming in has two steps now.** Each index entry carries its ticket number and topic tags, so
+grep the map first (`grep -n 'records' wayfinder/map.md`), then grep the body file the entry names
+(`grep -n 'Data modelling' wayfinder/decisions.md`), and only then open the ticket in `issues/`.
+Reading a whole body file is almost never necessary and costs 400–800 lines.
 
 ## Working rules
 
