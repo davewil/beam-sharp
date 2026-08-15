@@ -3,7 +3,7 @@
 **Status**      **blocked** — two decisions owed, see [below](#two-decisions-this-feature-needs-before-it-can-be-built)
 **Implements**  tickets 20 §5, 12 §2, 04 — decides nothing
 **Unblocks**    `bs_emit:int_part/1`'s bounded branches; wire dispatch in 25b and 25c
-**Depends on**  F1, and on tickets 42 and 43
+**Depends on**  F1; tickets 43 and 44 still open, 42 answered 2026-08-15
 
 **The header said `not started` until 2026-08-15 while the README's table said `blocked`.** Two
 files disagreed about whether this feature was takeable, and the table was the one that was right —
@@ -71,20 +71,28 @@ Input:
 ```csharp
 FrameType Classify(Octet)
 
-Classify(1)      -> :method
-Classify(2)      -> :header
-Classify(3)      -> :body
-Classify(8)      -> :heartbeat
-Classify(4..7)   -> :reserved
-Classify(0)      -> :reserved
-Classify(9..255) -> :reserved
+Classify(1)              -> :method
+Classify(2)              -> :header
+Classify(3)              -> :body
+Classify(8)              -> :heartbeat
+Classify(0)              -> :reserved
+Classify(>= 4 and <= 7)  -> :reserved
+Classify(>= 9)           -> :reserved
 ```
 
-Expect: exhaustive, exit `0`. **The spelling `4..7` is not settled** — ticket 28 §5 measured that
-`..` lexes ahead of `.` and imposes the float-literal rule (`1.0` yes, `1.` no), so the token is
-available, but whether an interval *pattern* is spelled `4..7`, `n when n in 4..7`, or by naming a
-refined type is a **decision, not a feature**. Raise a ticket before writing this scenario's
-implementation.
+Expect: exhaustive, exit `0`, emitting `classify(N) when N >= 4, N =< 7 -> reserved;`.
+
+**The spelling is settled — [ticket 42](../../wayfinder/issues/42-interval-pattern-spelling.md),
+resolved 2026-08-15.** It is a **relational pattern**, and `4..7` was refused. C#'s `..` builds a
+half-open slice over *indices*, is not enumerable, and in pattern position already means "the rest"
+— which this language took in 28 §5 and runs today as `Reverse([x, ..rest], acc)`. So the range
+spelling was never the tier-1 borrow it looked like, and the inclusive/half-open question it seemed
+to pose does not exist.
+
+**This scenario gained a sibling obligation.** F7 recorded `{ Total: > 100 }` as *"a C# relational
+pattern, which this grammar does not have"*; this is that construct. Whether it nests inside record
+patterns immediately is a **scope call for this feature**, not a further decision — see Out of
+scope.
 
 ### F2.4 — the residual stays legible at width
 
@@ -110,17 +118,32 @@ raises). Guard refinements only, here.
 Also out: `string`'s UTF-8 refinement, which is the compiler-known opaque one and belongs with
 binaries (F6).
 
+**Relational patterns nested inside record patterns are OUT, and this is a scope call rather than a
+decision.** Ticket 42 supplies the construct F7 wanted for `{ Total: > 100, Status: :open }`, and it
+is tempting to take both positions at once. F2 ships it in the **parameter position only** — a
+relational pattern where a whole argument goes. Nesting it inside a record pattern multiplies the
+check sites F5 enumerated and is not needed by any exemplar, so it is a later feature that will cost
+one grammar rule and no new theory. Recorded here so the omission reads as chosen rather than
+forgotten.
+
 ## Two decisions this feature needs before it can be built
 
 Both are tickets, not features. **This file should not be implemented until they are answered** —
 recorded here so the coupling is not discovered mid-build:
 
-1. **The spelling of an interval pattern** (F2.3) →
-   [ticket 42](../../wayfinder/issues/42-interval-pattern-spelling.md) ·
+1. ~~**The spelling of an interval pattern** (F2.3)~~ → **ANSWERED 2026-08-15**, a relational
+   pattern: [ticket 42](../../wayfinder/issues/42-interval-pattern-spelling.md) ·
    [ENG-212](https://linear.app/davewil/issue/ENG-212)
 2. **The residual's summarised form at width** (F2.4) →
    [ticket 43](../../wayfinder/issues/43-residual-summarised-form.md) ·
-   [ENG-213](https://linear.app/davewil/issue/ENG-213)
+   [ENG-213](https://linear.app/davewil/issue/ENG-213) — **still open**
+3. **And a third arrived with the first one's answer.** The pattern combinator is `and`/`or`; ticket
+   42 left open whether *guards* follow, and this feature's own F2.1 writes a refinement predicate
+   with `&&` (`where value >= 0 && value <= 255`). If
+   [ticket 44](../../wayfinder/issues/44-conjunction-spelling.md) ·
+   [ENG-215](https://linear.app/davewil/issue/ENG-215) flips that spelling, every scenario here
+   changes with it — so it blocks this feature too, and settling it before the build is strictly
+   cheaper than after.
 
 **Raised 2026-08-15, and they should have been raised when this file was written.** F2.3 already
 said *"raise a ticket before writing this scenario's implementation"* and F2.4 said *"also a ticket,

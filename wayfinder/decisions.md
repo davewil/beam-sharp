@@ -894,3 +894,53 @@
   build-layout question and 23 §10 an API-surface question; 26 makes it a *type* question.
 
   </details>
+
+- **A span in a clause head is a relational pattern** — [ticket 42](issues/42-interval-pattern-spelling.md),
+  resolved 2026-08-15. Raised by F2, which could not ship interval refinements without a way to name
+  a span: once `type Octet = int where value >= 0 && value <= 255` lands, ticket 12 §2 turns every
+  wire dispatch's residual from open to **closed**, and the `_` that used to discharge it becomes an
+  error. So this was forced, not cosmetic.
+
+  **The ticket asked the wrong question and measuring dissolved it.** It asked whether `4..7` should
+  be inclusive (Elixir) or half-open (C#). Probed on dotnet 9.0.306
+  ([`42a`](prototypes/42a_csharp_range_probe/Program.cs)): `a[4..7]` is `[4, 5, 6]`, the `Range`
+  reports `.End = 7` with length 3, and `foreach (var v in 4..7)` **does not compile** —
+  `CS1579: 'Range' does not contain a public definition for 'GetEnumerator'`. A `System.Range` is a
+  slice specification over *indices*; `GetOffsetAndLength` needs a collection length before it means
+  anything. It contains no integers, so "does it include 7" is a question the construct cannot
+  answer. **C#'s numeric-span construct is the relational pattern**, inclusive at both ends — and in
+  *pattern* position C#'s `..` already means "the rest" (`[var first, .. var rest]`), which is what
+  28 §5 took and `fib.bs` runs today as `Reverse([x, ..rest], acc)`.
+
+  **So `4..7` was never a tier-1 borrow — it was tier 3 wearing tier 1's clothes**, and taking it
+  would have put one token on two unrelated jobs in the same position.
+
+  **The heuristic gains a line, and this is the part that outlives the ticket:**
+
+  > **Borrow the construct, or don't borrow the glyph.** Where C# has the symbol but not the
+  > construct, taking the symbol buys no familiarity and costs a false friend.
+
+  The condition is *not* "C# lacks this construct" — `|>` and `->` are absent from C# and confuse
+  nobody — but **"C# has this glyph, meaning something adjacent"**. `as` (map Notes) was the first
+  instance and was handled ad hoc; `..` is the second, which is enough of a pattern to make it a
+  check before adopting a spelling rather than a discovery after. It also sharpens the map's own
+  test: *reads on sight versus must be taught* cannot see this case, because `4..7` reads on sight
+  and reads **wrong**. A glyph borrowed without its semantics converts "I must be taught this",
+  paid once, into "I read this fluently and wrongly", never paid at all.
+
+  **Compiler delta:** no new token; a relational pattern form plus `and`/`or` combinators; each
+  relational lowers to an interval the algebra already carries, with `and` as intersection and `or`
+  as union; the emitter is unchanged (`when N >= 4, N =< 7`). It **pays a debt** — F7 recorded
+  `{ Total: > 100 }` as *"a C# relational pattern, which this grammar does not have"* — and it
+  **improves ticket 23 §2**, whose measured complaint was the skeleton rendering `Classify(int <= -1)`
+  where the real head was `Classify(n) when n <= -1`. An interval residual now synthesises as
+  `Classify(<= -1)`: a pattern, with no binder and no guard, shorter than 23 anticipated.
+
+  **28 §5's float-literal obligation is retained but is now unreachable.** `..` stays in the grammar
+  for list rest, where it is always preceded by a comma, so no valid program juxtaposes an integer
+  literal with it. Keep the both-sides-digits rule anyway — it matches Erlang and costs nothing.
+
+  **What it opened.** The pattern combinator is `and`/`or`, taken with the construct; whether
+  *guards* follow is [ticket 44](issues/44-conjunction-spelling.md), amending ticket 08 —
+  David: *"For ticket 8, I think with more info, and/or would probably sit better"*. F2 loses one
+  blocker and remains blocked on [ticket 43](issues/43-residual-summarised-form.md).

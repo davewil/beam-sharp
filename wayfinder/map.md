@@ -269,6 +269,9 @@ Bodies in [`decisions.md`](decisions.md). Ticket text in `issues/`.
 - **Behaviour callback names** `#35` `otp` `codegen` `built:F10`
   a compiler-known table, contract-scoped and keyed by name *and* arity; the name changes, no
   wrapper, and a behaviour without its mandatory callbacks is an error at the declaration
+- **A span in a clause head is a relational pattern** `#42` `syntax` `patterns` `types`
+  `4..7` refused — C#'s `..` is a half-open *index* slice that already means "the rest" in pattern
+  position. Spans are `>= 4 and <= 7`; borrow the construct, or don't borrow the glyph
 
 ---
 

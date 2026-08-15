@@ -75,7 +75,7 @@ Erlang back to the decision that required it is one grep.
 | Feature | Status | Unblocks |
 |---|---|---|
 | [F1 — walking skeleton](F1-walking-skeleton.md) | **done** | the baseline; `examples/*.bs` |
-| [F2 — interval refinements and interval patterns](F2-interval-refinements.md) | **blocked** — [42](../../wayfinder/issues/42-interval-pattern-spelling.md), [43](../../wayfinder/issues/43-residual-summarised-form.md) | 25b, 25c wire dispatch |
+| [F2 — interval refinements and interval patterns](F2-interval-refinements.md) | **blocked** — [43](../../wayfinder/issues/43-residual-summarised-form.md), [44](../../wayfinder/issues/44-conjunction-spelling.md) ([42](../../wayfinder/issues/42-interval-pattern-spelling.md) answered) | 25b, 25c wire dispatch |
 | [F3 — records](F3-records.md) | **done 2026-08-14** | the record half of all three; `examples/shop.bs` |
 | [F4 — local bindings](F4-local-bindings.md) | **done 2026-08-14** | nothing — it removes a papercut |
 | [F5 — the body check site](F5-body-check-site.md) | **done 2026-08-14** | F3.3, F3.8, F3.10; 34's destructuring binds |
