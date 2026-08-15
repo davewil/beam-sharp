@@ -220,9 +220,17 @@ chart what you can't yet see.
 **Editor support landed outside the compiler, and asked a question this file can answer.** `editor/`
 now holds a Tree-sitter grammar plus TextMate and vim ones, with two gates
 (`editor/bin/check-tokens.sh`, `check-corpus.sh`). David asked whether an LSP should be **ticketed**
-to come back to. It should not, and the map already says why: *Tooling and ecosystem — … LSP …* sits
-under **Out of scope**, which is marked *"closed, never graduates"*. A ticket would reopen a closed
-decision, which is this file's own rule pointed the other way.
+to come back to. It is: **[ENG-205](https://linear.app/davewil/issue/ENG-205)**, and it is
+deliberately **not a map ticket** — no `wayfinder/issues/NN-*.md`, following the convention ENG-199
+already set with *"F3 (feature, not a map ticket)"*.
+
+The distinction matters and the first answer got it wrong. *Tooling and ecosystem — … LSP …* sits
+under the map's **Out of scope**, marked *"closed, never graduates"*, so the **map** must not acquire
+a ticket for it. That is a statement about the design effort, not about what may be tracked — and
+conflating the two is what produced the wrong answer (David: *"it's clearly a required thing I've
+literally just asked for. So a Linear ticket for it is surely fine, doesn't have to be on the
+/wayfinder map"*). Linear owns state for the whole of the work; the map owns the decisions. A thing
+that has been asked for needs somewhere to live even when the map is not that place.
 
 What the question does surface is that **three of an LSP's four prerequisites are already decided and
 simply unbuilt**, which makes them features. Ticket 23's clarification is the test — *"is this the
