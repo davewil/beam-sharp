@@ -41,9 +41,9 @@ as three frames — method, content header, body — and the body is a payload s
 ## `index.bs`
 
 ```csharp
-[module: GenServer]
+behaviour GenServer
 
-type FrameType = :method | :header | :body | :heartbeat;
+type FrameType = :method | :header | :body | :heartbeat
 
 record Frame { Type: FrameType, Channel: int, Payload: binary }
 
@@ -57,11 +57,11 @@ record Delivery {
 
 record OrderPlaced { Id: string, Qty: int }
 
-type FrameError   = :incomplete | (:bad_frame_end, int) | (:unknown_frame_type, int);
-type MethodError  = (:unhandled_method, int, int) | :malformed_method;
-type ConsumeError = FrameError | MethodError | ValidationError;
+type FrameError   = :incomplete | (:bad_frame_end, int) | (:unknown_frame_type, int)
+type MethodError  = (:unhandled_method, int, int) | :malformed_method
+type ConsumeError = FrameError | MethodError | ValidationError
 
-type Disposition = :ack | :requeue | :dead_letter;
+type Disposition = :ack | :requeue | :dead_letter
 ```
 
 `ConsumeError` being a bare union of three unrelated error types is ticket 09's structural openness
@@ -74,20 +74,23 @@ exemplar and the last thing that gave any trouble.
 ## `frame.bs` — ticket 30's two gaps, in a second format
 
 ```csharp
-result<(Frame, binary), FrameError> DecodeFrame(binary);
+result<(Frame, binary), FrameError> DecodeFrame(binary)
 
-(<<1:8, ch:16, size:32, payload:size, 0xCE:8, rest>>)
-    -> (Frame { Type = :method,    Channel = ch, Payload = payload }, rest);
-(<<2:8, ch:16, size:32, payload:size, 0xCE:8, rest>>)
-    -> (Frame { Type = :header,    Channel = ch, Payload = payload }, rest);
-(<<3:8, ch:16, size:32, payload:size, 0xCE:8, rest>>)
-    -> (Frame { Type = :body,      Channel = ch, Payload = payload }, rest);
-(<<8:8, ch:16, 0:32, 0xCE:8, rest>>)
-    -> (Frame { Type = :heartbeat, Channel = ch, Payload = "" }, rest);
+DecodeFrame(<<1:8, ch:16, size:32, payload:size, 0xCE:8, rest>>)
+    -> (Frame { Type = :method,    Channel = ch, Payload = payload }, rest)
+DecodeFrame(<<2:8, ch:16, size:32, payload:size, 0xCE:8, rest>>)
+    -> (Frame { Type = :header,    Channel = ch, Payload = payload }, rest)
+DecodeFrame(<<3:8, ch:16, size:32, payload:size, 0xCE:8, rest>>)
+    -> (Frame { Type = :body,      Channel = ch, Payload = payload }, rest)
+DecodeFrame(<<8:8, ch:16, 0:32, 0xCE:8, rest>>)
+    -> (Frame { Type = :heartbeat, Channel = ch, Payload = "" }, rest)
 
-(<<t:8, _:16, size:32, _:size, bad:8, _>>) when bad != 0xCE -> (:error, (:bad_frame_end, t, bad));
-(<<t:8, _>>) when t != 1 && t != 2 && t != 3 && t != 8      -> (:error, (:unknown_frame_type, t));
-(_)                                                          -> (:error, :incomplete);
+DecodeFrame(<<t:8, _:16, size:32, _:size, bad:8, _>>) when bad != 0xCE
+    -> (:error, (:bad_frame_end, t, bad))
+DecodeFrame(<<t:8, _>>) when t != 1 && t != 2 && t != 3 && t != 8
+    -> (:error, (:unknown_frame_type, t))
+DecodeFrame(_)
+    -> (:error, :incomplete)
 ```
 
 **Both of ticket 30's gaps are here, and the first one appears twice.** `payload:size` is a segment
@@ -96,9 +99,9 @@ are literals, so this shape is not in the type language at all. It then recurs *
 AMQP's `shortstr` is a length octet followed by that many bytes:
 
 ```csharp
-(binary, binary) ShortStr(binary);
+(binary, binary) ShortStr(binary)
 
-(<<len:8, s:len, rest>>) -> (s, rest);
+ShortStr(<<len:8, s:len, rest>>) -> (s, rest)
 ```
 
 `ShortStr` is four tokens of pattern and the entire content of the gap. A `basic.deliver`'s
@@ -129,12 +132,12 @@ is the check that matters most.
 ## `method.bs` — and the measurement that changes 25b's headline
 
 ```csharp
-result<Delivery, MethodError> DecodeMethod(binary);
+result<Delivery, MethodError> DecodeMethod(binary)
 
-(<<60:16, 60:16, args>>) -> DecodeDeliver(args);
-(<<60:16, 80:16, _>>)    -> (:error, :unexpected_ack);
-(<<c:16, m:16, _>>)      -> (:error, (:unhandled_method, c, m));
-(_)                      -> (:error, :malformed_method);
+DecodeMethod(<<60:16, 60:16, args>>) -> DecodeDeliver(args)
+DecodeMethod(<<60:16, 80:16, _>>)    -> (:error, :unexpected_ack)
+DecodeMethod(<<c:16, m:16, _>>)      -> (:error, (:unhandled_method, c, m))
+DecodeMethod(_)                      -> (:error, :malformed_method)
 ```
 
 [`25b`](25b-websocket-handler.md) reported that ticket 12's closed-residual rule cost **eleven
@@ -224,11 +227,11 @@ the method, find the body, validate the payload — so it is a stronger test tha
 Written the way ticket 17 §4 wants it:
 
 ```csharp
-result<Delivery, ConsumeError> Consume(binary);
+result<Delivery, ConsumeError> Consume(binary)
 
-(raw) -> raw |?> DecodeFrame()
-             |?> DecodeMethod()
-             |?> ValidateAs<OrderPlaced>();
+Consume(raw) -> raw |?> DecodeFrame()
+                    |?> DecodeMethod()
+                    |?> ValidateAs<OrderPlaced>()
 ```
 
 **This does not work, and the reason is structural rather than cosmetic.** `DecodeFrame` returns
@@ -237,15 +240,15 @@ after that needs the rest. **A pipeline threads one value; a parser threads a va
 position.** So the valve composes stages 2→4 and cannot compose stage 1 into them:
 
 ```csharp
-result<Delivery, ConsumeError> Consume(binary);
+result<Delivery, ConsumeError> Consume(binary)
 
-(raw) -> switch (DecodeFrame(raw)) {
-    (:error, e)                     => (:error, e),
+Consume(raw) -> DecodeFrame(raw) switch {
+    (:error, e)                        => (:error, e),
     (Frame { Type = :method } f, rest) =>
         f.Payload |?> DecodeMethod()
                   |?> WithBody(rest),
-    (f, _)                          => (:error, (:want_method, f.Type))
-};
+    (f, _)                             => (:error, (:want_method, f.Type))
+}
 ```
 
 Measured, the valve short-circuits correctly at every stage it does cover:
@@ -282,15 +285,15 @@ the database and HTTP exemplars as the likeliest place. **It occurs here, at wid
 not contrived — every queue consumer on earth decides ack/requeue/dead-letter from the same inputs:
 
 ```csharp
-Disposition Decide(result<Delivery, ConsumeError> outcome, bool redelivered, int deliveries);
+Disposition Decide(result<Delivery, ConsumeError> outcome, bool redelivered, int deliveries)
 
-(o, r, n) -> (Ok(o), Permanent(o), r, n >= 5) switch {
+Decide(o, r, n) -> (Ok(o), Permanent(o), r, n >= 5) switch {
     (true,  _,     _,     _)     => :ack,
     (false, true,  _,     _)     => :dead_letter,
     (false, false, _,     true)  => :dead_letter,
     (false, false, false, false) => :requeue,
     (false, false, true,  false) => :requeue
-};
+}
 ```
 
 Measured:
@@ -322,16 +325,15 @@ So: **the shape 17 §6 was watching for exists, at width 4, and `switch` handled
 ## `encode.bs` — ticket 17 job 2, and a new limit on the pipe
 
 ```csharp
-binary EncodeAck(int deliveryTag, bool multiple);
+binary EncodeAck(int deliveryTag, bool multiple)
 
-(tag, multiple) -> {
-    payload: binary = <<60:16, 80:16, tag:64, 0:7, Bit(multiple):1>>;
-    Wrap(1, 1, payload);
-};
+EncodeAck(tag, multiple) ->
+    payload = <<60:16, 80:16, tag:64, 0:7, Bit(multiple):1>>
+    Wrap(1, 1, payload)
 
-binary Wrap(int type, int channel, binary payload);
+binary Wrap(int type, int channel, binary payload)
 
-(t, ch, p) -> <<t:8, ch:16, ByteSize(p):32, p, 0xCE:8>>;
+Wrap(t, ch, p) -> <<t:8, ch:16, ByteSize(p):32, p, 0xCE:8>>
 ```
 
 *(`Wrap` and not `Frame`: the record is already called `Frame`, and ticket 23 §10 makes colliding
@@ -360,14 +362,14 @@ here it lands on frame construction rather than on message payloads. → tickets
 ## `handle_info.bs` — ticket 14, and back-pressure makes the mailbox hole deliberate
 
 ```csharp
-(:noreply, State) HandleInfo(term, State);
+(:noreply, State) HandleInfo(term, State)
 
-((:deliver, raw), s) when s.InFlight >= s.Prefetch -> (:noreply, Defer(s, raw));
-((:deliver, raw), s)                               -> (:noreply, Handle(s, raw));
-((:settle, n), s)                                  -> (:noreply, Settle(s, n));
-(Timeout, s)                                       -> (:noreply, Reap(s));
-(other, s)                                         -> { Log.Warn("unexpected", other);
-                                                        (:noreply, s); };
+HandleInfo((:deliver, raw), s) when s.InFlight >= s.Prefetch -> (:noreply, Defer(s, raw))
+HandleInfo((:deliver, raw), s)                               -> (:noreply, Handle(s, raw))
+HandleInfo((:settle, n), s)                                  -> (:noreply, Settle(s, n))
+HandleInfo(Timeout, s)                                       -> (:noreply, Reap(s))
+HandleInfo(other, s)                                         -> { Log.Warn("unexpected", other)
+                                                                  (:noreply, s) }
 ```
 
 Measured with prefetch 2 and four deliveries:

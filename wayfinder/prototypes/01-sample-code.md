@@ -10,6 +10,14 @@
 > multi-subject `case`, which amended the differentiator in
 > [ticket 00](../issues/00-charting-decisions.md). The atom sigil (§5) and guard punctuation
 > (§2) remain open on tickets 10 and 08.
+>
+> **NOT REWRITTEN, 2026-08-15, and deliberately.** Every other beam-sharp source in this repo was
+> brought to one dialect on that date — the function name repeated on each clause, `->` for a
+> clause, `=>` reserved for a switch arm, and no `;` anywhere. **This file is the exception**,
+> because its subject *is* the spelling: §1 sets Variant A against Variant B, and rewriting B into
+> A's spelling would leave the document comparing two identical things. Read the code below as a
+> record of what was on the table in August, not as the language. `LANGUAGE.md` is the language,
+> and it is gated so it cannot drift.
 
 ---
 

@@ -53,12 +53,12 @@ Second pass: [`01b-variant-a-at-length.md`](../prototypes/01b-variant-a-at-lengt
 **Chosen: Variant A — equations under a signature.**
 
 ```csharp
-Verdict Classify(Reading r);
+Verdict Classify(Reading r)
 
-Classify((:ok, n)) when n > 0 => :positive;
-Classify((:ok, 0))            => :zero;
-Classify((:ok, _))            => :negative;
-Classify((:error, _))         => :unknown;
+Classify((:ok, n)) when n > 0 -> :positive
+Classify((:ok, 0))            -> :zero
+Classify((:ok, _))            -> :negative
+Classify((:error, _))         -> :unknown
 ```
 
 Chosen over the clause-block form as closest to the intended language. The arguments I raised

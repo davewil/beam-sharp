@@ -66,7 +66,7 @@ Ordered by how many exemplars each unblocks, which is roughly the order to build
 | **String and map literals** | 25a, 25c | out | 20, fog |
 | **List patterns** — `[h, ..t]`, literal element patterns | 25a | out | 08, 28 |
 | **Imports / multi-file modules** | all three | out (fog) | fog |
-| **OTP behaviours** — `[module: GenServer]`, callbacks | 25b, 25c | out | 14 |
+| **OTP behaviours** — `behaviour GenServer`, callbacks | 25b, 25c | the attribute is emitted; the callback contract is not | 14, 35 |
 
 **Records, angle brackets and `switch` are now built, not merely decided** — F3 and F6 on
 2026-08-14, F7 on 2026-08-15. The rows above say `in` and the ones below them are what is actually
@@ -92,6 +92,41 @@ yet — and every file here also waits on binaries, `switch`, pipe, string and m
 imports. Splitting `ValidateAs<T>` onto its own row above is the same correction: it shares a
 character with the bracket and nothing else, being type-directed codegen (27 §8) rather than a
 generic call.
+
+## The dialect rewrite, 2026-08-15 — and the spellings it could not reach
+
+These files and the prototypes they come from were written in a **dialect the language no longer
+has**, and it went unnoticed because nothing gates them. Measured before the fix: **63 nameless
+clause heads and 0 named ones** — `(r) -> …` where ticket 01 settled `Admit(r) -> …`; every
+declaration `;`-terminated, where the lexer now has a dedicated error saying beam-sharp has no `;`;
+`[module: GenServer]` where `behaviour GenServer` shipped; and one **prefix** `switch (x) { … }`,
+the exact inverse of the postfix form ticket 17 §6 decided. Ticket 01 and ticket 08 had drifted too,
+in the *other* direction — they kept the function name and used `=>` and `;`, both of which the
+language has since dropped, so the document that **settled** the clause syntax showed a spelling the
+compiler rejects twice over.
+
+All of that is now rewritten to one dialect. What follows is the part that **could not be**, because
+there is no current spelling to rewrite *to*. It is listed rather than silently left looking like
+the language:
+
+| Spelling still in these files | Why it has no target | Owed by |
+|---|---|---|
+| `using Shop.Orders` | `using` was taken for FFI by ticket 32; imports are unspelled | module fog |
+| `Json.Encode(b)`, `Orders.All()`, `List.Fold(…)` | the grammar has `:atom.fn(…)` for FFI and `x.Field` for projection, and **no** `Module.Fn(…)` | module fog |
+| `#{ error = "invalid" }` | an anonymous map *literal*; a record construction names its type | 26, unasked |
+| `Frame { Type = :method } f` (25c) | a pattern that destructures **and** binds the whole value. `p_alias` exists in the emitter with no surface | unasked |
+| `-> { … }` block bodies (25b, 25c) | a braced block expression, measured as buildable but **not free** | 22 |
+| `0xCE` (25c) | hex integer literals, never decided anywhere | unasked |
+| `(acc, c) => …` (25b) | lambda — the `=>` spelling is *decided*, just unbuilt | 27 §(c), F-later |
+
+**So "one dialect everywhere" is not a claim this repo can make yet**, and the honest version is
+narrower: every spelling that has a decided target now uses it, and the seven above are visible
+instead of camouflaged. Four of the seven are the same fog patch wearing different clothes — the
+module system — which is worth knowing before anything is handed to anyone.
+
+**And nothing prevents this recurring.** `bin/extract-exemplars.sh --check` catches the extracted
+files going stale against the prototypes; nothing catches the prototypes going stale against the
+*language*. That gap is exactly what let 63 clause heads rot in place.
 
 **One coupling is recorded in 25c and in neither ticket**: interval *patterns* and interval
 *refinements* must land in the **same** increment. Today a parameter declared `int` has an open

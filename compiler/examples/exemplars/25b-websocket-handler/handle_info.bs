@@ -9,10 +9,10 @@
 
 (:noreply, State) HandleInfo(term, State)
 
-((Down, pid, reason), s)   -> (:noreply, DropWorker(s, pid, reason))
-((Exit, pid, reason), s)   -> (:noreply, Closing(s, pid, reason))
-((:tcp, _, data), s)       -> (:noreply, Feed(s, data))
-(Timeout, s)               -> (:noreply, Reap(s))
-(other, s)                 -> { Log.Warn("unexpected frame", other)
-                                (:noreply, s); }
+HandleInfo((Down, pid, reason), s)   -> (:noreply, DropWorker(s, pid, reason))
+HandleInfo((Exit, pid, reason), s)   -> (:noreply, Closing(s, pid, reason))
+HandleInfo((:tcp, _, data), s)       -> (:noreply, Feed(s, data))
+HandleInfo(Timeout, s)               -> (:noreply, Reap(s))
+HandleInfo(other, s)                 -> { Log.Warn("unexpected frame", other)
+                                          (:noreply, s) }
 

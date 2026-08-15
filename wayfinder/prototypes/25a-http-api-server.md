@@ -30,11 +30,11 @@ lib/shop/api/                       ← compiles to ONE beam: Shop.Api
 ## `index.bs`
 
 ```csharp
-using Shop.Orders;
+using Shop.Orders
 
-type Method = :get | :post | :put | :delete | :patch;
+type Method = :get | :post | :put | :delete | :patch
 
-type Response = (int, term);
+type Response = (int, term)
 
 record CreateOrder { Id: string, Total: int, Lines: list<Line> }
 
@@ -63,13 +63,13 @@ serialise" — ticket 16 refused capability bounds outright.
 The showcase shape. Method and path destructured in the head, one clause per route.
 
 ```csharp
-Response Route(Method, list<string>, term);
+Response Route(Method, list<string>, term)
 
-(:get,    ["orders"],     _)     -> (200, Orders.All());
-(:get,    ["orders", id], _)     -> Fetch(id);
-(:post,   ["orders"],     body)  -> CreateOrder(body);
-(:delete, ["orders", id], _)     -> Delete(id);
-(_,       _,              _)     -> (404, #{ error = "no route" });
+Route(:get,    ["orders"],     _)     -> (200, Orders.All())
+Route(:get,    ["orders", id], _)     -> Fetch(id)
+Route(:post,   ["orders"],     body)  -> CreateOrder(body)
+Route(:delete, ["orders", id], _)     -> Delete(id)
+Route(_,       _,              _)     -> (404, #{ error = "no route" })
 ```
 
 This is the language at its best, and the lowering confirms it: five beam-sharp clauses become
@@ -94,12 +94,12 @@ it means the rule is not being tested by this exemplar so much as narrowly misse
 only, and deep validation is an explicit `ValidateAs<T>` returning `result<T, ValidationError>`.
 
 ```csharp
-Response CreateOrder(term);
+Response CreateOrder(term)
 
-(body) -> ValidateAs<CreateOrder>(body) switch {
-              (:error, e)  => (422, #{ error = "invalid", at = e }),
-              cmd          => (201, Orders.Place(cmd))
-          };
+CreateOrder(body) -> ValidateAs<CreateOrder>(body) switch {
+                         (:error, e)  => (422, #{ error = "invalid", at = e }),
+                         cmd          => (201, Orders.Place(cmd))
+                     }
 ```
 
 Five lines, and the boundary is completely explicit: the term from outside is either a
@@ -123,22 +123,20 @@ Request admission is five unrelated booleans — authentication, verification, q
 a feature flag. There is no way to express it as a pattern on one subject, because the five have no
 structural relationship to each other.
 
-```csharp
-Response Admit(Request);
+**What was written here first, and why it is no longer the code:**
 
-(r) -> (r.Authed, r.Verified, r.Quota > 0, r.Size <= 1048576, r.Beta) switch {
-           (false, _,     _,     _,     _)     => (401, :unauthenticated),
-           (_,     false, _,     _,     _)     => (403, :unverified),
-           (_,     _,     false, _,     _)     => (429, :quota_exceeded),
-           (_,     _,     _,     false, _)     => (413, :too_large),
-           (_,     _,     _,     _,     false) => (404, :not_in_beta),
-           (true,  true,  true,  true,  true)  => (200, :ok)
-       };
+```
+Admit(r) -> (r.Authed, r.Verified, r.Quota > 0, r.Size <= 1048576, r.Beta) switch {
+                (false, _,     _,     _,     _)     => (401, :unauthenticated),
+                (_,     false, _,     _,     _)     => (403, :unverified),
+                (_,     _,     false, _,     _)     => (429, :quota_exceeded),
+                (_,     _,     _,     false, _)     => (413, :too_large),
+                (_,     _,     _,     _,     false) => (404, :not_in_beta),
+                (true,  true,  true,  true,  true)  => (200, :ok)
+            }
 ```
 
-**The honest report: this is worse than an `if`/`else if` ladder, and it is not close.**
-
-Three specific costs, all visible above:
+Three costs, all visible above:
 
 1. **The condition and its consequence are separated by the width of the tuple.** `:quota_exceeded`
    is on the same line as its test, but the test is `false` in the third column — you have to count
@@ -148,17 +146,71 @@ Three specific costs, all visible above:
 3. **The subject line is 70 characters** before a single arm is written, and it holds all five
    expressions far from the results they select.
 
-Against that, one genuine win the `if` ladder does not have: **the last arm proves the ladder is
-total.** `(true, true, true, true, true)` is the only remaining case, and the compiler knows it —
-a fall-through `else` would not be checked at all. So the tuple subject buys exhaustiveness on
-exactly the construct where an `if` ladder silently drops a case.
-
 ~~**Recommendation to ticket 17's fog patch: the shape occurs, at width five, in the most ordinary
 handler in the exemplar set.**~~
 
 **RETRACTED 2026-08-13 (David). This function is contrived, and the criticism is correct.** *"In a
 web server you'd basically have a pipeline and pluggable middleware, e.g. Plug in Elixir. So
 something like the switch in that example is unlikely to be written."*
+
+**And the code now matches the retraction, 2026-08-15 (David):** *"with middleware, Plug style, and
+maybe pipe, exemplar 25a should be a lot cleaner than that horrific switch expression."* The ladder
+above stayed in the file for two days after the finding it supported was withdrawn, which made the
+exemplar argue against itself. This is the shape a web stack actually writes — a chain of
+independent checks, each halting the flow on failure:
+
+```csharp
+Response Admit(Request)
+
+Admit(r) ->
+    outcome = r |?> Authenticated()
+                |?> Verified()
+                |?> WithinQuota()
+                |?> WithinSize()
+                |?> InBeta()
+    outcome switch {
+        (:error, response) => response,
+        passed             => (200, :ok)
+    }
+
+result<Request, Response> Authenticated(Request)
+Authenticated(r) when r.Authed -> r
+Authenticated(_)               -> (:error, (401, :unauthenticated))
+
+result<Request, Response> Verified(Request)
+Verified(r) when r.Verified -> r
+Verified(_)                 -> (:error, (403, :unverified))
+
+result<Request, Response> WithinQuota(Request)
+WithinQuota(r) when r.Quota > 0 -> r
+WithinQuota(_)                  -> (:error, (429, :quota_exceeded))
+
+result<Request, Response> WithinSize(Request)
+WithinSize(r) when r.Size <= 1048576 -> r
+WithinSize(_)                        -> (:error, (413, :too_large))
+
+result<Request, Response> InBeta(Request)
+InBeta(r) when r.Beta -> r
+InBeta(_)             -> (:error, (404, :not_in_beta))
+```
+
+**It is longer and it is better, and the reason is the one 25c already measured.** 25c found that
+*lifting two of its four conditions into named functions to fit the tuple improved the code*; this
+is the same finding at width five, where it is no longer marginal. Every condition now sits beside
+its consequence, the sixteen ceremonial `_`s are gone, and each check is independently testable and
+reusable across handlers — which is the actual reason Plug, Rack and ASP.NET Core are built this
+way, rather than a stylistic preference.
+
+**Two limits, stated rather than implied.** The valve `|?>` is **decided and not built** — ticket 17
+§4, feature F9 — so this section still does not compile, and its first error moved from a missing
+type to `syntax error before: '|'`. And this is a *fixed* chain, not **pluggable** middleware: a
+runtime-composed list of stages is [ticket 31](../issues/31-composable-middleware.md), which is
+open, and the map notes it lands in the same place as the GenServer question — a library written in
+the language over a compiler-known contract.
+
+**What this costs ticket 17's `cond` patch:** nothing it had not already lost. The width-five data
+point was withdrawn in August; what is new is that the exemplar no longer *displays* a ladder while
+its own prose says nobody would write one.
 
 Admission control is not one function with five booleans in any web stack worth copying — Plug,
 Rack and ASP.NET Core all distribute those five concerns across **separate middleware**, each
@@ -177,10 +229,10 @@ about my invention, not about web servers. → 17's `cond` patch loses this data
 ## `encode_response.bs`, and the finding
 
 ```csharp
-(int, binary) EncodeResponse(Response);
+(int, binary) EncodeResponse(Response)
 
-((status, :no_content)) -> (status, "");
-((status, body))        -> (status, Json.Encode(body));
+EncodeResponse((status, :no_content)) -> (status, "")
+EncodeResponse((status, body))        -> (status, Json.Encode(body))
 ```
 
 Two lines, and the second one **cannot compile**. See friction 0.

@@ -9,10 +9,10 @@
 
 binary Encode(Opcode, binary)
 
-(op, payload) -> Header(op, ByteSize(payload))
-              |> Binary.Append(payload)
+Encode(op, payload) -> Header(op, ByteSize(payload))
+                    |> Binary.Append(payload)
 
 binary Fragments(list<binary>)
 
-(chunks) -> chunks |> List.Fold("", (acc, c) => Binary.Append(acc, c))
+Fragments(chunks) -> chunks |> List.Fold("", (acc, c) => Binary.Append(acc, c))
 

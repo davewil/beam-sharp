@@ -9,20 +9,23 @@
 
 result<(Frame, binary), FrameError> DecodeFrame(binary)
 
-(<<1:8, ch:16, size:32, payload:size, 0xCE:8, rest>>)
+DecodeFrame(<<1:8, ch:16, size:32, payload:size, 0xCE:8, rest>>)
     -> (Frame { Type = :method,    Channel = ch, Payload = payload }, rest)
-(<<2:8, ch:16, size:32, payload:size, 0xCE:8, rest>>)
+DecodeFrame(<<2:8, ch:16, size:32, payload:size, 0xCE:8, rest>>)
     -> (Frame { Type = :header,    Channel = ch, Payload = payload }, rest)
-(<<3:8, ch:16, size:32, payload:size, 0xCE:8, rest>>)
+DecodeFrame(<<3:8, ch:16, size:32, payload:size, 0xCE:8, rest>>)
     -> (Frame { Type = :body,      Channel = ch, Payload = payload }, rest)
-(<<8:8, ch:16, 0:32, 0xCE:8, rest>>)
+DecodeFrame(<<8:8, ch:16, 0:32, 0xCE:8, rest>>)
     -> (Frame { Type = :heartbeat, Channel = ch, Payload = "" }, rest)
 
-(<<t:8, _:16, size:32, _:size, bad:8, _>>) when bad != 0xCE -> (:error, (:bad_frame_end, t, bad))
-(<<t:8, _>>) when t != 1 && t != 2 && t != 3 && t != 8      -> (:error, (:unknown_frame_type, t))
-(_)                                                          -> (:error, :incomplete)
+DecodeFrame(<<t:8, _:16, size:32, _:size, bad:8, _>>) when bad != 0xCE
+    -> (:error, (:bad_frame_end, t, bad))
+DecodeFrame(<<t:8, _>>) when t != 1 && t != 2 && t != 3 && t != 8
+    -> (:error, (:unknown_frame_type, t))
+DecodeFrame(_)
+    -> (:error, :incomplete)
 
 (binary, binary) ShortStr(binary)
 
-(<<len:8, s:len, rest>>) -> (s, rest)
+ShortStr(<<len:8, s:len, rest>>) -> (s, rest)
 

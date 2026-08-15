@@ -9,8 +9,8 @@
 
 result<Delivery, MethodError> DecodeMethod(binary)
 
-(<<60:16, 60:16, args>>) -> DecodeDeliver(args)
-(<<60:16, 80:16, _>>)    -> (:error, :unexpected_ack)
-(<<c:16, m:16, _>>)      -> (:error, (:unhandled_method, c, m))
-(_)                      -> (:error, :malformed_method)
+DecodeMethod(<<60:16, 60:16, args>>) -> DecodeDeliver(args)
+DecodeMethod(<<60:16, 80:16, _>>)    -> (:error, :unexpected_ack)
+DecodeMethod(<<c:16, m:16, _>>)      -> (:error, (:unhandled_method, c, m))
+DecodeMethod(_)                      -> (:error, :malformed_method)
 

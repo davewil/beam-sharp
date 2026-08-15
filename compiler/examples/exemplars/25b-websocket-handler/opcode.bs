@@ -9,20 +9,20 @@
 
 Opcode Opcode(int)
 
-(0)  -> :continuation
-(1)  -> :text
-(2)  -> :binary
-(8)  -> :close
-(9)  -> :ping
-(10) -> :pong
-(3)  -> :reserved
-(4)  -> :reserved
-(5)  -> :reserved
-(6)  -> :reserved
-(7)  -> :reserved
-(11) -> :reserved
-(12) -> :reserved
-(13) -> :reserved
-(14) -> :reserved
-(15) -> :reserved
+Opcode(0)  -> :continuation
+Opcode(1)  -> :text
+Opcode(2)  -> :binary
+Opcode(8)  -> :close
+Opcode(9)  -> :ping
+Opcode(10) -> :pong
+Opcode(3)  -> :reserved
+Opcode(4)  -> :reserved
+Opcode(5)  -> :reserved
+Opcode(6)  -> :reserved
+Opcode(7)  -> :reserved
+Opcode(11) -> :reserved
+Opcode(12) -> :reserved
+Opcode(13) -> :reserved
+Opcode(14) -> :reserved
+Opcode(15) -> :reserved
 

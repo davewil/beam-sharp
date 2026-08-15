@@ -9,6 +9,6 @@
 
 (int, binary) EncodeResponse(Response)
 
-((status, :no_content)) -> (status, "")
-((status, body))        -> (status, Json.Encode(body))
+EncodeResponse((status, :no_content)) -> (status, "")
+EncodeResponse((status, body))        -> (status, Json.Encode(body))
 

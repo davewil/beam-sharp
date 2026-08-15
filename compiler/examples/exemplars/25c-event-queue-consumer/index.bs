@@ -7,7 +7,7 @@
 // came from carries the friction list explaining what is wrong with it and
 // why that is the point.
 
-[module: GenServer]
+behaviour GenServer
 
 type FrameType = :method | :header | :body | :heartbeat
 

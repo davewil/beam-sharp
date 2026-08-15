@@ -9,8 +9,8 @@
 
 Response CreateOrder(term)
 
-(body) -> ValidateAs<CreateOrder>(body) switch {
-              (:error, e)  => (422, #{ error = "invalid", at = e }),
-              cmd          => (201, Orders.Place(cmd))
-          }
+CreateOrder(body) -> ValidateAs<CreateOrder>(body) switch {
+                         (:error, e)  => (422, #{ error = "invalid", at = e }),
+                         cmd          => (201, Orders.Place(cmd))
+                     }
 

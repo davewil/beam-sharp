@@ -69,10 +69,10 @@ What is the concrete syntax for multiple clauses of one function, and for guards
 **SETTLED by [ticket 01](01-sample-code.md): Variant A — equations under a signature.**
 
 ```csharp
-Verdict Classify(Reading r);
+Verdict Classify(Reading r)
 
-Classify((:ok, n)) when n > 0 => :positive;
-Classify((:ok, 0))            => :zero;
+Classify((:ok, n)) when n > 0 -> :positive
+Classify((:ok, 0))            -> :zero
 ```
 
 Chosen as a design preference. This ticket no longer decides the clause shape; it decides
@@ -112,11 +112,11 @@ familiar to either counts as borrowed.
 ### Same-arity dispatch on different types → a union parameter, not overload signatures
 
 ```csharp
-string Describe(int | Order);
+string Describe(int | Order)
 
-(n) when n > 0  -> "positive number";
-(n)             -> "number";
-({ Status: s }) -> "order: " + s;
+Describe(n) when n > 0  -> "positive number"
+Describe(n)             -> "number"
+Describe({ Status: s }) -> "order: " + s
 ```
 
 Native to TypeScript, and readable to a C# developer as soon as unions exist — which C# 15 is

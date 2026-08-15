@@ -29,13 +29,13 @@ lib/shop/socket/                    ← compiles to ONE beam: Shop.Socket
 
 ```csharp
 type Opcode =
-    :continuation | :text | :binary | :close | :ping | :pong | :reserved;
+    :continuation | :text | :binary | :close | :ping | :pong | :reserved
 
 record Frame { Fin: bool, Op: Opcode, Payload: binary }
 
-type Decoded = result<(Frame, binary), DecodeError>;
+type Decoded = result<(Frame, binary), DecodeError>
 
-type DecodeError = :incomplete | :unmasked_client_frame | :reserved_bit_set;
+type DecodeError = :incomplete | :unmasked_client_frame | :reserved_bit_set
 ```
 
 `Payload` is `binary`, **not `string`** — and that distinction is load-bearing here in a way it is
@@ -55,19 +55,19 @@ The RFC 6455 header is `FIN:1, RSV:3, Opcode:4, Mask:1, Len:7`, then 0/2/8 bytes
 length, then a 4-byte mask. Written as beam-sharp would want to write it:
 
 ```csharp
-Decoded Decode(binary);
+Decoded Decode(binary)
 
-(<<fin:1, 0:3, op:4, 1:1, 126:7, len:16, mask:32, payload:len, rest>>)
-    -> (Frame { Fin = fin, Op = Opcode(op), Payload = Unmask(payload, mask) }, rest);
+Decode(<<fin:1, 0:3, op:4, 1:1, 126:7, len:16, mask:32, payload:len, rest>>)
+    -> (Frame { Fin = fin, Op = Opcode(op), Payload = Unmask(payload, mask) }, rest)
 
-(<<fin:1, 0:3, op:4, 1:1, 127:7, len:64, mask:32, payload:len, rest>>)
-    -> (Frame { Fin = fin, Op = Opcode(op), Payload = Unmask(payload, mask) }, rest);
+Decode(<<fin:1, 0:3, op:4, 1:1, 127:7, len:64, mask:32, payload:len, rest>>)
+    -> (Frame { Fin = fin, Op = Opcode(op), Payload = Unmask(payload, mask) }, rest)
 
-(<<fin:1, 0:3, op:4, 1:1, len:7, mask:32, payload:len, rest>>) when len < 126
-    -> (Frame { Fin = fin, Op = Opcode(op), Payload = Unmask(payload, mask) }, rest);
+Decode(<<fin:1, 0:3, op:4, 1:1, len:7, mask:32, payload:len, rest>>) when len < 126
+    -> (Frame { Fin = fin, Op = Opcode(op), Payload = Unmask(payload, mask) }, rest)
 
-(<<_:1, 0:3, _:4, 0:1, _>>)  -> (:error, :unmasked_client_frame);
-(_)                          -> (:error, :incomplete);
+Decode(<<_:1, 0:3, _:4, 0:1, _>>)  -> (:error, :unmasked_client_frame)
+Decode(_)                          -> (:error, :incomplete)
 ```
 
 The lowering proves the *dispatch* works — five clauses, five native Erlang clause heads, and the
@@ -100,24 +100,24 @@ residual is an **error**, and the compiler knows every case by name. So this is 
 requires:
 
 ```csharp
-Opcode Opcode(int);
+Opcode Opcode(int)
 
-(0)  -> :continuation;
-(1)  -> :text;
-(2)  -> :binary;
-(8)  -> :close;
-(9)  -> :ping;
-(10) -> :pong;
-(3)  -> :reserved;
-(4)  -> :reserved;
-(5)  -> :reserved;
-(6)  -> :reserved;
-(7)  -> :reserved;
-(11) -> :reserved;
-(12) -> :reserved;
-(13) -> :reserved;
-(14) -> :reserved;
-(15) -> :reserved;
+Opcode(0)  -> :continuation
+Opcode(1)  -> :text
+Opcode(2)  -> :binary
+Opcode(8)  -> :close
+Opcode(9)  -> :ping
+Opcode(10) -> :pong
+Opcode(3)  -> :reserved
+Opcode(4)  -> :reserved
+Opcode(5)  -> :reserved
+Opcode(6)  -> :reserved
+Opcode(7)  -> :reserved
+Opcode(11) -> :reserved
+Opcode(12) -> :reserved
+Opcode(13) -> :reserved
+Opcode(14) -> :reserved
+Opcode(15) -> :reserved
 ```
 
 **This is the case ticket 12 asked these exemplars to find.** Eleven clauses that mean one thing.
@@ -142,14 +142,14 @@ Naming the cases read *worse*, unambiguously. This is a wire protocol, not a con
 recursive fixpoint, and asked whether the pipe reads well where the lowering is least precise.
 
 ```csharp
-binary Encode(Opcode, binary);
+binary Encode(Opcode, binary)
 
-(op, payload) -> Header(op, ByteSize(payload))
-              |> Binary.Append(payload);
+Encode(op, payload) -> Header(op, ByteSize(payload))
+                    |> Binary.Append(payload)
 
-binary Fragments(list<binary>);
+binary Fragments(list<binary>)
 
-(chunks) -> chunks |> List.Fold("", (acc, c) => Binary.Append(acc, c));
+Fragments(chunks) -> chunks |> List.Fold("", (acc, c) => Binary.Append(acc, c))
 ```
 
 **The pipe reads fine. The type does not.** `Fragments`' accumulator starts as `""` and each step
@@ -184,14 +184,14 @@ Ticket 14 §5 makes `receive` a **filter**, and §6 puts OTP's message shapes in
 prelude stratum, so a handler *names* `Down` / `Exit` / `Timeout` rather than spelling the tuples.
 
 ```csharp
-(:noreply, State) HandleInfo(term, State);
+(:noreply, State) HandleInfo(term, State)
 
-((Down, pid, reason), s)   -> (:noreply, DropWorker(s, pid, reason));
-((Exit, pid, reason), s)   -> (:noreply, Closing(s, pid, reason));
-((:tcp, _, data), s)       -> (:noreply, Feed(s, data));
-(Timeout, s)               -> (:noreply, Reap(s));
-(other, s)                 -> { Log.Warn("unexpected frame", other);
-                                (:noreply, s); }
+HandleInfo((Down, pid, reason), s)   -> (:noreply, DropWorker(s, pid, reason))
+HandleInfo((Exit, pid, reason), s)   -> (:noreply, Closing(s, pid, reason))
+HandleInfo((:tcp, _, data), s)       -> (:noreply, Feed(s, data))
+HandleInfo(Timeout, s)               -> (:noreply, Reap(s))
+HandleInfo(other, s)                 -> { Log.Warn("unexpected frame", other)
+                                          (:noreply, s) }
 ```
 
 The lowering demonstrates the filter behaviour, and it surfaced something sharper than ticket 14
