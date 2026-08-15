@@ -140,9 +140,10 @@ spec exists.
 - [Charting: differentiator, typing stance, scope](issues/00-charting-decisions.md) — the
   language exists for the multi-clause heads Gleam explicitly refuses; typing is
   static-by-default set-theoretic with enforced cross-clause exhaustiveness; tooling,
-  stdlib breadth, macros and alternative backends are out of scope. **Audited 2026-08-15 —
-  three of those four are boundaries on *this map*, not refusals; only alternative backends
-  rests on a mechanism. See Out of scope, which now says which is which.**
+  stdlib breadth, macros and alternative backends are out of scope. **Audited 2026-08-15 — all
+  four are boundaries on *this map*, and none is a refusal: three wait on a use case, and
+  alternative runtimes/backends wait on traction and a request. See Out of scope, which now says
+  which is which and what a requester inherits.**
 - [Prior art: static types plus multi-clause heads](issues/03-prior-art-static-multiclause.md)
   — **Gleam never rejected multi-clause heads; it never considered them.** No rationale
   exists, and the soundness hypothesis is affirmatively weakened (Gleam's shipped checker
@@ -1388,21 +1389,25 @@ spec exists.
 
 <!-- AUDITED 2026-08-15 (David: "audit the rest of out of scope"). This section used to carry the
      single marker `ruled beyond the destination; closed, never graduates`, and that marker was the
-     defect rather than the entries. Three of the four below are BOUNDARIES written in the costume
-     of REFUSALS, and two of those three had already been narrowed by hand within three days of
-     each other — which is the symptom.
+     defect rather than the entries. **All four below are BOUNDARIES written in the costume of
+     REFUSALS** — three narrowed by hand within three days of each other, and the fourth
+     demand-gated the same evening the audit ran. Four for four is not a coincidence; the marker
+     was making a claim the entries never supported.
 
-     Two kinds of entry live here and they are NOT the same claim:
+     Three kinds of entry could live here and they are NOT the same claim:
 
-       REFUSAL (mechanism) — a reason in the design that does not expire. Argue with the mechanism
-                             or the entry stands.
-       BOUNDARY (this map) — not being decided by THIS effort. No claim about the language. May
-                             return when a use case arrives that nothing else serves.
+       REFUSAL (mechanism)  — a reason in the design that does not expire. Argue with the mechanism
+                              or the entry stands.
+       BOUNDARY (this map)  — not being decided by THIS effort. No claim about the language. May
+                              return when a use case arrives that nothing else serves.
+       BOUNDARY (demand)    — as above, with a NAMED reopening condition rather than an open one.
 
-     Every entry now states which it is. The pattern the audit found: the only entry that survives
-     as a refusal is the one resting on a mechanism, which is the map's own rule about refusing on
-     mechanism and never on taste, arriving from the other direction. A reader outside this effort
-     — an implementer handed the spec — would otherwise treat all four as walls. -->
+     Every entry states which it is, and the audit's result is worth stating plainly: **none of the
+     four is a refusal.** Alternative backends was the last candidate and David demand-gated it the
+     same evening, so all four are boundaries on this effort's scope and not claims about the
+     language. That is the map's own rule about refusing on mechanism and never on taste, arriving
+     from the other direction — a section that reads as four walls turns out to contain none. An
+     implementer handed the spec in a clean room would have read it exactly wrong. -->
 
 
 - **BOUNDARY — Tooling and ecosystem** — package manager, build tool, hex/rebar3/mix integration, LSP,
@@ -1483,18 +1488,29 @@ spec exists.
   obligations already do. Recorded here so that the next ticket to feel this pressure finds the
   answer rather than re-deriving it, and so that a *user-extensible* generation mechanism is
   recognised as a redrawing of the destination rather than an increment.
-- **REFUSAL — Alternative backends** — a JavaScript or WASM target of the kind Gleam ships alongside
-  its Erlang backend. Doubles the codegen surface and forces semantic compromises that
-  would muddy a BEAM-native design.
+- **BOUNDARY (demand) — Alternative runtimes and backends** — a JavaScript or WASM target of the
+  kind Gleam ships alongside its Erlang backend. Doubles the codegen surface and forces semantic
+  compromises that would muddy a BEAM-native design.
 
-  **AUDITED 2026-08-15: this is the only one of the four that survives as a refusal, and the reason
-  it survives is instructive.** It is the only entry arguing from a **mechanism** — a doubled
-  codegen surface and semantic compromises against a BEAM-native design — rather than from this
-  effort's scope. The other three said, in effect, *we are not doing this now*; this one says *doing
-  this would make the language worse*, which is a claim that does not expire when someone finds a
-  use case. It is also the only one with no counter-evidence anywhere in the map: nothing else
-  mentions WASM or a JavaScript target, where the prelude, tooling and macro entries were each
-  contradicted by decisions taken elsewhere in this same document.
+  **SETTLED 2026-08-15 (David): *"alternative runtime/backend is out of scope unless this project
+  gains traction and is requested."*** So the reopening condition is **named**, which is what
+  separates this from the other three: they wait on a use case nobody can predict, this one waits on
+  users who do not exist yet. It is also stated as *runtime or backend*, which is wider than the
+  original entry's "JavaScript or WASM target" and covers any non-BEAM execution target.
+
+  **What a requester would inherit, so the condition is actionable rather than decorative.** Traction
+  reopens the *question*; it does not waive the *objection*, and the objection is now measured
+  rather than asserted — see below. Whoever asks arrives holding: 36 of 38 tickets defining the
+  language in BEAM terms, a runtime to write before the first line runs, and three BEAM-family
+  projects that each declined to bring OTP to JavaScript. Being asked is not an answer to any of
+  that; it is a reason to go and find one.
+
+  **Audit note.** During the 2026-08-15 audit this was briefly classified a REFUSAL, as the only
+  entry arguing from a mechanism rather than from scope, and it was the only one with no
+  counter-evidence elsewhere in the map — the prelude, tooling and macro entries were each
+  contradicted by decisions taken in this same document. David demand-gated it the same evening,
+  which means **none of the four entries is a refusal**. The section's apparent walls are all
+  boundaries.
 
   **CONFIRMED 2026-08-15 (David): *"yeah alternative backends out, too much work."*** Nobody has
   asked for one.
