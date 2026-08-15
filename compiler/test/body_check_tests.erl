@@ -202,6 +202,59 @@ a_destructuring_bind_that_can_fail_is_an_error_test() ->
     [{error, _, 'Sum', {bind_may_fail, Residual}}] = errors(Src),
     ?assertEqual(":nothing", lists:flatten(bs_types:to_pattern(Residual))).
 
+%%% `=` IS A MATCH, and this is the spec as David wrote it on 2026-08-15:
+%%%
+%%%     x = 1
+%%%     1 = x     // no error
+%%%     2 = x     // error
+%%%
+%%% It already behaved this way — the pair below is here because it is now a
+%%% STATED REQUIREMENT rather than a property that happened to fall out of F5,
+%%% and an unpinned requirement is one refactor away from being a coincidence.
+%%%
+%%% It works because a literal's inferred type is a SINGLETON: `x = 1` binds
+%%% `1..1`, so `1 = x` leaves an empty residual and `2 = x` leaves `1`. Widen
+%%% that type and both change — see the `Get()` case below, which is the same
+%%% program through a declared return.
+
+a_literal_match_that_cannot_fail_is_accepted_test() ->
+    Src = "module SpecOk\n"
+          "int F()\n"
+          "F() ->\n"
+          "    x = 1\n"
+          "    1 = x\n"
+          "    x\n",
+    M = build_and_load(Src, 'SpecOk'),
+    ?assertEqual(1, M:'F'()).
+
+a_literal_match_that_cannot_succeed_is_an_error_test() ->
+    Src = "module SpecErr\n"
+          "int F()\n"
+          "F() ->\n"
+          "    x = 1\n"
+          "    2 = x\n"
+          "    x\n",
+    [{error, _, 'F', {bind_may_fail, Residual}}] = errors(Src),
+    ?assertEqual("1", lists:flatten(bs_types:to_pattern(Residual))).
+
+%% ...and the same match against a name whose type came from a DECLARED RETURN
+%% rather than a literal. `Get()` is declared `int`, so `y` is `int` and even the
+%% "correct" value is refused — the check is against the type, never against what
+%% the program would do at run time. This is the case that shows the singleton
+%% above is doing the work.
+a_match_is_decided_by_the_type_not_the_value_test() ->
+    Src = "module ViaCall\n"
+          "int Get()\n"
+          "Get() -> 2\n"
+          "int F()\n"
+          "F() ->\n"
+          "    y = Get()\n"
+          "    2 = y\n"
+          "    y\n",
+    [{error, _, 'F', {bind_may_fail, Residual}}] = errors(Src),
+    ?assertEqual("int <= 1 | int >= 3",
+                 lists:flatten(bs_types:to_pattern(Residual))).
+
 %% A plain `x = e` still produces ticket 34's node, so nothing downstream of the
 %% parser learns a new shape for the case that already worked.
 a_plain_binding_still_parses_as_a_name_test() ->
