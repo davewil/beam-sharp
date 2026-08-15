@@ -100,5 +100,41 @@ for f in decisions.md fog.md scope.md; do
     fi
 done
 
+# --- 4. every body has an index entry -----------------------------------------
+# THE DRIFT CHECKS 1-3 CANNOT SEE.
+#
+# An index that is short, tidy and MISSING AN ENTRY passes every check above: the
+# budget is fine, no entry is fat, the files are linked. Found 2026-08-15 while
+# backfilling Linear — fog.md held 14 patch bodies and the map indexed 13. Ticket
+# 39 had a body and no way in, so the only route to it was already knowing it
+# existed, which is the one thing an index is for.
+#
+# Same failure family as the split itself: a contract nothing enforced. Checked
+# body-to-index only; the reverse (an index entry whose body was deleted) is a
+# different bug and has never happened.
+missing=""
+for body in decisions.md fog.md scope.md; do
+    while IFS= read -r title; do
+        [ -z "$title" ] && continue
+        grep -Fq -- "**$title**" "$MAP" || missing="$missing$body: $title"$'\n'
+    done < <(awk '
+        /<details>/  { archived = 1 }
+        /<\/details>/{ archived = 0; next }
+        archived     { next }
+        /^- \*\*/    { print }
+    ' "$HERE/wayfinder/$body" \
+        | sed -n 's/^- \*\*\([^*]*\)\*\*.*/\1/p' \
+        | sed 's/[.,]$//')
+done
+
+if [ -z "$missing" ]; then
+    printf '  %-10s every body entry has an index entry\n' "ok"
+else
+    printf '  %-10s these bodies have no way in from the index:\n' "UNINDEXED"
+    printf '%s' "$missing" | sed 's/^/             /'
+    echo "             add a one-line entry to map.md, or the body is unreachable"
+    fail=1
+fi
+
 echo
 [ "$fail" -eq 0 ] && echo "map is an index" || { echo "map has stopped being an index"; exit 1; }

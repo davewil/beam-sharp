@@ -34,11 +34,19 @@ spec exists.
   ENG-(167+NN)"*, and keep **verifying rather than computing**: the compiler's features now raise
   issues in the same team, so the gap will widen again.
   **IT WIDENED, AND A SECOND HALF OF THE RULE BROKE — 2026-08-15.** Ticket **40 is ENG-208** and
-  **41 is ENG-209**, so the offset is now `+168`. More seriously: **tickets 38 and 39 exist as repo
-  files with no Linear issue at all**, which the canonicality contract says cannot happen — Linear
-  owns state, so a ticket with no issue has nowhere to hold any. Found by querying rather than
-  computing, which is what this bullet already prescribed. **Treat the arithmetic as dead**: query
-  Linear for the id, every time, and check the issue exists before assuming the state is tracked.
+  **41 is ENG-209**, so the offset was `+168` there. More seriously: **tickets 38 and 39 existed as
+  repo files with no Linear issue at all**, which the canonicality contract says cannot happen —
+  Linear owns state, so a ticket with no issue has nowhere to hold any. Found by querying rather
+  than computing, which is what this bullet already prescribed.
+  **BACKFILLED the same day: 38 is [ENG-210](https://linear.app/davewil/issue/ENG-210) and 39 is
+  [ENG-211](https://linear.app/davewil/issue/ENG-211)**, both `Backlog`, both created after a full
+  audit of all 42 repo tickets against the project — 00–37, 40 and 41 all had issues, so those two
+  were the only gaps and there are now none. Their offset is `+172`, a third different value, which
+  is the point: **the arithmetic is DEAD.** Query Linear for the id every time, and check the issue
+  *exists* before assuming the state is tracked anywhere.
+  **The gap opened because a ticket was raised without creating its issue**, so the guard is the
+  resolving rule read one step earlier: raising a ticket means writing the repo file *and* creating
+  the issue, exactly as resolving one means updating both.
 - **Execution override**: wayfinder is plan-only by default. This map sanctions execution
   for the **walking skeleton only**. Every other ticket produces a decision.
   **Widened in practice since 2026-08-13**: the skeleton is built and now grows through
@@ -267,7 +275,7 @@ Bodies in [`fog.md`](fog.md). These are open: read the body before assuming a di
   erased. §3 is now a prerequisite of both: where the checker gets another module's types
 - **Where DDD invariants live** `types` `errors`
   ticket 20 §5 settles half; refinement in type declarations is available where the predicate is decidable
-- **How a user-declared opaque refinement is checked** `#29` `types`
+- **How a user-declared opaque refinement is actually checked** `#29` `types`
   three owed items, recorded in full on ticket 20 §5
 - **Stdlib shape as a principle** `modules` `prelude`
   breadth is out of scope, the shape is not — and the prelude already has known contents
@@ -277,6 +285,9 @@ Bodies in [`fog.md`](fog.md). These are open: read the body before assuming a di
   **deferred rather than refused** — David: *"defer lazy, we will want it"*
 - **Bootstrapping — how much of beam-sharp is written in beam-sharp** `codegen` `agent`
   three axes, and the map has nothing on any of them
+- **Emitted code quality, and where the ceiling is** `#39` `codegen`
+  20% slower on a tight loop while emitting **identical instructions**; a dead heat once the
+  runtime dominates. The question is why it is not *ahead* — it discards intervals at emission
 - **Division and modulo** `#38` `syntax` `types`
   no `/` in the lexer at all — absent by oversight; truncation converges, divide-by-zero does not
 - **`cond`, or whatever serves a long ladder of unrelated conditions** `#17` `syntax`
