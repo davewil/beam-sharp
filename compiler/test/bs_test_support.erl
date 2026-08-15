@@ -52,7 +52,24 @@ showcase_src() ->
     "Classify((:ok, n))            -> :negative\n"
     "Classify((:error, e))         -> :unknown\n".
 
-escript() -> project_root() ++ "/_build/default/bin/bsc".
+%% The escript, under whichever profile actually built it.
+%%
+%% This used to name `_build/default/bin/bsc` outright, which is where
+%% `rebar3 escriptize` puts it — but eunit runs under the TEST profile, so
+%% rebar.config's pre-eunit `escriptize` hook writes `_build/test/bin/bsc`
+%% instead and the hardcoded path never saw it. Checking the test profile
+%% first is what makes a plain `rebar3 eunit` green on a fresh clone;
+%% measured before the fix, the suite reported `Failed: 3. Passed: 205.`
+%%
+%% The default path stays as the fallback AND as the not-found value, so the
+%% failure message still names the artefact CI builds explicitly.
+escript() ->
+    Default = project_root() ++ "/_build/default/bin/bsc",
+    Candidates = [project_root() ++ "/_build/test/bin/bsc", Default],
+    case [P || P <- Candidates, filelib:is_regular(P)] of
+        [Found | _] -> Found;
+        []          -> Default
+    end.
 
 run_cli(Args) ->
     os:cmd(escript() ++ " " ++ Args ++ " 2>&1; echo rc:$?").

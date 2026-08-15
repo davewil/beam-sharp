@@ -172,8 +172,23 @@
   the compiler may *write into*. Open with it: which other known callbacks earn emitted code, and
   what a **user-declared** contract can ask the compiler to emit, given ticket 21 named Roc's
   `requires` as the stealable mechanism and 14 left generalising it as purely additive.
-- **Module and namespace system**, and function identity — BEAM identifies functions by
-  name *and arity*, which multi-clause heads and optional parameters both disturb. **Ticket 10
+- **Module and namespace system**, and function identity — → **[ticket 40](issues/40-module-and-namespace-system.md)**,
+  raised 2026-08-15. **§1 is answered and the answer was forced rather than chosen**: a module's atom
+  is its full dotted path (`module Shop.Orders` → `'Shop.Orders'`), because ticket 26 §1's tag mints
+  from the qualified name and delivers aggregate identity *only if* `Mod` is itself unique — a leaf
+  name would make `Shop.Orders.Order` and `Billing.Invoices.Order` both mint `'Orders.Order'`. The
+  emit path and the mint point **need no change at all**; §1 costs one grammar rule, because both
+  were written against the module atom rather than a single segment. Re-measured on OTP 28, and
+  `13a` had already measured it. **One correction is on the record**: the first reason given for
+  needing no `Elixir.`-style prefix — *"PascalCase sits outside Erlang's snake_case namespace"* — is
+  **false**, and `32b_name_census.md:30–35` had already measured it false (265 of 1,315 loadable
+  Erlang modules are not plain lowercase). The surviving reason is that none of them contains a
+  **dot**. Still open and left as *questions* rather than decided, because both are taste and
+  neither is mechanism: **whether a name may be overloaded on arity within a module** (the fog's own
+  two stated hazards are stale — multi-clause collapses cleanly and optional parameters do not
+  exist — while the live one, `Fib/1,/2,/3` at `01b:587–591`, went unnamed), and **export control**,
+  where every tier-1 and tier-2 source defaults to *closed* and the language currently defaults to
+  *open*. The original body follows, unchanged. **Ticket 10**
   §3 adds one requirement**: a module identifier in value position is an atom singleton, so this
   fog owes an answer to *what atom is actually emitted* — a bare snake_cased name, which risks
   colliding with Erlang modules, or something prefixed as Elixir's `Elixir.` is. Ticket 10
@@ -205,8 +220,23 @@
   stakes on the emitted-atom question rather than adding a new one: 13 already made it a
   build-layout question and 23 §10 an API-surface question; 26 makes it a *type* question.
 - **The language's name.**
-- **Imports and cross-module scope** — if a directory is a module, what do files in it share
-  automatically, and what must be imported? Slipped into a prototype example unexamined.
+- **Imports and cross-module scope** — → **[ticket 41](issues/41-imports-and-cross-module-scope.md)**,
+  raised 2026-08-15 alongside 40. **§1 is answered on mechanism**: `using` generalises rather than
+  needing a second keyword, because the native and foreign forms differ in the *token class* of the
+  left side (`uident` path vs `atom_lit`) — the same discriminator `LANGUAGE.md` §11 already uses
+  for the three dot-forms — and because the FFI `using` **already introduces no B# name**, so a
+  native one that also introduces none is the same construct rather than an overloaded one. It also
+  answers 23 §11 directly: a file's `using` lines are its dependency list. **The ticket's §3 is the
+  half neither fog patch named, and it is the one that actually blocks `List.Map`**: where the
+  checker gets another module's types. The fork is re-check-source versus types riding in the
+  `.beam` as a `-bs_sig` attribute — and the cheap question was answered first: **all 29 `.bs` files
+  are in this repo and no compiled B# artefact ships anywhere**, so re-check-source covers every case
+  that exists and the attribute is a solution to a problem that has not arrived. It is *also*
+  blocked, on ticket 16 §4's serialisation mapping, so it may not be decided there anyway. Open:
+  whether `using` brings names into scope **unqualified** (the C# `using X = Y` alias is a read cost
+  by the same standard, so it is a question and not a sweetener), and what `index.bs` may hold —
+  never yet compiled, and nested directories inside a module remain unresolved. One yecc conflict
+  check is owed. The original body follows, unchanged.
   **Ticket 16 §6 adds one concrete leftover**: C# lets you put a function in *another* namespace so
   it appears on that type without an import — the half of extension methods that is neither call
   syntax (17's) nor overloading (08's). It is **name resolution, not polymorphism**, it has no

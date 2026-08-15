@@ -42,8 +42,14 @@ escript_entry_point_exists_test() ->
 %% kept: a missing escript is a real failure with a message that says what to run.
 %% This repo's own rule, from the spec-check harness — a clean run proves nothing
 %% unless the broken case would fail it.
+%% The path comes from `escript/0` rather than being spelled again here. It was
+%% spelled again, at the DEFAULT profile, which was right while CI was the only
+%% thing that built it — but eunit runs under the TEST profile, so rebar.config's
+%% pre-eunit `escriptize` hook lands the artefact in `_build/test/bin` and this
+%% test was the last one still looking past it. The loud throw is kept: skipping
+%% silently is the failure the comment above is about.
 built_escript_compiles_a_file_test() ->
-    Escript = project_root() ++ "/_build/default/bin/bsc",
+    Escript = escript(),
     ?assert(filelib:is_regular(Escript)
             orelse throw({no_escript, Escript, "run `rebar3 escriptize` first"})),
     Out = ?OUT ++ "/escript",

@@ -33,6 +33,12 @@ spec exists.
   and everything after it is offset by one. Read the rule as *"00–32 is ENG-(166+NN), from 33 it is
   ENG-(167+NN)"*, and keep **verifying rather than computing**: the compiler's features now raise
   issues in the same team, so the gap will widen again.
+  **IT WIDENED, AND A SECOND HALF OF THE RULE BROKE — 2026-08-15.** Ticket **40 is ENG-208** and
+  **41 is ENG-209**, so the offset is now `+168`. More seriously: **tickets 38 and 39 exist as repo
+  files with no Linear issue at all**, which the canonicality contract says cannot happen — Linear
+  owns state, so a ticket with no issue has nowhere to hold any. Found by querying rather than
+  computing, which is what this bullet already prescribed. **Treat the arithmetic as dead**: query
+  Linear for the id, every time, and check the issue exists before assuming the state is tracked.
 - **Execution override**: wayfinder is plan-only by default. This map sanctions execution
   for the **walking skeleton only**. Every other ticket produces a decision.
   **Widened in practice since 2026-08-13**: the skeleton is built and now grows through
@@ -251,12 +257,14 @@ Bodies in [`fog.md`](fog.md). These are open: read the body before assuming a di
   which slice, and what language the compiler is written in. First slice built; two debts struck
 - **The typed model of OTP itself** `#14` `otp` `types`
   which behaviours ship built in, and how a user declares one
-- **Module and namespace system**, and function identity `modules` `codegen`
-  BEAM identifies by name *and* arity, which multi-clause heads disturb. **Four other patches wait on this one**
+- **Module and namespace system**, and function identity `#40` `modules` `codegen`
+  the emitted atom is **forced** by 26's tag mint — full dotted path, and the emit path already
+  writes it. Arity overloading and export control left as *questions*: both are taste
 - **The language's name** `naming`
   unresolved. `beam-sharp` is a working title
-- **Imports and cross-module scope** `modules`
-  if a directory is a module, what do files in it share automatically?
+- **Imports and cross-module scope** `#41` `modules`
+  `using` generalises by token class. **§3 blocks `List.Map` and neither fog patch named it**:
+  where the checker gets another module's types — re-check-source covers every case that exists
 - **Where DDD invariants live** `types` `errors`
   ticket 20 §5 settles half; refinement in type declarations is available where the predicate is decidable
 - **How a user-declared opaque refinement is checked** `#29` `types`
