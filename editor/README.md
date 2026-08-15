@@ -120,9 +120,14 @@ This grammar tracks the **compiler**, deliberately. When those forks close, it f
 
 Worth knowing before it is scheduled, because most of it is compiler work rather than protocol work:
 
-1. **There are no columns anywhere.** The lexer captures `TokenLine` only, so every diagnostic is
-   `{error, Line, Fn, Payload}`. LSP ranges want start and end line *and* character. That is a change
-   through leex, the parser's `line/1`, and every diagnostic tuple.
+1. **There are no columns anywhere — and this is cheaper to fix than it looks.** Every diagnostic is
+   `{error, Line, Fn, Payload}` because `bs_lexer.xrl` writes `TokenLine` in every rule action. It is
+   *not* a toolchain limit: measured in the parsetools 2.7.1 source, leex predefines **`TokenCol`**
+   and **`TokenLoc`** (`{TokenLine, TokenCol}`, available even when `error_location` is `line`), and
+   yecc's own `error_location` already **defaults to `column`**. Since the parser's `line/1` is just
+   `element(2, T)`, swapping `TokenLine` for `TokenLoc` in the lexer makes locations become
+   `{Line, Col}` transparently. What then needs work is everything that assumes an integer: the
+   `~s:~p:` format strings in `bsc:report/2`, and the annotations handed to the Abstract Format.
 2. **Resolve-time errors carry no position at all.** `unknown_type`, `unknown_builtin`,
    `generic_arity`, `needs_type_args`, `not_parametric` and `cyclic_type` are raised via
    `erlang:error` from below the level that has a line, and caught in `check_and_emit`. They would
