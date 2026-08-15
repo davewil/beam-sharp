@@ -47,6 +47,20 @@ spec exists.
   **The gap opened because a ticket was raised without creating its issue**, so the guard is the
   resolving rule read one step earlier: raising a ticket means writing the repo file *and* creating
   the issue, exactly as resolving one means updating both.
+  **A FOURTH VALUE, and the guard held — 2026-08-15.** Tickets **42 is
+  [ENG-212](https://linear.app/davewil/issue/ENG-212)** and **43 is
+  [ENG-213](https://linear.app/davewil/issue/ENG-213)**: offset `+170`, against `+166`, `+167` and
+  `+172` before it. Four values, no pattern, which is now simply the settled state of this mapping
+  rather than news. Both issues were created in the same act as their repo files, so no gap opened.
+  **The failure moved rather than stopping, and the new form is worth more than the old.** Ticket 42
+  and 43 were *named as owed* inside `F2`'s feature file for a day — *"raise a ticket before writing
+  this scenario's implementation"* — and never raised, so the compiler's queue held two blockers no
+  query could see. **A feature file naming a decision it needs is raising a ticket**, and it does not
+  count as raised until the file and the issue both exist. The same day, `F2` itself was found to
+  have no issue either, which is why two markdown files could disagree about whether it was takeable
+  with nothing to arbitrate: it is now
+  [ENG-214](https://linear.app/davewil/issue/ENG-214), blocked by both. **F8, F11 and F12 still have
+  none** — recorded here so the gap is visible rather than rediscovered.
 - **Execution override**: wayfinder is plan-only by default. This map sanctions execution
   for the **walking skeleton only**. Every other ticket produces a decision.
   **Widened in practice since 2026-08-13**: the skeleton is built and now grows through

@@ -1,9 +1,14 @@
 # F2 — Interval refinements, and the interval patterns that must land with them
 
-**Status**      not started
+**Status**      **blocked** — two decisions owed, see [below](#two-decisions-this-feature-needs-before-it-can-be-built)
 **Implements**  tickets 20 §5, 12 §2, 04 — decides nothing
 **Unblocks**    `bs_emit:int_part/1`'s bounded branches; wire dispatch in 25b and 25c
-**Depends on**  F1
+**Depends on**  F1, and on tickets 42 and 43
+
+**The header said `not started` until 2026-08-15 while the README's table said `blocked`.** Two
+files disagreed about whether this feature was takeable, and the table was the one that was right —
+a session picked the feature up on the header's word and had to be turned round. The status line of
+a feature file is the thing an agent reads first, so it is the thing that must not lie.
 
 ## Why this one now
 
@@ -110,8 +115,19 @@ binaries (F6).
 Both are tickets, not features. **This file should not be implemented until they are answered** —
 recorded here so the coupling is not discovered mid-build:
 
-1. **The spelling of an interval pattern** (F2.3).
-2. **The residual's summarised form at width** (F2.4).
+1. **The spelling of an interval pattern** (F2.3) →
+   [ticket 42](../../wayfinder/issues/42-interval-pattern-spelling.md) ·
+   [ENG-212](https://linear.app/davewil/issue/ENG-212)
+2. **The residual's summarised form at width** (F2.4) →
+   [ticket 43](../../wayfinder/issues/43-residual-summarised-form.md) ·
+   [ENG-213](https://linear.app/davewil/issue/ENG-213)
+
+**Raised 2026-08-15, and they should have been raised when this file was written.** F2.3 already
+said *"raise a ticket before writing this scenario's implementation"* and F2.4 said *"also a ticket,
+not a feature"* — but neither was raised, so for a day this file recorded two blockers that existed
+nowhere a query could find them. The feature itself is now
+[ENG-214](https://linear.app/davewil/issue/ENG-214), blocked by both, so the frontier renders in
+Linear rather than only in prose here.
 
 ## Done when
 

@@ -75,7 +75,7 @@ Erlang back to the decision that required it is one grep.
 | Feature | Status | Unblocks |
 |---|---|---|
 | [F1 — walking skeleton](F1-walking-skeleton.md) | **done** | the baseline; `examples/*.bs` |
-| [F2 — interval refinements and interval patterns](F2-interval-refinements.md) | **blocked** — two decisions owed | 25b, 25c wire dispatch |
+| [F2 — interval refinements and interval patterns](F2-interval-refinements.md) | **blocked** — [42](../../wayfinder/issues/42-interval-pattern-spelling.md), [43](../../wayfinder/issues/43-residual-summarised-form.md) | 25b, 25c wire dispatch |
 | [F3 — records](F3-records.md) | **done 2026-08-14** | the record half of all three; `examples/shop.bs` |
 | [F4 — local bindings](F4-local-bindings.md) | **done 2026-08-14** | nothing — it removes a papercut |
 | [F5 — the body check site](F5-body-check-site.md) | **done 2026-08-14** | F3.3, F3.8, F3.10; 34's destructuring binds |
@@ -86,6 +86,28 @@ Erlang back to the decision that required it is one grep.
 | [F10 — OTP callbacks](F10-otp-callbacks.md) | **done 2026-08-15** | **`bin/spec-check.sh`**; the `behaviour` half of 25b, 25c |
 | F11 — binary patterns | not started, **blocked** — ticket 30 is open | 25b, 25c |
 | F12 — pipe and valve | not started | 25b, 25c |
+
+**THE QUEUE IS EMPTY, AND THAT IS THE TABLE'S MOST IMPORTANT FACT — 2026-08-15.** Every feature
+file that exists is done or blocked: F2 owes two decisions, F8 owes one token, F11 waits on ticket
+30, and F11 and F12 have no files. There is nothing here to pick up. That is not a stall — it is
+the seam at the top of this file working exactly as written: *a feature that needs a decision
+raises a ticket rather than making one*, and features that keep that rule must eventually starve.
+When the table reads like this, the next session belongs on the map, not in the compiler.
+
+**A status in this table outranks the header of the file it links to.** F2's header read
+`not started` while this row read `blocked`; a session took the header at its word, claimed the
+feature and had to be turned round. Both are now `blocked` and both name the tickets — but the
+general rule is worth more than the fix: **this table is the queue, so it is the queue's state.**
+A feature file's header is a copy, and copies drift.
+
+**And the root cause was neither file.** The map's canonicality contract puts *state* in Linear and
+*content* in the repo — and F2 had **no Linear issue at all**, so its blocked-ness lived only in
+prose, in two places, with nothing to reconcile them. F2 is now
+[ENG-214](https://linear.app/davewil/issue/ENG-214) with native blocking edges to
+[ENG-212](https://linear.app/davewil/issue/ENG-212) and
+[ENG-213](https://linear.app/davewil/issue/ENG-213). **F8, F11 and F12 still have no issues** —
+the same gap, left open deliberately rather than fixed in passing, because each needs its blockers
+stated before an issue means anything.
 
 **F4 was built out of order and the rule was not bent quietly.** No exemplar is blocked on
 bindings — the three that exist contain zero. It was built because David reached for one in the
