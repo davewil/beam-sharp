@@ -76,11 +76,11 @@ Spin(pos, step, left, zeros) when left < 0 -> (pos, zeros)
 int Sign(int d)
 Sign(0) -> 1
 Sign(d) when d > 0 -> 1
-Sign(d) when d < 0 -> 0 - 1
+Sign(d) when d < 0 -> -1
 
 int Size(int d)
 Size(d) when d >= 0 -> d
-Size(d) when d < 0  -> 0 - d
+Size(d) when d < 0  -> -d
 
 int Clicks(list<int> rotations, int pos, int zeros)
 Clicks([], pos, zeros)          -> zeros

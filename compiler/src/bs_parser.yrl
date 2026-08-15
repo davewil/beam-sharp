@@ -228,6 +228,11 @@ pattern_list -> pattern                  : ['$1'].
 pattern_list -> pattern ',' pattern_list : ['$1' | '$3'].
 
 pattern -> integer             : {p_int, line('$1'), value('$1')}.
+
+%% A pattern takes a negative LITERAL and not a general negation, because a
+%% pattern is a value and `-x` is a computation. The interval algebra needs
+%% nothing new: `range(-1, -1)` is what `p_int` already produces.
+pattern -> '-' integer         : {p_int, line('$1'), -value('$2')}.
 pattern -> atom_lit            : {p_atom, line('$1'), value('$1')}.
 pattern -> lident              : {p_var, line('$1'), value('$1')}.
 pattern -> '_'                 : {p_wild, line('$1')}.
@@ -273,6 +278,21 @@ guard_expr -> expr : '$1'.
 
 %% --- expressions ------------------------------------------------------------
 expr -> integer  : {e_int, line('$1'), value('$1')}.
+
+%% NEGATION. Absent until 2026-08-15, and absent by oversight rather than
+%% decision — a grep for "unary" across `LANGUAGE.md`, every ticket, the fog and
+%% every feature file returns nothing. C# has it and Erlang has it, so both tiers
+%% agree and there was nothing to decide.
+%%
+%% Found by running AoC 2025 Day 1, where a direction had to be written
+%% `0 - 1` because `-1` did not lex as anything. Negative numbers arrived fine as
+%% DATA the whole time — `bs_run`'s reader has always handled `-68` — so the gap
+%% was only ever in source.
+%%
+%% Lowered to `0 - e` rather than given its own node, so nothing downstream of
+%% the parser learns a new shape: the checker's `op_type('-')` and the emitter's
+%% `erl_op('-')` both already answer.
+expr -> '-' expr : {e_op, line('$1'), '-', {e_int, line('$1'), 0}, '$2'}.
 expr -> atom_lit : {e_atom, line('$1'), value('$1')}.
 expr -> lident   : {e_var, line('$1'), value('$1')}.
 %% `_` is an expression ONLY so that `(a, _) = pair` parses — the left of a bind

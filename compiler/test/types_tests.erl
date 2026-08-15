@@ -170,3 +170,71 @@ a_guard_over_a_record_field_still_credits_the_clause_test() ->
           "Band({ Total: t }) when t <= 0 -> :unpaid\n",
     ?assertMatch({ok, _, _}, check_only(Src)).
 
+
+%%% ---------------------------------------------------------------------------
+%%% Negation — `-1` and `-n`
+%%%
+%%% Absent until 2026-08-15, and absent by OVERSIGHT: a grep for "unary" across
+%%% LANGUAGE.md, every ticket, the fog and every feature file returned nothing.
+%%% C# has it and Erlang has it, so both tiers agreed and there was nothing to
+%%% decide — which is why it is a fix rather than a ticket, unlike division.
+%%%
+%%% Found by running AoC 2025 Day 1, where a direction had to be written
+%%% `0 - 1`. Negative numbers had always arrived fine as DATA — `bs_run`'s
+%%% reader handles `-68` — so the gap was only ever in source.
+%%%
+%%% It lowers to `0 - e` rather than gaining a node, so nothing downstream of
+%%% the parser learns a new shape.
+%%% ---------------------------------------------------------------------------
+
+a_negative_literal_is_an_expression_test() ->
+    Src = "module Neg\n"
+          "int MinusOne()\n"
+          "MinusOne() -> -1\n",
+    M = build_and_load(Src, 'Neg'),
+    ?assertEqual(-1, M:'MinusOne'()).
+
+a_variable_can_be_negated_test() ->
+    Src = "module NegV\n"
+          "int Flip(int n)\n"
+          "Flip(n) -> -n\n",
+    M = build_and_load(Src, 'NegV'),
+    ?assertEqual(-7, M:'Flip'(7)),
+    ?assertEqual(7, M:'Flip'(-7)).
+
+%% THE REGRESSION THAT MATTERS. Adding a prefix `-` to an expression grammar
+%% that already has an infix `-` is exactly where a parser quietly changes
+%% meaning: `1 - 2 - 3` must stay left-associative and give -4, not re-associate
+%% to 1 - (2 - 3) and give 2.
+%%
+%% yecc reported zero conflicts for this change, and F6.9's rule is that the
+%% count is not the check — it resolves shift/reduce silently through the
+%% precedence table. So this asserts the VALUE.
+binary_minus_survives_the_prefix_one_test() ->
+    Src = "module NegB\n"
+          "int Chain()\n"
+          "Chain() -> 1 - 2 - 3\n"
+          "int Mixed()\n"
+          "Mixed() -> 10 - -2\n",
+    M = build_and_load(Src, 'NegB'),
+    ?assertEqual(-4, M:'Chain'()),
+    ?assertEqual(12, M:'Mixed'()).
+
+%% In a PATTERN it is a literal, not a computation, and the interval algebra
+%% needs nothing new: `range(-1, -1)` is what `p_int` already produces. The
+%% function is exhaustive over `int` with no catch-all, which is what proves the
+%% negative literal took part in the subtraction rather than being ignored.
+a_negative_literal_dispatches_in_a_pattern_test() ->
+    Src = "module NegP\n"
+          "atom Sign(int n)\n"
+          "Sign(-1) -> :minus_one\n"
+          "Sign(0)  -> :zero\n"
+          "Sign(n) when n > 0 -> :positive\n"
+          "Sign(n) when n < 0 -> :negative\n",
+    {ok, _, Diags} = check_only(Src),
+    ?assertEqual([], Diags),
+    M = build_and_load(Src, 'NegP'),
+    ?assertEqual(minus_one, M:'Sign'(-1)),
+    ?assertEqual(negative,  M:'Sign'(-5)),
+    ?assertEqual(zero,      M:'Sign'(0)),
+    ?assertEqual(positive,  M:'Sign'(3)).

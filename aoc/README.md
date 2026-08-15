@@ -42,10 +42,19 @@ returning position *and* count as a tuple, both folds, and the direction/size sp
 function is exhaustive with no catch-all**, including `Spin`, whose three clauses cover
 `left = 0`, `left > 0` and `left < 0` and are proven to by the interval refinement.
 
-One small thing worth recording because it is invisible until you hit it: **there is no unary
-minus.** `-1` is not a literal — the lexer reads integers as digits only — so `Sign` returns
-`0 - 1`. Negative numbers arrive fine *as data*, since the argument reader handles `-68`; they just
-cannot be written in source.
+**And one gap this puzzle closed rather than merely reported: there was no unary minus.** `-1` did
+not lex as anything, so `Sign` had to return `0 - 1` and `Size` had to return `0 - d`. Negative
+numbers had always arrived fine *as data* — `bs_run`'s reader handles `-68` — so the gap was only
+ever in source.
+
+**Fixed the same night**, because unlike division it needed no decision: a grep for *"unary"* across
+`LANGUAGE.md`, every ticket, the fog and every feature file returned **nothing**, and C# and Erlang
+both have it, so the two tiers agreed and there was nothing to choose. `Sign` and `Size` above now
+read `-1` and `-d`, and both puzzles still give the same answers.
+
+The regression worth knowing about is the one a prefix `-` invites in a grammar that already has an
+infix `-`: **`1 - 2 - 3` must stay `-4`** and not re-associate to `2`. yecc reported zero conflicts,
+which F6.9 says is not the check, so the test asserts the value.
 
 ## 2019 Day 1 — solved, and the false start that came first
 
