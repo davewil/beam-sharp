@@ -1401,6 +1401,23 @@ spec exists.
   evaluation. A large semantic surface that interacts hard with a type system, and nothing
   about the core bet needs it.
 
+  **CLARIFIED 2026-08-15 (David): this entry does NOT carry the section's "closed, never
+  graduates" marker — it is a *maybe*, not a refusal.** In his words: *"Macros are not excluded,
+  except from the current map, they may be included in the future should a valid use case emerge.
+  Such as the DDD surface I'm interested in that Ash in Elixir makes heavy use of macros. Or maybe
+  beam-sharp can do without them, I don't know yet."* The same shape as the tooling entry's
+  clarification two days earlier, and the same underlying correction: the section had been read as
+  ruling on the language rather than on **this map's scope**. What is settled is that the core bet
+  does not need them and this effort is not designing them; what is open is whether a use case
+  arrives that nothing else serves. **A DDD/resource surface of Ash's kind is the named candidate**,
+  and it is a stronger one than ticket 31's, because a resource DSL is where Elixir's macros earn
+  their keep rather than where they are merely convenient.
+
+  Two things this does not do. It does not license a feature to build one, and it does not disturb
+  the *"who may generate"* line below — a codegen obligation remains the compiler-owned answer, and
+  a user-wielded facility remains a redrawing of the destination. It changes the **status** of that
+  redrawing from ruled out to unpriced.
+
   **The neighbours are split, and the split is informative** (2026-08-13, measured locally where
   installed). **Elixir** has full macros, hygienic by default and escapable with `var!` — and its
   AST is genuinely homoiconic, verified here: `quote do: 1 + f(x)` yields

@@ -16,24 +16,24 @@ No processes, no OTP. This is where you find out whether the language is pleasan
 code, which is most code.
 
 ```csharp
-module Orders;
+module Orders
 
-type Money = int;                     // minor units, always
+type Money = int                      // minor units, always
 
-type Status = :draft | :placed | :paid | :shipped | :cancelled;
+type Status = :draft | :placed | :paid | :shipped | :cancelled
 
 type Line = {
     Sku:  string,
     Qty:  int,
     Unit: Money,
-};
+}
 
 type Order = {
     Id:     string,
     Status: Status,
     Lines:  list<Line>,
     Paid:   Money,
-};
+}
 
 type Event =
     (:add_line, Line)
@@ -41,15 +41,15 @@ type Event =
   | :place
   | (:pay, Money)
   | (:ship, string)
-  | :cancel;
+  | :cancel
 
 type Rejected =
     (:not_allowed, Status, Event)
   | (:no_such_line, string)
   | (:underpaid, Money)
-  | :empty_order;
+  | :empty_order
 
-type Outcome = (:ok, Order) | (:error, Rejected);
+type Outcome = (:ok, Order) | (:error, Rejected)
 ```
 
 ### The transition table
@@ -57,34 +57,34 @@ type Outcome = (:ok, Order) | (:error, Rejected);
 The reason the language exists, at the size it actually occurs.
 
 ```csharp
-Outcome Apply(Order o, Event e);
+Outcome Apply(Order o, Event e)
 
 Apply(o, (:add_line, l))     when o.Status == :draft
-    => (:ok, o with { Lines = [l, ..o.Lines] });
+    -> (:ok, o with { Lines = [l, ..o.Lines] })
 
 Apply(o, (:remove_line, sku)) when o.Status == :draft
-    => RemoveLine(o, sku);
+    -> RemoveLine(o, sku)
 
 Apply(o, :place)             when o.Status == :draft, o.Lines != []
-    => (:ok, o with { Status = :placed });
+    -> (:ok, o with { Status = :placed })
 
 Apply(o, :place)             when o.Status == :draft
-    => (:error, :empty_order);
+    -> (:error, :empty_order)
 
 Apply(o, (:pay, amt))        when o.Status == :placed, amt >= Total(o)
-    => (:ok, o with { Status = :paid, Paid = amt });
+    -> (:ok, o with { Status = :paid, Paid = amt })
 
 Apply(o, (:pay, amt))        when o.Status == :placed
-    => (:error, (:underpaid, Total(o) - amt));
+    -> (:error, (:underpaid, Total(o) - amt))
 
 Apply(o, (:ship, _))         when o.Status == :paid
-    => (:ok, o with { Status = :shipped });
+    -> (:ok, o with { Status = :shipped })
 
 Apply(o, :cancel)            when o.Status != :shipped
-    => (:ok, o with { Status = :cancelled });
+    -> (:ok, o with { Status = :cancelled })
 
 Apply(o, e)
-    => (:error, (:not_allowed, o.Status, e));
+    -> (:error, (:not_allowed, o.Status, e))
 ```
 
 **This is Variant A at its best.** Nine clauses, aligned guards, and it reads as a specification
@@ -95,7 +95,7 @@ Note the last clause. It is the total-function catch-all, and whether it should 
 *forbidden*, or *inferred* is ticket 12's question. Here it converts "no clause matched" from a
 crash into a value, which is a choice, not an obligation.
 
-But notice what it costs: `Apply(o, e) => (:error, (:not_allowed, o.Status, e))` makes the
+But notice what it costs: `Apply(o, e) -> (:error, (:not_allowed, o.Status, e))` makes the
 function total, so **the compiler can no longer tell you when you have forgotten a case.** The
 exhaustiveness guarantee this language is built on is switched off by the catch-all that makes
 the function safe. That tension is real and this prototype does not resolve it.
@@ -103,12 +103,12 @@ the function safe. That tension is real and this prototype does not resolve it.
 ### Recursion and list work
 
 ```csharp
-Money Total(Order o) => Total(o.Lines, 0);
+Money Total(Order o) -> Total(o.Lines, 0)
 
-Money Total(list<Line> lines, Money acc);
+Money Total(list<Line> lines, Money acc)
 
-Total([], acc)                            => acc;
-Total([{ Qty: q, Unit: u }, ..rest], acc) => Total(rest, acc + q * u);
+Total([], acc)                            -> acc
+Total([{ Qty: q, Unit: u }, ..rest], acc) -> Total(rest, acc + q * u)
 ```
 
 `Total/1` and `Total/2` are **different functions** — BEAM identity is name *and* arity, so this
@@ -119,12 +119,12 @@ The second clause is the one to look at: `[{ Qty: q, Unit: u }, ..rest]` is a C#
 containing a C# property pattern, in the parameter position. Nothing was invented for it.
 
 ```csharp
-list<Line> Merge(list<Line> lines);
+list<Line> Merge(list<Line> lines)
 
-Merge([])                                       => [];
-Merge([l])                                      => [l];
-Merge([a, b, ..rest]) when a.Sku == b.Sku       => Merge([a with { Qty = a.Qty + b.Qty }, ..rest]);
-Merge([a, ..rest])                              => [a, ..Merge(rest)];
+Merge([])                                       -> []
+Merge([l])                                      -> [l]
+Merge([a, b, ..rest]) when a.Sku == b.Sku       -> Merge([a with { Qty = a.Qty + b.Qty }, ..rest])
+Merge([a, ..rest])                              -> [a, ..Merge(rest)]
 ```
 
 Four clauses, no `case`, no scrutinee named, and clause order carrying the logic. This is the
@@ -133,14 +133,14 @@ shape that is genuinely tedious to write as a nested `case`.
 ### Where it stops being pretty
 
 ```csharp
-Outcome RemoveLine(Order o, string sku);
+Outcome RemoveLine(Order o, string sku)
 
 // ILLEGAL. HasSku is a user function, and BEAM guards permit only guard BIFs.
 RemoveLine(o, sku) when HasSku(o.Lines, sku)
-    => (:ok, o with { Lines = o.Lines.Reject(l => l.Sku == sku) });
+    -> (:ok, o with { Lines = o.Lines.Reject(l => l.Sku == sku) })
 
 RemoveLine(_, sku)
-    => (:error, (:no_such_line, sku));
+    -> (:error, (:no_such_line, sku))
 ```
 
 **This does not compile and cannot be made to.** Erlang restricts guards to a closed set of
@@ -151,7 +151,7 @@ and asking a question usually means calling something.
 The legal version has to move the test into a body, which costs the clause structure:
 
 ```csharp
-Outcome RemoveLine(Order o, string sku);
+Outcome RemoveLine(Order o, string sku)
 
 RemoveLine(o, sku)
 {
@@ -175,37 +175,37 @@ syntax is a joy or a tease.
 ## Module 2 — `OrderServer`, the OTP layer
 
 ```csharp
-module OrderServer : GenServer;
+module OrderServer : GenServer
 
 type Request =
     (:apply, string, Event)
   | (:fetch, string)
-  | :stats;
+  | :stats
 
 type State = {
     Orders:   map<string, Order>,
     Applied:  int,
     Rejected: int,
-};
+}
 
-State Init(:no_args) => { Orders: #{}, Applied: 0, Rejected: 0 };
+State Init(:no_args) -> { Orders: #{}, Applied: 0, Rejected: 0 }
 ```
 
 ### `handle_call` — the showcase
 
 ```csharp
-(Reply<Outcome>, State) HandleCall(Request req, From from, State s);
+(Reply<Outcome>, State) HandleCall(Request req, From from, State s)
 
-HandleCall((:apply, id, e), _, s)   => ApplyTo(s, id, e);
+HandleCall((:apply, id, e), _, s)   -> ApplyTo(s, id, e)
 
 HandleCall((:fetch, id), _, s)      when s.Orders.HasKey(id)
-    => (Reply((:ok, s.Orders[id])), s);
+    -> (Reply((:ok, s.Orders[id])), s)
 
 HandleCall((:fetch, id), _, s)
-    => (Reply((:error, (:no_such_order, id))), s);
+    -> (Reply((:error, (:no_such_order, id))), s)
 
 HandleCall(:stats, _, s)
-    => (Reply((:ok, (s.Applied, s.Rejected))), s);
+    -> (Reply((:ok, (s.Applied, s.Rejected))), s)
 ```
 
 Delete the `:stats` clause and the compiler says:
@@ -228,15 +228,15 @@ gives no clue.
 ```csharp
 type Known =
     (:DOWN, Ref, :process, Pid, dynamic)
-  | (:timeout, Ref, :sweep);
+  | (:timeout, Ref, :sweep)
 
-(:noreply, State) HandleInfo(Known | dynamic msg, State s);
+(:noreply, State) HandleInfo(Known | dynamic msg, State s)
 
 HandleInfo((:DOWN, _, :process, pid, reason), s)
-    => (:noreply, DropWorker(s, pid, reason));
+    -> (:noreply, DropWorker(s, pid, reason))
 
 HandleInfo((:timeout, _, :sweep), s)
-    => (:noreply, Sweep(s));
+    -> (:noreply, Sweep(s))
 
 HandleInfo(other, s)
 {
@@ -252,10 +252,10 @@ hidden in a catch-all. A reader can see exactly which half of this function is g
 ### `handle_cast`, and a two-clause function
 
 ```csharp
-(:noreply, State) HandleCast(:flush | (:preload, list<Order>), State s);
+(:noreply, State) HandleCast(:flush | (:preload, list<Order>), State s)
 
-HandleCast(:flush, s)          => (:noreply, s with { Orders = #{} });
-HandleCast((:preload, os), s)  => (:noreply, s with { Orders = IndexById(os) });
+HandleCast(:flush, s)          -> (:noreply, s with { Orders = #{} })
+HandleCast((:preload, os), s)  -> (:noreply, s with { Orders = IndexById(os) })
 ```
 
 **Here Variant A is at its worst.** Two clauses, and `HandleCast` is written three times in five
@@ -267,19 +267,19 @@ the table effect never arrives. Most functions in a real codebase are this size,
 ## Module 3 — supervision, and interop
 
 ```csharp
-module OrderSup : Supervisor;
+module OrderSup : Supervisor
 
-(SupFlags, list<ChildSpec>) Init(:no_args) =>
+(SupFlags, list<ChildSpec>) Init(:no_args) ->
     ( { Strategy: :one_for_one, Intensity: 3, Period: 60 },
-      [ Child(:orders, OrderServer.StartLink, :permanent, :worker) ] );
+      [ Child(:orders, OrderServer.StartLink, :permanent, :worker) ] )
 ```
 
 ```csharp
 [Erlang("erlang", "system_time")]
-int SystemTime(:millisecond | :second unit);
+int SystemTime(:millisecond | :second unit)
 
 [Erlang("lists", "keyfind")]
-(string, Order) | :false KeyFind(string key, int n, list<(string, Order)> haystack);
+(string, Order) | :false KeyFind(string key, int n, list<(string, Order)> haystack)
 ```
 
 The second declaration is worth pausing on. `lists:keyfind/3` returns a tuple **or the atom
@@ -291,11 +291,11 @@ way (ticket 18).
 And the chained form, which ticket 05 established is the same static rewrite as `|>`:
 
 ```csharp
-list<string> ActiveSkus(list<Order> orders) =>
+list<string> ActiveSkus(list<Order> orders) ->
     orders.Filter(o => o.Status == :placed || o.Status == :paid)
           .FlatMap(o => o.Lines)
           .Map(l => l.Sku)
-          .Distinct();
+          .Distinct()
 ```
 
 ---
@@ -309,14 +309,14 @@ being structure.
 ### Structural recursion over a tree
 
 ```csharp
-type Tree = :leaf | (:node, Tree, int, Tree);
+type Tree = :leaf | (:node, Tree, int, Tree)
 
-Tree Insert(Tree t, int x);
+Tree Insert(Tree t, int x)
 
-Insert(:leaf, x)                        => (:node, :leaf, x, :leaf);
-Insert((:node, l, v, r), x) when x < v  => (:node, Insert(l, x), v, r);
-Insert((:node, l, v, r), x) when x > v  => (:node, l, v, Insert(r, x));
-Insert((:node, _, _, _) t, _)           => t;              // already present
+Insert(:leaf, x)                        -> (:node, :leaf, x, :leaf)
+Insert((:node, l, v, r), x) when x < v  -> (:node, Insert(l, x), v, r)
+Insert((:node, l, v, r), x) when x > v  -> (:node, l, v, Insert(r, x))
+Insert((:node, _, _, _) t, _)           -> t               // already present
 ```
 
 Four equations, no `case`, no scrutinee named, and the recursive calls sit inside the
@@ -330,12 +330,12 @@ thing C# turned out to already have.
 The most common recursive idiom on the BEAM, and the one that shows the header cost honestly.
 
 ```csharp
-list<int> ToList(Tree t) => ToList(t, []);
+list<int> ToList(Tree t) -> ToList(t, [])
 
-list<int> ToList(Tree t, list<int> acc);
+list<int> ToList(Tree t, list<int> acc)
 
-ToList(:leaf, acc)             => acc;
-ToList((:node, l, v, r), acc)  => ToList(l, [v, ..ToList(r, acc)]);
+ToList(:leaf, acc)             -> acc
+ToList((:node, l, v, r), acc)  -> ToList(l, [v, ..ToList(r, acc)])
 ```
 
 `ToList/1` and `ToList/2` are different functions sharing a name — BEAM identity is name *and*
@@ -346,14 +346,14 @@ almost every accumulator helper is two clauses.
 ### Mutual recursion
 
 ```csharp
-bool IsEven(int n);
-bool IsOdd(int n);
+bool IsEven(int n)
+bool IsOdd(int n)
 
-IsEven(0)             => true;
-IsEven(n) when n > 0  => IsOdd(n - 1);
+IsEven(0)             -> true
+IsEven(n) when n > 0  -> IsOdd(n - 1)
 
-IsOdd(0)              => false;
-IsOdd(n) when n > 0   => IsEven(n - 1);
+IsOdd(0)              -> false
+IsOdd(n) when n > 0   -> IsEven(n - 1)
 ```
 
 Variant A has a layout question here that Variant B could not have had: **do the two headers
@@ -365,12 +365,12 @@ obviously right, and nothing in the syntax forces either.
 ### Merge sort — where guards do real work
 
 ```csharp
-list<int> MergeSorted(list<int> a, list<int> b);
+list<int> MergeSorted(list<int> a, list<int> b)
 
-MergeSorted([], b)                                 => b;
-MergeSorted(a, [])                                 => a;
-MergeSorted([x, ..xs] a, [y, ..ys] b) when x <= y  => [x, ..MergeSorted(xs, b)];
-MergeSorted([x, ..xs] a, [y, ..ys] b)              => [y, ..MergeSorted(a, ys)];
+MergeSorted([], b)                                 -> b
+MergeSorted(a, [])                                 -> a
+MergeSorted([x, ..xs] a, [y, ..ys] b) when x <= y  -> [x, ..MergeSorted(xs, b)]
+MergeSorted([x, ..xs] a, [y, ..ys] b)              -> [y, ..MergeSorted(a, ys)]
 ```
 
 This is the prototype's prettiest function and it is worth saying why. Both arguments are
@@ -382,11 +382,11 @@ carries it.
 ### The friction recursion exposes: intermediate values
 
 ```csharp
-list<int> Sort(list<int> xs);
+list<int> Sort(list<int> xs)
 
-Sort([])  => [];
-Sort([x]) => [x];
-Sort(xs)  => ???                      // Split(xs) returns a pair. Now what?
+Sort([])  -> []
+Sort([x]) -> [x]
+Sort(xs)  -> ???                      // Split(xs) returns a pair. Now what?
 ```
 
 **You cannot pattern-match the result of a call in the parameter position** — the head matches
@@ -402,10 +402,10 @@ Sort(xs)
 }
 
 // (b) a helper function that exists only to destructure
-list<int> SortHalves((list<int>, list<int>) halves);
-SortHalves((l, r)) => MergeSorted(Sort(l), Sort(r));
+list<int> SortHalves((list<int>, list<int>) halves)
+SortHalves((l, r)) -> MergeSorted(Sort(l), Sort(r))
 
-Sort(xs) => SortHalves(Split(xs));
+Sort(xs) -> SortHalves(Split(xs))
 ```
 
 (a) is what a C# programmer will write and it is perfectly readable — but the moment a function
@@ -428,41 +428,41 @@ type Expr =
   | (:var, string)
   | (:neg, Expr)
   | (:add, Expr, Expr)
-  | (:let, string, Expr, Expr);
+  | (:let, string, Expr, Expr)
 
-type Env    = map<string, int>;
-type Evaled = (:ok, int) | (:error, (:unbound, string));
+type Env    = map<string, int>
+type Evaled = (:ok, int) | (:error, (:unbound, string))
 
-Evaled Eval(Expr e, Env env);
+Evaled Eval(Expr e, Env env)
 
-Eval((:num, n), _)                    => (:ok, n);
+Eval((:num, n), _)                    -> (:ok, n)
 Eval((:var, name), env) when env.HasKey(name)
-                                      => (:ok, env[name]);
-Eval((:var, name), _)                 => (:error, (:unbound, name));
-Eval((:neg, e), env)                  => Negate(Eval(e, env));
-Eval((:add, l, r), env)               => Combine(Eval(l, env), Eval(r, env));
-Eval((:let, name, bound, body), env)  => Bind(name, Eval(bound, env), body, env);
+                                      -> (:ok, env[name])
+Eval((:var, name), _)                 -> (:error, (:unbound, name))
+Eval((:neg, e), env)                  -> Negate(Eval(e, env))
+Eval((:add, l, r), env)               -> Combine(Eval(l, env), Eval(r, env))
+Eval((:let, name, bound, body), env)  -> Bind(name, Eval(bound, env), body, env)
 ```
 
 The three helpers do the error propagation *in their heads*, which is the whole argument for the
 feature in one place:
 
 ```csharp
-Evaled Negate(Evaled v);
+Evaled Negate(Evaled v)
 
-Negate((:ok, n))        => (:ok, -n);
-Negate((:error, _) e)   => e;
+Negate((:ok, n))        -> (:ok, -n)
+Negate((:error, _) e)   -> e
 
-Evaled Combine(Evaled a, Evaled b);
+Evaled Combine(Evaled a, Evaled b)
 
-Combine((:ok, x), (:ok, y))  => (:ok, x + y);
-Combine((:error, _) e, _)    => e;
-Combine(_, (:error, _) e)    => e;
+Combine((:ok, x), (:ok, y))  -> (:ok, x + y)
+Combine((:error, _) e, _)    -> e
+Combine(_, (:error, _) e)    -> e
 
-Evaled Bind(string name, Evaled bound, Expr body, Env env);
+Evaled Bind(string name, Evaled bound, Expr body, Env env)
 
-Bind(name, (:ok, v), body, env)  => Eval(body, env.Put(name, v));
-Bind(_, (:error, _) e, _, _)     => e;
+Bind(name, (:ok, v), body, env)  -> Eval(body, env.Put(name, v))
+Bind(_, (:error, _) e, _, _)     -> e
 ```
 
 `Combine` is the clearest three lines in this document: two successes combine, either failure
@@ -483,11 +483,11 @@ No builtins, no `reduce`, no library. The simplest recursive function anyone wri
 sharpest test in this document.
 
 ```csharp
-int Fib(int n);
+int Fib(int n)
 
-Fib(0)            => 0;
-Fib(1)            => 1;
-Fib(n) when n > 1 => Fib(n - 1) + Fib(n - 2);
+Fib(0)            -> 0
+Fib(1)            -> 1
+Fib(n) when n > 1 -> Fib(n - 1) + Fib(n - 2)
 ```
 
 **This does not compile, and the reason is structural rather than incidental.**
@@ -510,13 +510,13 @@ be unavailable in the first program anyone writes.
 ### The fix, and the inversion it produces
 
 ```csharp
-type Nat = 0..;                       // an interval type, not an alias
+type Nat = 0..                        // an interval type, not an alias
 
-int Fib(Nat n);
+int Fib(Nat n)
 
-Fib(0)            => 0;
-Fib(1)            => 1;
-Fib(n) when n > 1 => Fib(n - 1) + Fib(n - 2);
+Fib(0)            -> 0
+Fib(1)            -> 1
+Fib(n) when n > 1 -> Fib(n - 1) + Fib(n - 2)
 ```
 
 Two things must hold for this to check. The type language needs **integer interval types** — and
@@ -540,23 +540,23 @@ open the guard language up for ergonomics and you lose the ability to check `Fib
 Tail-recursive, threading two accumulators:
 
 ```csharp
-int Fib(Nat n) => Fib(n, 0, 1);
+int Fib(Nat n) -> Fib(n, 0, 1)
 
-int Fib(Nat n, int a, int b);
+int Fib(Nat n, int a, int b)
 
-Fib(0, a, _)            => a;
-Fib(n, a, b) when n > 0 => Fib(n - 1, b, a + b);
+Fib(0, a, _)            -> a
+Fib(n, a, b) when n > 0 -> Fib(n - 1, b, a + b)
 ```
 
 The first `n` values as a list, built by hand rather than by any library function:
 
 ```csharp
-list<int> FibList(Nat count) => FibList(count, 0, 1);
+list<int> FibList(Nat count) -> FibList(count, 0, 1)
 
-list<int> FibList(Nat remaining, int a, int b);
+list<int> FibList(Nat remaining, int a, int b)
 
-FibList(0, _, _)            => [];
-FibList(n, a, b) when n > 0 => [a, ..FibList(n - 1, b, a + b)];
+FibList(0, _, _)            -> []
+FibList(n, a, b) when n > 0 -> [a, ..FibList(n - 1, b, a + b)]
 ```
 
 Both read cleanly, and both are two equations under a header — the accumulator-pair shape again,
@@ -566,11 +566,11 @@ Memoised, which walks straight back into the intermediate-value problem. Two seq
 each thread the map, so the result of the first is an argument to the second:
 
 ```csharp
-(int, map<int, int>) Fib(Nat n, map<int, int> memo);
+(int, map<int, int>) Fib(Nat n, map<int, int> memo)
 
-Fib(0, m)                   => (0, m);
-Fib(1, m)                   => (1, m);
-Fib(n, m) when m.HasKey(n)  => (m[n], m);
+Fib(0, m)                   -> (0, m)
+Fib(1, m)                   -> (1, m)
+Fib(n, m) when m.HasKey(n)  -> (m[n], m)
 
 Fib(n, m)
 {
@@ -597,10 +597,10 @@ collide silently.** → ticket 08.
 ### 6a. Module-as-focus: the module declares the function, clauses drop the name
 
 ```csharp
-module OrderServer.HandleCast : (:noreply, State) HandleCast(:flush | (:preload, list<Order>), State);
+module OrderServer.HandleCast : (:noreply, State) HandleCast(:flush | (:preload, list<Order>), State)
 
-(:flush, s)         => (:noreply, s with { Orders = #{} });
-((:preload, os), s) => (:noreply, s with { Orders = IndexById(os) });
+(:flush, s)         -> (:noreply, s with { Orders = #{} })
+((:preload, os), s) -> (:noreply, s with { Orders = IndexById(os) })
 ```
 
 Fixes friction #3 outright — the two-clause case stops paying three occurrences of a name for two
@@ -641,18 +641,18 @@ Every clause in the original `Apply` tested `o.Status` in a **guard**, and frict
 guards contribute nothing provable to exhaustiveness. Pushing the opposite way:
 
 ```csharp
-Outcome Apply(Order o, Event e);
+Outcome Apply(Order o, Event e)
 
-Apply({ Status: :draft } o, (:add_line, l))           => (:ok, o with { Lines = [l, ..o.Lines] });
-Apply({ Status: :draft } o, (:remove_line, sku))      => RemoveLine(o, sku);
-Apply({ Status: :draft, Lines: [_, .._] } o, :place)  => (:ok, o with { Status = :placed });
-Apply({ Status: :draft }, :place)                     => (:error, :empty_order);
+Apply({ Status: :draft } o, (:add_line, l))           -> (:ok, o with { Lines = [l, ..o.Lines] })
+Apply({ Status: :draft } o, (:remove_line, sku))      -> RemoveLine(o, sku)
+Apply({ Status: :draft, Lines: [_, .._] } o, :place)  -> (:ok, o with { Status = :placed })
+Apply({ Status: :draft }, :place)                     -> (:error, :empty_order)
 Apply({ Status: :placed } o, (:pay, amt)) when amt >= Total(o)
-                                                      => (:ok, o with { Status = :paid, Paid = amt });
-Apply({ Status: :placed } o, (:pay, amt))             => (:error, (:underpaid, Total(o) - amt));
-Apply({ Status: :paid } o, (:ship, _))                => (:ok, o with { Status = :shipped });
-Apply({ Status: not :shipped } o, :cancel)            => (:ok, o with { Status = :cancelled });
-Apply(o, e)                                           => (:error, (:not_allowed, o.Status, e));
+                                                      -> (:ok, o with { Status = :paid, Paid = amt })
+Apply({ Status: :placed } o, (:pay, amt))             -> (:error, (:underpaid, Total(o) - amt))
+Apply({ Status: :paid } o, (:ship, _))                -> (:ok, o with { Status = :shipped })
+Apply({ Status: not :shipped } o, :cancel)            -> (:ok, o with { Status = :cancelled })
+Apply(o, e)                                           -> (:error, (:not_allowed, o.Status, e))
 ```
 
 **Eight of nine guards became patterns.** `o.Lines != []` became `Lines: [_, .._]`. The catch-all
@@ -717,7 +717,7 @@ Nine things, ordered by how much they should worry you.
    helper that exists only to destructure. This is ordinary BEAM code, not an exotic case, and it
    is why ML languages have `let … in`. → ticket 08 or 17.
 
-2. **The catch-all clause switches off the guarantee.** `Apply(o, e) => (:error, …)` makes the
+2. **The catch-all clause switches off the guarantee.** `Apply(o, e) -> (:error, …)` makes the
    function total and therefore unfalsifiable — the compiler can never again tell you a case is
    missing. Safety and exhaustiveness pull against each other, in the same function. → ticket 12.
 

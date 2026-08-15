@@ -556,7 +556,7 @@ or wire parsing breaks. A parameter declared `int` leaves every byte-wide dispat
 |---|---|
 | `if` / `else` / ternary | `switch` is the only branching construct; every fall-through is a pattern |
 | `;` | the grammar needs no terminator |
-| macros | a large semantic surface that interacts hard with a type system; the compiler generates code, users do not |
+| macros | a large semantic surface that interacts hard with a type system; today the compiler generates code and users do not. **Absent, not refused** — see the map's amendment of 2026-08-15: out of *this map's* scope, and open should a use case arrive that nothing else serves (a DDD/resource surface of Ash's kind is the named candidate) |
 | `async` / `await` | function colouring is a second effect system |
 | `try` | a compiler-written wrapper and `monitor`/`receive` cover it, checked |
 | method-call syntax (`xs.Map(f)`) | needs type-directed resolution of an unqualified name |
