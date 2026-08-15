@@ -77,3 +77,47 @@ non-aggregate shape it wants; that exemplar would serve both.
 **Do not re-raise what 20 settled**: the `<<_:M, _:_*N>>` grammar, the exact union algebra for
 fixed and repeating sizes, the `string`/`binary` split, base64 encoding of bare binaries, or the
 O(1) boundary rule. This ticket is about the *consuming* direction only.
+
+## Two more things this ticket owes, added 2026-08-15 by F9
+
+F9 built binaries **as values** — `binary` as the top, `string` as its valid-UTF-8 refinement, the
+literal, and 20 §3's boundary rule enforced in both directions — and stopped deliberately at this
+ticket's edge. Stopping there surfaced a question neither ticket had written down.
+
+### 3. A surface spelling for a *sized* binary type
+
+F9 ships `binary` and `string` and nothing in between, so this is code that cannot be written:
+
+```csharp
+// none of these has a spelling, and none is decided
+type Header = <<_:32>>
+type Frame  = binary<32>
+type Chunk  = binary where bit_size % 8 == 0
+```
+
+Ticket 20 §2 published the algebra in **Erlang's own** `<<_:M, _:_*N>>` notation, which is the
+notation of the language beam-sharp is *not* — this surface writes `list<T>` where Erlang writes
+`[T]`. Borrowing the spelling unexamined would be the first place the language does the opposite of
+what it does everywhere else, so F9 flagged it rather than inventing one.
+
+**It belongs to this ticket rather than a new one**, because §1 and §2 already need a spelling for
+the *pattern* form, and **a pattern and a type that cannot be written in the same notation is a
+worse outcome than either choice**. They are one question wearing two hats.
+
+### 4. §2 at the smallest possible scale — a string literal in pattern position
+
+`Greet("hello") -> :hi` is out of F9 for exactly §2's reason. It needs a **value-level singleton**
+in the binary part, and 20's grammar is *sizes, not values*: `<<_:M, _:_*N>>` cannot say "this one".
+So it is *a union discriminated by a value inside the binary* with the binary being five bytes long,
+and admitting the pattern without deciding it would mean admitting a match the checker cannot prove
+exhaustive.
+
+Worth weighing when §2 is answered, because **a language whose strings cannot be matched literally
+will be noticed long before anyone parses a WebSocket frame** — this is the small, common, everyday
+face of the same gap, and it may be the better one to design against.
+
+### What F9 leaves in place
+
+The binary part of the algebra is a **set** — the two-element powerset of `{utf8, other}` — so a
+size partition refines it later without changing its shape. The exactness requirement 20 insisted on
+is already honoured and there is no join to undo.
