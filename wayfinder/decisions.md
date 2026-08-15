@@ -808,3 +808,89 @@
   is unchecked at construction and at `with` alike, because §2's relation is the field *set* and §1's
   principle says otherwise → [ticket 36](issues/36-field-value-obligations.md).
 
+
+- **Module and namespace system, and function identity** — [ticket 40](issues/40-module-and-namespace-system.md),
+  resolved 2026-08-15. Three sections, and they were answered by three different kinds of argument,
+  which is the reason this entry is worth reading rather than the ticket's headline.
+
+  **§1 — the emitted atom was FORCED, not chosen.** A module's atom is its full dotted path
+  (`module Shop.Orders` → `'Shop.Orders'`), because ticket 26 §1's tag mints from the qualified name
+  and delivers aggregate identity *only if* `Mod` is itself unique — with a leaf name,
+  `Shop.Orders.Order` and `Billing.Invoices.Order` both mint `'Orders.Order'` and two bounded
+  contexts unify invisibly. **The compiler already implements it**: `bs_check:qualified/2` and the
+  `bsc.erl` emit path need no change, because both were written against the module *atom* rather
+  than a single segment, so §1 costs one grammar rule. Re-measured on OTP 28; `13a` had measured it
+  already. **One correction is on the record**: the first reason given for needing no
+  `Elixir.`-style prefix — *"PascalCase sits outside Erlang's snake_case namespace"* — is **false**,
+  and `32b_name_census.md:30–35` had already measured it false (265 of 1,315 loadable Erlang modules
+  are not plain lowercase). The surviving reason is narrower and is the one to quote: **none of them
+  contains a dot.**
+
+  **§2 — arity overloading is PERMITTED**, the BEAM's own rule unmodified (David: *"one arity per
+  name seems a complete dead end"*). The argument for restricting it — ticket 34's *"a name means
+  one thing in a clause"*, lifted to the module — is an **analogy, not a mechanism**, and was left
+  unmade. `examples/fib.bs` writing `Fib`/`Series`/`Reverse` is idiom, not constraint.
+  **The hazard cited against it had been mis-read, and correcting it moved it out of this ticket**:
+  `01b:587–591` says `Fib/1`, `Fib/2` and `Fib/2` *again* — same name **and** same arity, which is a
+  duplicate declaration under either answer and never an argument for one. Measured while
+  correcting it: the checker **merges** two same-signature declarations into a single four-clause
+  function and reports *"clause 3 is unreachable"*; the only thing that stops the build is `erlc`
+  saying `function 'Combine'/2 already defined` against `Silent.abstr:0`, with no line and no `.bs`
+  name. **The defect is the diagnosis, not the outcome** — the identical costume to F7's
+  `true`/`false` bug, and the second appearance of that shape.
+
+  **§3 — `public`/`private` on the signature**: Elixir's placement, C#'s words (David: *"Follow the
+  beam convention for exports, elixir uses def/defp right?"*). Both BEAM languages make export an
+  explicit per-function decision and differ only in *where* it is written; taking Elixir's site
+  rather than Erlang's `-export` list avoids a second place that must agree with the definition,
+  which is the drift `bs_emit`'s single `name/2` funnel exists to prevent. Taking C#'s words is the
+  amended heuristic working as intended — survey all three tiers, take the most accurate word — and
+  it is the same shape as ticket 35's `behaviour`: mechanism from the BEAM, spelling from wherever
+  it reads best. **Every function is marked**, since `def`/`defp` has no unmarked case; recorded as
+  a stated assumption with a one-line reversal if it is the wrong half.
+
+  **Two checks are specified and unbuilt**, both belonging to the feature that implements §1:
+  `{name_redeclared, Name, Arity, Line}` for §2, and — because ticket 06 measured that `-behaviour`
+  has no runtime effect and **only exports matter** — an error when a `private` function is a
+  callback of a declared behaviour, which F10's contract-scoped table already makes cheap. Without
+  the second, a `private` callback breaks the behaviour at run time, silently.
+
+  **Not decided here**: where tests live (24), and everything about *naming another* module →
+  [ticket 41](issues/41-imports-and-cross-module-scope.md).
+
+  <details><summary>The patch as it stood before the ticket, preserved</summary>
+
+- **Module and namespace system**, and function identity — BEAM identifies functions by
+  name *and arity*, which multi-clause heads and optional parameters both disturb. **Ticket 10
+  §3 adds one requirement**: a module identifier in value position is an atom singleton, so this
+  fog owes an answer to *what atom is actually emitted* — a bare snake_cased name, which risks
+  colliding with Erlang modules, or something prefixed as Elixir's `Elixir.` is. Ticket 10
+  deliberately did not decide it. **Ticket 13 sharpens this with two measured facts and settles one
+  half of it.** Settled: **sub-modules are source-only**, so the *aggregate* is the BEAM module and
+  a sub-module is not a module at all — while still being named in crash reports, via repeated
+  `file` attributes. Sharpened: `erlc` **enforces module-name/filename matching on the
+  `from_abstr` path**, so whatever atom a module identifier lowers to, the emitted `.abstr`
+  filename must equal it — which makes the emitted-atom question a *build-layout* question too, not
+  only a collision-avoidance one. A dotted atom (`'Shop.Orders.Order'`, Elixir's convention)
+  works unchanged. **Ticket 23 §10 adds a third consumer of the naming question, and it is the
+  first that is not a build concern**: the directory listing is a legitimate way for an agent to
+  discover what operations exist, so **file names are part of the API surface** rather than only of
+  the build layout. That strengthens 23's own warning that colliding short names
+  (`Order.Server.Apply` beside `Order.Apply`) are defects, and it means whatever this patch decides
+  about emitted atoms has to be legible to a reader with nothing but `ls`.
+  **Ticket 24 adds a fourth consumer, and it is the one that stresses the rule hardest**: where a
+  *test* lives under one function per file. 23 §10 made the directory listing part of the API
+  surface, so tests either sit in it — and an `ls` no longer shows only operations — or somewhere
+  this patch has not defined. 24 declined to answer it as a tooling detail precisely because 23 §10
+  says it is not one.
+  **Ticket 26 adds a fifth consumer, and it is the first that is a correctness requirement rather
+  than a discovery or build one.** 26 §1 mints a record's discriminating tag from its type name, and
+  that tag *is* aggregate identity — so if the mint uses the **short** name, `Shop.Orders.Order` and
+  `Billing.Invoices.Order` both produce `:order` and two bounded contexts silently unify, which is
+  the exact failure the minting exists to prevent, at a different scale and invisible. **So the tag
+  must mint from the qualified name**, and whatever atom this patch settles on must be unique enough
+  to carry aggregate identity, not merely to avoid colliding with Erlang modules. This raises the
+  stakes on the emitted-atom question rather than adding a new one: 13 already made it a
+  build-layout question and 23 §10 an API-surface question; 26 makes it a *type* question.
+
+  </details>

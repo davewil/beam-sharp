@@ -1,7 +1,9 @@
 # 40 — What is a module, what atom does it emit, and what does it export?
 
 Type: grilling
-Status: **claimed** 2026-08-15 — §1 answered, §2 and §3 are the open questions
+Status: **resolved 2026-08-15** — all three sections answered. Two checks are specified and
+unbuilt (`name_redeclared` in §2, the private-callback check in §3); they belong to the feature
+that implements §1.
 
 Raised 2026-08-15 from the fog patch *"Module and namespace system, and function identity"*,
 which four other patches wait on, and which
@@ -108,7 +110,83 @@ single segment. §1 costs one grammar rule.
 
 ---
 
-## §2. THE QUESTION — may a name be overloaded on arity within a module?
+## §2. ANSWERED 2026-08-15 — arity overloading is PERMITTED
+
+**A. The BEAM's own identity rule, unmodified: a name may carry more than one arity in a module.**
+
+David: *"one arity per name seems a complete dead end."* The cost is what forced `Series` to exist
+as a separate name for what is plainly still Fibonacci, and no mechanism ever required it —
+`examples/fib.bs` writing `Fib`/`Series`/`Reverse` is **idiom, not constraint**, which is the
+distinction this section was written to keep.
+
+**The argument that was NOT made, and should stay unmade.** Ticket 34/F4 refuses rebinding because
+*"a name means one thing in a clause"*, and lifting that to *"a name means one thing in a module"*
+is an **analogy, not a mechanism**. Nothing on the BEAM breaks under overloading.
+
+### The 01b hazard was mis-cited, and it is orthogonal to this question
+
+This section first cited `01b:587–591` as *"`Fib/1`, `Fib/2` and `Fib/3` in one module"*. **Wrong.**
+The text reads *"`Fib/1`, `Fib/2` and **`Fib/2` again**"* — the tail-recursive `Fib(Nat, int, int)`
+is `Fib/3`, but the memoised `Fib(Nat, map)` is `Fib/2`, and had the accumulator version taken one
+accumulator it would have been `Fib/2` as well.
+
+So the hazard is **same name *and* same arity**, which is a duplicate declaration under A and under
+B alike. It was never an argument for B, and choosing A does not inherit it. It is a separate
+defect, live today, and §2 is not its owner — it is recorded here only because citing it wrongly is
+what made it look like §2's business.
+
+### What actually happens today — measured, and "silently" is half right
+
+Two `Combine/2` declarations with identical signatures and different bodies:
+
+```csharp
+int Combine(int n, int m)
+Combine(n, m) when n > 0  -> n + m
+Combine(n, m) when n <= 0 -> m
+
+int Combine(int n, int m)      // someone else's helper, same name and arity
+Combine(n, m) when n > 0  -> n * m
+Combine(n, m) when n <= 0 -> 0
+```
+
+```
+silent.bs:11: warning: clause 3 of Combine is unreachable
+silent.bs:12: warning: clause 4 of Combine is unreachable
+erlc: Silent.abstr:0: function 'Combine'/2 already defined
+      Silent.abstr:0: spec for 'Combine'/2 already defined
+```
+
+**The checker merges the two into one four-clause function** — that is what "clause 3" and
+"clause 4" mean, there being only two clauses under each signature — and reports them as
+unreachable. The program is stopped, but by **erlc at the back of the pipeline**, against
+`Silent.abstr:0`: no line, no `.bs` filename, and a message about a file the author never wrote.
+
+**The defect is the diagnosis, not the outcome.** *"Clause 3 is unreachable"* reads as a remark
+about the code when the truth is *"you declared this function twice"* — the identical costume to
+F7's `true`/`false` bug, where the only trace was an unreachable-clause warning that read like a
+comment on the code rather than a report of a misparse. Second appearance of that shape, and the
+features README's rule applies: a capability that reports the wrong thing is not caught by a green
+suite.
+
+### The owed check, fully specified
+
+A **sibling of the type-redeclaration check** the features README already specifies, at the
+function level rather than the type level:
+
+```
+bs_check   before the per-function walk, group the signatures by {Name, Arity}
+           any group of size > 1 raises {name_redeclared, Name, Arity, Line}
+           into the path bsc:resolve_error/2 already catches — the route
+           kind_field_is_minted takes, and the reason it can report a line.
+           One new resolve_error/2 clause carries the message.
+```
+
+It must fire **before** the exhaustiveness walk, or the merged clauses generate the misleading
+unreachable warnings first. Not yet built; owned by whichever feature implements §1.
+
+---
+
+## §2 (original framing, kept for the record) — may a name be overloaded on arity?
 
 The fog patch's title says *"function identity — BEAM identifies functions by name **and arity**,
 which multi-clause heads and optional parameters both disturb."* **Measured, neither does:**
@@ -120,8 +198,9 @@ which multi-clause heads and optional parameters both disturb."* **Measured, nei
   anonymous, never defaulted. The `?` marker is a *record field* form only.
 
 So the patch names two hazards that are not live. **The live one it does not name** is recorded in
-`prototypes/01b-variant-a-at-length.md:587–591`: `Fib/1`, `Fib/2` and `Fib/3` in one module, and
-*"two unrelated helpers can collide silently."*
+`prototypes/01b-variant-a-at-length.md:587–591`: `Fib/1`, `Fib/2` and **`Fib/2` again**, and
+*"two unrelated helpers can collide silently."* (Corrected above — this was first written as
+`Fib/3`, which put the hazard in the wrong section.)
 
 ### The two spellings, in code
 
@@ -190,7 +269,86 @@ identify a function at all without carrying the arity.
 
 ---
 
-## §3. THE QUESTION — export control
+## §3. ANSWERED 2026-08-15 — `public` / `private` at the signature
+
+David: *"Follow the beam convention for exports, elixir uses def/defp right? — So public/private
+works for B#."*
+
+**Elixir's placement, C#'s words.** The marker sits on the signature, one per function:
+
+```csharp
+public  list<int> Fib(int n)
+private list<int> Series(int n, int a, int b, list<int> acc)
+private list<int> Reverse(list<int> xs, list<int> acc)
+```
+
+### Why this is the BEAM convention rather than a C# import
+
+Both BEAM languages make export an **explicit, per-function decision**; they differ only in where
+the decision is written.
+
+| | Where the decision lives | Unmarked case |
+|---|---|---|
+| Erlang | a separate `-export([f/1])` list | private |
+| Elixir | at the definition — `def` / `defp` | **none: every function is marked** |
+| C# | at the member — `public` / `private` | private |
+| beam-sharp today | nowhere | everything public |
+
+Taking Elixir's *placement* avoids the one thing Erlang's list costs: a second site that must agree
+with the definition, which is exactly the drift `bs_emit`'s single `name/2` funnel was written to
+prevent (*"they must agree or the module exports a name nothing defines"*). Taking C#'s *words*
+follows the map's amended heuristic — **survey all three tiers, take the most accurate word** —
+since `public`/`private` say the thing plainly to both halves of the audience, where `def`/`defp`
+carries Elixir's macro vocabulary B# has no use for.
+
+This is the same shape as ticket 35's `behaviour`: the mechanism comes from the BEAM, the spelling
+from wherever it reads best.
+
+### Every function is marked — assumption stated
+
+`def`/`defp` has **no unmarked case**, and that is the half of Elixir's convention being taken:
+a signature carries `public` or `private`, never neither. The standing constraint supports it —
+write cost is near-free because agents author these files, and a reader never having to know a
+default is a read-cost win at full weight. It also makes ticket 22's *"enforced conventions are
+guardrails on the agent"* concrete.
+
+**If that is the wrong half**, the alternative is one line: make `private` the marker and public the
+default (or vice versa). Nothing below depends on which, and nothing is built yet.
+
+### The check this makes possible, and why it is not optional
+
+Ticket 06 measured that `-behaviour` has **no runtime effect** and only exports matter —
+`gen_server` builds `fun Mod:handle_call/3` off the module atom. So a `private` callback breaks the
+behaviour at *run time*, silently, which is the failure shape that has bitten this project three
+times (F5's vacuous containment, F6's hang, F9's byte-vs-UTF-8).
+
+F10 already ships the contract-scoped table this needs, so the check is cheap and must ship with the
+keyword rather than after it: **a `private` function whose name and arity are a callback of a
+behaviour the module declares is an error at the declaration**, via `bs_otp:callback_name/3`.
+
+### Compiler delta for §3
+
+```
+bs_lexer.xrl    public   : {token, {'public',  TokenLine}}.
+                private  : {token, {'private', TokenLine}}.
+                (two lines; no .bs file uses either word today, measured)
+
+bs_parser.yrl   signature -> visibility type_prim uident '(' params ')'
+                visibility -> 'public' | 'private'
+
+bs_emit.erl:55  Exports = [{F, arity(F)} || F <- Fns, is_public(F)]
+
+bs_check        a private F whose {Name, Arity} is in bs_otp:callback_name/3 for a
+                declared behaviour raises into the resolve_error/2 path
+```
+
+Plus a rewrite of all 29 `.bs` files. That cost is the F8 precedent exactly — F8 took its slot ahead
+of binaries *because* it rewrote every file and every later feature adds more of them. The same
+argument applies here and points the same way: sooner is cheaper.
+
+---
+
+## §3 (original framing, kept for the record) — export control
 
 **Today every function is exported, unconditionally** — `bs_emit.erl:55–62`:
 

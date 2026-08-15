@@ -1,7 +1,9 @@
 # 41 — How does a module name another, and where do its types come from?
 
 Type: grilling
-Status: **claimed** 2026-08-15 — §1 answered, §2–§4 are the open questions
+Status: **claimed** 2026-08-15 — §1 and §2 answered. §3 and §4 open, and **§2's answer put §3 on
+the critical path**: unqualified names cannot be resolved without each import's exported name/arity
+set, so §3 is now a prerequisite of building §2 rather than a neighbour of it.
 
 Raised 2026-08-15 from the fog patch *"Imports and cross-module scope"*, together with
 [ticket 40](40-module-and-namespace-system.md). 40 decides what a module is and what a name
@@ -75,7 +77,88 @@ LALR(1) separates them on the following token; it has not been run.
 
 ---
 
-## §2. THE QUESTION — does `using` bring names into scope unqualified?
+## §2. ANSWERED 2026-08-15 — `using` brings names into scope UNQUALIFIED
+
+David: *"I think B would be expected"* … *"whatever needs to be done to support B should be done."*
+
+```csharp
+using Shop.Orders
+
+int Total(Order o)
+Total(o) -> Sum(o.Lines)          // not Shop.Orders.Sum(o.Lines)
+```
+
+**The audience test decides it**, and the map elevates that test explicitly: *a construct a C#
+developer reads on sight, versus one they must be taught.* An import that leaves every call site
+fully qualified makes the `using` line look like it does nothing, which is the opposite of what
+either audience expects.
+
+### C# has three tiers, and B# has room for only one
+
+```csharp
+using Shop;                  // → Orders.All()   namespace in scope, type name short
+using static Shop.Orders;    // → All()          members in scope, unqualified
+using Orders = Shop.Orders;  // → Orders.All()   alias
+```
+
+C#'s two-tier `using` exists because C# splits **namespace** from **type**. B# has no such split:
+`Shop.Orders` is one module, one atom (§1 of [ticket 40](40-module-and-namespace-system.md)), and
+its functions are its members — there is no inner level for a short form to name. So plain `using`
+meaning *unqualified* is the only tier this language has room for, and it is **TypeScript's
+named-import semantics exactly**. Adding `using static` would import a distinction B# does not have.
+
+**The exemplars are internally inconsistent here and it is worth recording rather than emulating.**
+They write `using Shop.Orders` *and* `Orders.All()`, `List.Fold(…)`, `Json.Encode(b)` — the middle
+tier. In real C# that pair does not compile: if `Shop.Orders` is a namespace then `Orders` is not a
+name. They were written as fog, before any of this was spelled, and the short-qualified shape they
+reach for is an **alias** question (see Owed, below), not this one.
+
+### The objection to B, and why it dissolves
+
+This section first argued for the qualified form on a mechanism ground: the compiler's diagnostics
+emit *pasteable source* — `heads/2` prints the clause to add, `caller_head/3` the head the caller
+must write — so under B the printer must choose a spelling, and choosing wrong hands the user text
+that does not compile. That would break ticket 23's property that the residual **is** the missing
+case.
+
+**It has a one-line answer: diagnostics always print fully qualified.** A qualified call is legal
+regardless of what is in scope at the call site, so the printer never has to know the scope. Costs
+nothing, and the pasteability property survives intact. That was the only mechanism argument against
+B, and it does not survive contact with the fix.
+
+### What B requires
+
+1. **Ambiguity is an error at the call site**, printing the qualified candidates — so the error
+   hands over the fix, the same idiom as the residual. Not a silent winner: a quiet resolution is
+   the failure shape this project has been bitten by three times.
+2. **An import shadowing a local name is an error**, fixed by qualifying.
+   **Note this is NOT the analogy refused in ticket 40 §2.** There, `Fib/1` and `Fib/2` each have a
+   perfectly defined meaning and banning them was taste. Here an ambiguous unqualified name has **no
+   defined meaning at all** — so the same intuition is load-bearing in one case and decorative in the
+   other, which is the distinction worth carrying rather than the rule.
+3. **Resolution is by name *and* arity**, since ticket 40 §2 permits overloading. `Sum/1` imported
+   beside `Sum/2` local is not a conflict; `Sum/2` beside `Sum/2` is.
+4. **The checker needs each import's exported name/arity set**, which puts §3's re-check-source on
+   the **critical path** rather than beside it. B cannot be built before §3 is.
+
+### Compiler delta for §2
+
+```
+bs_check     an import environment: {Name, Arity} -> Module, built from each `using`
+             resolution order for an unqualified call — local, then imports
+             a {Name, Arity} reachable from 2+ sources raises {ambiguous_call, ...}
+             an import shadowing a local raises {import_shadows_local, ...}
+             both into the bsc:resolve_error/2 path, both printing QUALIFIED candidates
+
+bs_emit      an unqualified call to an imported name emits a REMOTE call to that
+             module's atom — the resolution happens at check time, never at run time
+
+diagnostics  every printed call/head is fully qualified, unconditionally
+```
+
+---
+
+## §2 (original framing, kept for the record) — does `using` bring names into scope unqualified?
 
 §1 settles that `using` names the dependency. It does **not** settle whether the call site may then
 drop the qualifier.
@@ -196,5 +279,13 @@ OTP 28, which removes the torn-upgrade argument for splitting.
 ## Owed by this ticket, not answered
 
 - The yecc conflict check in §1.
-- A collision rule, **only if** §2 lands on unqualified names.
+- ~~A collision rule, **only if** §2 lands on unqualified names.~~ **§2 landed there** — the rules
+  are specified in §2 and are no longer conditional.
 - Ticket 16 §4's serialisation mapping, **only if** §3 ever lands on B.
+- **An alias, `using List = Shop.Collections.List`** — C#'s third tier, tier-1 borrow, and the thing
+  the exemplars are actually reaching for when they write `List.Fold(…)` and `Orders.All()`. It is
+  *not* needed for §2 and is not folded into it. Worth noting that §2 changes its standing: while
+  the qualified form was on the table an alias was a pure read cost, because the reader had to find
+  the alias line; now that unqualified names are legal, an alias is strictly **more** explicit than
+  the thing it competes with. That is a different argument from the one that shelved it, so it
+  should be re-asked rather than inherited.

@@ -241,6 +241,9 @@ Bodies in [`decisions.md`](decisions.md). Ticket text in `issues/`.
   a body is bindings then one expression; rebinding is an error
 - **The body check site** `#33` `types` `built:F5`
   a body is typed; checking is containment at five sites, and the residual survives at four
+- **Module and namespace system, and function identity** `#40` `modules` `codegen`
+  the atom is **forced** by 26's tag mint — full dotted path, and the emit path already writes it.
+  Arity overloading permitted; `public`/`private` on the signature. Two checks specified, unbuilt
 - **Behaviour callback names** `#35` `otp` `codegen` `built:F10`
   a compiler-known table, contract-scoped and keyed by name *and* arity; the name changes, no
   wrapper, and a behaviour without its mandatory callbacks is an error at the declaration
@@ -257,14 +260,11 @@ Bodies in [`fog.md`](fog.md). These are open: read the body before assuming a di
   which slice, and what language the compiler is written in. First slice built; two debts struck
 - **The typed model of OTP itself** `#14` `otp` `types`
   which behaviours ship built in, and how a user declares one
-- **Module and namespace system**, and function identity `#40` `modules` `codegen`
-  the emitted atom is **forced** by 26's tag mint — full dotted path, and the emit path already
-  writes it. Arity overloading and export control left as *questions*: both are taste
 - **The language's name** `naming`
   unresolved. `beam-sharp` is a working title
 - **Imports and cross-module scope** `#41` `modules`
-  `using` generalises by token class. **§3 blocks `List.Map` and neither fog patch named it**:
-  where the checker gets another module's types — re-check-source covers every case that exists
+  `using` generalises by token class and brings names in **unqualified**. §3 now blocks §2 as well
+  as `List.Map`: where the checker gets another module's types, unresolved
 - **Where DDD invariants live** `types` `errors`
   ticket 20 §5 settles half; refinement in type declarations is available where the predicate is decidable
 - **How a user-declared opaque refinement is checked** `#29` `types`

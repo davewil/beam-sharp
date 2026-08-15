@@ -172,53 +172,6 @@
   the compiler may *write into*. Open with it: which other known callbacks earn emitted code, and
   what a **user-declared** contract can ask the compiler to emit, given ticket 21 named Roc's
   `requires` as the stealable mechanism and 14 left generalising it as purely additive.
-- **Module and namespace system**, and function identity — → **[ticket 40](issues/40-module-and-namespace-system.md)**,
-  raised 2026-08-15. **§1 is answered and the answer was forced rather than chosen**: a module's atom
-  is its full dotted path (`module Shop.Orders` → `'Shop.Orders'`), because ticket 26 §1's tag mints
-  from the qualified name and delivers aggregate identity *only if* `Mod` is itself unique — a leaf
-  name would make `Shop.Orders.Order` and `Billing.Invoices.Order` both mint `'Orders.Order'`. The
-  emit path and the mint point **need no change at all**; §1 costs one grammar rule, because both
-  were written against the module atom rather than a single segment. Re-measured on OTP 28, and
-  `13a` had already measured it. **One correction is on the record**: the first reason given for
-  needing no `Elixir.`-style prefix — *"PascalCase sits outside Erlang's snake_case namespace"* — is
-  **false**, and `32b_name_census.md:30–35` had already measured it false (265 of 1,315 loadable
-  Erlang modules are not plain lowercase). The surviving reason is that none of them contains a
-  **dot**. Still open and left as *questions* rather than decided, because both are taste and
-  neither is mechanism: **whether a name may be overloaded on arity within a module** (the fog's own
-  two stated hazards are stale — multi-clause collapses cleanly and optional parameters do not
-  exist — while the live one, `Fib/1,/2,/3` at `01b:587–591`, went unnamed), and **export control**,
-  where every tier-1 and tier-2 source defaults to *closed* and the language currently defaults to
-  *open*. The original body follows, unchanged. **Ticket 10**
-  §3 adds one requirement**: a module identifier in value position is an atom singleton, so this
-  fog owes an answer to *what atom is actually emitted* — a bare snake_cased name, which risks
-  colliding with Erlang modules, or something prefixed as Elixir's `Elixir.` is. Ticket 10
-  deliberately did not decide it. **Ticket 13 sharpens this with two measured facts and settles one
-  half of it.** Settled: **sub-modules are source-only**, so the *aggregate* is the BEAM module and
-  a sub-module is not a module at all — while still being named in crash reports, via repeated
-  `file` attributes. Sharpened: `erlc` **enforces module-name/filename matching on the
-  `from_abstr` path**, so whatever atom a module identifier lowers to, the emitted `.abstr`
-  filename must equal it — which makes the emitted-atom question a *build-layout* question too, not
-  only a collision-avoidance one. A dotted atom (`'Shop.Orders.Order'`, Elixir's convention)
-  works unchanged. **Ticket 23 §10 adds a third consumer of the naming question, and it is the
-  first that is not a build concern**: the directory listing is a legitimate way for an agent to
-  discover what operations exist, so **file names are part of the API surface** rather than only of
-  the build layout. That strengthens 23's own warning that colliding short names
-  (`Order.Server.Apply` beside `Order.Apply`) are defects, and it means whatever this patch decides
-  about emitted atoms has to be legible to a reader with nothing but `ls`.
-  **Ticket 24 adds a fourth consumer, and it is the one that stresses the rule hardest**: where a
-  *test* lives under one function per file. 23 §10 made the directory listing part of the API
-  surface, so tests either sit in it — and an `ls` no longer shows only operations — or somewhere
-  this patch has not defined. 24 declined to answer it as a tooling detail precisely because 23 §10
-  says it is not one.
-  **Ticket 26 adds a fifth consumer, and it is the first that is a correctness requirement rather
-  than a discovery or build one.** 26 §1 mints a record's discriminating tag from its type name, and
-  that tag *is* aggregate identity — so if the mint uses the **short** name, `Shop.Orders.Order` and
-  `Billing.Invoices.Order` both produce `:order` and two bounded contexts silently unify, which is
-  the exact failure the minting exists to prevent, at a different scale and invisible. **So the tag
-  must mint from the qualified name**, and whatever atom this patch settles on must be unique enough
-  to carry aggregate identity, not merely to avoid colliding with Erlang modules. This raises the
-  stakes on the emitted-atom question rather than adding a new one: 13 already made it a
-  build-layout question and 23 §10 an API-surface question; 26 makes it a *type* question.
 - **The language's name.**
 - **Imports and cross-module scope** — → **[ticket 41](issues/41-imports-and-cross-module-scope.md)**,
   raised 2026-08-15 alongside 40. **§1 is answered on mechanism**: `using` generalises rather than
@@ -226,7 +179,20 @@
   left side (`uident` path vs `atom_lit`) — the same discriminator `LANGUAGE.md` §11 already uses
   for the three dot-forms — and because the FFI `using` **already introduces no B# name**, so a
   native one that also introduces none is the same construct rather than an overloaded one. It also
-  answers 23 §11 directly: a file's `using` lines are its dependency list. **The ticket's §3 is the
+  answers 23 §11 directly: a file's `using` lines are its dependency list.
+  **§2 ANSWERED 2026-08-15: `using` brings names into scope UNQUALIFIED** (David: *"I think B would
+  be expected"*). The audience test decided it — an import that leaves every call site qualified
+  makes the `using` line look inert. C# has *three* tiers and **B# has room for only one**: C#'s
+  two-tier `using` exists because it splits namespace from type, and `Shop.Orders` is one module and
+  one atom with no inner level, so plain `using` = unqualified is TypeScript's named-import
+  semantics and `using static` would import a distinction the language lacks. The **exemplars are
+  inconsistent** here — `using Shop.Orders` beside `Orders.All()` is C#'s middle tier and would not
+  compile in C# either; that shape is an *alias* question, now re-opened on different grounds since
+  an alias is strictly more explicit than an unqualified name. The one mechanism objection —
+  diagnostics emit pasteable source, so the printer must pick a spelling — **dissolves**: print
+  fully qualified always, which is legal in any scope. Requires ambiguity and local-shadowing to be
+  **errors printing qualified candidates**, resolution by name *and* arity, and it puts §3 on the
+  **critical path**. **The ticket's §3 is the
   half neither fog patch named, and it is the one that actually blocks `List.Map`**: where the
   checker gets another module's types. The fork is re-check-source versus types riding in the
   `.beam` as a `-bs_sig` attribute — and the cheap question was answered first: **all 29 `.bs` files
