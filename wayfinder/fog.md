@@ -417,6 +417,18 @@
   ticket 31's `Plug.Builder` question also lands: composable middleware is a library written in the
   language over a compiler-known contract, which is structurally the same problem as GenServer.
 
+- **Emitted code quality, and where the ceiling is** — → **[ticket 39](issues/39-emitted-code-quality.md)**,
+  raised 2026-08-15 from the first benchmark against other BEAM languages. beam-sharp runs a hot
+  integer loop **20% slower than Erlang, Elixir and Gleam while emitting instruction-for-instruction
+  identical bytecode** — the other three cluster within 3%. Ruled out by measurement: the FFI (the
+  compiler lowers `:erlang.rem` to the BIF), the instruction sequence (26 instructions, identical),
+  and the `-spec` (stripping all seven leaves the loop byte-identical and the time unmoved). What
+  remains is that the operands carry less JIT type information. **The interesting half is the
+  ceiling, not the gap**: ticket 20's exact intervals mean beam-sharp *knows* facts Erlang's
+  analyser has to reconstruct and cannot spell in a `-spec` — so it is discarding information at the
+  emission boundary rather than paying a tax for being typed, and ticket 04's mandatory signature is
+  a candidate for why (a declared `int` return is never narrowed to `0..99`). **No optimisation work
+  has ever been done**, so this is a baseline and not a verdict.
 - **Division and modulo** — → **[ticket 38](issues/38-division-and-modulo.md)**, raised 2026-08-15
   from running AoC 2019 Day 1. The language has **no division at all**: the operator table is
   `+ - *`, and `/`, `%`, `div` and `rem` are none of them in the lexer. **Absent by oversight rather
