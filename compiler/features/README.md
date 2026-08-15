@@ -217,6 +217,34 @@ it tripped over and none has closed the gap, which is now a pattern rather than 
 F8 onward are named but not written — deliberately. The map's own fog-of-war rule applies: don't
 chart what you can't yet see.
 
+**Editor support landed outside the compiler, and asked a question this file can answer.** `editor/`
+now holds a Tree-sitter grammar plus TextMate and vim ones, with two gates
+(`editor/bin/check-tokens.sh`, `check-corpus.sh`). David asked whether an LSP should be **ticketed**
+to come back to. It should not, and the map already says why: *Tooling and ecosystem — … LSP …* sits
+under **Out of scope**, which is marked *"closed, never graduates"*. A ticket would reopen a closed
+decision, which is this file's own rule pointed the other way.
+
+What the question does surface is that **three of an LSP's four prerequisites are already decided and
+simply unbuilt**, which makes them features. Ticket 23's clarification is the test — *"is this the
+multi-year track, or one capability the language owes its author"*:
+
+| | Where it stands |
+|---|---|
+| 23 §1 — the diagnostic is a **term**, prose a pure function of it | **decided, unbuilt.** `bsc:report/2` writes prose directly with `io:format`; there is no term today and so no way for the two to be kept from drifting |
+| 23 §10 — `bsc --api <Module>` | **decided, unbuilt.** The map cites this by name as the example of what is *in* scope |
+| Columns | **no decision owed.** Measured in parsetools 2.7.1: leex predefines `TokenCol` and `TokenLoc`, and yecc's `error_location` already defaults to `column`. `bs_lexer.xrl` writes `TokenLine` by choice. Since `line/1` is `element(2, T)`, the lexer's actions are the whole change in the parser; the cost is downstream, in the `~s:~p:` format strings and the Abstract Format annotations |
+| 23 §5 — a JSON **encoding** of the term | **blocked**, and already logged: it inherits ticket 16 §4's serialisation mapping, which the map lists as owed and unwritten |
+
+**And the thing worth not losing**: the residual is already pasteable source. `heads/2` prints the
+clause to add, `caller_head/3` the one the caller must write, F7 the missing arm. 17c measured Gleam
+printing *"The missing patterns are: False"* — prose, which a human reads and a tool cannot act on.
+An editor action that inserts a clause derived from the residual **cannot be wrong**, because the
+residual *is* the missing case. That is a reason to build 23 §1 for its own sake, and it holds
+whether or not a server is ever written.
+
+Nothing above was needed for the highlighting that shipped, which is itself evidence the map's
+boundary is drawn in the right place.
+
 **F3 was written ahead of F2, and F2 is why.** F2's own file says in bold that it must not be
 implemented until the spelling of an interval pattern and the summarised form of a wide residual are
 answered, and both are *"a decision, not a feature"*. The ordering rule then decides the rest:
