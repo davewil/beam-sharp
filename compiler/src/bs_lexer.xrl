@@ -55,6 +55,24 @@ switch                  : {token, {'switch', TokenLine}}.
 true                    : {token, {atom_lit, TokenLine, true}}.
 false                   : {token, {atom_lit, TokenLine, false}}.
 
+%% A STRING LITERAL — ticket 20 §4, *"a literal is a `string` by construction"*.
+%%
+%% The compiler sees the bytes, so the UTF-8 property is established HERE, at
+%% compile time and at zero runtime cost. That is the sentence that keeps every
+%% literal in the language from paying an O(n) validation, and it is why the
+%% check belongs in the lexer rather than anywhere later: this is the only place
+%% that has the bytes and a line number at the same time.
+%%
+%% `bsc` reads the file with `binary_to_list/1`, so `TokenChars` is a LATIN-1
+%% byte list and a multi-byte character arrives as its separate bytes. That is
+%% exactly what is wanted — the bytes are already UTF-8-encoded, so validating
+%% them is a decode attempt and emitting them needs no re-encoding.
+%% `\\.` is one literal backslash then any character; `[^"\\]` is any character
+%% that is neither. Written with a doubled backslash it matches TWO backslashes
+%% and no escape ever lexes — which surfaces as `illegal characters` on the
+%% quote, several characters after the real fault.
+"(\\.|[^"\\])*"         : str_token(TokenLine, TokenChars).
+
 %% :atom — ticket 10 settled the sigil, and the universe is open, so nothing
 %% declares an atom and the lexer simply interns what it sees.
 :{LOWER}{ALNUM}*        : {token, {atom_lit, TokenLine, list_to_atom(tl(TokenChars))}}.
@@ -127,3 +145,48 @@ _                       : {token, {'_', TokenLine}}.
 \]                      : {token, {']', TokenLine}}.
 
 Erlang code.
+
+%% Unescape, then validate. The order matters: an escape produces a byte, so
+%% validating first would read the source spelling rather than the value.
+str_token(Line, Chars) ->
+    Body = lists:sublist(Chars, 2, length(Chars) - 2),
+    case unescape(Body, []) of
+        {error, Msg} ->
+            {error, Msg};
+        {ok, Bytes} ->
+            case utf8_ok(Bytes) of
+                true ->
+                    {token, {string_lit, Line, Bytes}};
+                false ->
+                    %% Ticket 29 §4 told ticket 20 to STATE this divergence, and
+                    %% this is where it is stated in executable form: C# and
+                    %% TypeScript both substitute U+FFFD here. beam-sharp
+                    %% refuses, because a silent replacement manufactures the
+                    %% very invalid string the entry check exists to prevent —
+                    %% and it would do it inside the one construct 20 §4 exempts
+                    %% from ever being checked again.
+                    {error, "string literal is not valid UTF-8"}
+            end
+    end.
+
+%% Deliberately a closed set. An unknown escape is an error rather than the
+%% character itself, so that adding `\u` later cannot change the meaning of a
+%% program that already compiles.
+unescape([], Acc)             -> {ok, lists:reverse(Acc)};
+unescape([$\\, $"  | T], Acc) -> unescape(T, [$"  | Acc]);
+unescape([$\\, $\\ | T], Acc) -> unescape(T, [$\\ | Acc]);
+unescape([$\\, $n  | T], Acc) -> unescape(T, [$\n | Acc]);
+unescape([$\\, $t  | T], Acc) -> unescape(T, [$\t | Acc]);
+unescape([$\\, $r  | T], Acc) -> unescape(T, [$\r | Acc]);
+unescape([$\\, $0  | T], Acc) -> unescape(T, [0   | Acc]);
+unescape([$\\, C   | _], _)   -> {error, "unknown escape \\" ++ [C]};
+unescape([C | T], Acc)        -> unescape(T, [C | Acc]).
+
+%% A decode attempt over the raw bytes. `unicode:characters_to_binary/2` returns
+%% an error tuple rather than replacing, which is the behaviour this needs and
+%% is exactly where the two borrowed audiences go the other way.
+utf8_ok(Bytes) ->
+    case unicode:characters_to_binary(list_to_binary(Bytes), utf8, utf8) of
+        B when is_binary(B) -> true;
+        _                   -> false
+    end.

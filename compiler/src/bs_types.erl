@@ -26,6 +26,7 @@
 
 -export([none/0, term/0, atom_lit/1, atom_top/0, int/0, range/2, tuple/1]).
 -export([nil/0, cons/1, list/1]).
+-export([binary_top/0, string/0]).
 -export([map_closed/1, map_open/1]).
 -export([union/2, union/1, intersect/2, subtract/2]).
 -export([is_none/1, is_subtype/2, to_string/1, to_pattern/1, atom_str/1]).
@@ -71,22 +72,57 @@
 -type map_member() :: {closed | open, #{atom() => ty()}}.
 -type map_part() :: top | [map_member()].
 
+%% A binary part — ticket 20 §4's `string = binary where valid_utf8`, which is a
+%% REFINEMENT and therefore a subset: `string` is not a second type beside
+%% `binary`, it is the half of it that is valid UTF-8. So the part is the
+%% two-element powerset of {the valid-UTF-8 binaries, the rest}:
+%%
+%%   []              empty
+%%   [utf8]          `string`
+%%   [other, utf8]   `binary`
+%%   [other]         no surface spelling — see `b_str/1`
+%%
+%% This is the smallest encoding that is EXACT, and exactness is 20's headline:
+%% `binary \ string` is the non-UTF-8 binaries, and both available shortcuts are
+%% the failures that ticket. Collapsing it to `binary` widens, which is the
+%% `erl_types` behaviour 20 spent itself refusing; collapsing it to `none`
+%% reports a residual empty when it is not.
+%%
+%% Sizes are deliberately absent. Ticket 20 §2 published `<<_:M, _:_*N>>` with an
+%% exact union, but that grammar has no surface spelling here and ticket 30 —
+%% which needs one for the pattern form too — is open. F9 ships the top and the
+%% refinement; the part is a set so a size partition refines it later without
+%% changing its shape.
+-type bin_part() :: [utf8 | other].
+
 -type ty() :: #{atoms := atom_part(), ints := int_part(), tuples := tuple_part(),
-                lists := list_part(), maps := map_part()}.
+                lists := list_part(), maps := map_part(), bins := bin_part()}.
 
 %%% ---------------------------------------------------------------------------
 %%% Constructors
 %%% ---------------------------------------------------------------------------
 
 none() -> #{atoms => {finite, []}, ints => [], tuples => [], lists => {false, none},
-            maps => []}.
+            maps => [], bins => []}.
 
 %% `term` in the surface language. The tuple part is deliberately absent: this
 %% slice has no arity-polymorphic tuple top, and ticket 11 says a foreign value
 %% must be matched rather than assumed, so nothing here needs one yet.
+%%
+%% The binary part is NOT one of those deliberate absences and must be full. A
+%% `term` missing it stops being the top type, and every residual subtracted
+%% from it is then wrong in the quiet direction.
 term() ->
     #{atoms => {cofinite, []}, ints => [{neg_inf, pos_inf}], tuples => top,
-      lists => {true, any}, maps => top}.
+      lists => {true, any}, maps => top, bins => [other, utf8]}.
+
+%% `binary` — the top of the part, both halves.
+binary_top() -> (none())#{bins => [other, utf8]}.
+
+%% `string` — ticket 20 §4, `binary` refined by valid UTF-8. A subset of
+%% `binary_top/0`, so `is_subtype(string(), binary_top())` holds and the reverse
+%% does not, which is the whole of F9's containment story.
+string() -> (none())#{bins => [utf8]}.
 
 atom_lit(A) when is_atom(A) -> (none())#{atoms => {finite, [A]}}.
 
@@ -139,8 +175,15 @@ map_member(Kind, Fields) when is_map(Fields) ->
 %%% Emptiness
 %%% ---------------------------------------------------------------------------
 
+%% AN ERLANG MAP PATTERN IS PARTIAL, WHICH MAKES THIS HEAD THE FEATURE'S SHARPEST
+%% TRAP. A component added to `none/0` and forgotten here does not fail — the
+%% head still matches, a type whose only inhabitant is a binary reports EMPTY,
+%% and every containment over it then passes vacuously. The compiler goes
+%% quieter rather than red, which is F5's `Certain`/`Possible` failure in a third
+%% costume: no passing test can see it, so `bins := []` below is verified by
+%% mutating this line and watching the suite go red.
 is_none(#{atoms := {finite, []}, ints := [], tuples := Ts, lists := {false, none},
-          maps := Ms})
+          maps := Ms, bins := []})
   when Ts =/= top, Ms =/= top ->
     lists:all(fun(Cs) -> lists:any(fun is_none/1, Cs) end, Ts)
         andalso lists:all(fun m_empty/1, Ms);
@@ -168,7 +211,12 @@ union(A, B) ->
       %% ticket 20 measured and refused.
       tuples => t_union(maps:get(tuples, A), maps:get(tuples, B)),
       lists  => l_union(maps:get(lists, A), maps:get(lists, B)),
-      maps   => m_union(maps:get(maps, A), maps:get(maps, B))}.
+      maps   => m_union(maps:get(maps, A), maps:get(maps, B)),
+      %% Plain set union, so `string | binary` ABSORBS to `binary` rather than
+      %% erroring. 20 §2's absorption rule is about containment and 09 §4's
+      %% error is about indiscriminable members; `string` is nested, not
+      %% overlapping, so the neighbouring rule correctly does not fire.
+      bins   => ordsets:union(maps:get(bins, A), maps:get(bins, B))}.
 
 %%% ---------------------------------------------------------------------------
 %%% Intersection
@@ -179,7 +227,8 @@ intersect(A, B) ->
       ints   => i_intersect(maps:get(ints, A), maps:get(ints, B)),
       tuples => t_intersect(maps:get(tuples, A), maps:get(tuples, B)),
       lists  => l_intersect(maps:get(lists, A), maps:get(lists, B)),
-      maps   => m_intersect(maps:get(maps, A), maps:get(maps, B))}.
+      maps   => m_intersect(maps:get(maps, A), maps:get(maps, B)),
+      bins   => ordsets:intersection(maps:get(bins, A), maps:get(bins, B))}.
 
 %%% ---------------------------------------------------------------------------
 %%% Subtraction — this is what computes ticket 04's residual
@@ -190,7 +239,10 @@ subtract(A, B) ->
       ints   => i_subtract(maps:get(ints, A), maps:get(ints, B)),
       tuples => t_subtract(maps:get(tuples, A), maps:get(tuples, B)),
       lists  => l_subtract(maps:get(lists, A), maps:get(lists, B)),
-      maps   => m_subtract(maps:get(maps, A), maps:get(maps, B))}.
+      maps   => m_subtract(maps:get(maps, A), maps:get(maps, B)),
+      %% Set difference, so `binary \ string` is `[other]` — the non-UTF-8
+      %% binaries, exactly and unspellably. See `b_str/1`.
+      bins   => ordsets:subtract(maps:get(bins, A), maps:get(bins, B))}.
 
 %%% ---------------------------------------------------------------------------
 %%% Atom part
@@ -592,8 +644,24 @@ to_string(T) ->
         false -> string:join(parts(T), " | ")
     end.
 
-parts(#{atoms := As, ints := Is, tuples := Ts, lists := Ls, maps := Ms}) ->
-    a_str(As) ++ [i_str(R) || R <- Is] ++ ts_str(Ts) ++ l_str(Ls) ++ ms_str(Ms).
+parts(#{atoms := As, ints := Is, tuples := Ts, lists := Ls, maps := Ms, bins := Bs}) ->
+    a_str(As) ++ [i_str(R) || R <- Is] ++ ts_str(Ts) ++ l_str(Ls) ++ ms_str(Ms)
+        ++ b_str(Bs).
+
+%% Three of the four points have a surface spelling and the fourth does not.
+%%
+%% `[other]` is `binary \ string` and there is nothing to write for it: the
+%% surface has a word for the top and a word for the refinement, and none for the
+%% complement of a refinement inside its base. It is representable because the
+%% alternatives are unsound (see `subtract/2`) and it is currently UNREACHABLE —
+%% producing it needs a clause covering `string` but not `binary`, and F9 has no
+%% pattern that discriminates the two. So this arm is defensive: it names the set
+%% rather than crashing, and whoever lands the UTF-8 entry check or a `string`
+%% pattern inherits the printing question with the representation already right.
+b_str([])            -> [];
+b_str([utf8])        -> ["string"];
+b_str([other, utf8]) -> ["binary"];
+b_str([other])       -> ["binary \\ string"].
 
 ms_str(top) -> ["map"];
 ms_str(Members) -> [m_str(M) || M <- Members].
@@ -631,8 +699,10 @@ to_pattern(T) ->
         false -> string:join(pat_parts(T), " | ")
     end.
 
-pat_parts(#{atoms := As, ints := Is, tuples := Ts, lists := Ls, maps := Ms}) ->
-    a_str(As) ++ [i_str(R) || R <- Is] ++ ts_pat(Ts) ++ l_str(Ls) ++ ms_pat(Ms).
+pat_parts(#{atoms := As, ints := Is, tuples := Ts, lists := Ls, maps := Ms,
+            bins := Bs}) ->
+    a_str(As) ++ [i_str(R) || R <- Is] ++ ts_pat(Ts) ++ l_str(Ls) ++ ms_pat(Ms)
+        ++ b_str(Bs).
 
 ts_pat(top) -> ["tuple"];
 ts_pat(Ps)  -> ["(" ++ string:join([to_pattern(C) || C <- P], ", ") ++ ")" || P <- Ps].
@@ -642,8 +712,12 @@ ms_pat(Members) -> [m_pat(M) || M <- Members].
 
 m_pat({_Kind, Fields}) ->
     case maps:find('Kind', Fields) of
+        %% `bins := []` belongs in this pattern for the same reason it belongs in
+        %% `is_none/1`: the map pattern is partial, so without it a `Kind` field
+        %% typed `:'Shop.Order' | string` would print as a bare tag and the
+        %% synthesised head would silently drop the string half.
         {ok, #{atoms := {finite, [Tag]}, ints := [], tuples := [],
-               lists := {false, none}, maps := []}} ->
+               lists := {false, none}, maps := [], bins := []}} ->
             "{ Kind: " ++ atom_str(Tag) ++ " }";
         _ ->
             %% No discriminator to name, so every field is bound and ignored.

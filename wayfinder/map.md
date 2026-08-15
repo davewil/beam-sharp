@@ -213,8 +213,10 @@ Bodies in [`decisions.md`](decisions.md). Ticket text in `issues/`.
   `|>` and `|?>`; `switch` is the only branching construct, and there is no `if`
 - **Boundary defence** `#18` `codegen` `ffi`
   a two-tier emitted boundary; precision is a privilege of what the compiler inlines
-- **Untheorised term shapes** `#20` `types` `binaries`
-  the union is exact and integer intervals are in the algebra; nothing widens
+- **Untheorised term shapes** `#20` `types` `binaries` `part-built:F9`
+  the union is exact and integer intervals are in the algebra; nothing widens.
+  §§2–5 built as **values** — `string` is `binary` refined by UTF-8, a literal is one by
+  construction, the boundary takes the base type only. Binaries as a *parsing grammar* wait on `#30`
 - **Refinement types in shipping languages** `#29` `types`
   what ticket 20 reinvented, and what it did not
 - **The walking skeleton, first slice** `compiler/` `codegen` `built:F1`

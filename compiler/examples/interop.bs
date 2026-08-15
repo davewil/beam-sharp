@@ -8,7 +8,12 @@ module Interop
 
 using :erlang {
     int system_time(atom unit)
-    int byte_size(term bin)
+    // Was `term bin` until F9, because the language had no word for a binary
+    // and `term` was the only thing that would resolve. Ticket 20 §3 is what
+    // makes the honest declaration legal: the whole `<<_:M, _:_*N>>` grammar is
+    // admissible at a boundary, since deciding it is `byte_size` and
+    // `bit_size rem N` — O(1) guard BIFs, measured the same at 8 B and 8 MiB.
+    int byte_size(binary b)
 }
 
 using :lists {

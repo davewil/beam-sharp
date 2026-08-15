@@ -205,8 +205,24 @@ resolve_error(Path, {unknown_type, N}) ->
 resolve_error(Path, {unknown_builtin, B}) ->
     io:format(standard_error,
               "~s: error: ~s is not a builtin type~n"
-              "  this slice has `int`, `atom`, `term`, `bool` and `list<T>`.~n",
+              "  this slice has `int`, `atom`, `term`, `bool`, `binary`,~n"
+              "  `string` and `list<T>`.~n",
               [Path, B]),
+    handled;
+%% F9.11. The message names the replacement, because the fix is always the same
+%% edit and the reason is not obvious from the rule: `string` is `binary` refined
+%% by valid UTF-8 (20 §4), the refinement is O(n) over a length the sender
+%% chooses, and a foreign return type may only say what a guard decides in O(1)
+%% (18 §2). So the boundary takes the base type and the refinement is
+%% established afterwards.
+resolve_error(Path, {opaque_ret_at_boundary, Line, Mod, Fun}) ->
+    io:format(standard_error,
+              "~s:~p: error: ~s.~s returns `string`, which a guard cannot decide~n"
+              "  `string` is `binary` refined by valid UTF-8, and checking that~n"
+              "  reads every byte of a value the sender sizes.~n"
+              "  declare it `binary`. Establishing the refinement is the UTF-8~n"
+              "  entry check, which this compiler does not have yet.~n",
+              [Path, Line, bs_types:atom_str(Mod), Fun]),
     handled;
 resolve_error(Path, {unknown_generic, N}) ->
     io:format(standard_error,

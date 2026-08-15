@@ -160,13 +160,29 @@ name never enters the algebra; it is an alias. **shipped**
 | `term` | the top type — everything | **shipped** |
 | `none` | the bottom type, first-class | **shipped** |
 | `float` | | **open** |
-| `binary` | `<<_:M, _:_*N>>` grammar with exact unions | **decided** |
-| `string` | `binary` refined by valid UTF-8 | **decided** |
+| `binary` | the top; `<<_:M, _:_*N>>` sizes still **decided**, unbuilt | **shipped** (top only) |
+| `string` | `binary` refined by valid UTF-8; a literal is one by construction | **shipped** |
 | records | see §6 | **decided** |
 
 **Unions are exact.** Nothing widens: `<<_:32>> | <<_:64>>` stays two members rather than
 collapsing into a range admitting 96 bits. This is the property the whole guarantee rests on — a
 checker that must prove a residual empty cannot afford an optimistic join.
+
+**`string` is not a second type beside `binary`** — it is `binary` refined by valid UTF-8, so it is
+a *subset*. A `string` goes wherever a `binary` is declared and nothing converts between them.
+A literal is a `string` **by construction**: the compiler sees the bytes and checks UTF-8 at compile
+time, so no literal pays a runtime validation. An invalid one is a **compile-time error**, which is
+a deliberate divergence — C# and TypeScript both substitute U+FFFD instead, and a silent
+replacement manufactures exactly the invalid string the check exists to prevent. **shipped** — F9.
+
+The other direction has no spelling, and that is the honest edge of what shipped. Turning a
+`binary` into a `string` means establishing the property at run time — the O(n) entry check ticket
+20 §4 calls the sixth codegen obligation — so a **foreign declaration may not return `string`**,
+and says so with the fix in the message. `binary` is admissible there, because the whole
+`<<_:M, _:_*N>>` grammar reduces to `byte_size` and `bit_size rem N`, both O(1) guard BIFs. Not
+built: **binary patterns**, a spelling for a **sized** binary type, string literals in **pattern**
+position, and any string **operation** — the first three wait on ticket 30, the last on the module
+system.
 
 **Atoms:** the universe is open, nothing declares an atom, `:foo` mints one by writing it.
 `true` and `false` are the only keyword atoms, `bool` is an ordinary alias, and **there is no
@@ -236,10 +252,15 @@ so far: a four-wide tuple reads fine.
 
 ## 6. Records
 
-```csharp not-yet
+```csharp
 record Order { Id: string, Total: int, Lines: list<Line> }
 record Line  { Sku: string, Qty: int }
 ```
+
+**shipped** — records with F3, and the `string` fields with F9. This block was tagged `not-yet`
+after F3 shipped records, because `string` was still an `unknown_builtin` and the block therefore
+still failed to compile — which is the bidirectional gate earning its keep in the direction that
+rots quietly: nobody had to notice, CI named the line.
 
 A record **erases to a map** carrying a tag minted from its qualified type name. Everything stays
 structural — a hand-written `type` with the same tag *is* the same type — but the tag means
@@ -640,7 +661,9 @@ the parser accepts back exactly what the printer emits. **shipped**
 | call arguments, projections and clause returns checked in a body | **shipped** |
 | refinements + interval patterns | blocked on two spellings |
 | `switch`, including a tuple subject and a guard on an arm | **shipped** |
-| binaries | not started |
+| `string` and `binary` as values — the literal, the refinement, the boundary rule | **shipped** — F9 |
+| binary patterns `<<...>>`, and a spelling for a sized binary type | not started — ticket 30 is open |
+| the UTF-8 entry check (`binary` → `string`) | not started — the sixth codegen obligation |
 | pipe and valve | not started |
 | parametric types — `result<T, E>`, `option<T>`, `type Pair<T>`, nesting | **shipped** |
 | polymorphic function signatures (`Map<T, U>`) | not started — needs an arrow type |

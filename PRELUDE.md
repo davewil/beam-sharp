@@ -81,7 +81,7 @@ has been withdrawn.
 | `ParseAtom<T>` | codegen: parses to a **finite atom union**; a cofinite `T` is an error | **decided** | 10 §4 |
 | `ToExistingAtom` | the genuine interop escape — a peer node's reply, a dynamically named atom | **owed** — must be respelled | 10 §5, 15 §1 |
 | `foreign_error` | the foreign failure type | **decided** | 15 |
-| `string` | `binary` refined by valid UTF-8; membership established by *generated* code | **decided** | 20 |
+| `string` | `binary` refined by valid UTF-8 | **built** — F9, as a *type*. The generated membership check is **still owed**: a literal establishes the property at compile time, and nothing else can establish it at all yet | 20 |
 | a serialisation encoder | the fifth codegen obligation, generated against a type | **decided** | 16 §4 |
 | OTP message shapes | `Down`, `Exit`, `Timeout` | **decided** | 14 §6 |
 

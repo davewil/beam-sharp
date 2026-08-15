@@ -82,8 +82,9 @@ Erlang back to the decision that required it is one grep.
 | [F6 — angle brackets and parametric types](F6-angle-brackets.md) | **done 2026-08-14** | the *bracket* in all three; `examples/parcel.bs` |
 | [F7 — `switch`](F7-switch.md) | **done 2026-08-15** | the *branching* in all three; `examples/queue.bs` |
 | [F8 — `var` binds, `=` matches](F8-bind-and-match.md) | **drafted, blocked** — one token owed | nothing; it goes first to avoid rewriting later features' files |
-| F9 — binaries | not started | 25b, 25c |
-| F10 — pipe and valve | not started | 25b, 25c |
+| [F9 — `string` and `binary` as values](F9-strings-and-binaries.md) | **done 2026-08-15** | the `string` **fields** in all three, `list<string>`; **not** I/O |
+| F10 — binary patterns | not started, **blocked** — ticket 30 is open | 25b, 25c |
+| F11 — pipe and valve | not started | 25b, 25c |
 
 **F4 was built out of order and the rule was not bent quietly.** No exemplar is blocked on
 bindings — the three that exist contain zero. It was built because David reached for one in the
@@ -233,7 +234,39 @@ match against a value computed at run time at all, so a reduce whose accumulator
 than rebound has no spelling, and the guard workaround costs the exhaustiveness credit because the
 checker translates `var == literal` and not `var == var`.
 
-F9 onward are named but not written — deliberately. The map's own fog-of-war rule applies: don't
+**F9 split what was one row, and the cut is between decided and open rather than between big and
+small.** *Binaries* was a single line here; it is two capabilities with opposite statuses. Binaries
+**as values** — the type, the literal, the refinement, the boundary rule — is ticket 20 §§2–5,
+resolved, and F9 built it. Binaries **as a parsing grammar** is ticket 30, which is **open** and
+whose two questions are both unanswered: a segment sized by a bound variable is not expressible in
+`<<_:M, _:_*N>>` at all, and a union discriminated by a *value* inside the binary has no story. F10
+therefore ships blocked in the same way F2 and F8 are, and for the same reason — a feature may not
+decide.
+
+**F9 also declines a spelling rather than inventing one.** A sized binary type has none: 20 §2
+published the algebra in Erlang's `<<_:M, _:_*N>>` notation, and this surface writes `list<T>` where
+Erlang writes `[T]`. Borrowing it unexamined would be the first place the language does the
+opposite. It is owed, ticket 30 is the closest owner since it needs a spelling for the pattern form
+anyway, and *a pattern and a type that cannot be written in the same notation is a worse outcome
+than either choice*.
+
+**And the honest version of the AoC report's headline.** That report named `string` as the one thing
+to build next and said it *"unblocks I/O for AoC"*. It does not, and F9's file says so before its
+scenarios rather than after: reading a file needs the FFI plus the UTF-8 entry check, and splitting
+lines needs the collection library, which is blocked on the module system. F9 removes **one of
+three** blockers. What it does unblock is the other half of that sentence — `list<string>` and
+`Id: string` failed on the identical `unknown_builtin`, and every record in `LANGUAGE.md` §6 and in
+all three exemplars has a `string` field.
+
+**The defect F9 found was in the emitter and only a string could reach it.** `to_abstr/1` wrote
+forms with `~p` — bytes — and `erlc` read them back as UTF-8, so `"héllo"` became five bytes instead
+of six. It compiled, ran, and returned a good binary that was the wrong one; only a byte count
+showed it. Third in the series after F5's vacuous containment and F6's hang, and the same lesson
+each time: **a defect that fails by going quiet cannot be found by a passing test.** The fix is one
+line at the boundary rather than at the caller, because emitting per-byte integers would have fixed
+strings and left the trap set for the next non-ASCII thing to reach a form.
+
+F10 onward are named but not written — deliberately. The map's own fog-of-war rule applies: don't
 chart what you can't yet see.
 
 **Editor support landed outside the compiler, and asked a question this file can answer.** `editor/`

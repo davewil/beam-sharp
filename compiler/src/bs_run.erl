@@ -140,7 +140,27 @@ parse_compound(S, Env) ->
         {$(, $)} -> list_to_tuple(parse_inner(S, Env));
         {$[, $]} -> parse_inner(S, Env);
         {${, $}} -> parse_braced(S, Env);
+        %% F9, and it is the round-trip rule above rather than a new one. A
+        %% beam-sharp string is a BINARY, and `format_value/1` prints a binary as
+        %% `"hello"` — so handing that back to the reader has to produce a
+        %% binary. Erlang's own reader makes it a char list, which then prints
+        %% back as `[104, 101, ...]`: the value changes type on a round trip and
+        %% the prompt stops being able to show you what it just showed you.
+        {$", $"} when length(S) >= 2 -> parse_string(S);
         _        -> parse_term(S)
+    end.
+
+%% Read through Erlang's scanner rather than by stripping quotes, so escapes mean
+%% at the prompt what they mean in a `.bs` file, and then re-encode to UTF-8 —
+%% `erl_scan` yields codepoints and a beam-sharp string is bytes.
+parse_string(S) ->
+    case erl_scan:string(S ++ ".") of
+        {ok, [{string, _, Chars}, {dot, _}], _} ->
+            case unicode:characters_to_binary(Chars, unicode, utf8) of
+                B when is_binary(B) -> B;
+                _                   -> unreadable(S)
+            end;
+        _ -> unreadable(S)
     end.
 
 %% In beam-sharp a brace is a RECORD — `{Id = 1, Kind = :'Shop.Order'}`. The

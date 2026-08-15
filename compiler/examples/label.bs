@@ -1,0 +1,63 @@
+// F9 — `string` and `binary` as values.
+//
+// Ticket 20 §4 makes `string` a REFINEMENT of `binary`, not a second type beside
+// it: `string = binary where valid_utf8`. So there is no conversion anywhere in
+// this file, and none is missing. A string simply IS a binary, and every place
+// below that hands one to something expecting `binary` is that containment.
+//
+// The other direction has no spelling yet, deliberately. Turning a `binary` into
+// a `string` means establishing the UTF-8 property at run time — the O(n) entry
+// check ticket 20 §4 calls the sixth codegen obligation — and this compiler does
+// not have it. `:file.read_file` therefore cannot be declared to return a
+// `string`, and the error you get if you try says so.
+module Label
+
+// A literal is a `string` BY CONSTRUCTION (20 §4). The compiler saw the bytes
+// and checked UTF-8 at compile time, so nothing is validated at run time and the
+// language does not pay per literal — which is the sentence that makes strings
+// affordable at all.
+string Greeting()
+
+Greeting() -> "hello"
+
+// Non-ASCII is the case that hides. This is six bytes, not five, and the
+// compiler's own emitter got it wrong until a test counted them.
+string Accented()
+
+Accented() -> "héllo"
+
+// A record field, which is what all three exemplars are waiting for.
+record Tag { Name: string, Weight: int }
+
+Tag Sample()
+
+Sample() -> Tag { Name = "parcel", Weight = 1200 }
+
+string NameOf(Tag t)
+
+NameOf(t) -> t.Name
+
+// `list<string>` — the other half of the row the exemplars fail on.
+list<string> Names()
+
+Names() -> ["alpha", "beta", "gamma"]
+
+// A `string` satisfies a declared `binary`, because the refinement is a subset.
+// The reverse is rejected, and that rejection is in the test suite rather than
+// here: every example in this directory must compile, so no file can demonstrate
+// a refusal.
+binary Raw()
+
+Raw() -> "hello"
+
+// The whole `<<_:M, _:_*N>>` grammar is admissible at a foreign boundary —
+// ticket 20 §3 measured `byte_size/1` and `bit_size/1` as O(1) guard BIFs at
+// 8 B and at 8 MiB alike. `string` is NOT admissible here for the opposite
+// reason: `valid_utf8` reads every byte of a value the sender sizes.
+using :erlang {
+    int byte_size(binary b)
+}
+
+int Width()
+
+Width() -> :erlang.byte_size("héllo")

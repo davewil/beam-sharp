@@ -20,7 +20,7 @@ Nonterminals
 
 Terminals
   'module' 'type' 'when' 'using' 'behaviour' 'record' 'with' 'switch'
-  uident lident atom_lit integer '_'
+  uident lident atom_lit integer string_lit '_'
   '->' '=>' '&&' '||' '==' '!=' '<=' '>=' '<' '>' '+' '-' '*'
   '=' '|' ',' '(' ')' '[' ']' '{' '}' '..' '.' ':' '?'
   .
@@ -294,6 +294,13 @@ expr -> integer  : {e_int, line('$1'), value('$1')}.
 %% `erl_op('-')` both already answer.
 expr -> '-' expr : {e_op, line('$1'), '-', {e_int, line('$1'), 0}, '$2'}.
 expr -> atom_lit : {e_atom, line('$1'), value('$1')}.
+%% Expression position only. A string literal in PATTERN position would need a
+%% value-level singleton in the binary part of the algebra, and ticket 20's
+%% grammar is `<<_:M, _:_*N>>` — sizes, not values, so it cannot say "this one".
+%% That is ticket 30 §2's open question (a union discriminated by a value inside
+%% the binary) at the smallest possible scale. Admitting the pattern without it
+%% would mean admitting a match the checker cannot prove exhaustive.
+expr -> string_lit : {e_str, line('$1'), value('$1')}.
 expr -> lident   : {e_var, line('$1'), value('$1')}.
 %% `_` is an expression ONLY so that `(a, _) = pair` parses — the left of a bind
 %% is an expression (see `binding` above). Used as a value it is rejected by

@@ -66,7 +66,15 @@ demonstrated_surface() ->
      {"a switch expression",                     " switch \\{"},
      {"a tuple subject in a switch",             "\\) switch \\{"},
      {"a guard on a switch arm",                 "when [^=]+ =>"},
-     {"the keyword atoms true and false",        "[^:A-Za-z](true|false)[,)]"}].
+     {"the keyword atoms true and false",        "[^:A-Za-z](true|false)[,)]"},
+     %% F9. Three rows, because the literal, the refinement and its base are
+     %% three sentences. `string` and `binary` are separated deliberately: a file
+     %% using only `string` would demonstrate the refinement and leave the type
+     %% it refines with nothing to look at, which is the shape F3 shipped with
+     %% when `shop.bs` showed every record operation except building one.
+     {"a string literal",                        "\"[^\"]*\""},
+     {"string as a declared type",               "(^|[<( ])string[ >)]"},
+     {"binary as a declared type",               "(^|[<( ])binary[ >)]"}].
 
 every_shipped_surface_form_has_an_example_test() ->
     Dir = project_root() ++ "/examples",

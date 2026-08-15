@@ -86,10 +86,54 @@ collect(Decls) ->
 %% ones on `{Module, Function}`, which is the pair `e_foreign_call` carries.
 callees(Decls, Env) ->
     Local = [{N, sig(Ps, R, Env)} || {signature, _, N, R, Ps} <- Decls],
-    Foreign = [{{Mod, N}, sig(Ps, R, Env)}
+    Foreign = [begin
+                   admissible_foreign_ret(L, Mod, N, R, Env),
+                   {{Mod, N}, sig(Ps, R, Env)}
+               end
                || {foreign, _, Mod, Sigs} <- Decls,
-                  {foreign_sig, _, N, R, Ps} <- Sigs],
+                  {foreign_sig, L, N, R, Ps} <- Sigs],
     maps:from_list(Local ++ Foreign).
+
+%% F9.11 — ticket 18 §2 made the admissible foreign return type set "what one
+%% BEAM guard decides in O(1)", and ticket 20 §5 put `string` in the opaque tier
+%% precisely because `valid_utf8` reads the content and no guard decides it.
+%%
+%% RETURN POSITION ONLY, and the asymmetry is the whole point. A parameter is a
+%% value beam-sharp hands OUT to Erlang, already known to be a string by the
+%% signature that produced it; nothing arrives and nothing needs establishing. A
+%% return is a value arriving from a caller the checker has never seen, which is
+%% ticket 21's foreign sender, and the UTF-8 property would have to be
+%% established by the O(n) entry check this feature does not have.
+%%
+%% `binary` is admissible and is not an exception to the rule — 20 §3 measured
+%% `byte_size/1` and `bit_size/1` as O(1) guard BIFs at 8 B and 8 MiB alike, so
+%% the whole `<<_:M, _:_*N>>` grammar passes the same test that `string` fails.
+admissible_foreign_ret(Line, Mod, Fun, Ret, Env) ->
+    case opaque_refinement(resolve(Ret, Env)) of
+        true  -> erlang:error({opaque_ret_at_boundary, Line, Mod, Fun});
+        false -> ok
+    end.
+
+%% A proper non-empty subset of the binary part is a refinement of it, and
+%% `string` is the only one today. Recursive, because 18 §2 says "anything
+%% deeper is a compile error at the declaration" — `list<string>` hides the same
+%% unbounded check one bracket down.
+opaque_refinement(#{bins := Bs}) when Bs =/= [], Bs =/= [other, utf8] -> true;
+opaque_refinement(#{tuples := top}) -> false;
+opaque_refinement(#{tuples := Ps, lists := Ls, maps := Ms}) ->
+    lists:any(fun opaque_refinement/1, lists:append(Ps))
+        orelse (case Ls of
+                    {_, E} when is_map(E) -> opaque_refinement(E);
+                    _                     -> false
+                end)
+        orelse (case Ms of
+                    top     -> false;
+                    Members -> lists:any(
+                                 fun({_, Fs}) ->
+                                     lists:any(fun opaque_refinement/1,
+                                               maps:values(Fs))
+                                 end, Members)
+                end).
 
 sig(Params, Ret, Env) ->
     {[resolve(T, Env) || {param, T, _} <- Params], resolve(Ret, Env)}.
@@ -249,6 +293,11 @@ builtin(int)  -> bs_types:int();
 builtin(atom) -> bs_types:atom_top();
 builtin(term) -> bs_types:term();
 builtin(bool) -> bs_types:union(bs_types:atom_lit(true), bs_types:atom_lit(false));
+%% Ticket 20 §4. `string` is not a second type beside `binary` — it is `binary`
+%% refined by valid UTF-8, so it resolves to a SUBSET and `string <: binary`
+%% falls out of the algebra rather than being asserted here.
+builtin(binary) -> bs_types:binary_top();
+builtin(string) -> bs_types:string();
 builtin(B)    -> erlang:error({unknown_builtin, B}).
 
 %%% ---------------------------------------------------------------------------
@@ -548,6 +597,10 @@ union_of(Ts) -> bs_types:union(Ts).
 %% and a nested call is the ordinary case.
 type_of({e_int, _, N}, _S, _C)  -> {bs_types:range(N, N), []};
 type_of({e_atom, _, A}, _S, _C) -> {bs_types:atom_lit(A), []};
+%% Ticket 20 §4 — a literal is a `string` BY CONSTRUCTION. The lexer has already
+%% established the UTF-8 property over the bytes, so this synthesises `string`
+%% and not `binary`, and nothing downstream re-checks it.
+type_of({e_str, _, _}, _S, _C) -> {bs_types:string(), []};
 type_of({e_var, _, V}, S, _C)   -> {maps:get(V, S, bs_types:term()), []};
 %% `_` is an expression only so that `(a, _) = pair` parses — see the parser.
 %% Used as a VALUE it is rejected here, so the author does not meet

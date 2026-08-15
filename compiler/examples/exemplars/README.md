@@ -59,11 +59,13 @@ Ordered by how many exemplars each unblocks, which is roughly the order to build
 | **Records** — declaration, construction, `with`, projection | all three | out (26 was open when the slice was cut; **26 is now closed**) | 26 |
 | **Angle brackets** — `list<T>`, `option<T>`, `result<T, E>` | all three | **in** — F6, 2026-08-14 | 27, 28 |
 | **`ValidateAs<T>`** — a codegen obligation, not a generic call | 25a, 25c | out | 11, 27 §8 |
-| **Binaries** — `<<_:M, _:_*N>>` patterns and construction | 25b, 25c | out | 20, 30 |
+| **`string` and `binary` as values** — the literal, the type, the refinement | all three | **in** — F9, 2026-08-15 | 20 |
+| **Binaries** — `<<_:M, _:_*N>>` patterns and construction | 25b, 25c | out, **blocked** — 30 is open | 20, 30 |
 | **`switch` expression** — including the tuple subject and a guard on an arm | all three | **in** — F7, 2026-08-15 | 17 |
 | **Pipe and valve** — `\|>`, `\|?>` | 25b, 25c | out | 17 |
 | **Interval refinements** — `type Octet = int where ...` | 25b, 25c | out, **named as the next increment** | 20 §5 |
-| **String and map literals** | 25a, 25c | out | 20, fog |
+| **String literals** | 25a, 25c | **in** — F9, 2026-08-15 | 20 |
+| **Map literals** | 25a, 25c | out | fog |
 | **List patterns** — `[h, ..t]`, literal element patterns | 25a | out | 08, 28 |
 | **Imports / multi-file modules** | all three | out (fog) | fog |
 | **OTP behaviours** — `behaviour GenServer`, callbacks | 25b, 25c | the attribute is emitted; the callback contract is not | 14, 35 |

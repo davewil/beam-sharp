@@ -199,10 +199,10 @@ guard_one(Pat, {param, TypeExpr, _}, I, Line, Ctx) ->
 record_tag(TypeExpr, #{env := Env}) ->
     try bs_check:resolve(TypeExpr, Env) of
         #{maps := [{closed, Fields}], atoms := {finite, []}, ints := [],
-          tuples := [], lists := {false, none}} ->
+          tuples := [], lists := {false, none}, bins := []} ->
             case maps:find('Kind', Fields) of
                 {ok, #{atoms := {finite, [Tag]}, ints := [], tuples := [],
-                       lists := {false, none}, maps := []}} -> {ok, Tag};
+                       lists := {false, none}, maps := [], bins := []}} -> {ok, Tag};
                 _ -> none
             end;
         _ -> none
@@ -326,6 +326,12 @@ var_name(V) ->
 
 expr({e_int, L, N}, _C)       -> {integer, L, N};
 expr({e_atom, L, A}, _C)      -> {atom, L, A};
+%% The bytes are already UTF-8-encoded — the lexer read them from the source and
+%% validated them there — so this emits them raw and adds no `/utf8` specifier.
+%% Re-encoding would double-encode every non-ASCII character, which is invisible
+%% in an ASCII test and is why F9.3 exists.
+expr({e_str, L, Bytes}, _C)   ->
+    {bin, L, [{bin_element, L, {string, L, Bytes}, default, default}]};
 expr({e_var, L, V}, _C)       -> {var, L, var_name(V)};
 expr({e_tuple, L, Es}, C)     -> {tuple, L, [expr(E, C) || E <- Es]};
 expr({e_call, L, F, As}, C)   -> {call, L, {atom, L, F}, [expr(A, C) || A <- As]};
@@ -424,9 +430,22 @@ spec_type(Ty) ->
         Ps  -> {type, ?A, union, Ps}
     end.
 
-parts(#{atoms := As, ints := Is, tuples := Ts, lists := Ls, maps := Ms}) ->
+parts(#{atoms := As, ints := Is, tuples := Ts, lists := Ls, maps := Ms,
+        bins := Bs}) ->
     atom_parts(As) ++ [int_part(R) || R <- Is] ++ tuple_parts(Ts)
-        ++ list_parts(Ls) ++ map_parts(Ms).
+        ++ list_parts(Ls) ++ map_parts(Ms) ++ bin_parts(Bs).
+
+%% All three non-empty points emit `binary()`, and that is this function's own
+%% rule rather than a shortcut. Erlang's type language has no UTF-8 refinement,
+%% so `string`, `binary` and `binary \ string` have one spelling between them and
+%% the nearest supertype that exists is where they land.
+%%
+%% The widening is confined to the SPEC. Nothing above widens: the algebra keeps
+%% the three apart exactly, which is what the checker reasons with. A spec is
+%% what Dialyzer reads, and ticket 20's exactness requirement is about the
+%% residual, not about the abstract chunk.
+bin_parts([])  -> [];
+bin_parts(_)   -> [{type, ?A, binary, []}].
 
 %% Erlang's map type spells both halves of the distinction the algebra carries:
 %% `:=` is a mandatory key and `=>` an optional one, so a closed member emits
@@ -495,5 +514,22 @@ tuple_part(Components) ->
 %%% that freed the host language.
 %%% ---------------------------------------------------------------------------
 
+%% THE CODING COMMENT IS LOAD-BEARING, AND F9 IS WHERE THAT WAS FOUND.
+%%
+%% `~p` prints a list of printable bytes as a quoted string and writes those
+%% BYTES; `erlc` has read Erlang source as UTF-8 since OTP 17. So the `.abstr`
+%% file was a serialisation boundary whose two ends disagreed, and a string
+%% literal `"héllo"` round-tripped as five bytes instead of six — the `c3 a9`
+%% pair read back as the single codepoint 233.
+%%
+%% Measured both ways before choosing: without this line the binary is 5 bytes,
+%% with it 6. The alternative — emitting one `bin_element` per byte so no
+%% character list is ever printed — fixes strings and leaves the identical trap
+%% set for the next non-ASCII thing to reach a form, an atom with an accented
+%% name being the obvious one. This fixes the boundary instead of one caller.
+%%
+%% It failed in the quiet direction: the program compiled, ran, and returned a
+%% perfectly good binary that was the wrong one. Only a byte count showed it.
 to_abstr(Forms) ->
-    iolist_to_binary([io_lib:format("~p.~n", [F]) || F <- Forms]).
+    iolist_to_binary(["%% coding: latin-1\n"
+                      | [io_lib:format("~p.~n", [F]) || F <- Forms]]).
