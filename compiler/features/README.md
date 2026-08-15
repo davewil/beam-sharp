@@ -51,6 +51,21 @@ the projection error, exact field sets. Those live in the suite. Three surfaces,
 `examples/` must run, `LANGUAGE.md`'s blocks must compile or must not, and the tests carry what only
 a rejection can show.
 
+**A fourth surface was added 2026-08-15, and it is the one the clean-room handoff runs on.** The
+three above all gate against the **compiler**, and there is a class of defect none of them can see:
+unbuilt syntax does not compile, so a `not-yet` block in `LANGUAGE.md` holding the **decided** form
+and one holding a **superseded** form fail identically. Ticket 44 changed the conjunction and left a
+stale block with every gate green; ticket 42 added relational patterns the doc never mentioned.
+[`bin/check-surface.sh`](../../bin/check-surface.sh) closes it by requiring every decision the map
+tags `syntax` or `patterns` to cite its ticket in `LANGUAGE.md` — mechanical, and it puts whoever
+lands a decision at the paragraph that needs changing. **This matters more than it looks**: a
+`not-yet` block *is* the handoff's spec, so the one place the compiler-facing gates cannot reach is
+the place a clean-room implementer depends on most.
+
+**And `bin/check-map.sh` was never wired into CI** until the same day, having existed since the map
+was split — it ran only when somebody remembered, and was catching two real defects per run on the
+day it was finally added. Both now run **first** in the workflow, since neither needs a compiler.
+
 ## Anatomy of a feature file
 
 ```

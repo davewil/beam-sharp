@@ -20,6 +20,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # THESE TWO NEED NO COMPILER, SO THEY RUN FIRST AND FAIL FAST.
+      #
+      # `check-map.sh` existed since the map was split on 2026-08-15 and was
+      # NEVER WIRED IN — it ran only when somebody remembered, which is the
+      # same failure this whole file was written about. On the day it was
+      # finally added here it was already catching two real defects per run.
+      #
+      # `check-surface.sh` is new. It closes the one gap `check-language.sh`
+      # cannot reach: that gate proves LANGUAGE.md matches the COMPILER, and
+      # unbuilt syntax does not compile, so a `not-yet` block holding the
+      # decided syntax and one holding SUPERSEDED syntax are indistinguishable
+      # to it. Ticket 44 changed the conjunction and left a stale block with
+      # every gate green; ticket 42 added a construct the doc never mentioned.
+      # Since a `not-yet` block IS the clean-room handoff's spec, the place the
+      # other gates cannot see is the place the handoff most depends on.
+      - name: The map is an index
+        run: ./bin/check-map.sh
+
+      - name: Surface decisions are traceable from LANGUAGE.md
+        run: ./bin/check-surface.sh
+
       - uses: erlef/setup-beam@v1
         with:
           # Ticket 13 §4 pins the supported range at the current release and the
