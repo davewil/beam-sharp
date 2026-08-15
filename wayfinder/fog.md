@@ -192,7 +192,20 @@
   diagnostics emit pasteable source, so the printer must pick a spelling — **dissolves**: print
   fully qualified always, which is legal in any scope. Requires ambiguity and local-shadowing to be
   **errors printing qualified candidates**, resolution by name *and* arity, and it puts §3 on the
-  **critical path**. **The ticket's §3 is the
+  **critical path**.
+  **§5 ANSWERED the same day, and it narrows §2's own framing**: **a namespace is a directory holding
+  no `.bs` files**; one holding `.bs` files is a module. Decidable by `ls`, no marker, no keyword.
+  The claim that B# *"has no room"* for C#'s middle tier was overstated — B# lacked a **name** for
+  the case, not the case, since ticket 13 had already made a directory inside a module a source-only
+  sub-module, so `Shop` and `Shop.Orders` as separate modules were never possible anyway. It
+  restores all three C# tiers with §2 as the middle one, makes the exemplars wrong by one segment
+  rather than incoherent, and **costs nothing at runtime**: a namespace emits no atom, no beam and
+  no attribute, the same status 13 gave sub-modules. §1's grammar is unchanged — which table an
+  import populates is decided by what the path resolves to **on disk**, so §3 blocks this too. One
+  new check, with a precedent: a file's `module` declaration must match its directory path, which is
+  13's measured `erlc` atom/filename rule lifted from the artefact to the source tree. It also
+  closes half of §4 — 13 settled the *inside* case and §5 the *outside* one, so every directory is
+  now classified and only *"may `index.bs` hold functions"* is left. **The ticket's §3 is the
   half neither fog patch named, and it is the one that actually blocks `List.Map`**: where the
   checker gets another module's types. The fork is re-check-source versus types riding in the
   `.beam` as a `-bs_sig` attribute — and the cheap question was answered first: **all 29 `.bs` files

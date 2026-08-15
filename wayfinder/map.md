@@ -263,8 +263,8 @@ Bodies in [`fog.md`](fog.md). These are open: read the body before assuming a di
 - **The language's name** `naming`
   unresolved. `beam-sharp` is a working title
 - **Imports and cross-module scope** `#41` `modules`
-  `using` generalises by token class and brings names in **unqualified**. §3 now blocks §2 as well
-  as `List.Map`: where the checker gets another module's types, unresolved
+  `using` brings names in **unqualified**; a namespace is a directory holding no `.bs` files, and is
+  erased. §3 is now a prerequisite of both: where the checker gets another module's types
 - **Where DDD invariants live** `types` `errors`
   ticket 20 §5 settles half; refinement in type declarations is available where the predicate is decidable
 - **How a user-declared opaque refinement is checked** `#29` `types`

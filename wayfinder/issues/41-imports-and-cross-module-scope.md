@@ -1,9 +1,10 @@
 # 41 — How does a module name another, and where do its types come from?
 
 Type: grilling
-Status: **claimed** 2026-08-15 — §1 and §2 answered. §3 and §4 open, and **§2's answer put §3 on
-the critical path**: unqualified names cannot be resolved without each import's exported name/arity
-set, so §3 is now a prerequisite of building §2 rather than a neighbour of it.
+Status: **claimed** 2026-08-15 — §1, §2 and §5 answered; §4 half answered. **§3 is the one thing
+left, and it is now a prerequisite rather than a neighbour**: neither unqualified names (§2) nor
+namespace resolution (§5) can be checked without reading the source tree and each import's exported
+name/arity set.
 
 Raised 2026-08-15 from the fog patch *"Imports and cross-module scope"*, together with
 [ticket 40](40-module-and-namespace-system.md). 40 decides what a module is and what a name
@@ -248,10 +249,17 @@ declarations shared across it"*. `prototypes/25a/25b/25c` use it, and
 an `index.bs`** — it is an unbuilt convention.
 
 Uncontroversial that it holds the `module` declaration, `type`/`record` declarations, the
-`behaviour` declaration and the module's `using` lines. **The question is whether it may hold
-functions**, i.e. whether one-function-per-file has an exception, and what a nested directory
-inside a module means given ticket 13 settled that sub-modules are source-only and the whole
-directory compiles to one `.beam`.
+`behaviour` declaration and the module's `using` lines.
+
+**Half of this is now closed by §5.** *What a nested directory means* has an answer from both ends:
+ticket 13 settled the **inside** case (a directory within a module is a sub-module, source-only,
+same `.beam`), and §5 settles the **outside** case (a directory holding no `.bs` files is a
+namespace, erased). Between them every directory in the tree is classified.
+
+**What remains open is one question**: may `index.bs` hold **functions**, or does
+one-function-per-file have no exception? Note it now carries a second job from §5 — a directory's
+`.bs` files are what make it a module rather than a namespace, so a module with no functions yet
+still needs `index.bs` to exist for the classification to come out right.
 
 ### The mechanism is already measured, and it is not in doubt
 
@@ -273,6 +281,93 @@ Aggregating is also the cheaper default: `01d-submodule-realisation.md:14–53` 
 at 1.84 ns against a local 1.73 ns (6.2%), but an *inlined* local at 0.80 ns, making the remote
 **2.3×** slower with `-compile(inline)` opt-in — and `code:atomic_load/1` is verified present on
 OTP 28, which removes the torn-upgrade argument for splitting.
+
+---
+
+## §5. ANSWERED 2026-08-15 — a namespace is a directory that holds no `.bs` files
+
+David: *"what about using the namespace concept in B#?"*
+
+**A directory containing `.bs` files is a module. A directory containing only directories is a
+namespace.** Decidable by `ls`, which is the property ticket 23 §10 wants of the layout anyway, and
+requiring no marker file, no keyword and no declaration.
+
+```
+Shop/                 no .bs files      NAMESPACE — erased entirely
+  Orders/             has .bs files     MODULE    'Shop.Orders'
+    index.bs
+    Total.bs
+    Internal/         inside a module   SUB-MODULE, source-only (ticket 13)
+  Billing/            has .bs files     MODULE    'Shop.Billing'
+```
+
+### It names a hole rather than adding a concept
+
+The first framing of §2 said B# *"has no room"* for C#'s middle tier. **That overstated it.** What
+B# lacked was a *name* for the case, not the case: ticket 13 already settled that a directory inside
+a module is a **sub-module, source-only, not its own beam**, so `Shop` as a module and `Shop.Orders`
+as a separate module already could not coexist — namespaces or not. Naming the outer case costs
+nothing new; it stops the hole being unlabelled.
+
+### What it buys
+
+C#'s three tiers, with §2's answer unchanged as the middle one:
+
+```csharp
+using Shop;                  // → Orders.All()   short-qualified
+using Shop.Orders;           // → All()          unqualified — §2
+using Orders = Shop.Orders;  // → Orders.All()   alias (still owed, see below)
+```
+
+And it makes the exemplars **nearly right rather than incoherent**: `using Shop` beside
+`Orders.All()` is a one-segment correction, not a tier that does not exist. §2 recorded them as
+inconsistent on the strength of the earlier framing; this is the narrower and truer version.
+
+### It costs nothing at runtime
+
+A namespace is **erased completely** — no atom, no `.beam`, nothing emitted, no entry in any
+attribute. It is purely compile-time name resolution, which is the same status ticket 13 gave
+sub-modules. Neither ticket 40 §1's dotted atom nor ticket 26 §1's tag mint moves: `'Shop.Orders'`
+is still the atom and `'Shop.Orders.Order'` still the tag.
+
+**It is also a divergence from Elixir, deliberately.** Elixir has no namespaces — `Shop.Orders` is
+one module whose name merely contains a dot, and `Shop` may exist independently. B# takes C#'s and
+TypeScript's structure instead, because the audience is C#/TS and because ticket 13's aggregate rule
+had already foreclosed Elixir's version without saying so.
+
+### The grammar does not change; the resolution does
+
+`using Shop` and `using Shop.Orders` are both `modpath` (§1). Which table the import populates is
+decided by **what the path resolves to on disk**, not by its spelling — so §1's one grammar rule
+covers both tiers.
+
+- `using Shop.Orders` → the **function** table: `{Name, Arity} -> Module`
+- `using Shop` → the **module** table: `Orders -> 'Shop.Orders'`
+
+**One ambiguity rule covers both**, which is the reason this generalises cleanly rather than
+doubling the design: a name reachable from two sources is an error at the call site printing the
+qualified candidates. `using Shop` beside `using Warehouse`, both holding an `Orders`, fails exactly
+as `Sum/2` beside `Sum/2` does.
+
+### One new check, and it has a precedent
+
+**A file's `module` declaration must match its directory path** — `Shop/Orders/Total.bs` must say
+`module Shop.Orders`. This is ticket 13's measured `erlc` module-atom/filename enforcement lifted
+one level, from the emitted artefact to the source tree, and it is what stops the atom in §1 and the
+path on disk from drifting apart.
+
+### Compiler delta for §5
+
+```
+bsc          resolving a `using` needs the source tree: a path with .bs files is a
+             module, a path with only directories is a namespace. §3 again.
+
+bs_check     two import tables, one lookup point, one ambiguity rule
+             {module_path_mismatch, Declared, Path, Line} into resolve_error/2
+```
+
+Nothing in `bs_emit` changes at all — which is the sentence that says a namespace is not a runtime
+thing.
 
 ---
 
