@@ -264,6 +264,8 @@ Bodies in [`fog.md`](fog.md). These are open: read the body before assuming a di
   **deferred rather than refused** — David: *"defer lazy, we will want it"*
 - **Bootstrapping — how much of beam-sharp is written in beam-sharp** `codegen` `agent`
   three axes, and the map has nothing on any of them
+- **Division and modulo** `#38` `syntax` `types`
+  no `/` in the lexer at all — absent by oversight; truncation converges, divide-by-zero does not
 - **`cond`, or whatever serves a long ladder of unrelated conditions** `#17` `syntax`
   no case for it yet; the width-five evidence was retracted and 25a's ladder is now a valve chain
 

@@ -1,0 +1,92 @@
+// Advent of Code 2025, Day 1 — Secret Entrance
+//
+// A dial numbered 0..99, starting at 50. Each rotation is `L<n>` or `R<n>`.
+//   part one: how many rotations LEAVE the dial on 0
+//   part two: how many CLICKS land on 0, during a rotation or at the end
+//
+// THIS PUZZLE HITS BOTH OF THE LANGUAGE'S KNOWN GAPS AT ONCE, which is why it
+// is worth keeping next to the code rather than only in a write-up.
+//
+//   1. MODULO. There is no `/`, `%`, `div` or `rem` in the lexer — ticket 38,
+//      raised from 2019 Day 1. A dial IS modular arithmetic, so this puzzle is
+//      unwritable without it. It comes through the FFI, and the wrapper below
+//      is the one every language needs because `rem` truncates: Erlang's
+//      `-18 rem 100` is `-18`, not `82`.
+//
+//   2. PARSING. `L68` is a letter and a number, and the language has no
+//      `string`, no `binary` and no way to take either apart. The shell turns
+//      each line into a SIGNED integer before the compiler ever sees it —
+//      L68 becomes -68, R43 becomes 43 — which means a real part of the puzzle
+//      is being solved outside the language. Stated plainly rather than hidden:
+//      see ../../README.md.
+//
+// What IS the language's own work: the modular wrap, the click-by-click
+// simulation, the two folds, and the fact that every function below is
+// exhaustive with no catch-all.
+
+module Day01
+
+using :erlang {
+    int rem(int a, int b)
+}
+
+// The dial has 100 positions, so every arithmetic result comes back through
+// here. Two `rem`s because the first can be negative: `rem` truncates toward
+// zero, so `-18 rem 100` is `-18` and the `+ 100` is what makes it 82.
+int Wrap(int n)
+Wrap(n) -> :erlang.rem(:erlang.rem(n, 100) + 100, 100)
+
+// A dial reading is 0 or it is not, and that is the whole of the question the
+// puzzle asks of it. Two clauses, exhaustive over `int`.
+int Hit(int pos)
+Hit(0) -> 1
+Hit(n) -> 0
+
+// --- part one: only where a rotation ENDS -----------------------------------
+//
+// The delta is already signed, so a whole rotation is one wrap. No simulation
+// is needed to answer part one, and doing it this way keeps the two parts
+// honestly different rather than one being the other with a flag.
+int Ends(list<int> rotations, int pos, int zeros)
+Ends([], pos, zeros)          -> zeros
+Ends([d, ..rest], pos, zeros) ->
+    next = Wrap(pos + d)
+    Ends(rest, next, zeros + Hit(next))
+
+int PartOne(list<int> rotations)
+PartOne(rs) -> Ends(rs, 50, 0)
+
+// --- part two: every CLICK ---------------------------------------------------
+//
+// "if the dial were pointing at 50, a single rotation like R1000 would cause
+// the dial to point at 0 ten times" — so the count is not a property of where
+// the rotation lands, and the dial has to be turned one click at a time.
+//
+// `Step` is the direction, `left` the clicks remaining. It returns the position
+// AND the running count, which is what a tuple is for.
+(int, int) Spin(int pos, int step, int left, int zeros)
+Spin(pos, step, 0, zeros)              -> (pos, zeros)
+Spin(pos, step, left, zeros) when left > 0 ->
+    next = Wrap(pos + step)
+    Spin(next, step, left - 1, zeros + Hit(next))
+Spin(pos, step, left, zeros) when left < 0 -> (pos, zeros)
+
+// A signed delta splits into a direction and a click count. `Sign` and `Size`
+// are separate so neither needs a division.
+int Sign(int d)
+Sign(0) -> 1
+Sign(d) when d > 0 -> 1
+Sign(d) when d < 0 -> 0 - 1
+
+int Size(int d)
+Size(d) when d >= 0 -> d
+Size(d) when d < 0  -> 0 - d
+
+int Clicks(list<int> rotations, int pos, int zeros)
+Clicks([], pos, zeros)          -> zeros
+Clicks([d, ..rest], pos, zeros) ->
+    (next, hits) = Spin(pos, Sign(d), Size(d), zeros)
+    Clicks(rest, next, hits)
+
+int PartTwo(list<int> rotations)
+PartTwo(rs) -> Clicks(rs, 50, 0)

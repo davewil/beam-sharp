@@ -417,6 +417,18 @@
   ticket 31's `Plug.Builder` question also lands: composable middleware is a library written in the
   language over a compiler-known contract, which is structurally the same problem as GenServer.
 
+- **Division and modulo** — → **[ticket 38](issues/38-division-and-modulo.md)**, raised 2026-08-15
+  from running AoC 2019 Day 1. The language has **no division at all**: the operator table is
+  `+ - *`, and `/`, `%`, `div` and `rem` are none of them in the lexer. **Absent by oversight rather
+  than decision** — measured, division appears zero times in `LANGUAGE.md`, the tickets and this
+  fog. Half of it is easy and half is not. Truncation is easy because the sources **converge**:
+  C#, JavaScript and Erlang's `div`/`rem` all give `-7 / 2 = -3` and `-7 % 2 = -1` (measured
+  locally; Python's floored `-4` and `1` is the outlier and is not an audience). **Divide by zero
+  is the open half**, and it is where the sources split — C# throws, Erlang raises `badarith`,
+  JavaScript yields `Infinity`, which beam-sharp cannot even represent without `float`. So the
+  choice is a crash, or the **first operator in the language to carry a precondition**, which the
+  interval algebra could already express and print. Surfaced by an *outside* workload rather than by
+  an exemplar, which is the better class of evidence and is the reason it is a ticket.
 - **`cond`, or whatever serves a long ladder of unrelated conditions** — new with ticket 17 §6,
   which made `switch` the only branching construct and takes a **tuple subject** for compound
   conditions. That is clean at two or three conditions and clumsy at five, where

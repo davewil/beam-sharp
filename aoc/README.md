@@ -10,6 +10,42 @@ Started 2026-08-15 (David: *"I want to see if beam-sharp can solve AoC problems"
 | Puzzle | Result |
 |---|---|
 | [2019 Day 1](2019/day01/day01.bs) — The Tyranny of the Rocket Equation | **solved**, both parts, against the real input |
+| [2025 Day 1](2025/day01/day01.bs) — Secret Entrance | **solved**, both parts — 1195 and 6770 |
+
+## 2025 Day 1 — the one that hit both gaps at once
+
+A dial numbered 0..99 starting at 50; `L<n>` and `R<n>` rotations; count the times it lands on 0,
+first only at the end of a rotation, then on **every click**.
+
+```
+worked example (from the puzzle text) -> 3 and 6
+real input, 4,732 rotations           -> 1195 and 6770
+```
+
+Both match the answers David supplied. Part two simulates **673,364 individual clicks** one at a
+time, which the tail calls handle without complaint — F7.16 pinned that property a few hours
+earlier and this is the first thing to lean on it.
+
+**It needed both of the gaps 2019 Day 1 found, simultaneously.**
+
+- **Modulo.** A dial *is* modular arithmetic, so the puzzle is unwritable without it. It comes
+  through the FFI, and the wrapper is the one every language needs, because `rem` truncates:
+  Erlang's `-18 rem 100` is `-18`, not `82`. → [ticket 38](../wayfinder/issues/38-division-and-modulo.md).
+- **Parsing, and this time the shell did more than read.** For 2019 the shell only turned a file
+  into a list. Here it also **parses**: `L68` becomes `-68` and `R43` becomes `43` before the
+  compiler sees anything. Splitting a letter from a number is a real part of this puzzle, and it was
+  solved outside the language because there is no `string`, no `binary`, and nothing to take either
+  apart.
+
+**What the language did do**, and did well: the modular wrap, the click-by-click simulation
+returning position *and* count as a tuple, both folds, and the direction/size split — and **every
+function is exhaustive with no catch-all**, including `Spin`, whose three clauses cover
+`left = 0`, `left > 0` and `left < 0` and are proven to by the interval refinement.
+
+One small thing worth recording because it is invisible until you hit it: **there is no unary
+minus.** `-1` is not a literal — the lexer reads integers as digits only — so `Sign` returns
+`0 - 1`. Negative numbers arrive fine *as data*, since the argument reader handles `-68`; they just
+cannot be written in source.
 
 ## 2019 Day 1 — solved, and the false start that came first
 
@@ -78,6 +114,12 @@ Fuel(m) -> :erlang.div(m, 3) - 2
 That is not a hack — ticket 32 makes a foreign declaration a signature attached to the name Erlang
 already has, and `erlang:'div'/2` is an exported BIF (measured: `erlang:'div'(7, 2)` is 3). But it
 is a real finding: **an arithmetic puzzle reaches outside the language on line one.**
+
+**It is now [ticket 38](../wayfinder/issues/38-division-and-modulo.md)**, raised from this puzzle.
+Division turned out to be absent by *oversight* — zero mentions in `LANGUAGE.md`, the tickets or the
+fog — and it hides a real decision: truncation is easy (C#, JavaScript and Erlang's `div`/`rem` all
+agree, measured), while **divide by zero is where the sources split** and where beam-sharp could
+make `/` the first operator carrying a precondition its checker enforces.
 
 ## What actually blocks AoC, and it is not the arithmetic
 
