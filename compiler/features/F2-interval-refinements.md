@@ -1,6 +1,6 @@
 # F2 — Interval refinements, and the interval patterns that must land with them
 
-**Status**      **blocked** — two decisions owed, see [below](#two-decisions-this-feature-needs-before-it-can-be-built)
+**Status**      **blocked** — [ticket 43](../../wayfinder/issues/43-residual-summarised-form.md) only; 42 and 44 answered 2026-08-15
 **Implements**  tickets 20 §5, 12 §2, 04 — decides nothing
 **Unblocks**    `bs_emit:int_part/1`'s bounded branches; wire dispatch in 25b and 25c
 **Depends on**  F1; **ticket 43 is the last blocker** — 42 and 44 both answered 2026-08-15

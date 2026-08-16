@@ -1,6 +1,6 @@
 # F8 — `var` binds, `=` matches, and a name in a pattern is a value
 
-**Status**      not started — **draft, and one token is undecided**
+**Status**      **blocked** — [ticket 45](../../wayfinder/issues/45-match-token.md) · [ENG-216](https://linear.app/davewil/issue/ENG-216); the token is undecided
 **Implements**  [ticket 34](../../wayfinder/issues/34-local-bindings.md) (the binding it shipped),
                 [ticket 33](../../wayfinder/issues/33-body-check-site.md) §5 / F5 (the irrefutable
                 bind), [ticket 01](../../wayfinder/issues/01-sample-code.md) (Variant A's pattern
