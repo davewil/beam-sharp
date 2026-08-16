@@ -320,6 +320,35 @@ the_residual_truncates_at_three_cases_test() ->
                                "... (38 more)) -> ...") =/= nomatch)
              end).
 
+%% THE HEAD-LINE HALF OF 43's RULE, AND IT IS NEEDED TODAY RATHER THAN AFTER
+%% TICKET 23 §2. 43 §3 puts head-counting in the future tense, and its own reason
+%% for having that half is what makes it reachable now: a residual over a
+%% two-argument function is a PRODUCT, and `heads/2` has always printed one line
+%% per product. So a second argument is all it takes — no §2 involved.
+%%
+%% Measured before the cap was added: this program printed **41 head lines**, one
+%% of them itself truncated. Both units are live at once, which is what *"at most
+%% three of whatever it is enumerating"* means when the printer enumerates two
+%% things at two depths.
+the_head_lines_truncate_at_three_too_test() ->
+    Src = ["module Two\natom Classify(int n, atom a)\n"
+           | [io_lib:format("Classify(~p, :x) -> :known\n", [N * 10])
+              || N <- lists:seq(1, 40)]],
+    with_src("two.bs", lists:flatten(Src),
+             fun(Path, Out) ->
+                     Got = run_cli("-o " ++ Out ++ " " ++ Path),
+                     Lines = [L || L <- string:split(Got, "\n", all),
+                                   string:find(L, "Classify(") =/= nomatch],
+                     ?assertEqual(3, length(Lines)),
+                     ?assert(string:find(Got, "    ... (38 more)") =/= nomatch),
+                     %% The inner truncation still runs inside the first line, so
+                     %% the two depths compose rather than one shadowing the other.
+                     ?assert(string:find(
+                               Got,
+                               "Classify(int <= 9 | 11..19 | 21..29 | "
+                               "... (38 more), atom) -> ...") =/= nomatch)
+             end).
+
 %% AND THE HALF THAT MAKES IT ONE FORMAT RATHER THAN TWO. At three cases or fewer
 %% it prints byte-identically to what the compiler printed before any of this
 %% existed, so there is no threshold to tune and no *"why did the format change"*

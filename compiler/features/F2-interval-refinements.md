@@ -31,6 +31,15 @@ message that names it as a scope call** rather than left to work by accident. Sh
 nothing tests because two productions happened to compose is how a language acquires behaviour
 nobody decided on.
 
+**Ticket 43's head-counting half was needed immediately, not after 23 §2.** §3's table puts it in
+the future tense — *"after §2 it enumerates one head line per case"* — and §3's own justification
+for having that half is what makes it reachable today: *"a residual over a two-argument function is
+a product, so the head count is the product of the parts."* `heads/2` has always printed one line
+per product, so a second argument is the whole trigger. Measured: forty singleton clauses over
+`(int, atom)` printed **41 head lines**, one of them itself truncated. Both units are live at once
+now, which is what *"at most three of whatever it is enumerating"* means when the printer
+enumerates two things at two depths. §2 will change what fills the sequence and nothing else.
+
 **`25c_residual_probe.sh` had been dead since the `;` terminator was dropped**, so F2's own *Done
 when* named an artefact that could not run. Repaired, and given the two probes this feature makes
 writable — plus one correction: its probe 3 wrote `Classify(t)`, a bare **name**, and asked whether

@@ -216,6 +216,12 @@ is_subtype(A, B) -> is_none(subtract(A, B)).
 %%% failure direction happens to be the loud one (a forgotten component reports
 %%% CLOSED, and a legal catch-all becomes an error somebody notices immediately)
 %%% but relying on that is relying on luck, and the next component might not be.
+%%%
+%%% `none()` ANSWERS FALSE. It has no unbounded top because it has nothing at
+%%% all — the right answer to the question this asks, and the wrong one for a
+%%% caller reading it as *"must be enumerated"*, since there is nothing to
+%%% enumerate. Ask `is_none/1` first where that matters;
+%%% `bs_check:closed_and_inhabited/1` is the only caller today and does.
 is_open(#{atoms := As, ints := Is, tuples := Ts, lists := Ls, maps := Ms,
           bins := Bs}) ->
     a_open(As) orelse lists:any(fun r_unbounded/1, Is) orelse t_open(Ts)

@@ -16,6 +16,13 @@
 
 -record(opts, {outdir = ".", emit_abstr = true, verbose = false, repl = false}).
 
+%% Ticket 43's threshold. One number, used at both depths the inexhaustive
+%% diagnostic enumerates — see `heads/2` and `truncated/1` at the bottom of the
+%% file. It is not a tunable and there is no flag: the truncated form IS the
+%% exact form at three cases or fewer, so "always on" costs a small residual
+%% nothing and there is no second shape to switch into.
+-define(RESIDUAL_CASES, 3).
+
 %% For callers outside the CLI (the REPL's `:reload`) that have a directory
 %% rather than an #opts{}.
 file_to_dir(Path, Dir) -> file(Path, #opts{outdir = Dir}).
@@ -598,10 +605,33 @@ heads(Fn, Residual) ->
     #{tuples := Products} = Residual,
     case Products of
         [] -> io_lib:format("    ~s~n", [truncated(Residual)]);
-        _  -> [io_lib:format("    ~s(~s) -> ...~n",
-                             [Fn, string:join([truncated(C) || C <- P], ", ")])
-               || P <- Products]
+        _  -> cap([io_lib:format("    ~s(~s) -> ...~n",
+                                 [Fn, string:join([truncated(C) || C <- P], ", ")])
+                   || P <- Products])
     end.
+
+%% THE RULE APPLIES TO HEAD LINES TOO, AND IT IS NEEDED TODAY RATHER THAN AFTER
+%% TICKET 23 §2. 43 §3's table puts the head-counting half in the future tense —
+%% *"after §2 it enumerates one head line per case"* — and its own reason for
+%% having that half is what makes it reachable now:
+%%
+%%     A residual over a two-argument function is a PRODUCT, so the head count is
+%%     the product of the parts. A rule that stayed on intervals would print an
+%%     unbounded number of lines the moment a second argument had a residual too.
+%%
+%% `heads/2` has always printed one line per product, so a second argument is all
+%% it takes. Measured before this was added: forty singleton clauses over
+%% `(int, atom)` print **41 head lines**, one of them itself truncated. §2 is not
+%% involved; it will only change what fills the sequence.
+%%
+%% So both units are live at once and 43's rule is honoured at both, which is what
+%% *"at most three of whatever it is enumerating"* says when the printer is
+%% enumerating two things at two depths. The marker is its own line here rather
+%% than a trailing fragment, exactly as 43 §5 renders it.
+cap(Lines) when length(Lines) =< ?RESIDUAL_CASES -> Lines;
+cap(Lines) ->
+    {Shown, Rest} = lists:split(?RESIDUAL_CASES, Lines),
+    Shown ++ [io_lib:format("    ... (~p more)~n", [length(Rest)])].
 
 %%% ---------------------------------------------------------------------------
 %%% Ticket 43 — the residual at width
@@ -643,8 +673,6 @@ heads(Fn, Residual) ->
 %%% forty-one is a third of a percent of the checklist. It truncates anyway — the
 %%% descriptor keeps all forty-one and 23 §10's `bsc --api` is the full-fidelity
 %%% channel. If that flips, the delta is one argument here and nothing else moves.
--define(RESIDUAL_CASES, 3).
-
 truncated(Ty) ->
     case bs_types:pattern_parts(Ty) of
         Parts when length(Parts) =< ?RESIDUAL_CASES ->
