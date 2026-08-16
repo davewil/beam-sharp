@@ -1,6 +1,6 @@
 # F8 — `var` binds, `=` matches, and a name in a pattern is a value
 
-**Status**      **done 2026-08-16** — all ten scenarios built and asserted; 208 tests -> 222.
+**Status**      **done 2026-08-16** — all ten scenarios built and asserted; 208 tests -> 224.
                 [Ticket 45](../../wayfinder/issues/45-match-token.md) ·
                 [ENG-216](https://linear.app/davewil/issue/ENG-216) gave the token, `== name`
 **Implements**  [ticket 34](../../wayfinder/issues/34-local-bindings.md) (the binding it shipped),

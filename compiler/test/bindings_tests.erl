@@ -184,6 +184,37 @@ a_marked_name_emits_no_guard_test() ->
     [_, {clause, _, [{var, _, V}, {cons, _, {var, _, V}, _}], _, _}, _] = Clauses,
     ?assertEqual('Head', V).
 
+%% F8.7 — A MATCHED NAME DOES NOT POISON THE TYPES AROUND IT.
+%%
+%% `pattern_type/3` answers `term()` for `p_eqvar` rather than looking the name's
+%% type up, and the argument for why that is enough was REASONED rather than
+%% measured: `walk/5` intersects `Possible` with the running residual, which
+%% comes from the DECLARED domain, so a body should read the declared type at
+%% that position regardless. This test is that argument's discriminating check,
+%% because an argument written into a source comment is still an argument.
+%%
+%% Two call sites do the work, and both would reject if the reasoning were wrong:
+%% `Twice(head)` needs `head` to be `int`, and `Sum(head, rest)` needs the SIBLING
+%% of the matched element — bound in the same pattern — to still be `list<int>`
+%% rather than `term`. That sibling is the case F8.7 actually names.
+a_matched_name_does_not_widen_its_neighbours_test() ->
+    Src = "module N7\n"
+          "int Twice(int n)\n"
+          "Twice(n) -> n * 2\n"
+          "int Sum(int head, list<int> xs)\n"
+          "Sum(head, [])                -> 0\n"
+          "Sum(head, [== head, ..rest]) -> Twice(head) + Sum(head, rest)\n"
+          "Sum(head, [_, ..rest])       -> 0\n",
+    M = build_and_load(Src, 'N7'),
+    %% [3, 3, 9] with head 3: two elements match at Twice(3) = 6 each, then 9
+    %% takes the catch-all and stops the walk. 12, not 6 — the first version of
+    %% this assertion said 6 and the compiler was right.
+    ?assertEqual(12, M:'Sum'(3, [3, 3, 9])),
+    ?assertEqual(0, M:'Sum'(3, [])),
+    %% Nothing matches, so the recursion never runs and no call site is exercised
+    %% by luck.
+    ?assertEqual(0, M:'Sum'(1, [3, 3])).
+
 %% F8.6 — A MATCHED NAME CREDITS NOTHING TO `Certain`, and this asserts an error
 %% the WRONG build omits.
 %%

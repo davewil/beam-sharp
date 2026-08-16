@@ -72,10 +72,8 @@ one thing this language cannot do — and `var` is literally correct here, where
 inferred. **shipped**
 <!-- decided by ticket 34; `var` marker added by F8, token by ticket 45 -->
 
-```csharp not-yet
-x = 1                  // error: introduces x. Write `var x = 1`
-1 = x                  // fine - asserts, introduces nothing
-```
+So `x = 1` is an **error** — it introduces `x`, and a bare `=` may not — while `1 = x` is fine,
+because it asserts and introduces nothing. The diagnostic names `var x = 1` as the fix.
 
 **Bindings do not shadow.** A name means one thing in a clause: rebinding is an error, including
 rebinding what the head bound, because there is no mutation to assign with. **shipped**

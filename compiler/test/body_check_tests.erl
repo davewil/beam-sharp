@@ -335,6 +335,28 @@ every_example_still_compiles_test() ->
     ?assert(length(Sources) >= 6),
     [?assertMatch({N, {ok, _}}, {N, bsc:file_to_dir(N, ?OUT)}) || N <- Sources].
 
+%% ...AND `aoc/`, WHICH NO GATE REACHED UNTIL F8.
+%%
+%% CI runs check-map, check-surface, eunit, check-language, spec-check and
+%% extract-exemplars. Not one of them compiles `aoc/`, so the only real programs
+%% anybody has written in this language — as opposed to the examples written to
+%% demonstrate it — were outside every gate.
+%%
+%% That is not theoretical. The README records the benchmark sitting broken on
+%% master after the `;` terminator was dropped, which made the walking skeleton's
+%% recorded numbers un-re-measurable. Same corpus, same cause: a dialect change
+%% nothing checked. F8 rewrites every binding in the repo, so it is the right
+%% feature to close it rather than to be the second victim.
+%%
+%% `examples/exemplars/` is deliberately NOT here: those are ticket 25's backlog
+%% and do not parse yet by design — they wait on binaries, the pipe and qualified
+%% names. Adding them would be a permanently red gate.
+every_aoc_program_still_compiles_test() ->
+    Root = filename:dirname(project_root()) ++ "/aoc",
+    Sources = filelib:wildcard(Root ++ "/**/*.bs"),
+    ?assert(length(Sources) >= 3),
+    [?assertMatch({N, {ok, _}}, {N, bsc:file_to_dir(N, ?OUT)}) || N <- Sources].
+
 %% A list element is bound at a REAL path now, because the body check has to
 %% read `rest` back out and answer `list<int>`. Answering `term` rejects this —
 %% a shipped example, with a checker working correctly on wrong information.
