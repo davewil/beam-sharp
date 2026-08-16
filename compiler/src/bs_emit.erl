@@ -102,12 +102,21 @@ function(F, Ctx) ->
 %% running the emitter rather than by reading it: the first end-to-end build
 %% produced two spurious "variable 'N' is unused" warnings.
 clause({clause, Line, _Name, Patterns, Guard, Body}, Params, Ctx) ->
+    %% Relational patterns are lowered FIRST, before the boundary guard runs.
+    %% Order matters and the reason is `ensure_var/3`: given a pattern it cannot
+    %% name, it wraps the whole thing in a `p_alias`, and an aliased `p_rel` would
+    %% then reach `pattern/2`, which has no clause for one — a crash rather than a
+    %% diagnostic. Stripping first means the boundary guard only ever sees a
+    %% variable, which it already knows what to do with.
+    {Patterns0, RelTests} = strip_rels(Patterns),
     %% The boundary guard is injected BEFORE `Used` is computed. It mentions the
     %% parameter variable, so a parameter the body never names would otherwise
     %% lower to `_Foo` and the guard would reference an underscored variable —
-    %% which is not a warning but a compile error in the emitted Erlang.
-    {Patterns1, Tests} = boundary_guards(Patterns, Params, Line, Ctx),
-    Guard1 = conjoin(Tests, Guard, Line),
+    %% which is not a warning but a compile error in the emitted Erlang. The
+    %% relational tests are in the same list for the same reason: they mention
+    %% `bs@rN`, and that name exists nowhere but in the head they came from.
+    {Patterns1, Tests} = boundary_guards(Patterns0, Params, Line, Ctx),
+    Guard1 = conjoin(RelTests ++ Tests, Guard, Line),
     %% F8 — a `== acc` READS `acc`, and it reads it from a PATTERN rather than
     %% from the body or the guard, which is the only place `used_vars/2` looks.
     %% Without this seed, a parameter mentioned nowhere but in another parameter's
@@ -250,6 +259,54 @@ tag_test(Var, Tag, Line) ->
      {e_foreign_call, Line, erlang, map_get,
       [{e_atom, Line, 'Kind'}, {e_var, Line, Var}]},
      {e_atom, Line, Tag}}.
+
+%%% ---------------------------------------------------------------------------
+%%% Relational patterns — ticket 42, lowered to what a guard would have produced
+%%%
+%%% `Classify(>= 4 and <= 7)` becomes `classify(Bs@r1) when Bs@r1 >= 4 andalso
+%%% Bs@r1 =< 7`. Nothing downstream learns a new shape, which is 42's own claim
+%%% for the construct: *"identical to what a guard would have produced, so
+%%% nothing downstream changes."*
+%%%
+%%% ONE VARIABLE PER RELATIONAL SUBTREE, not per test. `>= 4 and <= 7` constrains
+%%% a single value twice — the combinator is not structural — so both tests must
+%%% name the same variable or the head would match two different things and mean
+%%% neither.
+%%%
+%%% `@` keeps the synthesised name out of the source's variable grammar, which is
+%%% lowercase alphanumerics, so it cannot collide with anything a user wrote. Same
+%%% convention `ensure_var/3` already uses, and the same reason.
+%%%
+%%% Only the TOP of each argument is walked, because the checker refuses a
+%%% relational pattern anywhere else (`argument_position/2`) and refuses it as an
+%%% error, so nesting never reaches emission. When a later feature lifts that
+%%% restriction it must come back here — which is why the restriction is enforced
+%%% in one named function rather than assumed in two places.
+strip_rels(Patterns) ->
+    {Ps, Tests, _N} =
+        lists:foldl(
+          fun(P, {Acc, Ts, N}) ->
+                  case is_rel(P) of
+                      false -> {Acc ++ [P], Ts, N};
+                      true  ->
+                          L = element(2, P),
+                          V = list_to_atom("bs@r" ++ integer_to_list(N)),
+                          {Acc ++ [{p_var, L, V}], Ts ++ [rel_expr(P, V)], N + 1}
+                  end
+          end, {[], [], 1}, Patterns),
+    {Ps, Tests}.
+
+is_rel({p_rel, _, _, _}) -> true;
+is_rel({p_and, _, _, _}) -> true;
+is_rel({p_or,  _, _, _}) -> true;
+is_rel(_)                -> false.
+
+%% Emitted as ordinary surface nodes rather than abstract format, so `used_vars/2`
+%% and `expr/2` handle them by the paths they already have — the same trick
+%% `tag_test/3` uses one section up.
+rel_expr({p_rel, L, Op, K}, V) -> {e_op, L, Op, {e_var, L, V}, {e_int, L, K}};
+rel_expr({p_and, L, A, B}, V)  -> {e_op, L, 'and', rel_expr(A, V), rel_expr(B, V)};
+rel_expr({p_or,  L, A, B}, V)  -> {e_op, L, 'or',  rel_expr(A, V), rel_expr(B, V)}.
 
 conjoin([], Guard, _Line) -> Guard;
 conjoin(Tests, none, Line) -> {guard, fold_and(Tests, Line)};
@@ -433,9 +490,15 @@ expr({e_list, L, Items, Rest}, C) ->
 expr({e_switch, L, Subject, Arms}, C) ->
     {'case', L, expr(Subject, C), [arm(A, C) || A <- Arms]}.
 
+%% An arm takes the same relational lowering as a clause head, because it is the
+%% clause head's own pattern grammar one level down — F7's whole argument for
+%% `switch` being the only branching construct. `n switch { >= 5 => :high, ... }`
+%% is a sentence the grammar admits the moment the head does.
 arm({arm, L, P, Guard, Body}, C) ->
-    Used = used_vars(Body, guard_vars(Guard)),
-    {clause, L, [pattern(P, Used)], guard(Guard, C), [expr(Body, C)]}.
+    {[P1], RelTests} = strip_rels([P]),
+    Guard1 = conjoin(RelTests, Guard, L),
+    Used = used_vars(Body, guard_vars(Guard1)),
+    {clause, L, [pattern(P1, Used)], guard(Guard1, C), [expr(Body, C)]}.
 
 %% Ticket 16 settled that `==` means `=:=`, and decided it on internal agreement
 %% rather than familiarity: Erlang's `==` coerces through tuples, lists and map

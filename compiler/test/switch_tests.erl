@@ -96,13 +96,24 @@ an_inexhaustive_switch_names_the_missing_arm_test() ->
 %% to refine a WHOLE value. A clause-head path always begins with a parameter
 %% index, so it is never empty; a switch subject is one value, so it always is.
 %% Without the empty-path clause this does not report, it crashes.
+%%
+%% THE LAST ARM WAS `_` UNTIL F2, and what changed it is ticket 12 §2 reaching
+%% further than that ticket's own examples suggested. 12 §2 illustrates a closed
+%% residual with a declared union of atoms; its operative definition is *contains
+%% an unbounded top*, and after the two guards the residual here is `0` — one
+%% integer, no top, closed. So `_` now discards a case the compiler can name, and
+%% naming it is both legal and better: the arm says what it covers, and a later
+%% edit to either guard cannot be silently absorbed.
+%%
+%% The test's point survives intact and sharpens. It exists to show the guards
+%% were credited, and `0 => :zero` only type-checks as exhaustive if they were.
 a_guard_on_an_arm_is_credited_test() ->
     Src = "module Signs\n"
           "atom Sign(int n)\n"
           "Sign(n) -> n switch {\n"
           "    m when m > 0 => :positive,\n"
           "    m when m < 0 => :negative,\n"
-          "    _            => :zero\n"
+          "    0            => :zero\n"
           "}\n",
     M = build_and_load(Src, 'Signs'),
     ?assertEqual(positive, M:'Sign'(5)),
@@ -165,11 +176,18 @@ an_arm_body_under_an_unreadable_guard_is_still_checked_test() ->
                  errors(Src)).
 
 %% F7.6. Arm, not clause. The word is the whole of the message's usefulness.
+%%
+%% THE SUBJECT WAS A DECLARED UNION UNTIL F2, and it had to move to `atom` for a
+%% reason that is about a different rule entirely: ticket 12 §2 now makes a `_`
+%% over a CLOSED residual an error, so the old source reported two things and this
+%% test could no longer see the one it is about. `atom` is the cofinite top —
+%% ticket 10 made the atom universe open — so the catch-all is legal there, which
+%% is 12 §2's own second bullet: a foreign sender chooses the inhabitants and
+%% there is nothing to enumerate.
 a_redundant_arm_is_a_warning_about_an_arm_test() ->
     Src = "module Dead\n"
-          "type Event = :placed | :shipped | :cancelled\n"
-          "atom Which(Event e)\n"
-          "Which(e) -> e switch {\n"
+          "atom Which(atom a)\n"
+          "Which(a) -> a switch {\n"
           "    _        => :other,\n"
           "    :placed  => :new\n"
           "}\n",

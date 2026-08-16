@@ -1,0 +1,74 @@
+// wire.bs -- refinements and the interval patterns that had to land with them
+// (F2, tickets 20 §5, 42, 43 and 12 §2).
+//
+//     bsc examples/wire.bs Classify 6     -> :reserved
+//     bsc examples/wire.bs Classify 8     -> :heartbeat
+//     bsc examples/wire.bs Band 200       -> :high
+//
+// THE PROPERTY WORTH LOOKING AT is that `Classify` below is exhaustive over 256
+// values with no catch-all -- and that it could not have been written at all a
+// feature ago. `type Octet` is the first CLOSED numeric domain this language can
+// spell, and the moment a domain closes, ticket 12 §2 makes `_` an error over it.
+// So the refinement and the span pattern are one change: shipping the first
+// without the second would have turned working programs into rejected ones.
+//
+// Delete `Classify(>= 4 and <= 7)` and the compiler does not shrug -- it hands
+// back `4..7` as the clause to add. The residual IS the missing case.
+module Wire
+
+// A REFINEMENT, ticket 20 §5. `value` names the thing being refined; it is an
+// ordinary name rather than a keyword, so a parameter may still be called
+// `value` and the word means the subject only inside a `where`.
+//
+// This is a SUBSET of `int`, not a type beside it, so nothing new entered the
+// algebra -- and the emitted `-spec` says `0..255` where it used to say
+// `integer()` whatever the clauses tested.
+type Octet = int where value >= 0 and value <= 255
+
+type FrameType = :method | :header | :body | :heartbeat | :reserved
+
+// A RELATIONAL PATTERN, ticket 42. `4..7` was refused: C#'s `..` builds a
+// half-open slice over *indices*, is not enumerable, and in pattern position
+// already means "the rest" -- which this language took for lists in ticket 28
+// and runs in `fib.bs` as `Reverse([x, ..rest], acc)`. The rule that came out of
+// it: borrow the construct, or don't borrow the glyph.
+//
+// `and` is the same conjunction a guard uses (ticket 44). One spelling, in every
+// position -- which matters here more than in C#, because this language puts
+// patterns in the parameter position and so a pattern and a guard sit one line
+// apart rather than in different constructs.
+FrameType Classify(Octet)
+
+Classify(1)             -> :method
+Classify(2)             -> :header
+Classify(3)             -> :body
+Classify(8)             -> :heartbeat
+Classify(0)             -> :reserved
+Classify(>= 4 and <= 7) -> :reserved
+Classify(>= 9)          -> :reserved
+
+// THE TWO REFINEMENTS AGREE, which is the thing that would be easy to get wrong
+// and silent if it were. `n` is declared `Octet` and the clause also guards on
+// it, so the residual after the first clause is `0..128` and not `int <= 128` --
+// the type's bound and the guard's bound are read by the SAME translator, so
+// they cannot come to disagree.
+//
+// Three clauses, no catch-all, over a closed domain.
+type Size = :low | :mid | :high
+
+Size Band(Octet n)
+
+Band(n) when n > 128 -> :high
+Band(n) when n > 64  -> :mid
+Band(n) when n <= 64 -> :low
+
+// A span in a SWITCH ARM, because an arm is the clause head's own pattern
+// grammar one level down (F7, ticket 17 §6). Nothing here is a second
+// implementation of anything above it.
+Size Sizing(Octet n)
+
+Sizing(n) -> n switch {
+    >= 129           => :high,
+    >= 65 and <= 128 => :mid,
+    <= 64            => :low
+}

@@ -29,7 +29,8 @@
 -export([binary_top/0, string/0]).
 -export([map_closed/1, map_open/1]).
 -export([union/2, union/1, intersect/2, subtract/2]).
--export([is_none/1, is_subtype/2, to_string/1, to_pattern/1, atom_str/1]).
+-export([is_none/1, is_open/1, is_subtype/2, to_string/1, to_pattern/1,
+         pattern_parts/1, atom_str/1]).
 
 -export_type([ty/0]).
 
@@ -193,6 +194,59 @@ is_none(_) ->
 m_empty({_Kind, Fields}) -> lists:any(fun is_none/1, maps:values(Fields)).
 
 is_subtype(A, B) -> is_none(subtract(A, B)).
+
+%%% ---------------------------------------------------------------------------
+%%% Openness — ticket 12 §2's discriminator, and F2 is what makes it reachable
+%%%
+%%% *"A catch-all is legal only over an OPEN residual."* Until this feature there
+%%% was no way to ask: every integer domain the surface could declare was `int`,
+%%% which is open by construction, so `_` was always legal over one and the rule
+%%% had nothing to bite on. `type Octet = int where value >= 0 and value <= 255`
+%%% is the first CLOSED numeric domain the language can spell, and 252 unnamed
+%%% octets is exactly the case 12 §2 wants named rather than swallowed.
+%%%
+%%% Open means *contains an unbounded top* — not "large". `0..255` has 256
+%%% inhabitants and is closed; `int >= 0` has infinitely many and is open. The
+%%% question the rule asks is whether the compiler could, in principle, hand the
+%%% author the list of cases it wants written.
+%%%
+%%% THE SIX-KEY PATTERN IS DELIBERATE, for the reason `is_none/1` states one
+%%% screen up: an Erlang map pattern is partial, so a component added to the
+%%% algebra and forgotten here would not fail — the head would still match. The
+%%% failure direction happens to be the loud one (a forgotten component reports
+%%% CLOSED, and a legal catch-all becomes an error somebody notices immediately)
+%%% but relying on that is relying on luck, and the next component might not be.
+is_open(#{atoms := As, ints := Is, tuples := Ts, lists := Ls, maps := Ms,
+          bins := Bs}) ->
+    a_open(As) orelse lists:any(fun r_unbounded/1, Is) orelse t_open(Ts)
+        orelse l_open(Ls) orelse m_open(Ms)
+        %% Any non-empty binary part is unbounded: the sender chooses the length,
+        %% which is ticket 11's own reason for refusing unbounded work in a head.
+        orelse Bs =/= [].
+
+%% Ticket 10 made the atom universe open, so a cofinite set is the top and cannot
+%% be enumerated — a foreign sender chooses the inhabitants.
+a_open({cofinite, _}) -> true;
+a_open({finite, _})   -> false.
+
+r_unbounded({neg_inf, _}) -> true;
+r_unbounded({_, pos_inf}) -> true;
+r_unbounded({_, _})       -> false.
+
+t_open(top) -> true;
+t_open(Ps)  -> lists:any(fun(P) -> lists:any(fun is_open/1, P) end, Ps).
+
+%% `[]` alone is one value and closed. Anything admitting a non-empty list is
+%% open whatever its element type — the length is unbounded, so the set is.
+l_open({_, none}) -> false;
+l_open({_, _})    -> true.
+
+m_open(top) -> true;
+%% An `open` member is *at least* these fields, so it admits maps carrying
+%% arbitrary others. That is the same unbounded top the name already says.
+m_open(Ms)  -> lists:any(fun({open, _}) -> true;
+                            ({closed, Fs}) -> lists:any(fun is_open/1, maps:values(Fs))
+                         end, Ms).
 
 %%% ---------------------------------------------------------------------------
 %%% Union — exact, never widening
@@ -697,6 +751,24 @@ to_pattern(T) ->
     case is_none(T) of
         true  -> "none";
         false -> string:join(pat_parts(T), " | ")
+    end.
+
+%% The same parts, UNJOINED — ticket 43's truncation runs over the rendered
+%% sequence, so the thing being truncated has to be a sequence when it arrives.
+%%
+%% This is the whole of what 43 costs `bs_types`, and it is deliberately not
+%% machinery: no cardinality function, no complement, no second format. 43's own
+%% delta says this module gains nothing, and exporting a list the printer already
+%% builds is the narrowest reading of that which still lets `bsc` do the job.
+%%
+%% Truncating HERE instead would have been one line shorter and wrong: every
+%% other diagnostic site — the call argument, the projection, the clause return,
+%% the destructuring bind, the switch arm — goes through `to_pattern/1`, and 43
+%% scoped the rule to the inexhaustive head rather than to the printer.
+pattern_parts(T) ->
+    case is_none(T) of
+        true  -> ["none"];
+        false -> pat_parts(T)
     end.
 
 pat_parts(#{atoms := As, ints := Is, tuples := Ts, lists := Ls, maps := Ms,

@@ -42,10 +42,15 @@ Decide(o, p, r) -> (o, p, r) switch {
     (false, false, true)  => :requeue
 }
 
-// A GUARD ON AN ARM. C#'s relational pattern -- `{ Deliveries: > 5 }` -- is F2's
-// and F2 is blocked on two decisions, so a guard is how a switch asks a numeric
-// question today. The intervals are credited to the exhaustiveness check, which
-// is why three arms cover `int` and the compiler agrees without a `_`.
+// A GUARD ON AN ARM. The intervals are credited to the exhaustiveness check,
+// which is why three arms cover `int` and the compiler agrees without a `_`.
+//
+// F2 has since landed the relational pattern, so these could be written
+// `<= 1 => :fresh` and so on -- `wire.bs` does exactly that. They are left as
+// guards deliberately: the two forms mean the same thing to the checker, and
+// this file is what shows that a guard still credits. What is NOT built is the
+// nested form C# spells `{ Deliveries: > 5 }` -- a relational pattern goes where
+// a whole argument goes, and inside a record pattern you write the guard below.
 Verdict Attempt(int deliveries)
 Attempt(n) -> n switch {
     m when m <= 1 => :fresh,

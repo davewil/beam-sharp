@@ -12,6 +12,7 @@ Nonterminals
   type_expr type_union_members type_prim type_list type_params
   params param_list param
   patterns pattern_list pattern plist_items pat_fields pat_field
+  rel_pattern rel_test int_lit refinement
   guard guard_expr
   body binding
   expr expr_list elist_items assign_fields assign_field
@@ -129,6 +130,28 @@ module_decl -> 'module' uident : {module, line('$1'), value('$2')}.
 %% enters the algebra, and there is no `union` keyword to design.
 type_decl -> 'type' uident '=' type_expr :
     {type_alias, line('$1'), value('$2'), [], '$4'}.
+
+%% A REFINED type — ticket 20 §5, `type Octet = int where value >= 0 and value <= 255`.
+%%
+%% Not a second declaration construct: it is the alias above with a predicate on
+%% it, which is what keeps 20 §5's two tiers apart by what the predicate SAYS
+%% rather than by how it is spelled. A guard-decidable predicate is reasoned
+%% about and lands in the algebra as an interval; anything else is refused by the
+%% checker, since 20 §5 as amended by 29 bars the opaque tier from clause heads
+%% and this surface has no other check site to put it at.
+%%
+%% `value` is an ordinary lowercase identifier, deliberately — the refinement
+%% translator gives it meaning and the lexer does not, so a parameter named
+%% `value` stays legal and the word means the subject only inside a `where`.
+type_decl -> 'type' uident '=' type_expr 'where' refinement :
+    {type_refined, line('$1'), value('$2'), '$4', '$6'}.
+
+%% The predicate is an ordinary expression, so it inherits the whole comparison
+%% and conjunction grammar rather than getting a second one — and the checker
+%% then reads it back with the SAME `alternatives/1` a guard goes through. One
+%% translator, so a refinement and a guard cannot come to disagree about what
+%% `value >= 0` means (F2.5).
+refinement -> expr : '$1'.
 
 %% A PARAMETRIC alias — ticket 27 §(b). The variable is bound here, substituted
 %% at the use, and gone before `bs_types` sees anything: `Pair<int>` resolves to
@@ -269,6 +292,47 @@ pattern -> '_'                 : {p_wild, line('$1')}.
 %% The space is not significant. `==acc` and `== acc` are one token stream,
 %% because `==` is maximal-munch and an identifier cannot begin with it.
 pattern -> '==' lident         : {p_eqvar, line('$1'), value('$2')}.
+%% A RELATIONAL PATTERN — ticket 42. `Classify(>= 4 and <= 7)` names a span of
+%% integers where a whole argument goes.
+%%
+%% `4..7` was refused and the refusal is the interesting half: C#'s `..` builds a
+%% half-open slice specification over *indices*, is not enumerable, and in
+%% pattern position already means "the rest" — which this language took in 28 §5
+%% and runs today as `Reverse([x, ..rest], acc)`. So the range spelling was never
+%% the tier-1 borrow it looked like. The rule that came out of it governs future
+%% borrowings: BORROW THE CONSTRUCT, OR DON'T BORROW THE GLYPH.
+%%
+%% The combinator is restricted to relational tests rather than to patterns
+%% generally, and that is a grammar fact as much as a scope call: `pattern 'and'
+%% pattern` would put `and` after every pattern form, including the bare `lident`
+%% that a switch arm starts with, and `and` is also an expression operator. The
+%% narrow nonterminal keeps the two apart with no lookahead — measured, yecc
+%% reports zero conflicts for it. C#'s `and` combines arbitrary patterns; this one
+%% does not yet, and no exemplar asks it to.
+%%
+%% `==` is deliberately NOT a member. Ticket 45 gave it the pattern meaning "the
+%% value this NAME holds", and the family divides on the operand: a relational
+%% takes a literal, `==` takes a name. `== 4` and `>= acc` are both refused.
+pattern -> rel_pattern : '$1'.
+
+rel_pattern -> rel_test : '$1'.
+rel_pattern -> rel_pattern 'and' rel_pattern :
+    {p_and, line('$2'), '$1', '$3'}.
+rel_pattern -> rel_pattern 'or' rel_pattern :
+    {p_or, line('$2'), '$1', '$3'}.
+
+rel_test -> '>=' int_lit : {p_rel, line('$1'), '>=', '$2'}.
+rel_test -> '>'  int_lit : {p_rel, line('$1'), '>',  '$2'}.
+rel_test -> '<=' int_lit : {p_rel, line('$1'), '<=', '$2'}.
+rel_test -> '<'  int_lit : {p_rel, line('$1'), '<',  '$2'}.
+
+%% The bound is a LITERAL, and negative bounds are the case that makes this its
+%% own nonterminal: `Classify(<= -1)` is the residual's own spelling for the
+%% negative half of `int`, so the diagnostic 23 §2 synthesises has to be
+%% something the parser accepts back.
+int_lit -> integer     : value('$1').
+int_lit -> '-' integer : -value('$2').
+
 pattern -> '(' pattern_list ')' :
     case '$2' of
         [Single] -> Single;

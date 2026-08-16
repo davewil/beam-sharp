@@ -149,13 +149,22 @@ patterns and expressions rarely touch there; here they always do.
 
 **A span of integers is a relational pattern.** `4..7` was refused: C#'s `..` builds a half-open
 slice over *indices*, is not enumerable, and in pattern position already means "the rest" — which
-this language uses for lists. **decided**
+this language uses for lists. **shipped**
 <!-- decided by ticket 42 -->
 
-```csharp not-yet
+<!-- check:
+atom Classify(int n)
+-->
+```csharp
 Classify(>= 4 and <= 7) -> :reserved
 Classify(<= -1)         -> :negative
+Classify(>= 0 and <= 3) -> :low
+Classify(>= 8)          -> :high
 ```
+
+Those four clauses are **exhaustive over `int`** with no catch-all, which is the property worth
+looking at: a span is a set the checker subtracts, not a test it takes on trust. It goes where a
+whole argument goes — inside a record pattern, a tuple or a list, write the comparison as a guard.
 
 The rule this produced, which governs future borrowings: **borrow the construct, or don't borrow
 the glyph.** Where C# has the symbol but not the construct, taking the symbol buys no familiarity
@@ -328,8 +337,9 @@ Decide(o, p, r) -> (o, p, r) switch {
 ```
 
 Exhaustive with **no catch-all**, and the compiler agrees. An arm may also carry a guard —
-`n when n < 5 => :retried` — which is how a switch asks a numeric question until the relational
-pattern `{ Deliveries: > 5 }` lands with refinements.
+`n when n < 5 => :retried` — or a relational pattern, `>= 5 => :exhausted`, since an arm takes the
+clause head's pattern grammar whole. Nested inside a record pattern, `{ Deliveries: > 5 }` is not
+built: a relational pattern goes where a whole argument goes.
 
 **shipped** — F7.
 
@@ -666,13 +676,21 @@ which is what `gen_server:call`'s own reply correlation runs on. **decided**
 
 ## 13. Refinements
 
-```csharp not-yet
+```csharp
 type Octet = int where value >= 0 and value <= 255
 ```
 
 Where the predicate is a **single BEAM guard**, a refinement is reasoned about by the checker and
 may appear in a clause head and at a foreign boundary. The predicate takes the same `and` / `or` as
-guards and patterns — one conjunction everywhere.
+guards and patterns — one conjunction everywhere. **shipped**
+
+`value` names the value being refined. It is an ordinary name and not a keyword, so a parameter may
+still be called `value`; the word means the subject only inside a `where`.
+
+A refinement is a **subset of its base**, not a type beside it, so `Octet` is an `int` everywhere an
+`int` is wanted and the emitted `-spec` says `0..255` rather than `integer()`. A predicate the
+checker cannot read is an **error** rather than a silent widening — otherwise a refinement that
+narrowed nothing would look exactly like one that worked.
 
 **Refinements and interval patterns must land together.** Today a parameter
 declared `int` has an **open** residual, so a dispatch over it gets its `_` for free. The moment a
@@ -686,8 +704,9 @@ clause heads and foreign declarations**. Inside, the caller is known and the obl
 dischargeable; at the boundary the caller is unknown and it is unbounded cost with nothing to
 discharge it against.
 
-**decided** — and the pairing matters: interval *patterns* must land with interval *refinements*,
-or wire parsing breaks. A parameter declared `int` leaves every byte-wide dispatch open.
+**shipped** — and the pairing held: interval *patterns* landed with interval *refinements*, in one
+change, because either alone breaks wire parsing. A parameter declared `int` leaves every byte-wide
+dispatch open; a refinement without a span pattern closes it with nothing to answer in.
 
 ---
 

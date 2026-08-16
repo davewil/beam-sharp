@@ -32,54 +32,86 @@ probe () {
 
 echo "=== 1. Four named frame types over a bare \`int\` ==="
 echo "AMQP's frame type is ONE OCTET. The parameter can only be declared \`int\`."
-probe octet_open 'module P1;
-type FrameType = :method | :header | :body | :heartbeat;
-FrameType Classify(int t);
-Classify(1) -> :method;
-Classify(2) -> :header;
-Classify(3) -> :body;
-Classify(8) -> :heartbeat;'
+probe octet_open 'module P1
+type FrameType = :method | :header | :body | :heartbeat
+FrameType Classify(int t)
+Classify(1) -> :method
+Classify(2) -> :header
+Classify(3) -> :body
+Classify(8) -> :heartbeat'
 
 echo "=== 2. The same, with a guard bounding the octet ==="
 echo "The guard covers 0..255 exactly. What is left is what an octet cannot hold."
-probe octet_guarded 'module P2;
-type FrameType = :method | :header | :body | :heartbeat | :reserved;
-FrameType Classify(int t);
-Classify(1) -> :method;
-Classify(2) -> :header;
-Classify(3) -> :body;
-Classify(8) -> :heartbeat;
-Classify(t) when t >= 0 && t <= 255 -> :reserved;'
+probe octet_guarded 'module P2
+type FrameType = :method | :header | :body | :heartbeat | :reserved
+FrameType Classify(int t)
+Classify(1) -> :method
+Classify(2) -> :header
+Classify(3) -> :body
+Classify(8) -> :heartbeat
+Classify(t) when t >= 0 and t <= 255 -> :reserved'
 
 echo "=== 2b. CONTROL: is each half of that guard credited independently? ==="
 echo "If a single-sided guard leaves exactly \`int <= -1\`, the checker's interval"
 echo "reasoning is sound and the gap in probe 2 is the SIGNATURE's, not the checker's."
-probe octet_one_sided 'module P2b;
-type FrameType = :method | :header | :body | :heartbeat | :reserved;
-FrameType Classify(int t);
-Classify(1) -> :method;
-Classify(2) -> :header;
-Classify(3) -> :body;
-Classify(8) -> :heartbeat;
-Classify(t) when t >= 0 -> :reserved;'
+probe octet_one_sided 'module P2b
+type FrameType = :method | :header | :body | :heartbeat | :reserved
+FrameType Classify(int t)
+Classify(1) -> :method
+Classify(2) -> :header
+Classify(3) -> :body
+Classify(8) -> :heartbeat
+Classify(t) when t >= 0 -> :reserved'
+
+echo "=== 2c. F2: the SIGNATURE says it, and the residual closes ==="
+echo "This is what probes 1 and 2 could not write. The gap they measured was the"
+echo "signature's, and \`type Octet\` is what closes it — so the residual here is"
+echo "252 octets the compiler can NAME, where probe 2's was values a wire cannot"
+echo "even carry."
+probe octet_refined 'module P2c
+type Octet = int where value >= 0 and value <= 255
+type FrameType = :method | :header | :body | :heartbeat
+FrameType Classify(Octet t)
+Classify(1) -> :method
+Classify(2) -> :header
+Classify(3) -> :body
+Classify(8) -> :heartbeat'
 
 echo "=== 3. Is a catch-all refused over a CLOSED residual? (ticket 12 §2) ==="
 echo "Residual here is :method | :header | :heartbeat — closed, every case named."
-probe closed_catchall 'module P3;
-type FrameType = :method | :header | :body | :heartbeat;
-type Kind = :control | :data;
-Kind Classify(FrameType t);
-Classify(:body) -> :data;
-Classify(t)     -> :control;'
+echo "NOTE the \`_\`. This probe used to write \`Classify(t)\`, a bare NAME, which"
+echo "12 §2 does not refuse and never did: the rule is about DISCARDING a case."
+probe closed_catchall 'module P3
+type FrameType = :method | :header | :body | :heartbeat
+type Kind = :control | :data
+Kind Classify(FrameType t)
+Classify(:body) -> :data
+Classify(_)     -> :control'
+
+echo "=== 3b. F2: the span pattern is what answers probe 2c ==="
+echo "Seven clauses, 256 values, no catch-all. This is the program probe 2c"
+echo "rejects, written with the one construct that makes it writable."
+probe span_discharges 'module P3b
+type Octet = int where value >= 0 and value <= 255
+type FrameType = :method | :header | :body | :heartbeat | :reserved
+FrameType Classify(Octet t)
+Classify(1)             -> :method
+Classify(2)             -> :header
+Classify(3)             -> :body
+Classify(8)             -> :heartbeat
+Classify(0)             -> :reserved
+Classify(>= 4 and <= 7) -> :reserved
+Classify(>= 9)          -> :reserved'
 
 echo "=== 4. What the residual LOOKS LIKE at wire-protocol clause counts ==="
 echo "AMQP 0-9-1 defines ~40 methods. Ticket 23 publishes the residual to an agent."
+echo "Ticket 43 truncates the PROSE at three cases; the term keeps all 41."
 {
-    echo 'module P4;'
-    echo 'type Method = :known | :unknown;'
-    echo 'Method Dispatch(int m);'
+    echo 'module P4'
+    echo 'type Method = :known | :unknown'
+    echo 'Method Dispatch(int m)'
     for i in $(seq 10 10 400); do
-        echo "Dispatch($i) -> :known;"
+        echo "Dispatch($i) -> :known"
     done
 } > "$WORK/wide.bs"
 echo "--- wide (40 singleton clauses) ---"

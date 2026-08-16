@@ -87,6 +87,20 @@ demonstrated_surface() ->
      %% using only `string` would demonstrate the refinement and leave the type
      %% it refines with nothing to look at, which is the shape F3 shipped with
      %% when `shop.bs` showed every record operation except building one.
+     %% F2. Four rows, because a refinement, a span, a combined span and a span
+     %% in an arm are four sentences about the language. The last is here because
+     %% `queue.bs` says in a comment that a relational pattern is F2's and a guard
+     %% is how a switch asks a numeric question "today" — so an arm that does it
+     %% the new way is the thing that makes that comment stop being true.
+     {"a refined type declaration",              "^type .* where value"},
+     %% Anchored on the BRACKET, which is what puts the operator in pattern
+     %% position: `Classify(>= 4)` matches and `when n >= 4` must not. Pinned
+     %% below, because a probe that could not tell those apart would report a
+     %% capability demonstrated that nobody can look at — F8's lesson, and the
+     %% same shape as the `==` probe above.
+     {"an interval pattern",                     "\\( *[<>]=? -?[0-9]"},
+     {"a combined interval pattern",             "\\( *[<>]=? -?[0-9]+ and "},
+     {"an interval pattern in a switch arm",     "^ +[<>]=? -?[0-9]+.*=>"},
      {"a string literal",                        "\"[^\"]*\""},
      {"string as a declared type",               "(^|[<( ])string[ >)]"},
      {"binary as a declared type",               "(^|[<( ])binary[ >)]"}].
@@ -132,6 +146,26 @@ the_construction_probe_does_not_match_a_declaration_test() ->
 %% in a pattern and a bare name in an expression LOOK the same and mean different
 %% things. A probe that cannot tell them apart would repeat the confusion it is
 %% meant to police.
+%% The fourth delicate probe, added with F2 and for the identical reason. Ticket
+%% 42 chose a spelling that is deliberately the SAME GLYPHS a guard uses — `>= 4`
+%% in a head is the construct, `n >= 4` in a guard is the comparison — because
+%% one conjunction and one relational family in every position is the whole of
+%% ticket 44's argument. That makes the two forms one character apart in a regex,
+%% so the probe is pinned against the guard it must not claim.
+the_interval_probe_does_not_match_a_guard_test() ->
+    Re = "\\( *[<>]=? -?[0-9]",
+    ?assertEqual(nomatch,
+                 re:run("Classify(n) when n >= 4 -> :high", Re,
+                        [multiline, {capture, none}])),
+    ?assertEqual(match,
+                 re:run("Classify(>= 4 and <= 7) -> :reserved", Re,
+                        [multiline, {capture, none}])),
+    %% A negative bound is the residual's own spelling for the lower half of
+    %% `int`, so it has to be probeable too.
+    ?assertEqual(match,
+                 re:run("Classify(<= -1) -> :negative", Re,
+                        [multiline, {capture, none}])).
+
 the_match_probe_does_not_match_a_comparison_test() ->
     Re = "[\\[(,] *== [a-z]",
     ?assertEqual(nomatch,

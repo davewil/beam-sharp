@@ -288,6 +288,41 @@ resolve_error(Path, {kind_field_is_minted, Line, Name}) ->
               "  cannot also declare one. Rename the field.~n",
               [Path, Line, Name]),
     handled;
+%% F2 / ticket 20 §5. The two tiers are told apart by what the predicate SAYS,
+%% so the message has to say which half of the language the author has landed in
+%% — and name the O(n) tier as *permitted but unplaceable*, because ticket 29
+%% amended §5 to allow declaring one and still bar it from a clause head. Saying
+%% only "not supported" would misdescribe a decision that was actually taken.
+resolve_error(Path, {opaque_refinement, Line}) ->
+    io:format(standard_error,
+              "~s:~p: error: this refinement is not a predicate the checker can read~n"
+              "  a refinement narrows a type, so the compiler has to be able to~n"
+              "  reason about it: comparisons on `value`, joined with `and`/`or`.~n"
+              "  `int where value >= 0 and value <= 255` is one.~n"
+              "  A predicate that reads the value instead — `WellFormed(value)` —~n"
+              "  is the O(n) tier. It is established once at a boundary and never~n"
+              "  reasoned about, and this compiler has no site to establish it at.~n",
+              [Path, Line]),
+    handled;
+resolve_error(Path, {empty_refinement, Line}) ->
+    io:format(standard_error,
+              "~s:~p: error: this refinement admits no values at all~n"
+              "  the predicate contradicts itself, so nothing has this type and~n"
+              "  no call to a function over it could ever be written.~n",
+              [Path, Line]),
+    handled;
+%% F2's scope call, made legible. The grammar admits this because a record field
+%% and a tuple component both take a `pattern`; the feature ships the construct in
+%% the parameter position only, and a message that just said "syntax error" would
+%% make a chosen omission look like an oversight.
+resolve_error(Path, {relational_pattern_nested, Line}) ->
+    io:format(standard_error,
+              "~s:~p: error: a relational pattern goes where a whole argument goes~n"
+              "  `Classify(>= 4 and <= 7)` is the shipped form. Inside a record~n"
+              "  pattern, a tuple or a list it is not built yet — write the~n"
+              "  comparison as a guard there: `when o.Total > 100`.~n",
+              [Path, Line]),
+    handled;
 resolve_error(Path, {list_pattern_needs_rest, Line}) ->
     io:format(standard_error,
               "~s:~p: error: a list pattern needs a rest~n"
@@ -355,6 +390,35 @@ report(Path, {error, Line, Fn, {inexhaustive, Residual}}) ->
               "~s:~p: error: ~s is not exhaustive~n"
               "  no clause matches:~n~s",
               [Path, Line, Fn, heads(Fn, Residual)]);
+%% TICKET 12 §2 — a catch-all is legal only over an OPEN residual, and this is
+%% the message that has to carry a *conditionally legal* `_` to a reader who has
+%% never met one. Neither borrowed audience expects that: C#'s `_` in a switch
+%% arm is just a pattern and TypeScript's `default` is just a branch. 12 accepted
+%% the cost because the alternative puts the headline guarantee one character
+%% from being switched off, silently, with no trace in the diff.
+%%
+%% So the message says WHY it is closed and hands back the cases, which is ticket
+%% 04's finding doing the work: the residual IS the missing case, so the thing
+%% that makes the error legitimate is the same thing that answers it.
+report(Path, {error, Line, Fn, {catch_all_over_closed, Residual}}) ->
+    io:format(standard_error,
+              "~s:~p: error: ~s discards cases the compiler can name~n"
+              "  every value left here comes from a type you declared, so `_`~n"
+              "  hides a case rather than admitting an unknown one:~n~s"
+              "  a catch-all is for a residual with an unbounded top in it — a~n"
+              "  `term` argument, or the open atom universe — where a foreign~n"
+              "  sender chooses the inhabitants and there is nothing to enumerate.~n",
+              [Path, Line, Fn, heads(Fn, Residual)]);
+%% F2. The construct is a head's, and the message says where to put it rather
+%% than only that it is wrong.
+report(Path, {error, Line, Fn, relational_in_bind}) ->
+    io:format(standard_error,
+              "~s:~p: error: ~s binds a relational pattern~n"
+              "  `>= 4` names a span of values and introduces no name, so there~n"
+              "  is nothing for a bind to bind. A bind must also be provably~n"
+              "  irrefutable, and a span is the refutable construct itself.~n"
+              "  Dispatch on it in a clause head instead.~n",
+              [Path, Line, Fn]);
 report(Path, {error, Line, Fn, no_clauses}) ->
     io:format(standard_error, "~s:~p: error: ~s has a signature but no clauses~n",
               [Path, Line, Fn]);
@@ -533,8 +597,60 @@ report_fatal(Path, Reason) ->
 heads(Fn, Residual) ->
     #{tuples := Products} = Residual,
     case Products of
-        [] -> io_lib:format("    ~s~n", [bs_types:to_pattern(Residual)]);
+        [] -> io_lib:format("    ~s~n", [truncated(Residual)]);
         _  -> [io_lib:format("    ~s(~s) -> ...~n",
-                             [Fn, string:join([bs_types:to_pattern(C) || C <- P], ", ")])
+                             [Fn, string:join([truncated(C) || C <- P], ", ")])
                || P <- Products]
+    end.
+
+%%% ---------------------------------------------------------------------------
+%%% Ticket 43 — the residual at width
+%%%
+%%% 25c measured that forty singleton clauses leave a residual of forty-one
+%%% disjoint intervals. Measured again by `43a`, that prints as ONE head line of
+%%% 453 characters — `heads/2` splits on the tuple part, one product per argument
+%%% position, and a union of intervals lives inside a single argument.
+%%%
+%%% THE SHAPE IS THE EXACT FORM WITH A STOP IN IT, and that is what makes it one
+%%% format rather than two. At three items or fewer it prints byte-identically to
+%%% what the compiler printed before this existed, so there is no threshold to
+%%% tune, no flag, and no *"why did the format change"* to explain. Every other
+%%% candidate 43 priced has to switch formats, because none can render a
+%%% two-interval residual without being longer than the enumeration and less
+%%% useful: bounds-and-count is 49 characters against 20, and cardinality is 24
+%%% characters that do not say what is missing.
+%%%
+%%% Cardinality lost for a second reason worth keeping in view: over `int` the
+%%% residual is unbounded, so a count reads *"unbounded unnamed values"*. A shape
+%%% that degenerates on the OPEN residual cannot be the general one, and until
+%%% this very feature landed every residual was open.
+%%%
+%%% ASCII `...`, not `…`. A diagnostic goes to stderr through terminals the
+%%% compiler does not control, and the ellipsis character buys two columns.
+%%%
+%%% THE UNIT IS STAGE-DEPENDENT AND THIS IS THE FIRST STAGE. Today the printer
+%%% enumerates intervals inside one argument of one head line, so three counts
+%%% intervals. After ticket 23 §2's lowering it enumerates one head line per case,
+%%% and three counts heads. Naming the stage is not pedantry: 43's first draft
+%%% said "three heads", which truncates NOTHING today, because one head is under
+%%% any threshold. That is why this runs over the RENDERED SEQUENCE rather than
+%%% over intervals as a type-level idea — when §2 lands it changes what fills the
+%%% sequence and nothing here.
+%%%
+%%% ONE THING 43 DEFAULTED RATHER THAN SETTLED, recorded because F2 is what
+%%% creates the case: over a CLOSED residual ticket 12 §2 bars the catch-all, so
+%%% every truncated case is a clause somebody must still write, and three of
+%%% forty-one is a third of a percent of the checklist. It truncates anyway — the
+%%% descriptor keeps all forty-one and 23 §10's `bsc --api` is the full-fidelity
+%%% channel. If that flips, the delta is one argument here and nothing else moves.
+-define(RESIDUAL_CASES, 3).
+
+truncated(Ty) ->
+    case bs_types:pattern_parts(Ty) of
+        Parts when length(Parts) =< ?RESIDUAL_CASES ->
+            string:join(Parts, " | ");
+        Parts ->
+            {Shown, Rest} = lists:split(?RESIDUAL_CASES, Parts),
+            string:join(Shown, " | ")
+                ++ io_lib:format(" | ... (~p more)", [length(Rest)])
     end.

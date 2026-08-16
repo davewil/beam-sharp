@@ -169,9 +169,15 @@ sig(Params, Ret, Env) ->
 type_env(Decls) ->
     Mod = module_name(Decls),
     Aliases = [{N, alias(Params, T)} || {type_alias, _, N, Params, T} <- Decls],
+    %% Ticket 20 §5's refinement. It enters the environment as a SURFACE node
+    %% rather than pre-resolved, exactly as an alias body does, so it inherits
+    %% `resolve/3`'s cycle guard for free — `type A = A where value > 0` is
+    %% refused by name rather than spinning.
+    Refined = [{N, {t_refined, L, Base, Pred}}
+               || {type_refined, L, N, Base, Pred} <- Decls],
     Records = [{N, record_surface(Mod, L, N, Fs)}
                || {record_decl, L, N, Fs} <- Decls],
-    Env = maps:merge(prelude(), maps:from_list(Aliases ++ Records)),
+    Env = maps:merge(prelude(), maps:from_list(Aliases ++ Refined ++ Records)),
     %% The environment is HETEROGENEOUS after F6, and deliberately so. A ground
     %% entry is pre-resolved to an algebra type here, once; a parametric one
     %% cannot be — its body has free variables — so it stays a surface template
@@ -291,7 +297,53 @@ resolve({t_generic, N, Args}, Env, Seen) ->
             erlang:error({not_parametric, N})
     end;
 resolve({t_union, Ms}, Env, Seen) ->
-    bs_types:union([resolve(M, Env, Seen) || M <- Ms]).
+    bs_types:union([resolve(M, Env, Seen) || M <- Ms]);
+%% TICKET 20 §5, AND THE POINT IS THAT IT ADDS NO NODE TO THE ALGEBRA. A
+%% refinement is a SUBSET of its base, so it resolves to an ordinary type and
+%% `is_subtype(Octet, int)` falls out rather than being asserted — the same shape
+%% F6 has, where `option<int>` is gone before `bs_types` sees anything.
+resolve({t_refined, Line, Base, Pred}, Env, Seen) ->
+    refine(resolve(Base, Env, Seen), Pred, Line).
+
+%% THE REFINEMENT AND THE GUARD GO THROUGH ONE TRANSLATOR, which is what makes
+%% F2.5 true by construction rather than by test: a parameter declared `Octet`
+%% and a clause guarded `when n > 128` cannot come to disagree about what
+%% `>= 0 and <= 255` means, because `alternatives/1` is the only thing that reads
+%% either of them.
+%%
+%% `value` is bound to the EMPTY PATH — the refinement's subject is the whole
+%% type — which is the same address a switch arm's guard refines and the reason
+%% `refine_at/3` grew its `[]` clause in F7. So this needs nothing new either.
+%%
+%% AN UNTRANSLATABLE PREDICATE IS AN ERROR, NOT A WIDENING, and that is the one
+%% place this differs from a guard. A guard the checker cannot read credits
+%% nothing and the clause simply subtracts less, which is sound. A *refinement*
+%% the checker cannot read would resolve to its bare base and silently admit
+%% ticket 20 §5's opaque tier — the tier 29 amended §5 to bar from clause heads
+%% and foreign declarations, and this surface has no other site to check it at.
+%% Failing quietly there would mean a `type Email = string where WellFormed(value)`
+%% that means `string` and says nothing.
+refine(Base, Pred, Line) ->
+    case alternatives(Pred) of
+        unknown -> erlang:error({opaque_refinement, Line});
+        Alts ->
+            Results = [refine_all(Base, #{value => []}, A) || A <- Alts],
+            case lists:member(none_marker, Results) of
+                %% `none_marker` here means the predicate named something other
+                %% than `value`, which is the same mistake wearing a different
+                %% hat: the compiler cannot read it, so it must not pretend to.
+                true  -> erlang:error({opaque_refinement, Line});
+                false ->
+                    Refined = bs_types:union(Results),
+                    case bs_types:is_none(Refined) of
+                        %% `int where value > 0 and value < 0` is not a type with
+                        %% no values in it by accident — it is a typo, and a
+                        %% signature over it declares a function nothing can call.
+                        true  -> erlang:error({empty_refinement, Line});
+                        false -> Refined
+                    end
+            end
+    end.
 
 seen(N, Seen) ->
     case lists:member(N, Seen) of
@@ -818,7 +870,13 @@ arms([{arm, AL, P, Guard, Body} | Rest], Residual, S, C, N, Tys, Diags) ->
     D1 = case bs_types:is_none(bs_types:intersect(Possible, Residual)) of
              true  -> [{warning, AL, C#ctx.fname, {unreachable_arm, N}}];
              false -> []
-         end,
+         end
+        %% Ticket 12 §2 at the switch, for F7's own reason for existing: an arm
+        %% is the clause head's pattern grammar one level down, so a rule about
+        %% what a head may discard is a rule about what an arm may discard. A `_`
+        %% arm over `Disposition` is the same defect as a `_` clause over it.
+        ++ catch_all_diags({clause, AL, C#ctx.fname, [P], Guard, ignored},
+                           Residual, AL, C#ctx.fname),
     %% `Possible`, never `Certain` — F5.7's trap, at a second site and with the
     %% same failure mode. `Certain` is `none` under an untranslatable guard, and
     %% a body typed against `none` does not fail loudly: every containment over
@@ -847,6 +905,21 @@ bind_step({bind, _, V, E}, {S, D}, C) ->
 %% Provably irrefutable IFF the residual is empty, which is the mechanism 34
 %% named and 33 routed to this feature.
 bind_step({dbind, L, P, E}, {S, D}, C) ->
+    %% A RELATIONAL PATTERN IS A CLAUSE HEAD'S, NOT A BIND'S. `var >= 4 = n`
+    %% parses — a bind takes a `pattern` and a relational is one — and it is
+    %% nonsense in every direction: it binds nothing, so there is no reason to
+    %% write it, and a bind must be provably irrefutable (site 5) while a
+    %% relational is the refutable construct par excellence.
+    %%
+    %% It is refused HERE and not left to the residual check, because the
+    %% degenerate case where it IS irrefutable — `var >= 0 = n` over an `Octet` —
+    %% would pass that check and reach the emitter, which has no guard to hang the
+    %% test on and would crash on a pattern it cannot lower. A diagnostic stops
+    %% emission entirely, so this closes the hole rather than narrowing it.
+    RelDiags = case has_rel(P) of
+                   true  -> [{error, L, C#ctx.fname, relational_in_bind}];
+                   false -> []
+               end,
     {T, D1} = type_of(E, S, C),
     {PTy, PBinds, Exact} = pattern_type(P, [], C#ctx.types),
     Residual = bs_types:subtract(T, PTy),
@@ -859,7 +932,20 @@ bind_step({dbind, L, P, E}, {S, D}, C) ->
              {false, true} -> [{error, L, C#ctx.fname, {bind_may_fail, T}}]
          end,
     Bound = maps:from_list([{V, at_path(T, Path)} || {V, Path} <- maps:to_list(PBinds)]),
-    {maps:merge(S, Bound), D ++ D1 ++ D2}.
+    {maps:merge(S, Bound), D ++ D1 ++ D2 ++ RelDiags}.
+
+%% Whether a pattern carries a relational anywhere. Structural on purpose: the
+%% combinators are not, so `>= 4 and <= 7` has to be walked through rather than
+%% matched at the top.
+has_rel({p_rel, _, _, _})        -> true;
+has_rel({p_and, _, A, B})        -> has_rel(A) orelse has_rel(B);
+has_rel({p_or,  _, A, B})        -> has_rel(A) orelse has_rel(B);
+has_rel({p_tuple, _, Ps})        -> lists:any(fun has_rel/1, Ps);
+has_rel({p_map, _, Fs})          -> lists:any(fun({_, P}) -> has_rel(P) end, Fs);
+has_rel({p_list, _, Items, Rest}) ->
+    lists:any(fun has_rel/1, Items)
+        orelse (Rest =/= nil andalso has_rel(Rest));
+has_rel(_)                       -> false.
 
 %% SITE 1 — the call argument, and ticket 26 §1's requirement David named:
 %% reject `Update(Order o)` called with an `Invoice`.
@@ -940,6 +1026,21 @@ walk([C = {clause, CLine, Name, _, _, _} | Rest], Residual, Ctx, Diags, N) ->
             true  -> [{warning, CLine, Name, {unreachable_clause, N}} | Diags];
             false -> Diags
         end,
+    %% TICKET 12 §2 — a catch-all is legal only over an OPEN residual, and F2 is
+    %% the feature that makes the rule reachable. Until refinements landed, every
+    %% integer domain the surface could declare was `int`, so a numeric residual
+    %% was open by construction and `_` was always legal over one.
+    %%
+    %% The moment `type Octet = int where value >= 0 and value <= 255` exists, a
+    %% wire dispatch naming four frame types has 252 unnamed octets left and the
+    %% compiler KNOWS THEIR NAMES. `_` there is the defect the language exists to
+    %% catch: it makes the function unfalsifiable when a fifth frame type is
+    %% added, and the residual is precisely the checklist that says what to write.
+    %%
+    %% This is why F2 is ONE feature and not two — recorded in 25c, and learned
+    %% rather than assumed. A refinement without a way to name a span would turn
+    %% working programs into rejected ones with nothing to answer the compiler in.
+    Diags2 = catch_all_diags(C, Residual, CLine, Name) ++ Diags1,
     %% THE BODY CHECK — ticket 33, and the whole of why walk/5 changed. The
     %% domain is the running residual intersected with `Possible`, which is a
     %% value this function already computed and threw away, so this is not a
@@ -950,8 +1051,41 @@ walk([C = {clause, CLine, Name, _, _, _} | Rest], Residual, Ctx, Diags, N) ->
     %% containment over `none` passes, so the check silently stops checking.
     %% That is the failure mode that ships.
     Domain = bs_types:intersect(Residual, Possible),
-    Diags2 = clause_diags(C, Domain, Bindings, Ctx) ++ Diags1,
-    walk(Rest, bs_types:subtract(Residual, Certain), Ctx, Diags2, N + 1).
+    Diags3 = clause_diags(C, Domain, Bindings, Ctx) ++ Diags2,
+    walk(Rest, bs_types:subtract(Residual, Certain), Ctx, Diags3, N + 1).
+
+%% WHAT COUNTS AS A CATCH-ALL, stated once, because the rule is only as good as
+%% this line and ticket 12 §2 wrote it in terms of the glyph: *"`_` here is an
+%% error: name the case."*
+%%
+%% So it is `_` and not a bare name, and the narrowing is principled rather than
+%% timid. `_` DISCARDS the value; a named binder keeps it, and keeping it buys
+%% almost nothing over a closed union — projecting a field off it is site 3 and
+%% is refused until you have discriminated, so the type system already forces the
+%% clause you would have written. Extending the rule to named binders would also
+%% make every single-clause function over a record type an error, which is
+%% absurd and is how a rule like this gets switched off.
+%%
+%% A guard means it is not a catch-all: the clause is then saying something about
+%% the values, and whether the checker can read that guard is a different
+%% question already answered by the `Certain`/`Possible` split.
+%%
+%% Measured before landing: the compiling corpus has ZERO all-wildcard clauses,
+%% so this rejects nothing that runs today. `queue.bs`'s `(true, _, _)` is a
+%% tuple with a discriminating component, not a catch-all.
+catch_all_diags({clause, _, _, Patterns, none, _}, Residual, Line, Name) ->
+    case all_wild(Patterns) andalso closed_and_inhabited(Residual) of
+        true  -> [{error, Line, Name, {catch_all_over_closed, Residual}}];
+        false -> []
+    end;
+catch_all_diags(_C, _Residual, _Line, _Name) ->
+    [].
+
+all_wild([])       -> false;      % a nullary function has nothing to catch
+all_wild(Patterns) -> lists:all(fun({p_wild, _}) -> true; (_) -> false end, Patterns).
+
+closed_and_inhabited(Residual) ->
+    not bs_types:is_none(Residual) andalso not bs_types:is_open(Residual).
 
 %%% ---------------------------------------------------------------------------
 %%% What a clause matches
@@ -1013,6 +1147,27 @@ pattern_type({p_var, _, V}, Path, _Env)   -> {bs_types:term(), #{V => Path}, tru
 %% this position rather than `term`. Ticket 33's mechanism already covers what
 %% F8.7 asked for.
 pattern_type({p_eqvar, _, _V}, _Path, _Env) -> {bs_types:term(), #{}, false};
+%% TICKET 42 — a relational pattern, and it is EXACT. `>= 4` matches precisely
+%% the integers from 4 up, which is a set the algebra has held since ticket 20;
+%% there is no over-estimate to be honest about, so unlike `== acc` it credits
+%% `Certain` in full. That is the whole reason this closes a residual at all.
+%%
+%% It binds nothing, so a body cannot read the value it matched. That is not an
+%% omission — `Classify(>= 4 and <= 7) -> :reserved` is the shape every exemplar
+%% wants, and a clause needing the number writes `Classify(n) when n >= 4` as it
+%% always could. Ticket 42's own worked example has no binder in any clause.
+pattern_type({p_rel, Line, Op, K}, Path, _Env) ->
+    argument_position(Line, Path),
+    {rel_type(Op, K), #{}, true};
+%% `and` is intersection and `or` is union, both already implemented — which is
+%% F2's claim for itself surviving intact: no new theory, only surface.
+%%
+%% Both sides carry the SAME path, because a combinator is not structural: it
+%% constrains one value twice rather than describing two positions.
+pattern_type({p_and, _, A, B}, Path, Env) ->
+    rel_combine(fun bs_types:intersect/2, A, B, Path, Env);
+pattern_type({p_or, _, A, B}, Path, Env) ->
+    rel_combine(fun bs_types:union/2, A, B, Path, Env);
 pattern_type({p_tuple, _, Ps}, Path, Env) ->
     Indexed = lists:zip(Ps, lists:seq(1, length(Ps))),
     Triples = [pattern_type(P, Path ++ [I], Env) || {P, I} <- Indexed],
@@ -1050,6 +1205,42 @@ pattern_type({p_list, _, Items, Rest}, Path, _Env) ->
 open_pattern({p_var, _, _}) -> true;
 open_pattern({p_wild, _})   -> true;
 open_pattern(_)             -> false.
+
+rel_combine(Op, A, B, Path, Env) ->
+    {TA, BA, EA} = pattern_type(A, Path, Env),
+    {TB, BB, EB} = pattern_type(B, Path, Env),
+    {Op(TA, TB), maps:merge(BA, BB), EA andalso EB}.
+
+%% The four relational operators, and they agree with `int_cmp/3` below by
+%% construction rather than by coincidence — the same four intervals, because a
+%% relational pattern and the guard it replaces have to mean the same thing.
+%% `==` is absent: ticket 45 gave it the pattern meaning "the value this NAME
+%% holds", and the family divides on the operand.
+rel_type('>=', K) -> bs_types:range(K, pos_inf);
+rel_type('>',  K) -> bs_types:range(K + 1, pos_inf);
+rel_type('<=', K) -> bs_types:range(neg_inf, K);
+rel_type('<',  K) -> bs_types:range(neg_inf, K - 1).
+
+%% F2 SHIPS THE RELATIONAL PATTERN IN THE PARAMETER POSITION ONLY, and the
+%% omission is chosen rather than forgotten — the feature file records it, and
+%% this is where the record is enforced.
+%%
+%% The grammar gives nesting away for free, which is exactly why it needs saying
+%% out loud: `pat_field -> uident ':' pattern` and `pattern -> '(' pattern_list
+%% ')'` both admit a relational one level down, and the algebra would handle it
+%% correctly. Shipping a capability nothing tests because a production happened to
+%% compose is how a language acquires behaviour nobody decided on.
+%%
+%% Ticket 42 pays F7's debt for `{ Total: > 100, Status: :open }` and F2 declines
+%% to spend it here: nesting multiplies the check sites F5 enumerated and no
+%% exemplar needs it. A later feature costs one scope call and no new theory.
+%%
+%% A clause-head parameter is `[I]` and a switch subject is `[]`. Anything longer,
+%% or anything carrying a field or list step, is inside something.
+argument_position(_Line, [])                     -> ok;
+argument_position(_Line, [I]) when is_integer(I) -> ok;
+argument_position(Line, _Path) ->
+    erlang:error({relational_pattern_nested, Line}).
 
 %% A list element's address. It is a REAL path — F5 needs to read `rest` back
 %% out of `Reverse([x, ..rest], acc)` and answer `list<int>`, and answering
