@@ -2,6 +2,14 @@
 .omc/
 .DS_Store
 
+# Linked worktrees live inside `.claude/`, and `.claude/` became a TRACKED
+# directory on 2026-08-16 when the end-session overlay landed in it. Without
+# this line a `git add -A` in the main working copy sweeps in every worktree —
+# an entire second checkout, committed by accident. The overlay is the only
+# thing in `.claude/` that belongs to the repo.
+.claude/*
+!.claude/end-session.md
+
 # Build artefacts from running the prototypes
 *.beam
 *.plt
