@@ -1066,10 +1066,10 @@
   asserts only that it is not a match. Worth recording because the misleading artefact is a
   confident comment in shipped source, and its next reader is whoever implements F8.
 
-- **An inexhaustive residual truncates at three heads** — [ticket 43](issues/43-residual-summarised-form.md),
+- **An inexhaustive residual truncates at three cases** — [ticket 43](issues/43-residual-summarised-form.md),
   resolved 2026-08-16. F2.4 asked what the compiler emits when 40 singleton clauses leave a residual
   of 41 disjoint intervals. The answer is that **the prose prints the exact residual with a stop in
-  it** — three heads, then `... (K more)` — **and nothing else summarises**: not the term, not the
+  it** — three cases, then `... (K more)` — **and nothing else summarises**: not the term, not the
   synthesised head, and no complement is computed. Measured throughout by
   [`43a`](prototypes/43a_residual_at_width.escript), which drives the real `bsc` for what is printed
   and works in `bs_types` for the shapes that are functions of the residual term.
@@ -1102,7 +1102,7 @@
   is. Hole 2's intuition that *"40 named singletons out of a bounded octet is small to state as an
   exclusion"* is measurably false in the case that raised the ticket.
 
-  **The shape was chosen because it is not a second format.** At or under three heads it prints
+  **The shape was chosen because it is not a second format.** At or under three cases it prints
   byte-identically to what the compiler prints today, so the *"why did the format change"* confusion
   Hole 3 raises cannot arise — there is nothing to switch into. Every rival candidate must switch,
   because each *replaces* the residual with a description of it and none can render a two-interval

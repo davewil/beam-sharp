@@ -1,6 +1,6 @@
 # 43 — What does an inexhaustive diagnostic say when the residual is forty-one intervals?
 
-Status: **resolved 2026-08-16** — the prose truncates the exact form at 3 heads; nothing else summarises
+Status: **resolved 2026-08-16** — the prose truncates the exact form at 3 cases; nothing else summarises
 Raised by: F2 (`compiler/features/F2-interval-refinements.md`, scenario F2.4)
 Blocks: F2 — **unblocked**
 Type: `wayfinder:grilling`
@@ -94,7 +94,7 @@ readable and more useful.
 
 ## Answer — 2026-08-16
 
-**The prose prints the exact residual truncated at three heads and nothing else summarises.**
+**The prose prints the exact residual truncated at three cases and nothing else summarises.**
 Everything below is measured by
 [`43a_residual_at_width.escript`](../prototypes/43a_residual_at_width.escript), which drives the
 real `bsc` for what is printed today and works in `bs_types` directly for the shapes that are
@@ -162,7 +162,7 @@ description of it; one is the existing printer with a stop in it. Measured, in c
 | complement | 245 | 22 | none — `bs_types:subtract/2` is exported |
 | cardinality only | 24 | 24 | a cardinality function |
 
-Decided: **`first 3 heads, then `... (K more)``**. Two reasons, both mechanical rather than
+Decided: **`first 3 cases, then `... (K more)``**. Two reasons, both mechanical rather than
 aesthetic:
 
 - **It is one format, not two.** At or under the threshold it prints exactly what the compiler
@@ -226,7 +226,7 @@ per §3's table.
 
 **And there is no threshold in the tunable sense.** This takes Hole 3's *"no threshold at all"*
 option — always truncate — and §2 is what makes it free: since the truncated form **is** the exact
-form when there are three heads or fewer, "always on" costs a small residual nothing. The cost the
+form when there are three cases or fewer, "always on" costs a small residual nothing. The cost the
 ticket priced for that option ("a two-interval residual gets summarised prose where the enumeration
 would have been more useful") does not exist under this shape. No tunable, no flag, no switch.
 
@@ -286,7 +286,7 @@ either way** and this can flip later without a breaking change.
 
 ### The compiler delta, in total
 
-- `bsc.erl`'s `heads/2` gains a truncation at three rendered heads plus a `... (K more)` line. No
+- `bsc.erl`'s `heads/2` gains a truncation at three rendered cases plus a `... (K more)` line. No
   new module, no cardinality function, no complement.
 - `bs_types` gains **nothing**. Every shape considered here is a function of the residual it already
   produces, and the one that was chosen is the printer it already has.

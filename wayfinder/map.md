@@ -278,7 +278,7 @@ Bodies in [`decisions.md`](decisions.md). Ticket text in `issues/`.
 - **A match against a bound value is `== name`** `#45` `syntax` `patterns`
   the equality member of 42's relational family; one grammar rule, **no lexer change**. `>= acc` and
   `== 4` are clean-but-refused, so neither arrives as a side effect
-- **An inexhaustive residual truncates at three heads** `#43` `errors` `agent` `tooling`
+- **An inexhaustive residual truncates at three cases** `#43` `errors` `agent` `tooling`
   the prose is the exact form with a stop in it, not a second shape — so no format switch and no
   tunable. The term keeps all of it. Complement and cardinality measured and refused
 
