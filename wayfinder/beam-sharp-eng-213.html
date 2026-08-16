@@ -1,0 +1,755 @@
+<title>The 453-Character Error</title>
+
+<style>
+  :root {
+    --ground:   #EDF1EF;
+    --surface:  #FFFFFF;
+    --sunken:   #E1E7E4;
+    --ink:      #141A17;
+    --ink-soft: #3E4A45;
+    --muted:    #66736D;
+    --rule:     #C8D2CD;
+    --accent:   #1B6046;
+    --accent-s: #E2EFE9;
+    --edge:     #8E4A2E;
+    --edge-s:   #F5E9E2;
+    --panel:    #F1F3F5;
+
+    --display: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    --body: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+    --util: ui-sans-serif, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:   #101413;
+      --surface:  #191E1C;
+      --sunken:   #232A27;
+      --ink:      #E6ECE9;
+      --ink-soft: #B6C2BD;
+      --muted:    #85938D;
+      --rule:     #313A36;
+      --accent:   #5FBF97;
+      --accent-s: #16302A;
+      --edge:     #D08A64;
+      --edge-s:   #33221A;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:   #101413;
+    --surface:  #191E1C;
+    --sunken:   #232A27;
+    --ink:      #E6ECE9;
+    --ink-soft: #B6C2BD;
+    --muted:    #85938D;
+    --rule:     #313A36;
+    --accent:   #5FBF97;
+    --accent-s: #16302A;
+    --edge:     #D08A64;
+    --edge-s:   #33221A;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 17px;
+    line-height: 1.62;
+    margin: 0;
+    padding: 0 20px 96px;
+  }
+
+  .wrap { max-width: 860px; margin: 0 auto; }
+
+  /* ---- masthead ---------------------------------------------------------- */
+
+  header {
+    padding: 64px 0 34px;
+    border-bottom: 2px solid var(--ink);
+  }
+
+  .eyebrow {
+    font-family: var(--util);
+    font-size: 11.5px;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+    margin-bottom: 20px;
+  }
+
+  .eyebrow .done { color: var(--accent); font-weight: 700; }
+
+  h1 {
+    font-family: var(--display);
+    font-size: clamp(30px, 5.6vw, 46px);
+    line-height: 1.08;
+    letter-spacing: -0.025em;
+    font-weight: 600;
+    margin: 0 0 18px;
+    text-wrap: balance;
+  }
+
+  .standfirst {
+    font-size: 20px;
+    line-height: 1.5;
+    color: var(--ink-soft);
+    margin: 0;
+    max-width: 62ch;
+    text-wrap: pretty;
+  }
+
+  /* ---- sections ---------------------------------------------------------- */
+
+  section { padding-top: 52px; }
+
+  h2 {
+    font-family: var(--display);
+    font-size: 13px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: var(--accent);
+    margin: 0 0 6px;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+
+  h2::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--rule);
+  }
+
+  h3 {
+    font-family: var(--util);
+    font-size: 17px;
+    font-weight: 650;
+    letter-spacing: -0.005em;
+    margin: 30px 0 8px;
+    color: var(--ink);
+  }
+
+  p { margin: 0 0 15px; max-width: 68ch; text-wrap: pretty; }
+
+  .lede { font-size: 18.5px; color: var(--ink-soft); margin-top: 14px; }
+
+  a { color: var(--accent); text-underline-offset: 2px; }
+  a:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  code {
+    font-family: var(--display);
+    font-size: 0.88em;
+    background: var(--sunken);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+
+  strong { font-weight: 650; }
+
+  /* ---- the artefact ------------------------------------------------------ */
+
+  .term {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--edge);
+    border-radius: 3px;
+    overflow-x: auto;
+    margin: 20px 0 10px;
+  }
+
+  .term.good { border-left-color: var(--accent); }
+
+  .term pre {
+    font-family: var(--display);
+    font-size: 13px;
+    line-height: 1.7;
+    margin: 0;
+    padding: 16px 18px;
+    white-space: pre;
+    color: var(--ink);
+  }
+
+  .term .err { color: var(--edge); }
+  .term .ok { color: var(--accent); }
+
+  figcaption, .note {
+    font-family: var(--util);
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: var(--muted);
+    margin: 0 0 4px;
+    max-width: 74ch;
+  }
+
+  figure { margin: 0; }
+
+  /* ---- the width bars ---------------------------------------------------- */
+
+  .bars {
+    display: grid;
+    grid-template-columns: minmax(112px, auto) 1fr minmax(46px, auto);
+    align-items: center;
+    gap: 9px 14px;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 20px 20px 18px;
+    margin: 22px 0 12px;
+  }
+
+  .bars .name {
+    font-family: var(--util);
+    font-size: 13.5px;
+    color: var(--ink-soft);
+    line-height: 1.3;
+  }
+
+  .bars .track {
+    height: 15px;
+    background: var(--sunken);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .bars .fill {
+    height: 100%;
+    background: var(--muted);
+    border-radius: 2px;
+  }
+
+  .bars .num {
+    font-family: var(--display);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    color: var(--ink-soft);
+  }
+
+  .bars .row-chosen .name { color: var(--accent); font-weight: 650; }
+  .bars .row-chosen .fill { background: var(--accent); }
+  .bars .row-chosen .num { color: var(--accent); font-weight: 650; }
+
+  .bars .row-base .fill { background: var(--edge); }
+  .bars .row-base .name { color: var(--edge); }
+  .bars .row-base .num { color: var(--edge); }
+
+  .bars .head {
+    font-family: var(--util);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding-bottom: 2px;
+  }
+
+  .bars .head.r { text-align: right; }
+
+  /* ---- tables ------------------------------------------------------------ */
+
+  .scroll { overflow-x: auto; margin: 20px 0 10px; }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-family: var(--util);
+    font-size: 14px;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+  }
+
+  th, td {
+    text-align: left;
+    padding: 9px 13px;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+    line-height: 1.45;
+  }
+
+  thead th {
+    font-size: 11px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+
+  td.n {
+    font-family: var(--display);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  td code, th code { background: none; padding: 0; }
+
+  .src { font-family: var(--display); font-size: 12.5px; color: var(--muted); }
+
+  /* ---- callouts ---------------------------------------------------------- */
+
+  .callout {
+    background: var(--accent-s);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 3px 3px 0;
+    padding: 15px 19px;
+    margin: 22px 0;
+  }
+
+  .callout.warn {
+    background: var(--edge-s);
+    border-left-color: var(--edge);
+  }
+
+  .callout p { margin: 0; max-width: 66ch; }
+  .callout p + p { margin-top: 10px; }
+
+  .callout .tag {
+    display: block;
+    font-family: var(--util);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+
+  .callout.warn .tag { color: var(--edge); }
+
+  /* ---- diagram ----------------------------------------------------------- */
+
+  .diagram {
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 22px 14px;
+    margin: 22px 0 10px;
+    overflow-x: auto;
+  }
+
+  pre.mermaid {
+    margin: 0;
+    background: none;
+    text-align: center;
+  }
+
+  /* ---- footer ------------------------------------------------------------ */
+
+  footer {
+    margin-top: 60px;
+    padding-top: 20px;
+    border-top: 1px solid var(--rule);
+    font-family: var(--util);
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  footer p { max-width: 74ch; margin-bottom: 8px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">
+    <span>Ticket 43</span>
+    <span>ENG-213</span>
+    <span class="done">Resolved 2026-08-16</span>
+    <span>Unblocks F2</span>
+  </div>
+  <h1>The 453-Character Error</h1>
+  <p class="standfirst">Forty singleton clauses leave a residual of forty-one disjoint
+  intervals. What the compiler prints was settled by measuring it — and two of the
+  ticket's own premises did not survive the measurement.</p>
+</header>
+
+<section>
+  <h2>The artefact</h2>
+
+  <figure>
+    <div class="term">
+<pre><span class="err">scattered.bs:3: error: Classify is not exhaustive</span>
+  no clause matches:
+    Classify(int &lt;= 9 | 11..19 | 21..29 | 31..39 | 41..49 | 51..59 | 61..69 | 71..79 | 81..89 | 91..99 | 101..109 | 111..119 | 121..129 | 131..139 | 141..149 | 151..159 | 161..169 | 171..179 | 181..189 | 191..199 | 201..209 | 211..219 | 221..229 | 231..239 | 241..249 | 251..259 | 261..269 | 271..279 | 281..289 | 291..299 | 301..309 | 311..319 | 321..329 | 331..339 | 341..349 | 351..359 | 361..369 | 371..379 | 381..389 | 391..399 | int &gt;= 401) -&gt; ...</pre>
+    </div>
+    <figcaption>Scroll it. That is one line, 453 characters, exact per ticket 20's
+    algebra and unreadable. Reproduced by
+    <code>43a_residual_at_width.escript</code> against the real <code>bsc</code>.</figcaption>
+  </figure>
+
+  <div class="callout warn">
+    <span class="tag">Premise 1 — measured false</span>
+    <p>The ticket asserts that forty-one intervals <em>“therefore lower to forty-one
+    heads”</em>, and builds its hardest question on that. They do not.
+    <code>heads/2</code> splits on the <strong>tuple part</strong> — one product per
+    <em>argument position</em> — and a union of intervals lives inside a single
+    argument. So today it is <strong>one</strong> head, and the forty-one-head claim
+    describes ticket 23 §2's lowering, which is unbuilt.</p>
+  </div>
+
+  <p>That correction matters because it turns Hole 1's conclusion — <em>“the prose cannot
+  summarise the residual alone, the head is the larger artefact”</em> — from a fact into a
+  conditional about future behaviour. One rule then covers both, and the ticket's two
+  rendering problems collapse into one.</p>
+</section>
+
+<section>
+  <h2>What it prints instead</h2>
+
+  <div class="term good">
+<pre><span class="err">scattered.bs:3: error: Classify is not exhaustive</span>
+  no clause matches:
+    Classify(int &lt;= 9 | 11..19 | 21..29 | <span class="ok">... (38 more)</span>) -&gt; ...</pre>
+  </div>
+
+  <p class="lede">The prose prints the <strong>exact form with a stop in it</strong> —
+  three cases, then the count. Nothing else summarises: not the term, not the synthesised
+  head, and no complement is computed.</p>
+</section>
+
+<section>
+  <h2>Why this shape and not the other four</h2>
+
+  <p>The four candidates in the ticket are not four formats. Three of them <em>replace</em>
+  the residual with a description of it; one is the printer the compiler already has, with a
+  stop. Every number below is measured on the same forty-one-interval residual.</p>
+
+  <div class="bars">
+    <div class="head">Form</div><div class="head">Rendered width</div><div class="head r">Chars</div>
+
+    <div class="row-base name">exact — today</div>
+    <div class="row-base track"><div class="fill" style="width:100%"></div></div>
+    <div class="row-base num">453</div>
+
+    <div class="name">complement</div>
+    <div class="track"><div class="fill" style="width:54%"></div></div>
+    <div class="num">245</div>
+
+    <div class="name">bounds and count</div>
+    <div class="track"><div class="fill" style="width:11%"></div></div>
+    <div class="num">50</div>
+
+    <div class="row-chosen name">first 3, then a count</div>
+    <div class="row-chosen track"><div class="fill" style="width:9.3%"></div></div>
+    <div class="row-chosen num">42</div>
+
+    <div class="name">cardinality only</div>
+    <div class="track"><div class="fill" style="width:5.3%"></div></div>
+    <div class="num">24</div>
+  </div>
+  <p class="note">Bars are drawn at true character width. The <code>exact</code> row includes
+  the indent and the <code>-&gt; ...</code>; the candidate rows measure the residual alone.</p>
+
+  <h3>The narrowest form is not automatically the best one</h3>
+
+  <p>Cardinality is the shortest and it is useless: over <code>int</code> the residual is
+  unbounded, so it reads <code>unbounded unnamed values</code> — twenty-four characters of
+  nothing. <strong>A shape that degenerates on the open residual cannot be the general
+  one</strong>, and until F2 lands every residual is open, because <code>int</code> is the
+  only integer type the surface has. The same defect sinks <em>bounds and count</em>.</p>
+
+  <h3>The chosen shape wins on not being a second format</h3>
+
+  <p>At three cases or fewer it prints <strong>byte-identically to today</strong>. So Hole
+  3's <em>“why did the format change”</em> confusion cannot arise — there is nothing to
+  switch into. Every rival must switch, because none of them can render a two-interval
+  residual without being worse than the enumeration, and none of them says what the missing
+  case actually is.</p>
+
+  <div class="scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>Form</th>
+          <th class="n">41 intervals</th>
+          <th class="n">2 intervals</th>
+          <th>New machinery</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>exact — today</td>
+          <td class="n">432</td><td class="n">20</td>
+          <td>none</td>
+        </tr>
+        <tr>
+          <td><strong>first 3, then a count</strong></td>
+          <td class="n">42</td><td class="n">20 — identical to exact</td>
+          <td>one <code>lists:split/2</code></td>
+        </tr>
+        <tr>
+          <td>bounds and count</td>
+          <td class="n">50</td><td class="n">49</td>
+          <td>a cardinality function</td>
+        </tr>
+        <tr>
+          <td>complement</td>
+          <td class="n">245</td><td class="n">22</td>
+          <td>none — <code>subtract/2</code> is exported</td>
+        </tr>
+        <tr>
+          <td>cardinality only</td>
+          <td class="n">24</td><td class="n">24</td>
+          <td>a cardinality function</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="note">Residual alone, without the indent or the arrow. The two-interval column
+  is the same forty clauses over a contiguous span, which the algebra coalesces.</p>
+</section>
+
+<section>
+  <h2>Where the residual goes</h2>
+
+  <div class="diagram">
+<pre class="mermaid">
+%%{init: {"theme": "base", "themeVariables": {
+  "background": "#F1F3F5", "mainBkg": "#FFFFFF", "primaryColor": "#FFFFFF",
+  "primaryTextColor": "#1C2127", "textColor": "#1C2127",
+  "nodeBorder": "#5C6670", "lineColor": "#5C6670",
+  "edgeLabelBackground": "#F1F3F5", "labelTextColor": "#1C2127",
+  "clusterBkg": "#F1F3F5", "clusterBorder": "#C4CBD1"
+}}}%%
+flowchart TD
+  R["Residual — a union of disjoint intervals"]
+  R --> TERM["The term — 23 §4's frozen descriptor"]
+  R --> PROSE["The printed prose"]
+  TERM --> KEEP["Keeps every interval, always"]
+  KEEP --> API["bsc --api serves the full term — 23 §10"]
+  PROSE --> CUT["Exact form, truncated at 3 cases"]
+  CUT --> S1["Today: 3 intervals inside the one head"]
+  CUT --> S2["After 23 §2: 3 head lines"]
+  PROSE -.-> X1["Complement — refused, never the smallest"]
+  PROSE -.-> X2["Cardinality — refused, unbounded when open"]
+  PROSE -.-> X3["Bounds and count — refused, same defect"]
+
+  classDef chosen fill:#E2EFE9,stroke:#1B6046,color:#12352A;
+  classDef refused fill:#F5E9E2,stroke:#8E4A2E,color:#4A2717;
+  class CUT,S1,S2,KEEP chosen;
+  class X1,X2,X3 refused;
+</pre>
+  </div>
+  <p class="note">The two consumers have opposite needs, which is ticket 23's split and the
+  reframing this ticket started from. The finding is that only one of them ever needed a
+  decision.</p>
+</section>
+
+<section>
+  <h2>The unit switches once, and naming the stage is load-bearing</h2>
+
+  <div class="callout warn">
+    <span class="tag">Caught in review — the ticket's own failure, in miniature</span>
+    <p>The rule first shipped as <em>“print at most three heads”</em>. That truncates
+    <strong>nothing</strong> today, because the correction above had just established that
+    today there is only one head — so F2.4's expected string asserted a behaviour the
+    decision did not specify.</p>
+    <p>The rule was stated in the units of the premise it had just measured false. It now
+    names its live unit per stage.</p>
+  </div>
+
+  <div class="scroll">
+    <table>
+      <thead>
+        <tr><th>Stage</th><th>What the printer enumerates</th><th>What “three” counts</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Today</strong>, before 23 §2</td>
+          <td>intervals inside one argument of one head line</td>
+          <td>intervals</td>
+        </tr>
+        <tr>
+          <td><strong>After</strong> 23 §2's lowering</td>
+          <td>one head line per case</td>
+          <td>heads</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>Counting <strong>heads</strong> is what the rule must become after §2, and that half is
+  load-bearing: a residual over a two-argument function is a <em>product</em>, so the head
+  count is ≥ the interval count, and an interval rule would print an unbounded number of
+  lines the moment a second argument had a residual too. The implementation note for F2 is
+  therefore to truncate over the <em>rendered sequence</em> rather than over intervals
+  specifically — then §2 costs it nothing.</p>
+</section>
+
+<section>
+  <h2>The complement, and why it lost</h2>
+
+  <div class="callout warn">
+    <span class="tag">Premise 2 — measured false</span>
+    <p>The ticket refuses to commit because <em>“for an unbounded <code>int</code> the
+    complement is not finite”</em>. That is wrong: the complement of the residual is the
+    <strong>covered</strong> set, which is finite whenever the clauses cover finitely much —
+    25c's case exactly. It loses on size instead.</p>
+  </div>
+
+  <div class="scroll">
+    <table>
+      <thead>
+        <tr><th>Case</th><th class="n">exact</th><th class="n">complement</th><th>Verdict</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>40 contiguous singletons over <code>int</code></td><td class="n">20</td><td class="n">22</td><td>loses</td></tr>
+        <tr><td>40 scattered singletons over <code>int</code></td><td class="n">432</td><td class="n">245</td><td>wins, still 245</td></tr>
+        <tr><td>40 contiguous over <code>0..255</code>, closed</td><td class="n">11</td><td class="n">25</td><td>loses</td></tr>
+        <tr><td>40 scattered over <code>0..255</code>, closed</td><td class="n">404</td><td class="n">237</td><td>wins, still 237</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p><strong>The residual and the covered set are long together.</strong> A covered set dense
+  enough to state as a short exclusion is one that made the residual coalesce; a residual
+  that sprawled did so because the covered set was scattered, which its own rendering then
+  is. The ticket's intuition — <em>“forty named singletons out of a bounded octet is small to
+  state as an exclusion and large to state as a union”</em> — is measurably false in the very
+  case that raised it: <code>every 0..255 except 5 | 10 | … | 200</code> is 237 characters.</p>
+</section>
+
+<section>
+  <h2>The threshold's unit, measured rather than argued</h2>
+
+  <p>Hole 3 says the units disagree — <em>“three intervals over <code>int</code> render longer
+  than twenty over <code>0..255</code>”</em>. They do not, including in a row built
+  adversarially to break it.</p>
+
+  <div class="scroll">
+    <table>
+      <thead>
+        <tr><th>Case</th><th class="n">Intervals</th><th class="n">Chars</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>2 over <code>int</code></td><td class="n">2</td><td class="n">20</td></tr>
+        <tr><td>3 over <code>int</code></td><td class="n">3</td><td class="n">30</td></tr>
+        <tr><td>3 over <code>int</code>, 19-digit bounds</td><td class="n">3</td><td class="n">60</td></tr>
+        <tr><td>20 over <code>0..255</code></td><td class="n">20</td><td class="n">100</td></tr>
+        <tr><td>41 over <code>int</code></td><td class="n">41</td><td class="n">432</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>Both columns order every case identically, so <strong>character length is not
+  load-bearing</strong> and the tie goes to the unit that is stable and easy to test. And
+  there is <strong>no threshold in the tunable sense</strong>: this takes Hole 3's “no
+  threshold at all” option, which the truncated-exact shape makes free, since always-on costs
+  a small residual nothing. No flag, no switch.</p>
+</section>
+
+<section>
+  <h2>The one thing left to you</h2>
+
+  <p>Ticket 12 §2 makes a catch-all an <strong>error</strong> over a closed residual. So once
+  F2 lands, this program has forty-one clauses to write and no <code>_</code> to write
+  instead — the enumeration <em>is</em> the checklist, and three of forty-one is a third of a
+  percent of it.</p>
+
+  <div class="term">
+<pre>type Octet = int where value &gt;= 0 and value &lt;= 255
+
+atom Classify(Octet n)
+
+Classify(5)   -&gt; :known
+Classify(10)  -&gt; :known
+<span class="err">// … thirty-eight more, none contiguous</span></pre>
+  </div>
+
+  <div class="callout">
+    <span class="tag">Default taken</span>
+    <p><strong>Truncate anyway, both cases identically.</strong> The term keeps all
+    forty-one and <code>bsc --api</code> is where a consumer goes for them; a forty-four-line
+    error message is not more actionable than a five-line one plus a query. Printing in full
+    for closed residuals also reintroduces exactly the format switch this shape was chosen to
+    avoid, keyed on something the reader cannot see.</p>
+    <p><strong>The delta if you want the other answer is one argument.</strong>
+    <code>heads/2</code> takes the residual's openness — which the checker already knows,
+    because 12 §2 already tests it — and passes <code>all</code> instead of <code>3</code>.
+    It touches neither the term nor the descriptor, so <strong>F2 is unblocked either
+    way</strong> and this flips later without a breaking change.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Claim → source</h2>
+
+  <div class="scroll">
+    <table>
+      <thead>
+        <tr><th>Claim</th><th>Source</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>41 intervals print as one head of 453 chars</td>
+          <td class="src">43a probe, part 1 · <code>heads/2</code> in <code>compiler/src/bsc.erl</code></td>
+        </tr>
+        <tr>
+          <td>Every candidate width in this brief</td>
+          <td class="src">43a probe, part 2 — <code>bs_types</code> directly</td>
+        </tr>
+        <tr>
+          <td>Interval count and char length never disagree</td>
+          <td class="src">43a probe, part 3</td>
+        </tr>
+        <tr>
+          <td>The term stays complete; payloads are maps</td>
+          <td class="src">ticket 23 §4</td>
+        </tr>
+        <tr>
+          <td>The compiler synthesises the head, not the body</td>
+          <td class="src">ticket 23 §2 — unbuilt</td>
+        </tr>
+        <tr>
+          <td>The prose owes only the fact</td>
+          <td class="src">ticket 23 §1</td>
+        </tr>
+        <tr>
+          <td><code>bsc --api</code> serves the full term</td>
+          <td class="src">ticket 23 §10 — unbuilt</td>
+        </tr>
+        <tr>
+          <td>A catch-all is an error over a closed residual</td>
+          <td class="src">ticket 12 §2</td>
+        </tr>
+        <tr>
+          <td>Refinements and interval patterns must ship together</td>
+          <td class="src">F2, from prototype 25c</td>
+        </tr>
+        <tr>
+          <td>Guard conjunction is <code>and</code>; spans are relational</td>
+          <td class="src">tickets 44 and 42</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer>
+  <p><strong>Landed on master</strong> as <code>ac509a6</code> and <code>94f71db</code>.
+  Ticket, map index, <code>decisions.md</code>, F2, the features README and
+  <code>LANGUAGE.md</code> all updated; ENG-213 Done with the gist pasted. Map gate, surface
+  gate and 224 tests green.</p>
+  <p>F2 — interval refinements and the interval patterns that must land with them — has no
+  blockers left.</p>
+</footer>
+
+</div>
