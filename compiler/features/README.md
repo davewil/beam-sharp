@@ -99,8 +99,17 @@ Erlang back to the decision that required it is one grep.
 | [F8 — `var` binds, `=` matches](F8-bind-and-match.md) | **done 2026-08-16** | nothing; it went first to avoid rewriting later features' files — and closed a soundness hole nobody knew was there |
 | [F9 — `string` and `binary` as values](F9-strings-and-binaries.md) | **done 2026-08-15** | the `string` **fields** in all three, `list<string>`; **not** I/O |
 | [F10 — OTP callbacks](F10-otp-callbacks.md) | **done 2026-08-15** | **`bin/spec-check.sh`**; the `behaviour` half of 25b, 25c |
-| F11 — binary patterns | not started, **blocked** — ticket 30 is open | 25b, 25c |
-| F12 — pipe and valve | not started | 25b, 25c |
+| [F11 — the module system](F11-module-system.md) | **in progress** | the collection library; the **imports** row that blocks all three exemplars |
+| F12 — `public` / `private` | not started | nothing — it closes 40 §3 and rewrites all 30 `.bs` files |
+| F13 — binary patterns | not started, **blocked** — ticket 30 is open | 25b, 25c |
+| F14 — pipe and valve | not started | 25b, 25c |
+
+**THE PLACEHOLDERS RENUMBERED — 2026-08-17.** The module system took the **F11** slot and
+`public`/`private` took **F12**, so binary patterns moved to F13 and pipe-and-valve to F14. This is
+the F4/F5/F8 precedent exactly: a placeholder with **no file** may shift, and neither had one.
+**Every paragraph below this line predates the shift** — where they say `F11` they mean binary
+patterns and where they say `F12` they mean pipe and valve. Nothing below was rewritten, because
+this file keeps its history rather than editing it.
 
 **F2 IS BUILT, AND THE QUEUE IS EMPTY FOR THE THIRD TIME — 2026-08-16.** Every feature with a file
 is done; F11 still waits on ticket 30 and F12 still has no file. The cycle ran exactly as the

@@ -1,0 +1,134 @@
+# F11 — The module system: dotted atoms, `using`, and cross-module scope
+
+**Status**      in progress · [ENG-220](https://linear.app/davewil/issue/ENG-220)
+**Implements**  [ticket 40](../../wayfinder/issues/40-module-and-namespace-system.md) §1–§2 and
+                [ticket 41](../../wayfinder/issues/41-imports-and-cross-module-scope.md) §1–§5,
+                both resolved — decides nothing
+**Unblocks**    the collection library, and through it `list<string>` operations, AoC file input,
+                and the **imports / multi-file modules** row that blocks all three exemplars
+**Depends on**  F1, F3, F5, F6
+
+## Why this one now
+
+It is the only remaining capability that blocks **all three** exemplars, and it was the only
+substantial item that was fully decided and entirely unbuilt — tickets 40 and 41 both closed with
+no feature file behind them. Four checks and one delta were specified in advance, so this feature
+designs nothing.
+
+It also unblocks more than any other candidate: `examples/exemplars/README.md` files four of its
+seven dialect gaps under "module fog", and F9's own note records that `string` removed **one of
+three** blockers on AoC input — the other two are the FFI entry check and the collection library,
+and the collection library is blocked on exactly this.
+
+## What ticket 41 §1 owed, and what running it found
+
+§1 left one item explicitly unrun: *"the claim is that LALR(1) separates them on the following
+token; it has not been run."* **It is run, and the claim is half false.**
+
+The ticket's literal delta is right-recursive:
+
+```
+modpath -> uident | uident '.' modpath
+```
+
+That grammar **builds** — 2 shift/reduce conflicts, which yecc resolves by shifting — and then
+**misparses the construct it exists for**:
+
+```
+probe.bs:4: error: syntax error before: '('        %  Go(x) -> List.Map(x)
+```
+
+The recursive arm greedily takes `List.Map` as the whole path and leaves no function name behind.
+**Building is not parsing**, which is the entire reason this had to be run rather than reasoned
+about — and it is the fourth time on this project that measuring a ticket's own claim changed what
+the work was.
+
+**Left recursion is the fix, and it is the whole fix**:
+
+```
+modpath -> uident | modpath '.' uident
+```
+
+**Zero conflicts**, and `List.Map(x)` parses. At `modpath '.' uident` with `(` ahead, yecc's shift
+preference takes the `(`, so the last segment becomes the function name at a call site and stays
+part of the path everywhere else. The ticket's *reasoning* — separated on the following token — was
+right; it was attached to the recursion direction that cannot deliver it.
+
+The owed conflict check is therefore **discharged**, with the correction on record.
+
+## What is being built
+
+```csharp
+// Shop/Orders/index.bs
+module Shop.Orders                 // emits the atom 'Shop.Orders'
+
+record Order { Id: int, Total: int }
+```
+
+```csharp
+// Billing/Invoice.bs
+module Billing
+
+using Shop.Orders                  // module tier — names come in UNQUALIFIED
+using Shop                         // namespace tier — Orders.Sum(...) short-qualified
+
+int Restate(Order o)
+Restate(o) -> Sum(o)               // resolved to 'Shop.Orders':Sum/1 at CHECK time
+```
+
+## Scenarios
+
+| id | input | expected | exit |
+|---|---|---|---|
+| F11.1 | `module Shop.Orders` | emits module atom `'Shop.Orders'`, file `Shop.Orders.beam` | 0 |
+| F11.2 | a record in `module Shop.Orders` | tag mints `'Shop.Orders.Order'` — 26 §1 unchanged | 0 |
+| F11.3 | `Shop/Orders/Total.bs` declaring `module Shop.Billing` | `{module_path_mismatch, Declared, Path, Line}` | 1 |
+| F11.4 | `List.Map(xs)` with `List` compiled in the same invocation | typed from `List`'s signature; emits a remote call | 0 |
+| F11.5 | `List.Map(xs)` where `List` declares no `Map/1` | error naming the qualified callee | 1 |
+| F11.6 | `using Shop.Orders` then unqualified `Sum(o)` | resolves to `'Shop.Orders':Sum/1`, emits remote | 0 |
+| F11.7 | `using Shop` then `Orders.Sum(o)` | namespace tier — resolves via the module table | 0 |
+| F11.8 | two imports both exporting `Sum/1`, called unqualified | `{ambiguous_call, …}` printing **qualified** candidates | 1 |
+| F11.9 | an import whose `Sum/1` collides with a local `Sum/1` | `{import_shadows_local, …}` | 1 |
+| F11.10 | `Sum/1` imported beside a local `Sum/2` | **accepted** — resolution is by name *and* arity (40 §2) | 0 |
+| F11.11 | two `Combine/2` signatures in one module | `{name_redeclared, Combine, 2, Line}` **before** the exhaustiveness walk | 1 |
+| F11.12 | `Fib/1` and `Fib/2` in one module | **accepted** — arity overloading is permitted (40 §2) | 0 |
+| F11.13 | a function declared in `index.bs` | `{function_in_index, Name, Line}` | 1 |
+| F11.14 | two modules importing each other | a cycle error naming both, refused by name (F6 precedent) | 1 |
+| F11.15 | diagnostics printing a call or head | **always fully qualified**, regardless of scope (41 §2) | — |
+
+## Out of scope
+
+- **`public` / `private` on the signature — ticket 40 §3.** Deferred to **F12** deliberately, not
+  overlooked. Three reasons: the features README defines this feature's unit as four checks plus
+  the §3 delta plus the grammar rules, and visibility is in none of them; without it every function
+  is public, which is *consistent* — imports import everything and §2's table is unchanged; and it
+  costs a rewrite of all 30 `.bs` files, which is its own increment on the F8 precedent rather than
+  a rider on this one.
+
+  **It also cannot be added without touching the editor**, which this feature otherwise does not:
+  `editor/bin/check-tokens.sh` **derives** its keyword list from `bs_lexer.xrl`, so the moment
+  `public` and `private` become tokens, that gate goes red unless both editor grammars gain them in
+  the same commit. Measured, not assumed. F12 owes that.
+
+- **The import alias** — [ticket 47](../../wayfinder/issues/47-import-alias.md), open.
+- **The boundary guard on a refined parameter** — [ticket 46](../../wayfinder/issues/46-refined-parameter-at-the-boundary.md), open.
+- **A signature artefact in the `.beam`** — fork B in 41 §3, refused there and blocked on ticket
+  16 §4 besides. This feature re-checks source, which is fork A.
+- **A build tool.** 41 §3 draws the boundary: a build tool names the source root and the file set,
+  never the order. `bsc` computes the order from the `using` edges itself.
+
+## Done when
+
+`bsc` compiles a two-module program where one imports the other, both qualified and unqualified,
+with the dependency's signatures typed in the B# algebra; all fourteen asserting scenarios hold;
+and every existing gate stays green.
+
+**One gate is expected to go red on the way, by design.** `bin/check-language.sh` requires a
+`not-yet` block to fail compiling. Any block in `LANGUAGE.md` holding `using Shop.Orders` or
+`Module.Fn(…)` starts compiling the moment the grammar lands — which is the gate doing its stated
+job of naming the paragraphs that now need promoting, not a regression.
+
+**And the REPL must be exercised by hand.** `bs_repl` appears zero times in the suite and four
+features in a row have found a hole at the `ibs` prompt. A shared environment threaded through a
+fold is precisely the shape that under-serves a single-file entry point, so `ibs -S` against a
+module with a `using` edge is a manual check this feature owes before it is done.
