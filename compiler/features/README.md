@@ -125,6 +125,31 @@ about twice, in a directory the CI file does not mention at all.
 **The next session belongs on the map**: ticket 30 unblocks F11, and F2 raised
 [ticket 46](../../wayfinder/issues/46-refined-parameter-at-the-boundary.md).
 
+**IT WENT THERE, AND THE QUEUE HAS AN ITEM AGAIN — 2026-08-16.**
+[Ticket 41](../../wayfinder/issues/41-imports-and-cross-module-scope.md) resolved, which was the
+*claimed* ticket rather than a fresh one: §2 and §5 had been answered on 08-15 and were
+**unverifiable** until §3 closed, because neither unqualified names nor namespace resolution can be
+checked without knowing where the checker gets another module's types. With
+[40](../../wayfinder/issues/40-module-and-namespace-system.md) already resolved, **the module system
+is now fully decided and entirely unbuilt** — which makes it the takeable feature, and it has no
+file yet. It unblocks more than any remaining candidate: the collection library, and therefore
+`list<string>` operations, AoC input, and three of the four fog patches that wait on the module
+patch. F11 still waits on ticket 30 and F12 still has no file.
+
+**Four checks and one delta are specified for it, so it has nothing to design**:
+`{name_redeclared, Name, Arity, Line}` (40 §2), `{module_path_mismatch, Declared, Path, Line}`
+(41 §5), `{function_in_index, Name, Line}` (41 §4), §2's ambiguity rule — plus the §3 delta, which
+is smaller than its ticket claimed. **`bsc` is already multi-file**: `compile_only/2` is a map over
+a file list and `bsc Alpha.bs Beta.bs` emits both beams, so what is missing is one shared
+environment threaded through a loop that exists, not a new CLI or artefact. Measured in
+[`41a`](../../wayfinder/prototypes/41a_multifile_probe.sh) — and the ticket's own opening premise
+(*"the compiler is single-file"*) was **false**, which is the third time now that measuring a
+ticket's premises changed what the work was.
+
+**Two grammar rules gate all of it**: `using` over a modpath and `Module.Fn(…)` at a call site both
+still fail to parse (`syntax error before: 'Alpha'`, `before: '.'`). They are owed by 41 §1/§2 and
+are where the feature starts.
+
 **And F8 is the reason this file should stop calling the empty queue a stall.** The feature was
 built because a decision was resolved; it then closed a **soundness hole that no ticket, no
 feature and no gate had ever noticed** — `F(acc, acc)` accepted as exhaustive over `(int, int)`
