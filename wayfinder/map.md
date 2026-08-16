@@ -292,6 +292,9 @@ Bodies in [`decisions.md`](decisions.md). Ticket text in `issues/`.
 
 Bodies in [`fog.md`](fog.md). These are open: read the body before assuming a direction.
 
+- **Does a refined parameter get a boundary guard?** `#46` `codegen` `types`
+  `Classify(300)` from Erlang matches `>= 9` and returns, outside the `Octet` its `-spec` declares.
+  18 calls the exported check *optional*; F2 made the case cheap and real, and may not decide it
 - **The boundary manifest's concrete format** `#24` `agent` `tooling`
   one artefact, not three — the classification, the advisory and the elision list
 - **The walking skeleton** `codegen`

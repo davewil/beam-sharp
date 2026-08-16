@@ -90,7 +90,7 @@ Erlang back to the decision that required it is one grep.
 | Feature | Status | Unblocks |
 |---|---|---|
 | [F1 — walking skeleton](F1-walking-skeleton.md) | **done** | the baseline; `examples/*.bs` |
-| [F2 — interval refinements and interval patterns](F2-interval-refinements.md) | **not started, takeable** — [42](../../wayfinder/issues/42-interval-pattern-spelling.md), [44](../../wayfinder/issues/44-conjunction-spelling.md) and [43](../../wayfinder/issues/43-residual-summarised-form.md) all answered; 44 adds a migration, 43 makes F2.4 assertable | 25b, 25c wire dispatch |
+| [F2 — interval refinements and interval patterns](F2-interval-refinements.md) | **done 2026-08-16** | 25b, 25c wire dispatch; it also ran 44's migration and repaired `25c_residual_probe.sh` |
 | [F3 — records](F3-records.md) | **done 2026-08-14** | the record half of all three; `examples/shop.bs` |
 | [F4 — local bindings](F4-local-bindings.md) | **done 2026-08-14** | nothing — it removes a papercut |
 | [F5 — the body check site](F5-body-check-site.md) | **done 2026-08-14** | F3.3, F3.8, F3.10; 34's destructuring binds |
@@ -102,9 +102,28 @@ Erlang back to the decision that required it is one grep.
 | F11 — binary patterns | not started, **blocked** — ticket 30 is open | 25b, 25c |
 | F12 — pipe and valve | not started | 25b, 25c |
 
-**F8 IS BUILT, AND THE QUEUE IS EMPTY AGAIN — 2026-08-16, later the same day.** Ticket 43 is now
-the single thing between the compiler and more work: it unblocks F2, and F11 still waits on ticket
-30. **The next session belongs on the map.**
+**F2 IS BUILT, AND THE QUEUE IS EMPTY FOR THE THIRD TIME — 2026-08-16.** Every feature with a file
+is done; F11 still waits on ticket 30 and F12 still has no file. The cycle ran exactly as the
+paragraphs below predict — *starve → resolve a decision → build → find what the building reveals* —
+and what F2's building revealed is worth naming here rather than only in its own file:
+
+**Ticket 12 §2 was reachable before F2 and nobody had asked.** Its own examples are declared unions
+of atoms, and F2 was written expecting to *create* the closed-residual case with `type Octet`. It
+did not create it: after two guards over a bare `int` the residual can be `0..0`, which has no
+unbounded top and is therefore closed by 12 §2's operative definition. Two switch tests had been
+asserting the old behaviour since F7. **A rule whose trigger is computed rather than declared is
+reachable from places its ticket never listed**, and the only way to find out is to build the
+check and run the suite.
+
+**And the third gate in a row was already red before the feature touched it.** F10 was chosen by a
+red `spec-check.sh`; F2 found `editor/bin/check-tokens.sh` red on `var` — shipped by F8 with no
+rule in either editor grammar — and `check-corpus.sh` red on `label.bs`, because the tree-sitter
+grammar has no string-literal rule and F9 shipped strings. **Neither editor gate is in CI**, which
+is the whole reason both could rot. That is the exclusion pattern this file has already written
+about twice, in a directory the CI file does not mention at all.
+
+**The next session belongs on the map**: ticket 30 unblocks F11, and F2 raised
+[ticket 46](../../wayfinder/issues/46-refined-parameter-at-the-boundary.md).
 
 **And F8 is the reason this file should stop calling the empty queue a stall.** The feature was
 built because a decision was resolved; it then closed a **soundness hole that no ticket, no

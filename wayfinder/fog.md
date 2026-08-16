@@ -11,6 +11,22 @@
 
 <!-- in-scope fog: real, but not yet sharp enough to phrase as a ticket -->
 
+- **Does a refined parameter get a boundary guard?** — raised by F2 on 2026-08-16 and written up as
+  [ticket 46](issues/46-refined-parameter-at-the-boundary.md) ·
+  [ENG-218](https://linear.app/davewil/issue/ENG-218). `type Octet = int where value >= 0
+  and value <= 255` now narrows a parameter and the emitted `-spec` says `0..255`; nothing enforces
+  it against a caller the compiler has never seen. Measured at the `ibs` prompt: `Classify(300)`
+  returns `:reserved`, because the clause that matches lowers to `when Bs@r1 >= 9` and no upper test
+  exists anywhere in the module. **Inside beam-sharp nothing is wrong** — site 1 rejects an `int`
+  passed where an `Octet` is declared — so this is ticket 18's *"forging the tag is caught, forging
+  the payload is not"* arriving on a new shape rather than a hole in the language. It is fog rather
+  than a defect because 18 states the exported check is *"genuinely optional… this ticket's
+  decision"*, so a feature may not take it; and it is worth deciding rather than parking because
+  20 §5 puts a guard-decidable refinement in the O(1) tier precisely so that it CAN be checked
+  cheaply, and `boundary_guards/4` already emits the record half at a measured +14 bytes. The
+  interesting sub-question is the second narrowing already in that code: a clause written
+  `Classify(>= 4 and <= 7)` tests both bounds itself, so a guard on it is dead weight, while
+  `Classify(>= 9)` tests one and needs the other.
 - **The boundary manifest's concrete format** — new with ticket 24, which gave it three consumers
   (the boundary classification, the missing-observation advisory, and the elision list) and
   deliberately named it one artefact rather than three, since 18 §5 already priced a build artefact

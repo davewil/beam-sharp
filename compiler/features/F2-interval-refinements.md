@@ -1,9 +1,46 @@
 # F2 — Interval refinements, and the interval patterns that must land with them
 
-**Status**      **not started, and takeable** — every blocker answered; 43 resolved 2026-08-16
-**Implements**  tickets 20 §5, 12 §2, 04, **43** — decides nothing
+**Status**      **done 2026-08-16** — all five scenarios pass, 249 tests, 8 gates green
+**Implements**  tickets 20 §5, 12 §2, 04, 42, 43, **44** — decides nothing
 **Unblocks**    `bs_emit:int_part/1`'s bounded branches; wire dispatch in 25b and 25c
 **Depends on**  F1 only. 42 and 44 answered 2026-08-15, **43 answered 2026-08-16**
+**Raises**      [ticket 46](../../wayfinder/issues/46-refined-parameter-at-the-boundary.md) ·
+                [ENG-218](https://linear.app/davewil/issue/ENG-218) — a refined parameter is not
+                checked at the exported boundary
+
+## What building it found
+
+**Ticket 12 §2 reaches further than its own examples suggest, and that is the finding.** §2
+illustrates a closed residual with a declared union of atoms — `type Event = :placed | :shipped |
+:cancelled` with two handled. Its **operative** definition is different and wider: *contains an
+unbounded top*. After two guards over a bare `int` the residual can be `0..0` — one integer, no
+top, **closed** — so `_ => :zero` is now an error where `0 => :zero` is not. The rule was
+therefore reachable before this feature and nothing had asked. Two switch tests moved; the shipped
+corpus has **zero** all-wildcard clauses and lost nothing.
+
+**What counts as a catch-all had to be pinned, and `_` is it.** 12 §2 says *"`_` here is an error:
+name the case"*, and taking that literally is what keeps the rule usable: `_` discards the value,
+while a named binder buys almost nothing over a closed union, because projecting a field off it is
+site 3 and is refused until you have discriminated. The alternative — treating a bare name as a
+catch-all — makes every single-clause function over a record type an error.
+
+**The grammar gives nested relational patterns away for free.** `pat_field -> uident ':' pattern`
+and `pattern -> '(' pattern_list ')'` both admit one a level down, and the algebra handles it
+correctly. Out of scope below says F2 ships the parameter position only, so it is **refused with a
+message that names it as a scope call** rather than left to work by accident. Shipping a capability
+nothing tests because two productions happened to compose is how a language acquires behaviour
+nobody decided on.
+
+**`25c_residual_probe.sh` had been dead since the `;` terminator was dropped**, so F2's own *Done
+when* named an artefact that could not run. Repaired, and given the two probes this feature makes
+writable — plus one correction: its probe 3 wrote `Classify(t)`, a bare **name**, and asked whether
+a catch-all was refused. It never was and should not have been.
+
+**The editor token gate was red on `var`**, which F8 shipped without a rule in either grammar;
+`and`, `or` and `where` "passed" only by matching prose inside the JSON. All four now have real
+keyword rules. `editor/bin/check-corpus.sh` is still red on `label.bs` — the tree-sitter grammar
+has no string-literal rule and F9 shipped strings. Neither editor gate is in CI. That is F9's debt
+and it is named rather than absorbed.
 
 **The header said `not started` until 2026-08-15 while the README's table said `blocked`.** Two
 files disagreed about whether this feature was takeable, and the table was the one that was right —
@@ -155,17 +192,16 @@ check sites F5 enumerated and is not needed by any exemplar, so it is a later fe
 one grammar rule and no new theory. Recorded here so the omission reads as chosen rather than
 forgotten.
 
-## Two decisions this feature needs before it can be built
+## Two decisions this feature needed before it could be built
 
-Both are tickets, not features. **This file should not be implemented until they are answered** —
-recorded here so the coupling is not discovered mid-build:
+Both were tickets, not features. **All three are answered and the feature is built.**
 
 1. ~~**The spelling of an interval pattern** (F2.3)~~ → **ANSWERED 2026-08-15**, a relational
    pattern: [ticket 42](../../wayfinder/issues/42-interval-pattern-spelling.md) ·
    [ENG-212](https://linear.app/davewil/issue/ENG-212)
-2. **The residual's summarised form at width** (F2.4) →
-   [ticket 43](../../wayfinder/issues/43-residual-summarised-form.md) ·
-   [ENG-213](https://linear.app/davewil/issue/ENG-213) — **still open**
+2. ~~**The residual's summarised form at width** (F2.4)~~ → **ANSWERED 2026-08-16**, the exact form
+   truncated at three cases: [ticket 43](../../wayfinder/issues/43-residual-summarised-form.md) ·
+   [ENG-213](https://linear.app/davewil/issue/ENG-213)
 3. ~~**And a third arrived with the first one's answer.**~~ → **ANSWERED 2026-08-15**, and it
    flipped the spelling: [ticket 44](../../wayfinder/issues/44-conjunction-spelling.md) ·
    [ENG-215](https://linear.app/davewil/issue/ENG-215). **One conjunction, `and`/`or`, in every
@@ -191,3 +227,18 @@ Linear rather than only in prose here.
 `bs_emit:int_part/1`'s bounded branches are reachable from a `.bs` file and covered by a boundary
 test; a closed residual over a refined integer type is an error; an interval pattern discharges
 one; and `25c_residual_probe.sh` reports a **closed** residual that the exemplar can name.
+
+**All four met, 2026-08-16.** The spec for `Clamp(Octet)` says `0..255` and no longer says
+`integer()`; `compiler/test/intervals_tests.erl` carries all five scenarios plus the rejections;
+`examples/wire.bs` is the runnable version and works at the `ibs` prompt as well as through `bsc`;
+and the probe's new 2c reports `Classify(0 | 4..7 | 9..255) -> ...` where 3b, the same program with
+the span pattern, compiles clean.
+
+**And the one thing it does not do**, which is why it raises a ticket rather than deciding: nothing
+checks a refined parameter at the **exported boundary**. `Classify(300)` called from Erlang — or
+from the `ibs` prompt — matches `>= 9` and returns `:reserved`, outside the `Octet` its signature
+declares. Internal call sites are checked at site 1, so this is not a hole in the language; it is
+the *"forging the tag is caught, forging the payload is not"* limit ticket 18 already measured,
+arriving on a new shape. 18 calls emitting the check at the boundary *"genuinely optional"* — a
+decision — and 20 §5 makes this refinement O(1) guard-decidable, so the check is cheap and the
+question is real. [Ticket 46](../../wayfinder/issues/46-refined-parameter-at-the-boundary.md).
