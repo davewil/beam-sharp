@@ -163,6 +163,11 @@ and costs a false friend.
 introduces a name; `== name` matches the value that name is bound to. **decided**
 <!-- decided by ticket 45 -->
 
+So a head that repeats a bare name — `F(acc, acc)` — is an **error**, not an equality constraint:
+both are introductions, and the second rebinds what the first bound, which §1 forbids. `F(acc, ==
+acc)` is how you ask for the constraint. This is the whole reason the marker exists; without it the
+language has no way to say *the same value again*.
+
 ```csharp not-yet
 Step(acc, items) -> items switch {
     []                 => acc,

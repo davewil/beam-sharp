@@ -67,7 +67,14 @@ This is already the semantics — David, 2026-08-15: *"x = 1 / 1 = x //no error 
 and it already works, pinned by three tests in `body_check_tests.erl`. What F8 changes is only that
 **a binding must say it is one.**
 
-### 3. A NAME in a pattern is a value, not a new binding — and this is what the feature is for
+### 3. A pattern can match a value computed at run time — and this is what the feature is for
+
+**Retitled 2026-08-16.** It read *"A NAME in a pattern is a value, not a new binding"*, which states
+pin-by-default — the rule David did **not** pick, and the one `bs_repl` shipped by mistake. The
+heading was describing the *capability* in the spelling of the losing option. A bare name still
+introduces; `== name` matches. Retitled rather than footnoted, because a heading that asserts the
+opposite of the rule is exactly the artefact ticket 45 caught in `bs_repl`'s comment, and annotating
+one while deleting the other would be incoherent.
 
 Today this is an error:
 
@@ -95,10 +102,10 @@ Step(acc, items) -> items switch {
 ```
 
 **Rewritten 2026-08-16 into the token ticket 45 chose.** As first drafted this block wrote the
-second arm `[acc, ..rest]` — a *bare* name meaning "the same value again", which is pin-by-default
-and is the rule David did **not** pick. The heading above it says a name in a pattern is a value;
-read it as *the capability* this feature supplies, not as the spelling. The spelling is `== acc`,
-and a bare name still introduces.
+second arm `[acc, ..rest]` — a *bare* name meaning "the same value again", which is pin-by-default.
+Two artefacts of this feature were written in the losing rule, this block and the heading above it,
+which is worth noticing as a pattern rather than as two typos: **the spelling was drafted before the
+decision that chose it**, and prose written in a placeholder does not announce itself later.
 
 **The workaround is worse than it looks.** Binding a fresh name and testing it in a guard moves a
 *pattern* concern into a guard — and the checker translates `var == literal` but **not**
