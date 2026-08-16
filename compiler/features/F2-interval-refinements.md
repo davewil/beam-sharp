@@ -1,6 +1,6 @@
 # F2 — Interval refinements, and the interval patterns that must land with them
 
-**Status**      **done 2026-08-16** — all five scenarios pass, 249 tests, 8 gates green
+**Status**      **done 2026-08-16** — all five scenarios pass, 250 tests, 8 gates green
 **Implements**  tickets 20 §5, 12 §2, 04, 42, 43, **44** — decides nothing
 **Unblocks**    `bs_emit:int_part/1`'s bounded branches; wire dispatch in 25b and 25c
 **Depends on**  F1 only. 42 and 44 answered 2026-08-15, **43 answered 2026-08-16**
