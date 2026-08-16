@@ -59,8 +59,12 @@ spec exists.
   count as raised until the file and the issue both exist. The same day, `F2` itself was found to
   have no issue either, which is why two markdown files could disagree about whether it was takeable
   with nothing to arbitrate: it is now
-  [ENG-214](https://linear.app/davewil/issue/ENG-214), blocked by both. **F8, F11 and F12 still have
-  none** — recorded here so the gap is visible rather than rediscovered.
+  [ENG-214](https://linear.app/davewil/issue/ENG-214), blocked by both.
+  **AUDITED 2026-08-16, and a third of it had gone stale**: F8 now has
+  [ENG-217](https://linear.app/davewil/issue/ENG-217) (`Done`), created when it was built, so only
+  **F11 and F12 still have none**. All 46 repo tickets do have issues — 36–41 hang off the project
+  rather than off ENG-165, which is cosmetic rather than a gap, and is why a children-of-165 query
+  under-counts by six.
 - **Execution override**: wayfinder is plan-only by default. This map sanctions execution
   for the **walking skeleton only**. Every other ticket produces a decision.
   **Widened in practice since 2026-08-13**: the skeleton is built and now grows through
