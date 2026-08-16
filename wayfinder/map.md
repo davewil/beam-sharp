@@ -275,6 +275,9 @@ Bodies in [`decisions.md`](decisions.md). Ticket text in `issues/`.
 - **One conjunction: `and` / `or`** `#44` `syntax` `patterns` `agent`
   amends 08; `&&`/`||` **removed**, not aliased. Erlang's `and`/`andalso` difference is
   unobservable in a guard — so 42's rule is shown permitting, not only forbidding
+- **A match against a bound value is `== name`** `#45` `syntax` `patterns`
+  the equality member of 42's relational family; one grammar rule, **no lexer change**. `>= acc` and
+  `== 4` are clean-but-refused, so neither arrives as a side effect
 
 ---
 

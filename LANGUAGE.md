@@ -159,6 +159,34 @@ The rule this produced, which governs future borrowings: **borrow the construct,
 the glyph.** Where C# has the symbol but not the construct, taking the symbol buys no familiarity
 and costs a false friend.
 
+**To match against a value a name already holds, write `== name`.** A bare name in a pattern
+introduces a name; `== name` matches the value that name is bound to. **decided**
+<!-- decided by ticket 45 -->
+
+```csharp not-yet
+Step(acc, items) -> items switch {
+    []                 => acc,
+    [== acc, ..rest]   => Step(acc, rest),
+    [var next, ..rest] => Step(next, rest)
+}
+```
+
+It is the **equality member of the relational family above**, so a reader who has met `>= 4` in a
+head reads `== acc` on sight. The family divides cleanly — **relational operators take a literal,
+`==` takes a name** — so `>= acc` is not a span bounded by a runtime value, and `== 4` is not a
+second spelling for the literal pattern `4`. Neither is admitted.
+
+The space is not significant: `==acc` and `== acc` are one program. Written with the space, to match
+`>= 4`.
+
+This is the one capability with no C# equivalent at all — C# patterns cannot match a runtime value,
+and push you to `when v == expected`. Here that workaround is worse than it looks, because it moves
+a pattern concern into a guard, and the checker reads `var == literal` but not `var == var`: the
+guard would credit nothing and the arm would subtract nothing from the residual. **A matched name
+credits nothing to the certain set either.** Its value is unknown at compile time, so it may narrow
+what is *possible* and never counts as coverage — a `switch` whose only non-catch-all arm matches a
+name is inexhaustive over the whole subject type.
+
 ---
 
 ## 3. Exhaustiveness

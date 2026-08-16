@@ -96,18 +96,27 @@ Erlang back to the decision that required it is one grep.
 | [F5 — the body check site](F5-body-check-site.md) | **done 2026-08-14** | F3.3, F3.8, F3.10; 34's destructuring binds |
 | [F6 — angle brackets and parametric types](F6-angle-brackets.md) | **done 2026-08-14** | the *bracket* in all three; `examples/parcel.bs` |
 | [F7 — `switch`](F7-switch.md) | **done 2026-08-15** | the *branching* in all three; `examples/queue.bs` |
-| [F8 — `var` binds, `=` matches](F8-bind-and-match.md) | **drafted, blocked** — [45](../../wayfinder/issues/45-match-token.md) | nothing; it goes first to avoid rewriting later features' files |
+| [F8 — `var` binds, `=` matches](F8-bind-and-match.md) | **BUILD NEXT** — [45](../../wayfinder/issues/45-match-token.md) resolved 2026-08-16, the token is `== name` | nothing; it goes first to avoid rewriting later features' files |
 | [F9 — `string` and `binary` as values](F9-strings-and-binaries.md) | **done 2026-08-15** | the `string` **fields** in all three, `list<string>`; **not** I/O |
 | [F10 — OTP callbacks](F10-otp-callbacks.md) | **done 2026-08-15** | **`bin/spec-check.sh`**; the `behaviour` half of 25b, 25c |
 | F11 — binary patterns | not started, **blocked** — ticket 30 is open | 25b, 25c |
 | F12 — pipe and valve | not started | 25b, 25c |
 
-**THE QUEUE IS EMPTY, AND THAT IS THE TABLE'S MOST IMPORTANT FACT — 2026-08-15.** Every feature
-file that exists is done or blocked: F2 owes two decisions, F8 owes one token, F11 waits on ticket
-30, and F11 and F12 have no files. There is nothing here to pick up. That is not a stall — it is
-the seam at the top of this file working exactly as written: *a feature that needs a decision
-raises a ticket rather than making one*, and features that keep that rule must eventually starve.
-When the table reads like this, the next session belongs on the map, not in the compiler.
+**THE QUEUE HAS ONE ITEM AGAIN, AND IT IS F8 — 2026-08-16.** It was empty for a day, which was the
+table's most important fact at the time and is worth keeping in view: every feature file that
+existed was done or blocked, F2 owed two decisions, F8 owed one token, F11 waited on ticket 30, and
+F11 and F12 had no files. That was not a stall but the seam at the top of this file working exactly
+as written — *a feature that needs a decision raises a ticket rather than making one*, and features
+that keep that rule must eventually starve. **The prescription that followed was right and was
+followed**: the next session went to the map, resolved [ticket 45](../../wayfinder/issues/45-match-token.md),
+and handed the compiler back a buildable feature. F2 still owes
+[43](../../wayfinder/issues/43-residual-summarised-form.md), and that ticket is now the single
+thing standing between the queue and being empty again.
+
+**The starve-and-refill cycle is the working state, not a fault to design out.** A day of it cost
+one ticket's work and returned a feature whose file is now *more* correct than it was — 45 found two
+things F8 had wrong. Read a full table as a signal to go to the map, and an empty one as the same
+signal shouted.
 
 **A status in this table outranks the header of the file it links to.** F2's header read
 `not started` while this row read `blocked`; a session took the header at its word, claimed the

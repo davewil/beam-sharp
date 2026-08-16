@@ -1,6 +1,8 @@
 # F8 — `var` binds, `=` matches, and a name in a pattern is a value
 
-**Status**      **blocked** — [ticket 45](../../wayfinder/issues/45-match-token.md) · [ENG-216](https://linear.app/davewil/issue/ENG-216); the token is undecided
+**Status**      **buildable 2026-08-16** — [ticket 45](../../wayfinder/issues/45-match-token.md) ·
+                [ENG-216](https://linear.app/davewil/issue/ENG-216) resolved: the token is `==`,
+                written `== name`
 **Implements**  [ticket 34](../../wayfinder/issues/34-local-bindings.md) (the binding it shipped),
                 [ticket 33](../../wayfinder/issues/33-body-check-site.md) §5 / F5 (the irrefutable
                 bind), [ticket 01](../../wayfinder/issues/01-sample-code.md) (Variant A's pattern
@@ -70,10 +72,10 @@ and it already works, pinned by three tests in `body_check_tests.erl`. What F8 c
 Today this is an error:
 
 ```csharp
-expected = Compute()
+var expected = Compute()
 msg switch {
-    expected => :hit,      // error: F binds expected twice
-    _        => :miss
+    == expected => :hit,   // today: error, `expected` is bound twice
+    _           => :miss
 }
 ```
 
@@ -87,17 +89,39 @@ The shape that wants it is a reduce whose accumulator is *tested* rather than re
 ```csharp
 Step(acc, items) -> items switch {
     []                 => acc,
-    [acc, ..rest]      => Step(acc, rest),      // the same value again
+    [== acc, ..rest]   => Step(acc, rest),      // the same value again
     [var next, ..rest] => Step(next, rest)      // something new
 }
 ```
+
+**Rewritten 2026-08-16 into the token ticket 45 chose.** As first drafted this block wrote the
+second arm `[acc, ..rest]` — a *bare* name meaning "the same value again", which is pin-by-default
+and is the rule David did **not** pick. The heading above it says a name in a pattern is a value;
+read it as *the capability* this feature supplies, not as the spelling. The spelling is `== acc`,
+and a bare name still introduces.
 
 **The workaround is worse than it looks.** Binding a fresh name and testing it in a guard moves a
 *pattern* concern into a guard — and the checker translates `var == literal` but **not**
 `var == var`, so the guard credits nothing and the arm subtracts nothing from the residual. The
 capability is not merely awkward to express, it is expressible only by giving up the guarantee.
 
-## The token — the one thing this file must NOT decide
+## The token — RESOLVED 2026-08-16, and it is `==`
+
+**Ticket 45 answered it: `== name`.** The recommendation below stood, and what the ticket added is
+that it no longer rests on readability — it was measured. One grammar rule
+(`pattern -> '==' lident`), **no lexer change**, yecc clean against a control that reproduces this
+file's own recorded 15 reduce/reduce to the number. It parses in every pattern position **including
+nested at depth**, which strikes an item off *Out of scope* below. `>= acc` and `== 4` were both
+measured as *not* arriving with it, and both as clean if ever deliberately added.
+
+**Read ticket 45's compiler delta before starting** — it is stated against the shipped source, so
+there is nothing here to design. And read its last finding first: **`bs_repl` implements the
+opposite rule**, and says so in a confident comment. See F8.8.
+
+The section below is kept as raised, because the candidates and their collisions are the record of
+why `==` won.
+
+## The token — as it was raised
 
 **Decided: mark the *match*, with one token, and not `^`.** (David, 2026-08-15.) The reasoning is
 frequency: you only need to mark one of the two cases, and you mark the rare one. Binding is
@@ -200,6 +224,18 @@ They do **not** today, and F8 is what fixes it. `bs_repl` gained pin-by-default 
 behave differently in a file and at `ibs`. One rule, both surfaces, asserted in `repl_tests` and in
 `body_check_tests`.
 
+**And ticket 45 settled WHICH surface moves, which this scenario did not say: `bs_repl` does.**
+`src/bs_repl.erl:193–197` matches a bare bound name, under a comment asserting *"the language needs
+no `^`: there is nothing to disambiguate."* That comment is now wrong and is the single most
+misleading artefact in the way of building this feature — it is confident, it is in shipped source,
+and it argues the whole question away. **Delete the claim as well as the behaviour.** A bare name
+introduces; `== name` matches. If a bare name also matched, `== name` would be a second spelling for
+something already spelled, which is the exact ground ticket 45 refused `== 4` on.
+
+Note the scope line: 45 asserts only that a bare bound name is **not a match** at the prompt. Whether
+the prompt should then *bind* it or *error* is ticket 34's question, and this scenario must pick the
+same answer the compiler picks — that being the entire point of the scenario.
+
 ### F8.9 — the corpus is rewritten and every gate is green
 
 Every `.bs` in `examples/` and `examples/exemplars/`, every compiled block in `LANGUAGE.md`, and
@@ -212,8 +248,10 @@ and the reason it goes ahead of binaries.
   and `var` does not fix it — a tuple *type* `(int, int)` and a tuple *expression* `(1, 2)` are
   indistinguishable at `(`. Recoverable by restricting the typed form to non-tuple types, which is
   a readability decision nobody has made.
-- **A pin *inside* nested patterns at arbitrary depth.** F8.5 needs it at one level; whether
-  `({ Kind: ==k }, x)` parses is unmeasured, and the file says so rather than assuming.
+- ~~**A pin *inside* nested patterns at arbitrary depth.**~~ **BACK IN SCOPE — ticket 45 measured
+  it.** `({ Kind: == k }, x)` parses. Depth was never a separate question: `== name` is a `pattern`,
+  and `pattern` is already recursive through every compound form. It only looked like one while
+  nobody had run it, which is the cost of writing *unmeasured* instead of measuring.
 - **Rebinding.** Still an error. This feature does not reopen ticket 34.
 - **`^` as the token.** Refused above, with its C# collision.
 
@@ -224,5 +262,8 @@ matches the value it holds and credits nothing to `Certain`; the prompt and the 
 same answer to the same three lines; `to_pattern/1` is deleted; and every gate is green over a
 rewritten corpus.
 
-**And not before the token is chosen.** The file names candidates and a recommendation; it does not
-get to decide, because a spelling every future `.bs` file carries is a decision, not a feature.
+**The token is chosen: `==`.** Ticket 45 resolved it on 2026-08-16, so this file is buildable. The
+sentence it was gated behind stands as the rule that produced the gate — a spelling every future
+`.bs` file carries is a decision, not a feature — and the gate did its job: the ticket found two
+things this file had wrong (nested depth was measurable all along, and F8.5's own example was
+written in the rule David did not pick).
