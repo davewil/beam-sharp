@@ -8,6 +8,9 @@
                 [ENG-218](https://linear.app/davewil/issue/ENG-218) — a refined parameter is not
                 checked at the exported boundary
 
+**Brief**       [The octet coupling](https://claude.ai/code/artifact/ac3174ee-507b-4ae6-97e3-fa7a2ea6ce43)
+                · source `wayfinder/beam-sharp-eng-214.html`
+
 ## What building it found
 
 **Ticket 12 §2 reaches further than its own examples suggest, and that is the finding.** §2
