@@ -20,7 +20,11 @@
 
 -module(bs_check).
 
--export([check/1]).
+-export([check/1, check/2]).
+%% F11 — the import environment a dependent module is checked against. Built by
+%% `bsc` from modules it has ALREADY checked in this invocation (41 §3, fork A:
+%% the compiler re-checks the dependency's source and keeps its signatures).
+-export([exports_of/1]).
 %% Exported so the emitter resolves surface types through THIS function rather
 %% than its own copy. The copy predates records and adding a second minting site
 %% to it would have put ticket 26 §1's qualified-name rule in two places.
@@ -33,23 +37,55 @@
 %% field `resolve/2` sees, because the emitter calls `resolve/2` with that map
 %% directly — widening it in place would put a checker concern in the emitter's
 %% argument list.
--record(ctx, {types = #{}, callees = #{}, ret, fname, arity = 0, binds = #{}}).
+-record(ctx, {types = #{}, callees = #{}, ret, fname, arity = 0, binds = #{},
+              imports = #{}}).
 
 %%% ---------------------------------------------------------------------------
 %%% Entry point
 %%% ---------------------------------------------------------------------------
 
 %% Returns {ok, Module, [Diagnostic]} | {error, [Diagnostic]}.
-check(Decls) ->
+check(Decls) -> check(Decls, #{}).
+
+%% `World` maps a module atom to what checking it produced:
+%%   #{'Shop.Orders' => #{exports => #{{Name, Arity} => {Params, Ret}},
+%%                        behaviours => [atom()]}}
+%% It is threaded by `bsc` rather than read from disk, which is 41 §3's fork A:
+%% no artefact, nothing that can go stale, correct by construction.
+check(Decls, World) ->
     Env = type_env(Decls),
     Module = module_name(Decls),
+    name_redeclared(Decls),
     Fns = collect(Decls),
-    Ctx = #ctx{types = Env, callees = callees(Decls, Env)},
+    Imports = import_env(Decls, Module, World),
+    Ctx = #ctx{types = Env, callees = callees(Decls, Env, Imports),
+               imports = Imports},
     Results = [check_fn(F, Ctx) || F <- Fns],
     Diags = lists:append([D || {_, D} <- Results]),
     case [D || D <- Diags, element(1, D) =:= error] of
         []     -> {ok, #{module => Module, functions => Fns, env => Env,
-                         behaviours => behaviours(Decls)}, Diags};
+                         behaviours => behaviours(Decls),
+                         %% 41 §2: "the resolution happens at CHECK time, never
+                         %% at run time". The emitter reads this table rather
+                         %% than resolving a second time — the same reason
+                         %% `resolve/2` is exported instead of copied.
+                         imports => resolved_funs(Imports),
+                         %% The namespace tier resolves a SHORT name to a full
+                         %% module, and the emitter needs the same answer: the
+                         %% atom it writes into the remote call is the full
+                         %% dotted path, never the short spelling the author
+                         %% used. Emitting the short one produced `undef` at run
+                         %% time from a program the checker had passed.
+                         qmods => resolved_mods(Imports),
+                         %% F10's rule reaches across the module boundary: whether
+                         %% `HandleCall/3` lowers to `handle_call/3` depends on
+                         %% what the CALLEE declares, so a remote call needs the
+                         %% callee's contract, not this module's. Without this a
+                         %% qualified call to another module's callback emits a
+                         %% name that module does not export — "compiles and calls
+                         %% a function it does not have", which is the exact
+                         %% failure `name/2`'s single funnel exists to prevent.
+                         remote_names => remote_names(World)}, Diags};
         _Fatal -> {error, Diags}
     end.
 
@@ -89,6 +125,139 @@ module_name(Decls) ->
     end.
 
 %%% ---------------------------------------------------------------------------
+%%% F11 — the module system
+%%% ---------------------------------------------------------------------------
+
+%% Ticket 40 §2's owed check. A name may carry MORE THAN ONE ARITY — that is the
+%% BEAM's own identity rule and 40 §2 keeps it unmodified — so the duplicate is
+%% {Name, Arity}, never Name.
+%%
+%% It fires BEFORE the exhaustiveness walk, and 40 §2 is explicit about why: the
+%% checker otherwise merges two same-arity signatures into one N-clause function
+%% and reports the later clauses as UNREACHABLE. That diagnostic reads as a remark
+%% about the code when the truth is "you declared this function twice" — the same
+%% costume F7's `true`/`false` misparse wore, where the only trace was an
+%% unreachable-clause warning. The program was stopped either way; it was stopped
+%% by `erlc` against an emitted `.abstr` the author never wrote.
+name_redeclared(Decls) ->
+    Sigs = [{{N, length(Ps)}, L} || {signature, L, N, _, Ps} <- Decls],
+    Grouped = lists:foldl(fun({K, L}, Acc) ->
+                                  maps:update_with(K, fun(Ls) -> [L | Ls] end, [L], Acc)
+                          end, #{}, Sigs),
+    case [{N, A, lists:min(Ls)} || {{N, A}, Ls} <- maps:to_list(Grouped), length(Ls) > 1] of
+        []                  -> ok;
+        [{N, A, L} | _]     -> erlang:error({name_redeclared, N, A, L})
+    end.
+
+%% What a checked module offers its dependents: every function it declares, keyed
+%% by name and arity. Every function is public today — ticket 40 §3's
+%% `public`/`private` is F12 — so this is the whole signature list, and the
+%% filter this becomes when F12 lands is one comprehension guard.
+exports_of(Decls) ->
+    Env = type_env(Decls),
+    maps:from_list([{{N, length(Ps)}, sig(Ps, R, Env)}
+                    || {signature, _, N, R, Ps} <- Decls]).
+
+%% The two tables 41 §5 asks for, plus the qualified one, from this module's
+%% `using` lines and the modules already checked in this invocation.
+%%
+%%   funs : {Name, Arity} -> Module      module tier   — `using Shop.Orders`
+%%   mods : Short         -> Module      namespace tier — `using Shop`
+%%   qual : {q, Mod, Name, Arity} -> Sig  every reachable qualified callee
+%%
+%% 41 §5: "which table the import populates is decided by WHAT THE PATH RESOLVES
+%% TO, not by its spelling" — so one grammar rule covers both tiers and the
+%% classification happens here.
+import_env(Decls, Self, World) ->
+    Imports = [{L, M} || {import, L, M} <- Decls],
+    Known = maps:keys(World),
+    Local = [{N, length(Ps)} || {signature, _, N, _, Ps} <- Decls],
+    lists:foldl(fun({L, M}, Acc) -> add_import(L, M, Self, World, Known, Local, Acc) end,
+                #{funs => #{}, mods => #{}, qual => qual_table(World), imported => []},
+                Imports).
+
+add_import(L, M, _Self, World, Known, Local, Acc) ->
+    case maps:is_key(M, World) of
+        true  -> add_module_import(L, M, World, Local, Acc);
+        false ->
+            %% Not a module. 41 §5: a path that is not itself a module but is a
+            %% PREFIX of ones that are is a namespace — erased entirely, no atom,
+            %% nothing emitted, purely compile-time name resolution.
+            case children(M, Known) of
+                []       -> erlang:error({unknown_module, M, L});
+                Children -> add_namespace_import(M, Children, Acc)
+            end
+    end.
+
+add_module_import(L, M, World, Local, Acc) ->
+    Exports = maps:get(exports, maps:get(M, World)),
+    Funs0 = maps:get(funs, Acc),
+    %% 41 §2 requirement 2: an import shadowing a local name is an error, fixed
+    %% by qualifying. NOT the analogy ticket 40 §2 refused — there `Fib/1` and
+    %% `Fib/2` each have a perfectly defined meaning; here the unqualified name
+    %% has NO defined meaning at all, which is what makes the same intuition
+    %% load-bearing in one case and decorative in the other.
+    case [K || K <- maps:keys(Exports), lists:member(K, Local)] of
+        [{N, A} | _] -> erlang:error({import_shadows_local, N, A, M, L});
+        []           -> ok
+    end,
+    Funs = maps:fold(fun(K, _Sig, F) ->
+                             %% Ambiguity is recorded rather than raised here:
+                             %% 41 §2 makes it an error AT THE CALL SITE, so an
+                             %% unused collision is not an error at all.
+                             maps:update_with(K, fun(Ms) -> [M | Ms] end, [M], F)
+                     end, Funs0, Exports),
+    Acc#{funs := Funs, imported := [M | maps:get(imported, Acc)]}.
+
+add_namespace_import(Prefix, Children, Acc) ->
+    Mods0 = maps:get(mods, Acc),
+    Mods = lists:foldl(fun(Child, Ms) ->
+                               Short = strip_prefix(Prefix, Child),
+                               maps:update_with(Short, fun(L) -> [Child | L] end,
+                                                [Child], Ms)
+                       end, Mods0, Children),
+    Acc#{mods := Mods, imported := Children ++ maps:get(imported, Acc)}.
+
+%% Every module reachable by a qualified call, keyed so `call/6` can look one up
+%% without a second code path.
+qual_table(World) ->
+    maps:fold(fun(M, #{exports := Ex}, Acc) ->
+                      maps:fold(fun({N, A}, Sig, In) ->
+                                        In#{{q, M, N, A} => Sig}
+                                end, Acc, Ex)
+              end, #{}, World).
+
+%% Only names with exactly one source reach the emitter. An ambiguous one is an
+%% error at its call site, so it must never be silently resolved here.
+resolved_funs(Imports) ->
+    maps:fold(fun(K, [M], Acc) -> Acc#{K => M};
+                 (_, _,   Acc) -> Acc
+              end, #{}, maps:get(funs, Imports, #{})).
+
+resolved_mods(Imports) ->
+    maps:fold(fun(K, [M], Acc) -> Acc#{K => M};
+                 (_, _,   Acc) -> Acc
+              end, #{}, maps:get(mods, Imports, #{})).
+
+remote_names(World) ->
+    maps:fold(fun(M, #{exports := Ex, behaviours := Bs}, Acc) ->
+                      maps:fold(fun({N, A}, _Sig, In) ->
+                                        case bs_otp:callback_name(N, A, Bs) of
+                                            none -> In;
+                                            Otp  -> In#{{M, N, A} => Otp}
+                                        end
+                                end, Acc, Ex)
+              end, #{}, World).
+
+children(Prefix, Known) ->
+    P = atom_to_list(Prefix) ++ ".",
+    [M || M <- Known, lists:prefix(P, atom_to_list(M))].
+
+strip_prefix(Prefix, Child) ->
+    P = atom_to_list(Prefix) ++ ".",
+    list_to_atom(lists:nthtail(length(P), atom_to_list(Child))).
+
+%%% ---------------------------------------------------------------------------
 %%% Gathering signatures and their clauses
 %%% ---------------------------------------------------------------------------
 
@@ -98,8 +267,16 @@ collect(Decls) ->
     %% it reports `no_clauses`.
     Sigs = [#fn{name = N, line = L, ret = R, params = P}
             || {signature, L, N, R, P} <- Decls],
-    [F#fn{clauses = [C || C = {clause, _, Name, _, _, _} <- Decls,
-                          Name =:= F#fn.name]}
+    %% BY NAME **AND ARITY**, which ticket 40 §2 forces. Keyed by name alone,
+    %% `Length/1` collected `Length/2`'s clauses as well: the checker reported
+    %% three unreachable clauses that were nothing of the kind, and the emitter
+    %% then crashed in `boundary_guards/4` zipping a two-parameter signature
+    %% against a one-argument head. Found by RUNNING the example rather than by
+    %% the suite — the arity was never overloaded anywhere before this feature,
+    %% so no test could have covered it.
+    [F#fn{clauses = [C || C = {clause, _, Name, Ps, _, _} <- Decls,
+                          Name =:= F#fn.name,
+                          length(Ps) =:= length(F#fn.params)]}
      || F <- Sigs].
 
 %% The callee environment — ticket 33 §6. `collect/1` above excludes foreign
@@ -108,15 +285,23 @@ collect(Decls) ->
 %% already has (ticket 32), so its callees are declared exactly like any other
 %% and site 1 applies to them verbatim. Local names key on the atom; foreign
 %% ones on `{Module, Function}`, which is the pair `e_foreign_call` carries.
-callees(Decls, Env) ->
-    Local = [{N, sig(Ps, R, Env)} || {signature, _, N, R, Ps} <- Decls],
+%% F11 KEYS EVERY CALLEE BY NAME **AND ARITY**, and that is ticket 40 §2 rather
+%% than tidiness. Overloading is permitted — the BEAM's own identity rule,
+%% unmodified — and the old `#{Name => Sig}` could not represent it: two arities
+%% of one name went through `maps:from_list/1`, which keeps the rightmost, so
+%% `Fib/1` beside `Fib/2` silently typed every call against whichever was written
+%% last. Same shape as the duplicate type declaration the features README
+%% specifies, one namespace along.
+callees(Decls, Env, Imports) ->
+    Local = [{{N, length(Ps)}, sig(Ps, R, Env)} || {signature, _, N, R, Ps} <- Decls],
     Foreign = [begin
                    admissible_foreign_ret(L, Mod, N, R, Env),
-                   {{Mod, N}, sig(Ps, R, Env)}
+                   {{f, Mod, N, length(Ps)}, sig(Ps, R, Env)}
                end
                || {foreign, _, Mod, Sigs} <- Decls,
                   {foreign_sig, L, N, R, Ps} <- Sigs],
-    maps:from_list(Local ++ Foreign).
+    maps:merge(maps:get(qual, Imports, #{}),
+               maps:from_list(Local ++ Foreign)).
 
 %% F9.11 — ticket 18 §2 made the admissible foreign return type set "what one
 %% BEAM guard decides in O(1)", and ticket 20 §5 put `string` in the opaque tier
@@ -583,6 +768,7 @@ expr_vars({e_proj, _, V, _})           -> [V];
 expr_vars({e_tuple, _, Es})            -> lists:append([expr_vars(E) || E <- Es]);
 expr_vars({e_call, _, _, As})          -> lists:append([expr_vars(A) || A <- As]);
 expr_vars({e_foreign_call, _, _, _, As}) -> lists:append([expr_vars(A) || A <- As]);
+expr_vars({e_qcall, _, _, _, As})        -> lists:append([expr_vars(A) || A <- As]);
 expr_vars({e_op, _, _, A, B})          -> expr_vars(A) ++ expr_vars(B);
 expr_vars({e_record, _, _, Fs})        -> lists:append([expr_vars(E) || {_, E} <- Fs]);
 expr_vars({e_with, _, Base, Fs})       ->
@@ -835,12 +1021,18 @@ type_of({e_switch, L, Subject, Arms}, S, C) ->
          end,
     {union_of(Tys), D0 ++ D1 ++ D2};
 type_of({e_call, L, Name, Args}, S, C) ->
-    call(L, Name, Name, Args, S, C);
+    call(L, unqualified_key(Name, length(Args), L, C), Name, Args, S, C);
 %% Ticket 32 dissolved the foreign case before it was asked: a foreign
 %% declaration is a signature attached to the name Erlang already has, so site 1
 %% applies verbatim.
 type_of({e_foreign_call, L, Mod, Fun, Args}, S, C) ->
-    call(L, {Mod, Fun}, foreign_name(Mod, Fun), Args, S, C);
+    call(L, {f, Mod, Fun, length(Args)}, foreign_name(Mod, Fun), Args, S, C);
+%% `List.Map(xs)` — 41 §1. The module is resolved through the namespace table
+%% first, so `using Shop` + `Orders.Sum(o)` and `using Shop.Orders` +
+%% `Shop.Orders.Sum(o)` reach the same callee by different spellings.
+type_of({e_qcall, L, Mod0, Fun, Args}, S, C) ->
+    Mod = qualified_module(Mod0, L, C),
+    call(L, {q, Mod, Fun, length(Args)}, qualified_name(Mod, Fun), Args, S, C);
 type_of(_, _S, _C) ->
     {bs_types:term(), []}.
 
@@ -953,14 +1145,43 @@ call(L, Key, Shown, Args, S, C) ->
     {ATys, D} = type_of_all(Args, S, C),
     case maps:get(Key, C#ctx.callees, undefined) of
         undefined ->
-            {reported(),
-             [{error, L, C#ctx.fname, {unknown_callee, Shown, length(Args)}} | D]};
+            %% KEYING CALLEES BY ARITY MADE THIS A REAL FORK, and taking either
+            %% side alone loses something. Ticket 40 §2 permits overloading, so
+            %% `F/2` where only `F/1` exists is strictly speaking an unknown
+            %% function — but reporting it that way throws away the fact that the
+            %% author plainly meant the `F` sitting right there, which is what
+            %% the old `arity_mismatch` said.
+            %%
+            %% So: unknown only when the NAME is unknown. When other arities
+            %% exist, name them — the diagnostic then hands over the fix, which
+            %% is ticket 04's property at a third site.
+            case other_arities(Key, C#ctx.callees) of
+                []    -> {reported(),
+                          [{error, L, C#ctx.fname,
+                            {unknown_callee, Shown, length(Args)}} | D]};
+                [One] -> {reported(),
+                          [{error, L, C#ctx.fname,
+                            {arity_mismatch, Shown, length(Args), One}} | D]};
+                Many  -> {reported(),
+                          [{error, L, C#ctx.fname,
+                            {arity_not_declared, Shown, length(Args),
+                             lists:sort(Many)}} | D]}
+            end;
         {Ps, Ret} when length(Ps) =/= length(ATys) ->
             {Ret, [{error, L, C#ctx.fname,
                     {arity_mismatch, Shown, length(ATys), length(Ps)}} | D]};
         {Ps, Ret} ->
             {Ret, arg_diags(L, Shown, Args, ATys, Ps, 1, C) ++ D}
     end.
+
+%% Every arity declared for the callee the key names, whichever of the three
+%% keyspaces it lives in — local, foreign, or another module's.
+other_arities({N, _}, Callees) ->
+    lists:sort([A || {Nm, A} <- maps:keys(Callees), Nm =:= N]);
+other_arities({f, M, N, _}, Callees) ->
+    lists:sort([A || {f, Mm, Nm, A} <- maps:keys(Callees), Mm =:= M, Nm =:= N]);
+other_arities({q, M, N, _}, Callees) ->
+    lists:sort([A || {q, Mm, Nm, A} <- maps:keys(Callees), Mm =:= M, Nm =:= N]).
 
 arg_diags(_L, _Callee, [], [], [], _I, _C) -> [];
 arg_diags(L, Callee, [A | As], [T | Ts], [P | Ps], I, C) ->
@@ -989,6 +1210,50 @@ head_hint(_, _) -> none.
 
 foreign_name(Mod, Fun) ->
     list_to_atom(":" ++ atom_to_list(Mod) ++ "." ++ atom_to_list(Fun)).
+
+%% 41 §2's resolution order, stated there as "local, then imports".
+%%
+%% A LOCAL WINS OUTRIGHT and never reaches the ambiguity rule, because a clash
+%% between a local and an import was already refused at the `using` line by
+%% `add_module_import/5`. So by the time a call is resolved, an unqualified name
+%% is either local or imported, never both.
+unqualified_key(Name, Arity, L, C) ->
+    Key = {Name, Arity},
+    case maps:is_key(Key, C#ctx.callees) of
+        true  -> Key;
+        false ->
+            case maps:get(Key, maps:get(funs, C#ctx.imports, #{}), []) of
+                []    -> Key;          %% unknown: `call/6` reports it
+                [M]   -> {q, M, Name, Arity};
+                %% 41 §2 requirement 1: NOT a silent winner. A quiet resolution
+                %% is the failure shape this project has been bitten by three
+                %% times, and the candidates are printed QUALIFIED so the error
+                %% hands over the fix — the same idiom as the residual.
+                Many  -> erlang:error({ambiguous_call, Name, Arity,
+                                       lists:sort(Many), L})
+            end
+    end.
+
+%% A qualified call names either a module or a namespace-relative short name.
+%% Requiring the `using` line is 41 §1 reason 3 met rather than decided: a file's
+%% `using` lines ARE its dependency list, in the file and checkable (ticket 23
+%% §11), and a qualified call that skipped the list would make that list a lie.
+qualified_module(Mod, L, C) ->
+    Mods = maps:get(mods, C#ctx.imports, #{}),
+    case maps:get(Mod, Mods, []) of
+        [M]  -> M;
+        []   -> require_imported(Mod, L, C);
+        Many -> erlang:error({ambiguous_module, Mod, lists:sort(Many), L})
+    end.
+
+require_imported(Mod, L, C) ->
+    case lists:member(Mod, maps:get(imported, C#ctx.imports, [])) of
+        true  -> Mod;
+        false -> erlang:error({module_not_imported, Mod, L})
+    end.
+
+qualified_name(Mod, Fun) ->
+    list_to_atom(atom_to_list(Mod) ++ "." ++ atom_to_list(Fun)).
 
 %% Site 2's residual is field NAMES, not a type — ticket 33 §4. `Order{Id} \
 %% Order` is `{ Kind: :'Shop.Order' }`: correct, and worthless, because it names

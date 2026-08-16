@@ -1,0 +1,36 @@
+// F11 — the three ways one module reaches another, in one file.
+//
+//   bsc examples/collections/Totals.bs Restate 3
+//
+// Nothing here names a path, a build order or an artefact. Ticket 41 §3 put the
+// dependency graph in the compiler: `using` is resolved to source, that source is
+// checked FIRST, and its signatures are kept in the environment this module is
+// checked against. Correct by construction — there is no file that could go stale.
+module Shop.Reports
+
+// Module tier (41 §2): the names come in UNQUALIFIED. This is TypeScript's
+// named-import semantics exactly, and C#'s middle tier does not exist here
+// because B# has no namespace/type split to hang it on.
+using Shop.Collections.List
+
+// Namespace tier (41 §5): `Shop.Collections` holds no functions of its own, so it
+// is a NAMESPACE — erased entirely, no atom, nothing emitted. It is a way of
+// naming, not a thing that exists at run time.
+using Shop.Collections
+
+int Restate(int n)
+// `Sum` unqualified, through the module-tier import. It resolves at CHECK time
+// and emits a remote call to 'Shop.Collections.List' — the resolution never
+// happens at run time.
+Restate(n) -> Sum([n, n, n], 0)
+
+int Counted(int n)
+// The same callee named through the namespace tier instead. `List` here is short
+// for `Shop.Collections.List`, resolved through the module table.
+Counted(n) -> List.Length([n, n])
+
+int Fully(int n)
+// And fully qualified, which is legal regardless of what is in scope — which is
+// exactly why 41 §2 can require every DIAGNOSTIC to print this form and never
+// have to know the call site's scope.
+Fully(n) -> Shop.Collections.List.Sum([n], 0)

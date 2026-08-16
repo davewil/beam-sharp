@@ -16,7 +16,7 @@ Nonterminals
   guard guard_expr
   body binding
   expr expr_list elist_items assign_fields assign_field
-  switch_arms switch_arm
+  switch_arms switch_arm modpath using_decl
   .
 
 Terminals
@@ -66,6 +66,7 @@ decl -> clause      : '$1'.
 decl -> foreign_decl : '$1'.
 decl -> behaviour_decl : '$1'.
 decl -> record_decl : '$1'.
+decl -> using_decl  : '$1'.
 
 %% --- records ----------------------------------------------------------------
 %% Ticket 26 §1. A record erases to a MAP carrying a tag minted from its
@@ -122,8 +123,36 @@ foreign_sigs -> foreign_sig foreign_sigs : ['$1' | '$2'].
 foreign_sig -> type_prim lident '(' params ')' :
     {foreign_sig, line('$2'), value('$2'), '$1', '$4'}.
 
+%% --- native imports ---------------------------------------------------------
+%% Ticket 41 §1: `using` GENERALISES rather than being overloaded. The foreign
+%% form above attaches types to a name Erlang already has and introduces no B#
+%% name; this one declares a dependency and also introduces no B# name. Same
+%% construct, told apart by the token class of what follows.
+using_decl -> 'using' modpath : {import, line('$1'), modatom('$2')}.
+
 %% --- module -----------------------------------------------------------------
-module_decl -> 'module' uident : {module, line('$1'), value('$2')}.
+%% Ticket 40 §1: a module's atom is its FULL dotted path, because ticket 26's tag
+%% mint is `Mod ++ "." ++ Name` and only a unique `Mod` keeps two bounded
+%% contexts from minting the same tag. `modpath` is shared with the native
+%% `using` (41 §1) and with the qualified call site.
+module_decl -> 'module' modpath : {module, line('$1'), modatom('$2')}.
+
+%% TICKET 41 §1 OWED A YECC CONFLICT CHECK AND MARKED IT UNRUN. IT IS RUN, AND
+%% THE TICKET'S CLAIM IS HALF FALSE.
+%%
+%% Its literal delta was RIGHT-recursive — `modpath -> uident '.' modpath` — and
+%% that grammar builds with 2 shift/reduce conflicts and then MISPARSES the thing
+%% it exists for: `List.Map(x)` is `syntax error before: '('`, because the
+%% recursive arm greedily takes `List.Map` as the path and leaves no function
+%% name behind. Building is not parsing, which is why this had to be run.
+%%
+%% LEFT recursion is the fix and it is the whole fix. At `modpath '.' uident`
+%% with `(` ahead, yecc's shift preference takes the `(` — so the last segment
+%% becomes the function name at a call site, and stays part of the path
+%% everywhere else, which is exactly the "separated on the following token"
+%% claim the ticket made for the wrong recursion direction.
+modpath -> uident               : [value('$1')].
+modpath -> modpath '.' uident   : '$1' ++ [value('$3')].
 
 %% --- type aliases -----------------------------------------------------------
 %% Ticket 09: `type X = ...` is the single naming construct, the name never
@@ -416,6 +445,14 @@ expr -> atom_lit '.' lident '(' ')' :
     {e_foreign_call, line('$1'), value('$1'), value('$3'), []}.
 expr -> uident '(' ')'           : {e_call, line('$1'), value('$1'), []}.
 
+%% `List.Map(xs)` — ticket 41 §1. The three dot-forms are told apart by the token
+%% class of the LEFT side and nothing else: `lident` projects a field, `atom_lit`
+%% calls Erlang, `uident` path calls a B# module.
+expr -> modpath '.' uident '(' expr_list ')' :
+    {e_qcall, line('$2'), modatom('$1'), value('$3'), '$5'}.
+expr -> modpath '.' uident '(' ')' :
+    {e_qcall, line('$2'), modatom('$1'), value('$3'), []}.
+
 expr -> '(' expr_list ')' :
     case '$2' of
         [Single] -> Single;
@@ -496,6 +533,13 @@ Erlang code.
 
 line(T) -> element(2, T).
 value(T) -> element(3, T).
+
+%% A module path becomes its dotted atom HERE, so nothing downstream learns a new
+%% shape. Ticket 40 §1's delta says `bs_check:qualified/2` and the `bsc` emit path
+%% need NO CHANGE because both were written against the module atom rather than
+%% against a single segment — that holds only if the atom is what reaches them.
+modatom(Segments) ->
+    list_to_atom(lists:flatten(lists:join(".", [atom_to_list(S) || S <- Segments]))).
 
 %% A plain name keeps ticket 34's node; anything else is a destructuring bind
 %% carrying a real pattern, which ticket 34 deferred to ticket 33 and F5 built.

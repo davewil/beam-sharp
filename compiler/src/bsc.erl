@@ -57,10 +57,153 @@ compile_or_run(Files, Argv, Opts) ->
     end.
 
 compile_only(Files, Opts) ->
-    Results = [file(F, Opts) || F <- Files],
-    case [R || R <- Results, element(1, R) =/= ok] of
-        [] -> halt(0);
-        _  -> halt(1)
+    case compile_set(Files, Opts) of
+        {ok, _Beams} -> halt(0);
+        {error, _}   -> halt(1)
+    end.
+
+%%% ---------------------------------------------------------------------------
+%%% F11 — compiling a SET of modules, in dependency order
+%%%
+%%% Ticket 41 §3, fork A: the compiler resolves `using` edges itself, checks a
+%%% dependency before its dependents, and keeps the dependency's signatures in
+%%% one environment threaded through the build. No artefact, nothing to go
+%%% stale, correct by construction.
+%%%
+%%% The ticket's own opening premise — "the compiler is single-file" — was FALSE
+%%% and the correction is what made this cheap: `compile_only/2` was already a
+%%% map over a file list. What was single-file was the ENVIRONMENT, not the
+%%% invocation, so this is the fold that loop already was, carrying an
+%%% accumulator. No new CLI, no new entry point, no new artefact.
+%%% ---------------------------------------------------------------------------
+
+compile_set(Files, Opts) ->
+    case load_all(Files) of
+        {error, R}  -> {error, R};
+        {ok, Units} ->
+            case order(Units) of
+                {error, {cycle, C}} ->
+                    resolve_error("", {import_cycle, C}), {error, cycle};
+                {ok, Ordered} ->
+                    build(Ordered, Opts, #{}, [])
+            end
+    end.
+
+build([], _Opts, _World, Acc) -> {ok, lists:reverse(Acc)};
+build([{Path, Decls, Mod} | Rest], Opts, World, Acc) ->
+    case check_and_emit(Path, Opts, Decls, World) of
+        {ok, Beam} ->
+            World1 = World#{Mod => #{exports => bs_check:exports_of(Decls),
+                                     behaviours => [B || {behaviour, _, B} <- Decls]}},
+            build(Rest, Opts, World1, [{Path, Beam} | Acc]);
+        Error ->
+            Error
+    end.
+
+%% The given files, plus every module they reach through `using`. A dependency
+%% that was not named on the command line is found in the source tree — which is
+%% 41 §3's "`using Shop.Orders` is a path on disk; `bsc` resolves it".
+load_all(Files) ->
+    case parse_all(Files) of
+        {error, R} -> {error, R};
+        {ok, Given} ->
+            Index = source_index(Files),
+            close_over(Given, Index, [M || {_, _, M} <- Given])
+    end.
+
+parse_all(Files) -> parse_all(Files, []).
+
+parse_all([], Acc) -> {ok, lists:reverse(Acc)};
+parse_all([F | Rest], Acc) ->
+    case parse_path(F) of
+        {ok, Decls} -> parse_all(Rest, [{F, Decls, module_of(Decls)} | Acc]);
+        Error       -> Error
+    end.
+
+close_over(Units, Index, Have) ->
+    Wanted = lists:usort(lists:append([[M || {import, _, M} <- D]
+                                       || {_, D, _} <- Units])),
+    case [M || M <- Wanted, not lists:member(M, Have),
+               maps:is_key(M, Index)] of
+        [] -> {ok, Units};
+        New ->
+            case parse_all([maps:get(M, Index) || M <- New]) of
+                {error, R} -> {error, R};
+                {ok, More} ->
+                    close_over(Units ++ More, Index,
+                               Have ++ [M || {_, _, M} <- More])
+            end
+    end.
+
+%% Module atom -> source path, over every `.bs` file under the roots of the files
+%% being compiled.
+%%
+%% BUILT BY PARSING RATHER THAN BY NAMING. Resolving `Shop.Orders` to
+%% `Shop/Orders.bs` would be cheaper and would be wrong here: the repo's own
+%% files do not keep that correspondence — `aoc/2019/day01/day01.bs` declares
+%% `module Day01` — and inventing a filename rule is ticket 41 §5's
+%% `module_path_mismatch`, which belongs with the directory-as-module work and
+%% not here. A file that fails to parse is skipped: it is not a dependency
+%% anybody asked for, and if it is, the error arrives when it is compiled.
+source_index(Files) ->
+    Roots = lists:usort([filename:dirname(F) || F <- Files]),
+    Sources = lists:usort(lists:append([bs_files(R) || R <- Roots])),
+    lists:foldl(fun(P, Acc) ->
+                        case parse_quietly(P) of
+                            {ok, Decls} ->
+                                case module_of(Decls) of
+                                    undefined -> Acc;
+                                    M -> maps:put(M, P, Acc)
+                                end;
+                            error -> Acc
+                        end
+                end, #{}, Sources).
+
+bs_files(Dir) ->
+    filelib:wildcard(filename:join(Dir, "**/*.bs")) ++
+        filelib:wildcard(filename:join(Dir, "*.bs")).
+
+module_of(Decls) ->
+    case [N || {module, _, N} <- Decls] of
+        [N | _] -> N;
+        []      -> undefined
+    end.
+
+%% Dependencies before dependents. A cycle is refused BY NAME rather than
+%% followed — F6's cyclic-alias precedent, which shipped after a hang that no
+%% green suite could see, and the same hazard is here.
+order(Units) ->
+    Index = maps:from_list([{M, U} || U = {_, _, M} <- Units]),
+    visit(Units, Index, [], [], []).
+
+visit([], _Index, _Path, _Done, Acc) -> {ok, lists:reverse(Acc)};
+visit([U | Rest], Index, Path, Done, Acc) ->
+    case emit_one(U, Index, Path, Done, Acc) of
+        {error, R}        -> {error, R};
+        {ok, Done1, Acc1} -> visit(Rest, Index, Path, Done1, Acc1)
+    end.
+
+emit_one({_, Decls, M} = U, Index, Path, Done, Acc) ->
+    case lists:member(M, Done) of
+        true  -> {ok, Done, Acc};
+        false ->
+            case lists:member(M, Path) of
+                true  -> {error, {cycle, lists:reverse([M | Path])}};
+                false ->
+                    Deps = [maps:get(D, Index) || {import, _, D} <- Decls,
+                                                  maps:is_key(D, Index)],
+                    case deps(Deps, Index, [M | Path], Done, Acc) of
+                        {error, R}        -> {error, R};
+                        {ok, Done1, Acc1} -> {ok, [M | Done1], [U | Acc1]}
+                    end
+            end
+    end.
+
+deps([], _Index, _Path, Done, Acc) -> {ok, Done, Acc};
+deps([D | Rest], Index, Path, Done, Acc) ->
+    case emit_one(D, Index, Path, Done, Acc) of
+        {error, R}        -> {error, R};
+        {ok, Done1, Acc1} -> deps(Rest, Index, Path, Done1, Acc1)
     end.
 
 %% Bare arguments ending in `.bs` are files; the first that does not begins the
@@ -91,13 +234,23 @@ run(File, Opts0, Argv) ->
                "." -> Opts0#opts{outdir = tmpdir()};
                _   -> Opts0
            end,
-    case file(File, Opts) of
-        {ok, Beam} ->
+    %% F11 — through the SET path, not `file/2`. A file with a `using` line needs
+    %% its dependencies compiled and on the code path before it can run, and the
+    %% same is true at the `ibs` prompt below. Four features in a row found a
+    %% hole at that prompt because a new capability was wired into the compile
+    %% path and not into this one.
+    case compile_set([File], Opts) of
+        {ok, Beams} ->
+            Beam = beam_for(File, Beams),
             Mod = list_to_atom(filename:basename(Beam, ".beam")),
             report_run(bs_run:run(filename:dirname(Beam), Mod, Argv));
         _ ->
             halt(1)
     end.
+
+beam_for(File, Beams) ->
+    {_, Beam} = lists:keyfind(File, 1, Beams),
+    Beam.
 
 report_run({ok, Value}) ->
     io:format("~s~n", [bs_run:format_value(Value)]),
@@ -133,8 +286,9 @@ repl(File, Opts0) ->
                "." -> Opts0#opts{outdir = tmpdir()};
                _   -> Opts0
            end,
-    case file(File, Opts) of
-        {ok, Beam} ->
+    case compile_set([File], Opts) of
+        {ok, Beams} ->
+            Beam = beam_for(File, Beams),
             Dir = filename:dirname(Beam),
             Mod = list_to_atom(filename:basename(Beam, ".beam")),
             true = code:add_patha(Dir),
@@ -169,6 +323,12 @@ compile_string(Src, Opts, Path) ->
     with_stages(Path, Opts, Src).
 
 with_stages(Path, Opts, Src) ->
+    case parse_string(Path, Src) of
+        {error, R}  -> {error, R};
+        {ok, Decls} -> check_and_emit(Path, Opts, Decls, #{})
+    end.
+
+parse_string(Path, Src) ->
     case bs_lexer:string(Src) of
         {error, Err, _} ->
             report_fatal(Path, {lex, Err}), {error, lex};
@@ -177,18 +337,41 @@ with_stages(Path, Opts, Src) ->
                 {error, Err} ->
                     report_fatal(Path, {parse, Err}), {error, parse};
                 {ok, Decls} ->
-                    check_and_emit(Path, Opts, Decls)
+                    {ok, Decls}
             end
     end.
 
-check_and_emit(Path, Opts, Decls) ->
+parse_path(Path) ->
+    case file:read_file(Path) of
+        {ok, Bin}  -> parse_string(Path, binary_to_list(Bin));
+        {error, R} -> report_fatal(Path, {cannot_read, R}), {error, R}
+    end.
+
+%% The same, with nothing reported — used only to build the module index, where
+%% an unrelated broken file must not stop the build of the files that were asked
+%% for.
+parse_quietly(Path) ->
+    case file:read_file(Path) of
+        {ok, Bin} ->
+            case bs_lexer:string(binary_to_list(Bin)) of
+                {ok, Tokens, _} ->
+                    case bs_parser:parse(Tokens) of
+                        {ok, Decls} -> {ok, Decls};
+                        _           -> error
+                    end;
+                _ -> error
+            end;
+        _ -> error
+    end.
+
+check_and_emit(Path, Opts, Decls, World) ->
     %% The checker signals a handful of conditions by raising rather than by
     %% returning a diagnostic, because they are found while RESOLVING types —
     %% below the level that carries a line and a function name. Uncaught, they
     %% reached the author as an escript stack trace, which is the worst
     %% diagnostic this compiler produced: found by running LANGUAGE.md's own
     %% examples through it, where two blocks hit `unknown_type`.
-    try bs_check:check(Decls) of
+    try bs_check:check(Decls, World) of
         {error, Diags} ->
             [report(Path, D) || D <- Diags],
             {error, check};
@@ -336,6 +519,88 @@ resolve_error(Path, {list_pattern_needs_rest, Line}) ->
               "  write `[h, ..t]`. Prefix-plus-rest is the only list pattern.~n",
               [Path, Line]),
     handled;
+%%% --- F11, the module system -------------------------------------------------
+
+%% Ticket 40 §2. Before this, two same-arity signatures were MERGED into one
+%% N-clause function and the later clauses reported as unreachable — a remark
+%% about the code where the truth was a duplicate declaration — and the program
+%% was then stopped by `erlc` against `Silent.abstr:0`: no line, no `.bs`
+%% filename, a message about a file the author never wrote.
+resolve_error(Path, {name_redeclared, Name, Arity, Line}) ->
+    io:format(standard_error,
+              "~s:~p: error: ~s/~p is declared more than once~n"
+              "  a name may carry MORE THAN ONE ARITY, so ~s/~p and ~s/~p would~n"
+              "  be two functions — but two signatures of the SAME arity are one~n"
+              "  function declared twice, and its clauses would merge silently.~n",
+              [Path, Line, Name, Arity, Name, Arity, Name, Arity + 1]),
+    handled;
+
+%% 41 §2 requirement 1. The candidates print QUALIFIED because a qualified call
+%% is legal regardless of what is in scope — so the message is pasteable source,
+%% which is the property ticket 23 gives the residual.
+resolve_error(Path, {ambiguous_call, Name, Arity, Mods, Line}) ->
+    io:format(standard_error,
+              "~s:~p: error: ~s/~p is ambiguous — ~p imports declare it~n"
+              "  name one of these instead:~n"
+              "~s",
+              [Path, Line, Name, Arity, length(Mods),
+               [io_lib:format("    ~s.~s(...)~n", [M, Name]) || M <- Mods]]),
+    handled;
+
+%% 41 §2 requirement 2, and the ticket is careful that this is NOT the analogy
+%% ticket 40 §2 refused: there each overload had a defined meaning, here the
+%% unqualified name has none at all.
+resolve_error(Path, {import_shadows_local, Name, Arity, Mod, Line}) ->
+    io:format(standard_error,
+              "~s:~p: error: importing ~s brings in ~s/~p, which this module also declares~n"
+              "  the unqualified name would have no defined meaning. Call the~n"
+              "  import as ~s.~s(...) and the local one as ~s(...).~n",
+              [Path, Line, Mod, Name, Arity, Mod, Name, Name]),
+    handled;
+
+resolve_error(Path, {unknown_module, Mod, Line}) ->
+    io:format(standard_error,
+              "~s:~p: error: `using ~s` names no module and no namespace~n"
+              "  a module is a source file this invocation can reach; a namespace~n"
+              "  is a path that other modules sit under. Neither matched.~n",
+              [Path, Line, Mod]),
+    handled;
+
+%% 41 §1 reason 3 met rather than decided: a file's `using` lines ARE its
+%% dependency list, in the file and checkable (ticket 23 §11). A qualified call
+%% that skipped the list would make the list a lie.
+resolve_error(Path, {module_not_imported, Mod, Line}) ->
+    io:format(standard_error,
+              "~s:~p: error: ~s is called but never imported~n"
+              "  add `using ~s` — a file's `using` lines are its dependency list,~n"
+              "  and a call that skips them makes that list wrong.~n",
+              [Path, Line, Mod, Mod]),
+    handled;
+
+resolve_error(Path, {ambiguous_module, Short, Mods, Line}) ->
+    io:format(standard_error,
+              "~s:~p: error: ~s is ambiguous — ~p namespaces hold a module of that name~n"
+              "  name one of these in full instead:~n"
+              "~s",
+              [Path, Line, Short, length(Mods),
+               [io_lib:format("    ~s~n", [M]) || M <- Mods]]),
+    handled;
+
+%% Two modules importing each other. 41 explicitly leaves the cycle rule to "the
+%% implementing feature", and F6's cyclic-ALIAS guard is the precedent it names:
+%% refuse by name rather than expand. That guard shipped after a HANG, which no
+%% green suite could see, and the same hazard is here — resolving a cycle by
+%% following it is a loop.
+resolve_error(_Path, {import_cycle, Cycle}) ->
+    io:format(standard_error,
+              "error: these modules import each other in a cycle~n"
+              "~s"
+              "  the compiler checks a dependency before its dependents, so a~n"
+              "  cycle has no order to check them in. Break it by moving the~n"
+              "  shared declarations into a module both can import.~n",
+              [[io_lib:format("    ~s~n", [M]) || M <- Cycle]]),
+    handled;
+
 resolve_error(_Path, _Other) ->
     unhandled.
 
@@ -548,6 +813,18 @@ report(Path, {error, Line, Fn, {arity_mismatch, Callee, Got, Want}}) ->
     io:format(standard_error,
               "~s:~p: error: ~s calls ~s with ~p arguments, and it takes ~p~n",
               [Path, Line, Fn, Callee, Got, Want]);
+%% Ticket 40 §2 permits arity overloading, so this is not "wrong number of
+%% arguments" — it is a function that has not been declared, next to ones that
+%% have. Naming the arities that DO exist is what keeps it a fix rather than a
+%% verdict.
+report(Path, {error, Line, Fn, {arity_not_declared, Callee, Got, Have}}) ->
+    io:format(standard_error,
+              "~s:~p: error: ~s calls ~s/~p, which nothing declares~n"
+              "  ~s is declared at ~s. Arity overloading is permitted, so~n"
+              "  ~s/~p would be a new function and needs its own signature.~n",
+              [Path, Line, Fn, Callee, Got, Callee,
+               lists:join(", ", [[$/ | integer_to_list(A)] || A <- Have]),
+               Callee, Got]);
 report(Path, {error, Line, Fn, {unknown_record, Name}}) ->
     io:format(standard_error,
               "~s:~p: error: ~s builds an ~s, which no record or type declares~n",

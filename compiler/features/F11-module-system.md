@@ -82,7 +82,7 @@ Restate(o) -> Sum(o)               // resolved to 'Shop.Orders':Sum/1 at CHECK t
 |---|---|---|---|
 | F11.1 | `module Shop.Orders` | emits module atom `'Shop.Orders'`, file `Shop.Orders.beam` | 0 |
 | F11.2 | a record in `module Shop.Orders` | tag mints `'Shop.Orders.Order'` — 26 §1 unchanged | 0 |
-| F11.3 | `Shop/Orders/Total.bs` declaring `module Shop.Billing` | `{module_path_mismatch, Declared, Path, Line}` | 1 |
+| F11.3 | *(moved — see “The directory half” below)* | — | — |
 | F11.4 | `List.Map(xs)` with `List` compiled in the same invocation | typed from `List`'s signature; emits a remote call | 0 |
 | F11.5 | `List.Map(xs)` where `List` declares no `Map/1` | error naming the qualified callee | 1 |
 | F11.6 | `using Shop.Orders` then unqualified `Sum(o)` | resolves to `'Shop.Orders':Sum/1`, emits remote | 0 |
@@ -92,9 +92,35 @@ Restate(o) -> Sum(o)               // resolved to 'Shop.Orders':Sum/1 at CHECK t
 | F11.10 | `Sum/1` imported beside a local `Sum/2` | **accepted** — resolution is by name *and* arity (40 §2) | 0 |
 | F11.11 | two `Combine/2` signatures in one module | `{name_redeclared, Combine, 2, Line}` **before** the exhaustiveness walk | 1 |
 | F11.12 | `Fib/1` and `Fib/2` in one module | **accepted** — arity overloading is permitted (40 §2) | 0 |
-| F11.13 | a function declared in `index.bs` | `{function_in_index, Name, Line}` | 1 |
+| F11.13 | *(moved — see “The directory half” below)* | — | — |
 | F11.14 | two modules importing each other | a cycle error naming both, refused by name (F6 precedent) | 1 |
 | F11.15 | diagnostics printing a call or head | **always fully qualified**, regardless of scope (41 §2) | — |
+
+## The directory half, and why two scenarios moved out of this feature
+
+Two of the four specified checks — `{module_path_mismatch, …}` (41 §5) and
+`{function_in_index, …}` (41 §4) — **cannot be built here, and finding out why is worth more than
+the checks would have been.**
+
+Both are specified against a module that is a **directory**: 41 §5's rule is *"a file's `module`
+declaration must match its **directory** path — `Shop/Orders/Total.bs` must say `module
+Shop.Orders`"*, and §4's rule is about `index.bs`, which only exists if a module aggregates several
+files. That is ticket 13's aggregate rule, and **it is not built**: `bsc` reads one `.bs` file and
+writes one `.beam`, and every one of the 30 `.bs` files in this repo is a whole module in a single
+file. `examples/counter.bs` is `module Counter`; its directory is `examples`.
+
+So a path check written against directories today would fail every file in the repo, and
+`function_in_index` guards a file that nothing can currently produce. **`index.bs` has never been
+compiled** — 41 §4 says so itself.
+
+The honest cut is therefore between *how modules see each other* and *what a module is made of*.
+This feature builds the first against the one-file-per-module reality that exists. The second —
+ticket 13's aggregation, `index.bs`, and the two checks that presuppose them — is its own feature,
+and it now has a name and a reason rather than being discovered missing halfway through a third.
+
+**It is also the smaller half than it looks.** `13b` already measured the mechanism working: two
+functions in one `.beam` reporting against two source files with exact lines, via a repeated
+`{attribute,ANNO,file,{Name,Line}}`. What is missing is the plumbing, not the technique.
 
 ## Out of scope
 

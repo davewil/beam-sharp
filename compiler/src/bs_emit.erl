@@ -57,7 +57,10 @@ forms(Module = #{module := Mod, functions := Fns, env := Env}) ->
     %% The behaviours travel in the emit context because a function name is not
     %% self-describing: whether `HandleCall/3` lowers to `handle_call/3` depends
     %% on what the MODULE declares. Ticket 35's contract scoping, carried.
-    Ctx = #{module => Mod, env => Env, behaviours => Behaviours},
+    Ctx = #{module => Mod, env => Env, behaviours => Behaviours,
+            imports => maps:get(imports, Module, #{}),
+            qmods => maps:get(qmods, Module, #{}),
+            remote_names => maps:get(remote_names, Module, #{})},
     [{attribute, ?A, module, Mod},
      {attribute, ?A, export, [{name(F, Behaviours), A} || {F, A} <- Exports]}]
     ++ [{attribute, ?A, behaviour, bs_otp:behaviour_name(B)} || B <- Behaviours]
@@ -71,6 +74,20 @@ forms(Module = #{module := Mod, functions := Fns, env := Env}) ->
 %% defines. Ticket 35's table is consulted here and nowhere else so they cannot
 %% drift apart.
 name(F, Behaviours) -> emitted_name(element(2, F), arity(F), Behaviours).
+
+%% THE ONE PLACE A CROSS-MODULE CALL IS BUILT — the remote sibling of `name/2`,
+%% and it exists for the same reason. The callee's emitted name is looked up in
+%% the CALLEE's contract, which `bs_check` recorded while checking it; falling
+%% back to the written name is right for every module that declares no behaviour.
+remote(L, Mod0, Fn, As, C) ->
+    %% A short name from the namespace tier becomes the full dotted path here,
+    %% through the table the CHECKER built. Two sources of truth for this would
+    %% be two chances to disagree, and the one that disagrees silently is the
+    %% emitter — a wrong module atom is `undef` at run time, not a type error.
+    Mod = maps:get(Mod0, maps:get(qmods, C, #{}), Mod0),
+    Name = maps:get({Mod, Fn, length(As)}, maps:get(remote_names, C, #{}), Fn),
+    {call, L, {remote, L, {atom, L, Mod}, {atom, L, Name}},
+     [expr(A, C) || A <- As]}.
 
 emitted_name(Name, Arity, Behaviours) ->
     case bs_otp:callback_name(Name, Arity, Behaviours) of
@@ -332,6 +349,7 @@ used_vars({e_record, _, _, Fs}, Acc) ->
 used_vars({e_with, _, Base, Fs}, Acc) ->
     lists:foldl(fun({_, E}, A) -> used_vars(E, A) end, used_vars(Base, Acc), Fs);
 used_vars({e_foreign_call, _, _, _, As}, Acc) -> lists:foldl(fun used_vars/2, Acc, As);
+used_vars({e_qcall, _, _, _, As}, Acc) -> lists:foldl(fun used_vars/2, Acc, As);
 %% Descending into arms is not optional and the failure is not a warning. A
 %% parameter read ONLY inside an arm body would otherwise look unused, lower to
 %% `_N` in the clause head, and the arm body would then emit `N` — which is a
@@ -437,9 +455,26 @@ expr({e_tuple, L, Es}, C)     -> {tuple, L, [expr(E, C) || E <- Es]};
 %% `GenServer` module must emit `handle_call(...)`, because that is what the
 %% export list and the definition now say. Get this wrong and the module compiles
 %% and calls a function it does not have.
+%% F11 — AN UNQUALIFIED CALL MAY BE A REMOTE ONE, and the emitter does not decide
+%% which. 41 §2: "the resolution happens at check time, never at run time", so the
+%% table consulted here is the one `bs_check` already built and returned. Deciding
+%% it a second time here would be the second resolver `resolve/2` was exported to
+%% prevent.
 expr({e_call, L, F, As}, C)   ->
-    Name = emitted_name(F, length(As), maps:get(behaviours, C, [])),
-    {call, L, {atom, L, Name}, [expr(A, C) || A <- As]};
+    Arity = length(As),
+    case maps:get({F, Arity}, maps:get(imports, C, #{}), undefined) of
+        undefined ->
+            Name = emitted_name(F, Arity, maps:get(behaviours, C, [])),
+            {call, L, {atom, L, Name}, [expr(A, C) || A <- As]};
+        Mod ->
+            remote(L, Mod, F, As, C)
+    end;
+
+%% `List.Map(xs)`. The module atom is already the full dotted path (40 §1), which
+%% is why nothing here has to build a name: `'Shop.Orders'` is what the dependency
+%% emitted and what `ls` shows.
+expr({e_qcall, L, Mod, Fn, As}, C) ->
+    remote(L, Mod, Fn, As, C);
 expr({e_op, L, Op, A, B}, C)  -> {op, L, erl_op(Op), expr(A, C), expr(B, C)};
 expr({e_nil, L}, _C)          -> {nil, L};
 
