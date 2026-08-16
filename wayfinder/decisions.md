@@ -1076,13 +1076,20 @@
 
   **Two of the ticket's own premises were wrong, and the corrections are the whole answer.** Hole 1
   asserted that 41 intervals *"lower to 41 heads"*; measured, `bsc` prints **one** head of **453
-  characters**, because `heads/2` (`compiler/src/bsc.erl:533`) splits on the tuple part — one product
+  characters**, because `heads/2` in `compiler/src/bsc.erl` splits on the tuple part — one product
   per *argument position* — and a union of intervals lives inside a single argument. The 41-head
   claim describes [ticket 23](issues/23-what-the-language-owes-an-agent.md) §2's lowering, which is
   unbuilt. So Hole 1's *"there are two artefacts and F2.4 asked about one"* is a conditional, not a
-  fact, and §3 of the answer gives both one rule anyway: **truncate at three rendered heads.**
-  Counting heads rather than intervals is the half that survives §2, because a residual over two
-  arguments is a product and a rule stated in intervals would print an unbounded number of lines.
+  fact, and §3 of the answer gives both one rule anyway: **truncate at three of whatever the printer
+  is enumerating** — intervals inside the one head today, head lines once §2 lowers.
+
+  **Naming the unit per stage is the part that had to be got right, and the first draft got it
+  wrong** — it said "three heads", which would truncate *nothing* today, because §0 had just
+  established that today there is only one head. The correction is recorded rather than quietly
+  fixed because it is the same failure in miniature that the ticket exists to correct: the rule was
+  stated in the units of the premise that had already been measured false. After §2 the unit *must*
+  become heads, since a residual over two arguments is a product and an interval rule would then
+  print an unbounded number of lines.
 
   **The complement was refused on measurement, not on the finiteness argument the ticket expected.**
   Its aside — *"for an unbounded `int` the complement is not finite"* — is wrong: the complement of
@@ -1110,9 +1117,9 @@
   claimed the units disagree — *"three intervals over `int` render longer than twenty over
   `0..255`"*. They do not: 3 over `int` is 30 characters (60 with 19-digit bounds, built adversarially),
   20 over `0..255` is 100, and interval count and character length order every case identically. So
-  the unit is not load-bearing and the testable one wins. **There is also no threshold in the tunable
-  sense**: this takes Hole 3's *"no threshold at all"* option, and the truncated-exact shape is what
-  makes it free, since always-on costs a small residual nothing. No flag, no tunable, no switch.
+  character length is not load-bearing and the testable unit wins. **There is also no threshold in
+  the tunable sense**: this takes Hole 3's *"no threshold at all"* option, and the truncated-exact
+  shape is what makes it free, since always-on costs a small residual nothing. No flag, no switch.
 
   **One thing is defaulted rather than settled, and it is flagged as David's.** Ticket 12 §2 makes a
   catch-all an *error* over a **closed** residual, so after F2 an octet with 40 scattered clauses has

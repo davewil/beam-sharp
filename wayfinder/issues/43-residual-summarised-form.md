@@ -112,7 +112,7 @@ scattered.bs:3: error: Classify is not exhaustive
     Classify(int <= 9 | 11..19 | 21..29 | 31..39 | 41..49 | … | int >= 401) -> ...
 ```
 
-`heads/2` (`compiler/src/bsc.erl:533`) splits on the **tuple part** — one product per *argument
+`heads/2` in `compiler/src/bsc.erl` splits on the **tuple part** — one product per *argument
 position* — and a union of intervals lives inside a single argument. The 41-head claim is a
 statement about [ticket 23](23-what-the-language-owes-an-agent.md) §2's lowering, which is
 **unbuilt**. So there is one artefact to render today and two once §2 lands, and §3 gives them one
@@ -180,18 +180,32 @@ The marker is ASCII `... (K more)`, not `… (K more)`. A diagnostic goes to std
 the compiler does not control and the ellipsis character buys two characters of width, which is not
 a trade. (The probe measures the `…` form; add 2.)
 
-### 3. One rule for both artefacts, counted in **heads** — Hole 1, owed item 2
+### 3. One rule for both artefacts — Hole 1, owed item 2
 
-**The prose prints at most three heads, then `... (K more)`.** The same sentence covers the residual
-today and the synthesised head after 23 §2, because after §2 they are the same object rendered once.
+**The prose prints at most three of whatever it is enumerating, then `... (K more)`.** The unit is
+*the repeated thing on the page*, and which thing that is changes exactly once, when 23 §2 lands:
 
-Counting **heads** rather than intervals is the part that survives §2. A residual over a
-two-argument function is a *product*, so the head count is the product of the parts and is ≥ the
-interval count; a rule stated in intervals would print an unbounded number of lines the moment a
-second argument had a residual too. Before §2 the residual is one head whose *argument* is a union,
-so the same rule truncates inside the argument — which is the 42-character line measured above.
+| stage | what the printer enumerates | what "three" counts |
+|---|---|---|
+| **today**, before 23 §2 | intervals inside one argument of one head line | intervals |
+| **after** 23 §2's lowering | one head line per case | heads |
 
-### 4. The threshold is 3, the unit is heads, and the unit was measured rather than argued
+**Naming the stage is not pedantry, and getting it wrong is the trap this ticket walked into once.**
+§0 corrects Hole 1's claim that 41 intervals become 41 heads — today they do not, they are one head
+— and a rule stated in *heads* would therefore truncate **nothing** today, because one head is under
+any threshold of three. The first draft of this answer said "three heads", and F2.4's expected
+string, which is the truncated line, contradicted it. The rule has to name the live unit per stage
+or it asserts the exact behaviour §0 just measured as false.
+
+**Counting heads is what the rule must become after §2, and that half is load-bearing.** A residual
+over a two-argument function is a *product*, so the head count is the product of the parts and is ≥
+the interval count. A rule that stayed on intervals after §2 would print an unbounded number of
+lines the moment a second argument had a residual too.
+
+**Both stages share the property that makes the shape work**: three items or fewer prints
+byte-identically to no rule at all.
+
+### 4. The threshold is 3, the unit is items-per-stage, and it was measured rather than argued
 
 Hole 3 says the units *"disagree: three intervals over `int` render longer than twenty over
 `0..255`"*. Measured, they do not:
@@ -206,8 +220,9 @@ Hole 3 says the units *"disagree: three intervals over `int` render longer than 
 
 **Interval count and character length order these identically**, including the adversarial row built
 on purpose to break it — three intervals whose bounds are the largest literals a real program
-plausibly carries. No threshold in either unit sorts any pair differently, so **the unit is not
-load-bearing**, and the tie goes to the one that is stable and easy to test: heads.
+plausibly carries. No threshold in either unit sorts any pair differently, so **character length is
+not load-bearing**, and the tie goes to the one that is stable and easy to test: a count of items,
+per §3's table.
 
 **And there is no threshold in the tunable sense.** This takes Hole 3's *"no threshold at all"*
 option — always truncate — and §2 is what makes it free: since the truncated form **is** the exact

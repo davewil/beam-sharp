@@ -102,11 +102,15 @@ Re-measured 2026-08-16 by [`43a`](../../wayfinder/prototypes/43a_residual_at_wid
 union of intervals stays inside one argument.
 
 **Settled by [ticket 43](../../wayfinder/issues/43-residual-summarised-form.md), 2026-08-16.** The
-prose prints the exact residual **truncated at three rendered heads**, then `... (K more)`. That is
-the whole rule: it is not a second format, so at three heads or fewer it prints byte-identically to
-today and there is no threshold to tune and no switch to explain. Nothing else summarises — not the
-term (ticket 23 §4's descriptor is unchanged), not the synthesised head, and no complement is
-computed.
+prose prints the exact residual **truncated at three of whatever it is enumerating**, then
+`... (K more)`. It is not a second format, so at three items or fewer it prints byte-identically to
+today — no threshold to tune, no switch to explain. Nothing else summarises: not the term (ticket 23
+§4's descriptor is unchanged), not the synthesised head, and no complement is computed.
+
+**The unit is stage-dependent and this feature is on the first stage.** Before 23 §2's lowering the
+printer enumerates **intervals inside one argument of one head line**, so that is what three counts
+here. After §2 it enumerates **head lines**, and three counts those. 43 §3 carries the table and the
+reason the distinction is not pedantic.
 
 Input: 40 clauses naming `10, 20, … 400` over a bare `int`.
 
@@ -116,9 +120,10 @@ Expect: **error**, exit non-zero, and the head line exactly
     Classify(int <= 9 | 11..19 | 21..29 | ... (38 more)) -> ...
 ```
 
-**Counting heads and not intervals is load-bearing** and is the half that outlives this feature: a
-residual over two arguments is a product, so a rule stated in intervals prints an unbounded number
-of lines the moment a second argument has a residual too.
+**The unit switches to heads once 23 §2 lands, and that half outlives this feature**: a residual
+over two arguments is a product, so an interval rule would print an unbounded number of lines the
+moment a second argument had a residual too. Implement the truncation over the *rendered sequence*
+rather than over intervals specifically, and §2 costs nothing here.
 
 **The one thing 43 defaulted rather than settled**, recorded here because F2 is what creates the
 case: over a **closed** residual, ticket 12 §2 bars the catch-all, so every truncated head is a

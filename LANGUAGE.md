@@ -217,7 +217,9 @@ readings.bs:4: error: Classify is not exhaustive
 ```
 
 The error is the **missing clause**, not a complaint — the residual is computed exactly and printed
-as a head you can paste in. **shipped**
+as a head you can paste in. Where it is wide, the **printed** form stops after three cases and says
+how many it left; the residual itself is never summarised, and the full one is a query away.
+**shipped**, and the truncation **decided**
 
 A **catch-all is legal only where the residual is open** — over a `term`, or any type with an
 unbounded part. Where the compiler knows the remaining case names, `_` is an error: it would put
