@@ -1,10 +1,11 @@
 %%% beam-sharp lexer — the walking-skeleton slice.
 %%%
 %%% Surface settled by ticket 01 and ticket 08: `->` for clauses (`=>` is reserved
-%%% for lambdas, which this slice does not have), `:atom` for atoms, `&&`/`||` in
-%%% guards. Builtin type names are lowercase; user types and functions are
-%%% PascalCase, which is what lets the grammar tell them apart without a symbol
-%%% table.
+%%% for lambdas, which this slice does not have), `:atom` for atoms, and — since
+%%% ticket 44 amended 08 — `and`/`or` as the language's one conjunction, in guards
+%%% and in patterns alike. Builtin type names are lowercase; user types and
+%%% functions are PascalCase, which is what lets the grammar tell them apart
+%%% without a symbol table.
 
 Definitions.
 
@@ -52,6 +53,51 @@ switch                  : {token, {'switch', TokenLine}}.
 %%
 %% Free in the corpus: zero occurrences as an identifier, re-measured 2026-08-16.
 var                     : {token, {'var', TokenLine}}.
+
+%% THE ONE CONJUNCTION — ticket 44, amending ticket 08.
+%%
+%% 08 chose `&&`/`||` over Erlang's `,`/`;`. 42 then took C#'s relational pattern
+%% whole, and C# spells its PATTERN combinator `and`/`or` — so for one hour the
+%% language had two spellings for one meaning, one line apart:
+%%
+%%     Classify(>= 4 and <= 7)           -> :reserved
+%%     Classify(n) when n >= 4 && n < 8  -> :reserved
+%%
+%% C#'s split costs nothing there because patterns and expressions rarely touch.
+%% beam-sharp's defining move puts patterns in the PARAMETER position, so a
+%% pattern and a guard sit on the same line in every non-trivial function. The
+%% condition that makes C#'s split free is exactly the one this language does not
+%% satisfy.
+%%
+%% Erlang's own `and` does not short-circuit where `andalso` does, which is the
+%% one thing that could have made this a false friend. Measured on OTP 28
+%% (`44a_guard_operator_probe.escript`): in GUARD context the distinction is
+%% unobservable — a guard that raises simply fails — and a guard is the only
+%% context beam-sharp lowers a conjunction into.
+%%
+%% `&&` and `||` are REMOVED, not kept as synonyms: write cost carries little
+%% weight and read cost carries full weight, and a reader meeting both spellings
+%% must ask whether the difference is meaningful. Two lexer rules deleted, which
+%% is a rare direction of travel for a language decision.
+%%
+%% The cost is the variable namespace: a parameter named `and` or `or` is now
+%% illegal. Measured in the corpus: zero occurrences.
+and                     : {token, {'and', TokenLine}}.
+or                      : {token, {'or', TokenLine}}.
+
+%% Ticket 20 §5's refinement — `type Octet = int where value >= 0 and value <= 255`.
+%%
+%% One keyword and no second construct: a refinement is a `type` declaration with
+%% a predicate on it, so §5's two tiers are told apart by what the predicate SAYS
+%% rather than by how it is spelled. Guard-decidable predicates are reasoned
+%% about; anything else is refused here (F2's Out of scope, and 20 §5 as amended
+%% by 29 bars the opaque tier from clause heads anyway).
+%%
+%% `value` is deliberately NOT a keyword. It is an ordinary lowercase identifier
+%% that the refinement translator gives meaning to, which keeps it out of the
+%% variable namespace question entirely — a parameter named `value` stays legal,
+%% and the name only means the subject inside a `where`.
+where                   : {token, {'where', TokenLine}}.
 
 %% THE TWO KEYWORD ATOMS. Ticket 10 and `LANGUAGE.md` §4 — *"`true` and `false`
 %% are the only keyword atoms, `bool` is an ordinary alias"* — which the reference
@@ -122,8 +168,9 @@ _                       : {token, {'_', TokenLine}}.
 %% `=>` is a switch arm; two arrows, two jobs. Longest-match keeps it off the
 %% `=` rule below without depending on rule order.
 =>                      : {token, {'=>', TokenLine}}.
-&&                      : {token, {'&&', TokenLine}}.
-\|\|                    : {token, {'||', TokenLine}}.
+%% `&&` and `||` used to be here. Ticket 44 removed them — see the `and`/`or`
+%% rules above. They are not kept as synonyms, so `n > 0 && n < 5` is now a
+%% syntax error rather than a second way to write the same guard.
 ==                      : {token, {'==', TokenLine}}.
 !=                      : {token, {'!=', TokenLine}}.
 <=                      : {token, {'<=', TokenLine}}.

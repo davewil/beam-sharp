@@ -87,7 +87,7 @@ DecodeFrame(<<8:8, ch:16, 0:32, 0xCE:8, rest>>)
 
 DecodeFrame(<<t:8, _:16, size:32, _:size, bad:8, _>>) when bad != 0xCE
     -> (:error, (:bad_frame_end, t, bad))
-DecodeFrame(<<t:8, _>>) when t != 1 && t != 2 && t != 3 && t != 8
+DecodeFrame(<<t:8, _>>) when t != 1 and t != 2 and t != 3 and t != 8
     -> (:error, (:unknown_frame_type, t))
 DecodeFrame(_)
     -> (:error, :incomplete)
@@ -179,7 +179,7 @@ Three consequences, and the middle one is the point:
   were written because 25b *reasoned* the 4-bit opcode gave a closed residual. The language as it
   stands does not agree.
 - **When ticket 20 §5's refinement lands, that reverses — and it reverses worst exactly here.**
-  `type Octet = int where value >= 0 && value <= 255;` is named in the skeleton README as the next
+  `type Octet = int where value >= 0 and value <= 255` is named in the skeleton README as the next
   slice increment. The moment a parameter can be declared with a width, every wire dispatch acquires
   a **closed** residual: 252 unnamed values for a frame type, ~2³² for a class/method pair. The
   feature the map already owes would convert this file from writable to unwritable, unless interval

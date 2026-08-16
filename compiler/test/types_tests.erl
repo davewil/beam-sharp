@@ -41,7 +41,7 @@ conjunction_in_a_guard_is_credited_test() ->
           "type Band = :low | :mid | :high\n"
           "Band Classify(int n)\n"
           "Classify(n) when n < 10             -> :low\n"
-          "Classify(n) when n >= 10 && n < 100 -> :mid\n"
+          "Classify(n) when n >= 10 and n < 100 -> :mid\n"
           "Classify(n) when n >= 100           -> :high\n",
     ?assertMatch({ok, _, []}, check_only(Src)).
 

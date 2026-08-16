@@ -20,7 +20,7 @@ DecodeFrame(<<8:8, ch:16, 0:32, 0xCE:8, rest>>)
 
 DecodeFrame(<<t:8, _:16, size:32, _:size, bad:8, _>>) when bad != 0xCE
     -> (:error, (:bad_frame_end, t, bad))
-DecodeFrame(<<t:8, _>>) when t != 1 && t != 2 && t != 3 && t != 8
+DecodeFrame(<<t:8, _>>) when t != 1 and t != 2 and t != 3 and t != 8
     -> (:error, (:unknown_frame_type, t))
 DecodeFrame(_)
     -> (:error, :incomplete)

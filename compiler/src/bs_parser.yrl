@@ -20,22 +20,26 @@ Nonterminals
 
 Terminals
   'module' 'type' 'when' 'using' 'behaviour' 'record' 'with' 'switch' 'var'
+  'and' 'or' 'where'
   uident lident atom_lit integer string_lit '_'
-  '->' '=>' '&&' '||' '==' '!=' '<=' '>=' '<' '>' '+' '-' '*'
+  '->' '=>' '==' '!=' '<=' '>=' '<' '>' '+' '-' '*'
   '=' '|' ',' '(' ')' '[' ']' '{' '}' '..' '.' ':' '?'
   .
 
 Rootsymbol program.
 
-%% Guards and expressions share an operator table. Ticket 08 settled `&&`/`||`
-%% over Erlang's `,`/`;`, on the grounds that a guard over typed values cannot
-%% fail — so there is nothing for fail-to-false to do.
+%% Guards and expressions share an operator table. Ticket 08 settled the
+%% conjunction over Erlang's `,`/`;`, on the grounds that a guard over typed
+%% values cannot fail — so there is nothing for fail-to-false to do. Ticket 44
+%% then amended the SPELLING to `and`/`or`, leaving the mechanism untouched: the
+%% lifting that makes `(d as int) > 0` yield false is on the comparison, so the
+%% operator joining it to anything else was never part of that argument.
 %% `=` is not an expression operator — a binding is a body form (ticket 34) —
 %% but it needs a precedence so that `x = 1 + 2` shifts the operator instead of
 %% reducing the binding. Lowest, so everything binds tighter than the bind.
 Nonassoc  50 '='.
-Left  100 '||'.
-Left  200 '&&'.
+Left  100 'or'.
+Left  200 'and'.
 Nonassoc 300 '==' '!=' '<' '>' '<=' '>='.
 Left  400 '+' '-'.
 Left  500 '*'.
@@ -418,8 +422,8 @@ expr -> expr '<'  expr : {e_op, line('$2'), '<',  '$1', '$3'}.
 expr -> expr '>'  expr : {e_op, line('$2'), '>',  '$1', '$3'}.
 expr -> expr '<=' expr : {e_op, line('$2'), '<=', '$1', '$3'}.
 expr -> expr '>=' expr : {e_op, line('$2'), '>=', '$1', '$3'}.
-expr -> expr '&&' expr : {e_op, line('$2'), '&&', '$1', '$3'}.
-expr -> expr '||' expr : {e_op, line('$2'), '||', '$1', '$3'}.
+expr -> expr 'and' expr : {e_op, line('$2'), 'and', '$1', '$3'}.
+expr -> expr 'or'  expr : {e_op, line('$2'), 'or',  '$1', '$3'}.
 
 expr_list -> expr               : ['$1'].
 expr_list -> expr ',' expr_list : ['$1' | '$3'].

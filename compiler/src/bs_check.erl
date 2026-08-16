@@ -1076,7 +1076,7 @@ apply_guard(Ty, _Bindings, none) ->
     %% No guard: the pattern alone decides, so both bounds coincide.
     {Ty, Ty};
 apply_guard(Ty, Bindings, {guard, Expr}) ->
-    %% A guard is normalised to alternatives (`||`), each a conjunction (`&&`)
+    %% A guard is normalised to alternatives (`or`), each a conjunction (`and`)
     %% of per-variable constraints. Alternatives union; conjunctions intersect.
     case alternatives(Expr) of
         unknown ->
@@ -1098,13 +1098,16 @@ apply_guard(Ty, Bindings, {guard, Expr}) ->
     end.
 
 %% [] means "no constraint"; unknown means "not translatable".
-alternatives({e_op, _, '||', L, R}) ->
+%%
+%% The operator atoms are `and`/`or` since ticket 44; they were `&&`/`||` until
+%% F2, and the AST carries the surviving spelling rather than the removed one.
+alternatives({e_op, _, 'or', L, R}) ->
     case {alternatives(L), alternatives(R)} of
         {unknown, _} -> unknown;
         {_, unknown} -> unknown;
         {A, B}       -> A ++ B
     end;
-alternatives({e_op, _, '&&', L, R}) ->
+alternatives({e_op, _, 'and', L, R}) ->
     case {alternatives(L), alternatives(R)} of
         {unknown, _} -> unknown;
         {_, unknown} -> unknown;

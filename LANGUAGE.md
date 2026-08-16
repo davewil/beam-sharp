@@ -128,31 +128,24 @@ Five clauses in, five native Erlang clause heads out. **shipped**
 input type — a language that infers the function type from its own clauses can never ask it,
 because the answer is always yes. **shipped**
 
-**Guards** use `when`, with `&&` and `||`. A guard the checker can read as a type operation
+**Guards** use `when`, with `and` and `or`. A guard the checker can read as a type operation
 refines the clause; one it cannot read credits nothing. **shipped**
+<!-- decided by ticket 44, amending ticket 08 -->
 
 ```csharp
-Classify(n) when n < 10             -> :low
-Classify(n) when n >= 10 && n < 100 -> :mid
-Classify(n) when n >= 100           -> :high
+Classify(n) when n < 10              -> :low
+Classify(n) when n >= 10 and n < 100 -> :mid
+Classify(n) when n >= 100            -> :high
 ```
 
 That is exhaustive over `int`, with no catch-all, because the checker carries real integer
 intervals.
 
-**The conjunction is changing to `and` / `or`, and `&&` / `||` are going away.** The block above is
-what compiles **today**; the block below is the decided form, and the two differ only in the
-operator. **decided**
-<!-- decided by ticket 44, amending ticket 08 -->
-
-```csharp not-yet
-Classify(n) when n >= 10 and n < 100 -> :mid
-```
-
-One spelling, in every position — guard, pattern and refinement predicate — because this language
-puts patterns in the *parameter* position, so a pattern and a guard sit on the same line in every
-non-trivial function. C# separates its pattern `and` from its expression `&&` deliberately, and can
-afford to because patterns and expressions rarely touch there; here they always do.
+**One spelling, in every position** — guard, pattern and refinement predicate. There is no `&&` and
+no `||`; they were removed rather than kept as synonyms. This language puts patterns in the
+*parameter* position, so a pattern and a guard sit on the same line in every non-trivial function.
+C# separates its pattern `and` from its expression `&&` deliberately, and can afford to because
+patterns and expressions rarely touch there; here they always do.
 
 **A span of integers is a relational pattern.** `4..7` was refused: C#'s `..` builds a half-open
 slice over *indices*, is not enumerable, and in pattern position already means "the rest" — which

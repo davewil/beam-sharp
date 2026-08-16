@@ -55,8 +55,14 @@
           "match": "\\b(switch|when)\\b"
         },
         {
+          "_comment": "`var` INTRODUCES a name (F8, ticket 45) and `where` carries a type's refinement predicate (F2, ticket 20 §5). `var` shipped with F8 and was never added here; the token gate says so by name, which is what it is for.",
           "name": "keyword.declaration.beam-sharp",
-          "match": "\\b(module|type|record|using|behaviour|behavior|with)\\b"
+          "match": "\\b(module|type|record|using|behaviour|behavior|with|var|where)\\b"
+        },
+        {
+          "_comment": "The one conjunction, in every position -- guard, pattern combinator and refinement predicate (ticket 44, amending ticket 08). There is no && and no ||.",
+          "name": "keyword.operator.logical.beam-sharp",
+          "match": "\\b(and|or)\\b"
         },
         {
           "_comment": "The two keyword atoms. Bare, not sigilled -- and colouring them as constants rather than variables is the whole point: as identifiers they would be VARIABLES matching everything, which is the defect F7 found in the lexer.",

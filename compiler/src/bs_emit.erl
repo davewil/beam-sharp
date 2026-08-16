@@ -256,7 +256,7 @@ conjoin(Tests, none, Line) -> {guard, fold_and(Tests, Line)};
 conjoin(Tests, {guard, Expr}, Line) -> {guard, fold_and(Tests ++ [Expr], Line)}.
 
 fold_and([E], _Line) -> E;
-fold_and([E | Rest], Line) -> {e_op, Line, '&&', E, fold_and(Rest, Line)}.
+fold_and([E | Rest], Line) -> {e_op, Line, 'and', E, fold_and(Rest, Line)}.
 
 guard_vars(none)          -> sets:new([{version, 2}]);
 guard_vars({guard, Expr}) -> used_vars(Expr, sets:new([{version, 2}])).
@@ -445,8 +445,13 @@ arm({arm, L, P, Guard, Body}, C) ->
 erl_op('==') -> '=:=';
 erl_op('!=') -> '=/=';
 erl_op('<=') -> '=<';                            % Erlang spells it the other way round
-erl_op('&&') -> 'andalso';
-erl_op('||') -> 'orelse';
+%% Ticket 44 spells the conjunction `and`, and it lowers to `andalso` rather than
+%% to Erlang's own `and`. The two differ only in short-circuiting, which 44a
+%% measured to be unobservable in guard context — a guard that raises simply
+%% fails — so this picks the one that also behaves in expression position, where
+%% the difference is real.
+erl_op('and') -> 'andalso';
+erl_op('or')  -> 'orelse';
 erl_op(Op)   -> Op.                              % + - * < > >=
 
 %%% ---------------------------------------------------------------------------

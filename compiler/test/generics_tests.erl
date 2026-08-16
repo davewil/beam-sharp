@@ -174,7 +174,7 @@ a_repeated_alias_is_not_a_cycle_test() ->
 angle_brackets_did_not_reach_value_position_test() ->
     M = build_and_load("module Cmp\n"
                        "bool Both(int a, int b, int c, int d)\n"
-                       "Both(a, b, c, d) -> a < b && c > d\n", 'Cmp'),
+                       "Both(a, b, c, d) -> a < b and c > d\n", 'Cmp'),
     ?assertEqual(true,  M:'Both'(1, 2, 5, 3)),
     ?assertEqual(false, M:'Both'(1, 2, 3, 5)).
 
@@ -185,7 +185,7 @@ a_guard_with_comparisons_still_parses_test() ->
           "int Total(int x)\n"
           "Total(x) -> x\n"
           "atom Cmp((int, int) p)\n"
-          "Cmp((x, y)) when x < y && Total(x) > 0 -> :yes\n"
+          "Cmp((x, y)) when x < y and Total(x) > 0 -> :yes\n"
           "Cmp(p)                                 -> :no\n",
     ?assertMatch({ok, _, _}, check_only(Src)).
 

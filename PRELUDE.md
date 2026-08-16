@@ -103,7 +103,8 @@ rejected.
 |---|---|
 | `if`, `unless`, `cond`, `case` | nowhere — `switch` is the only branching construct (17 §6) |
 | `\|>`, `\|?>` | **grammar** (17 §3, §4) |
-| `==`, `!=`, `<`, `<=`, `+`, `-`, `*`, `&&`, `\|\|` | **operators** (8, 16). `==` means `=:=` |
+| `==`, `!=`, `<`, `<=`, `+`, `-`, `*` | **operators** (8, 16). `==` means `=:=` |
+| `&&`, `\|\|` | **do not exist.** The conjunction is `and` / `or`, in every position (44 amending 8) |
 | `is_atom/1` and friends | absent by design — the clause head and the checker do this |
 | `raise` | a prelude function taking **any term**, exactly `:erlang.error/1` (15). **decided**, unbuilt |
 | `try` | absent — `monitor` + `receive` replaces it for remote failure (15) |

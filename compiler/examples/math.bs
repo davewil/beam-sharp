@@ -19,7 +19,7 @@ type Band = :low | :mid | :high
 Band Classify(int n)
 
 Classify(n) when n < 10             -> :low
-Classify(n) when n >= 10 && n < 100 -> :mid
+Classify(n) when n >= 10 and n < 100 -> :mid
 Classify(n) when n >= 100           -> :high
 
 // A destructuring bind, which is legal here for one reason: it CANNOT FAIL.
@@ -33,7 +33,7 @@ bool InBand(int n, (int, int) range)
 
 InBand(n, range) ->
     var (lo, hi) = range
-    n >= lo && n <= hi
+    n >= lo and n <= hi
 
 // F8 and ticket 45 — `== name` matches the value a name ALREADY HOLDS, which is
 // the one thing C# patterns cannot express at all (they push you to

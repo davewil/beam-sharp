@@ -48,7 +48,13 @@ demonstrated_surface() ->
      {"a field projection",                      "\\.[A-Z]"},
      {"a tag or property pattern",               "\\{ [A-Z][A-Za-z]*:"},
      {"a guard",                                 " when "},
-     {"a conjunction in a guard",                "&&"},
+     %% Ticket 44 renamed the conjunction from `&&` to `and`, and this probe is
+     %% where the rename first showed up as a red gate rather than as a diff: the
+     %% old regex was one glyph that could not appear in any other construct, and
+     %% the new spelling is a word. So it is anchored on `when` — the guard is the
+     %% position the row is a sentence about, and a bare " and " would also match
+     %% the pattern combinator two rows down, which is a different capability.
+     {"a conjunction in a guard",                "when .* and "},
      {"an empty-list pattern",                   "\\[\\]"},
      {"a list pattern with a rest",              "\\[[a-z]+, \\.\\."},
      {"a local binding",                         "^ +var [a-z]"},

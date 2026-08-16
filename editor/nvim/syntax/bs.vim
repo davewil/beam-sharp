@@ -16,7 +16,13 @@ endif
 " `switch` is the only branching construct (ticket 17 §6). There is no `if`, no
 " `else`, no `cond` and no ternary to list beside it.
 syn keyword bsConditional switch when
-syn keyword bsKeyword     module type record using behaviour behavior with
+" `var` introduces a name (F8, ticket 45); `where` carries a type's refinement
+" predicate (F2, ticket 20 §5). `var` shipped with F8 and was never listed here.
+syn keyword bsKeyword     module type record using behaviour behavior with var where
+
+" The one conjunction, in every position -- guard, pattern combinator and
+" refinement predicate (ticket 44, amending ticket 08). There is no && and no ||.
+syn keyword bsOperator    and or
 
 " The two keyword atoms. Highlighting these as constants rather than as
 " identifiers is not decoration: as identifiers they are VARIABLES, and a
