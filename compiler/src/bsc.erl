@@ -399,6 +399,18 @@ report(Path, {error, Line, Fn, {rebinding, V}}) ->
               "  a name means one thing in a clause. There is no mutation to~n"
               "  assign with, so rename the second one.~n",
               [Path, Line, Fn, V]);
+%% F8.10. The same offence as `rebinding` and a DIFFERENT fix, which is why it is
+%% a different descriptor rather than a shared one: in a body you rename, in a
+%% head you almost always meant *the same value again*, and ticket 45 supplies
+%% the spelling for saying so. A message that named the wrong fix would be worse
+%% than terse, because this is the case where the author's intent is guessable.
+report(Path, {error, Line, Fn, {repeated_in_head, V}}) ->
+    io:format(standard_error,
+              "~s:~p: error: ~s binds ~s twice in one head~n"
+              "  a name means one thing in a clause, so this introduces ~s and~n"
+              "  then introduces it again. To match the value the first one~n"
+              "  holds, write `== ~s`.~n",
+              [Path, Line, Fn, V, V, V]);
 report(Path, {error, Line, Fn, {unbound_variable, V}}) ->
     io:format(standard_error,
               "~s:~p: error: ~s uses ~s, which nothing binds~n"

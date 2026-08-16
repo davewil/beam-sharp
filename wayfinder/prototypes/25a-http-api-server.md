@@ -163,7 +163,7 @@ independent checks, each halting the flow on failure:
 Response Admit(Request)
 
 Admit(r) ->
-    outcome = r |?> Authenticated()
+    var outcome = r |?> Authenticated()
                 |?> Verified()
                 |?> WithinQuota()
                 |?> WithinSize()

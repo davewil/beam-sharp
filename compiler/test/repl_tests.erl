@@ -88,7 +88,7 @@ a_binding_is_readable_afterwards_test() ->
         true  ->
             %% The bound name is read from INSIDE a record literal, which is a
             %% separate path from resolving it bare.
-            Out = repl(["x = 7",
+            Out = repl(["var x = 7",
                         "Squared({Kind = :'Repl.Order', Id = 1, Total = x})"]),
             said(Out, "49")
     end.
@@ -102,7 +102,7 @@ a_parenthesised_tuple_binds_and_echoes_test() ->
     case built() of
         false -> ok;
         true  ->
-            Out = repl(["y = (1, 2)", "y"]),
+            Out = repl(["var y = (1, 2)", "y"]),
             said(Out, "(1, 2)"),
             silent(Out, "no /2")
     end.
@@ -113,7 +113,7 @@ a_brace_that_is_not_a_record_names_both_spellings_test() ->
     case built() of
         false -> ok;
         true  ->
-            Out = repl(["z = {1, 2}"]),
+            Out = repl(["var z = {1, 2}"]),
             said(Out, "a tuple is parenthesised"),
             said(Out, "a brace is a record")
     end.
@@ -122,7 +122,7 @@ a_record_round_trips_in_one_spelling_test() ->
     case built() of
         false -> ok;
         true  ->
-            Out = repl(["r = {Id = 1, Total = 500}", "r"]),
+            Out = repl(["var r = {Id = 1, Total = 500}", "r"]),
             said(Out, "Total = 500")
     end.
 
@@ -161,14 +161,14 @@ a_literal_on_the_left_matches_test() ->
     case built() of
         false -> ok;
         true  ->
-            Out = repl(["x = 1", "1 = x"]),
+            Out = repl(["var x = 1", "1 = x"]),
             silent(Out, "cannot read")
     end.
 
 a_literal_that_cannot_match_is_refused_test() ->
     case built() of
         false -> ok;
-        true  -> said(repl(["x = 1", "2 = x"]), "does not match")
+        true  -> said(repl(["var x = 1", "2 = x"]), "does not match")
     end.
 
 %% Closes the hole F5 left at this prompt: a destructuring bind that binds.
@@ -176,22 +176,64 @@ a_destructuring_match_binds_every_name_test() ->
     case built() of
         false -> ok;
         true  ->
-            Out = repl(["p = (1, 2)", "(a, b) = p", "Echo(b)"]),
+            Out = repl(["var p = (1, 2)", "var (a, b) = p", "Echo(b)"]),
             said(Out, "2"),
             silent(Out, "does not match")
     end.
 
-%% EVERY NAME IS PINNED. A bound name inside a pattern matches the value it
-%% holds rather than rebinding it, which is ticket 34's "a name means one thing"
-%% and is why the language needs no `^`.
-a_bound_name_in_a_pattern_matches_rather_than_rebinds_test() ->
+%% F8.8 — ONE RULE, BOTH SURFACES, AND THIS PROMPT IS THE SURFACE THAT MOVED.
+%%
+%% Until 2026-08-16 this test asserted PIN-BY-DEFAULT: a bound name in a pattern
+%% matched the value it held, under a source comment stating the language
+%% therefore *"needs no `^`: there is nothing to disambiguate."* That shipped the
+%% same day David settled the opposite shape, and ticket 45 found it — nothing
+%% failed, because both halves agreed with themselves.
+%%
+%% The marked rule won: a bare name INTRODUCES, `== name` matches. So the prompt
+%% changed and the claim was deleted with the behaviour, which matters more than
+%% the branch did — a confident comment arguing a settled question away survives
+%% a test suite, and the branch beneath it does not.
+a_bound_name_must_be_marked_to_match_test() ->
     case built() of
         false -> ok;
         true  ->
-            Ok = repl(["p = (1, 2)", "n = 1", "(n, b) = p"]),
+            %% `== n` matches the value `n` holds, so the match succeeds.
+            Ok = repl(["var p = (1, 2)", "var n = 1", "var (== n, b) = p"]),
             silent(Ok, "does not match"),
-            No = repl(["p = (1, 2)", "m = 9", "(m, _) = p"]),
+            %% ...and genuinely tests it, rather than matching anything.
+            No = repl(["var p = (1, 2)", "var m = 9", "var (== m, b) = p"]),
             said(No, "does not match")
+    end.
+
+%% The other half of the same rule, and the one a reader of the old dialect will
+%% trip on first: a BARE bound name is a rebinding, and the message names `==` as
+%% the fix rather than merely refusing.
+a_bare_bound_name_is_a_rebinding_and_names_the_fix_test() ->
+    case built() of
+        false -> ok;
+        true  ->
+            Out = repl(["var p = (1, 2)", "var n = 1", "var (n, b) = p"]),
+            said(Out, "already bound"),
+            said(Out, "== n")
+    end.
+
+%% David's three lines, now identical at the prompt and in a file. `x = 1` is the
+%% one that changed: it used to introduce here and now refuses, naming `var`.
+a_bare_binding_at_the_prompt_refuses_and_names_var_test() ->
+    case built() of
+        false -> ok;
+        true  ->
+            Out = repl(["x = 1"]),
+            said(Out, "var x = ")
+    end.
+
+%% `== name` needs something to match against, and saying so beats reporting the
+%% pattern as unreadable — F4's rule that a diagnostic names the fix.
+an_unbound_name_after_the_marker_says_so_test() ->
+    case built() of
+        false -> ok;
+        true  -> said(repl(["var p = (1, 2)", "var (== nope, b) = p"]),
+                      "not bound")
     end.
 
 %% The message names what was typed against what it was typed at. Reporting the
@@ -200,7 +242,7 @@ a_bound_name_in_a_pattern_matches_rather_than_rebinds_test() ->
 a_failed_match_names_the_whole_value_test() ->
     case built() of
         false -> ok;
-        true  -> said(repl(["p = (1, 2)", "(9, _) = p"]), "does not match (1, 2)")
+        true  -> said(repl(["var p = (1, 2)", "(9, _) = p"]), "does not match (1, 2)")
     end.
 
 %%% --- the diagnostics that were already right, pinned so they stay right -----

@@ -39,6 +39,19 @@ with                    : {token, {'with', TokenLine}}.
 %% There is no `if`, no `else`, no `cond` and no ternary for this to sit beside,
 %% so it is a keyword with nothing to be told apart from.
 switch                  : {token, {'switch', TokenLine}}.
+%% F8: a binding must SAY it is one. In C# a bare `x = 1` ASSIGNS to an existing
+%% variable, which is the one thing this language cannot do — so unmarked, it puts
+%% mutation in a C# reader's head at exactly the site the language forbids it.
+%% `var x = 1` reads as *introduce x*, and `var` meaning "infer the type" is
+%% literally correct here, where everything is inferred.
+%%
+%% It is also not merely free but PAYS: the marker is what lets the parser take a
+%% `pattern` directly, which deletes `to_pattern/1` and the parse-wider-then-narrow
+%% workaround. Measured — `binding -> pattern '=' expr` without it is 15
+%% reduce/reduce and yecc refuses to generate.
+%%
+%% Free in the corpus: zero occurrences as an identifier, re-measured 2026-08-16.
+var                     : {token, {'var', TokenLine}}.
 
 %% THE TWO KEYWORD ATOMS. Ticket 10 and `LANGUAGE.md` §4 — *"`true` and `false`
 %% are the only keyword atoms, `bool` is an ordinary alias"* — which the reference

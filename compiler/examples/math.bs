@@ -32,5 +32,25 @@ Classify(n) when n >= 100           -> :high
 bool InBand(int n, (int, int) range)
 
 InBand(n, range) ->
-    (lo, hi) = range
+    var (lo, hi) = range
     n >= lo && n <= hi
+
+// F8 and ticket 45 — `== name` matches the value a name ALREADY HOLDS, which is
+// the one thing C# patterns cannot express at all (they push you to
+// `when v == expected`). A bare name INTRODUCES; the marker is what asks for the
+// match, and it reads as the equality member of the relational family.
+//
+// The second clause tests `head` rather than rebinding it. Note what it costs:
+// a matched name credits NOTHING to the certain set, because the compiler does
+// not know the value — so the third clause is doing real exhaustiveness work
+// rather than padding, and deleting it would be an error rather than a tidy-up.
+//
+// Lowered with no guard and no comparison: a bound variable repeated in an
+// Erlang pattern IS an equality test, so the target does the whole job. B# needs
+// a token here only because it forbids rebinding and so cannot use that rule
+// directly.
+int RunLength(int head, list<int> xs)
+
+RunLength(head, [])                -> 0
+RunLength(head, [== head, ..rest]) -> 1 + RunLength(head, rest)
+RunLength(head, [_, ..rest])       -> 0

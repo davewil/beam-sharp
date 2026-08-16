@@ -328,7 +328,7 @@ So: **the shape 17 §6 was watching for exists, at width 4, and `switch` handled
 binary EncodeAck(int deliveryTag, bool multiple)
 
 EncodeAck(tag, multiple) ->
-    payload = <<60:16, 80:16, tag:64, 0:7, Bit(multiple):1>>
+    var payload = <<60:16, 80:16, tag:64, 0:7, Bit(multiple):1>>
     Wrap(1, 1, payload)
 
 binary Wrap(int type, int channel, binary payload)

@@ -368,12 +368,59 @@ check_fn(F = #fn{name = Name, line = Line, params = Params, ret = Ret}, Ctx0) ->
 %%% ---------------------------------------------------------------------------
 
 scope_diags({clause, Line, Name, Patterns, Guard, Body}) ->
-    Bound = lists:append([pattern_vars(P) || P <- Patterns]),
+    {Bound, HeadDiags} = head_scope(Patterns, Line, Name),
+    HeadDiags ++
     %% A guard is read in the scope of the CLAUSE HEAD alone — bindings come
     %% after it. Scanned here because F4's rule is that an unbound name is a
     %% `bsc` error, and a guard was the one place it still reached `erlc` as
     %% `variable 'X' is unbound` against a file the author did not write.
     guard_scope(Guard, Bound, Line, Name) ++ check_scope(Body, Bound, Name, Line, []).
+
+%% F8.10 — A REPEATED BARE NAME IN A HEAD IS AN ERROR, AND UNTIL 2026-08-16 IT
+%% WAS A SOUNDNESS HOLE.
+%%
+%% `F(acc, acc) -> :same` as the ONLY clause was accepted as exhaustive over
+%% `(int, int)`, and `F(1, 2)` crashed with `function_clause`. A function the
+%% compiler proved total, crashing on a value of its declared input type — the one
+%% guarantee everything else rests on.
+%%
+%% The cause was a split between this checker's model and the emitted code.
+%% `pattern_type/3` reads the second `acc` as a fresh `p_var`, so the clause looks
+%% like it covers the whole domain; the emitter writes `_Acc` twice, and Erlang's
+%% repeated-variable rule makes THAT a genuine equality test. So B# already had
+%% pin-by-default in clause heads — by accident, through the emitter, with the
+%% checker unaware. With a second clause it surfaced as `unreachable_clause`
+%% pointing at the clause actually doing the work.
+%%
+%% The merge site is why it was invisible: `pattern_row/2` folds the per-parameter
+%% binding maps with `maps:merge/2`, which silently keeps the rightmost duplicate.
+%% That is the SAME mechanism as the duplicate type declaration `type_env/1` has
+%% (`maps:from_list/1`, also rightmost) — one bug shape, two locations.
+%%
+%% Refusing it here rather than teaching `pattern_type/3` about repeats is what
+%% ticket 45 settled: a bare name INTRODUCES, and `== name` is how you ask for the
+%% match. So this reuses `rebinding`, whose message already says the right thing —
+%% *a name means one thing in a clause* — one line lower in a body.
+%%
+%% A head is ONE simultaneous match, so `== acc` may name a parameter to its left
+%% or its right. Order-independence is what the emitted Erlang does, and inventing
+%% a left-to-right rule the target does not have would be a rule to be taught.
+head_scope(Patterns, Line, Name) ->
+    {Bound, Dups} =
+        lists:foldl(
+          fun(V, {B, A}) ->
+                  case lists:member(V, B) of
+                      true  -> {B, [{error, Line, Name, {repeated_in_head, V}} | A]};
+                      false -> {[V | B], A}
+                  end
+          end, {[], []},
+          lists:append([pattern_vars(P) || P <- Patterns])),
+    %% `== acc` READS a name rather than introducing one, so it must resolve. In a
+    %% head the only scope is the head itself.
+    Refs = lists:append([pattern_matched_vars(P) || P <- Patterns]),
+    Unbound = [{error, Line, Name, {unbound_variable, V}}
+               || V <- lists:usort(Refs), not lists:member(V, Bound)],
+    {Bound, Dups ++ Unbound}.
 
 guard_scope(none, _Bound, _Line, _Name)        -> [];
 guard_scope({guard, G}, Bound, Line, Name)     -> name_diags(G, Bound, Line, Name, []).
@@ -440,6 +487,14 @@ arm_rebinds({arm, Line, P, Guard, Body}, Bound, Name) ->
     Inner = Bound ++ Vars,
     [{error, Line, Name, {rebinding, V}}
      || V <- lists:usort(Vars), lists:member(V, Bound)]
+    %% F8 — the other half of the rule above. An arm may not REBIND a name in
+    %% scope, and `== name` is now how it MATCHES one; so a `== name` naming
+    %% something not in scope is the mirror error, and without this check it
+    %% would reach `erlc` as `variable 'X' is unbound` against a file the author
+    %% never wrote — F4's rule.
+        ++ [{error, Line, Name, {unbound_variable, V}}
+            || V <- lists:usort(pattern_matched_vars(P)),
+               not lists:member(V, Bound ++ Vars)]
         ++ rebinds(Body, Inner, Name)
         ++ case Guard of none -> []; {guard, G} -> rebinds(G, Inner, Name) end.
 
@@ -449,7 +504,23 @@ pattern_vars({p_map, _, Fs})           -> lists:append([pattern_vars(P) || {_, P
 pattern_vars({p_list, _, Items, Rest}) ->
     lists:append([pattern_vars(P) || P <- Items])
         ++ case Rest of nil -> []; R -> pattern_vars(R) end;
+%% `p_eqvar` is deliberately absent: `== acc` MATCHES the value `acc` holds and
+%% introduces nothing, so it contributes no binding. That is the whole distinction
+%% ticket 45 chose the token to mark.
 pattern_vars(_)                        -> [].
+
+%% Every name a pattern READS — which today is exactly `== name`. Separate from
+%% `pattern_vars/1` because the two answer opposite questions about the same
+%% tree, and a pattern may do both: `F(k, { Kind: == k })` binds `k` and reads it.
+pattern_matched_vars({p_eqvar, _, V})          -> [V];
+pattern_matched_vars({p_tuple, _, Ps})         ->
+    lists:append([pattern_matched_vars(P) || P <- Ps]);
+pattern_matched_vars({p_map, _, Fs})           ->
+    lists:append([pattern_matched_vars(P) || {_, P} <- Fs]);
+pattern_matched_vars({p_list, _, Items, Rest}) ->
+    lists:append([pattern_matched_vars(P) || P <- Items])
+        ++ case Rest of nil -> []; R -> pattern_matched_vars(R) end;
+pattern_matched_vars(_)                        -> [].
 
 %% Every variable an expression READS. Deliberately not shared with the
 %% emitter's `used_vars/2`, which answers a different question — whether to
@@ -921,6 +992,27 @@ pattern_type({p_int, _, N}, _Path, _Env)  -> {bs_types:range(N, N), #{}, true};
 pattern_type({p_atom, _, A}, _Path, _Env) -> {bs_types:atom_lit(A), #{}, true};
 pattern_type({p_wild, _}, _Path, _Env)    -> {bs_types:term(), #{}, true};
 pattern_type({p_var, _, V}, Path, _Env)   -> {bs_types:term(), #{V => Path}, true};
+%% F8.6 — A MATCHED NAME CREDITS NOTHING TO `Certain`, AND THIS `false` IS THE
+%% SOUNDNESS HEART OF THE FEATURE.
+%%
+%% `== acc` is a value test whose value the compiler DOES NOT KNOW. So it is
+%% inexact in exactly the sense `[0, ..t]` is — an upper bound on what the clause
+%% matches, not the thing itself. It may bound `Possible`; crediting `Certain`
+%% would claim coverage the clause does not have, which is the one failure this
+%% whole project exists to rule out.
+%%
+%% Note the shape of the mistake if this said `true`: the compiler gets QUIETER,
+%% not louder — it accepts a program it should reject. So the test that guards it
+%% must assert an error the wrong build OMITS, which is F5.7, F6's hang and F9's
+%% byte count wearing a fourth costume.
+%%
+%% It binds nothing (`#{}`) — that is the distinction the token marks — and it
+%% answers `term()` rather than looking the name's type up. Narrowing arrives
+%% anyway and for free: `walk/5` intersects `Possible` with the running residual,
+%% which comes from the DECLARED domain, so a body reads the declared type at
+%% this position rather than `term`. Ticket 33's mechanism already covers what
+%% F8.7 asked for.
+pattern_type({p_eqvar, _, _V}, _Path, _Env) -> {bs_types:term(), #{}, false};
 pattern_type({p_tuple, _, Ps}, Path, Env) ->
     Indexed = lists:zip(Ps, lists:seq(1, length(Ps))),
     Triples = [pattern_type(P, Path ++ [I], Env) || {P, I} <- Indexed],

@@ -50,7 +50,7 @@ Hit(n) -> 0
 int Ends(list<int> rotations, int pos, int zeros)
 Ends([], pos, zeros)          -> zeros
 Ends([d, ..rest], pos, zeros) ->
-    next = Wrap(pos + d)
+    var next = Wrap(pos + d)
     Ends(rest, next, zeros + Hit(next))
 
 int PartOne(list<int> rotations)
@@ -67,7 +67,7 @@ PartOne(rs) -> Ends(rs, 50, 0)
 (int, int) Spin(int pos, int step, int left, int zeros)
 Spin(pos, step, 0, zeros)              -> (pos, zeros)
 Spin(pos, step, left, zeros) when left > 0 ->
-    next = Wrap(pos + step)
+    var next = Wrap(pos + step)
     Spin(next, step, left - 1, zeros + Hit(next))
 Spin(pos, step, left, zeros) when left < 0 -> (pos, zeros)
 
@@ -85,7 +85,7 @@ Size(d) when d < 0  -> -d
 int Clicks(list<int> rotations, int pos, int zeros)
 Clicks([], pos, zeros)          -> zeros
 Clicks([d, ..rest], pos, zeros) ->
-    (next, hits) = Spin(pos, Sign(d), Size(d), zeros)
+    var (next, hits) = Spin(pos, Sign(d), Size(d), zeros)
     Clicks(rest, next, hits)
 
 int PartTwo(list<int> rotations)

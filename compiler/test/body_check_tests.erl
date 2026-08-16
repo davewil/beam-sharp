@@ -177,7 +177,7 @@ a_binding_carries_its_type_into_the_rest_of_the_body_test() ->
           "record Order { Id: int, Total: int }\n"
           "atom Wrong(Order o)\n"
           "Wrong(o) ->\n"
-          "    t = o.Total\n"
+          "    var t = o.Total\n"
           "    t\n",
     ?assertMatch([{error, _, 'Wrong', {return_not_declared, _}}], errors(Src)).
 
@@ -187,7 +187,7 @@ a_destructuring_bind_that_cannot_fail_runs_test() ->
     Src = "module Pairs\n"
           "int Sum((int, int) pair)\n"
           "Sum(pair) ->\n"
-          "    (a, b) = pair\n"
+          "    var (a, b) = pair\n"
           "    a + b\n",
     M = build_and_load(Src, 'Pairs'),
     ?assertEqual(7, M:'Sum'({3, 4})).
@@ -197,7 +197,7 @@ a_destructuring_bind_that_can_fail_is_an_error_test() ->
           "type Thing = (int, int) | :nothing\n"
           "atom Sum(Thing thing)\n"
           "Sum(thing) ->\n"
-          "    (a, b) = thing\n"
+          "    var (a, b) = thing\n"
           "    :done\n",
     [{error, _, 'Sum', {bind_may_fail, Residual}}] = errors(Src),
     ?assertEqual(":nothing", lists:flatten(bs_types:to_pattern(Residual))).
@@ -221,7 +221,7 @@ a_literal_match_that_cannot_fail_is_accepted_test() ->
     Src = "module SpecOk\n"
           "int F()\n"
           "F() ->\n"
-          "    x = 1\n"
+          "    var x = 1\n"
           "    1 = x\n"
           "    x\n",
     M = build_and_load(Src, 'SpecOk'),
@@ -231,7 +231,7 @@ a_literal_match_that_cannot_succeed_is_an_error_test() ->
     Src = "module SpecErr\n"
           "int F()\n"
           "F() ->\n"
-          "    x = 1\n"
+          "    var x = 1\n"
           "    2 = x\n"
           "    x\n",
     [{error, _, 'F', {bind_may_fail, Residual}}] = errors(Src),
@@ -248,7 +248,7 @@ a_match_is_decided_by_the_type_not_the_value_test() ->
           "Get() -> 2\n"
           "int F()\n"
           "F() ->\n"
-          "    y = Get()\n"
+          "    var y = Get()\n"
           "    2 = y\n"
           "    y\n",
     [{error, _, 'F', {bind_may_fail, Residual}}] = errors(Src),
@@ -258,7 +258,10 @@ a_match_is_decided_by_the_type_not_the_value_test() ->
 %% A plain `x = e` still produces ticket 34's node, so nothing downstream of the
 %% parser learns a new shape for the case that already worked.
 a_plain_binding_still_parses_as_a_name_test() ->
-    {ok, Toks, _} = bs_lexer:string("module M\nint F(int a)\nF(a) ->\n    t = 1\n    t\n"),
+    %% F8 — `var` changed how the LEFT of a binding is READ, not what a binding
+    %% IS. This still asserts the `{bind, …}` node ticket 34 shipped, which is the
+    %% claim that nothing downstream of the parser learned a new shape.
+    {ok, Toks, _} = bs_lexer:string("module M\nint F(int a)\nF(a) ->\n    var t = 1\n    t\n"),
     {ok, Decls} = bs_parser:parse(Toks),
     ?assertMatch([{clause, _, 'F', _, _, {e_block, _, [{bind, _, t, _}], _}}],
                  [D || D = {clause, _, _, _, _, _} <- Decls]).
@@ -269,7 +272,7 @@ a_wildcard_may_stand_on_the_left_of_a_bind_test() ->
     Src = "module Pairs\n"
           "int First((int, int) pair)\n"
           "First(pair) ->\n"
-          "    (a, _) = pair\n"
+          "    var (a, _) = pair\n"
           "    a\n",
     M = build_and_load(Src, 'Pairs'),
     ?assertEqual(3, M:'First'({3, 4})).

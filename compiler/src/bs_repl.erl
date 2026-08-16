@@ -88,19 +88,10 @@ dispatch(Line, File, Dir, Mod, Env) ->
 
 run(Line, Mod, Env) ->
     case binding(Line) of
-        {match, Pat, Rhs} ->
-            case value_of(Rhs, Mod, Env) of
-                {ok, V} ->
-                    case match(Pat, V, Env) of
-                        {ok, Env1} ->
-                            io:format("~s~n", [bs_run:format_value(V)]),
-                            Env1;
-                        {error, Msg} ->
-                            io:format(standard_error, "~ts~n", [Msg]), Env
-                    end;
-                {error, Msg} ->
-                    io:format(standard_error, "~ts~n", [Msg]), Env
-            end;
+        %% `var <pattern> = e` — a destructuring bind, so introductions are the
+        %% point. A bare `=` takes the clause below and may introduce nothing.
+        {match_intro, Pat, Rhs} -> do_match(Pat, Rhs, Mod, Env, true);
+        {match, Pat, Rhs}       -> do_match(Pat, Rhs, Mod, Env, false);
         {Name, Rhs} ->
             case value_of(Rhs, Mod, Env) of
                 {ok, V} ->
@@ -115,6 +106,20 @@ run(Line, Mod, Env) ->
                 {ok, V}      -> io:format("~s~n", [bs_run:format_value(V)]), Env;
                 {error, Msg} -> io:format(standard_error, "~ts~n", [Msg]), Env
             end
+    end.
+
+do_match(Pat, Rhs, Mod, Env, Intro) ->
+    case value_of(Rhs, Mod, Env) of
+        {ok, V} ->
+            case match(Pat, V, Env, Intro) of
+                {ok, Env1} ->
+                    io:format("~s~n", [bs_run:format_value(V)]),
+                    Env1;
+                {error, Msg} ->
+                    io:format(standard_error, "~ts~n", [Msg]), Env
+            end;
+        {error, Msg} ->
+            io:format(standard_error, "~ts~n", [Msg]), Env
     end.
 
 %% `x = ...` where the name is a beam-sharp variable. Split on the FIRST `=`,
@@ -134,21 +139,57 @@ binding(Line) ->
     end.
 
 split_binding(Line) ->
-    case string:split(Line, "=") of
-        [Lhs0, Rhs] ->
+    case split_eq(Line) of
+        [Lhs0, Rhs0] ->
             Lhs = string:trim(Lhs0),
-            case {is_name(Lhs), Lhs} of
-                %% Keyed by the name AS TYPED, because that is what the reader
-                %% has to match when it meets the name nested in a literal.
-                {true, _}  -> {Lhs, string:trim(Rhs)};
-                {false, ""} -> none;
-                %% Anything else on the left is a PATTERN, not a name — David,
-                %% 2026-08-15: *"I do want Elixir matching behaviour. e.g x = 1,
-                %% then 1 = x, 2 = x is an error."*
-                {false, _} -> {match, Lhs, string:trim(Rhs)}
+            Rhs = string:trim(Rhs0),
+            case Lhs of
+                "" -> none;
+                %% F8 — `var` INTRODUCES, at the prompt exactly as in a file.
+                "var " ++ Pat0 ->
+                    case string:trim(Pat0) of
+                        ""  -> none;
+                        Pat ->
+                            case is_name(Pat) of
+                                %% Keyed by the name AS TYPED, because that is
+                                %% what the reader has to match when it meets the
+                                %% name nested in a literal.
+                                true  -> {Pat, Rhs};
+                                false -> {match_intro, Pat, Rhs}
+                            end
+                    end;
+                %% A bare `=` MATCHES — David, 2026-08-15: *"I do want Elixir
+                %% matching behaviour. e.g x = 1, then 1 = x, 2 = x is an
+                %% error."* What F8 changed is only that it may not INTRODUCE, so
+                %% a plain name here is the mistake the message names.
+                _ -> {match, Lhs, Rhs}
             end;
         _ -> none
     end.
+
+%% Split on the first `=` THAT IS NOT PART OF `==`.
+%%
+%% `string:split(Line, "=")` was right until ticket 45 put `==` in patterns: it
+%% cut `(== n, b) = p` after the first character, handing the reader `(` as a
+%% pattern. The right-hand side may still contain any number of `=` — a record is
+%% `{Kind = ..., Id = ...}` — so this stays a split on the FIRST separator, with
+%% only the definition of "separator" corrected.
+split_eq(Line) -> split_eq(Line, []).
+
+split_eq([$=, $= | T], Acc) -> split_eq(T, [$=, $= | Acc]);
+split_eq([$= | T], Acc)     -> [lists:reverse(Acc), T];
+split_eq([C | T], Acc)      -> split_eq(T, [C | Acc]);
+split_eq([], _Acc)          -> [].
+
+%% Every name a prompt pattern would INTRODUCE. A bare `=` may introduce nothing,
+%% which is `to_match/1`'s rule in the parser wearing the shell's clothes — the
+%% same sentence enforced on both surfaces, which is what F8.8 asks for.
+introduced(wild)         -> [];
+introduced({bind, N})    -> [N];
+introduced({lit, _})     -> [];
+introduced({tuple, Ps})  -> lists:append([introduced(P) || P <- Ps]);
+introduced({list, Ps})   -> lists:append([introduced(P) || P <- Ps]);
+introduced(_)            -> [].
 
 %%% ---------------------------------------------------------------------------
 %%% `=` is a MATCH, not an assignment
@@ -168,14 +209,27 @@ split_binding(Line) ->
 %%% against the value the name actually holds. Same rule, same message shape,
 %%% earlier information.
 %%%
-%%% A name already bound is matched against, never rebound — which is ticket 34's
-%%% rule ("a name means one thing") and removes Elixir's need for a pin operator:
-%%% there is no `^x` because there is nothing to disambiguate.
+%%% A bare name INTRODUCES; `== name` matches the value a name already holds.
+%%% One rule, both surfaces — F8.8 — and the prompt is the surface that moved.
+%%% Ticket 34's "a name means one thing" makes a bare rebinding an error here as
+%%% it is in a file, and ticket 45 supplies the spelling for the other intent.
 %%% ---------------------------------------------------------------------------
 
-match(Text, Value, Env) ->
+%% `Intro` says whether this match is allowed to introduce names: `var` says yes,
+%% a bare `=` says no. Same rule as `to_match/1` in the parser, and it is here
+%% rather than in the caller so the check sits next to the pattern it is about.
+match(Text, Value, Env, Intro) ->
     case pattern(string:trim(Text), Env) of
         {error, Msg} -> {error, Msg};
+        {ok, Pat} when not Intro ->
+            case lists:usort(introduced(Pat)) of
+                [] -> unify(Pat, Value, Env, {Text, Value});
+                [N | _] ->
+                    {error, io_lib:format(
+                       "~ts is introduced here, and a bare `=` matches rather "
+                       "than introduces -- write `var ~ts = ...`",
+                       [N, string:trim(Text)])}
+            end;
         %% The whole value travels with the recursion so a nested failure
         %% reports what the author typed against what they typed it at —
         %% reporting the failing COMPONENT said "(9, _) does not match 1",
@@ -186,16 +240,43 @@ match(Text, Value, Env) ->
 %% A pattern is read from the same surface the value reader takes, with one
 %% difference: an unbound lowercase name is a BINDER rather than an error.
 pattern("_", _Env) -> {ok, wild};
+%% F8 / ticket 45 — `== name` MATCHES the value a name already holds.
+%%
+%% This clause replaces pin-by-default, which shipped here on 2026-08-15 under a
+%% comment asserting *"the language needs no `^`: there is nothing to
+%% disambiguate"* — written the same day David settled the opposite shape, and
+%% found by ticket 45 rather than by anything failing. F8.8 knew the prompt and
+%% the compiler disagreed; it did not say which side moved. The marked rule won,
+%% so this is the side that moved.
+%%
+%% The claim was deleted along with the behaviour, deliberately. A confident
+%% comment arguing a settled question away is worse than the wrong branch beneath
+%% it: the branch fails a test, the comment persuades the next reader.
+pattern([$=, $= | Rest], Env) ->
+    Name = string:trim(Rest),
+    case is_name(Name) of
+        true ->
+            case maps:find(Name, Env) of
+                {ok, V} -> {ok, {lit, V}};
+                error   -> {error, io_lib:format(
+                              "~ts is not bound, so `== ~ts` has nothing to match "
+                              "against -- :env lists what is", [Name, Name])}
+            end;
+        false -> {error, "`==` in a pattern must be followed by a name"}
+    end;
 pattern(S, Env) ->
     case is_name(S) of
         true ->
             case maps:find(S, Env) of
-                %% ALREADY BOUND — so it MATCHES against the value it holds,
-                %% rather than rebinding it. Every name is pinned, because
-                %% ticket 34 says a name means one thing, which is why the
-                %% language needs no `^`: there is nothing to disambiguate.
-                {ok, V} -> {ok, {lit, V}};
-                error   -> {ok, {bind, S}}
+                %% ALREADY BOUND — and a bare name INTRODUCES, so this is a
+                %% rebinding, which ticket 34 makes an error. The prompt has no
+                %% compile step, so it is caught against the value the name
+                %% actually holds; same rule, same message shape, earlier.
+                {ok, _V} -> {error, io_lib:format(
+                               "~ts is already bound -- a name means one thing. "
+                               "Write `== ~ts` to match the value it holds",
+                               [S, S])};
+                error    -> {ok, {bind, S}}
             end;
         false -> compound_pattern(S, Env)
     end.

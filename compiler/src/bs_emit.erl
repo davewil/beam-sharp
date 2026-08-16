@@ -108,7 +108,17 @@ clause({clause, Line, _Name, Patterns, Guard, Body}, Params, Ctx) ->
     %% which is not a warning but a compile error in the emitted Erlang.
     {Patterns1, Tests} = boundary_guards(Patterns, Params, Line, Ctx),
     Guard1 = conjoin(Tests, Guard, Line),
-    Used = used_vars(Body, guard_vars(Guard1)),
+    %% F8 — a `== acc` READS `acc`, and it reads it from a PATTERN rather than
+    %% from the body or the guard, which is the only place `used_vars/2` looks.
+    %% Without this seed, a parameter mentioned nowhere but in another parameter's
+    %% `== acc` lowers to `_Acc` while the match lowers to `Acc`, and the emitted
+    %% Erlang fails to compile with `variable 'Acc' is unbound` — against a file
+    %% the author never wrote. Identical in shape to the arm-body hazard
+    %% `used_vars/2` already documents below, arriving from the one direction that
+    %% walk cannot see.
+    Read = lists:append([matched_vars(P) || P <- Patterns1]),
+    Used = lists:foldl(fun sets:add_element/2,
+                       used_vars(Body, guard_vars(Guard1)), Read),
     {clause, Line,
      [pattern(P, Used) || P <- Patterns1],
      guard(Guard1, Ctx),
@@ -316,7 +326,31 @@ pattern({p_var, L, V}, Used)   ->
     case sets:is_element(V, Used) of
         true  -> {var, L, var_name(V)};
         false -> {var, L, list_to_atom([$_ | atom_to_list(var_name(V))])}
-    end.
+    end;
+%% F8 — `== acc` lowers to the VARIABLE ITSELF, and nothing else. A bound
+%% variable repeated in an Erlang pattern *is* an equality test, so the target
+%% does the whole job: no guard is emitted, no comparison, no temporary.
+%%
+%% Which is the joke at the centre of this feature. B# needs a token here only
+%% because it forbids rebinding and so cannot use Erlang's own rule; the token
+%% buys back a capability the runtime never lost. Elixir spends `^` on the same
+%% purchase.
+%%
+%% Never underscore-prefixed — it is by definition a use, and `Used` is seeded
+%% with these names in `clause/3` so the BINDER is not underscored either.
+pattern({p_eqvar, L, V}, _Used) -> {var, L, var_name(V)}.
+
+%% Every name a pattern reads. The emitter's own copy on purpose: `pattern_vars`
+%% in the checker answers what a pattern BINDS, and the two must not be one
+%% function that guesses which question it was asked.
+matched_vars({p_eqvar, _, V})          -> [V];
+matched_vars({p_tuple, _, Ps})         -> lists:append([matched_vars(P) || P <- Ps]);
+matched_vars({p_map, _, Fs})           -> lists:append([matched_vars(P) || {_, P} <- Fs]);
+matched_vars({p_alias, _, _, P})       -> matched_vars(P);
+matched_vars({p_list, _, Items, Rest}) ->
+    lists:append([matched_vars(P) || P <- Items])
+        ++ case Rest of nil -> []; R -> matched_vars(R) end;
+matched_vars(_)                        -> [].
 
 %% beam-sharp variables are lowercase-initial; Erlang's must be uppercase-initial.
 %% Capitalising the first character is injective over the source's variable

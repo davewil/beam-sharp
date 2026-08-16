@@ -51,8 +51,12 @@ demonstrated_surface() ->
      {"a conjunction in a guard",                "&&"},
      {"an empty-list pattern",                   "\\[\\]"},
      {"a list pattern with a rest",              "\\[[a-z]+, \\.\\."},
-     {"a local binding",                         "^ +[a-z][A-Za-z]* = "},
-     {"a destructuring bind",                    "^ +\\([a-z]"},
+     {"a local binding",                         "^ +var [a-z]"},
+     {"a destructuring bind",                    "^ +var \\([a-z]"},
+     %% F8 / ticket 45. Anchored on a BRACKET or COMMA before the `==`, so it
+     %% probes the pattern position rather than an ordinary comparison —
+     %% pinned below, because `n == m` matching this would be a silent pass.
+     {"a match against a bound value",           "[\\[(,] *== [a-z]"},
      {"a foreign module declaration",            "^using :"},
      {"a foreign call",                          ":[a-z]+\\.[a-z_]+\\("},
      {"an OTP behaviour",                        "^behaviour "},
@@ -111,5 +115,26 @@ the_construction_probe_does_not_match_a_declaration_test() ->
                         [multiline, {capture, none}])),
     ?assertEqual(match,
                  re:run("New(id) -> Order{ Id = id }", "[A-Za-z]\\{",
+                        [multiline, {capture, none}])).
+
+%% The third delicate probe, added with F8. `==` means exact equality in
+%% EXPRESSION position too (ticket 16 fixed it as `=:=`), so the surface probe
+%% for the pattern form could drift into matching an ordinary comparison and
+%% report a capability demonstrated that nobody can look at.
+%%
+%% That is not hypothetical here: this whole feature exists because a bare name
+%% in a pattern and a bare name in an expression LOOK the same and mean different
+%% things. A probe that cannot tell them apart would repeat the confusion it is
+%% meant to police.
+the_match_probe_does_not_match_a_comparison_test() ->
+    Re = "[\\[(,] *== [a-z]",
+    ?assertEqual(nomatch,
+                 re:run("Same(n, m) when n == m -> :yes", Re,
+                        [multiline, {capture, none}])),
+    ?assertEqual(match,
+                 re:run("Run(head, [== head, ..rest]) -> 1", Re,
+                        [multiline, {capture, none}])),
+    ?assertEqual(match,
+                 re:run("Pair(k, (== k, x)) -> x", Re,
                         [multiline, {capture, none}])).
 

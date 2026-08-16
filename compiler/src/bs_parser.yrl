@@ -19,7 +19,7 @@ Nonterminals
   .
 
 Terminals
-  'module' 'type' 'when' 'using' 'behaviour' 'record' 'with' 'switch'
+  'module' 'type' 'when' 'using' 'behaviour' 'record' 'with' 'switch' 'var'
   uident lident atom_lit integer string_lit '_'
   '->' '=>' '&&' '||' '==' '!=' '<=' '>=' '<' '>' '+' '-' '*'
   '=' '|' ',' '(' ')' '[' ']' '{' '}' '..' '.' ':' '?'
@@ -209,17 +209,31 @@ body -> binding body :
         Final -> {e_block, element(2, '$1'), ['$1'], Final}
     end.
 
-%% The left of `=` is parsed as an EXPRESSION and narrowed to a pattern in the
-%% action. `binding -> pattern '=' expr` is the obvious rule and it reports
-%% TWELVE reduce/reduce conflicts — measured, not feared: yecc has one token of
-%% lookahead and every pattern form shares its first token with an expression
-%% form, so after `(` the parser cannot tell `(a, b) = pair` from the tuple
-%% `(a, b)`. Parsing the wider language and narrowing afterwards is the standard
-%% escape, and it is what Erlang itself does, where `=` IS an expression.
+%% F8 — `var` INTRODUCES, and a bare `=` MATCHES.
 %%
-%% `x = e` still produces the `{bind, …}` node ticket 34 shipped, so nothing
-%% downstream of the parser learns a new shape for the case that already worked.
-binding -> expr '=' expr : bind(line('$2'), '$1', '$3').
+%% The marker is what lets this rule take a `pattern` directly. Without it,
+%% `binding -> pattern '=' expr` reports reduce/reduce conflicts and yecc refuses
+%% to generate: it has one token of lookahead and every pattern form shares its
+%% first token with an expression form, so after `(` the parser cannot tell
+%% `(a, b) = pair` from the tuple `(a, b)`. After `var` it can, because nothing
+%% else may follow that word.
+%%
+%% MEASURED, and the recorded number had gone stale. The comment here read
+%% "TWELVE reduce/reduce"; it is **15** on 2026-08-16 (`45a`'s control reproduces
+%% it). The count is not a constant — it grows as pattern and expression forms
+%% are added, so F6, F7 and F9 each moved it. A measurement with a date is the
+%% honest form; a bare number in a comment reads as a fact and rots.
+%%
+%% AND THE MARKER PAYS TWICE. It deletes the narrowing for the introducing form,
+%% and it makes MAP DESTRUCTURING reachable: `var { Kind: k } = o` parses, where
+%% `{ Kind: k } = o` could not, because a record pattern is not an expression and
+%% so never reached the old narrowing at all. F5 recorded that as out of scope;
+%% it arrives here as a side effect rather than as work.
+binding -> 'var' pattern '=' expr : bind(line('$3'), '$2', '$4').
+
+%% The bare form survives for MATCHES only. Its left is still an expression,
+%% narrowed by `to_match/1`, which now rejects anything that would introduce.
+binding -> expr '=' expr : {dbind, line('$2'), to_match('$1'), '$3'}.
 
 patterns -> '$empty'     : [].
 patterns -> pattern_list : '$1'.
@@ -236,6 +250,21 @@ pattern -> '-' integer         : {p_int, line('$1'), -value('$2')}.
 pattern -> atom_lit            : {p_atom, line('$1'), value('$1')}.
 pattern -> lident              : {p_var, line('$1'), value('$1')}.
 pattern -> '_'                 : {p_wild, line('$1')}.
+
+%% Ticket 45 — a match against the value a name ALREADY HOLDS. One rule, and no
+%% new lexer token: `==` has lexed since the walking skeleton, and ticket 16 fixed
+%% its meaning as `=:=`, so the glyph carries into pattern position with exactly
+%% the meaning it has everywhere else.
+%%
+%% It reads as the equality member of ticket 42's relational family (`>= 4`), and
+%% the family divides on the operand: relational operators take a LITERAL, `==`
+%% takes a NAME. So `>= acc` (a bound set at run time) and `== 4` (a second
+%% spelling for the literal pattern `4`) are both refused — measured clean if ever
+%% added deliberately, and deliberately not added.
+%%
+%% The space is not significant. `==acc` and `== acc` are one token stream,
+%% because `==` is maximal-munch and an identifier cannot begin with it.
+pattern -> '==' lident         : {p_eqvar, line('$1'), value('$2')}.
 pattern -> '(' pattern_list ')' :
     case '$2' of
         [Single] -> Single;
@@ -402,21 +431,39 @@ value(T) -> element(3, T).
 
 %% A plain name keeps ticket 34's node; anything else is a destructuring bind
 %% carrying a real pattern, which ticket 34 deferred to ticket 33 and F5 built.
-bind(_L, {e_var, VL, V}, E) -> {bind, VL, V, E};
-bind(L, Lhs, E)             -> {dbind, L, to_pattern(Lhs), E}.
+%% Downstream learns no new shape: `var` changed how the LEFT is read, not what
+%% a binding IS.
+bind(_L, {p_var, VL, V}, E) -> {bind, VL, V, E};
+bind(L, Pat, E)             -> {dbind, L, Pat, E}.
 
-%% Only the forms that are a pattern AND an expression can appear here. A bare
-%% `{ Kind: :x }` is not an expression, so map destructuring does not reach this
-%% function — recorded in F5's out-of-scope rather than half-supported.
-to_pattern({e_var, L, V})   -> {p_var, L, V};
-to_pattern({e_wild, L})     -> {p_wild, L};
-to_pattern({e_int, L, N})   -> {p_int, L, N};
-to_pattern({e_atom, L, A})  -> {p_atom, L, A};
-to_pattern({e_tuple, L, Es})-> {p_tuple, L, [to_pattern(E) || E <- Es]};
-to_pattern({e_nil, L})      -> {p_nil, L};
-to_pattern({e_list, L, Items, Rest}) ->
-    {p_list, L, [to_pattern(I) || I <- Items],
-     case Rest of nil -> nil; R -> to_pattern(R) end};
-to_pattern(E) ->
+%% THE BARE `=` IS A MATCH, so its left side must introduce nothing.
+%%
+%% `var` took the introducing form off this path entirely — that rule reads a
+%% `pattern` directly — so what remains here is the narrowing for a MATCH, over a
+%% much smaller language: literals and compounds of literals. The error is the
+%% whole point of the function now rather than a fallback at the bottom of it.
+%%
+%% Why the bare form still narrows at all: it is still `expr '=' expr`, because
+%% one token of lookahead cannot tell `(1, 2) = pair` from the tuple `(1, 2)`.
+%% Only the marked form escapes that, which is exactly why the marker pays.
+to_match({e_wild, L})     -> {p_wild, L};
+to_match({e_int, L, N})   -> {p_int, L, N};
+to_match({e_atom, L, A})  -> {p_atom, L, A};
+%% No `e_str` clause, deliberately. A string literal has no PATTERN form — the
+%% algebra's binary grammar is `<<_:M, _:_*N>>`, sizes rather than values, so it
+%% cannot say "this one" (ticket 30 §2). It falls to the error below.
+to_match({e_tuple, L, Es})-> {p_tuple, L, [to_match(E) || E <- Es]};
+to_match({e_nil, L})      -> {p_nil, L};
+to_match({e_list, L, Items, Rest}) ->
+    {p_list, L, [to_match(I) || I <- Items],
+     case Rest of nil -> nil; R -> to_match(R) end};
+%% F8.3 — the message names the fix, which is F4.7's rule. This is the single
+%% most common thing a reader coming from the old dialect will type.
+to_match({e_var, L, V}) ->
+    return_error(L, lists:flatten(
+        io_lib:format("~ts is introduced here, and a bare `=` matches rather "
+                      "than introduces -- write `var ~ts = ...`", [V, V])));
+to_match(E) ->
     return_error(element(2, E),
-                 "the left of `=` must be a name or a pattern").
+                 "the left of a bare `=` must be a literal pattern. To introduce "
+                 "a name, write `var <pattern> = ...`").

@@ -208,7 +208,7 @@ a_string_literal_binds_in_a_body_test() ->
     M = build_and_load("module Bd\n"
                        "string Local()\n"
                        "Local() ->\n"
-                       "    s = \"x\"\n"
+                       "    var s = \"x\"\n"
                        "    s\n", 'Bd'),
     ?assertEqual(<<"x">>, M:'Local'()).
 

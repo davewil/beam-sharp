@@ -18,7 +18,7 @@ Hit(n) -> 0
 (int, int) Spin(int pos, int step, int left, int zeros)
 Spin(pos, step, 0, zeros) -> (pos, zeros)
 Spin(pos, step, left, zeros) ->
-    next = Wrap(pos + step)
+    var next = Wrap(pos + step)
     Spin(next, step, left - 1, zeros + Hit(next))
 
 int Sign(int d)
@@ -32,7 +32,7 @@ Size(d) when d >= 0 -> d
 int Clicks(list<int> rotations, int pos, int zeros)
 Clicks([], pos, zeros)          -> zeros
 Clicks([d, ..rest], pos, zeros) ->
-    (next, hits) = Spin(pos, Sign(d), Size(d), zeros)
+    var (next, hits) = Spin(pos, Sign(d), Size(d), zeros)
     Clicks(rest, next, hits)
 
 int PartTwo(list<int> rotations)

@@ -96,13 +96,27 @@ Erlang back to the decision that required it is one grep.
 | [F5 — the body check site](F5-body-check-site.md) | **done 2026-08-14** | F3.3, F3.8, F3.10; 34's destructuring binds |
 | [F6 — angle brackets and parametric types](F6-angle-brackets.md) | **done 2026-08-14** | the *bracket* in all three; `examples/parcel.bs` |
 | [F7 — `switch`](F7-switch.md) | **done 2026-08-15** | the *branching* in all three; `examples/queue.bs` |
-| [F8 — `var` binds, `=` matches](F8-bind-and-match.md) | **BUILD NEXT** — [45](../../wayfinder/issues/45-match-token.md) resolved 2026-08-16, the token is `== name` | nothing; it goes first to avoid rewriting later features' files |
+| [F8 — `var` binds, `=` matches](F8-bind-and-match.md) | **done 2026-08-16** | nothing; it went first to avoid rewriting later features' files — and closed a soundness hole nobody knew was there |
 | [F9 — `string` and `binary` as values](F9-strings-and-binaries.md) | **done 2026-08-15** | the `string` **fields** in all three, `list<string>`; **not** I/O |
 | [F10 — OTP callbacks](F10-otp-callbacks.md) | **done 2026-08-15** | **`bin/spec-check.sh`**; the `behaviour` half of 25b, 25c |
 | F11 — binary patterns | not started, **blocked** — ticket 30 is open | 25b, 25c |
 | F12 — pipe and valve | not started | 25b, 25c |
 
-**THE QUEUE HAS ONE ITEM AGAIN, AND IT IS F8 — 2026-08-16.** It was empty for a day, which was the
+**F8 IS BUILT, AND THE QUEUE IS EMPTY AGAIN — 2026-08-16, later the same day.** Ticket 43 is now
+the single thing between the compiler and more work: it unblocks F2, and F11 still waits on ticket
+30. **The next session belongs on the map.**
+
+**And F8 is the reason this file should stop calling the empty queue a stall.** The feature was
+built because a decision was resolved; it then closed a **soundness hole that no ticket, no
+feature and no gate had ever noticed** — `F(acc, acc)` accepted as exhaustive over `(int, int)`
+while `F(1, 2)` crashed. That was found by writing three lines of B# to check a sentence in
+`LANGUAGE.md`, not by any of the six gates. The cycle *starve → resolve a decision → build → find
+what the building reveals* is the working state, and its yield is not measurable from the queue's
+length.
+
+**The paragraph below is kept as written**, because its prescription was right and was followed.
+
+**THE QUEUE HAD ONE ITEM AGAIN, AND IT WAS F8 — 2026-08-16.** It was empty for a day, which was the
 table's most important fact at the time and is worth keeping in view: every feature file that
 existed was done or blocked, F2 owed two decisions, F8 owed one token, F11 waited on ticket 30, and
 F11 and F12 had no files. That was not a stall but the seam at the top of this file working exactly

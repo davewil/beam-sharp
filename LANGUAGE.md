@@ -62,8 +62,19 @@ record Order { Id: int, Total: int }
 int Squared(Order o)
 
 Squared(o) ->
-    t = o.Total
+    var t = o.Total
     t * t
+```
+
+**A binding says it is one.** `var` introduces a name; a bare `=` **matches** and may introduce
+nothing. Unmarked, `x = 1` reads to a C# eye as an assignment to an existing variable, which is the
+one thing this language cannot do — and `var` is literally correct here, where every type is
+inferred. **shipped**
+<!-- decided by ticket 34; `var` marker added by F8, token by ticket 45 -->
+
+```csharp not-yet
+x = 1                  // error: introduces x. Write `var x = 1`
+1 = x                  // fine - asserts, introduces nothing
 ```
 
 **Bindings do not shadow.** A name means one thing in a clause: rebinding is an error, including
@@ -77,7 +88,7 @@ A **destructuring** bind is in the language, and only where it **cannot fail**:
 int Sum((int, int) pair)
 
 Sum(pair) ->
-    (a, b) = pair
+    var (a, b) = pair
     a + b
 ```
 
@@ -160,7 +171,7 @@ the glyph.** Where C# has the symbol but not the construct, taking the symbol bu
 and costs a false friend.
 
 **To match against a value a name already holds, write `== name`.** A bare name in a pattern
-introduces a name; `== name` matches the value that name is bound to. **decided**
+introduces a name; `== name` matches the value that name is bound to. **shipped**
 <!-- decided by ticket 45 -->
 
 So a head that repeats a bare name — `F(acc, acc)` — is an **error**, not an equality constraint:
@@ -168,12 +179,12 @@ both are introductions, and the second rebinds what the first bound, which §1 f
 acc)` is how you ask for the constraint. This is the whole reason the marker exists; without it the
 language has no way to say *the same value again*.
 
-```csharp not-yet
-Step(acc, items) -> items switch {
-    []                 => acc,
-    [== acc, ..rest]   => Step(acc, rest),
-    [var next, ..rest] => Step(next, rest)
-}
+```csharp
+int RunLength(int head, list<int> xs)
+
+RunLength(head, [])                -> 0
+RunLength(head, [== head, ..rest]) -> 1 + RunLength(head, rest)
+RunLength(head, [_, ..rest])       -> 0
 ```
 
 It is the **equality member of the relational family above**, so a reader who has met `>= 4` in a
