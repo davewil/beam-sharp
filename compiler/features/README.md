@@ -90,7 +90,7 @@ Erlang back to the decision that required it is one grep.
 | Feature | Status | Unblocks |
 |---|---|---|
 | [F1 — walking skeleton](F1-walking-skeleton.md) | **done** | the baseline; `examples/*.bs` |
-| [F2 — interval refinements and interval patterns](F2-interval-refinements.md) | **blocked** — [43](../../wayfinder/issues/43-residual-summarised-form.md) only; [42](../../wayfinder/issues/42-interval-pattern-spelling.md) and [44](../../wayfinder/issues/44-conjunction-spelling.md) answered, and 44 adds a migration | 25b, 25c wire dispatch |
+| [F2 — interval refinements and interval patterns](F2-interval-refinements.md) | **not started, takeable** — [42](../../wayfinder/issues/42-interval-pattern-spelling.md), [44](../../wayfinder/issues/44-conjunction-spelling.md) and [43](../../wayfinder/issues/43-residual-summarised-form.md) all answered; 44 adds a migration, 43 makes F2.4 assertable | 25b, 25c wire dispatch |
 | [F3 — records](F3-records.md) | **done 2026-08-14** | the record half of all three; `examples/shop.bs` |
 | [F4 — local bindings](F4-local-bindings.md) | **done 2026-08-14** | nothing — it removes a papercut |
 | [F5 — the body check site](F5-body-check-site.md) | **done 2026-08-14** | F3.3, F3.8, F3.10; 34's destructuring binds |
@@ -123,9 +123,12 @@ F11 and F12 had no files. That was not a stall but the seam at the top of this f
 as written — *a feature that needs a decision raises a ticket rather than making one*, and features
 that keep that rule must eventually starve. **The prescription that followed was right and was
 followed**: the next session went to the map, resolved [ticket 45](../../wayfinder/issues/45-match-token.md),
-and handed the compiler back a buildable feature. F2 still owes
-[43](../../wayfinder/issues/43-residual-summarised-form.md), and that ticket is now the single
-thing standing between the queue and being empty again.
+and handed the compiler back a buildable feature. **The cycle then ran a second time and closed:**
+[43](../../wayfinder/issues/43-residual-summarised-form.md) was resolved 2026-08-16 and F2 is
+takeable, so the queue is not starved. Worth recording that 43 was resolved *by measuring rather
+than by choosing* — two of its own premises turned out to be false against
+[`43a`](../../wayfinder/prototypes/43a_residual_at_width.escript), and the corrections, not the
+option menu it framed, are what answered it.
 
 **The starve-and-refill cycle is the working state, not a fault to design out.** A day of it cost
 one ticket's work and returned a feature whose file is now *more* correct than it was — 45 found two

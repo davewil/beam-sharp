@@ -1,9 +1,9 @@
 # F2 — Interval refinements, and the interval patterns that must land with them
 
-**Status**      **blocked** — [ticket 43](../../wayfinder/issues/43-residual-summarised-form.md) only; 42 and 44 answered 2026-08-15
-**Implements**  tickets 20 §5, 12 §2, 04 — decides nothing
+**Status**      **not started, and takeable** — every blocker answered; 43 resolved 2026-08-16
+**Implements**  tickets 20 §5, 12 §2, 04, **43** — decides nothing
 **Unblocks**    `bs_emit:int_part/1`'s bounded branches; wire dispatch in 25b and 25c
-**Depends on**  F1; **ticket 43 is the last blocker** — 42 and 44 both answered 2026-08-15
+**Depends on**  F1 only. 42 and 44 answered 2026-08-15, **43 answered 2026-08-16**
 
 **The header said `not started` until 2026-08-15 while the README's table said `blocked`.** Two
 files disagreed about whether this feature was takeable, and the table was the one that was right —
@@ -96,11 +96,35 @@ scope.
 
 ### F2.4 — the residual stays legible at width
 
-25c measured that 40 singleton clauses produce a residual of **41 disjoint intervals on one line** —
-exact per ticket 20's algebra, and useless to read or to synthesise a clause head from, which is
-what ticket 23 makes it for. Expect a diagnostic that reports the residual's **shape** at some
-width rather than enumerating it. **The threshold and the summarised form are undecided** — also a
-ticket, not a feature.
+25c measured that 40 singleton clauses produce a residual of **41 disjoint intervals on one line**.
+Re-measured 2026-08-16 by [`43a`](../../wayfinder/prototypes/43a_residual_at_width.escript): it is
+**453 characters**, and it is **one** head rather than 41 — `heads/2` splits on the tuple part, so a
+union of intervals stays inside one argument.
+
+**Settled by [ticket 43](../../wayfinder/issues/43-residual-summarised-form.md), 2026-08-16.** The
+prose prints the exact residual **truncated at three rendered heads**, then `... (K more)`. That is
+the whole rule: it is not a second format, so at three heads or fewer it prints byte-identically to
+today and there is no threshold to tune and no switch to explain. Nothing else summarises — not the
+term (ticket 23 §4's descriptor is unchanged), not the synthesised head, and no complement is
+computed.
+
+Input: 40 clauses naming `10, 20, … 400` over a bare `int`.
+
+Expect: **error**, exit non-zero, and the head line exactly
+
+```
+    Classify(int <= 9 | 11..19 | 21..29 | ... (38 more)) -> ...
+```
+
+**Counting heads and not intervals is load-bearing** and is the half that outlives this feature: a
+residual over two arguments is a product, so a rule stated in intervals prints an unbounded number
+of lines the moment a second argument has a residual too.
+
+**The one thing 43 defaulted rather than settled**, recorded here because F2 is what creates the
+case: over a **closed** residual, ticket 12 §2 bars the catch-all, so every truncated head is a
+clause somebody must still write. 43 truncates anyway — the term keeps all of them and 23 §10's
+`bsc --api` is the full-fidelity channel. If that flips, the delta is one argument to `heads/2` and
+**nothing in this feature changes**.
 
 ### F2.5 — a guard refinement and a type refinement agree
 
