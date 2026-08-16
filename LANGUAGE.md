@@ -97,9 +97,20 @@ stand anywhere in the pattern and nowhere else: it is a pattern, not a value. **
 
 `=>` is the lambda arrow and a `switch` arm, never a clause. Two arrows, two jobs.
 
-A **module** is a directory; one function per file; `index.bs` holds the declarations shared across
-it. Sub-modules are source-only — the whole directory compiles to one `.beam`. **decided** (the
-compiler currently takes one file at a time)
+A **module** is a directory holding `.bs` files; one function per file; `index.bs` holds the
+declarations shared across it — `using`, `type`, `record`, `behaviour` — and **never a function**,
+so one-function-per-file has no exception. A directory holding *no* `.bs` files is a **namespace**:
+erased entirely, no atom and no `.beam`. Sub-modules are source-only — the whole directory compiles
+to one `.beam`. **decided**, tickets [40](wayfinder/issues/40-module-and-namespace-system.md) and
+[41](wayfinder/issues/41-imports-and-cross-module-scope.md), unbuilt.
+
+`using Shop.Orders` brings that module's names in **unqualified**; `using Shop` brings its modules
+in short-qualified (`Orders.All()`). A name reachable from two sources is an error at the call site
+printing the qualified candidates. **decided**, ticket 41 §2/§5, unbuilt — neither form parses yet.
+
+*The compiler already accepts a **set** of files in one invocation (`bsc a.bs b.bs` emits both
+beams); what it does not yet do is share one type environment across them. Ticket 41 §3 settles that
+the compiler, not a build tool, owns the dependency graph and re-checks a dependency's source.*
 
 ---
 
@@ -829,7 +840,8 @@ the parser accepts back exactly what the printer emits. **shipped**
 ## 18. Open questions
 
 - The language's **name**.
-- **Module and namespace system** — what atom a module emits, and what `using` brings into scope.
+- ~~**Module and namespace system**~~ — **decided and unbuilt** (tickets 40, 41). What remains open
+  is only whether `using` gains an **alias** (`using Orders = Shop.Orders`), ticket 47.
 - **Stdlib shape** — what is in the prelude versus a module you import.
 - **`cond`**, or whatever serves a long ladder of unrelated conditions.
 - **Laziness** and `stream<T>` — deferred, not refused.

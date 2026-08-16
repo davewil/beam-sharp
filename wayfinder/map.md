@@ -270,6 +270,10 @@ Bodies in [`decisions.md`](decisions.md). Ticket text in `issues/`.
 - **Module and namespace system, and function identity** `#40` `modules` `codegen`
   the atom is **forced** by 26's tag mint — full dotted path, and the emit path already writes it.
   Arity overloading permitted; `public`/`private` on the signature. Two checks specified, unbuilt
+- **Imports and cross-module scope** `#41` `modules` `codegen`
+  `using` imports **unqualified**; a namespace is a directory with no `.bs` files. The compiler owns
+  the dependency graph and re-checks source — *"single-file"* was false, and `index.bs` holds no
+  functions
 - **Behaviour callback names** `#35` `otp` `codegen` `built:F10`
   a compiler-known table, contract-scoped and keyed by name *and* arity; the name changes, no
   wrapper, and a behaviour without its mandatory callbacks is an error at the declaration
@@ -303,9 +307,9 @@ Bodies in [`fog.md`](fog.md). These are open: read the body before assuming a di
   which behaviours ship built in, and how a user declares one
 - **The language's name** `naming`
   unresolved. `beam-sharp` is a working title
-- **Imports and cross-module scope** `#41` `modules`
-  `using` brings names in **unqualified**; a namespace is a directory holding no `.bs` files, and is
-  erased. §3 is now a prerequisite of both: where the checker gets another module's types
+- **Does `using` get an alias?** `#47` `modules` `syntax`
+  §2 inverted the argument that shelved it — against a *bare* unqualified name an alias is the more
+  explicit spelling, not a read cost. May be the only spelling when two imports collide
 - **Where DDD invariants live** `types` `errors`
   ticket 20 §5 settles half; refinement in type declarations is available where the predicate is decidable
 - **How a user-declared opaque refinement is actually checked** `#29` `types`

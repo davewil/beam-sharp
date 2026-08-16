@@ -1,10 +1,20 @@
 # 41 — How does a module name another, and where do its types come from?
 
 Type: grilling
-Status: **claimed** 2026-08-15 — §1, §2 and §5 answered; §4 half answered. **§3 is the one thing
-left, and it is now a prerequisite rather than a neighbour**: neither unqualified names (§2) nor
-namespace resolution (§5) can be checked without reading the source tree and each import's exported
-name/arity set.
+Status: **resolved 2026-08-16** — all five sections answered. [ENG-209](https://linear.app/davewil/issue/ENG-209)
+
+§1, §2 and §5 landed 2026-08-15; §3 and §4 on 2026-08-16. **§3 was the prerequisite rather than a
+neighbour** — neither unqualified names (§2) nor namespace resolution (§5) could be checked without
+it, so those two were answered-but-unverifiable for a day. They are not any more.
+
+**One item spun out rather than absorbed**: the import alias (`using List = Shop.Collections.List`)
+is [ticket 47](47-import-alias.md) · [ENG-219](https://linear.app/davewil/issue/ENG-219). It was
+parked below with a note that §2 *changed its standing and it should be re-asked rather than
+inherited*, which is a decision this ticket does not own.
+
+Three checks are specified and unbuilt — `{module_path_mismatch, …}` (§5), `{function_in_index, …}`
+(§4), and §2's ambiguity rule — plus the environment-threading delta in §3. They belong to the
+feature that implements the module system, in the same way ticket 40's two checks do.
 
 Raised 2026-08-15 from the fog patch *"Imports and cross-module scope"*, together with
 [ticket 40](40-module-and-namespace-system.md). 40 decides what a module is and what a name
@@ -190,7 +200,7 @@ also lands on "one arity per name", the resolution rule is over names alone.
 
 ---
 
-## §3. THE QUESTION — where does the checker get another module's types?
+## §3. ANSWERED 2026-08-16 — the compiler re-checks the dependency's source, and owns the graph
 
 **This is the real blocker and neither fog patch names it.** To type `List.Map(xs, f)` the checker
 needs `List`'s signature *in the B# algebra*, and the compiler is single-file
@@ -238,9 +248,109 @@ graph is the compiler's job or a build tool's. Ticket 23 settled that the compil
 every affected file *within* the compilation unit for free, because ticket 13 made the directory
 the module — so what is owed is only the **cross-module** half.
 
+### ANSWERED 2026-08-16 — the graph is the compiler's, and the premise above is wrong
+
+**First, the correction, because it changes the price.** This section opens by saying *"the compiler
+is single-file (`bsc FILE.bs`, one `module` declaration, one `.beam`)"*. **That is false**, measured
+in [`41a`](../prototypes/41a_multifile_probe.sh):
+
+```
+$ bsc Alpha.bs Beta.bs
+exit=0
+beams: ./Alpha.beam ./Beta.beam
+```
+
+`bsc` already takes a **set** of files and loops over it — `compile_or_run/3` splits argv into files
+and run-args, and `compile_only/2` is `[file(F, Opts) || F <- Files]`. What is single-file is the
+**environment**, not the invocation. The distinction is the whole cost question: fork A does not need
+a new CLI shape, a new entry point or a new artefact. It needs the fold that loop already is to carry
+an accumulator.
+
+**Second, the isolation is clean, which is the fact that makes this safe.** A file naming a function
+defined in another file of the same invocation is rejected, and rejected *identically in both
+argument orders*:
+
+```
+$ bsc Alpha.bs Gamma.bs     # Gamma calls Double/1, defined in Alpha
+Gamma.bs:5: error: Eight calls Double/1, which nothing declares
+$ bsc Gamma.bs Alpha.bs     # same error, order reversed
+```
+
+So there is no accidental leakage to undo and no order-dependence already baked in. Whatever
+cross-module visibility gets added is **entirely** the new rule, not the new rule plus an
+undocumented one — which is not something a design gets for free, and is worth recording before
+anything touches `bs_check`.
+
+#### The graph cannot be a build tool's, and the reason is mechanism rather than preference
+
+The fork's two options are not symmetric once the question is put as *"who computes the order?"*
+
+**An order alone buys nothing.** Suppose a build tool topologically sorts the source tree and feeds
+`bsc` one file at a time in dependency order. The second invocation still has no way to *learn* the
+first module's signatures: it starts with an empty environment and the `.beam` on disk carries no
+B# types. To make an externally-computed order useful, the signatures must persist between
+invocations — and a persisted signature artefact **is fork B**, which this section already disposed
+of twice: no source-less consumer exists, and it is blocked on ticket 16 §4's serialisation mapping,
+which the map lists as owed and unwritten.
+
+So *"the build tool owns the graph"* is not a third option. It **reduces to fork B** and inherits
+fork B's blocker. That collapses the sub-question the same way ticket 35's did — F10's lesson was
+*check whether the alternative can be expressed before weighing it*, and the version here is that the
+alternative can be expressed but not **completed**.
+
+**The compiler therefore resolves the graph, within one invocation.** `using Shop.Orders` is a path
+on disk (§5); `bsc` resolves it, checks that module, and keeps its public signatures in the
+environment for the module that imported it. Correct by construction, nothing to go stale, and no
+artefact that can disagree with the source — which is fork A exactly as this section framed it.
+
+#### What is left for a build tool, stated so it is not the next unraised blocker
+
+**Naming the source root and the file set — not the order.** That is the boundary, and it is the
+only build-tool decision this ticket creates:
+
+- `bsc` is given a set of `.bs` files (as it already is) or a directory to walk, and computes the
+  order itself from the `using` edges.
+- A build tool's job is *which files*, *where the source root is*, and *what to do with the output* —
+  not *in what sequence to compile them*.
+
+**Where that decision now lives**: nowhere yet, deliberately. B# has no build tool, none is
+scheduled, and the map's `scope.md` audit found three of its four boundaries waiting on a use case
+rather than refusing one. This is a fourth of the same shape. It is recorded here rather than
+raised as a ticket because **there is nothing to decide until something needs building that a file
+list cannot express** — and the sentence above is what a future session needs in order to notice
+that moment, which is the failure mode the repo has now paid for three times.
+
+#### Two things this does not decide
+
+**Not a cycle rule.** Two modules importing each other is a real question and the compiler will need
+an answer — F6 already shipped a cyclic-*alias* guard after a hang, so the precedent for refusing by
+name rather than expanding exists. But it is a mechanism the implementing feature meets, not a fork
+this ticket must resolve, and stating it as owed is cheaper than guessing at it.
+
+**Not re-checking cost.** Fork A re-checks a dependency's source on every build of its dependents.
+That is a compile-time cost with no runtime component and no correctness consequence, and the map's
+standing constraint puts write and build cost near zero against read cost. If it ever bites, the fix
+is a cache, which is fork B under a different name and can be reconsidered when ticket 16 §4 lands.
+
+#### Compiler delta for §3
+
+```
+bsc          compile_only/2 stops being an independent map over Files and becomes a
+             fold: resolve `using` edges to paths, order by them, thread one
+             signature environment through. The file-set plumbing already exists.
+
+bs_check     the environment gains an imported-signature table, populated from the
+             dependency's checked signatures rather than from a file on disk.
+             §2's two import tables and one ambiguity rule are what read it.
+
+grammar      `using` modpath and `Module.Fn(…)` both still unparseable — measured
+             again in 41a (`syntax error before: 'Alpha'`, `syntax error before: '.'`).
+             Owed by §1 and §2, unchanged by this section.
+```
+
 ---
 
-## §4. THE QUESTION — what may `index.bs` hold?
+## §4. ANSWERED 2026-08-16 — everything except functions
 
 `LANGUAGE.md:75` says a module is a directory, one function per file, and *"`index.bs` holds the
 declarations shared across it"*. `prototypes/25a/25b/25c` use it, and
@@ -281,6 +391,75 @@ Aggregating is also the cheaper default: `01d-submodule-realisation.md:14–53` 
 at 1.84 ns against a local 1.73 ns (6.2%), but an *inlined* local at 0.80 ns, making the remote
 **2.3×** slower with `-compile(inline)` opt-in — and `code:atomic_load/1` is verified present on
 OTP 28, which removes the torn-upgrade argument for splitting.
+
+### ANSWERED 2026-08-16 — `index.bs` holds no functions, and one-function-per-file has no exception
+
+**The three exemplars already answered this and nobody had looked.** All three `index.bs` files in
+`compiler/examples/exemplars/` were written before this question was asked, and all three hold
+**zero functions** — only `using`, `type`, `record` and `behaviour`, which is exactly the set this
+section calls uncontroversial:
+
+| File | Holds | Functions |
+|---|---|---|
+| `25a-http-api-server/index.bs` | `using`, 2 `type`, 2 `record` | 0 |
+| `25b-websocket-handler/index.bs` | `behaviour`, `type`, `record` | 0 |
+| `25c-event-queue-consumer/index.bs` | `behaviour`, 6 `type`, 3 `record` | 0 |
+
+That is evidence rather than prediction: three programs the design must serve, and the exception was
+never reached for. It does not settle the question by itself — nobody was stopped from writing one —
+but a rule that costs its own examples nothing is a different proposition from one that does.
+
+#### The mechanism is `write_scope`, and it points one way
+
+The map's standing constraint says **one function per file makes `write_scope` a file** — bounded
+blast radius, no merge conflicts between agents working different operations, reviewable single-file
+diffs. `index.bs` is the one file in a module that **every** agent must edit: a new record goes there,
+a new type alias goes there, a new `using` line goes there. It is the module's contended file by
+construction.
+
+Permitting functions in it would merge the most-contended file in the module with the one thing the
+file-per-function rule exists to isolate. Two agents adding unrelated functions would then collide in
+a file **neither of their functions is in** — which is precisely the failure `write_scope = one file`
+was chosen to prevent, arriving through the one file the rule did not cover.
+
+**And the write-cost objection does not survive the standing constraint.** *"A three-line private
+helper deserves its own file"* is a ceremony complaint, and ceremony is near-free here: humans do not
+author these files, agents do, with generators scaffolding them. Read and review cost carries full
+weight and points the same way — a reader looking for `Total/1` looks in `Total.bs`, and an
+exception means every such search has a second place to check.
+
+#### It strengthens §5's classification job rather than complicating it
+
+§5 gave `index.bs` a second job: a directory's `.bs` files are what make it a module rather than a
+namespace, so a module with no functions **yet** still needs `index.bs` to exist for the
+classification to come out right. Keeping it function-free makes that job unambiguous — `index.bs`
+is *the declaration file*, its presence is the module marker, and the two roles never compete. The
+alternative leaves `index.bs` meaning "declarations, and also possibly some functions", which is a
+worse thing to have to explain than either half.
+
+#### The helper case, answered rather than waved away
+
+A module-private helper gets **its own file**, and ticket 40 §2's `private` on the signature is what
+keeps it out of the export list. Nothing about the aggregate rule changes: ticket 13 already made
+every `.bs` file in the directory compile into the one `.beam`, and `13b` measured per-file
+attribution surviving that aggregation with exact lines. A private helper in its own file costs one
+file and zero runtime.
+
+#### One new check
+
+```
+bs_check     {function_in_index, Name, Line} into resolve_error/2 — a function
+             declaration in a file named index.bs is an error at the declaration.
+
+             Precedent is exact: `kind_field_is_minted` errors at a declaration,
+             rebinding is an error because "a name means one thing in a clause"
+             (34, F4), and §5's own {module_path_mismatch, …} takes the same route.
+```
+
+**Deliberately an error rather than a convention.** A convention here is unenforceable and would
+decay exactly as the exemplars' dead dialect and `LANGUAGE.md`'s `true` claim did — both cases where
+prose asserted a rule nothing gated. This one is a single check at a declaration with a filename
+test, which is the cheapest gate in the file.
 
 ---
 
@@ -373,14 +552,27 @@ thing.
 
 ## Owed by this ticket, not answered
 
-- The yecc conflict check in §1.
+- The yecc conflict check in §1. Still owed, and it is a build task rather than a decision.
 - ~~A collision rule, **only if** §2 lands on unqualified names.~~ **§2 landed there** — the rules
   are specified in §2 and are no longer conditional.
-- Ticket 16 §4's serialisation mapping, **only if** §3 ever lands on B.
-- **An alias, `using List = Shop.Collections.List`** — C#'s third tier, tier-1 borrow, and the thing
-  the exemplars are actually reaching for when they write `List.Fold(…)` and `Orders.All()`. It is
-  *not* needed for §2 and is not folded into it. Worth noting that §2 changes its standing: while
-  the qualified form was on the table an alias was a pure read cost, because the reader had to find
-  the alias line; now that unqualified names are legal, an alias is strictly **more** explicit than
-  the thing it competes with. That is a different argument from the one that shelved it, so it
-  should be re-asked rather than inherited.
+- ~~Ticket 16 §4's serialisation mapping, **only if** §3 ever lands on B.~~ **DISCHARGED 2026-08-16.**
+  §3 landed on **A**, so no signature artefact is serialised and 16 §4 is not a prerequisite of
+  anything in this ticket. It remains owed to the map for its own reasons (ticket 23 §5's JSON
+  encoding), unchanged.
+- ~~**An alias, `using List = Shop.Collections.List`**~~ — **RAISED 2026-08-16 as
+  [ticket 47](47-import-alias.md) · [ENG-219](https://linear.app/davewil/issue/ENG-219).** It was
+  parked here with the note that §2 *changed its standing* — while the qualified form was on the
+  table an alias was a pure read cost, and now that unqualified names are legal an alias is strictly
+  **more** explicit than the thing it competes with — and that *"it should be re-asked rather than
+  inherited"*. Re-asking is a decision, and this repo's own rule is that naming a decision you need
+  **is** raising a ticket, which does not count as raised until the file and the issue both exist.
+
+**Two things §3 added to this list rather than deciding:**
+
+- **A cycle rule.** Two modules importing each other. F6's cyclic-*alias* guard is the precedent —
+  refuse by name rather than expand, shipped after a hang that no green suite could see — but the
+  import case is a mechanism the implementing feature meets, not a fork this ticket owns.
+- **The build-tool boundary is recorded, not raised.** §3 states it explicitly: a build tool names
+  the source root and the file set, never the order. There is nothing to decide until something needs
+  building that a file list cannot express, so no ticket exists — and §3 carries the sentence a
+  future session needs in order to notice that moment.

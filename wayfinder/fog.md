@@ -189,61 +189,20 @@
   what a **user-declared** contract can ask the compiler to emit, given ticket 21 named Roc's
   `requires` as the stealable mechanism and 14 left generalising it as purely additive.
 - **The language's name.**
-- **Imports and cross-module scope** — → **[ticket 41](issues/41-imports-and-cross-module-scope.md)**,
-  raised 2026-08-15 alongside 40. **§1 is answered on mechanism**: `using` generalises rather than
-  needing a second keyword, because the native and foreign forms differ in the *token class* of the
-  left side (`uident` path vs `atom_lit`) — the same discriminator `LANGUAGE.md` §11 already uses
-  for the three dot-forms — and because the FFI `using` **already introduces no B# name**, so a
-  native one that also introduces none is the same construct rather than an overloaded one. It also
-  answers 23 §11 directly: a file's `using` lines are its dependency list.
-  **§2 ANSWERED 2026-08-15: `using` brings names into scope UNQUALIFIED** (David: *"I think B would
-  be expected"*). The audience test decided it — an import that leaves every call site qualified
-  makes the `using` line look inert. C# has *three* tiers and **B# has room for only one**: C#'s
-  two-tier `using` exists because it splits namespace from type, and `Shop.Orders` is one module and
-  one atom with no inner level, so plain `using` = unqualified is TypeScript's named-import
-  semantics and `using static` would import a distinction the language lacks. The **exemplars are
-  inconsistent** here — `using Shop.Orders` beside `Orders.All()` is C#'s middle tier and would not
-  compile in C# either; that shape is an *alias* question, now re-opened on different grounds since
-  an alias is strictly more explicit than an unqualified name. The one mechanism objection —
-  diagnostics emit pasteable source, so the printer must pick a spelling — **dissolves**: print
-  fully qualified always, which is legal in any scope. Requires ambiguity and local-shadowing to be
-  **errors printing qualified candidates**, resolution by name *and* arity, and it puts §3 on the
-  **critical path**.
-  **§5 ANSWERED the same day, and it narrows §2's own framing**: **a namespace is a directory holding
-  no `.bs` files**; one holding `.bs` files is a module. Decidable by `ls`, no marker, no keyword.
-  The claim that B# *"has no room"* for C#'s middle tier was overstated — B# lacked a **name** for
-  the case, not the case, since ticket 13 had already made a directory inside a module a source-only
-  sub-module, so `Shop` and `Shop.Orders` as separate modules were never possible anyway. It
-  restores all three C# tiers with §2 as the middle one, makes the exemplars wrong by one segment
-  rather than incoherent, and **costs nothing at runtime**: a namespace emits no atom, no beam and
-  no attribute, the same status 13 gave sub-modules. §1's grammar is unchanged — which table an
-  import populates is decided by what the path resolves to **on disk**, so §3 blocks this too. One
-  new check, with a precedent: a file's `module` declaration must match its directory path, which is
-  13's measured `erlc` atom/filename rule lifted from the artefact to the source tree. It also
-  closes half of §4 — 13 settled the *inside* case and §5 the *outside* one, so every directory is
-  now classified and only *"may `index.bs` hold functions"* is left. **The ticket's §3 is the
-  half neither fog patch named, and it is the one that actually blocks `List.Map`**: where the
-  checker gets another module's types. The fork is re-check-source versus types riding in the
-  `.beam` as a `-bs_sig` attribute — and the cheap question was answered first: **all 29 `.bs` files
-  are in this repo and no compiled B# artefact ships anywhere**, so re-check-source covers every case
-  that exists and the attribute is a solution to a problem that has not arrived. It is *also*
-  blocked, on ticket 16 §4's serialisation mapping, so it may not be decided there anyway. Open:
-  whether `using` brings names into scope **unqualified** (the C# `using X = Y` alias is a read cost
-  by the same standard, so it is a question and not a sweetener), and what `index.bs` may hold —
-  never yet compiled, and nested directories inside a module remain unresolved. One yecc conflict
-  check is owed. The original body follows, unchanged.
-  **Ticket 16 §6 adds one concrete leftover**: C# lets you put a function in *another* namespace so
-  it appears on that type without an import — the half of extension methods that is neither call
-  syntax (17's) nor overloading (08's). It is **name resolution, not polymorphism**, it has no
-  beam-sharp answer, and it is the only part of C#'s extension-method feature this map has not
-  placed. **Ticket 23 §11 adds a second concrete leftover, and it is the sharper half of this
-  patch**: should anything *forbid* an edit in one file changing another file's meaning? 23 found
-  the prohibition unworkable as stated — type declarations are shared by construction, so forbidding
-  it means restating types per file or having none — and concluded that the live version of the
-  question is whether a file **declares what it depends on**, which is this patch's subject rather
-  than 23's. Note what 23 settled around it: the compiler already names every affected file *within
-  the compilation unit*, free, because ticket 13 made the directory the module. So this patch owes
-  only the **cross-module** half, where the dependency graph belongs to a build tool.
+- **Does `using` get an alias?** — → **[ticket 47](issues/47-import-alias.md)**, raised 2026-08-16
+  by ticket 41 on resolving it. C# has three import tiers and 41 settled two: `using Shop` is
+  short-qualified (§5), `using Shop.Orders` is unqualified (§2). The third — `using Orders =
+  Shop.Orders` — was parked, and **41 recorded that §2 inverted the argument against it** rather
+  than leaving it merely unanswered. An alias was shelved as a pure *read* cost, because the reader
+  had to find the alias line to learn what `Orders` meant; that assumed the competing form was a
+  **qualified** name carrying its source in the call. §2 made the competing form a **bare** name
+  carrying no source at all, so against that an alias is the *more* explicit spelling. Open:
+  whether it exists; whether it aliases a module, a function or both, since §2's two import tables
+  are keyed differently; and whether it **resolves** §2's ambiguity rule rather than merely
+  abbreviating — if two imported modules both export `Orders`, an alias may be the only spelling
+  for that program, which is a capability argument and not a convenience one. The exemplars do
+  **not** force it: they write `List.Fold(…)` and `Orders.All()`, both of which §5's
+  short-qualified tier already covers, which is why 41 could resolve without it.
 - **Where DDD invariants live** — not commands, not types. An `Invariants` module, refinement in
   the type declarations, or nothing. **Ticket 20 §5 settles half of it and splits the rest by a
   sharp line**: refinement in the type declarations *is* available, but only where the predicate is
