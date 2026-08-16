@@ -249,6 +249,56 @@ Every `.bs` in `examples/` and `examples/exemplars/`, every compiled block in `L
 `bin/check-language.sh`'s bidirectional check. This is the largest mechanical part of the feature
 and the reason it goes ahead of binaries.
 
+### F8.10 — a repeated bare name in a head is an ERROR, and today it is a live soundness hole
+
+**This scenario is not a refinement of the feature. It is the one place the project's headline
+guarantee is currently false, and F8 is what closes it.** Measured on `master` 2026-08-16, on the
+shipped compiler, while checking a sentence in `LANGUAGE.md`:
+
+```csharp
+module E5
+atom F(int, int)
+F(acc, acc) -> :same          // the ONLY clause
+```
+
+This **compiles**, and is accepted as **exhaustive** over `(int, int)`. Then:
+
+```
+F(1, 1)  ->  :same
+F(1, 2)  ->  crashed: error:function_clause
+```
+
+**A function the compiler proved total crashes on a value of its declared input type.** That is the
+one guarantee everything else rests on, and it fails without a warning that names it.
+
+**The cause is a split between the checker's model and the emitted code.** `pattern_type/3` reads
+the second `acc` as a fresh `p_var`, so the checker believes the clause covers the whole domain.
+The emitter writes `_Acc` twice, and **Erlang's repeated-variable rule makes that a genuine equality
+test** — so the runtime discriminates while the checker is certain it cannot. Written with a second
+clause, the same split surfaces as `warning: clause 2 of F is unreachable`, pointing at the clause
+that is actually doing the work, plus an `erlc` warning about `_Acc` bound multiple times that reads
+like a style note rather than a report of unsoundness.
+
+**So beam-sharp already has pin-by-default in clause heads — by accident, through the emitter, with
+the checker unaware.** That is the same defect shape as F7's bare `true`: it compiles, it means
+something else, and the only trace is a warning phrased as a remark about the code.
+
+**What F8 must assert.** A bare name already bound in the same head is an **error at the clause**,
+naming `== name` as the fix — which is what `LANGUAGE.md` §2 now states, and is the corollary of §1's
+no-rebinding rule rather than a new decision. Ticket 45 deliberately left *bind or error* to this
+feature and to ticket 34; **the answer is error**, on the precedent of `kind_field_is_minted` and of
+the existing `F binds x twice` message, which already refuses the identical thing one line lower in
+a body.
+
+**Assert it as an error the wrong build OMITS**, not as a passing parse — F5.7, F7.14 and F8.6's
+shape a fourth time. A build that keeps today's behaviour is *quieter*, not louder: it accepts the
+program. And **run the corpus gate before writing the rejection test**, since this changes what an
+existing head may say.
+
+**Note it is reachable without any of F8's other work**, so it does not depend on `var` landing
+first. Folded in here rather than raised as its own ticket (David, 2026-08-16) because F8.6 already
+owns the soundness rule this is the unmarked half of.
+
 ## Out of scope
 
 - **`Order o = expr`**, the typed binding David typed on 2026-08-14. Measured: **6 reduce/reduce**,
@@ -265,9 +315,13 @@ and the reason it goes ahead of binaries.
 ## Done when
 
 `var` binds and is required to; a bare `=` matches and refuses to introduce; a name in a pattern
-matches the value it holds and credits nothing to `Certain`; the prompt and the compiler give the
-same answer to the same three lines; `to_pattern/1` is deleted; and every gate is green over a
-rewritten corpus.
+matches the value it holds and credits nothing to `Certain`; **a repeated bare name in a head is an
+error rather than a silently-exhaustive crash**; the prompt and the compiler give the same answer to
+the same three lines; `to_pattern/1` is deleted; and every gate is green over a rewritten corpus.
+
+**F8.10 is the one that must not be dropped for scope.** The rest of this feature is ergonomics and
+a spelling; F8.10 is the only item that closes a case where the compiler proves a function total and
+the function crashes.
 
 **The token is chosen: `==`.** Ticket 45 resolved it on 2026-08-16, so this file is buildable. The
 sentence it was gated behind stands as the rule that produced the gate — a spelling every future
