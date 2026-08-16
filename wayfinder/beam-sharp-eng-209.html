@@ -1,0 +1,476 @@
+<title>The Premise That Priced Itself Wrong</title>
+
+<style>
+  :root {
+    --ground:   #EDF1EF;
+    --surface:  #FFFFFF;
+    --sunken:   #E1E7E4;
+    --ink:      #141A17;
+    --ink-soft: #3E4A45;
+    --muted:    #66736D;
+    --rule:     #C8D2CD;
+    --accent:   #1B6046;
+    --accent-s: #E2EFE9;
+    --edge:     #8E4A2E;
+    --edge-s:   #F5E9E2;
+    --panel:    #F1F3F5;
+
+    --display: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    --body: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+    --util: ui-sans-serif, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:   #101413;
+      --surface:  #191E1C;
+      --sunken:   #232A27;
+      --ink:      #E6ECE9;
+      --ink-soft: #B6C2BD;
+      --muted:    #85938D;
+      --rule:     #313A36;
+      --accent:   #5FBF97;
+      --accent-s: #16302A;
+      --edge:     #D08A64;
+      --edge-s:   #33221A;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:   #101413;
+    --surface:  #191E1C;
+    --sunken:   #232A27;
+    --ink:      #E6ECE9;
+    --ink-soft: #B6C2BD;
+    --muted:    #85938D;
+    --rule:     #313A36;
+    --accent:   #5FBF97;
+    --accent-s: #16302A;
+    --edge:     #D08A64;
+    --edge-s:   #33221A;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 17px;
+    line-height: 1.62;
+    margin: 0;
+    padding: 3rem 1.25rem 5rem;
+  }
+
+  .wrap { max-width: 47rem; margin: 0 auto; }
+
+  .eyebrow {
+    font-family: var(--util);
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 0.75rem;
+  }
+
+  h1 {
+    font-family: var(--display);
+    font-size: 2.05rem;
+    line-height: 1.16;
+    letter-spacing: -0.02em;
+    margin: 0 0 1rem;
+    color: var(--ink);
+  }
+
+  .standfirst {
+    font-size: 1.12rem;
+    color: var(--ink-soft);
+    margin: 0 0 2.5rem;
+  }
+
+  h2 {
+    font-family: var(--display);
+    font-size: 1.16rem;
+    letter-spacing: -0.01em;
+    margin: 3rem 0 0.9rem;
+    padding-top: 1.4rem;
+    border-top: 1px solid var(--rule);
+    color: var(--ink);
+  }
+
+  h3 {
+    font-family: var(--util);
+    font-size: 0.95rem;
+    letter-spacing: 0.01em;
+    margin: 2rem 0 0.6rem;
+    color: var(--ink-soft);
+  }
+
+  p { margin: 0 0 1.1rem; }
+
+  strong { color: var(--ink); font-weight: 600; }
+  em { color: var(--ink-soft); }
+
+  code {
+    font-family: var(--display);
+    font-size: 0.86em;
+    background: var(--sunken);
+    padding: 0.1em 0.36em;
+    border-radius: 3px;
+  }
+
+  pre.term {
+    background: var(--sunken);
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    padding: 1rem 1.15rem;
+    overflow-x: auto;
+    font-family: var(--display);
+    font-size: 0.83rem;
+    line-height: 1.55;
+    margin: 0 0 1.4rem;
+  }
+  pre.term code { background: none; padding: 0; font-size: 1em; }
+
+  .callout {
+    background: var(--accent-s);
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    padding: 1rem 1.2rem;
+    margin: 0 0 1.4rem;
+  }
+  .callout p:last-child { margin-bottom: 0; }
+
+  .warn {
+    background: var(--edge-s);
+    border-left: 3px solid var(--edge);
+    border-radius: 4px;
+    padding: 1rem 1.2rem;
+    margin: 0 0 1.4rem;
+  }
+  .warn p:last-child { margin-bottom: 0; }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid #C4CBD1;
+    border-radius: 6px;
+    padding: 1.25rem 1rem;
+    margin: 0 0 0.6rem;
+    overflow-x: auto;
+  }
+  pre.mermaid {
+    margin: 0;
+    background: none;
+    text-align: center;
+  }
+
+  .caption {
+    font-family: var(--util);
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin: 0 0 2rem;
+  }
+
+  .tablewrap { overflow-x: auto; margin: 0 0 1.6rem; }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-family: var(--util);
+    font-size: 0.86rem;
+  }
+  th, td {
+    text-align: left;
+    padding: 0.6rem 0.7rem;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  th {
+    font-size: 0.72rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  td code { font-size: 0.83em; }
+
+  .verdict {
+    font-family: var(--util);
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .t { color: var(--accent); }
+  .f { color: var(--edge); }
+
+  ul { margin: 0 0 1.2rem; padding-left: 1.2rem; }
+  li { margin-bottom: 0.5rem; }
+
+  footer {
+    margin-top: 3.5rem;
+    padding-top: 1.2rem;
+    border-top: 1px solid var(--rule);
+    font-family: var(--util);
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+  a { color: var(--accent); }
+</style>
+
+<div class="wrap">
+
+<p class="eyebrow">beam-sharp · ticket 41 · ENG-209 · 2026-08-16</p>
+
+<h1>The premise that priced itself wrong</h1>
+
+<p class="standfirst">Ticket 41 §3 opened by stating that <code>bsc</code> is single-file. It is not,
+and measuring that is what decided the ticket — the fork it framed as expensive turned out to be an
+accumulator on a loop that already exists.</p>
+
+<h2>The one-line result</h2>
+
+<div class="callout">
+<p><strong>§3 — the compiler re-checks a dependency's source, and owns the dependency graph.</strong>
+A build tool names the source root and the file set, never the order.</p>
+<p><strong>§4 — <code>index.bs</code> holds everything except functions.</strong>
+One-function-per-file has no exception, enforced as an error rather than a convention.</p>
+</div>
+
+<p>Both were the last two open sections. §1, §2 and §5 landed on 2026-08-15 but were
+<em>answered-and-unverifiable</em> for a day, because neither unqualified names nor namespace
+resolution can be checked without knowing where the checker gets another module's types. Closing §3
+is what made yesterday's work real.</p>
+
+<h2>What the measurement changed</h2>
+
+<div class="warn">
+<p><strong>The false premise.</strong> §3's opening sentence read <em>"the compiler is single-file
+(<code>bsc FILE.bs</code>, one <code>module</code> declaration, one <code>.beam</code>)"</em>. That
+is wrong, and the whole cost estimate rested on it.</p>
+</div>
+
+<pre class="term"><code>$ bsc Alpha.bs Beta.bs
+exit=0
+beams: ./Alpha.beam ./Beta.beam</code></pre>
+
+<p><code>compile_only/2</code> is already <code>[file(F, Opts) || F &lt;- Files]</code> — a map over a
+file list. What is single-file is the <strong>environment</strong>, not the invocation. So fork A
+does not need a new CLI, a new entry point or a new artefact; it needs the loop that already exists
+to carry an accumulator.</p>
+
+<p>The second measurement is the one that makes it safe. A file calling a function defined in another
+file of the same invocation is rejected — and rejected <strong>identically in both argument
+orders</strong>:</p>
+
+<pre class="term"><code>$ bsc Alpha.bs Gamma.bs     # Gamma calls Double/1, defined in Alpha
+Gamma.bs:5: error: Eight calls Double/1, which nothing declares
+$ bsc Gamma.bs Alpha.bs     # same error, order reversed</code></pre>
+
+<p>There is no accidental leakage and no order-dependence already baked in. Whatever cross-module
+visibility gets added is <strong>entirely</strong> the new rule — not the new rule plus an
+undocumented one, which is not something a design gets for free.</p>
+
+<h2>Why the build-tool option is not a third option</h2>
+
+<p>The fork looked like three choices. It is two, and the third collapses into the one already
+rejected — which is what settles it on mechanism rather than preference.</p>
+
+<div class="panel">
+<pre class="mermaid">
+%%{init: {"theme": "base", "themeVariables": {
+  "background": "#F1F3F5", "mainBkg": "#FFFFFF", "primaryColor": "#FFFFFF",
+  "primaryTextColor": "#1C2127", "textColor": "#1C2127",
+  "nodeBorder": "#5C6670", "lineColor": "#5C6670",
+  "edgeLabelBackground": "#F1F3F5", "labelTextColor": "#1C2127",
+  "clusterBkg": "#F1F3F5", "clusterBorder": "#C4CBD1"
+}}}%%
+flowchart TD
+  Q["Where does the checker get another module's types?"]
+  Q --> A["A — re-check the dependency's source"]
+  Q --> B["B — types ride in the .beam as -bs_sig"]
+  Q --> C["C — a build tool computes the compile order"]
+
+  B --> B1["No source-less consumer exists"]
+  B --> B2["Blocked on ticket 16 §4 serialisation"]
+
+  C --> C1["An order alone buys nothing"]
+  C1 --> C2["Later run still starts with an empty environment"]
+  C2 --> C3["So signatures must persist between runs"]
+  C3 --> B
+
+  A --> A1["CHOSEN — the loop already exists"]
+
+  style A1 fill:#E2EFE9,stroke:#1B6046
+  style B1 fill:#F5E9E2,stroke:#8E4A2E
+  style B2 fill:#F5E9E2,stroke:#8E4A2E
+</pre>
+</div>
+<p class="caption">C reduces to B and inherits B's blocker. Same shape as F10's collapse of ticket 35
+— check whether the alternative can be <em>completed</em> before weighing it.</p>
+
+<p>An externally computed order buys nothing on its own: the second invocation still starts with an
+empty environment, and the <code>.beam</code> carries no B# types. To make an order useful the
+signatures must persist between invocations — and a persisted signature artefact <strong>is fork
+B</strong>, already disposed of twice.</p>
+
+<p>What is left for a build tool is stated explicitly, so it does not become the next blocker named
+only in prose: <strong>the source root and the file set, never the order.</strong> It is recorded
+rather than ticketed, because nothing needs building that a file list cannot express yet — and the
+sentence exists so a future session can notice when that stops being true.</p>
+
+<h2>§4 — the directory rules, now complete</h2>
+
+<p>Every directory in the tree is classified, from three tickets meeting: 13 settled the
+<em>inside</em> case, 41 §5 the <em>outside</em> one, and §4 the contents of <code>index.bs</code>.</p>
+
+<div class="panel">
+<pre class="mermaid">
+%%{init: {"theme": "base", "themeVariables": {
+  "background": "#F1F3F5", "mainBkg": "#FFFFFF", "primaryColor": "#FFFFFF",
+  "primaryTextColor": "#1C2127", "textColor": "#1C2127",
+  "nodeBorder": "#5C6670", "lineColor": "#5C6670",
+  "edgeLabelBackground": "#F1F3F5", "labelTextColor": "#1C2127",
+  "clusterBkg": "#F1F3F5", "clusterBorder": "#C4CBD1"
+}}}%%
+flowchart TD
+  D["A directory"] --> Q{"Does it hold .bs files?"}
+  Q -->|no| NS["NAMESPACE — erased, no atom, no beam"]
+  Q -->|yes| M["MODULE — one .beam, full dotted atom"]
+
+  M --> I["index.bs — using, type, record, behaviour"]
+  M --> F["One function per file"]
+  M --> S["Nested directory — sub-module, source-only"]
+
+  I --> X["NEVER a function — an error at the declaration"]
+
+  style NS fill:#F1F3F5,stroke:#8E9AA3
+  style M fill:#E2EFE9,stroke:#1B6046
+  style X fill:#F5E9E2,stroke:#8E4A2E
+</pre>
+</div>
+<p class="caption">Decidable by <code>ls</code> — no marker file, no keyword, no declaration.</p>
+
+<h3>The exemplars had already answered it</h3>
+
+<p>All three <code>index.bs</code> files in <code>examples/exemplars/</code> were written before the
+question was asked, and all three hold <strong>zero functions</strong> — only <code>using</code>,
+<code>type</code>, <code>record</code> and <code>behaviour</code>. That is evidence rather than
+prediction: nobody reached for the exception.</p>
+
+<h3>The mechanism is <code>write_scope</code></h3>
+
+<p>The standing constraint makes one function per file a bounded blast radius — no merge conflicts
+between agents working different operations. <code>index.bs</code> is the module's
+<strong>contended</strong> file by construction: every new type, record and <code>using</code> line
+lands there.</p>
+
+<div class="warn">
+<p>Permitting functions would merge the most-contended file in the module with the one thing
+file-per-function exists to isolate. Two agents adding unrelated functions would collide in a file
+<strong>neither of their functions is in</strong> — the exact failure the rule was chosen to prevent,
+arriving through the one file it did not cover.</p>
+</div>
+
+<p>The write-cost objection does not survive the standing constraint: ceremony is near-free because
+agents author these files, and read cost points the same way — an exception gives every search for
+<code>Total/1</code> a second place to look. A private helper gets its own file with ticket 40 §2's
+<code>private</code>, costing one file and zero runtime.</p>
+
+<p><strong>An error, not a convention.</strong> <code>{function_in_index, Name, Line}</code>. An
+ungated convention decays exactly as the exemplars' dead dialect and <code>LANGUAGE.md</code>'s
+<code>true</code> claim did — both cases where prose asserted a rule nothing enforced.</p>
+
+<h2>Claim → source</h2>
+
+<div class="tablewrap">
+<table>
+<thead>
+<tr><th>Claim as the ticket stated it</th><th>Verdict</th><th>Source</th></tr>
+</thead>
+<tbody>
+<tr>
+  <td>"The compiler is single-file — <code>bsc FILE.bs</code>, one <code>.beam</code>"</td>
+  <td class="verdict f">False</td>
+  <td><code>41a_multifile_probe.sh</code> §1 — two files, exit 0, two beams</td>
+</tr>
+<tr>
+  <td>Files in one invocation share no environment</td>
+  <td class="verdict t">True, and order-independent</td>
+  <td><code>41a</code> §2–3 — identical error in both orders</td>
+</tr>
+<tr>
+  <td>"All 29 <code>.bs</code> files are in this repo"; no artefact ships</td>
+  <td class="verdict t">True (now 30)</td>
+  <td><code>find . -name '*.bs'</code> — count stale, claim intact</td>
+</tr>
+<tr>
+  <td>No import machinery measured anywhere</td>
+  <td class="verdict t">True</td>
+  <td>Sweep of <code>research/</code> + <code>prototypes/</code> — only Elm/TS/Elixir <code>alias</code> in unrelated contexts</td>
+</tr>
+<tr>
+  <td>Fork B blocked on ticket 16 §4's serialisation mapping</td>
+  <td class="verdict t">True</td>
+  <td>Map lists 16 §4 as owed and unwritten; same reason 23 §5 is blocked</td>
+</tr>
+<tr>
+  <td><code>using Shop.Orders</code> and <code>Module.Fn(…)</code> do not parse</td>
+  <td class="verdict t">True</td>
+  <td><code>41a</code> §4–5 — <code>syntax error before: 'Alpha'</code> / <code>before: '.'</code></td>
+</tr>
+<tr>
+  <td>"Nothing has ever compiled an <code>index.bs</code>" (§4)</td>
+  <td class="verdict t">True</td>
+  <td>Three exist, all extracted exemplar targets; no tooling reads them</td>
+</tr>
+<tr>
+  <td><code>LANGUAGE.md</code>: "the compiler currently takes one file at a time"</td>
+  <td class="verdict f">False</td>
+  <td>Same premise, second location — corrected in this commit</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<h2>What this leaves owed</h2>
+
+<ul>
+<li><strong>Four checks, specified and unbuilt</strong>, belonging to the feature that implements the
+module system: <code>{module_path_mismatch, …}</code> (§5), <code>{function_in_index, …}</code> (§4),
+§2's ambiguity rule, and §3's environment-threading.</li>
+<li><strong>A cycle rule</strong> for mutually importing modules. F6's cyclic-<em>alias</em> guard is
+the precedent — refuse by name rather than expand — but it is a mechanism the implementing feature
+meets, not a fork this ticket owns.</li>
+<li><strong>Re-checking cost.</strong> Compile-time only, no correctness consequence. If it ever
+bites, the fix is a cache — which is fork B under a different name.</li>
+<li><strong>Ticket 47 · ENG-219 — the import alias</strong>, spun out rather than absorbed.</li>
+</ul>
+
+<h3>Why the alias became its own ticket</h3>
+
+<p>41 parked <code>using Orders = Shop.Orders</code> with a note that <strong>§2 inverted the
+argument against it</strong>. An alias was shelved as a pure <em>read</em> cost — the reader has to
+find the alias line to learn what <code>Orders</code> means. That assumed the competing form was a
+<strong>qualified</strong> name, carrying its source in the call. §2 made the competing form a
+<strong>bare</strong> name carrying no source at all, and against that an alias is the <em>more</em>
+explicit spelling.</p>
+
+<p>The ticket said it <em>"should be re-asked rather than inherited"</em>. Re-asking is a decision,
+and this repo's rule is that naming a decision you need <strong>is</strong> raising a ticket — which
+does not count as raised until the file and the issue both exist. That rule was written after F2 sat
+takeable-looking for a day on blockers no query could see.</p>
+
+<p><strong>Discharged:</strong> ticket 16 §4 is no longer a prerequisite here. §3 landed on A, so
+nothing is serialised.</p>
+
+<footer>
+Ticket <code>wayfinder/issues/41-imports-and-cross-module-scope.md</code> ·
+body in <code>wayfinder/decisions.md</code> ·
+probe <code>wayfinder/prototypes/41a_multifile_probe.sh</code> ·
+<a href="https://linear.app/davewil/issue/ENG-209">ENG-209</a> ·
+all 8 gates green, 250 tests
+</footer>
+
+</div>
