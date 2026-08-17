@@ -408,3 +408,24 @@ named now agree.** Whether that fires the trigger is David's call.
 place to test whether an untyped result set crossing a boundary behaves like the queue body did.
 Expect `ValidateAs<T>` per row and check whether that is affordable at result-set scale; 25c only
 paid it once per message.
+
+### All three exemplars are missing a `module` declaration — found by F15, 2026-08-17
+
+**Not one of the three `index.bs` files declares a module at all**, and until F15 nothing could
+notice: `bsc` read one file and defaulted a missing declaration to `'Main'`, and the exemplars do
+not parse yet in any case, so they were invisible to the source index.
+
+F15 made the directory the unit of compilation, and a directory holding `.bs` files with no
+`module` line anywhere in it is now an error — a module is a name, and these have none. The
+generated files are downstream of the write-ups in `wayfinder/prototypes/25*.md`, which are
+canonical and which `bin/extract-exemplars.sh --check` gates, so **the declaration belongs in the
+write-ups**, not in `compiler/examples/exemplars/`.
+
+Each write-up's `index.bs` section wants a `module` line naming the path it sits at. The three
+directory names are dialect-illegal besides — `25a-http-api-server` is not a module path — so
+whoever fixes this is also choosing the exemplars' module names, which is a decision this note
+deliberately does not make.
+
+**It changes nothing today.** The exemplars are pruned from every gate that compiles, because they
+are the compiler's target rather than a passing corpus. This is recorded so it is not rediscovered
+as a surprise the day they first parse.

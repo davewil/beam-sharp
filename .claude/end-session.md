@@ -13,7 +13,9 @@ cd compiler && rebar3 escriptize                # BEFORE eunit — several tests
 cd compiler && rebar3 eunit
 cd compiler && ./bin/check-language.sh          # blocks compile, `not-yet` blocks must NOT
 cd compiler && find examples -path examples/exemplars -prune -o -name '*.bs' -print0 |
-    while IFS= read -r -d '' f; do ./_build/default/bin/bsc -o "$(mktemp -d)" "$f" || exit 1; done
+    while IFS= read -r -d '' f; do dirname "$f"; done | sort -u |
+    while IFS= read -r d; do
+        ./_build/default/bin/bsc --src-root examples -o "$(mktemp -d)" "$d" || exit 1; done
 cd compiler && ./bin/spec-check.sh              # Dialyzer, plus two negative controls
 ./editor/bin/check-tokens.sh                    # every lexer keyword is in both editor grammars
 ./editor/bin/check-corpus.sh                    # the tree-sitter grammar parses every example
@@ -29,10 +31,20 @@ strings (F9), `and`/`or` while still carrying the **removed** `&&`/`||` (ticket 
 rather than skipped — `npm i -g tree-sitter-cli` if it reports skipping. A gate that silently
 skips is worse than one that is honestly missing.
 
-**The example loop RECURSES and prunes `exemplars/`.** Both halves matter: F11's example is a
-pair of files in a subdirectory, which a top-level glob walks straight past; and ticket 25's
-three exemplars do not parse yet, so recursing *without* the prune turns the must-run surface
-into a must-fail one. The old glob excluded them by accident rather than by design.
+**The example loop RECURSES, runs PER DIRECTORY, and prunes `exemplars/`.** All three matter.
+F11's example is a pair of files in a subdirectory, which a top-level glob walks straight past.
+F15 made the directory the module, so a per-*file* invocation emits a `.beam` missing the rest of
+its module — wrong rather than merely outdated — and `--src-root examples` is needed because the
+corpus holds dotted modules, which are nested directories. And ticket 25's three exemplars do not
+parse yet, so recursing *without* the prune turns the must-run surface into a must-fail one; the
+old top-level glob excluded them by accident rather than by design.
+
+**A glob that matches nothing does not disappear — bash passes it through unexpanded.** After
+F15's corpus rewrite there are no `.bs` files at the top level of `examples/`, and three gate
+scripts pointed at `examples/*.bs` therefore ran against a literal filename with a `*` in it.
+`editor/bin/check-corpus.sh` looped exactly once, reporting one ERROR for a file that does not
+exist while checking none of the ones that do. **Prefer `find` over a glob in a gate**, and when a
+gate goes quiet after a layout change, suspect this first.
 
 **`escriptize` before `eunit` is load-bearing** — tests that drive `bsc` as a subprocess
 resolve it at `_build/default/bin/bsc`, and with `eunit` first they fail on a fresh
