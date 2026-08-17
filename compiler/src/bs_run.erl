@@ -85,6 +85,15 @@ resolve(Mod, Exports, Argv) ->
 %% `module_info(functions)` lists every function the module defines, exported or
 %% not (measured on OTP 28), so the true sentence needs nothing threaded down
 %% from the compiler — and the REPL, which shares this path, gets it for free.
+%%
+%% ONE BOUNDARY, MEASURED RATHER THAN ASSUMED: `erlc` DELETES an unexported
+%% function that nothing calls, warning `function 'Half'/1 is unused`. So a
+%% private function that is genuinely dead is not in the beam at all, and this
+%% falls back to "no such function" — which is the true sentence for it. Every
+%% private function in the corpus is called, so the fallback is the rare path
+%% and not the common one. Worth knowing rather than fixing: threading the
+%% compiler's own private set down here would buy a better message only for code
+%% the compiler has just told you to delete.
 private_names(Mod, Exports) ->
     Defined = [F || {F, _} <- Mod:module_info(functions), F =/= module_info],
     Defined -- [F || {F, _} <- Exports].

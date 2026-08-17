@@ -33,14 +33,14 @@ Every construct is marked with its status:
 ## 1. The shape of a program
 
 <!-- check:
-list<int> Series(int n, int a, int b, list<int> acc)
+private list<int> Series(int n, int a, int b, list<int> acc)
 Series(n, a, b, acc) when n <= 0 -> acc
 Series(n, a, b, acc) when n > 0  -> Series(n - 1, b, a + b, [a, ..acc])
 -->
 ```csharp
 module Fib
 
-list<int> Fib(int n)
+public list<int> Fib(int n)
 
 Fib(n) when n <= 0 -> []
 Fib(n) when n > 0  -> Series(n, 0, 1, [])
@@ -51,6 +51,20 @@ function name. The clause arrow is `->`. **There is no `;`** — a declaration e
 one begins. **shipped**
 <!-- decided by ticket 01 (Variant A: signature names the function once, clauses are bare) -->
 
+**Every signature opens with `public` or `private`, and there is no default.** A `public` function
+is exported from the module; a `private` one can be called only from inside it. `Series` above is
+private — `Fib` calls it, nothing else can — which is why the example shows a call to a function
+the module does not offer anyone. A private function is otherwise ordinary: it is compiled, it
+carries a type, and a crash names it. **shipped**
+<!-- decided by ticket 40 §3; built by F12 -->
+
+There is no default because a reader should never have to know which way an unmarked signature
+would have gone. Two consequences follow. A function that a behaviour declares as a callback must
+be `public`, since a behaviour is dispatched through the export list and nothing else — marking one
+private is refused at the declaration rather than left to fail when the process starts. And
+visibility is per **name and arity**, so `Length(list<int> xs)` may be public while
+`Length(list<int> xs, int acc)` beside it is private.
+
 **A body is zero or more bindings followed by one expression**, and the body's value is that last
 expression — so a body is still an expression, with names in front of it.
 <!-- decided by ticket 34 -->
@@ -59,7 +73,7 @@ expression — so a body is still an expression, with names in front of it.
 record Order { Id: int, Total: int }
 -->
 ```csharp
-int Squared(Order o)
+public int Squared(Order o)
 
 Squared(o) ->
     var t = o.Total
@@ -83,7 +97,7 @@ A **destructuring** bind is in the language, and only where it **cannot fail**:
 <!-- check:
 -->
 ```csharp
-int Sum((int, int) pair)
+public int Sum((int, int) pair)
 
 Sum(pair) ->
     var (a, b) = pair
@@ -114,13 +128,13 @@ module Shop.Reports
 using Shop.Collections.List
 using Shop.Collections
 
-int Restate(int n)
+public int Restate(int n)
 Restate(n) -> Sum([n, n, n], 0)
 
-int Counted(int n)
+public int Counted(int n)
 Counted(n) -> List.Length([n, n])
 
-int Fully(int n)
+public int Fully(int n)
 Fully(n) -> Shop.Collections.List.Sum([n], 0)
 ```
 
@@ -177,7 +191,7 @@ type Verdict = :positive | :zero | :negative | :unknown
 ```csharp
 type Reading = (:ok, int) | (:error, atom)
 
-Verdict Classify(Reading r)
+public Verdict Classify(Reading r)
 
 Classify((:ok, n)) when n > 0 -> :positive
 Classify((:ok, 0))            -> :zero
@@ -216,7 +230,7 @@ this language uses for lists. **shipped**
 <!-- decided by ticket 42 -->
 
 <!-- check:
-atom Classify(int n)
+public atom Classify(int n)
 -->
 ```csharp
 Classify(>= 4 and <= 7) -> :reserved
@@ -243,7 +257,7 @@ acc)` is how you ask for the constraint. This is the whole reason the marker exi
 language has no way to say *the same value again*.
 
 ```csharp
-int RunLength(int head, list<int> xs)
+public int RunLength(int head, list<int> xs)
 
 RunLength(head, [])                -> 0
 RunLength(head, [== head, ..rest]) -> 1 + RunLength(head, rest)
@@ -368,7 +382,7 @@ type Verdict = :new | :gone | :unknown
 record Order { Id: int, Status: atom }
 -->
 ```csharp
-Verdict Describe(Order o)
+public Verdict Describe(Order o)
 
 Describe(o) -> o.Status switch {
     :placed  => :new,
@@ -389,7 +403,7 @@ level down:
 type Disposition = :ack | :dead_letter | :requeue
 -->
 ```csharp
-Disposition Decide(bool ok, bool permanent, bool redelivered)
+public Disposition Decide(bool ok, bool permanent, bool redelivered)
 
 Decide(o, p, r) -> (o, p, r) switch {
     (true,  _,     _)     => :ack,
@@ -435,7 +449,7 @@ ordinary clause head and checked exhaustive:
 ```csharp not-yet
 type Shape = Circle | Rect
 
-float Area(Shape s)
+public float Area(Shape s)
 
 Area(Circle c) -> 3.14159 * c.Radius * c.Radius
 Area(Rect r)   -> r.W * r.H
@@ -449,13 +463,13 @@ bindings** — see §1 — so each of these is a function, and that is what the 
 like:
 
 ```csharp not-yet
-Order Draft()
+public Order Draft()
 Draft() -> Order { Id = "A-1", Total = 500, Lines = [] }
 
-Order Pay(Order o)
+public Order Pay(Order o)
 Pay(o) -> o with { Total = 600 }
 
-int Amount(Order o)
+public int Amount(Order o)
 Amount(o) -> o.Total
 ```
 
@@ -497,7 +511,7 @@ So this is what the prelude holds, not something you can type. What you can type
 type Weighed = result<int, atom>
 -->
 ```csharp
-atom Grade(Weighed w)
+public atom Grade(Weighed w)
 Grade((:error, e))     -> e
 Grade(n) when n > 1000 -> :heavy
 Grade(n)               -> :light
@@ -553,7 +567,7 @@ prelude; your own take a parameter at the declaration and are PascalCase like an
 ```csharp
 type Pair<T> = (T, T)
 
-int Sum(Pair<int> p)
+public int Sum(Pair<int> p)
 Sum((a, b)) -> a + b
 ```
 
@@ -607,7 +621,7 @@ The **clause head is the decoder**, and the exhaustiveness residual is the case 
 handle:
 
 ```csharp not-yet
-Verdict Handle(term msg)
+public Verdict Handle(term msg)
 
 Handle((:ok, n)) when is_int(n) -> :fine
 Handle(_)                       -> :unknown
@@ -645,7 +659,7 @@ using :erlang {
     int system_time(atom unit)
 }
 
-int Total(list<int> xs)
+public int Total(list<int> xs)
 
 Total(xs) -> :lists.sum(xs)
 ```
@@ -689,16 +703,16 @@ behaviour GenServer
 type Request = :get | (:add, int)
 type Reply   = (:reply, int, int)
 
-(:ok, int) Init(int seed)
+public (:ok, int) Init(int seed)
 
 Init(seed) -> (:ok, seed)
 
-Reply HandleCall(Request request, term from, int state)
+public Reply HandleCall(Request request, term from, int state)
 
 HandleCall(:get, from, state)      -> (:reply, state, state)
 HandleCall((:add, n), from, state) -> (:reply, state + n, state + n)
 
-(:noreply, int) HandleCast(term msg, int state)
+public (:noreply, int) HandleCast(term msg, int state)
 
 HandleCast(msg, state) -> (:noreply, state)
 ```

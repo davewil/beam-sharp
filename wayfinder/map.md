@@ -267,9 +267,11 @@ Bodies in [`decisions.md`](decisions.md). Ticket text in `issues/`.
   a body is bindings then one expression; rebinding is an error
 - **The body check site** `#33` `types` `built:F5`
   a body is typed; checking is containment at five sites, and the residual survives at four
-- **Module and namespace system, and function identity** `#40` `modules` `codegen` `part-built:F11,F15`
+- **Module and namespace system, and function identity** `#40` `modules` `codegen` `syntax` `built:F11,F15,F12`
   the atom is **forced** by 26's tag mint — full dotted path. Arity overloading permitted and now
-  real; the directory-as-module half is built, so only `public`/`private` (**F12**) is left
+  real; the directory half is built, and `public`/`private` (**F12**) closes §3. **`syntax` was
+  added 2026-08-17**: §3 puts a keyword on every signature in the language, and without the tag
+  `check-surface.sh` never asked LANGUAGE.md for it — the gate reads tags, not consequences
 - **Imports and cross-module scope** `#41` `modules` `codegen` `built:F11,F15`
   `using` imports **unqualified**; a namespace is a directory holding no `.bs` files. The compiler
   owns the dependency graph — *"single-file"* was false, and §1's own grammar delta was too. §4/§5's

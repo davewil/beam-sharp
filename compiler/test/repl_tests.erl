@@ -42,7 +42,20 @@ src() ->
     "Flag(true)  -> :yes\n"
     "Flag(false) -> :no\n"
     "public term Echo(term t)\n"
-    "Echo(t) -> t\n".
+    "Echo(t) -> t\n"
+    %% F12 — a private function, so the prompt has something it must refuse to
+    %% call and something it must refuse CORRECTLY.
+    %%
+    %% `Twice` calls it, and that is load-bearing rather than decorative: `erlc`
+    %% DELETES an unexported function nothing calls, so an uncalled private
+    %% function is not in the beam at all and `module_info(functions)` cannot
+    %% report it. Measured 2026-08-17. Every private function in the corpus is
+    %% called, which is why this is a note rather than a defect — but a fixture
+    %% that did not call it would test the fallback and look like it tested this.
+    "public int Twice(int n)\n"
+    "Twice(n) -> Half(n) + Half(n)\n"
+    "private int Half(int n)\n"
+    "Half(n) -> n\n".
 
 %% Drives the prompt and hands back everything it printed. `:quit` is appended
 %% so the session always ends, whatever the lines under test do.
@@ -275,7 +288,41 @@ the_banner_lists_the_exports_test() ->
         true  ->
             Out = repl([]),
             said(Out, "Squared/1"),
-            said(Out, "Flag/1")
+            said(Out, "Flag/1"),
+            %% F12 — the banner is generated from `module_info(exports)`, so a
+            %% private function is absent from it by the same mechanism that
+            %% keeps it out of the export list. Asserted rather than assumed,
+            %% because it is the one place the prompt SHOWS visibility.
+            silent(Out, "Half/1")
+    end.
+
+%%% --- F12 -------------------------------------------------------------------
+
+%% "no such function" and "you may not call it" are different sentences, and
+%% only one of them is true. Before this, a private name got `no Half/1 -- try
+%% :exports`, which sends the reader to a list the function will never be in.
+%%
+%% This file's header records five defects found at this prompt, one per feature
+%% that touched it, every one fixed without a test. This is the first to arrive
+%% WITH one.
+a_private_function_is_refused_by_name_at_the_prompt_test() ->
+    case built() of
+        false -> ok;
+        true  ->
+            Out = repl(["Half(4)"]),
+            said(Out, "is private in"),
+            silent(Out, "no Half/1")
+    end.
+
+%% And a name that genuinely does not exist still gets the old sentence, so the
+%% private path has not swallowed the general one.
+an_unknown_function_still_says_no_such_function_test() ->
+    case built() of
+        false -> ok;
+        true  ->
+            Out = repl(["Nope(4)"]),
+            said(Out, "no Nope/1"),
+            silent(Out, "is private in")
     end.
 
 exports_and_reload_both_answer_test() ->
