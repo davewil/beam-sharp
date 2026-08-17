@@ -34,11 +34,17 @@ if [ ! -f "$PLT" ]; then
   dialyzer --build_plt --output_plt "$PLT" --apps erts kernel stdlib >/dev/null 2>&1 || true
 fi
 
+# F15 — PER DIRECTORY. A module is a directory now, so `examples/*.bs` matches
+# nothing; unmatched, bash passes the pattern through and `bsc` was handed a
+# literal `*.bs` path. `--src-root` is named because the corpus holds dotted
+# modules, whose directories are nested.
 echo "=== compiling the examples with bsc ==="
-for f in "$HERE"/examples/*.bs; do
-  "$BSC" -o "$OUT" "$f"
-  echo "  $(basename "$f")"
-done
+find "$HERE"/examples -path "$HERE/examples/exemplars" -prune -o -name '*.bs' -print |
+  while read -r f; do dirname "$f"; done | sort -u |
+  while read -r d; do
+    "$BSC" --src-root "$HERE"/examples -o "$OUT" "$d"
+    echo "  ${d#"$HERE"/}"
+  done
 
 echo
 echo "=== Dialyzer, default warning set — any warning is a defect in bs_emit ==="

@@ -81,33 +81,29 @@
       ]
     },
     "module_path": {
-      "type": "PREC_LEFT",
-      "value": 0,
-      "content": {
-        "type": "SEQ",
-        "members": [
-          {
-            "type": "SYMBOL",
-            "name": "uident"
-          },
-          {
-            "type": "REPEAT",
-            "content": {
-              "type": "SEQ",
-              "members": [
-                {
-                  "type": "STRING",
-                  "value": "."
-                },
-                {
-                  "type": "SYMBOL",
-                  "name": "uident"
-                }
-              ]
-            }
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "uident"
+        },
+        {
+          "type": "REPEAT",
+          "content": {
+            "type": "SEQ",
+            "members": [
+              {
+                "type": "STRING",
+                "value": "."
+              },
+              {
+                "type": "SYMBOL",
+                "name": "uident"
+              }
+            ]
           }
-        ]
-      }
+        }
+      ]
     },
     "import_declaration": {
       "type": "SEQ",
@@ -2219,6 +2215,9 @@
     [
       "list_pattern",
       "list"
+    ],
+    [
+      "module_path"
     ]
   ],
   "precedences": [],

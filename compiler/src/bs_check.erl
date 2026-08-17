@@ -170,7 +170,11 @@ no_function_in_index(Path, Decls) when is_list(Path) ->
     case filename:basename(Path) of
         "index.bs" ->
             case [{N, L} || {signature, L, N, _, _} <- Decls] of
-                [{N, L} | _] -> erlang:error({function_in_index, N, L});
+                %% Wrapped, because this raise site KNOWS its file and the
+                %% generic one does not. The inner tuple is exactly the shape
+                %% 41 §4 specified; `resolve_error/2` unwraps and re-dispatches.
+                [{N, L} | _] ->
+                    erlang:error({in_file, Path, {function_in_index, N, L}});
                 []           -> ok
             end;
         _ -> ok

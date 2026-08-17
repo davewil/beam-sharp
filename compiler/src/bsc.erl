@@ -50,9 +50,12 @@ file_to_dir(Path, Dir) -> file(Path, #opts{outdir = Dir}).
 %%% ---------------------------------------------------------------------------
 
 main([]) ->
-    io:format("usage: bsc [-o DIR] [-v] FILE.bs [FUNCTION] [ARG...]~n"
-              "  with no ARGs, compiles. With ARGs, compiles then runs:~n"
-              "      bsc fib.bs 5~n"),
+    io:format("usage: bsc [-o DIR] [-v] [--src-root DIR] PATH [FUNCTION] [ARG...]~n"
+              "  PATH is a module, which is a DIRECTORY — naming one of its~n"
+              "  files means the same thing. With no ARGs it compiles; with~n"
+              "  ARGs it compiles then runs:~n"
+              "      bsc examples/Fib 5~n"
+              "      bsc --src-root examples examples/Shop/Reports Restate 3~n"),
     halt(2);
 main(Args) ->
     {Opts, Files, Argv} = parse_args(Args, #opts{}, []),
@@ -66,6 +69,25 @@ main(Args) ->
 
 compile_or_run(Files, Argv, Opts) ->
     case {Files, Argv} of
+        %% F15 — a NAMESPACE named on the command line reaches here, because
+        %% `is_path_arg/1` only counts a directory as a path if it is a module.
+        %% Falling through to the usage text would answer a precise mistake with
+        %% a general message; 41 §5 gives it an exact name, so use it.
+        {[], [A | _]} when Argv =/= [] ->
+            case filelib:is_dir(A) andalso dir_kind(A) =:= namespace of
+                true ->
+                    io:format(standard_error,
+                              "bsc: ~s is a namespace, not a module~n"
+                              "  it holds no `.bs` files of its own, so there is~n"
+                              "  nothing to compile and nothing to emit — a~n"
+                              "  namespace is erased entirely (41 §5). Name one of~n"
+                              "  the modules under it:~n"
+                              "~s",
+                              [A, [io_lib:format("      ~s~n", [D])
+                                   || D <- module_dirs(A)]]),
+                    halt(2);
+                false -> main([])
+            end;
         {[], _}           -> main([]);
         {[File], [_ | _]} -> run(File, Opts, Argv);
         {_, [_ | _]}     ->
@@ -165,16 +187,22 @@ parse_all([D | Rest], Acc) ->
 %% the emitter, because both need to know which file a thing came from: the
 %% checker to put a diagnostic beside the right path, the emitter to put 13 §3's
 %% `file` attribute in front of the right functions.
+%% THIS IS REACHED BY A PATH THAT DOES NOT EXIST, which is not the case it looks
+%% like it is for. `is_path_arg/1` keeps a real namespace out and
+%% `compile_or_run/3` names that mistake, so the way in is an unmatched shell
+%% glob: `bsc examples/*.bs` with no top-level `.bs` files passes the literal
+%% string through, the `.bs` extension makes it a file argument, and its
+%% directory holds no sources. Two of this repo's own gate scripts did exactly
+%% that, and the first version of this function answered them with
+%% `no match of right hand side value namespace` — an escript stack trace, from
+%% a mistake with an obvious sentence attached to it.
 load_unit(Dir) ->
     case dir_kind(Dir) of
         namespace ->
-            %% Only reachable by naming a namespace on the command line. A
-            %% namespace emits nothing (41 §5), so there is nothing to build and
-            %% saying so beats compiling zero files and exiting 0.
-            report_fatal(Dir, no_modules_here), {error, no_modules_here};
+            report_fatal(Dir, no_sources_here), {error, no_sources_here};
         {module, Files} ->
             case load_sources(Files, []) of
-                {error, R}  -> {error, R};
+                {error, R}    -> {error, R};
                 {ok, Sources} -> {ok, {Dir, Sources, module_of(decls(Sources))}}
             end
     end.
@@ -833,6 +861,91 @@ resolve_error(_Path, {import_cycle, Cycle}) ->
               [[io_lib:format("    ~s~n", [M]) || M <- Cycle]]),
     handled;
 
+%%% ---------------------------------------------------------------------------
+%%% F15 — the directory-shaped refusals
+%%%
+%%% Every one of these needs a clause HERE as well as a raise site. A raised
+%%% tuple with no clause falls through to `unhandled` below and is re-raised, and
+%%% what the author then sees is an escript stack trace — the worst diagnostic
+%%% this compiler produces, and the reason the `try` in `check_and_emit/4` exists
+%%% at all.
+%%% ---------------------------------------------------------------------------
+
+%% A raise site that knows its file says so, and the inner tuple stays exactly
+%% the shape ticket 41 specified.
+resolve_error(_Path, {in_file, Path, Reason}) ->
+    resolve_error(Path, Reason);
+
+%% Ticket 41 §4. `index.bs` holds everything except functions.
+resolve_error(Path, {function_in_index, Name, Line}) ->
+    io:format(standard_error,
+              "~s:~p: error: ~s is a function, and index.bs holds no functions~n"
+              "  index.bs is the module's DECLARATION file — using, type, record~n"
+              "  and behaviour. It is also the file every new declaration lands~n"
+              "  in, so it is the most contended one in the module by~n"
+              "  construction; putting functions there merges it with the one~n"
+              "  thing file-per-function exists to keep apart.~n"
+              "  Give ~s its own file in the same directory.~n",
+              [Path, Line, Name, Name]),
+    handled;
+
+%% Ticket 41 §5. This is ticket 13's measured `erlc` module-atom/filename rule
+%% lifted one level, from the emitted artefact to the source tree.
+resolve_error(Path, {module_path_mismatch, Declared, Expected, Line}) ->
+    io:format(standard_error,
+              "~s:~p: error: `module ~s` does not match its directory~n"
+              "  this directory says `module ~s`~n"
+              "  a module's declaration and its path are the same name written~n"
+              "  twice, and 40 §1 makes the declaration the emitted ATOM — so~n"
+              "  when they disagree the atom and the tree have drifted apart.~n"
+              "  Rename the directory, fix the declaration, or name the source~n"
+              "  root with --src-root if this tree is rooted somewhere else.~n",
+              [Path, Line, Declared, Expected]),
+    handled;
+
+%% One directory is one module (ticket 13 §3's aggregate rule).
+resolve_error(_Path, {module_disagreement, Declared}) ->
+    io:format(standard_error,
+              "error: one directory is one module, and this one declares ~p~n"
+              "~s"
+              "  every `.bs` file in a directory compiles into the same `.beam`,~n"
+              "  so these are not two modules — they are one module that cannot~n"
+              "  decide on its name. A file with no `module` line inherits the~n"
+              "  directory's, which is the usual way to write the others.~n",
+              [length(lists:usort([M || {_, M, _} <- Declared])),
+               [io_lib:format("    ~s:~p: module ~s~n", [P, L, M])
+                || {P, M, L} <- Declared]]),
+    handled;
+
+resolve_error(_Path, {no_module_declaration, Paths}) ->
+    io:format(standard_error,
+              "error: this directory holds `.bs` files and no `module` line~n"
+              "~s"
+              "  a directory holding `.bs` files is a module (41 §5) and a module~n"
+              "  needs a name. Put `module Something` in index.bs and the rest~n"
+              "  of the files inherit it.~n",
+              [[io_lib:format("    ~s~n", [P]) || P <- Paths]]),
+    handled;
+
+%% Ticket 41 §3 draws the build-tool boundary at naming the source root, so a
+%% root that does not contain what it is rooting is a usage error, not a
+%% mismatch to report against the source.
+resolve_error(_Path, {src_root_mismatch, Dir, Root}) ->
+    io:format(standard_error,
+              "bsc: --src-root ~s does not contain ~s~n"
+              "  the source root is the directory module paths are relative to,~n"
+              "  so it has to be an ancestor of the module being compiled.~n",
+              [Root, Dir]),
+    handled;
+
+resolve_error(_Path, {src_root_is_the_module, Dir}) ->
+    io:format(standard_error,
+              "bsc: --src-root ~s is the module directory itself~n"
+              "  a module needs at least one path segment below the root to take~n"
+              "  its name from. Name the root one level up.~n",
+              [Dir]),
+    handled;
+
 resolve_error(_Path, _Other) ->
     unhandled.
 
@@ -1105,6 +1218,15 @@ report_fatal(Path, {lex, {Line, Mod, Reason}}) ->
 report_fatal(Path, {parse, {Line, Mod, Reason}}) ->
     io:format(standard_error, "~s:~p: error: ~s~n",
               [Path, Line, Mod:format_error(Reason)]);
+%% F15 — most often an unmatched shell glob rather than a real directory, so the
+%% message says what was looked for instead of just naming the path.
+report_fatal(Path, no_sources_here) ->
+    io:format(standard_error,
+              "bsc: no `.bs` files in ~s~n"
+              "  a module is a directory holding `.bs` files (41 §5). If this~n"
+              "  came from a shell glob, it matched nothing and was passed~n"
+              "  through unexpanded — the corpus is one directory per module now.~n",
+              [Path]);
 report_fatal(Path, Reason) ->
     io:format(standard_error, "~s: ~p~n", [Path, Reason]).
 

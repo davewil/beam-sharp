@@ -35,8 +35,17 @@ cd "$GRAMMAR"
 # rather than passing against a stale parser.c.
 tree-sitter generate >/dev/null
 
+# F15 — RECURSIVE, because a module is a directory and there are no `.bs` files
+# at the top level of `examples/` any more. A top-level glob matches nothing,
+# and an unmatched glob in bash is passed through unexpanded — so this loop ran
+# exactly once, on a filename with a `*` in it, and reported one ERROR for a file
+# that does not exist while checking none of the ones that do. A gate that
+# silently stops checking is the failure this whole script was rewritten about.
+#
+# `exemplars/` stays excluded for the reason in the header: they are the
+# compiler's target and do not parse yet.
 fail=0
-for f in "$REPO"/compiler/examples/*.bs; do
+while IFS= read -r f; do
     if tree-sitter parse -q "$f" >/dev/null 2>&1; then
         printf '  %-8s %s\n' "ok" "${f#"$REPO"/}"
     else
@@ -51,7 +60,9 @@ for f in "$REPO"/compiler/examples/*.bs; do
         tree-sitter parse "$f" 2>&1 | grep -F ERROR | head -3 | sed 's/^/           /' || true
         fail=1
     fi
-done
+done < <(find "$REPO"/compiler/examples \
+              -path "$REPO/compiler/examples/exemplars" -prune -o \
+              -name '*.bs' -print | sort)
 
 echo
 if [ "$fail" -eq 0 ]; then

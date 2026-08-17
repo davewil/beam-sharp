@@ -117,7 +117,21 @@ for i in $(seq 1 "$COUNT"); do
 
     out="$WORK/out$i"
     mkdir -p "$out"
-    if "$BSC" -o "$out" "$WORK/$i.bs" >"$WORK/$i.log" 2>&1; then
+
+    # F15 — EACH BLOCK GETS ITS OWN MODULE DIRECTORY, named for what it declares.
+    #
+    # Every block used to be written straight into `$WORK` as `<n>.bs`, which is
+    # now ONE directory holding twenty-four `module` lines — one module that
+    # cannot decide on its name, so every block failed at once. Ticket 41 §5's
+    # path check then wants the directory to match the declaration, and the awk
+    # above guarantees there is one to match: a block with no `module` line gets
+    # `module Doc<n>` synthesised.
+    mod="$(sed -n 's/^module \([A-Za-z0-9_.]*\).*/\1/p' "$WORK/$i.bs" | head -1)"
+    src="$WORK/b$i/$(printf '%s' "$mod" | tr '.' '/')/$i.bs"
+    mkdir -p "$(dirname "$src")"
+    cp "$WORK/$i.bs" "$src"
+
+    if "$BSC" --src-root "$WORK/b$i" -o "$out" "$src" >"$WORK/$i.log" 2>&1; then
         compiled=1
     else
         compiled=0

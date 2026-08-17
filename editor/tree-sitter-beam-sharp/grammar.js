@@ -61,6 +61,10 @@ module.exports = grammar({
   conflicts: $ => [
     [$.pattern, $._expression],
     [$.list_pattern, $.list],
+    // F15 — `Shop.Collections.List.Sum(…)`. Where the module path stops and the
+    // function name starts is not decidable one token at a time; see the note on
+    // `module_path`.
+    [$.module_path],
   ],
 
   rules: {
@@ -87,7 +91,16 @@ module.exports = grammar({
     // call site. Left-recursive for the same reason the compiler's rule is:
     // right recursion makes `List.Map(x)` unparseable, because the recursive arm
     // takes the whole path and leaves no function name behind.
-    module_path: $ => prec.left(seq($.uident, repeat(seq('.', $.uident)))),
+    //
+    // `prec.left` USED TO BE HERE AND IT WAS F11's BUG WEARING THE OTHER FACE.
+    // At `Shop.Collections.List` with `.Sum(` ahead, `prec.left` says "extend",
+    // so the path swallowed the function name and `Fully(n) ->
+    // Shop.Collections.List.Sum([n], 0)` was an ERROR node. One dot worked,
+    // which is why nothing caught it: `List.Map(x)` needs no decision. Deciding
+    // it needs two tokens of lookahead — the uident AND whether a `(` follows —
+    // and that is precisely what a GLR parser is for, so the conflict is
+    // declared at the top of this file and both readings are explored.
+    module_path: $ => seq($.uident, repeat(seq('.', $.uident))),
 
     // `using Shop.Orders` — ticket 41 §1. The same keyword as the foreign form
     // below, told apart by the token class of what follows: a uident path
