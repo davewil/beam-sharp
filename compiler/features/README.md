@@ -103,7 +103,7 @@ Erlang back to the decision that required it is one grep.
 | F12 — `public` / `private` | not started | nothing — it closes 40 §3 and rewrites all 30 `.bs` files |
 | F13 — binary patterns | not started, **blocked** — ticket 30 is open | 25b, 25c |
 | F14 — pipe and valve | not started | 25b, 25c |
-| F15 — a module is a directory | not started | the *other* half of the module system; `index.bs`, and 41 §4/§5's two checks |
+| [F15 — a module is a directory](F15-module-is-a-directory.md) | not started | the *other* half of the module system; `index.bs`, and 41 §4/§5's two checks |
 
 **F15 EXISTS AS A ROW BECAUSE F11 LEFT IT, AND A PROSE-ONLY BLOCKER IS AN INVISIBLE ONE.** The
 module system has two halves and F11 built one: how modules *see each other*. The other is what a
