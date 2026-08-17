@@ -100,7 +100,7 @@ Erlang back to the decision that required it is one grep.
 | [F9 — `string` and `binary` as values](F9-strings-and-binaries.md) | **done 2026-08-15** | the `string` **fields** in all three, `list<string>`; **not** I/O |
 | [F10 — OTP callbacks](F10-otp-callbacks.md) | **done 2026-08-15** | **`bin/spec-check.sh`**; the `behaviour` half of 25b, 25c |
 | [F11 — the module system](F11-module-system.md) | **done 2026-08-17** | the collection library; the **imports** row that blocks all three exemplars. It also turned `check-corpus.sh` green for the first time since F9 |
-| F12 — `public` / `private` | not started | nothing — it closes 40 §3 and rewrites all 30 `.bs` files |
+| [F12 — `public` / `private`](F12-public-and-private.md) | **in progress** · [ENG-222](https://linear.app/davewil/issue/ENG-222) | nothing — it closes 40 §3 and rewrites all **32** `.bs` files |
 | F13 — binary patterns | not started, **blocked** — ticket 30 is open | 25b, 25c |
 | F14 — pipe and valve | not started | 25b, 25c |
 | [F15 — a module is a directory](F15-module-is-a-directory.md) | **done 2026-08-17** | the *other* half of the module system; `index.bs`, and 41 §4/§5's two checks — both now built |
