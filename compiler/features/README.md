@@ -103,7 +103,29 @@ Erlang back to the decision that required it is one grep.
 | F12 — `public` / `private` | not started | nothing — it closes 40 §3 and rewrites all 30 `.bs` files |
 | F13 — binary patterns | not started, **blocked** — ticket 30 is open | 25b, 25c |
 | F14 — pipe and valve | not started | 25b, 25c |
-| [F15 — a module is a directory](F15-module-is-a-directory.md) | not started | the *other* half of the module system; `index.bs`, and 41 §4/§5's two checks |
+| [F15 — a module is a directory](F15-module-is-a-directory.md) | **done 2026-08-17** | the *other* half of the module system; `index.bs`, and 41 §4/§5's two checks — both now built |
+
+**F15 IS BUILT, AND WHAT IT REVEALED IS A GATE THAT HAD STOPPED LOOKING — 2026-08-17.** A module is
+a directory: `bsc --src-root examples examples/Shop/Reports Restate 3` prints `9`, both owed checks
+fire, and a crash in an aggregate names the file its clause is written in. 286 tests, nine gates.
+
+**Three gates were pointed at `examples/*.bs`, which after the corpus rewrite matches nothing — and
+an unmatched glob in bash is passed through unexpanded rather than vanishing.** So
+`editor/bin/check-corpus.sh` ran its loop **exactly once, on a filename with a `*` in it**, reporting
+one ERROR for a file that does not exist while checking none of the ones that do. That is the second
+time in two features that this same script was found silently not checking, after F11 fixed its
+SIGPIPE abort — and the lesson is the one that outlives both: *a gate that reports something is not a
+gate that is looking*.
+
+**Fixing it found a real grammar bug on the first honest run**, which is the argument for gates in one
+line. `Shop.Collections.List.Sum(…)` was an ERROR node: `prec.left` on `module_path` made the path
+swallow the function name. That is **F11's yecc finding in the other parser**, hidden by two things at
+once — the glob had never reached the only file in the repo with a three-segment qualified call, and
+one dot needs no decision, so `List.Map(x)` parsed correctly under the broken rule.
+
+**And the `ibs` prompt found a wrong-file diagnostic that 285 passing tests did not.** Returned
+diagnostics were per-file and right; raised ones still named the module's first file, so an error in
+`Go.bs:6` printed as `index.bs:6` against a three-line file. Same failure, one code path along.
 
 **F15 EXISTS AS A ROW BECAUSE F11 LEFT IT, AND A PROSE-ONLY BLOCKER IS AN INVISIBLE ONE.** The
 module system has two halves and F11 built one: how modules *see each other*. The other is what a

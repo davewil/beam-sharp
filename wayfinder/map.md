@@ -267,13 +267,13 @@ Bodies in [`decisions.md`](decisions.md). Ticket text in `issues/`.
   a body is bindings then one expression; rebinding is an error
 - **The body check site** `#33` `types` `built:F5`
   a body is typed; checking is containment at five sites, and the residual survives at four
-- **Module and namespace system, and function identity** `#40` `modules` `codegen` `part-built:F11`
+- **Module and namespace system, and function identity** `#40` `modules` `codegen` `part-built:F11,F15`
   the atom is **forced** by 26's tag mint — full dotted path. Arity overloading permitted and now
-  real; `public`/`private` is **F12**, and the directory-as-module half is unbuilt
-- **Imports and cross-module scope** `#41` `modules` `codegen` `part-built:F11`
-  `using` imports **unqualified**; a namespace is a path other modules sit under. The compiler owns
-  the dependency graph and re-checks source — *"single-file"* was false, and its own §1 grammar
-  delta was too: right recursion misparses `List.Map(x)`. §4/§5's checks wait on the directory half
+  real; the directory-as-module half is built, so only `public`/`private` (**F12**) is left
+- **Imports and cross-module scope** `#41` `modules` `codegen` `built:F11,F15`
+  `using` imports **unqualified**; a namespace is a directory holding no `.bs` files. The compiler
+  owns the dependency graph — *"single-file"* was false, and §1's own grammar delta was too. §4/§5's
+  checks are built and §3's source root is `--src-root`; **two wordings drifted, F15 settled neither**
 - **Behaviour callback names** `#35` `otp` `codegen` `built:F10`
   a compiler-known table, contract-scoped and keyed by name *and* arity; the name changes, no
   wrapper, and a behaviour without its mandatory callbacks is an error at the declaration

@@ -1,6 +1,6 @@
 # F15 — A module is a directory: aggregation, `index.bs`, and the two path checks
 
-**Status**      **claimed 2026-08-17** · [ENG-221](https://linear.app/davewil/issue/ENG-221)
+**Status**      **done 2026-08-17** · [ENG-221](https://linear.app/davewil/issue/ENG-221)
 **Implements**  [ticket 13](../../wayfinder/issues/13-compilation-target-decision.md) §3 and
                 [ticket 41](../../wayfinder/issues/41-imports-and-cross-module-scope.md) §3–§5,
                 all resolved — decides nothing
@@ -257,3 +257,66 @@ appears zero times in the suite and that five features in a row found a hole at 
 A REPL whose unit of compilation has just become a **directory** is exactly the shape that
 under-serves a single-file prompt, and F11 was the first of the five not to find it broken. `ibs -S`
 against an aggregate module is a manual check this feature owes before it is done.
+
+**DONE — 2026-08-17.** All scenarios hold, **286 tests** pass (up from 268), and all nine gates are
+green. `bsc --src-root examples examples/Shop/Reports Restate 3` prints `9` through a namespace tier
+whose module directories are now real directories.
+
+The REPL check was run and **found a defect** (below). It passes now: `Restate(3)` → `9` and
+`Counted(4)` → `8` at the prompt, from two files in one aggregate, opened either on the directory or
+on one of its files; and `:reload` picks up an edit to a **sibling** file the prompt was never opened
+on — driven through a FIFO so the edit lands mid-session, because an edit made before the prompt
+starts proves nothing.
+
+## What the building revealed
+
+**THE `ibs` PROMPT FOUND A WRONG-FILE BUG THE SUITE COULD NOT — TWICE OVER.** The first was
+`beam_for/2`, which keyed the build's results by the path it was handed while the build now keys them
+by module directory: every `ibs -S file.bs` died in `no match of right hand side value false`, an
+escript stack trace. The comment above `run/3` predicts this in so many words — *a capability gets
+wired into the compile path and not into this one* — and it is the sixth feature at that seam.
+
+The second is sharper, because the feature had already been designed against it. Diagnostics that are
+**returned** were per-file and correct, which is the entire reason the checker's function pass runs
+per file. Diagnostics that are **raised** still went through the module's first file, so a call to an
+unimported module in `Go.bs:6` was reported as `index.bs:6` — and `index.bs` was three lines long.
+**A diagnostic pointing at a line that does not exist in the file it names**, from the same
+wrong-file failure the design had closed one code path along. That is where this project keeps
+finding its bugs, and it was found by typing at the prompt rather than by 285 passing tests.
+
+**THREE GATES WERE POINTED AT A GLOB THAT MATCHES NOTHING, AND BASH PASSES THOSE THROUGH.** An
+unmatched glob does not vanish; `examples/*.bs` arrives at the program as a literal string with a `*`
+in it. So `spec-check.sh` handed `bsc` a path that cannot exist, `check-language.sh` wrote all 24 of
+its blocks into one directory that is now one module, and `editor/bin/check-corpus.sh` **ran its loop
+exactly once, on a filename with a `*` in it** — reporting one ERROR for a file that does not exist
+while checking none of the ones that do. That last is the same shape as the abort F11 fixed in the
+same script: a gate that silently stops checking.
+
+**AND FIXING THE CORPUS GATE IMMEDIATELY FOUND A REAL GRAMMAR BUG, which is the gate paying for
+itself on its first honest run.** `Shop.Collections.List.Sum(…)` was an ERROR node in the tree-sitter
+grammar. `prec.left` on `module_path` says *extend*, so the path swallowed the function name — **F11's
+yecc finding wearing the other face**, in the other parser, found the same way: by running it.
+
+Two things hid it. The corpus gate's top-level glob had never reached `examples/collections/`, which
+was the only file in the repo with a three-segment qualified call. And **one dot needs no decision**:
+`List.Map(x)` parses under either reading, so the rule looked correct everywhere it was exercised.
+Deciding where the path stops takes two tokens of lookahead — the uident *and* whether a `(` follows —
+so the associativity comes off and the conflict is declared. GLR explores both, which is the thing
+tree-sitter is for and the reason this grammar has a `conflicts` list at all.
+
+**THREE STALE PREMISES IN THE REPO'S OWN COMMENTS**, all found by reading before writing: a comment
+calling `compile_only/2` *"a map over a file list"* that F11 had already made a dependency-ordered
+fold; a comment claiming ticket 13 *"keeps per-file `file` attributes"* when the emitter emitted none;
+and two disagreeing defaults for a missing `module` line — `undefined`, which silently dropped the
+file from the source index, beside `'Main'`, which emitted it under that name.
+
+**THE TEST HARNESS HAD TO LEARN THE RULE `modules_tests` LEARNED IN F11.** Every fixture went into one
+shared directory, which is one module with twenty `module` lines. Two runs of the unchanged tree then
+failed 2 and then 4 tests, in different modules, because `erlang:unique_integer/1` restarts on a fresh
+node and run two was writing into run one's directories — a stale-file annoyance before this feature
+and a `name_redeclared` after it.
+
+**And a case-only rename is a no-op on macOS.** `git mv day01 Day01` reports success and does nothing,
+because the filesystem is case-insensitive and the two paths are the same directory. Caught by
+re-listing rather than by trusting the exit code. The check itself was never fooled — it compares the
+declaration against the name on disk, and got `day01` vs `Day01` right on the first run.

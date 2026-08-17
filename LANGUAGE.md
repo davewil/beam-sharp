@@ -151,11 +151,18 @@ line; a build tool's job is *which files* and *where the source root is*, never 
 modules importing each other are refused by name. **shipped**
 <!-- decided by ticket 41 §3; built by F11 -->
 
-What is **not** built is the *directory* half: one function per file, a whole directory compiling to
-one `.beam`, `index.bs` holding the shared declarations and never a function, and sub-modules being
-source-only. Today one `.bs` file is one module. The two checks that presuppose directories — a
-file's `module` declaration matching its directory path, and the refusal of a function in `index.bs`
-— wait with it. **decided**, tickets 13, 40 and [41](wayfinder/issues/41-imports-and-cross-module-scope.md) §4/§5, unbuilt.
+**A module is a directory.** Every `.bs` file in it compiles into one `.beam`; `index.bs` holds the
+shared declarations — `using`, `type`, `record`, `behaviour` — and never a function; a file with no
+`module` line inherits the directory's; and a directory holding only directories is a **namespace**,
+which is erased entirely and emits no atom, no beam and no attribute. A file's `module` declaration
+must match its directory path, relative to a source root that defaults to the module directory's own
+parent and is named with `--src-root` otherwise. **shipped**
+<!-- decided by tickets 13 §3 and 41 §4/§5; built by F15 -->
+
+Sub-modules are **source-only** and a crash still names the file its clause is written in, not the
+aggregate — the `.beam` carries a `file` attribute per source file, so one module's stack traces
+point at `Total.bs` and `Apply.bs` separately. **shipped**
+<!-- decided by ticket 13 §3; built by F15 -->
 
 ---
 

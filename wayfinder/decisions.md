@@ -1209,3 +1209,21 @@
   [ticket 47](issues/47-import-alias.md), because 41 recorded that §2 *inverted* the argument
   against it and said it *"should be re-asked rather than inherited"* — and re-asking is a decision.
   **Ticket 16 §4 is discharged as a prerequisite here**: §3 landed on A, so nothing is serialised.
+
+  **ALL FOUR CHECKS ARE BUILT — F15, 2026-08-17**, and §3's source root is now `bsc --src-root`,
+  defaulting to the module directory's own parent. **Two wordings in this ticket disagree with
+  themselves, F15 built one side of each, and neither is settled** — they are recorded here so the
+  choice is the map's rather than a feature's:
+
+  1. **Is `index.bs` mandatory?** §5's operative rule is the classification test — *"a directory
+     containing `.bs` files is a module"* — while §4, arguing for keeping it function-free, says
+     *"`index.bs` is unambiguously the declaration file and **its presence is the module marker**"*.
+     F15 built §5's, because it is the one written as a test.
+  2. **What is a "sub-module"?** §5 glosses ticket 13 as having *"made a directory inside a module a
+     source-only sub-module"*, which read literally makes a module directory holding another module
+     directory a single aggregate — contradicting §5's own rule. **13's measurement settles it and
+     the gloss is the imprecise half**: 13 §3's observed output is two *files* in one beam, and its
+     `Order/` is the module directory. 13's sub-module is a **file**, so "one `.beam` per aggregate"
+     and "one `.beam` per directory" are the same sentence. F15 therefore applies §5 per directory
+     and totally, and `examples/Shop/` exercises all three tiers in one path: a module holding a
+     namespace holding a module.
