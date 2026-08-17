@@ -7,7 +7,7 @@
 // came from carries the friction list explaining what is wrong with it and
 // why that is the point.
 
-Disposition Decide(result<Delivery, ConsumeError> outcome, bool redelivered, int deliveries)
+public Disposition Decide(result<Delivery, ConsumeError> outcome, bool redelivered, int deliveries)
 
 Decide(o, r, n) -> (Ok(o), Permanent(o), r, n >= 5) switch {
     (true,  _,     _,     _)     => :ack,

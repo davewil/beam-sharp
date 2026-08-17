@@ -7,7 +7,7 @@
 // came from carries the friction list explaining what is wrong with it and
 // why that is the point.
 
-(:noreply, State) HandleInfo(term, State)
+public (:noreply, State) HandleInfo(term, State)
 
 HandleInfo((Down, pid, reason), s)   -> (:noreply, DropWorker(s, pid, reason))
 HandleInfo((Exit, pid, reason), s)   -> (:noreply, Closing(s, pid, reason))

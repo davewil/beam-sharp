@@ -7,7 +7,7 @@
 // came from carries the friction list explaining what is wrong with it and
 // why that is the point.
 
-(:noreply, State) HandleInfo(term, State)
+public (:noreply, State) HandleInfo(term, State)
 
 HandleInfo((:deliver, raw), s) when s.InFlight >= s.Prefetch -> (:noreply, Defer(s, raw))
 HandleInfo((:deliver, raw), s)                               -> (:noreply, Handle(s, raw))

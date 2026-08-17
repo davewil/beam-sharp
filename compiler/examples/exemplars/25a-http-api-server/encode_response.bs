@@ -7,7 +7,7 @@
 // came from carries the friction list explaining what is wrong with it and
 // why that is the point.
 
-(int, binary) EncodeResponse(Response)
+public (int, binary) EncodeResponse(Response)
 
 EncodeResponse((status, :no_content)) -> (status, "")
 EncodeResponse((status, body))        -> (status, Json.Encode(body))

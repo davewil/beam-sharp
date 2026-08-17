@@ -7,7 +7,7 @@
 // came from carries the friction list explaining what is wrong with it and
 // why that is the point.
 
-Response Route(Method, list<string>, term)
+public Response Route(Method, list<string>, term)
 
 Route(:get,    ["orders"],     _)     -> (200, Orders.All())
 Route(:get,    ["orders", id], _)     -> Fetch(id)

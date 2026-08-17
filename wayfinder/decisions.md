@@ -854,6 +854,19 @@
   has no runtime effect and **only exports matter** — an error when a `private` function is a
   callback of a declared behaviour, which F10's contract-scoped table already makes cheap. Without
   the second, a `private` callback breaks the behaviour at run time, silently.
+  **Both are built** — `name_redeclared` by F11, `private_callback` by F12 (2026-08-17).
+
+  **THIS ENTRY GAINED THE `syntax` TAG ON 2026-08-17, AND THE REASON OUTLIVES THE TICKET.** It was
+  tagged `modules` `codegen`, and `check-surface.sh` selects on `syntax` or `patterns` — so the one
+  decision that puts a keyword on **every signature in the language** was never asked for a
+  `LANGUAGE.md` paragraph, and F12 could have rewritten all 32 `.bs` files with the reference silent
+  and every gate green. That is precisely the class of drift the gate was written for, arriving
+  through the tag rather than through the prose. **A gate that selects on tags is only as good as
+  the tagging**, and a tag is applied when a decision is *made* — when nobody has yet built the
+  thing that would show which surfaces it touches. Worth re-reading whenever a decision is tagged:
+  the question is not *what is this decision about* but *would a reader of `LANGUAGE.md` see a
+  difference*. Three sections here and only §3 changes the surface, which is exactly how a
+  multi-section ticket comes to be tagged by its majority.
 
   **Not decided here**: where tests live (24), and everything about *naming another* module →
   [ticket 41](issues/41-imports-and-cross-module-scope.md).

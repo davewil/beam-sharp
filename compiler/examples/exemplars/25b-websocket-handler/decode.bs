@@ -7,7 +7,7 @@
 // came from carries the friction list explaining what is wrong with it and
 // why that is the point.
 
-Decoded Decode(binary)
+public Decoded Decode(binary)
 
 Decode(<<fin:1, 0:3, op:4, 1:1, 126:7, len:16, mask:32, payload:len, rest>>)
     -> (Frame { Fin = fin, Op = Opcode(op), Payload = Unmask(payload, mask) }, rest)

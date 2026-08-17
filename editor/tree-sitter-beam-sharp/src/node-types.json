@@ -1614,6 +1614,16 @@
             "named": true
           }
         ]
+      },
+      "visibility": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "visibility",
+            "named": true
+          }
+        ]
       }
     },
     "children": {
@@ -2079,6 +2089,11 @@
     }
   },
   {
+    "type": "visibility",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "!=",
     "named": false
   },
@@ -2197,6 +2212,14 @@
   },
   {
     "type": "or",
+    "named": false
+  },
+  {
+    "type": "private",
+    "named": false
+  },
+  {
+    "type": "public",
     "named": false
   },
   {

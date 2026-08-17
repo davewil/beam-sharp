@@ -7,13 +7,13 @@
 // came from carries the friction list explaining what is wrong with it and
 // why that is the point.
 
-result<Delivery, ConsumeError> Consume(binary)
+public result<Delivery, ConsumeError> Consume(binary)
 
 Consume(raw) -> raw |?> DecodeFrame()
                     |?> DecodeMethod()
                     |?> ValidateAs<OrderPlaced>()
 
-result<Delivery, ConsumeError> Consume(binary)
+public result<Delivery, ConsumeError> Consume(binary)
 
 Consume(raw) -> DecodeFrame(raw) switch {
     (:error, e)                        => (:error, e),

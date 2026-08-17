@@ -194,11 +194,18 @@ module.exports = grammar({
     // --- signatures ----------------------------------------------------------
     // Ticket 04's binding constraint: exhaustiveness is only well posed against
     // a declared input type, so a multi-clause function must carry a signature.
+    // F12 / ticket 40 §3. Optional here for the same reason it is optional in
+    // `bs_parser.yrl`: the compiler accepts the absence so it can refuse it with
+    // a message that names the missing word. A grammar that demanded the marker
+    // would paint an unmarked file red for the wrong reason.
     signature: $ => seq(
+      optional(field('visibility', $.visibility)),
       field('return', $.type_prim),
       field('name', $.function_name),
       '(', optional(commaSep1($.parameter)), ')',
     ),
+
+    visibility: $ => choice('public', 'private'),
 
     parameter: $ => seq(
       field('type', $.type_prim),

@@ -7,7 +7,7 @@
 // came from carries the friction list explaining what is wrong with it and
 // why that is the point.
 
-Opcode Opcode(int)
+private Opcode Opcode(int)
 
 Opcode(0)  -> :continuation
 Opcode(1)  -> :text

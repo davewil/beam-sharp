@@ -71,15 +71,21 @@ and crash inside your function with your own source text in the error.
 ```
 $ ibs -S examples/Fib
 beam-sharp REPL — examples/Fib
-  Fib/1  Series/4  Reverse/2
+  Fib/1
   :reload   recompile the file    :exports  list functions
   :quit     leave                 :env      list bindings
 
 bs> Fib(10)
 [0, 1, 1, 2, 3, 5, 8, 13, 21, 34]
+bs> Series(3, 0, 1, [])
+Series/4 is private in Fib -- defined, not exported
 bs> :reload
 reloaded examples/Fib
 ```
+
+The banner lists what the module **exports**, which is why `Series/4` and `Reverse/2` are not on
+it: `fib.bs` marks them `private`. They are still in the beam and `Fib/1` still calls them — the
+prompt says so rather than answering "no such function", which is a different and untrue sentence.
 
 `:reload` is the point of it: edit the file, reload, call again, without leaving the shell. The
 REPL reads exactly one form — a call — because the parser in this slice reads declarations, not

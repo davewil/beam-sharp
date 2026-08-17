@@ -63,7 +63,7 @@ serialise" — ticket 16 refused capability bounds outright.
 The showcase shape. Method and path destructured in the head, one clause per route.
 
 ```csharp
-Response Route(Method, list<string>, term)
+public Response Route(Method, list<string>, term)
 
 Route(:get,    ["orders"],     _)     -> (200, Orders.All())
 Route(:get,    ["orders", id], _)     -> Fetch(id)
@@ -94,7 +94,7 @@ it means the rule is not being tested by this exemplar so much as narrowly misse
 only, and deep validation is an explicit `ValidateAs<T>` returning `result<T, ValidationError>`.
 
 ```csharp
-Response CreateOrder(term)
+private Response CreateOrder(term)
 
 CreateOrder(body) -> ValidateAs<CreateOrder>(body) switch {
                          (:error, e)  => (422, #{ error = "invalid", at = e }),
@@ -160,7 +160,7 @@ exemplar argue against itself. This is the shape a web stack actually writes —
 independent checks, each halting the flow on failure:
 
 ```csharp
-Response Admit(Request)
+public Response Admit(Request)
 
 Admit(r) ->
     var outcome = r |?> Authenticated()
@@ -173,23 +173,23 @@ Admit(r) ->
         passed             => (200, :ok)
     }
 
-result<Request, Response> Authenticated(Request)
+private result<Request, Response> Authenticated(Request)
 Authenticated(r) when r.Authed -> r
 Authenticated(_)               -> (:error, (401, :unauthenticated))
 
-result<Request, Response> Verified(Request)
+private result<Request, Response> Verified(Request)
 Verified(r) when r.Verified -> r
 Verified(_)                 -> (:error, (403, :unverified))
 
-result<Request, Response> WithinQuota(Request)
+private result<Request, Response> WithinQuota(Request)
 WithinQuota(r) when r.Quota > 0 -> r
 WithinQuota(_)                  -> (:error, (429, :quota_exceeded))
 
-result<Request, Response> WithinSize(Request)
+private result<Request, Response> WithinSize(Request)
 WithinSize(r) when r.Size <= 1048576 -> r
 WithinSize(_)                        -> (:error, (413, :too_large))
 
-result<Request, Response> InBeta(Request)
+private result<Request, Response> InBeta(Request)
 InBeta(r) when r.Beta -> r
 InBeta(_)             -> (:error, (404, :not_in_beta))
 ```
@@ -229,7 +229,7 @@ about my invention, not about web servers. → 17's `cond` patch loses this data
 ## `encode_response.bs`, and the finding
 
 ```csharp
-(int, binary) EncodeResponse(Response)
+public (int, binary) EncodeResponse(Response)
 
 EncodeResponse((status, :no_content)) -> (status, "")
 EncodeResponse((status, body))        -> (status, Json.Encode(body))

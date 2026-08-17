@@ -55,7 +55,7 @@ The RFC 6455 header is `FIN:1, RSV:3, Opcode:4, Mask:1, Len:7`, then 0/2/8 bytes
 length, then a 4-byte mask. Written as beam-sharp would want to write it:
 
 ```csharp
-Decoded Decode(binary)
+public Decoded Decode(binary)
 
 Decode(<<fin:1, 0:3, op:4, 1:1, 126:7, len:16, mask:32, payload:len, rest>>)
     -> (Frame { Fin = fin, Op = Opcode(op), Payload = Unmask(payload, mask) }, rest)
@@ -100,7 +100,7 @@ residual is an **error**, and the compiler knows every case by name. So this is 
 requires:
 
 ```csharp
-Opcode Opcode(int)
+private Opcode Opcode(int)
 
 Opcode(0)  -> :continuation
 Opcode(1)  -> :text
@@ -142,12 +142,12 @@ Naming the cases read *worse*, unambiguously. This is a wire protocol, not a con
 recursive fixpoint, and asked whether the pipe reads well where the lowering is least precise.
 
 ```csharp
-binary Encode(Opcode, binary)
+public binary Encode(Opcode, binary)
 
 Encode(op, payload) -> Header(op, ByteSize(payload))
                     |> Binary.Append(payload)
 
-binary Fragments(list<binary>)
+private binary Fragments(list<binary>)
 
 Fragments(chunks) -> chunks |> List.Fold("", (acc, c) => Binary.Append(acc, c))
 ```
@@ -184,7 +184,7 @@ Ticket 14 §5 makes `receive` a **filter**, and §6 puts OTP's message shapes in
 prelude stratum, so a handler *names* `Down` / `Exit` / `Timeout` rather than spelling the tuples.
 
 ```csharp
-(:noreply, State) HandleInfo(term, State)
+public (:noreply, State) HandleInfo(term, State)
 
 HandleInfo((Down, pid, reason), s)   -> (:noreply, DropWorker(s, pid, reason))
 HandleInfo((Exit, pid, reason), s)   -> (:noreply, Closing(s, pid, reason))

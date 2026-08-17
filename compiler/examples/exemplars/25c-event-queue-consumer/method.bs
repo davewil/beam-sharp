@@ -7,7 +7,7 @@
 // came from carries the friction list explaining what is wrong with it and
 // why that is the point.
 
-result<Delivery, MethodError> DecodeMethod(binary)
+private result<Delivery, MethodError> DecodeMethod(binary)
 
 DecodeMethod(<<60:16, 60:16, args>>) -> DecodeDeliver(args)
 DecodeMethod(<<60:16, 80:16, _>>)    -> (:error, :unexpected_ack)

@@ -74,7 +74,7 @@ exemplar and the last thing that gave any trouble.
 ## `frame.bs` — ticket 30's two gaps, in a second format
 
 ```csharp
-result<(Frame, binary), FrameError> DecodeFrame(binary)
+private result<(Frame, binary), FrameError> DecodeFrame(binary)
 
 DecodeFrame(<<1:8, ch:16, size:32, payload:size, 0xCE:8, rest>>)
     -> (Frame { Type = :method,    Channel = ch, Payload = payload }, rest)
@@ -99,7 +99,7 @@ are literals, so this shape is not in the type language at all. It then recurs *
 AMQP's `shortstr` is a length octet followed by that many bytes:
 
 ```csharp
-(binary, binary) ShortStr(binary)
+private (binary, binary) ShortStr(binary)
 
 ShortStr(<<len:8, s:len, rest>>) -> (s, rest)
 ```
@@ -132,7 +132,7 @@ is the check that matters most.
 ## `method.bs` — and the measurement that changes 25b's headline
 
 ```csharp
-result<Delivery, MethodError> DecodeMethod(binary)
+private result<Delivery, MethodError> DecodeMethod(binary)
 
 DecodeMethod(<<60:16, 60:16, args>>) -> DecodeDeliver(args)
 DecodeMethod(<<60:16, 80:16, _>>)    -> (:error, :unexpected_ack)
@@ -227,7 +227,7 @@ the method, find the body, validate the payload — so it is a stronger test tha
 Written the way ticket 17 §4 wants it:
 
 ```csharp
-result<Delivery, ConsumeError> Consume(binary)
+public result<Delivery, ConsumeError> Consume(binary)
 
 Consume(raw) -> raw |?> DecodeFrame()
                     |?> DecodeMethod()
@@ -240,7 +240,7 @@ after that needs the rest. **A pipeline threads one value; a parser threads a va
 position.** So the valve composes stages 2→4 and cannot compose stage 1 into them:
 
 ```csharp
-result<Delivery, ConsumeError> Consume(binary)
+public result<Delivery, ConsumeError> Consume(binary)
 
 Consume(raw) -> DecodeFrame(raw) switch {
     (:error, e)                        => (:error, e),
@@ -285,7 +285,7 @@ the database and HTTP exemplars as the likeliest place. **It occurs here, at wid
 not contrived — every queue consumer on earth decides ack/requeue/dead-letter from the same inputs:
 
 ```csharp
-Disposition Decide(result<Delivery, ConsumeError> outcome, bool redelivered, int deliveries)
+public Disposition Decide(result<Delivery, ConsumeError> outcome, bool redelivered, int deliveries)
 
 Decide(o, r, n) -> (Ok(o), Permanent(o), r, n >= 5) switch {
     (true,  _,     _,     _)     => :ack,
@@ -325,13 +325,13 @@ So: **the shape 17 §6 was watching for exists, at width 4, and `switch` handled
 ## `encode.bs` — ticket 17 job 2, and a new limit on the pipe
 
 ```csharp
-binary EncodeAck(int deliveryTag, bool multiple)
+public binary EncodeAck(int deliveryTag, bool multiple)
 
 EncodeAck(tag, multiple) ->
     var payload = <<60:16, 80:16, tag:64, 0:7, Bit(multiple):1>>
     Wrap(1, 1, payload)
 
-binary Wrap(int type, int channel, binary payload)
+private binary Wrap(int type, int channel, binary payload)
 
 Wrap(t, ch, p) -> <<t:8, ch:16, ByteSize(p):32, p, 0xCE:8>>
 ```
@@ -362,7 +362,7 @@ here it lands on frame construction rather than on message payloads. → tickets
 ## `handle_info.bs` — ticket 14, and back-pressure makes the mailbox hole deliberate
 
 ```csharp
-(:noreply, State) HandleInfo(term, State)
+public (:noreply, State) HandleInfo(term, State)
 
 HandleInfo((:deliver, raw), s) when s.InFlight >= s.Prefetch -> (:noreply, Defer(s, raw))
 HandleInfo((:deliver, raw), s)                               -> (:noreply, Handle(s, raw))

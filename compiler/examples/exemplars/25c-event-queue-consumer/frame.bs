@@ -7,7 +7,7 @@
 // came from carries the friction list explaining what is wrong with it and
 // why that is the point.
 
-result<(Frame, binary), FrameError> DecodeFrame(binary)
+private result<(Frame, binary), FrameError> DecodeFrame(binary)
 
 DecodeFrame(<<1:8, ch:16, size:32, payload:size, 0xCE:8, rest>>)
     -> (Frame { Type = :method,    Channel = ch, Payload = payload }, rest)
@@ -25,7 +25,7 @@ DecodeFrame(<<t:8, _>>) when t != 1 and t != 2 and t != 3 and t != 8
 DecodeFrame(_)
     -> (:error, :incomplete)
 
-(binary, binary) ShortStr(binary)
+private (binary, binary) ShortStr(binary)
 
 ShortStr(<<len:8, s:len, rest>>) -> (s, rest)
 

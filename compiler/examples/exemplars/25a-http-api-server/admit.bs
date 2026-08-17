@@ -7,7 +7,7 @@
 // came from carries the friction list explaining what is wrong with it and
 // why that is the point.
 
-Response Admit(Request)
+public Response Admit(Request)
 
 Admit(r) ->
     var outcome = r |?> Authenticated()
@@ -20,23 +20,23 @@ Admit(r) ->
         passed             => (200, :ok)
     }
 
-result<Request, Response> Authenticated(Request)
+private result<Request, Response> Authenticated(Request)
 Authenticated(r) when r.Authed -> r
 Authenticated(_)               -> (:error, (401, :unauthenticated))
 
-result<Request, Response> Verified(Request)
+private result<Request, Response> Verified(Request)
 Verified(r) when r.Verified -> r
 Verified(_)                 -> (:error, (403, :unverified))
 
-result<Request, Response> WithinQuota(Request)
+private result<Request, Response> WithinQuota(Request)
 WithinQuota(r) when r.Quota > 0 -> r
 WithinQuota(_)                  -> (:error, (429, :quota_exceeded))
 
-result<Request, Response> WithinSize(Request)
+private result<Request, Response> WithinSize(Request)
 WithinSize(r) when r.Size <= 1048576 -> r
 WithinSize(_)                        -> (:error, (413, :too_large))
 
-result<Request, Response> InBeta(Request)
+private result<Request, Response> InBeta(Request)
 InBeta(r) when r.Beta -> r
 InBeta(_)             -> (:error, (404, :not_in_beta))
 

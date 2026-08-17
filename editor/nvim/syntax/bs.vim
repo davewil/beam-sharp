@@ -18,7 +18,7 @@ endif
 syn keyword bsConditional switch when
 " `var` introduces a name (F8, ticket 45); `where` carries a type's refinement
 " predicate (F2, ticket 20 §5). `var` shipped with F8 and was never listed here.
-syn keyword bsKeyword     module type record using behaviour behavior with var where
+syn keyword bsKeyword     module type record using behaviour behavior with var where public private
 
 " The one conjunction, in every position -- guard, pattern combinator and
 " refinement predicate (ticket 44, amending ticket 08). There is no && and no ||.
