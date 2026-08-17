@@ -21,6 +21,9 @@
 -module(bs_check).
 
 -export([check/1, check/2]).
+%% F15 — the aggregate entry. `check/2` is now the one-source case of it, so the
+%% declaration pass has one implementation rather than two that can drift.
+-export([check_dir/2, check_dir/3]).
 %% F11 — the import environment a dependent module is checked against. Built by
 %% `bsc` from modules it has ALREADY checked in this invocation (41 §3, fork A:
 %% the compiler re-checks the dependency's source and keeps its signatures).
@@ -53,17 +56,61 @@ check(Decls) -> check(Decls, #{}).
 %% It is threaded by `bsc` rather than read from disk, which is 41 §3's fork A:
 %% no artefact, nothing that can go stale, correct by construction.
 check(Decls, World) ->
+    case check_dir([{undefined, Decls}], World, undefined) of
+        {ok, Module, Tagged} -> {ok, Module, [D || {_, D} <- Tagged]};
+        {error, Tagged}      -> {error, [D || {_, D} <- Tagged]}
+    end.
+
+%%% ---------------------------------------------------------------------------
+%%% F15 — checking an AGGREGATE: several files, one module
+%%%
+%%% Ticket 13 §3 makes the directory the unit of compilation, and the thing that
+%%% must not be lost on the way is WHICH FILE a diagnostic came from.
+%%%
+%%% Concatenating every file's declarations and checking the result answers every
+%%% typing question correctly and then reports each error against the wrong `.bs`.
+%%% The reason is exact: a diagnostic is `{error, Line, FnName, Descriptor}` — a
+%%% name and no arity — and ticket 40 §2 permits two arities of one name, which
+%%% one-function-per-file then puts in two files. `examples/collections/List.bs`
+%%% already has `Length/1` beside `Length/2`. A lookup keyed by name would point
+%%% a human at the wrong file with every check green, which is this project's
+%%% recorded worst failure shape.
+%%%
+%%% So the DECLARATION pass runs over the whole directory — one scope, which is
+%%% what 41 §4's `index.bs` is for — and the FUNCTION pass runs per file. Each
+%%% diagnostic then arrives already beside the path it belongs to, with no lookup
+%%% to get wrong.
+%%%
+%%% `Expect` is the module atom the DIRECTORY PATH implies, or `undefined` for the
+%%% callers that have no path at all (`check/2`, the REPL, `compile_string/2`).
+%%% The path arithmetic lives in `bsc`, where `--src-root` is parsed; the refusal
+%%% lives here, which is where 41 §5's compiler delta puts it.
+%%% ---------------------------------------------------------------------------
+
+check_dir(Sources, World) -> check_dir(Sources, World, undefined).
+
+check_dir(Sources, World, Expect) ->
+    Decls = lists:append([D || {_, D} <- Sources]),
+    one_module_per_directory(Sources, Expect),
+    [no_function_in_index(P, D) || {P, D} <- Sources],
     Env = type_env(Decls),
     Module = module_name(Decls),
+    module_matches_path(Module, Sources, Expect),
     name_redeclared(Decls),
-    Fns = collect(Decls),
+    PerFile = [{P, collect(D)} || {P, D} <- Sources],
+    Fns = lists:append([F || {_, F} <- PerFile]),
     Imports = import_env(Decls, Module, World),
     Ctx = #ctx{types = Env, callees = callees(Decls, Env, Imports),
                imports = Imports},
-    Results = [check_fn(F, Ctx) || F <- Fns],
-    Diags = lists:append([D || {_, D} <- Results]),
-    case [D || D <- Diags, element(1, D) =:= error] of
+    Tagged = lists:append(
+               [[{P, D} || F <- Fs, {_, Ds} <- [check_fn(F, Ctx)], D <- Ds]
+                || {P, Fs} <- PerFile]),
+    case [D || {_, D} <- Tagged, element(1, D) =:= error] of
         []     -> {ok, #{module => Module, functions => Fns, env => Env,
+                         %% F15 — what the emitter needs in order to put a
+                         %% `{attribute, ANNO, file, …}` in front of each file's
+                         %% functions, which is 13 §3's measured attribution.
+                         files => PerFile,
                          behaviours => behaviours(Decls),
                          %% 41 §2: "the resolution happens at CHECK time, never
                          %% at run time". The emitter reads this table rather
@@ -85,9 +132,64 @@ check(Decls, World) ->
                          %% name that module does not export — "compiles and calls
                          %% a function it does not have", which is the exact
                          %% failure `name/2`'s single funnel exists to prevent.
-                         remote_names => remote_names(World)}, Diags};
-        _Fatal -> {error, Diags}
+                         remote_names => remote_names(World)}, Tagged};
+        _Fatal -> {error, Tagged}
     end.
+
+%%% ---------------------------------------------------------------------------
+%%% F15 — the three refusals a directory-shaped module adds
+%%% ---------------------------------------------------------------------------
+
+%% One directory is one module. Two files in `Shop/Orders/` declaring different
+%% modules is not a program with two modules in it — it is a program whose author
+%% believes files are modules, which they were until this feature.
+%%
+%% A file with NO `module` line inherits the directory's, and that is the common
+%% case rather than a concession: one function per file (41 §4) means most files
+%% sit beside an `index.bs` that has already named the module.
+one_module_per_directory(_Sources, undefined) -> ok;
+one_module_per_directory(Sources, _Expect) ->
+    Declared = [{P, N, L} || {P, D} <- Sources, {module, L, N} <- D],
+    case lists:usort([N || {_, N, _} <- Declared]) of
+        []  -> erlang:error({no_module_declaration,
+                             [P || {P, _} <- Sources, is_list(P)]});
+        [_] -> ok;
+        _   -> erlang:error({module_disagreement, lists:sort(Declared)})
+    end.
+
+%% Ticket 41 §4. `index.bs` holds everything except functions — an ERROR rather
+%% than a convention, because an ungated convention decays exactly as the
+%% exemplars' dead dialect and LANGUAGE.md's `true` claim did.
+%%
+%% A `foreign` declaration is a signature too, and it is deliberately caught:
+%% 41 §4's argument is about `write_scope` contention, and a foreign declaration
+%% attached to a name is as much a reason for two agents to collide as a native
+%% one. The exception 41 §4 refuses to make is for FUNCTIONS, and a foreign
+%% declaration is one.
+no_function_in_index(Path, Decls) when is_list(Path) ->
+    case filename:basename(Path) of
+        "index.bs" ->
+            case [{N, L} || {signature, L, N, _, _} <- Decls] of
+                [{N, L} | _] -> erlang:error({function_in_index, N, L});
+                []           -> ok
+            end;
+        _ -> ok
+    end;
+no_function_in_index(_Path, _Decls) -> ok.
+
+%% Ticket 41 §5. A file's `module` declaration must match its DIRECTORY path.
+%%
+%% `Expect` arrives already computed, because the relative-path arithmetic needs
+%% `--src-root` and that is a CLI concern. What is here is the comparison and the
+%% refusal, which is where 41 §5's compiler delta puts them.
+module_matches_path(_Module, _Sources, undefined) -> ok;
+module_matches_path(Module, _Sources, Module) -> ok;
+module_matches_path(Module, Sources, Expect) ->
+    Line = case [L || {_, D} <- Sources, {module, L, N} <- D, N =:= Module] of
+               [L | _] -> L;
+               []      -> 1
+           end,
+    erlang:error({module_path_mismatch, Module, Expect, Line}).
 
 %% The behaviours this module implements, checked for completeness — ticket 35 §3.
 %%

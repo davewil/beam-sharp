@@ -18,21 +18,32 @@
 %%% Helpers
 %%% ---------------------------------------------------------------------------
 
+%% F15 — EACH MODULE NOW GETS ITS OWN DIRECTORY, under one shared root.
+%%
+%% This file's own header already had half the rule: every test gets its own
+%% directory, because two tests sharing one would see each other's modules. F15
+%% supplies the other half — within a test, every MODULE needs its own directory
+%% too, since a directory is now a module and two `module` lines in one of them is
+%% the thing `{module_disagreement, …}` refuses.
+%%
+%% `place/3` puts each source in the directory its own `module` line implies, so
+%% `module Shop.List` lands at `<root>/Shop/List/List.bs`. That is what makes
+%% `--src-root <root>` the right thing to pass: 41 §5's check then compares
+%% `Shop.List` against `Shop/List` and they match.
+%%
 %% Files is [{"Name.bs", Source}]; the first is the one compiled.
 in_dir(Files) ->
-    Dir = "/tmp/bsc_eunit/mods-" ++ integer_to_list(erlang:unique_integer([positive])),
-    ok = filelib:ensure_dir(Dir ++ "/x"),
-    [ok = file:write_file(Dir ++ "/" ++ N, S) || {N, S} <- Files],
-    {N1, _} = hd(Files),
-    Dir ++ "/" ++ N1.
+    Root = bs_test_support:fixture_root(),
+    Paths = [bs_test_support:place(Root, N, S) || {N, S} <- Files],
+    {Root, hd(Paths)}.
 
 compile_set(Files) ->
-    Main = in_dir(Files),
-    bs_test_support:run_cli("-o " ++ filename:dirname(Main) ++ "/out " ++ Main).
+    {Root, Main} = in_dir(Files),
+    bs_test_support:run_cli("--src-root " ++ Root ++ " -o " ++ Root ++ "/out " ++ Main).
 
 run(Files, Call) ->
-    Main = in_dir(Files),
-    bs_test_support:run_cli(Main ++ " " ++ Call).
+    {Root, Main} = in_dir(Files),
+    bs_test_support:run_cli("--src-root " ++ Root ++ " " ++ Main ++ " " ++ Call).
 
 ok_rc(Out)  -> ?assert(string:find(Out, "rc:0") =/= nomatch).
 bad_rc(Out) -> ?assert(string:find(Out, "rc:1") =/= nomatch).
@@ -59,11 +70,11 @@ list_mod() ->
 %% that the atom is `'Shop.Orders'` — and it is also 23 §10's requirement that the
 %% listing be legible to a reader with nothing but `ls`.
 a_dotted_module_emits_a_dotted_atom_test() ->
-    Main = in_dir([{"A.bs", "module Shop.Orders\nint One()\nOne() -> 1\n"}]),
-    Dir = filename:dirname(Main),
-    Out = bs_test_support:run_cli("-o " ++ Dir ++ "/out " ++ Main),
+    {Root, Main} = in_dir([{"A.bs", "module Shop.Orders\nint One()\nOne() -> 1\n"}]),
+    Out = bs_test_support:run_cli("--src-root " ++ Root ++ " -o " ++ Root ++
+                                      "/out " ++ Main),
     ok_rc(Out),
-    ?assert(filelib:is_regular(Dir ++ "/out/Shop.Orders.beam")).
+    ?assert(filelib:is_regular(Root ++ "/out/Shop.Orders.beam")).
 
 a_record_in_a_dotted_module_mints_the_qualified_tag_test() ->
     Src = "module Shop.Orders\n"
@@ -304,14 +315,14 @@ two_modules_importing_each_other_are_refused_test() ->
 %% 41 §3: a build tool names the source root and the file set, never the order.
 %% Only the DEPENDENT is passed here; the dependency is found and compiled first.
 a_dependency_not_named_on_the_command_line_is_found_and_built_test() ->
-    Main = in_dir([{"R.bs",
-                    "module Shop.Reports\n"
-                    "using Shop.List\n"
-                    "int Go(int n)\n"
-                    "Go(n) -> Sum([n], 0)\n"},
-                   list_mod()]),
-    Dir = filename:dirname(Main),
-    Out = bs_test_support:run_cli("-o " ++ Dir ++ "/out " ++ Main),
+    {Root, Main} = in_dir([{"R.bs",
+                            "module Shop.Reports\n"
+                            "using Shop.List\n"
+                            "int Go(int n)\n"
+                            "Go(n) -> Sum([n], 0)\n"},
+                           list_mod()]),
+    Out = bs_test_support:run_cli("--src-root " ++ Root ++ " -o " ++ Root ++
+                                      "/out " ++ Main),
     ok_rc(Out),
-    ?assert(filelib:is_regular(Dir ++ "/out/Shop.List.beam")),
-    ?assert(filelib:is_regular(Dir ++ "/out/Shop.Reports.beam")).
+    ?assert(filelib:is_regular(Root ++ "/out/Shop.List.beam")),
+    ?assert(filelib:is_regular(Root ++ "/out/Shop.Reports.beam")).

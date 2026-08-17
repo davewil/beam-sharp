@@ -10,7 +10,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 -export([compile/1, build_and_load/2, check_only/1, errors/1, project_root/0,
-         escript/0, run_cli/1, with_src/3,
+         escript/0, run_cli/1, with_src/3, fixture_root/0, place/3,
          showcase_src/0, shop_src/0, an_order/0, count/2]).
 
 -define(OUT, "/tmp/bsc_eunit").
@@ -19,10 +19,63 @@
 %%% Helpers
 %%% ---------------------------------------------------------------------------
 
-compile(Src) ->
-    ok = filelib:ensure_dir(?OUT ++ "/x"),
-    Path = ?OUT ++ "/in.bs",
+%%% F15 — A FIXTURE IS A DIRECTORY NOW, AND IT IS NAMED FOR ITS MODULE.
+%%%
+%%% Two separate rules force this, and conflating them makes the second one look
+%%% arbitrary.
+%%%
+%%% AGGREGATION forces "its own directory". `with_src/3` wrote every fixture into
+%%% one shared `/tmp/bsc_eunit/run`, which was harmless while one file was one
+%%% module and is nonsense now: twenty unrelated fixtures in one directory are one
+%%% module with twenty `module` lines. `modules_tests` had already learned exactly
+%%% this in F11 — "two tests sharing a directory would see each other's modules,
+%%% and the failure would be order-dependent, which is the worst kind to debug" —
+%%% and F15 makes it true for every fixture rather than only for the ones that
+%%% happened to be about modules.
+%%%
+%%% TICKET 41 §5's PATH CHECK forces "named for its module". Anything driving the
+%%% CLI is checked, so a fixture sitting in `run-4711/` and declaring
+%%% `module Readings` would fail on its path rather than on what the test is
+%%% about — a whole suite failing for a reason none of its tests mention.
+%%%
+%%% The name is read out of the source rather than passed in, so no call site has
+%%% to repeat what its own first line already says.
+
+%% A root nobody else is writing into — INCLUDING A PREVIOUS RUN.
+%%
+%% `erlang:unique_integer/1` is unique within a node and every `rebar3 eunit` is a
+%% fresh one, so the counter restarts and run two writes into run one's
+%% directories. That is not a stale-file annoyance now that a directory is a
+%% module: a leftover `repl.bs` beside a fresh `in.bs` in the same module
+%% directory is one module declaring both files' functions, and the suite fails
+%% with `name_redeclared` in whichever tests happened to collide. Measured: two
+%% consecutive runs of the same tree failed 2 and then 4, in different modules.
+%% The OS pid is what makes the root new on every run.
+fixture_root() ->
+    D = ?OUT ++ "/fx-" ++ os:getpid() ++ "-" ++
+        integer_to_list(erlang:unique_integer([positive])),
+    ok = filelib:ensure_dir(D ++ "/x"),
+    D.
+
+%% Write `Src` as `Name` under `Root`, in the directory its `module` line implies.
+%% A dotted module becomes nested directories, which is what 41 §5 means by a
+%% declaration matching its path — those callers pass `--src-root Root`.
+place(Root, Name, Src) ->
+    Dir = filename:join([Root | module_segments(Src)]),
+    ok = filelib:ensure_dir(Dir ++ "/x"),
+    Path = filename:join(Dir, Name),
     ok = file:write_file(Path, Src),
+    Path.
+
+module_segments(Src) ->
+    Lines = [string:trim(L) || L <- string:lexemes(Src, "\n")],
+    case [string:trim(R) || L <- Lines, (R = string:prefix(L, "module ")) =/= nomatch] of
+        [M | _] -> string:lexemes(M, ".");
+        []      -> ["Main"]
+    end.
+
+compile(Src) ->
+    Path = place(fixture_root(), "in.bs", Src),
     %% `bsc:file_to_dir/2` rather than a hand-built `{opts, ...}` tuple: the
     %% suite should not know the shape of a private record, and did — adding a
     %% field to it broke six tests that were otherwise unaffected.
@@ -75,11 +128,8 @@ run_cli(Args) ->
     os:cmd(escript() ++ " " ++ Args ++ " 2>&1; echo rc:$?").
 
 with_src(Name, Src, Fun) ->
-    Out = ?OUT ++ "/run",
-    ok = filelib:ensure_dir(Out ++ "/x"),
-    Path = Out ++ "/" ++ Name,
-    ok = file:write_file(Path, Src),
-    Fun(Path, Out).
+    Root = fixture_root(),
+    Fun(place(Root, Name, Src), Root).
 
 shop_src() ->
     "module Shop\n"

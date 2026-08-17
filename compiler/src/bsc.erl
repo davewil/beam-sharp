@@ -14,7 +14,20 @@
 
 -export([main/1, file/1, file/2, file_to_dir/2, compile_string/2]).
 
--record(opts, {outdir = ".", emit_abstr = true, verbose = false, repl = false}).
+-record(opts, {outdir = ".", emit_abstr = true, verbose = false, repl = false,
+               %% F15 / ticket 41 §3. The source root is a BUILD-TOOL input, and
+               %% §3 said so before anything needed it: "a build tool's job is
+               %% which files, WHERE THE SOURCE ROOT IS, and what to do with the
+               %% output — not in what sequence". `undefined` means the default
+               %% below, not "no check".
+               src_root = undefined,
+               %% Ticket 41 §5's check needs a source root, and a caller that
+               %% hands over a bare path has not named one. The CLI always has a
+               %% root (the flag, or the module directory's parent by default) and
+               %% always checks; `file/2` is a library entry point that does not,
+               %% so it aggregates the directory WITHOUT the path check rather
+               %% than inventing a root to check against.
+               check_path = true}).
 
 %% Ticket 43's threshold. One number, used at both depths the inexhaustive
 %% diagnostic enumerates — see `heads/2` and `truncated/1` at the bottom of the
@@ -77,8 +90,8 @@ compile_only(Files, Opts) ->
 %%% accumulator. No new CLI, no new entry point, no new artefact.
 %%% ---------------------------------------------------------------------------
 
-compile_set(Files, Opts) ->
-    case load_all(Files) of
+compile_set(Paths, Opts) ->
+    case load_all(Paths, Opts) of
         {error, R}  -> {error, R};
         {ok, Units} ->
             case order(Units) of
@@ -90,24 +103,28 @@ compile_set(Files, Opts) ->
     end.
 
 build([], _Opts, _World, Acc) -> {ok, lists:reverse(Acc)};
-build([{Path, Decls, Mod} | Rest], Opts, World, Acc) ->
-    case check_and_emit(Path, Opts, Decls, World) of
+build([{Dir, Sources, Mod} | Rest], Opts, World, Acc) ->
+    case check_and_emit(Dir, Sources, Opts, World) of
         {ok, Beam} ->
+            Decls = decls(Sources),
             World1 = World#{Mod => #{exports => bs_check:exports_of(Decls),
                                      behaviours => [B || {behaviour, _, B} <- Decls]}},
-            build(Rest, Opts, World1, [{Path, Beam} | Acc]);
+            build(Rest, Opts, World1, [{Dir, Beam} | Acc]);
         Error ->
             Error
     end.
 
-%% The given files, plus every module they reach through `using`. A dependency
-%% that was not named on the command line is found in the source tree — which is
-%% 41 §3's "`using Shop.Orders` is a path on disk; `bsc` resolves it".
-load_all(Files) ->
-    case parse_all(Files) of
+decls(Sources) -> lists:append([D || {_, D} <- Sources]).
+
+%% The given module directories, plus every module they reach through `using`. A
+%% dependency that was not named on the command line is found in the source tree —
+%% which is 41 §3's "`using Shop.Orders` is a path on disk; `bsc` resolves it".
+load_all(Paths, Opts) ->
+    Dirs = lists:usort([module_dir_of(P) || P <- Paths]),
+    case parse_all(Dirs) of
         {error, R} -> {error, R};
         {ok, Given} ->
-            Index = source_index(Files),
+            Index = source_index(Dirs, Opts#opts.src_root),
             close_over(Given, Index, [M || {_, _, M} <- Given])
     end.
 
@@ -129,18 +146,44 @@ under(Prefix, Known) ->
     P = atom_to_list(Prefix) ++ ".",
     [M || M <- Known, lists:prefix(P, atom_to_list(M))].
 
-parse_all(Files) -> parse_all(Files, []).
+parse_all(Dirs) -> parse_all(Dirs, []).
 
 parse_all([], Acc) -> {ok, lists:reverse(Acc)};
-parse_all([F | Rest], Acc) ->
+parse_all([D | Rest], Acc) ->
+    case load_unit(D) of
+        {ok, U} -> parse_all(Rest, [U | Acc]);
+        Error   -> Error
+    end.
+
+%% F15 — a unit is now `{Dir, [{Path, Decls}], Mod}` rather than one file's
+%% `{Path, Decls, Mod}`. The per-file list survives all the way to the checker and
+%% the emitter, because both need to know which file a thing came from: the
+%% checker to put a diagnostic beside the right path, the emitter to put 13 §3's
+%% `file` attribute in front of the right functions.
+load_unit(Dir) ->
+    case dir_kind(Dir) of
+        namespace ->
+            %% Only reachable by naming a namespace on the command line. A
+            %% namespace emits nothing (41 §5), so there is nothing to build and
+            %% saying so beats compiling zero files and exiting 0.
+            report_fatal(Dir, no_modules_here), {error, no_modules_here};
+        {module, Files} ->
+            case load_sources(Files, []) of
+                {error, R}  -> {error, R};
+                {ok, Sources} -> {ok, {Dir, Sources, module_of(decls(Sources))}}
+            end
+    end.
+
+load_sources([], Acc) -> {ok, lists:reverse(Acc)};
+load_sources([F | Rest], Acc) ->
     case parse_path(F) of
-        {ok, Decls} -> parse_all(Rest, [{F, Decls, module_of(Decls)} | Acc]);
+        {ok, Decls} -> load_sources(Rest, [{F, Decls} | Acc]);
         Error       -> Error
     end.
 
 close_over(Units, Index, Have) ->
-    Wanted = lists:usort(lists:append([import_targets(D, maps:keys(Index))
-                                       || {_, D, _} <- Units])),
+    Wanted = lists:usort(lists:append([import_targets(decls(S), maps:keys(Index))
+                                       || {_, S, _} <- Units])),
     case [M || M <- Wanted, not lists:member(M, Have),
                maps:is_key(M, Index)] of
         [] -> {ok, Units};
@@ -153,39 +196,148 @@ close_over(Units, Index, Have) ->
             end
     end.
 
-%% Module atom -> source path, over every `.bs` file under the roots of the files
-%% being compiled.
+%%% ---------------------------------------------------------------------------
+%%% F15 — what a directory IS. Ticket 41 §5's classification, in ONE function.
+%%%
+%%%   a directory holding `.bs` files -> a MODULE, and those files are its source
+%%%   a directory holding only dirs   -> a NAMESPACE: no atom, no beam, nothing
+%%%
+%%% Decidable by `ls`, no marker and no keyword, which is 41 §5 verbatim.
+%%%
+%%% IT IS ONE FUNCTION BECAUSE TWO WOULD DISAGREE. Before F15 the source index
+%%% globbed `**/*.bs` from each root while a per-directory unit would naturally
+%%% glob `*.bs`, and the two answers differ for exactly the file that matters: one
+%%% sitting in a SUBDIRECTORY of a module directory. The index would map its
+%%% module atom to a path, `using` would resolve against it, and the unit former
+%%% would never compile it — a call the checker passes and the runtime cannot
+%%% make. That is the `undef`-from-green-source shape F11 already hit once, and
+%%% the repo's answer to it is the same every time: resolve once, in one place.
+%%% ---------------------------------------------------------------------------
+
+dir_kind(Dir) ->
+    case bs_here(Dir) of
+        []    -> namespace;
+        Files -> {module, Files}
+    end.
+
+%% NON-RECURSIVE, and that is the whole of F15.11. A subdirectory is its own
+%% directory and gets its own classification: `Shop/` may hold `.bs` files AND a
+%% `Collections/` subdirectory, in which case `Shop` is a module and what is under
+%% `Collections` is decided by applying this same rule again.
+%%
+%% `index.bs` sorts FIRST, which is not cosmetic. 41 §4 makes it the declaration
+%% file, so at the head of the list its `module` line and its `using` lines are the
+%% first the checker sees — and every sibling file that declares no module of its
+%% own then inherits from it.
+bs_here(Dir) ->
+    Files = filelib:wildcard(filename:join(Dir, "*.bs")),
+    Index = [F || F <- Files, filename:basename(F) =:= "index.bs"],
+    Index ++ lists:sort(Files -- Index).
+
+%% Every module directory at or under `Dir`, walking through namespaces.
+module_dirs(Dir) ->
+    Subs = lists:sort([P || P <- filelib:wildcard(filename:join(Dir, "*")),
+                            filelib:is_dir(P)]),
+    Here = case dir_kind(Dir) of
+               namespace   -> [];
+               {module, _} -> [Dir]
+           end,
+    Here ++ lists:append([module_dirs(S) || S <- Subs]).
+
+%% The module directory a command-line argument names: itself if it is one, and
+%% otherwise the directory the named file sits in. Naming a file names its module,
+%% which is what keeps `bsc examples/Fib/fib.bs 5` working now that the unit is the
+%% directory.
+module_dir_of(P) ->
+    case filelib:is_dir(P) of
+        true  -> P;
+        false -> filename:dirname(P)
+    end.
+
+%% Module atom -> module DIRECTORY, over every module directory under the roots.
 %%
 %% BUILT BY PARSING RATHER THAN BY NAMING. Resolving `Shop.Orders` to
-%% `Shop/Orders.bs` would be cheaper and would be wrong here: the repo's own
-%% files do not keep that correspondence — `aoc/2019/day01/day01.bs` declares
-%% `module Day01` — and inventing a filename rule is ticket 41 §5's
-%% `module_path_mismatch`, which belongs with the directory-as-module work and
-%% not here. A file that fails to parse is skipped: it is not a dependency
-%% anybody asked for, and if it is, the error arrives when it is compiled.
-source_index(Files) ->
-    Roots = lists:usort([filename:dirname(F) || F <- Files]),
-    Sources = lists:usort(lists:append([bs_files(R) || R <- Roots])),
-    lists:foldl(fun(P, Acc) ->
-                        case parse_quietly(P) of
-                            {ok, Decls} ->
-                                case module_of(Decls) of
-                                    undefined -> Acc;
-                                    M -> maps:put(M, P, Acc)
-                                end;
-                            error -> Acc
+%% `Shop/Orders` would be cheaper and would still be wrong to rely on here: the
+%% index has to answer for the tree as it IS, including a directory whose
+%% declaration does not match its path, because that mismatch is a diagnostic
+%% F15 wants to report rather than a file it wants to lose. A directory that
+%% fails to parse is skipped: it is not a dependency anybody asked for, and if it
+%% is, the error arrives when it is compiled.
+source_index(Dirs, Root) ->
+    Roots = case Root of
+                undefined -> lists:usort([filename:dirname(D) || D <- Dirs]);
+                _         -> [Root]
+            end,
+    All = lists:usort(lists:append([module_dirs(R) || R <- Roots])),
+    lists:foldl(fun(D, Acc) ->
+                        case dir_module(D) of
+                            undefined -> Acc;
+                            M -> maps:put(M, D, Acc)
                         end
-                end, #{}, Sources).
+                end, #{}, All).
 
-bs_files(Dir) ->
-    filelib:wildcard(filename:join(Dir, "**/*.bs")) ++
-        filelib:wildcard(filename:join(Dir, "*.bs")).
+%% The module a directory declares, without committing to compiling it.
+dir_module(Dir) ->
+    {module, Files} = dir_kind(Dir),
+    module_of(lists:append([case parse_quietly(F) of
+                                {ok, D} -> D;
+                                error   -> []
+                            end || F <- Files])).
 
 module_of(Decls) ->
     case [N || {module, _, N} <- Decls] of
         [N | _] -> N;
         []      -> undefined
     end.
+
+%%% ---------------------------------------------------------------------------
+%%% F15 — the module atom a DIRECTORY PATH implies, which is what ticket 41 §5's
+%%% check compares a declaration against.
+%%%
+%%% THE DEFAULT ROOT IS THE MODULE DIRECTORY'S OWN PARENT, not the cwd. That
+%%% makes a single-segment module need no flag — `bsc examples/Fib` checks `Fib`
+%%% against `module Fib` — and makes a multi-segment one fail LOUDLY until a root
+%%% is named: `bsc examples/Shop/Reports` defaults to a root of `examples/Shop`,
+%%% expects `module Reports`, finds `module Shop.Reports` and says so.
+%%%
+%%% That is the property a default here has to have. It is never silently weaker
+%%% than the explicit form, and it teaches the flag at the moment the flag is
+%%% needed. The cwd was the other candidate and loses on the same test: every
+%%% gate in this repo runs from a directory that is not the source root, so
+%%% `examples/Fib` would have had to declare `module examples.Fib`.
+%%%
+%%% A SUFFIX MATCH WAS THE OTHER TEMPTING READING AND IT IS A WEAKER RULE, not a
+%%% cheaper one — it needs no root at all and it ACCEPTS `Shop/Orders/Total.bs`
+%%% declaring `module Orders`, because `Orders` is a suffix of `…/Shop/Orders`. A
+%%% module quietly dropping its leading segments mints a different atom, which is
+%%% the drift between 40 §1's atom and the path on disk that §5 exists to stop.
+%%% ---------------------------------------------------------------------------
+
+expected_module(Dir, Root0) ->
+    Root = case Root0 of
+               undefined -> filename:dirname(Dir);
+               R         -> R
+           end,
+    DParts = norm(Dir),
+    RParts = norm(Root),
+    case lists:prefix(RParts, DParts) of
+        false -> erlang:error({src_root_mismatch, Dir, Root});
+        true  ->
+            case lists:nthtail(length(RParts), DParts) of
+                []  -> erlang:error({src_root_is_the_module, Dir});
+                Rel -> list_to_atom(lists:flatten(lists:join(".", Rel)))
+            end
+    end.
+
+%% Absolute and `..`-free, so that a root given as `examples` and a directory
+%% reached as `./examples/Fib` still share a prefix. Without this the check
+%% silently does not apply, which is the one outcome a check must never have.
+norm(Path) ->
+    lists:foldl(fun("..", [_ | Up]) -> Up;
+                   ("..", [])       -> [];
+                   (".", Acc)       -> Acc;
+                   (Seg, Acc)       -> Acc ++ [Seg]
+                end, [], filename:split(filename:absname(Path))).
 
 %% Dependencies before dependents. A cycle is refused BY NAME rather than
 %% followed — F6's cyclic-alias precedent, which shipped after a hang that no
@@ -201,7 +353,8 @@ visit([U | Rest], Index, Path, Done, Acc) ->
         {ok, Done1, Acc1} -> visit(Rest, Index, Path, Done1, Acc1)
     end.
 
-emit_one({_, Decls, M} = U, Index, Path, Done, Acc) ->
+emit_one({_, Sources, M} = U, Index, Path, Done, Acc) ->
+    Decls = decls(Sources),
     case lists:member(M, Done) of
         true  -> {ok, Done, Acc};
         false ->
@@ -239,12 +392,27 @@ parse_args(["--repl" | Rest], O, Fs)  -> parse_args(Rest, O#opts{repl = true}, F
 %% `-S FILE` is iex's spelling and costs nothing to accept; the file is picked up
 %% by the ordinary bare-argument rule below.
 parse_args(["-S" | Rest], O, Fs)      -> parse_args(Rest, O, Fs);
+%% F15 / ticket 41 §3: "a build tool's job is which files, WHERE THE SOURCE ROOT
+%% IS, and what to do with the output — not in what sequence to compile them."
+parse_args(["--src-root", Dir | Rest], O, Fs) ->
+    parse_args(Rest, O#opts{src_root = Dir}, Fs);
 parse_args([A | Rest], O, Fs) ->
-    case filename:extension(A) =:= ".bs" of
+    case is_path_arg(A) of
         true  -> parse_args(Rest, O, [A | Fs]);
         false -> {O, lists:reverse(Fs), [A | Rest]}
     end;
 parse_args([], O, Fs)                 -> {O, lists:reverse(Fs), []}.
+
+%% A `.bs` file, or a DIRECTORY THAT IS A MODULE — 41 §3 names both as inputs:
+%% "`bsc` is given a set of `.bs` files (as it already is) or a directory to walk".
+%%
+%% The module test matters and is not pedantry. Bare arguments that are not paths
+%% begin the run argv, so `bsc examples/Fib Fib 5` must not read `Fib` as a
+%% directory just because something called `Fib` happens to exist in the cwd. A
+%% directory only counts if it actually holds `.bs` files.
+is_path_arg(A) ->
+    filename:extension(A) =:= ".bs"
+        orelse (filelib:is_dir(A) andalso dir_kind(A) =/= namespace).
 
 %%% ---------------------------------------------------------------------------
 %%% Running
@@ -272,8 +440,17 @@ run(File, Opts0, Argv) ->
             halt(1)
     end.
 
-beam_for(File, Beams) ->
-    {_, Beam} = lists:keyfind(File, 1, Beams),
+%% F15 — the build's results are keyed by MODULE DIRECTORY, because that is the
+%% unit now. The argument may still be a file, and `bsc fib.bs 5` and `ibs -S
+%% fib.bs` both arrive here with one.
+%%
+%% THIS IS THE SIXTH FEATURE TO FIND A HOLE AT THIS SEAM and the comment on
+%% `run/3` above predicted it in so many words: a capability gets wired into the
+%% compile path and not into this one. It was a `no match of right hand side
+%% value false` at the `ibs` prompt — an escript stack trace, which is the worst
+%% diagnostic this compiler produces.
+beam_for(Path, Beams) ->
+    {_, Beam} = lists:keyfind(module_dir_of(Path), 1, Beams),
     Beam.
 
 report_run({ok, Value}) ->
@@ -335,10 +512,19 @@ tmpdir() ->
 
 file(Path) -> file(Path, #opts{}).
 
+%% F15 — NAMING A FILE NAMES ITS MODULE, and its module is now its directory.
+%%
+%% This used to read one file and compile it alone, which was the same thing when
+%% one file was one module. It is not any more: compiling `Shop/Orders/Total.bs`
+%% by itself emits a `'Shop.Orders'` beam with `Apply/1` missing from it — a beam
+%% that loads, exports less than the module declares, and fails at the call site.
+%%
+%% So it goes through the set path like everything else. The path check does not
+%% run here; see `check_path` on `#opts{}`.
 file(Path, Opts) ->
-    case file:read_file(Path) of
-        {ok, Bin} -> compile_string(binary_to_list(Bin), Opts#opts{}, Path);
-        {error, R} -> report_fatal(Path, {cannot_read, R}), {error, R}
+    case filelib:is_file(Path) of
+        true  -> compile_set([Path], Opts#opts{check_path = false});
+        false -> report_fatal(Path, {cannot_read, enoent}), {error, enoent}
     end.
 
 compile_string(Src, Opts) -> compile_string(Src, Opts, "<string>").
@@ -349,7 +535,11 @@ compile_string(Src, Opts, Path) ->
 with_stages(Path, Opts, Src) ->
     case parse_string(Path, Src) of
         {error, R}  -> {error, R};
-        {ok, Decls} -> check_and_emit(Path, Opts, Decls, #{})
+        %% The one remaining single-source caller, and legitimately so: a string
+        %% has no directory to aggregate and no path to check against.
+        {ok, Decls} ->
+            check_and_emit(filename:dirname(Path), [{Path, Decls}],
+                           Opts#opts{check_path = false}, #{})
     end.
 
 parse_string(Path, Src) ->
@@ -388,27 +578,40 @@ parse_quietly(Path) ->
         _ -> error
     end.
 
-check_and_emit(Path, Opts, Decls, World) ->
+check_and_emit(Dir, Sources, Opts, World) ->
     %% The checker signals a handful of conditions by raising rather than by
     %% returning a diagnostic, because they are found while RESOLVING types —
     %% below the level that carries a line and a function name. Uncaught, they
     %% reached the author as an escript stack trace, which is the worst
     %% diagnostic this compiler produced: found by running LANGUAGE.md's own
     %% examples through it, where two blocks hit `unknown_type`.
-    try bs_check:check(Decls, World) of
+    try bs_check:check_dir(Sources, World, expect(Dir, Opts)) of
         {error, Diags} ->
-            [report(Path, D) || D <- Diags],
+            %% F15 — each diagnostic arrives already tagged with the file it came
+            %% from, which is why the checker runs its function pass per file.
+            [report(P, D) || {P, D} <- Diags],
             {error, check};
         {ok, Module, Diags} ->
-            [report(Path, D) || D <- Diags],
-            emit(Path, Opts, Module)
+            [report(P, D) || {P, D} <- Diags],
+            emit(Dir, Opts, Module)
     catch
         error:Reason when is_tuple(Reason) ->
-            case resolve_error(Path, Reason) of
+            case resolve_error(primary(Dir, Sources), Reason) of
                 handled  -> {error, check};
                 unhandled -> erlang:error(Reason)
             end
     end.
+
+%% Which file a RAISED condition is reported against. The returned diagnostics
+%% carry their own path; these are found while resolving over the whole
+%% directory's declarations, so the best available answer is the module's
+%% declaration file — `index.bs` when there is one, since `bs_here/1` sorts it
+%% first. A raise site that can do better wraps itself in `{in_file, Path, …}`.
+primary(_Dir, [{P, _} | _]) when is_list(P) -> P;
+primary(Dir, _)                             -> Dir.
+
+expect(_Dir, #opts{check_path = false}) -> undefined;
+expect(Dir, #opts{src_root = Root})     -> expected_module(Dir, Root).
 
 %% Ticket 35 §3. The message names the callbacks in the spelling the AUTHOR must
 %% write — `HandleCast(term, int)`, not `handle_cast/2` — because the residual is

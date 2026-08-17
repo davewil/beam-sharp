@@ -52,10 +52,13 @@ built_escript_compiles_a_file_test() ->
     Escript = escript(),
     ?assert(filelib:is_regular(Escript)
             orelse throw({no_escript, Escript, "run `rebar3 escriptize` first"})),
-    Out = ?OUT ++ "/escript",
-    ok = filelib:ensure_dir(Out ++ "/x"),
-    Src = Out ++ "/in.bs",
-    ok = file:write_file(Src, showcase_src()),
+    %% F15 — through `place/3`, so the source sits in a directory named for the
+    %% module it declares. Written straight into a directory called `escript/`, it
+    %% now fails ticket 41 §5's path check rather than the thing this test is
+    %% about, which is that the built artefact runs at all.
+    Root = bs_test_support:fixture_root(),
+    Src = bs_test_support:place(Root, "in.bs", showcase_src()),
+    Out = Root ++ "/out",
     Result = os:cmd(Escript ++ " -o " ++ Out ++ " " ++ Src ++ " 2>&1; echo rc:$?"),
     ?assert(string:find(Result, "rc:0") =/= nomatch),
     ?assert(filelib:is_regular(Out ++ "/Readings.beam")).
