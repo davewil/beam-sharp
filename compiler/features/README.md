@@ -103,6 +103,20 @@ Erlang back to the decision that required it is one grep.
 | F12 — `public` / `private` | not started | nothing — it closes 40 §3 and rewrites all 30 `.bs` files |
 | F13 — binary patterns | not started, **blocked** — ticket 30 is open | 25b, 25c |
 | F14 — pipe and valve | not started | 25b, 25c |
+| F15 — a module is a directory | not started | the *other* half of the module system; `index.bs`, and 41 §4/§5's two checks |
+
+**F15 EXISTS AS A ROW BECAUSE F11 LEFT IT, AND A PROSE-ONLY BLOCKER IS AN INVISIBLE ONE.** The
+module system has two halves and F11 built one: how modules *see each other*. The other is what a
+module is *made of* — ticket 13's aggregate rule, where a directory is the module and every `.bs`
+file in it compiles into one `.beam`, with `index.bs` holding the shared declarations and never a
+function. Today one file is one module, and `examples/counter.bs` sits in `examples`.
+
+**Two of ticket 41's four specified checks wait here rather than in F11**, and that is why this row
+is not optional: `{module_path_mismatch, …}` (§5) tests a declaration against its *directory* path,
+and `{function_in_index, …}` (§4) guards a file nothing can currently produce. Written against
+today's layout, the first would fail every file in the repo. They are specified, they are owed, and
+before this row they were recorded only in prose — which is exactly how F2 sat takeable-looking for
+a day. `13b` already measured the mechanism working, so what is missing is plumbing, not technique.
 
 **F11 IS BUILT, AND THE TWO THINGS IT REVEALED ARE WORTH MORE THAN THE FEATURE — 2026-08-17.**
 Modules can see each other: `bsc examples/collections/Totals.bs Restate 3` prints `9` across two
