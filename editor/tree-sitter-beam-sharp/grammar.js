@@ -30,6 +30,7 @@ const PREC = {
   or: 100,
   and: 200,
   compare: 300,
+  pipe: 350,
   add: 400,
   multiply: 500,
   with: 600,
@@ -317,6 +318,7 @@ module.exports = grammar({
       $.projection,
       $.list,
       $.binary_expression,
+      $.pipe_expression,
       $.switch_expression,
     ),
 
@@ -407,6 +409,23 @@ module.exports = grammar({
         )),
       ));
     },
+
+    // --- the pipe and the valve (ticket 17 §1 and §4, F14) -------------------
+    // NOT a row in the table above, and the difference is the yecc grammar's own:
+    // every operator up there takes an expression on both sides, and this one
+    // takes a CALL on the right. `x |> F` is a syntax error rather than a type
+    // error, because ticket 17 §1 refuses to spell *function as a value* — so a
+    // table row would parse a form the compiler rejects, which is precisely the
+    // "present and wrong" failure this file's header warns `check-tokens.sh`
+    // cannot catch.
+    //
+    // `prec.left` and 350 mirror the yecc table verbatim: looser than
+    // arithmetic, so `a + b |> F()` is `(a + b) |> F()`; tighter than comparison.
+    pipe_expression: $ => prec.left(PREC.pipe, seq(
+      field('left', $._expression),
+      field('operator', choice('|>', '|?>')),
+      field('right', choice($.call, $.foreign_call, $.qualified_call)),
+    )),
 
     // --- switch (ticket 17 §6, F7) -------------------------------------------
     // The clause head's pattern grammar in expression position, so `pattern`

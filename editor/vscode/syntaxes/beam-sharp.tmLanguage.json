@@ -124,8 +124,9 @@
           "match": "\\.\\."
         },
         {
-          "name": "keyword.operator.logical.beam-sharp",
-          "match": "&&|\\|\\|"
+          "_comment": "The pipe and the valve (ticket 17 §1 and §4, F14). BEFORE the catch-all below, which matches a bare `|` and would otherwise eat the first character of both.",
+          "name": "keyword.operator.pipe.beam-sharp",
+          "match": "\\|\\?>|\\|>"
         },
         {
           "name": "keyword.operator.comparison.beam-sharp",

@@ -996,6 +996,12 @@ expr_vars({e_block, _, Binds, Final})  ->
 %% arm is covered by a sibling arm that happens to bind the same name.
 expr_vars({e_switch, _, Subject, Arms}) ->
     expr_vars(Subject) ++ lists:append([arm_free_vars(A) || A <- Arms]);
+%% F14. One line of delegation, and it is not optional: this walk ENUMERATES the
+%% grammar and falls through to `[]`, so a node it does not know reports no free
+%% variables at all — a name the author genuinely misspelled inside a valve stage
+%% would be accepted in silence. The marker wraps the lowered switch precisely so
+%% that every site like this one is a delegation rather than a second copy.
+expr_vars({e_valve, _, Switch})        -> expr_vars(Switch);
 expr_vars(_)                           -> [].
 
 arm_free_vars({arm, _, P, Guard, Body}) ->
@@ -1222,15 +1228,38 @@ type_of({e_with, _, Base, Fields}, S, C) ->
 %% reached from before.
 type_of({e_switch, L, Subject, Arms}, S, C) ->
     {SubjTy, D0} = type_of(Subject, S, C),
-    {Tys, Residual, D1} = arms(Arms, SubjTy, S, C, 1, [], []),
-    D2 = case bs_types:is_none(Residual) of
-             true  -> [];
-             %% The residual IS the missing arm — ticket 04's finding at a third
-             %% site, and it needs no new printer: `to_pattern/1` already renders
-             %% a tuple as `(a, b, c)` and a record union as its discriminator.
-             false -> [{error, L, C#ctx.fname, {switch_inexhaustive, Residual}}]
-         end,
-    {union_of(Tys), D0 ++ D1 ++ D2};
+    {Ty, D1} = switch_over(L, SubjTy, Arms, S, C, authored),
+    {Ty, D0 ++ D1};
+%% F14 / ticket 17 §4 — the valve. `bs_lower` has already turned it into the
+%% two-armed switch below, so almost nothing here is about types: F7 built the
+%% construct, F2 built the subtraction and F5 built the body check, and between
+%% them the value arm's variable ALREADY has the residual after `(:error, E)` is
+%% removed. That is the whole reason the valve costs a clause rather than a pass.
+%%
+%% Two things this clause exists for, and both are about the fact that the switch
+%% is GENERATED:
+%%
+%% 1. F14 §4. A valve over a value that cannot fail would otherwise produce
+%%    `unreachable arm 1` — a remark about code the author never wrote, which is
+%%    F7's costume for the third time. It is an error here instead, and the fix
+%%    it names is to write `|>`. Reachability is asked of the error arm's own
+%%    pattern rather than of a type built by hand, so the question the compiler
+%%    answers is exactly the question `bs_lower` wrote down.
+%% 2. `authored` vs `generated` at the arm walk, for the same reason one level
+%%    down: the value arm is a catch-all by construction, and ticket 12 §2's rule
+%%    against catch-alls is a rule about what an AUTHOR may discard.
+type_of({e_valve, L, {e_switch, _, Subject, Arms}}, S, C) ->
+    {SubjTy, D0} = type_of(Subject, S, C),
+    [{arm, _, ErrPat, _, _} | _] = Arms,
+    {ErrTy, _, _} = pattern_type(ErrPat, [], C#ctx.types),
+    case bs_types:is_none(bs_types:intersect(ErrTy, SubjTy)) of
+        true ->
+            {reported(),
+             D0 ++ [{error, L, C#ctx.fname, {valve_on_infallible, SubjTy}}]};
+        false ->
+            {Ty, D1} = switch_over(L, SubjTy, Arms, S, C, generated),
+            {Ty, D0 ++ D1}
+    end;
 type_of({e_call, L, Name, Args}, S, C) ->
     call(L, unqualified_key(Name, length(Args), L, C), Name, Args, S, C);
 %% Ticket 32 dissolved the foreign case before it was asked: a foreign
@@ -1257,12 +1286,32 @@ type_of_all(Es, S, C) ->
     {Tys, Ds} = lists:unzip([type_of(E, S, C) || E <- Es]),
     {Tys, lists:append(Ds)}.
 
+%% Shared by the switch an author wrote and the one the valve lowers to. The
+%% subject's type is passed IN rather than synthesised here, because the valve
+%% has to interrogate it before deciding whether to walk the arms at all.
+switch_over(L, SubjTy, Arms, S, C, Origin) ->
+    {Tys, Residual, D1} = arms(Arms, SubjTy, S, C, 1, [], [], Origin),
+    D2 = case bs_types:is_none(Residual) of
+             true  -> [];
+             %% The residual IS the missing arm — ticket 04's finding at a third
+             %% site, and it needs no new printer: `to_pattern/1` already renders
+             %% a tuple as `(a, b, c)` and a record union as its discriminator.
+             false -> [{error, L, C#ctx.fname, {switch_inexhaustive, Residual}}]
+         end,
+    {union_of(Tys), D1 ++ D2}.
+
 %% One arm at a time against a running residual, which is `walk/5`'s shape and
 %% for `walk/5`'s reason: redundancy is RELATIVE — arm i against the arms before
 %% it — so it is judged against what is left rather than against the subject.
-arms([], Residual, _S, _C, _N, Tys, Diags) ->
+%%
+%% `Origin` gates the two diagnostics that are REMARKS ABOUT AN ARM rather than
+%% about what the arm contains. Both are advice to an author about a pattern they
+%% chose, and the valve's two arms were chosen by `bs_lower`. Everything else —
+%% the body's own diagnostics, the guard's, the exhaustiveness of the whole —
+%% runs identically, because those are about the program either way.
+arms([], Residual, _S, _C, _N, Tys, Diags, _Origin) ->
     {Tys, Residual, Diags};
-arms([{arm, AL, P, Guard, Body} | Rest], Residual, S, C, N, Tys, Diags) ->
+arms([{arm, AL, P, Guard, Body} | Rest], Residual, S, C, N, Tys, Diags, Origin) ->
     {PTy, Binds, Exact} = pattern_type(P, [], C#ctx.types),
     {Certain0, Possible} = apply_guard(PTy, Binds, Guard),
     %% An inexact pattern over-states what it matches, so it may bound Possible
@@ -1270,16 +1319,21 @@ arms([{arm, AL, P, Guard, Body} | Rest], Residual, S, C, N, Tys, Diags) ->
     %% the identical reason: crediting an over-estimate is what makes a compiler
     %% claim coverage it does not have.
     Certain = case Exact of true -> Certain0; false -> bs_types:none() end,
-    D1 = case bs_types:is_none(bs_types:intersect(Possible, Residual)) of
-             true  -> [{warning, AL, C#ctx.fname, {unreachable_arm, N}}];
-             false -> []
-         end
-        %% Ticket 12 §2 at the switch, for F7's own reason for existing: an arm
-        %% is the clause head's pattern grammar one level down, so a rule about
-        %% what a head may discard is a rule about what an arm may discard. A `_`
-        %% arm over `Disposition` is the same defect as a `_` clause over it.
-        ++ catch_all_diags({clause, AL, C#ctx.fname, [P], Guard, ignored},
-                           Residual, AL, C#ctx.fname),
+    D1 = case Origin of
+             generated -> [];
+             authored ->
+                 case bs_types:is_none(bs_types:intersect(Possible, Residual)) of
+                     true  -> [{warning, AL, C#ctx.fname, {unreachable_arm, N}}];
+                     false -> []
+                 end
+                 %% Ticket 12 §2 at the switch, for F7's own reason for existing:
+                 %% an arm is the clause head's pattern grammar one level down, so
+                 %% a rule about what a head may discard is a rule about what an
+                 %% arm may discard. A `_` arm over `Disposition` is the same
+                 %% defect as a `_` clause over it.
+                 ++ catch_all_diags({clause, AL, C#ctx.fname, [P], Guard, ignored},
+                                    Residual, AL, C#ctx.fname)
+         end,
     %% `Possible`, never `Certain` — F5.7's trap, at a second site and with the
     %% same failure mode. `Certain` is `none` under an untranslatable guard, and
     %% a body typed against `none` does not fail loudly: every containment over
@@ -1293,7 +1347,7 @@ arms([{arm, AL, P, Guard, Body} | Rest], Residual, S, C, N, Tys, Diags) ->
                              || {V, Path} <- maps:to_list(Binds)])),
     {BodyTy, D2} = type_of(Body, Scope, C),
     arms(Rest, bs_types:subtract(Residual, Certain), S, C, N + 1,
-         Tys ++ [BodyTy], Diags ++ D1 ++ guard_diags(Guard, C) ++ D2).
+         Tys ++ [BodyTy], Diags ++ D1 ++ guard_diags(Guard, C) ++ D2, Origin).
 
 op_type('+') -> bs_types:int();
 op_type('-') -> bs_types:int();

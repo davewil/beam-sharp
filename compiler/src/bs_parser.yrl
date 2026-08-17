@@ -16,7 +16,7 @@ Nonterminals
   guard guard_expr
   body binding
   expr expr_list elist_items assign_fields assign_field
-  switch_arms switch_arm modpath using_decl visibility
+  switch_arms switch_arm modpath using_decl visibility call
   .
 
 Terminals
@@ -24,7 +24,7 @@ Terminals
   'and' 'or' 'where' 'public' 'private'
   uident lident atom_lit integer string_lit '_'
   '->' '=>' '==' '!=' '<=' '>=' '<' '>' '+' '-' '*'
-  '=' '|' ',' '(' ')' '[' ']' '{' '}' '..' '.' ':' '?'
+  '=' '|' '|>' '|?>' ',' '(' ')' '[' ']' '{' '}' '..' '.' ':' '?'
   .
 
 Rootsymbol program.
@@ -42,6 +42,19 @@ Nonassoc  50 '='.
 Left  100 'or'.
 Left  200 'and'.
 Nonassoc 300 '==' '!=' '<' '>' '<=' '>='.
+%% Ticket 17 §1 and §4. The window is bounded on BOTH sides and only one bound
+%% is obvious: F14.5 wants `a + b |> F()` to read as `(a + b) |> F()`, which puts
+%% the pipe looser than arithmetic — but `var x = a |> F()` wants it tighter than
+%% `=`, or the binding reduces before the operator shifts. So the window is
+%% 51..399, and inside it the scenarios do not discriminate at all. Elixir puts
+%% `|>` tighter than comparison and looser than arithmetic — `a |> F() == b` is
+%% `(a |> F()) == b` there — which is the BEAM-family precedent the borrow
+%% heuristic points at, and 350 is that position in this table.
+%%
+%% `Left`, because a chain is left-associative: `a |> F() |> G()` is `G(F(a))`,
+%% which is the only reading in which a pipeline runs in the order it is read.
+%% Both operators share the level so `a |?> F() |> G()` needs no bracket.
+Left 350 '|>' '|?>'.
 Left  400 '+' '-'.
 Left  500 '*'.
 %% `with` binds tighter than any operator: `o with { Total = 1 } == x` reads as
@@ -451,25 +464,65 @@ expr -> lident   : {e_var, line('$1'), value('$1')}.
 %% `bs_check`, not by `erlc` against an emitted file the author never wrote.
 expr -> '_'      : {e_wild, line('$1')}.
 
-%% A local call. The slice has no qualified names, so ticket 17's `|>` and the
-%% module-qualified form are both out of scope here.
-expr -> uident '(' expr_list ')' : {e_call, line('$1'), value('$1'), '$3'}.
+%% --- calls ------------------------------------------------------------------
+%% The three call forms are a nonterminal of their own rather than three `expr`
+%% productions, and F14 is why. Ticket 17 §1 is explicit that the pipe never
+%% passes a bare function value — that was the whole reason `Result.Then` lost to
+%% the valve, since it is "the only candidate that forces this ticket to spell
+%% *function as a value*". So the rule is `expr '|>' call`, not `expr '|>' expr`
+%% with a check afterwards. Two things follow: `x |> F` is a SYNTAX error rather
+%% than a type error, which is the right layer for it; and the right operand
+%% needs no precedence of its own, because it is not an expression.
+%%
+%% Factoring is the whole change — no call form gained or lost a spelling. The
+%% one thing that must not happen is leaving a duplicate `expr -> uident '(' ...`
+%% behind, which is a reduce/reduce conflict yecc reports as a WARNING while
+%% still emitting a working-looking parser.
+
+%% A local call.
+call -> uident '(' expr_list ')' : {e_call, line('$1'), value('$1'), '$3'}.
+call -> uident '(' ')'           : {e_call, line('$1'), value('$1'), []}.
 
 %% `:ets.lookup(t, k)` — an atom literal on the left, so no variable and no
 %% casing convention is involved in telling this from a field projection.
-expr -> atom_lit '.' lident '(' expr_list ')' :
+call -> atom_lit '.' lident '(' expr_list ')' :
     {e_foreign_call, line('$1'), value('$1'), value('$3'), '$5'}.
-expr -> atom_lit '.' lident '(' ')' :
+call -> atom_lit '.' lident '(' ')' :
     {e_foreign_call, line('$1'), value('$1'), value('$3'), []}.
-expr -> uident '(' ')'           : {e_call, line('$1'), value('$1'), []}.
 
 %% `List.Map(xs)` — ticket 41 §1. The three dot-forms are told apart by the token
 %% class of the LEFT side and nothing else: `lident` projects a field, `atom_lit`
 %% calls Erlang, `uident` path calls a B# module.
-expr -> modpath '.' uident '(' expr_list ')' :
+call -> modpath '.' uident '(' expr_list ')' :
     {e_qcall, line('$2'), modatom('$1'), value('$3'), '$5'}.
-expr -> modpath '.' uident '(' ')' :
+call -> modpath '.' uident '(' ')' :
     {e_qcall, line('$2'), modatom('$1'), value('$3'), []}.
+
+expr -> call : '$1'.
+
+%% --- the pipe and the valve -------------------------------------------------
+%% Ticket 17 §1: the piped value becomes the FIRST argument, and the rewrite is
+%% all there is. `bs_lower:pipe_into/3` emits the call node directly, so the
+%% checker, the five check sites, the exhaustiveness walk and the `-spec` all see
+%% `F(x, a)` because that is what exists — no checker or emitter change at all.
+expr -> expr '|>' call : bs_lower:pipe_into(line('$2'), '$1', '$3').
+
+%% Ticket 17 §4: the valve cannot be a rewrite, because it BRANCHES. It is left
+%% unlowered here and turned into its two-armed `switch` by `bs_lower:valves/1`
+%% after the parse — the lowering needs two synthesised names per stage that are
+%% unique across the file, and a yecc action cannot carry a counter. See
+%% `bs_lower` for why per-line names are not enough.
+expr -> expr '|?>' call : {e_valve, line('$2'), '$1', '$3'}.
+
+%% `x |> F` with no argument list is refused by the grammar above and NOT by a
+%% production of its own. A named refusal was written, measured and removed: two
+%% `expr '|>' modpath` productions buy a better message and cost 2 shift/reduce
+%% conflicts against a grammar that has held 0, and a conflict is the one warning
+%% yecc issues while still emitting a parser that looks like it works. §1 asks
+%% only that this be a SYNTAX error rather than a type error, which it is —
+%% yecc's own `syntax error before:` lands at the right line and the right layer.
+%% The trade is recorded here because the next person to want the nicer message
+%% should know it was tried rather than overlooked.
 
 expr -> '(' expr_list ')' :
     case '$2' of
@@ -556,8 +609,12 @@ value(T) -> element(3, T).
 %% shape. Ticket 40 §1's delta says `bs_check:qualified/2` and the `bsc` emit path
 %% need NO CHANGE because both were written against the module atom rather than
 %% against a single segment — that holds only if the atom is what reaches them.
-modatom(Segments) ->
-    list_to_atom(lists:flatten(lists:join(".", [atom_to_list(S) || S <- Segments]))).
+modatom(Segments) -> list_to_atom(dotted(Segments)).
+
+%% The same join as a string, for the diagnostics that have to print a path back
+%% to the author before it has become an atom.
+dotted(Segments) ->
+    lists:flatten(lists:join(".", [atom_to_list(S) || S <- Segments])).
 
 %% A plain name keeps ticket 34's node; anything else is a destructuring bind
 %% carrying a real pattern, which ticket 34 deferred to ticket 33 and F5 built.

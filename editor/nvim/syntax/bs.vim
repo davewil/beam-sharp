@@ -55,7 +55,12 @@ syn match bsWildcard  "\<_\>"
 
 " --- operators ---------------------------------------------------------------
 " Two arrows, two jobs: `->` is a clause, `=>` is a switch arm.
-syn match bsOperator  "->\|=>\|\.\.\|&&\|||\|==\|!=\|<=\|>=\|[<>+\-*=|?:]"
+"
+" `|?>` and `|>` come BEFORE the character class, because alternation here is
+" first-match-wins at a position and the class matches a bare `|` -- which would
+" colour one character of a two- or three-character operator. Ticket 44 removed
+" `&&` and `||`; they were still listed here until F14 touched the line.
+syn match bsOperator  "->\|=>\|\.\.\||?>\||>\|==\|!=\|<=\|>=\|[<>+\-*=|?:]"
 
 " --- atoms -------------------------------------------------------------------
 " Defined after the operator rule so that `:` opening an atom beats `:` the

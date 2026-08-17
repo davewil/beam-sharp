@@ -402,6 +402,12 @@ used_vars({e_switch, _, Subject, Arms}, Acc) ->
     lists:foldl(fun({arm, _, _, G, Body}, A) ->
                         used_vars(Body, sets:union(A, guard_vars(G)))
                 end, used_vars(Subject, Acc), Arms);
+%% F14. Same walk, same stakes as the switch above and for the same reason: this
+%% one enumerates and falls through to `Acc`, so a parameter read only inside a
+%% valve stage would look unused, lower to `_N` in the clause head, and then be
+%% referenced by the emitted `case` — a compile error in a file the author did
+%% not write.
+used_vars({e_valve, _, Switch}, Acc) -> used_vars(Switch, Acc);
 used_vars({e_list, _, Items, Rest}, Acc) ->
     R = case Rest of nil -> Acc; _ -> used_vars(Rest, Acc) end,
     lists:foldl(fun used_vars/2, R, Items);
@@ -562,7 +568,13 @@ expr({e_list, L, Items, Rest}, C) ->
 %% the BEAM raises `case_clause` on a term no arm matches, exactly as it raises
 %% `function_clause`, so ticket 12's retained failure arm comes free here too.
 expr({e_switch, L, Subject, Arms}, C) ->
-    {'case', L, expr(Subject, C), [arm(A, C) || A <- Arms]}.
+    {'case', L, expr(Subject, C), [arm(A, C) || A <- Arms]};
+%% F14. The marker has done its work by the time emission runs — it existed to
+%% keep `bs_check` from advising the author about arms `bs_lower` chose — so here
+%% it is simply unwrapped. Ticket 17 §7's "a `|?>` chain emits a `case` per stage"
+%% is satisfied by the switch inside, with no emitter machinery of its own.
+expr({e_valve, _, Switch}, C) ->
+    expr(Switch, C).
 
 %% An arm takes the same relational lowering as a clause head, because it is the
 %% clause head's own pattern grammar one level down — F7's whole argument for

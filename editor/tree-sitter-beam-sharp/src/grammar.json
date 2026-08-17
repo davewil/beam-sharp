@@ -1357,6 +1357,10 @@
         },
         {
           "type": "SYMBOL",
+          "name": "pipe_expression"
+        },
+        {
+          "type": "SYMBOL",
           "name": "switch_expression"
         }
       ]
@@ -2035,6 +2039,61 @@
           }
         }
       ]
+    },
+    "pipe_expression": {
+      "type": "PREC_LEFT",
+      "value": 350,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "FIELD",
+            "name": "left",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_expression"
+            }
+          },
+          {
+            "type": "FIELD",
+            "name": "operator",
+            "content": {
+              "type": "CHOICE",
+              "members": [
+                {
+                  "type": "STRING",
+                  "value": "|>"
+                },
+                {
+                  "type": "STRING",
+                  "value": "|?>"
+                }
+              ]
+            }
+          },
+          {
+            "type": "FIELD",
+            "name": "right",
+            "content": {
+              "type": "CHOICE",
+              "members": [
+                {
+                  "type": "SYMBOL",
+                  "name": "call"
+                },
+                {
+                  "type": "SYMBOL",
+                  "name": "foreign_call"
+                },
+                {
+                  "type": "SYMBOL",
+                  "name": "qualified_call"
+                }
+              ]
+            }
+          }
+        ]
+      }
     },
     "switch_expression": {
       "type": "PREC_LEFT",

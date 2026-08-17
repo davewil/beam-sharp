@@ -210,6 +210,13 @@ _                       : {token, {'_', TokenLine}}.
 %% lexed so the parser can refuse `Notes?: int` by name instead of the scanner
 %% failing on an illegal character.
 \?                      : {token, {'?', TokenLine}}.
+%% Ticket 17 §1 and §4 — the pipe and the valve. Longest-match is what keeps all
+%% three off each other: `|?>` is three characters and wins over `|>`, which wins
+%% over the union bar, so no lexer state and no lookahead is involved. The `?` is
+%% free because ticket 10 dropped the ternary, and it sits INSIDE the `|>`
+%% silhouette so the valve reads as a variant of the pipe rather than a new token.
+\|\?>                    : {token, {'|?>', TokenLine}}.
+\|>                      : {token, {'|>', TokenLine}}.
 \|                      : {token, {'|', TokenLine}}.
 ,                       : {token, {',', TokenLine}}.
 \(                      : {token, {'(', TokenLine}}.

@@ -118,13 +118,16 @@ _Avoid_: throw, panic, crash, abort, fail
 
 **Pipe**:
 `|>`, the single chaining form. `x |> F(a)` rewrites to `F(x, a)`; the name is always **qualified**,
-so nothing is resolved by the type of `x`. There is no dot-call and no comprehension syntax.
+so nothing is resolved by the type of `x`. The right operand is a **call**, never a bare name — a
+function value is not a form this language has, so `x |> F` is a syntax error. There is no dot-call
+and no comprehension syntax.
 _Avoid_: chain, fluent call, method call, forward operator
 
 **Valve**:
 `|?>`, the pipe that stops the flow. Where its left operand is `(:error, _)` the remaining stages do
-not run and that error is the result; otherwise the stage applies. Named for what it is: a valve
-stops flow in a pipe.
+not run and that error is the result; otherwise the stage applies to the **narrowed** value, so a
+stage is declared over the type left after the error member is subtracted. A valve over a type with
+no `(:error, _)` member is an error. Named for what it is: a valve stops flow in a pipe.
 _Avoid_: bind, andThen, try operator, safe pipe, monadic pipe
 
 **switch**:

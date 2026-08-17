@@ -538,17 +538,59 @@ which yields a better reason than `try` does.
 
 ## 8. Pipelines
 
-```csharp not-yet
-xs |> List.Map(f) |> List.Filter(g)
+The **pipe** `|>` passes the value on its left in as the **first argument** of the call on its
+right. It is a rewrite and nothing else — `xs |> Sum(0)` *is* `Sum(xs, 0)`, so exhaustiveness, the
+five check sites and the emitted `-spec` all see an ordinary call.
+
+```csharp
+public int Restated(list<int> xs)
+Restated(xs) -> xs |> Sum(0)
+
+private int Sum(list<int> xs, int acc)
+Sum([], acc)          -> acc
+Sum([x, ..rest], acc) -> Sum(rest, acc + x)
 ```
 
-Names are **qualified** — `List.Map`, not `xs.Map(f)`. Method-call syntax would need type-directed
-resolution of an unqualified name, which the language has deliberately closed off.
+The right operand is a **call**, never a bare name: `xs |> Sum` is a *syntax* error rather than a
+type error, because a function value is not a thing this language has.
 
-`|?>` is the **valve**: it stops on the first `(:error, _)` and runs no further stage.
+Names are **qualified** — `List.Sum`, not `xs.Sum(0)`. Method-call syntax would need type-directed
+resolution of an unqualified name, which the language has deliberately closed off. The pipe is what
+survived that argument rather than a second spelling beside it.
+
+`|?>` is the **valve**: it stops on the first `(:error, _)`, runs no further stage, and returns
+that error unchanged.
+
+```csharp
+type Res = int | (:error, atom)
+
+public Res Place(int n)
+Place(n) -> Validate(n) |?> Charge()
+
+private Res Validate(int n)
+Validate(n) when n > 0  -> n
+Validate(n) when n <= 0 -> (:error, :bad_request)
+
+private Res Charge(int v)
+Charge(v) -> v * 2
+```
+
+`Charge` is declared over `int` and **not** over `Res`, which is the payoff rather than an
+oversight: the valve has already subtracted the error member, so what reaches a stage is the
+narrowed type, and naming the whole union there would claim a case the function can never be
+handed. A `|?>` over a type with **no** `(:error, _)` member is an error rather than a dead branch —
+the compiler says to write `|>` instead.
+
+The escape hatch is the operator's **absence**. Write `|>` and match `(:error, _)` in your own
+clause when a stage wants to inspect the failure; that is also the only way to turn one error into
+another.
+
+Both operators are built. What is **not** built is the collection prelude they are usually shown
+with — `List.Map` and friends as compiler-known functions (ticket 18) — nor the function *value*
+that `f` and `g` stand for here, which ticket 27 measured this language as not having:
 
 ```csharp not-yet
-Load(id) -> Users.Fetch(id) |?> Accounts.For()
+xs |> List.Map(f) |> List.Filter(g)
 ```
 
 There is **no comprehension syntax**. The compiler inlines its own collection operations, which

@@ -11,7 +11,8 @@
 # derived from a leex file, so the copy is unavoidable and the drift is not.
 #
 # WHAT IT CHECKS, AND WHAT IT DOES NOT
-# Keywords and the two arrows, which are what a new feature adds. It does NOT
+# Keywords and the multi-character operators, which are what a new feature adds.
+# It does NOT
 # check that the grammars are CORRECT -- a rule can be present and wrong, and
 # only looking at a coloured file catches that. F7 is the case in point: it added
 # `switch`, `=>`, and the two keyword atoms, and this gate would have named all
@@ -56,21 +57,34 @@ for kw in $KEYWORDS; do
     fi
 done
 
-# The two arrows are the pair most likely to be added one at a time: `->` has
-# been there since the walking skeleton and `=>` arrived with F7.
-for arrow in '\->' '=>'; do
-    if grep -q -- "$arrow" "$TM" && grep -q -- "$arrow" "$VIM"; then
-        printf '  %-10s %s\n' "ok" "${arrow#\\}"
+# The multi-character operators, which is the set most likely to be added one at
+# a time: `->` has been there since the walking skeleton, `=>` arrived with F7,
+# and `|>`/`|?>` with F14. They cannot be derived from the leex file the way the
+# keywords above are, because every one of them is written as an escaped regex
+# there rather than as a bare word -- so the list is hand-maintained, and adding
+# to it is part of adding an operator.
+#
+# BACKSLASHES ARE STRIPPED BEFORE MATCHING. Both grammars escape these for their
+# own regex dialect: the valve is `\\|\\?>` in the TextMate JSON and `|?>` in
+# vim, so the three characters are not adjacent in one file and are in the other.
+# Comparing the de-escaped text is what makes one list check both.
+OPS='-> => |> |?>'
+NOPS=0
+for op in $OPS; do
+    NOPS=$((NOPS + 1))
+    if grep -qF -- "$op" <(tr -d '\\' < "$TM") &&
+       grep -qF -- "$op" <(tr -d '\\' < "$VIM"); then
+        printf '  %-10s %s\n' "ok" "$op"
     else
-        printf '  %-10s %s  -- an arrow the lexer has and a grammar does not\n' \
-               "MISSING" "${arrow#\\}"
+        printf '  %-10s %s  -- an operator the lexer has and a grammar does not\n' \
+               "MISSING" "$op"
         fail=1
     fi
 done
 
 echo
 if [ "$fail" -eq 0 ]; then
-    echo "$(echo "$KEYWORDS" | wc -w | tr -d ' ') keywords + 2 arrows: all present in both grammars"
+    echo "$(echo "$KEYWORDS" | wc -w | tr -d ' ') keywords + $NOPS operators: all present in both grammars"
 else
     echo "a token the lexer defines has no rule in one of the editor grammars."
     exit 1

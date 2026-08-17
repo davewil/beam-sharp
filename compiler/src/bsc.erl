@@ -616,8 +616,13 @@ parse_string(Path, Src) ->
             case bs_parser:parse(Tokens) of
                 {error, Err} ->
                     report_fatal(Path, {parse, Err}), {error, parse};
+                %% F14. The valve is the one construct the parser cannot finish
+                %% on its own — its lowering needs names that are unique across
+                %% the FILE, and a yecc action has nowhere to keep a counter. So
+                %% it lands here, between parsing and everything else, and no
+                %% later stage ever sees an unlowered `e_valve`.
                 {ok, Decls} ->
-                    {ok, Decls}
+                    {ok, bs_lower:valves(Decls)}
             end
     end.
 
@@ -636,7 +641,7 @@ parse_quietly(Path) ->
             case bs_lexer:string(binary_to_list(Bin)) of
                 {ok, Tokens, _} ->
                     case bs_parser:parse(Tokens) of
-                        {ok, Decls} -> {ok, Decls};
+                        {ok, Decls} -> {ok, bs_lower:valves(Decls)};
                         _           -> error
                     end;
                 _ -> error
@@ -1094,6 +1099,16 @@ report(Path, {error, Line, Fn, {switch_inexhaustive, Residual}}) ->
               "  no arm matches:~n"
               "    ~s => ...~n",
               [Path, Line, Fn, bs_types:to_pattern(Residual)]);
+%% F14 §4, and the message is the feature. A valve over a value with no
+%% `(:error, _)` member generates an arm that can never match, and the honest
+%% report is not `unreachable arm 1` — the author wrote no arms. What they wrote
+%% was the wrong operator, so the diagnostic names the right one.
+report(Path, {error, Line, Fn, {valve_on_infallible, Ty}}) ->
+    io:format(standard_error,
+              "~s:~p: error: this |?> in ~s is over a value that cannot fail~n"
+              "  ~s has no (:error, _) member, so the valve would never stop.~n"
+              "  Write |> instead.~n",
+              [Path, Line, Fn, bs_types:to_pattern(Ty)]);
 %% Arm, not clause. The word is the whole of the message's usefulness: a
 %% construct with no clauses in it cannot be told which clause is dead.
 report(Path, {warning, Line, Fn, {unreachable_arm, N}}) ->
