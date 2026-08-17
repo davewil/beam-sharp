@@ -21,6 +21,15 @@ erl_crash.dump
 # compiler build artefacts
 compiler/_build/
 
+# `rebar3` run from the WRONG DIRECTORY writes an empty `[].` lock file wherever
+# it was invoked, and `git add -A` then commits it. It happened twice in one
+# session — once at the repo root, once in the tree-sitter grammar directory —
+# because a shell `cd` persists between commands and the mistake is silent:
+# rebar3 succeeds, and the only trace is a four-byte file. The only real rebar
+# project here is `compiler/`, so a lock file anywhere else is always this.
+/rebar.lock
+editor/**/rebar.lock
+
 # `bsc` with no -o writes the serialised abstract format beside the source.
 *.abstr
 compiler/bench/*.beam
