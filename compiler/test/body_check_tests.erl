@@ -385,8 +385,15 @@ every_aoc_program_still_compiles_test() ->
     ?assert(length(Dirs) >= 3),
     [?assertEqual({D, ok}, {D, compiles_with_default_root(D)}) || D <- Dirs].
 
+%% ITS OWN OUTPUT DIRECTORY PER MODULE, because all three aoc modules are called
+%% `Day01` and would otherwise write one `.beam` three times over. Each still
+%% compiles, so the assertion passed either way — but "three modules built"
+%% and "one module built three times" are different claims and only one of them
+%% is what this gate means.
 compiles_with_default_root(Dir) ->
-    Out = bs_test_support:run_cli("-o " ++ ?OUT ++ "/corpus " ++ Dir),
+    Out = bs_test_support:run_cli("-o " ++ ?OUT ++ "/corpus/" ++
+                                      filename:basename(filename:dirname(Dir)) ++
+                                      " " ++ Dir),
     case string:find(Out, "rc:0") of
         nomatch -> Out;
         _       -> ok

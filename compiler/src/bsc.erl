@@ -73,7 +73,7 @@ compile_or_run(Files, Argv, Opts) ->
         %% `is_path_arg/1` only counts a directory as a path if it is a module.
         %% Falling through to the usage text would answer a precise mistake with
         %% a general message; 41 §5 gives it an exact name, so use it.
-        {[], [A | _]} when Argv =/= [] ->
+        {[], [A | _]} ->
             case filelib:is_dir(A) andalso dir_kind(A) =:= namespace of
                 true ->
                     io:format(standard_error,
