@@ -72,7 +72,7 @@ built_escript_compiles_a_file_test() ->
 
 fib_src() ->
     "module Fib\n"
-    "int Fib(int n)\n"
+    "public int Fib(int n)\n"
     "Fib(n) when n <= 1 -> n\n"
     "Fib(n) when n > 1  -> Fib(n - 1) + Fib(n - 2)\n".
 
@@ -119,7 +119,7 @@ run_names_the_choice_when_it_cannot_infer_test() ->
         false -> ok;
         true ->
             Src = showcase_src() ++
-                  "\nVerdict Second(Reading r)\n"
+                  "\npublic Verdict Second(Reading r)\n"
                   "Second((:ok, n)) when n > 0 -> :positive\n"
                   "Second((:ok, 0))            -> :zero\n"
                   "Second((:ok, n))            -> :negative\n"
@@ -143,7 +143,7 @@ reload_picks_up_a_changed_file_test() ->
     true = code:add_patha(Out),
     {module, 'Fib'} = code:ensure_loaded('Fib'),
     ?assertEqual(8, 'Fib':'Fib'(6)),
-    Changed = "module Fib\nint Fib(int n)\nFib(n) when n <= 1 -> 100\n"
+    Changed = "module Fib\npublic int Fib(int n)\nFib(n) when n <= 1 -> 100\n"
               "Fib(n) when n > 1  -> 100\n",
     ok = file:write_file(Path, Changed),
     {ok, _} = bsc:file_to_dir(Path, Out),

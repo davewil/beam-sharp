@@ -36,6 +36,11 @@ exports(Mod) ->
     try [{F, A} || {F, A} <- Mod:module_info(exports), F =/= module_info]
     catch _:_ -> [] end.
 
+%% F12 — every function the module DEFINES, private ones included.
+defined(Mod) ->
+    try [{F, A} || {F, A} <- Mod:module_info(functions), F =/= module_info]
+    catch _:_ -> [] end.
+
 loop(File, Dir, Mod, Env) ->
     case io:get_line("bs> ") of
         eof -> io:format("~n"), ok;
@@ -404,7 +409,22 @@ read_args(Raw, Env) ->
 apply_call(Mod, Fn, Args) ->
     case lists:member({Fn, length(Args)}, exports(Mod)) of
         false ->
-            {error, io_lib:format("no ~s/~p -- try :exports", [Fn, length(Args)])};
+            %% F12 — "no such function" and "you may not call it" are different
+            %% sentences, and only one of them is true here. `module_info/1`
+            %% carries the full definition list beside the export list, so the
+            %% prompt tells them apart without the compiler passing anything in.
+            %%
+            %% The features README records that F4, F5 and F7 each found a hole
+            %% at this prompt and none closed the gap. This one is closed in the
+            %% feature that opens it.
+            case lists:member({Fn, length(Args)}, defined(Mod)) of
+                true ->
+                    {error, io_lib:format("~s/~p is private in ~s -- defined, "
+                                          "not exported", [Fn, length(Args), Mod])};
+                false ->
+                    {error, io_lib:format("no ~s/~p -- try :exports",
+                                          [Fn, length(Args)])}
+            end;
         true ->
             try {ok, apply(Mod, Fn, Args)}
             catch C:R -> {error, io_lib:format("crashed: ~p:~p", [C, R])} end

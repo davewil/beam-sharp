@@ -11,14 +11,14 @@
 %% Exhaustive ONLY if the checker sees that `n <= 1` and `n > 1` partition int.
 guarded_integer_partition_is_exhaustive_test() ->
     Src = "module M\n"
-          "int Fib(int n)\n"
+          "public int Fib(int n)\n"
           "Fib(n) when n <= 1 -> n\n"
           "Fib(n) when n > 1  -> Fib(n - 1) + Fib(n - 2)\n",
     ?assertMatch({ok, _, []}, check_only(Src)).
 
 fib_actually_computes_test() ->
     Src = "module M\n"
-          "int Fib(int n)\n"
+          "public int Fib(int n)\n"
           "Fib(n) when n <= 1 -> n\n"
           "Fib(n) when n > 1  -> Fib(n - 1) + Fib(n - 2)\n",
     M = build_and_load(Src, 'M'),
@@ -30,7 +30,7 @@ fib_actually_computes_test() ->
 interval_hole_is_found_test() ->
     Src = "module M\n"
           "type Band = :low | :mid | :high\n"
-          "Band Classify(int n)\n"
+          "public Band Classify(int n)\n"
           "Classify(n) when n < 10   -> :low\n"
           "Classify(n) when n >= 100 -> :high\n",
     {error, [{error, _, _, {inexhaustive, Residual}}]} = check_only(Src),
@@ -39,7 +39,7 @@ interval_hole_is_found_test() ->
 conjunction_in_a_guard_is_credited_test() ->
     Src = "module M\n"
           "type Band = :low | :mid | :high\n"
-          "Band Classify(int n)\n"
+          "public Band Classify(int n)\n"
           "Classify(n) when n < 10             -> :low\n"
           "Classify(n) when n >= 10 and n < 100 -> :mid\n"
           "Classify(n) when n >= 100           -> :high\n",
@@ -50,7 +50,7 @@ conjunction_in_a_guard_is_credited_test() ->
 %% uncreditable guard may not be read as full coverage.
 uncreditable_guard_credits_nothing_test() ->
     Src = "module M\n"
-          "int F(int n)\n"
+          "public int F(int n)\n"
           "F(n) when Weird(n) -> n\n",
     {error, Diags} = check_only(Src),
     ?assertMatch([{error, _, 'F', {inexhaustive, _}}], Diags).
@@ -165,7 +165,7 @@ a_catch_all_covers_every_record_test() ->
 a_guard_over_a_record_field_still_credits_the_clause_test() ->
     Src = "module Shop\n"
           "record Order { Id: int, Total: int }\n"
-          "atom Band(Order o)\n"
+          "public atom Band(Order o)\n"
           "Band({ Total: t }) when t > 0 -> :paid\n"
           "Band({ Total: t }) when t <= 0 -> :unpaid\n",
     ?assertMatch({ok, _, _}, check_only(Src)).
@@ -189,14 +189,14 @@ a_guard_over_a_record_field_still_credits_the_clause_test() ->
 
 a_negative_literal_is_an_expression_test() ->
     Src = "module Neg\n"
-          "int MinusOne()\n"
+          "public int MinusOne()\n"
           "MinusOne() -> -1\n",
     M = build_and_load(Src, 'Neg'),
     ?assertEqual(-1, M:'MinusOne'()).
 
 a_variable_can_be_negated_test() ->
     Src = "module NegV\n"
-          "int Flip(int n)\n"
+          "public int Flip(int n)\n"
           "Flip(n) -> -n\n",
     M = build_and_load(Src, 'NegV'),
     ?assertEqual(-7, M:'Flip'(7)),
@@ -212,9 +212,9 @@ a_variable_can_be_negated_test() ->
 %% precedence table. So this asserts the VALUE.
 binary_minus_survives_the_prefix_one_test() ->
     Src = "module NegB\n"
-          "int Chain()\n"
+          "public int Chain()\n"
           "Chain() -> 1 - 2 - 3\n"
-          "int Mixed()\n"
+          "public int Mixed()\n"
           "Mixed() -> 10 - -2\n",
     M = build_and_load(Src, 'NegB'),
     ?assertEqual(-4, M:'Chain'()),
@@ -226,7 +226,7 @@ binary_minus_survives_the_prefix_one_test() ->
 %% negative literal took part in the subtraction rather than being ignored.
 a_negative_literal_dispatches_in_a_pattern_test() ->
     Src = "module NegP\n"
-          "atom Sign(int n)\n"
+          "public atom Sign(int n)\n"
           "Sign(-1) -> :minus_one\n"
           "Sign(0)  -> :zero\n"
           "Sign(n) when n > 0 -> :positive\n"

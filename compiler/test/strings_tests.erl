@@ -24,7 +24,7 @@
 %% F9.1
 a_string_literal_is_an_expression_test() ->
     M = build_and_load("module Str\n"
-                       "string Greet()\n"
+                       "public string Greet()\n"
                        "Greet() -> \"hello\"\n", 'Str'),
     ?assertEqual(<<"hello">>, M:'Greet'()).
 
@@ -41,7 +41,7 @@ a_string_literal_is_an_expression_test() ->
 %% against a literal written in the same broken encoding.
 a_non_ascii_literal_keeps_its_utf8_bytes_test() ->
     M = build_and_load("module Str8\n"
-                       "string Greet()\n"
+                       "public string Greet()\n"
                        "Greet() -> \"h\xc3\xa9llo\"\n", 'Str8'),
     ?assertEqual(6, byte_size(M:'Greet'())),
     ?assertEqual(<<"h", 16#c3, 16#a9, "llo">>, M:'Greet'()).
@@ -50,7 +50,7 @@ a_non_ascii_literal_keeps_its_utf8_bytes_test() ->
 %% beam-sharp refuses, so this asserts a DIVERGENCE and not merely a check.
 an_invalid_utf8_literal_is_refused_test() ->
     Src = "module Bad\n"
-          "string Greet()\n"
+          "public string Greet()\n"
           "Greet() -> \"h\xffllo\"\n",
     ?assertMatch({error, {_, bs_lexer, _}, _}, bs_lexer:string(Src)).
 
@@ -61,7 +61,7 @@ an_unknown_escape_is_refused_test() ->
 
 escapes_produce_bytes_test() ->
     M = build_and_load("module Esc\n"
-                       "string Q()\n"
+                       "public string Q()\n"
                        "Q() -> \"a\\\"b\\nc\"\n", 'Esc'),
     ?assertEqual(<<"a\"b\nc">>, M:'Q'()).
 
@@ -73,15 +73,15 @@ escapes_produce_bytes_test() ->
 string_and_binary_are_builtin_type_names_test() ->
     ?assertMatch({ok, _, []},
                  check_only("module T\n"
-                            "string Echo(string s)\n"
+                            "public string Echo(string s)\n"
                             "Echo(s) -> s\n"
-                            "binary Raw(binary b)\n"
+                            "public binary Raw(binary b)\n"
                             "Raw(b) -> b\n")).
 
 %% F9.5 — the refinement is a SUBSET, so this direction holds...
 a_string_satisfies_a_declared_binary_test() ->
     M = build_and_load("module Sub\n"
-                       "binary Bytes()\n"
+                       "public binary Bytes()\n"
                        "Bytes() -> \"hello\"\n", 'Sub'),
     ?assertEqual(<<"hello">>, M:'Bytes'()).
 
@@ -89,9 +89,9 @@ a_string_satisfies_a_declared_binary_test() ->
 %% observable at F5's clause-return site.
 a_binary_does_not_satisfy_a_declared_string_test() ->
     [{error, _, Fn, _}] = errors("module Ent\n"
-                                 "binary Raw(binary b)\n"
+                                 "public binary Raw(binary b)\n"
                                  "Raw(b) -> b\n"
-                                 "string Text(binary b)\n"
+                                 "public string Text(binary b)\n"
                                  "Text(b) -> Raw(b)\n"),
     ?assertEqual('Text', Fn).
 
@@ -114,16 +114,16 @@ string_or_binary_absorbs_to_binary_test() ->
     ?assertMatch({ok, _, []},
                  check_only("module Abs\n"
                             "type Any = string | binary\n"
-                            "Any Wide()\n"
+                            "public Any Wide()\n"
                             "Wide() -> \"x\"\n")).
 
 %% F9.8 — the row the exemplars are actually waiting on.
 list_of_string_and_a_string_field_resolve_test() ->
     M = build_and_load("module Rec\n"
                        "record Order { Id: string, Total: int }\n"
-                       "list<string> Ids()\n"
+                       "public list<string> Ids()\n"
                        "Ids() -> [\"A-1\", \"B-2\"]\n"
-                       "string Which(Order o)\n"
+                       "public string Which(Order o)\n"
                        "Which(o) -> o.Id\n", 'Rec'),
     ?assertEqual([<<"A-1">>, <<"B-2">>], M:'Ids'()),
     ?assertEqual(<<"z">>, M:'Which'(#{'Kind' => 'Rec.Order',
@@ -136,7 +136,7 @@ the_residual_over_a_string_union_is_exact_test() ->
     [{error, _, 'Kind', {inexhaustive, R}}] =
         errors("module Res\n"
                "type Payload = string | :nothing\n"
-               "atom Kind(Payload p)\n"
+               "public atom Kind(Payload p)\n"
                "Kind(:nothing) -> :empty\n"),
     %% A product, because ticket 04 makes exhaustiveness ONE subtraction across
     %% the whole argument list rather than one per column.
@@ -163,7 +163,7 @@ term_contains_binaries_test() ->
     ?assert(bs_types:is_subtype(bs_types:string(), bs_types:term())),
     ?assertMatch({ok, _, []},
                  check_only("module Top\n"
-                            "term Anything(string s)\n"
+                            "public term Anything(string s)\n"
                             "Anything(s) -> s\n")).
 
 %% The containment that carries the whole refinement story, in both directions.
@@ -185,7 +185,7 @@ string_is_a_proper_subtype_of_binary_test() ->
 %% it does not know rather than rejecting it.
 a_string_literal_works_in_a_guard_test() ->
     M = build_and_load("module Gd\n"
-                       "atom Pick(string s)\n"
+                       "public atom Pick(string s)\n"
                        "Pick(s) when s == \"hello\" -> :hit\n"
                        "Pick(s)                   -> :miss\n", 'Gd'),
     ?assertEqual(hit, M:'Pick'(<<"hello">>)),
@@ -200,13 +200,13 @@ a_string_literal_works_in_a_guard_test() ->
 a_string_guard_earns_no_exhaustiveness_credit_test() ->
     ?assertMatch([{error, _, 'Pick', {inexhaustive, _}}],
                  errors("module Gu\n"
-                        "atom Pick(string s)\n"
+                        "public atom Pick(string s)\n"
                         "Pick(s) when s == \"hello\" -> :hit\n")).
 
 %% F5's fifth site — a body binding, which none of the scenarios above reach.
 a_string_literal_binds_in_a_body_test() ->
     M = build_and_load("module Bd\n"
-                       "string Local()\n"
+                       "public string Local()\n"
                        "Local() ->\n"
                        "    var s = \"x\"\n"
                        "    s\n", 'Bd'),
@@ -224,7 +224,7 @@ binary_is_admissible_as_a_foreign_return_test() ->
                        "    binary term_to_binary(term t)\n"
                        "    int byte_size(binary b)\n"
                        "}\n"
-                       "int Size()\n"
+                       "public int Size()\n"
                        "Size() -> :erlang.byte_size(\"hello\")\n", 'Fb'),
     ?assertEqual(5, M:'Size'()).
 
@@ -236,7 +236,7 @@ string_is_not_admissible_as_a_foreign_return_test() ->
           "using :file {\n"
           "    string read_file(term path)\n"
           "}\n"
-          "string Text()\n"
+          "public string Text()\n"
           "Text() -> \"x\"\n",
     ?assertError({opaque_ret_at_boundary, _, file, read_file}, check_only(Src)).
 
@@ -247,7 +247,7 @@ a_string_nested_in_a_foreign_return_is_refused_test() ->
           "using :file {\n"
           "    list<string> read_lines(term path)\n"
           "}\n"
-          "int N()\n"
+          "public int N()\n"
           "N() -> 1\n",
     ?assertError({opaque_ret_at_boundary, _, file, read_lines}, check_only(Src)).
 
@@ -260,7 +260,7 @@ string_is_admissible_as_a_foreign_parameter_test() ->
                             "using :erlang {\n"
                             "    int byte_size(string s)\n"
                             "}\n"
-                            "int Size()\n"
+                            "public int Size()\n"
                             "Size() -> :erlang.byte_size(\"hi\")\n")).
 
 %%% ---------------------------------------------------------------------------
@@ -270,7 +270,7 @@ string_is_admissible_as_a_foreign_parameter_test() ->
 the_cli_prints_a_string_test() ->
     with_src("Cli.bs",
              "module Cli\n"
-             "string Greet()\n"
+             "public string Greet()\n"
              "Greet() -> \"hello\"\n",
              fun(Path, Out) ->
                  R = os:cmd(escript() ++ " -o " ++ Out ++ " " ++ Path ++ " Greet"),
@@ -315,7 +315,7 @@ the_boundary_error_names_the_replacement_test() ->
              "using :file {\n"
              "    string read_file(term path)\n"
              "}\n"
-             "int N()\n"
+             "public int N()\n"
              "N() -> 1\n",
              fun(Path, Out) ->
                  R = os:cmd(escript() ++ " -o " ++ Out ++ " " ++ Path ++ " 2>&1"),

@@ -27,13 +27,17 @@
 %% F11 — the import environment a dependent module is checked against. Built by
 %% `bsc` from modules it has ALREADY checked in this invocation (41 §3, fork A:
 %% the compiler re-checks the dependency's source and keeps its signatures).
--export([exports_of/1]).
+-export([exports_of/1, private_of/1]).
 %% Exported so the emitter resolves surface types through THIS function rather
 %% than its own copy. The copy predates records and adding a second minting site
 %% to it would have put ticket 26 §1's qualified-name rule in two places.
 -export([resolve/2, qualified/2, record_fields/1]).
 
--record(fn, {name, line, ret, params, clauses = []}).
+%% `vis` is LAST on purpose. `bs_emit` reads this record positionally through
+%% `element/2` — it has no access to the definition — so every field before it
+%% must keep its index. F12 adding a field in the middle would have moved
+%% `params` and `clauses` under the emitter without a compiler error anywhere.
+-record(fn, {name, line, ret, params, clauses = [], vis = public}).
 
 %% Everything the body check (ticket 33, F5) needs to answer a question about
 %% one clause. `types` is the surface-to-algebra environment and is the ONLY
@@ -93,10 +97,12 @@ check_dir(Sources, World, Expect) ->
     Decls = lists:append([D || {_, D} <- Sources]),
     one_module_per_directory(Sources, Expect),
     [no_function_in_index(P, D) || {P, D} <- Sources],
+    [missing_visibility(P, D) || {P, D} <- Sources],
     Env = type_env(Decls),
     Module = module_name(Decls),
     module_matches_path(Module, Sources, Expect),
     name_redeclared(Decls),
+    private_callback(Decls),
     PerFile = [{P, collect(D)} || {P, D} <- Sources],
     Fns = lists:append([F || {_, F} <- PerFile]),
     Imports = import_env(Decls, Module, World),
@@ -192,7 +198,7 @@ one_module_per_directory(Sources, _Expect) ->
 no_function_in_index(Path, Decls) when is_list(Path) ->
     case filename:basename(Path) of
         "index.bs" ->
-            case [{N, L} || {signature, L, N, _, _} <- Decls] of
+            case [{N, L} || {signature, L, N, _, _, _} <- Decls] of
                 %% Wrapped, because this raise site KNOWS its file and the
                 %% generic one does not. The inner tuple is exactly the shape
                 %% 41 §4 specified; `resolve_error/2` unwraps and re-dispatches.
@@ -238,7 +244,7 @@ module_matches_path(Module, Sources, Expect) ->
 %% and it was measured before this was written — a narrowed callback spec is
 %% accepted, a wrong one is still reported `Invalid type specification`.
 behaviours(Decls) ->
-    Defined = [{N, length(Ps)} || {signature, _, N, _, Ps} <- Decls],
+    Defined = [{N, length(Ps)} || {signature, _, N, _, Ps, _} <- Decls],
     [begin
          case bs_otp:missing(N, Defined) of
              []      -> ok;
@@ -269,7 +275,7 @@ module_name(Decls) ->
 %% unreachable-clause warning. The program was stopped either way; it was stopped
 %% by `erlc` against an emitted `.abstr` the author never wrote.
 name_redeclared(Decls) ->
-    Sigs = [{{N, length(Ps)}, L} || {signature, L, N, _, Ps} <- Decls],
+    Sigs = [{{N, length(Ps)}, L} || {signature, L, N, _, Ps, _} <- Decls],
     Grouped = lists:foldl(fun({K, L}, Acc) ->
                                   maps:update_with(K, fun(Ls) -> [L | Ls] end, [L], Acc)
                           end, #{}, Sigs),
@@ -278,14 +284,75 @@ name_redeclared(Decls) ->
         [{N, A, L} | _]     -> erlang:error({name_redeclared, N, A, L})
     end.
 
-%% What a checked module offers its dependents: every function it declares, keyed
-%% by name and arity. Every function is public today — ticket 40 §3's
-%% `public`/`private` is F12 — so this is the whole signature list, and the
-%% filter this becomes when F12 lands is one comprehension guard.
+%%% ---------------------------------------------------------------------------
+%%% F12 — `public` / `private`
+%%% ---------------------------------------------------------------------------
+
+%% Ticket 40 §3 takes the half of Elixir's `def`/`defp` that has NO UNMARKED
+%% CASE: a signature carries `public` or `private`, never neither.
+%%
+%% The parser accepts the absence on purpose — see the note on the `signature`
+%% rule. Enforcing it there would report `syntax error before: 'list'`, a remark
+%% about the token AFTER the missing word, which is the shape ticket 40 §2 itself
+%% complained about: "the defect is the diagnosis, not the outcome".
+%%
+%% Per FILE rather than per module, because the message must name the `.bs` the
+%% signature is written in and a directory-shaped module holds several.
+missing_visibility(Path, Decls) ->
+    case [{N, L} || {signature, L, N, _, _, none} <- Decls] of
+        []           -> ok;
+        [{N, L} | _] -> raise_in(Path, {missing_visibility, N, L})
+    end.
+
+%% `undefined` is the one-source callers (`compile_string/2`, the REPL) that have
+%% no path to attribute to. Wrapping with it would name nothing, which is the
+%% same reason `file_group/5` in the emitter has an `undefined` clause.
+raise_in(Path, Reason) when is_list(Path) -> erlang:error({in_file, Path, Reason});
+raise_in(_Path, Reason)                   -> erlang:error(Reason).
+
+%% Ticket 40 §3's owed check, and it is not optional.
+%%
+%% Ticket 06 measured that `-behaviour` has NO RUNTIME EFFECT and only exports
+%% matter — `gen_server` builds `fun Mod:handle_call/3` off the module atom. So a
+%% private callback breaks the behaviour at RUN TIME, silently, which is the
+%% failure shape this project has been bitten by four times (F5's vacuous
+%% containment, F6's hang, F9's byte-vs-UTF-8, F15's wrong-file diagnostic).
+%%
+%% Contract-scoped exactly as F10's table is: a row fires only for a name AND
+%% arity that is a callback of a behaviour THIS MODULE DECLARES, so a private
+%% `HandleCall/3` in a module with no `behaviour` line is an ordinary private
+%% function and stays one.
+private_callback(Decls) ->
+    Behaviours = [B || {behaviour, _, B} <- Decls],
+    Private = [{N, length(Ps), L} || {signature, L, N, _, Ps, private} <- Decls],
+    case [{N, A, L, Otp} || {N, A, L} <- Private,
+                            Otp <- [bs_otp:callback_name(N, A, Behaviours)],
+                            Otp =/= none] of
+        []                    -> ok;
+        [{N, A, L, Otp} | _]  -> erlang:error({private_callback, N, A, Otp, L})
+    end.
+
+%% What a checked module offers its dependents: every PUBLIC function it
+%% declares, keyed by name and arity.
+%%
+%% This comment used to predict that F12 would be "one comprehension guard", and
+%% the guard is here — but the prediction was half right, and the other half is
+%% `private_of/1` below. Filtering ALONE destroys the information needed to tell
+%% *private* from *absent*: a qualified call to a private function would resolve
+%% to nothing and report `{unknown_callee, …}`, telling the author the function
+%% does not exist when it plainly does, and sending them to fix the wrong thing.
+%% Third appearance of the shape ticket 40 §2 was written about.
 exports_of(Decls) ->
     Env = type_env(Decls),
     maps:from_list([{{N, length(Ps)}, sig(Ps, R, Env)}
-                    || {signature, _, N, R, Ps} <- Decls]).
+                    || {signature, _, N, R, Ps, V} <- Decls, V =/= private]).
+
+%% The other half: the names a dependent may NOT call, carried so the refusal can
+%% say why. No signature — nothing outside the module may use the type, and
+%% carrying one would invite exactly that.
+private_of(Decls) ->
+    maps:from_keys([{N, length(Ps)} || {signature, _, N, _, Ps, private} <- Decls],
+                   true).
 
 %% The two tables 41 §5 asks for, plus the qualified one, from this module's
 %% `using` lines and the modules already checked in this invocation.
@@ -300,9 +367,10 @@ exports_of(Decls) ->
 import_env(Decls, Self, World) ->
     Imports = [{L, M} || {import, L, M} <- Decls],
     Known = maps:keys(World),
-    Local = [{N, length(Ps)} || {signature, _, N, _, Ps} <- Decls],
+    Local = [{N, length(Ps)} || {signature, _, N, _, Ps, _} <- Decls],
     lists:foldl(fun({L, M}, Acc) -> add_import(L, M, Self, World, Known, Local, Acc) end,
-                #{funs => #{}, mods => #{}, qual => qual_table(World), imported => []},
+                #{funs => #{}, mods => #{}, qual => qual_table(World),
+                  privates => private_table(World), imported => []},
                 Imports).
 
 add_import(L, M, Self, World, Known, Local, Acc) ->
@@ -360,6 +428,16 @@ qual_table(World) ->
                                 end, Acc, Ex)
               end, #{}, World).
 
+%% F12 — the same keyspace, for the names a dependent may NOT call. Kept apart
+%% from `qual_table/1` rather than folded into it with a flag, because everything
+%% in that table is a thing the checker will happily TYPE a call against and
+%% nothing in this one ever is. One table, one meaning.
+private_table(World) ->
+    maps:fold(fun(M, Entry, Acc) ->
+                      maps:fold(fun({N, A}, _, In) -> In#{{q, M, N, A} => true} end,
+                                Acc, maps:get(private, Entry, #{}))
+              end, #{}, World).
+
 %% Only names with exactly one source reach the emitter. An ambiguous one is an
 %% error at its call site, so it must never be silently resolved here.
 resolved_funs(Imports) ->
@@ -398,8 +476,8 @@ collect(Decls) ->
     %% A foreign declaration is FINISHED, not unfinished: it is a signature with
     %% no clauses that will never have any, so it must not be collected here or
     %% it reports `no_clauses`.
-    Sigs = [#fn{name = N, line = L, ret = R, params = P}
-            || {signature, L, N, R, P} <- Decls],
+    Sigs = [#fn{name = N, line = L, ret = R, params = P, vis = V}
+            || {signature, L, N, R, P, V} <- Decls],
     %% BY NAME **AND ARITY**, which ticket 40 §2 forces. Keyed by name alone,
     %% `Length/1` collected `Length/2`'s clauses as well: the checker reported
     %% three unreachable clauses that were nothing of the kind, and the emitter
@@ -426,7 +504,7 @@ collect(Decls) ->
 %% last. Same shape as the duplicate type declaration the features README
 %% specifies, one namespace along.
 callees(Decls, Env, Imports) ->
-    Local = [{{N, length(Ps)}, sig(Ps, R, Env)} || {signature, _, N, R, Ps} <- Decls],
+    Local = [{{N, length(Ps)}, sig(Ps, R, Env)} || {signature, _, N, R, Ps, _} <- Decls],
     Foreign = [begin
                    admissible_foreign_ret(L, Mod, N, R, Env),
                    {{f, Mod, N, length(Ps)}, sig(Ps, R, Env)}
@@ -1278,33 +1356,63 @@ call(L, Key, Shown, Args, S, C) ->
     {ATys, D} = type_of_all(Args, S, C),
     case maps:get(Key, C#ctx.callees, undefined) of
         undefined ->
-            %% KEYING CALLEES BY ARITY MADE THIS A REAL FORK, and taking either
-            %% side alone loses something. Ticket 40 §2 permits overloading, so
-            %% `F/2` where only `F/1` exists is strictly speaking an unknown
-            %% function — but reporting it that way throws away the fact that the
-            %% author plainly meant the `F` sitting right there, which is what
-            %% the old `arity_mismatch` said.
-            %%
-            %% So: unknown only when the NAME is unknown. When other arities
-            %% exist, name them — the diagnostic then hands over the fix, which
-            %% is ticket 04's property at a third site.
-            case other_arities(Key, C#ctx.callees) of
-                []    -> {reported(),
-                          [{error, L, C#ctx.fname,
-                            {unknown_callee, Shown, length(Args)}} | D]};
-                [One] -> {reported(),
-                          [{error, L, C#ctx.fname,
-                            {arity_mismatch, Shown, length(Args), One}} | D]};
-                Many  -> {reported(),
-                          [{error, L, C#ctx.fname,
-                            {arity_not_declared, Shown, length(Args),
-                             lists:sort(Many)}} | D]}
+            case private_callee(Key, length(Args), C) of
+                {yes, M} ->
+                    {reported(),
+                     [{error, L, C#ctx.fname,
+                       {private_function, M, Shown, length(Args)}} | D]};
+                no -> unresolved(L, Key, Shown, Args, D, C)
             end;
         {Ps, Ret} when length(Ps) =/= length(ATys) ->
             {Ret, [{error, L, C#ctx.fname,
                     {arity_mismatch, Shown, length(ATys), length(Ps)}} | D]};
         {Ps, Ret} ->
             {Ret, arg_diags(L, Shown, Args, ATys, Ps, 1, C) ++ D}
+    end.
+
+%% F12 — is the name the author wrote a function that EXISTS and is private?
+%%
+%% It is asked BEFORE the arity fork below, because a private `F/2` beside a
+%% public `F/1` would otherwise be reported as an arity mistake, sending the
+%% author to change the call rather than the marker. Both spellings are covered:
+%% a qualified call arrives already keyed `{q, M, N, A}`, and an unqualified one
+%% never resolves at all (a private name cannot populate the import table), so
+%% the imported modules are asked in turn.
+private_callee({q, M, N, A}, _Arity, C) ->
+    case maps:is_key({q, M, N, A}, maps:get(privates, C#ctx.imports, #{})) of
+        true  -> {yes, M};
+        false -> no
+    end;
+private_callee({N, A}, _Arity, C) ->
+    Privates = maps:get(privates, C#ctx.imports, #{}),
+    case [M || M <- maps:get(imported, C#ctx.imports, []),
+               maps:is_key({q, M, N, A}, Privates)] of
+        [M | _] -> {yes, M};
+        []      -> no
+    end;
+private_callee(_Key, _Arity, _C) -> no.
+
+%% KEYING CALLEES BY ARITY MADE THIS A REAL FORK, and taking either side alone
+%% loses something. Ticket 40 §2 permits overloading, so `F/2` where only `F/1`
+%% exists is strictly speaking an unknown function — but reporting it that way
+%% throws away the fact that the author plainly meant the `F` sitting right
+%% there, which is what the old `arity_mismatch` said.
+%%
+%% So: unknown only when the NAME is unknown. When other arities exist, name
+%% them — the diagnostic then hands over the fix, which is ticket 04's property
+%% at a third site.
+unresolved(L, Key, Shown, Args, D, C) ->
+    case other_arities(Key, C#ctx.callees) of
+        []    -> {reported(),
+                  [{error, L, C#ctx.fname,
+                    {unknown_callee, Shown, length(Args)}} | D]};
+        [One] -> {reported(),
+                  [{error, L, C#ctx.fname,
+                    {arity_mismatch, Shown, length(Args), One}} | D]};
+        Many  -> {reported(),
+                  [{error, L, C#ctx.fname,
+                    {arity_not_declared, Shown, length(Args),
+                     lists:sort(Many)}} | D]}
     end.
 
 %% Every arity declared for the callee the key names, whichever of the three

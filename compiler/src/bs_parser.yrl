@@ -16,12 +16,12 @@ Nonterminals
   guard guard_expr
   body binding
   expr expr_list elist_items assign_fields assign_field
-  switch_arms switch_arm modpath using_decl
+  switch_arms switch_arm modpath using_decl visibility
   .
 
 Terminals
   'module' 'type' 'when' 'using' 'behaviour' 'record' 'with' 'switch' 'var'
-  'and' 'or' 'where'
+  'and' 'or' 'where' 'public' 'private'
   uident lident atom_lit integer string_lit '_'
   '->' '=>' '==' '!=' '<=' '>=' '<' '>' '+' '-' '*'
   '=' '|' ',' '(' ')' '[' ']' '{' '}' '..' '.' ':' '?'
@@ -232,8 +232,30 @@ type_list -> type_expr ',' type_list : ['$1' | '$3'].
 %% --- signatures -------------------------------------------------------------
 %% Ticket 04's binding constraint: exhaustiveness is only well posed against a
 %% *declared* input type, so a multi-clause function must carry a signature.
+%% F12 / ticket 40 §3 — the visibility marker, and why it is OPTIONAL HERE while
+%% being MANDATORY in the language.
+%%
+%% 40 §3 takes the half of `def`/`defp` that has no unmarked case: a signature
+%% carries `public` or `private`, never neither. The cheap way to enforce that is
+%% to make `visibility` mandatory in this rule, and it is the wrong way. An
+%% unmarked signature would then report
+%%
+%%     fib.bs:3: syntax error before: 'list'
+%%
+%% which is a remark about the token AFTER the missing word and says nothing
+%% about the missing word. That is F7's costume and ticket 40 §2's own complaint
+%% — "the defect is the diagnosis, not the outcome" — worn a third time.
+%%
+%% So the parser accepts the absence and `bs_check:missing_visibility/1` refuses
+%% it by name. The rule is enforced exactly as strictly; only the message
+%% changes, and the message is the whole reason the rule is worth having.
 signature -> type_prim uident '(' params ')' :
-    {signature, line('$2'), value('$2'), '$1', '$4'}.
+    {signature, line('$2'), value('$2'), '$1', '$4', none}.
+signature -> visibility type_prim uident '(' params ')' :
+    {signature, line('$3'), value('$3'), '$2', '$5', '$1'}.
+
+visibility -> 'public'  : public.
+visibility -> 'private' : private.
 
 params -> '$empty'    : [].
 params -> param_list  : '$1'.

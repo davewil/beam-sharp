@@ -60,13 +60,34 @@ resolve(Mod, Exports, Argv) ->
     Names = [F || {F, _} <- Exports],
     case Argv of
         [Head | Rest] ->
-            case lists:member(list_to_atom(Head), Names) of
-                true  -> {list_to_atom(Head), Rest};
-                false -> resolve_without_name(Mod, Exports, Names, Argv)
+            Named = list_to_atom(Head),
+            case lists:member(Named, Names) of
+                true  -> {Named, Rest};
+                false ->
+                    case lists:member(Named, private_names(Mod, Exports)) of
+                        true  -> {error, {private, Mod, Named}};
+                        false -> resolve_without_name(Mod, Exports, Names, Argv)
+                    end
             end;
         [] ->
             resolve_without_name(Mod, Exports, Names, Argv)
     end.
+
+%% F12 — WHAT THE BEAM ALREADY KNOWS, and what it costs to ask it.
+%%
+%% After ticket 40 §3 a private function is simply absent from the export list,
+%% so naming one here used to fall through `resolve_without_name/4`, match the
+%% file-name rule, take the module's public function instead, and then try to
+%% read the FUNCTION NAME as an argument — reporting an unreadable argument for
+%% something that was never an argument. Measured before it shipped; it is the
+%% fifth instance of the shape that fails by going quiet.
+%%
+%% `module_info(functions)` lists every function the module defines, exported or
+%% not (measured on OTP 28), so the true sentence needs nothing threaded down
+%% from the compiler — and the REPL, which shares this path, gets it for free.
+private_names(Mod, Exports) ->
+    Defined = [F || {F, _} <- Mod:module_info(functions), F =/= module_info],
+    Defined -- [F || {F, _} <- Exports].
 
 resolve_without_name(Mod, Exports, Names, Argv) ->
     FromFile = pascal(atom_to_list(Mod)),

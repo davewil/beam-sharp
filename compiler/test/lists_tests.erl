@@ -17,13 +17,13 @@ series_src() ->
     %% Not `Fib`: the reload test defines its own scalar `Fib` module and the two
     %% would clobber one another's .beam and loaded code.
     "module FibL\n"
-    "list<int> Fib(int n)\n"
+    "public list<int> Fib(int n)\n"
     "Fib(n) when n <= 0 -> []\n"
     "Fib(n) when n > 0  -> Series(n, 0, 1, [])\n"
-    "list<int> Series(int n, int a, int b, list<int> acc)\n"
+    "public list<int> Series(int n, int a, int b, list<int> acc)\n"
     "Series(n, a, b, acc) when n <= 0 -> Reverse(acc, [])\n"
     "Series(n, a, b, acc) when n > 0  -> Series(n - 1, b, a + b, [a, ..acc])\n"
-    "list<int> Reverse(list<int> xs, list<int> acc)\n"
+    "public list<int> Reverse(list<int> xs, list<int> acc)\n"
     "Reverse([], acc)          -> acc\n"
     "Reverse([x, ..rest], acc) -> Reverse(rest, [x, ..acc])\n".
 
@@ -44,7 +44,7 @@ nil_and_cons_partition_a_list_test() ->
 
 %% Drop `Reverse([], acc)` and the residual must name the empty list.
 missing_nil_clause_is_caught_test() ->
-    Src = "module L\nlist<int> Rev(list<int> xs, list<int> acc)\n"
+    Src = "module L\npublic list<int> Rev(list<int> xs, list<int> acc)\n"
           "Rev([x, ..rest], acc) -> Rev(rest, [x, ..acc])\n",
     {ok, Toks, _} = bs_lexer:string(Src),
     {ok, Decls} = bs_parser:parse(Toks),

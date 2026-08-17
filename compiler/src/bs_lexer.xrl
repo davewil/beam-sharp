@@ -31,6 +31,21 @@ using                   : {token, {'using', TokenLine}}.
 %% the British one, because following the platform costs nothing here.
 behaviour               : {token, {'behaviour', TokenLine}}.
 behavior                : {token, {'behaviour', TokenLine}}.
+%% F12 / ticket 40 §3 — Elixir's PLACEMENT, C#'s WORDS.
+%%
+%% Both BEAM languages make export an explicit per-function decision and differ
+%% only in where it is written: Erlang in a separate `-export` list, Elixir at
+%% the definition. Taking Elixir's placement avoids the one thing the list costs
+%% — a second site that must agree with the definition, which is the drift
+%% `bs_emit`'s single `name/2` funnel exists to prevent. Taking C#'s words
+%% follows the map's borrow heuristic: survey all three tiers and take the most
+%% accurate word. `def`/`defp` carries Elixir's macro vocabulary B# has no use
+%% for; `public`/`private` say the thing plainly to both halves of the audience.
+%%
+%% Measured before these two lines landed, not inherited from the ticket: no
+%% `.bs` file in the repo uses either word for anything, so no name is captured.
+public                  : {token, {'public',  TokenLine}}.
+private                 : {token, {'private', TokenLine}}.
 %% Ticket 26 §1's provisional spelling; the surface question is ticket 22's.
 record                  : {token, {'record', TokenLine}}.
 %% `o with { Total = 500 }` — ticket 26 §2, width-preserving update. C#-only of

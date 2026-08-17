@@ -54,7 +54,7 @@ foreign_term_crashes_rather_than_lying_test() ->
 inexhaustive_is_rejected_test() ->
     Src = "module R\n"
           "type Reading = (:ok, int) | (:error, atom)\n"
-          "atom Classify(Reading r)\n"
+          "public atom Classify(Reading r)\n"
           "Classify((:ok, n)) when n > 0 -> :positive\n"
           "Classify((:error, e))         -> :unknown\n",
     {error, Diags} = check_only(Src),
@@ -64,7 +64,7 @@ inexhaustive_is_rejected_test() ->
 residual_names_the_missing_case_test() ->
     Src = "module R\n"
           "type Reading = (:ok, int) | (:error, atom)\n"
-          "atom Classify(Reading r)\n"
+          "public atom Classify(Reading r)\n"
           "Classify((:ok, n)) when n > 0 -> :positive\n"
           "Classify((:error, e))         -> :unknown\n",
     {error, [{error, _, _, {inexhaustive, Residual}}]} = check_only(Src),
@@ -73,7 +73,7 @@ residual_names_the_missing_case_test() ->
 unreachable_clause_is_warned_test() ->
     Src = "module R\n"
           "type Reading = (:ok, int) | (:error, atom)\n"
-          "atom Classify(Reading r)\n"
+          "public atom Classify(Reading r)\n"
           "Classify((:ok, n))            -> :positive\n"
           "Classify((:ok, n)) when n > 0 -> :zero\n"
           "Classify((:error, e))         -> :unknown\n",

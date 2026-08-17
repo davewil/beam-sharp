@@ -18,16 +18,16 @@
 bind_src() ->
     "module Bind\n"
     "record Order { Id: int, Total: int }\n"
-    "int Squared(Order o)\n"
+    "public int Squared(Order o)\n"
     "Squared(o) ->\n"
     "    var t = o.Total\n"
     "    t * t\n"
-    "int Steps(int a, int b)\n"
+    "public int Steps(int a, int b)\n"
     "Steps(a, b) ->\n"
     "    var x = a + b\n"
     "    var y = x * 2\n"
     "    y + 1\n"
-    "Order Bump(Order o)\n"
+    "public Order Bump(Order o)\n"
     "Bump(o) ->\n"
     "    var next = o.Total + 1\n"
     "    o with { Total = next }\n".
@@ -61,7 +61,7 @@ forms_of(Mod) ->
 %% expression is still in tail position.
 a_binding_before_a_self_call_stays_a_tail_call_test() ->
     Src = "module Loop\n"
-          "int Down(int n, int acc)\n"
+          "public int Down(int n, int acc)\n"
           "Down(n, acc) when n <= 0 -> acc\n"
           "Down(n, acc) when n > 0 ->\n"
           "    var next = acc + n\n"
@@ -71,14 +71,14 @@ a_binding_before_a_self_call_stays_a_tail_call_test() ->
 
 %% A name means one thing in a clause. There is no mutation to assign with.
 rebinding_a_name_is_an_error_test() ->
-    Src = "module E\nint F(int a)\nF(a) ->\n    var t = 1\n    var t = 2\n    t\n",
+    Src = "module E\npublic int F(int a)\nF(a) ->\n    var t = 1\n    var t = 2\n    t\n",
     {error, Diags} = check_only(Src),
     ?assertMatch([{error, _, 'F', {rebinding, t}}],
                  [D || D <- Diags, element(1, D) =:= error]).
 
 %% ...including rebinding something the clause head already bound.
 a_binding_may_not_shadow_a_parameter_test() ->
-    Src = "module E\nint F(int a)\nF(a) ->\n    var a = 1\n    a\n",
+    Src = "module E\npublic int F(int a)\nF(a) ->\n    var a = 1\n    a\n",
     {error, Diags} = check_only(Src),
     ?assertMatch([{error, _, 'F', {rebinding, a}}],
                  [D || D <- Diags, element(1, D) =:= error]).
@@ -87,7 +87,7 @@ a_binding_may_not_shadow_a_parameter_test() ->
 %% author did not write. Ticket 33 is about whether a body is TYPED; this is a
 %% name question and needs no types.
 an_unbound_name_is_caught_before_erlc_test() ->
-    Src = "module E\nint F(int a)\nF(a) ->\n    total * 2\n",
+    Src = "module E\npublic int F(int a)\nF(a) ->\n    total * 2\n",
     {error, Diags} = check_only(Src),
     %% Line 3 is the clause, not line 4 where the name appears: the final
     %% expression carries no line of its own, so it is reported against the
@@ -101,7 +101,7 @@ an_unused_binding_compiles_without_a_warning_test() ->
     case filelib:is_regular(escript()) of
         false -> ok;
         true ->
-            Src = "module U\nint F(int a)\nF(a) ->\n    var unused = a + 1\n    a\n",
+            Src = "module U\npublic int F(int a)\nF(a) ->\n    var unused = a + 1\n    a\n",
             with_src("u.bs", Src, fun(Path, Out) ->
                 R = run_cli("-o " ++ Out ++ " " ++ Path ++ " 5"),
                 ?assert(string:find(R, "rc:0") =/= nomatch),
@@ -118,21 +118,21 @@ an_unused_binding_compiles_without_a_warning_test() ->
 %% reader of the old dialect will type, so the diagnostic has to do more than
 %% refuse.
 a_bare_binding_refuses_and_names_var_test() ->
-    Src = "module E\nint F(int a)\nF(a) ->\n    t = 1\n    t\n",
+    Src = "module E\npublic int F(int a)\nF(a) ->\n    t = 1\n    t\n",
     ?assertMatch({error, {_, bs_parser, _}}, catch_parse(Src)),
     ?assert(string:find(parse_message(Src), "var t = ") =/= nomatch).
 
 %% ...and the same for a pattern on the left, which is the case `var` exists to
 %% make expressible at all.
 a_bare_destructuring_bind_refuses_test() ->
-    Src = "module E\nint F((int, int) p)\nF(p) ->\n    (a, b) = p\n    a + b\n",
+    Src = "module E\npublic int F((int, int) p)\nF(p) ->\n    (a, b) = p\n    a + b\n",
     ?assert(string:find(parse_message(Src), "var a = ") =/= nomatch).
 
 %% F8.4 — a bare `=` that introduces NOTHING is still a match, and still one the
 %% compiler proves cannot fail. Pinned against the grammar change rather than
 %% re-decided.
 a_bare_match_that_introduces_nothing_still_works_test() ->
-    M = build_and_load("module Ok\nint F(int a)\nF(a) ->\n    1 = 1\n    a\n", 'Ok'),
+    M = build_and_load("module Ok\npublic int F(int a)\nF(a) ->\n    1 = 1\n    a\n", 'Ok'),
     ?assertEqual(5, M:'F'(5)).
 
 %% F8.2 — THE MARKER PAID, and this is the receipt. `{ Kind: k } = o` could never
@@ -142,7 +142,7 @@ a_bare_match_that_introduces_nothing_still_works_test() ->
 var_makes_map_destructuring_reachable_test() ->
     Src = "module MD\n"
           "record Order { Id: int, Total: int }\n"
-          "int Total(Order o)\n"
+          "public int Total(Order o)\n"
           "Total(o) ->\n"
           "    var { Total: t } = o\n"
           "    t\n",
@@ -154,7 +154,7 @@ var_makes_map_destructuring_reachable_test() ->
 %% match; beam-sharp forbids rebinding and so had no way to say it at all.
 a_marked_name_matches_the_value_it_holds_test() ->
     Src = "module RL\n"
-          "int Run(int head, list<int> xs)\n"
+          "public int Run(int head, list<int> xs)\n"
           "Run(head, [])                -> 0\n"
           "Run(head, [== head, ..rest]) -> 1 + Run(head, rest)\n"
           "Run(head, [_, ..rest])       -> 0\n",
@@ -168,7 +168,7 @@ a_marked_name_matches_the_value_it_holds_test() ->
 %% pass the test above while costing what the comment claims it does not.
 a_marked_name_emits_no_guard_test() ->
     Src = "module RG\n"
-          "int Run(int head, list<int> xs)\n"
+          "public int Run(int head, list<int> xs)\n"
           "Run(head, [])                -> 0\n"
           "Run(head, [== head, ..rest]) -> 1\n"
           "Run(head, [_, ..rest])       -> 0\n",
@@ -199,9 +199,9 @@ a_marked_name_emits_no_guard_test() ->
 %% rather than `term`. That sibling is the case F8.7 actually names.
 a_matched_name_does_not_widen_its_neighbours_test() ->
     Src = "module N7\n"
-          "int Twice(int n)\n"
+          "public int Twice(int n)\n"
           "Twice(n) -> n * 2\n"
-          "int Sum(int head, list<int> xs)\n"
+          "public int Sum(int head, list<int> xs)\n"
           "Sum(head, [])                -> 0\n"
           "Sum(head, [== head, ..rest]) -> Twice(head) + Sum(head, rest)\n"
           "Sum(head, [_, ..rest])       -> 0\n",
@@ -223,7 +223,7 @@ a_matched_name_does_not_widen_its_neighbours_test() ->
 %% soundness defect this project has found — F5's vacuous containment, F6's hang,
 %% F9's byte count — so the test has to be for the diagnostic's PRESENCE.
 a_marked_name_credits_nothing_to_certain_test() ->
-    Src = "module NC\natom F(int acc, int m)\nF(acc, == acc) -> :same\n",
+    Src = "module NC\npublic atom F(int acc, int m)\nF(acc, == acc) -> :same\n",
     ?assertMatch([{error, _, 'F', {inexhaustive, _}}], errors(Src)).
 
 %% F8.10 — A REPEATED BARE NAME IN A HEAD IS AN ERROR, AND UNTIL 2026-08-16 IT
@@ -241,13 +241,13 @@ a_marked_name_credits_nothing_to_certain_test() ->
 %% rightmost silently — the same mechanism as `type_env/1`'s duplicate
 %% declaration, one bug shape in two places.
 a_repeated_bare_name_in_a_head_is_an_error_test() ->
-    Src = "module RB\natom F(int a, int b)\nF(acc, acc) -> :same\nF(_, _) -> :diff\n",
+    Src = "module RB\npublic atom F(int a, int b)\nF(acc, acc) -> :same\nF(_, _) -> :diff\n",
     ?assertMatch([{error, _, 'F', {repeated_in_head, acc}}],
                  [D || D <- errors(Src), element(1, D) =:= error]).
 
 %% The same shape nested, since a head is not the only place two names meet.
 a_repeated_bare_name_inside_a_pattern_is_an_error_test() ->
-    Src = "module RN\natom F((int, int) p)\nF((acc, acc)) -> :same\nF(_) -> :diff\n",
+    Src = "module RN\npublic atom F((int, int) p)\nF((acc, acc)) -> :same\nF(_) -> :diff\n",
     ?assertMatch([{error, _, 'F', {repeated_in_head, acc}}],
                  [D || D <- errors(Src), element(1, D) =:= error]).
 
@@ -259,7 +259,7 @@ a_repeated_bare_name_inside_a_pattern_is_an_error_test() ->
 %% firing on its own account; demanding a single error would have made this test
 %% a change detector for how many true things the compiler noticed.
 a_marked_name_that_is_not_bound_is_an_error_test() ->
-    Src = "module UB\natom F(int m)\nF(== acc) -> :same\n",
+    Src = "module UB\npublic atom F(int m)\nF(== acc) -> :same\n",
     Errs = [D || D <- errors(Src), element(1, D) =:= error],
     ?assert(lists:member({error, 3, 'F', {unbound_variable, acc}}, Errs)).
 

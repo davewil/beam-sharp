@@ -19,9 +19,9 @@ interop_src() ->
     "    int sum(list<int> xs)\n"
     "    list<int> reverse(list<int> xs)\n"
     "}\n"
-    "int Total(list<int> xs)\n"
+    "public int Total(list<int> xs)\n"
     "Total(xs) -> :lists.sum(xs)\n"
-    "list<int> Backwards(list<int> xs)\n"
+    "public list<int> Backwards(list<int> xs)\n"
     "Backwards(xs) -> :lists.reverse(xs)\n".
 
 a_foreign_call_runs_test() ->
@@ -53,14 +53,14 @@ a_foreign_call_is_a_remote_call_test() ->
 %%% ---------------------------------------------------------------------------
 
 no_semicolon_is_needed_test() ->
-    Src = "module T\nint F(int n)\nF(n) when n > 0 -> n\nF(n) when n <= 0 -> 0\n",
+    Src = "module T\npublic int F(int n)\nF(n) when n > 0 -> n\nF(n) when n <= 0 -> 0\n",
     ?assertMatch({ok, _, []}, check_only(Src)).
 
 a_stray_semicolon_says_what_to_do_test() ->
     case filelib:is_regular(escript()) of
         false -> ok;
         true ->
-            Src = "module T\nint F(int n)\nF(n) when n > 0 -> n;\nF(n) when n <= 0 -> 0\n",
+            Src = "module T\npublic int F(int n)\nF(n) when n > 0 -> n;\nF(n) when n <= 0 -> 0\n",
             with_src("semi.bs", Src, fun(Path, Out) ->
                 R = run_cli("-o " ++ Out ++ " " ++ Path),
                 ?assert(string:find(R, "rc:1") =/= nomatch),

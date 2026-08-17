@@ -36,12 +36,12 @@
 src() ->
     "module Repl\n"
     "record Order { Id: int, Total: int }\n"
-    "int Squared(Order o)\n"
+    "public int Squared(Order o)\n"
     "Squared(o) -> o.Total * o.Total\n"
-    "atom Flag(bool b)\n"
+    "public atom Flag(bool b)\n"
     "Flag(true)  -> :yes\n"
     "Flag(false) -> :no\n"
-    "term Echo(term t)\n"
+    "public term Echo(term t)\n"
     "Echo(t) -> t\n".
 
 %% Drives the prompt and hands back everything it printed. `:quit` is appended

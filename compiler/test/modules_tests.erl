@@ -52,7 +52,7 @@ has(Out, S) -> ?assert(string:find(Out, S) =/= nomatch).
 list_mod() ->
     {"List.bs",
      "module Shop.List\n"
-     "int Sum(list<int> xs, int acc)\n"
+     "public int Sum(list<int> xs, int acc)\n"
      "Sum([], acc) -> acc\n"
      "Sum([x, ..rest], acc) -> Sum(rest, acc + x)\n"}.
 
@@ -70,7 +70,7 @@ list_mod() ->
 %% that the atom is `'Shop.Orders'` — and it is also 23 §10's requirement that the
 %% listing be legible to a reader with nothing but `ls`.
 a_dotted_module_emits_a_dotted_atom_test() ->
-    {Root, Main} = in_dir([{"A.bs", "module Shop.Orders\nint One()\nOne() -> 1\n"}]),
+    {Root, Main} = in_dir([{"A.bs", "module Shop.Orders\npublic int One()\nOne() -> 1\n"}]),
     Out = bs_test_support:run_cli("--src-root " ++ Root ++ " -o " ++ Root ++
                                       "/out " ++ Main),
     ok_rc(Out),
@@ -79,7 +79,7 @@ a_dotted_module_emits_a_dotted_atom_test() ->
 a_record_in_a_dotted_module_mints_the_qualified_tag_test() ->
     Src = "module Shop.Orders\n"
           "record Order { Id: int }\n"
-          "Order Make()\n"
+          "public Order Make()\n"
           "Make() -> Order { Id = 7 }\n",
     Mod = bs_test_support:build_and_load(Src, 'Shop.Orders'),
     ?assertMatch(#{'Kind' := 'Shop.Orders.Order', 'Id' := 7}, Mod:'Make'()).
@@ -92,7 +92,7 @@ an_unqualified_call_reaches_an_imported_function_test() ->
     Out = run([{"R.bs",
                 "module Shop.Reports\n"
                 "using Shop.List\n"
-                "int Go(int n)\n"
+                "public int Go(int n)\n"
                 "Go(n) -> Sum([n, n], 0)\n"},
                list_mod()],
               "Go 4"),
@@ -102,7 +102,7 @@ a_fully_qualified_call_needs_no_unqualified_scope_test() ->
     Out = run([{"R.bs",
                 "module Shop.Reports\n"
                 "using Shop.List\n"
-                "int Go(int n)\n"
+                "public int Go(int n)\n"
                 "Go(n) -> Shop.List.Sum([n], 0)\n"},
                list_mod()],
               "Go 5"),
@@ -114,7 +114,7 @@ a_namespace_import_short_qualifies_its_modules_test() ->
     Out = run([{"R.bs",
                 "module Shop.Reports\n"
                 "using Shop\n"
-                "int Go(int n)\n"
+                "public int Go(int n)\n"
                 "Go(n) -> List.Sum([n, n, n], 0)\n"},
                list_mod()],
               "Go 2"),
@@ -128,7 +128,7 @@ a_qualified_call_to_an_undeclared_function_is_an_error_test() ->
     Out = compile_set([{"R.bs",
                         "module Shop.Reports\n"
                         "using Shop.List\n"
-                        "int Go(int n)\n"
+                        "public int Go(int n)\n"
                         "Go(n) -> Shop.List.Product([n], 0)\n"},
                        list_mod()]),
     bad_rc(Out),
@@ -140,7 +140,7 @@ a_qualified_call_to_an_undeclared_function_is_an_error_test() ->
 a_qualified_call_to_an_unimported_module_is_an_error_test() ->
     Out = compile_set([{"R.bs",
                         "module Shop.Reports\n"
-                        "int Go(int n)\n"
+                        "public int Go(int n)\n"
                         "Go(n) -> Shop.List.Sum([n], 0)\n"},
                        list_mod()]),
     bad_rc(Out),
@@ -150,7 +150,7 @@ using_something_that_is_neither_module_nor_namespace_is_an_error_test() ->
     Out = compile_set([{"R.bs",
                         "module Shop.Reports\n"
                         "using Nowhere.At.All\n"
-                        "int Go(int n)\n"
+                        "public int Go(int n)\n"
                         "Go(n) -> n\n"}]),
     bad_rc(Out),
     has(Out, "names no module and no namespace").
@@ -167,12 +167,12 @@ an_ambiguous_unqualified_call_is_an_error_naming_both_test() ->
                         "module Shop.Reports\n"
                         "using Shop.List\n"
                         "using Shop.Other\n"
-                        "int Go(int n)\n"
+                        "public int Go(int n)\n"
                         "Go(n) -> Sum([n], 0)\n"},
                        list_mod(),
                        {"Other.bs",
                         "module Shop.Other\n"
-                        "int Sum(list<int> xs, int acc)\n"
+                        "public int Sum(list<int> xs, int acc)\n"
                         "Sum(xs, acc) -> acc\n"}]),
     bad_rc(Out),
     has(Out, "is ambiguous"),
@@ -186,9 +186,9 @@ an_import_shadowing_a_local_is_an_error_test() ->
     Out = compile_set([{"R.bs",
                         "module Shop.Reports\n"
                         "using Shop.List\n"
-                        "int Sum(list<int> xs, int acc)\n"
+                        "public int Sum(list<int> xs, int acc)\n"
                         "Sum(xs, acc) -> acc\n"
-                        "int Go(int n)\n"
+                        "public int Go(int n)\n"
                         "Go(n) -> Sum([n], 0)\n"},
                        list_mod()]),
     bad_rc(Out),
@@ -200,9 +200,9 @@ an_import_differing_only_in_arity_is_not_a_conflict_test() ->
     Out = run([{"R.bs",
                 "module Shop.Reports\n"
                 "using Shop.List\n"
-                "int Sum(list<int> xs)\n"
+                "public int Sum(list<int> xs)\n"
                 "Sum(xs) -> Sum(xs, 0)\n"
-                "int Go(int n)\n"
+                "public int Go(int n)\n"
                 "Go(n) -> Sum([n, n])\n"},
                list_mod()],
               "Go 6"),
@@ -220,9 +220,9 @@ an_import_differing_only_in_arity_is_not_a_conflict_test() ->
 two_signatures_of_the_same_arity_are_an_error_test() ->
     Out = compile_set([{"A.bs",
                         "module Dup\n"
-                        "int Combine(int n, int m)\n"
+                        "public int Combine(int n, int m)\n"
                         "Combine(n, m) -> n + m\n"
-                        "int Combine(int n, int m)\n"
+                        "public int Combine(int n, int m)\n"
                         "Combine(n, m) -> n * m\n"}]),
     bad_rc(Out),
     has(Out, "declared more than once"),
@@ -236,10 +236,10 @@ two_signatures_of_the_same_arity_are_an_error_test() ->
 two_arities_of_one_name_are_accepted_test() ->
     Out = run([{"A.bs",
                 "module Over\n"
-                "int Fib(int n, int a, int b)\n"
+                "public int Fib(int n, int a, int b)\n"
                 "Fib(n, a, b) when n <= 0 -> a\n"
                 "Fib(n, a, b) when n > 0  -> Fib(n - 1, b, a + b)\n"
-                "int Fib(int n)\n"
+                "public int Fib(int n)\n"
                 "Fib(n) -> Fib(n, 0, 1)\n"}],
               "Fib 10"),
     has(Out, "55").
@@ -253,9 +253,9 @@ two_arities_of_one_name_are_accepted_test() ->
 calling_the_wrong_arity_still_says_so_test() ->
     Out = compile_set([{"A.bs",
                         "module Ar\n"
-                        "int F(int a)\n"
+                        "public int F(int a)\n"
                         "F(a) -> a\n"
-                        "int G(int a)\n"
+                        "public int G(int a)\n"
                         "G(a) -> F(a, a)\n"}]),
     bad_rc(Out),
     has(Out, "with 2 arguments, and it takes 1").
@@ -266,11 +266,11 @@ calling_the_wrong_arity_still_says_so_test() ->
 calling_an_arity_that_is_not_declared_names_the_ones_that_are_test() ->
     Out = compile_set([{"A.bs",
                         "module Ar\n"
-                        "int F(int a)\n"
+                        "public int F(int a)\n"
                         "F(a) -> a\n"
-                        "int F(int a, int b)\n"
+                        "public int F(int a, int b)\n"
                         "F(a, b) -> a + b\n"
-                        "int G(int a)\n"
+                        "public int G(int a)\n"
                         "G(a) -> F(a, a, a)\n"}]),
     bad_rc(Out),
     has(Out, "F/3"),
@@ -282,7 +282,7 @@ calling_an_arity_that_is_not_declared_names_the_ones_that_are_test() ->
 calling_a_name_that_does_not_exist_is_still_unknown_test() ->
     Out = compile_set([{"A.bs",
                         "module Ar\n"
-                        "int G(int a)\n"
+                        "public int G(int a)\n"
                         "G(a) -> Nope(a)\n"}]),
     bad_rc(Out),
     has(Out, "which nothing declares").
@@ -298,12 +298,12 @@ two_modules_importing_each_other_are_refused_test() ->
     Out = compile_set([{"A.bs",
                         "module Cyc.A\n"
                         "using Cyc.B\n"
-                        "int Ping(int n)\n"
+                        "public int Ping(int n)\n"
                         "Ping(n) -> n\n"},
                        {"B.bs",
                         "module Cyc.B\n"
                         "using Cyc.A\n"
-                        "int Pong(int n)\n"
+                        "public int Pong(int n)\n"
                         "Pong(n) -> n\n"}]),
     bad_rc(Out),
     has(Out, "cycle").
@@ -318,7 +318,7 @@ a_dependency_not_named_on_the_command_line_is_found_and_built_test() ->
     {Root, Main} = in_dir([{"R.bs",
                             "module Shop.Reports\n"
                             "using Shop.List\n"
-                            "int Go(int n)\n"
+                            "public int Go(int n)\n"
                             "Go(n) -> Sum([n], 0)\n"},
                            list_mod()]),
     Out = bs_test_support:run_cli("--src-root " ++ Root ++ " -o " ++ Root ++

@@ -20,7 +20,7 @@
 parcel_src() ->
     "module Parcel\n"
     "type Weighed = result<int, atom>\n"
-    "atom Grade(Weighed w)\n"
+    "public atom Grade(Weighed w)\n"
     "Grade((:error, e))     -> e\n"
     "Grade(n) when n > 1000 -> :heavy\n"
     "Grade(n)               -> :light\n".
@@ -44,7 +44,7 @@ a_two_argument_bracket_dispatches_test() ->
 the_residual_of_a_bracket_is_its_payload_test() ->
     Src = "module Parcel\n"
           "type Weighed = result<int, atom>\n"
-          "atom Grade(Weighed w)\n"
+          "public atom Grade(Weighed w)\n"
           "Grade((:error, e)) -> e\n",
     ?assertMatch([{error, _, 'Grade', {inexhaustive, _}}], errors(Src)).
 
@@ -53,7 +53,7 @@ the_residual_of_a_bracket_is_its_payload_test() ->
 an_option_field_is_declarable_test() ->
     Src = "module Shop\n"
           "record Order { Id: int, Notes: option<int> }\n"
-          "atom Describe(Order o)\n"
+          "public atom Describe(Order o)\n"
           "Describe({ Notes: :nothing }) -> :bare\n"
           "Describe(o)                   -> :annotated\n",
     ?assertMatch({ok, _, _}, check_only(Src)).
@@ -65,10 +65,10 @@ an_option_field_is_declarable_test() ->
 an_option_and_its_spelling_are_one_type_test() ->
     Src = "module Same\n"
           "type Spelled = int | :nothing\n"
-          "atom Take(option<int> o)\n"
+          "public atom Take(option<int> o)\n"
           "Take(:nothing) -> :none\n"
           "Take(n)        -> :some\n"
-          "atom Hand(Spelled s)\n"
+          "public atom Hand(Spelled s)\n"
           "Hand(s) -> Take(s)\n",
     ?assertMatch({ok, _, _}, check_only(Src)).
 
@@ -77,7 +77,7 @@ an_option_and_its_spelling_are_one_type_test() ->
 a_user_parametric_alias_runs_test() ->
     Src = "module Pairs\n"
           "type Pair<T> = (T, T)\n"
-          "int Sum(Pair<int> p)\n"
+          "public int Sum(Pair<int> p)\n"
           "Sum((a, b)) -> a + b\n",
     M = build_and_load(Src, 'Pairs'),
     ?assertEqual(7, M:'Sum'({3, 4})).
@@ -89,7 +89,7 @@ a_user_parametric_alias_runs_test() ->
 %% the collision.
 nested_generics_parse_because_there_is_no_shift_operator_test() ->
     Src = "module Nest\n"
-          "int Depth(list<list<int>> xss)\n"
+          "public int Depth(list<list<int>> xss)\n"
           "Depth([])        -> 0\n"
           "Depth([xs, ..r]) -> 1\n",
     ?assertMatch({ok, _, _}, check_only(Src)).
@@ -99,12 +99,12 @@ nested_generics_parse_because_there_is_no_shift_operator_test() ->
 a_bracket_at_the_wrong_arity_says_so_test() ->
     ?assertError({generic_arity, result, 2, 1},
                  check_only("module E\ntype B = result<int>\n"
-                            "atom F(B b)\nF(b) -> :ok\n")),
+                            "public atom F(B b)\nF(b) -> :ok\n")),
     ?assertError({generic_arity, option, 1, 2},
                  check_only("module E\ntype B = option<int, atom>\n"
-                            "atom F(B b)\nF(b) -> :ok\n")),
+                            "public atom F(B b)\nF(b) -> :ok\n")),
     ?assertError({generic_arity, list, 1, 2},
-                 check_only("module E\natom F(list<int, atom> xs)\nF(xs) -> :ok\n")).
+                 check_only("module E\npublic atom F(list<int, atom> xs)\nF(xs) -> :ok\n")).
 
 %% A parametric name written without its bracket. `option` alone is not an
 %% unknown type — it is a known one missing an argument, and the lowercase
@@ -112,18 +112,18 @@ a_bracket_at_the_wrong_arity_says_so_test() ->
 %% resolver arms, so both are asserted.
 a_parametric_name_without_its_bracket_says_so_test() ->
     ?assertError({needs_type_args, option, 1},
-                 check_only("module E\natom F(option o)\nF(o) -> :ok\n")),
+                 check_only("module E\npublic atom F(option o)\nF(o) -> :ok\n")),
     ?assertError({needs_type_args, 'Pair', 1},
                  check_only("module E\ntype Pair<T> = (T, T)\n"
-                            "atom F(Pair p)\nF(p) -> :ok\n")).
+                            "public atom F(Pair p)\nF(p) -> :ok\n")).
 
 %% ...and its mirror: a bracket on a name that takes none.
 a_bracket_on_a_ground_type_says_so_test() ->
     ?assertError({not_parametric, 'Plain'},
                  check_only("module E\ntype Plain = int\n"
-                            "atom F(Plain<int> p)\nF(p) -> :ok\n")),
+                            "public atom F(Plain<int> p)\nF(p) -> :ok\n")),
     ?assertError({unknown_generic, stack},
-                 check_only("module E\natom F(stack<int> s)\nF(s) -> :ok\n")).
+                 check_only("module E\npublic atom F(stack<int> s)\nF(s) -> :ok\n")).
 
 %% F6.7 — a type variable and a user type are the SAME token class (ticket 27
 %% §4 forced declaration for exactly that reason), so nothing but the parameter
@@ -131,7 +131,7 @@ a_bracket_on_a_ground_type_says_so_test() ->
 an_undeclared_variable_in_an_alias_body_is_caught_test() ->
     ?assertError({unknown_type, 'U'},
                  check_only("module E\ntype Wrong<T> = (T, U)\n"
-                            "atom F(Wrong<int> w)\nF(w) -> :ok\n")).
+                            "public atom F(Wrong<int> w)\nF(w) -> :ok\n")).
 
 %% F6.8 — the control for this one is not a red test, it is a HANG. Measured on
 %% master before F6: `type A = B` / `type B = A` spins until killed, because
@@ -145,10 +145,10 @@ an_undeclared_variable_in_an_alias_body_is_caught_test() ->
 a_cyclic_alias_is_an_error_and_not_a_hang_test() ->
     ?assertError({cyclic_type, 'A'},
                  check_only("module E\ntype A = B\ntype B = A\n"
-                            "atom F(A a)\nF(a) -> :ok\n")),
+                            "public atom F(A a)\nF(a) -> :ok\n")),
     ?assertError({cyclic_type, 'Tree'},
                  check_only("module E\ntype Tree<T> = (T, list<Tree<T>>)\n"
-                            "atom F(Tree<int> t)\nF(t) -> :ok\n")).
+                            "public atom F(Tree<int> t)\nF(t) -> :ok\n")).
 
 %% ...and the same guard must not reject a name used twice as SIBLINGS. A
 %% repeated application is not a cycle, and a chain that terminates is not one
@@ -158,7 +158,7 @@ a_repeated_alias_is_not_a_cycle_test() ->
           "type Pair<T> = (T, T)\n"
           "type Both = (Pair<int>, Pair<atom>)\n"
           "type Deep = Pair<Pair<int>>\n"
-          "atom F(Both b, Deep d)\n"
+          "public atom F(Both b, Deep d)\n"
           "F(b, d) -> :ok\n",
     ?assertMatch({ok, _, _}, check_only(Src)).
 
@@ -173,7 +173,7 @@ a_repeated_alias_is_not_a_cycle_test() ->
 %% read the ambiguous case wrong. So this asserts the parse.
 angle_brackets_did_not_reach_value_position_test() ->
     M = build_and_load("module Cmp\n"
-                       "bool Both(int a, int b, int c, int d)\n"
+                       "public bool Both(int a, int b, int c, int d)\n"
                        "Both(a, b, c, d) -> a < b and c > d\n", 'Cmp'),
     ?assertEqual(true,  M:'Both'(1, 2, 5, 3)),
     ?assertEqual(false, M:'Both'(1, 2, 3, 5)).
@@ -182,9 +182,9 @@ angle_brackets_did_not_reach_value_position_test() ->
 %% variants. Run here against the real one, now that the real one has brackets.
 a_guard_with_comparisons_still_parses_test() ->
     Src = "module G\n"
-          "int Total(int x)\n"
+          "public int Total(int x)\n"
           "Total(x) -> x\n"
-          "atom Cmp((int, int) p)\n"
+          "public atom Cmp((int, int) p)\n"
           "Cmp((x, y)) when x < y and Total(x) > 0 -> :yes\n"
           "Cmp(p)                                 -> :no\n",
     ?assertMatch({ok, _, _}, check_only(Src)).
@@ -195,7 +195,7 @@ a_guard_with_comparisons_still_parses_test() ->
 %% spec, because it builds no polymorphic function.
 the_emitted_spec_is_the_expanded_ground_type_test() ->
     {ok, _} = compile("module Opt\n"
-                      "option<int> Keep(option<int> o)\n"
+                      "public option<int> Keep(option<int> o)\n"
                       "Keep(o) -> o\n"),
     {ok, {_, [{abstract_code, {_, Forms}}]}} =
         beam_lib:chunks(?OUT ++ "/Opt.beam", [abstract_code]),

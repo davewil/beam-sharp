@@ -52,7 +52,11 @@
 %%% ---------------------------------------------------------------------------
 
 forms(Module = #{module := Mod, functions := Fns, env := Env}) ->
-    Exports = [{F, arity(F)} || F <- Fns],
+    %% F12 / ticket 40 §3. A private function is still emitted, still `-spec`'d
+    %% and still named by a crash — it is simply not in the export list, which is
+    %% the BEAM's only mechanism for the distinction and the reason the marker
+    %% goes no further than this line.
+    Exports = [{F, arity(F)} || F <- Fns, is_public(F)],
     Behaviours = maps:get(behaviours, Module, []),
     %% The behaviours travel in the emit context because a function name is not
     %% self-describing: whether `HandleCall/3` lowers to `handle_call/3` depends
@@ -126,6 +130,7 @@ emitted_name(Name, Arity, Behaviours) ->
     end.
 
 arity(F) -> length(element(5, F)).              % length(#fn.params)
+is_public(F) -> element(7, F) =/= private.      % #fn.vis
 
 %%% ---------------------------------------------------------------------------
 %%% Functions and clauses

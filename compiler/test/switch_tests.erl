@@ -22,7 +22,7 @@
 a_switch_dispatches_and_runs_test() ->
     Src = "module Traffic\n"
           "type Verdict = :new | :gone | :unknown\n"
-          "Verdict Describe(atom status)\n"
+          "public Verdict Describe(atom status)\n"
           "Describe(s) -> s switch {\n"
           "    :placed  => :new,\n"
           "    :shipped => :gone,\n"
@@ -38,7 +38,7 @@ a_switch_dispatches_and_runs_test() ->
 a_tuple_subject_is_exhaustive_without_a_catch_all_test() ->
     Src = "module Queue\n"
           "type Disposition = :ack | :dead_letter | :requeue\n"
-          "Disposition Decide(bool ok, bool permanent, bool redelivered)\n"
+          "public Disposition Decide(bool ok, bool permanent, bool redelivered)\n"
           "Decide(o, p, r) -> (o, p, r) switch {\n"
           "    (true,  _,     _)     => :ack,\n"
           "    (false, true,  _)     => :dead_letter,\n"
@@ -65,7 +65,7 @@ a_tuple_subject_is_exhaustive_without_a_catch_all_test() ->
 %% that found it.
 bare_true_and_false_are_atoms_not_variables_test() ->
     Src = "module Heads\n"
-          "atom Decide(bool ok)\n"
+          "public atom Decide(bool ok)\n"
           "Decide(true)  -> :yes\n"
           "Decide(false) -> :no\n",
     {ok, _, Diags} = check_only(Src),
@@ -83,7 +83,7 @@ bare_true_and_false_are_atoms_not_variables_test() ->
 an_inexhaustive_switch_names_the_missing_arm_test() ->
     Src = "module Missing\n"
           "type Event = :placed | :shipped | :cancelled\n"
-          "atom Which(Event e)\n"
+          "public atom Which(Event e)\n"
           "Which(e) -> e switch {\n"
           "    :placed  => :new,\n"
           "    :shipped => :gone\n"
@@ -109,7 +109,7 @@ an_inexhaustive_switch_names_the_missing_arm_test() ->
 %% were credited, and `0 => :zero` only type-checks as exhaustive if they were.
 a_guard_on_an_arm_is_credited_test() ->
     Src = "module Signs\n"
-          "atom Sign(int n)\n"
+          "public atom Sign(int n)\n"
           "Sign(n) -> n switch {\n"
           "    m when m > 0 => :positive,\n"
           "    m when m < 0 => :negative,\n"
@@ -126,7 +126,7 @@ a_guard_on_an_arm_is_credited_test() ->
 %% the guards were translated rather than ignored.
 a_guard_on_an_arm_leaves_the_gap_it_should_test() ->
     Src = "module SignsControl\n"
-          "atom Sign(int n)\n"
+          "public atom Sign(int n)\n"
           "Sign(n) -> n switch {\n"
           "    m when m > 0 => :positive,\n"
           "    m when m < 0 => :negative\n"
@@ -143,9 +143,9 @@ a_guard_on_an_arm_leaves_the_gap_it_should_test() ->
 %% So the assertion is on an error the wrong build OMITS.
 an_untranslatable_arm_guard_credits_nothing_test() ->
     Src = "module Opaque\n"
-          "bool Big(int n)\n"
+          "public bool Big(int n)\n"
           "Big(n) -> n > 100\n"
-          "atom Check(int n)\n"
+          "public atom Check(int n)\n"
           "Check(n) -> n switch {\n"
           "    m when Big(m) => :big\n"
           "}\n",
@@ -163,11 +163,11 @@ an_untranslatable_arm_guard_credits_nothing_test() ->
 %% caught by a passing test — only by asserting the error the wrong build omits.
 an_arm_body_under_an_unreadable_guard_is_still_checked_test() ->
     Src = "module Quiet\n"
-          "bool Big(int n)\n"
+          "public bool Big(int n)\n"
           "Big(n) -> n > 100\n"
-          "atom Tag(atom a)\n"
+          "public atom Tag(atom a)\n"
           "Tag(a) -> :seen\n"
-          "atom Check(int n)\n"
+          "public atom Check(int n)\n"
           "Check(n) -> n switch {\n"
           "    m when Big(m) => Tag(m),\n"
           "    _             => :small\n"
@@ -186,7 +186,7 @@ an_arm_body_under_an_unreadable_guard_is_still_checked_test() ->
 %% there is nothing to enumerate.
 a_redundant_arm_is_a_warning_about_an_arm_test() ->
     Src = "module Dead\n"
-          "atom Which(atom a)\n"
+          "public atom Which(atom a)\n"
           "Which(a) -> a switch {\n"
           "    _        => :other,\n"
           "    :placed  => :new\n"
@@ -199,7 +199,7 @@ a_redundant_arm_is_a_warning_about_an_arm_test() ->
 %% is why the mirror below exists.
 an_arm_binds_its_own_names_test() ->
     Src = "module Scope\n"
-          "term Ok(term e)\n"
+          "public term Ok(term e)\n"
           "Ok(e) -> e switch {\n"
           "    (:ok, v) => v,\n"
           "    _        => :none\n"
@@ -213,7 +213,7 @@ an_arm_binds_its_own_names_test() ->
 %% a sibling that happens to bind the same name.
 an_unbound_name_in_an_arm_body_is_reported_test() ->
     Src = "module Scope\n"
-          "term Bad(term e)\n"
+          "public term Bad(term e)\n"
           "Bad(e) -> e switch {\n"
           "    (:ok, v) => w,\n"
           "    (:no, w) => w\n"
@@ -226,7 +226,7 @@ an_unbound_name_in_an_arm_body_is_reported_test() ->
 %% program from the one that reads like a fresh binding.
 an_arm_may_not_rebind_a_name_in_scope_test() ->
     Src = "module Rebind\n"
-          "atom Pick(int n, term e)\n"
+          "public atom Pick(int n, term e)\n"
           "Pick(n, e) -> e switch {\n"
           "    n => :same,\n"
           "    _ => :other\n"
@@ -239,7 +239,7 @@ an_arm_may_not_rebind_a_name_in_scope_test() ->
 %% `build_and_load/2` rather than on an assertion.
 a_parameter_read_only_inside_an_arm_is_not_underscored_test() ->
     Src = "module Underscore\n"
-          "int Report(int n, atom tag)\n"
+          "public int Report(int n, atom tag)\n"
           "Report(n, tag) -> tag switch {\n"
           "    :double => n * 2,\n"
           "    _       => n\n"
@@ -254,7 +254,7 @@ a_parameter_read_only_inside_an_arm_is_not_underscored_test() ->
 a_switch_return_is_checked_against_the_signature_test() ->
     Src = "module Ret\n"
           "type Verdict = :new | :gone\n"
-          "Verdict Describe(atom s)\n"
+          "public Verdict Describe(atom s)\n"
           "Describe(s) -> s switch {\n"
           "    :placed => :new,\n"
           "    _       => :missing\n"
@@ -272,12 +272,12 @@ braces_nest_three_ways_test() ->
           "record Order   { Id: int, Total: int }\n"
           "record Invoice { Id: int, Total: int }\n"
           "type Doc = Order | Invoice\n"
-          "Order Normalise(Doc d)\n"
+          "public Order Normalise(Doc d)\n"
           "Normalise(d) -> d switch {\n"
           "    { Kind: :'Nesting.Order' }   => Order{ Id = 1, Total = 2 },\n"
           "    { Kind: :'Nesting.Invoice' } => Order{ Id = 3, Total = 4 }\n"
           "}\n"
-          "atom Pair(atom a, atom b)\n"
+          "public atom Pair(atom a, atom b)\n"
           "Pair(a, b) -> a switch {\n"
           "    :one => b switch {\n"
           "        :two => :onetwo,\n"
@@ -299,7 +299,7 @@ braces_nest_three_ways_test() ->
 %% not write — which is F4.7's rule.
 a_switch_in_a_guard_is_refused_test() ->
     Src = "module GuardSwitch\n"
-          "atom F(atom x)\n"
+          "public atom F(atom x)\n"
           "F(x) when x switch { :a => true, _ => false } -> :yes\n"
           "F(x) -> :no\n",
     ?assertMatch([{error, _, 'F', switch_in_guard} | _], errors(Src)).
@@ -316,7 +316,7 @@ a_binding_then_a_switch_on_the_bound_name_test() ->
     Src = "module Bound\n"
           "type Verdict = :large | :small\n"
           "record Order { Id: int, Total: int }\n"
-          "Verdict Grade(Order o)\n"
+          "public Verdict Grade(Order o)\n"
           "Grade(o) ->\n"
           "    var total = o.Total\n"
           "    total switch {\n"
@@ -333,7 +333,7 @@ a_binding_then_a_switch_on_the_bound_name_test() ->
 %% this into an equality test against the bound value.
 an_arm_may_not_rebind_a_name_a_binding_introduced_test() ->
     Src = "module Bound2\n"
-          "atom Grade(int t)\n"
+          "public atom Grade(int t)\n"
           "Grade(t) ->\n"
           "    var total = t + 1\n"
           "    total switch {\n"
@@ -352,7 +352,7 @@ an_arm_may_not_rebind_a_name_a_binding_introduced_test() ->
 %% `call` or `call_ext` op means a stack frame was built.
 a_switch_in_tail_position_keeps_the_tail_call_test() ->
     Src = "module LoopS\n"
-          "int Down(int n, int acc)\n"
+          "public int Down(int n, int acc)\n"
           "Down(n, acc) -> n switch {\n"
           "    m when m <= 0 => acc,\n"
           "    m when m > 0  => Down(m - 1, acc + m)\n"

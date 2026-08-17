@@ -21,17 +21,17 @@ docs_src() ->
     "module Shop\n"
     "record Order   { Id: int, Total: int }\n"
     "record Invoice { Id: int, Total: int }\n"
-    "Order Update(Order o)\n"
+    "public Order Update(Order o)\n"
     "Update(o) -> o with { Total = 0 }\n".
 
 %% F5.1 — site 4. Without it beam-sharp emits a `-spec` claiming what its own
 %% body does not deliver, which is the defect ticket 18 measured in Gleam.
 a_body_must_produce_the_declared_return_type_test() ->
-    Src = "module M\nint Answer(int n)\nAnswer(n) -> :oops\n",
+    Src = "module M\npublic int Answer(int n)\nAnswer(n) -> :oops\n",
     ?assertMatch([{error, _, 'Answer', {return_not_declared, _}}], errors(Src)).
 
 a_body_producing_the_declared_type_compiles_test() ->
-    Src = "module M\natom Answer(int n)\nAnswer(n) -> :ok\n",
+    Src = "module M\npublic atom Answer(int n)\nAnswer(n) -> :ok\n",
     ?assertMatch({ok, _, _}, check_only(Src)).
 
 %% F5.2 — site 1, and F3.3's deferred half: ticket 26 §1's requirement as David
@@ -39,14 +39,14 @@ a_body_producing_the_declared_type_compiles_test() ->
 %% to enforce it.
 a_call_rejects_the_wrong_record_test() ->
     Src = docs_src() ++
-          "Order Wrong(Invoice i)\n"
+          "public Order Wrong(Invoice i)\n"
           "Wrong(i) -> Update(i)\n",
     ?assertMatch([{error, _, 'Wrong', {arg_not_accepted, 'Update', 1, _, _}}],
                  errors(Src)).
 
 a_call_with_the_right_record_compiles_test() ->
     Src = docs_src() ++
-          "Order Right(Order o)\n"
+          "public Order Right(Order o)\n"
           "Right(o) -> Update(o)\n",
     ?assertMatch({ok, _, _}, check_only(Src)).
 
@@ -58,7 +58,7 @@ the_call_site_residual_is_the_callers_clause_head_test() ->
         false -> ok;
         true ->
             Src = docs_src() ++
-                  "Order Wrong(Invoice i)\n"
+                  "public Order Wrong(Invoice i)\n"
                   "Wrong(i) -> Update(i)\n",
             with_src("callsite.bs", Src, fun(Path, Out) ->
                 R = run_cli("-o " ++ Out ++ " " ++ Path),
@@ -74,7 +74,7 @@ the_call_site_residual_is_the_callers_clause_head_test() ->
 construction_must_supply_every_declared_field_test() ->
     Src = "module Shop\n"
           "record Order { Id: int, Total: int }\n"
-          "Order Make(int n)\n"
+          "public Order Make(int n)\n"
           "Make(n) -> Order{ Id = n }\n",
     ?assertMatch([{error, _, 'Make', {field_set_mismatch, 'Order', ['Total'], []}}],
                  errors(Src)).
@@ -82,7 +82,7 @@ construction_must_supply_every_declared_field_test() ->
 construction_may_not_supply_an_undeclared_field_test() ->
     Src = "module Shop\n"
           "record Order { Id: int, Total: int }\n"
-          "Order Make(int n)\n"
+          "public Order Make(int n)\n"
           "Make(n) -> Order{ Id = n, Total = n, Extra = n }\n",
     ?assertMatch([{error, _, 'Make', {field_set_mismatch, 'Order', [], ['Extra']}}],
                  errors(Src)).
@@ -90,7 +90,7 @@ construction_may_not_supply_an_undeclared_field_test() ->
 construction_with_the_exact_field_set_compiles_test() ->
     Src = "module Shop\n"
           "record Order { Id: int, Total: int }\n"
-          "Order Make(int n)\n"
+          "public Order Make(int n)\n"
           "Make(n) -> Order{ Id = n, Total = n }\n",
     ?assertMatch({ok, _, _}, check_only(Src)).
 
@@ -102,7 +102,7 @@ projecting_a_field_one_member_lacks_names_that_member_test() ->
           "record Order { Id: int, Total: int }\n"
           "record Note  { Id: int }\n"
           "type Doc = Order | Note\n"
-          "int Amount(Doc d)\n"
+          "public int Amount(Doc d)\n"
           "Amount(d) -> d.Total\n",
     [{error, _, 'Amount', {field_absent, 'Total', Residual}}] = errors(Src),
     ?assertEqual("{ Kind: :'Shop.Note' }",
@@ -114,7 +114,7 @@ projecting_a_field_every_member_carries_compiles_test() ->
           "record Order   { Id: int, Total: int }\n"
           "record Invoice { Id: int, Total: int }\n"
           "type Doc = Order | Invoice\n"
-          "int Amount(Doc d)\n"
+          "public int Amount(Doc d)\n"
           "Amount(d) -> d.Total\n",
     ?assertMatch({ok, _, _}, check_only(Src)).
 
@@ -125,9 +125,9 @@ projecting_a_field_every_member_carries_compiles_test() ->
 narrow_src(Clauses) ->
     "module Narrow\n"
     "type Flag = :on | :off\n"
-    "atom Only(:on f)\n"
+    "public atom Only(:on f)\n"
     "Only(f) -> :ok\n"
-    "atom Run(Flag f)\n" ++ Clauses.
+    "public atom Run(Flag f)\n" ++ Clauses.
 
 an_earlier_clause_narrows_a_later_body_test() ->
     ?assertMatch({ok, _, _},
@@ -146,9 +146,9 @@ without_the_earlier_clause_the_same_body_is_an_error_test() ->
 %% asserts an error that the WRONG build omits.
 an_untranslatable_guard_leaves_the_body_typed_test() ->
     Src = "module Guarded\n"
-          "atom Weird(int n)\n"
+          "public atom Weird(int n)\n"
           "Weird(n) -> :yes\n"
-          "atom Classify(int n)\n"
+          "public atom Classify(int n)\n"
           "Classify(n) when Weird(n) -> n.Total\n"
           "Classify(n)               -> :other\n",
     ?assertMatch([{error, _, 'Classify', {field_absent, 'Total', _}}], errors(Src)).
@@ -159,14 +159,14 @@ an_untranslatable_guard_leaves_the_body_typed_test() ->
 a_foreign_callee_is_checked_like_any_other_test() ->
     Src = "module Interop\n"
           "using :lists { int sum(list<int> xs) }\n"
-          "int Bad(atom a)\n"
+          "public int Bad(atom a)\n"
           "Bad(a) -> :lists.sum(a)\n",
     ?assertMatch([{error, _, 'Bad', {arg_not_accepted, _, 1, _, _}}], errors(Src)).
 
 a_foreign_call_with_the_declared_type_compiles_test() ->
     Src = "module Interop\n"
           "using :lists { int sum(list<int> xs) }\n"
-          "int Good(list<int> xs)\n"
+          "public int Good(list<int> xs)\n"
           "Good(xs) -> :lists.sum(xs)\n",
     ?assertMatch({ok, _, _}, check_only(Src)).
 
@@ -175,7 +175,7 @@ a_foreign_call_with_the_declared_type_compiles_test() ->
 a_binding_carries_its_type_into_the_rest_of_the_body_test() ->
     Src = "module Shop\n"
           "record Order { Id: int, Total: int }\n"
-          "atom Wrong(Order o)\n"
+          "public atom Wrong(Order o)\n"
           "Wrong(o) ->\n"
           "    var t = o.Total\n"
           "    t\n",
@@ -185,7 +185,7 @@ a_binding_carries_its_type_into_the_rest_of_the_body_test() ->
 %% refusing. Provably irrefutable IFF the residual is empty.
 a_destructuring_bind_that_cannot_fail_runs_test() ->
     Src = "module Pairs\n"
-          "int Sum((int, int) pair)\n"
+          "public int Sum((int, int) pair)\n"
           "Sum(pair) ->\n"
           "    var (a, b) = pair\n"
           "    a + b\n",
@@ -195,7 +195,7 @@ a_destructuring_bind_that_cannot_fail_runs_test() ->
 a_destructuring_bind_that_can_fail_is_an_error_test() ->
     Src = "module Pairs\n"
           "type Thing = (int, int) | :nothing\n"
-          "atom Sum(Thing thing)\n"
+          "public atom Sum(Thing thing)\n"
           "Sum(thing) ->\n"
           "    var (a, b) = thing\n"
           "    :done\n",
@@ -219,7 +219,7 @@ a_destructuring_bind_that_can_fail_is_an_error_test() ->
 
 a_literal_match_that_cannot_fail_is_accepted_test() ->
     Src = "module SpecOk\n"
-          "int F()\n"
+          "public int F()\n"
           "F() ->\n"
           "    var x = 1\n"
           "    1 = x\n"
@@ -229,7 +229,7 @@ a_literal_match_that_cannot_fail_is_accepted_test() ->
 
 a_literal_match_that_cannot_succeed_is_an_error_test() ->
     Src = "module SpecErr\n"
-          "int F()\n"
+          "public int F()\n"
           "F() ->\n"
           "    var x = 1\n"
           "    2 = x\n"
@@ -244,9 +244,9 @@ a_literal_match_that_cannot_succeed_is_an_error_test() ->
 %% above is doing the work.
 a_match_is_decided_by_the_type_not_the_value_test() ->
     Src = "module ViaCall\n"
-          "int Get()\n"
+          "public int Get()\n"
           "Get() -> 2\n"
-          "int F()\n"
+          "public int F()\n"
           "F() ->\n"
           "    var y = Get()\n"
           "    2 = y\n"
@@ -261,7 +261,7 @@ a_plain_binding_still_parses_as_a_name_test() ->
     %% F8 — `var` changed how the LEFT of a binding is READ, not what a binding
     %% IS. This still asserts the `{bind, …}` node ticket 34 shipped, which is the
     %% claim that nothing downstream of the parser learned a new shape.
-    {ok, Toks, _} = bs_lexer:string("module M\nint F(int a)\nF(a) ->\n    var t = 1\n    t\n"),
+    {ok, Toks, _} = bs_lexer:string("module M\npublic int F(int a)\nF(a) ->\n    var t = 1\n    t\n"),
     {ok, Decls} = bs_parser:parse(Toks),
     ?assertMatch([{clause, _, 'F', _, _, {e_block, _, [{bind, _, t, _}], _}}],
                  [D || D = {clause, _, _, _, _, _} <- Decls]).
@@ -270,7 +270,7 @@ a_plain_binding_still_parses_as_a_name_test() ->
 %% it is rejected here, not by erlc against a file the author did not write.
 a_wildcard_may_stand_on_the_left_of_a_bind_test() ->
     Src = "module Pairs\n"
-          "int First((int, int) pair)\n"
+          "public int First((int, int) pair)\n"
           "First(pair) ->\n"
           "    var (a, _) = pair\n"
           "    a\n",
@@ -278,7 +278,7 @@ a_wildcard_may_stand_on_the_left_of_a_bind_test() ->
     ?assertEqual(3, M:'First'({3, 4})).
 
 a_wildcard_used_as_a_value_is_an_error_test() ->
-    Src = "module M\nint Bad(int n)\nBad(n) -> _\n",
+    Src = "module M\npublic int Bad(int n)\nBad(n) -> _\n",
     ?assertMatch([{error, _, 'Bad', wildcard_as_value}], errors(Src)).
 
 %% A guard is not typed — no site is a guard — but `_` in one is the same
@@ -286,22 +286,22 @@ a_wildcard_used_as_a_value_is_an_error_test() ->
 %% expression this did not parse. Left alone it reached `bs_emit:expr/2` as a
 %% function-clause CRASH, which is worse than the erlc error F4.7 prevents.
 a_wildcard_in_a_guard_is_an_error_not_a_crash_test() ->
-    Src = "module M\natom F(int n)\nF(n) when _ > 1 -> :yes\nF(n) -> :no\n",
+    Src = "module M\npublic atom F(int n)\nF(n) when _ > 1 -> :yes\nF(n) -> :no\n",
     ?assertMatch([{error, _, 'F', wildcard_as_value}], errors(Src)).
 
 %% The same gap for names, which predates F5 and was the one place F4's rule was
 %% false: `variable 'X' is unbound` from erlc, against a file nobody wrote.
 an_unbound_name_in_a_guard_is_caught_by_bsc_test() ->
-    Src = "module M\natom F(int n)\nF(n) when x > 1 -> :yes\nF(n) -> :no\n",
+    Src = "module M\npublic atom F(int n)\nF(n) when x > 1 -> :yes\nF(n) -> :no\n",
     ?assertMatch([{error, _, 'F', {unbound_variable, x}}], errors(Src)).
 
 %% ...and a guard calling a user function still names only its ARGUMENTS, so the
 %% callee is not mistaken for an unbound variable.
 a_guard_calling_a_function_is_not_an_unbound_name_test() ->
     Src = "module M\n"
-          "atom Weird(int n)\n"
+          "public atom Weird(int n)\n"
           "Weird(n) -> :yes\n"
-          "atom F(int n)\n"
+          "public atom F(int n)\n"
           "F(n) when Weird(n) -> :yes\n"
           "F(n)               -> :no\n",
     ?assertMatch({ok, _, _}, check_only(Src)).
@@ -310,17 +310,17 @@ a_guard_calling_a_function_is_not_an_unbound_name_test() ->
 %% there, rather than an obscure failure further down.
 a_non_pattern_on_the_left_of_a_bind_is_rejected_test() ->
     {ok, Toks, _} = bs_lexer:string(
-                      "module M\nint F(int a)\nF(a) ->\n    a + 1 = 2\n    a\n"),
+                      "module M\npublic int F(int a)\nF(a) ->\n    a + 1 = 2\n    a\n"),
     ?assertMatch({error, {_, _, _}}, bs_parser:parse(Toks)).
 
 %% F5.12 — same lookup as site 1. Without it the author meets
 %% `function 'Nope'/1 undefined` against an emitted file they never wrote.
 a_call_to_an_undeclared_name_is_caught_by_bsc_test() ->
-    Src = "module M\nint F(int n)\nF(n) -> Nope(n)\n",
+    Src = "module M\npublic int F(int n)\nF(n) -> Nope(n)\n",
     ?assertMatch([{error, _, 'F', {unknown_callee, 'Nope', 1}}], errors(Src)).
 
 a_call_with_the_wrong_arity_is_caught_by_bsc_test() ->
-    Src = "module M\nint F(int n)\nF(n) -> F(n, n)\n",
+    Src = "module M\npublic int F(int n)\nF(n) -> F(n, n)\n",
     ?assertMatch([{error, _, 'F', {arity_mismatch, 'F', 2, 1}}], errors(Src)).
 
 %% F5.13 — the corpus. F5 adds four new ways to be rejected, and the README's
@@ -404,7 +404,7 @@ compiles_with_default_root(Dir) ->
 %% a shipped example, with a checker working correctly on wrong information.
 a_list_tail_keeps_its_element_type_in_a_body_test() ->
     Src = "module L\n"
-          "list<int> Reverse(list<int> xs, list<int> acc)\n"
+          "public list<int> Reverse(list<int> xs, list<int> acc)\n"
           "Reverse([], acc)          -> acc\n"
           "Reverse([x, ..rest], acc) -> Reverse(rest, [x, ..acc])\n",
     ?assertMatch({ok, _, _}, check_only(Src)).
@@ -414,7 +414,7 @@ a_list_tail_keeps_its_element_type_in_a_body_test() ->
 %% becoming exhaustive on an address the algebra cannot narrow.
 a_guard_over_a_list_element_still_credits_nothing_test() ->
     Src = "module L\n"
-          "atom Sign(list<int> xs)\n"
+          "public atom Sign(list<int> xs)\n"
           "Sign([])             -> :empty\n"
           "Sign([x, ..r]) when x > 0  -> :positive\n"
           "Sign([x, ..r]) when x <= 0 -> :nonpositive\n",

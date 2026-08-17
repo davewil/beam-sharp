@@ -40,7 +40,7 @@ a_hand_written_type_with_the_same_tag_is_the_same_type_test() ->
           "record Order { Id: int, Total: int }\n"
           "type Spelled = { Kind: :'Shop.Order', Id: int, Total: int }\n"
           "type Either = Order | Spelled\n"
-          "atom Which(Either)\n"
+          "public atom Which(Either)\n"
           "Which({ Kind: :'Shop.Order' }) -> :order\n",
     ?assertMatch({ok, _, _}, check_only(Src)).
 
@@ -51,7 +51,7 @@ two_records_over_identical_field_sets_are_two_types_test() ->
           "record Order { Id: int, Total: int }\n"
           "record Invoice { Id: int, Total: int }\n"
           "type Doc = Order | Invoice\n"
-          "atom Which(Doc)\n"
+          "public atom Which(Doc)\n"
           "Which({ Kind: :'Shop.Order' }) -> :order\n",
     ?assertMatch({error, _}, check_only(Src)).
 
@@ -63,7 +63,7 @@ the_residual_over_records_synthesises_the_missing_head_test() ->
           "record Order { Id: int, Total: int }\n"
           "record Invoice { Id: int, Total: int }\n"
           "type Doc = Order | Invoice\n"
-          "atom Which(Doc)\n"
+          "public atom Which(Doc)\n"
           "Which({ Kind: :'Shop.Order' }) -> :order\n",
     {error, Diags} = check_only(Src),
     [{error, _, 'Which', {inexhaustive, Residual}}] =
@@ -86,7 +86,7 @@ the_synthesised_head_compiles_when_pasted_in_test() ->
            "record Order { Id: int, Total: int }\n"
            "record Invoice { Id: int, Total: int }\n"
            "type Doc = Order | Invoice\n"
-           "atom Which(Doc)\n"
+           "public atom Which(Doc)\n"
            "Which({ Kind: :'Shop.Order' }) -> :order\n",
     {error, Diags} = check_only(Base),
     [{error, _, 'Which', {inexhaustive, Residual}}] =
@@ -109,7 +109,7 @@ with_is_width_preserving_and_keeps_the_tag_test() ->
 with_cannot_add_a_field_test() ->
     Src = "module Shop\n"
           "record Order { Id: int, Total: int }\n"
-          "Order Grow(Order o)\n"
+          "public Order Grow(Order o)\n"
           "Grow(o) -> o with { Extra = 1 }\n",
     M = build_and_load(Src, 'Shop'),
     ?assertError({badkey, 'Extra'}, M:'Grow'(an_order())).
@@ -119,7 +119,7 @@ with_cannot_add_a_field_test() ->
 spread_is_not_in_the_language_test() ->
     Src = "module Shop\n"
           "record Order { Id: int, Total: int }\n"
-          "Order Grow(Order o)\n"
+          "public Order Grow(Order o)\n"
           "Grow(o) -> { ..o, Extra = 1 }\n",
     {ok, Toks, _} = bs_lexer:string(Src),
     ?assertMatch({error, _}, bs_parser:parse(Toks)).

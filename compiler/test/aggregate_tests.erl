@@ -45,10 +45,10 @@ has(Out, S) -> ?assert(string:find(Out, S) =/= nomatch).
 two_files_in_one_directory_become_one_beam_test() ->
     {Root, _, Out} = compile_dir([{"index.bs", "module Agg\n"},
                                   {"Total.bs", "module Agg\n"
-                                               "int Total(int n)\n"
+                                               "public int Total(int n)\n"
                                                "Total(n) -> n + 1\n"},
                                   {"Apply.bs", "module Agg\n"
-                                               "int Apply(int n)\n"
+                                               "public int Apply(int n)\n"
                                                "Apply(n) -> n + 2\n"}]),
     ok_rc(Out),
     Beam = Root ++ "/out/Agg.beam",
@@ -65,7 +65,7 @@ a_record_declared_in_index_is_visible_to_a_sibling_test() ->
     {_, _, Out} = compile_dir([{"index.bs", "module Agg\n"
                                             "record Order { Id: int }\n"},
                                {"Read.bs", "module Agg\n"
-                                           "int Read(Order o)\n"
+                                           "public int Read(Order o)\n"
                                            "Read(o) -> o.Id\n"}]),
     ok_rc(Out).
 
@@ -76,7 +76,7 @@ a_record_declared_in_index_is_visible_to_a_sibling_test() ->
 %% and emitted it under that name.
 a_file_with_no_module_line_inherits_the_directorys_test() ->
     {Root, _, Out} = compile_dir([{"index.bs", "module Agg\n"},
-                                  {"Total.bs", "int Total(int n)\n"
+                                  {"Total.bs", "public int Total(int n)\n"
                                                "Total(n) -> n + 1\n"}]),
     ok_rc(Out),
     ?assert(filelib:is_regular(Root ++ "/out/Agg.beam")),
@@ -93,8 +93,8 @@ two_module_declarations_in_one_directory_are_refused_test() ->
     Root = bs_test_support:fixture_root(),
     Dir = Root ++ "/Two",
     ok = filelib:ensure_dir(Dir ++ "/x"),
-    ok = file:write_file(Dir ++ "/a.bs", "module Two\nint One()\nOne() -> 1\n"),
-    ok = file:write_file(Dir ++ "/b.bs", "module Other\nint Twice()\nTwice() -> 2\n"),
+    ok = file:write_file(Dir ++ "/a.bs", "module Two\npublic int One()\nOne() -> 1\n"),
+    ok = file:write_file(Dir ++ "/b.bs", "module Other\npublic int Twice()\nTwice() -> 2\n"),
     Out = bs_test_support:run_cli("-o " ++ Root ++ "/out " ++ Dir),
     bad_rc(Out),
     has(Out, "one directory is one module"),
@@ -106,7 +106,7 @@ a_directory_of_bs_files_with_no_module_line_at_all_is_refused_test() ->
     Root = bs_test_support:fixture_root(),
     Dir = Root ++ "/None",
     ok = filelib:ensure_dir(Dir ++ "/x"),
-    ok = file:write_file(Dir ++ "/a.bs", "int One()\nOne() -> 1\n"),
+    ok = file:write_file(Dir ++ "/a.bs", "public int One()\nOne() -> 1\n"),
     Out = bs_test_support:run_cli("-o " ++ Root ++ "/out " ++ Dir),
     bad_rc(Out),
     has(Out, "no `module` line").
@@ -120,7 +120,7 @@ a_declaration_that_does_not_match_its_directory_is_refused_test() ->
     Dir = Root ++ "/Shop/Orders",
     ok = filelib:ensure_dir(Dir ++ "/x"),
     ok = file:write_file(Dir ++ "/Total.bs",
-                         "module Shop.Billing\nint One()\nOne() -> 1\n"),
+                         "module Shop.Billing\npublic int One()\nOne() -> 1\n"),
     Out = bs_test_support:run_cli("--src-root " ++ Root ++ " -o " ++ Root ++
                                       "/out " ++ Dir),
     bad_rc(Out),
@@ -140,7 +140,7 @@ a_module_dropping_its_leading_segments_is_refused_test() ->
     Dir = Root ++ "/Shop/Orders",
     ok = filelib:ensure_dir(Dir ++ "/x"),
     ok = file:write_file(Dir ++ "/Total.bs",
-                         "module Orders\nint One()\nOne() -> 1\n"),
+                         "module Orders\npublic int One()\nOne() -> 1\n"),
     Out = bs_test_support:run_cli("--src-root " ++ Root ++ " -o " ++ Root ++
                                       "/out " ++ Dir),
     bad_rc(Out),
@@ -152,7 +152,7 @@ a_module_dropping_its_leading_segments_is_refused_test() ->
 a_single_segment_module_needs_no_src_root_test() ->
     Root = bs_test_support:fixture_root(),
     Path = bs_test_support:place(Root, "a.bs",
-                                 "module Solo\nint One()\nOne() -> 1\n"),
+                                 "module Solo\npublic int One()\nOne() -> 1\n"),
     Out = bs_test_support:run_cli("-o " ++ Root ++ "/out " ++ filename:dirname(Path)),
     ok_rc(Out),
     ?assert(filelib:is_regular(Root ++ "/out/Solo.beam")).
@@ -162,7 +162,7 @@ a_single_segment_module_needs_no_src_root_test() ->
 a_dotted_module_without_a_src_root_says_so_test() ->
     Root = bs_test_support:fixture_root(),
     Path = bs_test_support:place(Root, "a.bs",
-                                 "module Deep.Down\nint One()\nOne() -> 1\n"),
+                                 "module Deep.Down\npublic int One()\nOne() -> 1\n"),
     Out = bs_test_support:run_cli("-o " ++ Root ++ "/out " ++ filename:dirname(Path)),
     bad_rc(Out),
     has(Out, "does not match its directory"),
@@ -174,7 +174,7 @@ a_dotted_module_without_a_src_root_says_so_test() ->
 
 a_function_declared_in_index_is_refused_test() ->
     {_, _, Out} = compile_dir([{"index.bs", "module Idx\n"
-                                            "int Nope(int n)\n"
+                                            "public int Nope(int n)\n"
                                             "Nope(n) -> n\n"}]),
     bad_rc(Out),
     has(Out, "index.bs holds no functions"),
@@ -184,7 +184,7 @@ a_function_declared_in_index_is_refused_test() ->
 %% directory. A raise site that knows its file has to say so.
 the_index_error_names_index_bs_test() ->
     {_, _, Out} = compile_dir([{"index.bs", "module Idx\n"
-                                            "int Nope(int n)\n"
+                                            "public int Nope(int n)\n"
                                             "Nope(n) -> n\n"}]),
     has(Out, "index.bs:2").
 
@@ -195,7 +195,7 @@ the_index_error_names_index_bs_test() ->
 %% settling it here.
 a_module_without_an_index_is_accepted_test() ->
     {Root, _, Out} = compile_dir([{"Only.bs", "module Only\n"
-                                              "int One()\n"
+                                              "public int One()\n"
                                               "One() -> 1\n"}]),
     ok_rc(Out),
     ?assert(filelib:is_regular(Root ++ "/out/Only.beam")).
@@ -209,7 +209,7 @@ a_module_without_an_index_is_accepted_test() ->
 %% rather than the general usage text.
 a_namespace_emits_nothing_and_says_so_test() ->
     Root = bs_test_support:fixture_root(),
-    bs_test_support:place(Root, "a.bs", "module Ns.Inner\nint One()\nOne() -> 1\n"),
+    bs_test_support:place(Root, "a.bs", "module Ns.Inner\npublic int One()\nOne() -> 1\n"),
     Out = bs_test_support:run_cli("--src-root " ++ Root ++ " -o " ++ Root ++
                                       "/out " ++ Root ++ "/Ns"),
     has(Out, "is a namespace, not a module"),
@@ -226,9 +226,9 @@ a_namespace_emits_nothing_and_says_so_test() ->
 %% same sentence, and §5's classification applies to each directory on its own.
 a_module_directory_may_hold_another_module_test() ->
     Root = bs_test_support:fixture_root(),
-    bs_test_support:place(Root, "outer.bs", "module Outer\nint One()\nOne() -> 1\n"),
+    bs_test_support:place(Root, "outer.bs", "module Outer\npublic int One()\nOne() -> 1\n"),
     bs_test_support:place(Root, "inner.bs",
-                          "module Outer.Deep.Inner\nint Two()\nTwo() -> 2\n"),
+                          "module Outer.Deep.Inner\npublic int Two()\nTwo() -> 2\n"),
     Out1 = bs_test_support:run_cli("--src-root " ++ Root ++ " -o " ++ Root ++
                                        "/out " ++ Root ++ "/Outer"),
     ok_rc(Out1),
@@ -262,11 +262,11 @@ a_crash_names_the_file_the_clause_is_in_test() ->
                                   "}\n"},
                      {"Total.bs", "module Crash\n"
                                   "\n"
-                                  "int Total(list<int> xs)\n"
+                                  "public int Total(list<int> xs)\n"
                                   "Total(xs) -> :lists.nth(9, xs) + 1\n"},
                      {"Apply.bs", "module Crash\n"
                                   "\n\n\n\n"
-                                  "int Apply(list<int> xs)\n"
+                                  "public int Apply(list<int> xs)\n"
                                   "Apply(xs) -> :lists.nth(9, xs) + 2\n"}]),
     ok_rc(Out),
     true = code:add_patha(Root ++ "/out"),
@@ -303,11 +303,11 @@ crash_site(Fn) ->
 a_diagnostic_names_its_own_file_under_arity_overloading_test() ->
     {_, Dir, Out} = compile_dir([{"index.bs", "module Over\n"},
                                  {"One.bs", "module Over\n"
-                                            "int Length(int n)\n"
+                                            "public int Length(int n)\n"
                                             "Length(1) -> 1\n"},
                                  {"Two.bs", "module Over\n"
                                             "\n\n"
-                                            "int Length(int n, int m)\n"
+                                            "public int Length(int n, int m)\n"
                                             "Length(1, 1) -> 1\n"}]),
     bad_rc(Out),
     has(Out, Dir ++ "/One.bs:2"),
@@ -325,7 +325,7 @@ a_raised_error_names_its_own_file_too_test() ->
     {_, Dir, Out} = compile_dir([{"index.bs", "module M\n"},
                                  {"Go.bs", "module M\n"
                                            "\n\n\n"
-                                           "int Go(int n)\n"
+                                           "public int Go(int n)\n"
                                            "Go(n) -> Nope.Thing(n)\n"}]),
     bad_rc(Out),
     has(Out, Dir ++ "/Go.bs:6"),
@@ -341,8 +341,8 @@ a_raised_error_names_its_own_file_too_test() ->
 %% and fails at the call site.
 naming_one_file_compiles_the_whole_module_test() ->
     {Root, Main} = in_root([{"index.bs", "module Whole\n"},
-                            {"A.bs", "module Whole\nint A()\nA() -> 1\n"},
-                            {"B.bs", "module Whole\nint B()\nB() -> 2\n"}]),
+                            {"A.bs", "module Whole\npublic int A()\nA() -> 1\n"},
+                            {"B.bs", "module Whole\npublic int B()\nB() -> 2\n"}]),
     Out = bs_test_support:run_cli("--src-root " ++ Root ++ " -o " ++ Root ++
                                       "/out " ++ Main),
     ok_rc(Out),

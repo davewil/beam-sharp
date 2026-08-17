@@ -35,7 +35,7 @@ octet() -> "type Octet = int where value >= 0 and value <= 255\n".
 %% have been dead code ever since.
 a_refined_parameter_narrows_the_spec_test() ->
     Src = "module Wire\n" ++ octet() ++
-          "Octet Clamp(Octet)\n"
+          "public Octet Clamp(Octet)\n"
           "Clamp(n) -> n\n",
     {ok, _} = compile(Src),
     {ok, {_, [{abstract_code, {_, Forms}}]}} =
@@ -52,7 +52,7 @@ a_refined_parameter_narrows_the_spec_test() ->
 %% conversion, no cast and no coercion rule. Ticket 20 §5's whole claim.
 a_refinement_is_a_subtype_of_its_base_test() ->
     Src = "module Sub\n" ++ octet() ++
-          "int Widen(Octet n)\n"
+          "public int Widen(Octet n)\n"
           "Widen(n) -> n\n",
     ?assertMatch({ok, _, _}, check_only(Src)).
 
@@ -60,9 +60,9 @@ a_refinement_is_a_subtype_of_its_base_test() ->
 %% anything. Site 1: the call argument.
 the_base_is_not_a_subtype_of_the_refinement_test() ->
     Src = "module Narrow\n" ++ octet() ++
-          "atom Take(Octet n)\n"
+          "public atom Take(Octet n)\n"
           "Take(n) -> :ok\n"
-          "atom Give(int n)\n"
+          "public atom Give(int n)\n"
           "Give(n) -> Take(n)\n",
     ?assertMatch([{error, _, 'Give', {arg_not_accepted, 'Take', 1, _, _}}],
                  errors(Src)).
@@ -78,10 +78,10 @@ the_base_is_not_a_subtype_of_the_refinement_test() ->
 %% compiler quieter, not redder.
 an_unreadable_refinement_predicate_is_an_error_test() ->
     Src = "module Opaque\n"
-          "atom WellFormed(int n)\n"
+          "public atom WellFormed(int n)\n"
           "WellFormed(n) -> :yes\n"
           "type Email = int where WellFormed(value)\n"
-          "atom Take(Email e)\n"
+          "public atom Take(Email e)\n"
           "Take(e) -> :ok\n",
     ?assertError({opaque_refinement, _}, check_only(Src)).
 
@@ -90,14 +90,14 @@ an_unreadable_refinement_predicate_is_an_error_test() ->
 a_refinement_naming_something_other_than_value_is_an_error_test() ->
     Src = "module Elsewhere\n"
           "type Odd = int where n > 0\n"
-          "atom Take(Odd o)\n"
+          "public atom Take(Odd o)\n"
           "Take(o) -> :ok\n",
     ?assertError({opaque_refinement, _}, check_only(Src)).
 
 a_self_contradictory_refinement_is_an_error_test() ->
     Src = "module Empty\n"
           "type Nothing = int where value > 0 and value < 0\n"
-          "atom Take(Nothing n)\n"
+          "public atom Take(Nothing n)\n"
           "Take(n) -> :ok\n",
     ?assertError({empty_refinement, _}, check_only(Src)).
 
@@ -109,7 +109,7 @@ a_self_contradictory_refinement_is_an_error_test() ->
 %% not exist, and it is worth running BEFORE F2.3 to see the failure it prevents.
 a_catch_all_over_a_closed_residual_is_an_error_test() ->
     Src = "module Frame\n" ++ octet() ++
-          "atom Classify(Octet)\n"
+          "public atom Classify(Octet)\n"
           "Classify(1) -> :method\n"
           "Classify(2) -> :header\n"
           "Classify(3) -> :body\n"
@@ -126,7 +126,7 @@ a_catch_all_over_a_closed_residual_is_an_error_test() ->
 %% second bullet, which is the half that keeps `handle_info` writable.
 a_catch_all_over_an_open_residual_is_legal_test() ->
     Src = "module Open\n"
-          "atom Classify(int n)\n"
+          "public atom Classify(int n)\n"
           "Classify(1) -> :one\n"
           "Classify(_) -> :other\n",
     ?assertMatch({ok, _, _}, check_only(Src)).
@@ -137,7 +137,7 @@ a_catch_all_over_an_open_residual_is_legal_test() ->
 %% would make every single-clause function over a record type an error.
 a_named_binder_is_not_a_catch_all_test() ->
     Src = "module Named\n" ++ octet() ++
-          "atom Classify(Octet)\n"
+          "public atom Classify(Octet)\n"
           "Classify(1) -> :one\n"
           "Classify(n) -> :other\n",
     ?assertMatch({ok, _, _}, check_only(Src)).
@@ -150,7 +150,7 @@ a_named_binder_is_not_a_catch_all_test() ->
 %% mistake and the fix are different ones.
 a_guarded_wildcard_is_not_a_catch_all_test() ->
     Src = "module Guarded\n" ++ octet() ++
-          "atom Classify(Octet)\n"
+          "public atom Classify(Octet)\n"
           "Classify(_) when 1 > 0 -> :anything\n",
     ?assertMatch([{error, _, 'Classify', {inexhaustive, _}}], errors(Src)).
 
@@ -160,7 +160,7 @@ a_guarded_wildcard_is_not_a_catch_all_test() ->
 a_catch_all_arm_over_a_closed_residual_is_an_error_test() ->
     Src = "module Arms\n"
           "type Event = :placed | :shipped | :cancelled\n"
-          "atom Which(Event e)\n"
+          "public atom Which(Event e)\n"
           "Which(e) -> e switch {\n"
           "    :placed => :new,\n"
           "    _       => :other\n"
@@ -189,7 +189,7 @@ an_interval_pattern_discharges_a_closed_residual_test() ->
 frame_src() ->
     "module Frame2\n" ++ octet() ++
     "type FrameType = :method | :header | :body | :heartbeat | :reserved\n"
-    "FrameType Classify(Octet)\n"
+    "public FrameType Classify(Octet)\n"
     "Classify(1)             -> :method\n"
     "Classify(2)             -> :header\n"
     "Classify(3)             -> :body\n"
@@ -219,7 +219,7 @@ an_interval_pattern_lowers_to_a_variable_and_a_guard_test() ->
 %% real: drop the span and exactly its own values must come back.
 dropping_the_span_leaves_exactly_the_span_test() ->
     Src = "module Gap\n" ++ octet() ++
-          "atom Classify(Octet)\n"
+          "public atom Classify(Octet)\n"
           "Classify(>= 0 and <= 3) -> :low\n"
           "Classify(>= 8)          -> :high\n",
     [{error, _, 'Classify', {inexhaustive, Residual}}] = errors(Src),
@@ -230,7 +230,7 @@ dropping_the_span_leaves_exactly_the_span_test() ->
 %% back. `Classify(<= -1)` is that head.
 a_negative_bound_parses_and_dispatches_test() ->
     Src = "module Signs\n"
-          "atom Classify(int n)\n"
+          "public atom Classify(int n)\n"
           "Classify(<= -1)         -> :negative\n"
           "Classify(>= 0 and <= 3) -> :low\n"
           "Classify(>= 4)          -> :high\n",
@@ -243,7 +243,7 @@ a_negative_bound_parses_and_dispatches_test() ->
 %% claim that it adds no theory, asserted rather than repeated.
 the_or_combinator_is_a_union_test() ->
     Src = "module Either\n"
-          "atom Classify(int n)\n"
+          "public atom Classify(int n)\n"
           "Classify(<= 0 or >= 10) -> :outer\n"
           "Classify(>= 1 and <= 9) -> :inner\n",
     M = build_and_load(Src, 'Either'),
@@ -255,7 +255,7 @@ the_or_combinator_is_a_union_test() ->
 %% pattern grammar one level down rather than a copy of it.
 an_interval_pattern_works_in_a_switch_arm_test() ->
     Src = "module Sizing\n"
-          "atom Size(int n)\n"
+          "public atom Size(int n)\n"
           "Size(n) -> n switch {\n"
           "    >= 129           => :high,\n"
           "    >= 65 and <= 128 => :mid,\n"
@@ -274,13 +274,13 @@ an_interval_pattern_works_in_a_switch_arm_test() ->
 a_relational_pattern_inside_a_record_pattern_is_refused_test() ->
     Src = "module Nested\n"
           "record Order { Total: int }\n"
-          "atom Big(Order o)\n"
+          "public atom Big(Order o)\n"
           "Big({ Total: >= 100 }) -> :big\n",
     ?assertError({relational_pattern_nested, _}, check_only(Src)).
 
 a_relational_pattern_inside_a_tuple_is_refused_test() ->
     Src = "module Tup\n"
-          "atom Big((int, int) p)\n"
+          "public atom Big((int, int) p)\n"
           "Big((>= 100, x)) -> :big\n",
     ?assertError({relational_pattern_nested, _}, check_only(Src)).
 
@@ -290,7 +290,7 @@ a_relational_pattern_inside_a_tuple_is_refused_test() ->
 %% guard to hang the test on.
 a_relational_pattern_in_a_bind_is_refused_test() ->
     Src = "module Bound\n" ++ octet() ++
-          "atom Take(Octet n)\n"
+          "public atom Take(Octet n)\n"
           "Take(n) ->\n"
           "    var >= 0 = n\n"
           "    :ok\n",
@@ -308,7 +308,7 @@ a_relational_pattern_in_a_bind_is_refused_test() ->
 %% what made the rule "three CASES" rather than "three heads", which would have
 %% truncated nothing at all today.
 the_residual_truncates_at_three_cases_test() ->
-    Src = ["module Scattered\natom Classify(int n)\n"
+    Src = ["module Scattered\npublic atom Classify(int n)\n"
            | [io_lib:format("Classify(~p) -> :known\n", [N * 10])
               || N <- lists:seq(1, 40)]],
     with_src("scattered.bs", lists:flatten(Src),
@@ -331,7 +331,7 @@ the_residual_truncates_at_three_cases_test() ->
 %% three of whatever it is enumerating"* means when the printer enumerates two
 %% things at two depths.
 the_head_lines_truncate_at_three_too_test() ->
-    Src = ["module Two\natom Classify(int n, atom a)\n"
+    Src = ["module Two\npublic atom Classify(int n, atom a)\n"
            | [io_lib:format("Classify(~p, :x) -> :known\n", [N * 10])
               || N <- lists:seq(1, 40)]],
     with_src("two.bs", lists:flatten(Src),
@@ -355,7 +355,7 @@ the_head_lines_truncate_at_three_too_test() ->
 %% to explain. Every other shape ticket 43 priced has to switch.
 a_small_residual_is_not_truncated_test() ->
     Src = "module Small\n"
-          "atom Classify(int n)\n"
+          "public atom Classify(int n)\n"
           "Classify(0) -> :zero\n",
     with_src("small.bs", Src,
              fun(Path, Out) ->
@@ -375,7 +375,7 @@ a_small_residual_is_not_truncated_test() ->
 %% bound would say.
 a_guard_and_a_type_refinement_do_not_double_count_test() ->
     Src = "module Band\n" ++ octet() ++
-          "atom Big(Octet n)\n"
+          "public atom Big(Octet n)\n"
           "Big(n) when n > 128 -> :big\n",
     [{error, _, 'Big', {inexhaustive, Residual}}] = errors(Src),
     ?assertEqual("(0..128)", bs_types:to_pattern(Residual)).

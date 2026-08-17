@@ -135,6 +135,11 @@ build([{Dir, Sources, Mod} | Rest], Opts, World, Acc) ->
         {ok, Beam} ->
             Decls = decls(Sources),
             World1 = World#{Mod => #{exports => bs_check:exports_of(Decls),
+                                     %% F12 — carried BESIDE the exports, not
+                                     %% subtracted from them, so a dependent's
+                                     %% refusal can say `private` rather than
+                                     %% `unknown`.
+                                     private => bs_check:private_of(Decls),
                                      behaviours => [B || {behaviour, _, B} <- Decls]}},
             build(Rest, Opts, World1, [{Dir, Beam} | Acc]);
         Error ->
@@ -501,6 +506,15 @@ report_run({error, {ambiguous, Names}}) ->
               "  bsc FILE.bs FUNCTION ARG...~n",
               [lists:join(", ", [atom_to_list(N) || N <- Names])]),
     halt(2);
+%% F12. Exit 2 rather than 1: this is the same class as `ambiguous` and
+%% `bad_arity` above — the compiler succeeded and the INVOCATION is wrong.
+report_run({error, {private, Mod, Fn}}) ->
+    io:format(standard_error,
+              "bsc: ~s is private in ~s~n"
+              "  it is defined, and not exported, so it cannot be called from~n"
+              "  outside its module. Mark it `public` to run it directly.~n",
+              [Fn, Mod]),
+    halt(2);
 report_run({error, {bad_arity, Fn, Got, Want}}) ->
     io:format(standard_error, "bsc: ~s takes ~s argument(s), got ~p~n",
               [Fn, lists:join(" or ", [integer_to_list(A) || A <- Want]), Got]),
@@ -659,6 +673,27 @@ resolve_error(Path, {behaviour_not_satisfied, Line, Behaviour, Missing}) ->
               "  partial one would fail when the process starts rather than here.~n",
               [Path, Line, Behaviour,
                [io_lib:format("    ~s/~p~n", [N, A]) || {N, A} <- Missing]]),
+    handled;
+%% F12 / ticket 40 §3 — every function is marked, and the ABSENCE is refused
+%% here rather than in the grammar so the message can name the missing word
+%% instead of the token after it.
+resolve_error(Path, {missing_visibility, N, Line}) ->
+    io:format(standard_error,
+              "~s:~p: error: ~s has no `public` or `private`~n"
+              "  every signature carries one. There is no default, so that a~n"
+              "  reader never has to know which way it would have gone.~n",
+              [Path, Line, N]),
+    handled;
+%% Ticket 06 measured that `-behaviour` has no runtime effect and only exports
+%% matter, so this would otherwise break the contract at run time and silently.
+resolve_error(Path, {private_callback, N, A, Otp, Line}) ->
+    io:format(standard_error,
+              "~s:~p: error: ~s/~p is `private` and is a callback~n"
+              "  this module declares a behaviour that calls it as ~s/~p, and a~n"
+              "  behaviour is dispatched through the export list — `-behaviour`~n"
+              "  itself has no runtime effect. Private, it would fail when the~n"
+              "  process starts rather than here. Mark it `public`.~n",
+              [Path, Line, N, A, Otp, A]),
     handled;
 resolve_error(Path, {unknown_behaviour, B}) ->
     io:format(standard_error,
@@ -1149,6 +1184,16 @@ report(Path, {error, Line, Fn, {bind_may_fail, Residual}}) ->
               "  a bind that can fail is a branch the exhaustiveness checker~n"
               "  never sees. Match it in a clause head instead.~n",
               [Path, Line, Fn, bs_types:to_pattern(Residual)]);
+%% F12 / ticket 40 §3. The whole reason `exports_of/1` does not simply filter:
+%% reported as `unknown_callee` this would tell the author the function does not
+%% exist, when it plainly does and is one word away from being callable. The
+%% message names both fixes because either can be the right one.
+report(Path, {error, Line, Fn, {private_function, Mod, Callee, Arity}}) ->
+    io:format(standard_error,
+              "~s:~p: error: ~s calls ~s/~p, which ~s declares `private`~n"
+              "  a private function is not exported, so no other module can~n"
+              "  reach it. Mark it `public` in ~s, or move the call inside it.~n",
+              [Path, Line, Fn, Callee, Arity, Mod, Mod]);
 report(Path, {error, Line, Fn, {unknown_callee, Callee, Arity}}) ->
     io:format(standard_error,
               "~s:~p: error: ~s calls ~s/~p, which nothing declares~n"

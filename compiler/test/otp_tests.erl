@@ -19,12 +19,12 @@ counter_src() ->
     "behaviour GenServer\n"
     "type Request = :get | (:add, int)\n"
     "type Reply = (:reply, int, int)\n"
-    "(:ok, int) Init(int seed)\n"
+    "public (:ok, int) Init(int seed)\n"
     "Init(seed) -> (:ok, seed)\n"
-    "Reply HandleCall(Request request, term from, int state)\n"
+    "public Reply HandleCall(Request request, term from, int state)\n"
     "HandleCall(:get, from, state)      -> (:reply, state, state)\n"
     "HandleCall((:add, n), from, state) -> (:reply, state + n, state + n)\n"
-    "(:noreply, int) HandleCast(term msg, int state)\n"
+    "public (:noreply, int) HandleCast(term msg, int state)\n"
     "HandleCast(msg, state) -> (:noreply, state)\n".
 
 behaviour_decl_emits_the_attribute_test() ->
@@ -79,7 +79,7 @@ the_spec_follows_the_lowered_name_test() ->
 %% ordinary function and keeps its spelling.
 without_a_behaviour_the_name_is_untouched_test() ->
     M = build_and_load("module Plain\n"
-                       "atom HandleCall(term a, term b, term c)\n"
+                       "public atom HandleCall(term a, term b, term c)\n"
                        "HandleCall(a, b, c) -> :ok\n", 'Plain'),
     ?assert(lists:member({'HandleCall', 3}, M:module_info(exports))),
     ?assertNot(lists:member({handle_call, 3}, M:module_info(exports))).
@@ -107,9 +107,9 @@ arity_is_part_of_the_callback_key_test() ->
 a_callback_of_another_behaviour_is_untouched_test() ->
     M = build_and_load("module Sup2\n"
                        "behaviour Supervisor\n"
-                       "(:ok, int) Init(term args)\n"
+                       "public (:ok, int) Init(term args)\n"
                        "Init(args) -> (:ok, 0)\n"
-                       "atom HandleCall(term a, term b, term c)\n"
+                       "public atom HandleCall(term a, term b, term c)\n"
                        "HandleCall(a, b, c) -> :not_a_supervisor_callback\n", 'Sup2'),
     Exports = M:module_info(exports),
     ?assert(lists:member({init, 1}, Exports)),
@@ -121,7 +121,7 @@ a_callback_of_another_behaviour_is_untouched_test() ->
 %% time, which is the quiet direction.
 a_local_call_uses_the_lowered_name_test() ->
     M = build_and_load(counter_src() ++
-                       "Reply Ask(int state)\n"
+                       "public Reply Ask(int state)\n"
                        "Ask(state) -> HandleCall(:get, :nobody, state)\n", 'Counter'),
     ?assertEqual({reply, 9, 9}, M:'Ask'(9)).
 
@@ -134,7 +134,7 @@ a_local_call_uses_the_lowered_name_test() ->
 a_missing_mandatory_callback_is_an_error_test() ->
     Src = "module Half\n"
           "behaviour GenServer\n"
-          "(:ok, int) Init(int seed)\n"
+          "public (:ok, int) Init(int seed)\n"
           "Init(seed) -> (:ok, seed)\n",
     ?assertError({behaviour_not_satisfied, _, 'GenServer', _}, check_only(Src)).
 
@@ -143,7 +143,7 @@ a_missing_mandatory_callback_is_an_error_test() ->
 the_error_names_the_missing_callbacks_in_bs_spelling_test() ->
     Src = "module Half\n"
           "behaviour GenServer\n"
-          "(:ok, int) Init(int seed)\n"
+          "public (:ok, int) Init(int seed)\n"
           "Init(seed) -> (:ok, seed)\n",
     try check_only(Src) of
         _ -> ?assert(false)
@@ -161,23 +161,23 @@ an_optional_callback_is_not_demanded_test() ->
 a_supervisor_needs_only_init_test() ->
     M = build_and_load("module Sup\n"
                        "behaviour Supervisor\n"
-                       "(:ok, int) Init(term args)\n"
+                       "public (:ok, int) Init(term args)\n"
                        "Init(args) -> (:ok, 0)\n", 'Sup'),
     ?assert(lists:member({init, 1}, M:module_info(exports))).
 
 an_unknown_behaviour_is_named_test() ->
     ?assertError({unknown_behaviour, 'GenBanana'},
-                 check_only("module B\nbehaviour GenBanana\natom F()\nF() -> :ok\n")).
+                 check_only("module B\nbehaviour GenBanana\npublic atom F()\nF() -> :ok\n")).
 
 %% `term` contains every tuple. Without a tuple top, a tuple pattern over a
 %% `term` parameter was reported unreachable — which made the OTP callback shape
 %% unwritable, since `handle_cast` and `handle_info` both take one.
 a_tuple_pattern_over_term_is_reachable_test() ->
-    Src = "module T\natom F(term x)\nF((:add, n)) -> :tuple\nF(_) -> :other\n",
+    Src = "module T\npublic atom F(term x)\nF((:add, n)) -> :tuple\nF(_) -> :other\n",
     ?assertMatch({ok, _, []}, check_only(Src)).
 
 %% ...and a catch-all still removes every tuple, so this stays exhaustive.
 a_catch_all_still_covers_every_tuple_test() ->
-    Src = "module T\natom F(term x)\nF(_) -> :other\n",
+    Src = "module T\npublic atom F(term x)\nF(_) -> :other\n",
     ?assertMatch({ok, _, []}, check_only(Src)).
 
