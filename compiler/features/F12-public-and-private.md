@@ -1,6 +1,6 @@
 # F12 — `public` / `private` at the signature
 
-**Status**      in progress · [ENG-222](https://linear.app/davewil/issue/ENG-222)
+**Status**      **done 2026-08-17** · [ENG-222](https://linear.app/davewil/issue/ENG-222)
 **Implements**  [ticket 40](../../wayfinder/issues/40-module-and-namespace-system.md) §3, resolved
                 2026-08-15 — decides nothing
 **Unblocks**    no exemplar. It closes the last open section of ticket 40, and it is the **last
@@ -156,6 +156,52 @@ grammars land together.
   case hiding in the FFI.
 - **`index.bs`.** It may hold no functions at all (F15's `function_in_index`), so no marker.
 - **Whether the filename fixes the exported name** — ticket 40 §2's sub-question, still open.
+- **A module in which every function is private.** Legal B# after this feature, and it produces an
+  empty export list — so `bs_run:resolve_without_name/4` falls to `{error, {ambiguous, []}}` and
+  prints *"the module exports "* with nothing after it. No corpus file reaches it, because every
+  module keeps its entry points public. Recorded rather than checked: a module that offers nothing
+  is a thing a person may legitimately write on the way to writing the rest of it, and a compiler
+  that refused it would be refusing a draft.
+
+## What the building revealed
+
+**A pattern site was missed and nothing reported it.** The AST tuple grew a field, seven pattern
+sites in `bs_check` were widened, and one — `callees/3` — was not. An unmatched comprehension
+pattern is **not a compile error in Erlang**, so the checker silently collected *no local callees at
+all* and every call in every module became `unknown_callee`. The suite caught it, 273 tests red; the
+compiler said nothing. That is the same shape as the `maps:from_list/1` defect F11 found one
+namespace along, and the general rule is worth stating once: **widening a tuple is a change the
+compiler cannot check for you**, so the sites must be enumerated by grep and re-grepped afterwards.
+
+**`erlc` deletes an unexported function that nothing calls.** Measured 2026-08-17:
+`function 'Half'/1 is unused` is a warning, and the function is then **absent from
+`module_info(functions)`**. So the runner's privacy diagnosis — which reads exactly that list —
+falls back to *"no such function"* for a private function that is genuinely dead, which is the true
+sentence for it. Every private function in the corpus is called, so this is the rare path. Two
+things follow: the first REPL fixture written for it did not call its private function and therefore
+tested the fallback **while looking like it tested the feature**, and F12 gets dead-private-code
+detection for free from a compiler that was going to warn anyway.
+
+**And the prompt found it, for the sixth feature running.** F4, F5, F7, F11 and F15 each tripped
+over something at `ibs`; this is the first to arrive with tests, and the first where what the prompt
+found was a limit of the mechanism rather than a defect in it.
+
+**The map tag was hiding the surface.** Ticket 40 was tagged `modules` `codegen`, and
+`check-surface.sh` selects on `syntax` or `patterns` — so the decision that puts a keyword on every
+signature in the language was never asked for a `LANGUAGE.md` paragraph. This feature could have
+rewritten all 32 `.bs` files with the reference silent and every gate green. **A gate that selects
+on tags is only as good as the tagging**, and a tag is applied when a decision is *made*, before
+anyone has built the thing that shows which surfaces it touches. Three sections in 40 and only §3
+changes the surface — which is how a multi-section ticket comes to be tagged by its majority.
+
+**`LANGUAGE.md` owed twelve blocks, not one paragraph.** The gate compiles every untagged block, and
+every signature in every one of them needed a marker — plus two inside `<!-- check: -->` preambles,
+which are source the gate compiles and the rendered page hides. The `not-yet` blocks were marked
+too, on this file's own argument: a `not-yet` block **is** the clean-room spec.
+
+**The exemplars must not be edited where they live.** All 17 carry *"EXTRACTED — do not edit here"*
+and CI diffs them byte-for-byte against `wayfinder/prototypes/25{a,b,c}-*.md`. The obvious place to
+work is the one that turns a gate red.
 
 ## Done when
 

@@ -100,10 +100,43 @@ Erlang back to the decision that required it is one grep.
 | [F9 — `string` and `binary` as values](F9-strings-and-binaries.md) | **done 2026-08-15** | the `string` **fields** in all three, `list<string>`; **not** I/O |
 | [F10 — OTP callbacks](F10-otp-callbacks.md) | **done 2026-08-15** | **`bin/spec-check.sh`**; the `behaviour` half of 25b, 25c |
 | [F11 — the module system](F11-module-system.md) | **done 2026-08-17** | the collection library; the **imports** row that blocks all three exemplars. It also turned `check-corpus.sh` green for the first time since F9 |
-| [F12 — `public` / `private`](F12-public-and-private.md) | **in progress** · [ENG-222](https://linear.app/davewil/issue/ENG-222) | nothing — it closes 40 §3 and rewrites all **32** `.bs` files |
+| [F12 — `public` / `private`](F12-public-and-private.md) | **done 2026-08-17** · [ENG-222](https://linear.app/davewil/issue/ENG-222) | nothing — it closed 40 §3, and it was the last whole-corpus rewrite the language had queued |
 | F13 — binary patterns | not started, **blocked** — ticket 30 is open | 25b, 25c |
 | F14 — pipe and valve | not started | 25b, 25c |
 | [F15 — a module is a directory](F15-module-is-a-directory.md) | **done 2026-08-17** | the *other* half of the module system; `index.bs`, and 41 §4/§5's two checks — both now built |
+
+**F12 IS BUILT, AND WHAT IT REVEALED IS THAT A GATE IS ONLY AS GOOD AS ITS TAGGING — 2026-08-17.**
+`public`/`private` sits on every signature in the repo, `'Fib'.beam` exports `Fib/1` and nothing
+else, and ticket 40 is closed. Ten gates, 302 tests, 66 corpus signatures of which **18 are
+private**.
+
+**The finding is a tag, and it is worth more than the feature.** Ticket 40 was tagged `modules`
+`codegen`. `check-surface.sh` selects on `syntax` or `patterns` — so **the one decision that puts a
+keyword on every signature in the language was never asked for a `LANGUAGE.md` paragraph**, and this
+feature could have rewritten all 32 `.bs` files with the reference silent and every gate green. That
+is this file's own recurring subject arriving by a new route: not a gate that stopped looking (F11,
+F15) but one that was never pointed at the thing. **A tag is applied when a decision is made** —
+before anyone has built what would show which surfaces it touches — so the question at tagging time
+is not *what is this decision about* but *would a reader of `LANGUAGE.md` see a difference*. Three
+sections in 40, only §3 changes the surface: that is how a multi-section ticket gets tagged by its
+majority.
+
+**A whole-corpus rewrite is where an anchored probe dies quietly.** `corpus_tests.erl`'s
+`{"bool as a declared type", "^bool "}` had **exactly one match in the corpus**, on a signature line,
+and the marker moved it. The probe would have gone on asking the right question and matching
+nothing. Every `^`-anchored probe in that roster is a hostage to any change at the start of a line,
+and this is the second time the roster has needed attention in two features.
+
+**Erlang will not tell you a tuple grew.** Seven `{signature, …}` pattern sites were widened and one
+was missed; an unmatched comprehension pattern is not a compile error, so the checker collected *no
+local callees at all* and every call became `unknown_callee`. 273 tests found it and the compiler
+found none of it.
+
+**And `erlc` deletes an unexported function nothing calls** — so a *dead* private function is not in
+the beam and `module_info(functions)` cannot report it. The first REPL fixture written for that
+diagnosis did not call its private function, and therefore tested the fallback while looking like it
+tested the feature. Sixth feature running to find something at the `ibs` prompt, and the first to
+arrive there with tests rather than fix it without them.
 
 **F15 IS BUILT, AND WHAT IT REVEALED IS A GATE THAT HAD STOPPED LOOKING — 2026-08-17.** A module is
 a directory: `bsc --src-root examples examples/Shop/Reports Restate 3` prints `9`, both owed checks
