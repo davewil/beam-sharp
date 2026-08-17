@@ -102,9 +102,7 @@ check_dir(Sources, World, Expect) ->
     Imports = import_env(Decls, Module, World),
     Ctx = #ctx{types = Env, callees = callees(Decls, Env, Imports),
                imports = Imports},
-    Tagged = lists:append(
-               [[{P, D} || F <- Fs, {_, Ds} <- [check_fn(F, Ctx)], D <- Ds]
-                || {P, Fs} <- PerFile]),
+    Tagged = lists:append([check_file(P, Fs, Ctx) || {P, Fs} <- PerFile]),
     case [D || {_, D} <- Tagged, element(1, D) =:= error] of
         []     -> {ok, #{module => Module, functions => Fns, env => Env,
                          %% F15 — what the emitter needs in order to put a
@@ -134,6 +132,31 @@ check_dir(Sources, World, Expect) ->
                          %% failure `name/2`'s single funnel exists to prevent.
                          remote_names => remote_names(World)}, Tagged};
         _Fatal -> {error, Tagged}
+    end.
+
+%% One file's functions, with anything RAISED out of them tagged with that file.
+%%
+%% The returned diagnostics get their path from the loop above, and that was only
+%% half the job: a handful of conditions are signalled by raising rather than by
+%% returning, and those were reported against the module's first file — which is
+%% `index.bs` whenever there is one.
+%%
+%% FOUND BY RUNNING THE REPL, not by the suite. `Counted.bs:4` calling a module it
+%% had not imported was reported as `index.bs:4`, and `index.bs` was three lines
+%% long. A diagnostic pointing at a line that does not exist in the file it names
+%% is worse than no file at all, and it is the same wrong-file failure the
+%% per-file function pass exists to prevent — reappearing one code path along,
+%% which is where this project keeps finding its bugs.
+%% Not wrapped when there is no path — `undefined` names nothing, so tagging with
+%% it would only put a layer between the caller and the condition it is matching
+%% on. `check/2`'s callers get the bare tuple exactly as they did.
+check_file(undefined, Fns, Ctx) ->
+    [{undefined, D} || F <- Fns, {_, Ds} <- [check_fn(F, Ctx)], D <- Ds];
+check_file(Path, Fns, Ctx) ->
+    try [{Path, D} || F <- Fns, {_, Ds} <- [check_fn(F, Ctx)], D <- Ds]
+    catch
+        error:Reason when is_tuple(Reason), element(1, Reason) =/= in_file ->
+            erlang:error({in_file, Path, Reason})
     end.
 
 %%% ---------------------------------------------------------------------------

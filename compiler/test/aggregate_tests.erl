@@ -313,6 +313,24 @@ a_diagnostic_names_its_own_file_under_arity_overloading_test() ->
     has(Out, Dir ++ "/One.bs:2"),
     has(Out, Dir ++ "/Two.bs:4").
 
+%% ...AND THE SAME IS TRUE OF THE ERRORS THAT ARE RAISED RATHER THAN RETURNED.
+%%
+%% Found at the `ibs` prompt, not by the suite. A handful of conditions are
+%% signalled by raising, below the level that carries a function name, and those
+%% were reported against the module's FIRST file — which is `index.bs` whenever
+%% there is one. A call to an unimported module in `Go.bs:6` came back as
+%% `index.bs:6`, and `index.bs` was three lines long: a diagnostic pointing at a
+%% line that does not exist in the file it names.
+a_raised_error_names_its_own_file_too_test() ->
+    {_, Dir, Out} = compile_dir([{"index.bs", "module M\n"},
+                                 {"Go.bs", "module M\n"
+                                           "\n\n\n"
+                                           "int Go(int n)\n"
+                                           "Go(n) -> Nope.Thing(n)\n"}]),
+    bad_rc(Out),
+    has(Out, Dir ++ "/Go.bs:6"),
+    ?assertEqual(nomatch, string:find(Out, "index.bs:")).
+
 %%% ---------------------------------------------------------------------------
 %%% F15.2 — naming a file means the same as naming its directory
 %%% ---------------------------------------------------------------------------
