@@ -74,8 +74,19 @@ build-tool boundary in advance and named this input:
 
 F15 is that moment, and §3 wrote the sentence so a future session would notice it. `bsc` gaining
 `--src-root` is the compiler **accepting an input the ticket already specified**, not this feature
-deciding anything. Default is the current directory. The module path is the dirname taken relative
-to the root, segments joined with `.`.
+deciding anything. The module path is the dirname taken relative to the root, segments joined
+with `.`.
+
+**The default root is the module directory's own parent**, which makes a single-segment module need
+no flag (`bsc examples/Fib` checks `Fib` against `module Fib`) and makes a multi-segment one
+**fail loudly** until a root is named — `bsc examples/Shop/Reports` defaults to a root of
+`examples/Shop`, expects `module Reports`, finds `module Shop.Reports` and says so. That is the
+right shape for a default: it is never silently weaker than the explicit form, it teaches the flag
+at the moment the flag is needed, and it never quietly accepts a path the flag would reject.
+
+**The cwd was the other candidate and it is worse**, because every gate and test in this repo runs
+from a directory that is not the source root — CI runs from `compiler/`, so `examples/Fib` would
+have to declare `module examples.Fib`.
 
 ## Scenarios
 
@@ -91,7 +102,10 @@ to the root, segments joined with `.`.
 | F15.8 | `Shop/` holding only directories | classified a **namespace** — no atom, no `.beam`, nothing emitted (41 §5) | 0 |
 | F15.9 | a runtime crash in `Total.bs` of an aggregate | the stack names `Total.bs` and its line, not the aggregate — 13 §3, measured in `13b` | — |
 | F15.10 | `Shop/Orders/` with no `index.bs`, holding `Total.bs` | **accepted** — §5's test is `.bs` files present, not `index.bs` present (see the wording drift below) | 0 |
-| F15.11 | the whole `examples/` corpus after the rewrite | every module compiles and runs; the examples gate loops over **directories** | 0 |
+| F15.11 | `Shop/` holding `.bs` files **and** `Shop/Collections/List/` holding `.bs` files | **two modules** — `Shop` and `Shop.Collections.List`, with `Shop/Collections/` a namespace between them. §5's classification is per-directory and total | 0 |
+| F15.12 | a diagnostic on `Length/2` where `Length/1` and `Length/2` are in **different files** of one directory | names `Length2.bs` — the file the clause is actually in | 1 |
+| F15.13 | a sibling file with **no** `module` declaration | the two existing defaults disagree today; F15 makes them agree (see below) | — |
+| F15.14 | the whole `examples/` **and** `aoc/` corpora after the rewrite | every module compiles and runs; both gates loop over **directories** | 0 |
 
 ## The corpus rewrite is a scenario, not cleanup
 
@@ -103,9 +117,19 @@ F15 cannot compile its own corpus without it, and the reason is sharper than "30
   (`module Shop.Reports`) — **two modules in one directory, already illegal** under the rule this
   feature builds. F11 shipped it because nothing yet said it was wrong. F15.4 is that check.
 
+- **`aoc/` is a second corpus and it is worse**, which F8 already had to learn once. All three of
+  its files declare `module Day01` — `aoc/2019/day01/day01.bs`, `aoc/2025/day01/day01.bs` and
+  `aoc/bench/bench_bs.bs` — and not one sits in a directory that matches. Two are `day01` against
+  `Day01` (a case difference, which is a mismatch), and the third is in `bench/`. `bsc.erl:159-165`
+  names this file exactly, as the reason it refused to infer a module name from a path:
+  *"the repo's own files do not keep that correspondence — `aoc/2019/day01/day01.bs` declares
+  `module Day01` — and inventing a filename rule is ticket 41 §5's `module_path_mismatch`, which
+  belongs with the directory-as-module work."* This is that work.
+
 This is the F12 shape the features README flagged and the F8 precedent it cites: a whole-corpus
 rewrite is its own increment, done deliberately with an id, not a diff that rides along behind the
-checks.
+checks. **The moves and the content edits are separate commits**, because eleven `git mv`s mixed
+with content changes is an unreviewable diff.
 
 ## The examples gate changes what it covers, and that is stated rather than incidental
 
@@ -122,9 +146,49 @@ Under aggregation that is wrong rather than merely outdated — a per-file invoc
 arriving unannounced in a diff. The `exemplars/` prune stays exactly as it is and for the same
 reason.
 
+**And it is not one loop, it is four.** Three of them compile:
+
+| Walker | What it does today | Under F15 |
+|---|---|---|
+| CI `Examples compile and run` | `find examples … -name '*.bs'`, one `bsc` per file | one `bsc` per **directory** |
+| `body_check_tests:every_example_still_compiles_test` | `file:list_dir` of `examples`, **top level only**, `bsc:file_to_dir/2` per file | per directory — and it never saw `collections/` at all |
+| `body_check_tests:every_aoc_program_still_compiles_test` | `aoc/**/*.bs`, `bsc:file_to_dir/2` per file | per directory, with a root per year |
+| `corpus_tests:every_shipped_surface_form_has_an_example_test` | reads file **text** to probe for surface forms | unaffected by aggregation; the paths in it move |
+
+Note the second row: the examples gate that runs in eunit lists only the *top level*, so
+`examples/collections/` — F11's only multi-module example — was outside it. CI's step recursed and
+eunit's did not. Squaring them is F15's, because F15 is what makes the distinction matter.
+
+**The exemplar exclusion is spelled two ways in two places** — `-path examples/exemplars -prune` in
+CI and `string:find(P, "/exemplars/") =:= nomatch` in `corpus_tests` — which is one drift away from
+a gate that prunes nothing. F15 does not unify them (that is not its job) but records it here,
+because `parse_quietly/1` is the *only* reason the three `index.bs` files are invisible to the
+source index today, and F15 is the feature most likely to make them parse.
+
+## Three things reading the compiler found, before a line of it was changed
+
+**`compile_only/2` is not a map over a file list, and its own comment says it is.** The comment at
+`bsc.erl:74-77` describes the code as it stood *before* F11; today it delegates to `compile_set/2`,
+a dependency-ordered fold carrying a `World` accumulator. A plan written against the comment would
+have been a plan against code that no longer exists.
+
+**`bs_emit` emits no `file` attribute at all**, and a comment at `bs_emit.erl:434` says ticket 13
+*"keeps per-file `file` attributes precisely so crashes point at the right `.bs`"*. It describes an
+intention. The technique is real and measured — in the **prototype**, `13b`, and nowhere in `src/`.
+F15.9 is where it stops being a comment.
+
+**Two defaults for a missing `module` line disagree**, and directory-as-module is what makes it
+bite. `bsc.erl:184-188`'s `module_of/1` returns `undefined` and the file is then **silently dropped
+from the source index**; `bs_check.erl:121-125`'s `module_name/1` defaults to `'Main'` and the file
+is emitted under that name. Under one-file-per-module a file without a `module` line is a rarity.
+Under aggregation it is the *common case* — a sibling file next to an `index.bs` that already names
+the module. F15.13 makes the two agree: a file with no `module` declaration **inherits the module of
+its directory**, and a directory whose files declare no module at all is an error rather than
+`'Main'`. This is the likeliest source of a green check over a wrong `.beam` in the whole feature.
+
 ## A wording drift for the map, not a decision for this feature
 
-Ticket 41 §5 and §4 disagree about whether `index.bs` is **mandatory**:
+**First: is `index.bs` mandatory?** Ticket 41 §5 and §4 disagree:
 
 - §5's operative rule, stated as the classification test: *"a directory containing `.bs` files is a
   module"*.
@@ -134,6 +198,30 @@ Ticket 41 §5 and §4 disagree about whether `index.bs` is **mandatory**:
 F15 builds §5's version — `.bs` files present ⇒ module — because that is the one written as the
 test, and F15.10 pins it. **This feature does not settle the other**; it is recorded here so the map
 can, and so a later reader does not take F15's choice for a decision it never made.
+
+**Second, and sharper: what is a "sub-module"?** 41 §5 glosses ticket 13 as having *"made a
+directory inside a module a source-only sub-module"*. Read that way, a module directory holding
+another module directory is one aggregate and one `.beam`, which contradicts §5's own rule that a
+directory holding `.bs` files **is** a module.
+
+**The gloss is the imprecise half, and 13's own measurement settles it.** 13 §3's observed output
+is two *files* in one beam:
+
+```erlang
+total/1 crash: {'Shop.Orders.Order',total,[99],[{file,"Order/Total.bs"},{line,42}]}
+apply/1 crash: {'Shop.Orders.Order',apply,[99],[{file,"Order/Apply.bs"},{line,7}]}
+```
+
+`Order/` there is the **module directory** — atom `'Shop.Orders.Order'` — and `Total.bs` and
+`Apply.bs` are the sub-modules aggregating into it. 13's sub-module is a **file**, not a
+subdirectory, so "one `.beam` per aggregate" and "one `.beam` per directory" are the same sentence
+and there is no conflict to resolve.
+
+So F15 builds §5's classification as **per-directory and total**, and F15.11 pins it rather than
+leaving it to whatever falls out of a glob. The corpus then *exercises* the mixed case instead of
+dodging it: `examples/Shop/` holds `.bs` files and a `Collections/` subdirectory, `Collections/`
+holds only directories and is therefore a namespace, and `Collections/List/` is a module again.
+That is all three tiers of 41 §5 in one path, runnable.
 
 ## Out of scope
 
@@ -151,10 +239,18 @@ can, and so a later reader does not take F15's choice for a decision it never ma
 
 ## Done when
 
-`bsc --src-root examples Shop/Orders` compiles a multi-file directory into one `.beam` whose
-functions report crashes against their own source files; both owed checks fire with the specified
-tuples; the whole `examples/` corpus is rewritten into directories and compiles and runs; and every
-gate stays green with the examples step looping over directories.
+`bsc --src-root examples examples/Shop/Reports` compiles a multi-file directory into one `.beam`
+whose functions report crashes against their own source files; both owed checks fire with the
+specified tuples; **both** the `examples/` and `aoc/` corpora are rewritten into directories and
+compile and run; and every gate stays green with all three compiling walkers looping over
+directories.
+
+**A diagnostic must name the file the clause is in** (F15.12), not the directory and not the first
+file in it. The diagnostic 4-tuple `{error, Line, FnName, Descriptor}` carries a name and no arity,
+so under 40 §2's arity overloading a `{Name, Arity} -> Path` lookup cannot answer it — and
+`examples/collections/List.bs` **already** has `Length/1` beside `Length/2`. A lossy lookup here
+points a human at the wrong file while every check stays green, which is this project's recorded
+worst failure shape and has now appeared four times. The path travels with the declaration.
 
 **And the REPL must be exercised by hand — again.** F11's own "Done when" records that `bs_repl`
 appears zero times in the suite and that five features in a row found a hole at the `ibs` prompt.
