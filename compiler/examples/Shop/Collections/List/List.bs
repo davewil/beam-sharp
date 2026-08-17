@@ -7,11 +7,11 @@
 //
 module Shop.Collections.List
 
-int Sum(list<int> xs, int acc)
+public int Sum(list<int> xs, int acc)
 Sum([], acc)          -> acc
 Sum([x, ..rest], acc) -> Sum(rest, acc + x)
 
-int Length(list<int> xs, int acc)
+private int Length(list<int> xs, int acc)
 Length([], acc)          -> acc
 Length([x, ..rest], acc) -> Length(rest, acc + 1)
 
@@ -19,5 +19,5 @@ Length([x, ..rest], acc) -> Length(rest, acc + 1)
 // unmodified. `Length/2` above and `Length/1` here are two functions, and before
 // F11 the checker could not represent that: callees were keyed by name alone, so
 // `maps:from_list/1` kept whichever was written last.
-int Length(list<int> xs)
+public int Length(list<int> xs)
 Length(xs) -> Length(xs, 0)

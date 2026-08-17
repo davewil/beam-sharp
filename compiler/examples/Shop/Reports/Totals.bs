@@ -18,18 +18,18 @@ using Shop.Collections.List
 // naming, not a thing that exists at run time.
 using Shop.Collections
 
-int Restate(int n)
+public int Restate(int n)
 // `Sum` unqualified, through the module-tier import. It resolves at CHECK time
 // and emits a remote call to 'Shop.Collections.List' — the resolution never
 // happens at run time.
 Restate(n) -> Sum([n, n, n], 0)
 
-int Counted(int n)
+public int Counted(int n)
 // The same callee named through the namespace tier instead. `List` here is short
 // for `Shop.Collections.List`, resolved through the module table.
 Counted(n) -> List.Length([n, n])
 
-int Fully(int n)
+public int Fully(int n)
 // And fully qualified, which is legal regardless of what is in scope — which is
 // exactly why 41 §2 can require every DIAGNOSTIC to print this form and never
 // have to know the call site's scope.

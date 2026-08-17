@@ -33,12 +33,12 @@ using :erlang {
 // The dial has 100 positions, so every arithmetic result comes back through
 // here. Two `rem`s because the first can be negative: `rem` truncates toward
 // zero, so `-18 rem 100` is `-18` and the `+ 100` is what makes it 82.
-int Wrap(int n)
+private int Wrap(int n)
 Wrap(n) -> :erlang.rem(:erlang.rem(n, 100) + 100, 100)
 
 // A dial reading is 0 or it is not, and that is the whole of the question the
 // puzzle asks of it. Two clauses, exhaustive over `int`.
-int Hit(int pos)
+private int Hit(int pos)
 Hit(0) -> 1
 Hit(n) -> 0
 
@@ -47,13 +47,13 @@ Hit(n) -> 0
 // The delta is already signed, so a whole rotation is one wrap. No simulation
 // is needed to answer part one, and doing it this way keeps the two parts
 // honestly different rather than one being the other with a flag.
-int Ends(list<int> rotations, int pos, int zeros)
+private int Ends(list<int> rotations, int pos, int zeros)
 Ends([], pos, zeros)          -> zeros
 Ends([d, ..rest], pos, zeros) ->
     var next = Wrap(pos + d)
     Ends(rest, next, zeros + Hit(next))
 
-int PartOne(list<int> rotations)
+public int PartOne(list<int> rotations)
 PartOne(rs) -> Ends(rs, 50, 0)
 
 // --- part two: every CLICK ---------------------------------------------------
@@ -64,7 +64,7 @@ PartOne(rs) -> Ends(rs, 50, 0)
 //
 // `Step` is the direction, `left` the clicks remaining. It returns the position
 // AND the running count, which is what a tuple is for.
-(int, int) Spin(int pos, int step, int left, int zeros)
+private (int, int) Spin(int pos, int step, int left, int zeros)
 Spin(pos, step, 0, zeros)              -> (pos, zeros)
 Spin(pos, step, left, zeros) when left > 0 ->
     var next = Wrap(pos + step)
@@ -73,20 +73,20 @@ Spin(pos, step, left, zeros) when left < 0 -> (pos, zeros)
 
 // A signed delta splits into a direction and a click count. `Sign` and `Size`
 // are separate so neither needs a division.
-int Sign(int d)
+private int Sign(int d)
 Sign(0) -> 1
 Sign(d) when d > 0 -> 1
 Sign(d) when d < 0 -> -1
 
-int Size(int d)
+private int Size(int d)
 Size(d) when d >= 0 -> d
 Size(d) when d < 0  -> -d
 
-int Clicks(list<int> rotations, int pos, int zeros)
+private int Clicks(list<int> rotations, int pos, int zeros)
 Clicks([], pos, zeros)          -> zeros
 Clicks([d, ..rest], pos, zeros) ->
     var (next, hits) = Spin(pos, Sign(d), Size(d), zeros)
     Clicks(rest, next, hits)
 
-int PartTwo(list<int> rotations)
+public int PartTwo(list<int> rotations)
 PartTwo(rs) -> Clicks(rs, 50, 0)

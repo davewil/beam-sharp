@@ -8,32 +8,32 @@ using :erlang {
     int rem(int a, int b)
 }
 
-int Wrap(int n)
+private int Wrap(int n)
 Wrap(n) -> :erlang.rem(:erlang.rem(n, 100) + 100, 100)
 
-int Hit(int pos)
+private int Hit(int pos)
 Hit(0) -> 1
 Hit(n) -> 0
 
-(int, int) Spin(int pos, int step, int left, int zeros)
+private (int, int) Spin(int pos, int step, int left, int zeros)
 Spin(pos, step, 0, zeros) -> (pos, zeros)
 Spin(pos, step, left, zeros) ->
     var next = Wrap(pos + step)
     Spin(next, step, left - 1, zeros + Hit(next))
 
-int Sign(int d)
+private int Sign(int d)
 Sign(d) when d < 0 -> -1
 Sign(d) when d >= 0 -> 1
 
-int Size(int d)
+private int Size(int d)
 Size(d) when d < 0  -> -d
 Size(d) when d >= 0 -> d
 
-int Clicks(list<int> rotations, int pos, int zeros)
+private int Clicks(list<int> rotations, int pos, int zeros)
 Clicks([], pos, zeros)          -> zeros
 Clicks([d, ..rest], pos, zeros) ->
     var (next, hits) = Spin(pos, Sign(d), Size(d), zeros)
     Clicks(rest, next, hits)
 
-int PartTwo(list<int> rotations)
+public int PartTwo(list<int> rotations)
 PartTwo(rs) -> Clicks(rs, 50, 0)

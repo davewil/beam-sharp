@@ -18,14 +18,14 @@ record Parcel { Id: int, Note: option<int> }
 // together cover `int | (:error, atom)`. Drop the first and the residual is
 // `Grade((:error, e))` — the bracket produces a type the residual printer
 // already knows how to talk about.
-atom Grade(Weighed w)
+public atom Grade(Weighed w)
 Grade((:error, e))     -> e
 Grade(n) when n > 1000 -> :heavy
 Grade(n)               -> :light
 
 // `option<int>` in a record field is what ticket 26 §4's "there are no absent
 // fields" costs: absence is a value, so it is matched rather than tested for.
-int Weigh(Parcel p)
+public int Weigh(Parcel p)
 Weigh({ Note: :nothing }) -> 0
 Weigh(p)                  -> p.Note
 
@@ -35,5 +35,5 @@ Weigh(p)                  -> p.Note
 // `Span<int>` simply IS `(int, int)`.
 type Span<T> = (T, T)
 
-int Width(Span<int> s)
+public int Width(Span<int> s)
 Width((lo, hi)) -> hi - lo

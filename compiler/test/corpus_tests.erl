@@ -80,7 +80,17 @@ demonstrated_surface() ->
      %% names is actually satisfied — which is exactly the state that kept
      %% `spec-check.sh` red.
      {"an OTP callback",                         "^HandleCast\\("},
-     {"bool as a declared type",                 "^bool "},
+     %% F12 moved this probe's anchor rather than its meaning. Every signature
+     %% now opens with a visibility marker, so `^bool ` matched nothing — and it
+     %% had exactly ONE match in the corpus, which is how a mechanical rewrite
+     %% can silently empty a probe that is still asking the right question.
+     {"bool as a declared type",                 "^(public|private) bool "},
+     %% F12 / ticket 40 §3. Two rows, because they are two sentences: that a
+     %% function can be exported and that one can be withheld. The second is the
+     %% one worth gating — a corpus marked `public` throughout would pass every
+     %% other gate in this repo and demonstrate nothing.
+     {"a public function",                       "^public "},
+     {"a private function",                      "^private "},
      {"an atom literal",                         ":[a-z]"},
      %% F7. Four rows, because a switch, a tuple subject, a guarded arm and the
      %% keyword atoms are four sentences about the language and not one — and the

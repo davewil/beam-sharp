@@ -16,29 +16,29 @@ module Label
 // and checked UTF-8 at compile time, so nothing is validated at run time and the
 // language does not pay per literal — which is the sentence that makes strings
 // affordable at all.
-string Greeting()
+public string Greeting()
 
 Greeting() -> "hello"
 
 // Non-ASCII is the case that hides. This is six bytes, not five, and the
 // compiler's own emitter got it wrong until a test counted them.
-string Accented()
+public string Accented()
 
 Accented() -> "héllo"
 
 // A record field, which is what all three exemplars are waiting for.
 record Tag { Name: string, Weight: int }
 
-Tag Sample()
+public Tag Sample()
 
 Sample() -> Tag { Name = "parcel", Weight = 1200 }
 
-string NameOf(Tag t)
+public string NameOf(Tag t)
 
 NameOf(t) -> t.Name
 
 // `list<string>` — the other half of the row the exemplars fail on.
-list<string> Names()
+public list<string> Names()
 
 Names() -> ["alpha", "beta", "gamma"]
 
@@ -46,7 +46,7 @@ Names() -> ["alpha", "beta", "gamma"]
 // The reverse is rejected, and that rejection is in the test suite rather than
 // here: every example in this directory must compile, so no file can demonstrate
 // a refusal.
-binary Raw()
+public binary Raw()
 
 Raw() -> "hello"
 
@@ -58,6 +58,6 @@ using :erlang {
     int byte_size(binary b)
 }
 
-int Width()
+public int Width()
 
 Width() -> :erlang.byte_size("héllo")

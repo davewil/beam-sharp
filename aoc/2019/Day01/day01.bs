@@ -30,17 +30,17 @@ using :erlang {
 
 // Part one, per module. `div` truncates toward zero, which is floor for the
 // positive masses the puzzle supplies.
-int Fuel(int mass)
+public int Fuel(int mass)
 Fuel(m) -> :erlang.div(m, 3) - 2
 
 // The fold, written as the language wants it: two clauses, one per list shape,
 // exhaustive with no catch-all. `[]` covers the empty list and `[m, ..rest]`
 // covers the non-empty one, which is the whole of `list<int>`.
-int Total(list<int> masses, int acc)
+private int Total(list<int> masses, int acc)
 Total([], acc)          -> acc
 Total([m, ..rest], acc) -> Total(rest, acc + Fuel(m))
 
-int Sum(list<int> masses)
+public int Sum(list<int> masses)
 Sum(ms) -> Total(ms, 0)
 
 // --- part two: fuel for the fuel, until it stops needing any ----------------
@@ -50,13 +50,13 @@ Sum(ms) -> Total(ms, 0)
 // `div(m, 3) - 2` is at most 0 exactly when m is at most 8. The checker credits
 // `m <= 8` as an interval refinement (ticket 08, ticket 20), so the two clauses
 // are exhaustive over `int` with no catch-all — the same property `math.bs` has.
-int FuelAll(int mass)
+public int FuelAll(int mass)
 FuelAll(m) when m <= 8 -> 0
 FuelAll(m)             -> Fuel(m) + FuelAll(Fuel(m))
 
-int TotalAll(list<int> masses, int acc)
+private int TotalAll(list<int> masses, int acc)
 TotalAll([], acc)          -> acc
 TotalAll([m, ..rest], acc) -> TotalAll(rest, acc + FuelAll(m))
 
-int SumAll(list<int> masses)
+public int SumAll(list<int> masses)
 SumAll(ms) -> TotalAll(ms, 0)

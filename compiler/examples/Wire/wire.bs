@@ -37,7 +37,7 @@ type FrameType = :method | :header | :body | :heartbeat | :reserved
 // position -- which matters here more than in C#, because this language puts
 // patterns in the parameter position and so a pattern and a guard sit one line
 // apart rather than in different constructs.
-FrameType Classify(Octet)
+public FrameType Classify(Octet)
 
 Classify(1)             -> :method
 Classify(2)             -> :header
@@ -56,7 +56,7 @@ Classify(>= 9)          -> :reserved
 // Three clauses, no catch-all, over a closed domain.
 type Size = :low | :mid | :high
 
-Size Band(Octet n)
+public Size Band(Octet n)
 
 Band(n) when n > 128 -> :high
 Band(n) when n > 64  -> :mid
@@ -65,7 +65,7 @@ Band(n) when n <= 64 -> :low
 // A span in a SWITCH ARM, because an arm is the clause head's own pattern
 // grammar one level down (F7, ticket 17 §6). Nothing here is a second
 // implementation of anything above it.
-Size Sizing(Octet n)
+public Size Sizing(Octet n)
 
 Sizing(n) -> n switch {
     >= 129           => :high,

@@ -21,14 +21,14 @@ using :lists {
     list<int> reverse(list<int> xs)
 }
 
-int Now()
+public int Now()
 
 Now() -> :erlang.system_time(:second)
 
-int Total(list<int> xs)
+public int Total(list<int> xs)
 
 Total(xs) -> :lists.sum(xs)
 
-list<int> Backwards(list<int> xs)
+public list<int> Backwards(list<int> xs)
 
 Backwards(xs) -> :lists.reverse(xs)

@@ -7,7 +7,7 @@
 // be rejected, and the author would have to weaken the last clause.
 module Math
 
-int Fib(int n)
+public int Fib(int n)
 
 Fib(n) when n <= 1 -> n
 Fib(n) when n > 1  -> Fib(n - 1) + Fib(n - 2)
@@ -16,7 +16,7 @@ Fib(n) when n > 1  -> Fib(n - 1) + Fib(n - 2)
 // rather than merely non-empty.
 type Band = :low | :mid | :high
 
-Band Classify(int n)
+public Band Classify(int n)
 
 Classify(n) when n < 10             -> :low
 Classify(n) when n >= 10 and n < 100 -> :mid
@@ -29,7 +29,7 @@ Classify(n) when n >= 100           -> :high
 // residual — irrefutability is checked, not assumed.
 //
 // `bool` is a type like any other: `:true | :false`, two atoms, no primitive.
-bool InBand(int n, (int, int) range)
+public bool InBand(int n, (int, int) range)
 
 InBand(n, range) ->
     var (lo, hi) = range
@@ -49,7 +49,7 @@ InBand(n, range) ->
 // Erlang pattern IS an equality test, so the target does the whole job. B# needs
 // a token here only because it forbids rebinding and so cannot use that rule
 // directly.
-int RunLength(int head, list<int> xs)
+public int RunLength(int head, list<int> xs)
 
 RunLength(head, [])                -> 0
 RunLength(head, [== head, ..rest]) -> 1 + RunLength(head, rest)

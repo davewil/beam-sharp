@@ -34,7 +34,7 @@ record Message { Id: int, Deliveries: int }
 // `true` and `false` are the language's two keyword atoms, so they are atoms
 // here and not variables. That distinction is load-bearing: as identifiers they
 // would match everything and the first arm would swallow the other three.
-Disposition Decide(bool ok, bool permanent, bool redelivered)
+public Disposition Decide(bool ok, bool permanent, bool redelivered)
 Decide(o, p, r) -> (o, p, r) switch {
     (true,  _,     _)     => :ack,
     (false, true,  _)     => :dead_letter,
@@ -51,7 +51,7 @@ Decide(o, p, r) -> (o, p, r) switch {
 // this file is what shows that a guard still credits. What is NOT built is the
 // nested form C# spells `{ Deliveries: > 5 }` -- a relational pattern goes where
 // a whole argument goes, and inside a record pattern you write the guard below.
-Verdict Attempt(int deliveries)
+public Verdict Attempt(int deliveries)
 Attempt(n) -> n switch {
     m when m <= 1 => :fresh,
     m when m < 5  => :retried,
@@ -61,7 +61,7 @@ Attempt(n) -> n switch {
 // The subject is any expression, not just a parameter -- which is ticket 17's
 // answer to 01b's intermediate-value friction: you can branch on a projection
 // without inventing a parameter to dispatch on.
-Disposition Route(Message m)
+public Disposition Route(Message m)
 Route(m) -> m.Deliveries switch {
     n when n < 3  => :requeue,
     n when n >= 3 => :dead_letter

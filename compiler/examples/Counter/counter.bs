@@ -13,13 +13,13 @@ behaviour GenServer
 type Request = :get | (:add, int)
 type Reply   = (:reply, int, int)
 
-(:ok, int) Init(int seed)
+public (:ok, int) Init(int seed)
 
 Init(seed) -> (:ok, seed)
 
 // Exhaustive over Request with no catch-all: the compiler proves the two
 // clauses cover `:get | (:add, int)`.
-Reply HandleCall(Request request, term from, int state)
+public Reply HandleCall(Request request, term from, int state)
 
 HandleCall(:get, from, state)      -> (:reply, state, state)
 HandleCall((:add, n), from, state) -> (:reply, state + n, state + n)
@@ -36,7 +36,7 @@ HandleCall((:add, n), from, state) -> (:reply, state + n, state + n)
 type Cast     = (:add, int) | :reset
 type NoReply  = (:noreply, int)
 
-NoReply HandleCast(Cast msg, int state)
+public NoReply HandleCast(Cast msg, int state)
 
 HandleCast((:add, n), state) -> (:noreply, state + n)
 HandleCast(:reset, state)    -> (:noreply, 0)
