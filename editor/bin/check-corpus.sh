@@ -41,7 +41,14 @@ for f in "$REPO"/compiler/examples/*.bs; do
         printf '  %-8s %s\n' "ok" "${f#"$REPO"/}"
     else
         printf '  %-8s %s\n' "ERROR" "${f#"$REPO"/}"
-        tree-sitter parse "$f" 2>&1 | grep -F ERROR | head -3 | sed 's/^/           /'
+        # `|| true` because this pipeline ABORTED THE WHOLE GATE. Under
+        # `pipefail`, `head -3` closing early gives `grep` a SIGPIPE, the
+        # pipeline exits non-zero, and `set -e` kills the script at the FIRST
+        # failing file. So a gate whose entire job is to list what the grammar
+        # rejects was listing only the first one: `label.bs` was hiding four
+        # more, and every one of them was a shipped feature the grammar had
+        # never gained.
+        tree-sitter parse "$f" 2>&1 | grep -F ERROR | head -3 | sed 's/^/           /' || true
         fail=1
     fi
 done

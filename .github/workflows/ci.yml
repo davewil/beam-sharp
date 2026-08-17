@@ -81,13 +81,23 @@ jobs:
         working-directory: compiler
         run: ./bin/check-language.sh
 
+      # RECURSIVE since F11. A multi-module capability cannot be demonstrated by
+      # a single file, so `examples/collections/` is a pair — and a top-level
+      # glob would have walked straight past it, leaving the module system's only
+      # runnable example ungated while the step still passed.
       - name: Examples compile and run
         working-directory: compiler
         run: |
-          for f in examples/*.bs; do
-            echo "  $f"
-            ./_build/default/bin/bsc -o "$(mktemp -d)" "$f"
-          done
+          # `exemplars/` is PRUNED, and that exclusion is the point of the step
+          # rather than an oversight: ticket 25's three exemplars are the
+          # compiler's target and none of them parses yet. The old top-level glob
+          # excluded them by accident; recursing without this prune turns the
+          # must-run surface into a must-fail one.
+          find examples -path examples/exemplars -prune -o -name '*.bs' -print0 |
+            while IFS= read -r -d '' f; do
+              echo "  $f"
+              ./_build/default/bin/bsc -o "$(mktemp -d)" "$f" || exit 1
+            done
 
       # Dialyzer over every emitted spec, plus two negative controls that corrupt
       # a real emitted artefact and REQUIRE the corruption to be caught — because
@@ -101,6 +111,37 @@ jobs:
       - name: Emitted specs survive Dialyzer
         working-directory: compiler
         run: ./bin/spec-check.sh
+
+      # THE TWO EDITOR GATES, WIRED IN 2026-08-17 AFTER FIVE FEATURES OF DRIFT.
+      #
+      # `editor/` was the one directory this file did not mention, and the cost
+      # was exactly what the header above predicts of an unwatched check: the
+      # tree-sitter grammar was missing string literals (F9), `and`/`or` — it
+      # still carried the REMOVED `&&`/`||` (ticket 44) — `var` (F8), `== name`
+      # (45) and `where` (F2). Five shipped features the grammar had never
+      # gained, in a repo where every compiler-facing gate was green.
+      #
+      # Worse, only ONE of the five was visible: `check-corpus.sh` aborted at its
+      # first failing file, so it reported one problem and held four. Both the
+      # abort and all five forms are fixed, which is what makes it safe to make
+      # this required rather than aspirational.
+      #
+      # `check-tokens.sh` needs nothing. `check-corpus.sh` SKIPS WITH EXIT 0 when
+      # the tree-sitter CLI is absent, so the CLI is installed here on purpose: a
+      # gate that silently skips is worse than one that is honestly missing,
+      # which is the whole argument of this file.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install the tree-sitter CLI
+        run: npm install -g tree-sitter-cli
+
+      - name: The editor grammars know every shipped keyword
+        run: ./editor/bin/check-tokens.sh
+
+      - name: The editor grammar parses every example
+        run: ./editor/bin/check-corpus.sh
 
       # The exemplars are generated from ticket 25's write-ups, which are
       # canonical; this fails if the committed copies have drifted.
@@ -120,3 +161,10 @@ jobs:
 # verification scripts and no CI. Both are now steps above. Keep it that way: if
 # a gate has to come out, it goes back in this block with the reason, and the
 # reason gets re-checked rather than inherited.
+#
+# AND THE SENTENCE ABOVE WAS TRUE OF THE COMPILER AND FALSE OF THE REPO until
+# 2026-08-17. `editor/bin/` held two gates this file had never mentioned — not
+# excluded with a reason, simply never considered — and they accumulated five
+# features' worth of drift while every gate named here stayed green. An
+# unmentioned check is not outside the rule above; it is the rule's blind spot.
+# A new verification script belongs in this file on the day it is written.

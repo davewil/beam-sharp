@@ -1,6 +1,6 @@
 # F11 — The module system: dotted atoms, `using`, and cross-module scope
 
-**Status**      in progress · [ENG-220](https://linear.app/davewil/issue/ENG-220)
+**Status**      **done 2026-08-17** · [ENG-220](https://linear.app/davewil/issue/ENG-220)
 **Implements**  [ticket 40](../../wayfinder/issues/40-module-and-namespace-system.md) §1–§2 and
                 [ticket 41](../../wayfinder/issues/41-imports-and-cross-module-scope.md) §1–§5,
                 both resolved — decides nothing
@@ -158,3 +158,53 @@ job of naming the paragraphs that now need promoting, not a regression.
 features in a row have found a hole at the `ibs` prompt. A shared environment threaded through a
 fold is precisely the shape that under-serves a single-file entry point, so `ibs -S` against a
 module with a `using` edge is a manual check this feature owes before it is done.
+
+**DONE — 2026-08-17.** All fourteen asserting scenarios hold, 268 tests pass (up from 250), and
+every gate is green. The REPL check was run and passes: `Restate(3)` returns `9` and `Counted(4)`
+returns `2` at the `bs>` prompt, with the dependency compiled and loaded. It passes because `run/2`
+and `repl/2` were moved onto the set path rather than left on `file/2` — which is the fifth feature
+in a row to touch that prompt, and the first not to find it broken.
+
+## What the building revealed
+
+**Ticket 40 §2 was resolved and nothing implemented it.** The decision permitting arity overloading
+landed on 2026-08-15; the compiler could not represent it. `callees` was keyed by name alone, so
+`maps:from_list/1` kept whichever arity was written last — the *exact* mechanism the features README
+had already written up for duplicate **type** declarations, one namespace along and unnoticed. And
+`collect/1` gathered a signature's clauses by name alone, so `Length/1` also collected `Length/2`'s
+clauses: three unreachable-clause warnings that were nothing of the kind, then a crash in
+`boundary_guards/4` zipping a two-parameter signature against a one-argument head.
+
+**No test could have caught it, and that is the point.** Not one `.bs` file in the repo had ever
+overloaded an arity, because the language did not have the rule until two days ago. It was found by
+*writing the example* — the harness rule at the top of this file working exactly as stated: a feature
+is done when you can see it run, not when its scenarios pass.
+
+**The namespace tier compiled and then failed at run time**, which is the fourth appearance of this
+project's worst failure shape. The checker resolved `List` to `'Shop.Collections.List'` and the
+emitter still had the short spelling the author wrote, so a program the checker had *passed* emitted
+a call to a module that does not exist. `undef`, at run time, from green source. The fix is the one
+this repo keeps reaching for: resolve once, at check time, and have the emitter read the table rather
+than repeat the work — the same reason `resolve/2` is exported instead of copied.
+
+**And the editor gate was hiding four more failures than it reported.** `check-corpus.sh` runs
+`… | grep -F ERROR | head -3` under `set -e` and `pipefail`, so `head` closing early gives `grep` a
+SIGPIPE and the whole gate exits at the **first** failing file. The one red file everybody could see
+was masking four others, and every one was a shipped feature the grammar had never gained:
+
+| Missing from the grammar | Shipped by |
+|---|---|
+| string literals | F9 |
+| `and` / `or` — it still had the **removed** `&&` / `\|\|` | ticket 44 |
+| `var` bindings | F8 |
+| `== name` match patterns | ticket 45 |
+| `where` refinements | F2 |
+
+`check-tokens.sh` passed throughout, and its own header says why: it checks that a keyword is
+*present*, not that any rule *uses* it. `and`, `or`, `var` and `where` were all in both grammars as
+tokens while nothing consumed them. **A gate that cannot see past its first failure is a gate
+reporting one problem and holding four**, and both are fixed here: the pipeline no longer aborts, and
+the grammar gained all five forms plus this feature's own module syntax. The corpus gate is green for
+the first time since F9.
+
+Neither editor gate is in CI. That is the finding that outlives this feature.

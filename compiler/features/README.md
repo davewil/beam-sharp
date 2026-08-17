@@ -99,10 +99,32 @@ Erlang back to the decision that required it is one grep.
 | [F8 — `var` binds, `=` matches](F8-bind-and-match.md) | **done 2026-08-16** | nothing; it went first to avoid rewriting later features' files — and closed a soundness hole nobody knew was there |
 | [F9 — `string` and `binary` as values](F9-strings-and-binaries.md) | **done 2026-08-15** | the `string` **fields** in all three, `list<string>`; **not** I/O |
 | [F10 — OTP callbacks](F10-otp-callbacks.md) | **done 2026-08-15** | **`bin/spec-check.sh`**; the `behaviour` half of 25b, 25c |
-| [F11 — the module system](F11-module-system.md) | **in progress** | the collection library; the **imports** row that blocks all three exemplars |
+| [F11 — the module system](F11-module-system.md) | **done 2026-08-17** | the collection library; the **imports** row that blocks all three exemplars. It also turned `check-corpus.sh` green for the first time since F9 |
 | F12 — `public` / `private` | not started | nothing — it closes 40 §3 and rewrites all 30 `.bs` files |
 | F13 — binary patterns | not started, **blocked** — ticket 30 is open | 25b, 25c |
 | F14 — pipe and valve | not started | 25b, 25c |
+
+**F11 IS BUILT, AND THE TWO THINGS IT REVEALED ARE WORTH MORE THAN THE FEATURE — 2026-08-17.**
+Modules can see each other: `bsc examples/collections/Totals.bs Restate 3` prints `9` across two
+modules, resolved, ordered and checked without anybody naming a path or a build order. 268 tests.
+
+**A RESOLVED DECISION WITH NOTHING IMPLEMENTING IT.** Ticket 40 §2 permitted arity overloading on
+2026-08-15 and the compiler could not represent it — `callees` keyed by name alone, so
+`maps:from_list/1` kept the last arity written, and `collect/1` gave `Length/1` the clauses of
+`Length/2`. **This file had already written up that exact mechanism** for duplicate *type*
+declarations, and nobody noticed it applied one namespace along. A decision is not built because it
+is resolved, and the gap is invisible to a suite whose corpus never exercises the new rule — no `.bs`
+file had ever overloaded an arity. It was found by *writing the example*.
+
+**A GATE THAT REPORTS ONE FAILURE AND HOLDS FOUR.** `editor/bin/check-corpus.sh` aborts at its first
+failing file: `… | grep -F ERROR | head -3` under `set -e` and `pipefail` gives `grep` a SIGPIPE and
+kills the script. The single red file that was reported on 2026-08-16 was masking **four more**, and
+every one was a shipped feature the tree-sitter grammar had never gained — strings (F9), `and`/`or`
+where it still carried the *removed* `&&`/`||` (ticket 44), `var` (F8), `== name` (45), and `where`
+(F2). `check-tokens.sh` passed the whole time, exactly as its own header warns it would: it proves a
+keyword is present, never that a rule uses it. All five are fixed, the abort is fixed, and the gate is
+green for the first time since F9 — **and neither editor gate is in CI, which is why five features'
+worth of drift could accumulate unseen.** That is the finding that outlives this feature.
 
 **THE PLACEHOLDERS RENUMBERED — 2026-08-17.** The module system took the **F11** slot and
 `public`/`private` took **F12**, so binary patterns moved to F13 and pipe-and-valve to F14. This is

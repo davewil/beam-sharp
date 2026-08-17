@@ -75,11 +75,24 @@ module.exports = grammar({
       $.record_declaration,
       $.behaviour_declaration,
       $.foreign_declaration,
+      $.import_declaration,
       $.signature,
       $.clause,
     ),
 
-    module_declaration: $ => seq('module', field('name', $.uident)),
+    // F11 — the module's atom is its full dotted path (ticket 40 §1).
+    module_declaration: $ => seq('module', field('name', $.module_path)),
+
+    // Shared by the module declaration, the native `using`, and the qualified
+    // call site. Left-recursive for the same reason the compiler's rule is:
+    // right recursion makes `List.Map(x)` unparseable, because the recursive arm
+    // takes the whole path and leaves no function name behind.
+    module_path: $ => prec.left(seq($.uident, repeat(seq('.', $.uident)))),
+
+    // `using Shop.Orders` — ticket 41 §1. The same keyword as the foreign form
+    // below, told apart by the token class of what follows: a uident path
+    // declares a B# dependency, an atom attaches types to Erlang's own name.
+    import_declaration: $ => seq('using', field('module', $.module_path)),
 
     behaviour_declaration: $ => seq(
       choice('behaviour', 'behavior'),
@@ -94,6 +107,19 @@ module.exports = grammar({
       optional(seq('<', commaSep1($.type_parameter), '>')),
       '=',
       field('body', $.type_expression),
+      optional($.refinement),
+    ),
+
+    // F2 / ticket 20 §5 — `type Octet = int where value >= 0 and value <= 255`.
+    // `where` was already a keyword, so `check-tokens.sh` was satisfied while no
+    // rule in this file consumed it.
+    refinement: $ => seq('where', $._refinement_test,
+                         repeat(seq('and', $._refinement_test))),
+
+    _refinement_test: $ => seq(
+      'value',
+      choice('>=', '<=', '>', '<', '==', '!='),
+      $.integer,
     ),
 
     type_parameter: $ => $.uident,
@@ -181,7 +207,11 @@ module.exports = grammar({
     // A body is zero or more bindings followed by one expression (ticket 34).
     body: $ => prec.right(seq(repeat($.binding), $._expression)),
 
+    // F8 made `var` the token that BINDS and left a bare `=` meaning match, and
+    // this rule never gained it — so every `var x = …` and `var (lo, hi) = …` in
+    // the corpus was an ERROR node.
     binding: $ => prec.right(PREC.bind, seq(
+      optional('var'),
       field('left', $._bind_target),
       '=',
       field('right', $._expression),
@@ -207,7 +237,22 @@ module.exports = grammar({
       $.tuple_pattern,
       $.record_pattern,
       $.list_pattern,
+      $.match_pattern,
+      $.relational_pattern,
     ),
+
+    // Ticket 45 — `== head` matches against the value a name already holds
+    // rather than binding a new one. Elixir spends `^` on this capability.
+    match_pattern: $ => seq('==', field('name', $.lident)),
+
+    // Ticket 42 — a span in a clause head is a RELATIONAL pattern. `4..7` was
+    // refused: C#'s `..` is a half-open index slice that already means "the
+    // rest" in pattern position.
+    relational_pattern: $ => prec.left(seq(
+      choice('>=', '<=', '>', '<'),
+      $.integer,
+      repeat(seq('and', choice('>=', '<=', '>', '<'), $.integer)),
+    )),
 
     tuple_pattern: $ => seq('(', commaSep1($.pattern), ')'),
 
@@ -244,6 +289,8 @@ module.exports = grammar({
       $.wildcard,
       $.call,
       $.foreign_call,
+      $.qualified_call,
+      $.string,
       $.tuple,
       $.record_construction,
       $.record_update,
@@ -266,6 +313,16 @@ module.exports = grammar({
       field('function', $.lident),
       '(', optional(commaSep1($._expression)), ')',
     ),
+
+    // `List.Map(xs)` — a uident path on the left, which is the third and last of
+    // the dot-forms. `lident` projects a field, `atom` calls Erlang, `uident`
+    // calls a B# module.
+    qualified_call: $ => prec(1, seq(
+      field('module', $.module_path),
+      '.',
+      field('function', $.uident),
+      '(', optional(commaSep1($._expression)), ')',
+    )),
 
     tuple: $ => seq('(', commaSep1($._expression), ')'),
 
@@ -310,8 +367,14 @@ module.exports = grammar({
 
     binary_expression: $ => {
       const table = [
-        [PREC.or, '||', 'left'],
-        [PREC.and, '&&', 'left'],
+        // TICKET 44 REMOVED `&&` and `||` — not aliased, removed — and this
+        // table still had them. `check-tokens.sh` could not catch it: `and` and
+        // `or` ARE keywords in the lexer, so its "every keyword appears in both
+        // grammars" test passed while nothing in this file USED them. A rule can
+        // be present and wrong, which that gate's own header says it does not
+        // check.
+        [PREC.or, 'or', 'left'],
+        [PREC.and, 'and', 'left'],
         [PREC.compare, choice('==', '!=', '<', '>', '<=', '>='), 'left'],
         [PREC.add, choice('+', '-'), 'left'],
         [PREC.multiply, '*', 'left'],
@@ -367,6 +430,12 @@ module.exports = grammar({
     )),
 
     integer: _ => /[0-9]+/,
+
+    // F9 shipped strings on 2026-08-15 and this rule never followed, so
+    // `check-corpus.sh` has rejected `label.bs` ever since — the grammar
+    // refusing source the compiler accepts, which is the one thing that gate
+    // exists to catch. The gate is not in CI, which is why it could rot.
+    string: _ => token(seq('"', repeat(choice(/[^"\\]/, seq('\\', /./))), '"')),
 
     uident: _ => /[A-Z][a-zA-Z0-9_]*/,
     lident: _ => /[a-z][a-zA-Z0-9_]*/,

@@ -176,14 +176,18 @@ import_env(Decls, Self, World) ->
                 #{funs => #{}, mods => #{}, qual => qual_table(World), imported => []},
                 Imports).
 
-add_import(L, M, _Self, World, Known, Local, Acc) ->
+add_import(L, M, Self, World, Known, Local, Acc) ->
     case maps:is_key(M, World) of
         true  -> add_module_import(L, M, World, Local, Acc);
         false ->
             %% Not a module. 41 §5: a path that is not itself a module but is a
             %% PREFIX of ones that are is a namespace — erased entirely, no atom,
             %% nothing emitted, purely compile-time name resolution.
-            case children(M, Known) of
+            %%
+            %% Self is excluded because a module sitting inside the namespace it
+            %% imports is one of that namespace's children, and importing
+            %% yourself is not a dependency.
+            case children(M, Known) -- [Self] of
                 []       -> erlang:error({unknown_module, M, L});
                 Children -> add_namespace_import(M, Children, Acc)
             end

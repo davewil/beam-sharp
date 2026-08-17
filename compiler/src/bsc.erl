@@ -111,6 +111,24 @@ load_all(Files) ->
             close_over(Given, Index, [M || {_, _, M} <- Given])
     end.
 
+%% WHAT A `using` LINE ACTUALLY DEPENDS ON, which is not always what it names.
+%%
+%% 41 §5 decides the tier by what the path resolves to rather than by its
+%% spelling, so `using Shop` may name a NAMESPACE — and a namespace is erased,
+%% meaning the real dependencies are the modules underneath it. Both discovery
+%% and ordering need that expansion: without it `using Shop` pulled in nothing,
+%% and `Shop.Reports` was checked against a world that had never heard of
+%% `Shop.List`.
+import_targets(Decls, Known) ->
+    lists:append([case lists:member(M, Known) of
+                      true  -> [M];
+                      false -> under(M, Known)
+                  end || {import, _, M} <- Decls]).
+
+under(Prefix, Known) ->
+    P = atom_to_list(Prefix) ++ ".",
+    [M || M <- Known, lists:prefix(P, atom_to_list(M))].
+
 parse_all(Files) -> parse_all(Files, []).
 
 parse_all([], Acc) -> {ok, lists:reverse(Acc)};
@@ -121,7 +139,7 @@ parse_all([F | Rest], Acc) ->
     end.
 
 close_over(Units, Index, Have) ->
-    Wanted = lists:usort(lists:append([[M || {import, _, M} <- D]
+    Wanted = lists:usort(lists:append([import_targets(D, maps:keys(Index))
                                        || {_, D, _} <- Units])),
     case [M || M <- Wanted, not lists:member(M, Have),
                maps:is_key(M, Index)] of
@@ -190,8 +208,14 @@ emit_one({_, Decls, M} = U, Index, Path, Done, Acc) ->
             case lists:member(M, Path) of
                 true  -> {error, {cycle, lists:reverse([M | Path])}};
                 false ->
-                    Deps = [maps:get(D, Index) || {import, _, D} <- Decls,
-                                                  maps:is_key(D, Index)],
+                    %% `D =/= M` because a namespace expands to everything under
+                    %% it, and a module sitting in the namespace it imports is
+                    %% under it too. Without this `module Shop.Reports` with
+                    %% `using Shop` depended on itself and was reported as a
+                    %% cycle with one member, twice.
+                    Deps = [maps:get(D, Index)
+                            || D <- import_targets(Decls, maps:keys(Index)),
+                               D =/= M, maps:is_key(D, Index)],
                     case deps(Deps, Index, [M | Path], Done, Acc) of
                         {error, R}        -> {error, R};
                         {ok, Done1, Acc1} -> {ok, [M | Done1], [U | Acc1]}

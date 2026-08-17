@@ -97,20 +97,65 @@ stand anywhere in the pattern and nowhere else: it is a pattern, not a value. **
 
 `=>` is the lambda arrow and a `switch` arm, never a clause. Two arrows, two jobs.
 
-A **module** is a directory holding `.bs` files; one function per file; `index.bs` holds the
-declarations shared across it — `using`, `type`, `record`, `behaviour` — and **never a function**,
-so one-function-per-file has no exception. A directory holding *no* `.bs` files is a **namespace**:
-erased entirely, no atom and no `.beam`. Sub-modules are source-only — the whole directory compiles
-to one `.beam`. **decided**, tickets [40](wayfinder/issues/40-module-and-namespace-system.md) and
-[41](wayfinder/issues/41-imports-and-cross-module-scope.md), unbuilt.
+A **module** declares a dotted path, and that path *is* its atom: `module Shop.Orders` emits
+`'Shop.Orders'` and therefore `Shop.Orders.beam`. This is forced rather than chosen — a record's tag
+mints from the qualified name, so a nested module lowering to its leaf would let two bounded contexts
+mint the same tag. **shipped**
+<!-- decided by ticket 40 §1; built by F11 -->
 
-`using Shop.Orders` brings that module's names in **unqualified**; `using Shop` brings its modules
-in short-qualified (`Orders.All()`). A name reachable from two sources is an error at the call site
-printing the qualified candidates. **decided**, ticket 41 §2/§5, unbuilt — neither form parses yet.
+This block is `illustrative` rather than checked, and the reason is structural: the gate compiles
+each block as **one isolated file**, and the whole subject here is what happens across two. It is
+executed instead as `compiler/examples/collections/`, which the example gate runs —
+`bsc examples/collections/Totals.bs Restate 3` prints `9`.
 
-*The compiler already accepts a **set** of files in one invocation (`bsc a.bs b.bs` emits both
-beams); what it does not yet do is share one type environment across them. Ticket 41 §3 settles that
-the compiler, not a build tool, owns the dependency graph and re-checks a dependency's source.*
+```csharp illustrative
+module Shop.Reports
+
+using Shop.Collections.List
+using Shop.Collections
+
+int Restate(int n)
+Restate(n) -> Sum([n, n, n], 0)
+
+int Counted(int n)
+Counted(n) -> List.Length([n, n])
+
+int Fully(int n)
+Fully(n) -> Shop.Collections.List.Sum([n], 0)
+```
+
+`using Shop.Collections.List` brings that module's names in **unqualified** — TypeScript's
+named-import semantics exactly. `using Shop.Collections` names a **namespace** and brings its modules
+in short-qualified (`List.Length(...)`). A namespace is a path other modules sit under; it is erased
+entirely, with no atom and nothing emitted. A fully qualified call is always legal regardless of what
+is in scope, which is why every **diagnostic** prints that form and never has to know the call site's
+scope. **shipped**
+<!-- decided by ticket 41 §1/§2/§5; built by F11 -->
+
+Resolution is by name **and arity**, and it happens at compile time: an unqualified call to an
+imported name emits a *remote* call, so nothing is resolved at run time. A name reachable from two
+sources is an error at the call site printing the qualified candidates; an import that would shadow a
+local name is an error at the `using` line. A qualified call to a module with no `using` is an error
+too — a file's `using` lines are its dependency list, and a call that skipped them would make that
+list wrong. **shipped**
+
+A function name may carry **more than one arity** — the BEAM's own identity rule, unmodified — so
+`Fib/1` and `Fib/2` are two functions. Two signatures of the *same* arity are one function declared
+twice, and an error. **shipped**
+<!-- decided by ticket 40 §2; built by F11 -->
+
+**The compiler owns the dependency graph.** `using` is resolved to source, that source is checked
+first, and its signatures are kept in the environment its dependents are checked against — so there
+is no signature artefact and nothing that can go stale. A dependency need not be named on the command
+line; a build tool's job is *which files* and *where the source root is*, never *in what order*. Two
+modules importing each other are refused by name. **shipped**
+<!-- decided by ticket 41 §3; built by F11 -->
+
+What is **not** built is the *directory* half: one function per file, a whole directory compiling to
+one `.beam`, `index.bs` holding the shared declarations and never a function, and sub-modules being
+source-only. Today one `.bs` file is one module. The two checks that presuppose directories — a
+file's `module` declaration matching its directory path, and the refusal of a function in `index.bs`
+— wait with it. **decided**, tickets 13, 40 and [41](wayfinder/issues/41-imports-and-cross-module-scope.md) §4/§5, unbuilt.
 
 ---
 

@@ -56,11 +56,19 @@
             "named": true
           },
           {
+            "type": "qualified_call",
+            "named": true
+          },
+          {
             "type": "record_construction",
             "named": true
           },
           {
             "type": "record_update",
+            "named": true
+          },
+          {
+            "type": "string",
             "named": true
           },
           {
@@ -87,10 +95,6 @@
         "types": [
           {
             "type": "!=",
-            "named": false
-          },
-          {
-            "type": "&&",
             "named": false
           },
           {
@@ -126,7 +130,11 @@
             "named": false
           },
           {
-            "type": "||",
+            "type": "and",
+            "named": false
+          },
+          {
+            "type": "or",
             "named": false
           }
         ]
@@ -168,11 +176,19 @@
             "named": true
           },
           {
+            "type": "qualified_call",
+            "named": true
+          },
+          {
             "type": "record_construction",
             "named": true
           },
           {
             "type": "record_update",
+            "named": true
+          },
+          {
+            "type": "string",
             "named": true
           },
           {
@@ -258,11 +274,19 @@
             "named": true
           },
           {
+            "type": "qualified_call",
+            "named": true
+          },
+          {
             "type": "record_construction",
             "named": true
           },
           {
             "type": "record_update",
+            "named": true
+          },
+          {
+            "type": "string",
             "named": true
           },
           {
@@ -330,11 +354,19 @@
           "named": true
         },
         {
+          "type": "qualified_call",
+          "named": true
+        },
+        {
           "type": "record_construction",
           "named": true
         },
         {
           "type": "record_update",
+          "named": true
+        },
+        {
+          "type": "string",
           "named": true
         },
         {
@@ -428,11 +460,19 @@
           "named": true
         },
         {
+          "type": "qualified_call",
+          "named": true
+        },
+        {
           "type": "record_construction",
           "named": true
         },
         {
           "type": "record_update",
+          "named": true
+        },
+        {
+          "type": "string",
           "named": true
         },
         {
@@ -545,11 +585,19 @@
             "named": true
           },
           {
+            "type": "qualified_call",
+            "named": true
+          },
+          {
             "type": "record_construction",
             "named": true
           },
           {
             "type": "record_update",
+            "named": true
+          },
+          {
+            "type": "string",
             "named": true
           },
           {
@@ -701,11 +749,19 @@
           "named": true
         },
         {
+          "type": "qualified_call",
+          "named": true
+        },
+        {
           "type": "record_construction",
           "named": true
         },
         {
           "type": "record_update",
+          "named": true
+        },
+        {
+          "type": "string",
           "named": true
         },
         {
@@ -875,11 +931,19 @@
           "named": true
         },
         {
+          "type": "qualified_call",
+          "named": true
+        },
+        {
           "type": "record_construction",
           "named": true
         },
         {
           "type": "record_update",
+          "named": true
+        },
+        {
+          "type": "string",
           "named": true
         },
         {
@@ -899,6 +963,22 @@
           "named": true
         }
       ]
+    }
+  },
+  {
+    "type": "import_declaration",
+    "named": true,
+    "fields": {
+      "module": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "module_path",
+            "named": true
+          }
+        ]
+      }
     }
   },
   {
@@ -942,6 +1022,10 @@
           "named": true
         },
         {
+          "type": "qualified_call",
+          "named": true
+        },
+        {
           "type": "record_construction",
           "named": true
         },
@@ -951,6 +1035,10 @@
         },
         {
           "type": "rest_expression",
+          "named": true
+        },
+        {
+          "type": "string",
           "named": true
         },
         {
@@ -992,6 +1080,22 @@
     }
   },
   {
+    "type": "match_pattern",
+    "named": true,
+    "fields": {
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "lident",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
     "type": "module_declaration",
     "named": true,
     "fields": {
@@ -1000,11 +1104,26 @@
         "required": true,
         "types": [
           {
-            "type": "uident",
+            "type": "module_path",
             "named": true
           }
         ]
       }
+    }
+  },
+  {
+    "type": "module_path",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "uident",
+          "named": true
+        }
+      ]
     }
   },
   {
@@ -1058,7 +1177,15 @@
           "named": true
         },
         {
+          "type": "match_pattern",
+          "named": true
+        },
+        {
           "type": "record_pattern",
+          "named": true
+        },
+        {
+          "type": "relational_pattern",
           "named": true
         },
         {
@@ -1100,6 +1227,102 @@
           }
         ]
       }
+    }
+  },
+  {
+    "type": "qualified_call",
+    "named": true,
+    "fields": {
+      "function": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "uident",
+            "named": true
+          }
+        ]
+      },
+      "module": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "module_path",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "atom",
+          "named": true
+        },
+        {
+          "type": "binary_expression",
+          "named": true
+        },
+        {
+          "type": "boolean",
+          "named": true
+        },
+        {
+          "type": "call",
+          "named": true
+        },
+        {
+          "type": "foreign_call",
+          "named": true
+        },
+        {
+          "type": "integer",
+          "named": true
+        },
+        {
+          "type": "list",
+          "named": true
+        },
+        {
+          "type": "projection",
+          "named": true
+        },
+        {
+          "type": "qualified_call",
+          "named": true
+        },
+        {
+          "type": "record_construction",
+          "named": true
+        },
+        {
+          "type": "record_update",
+          "named": true
+        },
+        {
+          "type": "string",
+          "named": true
+        },
+        {
+          "type": "switch_expression",
+          "named": true
+        },
+        {
+          "type": "tuple",
+          "named": true
+        },
+        {
+          "type": "variable",
+          "named": true
+        },
+        {
+          "type": "wildcard",
+          "named": true
+        }
+      ]
     }
   },
   {
@@ -1214,11 +1437,19 @@
           "named": true
         },
         {
+          "type": "qualified_call",
+          "named": true
+        },
+        {
           "type": "record_construction",
           "named": true
         },
         {
           "type": "record_update",
+          "named": true
+        },
+        {
+          "type": "string",
           "named": true
         },
         {
@@ -1235,6 +1466,36 @@
         },
         {
           "type": "wildcard",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "refinement",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "integer",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "relational_pattern",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "integer",
           "named": true
         }
       ]
@@ -1281,11 +1542,19 @@
           "named": true
         },
         {
+          "type": "qualified_call",
+          "named": true
+        },
+        {
           "type": "record_construction",
           "named": true
         },
         {
           "type": "record_update",
+          "named": true
+        },
+        {
+          "type": "string",
           "named": true
         },
         {
@@ -1380,6 +1649,10 @@
           "named": true
         },
         {
+          "type": "import_declaration",
+          "named": true
+        },
+        {
           "type": "module_declaration",
           "named": true
         },
@@ -1439,11 +1712,19 @@
             "named": true
           },
           {
+            "type": "qualified_call",
+            "named": true
+          },
+          {
             "type": "record_construction",
             "named": true
           },
           {
             "type": "record_update",
+            "named": true
+          },
+          {
+            "type": "string",
             "named": true
           },
           {
@@ -1527,11 +1808,19 @@
             "named": true
           },
           {
+            "type": "qualified_call",
+            "named": true
+          },
+          {
             "type": "record_construction",
             "named": true
           },
           {
             "type": "record_update",
+            "named": true
+          },
+          {
+            "type": "string",
             "named": true
           },
           {
@@ -1605,11 +1894,19 @@
           "named": true
         },
         {
+          "type": "qualified_call",
+          "named": true
+        },
+        {
           "type": "record_construction",
           "named": true
         },
         {
           "type": "record_update",
+          "named": true
+        },
+        {
+          "type": "string",
           "named": true
         },
         {
@@ -1675,6 +1972,10 @@
       "multiple": true,
       "required": false,
       "types": [
+        {
+          "type": "refinement",
+          "named": true
+        },
         {
           "type": "type_parameter",
           "named": true
@@ -1782,10 +2083,6 @@
     "named": false
   },
   {
-    "type": "&&",
-    "named": false
-  },
-  {
     "type": "(",
     "named": false
   },
@@ -1862,6 +2159,10 @@
     "named": false
   },
   {
+    "type": "and",
+    "named": false
+  },
+  {
     "type": "atom",
     "named": true
   },
@@ -1895,8 +2196,16 @@
     "named": false
   },
   {
+    "type": "or",
+    "named": false
+  },
+  {
     "type": "record",
     "named": false
+  },
+  {
+    "type": "string",
+    "named": true
   },
   {
     "type": "switch",
@@ -1919,7 +2228,19 @@
     "named": false
   },
   {
+    "type": "value",
+    "named": false
+  },
+  {
+    "type": "var",
+    "named": false
+  },
+  {
     "type": "when",
+    "named": false
+  },
+  {
+    "type": "where",
     "named": false
   },
   {
@@ -1936,10 +2257,6 @@
   },
   {
     "type": "|",
-    "named": false
-  },
-  {
-    "type": "||",
     "named": false
   },
   {

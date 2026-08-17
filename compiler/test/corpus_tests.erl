@@ -63,6 +63,15 @@ demonstrated_surface() ->
      %% probes the pattern position rather than an ordinary comparison —
      %% pinned below, because `n == m` matching this would be a silent pass.
      {"a match against a bound value",           "[\\[(,] *== [a-z]"},
+     %% F11. A dotted `module` line is a different capability from `^module `
+     %% above: that one is satisfied by any module at all, and the thing worth
+     %% being able to look at here is the NESTED path that ticket 40 §1 forces.
+     {"a dotted module path",                    "^module [A-Z][A-Za-z]*\\."},
+     %% Anchored on a capital after `using` so it cannot be satisfied by the
+     %% foreign form two rows down, which is the same keyword and a different
+     %% construct.
+     {"a native module import",                  "^using [A-Z]"},
+     {"a qualified call",                        "[A-Z][A-Za-z]*\\.[A-Z][A-Za-z]*\\("},
      {"a foreign module declaration",            "^using :"},
      {"a foreign call",                          ":[a-z]+\\.[a-z_]+\\("},
      {"an OTP behaviour",                        "^behaviour "},
@@ -107,7 +116,20 @@ demonstrated_surface() ->
 
 every_shipped_surface_form_has_an_example_test() ->
     Dir = project_root() ++ "/examples",
-    {ok, Names} = file:list_dir(Dir),
+    %% RECURSIVE, because F11's example is a pair of files in a subdirectory —
+    %% a multi-module capability cannot be demonstrated by one file, so the
+    %% corpus has to be able to hold a directory. Listing only the top level
+    %% would have silently ignored it and reported the module system as
+    %% undemonstrated.
+    %% `exemplars/` is excluded, and it matters more here than anywhere: those
+    %% files are written in the dialect the compiler CANNOT yet parse, so letting
+    %% them into this corpus would let an unbuilt form satisfy a probe and report
+    %% a capability as demonstrated that nobody can run. The gate would go quiet
+    %% in exactly the direction it exists to prevent.
+    Names = [string:prefix(P, Dir ++ "/")
+             || P <- filelib:wildcard(Dir ++ "/**/*.bs") ++
+                     filelib:wildcard(Dir ++ "/*.bs"),
+                string:find(P, "/exemplars/") =:= nomatch],
     Corpus =
         [begin
              {ok, Bin} = file:read_file(filename:join(Dir, N)),
@@ -117,7 +139,7 @@ every_shipped_surface_form_has_an_example_test() ->
              Lines = [L || L <- string:split(binary_to_list(Bin), "\n", all),
                            not lists:prefix("//", string:trim(L, leading))],
              string:join(Lines, "\n")
-         end || N <- lists:sort(Names), filename:extension(N) =:= ".bs"],
+         end || N <- lists:usort(Names), filename:extension(N) =:= ".bs"],
     Text = string:join(Corpus, "\n"),
     Missing = [What || {What, Re} <- demonstrated_surface(),
                        re:run(Text, Re, [multiline, {capture, none}]) =:= nomatch],
