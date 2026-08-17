@@ -67,7 +67,7 @@ Ordered by how many exemplars each unblocks, which is roughly the order to build
 | **String literals** | 25a, 25c | **in** — F9, 2026-08-15 | 20 |
 | **Map literals** | 25a, 25c | out | fog |
 | **List patterns** — `[h, ..t]`, literal element patterns | 25a | out | 08, 28 |
-| **Imports / multi-file modules** | all three | out (fog) | fog |
+| **Imports / multi-file modules** | all three | **in, F11 2026-08-17** — the *directory*-as-module half is still out | 40, 41 |
 | **OTP behaviours** — `behaviour GenServer`, callbacks | 25b, 25c | the attribute is emitted; the callback contract is not | 14, 35 |
 
 **Records, angle brackets and `switch` are now built, not merely decided** — F3 and F6 on
@@ -113,8 +113,8 @@ the language:
 
 | Spelling still in these files | Why it has no target | Owed by |
 |---|---|---|
-| `using Shop.Orders` | `using` was taken for FFI by ticket 32; imports are unspelled | module fog |
-| `Json.Encode(b)`, `Orders.All()`, `List.Fold(…)` | the grammar has `:atom.fn(…)` for FFI and `x.Field` for projection, and **no** `Module.Fn(…)` | module fog |
+| ~~`using Shop.Orders`~~ | **spelled and built, F11** — `using` generalises rather than being overloaded; the token class of what follows tells the two apart | 41 §1 |
+| ~~`Json.Encode(b)`, `Orders.All()`, `List.Fold(…)`~~ | **spelled and built, F11** — a `uident` path on the left is the third dot-form, beside `:atom.fn(…)` and `x.Field`. All three of these now parse | 41 §1/§5 |
 | `#{ error = "invalid" }` | an anonymous map *literal*; a record construction names its type | 26, unasked |
 | `Frame { Type = :method } f` (25c) | a pattern that destructures **and** binds the whole value. `p_alias` exists in the emitter with no surface | unasked |
 | `-> { … }` block bodies (25b, 25c) | a braced block expression, measured as buildable but **not free** | 22 |

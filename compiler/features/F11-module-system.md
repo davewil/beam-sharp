@@ -200,6 +200,12 @@ was masking four others, and every one was a shipped feature the grammar had nev
 | `== name` match patterns | ticket 45 |
 | `where` refinements | F2 |
 
+**None of that debt was F11's, and the ledger should say so.** Four of the five grammar rules were
+owed by earlier features — strings by **F9**, `and`/`or` by **ticket 44**, `var` by **F8**, `== name`
+by **ticket 45**, `where` by **F2** — and they are paid here only because they were discovered here.
+F11 owed the sixth (its own module syntax) and the gate fix. A future session looking for why F9 did
+not update the grammar will find the answer at F9, and this paragraph is the pointer.
+
 `check-tokens.sh` passed throughout, and its own header says why: it checks that a keyword is
 *present*, not that any rule *uses* it. `and`, `or`, `var` and `where` were all in both grammars as
 tokens while nothing consumed them. **A gate that cannot see past its first failure is a gate
