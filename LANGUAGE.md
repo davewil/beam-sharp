@@ -105,8 +105,8 @@ mint the same tag. **shipped**
 
 This block is `illustrative` rather than checked, and the reason is structural: the gate compiles
 each block as **one isolated file**, and the whole subject here is what happens across two. It is
-executed instead as `compiler/examples/collections/`, which the example gate runs —
-`bsc examples/collections/Totals.bs Restate 3` prints `9`.
+executed instead as `compiler/examples/Shop/`, which the example gate runs —
+`bsc --src-root examples examples/Shop/Reports Restate 3` prints `9`.
 
 ```csharp illustrative
 module Shop.Reports

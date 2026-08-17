@@ -61,11 +61,41 @@ forms(Module = #{module := Mod, functions := Fns, env := Env}) ->
             imports => maps:get(imports, Module, #{}),
             qmods => maps:get(qmods, Module, #{}),
             remote_names => maps:get(remote_names, Module, #{})},
+    %% F15 / ticket 13 §3 — WHICH `.bs` A CRASH NAMES.
+    %%
+    %% A module is a directory now, so one `.beam` holds functions written in
+    %% several files, and without this every one of them reports against the
+    %% aggregate. `13b` measured the repair on this exact target: a repeated
+    %% `{attribute, ANNO, file, {Name, Line}}` re-points every form after it,
+    %% which is the mechanism Elixir and LFE use to attribute generated code back
+    %% to original source, and the Abstract Format path inherits it for free.
+    %%
+    %% The line in the tuple names the file only; each form's OWN annotation
+    %% supplies the line, so the numbers are exact. `13b` recorded why that
+    %% matters — the generated-Erlang-source route achieves the same effect with
+    %% `-file` directives, but a directive occupies the line it names and every
+    %% number becomes arithmetic.
+    %%
+    %% Until this feature there was NO file attribute anywhere in the emitter,
+    %% while a comment further down this file said ticket 13 "keeps per-file
+    %% `file` attributes precisely so crashes point at the right `.bs`". It
+    %% described an intention. This is the code.
+    Files = maps:get(files, Module, [{undefined, Fns}]),
     [{attribute, ?A, module, Mod},
      {attribute, ?A, export, [{name(F, Behaviours), A} || {F, A} <- Exports]}]
     ++ [{attribute, ?A, behaviour, bs_otp:behaviour_name(B)} || B <- Behaviours]
-    ++ lists:append([[spec_attr(F, Env, Behaviours), function(F, Ctx)]
-                     || F <- Fns]).
+    ++ lists:append([file_group(Path, Fs, Env, Behaviours, Ctx)
+                     || {Path, Fs} <- Files]).
+
+%% `undefined` is the one-source callers (`compile_string/2`, the REPL) that have
+%% no path to attribute to. Emitting an attribute naming nothing would be worse
+%% than emitting none.
+file_group(undefined, Fns, Env, Behaviours, Ctx) ->
+    lists:append([[spec_attr(F, Env, Behaviours), function(F, Ctx)] || F <- Fns]);
+file_group(Path, Fns, Env, Behaviours, Ctx) ->
+    [{attribute, ?A, file, {Path, 1}}
+     | lists:append([[spec_attr(F, Env, Behaviours), function(F, Ctx)]
+                     || F <- Fns])].
 
 %% THE ONE PLACE A B# FUNCTION NAME BECOMES AN ERLANG ONE.
 %%

@@ -2,7 +2,7 @@
 
 Type: grilling
 Status: **open** — raised 2026-08-15 from running
-[AoC 2019 Day 1](../../aoc/2019/day01/day01.bs)
+[AoC 2019 Day 1](../../aoc/2019/Day01/day01.bs)
 
 ## Question
 

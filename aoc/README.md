@@ -12,8 +12,8 @@ four-language benchmark, and where the project stands as a result.
 
 | Puzzle | Result |
 |---|---|
-| [2019 Day 1](2019/day01/day01.bs) — The Tyranny of the Rocket Equation | **solved**, both parts, against the real input |
-| [2025 Day 1](2025/day01/day01.bs) — Secret Entrance | **solved**, both parts — 1195 and 6770 |
+| [2019 Day 1](2019/Day01/day01.bs) — The Tyranny of the Rocket Equation | **solved**, both parts, against the real input |
+| [2025 Day 1](2025/Day01/day01.bs) — Secret Entrance | **solved**, both parts — 1195 and 6770 |
 
 ## 2025 Day 1 — the one that hit both gaps at once
 

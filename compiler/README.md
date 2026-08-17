@@ -32,18 +32,30 @@ fib.bs:5: error: beam-sharp has no `;`
 **Run a program.** Development is driven by runnable code, so the compiler runs one:
 
 ```
-$ bsc examples/fib.bs 5
-5
-$ bsc examples/fib.bs 10
-55
-$ bsc examples/readings.bs Classify "(:ok, 7)"
+$ bsc examples/Fib 5
+[0, 1, 1, 2, 3]
+$ bsc examples/Fib 10
+[0, 1, 1, 2, 3, 5, 8, 13, 21, 34]
+$ bsc examples/Readings Classify "(:ok, 7)"
 :positive
 ```
 
-`bsc FILE.bs [FUNCTION] [ARG...]`. The function name is optional because **under one function per
-file the file names the function** — `fib.bs` holds `Fib` — with two fallbacks for files predating
-that convention: an explicit name, or the only export. With no arguments at all it just compiles,
-as before.
+`bsc [--src-root DIR] PATH [FUNCTION] [ARG...]`, where **`PATH` is a module — which is a
+directory** (ticket 13 §3). Naming one of its files works too and means the same thing, since a
+file names the module it belongs to.
+
+The function name is optional because **the module names the function** — the `Fib` module holds
+`Fib` — with two fallbacks: an explicit name, or the only export. With no arguments at all it just
+compiles, as before.
+
+`--src-root` says where the tree is rooted, which is what ticket 41 §5's check compares a `module`
+declaration against. It defaults to the module directory's own parent, so a single-segment module
+never needs it; a dotted one does, because `module Shop.Reports` lives at `Shop/Reports`:
+
+```
+$ bsc --src-root examples examples/Shop/Reports Restate 3
+9
+```
 
 Arguments and results are in **beam-sharp** notation, and the parser accepts back exactly what the
 printer emits: `:positive`, `(:ok, 7)`, `[1, 2]`, `{Kind = :'Shop.Order', Id = 1, Total = 0}`.
@@ -57,16 +69,16 @@ and crash inside your function with your own source text in the error.
 **Or stay in a shell.**
 
 ```
-$ ibs -S examples/fib.bs
-beam-sharp REPL — examples/fib.bs
-  Fib/1
+$ ibs -S examples/Fib
+beam-sharp REPL — examples/Fib
+  Fib/1  Series/4  Reverse/2
   :reload   recompile the file    :exports  list functions
-  :quit     leave                 Ctrl-D    leave
+  :quit     leave                 :env      list bindings
 
 bs> Fib(10)
-55
+[0, 1, 1, 2, 3, 5, 8, 13, 21, 34]
 bs> :reload
-reloaded examples/fib.bs
+reloaded examples/Fib
 ```
 
 `:reload` is the point of it: edit the file, reload, call again, without leaving the shell. The
@@ -107,7 +119,7 @@ Markdown.
 **Underneath, if you want the `.beam`:**
 
 ```
-./_build/default/bin/bsc -o /tmp examples/readings.bs
+./_build/default/bin/bsc -o /tmp examples/Readings
 erl -pa /tmp -eval "io:format(\"~p~n\", ['Readings':'Classify'({ok,5})])."
 ```
 

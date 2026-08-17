@@ -175,7 +175,7 @@ Classify(255)  = reserved   (relational: 255 IS included)
 
 **And in *pattern* position C#'s `..` already means "the rest"** — `[var first, .. var rest]` —
 which is exactly what beam-sharp shipped in 28 §5 and runs today in
-[`fib.bs`](../../compiler/examples/fib.bs): `Reverse([x, ..rest], acc)`.
+[`fib.bs`](../../compiler/examples/Fib/fib.bs): `Reverse([x, ..rest], acc)`.
 
 So `4..7` was never a tier-1 borrow. It was tier 3 wearing tier 1's clothes: a construct C# does
 not have, spelled with a glyph C# uses for two other things, one of which this language has already

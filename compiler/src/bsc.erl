@@ -13,6 +13,11 @@
 -module(bsc).
 
 -export([main/1, file/1, file/2, file_to_dir/2, compile_string/2]).
+%% F15 — exported so the corpus gates enumerate module directories through the
+%% SAME function the compiler classifies with, rather than through a second
+%% wildcard of their own. Same reason `bs_check:resolve/2` is exported instead of
+%% copied: a classification rule with two implementations has two answers.
+-export([module_dirs/1, dir_kind/1]).
 
 -record(opts, {outdir = ".", emit_abstr = true, verbose = false, repl = false,
                %% F15 / ticket 41 §3. The source root is a BUILD-TOOL input, and

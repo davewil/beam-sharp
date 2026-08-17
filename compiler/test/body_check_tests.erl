@@ -327,13 +327,35 @@ a_call_with_the_wrong_arity_is_caught_by_bsc_test() ->
 %% own rule is that a capability which closes a residual must not make
 %% previously-valid programs invalid. This is the gate that was run before any
 %% rejection test above was written.
+%% F15 — PER DIRECTORY, THROUGH THE CLI, AND WITH A SOURCE ROOT. Three changes
+%% and each closes something this gate could not see:
+%%
+%%   - per directory, because a directory is the module now and compiling one of
+%%     its files alone emits a beam missing the others;
+%%   - through the CLI rather than `bsc:file_to_dir/2`, because that entry point
+%%     has no source root and therefore SKIPS ticket 41 §5's path check — the
+%%     corpus is the one place that check most needs to run;
+%%   - and it used `file:list_dir/1`, which listed only the TOP level, so
+%%     `examples/collections/` — F11's only multi-module example — was outside
+%%     this gate entirely while CI's step recursed past it. The two disagreed and
+%%     nothing said so.
 every_example_still_compiles_test() ->
-    Dir = project_root() ++ "/examples",
-    {ok, Names} = file:list_dir(Dir),
-    Sources = [filename:join(Dir, N) || N <- lists:sort(Names),
-                                        filename:extension(N) =:= ".bs"],
-    ?assert(length(Sources) >= 6),
-    [?assertMatch({N, {ok, _}}, {N, bsc:file_to_dir(N, ?OUT)}) || N <- Sources].
+    Root = project_root() ++ "/examples",
+    Dirs = [D || D <- bsc:module_dirs(Root),
+                 string:find(D, "/exemplars/") =:= nomatch],
+    ?assert(length(Dirs) >= 6),
+    [?assertEqual({D, ok}, {D, compiles(Root, D)}) || D <- Dirs].
+
+%% `--src-root` is named here because the corpus holds dotted modules
+%% (`Shop.Reports`, `Shop.Collections.List`) and a dotted module is a nested
+%% directory. 41 §3: naming the source root is the caller's job.
+compiles(Root, Dir) ->
+    Out = bs_test_support:run_cli("--src-root " ++ Root ++ " -o " ++ ?OUT ++
+                                      "/corpus " ++ Dir),
+    case string:find(Out, "rc:0") of
+        nomatch -> Out;
+        _       -> ok
+    end.
 
 %% ...AND `aoc/`, WHICH NO GATE REACHED UNTIL F8.
 %%
@@ -351,11 +373,24 @@ every_example_still_compiles_test() ->
 %% `examples/exemplars/` is deliberately NOT here: those are ticket 25's backlog
 %% and do not parse yet by design — they wait on binaries, the pipe and qualified
 %% names. Adding them would be a permanently red gate.
+%% F15 — AND NO `--src-root`, DELIBERATELY. Every aoc module is a single segment
+%% (`Day01`), so the default root — the module directory's own parent — is
+%% already the right answer, and this gate is where that default gets exercised
+%% rather than asserted. All three used to declare `module Day01` from a
+%% directory that did not match: two were `day01` against `Day01`, one was in
+%% `bench/`.
 every_aoc_program_still_compiles_test() ->
-    Root = filename:dirname(project_root()) ++ "/aoc",
-    Sources = filelib:wildcard(Root ++ "/**/*.bs"),
-    ?assert(length(Sources) >= 3),
-    [?assertMatch({N, {ok, _}}, {N, bsc:file_to_dir(N, ?OUT)}) || N <- Sources].
+    Aoc = filename:dirname(project_root()) ++ "/aoc",
+    Dirs = bsc:module_dirs(Aoc),
+    ?assert(length(Dirs) >= 3),
+    [?assertEqual({D, ok}, {D, compiles_with_default_root(D)}) || D <- Dirs].
+
+compiles_with_default_root(Dir) ->
+    Out = bs_test_support:run_cli("-o " ++ ?OUT ++ "/corpus " ++ Dir),
+    case string:find(Out, "rc:0") of
+        nomatch -> Out;
+        _       -> ok
+    end.
 
 %% A list element is bound at a REAL path now, because the body check has to
 %% read `rest` back out and answer `list<int>`. Answering `term` rejects this —
