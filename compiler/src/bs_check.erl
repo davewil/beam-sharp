@@ -37,7 +37,10 @@
 %% `element/2` — it has no access to the definition — so every field before it
 %% must keep its index. F12 adding a field in the middle would have moved
 %% `params` and `clauses` under the emitter without a compiler error anywhere.
--record(fn, {name, line, ret, params, clauses = [], vis = public}).
+%% The `vis` default is `private`, matching the language's: ticket 40 §3 as
+%% amended 2026-08-17. A default of `public` here would be a second, contrary
+%% statement of the rule sitting where nobody looks.
+-record(fn, {name, line, ret, params, clauses = [], vis = private}).
 
 %% Everything the body check (ticket 33, F5) needs to answer a question about
 %% one clause. `types` is the surface-to-algebra environment and is the ONLY
@@ -97,7 +100,6 @@ check_dir(Sources, World, Expect) ->
     Decls = lists:append([D || {_, D} <- Sources]),
     one_module_per_directory(Sources, Expect),
     [no_function_in_index(P, D) || {P, D} <- Sources],
-    [missing_visibility(P, D) || {P, D} <- Sources],
     Env = type_env(Decls),
     Module = module_name(Decls),
     module_matches_path(Module, Sources, Expect),
@@ -288,27 +290,24 @@ name_redeclared(Decls) ->
 %%% F12 — `public` / `private`
 %%% ---------------------------------------------------------------------------
 
-%% Ticket 40 §3 takes the half of Elixir's `def`/`defp` that has NO UNMARKED
-%% CASE: a signature carries `public` or `private`, never neither.
+%% AN UNMARKED SIGNATURE IS PRIVATE — ticket 40 §3 as amended 2026-08-17.
 %%
-%% The parser accepts the absence on purpose — see the note on the `signature`
-%% rule. Enforcing it there would report `syntax error before: 'list'`, a remark
-%% about the token AFTER the missing word, which is the shape ticket 40 §2 itself
-%% complained about: "the defect is the diagnosis, not the outcome".
+%% There was a `missing_visibility/2` here, and its deletion is the whole of the
+%% amendment's compiler cost. §3 first took Elixir's `def`/`defp` — no unmarked
+%% case, absence is an error — and reversed on the evidence its own original
+%% framing had already gathered: C# defaults members to private, the BEAM
+%% defaults to unexported, TypeScript defaults to module-private. All three tiers
+%% default CLOSED, and *no unmarked case* was the one convention with a single
+%% vote behind it.
 %%
-%% Per FILE rather than per module, because the message must name the `.bs` the
-%% signature is written in and a directory-shaped module holds several.
-missing_visibility(Path, Decls) ->
-    case [{N, L} || {signature, L, N, _, _, none} <- Decls] of
-        []           -> ok;
-        [{N, L} | _] -> raise_in(Path, {missing_visibility, N, L})
-    end.
-
-%% `undefined` is the one-source callers (`compile_string/2`, the REPL) that have
-%% no path to attribute to. Wrapping with it would name nothing, which is the
-%% same reason `file_group/5` in the emitter has an `undefined` clause.
-raise_in(Path, Reason) when is_list(Path) -> erlang:error({in_file, Path, Reason});
-raise_in(_Path, Reason)                   -> erlang:error(Reason).
+%% The parser still yields `none` for an unmarked signature and every reader here
+%% tests `=:= public` rather than `=/= private` — deliberately, because the
+%% inverted spelling would silently export every unmarked function and no test
+%% for a private function's absence would fail if `none` were the only thing
+%% mis-sorted.
+%%
+%% `private` stays legal and says what the absence already says. That is why the
+%% amendment needed no `.bs` file edited anywhere in the repo.
 
 %% Ticket 40 §3's owed check, and it is not optional.
 %%
@@ -324,7 +323,7 @@ raise_in(_Path, Reason)                   -> erlang:error(Reason).
 %% function and stays one.
 private_callback(Decls) ->
     Behaviours = [B || {behaviour, _, B} <- Decls],
-    Private = [{N, length(Ps), L} || {signature, L, N, _, Ps, private} <- Decls],
+    Private = [{N, length(Ps), L} || {signature, L, N, _, Ps, V} <- Decls, V =/= public],
     case [{N, A, L, Otp} || {N, A, L} <- Private,
                             Otp <- [bs_otp:callback_name(N, A, Behaviours)],
                             Otp =/= none] of
@@ -345,13 +344,14 @@ private_callback(Decls) ->
 exports_of(Decls) ->
     Env = type_env(Decls),
     maps:from_list([{{N, length(Ps)}, sig(Ps, R, Env)}
-                    || {signature, _, N, R, Ps, V} <- Decls, V =/= private]).
+                    || {signature, _, N, R, Ps, V} <- Decls, V =:= public]).
 
 %% The other half: the names a dependent may NOT call, carried so the refusal can
 %% say why. No signature — nothing outside the module may use the type, and
 %% carrying one would invite exactly that.
 private_of(Decls) ->
-    maps:from_keys([{N, length(Ps)} || {signature, _, N, _, Ps, private} <- Decls],
+    maps:from_keys([{N, length(Ps)} || {signature, _, N, _, Ps, V} <- Decls,
+                                       V =/= public],
                    true).
 
 %% The two tables 41 §5 asks for, plus the qualified one, from this module's

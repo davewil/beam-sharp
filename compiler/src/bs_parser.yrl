@@ -232,23 +232,19 @@ type_list -> type_expr ',' type_list : ['$1' | '$3'].
 %% --- signatures -------------------------------------------------------------
 %% Ticket 04's binding constraint: exhaustiveness is only well posed against a
 %% *declared* input type, so a multi-clause function must carry a signature.
-%% F12 / ticket 40 §3 — the visibility marker, and why it is OPTIONAL HERE while
-%% being MANDATORY in the language.
+%% F12 / ticket 40 §3, amended 2026-08-17 — the visibility marker is OPTIONAL
+%% here and optional in the language: AN UNMARKED SIGNATURE IS PRIVATE.
 %%
-%% 40 §3 takes the half of `def`/`defp` that has no unmarked case: a signature
-%% carries `public` or `private`, never neither. The cheap way to enforce that is
-%% to make `visibility` mandatory in this rule, and it is the wrong way. An
-%% unmarked signature would then report
+%% It was optional here before the amendment too, for a different reason: §3
+%% originally demanded a marker on every signature, and enforcing that in this
+%% rule would have reported `syntax error before: 'list'` — a remark about the
+%% token AFTER the missing word. The check that refused it by name is gone now,
+%% and the grammar did not have to change, which is the argument for having put
+%% the rule in the checker rather than here.
 %%
-%%     fib.bs:3: syntax error before: 'list'
-%%
-%% which is a remark about the token AFTER the missing word and says nothing
-%% about the missing word. That is F7's costume and ticket 40 §2's own complaint
-%% — "the defect is the diagnosis, not the outcome" — worn a third time.
-%%
-%% So the parser accepts the absence and `bs_check:missing_visibility/1` refuses
-%% it by name. The rule is enforced exactly as strictly; only the message
-%% changes, and the message is the whole reason the rule is worth having.
+%% `none` is what an unmarked signature carries. Every reader of that field tests
+%% `=:= public`, never `=/= private`, so `none` sorts as private by construction
+%% rather than by remembering to list it.
 signature -> type_prim uident '(' params ')' :
     {signature, line('$2'), value('$2'), '$1', '$4', none}.
 signature -> visibility type_prim uident '(' params ')' :

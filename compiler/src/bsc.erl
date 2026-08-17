@@ -500,6 +500,25 @@ report_run({crashed, error, {Tag, Detail}, _}) when is_atom(Tag) ->
 report_run({crashed, Class, Reason, _}) ->
     io:format(standard_error, "crashed: ~p:~p~n", [Class, Reason]),
     halt(1);
+%% F12, amended 2026-08-17 — THE MOMENT THE DEFAULT BITES.
+%%
+%% Private is now the default, so a module nobody has marked exports nothing and
+%% the clause below would print "the module exports " with an empty list after
+%% it. Measured on a fresh one-function module: `erlc` first says
+%% `function 'Go'/1 is unused` — because an unexported function nothing calls is
+%% deleted — and then this prints a question with no answers in it. That is the
+%% default arriving at exactly the moment the language is least able to explain
+%% itself, and the harness exists to make code runnable.
+%%
+%% So the empty case is its own sentence, and it teaches the one word being
+%% asked for rather than reporting an absence.
+report_run({error, {ambiguous, []}}) ->
+    io:format(standard_error,
+              "bsc: this module exports nothing, so there is no function to run~n"
+              "  a signature with no `public` in front of it is private, and a~n"
+              "  private function is not exported. Mark the one you want to run~n"
+              "  `public`.~n", []),
+    halt(2);
 report_run({error, {ambiguous, Names}}) ->
     io:format(standard_error,
               "bsc: which function? the module exports ~s~n"
@@ -673,16 +692,6 @@ resolve_error(Path, {behaviour_not_satisfied, Line, Behaviour, Missing}) ->
               "  partial one would fail when the process starts rather than here.~n",
               [Path, Line, Behaviour,
                [io_lib:format("    ~s/~p~n", [N, A]) || {N, A} <- Missing]]),
-    handled;
-%% F12 / ticket 40 §3 — every function is marked, and the ABSENCE is refused
-%% here rather than in the grammar so the message can name the missing word
-%% instead of the token after it.
-resolve_error(Path, {missing_visibility, N, Line}) ->
-    io:format(standard_error,
-              "~s:~p: error: ~s has no `public` or `private`~n"
-              "  every signature carries one. There is no default, so that a~n"
-              "  reader never has to know which way it would have gone.~n",
-              [Path, Line, N]),
     handled;
 %% Ticket 06 measured that `-behaviour` has no runtime effect and only exports
 %% matter, so this would otherwise break the contract at run time and silently.

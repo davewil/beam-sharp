@@ -130,7 +130,11 @@ emitted_name(Name, Arity, Behaviours) ->
     end.
 
 arity(F) -> length(element(5, F)).              % length(#fn.params)
-is_public(F) -> element(7, F) =/= private.      % #fn.vis
+%% F12, amended 2026-08-17: PRIVATE IS THE DEFAULT, so the test is `=:= public`
+%% and not `=/= private`. Written the other way it would export every unmarked
+%% function — which is the old rule surviving in a predicate after the rule it
+%% implemented was reversed, and nothing would have reported it.
+is_public(F) -> element(7, F) =:= public.       % #fn.vis
 
 %%% ---------------------------------------------------------------------------
 %%% Functions and clauses

@@ -1,9 +1,10 @@
 # 40 — What is a module, what atom does it emit, and what does it export?
 
 Type: grilling
-Status: **resolved 2026-08-15** — all three sections answered. Two checks are specified and
-unbuilt (`name_redeclared` in §2, the private-callback check in §3); they belong to the feature
-that implements §1.
+Status: **resolved 2026-08-15, §3 amended 2026-08-17** — all three sections answered and **built**:
+§1 and §2 by F11/F15, §3 by F12. Both specified checks exist (`name_redeclared`, `private_callback`).
+**The amendment reverses §3's default**: an unmarked signature is *private*, where the resolution had
+said every function must be marked. See *"AMENDED 2026-08-17"* in §3.
 
 Raised 2026-08-15 from the fog patch *"Module and namespace system, and function identity"*,
 which four other patches wait on, and which
@@ -304,7 +305,46 @@ carries Elixir's macro vocabulary B# has no use for.
 This is the same shape as ticket 35's `behaviour`: the mechanism comes from the BEAM, the spelling
 from wherever it reads best.
 
-### Every function is marked — assumption stated
+### AMENDED 2026-08-17 — private is the default; `public` deliberately exposes
+
+**An unmarked signature is private.** `public` exposes a function from its module; `private` may
+still be written and means what the absence already means. This **reverses** the paragraph kept
+below, and it is the reversal that paragraph named in advance.
+
+David: *"maybe private by default, public to deliberately expose from a module."*
+
+**The original framing had already measured the case and the resolution went the other way.** It is
+recorded further down this section: C# defaults members to private and marks `public`; the BEAM
+defaults to unexported and marks `-export`; TypeScript defaults to module-private and marks
+`export`. **Every tier-1 and tier-2 source defaults to closed.** The borrow heuristic ranks sources
+and takes the most accurate word — and on this question all three tiers agree, which is as strong
+as that heuristic ever gets. Taking Elixir's *no unmarked case* was taking the one convention that
+had no second vote behind it.
+
+**What the reversal costs is one check, and it is a deletion**: `{missing_visibility, Name, Line}`
+goes, because there is nothing left to miss. Nothing else about §3 changes — the marker's placement,
+its spelling, the export filter and the private-callback check are all untouched, and `private`
+remains legal so no `.bs` file needs editing.
+
+**What it buys is the thing defaults are for.** A module's surface becomes the list of things
+somebody wrote `public` in front of, which is a shorter and more deliberate list than "everything
+nobody wrote `private` in front of". Under the old rule a forgotten marker was an error; under this
+one a forgotten marker is *safe*, and the failure mode moves from "the compiler stopped you" to "the
+function is not exported", which the private-callback check already catches for the one case where
+that would go quiet.
+
+**One cost is real and is accepted rather than argued away.** A new file whose functions are all
+unmarked exports nothing, so `bsc examples/Thing 5` cannot run it — and `erlc` additionally deletes
+an unexported function that nothing calls, warning `function 'Go'/1 is unused`. Measured
+2026-08-17: a fresh one-function module answers with that warning and then
+*"which function? the module exports "* with an empty list. **That is the default biting at exactly
+the moment the language is least able to explain itself**, and the harness exists to make code
+runnable, so the message is owed by this amendment rather than by a later feature: an empty export
+list must say that the module exports nothing and that an unmarked signature is private. It
+self-corrects the moment the entry point is marked, which is the one word this default is asking
+for.
+
+<details><summary>The original resolution, reversed above and kept as written</summary>
 
 `def`/`defp` has **no unmarked case**, and that is the half of Elixir's convention being taken:
 a signature carries `public` or `private`, never neither. The standing constraint supports it —
@@ -314,6 +354,8 @@ guardrails on the agent"* concrete.
 
 **If that is the wrong half**, the alternative is one line: make `private` the marker and public the
 default (or vice versa). Nothing below depends on which, and nothing is built yet.
+
+</details>
 
 ### The check this makes possible, and why it is not optional
 

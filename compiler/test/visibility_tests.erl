@@ -32,33 +32,71 @@ fib_src() ->
     "Reverse([x, ..rest], acc) -> Reverse(rest, [x, ..acc])\n".
 
 %%% ---------------------------------------------------------------------------
-%%% F12.3 — every function is marked, and the absence is refused BY NAME
+%%% F12.3 — AN UNMARKED SIGNATURE IS PRIVATE (ticket 40 §3, amended 2026-08-17)
+%%%
+%%% §3 first took Elixir's `def`/`defp` — no unmarked case, absence an error —
+%%% and reversed on the evidence its own original framing had gathered: C#, the
+%%% BEAM and TypeScript all default CLOSED. There was a `missing_visibility`
+%%% check and two tests here asserting it; both are gone, replaced by the
+%%% positive claim, because a test for an error the language no longer raises is
+%%% worse than no test at all.
 %%% ---------------------------------------------------------------------------
 
-%% Ticket 40 §3 takes the half of `def`/`defp` that has no unmarked case.
-a_signature_without_a_marker_is_an_error_test() ->
-    Src = "module NoMark\n"
-          "int F(int n)\n"
-          "F(n) -> n\n",
-    ?assertError({missing_visibility, 'F', 2}, check_only(Src)).
+unmarked_src() ->
+    "module Unmarked\n"
+    "public int Twice(int n)\n"
+    "Twice(n) -> Helper(n) + Helper(n)\n"
+    "int Helper(int n)\n"
+    "Helper(n) -> n\n".
 
-%% The reason the GRAMMAR does not enforce it. Made mandatory in the parser, an
-%% unmarked signature reports `syntax error before: 'int'` — a remark about the
-%% token AFTER the missing word, which says nothing about the missing word.
-%% This asserts the sentence a person actually reads, which is the only place
-%% the choice between the two is visible.
-the_message_for_a_missing_marker_names_the_missing_word_test() ->
-    Root = fixture_root(),
-    Path = place(Root, "NoMark.bs",
-                 "module NoMark\n"
-                 "int F(int n)\n"
-                 "F(n) -> n\n"),
-    Out = run_cli("--src-root " ++ Root ++ " -o " ++ ?OUT ++ " " ++ Path),
-    said(Out, "has no `public` or `private`"),
-    %% Named against the `.bs` and its line, not against an emitted artefact —
-    %% the `{in_file, …}` unwrap doing its job.
-    said(Out, "NoMark.bs:2"),
-    said(Out, "rc:1").
+%% The default itself: no marker, no export.
+an_unmarked_signature_is_not_exported_test() ->
+    M = build_and_load(unmarked_src(), 'Unmarked'),
+    Exports = [{F, A} || {F, A} <- M:module_info(exports), F =/= module_info],
+    ?assertEqual([{'Twice', 1}], Exports).
+
+%% ...and it compiles and runs, which is the half that would break if `none`
+%% were sorted as public somewhere: the module would still work and would simply
+%% export too much, which no test of a working program can see.
+an_unmarked_signature_is_still_callable_in_its_module_test() ->
+    ?assertMatch({ok, _, []}, check_only(unmarked_src())),
+    M = build_and_load(unmarked_src(), 'Unmarked'),
+    ?assertEqual(8, M:'Twice'(4)).
+
+%% Writing `private` is legal and says what the absence already says. Kept so
+%% the two spellings cannot drift apart unnoticed — the corpus uses the explicit
+%% form throughout, and the language's default is the implicit one.
+an_explicit_private_and_an_unmarked_signature_agree_test() ->
+    Explicit = "module Same\n"
+               "public int Twice(int n)\n"
+               "Twice(n) -> Helper(n) + Helper(n)\n"
+               "private int Helper(int n)\n"
+               "Helper(n) -> n\n",
+    M1 = build_and_load(unmarked_src(), 'Unmarked'),
+    M2 = build_and_load(Explicit, 'Same'),
+    Ex = fun(M) -> [F || {F, _} <- M:module_info(exports), F =/= module_info] end,
+    ?assertEqual(Ex(M1), Ex(M2)).
+
+%% THE MOMENT THE DEFAULT BITES, and the reason the message is part of the
+%% amendment rather than a follow-up. A module nobody has marked exports
+%% nothing, and the old sentence was "which function? the module exports " with
+%% an empty list after it.
+a_module_that_exports_nothing_says_so_test() ->
+    case built() of
+        false -> ok;
+        true ->
+            Root = fixture_root() ++ "/visnone",
+            Main = place(Root, "Silent.bs",
+                         "module Silent\n"
+                         "int Go(int n)\n"
+                         "Go(n) -> n + 1\n"),
+            Out = run_cli("--src-root " ++ Root ++ " -o " ++ ?OUT ++ " " ++
+                          filename:dirname(Main) ++ " 5"),
+            said(Out, "this module exports nothing"),
+            said(Out, "Mark the one you want to run"),
+            silent(Out, "the module exports \n"),
+            said(Out, "rc:2")
+    end.
 
 %%% ---------------------------------------------------------------------------
 %%% F12.1 / F12.2 / F12.8 — what `private` actually does

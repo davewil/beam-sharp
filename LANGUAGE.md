@@ -51,19 +51,23 @@ function name. The clause arrow is `->`. **There is no `;`** — a declaration e
 one begins. **shipped**
 <!-- decided by ticket 01 (Variant A: signature names the function once, clauses are bare) -->
 
-**Every signature opens with `public` or `private`, and there is no default.** A `public` function
-is exported from the module; a `private` one can be called only from inside it. `Series` above is
-private — `Fib` calls it, nothing else can — which is why the example shows a call to a function
-the module does not offer anyone. A private function is otherwise ordinary: it is compiled, it
-carries a type, and a crash names it. **shipped**
+**A function is private unless its signature says `public`.** A `public` function is exported from
+its module; everything else can be called only from inside it. `Series` above is private — `Fib`
+calls it, nothing else can — which is why the example shows a call to a function the module does not
+offer anyone. A private function is otherwise ordinary: it is compiled, it carries a type, and a
+crash names it. **shipped**
 <!-- decided by ticket 40 §3; built by F12 -->
 
-There is no default because a reader should never have to know which way an unmarked signature
-would have gone. Two consequences follow. A function that a behaviour declares as a callback must
-be `public`, since a behaviour is dispatched through the export list and nothing else — marking one
-private is refused at the declaration rather than left to fail when the process starts. And
-visibility is per **name and arity**, so `Length(list<int> xs)` may be public while
-`Length(list<int> xs, int acc)` beside it is private.
+**`private` may be written and adds nothing**, saying explicitly what the absence already says. Use
+it where a reader benefits from being told the omission was deliberate.
+
+A module's surface is therefore the list of things somebody wrote `public` in front of. Three
+consequences follow. A function that a behaviour declares as a callback **must** be `public`, since
+a behaviour is dispatched through the export list and nothing else — leaving one private is refused
+at the declaration rather than left to fail when the process starts. Visibility is per **name and
+arity**, so `Length(list<int> xs)` may be public while `Length(list<int> xs, int acc)` beside it is
+not. And a module with no `public` at all exports nothing and cannot be run, which the compiler says
+in those words rather than offering an empty list of choices.
 
 **A body is zero or more bindings followed by one expression**, and the body's value is that last
 expression — so a body is still an expression, with names in front of it.

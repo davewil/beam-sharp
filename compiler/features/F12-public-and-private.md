@@ -8,6 +8,38 @@
 **Depends on**  F10 (the contract-scoped callback table), F11 (`exports_of/1`, the qualified-call
                 resolution this filters)
 
+## AMENDED 2026-08-17, hours after landing — private is the default
+
+**An unmarked signature is private.** Everything below is as it was built and is still accurate
+except for one sentence — *"every function is marked"* — which §3 reversed the same day, on David's
+*"maybe private by default, public to deliberately expose from a module."*
+
+**The reversal was named in advance by the ticket and the evidence was already in it.** §3's own
+original framing had measured that C# defaults members to private, the BEAM defaults to unexported
+and TypeScript defaults to module-private — **every tier-1 and tier-2 source defaults closed** — and
+then resolved the other way by taking Elixir's *no unmarked case*. That was the one convention with
+a single vote behind it.
+
+**The compiler cost was a deletion.** `missing_visibility` is gone, there being nothing left to
+miss, along with its `resolve_error/2` clause and its two tests. Five readers of the visibility field
+now test `=:= public` rather than `=/= private`, so `none` sorts as private by construction rather
+than by anybody remembering to list it — the inverted spelling would have exported every unmarked
+function, and no test of a *working* program can see a module that merely exports too much.
+
+**No `.bs` file changed anywhere in the repo**, because `private` stays legal and says what the
+absence already says. That also left the `private` probe row and the corpus's 18 explicit markers
+alone. Marking most of the corpus unmarked to "demonstrate the default" was considered and refused:
+it would have left the probe alive on a single hostage line, which is the exact defect this file's
+build note describes two sections down.
+
+**One thing the amendment owed and paid.** Private-by-default makes an unmarked module export
+nothing, so `bsc examples/Thing 5` used to answer *"which function? the module exports "* with an
+empty list — and `erlc` first warns `function 'Go'/1 is unused`, because an unexported function
+nothing calls is deleted. Measured on a fresh one-function module before deciding the wording. The
+empty case is now its own sentence and names the one word being asked for. The *"all-private
+module"* item has accordingly moved out of **Out of scope**: it stopped being a deliberate act and
+became what every new file does first.
+
 ## Why this one now
 
 **Cost, not capability — the F8 precedent exactly.** F8 took its slot ahead of binaries because it
@@ -156,11 +188,10 @@ grammars land together.
   case hiding in the FFI.
 - **`index.bs`.** It may hold no functions at all (F15's `function_in_index`), so no marker.
 - **Whether the filename fixes the exported name** — ticket 40 §2's sub-question, still open.
-- **A module in which every function is private.** Legal B# after this feature, and it produces an
-  empty export list — so `bs_run:resolve_without_name/4` falls to `{error, {ambiguous, []}}` and
-  prints *"the module exports "* with nothing after it. No corpus file reaches it, because every
-  module keeps its entry points public. Recorded rather than checked: a module that offers nothing
-  is a thing a person may legitimately write on the way to writing the rest of it, and a compiler
+- ~~**A module in which every function is private.**~~ **Moved out of scope and fixed, 2026-08-17**
+  — under the amended default this is not a deliberate act but the state of every new file, so the
+  empty export list gets its own sentence in `report_run/1` and a test. Still *permitted*: a module
+  that offers nothing is a thing a person may write on the way to writing the rest, and a compiler
   that refused it would be refusing a draft.
 
 ## What the building revealed

@@ -846,8 +846,16 @@
   which is the drift `bs_emit`'s single `name/2` funnel exists to prevent. Taking C#'s words is the
   amended heuristic working as intended — survey all three tiers, take the most accurate word — and
   it is the same shape as ticket 35's `behaviour`: mechanism from the BEAM, spelling from wherever
-  it reads best. **Every function is marked**, since `def`/`defp` has no unmarked case; recorded as
-  a stated assumption with a one-line reversal if it is the wrong half.
+  it reads best. **AMENDED 2026-08-17 — an unmarked signature is PRIVATE**, and `public` deliberately
+  exposes. The resolution had taken Elixir's *no unmarked case* and recorded it as a stated
+  assumption with a one-line reversal named in advance; this is that reversal, and the reason is
+  that **the original framing had already measured the case and the resolution went the other way**.
+  C# defaults members to private, the BEAM defaults to unexported, TypeScript defaults to
+  module-private — every tier-1 and tier-2 source defaults *closed*, so on this question all three
+  tiers agree, which is as strong as the borrow heuristic ever gets. *No unmarked case* was the one
+  convention with no second vote behind it. `private` stays legal and means what its absence already
+  means, so no `.bs` file needed editing; the whole compiler cost was **deleting** the
+  `missing_visibility` check, there being nothing left to miss.
 
   **Two checks are specified and unbuilt**, both belonging to the feature that implements §1:
   `{name_redeclared, Name, Arity, Line}` for §2, and — because ticket 06 measured that `-behaviour`
