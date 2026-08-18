@@ -122,6 +122,23 @@ jobs:
               ./_build/default/bin/bsc --src-root examples -o "$(mktemp -d)" "$d" || exit 1
             done
 
+      # THE DIAGNOSTIC IS A TERM, AND PROSE IS A PURE FUNCTION OF IT (F16).
+      #
+      # This one guards a drift that reopens SILENTLY and with every test still
+      # green. F16 moved 56 `io:format` calls into `bs_diag` so that the message
+      # is derived from a descriptor; the next person to add a diagnostic can
+      # write the prose inline at the site that found the problem, and nothing
+      # fails — the prose would be right, and only the term would be wrong.
+      #
+      # It checks the SHAPE of the format string rather than the call, because a
+      # diagnostic names a source location and a usage error never can. That
+      # distinction is what lets the CLI keep printing `bsc: which function?` to
+      # stderr without an exemption. It was measured failing on all three of its
+      # checks before it was believed.
+      - name: Diagnostics are terms
+        working-directory: compiler
+        run: ./bin/check-diagnostics.sh
+
       # Dialyzer over every emitted spec, plus two negative controls that corrupt
       # a real emitted artefact and REQUIRE the corruption to be caught — because
       # a clean run proves nothing unless a wrong spec would fail it.

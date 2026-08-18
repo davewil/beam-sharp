@@ -102,9 +102,45 @@ Erlang back to the decision that required it is one grep.
 | [F11 — the module system](F11-module-system.md) | **done 2026-08-17** | the collection library; the **imports** row that blocks all three exemplars. It also turned `check-corpus.sh` green for the first time since F9 |
 | [F12 — `public` / `private`](F12-public-and-private.md) | **done 2026-08-17** · [ENG-222](https://linear.app/davewil/issue/ENG-222) | nothing — it closed 40 §3, and it was the last whole-corpus rewrite the language had queued |
 | F13 — binary patterns | not started, **blocked** — ticket 30 is open | 25b, 25c |
-| [F16 — the diagnostic is a term](F16-diagnostic-as-a-term.md) | **in progress** · [ENG-224](https://linear.app/davewil/issue/ENG-224) | 23 §10 (`bsc --api`), which is specified *on this channel* and has no output shape until it exists |
+| [F16 — the diagnostic is a term](F16-diagnostic-as-a-term.md) | **done 2026-08-18** · [ENG-224](https://linear.app/davewil/issue/ENG-224) | 23 §10 (`bsc --api`), which is specified *on this channel* and had no output shape until it existed |
 | [F14 — the pipe and the valve](F14-pipe-and-valve.md) | **done 2026-08-18** · [ENG-223](https://linear.app/davewil/issue/ENG-223) | 25a's admission chain and the decode pipelines in 25b and 25c — and **ticket 31** now has a running operator to measure rather than argue about |
 | [F15 — a module is a directory](F15-module-is-a-directory.md) | **done 2026-08-17** | the *other* half of the module system; `index.bs`, and 41 §4/§5's two checks — both now built |
+
+**F16 IS BUILT, AND WHAT IT REVEALED IS THAT A REQUIREMENT CAN BE WRITTEN WHERE NOBODY WILL BUILD
+IT — 2026-08-18.** The diagnostic is a term: `bsc --diagnostics term` publishes a descriptor for
+every message the compiler can produce, returned and raised, and the prose is a pure function of it
+at all 56 sites. 332 tests, nine gates, and `bsc.erl` down from 1,406 lines to 788.
+
+**The constraint that decided the whole design was already specified — in a comment, on the function
+it constrains, with nothing pointing at it.** Ticket 43 capped the printed residual at three cases
+and recorded what the unbuilt half owed: *"the descriptor keeps all forty-one."* That single line is
+the difference between a design that works and one that cannot, because it means **the prose is a
+LOSSY function of the term** — so the descriptor has to carry the residual's *parts*, and a
+descriptor holding the finished display string, which is the obvious first design, can never
+re-derive the prose it is supposed to produce. §1 would have been satisfied in name and broken in
+fact.
+
+It was found by reading the code about to be moved, which is luck. The general form is this file's
+own recurring subject one level in: F15 recorded that **a prose-only blocker is an invisible one**,
+and this is the same failure for a REQUIREMENT. Written where the constraint applies rather than
+where the work will happen, it is invisible to whoever builds the other side — no ticket named it,
+the map's index could not have surfaced it, and `grep` found it only because the line sat inside
+the region being cut.
+
+**And the gate had to be pointed at a SHAPE rather than at a call.** The obvious rule — no
+`io:format(standard_error, …)` outside `bs_diag` — is wrong, and wrong in the direction that makes
+a gate a nuisance: the CLI legitimately prints `bsc: which function?` and the REPL echoes, and
+neither is a diagnostic. What separates them is that a diagnostic **names a source location**, so
+the gate greps for `~s:~p: error:` and lets usage errors alone. An exclusion that had to be argued
+for every new CLI message would have been removed within two features, which is exactly how the
+`examples/*.bs` exclusion rotted.
+
+**A second cause was found for a symptom that already had one.** A "cancelled" eunit run with a
+partial count means `/tmp/bsc_eunit` has filled up — and now also means
+`every_example_still_compiles_test` blew eunit's **5s default**, since it shells out once per module
+directory at 3.8s warm. On this feature's own fresh worktree the suite stopped at 67 of 332 before a
+line had been changed. It has a timeout fixture now. CI never sees it because the workflow builds
+the escript first, which is the blind spot that let `cli_tests` never once execute in CI.
 
 **F14 IS BUILT, AND WHAT IT REVEALED IS THAT A CHECKER MUST KNOW WHAT IT WROTE ITSELF — 2026-08-18.**
 Both operators run, ten gates are green and the suite is **319** tests. The pipe cost almost nothing
@@ -130,6 +166,15 @@ is only as good as what it was told to look at.
 is **F13 — binary patterns**, which has no file because it is blocked on **ticket 30**, still open.
 The cycle the paragraphs below describe applies unchanged: *starve → resolve a decision → build →
 find what the building reveals*. The decision to resolve next is 30's.
+
+**THE FOURTH STARVATION BROKE THE CYCLE INSTEAD OF COMPLETING IT — 2026-08-18.** F16 was built
+without resolving anything, because the queue was never the whole backlog: the *decided, unbuilt*
+table further down this file has been carrying takeable work the whole time, and 23 §1 had sat in it
+since the LSP question was answered. So the rule the three previous starvations taught — *resolve a
+decision next* — is a rule about the FEATURE ROWS, not about the repo. **Read the decided-unbuilt
+table before concluding there is nothing to build**; a decision that is closed and unbuilt is a
+feature that has not been given a number yet. Ticket 30 is still the decision F13 needs, and that is
+unchanged.
 
 **F12 IS BUILT, AND WHAT IT REVEALED IS THAT A GATE IS ONLY AS GOOD AS ITS TAGGING — 2026-08-17.**
 `public`/`private` sits on every signature in the repo, `'Fib'.beam` exports `Fib/1` and nothing
@@ -561,7 +606,7 @@ multi-year track, or one capability the language owes its author"*:
 
 | | Where it stands |
 |---|---|
-| 23 §1 — the diagnostic is a **term**, prose a pure function of it | **decided, unbuilt.** `bsc:report/2` writes prose directly with `io:format`; there is no term today and so no way for the two to be kept from drifting |
+| 23 §1 — the diagnostic is a **term**, prose a pure function of it | **BUILT — F16, 2026-08-18.** `bs_diag` owns the descriptor and every format string; `bsc --diagnostics term` publishes it, and `bin/check-diagnostics.sh` is what stops the drift reopening |
 | 23 §10 — `bsc --api <Module>` | **decided, unbuilt.** The map cites this by name as the example of what is *in* scope |
 | Columns | **no decision owed.** Measured in parsetools 2.7.1: leex predefines `TokenCol` and `TokenLoc`, and yecc's `error_location` already defaults to `column`. `bs_lexer.xrl` writes `TokenLine` by choice. Since `line/1` is `element(2, T)`, the lexer's actions are the whole change in the parser; the cost is downstream, in the `~s:~p:` format strings and the Abstract Format annotations |
 | 23 §5 — a JSON **encoding** of the term | **blocked**, and already logged: it inherits ticket 16 §4's serialisation mapping, which the map lists as owed and unwritten |

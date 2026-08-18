@@ -40,7 +40,7 @@ $ bsc examples/Readings Classify "(:ok, 7)"
 :positive
 ```
 
-`bsc [--src-root DIR] PATH [FUNCTION] [ARG...]`, where **`PATH` is a module — which is a
+`bsc [--src-root DIR] [--diagnostics term] PATH [FUNCTION] [ARG...]`, where **`PATH` is a module — which is a
 directory** (ticket 13 §3). Naming one of its files works too and means the same thing, since a
 file names the module it belongs to.
 
@@ -56,6 +56,30 @@ never needs it; a dotted one does, because `module Shop.Reports` lives at `Shop/
 $ bsc --src-root examples examples/Shop/Reports Restate 3
 9
 ```
+
+`--diagnostics term` publishes the diagnostic as a **term** on stdout, alongside the prose that
+still goes to stderr. Ticket 23 §1 decided that the diagnostic *is* a term and the prose is a pure
+function of it — so this is not a second rendering that could disagree, it is the value the message
+was computed from:
+
+```
+$ bsc --diagnostics term Rank 2>/dev/null
+#{tag => inexhaustive,severity => error,line => 1,function => 'Rank',
+  file => "Rank/Rank.bs",
+  heads => #{kind => products,products => [[[":amber"]]],
+             pasteable => ["Rank(:amber) -> ..."]},
+  residual => "(:amber)"}
+```
+
+The module in that example is not in `examples/`, and cannot be: everything there must compile,
+and this one deliberately does not. `pasteable` is the clause you must write. The compiler synthesises the **head** and never the body
+(23 §2): a head is derived from the residual and cannot be wrong, where a body is a guess. Where a
+residual cannot be expressed as a head the term says so and offers nothing, rather than handing
+back an approximation that reads as actionable.
+
+**The term is full fidelity and the prose is not.** The prose stops at three cases and prints
+`... (2 more)`, which is ticket 43's cap; the term carries every one of them. That is deliberate
+and is why the residual travels as its parts.
 
 Arguments and results are in **beam-sharp** notation, and the parser accepts back exactly what the
 printer emits: `:positive`, `(:ok, 7)`, `[1, 2]`, `{Kind = :'Shop.Order', Id = 1, Total = 0}`.

@@ -1,6 +1,6 @@
 # F16 — The diagnostic is a term, and prose is a pure function of it
 
-**Status**      in progress · [ENG-224](https://linear.app/davewil/issue/ENG-224)
+**Status**      **done 2026-08-18** · [ENG-224](https://linear.app/davewil/issue/ENG-224)
 **Implements**  [ticket 23](../../wayfinder/issues/23-what-the-language-owes-an-agent.md) §1 (the
                 split), §2 (the compiler synthesises the head), §4 (a named subset is contractual,
                 payloads are maps). It **decides nothing** — 23 closed on 2026-08-13.
@@ -53,8 +53,10 @@ A new module, **`bs_diag.erl`**, owning three things and nothing else:
 - **`emit/2`** — descriptor → the channel. Prose to stderr as today; the descriptor term to
   **stdout** under `--diagnostics term`.
 
-`bsc:report/2` and `bsc:resolve_error/2` keep their clause heads and their comments — the reasoning
-attached to each message is worth more than the format string — and their bodies become one call.
+`bsc:report/2` and `bsc:resolve_error/2` become one delegation each. **The plan had them keeping
+their clause heads and comments, and that was wrong**: the reasoning attached to a message belongs
+next to the message, so all 56 clause heads and every comment on them moved too, and `bsc.erl` lost
+618 lines.
 
 ### The descriptor shape (23 §4)
 
@@ -152,3 +154,47 @@ list — the lesson from `demonstrated_surface()` being read as a grammar invent
 error and warning, returned and raised; the prose is `bs_diag:format/1` of that same map at every
 site; `bin/check-diagnostics.sh` is in CI and was seen failing before it was believed; and the
 suite is green with the prose unchanged.
+
+## Done — what it took, and the thing that was already written down
+
+**Built 2026-08-18. `bsc --diagnostics term` publishes a descriptor for every diagnostic the
+compiler can produce**, returned and raised, error and warning; the prose is `bs_diag:format/1` of
+that same map at every site; the suite is **332** and all nine gates are green, with
+`bin/check-diagnostics.sh` measured failing on each of its three checks before it was believed.
+`bsc.erl` went from 1,406 lines to 788.
+
+**THE HARDEST CONSTRAINT IN THIS FEATURE WAS ALREADY SPECIFIED, IN A COMMENT, ON THE FUNCTION IT
+CONSTRAINS — AND NOTHING POINTED AT IT.** Ticket 43 capped the printed residual at three cases and
+wrote down what the unbuilt other half owed: *"the descriptor keeps all forty-one and 23 §10's
+`bsc --api` is the full-fidelity channel."* That is a requirement on a module that did not exist,
+recorded on `truncated/1`, and it is the difference between a design that works and one that
+cannot: **the prose is a LOSSY function of the term**, so the term has to carry the residual's
+*parts* rather than finished text. A descriptor holding the display string — the obvious first
+design, and the one this feature would have shipped — cannot re-derive the prose, and §1 is then
+satisfied in name only.
+
+It was found by reading the code that was about to be moved. That is luck, and the general form is
+this repo's own recurring subject arriving one level in: F15 recorded that **a prose-only blocker is
+an invisible one**, and this is the same failure for a *requirement* — written where the constraint
+applies rather than where the work will happen, it is invisible to whoever builds the other side.
+The map's index would not have surfaced it; no ticket named it; `grep` found it only because the
+line happened to sit in the region being cut.
+
+**Two mechanical facts shaped the interface, and both are worth keeping.** `message/1` returns
+`{Fmt, Args}` rather than finished text because several messages carry a literal em dash *inside
+the format string*: re-rendering through `~s` is a `badarg` above codepoint 255 and `~ts` is a
+different encoding path from the one the corpus was measured on. And severity travels as **data**
+rather than being implied by the tag, because two of the twenty-four are warnings — a consumer that
+had to know which from a list would be re-deriving what the compiler already decided.
+
+**AND A SECOND CAUSE WAS FOUND FOR A SYMPTOM THAT ALREADY HAD ONE.** A "cancelled" eunit run with a
+partial count is recorded in this project as meaning `/tmp/bsc_eunit` has filled up. It now has
+another: `every_example_still_compiles_test` shells out once per module directory, which is **3.8s
+warm against eunit's 5s default timeout**, so a cold checkout reports `*timed out*` and the suite
+stops at 67 of 332 — reading exactly like a regression somebody just introduced. Measured on this
+feature's own fresh worktree, before a line was changed. It now carries a timeout fixture. CI never
+sees it, because the workflow builds the escript first — the same blind spot that let `cli_tests`
+never once execute in CI.
+
+**What this feature deliberately did not do is the next feature.** `bsc --api` (23 §10) now has a
+channel to answer on, which was the whole argument for the ordering.

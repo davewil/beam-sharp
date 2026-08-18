@@ -339,7 +339,18 @@ a_call_with_the_wrong_arity_is_caught_by_bsc_test() ->
 %%     `examples/collections/` — F11's only multi-module example — was outside
 %%     this gate entirely while CI's step recursed past it. The two disagreed and
 %%     nothing said so.
-every_example_still_compiles_test() ->
+%% A TIMEOUT FIXTURE, AND IT IS NOT A PERFORMANCE EXCUSE. This test shells out to
+%% the CLI once per module directory, which is ~3.8s warm against eunit's 5s
+%% DEFAULT — so on a cold checkout it does not fail, it reports `*timed out*`,
+%% and the run ends "cancelled" with a partial count that reads exactly like a
+%% regression somebody just introduced. Measured on a fresh worktree with no
+%% `_build`: the whole suite stopped at 67 of 332 for this reason alone. CI never
+%% sees it because the workflow builds the escript first, which is the same
+%% blind spot that let `cli_tests` never once execute in CI.
+every_example_still_compiles_test_() ->
+    {timeout, 120, fun every_example_still_compiles/0}.
+
+every_example_still_compiles() ->
     Root = project_root() ++ "/examples",
     Dirs = [D || D <- bsc:module_dirs(Root),
                  string:find(D, "/exemplars/") =:= nomatch],

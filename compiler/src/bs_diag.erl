@@ -1,0 +1,860 @@
+%%% bs_diag — the diagnostic as a term, and prose as a pure function of it.
+%%%
+%%% F16, ticket 23 §1. Before this module every diagnostic was an `io:format`
+%%% call in `bsc.erl`: 56 of them, and not one produced a value a consumer could
+%%% read. The shapes were already terms internally — `{error, Line, Fn,
+%%% {inexhaustive, Residual}}` — so the defect was never a missing model. It was
+%%% that the model was destroyed at the boundary where the consumer stands,
+%%% which is exactly what ticket 23 measured `erlc` doing: `compile:file/2`
+%%% builds `{ErrorLocation, Module, ErrorDescriptor}` correctly and no flag on
+%%% `erlc -h` recovers it.
+%%%
+%%% THE SPLIT, and it is OTP's own (tier 2): `descriptor/2` builds the term,
+%%% `message/1` is the single owner of every format string, and prose is derived
+%%% rather than written alongside. Nothing else in the compiler may print a
+%%% diagnostic — `bin/check-diagnostics.sh` is the gate, and it exists because
+%%% the drift this module closes reopens silently: a new report site calling
+%%% `io:format` directly would pass every test, since the prose would be right.
+%%%
+%%% WHY `message/1` RETURNS `{Fmt, Args}` RATHER THAN THE TEXT. Several messages
+%%% carry a literal em dash *inside the format string* (`ambiguous_call`,
+%%% `import_cycle`). Today those reach the device through `io:format/3` with the
+%%% codepoint in the format itself; re-rendering the finished text through `~s`
+%%% is a `badarg` on a codepoint above 255, and through `~ts` it is a different
+%%% encoding path from the one the corpus was measured on. So `emit/2` makes the
+%%% identical call it always made, and `format/1` — the published pure function
+%%% — is defined in terms of `message/1` rather than beside it. One owner, two
+%%% renderings, no drift.
+%%%
+%%% THE DESCRIPTOR IS FULL FIDELITY AND THE PROSE IS LOSSY. This is not a choice
+%%% made here; ticket 43 made it and wrote it down in the future tense — *"the
+%%% descriptor keeps all forty-one and 23 §10's `bsc --api` is the full-fidelity
+%%% channel"*. So `residual` and `heads` carry every case, and `message/1`
+%%% applies 43's cap of ?RESIDUAL_CASES on the way out. That is why the residual
+%%% travels as its *parts* rather than as finished text: prose cannot be a pure
+%%% function of a term that has already been truncated.
+%%%
+%%% PAYLOADS ARE MAPS, NOT TUPLES (23 §4), because a map gains a key without
+%%% breaking a matcher and a tuple cannot — so additive-only evolution is
+%%% expressible in the data rather than promised in prose.
+-module(bs_diag).
+
+-export([descriptor/2, format/1, message/1, emit/2]).
+-export([channel/0, set_channel/1, contractual/0]).
+
+%% Ticket 43's threshold, and it must be the same number `bsc.erl` used before
+%% this module existed — the truncated form IS the exact form at three cases or
+%% fewer, so there is nothing to tune and no second shape to switch into.
+-define(RESIDUAL_CASES, 3).
+
+%%% ---------------------------------------------------------------------------
+%%% The channel
+%%%
+%%% 23 §1 says only that "the CLI publishes both" and names no flag anywhere in
+%%% the ticket. `--diagnostics term` is F16's assumption, recorded in the feature
+%%% file: prose to stderr exactly as before, the descriptor to stdout, so a
+%%% consumer redirects rather than parses.
+%%%
+%%% IT LIVES IN THE PROCESS DICTIONARY, AND DELIBERATELY. The alternative is
+%%% threading a channel through `parse_string/2`, `parse_path/1` and
+%%% `load_unit/1`, none of which have `#opts{}` in scope and two of which are
+%%% reached from exported entry points. `set_channel/1` is called from `main/1`
+%%% and from nowhere else, so a library caller — and every in-process test —
+%%% gets `prose` and cannot be polluted by another test: the CLI is a fresh OS
+%%% process every time it runs.
+%%% ---------------------------------------------------------------------------
+
+set_channel(Chan) when Chan =:= prose; Chan =:= term ->
+    put(bs_diag_channel, Chan).
+
+channel() ->
+    case get(bs_diag_channel) of
+        undefined -> prose;
+        Chan      -> Chan
+    end.
+
+%% 23 §4 — the frozen subset. The test for membership is §2's: does it hand the
+%% agent something to write? A syntax error does not, so it is structured and
+%% renderable and carries no shape promise. `defended` is named contractual by
+%% §4 and is NOT here because it does not exist: it is §3's informational
+%% boundary answer, which no feature has built.
+contractual() ->
+    [inexhaustive, catch_all_over_closed, switch_inexhaustive,
+     arg_not_accepted, unreachable_clause, unreachable_arm].
+
+%%% ---------------------------------------------------------------------------
+%%% Publishing
+%%% ---------------------------------------------------------------------------
+
+%% The prose goes where it always went. The term goes to stdout, and only when
+%% asked for: the default prints nothing new, so no existing consumer moves.
+emit(Chan, Desc) ->
+    case Chan of
+        term -> io:format("~p~n", [Desc]);
+        _    -> ok
+    end,
+    {Fmt, Args} = message(Desc),
+    io:format(standard_error, Fmt, Args).
+
+%% The published pure function. Prose is THIS, applied to the term — never
+%% written next to it.
+format(Desc) ->
+    {Fmt, Args} = message(Desc),
+    io_lib:format(Fmt, Args).
+
+%%% ---------------------------------------------------------------------------
+%%% descriptor/2 — the returned diagnostics (`bsc:report/2`'s 24)
+%%% ---------------------------------------------------------------------------
+
+%% The four keys every returned diagnostic carries. Severity travels as DATA
+%% rather than being implied by the tag, because `unreachable_clause` and
+%% `unreachable_arm` are warnings and everything around them is an error — a
+%% consumer that had to know which is which from a list would be re-deriving
+%% something the compiler already decided.
+at(Sev, Path, Line, Fn) ->
+    #{severity => Sev, file => Path, line => Line, function => Fn}.
+
+descriptor(Path, {Sev, Line, Fn, {inexhaustive, Residual}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => inexhaustive,
+                               residual => residual(Residual),
+                               heads => heads(Fn, Residual)};
+descriptor(Path, {Sev, Line, Fn, {catch_all_over_closed, Residual}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => catch_all_over_closed,
+                               residual => residual(Residual),
+                               heads => heads(Fn, Residual)};
+descriptor(Path, {Sev, Line, Fn, relational_in_bind}) ->
+    (at(Sev, Path, Line, Fn))#{tag => relational_in_bind};
+descriptor(Path, {Sev, Line, Fn, no_clauses}) ->
+    (at(Sev, Path, Line, Fn))#{tag => no_clauses};
+descriptor(Path, {Sev, Line, Fn, {switch_inexhaustive, Residual}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => switch_inexhaustive,
+                               residual => residual(Residual),
+                               arm => bs_types:to_pattern(Residual)};
+descriptor(Path, {Sev, Line, Fn, {valve_on_infallible, Ty}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => valve_on_infallible,
+                               subject => bs_types:to_pattern(Ty)};
+descriptor(Path, {Sev, Line, Fn, {unreachable_arm, N}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => unreachable_arm, arm_number => N};
+descriptor(Path, {Sev, Line, Fn, switch_in_guard}) ->
+    (at(Sev, Path, Line, Fn))#{tag => switch_in_guard};
+descriptor(Path, {Sev, Line, Fn, {unreachable_clause, N}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => unreachable_clause, clause_number => N};
+descriptor(Path, {Sev, Line, Fn, {rebinding, V}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => rebinding, name => V};
+descriptor(Path, {Sev, Line, Fn, {repeated_in_head, V}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => repeated_in_head, name => V};
+descriptor(Path, {Sev, Line, Fn, {unbound_variable, V}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => unbound_variable, name => V};
+descriptor(Path, {Sev, Line, Fn, {arg_not_accepted, Callee, Pos, Residual, Head}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => arg_not_accepted,
+                               callee => Callee,
+                               position => Pos,
+                               residual => residual(Residual),
+                               rejected => bs_types:to_pattern(Residual),
+                               caller_head => caller_head(Fn, Head, Residual)};
+descriptor(Path, {Sev, Line, Fn, {field_set_mismatch, Record, Missing, Extra}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => field_set_mismatch,
+                               record => Record,
+                               missing => Missing,
+                               extra => Extra};
+descriptor(Path, {Sev, Line, Fn, {field_absent, Field, Residual}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => field_absent,
+                               field => Field,
+                               residual => residual(Residual),
+                               member => bs_types:to_pattern(Residual)};
+descriptor(Path, {Sev, Line, Fn, {return_not_declared, Residual}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => return_not_declared,
+                               residual => residual(Residual),
+                               undeclared => bs_types:to_pattern(Residual)};
+descriptor(Path, {Sev, Line, Fn, {bind_may_fail, Residual}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => bind_may_fail,
+                               residual => residual(Residual),
+                               unmatched => bs_types:to_pattern(Residual)};
+descriptor(Path, {Sev, Line, Fn, {private_function, Mod, Callee, Arity}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => private_function,
+                               module => Mod, callee => Callee, arity => Arity};
+descriptor(Path, {Sev, Line, Fn, {unknown_callee, Callee, Arity}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => unknown_callee,
+                               callee => Callee, arity => Arity};
+descriptor(Path, {Sev, Line, Fn, {arity_mismatch, Callee, Got, Want}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => arity_mismatch,
+                               callee => Callee, got => Got, want => Want};
+descriptor(Path, {Sev, Line, Fn, {arity_not_declared, Callee, Got, Have}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => arity_not_declared,
+                               callee => Callee, got => Got, declared => Have};
+descriptor(Path, {Sev, Line, Fn, {unknown_record, Name}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => unknown_record, record => Name};
+descriptor(Path, {Sev, Line, Fn, wildcard_as_value}) ->
+    (at(Sev, Path, Line, Fn))#{tag => wildcard_as_value};
+
+%%% ---------------------------------------------------------------------------
+%%% The fatal ones — lexing and reading, before there is a function to name
+%%% ---------------------------------------------------------------------------
+
+%% beam-sharp has no statement terminator, and both audiences type one from
+%% habit — so this is the most likely error in the language and it gets the
+%% sharpest message rather than leex's raw tuple.
+descriptor(Path, {lex, {Line, _Mod, {illegal, ";"}}}) ->
+    #{tag => stray_semicolon, severity => error, file => Path, line => Line};
+descriptor(Path, {lex, {Line, Mod, Reason}}) ->
+    #{tag => lex_error, severity => error, file => Path, line => Line,
+      detail => lists:flatten(Mod:format_error(Reason))};
+descriptor(Path, {parse, {Line, Mod, Reason}}) ->
+    #{tag => parse_error, severity => error, file => Path, line => Line,
+      detail => lists:flatten(Mod:format_error(Reason))};
+%% F15 — most often an unmatched shell glob rather than a real directory, so the
+%% message says what was looked for instead of just naming the path.
+descriptor(Path, no_sources_here) ->
+    #{tag => no_sources_here, severity => error, file => Path};
+
+%%% ---------------------------------------------------------------------------
+%%% The raised conditions (`bsc:resolve_error/2`'s 32)
+%%%
+%%% These are found while RESOLVING types — below the level that carries a line
+%%% and a function name — and reach the author through the `try` in
+%%% `check_and_emit/4`. They are not a second channel: a raised condition gets a
+%%% descriptor exactly like a returned one, which is F16.4.
+%%% ---------------------------------------------------------------------------
+
+%% A raise site that knows its file says so, and the inner tuple stays exactly
+%% the shape ticket 41 specified.
+descriptor(_Path, {in_file, Path, Reason}) ->
+    descriptor(Path, Reason);
+
+descriptor(Path, {behaviour_not_satisfied, Line, Behaviour, Missing}) ->
+    #{tag => behaviour_not_satisfied, severity => error, file => Path,
+      line => Line, behaviour => Behaviour, missing => Missing};
+%% Ticket 06 measured that `-behaviour` has no runtime effect and only exports
+%% matter, so this would otherwise break the contract at run time and silently.
+descriptor(Path, {private_callback, N, A, Otp, Line}) ->
+    #{tag => private_callback, severity => error, file => Path, line => Line,
+      name => N, arity => A, otp_name => Otp};
+descriptor(Path, {unknown_behaviour, B}) ->
+    #{tag => unknown_behaviour, severity => error, file => Path, behaviour => B};
+descriptor(Path, {unknown_type, N}) ->
+    #{tag => unknown_type, severity => error, file => Path, type => N};
+descriptor(Path, {unknown_builtin, B}) ->
+    #{tag => unknown_builtin, severity => error, file => Path, type => B};
+%% F9.11. The message names the replacement, because the fix is always the same
+%% edit and the reason is not obvious from the rule.
+descriptor(Path, {opaque_ret_at_boundary, Line, Mod, Fun}) ->
+    #{tag => opaque_ret_at_boundary, severity => error, file => Path,
+      line => Line, module => bs_types:atom_str(Mod), function => Fun};
+descriptor(Path, {unknown_generic, N}) ->
+    #{tag => unknown_generic, severity => error, file => Path, type => N};
+%% F6.6. A bracket the compiler KNOWS at the wrong arity is a different mistake
+%% from a bracket it does not know, and the fix is a different edit.
+descriptor(Path, {generic_arity, N, Want, Got}) ->
+    #{tag => generic_arity, severity => error, file => Path, type => N,
+      want => Want, got => Got};
+descriptor(Path, {needs_type_args, N, Want}) ->
+    #{tag => needs_type_args, severity => error, file => Path, type => N,
+      want => Want};
+descriptor(Path, {not_parametric, N}) ->
+    #{tag => not_parametric, severity => error, file => Path, type => N};
+%% F6.8. TWO REFUSALS, NOT ONE — ticket 09 §3's well-formedness rule made
+%% visible. One is a mistake that cannot be given a meaning by any amount of
+%% implementation; the other is well formed and simply unbuilt.
+descriptor(Path, {cyclic_type, N}) ->
+    #{tag => cyclic_type, severity => error, file => Path, type => N};
+descriptor(Path, {recursive_type, N}) ->
+    #{tag => recursive_type, severity => error, file => Path, type => N};
+descriptor(Path, {kind_field_is_minted, Line, Name}) ->
+    #{tag => kind_field_is_minted, severity => error, file => Path, line => Line,
+      record => Name};
+%% F2 / ticket 20 §5. The two tiers are told apart by what the predicate SAYS.
+descriptor(Path, {opaque_refinement, Line}) ->
+    #{tag => opaque_refinement, severity => error, file => Path, line => Line};
+descriptor(Path, {empty_refinement, Line}) ->
+    #{tag => empty_refinement, severity => error, file => Path, line => Line};
+%% F2's scope call, made legible: the construct ships in the parameter position
+%% only, and "syntax error" would make a chosen omission look like an oversight.
+descriptor(Path, {relational_pattern_nested, Line}) ->
+    #{tag => relational_pattern_nested, severity => error, file => Path,
+      line => Line};
+descriptor(Path, {list_pattern_needs_rest, Line}) ->
+    #{tag => list_pattern_needs_rest, severity => error, file => Path,
+      line => Line};
+%% Ticket 40 §2. Two signatures of the SAME arity are one function declared
+%% twice, and its clauses would otherwise merge silently.
+descriptor(Path, {name_redeclared, Name, Arity, Line}) ->
+    #{tag => name_redeclared, severity => error, file => Path, line => Line,
+      name => Name, arity => Arity};
+%% 41 §2 requirement 1. The candidates print QUALIFIED because a qualified call
+%% is legal regardless of what is in scope — so the message is pasteable source,
+%% which is the property ticket 23 gives the residual.
+descriptor(Path, {ambiguous_call, Name, Arity, Mods, Line}) ->
+    #{tag => ambiguous_call, severity => error, file => Path, line => Line,
+      name => Name, arity => Arity, candidates => Mods,
+      heads => [lists:flatten(io_lib:format("~s.~s(...)", [M, Name]))
+                || M <- Mods]};
+%% 41 §2 requirement 2, and NOT the analogy ticket 40 §2 refused: there each
+%% overload had a defined meaning, here the unqualified name has none at all.
+descriptor(Path, {import_shadows_local, Name, Arity, Mod, Line}) ->
+    #{tag => import_shadows_local, severity => error, file => Path, line => Line,
+      name => Name, arity => Arity, module => Mod};
+descriptor(Path, {unknown_module, Mod, Line}) ->
+    #{tag => unknown_module, severity => error, file => Path, line => Line,
+      module => Mod};
+%% 41 §1 reason 3 met rather than decided: a file's `using` lines ARE its
+%% dependency list, in the file and checkable (ticket 23 §11).
+descriptor(Path, {module_not_imported, Mod, Line}) ->
+    #{tag => module_not_imported, severity => error, file => Path, line => Line,
+      module => Mod};
+descriptor(Path, {ambiguous_module, Short, Mods, Line}) ->
+    #{tag => ambiguous_module, severity => error, file => Path, line => Line,
+      module => Short, candidates => Mods};
+%% Two modules importing each other. F6's cyclic-ALIAS guard is the precedent 41
+%% names: refuse by name rather than expand, because resolving a cycle by
+%% following it is a loop — and that guard shipped after a HANG, which no green
+%% suite could see.
+descriptor(_Path, {import_cycle, Cycle}) ->
+    #{tag => import_cycle, severity => error, cycle => Cycle};
+%% Ticket 41 §4. `index.bs` holds everything except functions.
+descriptor(Path, {function_in_index, Name, Line}) ->
+    #{tag => function_in_index, severity => error, file => Path, line => Line,
+      function => Name};
+%% Ticket 41 §5. Ticket 13's measured `erlc` module-atom/filename rule lifted one
+%% level, from the emitted artefact to the source tree.
+descriptor(Path, {module_path_mismatch, Declared, Expected, Line}) ->
+    #{tag => module_path_mismatch, severity => error, file => Path, line => Line,
+      declared => Declared, expected => Expected};
+%% One directory is one module (ticket 13 §3's aggregate rule).
+descriptor(_Path, {module_disagreement, Declared}) ->
+    #{tag => module_disagreement, severity => error,
+      count => length(lists:usort([M || {_, M, _} <- Declared])),
+      declarations => Declared};
+descriptor(_Path, {no_module_declaration, Paths}) ->
+    #{tag => no_module_declaration, severity => error, files => Paths};
+%% Ticket 41 §3 draws the build-tool boundary at naming the source root, so a
+%% root that does not contain what it is rooting is a usage error.
+descriptor(_Path, {src_root_mismatch, Dir, Root}) ->
+    #{tag => src_root_mismatch, severity => error, directory => Dir,
+      root => Root};
+descriptor(_Path, {src_root_is_the_module, Dir}) ->
+    #{tag => src_root_is_the_module, severity => error, directory => Dir};
+
+%%% ---------------------------------------------------------------------------
+%%% The remainder
+%%%
+%%% `unhandled` is how a RAISED tuple with no clause here is re-raised rather
+%%% than swallowed — the behaviour `resolve_error/2` had, kept exactly, because
+%%% what the author would otherwise see is an escript stack trace.
+%%% ---------------------------------------------------------------------------
+
+descriptor(Path, {Sev, _Line, _Fn, _} = D) when Sev =:= error; Sev =:= warning ->
+    #{tag => unclassified, severity => Sev, file => Path, detail => D};
+descriptor(_Path, _Other) ->
+    unhandled.
+
+%%% ---------------------------------------------------------------------------
+%%% message/1 — the single owner of every format string
+%%%
+%%% Every one of these moved here verbatim from `bsc.erl`. The prose is
+%%% unchanged to the byte: 321 tests assert on it, and that is the net this
+%%% refactor was steered by.
+%%% ---------------------------------------------------------------------------
+
+message(#{tag := inexhaustive, file := P, line := L, function := Fn,
+          heads := Heads}) ->
+    {"~s:~p: error: ~s is not exhaustive~n"
+     "  no clause matches:~n~s",
+     [P, L, Fn, heads_prose(Fn, Heads)]};
+%% TICKET 12 §2 — a catch-all is legal only over an OPEN residual, and this is
+%% the message that has to carry a *conditionally legal* `_` to a reader who has
+%% never met one. Neither borrowed audience expects that: C#'s `_` in a switch
+%% arm is just a pattern and TypeScript's `default` is just a branch. 12 accepted
+%% the cost because the alternative puts the headline guarantee one character
+%% from being switched off, silently, with no trace in the diff.
+%%
+%% So the message says WHY it is closed and hands back the cases, which is ticket
+%% 04's finding doing the work: the residual IS the missing case, so the thing
+%% that makes the error legitimate is the same thing that answers it.
+message(#{tag := catch_all_over_closed, file := P, line := L, function := Fn,
+          heads := Heads}) ->
+    {"~s:~p: error: ~s discards cases the compiler can name~n"
+     "  every value left here comes from a type you declared, so `_`~n"
+     "  hides a case rather than admitting an unknown one:~n~s"
+     "  a catch-all is for a residual with an unbounded top in it — a~n"
+     "  `term` argument, or the open atom universe — where a foreign~n"
+     "  sender chooses the inhabitants and there is nothing to enumerate.~n",
+     [P, L, Fn, heads_prose(Fn, Heads)]};
+%% F2. The construct is a head's, and the message says where to put it rather
+%% than only that it is wrong.
+message(#{tag := relational_in_bind, file := P, line := L, function := Fn}) ->
+    {"~s:~p: error: ~s binds a relational pattern~n"
+     "  `>= 4` names a span of values and introduces no name, so there~n"
+     "  is nothing for a bind to bind. A bind must also be provably~n"
+     "  irrefutable, and a span is the refutable construct itself.~n"
+     "  Dispatch on it in a clause head instead.~n",
+     [P, L, Fn]};
+message(#{tag := no_clauses, file := P, line := L, function := Fn}) ->
+    {"~s:~p: error: ~s has a signature but no clauses~n", [P, L, Fn]};
+%% Ticket 17 §6, and ticket 04's residual at a third site. Deliberately NOT
+%% routed through the head printer: that prints `Fn(:cancelled) -> ...`, and a
+%% switch has no function name and its arrow is `=>`.
+message(#{tag := switch_inexhaustive, file := P, line := L, function := Fn,
+          arm := Arm}) ->
+    {"~s:~p: error: this switch in ~s is not exhaustive~n"
+     "  no arm matches:~n"
+     "    ~s => ...~n",
+     [P, L, Fn, Arm]};
+%% F14 §4, and the message is the feature. A valve over a value with no
+%% `(:error, _)` member generates an arm that can never match, and the honest
+%% report is not `unreachable arm 1` — the author wrote no arms. What they wrote
+%% was the wrong operator, so the diagnostic names the right one.
+message(#{tag := valve_on_infallible, file := P, line := L, function := Fn,
+          subject := Ty}) ->
+    {"~s:~p: error: this |?> in ~s is over a value that cannot fail~n"
+     "  ~s has no (:error, _) member, so the valve would never stop.~n"
+     "  Write |> instead.~n",
+     [P, L, Fn, Ty]};
+%% Arm, not clause. The word is the whole of the message's usefulness: a
+%% construct with no clauses in it cannot be told which clause is dead.
+message(#{tag := unreachable_arm, file := P, line := L, function := Fn,
+          arm_number := N}) ->
+    {"~s:~p: warning: arm ~p of this switch in ~s is unreachable~n"
+     "  every value it matches is matched by an earlier arm.~n",
+     [P, L, N, Fn]};
+%% F7's own grammar opens this, the way F5's opened `_`-as-a-value: a guard
+%% shares the whole expression grammar, so a switch parses inside one.
+message(#{tag := switch_in_guard, file := P, line := L, function := Fn}) ->
+    {"~s:~p: error: ~s has a switch in a guard~n"
+     "  a guard asks a question about the values a clause already~n"
+     "  matched; it cannot branch. Move the switch into the body.~n",
+     [P, L, Fn]};
+message(#{tag := unreachable_clause, file := P, line := L, function := Fn,
+          clause_number := N}) ->
+    {"~s:~p: warning: clause ~p of ~s is unreachable~n"
+     "  every value it matches is matched by an earlier clause.~n",
+     [P, L, N, Fn]};
+%% Ticket 34. Both of these would otherwise reach the author as an `erlc` error
+%% against the emitted `.abstr` — a file they did not write and cannot fix.
+message(#{tag := rebinding, file := P, line := L, function := Fn, name := V}) ->
+    {"~s:~p: error: ~s binds ~s twice~n"
+     "  a name means one thing in a clause. There is no mutation to~n"
+     "  assign with, so rename the second one.~n",
+     [P, L, Fn, V]};
+%% F8.10. The same offence as `rebinding` and a DIFFERENT fix, which is why it is
+%% a different descriptor rather than a shared one: in a body you rename, in a
+%% head you almost always meant *the same value again*, and ticket 45 supplies
+%% the spelling for saying so.
+message(#{tag := repeated_in_head, file := P, line := L, function := Fn,
+          name := V}) ->
+    {"~s:~p: error: ~s binds ~s twice in one head~n"
+     "  a name means one thing in a clause, so this introduces ~s and~n"
+     "  then introduces it again. To match the value the first one~n"
+     "  holds, write `== ~s`.~n",
+     [P, L, Fn, V, V, V]};
+message(#{tag := unbound_variable, file := P, line := L, function := Fn,
+          name := V}) ->
+    {"~s:~p: error: ~s uses ~s, which nothing binds~n"
+     "  a name comes from a clause head or a binding above it.~n",
+     [P, L, Fn, V]};
+%% SITE 1 of ticket 33's five. The residual is the clause the CALLER must write.
+%% It proposes an edit to the function being checked and never to the callee:
+%% ticket 18 §4's function-local rule is what stops this from suggesting you
+%% widen `Update`.
+message(#{tag := arg_not_accepted, file := P, line := L, function := Fn,
+          callee := Callee, position := Pos, rejected := Rejected,
+          caller_head := Head}) ->
+    {"~s:~p: error: ~s hands ~s an argument it does not accept~n"
+     "  argument ~p is not covered by ~s's declared type:~n"
+     "    ~s~n~s",
+     [P, L, Fn, Callee, Pos, Callee, Rejected, caller_head_prose(Fn, Head)]};
+%% SITE 2. `Order{Id} \ Order` names the type you were BUILDING rather than the
+%% field you forgot — correct, and worthless — so this one site answers in field
+%% names. It still hands back something to write, which is what ticket 23 asks.
+message(#{tag := field_set_mismatch, file := P, line := L, function := Fn,
+          record := Record, missing := Missing, extra := Extra}) ->
+    {"~s:~p: error: ~s builds an ~s with the wrong fields~n~s~s",
+     [P, L, Fn, Record,
+      field_list("  missing, and must be supplied", Missing),
+      field_list("  not declared by " ++ atom_to_list(Record), Extra)]};
+%% SITE 3. The residual IS the member that lacks the field, which is the tag to
+%% discriminate on — the sentence F3.8 deferred, needing no new machinery.
+message(#{tag := field_absent, file := P, line := L, function := Fn,
+          field := Field, member := Member}) ->
+    {"~s:~p: error: ~s projects ~s from a value that may not carry it~n"
+     "  this member has no ~s:~n"
+     "    ~s~n"
+     "  discriminate on the tag first, in a clause head.~n",
+     [P, L, Fn, Field, Field, Member]};
+%% SITE 4. Without this, beam-sharp emits a `-spec` claiming what its own body
+%% does not deliver — the defect ticket 18 measured in Gleam, from a body rather
+%% than from an FFI declaration.
+message(#{tag := return_not_declared, file := P, line := L, function := Fn,
+          undeclared := Undeclared}) ->
+    {"~s:~p: error: ~s returns a value its signature does not declare~n"
+     "  not covered by the declared return type:~n"
+     "    ~s~n",
+     [P, L, Fn, Undeclared]};
+%% SITE 5. Ticket 34 deferred the destructuring bind here rather than refusing
+%% it: provably irrefutable exactly when this residual is empty.
+message(#{tag := bind_may_fail, file := P, line := L, function := Fn,
+          unmatched := Unmatched}) ->
+    {"~s:~p: error: this bind in ~s can fail~n"
+     "  the pattern does not match:~n"
+     "    ~s~n"
+     "  a bind that can fail is a branch the exhaustiveness checker~n"
+     "  never sees. Match it in a clause head instead.~n",
+     [P, L, Fn, Unmatched]};
+%% F12 / ticket 40 §3. The whole reason `exports_of/1` does not simply filter:
+%% reported as `unknown_callee` this would tell the author the function does not
+%% exist, when it plainly does and is one word away from being callable.
+message(#{tag := private_function, file := P, line := L, function := Fn,
+          module := Mod, callee := Callee, arity := Arity}) ->
+    {"~s:~p: error: ~s calls ~s/~p, which ~s declares `private`~n"
+     "  a private function is not exported, so no other module can~n"
+     "  reach it. Mark it `public` in ~s, or move the call inside it.~n",
+     [P, L, Fn, Callee, Arity, Mod, Mod]};
+message(#{tag := unknown_callee, file := P, line := L, function := Fn,
+          callee := Callee, arity := Arity}) ->
+    {"~s:~p: error: ~s calls ~s/~p, which nothing declares~n"
+     "  every function has a signature. Write one, or fix the name.~n",
+     [P, L, Fn, Callee, Arity]};
+message(#{tag := arity_mismatch, file := P, line := L, function := Fn,
+          callee := Callee, got := Got, want := Want}) ->
+    {"~s:~p: error: ~s calls ~s with ~p arguments, and it takes ~p~n",
+     [P, L, Fn, Callee, Got, Want]};
+%% Ticket 40 §2 permits arity overloading, so this is not "wrong number of
+%% arguments" — it is a function that has not been declared, next to ones that
+%% have. Naming the arities that DO exist is what keeps it a fix rather than a
+%% verdict.
+message(#{tag := arity_not_declared, file := P, line := L, function := Fn,
+          callee := Callee, got := Got, declared := Have}) ->
+    {"~s:~p: error: ~s calls ~s/~p, which nothing declares~n"
+     "  ~s is declared at ~s. Arity overloading is permitted, so~n"
+     "  ~s/~p would be a new function and needs its own signature.~n",
+     [P, L, Fn, Callee, Got, Callee,
+      lists:join(", ", [[$/ | integer_to_list(A)] || A <- Have]),
+      Callee, Got]};
+message(#{tag := unknown_record, file := P, line := L, function := Fn,
+          record := Name}) ->
+    {"~s:~p: error: ~s builds an ~s, which no record or type declares~n",
+     [P, L, Fn, Name]};
+%% F5's own grammar opens this hole: `_` is an expression only so that
+%% `(a, _) = pair` parses. Caught here rather than by `erlc` against a file the
+%% author did not write, which is F4.7's rule.
+message(#{tag := wildcard_as_value, file := P, line := L, function := Fn}) ->
+    {"~s:~p: error: ~s uses `_` as a value~n"
+     "  `_` is a pattern. It may stand on the left of `=` or in a~n"
+     "  clause head; it names nothing to read back.~n",
+     [P, L, Fn]};
+
+%%% --- the fatal ones ---------------------------------------------------------
+
+message(#{tag := stray_semicolon, file := P, line := L}) ->
+    {"~s:~p: error: beam-sharp has no `;`~n"
+     "  a declaration ends where the next one begins. Remove it.~n",
+     [P, L]};
+message(#{tag := lex_error, file := P, line := L, detail := D}) ->
+    {"~s:~p: error: ~s~n", [P, L, D]};
+message(#{tag := parse_error, file := P, line := L, detail := D}) ->
+    {"~s:~p: error: ~s~n", [P, L, D]};
+message(#{tag := no_sources_here, file := P}) ->
+    {"bsc: no `.bs` files in ~s~n"
+     "  a module is a directory holding `.bs` files (41 §5). If this~n"
+     "  came from a shell glob, it matched nothing and was passed~n"
+     "  through unexpanded — the corpus is one directory per module now.~n",
+     [P]};
+
+%%% --- the raised ones --------------------------------------------------------
+
+message(#{tag := behaviour_not_satisfied, file := P, line := L,
+          behaviour := B, missing := Missing}) ->
+    {"~s:~p: error: behaviour ~s is declared and not satisfied~n"
+     "  these callbacks are mandatory and this module does not define them:~n"
+     "~s"
+     "  a `behaviour` attribute is emitted for the whole contract, so a~n"
+     "  partial one would fail when the process starts rather than here.~n",
+     [P, L, B, [io_lib:format("    ~s/~p~n", [N, A]) || {N, A} <- Missing]]};
+message(#{tag := private_callback, file := P, line := L, name := N,
+          arity := A, otp_name := Otp}) ->
+    {"~s:~p: error: ~s/~p is `private` and is a callback~n"
+     "  this module declares a behaviour that calls it as ~s/~p, and a~n"
+     "  behaviour is dispatched through the export list — `-behaviour`~n"
+     "  itself has no runtime effect. Private, it would fail when the~n"
+     "  process starts rather than here. Mark it `public`.~n",
+     [P, L, N, A, Otp, A]};
+message(#{tag := unknown_behaviour, file := P, behaviour := B}) ->
+    {"~s: error: no behaviour named ~s~n"
+     "  the compiler knows `GenServer`, `Supervisor`, `Application`,~n"
+     "  `GenStatem` and `GenEvent`.~n",
+     [P, B]};
+message(#{tag := unknown_type, file := P, type := N}) ->
+    {"~s: error: no type named ~s~n"
+     "  declare it with `type ~s = ...` or `record ~s { ... }`.~n",
+     [P, N, N, N]};
+message(#{tag := unknown_builtin, file := P, type := B}) ->
+    {"~s: error: ~s is not a builtin type~n"
+     "  this slice has `int`, `atom`, `term`, `bool`, `binary`,~n"
+     "  `string` and `list<T>`.~n",
+     [P, B]};
+message(#{tag := opaque_ret_at_boundary, file := P, line := L, module := Mod,
+          function := Fun}) ->
+    {"~s:~p: error: ~s.~s returns `string`, which a guard cannot decide~n"
+     "  `string` is `binary` refined by valid UTF-8, and checking that~n"
+     "  reads every byte of a value the sender sizes.~n"
+     "  declare it `binary`. Establishing the refinement is the UTF-8~n"
+     "  entry check, which this compiler does not have yet.~n",
+     [P, L, Mod, Fun]};
+message(#{tag := unknown_generic, file := P, type := N}) ->
+    {"~s: error: no type named ~s takes a type argument~n"
+     "  the prelude has `list<T>`, `option<T>` and `result<T, E>`;~n"
+     "  your own take one with `type ~s<T> = ...`.~n",
+     [P, N, N]};
+message(#{tag := generic_arity, file := P, type := N, want := Want,
+          got := Got}) ->
+    {"~s: error: ~s takes ~p type argument~s, and got ~p~n",
+     [P, N, Want, plural(Want), Got]};
+message(#{tag := needs_type_args, file := P, type := N, want := Want}) ->
+    {"~s: error: ~s is parametric and was written without a bracket~n"
+     "  it takes ~p type argument~s: write `~s<...>`.~n",
+     [P, N, Want, plural(Want), N]};
+message(#{tag := not_parametric, file := P, type := N}) ->
+    {"~s: error: ~s takes no type arguments~n"
+     "  declare it as `type ~s<T> = ...` if it should.~n",
+     [P, N, N]};
+message(#{tag := cyclic_type, file := P, type := N}) ->
+    {"~s: error: the type ~s is defined in terms of itself, and the~n"
+     "  recursion does not pass through a constructor~n"
+     "  so there is no set of values it could describe -- and that is~n"
+     "  not a missing feature. Put the recursion inside a shape (a~n"
+     "  tuple, a list, or a record field), or drop it.~n",
+     [P, N]};
+%% The other side, and the author has done nothing wrong: the definition is
+%% CONTRACTIVE, so it denotes a perfectly good regular tree. The message says
+%% which of those two facts it is reporting, because that is the whole
+%% difference between "fix your code" and "wait for us".
+message(#{tag := recursive_type, file := P, type := N}) ->
+    {"~s: error: ~s is a recursive type, and those are not built yet~n"
+     "  the definition is well formed -- the recursion passes through a~n"
+     "  constructor, so it describes a real set of values. The checker's~n"
+     "  algebra has no binder to hold it with, which is a gap in this~n"
+     "  compiler rather than a mistake in your type.~n",
+     [P, N]};
+message(#{tag := kind_field_is_minted, file := P, line := L, record := Name}) ->
+    {"~s:~p: error: ~s declares a field named Kind~n"
+     "  the tag is minted from the type's qualified name, so a record~n"
+     "  cannot also declare one. Rename the field.~n",
+     [P, L, Name]};
+message(#{tag := opaque_refinement, file := P, line := L}) ->
+    {"~s:~p: error: this refinement is not a predicate the checker can read~n"
+     "  a refinement narrows a type, so the compiler has to be able to~n"
+     "  reason about it: comparisons on `value`, joined with `and`/`or`.~n"
+     "  `int where value >= 0 and value <= 255` is one.~n"
+     "  A predicate that reads the value instead — `WellFormed(value)` —~n"
+     "  is the O(n) tier. It is established once at a boundary and never~n"
+     "  reasoned about, and this compiler has no site to establish it at.~n",
+     [P, L]};
+message(#{tag := empty_refinement, file := P, line := L}) ->
+    {"~s:~p: error: this refinement admits no values at all~n"
+     "  the predicate contradicts itself, so nothing has this type and~n"
+     "  no call to a function over it could ever be written.~n",
+     [P, L]};
+message(#{tag := relational_pattern_nested, file := P, line := L}) ->
+    {"~s:~p: error: a relational pattern goes where a whole argument goes~n"
+     "  `Classify(>= 4 and <= 7)` is the shipped form. Inside a record~n"
+     "  pattern, a tuple or a list it is not built yet — write the~n"
+     "  comparison as a guard there: `when o.Total > 100`.~n",
+     [P, L]};
+message(#{tag := list_pattern_needs_rest, file := P, line := L}) ->
+    {"~s:~p: error: a list pattern needs a rest~n"
+     "  write `[h, ..t]`. Prefix-plus-rest is the only list pattern.~n",
+     [P, L]};
+message(#{tag := name_redeclared, file := P, line := L, name := Name,
+          arity := Arity}) ->
+    {"~s:~p: error: ~s/~p is declared more than once~n"
+     "  a name may carry MORE THAN ONE ARITY, so ~s/~p and ~s/~p would~n"
+     "  be two functions — but two signatures of the SAME arity are one~n"
+     "  function declared twice, and its clauses would merge silently.~n",
+     [P, L, Name, Arity, Name, Arity, Name, Arity + 1]};
+message(#{tag := ambiguous_call, file := P, line := L, name := Name,
+          arity := Arity, candidates := Mods}) ->
+    {"~s:~p: error: ~s/~p is ambiguous — ~p imports declare it~n"
+     "  name one of these instead:~n"
+     "~s",
+     [P, L, Name, Arity, length(Mods),
+      [io_lib:format("    ~s.~s(...)~n", [M, Name]) || M <- Mods]]};
+message(#{tag := import_shadows_local, file := P, line := L, name := Name,
+          arity := Arity, module := Mod}) ->
+    {"~s:~p: error: importing ~s brings in ~s/~p, which this module also declares~n"
+     "  the unqualified name would have no defined meaning. Call the~n"
+     "  import as ~s.~s(...) and the local one as ~s(...).~n",
+     [P, L, Mod, Name, Arity, Mod, Name, Name]};
+message(#{tag := unknown_module, file := P, line := L, module := Mod}) ->
+    {"~s:~p: error: `using ~s` names no module and no namespace~n"
+     "  a module is a source file this invocation can reach; a namespace~n"
+     "  is a path that other modules sit under. Neither matched.~n",
+     [P, L, Mod]};
+message(#{tag := module_not_imported, file := P, line := L, module := Mod}) ->
+    {"~s:~p: error: ~s is called but never imported~n"
+     "  add `using ~s` — a file's `using` lines are its dependency list,~n"
+     "  and a call that skips them makes that list wrong.~n",
+     [P, L, Mod, Mod]};
+message(#{tag := ambiguous_module, file := P, line := L, module := Short,
+          candidates := Mods}) ->
+    {"~s:~p: error: ~s is ambiguous — ~p namespaces hold a module of that name~n"
+     "  name one of these in full instead:~n"
+     "~s",
+     [P, L, Short, length(Mods), [io_lib:format("    ~s~n", [M]) || M <- Mods]]};
+message(#{tag := import_cycle, cycle := Cycle}) ->
+    {"error: these modules import each other in a cycle~n"
+     "~s"
+     "  the compiler checks a dependency before its dependents, so a~n"
+     "  cycle has no order to check them in. Break it by moving the~n"
+     "  shared declarations into a module both can import.~n",
+     [[io_lib:format("    ~s~n", [M]) || M <- Cycle]]};
+message(#{tag := function_in_index, file := P, line := L, function := Name}) ->
+    {"~s:~p: error: ~s is a function, and index.bs holds no functions~n"
+     "  index.bs is the module's DECLARATION file — using, type, record~n"
+     "  and behaviour. It is also the file every new declaration lands~n"
+     "  in, so it is the most contended one in the module by~n"
+     "  construction; putting functions there merges it with the one~n"
+     "  thing file-per-function exists to keep apart.~n"
+     "  Give ~s its own file in the same directory.~n",
+     [P, L, Name, Name]};
+message(#{tag := module_path_mismatch, file := P, line := L,
+          declared := Declared, expected := Expected}) ->
+    {"~s:~p: error: `module ~s` does not match its directory~n"
+     "  this directory says `module ~s`~n"
+     "  a module's declaration and its path are the same name written~n"
+     "  twice, and 40 §1 makes the declaration the emitted ATOM — so~n"
+     "  when they disagree the atom and the tree have drifted apart.~n"
+     "  Rename the directory, fix the declaration, or name the source~n"
+     "  root with --src-root if this tree is rooted somewhere else.~n",
+     [P, L, Declared, Expected]};
+message(#{tag := module_disagreement, count := Count,
+          declarations := Declared}) ->
+    {"error: one directory is one module, and this one declares ~p~n"
+     "~s"
+     "  every `.bs` file in a directory compiles into the same `.beam`,~n"
+     "  so these are not two modules — they are one module that cannot~n"
+     "  decide on its name. A file with no `module` line inherits the~n"
+     "  directory's, which is the usual way to write the others.~n",
+     [Count, [io_lib:format("    ~s:~p: module ~s~n", [Pa, L, M])
+              || {Pa, M, L} <- Declared]]};
+message(#{tag := no_module_declaration, files := Paths}) ->
+    {"error: this directory holds `.bs` files and no `module` line~n"
+     "~s"
+     "  a directory holding `.bs` files is a module (41 §5) and a module~n"
+     "  needs a name. Put `module Something` in index.bs and the rest~n"
+     "  of the files inherit it.~n",
+     [[io_lib:format("    ~s~n", [Pa]) || Pa <- Paths]]};
+message(#{tag := src_root_mismatch, directory := Dir, root := Root}) ->
+    {"bsc: --src-root ~s does not contain ~s~n"
+     "  the source root is the directory module paths are relative to,~n"
+     "  so it has to be an ancestor of the module being compiled.~n",
+     [Root, Dir]};
+message(#{tag := src_root_is_the_module, directory := Dir}) ->
+    {"bsc: --src-root ~s is the module directory itself~n"
+     "  a module needs at least one path segment below the root to take~n"
+     "  its name from. Name the root one level up.~n",
+     [Dir]};
+
+%%% --- the remainder ----------------------------------------------------------
+%%%
+%%% NO CATCH-ALL BEYOND THIS ONE, and it is reached only through the
+%%% `unclassified` tag `descriptor/2` mints for a diagnostic shape it does not
+%%% know. A tag with no clause here CRASHES rather than rendering something
+%%% generic, which is F16.7: a generic renderer would let a new diagnostic ship
+%%% looking like it had a message.
+
+message(#{tag := unclassified, file := P, detail := D}) ->
+    {"~s: ~p~n", [P, D]}.
+
+%%% ---------------------------------------------------------------------------
+%%% Head synthesis — 23 §2, and ticket 43's cap
+%%%
+%%% THE COMPILER SYNTHESISES THE HEAD, NEVER THE BODY. The residual is a *set*
+%%% and a clause head is a *pattern plus a guard*; lowering one to the other is a
+%%% real compilation step, and it lives here so that consumers never each invert
+%%% it differently. A head is derived from the residual and cannot be wrong; a
+%%% body is a guess, and one bad suggestion poisons every good one.
+%%%
+%%% THE TERM CARRIES ALL OF THEM AND THE PROSE CARRIES THREE. Ticket 43 wrote
+%%% this down when it capped the prose: *"the descriptor keeps all forty-one"*.
+%%% So what travels in the descriptor is the residual's PARTS, per argument, per
+%%% product — never finished text — because prose cannot be a pure function of a
+%%% term that was truncated before it got here.
+%%% ---------------------------------------------------------------------------
+
+%% The residual's tuple part is the *argument list*, so each product is a clause
+%% head the author can paste in.
+heads(Fn, Residual) ->
+    #{tuples := Products} = Residual,
+    case Products of
+        [] -> #{kind => residual_only, parts => parts(Residual)};
+        _  -> #{kind => products,
+                products => [[parts(C) || C <- P] || P <- Products],
+                pasteable => [pasteable(Fn, P) || P <- Products]}
+    end.
+
+%% Untruncated and pasteable — what a consumer acts on. Derived from the same
+%% joiner the prose uses, at no cap, so the two cannot say different things.
+pasteable(Fn, Product) ->
+    lists:flatten(
+      io_lib:format("~s(~s) -> ...",
+                    [Fn, lists:join(", ", [join(parts(C), infinity)
+                                           || C <- Product])])).
+
+heads_prose(_Fn, #{kind := residual_only, parts := Parts}) ->
+    io_lib:format("    ~s~n", [join(Parts, ?RESIDUAL_CASES)]);
+heads_prose(Fn, #{kind := products, products := Products}) ->
+    cap([io_lib:format("    ~s(~s) -> ...~n",
+                       [Fn, lists:join(", ", [join(Arg, ?RESIDUAL_CASES)
+                                              || Arg <- Product])])
+         || Product <- Products]).
+
+%% THE RULE APPLIES TO HEAD LINES TOO, AND AT TWO DEPTHS AT ONCE. A residual over
+%% a two-argument function is a PRODUCT, so the head count is the product of the
+%% parts — a rule that stayed on intervals would print an unbounded number of
+%% lines the moment a second argument had a residual too. Measured before this
+%% was written: forty singleton clauses over `(int, atom)` print 41 head lines,
+%% one of them itself truncated.
+cap(Lines) when length(Lines) =< ?RESIDUAL_CASES -> Lines;
+cap(Lines) ->
+    {Shown, Rest} = lists:split(?RESIDUAL_CASES, Lines),
+    Shown ++ [io_lib:format("    ... (~p more)~n", [length(Rest)])].
+
+%% ASCII `...`, not `…`. A diagnostic goes to stderr through terminals the
+%% compiler does not control, and the ellipsis character buys two columns.
+join(Parts, infinity) ->
+    lists:flatten(lists:join(" | ", Parts));
+join(Parts, N) when length(Parts) =< N ->
+    lists:flatten(lists:join(" | ", Parts));
+join(Parts, N) ->
+    {Shown, Rest} = lists:split(N, Parts),
+    lists:flatten([lists:join(" | ", Shown),
+                   io_lib:format(" | ... (~p more)", [length(Rest)])]).
+
+parts(Ty) -> bs_types:pattern_parts(Ty).
+
+%% Published untruncated, for the same reason `heads` is.
+residual(Ty) -> join(parts(Ty), infinity).
+
+%% The caller's head with the rejected values in the position that rejected
+%% them. Only synthesised when the argument IS a whole parameter — an arbitrary
+%% expression has no position in the head to put a pattern in, and inventing one
+%% would hand back something that does not compile. `none` is 23 §2's *"where
+%% the residual is not expressible the term says so and offers nothing"*.
+caller_head(_Fn, none, _Residual) -> none;
+caller_head(Fn, {Pos, Arity}, Residual) ->
+    Slots = [case I of
+                 Pos -> bs_types:to_pattern(Residual);
+                 _   -> "_"
+             end || I <- lists:seq(1, Arity)],
+    lists:flatten(io_lib:format("~s(~s) -> ...", [Fn, lists:join(", ", Slots)])).
+
+caller_head_prose(_Fn, none) -> "";
+caller_head_prose(_Fn, Head) ->
+    io_lib:format("  the clause to add here:~n    ~s~n", [Head]).
+
+field_list(_Label, [])    -> "";
+field_list(Label, Fields) ->
+    io_lib:format("~s:~n    ~s~n",
+                  [Label, lists:join(", ", [atom_to_list(F) || F <- Fields])]).
+
+plural(1) -> "";
+plural(_) -> "s".
