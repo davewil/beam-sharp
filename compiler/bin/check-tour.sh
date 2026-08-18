@@ -180,6 +180,47 @@ cmd=""
 want=""
 in_block=0
 
+# SPLITTING A COMMAND LINE WITHOUT A SHELL, AND WHY IT IS WORTH THE LINES.
+#
+# The first draft ran `eval` on the command string it had just read out of
+# TOUR.md, because the arguments carry quotes — `Classify '(:ok, 5)'` — and
+# `eval` is the one-liner that honours them. It is also arbitrary code
+# execution from a file in the repository, and this workflow runs on
+# `pull_request`, so a line added to a markdown document would have executed in
+# CI. A security review of the pushed commits caught it.
+#
+# So the quotes are honoured here instead, by a reader that understands exactly
+# two things — single quotes, and double quotes with backslash escapes — and
+# performs no expansion of any kind. A `;` or a `$(…)` in TOUR.md now reaches
+# `bsc` as an ordinary argument, which is the correct outcome: the gate is
+# meant to run the compiler, and nothing else.
+#
+# Fills the global `ARGV`. An empty quoted argument would be dropped; nothing
+# in the document has one, and adding the flag to track it would be the only
+# state this reader needs beyond the character it is looking at.
+split_command() {
+    local s="$1" tok="" quote="" c esc=0 i
+    ARGV=()
+    for (( i = 0; i < ${#s}; i++ )); do
+        c="${s:i:1}"
+        if [ "$esc" -eq 1 ]; then
+            tok+="$c"; esc=0
+        elif [ "$quote" = '"' ] && [ "$c" = '\' ]; then
+            esc=1
+        elif [ -n "$quote" ]; then
+            if [ "$c" = "$quote" ]; then quote=""; else tok+="$c"; fi
+        elif [ "$c" = "'" ] || [ "$c" = '"' ]; then
+            quote="$c"
+        elif [ "$c" = " " ]; then
+            [ -n "$tok" ] && { ARGV+=("$tok"); tok=""; }
+        else
+            tok+="$c"
+        fi
+    done
+    [ -n "$tok" ] && ARGV+=("$tok")
+    [ -z "$quote" ]
+}
+
 replay() {
     [ -n "$cmd" ] || return 0
     # A diagnostic transcript needs an edit the prose describes; see above.
@@ -188,9 +229,18 @@ replay() {
             skipped=$((skipped + 1)); return 0 ;;
     esac
     replayed=$((replayed + 1))
+
+    if ! split_command "$cmd"; then
+        echo "  UNBALANCED QUOTE  \$ $cmd"
+        drifted=1; fail=1
+        return 0
+    fi
+
     local got
-    # The document writes `bsc`; the escript lives under _build.
-    got="$(cd "$REPO/compiler" && eval "${cmd/#bsc /\"$BSC\" }" 2>&1)" || true
+    # ARGV[0] is the literal `bsc` the document writes; the escript is under
+    # _build. Everything after it is passed as an argument vector, never as a
+    # string a shell gets to look at again.
+    got="$(cd "$REPO/compiler" && "$BSC" "${ARGV[@]:1}" 2>&1)" || true
     if [ "$got" != "$want" ]; then
         echo "  DRIFTED   \$ $cmd"
         echo "    pasted:  $want"
