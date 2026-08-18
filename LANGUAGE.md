@@ -1055,16 +1055,22 @@ the parser accepts back exactly what the printer emits. **shipped**
 | the boundary tag guard on an exported record parameter | **shipped** |
 | exact field sets at a construction site | **shipped** |
 | call arguments, projections and clause returns checked in a body | **shipped** |
-| refinements + interval patterns | blocked on two spellings |
+| refinements + interval patterns | **shipped** — F2 |
 | `switch`, including a tuple subject and a guard on an arm | **shipped** |
 | `string` and `binary` as values — the literal, the refinement, the boundary rule | **shipped** — F9 |
 | binary patterns `<<...>>`, and a spelling for a sized binary type | not started — the binaries decision is open |
 | the UTF-8 entry check (`binary` → `string`) | not started — the sixth codegen obligation |
-| pipe and valve | not started |
+| pipe and valve | **shipped** — F14 |
 | parametric types — `result<T, E>`, `option<T>`, `type Pair<T>`, nesting | **shipped** |
 | polymorphic function signatures (`Map<T, U>`) | not started — needs an arrow type |
-| modules, imports, `using` | not started |
+| modules, imports, `using` — both tiers, and arity overloading | **shipped** — F11 |
+| a module is a **directory**, `index.bs`, and the two path checks | **shipped** — F15 |
+| `public` / `private` on every signature | **shipped** — F12 |
+| `ValidateAs<T>` — the generated deep validator, and its pathed error | **shipped** — F18 |
 | foreign calls (`using :lists {...}`) | **shipped**, without the boundary guard |
+| the foreign `try` wrapper and `foreign_error`, from the declared return type | **shipped** — F19 |
+| the diagnostic as a term (`--diagnostics term`) | **shipped** — F16 |
+| the query mode (`--api`) | **shipped** — F17 |
 | `behaviour GenServer` — the attribute, callback names, and mandatory-callback presence | **shipped** — F10 |
 | behaviour contract checked as a **type** | not started — Dialyzer does it at the boundary today |
 
