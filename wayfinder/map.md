@@ -241,8 +241,9 @@ Bodies in [`decisions.md`](decisions.md). Ticket text in `issues/`.
   `option<T>` collapse is an error at the declaration, not at the use
 - **Ad-hoc polymorphism** `#16` `types`
   `==` means `=:=`; open protocols refused once records landed
-- **Pipeline and comprehension idiom** `#17` `syntax` `built:F7`
-  `|>` and `|?>`; `switch` is the only branching construct, and there is no `if`
+- **Pipeline and comprehension idiom** `#17` `syntax` `built:F7,F14`
+  `|>` and `|?>`; `switch` is the only branching construct, and there is no `if`.
+  The prelude the pipe is usually shown with is ticket 18's and is NOT built
 - **Boundary defence** `#18` `codegen` `ffi`
   a two-tier emitted boundary; precision is a privilege of what the compiler inlines
 - **Untheorised term shapes** `#20` `types` `binaries` `part-built:F9`

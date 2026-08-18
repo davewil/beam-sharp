@@ -93,7 +93,13 @@ build_and_load(Src, Mod) ->
 check_only(Src) ->
     {ok, Toks, _} = bs_lexer:string(Src),
     {ok, Decls} = bs_parser:parse(Toks),
-    bs_check:check(Decls).
+    %% F14. `bsc` runs this between parsing and checking, so a helper that skips
+    %% it is not testing the compiler — it is testing a compiler that does not
+    %% exist. The failure would be SILENT in the direction that matters: an
+    %% unlowered `e_valve` falls through `type_of/3`'s catch-all to `term()` with
+    %% no diagnostics, so every valve assertion about clean source would pass
+    %% while nothing was checked at all.
+    bs_check:check(bs_lower:valves(Decls)).
 
 showcase_src() ->
     "module Readings\n"

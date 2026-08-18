@@ -1,0 +1,74 @@
+// F14 — the pipe and the valve, ticket 17 §1 and §4.
+//
+//   bsc --src-root examples examples/Pipeline Restated 4
+//   bsc --src-root examples examples/Pipeline Place 3     -> 12
+//   bsc --src-root examples examples/Pipeline Place -1    -> (:error, :bad_request)
+//
+// Two operators that look alike and are built in completely different places.
+// `|>` is a REWRITE and nothing else — the parser turns `x |> F(a)` into
+// `F(x, a)`, so the checker, the five check sites and the `-spec` never learn
+// that the operator exists. `|?>` BRANCHES, so it cannot be a call: it lowers to
+// the two-armed `switch` F7 built, which is why the value arm below gets the
+// residual for free.
+module Pipeline
+
+// Namespace tier (41 §5) — `List` here is short for `Shop.Collections.List`.
+using Shop.Collections
+
+public int Restated(int n)
+// The piped value becomes the FIRST argument, so this is `List.Sum([n,n,n], 0)`.
+// Names are qualified: `xs.Sum(0)` would need type-directed resolution of an
+// unqualified name, which ticket 17 §1 closed off — the pipe is what survived
+// that argument rather than a second spelling beside it.
+Restated(n) -> [n, n, n] |> List.Sum(0)
+
+public int Fully(int n)
+// Fully qualified pipes the same way. There is no third rule for the operator;
+// it prepends an argument to whatever call was written.
+Fully(n) -> [n, n] |> Shop.Collections.List.Sum(0)
+
+public int Doubled(int n)
+// And a local call, which is the plain case.
+Doubled(n) -> n |> Twice()
+
+public int Chained(int n)
+// A chain is left-associative, so this is `Twice(Twice(Twice(n)))` and runs in
+// the order it reads. Three stages, one nested call, no intermediate names.
+Chained(n) -> n |> Twice() |> Twice() |> Twice()
+
+private int Twice(int v)
+Twice(v) -> v * 2
+
+// --- the valve --------------------------------------------------------------
+
+type Res = int | (:error, atom)
+
+public Res Place(int n)
+// If `Validate` yields `(:error, :bad_request)`, neither later stage runs and
+// `Place` returns that error unchanged.
+Place(n) -> Validate(n) |?> Charge() |?> Confirm()
+
+private Res Validate(int n)
+Validate(n) when n > 0  -> n
+Validate(n) when n <= 0 -> (:error, :bad_request)
+
+// THE STAGE IS DECLARED OVER THE NARROWED TYPE — `int`, not `Res`. That is the
+// whole payoff of lowering to `switch` rather than to a node of its own: the
+// error member has already been subtracted by the arm above, so the residual is
+// what reaches this signature, and writing `Res` here would claim a case the
+// function can never be handed.
+private Res Charge(int v)
+Charge(v) -> v * 2
+
+private Res Confirm(int v)
+Confirm(v) -> v + 6
+
+// The escape hatch is the operator's ABSENCE. A stage that wants to INSPECT the
+// failure is piped with `|>` and matches the error itself — which is also the
+// only way to turn one error into another.
+public Res Reported(int n)
+Reported(n) -> Validate(n) |> Describe()
+
+private Res Describe(Res r)
+Describe((:error, e)) -> (:error, e)
+Describe(v)           -> v

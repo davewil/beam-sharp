@@ -122,7 +122,21 @@ demonstrated_surface() ->
      {"an interval pattern in a switch arm",     "^ +[<>]=? -?[0-9]+.*=>"},
      {"a string literal",                        "\"[^\"]*\""},
      {"string as a declared type",               "(^|[<( ])string[ >)]"},
-     {"binary as a declared type",               "(^|[<( ])binary[ >)]"}].
+     {"binary as a declared type",               "(^|[<( ])binary[ >)]"},
+     %% F14. Two rows, because the pipe and the valve are two sentences: one
+     %% rewrites a call, the other stops a chain. Neither can stand in for the
+     %% other — a corpus that piped everywhere and never used a valve would leave
+     %% the short-circuit with nothing to look at.
+     %%
+     %% ANCHORED ON WHAT FOLLOWS THE OPERATOR, not on the operator alone. Comments
+     %% are stripped before the probe runs, so prose cannot satisfy it — but
+     %% `pipeline.bs` is a file ABOUT these operators, and a bare `\|>` would be
+     %% one editing accident away from being satisfied by a line that only
+     %% mentions one. Requiring the callee's capital means the probe asks the
+     %% question it is a sentence about: is anything actually piped into a call.
+     %% Pinned below, both ways.
+     {"a pipe into a call",                      "\\|> [A-Z]"},
+     {"a valve into a call",                     "\\|\\?> [A-Z]"}].
 
 every_shipped_surface_form_has_an_example_test() ->
     Dir = project_root() ++ "/examples",
@@ -210,3 +224,29 @@ the_match_probe_does_not_match_a_comparison_test() ->
                  re:run("Pair(k, (== k, x)) -> x", Re,
                         [multiline, {capture, none}])).
 
+%% F14's two probes, pinned in both directions. The operators share a first
+%% character and differ by one glyph in the middle, which is exactly the shape
+%% that makes one probe quietly answer for both — and the corpus would still be
+%% green with the valve deleted.
+the_pipe_probe_does_not_match_a_valve_test() ->
+    {_, Pipe} = lists:keyfind("a pipe into a call", 1, demonstrated_surface()),
+    ?assertEqual(nomatch,
+                 re:run("Place(n) -> Start(n) |?> Charge()", Pipe,
+                        [multiline, {capture, none}])),
+    ?assertEqual(match,
+                 re:run("Restated(n) -> [n] |> List.Sum(0)", Pipe,
+                        [multiline, {capture, none}])),
+    %% And the union bar, which is the other `|` in this language and appears in
+    %% every second type declaration.
+    ?assertEqual(nomatch,
+                 re:run("type Res = int | (:error, atom)", Pipe,
+                        [multiline, {capture, none}])).
+
+the_valve_probe_does_not_match_a_pipe_test() ->
+    {_, Valve} = lists:keyfind("a valve into a call", 1, demonstrated_surface()),
+    ?assertEqual(nomatch,
+                 re:run("Restated(n) -> [n] |> List.Sum(0)", Valve,
+                        [multiline, {capture, none}])),
+    ?assertEqual(match,
+                 re:run("Place(n) -> Start(n) |?> Charge()", Valve,
+                        [multiline, {capture, none}])).
