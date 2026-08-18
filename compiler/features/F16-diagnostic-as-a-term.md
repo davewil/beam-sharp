@@ -196,5 +196,17 @@ feature's own fresh worktree, before a line was changed. It now carries a timeou
 sees it, because the workflow builds the escript first — the same blind spot that let `cli_tests`
 never once execute in CI.
 
+**TWO DEFECTS IN THE PUBLISHED CHANNEL WERE FOUND IN REVIEW, AND BOTH WERE INVISIBLE TO ELEVEN
+PASSING TESTS**, because every fixture produced exactly one diagnostic — which is the case a
+consumer will meet least often. A file with two prints two descriptors, and under `~p` they wrap
+across several lines each with nothing between them: the only way to find the boundary is to match
+brackets, which is the screen-scraping ticket 23 exists to abolish, reintroduced by the feature
+meant to end it. `~0p` makes the newline the frame. And `--diagnostics term` was reachable under
+`ibs`, where the prompt prints values on stdout and the flag's contract cannot hold; it is now
+refused rather than quietly downgraded, because a flag accepted and not honoured costs the flag its
+credibility everywhere else. **The general lesson is about the fixtures, not the bugs: a
+one-of-a-thing fixture cannot see a framing error, and framing is the whole of what a machine
+channel promises.**
+
 **What this feature deliberately did not do is the next feature.** `bsc --api` (23 §10) now has a
 channel to answer on, which was the whole argument for the ordering.

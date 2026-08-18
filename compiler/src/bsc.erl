@@ -65,6 +65,21 @@ main(Args) ->
     %% F16 — set HERE and nowhere else. A library caller and every
     %% in-process test therefore gets `prose`, and cannot be polluted by
     %% another test: the CLI is a fresh OS process every time it runs.
+    %%
+    %% REFUSED IN THE REPL RATHER THAN IGNORED THERE. `ibs` prints values on
+    %% stdout, so the flag's own contract — stdout carries descriptors — cannot
+    %% hold, and a consumer redirecting the stream would get a mix. Accepting a
+    %% flag and quietly not honouring it is the worse of the two failures: it
+    %% costs the flag its credibility everywhere else it is used.
+    case {Opts#opts.repl, Opts#opts.diagnostics} of
+        {true, term} ->
+            io:format(standard_error,
+                      "bsc: --diagnostics term is not available in the REPL~n"
+                      "  the prompt prints values on stdout, so a descriptor~n"
+                      "  there would be indistinguishable from a result.~n", []),
+            halt(2);
+        _ -> ok
+    end,
     bs_diag:set_channel(Opts#opts.diagnostics),
     case {Opts#opts.repl, Files, Argv} of
         {true, [File], _} -> repl(File, Opts);

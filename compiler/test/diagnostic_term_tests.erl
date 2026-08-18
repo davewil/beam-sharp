@@ -40,6 +40,13 @@ parse_term(S) ->
     {ok, Term} = erl_parse:parse_term(Tokens),
     Term.
 
+%% The framing contract: one descriptor per line, so a consumer splits on
+%% newlines and parses each. This helper is what a consumer would write, and it
+%% is deliberately as naive as one — if it needs to get cleverer, the channel
+%% has broken its promise.
+terms(S) ->
+    [parse_term(L) || L <- string:split(string:trim(S), "\n", all), L =/= ""].
+
 inexhaustive_src() ->
     "module Rank\n"
     "type Signal = :red | :amber | :green\n"
@@ -215,3 +222,45 @@ the_diagnostics_gate_passes_test() ->
             Out = os:cmd(Script ++ " 2>&1; echo rc:$?"),
             ?assertNotEqual({nomatch, Out}, {string:find(Out, "rc:0"), Out})
     end.
+
+%%% --- the framing, which is the part a consumer depends on -------------------
+
+%% EVERY OTHER TEST HERE USES A FIXTURE WITH EXACTLY ONE DIAGNOSTIC, and that is
+%% the case a consumer will least often meet: an agent compiles a file and gets
+%% the list of clauses to write, not one. Under plain `~p` two descriptors wrap
+%% across several lines each with nothing between them, so the only way to find
+%% the boundary is to match brackets — which is the screen-scraping ticket 23
+%% exists to abolish, reintroduced by the feature meant to end it. `~0p` makes
+%% the newline the frame.
+two_diagnostics_are_two_independently_parseable_lines_test() ->
+    guarded(fun() ->
+        Src = "module Multi\n"
+              "type Signal = :red | :amber | :green\n"
+              "public int Rank(Signal s)\n"
+              "Rank(:red) -> 1\n"
+              "public int Grade(Signal s)\n"
+              "Grade(:green) -> 3\n",
+        with_src("in.bs", Src, fun(Path, Root) ->
+            Terms = terms(out("--diagnostics term --src-root " ++ Root ++
+                                  " " ++ Path)),
+            ?assertEqual(2, length(Terms)),
+            ?assertEqual([inexhaustive, inexhaustive],
+                         [maps:get(tag, T) || T <- Terms]),
+            ?assertEqual(['Grade', 'Rank'],
+                         lists:sort([maps:get(function, T) || T <- Terms]))
+        end)
+    end).
+
+%% A flag accepted and quietly not honoured costs the flag its credibility
+%% everywhere else, so the REPL refuses the combination rather than falling back
+%% to prose: `ibs` prints values on stdout, and the flag's contract is that
+%% stdout carries descriptors.
+the_term_channel_is_refused_in_the_repl_test() ->
+    guarded(fun() ->
+        %% `ibs` is a thin front end on `bsc --repl`, so that is the flag
+        %% the refusal has to see; `-S` alone is accepted and ignored by
+        %% the arg parser, exactly as `iex -S mix` spells it.
+        Out = os:cmd(escript() ++ " --repl -S x.bs --diagnostics term 2>&1; echo rc:$?"),
+        ?assertNotEqual(nomatch, string:find(Out, "not available in the REPL")),
+        ?assertNotEqual(nomatch, string:find(Out, "rc:2"))
+    end).

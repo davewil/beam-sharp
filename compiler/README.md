@@ -77,6 +77,11 @@ and this one deliberately does not. `pasteable` is the clause you must write. Th
 residual cannot be expressed as a head the term says so and offers nothing, rather than handing
 back an approximation that reads as actionable.
 
+**One descriptor per line.** A file with two inexhaustive functions prints two of them, and the
+newline is the frame — so a consumer reads a line and parses it, and never has to match brackets to
+find where one ends. It is not available under `ibs`, and that is a refusal rather than a silent
+fallback: the prompt prints values on stdout, so the flag's own contract could not hold there.
+
 **The term is full fidelity and the prose is not.** The prose stops at three cases and prints
 `... (2 more)`, which is ticket 43's cap; the term carries every one of them. That is deliberate
 and is why the residual travels as its parts.

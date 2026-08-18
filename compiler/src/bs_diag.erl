@@ -55,6 +55,12 @@
 %%% file: prose to stderr exactly as before, the descriptor to stdout, so a
 %%% consumer redirects rather than parses.
 %%%
+%%% IT IS NOT AVAILABLE IN THE REPL, AND THAT IS A REFUSAL RATHER THAN A
+%%% DOWNGRADE. `ibs` prints VALUES on stdout, so "stdout carries descriptors"
+%%% cannot be true there — a consumer redirecting the stream would get a mix of
+%%% the two. Silently falling back to prose would be worse than either: a flag
+%%% that is accepted and ignored is a flag nobody can trust the next time.
+%%%
 %%% IT LIVES IN THE PROCESS DICTIONARY, AND DELIBERATELY. The alternative is
 %%% threading a channel through `parse_string/2`, `parse_path/1` and
 %%% `load_unit/1`, none of which have `#opts{}` in scope and two of which are
@@ -64,6 +70,10 @@
 %%% process every time it runs.
 %%% ---------------------------------------------------------------------------
 
+%% The guard is an assertion about an INTERNAL invariant, not input validation:
+%% `parse_args` halts on any value other than these two, and `#opts.diagnostics`
+%% defaults to `prose`, so a third value here means the CLI grew a way to
+%% produce one and this should stop rather than guess.
 set_channel(Chan) when Chan =:= prose; Chan =:= term ->
     put(bs_diag_channel, Chan).
 
@@ -88,9 +98,17 @@ contractual() ->
 
 %% The prose goes where it always went. The term goes to stdout, and only when
 %% asked for: the default prints nothing new, so no existing consumer moves.
+%%
+%% ONE DESCRIPTOR PER LINE, AND `~0p` IS WHAT MAKES THAT TRUE. A file with two
+%% inexhaustive functions prints two descriptors, and under plain `~p` they wrap
+%% across several lines each with NOTHING between them — so the only way to find
+%% where one ends is to match brackets, which is precisely the screen-scraping
+%% ticket 23 exists to abolish. `~0p` never breaks a line, so the frame is the
+%% newline: a consumer reads a line and parses it, and needs no scanner of its
+%% own. Measured before it was chosen; the multi-diagnostic case is a test.
 emit(Chan, Desc) ->
     case Chan of
-        term -> io:format("~p~n", [Desc]);
+        term -> io:format("~0p~n", [Desc]);
         _    -> ok
     end,
     {Fmt, Args} = message(Desc),
