@@ -98,6 +98,32 @@ exists.**
 
 ---
 
+## SUPERSEDED IN PART — the recommendation was built, 2026-08-18
+
+**This file's own recommendation — "stay at point 1b, but split the refusal" — is now in the
+compiler**, so every claim below that the guard *cannot* tell contractive recursion from degenerate
+recursion has stopped being true. The analysis is left standing rather than rewritten, because it
+was accurate when measured and it is the reasoning that produced the change.
+
+What is now different, and where the file still says otherwise (§2.1, the point-0 row in §3, and
+the claim→source table's last row):
+
+* `resolve/3` threads a `'$ctor'` marker, pushed when the walk descends through a **tuple**, a
+  **`list<T>`** or a **record field's closed map**, and *not* through a union or a refinement.
+  `seen/2` asks whether a marker lies between the head of the chain and the name it has met again.
+* Two error terms, not one: `{cyclic_type, N}` for a definition that is not contractive, and
+  `{recursive_type, N}` for one that is. The messages say, respectively, that this is *not* a
+  missing feature and that it *is* one.
+* The old message's *"has no representation in the checker's algebra **yet**"* — quoted below as
+  applying to both cases — now applies only to the contractive one.
+
+**What is NOT changed:** the language still has no recursive types, `term` is still a μ-type held
+by saturating sentinels, and subtracting `list<term>` from `term` still wrongly keeps `[term, ..]`.
+Points 2–5 of the curve are all still unoccupied. This was a diagnostic split, not an
+implementation.
+
+---
+
 ## Part 1 — Is the theory pressure real?
 
 ### 1.1 The signature is finite; recursion is how you read it

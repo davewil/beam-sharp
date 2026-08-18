@@ -635,6 +635,26 @@ record_fields({t_map, Fields}) -> [N || {field, N, _} <- Fields, N =/= 'Kind'].
 %% invisible to a green suite, which is why the guard arrives with the feature
 %% that makes recursive aliases the natural thing to write (`type Tree<T> =
 %% (T, list<Tree<T>>)`), not with the feature that finally implements them.
+%%
+%% THE CHAIN ALSO RECORDS CONSTRUCTOR CROSSINGS, and that is what tells the two
+%% refusals apart. Ticket 09 §3's well-formedness rule is that **recursion must
+%% pass through a type constructor** — a definition that satisfies it is
+%% *contractive* and denotes a perfectly good regular tree, one the language
+%% decided to have and nobody has built; a definition that does not is
+%% meaningless and always will be:
+%%
+%%   type X = X | int                        not contractive — permanent error
+%%   type Tree = :leaf | (:node, Tree, Tree)  contractive — a feature, not a defect
+%%
+%% Threading the names alone cannot express that, because it erases the one
+%% thing 09 decided on. So `'$ctor'` is pushed when the walk descends THROUGH a
+%% constructor, and `seen/2` asks whether one lies between the head of the chain
+%% and the name it has met again. A union does not count: it is a Boolean
+%% connective, and `X | int` is the canonical non-contractive body. Nor does a
+%% refinement, which is a subset of its base rather than a shape around it.
+%%
+%% `$` keeps the marker out of the type-name grammar, which is PascalCase — the
+%% same reason `bs@` keeps synthesised variables out of the variable grammar.
 resolve(T, Env) -> resolve(T, Env, []).
 
 resolve(T, _Env, _Seen) when is_map(T) -> T;
@@ -659,17 +679,18 @@ resolve({t_ref, N}, Env, Seen) ->
         Surface -> resolve(Surface, Env, [N | Seen])
     end;
 resolve({t_tuple, Cs}, Env, Seen) ->
-    bs_types:tuple([resolve(C, Env, Seen) || C <- Cs]);
+    bs_types:tuple([resolve(C, Env, ctor(Seen)) || C <- Cs]);
 %% A DECLARED map type is closed — it fixes its domain. Ticket 26 §4's "no
 %% absent fields" is what makes that sound, and §5 then closes row polymorphism
 %% rather than deferring it: a wider record is simply a different type.
 resolve({t_map, Fields}, Env, Seen) ->
     bs_types:map_closed(
-      maps:from_list([{N, resolve(T, Env, Seen)} || {field, N, T} <- Fields]));
+      maps:from_list([{N, resolve(T, Env, ctor(Seen))} || {field, N, T} <- Fields]));
 %% `list<T>` is algebra-primitive — the list part is a pair of flags, not an
 %% alias body — so it is the one bracket that cannot be written as a prelude
 %% alias and is resolved here.
-resolve({t_generic, list, [T]}, Env, Seen) -> bs_types:list(resolve(T, Env, Seen));
+resolve({t_generic, list, [T]}, Env, Seen) ->
+    bs_types:list(resolve(T, Env, ctor(Seen)));
 resolve({t_generic, list, Args}, _Env, _Seen) ->
     erlang:error({generic_arity, list, 1, length(Args)});
 %% Ticket 27 §(b), executable: substitute the ground arguments into the alias
@@ -741,10 +762,23 @@ refine(Base, Pred, Line) ->
             end
     end.
 
+%% Descending through a constructor. One marker per descent, not per component:
+%% the question is whether the recursion passed through a shape, and a tuple's
+%% three fields are three siblings below ONE crossing.
+ctor(Seen) -> ['$ctor' | Seen].
+
 seen(N, Seen) ->
     case lists:member(N, Seen) of
         false -> ok;
-        true  -> erlang:error({cyclic_type, N})
+        true  ->
+            %% Everything entered since this name was, most recent first. A
+            %% marker in there means the recursion crossed a constructor and the
+            %% definition is contractive.
+            Since = lists:takewhile(fun(E) -> E =/= N end, Seen),
+            case lists:member('$ctor', Since) of
+                true  -> erlang:error({recursive_type, N});
+                false -> erlang:error({cyclic_type, N})
+            end
     end.
 
 %% Substitution is over the SURFACE type, and what it substitutes IN is an

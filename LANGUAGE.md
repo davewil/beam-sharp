@@ -625,9 +625,28 @@ Sum((a, b)) -> a + b
 So a bracket costs no new node in the checker and nothing in the emitted code: what is published is
 the expanded ground `-spec`.
 
-A recursive type is **refused by name** rather than expanded: `type Tree<T> = (T, list<Tree<T>>)` is
-an error today. Recursion is decided (equirecursive, contractive) and the algebra cannot hold one
-yet.
+A recursive type is **refused by name** rather than expanded. Recursion is decided — equirecursive
+and **contractive** — and the algebra cannot hold one yet, so every recursive definition is an error
+today. But there are **two** refusals, and they are not the same thing.
+
+A definition whose recursion passes through a **constructor** — a tuple, a `list<T>`, or a record
+field — describes a real set of values. It is well formed, and the refusal is a gap in the compiler:
+
+```csharp not-yet
+type Tree = :leaf | (:node, Tree, Tree)
+```
+
+A definition whose recursion passes through nothing but unions and aliases describes no value at
+all, and no amount of implementation will change that. A union is a **Boolean connective, not a
+constructor**:
+
+```csharp not-yet
+type X = X | int
+```
+
+The compiler says which of the two it has found. That distinction is the whole reason it is written
+down here: an author who wrote the first should wait for a feature, and an author who wrote the
+second should rewrite their type, and one diagnostic cannot tell them apart.
 
 ### Polymorphic function signatures — next
 

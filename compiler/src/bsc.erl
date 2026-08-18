@@ -773,11 +773,33 @@ resolve_error(Path, {not_parametric, N}) ->
 %% F6.8. The alternative is not a worse message — it is no message, because the
 %% resolver loops. Ticket 09 decided recursion is equirecursive and contractive;
 %% the algebra cannot hold one, so this refuses by name rather than pretending.
+%% TWO REFUSALS, NOT ONE — ticket 09 §3's well-formedness rule made visible.
+%% Both used to print the message below, with its "yet", which promised a future
+%% to a definition that has none: `type X = X | int` is not contractive and
+%% cannot be given a meaning by any amount of implementation. Telling an author
+%% their mistake is a missing feature is the shape ticket 40 §2 named — the
+%% defect is the diagnosis, not the outcome.
 resolve_error(Path, {cyclic_type, N}) ->
     io:format(standard_error,
-              "~s: error: the type ~s is defined in terms of itself~n"
-              "  a recursive type has no representation in the checker's algebra~n"
-              "  yet, so it is refused rather than expanded forever.~n",
+              "~s: error: the type ~s is defined in terms of itself, and the~n"
+              "  recursion does not pass through a constructor~n"
+              "  so there is no set of values it could describe -- and that is~n"
+              "  not a missing feature. Put the recursion inside a shape (a~n"
+              "  tuple, a list, or a record field), or drop it.~n",
+              [Path, N]),
+    handled;
+%% The other side, and the author has done nothing wrong: the definition is
+%% CONTRACTIVE, so it denotes a perfectly good regular tree. Ticket 09 §3 decided
+%% the language has these; no feature has built them. The message says which of
+%% those two facts it is reporting, because that is the whole difference between
+%% "fix your code" and "wait for us".
+resolve_error(Path, {recursive_type, N}) ->
+    io:format(standard_error,
+              "~s: error: ~s is a recursive type, and those are not built yet~n"
+              "  the definition is well formed -- the recursion passes through a~n"
+              "  constructor, so it describes a real set of values. The checker's~n"
+              "  algebra has no binder to hold it with, which is a gap in this~n"
+              "  compiler rather than a mistake in your type.~n",
               [Path, N]),
     handled;
 resolve_error(Path, {kind_field_is_minted, Line, Name}) ->

@@ -2,7 +2,8 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
--import(bs_test_support, [compile/1, build_and_load/2, check_only/1, errors/1]).
+-import(bs_test_support, [compile/1, build_and_load/2, check_only/1, errors/1,
+                          escript/0, run_cli/1, with_src/3]).
 
 -define(OUT, "/tmp/bsc_eunit").
 
@@ -142,13 +143,68 @@ an_undeclared_variable_in_an_alias_body_is_caught_test() ->
 %% It REFUSES rather than implements: ticket 09 decided recursion is
 %% equirecursive and contractive, and the algebra cannot hold one — the list
 %% part is a pair of flags and a tuple is a finite product.
-a_cyclic_alias_is_an_error_and_not_a_hang_test() ->
+%%
+%% THE REFUSAL IS NOW SPLIT IN TWO, and this test changed with it. It used to
+%% assert `cyclic_type` for BOTH cases below, which was the conflation: `A = B` /
+%% `B = A` is meaningless and always will be, while `Tree<T> = (T, list<Tree<T>>)`
+%% is contractive — ticket 09 §3's own well-formedness rule — and denotes a
+%% perfectly good regular tree nobody has built. Asserting one term for both is
+%% what let the compiler tell an author their mistake was a missing feature.
+a_non_contractive_alias_is_a_permanent_error_test() ->
+    %% Through an alias chain: no constructor anywhere on the path.
     ?assertError({cyclic_type, 'A'},
                  check_only("module E\ntype A = B\ntype B = A\n"
                             "public atom F(A a)\nF(a) -> :ok\n")),
-    ?assertError({cyclic_type, 'Tree'},
+    %% And through a UNION, which is the canonical case and the one that proves
+    %% the marker is not simply "did we walk anywhere". A union is a Boolean
+    %% connective, not a constructor, so it must not make `X` contractive.
+    ?assertError({cyclic_type, 'X'},
+                 check_only("module E\ntype X = X | int\n"
+                            "public atom F(X x)\nF(x) -> :ok\n")).
+
+a_contractive_alias_is_an_unbuilt_feature_test() ->
+    %% Through a tuple, and through a `list<T>` inside it.
+    ?assertError({recursive_type, 'Tree'},
                  check_only("module E\ntype Tree<T> = (T, list<Tree<T>>)\n"
-                            "public atom F(Tree<int> t)\nF(t) -> :ok\n")).
+                            "public atom F(Tree<int> t)\nF(t) -> :ok\n")),
+    %% Through a bare `list<T>`, with no tuple involved at all — the list part
+    %% is algebra-primitive and resolved in its own clause, so it is a separate
+    %% path to the same conclusion.
+    ?assertError({recursive_type, 'Nest'},
+                 check_only("module E\ntype Nest = :leaf | list<Nest>\n"
+                            "public atom F(Nest n)\nF(n) -> :ok\n")),
+    %% And through a record field, which resolves as a closed map.
+    ?assertError({recursive_type, 'Node'},
+                 check_only("module E\nrecord Node { Kids: list<Node> }\n"
+                            "public atom F(Node n)\nF(n) -> :ok\n")).
+
+%% The split only matters if the AUTHOR is told two different things, which a
+%% diagnostic term does not prove — so it is asserted where they read it. The
+%% old message said a recursive type "has no representation in the checker's
+%% algebra YET", and the whole defect was that `type X = X | int` was told to
+%% wait for a feature that cannot exist.
+the_two_refusals_read_differently_test() ->
+    case filelib:is_regular(escript()) of
+        false -> ok;
+        true ->
+            Bad = "module E\ntype X = X | int\n"
+                  "public atom F(X x)\nF(x) -> :ok\n",
+            Good = "module E\ntype Tree = :leaf | (:node, Tree, Tree)\n"
+                   "public atom F(Tree t)\nF(t) -> :ok\n",
+            with_src("in.bs", Bad,
+                     fun(P, R) ->
+                             O = run_cli("--src-root " ++ R ++ " " ++ P),
+                             ?assert(string:find(O, "not a missing feature") =/= nomatch),
+                             ?assertEqual(nomatch, string:find(O, "not built yet"))
+                     end),
+            with_src("in.bs", Good,
+                     fun(P, R) ->
+                             O = run_cli("--src-root " ++ R ++ " " ++ P),
+                             ?assert(string:find(O, "not built yet") =/= nomatch),
+                             ?assert(string:find(O, "gap in this") =/= nomatch),
+                             ?assertEqual(nomatch, string:find(O, "not a missing feature"))
+                     end)
+    end.
 
 %% ...and the same guard must not reject a name used twice as SIBLINGS. A
 %% repeated application is not a cycle, and a chain that terminates is not one
