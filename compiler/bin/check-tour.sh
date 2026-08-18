@@ -116,5 +116,128 @@ else
     echo "TOUR.md quotes lines the corpus does not contain."
 fi
 
+# --- 2: the tour meets every capability the corpus gate names ----------------
+#
+# `corpus_tests:demonstrated_surface/0` is the list of capabilities that owe an
+# example, and it fails BY NAME when a shipped form has nothing to look at. The
+# tour claims to walk all of them, so the two lists are diffed here rather than
+# by eye — and the appendix carries the gate's own wording so that a diff is
+# possible at all.
+#
+# This is the check that makes "every construct" a proven claim. Without it the
+# appendix is a promise, and the next capability added to the roster ships with
+# the tour silently one short.
+ROSTER="$REPO/compiler/test/corpus_tests.erl"
+
+echo
+echo "capabilities the corpus gate names, and the tour's appendix"
+echo
+
+missing=0
+named=0
+while IFS= read -r cap; do
+    [ -n "$cap" ] || continue
+    named=$((named + 1))
+    if ! grep -qF "| $cap |" "$DOC"; then
+        echo "  NOT IN TOUR    $cap"
+        missing=1; fail=1
+    fi
+done < <(awk '/^demonstrated_surface\(\) ->/,/^\]\./' "$ROSTER" |
+         grep -oE '\{"[^"]*"' | sed 's/[{"]//g')
+
+if [ "$named" -eq 0 ]; then
+    echo "  read no capabilities from $ROSTER — the roster moved" >&2
+    exit 2
+fi
+[ "$missing" -eq 0 ] &&
+    printf '  %-9s all %d appear in the appendix\n' "ok" "$named"
+
+# --- 3: the transcripts still print what they say they print -----------------
+#
+# Part 1 covers the B#; this covers the shell. Roughly forty `$ bsc …` lines
+# carry pasted output, and without this they are the ungated half of a document
+# whose whole pitch is that it cannot drift.
+#
+# A transcript showing a DIAGNOSTIC is skipped, and the reason is in the prose
+# beside it: those were produced by editing a corpus file in place, so replaying
+# the command against clean sources would correctly print nothing. Skipping is
+# named in the output rather than silent — `bin/check-no-silent-skip.sh` exists
+# because a check that says `ok` for work it did not do is not a check.
+BSC="$REPO/compiler/_build/default/bin/bsc"
+[ -x "$BSC" ] || {
+    echo "no escript at $BSC — run \`rebar3 escriptize\` in compiler/ first" >&2
+    exit 2
+}
+
+echo
+echo "transcripts TOUR.md pastes"
+echo
+
+replayed=0
+drifted=0
+skipped=0
+cmd=""
+want=""
+in_block=0
+
+replay() {
+    [ -n "$cmd" ] || return 0
+    # A diagnostic transcript needs an edit the prose describes; see above.
+    case "$want" in
+        examples/*:[0-9]*|'#{'*|'error: '*)
+            skipped=$((skipped + 1)); return 0 ;;
+    esac
+    replayed=$((replayed + 1))
+    local got
+    # The document writes `bsc`; the escript lives under _build.
+    got="$(cd "$REPO/compiler" && eval "${cmd/#bsc /\"$BSC\" }" 2>&1)" || true
+    if [ "$got" != "$want" ]; then
+        echo "  DRIFTED   \$ $cmd"
+        echo "    pasted:  $want"
+        echo "    prints:  $got"
+        drifted=1; fail=1
+    fi
+}
+
+while IFS= read -r line; do
+    case "$line" in
+        '```'*)
+            [ "$in_block" -eq 1 ] && { replay; cmd=""; want=""; }
+            in_block=$((1 - in_block))
+            continue
+            ;;
+    esac
+    [ "$in_block" -eq 1 ] || continue
+
+    case "$line" in
+        '$ bsc '*)
+            replay
+            cmd="${line#$ }"; want=""
+            ;;
+        '$ '*)
+            # Some other command — `cd`, `rebar3`, the `erl` spec dump. Not this
+            # gate's business, and it ends whatever transcript preceded it.
+            replay; cmd=""; want=""
+            ;;
+        *)
+            [ -n "$cmd" ] || continue
+            if [ -z "$want" ]; then want="$line"; else want="$want
+$line"; fi
+            ;;
+    esac
+done < "$DOC"
+replay
+
+# The verdict word is computed, not written. An earlier draft printed `ok`
+# unconditionally under the DRIFTED lines it had just emitted, which is the
+# same class of defect as a gate that returns success for work it did not do.
+if [ "$drifted" -eq 0 ]; then
+    printf '  %-9s %d commands replayed, %d diagnostics skipped (they need an edit)\n' \
+        "ok" "$replayed" "$skipped"
+else
+    echo
+    echo "TOUR.md pastes output the compiler no longer produces."
+fi
+
 echo
 exit "$fail"

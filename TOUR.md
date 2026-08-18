@@ -20,8 +20,11 @@ Three ground rules, because a tour that drifts from the compiler is worse than n
 1. **Every B# block below is copied verbatim from a file in `compiler/examples/`**, and the
    file is named. Nothing here is composed for the document. Those files must compile and run
    or the build is red, so a snippet that rots takes a gate down with it.
-2. **Every `$ bsc …` command was run, and its output is pasted, not described.** Where a
-   diagnostic is shown, it was produced by making the edit the text describes.
+2. **Every `$` command was run from `compiler/`, and its output is pasted, not described.**
+   Where a diagnostic is shown, the edit above it was made to the corpus file in place and
+   then undone — so you can reproduce any of them by editing the same line and putting it
+   back. The commands that need no edit are re-run by `compiler/bin/check-tour.sh`, which
+   compares what they print now against what is written here.
 3. **Comments are elided** from quoted blocks where they would drown the construct. The
    originals are heavily annotated with *why* each decision went the way it did — read them
    next, they are the better half of the corpus.
@@ -145,8 +148,8 @@ The compiler subtracts each clause head from the parameter type. What is left ov
 Delete the `4..7` clause from `examples/Wire/wire.bs` and ask for a build:
 
 ```
-$ bsc --src-root /tmp/a /tmp/a/Wire
-/tmp/a/Wire/wire.bs:39: error: Classify is not exhaustive
+$ bsc --src-root examples examples/Wire
+examples/Wire/wire.bs:39: error: Classify is not exhaustive
   no clause matches:
     Classify(4..7) -> ...
 ```
@@ -157,8 +160,8 @@ The same machinery over a union of records — delete the `Invoice` clause from
 `examples/Shop/shop.bs`:
 
 ```
-$ bsc --src-root /tmp/b /tmp/b/Shop
-/tmp/b/Shop/shop.bs:16: error: Which is not exhaustive
+$ bsc --src-root examples examples/Shop
+examples/Shop/shop.bs:16: error: Which is not exhaustive
   no clause matches:
     Which({ Kind: :'Shop.Invoice' }) -> ...
 ```
@@ -167,8 +170,8 @@ And the rule that follows from taking it seriously: **over a closed domain, `_` 
 error**. Replace `Classify(>= 9)` with `Classify(_)`:
 
 ```
-$ bsc --src-root /tmp/a /tmp/a/Wire
-/tmp/a/Wire/wire.bs:48: error: Classify discards cases the compiler can name
+$ bsc --src-root examples examples/Wire
+examples/Wire/wire.bs:48: error: Classify discards cases the compiler can name
   every value left here comes from a type you declared, so `_`
   hides a case rather than admitting an unknown one:
     Classify(9..255) -> ...
@@ -285,8 +288,9 @@ And the refinement reaches the emitted code, which is the part you can check fro
 
 ```
 $ bsc -o /tmp/out --src-root examples examples/Wire
-$ # -spec attributes from /tmp/out/Wire.beam
--spec 'Classify'(0..255) -> body | header | heartbeat | method | reserved.
+$ erl -noshell -eval 'io:format("~s",[begin {ok,{_,[{abstract_code,{_,AC}}]}} = beam_lib:chunks("/tmp/out/Wire.beam",[abstract_code]), [erl_pp:form(F) || F <- AC, element(1,F) =:= attribute, element(3,F) =:= spec] end]), halt().'
+-spec 'Classify'(0..255) ->
+                    body | header | heartbeat | method | reserved.
 -spec 'Band'(0..255) -> high | low | mid.
 -spec 'Sizing'(0..255) -> high | low | mid.
 ```
@@ -325,7 +329,8 @@ $ bsc --src-root examples examples/Fib Fib 10
 [0, 1, 1, 2, 3, 5, 8, 13, 21, 34]
 ```
 
-- **`list<T>`** is the one bracketed type in the algebra proper.
+- **`list<T>`** is a bracketed type the algebra knows natively, rather than an alias that is
+  substituted away like the ones in chapter 9.
 - **`[]`** and **`[x, ..rest]`** are the two list patterns, and they partition `list<int>`
   exactly — which is why `Reverse` needs no catch-all.
 - **`[a, ..acc]`** in expression position conses.
@@ -402,8 +407,8 @@ $ bsc --src-root examples examples/Shop New 7
   minted and may not be written. Drop a field and you get the field, not a stack trace:
 
   ```
-  $ bsc --src-root /tmp/c /tmp/c/Shop
-  /tmp/c/Shop/shop.bs:37: error: New builds an Order with the wrong fields
+  $ bsc --src-root examples examples/Shop
+  examples/Shop/shop.bs:37: error: New builds an Order with the wrong fields
     missing, and must be supplied:
       Total
   ```
@@ -1110,9 +1115,9 @@ atom Which({ Kind: :'Shop.Invoice', Id: int, Total: int } | { Kind: :'Shop.Order
 **Every diagnostic is a term.** The prose is a pure function of it, at every site:
 
 ```
-$ bsc --diagnostics term --src-root /tmp/a /tmp/a/Wire
+$ bsc --diagnostics term --src-root examples examples/Wire
 #{function => 'Classify',line => 39,tag => inexhaustive,
-  file => "/tmp/a/Wire/wire.bs",severity => error,
+  file => "examples/Wire/wire.bs",severity => error,
   heads => #{kind => products,products => [[["4..7"]]],
              pasteable => ["Classify(4..7) -> ..."]},
   residual => "(4..7)"}
@@ -1149,7 +1154,7 @@ produce.
 
 | | |
 |---|---|
-| binary patterns `<<…>>` and a sized-binary type | the binaries decision is still open — the last unbuilt feature |
+| binary patterns `<<…>>` and a sized-binary type | the binaries decision is still open — the one numbered feature not started |
 | the UTF-8 entry check, `binary` → `string` | the one direction chapter 10 has no spelling for |
 | polymorphic function signatures — `Map<T, U>` | needs an arrow type |
 | the behaviour contract checked as a type | Dialyzer does it at the boundary today |
@@ -1166,60 +1171,74 @@ The language's **name** is also open. `beam-sharp` is a working title.
 
 ## Appendix: the construct index
 
-Every surface form the compiler builds today, and where to look at one. The middle column is
-the file the corpus gate holds against that capability.
+**The corpus gate names 44 capabilities and fails by name when one has no example to look
+at.** All 44 are below, in the gate's own wording, so the two lists can be diffed by machine
+— `compiler/bin/check-tour.sh` does exactly that, and this table is red the day the compiler
+grows a capability the tour has not met.
 
-| Construct | Example | Chapter |
+| Capability | Example | Chapter |
 |---|---|---|
-| module declaration | `examples/Readings/readings.bs` | 1 |
-| dotted module path | `examples/Shop/Collections/List/List.bs` | 11 |
-| a module is a directory | `examples/Shop/Reports/Totals.bs` | 11 |
-| `public` / `private` | `examples/Fib/fib.bs` | 1, 5 |
-| type alias | `examples/Readings/readings.bs` | 1 |
-| union in a type | `examples/Readings/readings.bs` | 1 |
-| atom literal | `examples/Readings/readings.bs` | 1 |
-| keyword atoms `true` / `false` | `examples/Queue/queue.bs` | 8 |
-| `bool` as a declared type | `examples/Math/math.bs` | 7 |
-| `int`, `atom`, `term` | `examples/Intake/intake.bs` | 15 |
-| tuple type and tuple pattern | `examples/Readings/readings.bs` | 1 |
-| guard | `examples/Math/math.bs` | 3 |
-| conjunction in a guard | `examples/Math/math.bs` | 3 |
-| refined type declaration | `examples/Wire/wire.bs` | 4 |
-| interval pattern | `examples/Wire/wire.bs` | 4 |
-| combined interval pattern | `examples/Wire/wire.bs` | 4 |
-| interval pattern in a switch arm | `examples/Wire/wire.bs` | 8 |
-| type-only parameter | `examples/Wire/wire.bs` | 4 |
-| empty-list pattern | `examples/Fib/fib.bs` | 5 |
-| list pattern with a rest | `examples/Fib/fib.bs` | 5 |
-| record declaration | `examples/Shop/shop.bs` | 6 |
+| a module declaration | `examples/Readings/readings.bs` | 1 |
+| a type alias | `examples/Readings/readings.bs` | 1 |
+| a union in a type | `examples/Readings/readings.bs` | 1 |
+| an atom literal | `examples/Readings/readings.bs` | 1 |
+| a public function | `examples/Readings/readings.bs` | 1 |
+| a private function | `examples/Fib/fib.bs` | 5 |
+| a guard | `examples/Math/math.bs` | 3 |
+| a conjunction in a guard | `examples/Math/math.bs` | 3 |
+| a refined type declaration | `examples/Wire/wire.bs` | 4 |
+| an interval pattern | `examples/Wire/wire.bs` | 4 |
+| a combined interval pattern | `examples/Wire/wire.bs` | 4 |
+| an interval pattern in a switch arm | `examples/Wire/wire.bs` | 8 |
+| an empty-list pattern | `examples/Fib/fib.bs` | 5 |
+| a list pattern with a rest | `examples/Fib/fib.bs` | 5 |
+| a record declaration | `examples/Shop/shop.bs` | 6 |
 | record construction | `examples/Shop/shop.bs` | 6 |
-| width-preserving update (`with`) | `examples/Shop/shop.bs` | 6 |
-| field projection (the dot) | `examples/Shop/shop.bs` | 6 |
-| tag or property pattern | `examples/Shop/shop.bs` | 6 |
-| local binding (`var`) | `examples/Shop/shop.bs` | 7 |
-| destructuring bind | `examples/Math/math.bs` | 7 |
-| match against a bound value (`== n`) | `examples/Math/math.bs` | 7 |
-| wildcard `_` | `examples/Math/math.bs` | 7 |
-| `switch` expression | `examples/Queue/queue.bs` | 8 |
-| tuple subject in a `switch` | `examples/Queue/queue.bs` | 8 |
-| guard on a `switch` arm | `examples/Queue/queue.bs` | 8 |
-| user-declared parametric alias | `examples/Parcel/parcel.bs` | 9 |
-| parametric type applied | `examples/Parcel/parcel.bs` | 9 |
-| string literal | `examples/Label/label.bs` | 10 |
-| `string` as a declared type | `examples/Label/label.bs` | 10 |
-| `binary` as a declared type | `examples/Label/label.bs` | 10 |
-| native module import (`using`) | `examples/Shop/Reports/Totals.bs` | 11 |
-| qualified call | `examples/Shop/Reports/Totals.bs` | 11 |
+| a width-preserving update | `examples/Shop/shop.bs` | 6 |
+| a field projection | `examples/Shop/shop.bs` | 6 |
+| a tag or property pattern | `examples/Shop/shop.bs` | 6 |
+| a local binding | `examples/Shop/shop.bs` | 7 |
+| a destructuring bind | `examples/Math/math.bs` | 7 |
+| a match against a bound value | `examples/Math/math.bs` | 7 |
+| bool as a declared type | `examples/Math/math.bs` | 7 |
+| a switch expression | `examples/Queue/queue.bs` | 8 |
+| a tuple subject in a switch | `examples/Queue/queue.bs` | 8 |
+| a guard on a switch arm | `examples/Queue/queue.bs` | 8 |
+| the keyword atoms true and false | `examples/Queue/queue.bs` | 8 |
+| a user-declared parametric alias | `examples/Parcel/parcel.bs` | 9 |
+| a parametric type applied | `examples/Parcel/parcel.bs` | 9 |
+| a string literal | `examples/Label/label.bs` | 10 |
+| string as a declared type | `examples/Label/label.bs` | 10 |
+| binary as a declared type | `examples/Label/label.bs` | 10 |
+| a dotted module path | `examples/Shop/Collections/List/List.bs` | 11 |
+| a native module import | `examples/Shop/Reports/Totals.bs` | 11 |
+| a qualified call | `examples/Shop/Reports/Totals.bs` | 11 |
+| a pipe into a call | `examples/Pipeline/pipeline.bs` | 12 |
+| a valve into a call | `examples/Pipeline/pipeline.bs` | 12 |
+| a foreign module declaration | `examples/Interop/interop.bs` | 13 |
+| a foreign call | `examples/Interop/interop.bs` | 13 |
+| a foreign declaration that fails as a value | `examples/Foreign/foreign.bs` | 14 |
+| a codegen obligation instantiated | `examples/Intake/intake.bs` | 15 |
+| ValidationError as a declared type | `examples/Intake/intake.bs` | 15 |
+| an OTP behaviour | `examples/Counter/counter.bs` | 16 |
+| an OTP callback | `examples/Counter/counter.bs` | 16 |
+
+### And the forms the roster does not name
+
+That list is *capabilities owing an example*, not a grammar inventory — a form nobody thought
+worth gating separately is absent from it and still real. These are the ones the tour meets
+that it does not name:
+
+| Form | Example | Chapter |
+|---|---|---|
+| a module is a directory | `examples/Shop/Reports/Totals.bs` | 11 |
 | arity overloading | `examples/Shop/Collections/List/List.bs` | 11 |
-| pipe (`\|>`) | `examples/Pipeline/pipeline.bs` | 12 |
-| valve (`\|?>`) | `examples/Pipeline/pipeline.bs` | 12 |
-| foreign module declaration | `examples/Interop/interop.bs` | 13 |
-| foreign call | `examples/Interop/interop.bs` | 13 |
-| foreign error channel (`foreign_error`) | `examples/Foreign/foreign.bs` | 14 |
-| codegen obligation instantiated | `examples/Intake/intake.bs` | 15 |
-| `ValidationError` as a declared type | `examples/Intake/intake.bs` | 15 |
-| OTP behaviour | `examples/Counter/counter.bs` | 16 |
-| OTP callback | `examples/Counter/counter.bs` | 16 |
+| a type-only parameter | `examples/Wire/wire.bs` | 4 |
+| the wildcard `_` | `examples/Math/math.bs` | 7 |
+| tuple type and tuple pattern | `examples/Readings/readings.bs` | 1 |
+| `int`, `atom`, `term` | `examples/Intake/intake.bs` | 15 |
+| `list<T>` | `examples/Fib/fib.bs` | 5 |
+| `and`, `or`, `== != < > <= >=`, `+ - *` | `examples/Math/math.bs` | 3 |
 
 ---
 
