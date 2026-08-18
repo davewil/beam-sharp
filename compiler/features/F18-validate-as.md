@@ -73,6 +73,24 @@ of `syntax error before: '<'`. That is strictly the better error, and it is the 
 already-decided-but-unbuilt members of the set (`ParseAtom<T>`, `ToExistingAtom`) are refused by
 name rather than by silence.
 
+**THIS IS A REALISATION OF 28 §2, NOT A DEVIATION FROM IT AND NOT A NEW DECISION.** 28 §2 decided
+*what is true of the language*: `<` opens an instantiation bracket after `ValidateAs`, `ParseAtom`
+and `ToExistingAtom`, and is a comparison after everything else. Every program accepted and every
+program rejected is the same under either implementation, which is the test that makes this a
+realisation. What 28 §2 additionally *described* — the stratum the restriction is enforced in — is a
+statement about mechanism written before anything in the set existed to be built, and
+[`F6-angle-brackets.md`](F6-angle-brackets.md):57 is explicit that F6 discharged the type-position
+half and none of the value-position half. So this feature is the first one in a position to know
+what the rule costs, and it costs a production rather than a scanner with a memory. Written down
+here because a feature that quietly reinterprets a closed decision is indistinguishable from one
+that reopened it, and only one of those is allowed.
+
+**The set is a list, not a name.** `bs_check:codegen_obligations/0` holds all three, the
+`not_an_obligation` diagnostic renders that list rather than a hardcoded string, and the fourth
+obligation is a list entry with no grammar change. **`ParseAtom<T>` and `ToExistingAtom` are named
+and NOT built** — the checker refuses each by name with a message that says which of "decided,
+unbuilt" and "never going to work" it is reporting.
+
 ## What is being built
 
 ```csharp
