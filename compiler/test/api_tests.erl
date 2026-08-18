@@ -2,7 +2,7 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
--import(bs_test_support, [project_root/0, fixture_root/0, place/3]).
+-import(bs_test_support, [project_root/0, place/3]).
 
 %%% ---------------------------------------------------------------------------
 %%% F17 — `bsc --api <Module>`, the compiler query mode
@@ -33,21 +33,43 @@ escript() ->
         false -> throw({no_escript, E, "run `rebar3 escriptize` first"})
     end.
 
+%% A FIXTURE ROOT OF THIS FILE'S OWN, DELIBERATELY NOT UNDER `/tmp/bsc_eunit`.
+%%
+%% Everything else in the suite uses `bs_test_support:fixture_root/0`, and that
+%% is right for a fixture the compiler reads once. It is wrong for a file this
+%% file reads BACK, because three separate things delete `/tmp/bsc_eunit` — the
+%% gate script, CI, and anybody following this project's own recorded advice
+%% about a "cancelled" eunit run — and a parallel worktree doing any of them
+%% deletes this run's directory too.
+%%
+%% The failure that costs is not the deletion, it is its SHAPE: a capture file
+%% removed after the shell opened it still gets written, the redirect still
+%% exits 0, and the read comes back empty. `rc:0` with empty stdout is
+%% indistinguishable from the compiler answering nothing, so the assertion that
+%% fires is about the ANSWER rather than about the missing file. Measured on a
+%% full-suite run, one test into a green one. `_build/test` is rebar's, gitignored,
+%% and outside every gate's `find`.
+root() ->
+    D = project_root() ++ "/_build/test/api_fixtures/fx-" ++ os:getpid() ++
+        "-" ++ integer_to_list(erlang:unique_integer([positive])),
+    ok = filelib:ensure_dir(D ++ "/x"),
+    D.
+
 %% {ExitCode, Stdout, Stderr}. Redirected to files rather than merged, so a test
 %% can say which stream a line arrived on.
 run(Args) ->
-    Root = fixture_root(),
+    Root = root(),
     Out = Root ++ "/stdout",
     Err = Root ++ "/stderr",
     Rc = os:cmd(escript() ++ " " ++ Args ++ " > " ++ Out ++ " 2> " ++ Err ++
                     "; printf '%s' $?"),
     {list_to_integer(string:trim(Rc)), slurp(Out), slurp(Err)}.
 
+%% LOUD, per the comment on `root/0`. A capture file that cannot be read is a
+%% broken test run, not an empty answer, and the two must not look alike.
 slurp(Path) ->
-    case file:read_file(Path) of
-        {ok, Bin}  -> binary_to_list(Bin);
-        {error, _} -> ""
-    end.
+    {ok, Bin} = file:read_file(Path),
+    binary_to_list(Bin).
 
 lines(S) -> [L || L <- string:split(string:trim(S), "\n", all), L =/= ""].
 
@@ -100,7 +122,7 @@ private_src() ->
     "Marked(n) -> n + 2\n".
 
 a_private_function_is_not_part_of_the_api_test() ->
-    Root = fixture_root(),
+    Root = root(),
     Path = place(Root, "in.bs", private_src()),
     {Rc, Out, _} = run("--src-root " ++ Root ++ " --api " ++ Path),
     ?assertEqual(0, Rc),
@@ -118,7 +140,7 @@ alias_src() ->
     "Decide(n) when n <= 0 -> :no\n".
 
 a_type_alias_is_resolved_because_the_name_is_module_local_test() ->
-    Root = fixture_root(),
+    Root = root(),
     Path = place(Root, "in.bs", alias_src()),
     {0, Out, _} = run("--src-root " ++ Root ++ " --api " ++ Path),
     ?assertEqual(["module Aliased", ":no | :yes Decide(int)"], lines(Out)),
@@ -135,7 +157,7 @@ record_src() ->
     "Weigh(p) -> p.Weight\n".
 
 a_record_parameter_names_its_tag_and_its_fields_test() ->
-    Root = fixture_root(),
+    Root = root(),
     Path = place(Root, "in.bs", record_src()),
     {0, Out, _} = run("--src-root " ++ Root ++ " --api " ++ Path),
     ?assertEqual(["module Boxed",
@@ -148,7 +170,7 @@ a_record_parameter_names_its_tag_and_its_fields_test() ->
 %% would notice going wrong: `--api` could compile the module, throw the beam
 %% away and print the same answer.
 the_query_builds_nothing_test() ->
-    Root = fixture_root(),
+    Root = root(),
     Path = place(Root, "in.bs", alias_src()),
     Out = Root ++ "/out",
     {0, _, _} = run("-o " ++ Out ++ " --src-root " ++ Root ++ " --api " ++ Path),
@@ -170,7 +192,7 @@ sibling_src() ->
     "Twice(n) -> n * 2\n".
 
 a_module_split_across_files_answers_once_test() ->
-    Root = fixture_root(),
+    Root = root(),
     place(Root, "index.bs", index_src()),
     ok = file:write_file(Root ++ "/Deep/Thing/Other.bs", sibling_src()),
     Dir = Root ++ "/Deep/Thing",
@@ -190,7 +212,7 @@ a_module_split_across_files_answers_once_test() ->
 %%% --- F17.7 — the answer never names a module that could not be built --------
 
 the_answer_never_names_a_module_that_could_not_be_built_test() ->
-    Root = fixture_root(),
+    Root = root(),
     place(Root, "index.bs", index_src()),
     {Rc, Out, Err} = run("--api " ++ Root ++ "/Deep/Thing"),
     ?assertEqual(1, Rc),
@@ -222,7 +244,7 @@ nothing_public_src() ->
     "Inner(n) -> n\n".
 
 a_module_that_exports_nothing_answers_zero_operations_test() ->
-    Root = fixture_root(),
+    Root = root(),
     Path = place(Root, "in.bs", nothing_public_src()),
     {Rc, Out, Err} = run("--src-root " ++ Root ++ " --api " ++ Path),
     ?assertEqual(0, Rc),
@@ -239,7 +261,7 @@ unknown_type_src() ->
     "Reach(n) -> n\n".
 
 a_signature_naming_an_unknown_type_is_refused_test() ->
-    Root = fixture_root(),
+    Root = root(),
     Path = place(Root, "in.bs", unknown_type_src()),
     {Rc, Out, Err} = run("--src-root " ++ Root ++ " --api " ++ Path),
     ?assertEqual(1, Rc),
@@ -267,7 +289,7 @@ importing_src() ->
     "Local(n) -> n + 1\n".
 
 a_module_with_imports_answers_without_its_dependencies_test() ->
-    Root = fixture_root(),
+    Root = root(),
     Path = place(Root, "in.bs", importing_src()),
     {Rc, Out, _} = run("--src-root " ++ Root ++ " --api " ++ Path),
     ?assertEqual(0, Rc),
@@ -287,7 +309,7 @@ inexhaustive_src() ->
     "Rank(:green) -> 3\n".
 
 an_inexhaustive_function_still_has_an_api_test() ->
-    Root = fixture_root(),
+    Root = root(),
     Path = place(Root, "in.bs", inexhaustive_src()),
     {Rc, Out, _} = run("--src-root " ++ Root ++ " --api " ++ Path),
     ?assertEqual(0, Rc),
@@ -315,7 +337,7 @@ a_namespace_is_not_a_module_test() ->
 %% and its directory may be a perfectly good module — so without this the query
 %% answers about a module nobody named.
 a_path_that_does_not_exist_is_refused_test() ->
-    Root = fixture_root(),
+    Root = root(),
     place(Root, "in.bs", alias_src()),
     {Rc, Out, Err} = run("--api " ++ Root ++ "/Aliased/gone.bs"),
     ?assertEqual(2, Rc),
@@ -339,7 +361,7 @@ the_usage_text_names_the_flag_test() ->
 %% to give. The diagnostic is the parser's own, published on the channel by
 %% `bsc:parse_path/1` — this feature mints no tag of its own.
 a_file_that_will_not_parse_has_no_api_test() ->
-    Root = fixture_root(),
+    Root = root(),
     Path = place(Root, "in.bs", "module Bent\npublic int Half(int n\n"),
     {Rc, Out, Err} = run("--src-root " ++ Root ++ " --api " ++ Path),
     ?assertEqual(1, Rc),
@@ -348,7 +370,7 @@ a_file_that_will_not_parse_has_no_api_test() ->
 
 %% The same default the checker applies: a file with no `module` line is `Main`.
 a_file_with_no_module_line_is_Main_test() ->
-    Root = fixture_root(),
+    Root = root(),
     ok = filelib:ensure_dir(Root ++ "/Main/x"),
     ok = file:write_file(Root ++ "/Main/in.bs",
                          "public int Twice(int n)\nTwice(n) -> n * 2\n"),
@@ -359,7 +381,7 @@ a_file_with_no_module_line_is_Main_test() ->
 %% ...and the path check still applies to that default, which is the only route
 %% to a mismatch reported against a file with no `module` line in it to point at.
 the_default_module_name_is_checked_against_the_path_too_test() ->
-    Root = fixture_root(),
+    Root = root(),
     ok = filelib:ensure_dir(Root ++ "/Elsewhere/x"),
     ok = file:write_file(Root ++ "/Elsewhere/in.bs",
                          "public int Twice(int n)\nTwice(n) -> n * 2\n"),
@@ -374,22 +396,58 @@ the_default_module_name_is_checked_against_the_path_too_test() ->
 %% an escript stack trace, which this project calls the worst diagnostic it
 %% produces — so the catch is the test.
 a_source_root_that_is_not_a_prefix_is_named_test() ->
-    Root = fixture_root(),
+    Root = root(),
     Path = place(Root, "in.bs", alias_src()),
-    Other = fixture_root(),
+    Other = root(),
     {Rc, Out, Err} = run("--src-root " ++ Other ++ " --api " ++ Path),
     ?assertEqual(1, Rc),
     ?assertEqual("", Out),
     ?assertNotEqual(nomatch, string:find(Err, "does not contain")).
 
 a_source_root_that_is_the_module_is_named_test() ->
-    Root = fixture_root(),
+    Root = root(),
     place(Root, "in.bs", alias_src()),
     Dir = Root ++ "/Aliased",
     {Rc, Out, Err} = run("--src-root " ++ Dir ++ " --api " ++ Dir),
     ?assertEqual(1, Rc),
     ?assertEqual("", Out),
     ?assertNotEqual(nomatch, string:find(Err, "is the module directory itself")).
+
+%%% --- The channel's own promise ----------------------------------------------
+
+%% F16's landing note, one feature along: A ONE-OF-A-THING FIXTURE CANNOT SEE A
+%% FRAMING ERROR, AND FRAMING IS THE WHOLE OF WHAT A MACHINE CHANNEL PROMISES.
+%% Every other term test here runs a module that answers, so all of them see one
+%% `module` map followed by `operation` maps. This is the case a consumer meets
+%% when it matters: stdout carries the diagnostics INSTEAD of the answer, never
+%% both, so a consumer dispatches on `tag` and never has to decide whether a
+%% partial answer is trustworthy.
+the_term_channel_carries_the_refusal_instead_of_the_answer_test() ->
+    Root = root(),
+    Path = place(Root, "in.bs", unknown_type_src()),
+    {Rc, Out, _} = run("--diagnostics term --src-root " ++ Root ++
+                           " --api " ++ Path),
+    ?assertEqual(1, Rc),
+    ?assertMatch([#{tag := unknown_type, severity := error}], terms(Out)),
+    ?assertEqual([], [T || T = #{tag := module} <- terms(Out)]).
+
+%% ...and the same holds for the refusal that is about the PATH rather than the
+%% declarations, which reaches the channel from a different function.
+the_term_channel_carries_a_path_refusal_the_same_way_test() ->
+    Root = root(),
+    place(Root, "index.bs", index_src()),
+    {Rc, Out, _} = run("--diagnostics term --api " ++ Root ++ "/Deep/Thing"),
+    ?assertEqual(1, Rc),
+    ?assertMatch([#{tag := module_path_mismatch}], terms(Out)).
+
+%% A query answers and exits; the prompt is a session over a module. Refused
+%% rather than silently preferred, which is `--diagnostics term`'s precedent in
+%% the same place.
+the_repl_and_the_query_are_not_asked_for_together_test() ->
+    {Rc, Out, Err} = run("--repl --api " ++ examples() ++ "/Counter"),
+    ?assertEqual(2, Rc),
+    ?assertEqual("", Out),
+    ?assertNotEqual(nomatch, string:find(Err, "not available in the REPL")).
 
 %%% --- The done-when sweep ----------------------------------------------------
 

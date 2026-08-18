@@ -92,6 +92,20 @@ main(Args) ->
             halt(2);
         _ -> ok
     end,
+    %% F17 — AND `--api` IS REFUSED THERE FOR THE SAME REASON, not silently
+    %% preferred. The query answers and exits; the prompt is a session over a
+    %% module. Honouring one and dropping the other is the failure the clause
+    %% above exists to avoid: a flag accepted and not honoured costs the flag
+    %% its credibility everywhere else it is used.
+    case {Opts#opts.repl, Opts#opts.api} of
+        {true, true} ->
+            io:format(standard_error,
+                      "bsc: --api is not available in the REPL~n"
+                      "  the query answers and exits; the prompt is a session~n"
+                      "  over a module. Ask for one or the other.~n", []),
+            halt(2);
+        _ -> ok
+    end,
     bs_diag:set_channel(Opts#opts.diagnostics),
     %% F17 / ticket 23 §10 — BEFORE the REPL and before the compile path,
     %% because `--api` does neither: it reads source and reports what the

@@ -147,6 +147,13 @@ answer cheaply and the consumer cannot answer at all.
 descriptors carry `residual` and `heads` as strings joined from `bs_types:pattern_parts/1`. Here it
 is `bs_types:to_string/1`, because a signature type is a **type** rather than a pattern to write.
 
+**And the invariant that makes the stream dispatchable: stdout carries either the answer or the
+diagnostics, never both.** A refusal means there is no true answer to print, so a consumer that
+reads a `module` map knows the operation maps behind it are complete, and one that reads a
+diagnostic tag knows no answer is coming. It is true by construction — `fail/2` halts — and it is
+written here because F16 landed with exactly this promise untested: *a one-of-a-thing fixture
+cannot see a framing error, and framing is the whole of what a machine channel promises.*
+
 ## Scenarios
 
 | id | input | command | expected | exit |
@@ -164,6 +171,14 @@ is `bs_types:to_string/1`, because a signature type is a **type** rather than a 
 | F17.11 | any module | `bsc --api PATH 5` | refused: `--api` answers about a module, it does not run one | 2 |
 | F17.12 | a module with a `using` line, whose dependency is never named | `bsc --api …` | it answers — the declaration pass needs no `World`, which is why "no build" is true | 0 |
 | F17.13 | a module with an inexhaustive function | `bsc --api …` | it answers — exhaustiveness is a property of the bodies, not of the API | 0 |
+| F17.14 | a namespace | `bsc --api R/NS` | refused by name, listing the modules under it — a namespace declares no operations | 2 |
+| F17.15 | a path that does not exist | `bsc --api R/M/gone.bs` | refused. Its *directory* may be a module, so answering would answer about a module nobody named | 2 |
+| F17.16 | no module named at all | `bsc --api` | refused, with the two spellings that work | 2 |
+| F17.17 | a file with no `module` line | `bsc --src-root R --api R/Main` | `module Main` — the checker's own default, and the path check still applies to it | 0 |
+| F17.18 | a file that will not parse | `bsc --api …` | the parser's own diagnostic, and **no** answer | 1 |
+| F17.19 | a `--src-root` that is not an ancestor, or that *is* the module | `bsc --src-root … --api …` | named through `bs_diag`, rather than reaching the author as an escript stack trace | 1 |
+| F17.20 | any refusal, under the term channel | `bsc --diagnostics term --api …` | stdout carries the diagnostic descriptor and **no** `module` map: either the answer or the diagnostics, never both | 1 |
+| F17.21 | the REPL and the query together | `bsc --repl --api …` | refused. A query answers and exits; a prompt is a session over a module | 2 |
 
 ## Out of scope
 
