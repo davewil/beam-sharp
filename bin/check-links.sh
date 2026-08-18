@@ -45,6 +45,7 @@ cd "$REPO"
 # and of the target corpus respectively.
 DOCS=(
     LANGUAGE.md
+    TOUR.md
     CONTEXT.md
     PRELUDE.md
     compiler/README.md

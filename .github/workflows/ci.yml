@@ -103,6 +103,21 @@ jobs:
       - name: The package points only at things it ships
         run: ./bin/check-links.sh
 
+      # TOUR.md quotes the corpus, and `check-language.sh` cannot reach it.
+      # That gate COMPILES the blocks it checks, which works for LANGUAGE.md
+      # because those blocks are whole programs. The tour's are excerpts — a few
+      # clauses lifted out without the signature above them — so they do not
+      # compile alone and would have to be either rewritten into programs or
+      # left ungated. This is the third option: prove every quoted line is
+      # verbatim somewhere in `compiler/examples/`, which is the property the
+      # document actually claims.
+      #
+      # The failure it catches is quieter than a block that stops compiling: a
+      # block that still reads plausibly while the file it quotes has moved on.
+      # It caught two lines on its first run.
+      - name: TOUR.md quotes the corpus and nothing else
+        run: ./compiler/bin/check-tour.sh
+
       - uses: erlef/setup-beam@v1
         with:
           # Ticket 13 §4 pins the supported range at the current release and the
