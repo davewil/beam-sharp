@@ -248,7 +248,7 @@ directories.
 **A diagnostic must name the file the clause is in** (F15.12), not the directory and not the first
 file in it. The diagnostic 4-tuple `{error, Line, FnName, Descriptor}` carries a name and no arity,
 so under 40 §2's arity overloading a `{Name, Arity} -> Path` lookup cannot answer it — and
-`examples/collections/List.bs` **already** has `Length/1` beside `Length/2`. A lossy lookup here
+`examples/Shop/Collections/List/List.bs` **already** has `Length/1` beside `Length/2`. A lossy lookup here
 points a human at the wrong file while every check stays green, which is this project's recorded
 worst failure shape and has now appeared four times. The path travels with the declaration.
 

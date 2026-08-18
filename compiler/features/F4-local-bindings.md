@@ -118,4 +118,4 @@ the binary fallback, in a different place.
 
 A `.bs` file binds names in a body and runs; rebinding, shadowing and unbound names are errors
 from `bsc` with the fix stated; an unused binding is warning-free; a binding before a self-call is
-still a tail call; `examples/shop.bs` uses one; `rebar3 eunit` is green. **All met.**
+still a tail call; `examples/Shop/shop.bs` uses one; `rebar3 eunit` is green. **All met.**

@@ -9,6 +9,7 @@ Every step CI runs, in CI's order. The first two need no compiler and fail fast.
 ```sh
 ./bin/check-map.sh                              # map.md is an index, not a store
 ./bin/check-surface.sh                          # syntax decisions are cited in LANGUAGE.md
+./bin/check-links.sh                            # the package points only at things it ships
 cd compiler && rebar3 escriptize                # BEFORE eunit — several tests drive bsc
 cd compiler && rebar3 eunit
 cd compiler && ./bin/check-language.sh          # blocks compile, `not-yet` blocks must NOT
@@ -21,6 +22,15 @@ cd compiler && ./bin/spec-check.sh              # Dialyzer, plus two negative co
 ./editor/bin/check-corpus.sh                    # the tree-sitter grammar parses every example
 cd compiler && ./bin/extract-exemplars.sh --check
 ```
+
+**ELEVEN gates, not ten — `check-links.sh` added 2026-08-18.** It is the first gate that checks the
+DOCUMENTS rather than the compiler, and it went in because the clean-room package was measured
+carrying **25 citations of `examples/<name>.bs` paths that had not existed since F15** made a module
+a directory — including the header comment of `Totals.bs`, which told a reader how to run it with a
+path that was gone. It also holds `LANGUAGE.md` to its own opening rule (no ticket numbers in
+visible prose, since the handoff ships that file and not `wayfinder/`), which had 12 violations. The
+same lesson as the two editor gates below, one level out: **a surface nothing gates is a surface
+that rots**, and the documents were the last ungated one.
 
 **TEN gates, not eight — corrected 2026-08-17.** The two `editor/` gates were in neither CI
 nor this list, and the cost was five features of drift: the tree-sitter grammar was missing

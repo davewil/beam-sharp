@@ -1,6 +1,6 @@
 // F11 — the three ways one module reaches another, in one file.
 //
-//   bsc examples/collections/Totals.bs Restate 3
+//   bsc examples/Shop/Reports/Totals.bs Restate 3
 //
 // Nothing here names a path, a build order or an artefact. Ticket 41 §3 put the
 // dependency graph in the compiler: `using` is resolved to source, that source is

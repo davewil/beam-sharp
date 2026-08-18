@@ -107,7 +107,7 @@ declaration must match its **directory** path — `Shop/Orders/Total.bs` must sa
 Shop.Orders`"*, and §4's rule is about `index.bs`, which only exists if a module aggregates several
 files. That is ticket 13's aggregate rule, and **it is not built**: `bsc` reads one `.bs` file and
 writes one `.beam`, and every one of the 30 `.bs` files in this repo is a whole module in a single
-file. `examples/counter.bs` is `module Counter`; its directory is `examples`.
+file. `examples/Counter/counter.bs` is `module Counter`; its directory is `examples`.
 
 So a path check written against directories today would fail every file in the repo, and
 `function_in_index` guards a file that nothing can currently produce. **`index.bs` has never been

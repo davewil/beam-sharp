@@ -41,6 +41,22 @@ jobs:
       - name: Surface decisions are traceable from LANGUAGE.md
         run: ./bin/check-surface.sh
 
+      # `check-links.sh` closes the gap the two above still leave open. They both
+      # check that a DECISION is reflected in the documents; neither checks that
+      # the documents point at things that exist. Measured 2026-08-18, the
+      # shipping package carried 25 citations of `examples/<name>.bs` paths that
+      # had not existed since F15 made a module a DIRECTORY — in the feature
+      # files, in `LANGUAGE.md`, and in the header comment of `Totals.bs` telling
+      # a reader how to run it. Every gate in this repo proved the compiler was
+      # right and none proved the documents were.
+      #
+      # It also holds `LANGUAGE.md` to its own opening rule — no ticket numbers
+      # in visible prose, because the clean-room handoff gives an implementer
+      # that document and no access to `wayfinder/`. The file called that rule
+      # "load-bearing rather than tidy" and had 12 violations.
+      - name: The package points only at things it ships
+        run: ./bin/check-links.sh
+
       - uses: erlef/setup-beam@v1
         with:
           # Ticket 13 §4 pins the supported range at the current release and the

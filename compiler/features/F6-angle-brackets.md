@@ -247,8 +247,8 @@ compiles and runs.
 ## Built 2026-08-14
 
 **All eleven scenarios pass.** 124 tests, up from 109. `LANGUAGE.md` went from 19 verified blocks to
-21, and `examples/parcel.bs` is new — `result<T, E>` and an `option<int>` record field, runnable:
-`bsc examples/parcel.bs Grade 1500` → `:heavy`.
+21, and `examples/Parcel/parcel.bs` is new — `result<T, E>` and an `option<int>` record field, runnable:
+`bsc examples/Parcel/parcel.bs Grade 1500` → `:heavy`.
 
 ### The corpus gate passed on the first run, and the reason is the finding
 
@@ -305,7 +305,7 @@ because the mistake is easy and silent: a green control reads exactly like a pas
 ### The REPL was pointed at it, and for once there was no hole
 
 F4 found a stale diagnostic at the `ibs` prompt and F5 found a destructuring bind that does not work
-there. F6 is the third feature in a row to add surface syntax, so `ibs -S examples/parcel.bs` was run
+there. F6 is the third feature in a row to add surface syntax, so `ibs -S examples/Parcel/parcel.bs` was run
 before this was written rather than after: `Grade(1500)` → `:heavy`, the `(:error, …)` arm, and a
 record carrying an `option<int>` field all answer correctly. Nothing in the REPL knows what an alias
 is — it loads compiled code — which is *why* it is clean, and one command is cheaper than the

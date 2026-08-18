@@ -158,11 +158,14 @@ numbers that would *falsify* a decision rather than confirm it. Two are now paid
   snake_case, or prefixed as Elixir's `Elixir.` is); quoting pre-empts it least.
 - **A variable the body never uses lowers to `_`-prefixed**, so a named-but-unused parameter does
   not draw an Erlang warning. Found by running the emitter, not by reading it.
-- **`bs_emit:int_part/1`'s bounded branches are not reachable from the surface yet.** Intervals are
-  in the algebra and the checker uses them, but they arise only from *guards*, and a guard refines a
-  clause rather than a signature — so a parameter declared `int` emits `integer()` whatever its
-  clauses test. The surface owes ticket 20 §5's `type Positive = int where value > 0;`. **That is
-  the next slice increment.**
+- ~~**`bs_emit:int_part/1`'s bounded branches are not reachable from the surface yet.**~~
+  **RESOLVED by F2, 2026-08-16** — and left here rather than deleted, because the shape of the gap
+  is the useful part. Intervals were in the algebra and the checker used them, but they arose only
+  from *guards*, and a guard refines a clause rather than a signature, so a parameter declared `int`
+  emitted `integer()` whatever its clauses tested. The surface the entry said was owed now exists:
+  `examples/Wire/wire.bs` declares `type Octet = int where value >= 0 and value <= 255` and
+  compiles. This entry said *"that is the next slice increment"* and stayed that way for two days
+  after the increment landed.
 
 ## Checking the emitted specs
 

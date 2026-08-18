@@ -354,13 +354,14 @@ a deliberate divergence — C# and TypeScript both substitute U+FFFD instead, an
 replacement manufactures exactly the invalid string the check exists to prevent. **shipped** — F9.
 
 The other direction has no spelling, and that is the honest edge of what shipped. Turning a
-`binary` into a `string` means establishing the property at run time — the O(n) entry check ticket
-20 §4 calls the sixth codegen obligation — so a **foreign declaration may not return `string`**,
+`binary` into a `string` means establishing the property at run time — the O(n) entry check that
+is the sixth of the compiler's standing codegen obligations — so a **foreign declaration may not
+return `string`**,
 and says so with the fix in the message. `binary` is admissible there, because the whole
 `<<_:M, _:_*N>>` grammar reduces to `byte_size` and `bit_size rem N`, both O(1) guard BIFs. Not
 built: **binary patterns**, a spelling for a **sized** binary type, string literals in **pattern**
-position, and any string **operation** — the first three wait on ticket 30, the last on the module
-system.
+position, and any string **operation** — the first three wait on a decision about binaries as a
+parsing grammar, the last on the module system.
 
 **Atoms:** the universe is open, nothing declares an atom, `:foo` mints one by writing it.
 `true` and `false` are the only keyword atoms, `bool` is an ordinary alias, and **there is no
@@ -369,8 +370,8 @@ truthiness**. **shipped**
 > **CORRECTED 2026-08-15, F7.** This paragraph said **shipped** and the keyword-atom half was not.
 > The lexer had `:true` and `:false` and no bare rule, so `true` in a pattern was an ordinary
 > lowercase identifier — a **variable**, matching everything. `Decide(true, p) -> :ack` /
-> `Decide(false, p) -> :requeue` compiled, and returned `:ack` for `false`. Found by running ticket
-> 17 §6's own tuple-subject example. `bin/check-language.sh` could not have caught it: the claim is
+> `Decide(false, p) -> :requeue` compiled, and returned `:ack` for `false`. Found by running the
+> tuple-subject `switch` example in §5. `bin/check-language.sh` could not have caught it: the claim is
 > prose, not a fenced block, and the defect is a program that compiles and means something else
 > rather than one that fails.
 
@@ -396,7 +397,7 @@ Describe(o) -> o.Status switch {
 ```
 
 The `_` here is legal because `Status` is an `atom` and the atom universe is open, so the residual
-cannot be enumerated — which is the only shape ticket 12 §2 admits a catch-all over. Over a *closed*
+cannot be enumerated — which is the only shape a catch-all is admitted over. Over a *closed*
 residual, where the compiler knows the missing case by name, §2 makes `_` an error telling you to
 name it. **That rule is decided and is not yet enforced**, at a switch arm or at a clause head.
 
@@ -489,11 +490,12 @@ minted tag while not being that record, and no signature could be written agains
 - **The pattern spelling is the property pattern.** Dispatch is written
   `Area({ Kind: :'Shapes.Circle' })`, not `Area(Circle c)`. The tag is an ordinary field, so no
   record-specific pattern form is needed; whether a sugar mirroring construction is added is a
-  grammar-opinion question left to ticket 22. The `Circle c` form above is illustrative and does
+  grammar-opinion question that is still open. The `Circle c` form above is illustrative and does
   **not** compile today.
 - **A construction site is not checked.** A record's field set is exact in the type algebra and
   unpoliced where it is built, so a body can produce a map wearing an `Order` tag without
-  `Order`'s fields. The compiler has no body check site at all → ticket 33.
+  `Order`'s fields. The compiler checks five sites in a body, and a construction is not one of
+  them.
 
 ---
 
@@ -586,8 +588,8 @@ clause when a stage wants to inspect the failure; that is also the only way to t
 another.
 
 Both operators are built. What is **not** built is the collection prelude they are usually shown
-with — `List.Map` and friends as compiler-known functions (ticket 18) — nor the function *value*
-that `f` and `g` stand for here, which ticket 27 measured this language as not having:
+with — `List.Map` and friends as compiler-known functions — nor the function *value* that `f` and
+`g` stand for here, which this language was measured not to have:
 
 ```csharp not-yet
 xs |> List.Map(f) |> List.Filter(g)
@@ -603,7 +605,8 @@ recovers precise emitted types that a call to a generic function loses.
 ## 9. Generics
 
 Real parametric polymorphism, in its smallest working form. **Two halves, and only the first is
-built** — the split is ticket 27's own: *"the costs are asymmetric and they do not chain."*
+built**, and the split is the generics design's own: *"the costs are asymmetric and they do not
+chain."*
 
 ### Parametric types — shipped
 
@@ -710,7 +713,7 @@ public int Total(list<int> xs)
 Total(xs) -> :lists.sum(xs)
 ```
 
-**shipped** — `bsc examples/interop.bs Total "[1, 2, 3, 4]"` prints `10`.
+**shipped** — `bsc examples/Interop/interop.bs Total "[1, 2, 3, 4]"` prints `10`.
 
 The declaration **attaches types to the name Erlang already has**. It does not introduce a B# name,
 which is why the language needs no snake_case ⇄ PascalCase mapping anywhere — and why the parts of
@@ -772,9 +775,9 @@ alone; the emitted module then declared a contract it could not satisfy, and `bi
 red on `master` for a day because of it.
 
 **A callback lowers to its OTP name** — `HandleCall` emits `handle_call`, which is what `gen_server`
-actually calls. That is a **compiler-known table, not a rule**: ticket 32 measured that a
-snake_case⇄PascalCase mapping cannot spell `'PKCS-1'` or a quarter of Elixir's function names, so
-the language has none. The table is **contract-scoped and keyed by name *and* arity** — `HandleCall`
+actually calls. That is a **compiler-known table, not a rule**: a snake_case⇄PascalCase mapping was
+measured unable to spell `'PKCS-1'` or a quarter of Elixir's function names, so the language has
+none. The table is **contract-scoped and keyed by name *and* arity** — `HandleCall`
 in a module declaring no behaviour, or declaring `Supervisor`, stays `'HandleCall'`.
 
 **`uses`, not `using`.** `using GenServer` is the same three tokens as a single-segment import, and
@@ -929,7 +932,7 @@ the parser accepts back exactly what the printer emits. **shipped**
 | refinements + interval patterns | blocked on two spellings |
 | `switch`, including a tuple subject and a guard on an arm | **shipped** |
 | `string` and `binary` as values — the literal, the refinement, the boundary rule | **shipped** — F9 |
-| binary patterns `<<...>>`, and a spelling for a sized binary type | not started — ticket 30 is open |
+| binary patterns `<<...>>`, and a spelling for a sized binary type | not started — the binaries decision is open |
 | the UTF-8 entry check (`binary` → `string`) | not started — the sixth codegen obligation |
 | pipe and valve | not started |
 | parametric types — `result<T, E>`, `option<T>`, `type Pair<T>`, nesting | **shipped** |
@@ -937,7 +940,7 @@ the parser accepts back exactly what the printer emits. **shipped**
 | modules, imports, `using` | not started |
 | foreign calls (`using :lists {...}`) | **shipped**, without the boundary guard |
 | `behaviour GenServer` — the attribute, callback names, and mandatory-callback presence | **shipped** — F10 |
-| behaviour contract checked as a **type** (14 §4) | not started — Dialyzer does it at the boundary today |
+| behaviour contract checked as a **type** | not started — Dialyzer does it at the boundary today |
 
 ### Known inconsistencies
 
@@ -952,8 +955,8 @@ the parser accepts back exactly what the printer emits. **shipped**
 ## 18. Open questions
 
 - The language's **name**.
-- ~~**Module and namespace system**~~ — **decided and unbuilt** (tickets 40, 41). What remains open
-  is only whether `using` gains an **alias** (`using Orders = Shop.Orders`), ticket 47.
+- ~~**Module and namespace system**~~ — **built**. What remains open is only whether `using` gains
+  an **alias** (`using Orders = Shop.Orders`).
 - **Stdlib shape** — what is in the prelude versus a module you import.
 - **`cond`**, or whatever serves a long ladder of unrelated conditions.
 - **Laziness** and `stream<T>` — deferred, not refused.

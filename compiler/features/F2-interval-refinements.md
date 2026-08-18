@@ -242,7 +242,7 @@ one; and `25c_residual_probe.sh` reports a **closed** residual that the exemplar
 
 **All four met, 2026-08-16.** The spec for `Clamp(Octet)` says `0..255` and no longer says
 `integer()`; `compiler/test/intervals_tests.erl` carries all five scenarios plus the rejections;
-`examples/wire.bs` is the runnable version and works at the `ibs` prompt as well as through `bsc`;
+`examples/Wire/wire.bs` is the runnable version and works at the `ibs` prompt as well as through `bsc`;
 and the probe's new 2c reports `Classify(0 | 4..7 | 9..255) -> ...` where 3b, the same program with
 the span pattern, compiles clean.
 

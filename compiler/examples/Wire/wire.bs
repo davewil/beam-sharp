@@ -1,9 +1,9 @@
 // wire.bs -- refinements and the interval patterns that had to land with them
 // (F2, tickets 20 §5, 42, 43 and 12 §2).
 //
-//     bsc examples/wire.bs Classify 6     -> :reserved
-//     bsc examples/wire.bs Classify 8     -> :heartbeat
-//     bsc examples/wire.bs Band 200       -> :high
+//     bsc examples/Wire/wire.bs Classify 6     -> :reserved
+//     bsc examples/Wire/wire.bs Classify 8     -> :heartbeat
+//     bsc examples/Wire/wire.bs Band 200       -> :high
 //
 // THE PROPERTY WORTH LOOKING AT is that `Classify` below is exhaustive over 256
 // values with no catch-all -- and that it could not have been written at all a

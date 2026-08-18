@@ -5,8 +5,8 @@
 // pattern grammar, one level down -- so everything the head can dispatch on, an
 // arm can dispatch on, and the exhaustiveness check is the same check.
 //
-//     bsc examples/queue.bs Decide false true false   -> :dead_letter
-//     bsc examples/queue.bs Attempt 3                 -> :retried
+//     bsc examples/Queue/queue.bs Decide false true false   -> :dead_letter
+//     bsc examples/Queue/queue.bs Attempt 3                 -> :retried
 //
 // `Route` below compiles and is covered by a test, but CANNOT be run from this
 // command line: `bs_run`'s argument reader has no spelling for a record, so

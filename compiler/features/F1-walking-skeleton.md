@@ -2,7 +2,7 @@
 
 **Status**      done (2026-08-13), with three named gaps below
 **Implements**  tickets 01, 04, 08, 09, 10, 12, 13, 20
-**Unblocks**    `examples/math.bs`, `examples/readings.bs`
+**Unblocks**    `examples/Math/math.bs`, `examples/Readings/readings.bs`
 **Depends on**  nothing
 
 Written retrospectively, to fix the baseline the later features move from. Every scenario below was
@@ -20,7 +20,7 @@ erlc +from_abstr → .beam`, with nothing in it that the map had not already clo
 ### F1.1 — a multi-clause function compiles and is callable from Erlang
 
 ```
-$ bsc -o /tmp/f1 examples/readings.bs
+$ bsc -o /tmp/f1 examples/Readings/readings.bs
 $ ls /tmp/f1
 Readings.abstr  Readings.beam
 ```
@@ -51,7 +51,7 @@ both visible in one message.
 
 ### F1.3 — guards are credited as type operations
 
-`examples/math.bs`'s `Fib` is exhaustive **only** because the checker sees that `n <= 1` and
+`examples/Math/math.bs`'s `Fib` is exhaustive **only** because the checker sees that `n <= 1` and
 `n > 1` partition `int`. Neither clause is unguarded. Without interval arithmetic in the algebra
 this is rejected. Compiles clean — ticket 08 and ticket 20 §3, together.
 

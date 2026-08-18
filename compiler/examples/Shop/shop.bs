@@ -2,7 +2,7 @@
 // its qualified type name, so aggregate identity is in the TERM and a union of
 // records is dispatched by an ordinary clause head.
 //
-//   bsc examples/shop.bs Which '#{Kind => "Shop.Invoice", Id => 2, Total => 9}'
+//   bsc examples/Shop/shop.bs Which '#{Kind => "Shop.Invoice", Id => 2, Total => 9}'
 //
 module Shop
 

@@ -56,7 +56,7 @@ a hole in the check, not a broken build, which is exactly the kind that ships. F
 
 ## The one thing ticket 33 did not find
 
-**List-pattern variables have no path, and three functions in `examples/fib.bs` depend on one.**
+**List-pattern variables have no path, and three functions in `examples/Fib/fib.bs` depend on one.**
 
 ```csharp
 list<int> Reverse(list<int> xs, list<int> acc)
@@ -218,7 +218,7 @@ Squared(o) ->
     t * t
 ```
 
-Already in `examples/shop.bs` and already compiling; F5 must not break it, and `t : int` has to come
+Already in `examples/Shop/shop.bs` and already compiling; F5 must not break it, and `t : int` has to come
 from somewhere it did not before. A binding declares no type, so it is **synthesis only** — there is
 no sixth site here.
 
@@ -306,7 +306,7 @@ was *"not in the language"*.
 
 ### The corpus gate was the right first move, and it caught the thing the ticket missed
 
-Run before any rejection test existed, exactly as planned. It failed on `examples/fib.bs` for the
+Run before any rejection test existed, exactly as planned. It failed on `examples/Fib/fib.bs` for the
 reason §"The one thing ticket 33 did not find" predicted, and **the fix is measured rather than
 argued**: reverting list paths to `no_path` and re-running turns **7 of 106 tests red**. Ticket 33
 enumerated the sites correctly and could not have found this, because it is not about where a check

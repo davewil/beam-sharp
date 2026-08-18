@@ -159,7 +159,7 @@ using :erlang {
 }
 ```
 
-Compiles. `examples/interop.bs` currently writes `int byte_size(term bin)` — typing a binary as
+Compiles. `examples/Interop/interop.bs` currently writes `int byte_size(term bin)` — typing a binary as
 `term` because the language had no word for it — and this scenario is that line getting its type.
 
 **F9.11 — `string` is *not* admissible as a foreign return type, and errors at the declaration.**
@@ -298,7 +298,7 @@ or note, no expansion.
   is a deliverable and not a nicety.
 - `check-language.sh` is green with the blocks that now compile promoted out of `not-yet`.
 - Mutating `is_none/1` to drop the binary arm turns the suite **red**, measured rather than assumed.
-- `examples/interop.bs` says `binary` where it said `term`.
+- `examples/Interop/interop.bs` says `binary` where it said `term`.
 
 ## What building it found
 

@@ -157,4 +157,4 @@ goes unmentioned; F9 exercised the other half the day before.
 - **`bin/spec-check.sh` passes**, including both negative controls — which is the point of the
   feature and the thing that had never been true.
 - It is removed from CI's `NOT RUN HERE` block and runs on every push.
-- `examples/counter.bs` and `LANGUAGE.md` §12 both show a complete gen_server.
+- `examples/Counter/counter.bs` and `LANGUAGE.md` §12 both show a complete gen_server.

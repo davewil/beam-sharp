@@ -344,7 +344,7 @@ stopped checking.
 ## Built 2026-08-14
 
 **All nine live scenarios pass and the three deferred ones stayed deferred.** 64 tests, up from
-39, and `examples/shop.bs` compiles, runs, and exercises every construct from the CLI.
+39, and `examples/Shop/shop.bs` compiles, runs, and exercises every construct from the CLI.
 
 ### The shape the algebra took
 

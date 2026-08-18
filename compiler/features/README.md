@@ -91,11 +91,11 @@ Erlang back to the decision that required it is one grep.
 |---|---|---|
 | [F1 — walking skeleton](F1-walking-skeleton.md) | **done** | the baseline; `examples/*.bs` |
 | [F2 — interval refinements and interval patterns](F2-interval-refinements.md) | **done 2026-08-16** | 25b, 25c wire dispatch; it also ran 44's migration and repaired `25c_residual_probe.sh` |
-| [F3 — records](F3-records.md) | **done 2026-08-14** | the record half of all three; `examples/shop.bs` |
+| [F3 — records](F3-records.md) | **done 2026-08-14** | the record half of all three; `examples/Shop/shop.bs` |
 | [F4 — local bindings](F4-local-bindings.md) | **done 2026-08-14** | nothing — it removes a papercut |
 | [F5 — the body check site](F5-body-check-site.md) | **done 2026-08-14** | F3.3, F3.8, F3.10; 34's destructuring binds |
-| [F6 — angle brackets and parametric types](F6-angle-brackets.md) | **done 2026-08-14** | the *bracket* in all three; `examples/parcel.bs` |
-| [F7 — `switch`](F7-switch.md) | **done 2026-08-15** | the *branching* in all three; `examples/queue.bs` |
+| [F6 — angle brackets and parametric types](F6-angle-brackets.md) | **done 2026-08-14** | the *bracket* in all three; `examples/Parcel/parcel.bs` |
+| [F7 — `switch`](F7-switch.md) | **done 2026-08-15** | the *branching* in all three; `examples/Queue/queue.bs` |
 | [F8 — `var` binds, `=` matches](F8-bind-and-match.md) | **done 2026-08-16** | nothing; it went first to avoid rewriting later features' files — and closed a soundness hole nobody knew was there |
 | [F9 — `string` and `binary` as values](F9-strings-and-binaries.md) | **done 2026-08-15** | the `string` **fields** in all three, `list<string>`; **not** I/O |
 | [F10 — OTP callbacks](F10-otp-callbacks.md) | **done 2026-08-15** | **`bin/spec-check.sh`**; the `behaviour` half of 25b, 25c |
@@ -189,7 +189,7 @@ diagnostics were per-file and right; raised ones still named the module's first 
 module system has two halves and F11 built one: how modules *see each other*. The other is what a
 module is *made of* — ticket 13's aggregate rule, where a directory is the module and every `.bs`
 file in it compiles into one `.beam`, with `index.bs` holding the shared declarations and never a
-function. Today one file is one module, and `examples/counter.bs` sits in `examples`.
+function. Today one file is one module, and `examples/Counter/counter.bs` sits in `examples`.
 
 **Two of ticket 41's four specified checks wait here rather than in F11**, and that is why this row
 is not optional: `{module_path_mismatch, …}` (§5) tests a declaration against its *directory* path,
@@ -199,7 +199,7 @@ before this row they were recorded only in prose — which is exactly how F2 sat
 a day. `13b` already measured the mechanism working, so what is missing is plumbing, not technique.
 
 **F11 IS BUILT, AND THE TWO THINGS IT REVEALED ARE WORTH MORE THAN THE FEATURE — 2026-08-17.**
-Modules can see each other: `bsc examples/collections/Totals.bs Restate 3` prints `9` across two
+Modules can see each other: `bsc examples/Shop/Reports/Totals.bs Restate 3` prints `9` across two
 modules, resolved, ordered and checked without anybody naming a path or a build order. 268 tests.
 
 **A RESOLVED DECISION WITH NOTHING IMPLEMENTING IT.** Ticket 40 §2 permitted arity overloading on

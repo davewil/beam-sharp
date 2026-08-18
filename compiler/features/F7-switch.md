@@ -306,7 +306,7 @@ intermediate without inventing a parameter to dispatch on"*, which is 01b's fric
 first shape that puts F4 and F7 through the same clause. Four paths meet here and every one of them
 is new or changed by F7: `check_scope/5` → `name_diags/5` → `rebinds/3` in the scope pass,
 `bind_step/3` → `type_of/3` for the switch's subject, and `binds/3` → `expr/2` in the emitter.
-None of the scenarios above crosses that seam, and `examples/queue.bs` contains no bindings at all.
+None of the scenarios above crosses that seam, and `examples/Queue/queue.bs` contains no bindings at all.
 
 And the arm that rebinds the bound name — `total => …` — must report rebinding, which is F7.8's rule
 reached from the other side: there the name came from a clause head, here from a binding.
@@ -378,8 +378,8 @@ and every `.bs` in `examples/` still compiles and runs.
 ## Built 2026-08-15
 
 **All sixteen scenarios pass.** 145 tests, up from 126. `LANGUAGE.md` §5's two blocks are promoted
-from `not-yet` to must-compile, and `examples/queue.bs` is new and runnable:
-`bsc examples/queue.bs Decide false true false` → `:dead_letter`.
+from `not-yet` to must-compile, and `examples/Queue/queue.bs` is new and runnable:
+`bsc examples/Queue/queue.bs Decide false true false` → `:dead_letter`.
 
 **Three of the sixteen were written after the mutation run and a review, not before**, and they are
 named rather than folded in: F7.14 because F7.5 turned out not to guard what its prose implied,
@@ -498,7 +498,7 @@ variable; and it changed the meaning of source only where that meaning was alrea
   rather than half-closed.
 - **Relational patterns** — `{ Total: > 100 }`, ticket 17 §6's own spelling. F2's, and blocked.
   A guard is what stands in for them, which is why arms have one.
-- **`Route` in `examples/queue.bs` cannot be run from the command line**, and the header says so
+- **`Route` in `examples/Queue/queue.bs` cannot be run from the command line**, and the header says so
   rather than pretending otherwise. `bs_run`'s argument reader has no spelling for a record, so
   `#{Kind => :'Queue.Message', …}` is refused as unreadable — measured. It is covered by a test and
   compiles, but it is the one demonstration in `examples/` that nobody can watch work, which is a

@@ -3,7 +3,7 @@
 // file of that name. Nothing about the tag mint (26 §1) moves — it was always
 // written against the module atom rather than against a single segment.
 //
-//   bsc examples/collections/Totals.bs Restate 3
+//   bsc examples/Shop/Reports/Totals.bs Restate 3
 //
 module Shop.Collections.List
 

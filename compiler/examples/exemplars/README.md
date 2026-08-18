@@ -21,30 +21,32 @@ friction these files contain is deliberate and is explained where it came from:
 | `25b-websocket-handler/` | [`25b-websocket-handler.md`](../../../wayfinder/prototypes/25b-websocket-handler.md) | `25b_websocket_lowering.erl` |
 | `25c-event-queue-consumer/` | [`25c-event-queue-consumer.md`](../../../wayfinder/prototypes/25c-event-queue-consumer.md) | `25c_queue_lowering.erl` |
 
-## A divergence these files expose, verified against the grammar
+## A divergence these files used to expose — CLOSED, and it was recorded backwards
 
-**The compiler requires a clause to repeat the function name; the design settled that it drops it.**
+**This section described a fork between the compiler and the design over whether a clause repeats
+its function name. There is no such fork, there never was, and the paragraph pointed the wrong way.**
+Corrected 2026-08-18 by measuring rather than by reading the summary that produced it.
 
-`bs_parser.yrl` has exactly one clause production and no bare-head alternative:
-
-```erlang
-clause -> uident '(' patterns ')' guard '->' expr ';'
-```
-
-So `examples/readings.bs` writes `Classify((:ok, n)) when n > 0 -> :positive;`, while every
-exemplar here — and prototypes 01b, 01e, 01g — writes the bare head:
+Variant A's own worked example repeats the name on every clause:
 
 ```csharp
-Verdict Classify(Reading);
+Verdict Classify(Reading r)
 
-((:ok, n)) when n > 0 -> :positive;
+Classify((:ok, n)) when n > 0 -> :positive
+Classify((:ok, 0))            -> :zero
 ```
 
-The map's ticket 01 entry records **"Variant A settled: equations under a signature"**, and 01b
-Module 6a is the section that settled it. **The skeleton implements the form the map did not
-choose.** Nothing is broken by this — the skeleton is younger than the decision and the repetition
-is the conservative option — but it is a real fork and every file here is written on the other side
-of it. → tickets 01, 08.
+So the compiler, the map's index line and the decision all agree, and always did. What was true is
+that these extracted files were written in an older dialect that dropped the name — **63 nameless
+heads** when the 2026-08-15 dialect rewrite counted them. That rewrite fixed it. Measured across
+this directory today: **0 nameless clause heads, 69 named ones.**
+
+The old paragraph claimed the opposite — that *"the skeleton implements the form the map did not
+choose"* — and quoted a clause production that was stale twice over (`expr` for `body`, and a `;`
+this language has not had for some time). **A clean-room implementer following it would have built
+the wrong parser**, which is the whole reason it is corrected here in place rather than deleted: the
+failure was reading a short quotation of the decision instead of the decision, and that is worth
+leaving on the record.
 
 *Not* a divergence, checked at the same time: the signature's parameter names. The grammar takes
 both `param -> type_prim lident` and `param -> type_prim`, so 01e's types-only form already parses
@@ -62,7 +64,7 @@ Ordered by how many exemplars each unblocks, which is roughly the order to build
 | **`string` and `binary` as values** — the literal, the type, the refinement | all three | **in** — F9, 2026-08-15 | 20 |
 | **Binaries** — `<<_:M, _:_*N>>` patterns and construction | 25b, 25c | out, **blocked** — 30 is open | 20, 30 |
 | **`switch` expression** — including the tuple subject and a guard on an arm | all three | **in** — F7, 2026-08-15 | 17 |
-| **Pipe and valve** — `\|>`, `\|?>` | 25b, 25c | out | 17 |
+| **Pipe and valve** — `\|>`, `\|?>` | 25b, 25c | **in** — F14, 2026-08-18 | 17 |
 | **Interval refinements** — `type Octet = int where ...` | 25b, 25c | out, **named as the next increment** | 20 §5 |
 | **String literals** | 25a, 25c | **in** — F9, 2026-08-15 | 20 |
 | **Map literals** | 25a, 25c | out | fog |
@@ -77,10 +79,11 @@ left.
 **A branching claim is not a compiles claim either**, and F7's first draft of this paragraph got it
 wrong — corrected here by measurement rather than left standing. The `switch` **construct** is built:
 a tuple subject, a guard on an arm, exhaustiveness, and the residual printed as the missing arm.
-None of these files parses as a result. `disposition.bs` still fails at line 12, and **not on the
-switch** — on `(o, r, n) -> …`, a clause head written without repeating the function name, which is
-a spelling these prototypes use and ticket 01's Variant A does not have. That is a drift between the
-prototypes and the shipped grammar, and it is nobody's feature yet.
+None of these files parses as a result — but **where they stop has moved, and this paragraph was
+measured again on 2026-08-18 rather than trusted.** It used to say `disposition.bs` failed on a
+clause head written without repeating the function name. That spelling is gone: the dialect rewrite
+removed all 63 of them and there are none left in this directory. `25c` now stops in
+`consume.bs:14` on `<` — a **binary pattern**, which is the row above and blocks 25b identically.
 
 What F7 *did* change for these files is smaller than the row suggests and sharper than the parse:
 **their `true`s and `false`es were being read as variables.** Had they parsed, `disposition.bs` and
