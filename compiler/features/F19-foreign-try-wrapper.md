@@ -1,6 +1,6 @@
 # F19 — The compiler-emitted foreign `try` wrapper
 
-**Status**      in progress
+**Status**      **done 2026-08-18**
 **Implements**  [ticket 15](../../wayfinder/issues/15-error-model.md) §4 and §5, resolved — decides
                 nothing; over [ticket 32](../../wayfinder/issues/32-ffi-surface.md)'s `using :mod`
                 surface, and [ticket 12](../../wayfinder/issues/12-totality-vs-let-it-crash.md)'s
@@ -206,10 +206,51 @@ and after the wrapper, because the wrapper is *how* that type becomes true.
   range**. F19 confirms it on the OTP this repo builds with, by compiling through that path and
   running the result; the *range* is still owed, and a matrix is not this feature's job.
 
+## What the building revealed
+
+**THE PRELUDE COULD NOT HOLD A GROUND ENTRY, AND THE REPAIR NEEDED TWO CLAUSES RATHER THAN ONE.**
+`prelude/0` has carried a comment since F6 saying its entries are *"spelled in the language's own
+alias mechanism rather than as a special case in `resolve/2`"*, and that was true of the two
+parametric ones and impossible for anything else: every lowercase name fell straight through
+`resolve({t_builtin, B}, …)` to `builtin/1`, so `foreign_error` arrived there as `unknown_builtin`.
+
+The obvious fix — return the entry when the environment already holds a reduced type — **works in a
+signature and fails inside a user's own `type` alias**, because `type_env/1` resolves its entries
+with `maps:map` over the *surface* map: during that pass a prelude entry is still a `{t_union, …}`
+tuple and only afterwards a map. So a `foreign_error` written in a signature resolved and the same
+name written in `type Parsed = int | (:error, foreign_error)` did not, which is one of the two
+places it is most likely to appear.
+
+**It was found by a test rather than by reading**, and only because the test existed to prove §1's
+claim that the *type* triggers the wrapper — the union had to be hand-written to make that point,
+and hand-writing it needs an alias, because `foreign_sig` takes a `type_prim` and a bare union is
+not one. A test aimed at one rule caught a defect in another.
+
+**HALF THE FOG ITEM IS CONFIRMED, BY THE ORDINARY BUILD PATH.** The map's fog asks whether the
+emitted `try` *"survives the abstract-format path unchanged"*. It does, and confirming it cost
+nothing: `bsc` has no in-memory route to a `.beam` at all — every module is serialised to `.abstr`
+with `~p` and rebuilt by `erlc +from_abstr`, which is ticket 13's contract. So every passing test
+here is that round trip. **OTP 28 / erts 16.4.** The *range* across the pinned OTP versions is still
+owed and a matrix is not this feature's job.
+
+**AND THE NESTED CASE SUCCEEDS WHERE IT LOOKS LIKE IT SHOULD FAIL.** A wrapped call inside another
+wrapped call type-checks only when the outer parameter accepts the inner's *whole* union — so
+`:erlang.term_to_binary(:erlang.binary_to_integer(b))` compiles, because `term_to_binary` was
+declared over `term`, and the outer call happily serialises `(:error, (:error, :badarg))`. Feeding a
+`result` to something declared over `int` is a type error, reported against the argument position,
+which is the checker doing its job rather than a limit of the wrapper. Worth writing down because
+the first shape looks like a hole and the second looks like a bug, and neither is.
+
 ## Done when
 
 - A compiled program calling a wrapped foreign function returns the error as a **value** on the
-  throwing path and the ordinary value on the happy path — seen running, not only asserted.
-- All three exception classes arrive tagged.
-- A foreign signature without the declared channel still lets the caller die.
-- Every scenario above is a test, and the twelve CI gates are green.
+  throwing path and the ordinary value on the happy path — seen running, not only asserted. ✓
+- All three exception classes arrive tagged. ✓
+- A foreign signature without the declared channel still lets the caller die. ✓
+- Every scenario above is a test, and the twelve CI gates are green. ✓ — 348 tests, up from 334.
+
+**One thing is owed and is not a scenario.** F19.7's refusal is raised as
+`{foreign_error_channel, Line, Mod, Fun, Payload}` and `bs_diag` has no `descriptor/2` clause for
+it, so what an author sees is the escript stack trace F16 exists to abolish rather than the sentence
+`opaque_ret_at_boundary` gets. The term is right, the tests assert on it, and only the prose is
+missing — `bs_diag.erl` was outside this feature's write scope while a sibling feature held it.
