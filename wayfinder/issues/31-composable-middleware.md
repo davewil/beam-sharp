@@ -65,6 +65,23 @@ Blocked by nothing. **Most valuable resolved before the HTTP exemplar is rewritt
 currently a router with no pipeline, which is the largest thing wrong with it, and rewriting it
 without answering this would just produce a second guess.
 
+**THE VALVE NOW RUNS — 2026-08-18, F14.** This ticket's premise changed while it sat open: `|?>` was
+a decision with no implementation, so the question could only be argued. It is built, and
+`compiler/examples/Pipeline/pipeline.bs` is a chain that short-circuits and returns its error
+unchanged. **So answer this one by measuring**, which is the habit 43, 41 and 28 set — write the
+middleware chain the question asks about and see what it cannot say:
+
+```sh
+cd compiler && ./_build/default/bin/bsc --src-root examples examples/Pipeline Place -1
+```
+
+Two properties F14 established are worth knowing before writing that chain, because both bear on
+§2. A stage is declared over the **narrowed** type — `Charge(int v)`, not `Charge(Res v)` — so a
+middleware stage's signature names what reaches it rather than the whole union. And a stage may not
+inspect the failure through `|?>` at all: the escape hatch is the operator's **absence**, so a stage
+that wants to see the error is piped with `|>` and matches it itself. Whether that is enough for
+`halt/1` is exactly what this ticket has to decide.
+
 **Do not re-raise** ticket 17's choice of `|?>` over `Result.Then`, or its refusal of an implicit
 propagation rule. This ticket asks what the valve *reaches*, not whether it was the right spelling.
 

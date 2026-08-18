@@ -102,8 +102,33 @@ Erlang back to the decision that required it is one grep.
 | [F11 — the module system](F11-module-system.md) | **done 2026-08-17** | the collection library; the **imports** row that blocks all three exemplars. It also turned `check-corpus.sh` green for the first time since F9 |
 | [F12 — `public` / `private`](F12-public-and-private.md) | **done 2026-08-17** · [ENG-222](https://linear.app/davewil/issue/ENG-222) | nothing — it closed 40 §3, and it was the last whole-corpus rewrite the language had queued |
 | F13 — binary patterns | not started, **blocked** — ticket 30 is open | 25b, 25c |
-| [F14 — the pipe and the valve](F14-pipe-and-valve.md) | not started · [ENG-223](https://linear.app/davewil/issue/ENG-223) | 25a's admission chain and the decode pipelines in 25b and 25c — and it hands **ticket 31** an operator to measure rather than argue about |
+| [F14 — the pipe and the valve](F14-pipe-and-valve.md) | **done 2026-08-18** · [ENG-223](https://linear.app/davewil/issue/ENG-223) | 25a's admission chain and the decode pipelines in 25b and 25c — and **ticket 31** now has a running operator to measure rather than argue about |
 | [F15 — a module is a directory](F15-module-is-a-directory.md) | **done 2026-08-17** | the *other* half of the module system; `index.bs`, and 41 §4/§5's two checks — both now built |
+
+**F14 IS BUILT, AND WHAT IT REVEALED IS THAT A CHECKER MUST KNOW WHAT IT WROTE ITSELF — 2026-08-18.**
+Both operators run, ten gates are green and the suite is **319** tests. The pipe cost almost nothing
+and that was the prediction: it is a parser rewrite, so `bs_check` and `bs_emit` never learned the
+operator exists. The valve cost the whole feature, and every one of its costs came from the same
+place — **the lowered `switch` is code the author did not write, and a compiler that cannot tell the
+difference gives advice about it.** A bare `e_switch` would have earned `unreachable_arm` on the
+generated error arm (the exact message F14 §4 exists to replace) and ticket 12 §2's catch-all rule
+against the value arm, which is a catch-all *every single time*. So the node stays marked to the
+checker and is unwrapped only at emission.
+
+**The second thing it revealed is that two gates were lying by omission, which is the shape F11 and
+F15 also found.** `bs_test_support:check_only/1` called `bs_parser:parse` directly and skipped the
+new lowering pass — and an unlowered node falls through `type_of/3`'s catch-all to `term()` with no
+diagnostics, so every valve assertion about clean source would have passed while **nothing was
+checked at all**. A test helper that does not walk the compiler's own path is not testing the
+compiler. And `editor/bin/check-tokens.sh` checked *"keywords and the two arrows"* — a hardcoded
+pair — so it could not see `|>` or `|?>` at all; it now checks a named list of multi-character
+operators, and was measured failing before it was believed. Both are the F12 lesson again: a gate
+is only as good as what it was told to look at.
+
+**AND THE QUEUE IS EMPTY FOR THE FOURTH TIME.** Every feature with a file is done. The only row left
+is **F13 — binary patterns**, which has no file because it is blocked on **ticket 30**, still open.
+The cycle the paragraphs below describe applies unchanged: *starve → resolve a decision → build →
+find what the building reveals*. The decision to resolve next is 30's.
 
 **F12 IS BUILT, AND WHAT IT REVEALED IS THAT A GATE IS ONLY AS GOOD AS ITS TAGGING — 2026-08-17.**
 `public`/`private` sits on every signature in the repo, `'Fib'.beam` exports `Fib/1` and nothing

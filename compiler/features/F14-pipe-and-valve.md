@@ -1,6 +1,6 @@
 # F14 — The pipe and the valve: `|>` and `|?>`
 
-**Status**      done · [ENG-223](https://linear.app/davewil/issue/ENG-223)
+**Status**      **done 2026-08-18** · [ENG-223](https://linear.app/davewil/issue/ENG-223)
 **Implements**  [ticket 17](../../wayfinder/issues/17-pipeline-and-comprehension.md) §1 and §4,
                 resolved — decides nothing
 **Unblocks**    25a's admission chain and the decode pipelines in 25b and 25c; and it hands
