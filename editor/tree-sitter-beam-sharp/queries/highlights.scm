@@ -53,6 +53,11 @@
 (function_name) @function
 (call function: (function_name) @function.call)
 
+; F18. A codegen obligation is NOT a call — no such function exists in the
+; emitted module — so it is coloured as the built-in construct it is rather than
+; as something the author could have defined.
+(instantiation obligation: (type_identifier) @function.builtin)
+
 (field_name) @property
 (variable) @variable
 (parameter name: (lident) @variable.parameter)

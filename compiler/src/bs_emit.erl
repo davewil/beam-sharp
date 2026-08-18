@@ -61,9 +61,14 @@ forms(Module = #{module := Mod, functions := Fns, env := Env}) ->
     %% The behaviours travel in the emit context because a function name is not
     %% self-describing: whether `HandleCall/3` lowers to `handle_call/3` depends
     %% on what the MODULE declares. Ticket 35's contract scoping, carried.
+    %% F18. Built once for the whole module and consulted at every call site, so
+    %% two `ValidateAs<Order>` share one generated function rather than emitting
+    %% the identical traversal twice.
+    Validators = validator_table(Fns, Env),
     Ctx = #{module => Mod, env => Env, behaviours => Behaviours,
             imports => maps:get(imports, Module, #{}),
             qmods => maps:get(qmods, Module, #{}),
+            validators => Validators,
             remote_names => maps:get(remote_names, Module, #{})},
     %% F15 / ticket 13 §3 — WHICH `.bs` A CRASH NAMES.
     %%
@@ -89,7 +94,12 @@ forms(Module = #{module := Mod, functions := Fns, env := Env}) ->
      {attribute, ?A, export, [{name(F, Behaviours), A} || {F, A} <- Exports]}]
     ++ [{attribute, ?A, behaviour, bs_otp:behaviour_name(B)} || B <- Behaviours]
     ++ lists:append([file_group(Path, Fs, Env, Behaviours, Ctx)
-                     || {Path, Fs} <- Files]).
+                     || {Path, Fs} <- Files])
+    %% The generated validators go last and carry no `file` attribute of their
+    %% own: they belong to no `.bs`, and pointing them at one would be a lie the
+    %% next crash would tell. Nothing in them can crash — every branch returns a
+    %% value — so no stack frame ever names them.
+    ++ validator_forms(Validators).
 
 %% `undefined` is the one-source callers (`compile_string/2`, the REPL) that have
 %% no path to attribute to. Emitting an attribute naming nothing would be worse
@@ -377,6 +387,8 @@ guard_vars({guard, Expr}) -> used_vars(Expr, sets:new([{version, 2}])).
 used_vars({e_var, _, V}, Acc)        -> sets:add_element(V, Acc);
 used_vars({e_tuple, _, Es}, Acc)     -> lists:foldl(fun used_vars/2, Acc, Es);
 used_vars({e_call, _, _, As}, Acc)   -> lists:foldl(fun used_vars/2, Acc, As);
+%% F18. The type arguments are types; only the value argument holds variables.
+used_vars({e_inst, _, _, _, As}, Acc) -> lists:foldl(fun used_vars/2, Acc, As);
 used_vars({e_op, _, _, A, B}, Acc)   -> used_vars(B, used_vars(A, Acc));
 used_vars({e_nil, _}, Acc)           -> Acc;
 used_vars({e_proj, _, V, _}, Acc)    -> sets:add_element(V, Acc);
@@ -514,6 +526,15 @@ expr({e_call, L, F, As}, C)   ->
         Mod ->
             remote(L, Mod, F, As, C)
     end;
+
+%% F18 — the call site of a codegen obligation, and it is a bare local call with
+%% no arguments beyond the term. The type argument was consumed at generation
+%% time (27 §8) and nothing about it survives here, which is the whole difference
+%% between a codegen obligation and a generic call.
+expr({e_inst, L, 'ValidateAs', [TypeExpr], [Arg]}, C) ->
+    Ty = bs_check:resolve(TypeExpr, maps:get(env, C)),
+    {_Roots, Table} = maps:get(validators, C),
+    {call, L, {atom, L, root_name(maps:get(Ty, Table))}, [expr(Arg, C)]};
 
 %% `List.Map(xs)`. The module atom is already the full dotted path (40 §1), which
 %% is why nothing here has to build a name: `'Shop.Orders'` is what the dependency
@@ -706,6 +727,471 @@ int_part(_)             -> {type, ?A, integer, []}.     % widened: no Erlang spe
 
 tuple_part(Components) ->
     {type, ?A, tuple, [spec_type(C) || C <- Components]}.
+
+%%% ---------------------------------------------------------------------------
+%%% F18 — `ValidateAs<T>`, the generated deep validator
+%%%
+%%% Ticket 11 §2 put deep validation at an explicit call site rather than in a
+%%% clause head, because the traversal is O(n·depth) and **the sender chooses n**.
+%%% Ticket 15 §2 then amended its return type to `result<T, ValidationError>` —
+%%% a path into the term plus the type expected there. This is where both are
+%%% made executable.
+%%%
+%%% IT IS CODEGEN, NOT A CALL. Ticket 27 §8: `<T>` is a compile-time argument
+%%% driving generation, monomorphic at every use site, with **no type variable
+%%% surviving into the runtime or the algebra**. So nothing here dispatches on a
+%%% type at run time and no type argument is passed anywhere — the emitted module
+%%% holds one ordinary Erlang function per distinct `T`, and the call site is a
+%%% local call to it.
+%%%
+%%% THE TRAVERSAL IS WRITTEN AGAINST THE ALGEBRA, NOT AGAINST THE SURFACE. A
+%%% `bs_types:ty()` is a DNF **partitioned by constructor**, and the BEAM
+%%% dispatches on constructor for free — so the atom part becomes atom clauses,
+%%% the integer part becomes range guards, a tuple product becomes a tuple
+%%% pattern and a closed map member becomes a map pattern plus `map_size/1`. One
+%%% consequence worth naming: `option<int>` and a hand-written `int | :nothing`
+%%% generate the *same* validator, because they are the same type by the time
+%%% this module sees either — F6.3's property, one layer down.
+%%%
+%%% TERMINATION IS UPSTREAM, AND IT IS NOT PERMANENT. Ticket 09 committed to
+%%% equirecursive contractive types and `bs_check:resolve/3` raises
+%%% `{recursive_type, N}` for one today, so every `ty()` reaching here is a FINITE
+%%% TREE and `close_over/2`'s worklist cannot cycle. When 09's machinery lands,
+%%% this needs the name assigned to a type BEFORE its body is generated, or
+%%% `Tree = :leaf | (:node, Tree, Tree)` recurses forever at compile time. The
+%%% generated code itself already terminates: it walks a term, which is finite.
+%%%
+%%% TWO PROTOCOLS, AND THE SPLIT IS LOAD-BEARING. Internally every validator
+%%% returns `{ok, V} | {error, {Path, Expected}}`; the ROOT wrapper unwraps that
+%%% into what the language declared — `result<T, E>` is `T | (:error, E)`, an
+%%% UNTAGGED success. Without the internal tagging a validator over a type that
+%%% itself contains `(:error, _)` could not tell its own failure from a value it
+%%% had just accepted.
+%%% ---------------------------------------------------------------------------
+
+-define(VV, {var, ?A, 'Bs@v'}).                 % the term under test
+-define(VP, {var, ?A, 'Bs@p'}).                 % the path so far, reversed
+
+%% Every distinct type any `ValidateAs<T>` in this module needs a validator for,
+%% including the sub-types its traversal descends into. Keyed by the resolved
+%% type, so two call sites naming the same type by different spellings share one
+%% generated function — monomorphic AT every use site, which is 27 §8's
+%% requirement, without emitting the identical traversal twice.
+validator_table(Fns, Env) ->
+    Roots = lists:usort([bs_check:resolve(TE, Env)
+                         || {e_inst, _, 'ValidateAs', [TE], [_]} <- inst_nodes(Fns)]),
+    {Roots, close_over(Roots, #{})}.
+
+%% A generic walk rather than a per-node one: a `ValidateAs` may sit anywhere an
+%% expression may, and a walk that had to be taught each new node would go stale
+%% the first time one is added.
+inst_nodes(T) when is_tuple(T) ->
+    Here = case T of
+               {e_inst, _, 'ValidateAs', [_], [_]} -> [T];
+               _                                   -> []
+           end,
+    Here ++ inst_nodes(tuple_to_list(T));
+inst_nodes(L) when is_list(L) -> lists:append([inst_nodes(E) || E <- L]);
+inst_nodes(_)                 -> [].
+
+close_over([], Acc) -> Acc;
+close_over([Ty | Rest], Acc) ->
+    case maps:is_key(Ty, Acc) of
+        true  -> close_over(Rest, Acc);
+        false ->
+            Name = list_to_atom("bs@validate@" ++ integer_to_list(maps:size(Acc) + 1)),
+            close_over(children(Ty) ++ Rest, Acc#{Ty => Name})
+    end.
+
+%% The sub-types this type's traversal will call a validator for. Two shapes
+%% produce children: a component or field the descent enters, and — where a
+%% constructor does NOT pick out a single candidate — each candidate as a type in
+%% its own right, so the "try each, blame here" fallback is built from the same
+%% generator rather than from a second one.
+children(Ty) ->
+    #{tuples := Ts, lists := Ls, maps := Ms} = Ty,
+    tuple_children(Ts) ++ list_children(Ls) ++ map_children(Ms).
+
+tuple_children(top) -> [];
+tuple_children(Products) ->
+    lists:append([case Case of
+                      {one, Fixed, P} -> [C || {I, C} <- indexed(P),
+                                               I =/= Fixed, checked(C)];
+                      {alts, Ps}      -> [bs_types:tuple(P) || P <- Ps]
+                  end || Case <- tuple_cases(Products)]).
+
+list_children({_, none}) -> [];
+list_children({_, any})  -> [];
+list_children({_, T})    -> [T || checked(T)].
+
+map_children(top) -> [];
+map_children(Members) ->
+    lists:append([case Case of
+                      %% Sorted, and it is not cosmetic: `map_case/3` walks the
+                      %% fields in sorted order too, and the worklist order is
+                      %% what numbers the generated functions. Two orders would
+                      %% mean two emitted modules for one source file.
+                      {one, Fixed, {_, Fs}} -> [maps:get(K, Fs)
+                                                || K <- lists:sort(maps:keys(Fs)),
+                                                   K =/= Fixed,
+                                                   checked(maps:get(K, Fs))];
+                      {alts, Ms}            -> [member_ty(M) || M <- Ms]
+                  end || Case <- map_cases(Members)]).
+
+map_key({Kind, Fs})     -> {Kind, lists:sort(maps:keys(Fs))}.
+member_ty({closed, Fs}) -> bs_types:map_closed(Fs);
+member_ty({open, Fs})   -> bs_types:map_open(Fs).
+
+%%% --- deciding where the descent is unambiguous ------------------------------
+%%%
+%%% ONE DECOMPOSITION, READ TWICE. `children/1` and the clause builders must
+%%% agree exactly — a child nobody generates is a `badkey` at compile time, and a
+%%% child generated for a step nobody takes is a dead function in every emitted
+%%% module. So the decision about how a constructor's candidates are carved up
+%%% lives in `tuple_cases/1` and `map_cases/1`, and both readers go through them.
+%%%
+%%% A case is `{one, Fixed, Candidate}` — this candidate is the only one that can
+%%% match, and `Fixed` names the position or key whose literal sits in the
+%%% pattern rather than being checked by a call — or `{alts, Candidates}`, where
+%%% nothing structural chooses and the blame stays at this node.
+
+tuple_cases(Products) ->
+    lists:append([arity_case(G)
+                  || {_, G} <- group_by(fun erlang:length/1, Products)]).
+
+arity_case([P]) -> [{one, none, P}];
+arity_case(Ps) ->
+    Slots = lists:seq(1, length(hd(Ps))),
+    case discriminator(fun(I, P) -> lists:nth(I, P) end, Slots, Ps) of
+        none        -> [{alts, Ps}];
+        {I, Tagged} -> [{one, I, P} || {_A, P} <- Tagged]
+    end.
+
+map_cases(Members) ->
+    %% Closed members first. A closed member carries `map_size/1` and so cannot
+    %% match a wider map; an open one has no such guard and would shadow a closed
+    %% member listed after it. Declared types resolve to closed members only
+    %% (26 §4), so this orders against a shape the surface cannot yet produce.
+    Ordered = [M || M = {closed, _} <- Members] ++ [M || M = {open, _} <- Members],
+    lists:append([shape_case(G) || {_, G} <- group_by(fun map_key/1, Ordered)]).
+
+shape_case([M]) -> [{one, none, M}];
+shape_case(Ms = [{_, Fs} | _]) ->
+    Keys = lists:sort(maps:keys(Fs)),
+    case discriminator(fun(K, {_, F}) -> maps:get(K, F) end, Keys, Ms) of
+        none        -> [{alts, Ms}];
+        {K, Tagged} -> [{one, K, M} || {_A, M} <- Tagged]
+    end.
+
+%% THE TAGGED UNION IS THE CASE THIS EXISTS FOR, and it is the idiomatic one on
+%% this runtime: `(:ok, int) | (:error, atom)` has two products of the same
+%% arity, so arity alone says "ambiguous" and the blame would land on the whole
+%% union — when in fact the first component decides it outright. A union of
+%% records is the same shape one constructor over, discriminated by the `Kind`
+%% ticket 26 §1 mints.
+%%
+%% A slot discriminates when EVERY candidate has a distinct singleton atom there.
+%% Every candidate, because one that does not would be shadowed by a sibling's
+%% clause; distinct, because two candidates carrying the same tag are still two.
+%% Anything weaker and a value inhabiting candidate B could be blamed against
+%% candidate A, which is the guessing this design refuses.
+discriminator(_At, [], _Cs) -> none;
+discriminator(At, [Slot | Rest], Cs) ->
+    Atoms = [A || C <- Cs, {tag, A} <- [tag_of(At(Slot, C))]],
+    case length(Atoms) =:= length(Cs) andalso
+         length(lists:usort(Atoms)) =:= length(Atoms) of
+        true  -> {Slot, lists:zip(Atoms, Cs)};
+        false -> discriminator(At, Rest, Cs)
+    end.
+
+tag_of(Ty = #{atoms := {finite, [A]}}) ->
+    case Ty =:= bs_types:atom_lit(A) of
+        true  -> {tag, A};
+        false -> none
+    end;
+tag_of(_) -> none.
+
+%% NOTHING IS GENERATED FOR THE TOP. Every term inhabits `term`, so a validator
+%% over it could only ever return `ok` — and the site that would have called one
+%% simply does not. `ValidateAs<term>` itself never reaches here: ticket 15 §1's
+%% collapse check refuses it at the call site.
+checked(Ty) -> not bs_types:is_subtype(bs_types:term(), Ty).
+
+validator_forms({Roots, Table}) ->
+    Ordered = lists:sort(fun({_, A}, {_, B}) -> A =< B end, maps:to_list(Table)),
+    lists:append([validator_form(Ty, Name, Table) || {Ty, Name} <- Ordered])
+    ++ [root_form(maps:get(Ty, Table)) || Ty <- Roots].
+
+%% The root wrapper — the only function a call site names. It converts the
+%% internal `{ok, V}` protocol into the language's own `result<T, E>`, which is
+%% `T | (:error, E)` with an untagged success (ticket 15 §2). Doing it here
+%% rather than at the call site keeps the call site a bare call with no
+%% variables in it, so two `ValidateAs` in one expression cannot collide.
+root_form(Name) ->
+    XV = {var, ?A, 'Bs@x'},
+    VV = {var, ?A, 'Bs@ok'},
+    EV = {var, ?A, 'Bs@er'},
+    {function, ?A, root_name(Name), 1,
+     [{clause, ?A, [XV], [],
+       [{'case', ?A, {call, ?A, {atom, ?A, Name}, [XV, {nil, ?A}]},
+         [{clause, ?A, [{tuple, ?A, [{atom, ?A, ok}, VV]}], [], [VV]},
+          {clause, ?A, [{tuple, ?A, [{atom, ?A, error}, EV]}], [],
+           [{tuple, ?A, [{atom, ?A, error}, EV]}]}]}]}]}.
+
+root_name(Name)   -> list_to_atom(atom_to_list(Name) ++ "@r").
+walker_name(Name) -> list_to_atom(atom_to_list(Name) ++ "@e").
+
+validator_form(Ty, Name, Table) ->
+    Err = error_expr(Ty),
+    Clauses = ty_clauses(Ty, Name, Table, Err)
+              ++ [{clause, ?A, [{var, ?A, '_'}], [], [Err]}],
+    Fn = {function, ?A, Name, 2,
+          [{clause, ?A, [?VV, ?VP], [], [{'case', ?A, ?VV, Clauses}]}]},
+    [Fn | walker_form(Ty, Name, Table, Err)].
+
+%% THE SINGLE SITE THAT BUILDS A `ValidationError`, which is why the path is
+%% carried reversed everywhere else: one `lists:reverse/1` per failure rather
+%% than an append per step.
+error_expr(Ty) ->
+    {tuple, ?A,
+     [{atom, ?A, error},
+      {tuple, ?A, [{call, ?A, {remote, ?A, {atom, ?A, lists}, {atom, ?A, reverse}},
+                    [?VP]},
+                   bin_str(bs_types:to_string(Ty))]}]}.
+
+ok_expr() -> {tuple, ?A, [{atom, ?A, ok}, ?VV]}.
+
+ty_clauses(Ty, Name, Table, Err) ->
+    #{atoms := As, ints := Is, tuples := Ts, lists := Ls, maps := Ms,
+      bins := Bs} = Ty,
+    atom_clauses(As)
+    ++ int_clauses(Is)
+    ++ bin_clauses(lists:sort(Bs), Err)
+    ++ tuple_clauses(Ts, Table, Err)
+    ++ list_clauses(Ls, Name)
+    ++ map_clauses(Ms, Table, Err).
+
+atom_clauses({finite, Atoms}) ->
+    [{clause, ?A, [{atom, ?A, A}], [], [ok_expr()]} || A <- Atoms];
+%% The cofinite case is ticket 10's open atom universe: `atom \ :ok` has no
+%% finite spelling, so it is tested as membership minus the exclusions.
+atom_clauses({cofinite, Excluded}) ->
+    Tests = [guard_call(is_atom, [?VV])
+             | [{op, ?A, '=/=', ?VV, {atom, ?A, E}} || E <- Excluded]],
+    [{clause, ?A, [{var, ?A, '_'}], [Tests], [ok_expr()]}].
+
+int_clauses(Ranges) -> [int_clause(R) || R <- Ranges].
+
+int_clause({Lo, Hi}) ->
+    Tests = [guard_call(is_integer, [?VV])]
+            ++ [{op, ?A, '>=', ?VV, {integer, ?A, Lo}} || is_integer(Lo)]
+            ++ [{op, ?A, '=<', ?VV, {integer, ?A, Hi}} || is_integer(Hi)],
+    {clause, ?A, [{var, ?A, '_'}], [Tests], [ok_expr()]}.
+
+%% TICKET 20 §4's MEMBERSHIP CHECK, WHICH `PRELUDE.md` HAS BEEN RECORDING AS
+%% OWED. `string` is `binary` refined by valid UTF-8 — a SUBSET, not a second
+%% type — so the part is a powerset of {valid, invalid} and each of its three
+%% inhabited values gets the check its meaning requires. Until now a literal was
+%% the only thing that could establish the property, and it did so at compile
+%% time; this establishes it for a term that arrived from outside.
+bin_clauses([], _Err) -> [];
+bin_clauses([other, utf8], _Err) ->
+    [{clause, ?A, [{var, ?A, '_'}], [[guard_call(is_binary, [?VV])]], [ok_expr()]}];
+bin_clauses([utf8], Err) ->
+    [{clause, ?A, [{var, ?A, '_'}], [[guard_call(is_binary, [?VV])]],
+      [utf8_case(ok_expr(), Err)]}];
+bin_clauses([other], Err) ->
+    [{clause, ?A, [{var, ?A, '_'}], [[guard_call(is_binary, [?VV])]],
+      [utf8_case(Err, ok_expr())]}].
+
+%% `unicode:characters_to_list/2` answers with a list, or with `{error, _, _}` /
+%% `{incomplete, _, _}`. The list is the only success, so it is the only clause
+%% that needs naming.
+utf8_case(Valid, Invalid) ->
+    UV = {var, ?A, 'Bs@u'},
+    {'case', ?A,
+     {call, ?A, {remote, ?A, {atom, ?A, unicode}, {atom, ?A, characters_to_list}},
+      [?VV, {atom, ?A, utf8}]},
+     [{clause, ?A, [UV], [[guard_call(is_list, [UV])]], [Valid]},
+      {clause, ?A, [{var, ?A, '_'}], [], [Invalid]}]}.
+
+tuple_clauses(top, _Table, _Err) ->
+    [{clause, ?A, [{var, ?A, '_'}], [[guard_call(is_tuple, [?VV])]], [ok_expr()]}];
+tuple_clauses(Products, Table, Err) ->
+    [tuple_case(C, Table, Err) || C <- tuple_cases(Products)].
+
+%% A SINGLE CANDIDATE — the constructor has already chosen, so the descent is
+%% unambiguous and blame is exact. `Fixed` is the discriminating position when
+%% there was one: its literal goes in the pattern, which is both what makes the
+%% clauses disjoint and what saves a call.
+tuple_case({one, Fixed, P}, Table, _Err) ->
+    Slots = [slot(I, Fixed, C, "Bs@c") || {I, C} <- indexed(P)],
+    Steps = [{C, V, bin_str("(" ++ integer_to_list(I) ++ ")")}
+             || {{I, C}, V} <- lists:zip(indexed(P), Slots),
+                I =/= Fixed, checked(C)],
+    {clause, ?A, [{tuple, ?A, Slots}], [], [chain(Steps, Table, 1)]};
+%% SEVERAL — nothing structural chooses between them, so each is tried and the
+%% blame stays at this node with this node's whole type as the expectation.
+%% Descending into a guessed candidate would be blame tracking, which nothing has
+%% decided.
+tuple_case({alts, Ps}, Table, Err) ->
+    Wilds = [{var, ?A, '_'} || _ <- hd(Ps)],
+    {clause, ?A, [{tuple, ?A, Wilds}], [],
+     [alternatives([bs_types:tuple(P) || P <- Ps], Table, Err)]}.
+
+%% The discriminating slot is matched literally; everything else is a name, or
+%% `_` where nothing checks it.
+slot(Slot, Slot, Ty, _Prefix) ->
+    {tag, A} = tag_of(Ty),
+    {atom, ?A, A};
+slot(Slot, _Fixed, Ty, Prefix) -> component_var(Prefix, Slot, Ty).
+
+list_clauses({false, none}, _Name) -> [];
+list_clauses({true, none}, _Name)  -> [nil_clause()];
+list_clauses({Nil, _Elem}, Name) ->
+    [nil_clause() || Nil] ++ [cons_clause(Name)].
+
+nil_clause() -> {clause, ?A, [{nil, ?A}], [], [ok_expr()]}.
+
+%% `[_|_]` rather than a guard, because `is_list/1` is true of an IMPROPER list
+%% and `[1|2]` inhabits no `list<T>`. The walker decides properness on the way
+%% down, which is the only place the tail is visible.
+cons_clause(Name) ->
+    EV = {var, ?A, 'Bs@le'},
+    {clause, ?A, [{cons, ?A, {var, ?A, '_'}, {var, ?A, '_'}}], [],
+     [{'case', ?A,
+       {call, ?A, {atom, ?A, walker_name(Name)}, [?VV, {integer, ?A, 0}, ?VP]},
+       [{clause, ?A, [{atom, ?A, ok}], [], [ok_expr()]},
+        {clause, ?A, [{tuple, ?A, [{atom, ?A, error}, EV]}], [],
+         [{tuple, ?A, [{atom, ?A, error}, EV]}]}]}]}.
+
+walker_form(#{lists := {_, none}}, _Name, _Table, _Err) -> [];
+walker_form(#{lists := {_, any}}, Name, _Table, Err)    -> [walker(Name, none, Err)];
+walker_form(#{lists := {_, Elem}}, Name, Table, Err) ->
+    case checked(Elem) of
+        true  -> [walker(Name, maps:get(Elem, Table), Err)];
+        false -> [walker(Name, none, Err)]
+    end.
+
+%% The element index is the one path segment computed at RUN time, since the
+%% length of the list is not a compile-time fact.
+walker(Name, Sub, Err) ->
+    W  = walker_name(Name),
+    IV = {var, ?A, 'Bs@i'},
+    TV = {var, ?A, 'Bs@t'},
+    HV = {var, ?A, 'Bs@h'},
+    {HeadPat, Step} =
+        case Sub of
+            none ->
+                {{cons, ?A, {var, ?A, '_'}, TV},
+                 {call, ?A, {atom, ?A, W}, [TV, IV, ?VP]}};
+            VName ->
+                EV = {var, ?A, 'Bs@we'},
+                {{cons, ?A, HV, TV},
+                 {'case', ?A,
+                  {call, ?A, {atom, ?A, VName},
+                   [HV, {cons, ?A, index_segment(IV), ?VP}]},
+                  [{clause, ?A, [{tuple, ?A, [{atom, ?A, ok}, {var, ?A, '_'}]}], [],
+                    [{call, ?A, {atom, ?A, W},
+                      [TV, {op, ?A, '+', IV, {integer, ?A, 1}}, ?VP]}]},
+                   {clause, ?A, [{tuple, ?A, [{atom, ?A, error}, EV]}], [],
+                    [{tuple, ?A, [{atom, ?A, error}, EV]}]}]}}
+        end,
+    {function, ?A, W, 3,
+     [{clause, ?A, [{nil, ?A}, {var, ?A, '_'}, {var, ?A, '_'}], [], [{atom, ?A, ok}]},
+      {clause, ?A, [HeadPat, IV, ?VP], [], [Step]},
+      %% An improper tail. The blame is the list, not an element of it.
+      {clause, ?A, [{var, ?A, '_'}, {var, ?A, '_'}, ?VP], [], [Err]}]}.
+
+index_segment(IV) ->
+    {call, ?A, {remote, ?A, {atom, ?A, erlang}, {atom, ?A, iolist_to_binary}},
+     [{cons, ?A, {integer, ?A, $[},
+       {cons, ?A, {call, ?A, {remote, ?A, {atom, ?A, erlang},
+                              {atom, ?A, integer_to_list}}, [IV]},
+        {cons, ?A, {integer, ?A, $]}, {nil, ?A}}}}]}.
+
+map_clauses(top, _Table, _Err) ->
+    [{clause, ?A, [{var, ?A, '_'}], [[guard_call(is_map, [?VV])]], [ok_expr()]}];
+map_clauses(Members, Table, Err) ->
+    [map_case(C, Table, Err) || C <- map_cases(Members)].
+
+map_case({one, Fixed, {Kind, Fs}}, Table, _Err) ->
+    Pairs = [{K, maps:get(K, Fs)} || K <- lists:sort(maps:keys(Fs))],
+    Slots = [map_slot(K, Fixed, T, I) || {I, {K, T}} <- indexed(Pairs)],
+    Pat   = {map, ?A, [{map_field_exact, ?A, {atom, ?A, K}, V}
+                       || {{K, _}, V} <- lists:zip(Pairs, Slots)]},
+    Steps = [{T, V, bin_str([$. | atom_to_list(K)])}
+             || {{K, T}, V} <- lists:zip(Pairs, Slots),
+                K =/= Fixed, checked(T)],
+    {clause, ?A, [Pat], closed_guard(Kind, length(Pairs)),
+     [chain(Steps, Table, 1)]};
+map_case({alts, Ms = [{Kind, Fs} | _]}, Table, Err) ->
+    Keys = lists:sort(maps:keys(Fs)),
+    Pat  = {map, ?A, [{map_field_exact, ?A, {atom, ?A, K}, {var, ?A, '_'}}
+                      || K <- Keys]},
+    {clause, ?A, [Pat], closed_guard(Kind, length(Keys)),
+     [alternatives([member_ty(M) || M <- Ms], Table, Err)]}.
+
+map_slot(Key, Key, Ty, _I) ->
+    {tag, A} = tag_of(Ty),
+    {atom, ?A, A};
+map_slot(_Key, _Fixed, Ty, I) -> component_var("Bs@f", I, Ty).
+
+%% TICKET 26 §4 — a declared map type is CLOSED, so an extra key is a different
+%% type and must be rejected. `#{a := _}` alone would accept it.
+closed_guard(closed, N) ->
+    [[{op, ?A, '=:=', {call, ?A, {atom, ?A, map_size}, [?VV]}, {integer, ?A, N}}]];
+closed_guard(open, _N) ->
+    [].
+
+%% The descent. Each step validates one child under an extended path, and the
+%% first failure is returned unchanged — the deepest blame wins because it is the
+%% only one built.
+chain([], _Table, _N) -> ok_expr();
+chain([{SubTy, Value, Segment} | Rest], Table, N) ->
+    EV = {var, ?A, list_to_atom("Bs@e" ++ integer_to_list(N))},
+    {'case', ?A,
+     {call, ?A, {atom, ?A, maps:get(SubTy, Table)},
+      [Value, {cons, ?A, Segment, ?VP}]},
+     [{clause, ?A, [{tuple, ?A, [{atom, ?A, ok}, {var, ?A, '_'}]}], [],
+       [chain(Rest, Table, N + 1)]},
+      {clause, ?A, [{tuple, ?A, [{atom, ?A, error}, EV]}], [],
+       [{tuple, ?A, [{atom, ?A, error}, EV]}]}]}.
+
+%% Try each candidate; discard its blame and report this node's. Discarding is
+%% the point — a failed alternative's path describes a shape the value was never
+%% claimed to have.
+alternatives([], _Table, Err) -> Err;
+alternatives([Ty | Rest], Table, Err) ->
+    {'case', ?A, {call, ?A, {atom, ?A, maps:get(Ty, Table)}, [?VV, ?VP]},
+     [{clause, ?A, [{tuple, ?A, [{atom, ?A, ok}, {var, ?A, '_'}]}], [], [ok_expr()]},
+      {clause, ?A, [{tuple, ?A, [{atom, ?A, error}, {var, ?A, '_'}]}], [],
+       [alternatives(Rest, Table, Err)]}]}.
+
+%% A component nobody checks gets `_` rather than a name, so the generated module
+%% compiles without an unused-variable warning for every `term` field.
+component_var(Prefix, I, Ty) ->
+    case checked(Ty) of
+        true  -> {var, ?A, list_to_atom(Prefix ++ integer_to_list(I))};
+        false -> {var, ?A, '_'}
+    end.
+
+indexed(L) -> lists:zip(lists:seq(1, length(L)), L).
+
+bin_str(S) ->
+    {bin, ?A, [{bin_element, ?A, {string, ?A, lists:flatten(S)}, default, default}]}.
+
+guard_call(F, Args) -> {call, ?A, {atom, ?A, F}, Args}.
+
+%% First-appearance order, so the emitted module is stable across runs.
+group_by(KeyFun, Items) ->
+    lists:foldl(fun(I, Acc) ->
+                        K = KeyFun(I),
+                        case lists:keyfind(K, 1, Acc) of
+                            false   -> Acc ++ [{K, [I]}];
+                            {K, Is} -> lists:keyreplace(K, 1, Acc, {K, Is ++ [I]})
+                        end
+                end, [], Items).
 
 %%% ---------------------------------------------------------------------------
 %%% Serialisation

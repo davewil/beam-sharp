@@ -100,6 +100,7 @@ check_dir(Sources, World, Expect) ->
     Decls = lists:append([D || {_, D} <- Sources]),
     one_module_per_directory(Sources, Expect),
     [no_function_in_index(P, D) || {P, D} <- Sources],
+    compiler_known_redeclared(Decls),
     Env = type_env(Decls),
     Module = module_name(Decls),
     module_matches_path(Module, Sources, Expect),
@@ -594,12 +595,82 @@ alias(Params, Body) -> {parametric, Params, Body}.
 %%
 %% This implements a decided prelude entry. It does not answer the map's
 %% prelude-stratum fog: nothing here lets a user add to this map.
-prelude() ->
+%%
+%% F18 SPLIT IT IN TWO, and the split is `PRELUDE.md`'s own. Until this feature
+%% the prelude was one flat map, which was accurate while everything in it was
+%% stratum 1 — an ordinary alias a user could have written. `ValidationError` is
+%% not: nothing but the compiler ever constructs one, and the stratum's test is
+%% AUTHORSHIP rather than expressibility. Keeping the two apart in the code is
+%% what stops the next entry being added to the wrong one, since a flat map makes
+%% them look like the same kind of thing.
+prelude() -> maps:merge(stratum_one(), stratum_two()).
+
+%% Stratum 1 — ordinary aliases a user could have written, spelled in the
+%% language's own alias mechanism rather than as a special case in `resolve/2`.
+%% Ticket 10 §5 and ticket 15 §2. Lowercase because the prelude owns that
+%% namespace exactly as `list` does; a user's own parametric alias is PascalCase
+%% like every other user type, so the two cannot collide.
+stratum_one() ->
     #{option => {parametric, ['T'],
                  {t_union, [{t_ref, 'T'}, {t_atom, nothing}]}},
       result => {parametric, ['T', 'E'],
                  {t_union, [{t_ref, 'T'},
                             {t_tuple, [{t_atom, error}, {t_ref, 'E'}]}]}}}.
+
+%% Stratum 2 — compiler-known. What a user could not have written, and what the
+%% compiler draws inferences from. `PRELUDE.md` lists seven entries; this holds
+%% the one F18 needs.
+%%
+%% `ValidationError` is ticket 15 §2's payload for `ValidateAs<T>`: **a path into
+%% the term plus the type expected there**, Gleam's decoder shape. The ticket
+%% fixes the two components and says it is *"spelled as a tuple for now"*, and
+%% notes it is a candidate to become a record if ticket 26 ever lands a form for
+%% one. The SPELLING of a path segment is this feature's assumption, recorded in
+%% `features/F18-validate-as.md` rather than invented here: `".Total"` for a
+%% field, `"[2]"` for a list element, `"(1)"` for a tuple component.
+%%
+%% PascalCase, because it is a type a signature names — `result<Order,
+%% ValidationError>` — and the language's type namespace is PascalCase for
+%% everything that is not a builtin.
+%%
+%% IT IS NOT MADE UNSHADOWABLE BY MERGE ORDER, AND IT MUST NOT BE. `type_env/1`
+%% merges user declarations OVER the prelude, so winning that way would make a
+%% user's `type ValidationError = int` silently take effect and `ValidateAs`'s
+%% return type quietly become something else. `PRELUDE.md` says stratum 2 *"wins
+%% resolution"* and that *"a user may not add to this stratum"* — so the rule is
+%% enforced as a REFUSAL at the declaration (`compiler_known_redeclared/1`),
+%% which is ticket 09's own principle that the diagnostic lands where the fix is.
+%% Winning by shadowing would leave the author with a type error somewhere else
+%% and nothing pointing at the line that caused it.
+stratum_two() ->
+    #{'ValidationError' =>
+          {t_tuple, [{t_generic, list, [{t_builtin, string}]},
+                     {t_builtin, string}]}}.
+
+%% TICKET 28'S CLOSED SET, and the reason it lives in the checker rather than in
+%% the lexer. 28 decided that `<` opens an instantiation bracket after one of
+%% these three names and is a comparison everywhere else. F6 declined to write
+%% the rule because all three were unbuilt and the set was empty; F18 builds the
+%% first, and the parser turns out not to need the restriction at all — a bare
+%% `uident` is not an expression, so `Name<T>(x)` is unambiguous for ANY name.
+%%
+%% So the set is enforced here, where the three cases can be told apart: built,
+%% decided-and-unbuilt, and not an obligation at all. A lexer could only have
+%% produced `syntax error before: '<'` for the last two.
+codegen_obligations() -> ['ValidateAs', 'ParseAtom', 'ToExistingAtom'].
+
+%% Stratum 2's *"a user may not add to this stratum"*, enforced where the fix is.
+%% Every declaration form that introduces a type name is checked, because the
+%% hazard is the NAME being taken, not which syntax took it.
+compiler_known_redeclared(Decls) ->
+    Known = maps:keys(stratum_two()),
+    Declared = [{N, L} || {type_alias,   L, N, _, _} <- Decls]
+            ++ [{N, L} || {type_refined, L, N, _, _} <- Decls]
+            ++ [{N, L} || {record_decl,  L, N, _}    <- Decls],
+    case [{N, L} || {N, L} <- Declared, lists:member(N, Known)] of
+        []             -> ok;
+        [{N, L} | _]   -> erlang:error({compiler_known_type, N, L})
+    end.
 
 %% Ticket 26 §1: a record IS a map type carrying a minted tag, so there is no
 %% record node in the algebra — the declaration desugars to the anonymous map
@@ -1012,6 +1083,9 @@ expr_vars({e_var, _, V})               -> [V];
 expr_vars({e_proj, _, V, _})           -> [V];
 expr_vars({e_tuple, _, Es})            -> lists:append([expr_vars(E) || E <- Es]);
 expr_vars({e_call, _, _, As})          -> lists:append([expr_vars(A) || A <- As]);
+%% F18. The type arguments hold no variables — they are types — so only the value
+%% arguments are walked.
+expr_vars({e_inst, _, _, _, As})       -> lists:append([expr_vars(A) || A <- As]);
 expr_vars({e_foreign_call, _, _, _, As}) -> lists:append([expr_vars(A) || A <- As]);
 expr_vars({e_qcall, _, _, _, As})        -> lists:append([expr_vars(A) || A <- As]);
 expr_vars({e_op, _, _, A, B})          -> expr_vars(A) ++ expr_vars(B);
@@ -1294,6 +1368,49 @@ type_of({e_valve, L, {e_switch, _, Subject, Arms}}, S, C) ->
             {Ty, D1} = switch_over(L, SubjTy, Arms, S, C, generated),
             {Ty, D0 ++ D1}
     end;
+%% F18 — THE CODEGEN-OBLIGATION SITE. `ValidateAs<T>(x)` looks like a call and is
+%% not one: ticket 27 §8 is explicit that `<T>` is a compile-time argument
+%% driving GENERATION, monomorphic at every use, with no type variable surviving
+%% into the runtime or the algebra. So this never reaches `call/6` — there is no
+%% callee to look up, no signature to check the argument against, and the thing
+%% the site synthesises is a type the compiler computed rather than one anybody
+%% declared.
+%%
+%% The argument is synthesised anyway, and discarded. Two reasons: a nested call
+%% inside it must still be checked (`ValidateAs<int>(F(x))`), and there is no
+%% rule to check the argument's type AGAINST. Ticket 11 §2 has the value arriving
+%% as a `term`, but nothing forbids validating something narrower, and inventing
+%% a refusal here would be inventing a decision.
+type_of({e_inst, L, 'ValidateAs', TypeArgs, Args}, S, C) ->
+    {_, D0} = type_of_all(Args, S, C),
+    case {TypeArgs, Args} of
+        {[TypeExpr], [_]} ->
+            %% `resolve/2` raises for an unknown type, a cyclic one and a
+            %% recursive one, and all three already have their diagnostics. This
+            %% site adds none of them: an unknown `T` here is the same mistake as
+            %% an unknown `T` in a signature and should read the same way.
+            Ty = resolve(TypeExpr, C#ctx.types),
+            case validate_collapses(Ty, C#ctx.types) of
+                true  -> {reported(),
+                          D0 ++ [{error, L, C#ctx.fname, {validate_collapses, Ty}}]};
+                false -> {validate_result(Ty, C#ctx.types), D0}
+            end;
+        _ ->
+            {reported(),
+             D0 ++ [{error, L, C#ctx.fname,
+                     {obligation_arity, 'ValidateAs', length(TypeArgs),
+                      length(Args)}}]}
+    end;
+%% The other two members of ticket 28's closed set, and everything outside it.
+%% Told apart because they are different sentences: one is a feature nobody has
+%% built, the other is a name that was never going to work.
+type_of({e_inst, L, Name, _TypeArgs, Args}, S, C) ->
+    {_, D0} = type_of_all(Args, S, C),
+    Reason = case lists:member(Name, codegen_obligations()) of
+                 true  -> {obligation_unbuilt, Name};
+                 false -> {not_an_obligation, Name}
+             end,
+    {reported(), D0 ++ [{error, L, C#ctx.fname, Reason}]};
 type_of({e_call, L, Name, Args}, S, C) ->
     call(L, unqualified_key(Name, length(Args), L, C), Name, Args, S, C);
 %% Ticket 32 dissolved the foreign case before it was asked: a foreign
@@ -1315,6 +1432,30 @@ type_of(_, _S, _C) ->
 %% gets one error rather than a cascade — a failed projection would otherwise
 %% also fail the clause's return check and name a type nobody wrote.
 reported() -> bs_types:none().
+
+%% F18 / ticket 15 §2 as it AMENDS ticket 11: `ValidateAs<T>` returns
+%% `result<T, ValidationError>`, not `T | :error`. Built from the prelude's own
+%% entry rather than from a literal written here, so the two cannot drift.
+validate_result(Ty, Env) ->
+    Err = bs_types:tuple([bs_types:atom_lit(error),
+                          maps:get('ValidationError', Env)]),
+    bs_types:union(Ty, Err).
+
+%% TICKET 15 §1'S PREDICATE, WRITTEN AS THE EQUATION RATHER THAN AS A CASE LIST.
+%% *"Reject an instantiation when `T | <failure member> ≡ T`"* — 15 is emphatic
+%% that stating it as absorption by an atom top would cover only the cases it
+%% happened to measure, while the equation covers all of them with one criterion
+%% and is decidable with the equality the algebra already has.
+%%
+%% A union is always a supertype of its members, so `≡` needs only the one
+%% direction. Measured in this algebra: `atom | (:error, ValidationError)` does
+%% NOT collapse — the tagged member survives, which is 15 §2's whole reason for
+%% giving failure a payload — and `term` is the only instantiation that does,
+%% because only the top absorbs a tuple. That is also the one instantiation that
+%% is vacuous on its own terms: every term inhabits `term`, so the validator
+%% could never fail and the caller would have no failure clause to write.
+validate_collapses(Ty, Env) ->
+    bs_types:is_subtype(validate_result(Ty, Env), Ty).
 
 type_of_all(Es, S, C) ->
     {Tys, Ds} = lists:unzip([type_of(E, S, C) || E <- Es]),

@@ -483,6 +483,32 @@ expr -> '_'      : {e_wild, line('$1')}.
 call -> uident '(' expr_list ')' : {e_call, line('$1'), value('$1'), '$3'}.
 call -> uident '(' ')'           : {e_call, line('$1'), value('$1'), []}.
 
+%% F18 — THE INSTANTIATION BRACKET, and this is where ticket 28's closed-set rule
+%% finally has something to act on. F6 declined to write it and said why: the set
+%% is `ValidateAs`, `ParseAtom` and `ToExistingAtom`, all three were unbuilt, and
+%% a rule over an empty set is a no-op. F18 builds the first of them.
+%%
+%% 28 frames the rule as LEXICAL — `<` opens a bracket after one of those names
+%% and is a comparison everywhere else — which on `leex` means a post-lex retag,
+%% since a scanner has no context. It is not needed. A bare `uident` IS NOT AN
+%% EXPRESSION in this grammar: the only tokens that may follow one are `(`, `{`
+%% and `.`, so no `uident` can ever be the left operand of `expr '<' expr` and
+%% this production cannot conflict with it. `yecc` reports no new conflict.
+%%
+%% The observable surface is 28's rule exactly — `Foo < 3` was a syntax error
+%% before this production and is one after it. What moves is WHERE the closed set
+%% is enforced: `bs_check` refuses a name outside it by name, which is a better
+%% error than `syntax error before: '<'` and is the only place that can tell
+%% "not a codegen obligation" from "decided, and not built yet".
+%%
+%% The empty argument list is not decoration. Ticket 18 §7 writes
+%% `EtsLookup(:orders, id) |> ValidateAs<list<Order>>()`, and `expr '|>' call`
+%% means the pipe's right operand must parse as a `call` with no arguments.
+call -> uident '<' type_list '>' '(' expr_list ')' :
+    {e_inst, line('$1'), value('$1'), '$3', '$6'}.
+call -> uident '<' type_list '>' '(' ')' :
+    {e_inst, line('$1'), value('$1'), '$3', []}.
+
 %% `:ets.lookup(t, k)` — an atom literal on the left, so no variable and no
 %% casing convention is involved in telling this from a field projection.
 call -> atom_lit '.' lident '(' expr_list ')' :

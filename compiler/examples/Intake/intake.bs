@@ -1,0 +1,49 @@
+// intake.bs -- the boundary, and the one construct that crosses it (F18,
+// tickets 11 §2, 15 §2, 27 §8).
+//
+//     bsc --src-root examples examples/Intake Decode "[]"
+//         -> []
+//     bsc --src-root examples examples/Intake Decode "[{ Kind = :'Intake.Reading', Sensor = \"t1\", Value = 21 }]"
+//         -> the list, unchanged
+//     bsc --src-root examples examples/Intake Decode "[{ Kind = :'Intake.Reading', Sensor = \"t1\", Value = :warm }]"
+//         -> (:error, (["[0]", ".Value"], "int"))
+//     bsc --src-root examples examples/Intake Verdict 7
+//         -> :rejected
+//
+// THE PROPERTY WORTH LOOKING AT is that nothing below says how to walk a list of
+// records. `ValidateAs<T>` is a CODEGEN OBLIGATION: the compiler reads the type
+// argument, generates a traversal for that one concrete type, and lowers the
+// call site to a plain local call of it. There is no `ValidateAs` function in
+// the emitted `.beam`, no dispatch on a type at run time, and no type variable
+// anywhere -- which is why ticket 27 can hold that this is not a generic call
+// even though the language now has real generics.
+//
+// AND THE FAILURE IS A VALUE, NOT A CRASH. Ticket 15 gave it a payload for a
+// reason that is not politeness: `T | :error` COLLAPSES for the very types a
+// deep validator is generated over, because a bare atom is absorbed by the atom
+// top. The tagged member survives, and it carries a path into the term plus the
+// type expected there -- so `Verdict` below can be written at all.
+module Intake
+
+record Reading { Sensor: string, Value: int }
+
+// A foreign term arrives as `term` and stays one until something looks (11 §2).
+// A clause head may only ask what a BEAM guard decides in O(1), so `list<term>`
+// is writable in a head and `list<Reading>` is not -- the traversal is O(n) and
+// the SENDER chooses n. That is the whole reason this construct is an explicit
+// call at a visible site rather than something a pattern can do.
+public result<list<Reading>, ValidationError> Decode(term t)
+
+Decode(t) -> ValidateAs<list<Reading>>(t)
+
+// Reading the result is ordinary branching, because the failure is an ordinary
+// value. The path in the error names where the term went wrong and the second
+// component names what was expected there -- Gleam's decoder shape, and the
+// only precedent that hands a caller something to act on rather than a fact it
+// already knew.
+public atom Verdict(term t)
+
+Verdict(t) -> Decode(t) switch {
+    (:error, e) => :rejected,
+    readings    => :accepted
+}

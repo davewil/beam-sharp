@@ -309,6 +309,7 @@ module.exports = grammar({
       $.variable,
       $.wildcard,
       $.call,
+      $.instantiation,
       $.foreign_call,
       $.qualified_call,
       $.string,
@@ -324,6 +325,22 @@ module.exports = grammar({
 
     call: $ => seq(
       field('function', $.function_name),
+      '(', optional(commaSep1($._expression)), ')',
+    ),
+
+    // F18 — the instantiation bracket in EXPRESSION position, which is the half
+    // ticket 28's rule is actually about: in type position nothing compares, so
+    // the bracket was never ambiguous there. Here it would be, except that a
+    // bare `uident` is not an expression in this language — so `Name<T>(x)` has
+    // exactly one reading and `Foo < 3` is still a syntax error.
+    //
+    // The grammar admits ANY `uident`, exactly as the compiler's parser does.
+    // Which names are codegen obligations is a fact the checker holds, and a
+    // grammar that hardcoded the three would go stale the day a fourth lands
+    // while colouring the other two as if they were built.
+    instantiation: $ => seq(
+      field('obligation', $.type_identifier),
+      '<', commaSep1($.type_expression), '>',
       '(', optional(commaSep1($._expression)), ')',
     ),
 
@@ -424,7 +441,8 @@ module.exports = grammar({
     pipe_expression: $ => prec.left(PREC.pipe, seq(
       field('left', $._expression),
       field('operator', choice('|>', '|?>')),
-      field('right', choice($.call, $.foreign_call, $.qualified_call)),
+      field('right', choice($.call, $.instantiation, $.foreign_call,
+                            $.qualified_call)),
     )),
 
     // --- switch (ticket 17 §6, F7) -------------------------------------------

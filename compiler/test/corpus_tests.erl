@@ -136,7 +136,20 @@ demonstrated_surface() ->
      %% question it is a sentence about: is anything actually piped into a call.
      %% Pinned below, both ways.
      {"a pipe into a call",                      "\\|> [A-Z]"},
-     {"a valve into a call",                     "\\|\\?> [A-Z]"}].
+     {"a valve into a call",                     "\\|\\?> [A-Z]"},
+     %% F18. Two rows, because they are two sentences: that a type argument can
+     %% be handed to a codegen obligation, and that the failure it answers with
+     %% has a NAME a signature can be written against. The second is the one
+     %% that would rot quietly — a corpus could call `ValidateAs<T>` and throw
+     %% the result away, leaving `ValidationError` with nothing to look at even
+     %% though every program that uses the first must spell the second.
+     %%
+     %% The instantiation probe needs no pin. It is anchored on a compiler-known
+     %% name immediately followed by `<`, and ticket 28 made that sequence
+     %% unambiguous in the grammar itself: nothing else in the language can
+     %% produce it, so there is no near-miss for it to drift into.
+     {"a codegen obligation instantiated",       "ValidateAs<"},
+     {"ValidationError as a declared type",      "ValidationError>"}].
 
 every_shipped_surface_form_has_an_example_test() ->
     Dir = project_root() ++ "/examples",

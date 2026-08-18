@@ -699,6 +699,43 @@ Patterns over a `term` may only ask what one BEAM guard decides in **O(1)**. Dee
 explicit call to a generated `ValidateAs<T>`, which returns `result<T, ValidationError>` — because
 a dispatch construct must not do unbounded work whose size a foreign sender chooses.
 
+<!-- check:
+record Reading { Sensor: string, Value: int }
+-->
+```csharp
+public result<list<Reading>, ValidationError> Decode(term t)
+
+Decode(t) -> ValidateAs<list<Reading>>(t)
+```
+
+**shipped** — `examples/Intake` runs it. Handed a list holding one reading whose `Value` is
+`:warm`, `Decode` returns `(:error, (["[0]", ".Value"], "int"))`; handed a well-formed one it
+returns the list unchanged.
+
+`ValidateAs<T>` is a **codegen obligation, not a call**. The compiler reads the type argument,
+generates a traversal for that one concrete type, and lowers the call site to a local call of it —
+so `<T>` never becomes a runtime value and no type variable survives into the algebra. `T` must be
+**ground**: a codegen obligation cannot be generated for a type nobody has chosen yet, which is why
+`ValidateAs<TSource>` inside a polymorphic function is an error rather than a generic call.
+
+**`ValidationError` is a path into the term plus the type expected there** — a `(list<string>,
+string)` today, and a candidate to become a record if one is ever introduced for it. A path segment
+is spelled the way you would reach that place: `".Value"` for a field, `"[0]"` for a list element,
+`"(2)"` for a tuple component. An empty path means the term itself was wrong.
+
+The bracket is admitted after **exactly three** compiler-known names — `ValidateAs<T>`,
+`ParseAtom<T>` and `ToExistingAtom` — and after nothing else, which is what keeps `<` a comparison
+everywhere in the language. Of the three, only `ValidateAs<T>` is built; the other two are refused
+by name.
+<!-- decided by tickets 11 §2, 15 §2, 27 §8 and 28; built as F18 -->
+
+**Validating against `term` is an error.** `result<term, ValidationError>` normalises straight back
+to `term`, so the failure channel does not survive and no caller could write the failure clause.
+The rule is general — an instantiation whose union with its own failure member is the type it
+started from is refused — and `term` is the only one that trips it.
+<!-- the general rule is ticket 15 §1's, met at an instantiation rather than at a declaration -->
+
+
 **A declared type at an entry is checked.** Where generated code consumes a value, a guard is
 emitted, always, with no opt-out. The guarantee is:
 

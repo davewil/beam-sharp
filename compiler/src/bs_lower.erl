@@ -58,7 +58,13 @@ pipe_into(L, Value, {e_call, _, Name, Args}) ->
 pipe_into(L, Value, {e_qcall, _, Mod, Fun, Args}) ->
     {e_qcall, L, Mod, Fun, [Value | Args]};
 pipe_into(L, Value, {e_foreign_call, _, Mod, Fun, Args}) ->
-    {e_foreign_call, L, Mod, Fun, [Value | Args]}.
+    {e_foreign_call, L, Mod, Fun, [Value | Args]};
+%% F18. A codegen obligation is a `call` in the grammar, so the pipe reaches it —
+%% and ticket 18 §7 writes exactly that shape as the decode step:
+%% `EtsLookup(:orders, id) |> ValidateAs<list<Order>>()`. The piped value joins
+%% the VALUE arguments; the bracket holds types and takes nothing from a pipe.
+pipe_into(L, Value, {e_inst, _, Name, TypeArgs, Args}) ->
+    {e_inst, L, Name, TypeArgs, [Value | Args]}.
 
 %%% ---------------------------------------------------------------------------
 %%% The valve

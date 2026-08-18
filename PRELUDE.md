@@ -77,11 +77,12 @@ has been withdrawn.
 
 | Entry | What it is | Status | Ticket |
 |---|---|---|---|
-| `ValidateAs<T>` | codegen: validates a foreign term against `T`, returns `result<T, ValidationError>` | **decided** | 11, amended by 15 |
+| `ValidateAs<T>` | codegen: validates a foreign term against `T`, returns `result<T, ValidationError>` | **built** — F18 | 11, amended by 15 |
+| `ValidationError` | the reason: a path into the term plus the type expected there, `(list<string>, string)` | **built** — F18. The spelling of a path segment is F18's recorded assumption, not a decision | 15 §2 |
 | `ParseAtom<T>` | codegen: parses to a **finite atom union**; a cofinite `T` is an error | **decided** | 10 §4 |
 | `ToExistingAtom` | the genuine interop escape — a peer node's reply, a dynamically named atom | **owed** — must be respelled | 10 §5, 15 §1 |
 | `foreign_error` | the foreign failure type | **decided** | 15 |
-| `string` | `binary` refined by valid UTF-8 | **built** — F9, as a *type*. The generated membership check is **still owed**: a literal establishes the property at compile time, and nothing else can establish it at all yet | 20 |
+| `string` | `binary` refined by valid UTF-8 | **built** — F9 as a *type*; F18 generates the membership check **inside `ValidateAs<T>`** and nowhere else, so a term from outside can now establish the property that only a literal could before | 20 |
 | a serialisation encoder | the fifth codegen obligation, generated against a type | **decided** | 16 §4 |
 | OTP message shapes | `Down`, `Exit`, `Timeout` | **decided** | 14 §6 |
 

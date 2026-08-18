@@ -205,6 +205,25 @@ descriptor(Path, {Sev, Line, Fn, {unknown_record, Name}}) ->
 descriptor(Path, {Sev, Line, Fn, wildcard_as_value}) ->
     (at(Sev, Path, Line, Fn))#{tag => wildcard_as_value};
 
+%%% --- F18, the codegen-obligation site ---------------------------------------
+
+%% Ticket 15 §1's collapse, met at an instantiation rather than at a declaration.
+%% The descriptor carries the TYPE, not the finished sentence, so a consumer can
+%% see which instantiation was asked for.
+descriptor(Path, {Sev, Line, Fn, {validate_collapses, Ty}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => validate_collapses,
+                               type => bs_types:to_string(Ty)};
+descriptor(Path, {Sev, Line, Fn, {obligation_arity, Name, Types, Args}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => obligation_arity,
+                               obligation => Name,
+                               type_args => Types, args => Args};
+descriptor(Path, {Sev, Line, Fn, {obligation_unbuilt, Name}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => obligation_unbuilt, obligation => Name};
+descriptor(Path, {Sev, Line, Fn, {not_an_obligation, Name}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => not_an_obligation, name => Name,
+                               obligations => ['ValidateAs', 'ParseAtom',
+                                               'ToExistingAtom']};
+
 %%% ---------------------------------------------------------------------------
 %%% The fatal ones — lexing and reading, before there is a function to name
 %%% ---------------------------------------------------------------------------
@@ -277,6 +296,13 @@ descriptor(Path, {cyclic_type, N}) ->
     #{tag => cyclic_type, severity => error, file => Path, type => N};
 descriptor(Path, {recursive_type, N}) ->
     #{tag => recursive_type, severity => error, file => Path, type => N};
+%% F18. Stratum 2 of the prelude is compiler-known and a user may not add to it
+%% (`PRELUDE.md`, ticket 27 §8). Refused at the DECLARATION rather than resolved
+%% by shadowing, because the alternative is a type error somewhere else with
+%% nothing pointing at the line that caused it.
+descriptor(Path, {compiler_known_type, Name, Line}) ->
+    #{tag => compiler_known_type, severity => error, file => Path, line => Line,
+      type => Name};
 descriptor(Path, {kind_field_is_minted, Line, Name}) ->
     #{tag => kind_field_is_minted, severity => error, file => Path, line => Line,
       record => Name};
@@ -559,6 +585,54 @@ message(#{tag := wildcard_as_value, file := P, line := L, function := Fn}) ->
      "  `_` is a pattern. It may stand on the left of `=` or in a~n"
      "  clause head; it names nothing to read back.~n",
      [P, L, Fn]};
+
+%%% --- F18 ---------------------------------------------------------------------
+
+%% The message says WHY rather than only what, because the rule is not obvious
+%% and the fix is to want something else entirely.
+message(#{tag := validate_collapses, file := P, line := L, function := Fn,
+          type := Ty}) ->
+    {"~s:~p: error: ~s validates against a type that absorbs its own~n"
+     "  failure channel~n"
+     "  the type is: ~s~n"
+     "  `result<T, ValidationError>` over it normalises straight back to~n"
+     "  T, so the validator could only ever succeed and no caller could~n"
+     "  write the failure clause. Validate against the type you actually~n"
+     "  expect.~n",
+     [P, L, Fn, Ty]};
+message(#{tag := obligation_arity, file := P, line := L, function := Fn,
+          obligation := Name, type_args := Types, args := Args}) ->
+    {"~s:~p: error: ~s writes ~s with ~p type arguments and ~p values~n"
+     "  ~s is a codegen obligation, not a function: it takes exactly one~n"
+     "  type argument and one value. The bracket names the type to~n"
+     "  generate a check for, the parentheses hold the term to check.~n"
+     "  Write `~s<T>(x)`.~n",
+     [P, L, Fn, Name, Types, Args, Name, Name]};
+%% Two different sentences, and the difference is the whole value of having the
+%% closed set in the checker rather than in the lexer: one is "wait for us", the
+%% other is "that was never going to work".
+message(#{tag := obligation_unbuilt, file := P, line := L, function := Fn,
+          obligation := Name}) ->
+    {"~s:~p: error: ~s uses ~s, which is decided and not built yet~n"
+     "  the instantiation bracket admits it — ticket 28 fixed the set of~n"
+     "  names it may follow — but this compiler generates nothing for it.~n"
+     "  ValidateAs<T> is the one that is built.~n",
+     [P, L, Fn, Name]};
+message(#{tag := not_an_obligation, file := P, line := L, function := Fn,
+          name := Name, obligations := Names}) ->
+    {"~s:~p: error: ~s writes ~s<...>, and ~s is not a codegen obligation~n"
+     "  user code has no instantiation syntax: a type argument is written~n"
+     "  only after a compiler-known name, which is ~s.~n"
+     "  Everywhere else `<` is a comparison.~n",
+     [P, L, Fn, Name, Name,
+      lists:join(", ", [atom_to_list(N) || N <- Names])]};
+message(#{tag := compiler_known_type, file := P, line := L, type := Name}) ->
+    {"~s:~p: error: ~s is a compiler-known type and cannot be redeclared~n"
+     "  the prelude has two strata: ordinary aliases you could have~n"
+     "  written, and names the compiler owns because it is the only thing~n"
+     "  that builds a value of them. ~s is in the second. Pick another~n"
+     "  name.~n",
+     [P, L, Name, Name]};
 
 %%% --- the fatal ones ---------------------------------------------------------
 

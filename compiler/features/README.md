@@ -106,6 +106,7 @@ Erlang back to the decision that required it is one grep.
 | [F14 — the pipe and the valve](F14-pipe-and-valve.md) | **done 2026-08-18** · [ENG-223](https://linear.app/davewil/issue/ENG-223) | 25a's admission chain and the decode pipelines in 25b and 25c — and **ticket 31** now has a running operator to measure rather than argue about |
 | [F17 — the compiler query mode](F17-compiler-query-mode.md) | **done 2026-08-18** | nothing with a file — it is 23 §10, the other half of what an agent can ask the compiler, and the first consumer of F16's channel that is not a diagnostic |
 | [F15 — a module is a directory](F15-module-is-a-directory.md) | **done 2026-08-17** | the *other* half of the module system; `index.bs`, and 41 §4/§5's two checks — both now built |
+| [F18 — `ValidateAs<T>`, the generated deep validator](F18-validate-as.md) | **done 2026-08-18** | 18 §6's decode step, which 18 §7 writes and nothing could compile; the `list<term>` **plus `ValidateAs<T>`** half of LANGUAGE.md §11 — and it makes ticket 28's closed set non-empty for the first time |
 
 **F16 IS BUILT, AND WHAT IT REVEALED IS THAT A REQUIREMENT CAN BE WRITTEN WHERE NOBODY WILL BUILD
 IT — 2026-08-18.** The diagnostic is a term: `bsc --diagnostics term` publishes a descriptor for
