@@ -18,7 +18,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 -import(bs_test_support, [compile/1, build_and_load/2, check_only/1,
-                          escript/0, run_cli/1, with_src/3]).
+                          escript/0, run_cli/1, with_src/3, built/0]).
 
 -define(OUT, "/tmp/bsc_eunit").
 
@@ -226,7 +226,7 @@ a_payload_other_than_foreign_error_is_refused_test() ->
 %% Driven through the CLI for the same reason: `bs_diag:message/1` returning the
 %% right string proves nothing about whether anything calls it.
 the_refusal_reaches_the_author_as_prose_test() ->
-    case filelib:is_regular(escript()) of
+    case built() of
         false -> ok;
         true ->
             Src = "module Fw9\n"
