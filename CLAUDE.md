@@ -55,3 +55,25 @@ Reading a whole body file is almost never necessary and costs 400–800 lines.
   sanctioned for the walking skeleton only — see the map's Notes.
 - One ticket resolved per session, except research tickets which may run in parallel.
 - Claim a ticket (`Status: claimed`) before doing any work on it.
+
+## The failing test and the gate come first (David, 2026-08-18)
+
+**When a feature is asked for, write the failing test AND the gate before the
+implementation.** Not after it, and not alongside it. The order is the point: a check
+written after the code is written to agree with it.
+
+**Nothing is done until the gates pass twice from a clean checkout.** Twice, and clean
+both times — not two runs in the same tree. `spec-check.sh` caches a PLT under
+`$TMPDIR` and `fixture_root/0` seeds off the OS pid, so a second run in a warm tree is
+not an independent measurement of the first. Set `SPEC_CHECK_DIR` per run.
+
+**A gate is believed only once it has been seen to fail.** Every gate carries a
+`--self-test` that builds the defect it names, requires a red, and requires a green on
+the correct form standing beside it. Both halves: a check that fires on everything
+passes the first half and is worthless. This is `spec-check.sh`'s rule from ticket 15,
+which lost a session to a harness that supplied the protection it was measuring.
+
+The self-tests earn this. `check-shell.sh` was first written at severity `warning`,
+where the tree was already clean — and its own self-test failed, because SC2086, the
+word-splitting check it exists for, is classified `info`. It would have passed forever
+while unable to see the class it was written for.

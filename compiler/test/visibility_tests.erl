@@ -276,10 +276,4 @@ naming_a_private_function_at_the_cli_says_it_is_private_test() ->
 said(Out, What)   -> ?assertNotEqual(nomatch, string:find(Out, What)).
 silent(Out, What) -> ?assertEqual(nomatch, string:find(Out, What)).
 
-built() ->
-    case filelib:is_regular(escript()) of
-        true  -> true;
-        false ->
-            io:format(user, "  SKIPPED (no escript — run `rebar3 escriptize`)~n", []),
-            false
-    end.
+built() -> bs_test_support:built().

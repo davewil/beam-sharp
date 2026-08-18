@@ -54,7 +54,7 @@ a_call_with_the_right_record_compiles_test() ->
 %% edit to the function being checked rather than to the callee: ticket 18 §4's
 %% function-local rule showing up in a diagnostic.
 the_call_site_residual_is_the_callers_clause_head_test() ->
-    case filelib:is_regular(escript()) of
+    case bs_test_support:built() of
         false -> ok;
         true ->
             Src = docs_src() ++

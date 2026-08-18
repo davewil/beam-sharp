@@ -27,7 +27,7 @@ out(Args) -> os:cmd(escript() ++ " " ++ Args ++ " 2>/dev/null").
 err(Args) -> os:cmd(escript() ++ " " ++ Args ++ " 2>&1 1>/dev/null").
 
 guarded(Fun) ->
-    case filelib:is_regular(escript()) of
+    case bs_test_support:built() of
         false -> ok;
         true  -> Fun()
     end.

@@ -184,7 +184,7 @@ a_contractive_alias_is_an_unbuilt_feature_test() ->
 %% algebra YET", and the whole defect was that `type X = X | int` was told to
 %% wait for a feature that cannot exist.
 the_two_refusals_read_differently_test() ->
-    case filelib:is_regular(escript()) of
+    case bs_test_support:built() of
         false -> ok;
         true ->
             Bad = "module E\ntype X = X | int\n"

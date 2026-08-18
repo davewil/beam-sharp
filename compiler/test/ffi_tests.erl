@@ -57,7 +57,7 @@ no_semicolon_is_needed_test() ->
     ?assertMatch({ok, _, []}, check_only(Src)).
 
 a_stray_semicolon_says_what_to_do_test() ->
-    case filelib:is_regular(escript()) of
+    case bs_test_support:built() of
         false -> ok;
         true ->
             Src = "module T\npublic int F(int n)\nF(n) when n > 0 -> n;\nF(n) when n <= 0 -> 0\n",

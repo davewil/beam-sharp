@@ -80,6 +80,9 @@ rendered=$(grep -o '#{tag := [a-z_]*' src/bs_diag.erl | sed 's/#{tag := //' | so
 missing=$(comm -23 <(printf '%s\n' "$minted") <(printf '%s\n' "$rendered"))
 if [ -n "$missing" ]; then
     say "ERROR: descriptor/2 mints tags that message/1 cannot render:"
+    # The split is deliberate: one tag per line, each indented. Quoting would
+    # print the whole list as a single argument and indent only the first line.
+    # shellcheck disable=SC2086
     printf '      %s\n' $missing
     say ""
     say "  message/1 has no catch-all on purpose, so this crashes at the moment"
@@ -92,6 +95,8 @@ fi
 orphaned=$(comm -13 <(printf '%s\n' "$minted") <(printf '%s\n' "$rendered"))
 if [ -n "$orphaned" ]; then
     say "ERROR: message/1 renders tags descriptor/2 never mints:"
+    # Deliberate split, as above.
+    # shellcheck disable=SC2086
     printf '      %s\n' $orphaned
     fail=1
 fi

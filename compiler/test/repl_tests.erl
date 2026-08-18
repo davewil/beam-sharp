@@ -79,13 +79,7 @@ silent(Out, What) -> ?assertEqual(nomatch, string:find(Out, What)).
 %% and it is kept — but NOT silently. Twelve tests reporting `ok` while running
 %% nothing is the precise failure this file was written to end, so an unbuilt
 %% tree says so on every one of them rather than showing a wall of green.
-built() ->
-    case filelib:is_regular(escript()) of
-        true  -> true;
-        false ->
-            io:format(user, "  SKIPPED (no escript — run `rebar3 escriptize`)~n", []),
-            false
-    end.
+built() -> bs_test_support:built().
 
 %%% --- the basics the defects kept breaking around ----------------------------
 

@@ -98,7 +98,7 @@ an_unbound_name_is_caught_before_erlc_test() ->
 %% A bound name nothing later mentions is legal and warning-free: naming a value
 %% to say what it IS is a reason to write one.
 an_unused_binding_compiles_without_a_warning_test() ->
-    case filelib:is_regular(escript()) of
+    case bs_test_support:built() of
         false -> ok;
         true ->
             Src = "module U\npublic int F(int a)\nF(a) ->\n    var unused = a + 1\n    a\n",

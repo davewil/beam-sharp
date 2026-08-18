@@ -80,7 +80,7 @@ fib_src() ->
 %% The rule that makes `bsc fib.bs 5` need no function name: under one function
 %% per file, the file names the function.
 run_infers_the_function_from_the_file_name_test() ->
-    case filelib:is_regular(escript()) of
+    case bs_test_support:built() of
         false -> ok;
         true ->
             with_src("fib.bs", fib_src(), fun(Path, Out) ->
@@ -91,7 +91,7 @@ run_infers_the_function_from_the_file_name_test() ->
     end.
 
 run_computes_rather_than_parrots_test() ->
-    case filelib:is_regular(escript()) of
+    case bs_test_support:built() of
         false -> ok;
         true ->
             with_src("fib.bs", fib_src(), fun(Path, Out) ->
@@ -103,7 +103,7 @@ run_computes_rather_than_parrots_test() ->
 %% Results print in beam-sharp notation, and the argument parser accepts back
 %% exactly what the printer emits — `(:ok, 7)`, not `{ok,7}`.
 run_round_trips_beam_sharp_notation_test() ->
-    case filelib:is_regular(escript()) of
+    case bs_test_support:built() of
         false -> ok;
         true ->
             with_src("readings.bs", showcase_src(), fun(Path, Out) ->
@@ -115,7 +115,7 @@ run_round_trips_beam_sharp_notation_test() ->
 %% A file with several functions cannot infer one, and says so rather than
 %% guessing.
 run_names_the_choice_when_it_cannot_infer_test() ->
-    case filelib:is_regular(escript()) of
+    case bs_test_support:built() of
         false -> ok;
         true ->
             Src = showcase_src() ++
@@ -232,7 +232,7 @@ a_brace_that_is_not_a_record_names_both_spellings_test() ->
 
 %% The CLI reports it rather than crashing inside the function.
 the_cli_reports_an_unreadable_argument_test() ->
-    case filelib:is_regular(escript()) of
+    case bs_test_support:built() of
         false -> ok;
         true ->
             with_src("shop.bs", shop_src(), fun(Path, Out) ->

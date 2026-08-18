@@ -10,7 +10,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 -export([compile/1, build_and_load/2, check_only/1, errors/1, project_root/0,
-         escript/0, run_cli/1, with_src/3, fixture_root/0, place/3,
+         escript/0, built/0, run_cli/1, with_src/3, fixture_root/0, place/3,
          showcase_src/0, shop_src/0, an_order/0, count/2]).
 
 -define(OUT, "/tmp/bsc_eunit").
@@ -128,6 +128,26 @@ escript() ->
     case [P || P <- Candidates, filelib:is_regular(P)] of
         [Found | _] -> Found;
         []          -> Default
+    end.
+
+%% IS THE ESCRIPT THERE, AND SAY SO IF NOT.
+%%
+%% `repl_tests` and `visibility_tests` each had a private copy of this, written
+%% for the same reason and worded identically: "Twelve tests reporting `ok`
+%% while running nothing is the precise failure this file was written to end."
+%% Eight other modules guarded on `filelib:is_regular(escript())` directly and
+%% returned a bare `ok`, which is that same failure with nothing said — measured
+%% at 11 sites when `check-no-silent-skip.sh` was written.
+%%
+%% One copy, so the next module to need a guard inherits the announcement rather
+%% than the silence. A skip that prints is still a skip; what it is not is
+%% indistinguishable from a pass.
+built() ->
+    case filelib:is_regular(escript()) of
+        true  -> true;
+        false ->
+            io:format(user, "  SKIPPED (no escript — run `rebar3 escriptize`)~n", []),
+            false
     end.
 
 run_cli(Args) ->

@@ -137,4 +137,9 @@ else
 fi
 
 echo
-[ "$fail" -eq 0 ] && echo "map is an index" || { echo "map has stopped being an index"; exit 1; }
+if [ "$fail" -eq 0 ]; then
+    echo "map is an index"
+else
+    echo "map has stopped being an index"
+    exit 1
+fi

@@ -35,6 +35,52 @@ jobs:
       # every gate green; ticket 42 added a construct the doc never mentioned.
       # Since a `not-yet` block IS the clean-room handoff's spec, the place the
       # other gates cannot see is the place the handoff most depends on.
+      # THE FOUR GATES BELOW CHECK THE GATES, and they run first because a
+      # suite that cannot be trusted makes every result after it unreadable.
+      # Added 2026-08-18 from an audit of the last twenty commits for
+      # self-inflicted defects — the classes are not hypothetical, each one is
+      # named in a commit message or in a comment in this file.
+      #
+      # EVERY ONE OF THEM RUNS ITS OWN --self-test FIRST. A gate is believed
+      # here only if it has been shown to fail on the defect it names and to
+      # pass on the correct form beside it; `spec-check.sh` has held that line
+      # since ticket 15 lost a session to a harness that supplied the protection
+      # it was measuring, and these four inherit it rather than reinvent it.
+      #
+      # The self-test is a SEPARATE step on purpose. Folded into the gate it
+      # would be one exit code covering two questions, and "the suite is green"
+      # would stop distinguishing "no violations" from "the check still works".
+      - name: The gate-gates prove they can fail
+        run: |
+          ./bin/check-gates-wired.sh --self-test
+          ./bin/check-cwd-independence.sh --self-test
+          ./bin/check-shell.sh --self-test
+          ./compiler/bin/check-no-silent-skip.sh --self-test
+
+      # `check-map.sh` was written on 2026-08-15 and NEVER WIRED IN; it ran only
+      # when somebody remembered. `editor/bin/` held two more this file had
+      # never mentioned, and they collected five features of drift. Prose at the
+      # foot of this file already forbade both. Prose cannot check itself.
+      - name: Every gate on disk is wired into this file
+        run: ./bin/check-gates-wired.sh
+
+      # A gate that cannot find its files reports NO VIOLATIONS, which is the
+      # same output as success. A README change committed from the wrong
+      # directory once meant two gates did not run and nothing said so. This
+      # runs each cheap gate from two directories and requires the same verdict
+      # — a run rather than a grep, because the first draft grepped for
+      # `BASH_SOURCE` and falsely accused a script that anchors with `$0`.
+      - name: Gates give the same verdict from any directory
+        run: ./bin/check-cwd-independence.sh
+
+      # Every gate here is shell, so a quoting bug in one is a bug in the thing
+      # that decides whether everything else is correct — and this repo's own
+      # record is exactly that: check-links.sh reported 6 dead paths where there
+      # were 20, then misnumbered its own output. shellcheck at `info`, which is
+      # where SC2086 lives; `warning` looked tidier and could not see the class.
+      - name: The gates are shellcheck-clean
+        run: ./bin/check-shell.sh
+
       - name: The map is an index
         run: ./bin/check-map.sh
 
@@ -84,6 +130,25 @@ jobs:
       - name: Tests
         working-directory: compiler
         run: rebar3 eunit
+
+      # A TEST THAT RETURNS `ok` FOR WORK IT DID NOT DO IS NOT A TEST.
+      #
+      # `cli_tests:built_escript_compiles_a_file_test` guarded itself with
+      # `is_regular/1` and returned `ok` when the escript was absent — and eunit
+      # ran BEFORE escriptize, so it passed without executing anything from the
+      # day it was written. That one was fixed. Measured 2026-08-18, the same
+      # shape was still live at 11 sites across 8 modules.
+      #
+      # The rule is "not silently" rather than "never skip", because the suite
+      # already had two remedies and they disagree about the fix while agreeing
+      # about the fault: `cli_tests` dropped its guard and throws, `repl_tests`
+      # kept its guard and prints SKIPPED. Both pass. What does not is the third
+      # thing — a guard that returns `ok` and says nothing.
+      #
+      # It runs AFTER the suite so a real failure is read before this one.
+      - name: No test passes without running
+        working-directory: compiler
+        run: ./bin/check-no-silent-skip.sh
 
       # Every beam-sharp block in LANGUAGE.md is compiled and checked against
       # what it claims to be — untagged blocks must compile, `not-yet` blocks

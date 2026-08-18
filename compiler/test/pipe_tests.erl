@@ -31,10 +31,15 @@
 
 %% Drive the real escript over a real file, because both refusals below are
 %% about what the AUTHOR is told — an exit code and a sentence — and neither is
-%% observable from a diagnostic term. Guarded on the escript existing, which is
-%% the house convention in `cli_tests`.
+%% observable from a diagnostic term. Guarded on the escript existing through
+%% `bs_test_support:built/0`, which ANNOUNCES the skip.
+%%
+%% This comment used to cite "the house convention in `cli_tests`", and that
+%% convention had been deleted before this file was written: `cli_tests` removed
+%% its silent guard precisely because it made a test green and empty. A citation
+%% stands in for a claim, and nobody re-reads a claim they can defer.
 cli(Src, Assert) ->
-    case filelib:is_regular(escript()) of
+    case bs_test_support:built() of
         false -> ok;
         true ->
             with_src("in.bs", Src,

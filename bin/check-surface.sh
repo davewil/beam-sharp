@@ -111,4 +111,9 @@ else
 fi
 
 echo
-[ "$fail" -eq 0 ] && echo "the surface is traceable" || { echo "the surface has drifted from the map"; exit 1; }
+if [ "$fail" -eq 0 ]; then
+    echo "the surface is traceable"
+else
+    echo "the surface has drifted from the map"
+    exit 1
+fi
