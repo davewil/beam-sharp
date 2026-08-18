@@ -150,6 +150,32 @@ jobs:
         working-directory: compiler
         run: ./bin/check-no-silent-skip.sh
 
+      # A HELPER THAT AGREES WITH THE TESTS IS NOT EVIDENCE.
+      #
+      # The circular-prototype class: a harness that supplies the answer it is
+      # measuring. Ticket 15 lost a session to one. F14 found `check_only/1`
+      # skipping the lowering, so an unlowered `e_valve` typed as `term()` and
+      # "every valve assertion about clean source would have passed while
+      # nothing was checked at all" — green tests, nothing checked.
+      #
+      # That hole is still structurally open: `check_only/1` REPRODUCES
+      # `bsc:parse_string/2` rather than calling it, so the next pass added to
+      # the front end re-opens it silently. This runs the helper and the
+      # compiler over the same sources and requires the same DIAGNOSTIC TAG.
+      #
+      # Tags rather than pass/fail, and the self-test is why: the pre-F14 helper
+      # rejects the valve probe too, with `return_not_declared` instead of
+      # `valve_on_infallible`. Both say "no" about different things, and a
+      # helper that is right by coincidence is what this gate is for. It is the
+      # first consumer of F16's `--diagnostics term` outside the tests.
+      #
+      # It runs after eunit because it needs the test beams and the escript.
+      - name: The check helper walks the compiler's path
+        working-directory: compiler
+        run: |
+          ./bin/check-helper-agrees.sh --self-test
+          ./bin/check-helper-agrees.sh
+
       # Every beam-sharp block in LANGUAGE.md is compiled and checked against
       # what it claims to be — untagged blocks must compile, `not-yet` blocks
       # must NOT. The second half is the one that pays: when a feature lands,
