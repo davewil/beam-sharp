@@ -18,7 +18,7 @@ take or decline.
 | **local** | Observed directly on this machine |
 | **preprint** | Not peer-reviewed. **Source [5] (Etylizer) is `arXiv:2603.22032v1`, marked on its own pages "DRAFT PAPER UNDER REVIEW", 23 March 2026.** Every [5] claim in this file carries that caveat, including the 2%-timeout figure, which is the number most likely to be quoted downstream. Source [2] is published (*Programming* 8(2), 2024) but was read as the extended arXiv version. |
 
-Pinned for this file: **OTP 28.5**, **Elixir 1.19.5**, **Gleam 1.18.1**, beam-sharp at `e1f1908`.
+Pinned for this file: **OTP 28.5**, **Elixir 1.19.5**, **Gleam 1.18.1**, beam-sharp at `833ba0a`.
 
 ---
 
