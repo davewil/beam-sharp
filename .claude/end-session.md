@@ -4,7 +4,7 @@ Answers the generic `/end-session` skill would otherwise guess at. Commands, not
 
 ## Gates
 
-Every step CI runs, in CI's order. The first two need no compiler and fail fast.
+Every step CI runs, in CI's order. The first three need no compiler and fail fast.
 
 ```sh
 ./bin/check-map.sh                              # map.md is an index, not a store
