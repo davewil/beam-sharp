@@ -17,7 +17,8 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
--import(bs_test_support, [compile/1, build_and_load/2, check_only/1]).
+-import(bs_test_support, [compile/1, build_and_load/2, check_only/1,
+                          escript/0, run_cli/1, with_src/3]).
 
 -define(OUT, "/tmp/bsc_eunit").
 
@@ -214,6 +215,42 @@ a_payload_other_than_foreign_error_is_refused_test() ->
           "Parse(b) -> :erlang.binary_to_integer(b)\n",
     ?assertError({foreign_error_channel, _, erlang, binary_to_integer, _},
                  check_only(Src)).
+
+%% ...AND THE AUTHOR ACTUALLY SEES A SENTENCE. The test above pins the TERM,
+%% which is where this repo asserts a declaration refusal — but a term with no
+%% `descriptor/2` clause falls through `bs_diag` to `unhandled`, is re-raised,
+%% and reaches the author as an escript stack trace with every test still green.
+%% That is F16's exact failure shape, so the prose gets its own assertion at the
+%% channel an author reads rather than at the one the suite reads.
+%%
+%% Driven through the CLI for the same reason: `bs_diag:message/1` returning the
+%% right string proves nothing about whether anything calls it.
+the_refusal_reaches_the_author_as_prose_test() ->
+    case filelib:is_regular(escript()) of
+        false -> ok;
+        true ->
+            Src = "module Fw9\n"
+                  "using :erlang {\n"
+                  "    result<int, atom> binary_to_integer(binary b)\n"
+                  "}\n"
+                  "public result<int, atom> Parse(binary b)\n"
+                  "Parse(b) -> :erlang.binary_to_integer(b)\n",
+            with_src("in.bs", Src, fun(Path, Out) ->
+                R = run_cli("-o " ++ Out ++ " " ++ Path),
+                ?assert(string:find(R, "rc:1") =/= nomatch),
+                %% Not a stack trace. This is the assertion that would have
+                %% caught the state this feature shipped in for one commit.
+                ?assertEqual(nomatch, string:find(R, "escript: exception error")),
+                %% The refusal, naming the pair and the payload it objected to.
+                ?assert(string:find(R, "erlang.binary_to_integer declares its "
+                                       "failure as `(:error, atom)`") =/= nomatch),
+                ?assert(string:find(R, "is `foreign_error`, and nothing else")
+                            =/= nomatch),
+                %% The debt notice — see the comment on `message/1` in bs_diag.
+                ?assert(string:find(R, "ordinary VALUES has no declared form yet")
+                            =/= nomatch)
+            end)
+    end.
 
 %% The refusal is about the FOREIGN boundary only. A local function may carry
 %% any `E` it likes — that is `result<T, E>`'s whole point, and ticket 15 §2

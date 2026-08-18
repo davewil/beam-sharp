@@ -277,6 +277,16 @@ descriptor(Path, {unknown_builtin, B}) ->
 descriptor(Path, {opaque_ret_at_boundary, Line, Mod, Fun}) ->
     #{tag => opaque_ret_at_boundary, severity => error, file => Path,
       line => Line, module => bs_types:atom_str(Mod), function => Fun};
+%% F19 / ticket 15 §5. Its sibling one clause up: both are a foreign RETURN TYPE
+%% refused at the declaration, and both name the replacement because the fix is
+%% one edit either way. The payload is carried as a rendered string rather than
+%% as a type, so `message/1` stays a pure function of the descriptor — the term
+%% is what a consumer reads, and a consumer that had to re-run the algebra to
+%% print it would not be reading a diagnostic.
+descriptor(Path, {foreign_error_channel, Line, Mod, Fun, Payload}) ->
+    #{tag => foreign_error_channel, severity => error, file => Path,
+      line => Line, module => bs_types:atom_str(Mod), function => Fun,
+      payload => Payload};
 descriptor(Path, {unknown_generic, N}) ->
     #{tag => unknown_generic, severity => error, file => Path, type => N};
 %% F6.6. A bracket the compiler KNOWS at the wrong arity is a different mistake
@@ -691,6 +701,22 @@ message(#{tag := opaque_ret_at_boundary, file := P, line := L, module := Mod,
      "  declare it `binary`. Establishing the refinement is the UTF-8~n"
      "  entry check, which this compiler does not have yet.~n",
      [P, L, Mod, Fun]};
+%% F19. THE LAST TWO LINES ARE A DEBT NOTICE AND WILL GO STALE — see the note in
+%% `features/F19-foreign-try-wrapper.md` under Out of scope, which names this
+%% function. They are here rather than left unsaid because an author whose
+%% foreign function returns `(:ok, V) | (:error, R)` as ordinary VALUES would
+%% otherwise work through several spellings before concluding the form does not
+%% exist, and ticket 23's rule is that the debt lives on the channel. When the
+%% ticket that decides that case lands, this is the paragraph that changes.
+message(#{tag := foreign_error_channel, file := P, line := L, module := Mod,
+          function := Fun, payload := Payload}) ->
+    {"~s:~p: error: ~s.~s declares its failure as `(:error, ~s)`~n"
+     "  a foreign call's error payload is `foreign_error`, and nothing else:~n"
+     "  the wrapper produces the exception CLASS, which no other type spells.~n"
+     "  declare it `result<T, foreign_error>` and map to your own reason in a~n"
+     "  clause. A foreign function that returns `(:ok, V) | (:error, R)` as~n"
+     "  ordinary VALUES has no declared form yet.~n",
+     [P, L, Mod, Fun, Payload]};
 message(#{tag := unknown_generic, file := P, type := N}) ->
     {"~s: error: no type named ~s takes a type argument~n"
      "  the prelude has `list<T>`, `option<T>` and `result<T, E>`;~n"

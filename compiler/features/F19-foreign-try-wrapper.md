@@ -180,12 +180,26 @@ and after the wrapper, because the wrapper is *how* that type becomes true.
 
 ## Out of scope
 
-- **A foreign function that returns `{ok, V} | {error, Reason}` as ordinary values.** `file:read_file`
-  is the canonical case and §2 above makes it **undeclarable**: its `(:error, atom)` member is not
-  `foreign_error`, and it is not a throw either. Ticket 15 §5 fixed `E` for foreign calls without
-  considering the shape, and §4's *"adds a mapping step"* does not reach it — a mapping step needs a
-  declared type to map *from*. **This is a ticket, not a feature**, and F19 refuses the case loudly
-  rather than inventing a resolution for it.
+- **A foreign function that returns `(:ok, V) | (:error, Reason)` as ordinary values.**
+  `file:read_file` is the canonical case and §2 above makes it **undeclarable**: it returns
+  `(:ok, binary) | (:error, atom)` as *values*, not as a throw, so its `(:error, atom)` member is
+  neither `foreign_error` nor something a wrapper could ever produce. Ticket 15 §5 fixed `E` for
+  foreign calls without considering that shape, and §4's *"adds a mapping step"* does not reach it —
+  a mapping step needs a declared type to map *from*. **This is a ticket, not a feature**, and F19
+  refuses the case loudly rather than inventing a resolution for it. The wrapper is deliberately
+  **not** widened to cover value-returned errors to make the gap go away: that would put the
+  compiler's `try` around a call that never throws and type the result as a class tag it never
+  produces.
+
+  **THE DIAGNOSTIC CARRIES THIS DEBT, AND ITS LAST TWO LINES MUST CHANGE WHEN THE GAP IS DECIDED.**
+  The refusal ends with *"A foreign function that returns `(:ok, V) | (:error, R)` as ordinary
+  VALUES has no declared form yet"*, which is true today and is exactly the kind of sentence this
+  repo has been bitten by: a claim that was accurate when written, still passing every gate, and
+  quietly false. It lives in **`bs_diag:message/1`, clause `#{tag := foreign_error_channel, …}`**,
+  with a comment there pointing back at this paragraph. Whoever resolves the ticket edits that
+  clause and the assertion on it in
+  `foreign_wrapper_tests:the_refusal_reaches_the_author_as_prose_test`. Naming both here turns a rot
+  risk into one `grep foreign_error_channel`.
 - **The boundary guard.** §11's **Owed** paragraph has two halves and this is the other one — an
   emitted check that a foreign value inhabits its declared type. That is ticket 18's, over all eight
   channels, and it is `ValidateAs<T>`'s traversal rather than four lines of `try`.
@@ -247,10 +261,16 @@ the first shape looks like a hole and the second looks like a bug, and neither i
   throwing path and the ordinary value on the happy path — seen running, not only asserted. ✓
 - All three exception classes arrive tagged. ✓
 - A foreign signature without the declared channel still lets the caller die. ✓
-- Every scenario above is a test, and the twelve CI gates are green. ✓ — 348 tests, up from 334.
+- Every scenario above is a test, and the twelve CI gates are green. ✓ — 349 tests, up from 334.
 
-**One thing is owed and is not a scenario.** F19.7's refusal is raised as
-`{foreign_error_channel, Line, Mod, Fun, Payload}` and `bs_diag` has no `descriptor/2` clause for
-it, so what an author sees is the escript stack trace F16 exists to abolish rather than the sentence
-`opaque_ret_at_boundary` gets. The term is right, the tests assert on it, and only the prose is
-missing — `bs_diag.erl` was outside this feature's write scope while a sibling feature held it.
+**The refusal is asserted TWICE, and the second assertion is the one F16 would ask for.**
+`{foreign_error_channel, Line, Mod, Fun, Payload}` is pinned as a term, which is where this repo
+asserts a declaration refusal — `opaque_ret_at_boundary` is pinned the same way. But a term with no
+`descriptor/2` clause falls through `bs_diag` to `unhandled`, is re-raised, and reaches the author as
+an **escript stack trace with every test still green**. That is F16's exact failure shape, one
+namespace along, so the prose is asserted separately through the CLI: the sentence is there, and
+`escript: exception error` is not.
+
+This feature shipped in precisely that state for one commit — the term right, the tests green, the
+message absent — because `bs_diag.erl` was held by a sibling feature at the time. It is what the
+second assertion exists to catch, and it caught nothing only because it was written after the fact.
