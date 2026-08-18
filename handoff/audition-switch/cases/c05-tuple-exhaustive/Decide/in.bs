@@ -1,0 +1,8 @@
+module Decide
+public atom Route(bool ok, bool permanent, bool redelivered)
+Route(o, p, r) -> (o, p, r) switch {
+    (true,  _,     _)     => :ack,
+    (false, true,  _)     => :dead_letter,
+    (false, false, false) => :requeue,
+    (false, false, true)  => :requeue
+}

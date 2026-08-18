@@ -1,0 +1,7 @@
+module Wrong
+type State = :placed | :shipped
+public int Describe(State s)
+Describe(s) -> s switch {
+    :placed  => 1,
+    :shipped => :gone
+}

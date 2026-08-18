@@ -1,0 +1,7 @@
+module Missing
+type State = :placed | :shipped | :lost
+public atom Describe(State s)
+Describe(s) -> s switch {
+    :placed  => :new,
+    :shipped => :gone
+}

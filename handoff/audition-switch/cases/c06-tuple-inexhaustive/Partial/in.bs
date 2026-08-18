@@ -1,0 +1,6 @@
+module Partial
+public atom Route(bool ok, bool permanent)
+Route(o, p) -> (o, p) switch {
+    (true,  _)     => :ack,
+    (false, true)  => :dead_letter
+}

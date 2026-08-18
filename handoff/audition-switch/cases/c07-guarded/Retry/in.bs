@@ -1,0 +1,6 @@
+module Retry
+public atom Classify(int n)
+Classify(n) -> n switch {
+    n when n < 5 => :retried,
+    >= 5         => :exhausted
+}

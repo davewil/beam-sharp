@@ -1,0 +1,7 @@
+module Open
+public atom Describe(atom s)
+Describe(s) -> s switch {
+    :placed  => :new,
+    :shipped => :gone,
+    _        => :unknown
+}
