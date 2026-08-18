@@ -17,7 +17,13 @@
 %% SAME function the compiler classifies with, rather than through a second
 %% wildcard of their own. Same reason `bs_check:resolve/2` is exported instead of
 %% copied: a classification rule with two implementations has two answers.
--export([module_dirs/1, dir_kind/1]).
+%% F17 — `bs_api` is the second reader of those same rules, which is why
+%% `expected_module/2`, `parse_path/1` and `module_dir_of/1` join them here
+%% rather than being written a second time inside the query mode: the module
+%% a path implies (41 §5), the parse that publishes its own diagnostics, and
+%% "naming a file names its module" are all rules this file already owns.
+-export([module_dirs/1, dir_kind/1, expected_module/2, parse_path/1,
+         module_dir_of/1]).
 
 -record(opts, {outdir = ".", emit_abstr = true, verbose = false, repl = false,
                %% F15 / ticket 41 §3. The source root is a BUILD-TOOL input, and
@@ -34,7 +40,10 @@
                %% than inventing a root to check against.
                check_path = true,
                %% F16 / ticket 23 §1. The channel the CLI publishes on.
-               diagnostics = prose}).
+               diagnostics = prose,
+               %% F17 / ticket 23 §10. The query mode: report what a module
+               %% offers, rather than compiling it.
+               api = false}).
 
 %% Ticket 43's threshold. One number, used at both depths the inexhaustive
 %% diagnostic enumerates — see `heads/2` and `truncated/1` at the bottom of the
@@ -53,12 +62,15 @@ file_to_dir(Path, Dir) -> file(Path, #opts{outdir = Dir}).
 
 main([]) ->
     io:format("usage: bsc [-o DIR] [-v] [--src-root DIR] [--diagnostics term]~n"
-              "           PATH [FUNCTION] [ARG...]~n"
+              "           [--api] PATH [FUNCTION] [ARG...]~n"
               "  PATH is a module, which is a DIRECTORY — naming one of its~n"
               "  files means the same thing. With no ARGs it compiles; with~n"
               "  ARGs it compiles then runs:~n"
               "      bsc examples/Fib 5~n"
-              "      bsc --src-root examples examples/Shop/Reports Restate 3~n"),
+              "      bsc --src-root examples examples/Shop/Reports Restate 3~n"
+              "  --api reports what operations the module offers, in~n"
+              "  beam-sharp's own types and with nothing built:~n"
+              "      bsc --api examples/Counter~n"),
     halt(2);
 main(Args) ->
     {Opts, Files, Argv} = parse_args(Args, #opts{}, []),
@@ -81,6 +93,14 @@ main(Args) ->
         _ -> ok
     end,
     bs_diag:set_channel(Opts#opts.diagnostics),
+    %% F17 / ticket 23 §10 — BEFORE the REPL and before the compile path,
+    %% because `--api` does neither: it reads source and reports what the
+    %% module offers. `bs_api:answer/3` halts, so this returns only when the
+    %% flag was absent.
+    case Opts#opts.api of
+        true  -> bs_api:answer(Files, Argv, Opts#opts.src_root);
+        false -> ok
+    end,
     case {Opts#opts.repl, Files, Argv} of
         {true, [File], _} -> repl(File, Opts);
         {true, [], _} ->
@@ -464,6 +484,10 @@ parse_args(["--diagnostics", "term" | Rest], O, Fs) ->
     parse_args(Rest, O#opts{diagnostics = term}, Fs);
 parse_args(["--diagnostics", "prose" | Rest], O, Fs) ->
     parse_args(Rest, O#opts{diagnostics = prose}, Fs);
+%% F17 / ticket 23 §10. A query rather than a compilation, so it takes no
+%% argument of its own: the module it answers about is the ordinary PATH
+%% argument every other mode already takes.
+parse_args(["--api" | Rest], O, Fs)   -> parse_args(Rest, O#opts{api = true}, Fs);
 parse_args(["--diagnostics", Other | _], _O, _Fs) ->
     io:format(standard_error,
               "bsc: --diagnostics takes `prose` or `term`, not ~s~n", [Other]),

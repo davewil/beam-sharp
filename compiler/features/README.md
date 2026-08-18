@@ -104,6 +104,7 @@ Erlang back to the decision that required it is one grep.
 | F13 — binary patterns | not started, **blocked** — ticket 30 is open | 25b, 25c |
 | [F16 — the diagnostic is a term](F16-diagnostic-as-a-term.md) | **done 2026-08-18** · [ENG-224](https://linear.app/davewil/issue/ENG-224) | 23 §10 (`bsc --api`), which is specified *on this channel* and had no output shape until it existed |
 | [F14 — the pipe and the valve](F14-pipe-and-valve.md) | **done 2026-08-18** · [ENG-223](https://linear.app/davewil/issue/ENG-223) | 25a's admission chain and the decode pipelines in 25b and 25c — and **ticket 31** now has a running operator to measure rather than argue about |
+| [F17 — the compiler query mode](F17-compiler-query-mode.md) | **done 2026-08-18** | nothing with a file — it is 23 §10, the other half of what an agent can ask the compiler, and the first consumer of F16's channel that is not a diagnostic |
 | [F15 — a module is a directory](F15-module-is-a-directory.md) | **done 2026-08-17** | the *other* half of the module system; `index.bs`, and 41 §4/§5's two checks — both now built |
 
 **F16 IS BUILT, AND WHAT IT REVEALED IS THAT A REQUIREMENT CAN BE WRITTEN WHERE NOBODY WILL BUILD
