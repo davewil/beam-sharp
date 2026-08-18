@@ -534,7 +534,43 @@ a style choice: `atom | :error` collapses (`:error` is absorbed into the atom to
 compiler writes from your declared return type, and process failure is `monitor` plus `receive`,
 which yields a better reason than `try` does.
 
-**decided**
+**decided** — and the wrapper half is **shipped**; see §11.
+
+### What a wrapped foreign call fails with
+
+`foreign_error` is the type the compiler-written wrapper produces. It is a **prelude** entry rather
+than something you declare, and it stays in the planned-surface block for the same reason `option`
+and `result` do — the prelude namespace is lowercase and `type` declares a PascalCase name:
+
+```csharp not-yet
+type foreign_error = (:error, term) | (:throw, term) | (:exit, term)
+```
+
+**The exception class is carried, not flattened**, and that is the whole reason the type has three
+members instead of one payload. `{noproc, ...}` needs its `:exit` tag to read as *the callee is
+dead* rather than as a value the callee returned, and those are different repairs. So recognising a
+foreign failure is an ordinary clause head, exhaustive with no catch-all over the classes:
+
+<!-- check:
+type Parsed = result<int, foreign_error>
+-->
+```csharp
+public atom Diagnose(Parsed p)
+
+Diagnose((:error, (:error, _))) -> :not_a_number
+Diagnose((:error, (:throw, _))) -> :library_signalled
+Diagnose((:error, (:exit, _)))  -> :callee_is_down
+Diagnose(n)                     -> :parsed
+```
+
+The doubled `:error` is not a slip: the outer one is `result<T, E>`'s own failure tag and the inner
+one is the exception class.
+
+**`E` is fixed at `foreign_error` for a foreign declaration** — you do not choose it. Write a
+mapping clause if you want a domain reason. A foreign signature declaring any other payload is an
+error at the declaration.
+
+**shipped**
 
 ---
 
@@ -792,9 +828,43 @@ casing convention:
 - A foreign declaration may promise only what one BEAM guard decides in O(1). `list<Order>` is an
   error at the declaration; it crosses as `list<term>` plus `ValidateAs<T>`. **decided**
 
-**Owed:** the compiler-written wrapper and the boundary guard of §10 are *not* emitted yet — a
-foreign call currently compiles to a bare remote call, so a foreign term that breaks your types is
-not yet caught at the boundary. That is the gap between §10's guarantee and what runs today.
+### Declaring the failure channel is what emits the wrapper
+
+A foreign call throws in **your** process — `binary_to_integer` on anything that is not a number is
+the canonical case — and that is the one failure `monitor` plus `receive` cannot reach, because
+there is no second process to observe it across. Declare the return type as
+`result<T, foreign_error>` and the compiler wraps the call; declare anything else and it does not.
+
+```csharp
+using :erlang {
+    result<int, foreign_error> binary_to_integer(binary b)
+    int byte_size(binary b)
+}
+
+public result<int, foreign_error> Parse(binary b)
+
+Parse(b) -> :erlang.binary_to_integer(b)
+
+public int Size(binary b)
+
+Size(b) -> :erlang.byte_size(b)
+```
+
+**shipped** — `bsc examples/Foreign Parse '<<"abc">>'` prints `(:error, (:error, :badarg))`, and
+`bsc examples/Foreign Size ':nope'` dies with `error:badarg`.
+
+**The asymmetry is the decision, not an omission.** `Parse` declared a channel, so its failure is a
+value. `Size` declared none, so the throw propagates and the caller dies for its supervisor to
+restart. Which one you chose is readable in the type, and there is no third option: **there is no
+`try` in the surface**, and the wrapper is the only one this language has.
+
+All three exception classes are caught — `error`, `throw` and a locally raised `exit`. An exit
+*signal* from another process is a different mechanism sharing a keyword and is not catchable at
+all, so no supervision decision can be swallowed by a wrapper.
+
+**Owed:** the boundary guard of §10 is *not* emitted yet — nothing checks that the value coming back
+actually inhabits the type you declared, so a foreign term that breaks your types is still not
+caught at the boundary. That is what remains of the gap between §10's guarantee and what runs today.
 
 ## 12. Processes
 

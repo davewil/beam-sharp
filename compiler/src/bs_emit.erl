@@ -65,11 +65,18 @@ forms(Module = #{module := Mod, functions := Fns, env := Env}) ->
     %% two `ValidateAs<Order>` share one generated function rather than emitting
     %% the identical traversal twice.
     Validators = validator_table(Fns, Env),
+    %% F19 / ticket 15 §4. The counter behind the wrapper's synthesised names,
+    %% reset once per module so the emitted forms do not depend on what this OS
+    %% process emitted before them.
+    reset_foreign_wrappers(),
     Ctx = #{module => Mod, env => Env, behaviours => Behaviours,
             imports => maps:get(imports, Module, #{}),
             qmods => maps:get(qmods, Module, #{}),
             validators => Validators,
-            remote_names => maps:get(remote_names, Module, #{})},
+            remote_names => maps:get(remote_names, Module, #{}),
+            %% Which foreign calls are owed a `try`. Decided in `bs_check`,
+            %% where the declaration is; looked up here and nowhere else.
+            foreigns => maps:get(foreigns, Module, #{})},
     %% F15 / ticket 13 §3 — WHICH `.bs` A CRASH NAMES.
     %%
     %% A module is a directory now, so one `.beam` holds functions written in
@@ -567,10 +574,17 @@ expr({e_with, L, Base, Fields}, C) ->
 expr({e_proj, L, V, Field}, _C) ->
     {call, L, {remote, L, {atom, L, erlang}, {atom, L, map_get}},
      [{atom, L, Field}, {var, L, var_name(V)}]};
-%% A foreign call is an ordinary BEAM remote call. The compiler-emitted wrapper
-%% and boundary guard the design calls for are NOT here yet - see LANGUAGE.md.
+%% A foreign call is an ordinary BEAM remote call — unless its declaration named
+%% a failure channel, in which case F19 wraps it. The boundary guard §10 of
+%% `LANGUAGE.md` describes is still NOT here: that is ticket 18's, over all eight
+%% violation channels, and it is a synthesised traversal rather than four lines.
 expr({e_foreign_call, L, Mod, Fn, As}, C) ->
-    {call, L, {remote, L, {atom, L, Mod}, {atom, L, Fn}}, [expr(A, C) || A <- As]};
+    Call = {call, L, {remote, L, {atom, L, Mod}, {atom, L, Fn}},
+            [expr(A, C) || A <- As]},
+    case maps:is_key({Mod, Fn, length(As)}, maps:get(foreigns, C, #{})) of
+        false -> Call;
+        true  -> foreign_wrapper(L, Call)
+    end;
 expr({e_list, L, Items, Rest}, C) ->
     lists:foldr(fun(E, Acc) -> {cons, L, expr(E, C), Acc} end,
                 case Rest of
@@ -596,6 +610,60 @@ expr({e_switch, L, Subject, Arms}, C) ->
 %% is satisfied by the switch inside, with no emitter machinery of its own.
 expr({e_valve, _, Switch}, C) ->
     expr(Switch, C).
+
+%%% ---------------------------------------------------------------------------
+%%% F19 — the compiler-emitted foreign wrapper (ticket 15 §4, §5)
+%%%
+%%% ALL THREE CLASSES, and that is measured rather than cautious.
+%%% [`15d`](../../wayfinder/prototypes/15d_which_classes_a_wrapper_catches.erl)
+%%% ran the feared hazard — a wide `catch exit:` swallowing a supervisor's
+%%% shutdown — and found it does not exist: a locally raised `exit/1` and an exit
+%%% SIGNAL are different mechanisms sharing a keyword, and signals are not
+%%% catchable at all, so cases 5-7 die through the wrapper regardless. Narrowing
+%%% to `error:` would instead MISS `exit({noproc, ...})`, which is what
+%%% `gen_server:call` to a dead process raises in the caller's own process and
+%%% the commonest foreign failure on the platform.
+%%%
+%%% THE NAMES MUST BE UNIQUE PER CLAUSE, and this is a correctness requirement
+%%% rather than hygiene. Measured with `erlc`: a second `catch C:R` in the same
+%%% clause is `variable 'C' unsafe in 'try'` — a compile error, not a silent
+%%% match — and one `try` nested in another's body is the same. F14 met this in
+%%% `bs_lower` and solved it with a numbering walk; there is nothing to lower
+%%% here, because the wrapper is invisible to the checker, so the counter lives
+%%% at the emission site. Monotonic across one module's walk is enough:
+%%% uniqueness within a CLAUSE is all Erlang requires, and a per-module counter
+%%% delivers it with no scope tracking to get wrong.
+%%%
+%%% `bs@` keeps both names out of the source's variable grammar, which is
+%%% lowercase alphanumerics — the convention `ensure_var/3`, the relational
+%%% lowering and the valve already share.
+%%% ---------------------------------------------------------------------------
+
+-define(WRAPPER_SEQ, {bs_emit, foreign_wrapper_seq}).
+
+reset_foreign_wrappers() -> put(?WRAPPER_SEQ, 0), ok.
+
+next_foreign_wrapper() ->
+    N = case get(?WRAPPER_SEQ) of undefined -> 0; Seq -> Seq end,
+    put(?WRAPPER_SEQ, N + 1),
+    N.
+
+foreign_wrapper(L, Call) ->
+    N = next_foreign_wrapper(),
+    Class  = {var, L, wrapper_var("bs@fc", N)},
+    Reason = {var, L, wrapper_var("bs@fr", N)},
+    %% `(:error, (Class, Reason))` — the declared `result`'s failure member,
+    %% carrying ticket 15 §5's `foreign_error`. The double `error` reads like a
+    %% mistake and is not: the outer one is `result<T, E>`'s tag and the inner
+    %% one is the exception CLASS, which is exactly the distinction 15 §5 kept
+    %% the class for. `(:error, (:exit, (:noproc, _)))` is legible as "the callee
+    %% is dead"; a flattened reason is not.
+    {'try', L, [Call], [],
+     [{clause, L, [{tuple, L, [Class, Reason, {var, L, '_'}]}], [],
+       [{tuple, L, [{atom, L, error}, {tuple, L, [Class, Reason]}]}]}],
+     []}.
+
+wrapper_var(Prefix, N) -> list_to_atom(Prefix ++ integer_to_list(N)).
 
 %% An arm takes the same relational lowering as a clause head, because it is the
 %% clause head's own pattern grammar one level down — F7's whole argument for

@@ -74,6 +74,15 @@ demonstrated_surface() ->
      {"a qualified call",                        "[A-Z][A-Za-z]*\\.[A-Z][A-Za-z]*\\("},
      {"a foreign module declaration",            "^using :"},
      {"a foreign call",                          ":[a-z]+\\.[a-z_]+\\("},
+     %% F19 / ticket 15 §4. The wrapper itself has NO surface — that is its whole
+     %% design — so the sentence this row asks about is the DECLARATION that
+     %% obliges it, which is the only thing an author writes and the only thing
+     %% there is to look at. Anchored on the indent and the lowercase Erlang
+     %% name, so it probes a `using :mod {` block and cannot be satisfied by the
+     %% `public result<…> Parse` signature two lines further down: those are two
+     %% different sentences, and only the first one emits anything.
+     {"a foreign declaration that fails as a value",
+      "^ +result<[a-z]+, foreign_error> [a-z]"},
      {"an OTP behaviour",                        "^behaviour "},
      %% F10. The attribute alone was already demonstrated; a CALLBACK is a second
      %% sentence, because the behaviour line means nothing until the contract it

@@ -1,0 +1,54 @@
+// F19 — a foreign call that fails as a VALUE.
+//
+// `:erlang.binary_to_integer` throws `error:badarg` on anything that is not a
+// number, and it throws it IN THIS PROCESS — which is the one gap `monitor` plus
+// `receive` cannot close, since there is no other process to observe the failure
+// across. Declaring the return type as `result<T, foreign_error>` is what fills
+// it: the compiler emits a `try` around the call, and nothing else changes.
+//
+// There is no `try` in the surface and no other way to ask for one. The same
+// codegen-obligation pattern as `ParseAtom<T>` and `ValidateAs<T>` — the author
+// declares the type, the compiler generates the check.
+module Foreign
+
+using :erlang {
+    // Declared channel: the wrapper is emitted.
+    result<int, foreign_error> binary_to_integer(binary b)
+    // NO declared channel: no wrapper. Hand this an atom and the process dies,
+    // and that asymmetry is the decision, not an omission — fail through the
+    // channel your signature declares, and crash where it declares none.
+    int byte_size(binary b)
+}
+
+public result<int, foreign_error> Parse(binary b)
+
+Parse(b) -> :erlang.binary_to_integer(b)
+
+public int Size(binary b)
+
+Size(b) -> :erlang.byte_size(b)
+
+// The exception CLASS survives the catch, so recognising it is an ordinary
+// clause head. It is carried rather than flattened because the reasons are not
+// self-describing: `(:noproc, ...)` needs its `:exit` tag to read as "the callee
+// is dead" rather than as a value the callee returned, and those are different
+// repairs.
+public atom Diagnose(result<int, foreign_error> r)
+
+Diagnose((:error, (:error, _))) -> :not_a_number
+Diagnose((:error, (:throw, _))) -> :library_signalled
+Diagnose((:error, (:exit, _)))  -> :callee_is_down
+Diagnose(n)                     -> :parsed
+
+// Nothing downstream has to know a wrapper ran. `Parse` returns the union its
+// signature declares, and a caller narrows it with the clause heads it already
+// has — which is the whole of "failure is a value where your signature declares
+// one, and a crash where it does not".
+public int PortOr(binary b, int fallback)
+
+PortOr(b, fallback) -> Fallback(:erlang.binary_to_integer(b), fallback)
+
+private int Fallback(result<int, foreign_error> r, int fallback)
+
+Fallback((:error, _), fallback) -> fallback
+Fallback(n, _)                  -> n

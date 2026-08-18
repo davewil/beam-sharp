@@ -109,6 +109,10 @@ check_dir(Sources, World, Expect) ->
     PerFile = [{P, collect(D)} || {P, D} <- Sources],
     Fns = lists:append([F || {_, F} <- PerFile]),
     Imports = import_env(Decls, Module, World),
+    %% F19 — raised here rather than inside `check_file/3` on purpose: a
+    %% foreign declaration belongs to the DIRECTORY's declaration pass, which is
+    %% the same stage `admissible_foreign_ret/5` refuses at.
+    Foreigns = foreign_wrappers(Decls, Env),
     Ctx = #ctx{types = Env, callees = callees(Decls, Env, Imports),
                imports = Imports},
     Tagged = lists:append([check_file(P, Fs, Ctx) || {P, Fs} <- PerFile]),
@@ -139,7 +143,16 @@ check_dir(Sources, World, Expect) ->
                          %% name that module does not export — "compiles and calls
                          %% a function it does not have", which is the exact
                          %% failure `name/2`'s single funnel exists to prevent.
-                         remote_names => remote_names(World)}, Tagged};
+                         remote_names => remote_names(World),
+                         %% F19 / ticket 15 §4. Which foreign calls the emitter
+                         %% owes a `try` around, keyed by the triple
+                         %% `e_foreign_call` carries. The obligation is decided
+                         %% HERE, where the declaration is, and the emitter only
+                         %% looks it up — the same split as `imports` and
+                         %% `remote_names` above, and for the same reason: two
+                         %% places deciding it would be two chances to disagree,
+                         %% and the one that disagrees silently is the emitter.
+                         foreigns => Foreigns}, Tagged};
         _Fatal -> {error, Tagged}
     end.
 
@@ -560,6 +573,74 @@ sig(Params, Ret, Env) ->
     {[resolve(T, Env) || {param, T, _} <- Params], resolve(Ret, Env)}.
 
 %%% ---------------------------------------------------------------------------
+%%% F19 — ticket 15 §4's codegen obligation, decided at the DECLARATION
+%%%
+%%% "Declaring a foreign function's return type as `result<T, E>` makes the
+%%% compiler emit the wrapper." The same pattern as `ParseAtom<T>` (ticket 10 §4)
+%%% and `ValidateAs<T>` (ticket 11): the author declares the type, the compiler
+%%% generates the check. There is no `try` in the surface and no way to ask for
+%%% one except by declaring the type.
+%%%
+%%% THE TRIGGER IS THE TYPE, NOT THE SPELLING `result<...>`. Ticket 09 §4 fixed
+%%% that a name never enters the algebra — `option<int>` and a hand-written
+%%% `int | :nothing` are the SAME TYPE, which F6.3 pins — so keying on the token
+%%% `result` would make two spellings of one type behave differently, which is
+%%% the one thing that rule exists to prevent. It keys on the resolved return
+%%% type carrying a 2-tuple member whose first component is the literal atom
+%%% `:error`, which is what `result<T, E>` IS.
+%%% ---------------------------------------------------------------------------
+
+foreign_wrappers(Decls, Env) ->
+    maps:from_list(
+      [{{Mod, N, length(Ps)}, wrapped}
+       || {foreign, _, Mod, Sigs} <- Decls,
+          {foreign_sig, L, N, R, Ps} <- Sigs,
+          wraps(L, Mod, N, resolve(R, Env), Env)]).
+
+%% Ticket 15 §5 fixes `E` for foreign calls: the wrapper produces
+%% `(:error, (Class, Reason))`, so the payload is `foreign_error` and nothing
+%% else. A declared `(:error, E)` member with any other payload is refused AT
+%% THE DECLARATION — ticket 09 §4 and 15 §1 both put a type refusal there "so
+%% the diagnostic lands where the fix is", and 09 was emphatic that it is an
+%% error rather than a warning.
+%%
+%% REFUSING IS THE REVERSIBLE DIRECTION, and that is why it is a refusal rather
+%% than a quiet no-wrapper. An author who wrote `result<int, atom>` over a
+%% foreign call and got no wrapper would have a program that DIES where its
+%% signature declares a value — this project's worst failure shape. A refusal
+%% can be lifted by the ticket that decides the case; a shipped silence cannot.
+%%
+%% What it costs is recorded in F19's Out of scope rather than hidden: a foreign
+%% function returning `{ok, V} | {error, Reason}` as ORDINARY VALUES — which is
+%% most of OTP — has no declared form yet, because 15 §5 fixed `E` without
+%% considering that shape. That is a ticket, not a feature.
+wraps(Line, Mod, Fun, Ret, Env) ->
+    case error_members(Ret) of
+        [] -> false;
+        Payloads ->
+            Fe = maps:get(foreign_error, Env),
+            case [P || P <- Payloads, not same_type(P, Fe)] of
+                []    -> true;
+                [P|_] -> erlang:error({foreign_error_channel, Line, Mod, Fun,
+                                       bs_types:to_string(P)})
+            end
+    end.
+
+%% `term` contains every tuple of every arity, so its tuple part is `top` and no
+%% member can be named. A foreign function declared `term` promises nothing and
+%% is owed nothing — ticket 11's "a foreign value is a `term` until you match
+%% it" — so it is not a declared failure channel and gets no wrapper.
+error_members(#{tuples := top}) -> [];
+error_members(#{tuples := Products}) ->
+    Err = bs_types:atom_lit(error),
+    [Payload || [Tag, Payload] <- Products, same_type(Tag, Err)].
+
+%% The algebra publishes containment, not equality, and mutual containment IS
+%% equality in it — the same identity `resolve/2` relies on when it says
+%% `option<int>` and `int | :nothing` are one type rather than two that agree.
+same_type(A, B) -> bs_types:is_subtype(A, B) andalso bs_types:is_subtype(B, A).
+
+%%% ---------------------------------------------------------------------------
 %%% Resolving surface types into the algebra
 %%% ---------------------------------------------------------------------------
 
@@ -615,7 +696,21 @@ stratum_one() ->
                  {t_union, [{t_ref, 'T'}, {t_atom, nothing}]}},
       result => {parametric, ['T', 'E'],
                  {t_union, [{t_ref, 'T'},
-                            {t_tuple, [{t_atom, error}, {t_ref, 'E'}]}]}}}.
+                            {t_tuple, [{t_atom, error}, {t_ref, 'E'}]}]}},
+      %% F19 / ticket 15 §5. The first GROUND prelude entry, and the first from
+      %% stratum 2 — a user cannot mint one of these VALUES, because only the
+      %% generated foreign wrapper produces them. Naming the TYPE is ordinary:
+      %% it has to be, since the declaration is how an author asks for the
+      %% wrapper at all.
+      %%
+      %% The three members are discriminable by their literal atom tags, so 15
+      %% §1's collapse check never fires on them, and the class survives the
+      %% catch instead of being flattened into a reason that cannot say whether
+      %% the callee died or returned.
+      foreign_error =>
+          {t_union, [{t_tuple, [{t_atom, error}, {t_builtin, term}]},
+                     {t_tuple, [{t_atom, throw}, {t_builtin, term}]},
+                     {t_tuple, [{t_atom, exit},  {t_builtin, term}]}]}}.
 
 %% Stratum 2 — compiler-known. What a user could not have written, and what the
 %% compiler draws inferences from. `PRELUDE.md` lists seven entries; this holds
@@ -734,11 +829,32 @@ resolve({t_atom, A}, _Env, _Seen)    -> bs_types:atom_lit(A);
 %% read differently: `option` alone is not an unknown type, it is a known one
 %% written without its bracket. Checked here rather than in `builtin/1` because
 %% only the environment knows what the prelude holds.
-resolve({t_builtin, B}, Env, _Seen) ->
+%% F19 — A GROUND PRELUDE ENTRY RESOLVES LIKE ANY OTHER NAME, and this clause is
+%% what makes the prelude able to hold one at all. Before it, `prelude/0` could
+%% only carry parametric templates: every lowercase name fell straight through to
+%% `builtin/1`, so `foreign_error` — a plain alias, not a builtin — arrived there
+%% as `unknown_builtin`. Keeping it in `prelude/0` rather than adding a
+%% `builtin/1` clause is what `prelude/0`'s own comment asks for: spelled in the
+%% language's alias mechanism, not special-cased in the resolver.
+%%
+%% BOTH FORMS ARE NEEDED, and the second was found by a test rather than by
+%% reading. `type_env/1` resolves its entries with `maps:map` over the SURFACE
+%% map, so during that pass a prelude entry is still a `{t_union, …}` tuple and
+%% only afterwards a reduced map. A `is_map` clause alone therefore works in a
+%% signature and fails inside a user's own `type` alias — which is one of the two
+%% places `foreign_error` is most likely to be written.
+%%
+%% `seen/2` and the `[B | Seen]` chain are `{t_ref, N}`'s, unchanged: a lowercase
+%% alias is an alias, and it owes the same cycle guard.
+resolve({t_builtin, B}, Env, Seen) ->
     case maps:get(B, Env, undefined) of
         {parametric, Params, _} ->
             erlang:error({needs_type_args, B, length(Params)});
-        _ -> builtin(B)
+        undefined -> builtin(B);
+        T when is_map(T) -> T;
+        Surface ->
+            seen(B, Seen),
+            resolve(Surface, Env, [B | Seen])
     end;
 resolve({t_ref, N}, Env, Seen) ->
     seen(N, Seen),
