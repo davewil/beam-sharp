@@ -16,6 +16,7 @@ take or decline.
 | **doc** | Official documentation, reference manual, standard text, or the designers' own writing |
 | **src** | Source code of the implementation |
 | **local** | Observed directly on this machine |
+| **preprint** | Not peer-reviewed. **Source [5] (Etylizer) is `arXiv:2603.22032v1`, marked on its own pages "DRAFT PAPER UNDER REVIEW", 23 March 2026.** Every [5] claim in this file carries that caveat, including the 2%-timeout figure, which is the number most likely to be quoted downstream. Source [2] is published (*Programming* 8(2), 2024) but was read as the extended arXiv version. |
 
 Pinned for this file: **OTP 28.5**, **Elixir 1.19.5**, **Gleam 1.18.1**, beam-sharp at `e1f1908`.
 
@@ -69,30 +70,31 @@ cycle, and today it does not. Measured [L3]: `type Tree = (int, list<Tree>)` and
 produce the **identical** diagnostic. Ticket 09's well-formedness rule is exactly the distinction
 the current guard erases. Full cost inventory in [Part 2](#part-2--what-the-decided-but-unbuilt-gap-costs).
 
-**3. There is no cheap defensible middle for a user-declared recursive type. Two of the three
-intermediate points are closed to this language specifically, and the reason is the exhaustiveness
-guarantee.**
+**3. Both intermediate points are worse for this language than they look — one is closed outright,
+the other trades away the exactness ticket 20 spent itself buying.**
 
 - **Nominal recursion** — recursion through a named constructor, equality by name, no coinduction —
   is what Gleam, OCaml, Haskell and Rust do, and it is why they pay almost nothing. Ticket 09 §1
-  abolished nominal types, so it is not available here. Gleam is the sharp case: it **allows** a
+  abolished nominal types, so it is **not available here**. Gleam is the sharp case: it **allows** a
   recursive custom type and **refuses** a recursive type *alias* with *"This type alias is defined
   in terms of itself… it would expand forever in a loop"* [3][L4] — the same position beam-sharp is
   in, in almost the same words, except Gleam has the escape hatch beam-sharp deliberately removed.
 - **Depth-limited widening** — unfold *n* times then widen to top — is what Dialyzer does
-  (`?REC_TYPE_LIMIT` = **2**, then `t_any()`) [4]. It is sound for success typing because widening
-  yields a supertype. It is **not** sound for exhaustiveness: the goal `Tree ≤ (int, list<Tree>)`
-  is precisely the coinductive goal, so under bounded unfolding it fails, the residual never
-  empties, and **every function over a recursive type becomes unwritable** — an error the author
-  cannot discharge by writing more clauses. (Derived here, not taken from a source — see
-  [Thin evidence](#where-the-evidence-is-thin).)
+  (`?REC_TYPE_LIMIT` = **2**, then `t_any()`) [4], and it is why recursive `-type` has been usable
+  on this platform since 2010 without anyone paying for a memo table. It works because widening
+  yields a supertype, which is the residual-too-big direction `l_subtract` already commits to. What
+  it costs is **exactness**: the residual stops being exact at the widening frontier, and whether a
+  given clause set reaches past that frontier is a per-type, per-clause-set property that nothing
+  measures (§3.3).
 
-That leaves: refuse, or pay for the memo table. **The cheapest defensible move is therefore not a
-new point on the curve — it is to keep refusing and split the refusal in two**, so that a legal
-`Tree` gets a *"not implemented yet"* diagnostic and `X = X | int` gets a *"this is not a type"*
-one. That is roughly ten lines in `resolve/3`, adds nothing to the algebra, is correct forever, and
-it fixes the thing [L3] just measured: the language currently tells an author who wrote something
-legal the same thing it tells an author who wrote nonsense.
+So the choice is: refuse; buy recursion cheaply and give up the exact residual; or pay for the memo
+table. **The cheapest defensible move is none of the three — it is to keep refusing and split the
+refusal in two**, so that a legal `Tree` gets a *"not implemented yet"* diagnostic and `X = X | int`
+gets a *"this is not a type"* one. That is roughly ten lines in `resolve/3`, adds nothing to the
+algebra, is correct forever, and it fixes the thing [L3] just measured: the language currently tells
+an author who wrote something legal the same thing it tells an author who wrote nonsense. **Nothing
+in the corpus is waiting on the fork, so buying the answer now is buying it before the question
+exists.**
 
 ---
 
@@ -285,7 +287,7 @@ compiler AST, which is `LANGUAGE.md` §18's bootstrapping question written as a 
 | 0 | Refuse every self-reference, contractive or not | **beam-sharp today** [L3]; Gleam's *alias* form [3][L4] | nothing |
 | 1 | Recursion only through built-in constructors, held as a saturating top | **beam-sharp today, in fact** (`any`/`top`) [L2]; Elixir 1.19.5 `Descr` (`:term`) [L5] | already paid; residual too big |
 | 2 | Recursion only through a **nominal** constructor; equality by name | Gleam custom types [3][L4]; ML/Haskell/Rust ADTs | near zero — **unavailable here** |
-| 3 | Equirecursive, **depth-limited**, widen to top past *n* unfoldings | **Dialyzer**: `?REC_TYPE_LIMIT = 2` → `t_any()` [4] | cheap — **unsound for exhaustiveness** |
+| 3 | Equirecursive, **depth-limited**, widen to top past *n* unfoldings | **Dialyzer**: `?REC_TYPE_LIMIT = 2` → `t_any()` [4] | cheap — **costs exactness, per-type and unmeasured** |
 | 4 | Coinductive memo table **plus** a hard depth backstop | **TypeScript**: `maybeKeysSet` → `Ternary.Maybe`, cutoff at depth 100 [6] | the memo table, plus a bailout error |
 | 5 | Full coinductive simulation over regular types, no cutoff | **CDuce** [1]; **Etylizer** [5] | ticket 09's decision; 5-min timeouts on 2% of a real corpus [5] |
 
@@ -335,7 +337,7 @@ alias and has no constructor form to refuse *toward*: ticket 09 §1 made every n
 design, so the position Gleam occupies is not a position this language can reach without undoing
 its own headline decision.
 
-### 3.3 Point 3 is cheap, real, and wrong for this language
+### 3.3 Point 3 is cheap and real, and what it costs here is exactness
 
 Dialyzer's mechanism, read from OTP 28.5 source [4]:
 
@@ -356,21 +358,33 @@ documented as an invariant at `t_limit/2` — *"`Res` must be strictly more gene
 so the widening always yields a **supertype**. That is exactly right for success typing, and it is
 why recursive `-type` has been usable since OTP R13B04 [4] without anyone paying for a memo table.
 
-It does not transfer, and the reason is the product this language sells.
+**What it costs here is exactness, and the size of the loss is not knowable per-language — it is
+per-type.**
 
 The exhaustiveness residual is `t \ (Acc(p₁) | … | Acc(pₙ))`. Widening `t` upward makes the residual
 bigger — a **false inexhaustive**, the safe direction, and the direction `l_subtract`'s own comment
 already commits to (*"leaves the residual too BIG rather than too small, and a residual that is too
-big reports a false inexhaustive rather than a false exhaustive"*, `bs_types.erl:643–654`). So far so
-good. But for a recursive type the goal that must be decided is the *self-referential* one:
-`Tree ≤ (int, list<Tree>)` — the type against its own unfolding, which under equirecursion is an
-identity and under bounded unfolding is simply **unproven**. The subtraction under-subtracts, the
-residual never empties, and the author is told their exhaustive function is inexhaustive with no
-clause they can write to fix it.
+big reports a false inexhaustive rather than a false exhaustive"*, `bs_types.erl:643–654`).
 
-**A false inexhaustive is only tolerable when the author can discharge it.** Over a recursive type
-it is undischargeable, which turns a safe approximation into an unwritable language. Dialyzer never
-meets this because it reports success typings, not coverage.
+**It does not automatically fail, and the first draft of this section claimed it did.** Widening is
+applied by `resolve/3`, which is the single funnel both the declared type and the clause patterns go
+through — so both sides of the subtraction are widened at the same depth and tend to agree. Worked
+through: `type Tree = (int, list<Tree>)` at `?REC_TYPE_LIMIT = 2` resolves to
+`(int, list<(int, list<term>)>)`; the pair `Sum((n, []))` / `Sum((n, [h, ..t]))` then subtracts to
+empty exactly as it should. [L2] shows why — `e_covers(any, _) -> true`, so a pattern that reaches
+the saturating top covers it exactly rather than approximately.
+
+What is lost is **ticket 20's headline**: the residual is no longer exact, and where it stops being
+exact depends on how deep the patterns reach relative to where the type was cut. A clause set that
+inspects *past* the widening frontier gets a residual that is too big and undischargeable; one that
+stops at or before it is fine. **That is a per-type, per-clause-set property, and nothing measures
+it** — which is a poor thing to build an exhaustiveness guarantee on, but it is not the same as the
+mechanism being unusable. Dialyzer never has to know the difference, because it reports success
+typings rather than coverage.
+
+The strong form — *"depth limiting makes every function over a recursive type unwritable"* — is
+recorded as an unproven hypothesis in [Where the evidence is thin](#where-the-evidence-is-thin),
+with the cheap falsification test.
 
 ### 3.4 Point 4 is what shipping point 5 actually looks like
 
@@ -413,8 +427,14 @@ That is roughly ten lines, adds no node to the algebra, no case to any operation
 to the exhaustiveness loop. It is the same shape as F6 itself — the guard that shipped with the
 feature that made the hazard reachable — and it closes the honesty gap [L3] measured.
 
-**Then do nothing further until something demands it.** The next real point is the memo table, there
-is nothing defensible in between, and the trigger is named in the next section rather than guessed at.
+**Then do nothing further until something demands it**, and let the demand pick the point rather
+than picking it now. If what arrives is a `Json`-shaped document type — shallow patterns, shallow
+type — point 3 is probably enough and costs a flag. If what arrives is bootstrapping, the residual
+has to be exact over a compiler AST, which is point 5 — and point 5 over a compiler AST is the exact
+input Etylizer publishes a five-minute timeout for [5]. **The two triggers want different answers,
+one of which is known to be slow, so committing to either before the trigger is known is the
+expensive move** — the same reversibility argument ticket 11 §3 made when it chose arity-and-trust
+over contract wrapping.
 
 ---
 
@@ -456,11 +476,11 @@ In rough order of likelihood.
 | Decidability relies on regularity of types, algebraic properties of universal models, and subtyping ≡ emptiness | doc | [1] §5.4 |
 | Emptiness is decided by a *simulation* = a coinductive proof; termination is by the finiteness of `N(A) = P(P(A)×P(A))` | doc | [1] §5.4, §6.9 |
 | `t = t×t` is contractive and still empty; recursion forces a separate well-foundedness criterion | doc | [1] §4.3 |
-| Reading the type grammar coinductively is *how* recursion is admitted | doc | [5] §3.1: *"To allow for recursive types, the definition of monomorphic types t is to be read coinductively"* |
-| Contractiveness = every infinite branch has infinitely many constructor occurrences; rules out `t = t∨t`, `t = ¬t` | doc | [5] §3.1 — matches ticket 09 §3's rule exactly |
-| Regularity = finitely many distinct subtrees; *"crucial for establishing decidability"* | doc | [5] §3.1 — **ticket 09 does not state this condition** |
-| Etylizer times out (>5 min) on 2% of functions; the pathology is recursive AST types × 40+ branches | doc | [5] §4.4 |
-| Etylizer is the first set-theoretic implementation independent of CDuce; all prior ones supporting corecursive types build on CDuce | doc | [5] §1 |
+| Reading the type grammar coinductively is *how* recursion is admitted | doc *(preprint)* | [5] §3.1: *"To allow for recursive types, the definition of monomorphic types t is to be read coinductively"* |
+| Contractiveness = every infinite branch has infinitely many constructor occurrences; rules out `t = t∨t`, `t = ¬t` | doc *(preprint)* | [5] §3.1 — matches ticket 09 §3's rule exactly |
+| Regularity = finitely many distinct subtrees; *"crucial for establishing decidability"* | doc *(preprint)* | [5] §3.1 — **ticket 09 does not state this condition** |
+| Etylizer times out (>5 min) on 2% of functions; the pathology is recursive AST types × 40+ branches | doc *(preprint)* | [5] §4.4 |
+| Etylizer is the first set-theoretic implementation independent of CDuce; all prior ones supporting corecursive types build on CDuce | doc *(preprint)* | [5] §1 |
 | Elixir's *theory* has recursive types: coinductive, contractive, regular | doc | [2] §3 |
 | Elixir 1.19.5's `Module.Types.Descr` has **no** recursion/μ/fixpoint node in its exported surface | local | [L5] |
 | A descr is a finite term; hand-unfolding a recursive type does not converge | local | [L5] |
@@ -484,13 +504,15 @@ In rough order of likelihood.
 
 ### Where the evidence is thin
 
-- **The claim that depth-limited widening produces an *undischargeable* false inexhaustive is
-  derived here, not taken from a source.** The reasoning is in §3.3 and rests on the residual
-  formula from ticket 04 plus Dialyzer's documented widening direction. No source was found that
-  states it, because no source combines depth-limited recursion with an exhaustiveness obligation —
-  Dialyzer does not check exhaustiveness, and CDuce/Etylizer do not depth-limit. **It should be
-  falsified cheaply before it is relied on**: implement point 3 behind a flag, write `Tree`, and see
-  whether the residual empties.
+- **Unproven hypothesis, recorded because the first draft of this file asserted it as fact:**
+  *depth-limited widening makes some functions over a recursive type unwritable* — a residual too
+  big that no clause set can discharge, whenever the clauses inspect past the widening frontier.
+  §3.3 shows the *ordinary* case works, because `resolve/3` widens both sides equally. Nothing was
+  found that settles the boundary, and no source combines depth-limited recursion with an
+  exhaustiveness obligation — Dialyzer does not check coverage, and CDuce/Etylizer do not
+  depth-limit. **Cheap falsification, and it should be run before point 3 is either adopted or
+  dismissed**: implement point 3 behind a flag, write `Tree` with a clause set that destructures two
+  levels deep, and see whether the residual empties.
 - **CDuce was not re-probed for this file.** Research 29 established CDuce 0.6.0 runs locally and
   upgraded the map's CDuce claims to `local`; nothing here re-measures its recursive-type
   behaviour, and the CDuce claims above come from FCB08 and from Etylizer's characterisation of it.
@@ -527,8 +549,9 @@ The map takes or declines these; this file does not apply them.
    and 09 §1 says the name never participates in the algebra. The residual is the diagnostic, so
    this is not cosmetic.
 5. **`fog.md`'s 40-clause "PAID" entry should be qualified.** It measured wide matches without
-   recursive types; Etylizer's published pathology is recursive types *times* wide matches [5].
-   The number stands; the reassurance does not extend to the combination.
+   recursive types; Etylizer's published pathology is recursive types *times* wide matches
+   [5, preprint]. The number stands; the reassurance does not extend to the combination. Mark the
+   Etylizer figure as not-yet-peer-reviewed wherever the map picks it up.
 6. **`fog.md`'s `ValidateAs<T>` "over a recursive type" measurement is currently unreachable.**
    Neither type it is generated over in the corpus is recursive [L1]. Either the requirement needs a
    synthetic input or it should be marked as blocked on recursion landing.
@@ -557,7 +580,7 @@ The map takes or declines these; this file does not apply them.
    *"Added support for recursive types (experimental)"*), mapped to OTP R13B04 via `vsn.mk` at the
    OTP git tags.
 5. Albert Schimpf, Stefan Wehr, Annette Bieniusa. *Set-Theoretic Types for Erlang: Theory,
-   Implementation, and Evaluation.* arXiv:2603.22032 (draft under review, 23 March 2026).
+   Implementation, and Evaluation.* arXiv:2603.22032v1 — **preprint, marked "DRAFT PAPER UNDER REVIEW" on its own pages**, 23 March 2026.
    <https://arxiv.org/pdf/2603.22032> — this is Etylizer, the tool ticket 04 already cites.
 6. TypeScript compiler source, `microsoft/TypeScript` at `b465fdbf`: `checker.ts`
    `instantiateTypeWithAlias` (L21020–21031), `getConditionalType` tail loop (L19776–19784),
