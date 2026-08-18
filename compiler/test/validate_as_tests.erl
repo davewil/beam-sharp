@@ -405,6 +405,88 @@ validation_error_is_in_scope_with_no_declaration_test() ->
     ?assertMatch({ok, _, []}, check_only(Src)).
 
 %%% ---------------------------------------------------------------------------
+%%% The five new diagnostics, as the AUTHOR receives them
+%%%
+%%% EVERY ASSERTION ABOVE IS AT THE TERM LEVEL, AND THAT IS NOT ENOUGH HERE.
+%%% `bin/check-diagnostics.sh` compares the SET of tags minted in `descriptor/2`
+%%% against the SET rendered in `message/1`, textually — so a `message/1` clause
+%%% that never dispatches, because a broader clause above it matches first,
+%%% leaves both sets identical and the gate green. The term tests pass too: the
+%%% term is right. The only thing wrong is the sentence, and nothing else in this
+%%% repo looks at it.
+%%%
+%%% So this drives `bsc` as a subprocess and asks the three questions a term
+%%% cannot answer: did the run fail, is the author's sentence there, and did the
+%%% renderer crash instead of rendering. The third is the one that catches a
+%%% missing clause outright — `message/1` has no catch-all on purpose, so an
+%%% unrendered tag is `function_clause` at the moment of reporting.
+%%%
+%%% THE FOURTH ASSERTION IS THE TAG'S OWN ATOM BEING ABSENT. A renderer that
+%%% falls through to printing the descriptor would satisfy the first three — the
+%%% run failed, and a term dump contains most of the words — while handing the
+%%% author `#{tag => validate_collapses, ...}`. The tag name appears in no
+%%% message's prose, so its absence is exactly the assertion that the reader got
+%%% a sentence rather than a map.
+%%%
+%%% MEASURED FAILING BEFORE IT WAS BELIEVED, 2026-08-18. `message/1`'s
+%%% `validate_collapses` clause head was renamed so the tag no longer dispatched.
+%%% This block went red on the FRAGMENT assertion — and in the same run
+%%% `validate_as_term_is_refused_test`, the term-level test for the identical
+%%% tag, still passed. That is the whole argument for this block in one run: the
+%%% term was right, its test was green, and the author's sentence was gone.
+%%% ---------------------------------------------------------------------------
+
+%% {tag, source, a fragment of the sentence that appears on ONE line}
+prose_cases() ->
+    [{validate_collapses,
+      "module VaProseCollapse\n"
+      "public result<term, ValidationError> Any(term t)\n"
+      "Any(t) -> ValidateAs<term>(t)\n",
+      "absorbs its own"},
+     {obligation_arity,
+      "module VaProseArity\n"
+      "public result<int, ValidationError> Go(term t)\n"
+      "Go(t) -> ValidateAs<int, atom>(t)\n",
+      "codegen obligation, not a function"},
+     {obligation_unbuilt,
+      "module VaProseUnbuilt\n"
+      "public atom Go(term t)\n"
+      "Go(t) -> ToExistingAtom<atom>(t)\n",
+      "decided and not built yet"},
+     {not_an_obligation,
+      "module VaProseNotOne\n"
+      "public int Go(term t)\n"
+      "Go(t) -> Encode<int>(t)\n",
+      "is not a codegen obligation"},
+     {compiler_known_type,
+      "module VaProseShadow\n"
+      "type ValidationError = int\n"
+      "public int Go(int n)\n"
+      "Go(n) -> n\n",
+      "compiler-known type and cannot be redeclared"}].
+
+every_new_diagnostic_reaches_the_author_as_prose_test_() ->
+    [{atom_to_list(Tag), fun() -> assert_prose(Tag, Src, Fragment) end}
+     || {Tag, Src, Fragment} <- prose_cases()].
+
+assert_prose(Tag, Src, Fragment) ->
+    %% Asserted rather than skipped-if-absent. `rebar.config`'s pre-eunit hook
+    %% builds the escript precisely so this path runs, and a test that quietly
+    %% returns `ok` when the artefact is missing is the shape that let
+    %% `cli_tests` never execute in CI at all.
+    ?assert(filelib:is_regular(bs_test_support:escript())),
+    bs_test_support:with_src(
+      "in.bs", Src,
+      fun(Path, Root) ->
+              Out = bs_test_support:run_cli(
+                      "-o " ++ Root ++ "/out " ++ filename:dirname(Path)),
+              ?assertNotEqual(nomatch, string:find(Out, "rc:1")),
+              ?assertNotEqual(nomatch, string:find(Out, Fragment)),
+              ?assertEqual(nomatch, string:find(Out, "escript: exception")),
+              ?assertEqual(nomatch, string:find(Out, atom_to_list(Tag)))
+      end).
+
+%%% ---------------------------------------------------------------------------
 %%% The bracket, and what it did NOT change
 %%% ---------------------------------------------------------------------------
 
