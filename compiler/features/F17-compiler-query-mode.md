@@ -28,6 +28,25 @@ lowering the compiler just did.
 
 ## The two facts that decided the whole design, and both were measured rather than chosen
 
+**Both are greps against `src/bs_check.erl` at `c92df4d`, and each ruled out a design this feature
+would otherwise have shipped.** They are written as commands rather than as conclusions because
+this repo's convention is that the trail from a line of Erlang back to the decision is one grep,
+and a fact recorded only as a sentence has to be re-derived by whoever doubts it.
+
+```
+$ grep -n 'exports_of(Decls)\|^check_dir(Sources, World\|unknown_module, M, L' src/bs_check.erl
+97:check_dir(Sources, World) -> check_dir(Sources, World, undefined).
+99:check_dir(Sources, World, Expect) ->
+344:exports_of(Decls) ->
+388:                []       -> erlang:error({unknown_module, M, L});
+
+$ grep -n 'funs =>' src/bs_check.erl
+372:                #{funs => #{}, mods => #{}, qual => qual_table(World),
+```
+
+**The first ruled out the obvious implementation** — *check the module and report what the checker
+produced.* **The second ruled out printing the type names the author wrote.**
+
 **A signature's types resolve without a `World`.** `bs_check:exports_of/1` builds the type
 environment from *this module's own declarations* and resolves each signature against it; it takes
 no world and asks for none. `bs_check:check_dir/3` does — and `add_import/7` **raises**
@@ -38,7 +57,8 @@ makes 23 §10's *"with no build"* true rather than aspirational: nothing is comp
 emitted, and no dependency is even read.
 
 **A type name does not cross the module boundary.** `import_env/3` populates `funs`, `mods`,
-`qual` and `privates` — and no table of types. `exports_of/1` hands a dependent the **resolved**
+`qual` and `privates` — and no table of types, which is the whole content of the second grep: the
+one accumulator that would have to hold one does not. `exports_of/1` hands a dependent the **resolved**
 type, never the name the author wrote. So printing `Reply HandleCall(Request, term, int)` would
 answer in a vocabulary the caller cannot use: `Request` and `Reply` are `Counter`'s private words.
 The resolved form is the only thing that travels, so the resolved form is what `--api` prints.
