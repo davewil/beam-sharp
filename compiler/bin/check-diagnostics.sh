@@ -48,7 +48,115 @@
 # An exclusion carries its reason, per the rule in `.github/workflows/ci.yml`.
 
 set -euo pipefail
-cd "$(dirname "$0")/.."
+# BOTH OF THESE ARE ABSOLUTE BEFORE THE `cd`, and the second one is why. This
+# script changes directory to `compiler/`, so a later `"$0"` — still the
+# relative path it was invoked with — resolves against the wrong directory. The
+# self-test below re-invokes this script, and with a relative `$0` every control
+# failed, negative control included, which reads as a broken gate rather than a
+# broken harness.
+SELF="$(cd "$(dirname "$0")/.." && pwd)"
+SELF_SH="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
+cd "$SELF"
+
+# `CHECK_DIAGNOSTICS_SRC` exists for the self-test below and names a copy of
+# `src/` with one defect introduced. Nothing else sets it; unset, this reads the
+# real sources exactly as before, from the same directory it always did.
+SRC="${CHECK_DIAGNOSTICS_SRC:-src}"
+
+# ---------------------------------------------------------------------------
+# --self-test
+#
+# FOUR CONTROLS, because this gate makes four separate claims and the one it
+# exists for is the one a lazy control would skip.
+#
+# THAT ONE IS THE STRAY. F16 moved 56 `io:format` calls into `bs_diag`, and the
+# drift reopens SILENTLY: the next person to add a diagnostic writes the
+# `io:format` at the site that found the problem, every test still passes,
+# because the PROSE is right — there is no failing assertion anywhere, only a
+# term that no longer describes what the compiler said. A control for that is
+# the whole reason to have one here.
+#
+# The other three are the two directions of the tag/message correspondence and
+# the delegation of the call sites. Each red must carry its own sentence; they
+# all print `ERROR:` and would otherwise stand in for one another.
+#
+# The controls copy the real `src/`, because check 2 diffs the actual minted and
+# rendered tag sets and a fixture module would compare two empty lists.
+# ---------------------------------------------------------------------------
+if [ "${1:-}" = "--self-test" ]; then
+    CTL="$(mktemp -d)"
+    trap 'rm -rf "$CTL"' EXIT
+
+    # Captured, not piped: a control run is meant to exit 1, and `pipefail`
+    # would report that status even when the sentence was found.
+    control() {
+        CHECK_DIAGNOSTICS_SRC="$1" "$SELF_SH" 2>&1 || true
+    }
+    fresh() { rm -rf "$1"; cp -R "$SELF/src" "$1"; }
+
+    st_fail=0
+    expect() {   # expect <sentence> <dir> <what the control built>
+        case "$(control "$2")" in
+            *"$1"*) ;;
+            *) echo "SELF-TEST FAILED: $3 was not reported"
+               st_fail=1 ;;
+        esac
+    }
+
+    # CONTROL 1 — a diagnostic written where the problem was found. This is the
+    # exact shape F16 removed, put back in a module that is not `bs_diag`.
+    #
+    # SINGLE TILDES. `~` is nothing special to `printf`, so the first draft's
+    # `~~s:~~p:` landed in the file literally doubled — which is not the defect
+    # shape, so the gate correctly ignored it and the control reported "cannot
+    # fire" against a check that works. A control that does not build the defect
+    # it names tests nothing but itself.
+    fresh "$CTL/stray"
+    printf '\nstray_report(F, L) ->\n    io:format(standard_error, "~s:~p: error: nope~n", [F, L]).\n' \
+        >> "$CTL/stray/bs_check.erl"
+    expect "a diagnostic is formatted outside bs_diag.erl" "$CTL/stray" \
+        "a diagnostic formatted outside bs_diag"
+
+    # CONTROL 2 — a tag minted with no clause to render it. Left alone this
+    # crashes at the moment the diagnostic is reported, which is intended
+    # behaviour and exactly why nothing else would catch it first.
+    fresh "$CTL/unrendered"
+    printf '\n%%%% self-test control\n%%%% tag => never_rendered\n' \
+        >> "$CTL/unrendered/bs_diag.erl"
+    expect "descriptor/2 mints tags that message/1 cannot render" "$CTL/unrendered" \
+        "a minted tag with no message clause"
+
+    # CONTROL 3 — the other direction: prose nothing can produce, which reads as
+    # a supported diagnostic to anyone grepping for one.
+    fresh "$CTL/orphan"
+    printf '\n%%%% self-test control\n%%%% #{tag := never_minted\n' \
+        >> "$CTL/orphan/bs_diag.erl"
+    expect "message/1 renders tags descriptor/2 never mints" "$CTL/orphan" \
+        "a rendered tag nothing mints"
+
+    # CONTROL 4 — the call site stops delegating.
+    fresh "$CTL/undelegated"
+    sed -i.bak 's/bs_diag:emit/bs_diag_emit_removed/g' "$CTL/undelegated/bsc.erl"
+    rm -f "$CTL/undelegated/bsc.erl.bak"
+    expect "bsc.erl no longer reports through bs_diag" "$CTL/undelegated" \
+        "a call site that stopped delegating"
+
+    # NEGATIVE CONTROL — the sources as committed.
+    fresh "$CTL/clean"
+    if CHECK_DIAGNOSTICS_SRC="$CTL/clean" "$SELF_SH" > /dev/null 2>&1; then :; else
+        echo "SELF-TEST FAILED: the sources as committed were rejected, so this gate"
+        echo "                  would fail every clean tree and be removed"
+        st_fail=1
+    fi
+
+    if [ "$st_fail" -eq 0 ]; then
+        echo "self-test: reported the stray diagnostic, the unrenderable tag, the"
+        echo "           orphaned message and the broken delegation; accepted the"
+        echo "           committed sources — the gate discriminates"
+        exit 0
+    fi
+    exit 1
+fi
 
 fail=0
 say() { printf '%s\n' "$*"; }
@@ -56,8 +164,8 @@ say() { printf '%s\n' "$*"; }
 # --- 1. No diagnostic-shaped message outside bs_diag -------------------------
 
 say "==> diagnostics are written in one place"
-strays=$(grep -rn '~s:~p: \(error\|warning\):' src/ --include='*.erl' \
-             | grep -v '^src/bs_diag\.erl:' || true)
+strays=$(grep -rn '~s:~p: \(error\|warning\):' "$SRC"/ --include='*.erl' \
+             | grep -v "^$SRC/bs_diag\.erl:" || true)
 if [ -n "$strays" ]; then
     say "ERROR: a diagnostic is formatted outside bs_diag.erl:"
     say "$strays"
@@ -74,8 +182,8 @@ fi
 # --- 2. Every minted tag has a message clause --------------------------------
 
 say "==> every tag the compiler mints can be rendered"
-minted=$(grep -o 'tag => [a-z_]*' src/bs_diag.erl | sed 's/tag => //' | sort -u)
-rendered=$(grep -o '#{tag := [a-z_]*' src/bs_diag.erl | sed 's/#{tag := //' | sort -u)
+minted=$(grep -o 'tag => [a-z_]*' "$SRC"/bs_diag.erl | sed 's/tag => //' | sort -u)
+rendered=$(grep -o '#{tag := [a-z_]*' "$SRC"/bs_diag.erl | sed 's/#{tag := //' | sort -u)
 
 missing=$(comm -23 <(printf '%s\n' "$minted") <(printf '%s\n' "$rendered"))
 if [ -n "$missing" ]; then
@@ -108,7 +216,7 @@ fi
 # --- 3. The call sites still delegate ----------------------------------------
 
 say "==> bsc reports through bs_diag"
-if grep -q 'bs_diag:emit' src/bsc.erl && grep -q 'bs_diag:descriptor' src/bsc.erl; then
+if grep -q 'bs_diag:emit' "$SRC"/bsc.erl && grep -q 'bs_diag:descriptor' "$SRC"/bsc.erl; then
     say "    ok — bsc:publish/2 reaches bs_diag"
 else
     say "ERROR: bsc.erl no longer reports through bs_diag."

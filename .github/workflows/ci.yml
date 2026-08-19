@@ -265,8 +265,18 @@ jobs:
       # It checks the SHAPE of the format string rather than the call, because a
       # diagnostic names a source location and a usage error never can. That
       # distinction is what lets the CLI keep printing `bsc: which function?` to
-      # stderr without an exemption. It was measured failing on all three of its
-      # checks before it was believed.
+      # stderr without an exemption.
+      #
+      # IT WAS MEASURED FAILING ON ITS CHECKS BEFORE IT WAS BELIEVED, AND THAT
+      # MEASUREMENT IS NOW A STEP RATHER THAN A SENTENCE. It was done by hand
+      # once and lived here as a claim; the controls below rebuild all four
+      # defects — a stray `~s:~p: error:` outside `bs_diag`, a minted tag with
+      # no message clause, a message clause for a tag nothing mints, and a call
+      # site that stopped delegating — and require each red to name its own.
+      - name: The diagnostics gate proves it can fail
+        working-directory: compiler
+        run: ./bin/check-diagnostics.sh --self-test
+
       - name: Diagnostics are terms
         working-directory: compiler
         run: ./bin/check-diagnostics.sh
