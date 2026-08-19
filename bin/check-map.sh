@@ -32,11 +32,105 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-MAP="$HERE/wayfinder/map.md"
+# `CHECK_MAP_DIR` exists for the self-test below, which points this gate at
+# mutated COPIES of the real wayfinder directory. Nothing else sets it. The
+# copies are the real files with one defect introduced, so a control cannot
+# pass by being simpler than the thing it stands in for — a hand-built fixture
+# map would satisfy all four checks trivially and prove nothing about the ones
+# that matter.
+WAYFINDER="${CHECK_MAP_DIR:-$HERE/wayfinder}"
+MAP="$WAYFINDER/map.md"
 BUDGET=350
 ENTRY_MAX=4
 
 [ -f "$MAP" ] || { echo "no map at $MAP" >&2; exit 2; }
+
+# ---------------------------------------------------------------------------
+# --self-test
+#
+# FOUR CHECKS, FOUR POSITIVE CONTROLS. Each red is required to carry that
+# check's own marker — OVER, FAT, GONE, UNINDEXED — because any one of them
+# would satisfy a bare "did it exit non-zero", and a gate that is right by
+# coincidence is what ticket 15 lost a session to.
+#
+# Check 4 is the one worth having a control for at all: an index that is short,
+# tidy and MISSING AN ENTRY passes the other three, which is precisely how
+# ticket 39's body sat unreachable while this gate was green.
+# ---------------------------------------------------------------------------
+if [ "${1:-}" = "--self-test" ]; then
+    CTL="$(mktemp -d)"
+    trap 'rm -rf "$CTL"' EXIT
+
+    # Output is CAPTURED, not piped: `set -o pipefail` is on and a control run
+    # is supposed to exit 1, so `control … | grep` would report the failing
+    # left-hand status even when the marker was found.
+    control() {
+        CHECK_MAP_DIR="$1" "${BASH_SOURCE[0]}" 2>&1 || true
+    }
+    fresh() {
+        rm -rf "$1"; mkdir -p "$1"
+        cp "$HERE/wayfinder/map.md" "$HERE/wayfinder/decisions.md" \
+           "$HERE/wayfinder/fog.md" "$HERE/wayfinder/scope.md" "$1/"
+    }
+
+    st_fail=0
+    expect() {   # expect <marker> <dir> <what the control built>
+        case "$(control "$2")" in
+            *"$1"*) ;;
+            *) echo "SELF-TEST FAILED: $3 was not reported — the $1 check cannot fire"
+               st_fail=1 ;;
+        esac
+    }
+
+    # CONTROL 1 — a map over the line budget.
+    fresh "$CTL/over"
+    for _ in $(seq 1 "$((BUDGET + 10))"); do echo "padding" >> "$CTL/over/map.md"; done
+    expect OVER "$CTL/over" "a map past its line budget"
+
+    # CONTROL 2 — an index entry that outgrew the index. Extra body lines under
+    # the first entry take it past ENTRY_MAX without touching anything else,
+    # which is exactly how an entry sprawls in practice.
+    #
+    # IT MUST BE THE FIRST ENTRY **INSIDE THE INDEX**, not the first in the
+    # file. The map opens with working notes that are also `- **` bullets, and
+    # the first draft of this control fattened one of those — above the
+    # `## Decisions so far` anchor, where the check deliberately does not look.
+    # It reported "cannot fire" against a check that was working.
+    fresh "$CTL/fat"
+    awk '
+        /^## Decisions so far/ { inindex = 1 }
+        inindex && !done && /^- \*\*/ {
+            print; print "  a"; print "  b"; print "  c"; print "  d"; done = 1; next
+        }
+        { print }
+    ' "$CTL/fat/map.md" > "$CTL/fat/map.tmp" && mv "$CTL/fat/map.tmp" "$CTL/fat/map.md"
+    expect FAT "$CTL/fat" "an index entry past its line limit"
+
+    # CONTROL 3 — a body file that is gone.
+    fresh "$CTL/gone"
+    rm -f "$CTL/gone/fog.md"
+    expect GONE "$CTL/gone" "a missing body file"
+
+    # CONTROL 4 — a body entry with no way in from the index.
+    fresh "$CTL/unindexed"
+    printf '\n- **A body nothing indexes** — added by this gate.\n' >> "$CTL/unindexed/fog.md"
+    expect UNINDEXED "$CTL/unindexed" "an unreachable body entry"
+
+    # NEGATIVE CONTROL — the wayfinder directory as committed.
+    fresh "$CTL/clean"
+    if CHECK_MAP_DIR="$CTL/clean" "${BASH_SOURCE[0]}" > /dev/null 2>&1; then :; else
+        echo "SELF-TEST FAILED: the map as committed was rejected, so this gate"
+        echo "                  would fail every clean tree and be removed"
+        st_fail=1
+    fi
+
+    if [ "$st_fail" -eq 0 ]; then
+        echo "self-test: reported the over-budget map, the fat entry, the missing body"
+        echo "           and the unindexed one; accepted the committed map — it discriminates"
+        exit 0
+    fi
+    exit 1
+fi
 
 fail=0
 
@@ -91,7 +185,7 @@ fi
 
 # --- 3. the split is still intact ---------------------------------------------
 for f in decisions.md fog.md scope.md; do
-    if [ ! -f "$HERE/wayfinder/$f" ]; then
+    if [ ! -f "$WAYFINDER/$f" ]; then
         printf '  %-10s wayfinder/%s is missing\n' "GONE" "$f"; fail=1
     elif ! grep -q "$f" "$MAP"; then
         printf '  %-10s wayfinder/%s exists but the map does not link it\n' "ORPHAN" "$f"; fail=1
@@ -122,7 +216,7 @@ for body in decisions.md fog.md scope.md; do
         /<\/details>/{ archived = 0; next }
         archived     { next }
         /^- \*\*/    { print }
-    ' "$HERE/wayfinder/$body" \
+    ' "$WAYFINDER/$body" \
         | sed -n 's/^- \*\*\([^*]*\)\*\*.*/\1/p' \
         | sed 's/[.,]$//')
 done
