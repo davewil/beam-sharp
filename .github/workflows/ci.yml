@@ -140,6 +140,20 @@ jobs:
       # and it exits 2 rather than skipping when the escript is missing. Two of
       # the transcripts did not reproduce the day this was written, so the part
       # that needs a build is the part that found the defect.
+      # ITS SELF-TEST IS DOWN HERE RATHER THAN WITH THE OTHER FOUR, and the
+      # reason is the same one that moved the gate itself: part 3 executes the
+      # compiler, so the controls cannot run before `escriptize`. It refuses
+      # rather than skipping when the escript is missing, which is what keeps
+      # this placement from quietly becoming a no-op if the steps are reordered.
+      #
+      # Four positive controls, because the gate makes four claims: an invented
+      # clause, a dropped capability, a wrong pasted output, and a command in
+      # the document that must NOT execute. The last is checked by its side
+      # effect rather than by reading the code, since this gate did once run a
+      # markdown line through `eval`.
+      - name: The tour gate proves it can fail
+        run: ./compiler/bin/check-tour.sh --self-test
+
       - name: TOUR.md quotes the corpus and replays what it pasted
         run: ./compiler/bin/check-tour.sh
 

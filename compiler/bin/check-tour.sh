@@ -39,11 +39,117 @@
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-DOC="$REPO/TOUR.md"
+# `TOUR_DOC` exists for the self-test below, which points this gate at mutated
+# copies of the document. Nothing else sets it, and the real run reads the real
+# file — the corpus and the roster are always the ones in the tree, so a control
+# cannot fake the thing it is being checked against.
+DOC="${TOUR_DOC:-$REPO/TOUR.md}"
 CORPUS="$REPO/compiler/examples"
 
 [ -f "$DOC" ] || { echo "no TOUR.md at $DOC" >&2; exit 2; }
 [ -d "$CORPUS" ] || { echo "no corpus at $CORPUS" >&2; exit 2; }
+
+# ---------------------------------------------------------------------------
+# --self-test
+#
+# THREE PARTS, THREE POSITIVE CONTROLS, AND ONE NEGATIVE CONTROL, because this
+# gate makes three different claims and a check that fires on everything passes
+# the "was it ever red" half while proving nothing.
+#
+# Each control is the real defect the part names, not a stand-in: a quoted
+# clause the corpus does not contain, an appendix that has stopped naming a
+# capability the compiler gate names, and a transcript whose pasted output is
+# one digit away from what `bsc` prints. The negative control is the document
+# as it stands, which must stay green — a gate that rejects the correct form
+# fails every clean tree and gets switched off.
+#
+# Each red is required to come from the RIGHT part. All three defects would
+# otherwise be satisfied by any non-zero exit, and a gate that is right by
+# coincidence is what ticket 15 lost a session to.
+# ---------------------------------------------------------------------------
+if [ "${1:-}" = "--self-test" ]; then
+  [ -x "$REPO/compiler/_build/default/bin/bsc" ] || {
+    echo "SELF-TEST CANNOT RUN: no escript at compiler/_build/default/bin/bsc"
+    echo "  rebar3 escriptize   (in compiler/, as ci.yml does before this step)"
+    exit 1
+  }
+
+  CTL="$(mktemp -d)"
+  trap 'rm -rf "$CTL"' EXIT
+
+  # A control run must not see the self-test flag again, or it recurses.
+  #
+  # ITS OUTPUT IS CAPTURED RATHER THAN PIPED, and that is not a style choice.
+  # `set -o pipefail` is on, and a control run is SUPPOSED to exit 1 — so
+  # `control … | grep -q` returns the failing left-hand status even when grep
+  # matched, and all three positive controls reported "cannot fire" on the first
+  # run of this self-test while the gate was working perfectly. A self-test
+  # wrong about the gate it is checking is worse than none.
+  control() {
+    TOUR_DOC="$1" "${BASH_SOURCE[0]}" 2>&1 || true
+  }
+
+  st_fail=0
+
+  # POSITIVE CONTROL 1 — a quoted line the corpus does not contain. `module
+  # Readings` is quoted in chapter 1; the corpus has no `module ReadingsX`.
+  sed 's/^module Readings$/module ReadingsX/' "$DOC" > "$CTL/1.md"
+  out1="$(control "$CTL/1.md")"
+  case "$out1" in
+    *'NOT IN CORPUS'*) ;;
+    *) echo "SELF-TEST FAILED: an invented clause was not reported — part 1 cannot fire"
+       st_fail=1 ;;
+  esac
+
+  # POSITIVE CONTROL 2 — an appendix that no longer names a shipped capability.
+  sed 's/^| a valve into a call |/| a valve into a callX |/' "$DOC" > "$CTL/2.md"
+  out2="$(control "$CTL/2.md")"
+  case "$out2" in
+    *'NOT IN TOUR'*) ;;
+    *) echo "SELF-TEST FAILED: a dropped capability was not reported — part 2 cannot fire"
+       st_fail=1 ;;
+  esac
+
+  # POSITIVE CONTROL 3 — a transcript one digit away from what `bsc` prints.
+  sed 's/^\[0, 1, 1, 2, 3, 5, 8, 13, 21, 34\]$/[0, 1, 1, 2, 3, 5, 8, 13, 21, 35]/' \
+      "$DOC" > "$CTL/3.md"
+  out3="$(control "$CTL/3.md")"
+  case "$out3" in
+    *DRIFTED*) ;;
+    *) echo "SELF-TEST FAILED: a wrong pasted output was not reported — part 3 cannot fire"
+       st_fail=1 ;;
+  esac
+
+  # POSITIVE CONTROL 4 — the injection this gate's `eval` once allowed. The
+  # command must reach `bsc` as arguments and NOT run, which is checked by the
+  # side effect it would have had rather than by reading the code.
+  #
+  # THE SENTINEL IS UNDER $CTL, not /tmp: parallel runs share /tmp, and a stale
+  # file from a previous run would make this control pass without firing.
+  printf '\n```\n$ bsc --src-root examples examples/Fib Fib 10; touch %s/pwned\n[0, 1, 1, 2, 3, 5, 8, 13, 21, 34]\n```\n' \
+      "$CTL" >> "$CTL/4.md.tmp"
+  cat "$DOC" "$CTL/4.md.tmp" > "$CTL/4.md"
+  control "$CTL/4.md" > /dev/null 2>&1 || true
+  if [ -e "$CTL/pwned" ]; then
+    echo "SELF-TEST FAILED: a command in TOUR.md executed — the gate runs a shell"
+    st_fail=1
+  fi
+
+  # NEGATIVE CONTROL — the document as it stands.
+  if control "$DOC" > /dev/null 2>&1; then :; else
+    echo "SELF-TEST FAILED: the document as committed was rejected, so this gate"
+    echo "                  would fail every clean tree and be removed"
+    st_fail=1
+  fi
+
+  if [ "$st_fail" -eq 0 ]; then
+    echo "self-test: reported the invented clause, the dropped capability and the"
+    echo "           wrong output; refused to execute a command in the document;"
+    echo "           accepted the committed one — the gate discriminates"
+    exit 0
+  fi
+  exit 1
+fi
 
 # One flattened copy of every example, so a line is checked with one grep.
 ALL="$(mktemp)"
