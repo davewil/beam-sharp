@@ -20,10 +20,98 @@
 
 set -euo pipefail
 
-HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-REPO="$(cd "$HERE/.." && pwd)"
+SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# `EXTRACT_EXEMPLARS_ROOT` exists for the self-test below, which points the
+# extractor at a copy of the prototypes and the extracted files with one side
+# altered. Nothing else sets it.
+REPO="${EXTRACT_EXEMPLARS_ROOT:-$(cd "$SELF/.." && pwd)}"
+HERE="$REPO/compiler"
 SRC="$REPO/wayfinder/prototypes"
 DEST="$HERE/examples/exemplars"
+
+# ---------------------------------------------------------------------------
+# --self-test
+#
+# `--check` makes one claim — the committed exemplars are what the write-ups
+# currently say — and it can go stale from EITHER SIDE. Both controls matter
+# because the two are different accidents with the same symptom:
+#
+#   1. Somebody edits an extracted file directly. Every one of them opens with
+#      "EXTRACTED — do not edit here", which is a sign, not a lock.
+#   2. Somebody amends a `25*-*.md` write-up and does not re-run the extractor.
+#      This is the likelier of the two, because the write-ups are a standing
+#      resource that keeps being amended — the reason this is a script at all.
+#
+# The forked-source failure is not hypothetical: 25b's write-up and its lowering
+# once disagreed about the reserved opcodes and nobody noticed.
+#
+# The controls copy the real prototypes and the real extracted tree. A fixture
+# write-up would exercise none of the awk that finds a "## `name.bs`" heading,
+# which is where this script does its work.
+# ---------------------------------------------------------------------------
+if [ "${1:-}" = "--self-test" ]; then
+  CTL="$(mktemp -d)"
+  trap 'rm -rf "$CTL"' EXIT
+
+  # Captured, not piped: a control run is meant to exit 1 and `pipefail` would
+  # hand that status back even when the marker was found.
+  control() {
+    EXTRACT_EXEMPLARS_ROOT="$1" "${BASH_SOURCE[0]}" --check 2>&1 || true
+  }
+  fresh() {
+    rm -rf "$1"; mkdir -p "$1/wayfinder/prototypes" "$1/compiler/examples"
+    cp "$SELF"/../wayfinder/prototypes/25[a-z]-*.md "$1/wayfinder/prototypes/"
+    cp -R "$SELF/examples/exemplars" "$1/compiler/examples/"
+  }
+
+  st_fail=0
+  first_bs() { find "$1/compiler/examples/exemplars" -name '*.bs' | sort | head -1; }
+
+  # CONTROL 1 — an extracted file edited by hand.
+  fresh "$CTL/edited"
+  printf '\nHandEdited() -> :oops\n' >> "$(first_bs "$CTL/edited")"
+  case "$(control "$CTL/edited")" in
+    *STALE*) ;;
+    *) echo "SELF-TEST FAILED: a hand-edited extracted file was not reported —"
+       echo "                  --check cannot see the side it was written to protect"
+       st_fail=1 ;;
+  esac
+
+  # CONTROL 2 — a write-up amended without re-running the extractor. The edit
+  # goes INSIDE a fenced block, since that is the only text that is extracted;
+  # changing the prose around it correctly changes nothing.
+  fresh "$CTL/amended"
+  awk '
+    /^```csharp$/ { print; infence = 1; next }
+    infence && !done { print "// amended by the self-test"; done = 1 }
+    { print }
+  ' "$(find "$CTL/amended/wayfinder/prototypes" -name '25a-*.md' | head -1)" \
+    > "$CTL/amended/tmp.md"
+  mv "$CTL/amended/tmp.md" \
+     "$(find "$CTL/amended/wayfinder/prototypes" -name '25a-*.md' | head -1)"
+  case "$(control "$CTL/amended")" in
+    *STALE*) ;;
+    *) echo "SELF-TEST FAILED: an amended write-up was not reported — the source"
+       echo "                  and the extracted files can fork silently"
+       st_fail=1 ;;
+  esac
+
+  # NEGATIVE CONTROL — both sides as committed.
+  fresh "$CTL/clean"
+  if EXTRACT_EXEMPLARS_ROOT="$CTL/clean" "${BASH_SOURCE[0]}" --check > /dev/null 2>&1
+  then :; else
+    echo "SELF-TEST FAILED: the committed exemplars were called stale, so this gate"
+    echo "                  would fail every clean tree and be removed"
+    st_fail=1
+  fi
+
+  if [ "$st_fail" -eq 0 ]; then
+    echo "self-test: reported the hand-edited file and the amended write-up;"
+    echo "           accepted the committed pair — the check discriminates"
+    exit 0
+  fi
+  exit 1
+fi
 
 CHECK=0
 [ "${1:-}" = "--check" ] && CHECK=1 && DEST="$(mktemp -d)/exemplars"
