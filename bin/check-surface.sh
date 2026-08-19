@@ -54,8 +54,98 @@
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-MAP="$HERE/wayfinder/map.md"
-LANG_MD="$HERE/LANGUAGE.md"
+# `CHECK_SURFACE_DIR` exists for the self-test below and holds mutated copies of
+# the two files this gate reads, flat. Nothing else sets it; without it the
+# paths resolve from the script's own location exactly as before, which is what
+# `check-cwd-independence.sh` requires.
+if [ -n "${CHECK_SURFACE_DIR:-}" ]; then
+    MAP="$CHECK_SURFACE_DIR/map.md"
+    LANG_MD="$CHECK_SURFACE_DIR/LANGUAGE.md"
+else
+    MAP="$HERE/wayfinder/map.md"
+    LANG_MD="$HERE/LANGUAGE.md"
+fi
+
+# ---------------------------------------------------------------------------
+# --self-test
+#
+# TWO POSITIVE CONTROLS, because this gate can be defeated from either side and
+# both happened for real:
+#
+#   1. LANGUAGE.md loses a citation it used to carry.
+#   2. THE MAP GAINS A SURFACE DECISION LANGUAGE.md HAS NEVER MENTIONED. This is
+#      the ticket 42 case — relational patterns landed and the document did not
+#      mention them in any form — and it is the direction a gate written only
+#      against case 1 would miss, because nothing was removed from anywhere.
+#
+# The negative control is the pair as committed. Both files are copies of the
+# real ones: a fixture map with two entries would exercise none of the awk that
+# walks the real index.
+# ---------------------------------------------------------------------------
+if [ "${1:-}" = "--self-test" ]; then
+    CTL="$(mktemp -d)"
+    trap 'rm -rf "$CTL"' EXIT
+
+    # Captured, not piped: a control run is meant to exit 1 and `pipefail` would
+    # hand that status back even when the marker was found.
+    control() {
+        CHECK_SURFACE_DIR="$1" "${BASH_SOURCE[0]}" 2>&1 || true
+    }
+    fresh() {
+        rm -rf "$1"; mkdir -p "$1"
+        cp "$HERE/wayfinder/map.md" "$1/map.md"
+        cp "$HERE/LANGUAGE.md" "$1/LANGUAGE.md"
+    }
+
+    st_fail=0
+
+    # CONTROL 1 — a citation that has fallen out of LANGUAGE.md. `ticket 08` is
+    # the guard/interval decision and is cited today; stripping every form of it
+    # is what a careless rewrite of that paragraph would do.
+    fresh "$CTL/uncited"
+    sed -i.bak 's/ticket 08/ticket zero-eight/g; s|issues/08-|issues/xx-|g' \
+        "$CTL/uncited/LANGUAGE.md" && rm -f "$CTL/uncited/LANGUAGE.md.bak"
+    case "$(control "$CTL/uncited")" in
+        *UNCITED*) ;;
+        *) echo "SELF-TEST FAILED: a dropped citation was not reported — the gate cannot fire"
+           st_fail=1 ;;
+    esac
+
+    # CONTROL 2 — a NEW surface decision the document has never mentioned. The
+    # ticket number is one the map does not use, so nothing can cite it by
+    # accident.
+    fresh "$CTL/new"
+    awk '
+        /^## Decisions so far/ { print; inindex = 1; next }
+        inindex && !done && /^- \*\*/ {
+            print "- **A surface decision nothing documents** `#97` `syntax`"
+            print "  added by this gate self-test"
+            done = 1
+        }
+        { print }
+    ' "$CTL/new/map.md" > "$CTL/new/map.tmp" && mv "$CTL/new/map.tmp" "$CTL/new/map.md"
+    case "$(control "$CTL/new")" in
+        *UNCITED*) ;;
+        *) echo "SELF-TEST FAILED: an undocumented new surface decision was not reported —"
+           echo "                  the gate only catches removals, which is the weaker half"
+           st_fail=1 ;;
+    esac
+
+    # NEGATIVE CONTROL — the pair as committed.
+    fresh "$CTL/clean"
+    if CHECK_SURFACE_DIR="$CTL/clean" "${BASH_SOURCE[0]}" > /dev/null 2>&1; then :; else
+        echo "SELF-TEST FAILED: the committed pair was rejected, so this gate would"
+        echo "                  fail every clean tree and be removed"
+        st_fail=1
+    fi
+
+    if [ "$st_fail" -eq 0 ]; then
+        echo "self-test: reported the dropped citation and the undocumented decision;"
+        echo "           accepted the committed pair — the gate discriminates"
+        exit 0
+    fi
+    exit 1
+fi
 
 fail=0
 
