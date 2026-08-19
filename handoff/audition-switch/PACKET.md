@@ -1,70 +1,66 @@
 # Audition packet — the exhaustiveness checker
 
 You are implementing one piece of a programming language toolchain FROM ITS
-SPECIFICATION ALONE. This is a clean-room exercise: the reference compiler
+SPECIFICATION ALONE. This is a clean-room exercise: a reference implementation
 exists, and you must not look at it.
 
 ## Hard rules
 
 - **Do not read, search for, or open any file outside this packet directory.**
-  In particular there is a reference implementation elsewhere in this
-  repository and a `wayfinder/` directory of design notes. Both are off limits.
-  If you find yourself looking for them, stop.
-- **Do not read `expected/`.** It holds the answers. It is not in your packet;
-  if you can reach it, you are outside your boundary.
+  A reference implementation of this language exists elsewhere on this machine,
+  as does a directory of design notes. Both are off limits. If you find
+  yourself looking for either, stop.
 - Do not modify anything under `cases/`.
 - Work only inside your own working directory.
+- Work autonomously. There is nobody to answer questions.
 
 ## What you are building
 
-A command-line program that decides whether a `switch` is well-formed, and
-reports the same diagnostics the specification implies.
+A command-line program that decides whether a `switch` is well-formed and
+reports the problems it finds.
 
-Deliverable: an executable file named `switchcheck` in your working directory,
-runnable as:
+Deliverable: an executable file named `switchcheck` in your working directory:
 
     ./switchcheck <path-to-.bs-file>
 
-It may be a shell script, or any language available on the machine, provided
-`./switchcheck` runs it directly (use a shebang). It must not require network
-access or a package install step.
+Any language available on the machine is fine, provided `./switchcheck` runs
+directly via a shebang. No network access, no package installs.
 
-## Output contract — read this twice, it is how you are marked
+## Output contract
 
-For the file it is given, `switchcheck` prints **one diagnostic tag per line**
-on stdout, lowercase, and nothing else. No prose, no file names, no line
-numbers, no blank lines.
+For the file it is given, `switchcheck` prints **one lowercase tag per line** on
+stdout and nothing else — no prose, no filenames, no line numbers. A well-formed
+program prints **nothing at all**.
 
-If the program is well-formed, it prints **nothing at all** and exits 0.
+These are the only tags you may print:
 
-The tags you may print, and what each means:
+    switch_inexhaustive
+    unreachable_arm
+    rebinding
+    return_not_declared
 
-| tag | when |
-|---|---|
-| `switch_inexhaustive` | the arms do not cover every value the subject's type admits, and there is no catch-all |
-| `unreachable_arm` | an arm can never match, because earlier arms already cover it |
-| `rebinding` | an arm's pattern binds a name that is already bound in the enclosing clause |
-| `return_not_declared` | an arm produces a value of a type the function's signature does not declare |
+**What each of those means is for you to determine from the specification
+below.** The names are listed so that your output can be compared
+mechanically — they are a vocabulary, not a definition of the rules.
 
-Exit code is ignored. Only the printed tags are compared. Order does not
-matter; duplicates are ignored.
+Exit code is ignored. Order does not matter and duplicates are ignored; only
+the set of tags is compared.
 
-## How you will be judged
+## How you are marked
 
-Your `switchcheck` is run over a set of `.bs` files. For each, the tags it
-prints are compared against the tags the reference compiler produces for that
-same file. **Every file must match exactly** — a missing diagnostic and an
-invented one both fail.
+Your `switchcheck` is run over the files in `cases/` and the tags it prints are
+compared against the tags the reference compiler produces for the same file.
+**Every case must match exactly.**
 
-Some of the files are well-formed and must produce no output. Printing a
-diagnostic for a correct program fails the audition just as surely as missing
-one, so do not guess: a checker that reports `switch_inexhaustive` whenever it
-is unsure will fail on the very first case.
+Some of the files are well-formed and must produce no output at all. Printing a
+diagnostic for a correct program fails exactly as hard as missing one, so do not
+guess defensively: a checker that reports a problem whenever it is unsure fails
+on the first case. Test against `cases/` before you finish.
 
 ## The specification
 
-What follows is the relevant part of the language reference, verbatim. It is
-all you get, and it is meant to be enough. Where it is not enough, prefer the
+What follows is the relevant part of the language reference, verbatim. It is all
+you get, and it is meant to be enough. Where it is not enough, prefer the
 reading the text best supports rather than inventing a rule.
 
 ---
