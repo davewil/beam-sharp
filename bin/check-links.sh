@@ -37,7 +37,98 @@
 
 set -euo pipefail
 
-REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# `CHECK_LINKS_ROOT` exists for the self-test below and points this gate at a
+# copy of the shipping package with one defect introduced. Nothing else sets it.
+REPO="${CHECK_LINKS_ROOT:-$SELF}"
+
+# ---------------------------------------------------------------------------
+# --self-test
+#
+# THREE CHECKS, THREE POSITIVE CONTROLS, each required to carry its own marker
+# — DEAD LINK, DEAD PATH, CITES — since any one red would satisfy a bare
+# non-zero exit.
+#
+# Check 2 is the one this gate was written for. A bare `examples/Foo/foo.bs` in
+# prose is not a link, so no renderer ever tries it, and 25 of them survived
+# F15 turning a module into a directory. The control is that exact shape: a path
+# that reads perfectly and resolves to nothing.
+#
+# The control root is a COPY OF THE REAL PACKAGE, not a fixture. The DOCS list
+# below is partly built by `find`, so a two-file fixture would leave most of
+# this gate unexercised while reporting that it works.
+# ---------------------------------------------------------------------------
+if [ "${1:-}" = "--self-test" ]; then
+    CTL="$(mktemp -d)"
+    trap 'rm -rf "$CTL"' EXIT
+
+    # Captured, not piped: a control run is meant to exit 1, and with `pipefail`
+    # on, a pipeline would report that status even when the marker was found.
+    control() {
+        CHECK_LINKS_ROOT="$1" "${BASH_SOURCE[0]}" 2>&1 || true
+    }
+    # WHAT THE COPY HAS TO INCLUDE IS ITSELF A FINDING. The first draft copied
+    # only the documents this gate lists plus the corpus, and the clean control
+    # came back RED on two real links — `F9` cites `reports/`, and the features
+    # README cites `bin/check-surface.sh`. The package's outgoing edges reach
+    # further than the package's own file list, which is the whole reason a gate
+    # counts them. So the control root is the repository minus the things that
+    # cannot affect a link check: `.git`, worktrees, and build output.
+    #
+    # `wayfinder/` is excluded too, and safely: links into it are counted and
+    # allowed rather than resolved, so its absence changes no verdict — and it
+    # is 4M of the 5.2M, which is the difference between a control that runs in
+    # a moment and one nobody waits for.
+    fresh() {
+        rm -rf "$1"; mkdir -p "$1"
+        ( cd "$SELF" && tar -cf - \
+            --exclude='./.git' --exclude='./.claude' --exclude='./wayfinder' \
+            --exclude='./compiler/_build' . ) | ( cd "$1" && tar -xf - )
+    }
+
+    st_fail=0
+    expect() {   # expect <marker> <dir> <what the control built>
+        case "$(control "$2")" in
+            *"$1"*) ;;
+            *) echo "SELF-TEST FAILED: $3 was not reported — the $1 check cannot fire"
+               st_fail=1 ;;
+        esac
+    }
+
+    # CONTROL 1 — a markdown link to a file the package does not ship.
+    fresh "$CTL/link"
+    printf '\nSee [the missing one](does-not-exist.md).\n' >> "$CTL/link/CONTEXT.md"
+    expect "DEAD LINK" "$CTL/link" "a link to a file that is not there"
+
+    # CONTROL 2 — a bare corpus path in prose. Nothing renders it, which is why
+    # 25 of these rotted through an entire refactor with every gate green.
+    fresh "$CTL/path"
+    printf '\nRun `examples/NotAModule/nope.bs` to see it.\n' >> "$CTL/path/CONTEXT.md"
+    expect "DEAD PATH" "$CTL/path" "a corpus path that resolves to nothing"
+
+    # CONTROL 3 — a ticket number in LANGUAGE.md's VISIBLE prose. In an HTML
+    # comment this is the required convention; in the running text it points a
+    # clean-room reader at a directory they were not given.
+    fresh "$CTL/cites"
+    printf '\nThe conjunction was settled by ticket 44.\n' >> "$CTL/cites/LANGUAGE.md"
+    expect "CITES" "$CTL/cites" "a ticket number in visible prose"
+
+    # NEGATIVE CONTROL — the package as committed.
+    fresh "$CTL/clean"
+    if CHECK_LINKS_ROOT="$CTL/clean" "${BASH_SOURCE[0]}" > /dev/null 2>&1; then :; else
+        echo "SELF-TEST FAILED: the package as committed was rejected, so this gate"
+        echo "                  would fail every clean tree and be removed"
+        st_fail=1
+    fi
+
+    if [ "$st_fail" -eq 0 ]; then
+        echo "self-test: reported the dead link, the dead path and the visible citation;"
+        echo "           accepted the committed package — the gate discriminates"
+        exit 0
+    fi
+    exit 1
+fi
+
 cd "$REPO"
 
 # The shipping package. `compiler/README.md` and the exemplars README are in it

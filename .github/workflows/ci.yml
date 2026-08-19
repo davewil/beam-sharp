@@ -58,6 +58,7 @@ jobs:
           ./compiler/bin/check-no-silent-skip.sh --self-test
           ./bin/check-map.sh --self-test
           ./bin/check-surface.sh --self-test
+          ./bin/check-links.sh --self-test
 
       # `check-map.sh` was written on 2026-08-15 and NEVER WIRED IN; it ran only
       # when somebody remembered. `editor/bin/` held two more this file had
