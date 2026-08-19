@@ -147,12 +147,36 @@ echo
 # ---------------------------------------------------------------------------
 # Mark
 # ---------------------------------------------------------------------------
+# A LANE THAT COULD NOT RUN IS NOT A MODEL THAT COULD NOT DO IT.
+#
+# Measured 2026-08-19: a lane exited after 12 seconds with `402 Payment
+# Required — usage balance exhausted`. The same model had produced a 7/8 result
+# an hour earlier; the intervening runs simply spent the plan's allowance.
+#
+# Scored as a failure that would be a lie, and a lie in the direction that
+# matters — it would enter the record as evidence about the MODEL when it is
+# evidence about the ACCOUNT. Plan-billed lanes are finite, and running several
+# workflows at once is exactly how you discover the limit.
+unavailable_reason() {
+  local log="$1"
+  grep -qiE '402|payment required|balance exhausted|quota|rate.?limit' "$log" 2>/dev/null && { echo "lane out of balance or rate-limited"; return 0; }
+  grep -qiE 'unauthori|not logged in|authentication|invalid.*(token|credential)' "$log" 2>/dev/null && { echo "lane not authenticated"; return 0; }
+  return 1
+}
+
 printf '%-9s %7s %7s  %s\n' "LANE" "SECS" "RESULT" "DETAIL"
 for key in "${LANES[@]}"; do
   d="$WORKDIR/$key"
   secs="$(cat "$WORKDIR/$key.seconds" 2>/dev/null || echo '?')"
+  rc="$(cat "$WORKDIR/$key.rc" 2>/dev/null || echo '?')"
   if [ ! -e "$d/switchcheck" ]; then
-    printf '%-9s %7s %7s  %s\n' "$key" "$secs" "none" "no deliverable (rc $(cat "$WORKDIR/$key.rc" 2>/dev/null || echo '?'))"
+    if reason="$(unavailable_reason "$WORKDIR/$key.log")"; then
+      printf '%-9s %7s %7s  %s\n' "$key" "$secs" "n/a" "$reason — not a capability result"
+    elif [ "$rc" = "124" ] || [ "$rc" = "143" ] || [ "$rc" = "137" ]; then
+      printf '%-9s %7s %7s  %s\n' "$key" "$secs" "none" "killed at the ${DEADLINE}s deadline with no deliverable"
+    else
+      printf '%-9s %7s %7s  %s\n' "$key" "$secs" "none" "no deliverable (rc $rc)"
+    fi
     continue
   fi
   chmod +x "$d/switchcheck" 2>/dev/null
