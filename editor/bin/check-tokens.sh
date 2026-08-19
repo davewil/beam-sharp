@@ -22,12 +22,92 @@
 
 set -euo pipefail
 
-HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-REPO="$(cd "$HERE/.." && pwd)"
+SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# `CHECK_TOKENS_ROOT` exists for the self-test below and mirrors the three paths
+# this gate reads. Nothing else sets it.
+REPO="${CHECK_TOKENS_ROOT:-$(cd "$SELF/.." && pwd)}"
+HERE="$REPO/editor"
 
 LEXER="$REPO/compiler/src/bs_lexer.xrl"
 TM="$HERE/vscode/syntaxes/beam-sharp.tmLanguage.json"
 VIM="$HERE/nvim/syntax/bs.vim"
+
+# ---------------------------------------------------------------------------
+# --self-test
+#
+# TWO CONTROLS, ONE PER DIRECTION THIS GATE IS BLIND IN WITHOUT IT.
+#
+#   1. THE LEXER GAINS A KEYWORD THE GRAMMARS DO NOT HAVE. This is the real
+#      failure mode and it has already happened: F7 added `switch`, `=>` and the
+#      two keyword atoms, and `editor/` collected five features of drift before
+#      this gate was wired in at all. Nothing in the editor breaks loudly when a
+#      keyword goes uncoloured — it just quietly looks like an identifier.
+#   2. A GRAMMAR LOSES AN OPERATOR. That list is hand-maintained, because the
+#      operators are escaped regexes in the leex file rather than bare words, so
+#      it is the half most likely to be edited by someone tidying a grammar.
+#
+# The controls copy the real lexer and the real grammars. A fixture grammar
+# would contain whatever the control put in it and nothing else, which proves
+# only that `grep` works.
+# ---------------------------------------------------------------------------
+if [ "${1:-}" = "--self-test" ]; then
+    CTL="$(mktemp -d)"
+    trap 'rm -rf "$CTL"' EXIT
+
+    # Captured, not piped: a control run is meant to exit 1, and `pipefail`
+    # would report that status even when the marker was found.
+    control() {
+        CHECK_TOKENS_ROOT="$1" "${BASH_SOURCE[0]}" 2>&1 || true
+    }
+    fresh() {
+        rm -rf "$1"
+        mkdir -p "$1/compiler/src" "$1/editor/vscode/syntaxes" "$1/editor/nvim/syntax"
+        cp "$SELF/../compiler/src/bs_lexer.xrl"                    "$1/compiler/src/"
+        cp "$SELF/vscode/syntaxes/beam-sharp.tmLanguage.json"      "$1/editor/vscode/syntaxes/"
+        cp "$SELF/nvim/syntax/bs.vim"                              "$1/editor/nvim/syntax/"
+    }
+
+    st_fail=0
+
+    # CONTROL 1 — a keyword the lexer defines and neither grammar colours. The
+    # rule is written in the leex shape this gate recognises, so it is picked up
+    # the same way a real new keyword would be.
+    fresh "$CTL/keyword"
+    printf '\nunlessy                 : {token, {unlessy, TokenLine}}.\n' \
+        >> "$CTL/keyword/compiler/src/bs_lexer.xrl"
+    case "$(control "$CTL/keyword")" in
+        *MISSING*unlessy*|*unlessy*MISSING*) ;;
+        *) echo "SELF-TEST FAILED: a keyword the grammars do not have was not named —"
+           echo "                  this is the drift the gate was wired in for"
+           st_fail=1 ;;
+    esac
+
+    # CONTROL 2 — an operator removed from one grammar. The valve is the newest
+    # and the one an editor tidy-up would most plausibly drop.
+    fresh "$CTL/operator"
+    sed -i.bak 's/|?>//g' "$CTL/operator/editor/nvim/syntax/bs.vim"
+    rm -f "$CTL/operator/editor/nvim/syntax/bs.vim.bak"
+    case "$(control "$CTL/operator")" in
+        *MISSING*) ;;
+        *) echo "SELF-TEST FAILED: an operator dropped from a grammar was not reported"
+           st_fail=1 ;;
+    esac
+
+    # NEGATIVE CONTROL — the lexer and both grammars as committed.
+    fresh "$CTL/clean"
+    if CHECK_TOKENS_ROOT="$CTL/clean" "${BASH_SOURCE[0]}" > /dev/null 2>&1; then :; else
+        echo "SELF-TEST FAILED: the committed grammars were rejected, so this gate"
+        echo "                  would fail every clean tree and be removed"
+        st_fail=1
+    fi
+
+    if [ "$st_fail" -eq 0 ]; then
+        echo "self-test: named the uncoloured keyword and the dropped operator;"
+        echo "           accepted the committed grammars — the gate discriminates"
+        exit 0
+    fi
+    exit 1
+fi
 
 for f in "$LEXER" "$TM" "$VIM"; do
     [ -f "$f" ] || { echo "missing: $f" >&2; exit 2; }

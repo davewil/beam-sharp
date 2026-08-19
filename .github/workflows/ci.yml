@@ -319,6 +319,20 @@ jobs:
       - name: Install the tree-sitter CLI
         run: npm install -g tree-sitter-cli
 
+      # BOTH SELF-TESTS ARE HERE RATHER THAN WITH THE CHEAP ONES because
+      # `check-corpus.sh`'s controls run the Tree-sitter parser, and its
+      # self-test FAILS rather than skips when the CLI is absent. The gate
+      # itself still skips — that deviation is deliberate and recorded — but a
+      # self-test that passes without running its controls asserts the one thing
+      # it exists to disprove.
+      #
+      # `check-corpus.sh`'s second control found a hole rather than confirming
+      # one: an empty corpus reported that every example parsed. See the commit.
+      - name: The editor gates prove they can fail
+        run: |
+          ./editor/bin/check-tokens.sh --self-test
+          ./editor/bin/check-corpus.sh --self-test
+
       - name: The editor grammars know every shipped keyword
         run: ./editor/bin/check-tokens.sh
 
