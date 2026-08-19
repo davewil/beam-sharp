@@ -218,6 +218,13 @@ jobs:
       # It exists because the reference is written from the decisions rather
       # than from the compiler, and on 2026-08-14 it was showing two constructs
       # the language had never had.
+      # Its self-test is here rather than with the cheap ones because the
+      # controls COMPILE, and the `not-yet` control has to actually be accepted
+      # by the compiler for the check it exercises to mean anything.
+      - name: The reference gate proves it can fail
+        working-directory: compiler
+        run: ./bin/check-language.sh --self-test
+
       - name: LANGUAGE.md compiles
         working-directory: compiler
         run: ./bin/check-language.sh
