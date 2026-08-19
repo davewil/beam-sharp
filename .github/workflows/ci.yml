@@ -140,6 +140,13 @@ jobs:
       # `demonstrated_surface/0` names has a chapter, and that every replayable
       # `$ bsc …` transcript still prints what is written beside it.
       #
+      # A FOURTH PART CHECKS THE PUBLISHED PAGE, which is a snapshot and tracks
+      # nothing. It compares TOUR.md against the hash in `TOUR.published`, so
+      # editing the tour without republishing goes red. It is a stamp rather
+      # than a fetch because the artifact is private — `curl` gets the SPA shell
+      # or a 403, and a runner has no claude.ai login. `TOUR.published` carries
+      # that reasoning and the limits of what a stamp can prove.
+      #
       # IT RUNS AFTER THE ESCRIPT BECAUSE THE THIRD PART EXECUTES THE COMPILER,
       # and it exits 2 rather than skipping when the escript is missing. Two of
       # the transcripts did not reproduce the day this was written, so the part

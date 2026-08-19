@@ -45,6 +45,9 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # cannot fake the thing it is being checked against.
 DOC="${TOUR_DOC:-$REPO/TOUR.md}"
 CORPUS="$REPO/compiler/examples"
+# `TOUR_STAMP` is the self-test's hook into part 4, the same way `TOUR_DOC` is
+# into parts 1-3. Nothing else sets either.
+STAMP="${TOUR_STAMP:-$REPO/TOUR.published}"
 
 [ -f "$DOC" ] || { echo "no TOUR.md at $DOC" >&2; exit 2; }
 [ -d "$CORPUS" ] || { echo "no corpus at $CORPUS" >&2; exit 2; }
@@ -135,7 +138,35 @@ if [ "${1:-}" = "--self-test" ]; then
     st_fail=1
   fi
 
-  # NEGATIVE CONTROL — the document as it stands.
+  # POSITIVE CONTROL 5 — the tour edited since the page was published. This is
+  # the whole point of part 4, and to a comparison that cannot see the page an
+  # edited TOUR.md and a wrong stamp are the same thing.
+  #
+  # A FIXED BOGUS HASH, NOT A CLEVER MUTATION OF THE REAL ONE. The first draft
+  # flipped the last hex digit with two `sed` expressions — and they ran in
+  # sequence, so the second turned the first one's change straight back. The
+  # control produced the real stamp and reported that part 4 could not fire.
+  sed 's/^sha256.*/sha256    0000000000000000000000000000000000000000000000000000000000000000/' \
+      "$REPO/TOUR.published" > "$CTL/stale.published"
+  out5="$(TOUR_STAMP="$CTL/stale.published" "${BASH_SOURCE[0]}" 2>&1 || true)"
+  case "$out5" in
+    *UNPUBLISHED*) ;;
+    *) echo "SELF-TEST FAILED: a tour edited since publication was not reported —"
+       echo "                  the page can go stale with the build green"
+       st_fail=1 ;;
+  esac
+
+  # POSITIVE CONTROL 6 — the stamp deleted. A check you can silence by removing
+  # a file is a suggestion, so its absence has to be the loud case.
+  out6="$(TOUR_STAMP="$CTL/not-here.published" "${BASH_SOURCE[0]}" 2>&1 || true)"
+  case "$out6" in
+    *"NO STAMP"*) ;;
+    *) echo "SELF-TEST FAILED: a missing stamp was accepted — part 4 can be turned"
+       echo "                  off by deleting one file"
+       st_fail=1 ;;
+  esac
+
+  # NEGATIVE CONTROL — the document and the stamp as they stand.
   if control "$DOC" > /dev/null 2>&1; then :; else
     echo "SELF-TEST FAILED: the document as committed was rejected, so this gate"
     echo "                  would fail every clean tree and be removed"
@@ -143,9 +174,10 @@ if [ "${1:-}" = "--self-test" ]; then
   fi
 
   if [ "$st_fail" -eq 0 ]; then
-    echo "self-test: reported the invented clause, the dropped capability and the"
-    echo "           wrong output; refused to execute a command in the document;"
-    echo "           accepted the committed one — the gate discriminates"
+    echo "self-test: reported the invented clause, the dropped capability, the wrong"
+    echo "           output, the unpublished edit and the missing stamp; refused to"
+    echo "           execute a command in the document; accepted the committed one"
+    echo "           — the gate discriminates"
     exit 0
   fi
   exit 1
@@ -393,6 +425,56 @@ if [ "$drifted" -eq 0 ]; then
 else
     echo
     echo "TOUR.md pastes output the compiler no longer produces."
+fi
+
+# --- 4: the published page is not older than the file -----------------------
+#
+# TOUR.md is also published as an artifact, and that page is a SNAPSHOT — it
+# does not track the repository. Parts 1-3 keep the file honest against the
+# compiler; nothing kept the page honest against the file, so it could go stale
+# silently and mislead a reader who had only ever seen the link.
+#
+# THE CHECK IS A STAMP, NOT A FETCH, AND THE REASON IS IN `TOUR.published`.
+# The artifact is private: readable through the owner's claude.ai login, and
+# `curl` gets the single-page-app shell or a Cloudflare 403. A CI runner has
+# neither, so a gate that fetched would be red on every run for reasons
+# unrelated to staleness. Putting a session token in a repository secret was
+# rejected — a personal credential with far more reach than this needs.
+#
+# So the stamp records TOUR.md's hash at the moment the page was published, and
+# this compares it to the file. Editing the tour without republishing goes red.
+# What it cannot prove is that the page holds those bytes: bumping the stamp
+# without republishing satisfies it. Republish and stamp in the same commit.
+echo
+echo "the published page against the file"
+echo
+
+if [ ! -f "$STAMP" ]; then
+    # Deleting the stamp must not be a way to silence this. A gate you can turn
+    # off by removing a file is a suggestion.
+    echo "  NO STAMP  $STAMP is missing"
+    echo "            it records which version of TOUR.md is on the published"
+    echo "            page; without it nothing knows whether the page is current."
+    fail=1
+else
+    want="$(sed -n 's/^sha256[[:space:]]*//p' "$STAMP" | tr -d '[:space:]')"
+    have="$(shasum -a 256 "$DOC" | cut -d' ' -f1)"
+    if [ -z "$want" ]; then
+        echo "  NO STAMP  $STAMP names no sha256"
+        fail=1
+    elif [ "$want" = "$have" ]; then
+        printf '  %-9s the page was published from this exact file\n' "ok"
+    else
+        echo "  UNPUBLISHED  TOUR.md has changed since the page was published"
+        echo "            file:   $have"
+        echo "            page:   $want"
+        echo
+        echo "            Republish the artifact from TOUR.md — same URL, which is"
+        echo "            in $(basename "$STAMP") — then update the sha256 there in the"
+        echo "            same commit. A reader with only the link sees the old one"
+        echo "            until you do."
+        fail=1
+    fi
 fi
 
 echo

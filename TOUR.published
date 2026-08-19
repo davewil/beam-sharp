@@ -1,0 +1,30 @@
+# Where TOUR.md is published, and which version of it is up there.
+#
+# WHY A STAMP RATHER THAN A FETCH
+# The obvious check is to download the page and diff it. It cannot be done here.
+# The artifact is PRIVATE: it is readable through the owner's claude.ai login,
+# and `curl` gets the single-page-app shell or a Cloudflare 403. A CI runner has
+# neither the login nor a browser, so a gate that fetched would fail on every
+# run for a reason that has nothing to do with whether the page is current.
+#
+# Storing a claude.ai session token as a repository secret would make the fetch
+# possible and was rejected: a personal credential with far more reach than this
+# check needs, rotating on its own schedule, to verify a documentation page.
+#
+# WHAT THIS PROVES, AND WHAT IT DOES NOT
+# `sha256` is TOUR.md as it stood when the page was last published. Part 4 of
+# `compiler/bin/check-tour.sh` compares it against the file on disk, so EDITING
+# TOUR.md WITHOUT REPUBLISHING TURNS CI RED. That is the whole staleness
+# condition and it is caught with no network at all.
+#
+# It does not prove the page actually holds these bytes. Updating this line
+# without republishing would satisfy the gate and mislead a reader, so the two
+# belong in the same commit: republish, then stamp. The `verified` line records
+# when the page was last read back and confirmed to match, which is the only
+# evidence here that is not self-reported.
+
+url       https://claude.ai/code/artifact/40f71cf4-d5d3-4b71-882c-ad73f630a03c
+sha256    d7e298e40ed2bcf18c7bf038c9d135c4ea11d38f8dedd11159cf25912923b7a0
+verified  2026-08-19 — page fetched and read back against the file: heading,
+          all eighteen chapters, both prelude aliases, the mermaid map and the
+          pasted transcripts all present and identical.
