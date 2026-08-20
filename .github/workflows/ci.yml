@@ -161,6 +161,30 @@ jobs:
       - name: TOUR.md quotes the corpus and replays what it pasted
         run: ./compiler/bin/check-tour.sh
 
+      # THE AUDITION'S MARKING IS ITSELF A GATE, and it is deliberately NOT
+      # covered by `check-gates-wired.sh`. That gate's directory list is a
+      # definition of what this repo calls a gate, and `handoff/audition-switch`
+      # does not qualify: it holds `run.sh`, which spawns four billed external
+      # CLIs and must never run here. Adding the directory would force that
+      # basename into this file to satisfy the enumeration, and a file named in
+      # the workflow reads as wired whether or not it is.
+      #
+      # So the two that ARE gates are named here directly. `check.sh --self-test`
+      # is placed after `escriptize` because its negative control delegates to
+      # `bsc`; without the escript it cannot prove a correct implementation is
+      # accepted, which is the half that stops the check being unpassable.
+      #
+      # What it guards: the marking could not tell an implementation from a
+      # lookup table until 2026-08-20, because `check.sh` passes the case's
+      # identity in argv[1]. `heldout/` is what closes that, and this step is
+      # what stops it being deleted quietly — park the directory and the
+      # self-test goes red naming it.
+      - name: The audition can tell an implementation from a lookup table
+        run: ./handoff/audition-switch/check.sh --self-test
+
+      - name: Neither answer set is reachable from a worker sandbox
+        run: ./handoff/audition-switch/stage.sh --self-test
+
       - name: Tests
         working-directory: compiler
         run: rebar3 eunit
