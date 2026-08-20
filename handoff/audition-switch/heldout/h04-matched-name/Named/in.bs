@@ -1,0 +1,5 @@
+module Named
+public atom Same(atom a, atom b)
+Same(a, b) -> b switch {
+    == a => :same
+}

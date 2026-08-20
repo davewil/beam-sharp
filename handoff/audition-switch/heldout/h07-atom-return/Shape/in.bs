@@ -1,0 +1,7 @@
+module Shape
+type State = :placed | :shipped
+public atom Describe(State s)
+Describe(s) -> s switch {
+    :placed  => :new,
+    :shipped => 1
+}

@@ -115,11 +115,14 @@ for key in "${LANES[@]}"; do
   cp -R "$HERE/cases" "$d/cases"
 done
 
-# The answers must not be reachable from any sandbox.
-if [ -n "$(find "$WORKDIR" -maxdepth 2 -name expected -type d 2>/dev/null)" ]; then
-  echo "LEAK — the expectations are reachable from a worker directory"; exit 1
+# The answers must not be reachable from any sandbox — and there are two sets of
+# them: `expected/` (the tags) and `heldout/` (the cases nobody is shown). The
+# loop above copies only PACKET.md and cases/, so this is the assertion that the
+# loop above still does what it says.
+if [ -n "$(find "$WORKDIR" -maxdepth 2 -type d \( -name expected -o -name heldout \) 2>/dev/null)" ]; then
+  echo "LEAK — answers or held-out cases are reachable from a worker directory"; exit 1
 fi
-echo "staged ${#LANES[@]} lanes in $WORKDIR; expectations not reachable; deadline ${DEADLINE}s"
+echo "staged ${#LANES[@]} lanes in $WORKDIR; answers and held-out cases not reachable; deadline ${DEADLINE}s"
 echo
 
 # ---------------------------------------------------------------------------
@@ -129,9 +132,12 @@ run_lane() {
   local key="$1"
   local d="$WORKDIR/$key"
   local t0 t1 rc
-  # shellcheck disable=SC2046
-  # deliberate word split: lane_cmd returns a command and its flags
   t0=$(date +%s)
+  # deliberate word split: lane_cmd returns a command and its flags.
+  # The directive must sit on the line immediately above the one it covers —
+  # written two lines up, it silently annotated `t0=$(date +%s)` instead and
+  # suppressed nothing, which is how this stayed unlinted while looking handled.
+  # shellcheck disable=SC2046
   ( cd "$d" && with_deadline "$DEADLINE" "$WORKDIR/$key.log" $(lane_cmd "$key") "$PROMPT" )
   rc=$?
   t1=$(date +%s)
@@ -164,29 +170,43 @@ unavailable_reason() {
   return 1
 }
 
-printf '%-9s %7s %7s  %s\n' "LANE" "SECS" "RESULT" "DETAIL"
+# TWO SCORES, AND THE SECOND IS THE ONE THAT MEANS ANYTHING.
+#
+# VISIBLE is the cases the lane was given; HELD-OUT is cases it never saw.
+# Measured 2026-08-20: a stub that parses nothing and switches on the case
+# directory name scores a perfect visible set, because this harness passes the
+# case's identity in argv[1]. A real submission recovered from an earlier run
+# scored 8/8 visible and 2/7 held-out — the same held-out score as that stub.
+#
+# Read the columns together. High visible with low held-out is a lane that
+# fitted the examples, and reporting a single number would have called it a pass.
+printf '%-9s %7s %8s %8s  %s\n' "LANE" "SECS" "VISIBLE" "HELD-OUT" "DETAIL"
 for key in "${LANES[@]}"; do
   d="$WORKDIR/$key"
   secs="$(cat "$WORKDIR/$key.seconds" 2>/dev/null || echo '?')"
   rc="$(cat "$WORKDIR/$key.rc" 2>/dev/null || echo '?')"
   if [ ! -e "$d/switchcheck" ]; then
     if reason="$(unavailable_reason "$WORKDIR/$key.log")"; then
-      printf '%-9s %7s %7s  %s\n' "$key" "$secs" "n/a" "$reason — not a capability result"
+      printf '%-9s %7s %8s %8s  %s\n' "$key" "$secs" "n/a" "n/a" "$reason — not a capability result"
     elif [ "$rc" = "124" ] || [ "$rc" = "143" ] || [ "$rc" = "137" ]; then
-      printf '%-9s %7s %7s  %s\n' "$key" "$secs" "none" "killed at the ${DEADLINE}s deadline with no deliverable"
+      printf '%-9s %7s %8s %8s  %s\n' "$key" "$secs" "none" "none" "killed at the ${DEADLINE}s deadline with no deliverable"
     else
-      printf '%-9s %7s %7s  %s\n' "$key" "$secs" "none" "no deliverable (rc $rc)"
+      printf '%-9s %7s %8s %8s  %s\n' "$key" "$secs" "none" "none" "no deliverable (rc $rc)"
     fi
     continue
   fi
   chmod +x "$d/switchcheck" 2>/dev/null
   out="$("$HERE/check.sh" "$d" 2>&1)"; rc=$?
-  total=$(find "$HERE/cases" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')
-  if [ "$rc" -eq 0 ]; then
-    printf '%-9s %7s %7s  %s\n' "$key" "$secs" "$total/$total" "every case agrees"
-  else
-    wrong=$(printf '%s' "$out" | grep -c 'compiler says')
-    printf '%-9s %7s %7s  %s\n' "$key" "$secs" "$((total - wrong))/$total" "$(printf '%s' "$out" | grep 'compiler says' | head -1 | sed 's/  */ /g')"
-    printf '%s\n' "$out" | grep 'compiler says' | tail -n +2 | sed 's/^/                             /'
-  fi
+
+  # Read the two scores off check.sh's own summary lines rather than recounting
+  # here. The previous spelling counted 'compiler says' lines and divided by the
+  # visible total, which cannot express two sets and would have reported a
+  # held-out failure as a visible one.
+  visible="$(printf '%s\n' "$out"  | sed -n 's/^visible  *//p'  | head -1)"
+  heldout="$(printf '%s\n' "$out"  | sed -n 's/^held-out  *//p' | head -1)"
+  detail="$(printf '%s\n' "$out" | grep 'compiler says' | head -1 | sed 's/  */ /g')"
+  [ "$rc" -eq 0 ] && detail="every case agrees, held-out included"
+
+  printf '%-9s %7s %8s %8s  %s\n' "$key" "$secs" "${visible:-?}" "${heldout:-?}" "$detail"
+  printf '%s\n' "$out" | grep 'compiler says' | tail -n +2 | sed 's/^/                                       /'
 done

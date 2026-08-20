@@ -13,6 +13,24 @@
 #
 # The worker being auditioned NEVER SEES `expected/`. It receives the packet and
 # the cases; the tags stay on this side of the fence.
+#
+# TWO SETS ARE RECORDED, AND THE WORKER IS GIVEN ONLY ONE.
+#
+#   cases/    is staged into the worker's sandbox. It is the tutorial.
+#   heldout/  is never staged and never mentioned in the packet. It is the exam.
+#
+# The split exists because the marking harness hands the worker each case's
+# identity in the file path it is invoked with — `cases/c03-inexhaustive/...`.
+# Measured 2026-08-20: a stub that parses nothing, and merely switches on that
+# directory name, scored 8/8 against the visible set and was indistinguishable
+# from a real submission. Marking against cases the worker has never seen is
+# what makes the score evidence about an implementation rather than about a
+# lookup table.
+#
+# Held-out cases are held to a stricter standard than visible ones: each must be
+# DERIVABLE FROM THE PACKET. A case whose answer the packet does not imply
+# measures the specification's holes, not the worker's — such a case belongs in
+# the findings, never here, or the audition institutionalises its own traps.
 
 set -euo pipefail
 
@@ -24,7 +42,8 @@ BSC="$REPO/compiler/_build/default/bin/bsc"
 
 mkdir -p "$HERE/expected"
 
-for dir in "$HERE"/cases/*/; do
+for dir in "$HERE"/cases/*/ "$HERE"/heldout/*/; do
+  [ -d "$dir" ] || continue          # heldout/ may legitimately be empty
   name="$(basename "$dir")"
   mod_dir="$(find "$dir" -mindepth 1 -maxdepth 1 -type d | head -1)"
   out="$(mktemp -d)"

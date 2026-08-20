@@ -63,9 +63,18 @@ EXCLUDE="SC2016,SC1003"
 # Every executable shell gate in the repo. Enumerated rather than listed, so a
 # gate added tomorrow is linted tomorrow without anybody editing this file —
 # the same reason `check-gates-wired.sh` enumerates instead of listing.
+#
+# ENUMERATION ONLY REACHES THE DIRECTORIES NAMED HERE, which is the seam. The
+# audition's four scripts sat unlinted from the day they were written, because
+# they live in `handoff/` and nothing added it to this list. What that hid,
+# found the moment it was added 2026-08-20: a `# shellcheck disable=SC2046` in
+# `run.sh` written two lines above the line it meant to cover, annotating a
+# `date` call and suppressing nothing. A directory missing from this loop does
+# not fail — it reports success over a smaller repo than you think it read.
 scripts() {
   local d
-  for d in "$ROOT/bin" "$ROOT/compiler/bin" "$ROOT/editor/bin"; do
+  for d in "$ROOT/bin" "$ROOT/compiler/bin" "$ROOT/editor/bin" \
+           "$ROOT/handoff/audition-switch"; do
     [ -d "$d" ] || continue
     find "$d" -maxdepth 1 -name '*.sh' -perm -u+x -print
   done

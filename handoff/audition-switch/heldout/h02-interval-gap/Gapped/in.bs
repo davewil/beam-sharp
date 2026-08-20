@@ -1,0 +1,6 @@
+module Gapped
+public atom Classify(int n)
+Classify(n) -> n switch {
+    < 10    => :low,
+    >= 100  => :high
+}

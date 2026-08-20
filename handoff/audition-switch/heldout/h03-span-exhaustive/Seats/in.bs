@@ -1,0 +1,8 @@
+module Seats
+public atom Seat(int n)
+Seat(n) -> n switch {
+    >= 4 and <= 7  => :reserved,
+    <= -1          => :negative,
+    >= 0 and <= 3  => :low,
+    >= 8           => :high
+}

@@ -1,0 +1,8 @@
+module Mixed
+type State = :placed | :shipped
+public atom Route(State s, bool urgent)
+Route(s, u) -> (s, u) switch {
+    (:placed,  true)  => :rush,
+    (:placed,  false) => :queue,
+    (:shipped, true)  => :track
+}

@@ -1,0 +1,7 @@
+module Bands
+public atom Classify(int n)
+Classify(n) -> n switch {
+    < 10             => :low,
+    >= 10 and < 100  => :mid,
+    >= 100           => :high
+}

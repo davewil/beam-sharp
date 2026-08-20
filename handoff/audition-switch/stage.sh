@@ -2,10 +2,18 @@
 #
 # Stage one working directory per candidate model.
 #
-# Each worker gets PACKET.md and cases/ — and NOT expected/. The boundary is
-# enforced by what is on disk rather than by asking politely in the spec: a
-# worker cannot read answers that were never copied into its sandbox. The spec
-# still states the rule, because a worker that goes looking is itself a finding.
+# Each worker gets PACKET.md and cases/ — and NOT expected/, and NOT heldout/.
+# The boundary is enforced by what is on disk rather than by asking politely in
+# the spec: a worker cannot read answers that were never copied into its
+# sandbox. The spec still states the rule, because a worker that goes looking is
+# itself a finding.
+#
+# THERE ARE TWO SECRETS NOW, NOT ONE. `expected/` holds the answers to the
+# visible cases; `heldout/` holds cases the worker is scored on and never shown.
+# A leak check written for one secret's name permits the other silently, so
+# `leaks()` names both and the self-test plants both. Staging `heldout/` would
+# not look like a leak — the worker would simply score well — which is precisely
+# why it has to be caught on disk rather than noticed in a result.
 #
 #   ./stage.sh <workdir>
 #
@@ -26,17 +34,20 @@ KEYS=(codex copilot-sonnet5 copilot-haiku45 free-deepseek)
 # and recreates each worker directory first — the plant was erased rather than
 # detected, which told us nothing about the check.
 leaks() {
-  find "$1" -maxdepth 2 -name 'expected' -type d 2>/dev/null
+  find "$1" -maxdepth 2 -type d \( -name 'expected' -o -name 'heldout' \) 2>/dev/null
 }
 
 if [ "${1:-}" = "--self-test" ]; then
   CTL="$(mktemp -d)"
   trap 'rm -rf "$CTL"' EXIT
-  mkdir -p "$CTL/clean/worker/cases" "$CTL/leaky/worker/expected"
+  mkdir -p "$CTL/clean/worker/cases" "$CTL/leaky/worker/expected" "$CTL/held/worker/heldout"
   fail=0
   [ -z "$(leaks "$CTL/clean")" ] || { echo "SELF-TEST FAILED: a clean tree was reported as leaking"; fail=1; }
   [ -n "$(leaks "$CTL/leaky")" ] || { echo "SELF-TEST FAILED: a planted expected/ was NOT found"; fail=1; }
-  [ "$fail" -eq 0 ] && { echo "self-test: found the planted answers, cleared the clean tree"; exit 0; }
+  # Planted separately from expected/, not alongside it: a check that only ever
+  # sees the two together would pass while blind to heldout/ on its own.
+  [ -n "$(leaks "$CTL/held")"  ] || { echo "SELF-TEST FAILED: a planted heldout/ was NOT found — the exam would be staged with the tutorial"; fail=1; }
+  [ "$fail" -eq 0 ] && { echo "self-test: found the planted answers and the planted held-out set, cleared the clean tree"; exit 0; }
   exit 1
 fi
 
@@ -56,8 +67,8 @@ done
 echo
 found="$(leaks "$WORKDIR")"
 if [ -n "$found" ]; then
-  echo "LEAK — the expectations are reachable from a worker directory:"
+  echo "LEAK — answers are reachable from a worker directory:"
   printf '  %s\n' "$found"
   exit 1
 fi
-echo "expected/ is not reachable from any worker directory"
+echo "neither expected/ nor heldout/ is reachable from any worker directory"
