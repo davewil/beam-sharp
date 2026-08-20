@@ -711,6 +711,92 @@ Six bytes, not five.
 
 <!-- ticket 20 §3, ticket 20 §4, F9 -->
 
+### Taking a binary apart
+
+**The job:** decoding a wire protocol.
+
+A binary pattern matches a binary segment by segment, and **a segment's width is written in
+bits**. From `examples/Frame/frame.bs`, which decodes an AMQP 0-9-1 frame header:
+
+```
+Decode(<<t:8, ch:16, size:32, payload:size, 0xCE:8, rest>>) -> Classify(t)
+Decode(_) -> :incomplete
+```
+
+```
+$ bsc --src-root examples examples/Frame Decode '<<1, 0, 5, 0,0,0,3, "abc", 16#CE>>'
+:method
+$ bsc --src-root examples examples/Frame Decode '<<1, 2>>'
+:incomplete
+```
+
+Four segment forms are in that one line. `t:8` binds eight bits as an integer. `payload:size`
+is **sized by a field bound earlier in the same pattern**, which is how every length-prefixed
+format is read. `0xCE:8` is a **literal**: it matches and binds nothing, and a frame with the
+wrong sentinel byte simply does not match this clause. `rest` has no width at all, so it is
+the **remainder** — which is why it has to come last, and the compiler says so if it is not.
+
+**And here is the part worth stopping on.** Look at what `Classify` is declared to take:
+
+```
+type Octet = int where value >= 0 and value <= 255
+
+private Kind Classify(Octet t)
+```
+
+`t` was never declared an `Octet`. There is no guard anywhere. And the call type-checks —
+because **a width is a refinement**. The segment said `t:8`, so `t` is an integer known to be
+`0..255` before it is passed anywhere. Write `t:16` instead and the compiler refuses the call
+with `256..65535`: the values two bytes can hold and an octet cannot. It is reading the width.
+
+This is what closes the residual, and it closes it in both directions. Without a width, `t`
+would be a bare `int`, and an `int` handed to an `Octet` is refused — the compiler demanding
+clauses for `int <= -1 | int >= 256`, values a byte cannot hold and a wire cannot produce.
+
+**Sub-byte fields are ordinary.** A WebSocket header packs a FIN bit, three reserved bits and a
+four-bit opcode into its first byte:
+
+```
+Opcode(<<_:4, op:4, rest>>) -> Name(op)
+Opcode(_) -> :reserved
+```
+
+```
+$ bsc --src-root examples examples/Frame Opcode '<<136, 0>>'
+:close
+```
+
+`op` is `0..15`, proved from the `4`, and `Name` must cover all sixteen. Delete a clause and
+the compiler answers with the missing **range**. No other language on the BEAM proves coverage
+over a four-bit field; the exhaustiveness machinery here does not know it is looking at a wire.
+
+**One sharp edge, and it is deliberate.** `Decode(_)` above is not laziness — a binary can
+always be truncated, so a catch-all over one is always legal and is never reported as
+discarding cases. Which means: if you dispatch on the tag *inside* the binary patterns rather
+than in a second function head, the catch-all silently swallows every wire value you forgot,
+and nothing will tell you. **The pattern does shape; the head does value.**
+
+Strings can be matched literally too, which is the same construct five bytes long:
+
+```
+Method("GET") -> :get
+Method("PUT") -> :put
+Method("POST") -> :post
+Method(s) -> :other
+```
+
+```
+$ bsc --src-root examples examples/Frame Method '"GET"'
+:get
+$ bsc --src-root examples examples/Frame Method '"HEAD"'
+:other
+```
+
+A `string`'s residual is **always open** — any binary is a possible input — so that last clause
+is required, and it is legal. A set of string literals is never exhaustive on its own.
+
+<!-- ticket 30, F13 -->
+
 ---
 
 ## 11. Modules
@@ -1171,8 +1257,8 @@ The language's **name** is also open. `beam-sharp` is a working title.
 
 ## Appendix: the construct index
 
-**The corpus gate names 44 capabilities and fails by name when one has no example to look
-at.** All 44 are below, in the gate's own wording, so the two lists can be diffed by machine
+**The corpus gate names 50 capabilities and fails by name when one has no example to look
+at.** All 50 are below, in the gate's own wording, so the two lists can be diffed by machine
 — `compiler/bin/check-tour.sh` does exactly that, and this table is red the day the compiler
 grows a capability the tour has not met.
 
@@ -1220,6 +1306,12 @@ grows a capability the tour has not met.
 | a foreign declaration that fails as a value | `examples/Foreign/foreign.bs` | 14 |
 | a codegen obligation instantiated | `examples/Intake/intake.bs` | 15 |
 | ValidationError as a declared type | `examples/Intake/intake.bs` | 15 |
+| a binary pattern | `examples/Frame/frame.bs` | 10 |
+| a byte-or-wider segment width | `examples/Frame/frame.bs` | 10 |
+| a sub-byte segment width | `examples/Frame/frame.bs` | 10 |
+| a segment sized by an earlier field | `examples/Frame/frame.bs` | 10 |
+| a string literal in a pattern | `examples/Frame/frame.bs` | 10 |
+| a hex integer literal | `examples/Frame/frame.bs` | 10 |
 | an OTP behaviour | `examples/Counter/counter.bs` | 16 |
 | an OTP callback | `examples/Counter/counter.bs` | 16 |
 
