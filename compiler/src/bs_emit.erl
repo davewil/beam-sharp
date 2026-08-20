@@ -477,12 +477,62 @@ pattern({p_var, L, V}, Used)   ->
 %%
 %% Never underscore-prefixed — it is by definition a use, and `Used` is seeded
 %% with these names in `clause/3` so the BINDER is not underscored either.
-pattern({p_eqvar, L, V}, _Used) -> {var, L, var_name(V)}.
+pattern({p_eqvar, L, V}, _Used) -> {var, L, var_name(V)};
+%% F13 — a binary pattern lowers one segment to one `bin_element`, which is the
+%% whole of the codegen. Nothing is synthesised and no guard is emitted: the
+%% BEAM's binary matching already does everything ticket 30's answer asks for,
+%% including the sub-byte widths that no language in its survey type-checks.
+%%
+%% `default` as a type-specifier list means unsigned big-endian INTEGER, which is
+%% what a width-N segment is and what `bs_check:seg_type/1` inferred
+%% `range(0, 2^N - 1)` from. The two agree because they are both reading the same
+%% platform default, not because they were written to match.
+pattern({p_bin, L, Segs}, U) ->
+    {bin, L, [segment(S, U) || S <- Segs]};
+%% A string literal in pattern position IS a binary pattern with one string
+%% segment — ticket 30 §4's "byte-string singleton", which turns out to be
+%% literally true at the abstract-format level.
+pattern({p_str, L, Bytes}, _U) ->
+    {bin, L, [{bin_element, L, {string, L, Bytes}, default, default}]}.
+
+segment({seg_bind, L, V, Size}, U) ->
+    {bin_element, L, pattern({p_var, L, V}, U), seg_size(L, Size), seg_tsl(Size)};
+segment({seg_wild, L, Size}, _U) ->
+    {bin_element, L, {var, L, '_'}, seg_size(L, Size), seg_tsl(Size)};
+segment({seg_int, L, K, N}, _U) ->
+    {bin_element, L, {integer, L, K}, {integer, L, N}, default};
+segment({seg_str, L, Bytes}, _U) ->
+    {bin_element, L, {string, L, Bytes}, default, default}.
+
+seg_size(_L, rest)            -> default;
+seg_size(L, {width, N})       -> {integer, L, N};
+%% The variable itself, which is why `bs_check` insists it was bound EARLIER in
+%% the same pattern: Erlang reads a binary pattern left to right and an unbound
+%% size here is legal, compiles, and simply never matches.
+seg_size(L, {sized_by, V})    -> {var, L, var_name(V)}.
+
+%% `binary` carries unit 8, so a `sized_by` segment counts BYTES — which is what
+%% every length-prefixed wire format means by its length field, and what 25c's
+%% AMQP frame and 25b's WebSocket payload both need.
+seg_size_of({seg_bind, _, _, Size}) -> Size;
+seg_size_of({seg_wild, _, Size})    -> Size;
+seg_size_of(_)                      -> rest.
+
+seg_tsl(rest)         -> [binary];
+seg_tsl({sized_by, _}) -> [binary];
+seg_tsl({width, _})   -> default.
 
 %% Every name a pattern reads. The emitter's own copy on purpose: `pattern_vars`
 %% in the checker answers what a pattern BINDS, and the two must not be one
 %% function that guesses which question it was asked.
 matched_vars({p_eqvar, _, V})          -> [V];
+%% F13 — a segment's SIZE is a name being read, and seeding `Used` with it is
+%% what stops the binder being underscored. `<<size:8, payload:size, rest>>`
+%% would otherwise emit `_Size` at the binder and `Size` at the use, and `erlc`
+%% would meet an unbound variable in a file the author never wrote — F4's rule,
+%% and the failure would look like a codegen bug rather than a naming one.
+matched_vars({p_bin, _, Segs})         ->
+    [V || S <- Segs, {sized_by, V} <- [seg_size_of(S)]];
 matched_vars({p_tuple, _, Ps})         -> lists:append([matched_vars(P) || P <- Ps]);
 matched_vars({p_map, _, Fs})           -> lists:append([matched_vars(P) || {_, P} <- Fs]);
 matched_vars({p_alias, _, _, P})       -> matched_vars(P);

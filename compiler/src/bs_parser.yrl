@@ -13,6 +13,7 @@ Nonterminals
   params param_list param
   patterns pattern_list pattern plist_items pat_fields pat_field
   rel_pattern rel_test int_lit refinement
+  bin_segments bin_segment bin_size
   guard guard_expr
   body binding
   expr expr_list elist_items assign_fields assign_field
@@ -23,7 +24,7 @@ Terminals
   'module' 'type' 'when' 'using' 'behaviour' 'record' 'with' 'switch' 'var'
   'and' 'or' 'where' 'public' 'private'
   uident lident atom_lit integer string_lit '_'
-  '->' '=>' '==' '!=' '<=' '>=' '<' '>' '+' '-' '*'
+  '->' '=>' '==' '!=' '<=' '>=' '<<' '<' '>' '+' '-' '*'
   '=' '|' '|>' '|?>' ',' '(' ')' '[' ']' '{' '}' '..' '.' ':' '?'
   .
 
@@ -374,6 +375,75 @@ pattern -> '==' lident         : {p_eqvar, line('$1'), value('$2')}.
 %% value this NAME holds", and the family divides on the operand: a relational
 %% takes a literal, `==` takes a name. `== 4` and `>= acc` are both refused.
 pattern -> rel_pattern : '$1'.
+
+%% A STRING LITERAL IN PATTERN POSITION — ticket 30 §4.
+%%
+%% One production and no new token: F9 has lexed `string_lit` since it shipped,
+%% and the literal was refused here only because nothing admitted it. It is a
+%% byte-string singleton, which is the same construct §2 settles at wire scale —
+%% F9 filed §4 with ticket 30 on exactly that suspicion and was right.
+%%
+%% A `string`'s residual is unconditionally OPEN, so a set of these is never
+%% exhaustive on its own and a catch-all beside them is required and legal. That
+%% matches Gleam, which permits both `"GET" <> rest` and `<<"GET", _:bytes>>` and
+%% treats neither as total without `_`.
+pattern -> string_lit : {p_str, line('$1'), value('$1')}.
+
+%% A BINARY PATTERN — ticket 30 §§1, 2 and 4.
+%%
+%% CLOSED ON TWO `'>'` TOKENS, NOT ON A `>>`. The lexer has no `>>` rule and must
+%% not gain one: `list<list<int>>` parses and runs, and a `>>` token would
+%% swallow its closing brackets. See the comment on the `<<` rule in the lexer
+%% for the whole argument. The cost here is one extra symbol in one production;
+%% the alternative cost is generic code breaking for a binary feature.
+%%
+%% The pattern does SHAPE and a function head does VALUE — ticket 30's answer.
+%% There are deliberately no relational patterns inside a segment: value dispatch
+%% belongs in a second head, where the residual is computed and exhaustiveness
+%% bites. Admitting `<<t:8>> when t >= 4` here would look like it proved
+%% something and would not.
+pattern -> '<<' bin_segments '>' '>' : {p_bin, line('$1'), '$2'}.
+
+bin_segments -> bin_segment                  : ['$1'].
+bin_segments -> bin_segment ',' bin_segments : ['$1' | '$3'].
+
+%% A segment binds a name, matches a literal, or discards — and its size is a
+%% literal width, an earlier binding, or absent. An ABSENT size means the
+%% remainder, which is F13's §2 decision and a deliberate divergence from Erlang,
+%% where a bare `<<A, B>>` is two BYTES. In a language with no default width the
+%% remainder is the only sensible reading, and the alternative is a marker glyph
+%% ticket 30 never decided and a feature may not invent.
+%%
+%% `bs_check` enforces that an unsized segment comes last, that a width is
+%% positive, that a literal fits its width, and that a size names something bound
+%% earlier in the same pattern. All four are known-shape refusals with their own
+%% diagnostics rather than parse errors, which is this repo's habit.
+bin_segment -> lident bin_size        : {seg_bind, line('$1'), value('$1'), '$2'}.
+bin_segment -> '_' bin_size           : {seg_wild, line('$1'), '$2'}.
+bin_segment -> int_lit ':' integer    : {seg_int,  line('$2'), '$1', value('$3')}.
+bin_segment -> string_lit             : {seg_str,  line('$1'), value('$1')}.
+
+bin_size -> '$empty'         : rest.
+bin_size -> ':' integer      : {width, value('$2')}.
+%% `payload:size` DOES NOT LEX AS THREE TOKENS, and this rule is why there are
+%% two productions for one spelling.
+%%
+%% The atom sigil is `:name` and maximal munch prefers it, so `payload:size` is
+%% the variable `payload` followed by the ATOM `:size` — while `payload:8` is
+%% three tokens, because `:8` is not an atom. Measured: every `sized_by` test
+%% failed with `syntax error before: size` while every width test passed.
+%%
+%% Fixed in the GRAMMAR rather than the lexer, which is the same call `<<`/`>>`
+%% got and for the same reason. Making the atom rule context-sensitive to protect
+%% a binary segment would put a collision in `:foo` EVERYWHERE to remove one
+%% here; accepting the atom token in the one position where an atom has no other
+%% possible meaning costs nothing. A segment size is a length, and no length was
+%% ever an atom.
+%%
+%% Both productions are kept so that `payload:size` and `payload: size` mean the
+%% same thing. An author cannot see the token stream and should not have to.
+bin_size -> atom_lit         : {sized_by, value('$1')}.
+bin_size -> ':' lident       : {sized_by, value('$2')}.
 
 rel_pattern -> rel_test : '$1'.
 rel_pattern -> rel_pattern 'and' rel_pattern :

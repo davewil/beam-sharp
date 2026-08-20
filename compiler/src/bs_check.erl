@@ -1168,6 +1168,11 @@ arm_rebinds({arm, Line, P, Guard, Body}, Bound, Name) ->
         ++ case Guard of none -> []; {guard, G} -> rebinds(G, Inner, Name) end.
 
 pattern_vars({p_var, _, V})            -> [V];
+%% F13 — a segment binder is an ordinary name. `seg_wild` and the literal forms
+%% introduce nothing, and the SIZE of a segment is a name being READ rather than
+%% bound, so it belongs to `pattern_matched_vars/1` below and not here.
+pattern_vars({p_bin, _, Segs})         ->
+    [V || {seg_bind, _, V, _} <- Segs];
 pattern_vars({p_tuple, _, Ps})         -> lists:append([pattern_vars(P) || P <- Ps]);
 pattern_vars({p_map, _, Fs})           -> lists:append([pattern_vars(P) || {_, P} <- Fs]);
 pattern_vars({p_list, _, Items, Rest}) ->
@@ -1260,6 +1265,16 @@ arm_free_vars({arm, _, P, Guard, Body}) ->
 %%% ---------------------------------------------------------------------------
 
 clause_diags(C = {clause, Line, _, Patterns, Guard, Body}, Domain, Bindings, Ctx0) ->
+    case segment_diags(Patterns, Ctx0#ctx.fname) of
+        %% A malformed segment is reported ALONE, for `scope_diags`' reason one
+        %% level up: the bindings a broken pattern produces are wrong, so every
+        %% type error downstream of it is about the compiler's guess rather than
+        %% the author's program.
+        [_ | _] = SegErrors -> SegErrors;
+        [] -> clause_diags_1(C, Line, Patterns, Guard, Body, Domain, Bindings, Ctx0)
+    end.
+
+clause_diags_1(C, Line, Patterns, Guard, Body, Domain, Bindings, Ctx0) ->
     guard_diags(Guard, Ctx0) ++
     case scope_diags(C) of
         [] ->
@@ -1288,6 +1303,81 @@ clause_diags(C = {clause, Line, _, Patterns, Guard, Body}, Domain, Bindings, Ctx
 %% are a restricted sublanguage with no `case` in them, so left alone this reaches
 %% the author as `illegal guard expression` from `erlc`, against the `.abstr` file
 %% they did not write — which is exactly what F4.7's rule exists to prevent.
+%%% --- F13: the four known-shape refusals a binary pattern owes ---------------
+%%%
+%%% All four are diagnostics rather than parse errors, which is this repo's habit
+%%% for a refusal whose shape is known — the record's `Id:int` and `Notes?: int`
+%%% productions do the same. A parse error here would name a token; these name
+%%% the mistake and the fix.
+%%%
+%%% The last one matters most and is the least obvious: a size naming something
+%%% NOT bound earlier in the same pattern is legal Erlang and simply never
+%%% matches. Left to the emitter it would be a silent match failure at run time
+%%% against a file the author did not write, which is F4's rule.
+
+segment_diags(Patterns, Name) ->
+    lists:append([bin_diags(P, Name) || P <- Patterns]).
+
+%% Structural, because a binary pattern can sit inside a tuple or a record field
+%% the same as any other pattern, and a fault there is the same fault.
+bin_diags({p_bin, _, Segs}, Name)         -> seg_list_diags(Segs, Name);
+bin_diags({p_tuple, _, Ps}, Name)         -> segment_diags(Ps, Name);
+bin_diags({p_map, _, Fs}, Name)           -> segment_diags([P || {_, P} <- Fs], Name);
+bin_diags({p_list, _, Items, Rest}, Name) ->
+    segment_diags(Items, Name)
+        ++ case Rest of nil -> []; R -> bin_diags(R, Name) end;
+bin_diags(_, _)                           -> [].
+
+seg_list_diags(Segs, Name) ->
+    lists:reverse(element(2, lists:foldl(
+        fun(Seg, {Bound, Acc}) ->
+            {seg_binds(Seg) ++ Bound, seg_diags(Seg, Segs, Bound, Name) ++ Acc}
+        end, {[], []}, Segs))).
+
+seg_binds({seg_bind, _, V, _}) -> [V];
+seg_binds(_)                   -> [].
+
+seg_diags(Seg, All, Bound, Name) ->
+    size_diags(Seg, All, Bound, Name) ++ literal_diags(Seg, Name).
+
+%% An unsized segment is the REMAINDER (F13 §2), so it can only be last.
+%% Anywhere else it would consume everything and starve the segments after it —
+%% which Erlang refuses too, and refuses with a message about its own syntax.
+size_diags(Seg, All, Bound, Name) when element(1, Seg) =:= seg_bind;
+                                       element(1, Seg) =:= seg_wild ->
+    Line = element(2, Seg),
+    Size = element(tuple_size(Seg), Seg),
+    Last = lists:last(All),
+    case Size of
+        rest when Seg =/= Last ->
+            [{error, Line, Name, {unsized_segment_not_last, Size, Line}}];
+        {width, N} when not (is_integer(N) andalso N > 0) ->
+            [{error, Line, Name, {segment_width_not_positive, N, Line}}];
+        {sized_by, V} ->
+            case lists:member(V, Bound) of
+                true  -> [];
+                false -> [{error, Line, Name, {segment_size_not_bound, V, Line}}]
+            end;
+        _ -> []
+    end;
+size_diags(_, _, _, _) -> [].
+
+%% THE ONE THAT WOULD OTHERWISE BE SILENT. `<<payload:size, size:8>>` is legal
+%% Erlang and never matches, because `Size` is unbound where it is used. Reading
+%% left to right is what makes the lowering legal, so the rule is checked here
+%% rather than discovered at run time.
+literal_diags({seg_int, Line, K, N}, Name) when is_integer(N), N > 0 ->
+    Max = (1 bsl N) - 1,
+    case K >= 0 andalso K =< Max of
+        true  -> [];
+        %% BOTH NUMBERS, because the author's mistake is usually the width and
+        %% not the value — `0xCE:4` is a typo in the 4, not in the 0xCE.
+        false -> [{error, Line, Name, {segment_literal_too_wide, K, N, Line}}]
+    end;
+literal_diags({seg_int, Line, _K, N}, Name) ->
+    [{error, Line, Name, {segment_width_not_positive, N, Line}}];
+literal_diags(_, _) -> [].
+
 guard_diags(none, _Ctx) -> [];
 guard_diags({guard, Expr}, C) ->
     [{error, L, C#ctx.fname, wildcard_as_value} || L <- wildcards(Expr)]
@@ -1350,6 +1440,13 @@ at_path(#{tuples := Products}, [I | Rest]) when is_integer(I) ->
 at_path(#{maps := top}, [{field, _} | _]) -> bs_types:term();
 at_path(#{maps := Members}, [{field, K} | Rest]) ->
     at_path(union_of([maps:get(K, Fs) || {_, Fs} <- Members, maps:is_key(K, Fs)]), Rest);
+%% F13 — a binary segment carries its own type rather than addressing one. The
+%% declared type at this position is `binary`, which has no components, so there
+%% is nothing here to index into; the width the pattern wrote IS the answer.
+%% `Ty` is discarded deliberately and that is sound, because a segment's value is
+%% not a part of the binary's type in any sense the algebra knows.
+at_path(_Ty, [{seg, SegTy} | Rest]) ->
+    at_path(SegTy, Rest);
 at_path(Ty, [{elem} | Rest]) ->
     at_path(elem_of(Ty), Rest);
 %% The tail of a non-empty list is a list over the same elements — including the
@@ -2039,6 +2136,39 @@ pattern_type({p_map, _, Fields}, Path, Env) ->
     {bs_types:map_open(maps:from_list([{K, T} || {K, {T, _, _}} <- Triples])),
      lists:foldl(fun maps:merge/2, #{}, [B || {_, {_, B, _}} <- Triples]),
      lists:all(fun({_, {_, _, E}}) -> E end, Triples)};
+%% F13 / TICKET 30 — A BINARY PATTERN, AND THE `false` IS THE WHOLE DESIGN.
+%%
+%% The type is `binary` and nothing narrower, because ticket 30's answer is that
+%% a binary gets NO structure in the type language: `bin_part()` stays the
+%% four-point set on `{utf8, other}` that F9 shipped, and the only new fact this
+%% feature produces lives in the INTEGER part, which has had intervals since
+%% ticket 20 §5.
+%%
+%% Inexact, for the reason `[0, ..t]` is: `<<t:8, rest>>` matches only the
+%% binaries long enough to hold it, and a binary can always be truncated. So it
+%% is an upper bound and credits NOTHING to `Certain`. Two consequences, and
+%% both are ticket 30's decisions rather than accidents of this line:
+%%
+%%   * a `_` clause beside it is always REQUIRED, and
+%%   * a `_` clause beside it is always LEGAL — never `catch_all_over_closed`,
+%%     because a binary's residual has an unbounded top in it.
+%%
+%% Which is ticket 30's one sharp edge, stated in the feature file and in
+%% LANGUAGE.md: the catch-all you need for truncation also swallows every wire
+%% value you forgot, silently. THE PATTERN DOES SHAPE; A FUNCTION HEAD DOES
+%% VALUE, and the head is where the residual is computed.
+pattern_type({p_bin, _, Segs}, _Path, _Env) ->
+    {bs_types:binary_top(), seg_bindings(Segs), false};
+%% A STRING LITERAL — ticket 30 §4, and it needs no machinery of its own because
+%% it is the same construct one scale down. `"hello"` is a byte-string singleton
+%% and the algebra has no singletons in its binary part, so the honest answer is
+%% `string` (the literal is valid UTF-8 by construction — the lexer proved it)
+%% held INEXACTLY. That single `false` is the whole of §4's decided behaviour:
+%% a set of string literals is never exhaustive on its own, and a catch-all
+%% beside them is required and legal. Ticket 30 flagged that this followed from
+%% READING the openness rule and had never been run; `binary_tests` runs it in
+%% both directions.
+pattern_type({p_str, _, _Bytes}, _Path, _Env) -> {bs_types:string(), #{}, false};
 pattern_type({p_nil, _}, _Path, _Env) -> {bs_types:nil(), #{}, true};
 %% Ticket 08 settled prefix-plus-rest only, so a list pattern without a rest is
 %% rejected rather than approximated.
@@ -2056,6 +2186,41 @@ pattern_type({p_list, _, Items, Rest}, Path, _Env) ->
 open_pattern({p_var, _, _}) -> true;
 open_pattern({p_wild, _})   -> true;
 open_pattern(_)             -> false.
+
+%%% --- F13: what a segment binds ---------------------------------------------
+
+%% THE NOVEL STEP OF TICKET 30, AND IT IS FOUR LINES.
+%%
+%% A segment's WIDTH refines the value it binds. `t:8` binds an integer known to
+%% be 0..255 — an `Octet` without anyone declaring one — and everything
+%% downstream of that already existed: F2's interval algebra computes the
+%% residual, and `bs_types:to_pattern/1` prints it as `0 | 4..255`.
+%%
+%% The address is `{seg, Type}` rather than an index into the domain, and that is
+%% the point rather than a shortcut. Every other path step ADDRESSES a component
+%% of the declared type; a binary has no components, so there is nothing at the
+%% far end to read. The width is knowledge the PATTERN carries, so the path step
+%% carries it too. This is what "nothing enters the type lattice" means when you
+%% write it out.
+%%
+%% Unsigned, big-endian, which is the BEAM's own default for a segment with no
+%% qualifiers — so `range(0, 2^N - 1)` is what the emitted match actually
+%% produces, not a convention chosen here.
+seg_bindings(Segs) ->
+    maps:from_list([{V, [{seg, seg_type(Size)}]} || {seg_bind, _, V, Size} <- Segs]).
+
+seg_type({width, N}) when is_integer(N), N > 0 -> bs_types:range(0, (1 bsl N) - 1);
+%% A width the checker refuses anyway (`segment_width_not_positive`). Answering
+%% `int` keeps this total so the diagnostic below is what the author meets,
+%% rather than a function_clause from inside the checker.
+seg_type({width, _})    -> bs_types:int();
+%% Sized by an earlier binding, or the remainder: a `binary` either way, and the
+%% length is ERASED. Ticket 30 §1 refuses the dependent step deliberately, and
+%% every language in its survey refuses it too — three with a dedicated
+%% diagnostic. Gleam permits the segment and erases at the binding, which is
+%% exactly this.
+seg_type({sized_by, _}) -> bs_types:binary_top();
+seg_type(rest)          -> bs_types:binary_top().
 
 rel_combine(Op, A, B, Path, Env) ->
     {TA, BA, EA} = pattern_type(A, Path, Env),
@@ -2106,9 +2271,21 @@ argument_position(Line, _Path) ->
 binding({p_var, _, V}, Path) -> #{V => Path};
 binding(_, _)                -> #{}.
 
-list_step({elem}) -> true;
-list_step({tail}) -> true;
-list_step(_)      -> false.
+%% A path a guard cannot refine THROUGH, as opposed to one a body cannot read.
+%% Reading a component and refining one are different capabilities over the same
+%% address, and `at_path/2` supports the first at every step here.
+%%
+%% F13 added the third member. A guard over a segment binding — 25b writes
+%% `Decode(<<… len:7, …>>) when len < 126` — credits nothing, and that costs
+%% exactly nothing in practice, because a binary pattern is already inexact and
+%% so its clause credits nothing to `Certain` with or without the guard. Being
+%% explicit about it is what keeps the reason visible: the width refines what the
+%% body READS, and refining it further from a guard would mean addressing a
+%% position inside a binary, which is the structure ticket 30 declined to add.
+opaque_step({elem})    -> true;
+opaque_step({tail})    -> true;
+opaque_step({seg, _})  -> true;
+opaque_step(_)         -> false.
 
 %%% ---------------------------------------------------------------------------
 %%% Guards as type operations
@@ -2203,7 +2380,7 @@ refine_all(Ty, Bindings, Constraints) ->
                       %% same reason `no_path` was: `refine_at/3` cannot address
                       %% one. Kept identical rather than improved, so F5's
                       %% readable paths change nothing a guard credits.
-                      case lists:any(fun list_step/1, Path) of
+                      case lists:any(fun opaque_step/1, Path) of
                           true  -> none_marker;
                           false -> refine_at(Acc, Path, C)
                       end

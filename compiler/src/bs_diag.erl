@@ -140,6 +140,18 @@ descriptor(Path, {Sev, Line, Fn, {catch_all_over_closed, Residual}}) ->
     (at(Sev, Path, Line, Fn))#{tag => catch_all_over_closed,
                                residual => residual(Residual),
                                heads => heads(Fn, Residual)};
+%%% F13 — the four ways a binary segment can be wrong. Each one names the fix,
+%%% because each is a shape the author meant something specific by.
+descriptor(Path, {Sev, Line, Fn, {unsized_segment_not_last, _Size, _L}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => unsized_segment_not_last};
+descriptor(Path, {Sev, Line, Fn, {segment_width_not_positive, N, _L}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => segment_width_not_positive, width => N};
+descriptor(Path, {Sev, Line, Fn, {segment_literal_too_wide, K, N, _L}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => segment_literal_too_wide,
+                               value => K, width => N,
+                               max => (1 bsl N) - 1};
+descriptor(Path, {Sev, Line, Fn, {segment_size_not_bound, V, _L}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => segment_size_not_bound, name => V};
 descriptor(Path, {Sev, Line, Fn, relational_in_bind}) ->
     (at(Sev, Path, Line, Fn))#{tag => relational_in_bind};
 descriptor(Path, {Sev, Line, Fn, no_clauses}) ->
@@ -777,6 +789,33 @@ message(#{tag := relational_pattern_nested, file := P, line := L}) ->
      "  pattern, a tuple or a list it is not built yet — write the~n"
      "  comparison as a guard there: `when o.Total > 100`.~n",
      [P, L]};
+%%% F13 — the binary segment refusals.
+message(#{tag := unsized_segment_not_last, file := P, line := L}) ->
+    {"~s:~p: error: a segment with no width is the REMAINDER~n"
+     "  so it can only come last — anything after it would never~n"
+     "  match. Give it a width (`payload:16`), size it by a field~n"
+     "  bound earlier in the same pattern (`payload:size`), or move~n"
+     "  it to the end.~n",
+     [P, L]};
+message(#{tag := segment_width_not_positive, file := P, line := L, width := N}) ->
+    {"~s:~p: error: a segment's width must be a positive number of bits~n"
+     "  `~p` is not one. Omit the width entirely to bind the~n"
+     "  remainder of the binary.~n",
+     [P, L, N]};
+message(#{tag := segment_literal_too_wide, file := P, line := L,
+          value := K, width := N, max := Max}) ->
+    {"~s:~p: error: ~p does not fit in ~p bits~n"
+     "  a ~p-bit segment holds 0..~p. The mistake is usually the~n"
+     "  WIDTH rather than the value — check the field's size in the~n"
+     "  format you are parsing.~n",
+     [P, L, K, N, N, Max]};
+message(#{tag := segment_size_not_bound, file := P, line := L, name := V}) ->
+    {"~s:~p: error: `~s` is not bound where this segment's size needs it~n"
+     "  a binary is matched LEFT TO RIGHT, so a size must name a~n"
+     "  field bound EARLIER in the same pattern. Erlang accepts this~n"
+     "  and the match then silently never succeeds, which is why it~n"
+     "  is refused here.~n",
+     [P, L, V]};
 message(#{tag := list_pattern_needs_rest, file := P, line := L}) ->
     {"~s:~p: error: a list pattern needs a rest~n"
      "  write `[h, ..t]`. Prefix-plus-rest is the only list pattern.~n",

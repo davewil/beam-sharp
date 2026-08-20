@@ -10,6 +10,7 @@
 Definitions.
 
 D          = [0-9]
+H          = [0-9a-fA-F]
 UPPER      = [A-Z]
 LOWER      = [a-z]
 ALNUM      = [a-zA-Z0-9_]
@@ -160,6 +161,21 @@ false                   : {token, {atom_lit, TokenLine, false}}.
 :'[^']*'                : {token, {atom_lit, TokenLine,
                                    list_to_atom(lists:sublist(TokenChars, 3, length(TokenChars) - 3))}}.
 
+%% A HEX INTEGER — F13, and not in ticket 30's table.
+%%
+%% The decided surface writes AMQP's frame sentinel as `0xCE:8`, and before this
+%% rule `0xCE` was the integer `0` followed by the variable `xCE`: a syntax error
+%% several tokens later, in a construct the author had every reason to think was
+%% settled. Longest-match puts it ahead of `{D}+` with no ordering dependency.
+%%
+%% It is added EVERYWHERE rather than inside a binary segment, because a lexer
+%% that is context-sensitive for one construct's benefit is a worse thing to own
+%% than the gap was, and because a language that can MATCH `0xCE` and cannot
+%% WRITE it would be absurd. Both the marker and the digits are case-insensitive,
+%% which is what every language in ticket 30's survey does and what a constant
+%% copied out of an RFC will be written as.
+0[xX]{H}+               : {token, {integer, TokenLine,
+                                   list_to_integer(lists:nthtail(2, TokenChars), 16)}}.
 {D}+                    : {token, {integer, TokenLine, list_to_integer(TokenChars)}}.
 
 _                       : {token, {'_', TokenLine}}.
@@ -191,6 +207,23 @@ _                       : {token, {'_', TokenLine}}.
 <=                      : {token, {'<=', TokenLine}}.
 >=                      : {token, {'>=', TokenLine}}.
 
+%% F13 — THE BINARY PATTERN'S OPENING BRACKET, AND ONLY THE OPENING ONE.
+%%
+%% Ticket 30's table names `<<` as the missing token and says nothing about the
+%% closing end. The closing end is the one with a live collision: `list<list<int>>`
+%% PARSES AND RUNS, so a `>>` rule here would swallow it by longest-match and the
+%% failure would be a syntax error in generic code with no binary anywhere near
+%% it. The grammar closes a binary pattern on two separate `'>'` tokens instead,
+%% which is exactly what this file already emits there.
+%%
+%% Safe in this direction because no existing form puts two `<` adjacent: a
+%% generic's open bracket is always preceded by a name (`list<`, `Result<`), so
+%% `list<list<int>>` still lexes `list` `<` `list` `<` `int` `>` `>`. Erlang
+%% resolves the same collision the same way round; C# resolves the generic case
+%% in the parser because it has a `>>` OPERATOR to protect, and this language has
+%% none — ticket 10 dropped the shift operators with the rest of C#'s numeric
+%% tower.
+<<                      : {token, {'<<', TokenLine}}.
 <                       : {token, {'<', TokenLine}}.
 >                       : {token, {'>', TokenLine}}.
 \+                      : {token, {'+', TokenLine}}.
