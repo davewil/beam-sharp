@@ -291,8 +291,7 @@ Bodies in [`decisions.md`](decisions.md). Ticket text in `issues/`.
   tunable. The term keeps all of it. Complement and cardinality measured and refused
 - **Binaries as a parsing grammar** `#30` `binaries` `types` `patterns` `built:F13`
   no type-language structure; a segment's **width** refines what it binds — `t:8` is an `Octet`.
-  **Beyond all four languages surveyed** and it did not bite. F13 corrected two of its costs:
-  the sub-byte residual is legible, and 25c's coupling was already satisfied by F2
+  **Beyond all four languages surveyed** and it did not bite; F13 corrected two of its costs
 
 ---
 
