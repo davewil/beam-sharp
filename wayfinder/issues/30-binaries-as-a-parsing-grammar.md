@@ -1,7 +1,7 @@
 # 30 — Binaries as a parsing grammar, not as values on a boundary
 
 Type: grilling
-Status: open
+Status: claimed
 
 Raised 2026-08-13 by [ticket 25](25-exemplar-programs.md)'s WebSocket exemplar
 ([`25b`](../prototypes/25b-websocket-handler.md)), which is the first prototype in the map to parse
