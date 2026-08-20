@@ -247,9 +247,7 @@ Bodies in [`decisions.md`](decisions.md). Ticket text in `issues/`.
 - **Boundary defence** `#18` `codegen` `ffi`
   a two-tier emitted boundary; precision is a privilege of what the compiler inlines
 - **Untheorised term shapes** `#20` `types` `binaries` `part-built:F9`
-  the union is exact and integer intervals are in the algebra; nothing widens.
-  §§2–5 built as **values** — `string` is `binary` refined by UTF-8, a literal is one by
-  construction, the boundary takes the base type only. Binaries as a *parsing grammar* wait on `#30`
+  union exact, integer intervals in the algebra, nothing widens; §§2–5 built as **values**, and §2's size grammar was never built — `#30` left it with no consumer
 - **Refinement types in shipping languages** `#29` `types`
   what ticket 20 reinvented, and what it did not
 - **The walking skeleton, first slice** `compiler/` `codegen` `built:F1`
@@ -291,6 +289,9 @@ Bodies in [`decisions.md`](decisions.md). Ticket text in `issues/`.
 - **An inexhaustive residual truncates at three cases** `#43` `errors` `agent` `tooling`
   the prose is the exact form with a stop in it, not a second shape — so no format switch and no
   tunable. The term keeps all of it. Complement and cardinality measured and refused
+- **Binaries as a parsing grammar** `#30` `binaries` `types` `patterns`
+  no type-language structure; a segment's **width** refines what it binds — `t:8` is an `Octet`.
+  **Beyond all four languages surveyed**, so revisit first if F13 bites
 
 ---
 

@@ -1,7 +1,7 @@
 # 30 — Binaries as a parsing grammar, not as values on a boundary
 
 Type: grilling
-Status: claimed
+Status: resolved 2026-08-20
 
 Raised 2026-08-13 by [ticket 25](25-exemplar-programs.md)'s WebSocket exemplar
 ([`25b`](../prototypes/25b-websocket-handler.md)), which is the first prototype in the map to parse
@@ -180,3 +180,150 @@ field is `int`, `int` is open, and a catch-all is always legal. The moment a fie
 with a width, every wire dispatch acquires a **closed** residual — 252 unnamed values for a frame
 type — and 25b measured that tax at eleven clauses to say "reserved" over a 4-bit opcode. Proving
 wire parsing makes wire parsing harder to write. That trade is the decision.
+
+---
+
+# ANSWER — 2026-08-20
+
+**A binary gets no structure in the type language. A segment's *width* becomes an interval
+refinement on the value it binds, and that is the whole of what this ticket adds.**
+
+Three refusals and one small inference. Nothing enters the type lattice: the binary part stays the
+four-point set F9 shipped. `bs_types.erl` predicted a size partition could refine it later "without
+changing its shape" — and it turns out no partition is needed.
+
+## §1 — a segment sized by a bound variable
+
+**`payload:size` is permitted, lowered, and the dependency is erased. `payload` is typed `binary`.**
+
+The type language learns nothing from `size`'s interval, deliberately. The map needs no vocabulary
+for *"given"*, and no dependent type is admitted.
+
+This follows the survey rather than deciding against it. Every language measured refuses to relate
+two fields of one pattern, three of them with a dedicated diagnostic — Erlang `bad binary type`
+(including through `when` constraints, which otherwise work), Elixir's typespec grammar enumerating
+its only three forms, C# `CS9135`. Gleam permits the segment and erases the dependency at the
+binding, which is exactly the behaviour adopted here.
+
+**What this gives up, named so it is not rediscovered as a defect.** AMQP's trailing `0xCE` sentinel
+is the only way a frame whose length field lies can be caught, and it stays a runtime check. 25c
+calls it *"the check that matters most"*. Nothing in this answer touches it, and nothing should:
+catching it statically is the dependent step the whole survey refuses.
+
+## §2 and §4 — a union discriminated by a value inside the binary
+
+**One question, not two, and F9 was right to file §4 here.** Every discriminator in both exemplars
+is a literal in a segment — `126:7`, `127:7`, `1:8`, `0xCE:8`, `60:16`. `Greet("hello")` is the same
+construct with a string.
+
+**The answer is that a segment's width refines its binding.** `t:8` yields `t : int where value >= 0
+and value <= 255` — an `Octet`, by inference rather than declaration. Everything downstream of that
+already exists and is measured: an `Octet` parameter accepts the value with no guard, and its
+residual is computed over 256 values.
+
+```csharp
+DecodeFrame(<<t:8, ch:16, size:32, payload:size, 0xCE:8, rest>>)
+    -> (Classify(t, ch, payload), rest)
+DecodeFrame(_) -> (:error, :incomplete)      // legal: a binary is always truncatable
+
+private Frame Classify(Octet t, int ch, binary payload)
+Classify(1, ch, p) -> ...
+Classify(2, ch, p) -> ...
+Classify(3, ch, p) -> ...
+// forget AMQP's heartbeat and the compiler says:
+//   error: Classify is not exhaustive
+//     no clause matches:  Classify(0 | 4..255) -> ...
+```
+
+**The width closes the residual in both directions, and the upward half is the less obvious one.**
+Without it, `t` is a bare `int`, and a bare `int` is *refused* into an `Octet` parameter — the
+compiler demands clauses for `int <= -1 | int >= 256`, values a byte cannot hold. That is precisely
+the residual 25c's probe 2 recorded and described as *"values the wire cannot produce"*, and it is
+why 25c concluded the gap was **the signature's, not the checker's**. The width is what closes it,
+and inferring it from the segment is what stops every wire function having to declare it by hand.
+
+**The binary pattern does shape; a function head does value.** A `_` over a binary is always legal,
+because a binary can always be too short — so it also absorbs any wire value left unhandled. The
+compiler is not asked to see through that. Value dispatch belongs in a second head, where the
+residual is computed.
+
+This makes an idiom of the shape 25b flagged as a *smell* — *"`Opcode(op)` is a function call in a
+clause body doing what the head should do."* Reversed deliberately: under this answer the head is
+exactly where it should be, because the head is where exhaustiveness lives. **The price is real and
+should be written into F13's docs** — write the tag dispatch inline in the binary patterns and the
+checking is silently lost, with no diagnostic saying so.
+
+## §3 — a surface spelling for a sized binary type
+
+**It does not arise, and that is the answer rather than a deferral.**
+
+The type language gains nothing, so there is no notation to borrow from Erlang or invent against it,
+and F9's actual fear — *a pattern and a type that cannot be written in the same notation* — cannot
+occur, because there is no type form to disagree with.
+
+C# supplies the positive evidence. It is the only language measured that has **both** a sized
+sequence type and a sequence pattern, and they cannot be used together: inline arrays put a length
+in the type (`Buf4` and `Buf8` are distinct by `CS0029`, a constant out-of-range index is a compile
+error) and list patterns refuse that type outright — `CS8985: List patterns may not be used for a
+value of type 'Buf4'`. The length C#'s exhaustiveness checker uses comes from a runtime `Length`
+property, never from the type. The one language that built both keeps them apart.
+
+Ticket 20 §2's `<<_:M, _:_*N>>` is left where it is: a published algebra with no implementation and
+now no consumer. Nothing is reopened, and there is no join to undo.
+
+## §4 at the smallest scale — `Greet("hello")`
+
+**Admit it.** A string literal in pattern position is a byte-string singleton, which is the same
+construct §2 settles.
+
+A `string`'s residual is **always open** — any non-empty binary part is unconditionally open — so a
+catch-all is required and legal, and a set of string literals is never exhaustive on its own. That
+matches Gleam exactly, which permits both `"GET" <> rest` and `<<"GET", _rest:bytes>>` and treats
+neither as total without `_`.
+
+*Caveat on the evidence:* this follows from reading the openness rule, not from a behavioural test.
+No partial string match can be constructed until the pattern exists, so **F13 owes a test that a
+catch-all over a set of string literals is accepted and not flagged as discarding cases.**
+
+---
+
+## What F13 must build
+
+| | |
+|---|---|
+| `<<…>>` in pattern position | New. `<<` is not a token today — maximal munch yields two `'<'` |
+| A segment's width refines its binding | **The novel step.** `t:8` ⟹ `Octet` |
+| `payload:size` — sized by an earlier binding | Runtime only; permitted by all four languages |
+| A literal value in a segment — `0xCE:8`, `126:7` | §2's construct |
+| String literals in pattern position | §4; needs the pattern production and a catch-all test |
+| Interval patterns in **nested** position | Already diagnosed as unbuilt; **general**, not binary-specific |
+| A residual renderer that keeps sub-position facts | Currently discards them; **general**, and a defect against ticket 23 |
+
+The last two are the real cost and they are **not** binary work — closing them improves records and
+tuples. 25c's coupling applies unchanged: **interval patterns and interval refinements must land in
+the same increment**, or wire parsing gets harder than it is today rather than easier.
+
+## ⚠ This answer goes beyond every language surveyed, and that is the risk
+
+**Nobody proves coverage over a sub-byte field.** C# does coverage properly — partitioning arity
+against element value-space, and returning counterexamples in the pattern's own syntax — but its
+elements are bytes or larger and it has no sub-byte concept at all. The BEAM three have the bits and
+not the proof: Erlang does no exhaustiveness checking whatever; Elixir's set-theoretic machinery
+exists and demonstrably does not reach binaries; Gleam has subsumption over bit arrays and refuses
+coverage, even for a 1-bit tag with both values named.
+
+Both exemplars are bit-packed in their first eight bits. RFC 6455's header is
+`fin:1, 0:3, op:4, 1:1, len:7`. **So for the case that actually matters, the survey is unanimous
+against this answer.**
+
+Two things make it defensible rather than reckless. None of the four failed because it *tried and
+found this unsound* — Erlang has no machinery to apply, Elixir has not extended what it has, Gleam
+stopped deliberately at coverage. And the refinement machinery this rests on is built, and its
+soundness was re-measured against a compiler four features newer than when it was first recorded:
+a single-sided guard leaves exactly `int <= -1`, so each comparison is credited independently.
+
+**If F13 finds this unsound or unaffordable, this is the decision to revisit first**, and the
+revisit is cheap — nothing entered the type lattice, so backing out means dropping an inference,
+not unwinding an algebra.
+
+Survey with verbatim outputs: [`research/30-binary-grammar-prior-art.md`](../research/30-binary-grammar-prior-art.md).

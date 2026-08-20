@@ -101,7 +101,7 @@ Erlang back to the decision that required it is one grep.
 | [F10 — OTP callbacks](F10-otp-callbacks.md) | **done 2026-08-15** | **`bin/spec-check.sh`**; the `behaviour` half of 25b, 25c |
 | [F11 — the module system](F11-module-system.md) | **done 2026-08-17** | the collection library; the **imports** row that blocks all three exemplars. It also turned `check-corpus.sh` green for the first time since F9 |
 | [F12 — `public` / `private`](F12-public-and-private.md) | **done 2026-08-17** · [ENG-222](https://linear.app/davewil/issue/ENG-222) | nothing — it closed 40 §3, and it was the last whole-corpus rewrite the language had queued |
-| F13 — binary patterns | not started, **blocked** — ticket 30 is open | 25b, 25c |
+| F13 — binary patterns | not started, **unblocked 2026-08-20** — [ticket 30](../../wayfinder/issues/30-binaries-as-a-parsing-grammar.md) is resolved | 25b, 25c |
 | [F16 — the diagnostic is a term](F16-diagnostic-as-a-term.md) | **done 2026-08-18** · [ENG-224](https://linear.app/davewil/issue/ENG-224) | 23 §10 (`bsc --api`), which is specified *on this channel* and had no output shape until it existed |
 | [F14 — the pipe and the valve](F14-pipe-and-valve.md) | **done 2026-08-18** · [ENG-223](https://linear.app/davewil/issue/ENG-223) | 25a's admission chain and the decode pipelines in 25b and 25c — and **ticket 31** now has a running operator to measure rather than argue about |
 | [F17 — the compiler query mode](F17-compiler-query-mode.md) | **done 2026-08-18** | nothing with a file — it is 23 §10, the other half of what an agent can ask the compiler, and the first consumer of F16's channel that is not a diagnostic |
@@ -164,6 +164,24 @@ compiler. And `editor/bin/check-tokens.sh` checked *"keywords and the two arrows
 pair — so it could not see `|>` or `|?>` at all; it now checks a named list of multi-character
 operators, and was measured failing before it was believed. Both are the F12 lesson again: a gate
 is only as good as what it was told to look at.
+
+**AND THE STARVATION ENDED THE WAY IT WAS SUPPOSED TO — 2026-08-20.** Ticket 30 is resolved, so
+**F13 is unblocked and owes a file**. The answer is small and its shape is the surprising part: a
+binary gets **no** structure in the type language, and a segment's **width** refines the value it
+binds — `t:8` is an `Octet`, so the tag dispatch is an ordinary function head where exhaustiveness
+already works. Three refusals and one inference; nothing enters the type lattice.
+
+**Two of F13's line items are not binary work**, and this is the thing to plan around: *interval
+patterns in nested position* (already diagnosed as unbuilt) and *a residual renderer that keeps
+sub-position facts* (it currently discards them — measured over records, where two-of-three atom
+cases is red and three-of-three green, both printing `{ Kind: :'Hdr' }`). Closing them improves
+records and tuples too. 25c's coupling binds here: **interval patterns and interval refinements must
+land in the same increment**, or wire parsing gets harder rather than easier.
+
+**And F13 carries a flag.** The answer proves coverage over a **sub-byte** field, which no language
+surveyed does — Erlang, Elixir, Gleam and C# were all measured. If it turns out unsound or
+unaffordable, ticket 30 is the decision to revisit first, and backing out is cheap because nothing
+was added to the type lattice.
 
 **AND THE QUEUE IS EMPTY FOR THE FOURTH TIME.** Every feature with a file is done. The only row left
 is **F13 — binary patterns**, which has no file because it is blocked on **ticket 30**, still open.

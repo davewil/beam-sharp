@@ -1248,3 +1248,33 @@
      and "one `.beam` per directory" are the same sentence. F15 therefore applies §5 per directory
      and totally, and `examples/Shop/` exercises all three tiers in one path: a module holding a
      namespace holding a module.
+
+- **Binaries as a parsing grammar** — [ticket 30](issues/30-binaries-as-a-parsing-grammar.md),
+  resolved 2026-08-20. Raised by the first exemplar to parse a real wire format, and answered
+  against a survey of four languages, all compiled and run:
+  [`research/30-binary-grammar-prior-art.md`](research/30-binary-grammar-prior-art.md).
+  **A binary gets no structure in the type language. A segment's *width* becomes an interval
+  refinement on the value it binds** — `t:8` is an `Octet` by inference — and that inference is the
+  whole of what the ticket adds. Three refusals sit around it. Sizes stay **erased**: `payload:size`
+  runs and `payload` is a `binary`, because relating two fields of one pattern is refused by every
+  language measured, three of them with a dedicated diagnostic. **§3's sized-binary spelling never
+  arises**, which retires F9's fear of a pattern and a type in disagreeing notations — C# is the
+  positive evidence, being the one language with both a sized sequence type and a sequence pattern
+  and unable to use them together. **String literals in pattern position are admitted**, with a
+  catch-all always required because a `string`'s residual is always open.
+  **The binary pattern does shape; a function head does value.** A `_` over a binary is always legal
+  (it can always be truncated), so it also absorbs unhandled wire values — the compiler is not asked
+  to see through that, which makes an idiom of the shape 25b filed as a smell. Writing the tag
+  dispatch inline silently loses the checking, and F13 owes that warning in its docs.
+  **The real cost is two general gaps, not binary work**: interval patterns in nested position, and
+  a residual renderer that keeps sub-position facts. The coverage engine already decomposes into
+  sub-positions and tracks field-level coverage — measured over records, two-of-three atom cases red
+  and three-of-three green — but the renderer discards every field fact and prints only the record's
+  name. 25c's coupling binds: interval patterns and interval refinements land in the same increment.
+  **Flagged as a reversal risk.** Nobody proves coverage over a *sub-byte* field: C# does coverage
+  properly but has no sub-byte concept, Erlang has no exhaustiveness checking at all, Elixir's
+  machinery provably does not reach binaries, Gleam has subsumption and refuses coverage even for a
+  1-bit tag with both values named. Both exemplars are bit-packed in their first eight bits, so for
+  the case that matters the survey is unanimous against this answer. Defensible because none of the
+  four failed by *trying and finding it unsound* — and cheap to reverse, since nothing entered the
+  type lattice.

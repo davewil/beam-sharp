@@ -338,7 +338,7 @@ of them is a union like any other, which is why `Verdict` above needs no special
 | `term` | the top type — everything | **shipped** |
 | `none` | the bottom type, first-class | **shipped** |
 | `float` | | **open** |
-| `binary` | the top; `<<_:M, _:_*N>>` sizes still **decided**, unbuilt | **shipped** (top only) |
+| `binary` | the top, and it stays the top — sizes are not in the type language | **shipped** |
 | `string` | `binary` refined by valid UTF-8; a literal is one by construction | **shipped** |
 | records | see §6 | **decided** |
 
@@ -359,9 +359,57 @@ is the sixth of the compiler's standing codegen obligations — so a **foreign d
 return `string`**,
 and says so with the fix in the message. `binary` is admissible there, because the whole
 `<<_:M, _:_*N>>` grammar reduces to `byte_size` and `bit_size rem N`, both O(1) guard BIFs. Not
-built: **binary patterns**, a spelling for a **sized** binary type, string literals in **pattern**
-position, and any string **operation** — the first three wait on a decision about binaries as a
-parsing grammar, the last on the module system.
+built: **binary patterns**, string literals in **pattern** position, and any string **operation** —
+the first two wait on F13, the last on the module system.
+
+### Binary patterns — decided, unbuilt
+<!-- ticket 30 -->
+
+**A binary gets no structure in the type language, and there is no sized binary type.** `binary<32>`
+and `type Header = <<_:32>>` are not coming. What a segment gives you instead is a **refinement on
+the value it binds**: `t:8` binds an integer known to be `0..255`, which is an `Octet` without
+anyone declaring one.
+
+```csharp not-yet
+DecodeFrame(<<t:8, ch:16, size:32, payload:size, 0xCE:8, rest>>)
+    -> (Classify(t, ch, payload), rest)
+DecodeFrame(_) -> (:error, :incomplete)
+```
+
+`payload:size` is a segment sized by a variable bound earlier in the same pattern. It runs, and the
+size is **erased** — `payload` is a `binary` and nothing downstream knows its length. Relating two
+fields of one pattern is not a thing this language does, and no language on the BEAM does it either.
+
+A `_` over a binary is **always** legal, because a binary can always be truncated. So the binary
+pattern is for **shape**, and value dispatch belongs in a function head, where the residual is
+computed and exhaustiveness bites:
+
+```csharp not-yet
+private Frame Classify(Octet t, int ch, binary payload)
+
+Classify(1, ch, p) -> ...
+Classify(2, ch, p) -> ...
+// omit AMQP's heartbeat frame and the compiler answers
+//   Classify is not exhaustive
+//     no clause matches:  Classify(0 | 4..255) -> ...
+```
+
+**Write the tag dispatch inline in the binary patterns instead and the checking is silently lost** —
+the catch-all you needed for truncation also swallows every wire value you forgot, and no diagnostic
+will tell you. That is the one sharp edge of this design, and it is deliberate: seeing through it
+would mean splitting the residual per segment.
+
+### String literals in pattern position — decided, unbuilt
+<!-- ticket 30 -->
+
+
+Admitted. A `string`'s residual is **always open**, so a catch-all is required and legal, and a set
+of string literals is never exhaustive on its own:
+
+```csharp not-yet
+Greet("hello") -> :hi
+Greet(s)       -> :other
+```
 
 **Atoms:** the universe is open, nothing declares an atom, `:foo` mints one by writing it.
 `true` and `false` are the only keyword atoms, `bool` is an ordinary alias, and **there is no
