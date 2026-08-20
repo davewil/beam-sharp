@@ -22,11 +22,22 @@ if [ ! -x "$BSC" ]; then
     (cd "$COMPILER" && rebar3 escriptize >/dev/null 2>&1)
 fi
 
+# One directory per probe, NAMED AFTER THE MODULE. F15 broke this script in
+# two ways at once and both were silent: a directory is now one module, so
+# sharing $WORK made probe 2 onward fail with "one directory is one module,
+# and this one declares N"; and a module's declaration must match its
+# directory name, so a dir named for the probe rejected a body declaring
+# `module P1`. Probe 1 alone still passed, which is why the rot was quiet
+# and the prototype's prose went on reporting results the script could no
+# longer produce. Found 2026-08-20 re-verifying these results for ticket 30.
 probe () {
     local name="$1" body="$2"
-    printf '%s\n' "$body" > "$WORK/$name.bs"
+    local mod
+    mod="$(printf '%s\n' "$body" | sed -n 's/^module  *\([A-Za-z0-9_]*\).*/\1/p' | head -1)"
+    mkdir -p "$WORK/$name/$mod"
+    printf '%s\n' "$body" > "$WORK/$name/$mod/$mod.bs"
     echo "--- $name ---"
-    "$BSC" -o "$WORK" "$WORK/$name.bs" 2>&1 || true
+    "$BSC" -o "$WORK/$name/$mod" "$WORK/$name/$mod/$mod.bs" 2>&1 || true
     echo
 }
 
@@ -106,6 +117,7 @@ Classify(>= 9)          -> :reserved'
 echo "=== 4. What the residual LOOKS LIKE at wire-protocol clause counts ==="
 echo "AMQP 0-9-1 defines ~40 methods. Ticket 23 publishes the residual to an agent."
 echo "Ticket 43 truncates the PROSE at three cases; the term keeps all 41."
+mkdir -p "$WORK/wide/P4"
 {
     echo 'module P4'
     echo 'type Method = :known | :unknown'
@@ -113,13 +125,13 @@ echo "Ticket 43 truncates the PROSE at three cases; the term keeps all 41."
     for i in $(seq 10 10 400); do
         echo "Dispatch($i) -> :known"
     done
-} > "$WORK/wide.bs"
+} > "$WORK/wide/P4/P4.bs"
 echo "--- wide (40 singleton clauses) ---"
-"$BSC" -o "$WORK" "$WORK/wide.bs" 2>&1 || true
+"$BSC" -o "$WORK/wide/P4" "$WORK/wide/P4/P4.bs" 2>&1 || true
 echo
 
 echo "=== timing the check at that width ==="
 START=$(date +%s%N)
-for _ in 1 2 3 4 5; do "$BSC" -o "$WORK" "$WORK/wide.bs" >/dev/null 2>&1 || true; done
+for _ in 1 2 3 4 5; do "$BSC" -o "$WORK/wide/P4" "$WORK/wide/P4/P4.bs" >/dev/null 2>&1 || true; done
 END=$(date +%s%N)
 echo "5 runs of the 40-clause check (includes process start): $(( (END-START)/1000000 )) ms total"
