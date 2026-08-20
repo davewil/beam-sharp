@@ -1,6 +1,6 @@
 # F13 — Binary patterns: a width is a refinement
 
-**Status**      claimed 2026-08-20
+**Status**      **done 2026-08-20**
 **Implements**  [ticket 30](../../wayfinder/issues/30-binaries-as-a-parsing-grammar.md), resolved
                 2026-08-20 — decides nothing about the language, and the mechanism it does decide is
                 listed below

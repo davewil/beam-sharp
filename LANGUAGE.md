@@ -359,22 +359,40 @@ is the sixth of the compiler's standing codegen obligations — so a **foreign d
 return `string`**,
 and says so with the fix in the message. `binary` is admissible there, because the whole
 `<<_:M, _:_*N>>` grammar reduces to `byte_size` and `bit_size rem N`, both O(1) guard BIFs. Not
-built: **binary patterns**, string literals in **pattern** position, and any string **operation** —
-the first two wait on F13, the last on the module system.
+built: any string **operation**, which waits on the module system. **Binary patterns** and string
+literals in **pattern** position shipped with F13 and are below.
 
-### Binary patterns — decided, unbuilt
+### Binary patterns
 <!-- ticket 30 -->
 
 **A binary gets no structure in the type language, and there is no sized binary type.** `binary<32>`
 and `type Header = <<_:32>>` are not coming. What a segment gives you instead is a **refinement on
 the value it binds**: `t:8` binds an integer known to be `0..255`, which is an `Octet` without
-anyone declaring one.
+anyone declaring one. **shipped** — F13.
 
-```csharp not-yet
+<!-- check:
+type Octet = int where value >= 0 and value <= 255
+type Frame = (:method, int) | (:header, int) | :heartbeat | (:error, atom)
+private Frame Classify(Octet t, int ch, binary payload)
+Classify(1, ch, p) -> (:method, ch)
+Classify(2, ch, p) -> (:header, ch)
+Classify(8, ch, p) -> :heartbeat
+Classify(>= 9, ch, p) -> (:error, :unknown_frame_type)
+Classify(<= 0, ch, p) -> (:error, :unknown_frame_type)
+Classify(>= 3 and <= 7, ch, p) -> (:error, :unknown_frame_type)
+-->
+```csharp
+public (Frame, binary) DecodeFrame(binary b)
+
 DecodeFrame(<<t:8, ch:16, size:32, payload:size, 0xCE:8, rest>>)
     -> (Classify(t, ch, payload), rest)
-DecodeFrame(_) -> (:error, :incomplete)
+DecodeFrame(_) -> ((:error, :incomplete), "")
 ```
+
+A segment's width is written after a colon and is a number of **bits**, so sub-byte fields are
+ordinary: RFC 6455's header is `<<fin:1, 0:3, op:4, 1:1, len:7>>`. A segment with **no** width is
+the remainder and must come last — a divergence from Erlang, where a bare `<<A, B>>` is two *bytes*.
+Integer literals may be written in hex (`0xCE`), anywhere in the language and not only here.
 
 `payload:size` is a segment sized by a variable bound earlier in the same pattern. It runs, and the
 size is **erased** — `payload` is a `binary` and nothing downstream knows its length. Relating two
@@ -384,14 +402,25 @@ A `_` over a binary is **always** legal, because a binary can always be truncate
 pattern is for **shape**, and value dispatch belongs in a function head, where the residual is
 computed and exhaustiveness bites:
 
-```csharp not-yet
-private Frame Classify(Octet t, int ch, binary payload)
+<!-- check:
+type Octet = int where value >= 0 and value <= 255
+-->
+```csharp
+private atom Classify(Octet t)
 
-Classify(1, ch, p) -> ...
-Classify(2, ch, p) -> ...
-// omit AMQP's heartbeat frame and the compiler answers
+Classify(1) -> :method
+Classify(2) -> :header
+Classify(8) -> :heartbeat
+// omit these two and the compiler answers
 //   Classify is not exhaustive
-//     no clause matches:  Classify(0 | 4..255) -> ...
+//     no clause matches:  Classify(0 | 3..7 | 9..255) -> ...
+Classify(>= 9) -> :reserved
+Classify(0) -> :reserved
+Classify(>= 3 and <= 7) -> :reserved
+
+public atom Read(binary b)
+Read(<<t:8, rest>>) -> Classify(t)
+Read(_) -> :incomplete
 ```
 
 **Write the tag dispatch inline in the binary patterns instead and the checking is silently lost** —
@@ -399,14 +428,15 @@ the catch-all you needed for truncation also swallows every wire value you forgo
 will tell you. That is the one sharp edge of this design, and it is deliberate: seeing through it
 would mean splitting the residual per segment.
 
-### String literals in pattern position — decided, unbuilt
+### String literals in pattern position
 <!-- ticket 30 -->
 
-
 Admitted. A `string`'s residual is **always open**, so a catch-all is required and legal, and a set
-of string literals is never exhaustive on its own:
+of string literals is never exhaustive on its own. **shipped** — F13.
 
-```csharp not-yet
+```csharp
+public atom Greet(string s)
+
 Greet("hello") -> :hi
 Greet(s)       -> :other
 ```
@@ -1106,7 +1136,8 @@ the parser accepts back exactly what the printer emits. **shipped**
 | refinements + interval patterns | **shipped** — F2 |
 | `switch`, including a tuple subject and a guard on an arm | **shipped** |
 | `string` and `binary` as values — the literal, the refinement, the boundary rule | **shipped** — F9 |
-| binary patterns `<<...>>`, and a spelling for a sized binary type | not started — the binaries decision is open |
+| binary patterns `<<...>>`, string literals in pattern position, hex literals | **shipped** — F13 |
+| a spelling for a **sized binary type** | not coming — a width refines the value it binds, so no type form arises |
 | the UTF-8 entry check (`binary` → `string`) | not started — the sixth codegen obligation |
 | pipe and valve | **shipped** — F14 |
 | parametric types — `result<T, E>`, `option<T>`, `type Pair<T>`, nesting | **shipped** |

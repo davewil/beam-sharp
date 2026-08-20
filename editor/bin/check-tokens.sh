@@ -139,7 +139,8 @@ done
 
 # The multi-character operators, which is the set most likely to be added one at
 # a time: `->` has been there since the walking skeleton, `=>` arrived with F7,
-# and `|>`/`|?>` with F14. They cannot be derived from the leex file the way the
+# `|>`/`|?>` with F14, and `<<` with F13. They cannot be derived from the leex
+# file the way the
 # keywords above are, because every one of them is written as an escaped regex
 # there rather than as a bare word -- so the list is hand-maintained, and adding
 # to it is part of adding an operator.
@@ -148,7 +149,7 @@ done
 # own regex dialect: the valve is `\\|\\?>` in the TextMate JSON and `|?>` in
 # vim, so the three characters are not adjacent in one file and are in the other.
 # Comparing the de-escaped text is what makes one list check both.
-OPS='-> => |> |?>'
+OPS='-> => |> |?> <<'
 NOPS=0
 for op in $OPS; do
     NOPS=$((NOPS + 1))

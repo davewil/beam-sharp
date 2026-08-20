@@ -129,6 +129,11 @@
           "match": "\\|\\?>|\\|>"
         },
         {
+          "_comment": "A binary pattern's opening bracket (ticket 30, F13). BEFORE the comparison rule, which would otherwise take `<` and leave a stray second one, and before the catch-all class at the bottom. There is deliberately NO `>>` rule here or in the lexer: `list<list<int>>` closes two generics, and the compiler's grammar closes a binary pattern on two separate `>` for exactly that reason.",
+          "name": "keyword.operator.binary.beam-sharp",
+          "match": "<<"
+        },
+        {
           "name": "keyword.operator.comparison.beam-sharp",
           "match": "==|!=|<=|>="
         },

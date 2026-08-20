@@ -1,0 +1,111 @@
+// frame.bs -- binary patterns, and the one inference behind them
+// (F13, ticket 30).
+//
+//     bsc examples/Frame Decode '<<1, 0, 5, 0,0,0,3, "abc", 16#CE>>'  -> :method
+//     bsc examples/Frame Decode '<<9, 0, 5, 0,0,0,3, "abc", 16#CE>>'  -> :reserved
+//     bsc examples/Frame Decode '<<1, 2>>'                            -> :incomplete
+//     bsc examples/Frame Opcode '<<136, 0>>'                          -> :close
+//     bsc examples/Frame Method '"GET"'                               -> :get
+//
+// THE PROPERTY WORTH LOOKING AT is the CALL on the last line of `Decode`.
+// `Classify` wants an `Octet`, `t` was never declared as one, and there is no
+// guard anywhere -- and it type-checks, because the segment said `t:8` and a
+// width IS a refinement. `t` is an integer known to be 0..255 before it is
+// passed anywhere.
+//
+// Compare `wire.bs`, which is this file a feature earlier. There the only way
+// to get an octet was to declare one and then GUARD every value on its way in.
+// Widen the segment here -- write `t:16` instead of `t:8` -- and the compiler
+// refuses the call with `256..65535`: the values a two-byte field can hold and
+// an octet cannot. It is reading the width, not the name.
+//
+// 25c measured the other half of this and concluded the gap was the signature's
+// rather than the checker's: without a width, `t` is a bare `int` and an `int`
+// is refused into an `Octet`, the compiler demanding clauses for
+// `int <= -1 | int >= 256` -- values the wire cannot produce. Inferring the
+// width from the segment is what stops every wire function declaring it by hand.
+//
+// AND THE SHARP EDGE IS DELIBERATE. `Decode(_)` below is not laziness: a binary
+// can always be truncated, so a catch-all over one is always legal and never
+// reported as discarding cases. Which means if you dispatch on the tag INSIDE
+// the binary patterns instead of in `Classify`, the catch-all silently swallows
+// every wire value you forgot and no diagnostic will tell you. The pattern does
+// SHAPE; the head does VALUE.
+module Frame
+
+type Kind = :method | :header | :body | :heartbeat | :reserved | :incomplete
+
+// The refinement a width infers. It is declared here because the DISPATCH
+// function's signature needs a name for it -- what F13 removed is the need to
+// guard every value on its way in, not the type declaration itself.
+type Octet = int where value >= 0 and value <= 255
+type Opcode = :cont | :text | :binary | :close | :ping | :pong | :reserved
+type Nybble = int where value >= 0 and value <= 15
+
+// VALUE DISPATCH, and the only place exhaustiveness can bite. The residual is
+// computed over 256 values because the parameter is an `Octet`; over a bare
+// `int` it would be open at both ends and a catch-all would be legal, which is
+// how every wire dispatch in this language looked before F13.
+private Kind Classify(Octet t)
+
+Classify(1) -> :method
+Classify(2) -> :header
+Classify(3) -> :body
+Classify(8) -> :heartbeat
+// The reserved ranges. Three clauses to say "the rest", not 252 -- interval
+// patterns landed with the refinements in F2 for exactly this reason.
+Classify(0) -> :reserved
+Classify(>= 4 and <= 7) -> :reserved
+Classify(>= 9) -> :reserved
+
+// SHAPE DISPATCH. AMQP 0-9-1's frame header, which is where ticket 30 started:
+// a type octet, a channel, a 32-bit length, a payload SIZED BY THAT LENGTH, and
+// a sentinel byte that must be 0xCE.
+//
+// `payload:size` is the segment ticket 30 §1 permits and refuses to type. It
+// runs, and the length is ERASED -- `payload` is a plain `binary` downstream and
+// nothing knows how long it is. Every language surveyed refuses to relate two
+// fields of one pattern; three of them with a dedicated diagnostic.
+//
+// `0xCE:8` is a literal segment: it MATCHES and binds nothing. It stays a
+// runtime check, and 25c calls it the check that matters most -- catching a
+// frame whose length field lies is the dependent step the survey refuses.
+public Kind Decode(binary b)
+
+Decode(<<t:8, ch:16, size:32, payload:size, 0xCE:8, rest>>) -> Classify(t)
+Decode(_) -> :incomplete
+
+// SUB-BYTE, which is where this design goes past every language measured.
+// RFC 6455's header packs a FIN bit, three reserved bits and a four-bit opcode
+// into its first byte. `op:4` binds an integer known to be 0..15, and the
+// residual over it is computed the same way -- delete a clause below and the
+// compiler answers with the missing RANGE, not with a shrug.
+//
+// Erlang does no exhaustiveness checking at all; Elixir's set-theoretic
+// machinery does not reach binaries; Gleam refuses coverage over bit arrays
+// even for a one-bit tag with both values named; C# has no sub-byte concept.
+private Opcode Name(Nybble op)
+
+Name(0) -> :cont
+Name(1) -> :text
+Name(2) -> :binary
+Name(8) -> :close
+Name(9) -> :ping
+Name(10) -> :pong
+Name(>= 3 and <= 7) -> :reserved
+Name(>= 11) -> :reserved
+
+public Opcode Opcode(binary b)
+
+Opcode(<<_:4, op:4, rest>>) -> Name(op)
+Opcode(_) -> :reserved
+
+// A STRING LITERAL IN PATTERN POSITION -- ticket 30 §4, the small everyday face
+// of the same gap. A string's residual is ALWAYS open, so the catch-all is
+// required and legal; a set of literals is never exhaustive on its own.
+public atom Method(string s)
+
+Method("GET") -> :get
+Method("PUT") -> :put
+Method("POST") -> :post
+Method(s) -> :other

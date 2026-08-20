@@ -60,7 +60,13 @@ syn match bsWildcard  "\<_\>"
 " first-match-wins at a position and the class matches a bare `|` -- which would
 " colour one character of a two- or three-character operator. Ticket 44 removed
 " `&&` and `||`; they were still listed here until F14 touched the line.
-syn match bsOperator  "->\|=>\|\.\.\||?>\||>\|==\|!=\|<=\|>=\|[<>+\-*=|?:]"
+"
+" `<<` (a binary pattern's opening bracket, ticket 30 / F13) goes before `<=`
+" and before the class for the same first-match-wins reason. There is no `>>`
+" here on purpose and there is none in the lexer either: `list<list<int>>`
+" closes two generics, so the compiler's grammar closes a binary pattern on two
+" separate `>` rather than take a token that would swallow them.
+syn match bsOperator  "->\|=>\|\.\.\||?>\||>\|==\|!=\|<<\|<=\|>=\|[<>+\-*=|?:]"
 
 " --- atoms -------------------------------------------------------------------
 " Defined after the operator rule so that `:` opening an atom beats `:` the

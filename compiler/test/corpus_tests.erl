@@ -158,7 +158,41 @@ demonstrated_surface() ->
      %% unambiguous in the grammar itself: nothing else in the language can
      %% produce it, so there is no near-miss for it to drift into.
      {"a codegen obligation instantiated",       "ValidateAs<"},
-     {"ValidationError as a declared type",      "ValidationError>"}].
+     {"ValidationError as a declared type",      "ValidationError>"},
+     %% F13 / ticket 30. FIVE rows, because they are five sentences about the
+     %% language and no one of them stands in for another. A corpus could open a
+     %% binary pattern and never size a segment by a field, or never write a
+     %% sub-byte width — and the sub-byte case is the one this whole answer goes
+     %% past every surveyed language to support, so it is precisely the row that
+     %% must not be satisfiable by accident.
+     %%
+     %% `<<` alone is enough for the first: nothing else in the language produces
+     %% two adjacent `<`, which is the same argument that let the LEXER take the
+     %% token. The generic bracket is always preceded by a name.
+     {"a binary pattern",                        "<<"},
+     %% Anchored on a width of 5..9 or 12..99, which excludes every single-digit
+     %% width below 5 — so this row cannot be satisfied by the sub-byte row's
+     %% `op:4` and vice versa. Two sentences, two disjoint probes.
+     {"a byte-or-wider segment width",           ":([5-9]|[1-9][0-9]+)[,>]"},
+     {"a sub-byte segment width",                ":[1-4][,>]"},
+     %% A segment sized by a name rather than a number, which is ticket 30 §1 —
+     %% the form every length-prefixed format needs and the one no language
+     %% types.
+     %%
+     %% ANCHORED ON THE LOWERCASE LETTER BEFORE THE COLON, and the first draft
+     %% was not: `:[a-z]+,` matched `(:error, :unknown)` and the pin below caught
+     %% it immediately. That near-miss is not a coincidence — `payload:size` and
+     %% `:size` are the same two characters, the LEXER cannot tell them apart
+     %% either (see the `bin_size` productions), and a size is distinguished
+     %% only by having a name immediately to its left. The probe has to make the
+     %% same distinction the grammar does.
+     {"a segment sized by an earlier field",     "[a-z]:[a-z][a-z]*[,>]"},
+     %% Anchored on the BRACKET, so it probes pattern position: `Method("GET")`
+     %% matches and a string in an expression must not. Same shape as the `==`
+     %% and interval probes, and pinned below for the same reason.
+     {"a string literal in a pattern",           "\\( *\"[^\"]*\" *\\)"},
+     %% Hex, which F13 owed and ticket 30's table did not name.
+     {"a hex integer literal",                   "0[xX][0-9a-fA-F]"}].
 
 every_shipped_surface_form_has_an_example_test() ->
     Dir = project_root() ++ "/examples",
@@ -271,4 +305,48 @@ the_valve_probe_does_not_match_a_pipe_test() ->
                         [multiline, {capture, none}])),
     ?assertEqual(match,
                  re:run("Place(n) -> Start(n) |?> Charge()", Valve,
+                        [multiline, {capture, none}])).
+
+%%% F13. The two segment-width probes divide the same syntax between them, so
+%%% each has to be pinned against the OTHER's example — a pair of probes that
+%%% both match everything would report two capabilities demonstrated and prove
+%%% one. The sub-byte row is the one that matters: it is the case ticket 30's
+%%% answer goes past every surveyed language to support, so it must not be
+%%% satisfiable by an ordinary `t:8`.
+the_width_probes_divide_at_the_byte_test() ->
+    {_, Wide} = lists:keyfind("a byte-or-wider segment width", 1,
+                              demonstrated_surface()),
+    {_, Sub}  = lists:keyfind("a sub-byte segment width", 1,
+                              demonstrated_surface()),
+    Byte = "Decode(<<t:8, rest>>) -> Classify(t)",
+    Nyb  = "Opcode(<<_:4, op:4, rest>>) -> Name(op)",
+    ?assertEqual(match,   re:run(Byte, Wide, [multiline, {capture, none}])),
+    ?assertEqual(nomatch, re:run(Byte, Sub,  [multiline, {capture, none}])),
+    ?assertEqual(match,   re:run(Nyb,  Sub,  [multiline, {capture, none}])),
+    ?assertEqual(nomatch, re:run(Nyb,  Wide, [multiline, {capture, none}])).
+
+%% A string in PATTERN position, not in an expression. Without this pin the row
+%% would be satisfied by every `-> "hello"` in the corpus, which is the F8 and F2
+%% failure a third time: a probe reporting a capability nobody can look at.
+the_string_pattern_probe_does_not_match_an_expression_test() ->
+    {_, Re} = lists:keyfind("a string literal in a pattern", 1,
+                            demonstrated_surface()),
+    ?assertEqual(nomatch,
+                 re:run("Greet() -> \"hello\"", Re, [multiline, {capture, none}])),
+    ?assertEqual(match,
+                 re:run("Method(\"GET\") -> :get", Re,
+                        [multiline, {capture, none}])).
+
+%% The segment-size probe must not be satisfied by an ordinary atom literal,
+%% which is the same two characters in a different position — `:size` after a
+%% name is a size and `:size` after a bracket is an atom, and the lexer cannot
+%% tell them apart either (see the `bin_size` productions in the grammar).
+the_segment_size_probe_does_not_match_an_atom_test() ->
+    {_, Re} = lists:keyfind("a segment sized by an earlier field", 1,
+                            demonstrated_surface()),
+    ?assertEqual(nomatch,
+                 re:run("Classify(t) -> (:error, :unknown)", Re,
+                        [multiline, {capture, none}])),
+    ?assertEqual(match,
+                 re:run("Decode(<<n:8, payload:n, rest>>) -> payload", Re,
                         [multiline, {capture, none}])).

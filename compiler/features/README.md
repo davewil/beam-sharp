@@ -101,7 +101,7 @@ Erlang back to the decision that required it is one grep.
 | [F10 — OTP callbacks](F10-otp-callbacks.md) | **done 2026-08-15** | **`bin/spec-check.sh`**; the `behaviour` half of 25b, 25c |
 | [F11 — the module system](F11-module-system.md) | **done 2026-08-17** | the collection library; the **imports** row that blocks all three exemplars. It also turned `check-corpus.sh` green for the first time since F9 |
 | [F12 — `public` / `private`](F12-public-and-private.md) | **done 2026-08-17** · [ENG-222](https://linear.app/davewil/issue/ENG-222) | nothing — it closed 40 §3, and it was the last whole-corpus rewrite the language had queued |
-| F13 — binary patterns | not started, **unblocked 2026-08-20** — [ticket 30](../../wayfinder/issues/30-binaries-as-a-parsing-grammar.md) is resolved | 25b, 25c |
+| [F13 — binary patterns](F13-binary-patterns.md) | **done 2026-08-20** | 25b and 25c — the two exemplars that parse a wire format. It was the last row in this table |
 | [F16 — the diagnostic is a term](F16-diagnostic-as-a-term.md) | **done 2026-08-18** · [ENG-224](https://linear.app/davewil/issue/ENG-224) | 23 §10 (`bsc --api`), which is specified *on this channel* and had no output shape until it existed |
 | [F14 — the pipe and the valve](F14-pipe-and-valve.md) | **done 2026-08-18** · [ENG-223](https://linear.app/davewil/issue/ENG-223) | 25a's admission chain and the decode pipelines in 25b and 25c — and **ticket 31** now has a running operator to measure rather than argue about |
 | [F17 — the compiler query mode](F17-compiler-query-mode.md) | **done 2026-08-18** | nothing with a file — it is 23 §10, the other half of what an agent can ask the compiler, and the first consumer of F16's channel that is not a diagnostic |
@@ -164,6 +164,41 @@ compiler. And `editor/bin/check-tokens.sh` checked *"keywords and the two arrows
 pair — so it could not see `|>` or `|?>` at all; it now checks a named list of multi-character
 operators, and was measured failing before it was believed. Both are the F12 lesson again: a gate
 is only as good as what it was told to look at.
+
+**F13 IS BUILT, AND WHAT IT REVEALED IS THAT A DECISION'S COST ESTIMATE ROTS THE SAME WAY ITS
+PREMISES DO — 2026-08-20.** Ticket 30's table named seven things F13 must build and called two of
+them the real cost: nested interval patterns, and a residual renderer that carries sub-position
+facts. **Neither was built and neither was needed**, and the argument is the answer's own rule
+read one step further: *the binary pattern does shape; a function head does value* puts every
+residual F13 can produce at **whole-argument position**, which is where the renderer already prints
+legibly and where relational patterns have worked since F2.
+
+**The 25c coupling that three documents carry forward had already been satisfied for four days.**
+*"Interval patterns and interval refinements must land together or the increment breaks wire
+parsing"* was written when there was no way to name a span, and 25b priced saying "reserved" over a
+4-bit opcode at eleven clauses. Measured before this file was written: `Classify(>= 4)` closes it in
+**one**. The estimate was repeated by ticket 30's answer, by this file and by the map without anyone
+running it. **A premise and a price both go stale, and only the premise has a habit that catches it.**
+
+**Two lexer collisions, neither in ticket 30's table, and the second is the sharper.** The table
+named `<<` as the missing token and said nothing about the closing bracket — but `list<list<int>>`
+parses and runs, so a `>>` token would swallow it. And `payload:size` **does not lex as three
+tokens**: the atom sigil is `:name`, maximal munch prefers it, so it is the variable `payload`
+followed by the atom `:size` while `payload:8` is three tokens. Every `sized_by` test failed while
+every width test passed, which is the shape that made it visible at all. **Both were fixed in the
+grammar rather than the lexer**, and that is one decision rather than two: a lexer made
+context-sensitive to protect one construct puts the collision everywhere else instead.
+
+**And a probe caught its own author.** The new segment-size row was first written `:[a-z]+,`, which
+matches `(:error, :unknown)` — an ordinary atom. The pin beside it failed on the first run. That is
+F8's lesson and F2's arriving a third time, and it is worth noting *why* the near-miss was
+inevitable: the probe was trying to tell apart the same two characters the LEXER cannot tell apart
+either, and it had to make the distinction the grammar makes — a name immediately to the left.
+
+**What F13 leaves owed.** The two rows it did not need are still real, still general, and now have
+no feature waiting on them: nested interval patterns, and a residual renderer that carries
+sub-position facts (a defect against ticket 23). Neither is binary work; closing them improves
+records and tuples.
 
 **AND THE STARVATION ENDED THE WAY IT WAS SUPPOSED TO — 2026-08-20.** Ticket 30 is resolved, so
 **F13 is unblocked and owes a file**. The answer is small and its shape is the surprising part: a
