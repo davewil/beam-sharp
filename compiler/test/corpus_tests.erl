@@ -191,6 +191,13 @@ demonstrated_surface() ->
      %% matches and a string in an expression must not. Same shape as the `==`
      %% and interval probes, and pinned below for the same reason.
      {"a string literal in a pattern",           "\\( *\"[^\"]*\" *\\)"},
+     %% The PREFIX match — a string literal as a SEGMENT rather than as a whole
+     %% pattern. Two sentences, not one: `Method("GET")` needs the whole string
+     %% and `Request(<<"GET ", rest>>)` needs it to start with one and binds the
+     %% remainder. This production fell out of the segment grammar rather than
+     %% being designed, and a form that works by accident is one nobody notices
+     %% breaking — which is the whole argument for giving it a row.
+     {"a string literal as a segment",           "<<\"[^\"]*\","},
      %% Hex, which F13 owed and ticket 30's table did not name.
      {"a hex integer literal",                   "0[xX][0-9a-fA-F]"}].
 

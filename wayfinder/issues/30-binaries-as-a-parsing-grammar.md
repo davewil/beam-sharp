@@ -285,6 +285,13 @@ neither as total without `_`.
 No partial string match can be constructed until the pattern exists, so **F13 owes a test that a
 catch-all over a set of string literals is accepted and not flagged as discarding cases.**
 
+> **DISCHARGED BY F13, 2026-08-20.** `binary_tests` runs it in both directions — a set of literals
+> with a catch-all is accepted, and the same set without one is `inexhaustive`. The reading was
+> right, and it needed no new machinery: a string literal's pattern type is `string` held
+> **inexactly**, which is the same `false` that makes `[0, ..t]` credit nothing. Gleam's other
+> spelling came along for free — `<<"GET", rest>>` is a segment and matches a prefix, which the
+> grammar admitted without anyone designing it, so it has a test and an example of its own.
+
 ---
 
 ## What F13 must build
@@ -302,6 +309,31 @@ catch-all over a set of string literals is accepted and not flagged as discardin
 The last two are the real cost and they are **not** binary work — closing them improves records and
 tuples. 25c's coupling applies unchanged: **interval patterns and interval refinements must land in
 the same increment**, or wire parsing gets harder than it is today rather than easier.
+
+> **CORRECTED BY F13, 2026-08-20 — the last three rows of that table are wrong, and the cost
+> estimate went stale exactly the way this ticket's own premises did.**
+>
+> **Neither "real cost" row was built and neither was needed.** The argument is this answer's own
+> rule read one step further: *the binary pattern does shape; a function head does value* puts
+> every residual F13 can produce at **whole-argument position** — where the renderer already prints
+> legibly and where relational patterns have worked since F2. The sub-position discard is reached
+> by destructuring a *record*; F13 destructures only binaries, and a binary's residual is
+> unconditionally open, so a `_` is always required and there is no residual at a sub-position to
+> render. Both remain real, general defects, now with nothing waiting on them.
+>
+> **And 25c's coupling had already been satisfied for four days when this answer repeated it.** It
+> was written before there was any way to name a span, and 25b priced saying "reserved" over a
+> 4-bit opcode at eleven clauses. Measured: `Classify(>= 4)` closes it in **one**, and a frame type
+> takes five clauses rather than 252. Wire parsing does not get harder. **A price goes stale the
+> same way a premise does, and only the premise has a habit that catches it.**
+>
+> **Three things F13 had to build that this table does not name.** `>>` may **not** become a token
+> — `list<list<int>>` parses and runs, so the pattern closes on two separate `'>'`. And
+> `payload:size` does not lex as three tokens: the atom sigil is `:name` and maximal munch prefers
+> it, so it is the variable `payload` followed by the **atom** `:size`, while `payload:8` *is*
+> three tokens. Both were fixed in the grammar rather than the lexer, because a lexer made
+> context-sensitive to protect one construct puts the collision everywhere else instead. Third:
+> **hex integer literals**, since the decided surface writes `0xCE:8` and `0xCE` did not lex.
 
 ## ⚠ This answer goes beyond every language surveyed, and that is the risk
 

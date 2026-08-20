@@ -109,3 +109,13 @@ Method("GET") -> :get
 Method("PUT") -> :put
 Method("POST") -> :post
 Method(s) -> :other
+
+// AND THE SAME LITERAL AS A SEGMENT, which is the PREFIX match. `Method` above
+// needs the whole string to be "GET"; this needs it to START with it, and binds
+// what follows. Gleam permits both spellings and treats neither as total without
+// a catch-all, which is where ticket 30 §4 took the rule from.
+public atom Request(binary b)
+
+Request(<<"GET ", rest>>) -> :get
+Request(<<"POST ", rest>>) -> :post
+Request(b) -> :other

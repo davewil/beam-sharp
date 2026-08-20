@@ -251,6 +251,25 @@ string_literals_alone_are_not_exhaustive_test() ->
           "Verb(\"PUT\") -> :put\n",
     ?assertMatch([{error, _, 'Verb', {inexhaustive, _}}], errors(Src)).
 
+%% A STRING LITERAL AS A SEGMENT, which is the prefix match — `<<"GET", rest>>`.
+%% Ticket 30 §4 cites Gleam permitting both `"GET" <> rest` and
+%% `<<"GET", _rest:bytes>>` and treating neither as total without `_`, and this
+%% is the second of those forms. It fell out of the segment grammar rather than
+%% being designed, which is exactly why it needs a test of its own: a production
+%% that works by accident is one nobody notices breaking.
+a_string_literal_may_be_a_segment_test() ->
+    M = build_and_load("module BinP\n"
+                       "public atom Verb(binary b)\n"
+                       "Verb(<<\"GET\", rest>>) -> :get\n"
+                       "Verb(<<\"POST\", rest>>) -> :post\n"
+                       "Verb(_) -> :other\n", 'BinP'),
+    ?assertEqual(get,   M:'Verb'(<<"GET /index">>)),
+    ?assertEqual(post,  M:'Verb'(<<"POST /index">>)),
+    %% The prefix must be a PREFIX and not a substring — without this the test
+    %% would pass against an emitter that matched anywhere in the binary.
+    ?assertEqual(other, M:'Verb'(<<"XGET /index">>)),
+    ?assertEqual(other, M:'Verb'(<<"HEAD /index">>)).
+
 %%% ---------------------------------------------------------------------------
 %%% F13.11 — the token that must not be added
 %%% ---------------------------------------------------------------------------

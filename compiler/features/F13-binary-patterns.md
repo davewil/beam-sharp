@@ -120,8 +120,16 @@ private Frame Classify(Octet t, int ch, binary payload)
 Classify(1, ch, p) -> ...
 ```
 
-`t` is an `Octet` because the segment said `8`, and nobody wrote a type. That single inference is
-the feature; the exhaustiveness proof over it is machinery F2 and F9 already shipped.
+**The thing to look at is the call, not the declaration.** `Classify` still declares `Octet` — a
+dispatch function's signature needs a name for what it takes, and F13 does not change that. What
+F13 removes is the **guard on the way in**: `t` was never declared an `Octet`, there is no `when`
+anywhere, and the call type-checks because the segment said `8`. Widen it to `t:16` and the
+compiler refuses the call with `256..65535`.
+
+That single inference is the feature; the exhaustiveness proof over it is machinery F2 and F9
+already shipped. The precise version of this sentence matters because the loose one — *"nobody
+wrote a type"* — was written into `examples/Frame/frame.bs` first, and is false: the refinement is
+declared, and only the guard is gone.
 
 ## The six things this feature decides, all mechanism
 

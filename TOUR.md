@@ -795,6 +795,24 @@ $ bsc --src-root examples examples/Frame Method '"HEAD"'
 A `string`'s residual is **always open** — any binary is a possible input — so that last clause
 is required, and it is legal. A set of string literals is never exhaustive on its own.
 
+The same literal works as a **segment**, and there it matches a *prefix* and binds the rest:
+
+```
+Request(<<"GET ", rest>>) -> :get
+Request(<<"POST ", rest>>) -> :post
+Request(b) -> :other
+```
+
+```
+$ bsc --src-root examples examples/Frame Request '<<"GET /index">>'
+:get
+$ bsc --src-root examples examples/Frame Request '<<"HEAD /index">>'
+:other
+```
+
+`Method` needs the whole string to be `"GET"`; `Request` needs it to start with one. Both
+spellings exist, and neither is total without a catch-all.
+
 <!-- ticket 30, F13 -->
 
 ---
@@ -1257,8 +1275,8 @@ The language's **name** is also open. `beam-sharp` is a working title.
 
 ## Appendix: the construct index
 
-**The corpus gate names 50 capabilities and fails by name when one has no example to look
-at.** All 50 are below, in the gate's own wording, so the two lists can be diffed by machine
+**The corpus gate names 51 capabilities and fails by name when one has no example to look
+at.** All 51 are below, in the gate's own wording, so the two lists can be diffed by machine
 — `compiler/bin/check-tour.sh` does exactly that, and this table is red the day the compiler
 grows a capability the tour has not met.
 
@@ -1311,6 +1329,7 @@ grows a capability the tour has not met.
 | a sub-byte segment width | `examples/Frame/frame.bs` | 10 |
 | a segment sized by an earlier field | `examples/Frame/frame.bs` | 10 |
 | a string literal in a pattern | `examples/Frame/frame.bs` | 10 |
+| a string literal as a segment | `examples/Frame/frame.bs` | 10 |
 | a hex integer literal | `examples/Frame/frame.bs` | 10 |
 | an OTP behaviour | `examples/Counter/counter.bs` | 16 |
 | an OTP callback | `examples/Counter/counter.bs` | 16 |

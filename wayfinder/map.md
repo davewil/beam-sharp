@@ -289,9 +289,10 @@ Bodies in [`decisions.md`](decisions.md). Ticket text in `issues/`.
 - **An inexhaustive residual truncates at three cases** `#43` `errors` `agent` `tooling`
   the prose is the exact form with a stop in it, not a second shape — so no format switch and no
   tunable. The term keeps all of it. Complement and cardinality measured and refused
-- **Binaries as a parsing grammar** `#30` `binaries` `types` `patterns`
+- **Binaries as a parsing grammar** `#30` `binaries` `types` `patterns` `built:F13`
   no type-language structure; a segment's **width** refines what it binds — `t:8` is an `Octet`.
-  **Beyond all four languages surveyed**, so revisit first if F13 bites
+  **Beyond all four languages surveyed** and it did not bite. F13 corrected two of its costs:
+  the sub-byte residual is legible, and 25c's coupling was already satisfied by F2
 
 ---
 
