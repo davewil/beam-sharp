@@ -121,3 +121,62 @@ face of the same gap, and it may be the better one to design against.
 The binary part of the algebra is a **set** — the two-element powerset of `{utf8, other}` — so a
 size partition refines it later without changing its shape. The exactness requirement 20 insisted on
 is already honoured and there is no join to undo.
+
+## The premises, measured — 2026-08-20
+
+Working note, not an answer. Full survey with verbatim outputs and diagnostic numbers:
+[`research/30-binary-grammar-prior-art.md`](../research/30-binary-grammar-prior-art.md).
+At-a-glance version: <https://claude.ai/code/artifact/891272e6-13b0-4c21-bc33-46dce0feb1d8>.
+
+**Two of this ticket's own claims are false, and both are scoping rather than detail.**
+
+- **"Most valuable after a second parser-shaped exemplar exists."** That exemplar exists.
+  [25c](../prototypes/25c-event-queue-consumer.md) opens by saying AMQP *"re-exercises ticket 30's
+  two gaps in a second wire format, which is 30's own stated condition"*. The Notes below rank this
+  ticket last against a condition it already satisfies.
+- **"Three of ticket 25's six exemplars."** Six was 25's specification; three were written, and
+  those three are exactly the binary ones. The sample is three of three.
+
+**Four of them hold, and one is stronger than stated.** All four surface forms — the binary
+pattern, the sized binary type, `binary<32>`, and `Greet("hello")` — fail at the **parser**, so none
+of this syntax exists in any form. There is no size dimension anywhere in the type representation,
+not merely no *spelling* for one: the binary part is a four-point lattice on `{utf8, other}`, and
+ticket 20's exact union algebra was never built. Binaries pass through three one-line ordset calls.
+
+**That retires §2's framing.** §2 is written as a conflict — the exact union algebra *"would absorb
+the three into one, losing precisely the distinction the parser is built on"*. There is nothing to
+lose: the algebra exists only in prose. The question is the cleaner *"does a size dimension get
+added at all"*, asked of a lattice that has never had one, with no join to undo.
+
+**And §2 and §4 are one question.** Every discriminator in both exemplars is a literal integer in a
+binary segment — `126:7`, `127:7`, `1:8`, `0xCE:8`, `60:16`. `Greet("hello")` is the same construct
+with a string. F9 filed §4 here on exactly that suspicion and was right.
+
+### What the survey says
+
+Nobody proves coverage over a binary discriminated by a value inside it; nobody relates two fields
+of one pattern, and three of four refuse it with a dedicated diagnostic. **A dependent size is not a
+road anyone is on.** C# is the one language that does coverage properly — partitioning arity against
+element value-space and returning the counterexample in the pattern's own syntax, which is the
+borrowable mechanism — but it has no sub-byte concept, and both exemplars are bit-packed in their
+first eight bits. **Coverage over a 4-bit opcode is beyond every language measured.** That is either
+the differentiator or the overreach, and it is a decision rather than a measurement.
+
+### What it would cost, measured rather than estimated
+
+The tempting claim — that a segment `t:8` binds a byte-wide integer and coverage falls out of the
+interval algebra already built — is **half true, and the failing half is the expensive one**. The
+coverage engine *does* decompose into sub-positions and track field-level coverage: over a record
+field, two-of-three atom cases is red and three-of-three is green. But the **residual renderer
+discards every field-level fact**, printing only `{ Kind: :'Hdr' }` in both directions. And interval
+patterns do not work in nested position — already diagnosed: *"a relational pattern goes where a
+whole argument goes … inside a record pattern, a tuple or a list it is not built yet"*.
+
+So the delta is a renderer that carries sub-position facts, plus nested interval patterns. Both are
+**general** gaps rather than binary-specific ones, and closing them improves records and tuples too.
+
+**The cost that is not in the compiler at all** is 25c's recorded coupling: today every dispatch
+field is `int`, `int` is open, and a catch-all is always legal. The moment a field can be declared
+with a width, every wire dispatch acquires a **closed** residual — 252 unnamed values for a frame
+type — and 25b measured that tax at eleven clauses to say "reserved" over a 4-bit opcode. Proving
+wire parsing makes wire parsing harder to write. That trade is the decision.
