@@ -25,9 +25,11 @@ A term appears there only once it is settled, and the reasoning stays in the tic
 it. It exists because the vocabulary outgrew what a reader could reconstruct from the decision
 trail, and it is expected to be lifted into the spec's terminology section when the spec is drafted.
 
-**Ticket NN maps to ENG-(166+NN)** — ticket 00 is ENG-166, ticket 28 is ENG-194. Verify the
-mapping still holds when creating a ticket; it depends on nothing else being created in the
-Engineering team between them.
+**There is no ticket-number formula. Query Linear for the id, every time.** `ENG-(166+NN)` held for
+tickets 00–32 and has broken repeatedly since, because the compiler's **features** raise issues in
+the same team; measured offsets so far are `+166`, `+167`, `+168`, `+170`, `+172` and `+182`. Before
+using a number, check what the issue actually is — on 2026-08-22 two different questions were both
+called "ticket 48", one in Linear only and one in the repo only, for four days.
 
 Linear is canonical for state because it renders the frontier *visually* through native blocking
 relations, which a `Blocked by:` line in markdown never will. The repo is canonical for content

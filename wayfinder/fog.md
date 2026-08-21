@@ -465,6 +465,24 @@
   pattern. So the evidence is now two points with opposite verdicts and a locatable boundary, which
   is a better basis for David's decision than 25a's single reading.
 
+- **A value-returned foreign error has no declared form** — →
+  **[ticket 56](issues/56-foreign-value-returned-error.md)**, raised 2026-08-18 while **building**
+  F19 rather than by argument: the wrapper was built and this is what it could not say. Ticket 15 §5
+  fixes the foreign error channel to `(:error, term) | (:throw, term) | (:exit, term)`, and F19
+  refuses at the declaration any foreign failure typed otherwise. That is right for a call that
+  **throws**. It makes an ordinary class of Erlang function undeclarable: `file:read_file/1` returns
+  `{ok, Binary} | {error, Reason}` as **values** and never throws, so `result<binary, foreign_error>`
+  is a lie, `result<binary, atom>` is refused by the check F19 just built, and declaring it without
+  `result` leaves the tuple crossing the boundary untyped — what ticket 18 exists to prevent. §5
+  prices the cost as *"add a mapping step"*, and **the mapping step has nothing to map from**. Not a
+  question about widening `foreign_error`: a `(:value, T)` member would type-check while still
+  telling the author the error arrives by a channel it does not. `bs_diag.erl`'s
+  `foreign_error_channel` message names the gap in prose and **must change when this resolves**.
+  **It was numbered 48 for four days while holding its content only in Linear**, so a different
+  question took that number on 2026-08-20 and the two trackers disagreed about what "48" meant — the
+  canonicality failure in the mirror direction, found 2026-08-22 while resolving ticket 55.
+  Sequence with 50 and 52: all three ask what an FFI declaration carries.
+
 - **A map type in the prelude** — → **[ticket 48](issues/48-a-map-type-in-the-prelude.md)**, raised
   2026-08-21 by David during ticket 31: *"probably want to add map to prelude"*. There is no map
   type; `map<atom, term>` is refused at the declaration and `list<(atom, term)>` is what ticket 31
