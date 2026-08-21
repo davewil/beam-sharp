@@ -66,6 +66,36 @@ language change at all, only a flag and a code-path append.
 here that requires beam-sharp to resolve versions, lock, fetch over the network, or publish is the
 track, and belongs back behind the boundary. Reading a directory somebody else built is not.
 
-**Measure before choosing.** Whether `bsc` can simply append to the code path and call an Elixir
-module — including whether `Application.ensure_all_started/1` is needed for a library like Req that
-runs a supervision tree — is a half-hour experiment and nothing here should be decided without it.
+**MEASURED 2026-08-21, and candidate 1 is cheaper than it was written.** Not *"one flag"* — **none**.
+
+[`51a`](../prototypes/51a-code-path/Req/req.bs), against Req 0.7.3 and the nine-package tree
+`mix deps.get && mix deps.compile` produced:
+
+| | |
+|---|---|
+| `ERL_LIBS` unset (control) | `crashed: error:undef` |
+| `ERL_LIBS=…/elixir/lib` | `'Elixir.String'.upcase("req")` → `"REQ"`; `'Elixir.Enum'.count/1` → `4` |
+| `+ …/reqprobe/_build/dev/lib` | `Req.new/1` returns a real `%Req.Request{}` |
+| the struct's tag | `:maps.get(:'__struct__', …)` → **`:'Elixir.Req.Request'`** |
+| an ordinary field | `:maps.get(:method, …)` → `:get` |
+| does it carry `Kind`? | **`:false`** — so no beam-sharp record pattern can ever match it (→ ticket 50) |
+| the supervision tree | `Application.ensure_all_started(:req)` → `(:ok, [… :ssl, :mint, :finch, :jason, :req])`, 16 applications |
+
+**`bsc` needed no flag, no change and no tool.** `ERL_LIBS` is honoured by the BEAM code server, an
+escript inherits it, and `mix deps.compile` already emits one directory per application with an
+`ebin` inside — which is exactly the shape `ERL_LIBS` means. rebar3's `_build` is the same shape.
+So "read the directory a neighbour already produced" is not a thing to build; it is a thing that
+already works.
+
+**What the measurement does *not* settle, and it is the part worth deciding.**
+
+- **Nothing records which dependencies a program needs.** `ERL_LIBS` is an environment variable, so
+  a `.bs` file that calls Req carries no statement of that fact, and the clean-room handoff — the
+  destination — cannot reconstruct it. That is what a flag or a manifest would actually buy, and it
+  is a *provenance* question, not a package-management one. Candidate 2 exists for this reason
+  alone.
+- **Elixir must be installed.** `Start()` reports `:elixir` among the applications it brought up, so
+  this is interop with a neighbour's runtime rather than a self-contained artefact. Whether that is
+  acceptable is a scope question the boundary never had to face.
+- **A gate would need a dependency tree.** Any exemplar binding Req makes CI fetch and compile nine
+  packages, which is the first time this repo's gates would depend on the network.

@@ -14,7 +14,7 @@ importing that and proving the beam-sharp bindings all work."* This sharpens the
 | question | result |
 |---|---|
 | Does the FFI surface admit an **Elixir** module? | **Yes.** `using :'Elixir.String' { binary upcase(binary s) }` compiles and type-checks — ticket 32 made the module an atom, and an Elixir module *is* an atom with an `Elixir.` prefix. No new surface |
-| Does it run? | **No.** `crashed: error:undef` — nothing puts Elixir's `ebin` on the escript's code path, and `bsc` has no flag that could. → **[ticket 51](51-a-build-and-dependency-tool.md)** |
+| Does it run? | **Yes, since 2026-08-21** — `ERL_LIBS` alone, no compiler change. See **[ticket 51](51-a-build-and-dependency-tool.md)**, which measured it against the real Req tree |
 | Can a foreign **map** be read? | **Yes.** `:maps.get` declared `term get(atom k, term m)` pulls `200` out of `#{status => 200, …}`; the caller narrows at each use, which is ticket 11's boundary rule working as designed |
 | Can a **record pattern** match an Elixir struct? | **No — and this is the question** |
 
@@ -29,6 +29,18 @@ because that minting is what gives aggregates identity.
 So today a binding to Req reads every field through `:maps.get` as a `term`. **That works and it
 proves the wrong thing**: the exemplar David asked for would demonstrate that the *call* succeeds
 while demonstrating the language has no way to **name what comes back**.
+
+**CONFIRMED AGAINST REQ ITSELF — 2026-08-21.** This is no longer reasoning from what a struct *is*;
+[`51a`](../prototypes/51a-code-path/Req/req.bs) calls `Req.new/1` for real and reads the value back:
+
+| | |
+|---|---|
+| `:maps.get(:'__struct__', resp)` | **`:'Elixir.Req.Request'`** |
+| `:maps.get(:method, resp)` | `:get` |
+| `:maps.is_key(:'Kind', resp)` | **`:false`** |
+
+The last row is the whole ticket in one measurement. The value carries Elixir's tag, does not carry
+beam-sharp's, and there is no clause head that can dispatch on it.
 
 **Does a foreign aggregate get a name, and if so, whose tag does it carry?**
 

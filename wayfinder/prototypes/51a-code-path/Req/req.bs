@@ -1,0 +1,72 @@
+// 51a — Req itself, reached with NO compiler change at all.
+//
+// The dependency tree is whatever `mix deps.get && mix deps.compile` produced.
+// mix lays `_build/dev/lib/<app>/ebin` out one app per directory, which is
+// exactly the shape ERL_LIBS already means, so the two paths below are the
+// entire integration:
+//
+//   ERL_LIBS=/opt/homebrew/lib/elixir/lib:/tmp/reqprobe/_build/dev/lib \
+//   bsc --src-root wayfinder/prototypes/51a-code-path \
+//       wayfinder/prototypes/51a-code-path/Req Tag
+//
+// No HTTP is performed here. `Req.new/1` builds the request struct and returns
+// it, which is all that is needed to answer ticket 50's question about what a
+// foreign aggregate looks like on arrival.
+// MEASURED 2026-08-21 — all four, and the compiler delta is ZERO.
+//
+//   Tag()      -> :'Elixir.Req.Request'   the struct arrives carrying its own tag
+//   Method()   -> :get                     an ordinary field reads through :maps.get
+//   HasKind()  -> :false                   no `Kind` key, so no record pattern can match it
+//   Start()    -> (:ok, [:compiler, :elixir, :logger, :crypto, :asn1, :public_key,
+//                        :ssl, :hpax, :mint, :nimble_pool, :nimble_options,
+//                        :telemetry, :mime, :finch, :jason, :req])
+//
+// `bsc` needed no flag, no change and no tool. ERL_LIBS is honoured by the BEAM
+// code server, an escript inherits it, and `mix deps.compile` already emits the
+// layout it means. Ticket 51 candidate 1 turns out to be cheaper than written:
+// not "one flag", but none.
+//
+// Two caveats the result does not remove. Elixir itself must be installed and on
+// the path — `Start()` reports `:elixir` among the applications it brought up —
+// so this is interop with a neighbour's runtime, not a self-contained artefact.
+// And ERL_LIBS is an environment variable, so nothing in the language or the
+// spec records which dependencies a program needs; that is the part of ticket 51
+// a flag or a manifest would actually buy.
+module Req
+
+using :'Elixir.Req' {
+    // Returns `%Req.Request{}` — a struct, so a map, so `term` is the honest
+    // declaration until ticket 50 decides how a foreign aggregate is named.
+    term new(list<(atom, term)> opts)
+}
+
+using :'Elixir.Application' {
+    term ensure_all_started(atom app)
+}
+
+using :maps {
+    term get(atom k, term m)
+    bool is_key(atom k, term m)
+}
+
+// 1. Does the struct arrive, and what tag does it carry?
+//    THIS IS TICKET 50'S QUESTION, ANSWERED BY A REAL LIBRARY.
+public term Tag()
+Tag() -> :maps.get(:'__struct__', Built())
+
+// 2. An ordinary field off the same struct.
+public term Method()
+Method() -> :maps.get(:method, Built())
+
+// 3. Does a beam-sharp record's key exist on it? It must not — a record mints
+//    `Kind` from its own qualified name, and Req has never heard of that.
+public bool HasKind()
+HasKind() -> :maps.is_key(:'Kind', Built())
+
+// 4. Starting the application. Req runs a Finch supervision tree, so this is
+//    the half that a pure stdlib call never exercises.
+public term Start()
+Start() -> :'Elixir.Application'.ensure_all_started(:req)
+
+private term Built()
+Built() -> :'Elixir.Req'.new([(:url, "https://example.com"), (:method, :get)])

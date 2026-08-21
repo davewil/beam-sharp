@@ -306,11 +306,11 @@ Bodies in [`fog.md`](fog.md). These are open: read the body before assuming a di
 - **Stdlib shape as a principle** `modules` `prelude`
   breadth is out of scope, the shape is not — and the prelude already has known contents
 - **Consuming Gleam and Elixir libraries** `ffi` `modules`
-  the Elixir half is now `#50` — the FFI *names* an Elixir module already; the **struct** has no
-  answer, since a record mints `Kind` from its own name and cannot match `__struct__`
+  the Elixir half is now `#50`. Confirmed against Req itself: the call works, the struct arrives
+  tagged `:'Elixir.Req.Request'`, carries no `Kind`, and **no clause head can dispatch on it**
 - **A build and dependency tool, or riding on rebar3 and mix** `#51` `ffi` `tooling`
-  against `scope.md`'s Tooling boundary, and the ticket says so. Measured: beam-sharp can call **no**
-  BEAM library outside OTP. "Build a mix" is refused; "read a neighbour's `_build`" may be one line
+  against `scope.md`'s Tooling boundary, and the ticket says so. **Measured: `ERL_LIBS` already
+  reaches Req with a zero compiler delta**, so what is left to decide is provenance, not packaging
 - **Laziness and `stream<T>`** `#17` `types`
   **deferred rather than refused** — David: *"defer lazy, we will want it"*
 - **Bootstrapping — how much of beam-sharp is written in beam-sharp** `codegen` `agent`

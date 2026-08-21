@@ -1,0 +1,27 @@
+// 51a — can `bsc` reach an Elixir module without a tool of its own?
+//
+// Ticket 51 candidate 1 says beam-sharp builds no dependency tool and simply
+// reads a directory somebody else produced. The cheapest possible version of
+// that is ERL_LIBS, which the BEAM's own code server already honours and which
+// both rebar3 and mix lay out.
+//
+//   ERL_LIBS=/opt/homebrew/lib/elixir/lib \
+//   bsc --src-root wayfinder/prototypes/51a-code-path \
+//       wayfinder/prototypes/51a-code-path/Elx Shout '<<"req">>'
+module Elx
+
+using :'Elixir.String' {
+    binary upcase(binary s)
+}
+
+using :'Elixir.Enum' {
+    int count(list<int> xs)
+}
+
+// A pure Elixir stdlib call — no application needs starting for these two.
+public binary Shout(binary s)
+Shout(s) -> :'Elixir.String'.upcase(s)
+
+// A second module, to show the first was not a special case.
+public int HowMany(list<int> xs)
+HowMany(xs) -> :'Elixir.Enum'.count(xs)

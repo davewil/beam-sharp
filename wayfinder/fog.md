@@ -498,8 +498,12 @@
   Elixir that manages deps."* **This one sits against `scope.md`'s Tooling boundary and the ticket
   says so up front.** What makes it raisable is the boundary's own clarification — it rules out the
   ecosystem *track*, not *"any capability that happens to serve tooling"* — plus a measurement:
-  prototype 50a runs to `crashed: error:undef`, so **beam-sharp can today call no BEAM library that
-  is not already in OTP**. Stated as *"build a mix"* the boundary refuses it correctly; stated as
+  prototype 50a ran to `crashed: error:undef`. **MEASURED 2026-08-21 and the answer is smaller than
+  candidate 1 was written**: not "one flag" but *none* — `ERL_LIBS` is honoured by the code server,
+  an escript inherits it, and `mix deps.compile` already emits the layout it means, so `bsc` reached
+  Req 0.7.3 and its nine-package tree with no compiler change at all. What is left is **provenance**,
+  not packaging: an environment variable means a `.bs` file calling Req carries no record of needing
+  it, which the clean-room handoff cannot reconstruct. Stated as *"build a mix"* the boundary refuses it correctly; stated as
   *"do we build one at all, or read the `_build` a neighbour already produced"* it may be a decision
   worth one line and no track. The guard is the scope test itself: resolving versions, locking,
   fetching or publishing is the track; reading a directory somebody else built is not.
