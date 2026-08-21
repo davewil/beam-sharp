@@ -701,6 +701,17 @@ The escape hatch is the operator's **absence**. Write `|>` and match `(:error, _
 clause when a stage wants to inspect the failure; that is also the only way to turn one error into
 another.
 
+**The valve is how a request pipeline composes.** A chain of stages, each free to halt by producing
+a finished response, is written `Auth(req) |?> Quota() |?> Dispatch()` — routing is one stage near
+the end rather than the whole program, and a halted response reaches the caller unchanged through
+every stage it skipped. Two consequences are worth knowing before writing one. The pipeline's type
+is `Response | (:error, Response)`, where **both members are a response** — one wrapped, one not —
+so a caller discriminates on the tag and may not project straight through the union. And a stage
+that has to run on *both* outcomes, a logger being the obvious one, is **not a stage**: it takes
+`|>` and wraps the chain from outside, because skipping the stage is precisely what the valve is
+for.
+<!-- decided by ticket 31, measured against Plug; prototypes/31a-middleware -->
+
 Both operators are built. What is **not** built is the collection prelude they are usually shown
 with — `List.Map` and friends as compiler-known functions — nor the function *value* that `f` and
 `g` stand for here, which this language was measured not to have:

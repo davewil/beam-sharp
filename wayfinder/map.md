@@ -60,11 +60,6 @@ spec exists.
   have no issue either, which is why two markdown files could disagree about whether it was takeable
   with nothing to arbitrate: it is now
   [ENG-214](https://linear.app/davewil/issue/ENG-214), blocked by both.
-  **AUDITED 2026-08-16, and a third of it had gone stale**: F8 now has
-  [ENG-217](https://linear.app/davewil/issue/ENG-217) (`Done`), created when it was built, so only
-  **F11 and F12 still have none**. All 46 repo tickets do have issues — 36–41 hang off the project
-  rather than off ENG-165, which is cosmetic rather than a gap, and is why a children-of-165 query
-  under-counts by six.
 - **Execution override**: wayfinder is plan-only by default. This map sanctions execution
   for the **walking skeleton only**. Every other ticket produces a decision.
   **Widened in practice since 2026-08-13**: the skeleton is built and now grows through
@@ -165,29 +160,14 @@ spec exists.
   warning for Roc**: `roc-lang.org` is stale — `/functional` still describes the *removed* `Task`
   design. Use `docs/langref/` in the `roc-lang/roc` repo.
 
-
 ---
 
 ## How to read the rest of this map
 
 **Split 2026-08-15**, on David's *"map.md is getting pretty large, any way to shrink it to
-headlines, tags, easily searchable sub-entries?"* It was 1,564 lines and 139KB, and `CLAUDE.md`
-tells every session to read it before starting work — so the size was a cost paid on every
-session, human and agent alike.
-
-The cause was a contract the file states and had stopped keeping. Its own comment said **"one line
-per closed ticket: enough to judge relevance, then open the ticket for detail"**, and entries had
-reached 127 lines. Nothing gated it, which is the same failure as the exemplars' dead dialect and
-`LANGUAGE.md`'s prose claiming `true` was shipped.
-
-**Nothing was deleted.** The three archive sections moved out whole, verified to reconstruct the
-original byte-for-byte, and what remains here is the index they always should have had:
-
-| File | What it holds | Lines |
-|---|---|---|
-| [`decisions.md`](decisions.md) | the body of every closed ticket's entry | ~800 |
-| [`fog.md`](fog.md) | the body of every open patch | ~450 |
-| [`scope.md`](scope.md) | the four boundaries, audited | ~176 |
+headlines, tags, easily searchable sub-entries?"* The bodies moved out whole and verified
+byte-for-byte to [`decisions.md`](decisions.md) (closed tickets), [`fog.md`](fog.md) (open
+patches) and [`scope.md`](scope.md) (the four boundaries); `bin/check-map.sh` gates the rest.
 
 **How to find a thing.** Every entry below carries its ticket number and topic tags, so
 `grep -n 'records' wayfinder/map.md` narrows to a handful, and the title then greps straight into
@@ -252,8 +232,8 @@ Bodies in [`decisions.md`](decisions.md). Ticket text in `issues/`.
   what ticket 20 reinvented, and what it did not
 - **The walking skeleton, first slice** `compiler/` `codegen` `built:F1`
   built 2026-08-13 — see [`compiler/README.md`](../compiler/README.md)
-- **What the language owes an agent that writes it** `#23` `agent` `tooling`
-  the compiler as interlocutor rather than only a gate; `bsc --api` is decided and unbuilt
+- **What the language owes an agent that writes it** `#23` `agent` `tooling` `built:F17`
+  the compiler as interlocutor rather than only a gate; `bsc --api` is built (**F17**)
 - **The testing story** `#24` `agent`
   what a test is for in a language that proves exhaustiveness
 - **Data modelling: records** `#26` `records` `types` `built:F3`
@@ -292,6 +272,9 @@ Bodies in [`decisions.md`](decisions.md). Ticket text in `issues/`.
 - **Binaries as a parsing grammar** `#30` `binaries` `types` `patterns` `built:F13`
   no type-language structure; a segment's **width** refines what it binds — `t:8` is an `Octet`.
   **Beyond all four languages surveyed** and it did not bite; F13 corrected two of its costs
+- **Composable middleware, and what the valve reaches** `#31` `syntax` `patterns` `errors`
+  a halt reaches the caller unchanged through two stages; the cost is a forced two-clause unwrap of
+  `Response | (:error, Response)`. Cannot say **in-the-chain-and-still-runs**; two premises were wrong
 
 ---
 
@@ -330,6 +313,10 @@ Bodies in [`fog.md`](fog.md). These are open: read the body before assuming a di
   runtime dominates. The question is why it is not *ahead* — it discards intervals at emission
 - **Division and modulo** `#38` `syntax` `types`
   no `/` in the lexer at all — absent by oversight; truncation converges, divide-by-zero does not
+- **A map type in the prelude** `#48` `types` `prelude`
+  opaque, matchable, or not at all. The record/map collision is measured and **dead** — the minted
+  tag is what keeps them apart — but exhaustiveness over a map is vacuous. Waits on 25a's pipeline
+  rewrite for *"no exemplar declares one"*
 - **`cond`, or whatever serves a long ladder of unrelated conditions** `#17` `syntax`
   no case for it yet; the width-five evidence was retracted and 25a's ladder is now a valve chain
 

@@ -1278,3 +1278,26 @@
   the case that matters the survey is unanimous against this answer. Defensible because none of the
   four failed by *trying and finding it unsound* — and cheap to reverse, since nothing entered the
   type lattice.
+
+- [Composable middleware, and what the valve reaches](issues/31-composable-middleware.md) —
+  **`|?>` expresses it, and the gap is one stage-shape rather than a mechanism.** The chain
+  `Auth(req) |?> Quota() |?> Dispatch()` compiles and runs; a halting stage stops the pipeline and
+  its response reaches the caller **unchanged through two intervening stages**, so routing really is
+  one stage near the end. Measured rather than argued
+  ([`31a-middleware`](prototypes/31a-middleware/Middleware/middleware.bs)), which is what the
+  2026-08-18 note on the ticket asked for once F14 made the valve real. **The cost is naming, not
+  soundness**: the pipeline's type is `Response | (:error, Response)` — both members an HTTP
+  response, one wrapped — and the unwrap is *forced*, since projecting through the union is refused,
+  so every consumer writes two clauses with identical bodies. **Ticket 15 §1's collapse does not
+  fire** (predicted, then measured: the channel is tagged, so the two members stay discriminable).
+  **The one thing it cannot say is in-the-chain-and-still-runs** — a stage observing both outcomes is
+  piped with `|>` and wraps the chain from outside, where Plug's logging plug sits *mid-list* and
+  still sees halted conns. That is also where the ticket's own premise was wrong: `halt/1` sets a
+  flag checked *between* stages and `before_send` still fires, where the valve returns and nothing
+  downstream runs at all. **The `Plug.Builder` worry restated**: a runtime list of stages has no
+  spelling for want of an arrow type, but that is deferred to ticket 37 rather than refused, and
+  Builder assembles at compile time too — alignment, not a gap. Two smaller findings owed onward:
+  stage-local state is `list<(atom, term)>` because `with` is width-preserving and there is no map
+  type (→ ticket 48), and a stage dispatching on a **field projection** needs a catch-all, since
+  guards discharge the residual on a bare parameter and **not** on a projection (controlled for).
+  **25a is now rewritable as a pipeline**, which its own notes call the largest thing wrong with it.

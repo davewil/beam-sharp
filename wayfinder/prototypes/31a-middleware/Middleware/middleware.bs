@@ -1,0 +1,65 @@
+// 31a — the middleware chain ticket 31 asks about, written to be MEASURED.
+//
+//   bsc wayfinder/prototypes/31a_middleware_chain.bs Handle '#{...}'
+//
+// The question: does `|?>` express Plug-style composable middleware, or is a
+// construct missing? This file is the chain from the ticket, spelled out.
+module Middleware
+
+record Request  { Path: atom, User: atom, Tag: int }
+record Response { Code: int, Body: atom }
+
+// The pipeline's value: a Request still in flight, or a halt carrying a
+// Response that is already finished.
+type Conn = Request | (:error, Response)
+
+// The pipeline's declared result. NOTE BOTH MEMBERS ARE A RESPONSE.
+type Res = Response | (:error, Response)
+
+// THE CHAIN. Three stages, the last one producing the response.
+public Res Handle(Request req)
+Handle(req) -> Auth(req) |?> Quota() |?> Dispatch()
+
+// --- the stages -------------------------------------------------------------
+
+// A halting stage: 401 is a perfectly good HTTP response, not an error.
+private Conn Auth(Request r)
+Auth({ User: :anonymous }) -> (:error, Response{ Code = 401, Body = :unauthorized })
+Auth(r)                    -> r
+
+// A stage that MODIFIES the request and passes it on — Plug's `assign`.
+// `with` is width-preserving, so `Tag` had to be declared on Request up front.
+private Conn Quota(Request r)
+Quota(r) when r.Tag > 100 -> (:error, Response{ Code = 429, Body = :too_many })
+Quota(r)                  -> r with { Tag = 1 }
+
+// The terminal stage: routing is one stage near the end, not the whole program.
+private Response Dispatch(Request r)
+Dispatch(r) -> Response{ Code = 200, Body = r.Path }
+
+// --- what the CALLER has to write -------------------------------------------
+//
+// The pipeline's type is `Response | (:error, Response)`. Both members are an
+// HTTP response; one is wrapped and one is not. Serving it means putting them
+// back together, which is what §1 of the ticket calls "reads as a lie".
+
+public int Code(Request req)
+Code(req) -> Unwrap(Handle(req))
+
+private int Unwrap(Res r)
+Unwrap((:error, resp)) -> resp.Code
+Unwrap(resp)           -> resp.Code
+
+// --- a stage that must see BOTH outcomes ------------------------------------
+//
+// Plug's logging middleware and `register_before_send` run on every response,
+// halted or not. `|?>` cannot express that — it exists to SKIP that stage. The
+// escape hatch is the operator's absence, so it is piped with `|>` and matches
+// both shapes itself. Note it sits OUTSIDE the valve chain, which is the point.
+
+public Res Logged(Request req)
+Logged(req) -> Handle(req) |> Stamp()
+
+private Res Stamp(Res r)
+Stamp((:error, resp)) -> (:error, resp with { Code = resp.Code })
+Stamp(resp)           -> resp with { Code = resp.Code }

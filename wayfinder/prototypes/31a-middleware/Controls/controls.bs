@@ -1,0 +1,40 @@
+// 31a controls — the premises 31a's findings rest on, measured rather than
+// inferred, because a contrast asserted from a neighbouring example is not a
+// measurement of this one.
+//
+//   bsc --src-root wayfinder/prototypes/31a-middleware \
+//       wayfinder/prototypes/31a-middleware/Controls Bare 500     -> :over
+module Controls
+
+// CONTROL 1 — guards DO prove exhaustive on a bare parameter.
+//
+// This compiles. The same pair written over a field projection
+// (`Quota(r) when r.Tag > 100` / `when r.Tag <= 100`) does NOT — it reports
+// `Quota is not exhaustive`. So the finding is "guards on a projection do not
+// discharge the residual", not "guards never do", and middleware is squarely in
+// the failing case because a stage dispatches on a field of the conn.
+public atom Bare(int n)
+Bare(n) when n > 100  -> :over
+Bare(n) when n <= 100 -> :under
+
+// CONTROL 2 — there is no map type, and the assigns channel is a list.
+//
+// `Assigns: map<atom, term>` is refused:
+//
+//     error: no type named map takes a type argument
+//       the prelude has `list<T>`, `option<T>` and `result<T, E>`;
+//       your own take one with `type map<T> = ...`.
+//
+// So Plug's `conn.assigns` — an open key/value channel any stage writes into
+// without coordinating with the others — has no direct spelling. The list of
+// pairs below is the substitute and it DOES compile, which is what keeps this
+// an ergonomic cost rather than a missing construct: the field is declared
+// centrally once, and after that a stage prepends its own key without the
+// record growing and without any other stage knowing.
+//
+// What it gives up: the values are `term`, so a reader narrows at each use
+// (ticket 11's boundary rule), and lookup is a list walk rather than a map get.
+record Conn2 { Path: atom, Assigns: list<(atom, term)> }
+
+public atom Peek(Conn2 c)
+Peek(c) -> c.Path

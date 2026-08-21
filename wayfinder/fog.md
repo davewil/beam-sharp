@@ -458,6 +458,21 @@
   pattern. So the evidence is now two points with opposite verdicts and a locatable boundary, which
   is a better basis for David's decision than 25a's single reading.
 
+- **A map type in the prelude** — → **[ticket 48](issues/48-a-map-type-in-the-prelude.md)**, raised
+  2026-08-21 by David during ticket 31: *"probably want to add map to prelude"*. There is no map
+  type; `map<atom, term>` is refused at the declaration and `list<(atom, term)>` is what ticket 31
+  §4 used instead, so this is an **ergonomic cost, not a blocker**. The objection that looked fatal
+  is dead: a record erases to a map carrying a minted `Kind`, and the worry was that a map pattern
+  would also match records — but measured against Elixir's `Descr`
+  ([`31b`](prototypes/31b_elixir_maps_vs_structs.exs)), a map type declaring the tag key **absent**
+  is disjoint from every struct while still admitting plain maps, so **the tag is what keeps them
+  apart** rather than what maps threaten. What survives is that a map's key domain is unbounded, so
+  a pattern over it never closes a residual and exhaustiveness is **vacuous** there — beam-sharp's
+  first type over which the headline guarantee says nothing. Three candidates: opaque and
+  Gleam-shaped, matchable and Erlang-shaped, or not at all. **Deliberately not resolvable yet** —
+  the test is the one that cut function values, *"no exemplar declares one"*, and the exemplar most
+  likely to want a map is 25a, whose pipeline rewrite ticket 31 has only just unblocked.
+
 <!--
   GRADUATED 2026-08-12 (ticket 10): "Runtime behaviour against untyped callers — what, if
   anything, the compiler emits to defend a typed function called from raw Erlang." This is
