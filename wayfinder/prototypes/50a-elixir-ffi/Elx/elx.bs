@@ -1,0 +1,27 @@
+// Probe — what does it take to consume an ELIXIR library from beam-sharp?
+//
+// On the BEAM an Elixir module is just an atom with an `Elixir.` prefix, and
+// ticket 32 made the FFI module an atom, so the surface admits it. What a
+// library RETURNS is the harder half: Req hands back `%Req.Response{}`, an
+// Elixir struct, which is a map carrying `__struct__` — not a beam-sharp record
+// carrying a minted `Kind`.
+module Elx
+
+using :maps {
+    // The only door into a foreign map today. Returns `term`, so the caller
+    // narrows at each use — ticket 11's boundary rule doing its job.
+    term get(atom k, term m)
+    bool is_key(atom k, term m)
+}
+
+using :erlang {
+    term map_size(term m)
+}
+
+// Can a beam-sharp function read a field out of a map it did not build?
+// This is the shape of `resp.status` where `resp` came from Req.
+public term Field(atom k, term m)
+Field(k, m) -> :maps.get(k, m)
+
+public bool Has(atom k, term m)
+Has(k, m) -> :maps.is_key(k, m)

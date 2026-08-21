@@ -332,6 +332,13 @@
   already a structural shape beam-sharp can write directly — the ergonomic cost looks low, and
   the open part is what happens to Gleam's *nominal* intent when beam-sharp has no nominality to
   receive it.
+  **THE ELIXIR HALF IS NOW A TICKET — 2026-08-21**, raised by David wanting a Req exemplar:
+  → **[ticket 50](issues/50-naming-a-foreign-struct.md)**. Measured, the FFI already *names* an
+  Elixir module — `using :'Elixir.String'` compiles, since ticket 32 made the module an atom — and
+  a foreign map reads through `:maps.get` as a `term`. What has no answer is the **struct**: Req
+  returns `%Req.Response{}`, a map tagged `__struct__`, where a beam-sharp record mints `Kind` from
+  its *own* qualified name and therefore cannot match it. Gleam's half stays here; its shapes are
+  tuples and atoms, so it never asks the question.
 - **Laziness and `stream<T>`** — new with ticket 17 §5, and **deferred rather than refused**
   (David: *"defer lazy, we will want it"*). Nothing is lazy today: 17's fusion measurement showed
   the intermediate-list argument is already answered by the lowering, at no cost in precision. What
@@ -485,6 +492,17 @@
   *nothing it does not already have* is **unverified** and is the first thing to measure. Read cost
   is the real argument against: today you recognise `(:error, _)` on the page, where shape B asks you
   to know the stage's signature.
+
+- **A build and dependency tool, or riding on rebar3 and mix** — → **[ticket 51](issues/51-a-build-and-dependency-tool.md)**,
+  raised 2026-08-21 by David alongside 50: *"I want to look at something like the mix tool from
+  Elixir that manages deps."* **This one sits against `scope.md`'s Tooling boundary and the ticket
+  says so up front.** What makes it raisable is the boundary's own clarification — it rules out the
+  ecosystem *track*, not *"any capability that happens to serve tooling"* — plus a measurement:
+  prototype 50a runs to `crashed: error:undef`, so **beam-sharp can today call no BEAM library that
+  is not already in OTP**. Stated as *"build a mix"* the boundary refuses it correctly; stated as
+  *"do we build one at all, or read the `_build` a neighbour already produced"* it may be a decision
+  worth one line and no track. The guard is the scope test itself: resolving versions, locking,
+  fetching or publishing is the track; reading a directory somebody else built is not.
 
 <!--
   GRADUATED 2026-08-12 (ticket 10): "Runtime behaviour against untyped callers — what, if

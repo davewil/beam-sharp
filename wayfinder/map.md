@@ -306,7 +306,11 @@ Bodies in [`fog.md`](fog.md). These are open: read the body before assuming a di
 - **Stdlib shape as a principle** `modules` `prelude`
   breadth is out of scope, the shape is not — and the prelude already has known contents
 - **Consuming Gleam and Elixir libraries** `ffi` `modules`
-  possible, and at what ergonomic cost; Gleam's representation was measured rather than read
+  the Elixir half is now `#50` — the FFI *names* an Elixir module already; the **struct** has no
+  answer, since a record mints `Kind` from its own name and cannot match `__struct__`
+- **A build and dependency tool, or riding on rebar3 and mix** `#51` `ffi` `tooling`
+  against `scope.md`'s Tooling boundary, and the ticket says so. Measured: beam-sharp can call **no**
+  BEAM library outside OTP. "Build a mix" is refused; "read a neighbour's `_build`" may be one line
 - **Laziness and `stream<T>`** `#17` `types`
   **deferred rather than refused** — David: *"defer lazy, we will want it"*
 - **Bootstrapping — how much of beam-sharp is written in beam-sharp** `codegen` `agent`
