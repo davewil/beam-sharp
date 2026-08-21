@@ -251,6 +251,30 @@ The rule this produced, which governs future borrowings: **borrow the construct,
 the glyph.** Where C# has the symbol but not the construct, taking the symbol buys no familiarity
 and costs a false friend.
 
+**A list pattern always ends in a rest, and the rest may itself be `[]`.** `[h, ..t]` is the only
+list pattern shape — a closed `[a, b]` is refused — but the rest is an ordinary pattern, so writing
+`[]` there closes the list: `[a, ..[]]` matches a list of exactly one, `[a, b, ..[]]` exactly two.
+That is how a route table distinguishes `/orders` from `/orders/42` without a length guard.
+**shipped**
+<!-- decided by ticket 08; the closed form measured and documented by ticket 53 -->
+
+<!-- check:
+public atom Dispatch(list<string> path)
+-->
+```csharp
+Dispatch(["orders", ..[]])     -> :index
+Dispatch(["orders", id, ..[]]) -> :show
+Dispatch(_)                    -> :not_found
+```
+
+**The checker does not see the length, and this is a live defect rather than a limitation.** A cons
+pattern is subtracted as *non-empty* whatever its prefix, so `[a, b, ..t]` is credited with matching
+every non-empty list — which makes `[]` beside `[a, b, ..t]` pass the exhaustiveness check and crash
+on a one-element list. A closed rest subtracts nothing at all. **Until that is fixed, a clause set
+over a list is proved only for the empty/non-empty split**, and a catch-all is doing more work than
+it appears to. **open**
+<!-- the hole is ticket 54; the repro is four lines and is in that ticket -->
+
 **To match against a value a name already holds, write `== name`.** A bare name in a pattern
 introduces a name; `== name` matches the value that name is bound to. **shipped**
 <!-- decided by ticket 45 -->
@@ -334,7 +358,7 @@ of them is a union like any other, which is why `Verdict` above needs no special
 | `atom` | open universe, cofinite top | **shipped** |
 | `:ok` | a singleton atom type | **shipped** |
 | `(A, B)` | tuple | **shipped** |
-| `list<T>` | `[]` and `[h, ..t]` partition it | **shipped** |
+| `list<T>` | `[]` and `[h, ..t]` partition it; no length beyond that, and a longer prefix is credited wrongly | **shipped, with a hole** |
 | `term` | the top type — everything | **shipped** |
 | `none` | the bottom type, first-class | **shipped** |
 | `float` | | **open** |

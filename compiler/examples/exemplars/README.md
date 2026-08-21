@@ -112,12 +112,23 @@ the language:
    own note says an alias "may be the only spelling when two imports collide". Here is an exemplar
    that wants one for a plainer reason: the module is `Shop.Orders` and the call site says `Orders`.
 
-**And one finding that is neither drift nor a gap.** `route.bs` writes `Route(:get, ["orders", id], _)`
-— a **closed** list pattern. Ticket 08 settled that *prefix-plus-rest is the only list pattern*, and
-the diagnostic is explicit: *"a list pattern needs a rest; write `[h, ..t]`."* So the exemplar whose
-stated purpose is *"routing as multi-clause dispatch on method and path"* is written in a form the
-language **refuses by design**, and there is no spelling for "a path of exactly two segments". That
-is a decision to take, not a feature to build, and no ticket holds it yet.
+**And one finding that read as a language gap and was not — corrected 2026-08-21, the same day.**
+`route.bs` wrote `Route(:get, ["orders", id], _)`, a closed list pattern, and the compiler refuses
+it: *"a list pattern needs a rest; write `[h, ..t]`."* That was reported here as the exemplar being
+*"written in a form the language refuses by design"*, with no spelling for a path of exactly two
+segments, and raised as ticket 53.
+
+**Wrong, and wrong in the direction this file keeps being wrong in.** The rest of a prefix-plus-rest
+pattern is itself a pattern, and `[]` is a pattern: `["orders", id, ..[]]` compiles, runs, and means
+exactly two. Ticket 53 resolves against its own premise and `route.bs` is fixed in the write-up.
+The diagnostic refuses a *missing* rest, not a closed list — it took three probe files to find that
+out and nobody had run one.
+
+**What the probes did find is worse than the thing they went looking for.** A closed-length clause
+subtracts **nothing** from the residual, and a multi-element prefix is credited with **every**
+non-empty list — so `Shape([])` plus `Shape([a, b, ..t])` compiles clean and crashes on `[7]`. An
+exhaustiveness check that proves too much, in the language whose headline feature is the
+exhaustiveness check. → [ticket 54](../../../wayfinder/issues/54-list-length-in-the-algebra.md).
 
 ## The dialect rewrite, 2026-08-15 — and the spellings it could not reach
 

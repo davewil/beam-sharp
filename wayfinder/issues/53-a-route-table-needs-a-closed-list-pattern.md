@@ -1,10 +1,24 @@
 # 53 — A route table needs a closed list pattern, and ticket 08 refused one
 
 Type: grilling
-Status: open — [ENG-235](https://linear.app/davewil/issue/ENG-235)
+Status: **resolved 2026-08-21, against its own premise** — [ENG-235](https://linear.app/davewil/issue/ENG-235).
+See [Answer](#answer) at the end.
 
 Raised 2026-08-21 out of the first run of `compiler/bin/check-exemplar-frontier.sh`, which compiled
 [exemplar 25a](../prototypes/25a-http-api-server.md) with the real compiler for the first time.
+
+> **THE CENTRAL CLAIM BELOW IS FALSE AND IS LEFT STANDING ON PURPOSE.** The ticket says there is
+> no spelling for "a path of exactly two segments". There is: **`[a, b, ..[]]`** — prefix-plus-rest
+> where the rest is `[]`, which is a pattern like any other. It compiles, it runs, and it was
+> available the whole time. Measured in [prototype 53a](../prototypes/53a-closed-list-patterns.md)
+> within hours of the ticket being raised.
+>
+> It is left in place because the ticket was written from reading `bs_parser.yrl`'s
+> `bin_segment`-adjacent productions and one diagnostic, and *"a list pattern needs a rest"* reads
+> like a refusal of closed lists when it is a refusal of a *missing* rest. That misreading is worth
+> more on the record than a tidied ticket would be — it is the same failure as the exemplars
+> README's clause-name paragraph, which pointed the wrong way for days because somebody read a
+> summary of a decision instead of running the compiler.
 
 ## Question
 
@@ -81,3 +95,61 @@ The exemplar also has three defects that are **not** this ticket and want fixing
 directly: no `module` line, a `using` in `index.bs` that the other files expect to inherit, and a
 `Request` record the valve chain reads five fields from and nobody declared. All three are recorded
 in `compiler/examples/exemplars/README.md` under "Behind the wall".
+
+---
+
+## Answer
+
+**No language change. The spelling exists, and 25a's route table was written wrong rather than
+refused.** All of it is measured in [prototype 53a](../prototypes/53a-closed-list-patterns.md).
+
+`[a, b]` is refused, exactly as ticket 08 decided. But **the rest of a prefix-plus-rest pattern is
+itself a pattern**, and `[]` is a pattern, so the form closes itself:
+
+```csharp
+Dispatch(:get,    ["orders", ..[]])     -> :index
+Dispatch(:get,    ["orders", id, ..[]]) -> :show
+Dispatch(:post,   ["orders", ..[]])     -> :create
+Dispatch(:delete, ["orders", id, ..[]]) -> :destroy
+Dispatch(_,       _)                    -> :not_found
+```
+
+```
+$ bsc … Dispatch ':get' '["orders"]'                 -> :index
+$ bsc … Dispatch ':get' '["orders", "42"]'           -> :show
+$ bsc … Dispatch ':get' '["orders", "42", "lines"]'  -> :not_found
+```
+
+`/orders/42/lines` falls through instead of being swallowed by `:show`, which is the property the
+ticket said could not be expressed. Nothing was built and no rule was bent: this is ticket 08's own
+grammar used twice.
+
+### Of the four candidates
+
+Candidate 1 (a closed list pattern) is **already true** and needed no decision. Candidates 2 and 4
+are moot. Candidate 3 — *routes are not lists* — remains available and is now a smaller question
+than it looked, since the list form works; it should be reopened only if an exemplar demands it,
+not on the strength of this ticket.
+
+### What survives, and what it is now behind
+
+**The read cost.** `["orders", id, ..[]]` says "exactly two" in punctuation neither audience
+recognises — C# and TypeScript both spell it `["orders", id]`. Whether the closed form deserves
+sugar is a real question and is the only design question this ticket leaves.
+
+**It is second in line.** Measuring the premise found that a closed-length clause is **invisible to
+the exhaustiveness checker**, and that a multi-element prefix is credited with every non-empty list
+— so `Shape([]) / Shape([a, b, ..t])` compiles clean and crashes on `[7]`. Raised as
+[ticket 54](54-list-length-in-the-algebra.md) / [ENG-236](https://linear.app/davewil/issue/ENG-236).
+
+The route table above is therefore exhaustive **only by virtue of its catch-all**; the compiler is
+proving nothing about the routes themselves. Sugar over a form the checker cannot see would make
+the surface read more like C# while the guarantee behind it stayed absent, so 54 comes first and
+the spelling is decided after there is something real underneath it.
+
+### The shape of this resolution is the reusable part
+
+The ticket was raised from a diagnostic and a grammar file, and it was wrong. It took three probe
+files and about twenty minutes to find out. **A ticket whose premise can be compiled should be
+compiled before it is argued**, and this repo now has a `check-exemplar-frontier.sh` precisely
+because a claim about the language that nobody executed is the failure mode it keeps meeting.

@@ -65,16 +65,32 @@ The showcase shape. Method and path destructured in the head, one clause per rou
 ```csharp
 public Response Route(Method, list<string>, term)
 
-Route(:get,    ["orders"],     _)     -> (200, Orders.All())
-Route(:get,    ["orders", id], _)     -> Fetch(id)
-Route(:post,   ["orders"],     body)  -> CreateOrder(body)
-Route(:delete, ["orders", id], _)     -> Delete(id)
-Route(_,       _,              _)     -> (404, #{ error = "no route" })
+Route(:get,    ["orders", ..[]],     _)     -> (200, Orders.All())
+Route(:get,    ["orders", id, ..[]], _)     -> Fetch(id)
+Route(:post,   ["orders", ..[]],     body)  -> CreateOrder(body)
+Route(:delete, ["orders", id, ..[]], _)     -> Delete(id)
+Route(_,       _,                    _)     -> (404, #{ error = "no route" })
 ```
 
 This is the language at its best, and the lowering confirms it: five beam-sharp clauses become
 five native Erlang clause heads, dispatching on an atom and a list shape with no guards at all.
 Ticket 01's finding reproduced on a second shape.
+
+**`..[]` CLOSES THE LIST, AND THIS FILE SPELLED IT WRONG FOR NINE DAYS.** It was written
+`["orders", id]`, which the compiler refuses — ticket 08 permits only prefix-plus-rest — and the
+error reads *"a list pattern needs a rest"*. Nobody had compiled it, so
+[ticket 53](../issues/53-a-route-table-needs-a-closed-list-pattern.md) was raised on the assumption
+that the language had no way to say "a path of exactly two segments" and the showcase exemplar was
+therefore unwritable. It has one, and this is it: **the rest of a prefix-plus-rest pattern is a
+pattern, and `[]` is a pattern.** Measured in
+[53a](53a-closed-list-patterns.md) — `/orders/42/lines` reaches the catch-all rather than being
+swallowed by the `Fetch` clause, which is the whole property a route table needs.
+
+**And it is checked by nothing.** [Ticket 54](../issues/54-list-length-in-the-algebra.md) found
+while measuring the above that a closed-length clause subtracts *nothing* from the residual, and
+that a multi-element prefix is credited with every non-empty list. So the exhaustiveness the next
+paragraph discusses is real only for the atom in the first position; over the path, the compiler is
+proving nothing at all and the catch-all is the only thing holding it up.
 
 **But the last clause is the interesting one.** Ticket 12 §2 permits `_` only over an *open*
 residual. Here the residual is open, so `_` is legal — and it is legal for a reason that has

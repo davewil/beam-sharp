@@ -9,9 +9,9 @@
 
 public Response Route(Method, list<string>, term)
 
-Route(:get,    ["orders"],     _)     -> (200, Orders.All())
-Route(:get,    ["orders", id], _)     -> Fetch(id)
-Route(:post,   ["orders"],     body)  -> CreateOrder(body)
-Route(:delete, ["orders", id], _)     -> Delete(id)
-Route(_,       _,              _)     -> (404, #{ error = "no route" })
+Route(:get,    ["orders", ..[]],     _)     -> (200, Orders.All())
+Route(:get,    ["orders", id, ..[]], _)     -> Fetch(id)
+Route(:post,   ["orders", ..[]],     body)  -> CreateOrder(body)
+Route(:delete, ["orders", id, ..[]], _)     -> Delete(id)
+Route(_,       _,                    _)     -> (404, #{ error = "no route" })
 

@@ -505,18 +505,22 @@
   Sequence with 50 — both ask what an FFI declaration carries, and answering them apart risks two
   extensions to one construct designed by different sessions.
 
-- **A route table needs a closed list pattern, and ticket 08 refused one** — →
-  **[ticket 53](issues/53-a-route-table-needs-a-closed-list-pattern.md)**, raised 2026-08-21 from
-  the first run of the exemplar frontier gate, which put 25a through the real compiler for the first
-  time. All four heads of the route table are refused — *"a list pattern needs a rest; write
-  `[h, ..t]`"* — which is ticket 08 working as decided. The uncosted consequence: **there is no
-  spelling for "a path of exactly two segments"**, so `["orders", ..t]` swallows `/orders/42/lines/7`
-  and the arity distinction a router is made of cannot be written in a head. The exemplar whose
-  stated purpose is *"routing as multi-clause dispatch on method and path"* is written in a form the
-  language refuses. Four candidates, none costed, and the one to weigh first is **that routes are
-  not lists** — ticket 31 has just dissolved 25a's other headline friction the same way, by finding
-  the exemplar's shape wrong rather than the language's. Owed since 2026-08-12 and invisible until
-  something compiled it, which is the argument for the gate as much as for the ticket.
+- **List length in the algebra: a proved-exhaustive program that crashes** — →
+  **[ticket 54](issues/54-list-length-in-the-algebra.md)**, raised 2026-08-21 while measuring
+  ticket 53's premise, which is how the worse thing was found under the smaller one. The repro is
+  four lines: `Shape([]) -> :empty` beside `Shape([a, b, ..t]) -> :many` **compiles clean with no
+  diagnostic** and crashes `function_clause` on `[7]`. A program the compiler proved exhaustive,
+  crashing on a value of its declared type, over `list<int>`.
+  **`bs_types` represents a list as `{nil_flag, elem}` — there is nowhere to put a length**, so a
+  cons pattern subtracts *all* of non-empty regardless of how long its prefix is (over-subtracts,
+  and this is the crash) while a cons with a *closed* rest subtracts **nothing** (under-subtracts —
+  `[]`, `[]`+`[a, ..[]]` and `[]`+`[a, ..[]]`+`[a, b, ..[]]` all leave the identical residual). The
+  two forms TOUR §5 demonstrates are exactly the two the representation can express; everything else
+  is silently approximated. One root, two symptoms, and **fixing the unsound half alone would hide
+  the other** — a route table written 53's way would still be unchecked and would now look fine.
+  The live question is *how much* length to model: exact prefix, or an interval reusing ticket 20's
+  machinery, which the residual printer already knows how to talk about. 449 tests pass today with
+  the wrong behaviour and some may encode it. Takes precedence over 53's surviving sugar question.
 
 <!--
   GRADUATED 2026-08-12 (ticket 10): "Runtime behaviour against untyped callers — what, if

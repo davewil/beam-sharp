@@ -47,11 +47,8 @@ spec exists.
   **The gap opened because a ticket was raised without creating its issue**, so the guard is the
   resolving rule read one step earlier: raising a ticket means writing the repo file *and* creating
   the issue, exactly as resolving one means updating both.
-  **Not every ticket is a child of ENG-165** — 36–41 hang off the *project* instead, which is
-  cosmetic rather than a gap, but it means a children-of-165 query under-counts by six. A fifth
-  offset, 48 → **[ENG-230](https://linear.app/davewil/issue/ENG-230)**, `+182`.
-  Offsets seen: `+166`, `+167`, `+170` (42/43), `+172`, `+182`. No pattern, and that is the settled
-  state of this mapping rather than news.
+  **Not every ticket is a child of ENG-165** — 36–41 hang off the *project*, so that query
+  under-counts by six. Offsets: `+166`, `+167`, `+170`, `+172`, `+182`. Query the id, never compute it.
   **The failure moved rather than stopping, and the new form is worth more than the old.** Ticket 42
   and 43 were *named as owed* inside `F2`'s feature file for a day — *"raise a ticket before writing
   this scenario's implementation"* — and never raised, so the compiler's queue held two blockers no
@@ -275,6 +272,9 @@ Bodies in [`decisions.md`](decisions.md). Ticket text in `issues/`.
 - **A build and dependency tool, or riding on rebar3 and mix** `#51` `ffi` `tooling`
   **none is built** — `ERL_LIBS` already reaches Req with a zero compiler delta, and rebar3 is the
   neighbour to prefer since `bsc` is one. Elixir is a per-*project* dependency; provenance → `#52`
+- **A route table needs a closed list pattern, and ticket 08 refused one** `#53` `syntax` `patterns`
+  resolved **against itself**: a rest is a pattern, so `["orders", id, ..[]]` was always legal — and
+  measuring that found `#54`, which is worse than the question was
 - **Composable middleware, and what the valve reaches** `#31` `syntax` `patterns` `errors`
   yes — a terminal stage that always halts makes the unwrap **one clause**, which neither neighbour
   can state. The cost is the atom: a `200 OK` spelled `(:error, _)`; `|?>` refuses `option<T>` (→ 49)
@@ -329,9 +329,9 @@ Bodies in [`fog.md`](fog.md). These are open: read the body before assuming a di
   rewrite for *"no exemplar declares one"*
 - **`cond`, or whatever serves a long ladder of unrelated conditions** `#17` `syntax`
   no case for it yet; the width-five evidence was retracted and 25a's ladder is now a valve chain
-- **A route table needs a closed list pattern, and ticket 08 refused one** `#53` `syntax` `patterns`
-  25a's four route heads are all refused; 08 allows only prefix-plus-rest, so nothing spells "a path
-  of exactly two segments". Weigh "routes are not lists" first — 31 dissolved 25a's other friction
+- **List length in the algebra: a proved-exhaustive program that crashes** `#54` `types` `patterns`
+  `[]` plus `[a, b, ..t]` compiles clean and crashes on `[7]` — a cons subtracts *all* non-empty
+  whatever its prefix, and a closed rest subtracts nothing. Four lines of repro; take it before 53's
 
 ---
 
