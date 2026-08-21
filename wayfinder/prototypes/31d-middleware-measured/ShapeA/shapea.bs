@@ -1,0 +1,45 @@
+// 31d ShapeA — 31c's shape A, RUN rather than written out.
+//
+// 31c wrote this shape on the page and claimed `Web.Serve.Unwrap` is **one
+// clause and the compiler proves it is enough**. The claim turns on the
+// terminal stage declaring `(:error, Response)` — it always halts, so the
+// pipeline has ONE member and there is no two-shape unwrap.
+//
+//   bsc --src-root wayfinder/prototypes/31d-middleware-measured \
+//       wayfinder/prototypes/31d-middleware-measured/ShapeA \
+//       Serve "#{'Kind' => 'ShapeA.Request', 'Path' => orders, 'User' => dave, 'Hits' => 3}"
+module ShapeA
+
+record Request  { Path: atom, User: atom, Hits: int }
+record Response { Code: int, Body: atom }
+
+type Conn = Request | (:error, Response)
+
+// THE TERMINAL STAGE NEVER PASSES THROUGH — its success member is uninhabited,
+// which is the whole trick. 31c: "a 200 OK produced by the router is *also* a
+// halt."
+private (:error, Response) Dispatch(Request r)
+Dispatch(r) when r.Path == :orders -> (:error, Response{ Code = 200, Body = :orders })
+Dispatch(r)                        -> (:error, Response{ Code = 404, Body = :not_found })
+
+private Conn Auth(Request r)
+Auth({ User: :anonymous }) -> (:error, Response{ Code = 401, Body = :unauthorized })
+Auth(r)                    -> r
+
+private Conn Quota(Request r)
+Quota(r) when r.Hits > 100 -> (:error, Response{ Code = 429, Body = :too_many })
+Quota(r)                   -> r
+
+// The pipeline's type is `(:error, Response)` — ONE member, not two.
+public (:error, Response) Handle(Request req)
+Handle(req) -> Auth(req) |?> Quota() |?> Dispatch()
+
+// And so the unwrap is ONE clause. This is the measurement: if the compiler
+// accepts a single clause here, 31c's claim holds and the two-clause unwrap
+// reported against the earlier probe was an artefact of declaring the terminal
+// stage over `Response` rather than over the halt.
+public Response Serve(Request req)
+Serve(req) -> Unwrap(Handle(req))
+
+private Response Unwrap((:error, Response) halted)
+Unwrap((:error, resp)) -> resp

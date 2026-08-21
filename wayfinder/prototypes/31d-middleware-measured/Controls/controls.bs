@@ -2,8 +2,9 @@
 // inferred, because a contrast asserted from a neighbouring example is not a
 // measurement of this one.
 //
-//   bsc --src-root wayfinder/prototypes/31a-middleware \
-//       wayfinder/prototypes/31a-middleware/Controls Bare 500     -> :over
+//   bsc --src-root wayfinder/prototypes/31d-middleware-measured \
+//       wayfinder/prototypes/31d-middleware-measured/Controls Bare 500     -> :over
+//   ... same invocation, PathOf on an Assigned record                     -> :home
 module Controls
 
 // CONTROL 1 — guards DO prove exhaustive on a bare parameter.
@@ -34,7 +35,7 @@ Bare(n) when n <= 100 -> :under
 //
 // What it gives up: the values are `term`, so a reader narrows at each use
 // (ticket 11's boundary rule), and lookup is a list walk rather than a map get.
-record Conn2 { Path: atom, Assigns: list<(atom, term)> }
+record Assigned { Path: atom, Assigns: list<(atom, term)> }
 
-public atom Peek(Conn2 c)
-Peek(c) -> c.Path
+public atom PathOf(Assigned c)
+PathOf(c) -> c.Path

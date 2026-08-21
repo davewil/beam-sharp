@@ -1,0 +1,19 @@
+// 31a control 3 — is ticket 15 §1's collapse rule checked at a USER declaration?
+//
+// Ticket 31's answer first claimed the rule "does not fire" for
+// `Response | (:error, Response)` and called that measured. It was not: the
+// chain compiling proves nothing, because `validate_collapses/2`
+// (bs_check.erl:1670) has exactly one caller — the `ValidateAs<T>`
+// instantiation at :1606 — so a user `type` declaration never reaches it.
+//
+// 15 §1 decided: "the shape stays untagged, and **the collapse is rejected at
+// the declaration**", with the predicate `T | <failure member> ≡ T`.
+//
+// `option<atom>` is 15's own worked case: `:nothing` is absorbed by the atom
+// top, so this declaration IS the degenerate one the rule exists to reject.
+module Collapse
+
+type Absorbed = atom | :nothing
+
+public atom Take(Absorbed a)
+Take(a) -> a

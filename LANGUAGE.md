@@ -702,15 +702,50 @@ clause when a stage wants to inspect the failure; that is also the only way to t
 another.
 
 **The valve is how a request pipeline composes.** A chain of stages, each free to halt by producing
-a finished response, is written `Auth(req) |?> Quota() |?> Dispatch()` — routing is one stage near
-the end rather than the whole program, and a halted response reaches the caller unchanged through
-every stage it skipped. Two consequences are worth knowing before writing one. The pipeline's type
-is `Response | (:error, Response)`, where **both members are a response** — one wrapped, one not —
-so a caller discriminates on the tag and may not project straight through the union. And a stage
-that has to run on *both* outcomes, a logger being the obvious one, is **not a stage**: it takes
-`|>` and wraps the chain from outside, because skipping the stage is precisely what the valve is
-for.
-<!-- decided by ticket 31, measured against Plug; prototypes/31a-middleware -->
+a finished response, is the shape every serious web framework on this platform is built from —
+routing is one stage near the end rather than the whole program.
+
+```csharp
+module Web
+
+record Request  { Path: atom, User: atom, Hits: int }
+record Response { Code: int, Body: atom }
+
+type Conn = Request | (:error, Response)
+
+public (:error, Response) Handle(Request req)
+Handle(req) -> Auth(req) |?> Quota() |?> Dispatch()
+
+private Conn Auth(Request r)
+Auth({ User: :anonymous }) -> (:error, Response{ Code = 401, Body = :unauthorized })
+Auth(r)                    -> r
+
+private Conn Quota(Request r)
+Quota(r) when r.Hits > 100 -> (:error, Response{ Code = 429, Body = :too_many })
+Quota(r)                   -> r
+
+private (:error, Response) Dispatch(Request r)
+Dispatch(r) when r.Path == :orders -> (:error, Response{ Code = 200, Body = :orders })
+Dispatch(r)                        -> (:error, Response{ Code = 404, Body = :not_found })
+
+public Response Serve(Request req)
+Serve(req) -> Unwrap(Handle(req))
+
+private Response Unwrap((:error, Response) halted)
+Unwrap((:error, resp)) -> resp
+```
+
+**The terminal stage never passes through**, so it is declared `(:error, Response)` — a `200 OK`
+from the router is also a halt. That is what makes `Handle`'s return type say the pipeline *always*
+produces a response, and it is why `Unwrap` is **one clause** the compiler proves is enough. A
+signature stating that a stage always halts is something neither of the neighbouring frameworks can
+express, because in both a halted value and a live value have the same type.
+
+The cost is the word. A router that cannot fail is declared `(:error, Response)`, and that atom
+reaches the emitted `-spec` and the crash report. And a stage that has to run on *both* outcomes, a
+logger being the obvious one, is **not a stage**: it takes `|>` and wraps the chain from outside,
+because skipping the stage is precisely what the valve is for.
+<!-- decided by ticket 31, measured against Plug and ASP.NET Core; the atom is ticket 49's question -->
 
 Both operators are built. What is **not** built is the collection prelude they are usually shown
 with — `List.Map` and friends as compiler-known functions — nor the function *value* that `f` and

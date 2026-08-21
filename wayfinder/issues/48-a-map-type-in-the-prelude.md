@@ -30,7 +30,7 @@ So the question is not whether the gap exists. It is:
 
 ## What is already measured, and what it removes from the question
 
-[`prototypes/31b_elixir_maps_vs_structs.exs`](../prototypes/31b_elixir_maps_vs_structs.exs) —
+[`prototypes/31e_elixir_maps_vs_structs.exs`](../prototypes/31e_elixir_maps_vs_structs.exs) —
 Elixir 1.19.5, `Module.Types.Descr`, the instrument tickets 10 and 15 used.
 
 | measured | result |

@@ -1,6 +1,20 @@
-// 31a — the middleware chain ticket 31 asks about, written to be MEASURED.
+// 31d — the middleware chain ticket 31 asks about, written to be MEASURED.
+// 31c wrote this shape on the page; this one runs.
 //
-//   bsc wayfinder/prototypes/31a_middleware_chain.bs Handle '#{...}'
+//   bsc --src-root wayfinder/prototypes/31d-middleware-measured \
+//       wayfinder/prototypes/31d-middleware-measured/Middleware \
+//       Handle "#{'Kind' => 'Middleware.Request', 'Path' => home, 'User' => dave, 'Tag' => 3}"
+//                            -> {Kind = :'Middleware.Response', Body = :home, Code = 200}
+//
+// The map keys must be QUOTED atoms. The unquoted form that
+// examples/Shop/shop.bs documents in its own header is rejected with
+// `cannot read ... as a value`.
+//
+// SUPERSEDED IN PART BY ../ShapeA. The two-clause `Unwrap` below is an artefact
+// of declaring the terminal stage over `Response`. Declare it over
+// `(:error, Response)` — 31c's shape A, where the router always halts — and the
+// pipeline has ONE member and the unwrap is ONE clause. Kept as it stands
+// because the contrast is the finding.
 //
 // The question: does `|?>` express Plug-style composable middleware, or is a
 // construct missing? This file is the chain from the ticket, spelled out.
@@ -60,6 +74,10 @@ Unwrap(resp)           -> resp.Code
 public Res Logged(Request req)
 Logged(req) -> Handle(req) |> Stamp()
 
+// The stamp must CHANGE something or the measurement shows nothing: an identity
+// body returns byte-identical output whether the stage ran or not, so it would
+// prove the stage was reachable and nothing else. 599 is observable on both
+// paths, which is the point.
 private Res Stamp(Res r)
-Stamp((:error, resp)) -> (:error, resp with { Code = resp.Code })
-Stamp(resp)           -> resp with { Code = resp.Code }
+Stamp((:error, resp)) -> (:error, resp with { Code = 599 })
+Stamp(resp)           -> resp with { Code = 599 }

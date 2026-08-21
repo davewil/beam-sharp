@@ -102,11 +102,19 @@ question compiles and runs as written, halt propagates unchanged from any stage,
 declared over the narrowed type. What it costs is a **naming** problem, not a mechanism one, and
 that cost is named in §2 below.
 
-Measured, not argued, per the 2026-08-18 note on this ticket. The chain is
-[`prototypes/31a-middleware/Middleware`](../prototypes/31a-middleware/Middleware/middleware.bs) and
-the premises behind the findings are
-[`Controls`](../prototypes/31a-middleware/Controls/controls.bs), because a contrast asserted from a
-neighbouring example is not a measurement of this one.
+Measured, not argued, per the 2026-08-18 note on this ticket — and **read 31a, 31b and 31c first**,
+which this session did not and nearly paid for. 31a lowered `Plug.Builder`, 31b did ASP.NET Core's
+runtime assembly, and [`31c`](../prototypes/31c-middleware-on-the-page.md) wrote both candidate
+shapes out as ordinary code. Everything in [`31d`](../prototypes/31d-middleware-measured/) is 31c's
+page put through the compiler:
+
+| probe | what it measures |
+|---|---|
+| [`Middleware`](../prototypes/31d-middleware-measured/Middleware/middleware.bs) | the chain, three paths, and a both-outcomes stage — with the two-member declaration §2 corrects |
+| [`ShapeA`](../prototypes/31d-middleware-measured/ShapeA/shapea.bs) | 31c's shape A: a terminal stage that always halts, four paths, **one-clause unwrap** |
+| [`Controls`](../prototypes/31d-middleware-measured/Controls/controls.bs) | guards on a bare parameter versus a projection; the absence of a map type |
+| [`Collapse`](../prototypes/31d-middleware-measured/Collapse/collapse.bs) | whether ticket 15 §1's rule is checked at a user declaration — it is not |
+| [`Optional`](../prototypes/31d-middleware-measured/Optional/optional.bs) | whether `|?>` serves `option<T>` — it does not (→ ticket 49) |
 
 ### 1. The chain runs, and halt propagates unchanged
 
@@ -122,27 +130,59 @@ So routing really is one stage near the end, a halting stage really does stop th
 halted response reaches the caller **unchanged through two intervening stages**. That is the
 ticket's central claim and it holds.
 
-### 2. The cost: the pipeline's type is `Response | (:error, Response)`
+### 2. The cost is the atom, and it is NOT a two-clause unwrap
 
-Both members are an HTTP response — one wrapped, one not. This is §1's *"reads as a lie"* made
-concrete, and it is **forced**, not a style choice: projecting straight through the union is
-refused.
+**This section's first answer was wrong, and the correction came from this ticket's own prototype
+directory.** It reported that the pipeline's type is `Response | (:error, Response)`, that both
+members are a response, and that every consumer therefore writes two clauses with identical bodies.
+That is true only of the chain as *this* probe declared it, and the probe declared it badly:
+`Dispatch` was given the return type `Response`, so the pipeline really did carry two members.
+
+[`31c`](../prototypes/31c-middleware-on-the-page.md) had already written the better shape and
+called it: **the terminal stage never passes through**, so its success member is uninhabited and it
+is declared `(:error, Response)`. A 200 OK from the router *is* a halt. Measured in
+[`ShapeA`](../prototypes/31d-middleware-measured/ShapeA/shapea.bs), all four paths through that
+chain — 200, 401, 429, 404 — return a bare `Response`, and the unwrap is **one clause**:
+
+```csharp
+public (:error, Response) Handle(Request req)
+Handle(req) -> Auth(req) |?> Quota() |?> Dispatch()
+
+private Response Unwrap((:error, Response) halted)
+Unwrap((:error, resp)) -> resp
+```
+
+31c's claim that *"`Web.Serve.Unwrap` is one clause and the compiler proves it is enough"* holds
+when run. **Neither Plug nor ASP.NET Core can state that**: 31a measured halting as a *field on a
+struct* and 31b as *not calling `next`*, so in both a halted value and a live value have the same
+type and no signature can say which you have.
+
+**So the real cost is narrower and sharper than "a lie at the call site".** It is that a `200 OK` is
+spelled `(:error, Orders.Index(r))`, and a router that cannot fail is declared `(:error, Response)`.
+That atom reaches the emitted `-spec`, the crash report, and the reviewer. The union is honest about
+the *shape*; the word `error` is wrong about the *meaning*.
+
+For the record, the union really is opaque to projection — measured on the two-member form before it
+was superseded:
 
 > `error: Unwrap projects Code from a value that may not carry it` — *this member has no Code:
 > `(:error, { Kind: :'Middleware.Response' })` — discriminate on the tag first, in a clause head.*
 
-So every consumer of a middleware pipeline writes two clauses with **identical bodies**:
+**Ticket 15 §1's collapse does not fire, and the reason is not the one this answer first gave.**
+The chain compiling was claimed as the measurement and is not one: `validate_collapses/2`
+(`bs_check.erl:1670`) has exactly **one caller**, the `ValidateAs<T>` instantiation at `:1606`, so a
+user `type` declaration never reaches it. The conclusion survives on the algebra — the failure
+channel is *tagged*, so `Response | (:error, Response)` is two discriminable members and the
+predicate `T | <failure member> ≡ T` would stay quiet anyway — but the evidence claimed did not
+exist. The lie is a readability cost at the call site, not a soundness one.
 
-```csharp
-private int Unwrap(Res r)
-Unwrap((:error, resp)) -> resp.Code
-Unwrap(resp)           -> resp.Code
-```
-
-**Ticket 15 §1's collapse does not fire**, which was predicted here and is now measured: the
-failure channel is *tagged*, so `Response | (:error, Response)` is two discriminable members and
-the absorption predicate `T | <failure member> ≡ T` stays quiet. The lie is a readability cost at
-the call site, not a soundness one.
+**Chasing that turned up a defect against ticket 15 itself.** 15 §1 decided *"the collapse is
+rejected at the declaration"*. It is not: `type Absorbed = atom | :nothing` — 15's own worked
+degenerate case, where `:nothing` is absorbed by the atom top — compiles and runs
+([`Collapse`](../prototypes/31d-middleware-measured/Collapse/collapse.bs)). The rule is implemented for
+`ValidateAs<T>` instantiation only, so **half of 15 §1 is unbuilt**, and the half that is missing is
+the one its own text leads with. Logged in Owed; not fixed here, because a decision ticket does not
+carry a compiler change.
 
 ### 3. What it cannot say: in-the-chain-and-still-runs
 
@@ -190,6 +230,61 @@ a relational pattern in nested position, which F13 already lists as owed.
   assembles at compile time too, so for the pattern the ticket actually asks about this is
   *alignment* rather than a gap. Only `Plug.run/3`'s runtime list is out of reach.
 
+### §2's behaviour contract gains no consumer, which answers the half most at risk of being dropped
+
+The ticket's §2 said a user-declared behaviour contract *"is exactly ticket 21's Roc `requires`
+mechanism"* and that middleware **"may be its first real consumer."** It is not, and the reason is
+structural rather than a deferral.
+
+Plug needs the contract because a stage is a **module named in a list**: `Plug.Builder` holds
+`@plugs` as module names and must know what to call on each, so `init/1` and `call/2` have to be a
+declared behaviour. `|?>` composes **functions named at the call site**, so the compiler already
+checks each stage's arity and type where it is written, and there is nothing left for a contract to
+promise. The contract exists in Plug to recover type information that a list of atoms threw away;
+the valve never throws it away.
+
+So [ticket 21](21-escape-hatch-precedents.md)'s `requires` gains no consumer here, and
+[ticket 16](16-ad-hoc-polymorphism.md)'s refusal of open extension is **not** challenged by this
+workload — the collision §2 anticipated does not occur. That is a second strong result for 17: the
+valve dissolves the need for the mechanism rather than needing it.
+
+### 7. The live question this leaves: 31c's shape B, now with two measurements behind it
+
+[`31c`](../prototypes/31c-middleware-on-the-page.md) drafted a remedy for §2's atom and this session
+did not invent it — it nearly missed it. Shape B keys the valve on the **declared parameter type**
+rather than on the atom:
+
+| | |
+|---|---|
+| today | `|?>` short-circuits where its left operand is `(:error, _)` |
+| shape B | `|?>` short-circuits where its left operand is **not in the stage's declared parameter type**; that member passes through unchanged |
+
+31c argues the compiler gains nothing it lacks — signatures are mandatory (ticket 04) so the
+parameter type is known at the call site, and union members are discriminable by one guard in O(1)
+(ticket 09), which is the test every clause head already performs. The stage then spells its halt
+`(:halt, Response)` and a 200 stops being an error.
+
+**Two things measured here bear on that choice, and both favour looking at it properly.**
+
+- **The valve does not serve the construct it was borrowed from.** Ticket 17 §4 justified `|?>` as
+  *"a tier-1 borrow for both halves of the audience simultaneously"* — C#'s `a?.B()` and
+  TypeScript's optional chaining. Those short-circuit on **null**, whose analogue here is
+  `option<T> = T | :nothing`. Measured
+  ([`Optional`](../prototypes/31d-middleware-measured/Optional/optional.bs)), the valve **refuses**
+  it: *"this `|?>` in Load is over a value that cannot fail — `:nothing | { Kind: :'Optional.User' }`
+  has no `(:error, _)` member, so the valve would never stop. Write `|>` instead."* Under shape B
+  that chain works, because `:nothing` is not in `For`'s parameter type. This is a finding against
+  17's stated borrow rationale, not a preference.
+- **Shape A's cost is smaller than this ticket first reported** (§2), which cuts the other way and
+  is why this is a question rather than a conclusion. The one-clause unwrap removes the ergonomic
+  argument for shape B; what remains is the atom's honesty and the `option<T>` gap.
+
+**Not decided here.** It is a change to a shipped operator's meaning, it was raised by 31c rather
+than by this ticket's question, and 31c names a real cost against it — the reader must know the
+stage's declared parameter type to know what short-circuits, where today they need only recognise
+`(:error, _)` on the page, and read cost carries full weight under the standing constraint.
+→ **[ticket 49](49-what-the-valve-keys-on.md)**.
+
 ### What this settles for ticket 17
 
 A strong result. The valve was chosen partly on reversibility and it turns out to be the
@@ -201,6 +296,9 @@ the six exemplar workloads — with one named gap (§3) and one naming cost (§2
 - **25a is now rewritable as a pipeline**, which the Notes above call the largest thing wrong with
   it. §3 is the thing to watch while doing it.
 - **Ticket 48** takes the map question, and waits on that rewrite for its evidence.
+- **Defect against ticket 15, found by this ticket's own review:** 15 §1's collapse rule is
+  implemented at `ValidateAs<T>` instantiation only, so a *user declaration* that collapses is
+  accepted. `type Absorbed = atom | :nothing` compiles. Owed a feature or a ticket of its own.
 - **Defect, unrelated and logged not fixed:** `compiler/examples/Shop/shop.bs`'s header comment
   documents an invocation that does not work — map keys must be quoted atoms
   (`#{'Kind' => 'Shop.Invoice', …}`), and the unquoted form in the comment is rejected with

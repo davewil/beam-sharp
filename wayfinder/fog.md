@@ -464,7 +464,7 @@
   §4 used instead, so this is an **ergonomic cost, not a blocker**. The objection that looked fatal
   is dead: a record erases to a map carrying a minted `Kind`, and the worry was that a map pattern
   would also match records — but measured against Elixir's `Descr`
-  ([`31b`](prototypes/31b_elixir_maps_vs_structs.exs)), a map type declaring the tag key **absent**
+  ([`31e`](prototypes/31e_elixir_maps_vs_structs.exs)), a map type declaring the tag key **absent**
   is disjoint from every struct while still admitting plain maps, so **the tag is what keeps them
   apart** rather than what maps threaten. What survives is that a map's key domain is unbounded, so
   a pattern over it never closes a residual and exhaustiveness is **vacuous** there — beam-sharp's
@@ -472,6 +472,19 @@
   Gleam-shaped, matchable and Erlang-shaped, or not at all. **Deliberately not resolvable yet** —
   the test is the one that cut function values, *"no exemplar declares one"*, and the exemplar most
   likely to want a map is 25a, whose pipeline rewrite ticket 31 has only just unblocked.
+
+- **What the valve keys on: the atom, or the declared type?** — → **[ticket 49](issues/49-what-the-valve-keys-on.md)**,
+  raised 2026-08-21 out of ticket 31. 31c's **shape B** keys `|?>` on the stage's declared parameter
+  type rather than on `(:error, _)`, so a stage spells its halt `(:halt, Response)` and a `200 OK`
+  stops being an error; the pipeline is character-identical either way. Two measurements from 31 bear
+  on it and they pull opposite ways. **For:** the valve **refuses `option<T>`** — measured — so it
+  does not serve C#'s `?.` or TypeScript's optional chaining, the two neighbours ticket 17 §4 named
+  when it justified the borrow. **Against:** shape A is cheaper than 31 first reported, because a
+  terminal stage declared `(:error, Response)` gives a one-clause unwrap, so the ergonomic argument
+  for shape B is gone and only the atom's honesty remains. 31c's claim that the compiler gains
+  *nothing it does not already have* is **unverified** and is the first thing to measure. Read cost
+  is the real argument against: today you recognise `(:error, _)` on the page, where shape B asks you
+  to know the stage's signature.
 
 <!--
   GRADUATED 2026-08-12 (ticket 10): "Runtime behaviour against untyped callers — what, if

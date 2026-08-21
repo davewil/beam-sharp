@@ -47,6 +47,9 @@ spec exists.
   **The gap opened because a ticket was raised without creating its issue**, so the guard is the
   resolving rule read one step earlier: raising a ticket means writing the repo file *and* creating
   the issue, exactly as resolving one means updating both.
+  **Not every ticket is a child of ENG-165** — 36–41 hang off the *project* instead, which is
+  cosmetic rather than a gap, but it means a children-of-165 query under-counts by six. A fifth
+  offset, 48 → **[ENG-230](https://linear.app/davewil/issue/ENG-230)**, `+182`.
   **A FOURTH VALUE, and the guard held — 2026-08-15.** Tickets **42 is
   [ENG-212](https://linear.app/davewil/issue/ENG-212)** and **43 is
   [ENG-213](https://linear.app/davewil/issue/ENG-213)**: offset `+170`, against `+166`, `+167` and
@@ -273,8 +276,8 @@ Bodies in [`decisions.md`](decisions.md). Ticket text in `issues/`.
   no type-language structure; a segment's **width** refines what it binds — `t:8` is an `Octet`.
   **Beyond all four languages surveyed** and it did not bite; F13 corrected two of its costs
 - **Composable middleware, and what the valve reaches** `#31` `syntax` `patterns` `errors`
-  a halt reaches the caller unchanged through two stages; the cost is a forced two-clause unwrap of
-  `Response | (:error, Response)`. Cannot say **in-the-chain-and-still-runs**; two premises were wrong
+  yes — a terminal stage that always halts makes the unwrap **one clause**, which neither neighbour
+  can state. The cost is the atom: a `200 OK` spelled `(:error, _)`; `|?>` refuses `option<T>` (→ 49)
 
 ---
 
@@ -313,6 +316,9 @@ Bodies in [`fog.md`](fog.md). These are open: read the body before assuming a di
   runtime dominates. The question is why it is not *ahead* — it discards intervals at emission
 - **Division and modulo** `#38` `syntax` `types`
   no `/` in the lexer at all — absent by oversight; truncation converges, divide-by-zero does not
+- **What the valve keys on: the atom, or the declared type?** `#49` `syntax` `types`
+  31c's shape B, with two measurements behind it — the one-clause unwrap removes the ergonomic
+  case, and `|?>` **refuses `option<T>`**, the construct ticket 17 borrowed it for
 - **A map type in the prelude** `#48` `types` `prelude`
   opaque, matchable, or not at all. The record/map collision is measured and **dead** — the minted
   tag is what keeps them apart — but exhaustiveness over a map is vacuous. Waits on 25a's pipeline

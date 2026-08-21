@@ -1,0 +1,24 @@
+// 31d control 4 — does the valve serve `option<T>`, the construct it was
+// borrowed from?
+//
+// 31c asserts it does not: ticket 17 §4 justified `|?>` as "a tier-1 borrow for
+// both halves of the audience simultaneously" — C#'s `a?.B()` and TypeScript's
+// optional chaining — but those short-circuit on NULL, and null's beam-sharp
+// analogue is `option<T> = T | :nothing`, not `(:error, E)`.
+//
+// If this is refused, the operator does not serve the construct it was borrowed
+// from, and that is a finding against ticket 17 rather than a nicety.
+module Optional
+
+record User    { Id: int, Name: atom }
+record Account { Owner: int }
+
+public option<Account> Load(int id)
+Load(id) -> Fetch(id) |?> For()
+
+private option<User> Fetch(int id)
+Fetch(id) when id > 0  -> User{ Id = id, Name = :dave }
+Fetch(id) when id <= 0 -> :nothing
+
+private option<Account> For(User u)
+For(u) -> Account{ Owner = u.Id }
