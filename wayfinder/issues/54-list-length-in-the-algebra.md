@@ -212,11 +212,22 @@ constructor, and *"every value left here comes from a type you declared"* is exa
 `[:true]`/`[:false]`. Exempting lists would mean the algebra knows the residual is closed and the
 checker deliberately looks away — the shape of the defect this ticket exists to remove.
 
-Two costs, taken knowingly. It bites only on **closed element types** — `list<int>` and
-`list<string>` are unaffected, since an unbounded element keeps the residual open. And it
-multiplies against [ticket 43](43-residual-summarised-form.md)'s `?RESIDUAL_CASES` cap: a
-four-atom union at length two is sixteen heads, so the cap starts doing real work rather than
-being a formality, and *which* sixteen to show becomes a question it has never had to answer.
+One cost, taken knowingly: it bites on **closed element types** — `list<int>` and `list<string>`
+are unaffected, since an unbounded element keeps the residual open.
+
+**The second cost this ticket predicted does not exist — measured during F20 and corrected here.**
+It warned that the rule would multiply against [ticket 43](43-residual-summarised-form.md)'s
+`?RESIDUAL_CASES` cap: *"a four-atom union at length two is sixteen heads, so the cap starts doing
+real work"*. It prints **two**:
+
+```
+F([:a | :b | :c | :d] | [:a | :b | :c | :d, :a | :b | :c | :d]) -> ...
+```
+
+A spine holds a union **at each position** rather than enumerating the cross-product, so a residual
+grows with the number of missing *lengths*, not with the number of missing value combinations. The
+cap is untouched and the residual is still a clause you can paste. The prediction was made from the
+shape of the decision rather than from the representation, which did not exist yet.
 
 ### 6. There are five symptoms, not two, and the fifth is the worst
 

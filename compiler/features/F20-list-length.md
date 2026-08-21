@@ -146,11 +146,13 @@ LANGUAGE.md, since no doc block can assert the *absence* of a warning.
 | `[]` + `[a]` + `[a, b, ..]` | exhaustive and **silent** | composition — the under-subtraction |
 | `[]` + `[a, b, ..]` + `[a, ..]` | **no** unreachable warning | symptom five |
 
-**`--self-test` builds two defects, not one.** A checker crediting every cons as all-non-empty
-fails probes 1 and 3 and passes 2; a checker crediting nothing for a cons fails probe 2 and passes
-1. One stub only proves the gate sees one direction, and ticket 54's standing warning is that the
-two directions have one root and get fixed independently. A gate that fires on everything passes
-half a self-test and is worthless.
+**`--self-test` builds four controls.** Two of them are the defects: a checker crediting every cons
+as all-non-empty fails probes 1 and 3 and passes 2; a checker crediting nothing for a cons fails
+probe 2 and passes 1. **Each must be caught on a probe the other passes**, so no probe can be a
+fires-on-everything check — one stub proves only that the gate sees one direction, and ticket 54's
+standing warning is that the two directions have one root and get fixed independently. The third
+control is the decided behaviour, which must pass. The fourth is a run that never compiled, and it
+is there because the gate failed it — see item 5 below.
 
 ## What changes
 
@@ -224,3 +226,53 @@ careful. The fix is that an absence is now asserted against a **clean compile**,
 gained a fourth control that feeds it a run which never compiled and requires all three probes to
 fire. **A gate is not believed until it has been seen to fail — and this one had to be seen failing
 for the right reason, not merely failing.**
+
+## Measured after the build, because a reviewer asked the right questions
+
+**6. The switch arm shares the pattern grammar, and it was worth checking rather than assuming.**
+Every probe and every test above goes through a function head — `walk/5`. Switch arms are a
+*separate* residual loop, `arms/8`, and TOUR chapter 8 states the premise this feature depends on:
+*"a switch arm is the clause head's own pattern grammar, one level down"*. Measured, and it holds:
+
+```csharp
+F(xs) -> xs switch { [] => :e, [a] => :one, [a, b, ..] => :m }    // exhaustive, silent
+F(xs) -> xs switch { [] => :e, [a, b, ..] => :m }
+//   error: this switch in F is not exhaustive
+//     no arm matches:
+//       [int] => ...
+```
+
+The arm names `[int]`, exactly as the head does, because `arm_type` routes through `pattern_type`.
+**A compiler that proved length in heads and not in arms would be worse than one that proved it
+nowhere**, because nobody would expect the asymmetry — so this is now covered by tests rather than
+by the inference that it must work.
+
+**7. TICKET 54'S PREDICTED COST DID NOT MATERIALISE, AND THE REASON IS THE REPRESENTATION.**
+Decision 5 warned that the closed-residual rule *"multiplies against ticket 43's `?RESIDUAL_CASES`
+cap: a four-atom union at length two is sixteen heads, so the cap starts doing real work rather
+than being a formality"*. Measured over `type Q = :a | :b | :c | :d`, with clauses `[]` and
+`[x, y, z, ..]`:
+
+```
+no clause matches:
+  F([:a | :b | :c | :d] | [:a | :b | :c | :d, :a | :b | :c | :d]) -> ...
+```
+
+**Two spines, not sixteen products.** A spine holds a union *at each position* rather than
+enumerating the cross-product, so the residual grows with the number of missing **lengths**, not
+with the number of missing value combinations. The cap is untouched and the residual is still a
+clause you can paste. The prediction was wrong in the harmless direction, and it is corrected here
+rather than left standing.
+
+**8. A destructuring bind refuses with the complement, and the complement is legible.** `[a, b]`
+used to be a grammar error, so this path went from *refused outright* to *type-checked* with no
+test on the way through:
+
+```
+error: this bind in F can fail
+  the pattern does not match:
+    [] | [int] | [int, int, int, ..]
+```
+
+Three spines: shorter, shorter, longer. That is the exact complement of exactly-two, and it reads
+as one.

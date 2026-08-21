@@ -198,3 +198,57 @@ a_catch_all_over_an_open_list_residual_is_still_legal_test() ->
     Src = shape_src("Shape([]) -> :empty\nShape([a, b, ..]) -> :many\n"
                     "Shape(_) -> :o\n"),
     ?assertEqual([], errors(Src)).
+
+%%% --- F20, the half that is not a function head ------------------------------
+%%%
+%%% Switch arms are a SEPARATE residual loop (`arms/8`, not `walk/5`), and every
+%%% test above goes through a head. TOUR chapter 8 states the premise this
+%%% feature leans on — "a switch arm is the clause head's own pattern grammar,
+%%% one level down" — so it is asserted here rather than inferred. A compiler
+%%% that proved length in heads and not in arms would be worse than one that
+%%% proved it nowhere, because nobody would expect the asymmetry.
+
+switch_src(Arms) ->
+    "module Sw\npublic atom Shape(list<int> xs)\nShape(xs) -> xs switch {\n"
+        ++ Arms ++ "\n}\n".
+
+a_switch_arm_sees_list_length_too_test() ->
+    Src = switch_src("    [] => :empty,\n"
+                     "    [a, b, ..] => :many"),
+    [{error, _, 'Shape', {switch_inexhaustive, Residual}}] = errors(Src),
+    ?assertEqual("[int]", bs_types:to_string(Residual)).
+
+a_switch_over_every_length_needs_no_catch_all_test() ->
+    Src = switch_src("    [] => :empty,\n"
+                     "    [a] => :one,\n"
+                     "    [a, b, ..] => :many"),
+    ?assertEqual([], errors(Src)).
+
+%% TICKET 54 PREDICTED SIXTEEN HEADS HERE AND THERE ARE TWO.
+%%
+%% Decision 5 warned the closed-residual rule would multiply against ticket 43's
+%% cap — "a four-atom union at length two is sixteen heads". It is not: a spine
+%% holds a union AT EACH POSITION rather than enumerating the cross-product, so
+%% the residual grows with the number of missing LENGTHS, not with the number of
+%% missing value combinations. This test exists to keep that true, because the
+%% obvious "simplification" of expanding spines into products would pass every
+%% other test in this file and quietly restore the blow-up.
+a_residual_over_a_union_element_does_not_enumerate_products_test() ->
+    Src = "module Cap\ntype Q = :a | :b | :c | :d\n"
+          "public atom F(list<Q> xs)\n"
+          "F([]) -> :e\nF([x, y, z, ..]) -> :m\n",
+    [{error, _, 'F', {inexhaustive, Residual}}] = errors(Src),
+    %% Two spines — lengths 1 and 2 — each carrying the whole union inline at
+    %% every position. Sixteen products would be sixteen bracketed groups.
+    ?assertEqual("([:a | :b | :c | :d] | [:a | :b | :c | :d, :a | :b | :c | :d])",
+                 bs_types:to_string(Residual)).
+
+%% `[a, b]` used to be a grammar error, so this path went from refused outright
+%% to type-checked with no test on the way through. The complement of
+%% exactly-two is shorter, shorter, longer — and it has to read as one thing.
+a_refutable_closed_bind_names_the_complement_test() ->
+    Src = "module Bd\npublic int F(list<int> xs)\n"
+          "F(xs) ->\n    var [a, b] = xs\n    a + b\n",
+    [{error, _, 'F', {bind_may_fail, Residual}}] = errors(Src),
+    ?assertEqual("[] | [int] | [int, int, int, ..]",
+                 bs_types:to_string(Residual)).
