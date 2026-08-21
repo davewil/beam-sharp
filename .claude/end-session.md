@@ -7,21 +7,55 @@ Answers the generic `/end-session` skill would otherwise guess at. Commands, not
 Every step CI runs, in CI's order. The first three need no compiler and fail fast.
 
 ```sh
+# --- repo hygiene: no compiler needed, fails fast -------------------------
+./bin/check-gates-wired.sh                      # every gate on disk is named by the workflow
+./bin/check-cwd-independence.sh                 # a gate works from any directory
+./bin/check-shell.sh                            # the gates are shellcheck-clean
 ./bin/check-map.sh                              # map.md is an index, not a store
 ./bin/check-surface.sh                          # syntax decisions are cited in LANGUAGE.md
 ./bin/check-links.sh                            # the package points only at things it ships
-cd compiler && rebar3 escriptize                # BEFORE eunit — several tests drive bsc
+
+# --- build: escriptize BEFORE eunit, several tests drive bsc --------------
+cd compiler && rebar3 escriptize
 cd compiler && rebar3 eunit
+
+# --- the compiler ---------------------------------------------------------
 cd compiler && ./bin/check-language.sh          # blocks compile, `not-yet` blocks must NOT
+cd compiler && ./bin/check-list-length.sh       # the checker sees a list's length, both ways
+cd compiler && ./bin/check-diagnostics.sh       # every tag has a message, and vice versa
+cd compiler && ./bin/check-no-silent-skip.sh    # no test reports ok for work it did not do
+cd compiler && ./bin/check-tour.sh              # TOUR replays, and the page is not stale
+cd compiler && ./bin/check-exemplar-frontier.sh # the exemplar frontier has not moved silently
+cd compiler && ./bin/check-helper-agrees.sh
 cd compiler && find examples -path examples/exemplars -prune -o -name '*.bs' -print0 |
     while IFS= read -r -d '' f; do dirname "$f"; done | sort -u |
     while IFS= read -r d; do
         ./_build/default/bin/bsc --src-root examples -o "$(mktemp -d)" "$d" || exit 1; done
 cd compiler && ./bin/spec-check.sh              # Dialyzer, plus two negative controls
+cd compiler && ./bin/extract-exemplars.sh --check
+
+# --- the editors ----------------------------------------------------------
 ./editor/bin/check-tokens.sh                    # every lexer keyword is in both editor grammars
 ./editor/bin/check-corpus.sh                    # the tree-sitter grammar parses every example
-cd compiler && ./bin/extract-exemplars.sh --check
 ```
+
+**Every gate also takes `--self-test`, and CI runs those first.** A gate is not believed until
+it has been seen to go red, so the self-test pass is not optional decoration — it is the half
+that proves the green means something.
+
+**SIXTEEN gate scripts, and this list was six of them until 2026-08-21.** It claimed to be
+*"every step CI runs, in CI's order"* and had drifted to naming `check-map`, `check-surface`,
+`check-links`, `check-language`, `check-tokens` and `check-corpus` only — so a session following
+it ran six gates and believed it had run all of them. Nine were missing, including
+`check-list-length.sh`, added the same day by F20. **Count them against the workflow rather than
+trusting the prose**, which is what caught this:
+
+```sh
+grep -oE '\./(bin|compiler/bin|editor/bin)/check-[a-z-]+\.sh' .github/workflows/ci.yml | sort -u | wc -l
+```
+
+The lesson is the one below, turned on this file: *a surface nothing gates is a surface that
+rots*, and the list of gates was itself ungated.
 
 **ELEVEN gates, not ten — `check-links.sh` added 2026-08-18.** It is the first gate that checks the
 DOCUMENTS rather than the compiler, and it went in because the clean-room package was measured
