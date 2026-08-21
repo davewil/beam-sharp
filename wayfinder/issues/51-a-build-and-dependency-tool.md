@@ -94,8 +94,27 @@ already works.
   destination — cannot reconstruct it. That is what a flag or a manifest would actually buy, and it
   is a *provenance* question, not a package-management one. Candidate 2 exists for this reason
   alone.
-- **Elixir must be installed.** `Start()` reports `:elixir` among the applications it brought up, so
-  this is interop with a neighbour's runtime rather than a self-contained artefact. Whether that is
-  acceptable is a scope question the boundary never had to face.
+- **Elixir is needed at BUILD time, and only as *files* at run time** — the distinction matters and
+  was measured rather than assumed (David: *"So beam-sharp would need elixir and erlang installed?"*).
+
+  | | |
+  |---|---|
+  | Req's `ebin` alone, no Elixir | `crashed: error:undef` — Elixir-compiled modules reach for `Elixir.Kernel` and the protocol machinery |
+  | Elixir's `ebin` added | works |
+  | Elixir's beams **copied to `/tmp/elxcopy`**, install path not on `ERL_LIBS` | **works identically** |
+
+  So nothing consults an Elixir *installation* — no version manager, no `PATH`, no `elixir`
+  executable. `elixir.app` is an ordinary OTP application and `req.app` names it in
+  `applications`, so at run time Elixir is a set of `.beam` files you ship exactly like any other
+  dependency, which is what an OTP release already does. **The genuine "installed" requirement is
+  build-time only**: `mix` is what fetches and compiles the hex packages, and that lands on the
+  developer's machine and CI rather than on the deployed artefact.
+
+  **Unmeasured, and it is the question that would close this out**: whether rebar3 alone can build
+  Elixir hex dependencies (it can, with a plugin). If it can, the build-time Elixir requirement
+  disappears too and the whole story is Erlang-only end to end.
+
+  Note also that **Erlang/OTP is not a dependency at all** — it is the target. `bsc` emits BEAM and
+  is itself an Erlang escript. And none of this applies to a program that calls no Elixir library.
 - **A gate would need a dependency tree.** Any exemplar binding Req makes CI fetch and compile nine
   packages, which is the first time this repo's gates would depend on the network.
