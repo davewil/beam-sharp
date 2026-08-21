@@ -109,6 +109,21 @@ Erlang back to the decision that required it is one grep.
 | [F18 — `ValidateAs<T>`, the generated deep validator](F18-validate-as.md) | **done 2026-08-18** | 18 §6's decode step, which 18 §7 writes and nothing could compile; the `list<term>` **plus `ValidateAs<T>`** half of LANGUAGE.md §11 — and it makes ticket 28's closed set non-empty for the first time |
 | [F19 — the foreign `try` wrapper](F19-foreign-try-wrapper.md) | **done 2026-08-18** | the first half of `LANGUAGE.md` §11's standing **Owed** paragraph, and `foreign_error` — the first stratum-2 prelude entry that is built rather than decided |
 
+**STATE OF THE BOARD — 2026-08-21. All nineteen features are done, and no row owes a file.** The
+table above is the answer to *"what is built"*; the entries below it are a reverse-chronological
+log of what each build **revealed**, and several of them state the queue's condition **as it was on
+the day they were written**. Those sentences were true then and are not now — read the table for
+state, and read a dated entry as a dated entry. Superseded claims below are struck through where
+they were found, rather than deleted, because what a build got wrong about its own backlog is part
+of what the log is for.
+
+**This is not a filing convention, it is the defect this file keeps producing.** On 2026-08-21 two
+paragraphs here disagreed about F13 — one saying it was unblocked and owed a file, one saying it was
+blocked on a ticket that had already resolved — while `F13-binary-patterns.md` had read
+`**Status** **done 2026-08-20**` for a day. A session took the prose at its word and reported the
+wrong next move twice. The rule that falls out: **feature status comes from the F-file's own
+`**Status**` line**, never from this narrative.
+
 **F16 IS BUILT, AND WHAT IT REVEALED IS THAT A REQUIREMENT CAN BE WRITTEN WHERE NOBODY WILL BUILD
 IT — 2026-08-18.** The diagnostic is a term: `bsc --diagnostics term` publishes a descriptor for
 every message the compiler can produce, returned and raised, and the prose is a pure function of it
@@ -201,7 +216,8 @@ sub-position facts (a defect against ticket 23). Neither is binary work; closing
 records and tuples.
 
 **AND THE STARVATION ENDED THE WAY IT WAS SUPPOSED TO — 2026-08-20.** Ticket 30 is resolved, so
-**F13 is unblocked and owes a file**. The answer is small and its shape is the surprising part: a
+**F13 was unblocked and owed a file**. *Written earlier the same day; F13 was built within it, and
+the entry above is what building it found.* The answer is small and its shape is the surprising part: a
 binary gets **no** structure in the type language, and a segment's **width** refines the value it
 binds — `t:8` is an `Octet`, so the tag dispatch is an ordinary function head where exhaustiveness
 already works. Three refusals and one inference; nothing enters the type lattice.
@@ -218,10 +234,11 @@ surveyed does — Erlang, Elixir, Gleam and C# were all measured. If it turns ou
 unaffordable, ticket 30 is the decision to revisit first, and backing out is cheap because nothing
 was added to the type lattice.
 
-**AND THE QUEUE IS EMPTY FOR THE FOURTH TIME.** Every feature with a file is done. The only row left
-is **F13 — binary patterns**, which has no file because it is blocked on **ticket 30**, still open.
-The cycle the paragraphs below describe applies unchanged: *starve → resolve a decision → build →
-find what the building reveals*. The decision to resolve next is 30's.
+**AND THE QUEUE IS EMPTY FOR THE FOURTH TIME.** ~~Every feature with a file is done. The only row
+left is **F13 — binary patterns**, which has no file because it is blocked on **ticket 30**, still
+open.~~ **SUPERSEDED 2026-08-20**: ticket 30 resolved and F13 was written and built the same day.
+The cycle this entry describes still holds — *starve → resolve a decision → build → find what the
+building reveals* — and F13 is the fourth turn of it, completed.
 
 **THE FOURTH STARVATION BROKE THE CYCLE INSTEAD OF COMPLETING IT — 2026-08-18.** F16 was built
 without resolving anything, because the queue was never the whole backlog: the *decided, unbuilt*
@@ -229,8 +246,8 @@ table further down this file has been carrying takeable work the whole time, and
 since the LSP question was answered. So the rule the three previous starvations taught — *resolve a
 decision next* — is a rule about the FEATURE ROWS, not about the repo. **Read the decided-unbuilt
 table before concluding there is nothing to build**; a decision that is closed and unbuilt is a
-feature that has not been given a number yet. Ticket 30 is still the decision F13 needs, and that is
-unchanged.
+feature that has not been given a number yet. ~~Ticket 30 is still the decision F13 needs, and that is
+unchanged.~~ **Resolved 2026-08-20, and F13 built on it.**
 
 **F12 IS BUILT, AND WHAT IT REVEALED IS THAT A GATE IS ONLY AS GOOD AS ITS TAGGING — 2026-08-17.**
 `public`/`private` sits on every signature in the repo, `'Fib'.beam` exports `Fib/1` and nothing
