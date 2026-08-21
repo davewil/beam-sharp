@@ -163,6 +163,12 @@ against a recursive list part was guarding: the unfold depth is `lists:max/1` ov
 lengths written in the clause set, with `..` meaning *stop here, fold the tail*. A syntactic,
 finite, directly-readable number.
 
+**The bound is per nesting level, not one flat number.** Over `list<list<int>>`, `[[a, b], ..]`
+has an outer prefix of 1 and an inner prefix of 2, and the depths are independent — the bound
+follows the element type down. Read literally as a single max it would unfold the outer spine two
+deep and the inner one not at all, which is the over-subtraction this ticket exists to remove,
+wearing a fix.
+
 ### 4. The grammar change is free — measured, with the harness self-tested
 
 | grammar | `yecc:file/2` |
@@ -285,6 +291,7 @@ root and get fixed independently.
 | tests asserting the residual string `[int, ..]` | **zero** |
 | tests covering `list_pattern_needs_rest` | **zero** |
 | `..[]` in prose (LANGUAGE.md, wayfinder, exemplar READMEs) | ~30 |
+| stale comments asserting the old rule | **1** — `compiler/test/lists_tests.erl:12-13`, *"Ticket 08 settled prefix-plus-rest only"*, now false. No gate reads a comment, so it has to be fixed by hand |
 
 **One confirmed red gate**: `check-language.sh`. LANGUAGE.md's `Dispatch` block is an untagged
 ` ```csharp ` block containing both `..[]` forms, and it goes red the moment `..[]` is illegal.

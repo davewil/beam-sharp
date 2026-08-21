@@ -258,13 +258,7 @@ That is how a route table distinguishes `/orders` from `/orders/42` without a le
 **shipped**
 <!-- decided by ticket 08; the closed form measured and documented by ticket 53 -->
 
-**That spelling is retired, and the rest becomes a marker.** A closed list is written `[a, b]` and
-means exactly two; `[a, b, ..]` and `[a, b, ..t]` mean two or more, discarding or binding the tail.
-`..[]` goes, and so does any other pattern in the rest position. `[a, b]` is exactly two in Erlang,
-Elixir, C# and Gleam alike — the one place the two families this language borrows from agree — and
-refusing it was the divergence, not admitting it. Nothing is lost: `..[b, ..t]` is `[a, b, ..t]`,
-`..[7]` is `[a, 7]`, and a rest matched against a bound name is a guard. **decided**
-<!-- ticket 54 amends ticket 08; the survey and the yecc measurement are in that ticket -->
+This is what compiles today, and the paragraph after it retires the spelling:
 
 <!-- check:
 public atom Dispatch(list<string> path)
@@ -274,6 +268,16 @@ Dispatch(["orders", ..[]])     -> :index
 Dispatch(["orders", id, ..[]]) -> :show
 Dispatch(_)                    -> :not_found
 ```
+
+**That spelling is retired, and the rest becomes a marker.** The route table above is written
+`Dispatch(["orders"])` and `Dispatch(["orders", id])` once this lands. A closed list is written
+`[a, b]` and means exactly two; `[a, b, ..]` and `[a, b, ..t]` mean two or more, discarding or
+binding the tail. `..[]` goes, and so does any other pattern in the rest position. `[a, b]` is
+exactly two in Erlang, Elixir, C# and Gleam alike — the one place the two families this language
+borrows from agree — and refusing it was the divergence, not admitting it. Nothing is lost:
+`..[b, ..t]` is `[a, b, ..t]`, `..[7]` is `[a, 7]`, and a rest matched against a bound name is a
+guard. **decided**
+<!-- ticket 54 amends ticket 08; the survey and the yecc measurement are in that ticket -->
 
 **The checker does not see the length, and this is a live defect rather than a limitation.** A cons
 pattern is subtracted as *non-empty* whatever its prefix, so `[a, b, ..t]` is credited with matching
