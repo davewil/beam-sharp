@@ -24,8 +24,14 @@
 # evidence here that is not self-reported.
 
 url       https://claude.ai/code/artifact/40f71cf4-d5d3-4b71-882c-ad73f630a03c
-sha256    2f488f1042045714f15731fa222e151f1438a1f290513a3a03923805eedcb35e
-verified  2026-08-21 — republished, then fetched and read back against the file:
+sha256    b00155e9797a2caaa940c464bb48b9a7c4f77999e1602d507145c6f545477fe3
+verified  2026-08-21 (again, for F20) — chapter 5's list bullet called `[]` and
+          `[x, ..rest]` "the two list patterns", which stopped being true when
+          `[a, b]` became exactly-two; the map's list node said the same. Fetched
+          before republishing and the page was still showing the old bullet —
+          the stale state this stamp exists to catch, caught by it.
+
+          Earlier the same day — republished, then fetched and read back against the file:
           heading, the mermaid map, and chapters 1–12 verbatim including
           chapter 10's binary segments, which did not exist when the page was
           first published.

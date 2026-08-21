@@ -56,7 +56,7 @@ flowchart TD
     SIG --> PAT["pattern grammar"]
     PAT --> LIT["literals and atoms"]
     PAT --> TUP["tuples and unions"]
-    PAT --> LST["lists: [] and [h, ..t]"]
+    PAT --> LST["lists: a prefix, then an optional rest"]
     PAT --> REC["records: tag and field"]
     PAT --> SPAN["intervals: >= 4 and <= 7"]
     PAT --> EQ["== name, matching a bound value"]
@@ -331,8 +331,10 @@ $ bsc --src-root examples examples/Fib Fib 10
 
 - **`list<T>`** is a bracketed type the algebra knows natively, rather than an alias that is
   substituted away like the ones in chapter 9.
-- **`[]`** and **`[x, ..rest]`** are the two list patterns, and they partition `list<int>`
-  exactly — which is why `Reverse` needs no catch-all.
+- **`[]`** and **`[x, ..rest]`** partition `list<int>` exactly, which is why `Reverse` needs no
+  catch-all. A pattern may write a longer prefix — **`[a, b]`** is exactly two, **`[a, b, ..]`** is
+  two or more — and the checker sees the difference, so a clause set can be proved exhaustive over
+  length as well as over shape.
 - **`[a, ..acc]`** in expression position conses.
 - **`private`** withholds a function from the module's exports.
 
