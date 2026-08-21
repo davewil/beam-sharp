@@ -155,7 +155,7 @@ the language:
 | ~~`using Shop.Orders`~~ | **spelled and built, F11** — `using` generalises rather than being overloaded; the token class of what follows tells the two apart | 41 §1 |
 | ~~`Json.Encode(b)`, `Orders.All()`, `List.Fold(…)`~~ | **spelled and built, F11** — a `uident` path on the left is the third dot-form, beside `:atom.fn(…)` and `x.Field`. All three of these now parse | 41 §1/§5 |
 | `#{ error = "invalid" }` | an anonymous map *literal*; a record construction names its type | 26, unasked |
-| `Frame { Type = :method } f` (25c) | a pattern that destructures **and** binds the whole value. `p_alias` exists in the emitter with no surface | unasked |
+| `Frame { Type = :method } f` (25c) | ~~unasked~~ — **asked and answered 2026-08-22**. A pattern may name its type and take a trailing binder; the emitter's `p_alias` gets a surface at last. The `=` here is separate dialect drift and becomes `:` | **55**, 26 §2 |
 | `-> { … }` block bodies (25b, 25c) | a braced block expression, measured as buildable but **not free** | 22 |
 | `0xCE` (25c) | hex integer literals, never decided anywhere | unasked |
 | `(acc, c) => …` (25b) | lambda — the `=>` spelling is *decided*, just unbuilt | 27 §(c), F-later |

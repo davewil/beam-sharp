@@ -28,35 +28,27 @@ spec exists.
   research files, prototypes. Map is [ENG-165](https://linear.app/davewil/issue/ENG-165);
   **ticket NN is ENG-(166+NN)**. Resolving a ticket means updating *both*: the answer here, the
   state there.
-  **THE ARITHMETIC BROKE ON 2026-08-14, exactly as its own caveat warned.** ENG-199 was created for
-  the **F3 feature PRD** — a compiler feature, not a wayfinder ticket — so ticket 33 is **ENG-200**
-  and everything after it is offset by one. Read the rule as *"00–32 is ENG-(166+NN), from 33 it is
-  ENG-(167+NN)"*, and keep **verifying rather than computing**: the compiler's features now raise
-  issues in the same team, so the gap will widen again.
-  **IT WIDENED, AND A SECOND HALF OF THE RULE BROKE — 2026-08-15.** Ticket **40 is ENG-208** and
-  **41 is ENG-209**, so the offset was `+168` there. More seriously: **tickets 38 and 39 existed as
-  repo files with no Linear issue at all**, which the canonicality contract says cannot happen —
-  Linear owns state, so a ticket with no issue has nowhere to hold any. Found by querying rather
-  than computing, which is what this bullet already prescribed.
-  **BACKFILLED the same day: 38 is [ENG-210](https://linear.app/davewil/issue/ENG-210) and 39 is
-  [ENG-211](https://linear.app/davewil/issue/ENG-211)**, both `Backlog`, both created after a full
-  audit of all 42 repo tickets against the project — 00–37, 40 and 41 all had issues, so those two
-  were the only gaps and there are now none. Their offset is `+172`, a third different value, which
-  is the point: **the arithmetic is DEAD.** Query Linear for the id every time, and check the issue
-  *exists* before assuming the state is tracked anywhere.
-  **The gap opened because a ticket was raised without creating its issue**, so the guard is the
-  resolving rule read one step earlier: raising a ticket means writing the repo file *and* creating
-  the issue, exactly as resolving one means updating both.
-  **Not every ticket is a child of ENG-165** — 36–41 hang off the *project*, so that query
-  under-counts by six. Offsets: `+166`, `+167`, `+170`, `+172`, `+182`. Query the id, never compute it.
-  **The failure moved rather than stopping, and the new form is worth more than the old.** Ticket 42
-  and 43 were *named as owed* inside `F2`'s feature file for a day — *"raise a ticket before writing
-  this scenario's implementation"* — and never raised, so the compiler's queue held two blockers no
-  query could see. **A feature file naming a decision it needs is raising a ticket**, and it does not
-  count as raised until the file and the issue both exist. The same day, `F2` itself was found to
-  have no issue either, which is why two markdown files could disagree about whether it was takeable
-  with nothing to arbitrate: it is now
-  [ENG-214](https://linear.app/davewil/issue/ENG-214), blocked by both.
+  **THE ARITHMETIC IS DEAD — query Linear for the id every time, never compute it.** Measured
+  offsets so far: `+166`, `+167`, `+168`, `+170`, `+172`, `+182` (ticket 55 is
+  [ENG-237](https://linear.app/davewil/issue/ENG-237), at `+182`). It broke on 2026-08-14 because
+  the compiler's **features** raise issues in the same team, and it has drifted at every subsequent
+  check. Also: **not every ticket is a child of ENG-165** — 36 onwards hang off the *project*, so
+  that query under-counts.
+  *This bullet held 28 lines of blow-by-blow corrections and was compressed on 2026-08-22 to make
+  room under the line budget. The findings below are what survived; the narrative is in the git
+  history, and stacking one correction on the next is the failure the exemplar README deleted rather
+  than extended.*
+  **The two rules the drift produced, which are the part worth keeping:**
+  - **Raising a ticket means writing the repo file AND creating the issue** — the same both-not-one
+    rule as resolving. Tickets 38 and 39 once existed as repo files with no issue at all, which the
+    contract says cannot happen: Linear owns state, so a ticket with no issue has nowhere to hold
+    any. Backfilled as ENG-210 and ENG-211 after auditing all 42 repo tickets.
+  - **A feature file naming a decision it needs IS raising a ticket**, and it is not raised until
+    both exist. Tickets 42 and 43 sat *named as owed* inside `F2` for a day, so the compiler's queue
+    held two blockers no query could see — and `F2` itself had no issue, so two markdown files could
+    disagree about whether it was takeable with nothing to arbitrate. **This recurred on 2026-08-22**:
+    ticket 55 had been owed by the exemplar README *and* by `LANGUAGE.md` for nine days, each
+    recording it independently, neither raising it.
 - **Execution override**: wayfinder is plan-only by default. This map sanctions execution
   for the **walking skeleton only**. Every other ticket produces a decision.
   **Widened in practice since 2026-08-13**: the skeleton is built and now grows through
@@ -275,6 +267,10 @@ Bodies in [`decisions.md`](decisions.md). Ticket text in `issues/`.
 - **A route table needs a closed list pattern, and ticket 08 refused one** `#53` `syntax` `patterns`
   resolved **against itself**: a rest is a pattern, so `["orders", id, ..[]]` was always legal — and
   measuring that found `#54`, which is worse than the question was
+- **A record pattern may name its type, and any pattern may take a trailing binder** `#55` `syntax`
+  `patterns` — `Frame { Type: :method } f`, and `Frame f` for the whole value. Survey **unanimous**:
+  all four neighbours name the type, beam-sharp alone could not. `as` and `=` are both already
+  spent, so the binder is C#'s bare designation. Four grammar variants, **zero yecc conflicts**
 - **Composable middleware, and what the valve reaches** `#31` `syntax` `patterns` `errors`
   yes — a terminal stage that always halts makes the unwrap **one clause**, which neither neighbour
   can state. The cost is the atom: a `200 OK` spelled `(:error, _)`; `|?>` refuses `option<T>` (→ 49)

@@ -607,11 +607,28 @@ error, because they meet the same declaration.
 
 **shipped**, with two things worth knowing:
 
-- **The pattern spelling is the property pattern.** Dispatch is written
-  `Area({ Kind: :'Shapes.Circle' })`, not `Area(Circle c)`. The tag is an ordinary field, so no
-  record-specific pattern form is needed; whether a sugar mirroring construction is added is a
-  grammar-opinion question that is still open. The `Circle c` form above is illustrative and does
-  **not** compile today.
+- **The pattern spelling is the property pattern, and that is now the shipped half of a wider
+  form.** Dispatch compiles today as `Area({ Kind: :'Shapes.Circle' })`. The tag is an ordinary
+  field, so no record-specific pattern form is *needed* — but writing one means hand-writing a
+  **compiler-minted, fully-qualified tag atom** to say "this is a Circle", which is the one place
+  the surface makes an erasure detail load-bearing.
+
+  <!-- decided by ticket 55; the open grammar-opinion question this bullet used to record -->
+  **A record pattern may name its type, and any pattern may take a trailing binder.** The name
+  stands in for the tag, and the binder binds the whole value beside whatever the pattern takes
+  apart. Decided, **not yet built** — every form below is planned surface:
+
+  ```csharp not-yet
+  Circle { Radius: >= 1 } c
+  Circle { Radius: >= 1 }
+  Circle c
+  { Radius: >= 1 } c
+  ```
+
+  The last two lines of that block are the two halves separately: a bare property pattern with a
+  binder is still legal, and `Circle c` — a type and a name, no fields — is the same shape a
+  *parameter* already has in a signature. The binder is a bare trailing name with no keyword:
+  `as` is spoken for by the checked conversion, and `=` introduces a binding in a body.
 - **A construction site is not checked.** A record's field set is exact in the type algebra and
   unpoliced where it is built, so a body can produce a map wearing an `Order` tag without
   `Order`'s fields. The compiler checks five sites in a body, and a construction is not one of
