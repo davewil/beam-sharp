@@ -75,3 +75,30 @@ the evidence does not separate them:
 
 With the logs gone, this cannot be settled. It is recorded here so the next run
 can settle it, by keeping the logs.
+
+## A second copy, and the guard it bought — 2026-08-21
+
+**The same file was still sitting at `handoff/audition-switch/switchcheck`**, untracked,
+byte-identical to the copy here. The recovery on 2026-08-20 took a copy and left the original
+where it was, so "one `git clean` from being lost" was true of a file that was also still
+armed.
+
+Armed is the right word. `check.sh` took `WORKDIR="${1:-.}"`, so `./check.sh` typed in this
+directory found that file, marked it, and printed **8/8 visible** with a verdict paragraph —
+a scored report of a run that did not happen, naming no date, no lane and no model. The rule
+above already said this must never be found by that name; a rule written in a README does not
+survive somebody typing six characters in the directory they are standing in.
+
+So the rule is code now. `check.sh` refuses when its target resolves to its own directory,
+and the refusal has two self-test controls: the stray is *planted* rather than assumed, so
+the guard is exercised in a clean checkout, and a real submission directory must still be
+accepted — otherwise a script that refused everything would satisfy the first control and
+mark nobody ever again.
+
+**The first draft of that control was wrong, in the way this repo keeps finding.** It asserted
+on exit status. The stray scores 2/7 held-out, so marking it exits non-zero — the same status
+the guard returns — and the control passed with the guard commented out. Wrong behaviour and
+right behaviour were indistinguishable by the thing being measured. It asserts on the refusal
+sentence instead, which only the guard can print.
+
+The untracked original is deleted. Nothing is lost: it is this file, and this file is tracked.

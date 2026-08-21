@@ -144,10 +144,62 @@ SH
     fail=1
   fi
 
+  # CONTROL 5 — MARKING THE AUDITION ITSELF.
+  #
+  # Not a stub: a stray. The four above ask whether the marking discriminates
+  # between implementations; this asks whether the script can be pointed at a
+  # thing that is not a submission at all and score it anyway. It could, and on
+  # 2026-08-19 it did — a leftover `switchcheck` in this directory was marked by
+  # a bare `./check.sh` and reported 8/8 visible with a verdict paragraph.
+  #
+  # The control plants the same stray rather than relying on one being there,
+  # because the guard must hold in a clean checkout too — and if it only fired
+  # when a stray happened to be present, deleting the stray would silently
+  # retire the check.
+  # EXIT STATUS IS THE WRONG ASSERTION HERE AND THE FIRST DRAFT USED IT.
+  # The stray scores 2/7 held-out, so marking it exits non-zero — the same
+  # status the guard returns. A control keyed on "did it fail" passed happily
+  # with the guard commented out, because the wrong behaviour and the right one
+  # are indistinguishable by exit code. It has to key on the REFUSAL, which is
+  # a sentence only the guard prints.
+  cp "$HERE/evidence/unattributed-switchcheck.py" "$HERE/switchcheck.selftest-tmp" 2>/dev/null || true
+  mv "$HERE/switchcheck.selftest-tmp" "$HERE/switchcheck" 2>/dev/null || true
+  # The bare case must be run FROM here, because `${1:-.}` resolves against the
+  # caller's working directory — that is the whole shape of the accident, six
+  # characters typed in the directory you are already standing in.
+  bare="$(cd "$HERE" && ./check.sh 2>&1)"
+  named="$("$HERE/check.sh" "$HERE" 2>&1)"
+  rm -f "$HERE/switchcheck"
+
+  if ! grep -q 'refusing to mark it' <<<"$bare"; then
+    echo "SELF-TEST FAILED: a bare invocation marked the audition's own directory"
+    echo "                  and scored a stray file as a submission. That is a run"
+    echo "                  that did not happen, printed as if it had."
+    fail=1
+  fi
+  if ! grep -q 'refusing to mark it' <<<"$named"; then
+    echo "SELF-TEST FAILED: naming this directory explicitly got past the guard —"
+    echo "                  the refusal has to be about the resolved path, not"
+    echo "                  about whether an argument was passed."
+    fail=1
+  fi
+  # The other half: the guard must not swallow a REAL submission. Without this
+  # a refusal on everything would satisfy both checks above.
+  mkdir -p "$CTL/realdir"
+  cp "$HERE/evidence/unattributed-switchcheck.py" "$CTL/realdir/switchcheck"
+  chmod +x "$CTL/realdir/switchcheck"
+  if grep -q 'refusing to mark it' <<<"$("${BASH_SOURCE[0]}" "$CTL/realdir" 2>&1)"; then
+    echo "SELF-TEST FAILED: a real submission directory was refused as if it were"
+    echo "                  the audition itself — the guard matches too much and"
+    echo "                  no worker could ever be marked again."
+    fail=1
+  fi
+
   if [ "$fail" -eq 0 ]; then
     echo "self-test: rejected the silent stub, the cry-wolf stub and the lookup-table"
-    echo "           stub — the last on a case it had never seen — and accepted the"
-    echo "           compiler-backed one. The check discriminates."
+    echo "           stub — the last on a case it had never seen — accepted the"
+    echo "           compiler-backed one, and refused to mark its own directory"
+    echo "           whether or not the path was named. The check discriminates."
     exit 0
   fi
   exit 1
@@ -157,6 +209,42 @@ fi
 # The real run.
 # ---------------------------------------------------------------------------
 WORKDIR="${1:-.}"
+
+# THIS DIRECTORY IS THE AUDITION. IT IS NEVER A SUBMISSION.
+#
+# `${1:-.}` means a bare `./check.sh` run from here marks the audition's own
+# directory, and on 2026-08-19 that produced a real scored report: an untracked
+# `switchcheck` had been left here — byte-identical to the worker output since
+# recovered as `evidence/unattributed-switchcheck.py` — and a bare invocation
+# found it, marked it, and printed 8/8 visible with a verdict paragraph. Nothing
+# in the output said the file was two days old, unattributed, or already on
+# disk under another name.
+#
+# `evidence/README.md` had already written the rule down: the copy there is
+# renamed `.py` because "`check.sh` looks for a file called exactly
+# `switchcheck`, and this must never be found by that name." That is a
+# convention asking people to be careful. This is the same rule as code, which
+# is the only version that holds when somebody types six characters and hits
+# return.
+#
+# A submission lives in a worker's own sandbox and is marked by path. Refusing
+# the default costs nothing: no real run has ever passed no argument.
+if [ "$(cd "$WORKDIR" 2>/dev/null && pwd -P)" = "$(cd "$HERE" && pwd -P)" ]; then
+  cat >&2 <<'EOF'
+this is the audition's own directory, not a submission — refusing to mark it.
+
+  A submission lives in the worker's sandbox and is marked by path:
+      ./check.sh /tmp/bsharp-audition/<lane>
+
+  If there is a `switchcheck` sitting here, it is a stray. The one real worker
+  output that survived is kept as `evidence/unattributed-switchcheck.py`,
+  deliberately NOT under the name this script searches for, and it is evidence
+  rather than a fixture — see `evidence/README.md`. Marking it again would
+  report a run that did not happen.
+EOF
+  exit 1
+fi
+
 IMPL="$WORKDIR/switchcheck"
 
 [ -x "$IMPL" ] || { echo "no executable ./switchcheck in $WORKDIR — the packet asks for one"; exit 1; }
