@@ -55,10 +55,20 @@ one into the other.
 
 ## Notes
 
-**Req is the hardest possible first binding** — struct-heavy and dependency-heavy — which makes it an
-excellent proof and a poor place to start. `Jason` exercises the same struct question with a fraction
-of the scaffolding, and whether the first binding should be the easy one or the real one is worth
-deciding before building either.
+**Req is the hardest possible first binding, and that is why David chose it** (2026-08-21, when this
+suggested `Jason` as an easier start: *"I picked Req exactly for that reason"*). Do not substitute a
+smaller library to get a green binding sooner.
+
+The reasoning is the one ticket 25 already records against itself. 25a *"constructed a shape to
+answer the question instead of writing the workload honestly, which is the one failure ticket 25
+exists to prevent"* — and picking `Jason` because it is easy is that failure wearing different
+clothes. A binding story that works for Jason and not for Req is not a binding story: Jason returns
+maps and lists and exercises almost none of the surface. Req exercises **all** of it at once — an
+Elixir module atom, a struct return, nested aggregates inside it, a dependency tree of several
+packages, and an application with a supervision tree that must be started before the first call.
+
+So the decision this ticket reaches is made against the real requirement rather than a subset that
+would need revisiting. That is the whole argument for the exemplars, applied to the FFI.
 
 **The exemplar must not make a real HTTP call.** Req ships `Req.Test` and a `plug:` option for
 stubbing; a gate that reaches the network is flaky by construction.
