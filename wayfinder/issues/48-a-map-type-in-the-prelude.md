@@ -71,7 +71,7 @@ from prose without David in the room, and a matchable map is the paragraph most 
 wrong — it is the one place the language's headline promise goes quiet, and the reader has to be
 told why without concluding the promise is soft everywhere.
 
-So the test is the one that cut function values: [ticket 27](27-generics-and-parametricity.md) §(c)
+So the test is the one that cut function values: [ticket 27](27-parametric-polymorphism.md) §(c)
 was cut on three measurements and one of them was flatly **"no exemplar declares one"**
 (→ [ticket 37](37-instantiation-by-matching.md)). Same test here.
 
