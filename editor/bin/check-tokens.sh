@@ -165,7 +165,14 @@ done
 
 echo
 if [ "$fail" -eq 0 ]; then
-    echo "$(echo "$KEYWORDS" | wc -w | tr -d ' ') keywords + $NOPS operators: all present in both grammars"
+    # "both grammars" MEANT THE TWO HIGHLIGHTERS AND READ AS ALL THREE, which
+    # is how `<<` came to be coloured by vscode and nvim while the tree-sitter
+    # parser had no rule for it at all and `frame.bs` would not parse. This gate
+    # reads the lexer, the TextMate file and the vim file; `grammar.js` is
+    # `check-corpus.sh`'s business and is named here so nobody reads coverage
+    # into a sentence that never claimed it.
+    echo "$(echo "$KEYWORDS" | wc -w | tr -d ' ') keywords + $NOPS operators: all present in the vscode and nvim syntaxes"
+    echo "  (the tree-sitter grammar is check-corpus.sh's; this gate does not read it)"
 else
     echo "a token the lexer defines has no rule in one of the editor grammars."
     exit 1

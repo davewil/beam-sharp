@@ -251,6 +251,13 @@ module.exports = grammar({
     // --- patterns ------------------------------------------------------------
     pattern: $ => choice(
       $.integer,
+      // F9 added the `string` TOKEN and never added it here, so a string
+      // literal in a clause head — `Method("GET") -> :get`, which is F9's own
+      // worked example — did not parse. It was invisible until the binary rule
+      // above landed, because `frame.bs` failed thirty lines earlier and the
+      // corpus gate reports the first error per file. A front wall hides every
+      // wall behind it; that is the same reason `FRONTIER` says so out loud.
+      $.string,
       $.atom,
       $.boolean,
       $.variable,
@@ -260,6 +267,7 @@ module.exports = grammar({
       $.list_pattern,
       $.match_pattern,
       $.relational_pattern,
+      $.binary_pattern,
     ),
 
     // Ticket 45 — `== head` matches against the value a name already holds
@@ -300,6 +308,39 @@ module.exports = grammar({
     ),
 
     rest_pattern: $ => seq('..', $.pattern),
+
+    // Ticket 30 / F13 — binaries as a PARSING GRAMMAR. This rule mirrors the
+    // yecc productions (`bs_parser.yrl`, `bin_segment` / `bin_size`) rather
+    // than being written from the decision, because the two disagree in a way
+    // no reading of ticket 30 would predict: see `binary_size` below.
+    //
+    // PATTERN POSITION ONLY, and that is the compiler's shape, not a shortcut.
+    // `bs_parser.yrl` hangs `'<<' bin_segments '>' '>'` off `pattern` and off
+    // nothing else — there is no construction form to parse yet.
+    //
+    // The close is TWO `>` tokens, exactly as the compiler spells it. A `>>`
+    // token here would be greedy in the one place it must not be: `list<option<int>>`
+    // ends with the same two characters, and the grammar has to read them as
+    // two closing brackets (ticket 28).
+    binary_pattern: $ => seq('<<', commaSep1($.binary_segment), '>', '>'),
+
+    binary_segment: $ => choice(
+      seq(field('value', $.variable), optional($.binary_size)),
+      seq(field('value', $.wildcard), optional($.binary_size)),
+      seq(field('value', $.integer), ':', field('size', $.integer)),
+      field('value', $.string),
+    ),
+
+    // `payload:size` DOES NOT LEX AS THREE TOKENS. `:size` matches the atom
+    // rule, so the compiler carries a `bin_size -> atom_lit` production to take
+    // it back — the collision is real and is resolved in the parser rather than
+    // by making the lexer context-sensitive, which `bs_lexer.xrl` argues for at
+    // length. A grammar written from ticket 30 alone would put `':' lident`
+    // here, and it would never match.
+    binary_size: $ => choice(
+      seq(':', $.integer),
+      $.atom,
+    ),
 
     // --- expressions ---------------------------------------------------------
     _expression: $ => choice(
@@ -486,7 +527,13 @@ module.exports = grammar({
       /:'[^']*'/,
     )),
 
-    integer: _ => /[0-9]+/,
+    // Hex first, and not because of precedence — `/[0-9]+/` would match the
+    // leading `0` of `0xCE` and leave `xCE` as a variable, which is the exact
+    // failure `bs_lexer.xrl` documents as its reason for adding the rule.
+    // F13 put hex EVERYWHERE rather than inside a binary segment; this follows
+    // it there for the same reason, that a lexer bent for one construct is a
+    // worse thing to own than the gap.
+    integer: _ => token(choice(/0[xX][0-9a-fA-F]+/, /[0-9]+/)),
 
     // F9 shipped strings on 2026-08-15 and this rule never followed, so
     // `check-corpus.sh` has rejected `label.bs` ever since — the grammar
