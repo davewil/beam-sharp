@@ -160,12 +160,17 @@ done
 echo "extracted $found .bs files into $DEST"
 
 if [ "$CHECK" = 1 ]; then
-  # README.md is hand-written and lives only in the real directory.
-  if diff -rq --exclude=README.md "$DEST" "$HERE/examples/exemplars" >/dev/null 2>&1; then
+  # README.md is hand-written and lives only in the real directory. FRONTIER is
+  # the same shape for the same reason: it is the sibling gate's manifest, is
+  # written by `check-exemplar-frontier.sh --update` rather than extracted from
+  # anything, and this gate has no opinion about it. Excluding it here is not a
+  # hole — the frontier gate REQUIRES a record for every exemplar directory on
+  # disk, so a missing or surplus record is red there rather than unnoticed.
+  if diff -rq --exclude=README.md --exclude=FRONTIER "$DEST" "$HERE/examples/exemplars" >/dev/null 2>&1; then
     echo "OK — extracted files are up to date"
   else
     echo "STALE — re-run compiler/bin/extract-exemplars.sh" >&2
-    diff -rq --exclude=README.md "$DEST" "$HERE/examples/exemplars" >&2 || true
+    diff -rq --exclude=README.md --exclude=FRONTIER "$DEST" "$HERE/examples/exemplars" >&2 || true
     exit 1
   fi
 fi

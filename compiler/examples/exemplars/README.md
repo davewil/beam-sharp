@@ -58,45 +58,66 @@ Ordered by how many exemplars each unblocks, which is roughly the order to build
 
 | Capability | Blocks | Slice status | Ticket |
 |---|---|---|---|
-| **Records** — declaration, construction, `with`, projection | all three | out (26 was open when the slice was cut; **26 is now closed**) | 26 |
+| **Records** — declaration, construction, `with`, projection | all three | **in** — F3, 2026-08-14 | 26 |
 | **Angle brackets** — `list<T>`, `option<T>`, `result<T, E>` | all three | **in** — F6, 2026-08-14 | 27, 28 |
-| **`ValidateAs<T>`** — a codegen obligation, not a generic call | 25a, 25c | out | 11, 27 §8 |
+| **`ValidateAs<T>`** — a codegen obligation, not a generic call | 25a, 25c | **in** — F18, 2026-08-18 | 11, 27 §8 |
 | **`string` and `binary` as values** — the literal, the type, the refinement | all three | **in** — F9, 2026-08-15 | 20 |
-| **Binaries** — `<<_:M, _:_*N>>` patterns and construction | 25b, 25c | out, **blocked** — 30 is open | 20, 30 |
+| **Binaries** — `<<_:M, _:_*N>>` patterns and construction | 25b, 25c | **in** — F13, 2026-08-20; 30 resolved | 20, 30 |
 | **`switch` expression** — including the tuple subject and a guard on an arm | all three | **in** — F7, 2026-08-15 | 17 |
 | **Pipe and valve** — `\|>`, `\|?>` | 25b, 25c | **in** — F14, 2026-08-18 | 17 |
-| **Interval refinements** — `type Octet = int where ...` | 25b, 25c | out, **named as the next increment** | 20 §5 |
+| **Interval refinements** — `type Octet = int where ...` | 25b, 25c | **in** — F2, 2026-08-16 | 20 §5 |
 | **String literals** | 25a, 25c | **in** — F9, 2026-08-15 | 20 |
-| **Map literals** | 25a, 25c | out | fog |
-| **List patterns** — `[h, ..t]`, literal element patterns | 25a | out | 08, 28 |
-| **Imports / multi-file modules** | all three | **in, F11 2026-08-17** — the *directory*-as-module half is still out | 40, 41 |
-| **OTP behaviours** — `behaviour GenServer`, callbacks | 25b, 25c | the attribute is emitted; the callback contract is not | 14, 35 |
+| **Map literals** — `#{ error = "invalid" }` | 25a | out — the wall 25a stops on | **48** |
+| **Lambdas** — `(acc, c) => …` | 25b | out — the wall 25b stops on; decided, unbuilt | 27 §(c) |
+| **Destructure-and-bind** — `Frame { Type = :method } f` | 25c | out — the wall 25c stops on; `p_alias` has no surface | unasked |
+| **List patterns** — `[h, ..t]` | 25a | **in**, and see below — `["orders", id]` is *refused*, not unbuilt | 08, 28 |
+| **Imports / multi-file modules** | all three | **in** — F11 and F15, 2026-08-17; the directory half too | 40, 41 |
+| **OTP behaviours** — `behaviour GenServer`, callbacks | 25b, 25c | **in** — F10, 2026-08-15; the callback contract is a compiler-known table | 14, 35 |
 
-**Records, angle brackets and `switch` are now built, not merely decided** — F3 and F6 on
-2026-08-14, F7 on 2026-08-15. The rows above say `in` and the ones below them are what is actually
-left.
+**THE TABLE ABOVE WAS REWRITTEN ON 2026-08-21, AND SIX ROWS HAD BEEN WRONG.** Records, intervals,
+binaries, `ValidateAs<T>`, the directory half of the module system and the OTP callback contract
+were all marked `out` or half-built while F3, F2, F13, F18, F15 and F10 had shipped them. Nobody
+lied: the rows were written when they were true and nothing ever asked them again.
 
-**A branching claim is not a compiles claim either**, and F7's first draft of this paragraph got it
-wrong — corrected here by measurement rather than left standing. The `switch` **construct** is built:
-a tuple subject, a guard on an arm, exhaustiveness, and the residual printed as the missing arm.
-None of these files parses as a result — but **where they stop has moved, and this paragraph was
-measured again on 2026-08-18 rather than trusted.** It used to say `disposition.bs` failed on a
-clause head written without repeating the function name. That spelling is gone: the dialect rewrite
-removed all 63 of them and there are none left in this directory. `25c` now stops in
-`consume.bs:14` on `<` — a **binary pattern**, which is the row above and blocks 25b identically.
+Three paragraphs of "an X claim is not a compiles claim" stood here and are **deleted rather than
+appended to**. Each was a correct measurement on the day it was taken and stale within a week, and
+stacking one on the next is how the features README came to contradict itself in two directions at
+once. What replaces them is not better prose. It is
+[`FRONTIER`](FRONTIER) and `compiler/bin/check-exemplar-frontier.sh`, which measures the same claim
+on every run and goes **red when an exemplar gets further than the record says** — the direction
+that rotted, since a regression gate would have been green through every failure listed above.
 
-What F7 *did* change for these files is smaller than the row suggests and sharper than the parse:
-**their `true`s and `false`es were being read as variables.** Had they parsed, `disposition.bs` and
-`admit.bs` would have compiled into ladders whose first arm swallowed every other one, silently.
-Fixed in the lexer; the write-up is in `features/README.md`.
+### Behind the wall — measured 2026-08-21
 
-**A bracket claim is not a compiles claim.** F6 makes `result<Delivery, ConsumeError>` and
-`list<Line>` parse and resolve; not one of these files compiles as a result. `list<string>` still
-fails, on `unknown_builtin` rather than on the bracket — `string` and `binary` are not builtin types
-yet — and every file here also waits on binaries, `switch`, pipe, string and map literals, or
-imports. Splitting `ValidateAs<T>` onto its own row above is the same correction: it shares a
-character with the bracket and nothing else, being type-directed codegen (27 §8) rather than a
-generic call.
+`bsc` stops at the first error, so `FRONTIER` records a **front wall** and nothing behind it. This
+is what was behind 25a's, found by neutralising each construct in a scratch copy and recompiling.
+It is written down because a clean-room implementer reading only the front wall would badly
+under-estimate the file, and because two of the five are defects in the exemplar rather than gaps in
+the language:
+
+1. **The map literal** — `#{ … }`, in `create_order.bs` and `route.bs`. The front wall. → ticket 48.
+2. **No `module` line.** These files use `index.bs` with no `module` declaration — the ticket 08/13
+   convention. F11/F15 built the module system with an explicit `module Shop.Api` line
+   (`examples/Pipeline/pipeline.bs:13`), and the `index.bs` convention went with it. **Dialect
+   drift, and it was hidden behind the map literal.**
+3. **`using` is per-file, not per-module.** `index.bs` carries `using Shop.Orders` and the other
+   files expect it to cover them. Ticket 41 §1 made a file's `using` lines its own dependency list,
+   and the compiler says so: *"a call that skips them makes that list wrong."* Also drift.
+4. **`Request` is never declared.** `admit.bs`'s valve chain reads `r.Authed`, `r.Verified`,
+   `r.Quota`, `r.Size` and `r.Beta`; no `record Request` exists in `index.bs`. The chain was added
+   on 2026-08-15 when the ladder was retracted, and **nothing has ever compiled it**, so a type the
+   showcase function depends on has been missing for six days. This is a defect in the exemplar.
+5. **`Orders.All()` wants an import alias.** `using Shop.Orders` does not bind the short name
+   `Orders`, and the compiler asks for `using Orders`. → **ticket 47**, which is in fog and whose
+   own note says an alias "may be the only spelling when two imports collide". Here is an exemplar
+   that wants one for a plainer reason: the module is `Shop.Orders` and the call site says `Orders`.
+
+**And one finding that is neither drift nor a gap.** `route.bs` writes `Route(:get, ["orders", id], _)`
+— a **closed** list pattern. Ticket 08 settled that *prefix-plus-rest is the only list pattern*, and
+the diagnostic is explicit: *"a list pattern needs a rest; write `[h, ..t]`."* So the exemplar whose
+stated purpose is *"routing as multi-clause dispatch on method and path"* is written in a form the
+language **refuses by design**, and there is no spelling for "a path of exactly two segments". That
+is a decision to take, not a feature to build, and no ticket holds it yet.
 
 ## The dialect rewrite, 2026-08-15 — and the spellings it could not reach
 
@@ -129,9 +150,16 @@ narrower: every spelling that has a decided target now uses it, and the seven ab
 instead of camouflaged. Four of the seven are the same fog patch wearing different clothes — the
 module system — which is worth knowing before anything is handed to anyone.
 
-**And nothing prevents this recurring.** `bin/extract-exemplars.sh --check` catches the extracted
+~~**And nothing prevents this recurring.** `bin/extract-exemplars.sh --check` catches the extracted
 files going stale against the prototypes; nothing catches the prototypes going stale against the
-*language*. That gap is exactly what let 63 clause heads rot in place.
+*language*. That gap is exactly what let 63 clause heads rot in place.~~
+
+**CLOSED 2026-08-21** — and the sentence is kept because it named the gap correctly for six days
+before anything filled it. `compiler/bin/check-exemplar-frontier.sh` compiles every exemplar on
+every CI run and requires the result to equal [`FRONTIER`](FRONTIER). The two gates are halves of
+one claim and neither is sufficient: `--check` proves these files match the write-ups, the frontier
+gate proves the write-ups still describe a language the compiler has. Both can agree perfectly and
+both be obsolete, which is what happened.
 
 **One coupling is recorded in 25c and in neither ticket**: interval *patterns* and interval
 *refinements* must land in the **same** increment. Today a parameter declared `int` has an open

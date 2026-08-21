@@ -505,6 +505,19 @@
   Sequence with 50 — both ask what an FFI declaration carries, and answering them apart risks two
   extensions to one construct designed by different sessions.
 
+- **A route table needs a closed list pattern, and ticket 08 refused one** — →
+  **[ticket 53](issues/53-a-route-table-needs-a-closed-list-pattern.md)**, raised 2026-08-21 from
+  the first run of the exemplar frontier gate, which put 25a through the real compiler for the first
+  time. All four heads of the route table are refused — *"a list pattern needs a rest; write
+  `[h, ..t]`"* — which is ticket 08 working as decided. The uncosted consequence: **there is no
+  spelling for "a path of exactly two segments"**, so `["orders", ..t]` swallows `/orders/42/lines/7`
+  and the arity distinction a router is made of cannot be written in a head. The exemplar whose
+  stated purpose is *"routing as multi-clause dispatch on method and path"* is written in a form the
+  language refuses. Four candidates, none costed, and the one to weigh first is **that routes are
+  not lists** — ticket 31 has just dissolved 25a's other headline friction the same way, by finding
+  the exemplar's shape wrong rather than the language's. Owed since 2026-08-12 and invisible until
+  something compiled it, which is the argument for the gate as much as for the ticket.
+
 <!--
   GRADUATED 2026-08-12 (ticket 10): "Runtime behaviour against untyped callers — what, if
   anything, the compiler emits to defend a typed function called from raw Erlang." This is

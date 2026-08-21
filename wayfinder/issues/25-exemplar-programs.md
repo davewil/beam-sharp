@@ -429,3 +429,50 @@ deliberately does not make.
 **It changes nothing today.** The exemplars are pruned from every gate that compiles, because they
 are the compiler's target rather than a passing corpus. This is recorded so it is not rediscovered
 as a surprise the day they first parse.
+
+## The exemplars are now compiled on every CI run — 2026-08-21
+
+**"Written, runs" in the table above has always meant the hand-written Erlang lowering, never the
+`.bs`.** The distinction was recorded honestly and then read as the stronger claim for a week, which
+is how six capability rows in `compiler/examples/exemplars/README.md` came to say `out` while F3,
+F2, F13, F18, F15 and F10 had built them.
+
+`compiler/bin/check-exemplar-frontier.sh` closes that. It compiles all three exemplars with `bsc`
+and requires the result to equal [`FRONTIER`](../../compiler/examples/exemplars/FRONTIER), which
+records where each one stops. **It is red when an exemplar gets further than the record says**, not
+only when one regresses — the note above about "the day they first parse" being a surprise is
+exactly the event it now refuses to let pass quietly.
+
+The frontier as first measured:
+
+| Exemplar | Stops at | Construct |
+|---|---|---|
+| 25a | `create_order.bs` | `#{ … }` — an anonymous map literal → [ticket 48](48-a-map-type-in-the-prelude.md) |
+| 25b | `encode.bs` | `(acc, c) => …` — a lambda; decided at ticket 27 §(c), unbuilt |
+| 25c | `consume.bs` | `Frame { … } f` — destructure-and-bind; `p_alias` has no surface |
+
+**And 25c's wall had already moved without anyone noticing.** F13 shipped binary patterns on
+2026-08-20; 25c stopped failing on `<` at `consume.bs:14` and started failing five lines later. The
+record kept saying line 14 for a day with twelve gates green, which is the whole argument for
+measuring this rather than describing it.
+
+### What the front wall was hiding
+
+`bsc` stops at the first error, so a wall conceals every one behind it. Neutralising 25a's map
+literal in a scratch copy and recompiling found **four more**, written up in full in the exemplars
+README under "Behind the wall". Two are dialect drift of the kind this ticket's 2026-08-15 rewrite
+was supposed to have ended — no `module` line, and a `using` in `index.bs` that the other files
+expect to inherit — and two are worth more than that:
+
+- **`admit.bs` reads five fields off a `Request` record that does not exist.** The valve chain was
+  added on 2026-08-15 when the ladder was retracted, and nothing has ever compiled it. The showcase
+  function of the showcase exemplar has been missing a type for six days. **This is a defect in the
+  exemplar** and wants fixing in the write-up.
+- **The route table cannot be written in this language.** All four heads are refused, because
+  ticket 08 permits only prefix-plus-rest and nothing spells "a path of exactly two segments". Raised
+  as [ticket 53](53-a-route-table-needs-a-closed-list-pattern.md).
+
+Ticket 53 is the vindication of this ticket's own premise, arriving late. §"The risk this set exists
+to test" says the exemplars are how ticket 22's narrowing risk *"gets measured rather than argued"* —
+and the first time one of them met the compiler, it turned out the aggregate reads beautifully and
+the router cannot be written at all.

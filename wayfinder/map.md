@@ -329,6 +329,9 @@ Bodies in [`fog.md`](fog.md). These are open: read the body before assuming a di
   rewrite for *"no exemplar declares one"*
 - **`cond`, or whatever serves a long ladder of unrelated conditions** `#17` `syntax`
   no case for it yet; the width-five evidence was retracted and 25a's ladder is now a valve chain
+- **A route table needs a closed list pattern, and ticket 08 refused one** `#53` `syntax` `patterns`
+  25a's four route heads are all refused; 08 allows only prefix-plus-rest, so nothing spells "a path
+  of exactly two segments". Weigh "routes are not lists" first — 31 dissolved 25a's other friction
 
 ---
 

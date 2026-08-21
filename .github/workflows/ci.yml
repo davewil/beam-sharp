@@ -374,6 +374,24 @@ jobs:
         working-directory: compiler
         run: ./bin/extract-exemplars.sh --check
 
+      # AND THE STEP ABOVE ONLY CHECKS ONE OF THE TWO WAYS THEY GO STALE.
+      # `--check` proves the extracted files match the write-ups. Both can agree
+      # perfectly and both describe a language the compiler no longer has —
+      # which is what happened: 63 clause heads rotted in a dropped dialect, and
+      # F13's binary patterns moved 25c's wall from `consume.bs:14` to `:20`
+      # while the record kept saying 14 and twelve gates stayed green.
+      #
+      # ITS SELF-TEST IS HERE RATHER THAN WITH THE CHEAP ONES because all five
+      # of its controls drive the real `bsc` over copies of the real exemplars,
+      # so they cannot run before `escriptize`. The gate refuses rather than
+      # skipping when the escript is missing, so reordering the steps cannot
+      # quietly turn either one into a no-op.
+      - name: The exemplar frontier gate proves it can fail
+        run: ./compiler/bin/check-exemplar-frontier.sh --self-test
+
+      - name: The exemplars stop where FRONTIER says they do
+        run: ./compiler/bin/check-exemplar-frontier.sh
+
 # NOTHING IS EXCLUDED FROM THIS WORKFLOW.
 #
 # There was a block here naming two scripts that failed on master, on the

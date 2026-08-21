@@ -1,0 +1,43 @@
+# THE MEASURED EXEMPLAR FRONTIER — where each of ticket 25's exemplars stops today.
+#
+# WHY THIS FILE EXISTS
+# `examples/exemplars/README.md` used to answer this question in prose, and the
+# prose rotted in the one direction nobody watches: the compiler got BETTER and
+# the record did not follow. F13 landed binary patterns on 2026-08-20 and 25c
+# stopped needing them — its wall moved from `consume.bs:14` on `<` to
+# `consume.bs:20` on a destructure-and-bind pattern — while every gate stayed
+# green, because no gate had ever compiled these files. The README says so
+# itself: "`--check` catches the extracted files going stale against the
+# prototypes; nothing catches the prototypes going stale against the *language*."
+# This is that missing check's data.
+#
+# HOW TO READ A RECORD
+# One record per directory under `compiler/examples/exemplars/`, tab-separated:
+#
+#     <directory>  <file>  <first diagnostic, path and line number removed>
+#
+# A directory that compiles clean is recorded as:
+#
+#     <directory>  -  clean
+#
+# The construct is pinned, NOT the line number. These files are regenerated from
+# the write-ups by `extract-exemplars.sh`, so a sentence added to a prototype
+# shifts every line below it; a gate that fired on that would be muted inside a
+# week. `error: syntax error before: '=>'` is the claim worth defending.
+#
+# HOW TO CHANGE IT
+# Do not hand-edit a record to make the gate green. Run
+# `compiler/bin/check-exemplar-frontier.sh --update`, read the diff, and say in
+# the commit message WHICH capability moved the wall. A record moving forward is
+# the good news this gate exists to make visible — F13 earned it and nobody
+# noticed for a day.
+#
+# WHAT A WALL IS NOT
+# It is not a ranked list of everything an exemplar still needs. `bsc` stops at
+# the first error, so a wall hides the ones behind it; the walls measured behind
+# these three on 2026-08-21 are written up in README.md under "Behind the wall".
+# A record moving forward means the front wall fell, never that the file is done.
+
+25a-http-api-server	create_order.bs	error: illegal characters "#"
+25b-websocket-handler	encode.bs	error: syntax error before: '=>'
+25c-event-queue-consumer	consume.bs	error: syntax error before: 'Frame'
