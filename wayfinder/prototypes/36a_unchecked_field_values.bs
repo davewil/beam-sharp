@@ -1,0 +1,26 @@
+// 36a — the defect ticket 36 names, measured at cf32e50 (before F21).
+//
+// Both functions compile clean and reach a .beam: `bsc -o out 36a...bs` exits 0
+// with no diagnostic. `Id: int` is a declared type and `:oops` is a synthesised
+// one that does not meet it, at construction and at `with` alike.
+//
+// The emitted -spec declares `'Id' := integer()` while the emitted body writes
+// `'Id' => oops` in the same file, so Dialyzer names both:
+//
+//   Invalid type specification for function 'Probe':'Make'/1.
+//   Invalid type specification for function 'Probe':'Bump'/1.
+//     The return types do not overlap
+//
+// After F21 both lines are `field_value_not_accepted` at compile time.
+//
+module Probe
+
+record Order { Id: int, Total: int }
+
+public Order Make(int n)
+
+Make(n) -> Order{ Id = :oops, Total = n }
+
+public Order Bump(Order o)
+
+Bump(o) -> o with { Total = :oops }

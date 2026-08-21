@@ -241,12 +241,12 @@ Bodies in [`decisions.md`](decisions.md). Ticket text in `issues/`.
   a module IS an atom, so `using :ets { … }` and the call site is `:ets.lookup(t, k)`
 - **Local bindings** `#34` `syntax` `built:F4`
   a body is bindings then one expression; rebinding is an error
-- **The body check site** `#33` `types` `built:F5`
-  a body is typed; checking is containment at five sites, and the residual survives at four
+- **The body check site** `#33` `#36` `types` `records` `built:F5,F21`
+  a body is typed; checking is containment at five sites and the residual survives at four. Site 2 is
+  *field assignment*: `Order{ Id = :oops }` and `o with { … }` both check, and there is still no sixth
 - **Module and namespace system, and function identity** `#40` `modules` `codegen` `syntax` `built:F11,F15,F12`
   the atom is **forced** by 26's tag mint — full dotted path. Arity overloading permitted and now
-  real; the directory half is built, and `public`/`private` (**F12**) closes §3. Gained the
-  `syntax` tag 2026-08-17 — see decisions.md
+  real; the directory half is built, and `public`/`private` (**F12**) closes §3.
 - **Imports and cross-module scope** `#41` `modules` `codegen` `built:F11,F15`
   `using` imports **unqualified**; a namespace is a directory holding no `.bs` files. The compiler
   owns the dependency graph — *"single-file"* was false, and §1's own grammar delta was too. §4/§5's

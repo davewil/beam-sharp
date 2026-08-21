@@ -808,6 +808,35 @@
   is unchecked at construction and at `with` alike, because §2's relation is the field *set* and §1's
   principle says otherwise → [ticket 36](issues/36-field-value-obligations.md).
 
+  **[Ticket 36](issues/36-field-value-obligations.md) closed that hole on 2026-08-21, and closed it
+  without a sixth site.** The answer is **yes to both**, and the reason there is no asymmetry to
+  weigh is that **site 2 is not "construction" — it is *field assignment***, of which `Order{ … }`
+  and `o with { … }` are two spellings meeting **one** declaration. §2's closing sentence was never
+  about `with`: its own justification clause enumerates the forms that declare nothing — `e_op`,
+  `e_tuple`, `e_list`, `e_block` — and `e_with` is not among them, because `Total: int` is written
+  in the record declaration and governs both spellings alike. The ticket's case for a sixth site
+  rested on §1's `e_with` row (*"the base's type, unchanged"*), which is a **synthesis** row; using
+  it to settle an obligation is precisely the conflation §1 was written to break. **So §2's closing
+  sentence stands unamended and §2's site-2 *relation* widens**: supplied field set = declared field
+  set, **and** each supplied value is contained in that field's declared type. **What the ticket got
+  wrong is its own scope fence.** It forbade re-deriving the name half — *"F5 enforces it"* — and F5
+  enforces it **at construction only**: `o with { Nope = 1 }` compiled clean, emitted Erlang's `:=`,
+  and raised `{badkey,'Nope'}` at **run time**, so 26 §2's width-preservation was being delivered by
+  the BEAM rather than by the compiler. Three defects, not two. **The strongest evidence was already
+  in the emitted code**: `bsc` writes a `-spec` declaring the field type and a body violating it in
+  the same file, and **Dialyzer names both halves with one verdict** — *"the return types do not
+  overlap"* — which is 18's criticism of Gleam turned inward, the very argument §2 used to add site
+  4. Gleam 1.18.1, measured rather than cited, rejects construction and update with two identical
+  errors and draws no line between them. **One verdict this corrects rather than extends**: §3
+  marked construction's residual *useless*, and that was the **name** residual; the **value**
+  residual is `type_of(:oops) \ int` = `:oops`, precise beside a known field name — so the one site
+  §3 recorded as unable to hand an agent anything writable can do so on its value arm, which
+  strengthens 23. The delta grew in scope but not in kind — containment against `declared_fields/1`,
+  **nothing new in `bs_types`** — and the name arm needs no new diagnostic, since
+  `field_set_mismatch` already carries an `Extra` list whose prose reads *"not declared by Order"*;
+  only its headline verb was wrong, because `with` updates rather than builds. Built as
+  [F21](../compiler/features/F21-field-value-obligations.md).
+
 
 - **Module and namespace system, and function identity** — [ticket 40](issues/40-module-and-namespace-system.md),
   resolved 2026-08-15. Three sections, and they were answered by three different kinds of argument,

@@ -1,0 +1,26 @@
+// 36b — the THIRD defect, which ticket 36 did not name and its scope fence
+// explicitly forbade looking for: *"this ticket is about the values, not the
+// names"*. Measured at cf32e50 (before F21).
+//
+// `Nope` is not a declared field of `Order`. 26 §2 says `with` is
+// width-preserving and cannot add one — and at cf32e50 the compiler accepted
+// this, exiting 0, emitting Erlang's `:=`:
+//
+//   {map_field_exact,7,{atom,7,'Nope'},{integer,7,1}}
+//
+// …so the width-preservation was delivered by the BEAM at RUN time, not by the
+// compiler at compile time:
+//
+//   erl> 'P2':'Grow'(#{'Kind' => 'P2.Order', 'Id' => 1, 'Total' => 2}).
+//   RAISED error:{badkey,'Nope'}
+//
+// F5 enforces the name half at CONSTRUCTION only. After F21 this is
+// `field_set_mismatch` with an empty Missing list and `Nope` in Extra.
+//
+module P2
+
+record Order { Id: int, Total: int }
+
+public Order Grow(Order o)
+
+Grow(o) -> o with { Nope = 1 }
