@@ -1,7 +1,7 @@
 # 51 — Does beam-sharp need a build tool, or does it ride on rebar3 and mix?
 
 Type: grilling
-Status: open — [ENG-233](https://linear.app/davewil/issue/ENG-233)
+Status: resolved 2026-08-21 — [ENG-233](https://linear.app/davewil/issue/ENG-233)
 
 Raised 2026-08-21 by David, alongside [ticket 50](50-naming-a-foreign-struct.md): *"I want to look
 at something like the mix tool from Elixir that manages deps, should probably consider needing a
@@ -136,3 +136,63 @@ already works.
   is itself an Erlang escript. And none of this applies to a program that calls no Elixir library.
 - **A gate would need a dependency tree.** Any exemplar binding Req makes CI fetch and compile nine
   packages, which is the first time this repo's gates would depend on the network.
+
+---
+
+## Answer — resolved 2026-08-21
+
+**beam-sharp builds no dependency tool. It reads what rebar3 or mix already produced, and that
+needs no compiler change at all.**
+
+The ticket asked whether a mix-equivalent was owed. Measured, the question dissolved: `ERL_LIBS` is
+honoured by the BEAM code server, an escript inherits it, and both neighbours already emit one
+directory per application with an `ebin` inside — which is exactly the shape `ERL_LIBS` means. So
+candidate 1 was written as *"one flag"* and the real answer is **none**. `bsc` reached Req 0.7.3 and
+its nine-package tree unmodified.
+
+**rebar3 is the neighbour to prefer**, and that is the one part of this that is a choice rather than
+a measurement. `bsc` is itself a rebar3 escript, so with `{plugins, [rebar_mix]}` a beam-sharp
+application that consumes Elixir libraries declares them in `rebar.config` and stays inside one
+toolchain, with no `mix.exs` anywhere. mix works equally well for anyone who prefers it; nothing in
+the language cares which produced the directory.
+
+### What this means for Elixir, plainly
+
+**It is a per-project dependency, not a per-language one.** A beam-sharp program that calls no
+Elixir library needs Erlang and nothing else — Erlang/OTP is not a dependency in any case, it is the
+target.
+
+| | Elixir needed? |
+|---|---|
+| the machine that **builds** a program using Req | **yes, installed** — something has to compile `.ex` source and only Elixir does. `rebar_mix` *drives* Elixir, it does not replace it |
+| the artefact that **runs** it | **no install** — only Elixir's `.beam` files present, which an OTP release bundles like any other dependency (verified: beams copied to a plain directory work identically) |
+
+There is **no Erlang-only path** to consuming an Elixir library. That is unsurprising once stated,
+and it is a fact about the BEAM rather than about this language: using someone's library means
+taking on their runtime, exactly as calling a Java library from Kotlin does.
+
+### The scope boundary held, and did not need bending
+
+`scope.md` refuses *"package manager, build tool, hex/rebar3/mix integration"*. **Nothing here is
+any of those.** No version is resolved, nothing is locked, fetched or published — beam-sharp reads
+a directory and the neighbours keep doing the work they already do. The boundary's test —
+*"is this the multi-year track, or one capability the language owes its author"* — is answered
+without a capability being added at all.
+
+### What is deliberately NOT closed here
+
+**Nothing in a `.bs` file records which dependencies it needs.** `ERL_LIBS` is an environment
+variable, so a module calling Req carries no statement of that fact, and the clean-room handoff —
+the destination — cannot reconstruct it from the source. That is a **provenance** question, not a
+packaging one, and it is the half of a build tool that beam-sharp may genuinely owe.
+
+The candidate worth capturing, per the standing rule to record what a deferred option would need:
+**the FFI declaration may already be the right home.** `using :'Elixir.Req' { … }` names the module;
+it does not name the *application*. Extending that declaration to carry it would put provenance in
+the language, where the spec can see it, and out of the tooling boundary entirely — no manifest, no
+second file, nothing for a package manager to own.
+→ **[ticket 52](52-dependency-provenance.md)** ([ENG-234](https://linear.app/davewil/issue/ENG-234)).
+
+**And one practical consequence, logged not solved:** an exemplar binding Req makes CI fetch and
+compile nine packages and requires Elixir on the runner. That would be the first gate in this repo
+to depend on the network, and it is ticket 50's problem to sequence.

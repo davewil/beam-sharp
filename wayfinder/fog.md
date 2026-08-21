@@ -493,20 +493,17 @@
   is the real argument against: today you recognise `(:error, _)` on the page, where shape B asks you
   to know the stage's signature.
 
-- **A build and dependency tool, or riding on rebar3 and mix** — → **[ticket 51](issues/51-a-build-and-dependency-tool.md)**,
-  raised 2026-08-21 by David alongside 50: *"I want to look at something like the mix tool from
-  Elixir that manages deps."* **This one sits against `scope.md`'s Tooling boundary and the ticket
-  says so up front.** What makes it raisable is the boundary's own clarification — it rules out the
-  ecosystem *track*, not *"any capability that happens to serve tooling"* — plus a measurement:
-  prototype 50a ran to `crashed: error:undef`. **MEASURED 2026-08-21 and the answer is smaller than
-  candidate 1 was written**: not "one flag" but *none* — `ERL_LIBS` is honoured by the code server,
-  an escript inherits it, and `mix deps.compile` already emits the layout it means, so `bsc` reached
-  Req 0.7.3 and its nine-package tree with no compiler change at all. What is left is **provenance**,
-  not packaging: an environment variable means a `.bs` file calling Req carries no record of needing
-  it, which the clean-room handoff cannot reconstruct. Stated as *"build a mix"* the boundary refuses it correctly; stated as
-  *"do we build one at all, or read the `_build` a neighbour already produced"* it may be a decision
-  worth one line and no track. The guard is the scope test itself: resolving versions, locking,
-  fetching or publishing is the track; reading a directory somebody else built is not.
+- **Dependency provenance: what a `.bs` file says about what it needs** — → **[ticket 52](issues/52-dependency-provenance.md)**,
+  the residual of 51, which decided beam-sharp builds **no** dependency tool. `ERL_LIBS` reaches Req
+  with no compiler change, and that is exactly the problem: a module opening `using :'Elixir.Req'`
+  names the *module* and never the *application*, so a program's dependencies live only in the
+  environment that happened to build it and **the clean-room handoff cannot reconstruct them**. Not
+  what the scope boundary refuses — no resolution, locking, fetching or publishing — but what the
+  source says about itself, which is a language question. The candidate 51 captured: the **FFI
+  declaration may already be the right home**, since it is the one place the source already names a
+  foreign thing. A name is compile-time checkable; a *version* would be resolution and stays refused.
+  Sequence with 50 — both ask what an FFI declaration carries, and answering them apart risks two
+  extensions to one construct designed by different sessions.
 
 <!--
   GRADUATED 2026-08-12 (ticket 10): "Runtime behaviour against untyped callers — what, if

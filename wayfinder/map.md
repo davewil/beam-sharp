@@ -50,11 +50,8 @@ spec exists.
   **Not every ticket is a child of ENG-165** — 36–41 hang off the *project* instead, which is
   cosmetic rather than a gap, but it means a children-of-165 query under-counts by six. A fifth
   offset, 48 → **[ENG-230](https://linear.app/davewil/issue/ENG-230)**, `+182`.
-  **A FOURTH VALUE, and the guard held — 2026-08-15.** Tickets **42 is
-  [ENG-212](https://linear.app/davewil/issue/ENG-212)** and **43 is
-  [ENG-213](https://linear.app/davewil/issue/ENG-213)**: offset `+170`, against `+166`, `+167` and
-  `+172` before it. Four values, no pattern, which is now simply the settled state of this mapping
-  rather than news. Both issues were created in the same act as their repo files, so no gap opened.
+  Offsets seen: `+166`, `+167`, `+170` (42/43), `+172`, `+182`. No pattern, and that is the settled
+  state of this mapping rather than news.
   **The failure moved rather than stopping, and the new form is worth more than the old.** Ticket 42
   and 43 were *named as owed* inside `F2`'s feature file for a day — *"raise a ticket before writing
   this scenario's implementation"* — and never raised, so the compiler's queue held two blockers no
@@ -275,6 +272,9 @@ Bodies in [`decisions.md`](decisions.md). Ticket text in `issues/`.
 - **Binaries as a parsing grammar** `#30` `binaries` `types` `patterns` `built:F13`
   no type-language structure; a segment's **width** refines what it binds — `t:8` is an `Octet`.
   **Beyond all four languages surveyed** and it did not bite; F13 corrected two of its costs
+- **A build and dependency tool, or riding on rebar3 and mix** `#51` `ffi` `tooling`
+  **none is built** — `ERL_LIBS` already reaches Req with a zero compiler delta, and rebar3 is the
+  neighbour to prefer since `bsc` is one. Elixir is a per-*project* dependency; provenance → `#52`
 - **Composable middleware, and what the valve reaches** `#31` `syntax` `patterns` `errors`
   yes — a terminal stage that always halts makes the unwrap **one clause**, which neither neighbour
   can state. The cost is the atom: a `200 OK` spelled `(:error, _)`; `|?>` refuses `option<T>` (→ 49)
@@ -308,9 +308,6 @@ Bodies in [`fog.md`](fog.md). These are open: read the body before assuming a di
 - **Consuming Gleam and Elixir libraries** `ffi` `modules`
   the Elixir half is now `#50`. Confirmed against Req itself: the call works, the struct arrives
   tagged `:'Elixir.Req.Request'`, carries no `Kind`, and **no clause head can dispatch on it**
-- **A build and dependency tool, or riding on rebar3 and mix** `#51` `ffi` `tooling`
-  against `scope.md`'s Tooling boundary, and the ticket says so. **Measured: `ERL_LIBS` already
-  reaches Req with a zero compiler delta**, so what is left to decide is provenance, not packaging
 - **Laziness and `stream<T>`** `#17` `types`
   **deferred rather than refused** — David: *"defer lazy, we will want it"*
 - **Bootstrapping — how much of beam-sharp is written in beam-sharp** `codegen` `agent`
@@ -323,6 +320,9 @@ Bodies in [`fog.md`](fog.md). These are open: read the body before assuming a di
 - **What the valve keys on: the atom, or the declared type?** `#49` `syntax` `types`
   31c's shape B, with two measurements behind it — the one-clause unwrap removes the ergonomic
   case, and `|?>` **refuses `option<T>`**, the construct ticket 17 borrowed it for
+- **Dependency provenance: what a `.bs` file says about what it needs** `#52` `ffi` `tooling`
+  51 left it: `using :'Elixir.Req'` names the *module*, never the *application*, so dependencies live
+  only in the environment that built them. The FFI declaration may already be the home
 - **A map type in the prelude** `#48` `types` `prelude`
   opaque, matchable, or not at all. The record/map collision is measured and **dead** — the minted
   tag is what keeps them apart — but exhaustiveness over a map is vacuous. Waits on 25a's pipeline

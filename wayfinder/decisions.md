@@ -1307,3 +1307,24 @@
   type (→ ticket 48), and a stage dispatching on a **field projection** needs a catch-all, since
   guards discharge the residual on a bare parameter and **not** on a projection (controlled for).
   **25a is now rewritable as a pipeline**, which its own notes call the largest thing wrong with it.
+
+- [A build and dependency tool, or riding on rebar3 and mix](issues/51-a-build-and-dependency-tool.md) —
+  **beam-sharp builds none of it, and the code-path problem turned out not to exist.** The ticket
+  asked whether a mix-equivalent was owed and the question dissolved under measurement: `ERL_LIBS` is
+  honoured by the BEAM code server, an escript inherits it, and both neighbours already emit one
+  directory per application with an `ebin` inside — the exact shape `ERL_LIBS` means. Candidate 1 was
+  written as *"one flag"*; the answer is **none**, and `bsc` reached Req 0.7.3 and its nine-package
+  tree unmodified. **rebar3 is the neighbour to prefer** and that is the only choice here rather than
+  a measurement: `bsc` is itself a rebar3 escript, so with `rebar_mix` a beam-sharp application
+  declares Elixir dependencies in `rebar.config` and stays in one toolchain, no `mix.exs` anywhere.
+  **Elixir is a per-project dependency, not a per-language one** — installed on whatever *builds* a
+  program that uses Req, because something must compile `.ex` and only Elixir does (`rebar_mix`
+  *drives* it rather than replacing it, measured); present only as `.beam` files to *run* one, which
+  an OTP release bundles like anything else. A program calling no Elixir library needs Erlang alone,
+  and Erlang was never a dependency — it is the target. **The scope boundary held without bending**:
+  nothing here resolves, locks, fetches or publishes, so the refusal of a package manager was never
+  in tension with the finding. **What it deliberately leaves open is provenance** — nothing in a
+  `.bs` file records what it needs, so a program cannot be handed over on its source alone, and the
+  captured candidate is that the **FFI declaration is already the place a foreign thing is named**
+  (→ ticket 52). Practical consequence logged not solved: an exemplar binding Req makes CI fetch nine
+  packages and need Elixir on the runner, the first gate here to depend on the network.
