@@ -251,50 +251,42 @@ The rule this produced, which governs future borrowings: **borrow the construct,
 the glyph.** Where C# has the symbol but not the construct, taking the symbol buys no familiarity
 and costs a false friend.
 
-**A list pattern always ends in a rest, and the rest may itself be `[]`.** `[h, ..t]` is the only
-list pattern shape — a closed `[a, b]` is refused — but the rest is an ordinary pattern, so writing
-`[]` there closes the list: `[a, ..[]]` matches a list of exactly one, `[a, b, ..[]]` exactly two.
-That is how a route table distinguishes `/orders` from `/orders/42` without a length guard.
-**shipped**
-<!-- decided by ticket 08; the closed form measured and documented by ticket 53 -->
+**A list pattern is a prefix, and a rest marker is optional.** `[a, b]` is exactly two; `[a, b, ..]`
+is two or more and discards the tail; `[a, b, ..t]` is two or more and binds it. The marker is a
+marker and not a pattern — `..` or `..name`, nothing else — so a list pattern says how long the list
+is and what is in the positions it names, and nothing about the rest. **shipped**
+<!-- ticket 08 as amended by ticket 54; ticket 53 found the closed form and
+     ticket 54 replaced its spelling; the four-language survey is in 54 -->
 
-This is what compiles today, and the paragraph after it retires the spelling:
+`[a, b]` means exactly two in Erlang, Elixir, C# and Gleam alike. That is the one place this
+language's two reference families agree, so refusing it was the divergence rather than admitting it
+— and the refusal used to advise `[a, b, ..t]`, which means something else.
 
 <!-- check:
 public atom Dispatch(list<string> path)
 -->
 ```csharp
-Dispatch(["orders", ..[]])     -> :index
-Dispatch(["orders", id, ..[]]) -> :show
-Dispatch(_)                    -> :not_found
+Dispatch(["orders"])     -> :index
+Dispatch(["orders", id]) -> :show
+Dispatch(_)              -> :not_found
 ```
 
-**That spelling is retired, and the rest becomes a marker.** The route table above is written
-`Dispatch(["orders"])` and `Dispatch(["orders", id])` once this lands. A closed list is written
-`[a, b]` and means exactly two; `[a, b, ..]` and `[a, b, ..t]` mean two or more, discarding or
-binding the tail. `..[]` goes, and so does any other pattern in the rest position. `[a, b]` is
-exactly two in Erlang, Elixir, C# and Gleam alike — the one place the two families this language
-borrows from agree — and refusing it was the divergence, not admitting it. Nothing is lost:
-`..[b, ..t]` is `[a, b, ..t]`, `..[7]` is `[a, 7]`, and a rest matched against a bound name is a
-guard. **decided**
-<!-- ticket 54 amends ticket 08; the survey and the yecc measurement are in that ticket -->
+That is how a route table distinguishes `/orders` from `/orders/42` without a length guard, and
+`/orders/42/lines` reaches the catch-all rather than being swallowed by the second clause.
 
-**The checker does not see the length, and this is a live defect rather than a limitation.** A cons
-pattern is subtracted as *non-empty* whatever its prefix, so `[a, b, ..t]` is credited with matching
-every non-empty list — which makes `[]` beside `[a, b, ..t]` pass the exhaustiveness check and crash
-on a one-element list. A closed rest subtracts nothing at all. **Until that is fixed, a clause set
-over a list is proved only for the empty/non-empty split**, and a catch-all is doing more work than
-it appears to.
+**The checker sees the length, and it does so without ever measuring one.** A non-empty list is a
+product of an element and a tail, subtracted by the same rule that already subtracts tuples exactly,
+so length falls out of the recursion rather than being carried beside it. The residual is then a
+clause you can paste: `[]` beside `[a, b, ..]` leaves `[int]` — exactly-one — where a language with
+an O(1) length would say `{ Length: 1 }` and this one has no `length` to say it with. Depth is
+bounded by the longest prefix any clause writes, per nesting level, which is what makes the
+recursion terminate. **shipped**
+<!-- ticket 54, built as F20; the repro it deletes is four lines and is in that ticket -->
 
-**The answer is that the algebra never measures a length — it decomposes the cons cell.** A
-non-empty list is a product of an element and a tail, subtracted by the same rule that already
-subtracts tuples exactly, and length falls out of the recursion. The residual is then printable as
-a clause you can paste: `[]` beside `[a, b, ..]` leaves `[int]`, not a quantity. Depth is bounded
-by the longest prefix any clause writes, which is what makes the recursion terminate. A consequence
-worth stating: a closed residual over a list forbids a catch-all like any other closed residual, so
-a `list<bool>` missing its two length-one cases is an error naming them rather than a `_`. That
-bites only where the element type is closed. **decided**
-<!-- ticket 54; the four-language survey and the repro are in that ticket -->
+A consequence worth stating: a closed residual over a list forbids a catch-all exactly as any other
+closed residual does, so a `list<bool>` missing its two length-one cases is an error naming
+`[true]` and `[false]` rather than a `_`. That bites only where the element type is closed — over
+`list<int>` the element is unbounded, the residual stays open, and `_` remains legal.
 
 **To match against a value a name already holds, write `== name`.** A bare name in a pattern
 introduces a name; `== name` matches the value that name is bound to. **shipped**
@@ -379,7 +371,7 @@ of them is a union like any other, which is why `Verdict` above needs no special
 | `atom` | open universe, cofinite top | **shipped** |
 | `:ok` | a singleton atom type | **shipped** |
 | `(A, B)` | tuple | **shipped** |
-| `list<T>` | `[]` and `[h, ..t]` partition it; no length beyond that, and a longer prefix is credited wrongly — the cons cell decomposes instead, and length falls out | **shipped, with a hole; the fix is decided** |
+| `list<T>` | `[]` and `[h, ..t]` partition it, and a longer prefix narrows it: the cons cell decomposes, so length falls out without the type carrying one | **shipped** |
 | `term` | the top type — everything | **shipped** |
 | `none` | the bottom type, first-class | **shipped** |
 | `float` | | **open** |

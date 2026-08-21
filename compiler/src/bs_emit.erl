@@ -298,10 +298,10 @@ guard_one(Pat, {param, TypeExpr, _}, I, Line, Ctx) ->
 record_tag(TypeExpr, #{env := Env}) ->
     try bs_check:resolve(TypeExpr, Env) of
         #{maps := [{closed, Fields}], atoms := {finite, []}, ints := [],
-          tuples := [], lists := {false, none}, bins := []} ->
+          tuples := [], lists := [], bins := []} ->
             case maps:find('Kind', Fields) of
                 {ok, #{atoms := {finite, [Tag]}, ints := [], tuples := [],
-                       lists := {false, none}, maps := [], bins := []}} -> {ok, Tag};
+                       lists := [], maps := [], bins := []}} -> {ok, Tag};
                 _ -> none
             end;
         _ -> none
@@ -771,10 +771,10 @@ spec_type(Ty) ->
         Ps  -> {type, ?A, union, Ps}
     end.
 
-parts(#{atoms := As, ints := Is, tuples := Ts, lists := Ls, maps := Ms,
-        bins := Bs}) ->
+parts(Ty = #{atoms := As, ints := Is, tuples := Ts, maps := Ms,
+             bins := Bs}) ->
     atom_parts(As) ++ [int_part(R) || R <- Is] ++ tuple_parts(Ts)
-        ++ list_parts(Ls) ++ map_parts(Ms) ++ bin_parts(Bs).
+        ++ list_parts(Ty) ++ map_parts(Ms) ++ bin_parts(Bs).
 
 %% All three non-empty points emit `binary()`, and that is this function's own
 %% rule rather than a shortcut. Erlang's type language has no UTF-8 refinement,
@@ -811,12 +811,34 @@ tuple_parts(Ps)  -> [tuple_part(P) || P <- Ps].
 %% Erlang spells "list of T" and "non-empty list of T" but has no way to say
 %% "either, with this element type" beyond the former, so a cons-only part
 %% emits `nonempty_list(T)` and the pair emits `[T]`.
-list_parts({false, none}) -> [];
-list_parts({true, none})  -> [{type, ?A, nil, []}];
-list_parts({false, any})  -> [{type, ?A, nonempty_list, [{type, ?A, any, []}]}];
-list_parts({true, any})   -> [{type, ?A, list, [{type, ?A, any, []}]}];
-list_parts({false, T})    -> [{type, ?A, nonempty_list, [spec_type(T)]}];
-list_parts({true, T})     -> [{type, ?A, list, [spec_type(T)]}].
+%% F20 — THE SPEC WIDENS HERE, DELIBERATELY AND FOR THE FIRST TIME.
+%%
+%% Erlang's type grammar has `nil`, `nonempty_list(T)` and `list(T)`, and no
+%% fixed-length list at all: there is no way to write "exactly two ints". So a
+%% residual the checker knows exactly — `[int]` — leaves as `nonempty_list()`
+%% on the way into a `-spec`.
+%%
+%% This does not weaken anything the compiler proves. Exhaustiveness is decided
+%% in `bs_check` against the spine, before any of this runs; a `-spec` is read
+%% by Dialyzer as an upper bound on a success typing, so a wider one is honest
+%% and a narrower one would be a lie. Ticket 20's no-widening rule governs the
+%% ALGEBRA, which still does not widen — this is the boundary where the algebra
+%% meets a target grammar that cannot say what it knows.
+list_parts(Ty) ->
+    case {bs_types:has_nil(Ty), bs_types:has_cons(Ty)} of
+        {false, false} -> [];
+        {true, false}  -> [{type, ?A, nil, []}];
+        {Nil, true} ->
+            Elem = bs_types:list_elem(Ty),
+            Arg = case bs_types:is_subtype(bs_types:term(), Elem) of
+                      true  -> {type, ?A, any, []};
+                      false -> spec_type(Elem)
+                  end,
+            case Nil of
+                true  -> [{type, ?A, list, [Arg]}];
+                false -> [{type, ?A, nonempty_list, [Arg]}]
+            end
+    end.
 
 atom_parts({finite, L})    -> [{atom, ?A, A} || A <- L];
 atom_parts({cofinite, _})  -> [{type, ?A, atom, []}].   % widened: the exclusion is lost
@@ -927,8 +949,8 @@ close_over([Ty | Rest], Acc) ->
 %% its own right, so the "try each, blame here" fallback is built from the same
 %% generator rather than from a second one.
 children(Ty) ->
-    #{tuples := Ts, lists := Ls, maps := Ms} = Ty,
-    tuple_children(Ts) ++ list_children(Ls) ++ map_children(Ms).
+    #{tuples := Ts, maps := Ms} = Ty,
+    tuple_children(Ts) ++ list_children(Ty) ++ map_children(Ms).
 
 tuple_children(top) -> [];
 tuple_children(Products) ->
@@ -938,9 +960,12 @@ tuple_children(Products) ->
                       {alts, Ps}      -> [bs_types:tuple(P) || P <- Ps]
                   end || Case <- tuple_cases(Products)]).
 
-list_children({_, none}) -> [];
-list_children({_, any})  -> [];
-list_children({_, T})    -> [T || checked(T)].
+list_children(Ty) ->
+    Elem = bs_types:list_elem(Ty),
+    case bs_types:is_none(Elem) of
+        true  -> [];
+        false -> [Elem || checked(Elem)]
+    end.
 
 map_children(top) -> [];
 map_children(Members) ->
@@ -1080,13 +1105,13 @@ error_expr(Ty) ->
 ok_expr() -> {tuple, ?A, [{atom, ?A, ok}, ?VV]}.
 
 ty_clauses(Ty, Name, Table, Err) ->
-    #{atoms := As, ints := Is, tuples := Ts, lists := Ls, maps := Ms,
+    #{atoms := As, ints := Is, tuples := Ts, maps := Ms,
       bins := Bs} = Ty,
     atom_clauses(As)
     ++ int_clauses(Is)
     ++ bin_clauses(lists:sort(Bs), Err)
     ++ tuple_clauses(Ts, Table, Err)
-    ++ list_clauses(Ls, Name)
+    ++ list_clauses(Ty, Name)
     ++ map_clauses(Ms, Table, Err).
 
 atom_clauses({finite, Atoms}) ->
@@ -1164,10 +1189,12 @@ slot(Slot, Slot, Ty, _Prefix) ->
     {atom, ?A, A};
 slot(Slot, _Fixed, Ty, Prefix) -> component_var(Prefix, Slot, Ty).
 
-list_clauses({false, none}, _Name) -> [];
-list_clauses({true, none}, _Name)  -> [nil_clause()];
-list_clauses({Nil, _Elem}, Name) ->
-    [nil_clause() || Nil] ++ [cons_clause(Name)].
+list_clauses(Ty, Name) ->
+    case {bs_types:has_nil(Ty), bs_types:has_cons(Ty)} of
+        {false, false} -> [];
+        {true, false}  -> [nil_clause()];
+        {Nil, true}    -> [nil_clause() || Nil] ++ [cons_clause(Name)]
+    end.
 
 nil_clause() -> {clause, ?A, [{nil, ?A}], [], [ok_expr()]}.
 
@@ -1183,12 +1210,15 @@ cons_clause(Name) ->
         {clause, ?A, [{tuple, ?A, [{atom, ?A, error}, EV]}], [],
          [{tuple, ?A, [{atom, ?A, error}, EV]}]}]}]}.
 
-walker_form(#{lists := {_, none}}, _Name, _Table, _Err) -> [];
-walker_form(#{lists := {_, any}}, Name, _Table, Err)    -> [walker(Name, none, Err)];
-walker_form(#{lists := {_, Elem}}, Name, Table, Err) ->
-    case checked(Elem) of
-        true  -> [walker(Name, maps:get(Elem, Table), Err)];
-        false -> [walker(Name, none, Err)]
+walker_form(Ty, Name, Table, Err) ->
+    Elem = bs_types:list_elem(Ty),
+    case bs_types:is_none(Elem) of
+        true  -> [];
+        false ->
+            case checked(Elem) of
+                true  -> [walker(Name, maps:get(Elem, Table), Err)];
+                false -> [walker(Name, none, Err)]
+            end
     end.
 
 %% The element index is the one path segment computed at RUN time, since the

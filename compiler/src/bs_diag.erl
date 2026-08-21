@@ -338,9 +338,6 @@ descriptor(Path, {empty_refinement, Line}) ->
 descriptor(Path, {relational_pattern_nested, Line}) ->
     #{tag => relational_pattern_nested, severity => error, file => Path,
       line => Line};
-descriptor(Path, {list_pattern_needs_rest, Line}) ->
-    #{tag => list_pattern_needs_rest, severity => error, file => Path,
-      line => Line};
 %% Ticket 40 §2. Two signatures of the SAME arity are one function declared
 %% twice, and its clauses would otherwise merge silently.
 descriptor(Path, {name_redeclared, Name, Arity, Line}) ->
@@ -816,10 +813,6 @@ message(#{tag := segment_size_not_bound, file := P, line := L, name := V}) ->
      "  and the match then silently never succeeds, which is why it~n"
      "  is refused here.~n",
      [P, L, V]};
-message(#{tag := list_pattern_needs_rest, file := P, line := L}) ->
-    {"~s:~p: error: a list pattern needs a rest~n"
-     "  write `[h, ..t]`. Prefix-plus-rest is the only list pattern.~n",
-     [P, L]};
 message(#{tag := name_redeclared, file := P, line := L, name := Name,
           arity := Arity}) ->
     {"~s:~p: error: ~s/~p is declared more than once~n"

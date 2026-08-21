@@ -493,10 +493,34 @@ pattern -> '[' ']'          : {p_nil, line('$1')}.
 pattern -> '[' plist_items ']' :
     begin {Items, Rest} = '$2', {p_list, line('$1'), Items, Rest} end.
 
+%% F20, ticket 54 — THE REST IS A MARKER, NOT A PATTERN.
+%%
+%% `nil` here means the list is CLOSED: `[a, b]` is exactly two. It used to mean
+%% "no rest was written", which `bs_check` turned into an error telling you to
+%% write `[h, ..t]` — a form meaning two-or-MORE, which is a different program
+%% and the one the checker miscounted. `[a, b]` is exactly-two in Erlang,
+%% Elixir, C# and Gleam alike; refusing it was the divergence.
+%%
+%% The marker may bind (`..t`) or not (`..`, `.._`), and it constrains nothing.
+%% That is what bounds the checker's unfolding to the longest prefix written.
 plist_items -> pattern                 : {['$1'], nil}.
-plist_items -> '..' pattern            : {[], '$2'}.
+plist_items -> '..'                    : {[], {p_wild, line('$1')}}.
+plist_items -> '..' '_'                : {[], {p_wild, line('$2')}}.
+plist_items -> '..' lident             : {[], {p_var, line('$2'), value('$2')}}.
 plist_items -> pattern ',' plist_items :
     begin {Items, Rest} = '$3', {['$1' | Items], Rest} end.
+
+%% The two retired forms, caught here so they get a fix-it rather than a bare
+%% "syntax error before: '['". `..[]` was ticket 53's answer and is used four
+%% times in exemplar 25a, so it will be typed again from memory.
+plist_items -> '..' '[' ']'             :
+    return_error(line('$1'),
+                 "`..[]` is retired -- a closed list is written `[a, b]`, "
+                 "with no rest").
+plist_items -> '..' '[' plist_items ']' :
+    return_error(line('$1'),
+                 "a rest is `..` or `..name` -- write the elements in the "
+                 "prefix instead").
 
 guard -> '$empty'            : none.
 guard -> 'when' guard_expr   : {guard, '$2'}.
@@ -737,9 +761,16 @@ to_match({e_atom, L, A})  -> {p_atom, L, A};
 %% cannot say "this one" (ticket 30 §2). It falls to the error below.
 to_match({e_tuple, L, Es})-> {p_tuple, L, [to_match(E) || E <- Es]};
 to_match({e_nil, L})      -> {p_nil, L};
+%% F20 — THE SECOND SITE, AND THE ONE THAT WOULD HAVE BEEN MISSED.
+%%
+%% `plist_items` above restricts the rest in PATTERN position. A bare `=` parses
+%% its left side as an EXPRESSION and narrows it here, and the expression
+%% grammar still admits `..expr` because a spread is a real construct in that
+%% position. So `[a, ..[]] = xs` would have kept the retired form alive on a
+%% path nobody would think to look at. The rest narrows to a marker or not at
+%% all.
 to_match({e_list, L, Items, Rest}) ->
-    {p_list, L, [to_match(I) || I <- Items],
-     case Rest of nil -> nil; R -> to_match(R) end};
+    {p_list, L, [to_match(I) || I <- Items], to_match_rest(L, Rest)};
 %% F8.3 — the message names the fix, which is F4.7's rule. This is the single
 %% most common thing a reader coming from the old dialect will type.
 to_match({e_var, L, V}) ->
@@ -750,3 +781,15 @@ to_match(E) ->
     return_error(element(2, E),
                  "the left of a bare `=` must be a literal pattern. To introduce "
                  "a name, write `var <pattern> = ...`").
+
+%% `nil` is a closed list — `[a, b]` — and stays closed. `_` is the anonymous
+%% marker. A variable is handed to `to_match/1`, which is the right answer for a
+%% bare `=`: it introduces rather than matches, and that is already an error
+%% with a better message than anything here could say. Everything else is the
+%% retired form and gets the fix-it.
+to_match_rest(_L, nil)               -> nil;
+to_match_rest(_L, {e_wild, WL})      -> {p_wild, WL};
+to_match_rest(_L, E = {e_var, _, _}) -> to_match(E);
+to_match_rest(L, _E) ->
+    return_error(L, "a rest is `..` or `..name` -- `..[]` is retired, and a "
+                    "closed list is written `[a, b]`").

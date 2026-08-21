@@ -118,17 +118,21 @@ it: *"a list pattern needs a rest; write `[h, ..t]`."* That was reported here as
 *"written in a form the language refuses by design"*, with no spelling for a path of exactly two
 segments, and raised as ticket 53.
 
-**Wrong, and wrong in the direction this file keeps being wrong in.** The rest of a prefix-plus-rest
-pattern is itself a pattern, and `[]` is a pattern: `["orders", id, ..[]]` compiles, runs, and means
-exactly two. Ticket 53 resolves against its own premise and `route.bs` is fixed in the write-up.
-The diagnostic refuses a *missing* rest, not a closed list — it took three probe files to find that
-out and nobody had run one.
+**Wrong twice, and the second time was worse.** Ticket 53 found a spelling — the rest of a
+prefix-plus-rest pattern was itself a pattern, so `["orders", id, ..[]]` compiled and meant exactly
+two — and resolved against its own premise. Three probe files, and nobody had run one before.
 
-**What the probes did find is worse than the thing they went looking for.** A closed-length clause
-subtracts **nothing** from the residual, and a multi-element prefix is credited with **every**
-non-empty list — so `Shape([])` plus `Shape([a, b, ..t])` compiles clean and crashes on `[7]`. An
+**What those probes found is worse than the thing they went looking for.** A closed-length clause
+subtracted **nothing** from the residual, and a multi-element prefix was credited with **every**
+non-empty list — so `Shape([])` plus `Shape([a, b, ..t])` compiled clean and crashed on `[7]`. An
 exhaustiveness check that proves too much, in the language whose headline feature is the
 exhaustiveness check. → [ticket 54](../../../wayfinder/issues/54-list-length-in-the-algebra.md).
+
+**Both are fixed, and the original spelling turned out to be right.** F20 made the checker decompose
+the cons cell, so a prefix narrows the type instead of being rounded to *non-empty* — and it retired
+`..[]`, because `[a, b]` means exactly two in Erlang, Elixir, C# and Gleam alike. `route.bs` is back
+to `["orders", id]`, which is what this file said in the first place; what was missing was
+underneath it.
 
 ## The dialect rewrite, 2026-08-15 — and the spellings it could not reach
 

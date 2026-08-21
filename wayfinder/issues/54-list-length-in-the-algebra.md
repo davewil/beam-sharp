@@ -1,8 +1,10 @@
 # 54 — List length in the algebra: a proved-exhaustive program that crashes
 
 Type: grilling
-Status: **resolved 2026-08-21** — [ENG-236](https://linear.app/davewil/issue/ENG-236).
-See [Answer](#answer) at the end.
+Status: **resolved 2026-08-21, and built the same day** — [ENG-236](https://linear.app/davewil/issue/ENG-236).
+See [Answer](#answer) at the end. The build is
+[F20](../../compiler/features/F20-list-length.md), which carries the representation, and five
+things the decision did not know until code was written — including a correction to this file.
 
 Raised 2026-08-21 from [prototype 53a](../prototypes/53a-closed-list-patterns.md), which set out
 to test [ticket 53](53-a-route-table-needs-a-closed-list-pattern.md)'s premise and found this
@@ -246,7 +248,10 @@ not get a crash it can debug; it gets told a correct clause is dead, and deletes
 
 ## What must be built
 
-Not built here — this ticket produces the decision. The implementation is owed a feature file.
+**Built as [F20](../../compiler/features/F20-list-length.md), 2026-08-21.** The list kept below as
+written; what actually changed, and the five things measured only during the build, are in the
+feature file. The headline: the repro is now an error naming `Shape([int]) -> ...`, the route table
+is written `["orders", id]` and checked, and 458 tests pass.
 
 1. **`bs_types`** — the list part gains a spine. A non-empty list is a product `elem × tail`,
    subtracted by the existing `product_minus/2`; the fold marker terminates it. `l_open/1` and
@@ -289,7 +294,7 @@ root and get fixed independently.
 | multi-element prefix cons in `compiler/test/` | **zero** — every list pattern in the suite is single-element |
 | rest holding anything but a var or `_` | **4**, all `..[]` |
 | tests asserting the residual string `[int, ..]` | **zero** |
-| tests covering `list_pattern_needs_rest` | **zero** |
+| tests covering `list_pattern_needs_rest` | **zero** — but `check-diagnostics.sh` covers its deletion in both directions |
 | `..[]` in prose (LANGUAGE.md, wayfinder, exemplar READMEs) | ~30 |
 | stale comments asserting the old rule | **1** — `compiler/test/lists_tests.erl:12-13`, *"Ticket 08 settled prefix-plus-rest only"*, now false. No gate reads a comment, so it has to be fixed by hand |
 
@@ -300,10 +305,14 @@ root and get fixed independently.
 sorts before `route.bs` and already fails at the lexer, so it stays the first diagnostic and the
 `FRONTIER` record holds.
 
-**One trap.** Deleting `list_pattern_needs_rest` leaves its `message/1` clause orphaned in
-`bs_diag`, and `check-diagnostics.sh` asserts only the forward direction — every minted tag has a
-message. **A message with no tag stays green forever.** The dead-diagnostic sweep is manual, or
-the gate learns the reverse direction.
+**A trap that turned out not to be one — corrected 2026-08-21 during F20.** This ticket claimed
+that deleting `list_pattern_needs_rest` would leave its `message/1` clause orphaned unseen, because
+`check-diagnostics.sh` asserted only that every minted tag has a message. **That is false**, and it
+was written from a summary rather than from the file. The gate checks *both* directions — its
+third section reports *"message/1 renders tags descriptor/2 never mints"*, and it carries a control
+that builds exactly that defect. The dead-diagnostic sweep was already automated. The lesson is the
+one this repo keeps relearning: a claim about a gate is worth no more than the last time someone
+opened it.
 
 ## Premises measured
 

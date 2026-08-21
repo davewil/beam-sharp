@@ -331,7 +331,7 @@ Bodies in [`fog.md`](fog.md). These are open: read the body before assuming a di
   no case for it yet; the width-five evidence was retracted and 25a's ladder is now a valve chain
 - **List length in the algebra: a proved-exhaustive program that crashes** `#54` `types` `patterns`
   **decompose the cons, never measure it** — Gleam's answer; Elixir's set-theoretic types share the
-  hole. Rest becomes a marker, `[a, b]` is exactly-two, `..[]` retired: 08 amended, 53 answered
+  hole. Rest is a marker, `[a, b]` exactly-two, `..[]` retired: 08 amended, 53 answered. **Built, F20**
 
 ---
 

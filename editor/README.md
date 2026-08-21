@@ -131,8 +131,8 @@ Worth knowing before it is scheduled, because most of it is compiler work rather
 2. **Resolve-time errors carry no position at all.** `unknown_type`, `unknown_builtin`,
    `generic_arity`, `needs_type_args`, `not_parametric` and `cyclic_type` are raised via
    `erlang:error` from below the level that has a line, and caught in `check_and_emit`. They would
-   land as file-level diagnostics. `kind_field_is_minted` and `list_pattern_needs_rest` already carry
-   lines, so the fix has precedent in the same module.
+   land as file-level diagnostics. `kind_field_is_minted` already carries a
+   line, so the fix has precedent in the same module.
 3. **First error wins.** `with_stages` bails at the first lex or parse failure, which is poor while a
    file is being typed into.
 4. **Diagnostics are prose on stderr**, and this is *literally ticket 23's open question* — whether

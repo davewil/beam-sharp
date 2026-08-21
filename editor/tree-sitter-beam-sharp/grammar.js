@@ -62,6 +62,11 @@ module.exports = grammar({
   conflicts: $ => [
     [$.pattern, $._expression],
     [$.list_pattern, $.list],
+    // F20 — the rest MARKER may bind (`..t`) or be anonymous (`..` / `.._`),
+    // and the expression side still spreads an arbitrary expression, so `[.._]`
+    // is a pattern rest or an expression rest depending on where it sits. Same
+    // pattern/expression overlap as the pair above, one level down.
+    [$.rest_pattern, $._expression],
     // F15 — `Shop.Collections.List.Sum(…)`. Where the module path stops and the
     // function name starts is not decidable one token at a time; see the note on
     // `module_path`.
@@ -296,7 +301,9 @@ module.exports = grammar({
       field('pattern', $.pattern),
     ),
 
-    // Ticket 08 settled prefix-plus-rest only.
+    // Ticket 08 as amended by ticket 54 (F20): a prefix, and an OPTIONAL rest
+    // marker. `[a, b]` is exactly two; `[a, b, ..]` and `[a, b, ..t]` are two
+    // or more. The absent marker is meaningful here rather than an omission.
     list_pattern: $ => seq(
       '[',
       optional(seq(
@@ -307,7 +314,11 @@ module.exports = grammar({
       ']',
     ),
 
-    rest_pattern: $ => seq('..', $.pattern),
+    // A MARKER, NOT A PATTERN. `..[]` and `..[b, ..t]` were legal by accident
+    // of ticket 08's grammar and are retired — the compiler's parser refuses
+    // them with a fix-it, and this must refuse them too or the editor will
+    // highlight a form that will not build.
+    rest_pattern: $ => seq('..', optional(choice($.variable, $.wildcard))),
 
     // Ticket 30 / F13 — binaries as a PARSING GRAMMAR. This rule mirrors the
     // yecc productions (`bs_parser.yrl`, `bin_segment` / `bin_size`) rather

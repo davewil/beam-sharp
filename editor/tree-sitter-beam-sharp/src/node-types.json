@@ -1986,10 +1986,14 @@
     "fields": {},
     "children": {
       "multiple": false,
-      "required": true,
+      "required": false,
       "types": [
         {
-          "type": "pattern",
+          "type": "variable",
+          "named": true
+        },
+        {
+          "type": "wildcard",
           "named": true
         }
       ]

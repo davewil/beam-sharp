@@ -554,12 +554,14 @@ admissible_foreign_ret(Line, Mod, Fun, Ret, Env) ->
 %% unbounded check one bracket down.
 opaque_refinement(#{bins := Bs}) when Bs =/= [], Bs =/= [other, utf8] -> true;
 opaque_refinement(#{tuples := top}) -> false;
-opaque_refinement(#{tuples := Ps, lists := Ls, maps := Ms}) ->
+opaque_refinement(Ty = #{tuples := Ps, maps := Ms}) ->
     lists:any(fun opaque_refinement/1, lists:append(Ps))
-        orelse (case Ls of
-                    {_, E} when is_map(E) -> opaque_refinement(E);
-                    _                     -> false
-                end)
+        %% F20: the list part is a union of spines now, so ask for the element
+        %% type rather than destructuring. `has_lists/1` guards the recursion —
+        %% `list_elem/1` of a type holding no list is `none()`, whose own
+        %% element is `none()` again.
+        orelse (bs_types:has_lists(Ty)
+                andalso opaque_refinement(bs_types:list_elem(Ty)))
         orelse (case Ms of
                     top     -> false;
                     Members -> lists:any(
@@ -1454,9 +1456,8 @@ at_path(Ty, [{elem} | Rest]) ->
 at_path(Ty, [{tail} | Rest]) ->
     at_path(bs_types:list(elem_of(Ty)), Rest).
 
-elem_of(#{lists := {_, none}}) -> bs_types:none();
-elem_of(#{lists := {_, any}})  -> bs_types:term();
-elem_of(#{lists := {_, E}})    -> E.
+%% F20: what a list holds, whatever spines it is made of.
+elem_of(Ty) -> bs_types:list_elem(Ty).
 
 union_of([]) -> bs_types:none();
 union_of(Ts) -> bs_types:union(Ts).
@@ -2170,22 +2171,37 @@ pattern_type({p_bin, _, Segs}, _Path, _Env) ->
 %% both directions.
 pattern_type({p_str, _, _Bytes}, _Path, _Env) -> {bs_types:string(), #{}, false};
 pattern_type({p_nil, _}, _Path, _Env) -> {bs_types:nil(), #{}, true};
-%% Ticket 08 settled prefix-plus-rest only, so a list pattern without a rest is
-%% rejected rather than approximated.
-pattern_type({p_list, Line, _Items, nil}, _Path, _Env) ->
-    erlang:error({list_pattern_needs_rest, Line});
-pattern_type({p_list, _, Items, Rest}, Path, _Env) ->
-    %% `[h, ..t]` matches every non-empty list; `[0, ..t]` matches only some, so
-    %% it is an upper bound and credits nothing.
-    Exact = lists:all(fun open_pattern/1, Items) andalso open_pattern(Rest),
-    Binds = lists:foldl(fun maps:merge/2, #{},
-                        [binding(P, Path ++ [{elem}]) || P <- Items]
-                        ++ [binding(Rest, Path ++ [{tail}])]),
-    {bs_types:cons(bs_types:term()), Binds, Exact}.
-
-open_pattern({p_var, _, _}) -> true;
-open_pattern({p_wild, _})   -> true;
-open_pattern(_)             -> false.
+%% F20, ticket 54 — A LIST PATTERN IS A PRODUCT, AND IT IS SUBTRACTED AS ONE.
+%%
+%% This used to credit `cons(term())` — every non-empty list — whatever the
+%% prefix. `[]` beside `[a, b, ..]` was therefore proved exhaustive and crashed
+%% on `[7]`, and a closed prefix, which the grammar refused outright, subtracted
+%% nothing. Both halves were the same missing thing: nowhere to write a length.
+%%
+%% Now each written position contributes its own type, exactly as `p_tuple`
+%% above does, and `Rest = nil` means the pattern CLOSED rather than that it was
+%% malformed. `bs_types:spine/2` is the whole of the interface.
+%%
+%% Exactness is unchanged in spirit and is now per position: `[a, b, ..]` is
+%% exact because both positions are irrefutable, and `[0, ..]` is not, because
+%% the literal makes it an upper bound. `pattern_type` on each item computes
+%% that for free, where the old code had to ask `open_pattern/1` by hand.
+pattern_type({p_list, _, Items, Rest}, Path, Env) ->
+    %% The element path is `{elem}` for every position rather than one per
+    %% index, and that is deliberate rather than lazy: `opaque_step({elem})` is
+    %% already true, so a guard over a list element credits nothing whichever
+    %% position it names. Indexing the path would buy no precision and would
+    %% invite a refinement to leak between positions.
+    Triples = [pattern_type(P, Path ++ [{elem}], Env) || P <- Items],
+    Prefix = [T || {T, _, _} <- Triples],
+    Openness = case Rest of nil -> closed; _ -> open end,
+    Binds0 = lists:foldl(fun maps:merge/2, #{}, [B || {_, B, _} <- Triples]),
+    Binds = case Rest of
+                nil -> Binds0;
+                R   -> maps:merge(Binds0, binding(R, Path ++ [{tail}]))
+            end,
+    Exact = lists:all(fun({_, _, E}) -> E end, Triples),
+    {bs_types:spine(Prefix, Openness), Binds, Exact}.
 
 %%% --- F13: what a segment binds ---------------------------------------------
 

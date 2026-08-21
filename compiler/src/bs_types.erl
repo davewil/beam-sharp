@@ -26,6 +26,12 @@
 
 -export([none/0, term/0, atom_lit/1, atom_top/0, int/0, range/2, tuple/1]).
 -export([nil/0, cons/1, list/1]).
+%% F20: the list part stopped being two flags and became a union of spines, so
+%% the places that used to pattern-match its shape ask for what they wanted
+%% instead. `bs_check` wanted the element type of a tail; `bs_emit` wanted the
+%% same thing for its walker, and wanted to know whether a type holds any list
+%% at all. Neither wants a spine.
+-export([list_elem/1, has_lists/1, has_nil/1, has_cons/1, spine/2]).
 -export([binary_top/0, string/0]).
 -export([map_closed/1, map_open/1]).
 -export([union/2, union/1, intersect/2, subtract/2]).
@@ -46,15 +52,34 @@
 %% product list can express.
 -type tuple_part() :: top | [[ty()]].
 
-%% A list part: whether `[]` is included, and the element type of the non-empty
-%% lists included (`none` for none of them, `any` for "any element").
+%% A list part: a union of SPINES.
 %%
-%% Two flags rather than a recursive type, because the pattern language can only
-%% ask two questions of a list — is it empty, is it not — which is exactly
-%% ticket 08's prefix-plus-rest restriction showing up in the algebra. `any`
-%% exists so `term()` can contain lists without recursing into itself.
+%% A spine describes a set of lists by a prefix of element types plus what
+%% follows the prefix:
+%%
+%%   {P, closed}      length is exactly length(P); element i is in P_i
+%%   {P, {open, T}}   length is at least length(P); element i is in P_i for
+%%                    i =< length(P), and every LATER element is in T
+%%
+%% `[]` is `{[], closed}`. `none` is the empty union. `term()`'s lists are
+%% `{[], {open, any}}` — length >= 0, elements unconstrained — which is every
+%% list including the empty one, so the top needs one spine rather than two.
+%%
+%% THIS REPLACES `{boolean(), elem()}`, WHICH HAD NOWHERE TO PUT A LENGTH.
+%% That was ticket 54's defect: a cons pattern was subtracted as *non-empty*
+%% whatever its prefix, so `[]` beside `[a, b, ..]` was proved exhaustive and
+%% crashed on `[7]`. The old comment defended two flags on the grounds that
+%% "the pattern language can only ask two questions of a list" — which was true
+%% of ticket 08's grammar as written and false of the programs people wrote in
+%% it.
+%%
+%% `any` survives as a TAIL marker so `term()` can contain lists without
+%% recursing into itself; a prefix holds real `ty()`, and `e_ty/1` expands the
+%% marker at the one place a tail becomes a prefix element.
 -type elem() :: none | any | ty().
--type list_part() :: {boolean(), elem()}.
+-type rest() :: closed | {open, elem()}.
+-type spine() :: {[ty()], rest()}.
+-type list_part() :: [spine()].
 
 %% A map part — ticket 26's records, and the anonymous map types they are equal
 %% to. A member is a field set plus whether that set is the WHOLE domain:
@@ -103,7 +128,7 @@
 %%% Constructors
 %%% ---------------------------------------------------------------------------
 
-none() -> #{atoms => {finite, []}, ints => [], tuples => [], lists => {false, none},
+none() -> #{atoms => {finite, []}, ints => [], tuples => [], lists => [],
             maps => [], bins => []}.
 
 %% `term` in the surface language. The tuple part is deliberately absent: this
@@ -115,7 +140,7 @@ none() -> #{atoms => {finite, []}, ints => [], tuples => [], lists => {false, no
 %% from it is then wrong in the quiet direction.
 term() ->
     #{atoms => {cofinite, []}, ints => [{neg_inf, pos_inf}], tuples => top,
-      lists => {true, any}, maps => top, bins => [other, utf8]}.
+      lists => [{[], {open, any}}], maps => top, bins => [other, utf8]}.
 
 %% `binary` — the top of the part, both halves.
 binary_top() -> (none())#{bins => [other, utf8]}.
@@ -138,18 +163,63 @@ range(Lo, Hi) ->
     end.
 
 %% `[]` alone.
-nil() -> (none())#{lists => {true, none}}.
+nil() -> (none())#{lists => [{[], closed}]}.
 
 %% Every non-empty list whose elements are in T.
 cons(T) ->
     case is_none(T) of
         true  -> none();
-        false -> (none())#{lists => {false, T}}
+        false -> (none())#{lists => [{[T], {open, T}}]}
     end.
 
 %% `list<T>` — the two together, which is what a signature declares and what the
 %% pair `[]` / `[h, ..t]` must cover to be exhaustive.
 list(T) -> union(nil(), cons(T)).
+
+%% Everything any list in T can hold, at any position — the union of every
+%% spine's prefix components and every spine's tail. A caller asking this wants
+%% "what is in the list", which survives the spine representation unchanged.
+list_elem(#{lists := Ss}) -> l_elem(Ss).
+
+%% F20 — THE ONE SURFACE A LIST PATTERN HAS INTO THE ALGEBRA.
+%%
+%% `Prefix` is the type at each written position; `closed` means the pattern
+%% ended (`[a, b]`, exactly two) and `open` means a rest marker followed
+%% (`[a, b, ..]`, two or more). The marker constrains nothing, so the tail is
+%% the top — which is also why unfolding terminates: no pattern can ever ask
+%% about a position it did not write.
+spine(Prefix, closed) when is_list(Prefix) -> mk_spine(Prefix, closed);
+spine(Prefix, open)   when is_list(Prefix) -> mk_spine(Prefix, {open, any}).
+
+mk_spine(Prefix, Rest) ->
+    case lists:any(fun is_none/1, Prefix) of
+        true  -> none();
+        false -> (none())#{lists => [{Prefix, Rest}]}
+    end.
+
+%% Whether T admits a list at all. `[]` in the part means it does not.
+has_lists(#{lists := Ss}) -> Ss =/= [].
+
+%% Does T admit the empty list? A spine with an empty prefix does: `closed` is
+%% `[]` itself, and `{open, _}` is length >= 0.
+has_nil(#{lists := Ss}) -> lists:any(fun({[], _}) -> true; (_) -> false end, Ss).
+
+%% Does T admit a non-empty list? A prefix of one or more forces length >= 1;
+%% an empty prefix does only if its tail admits an element.
+has_cons(#{lists := Ss}) -> lists:any(fun sp_has_cons/1, Ss).
+
+sp_has_cons({[], closed})    -> false;
+sp_has_cons({[], {open, T}}) -> not e_none(T);
+sp_has_cons({_P, _})         -> true.
+
+l_elem([]) -> none();
+l_elem(Ss) ->
+    Tails = [e_ty(T) || {_, {open, T}} <- Ss, not e_none(T)],
+    Prefix = lists:append([P || {P, _} <- Ss]),
+    case Prefix ++ Tails of
+        [] -> none();
+        Xs -> union(Xs)
+    end.
 
 tuple(Components) when is_list(Components) ->
     case lists:any(fun is_none/1, Components) of
@@ -183,7 +253,7 @@ map_member(Kind, Fields) when is_map(Fields) ->
 %% quieter rather than red, which is F5's `Certain`/`Possible` failure in a third
 %% costume: no passing test can see it, so `bins := []` below is verified by
 %% mutating this line and watching the suite go red.
-is_none(#{atoms := {finite, []}, ints := [], tuples := Ts, lists := {false, none},
+is_none(#{atoms := {finite, []}, ints := [], tuples := Ts, lists := [],
           maps := Ms, bins := []})
   when Ts =/= top, Ms =/= top ->
     lists:all(fun(Cs) -> lists:any(fun is_none/1, Cs) end, Ts)
@@ -242,10 +312,20 @@ r_unbounded({_, _})       -> false.
 t_open(top) -> true;
 t_open(Ps)  -> lists:any(fun(P) -> lists:any(fun is_open/1, P) end, Ps).
 
-%% `[]` alone is one value and closed. Anything admitting a non-empty list is
-%% open whatever its element type — the length is unbounded, so the set is.
-l_open({_, none}) -> false;
-l_open({_, _})    -> true.
+%% A list part is open when some spine leaves something unbounded — either its
+%% length, or an element inside it.
+%%
+%% THIS IS WHERE TICKET 12 §2 REACHES LISTS, AND IT IS A BEHAVIOUR CHANGE.
+%% Before ticket 54 the rule was "anything admitting a non-empty list is open,
+%% because the length is unbounded" — true of the only two shapes the old
+%% representation could hold. A union of CLOSED spines is not unbounded: over
+%% `list<bool>`, a residual of `[{[bool], closed}]` is `[true]` and `[false]`,
+%% two values, and a catch-all over it is now the error that names them. The
+%% residual decides, never the type constructor.
+l_open(Ss) -> lists:any(fun sp_open/1, Ss).
+
+sp_open({P, closed})     -> lists:any(fun is_open/1, P);
+sp_open({P, {open, T}})  -> not e_none(T) orelse lists:any(fun is_open/1, P).
 
 m_open(top) -> true;
 %% An `open` member is *at least* these fields, so it admits maps carrying
@@ -611,7 +691,7 @@ m_absorb(Ms0) ->
 discriminator({_Kind, Fields}) ->
     case maps:find('Kind', Fields) of
         {ok, #{atoms := {finite, [Tag]}, ints := [], tuples := [],
-               lists := {false, none}, maps := []}} -> Tag;
+               lists := [], maps := []}} -> Tag;
         _ -> none
     end.
 
@@ -641,35 +721,196 @@ keys_subset(Sub, Sup) ->
     lists:all(fun(K) -> maps:is_key(K, Sup) end, maps:keys(Sub)).
 
 %%% ---------------------------------------------------------------------------
-%%% List part
+%%% List part — F20, ticket 54.
 %%%
-%%% The nil flag is an ordinary boolean lattice. The cons part carries an element
-%%% type so a `-spec` can say `[integer()]` rather than `list()`, but subtraction
-%%% deliberately does NOT try to be exact on it: a non-empty list of ints minus a
-%%% non-empty list of atoms is not a list of anything the grammar can spell. So a
-%%% cons is removed only when the subtrahend demonstrably covers it, and kept
-%%% otherwise — which leaves the residual too BIG rather than too small, and a
-%%% residual that is too big reports a false inexhaustive rather than a false
-%%% exhaustive. Ticket 20's exactness applies where the surface can express the
-%%% distinction; here it cannot, and the honest move is to say so.
+%%% THE ALGEBRA NEVER MEASURES A LENGTH. It decomposes the cons cell, and length
+%%% falls out. A non-empty list is a product of an element and a tail, and the
+%%% rule that subtracts it exactly is `product_minus/2` above — already written,
+%%% already exact, applied to tuples and maps and simply never applied here.
+%%%
+%%% The four languages surveyed for ticket 54 split on this. C# names a missing
+%%% case `{ Length: 1 }`, because an array has an O(1) `Length` for the type
+%%% system to talk about. Gleam names it `[_]`, because a cons chain has none —
+%%% and beam-sharp has none either, so this is Gleam's answer. Elixir's
+%%% set-theoretic checker, which rests on the same theory as this module, has
+%%% the same hole this replaces.
+%%%
+%%% Termination lives in `sp_grow/2`: nothing unfolds on its own, unfolding is
+%%% driven by the SUBTRAHEND's prefix length, and that is a syntactic property
+%%% of a pattern someone wrote. The bound is per nesting level — `list<list<T>>`
+%%% has an outer depth and an inner depth, and each follows its own element type
+%%% down.
 %%% ---------------------------------------------------------------------------
 
-l_union({N1, C1}, {N2, C2}) -> {N1 orelse N2, e_union(C1, C2)}.
+l_union(A, B) -> l_absorb(A ++ B).
 
-l_intersect({N1, C1}, {N2, C2}) -> {N1 andalso N2, e_intersect(C1, C2)}.
+l_intersect(A, B) ->
+    l_absorb([S || X <- A, Y <- B, S <- sp_meet(X, Y)]).
 
-l_subtract({N1, C1}, {N2, C2}) ->
-    {N1 andalso not N2,
-     case e_covers(C2, C1) of
-         true  -> none;
-         false -> C1
-     end}.
+l_subtract(A, B) ->
+    l_absorb(lists:foldl(
+               fun(Y, Acc) -> lists:append([sp_minus(X, Y) || X <- Acc]) end,
+               A, B)).
 
-e_union(none, C) -> C;
-e_union(C, none) -> C;
-e_union(any, _)  -> any;
-e_union(_, any)  -> any;
-e_union(A, B)    -> union(A, B).
+sp_len({P, _}) -> length(P).
+
+%% UNFOLD ONE STEP, AND IT IS EXACT:
+%%
+%%   {P, {open, T}}  ==  {P, closed}  ∪  {P ++ [T], {open, T}}
+%%
+%% A list of length >= n either has length exactly n, or has length >= n+1 with
+%% element n+1 in T. Nothing is approximated and nothing is lost.
+sp_unfold({P, {open, T}}) ->
+    case e_none(T) of
+        true  -> [{P, closed}];
+        false -> [{P, closed}, {P ++ [e_ty(T)], {open, T}}]
+    end.
+
+%% Grow a spine until its prefix reaches L, unfolding as needed. The result is a
+%% union equal to the input: the closed spines at lengths n..L-1, plus one open
+%% spine at L.
+sp_grow(S = {P, closed}, _L) when is_list(P) -> [S];
+sp_grow(S = {P, {open, _}}, L) when length(P) >= L -> [S];
+sp_grow(S, L) -> lists:append([sp_grow(X, L) || X <- sp_unfold(S)]).
+
+%% --- meet ------------------------------------------------------------------
+
+sp_meet({P1, R1}, {P2, R2}) when length(P1) =:= length(P2) ->
+    Ps = [intersect(A, B) || {A, B} <- lists:zip(P1, P2)],
+    case lists:any(fun is_none/1, Ps) of
+        true  -> [];
+        false ->
+            case rest_meet(R1, R2) of
+                empty -> [];
+                R     -> [{Ps, R}]
+            end
+    end;
+sp_meet(X, Y) ->
+    %% Unequal prefixes: grow the shorter one to the longer's length. A shorter
+    %% CLOSED spine is one exact length and the other is longer, so they are
+    %% disjoint — that is the base case, and it is what stops the recursion.
+    {Short, Long} = case sp_len(X) < sp_len(Y) of
+                        true  -> {X, Y};
+                        false -> {Y, X}
+                    end,
+    case Short of
+        {_, closed} -> [];
+        _ -> lists:append([sp_meet(S, Long) || S <- sp_grow(Short, sp_len(Long))])
+    end.
+
+%% An open rest at length n INCLUDES length exactly n — "every later element is
+%% in T" is vacuous when there are none. So closed ∩ open is closed.
+rest_meet(closed, closed)         -> closed;
+rest_meet(closed, {open, _})      -> closed;
+rest_meet({open, _}, closed)      -> closed;
+rest_meet({open, T1}, {open, T2}) ->
+    case e_intersect(T1, T2) of
+        none -> closed;   %% no later element is admissible: exactly this length
+        T    -> {open, T}
+    end.
+
+%% --- difference ------------------------------------------------------------
+
+sp_minus(X, Y) ->
+    N1 = sp_len(X), N2 = sp_len(Y),
+    if
+        N1 =:= N2 -> sp_minus_aligned(X, Y);
+        N1 < N2 ->
+            case X of
+                %% X is one exact length, shorter than everything Y describes.
+                {_, closed} -> [X];
+                _ -> lists:append([sp_minus(S, Y) || S <- sp_grow(X, N2)])
+            end;
+        true ->
+            case Y of
+                %% Y is one exact length, shorter than everything X describes.
+                {_, closed} -> [X];
+                _ ->
+                    %% Grow Y to X's length. Only its longest member can meet X;
+                    %% the closed ones it sheds are all shorter, so disjoint.
+                    [Y2] = [S || S <- sp_grow(Y, N1), sp_len(S) =:= N1],
+                    sp_minus_aligned(X, Y2)
+            end
+    end.
+
+%% THE PRODUCT RULE, WITH THE REST AS ONE MORE COLUMN.
+%%
+%%   (P × RA) \ (Q × RB)
+%%     = ⋃ᵢ [P₁∩Q₁, …, Pᵢ\Qᵢ, …, Pₙ] × RA        the prefix differs at i
+%%     ∪  [P₁∩Q₁, …, Pₙ∩Qₙ] × (RA \ RB)          the prefix matches throughout
+%%
+%% which is `product_minus/2` verbatim plus the last line. Exact.
+sp_minus_aligned({P, RA}, {Q, RB}) ->
+    N = length(P),
+    Differs =
+        [begin
+             Pre = [intersect(lists:nth(J, P), lists:nth(J, Q)) || J <- lists:seq(1, I - 1)],
+             Mid = subtract(lists:nth(I, P), lists:nth(I, Q)),
+             Suf = [lists:nth(J, P) || J <- lists:seq(I + 1, N)],
+             {Pre ++ [Mid] ++ Suf, RA}
+         end || I <- lists:seq(1, N)],
+    Meet = [intersect(A, B) || {A, B} <- lists:zip(P, Q)],
+    Matches = case lists:any(fun is_none/1, Meet) of
+                  true  -> [];
+                  false -> sp_rest_minus(Meet, RA, RB)
+              end,
+    [S || S <- Differs, not sp_empty(S)] ++ Matches.
+
+%% The prefix matched entirely, so whatever differs is in the tail.
+sp_rest_minus(_Meet, closed, closed)    -> [];
+sp_rest_minus(_Meet, closed, {open, _}) -> [];
+sp_rest_minus(Meet, {open, TA}, closed) ->
+    %% Length >= n minus length exactly n is length >= n+1. Unfold once and drop
+    %% the closed half — the one place a subtraction makes the residual LONGER,
+    %% and the reason `[]` beside `[a, b, ..]` can name `[int]`.
+    case e_none(TA) of
+        true  -> [];
+        false -> [{Meet ++ [e_ty(TA)], {open, TA}}]
+    end;
+sp_rest_minus(Meet, {open, TA}, {open, TB}) ->
+    case e_covers(TB, TA) of
+        true  -> [];
+        %% NOT EXPRESSIBLE AS ONE SPINE — "some later element is outside TB" is a
+        %% disjunction over positions. Keep A, which UNDER-subtracts, which makes
+        %% the residual too LARGE, which reports a false "not exhaustive". That
+        %% is the safe direction; over-subtracting is the defect F20 deletes.
+        %%
+        %% Unreachable from source: every spine a PATTERN produces has rest
+        %% `closed` or `{open, any}`, because the marker binds without
+        %% constraining. Only declared-type-minus-declared-type with incomparable
+        %% element types arrives here.
+        false -> [{Meet, {open, TA}}]
+    end.
+
+%% --- normalisation ---------------------------------------------------------
+
+l_absorb(Ss0) ->
+    Ss = lists:usort([sp_norm(S) || S <- Ss0, not sp_empty(S)]),
+    [S || S <- Ss, not lists:any(fun(Q) -> Q =/= S andalso sp_subset(S, Q) end, Ss)].
+
+%% `{P, {open, none}}` admits no later element, so it is exactly length(P).
+%% Normalising it means `sp_open/1` and equality both see one shape.
+sp_norm({P, {open, T}}) ->
+    case e_none(T) of
+        true  -> {P, closed};
+        false -> {P, {open, T}}
+    end;
+sp_norm(S) -> S.
+
+sp_empty({P, _}) -> lists:any(fun is_none/1, P).
+
+sp_subset(S, Q) -> [] =:= [X || X <- sp_minus(S, Q), not sp_empty(X)].
+
+%% A tail marker becoming a prefix element. `any` is kept as a marker in the
+%% tail so `term()` does not recurse into itself; it expands here, and the
+%% expansion is finite because `term()`'s own list part is one spine whose tail
+%% is again the marker.
+e_ty(any) -> term();
+e_ty(T)   -> T.
+
+e_none(none) -> true;
+e_none(any)  -> false;
+e_none(T)    -> is_none(T).
 
 e_intersect(none, _) -> none;
 e_intersect(_, none) -> none;
@@ -684,12 +925,27 @@ e_covers(any, _)   -> true;
 e_covers(_, any)   -> false;
 e_covers(B, A)     -> is_none(subtract(A, B)).
 
-l_str({false, none}) -> [];
-l_str({true, none})  -> ["[]"];
-l_str({false, any})  -> ["[term, ..]"];
-l_str({true, any})   -> ["list<term>"];
-l_str({false, T})    -> ["[" ++ to_string(T) ++ ", ..]"];
-l_str({true, T})     -> ["list<" ++ to_string(T) ++ ">"].
+%% A SPINE PRINTS AS A CLAUSE HEAD YOU CAN PASTE, which is the property that
+%% makes a residual the clause the caller must write. `[]` beside `[a, b, ..]`
+%% leaves `[int]`, not a quantity — C# would say `{ Length: 1 }` here and this
+%% language has no `length` to say it with.
+l_str([]) -> [];
+l_str(Ss0) ->
+    %% The folded forms. `list<T>` is `[] | [T, ..]` and printing it as two
+    %% parts would make every ordinary list type read like a residual.
+    case lists:sort(Ss0) of
+        [{[], {open, any}}]                 -> ["list<term>"];
+        [{[], closed}, {[T], {open, T}}]    -> ["list<" ++ to_string(T) ++ ">"];
+        Ss                                  -> [sp_str(S) || S <- Ss]
+    end.
+
+sp_str({[], closed})       -> "[]";
+sp_str({[], {open, any}})  -> "list<term>";
+sp_str({[], {open, T}})    -> "list<" ++ to_string(T) ++ ">";
+sp_str({P, closed})        -> "[" ++ sp_items(P) ++ "]";
+sp_str({P, {open, _}})     -> "[" ++ sp_items(P) ++ ", ..]".
+
+sp_items(P) -> string:join([to_string(T) || T <- P], ", ").
 
 %%% ---------------------------------------------------------------------------
 %%% Printing — the residual is the diagnostic, so this is a product surface.
@@ -795,7 +1051,7 @@ m_pat({_Kind, Fields}) ->
         %% typed `:'Shop.Order' | string` would print as a bare tag and the
         %% synthesised head would silently drop the string half.
         {ok, #{atoms := {finite, [Tag]}, ints := [], tuples := [],
-               lists := {false, none}, maps := [], bins := []}} ->
+               lists := [], maps := [], bins := []}} ->
             "{ Kind: " ++ atom_str(Tag) ++ " }";
         _ ->
             %% No discriminator to name, so every field is bound and ignored.

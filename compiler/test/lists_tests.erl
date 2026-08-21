@@ -10,7 +10,13 @@
 %%% Lists
 %%%
 %%% `[]` and `[h, ..t]` partition list<T>, which is what lets a list function be
-%%% exhaustive with no catch-all. Ticket 08 settled prefix-plus-rest only.
+%%% exhaustive with no catch-all.
+%%%
+%%% F20 replaced the representation underneath all of this. A list pattern's
+%%% prefix is now a product the checker subtracts position by position, so
+%%% `[a, b]` is exactly two and `[a, b, ..]` is two or more — and the rest is a
+%%% MARKER rather than an ordinary pattern, which is ticket 08 amended. The
+%%% tests below the fold measure both directions of the defect that forced it.
 %%% ---------------------------------------------------------------------------
 
 series_src() ->
@@ -77,3 +83,118 @@ tail_calls_do_not_grow_the_stack_test() ->
     receive {stack, S} -> ?assert(S < 100)
     after 60000 -> exit({timeout, Pid}) end.
 
+
+%%% ---------------------------------------------------------------------------
+%%% F20 / ticket 54 — the checker sees a list's length, in both directions.
+%%%
+%%% Measured at the boundary: a source string in, a diagnostic or a running
+%%% function out. Nothing here reaches into `bs_types`, so the spine
+%%% representation can be replaced again without rewriting these.
+%%% ---------------------------------------------------------------------------
+
+diags(Src) ->
+    {ok, Toks, _} = bs_lexer:string(Src),
+    {ok, Decls} = bs_parser:parse(Toks),
+    case bs_check:check(Decls) of
+        {ok, _, Ds} -> Ds;
+        {error, Ds} -> Ds
+    end.
+
+errors(Src) -> [D || D <- diags(Src), element(1, D) =:= error].
+
+shape_src(Clauses) ->
+    "module Sh\npublic atom Shape(list<int> xs)\n" ++ Clauses.
+
+%% THE REPRO. `[]` beside a two-element prefix was proved exhaustive and crashed
+%% on `[7]`; now it is an error, and the residual NAMES the missing case rather
+%% than only refusing. Asserting the text is the point — a residual that merely
+%% says "not exhaustive" is a cheaper decision than the one ticket 54 took.
+a_two_element_prefix_does_not_cover_a_one_element_list_test() ->
+    Src = shape_src("Shape([]) -> :empty\nShape([a, b, ..]) -> :many\n"),
+    [{error, _, 'Shape', {inexhaustive, Residual}}] = errors(Src),
+    %% The parentheses are the ARGUMENT LIST, not the list type: a residual is a
+    %% product over the parameters, and this function has one. `check-list-length.sh`
+    %% asserts the user-visible form, `Shape([int]) -> ...`; this asserts the
+    %% type, and the distinction that matters is `[int]` against `[int, ..]` —
+    %% exactly-one against one-or-more, which is the whole defect.
+    ?assertEqual("([int])", bs_types:to_string(Residual)).
+
+%% THE OTHER DIRECTION. A closed prefix used to subtract nothing at all, so this
+%% set left the same residual as `[]` alone. Exactly-nothing plus exactly-one
+%% plus two-or-more is every list. If this fails while the one above passes, the
+%% fix went in one direction only — which is ticket 54's standing warning.
+closed_and_open_prefixes_compose_to_every_list_test() ->
+    Src = shape_src("Shape([]) -> :empty\n"
+                    "Shape([a]) -> :one\n"
+                    "Shape([a, b, ..]) -> :many\n"),
+    ?assertEqual([], errors(Src)).
+
+%% SYMPTOM FIVE, and the worst of them: a correct clause reported dead. `erlc`
+%% stays silent here and the program returns `:one`, so the compiler was telling
+%% a right program it was wrong.
+a_clause_that_matches_is_not_called_unreachable_test() ->
+    Src = shape_src("Shape([]) -> :empty\n"
+                    "Shape([a, b, ..]) -> :many\n"
+                    "Shape([a, ..]) -> :one\n"),
+    ?assertEqual([], [D || D <- diags(Src), element(1, D) =:= warning]).
+
+%% `[a, b]` is exactly two — the spelling Erlang, Elixir, C# and Gleam all agree
+%% on, and the one B# alone refused. Measured by running it.
+a_closed_list_pattern_means_exactly_that_length_test() ->
+    Src = "module Cl\n"
+          "public atom Shape(list<int> xs)\n"
+          "Shape([]) -> :empty\n"
+          "Shape([a]) -> :one\n"
+          "Shape([a, b]) -> :two\n"
+          "Shape([a, b, c, ..]) -> :many\n",
+    M = build_and_load(Src, 'Cl'),
+    ?assertEqual(empty, M:'Shape'([])),
+    ?assertEqual(one,   M:'Shape'([7])),
+    ?assertEqual(two,   M:'Shape'([7, 8])),
+    ?assertEqual(many,  M:'Shape'([7, 8, 9])),
+    ?assertEqual(many,  M:'Shape'([7, 8, 9, 10])).
+
+%% Ticket 53's route table, in the spelling C# and TypeScript programmers
+%% expect. The property that ticket cared about is the third assertion:
+%% `/orders/42/lines` must fall through rather than be swallowed by `:show`.
+a_route_table_dispatches_on_path_length_test() ->
+    Src = "module Rt\n"
+          "public atom Route(list<string> path)\n"
+          "Route([\"orders\"]) -> :index\n"
+          "Route([\"orders\", id]) -> :show\n"
+          "Route(_) -> :not_found\n",
+    M = build_and_load(Src, 'Rt'),
+    ?assertEqual(index,     M:'Route'([<<"orders">>])),
+    ?assertEqual(show,      M:'Route'([<<"orders">>, <<"42">>])),
+    ?assertEqual(not_found, M:'Route'([<<"orders">>, <<"42">>, <<"lines">>])),
+    ?assertEqual(not_found, M:'Route'([])).
+
+%% The retired forms name their replacement. `..[]` was ticket 53's answer and
+%% sat in four clauses of exemplar 25a, so it will be typed again from memory.
+a_closed_rest_is_retired_and_names_the_fix_test() ->
+    Src = shape_src("Shape([a, ..[]]) -> :one\nShape(_) -> :o\n"),
+    {ok, Toks, _} = bs_lexer:string(Src),
+    {error, {_, _, Msg}} = bs_parser:parse(Toks),
+    ?assert(string:find(lists:flatten(Msg), "`..[]` is retired") =/= nomatch).
+
+a_nested_rest_pattern_is_retired_and_names_the_fix_test() ->
+    Src = shape_src("Shape([a, ..[b, ..t]]) -> :two\nShape(_) -> :o\n"),
+    {ok, Toks, _} = bs_lexer:string(Src),
+    {error, {_, _, Msg}} = bs_parser:parse(Toks),
+    ?assert(string:find(lists:flatten(Msg), "a rest is `..` or `..name`")
+            =/= nomatch).
+
+%% DECISION 5 — the closed-residual catch-all rule reaches lists. Over a closed
+%% element type the residual is a finite set of lists, so `_` hides cases the
+%% compiler can name. The second test is the control: over `list<int>` the
+%% element is unbounded, the residual stays open, and `_` is still legal. A rule
+%% that fired on every list would pass the first test and fail the second.
+a_catch_all_over_a_closed_list_residual_is_refused_test() ->
+    Src = "module Cb\npublic atom F(list<bool> xs)\n"
+          "F([]) -> :e\nF([a, b, ..]) -> :m\nF(_) -> :o\n",
+    ?assertMatch([{error, _, 'F', {catch_all_over_closed, _}}], errors(Src)).
+
+a_catch_all_over_an_open_list_residual_is_still_legal_test() ->
+    Src = shape_src("Shape([]) -> :empty\nShape([a, b, ..]) -> :many\n"
+                    "Shape(_) -> :o\n"),
+    ?assertEqual([], errors(Src)).

@@ -1295,8 +1295,25 @@
           "value": ".."
         },
         {
-          "type": "SYMBOL",
-          "name": "pattern"
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "CHOICE",
+              "members": [
+                {
+                  "type": "SYMBOL",
+                  "name": "variable"
+                },
+                {
+                  "type": "SYMBOL",
+                  "name": "wildcard"
+                }
+              ]
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
         }
       ]
     },
@@ -2570,6 +2587,10 @@
     [
       "list_pattern",
       "list"
+    ],
+    [
+      "rest_pattern",
+      "_expression"
     ],
     [
       "module_path"

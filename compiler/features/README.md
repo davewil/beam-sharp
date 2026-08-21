@@ -108,8 +108,9 @@ Erlang back to the decision that required it is one grep.
 | [F15 — a module is a directory](F15-module-is-a-directory.md) | **done 2026-08-17** | the *other* half of the module system; `index.bs`, and 41 §4/§5's two checks — both now built |
 | [F18 — `ValidateAs<T>`, the generated deep validator](F18-validate-as.md) | **done 2026-08-18** | 18 §6's decode step, which 18 §7 writes and nothing could compile; the `list<term>` **plus `ValidateAs<T>`** half of LANGUAGE.md §11 — and it makes ticket 28's closed set non-empty for the first time |
 | [F19 — the foreign `try` wrapper](F19-foreign-try-wrapper.md) | **done 2026-08-18** | the first half of `LANGUAGE.md` §11's standing **Owed** paragraph, and `foreign_error` — the first stratum-2 prelude entry that is built rather than decided |
+| [F20 — list length: the cons cell decomposes](F20-list-length.md) | **done 2026-08-21** · [ENG-236](https://linear.app/davewil/issue/ENG-236) | the first **soundness** defect any feature has closed — `[]` beside `[a, b, ..t]` was proved exhaustive and crashed on `[7]`; it also amends ticket 08 (the rest becomes a marker) and answers ticket 53 (the route table's spelling) |
 
-**STATE OF THE BOARD — 2026-08-21. All nineteen features are done, and no row owes a file.** The
+**STATE OF THE BOARD — 2026-08-21. All twenty features are done, and no row owes a file.** The
 table above is the answer to *"what is built"*; the entries below it are a reverse-chronological
 log of what each build **revealed**, and several of them state the queue's condition **as it was on
 the day they were written**. Those sentences were true then and are not now — read the table for

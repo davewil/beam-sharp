@@ -312,6 +312,27 @@ jobs:
         working-directory: compiler
         run: ./bin/check-diagnostics.sh
 
+      # F20 / ticket 54 — the checker must see a list's length IN BOTH
+      # DIRECTIONS, because the two halves have one root and get fixed
+      # independently: `[]` beside `[a, b, ..]` was proved exhaustive and
+      # crashed on `[7]`, while a closed prefix subtracted nothing at all.
+      #
+      # The self-test builds BOTH defects and requires each to be caught on a
+      # probe the other passes, so no probe can be a fires-on-everything check.
+      # A fourth control feeds it a run that never compiled, because the probe
+      # asserting the ABSENCE of a warning went green over a parse error the
+      # first time this gate was run for real.
+      #
+      # Not a `<!-- check: -->` block in LANGUAGE.md: `bsc` exits 0 on a
+      # warning-only module, so a doc block cannot see the third probe.
+      - name: The list-length gate proves it can fail
+        working-directory: compiler
+        run: ./bin/check-list-length.sh --self-test
+
+      - name: The checker sees a list's length
+        working-directory: compiler
+        run: ./bin/check-list-length.sh
+
       # Dialyzer over every emitted spec, plus two negative controls that corrupt
       # a real emitted artefact and REQUIRE the corruption to be caught — because
       # a clean run proves nothing unless a wrong spec would fail it.
