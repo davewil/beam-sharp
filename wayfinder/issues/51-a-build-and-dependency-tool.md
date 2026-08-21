@@ -110,9 +110,27 @@ already works.
   build-time only**: `mix` is what fetches and compiles the hex packages, and that lands on the
   developer's machine and CI rather than on the deployed artefact.
 
-  **Unmeasured, and it is the question that would close this out**: whether rebar3 alone can build
-  Elixir hex dependencies (it can, with a plugin). If it can, the build-time Elixir requirement
-  disappears too and the whole story is Erlang-only end to end.
+  **MEASURED 2026-08-21, and the guess above was wrong.** "rebar3 can build them with a plugin, so
+  the build-time Elixir requirement disappears" is false in its second half.
+
+  | | |
+  |---|---|
+  | `rebar3 compile`, Req as a hex dep, no plugin | **fetches all nine packages**, then `Error building application jason: No project builder is configured for type mix` |
+  | `+ {plugins, [rebar_mix]}` | **builds the whole tree**, consolidating 14 `Jason.Encoder` implementations |
+  | did Elixir run? | **yes** — the build emits *Elixir* compiler warnings while parsing `req/mix.lock`, and `_build` ends up holding an `elixir/ebin` that was never a declared dependency, copied from the local install |
+  | `ERL_LIBS=…/rebarreq/_build/default/lib` alone | `Req.new/1` → **`:'Elixir.Req.Request'`** — one path, because rebar_mix vendors `elixir`, `logger` and `mix` into the build tree |
+  | `ensure_all_started(:req)` from that one path | **fails**: `(:error, (:eex, "no such file or directory", "eex.app"))` — `eex` is *not* vendored |
+  | add Elixir's own lib dir back | `(:ok, [… :eex, :plug, :brotli, :req])`, 23 applications |
+
+  **So rebar_mix drives Elixir rather than replacing it.** The build-time requirement stands, and
+  there is no Erlang-only path to consuming an Elixir library — which is unsurprising once stated:
+  something has to compile `.ex` source, and only Elixir does.
+
+  **What it does buy is worth having anyway.** The *project* can be a **rebar3** project rather than
+  a mix one — no `mix.exs`, dependencies declared in `rebar.config` — which matters because `bsc` is
+  itself a rebar3 escript, so a beam-sharp application consuming Elixir libraries stays inside one
+  toolchain. And the vendoring means the run-time path is *nearly* one directory; the `eex` gap is a
+  packaging bug in the plugin, not a property of the approach.
 
   Note also that **Erlang/OTP is not a dependency at all** — it is the target. `bsc` emits BEAM and
   is itself an Erlang escript. And none of this applies to a program that calls no Elixir library.
