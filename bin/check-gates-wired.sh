@@ -88,6 +88,37 @@ unproven() {
   done
 }
 
+# AND THE LIST OF GATES IS ITSELF A SURFACE, SO IT ROTS TOO.
+#
+# `.claude/end-session.md` calls itself "every step CI runs, in CI's order", and
+# it is what a session reads to find out what to run. On 2026-08-21 it was found
+# naming SIX of sixteen — nine missing, including a gate added the same day — so
+# a session followed it, ran six gates, and believed it had run them all.
+#
+# THAT WAS FIXED, AND IT DRIFTED AGAIN ONE COMMIT LATER. F21 added
+# `check-field-values.sh` on the same day the list was corrected, and the list
+# was one short again before anything had read it. Twice in a day is not
+# carelessness, it is a missing check: the two questions above are asked of the
+# WORKFLOW, and nothing was asking the DOCUMENT anything at all.
+#
+# So the same enumeration is put to it. A gate on disk that this file does not
+# name is a gate the next session will not run.
+unlisted() {
+  local doc="$1"; shift
+  local dir script name
+  for dir in "$@"; do
+    [ -d "$dir" ] || continue
+    for script in "$dir"/*.sh; do
+      [ -e "$script" ] || continue
+      [ -x "$script" ] || continue
+      name="$(basename "$script")"
+      if ! grep -qF "$name" "$doc"; then
+        printf '%s: never named in %s\n' "${script#"$ROOT"/}" "${doc#"$ROOT"/}"
+      fi
+    done
+  done
+}
+
 # ---------------------------------------------------------------------------
 # --self-test
 #
@@ -96,7 +127,9 @@ unproven() {
 # every script as unwired would satisfy the first and be useless.
 #
 # The same pair again for `unproven`, since it makes a different claim about the
-# same files: a gate can be wired and still never have been shown to fail.
+# same files: a gate can be wired and still never have been shown to fail. And
+# again for `unlisted`, which makes a third claim about them: a gate can be
+# wired AND proven and still be absent from the list a human reads.
 # ---------------------------------------------------------------------------
 if [ "${1:-}" = "--self-test" ]; then
   CTL="$(mktemp -d)"
@@ -125,8 +158,20 @@ steps:
     run: ./bin/check-wired.sh --self-test
 YML
 
+  # A list that names one of the three. `check-wired.sh` is wired AND proven AND
+  # listed; `check-unproven.sh` is wired and listed but never proven. So the
+  # third check must report `check-forgotten.sh` and `check-unproven.sh` is
+  # NOT a control for it — the control is `check-wired.sh`, which all three
+  # checks must leave alone.
+  cat > "$CTL/end-session.md" <<'DOC'
+## Gates
+./bin/check-wired.sh
+./bin/check-unproven.sh
+DOC
+
   out="$(unwired "$CTL/ci.yml" "$CTL/bin" || true)"
   unp="$(unproven "$CTL/ci.yml" "$CTL/bin" || true)"
+  unl="$(unlisted "$CTL/end-session.md" "$CTL/bin" || true)"
 
   fail=0
   if ! grep -q 'check-forgotten.sh' <<<"$out"; then
@@ -149,13 +194,26 @@ YML
     fail=1
   fi
 
+  if ! grep -q 'check-forgotten.sh' <<<"$unl"; then
+    echo "SELF-TEST FAILED: a gate the session list never names was not reported —"
+    echo "                  which is how that list came to name six of sixteen"
+    fail=1
+  fi
+  if grep -q 'check-wired.sh' <<<"$unl"; then
+    echo "SELF-TEST FAILED: a listed gate was reported as unlisted, so the third check"
+    echo "                  does not discriminate either"
+    fail=1
+  fi
+
   if [ "$fail" -eq 0 ]; then
-    echo "self-test: found the forgotten gate and the unproven one, left the wired and"
-    echo "           proven one alone — both checks discriminate"
+    echo "self-test: found the forgotten gate, the unproven one and the unlisted one,"
+    echo "           left the wired, proven and listed one alone — all three checks"
+    echo "           discriminate"
     exit 0
   fi
   echo "$out"
   echo "$unp"
+  echo "$unl"
   exit 1
 fi
 
@@ -187,4 +245,25 @@ if [ -n "$unshown" ]; then
   exit 1
 fi
 
-echo "every gate on disk is named by the workflow, and every one proves it can fail"
+DOC="$ROOT/.claude/end-session.md"
+[ -f "$DOC" ] || {
+  echo "no session list at ${DOC#"$ROOT"/} — the file that tells a session what to run"
+  echo "is gone, and a missing list cannot be checked against. Restore it rather than"
+  echo "letting this check pass over nothing."
+  exit 1
+}
+
+unnamed="$(unlisted "$DOC" "$ROOT/bin" "$ROOT/compiler/bin" "$ROOT/editor/bin" || true)"
+
+if [ -n "$unnamed" ]; then
+  echo "$unnamed"
+  echo
+  echo "A gate missing from the session list is a gate the next session does not run."
+  echo "That list claims to be every step CI runs; it named six of sixteen once, was"
+  echo "corrected, and was one short again one commit later. Add it there too — the"
+  echo "script, ci.yml, and .claude/end-session.md are three edits, not two."
+  exit 1
+fi
+
+echo "every gate on disk is named by the workflow and by the session list, and every"
+echo "one proves it can fail"

@@ -22,6 +22,7 @@ cd compiler && rebar3 eunit
 # --- the compiler ---------------------------------------------------------
 cd compiler && ./bin/check-language.sh          # blocks compile, `not-yet` blocks must NOT
 cd compiler && ./bin/check-list-length.sh       # the checker sees a list's length, both ways
+cd compiler && ./bin/check-field-values.sh      # a field assignment is checked, at both spellings
 cd compiler && ./bin/check-diagnostics.sh       # every tag has a message, and vice versa
 cd compiler && ./bin/check-no-silent-skip.sh    # no test reports ok for work it did not do
 cd compiler && ./bin/check-tour.sh              # TOUR replays, and the page is not stale
@@ -42,6 +43,15 @@ cd compiler && ./bin/extract-exemplars.sh --check
 **Every gate also takes `--self-test`, and CI runs those first.** A gate is not believed until
 it has been seen to go red, so the self-test pass is not optional decoration — it is the half
 that proves the green means something.
+
+**SEVENTEEN gate scripts, not sixteen — `check-field-values.sh` added 2026-08-21 by F21.** And
+the drift the entry below records **repeated one commit later**: `cf32e50` fixed this list, F21
+added a gate on the same day, and the list was one short again before anything read it. That is
+the entry below's own lesson arriving faster than it could be learned, and it is structural rather
+than careless — **`check-gates-wired.sh` verifies disk → workflow, not workflow → this file**, so
+nothing can see this drift. Until something does, adding a gate means editing three places: the
+script, `ci.yml`, and here. **Run the count below rather than trusting any number written above
+it**, this sentence included.
 
 **SIXTEEN gate scripts, and this list was six of them until 2026-08-21.** It claimed to be
 *"every step CI runs, in CI's order"* and had drifted to naming `check-map`, `check-surface`,
