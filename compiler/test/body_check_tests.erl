@@ -76,7 +76,7 @@ construction_must_supply_every_declared_field_test() ->
           "record Order { Id: int, Total: int }\n"
           "public Order Make(int n)\n"
           "Make(n) -> Order{ Id = n }\n",
-    ?assertMatch([{error, _, 'Make', {field_set_mismatch, 'Order', ['Total'], []}}],
+    ?assertMatch([{error, _, 'Make', {field_set_mismatch, 'Order', construction, ['Total'], []}}],
                  errors(Src)).
 
 construction_may_not_supply_an_undeclared_field_test() ->
@@ -84,7 +84,7 @@ construction_may_not_supply_an_undeclared_field_test() ->
           "record Order { Id: int, Total: int }\n"
           "public Order Make(int n)\n"
           "Make(n) -> Order{ Id = n, Total = n, Extra = n }\n",
-    ?assertMatch([{error, _, 'Make', {field_set_mismatch, 'Order', [], ['Extra']}}],
+    ?assertMatch([{error, _, 'Make', {field_set_mismatch, 'Order', construction, [], ['Extra']}}],
                  errors(Src)).
 
 construction_with_the_exact_field_set_compiles_test() ->
@@ -431,3 +431,139 @@ a_guard_over_a_list_element_still_credits_nothing_test() ->
           "Sign([x, ..r]) when x <= 0 -> :nonpositive\n",
     ?assertMatch([{error, _, 'Sign', {inexhaustive, _}}], errors(Src)).
 
+
+%%% ---------------------------------------------------------------------------
+%%% F21 / ticket 36 — SITE 2's VALUE HALF, at both spellings.
+%%%
+%%% F5 built site 2's NAME relation, which is what 33 §2's table wrote down, and
+%%% shipped the value half as a named hole. Ticket 36 closed it and closed it
+%%% without opening a sixth site: site 2 is FIELD ASSIGNMENT, of which
+%%% `Order{ … }` and `o with { … }` are two spellings meeting ONE declaration.
+%%% ---------------------------------------------------------------------------
+
+%% F21.1 — construction. The value half of the site F5 built the name half of.
+construction_checks_the_value_assigned_to_a_field_test() ->
+    Src = "module Shop\n"
+          "record Order { Id: int, Total: int }\n"
+          "public Order Make(int n)\n"
+          "Make(n) -> Order{ Id = :oops, Total = n }\n",
+    ?assertMatch([{error, _, 'Make',
+                   {field_value_not_accepted, 'Order', 'Id', _}}],
+                 errors(Src)).
+
+%% F21.2 — `with`, which the ticket thought was a genuine sixth site. It is not:
+%% `Total: int` is written in the record declaration, and that is the same place
+%% that governs the construction above.
+with_checks_the_value_assigned_to_a_field_test() ->
+    Src = "module Shop\n"
+          "record Order { Id: int, Total: int }\n"
+          "public Order Bump(Order o)\n"
+          "Bump(o) -> o with { Total = :oops }\n",
+    ?assertMatch([{error, _, 'Bump',
+                   {field_value_not_accepted, 'Order', 'Total', _}}],
+                 errors(Src)).
+
+%% F21.3 — THE RESIDUAL IS THE VALUE TO REMOVE, and this is where 33 §3's
+%% `useless` verdict does not reach. That verdict was about the NAME residual
+%% (`Order{Id} \ Order`, which names the type being built). `:oops \ int` is
+%% `:oops`, precise, beside a field name that is already known.
+the_rejected_value_is_handed_back_test() ->
+    Src = "module Shop\n"
+          "record Order { Id: int, Total: int }\n"
+          "public Order Make(int n)\n"
+          "Make(n) -> Order{ Id = :oops, Total = n }\n",
+    [{error, _, _, {field_value_not_accepted, _, _, Residual}}] = errors(Src),
+    ?assertEqual(":oops", bs_types:to_pattern(Residual)).
+
+%% F21.4 — the control that keeps the check honest. Every field assigned a value
+%% its declaration accepts, from each of the forms a body can produce one with:
+%% a literal, a parameter, a projection, a local binding and a call return.
+a_correctly_assigned_record_compiles_test() ->
+    Src = "module Shop\n"
+          "record Order { Id: int, Total: int }\n"
+          "public int Double(int n)\n"
+          "Double(n) -> n * 2\n"
+          "public Order New(int id)\n"
+          "New(id) -> Order{ Id = id, Total = 0 }\n"
+          "public Order Twice(Order o)\n"
+          "Twice(o) ->\n"
+          "    var t = Double(o.Total)\n"
+          "    o with { Total = t }\n",
+    ?assertMatch({ok, _, _}, check_only(Src)).
+
+%% F21.5 — a REFINED field type. F2 put intervals in the algebra, so a field
+%% declared `Octet` accepts `200` and rejects `300`, and the residual is the
+%% part that does not fit rather than the whole value.
+a_refined_field_rejects_a_value_outside_it_test() ->
+    Src = "module Shop\n"
+          "type Octet = int where value >= 0 and value <= 255\n"
+          "record Pixel { Level: Octet }\n"
+          "public Pixel Make()\n"
+          "Make() -> Pixel{ Level = 300 }\n",
+    ?assertMatch([{error, _, 'Make',
+                   {field_value_not_accepted, 'Pixel', 'Level', _}}],
+                 errors(Src)).
+
+%% F21.6 — ONE COMPLAINT, NOT TWO. A value whose own synthesis already failed
+%% arrives as `reported()`, which is `none()`, and `none \ T` is empty — so the
+%% cascading second error about the same expression cannot arise. Asserted
+%% rather than reasoned about, because it is the kind of thing that stays true
+%% by accident until someone changes `reported/0`.
+a_value_that_already_failed_is_not_reported_twice_test() ->
+    Src = "module Shop\n"
+          "record Order { Id: int, Total: int }\n"
+          "public Order Make(int n)\n"
+          "Make(n) -> Order{ Id = Missing(n), Total = n }\n",
+    Errors = errors(Src),
+    ?assertEqual([], [D || D <- Errors,
+                           element(4, D) =/= undefined,
+                           is_tuple(element(4, D)),
+                           element(1, element(4, D)) =:= field_value_not_accepted]),
+    ?assertNotEqual([], Errors).
+
+%% F21.7 — the name half at `with`, reported at COMPILE time. Before F21 this
+%% compiled and raised `{badkey,'Nope'}` when it ran, so 26 §2 was being
+%% enforced by the BEAM. The relation differs from construction's by exactly
+%% what 26 §2 says — subset, not equality — so `with` can never report a field
+%% as missing, and the empty `Missing` list is that fact written down.
+with_may_not_invent_a_field_test() ->
+    Src = "module Shop\n"
+          "record Order { Id: int, Total: int }\n"
+          "public Order Grow(Order o)\n"
+          "Grow(o) -> o with { Nope = 1 }\n",
+    ?assertMatch([{error, _, 'Grow',
+                   {field_set_mismatch, 'Order', update, [], ['Nope']}}],
+                 errors(Src)).
+
+%% F21.8 — `with` reaches construction's diagnostic, and construction's VERB
+%% would lie about it. Nothing is missing from `o with { Nope = 1 }`; a name was
+%% invented. Asserted as prose at the CLI, because the wrong verb is a defect a
+%% reader sees and a term assertion cannot.
+the_with_diagnostic_does_not_say_builds_test() ->
+    Src = "module Shop\n"
+          "record Order { Id: int, Total: int }\n"
+          "public Order Grow(Order o)\n"
+          "Grow(o) -> o with { Nope = 1 }\n",
+    with_src("grow.bs", Src, fun(Path, Out) ->
+        R = run_cli("-o " ++ Out ++ " " ++ Path),
+        ?assert(string:find(R, "updates an Order with the wrong fields") =/= nomatch),
+        ?assertEqual(nomatch, string:find(R, "builds an Order")),
+        %% ...and it does not invent a missing field to go with the verb.
+        ?assertEqual(nomatch, string:find(R, "missing, and must be supplied"))
+    end).
+
+%% F21.9 — the value diagnostic reaches the author as prose too, naming the
+%% field twice on purpose: once as what was assigned, once as whose declared
+%% type did the rejecting.
+the_value_diagnostic_reaches_the_author_as_prose_test() ->
+    Src = "module Shop\n"
+          "record Order { Id: int, Total: int }\n"
+          "public Order Make(int n)\n"
+          "Make(n) -> Order{ Id = :oops, Total = n }\n",
+    with_src("make.bs", Src, fun(Path, Out) ->
+        R = run_cli("-o " ++ Out ++ " " ++ Path),
+        ?assert(string:find(R, "Make assigns Id a value Order does not accept")
+                =/= nomatch),
+        ?assert(string:find(R, "not covered by the declared type of Id:") =/= nomatch),
+        ?assert(string:find(R, ":oops") =/= nomatch)
+    end).

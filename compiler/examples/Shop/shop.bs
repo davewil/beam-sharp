@@ -36,9 +36,14 @@ public Order New(int id)
 
 New(id) -> Order{ Id = id, Total = 0 }
 
-// `with` is width-preserving: `:=` updates a key that is already there and
-// raises on one that is not, so a record cannot grow through this construct.
+// `with` is width-preserving: it updates a key that is already there and is an
+// ERROR on one that is not, so a record cannot grow through this construct.
 // The tag is not among the keys assigned, so it survives untouched.
+//
+// The refusal is at compile time as of F21. It emits `:=`, which would raise
+// `{badkey, …}` at run time — and until F21 that raise was the only thing
+// enforcing it, which is a program the compiler accepted and the BEAM crashed.
+// The assigned VALUE is checked too, against `Total: int` above.
 public Order Pay(Order o)
 
 Pay(o) -> o with { Total = 500 }

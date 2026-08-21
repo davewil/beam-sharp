@@ -110,7 +110,9 @@ Erlang back to the decision that required it is one grep.
 | [F19 — the foreign `try` wrapper](F19-foreign-try-wrapper.md) | **done 2026-08-18** | the first half of `LANGUAGE.md` §11's standing **Owed** paragraph, and `foreign_error` — the first stratum-2 prelude entry that is built rather than decided |
 | [F20 — list length: the cons cell decomposes](F20-list-length.md) | **done 2026-08-21** · [ENG-236](https://linear.app/davewil/issue/ENG-236) | the first **soundness** defect any feature has closed — `[]` beside `[a, b, ..t]` was proved exhaustive and crashed on `[7]`; it also amends ticket 08 (the rest becomes a marker) and answers ticket 53 (the route table's spelling) |
 
-**STATE OF THE BOARD — 2026-08-21. All twenty features are done, and no row owes a file.** The
+| [F21 — a field assignment is checked](F21-field-value-obligations.md) | **done 2026-08-21** · [ENG-203](https://linear.app/davewil/issue/ENG-203) | nothing that was waiting — the **second** soundness defect a feature has closed. `Order{ Id = :oops }` and `o with { Total = :oops }` both reached a `.beam`, and `o with { Nope = 1 }` reached one and then raised `{badkey,'Nope'}`, so ticket 26 §2 was being enforced by the BEAM. Site 2 is **field assignment**, not construction, so `with` opens no sixth site |
+
+**STATE OF THE BOARD — 2026-08-21. All twenty-one features are done, and no row owes a file.** The
 table above is the answer to *"what is built"*; the entries below it are a reverse-chronological
 log of what each build **revealed**, and several of them state the queue's condition **as it was on
 the day they were written**. Those sentences were true then and are not now — read the table for

@@ -24,8 +24,17 @@
 # evidence here that is not self-reported.
 
 url       https://claude.ai/code/artifact/40f71cf4-d5d3-4b71-882c-ad73f630a03c
-sha256    b00155e9797a2caaa940c464bb48b9a7c4f77999e1602d507145c6f545477fe3
-verified  2026-08-21 (again, for F20) — chapter 5's list bullet called `[]` and
+sha256    6a47b8165251ef2c395416f59d359eab1df424214c852976c4cf8dbb981dec81
+verified  2026-08-21 (again, for F21) — chapter 5's `with` bullet said the construct
+          "raises" on an undeclared key, which was true and was the DEFECT: the
+          BEAM was enforcing 26 §2 because the compiler never did. Read back
+          before republishing and the page still carried it, so the stale state
+          was confirmed rather than assumed. The page was refused twice first —
+          it must be read in the session before it can be overwritten — and the
+          read is what proved the live page is a plain render of TOUR.md with
+          nothing saved into it independently.
+
+          2026-08-21 (for F20) — chapter 5's list bullet called `[]` and
           `[x, ..rest]` "the two list patterns", which stopped being true when
           `[a, b]` became exactly-two; the map's list node said the same. Fetched
           before republishing and the page was still showing the old bullet —

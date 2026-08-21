@@ -333,6 +333,23 @@ jobs:
         working-directory: compiler
         run: ./bin/check-list-length.sh
 
+      # F21 / ticket 36. `Order{ Id = :oops }` and `o with { Total = :oops }`
+      # both compiled to a .beam, and `o with { Nope = 1 }` compiled and raised
+      # {badkey,'Nope'} at RUN time — 26 §2 enforced by the BEAM rather than by
+      # the compiler.
+      #
+      # The self-test's third stub is the one that earns this gate: VALUE-ONLY
+      # implements the ticket's stated delta exactly — values checked at both
+      # spellings, names untouched — and fails only probe 3. A gate written from
+      # the ticket's text would have two probes and would call that build done.
+      - name: The field-value gate proves it can fail
+        working-directory: compiler
+        run: ./bin/check-field-values.sh --self-test
+
+      - name: A field assignment is checked, at both spellings
+        working-directory: compiler
+        run: ./bin/check-field-values.sh
+
       # Dialyzer over every emitted spec, plus two negative controls that corrupt
       # a real emitted artefact and REQUIRE the corruption to be caught — because
       # a clean run proves nothing unless a wrong spec would fail it.

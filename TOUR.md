@@ -415,8 +415,13 @@ $ bsc --src-root examples examples/Shop New 7
       Total
   ```
 
-- **`with` is width-preserving.** It updates a key that is already there and raises on one
+- **`with` is width-preserving.** It updates a key that is already there and is an error on one
   that is not, so a record cannot grow through this construct, and the tag survives untouched.
+  The refusal is at **compile time** — until F21 it was the BEAM raising `{badkey, …}` when the
+  program ran, which is a proved-exhaustive program that crashes.
+- **A field assignment is checked against its declared type, at both spellings.**
+  `Order{ Id = :oops }` and `o with { Id = :oops }` are the same error: the declaration that
+  rejects them is the same one.
 - **A property pattern** (`{ Total: t }`) binds a field in the head; guarding on the bound
   name still refines the clause, so those two `Band` clauses are exhaustive over `Order`.
 

@@ -1516,7 +1516,7 @@ type_of({e_proj, L, V, Field}, S, C) ->
 %% build a map wearing an `Order` tag without `Order`'s fields and nothing
 %% rejected it.
 type_of({e_record, L, Name, Fields}, S, C) ->
-    {_, D} = type_of_all([E || {_, E} <- Fields], S, C),
+    {Tys, D} = type_of_all([E || {_, E} <- Fields], S, C),
     case maps:get(Name, C#ctx.types, undefined) of
         undefined ->
             {reported(), [{error, L, C#ctx.fname, {unknown_record, Name}} | D]};
@@ -1524,21 +1524,53 @@ type_of({e_record, L, Name, Fields}, S, C) ->
             case declared_fields(Ty) of
                 unknown -> {Ty, D};
                 Declared ->
-                    case field_delta([K || {K, _} <- Fields], Declared) of
-                        {[], []} -> {Ty, D};
+                    Keys = [K || {K, _} <- Fields],
+                    case field_delta(Keys, Declared) of
+                        %% Names first, and the value half runs only when they
+                        %% agree. An undeclared key has no declared type, so
+                        %% checking its value would report on the compiler's
+                        %% guess rather than the author's program — the same
+                        %% bargain `clause_diags` strikes for a malformed
+                        %% segment one level up.
+                        {[], []} ->
+                            {Ty, field_value_diags(Keys, Tys, Ty, Name, L, C) ++ D};
                         {Missing, Extra} ->
                             {Ty, [{error, L, C#ctx.fname,
-                                   {field_set_mismatch, Name, Missing, Extra}} | D]}
+                                   {field_set_mismatch, Name, construction,
+                                    Missing, Extra}} | D]}
                     end
             end
     end;
-%% `with` is width-preserving (ticket 26 §2), so the base's type passes through
-%% unchanged. The assigned VALUES are not checked: that would be a sixth site,
-%% and ticket 33 enumerated five.
-type_of({e_with, _, Base, Fields}, S, C) ->
+%% SITE 2 AGAIN — `with`, which ticket 36 resolved is the SAME site rather than a
+%% sixth one. The base's type still passes through unchanged, because
+%% width-preservation (26 §2) is a fact about NAMES and licenses nothing about
+%% values; `Total: int` is written in the record declaration and governs
+%% `o with { Total = … }` exactly as it governs `Order{ Total = … }`. 33 §2's
+%% closing sentence names the four forms that declare nothing — `e_op`,
+%% `e_tuple`, `e_list`, `e_block` — and `e_with` is not among them.
+%%
+%% BOTH HALVES, and the name half is here because measuring 36 found it missing:
+%% `o with { Nope = 1 }` compiled clean and raised `{badkey,'Nope'}` at run time,
+%% so 26 §2 was being enforced by the BEAM rather than by the compiler. The
+%% relation differs from construction's by exactly what 26 §2 says — SUBSET, not
+%% equality — so `with` can never report a missing field.
+type_of({e_with, L, Base, Fields}, S, C) ->
     {T, D1} = type_of(Base, S, C),
-    {_, D2} = type_of_all([E || {_, E} <- Fields], S, C),
-    {T, D1 ++ D2};
+    {Tys, D2} = type_of_all([E || {_, E} <- Fields], S, C),
+    Keys = [K || {K, _} <- Fields],
+    D3 = case {declared_fields(T), record_name(T)} of
+             {unknown, _} -> [];
+             {_, unknown} -> [];
+             {Declared, Name} ->
+                 case lists:sort(Keys -- Declared) of
+                     [] ->
+                         field_value_diags(Keys, Tys, T, Name, L, C);
+                     Extra ->
+                         [{error, L, C#ctx.fname,
+                           {field_set_mismatch, Name, update, [], Extra}}]
+                 end
+         end,
+    {T, D1 ++ D2 ++ D3};
 %% Ticket 17 §6 — `walk/5` over ONE COLUMN. A clause row's domain is a product of
 %% declared parameter types and a switch's is a single synthesised type, and that
 %% is the whole of the difference: the same `pattern_type/3`, the same
@@ -1953,6 +1985,40 @@ declared_fields(_)                         -> unknown.
 field_type(#{maps := top}, _Field) -> bs_types:term();
 field_type(#{maps := Members}, Field) ->
     union_of([maps:get(Field, Fs) || {_, Fs} <- Members, maps:is_key(Field, Fs)]).
+
+%% SITE 2's VALUE HALF — ticket 36. One containment per field against the type
+%% the record declaration wrote down, which is the same declaration for both
+%% spellings, so this serves construction and `with` alike.
+%%
+%% THE RESIDUAL IS PRECISE HERE, and 33 §3's `useless` verdict does not reach
+%% it. That verdict measured `Order{Id} \ Order` — the NAME residual, which
+%% names the type being built rather than the field forgotten. This is a
+%% different query: `:oops \ int` is `:oops`, the value to remove, standing
+%% beside a field name that is already known because it is the key assigned.
+%%
+%% A value whose own synthesis already failed is `reported()`, which is
+%% `none()`, and `none \ T` is empty — so a cascading second complaint about the
+%% same expression cannot arise and needs no special case.
+field_value_diags(Keys, Tys, RecTy, Name, L, C) ->
+    [{error, L, C#ctx.fname, {field_value_not_accepted, Name, K, R}}
+     || {K, VTy} <- lists:zip(Keys, Tys),
+        R <- [bs_types:subtract(VTy, field_type(RecTy, K))],
+        not bs_types:is_none(R)].
+
+%% The record's declared name, read back off the minted tag.
+%%
+%% Construction is handed the surface name it was written with; `with` has only
+%% the base's TYPE, and needs a name for the same diagnostic. 26 §1 mints the
+%% tag from the qualified name, so the declared name is the segment after the
+%% last dot. A base that is a union of records has no single name — and
+%% `declared_fields/1` has already declined that case, so the two guards agree.
+record_name(Ty) ->
+    case field_type(Ty, 'Kind') of
+        #{atoms := {finite, [Tag]}} ->
+            list_to_atom(lists:last(string:split(atom_to_list(Tag), ".", all)));
+        _ ->
+            unknown
+    end.
 
 walk([], Residual, _Ctx, Diags, _N) ->
     {Residual, lists:reverse(Diags)};

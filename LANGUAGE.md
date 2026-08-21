@@ -596,9 +596,14 @@ Amount(o) -> o.Total
 Note `:` in declarations and patterns, `=` in construction and update. **No optional fields** —
 every declared field is always present, and absence is `option<T>`.
 
-`with` is **width-preserving**: it updates fields that are already there and raises on one that is
-not, so a record cannot grow through it. There is no spread — a widened record would carry a
-minted tag while not being that record, and no signature could be written against it.
+`with` is **width-preserving**: it updates fields that are already there and is an **error at
+compile time** on one that is not, so a record cannot grow through it. There is no spread — a
+widened record would carry a minted tag while not being that record, and no signature could be
+written against it.
+
+A field assignment is also checked against the type the record declaration wrote down, and that
+holds at **both** spellings — `Order{ Total = :oops }` and `o with { Total = :oops }` are the same
+error, because they meet the same declaration.
 
 **shipped**, with two things worth knowing:
 

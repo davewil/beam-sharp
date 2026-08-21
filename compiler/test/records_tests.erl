@@ -2,7 +2,7 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
--import(bs_test_support, [compile/1, build_and_load/2, check_only/1,
+-import(bs_test_support, [compile/1, build_and_load/2, check_only/1, errors/1,
                           shop_src/0, an_order/0, count/2]).
 
 -define(OUT, "/tmp/bsc_eunit").
@@ -106,13 +106,25 @@ with_is_width_preserving_and_keeps_the_tag_test() ->
 
 %% ...and it cannot WIDEN, because `:=` raises rather than adding a key. That is
 %% the mechanism behind §5 closing row polymorphism rather than deferring it.
+%% F21 / ticket 36 REWROTE THIS TEST, and the old body is why the ticket exists.
+%%
+%% It used to build the module, call it, and assert `{badkey, 'Extra'}` — that
+%% is, it certified that `with` cannot add a field *by observing the BEAM raise*.
+%% 26 §2 is real, but F3 was enforcing it at RUN time and this test recorded
+%% that as the intended behaviour, so nothing was left to notice the compiler
+%% had never checked. Measuring ticket 36 found it: a proved-exhaustive program
+%% that crashes, the shape ticket 54 was about.
+%%
+%% The claim is now made where 26 §2 belongs. The runtime half needs no test: it
+%% is `erlc`'s `:=`, and it can no longer be reached from source that compiles.
 with_cannot_add_a_field_test() ->
     Src = "module Shop\n"
           "record Order { Id: int, Total: int }\n"
           "public Order Grow(Order o)\n"
           "Grow(o) -> o with { Extra = 1 }\n",
-    M = build_and_load(Src, 'Shop'),
-    ?assertError({badkey, 'Extra'}, M:'Grow'(an_order())).
+    ?assertMatch([{error, _, 'Grow',
+                   {field_set_mismatch, 'Order', update, [], ['Extra']}}],
+                 errors(Src)).
 
 %% F3.6 — spread is not in the language. §2 refused it on a specific ground, so
 %% the refusal gets a test rather than being an omission.

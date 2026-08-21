@@ -182,11 +182,21 @@ descriptor(Path, {Sev, Line, Fn, {arg_not_accepted, Callee, Pos, Residual, Head}
                                residual => residual(Residual),
                                rejected => bs_types:to_pattern(Residual),
                                caller_head => caller_head(Fn, Head, Residual)};
-descriptor(Path, {Sev, Line, Fn, {field_set_mismatch, Record, Missing, Extra}}) ->
+descriptor(Path, {Sev, Line, Fn, {field_set_mismatch, Record, Form, Missing, Extra}}) ->
     (at(Sev, Path, Line, Fn))#{tag => field_set_mismatch,
                                record => Record,
+                               form => Form,
                                missing => Missing,
                                extra => Extra};
+%% SITE 2's VALUE HALF — ticket 36. The residual is a type, so the printer that
+%% already renders an exhaustiveness residual renders this one and ticket 23 is
+%% satisfied without a new SHAPE of diagnostic — only a new tag.
+descriptor(Path, {Sev, Line, Fn, {field_value_not_accepted, Record, Field, Residual}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => field_value_not_accepted,
+                               record => Record,
+                               field => Field,
+                               residual => residual(Residual),
+                               rejected => bs_types:to_pattern(Residual)};
 descriptor(Path, {Sev, Line, Fn, {field_absent, Field, Residual}}) ->
     (at(Sev, Path, Line, Fn))#{tag => field_absent,
                                field => Field,
@@ -528,12 +538,28 @@ message(#{tag := arg_not_accepted, file := P, line := L, function := Fn,
 %% SITE 2. `Order{Id} \ Order` names the type you were BUILDING rather than the
 %% field you forgot — correct, and worthless — so this one site answers in field
 %% names. It still hands back something to write, which is what ticket 23 asks.
+%% THE VERB IS READ FROM THE FORM — ticket 36. `with` reaches this same site
+%% now, and *"Bump builds an Order with the wrong fields"* is false about an
+%% expression that updates one: nothing is missing there, a name was invented.
+%% One field on the descriptor rather than a fourth diagnostic shape, because
+%% the `Extra` arm's own sentence — *"not declared by Order"* — was already the
+%% right one, and `field_list/2` already renders an empty `Missing` as nothing.
 message(#{tag := field_set_mismatch, file := P, line := L, function := Fn,
-          record := Record, missing := Missing, extra := Extra}) ->
-    {"~s:~p: error: ~s builds an ~s with the wrong fields~n~s~s",
-     [P, L, Fn, Record,
+          record := Record, form := Form, missing := Missing, extra := Extra}) ->
+    {"~s:~p: error: ~s ~s an ~s with the wrong fields~n~s~s",
+     [P, L, Fn, field_set_verb(Form), Record,
       field_list("  missing, and must be supplied", Missing),
       field_list("  not declared by " ++ atom_to_list(Record), Extra)]};
+%% SITE 2's VALUE HALF. Shaped on site 4's message deliberately: both say that a
+%% synthesised value is not contained in a type someone declared, and the only
+%% difference is which declaration — a signature's return there, a record's
+%% field here.
+message(#{tag := field_value_not_accepted, file := P, line := L, function := Fn,
+          record := Record, field := Field, rejected := Rejected}) ->
+    {"~s:~p: error: ~s assigns ~s a value ~s does not accept~n"
+     "  not covered by the declared type of ~s:~n"
+     "    ~s~n",
+     [P, L, Fn, Field, Record, Field, Rejected]};
 %% SITE 3. The residual IS the member that lacks the field, which is the tag to
 %% discriminate on — the sentence F3.8 deferred, needing no new machinery.
 message(#{tag := field_absent, file := P, line := L, function := Fn,
@@ -1000,6 +1026,11 @@ caller_head(Fn, {Pos, Arity}, Residual) ->
 caller_head_prose(_Fn, none) -> "";
 caller_head_prose(_Fn, Head) ->
     io_lib:format("  the clause to add here:~n    ~s~n", [Head]).
+
+%% Construction supplies a field set; `with` updates one. Ticket 26 §2 is the
+%% reason `update` can never carry a `Missing` list.
+field_set_verb(construction) -> "builds";
+field_set_verb(update)       -> "updates".
 
 field_list(_Label, [])    -> "";
 field_list(Label, Fields) ->
