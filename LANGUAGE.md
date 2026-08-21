@@ -258,6 +258,14 @@ That is how a route table distinguishes `/orders` from `/orders/42` without a le
 **shipped**
 <!-- decided by ticket 08; the closed form measured and documented by ticket 53 -->
 
+**That spelling is retired, and the rest becomes a marker.** A closed list is written `[a, b]` and
+means exactly two; `[a, b, ..]` and `[a, b, ..t]` mean two or more, discarding or binding the tail.
+`..[]` goes, and so does any other pattern in the rest position. `[a, b]` is exactly two in Erlang,
+Elixir, C# and Gleam alike — the one place the two families this language borrows from agree — and
+refusing it was the divergence, not admitting it. Nothing is lost: `..[b, ..t]` is `[a, b, ..t]`,
+`..[7]` is `[a, 7]`, and a rest matched against a bound name is a guard. **decided**
+<!-- ticket 54 amends ticket 08; the survey and the yecc measurement are in that ticket -->
+
 <!-- check:
 public atom Dispatch(list<string> path)
 -->
@@ -272,8 +280,17 @@ pattern is subtracted as *non-empty* whatever its prefix, so `[a, b, ..t]` is cr
 every non-empty list — which makes `[]` beside `[a, b, ..t]` pass the exhaustiveness check and crash
 on a one-element list. A closed rest subtracts nothing at all. **Until that is fixed, a clause set
 over a list is proved only for the empty/non-empty split**, and a catch-all is doing more work than
-it appears to. **open**
-<!-- the hole is ticket 54; the repro is four lines and is in that ticket -->
+it appears to.
+
+**The answer is that the algebra never measures a length — it decomposes the cons cell.** A
+non-empty list is a product of an element and a tail, subtracted by the same rule that already
+subtracts tuples exactly, and length falls out of the recursion. The residual is then printable as
+a clause you can paste: `[]` beside `[a, b, ..]` leaves `[int]`, not a quantity. Depth is bounded
+by the longest prefix any clause writes, which is what makes the recursion terminate. A consequence
+worth stating: a closed residual over a list forbids a catch-all like any other closed residual, so
+a `list<bool>` missing its two length-one cases is an error naming them rather than a `_`. That
+bites only where the element type is closed. **decided**
+<!-- ticket 54; the four-language survey and the repro are in that ticket -->
 
 **To match against a value a name already holds, write `== name`.** A bare name in a pattern
 introduces a name; `== name` matches the value that name is bound to. **shipped**
@@ -358,7 +375,7 @@ of them is a union like any other, which is why `Verdict` above needs no special
 | `atom` | open universe, cofinite top | **shipped** |
 | `:ok` | a singleton atom type | **shipped** |
 | `(A, B)` | tuple | **shipped** |
-| `list<T>` | `[]` and `[h, ..t]` partition it; no length beyond that, and a longer prefix is credited wrongly | **shipped, with a hole** |
+| `list<T>` | `[]` and `[h, ..t]` partition it; no length beyond that, and a longer prefix is credited wrongly — the cons cell decomposes instead, and length falls out | **shipped, with a hole; the fix is decided** |
 | `term` | the top type — everything | **shipped** |
 | `none` | the bottom type, first-class | **shipped** |
 | `float` | | **open** |

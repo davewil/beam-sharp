@@ -18,7 +18,7 @@ familiar to either counts as borrowed.
 | Same-arity dispatch | Union parameter — `string Describe(int \| Order)`. **One arrow per arity.** |
 | Defaults & variadics | Both kept; arity generation is codegen |
 | Accumulator pairs | Two functions sharing a name — defaults cannot express it |
-| List patterns | Prefix-plus-rest only |
+| List patterns | Prefix-plus-rest only. **Amended 2026-08-21 by [ticket 54](54-list-length-in-the-algebra.md): the rest is a *marker*, not an ordinary pattern.** `[a, b]` is legal and means exactly two; `[a, b, ..]` and `[a, b, ..t]` mean two or more. `..[]` — which this decision made legal by accident rather than by choice, as ticket 53 found — is retired. The reason is that `[a, b]` is exactly-two in Erlang, Elixir, C# and Gleam alike, and refusing it made the compiler recommend `[a, b, ..t]`, a form with different semantics *and* the one the checker miscounts |
 | Parameter names in signatures | Dropped — types only |
 | Declarations file | `index.bs` |
 | `Self` | No keyword — the compiler supplies the module |

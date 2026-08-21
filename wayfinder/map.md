@@ -330,8 +330,8 @@ Bodies in [`fog.md`](fog.md). These are open: read the body before assuming a di
 - **`cond`, or whatever serves a long ladder of unrelated conditions** `#17` `syntax`
   no case for it yet; the width-five evidence was retracted and 25a's ladder is now a valve chain
 - **List length in the algebra: a proved-exhaustive program that crashes** `#54` `types` `patterns`
-  `[]` plus `[a, b, ..t]` compiles clean and crashes on `[7]` — a cons subtracts *all* non-empty
-  whatever its prefix, and a closed rest subtracts nothing. Four lines of repro; take it before 53's
+  **decompose the cons, never measure it** — Gleam's answer; Elixir's set-theoretic types share the
+  hole. Rest becomes a marker, `[a, b]` is exactly-two, `..[]` retired: 08 amended, 53 answered
 
 ---
 

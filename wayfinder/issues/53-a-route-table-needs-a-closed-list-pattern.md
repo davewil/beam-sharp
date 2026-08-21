@@ -137,6 +137,13 @@ not on the strength of this ticket.
 recognises — C# and TypeScript both spell it `["orders", id]`. Whether the closed form deserves
 sugar is a real question and is the only design question this ticket leaves.
 
+> **Answered 2026-08-21 by [ticket 54](54-list-length-in-the-algebra.md), and not with sugar.**
+> `["orders", id]` becomes the spelling and `..[]` is retired outright — the rest position stops
+> being an ordinary pattern and becomes a marker, amending ticket 08. Both halves landed together
+> on purpose: 54 also makes the checker *see* the closed form, so the surface reads like C# and the
+> guarantee behind it is now real. The survey that settled it found `[a, b]` means exactly two in
+> Erlang and Elixir as well as C# and Gleam — so this was never a borrow question, and B# was alone.
+
 **It is second in line.** Measuring the premise found that a closed-length clause is **invisible to
 the exhaustiveness checker**, and that a multi-element prefix is credited with every non-empty list
 — so `Shape([]) / Shape([a, b, ..t])` compiles clean and crashes on `[7]`. Raised as

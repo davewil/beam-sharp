@@ -1350,3 +1350,47 @@
   captured candidate is that the **FFI declaration is already the place a foreign thing is named**
   (→ ticket 52). Practical consequence logged not solved: an exemplar binding Req makes CI fetch nine
   packages and need Elixir on the runner, the first gate here to depend on the network.
+
+- [List length in the algebra: a proved-exhaustive program that crashes](issues/54-list-length-in-the-algebra.md) —
+  **the algebra models none of it, because it decomposes the cons cell instead of measuring it.**
+  That is a fifth candidate the ticket did not list, and it is what the one surveyed language that
+  gets this right actually does. Four languages were run rather than recalled: **Erlang does not
+  catch it** (`erlc` silent, **Dialyzer passes**), **Elixir 1.19.5 does not catch it** — which is
+  the finding that should sting, since it ships Castagna's set-theoretic types, *the same theory
+  `bs_types` rests on*, and has the identical hole for the identical reason — **C# catches it and
+  names `{ Length: 1 }`**, **Gleam catches it and names `[_]`**. The two that work disagree only on
+  vocabulary, and the disagreement follows the data structure: a C# array has an O(1) `Length` to
+  talk about, a cons chain has none. **beam-sharp has no `Length` either** — there is no `length`
+  anywhere in the language, no guard, no refinement, no type spelling — so candidate 2 would put a
+  quantity in the algebra that nothing in the source can name. **And candidate 2 is dominated**:
+  Gleam's residual for `[] / [_] / [True, _, ..]` is `[False, _, ..]`, a length and an element value
+  in one pattern, which no interval can express and which is exactly the shape a route table needs.
+  Candidate 2 buys the machinery and leaves ticket 53's table unchecked. **The mechanism was already
+  in the tree**: `product_minus/2` is the exact n-way product-difference rule, already recursive
+  through `subtract/2`, applied to tuples and maps and simply never to the cons cell — so the new
+  work is termination, not an algorithm. **The rest position becomes a marker and `[a, b]` means
+  exactly-two**, reversing ticket 08 on that point and retiring `..[]`. This was never a
+  borrow-from-C# question: **`[a, b]` is exactly-two in Erlang, Elixir, C# and Gleam alike** — the
+  one place the two families agree — and B# alone refused it. **The refusal was worse than a
+  divergence, because it recommended a meaning change**: *"write `[h, ..t]`"* turns an exactly-two
+  pattern into a two-or-more one, and that is precisely the form the checker gets wrong — **the
+  four-line repro is reachable by following the compiler's own advice.** Marker-rest also makes the
+  decomposition terminate by construction, which is what `bs_types.erl`'s warning against a
+  recursive list part was guarding: unfold depth is `lists:max/1` over the prefix lengths written.
+  **Measured free**: `yecc:file/2` reports 0 conflicts on the current grammar, 0 on marker-rest, 0
+  with fix-it error productions added, against a control that reports 1 reduce/reduce — and **`[a,
+  b]` needs no grammar change at all**, since `plist_items -> pattern` already yields `Rest = nil`
+  and the refusal is one `erlang:error` in `bs_check`. **Ticket 12 §2 reaches lists with no
+  exemption**: a `list<bool>` residual of exactly-one-bool is closed and inhabited, so a catch-all
+  over it becomes an error naming `[true]` and `[false]` — the residual decides, never the type
+  constructor. It bites only on closed element types, and it makes ticket 43's cap do real work.
+  **Five symptoms, not two**, and the new fifth is the worst: `[] / [a, b, ..t] / [a, ..t]` has
+  clause 3 reported **unreachable** while `erlc` stays silent and `Shape([7])` returns `:one` —
+  *the clause the compiler called dead is the clause that runs*, which for the clean-room handoff is
+  more damaging than a crash, since a fleet deletes it. **One of this ticket's own premises was
+  false**: *"449 tests pass today with the wrong behaviour, some may encode it"* — **none do**; the
+  suite has no multi-element prefix cons and no `..[]` at all. What it has is a hole, since
+  **nothing tests the diagnostic this deletes**, and `check-diagnostics.sh` only checks that every
+  tag has a message, so an orphaned message stays green forever. Blast radius in live source is
+  **four lines** (`25a/route.bs`), plus one confirmed red gate — LANGUAGE.md's `Dispatch` block is
+  untagged and must compile.
