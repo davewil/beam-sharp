@@ -24,7 +24,16 @@
 # evidence here that is not self-reported.
 
 url       https://claude.ai/code/artifact/40f71cf4-d5d3-4b71-882c-ad73f630a03c
-sha256    d7e298e40ed2bcf18c7bf038c9d135c4ea11d38f8dedd11159cf25912923b7a0
-verified  2026-08-19 — page fetched and read back against the file: heading,
-          all eighteen chapters, both prelude aliases, the mermaid map and the
-          pasted transcripts all present and identical.
+sha256    2f488f1042045714f15731fa222e151f1438a1f290513a3a03923805eedcb35e
+verified  2026-08-21 — republished, then fetched and read back against the file:
+          heading, the mermaid map, and chapters 1–12 verbatim including
+          chapter 10's binary segments, which did not exist when the page was
+          first published.
+
+          THE STAMP SAT UNCOMMITTED FOR TWO DAYS AND THE PAGE WENT STALE IN
+          THEM, which is the gate's own case made by its absence. This commit
+          was written on 2026-08-19 and left on a branch; TOUR.md took 23
+          commits of changes meanwhile — F13's whole binary chapter among them —
+          and a reader with only the link saw none of it. The first thing part 4
+          did on being run was go red, correctly, against the stamp it shipped
+          with.
