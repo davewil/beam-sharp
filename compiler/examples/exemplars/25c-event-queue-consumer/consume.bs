@@ -17,7 +17,7 @@ public result<Delivery, ConsumeError> Consume(binary)
 
 Consume(raw) -> DecodeFrame(raw) switch {
     (:error, e)                        => (:error, e),
-    (Frame { Type = :method } f, rest) =>
+    (Frame { Type: :method } f, rest) =>
         f.Payload |?> DecodeMethod()
                   |?> WithBody(rest),
     (f, _)                             => (:error, (:want_method, f.Type))

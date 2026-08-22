@@ -794,6 +794,41 @@ qualified(Mod, Name) ->
 %% never assigned.
 record_fields({t_map, Fields}) -> [N || {field, N, _} <- Fields, N =/= 'Kind'].
 
+%% F22 / TICKET 55 — the minted tag and the declared field names of a record
+%% NAMED IN A PATTERN. It sits here, beside `qualified/2`, because it must not
+%% become a second place that knows how a tag is built: it reads the tag back
+%% out of the RESOLVED type rather than re-minting it, so a change to the
+%% minting rule cannot leave patterns agreeing with an older one.
+%%
+%% `resolve/2` raises `{unknown_type, Name}` for a prefix that names nothing,
+%% which is the diagnostic F22.5 wants and one that already existed.
+%%
+%% NOT EVERY TYPE IS A RECORD, and the shape below is what tells them apart: a
+%% single CLOSED map member carrying a singleton `Kind`. A union, an anonymous
+%% map without a tag, a bare alias to `int` — none is something `Frame { … }`
+%% can mean, and each gets `not_a_record` rather than a confusing narrowing.
+%% This mirrors `bs_emit:record_tag/2` deliberately; the two answer the same
+%% question for the checker and the emitter.
+record_of(Name, Line, Env) ->
+    case resolve({t_ref, Name}, Env) of
+        #{maps := [{closed, Fs}], atoms := {finite, []}, ints := [],
+          tuples := [], lists := [], bins := []} ->
+            case maps:find('Kind', Fs) of
+                {ok, #{atoms := {finite, [Tag]}, ints := [], tuples := [],
+                       lists := [], maps := [], bins := []}} ->
+                    %% `Kind` IS DROPPED, so `Frame { Kind: ... }` is refused —
+                    %% the same treatment `record_fields/1` gives it at
+                    %% construction, and for the same reason: it is minted,
+                    %% never written. Allowing it would let the checker and the
+                    %% emitter disagree, because the checker takes the minted
+                    %% tag as authoritative while the emitter would have to
+                    %% choose between it and the one the author typed.
+                    {Tag, maps:keys(Fs) -- ['Kind']};
+                _ -> erlang:error({not_a_record, Line, Name})
+            end;
+        _ -> erlang:error({not_a_record, Line, Name})
+    end.
+
 %% An already-resolved type passes through, so the emitter can hand this either
 %% a surface type or one the environment has already reduced.
 %%
@@ -1177,6 +1212,14 @@ pattern_vars({p_bin, _, Segs})         ->
     [V || {seg_bind, _, V, _} <- Segs];
 pattern_vars({p_tuple, _, Ps})         -> lists:append([pattern_vars(P) || P <- Ps]);
 pattern_vars({p_map, _, Fs})           -> lists:append([pattern_vars(P) || {_, P} <- Fs]);
+%% F22 — a type-prefixed record pattern carries the same field list a property
+%% pattern does; the type name binds nothing.
+pattern_vars({p_rec, _, _, Fs})        -> lists:append([pattern_vars(P) || {_, P} <- Fs]);
+%% F22 — THE BINDER INTRODUCES ITS NAME AND THE PATTERN UNDER IT STILL BINDS.
+%% `Frame { Payload: p } f` introduces both, which is why this recurses rather
+%% than answering `[V]`: a nested binder that swallowed its own sub-pattern's
+%% names would make them unreadable in the body with no diagnostic.
+pattern_vars({p_bind, _, V, P})        -> [V | pattern_vars(P)];
 pattern_vars({p_list, _, Items, Rest}) ->
     lists:append([pattern_vars(P) || P <- Items])
         ++ case Rest of nil -> []; R -> pattern_vars(R) end;
@@ -1193,6 +1236,11 @@ pattern_matched_vars({p_tuple, _, Ps})         ->
     lists:append([pattern_matched_vars(P) || P <- Ps]);
 pattern_matched_vars({p_map, _, Fs})           ->
     lists:append([pattern_matched_vars(P) || {_, P} <- Fs]);
+pattern_matched_vars({p_rec, _, _, Fs})        ->
+    lists:append([pattern_matched_vars(P) || {_, P} <- Fs]);
+%% The binder INTRODUCES, so it reads nothing itself — but the pattern under it
+%% may, and `Frame { Kind: == k } f` must still report reading `k`.
+pattern_matched_vars({p_bind, _, _, P})        -> pattern_matched_vars(P);
 pattern_matched_vars({p_list, _, Items, Rest}) ->
     lists:append([pattern_matched_vars(P) || P <- Items])
         ++ case Rest of nil -> []; R -> pattern_matched_vars(R) end;
@@ -1325,6 +1373,8 @@ segment_diags(Patterns, Name) ->
 bin_diags({p_bin, _, Segs}, Name)         -> seg_list_diags(Segs, Name);
 bin_diags({p_tuple, _, Ps}, Name)         -> segment_diags(Ps, Name);
 bin_diags({p_map, _, Fs}, Name)           -> segment_diags([P || {_, P} <- Fs], Name);
+bin_diags({p_rec, _, _, Fs}, Name)        -> segment_diags([P || {_, P} <- Fs], Name);
+bin_diags({p_bind, _, _, P}, Name)        -> bin_diags(P, Name);
 bin_diags({p_list, _, Items, Rest}, Name) ->
     segment_diags(Items, Name)
         ++ case Rest of nil -> []; R -> bin_diags(R, Name) end;
@@ -1820,6 +1870,8 @@ has_rel({p_and, _, A, B})        -> has_rel(A) orelse has_rel(B);
 has_rel({p_or,  _, A, B})        -> has_rel(A) orelse has_rel(B);
 has_rel({p_tuple, _, Ps})        -> lists:any(fun has_rel/1, Ps);
 has_rel({p_map, _, Fs})          -> lists:any(fun({_, P}) -> has_rel(P) end, Fs);
+has_rel({p_rec, _, _, Fs})       -> lists:any(fun({_, P}) -> has_rel(P) end, Fs);
+has_rel({p_bind, _, _, P})       -> has_rel(P);
 has_rel({p_list, _, Items, Rest}) ->
     lists:any(fun has_rel/1, Items)
         orelse (Rest =/= nil andalso has_rel(Rest));
@@ -2203,6 +2255,52 @@ pattern_type({p_map, _, Fields}, Path, Env) ->
     {bs_types:map_open(maps:from_list([{K, T} || {K, {T, _, _}} <- Triples])),
      lists:foldl(fun maps:merge/2, #{}, [B || {_, {_, B, _}} <- Triples]),
      lists:all(fun({_, {_, _, E}}) -> E end, Triples)};
+%% F22 / TICKET 55 — A RECORD PATTERN THAT NAMES ITS TYPE.
+%%
+%% IT IS THE PROPERTY PATTERN WITH ONE FIELD FILLED IN BY THE COMPILER, AND THAT
+%% IS THE WHOLE IMPLEMENTATION. `Frame { Type: :method }` produces exactly the
+%% `map_open` that `{ Kind: :'Wire.Frame', Type: :method }` produces, so it
+%% subtracts exactly as much — no more, and no less.
+%%
+%% That equality is the feature's one real risk and it is why this reuses the
+%% clause above rather than computing a narrowing of its own. Subtracting too
+%% little is loud: a covered union reports inexhaustive and somebody fixes it.
+%% Subtracting too MUCH is silent — the compiler proves a program exhaustive and
+%% the BEAM crashes it, which is ticket 54's shape, and ticket 54 sat inside a
+%% green suite of 449 tests. `check-record-pattern.sh` asserts the two spellings
+%% agree rather than pinning either.
+%%
+%% The tag comes from `record_of/3`, which resolves through `resolve/2` and
+%% therefore through the SINGLE MINTING POINT. A second place that built a
+%% qualified name would be a second place for the two to drift apart.
+pattern_type({p_rec, Line, Name, Fields}, Path, Env) ->
+    {Tag, Declared} = record_of(Name, Line, Env),
+    %% Checked BEFORE the fields are typed, so a typo reports as a typo. Without
+    %% this the pattern would intersect to `none`, the clause would match
+    %% nothing, and the function would report INEXHAUSTIVE — a true statement
+    %% that says nothing about the mistake actually made.
+    [case lists:member(K, Declared) of
+         true  -> ok;
+         false -> erlang:error({pattern_field_unknown, Line, Name, K, Declared})
+     end || {K, _} <- Fields],
+    Triples = [{K, pattern_type(P, Path ++ [{field, K}], Env)} || {K, P} <- Fields],
+    Named = maps:from_list([{K, T} || {K, {T, _, _}} <- Triples]),
+    {bs_types:map_open(Named#{'Kind' => bs_types:atom_lit(Tag)}),
+     lists:foldl(fun maps:merge/2, #{}, [B || {_, {_, B, _}} <- Triples]),
+     lists:all(fun({_, {_, _, E}}) -> E end, Triples)};
+%% F22 / TICKET 55 — THE TRAILING BINDER.
+%%
+%% THE SAME PATH AS THE PATTERN IT WRAPS, WHICH IS THE POINT. A binder does not
+%% describe a new position; it names the one already being described. Handing it
+%% `Path` unchanged is what lets a guard refine through it and a body read
+%% `f.Channel` at the declared type rather than at `term`.
+%%
+%% It contributes NOTHING to exactness. The pattern underneath decides that, so
+%% `Frame f` is exact where `Frame { … }` is and `<<t:8, r>> f` is inexact where
+%% the binary is — the binder cannot make a claim the thing it names does not.
+pattern_type({p_bind, _, V, P}, Path, Env) ->
+    {T, B, E} = pattern_type(P, Path, Env),
+    {T, B#{V => Path}, E};
 %% F13 / TICKET 30 — A BINARY PATTERN, AND THE `false` IS THE WHOLE DESIGN.
 %%
 %% The type is `binary` and nothing narrower, because ticket 30's answer is that

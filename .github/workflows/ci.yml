@@ -350,6 +350,25 @@ jobs:
         working-directory: compiler
         run: ./bin/check-field-values.sh
 
+      # F22 / ticket 55. `Frame { Type: :method }` is new surface over an old
+      # meaning, so the thing to defend is that it narrows the residual by
+      # EXACTLY what `{ Kind: :'Mod.Frame', … }` narrows it by. The two
+      # directions are not equally dangerous: too little is loud, too much is a
+      # program the compiler proves exhaustive and the BEAM crashes — ticket
+      # 54's shape, which sat inside a green suite of 449 tests.
+      #
+      # The self-test's SILENT stub is that bug exactly, and the BROKEN stub is
+      # the vacuity control: probe 1 must fire on the exit code even when the
+      # output is empty, because "no diagnostic appeared" is free the moment the
+      # run dies earlier.
+      - name: The record-pattern gate proves it can fail
+        working-directory: compiler
+        run: ./bin/check-record-pattern.sh --self-test
+
+      - name: A type prefix subtracts what the Kind spelling subtracts
+        working-directory: compiler
+        run: ./bin/check-record-pattern.sh
+
       # Dialyzer over every emitted spec, plus two negative controls that corrupt
       # a real emitted artefact and REQUIRE the corruption to be caught — because
       # a clean run proves nothing unless a wrong spec would fail it.

@@ -489,6 +489,46 @@ pat_fields -> pat_field ',' pat_fields : ['$1' | '$3'].
 
 pat_field -> uident ':' pattern : {value('$1'), '$3'}.
 
+%% TICKET 55 / F22 — THE TYPE PREFIX AND THE TRAILING BINDER.
+%%
+%% The comment above is still true and is now half the story: the tag IS an
+%% ordinary field, so `{ Kind: :'Shop.Order' }` remains a complete record
+%% pattern. What it costs is that the tag is MINTED — `record_surface/4` puts it
+%% there and `qualified/2` builds the qualified atom — so writing it by hand
+%% makes an erasure detail load-bearing in source. Naming the type lets the
+%% compiler mint it, which is what every neighbour surveyed does.
+%%
+%% `p_rec` carries the NAME, not a resolved tag. Resolution needs the type
+%% environment and this is a parser; `bs_check` and the emitter each resolve it
+%% through the one minting point rather than a second one being invented here.
+pattern -> uident '{' pat_fields '}' :
+    {p_rec, line('$1'), value('$1'), '$3'}.
+
+%% THE BINDER IS A BARE TRAILING NAME, WITH NO KEYWORD, AND BOTH ALTERNATIVES
+%% WERE ALREADY SPENT. `as` is committed to C#'s checked conversion — free in
+%% the lexer, which makes it look available, and reserved on the map. `=`
+%% introduces a binding in a body (F8) and ticket 45 kept it out of pattern
+%% position deliberately when it gave `==` the match-a-bound-value meaning.
+%%
+%% What is left is C#'s bare designation, which is also the shape a SIGNATURE
+%% already has: `param -> type_prim lident`, so `Order o`. Measured at zero yecc
+%% conflicts over a baseline that is itself zero — see 55f_yecc_conflicts.sh.
+pattern -> uident '{' pat_fields '}' lident :
+    {p_bind, line('$1'), value('$5'), {p_rec, line('$1'), value('$1'), '$3'}}.
+
+%% `Circle c` — a type and a name, no fields. LANGUAGE.md's own illustrative
+%% spelling for dispatch, and character-identical to a parameter. It is an empty
+%% `p_rec` rather than a form of its own, so the tag test is the only thing it
+%% carries and every downstream case already handles it.
+pattern -> uident lident :
+    {p_bind, line('$1'), value('$2'), {p_rec, line('$1'), value('$1'), []}}.
+
+%% The binder over the BARE property pattern, which keeps the two halves
+%% separable: naming the type and binding the value are independent, and C#
+%% permits the designation on both.
+pattern -> '{' pat_fields '}' lident :
+    {p_bind, line('$1'), value('$4'), {p_map, line('$1'), '$2'}}.
+
 pattern -> '[' ']'          : {p_nil, line('$1')}.
 pattern -> '[' plist_items ']' :
     begin {Items, Rest} = '$2', {p_list, line('$1'), Items, Rest} end.

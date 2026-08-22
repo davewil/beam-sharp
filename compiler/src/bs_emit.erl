@@ -181,7 +181,16 @@ clause({clause, Line, _Name, Patterns, Guard, Body}, Params, Ctx) ->
     %% then reach `pattern/2`, which has no clause for one — a crash rather than a
     %% diagnostic. Stripping first means the boundary guard only ever sees a
     %% variable, which it already knows what to do with.
-    {Patterns0, RelTests} = strip_rels(Patterns),
+    %%
+    %% F22 DESUGARS BEFORE ALL OF IT, AND ADDS NO CASE TO `pattern/2`.
+    %% `p_rec` becomes the `p_map` this module already lowers, with the minted
+    %% tag filled in; `p_bind` becomes the `p_alias` it already lowers. Doing it
+    %% here rather than in `pattern/2` is forced, and usefully so: resolving the
+    %% tag needs `Ctx`, which carries `env`, while `pattern/2` is handed only the
+    %% used-variable set. Same place and same reason `record_tag/2` reads the
+    %% environment for the boundary guard.
+    Desugared = [desugar(P, Ctx) || P <- Patterns],
+    {Patterns0, RelTests} = strip_rels(Desugared),
     %% The boundary guard is injected BEFORE `Used` is computed. It mentions the
     %% parameter variable, so a parameter the body never names would otherwise
     %% lower to `_Foo` and the guard would reference an underscored variable —
@@ -308,8 +317,47 @@ record_tag(TypeExpr, #{env := Env}) ->
     catch _:_ -> none
     end.
 
+%% `desugar/2` runs before this, so a `p_rec` never reaches here — it has already
+%% become a `p_map` carrying the minted `Kind`, which this then sees. The
+%% `p_alias` clause matters though: a bound record pattern still constrains the
+%% tag, and without it the boundary guard would emit a SECOND, redundant tag
+%% test against a variable that already matched one.
 constrains_kind({p_map, _, Fields}) -> lists:keymember('Kind', 1, Fields);
+constrains_kind({p_alias, _, _, P}) -> constrains_kind(P);
 constrains_kind(_)                  -> false.
+
+%% F22 / TICKET 55 — the two new pattern nodes become two the emitter already
+%% lowers, and `pattern/2` gains nothing.
+%%
+%% `p_rec` -> `p_map` with the minted tag prepended. The tag is read back out of
+%% the resolved type by `record_tag/2` rather than re-minted here, so this cannot
+%% drift from `bs_check:qualified/2`.
+%%
+%% `p_bind` -> `p_alias`, which is Erlang's `Var = Pattern` and has been in this
+%% module since the boundary guard needed it. That node is the entire runtime
+%% story of the trailing binder; the feature is surface over it.
+%%
+%% THE RECURSION IS THE PART THAT WOULD BE MISSED. 25c's own shape is
+%% `(Frame { Type: :method } f, rest)` — nested inside a tuple — so a desugar
+%% that only looked at the top of each parameter would compile the exemplar's
+%% line to something that never matches.
+desugar({p_rec, L, Name, Fields}, Ctx) ->
+    Tag = case record_tag({t_ref, Name}, Ctx) of
+              {ok, T} -> T;
+              none    -> erlang:error({not_a_record, L, Name})
+          end,
+    {p_map, L, [{'Kind', {p_atom, L, Tag}}
+                | [{K, desugar(P, Ctx)} || {K, P} <- Fields]]};
+desugar({p_bind, L, V, P}, Ctx)        -> {p_alias, L, V, desugar(P, Ctx)};
+desugar({p_tuple, L, Ps}, Ctx)         -> {p_tuple, L, [desugar(P, Ctx) || P <- Ps]};
+desugar({p_map, L, Fs}, Ctx)           -> {p_map, L, [{K, desugar(P, Ctx)} || {K, P} <- Fs]};
+desugar({p_alias, L, V, P}, Ctx)       -> {p_alias, L, V, desugar(P, Ctx)};
+desugar({p_and, L, A, B}, Ctx)         -> {p_and, L, desugar(A, Ctx), desugar(B, Ctx)};
+desugar({p_or, L, A, B}, Ctx)          -> {p_or, L, desugar(A, Ctx), desugar(B, Ctx)};
+desugar({p_list, L, Items, Rest}, Ctx) ->
+    {p_list, L, [desugar(P, Ctx) || P <- Items],
+     case Rest of nil -> nil; R -> desugar(R, Ctx) end};
+desugar(P, _Ctx)                       -> P.
 
 %% A wildcard has nothing to test against, so one is introduced. `@` keeps the
 %% synthesised name out of the source's variable grammar, which is lowercase
@@ -450,9 +498,17 @@ pattern({p_nil, L}, _U)        -> {nil, L};
 pattern({p_map, L, Fields}, U) ->
     {map, L, [{map_field_exact, L, {atom, L, K}, pattern(P, U)} || {K, P} <- Fields]};
 %% Introduced by the boundary guard when the head is structural and the tag
-%% still needs a name to be read from.
+%% still needs a name to be read from — and, since F22, by every trailing binder
+%% a user writes.
+%%
+%% THE NAME GOES THROUGH `pattern/2`'S OWN `p_var` CLAUSE RATHER THAN BEING
+%% BUILT HERE, so an unused binder underscores exactly as an unused parameter
+%% does. Writing `{var, L, var_name(V)}` directly is what this used to do, and
+%% F22.10 caught it: `Which(Method { Channel: 7 } f) -> :seven` emitted Erlang
+%% that warned `variable 'F' is unused` on a clause the author wrote correctly.
+%% 25c's file is full of that shape, so every clause in it would have warned.
 pattern({p_alias, L, V, P}, U) ->
-    {match, L, {var, L, var_name(V)}, pattern(P, U)};
+    {match, L, pattern({p_var, L, V}, U), pattern(P, U)};
 %% `[a, b, ..rest]` is a right fold of cons cells onto the rest.
 pattern({p_list, L, Items, Rest}, U) ->
     lists:foldr(fun(P, Acc) -> {cons, L, pattern(P, U), Acc} end,
@@ -719,8 +775,14 @@ wrapper_var(Prefix, N) -> list_to_atom(Prefix ++ integer_to_list(N)).
 %% clause head's own pattern grammar one level down — F7's whole argument for
 %% `switch` being the only branching construct. `n switch { >= 5 => :high, ... }`
 %% is a sentence the grammar admits the moment the head does.
+%% F22 DESUGARS HERE TOO, AND FORGETTING IT WAS THE FEATURE'S ONE REAL BUG.
+%% A switch arm does not travel through `clause/3`, so the desugar there does not
+%% reach it and a `p_rec` would arrive at `pattern/2`, which has no clause for
+%% one — a crash, not a diagnostic. Exemplar 25c's wall is a switch arm
+%% (`consume.bs:20`), so the feature would have passed every clause-head test
+%% and still not moved the thing it was built to move.
 arm({arm, L, P, Guard, Body}, C) ->
-    {[P1], RelTests} = strip_rels([P]),
+    {[P1], RelTests} = strip_rels([desugar(P, C)]),
     Guard1 = conjoin(RelTests, Guard, L),
     Used = used_vars(Body, guard_vars(Guard1)),
     {clause, L, [pattern(P1, Used)], guard(Guard1, C), [expr(Body, C)]}.

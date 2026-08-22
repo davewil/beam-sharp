@@ -1,6 +1,9 @@
 # F22 — A record pattern names its type, and any pattern takes a trailing binder
 
-**Status**      **in progress 2026-08-22**
+**Status**      **done 2026-08-22** · [ENG-237](https://linear.app/davewil/issue/ENG-237) —
+                twelve scenarios, 483 tests, eighteen gates. **25c's wall moved**: `consume.bs`
+                compiles past the line it was stuck on and the exemplar's front wall is now
+                `encode.bs` on binary construction, a different file entirely
 **Implements**  [ticket 55](../../wayfinder/issues/55-destructure-and-bind.md), resolved
                 2026-08-22 — the type prefix and the trailing binder, which the ticket requires to
                 land **together**
@@ -86,3 +89,25 @@ anything decided.
 
 Nested binders — `Frame { Payload: p } f`, binding a field *and* the whole — fall out of the
 grammar for free and are **not** refused, but no scenario asserts them and no exemplar asks.
+
+## What the build found that the decision did not say
+
+**A SWITCH ARM IS NOT A CLAUSE HEAD, AND THE FEATURE WAS BRIEFLY DONE WITHOUT WORKING.**
+`bs_emit:arm/2` does not travel through `clause/3`, so the desugar placed there never reached a
+switch arm: a `p_rec` would have arrived at `pattern/2`, which has no clause for one, and crashed
+rather than diagnosed. Every scenario F22.1–F22.10 passed at that point.
+
+`consume.bs:20` — the line this whole feature exists to compile — **is a switch arm.** So the
+feature would have shipped green, with a moved test count and an unmoved wall. F22.11 is that
+scenario, and it was written from the exemplar rather than from the decision, because the decision
+never mentions `switch`.
+
+**An unused binder warned, and the test that should have caught it only checked the module built.**
+`Which(Method { Channel: 7 } f) -> :seven` emitted Erlang that warned `variable 'F' is unused` —
+harmless in isolation, and every clause in 25c's file has that shape. The first F22.10 asserted only
+that the module compiled and ran, which it did, warnings and all. It is now asserted on the emitted
+forms in **both** directions: an unused binder must underscore, and a used one must not, because a
+fix that underscored unconditionally would emit Erlang referencing an unbound variable.
+
+The fix was to stop building the variable in the `p_alias` clause and route it through `pattern/2`'s
+own `p_var` clause, which already knew the rule. **The bug was a copy of logic, not a missing rule.**

@@ -2,7 +2,7 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
--import(bs_test_support, [build_and_load/2, check_only/1, errors/1]).
+-import(bs_test_support, [build_and_load/2, check_only/1]).
 
 %%% ---------------------------------------------------------------------------
 %%% F22 — a record pattern names its type, and any pattern takes a trailing
@@ -95,26 +95,62 @@ a_binder_nested_in_a_tuple_test() ->
     ?assertEqual(9,   M:'Chan'({#{'Kind' => 'Wire.Method', 'Channel' => 9}, 100})).
 
 
+%% F22.11 — A SWITCH ARM, WHICH IS WHERE 25c ACTUALLY NEEDS THIS.
+%%
+%% Added after the first implementation passed every test above and would still
+%% not have moved 25c's wall. A switch arm does not go through `clause/3`, so
+%% the desugar there never reached it: `consume.bs:20` is
+%% `(Frame { Type: :method } f, rest) => …` inside a `switch`, and every
+%% scenario written before this one put the pattern in a clause HEAD.
+%%
+%% The lesson is the exemplar's, not the feature's: the scenarios were written
+%% from the decision and the decision does not mention switch.
+a_type_prefixed_binder_works_in_a_switch_arm_test() ->
+    Src = prelude() ++
+          "public int Chan((Frame, int))\n"
+          "Chan(pair) -> pair switch {\n"
+          "    (Method { Channel: 7 } f, rest) => f.Channel + rest,\n"
+          "    (Method m, rest) => m.Channel,\n"
+          "    (Header h, rest) => 0 - h.Channel\n"
+          "}\n",
+    M = build_and_load(Src, 'Wire'),
+    ?assertEqual(107, M:'Chan'({#{'Kind' => 'Wire.Method', 'Channel' => 7}, 100})),
+    ?assertEqual(9,   M:'Chan'({#{'Kind' => 'Wire.Method', 'Channel' => 9}, 100})),
+    ?assertEqual(-3,  M:'Chan'({#{'Kind' => 'Wire.Header', 'Channel' => 3}, 100})).
+
+
 %%% --- the two new errors ----------------------------------------------------
 
 %% F22.5 — a type prefix that names nothing.
+%%
+%% ASSERTED AS A RAISE, NOT AS A RETURNED DIAGNOSTIC, AND THAT IS THE EXISTING
+%% SHAPE RATHER THAN A CONCESSION. `unknown_type` has always been raised out of
+%% `resolve/2` and converted to a diagnostic at the `bsc` boundary — see
+%% `generics_tests:133`, which asserts the same way. The user-visible message is
+%% covered where it is actually produced, by `check-record-pattern.sh` probe 4.
 an_undeclared_type_in_a_pattern_is_an_error_test() ->
     Src = prelude() ++
           "public atom Which(Frame)\n"
           "Which(Nope { Channel: 1 }) -> :no\n"
           "Which(Method m) -> :method\n"
           "Which(Header h) -> :header\n",
-    ?assertMatch([_ | _], errors(Src)).
+    ?assertError({unknown_type, 'Nope'}, check_only(Src)).
 
-%% F22.6 — a field the named record has not got. The check F21 already runs at
-%% construction, arriving in pattern position.
+%% F22.6 — a field the named record has not got. The mistake F21 already refuses
+%% at construction, arriving in pattern position.
+%%
+%% The declared list is carried on the error so the diagnostic can hand it back,
+%% and `Kind` is not in it: the tag is minted, never written, so offering it as
+%% something the author could have meant would be advice to write the thing this
+%% feature exists to stop them writing.
 a_field_the_record_lacks_is_an_error_test() ->
     Src = prelude() ++
           "public atom Which(Frame)\n"
           "Which(Method { Nope: 1 }) -> :no\n"
           "Which(Method m) -> :method\n"
           "Which(Header h) -> :header\n",
-    ?assertMatch([_ | _], errors(Src)).
+    ?assertError({pattern_field_unknown, _, 'Method', 'Nope', ['Channel']},
+                 check_only(Src)).
 
 
 %%% --- exhaustiveness: the two spellings must agree --------------------------
@@ -166,18 +202,43 @@ a_type_prefixed_partial_cover_is_inexhaustive_test() ->
 
 %%% --- the emitted Erlang ----------------------------------------------------
 
-%% F22.10 — a binder the body never mentions must not produce Erlang's
-%% "variable is unused" warning. `clause/3` already underscores an unused
-%% parameter name; a binder introduced by this feature has to travel the same
-%% path or every 25c-shaped clause warns.
-an_unused_binder_does_not_warn_test() ->
+%% F22.10 — A BINDER THE BODY NEVER MENTIONS MUST LOWER TO AN UNDERSCORED NAME.
+%%
+%% `clause/3` already underscores an unused PARAMETER; a binder has to travel
+%% the same path or every clause in 25c's file warns, because that file's whole
+%% shape is `Frame { Type: :method } f` dispatching without reading `f`.
+%%
+%% ASSERTED ON THE EMITTED FORMS, AND IN BOTH DIRECTIONS. Merely compiling
+%% proves nothing here: an Erlang warning is not an error, so a test that only
+%% built the module was green while emitting three warnings — which is how this
+%% defect survived its first implementation. `records_tests` reads abstract code
+%% the same way for F3.1.
+%%
+%% The second assertion is the one that stops the fix from going too far: a
+%% binder the body DOES use must keep its name, or the emitted Erlang would
+%% reference an underscored variable and fail to compile outright.
+emitted_forms(Src) ->
+    {ok, _} = bs_test_support:compile(Src),
+    {ok, {_, [{abstract_code, {_, Forms}}]}} =
+        beam_lib:chunks("/tmp/bsc_eunit/Wire.beam", [abstract_code]),
+    Forms.
+
+an_unused_binder_lowers_to_an_underscored_name_test() ->
     Src = prelude() ++
           "public atom Which(Frame)\n"
           "Which(Method { Channel: 7 } f) -> :seven\n"
           "Which(Method m) -> :method\n"
           "Which(Header h) -> :header\n",
-    %% Compiling is the assertion: bsc treats an Erlang warning as a failure
-    %% only if it is configured to, so this also checks the module LOADS, which
-    %% a badly-named variable would prevent.
-    M = build_and_load(Src, 'Wire'),
-    ?assertEqual(seven, M:'Which'(#{'Kind' => 'Wire.Method', 'Channel' => 7})).
+    Forms = emitted_forms(Src),
+    ?assertEqual(0, bs_test_support:count(Forms, 'F')),
+    ?assert(bs_test_support:count(Forms, '_F') > 0).
+
+a_used_binder_keeps_its_name_test() ->
+    Src = prelude() ++
+          "public int Chan(Frame)\n"
+          "Chan(Method { Channel: 7 } f) -> f.Channel\n"
+          "Chan(Method m) -> 0 - m.Channel\n"
+          "Chan(Header h) -> h.Channel\n",
+    Forms = emitted_forms(Src),
+    ?assert(bs_test_support:count(Forms, 'F') > 0),
+    ?assertEqual(0, bs_test_support:count(Forms, '_F')).

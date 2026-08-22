@@ -621,20 +621,30 @@ error, because they meet the same declaration.
 
 **A record pattern may name its type, and any pattern may take a trailing binder.** The name stands
 in for the tag, so an erasure detail stops being something you type. The binder binds the whole
-value beside whatever the pattern takes apart. Decided, **not yet built** — all four forms below are
-planned surface:
+value beside whatever the pattern takes apart. All four forms are **shipped**:
 
-```csharp not-yet
-Circle { Radius: >= 1 } c
-Circle { Radius: >= 1 }
-Circle c
-{ Radius: >= 1 } c
+<!-- check:
+record Circle { Radius: int }
+record Square { Side: int }
+type Shape = Circle | Square
+-->
+```csharp
+public atom Which(Shape)
+Which(Circle { Radius: 1 } c) -> :unit_circle
+Which(Circle c)               -> :circle
+Which(Square { Side: 1 })     -> :unit_square
+Which({ Side: 2 } s)          -> :two_square
+Which(Square s)               -> :square
 ```
 
-The last two are the halves separately: a bare property pattern with a binder stays legal, and
-`Circle c` — a type and a name, no fields — is the shape a *parameter* already has in a signature.
-The binder is a bare trailing name with no keyword: `as` is spoken for by the checked conversion,
-and `=` introduces a binding in a body.
+The last two lines are the halves separately: a bare property pattern with a binder is still legal,
+and `Circle c` — a type and a name, no fields — is the shape a *parameter* already has in a
+signature. The binder is a bare trailing name with no keyword: `as` is spoken for by the checked
+conversion, and `=` introduces a binding in a body.
+
+A named type narrows exactly as far as writing its tag by hand does, so a clause per member of a
+union is exhaustive and one short of that is not. **`Kind` cannot be named beside a type prefix** —
+it is minted, never written, and the prefix is what replaces writing it.
 
 ---
 

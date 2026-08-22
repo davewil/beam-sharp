@@ -292,6 +292,14 @@ descriptor(Path, {unknown_behaviour, B}) ->
     #{tag => unknown_behaviour, severity => error, file => Path, behaviour => B};
 descriptor(Path, {unknown_type, N}) ->
     #{tag => unknown_type, severity => error, file => Path, type => N};
+%% F22 — a type prefix in a pattern that names something which is not a record.
+descriptor(Path, {not_a_record, Line, N}) ->
+    #{tag => not_a_record, severity => error, file => Path, line => Line,
+      type => N};
+%% F22 — a field named beside a type prefix that the record has not got.
+descriptor(Path, {pattern_field_unknown, Line, Record, Field, Declared}) ->
+    #{tag => pattern_field_unknown, severity => error, file => Path,
+      line => Line, record => Record, field => Field, declared => Declared};
 descriptor(Path, {unknown_builtin, B}) ->
     #{tag => unknown_builtin, severity => error, file => Path, type => B};
 %% F9.11. The message names the replacement, because the fix is always the same
@@ -723,6 +731,22 @@ message(#{tag := unknown_type, file := P, type := N}) ->
     {"~s: error: no type named ~s~n"
      "  declare it with `type ~s = ...` or `record ~s { ... }`.~n",
      [P, N, N, N]};
+%% F22. The fix is named because the alternative spelling always exists: a
+%% property pattern constrains fields without naming a type at all.
+message(#{tag := not_a_record, file := P, line := L, type := N}) ->
+    {"~s:~p: error: ~s is not a record, so it cannot name a pattern~n"
+     "  only a `record` declaration mints the tag a type prefix matches on.~n"
+     "  to constrain fields without naming a type, write `{ Field: ... }`.~n",
+     [P, L, N]};
+%% F22. Shaped on site 2's `not declared by Order` sentence deliberately — the
+%% same mistake, met at a different site — and it hands back the field list,
+%% which is what ticket 23 asks a diagnostic to do.
+message(#{tag := pattern_field_unknown, file := P, line := L, record := R,
+          field := F, declared := Declared}) ->
+    {"~s:~p: error: ~s is not declared by ~s~n"
+     "  ~s declares:~n~s",
+     [P, L, F, R, R,
+      field_list("", [D || D <- Declared, D =/= 'Kind'])]};
 message(#{tag := unknown_builtin, file := P, type := B}) ->
     {"~s: error: ~s is not a builtin type~n"
      "  this slice has `int`, `atom`, `term`, `bool`, `binary`,~n"
