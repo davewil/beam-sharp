@@ -4,50 +4,80 @@ Ringer currently has two engines wired — `codex` and `grok`. Three of the five
 agent CLIs on this machine and all 424 models `opencode` can reach are therefore
 invisible to the scoreboard, which is why it holds 16 rows.
 
-**This block is not applied automatically.** Engine choice belongs to you, and
-`~/.config/ringer/config.toml` is your file. Paste it if you want the lane.
+**Do not write this block. Ringer already ships it**, commented out in
+`~/.config/ringer/config.toml` itself — look for the `OpenCode + OpenRouter`
+comment. Uncomment it and set `bin` to an absolute path:
 
 ```toml
 [engines.opencode]
-bin = "opencode"
-model_default = "github-copilot/claude-sonnet-5"
+bin = "/absolute/path/to/ringer/engines/opencode-sandboxed.sh"
+model_default = "openrouter/z-ai/glm-5.2"
 args_template = [
-  "run",
-  "--dir",
   "{taskdir}",
+  "{access_args}",
+  "run",
   "-m",
   "{model}",
-  "{access_args}",
+  "--dangerously-skip-permissions",
+  "--format",
+  "json",
   "{engine_args}",
+  "--dir",
+  "{taskdir}",
   "{spec}",
 ]
-sandbox_args = ["--auto"]
-full_access_args = ["--auto"]
+sandbox_args = []
+full_access_args = ["--no-sandbox"]
+token_regex = '"tokens":\{"total":([0-9]+)'
 ```
 
-`--auto` is load-bearing. opencode ships no OS sandbox of its own, so isolation
-comes from the staged `taskdir` and from `stage.sh` keeping both answer sets off
-disk; without auto-approve a headless run blocks forever on a permission prompt
-with stdin closed.
+`model_default` never applies to this audition — `manifest.json` names a model
+per task — so leave it. Auth for the metered lane goes wherever your OpenCode
+version expects an OpenRouter key, commonly
+`~/.local/share/opencode/auth.json`; the `github-copilot/*` lanes ride the
+Copilot OAuth that `opencode providers` already reports.
 
-> **CORRECTED 2026-08-22, and the correction is the point.** The block above
-> replaces one that had never been run. It was wrong three ways at once: it used
-> a **schema Ringer does not have** (`cmd` / `args` / `model_flag` / `cwd_flag`,
-> where the real fields are `bin` and an `args_template` interpolating
-> `{taskdir}`, `{spec}`, `{model}`, `{access_args}` and `{engine_args}`); it
-> named the directory flag `--cwd` where `opencode run --help` says **`--dir`**;
-> and it carried a `timeout_s` that belongs on the task, not the engine.
+**Why `bin` is a wrapper and not `opencode`.** OpenCode has no OS sandbox of its
+own, and `--dangerously-skip-permissions` — which a headless run needs, since
+stdin is closed and an approval prompt would hang forever — turns off every
+approval it has. `engines/opencode-sandboxed.sh` supplies the containment
+instead: macOS Seatbelt, network and reads open, **writes confined to the task
+dir** plus a scratch dir and OpenCode's own state. It takes `{taskdir}` as its
+first argument, which is why the template opens with it and names it again after
+`--dir`.
+
+> **CORRECTED TWICE, 2026-08-22, and the second correction is worse than the
+> first.**
 >
-> Every one of those would have failed as *"opencode doesn't work"* rather than
-> *"the wiring instructions are wrong"* — which is the same defect the audition
-> exists to find, arriving in the audition's own setup notes. The paragraph that
-> used to sit here said *"check the flag names before trusting it… the argument
-> shape for `run` was not verified end to end"*, and it was right; nobody did.
-> **A gate is believed only once it has been seen to fail, and an instruction is
-> believed only once it has been seen to run.**
+> The original block here had never been run and was wrong three ways: a
+> **schema Ringer does not have** (`cmd` / `args` / `model_flag` / `cwd_flag`,
+> against the real `bin` and `args_template`); `--cwd` where `opencode run
+> --help` says **`--dir`**; and a `timeout_s` belonging to the task. Each would
+> have failed as *"opencode doesn't work"* rather than *"the instructions are
+> wrong"*.
+>
+> Its replacement — written the same day from `opencode run --help` — fixed the
+> flags and introduced two new faults, because it was **written rather than
+> looked up**. It used `--auto` with `bin = "opencode"`, so the worker ran with
+> **no OS sandbox at all**; and it omitted `token_regex`, so every opencode lane
+> would have reported **zero tokens** — in an audition whose stated question is
+> *"which models can implement B# from the specification alone, and at what
+> cost?"* That is half the question, discarded silently, by a block that looked
+> correct and would have run fine.
+>
+> The right block was sitting twenty lines further down the same config file
+> that was already open. **Reading `--help` is not reading the documentation**,
+> and the failure repeated because the first correction treated "the flags are
+> now verified" as "the block is now right".
+>
+> The rule stands and now has two witnesses: **a gate is believed only once it
+> has been seen to fail, and an instruction only once it has been seen to run.**
+> Neither of these blocks had.
 
-Validate with a trivial one-task manifest before pointing a batch at it, per the
-playbook's rule about auditioning a new model on something small first.
+**This is not applied automatically.** Engine choice belongs to you, and
+`~/.config/ringer/config.toml` is your file. Validate with a trivial one-task
+manifest before pointing a batch at it, per the playbook's rule about
+auditioning a new model on something small first.
 
 ## Why this lane matters for cost
 
@@ -68,7 +98,14 @@ the workers doing the typing.
   same subscription, different lab.
 - `agy` reaches Gemini 3.6 Flash, Gemini 3.1 Pro, Claude Sonnet 4.6, Claude
   Opus 4.6 and GPT-OSS 120B, but is not a Ringer engine; it would need its own
-  block (`agy -p "<prompt>" --model <model>`).
+  block. **The sketch here is `agy -p "<prompt>" --model <model>`, and it is a
+  sketch, not a block** — checked against `agy --help` on 2026-08-22: `-p` and
+  `--model` are right, but a headless engine also needs
+  `--dangerously-skip-permissions` (nothing can answer a prompt with stdin
+  closed), and **there is no working-directory flag at all** — only
+  `--add-dir`, which adds to a workspace rather than setting one, so a wrapper
+  would have to `cd` the way `opencode-sandboxed.sh` does. Written down because
+  this file has now twice shipped an unrun block that read like a working one.
 - The free tier — `opencode/deepseek-v4-flash-free`, `hy3-free`,
   `mimo-v2.5-free`, `nemotron-3.5-lightning-free` — costs nothing to try and is
   the right home for the exploration slot the playbook asks for.
