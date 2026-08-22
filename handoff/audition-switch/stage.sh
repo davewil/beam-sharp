@@ -70,7 +70,12 @@ if [ "${1:-}" = "--self-test" ]; then
   # to arrive through the control itself.
   SAVED=""
   [ -f "$HERE/manifest.run.json" ] && { SAVED="$CTL/manifest.run.json.saved"; cp "$HERE/manifest.run.json" "$SAVED"; }
-  # shellcheck disable=SC2329  # invoked from the EXIT trap below, which shellcheck cannot follow
+  # BOTH CODES NAME THE SAME FINDING — "appears unreachable" — under two different
+  # tool versions: 0.11 reports SC2329, older builds report SC2317. CI runs
+  # ubuntu-latest's preinstalled build and this repo's authors run brew's, so a
+  # directive naming only one code passes locally and reddens master. It did, on
+  # 2026-08-22. The tool is not version-pinned anywhere, which is the real gap.
+  # shellcheck disable=SC2329,SC2317  # invoked from the EXIT trap below, which shellcheck cannot follow
   restore_run_manifest() {
     if [ -n "$SAVED" ]; then cp "$SAVED" "$HERE/manifest.run.json"; else rm -f "$HERE/manifest.run.json"; fi
   }
