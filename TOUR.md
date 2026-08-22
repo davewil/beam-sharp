@@ -1045,6 +1045,37 @@ wrapper: hand it an atom and the process dies. That asymmetry is the decision, n
 omission — *fail through the channel your signature declares, and crash where it declares
 none*.
 
+**Most of OTP never throws in the first place**, and that is the other half of the boundary.
+`file:read_file/1` hands back `{ok, Binary}` or `{error, Reason}` as ordinary terms — as do
+`inet`, `gen_tcp` and `erl_tar` — so there is nothing to catch and no wrapper to emit. That
+shape is declared by writing the union down:
+
+```
+type Contents = (:ok, binary) | (:error, atom)
+
+using :file {
+    Contents read_file(binary path)
+}
+```
+
+```
+public Contents Slurp(binary path)
+
+Slurp(path) -> :file.read_file(path)
+```
+
+```
+$ bsc --src-root examples examples/Foreign Slurp '<<"/no/such/file">>'
+(:error, :enoent)
+```
+
+**What asks for the wrapper is naming `foreign_error` — the payload, not the `:error` tag.**
+This declaration names `atom` instead, so the compiler emits a plain call and both arms are
+ordinary values a clause head narrows. The two are not two spellings of one idea: one declares
+a function that throws and asks the compiler to catch it, the other declares a function whose
+error is already a value. A signature that does both names both members, and only the
+`foreign_error` arm is wrapped.
+
 The exception **class** survives the catch, so recognising it is an ordinary clause head:
 
 ```
@@ -1328,7 +1359,8 @@ grows a capability the tour has not met.
 | a valve into a call | `examples/Pipeline/pipeline.bs` | 12 |
 | a foreign module declaration | `examples/Interop/interop.bs` | 13 |
 | a foreign call | `examples/Interop/interop.bs` | 13 |
-| a foreign declaration that fails as a value | `examples/Foreign/foreign.bs` | 14 |
+| a foreign declaration whose THROW is turned into a value | `examples/Foreign/foreign.bs` | 14 |
+| a foreign call whose error arrives as a value, unwrapped | `examples/Foreign/foreign.bs` | 14 |
 | a codegen obligation instantiated | `examples/Intake/intake.bs` | 15 |
 | ValidationError as a declared type | `examples/Intake/intake.bs` | 15 |
 | a binary pattern | `examples/Frame/frame.bs` | 10 |

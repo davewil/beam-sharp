@@ -11,6 +11,23 @@
 // declares the type, the compiler generates the check.
 module Foreign
 
+// F23 — AND A FOREIGN CALL THAT FAILS AS A VALUE WITHOUT THROWING AT ALL.
+//
+// `file:read_file/1` never raises. It hands back `{ok, Binary}` or
+// `{error, Reason}` as ordinary terms, which is most of OTP's IO surface, and it
+// is declared by writing that union down. It gets NO wrapper, because there is
+// nothing to catch.
+//
+// What asks for the wrapper is naming `foreign_error` — the PAYLOAD, not the
+// `:error` tag. This declaration names `atom` instead, so the compiler emits a
+// plain call and both arms are ordinary values the caller matches. Until ticket
+// 56 this shape was refused at the declaration and had no form at all.
+type Contents = (:ok, binary) | (:error, atom)
+
+using :file {
+    Contents read_file(binary path)
+}
+
 using :erlang {
     // Declared channel: the wrapper is emitted.
     result<int, foreign_error> binary_to_integer(binary b)
@@ -52,3 +69,16 @@ private int Fallback(result<int, foreign_error> r, int fallback)
 
 Fallback((:error, _), fallback) -> fallback
 Fallback(n, _)                  -> n
+
+// Both arms are typed, so narrowing them is an ordinary clause head — the same
+// shape `Diagnose` uses over the WRAPPED call, with no wrapper anywhere near it.
+// That is the point of the resolution: a value-returned error needed no new
+// construct, only a check that stopped mistaking `(:error, _)` for a throw.
+public Contents Slurp(binary path)
+
+Slurp(path) -> :file.read_file(path)
+
+public atom Readable(Contents c)
+
+Readable((:ok, _))    -> :read
+Readable((:error, e)) -> e

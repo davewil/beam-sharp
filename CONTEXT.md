@@ -164,7 +164,8 @@ _Avoid_: either, try, outcome, Result with an ok tag
 **foreign_error**:
 `(:error, term) | (:throw, term) | (:exit, term)`. The `E` produced by a compiler-emitted foreign
 wrapper, preserving *which* of the BEAM's three exception classes fired. Compiler-known: a user
-cannot mint one.
+cannot mint one. **Naming it as a foreign signature's error payload is what asks for the wrapper**;
+any other payload declares an error that arrives as an ordinary value, and gets no wrapper.
 _Avoid_: exception, error tuple, catch result
 
 **Exit signal**:

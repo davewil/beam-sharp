@@ -179,7 +179,15 @@ verified to cover it — leaving a half-deleted diagnostic behind goes red.
 | F23.7 | `result<int, atom>` on a foreign signature | `bsc` it | **compiles**, with no wrapper and no diagnostic — F19.7 inverted | 0 |
 | F23.8 | a value-returned declaration through the CLI | `bsc` it | rc 0, and neither retired phrase appears | 0 |
 
+| F23.9 | `examples/Foreign` gains the declaration; a probe row names it | `rebar3 eunit`, `bin/spec-check.sh` | green — and the emitted `-spec` for a value-returned union survives Dialyzer | 0 |
+
 **F19.7 is retired and replaced by F23.7.** It asserted the refusal this feature removes.
+
+**F23.9 is F19.11's obligation, met the same way.** A feature whose tests all build temporary
+fixtures is green over a corpus that does not contain it: `spec-check.sh` would have passed without
+ever emitting a `-spec` for the new shape. `examples/Foreign` therefore gains `Slurp` and `Readable`
+beside the wrapped `Parse`, so the two declarations sit in one file and Dialyzer sees both — 16
+modules compiled, `examples/Foreign` among them, negative controls still firing.
 
 ## Out of scope
 

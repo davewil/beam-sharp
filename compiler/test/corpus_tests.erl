@@ -81,8 +81,23 @@ demonstrated_surface() ->
      %% name, so it probes a `using :mod {` block and cannot be satisfied by the
      %% `public result<…> Parse` signature two lines further down: those are two
      %% different sentences, and only the first one emits anything.
-     {"a foreign declaration that fails as a value",
+     {"a foreign declaration whose THROW is turned into a value",
       "^ +result<[a-z]+, foreign_error> [a-z]"},
+     %% F23 / ticket 56, and it is a SEPARATE sentence from the row above even
+     %% though neither adds a token to the grammar. The row above declares a
+     %% function that throws and asks the compiler to catch it; this one declares
+     %% a function that never throws and whose error is already an ordinary
+     %% value — `file:read_file/1`, and most of OTP's IO surface with it. The
+     %% capability is that the second shape is DECLARABLE AT ALL, which it was
+     %% not before ticket 56, so it owes an example even though the surface it
+     %% adds is nothing.
+     %%
+     %% Anchored on the call rather than the declaration: the declaration is an
+     %% ordinary alias applied in an ordinary `using` block, with no token that
+     %% distinguishes it from any other foreign signature — which is the point of
+     %% the resolution and also why there is nothing else here to anchor on.
+     {"a foreign call whose error arrives as a value, unwrapped",
+      ":file\\.read_file\\("},
      {"an OTP behaviour",                        "^behaviour "},
      %% F10. The attribute alone was already demonstrated; a CALLBACK is a second
      %% sentence, because the behaviour line means nothing until the contract it

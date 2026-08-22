@@ -77,6 +77,10 @@ if [ "${1:-}" = "--self-test" ]; then
   # 2026-08-22. The tool is not version-pinned anywhere, which is the real gap.
   # shellcheck disable=SC2329,SC2317  # invoked from the EXIT trap below, which shellcheck cannot follow
   restore_run_manifest() {
+    # Belt and braces: the older build reports the finding on the BODY line, not
+    # on the definition, and whether a directive above the definition reaches
+    # inside it is version-dependent. This one sits where the finding fired.
+    # shellcheck disable=SC2317
     if [ -n "$SAVED" ]; then cp "$SAVED" "$HERE/manifest.run.json"; else rm -f "$HERE/manifest.run.json"; fi
   }
   trap 'restore_run_manifest; rm -rf "$CTL"' EXIT
