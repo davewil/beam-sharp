@@ -102,9 +102,9 @@ is cost-effectiveness:
 |---|---|---|---|
 | `codex` | Codex CLI default | ChatGPT plan | **no measurement** — usage limit, retry 25 Aug |
 | `grok` | `grok-4.6` | SuperGrok / X Premium | **7/8 visible, 7/7 held-out first try** |
-| `copilot-sonnet5` | `github-copilot/claude-sonnet-5` | Copilot subscription | not yet run |
-| `copilot-haiku45` | `github-copilot/claude-haiku-4.5` | Copilot subscription | not yet run |
-| `free-deepseek` | `opencode/deepseek-v4-flash-free` | free | not yet run |
+| `copilot-sonnet5` | `github-copilot/claude-sonnet-5` | Copilot subscription | **7/8 visible, 7/7 held-out** — at 1/8 grok's tokens |
+| `copilot-haiku45` | `github-copilot/claude-haiku-4.5` | Copilot subscription | **7/8 visible, 3/7 held-out** |
+| `free-deepseek` | `opencode/deepseek-v4-flash-free` | free | **no measurement** — opencode's free tier errored server-side |
 
 Four of the five cost nothing per token beyond subscriptions already held. The
 last is the exploration slot: an untested free model on a task with a strong
@@ -127,10 +127,40 @@ model would leave the two indistinguishable.
 
 This already paid before any model ran. Case `c07-guarded` was written straight
 from §5's own example of a guarded arm, `n when n < 5 => :retried`. The compiler
-answers `rebinding`: with `n` already bound as the parameter, the arm may not
-rebind it. The specification offers that line as an illustration and never says
-so. A clean-room implementer would write what was written here and be wrong, and
-the packet is unchanged so that the audition records how many candidates hit it.
+answers `rebinding`: `n` is already bound as the parameter, and a bare name in a
+pattern *introduces* a name rather than matching one.
+
+**The first two accounts of this — including the one that stood in this file —
+were both wrong, and the corrected version is a better finding than either.**
+
+They said the specification "never says so". It does, in §2, *inside the
+packet*: *"To match against a value a name already holds, write `== name`. A
+bare name in a pattern introduces a name."* And they blamed the **guard**, which
+has nothing to do with it. Measured against the compiler on 2026-08-22:
+
+| arm | verdict |
+|---|---|
+| `m when m < 5` — fresh name, guarded | clean |
+| `< 5` — relational, no name | clean |
+| `n => …` where `n` is the parameter, **no guard** | `rebinding` |
+| `== n => …` | clean |
+
+So the rule is about **bare names, not guards**, and it was stated correctly all
+along. What was wrong was §5's *illustration*, which contradicted §2 seventy
+lines away — and which sat in loose prose, not a fence, so `check-language.sh`
+never compiled it and nothing could catch the drift.
+
+**All three candidates that ran had §2's rule in front of them and reproduced
+the illustration instead.** That is the finding: **a worked example outranks a
+stated rule when the two disagree.** The audit this implies is *"which examples
+contradict rules stated elsewhere"*, which is a different and harder sweep than
+*"which rules are missing"*.
+
+~~The packet is unchanged so that the audition records how many candidates hit
+it.~~ **It recorded them: three of three, 2026-08-22.** That measurement is
+spent, so §5 now carries the correct example in a **gated fence** and states the
+rule where the example is. `c07` stays exactly as it was — still a rejected
+program, now derivable from the packet rather than contradicted by it.
 
 ## The held-out set
 
@@ -216,8 +246,10 @@ language.
 7. **The specification IS implementable from the packet alone — measured, not
    hoped.** `grok-4.6` scored **7/8 visible and 7/7 held-out on its FIRST
    attempt**, and the single miss was `c07-guarded`. That is the case finding 4
-   is about: §5 offers `n when n < 5 => :retried` as an illustration of a guarded
-   arm, the compiler answers `rebinding`, and the specification never says so.
+   is about: §5 illustrated a guarded arm with `n when n < 5 => :retried` beside
+   a parameter already named `n`, which the compiler answers `rebinding`. The
+   rule itself was in the packet all along, in §2 — see the corrected account
+   above, and finding 9.
    **The one thing a clean-room worker got wrong is the one thing the
    specification teaches wrongly.** Nothing else in fifteen cases disagreed —
    including all three interval cases (`h01`–`h03`), which is precisely what the
@@ -253,3 +285,95 @@ language.
    This is finding 1 in the mirror direction — that one leaked case identity
    *into* the sandbox through argv, this leaked identity and answer *out* through
    the marker. Both were channels nobody drew, which is now twice.
+
+9. **Three lanes, one shared failure — and the visible set carried no
+   information at all.** Round 1 finished 2026-08-22 with three uncontaminated
+   measurements:
+
+   | lane | visible | held-out | tokens | elapsed |
+   |---|---|---|---|---|
+   | `grok-4.6` | 7/8 | **7/7** | 1,452,444 | 936s |
+   | `copilot-sonnet5` | 7/8 | **7/7** | 174,959 | 754s |
+   | `copilot-haiku45` | 7/8 | **3/7** | 59,881 | 218s |
+
+   **The visible column is identical across all three, on the same case.** It
+   discriminated nothing; it measured the *specification*. The held-out column
+   spread 7/7, 7/7, 3/7 and measured the *worker*. Marking only the staged set —
+   which is what an audition without a held-out set is — would have reported
+   three equivalent models.
+
+   **All three failed `c07-guarded`.** This file's own rule decides what that
+   means: one worker missing a clause is a weak worker, several missing the SAME
+   clause is a hole in the specification. Three of three, so §5 was fixed — see
+   the corrected account above.
+
+   Sonnet-5 matched grok's held-out score at **an eighth of the tokens**, which
+   is the cost answer the audition was set up to get. Haiku's four misses run
+   one way: it says `clean` where the compiler diagnoses (`h02`, `h04`, `h05`,
+   `h06`). Under-reporting rather than crying wolf — the safer direction, and
+   still a fitted implementation.
+
+10. **The leak fired on the second lane, from a `check.sh` four commits stale.**
+    Finding 8's redaction was committed and correct, and the run never reached
+    it: `manifest.json`'s `check` named the **main checkout** by absolute path
+    while the harness was being developed in a worktree. `copilot-haiku45` was
+    handed `h02`, `h04` and `h05` in its retry prompt, 18–19 mentions across its
+    log, and its own closing summary lists them by name. Kept as
+    `evidence/2026-08-22-round1/copilot-haiku45-LEAKED/`.
+
+    **Re-run clean, it scored 3/7 held-out where the leaked run scored 4/7.**
+    Being told three answers bought one held-out case and took the visible score
+    to a perfect 8/8 — a run that looked better on every number a reader would
+    check. It also *regressed* `h04`, the case it had just been told about, and
+    newly broke `h01` and `h03`. **A leaked run is not the same measurement
+    flattered; it is a different experiment** — one measuring whether a model can
+    patch toward a failing test list, which bears no fixed relation to whether it
+    can implement the specification.
+
+    Fixed at the root: `stage.sh` now emits `manifest.run.json` binding every
+    `check` to the harness that staged it, so scoring with a different copy is
+    unrepresentable rather than merely unlikely. `build-run-manifest.py` states
+    the reasoning and cites `build-packet.py`, which had already written the rule
+    it obeys — **a hand-edited copy drifts from what it copies.** The path was
+    the last hand-edited copy in this directory.
+
+11. **The spec fix was verified, and the prediction was exact.** `§5`'s
+    illustration was replaced with a **gated fence** using a fresh name, and the
+    rule was stated beside the example rather than seventy lines away in §2.
+    `check-language.sh` went from 37 blocks to **38, 37 ok** — the example is
+    now compiled on every CI run and cannot rot again in the way it did.
+
+    `copilot-sonnet5` was re-run against the regenerated packet. It had failed
+    exactly one case before, so the prediction was falsifiable and stated in
+    advance: 8/8 visible, 7/7 held-out.
+
+    | | visible | held-out | attempts |
+    |---|---|---|---|
+    | before the fix | 7/8 — missed `c07` | 7/7 | 2 |
+    | **after the fix** | **8/8** | **7/7** | **1** |
+
+    **Fifteen of fifteen, first attempt, no retry** — so no possibility of the
+    finding-8 contamination. Evidence in
+    `evidence/2026-08-22-round2-after-spec-fix/`.
+
+    This is the first end-to-end demonstration of what the audition is *for*.
+    A defect was found in the deliverable by several workers failing the same
+    case; the deliverable was corrected; a worker then reproduced the slice
+    exactly. The loop closed, and what it closed on was a **worked example**, not
+    a missing rule — the thing three capable models could not reason past even
+    with the correct rule in front of them.
+
+## Owed, and now sharper
+
+- **The example audit.** Finding 9's lesson generalises: the sweep worth running
+  is *"which examples contradict rules stated elsewhere"*, and the mechanism that
+  let this one survive is knowable — it sat in **loose prose rather than a
+  fence**, where `check-language.sh` cannot reach. Every ungated code fragment in
+  `LANGUAGE.md` is a candidate. 46 of its 84 fences are bare and ungated.
+- **`unbound_variable` and `arg_not_accepted`** remain genuinely unspecified —
+  unlike `rebinding`, these really are absent from `LANGUAGE.md` (the top of this
+  file has it right). Still owed a paragraph in §5.
+- **`h05`.** §5 says the catch-all-over-closed rule "is decided and is **not yet
+  enforced**"; the compiler rejects the program anyway as `unreachable_arm`.
+  Two of three candidates derived the right answer regardless, so this is not the
+  3/3 signal `c07` was — but the sentence is still false and is owed a fix.

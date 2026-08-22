@@ -130,6 +130,43 @@ The rule this produced, which governs future borrowings: **borrow the construct,
 the glyph.** Where C# has the symbol but not the construct, taking the symbol buys no familiarity
 and costs a false friend.
 
+**A list pattern is a prefix, and a rest marker is optional.** `[a, b]` is exactly two; `[a, b, ..]`
+is two or more and discards the tail; `[a, b, ..t]` is two or more and binds it. The marker is a
+marker and not a pattern — `..` or `..name`, nothing else — so a list pattern says how long the list
+is and what is in the positions it names, and nothing about the rest. **shipped**
+<!-- ticket 08 as amended by ticket 54; ticket 53 found the closed form and
+     ticket 54 replaced its spelling; the four-language survey is in 54 -->
+
+`[a, b]` means exactly two in Erlang, Elixir, C# and Gleam alike. That is the one place this
+language's two reference families agree, so refusing it was the divergence rather than admitting it
+— and the refusal used to advise `[a, b, ..t]`, which means something else.
+
+<!-- check:
+public atom Dispatch(list<string> path)
+-->
+```csharp
+Dispatch(["orders"])     -> :index
+Dispatch(["orders", id]) -> :show
+Dispatch(_)              -> :not_found
+```
+
+That is how a route table distinguishes `/orders` from `/orders/42` without a length guard, and
+`/orders/42/lines` reaches the catch-all rather than being swallowed by the second clause.
+
+**The checker sees the length, and it does so without ever measuring one.** A non-empty list is a
+product of an element and a tail, subtracted by the same rule that already subtracts tuples exactly,
+so length falls out of the recursion rather than being carried beside it. The residual is then a
+clause you can paste: `[]` beside `[a, b, ..]` leaves `[int]` — exactly-one — where a language with
+an O(1) length would say `{ Length: 1 }` and this one has no `length` to say it with. Depth is
+bounded by the longest prefix any clause writes, per nesting level, which is what makes the
+recursion terminate. **shipped**
+<!-- ticket 54, built as F20; the repro it deletes is four lines and is in that ticket -->
+
+A consequence worth stating: a closed residual over a list forbids a catch-all exactly as any other
+closed residual does, so a `list<bool>` missing its two length-one cases is an error naming
+`[true]` and `[false]` rather than a `_`. That bites only where the element type is closed — over
+`list<int>` the element is unbounded, the residual stays open, and `_` remains legal.
+
 **To match against a value a name already holds, write `== name`.** A bare name in a pattern
 introduces a name; `== name` matches the value that name is bound to. **shipped**
 
@@ -232,9 +269,31 @@ Decide(o, p, r) -> (o, p, r) switch {
 }
 ```
 
-Exhaustive with **no catch-all**, and the compiler agrees. An arm may also carry a guard —
-`n when n < 5 => :retried` — or a relational pattern, `>= 5 => :exhausted`, since an arm takes the
-clause head's pattern grammar whole. Nested inside a record pattern, `{ Deliveries: > 5 }` is not
+Exhaustive with **no catch-all**, and the compiler agrees. An arm takes the clause head's pattern
+grammar whole, so it may carry a guard, or be a relational pattern:
+
+```csharp
+public atom Classify(int n)
+
+Classify(n) -> n switch {
+    m when m < 5 => :retried,
+    >= 5         => :exhausted
+}
+```
+
+**The name a guarded arm introduces must be fresh** — `m` above, not `n`. §2's rule reaches here:
+a bare name in a pattern *introduces* a name, so an arm written `n when n < 5` where `n` is already
+the parameter is `rebinding`, not a match against it. **The guard is not what makes it an error.**
+A bare `n` as an arm pattern is rejected with no guard present at all; `m when m < 5` and a plain
+`< 5` are both accepted. To match the value `n` already holds, §2's spelling is `== n`.
+<!-- ticket 45 owns `== name`; ticket 34 owns rebinding. This paragraph exists because §5 used to
+     illustrate the guard with `n when n < 5` beside a parameter named `n` — a program the compiler
+     rejects — in loose prose that no fence gated. Three clean-room candidates read the packet, had
+     §2's rule in front of them, and all three reproduced the illustration rather than the rule:
+     handoff/audition-switch, round 1, 2026-08-22. An example outranks a stated rule when the two
+     disagree. -->
+
+Nested inside a record pattern, `{ Deliveries: > 5 }` is not
 built: a relational pattern goes where a whole argument goes.
 
 **shipped** — F7.

@@ -1,0 +1,86 @@
+{
+  "artifact_path": "/Volumes/Personal/Users/davidwilliams/.ringer/artifacts/bsharp-cleanroom-audition-20260822T112416Z-p73726.html",
+  "dashboard_port": 8787,
+  "elapsed_s": 849.0,
+  "fail": 0,
+  "finished": true,
+  "identity": "claude-opus-5-bg",
+  "live_path": "/Volumes/Personal/Users/davidwilliams/.ringer/artifacts/live/bsharp-cleanroom-audition.html",
+  "max_parallel": 4,
+  "pass": 1,
+  "pid": 73726,
+  "port": 8787,
+  "report_path": "/Volumes/Personal/Users/davidwilliams/.ringer/artifacts/bsharp-cleanroom-audition-20260822T112416Z-p73726-report.html",
+  "report_ready": true,
+  "run_id": "bsharp-cleanroom-audition-20260822T112416Z-p73726",
+  "run_name": "bsharp-cleanroom-audition",
+  "started_at": "2026-08-22T11:24:16.842236+00:00",
+  "state": "finished",
+  "summary": {
+    "fail": 0,
+    "pass": 1,
+    "tokens": 156648
+  },
+  "tasks": [
+    {
+      "activity": "ID\":\"ses_fd6c91bddffeH70525dXspCNDv\",\"type\":\"step-start\"}}",
+      "attempts": 1,
+      "check": "/Volumes/Personal/Users/davidwilliams/dev/misc/beam-sharp/.claude/worktrees/audition-grok/handoff/audition-switch/check.sh /tmp/bsharp-audition/copilot-sonnet5",
+      "check_output_tail": "visible 8/8 held-out 7/7 all 15 cases agree with the reference compiler",
+      "check_returncode": 0,
+      "check_timed_out": false,
+      "children": 0,
+      "deliverable_notes": [],
+      "deliverables": [
+        {
+          "bytes": 38585,
+          "name": "switchcheck",
+          "path": "/Volumes/Personal/Users/davidwilliams/.ringer/artifacts/deliverables/bsharp-cleanroom-audition-20260822T112416Z-p73726/copilot-sonnet5/switchcheck"
+        }
+      ],
+      "elapsed_s": 849.0,
+      "engine": "opencode",
+      "key": "copilot-sonnet5",
+      "log_path": "/private/tmp/bsharp-audition/copilot-sonnet5/worker.log",
+      "log_tail": [
+        "{\"type\":\"text\",\"timestamp\":1787398705179,\"sessionID\":\"ses_fd6c91bddffeH70525dXspCNDv\",\"part\":{\"id\":\"prt_02943bd24001nHp7VS52XOsj7o\",\"messageID\":\"msg_02943b7cd001o3DVgAkuDonLZd\",\"sessionID\":\"ses_fd6c91bddffeH70525dXspCNDv\",\"type\":\"text\",\"text\":\"The `switchcheck` executable is complete and working. Summary:\\n\\n- Implemented in Python 3 (`./switchcheck <path>`), executable via shebang.\\n- Parses `type`/`record` declarations, function signatures, multi-clause heads, and `switch` expressions.\\n- Implements a Maranget-style usefulness/exhaustiveness algorithm generalized over bool, closed atom enums, open atoms/strings, tuples, lists (nil/cons), and tagged sum types, plus dedicated interval arithmetic for `int` (supporting relational patterns and guard-derived refinements, even nested inside tuples/sum variants).\\n- Handles `== name` (equality-match) patterns as contributing nothing to coverage, per spec.\\n- Detects `rebinding` for duplicate bare names in a clause head and for switch-arm patterns/guards that reuse an already-bound name.\\n- Detects `return_not_declared` via literal-return-type mismatch against the declared return type.\\n- Verified against all 8 provided cases (exact match) plus 9 additional scenarios transcribed directly from the PACKET.md spec examples (tagged unions, guarded/relational int exhaustiveness, list prefix/rest patterns, `== name` equality patterns, record field projection, open vs. closed catch-alls, and unreachable-arm shadowing) \u2014 all produced the expected output.\",\"time\":{\"start\":1787398700324,\"end\":1787398705132}}}",
+        "{\"type\":\"step_finish\",\"timestamp\":1787398705179,\"sessionID\":\"ses_fd6c91bddffeH70525dXspCNDv\",\"part\":{\"id\":\"prt_02943cff5001LbMma3amH7B5j0\",\"reason\":\"stop\",\"messageID\":\"msg_02943b7cd001o3DVgAkuDonLZd\",\"sessionID\":\"ses_fd6c91bddffeH70525dXspCNDv\",\"type\":\"step-finish\",\"tokens\":{\"total\":156648,\"input\":2,\"output\":456,\"reasoning\":0,\"cache\":{\"write\":494,\"read\":155696}},\"cost\":0.0369382}}",
+        "[ringer.py] attempt 1 exited rc=0"
+      ],
+      "log_tail_full": [
+        "H70525dXspCNDv\",\"type\":\"step-finish\",\"tokens\":{\"total\":155046,\"input\":2,\"output\":187,\"reasoning\":0,\"cache\":{\"write\":292,\"read\":154565}},\"cost\":0.033517}}",
+        "{\"type\":\"step_start\",\"timestamp\":1787398693468,\"sessionID\":\"ses_fd6c91bddffeH70525dXspCNDv\",\"part\":{\"id\":\"prt_02943a2580019HSEPd2NEGk7R6\",\"messageID\":\"msg_029439d04001ghGJhnNnziHNXj\",\"sessionID\":\"ses_fd6c91bddffeH70525dXspCNDv\",\"type\":\"step-start\"}}",
+        "{\"type\":\"text\",\"timestamp\":1787398694921,\"sessionID\":\"ses_fd6c91bddffeH70525dXspCNDv\",\"part\":{\"id\":\"prt_02943a25a001OP9zznGrY3DJSb\",\"messageID\":\"msg_029439d04001ghGJhnNnziHNXj\",\"sessionID\":\"ses_fd6c91bddffeH70525dXspCNDv\",\"type\":\"text\",\"text\":\"Both correct (t8 well-formed via catch-all over closed atom-enum residual; t9 correctly flags the fully-shadowed `n < 5` clause as unreachable). The implementation is solid across the given cases and the additional spec-derived scenarios.\",\"time\":{\"start\":1787398693466,\"end\":1787398694919}}}",
+        "{\"type\":\"tool_use\",\"timestamp\":1787398695627,\"sessionID\":\"ses_fd6c91bddffeH70525dXspCNDv\",\"part\":{\"type\":\"tool\",\"tool\":\"bash\",\"callID\":\"toolu_01MsqvR1aviSdsMWyHR2TU4V\",\"state\":{\"status\":\"completed\",\"input\":{\"command\":\"rm -f /private/var/folders/s9/s1jc1ww94kx0nhb3d33zxqrw0000gn/T/ringer-opencode-scratch.FcCmur8I4y/opencode/sc_debug.py /private/var/folders/s9/s1jc1ww94kx0nhb3d33zxqrw0000gn/T/ringer-opencode-scratch.FcCmur8I4y/opencode/trace.py\\nls -la /tmp/bsharp-audition/copilot-sonnet5/\"},\"output\":\"total 896\\ndrwxr-xr-x   8 davidwilliams  wheel     256 22 Aug 12:32 .\\ndrwxr-xr-x   7 davidwilliams  wheel     224 22 Aug 12:23 ..\\n-rw-r--r--   1 davidwilliams  wheel      16 22 Aug 12:23 .model-key\\ndrwxr-xr-x   4 davidwilliams  wheel     128 22 Aug 12:32 .nwave\\ndrwxr-xr-x  10 davidwilliams  wheel     320 22 Aug 12:23 cases\\n-rw-r--r--   1 davidwilliams  wheel   13277 22 Aug 12:23 PACKET.md\\n-rwxr-xr-x   1 davidwilliams  wheel   38585 22 Aug 12:37 switchcheck\\n-rw-r--r--   1 davidwilliams  wheel  335040 22 Aug 12:38 worker.log\\n\",\"metadata\":{\"output\":\"total 896\\ndrwxr-xr-x   8 davidwilliams  wheel     256 22 Aug 12:32 .\\ndrwxr-xr-x   7 davidwilliams  wheel     224 22 Aug 12:23 ..\\n-rw-r--r--   1 davidwilliams  wheel      16 22 Aug 12:23 .model-key\\ndrwxr-xr-x   4 davidwilliams  wheel     128 22 Aug 12:32 .nwave\\ndrwxr-xr-x  10 davidwilliams  wheel     320 22 Aug 12:23 cases\\n-rw-r--r--   1 davidwilliams  wheel   13277 22 Aug 12:23 PACKET.md\\n-rwxr-xr-x   1 davidwilliams  wheel   38585 22 Aug 12:37 switchcheck\\n-rw-r--r--   1 davidwilliams  wheel  335040 22 Aug 12:38 worker.log\\n\",\"exit\":0,\"truncated\":false},\"title\":\"rm -f /private/var/folders/s9/s1jc1ww94kx0nhb3d33zxqrw0000gn/T/ringer-opencode-scratch.FcCmur8I4y/opencode/sc_debug.py /private/var/folders/s9/s1jc1ww94kx0nhb3d33zxqrw0000gn/T/ringer-opencode-scratch.FcCmur8I4y/opencode/trace.py\\nls -la /tmp/bsharp-audition/copilot-sonnet5/\",\"time\":{\"start\":1787398695609,\"end\":1787398695610}},\"metadata\":{\"anthropic\":{\"caller\":{\"type\":\"direct\"}}},\"id\":\"prt_02943a808001fLm7ViQOfmY5w0\",\"sessionID\":\"ses_fd6c91bddffeH70525dXspCNDv\",\"messageID\":\"msg_029439d04001ghGJhnNnziHNXj\"}}",
+        "{\"type\":\"step_finish\",\"timestamp\":1787398695627,\"sessionID\":\"ses_fd6c91bddffeH70525dXspCNDv\",\"part\":{\"id\":\"prt_02943aabb001fbilyPjTKqKYsd\",\"reason\":\"tool-calls\",\"messageID\":\"msg_029439d04001ghGJhnNnziHNXj\",\"sessionID\":\"ses_fd6c91bddffeH70525dXspCNDv\",\"type\":\"step-finish\",\"tokens\":{\"total\":155372,\"input\":2,\"output\":305,\"reasoning\":0,\"cache\":{\"write\":208,\"read\":154857}},\"cost\":0.0345454}}",
+        "{\"type\":\"step_start\",\"timestamp\":1787398696820,\"sessionID\":\"ses_fd6c91bddffeH70525dXspCNDv\",\"part\":{\"id\":\"prt_02943af700010SvIYcMx8ZqRvn\",\"messageID\":\"msg_02943aabf0016lH7sWpe7tD9cD\",\"sessionID\":\"ses_fd6c91bddffeH70525dXspCNDv\",\"type\":\"step-start\"}}",
+        "{\"type\":\"tool_use\",\"timestamp\":1787398698969,\"sessionID\":\"ses_fd6c91bddffeH70525dXspCNDv\",\"part\":{\"type\":\"tool\",\"tool\":\"bash\",\"callID\":\"toolu_01NLkfjGCoqwzjnKUuRE765n\",\"state\":{\"status\":\"completed\",\"input\":{\"command\":\"cd /tmp/bsharp-audition/copilot-sonnet5 && head -1 switchcheck && file switchcheck\\nfor d in cases/*/*/in.bs; do echo \\\"=$d=\\\"; ./switchcheck \\\"$d\\\"; done\"},\"output\":\"#!/usr/bin/env python3\\nswitchcheck: Python script text executable, ASCII text\\n=cases/c01-exhaustive-closed/Verdict/in.bs=\\n=cases/c02-catchall-open/Open/in.bs=\\n=cases/c03-inexhaustive/Missing/in.bs=\\nswitch_inexhaustive\\n=cases/c04-unreachable/Shadowed/in.bs=\\nunreachable_arm\\n=cases/c05-tuple-exhaustive/Decide/in.bs=\\n=cases/c06-tuple-inexhaustive/Partial/in.bs=\\nswitch_inexhaustive\\n=cases/c07-guarded/Retry/in.bs=\\nrebinding\\n=cases/c08-wrong-return/Wrong/in.bs=\\nreturn_not_declared\\n\",\"metadata\":{\"output\":\"#!/usr/bin/env python3\\nswitchcheck: Python script text executable, ASCII text\\n=cases/c01-exhaustive-closed/Verdict/in.bs=\\n=cases/c02-catchall-open/Open/in.bs=\\n=cases/c03-inexhaustive/Missing/in.bs=\\nswitch_inexhaustive\\n=cases/c04-unreachable/Shadowed/in.bs=\\nunreachable_arm\\n=cases/c05-tuple-exhaustive/Decide/in.bs=\\n=cases/c06-tuple-inexhaustive/Partial/in.bs=\\nswitch_inexhaustive\\n=cases/c07-guarded/Retry/in.bs=\\nrebinding\\n=cases/c08-wrong-return/Wrong/in.bs=\\nreturn_not_declared\\n\",\"exit\":0,\"truncated\":false},\"title\":\"cd /tmp/bsharp-audition/copilot-sonnet5 && head -1 switchcheck && file switchcheck\\nfor d in cases/*/*/in.bs; do echo \\\"=$d=\\\"; ./switchcheck \\\"$d\\\"; done\",\"time\":{\"start\":1787398698942,\"end\":1787398698944}},\"metadata\":{\"anthropic\":{\"caller\":{\"type\":\"direct\"}}},\"id\":\"prt_02943b434001Z3Teew4NbeE3zj\",\"sessionID\":\"ses_fd6c91bddffeH70525dXspCNDv\",\"messageID\":\"msg_02943aabf0016lH7sWpe7tD9cD\"}}",
+        "{\"type\":\"step_finish\",\"timestamp\":1787398698969,\"sessionID\":\"ses_fd6c91bddffeH70525dXspCNDv\",\"part\":{\"id\":\"prt_02943b7c1001OXhKclHNnmeqoy\",\"reason\":\"tool-calls\",\"messageID\":\"msg_02943aabf0016lH7sWpe7tD9cD\",\"sessionID\":\"ses_fd6c91bddffeH70525dXspCNDv\",\"type\":\"step-finish\",\"tokens\":{\"total\":155918,\"input\":2,\"output\":220,\"reasoning\":0,\"cache\":{\"write\":631,\"read\":155065}},\"cost\":0.0347945}}",
+        "{\"type\":\"step_start\",\"timestamp\":1787398700326,\"sessionID\":\"ses_fd6c91bddffeH70525dXspCNDv\",\"part\":{\"id\":\"prt_02943bd22001ufIkG2f6tKQraD\",\"messageID\":\"msg_02943b7cd001o3DVgAkuDonLZd\",\"sessionID\":\"ses_fd6c91bddffeH70525dXspCNDv\",\"type\":\"step-start\"}}",
+        "{\"type\":\"text\",\"timestamp\":1787398705179,\"sessionID\":\"ses_fd6c91bddffeH70525dXspCNDv\",\"part\":{\"id\":\"prt_02943bd24001nHp7VS52XOsj7o\",\"messageID\":\"msg_02943b7cd001o3DVgAkuDonLZd\",\"sessionID\":\"ses_fd6c91bddffeH70525dXspCNDv\",\"type\":\"text\",\"text\":\"The `switchcheck` executable is complete and working. Summary:\\n\\n- Implemented in Python 3 (`./switchcheck <path>`), executable via shebang.\\n- Parses `type`/`record` declarations, function signatures, multi-clause heads, and `switch` expressions.\\n- Implements a Maranget-style usefulness/exhaustiveness algorithm generalized over bool, closed atom enums, open atoms/strings, tuples, lists (nil/cons), and tagged sum types, plus dedicated interval arithmetic for `int` (supporting relational patterns and guard-derived refinements, even nested inside tuples/sum variants).\\n- Handles `== name` (equality-match) patterns as contributing nothing to coverage, per spec.\\n- Detects `rebinding` for duplicate bare names in a clause head and for switch-arm patterns/guards that reuse an already-bound name.\\n- Detects `return_not_declared` via literal-return-type mismatch against the declared return type.\\n- Verified against all 8 provided cases (exact match) plus 9 additional scenarios transcribed directly from the PACKET.md spec examples (tagged unions, guarded/relational int exhaustiveness, list prefix/rest patterns, `== name` equality patterns, record field projection, open vs. closed catch-alls, and unreachable-arm shadowing) \u2014 all produced the expected output.\",\"time\":{\"start\":1787398700324,\"end\":1787398705132}}}",
+        "{\"type\":\"step_finish\",\"timestamp\":1787398705179,\"sessionID\":\"ses_fd6c91bddffeH70525dXspCNDv\",\"part\":{\"id\":\"prt_02943cff5001LbMma3amH7B5j0\",\"reason\":\"stop\",\"messageID\":\"msg_02943b7cd001o3DVgAkuDonLZd\",\"sessionID\":\"ses_fd6c91bddffeH70525dXspCNDv\",\"type\":\"step-finish\",\"tokens\":{\"total\":156648,\"input\":2,\"output\":456,\"reasoning\":0,\"cache\":{\"write\":494,\"read\":155696}},\"cost\":0.0369382}}",
+        "[ringer.py] attempt 1 exited rc=0"
+      ],
+      "max_attempts": 2,
+      "model": "github-copilot/claude-sonnet-5",
+      "report_paths": {},
+      "setup_error": null,
+      "spec": "You are implementing one piece of a programming language toolchain from its specification alone, as a clean-room exercise. Your working directory contains PACKET.md and a cases/ directory. Read PACKET.md in full before starting: it carries the language specification you must implement against, the hard rules, and the exact output contract you are marked on. BOUNDARY: you own only your own working directory. Do NOT read, search for, or open any file outside it \u2014 a reference implementation of this language exists elsewhere on this machine and is off limits, as is any directory of design notes. Do not modify anything under cases/. DELIVERABLE: an executable file named switchcheck in your working directory, runnable as ./switchcheck <path-to-.bs-file>, with a shebang so it runs directly. Any language available on the machine is fine; no network access, no package installs. OUTPUT CONTRACT: for the file it is given, switchcheck prints one lowercase diagnostic tag per line on stdout and nothing else \u2014 no prose, no filenames, no line numbers. A well-formed program prints NOTHING. The permitted tags and their meanings are in PACKET.md. HOW YOU ARE MARKED: your switchcheck is run over the cases and its tags compared against the reference compiler's for the same file; every case must match exactly. Printing a diagnostic for a correct program fails exactly as hard as missing one, so do not guess defensively \u2014 a checker that reports a problem whenever it is unsure fails the very first case. Test your implementation against the files in cases/ before you finish.",
+      "spec_short": "You are implementing one piece of a programming language toolchain from its specification alone, as a clean-room exer...",
+      "status": "pass",
+      "taskdir": "/private/tmp/bsharp-audition/copilot-sonnet5",
+      "timeout_s": 1800,
+      "tokens": 156648,
+      "verdict": "PASS",
+      "verified": "switchcheck exists, is executable, and its tag set matches the reference compiler on every case"
+    }
+  ],
+  "tokens": 156648,
+  "totals": {
+    "done": 1,
+    "fail": 0,
+    "pass": 1,
+    "running": 0,
+    "tokens": 156648
+  }
+}

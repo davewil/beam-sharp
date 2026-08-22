@@ -36,3 +36,4 @@ compiler/bench/*.beam
 compiler/*.beam
 compiler/src/bs_lexer.erl
 compiler/src/bs_parser.erl
+manifest.run.json
