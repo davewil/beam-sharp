@@ -9,19 +9,45 @@ invisible to the scoreboard, which is why it holds 16 rows.
 
 ```toml
 [engines.opencode]
-cmd = "opencode"
-args = ["run", "{prompt}"]
-model_flag = "--model"
+bin = "opencode"
 model_default = "github-copilot/claude-sonnet-5"
-cwd_flag = "--cwd"
-timeout_s = 1800
+args_template = [
+  "run",
+  "--dir",
+  "{taskdir}",
+  "-m",
+  "{model}",
+  "{access_args}",
+  "{engine_args}",
+  "{spec}",
+]
+sandbox_args = ["--auto"]
+full_access_args = ["--auto"]
 ```
 
-Check the flag names against `opencode run --help` before trusting it — this is
-written from `opencode --help` at v0.146-era and the argument shape for `run`
-was not verified end to end. Validate with a trivial one-task manifest before
-pointing a batch at it, per the playbook's rule about auditioning a new model on
-something small first.
+`--auto` is load-bearing. opencode ships no OS sandbox of its own, so isolation
+comes from the staged `taskdir` and from `stage.sh` keeping both answer sets off
+disk; without auto-approve a headless run blocks forever on a permission prompt
+with stdin closed.
+
+> **CORRECTED 2026-08-22, and the correction is the point.** The block above
+> replaces one that had never been run. It was wrong three ways at once: it used
+> a **schema Ringer does not have** (`cmd` / `args` / `model_flag` / `cwd_flag`,
+> where the real fields are `bin` and an `args_template` interpolating
+> `{taskdir}`, `{spec}`, `{model}`, `{access_args}` and `{engine_args}`); it
+> named the directory flag `--cwd` where `opencode run --help` says **`--dir`**;
+> and it carried a `timeout_s` that belongs on the task, not the engine.
+>
+> Every one of those would have failed as *"opencode doesn't work"* rather than
+> *"the wiring instructions are wrong"* — which is the same defect the audition
+> exists to find, arriving in the audition's own setup notes. The paragraph that
+> used to sit here said *"check the flag names before trusting it… the argument
+> shape for `run` was not verified end to end"*, and it was right; nobody did.
+> **A gate is believed only once it has been seen to fail, and an instruction is
+> believed only once it has been seen to run.**
+
+Validate with a trivial one-task manifest before pointing a batch at it, per the
+playbook's rule about auditioning a new model on something small first.
 
 ## Why this lane matters for cost
 

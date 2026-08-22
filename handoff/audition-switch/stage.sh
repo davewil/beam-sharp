@@ -26,7 +26,14 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # NOT `for key in $KEYS` — this shell word-splits differently under zsh, where an
 # unquoted parameter stays one word and the loop silently runs once on a
 # nonsense name. An array is the portable spelling.
-KEYS=(codex copilot-sonnet5 copilot-haiku45 free-deepseek)
+# `grok` joined on 2026-08-22, when the codex lane returned "You've hit your
+# usage limit … try again at Aug 25th" on both attempts and never saw the
+# packet. A lane that cannot bill is not a weak candidate — it is no
+# measurement at all, and the audition's argument needs breadth: one worker
+# missing a clause is a weak worker, several missing the SAME clause is a hole
+# in the specification. Grok bills to a different plan, so it restores the
+# fourth seat without waiting three days.
+KEYS=(codex grok copilot-sonnet5 copilot-haiku45 free-deepseek)
 
 # Are the answers reachable from anywhere under a staged tree? Factored out so
 # --self-test can point it at a tree with a deliberate leak; testing it by

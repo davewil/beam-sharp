@@ -111,6 +111,20 @@ SH
   REPO="$(cd "$HERE/../.." && pwd)"
   BSC="$REPO/compiler/_build/default/bin/bsc"
   [ -x "$BSC" ] || BSC="$REPO/compiler/_build/test/bin/bsc"
+  # NAME THE MISSING COMPILER RATHER THAN LETTING IT LOOK LIKE A BROKEN CHECK.
+  # `oracle-impl` below ends in `|| true`, so a $BSC that does not exist emits
+  # no tags and the negative control reports `clean` on all fifteen cases — the
+  # self-test then concludes "the check is unpassable", which is true and
+  # useless, because the cause is an unbuilt tree and not the check at all.
+  # Measured 2026-08-22 from a git worktree, which has no `compiler/_build`;
+  # this is the same stale/absent-artefact class that has now read like a code
+  # regression three times in this repo. Suspect the measurement before the code.
+  if [ ! -x "$BSC" ]; then
+    echo "SELF-TEST CANNOT RUN: no bsc at $REPO/compiler/_build/{default,test}/bin/bsc"
+    echo "  the negative control delegates to the reference compiler, so this"
+    echo "  tree must be built first: (cd $REPO/compiler && rebar3 escriptize)"
+    exit 1
+  fi
   cat > "$CTL/oracle-impl" <<SH
 #!/usr/bin/env bash
 f="\$1"

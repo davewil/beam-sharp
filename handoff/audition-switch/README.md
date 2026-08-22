@@ -179,8 +179,29 @@ which is the actual deliverable.
    restated here because finding 2 shows the answer can also be arrived at
    without reasoning at all.
 
-**No candidate has been run under this harness.** The four lanes cost real
-allowance on finite plans, and `run.sh`'s own comments record a lane returning
-`402 Payment Required` mid-run. Everything above was measured against the
-recovered submission and against synthetic stubs; a fresh run is a separate
-decision.
+~~**No candidate has been run under this harness.**~~ **Candidates began running
+2026-08-22** (David: *"run the four audition candidates and keep the logs"*).
+Findings 5 and 6 are what the first two lanes produced, and neither is about the
+language.
+
+5. **Two of the four lanes could not bill or could not launch, and the harness
+   correctly refused to score either as a result.** `codex` returned *"You've hit
+   your usage limit … try again at Aug 25th, 2026 1:44 PM"* on both attempts and
+   exited in 12.1s having never opened `PACKET.md`; `grok` was substituted for it
+   on David's call, and failed twice more in 4.0s on *"unknown model id"* — the
+   engine block's `grok-composer-2.5-fast` and `grok-build` are both retired, and
+   `grok models` now offers only `grok-4.6` and `grok-4.5`. **The check reported
+   `missing expected files: switchcheck` rather than 0/8**, which is the
+   difference between a billing event and a capability measurement; a harness
+   that scored the empty sandbox would have entered a *model* verdict in the
+   scoreboard for something no model ever saw. `run.sh`'s comment about a lane
+   returning `402` was not a historical note.
+
+6. **`ENGINES.md`'s wiring block had never been run, and was wrong three ways**
+   — a schema Ringer does not have, `--cwd` for what `opencode run --help` calls
+   `--dir`, and a `timeout_s` that belongs on the task. Corrected in place, with
+   the reasoning kept beside it. It is the audition's own setup notes failing the
+   test the audition administers: **an instruction is believed only once it has
+   been seen to run.** The three `opencode` lanes stayed blocked until the
+   corrected block was pasted, because `~/.config/ringer/config.toml` is the
+   human's file by design and this document says so.
