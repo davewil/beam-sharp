@@ -209,11 +209,47 @@ SH
     fail=1
   fi
 
+  # CONTROL 6 — THE MARKER MUST NOT READ OUT THE EXAM.
+  #
+  # Ringer builds a retry prompt from this script's failure output, so any
+  # held-out case name or expected tag printed here reaches the worker's second
+  # attempt. The lookup stub is the right probe: it fails held-out cases by
+  # construction, which is exactly the shape that would trigger the leak.
+  #
+  # BOTH HALVES, because a marker that printed nothing at all would pass the
+  # first assertion and be useless — the score has to survive the redaction, and
+  # --reveal has to still work for a human reading results afterwards.
+  mkdir -p "$CTL/leakdir"
+  cp "$CTL/lookup" "$CTL/leakdir/switchcheck"
+  chmod +x "$CTL/leakdir/switchcheck"
+  redacted="$("${BASH_SOURCE[0]}" "$CTL/leakdir" 2>&1)"
+  revealed="$("${BASH_SOURCE[0]}" --reveal "$CTL/leakdir" 2>&1)"
+
+  if grep -qE 'h0[0-9]' <<<"$redacted"; then
+    echo "SELF-TEST FAILED: the default marking printed a held-out case name."
+    echo "                  Ringer injects this text into the retry prompt, so"
+    echo "                  that hands the worker the exam it is about to sit."
+    fail=1
+  fi
+  if ! grep -q 'held-out' <<<"$redacted"; then
+    echo "SELF-TEST FAILED: redaction swallowed the held-out score as well as the"
+    echo "                  detail — the gap between visible and held-out is the"
+    echo "                  number the whole audition turns on."
+    fail=1
+  fi
+  if ! grep -qE 'h0[0-9]' <<<"$revealed"; then
+    echo "SELF-TEST FAILED: --reveal did not restore the held-out detail, so a"
+    echo "                  human can no longer see which cases disagreed."
+    fail=1
+  fi
+
   if [ "$fail" -eq 0 ]; then
     echo "self-test: rejected the silent stub, the cry-wolf stub and the lookup-table"
     echo "           stub — the last on a case it had never seen — accepted the"
-    echo "           compiler-backed one, and refused to mark its own directory"
-    echo "           whether or not the path was named. The check discriminates."
+    echo "           compiler-backed one, refused to mark its own directory"
+    echo "           whether or not the path was named, and kept the held-out"
+    echo "           detail out of the text a retry prompt is built from."
+    echo "           The check discriminates."
     exit 0
   fi
   exit 1
@@ -222,6 +258,18 @@ fi
 # ---------------------------------------------------------------------------
 # The real run.
 # ---------------------------------------------------------------------------
+# `--reveal` may sit on either side of the path, so it is filtered out rather
+# than positionally matched.
+REVEAL=0
+ARGS=()
+for a in "$@"; do
+  case "$a" in
+    --reveal) REVEAL=1 ;;
+    *)        ARGS+=("$a") ;;
+  esac
+done
+set -- "${ARGS[@]+"${ARGS[@]}"}"
+
 WORKDIR="${1:-.}"
 
 # THIS DIRECTORY IS THE AUDITION. IT IS NEVER A SUBMISSION.
@@ -286,7 +334,41 @@ seen_wrong=$(count_lines "$seen_bad")
 held_wrong=$(count_lines "$held_bad")
 
 [ -n "$seen_bad" ] && { echo "-- cases the worker was given --"; printf '%s\n' "$seen_bad"; echo; }
-[ -n "$held_bad" ] && { echo "-- held-out cases the worker never saw --"; printf '%s\n' "$held_bad"; echo; }
+
+# THE HELD-OUT DETAIL IS WITHHELD BY DEFAULT, BECAUSE THIS OUTPUT IS FED BACK
+# TO THE WORKER.
+#
+# Ringer retries a failed task once and injects the check's own failure output
+# into the retry prompt. `compare` prints `<case> compiler says [<tag>]`, so a
+# worker that fails a held-out case on attempt 1 is handed that case's NAME and
+# its ANSWER for attempt 2 — the exam, delivered by the marker. Worse, it is
+# self-selecting: the workers who trip it are exactly the ones the held-out set
+# exists to catch, so the leak fires precisely when it matters most.
+#
+# Found 2026-08-22 on the first real run under this harness. It did NOT fire —
+# grok failed only `c07-guarded`, a visible case, so nothing held-out was
+# printed (verified: no `h0*` string anywhere in its worker log). The hole was
+# structural rather than observed, which is the only reason the round's numbers
+# stand.
+#
+# This is README finding 1 in the mirror direction. That one leaked case
+# IDENTITY into the sandbox through argv; this leaks case identity AND the
+# answer back out through the marker. Both are channels nobody drew.
+#
+# The count still prints, so the score is unchanged and a fitted implementation
+# is still visible as the visible/held-out gap. `--reveal` restores the detail
+# for a human reading results afterwards, which is safe because that output goes
+# to a person and not into a prompt.
+if [ -n "$held_bad" ]; then
+  if [ "$REVEAL" = "1" ]; then
+    echo "-- held-out cases the worker never saw --"; printf '%s\n' "$held_bad"; echo
+  else
+    echo "-- $held_wrong held-out case(s) disagreed; detail withheld --"
+    echo "   (re-run with --reveal to see which; it is kept out of this output"
+    echo "    because a retry prompt is built from it)"
+    echo
+  fi
+fi
 
 printf 'visible  %s/%s\n'  "$((seen_total - seen_wrong))" "$seen_total"
 printf 'held-out %s/%s\n'  "$((held_total - held_wrong))" "$held_total"

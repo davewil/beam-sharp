@@ -98,18 +98,25 @@ it has to be caught on disk rather than noticed in a number.
 Chosen to span billing lanes rather than capability tiers, because the question
 is cost-effectiveness:
 
-| key | model | lane |
-|---|---|---|
-| `codex` | Codex CLI default | ChatGPT plan |
-| `copilot-sonnet5` | `github-copilot/claude-sonnet-5` | Copilot subscription |
-| `copilot-haiku45` | `github-copilot/claude-haiku-4.5` | Copilot subscription |
-| `free-deepseek` | `opencode/deepseek-v4-flash-free` | free |
+| key | model | lane | round 1 (2026-08-22) |
+|---|---|---|---|
+| `codex` | Codex CLI default | ChatGPT plan | **no measurement** — usage limit, retry 25 Aug |
+| `grok` | `grok-4.6` | SuperGrok / X Premium | **7/8 visible, 7/7 held-out first try** |
+| `copilot-sonnet5` | `github-copilot/claude-sonnet-5` | Copilot subscription | not yet run |
+| `copilot-haiku45` | `github-copilot/claude-haiku-4.5` | Copilot subscription | not yet run |
+| `free-deepseek` | `opencode/deepseek-v4-flash-free` | free | not yet run |
 
-Three of the four cost nothing per token beyond subscriptions already held. The
-fourth is the exploration slot: an untested free model on a task with a strong
+Four of the five cost nothing per token beyond subscriptions already held. The
+last is the exploration slot: an untested free model on a task with a strong
 executed check, which is where a cheap experiment belongs.
 
-`opencode` must be wired as an engine first — see `ENGINES.md`.
+**`grok` joined on 2026-08-22** because `codex` could not bill (finding 5) and a
+lane that cannot bill is not a weak candidate — it is no measurement at all. Its
+model id had to be corrected too: the engine block named
+`grok-composer-2.5-fast`, which `grok models` no longer offers.
+
+`opencode` must be wired as an engine first — see `ENGINES.md`, whose block was
+itself wrong until finding 6.
 
 ## What a failure means, and why several models run the same packet
 
@@ -205,3 +212,44 @@ language.
    been seen to run.** The three `opencode` lanes stayed blocked until the
    corrected block was pasted, because `~/.config/ringer/config.toml` is the
    human's file by design and this document says so.
+
+7. **The specification IS implementable from the packet alone — measured, not
+   hoped.** `grok-4.6` scored **7/8 visible and 7/7 held-out on its FIRST
+   attempt**, and the single miss was `c07-guarded`. That is the case finding 4
+   is about: §5 offers `n when n < 5 => :retried` as an illustration of a guarded
+   arm, the compiler answers `rebinding`, and the specification never says so.
+   **The one thing a clean-room worker got wrong is the one thing the
+   specification teaches wrongly.** Nothing else in fifteen cases disagreed —
+   including all three interval cases (`h01`–`h03`), which is precisely what the
+   earlier recovered submission never implemented despite §2 working them twice.
+
+   Read against finding 2 this reverses the picture. 2/7 held-out was not
+   evidence that the packet is unimplementable; it was evidence about one
+   worker. **Two submissions on the identical packet now disagree by five
+   held-out cases**, which is the spread the audition was built to expose and the
+   reason it insists on several models rather than one.
+
+   It passed on attempt 2 (8/8) — but that number is worth less, because Ringer
+   injects the check's failure output into the retry prompt, so attempt 2 had
+   been *told* c07's answer. **Attempt 1 is the clean-room measurement; attempt 2
+   is a measurement of the retry loop.** Evidence, including both attempts, the
+   1,711-line submission and the run record:
+   [`evidence/2026-08-22-round1/`](evidence/2026-08-22-round1/).
+
+8. **The marker could read the exam out to the worker, and nobody had drawn that
+   channel.** Since the retry prompt is built from `check.sh`'s failure output,
+   and `compare` prints `<case> compiler says [<tag>]`, a worker that fails a
+   **held-out** case on attempt 1 is handed that case's name and its answer for
+   attempt 2. It is self-selecting: the workers who trip it are exactly the ones
+   the held-out set exists to catch.
+
+   **It did not fire this round** — grok failed only a visible case, and no `h0*`
+   string appears anywhere in its worker log — which is the only reason finding
+   7's numbers stand. Fixed: held-out detail is withheld by default and the count
+   still prints, so the visible/held-out gap survives; `--reveal` restores it for
+   a human reading results afterwards, where the output goes to a person rather
+   than into a prompt. Control 6 in `--self-test` proves both halves.
+
+   This is finding 1 in the mirror direction — that one leaked case identity
+   *into* the sandbox through argv, this leaked identity and answer *out* through
+   the marker. Both were channels nobody drew, which is now twice.
