@@ -737,11 +737,33 @@ Diagnose(n)                     -> :parsed
 The doubled `:error` is not a slip: the outer one is `result<T, E>`'s own failure tag and the inner
 one is the exception class.
 
-**`E` is fixed at `foreign_error` for a foreign declaration** — you do not choose it. Write a
-mapping clause if you want a domain reason. A foreign signature declaring any other payload is an
-error at the declaration.
+**Naming `foreign_error` is what asks for the wrapper**, and it is the only payload that does. It
+names an exception *class*, which no other type spells, so writing it says *this function throws and
+I want the throw as a value*. Write a mapping clause if you want a domain reason.
 
-**shipped**
+**A payload that is not `foreign_error` is an ordinary union, not an error.** Most of OTP returns its
+failures as values rather than throwing — `file:read_file/1` gives back `{ok, Binary} | {error,
+Reason}` and never raises — so that shape is declared by writing it, and the compiler emits no
+wrapper because there is nothing to catch:
+
+<!-- check:
+type Contents = (:ok, binary) | (:error, atom)
+-->
+```csharp
+public atom Report(Contents c)
+
+Report((:ok, _))    -> :read
+Report((:error, e)) -> e
+```
+
+The two channels compose in one declaration when a function does both — an `(:error, foreign_error)`
+member beside an `(:error, atom)` member gets the wrapper for the throw while the value arm stays an
+ordinary value.
+
+<!-- ticket 56, built as F23; it reversed F19 §2, and the measurement that decided it is
+     in that ticket -->
+**shipped** — and it reverses the *"`E` is fixed for a foreign declaration"* rule this
+section used to state.
 
 ---
 
@@ -1051,6 +1073,8 @@ A foreign call throws in **your** process — `binary_to_integer` on anything th
 the canonical case — and that is the one failure `monitor` plus `receive` cannot reach, because
 there is no second process to observe it across. Declare the return type as
 `result<T, foreign_error>` and the compiler wraps the call; declare anything else and it does not.
+That second half is what makes a value-returned error declarable (§7).
+<!-- the second half is ticket 56 / F23; before it, anything else was refused -->
 
 ```csharp
 using :erlang {
@@ -1082,6 +1106,12 @@ all, so no supervision decision can be swallowed by a wrapper.
 **Owed:** the boundary guard of §10 is *not* emitted yet — nothing checks that the value coming back
 actually inhabits the type you declared, so a foreign term that breaks your types is still not
 caught at the boundary. That is what remains of the gap between §10's guarantee and what runs today.
+
+It is owed in **both** directions, and the second one is measured. Declaring
+`result<binary, foreign_error>` over `file:read_file/1` compiles and runs, and hands back
+`(:ok, <<...>>)` — a value inhabiting neither arm of the type its author declared — because the
+wrapper catches a throw that never comes and nothing inspects the value that does. A wrong channel
+is now a wrong declaration like any other, and the boundary guard is what will catch it.
 
 ## 12. Processes
 

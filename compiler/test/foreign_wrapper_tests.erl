@@ -199,56 +199,66 @@ the_class_dispatches_in_a_clause_head_test() ->
 %%% F19.7 — `E` is fixed at `foreign_error`
 %%% ---------------------------------------------------------------------------
 
-%% Ticket 15 §5: "`E` is fixed for foreign calls rather than freely chosen." The
-%% refusal is AT THE DECLARATION, beside `opaque_ret_at_boundary` and for ticket
-%% 09 §4's reason — the diagnostic lands where the fix is.
+%% TICKET 56 REVERSED THIS. It was `a_payload_other_than_foreign_error_is_
+%% refused_test`, asserting the error term F19 §2 raised. The rule it pinned —
+%% "`E` is fixed for foreign calls" — assumed that a type mentioning `(:error, R)`
+%% belongs to a function that THROWS, and most of OTP's IO surface disproves it.
 %%
-%% Refusing is the reversible direction. Emitting no wrapper and saying nothing
-%% would ship a program that DIES where its signature declares a value, and no
-%% later ticket can retrieve the programs written against that silence.
-a_payload_other_than_foreign_error_is_refused_test() ->
+%% THE COST OF THE REVERSAL IS WHAT THIS TEST NOW PINS, deliberately. A payload
+%% that is not `foreign_error` no longer refuses, so a MIS-declared channel over a
+%% genuinely throwing function compiles and the program dies at runtime. That is
+%% the trade ticket 56 made with its eyes open, and it is asserted here so that
+%% the next person to read it finds a decision rather than an omission. The
+%% boundary guard (ticket 18) is what is owed against it.
+a_payload_other_than_foreign_error_is_an_ordinary_union_test() ->
     Src = "module Fw6\n"
           "using :erlang {\n"
           "    result<int, atom> binary_to_integer(binary b)\n"
           "}\n"
           "public result<int, atom> Parse(binary b)\n"
           "Parse(b) -> :erlang.binary_to_integer(b)\n",
-    ?assertError({foreign_error_channel, _, erlang, binary_to_integer, _},
-                 check_only(Src)).
+    %% `[]` and not `_`: a clean compile, with nothing merely downgraded to a
+    %% warning in place of the refusal that was removed.
+    ?assertMatch({ok, _, []}, check_only(Src)),
+    {ok, _} = compile(Src),
+    {ok, {_, [{abstract_code, {_, Forms}}]}} =
+        beam_lib:chunks(?OUT ++ "/Fw6.beam", [abstract_code]),
+    %% No wrapper: `atom` names no exception class, so there is nothing to catch
+    %% ON THE AUTHOR'S BEHALF. Asserted as the positive shape `{call}` rather than
+    %% as the absence of a `try`, because an absence goes green over a module that
+    %% never compiled.
+    ?assertEqual([{call}], shapes('Parse', Forms)).
 
-%% ...AND THE AUTHOR ACTUALLY SEES A SENTENCE. The test above pins the TERM,
-%% which is where this repo asserts a declaration refusal — but a term with no
-%% `descriptor/2` clause falls through `bs_diag` to `unhandled`, is re-raised,
-%% and reaches the author as an escript stack trace with every test still green.
-%% That is F16's exact failure shape, so the prose gets its own assertion at the
-%% channel an author reads rather than at the one the suite reads.
+%% ...AND THE AUTHOR IS NOT STOPPED AT THE DECLARATION. This was
+%% `the_refusal_reaches_the_author_as_prose_test`, which asserted that the refusal
+%% reached the author as a sentence rather than an escript stack trace. There is
+%% no refusal left to render, so the assertion inverts: the shape that used to be
+%% rejected now compiles clean at the channel an author actually reads.
 %%
-%% Driven through the CLI for the same reason: `bs_diag:message/1` returning the
-%% right string proves nothing about whether anything calls it.
-the_refusal_reaches_the_author_as_prose_test() ->
+%% Still driven through the CLI, for the reason the old test named — a checker
+%% that returns `{ok, _}` proves nothing about what `bsc` prints or exits with.
+a_value_returned_declaration_compiles_clean_at_the_cli_test() ->
     case built() of
         false -> ok;
         true ->
             Src = "module Fw9\n"
-                  "using :erlang {\n"
-                  "    result<int, atom> binary_to_integer(binary b)\n"
+                  "type Contents = (:ok, binary) | (:error, atom)\n"
+                  "using :file {\n"
+                  "    Contents read_file(binary p)\n"
                   "}\n"
-                  "public result<int, atom> Parse(binary b)\n"
-                  "Parse(b) -> :erlang.binary_to_integer(b)\n",
+                  "public Contents Slurp(binary p)\n"
+                  "Slurp(p) -> :file.read_file(p)\n",
             with_src("in.bs", Src, fun(Path, Out) ->
                 R = run_cli("-o " ++ Out ++ " " ++ Path),
-                ?assert(string:find(R, "rc:1") =/= nomatch),
-                %% Not a stack trace. This is the assertion that would have
-                %% caught the state this feature shipped in for one commit.
+                ?assertEqual(nomatch, string:find(R, "rc:1")),
                 ?assertEqual(nomatch, string:find(R, "escript: exception error")),
-                %% The refusal, naming the pair and the payload it objected to.
-                ?assert(string:find(R, "erlang.binary_to_integer declares its "
-                                       "failure as `(:error, atom)`") =/= nomatch),
-                ?assert(string:find(R, "is `foreign_error`, and nothing else")
-                            =/= nomatch),
-                %% The debt notice — see the comment on `message/1` in bs_diag.
-                ?assert(string:find(R, "ordinary VALUES has no declared form yet")
-                            =/= nomatch)
+                %% The retired refusal, by the two phrases that carried it. The
+                %% second is F19's recorded debt sentence, which this ticket is
+                %% the one licensed to delete.
+                ?assertEqual(nomatch, string:find(R, "is `foreign_error`, and "
+                                                     "nothing else")),
+                ?assertEqual(nomatch,
+                             string:find(R, "has no declared form yet"))
             end)
     end.
 
@@ -296,3 +306,73 @@ a_term_return_is_not_a_declared_channel_test() ->
     M = build_and_load(Src, 'Fw8'),
     ?assertEqual(8080, M:'Parse'(<<"8080">>)),
     ?assertError(badarg, M:'Parse'(<<"abc">>)).
+
+%%% ---------------------------------------------------------------------------
+%%% Ticket 56 — a foreign error that arrives as a VALUE
+%%%
+%%% `file:read_file/1` returns `{ok, Binary} | {error, Reason}` and never throws,
+%%% which is most of OTP's IO surface. F19 §2 refused it, because it read any
+%%% `(:error, _)` member as a request for the wrapper. The trigger is now the
+%%% payload `foreign_error` and nothing else: NAMING the type the wrapper
+%%% produces is what asks for the wrapper, and every other union is ordinary.
+%%% ---------------------------------------------------------------------------
+
+%% Three shapes in one module, on purpose. `Slurp` is the tagged pair OTP writes
+%% most; `Ex` is the bare-`:ok` variant `erl_tar` writes and which the ticket's
+%% own title does not cover; `Parse` is the wrapper, present as the control that
+%% keeps the assertions below from passing vacuously.
+value_returned_src() ->
+    "module Fv\n"
+    "type Contents = (:ok, binary) | (:error, atom)\n"
+    "type Extracted = :ok | (:error, atom)\n"
+    "using :file {\n"
+    "    Contents read_file(binary p)\n"
+    "}\n"
+    "using :erl_tar {\n"
+    "    Extracted extract(binary p)\n"
+    "}\n"
+    "using :erlang {\n"
+    "    result<int, foreign_error> binary_to_integer(binary b)\n"
+    "}\n"
+    "public Contents Slurp(binary p)\n"
+    "Slurp(p) -> :file.read_file(p)\n"
+    "public Extracted Ex(binary p)\n"
+    "Ex(p) -> :erl_tar.extract(p)\n"
+    "public result<int, foreign_error> Parse(binary b)\n"
+    "Parse(b) -> :erlang.binary_to_integer(b)\n".
+
+%% THE TICKET, IN ONE ASSERTION. Both arms arrive as ordinary values and both
+%% inhabit the declared type — which is what F19 could not say.
+a_value_returned_error_is_declarable_test() ->
+    M = build_and_load(value_returned_src(), 'Fv'),
+    ?assertMatch({ok, <<_/binary>>}, M:'Slurp'(<<"/etc/hosts">>)),
+    ?assertEqual({error, enoent}, M:'Slurp'(<<"/nonexistent-ticket-56">>)).
+
+%% A call that never throws must not be wrapped in a `try` that catches nothing.
+%% `Parse` is asserted in the same module and the same breath: an absence proved
+%% on its own would go green over a module that failed to compile, which is this
+%% repo's most-repeated gate defect.
+a_value_returned_declaration_gets_no_wrapper_test() ->
+    {ok, _} = compile(value_returned_src()),
+    {ok, {_, [{abstract_code, {_, Forms}}]}} =
+        beam_lib:chunks(?OUT ++ "/Fv.beam", [abstract_code]),
+    ?assertEqual([{call}], shapes('Slurp', Forms)),
+    ?assertEqual([{call}], shapes('Ex', Forms)),
+    ?assertEqual([{'try'}], shapes('Parse', Forms)).
+
+%% BOTH CHANNELS AT ONCE, which had no form at all before this ticket: a call
+%% that returns `{error, Reason}` as a value AND can throw. The algebra keeps the
+%% two `(:error, _)` products apart, so naming `foreign_error` in one of them
+%% asks for the wrapper while the other stays an ordinary value arm.
+both_channels_in_one_declaration_test() ->
+    Src = "module Fvb\n"
+          "type Opened = (:ok, term) | (:error, atom) | (:error, foreign_error)\n"
+          "using :file {\n"
+          "    Opened open(binary p, term modes)\n"
+          "}\n"
+          "public Opened Go(binary p, term m)\n"
+          "Go(p, m) -> :file.open(p, m)\n",
+    {ok, _} = compile(Src),
+    {ok, {_, [{abstract_code, {_, Forms}}]}} =
+        beam_lib:chunks(?OUT ++ "/Fvb.beam", [abstract_code]),
+    ?assertEqual([{'try'}], shapes('Go', Forms)).

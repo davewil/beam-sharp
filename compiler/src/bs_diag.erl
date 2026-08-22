@@ -313,10 +313,6 @@ descriptor(Path, {opaque_ret_at_boundary, Line, Mod, Fun}) ->
 %% as a type, so `message/1` stays a pure function of the descriptor — the term
 %% is what a consumer reads, and a consumer that had to re-run the algebra to
 %% print it would not be reading a diagnostic.
-descriptor(Path, {foreign_error_channel, Line, Mod, Fun, Payload}) ->
-    #{tag => foreign_error_channel, severity => error, file => Path,
-      line => Line, module => bs_types:atom_str(Mod), function => Fun,
-      payload => Payload};
 descriptor(Path, {unknown_generic, N}) ->
     #{tag => unknown_generic, severity => error, file => Path, type => N};
 %% F6.6. A bracket the compiler KNOWS at the wrong arity is a different mistake
@@ -767,15 +763,6 @@ message(#{tag := opaque_ret_at_boundary, file := P, line := L, module := Mod,
 %% otherwise work through several spellings before concluding the form does not
 %% exist, and ticket 23's rule is that the debt lives on the channel. When the
 %% ticket that decides that case lands, this is the paragraph that changes.
-message(#{tag := foreign_error_channel, file := P, line := L, module := Mod,
-          function := Fun, payload := Payload}) ->
-    {"~s:~p: error: ~s.~s declares its failure as `(:error, ~s)`~n"
-     "  a foreign call's error payload is `foreign_error`, and nothing else:~n"
-     "  the wrapper produces the exception CLASS, which no other type spells.~n"
-     "  declare it `result<T, foreign_error>` and map to your own reason in a~n"
-     "  clause. A foreign function that returns `(:ok, V) | (:error, R)` as~n"
-     "  ordinary VALUES has no declared form yet.~n",
-     [P, L, Mod, Fun, Payload]};
 message(#{tag := unknown_generic, file := P, type := N}) ->
     {"~s: error: no type named ~s takes a type argument~n"
      "  the prelude has `list<T>`, `option<T>` and `result<T, E>`;~n"

@@ -320,9 +320,8 @@ Bodies in [`fog.md`](fog.md). These are open: read the body before assuming a di
   51 left it: `using :'Elixir.Req'` names the *module*, never the *application*, so dependencies live
   only in the environment that built them. The FFI declaration may already be the home
 - **A value-returned foreign error has no declared form** `#56` `ffi` `errors` `types`
-  `file:read_file/1` returns `{ok,B} | {error,R}` and never throws, so 15 §5's `foreign_error` is a
-  lie, `result<binary, atom>` is refused by F19, and bare leaves it untyped. **Was numbered 48 for
-  four days with no repo file**, and a different question took that number — sequence with 50, 52
+  **the payload `foreign_error` asks for the wrapper, not the tag `:error`** — so `(:ok,B)|(:error,R)`
+  is an ordinary union and needs no new syntax. F19 §2 reversed, its debt sentence deleted. **Built, F23**
 - **A map type in the prelude** `#48` `types` `prelude`
   opaque, matchable, or not at all. The record/map collision is measured and **dead** — the minted
   tag is what keeps them apart — but exhaustiveness over a map is vacuous. Waits on 25a's pipeline

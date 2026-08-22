@@ -1,6 +1,10 @@
 # F19 — The compiler-emitted foreign `try` wrapper
 
-**Status**      **done 2026-08-18**
+**Status**      **done 2026-08-18** — **§2 REVERSED 2026-08-22** by
+                [F23](F23-value-returned-foreign-error.md) / [ticket 56](../../wayfinder/issues/56-foreign-value-returned-error.md).
+                The wrapper now keys on the PAYLOAD `foreign_error`, not the tag `:error`,
+                and a payload that is not `foreign_error` is an ordinary union rather than
+                an error at the declaration. §1's inline example was also wrong; see below
 **Implements**  [ticket 15](../../wayfinder/issues/15-error-model.md) §4 and §5, resolved — decides
                 nothing; over [ticket 32](../../wayfinder/issues/32-ffi-surface.md)'s `using :mod`
                 surface, and [ticket 12](../../wayfinder/issues/12-totality-vs-let-it-crash.md)'s
@@ -125,10 +129,35 @@ The consequence is that the hand-written union gets the wrapper too, and that is
 
 ```
 result<int, foreign_error> f(binary)      // wrapped
-int | (:error, foreign_error) g(binary)   // wrapped — the same type
+Parsed g(binary)                          // wrapped — the same type
 ```
 
+<!-- The second line said `int | (:error, foreign_error) g(binary)` until 2026-08-22, and it did
+     not compile: `foreign_sig -> type_prim` and a union is not a `type_prim`, so it is
+     `syntax error before: '|'`. F23 measured it. The RULE is sound and
+     `a_hand_written_union_gets_the_wrapper_too_test` has always pinned it — through an alias,
+     which is how the equivalence is actually reached: -->
+
+where `Parsed` is `type Parsed = int | (:error, foreign_error)`. The union is written in a `type`
+declaration because a foreign signature's return position takes a *primary* type, not a union — so
+the equivalence F6.3 pins is reached through an alias rather than by spelling a union in the `using`
+block.
+
 ### 2. `E` is fixed at `foreign_error`, and anything else is refused at the declaration
+
+> **REVERSED 2026-08-22 by [F23](F23-value-returned-foreign-error.md) / ticket 56.** The section is
+> kept as written because the reversal argues against it and a rule silently rewritten cannot be
+> argued with. What is now true: the wrapper is requested by the **payload** `foreign_error`, and a
+> payload that is not `foreign_error` is an **ordinary union**, not an error. The rule below inferred
+> the failure *channel* from the *shape* of the return type, and for most of OTP that inference is
+> false — `file:read_file/1` and `erl_tar:extract/2` return their errors as values and never throw.
+> The compiler cannot tell which foreign functions throw, so the channel is author knowledge and
+> naming `foreign_error` is how the author declares it.
+>
+> **The paragraph below claiming refusal is "the reversible direction" did not hold.** The form it
+> recommended instead — `result<T, foreign_error>` over `file:read_file/1` — compiled, ran, and
+> returned `(:ok, Bin)` against a declared bare `binary`: a value inhabiting neither arm, shipped
+> silently. The protection was never general. Both directions are the boundary guard's (ticket 18).
 
 15 §5 states the cost plainly: *"`E` is fixed for foreign calls rather than freely chosen, so an
 author writes `result<int, foreign_error>` and adds a mapping step if they want a domain reason."*
@@ -172,7 +201,7 @@ and after the wrapper, because the wrapper is *how* that type becomes true.
 | F19.4 | `result<term, foreign_error> exit(term)` | `bsc … Exited` | `(:error, (:exit, :boom))` — the `exit` class, locally raised | 0 |
 | F19.5 | `int binary_to_integer(binary)` — **no** declared channel | run it on `<<"abc">>` | the caller **dies**, `error:badarg`. Ticket 12's asymmetry | 1 |
 | F19.6 | `foreign_error` in a clause head, all three members | `bsc …` | each class dispatches; exhaustive with no catch-all | 0 |
-| F19.7 | `result<int, atom>` on a foreign signature | `bsc` it | refused **at the declaration**: `E` is fixed at `foreign_error` | 1 |
+| F19.7 | ~~`result<int, atom>` on a foreign signature~~ | — | **RETIRED 2026-08-22**, replaced by F23.7: it now compiles, with no wrapper and no diagnostic | — |
 | F19.8 | `try` written in the surface | `bsc` it | a syntax error — there is no `try` | 1 |
 | F19.9 | a wrapped call and an unwrapped one in one module | read the abstract code | a `try` form for the first and none for the second | 0 |
 | F19.10 | two wrapped calls in one clause, and one nested in another | `bsc` it | compiles and runs — the names are distinct | 0 |
@@ -181,25 +210,25 @@ and after the wrapper, because the wrapper is *how* that type becomes true.
 ## Out of scope
 
 - **A foreign function that returns `(:ok, V) | (:error, Reason)` as ordinary values.**
-  `file:read_file` is the canonical case and §2 above makes it **undeclarable**: it returns
-  `(:ok, binary) | (:error, atom)` as *values*, not as a throw, so its `(:error, atom)` member is
-  neither `foreign_error` nor something a wrapper could ever produce. Ticket 15 §5 fixed `E` for
-  foreign calls without considering that shape, and §4's *"adds a mapping step"* does not reach it —
-  a mapping step needs a declared type to map *from*. **This is a ticket, not a feature**, and F19
-  refuses the case loudly rather than inventing a resolution for it. The wrapper is deliberately
-  **not** widened to cover value-returned errors to make the gap go away: that would put the
-  compiler's `try` around a call that never throws and type the result as a class tag it never
-  produces.
+  **RESOLVED 2026-08-22 — ticket 56, built as [F23](F23-value-returned-foreign-error.md).** This
+  paragraph named the gap and the two sites that carried its debt, and both have been paid.
 
-  **THE DIAGNOSTIC CARRIES THIS DEBT, AND ITS LAST TWO LINES MUST CHANGE WHEN THE GAP IS DECIDED.**
-  The refusal ends with *"A foreign function that returns `(:ok, V) | (:error, R)` as ordinary
-  VALUES has no declared form yet"*, which is true today and is exactly the kind of sentence this
-  repo has been bitten by: a claim that was accurate when written, still passing every gate, and
-  quietly false. It lives in **`bs_diag:message/1`, clause `#{tag := foreign_error_channel, …}`**,
-  with a comment there pointing back at this paragraph. Whoever resolves the ticket edits that
-  clause and the assertion on it in
-  `foreign_wrapper_tests:the_refusal_reaches_the_author_as_prose_test`. Naming both here turns a rot
-  risk into one `grep foreign_error_channel`.
+  What it said: `file:read_file` is the canonical case and §2 made it **undeclarable**, because its
+  `(:error, atom)` member is neither `foreign_error` nor something a wrapper could produce. That was
+  accurate. It was also **wider than stated** — `erl_tar:extract/2` returns `ok | {error, Reason}`
+  with a bare `:ok`, and was refused just the same, so the gap was every value-returned `(:error, R)`
+  rather than only the tagged-pair shape.
+
+  How it resolved: **not** by widening the wrapper, which this paragraph rightly refused — F23 keys
+  the wrapper on the payload `foreign_error` instead of the tag `:error`, so a value-returned union
+  is an ordinary type and gets no `try`. No new syntax, no new prelude entry, one predicate.
+
+  **THE DEBT SENTENCE IS DELETED, NOT EDITED.** With no refusal left there is no prose to reword, so
+  `bs_diag`'s `foreign_error_channel` clause is gone entirely, along with `descriptor/2`'s clause and
+  the two tests that asserted it. `check-diagnostics.sh` enforces that pairing in both directions, so
+  a half-deletion goes red. The `grep foreign_error_channel` this paragraph recommended now returns
+  nothing, which is the intended end state.
+
 - **The boundary guard.** §11's **Owed** paragraph has two halves and this is the other one — an
   emitted check that a foreign value inhabits its declared type. That is ticket 18's, over all eight
   channels, and it is `ValidateAs<T>`'s traversal rather than four lines of `try`.
@@ -264,6 +293,9 @@ the first shape looks like a hole and the second looks like a bug, and neither i
 - Every scenario above is a test, and the twelve CI gates are green. ✓ — 349 tests, up from 334.
 
 **The refusal is asserted TWICE, and the second assertion is the one F16 would ask for.**
+*(History. Both assertions were INVERTED on 2026-08-22 by F23 — there is no refusal left to
+assert, so they now pin that the shape compiles clean and that neither retired phrase is
+printed. The reasoning below is why they are still two tests and not one.)*
 `{foreign_error_channel, Line, Mod, Fun, Payload}` is pinned as a term, which is where this repo
 asserts a declaration refusal — `opaque_ret_at_boundary` is pinned the same way. But a term with no
 `descriptor/2` clause falls through `bs_diag` to `unhandled`, is re-raised, and reaches the author as

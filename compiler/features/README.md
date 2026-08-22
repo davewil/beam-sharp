@@ -111,8 +111,18 @@ Erlang back to the decision that required it is one grep.
 | [F20 — list length: the cons cell decomposes](F20-list-length.md) | **done 2026-08-21** · [ENG-236](https://linear.app/davewil/issue/ENG-236) | the first **soundness** defect any feature has closed — `[]` beside `[a, b, ..t]` was proved exhaustive and crashed on `[7]`; it also amends ticket 08 (the rest becomes a marker) and answers ticket 53 (the route table's spelling) |
 
 | [F21 — a field assignment is checked](F21-field-value-obligations.md) | **done 2026-08-21** · [ENG-203](https://linear.app/davewil/issue/ENG-203) | nothing that was waiting — the **second** soundness defect a feature has closed. `Order{ Id = :oops }` and `o with { Total = :oops }` both reached a `.beam`, and `o with { Nope = 1 }` reached one and then raised `{badkey,'Nope'}`, so ticket 26 §2 was being enforced by the BEAM. Site 2 is **field assignment**, not construction, so `with` opens no sixth site |
+| [F22 — a record pattern names its type, and any pattern takes a trailing binder](F22-record-pattern-and-binder.md) | **done 2026-08-22** · [ENG-237](https://linear.app/davewil/issue/ENG-237) | exemplar **25c**'s front wall (`consume.bs:20`) — the last of ticket 25's three walls that was a language gap rather than a decision still open. Resolves ticket 55 |
+| [F23 — a foreign error that arrives as a value](F23-value-returned-foreign-error.md) | **done 2026-08-22** · [ENG-228](https://linear.app/davewil/issue/ENG-228) | most of OTP's IO surface as a declarable FFI target — `file`, `inet`, `gen_tcp`, `erl_tar`. Resolves ticket 56 by **reversing F19 §2**: the wrapper keys on the payload `foreign_error`, not the tag `:error`. The first feature that REMOVES a diagnostic, and it extends the FFI declaration by nothing, which defuses ticket 52's 50/52/56 sequencing warning |
 
-**STATE OF THE BOARD — 2026-08-21. All twenty-one features are done, and no row owes a file.** The
+
+<!-- 2026-08-22: F22 shipped on 2026-08-21 and was NEVER GIVEN A ROW HERE, and the board line
+     still read "twenty-one" while twenty-two F-files existed. Both fixed above, by F23's session.
+     NOTHING GATES THIS. `check-map.sh` enforces that every wayfinder body entry has an index
+     entry; there is no equivalent asserting that every `F*.md` has a row in this table and that
+     the board line's count matches the file count. That is a real owed check — it is the
+     "a passing gate may never have looked" shape, one namespace along — and it is left as a
+     recommendation rather than built by a session that was resolving a different ticket. -->
+**STATE OF THE BOARD — 2026-08-22. All twenty-three features are done, and no row owes a file.** The
 table above is the answer to *"what is built"*; the entries below it are a reverse-chronological
 log of what each build **revealed**, and several of them state the queue's condition **as it was on
 the day they were written**. Those sentences were true then and are not now — read the table for

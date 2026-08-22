@@ -588,45 +588,62 @@ sig(Params, Ret, Env) ->
 %%% `int | :nothing` are the SAME TYPE, which F6.3 pins — so keying on the token
 %%% `result` would make two spellings of one type behave differently, which is
 %%% the one thing that rule exists to prevent. It keys on the resolved return
-%%% type carrying a 2-tuple member whose first component is the literal atom
-%%% `:error`, which is what `result<T, E>` IS.
+%%% type carrying a 2-tuple member whose payload is `foreign_error`, so a user
+%%% alias naming that union behaves identically to `result<T, foreign_error>`.
+%%%
+%%% Ticket 56 moved that key from the TAG to the PAYLOAD; see `wraps/2`. Note
+%%% that the union cannot be written inline in a foreign signature at all —
+%%% `foreign_sig -> type_prim` — so the equivalence is reached through a
+%%% `type Uident = ...` alias rather than by spelling a union in the `using`
+%%% block. F19 §1 claimed otherwise and its example did not compile.
 %%% ---------------------------------------------------------------------------
 
 foreign_wrappers(Decls, Env) ->
     maps:from_list(
       [{{Mod, N, length(Ps)}, wrapped}
        || {foreign, _, Mod, Sigs} <- Decls,
-          {foreign_sig, L, N, R, Ps} <- Sigs,
-          wraps(L, Mod, N, resolve(R, Env), Env)]).
+          {foreign_sig, _L, N, R, Ps} <- Sigs,
+          wraps(resolve(R, Env), Env)]).
 
-%% Ticket 15 §5 fixes `E` for foreign calls: the wrapper produces
-%% `(:error, (Class, Reason))`, so the payload is `foreign_error` and nothing
-%% else. A declared `(:error, E)` member with any other payload is refused AT
-%% THE DECLARATION — ticket 09 §4 and 15 §1 both put a type refusal there "so
-%% the diagnostic lands where the fix is", and 09 was emphatic that it is an
-%% error rather than a warning.
+%% TICKET 56. The trigger is the PAYLOAD `foreign_error`, not the tag `:error`.
 %%
-%% REFUSING IS THE REVERSIBLE DIRECTION, and that is why it is a refusal rather
-%% than a quiet no-wrapper. An author who wrote `result<int, atom>` over a
-%% foreign call and got no wrapper would have a program that DIES where its
-%% signature declares a value — this project's worst failure shape. A refusal
-%% can be lifted by the ticket that decides the case; a shipped silence cannot.
+%% F19 §2 read any `(:error, _)` member as a request for the wrapper and refused
+%% every payload but `foreign_error`. That refusal assumed a foreign function
+%% whose type mentions `(:error, R)` is one that THROWS, and for most of OTP that
+%% is false: `file:read_file/1`, `erl_tar:extract/2`, `inet` and `gen_tcp` return
+%% `{ok, V} | {error, Reason}` as ordinary VALUES and never throw. The check made
+%% that whole class undeclarable, which is ticket 56.
 %%
-%% What it costs is recorded in F19's Out of scope rather than hidden: a foreign
-%% function returning `{ok, V} | {error, Reason}` as ORDINARY VALUES — which is
-%% most of OTP — has no declared form yet, because 15 §5 fixed `E` without
-%% considering that shape. That is a ticket, not a feature.
-wraps(Line, Mod, Fun, Ret, Env) ->
-    case error_members(Ret) of
-        [] -> false;
-        Payloads ->
-            Fe = maps:get(foreign_error, Env),
-            case [P || P <- Payloads, not same_type(P, Fe)] of
-                []    -> true;
-                [P|_] -> erlang:error({foreign_error_channel, Line, Mod, Fun,
-                                       bs_types:to_string(P)})
-            end
-    end.
+%% The compiler cannot know which foreign functions throw — it has no Erlang type
+%% database, and the channel is not recoverable from the return type. So the
+%% channel is AUTHOR KNOWLEDGE and must be author-declared, and the declaration is
+%% naming the type the wrapper produces. `foreign_error` is stratum-2 and
+%% compiler-known; nothing else spells an exception class. Writing it asks for the
+%% wrapper, and every other union is an ordinary value the caller matches.
+%%
+%% The two compose, which is the shape that had no form at all before: the algebra
+%% keeps `(:error, atom)` and `(:error, foreign_error)` as SEPARATE products, so a
+%% function that returns an error value AND can throw declares both members and
+%% gets a wrapper over the one arm that needs it.
+%%
+%% Equality, not containment. `same_type/2` rather than `is_subtype/2` is what
+%% keeps `result<int, term>` from silently acquiring a wrapper the author never
+%% asked for — `foreign_error` is a subtype of `term`, and inferring the wrapper
+%% from that would put a `try` around a call on the strength of a payload that
+%% names nothing.
+%%
+%% WHAT THIS GIVES UP, stated because it reverses a decided rule. A mis-declared
+%% channel is no longer refused: `result<int, atom>` over a throwing function now
+%% compiles and the program dies at runtime. F19 §2 called refusing "the
+%% reversible direction", but the protection it bought was illusory — the form it
+%% recommended INSTEAD, `result<binary, foreign_error>` over `file:read_file/1`,
+%% already compiled and returned `{ok, Bin}` against a declared bare `binary`,
+%% silently. Catching a declaration that does not match the foreign function's
+%% real behaviour is the boundary guard's job (ticket 18, LANGUAGE.md §11 "Owed"),
+%% and it is owed in both directions equally.
+wraps(Ret, Env) ->
+    Fe = maps:get(foreign_error, Env),
+    lists:any(fun(P) -> same_type(P, Fe) end, error_members(Ret)).
 
 %% `term` contains every tuple of every arity, so its tuple part is `top` and no
 %% member can be named. A foreign function declared `term` promises nothing and
