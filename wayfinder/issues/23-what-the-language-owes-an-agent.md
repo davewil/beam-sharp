@@ -1,8 +1,8 @@
 # 23 — What does the language owe an agent that writes it?
 
 Type: grilling
-Status: resolved 2026-08-13. **Build state measured 2026-08-23** — six of twelve sections
-built, and the section below says which.
+Status: resolved 2026-08-13. **Build state measured 2026-08-23** — six of twelve sections were
+built when it was measured, and **§8b shipped the same day as F25**, making it seven.
 Blocked by: 11 — resolved
 
 ## BUILD STATE — measured 2026-08-23 at `da58c74`
@@ -21,7 +21,7 @@ line names what a feature took, and nothing names what is left.
 | 6 | `error_info` on compiler-generated code only | **unbuilt**, and owes its size number first |
 | 7 | a stub is legal, with an explicit marker | **unbuilt**, blocked on ticket 22's spelling |
 | 8a | a named stub type in the generated payload | **unreachable** — there is no generator |
-| 8b | the diagnostic carries the corrected signature | **unbuilt, and the one buildable item** |
+| 8b | the diagnostic carries the corrected signature | **built 2026-08-23** — F25 |
 | 9 | the generator smuggles in no crash policy | **vacuous** — no generator, and `raise` is not a token |
 | 10, 11, 12 | compiler query mode, blast radius, what not to optimise | **built** — F17 |
 
@@ -45,7 +45,7 @@ The substrate exists: the generated deep validators (`bs_emit.erl:1027+`) and th
 So the work is attaching a cause map to generated sites that already exist — which is why the map's
 twelfth skeleton debt, the code-size number, is the honest precondition rather than a formality.
 
-### §8b is the one buildable item, and 23 said so itself
+### §8b was the one buildable item, and it shipped as F25 on 2026-08-23
 
 *"When a clause returns outside its signature, the diagnostic carries the corrected signature to
 paste. This is §2 applied to signatures and needs no new machinery."*
@@ -61,10 +61,18 @@ error: Apply returns a value its signature does not declare
 ```
 
 That tells an agent what is wrong and not what to write, which is exactly the line §2 draws.
-`inexhaustive` already carries `heads` for precisely this reason, so the machinery is present and
-was never pointed at signatures. `return_not_declared` is also absent from `contractual/0`, so
-under §4's own test — *does it hand the agent something to write?* — it currently fails the test and
-would pass it once it carries the signature.
+`inexhaustive` already carries `heads` for precisely this reason, so the machinery was present and
+had never been pointed at signatures. `return_not_declared` was also absent from `contractual/0`,
+so under §4's own test — *does it hand the agent something to write?* — it failed, and it passes
+now: **F25 added it to the frozen subset, the first growth there since F16 defined it.**
+
+**What F25 refuses is the part worth recording.** `bs_types:to_string/1` renders a record as ticket
+26 §1's minted tag, so a corrected signature carrying it would hard-code a mint rather than name
+the record — a line that looks pasteable and is not, which is the precise failure §2 exists to
+prevent. So the declared half is read from the type AST and the residual half from the algebra,
+and where the residual has no writable spelling **no line is printed at all**. The correction is
+also function-wide rather than per clause, because two offending clauses raise two diagnostics and
+a per-clause answer would print two contradictory pasteable lines.
 
 ### §8a and §9 are unreachable rather than unbuilt, and the distinction matters
 
