@@ -60,9 +60,9 @@ if any is wrong and I will reopen it.
    ever existed; `[Port]` has no enforcement job left after F18 and F24; and the one non-vacuous DDD
    invariant, aggregate boundary, is already enforced by the record tag minted from the qualified
    module path (F3). Every candidate the arm rested on is built, dead, or bought elsewhere.
-3. **Split out "which modules may name this one"?** **Yes**, as 22 itself proposed. Raised as its
-   own ticket; a module today controls what it exposes, never who may name it, and that question
-   belongs to nobody at present.
+3. **Split out "which modules may name this one"?** **Yes**, as 22 itself proposed. Raised as
+   [ticket 60](60-which-modules-may-name-this-one.md); a module today controls what it exposes,
+   never who may name it, and until now that question belonged to nobody.
 
 ## MEASUREMENT PASS — 2026-08-23. The trigger has fired, and the ticket has shrunk to one construct
 
