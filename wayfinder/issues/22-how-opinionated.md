@@ -1,8 +1,141 @@
 # 22 — How opinionated is the language? Grammar, attributes, or convention
 
 Type: grilling
-Status: deferred
-Blocked by: 21
+Status: **open 2026-08-23** — the deferral trigger has fired and a measurement pass is recorded
+below. The decision itself is HITL and unmade.
+Blocked by: 21 — resolved
+
+## MEASUREMENT PASS — 2026-08-23. The trigger has fired, and the ticket has shrunk to one construct
+
+Status moved from `deferred` to `open`. **This section decides nothing.** 22 is HITL; what follows
+is the ticket's own premises measured against the compiler that now exists, at `3492932`, so the
+decision is made against code rather than against precedent. That was the whole reason for the
+deferral.
+
+### The trigger fired, and a second trigger disagrees with it
+
+22's own trigger named the WebSocket handler *or* the protocol parser. **Both now exist** — 25b
+(2026-08-13) and 25c, the event-queue consumer whose `frame.bs` is the protocol parser — and both
+report the same thing: `record`, the minted tag and `with` appear in `index.bs` and nowhere else.
+The DDD constructs did not narrow anything because they never showed up.
+
+**Ticket 25's own candidate-set table nominates a different exemplar.** The only row listing 22 in
+*"Tickets it decides"* is **database querying** (`17, 18, 22`); 25b lists `14, 20` and 25c lists
+`12, 14, 15, 18`. The database exemplar is unwritten, and 25 calls it *"doubly owed"*. So the two
+triggers disagree: the one this ticket wrote for itself has fired, the one ticket 25 wrote for it
+has not.
+
+### Four premises have gone stale since 2026-08-12, and each one removes an option
+
+**1. There is no attribute grammar, and there never has been.** This ticket's case for attributes
+rests on *"the mechanism already exists in the prototype for `[Erlang("lists", "reverse")]`"*. It
+does not. The parser's `decl` alternation is `module_decl | type_decl | signature | clause |
+foreign_decl | behaviour_decl | record_decl | using_decl` (`compiler/src/bs_parser.yrl:76-83`) and
+nothing in it is bracket-shaped; `[` and `]` reach the grammar only in list syntax. `[Erlang(…)]`
+and `[module: GenServer]` appear nowhere outside `wayfinder/` — **zero lines beginning with `[` in
+all 99 `.bs` files in the repo.**
+
+Both were built as keywords instead, and *that* is the finding:
+
+| The attribute in the prose | What the compiler actually took | Where |
+|---|---|---|
+| `[Erlang("ets", "lookup")]` | `using :ets { … }` | `bs_parser.yrl:131-138` |
+| `[module: GenServer]` | `behaviour GenServer` | `bs_parser.yrl:125` |
+
+Twice the language has needed exactly what an attribute is for, and twice it has taken a keyword —
+`behaviour` because it is *"the platform's own word, and literally what is emitted"*
+(`bs_parser.yrl:118-124`). **So "domain conventions as attributes" is not the cheap half of the
+candidate synthesis.** It is a lexer rule, a `decl` arm, an AST node and a checker pass before the
+first domain attribute exists — and this ticket's argument for that arm was that the machinery had
+already been paid for.
+
+**2. `[Port]` has no enforcement job left, now by construction rather than by argument.** Ticket 21
+left it documentation-only. F18 gave deep validation to `ValidateAs<T>` (2026-08-18) and F24
+(2026-08-23) emits the boundary guard at exported functions, so the check `[Port]` was going to
+mark is emitted where the compiler already compiles, at every public function, with nothing to opt
+into and no opt-out. Ticket 18 resolved on 2026-08-13 and dropped its relation to this ticket as
+stale.
+
+**3. The one non-vacuous DDD invariant is already enforced, without a keyword.** 22 sifted four
+candidate invariants and kept exactly one — aggregate boundary enforcement. Ticket 26 §1 mints the
+record tag from the **qualified** module path (built as F3), on David's own requirement that
+*"`Update(Order o)` called with an `Invoice` must be an error"*. It is checked at compile time and
+again at the boundary, for +14 bytes. **The single thing an `aggregate` keyword was going to buy is
+in the language already, bought by the record system.**
+
+**4. The visibility half split out and shipped without this ticket.** 22's second open question —
+*"is this one decision or two?"* — is answered **two**. Ticket 40 §3 decided it and F12 built it on
+2026-08-17: `public`/`private` on the signature, private by default (`bs_parser.yrl:262-268`,
+`bs_check.erl:43`). 22 predicted this outcome and asked for it: *"it probably is [worth having
+independently], in which case it should be split out rather than held hostage here."*
+
+**What did not ship is the half 22 called the useful one.** A module controls *what* it exposes,
+never *who* may name it — `add_module_import/5` reads only the callee's export set
+(`bs_check.erl:407-425`), and there is no `internal`, `friend`, `sealed` or `visible_to` anywhere
+in the checker. So *"which modules may name this one"* is unbuilt, unowned, and now a free-standing
+question rather than a part of this one.
+
+### The open question this ticket asked first, and the evidence nobody logged against it
+
+*"Does the guardrail argument survive?"* Two exemplars agreeing that the DDD constructs never
+appeared is evidence against the **narrowing** case. It says nothing about the **guardrail** case,
+because neither exemplar was an agent drifting. That hole is real and this section does not close it.
+
+But there is one data point, and it is sitting unlabelled in ticket 25's results. The first time
+the exemplars met the compiler, agent-written beam-sharp had drifted four ways:
+
+- not one of the three `index.bs` files declared a `module` at all — caught by **F15**
+- a `using` in 25a's `index.bs` that the other files were expected to inherit — caught by **F11**
+- `admit.bs` reads five fields off a `Request` record that does not exist, undetected for six days
+  — caught by **F3**
+- the route table could not be written at all — raised as ticket 53, since resolved by F20
+
+**Every one was caught by an architecture-neutral structural rule, and none of them would have been
+caught by `[Aggregate]`, `[Command]` or `[Port]`.** The guardrail argument survives; what it
+supports is the half of the candidate synthesis that is already built.
+
+### So the residue is one construct, and what it needs is a spelling
+
+Everything else on this ticket is built, dead, or split out. What remains is the question
+[ticket 23](23-what-the-language-owes-an-agent.md) §7 handed over and recorded as fog: **how the
+incomplete marker is spelled.** 23 decided its function and deliberately not its form — the
+incompleteness is *a fact in the file* so the release gate is a text search; one marker per
+**declaration**, not per hole; and CI refuses any marker, which makes it the first construct in the
+language whose purpose is to be removed before shipping.
+
+23 writes it in attribute syntax, in two positions:
+
+```csharp
+[incomplete]                                  // on the function
+(:ok, ApplyReply) Apply(Order o, Command c);
+
+type ApplyReply = [incomplete];               // in *type* position, so its own declaration
+```
+
+**Neither position parses today, and the compiler enforces the opposite rule.** A signature with no
+clauses is a hard error — `no_clauses` at `bs_check.erl:1062-1064`, printed as *"has a signature but
+no clauses"* at `bs_diag.erl:468`. There is no marker for a gate to refuse, and there is no gate.
+
+The compiler delta, per spelling:
+
+| Spelling | What it costs |
+|---|---|
+| **Attribute** `[incomplete]` | invent the attribute grammar for one construct: lexer, `decl` arm, AST node, checker. Then a *second* rule for type position, where `[` means nothing today — `list<T>` is the type spelling and `[a, b]` is patterns and values only |
+| **Keyword** `incomplete` | one lexer rule, one `signature` arm, one `type_decl` arm. The sixteenth keyword, and the same shape `public`/`private` took — and the same shape `behaviour` and `using` took when they were prose attributes |
+| **Convention** — a comment or a naming rule | free, and refused by 23's own requirement. The marker has to make `no_clauses` legal, and a comment the compiler does not parse cannot |
+
+The third option is not really on the table, because the marker must change what compiles. That
+leaves inventing bracket syntax for one construct, against a sixteenth keyword — and the language
+has taken the keyword twice already under exactly this pressure.
+
+### What this ticket is asking David, and it is four questions rather than one
+
+1. **Does the trigger count as fired**, given that 25's table nominates the unwritten database
+   exemplar and not the two shapes that exist and agree?
+2. **Is the domain arm dead?** No attribute grammar exists, `[Port]` has no job left, and the record
+   tag already enforces the one invariant `aggregate` was for.
+3. **Split out *"which modules may name this one"*** as its own ticket, as 22 itself proposed?
+4. **How is the incomplete marker spelled**, and does that build enter the queue?
 
 ## DEFERRED 2026-08-12 — revisit when there is a walking skeleton
 
@@ -35,8 +168,10 @@ result for this ticket, and it is *not* the one the deferral feared:
   say "reserved". Both are orthogonal to how opinionated the language is.
 
 **So the risk this ticket was deferred over is not the risk the exemplar found.** Two honest
-limits before anyone reads that as a green light: it is **one** data point, and the **protocol
-parser** — the other non-aggregate shape named above — has not been written. Whether one exemplar
+limits before anyone reads that as a green light: it is **one** data point, and ~~the **protocol
+parser** — the other non-aggregate shape named above — has not been written~~ — **corrected
+2026-08-23: it has been.** 25c's `frame.bs` is that shape, and it repeats this answer. Both
+non-aggregate shapes now agree, so only the first limit still stands. Whether one exemplar
 is enough to decide a near-irreversible question is David's call, not the exemplar's.
 
 **Inherited from [ticket 23](23-what-the-language-owes-an-agent.md) §7, 2026-08-13.** 23 made a
@@ -131,8 +266,10 @@ Three places an opinion can live, and the decision is which conventions go where
 1. **In the grammar** — keywords like `aggregate`, `command`, `query`. Maximum enforcement,
    permanent, and every user of the language inherits the architecture.
 2. **In attributes** — `[Aggregate]`, `[Command]`, `[Port]`. Opt-in, compiler-visible, removable.
-   The mechanism already exists in the prototype for `[Erlang("lists", "reverse")]`, and it is
-   what C# itself uses to let ASP.NET and EF layer strong opinions onto a neutral language.
+   ~~The mechanism already exists in the prototype for `[Erlang("lists", "reverse")]`~~ — **false,
+   corrected 2026-08-23: no attribute grammar has ever existed in the compiler, and both prose
+   attributes were built as keywords instead. See the measurement pass above.** It is still what C#
+   itself uses to let ASP.NET and EF layer strong opinions onto a neutral language.
 3. **In convention and tooling** — directory names, linting, generators, documentation. Fully
    reversible, project-configurable, unenforceable by the compiler.
 
