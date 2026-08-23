@@ -682,7 +682,11 @@
   dissolved rather than being decided**: this shares its grammar with 23 §7's stub and nothing else,
   because the markers mean opposites — a stub is *unfinished* and **must** trip a release-gate text
   search, a foreign declaration is *finished elsewhere* and must not — so **32 decides no part of
-  deferred ticket 22**. **There is no snake_case⇄PascalCase rule anywhere in the language**, and
+  ~~deferred~~ ticket 22**. **Corrected 2026-08-23**: 22 is *resolved*, and it resolved by removing
+  the stub marker entirely, so there is no release-gate text search and the contrast this paragraph
+  draws no longer has a second term. The conclusion is unaffected and is now stronger — 32's
+  `foreign` declaration is the language's **only** clause-less declaration, because the one
+  construct that would have been the other is never built. **There is no snake_case⇄PascalCase rule anywhere in the language**, and
   [`32b`](prototypes/32b_name_census.md) stands as the evidence for why not rather than the input to
   one: a mapping reaches 1,920 of 1,924 stdlib+kernel names but cannot spell `'PKCS-1'`,
   `'OTP-PKIX'` or a quarter of Elixir's function names (`fetch!`, `valid?`, `&&&`) under any rule.

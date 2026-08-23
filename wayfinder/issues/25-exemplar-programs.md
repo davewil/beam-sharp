@@ -400,7 +400,13 @@ depth is not in the state. → tickets 14, 24.
 A queue consumer is patterns, integers and binaries — the DDD constructs did not narrow anything
 because they never showed up, and what made it awkward (field widths, residual legibility, the
 valve's shape) is orthogonal to how opinionated the language is. **Both non-aggregate shapes 22
-named now agree.** Whether that fires the trigger is David's call.
+named now agree.** ~~Whether that fires the trigger is David's call.~~
+
+**Resolved 2026-08-23, and 22 took it.** 22 closed with the domain arm dead on mechanism, so **the
+database exemplar is no longer owed to 22** — the candidate-set table above still lists `17, 18, 22`
+for that row, and the `22` is now spent. 22 does not need another exemplar written for it, and this
+result is one of the reasons: two non-aggregate shapes agreed that the DDD constructs never showed
+up. The row's obligation to tickets 17 and 18 is unchanged.
 
 ### Note for whoever writes the next exemplar
 

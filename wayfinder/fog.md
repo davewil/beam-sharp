@@ -221,7 +221,13 @@
   a BEAM guard. So *"this order has at least one line"* is `when length(lines) > 0` and lives in the
   type; *"this email address is well-formed"* is O(n), is not user-declarable, and still has
   nowhere to live. What remains is therefore narrower than the patch was written for — it is only
-  about the **non-guard-expressible** invariants, and ticket 22 inherits that narrowing.
+  about the **non-guard-expressible** invariants, and ~~ticket 22 inherits that narrowing~~.
+  **Corrected 2026-08-23: 22 resolved and did not inherit it.** 22 killed the domain arm on
+  mechanism — no attribute grammar has ever existed, `[Port]` lost its enforcement job to F18 and
+  F24, and the one non-vacuous DDD invariant (aggregate boundary) is already bought by 26 §1's
+  record tag via F3. So this entry has **no owning ticket**, which is the honest state rather than a
+  gap to fill: an `Invariants` module was one of its three candidate homes and nothing has since
+  argued for it.
   **Amended 2026-08-13 by ticket 29's amendment B**: the non-guard-expressible invariant *is* now
   user-declarable as an opaque refinement — just not in a clause head or a foreign declaration. So
   this patch narrows again: what still has nowhere to live is only the invariant a user wants
