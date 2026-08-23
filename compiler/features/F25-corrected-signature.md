@@ -119,6 +119,18 @@ evolution §4 chose maps for.
   feature does not build. What it would need is recorded here so the work is not lost: the record
   environment already keyed by qualified name, plus a decision about how a foreign record is
   spelled in a signature.
+- **An inline map as the declared return type.** `type_source({t_map, _})` answers `none`, so a
+  signature written as `{ Id: int } Make(int n)` gets no corrected line either. It is the one
+  *written* form that can carry a `Kind:` field, and a signature is not where this feature wants to
+  reason about whether the author's tag is theirs to paste. A record **named** in a signature
+  arrives as `t_ref` and is unaffected, which is the ordinary case. Recorded here because it is a
+  refusal a reader cannot infer from the record rule above — it is the mirror of it, on the declared
+  side rather than the residual side.
+- **Any type construct this file has not met.** `type_source/1` answers `none` for an unrecognised
+  AST form rather than rendering it partially, so a construct added later disables the corrected
+  line for signatures using it until someone teaches the function that form. This is deliberate and
+  is the reason the feature cannot emit a half-rendered signature, but it does mean a new type form
+  silently costs coverage here.
 - **Narrowing a signature.** The corrected line only ever widens — it is the declared type union
   the residual. A declared type the clauses never fully use is legal and is not this diagnostic's
   business. 23 §8 names the risk it accepts here: widening becomes frictionless, which is a virtue
