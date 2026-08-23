@@ -1,8 +1,94 @@
 # 23 — What does the language owe an agent that writes it?
 
 Type: grilling
-Status: resolved 2026-08-13
+Status: resolved 2026-08-13. **Build state measured 2026-08-23** — six of twelve sections
+built, and the section below says which.
 Blocked by: 11 — resolved
+
+## BUILD STATE — measured 2026-08-23 at `da58c74`
+
+23 resolved twelve sections on 2026-08-13. **Six are built; six are not**, and the six are not
+alike — two are blocked on another ticket's decision, one is a missing attachment to code that
+exists, two are unreachable because the thing they govern was never built, and exactly one is
+buildable today. Recorded because no single place said which was which: an F-file's `Implements`
+line names what a feature took, and nothing names what is left.
+
+| § | Decision | State |
+|---|---|---|
+| 1, 2, 4 | diagnostic is a term; compiler synthesises the head; named subset is contractual | **built** — F16 |
+| 3 | the boundary answers on the same channel (`defended`) | **unbuilt** |
+| 5 | both encodings; the term is canonical | **unbuilt**, blocked on ticket 16 §4 |
+| 6 | `error_info` on compiler-generated code only | **unbuilt**, and owes its size number first |
+| 7 | a stub is legal, with an explicit marker | **unbuilt**, blocked on ticket 22's spelling |
+| 8a | a named stub type in the generated payload | **unreachable** — there is no generator |
+| 8b | the diagnostic carries the corrected signature | **unbuilt, and the one buildable item** |
+| 9 | the generator smuggles in no crash policy | **vacuous** — no generator, and `raise` is not a token |
+| 10, 11, 12 | compiler query mode, blast radius, what not to optimise | **built** — F17 |
+
+### The compiler already says two of these out loud
+
+`bs_diag.erl:88-90` names §3 as absent in the same comment that defines the frozen subset:
+*"`defended` is named contractual by §4 and is NOT here because it does not exist: it is §3's
+informational boundary answer, which no feature has built."* `contractual/0` lists six tags and
+`defended` is not among them.
+
+There is also no beam-sharp-owned failure arm for §3 to hang a term on. `bs_emit.erl:29-32` records
+that ticket 13 found the decision was not ours to make on this target — `erlc` inserts the
+`match_fail` arm and it cannot be suppressed. So a rejected boundary value today fails the clause
+head and crashes as `function_clause`, while `ValidateAs<T>` and `string`'s UTF-8 check return an
+`(:error, …)` **program value** rather than anything on the diagnostic channel.
+
+### §6 is a missing attachment, not a missing feature area
+
+The substrate exists: the generated deep validators (`bs_emit.erl:1027+`) and the UTF-8 entry check
+(`bs_emit.erl:1295-1313`) are both built and both return an error value with no structured `cause`.
+So the work is attaching a cause map to generated sites that already exist — which is why the map's
+twelfth skeleton debt, the code-size number, is the honest precondition rather than a formality.
+
+### §8b is the one buildable item, and 23 said so itself
+
+*"When a clause returns outside its signature, the diagnostic carries the corrected signature to
+paste. This is §2 applied to signatures and needs no new machinery."*
+
+Measured, the diagnostic exists and carries the wrong half. `return_not_declared`
+(`bs_diag.erl:205-208`) holds `residual` and `undeclared`, and its message (`bs_diag.erl:579-584`)
+prints only the uncovered residual:
+
+```
+error: Apply returns a value its signature does not declare
+  not covered by the declared return type:
+    (:error, binary)
+```
+
+That tells an agent what is wrong and not what to write, which is exactly the line §2 draws.
+`inexhaustive` already carries `heads` for precisely this reason, so the machinery is present and
+was never pointed at signatures. `return_not_declared` is also absent from `contractual/0`, so
+under §4's own test — *does it hand the agent something to write?* — it currently fails the test and
+would pass it once it carries the signature.
+
+### §8a and §9 are unreachable rather than unbuilt, and the distinction matters
+
+**There is no generator.** `bs_otp.erl` is 123 lines of lookup table — `behaviour_name/1`, the
+callback name/arity/mandatory table, and `missing/2` — and its own comment scopes it: *"This is the
+presence half only. The type half is not owed here."* There is no scaffolding subcommand in `bsc`
+and no template emitter anywhere. So §8a has no generated payload position to put a stub type in,
+and §9 has no generated body to keep a crash policy out of. `raise` compounds it: LANGUAGE.md marks
+it **decided** and it is in no lexer token and no parser rule.
+
+This is worth stating plainly because "unbuilt" reads as *queued* and these are not. Building §8a
+or §9 means first deciding whether beam-sharp has a generator at all — which §12 arguably already
+answered in the negative when it moved the debt off the source and onto the channel.
+
+### An inconsistency in the tree, from §7
+
+`bs_api.erl:31-37` adopts §7's reasoning as settled to justify `--api` answering for a half-written
+module: *"23 §7 is explicit that the compiler under agent authorship is an interlocutor as well as
+a gate, and withholding the answer exactly when the module is half-written is the worst possible
+input to a feedback loop."*
+
+`bs_check.erl:1063-1064` refuses to compile that same module — `no_clauses`, severity `error`,
+which is the hard error §7 overruled. One file cites §7 as decided; the other implements what it
+decided against. Both are correct about their own scope, and the gap closes when §7 is built.
 
 ## Question
 
@@ -362,7 +448,12 @@ nothing but the retained failure arm.
 
 The marker makes the incompleteness **a fact in the file**, so the release gate is a text search
 rather than a diagnostic-parsing job. **How it is spelled** — attribute, keyword or convention —
-is deliberately not decided here; it is ticket 22's question and 22 is deferred. Recorded as fog.
+is deliberately not decided here; it is ticket 22's question. ~~22 is deferred. Recorded as
+fog.~~ **Corrected 2026-08-23 on both halves.** 22 is no longer deferred — it reopened that day and
+the spelling is now its whole residue. And *"recorded as fog"* contradicted this ticket's own
+owed-items list, which says it is recorded *"on that ticket rather than in the map's fog, since it
+belongs to a live (if deferred) ticket"*. The owed-items list is right; there is no fog entry and
+there should not be one.
 
 ### 8. A named stub type in the payload, and the compiler emits the corrected signature
 
