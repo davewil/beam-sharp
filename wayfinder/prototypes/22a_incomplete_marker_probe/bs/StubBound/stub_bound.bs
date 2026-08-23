@@ -1,0 +1,16 @@
+// CASE 4 — the probe that checks whether CASE 3 measured what it claimed.
+//
+// stub_catchall.bs concluded "B# refuses the clause a body-position marker
+// needs". But re-read the diagnostic it got: "so `_` hides a case rather than
+// admitting an unknown one". That check is about `_` over an ENUMERABLE
+// residual — it may say nothing about a total clause with a BOUND variable,
+// which is what a body-position marker would actually be written with.
+//
+// If this compiles, case 3's finding is false as written.
+module StubBound
+
+type FrameType = :method | :header | :body | :heartbeat
+
+public int Weigh(FrameType f)
+
+Weigh(f) -> 0

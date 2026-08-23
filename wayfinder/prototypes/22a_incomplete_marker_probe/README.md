@@ -27,13 +27,22 @@ that is. That rule cost a session on ticket 45.
   `public partial` member with no body is hard error **CS8795**, and an old-style private
   `partial void` is legal but silently **erases every call to it**.
 - **Erlang** — a `-spec` with no function is a hard error, *"spec for undefined function"*.
-- **B#** — a signature with no clauses is a hard error, the same rule. And `Weigh(_) -> 0`, the
-  clause a body-position marker would need, is **also** an error: *"discards cases the compiler can
-  name"*.
+- **B#** — a signature with no clauses is a hard error, the same rule. `Weigh(_) -> 0` is *also* an
+  error, *"discards cases the compiler can name"* — but that is a rule about `_` over an enumerable
+  residual, **not** about total clauses. `Weigh(f) -> 0` and `Apply(o, c) -> 0` both compile clean
+  (`StubBound`, `StubRecord`), and they compile **silently**: the total clause consumes the residual,
+  so the compiler stops naming what is still owed.
 
 So: every language makes a bodiless declaration a hard error (B# is in the majority, not the
-outlier); the two with a real marker put it in **body** position; **nobody uses an attribute**; and
-B# has already ruled out the catch-all clause that body position would require.
+outlier); the two with a real marker put it in **body** position; and **nobody uses an attribute**.
+
+> **Corrected 2026-08-23, hours after this file was first written.** The first version claimed B#
+> *refused* the clause a body-position marker needs, on the strength of the `Weigh(_)` result alone.
+> `StubBound` and `StubRecord` were added to check that and falsify it — the probe had picked the
+> one parameter type that trips the `_` check and generalised from it. The argument against body
+> position survives, but it is about the **diagnostic** (a total clause leaves no residual to
+> report, and 23 §7 wants one marker per declaration rather than per hole), not about legality.
+> Commit `14e7b5e`'s message still carries the wrong version; it is fixed here and in the ticket.
 
 The full write-up, and what it does to ticket 22's four questions, is in
 [`../../issues/22-how-opinionated.md`](../../issues/22-how-opinionated.md).
@@ -45,4 +54,4 @@ The full write-up, and what it does to ticket 22's four questions, is in
 | `gleam_todo/` | Gleam project. `src/*.gleam.off` are the control and the no-body variant, swapped in by the runner |
 | `csharp_unimpl/` | .NET project holding the cases that **compile** |
 | `variants/` | the C# cases that must **fail**: the control, and `public partial` with no body |
-| `bs/StubNone`, `bs/StubPartial`, `bs/StubCatchall` | B#. One directory per module — F15 makes a directory a module, so three `.bs` files in one directory are three names for one module |
+| `bs/StubNone`, `StubPartial`, `StubCatchall`, `StubBound`, `StubRecord` | B#. One directory per module — F15 makes a directory a module, so five `.bs` files in one directory would be five names for one module, and the compiler says exactly that |

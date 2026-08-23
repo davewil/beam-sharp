@@ -171,23 +171,41 @@ search, though `grep todo` would work equally well, so §7's text-search require
 way. **The one thing the ticket assumed was contested — attribute versus keyword — is not contested
 anywhere.** Nobody spells this with an attribute. Gleam uses a keyword; C# uses a library exception.
 
-**3. But B# has already refused the clause that body position needs, and this is measured.**
-A body-position marker needs a body, a body needs a clause, and the only clause that does not force
-the agent to invent a plausible pattern is a catch-all. B# rejects it:
+**3. Body position is cheap to write in B# and destroys the diagnostic — which is not the same
+objection this section first made.**
+
+~~B# has already refused the clause that body position needs: `Weigh(_) -> 0` is an error,
+"discards cases the compiler can name".~~ **Corrected 2026-08-23, same day, before the question was
+put to David.** That was measured on `_` over a closed atom union, and generalised from the one
+parameter type that trips the check. Two more probes falsify it — both **compile, exit 0**:
 
 ```
-Weigh(_) -> 0
-    error: Weigh discards cases the compiler can name
-      every value left here comes from a type you declared, so `_`
-      hides a case rather than admitting an unknown one:
-        Weigh(:body | :header | :heartbeat | ... (1 more)) -> ...
+Weigh(f) -> 0          // bound variable, same closed union     — StubBound,  clean
+Apply(o, c) -> 0       // 23 §7's own record params             — StubRecord, clean
 ```
 
-Every surveyed language is **single-body**, so body position costs them nothing. B# is multi-clause
-with an exhaustiveness checker, and a catch-all over an enumerable residual is already a diagnostic
-in shipped code. **So the survey's unanimous answer is the one form B# has independently decided is
-a defect** — which is [[a-ticket-that-resolves-against-its-own-survey]] exactly, and is flagged here
-rather than folded into a recommendation.
+The `_` diagnostic says in its own words that a catch-all is *for* "a residual with an unbounded top
+in it", so it was never the general rule about total clauses that the first draft read it as. **A
+body-position marker is perfectly writable in B# today.** The objection is not that it cannot be
+written. It is what happens when it is:
+
+**3a. A total clause consumes the residual, and that residual is the entire point.** `walk`
+subtracts what each clause certainly matches, so `Weigh(f) -> …` leaves nothing. StubBound compiles
+**silently** — the compiler that would have said *"you still owe `:method | :header | :body |
+:heartbeat`"* says nothing at all. 23 §7 wants a stub whose residual is *"the entire declared
+parameter type, the most informative diagnostic the language can produce"*; body position turns that
+into a clean build. **That is precisely C#'s failure mode** — `NotImplementedException` compiles
+with zero warnings — and it is the half of the survey worth *not* copying.
+
+**3b. §7 decided one marker per declaration, not per hole; body position marks holes by
+construction.** A function with three written clauses and one unwritten gets a marker per unwritten
+body. §7 ruled that out explicitly, and a declaration-position marker is the only form that obeys it.
+
+Every surveyed language is **single-body**, so the distinction cannot arise for them and their
+unanimity carries no information about it. B# is multi-clause with an exhaustiveness checker, which
+is the one thing none of them had to weigh — so on *position* the survey does not transfer, and this
+is [[a-ticket-that-resolves-against-its-own-survey]] flagged rather than folded into a
+recommendation.
 
 ### The residual 23 §7 asks for already exists; `no_clauses` short-circuits in front of it
 
@@ -212,15 +230,18 @@ signature and the existing walk produces exactly that, naming every case the age
 |---|---|---|
 | **Keyword on the declaration** | `incomplete public int Weigh(FrameType f)` | one lexer rule; one `signature` arm beside the two at `bs_parser.yrl:262-264`; skip the `no_clauses` early return when the flag is set. The residual then falls out of the existing `walk`. Same shape `public`/`private` took in F12, and `behaviour` and `using` took before it |
 | **Attribute on the declaration** | `[incomplete]`<br>`public int Weigh(FrameType f)` | all of the above, **plus** invent bracket syntax: a lexer rule, a `decl` arm, an AST node and a checker pass, for a construct no surveyed language spells this way. Then a *second* rule for type position, where `[` means nothing today |
-| **Body position** — the survey's answer | `Weigh(_) -> incomplete` | all of the keyword work, **plus** an exemption in the catch-all check above, **plus** the residual is now consumed by the clause rather than reported. Costs more and delivers less, because B# is not single-body |
+| **Body position** — the survey's answer | `Weigh(f) -> incomplete` | one lexer rule and one expression arm — **cheapest of the three to build**. The cost is not build effort: the clause is total, so it consumes the residual and the stub compiles silently, and §7's *one marker per declaration* becomes one per hole |
 | **Convention** — a comment | `// TODO` | free, and refused by 23 §7's own requirement: the marker must change what compiles, and a comment the parser drops cannot |
 
 ### What this does to the four questions
 
-Questions 1–3 are unchanged; the survey speaks only to question 4. On that one it removes the
-attribute arm — **no language spells this with an attribute, and B# would be inventing bracket
-syntax to be alone** — and it removes body position on mechanism rather than taste, because B#
-already rejects the clause it needs. That leaves the keyword, which is also what Gleam chose.
+Questions 1–3 are unchanged; the survey speaks only to question 4. On that one it kills the
+**attribute** arm outright — no surveyed language spells this with an attribute, so B# would be
+inventing bracket syntax in order to be alone, and it would have to invent it twice because `[`
+means nothing in type position. It does **not** kill body position, which is cheap to build and is
+what both languages with a marker chose; body position loses on what it costs the *diagnostic*
+(3a, 3b) rather than on what it costs the compiler. That is a judgement about which is worth more —
+a stub that compiles quietly, or a stub that names everything still owed — and it is David's.
 
 **This section still decides nothing.** 22 is HITL.
 

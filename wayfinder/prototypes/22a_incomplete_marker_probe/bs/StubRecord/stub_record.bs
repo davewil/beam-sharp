@@ -1,0 +1,15 @@
+// CASE 5 — 23 §7's ACTUAL shape, not a closed atom union.
+//
+// §7's example is `(:ok, ApplyReply) Apply(Order o, Command c)`. Record
+// parameters are not an enumerable set of atoms, and the catch-all diagnostic
+// says in its own words that a catch-all is FOR "a residual with an unbounded
+// top in it". So case 3 may have picked the one parameter type that trips the
+// check, and generalised from it.
+module StubRecord
+
+record Order { Id: int }
+record Command { Name: atom }
+
+public int Apply(Order o, Command c)
+
+Apply(o, c) -> 0
