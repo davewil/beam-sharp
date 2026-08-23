@@ -135,8 +135,8 @@ spec exists.
   - **Diagnostics are consumed by an agent in a loop**, so they should be machine-readable by
     design. Ticket 04's finding that the exhaustiveness residual *is* the missing case turns the
     compiler into something that hands an agent the clause it must write.
-  - **Enforced conventions are guardrails on the agent**, which shifts ticket 22 toward more
-    opinionation than a human-authorship analysis would justify.
+  - **Enforced conventions are guardrails on the agent** — but 22 resolved that the guardrails
+    which actually catch agent drift are architecture-neutral and structural (F3, F11, F15).
   - **One function per file makes `write_scope` a file** — bounded blast radius, no merge
     conflicts between agents working different operations, and reviewable single-file diffs.
 - **Evidence provenance**: research files mark claims `doc` / `src` / `local`, where `local`
@@ -221,7 +221,7 @@ Bodies in [`decisions.md`](decisions.md). Ticket text in `issues/`.
 - **The walking skeleton, first slice** `compiler/` `codegen` `built:F1`
   built 2026-08-13 — see [`compiler/README.md`](../compiler/README.md)
 - **What the language owes an agent that writes it** `#23` `agent` `tooling` `built:F17`
-  the compiler as interlocutor rather than only a gate; `bsc --api` is built (**F17**)
+  the compiler as interlocutor; `bsc --api` is built (**F17**). §7's legal stub is **overturned** by 22
 - **The testing story** `#24` `agent`
   what a test is for in a language that proves exhaustiveness
 - **Data modelling: records** `#26` `records` `types` `built:F3`
@@ -233,11 +233,9 @@ Bodies in [`decisions.md`](decisions.md). Ticket text in `issues/`.
 - **Local bindings** `#34` `syntax` `built:F4`
   a body is bindings then one expression; rebinding is an error
 - **The body check site** `#33` `#36` `types` `records` `built:F5,F21`
-  a body is typed; checking is containment at five sites and the residual survives at four. Site 2 is
-  *field assignment*: `Order{ Id = :oops }` and `o with { … }` both check, and there is still no sixth
+  a body is typed; containment at five sites, residual survives at four, still no sixth. Site 2 is *field assignment*: `Order{ Id = :oops }` and `o with { … }` both check
 - **Module and namespace system, and function identity** `#40` `modules` `codegen` `syntax` `built:F11,F15,F12`
-  the atom is **forced** by 26's tag mint — full dotted path. Arity overloading permitted and now
-  real; the directory half is built, and `public`/`private` (**F12**) closes §3.
+  the atom is **forced** by 26's tag mint — full dotted path. Arity overloading is real, the directory half is built, and `public`/`private` (**F12**) closes §3
 - **Imports and cross-module scope** `#41` `modules` `codegen` `built:F11,F15`
   `using` imports **unqualified**; a namespace is a directory holding no `.bs` files. The compiler
   owns the dependency graph — *"single-file"* was false, and §1's own grammar delta was too. §4/§5's
@@ -279,6 +277,8 @@ Bodies in [`decisions.md`](decisions.md). Ticket text in `issues/`.
   `/` on two `int`s truncates, `%` is the remainder; **no precondition** — only a provably zero divisor is refused
 - **A refined parameter gets a boundary guard** `#46` `codegen` `types`
   yes, exported only — and it is **subtraction, not a flag**: 6 of `wire.bs`'s 11 clauses get nothing
+- **How opinionated is the language** `#22` `agent` `errors`
+  **no incomplete marker**, so a clause-less signature stays a hard error and no keyword is spent; the domain arm is dead and 23 §7 is **overturned**
 
 ## Not yet specified — index
 

@@ -28,11 +28,15 @@
 %%%    resolved form is what this prints.
 %%%
 %%% WHERE THE REFUSAL LINE FALLS, and it is NOT "does the module compile". A
-%%% module with an inexhaustive function still answers: exhaustiveness is a
-%%% property of the BODIES, and the API is what the SIGNATURES declare. 23 §7 is
-%%% explicit that the compiler under agent authorship is an interlocutor as well
-%%% as a gate, and withholding the answer exactly when the module is half-written
-%%% is the worst possible input to a feedback loop. What is refused is anything
+%%% module with an inexhaustive function still answers, and so does one with a
+%%% function that has no clauses at all: exhaustiveness is a property of the
+%%% BODIES, and the API is what the SIGNATURES declare. That argument stands on
+%%% its own and is the whole reason. It used to cite 23 §7 as well; §7 was
+%%% OVERTURNED on 2026-08-23 (ticket 22 — a clause-less signature stays a hard
+%%% error and there is no incomplete marker), so the citation is gone and the
+%%% behaviour is unchanged. Answering here is not compiling: nothing is emitted,
+%%% and refusing to print a signature the author wrote would withhold the one
+%%% answer the caller can act on. What is refused is anything
 %%% that makes a declaration untrue: a signature naming an unknown type, a file
 %%% that will not parse, and 41 §5's `module_path_mismatch` — that last one
 %%% because the MODULE ATOM is part of the answer, and reporting an atom the

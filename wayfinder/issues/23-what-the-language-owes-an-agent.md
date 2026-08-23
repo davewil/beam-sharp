@@ -96,7 +96,16 @@ input to a feedback loop."*
 
 `bs_check.erl:1063-1064` refuses to compile that same module — `no_clauses`, severity `error`,
 which is the hard error §7 overruled. One file cites §7 as decided; the other implements what it
-decided against. Both are correct about their own scope, and the gap closes when §7 is built.
+decided against. Both are correct about their own scope, and ~~the gap closes when §7 is built.~~
+
+**Corrected 2026-08-23: §7 will never be built, and the gap closes the other way.** Ticket 22
+resolved that a signature with no clauses stays a hard error, so `bs_check.erl` is the one that was
+right, and there was never a gap in *behaviour* — only a stale justification. `--api` still answers
+for a half-written module, and should: that rests on its own argument, that exhaustiveness is a
+property of the bodies while the API is what the signatures declare. The comment in `bs_api.erl` no
+longer cites §7 for it. Measured while resolving 22: `--api` on a module with one unwritten function
+exits 0 and prints `int Priority(:body | :header | :heartbeat | :method)`, while `bsc` on the same
+module emits zero `.beam` files.
 
 ## Question
 
@@ -442,7 +451,25 @@ proportion to the type rather than constantly.
 standing constraint's "write-cost objections carry little weight" does not apply — this is runtime
 size in every shipped module. The skeleton owes the number (see the debt recorded in the map).
 
-### 7. A stub is legal, with an explicit marker
+### 7. ~~A stub is legal, with an explicit marker~~ — OVERTURNED 2026-08-23
+
+**A signature with no clauses is a hard error, and there is no marker.** David, on ticket 22, once
+the cost of refusing had been measured rather than argued: *"no, I don't think a half-written module
+is worth running, the compiler error is enough."* The section is left standing below because its
+argument is still the best case against the decision, and because §12 and the tree cite it.
+
+**What the measurement did to it.** §7's case was that refusing to compile withholds the residual
+exactly when it is most useful. That premise turned out to be false in the form it was written:
+`--api` already answers for a half-written module, exit 0, and already prints the residual —
+`int Priority(:body | :header | :heartbeat | :method)`. The interlocutor exists. What §7 wanted on
+top was a `.beam` emitted from a module with a hole in it, and that is what was refused. The
+measured cost of refusing is exactly this: one error per unwritten function, no `.beam`, and so no
+way to run or test the finished functions beside it. It suppresses no other diagnostic — a module
+holding a stub and a planted defect reports both.
+
+The original text follows, unchanged.
+
+---
 
 A signature with no clauses is **not** a hard error. Under agent authorship the compiler is an
 interlocutor as well as a gate: a stub's residual is the *entire declared parameter type*, which is
@@ -462,6 +489,10 @@ the spelling is now its whole residue. And *"recorded as fog"* contradicted this
 owed-items list, which says it is recorded *"on that ticket rather than in the map's fog, since it
 belongs to a live (if deferred) ticket"*. The owed-items list is right; there is no fog entry and
 there should not be one.
+
+**Resolved the same day, and not in this section's favour.** 22 answered the spelling question by
+removing it: there is no marker, so there is no release gate to build and no text search to run.
+See [22 §ANSWER](22-how-opinionated.md).
 
 ### 8. A named stub type in the payload, and the compiler emits the corrected signature
 

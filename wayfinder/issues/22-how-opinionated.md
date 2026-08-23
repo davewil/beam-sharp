@@ -1,9 +1,68 @@
 # 22 — How opinionated is the language? Grammar, attributes, or convention
 
 Type: grilling
-Status: **open 2026-08-23** — the deferral trigger has fired and a measurement pass is recorded
-below. The decision itself is HITL and unmade.
+Status: **resolved 2026-08-23** — David decided the residue. There is no incomplete marker, and a
+signature with no clauses stays a hard error. The measurement pass and survey below are kept as the
+evidence; they did not make this call.
 Blocked by: 21 — resolved
+
+## ANSWER — 2026-08-23
+
+**There is no incomplete marker. A signature with no clauses stays a hard error.**
+
+```csharp
+public int Priority(FrameType f)      // still `error: Priority has a signature but no clauses`
+```
+
+David, asked what not building it would cost once the cost was measured:
+
+> *"no, I don't think a half-written module is worth running, the compiler error is enough"*
+
+The question the survey below spent itself on — attribute, keyword or convention — never gets
+asked, because the construct does not exist. Nothing is added to the grammar, and the sixteenth
+keyword is not spent.
+
+### This overturns ticket 23 §7, which is the real consequence
+
+[23 §7](23-what-the-language-owes-an-agent.md) decided *"a stub is legal, with an explicit marker"*,
+and handed the spelling here. Both halves are now reversed: the stub is not legal, and there is no
+marker. §7's argument was that the compiler is an interlocutor as well as a gate, so refusing to
+compile withholds the residual exactly when it is most useful. **The measurement is what answered
+it** — `--api` already prints that residual for a half-written module, exit 0:
+
+```
+int Priority(:body | :header | :heartbeat | :method)
+```
+
+So the interlocutor already exists, on a channel that works today. What §7 additionally wanted was a
+`.beam` out of a module with a hole in it, and that is the part David refused.
+
+Four things follow, and only one is work:
+
+1. **The release gate §7 implied never has to be built.** It would have been the first construct in
+   the language whose purpose was to be removed before shipping. There is now nothing to refuse.
+2. **§12's two `[incomplete]` examples die with it**, since they were that marker in two positions.
+3. **§8a is unaffected, because it was already unreachable** — 23's own build state records that
+   there is no generator, so there is no scaffolded payload position wanting a stub type.
+4. **One citation needs correcting.** `bs_api.erl` quotes §7 to justify `--api` answering for a
+   half-written module. That behaviour **stands** — it rests on the module's own argument, that
+   exhaustiveness is a property of the bodies while the API is what the signatures declare — but it
+   can no longer lean on an overturned section, and the comment is corrected in place.
+
+### The three other questions
+
+Answered on the measurements above rather than referred back, since each turns on mechanism. Say so
+if any is wrong and I will reopen it.
+
+1. **Does the trigger count as fired?** Moot. The residue is decided, so it no longer matters
+   whether 25's unwritten database exemplar would have narrowed it further.
+2. **Is the domain arm dead?** **Yes**, and on mechanism rather than taste. No attribute grammar has
+   ever existed; `[Port]` has no enforcement job left after F18 and F24; and the one non-vacuous DDD
+   invariant, aggregate boundary, is already enforced by the record tag minted from the qualified
+   module path (F3). Every candidate the arm rested on is built, dead, or bought elsewhere.
+3. **Split out "which modules may name this one"?** **Yes**, as 22 itself proposed. Raised as its
+   own ticket; a module today controls what it exposes, never who may name it, and that question
+   belongs to nobody at present.
 
 ## MEASUREMENT PASS — 2026-08-23. The trigger has fired, and the ticket has shrunk to one construct
 
