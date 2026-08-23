@@ -114,7 +114,9 @@ type ApplyReply = [incomplete];               // in *type* position, so its own 
 
 **Neither position parses today, and the compiler enforces the opposite rule.** A signature with no
 clauses is a hard error — `no_clauses` at `bs_check.erl:1062-1064`, printed as *"has a signature but
-no clauses"* at `bs_diag.erl:468`. There is no marker for a gate to refuse, and there is no gate.
+no clauses"* at `bs_diag.erl:478-479` (~~`bs_diag.erl:468`~~, corrected 2026-08-23: F25 added ten
+lines above it; the claim holds, the line number had drifted). There is no marker for a gate to
+refuse, and there is no gate.
 
 The compiler delta, per spelling:
 
@@ -136,6 +138,91 @@ has taken the keyword twice already under exactly this pressure.
    tag already enforces the one invariant `aggregate` was for.
 3. **Split out *"which modules may name this one"*** as its own ticket, as 22 itself proposed?
 4. **How is the incomplete marker spelled**, and does that build enter the queue?
+
+## SURVEY — 2026-08-23. The question is position, not spelling, and the survey is unanimous
+
+The measurement pass above enumerated three spellings — attribute, keyword, convention — and all
+three assume the marker sits **on the declaration**. Nobody had checked whether any other language
+does that. Ran it rather than reasoning about it: `wayfinder/prototypes/22a_incomplete_marker_probe/`,
+four runnable probes, each with a control that must be seen failing before its clean result counts.
+
+| Language | How "unfinished" is spelled | Position | What the compiler does |
+|---|---|---|---|
+| **Gleam 1.18.1** | `todo` — a keyword | **body** | **compiles**, `warning: Todo found` — *"This code is incomplete"*, and it names the inferred type: *"I think its type is `Int`"* |
+| **C# 9.0.306** | `throw new NotImplementedException()` | **body** | **compiles, and says nothing at all** — 0 warnings. Deferred to run time |
+| C# | `public partial int Apply(int)` | declaration | **hard error CS8795** — *"must have an implementation part"* |
+| C# | `partial void Audit(int)` (private) | declaration | legal, silent, and **every call is erased** |
+| C# | `abstract string Render()` | declaration | legal — but means *"a subclass must supply this"*, a contract, not an admission |
+| **Erlang/OTP 28** | `-spec` with no function | declaration | **hard error** — *"spec for undefined function apply_order/1"* |
+| **B# at `0b761f6`** | signature with no clauses | declaration | **hard error** — *"Weigh has a signature but no clauses"* |
+
+### Three findings, and the third one is the decision
+
+**1. B# is not the odd one out. Every surveyed language makes a bodiless declaration a hard error.**
+C# refuses it (CS8795), Erlang refuses it, B# refuses it. The one case C# permits — old-style
+private `partial` — it permits by going *silent* and erasing the call, which is the opposite of what
+23 §7 wants. So the premise that B# is being unusually strict is false; `no_clauses` is the majority
+rule, and 23 §7 is asking B# to leave the consensus on purpose.
+
+**2. Both languages that have a real marker put it in body position, and Gleam is the model.**
+Gleam's `todo` does everything 23 §7 asks: the stub compiles, the diagnostic *names what is owed*,
+and `gleam build --warnings-as-errors` is the release gate — a compiler flag rather than a text
+search, though `grep todo` would work equally well, so §7's text-search requirement survives either
+way. **The one thing the ticket assumed was contested — attribute versus keyword — is not contested
+anywhere.** Nobody spells this with an attribute. Gleam uses a keyword; C# uses a library exception.
+
+**3. But B# has already refused the clause that body position needs, and this is measured.**
+A body-position marker needs a body, a body needs a clause, and the only clause that does not force
+the agent to invent a plausible pattern is a catch-all. B# rejects it:
+
+```
+Weigh(_) -> 0
+    error: Weigh discards cases the compiler can name
+      every value left here comes from a type you declared, so `_`
+      hides a case rather than admitting an unknown one:
+        Weigh(:body | :header | :heartbeat | ... (1 more)) -> ...
+```
+
+Every surveyed language is **single-body**, so body position costs them nothing. B# is multi-clause
+with an exhaustiveness checker, and a catch-all over an enumerable residual is already a diagnostic
+in shipped code. **So the survey's unanimous answer is the one form B# has independently decided is
+a defect** — which is [[a-ticket-that-resolves-against-its-own-survey]] exactly, and is flagged here
+rather than folded into a recommendation.
+
+### The residual 23 §7 asks for already exists; `no_clauses` short-circuits in front of it
+
+`walk([], Residual, _, Diags, _) -> {Residual, ...}` (`bs_check.erl:2206-2207`) returns the residual
+untouched, and the residual is seeded as the entire declared parameter tuple at
+`bs_check.erl:1060`. The inexhaustive diagnostic already prints it well — measured on the same probe:
+
+```
+error: Weigh is not exhaustive
+  no clause matches:
+    Weigh(:body | :heartbeat) -> ...
+```
+
+The `[] -> {F, [{error, Line, Name, no_clauses}]}` arm at `bs_check.erl:1062-1064` returns *before*
+that walk ever runs. So 23 §7's *"a stub's residual is the entire declared parameter type"* is not a
+feature to build — it is a feature to **stop suppressing**. Delete the early return for a marked
+signature and the existing walk produces exactly that, naming every case the agent still owes.
+
+### So the compiler delta, per spelling, measured rather than estimated
+
+| Spelling | Written in B# | What the compiler must gain |
+|---|---|---|
+| **Keyword on the declaration** | `incomplete public int Weigh(FrameType f)` | one lexer rule; one `signature` arm beside the two at `bs_parser.yrl:262-264`; skip the `no_clauses` early return when the flag is set. The residual then falls out of the existing `walk`. Same shape `public`/`private` took in F12, and `behaviour` and `using` took before it |
+| **Attribute on the declaration** | `[incomplete]`<br>`public int Weigh(FrameType f)` | all of the above, **plus** invent bracket syntax: a lexer rule, a `decl` arm, an AST node and a checker pass, for a construct no surveyed language spells this way. Then a *second* rule for type position, where `[` means nothing today |
+| **Body position** — the survey's answer | `Weigh(_) -> incomplete` | all of the keyword work, **plus** an exemption in the catch-all check above, **plus** the residual is now consumed by the clause rather than reported. Costs more and delivers less, because B# is not single-body |
+| **Convention** — a comment | `// TODO` | free, and refused by 23 §7's own requirement: the marker must change what compiles, and a comment the parser drops cannot |
+
+### What this does to the four questions
+
+Questions 1–3 are unchanged; the survey speaks only to question 4. On that one it removes the
+attribute arm — **no language spells this with an attribute, and B# would be inventing bracket
+syntax to be alone** — and it removes body position on mechanism rather than taste, because B#
+already rejects the clause it needs. That leaves the keyword, which is also what Gleam chose.
+
+**This section still decides nothing.** 22 is HITL.
 
 ## DEFERRED 2026-08-12 — revisit when there is a walking skeleton
 

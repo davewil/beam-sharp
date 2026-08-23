@@ -1,0 +1,11 @@
+// CASE 2 — a genuinely inexhaustive function. This is the diagnostic 23 §7
+// calls "the ordinary inexhaustive diagnostic", and it shows what the
+// residual LOOKS like when the compiler can still see one.
+module StubPartial
+
+type FrameType = :method | :header | :body | :heartbeat
+
+public int Weigh(FrameType f)
+
+Weigh(:method) -> 1
+Weigh(:header) -> 2

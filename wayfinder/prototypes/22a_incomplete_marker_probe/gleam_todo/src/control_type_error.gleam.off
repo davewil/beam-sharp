@@ -1,0 +1,6 @@
+// CONTROL. Renamed into place by run.sh, so that `gleam build` exiting 0 on
+// the `todo` file carries information. If THIS file also builds clean, the
+// harness is not looking and every other result here is void.
+pub fn wrong() -> Int {
+  "this is a string, not an Int"
+}

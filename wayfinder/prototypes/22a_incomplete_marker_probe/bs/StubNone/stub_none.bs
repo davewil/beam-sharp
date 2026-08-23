@@ -1,0 +1,8 @@
+// CASE 1 — the stub as B# spells it today: a signature with no clauses.
+// 23 §7 wants this to COMPILE, and to report the entire declared parameter
+// type as the residual. Measure what it actually does.
+module StubNone
+
+type FrameType = :method | :header | :body | :heartbeat
+
+public int Weigh(FrameType f)

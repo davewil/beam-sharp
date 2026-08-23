@@ -1,0 +1,22 @@
+// CASE 3 — THE ONE THAT DECIDES IT.
+//
+// Every language in the survey puts its unfinished-marker in BODY position.
+// In B# a body needs a clause, and the only clause that does not force the
+// author to invent a plausible pattern is a catch-all.
+//
+// But B# is not a single-body language — it is multi-clause with an
+// exhaustiveness checker. So the question is whether writing that catch-all
+// CONSUMES the residual that 23 §7 says is the whole value of a stub:
+//
+//   "a stub's residual is the entire declared parameter type, which is the
+//    most informative diagnostic the language can produce"
+//
+// If this file compiles silently, then a body-position marker in B# buys
+// legality by destroying exactly the information the marker exists to expose.
+module StubCatchall
+
+type FrameType = :method | :header | :body | :heartbeat
+
+public int Weigh(FrameType f)
+
+Weigh(_) -> 0

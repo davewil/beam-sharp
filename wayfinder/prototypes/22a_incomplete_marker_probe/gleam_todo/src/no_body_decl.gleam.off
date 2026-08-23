@@ -1,0 +1,4 @@
+// The DECLARATION-POSITION question, which is ticket 22's actual fork.
+// B# would spell the stub as a signature with no clauses. Can Gleam even
+// express that — a function declared with a type and no body?
+pub fn apply(order: Int) -> Int

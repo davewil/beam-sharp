@@ -1,0 +1,6 @@
+// DECLARATION POSITION, public — this is the exact shape B# proposes for a
+// stub: a visible signature with no body. C# refuses it.
+public partial class Ledger2
+{
+    public partial int Apply(int order);
+}

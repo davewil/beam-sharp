@@ -1,0 +1,6 @@
+// CONTROL. If this builds clean, the harness is not looking and every other
+// C# result in this probe is void.
+public class ControlTypeError
+{
+    public int Wrong() => "this is a string, not an int";
+}
