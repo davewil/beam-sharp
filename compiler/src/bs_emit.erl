@@ -167,14 +167,19 @@ function(F, Ctx) ->
     Arity = arity(F),
     Params = element(5, F),                     % #fn.params
     Clauses = element(6, F),                    % #fn.clauses
-    {function, ?A, Name, Arity, [clause(C, Params, Ctx) || C <- Clauses]}.
+    %% F24 — visibility reaches the clause because ticket 18 §4 scopes the type
+    %% test to the EXPORTED function. It is read here rather than in `clause/4`
+    %% because this is the only place the `#fn` record is in scope; the clause
+    %% sees a boolean and does not learn the record's shape.
+    Public = is_public(F),
+    {function, ?A, Name, Arity, [clause(C, Params, Ctx, Public) || C <- Clauses]}.
 
 %% A beam-sharp clause may name a parameter it does not use — `(:ok, n) -> :negative`
 %% is idiomatic, and the name is documentation. Erlang warns about exactly that, so
 %% a variable the body and guard never mention lowers to `_`-prefixed. Found by
 %% running the emitter rather than by reading it: the first end-to-end build
 %% produced two spurious "variable 'N' is unused" warnings.
-clause({clause, Line, _Name, Patterns, Guard, Body}, Params, Ctx) ->
+clause({clause, Line, _Name, Patterns, Guard, Body}, Params, Ctx, Public) ->
     %% Relational patterns are lowered FIRST, before the boundary guard runs.
     %% Order matters and the reason is `ensure_var/3`: given a pattern it cannot
     %% name, it wraps the whole thing in a `p_alias`, and an aliased `p_rel` would
@@ -197,8 +202,14 @@ clause({clause, Line, _Name, Patterns, Guard, Body}, Params, Ctx) ->
     %% which is not a warning but a compile error in the emitted Erlang. The
     %% relational tests are in the same list for the same reason: they mention
     %% `bs@rN`, and that name exists nowhere but in the head they came from.
-    {Patterns1, Tests} = boundary_guards(Patterns0, Params, Line, Ctx),
-    Guard1 = conjoin(RelTests ++ Tests, Guard, Line),
+    {Patterns1, Tests} = boundary_guards(Patterns0, Params, Line, Ctx, Public),
+    %% F24 — THE BOUNDARY TESTS LEAD, which is ticket 58's own stated shape:
+    %% *"`is_integer/1` first, then the residual comparisons"*. Not a
+    %% correctness requirement, because a comparison in a guard cannot crash and
+    %% `andalso` would reach the type test either way — it is the order the two
+    %% halves compose in once ticket 46's range residual lands beside this one,
+    %% and it short-circuits a wrong-kind term on one test rather than three.
+    Guard1 = conjoin(Tests ++ RelTests, Guard, Line),
     %% F8 — a `== acc` READS `acc`, and it reads it from a PATTERN rather than
     %% from the body or the guard, which is the only place `used_vars/2` looks.
     %% Without this seed, a parameter mentioned nowhere but in another parameter's
@@ -283,23 +294,105 @@ later_vars(Rest, Final) ->
 %%%     miniature and decidable by reading one pattern.
 %%% ---------------------------------------------------------------------------
 
-boundary_guards(Patterns, Params, Line, Ctx) ->
+boundary_guards(Patterns, Params, Line, Ctx, Public) ->
     Zipped = lists:zip3(Patterns, Params, lists:seq(1, length(Patterns))),
-    Folded = [guard_one(P, Param, I, Line, Ctx) || {P, Param, I} <- Zipped],
+    Folded = [guard_one(P, Param, I, Line, Ctx, Public) || {P, Param, I} <- Zipped],
     {[NewP || {NewP, _} <- Folded],
      [T || {_, Ts} <- Folded, T <- Ts]}.
 
-guard_one(Pat, {param, TypeExpr, _}, I, Line, Ctx) ->
+%% The two guards are mutually exclusive by construction rather than by an
+%% ordering choice: a record type has a `maps` part and an integer type does
+%% not, so no parameter is ever a candidate for both.
+guard_one(Pat, {param, TypeExpr, _}, I, Line, Ctx, Public) ->
     case record_tag(TypeExpr, Ctx) of
-        none -> {Pat, []};
         {ok, Tag} ->
             case constrains_kind(Pat) of
                 true  -> {Pat, []};
                 false ->
                     {Var, Pat1} = ensure_var(Pat, I, Line),
                     {Pat1, [tag_test(Var, Tag, Line)]}
-            end
+            end;
+        none when Public ->
+            int_guard(Pat, TypeExpr, I, Line, Ctx);
+        none ->
+            {Pat, []}
     end.
+
+%%% ---------------------------------------------------------------------------
+%%% F24 / TICKET 58 — the kind half, which is ticket 18 §1 rule C case (b)
+%%%
+%%% `Classify(100.5)` returned `:reserved` from a parameter published as
+%%% `0..255`. 18 decided this on 2026-08-13 and §5 refused an opt-out; the rule
+%%% was never in the emitter, which is why 58 is a defect and not a question.
+%%%
+%%% A COMPARISON IS NOT A TYPE TEST, and that is the whole reason this cannot be
+%%% derived from ticket 46's range subtraction. `100.5 >= 9` is true, so the
+%%% float reaches the `Classify(>= 9)` clause; 46's residual for that clause is
+%%% `=< 255`, and `100.5 =< 255` is true as well. A range-only fix makes `300.5`
+%%% crash and leaves `100.5` answering — the reported defect, unmoved, behind a
+%%% green test. Comparisons order the numeric tower; only `is_integer/1` closes
+%%% it. The two are one guard in two halves and this is the first.
+%%%
+%%% EXPORTED ONLY, by 18 §4: the analysis is function-local and looks at the
+%%% exported function's own head. A private function's every call site is a
+%%% checked beam-sharp call site, so site 1 has already rejected the
+%%% out-of-domain argument. Note this does NOT match the record tag guard above,
+%%% which is emitted on private functions too — ticket 46 measured that and
+%%% called it the record guard's business against 18 §4 rather than this
+%%% ticket's, so the asymmetry is inherited deliberately and left in place.
+%%%
+%%% SCOPED TO THE NUMERIC KIND CHANNEL. An `atom` or `binary` parameter is the
+%%% same rule with a different test and is OWED, not decided differently. `int`
+%%% is built first because it is 18 §1(b)'s own worked example and the type the
+%%% corpus actually publishes a refinement of.
+%%% ---------------------------------------------------------------------------
+
+int_guard(Pat, TypeExpr, I, Line, Ctx) ->
+    case is_int_only(TypeExpr, Ctx) andalso not pins_integer(Pat) of
+        false -> {Pat, []};
+        true  ->
+            {Var, Pat1} = ensure_var(Pat, I, Line),
+            {Pat1, [int_test(Var, Line)]}
+    end.
+
+%% Every part but the integer one empty, and the integer one inhabited. A
+%% refinement is a SUBSET of `int` rather than a type beside it (ticket 20 §5),
+%% so `Octet` and `int` arrive here as the same shape with different ranges and
+%% neither is special-cased. A union like `int | :none` is NOT int-only and gets
+%% nothing: its atom part is a second admissible kind, and refusing it here is
+%% 18(d)'s conservative direction rather than a gap.
+is_int_only(TypeExpr, #{env := Env}) ->
+    try bs_check:resolve(TypeExpr, Env) of
+        #{ints := Is, atoms := {finite, []}, tuples := [], lists := [],
+          maps := [], bins := []} when Is =/= [] -> true;
+        _ -> false
+    catch _:_ -> false
+    end.
+
+%% Ticket 18 §1(a) — the head already objects, so nothing is emitted. An integer
+%% literal in a clause head IS the objection: `Only(1)` does not match `1.0`,
+%% which the suite asserts rather than assumes.
+%%
+%% A RELATIONAL PATTERN IS ABSENT FROM THIS LIST ON PURPOSE, and it is the case
+%% the whole feature turns on. `strip_rels/1` has already run by the time this
+%% is reached, so `Classify(>= 9)` arrives as a bare `p_var` and is correctly
+%% found not to pin anything. Were it still a `p_rel` here, the temptation would
+%% be to call it constrained — and it is not, because a comparison orders.
+%%
+%% `p_or` needs BOTH sides and `p_and` needs only one: a disjunction is only as
+%% pinned as its weakest arm, while a conjunction is pinned if any arm pins it.
+pins_integer({p_int, _, _})        -> true;
+pins_integer({p_alias, _, _, P})   -> pins_integer(P);
+pins_integer({p_and, _, A, B})     -> pins_integer(A) orelse pins_integer(B);
+pins_integer({p_or, _, A, B})      -> pins_integer(A) andalso pins_integer(B);
+pins_integer(_)                    -> false.
+
+%% An ordinary surface node, like `tag_test/3` beside it, so `used_vars/2` and
+%% `expr/2` handle it by the paths they already have. `erlang:is_integer/1` is a
+%% guard BIF and is legal in a guard as a remote call — the same shape the tag
+%% test already relies on for `erlang:map_get/2`.
+int_test(Var, Line) ->
+    {e_foreign_call, Line, erlang, is_integer, [{e_var, Line, Var}]}.
 
 %% A single closed map member carrying a singleton `Kind`. Anything else — a
 %% union, a bare `term`, an anonymous map without a tag — is not a record

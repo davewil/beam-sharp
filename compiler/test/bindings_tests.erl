@@ -177,8 +177,23 @@ a_marked_name_emits_no_guard_test() ->
         beam_lib:chunks(?OUT ++ "/RG.beam", [abstract_code]),
     [{function, _, 'Run', 2, Clauses}] =
         [F || F = {function, _, 'Run', 2, _} <- Forms],
-    %% Every clause guard is empty...
-    ?assertEqual([[], [], []], [G || {clause, _, _, G, _} <- Clauses]),
+    %% No COMPARISON in any clause guard...
+    %%
+    %% AMENDED BY F24 (ticket 58), 2026-08-23. This asserted `[[], [], []]` —
+    %% that every guard was empty — which was a proxy for the claim F8 actually
+    %% makes, and the proxy stopped holding for a reason that has nothing to do
+    %% with F8. `head` is an exported parameter declared `int` and bound by a
+    %% bare variable, so ticket 18 §1(b) now puts `is_integer/1` on it. That
+    %% guard was always owed here and was never emitted; the case was in scope
+    %% of a decided rule and simply never exercised.
+    %%
+    %% So the assertion is narrowed to what this test is about: the `== head`
+    %% marker emits no comparison, because the repeated variable below IS the
+    %% equality. A lowering that reintroduced an `=:=` still fails.
+    Guards = [G || {clause, _, _, G, _} <- Clauses],
+    ?assertEqual(3, length(Guards)),
+    ?assertEqual([], [Op || G <- Guards, Op <- lists:flatten(G),
+                            element(1, Op) =:= op]),
     %% ...and the matching clause names the SAME variable twice, which is the
     %% equality test itself.
     [_, {clause, _, [{var, _, V}, {cons, _, {var, _, V}, _}], _, _}, _] = Clauses,

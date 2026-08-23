@@ -209,7 +209,16 @@ an_interval_pattern_lowers_to_a_variable_and_a_guard_test() ->
     [{function, _, 'Classify', 1, Clauses}] =
         [F || F = {function, _, _, _, _} <- Forms],
     Span = lists:nth(6, Clauses),
-    {clause, _, [{var, _, V}], [[Guard]], _} = Span,
+    %% AMENDED BY F24 (ticket 58), 2026-08-23. The span's own lowering is
+    %% unchanged and is still asserted in full below — but it no longer sits
+    %% alone in the guard. `Octet` is a refined `int` and a relational pattern
+    %% does not pin the KIND (a comparison orders; `100.5 >= 4` is true), so
+    %% ticket 18 §1(b)'s type test is emitted in front of it. F24 puts the
+    %% boundary tests first, so the span is the right-hand arm.
+    {clause, _, [{var, _, V}], [[Whole]], _} = Span,
+    {op, _, 'andalso', Kind, Guard} = Whole,
+    ?assertMatch({call, _, {remote, _, {atom, _, erlang}, {atom, _, is_integer}},
+                  [{var, _, V}]}, Kind),
     ?assertMatch({op, _, 'andalso',
                   {op, _, '>=', {var, _, V}, {integer, _, 4}},
                   {op, _, '=<', {var, _, V}, {integer, _, 7}}}, Guard).

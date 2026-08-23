@@ -11,16 +11,22 @@
 
 <!-- in-scope fog: real, but not yet sharp enough to phrase as a ticket -->
 
-- **A refined `int` parameter admits a float** — raised by ticket 46 on 2026-08-23 while resolving
-  the boundary guard, and written up as
-  [ticket 58](issues/58-refined-int-admits-a-float.md). `bsc examples/Wire/wire.bs Classify 100.5`
-  returns `:reserved` — a float reaching a parameter whose `-spec` says `0..255`, with no crash
-  ever. **This is fog only in the sense that nobody has built it**: ticket 18 §1's rule C, case (b),
-  decided it on 2026-08-13 and §5 refused an opt-out, so it is a defect against a resolved rule
-  rather than an open question. It sits here because 46's guard **depends** on it and neither half
-  is sound alone — comparison operators are not type tests, and `100.5 >= 0 andalso 100.5 =< 255`
-  is `true`. Where a wrong-kind term is excluded today it is BEAM **term order** doing it (`foo =<
-  255` is `false`), which is an accident of the ordering rather than a check.
+- **A refined `int` parameter admits a float** — ~~raised by ticket 46 on 2026-08-23 while resolving
+  the boundary guard~~ **resolved and built the same day as
+  [F24](../compiler/features/F24-boundary-kind.md); see
+  [ticket 58](issues/58-refined-int-admits-a-float.md).** `bsc examples/Wire Classify 100.5`
+  returned `:reserved` — a float reaching a parameter whose `-spec` says `0..255`, with no crash
+  ever. **This was fog only in the sense that nobody had built it**: ticket 18 §1's rule C, case
+  (b), decided it on 2026-08-13 and §5 refused an opt-out, so it was a defect against a resolved
+  rule rather than an open question. `erlang:is_integer/1` is now emitted in the exported clause
+  head unless the clause's own pattern pins the kind.
+  **The finding worth keeping is why 46's half would not have done it.** Comparison operators are
+  not type tests, and `100.5 >= 0 andalso 100.5 =< 255` is `true` — but the sharper point is that
+  `100.5` reaches the `Classify(>= 9)` clause, whose range residual is `=< 255`, so a range-only
+  fix crashes `300.5` and leaves `100.5` answering. The obvious probe is the wrong one. Where a
+  wrong-kind term is excluded today it is BEAM **term order** doing it (`foo =< 255` is `false`),
+  an accident of the ordering rather than a check. **46's range half is still unbuilt**, so
+  `Classify(300)` is still `:reserved`.
 - **The boundary manifest's concrete format** — new with ticket 24, which gave it three consumers
   (the boundary classification, the missing-observation advisory, and the elision list) and
   deliberately named it one artefact rather than three, since 18 §5 already priced a build artefact

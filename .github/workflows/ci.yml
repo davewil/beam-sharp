@@ -369,6 +369,28 @@ jobs:
         working-directory: compiler
         run: ./bin/check-record-pattern.sh
 
+      # F24 / ticket 58. `Classify(100.5)` returned `:reserved` from a parameter
+      # published as `-spec 'Classify'(0..255)` — ticket 18 §1 rule C case (b),
+      # decided 2026-08-13 with no opt-out, and never in the emitter.
+      #
+      # THE SELF-TEST'S RANGE STUB IS WHAT EARNS THIS GATE. It implements ticket
+      # 46's range subtraction — the obvious fix, and the one already written
+      # down — and leaves the reported defect exactly where it was: `100.5`
+      # reaches the `Classify(>= 9)` clause and `100.5 =< 255` is true, so a
+      # range-only guard refuses `300.5` and admits `100.5`. A gate built around
+      # `300.5` would call that stub fixed. Probe 1 is therefore `100.5`.
+      #
+      # Probes 1 and 4 assert ABSENCES and are paired with presence probes on
+      # the same modules, because an absence goes green for free over a run that
+      # never compiled — check-list-length.sh learned that the expensive way.
+      - name: The boundary-kind gate proves it can fail
+        working-directory: compiler
+        run: ./bin/check-boundary-kind.sh --self-test
+
+      - name: An int parameter is an integer at the boundary
+        working-directory: compiler
+        run: ./bin/check-boundary-kind.sh
+
       # Dialyzer over every emitted spec, plus two negative controls that corrupt
       # a real emitted artefact and REQUIRE the corruption to be caught — because
       # a clean run proves nothing unless a wrong spec would fail it.

@@ -285,7 +285,7 @@ Bodies in [`decisions.md`](decisions.md). Ticket text in `issues/`.
 Bodies in [`fog.md`](fog.md). These are open: read the body before assuming a direction.
 
 - **A refined `int` parameter admits a float** `#58` `codegen` `types`
-  `Classify(100.5)` is `:reserved`. Decided by 18 §1(b) and **not emitted** — a defect, not a question
+  **`is_integer/1` in the exported head unless the pattern pins the kind** — 18 §1(b), decided and never emitted. A range subtraction does NOT fix it: `100.5` reaches `>= 9` and `=< 255` is true. **Built, F24**
 - **The boundary manifest's concrete format** `#24` `agent` `tooling`
   one artefact, not three — the classification, the advisory and the elision list
 - **The walking skeleton** `codegen`
