@@ -5,9 +5,10 @@ Status: **resolved 2026-08-23** — [ENG-210](https://linear.app/davewil/issue/E
 See [Answer](#answer) at the end. Raised 2026-08-15 from running
 [AoC 2019 Day 1](../../aoc/2019/Day01/day01.bs).
 
-Two of this ticket's own premises were false when re-measured, and §2's "the sources diverge"
-framing was the larger of them — read the Answer's *Premises measured* before citing anything
-above it.
+Two of this ticket's own premises were false when re-measured. **They are corrected in place
+below**, each marked `CORRECTED 2026-08-23` at the sentence that was wrong, rather than left
+standing under a banner — a stale claim that survives in the body is what a clean-room reader
+takes as spec. The Answer's *Premises measured* table is the summary.
 
 ## Question
 
@@ -45,7 +46,7 @@ The classic divergence, **measured locally 2026-08-15** rather than cited:
 | | `-7 / 2` | `-7 % 2` | `7 / 0` |
 |---|---|---|---|
 | **C#** (net9.0) | `-3` | `-1` | `DivideByZeroException` |
-| **JavaScript** (node) | `-3` | `-1` | `Infinity`, and `0/0` is `NaN` |
+| **JavaScript** (`BigInt`) | `-3n` | `-1n` | `RangeError` <!-- corrected 2026-08-23; the row here was `Number`, i.e. FLOAT division --> |
 | **Erlang** (`div` / `rem`) | `-3` | `-1` | `badarith` |
 | Python 3, for contrast | `-4` | **`1`** | — |
 
@@ -61,15 +62,17 @@ Erlang's `div`/`rem`.
 mean Erlang's `/`, which is always float division (`-7 / 2` is `-3.5`, measured). It means Erlang's
 `div`. An Erlang reader will expect the other thing.
 
-## §2. Divide by zero — the half that is genuinely open
+## §2. Divide by zero — the half that looked open
 
-Here the sources **diverge**, and one of them is unrepresentable:
+**CORRECTED 2026-08-23 — the sources do not diverge here.** This section was written on the
+premise that JavaScript dissents, and it does not:
 
 - **C# throws**, **Erlang raises `badarith`** — agree on "it is a crash".
-- **JavaScript yields `Infinity` / `NaN`** — and beam-sharp has no `float`, so this is not
-  available even if it were wanted.
+- **JavaScript** yields `Infinity` only for `/` on a `Number`, which is *float* division. The
+  comparable integer operation is `BigInt`, and `7n / 0n` **throws `RangeError`**. Measured.
 
-So the real choice is between two answers, and the second is novel:
+So all three agree that integer division by zero is a crash, and the choice below is between a
+crash and a stricter-than-any-source static check rather than between three traditions:
 
 **(a) It is a crash.** Consistent with ticket 12's let-it-crash stance and with both agreeing
 sources. Costs nothing and decides nothing else.
@@ -82,8 +85,10 @@ checker emitted `int <= 1 | int >= 3` in an unrelated diagnostic the same day.
 **(b) would make `/` the first operator in the language carrying a precondition**, which is the
 reason it is a decision and not a detail. Every other operator is total over its declared operand
 types. It also has a cost the ticket must price: `Fuel(m) -> :erlang.div(m, 3) - 2` divides by a
-*literal* 3 and would be fine, but `a / b` over two parameters would demand the caller narrow `b`,
-and nothing in the surface yet says `int` **without** zero except a guard.
+*literal* 3 and would be fine, but `a / b` over two parameters would demand the caller narrow `b`.
+**CORRECTED 2026-08-23**: this sentence ended *"and nothing in the surface yet says `int` without
+zero except a guard"*. False — `type Nz = int where value != 0` compiles and genuinely excludes
+zero. The cost to the caller is real; the claim that it was unsayable was not.
 
 **One datum that argues (b) is not exotic**: `erlc` already refuses the constant case at compile
 time — measured, `7 div 0` produces *"Warning: evaluation of operator 'div'/2 will fail with a
@@ -112,11 +117,13 @@ not.
 ## Consequences elsewhere
 
 - **[Ticket 20](20-untheorised-term-shapes.md)** owns the interval algebra §2(b) would use, and
-  its `type Positive = int where value > 0` spelling is what would let a caller declare a non-zero
-  divisor without a guard. §2(b) is close to unbuildable until that lands.
+  its refinement spelling is what lets a caller declare a non-zero divisor without a guard.
+  **CORRECTED 2026-08-23**: this bullet said §2(b) was "close to unbuildable until that lands".
+  It landed on 2026-08-16, and `int where value != 0` compiles today.
 - **[Ticket 12](12-totality-vs-let-it-crash.md)** owns the crash stance §2(a) leans on.
 - **[F2](../../compiler/features/F2-interval-refinements.md)** is the feature that would carry
-  either answer, and is already blocked on two spellings.
+  either answer. **CORRECTED 2026-08-23**: this bullet said F2 was "already blocked on two
+  spellings". F2 is **done (2026-08-16)** and blocks nothing here.
 
 ## Notes
 
