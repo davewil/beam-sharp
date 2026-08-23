@@ -399,6 +399,40 @@ and says so with the fix in the message. `binary` is admissible there, because t
 built: any string **operation**, which waits on the module system. **Binary patterns** and string
 literals in **pattern** position shipped with F13 and are below.
 
+### Arithmetic on `int`
+
+`+`, `-` and `*` are the operator table, and they are all of it. **shipped**
+
+```csharp
+module Arith
+
+public int Net(int gross, int tax)
+
+Net(gross, tax) -> gross + 1 - tax * 2
+```
+
+**`/` on two `int`s is truncated integer division, and `%` is the remainder it leaves, taking the
+sign of the dividend.** So `-7 / 2` is `-3` and `-7 % 2` is `-1` — C#'s meaning, TypeScript's
+meaning, and exactly Erlang's `div` and `rem`. It is *not* Erlang's `/`, which is float division
+and would make the same expression `-3.5`. The rule is stated over the operand types rather than
+over the operator, so a later `float / float` stays available.
+
+Call it a **remainder**, never a modulus: they differ exactly on negative operands, and Python's
+`-7 % 2 = 1` is the modulus this is not.
+
+**`/` carries no precondition.** A divisor needs no proof that it is non-zero, so `/` stays total
+over its declared operand types like every other operator. The compiler refuses only a divisor it
+can prove *is* zero; one that merely might be crashes at run time with `badarith`. **decided**
+<!-- decided by ticket 38; §2(b), a proof obligation on every divisor, was refused on cost to the caller -->
+
+```csharp not-yet
+module Fuel
+
+public int Fuel(int mass)
+
+Fuel(mass) -> mass / 3 - 2
+```
+
 ### Binary patterns
 <!-- ticket 30 -->
 

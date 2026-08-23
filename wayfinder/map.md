@@ -276,25 +276,28 @@ Bodies in [`decisions.md`](decisions.md). Ticket text in `issues/`.
   can state. The cost is the atom: a `200 OK` spelled `(:error, _)`; `|?>` refuses `option<T>` (→ 49)
 
 ---
+- **Division and modulo** `#38` `syntax` `types`
+  `/` on two `int`s truncates, `%` is the remainder; **no precondition** — only a provably zero divisor is refused
 
 ## Not yet specified — index
 
 Bodies in [`fog.md`](fog.md). These are open: read the body before assuming a direction.
 
 - **Does a refined parameter get a boundary guard?** `#46` `codegen` `types`
-  `Classify(300)` from Erlang matches `>= 9` and returns, outside the `Octet` its `-spec` declares.
-  18 calls the exported check *optional*; F2 made the case cheap and real, and may not decide it
+  `Classify(300)` from Erlang matches `>= 9`, outside the `Octet` its `-spec` declares. 18 calls
+  the exported check *optional*
 - **The boundary manifest's concrete format** `#24` `agent` `tooling`
   one artefact, not three — the classification, the advisory and the elision list
 - **The walking skeleton** `codegen`
   which slice, and what language the compiler is written in. First slice built; two debts struck
 - **The typed model of OTP itself** `#14` `otp` `types`
   which behaviours ship built in, and how a user declares one
+- **A refinement cannot say `-5`** `#57` `types` `syntax`
+  refused, though the same literal in a *pattern* reads fine — half of every signed domain is unnameable
 - **The language's name** `naming`
   unresolved. `beam-sharp` is a working title
 - **Does `using` get an alias?** `#47` `modules` `syntax`
-  §2 inverted the argument that shelved it — against a *bare* unqualified name an alias is the more
-  explicit spelling, not a read cost. May be the only spelling when two imports collide
+  §2 inverted the argument that shelved it; may be the only spelling when two imports collide
 - **Where DDD invariants live** `types` `errors`
   ticket 20 §5 settles half; refinement in type declarations is available where the predicate is decidable
 - **How a user-declared opaque refinement is actually checked** `#29` `types`
@@ -311,8 +314,6 @@ Bodies in [`fog.md`](fog.md). These are open: read the body before assuming a di
 - **Emitted code quality, and where the ceiling is** `#39` `codegen`
   20% slower on a tight loop while emitting **identical instructions**; a dead heat once the
   runtime dominates. The question is why it is not *ahead* — it discards intervals at emission
-- **Division and modulo** `#38` `syntax` `types`
-  no `/` in the lexer at all — absent by oversight; truncation converges, divide-by-zero does not
 - **What the valve keys on: the atom, or the declared type?** `#49` `syntax` `types`
   31c's shape B, with two measurements behind it — the one-clause unwrap removes the ergonomic
   case, and `|?>` **refuses `option<T>`**, the construct ticket 17 borrowed it for

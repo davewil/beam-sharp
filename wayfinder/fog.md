@@ -420,18 +420,21 @@
   emission boundary rather than paying a tax for being typed, and ticket 04's mandatory signature is
   a candidate for why (a declared `int` return is never narrowed to `0..99`). **No optimisation work
   has ever been done**, so this is a baseline and not a verdict.
-- **Division and modulo** — → **[ticket 38](issues/38-division-and-modulo.md)**, raised 2026-08-15
-  from running AoC 2019 Day 1. The language has **no division at all**: the operator table is
-  `+ - *`, and `/`, `%`, `div` and `rem` are none of them in the lexer. **Absent by oversight rather
-  than decision** — measured, division appears zero times in `LANGUAGE.md`, the tickets and this
-  fog. Half of it is easy and half is not. Truncation is easy because the sources **converge**:
-  C#, JavaScript and Erlang's `div`/`rem` all give `-7 / 2 = -3` and `-7 % 2 = -1` (measured
-  locally; Python's floored `-4` and `1` is the outlier and is not an audience). **Divide by zero
-  is the open half**, and it is where the sources split — C# throws, Erlang raises `badarith`,
-  JavaScript yields `Infinity`, which beam-sharp cannot even represent without `float`. So the
-  choice is a crash, or the **first operator in the language to carry a precondition**, which the
-  interval algebra could already express and print. Surfaced by an *outside* workload rather than by
-  an exemplar, which is the better class of evidence and is the reason it is a ticket.
+- **A refinement cannot say `-5`** — → **[ticket 57](issues/57-negative-literals-in-refinements.md)**,
+  raised 2026-08-23 while measuring ticket 38's premises. `int where value >= -5` is refused as
+  *"not a predicate the checker can read"* — and so is every refinement containing a negative
+  integer literal, whatever the operator and whatever it is joined with. The same literal in a
+  relational **pattern** (`Sign(<= -1)`) reads fine: patterns have `int_lit -> '-' integer`, while
+  a refinement is an ordinary `expr` where `-5` desugars to a *subtraction node* the refinement
+  translator cannot fold. **The diagnostic recommends the form it just refused**, which is the
+  shape where a refusal is the defect it protects against. Two consequences: the refinement is the
+  only way to name a numeric domain, so half of every signed domain is unnameable
+  (`int where value >= -100 and value <= 100` cannot be written at all); and the residual doctrine
+  is silently capped, since `subtract(-10..10, 0)` prints `-10..-1 | 1..10`, a residual the surface
+  cannot accept. **The open question is where the fold belongs** — the grammar, mirroring
+  `int_lit`, or the checker, constant-folding before it asks whether a comparand is constant. The
+  second fits the stated intent that a refinement and a guard cannot come to disagree; the first is
+  what patterns already do. Nothing is blocked today: 38's answer needs no residual.
 - **`cond`, or whatever serves a long ladder of unrelated conditions** — new with ticket 17 §6,
   which made `switch` the only branching construct and takes a **tuple subject** for compound
   conditions. That is clean at two or three conditions and clumsy at five, where

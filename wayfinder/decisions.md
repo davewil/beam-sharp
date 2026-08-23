@@ -1450,3 +1450,22 @@
   tag has a message, so an orphaned message stays green forever. Blast radius in live source is
   **four lines** (`25a/route.bs`), plus one confirmed red gate — LANGUAGE.md's `Dispatch` block is
   untagged and must compile.
+
+- [Division and modulo](issues/38-division-and-modulo.md) — **`/` on two `int`s is truncated
+  integer division and `%` is the remainder it leaves, signed by the dividend** (`-7 / 2` is `-3`,
+  `-7 % 2` is `-1`). Phrased over the operand types on purpose, so a later `float / float` stays
+  open. **`/` carries no precondition**: a divisor needs no proof it is non-zero, and only a
+  divisor the compiler proves *is* zero is refused — `Mean(total, count) -> total / count` compiles,
+  `Bad(n) -> n / 0` does not. A possibly-zero divisor crashes at run time, which is ticket 12's
+  stance and not a gap. §2(b) — every divisor's type must exclude zero — was refused on cost to the
+  caller, not on feasibility. The check is `is_subtype(Divisor, range(0,0))` over a type the
+  checker already computes, and it strictly beats both agreeing sources: `erlc` constant-folds only
+  when *both* operands are literals, so `variable(X) -> X div 0` warns nowhere today.
+  **Two of the ticket's own premises were false on re-measurement.** The sources do not split on
+  divide-by-zero: JavaScript's `Infinity` is *float* division, and the comparable integer operation
+  is BigInt, which truncates and throws `RangeError` — so all three agree twice over. And C# does
+  not merely throw at run time; `7 / 0` is compile error CS0020, so a compiler refusing a provable
+  divide-by-zero is not novel. Also stale: *"nothing in the surface says `int` without zero except
+  a guard"* — F2 landed the day after the ticket was raised, and `int where value != 0` compiles.
+  Emission maps `/` to Erlang's **`div`**, never its `/`, which is float division. Raised by an
+  outside workload (AoC 2019 Day 1), which is the better class of evidence.
