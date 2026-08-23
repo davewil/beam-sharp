@@ -1,8 +1,8 @@
 # 57 — A refinement cannot say `-5`, though a pattern can
 
 Type: grilling
-Status: **open** — raised 2026-08-23 while measuring
-[ticket 38](38-division-and-modulo.md) §2, by
+Status: **open** — [ENG-239](https://linear.app/davewil/issue/ENG-239). Raised 2026-08-23 while
+measuring [ticket 38](38-division-and-modulo.md) §2, by
 [probe 38b](../prototypes/38b_divisor_expressiveness.sh).
 
 ## The repro, in two lines
