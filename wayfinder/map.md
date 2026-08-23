@@ -321,8 +321,7 @@ Bodies in [`fog.md`](fog.md). These are open: read the body before assuming a di
   51 left it: `using :'Elixir.Req'` names the *module*, never the *application*, so dependencies live
   only in the environment that built them. The FFI declaration may already be the home
 - **A value-returned foreign error has no declared form** `#56` `ffi` `errors` `types`
-  **the payload `foreign_error` asks for the wrapper, not the tag `:error`** — so `(:ok,B)|(:error,R)`
-  is an ordinary union and needs no new syntax. F19 §2 reversed, its debt sentence deleted. **Built, F23**
+  **the payload `foreign_error` asks for the wrapper, not the tag `:error`** — so `(:ok,B)|(:error,R)` is an ordinary union and needs no new syntax. F19 §2 reversed, its debt sentence deleted. **Built, F23**
 - **A map type in the prelude** `#48` `types` `prelude`
   opaque, matchable, or not at all. The record/map collision is measured and **dead** — the minted
   tag is what keeps them apart — but exhaustiveness over a map is vacuous. Waits on 25a's pipeline
@@ -330,8 +329,9 @@ Bodies in [`fog.md`](fog.md). These are open: read the body before assuming a di
 - **`cond`, or whatever serves a long ladder of unrelated conditions** `#17` `syntax`
   no case for it yet; the width-five evidence was retracted and 25a's ladder is now a valve chain
 - **List length in the algebra: a proved-exhaustive program that crashes** `#54` `types` `patterns`
-  **decompose the cons, never measure it** — Gleam's answer; Elixir's set-theoretic types share the
-  hole. Rest is a marker, `[a, b]` exactly-two, `..[]` retired: 08 amended, 53 answered. **Built, F20**
+  **decompose the cons, never measure it** — Gleam's answer; Elixir's set-theoretic types share the hole. Rest is a marker, `[a, b]` exactly-two, `..[]` retired: 08 amended, 53 answered. **Built, F20**
+- **The boundary guard applies two rules with different scopes** `#59` `codegen` `types`
+  the record tag test is emitted on **private** functions and F24's `is_integer` is exported-only per 18 §4. 46 measured it and left it. Which scope governs both?
 
 ---
 

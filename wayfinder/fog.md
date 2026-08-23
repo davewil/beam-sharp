@@ -27,6 +27,18 @@
   wrong-kind term is excluded today it is BEAM **term order** doing it (`foo =< 255` is `false`),
   an accident of the ordering rather than a check. **46's range half is still unbuilt**, so
   `Classify(300)` is still `:reserved`.
+- **The boundary guard applies two rules with different scopes** — raised by
+  [F24](../compiler/features/F24-boundary-kind.md) on 2026-08-23 and written up as
+  [ticket 59](issues/59-boundary-guard-scope-asymmetry.md). `bs_emit:boundary_guards/5` emits the
+  record **tag** test on every function including private ones, and F24's **kind** test on exported
+  functions only, per ticket 18 §4. Ticket 46 measured the first, called it *"the record guard's
+  business against 18 §4, not this ticket's"*, and left it; F24 scoped its own test correctly and
+  inherited the asymmetry rather than widening silently. **Both rules are defensible and that is
+  the problem** — 18 §4 says the analysis stops at the exported function, while 26 §1's argument
+  for the unconditional tag is about the BODY not objecting and says nothing about callers. Read
+  one way the private tag test is a defect; read the other it is 18 §4 working, since a value
+  handed to another function *"counts as unchecked, and is guarded"*. Nothing is broken today; what
+  is missing is a sentence saying which scope governs both.
 - **The boundary manifest's concrete format** — new with ticket 24, which gave it three consumers
   (the boundary classification, the missing-observation advisory, and the elision list) and
   deliberately named it one artefact rather than three, since 18 §5 already priced a build artefact

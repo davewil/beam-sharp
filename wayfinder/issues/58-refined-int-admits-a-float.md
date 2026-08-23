@@ -145,4 +145,5 @@ RANGE stub — 46's answer implemented exactly — that it must catch.
   should be reached.
 - **The record tag guard is still emitted on private functions** while this one is exported-only,
   so `boundary_guards/5` now applies two rules with different scopes. 46 measured that and left it;
-  it is worth a ticket and does not have one.
+  F24 raised it as [ticket 59](59-boundary-guard-scope-asymmetry.md) /
+  [ENG-241](https://linear.app/davewil/issue/ENG-241) rather than inheriting it unrecorded.

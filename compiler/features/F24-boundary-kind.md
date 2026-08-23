@@ -116,7 +116,12 @@ The tag test beside this one is emitted on **private** functions too. Ticket 46 
 called it *"the record guard's business against 18 §4, not this ticket's"*. F24 does not fix it and
 does not copy it: the new test is exported-only per 18 §4, and the record guard is left as it was.
 So `boundary_guards/5` now applies two rules with different scopes, which is a known inconsistency
-with a named owner rather than an oversight. **It is worth a ticket and does not have one.**
+rather than an oversight — and it now has an owner:
+**[ticket 59](../../wayfinder/issues/59-boundary-guard-scope-asymmetry.md) ·
+[ENG-241](https://linear.app/davewil/issue/ENG-241)**, raised by this feature. Both rules are
+defensible, which is what makes it a decision: 18 §4 stops the analysis at the exported function,
+while 26 §1's argument for the unconditional tag is about the body not objecting and says nothing
+about callers.
 
 ## 4. Cost, measured on the corpus
 
