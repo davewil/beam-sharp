@@ -114,6 +114,7 @@ Erlang back to the decision that required it is one grep.
 | [F22 — a record pattern names its type, and any pattern takes a trailing binder](F22-record-pattern-and-binder.md) | **done 2026-08-22** · [ENG-237](https://linear.app/davewil/issue/ENG-237) | exemplar **25c**'s front wall (`consume.bs:20`) — the last of ticket 25's three walls that was a language gap rather than a decision still open. Resolves ticket 55 |
 | [F23 — a foreign error that arrives as a value](F23-value-returned-foreign-error.md) | **done 2026-08-22** · [ENG-228](https://linear.app/davewil/issue/ENG-228) | most of OTP's IO surface as a declarable FFI target — `file`, `inet`, `gen_tcp`, `erl_tar`. Resolves ticket 56 by **reversing F19 §2**: the wrapper keys on the payload `foreign_error`, not the tag `:error`. The first feature that REMOVES a diagnostic, and it extends the FFI declaration by nothing, which defuses ticket 52's 50/52/56 sequencing warning |
 | [F24 — an `int` parameter is an integer, at the boundary](F24-boundary-kind.md) | **done 2026-08-23** · [ENG-240](https://linear.app/davewil/issue/ENG-240) | nothing — it CLOSES ticket 18's outcome 3 on the one type the corpus refines. `Classify(100.5)` returned `:reserved` from a parameter published as `0..255`. Resolves ticket 58, which is the first ticket that was a **defect** rather than a question: 18 §1(b) decided it on 2026-08-13 and the rule was never in the emitter. The kind half only — ticket 46's range half is still unbuilt |
+| [F25 — the return-mismatch diagnostic carries the signature to paste](F25-corrected-signature.md) | **done 2026-08-23** | nothing. It is the only item on ticket 23 that was buildable without another ticket first, and it is what earns `return_not_declared` a place in `contractual/0` — until now it printed the uncovered residual and stopped, which answers what is WRONG and not what to WRITE. **It refuses more than it prints**: a record in the residual renders as ticket 26 §1's minted tag, so no signature is offered rather than one that looks pasteable and is not |
 
 
 <!-- 2026-08-22: F22 shipped on 2026-08-21 and was NEVER GIVEN A ROW HERE, and the board line
@@ -123,7 +124,11 @@ Erlang back to the decision that required it is one grep.
      the board line's count matches the file count. That is a real owed check — it is the
      "a passing gate may never have looked" shape, one namespace along — and it is left as a
      recommendation rather than built by a session that was resolving a different ticket. -->
-**STATE OF THE BOARD — 2026-08-23. All twenty-four features are done, and no row owes a file.** The
+**STATE OF THE BOARD — 2026-08-23, second entry today. All twenty-five features are done, and no
+row owes a file.** F25 came off ticket 23 after its build state was measured for the first time:
+six of its twelve sections were built and nothing had ever said which. F25 was the only unbuilt one
+whose precondition was met — §5 waits on ticket 16 §4, §7 on ticket 22's spelling, §3 and §6 are
+unbuilt outright, and §8a/§9 are unreachable because beam-sharp has no generator at all. The
 table above is the answer to *"what is built"*; the entries below it are a reverse-chronological
 log of what each build **revealed**, and several of them state the queue's condition **as it was on
 the day they were written**. Those sentences were true then and are not now — read the table for

@@ -28,7 +28,7 @@ docs_src() ->
 %% body does not deliver, which is the defect ticket 18 measured in Gleam.
 a_body_must_produce_the_declared_return_type_test() ->
     Src = "module M\npublic int Answer(int n)\nAnswer(n) -> :oops\n",
-    ?assertMatch([{error, _, 'Answer', {return_not_declared, _}}], errors(Src)).
+    ?assertMatch([{error, _, 'Answer', {return_not_declared, _, _}}], errors(Src)).
 
 a_body_producing_the_declared_type_compiles_test() ->
     Src = "module M\npublic atom Answer(int n)\nAnswer(n) -> :ok\n",
@@ -179,7 +179,7 @@ a_binding_carries_its_type_into_the_rest_of_the_body_test() ->
           "Wrong(o) ->\n"
           "    var t = o.Total\n"
           "    t\n",
-    ?assertMatch([{error, _, 'Wrong', {return_not_declared, _}}], errors(Src)).
+    ?assertMatch([{error, _, 'Wrong', {return_not_declared, _, _}}], errors(Src)).
 
 %% F5.10 — site 5, the destructuring bind ticket 34 deferred here rather than
 %% refusing. Provably irrefutable IFF the residual is empty.

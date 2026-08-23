@@ -88,9 +88,14 @@ channel() ->
 %% renderable and carries no shape promise. `defended` is named contractual by
 %% §4 and is NOT here because it does not exist: it is §3's informational
 %% boundary answer, which no feature has built.
+%% `return_not_declared` joined on 2026-08-23 with F25. Until then it printed the
+%% uncovered residual and stopped, which answers what is WRONG and not what to
+%% WRITE — so it failed §4's own membership test and was correctly absent. It
+%% carries the signature to paste now, so it passes.
 contractual() ->
     [inexhaustive, catch_all_over_closed, switch_inexhaustive,
-     arg_not_accepted, unreachable_clause, unreachable_arm].
+     arg_not_accepted, unreachable_clause, unreachable_arm,
+     return_not_declared].
 
 %%% ---------------------------------------------------------------------------
 %%% Publishing
@@ -202,10 +207,15 @@ descriptor(Path, {Sev, Line, Fn, {field_absent, Field, Residual}}) ->
                                field => Field,
                                residual => residual(Residual),
                                member => bs_types:to_pattern(Residual)};
-descriptor(Path, {Sev, Line, Fn, {return_not_declared, Residual}}) ->
+%% F25 — the payload gained `corrected`, which is §4's additive-only evolution
+%% working as intended: a map gains a key without breaking a matcher. It is
+%% `none` when there is nothing writable to offer, rather than absent, so a
+%% consumer never has to tell "refused" from "missing".
+descriptor(Path, {Sev, Line, Fn, {return_not_declared, Residual, Corrected}}) ->
     (at(Sev, Path, Line, Fn))#{tag => return_not_declared,
                                residual => residual(Residual),
-                               undeclared => bs_types:to_pattern(Residual)};
+                               undeclared => bs_types:to_pattern(Residual),
+                               corrected => Corrected};
 descriptor(Path, {Sev, Line, Fn, {bind_may_fail, Residual}}) ->
     (at(Sev, Path, Line, Fn))#{tag => bind_may_fail,
                                residual => residual(Residual),
@@ -576,12 +586,25 @@ message(#{tag := field_absent, file := P, line := L, function := Fn,
 %% SITE 4. Without this, beam-sharp emits a `-spec` claiming what its own body
 %% does not deliver — the defect ticket 18 measured in Gleam, from a body rather
 %% than from an FFI declaration.
+%% F25 / ticket 23 §8. The residual answers what is not COVERED; the second line
+%% answers what to WRITE. They are different questions and ticket 04 made the
+%% first one a product surface, so the signature is an addition rather than a
+%% replacement. The `none` clause comes first and is the case where the residual
+%% has no writable spelling — a record, or `binary \ string`.
 message(#{tag := return_not_declared, file := P, line := L, function := Fn,
-          undeclared := Undeclared}) ->
+          undeclared := Undeclared, corrected := none}) ->
     {"~s:~p: error: ~s returns a value its signature does not declare~n"
      "  not covered by the declared return type:~n"
      "    ~s~n",
      [P, L, Fn, Undeclared]};
+message(#{tag := return_not_declared, file := P, line := L, function := Fn,
+          undeclared := Undeclared, corrected := Corrected}) ->
+    {"~s:~p: error: ~s returns a value its signature does not declare~n"
+     "  not covered by the declared return type:~n"
+     "    ~s~n"
+     "  the signature its clauses justify:~n"
+     "    ~s~n",
+     [P, L, Fn, Undeclared, Corrected]};
 %% SITE 5. Ticket 34 deferred the destructuring bind here rather than refusing
 %% it: provably irrefutable exactly when this residual is empty.
 message(#{tag := bind_may_fail, file := P, line := L, function := Fn,

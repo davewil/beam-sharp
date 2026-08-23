@@ -1063,7 +1063,8 @@ check_fn(F = #fn{name = Name, line = Line, params = Params, ret = Ret}, Ctx0) ->
         [] ->
             {F, [{error, Line, Name, no_clauses}]};
         Clauses ->
-            {Residual, Diags} = walk(Clauses, Declared, Ctx, [], 1),
+            {Residual, Diags0} = walk(Clauses, Declared, Ctx, [], 1),
+            Diags = with_corrected_signature(F, Diags0),
             Final =
                 case bs_types:is_none(Residual) of
                     true  -> Diags;
@@ -1073,6 +1074,119 @@ check_fn(F = #fn{name = Name, line = Line, params = Params, ret = Ret}, Ctx0) ->
                     false -> Diags ++ [{error, Line, Name, {inexhaustive, Residual}}]
                 end,
             {F, Final}
+    end.
+
+%%% ---------------------------------------------------------------------------
+%%% F25 — the corrected signature. Ticket 23 §8.
+%%%
+%%% "When a clause returns outside its signature, the diagnostic carries the
+%%% corrected signature to paste." §2's line is that the compiler synthesises the
+%%% head and never the body, and a signature is a head.
+%%%
+%%% THE CORRECTION IS A PROPERTY OF THE FUNCTION, NOT OF THE CLAUSE THAT TRIPPED
+%%% IT, and that was measured rather than assumed. Two offending clauses produce
+%%% two diagnostics; correcting each one on its own prints two contradictory
+%%% pasteable lines — `int | :zero` and `int | (:error, string)` — and pasting
+%%% either leaves the other clause still wrong. So every residual is unioned
+%%% first and the one answer is attached to all of them.
+%%% ---------------------------------------------------------------------------
+
+with_corrected_signature(F, Diags) ->
+    case [R || {error, _, _, {return_not_declared, R}} <- Diags] of
+        []  -> Diags;
+        Rs  -> C = corrected_signature(F, bs_types:union(Rs)),
+               [attach_correction(D, C) || D <- Diags]
+    end.
+
+attach_correction({error, L, N, {return_not_declared, R}}, C) ->
+    {error, L, N, {return_not_declared, R, C}};
+attach_correction(D, _C) ->
+    D.
+
+%% `none` rather than a guess. A line that LOOKS pasteable and is not is worse
+%% than no line, because §2's whole argument is that the compiler hands the agent
+%% something usable.
+corrected_signature(#fn{name = Name, ret = Ret, params = Params, vis = Vis}, Union) ->
+    Rendered = bs_types:to_string(Union),
+    case writable(Rendered) of
+        false -> none;
+        true  ->
+            case {type_source(Ret), params_source(Params)} of
+                {none, _} -> none;
+                {_, none} -> none;
+                {RetSrc, Ps} ->
+                    lists:flatten([vis_source(Vis), RetSrc, " | ", Rendered,
+                                   " ", atom_to_list(Name), "(", Ps, ")"])
+            end
+    end.
+
+%% THE TEST IS ON THE RENDERED STRING, AND THAT IS THE HONEST TEST RATHER THAN A
+%% PROXY. The question is whether the text about to be printed can be pasted,
+%% which is a question about the text. Both unwritable spellings are produced in
+%% exactly one place each and nowhere else in `bs_types`' printer: `{` by
+%% `m_str/1`, the record field set carrying ticket 26 §1's minted tag, and `\` by
+%% `b_str([other])`, which that module's own comment describes as having "nothing
+%% to write for it". Both survive nesting inside a tuple or a list, because
+%% nesting renders through the same printers.
+writable(S) ->
+    string:find(S, "{") =:= nomatch andalso string:find(S, "\\") =:= nomatch.
+
+%% F12 made an unmarked signature private, so `public` is written exactly where
+%% it is meant. A pasted line that silently exported a private function would be
+%% a worse defect than the one being fixed.
+vis_source(public) -> "public ";
+vis_source(_)      -> "".
+
+params_source(Params) ->
+    Rendered = [param_source(P) || P <- Params],
+    case lists:member(none, Rendered) of
+        true  -> none;
+        false -> lists:join(", ", Rendered)
+    end.
+
+param_source({param, T, Name}) ->
+    case type_source(T) of
+        none -> none;
+        S    -> S ++ " " ++ atom_to_list(Name)
+    end.
+
+%%% The declared half is read from the TYPE AST — what the author wrote — and not
+%%% from the algebra. That is not tidiness. A function declared to return the
+%%% record `Order` renders through `bs_types:to_string/1` as
+%%% `{ Kind: :'Shop.Order', … }`, and through the AST as `Order`; taking the
+%%% declared half from source is what makes `Order | :oops` expressible at all.
+%%%
+%%% An unrecognised form answers `none` and the whole line is dropped, so a type
+%%% construct added later cannot leak a half-rendered signature — it disables the
+%%% feature for that signature until someone teaches this function the form.
+type_source({t_atom, A})        -> ":" ++ atom_to_list(A);
+type_source({t_builtin, B})     -> atom_to_list(B);
+type_source({t_ref, N})         -> atom_to_list(N);
+type_source({t_tuple, Cs})      -> bracket("(", Cs, ", ", ")");
+type_source({t_union, Ms})      -> join_source(Ms, " | ");
+type_source({t_generic, N, As}) ->
+    case bracket("<", As, ", ", ">") of
+        none -> none;
+        S    -> atom_to_list(N) ++ S
+    end;
+%% An inline structural map is refused rather than rendered. It is the one
+%% written form that can carry a `Kind:` field, and a signature is not where this
+%% feature wants to reason about whether the author's tag is theirs to paste. A
+%% record NAMED in a signature arrives as `t_ref` and is unaffected.
+type_source({t_map, _Fields})   -> none;
+type_source(_)                  -> none.
+
+join_source(Ts, Sep) ->
+    Rendered = [type_source(T) || T <- Ts],
+    case lists:member(none, Rendered) of
+        true  -> none;
+        false -> lists:flatten(lists:join(Sep, Rendered))
+    end.
+
+bracket(Open, Ts, Sep, Close) ->
+    case join_source(Ts, Sep) of
+        none -> none;
+        S    -> Open ++ S ++ Close
     end.
 
 %%% ---------------------------------------------------------------------------

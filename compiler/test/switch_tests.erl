@@ -259,7 +259,7 @@ a_switch_return_is_checked_against_the_signature_test() ->
           "    :placed => :new,\n"
           "    _       => :missing\n"
           "}\n",
-    [{error, _, 'Describe', {return_not_declared, Residual}}] = errors(Src),
+    [{error, _, 'Describe', {return_not_declared, Residual, _}}] = errors(Src),
     ?assertEqual(":missing", bs_types:to_pattern(Residual)).
 
 %% F7.11. The grammar already spends `{` on record declarations, anonymous map

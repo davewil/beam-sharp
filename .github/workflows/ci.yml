@@ -391,6 +391,31 @@ jobs:
         working-directory: compiler
         run: ./bin/check-boundary-kind.sh
 
+      # F25 / ticket 23 §8 — a return-mismatch diagnostic must hand over the
+      # signature to PASTE, not only the residual that is uncovered. §4's test
+      # for the contractual subset is §2's: does it hand the agent something to
+      # write?
+      #
+      # THE TWO STUBS THAT EARN THIS GATE ARE PER-CLAUSE AND OVERREACH, and both
+      # were measured before the gate was written. Two offending clauses produce
+      # two diagnostics, so a correction computed per clause prints two
+      # contradictory pasteable lines and neither is sufficient. And
+      # `bs_types:to_string/1` renders a record as ticket 26 §1's minted tag, so
+      # a signature carrying it hard-codes a mint instead of naming the record —
+      # a line that LOOKS pasteable and is not, which is the exact failure §2
+      # exists to prevent. A gate that only asked "is the heading there?" goes
+      # green over both.
+      #
+      # Probe 3 asserts an ABSENCE and probe 4 is the clean compile that makes it
+      # a measurement rather than a vacuum.
+      - name: The corrected-signature gate proves it can fail
+        working-directory: compiler
+        run: ./bin/check-corrected-signature.sh --self-test
+
+      - name: A return mismatch hands over the signature to paste
+        working-directory: compiler
+        run: ./bin/check-corrected-signature.sh
+
       # Dialyzer over every emitted spec, plus two negative controls that corrupt
       # a real emitted artefact and REQUIRE the corruption to be caught — because
       # a clean run proves nothing unless a wrong spec would fail it.

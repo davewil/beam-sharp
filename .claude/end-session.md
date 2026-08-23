@@ -25,6 +25,7 @@ cd compiler && ./bin/check-list-length.sh       # the checker sees a list's leng
 cd compiler && ./bin/check-field-values.sh      # a field assignment is checked, at both spellings
 cd compiler && ./bin/check-record-pattern.sh    # a type prefix subtracts what the Kind spelling does
 cd compiler && ./bin/check-boundary-kind.sh     # an int parameter is an integer at the boundary
+cd compiler && ./bin/check-corrected-signature.sh # a return mismatch hands over the line to paste
 cd compiler && ./bin/check-diagnostics.sh       # every tag has a message, and vice versa
 cd compiler && ./bin/check-no-silent-skip.sh    # no test reports ok for work it did not do
 cd compiler && ./bin/check-tour.sh              # TOUR replays, and the page is not stale
@@ -46,7 +47,10 @@ cd compiler && ./bin/extract-exemplars.sh --check
 it has been seen to go red, so the self-test pass is not optional decoration — it is the half
 that proves the green means something.
 
-**NINETEEN gate scripts — `check-boundary-kind.sh` added 2026-08-23 by F24, one day after
+**TWENTY gate scripts — `check-corrected-signature.sh` added 2026-08-23 by F25, hours after
+`check-boundary-kind.sh` made it nineteen the same day. It was `check-gates-wired.sh` that caught
+the omission rather than a reader, which is the third-edit rule working as designed.** Previously:
+`check-boundary-kind.sh` added 2026-08-23 by F24, one day after
 `check-record-pattern.sh` made it eighteen and two after `check-field-values.sh` made it
 seventeen.** The count has now been wrong at three consecutive
 readings, which is the point of writing it as a number: a stale one is visible, and a missing

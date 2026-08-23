@@ -367,7 +367,7 @@ declaring_the_bare_success_type_is_refused_test() ->
     Src = "module VaBareRet\n"
           "public int Go(term t)\n"
           "Go(t) -> ValidateAs<int>(t)\n",
-    ?assertMatch([{error, _, 'Go', {return_not_declared, _}}], errors(Src)).
+    ?assertMatch([{error, _, 'Go', {return_not_declared, _, _}}], errors(Src)).
 
 declaring_the_result_type_is_accepted_test() ->
     Src = "module VaGoodRet\n"
