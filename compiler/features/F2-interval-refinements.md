@@ -6,7 +6,8 @@
 **Depends on**  F1 only. 42 and 44 answered 2026-08-15, **43 answered 2026-08-16**
 **Raises**      [ticket 46](../../wayfinder/issues/46-refined-parameter-at-the-boundary.md) ·
                 [ENG-218](https://linear.app/davewil/issue/ENG-218) — a refined parameter is not
-                checked at the exported boundary
+                checked at the exported boundary. **Resolved 2026-08-23: yes, exported only,
+                emitting only what the clause does not already prove.** Unbuilt
 
 **Brief**       [The octet coupling](https://claude.ai/code/artifact/ac3174ee-507b-4ae6-97e3-fa7a2ea6ce43)
                 · source `wayfinder/beam-sharp-eng-214.html`
@@ -251,6 +252,15 @@ checks a refined parameter at the **exported boundary**. `Classify(300)` called 
 from the `ibs` prompt — matches `>= 9` and returns `:reserved`, outside the `Octet` its signature
 declares. Internal call sites are checked at site 1, so this is not a hole in the language; it is
 the *"forging the tag is caught, forging the payload is not"* limit ticket 18 already measured,
-arriving on a new shape. 18 calls emitting the check at the boundary *"genuinely optional"* — a
-decision — and 20 §5 makes this refinement O(1) guard-decidable, so the check is cheap and the
-question is real. [Ticket 46](../../wayfinder/issues/46-refined-parameter-at-the-boundary.md).
+arriving on a new shape. ~~18 calls emitting the check at the boundary *"genuinely optional"* — a
+decision —~~ **that quotation was 18's INTAKE, not its answer, and this feature read it wrongly
+(corrected 2026-08-23).** The line sits at `18-boundary-defence.md:107`, inside a section gathering
+ticket 09's material; 18 resolved the following day, and its §1 rule C emits a guard wherever the
+body would not object while §5 is titled *"No opt-out"*. 20 §5 makes this refinement O(1)
+guard-decidable, so the check is cheap and the question was real.
+**[Ticket 46](../../wayfinder/issues/46-refined-parameter-at-the-boundary.md) resolved it on
+2026-08-23: yes, on exported functions, emitting only what the clause does not already prove.**
+It also found what this feature's framing missed — the escapes are not only *above* the domain.
+`Band(-5)` returns `:low`, so the guard `Band(n) when n <= 64` needs is the **lower** bound.
+Raised beside it: [ticket 58](../../wayfinder/issues/58-refined-int-admits-a-float.md), since
+`Classify(100.5)` is `:reserved` and a comparison is not a type test.

@@ -34,10 +34,9 @@ spec exists.
   the compiler's **features** raise issues in the same team, and it has drifted at every subsequent
   check. Also: **not every ticket is a child of ENG-165** — 36 onwards hang off the *project*, so
   that query under-counts.
-  *This bullet held 28 lines of blow-by-blow corrections and was compressed on 2026-08-22 to make
-  room under the line budget. The findings below are what survived; the narrative is in the git
-  history, and stacking one correction on the next is the failure the exemplar README deleted rather
-  than extended.*
+  *This bullet held 28 lines of blow-by-blow corrections, compressed on 2026-08-22 for room. What
+  survived is below; the narrative is in git, and stacking one correction on the next is the failure
+  the exemplar README deleted rather than extended.*
   **The two rules the drift produced, which are the part worth keeping:**
   - **Raising a ticket means writing the repo file AND creating the issue** — the same both-not-one
     rule as resolving. Tickets 38 and 39 once existed as repo files with no issue at all, which the
@@ -278,14 +277,15 @@ Bodies in [`decisions.md`](decisions.md). Ticket text in `issues/`.
 ---
 - **Division and modulo** `#38` `syntax` `types`
   `/` on two `int`s truncates, `%` is the remainder; **no precondition** — only a provably zero divisor is refused
+- **A refined parameter gets a boundary guard** `#46` `codegen` `types`
+  yes, exported only — and it is **subtraction, not a flag**: 6 of `wire.bs`'s 11 clauses get nothing
 
 ## Not yet specified — index
 
 Bodies in [`fog.md`](fog.md). These are open: read the body before assuming a direction.
 
-- **Does a refined parameter get a boundary guard?** `#46` `codegen` `types`
-  `Classify(300)` from Erlang matches `>= 9`, outside the `Octet` its `-spec` declares. 18 calls
-  the exported check *optional*
+- **A refined `int` parameter admits a float** `#58` `codegen` `types`
+  `Classify(100.5)` is `:reserved`. Decided by 18 §1(b) and **not emitted** — a defect, not a question
 - **The boundary manifest's concrete format** `#24` `agent` `tooling`
   one artefact, not three — the classification, the advisory and the elision list
 - **The walking skeleton** `codegen`

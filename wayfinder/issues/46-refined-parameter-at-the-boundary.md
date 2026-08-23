@@ -1,6 +1,6 @@
 # 46 — Does a refined parameter get a boundary guard?
 
-Status: open — [ENG-218](https://linear.app/davewil/issue/ENG-218)
+Status: resolved 2026-08-23 — [ENG-218](https://linear.app/davewil/issue/ENG-218)
 Raised by: F2 (`compiler/features/F2-interval-refinements.md`, Done when), 2026-08-16
 Blocks: nothing — F2 shipped without it
 Type: `wayfinder:decision`
@@ -89,3 +89,133 @@ the tier a guard decides.
 18's standing question about every parameter, and it is deliberately not reopened here. This asks
 only about the *refinement* — the part of the type the author wrote down explicitly and that the
 compiler is now publishing in a `-spec`.
+
+---
+
+# Resolved — 2026-08-23
+
+**Yes. An exported function whose parameter is a refined integer gets a boundary guard, and the
+guard is the part of the refinement the clause does not already prove.**
+
+```csharp
+Classify(1)             -> :method       // nothing added — the literal proves 1 ∈ 0..255
+Classify(>= 4 and <= 7) -> :reserved     // nothing added — the pattern proves 4..7 ⊆ 0..255
+Classify(>= 9)          -> :reserved     // one comparison added
+```
+
+```erlang
+'Classify'(1)      -> method;
+'Classify'(Bs@r1) when Bs@r1 >= 4 andalso Bs@r1 =< 7   -> reserved;
+'Classify'(Bs@r1) when Bs@r1 >= 9 andalso Bs@r1 =< 255 -> reserved.
+%%                                        ^^^^^^^^^^^^ this, and only this
+```
+
+The compiler delta is one function in `bs_emit`, beside `constrains_kind/1`: given the declared
+type `D` and the type `P` the clause head accepts, emit comparisons for `P \ D`. Everything it
+needs exists — `bs_types:subtract/2`, and `bs_check:rel_type/2` which already turns a relational
+pattern into an interval.
+
+## 1. Emitted always, on exported functions only, and there is no second tier
+
+**Always**, by ticket 18 §1's rule C, case (b): *the body is total over the wrong term, so a guard
+is emitted*. `Classify(300)` returns `:reserved` and objects to nothing — 18's outcome 3, the only
+outcome that makes the type system a lie. This is not a new argument; it is 18's, applied to a
+shape 18 did not have when it resolved.
+
+**Exported only.** 18 §4 is explicit that C *"looks at the exported function's own clause heads and
+body, and no further"*. A private function's every call site is a checked beam-sharp call site, so
+site 1 already rejects the out-of-domain argument and the guard would be dead weight.
+
+**No second tier.** The record guard has two (tag always; exact-field-set only where generated code
+consumes the record) because a record's shape has two parts that can be forged separately. A
+refinement has one part. The range test *is* the whole check, so the question 46 inherited from
+26 §1's split does not arise here — recorded so it is visibly closed rather than skipped.
+
+## 2. A clause that already proves the bound gets nothing — and this is subtraction, not a flag
+
+This is the interesting half, and the answer is better than the yes/no the ticket asked for.
+`constrains_kind/1` is a **boolean** because a tag either is or is not constrained. A bound is not
+like that: `Classify(>= 9)` proves *half* of `Octet` and owes the other half. So the emitter
+subtracts rather than tests a flag, and emits comparisons for whatever is left.
+
+Measured against `examples/Wire/wire.bs` using the compiler's own algebra
+(`bs_types:subtract(Accepts, range(0, 255))`):
+
+| Clause | accepts | escapes `Octet` | emitted |
+|---|---|---|---|
+| `Classify(1)` … `Classify(0)` (5 clauses) | `1`, `2`, `3`, `8`, `0` | — | nothing |
+| `Classify(>= 4 and <= 7)` | `4..7` | — | nothing |
+| `Classify(>= 9)` | `int >= 9` | `int >= 256` | `=< 255` |
+| `Band(n) when n > 128` | `int >= 129` | `int >= 256` | `=< 255` |
+| `Band(n) when n > 64` | `int >= 65` | `int >= 256` | `=< 255` |
+| `Band(n) when n <= 64` | `int <= 64` | `int <= -1` | `>= 0` |
+| `Sizing(n)` | `int` | `int <= -1 \| int >= 256` | `>= 0`, `=< 255` |
+
+**Six of eleven clauses need nothing; the remaining five carry six comparisons between them,
+against twenty-two for a naive two-per-clause emission.** So the ticket's *"a range test is two
+comparisons"* is the worst case, not the cost.
+
+`Band(n) when n <= 64` is the row worth reading twice. It emits `>= 0`, the *lower* bound — and it
+is what catches `Band(-5)`, which returns `:low` today. The ticket framed this question entirely
+around values above the domain; half the escapes are below it.
+
+## 3. `function_clause`, and inspectability is ticket 23's
+
+Same failure as the record tag test, and for the same reason: two boundary guards in one clause
+head that failed differently would be two error channels where the author wrote one declaration.
+Ticket 12 retains `function_clause` and ticket 13 found `erlc` inserts it anyway.
+
+A `function_clause` on `Classify/1` does not say *"300 is not an `Octet`"*, which is a real cost —
+but it is already an open question with an owner. 18 §7 hands ticket 23 *"whether the emitted
+boundary should be **inspectable**, since under §1 and §4 it is invisible in the surface language"*.
+This ticket adds a second instance to that question rather than inventing an error channel beside it.
+
+## 4. A fixed number of projections, not a depth limit
+
+**A refined `int` is guarded wherever a fixed number of projections reaches it** — a whole
+parameter, a tuple element, a record field. It is **not** guarded through a collection.
+
+The criterion is cost, not nesting. A tuple element is bound by the clause pattern itself and a
+record field is one `map_get` — the same projection the tag test already emits at that depth, which
+is why 26 §7 puts *"presence and value tests per 18 §1 unchanged"* inside 18's existing scope. But a
+`list<Octet>` parameter is O(n) in a length **the foreign caller chooses**, which is ticket 11's
+refusal at a third site and 20 §5's second tier. Whole-parameter-only would have been the smaller
+answer and needs no defending; it is refused because it would leave a record field undefended that
+the tag test already stands next to.
+
+## What this hands back to ticket 18
+
+**A relational pattern is a shape where *"mentioned in a guard"* is not *"the body objects"*.**
+18's census counts a parameter defended if every clause *"constrains it structurally or mentions it
+in a guard"*. `Classify(>= 9)` mentions `Bs@r1` in a guard and admits `300` anyway. The heuristic
+and rule C diverge exactly on F2's construct, so the census understates by however many relational
+patterns a program contains — a correction to 18's measurement, not to its rule.
+
+## Corrections to this ticket's own premises
+
+- **18 did not call the exported check optional; its intake did.** The quoted sentence is at
+  `18-boundary-defence.md:107`, inside *"The mechanism already exists — from ticket 09, resolved
+  2026-08-12"*, which is material 18 gathered. 18 resolved **2026-08-13**, and its answer is §0–§8:
+  §1 is rule C, §5 is titled *"No opt-out"*, and §8's *"Not decided here"* does not list this. The
+  ticket already cited §1 against itself — *"by 18's stated test this case wants the check"* — so it
+  held both sides honestly. This only settles which of the two citations governs.
+- **The vocabulary premise holds, but not on the cited authority.** 18:99–102's enumeration
+  (`is_integer`, `is_binary`, `is_atom`, `is_tuple`, `binary_to_existing_atom`) is ticket 09's
+  *union-discriminability* set and contains no comparison at all. The citation that works is
+  **20 §5**, which puts a guard-decidable refinement in the O(1) tier and says it is *"legal in a
+  clause head, legal at an FFI declaration"* — the boundary, named.
+- **`boundary_guards/4` is not scoped to exported functions,** though its comment says
+  *"unconditional on an exported record parameter"*. Nothing consults `is_public/1`; measured, a
+  private `Inner(Order o)` receives the tag test. That is the record guard's business against
+  18 §4, not this ticket's, and it is why §1 above states the scope rather than inheriting it.
+
+## Consequences
+
+- **A new defect, decided and unbuilt** — see [ticket 58](58-refined-int-admits-a-float.md).
+  `Classify(100.5)` returns `:reserved`. The refinement guard narrows *within* `int` and its
+  soundness rests on 18 §1(b)'s type test, which is decided and not emitted. Comparison operators
+  are not type tests: `100.5 >= 0 andalso 100.5 =< 255` is `true`. 46's *"not `is_integer/1` in
+  general"* is correctly scoped — 18 already answered that — so this is raised beside 46 rather than
+  inside it.
+- **Ticket 23** gains a second instance of the inspectability question it inherited from 18 §7.
+- **F2** may now close its *Done when* clause; the decision it raised this ticket for exists.
