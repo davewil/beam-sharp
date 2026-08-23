@@ -1,0 +1,24 @@
+// CASE 7 — the actual cost of having no marker, isolated.
+//
+// CASE 6 already showed the stub does NOT suppress diagnostics: the checker
+// carries on and reports defects in the finished functions too. So the cost
+// is not blindness.
+//
+// This module is CORRECT apart from one unwritten function. Nothing here is
+// wrong; `Weigh` is total and exhaustive and would run today. The question
+// is whether a .beam comes out, because that is what decides whether you can
+// RUN or TEST the finished half while the other half is unwritten.
+module StubBlocks
+
+type FrameType = :method | :header | :body | :heartbeat
+
+// Complete, exhaustive, correct.
+public int Weigh(FrameType f)
+
+Weigh(:method) -> 1
+Weigh(:header) -> 2
+Weigh(:body) -> 3
+Weigh(:heartbeat) -> 0
+
+// Unwritten. The only thing in this module that is not finished.
+public int Priority(FrameType f)

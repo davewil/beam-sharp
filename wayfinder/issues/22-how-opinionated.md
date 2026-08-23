@@ -233,6 +233,40 @@ signature and the existing walk produces exactly that, naming every case the age
 | **Body position** — the survey's answer | `Weigh(f) -> incomplete` | one lexer rule and one expression arm — **cheapest of the three to build**. The cost is not build effort: the clause is total, so it consumes the residual and the stub compiles silently, and §7's *one marker per declaration* becomes one per hole |
 | **Convention** — a comment | `// TODO` | free, and refused by 23 §7's own requirement: the marker must change what compiles, and a comment the parser drops cannot |
 
+### What NOT building it costs — David's question, 2026-08-23, measured
+
+Asked directly: *"if incomplete marker is not implemented what's the cost? a compiler error?"*
+Probes 6 and 7, `run_cost.sh`. Three results, and the first one killed my own hypothesis.
+
+**1. A stub does not blind the checker.** I expected one unwritten function to darken its module.
+It does not. `StubMixed` holds a stub, a correct function and a planted return defect, and the
+compiler reports **2 errors**; the same file with the stub deleted reports **1**. The stub adds its
+own error and suppresses nothing. So the cost is not lost diagnostics.
+
+**2. The cost is that nothing is emitted.** `StubBlocks` is correct apart from one unwritten
+function — `Weigh` is total, exhaustive and would run today. Result: `beam files emitted: 0`.
+F15 makes the directory the module, so **one unwritten function blocks execution of every finished
+function in the directory**. You cannot run or test the written half until the last hole is filled.
+That is the whole cost, and it is a *workflow* cost rather than a correctness one.
+
+**3. `--api` already answers for the half-written module, and already prints the residual.** Same
+module, exit **0**:
+
+```
+module StubBlocks
+int Priority(:body | :header | :heartbeat | :method)
+int Weigh(:body | :header | :heartbeat | :method)
+```
+
+This closes the inconsistency 23 recorded between `bs_api.erl:31-37` and `bs_check.erl:1063-1064`
+with a measurement: the two really do disagree, `--api` answers where compilation refuses, and the
+thing `--api` prints for the unwritten function **is** the residual §7 wants. So §7's diagnostic
+exists today on a channel that already works. What it does not have is a way to produce a `.beam`.
+
+**The cost of the workaround is the argument for the marker.** With no marker an agent must write
+something plausible, and `Weigh(f) -> 0` compiles clean and silent (case 4). So today's choice is
+not *"error or marker"* — it is **a hard error, or a placeholder that ships looking finished**.
+
 ### What this does to the four questions
 
 Questions 1–3 are unchanged; the survey speaks only to question 4. On that one it kills the

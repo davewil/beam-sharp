@@ -1,0 +1,35 @@
+// CASE 6 — what does NOT having the marker actually cost?
+//
+// The error message is not the cost. The question is BLAST RADIUS: one
+// unwritten function sits in a module with two finished ones. Does the
+// compiler still check and emit the finished two, or does the whole module
+// go dark until somebody writes the third?
+//
+// F15 makes a directory a module, so "the module" here is every .bs file in
+// the directory — this is the unit that either compiles or does not.
+module StubMixed
+
+type FrameType = :method | :header | :body | :heartbeat
+
+// FINISHED, and exhaustive.
+public int Weigh(FrameType f)
+
+Weigh(:method) -> 1
+Weigh(:header) -> 2
+Weigh(:body) -> 3
+Weigh(:heartbeat) -> 0
+
+// FINISHED, and it has a real defect in it: `Label(:body)` returns an int
+// where the signature promises a string. If the module compiles, the
+// checker should catch this. If it does NOT get caught, then the unwritten
+// function below is HIDING it, and the cost of no marker is not one error,
+// it is every diagnostic downstream of the first stub.
+public string Label(FrameType f)
+
+Label(:method) -> "method"
+Label(:header) -> "header"
+Label(:body) -> 3
+Label(:heartbeat) -> "heartbeat"
+
+// UNWRITTEN. This is the stub.
+public int Priority(FrameType f)

@@ -20,7 +20,7 @@ BSC="$HERE/../../../compiler/_build/default/bin/bsc"
 OUT="${TMPDIR:-/tmp}/bs_t22_out.$$"
 mkdir -p "$OUT"
 
-for d in StubNone StubPartial StubCatchall StubBound StubRecord; do
+for d in StubNone StubPartial StubCatchall StubBound StubRecord StubMixed StubMixedControl; do
   printf '\n########## %s ##########\n' "$d"
   "$BSC" -o "$OUT" "$HERE/bs/$d"/*.bs 2>&1 | head -10
   echo "EXIT=${PIPESTATUS[0]}"

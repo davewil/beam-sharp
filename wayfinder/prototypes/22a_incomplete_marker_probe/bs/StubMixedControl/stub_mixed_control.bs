@@ -1,0 +1,23 @@
+// CONTROL for CASE 6. Identical to StubMixed with the unwritten function
+// DELETED. The `Label(:body) -> 3` defect is still here.
+//
+// If this reports the defect and StubMixed does not, then the cost of having
+// no incomplete marker is measured: one unwritten function suppresses every
+// diagnostic in its module.
+module StubMixedControl
+
+type FrameType = :method | :header | :body | :heartbeat
+
+public int Weigh(FrameType f)
+
+Weigh(:method) -> 1
+Weigh(:header) -> 2
+Weigh(:body) -> 3
+Weigh(:heartbeat) -> 0
+
+public string Label(FrameType f)
+
+Label(:method) -> "method"
+Label(:header) -> "header"
+Label(:body) -> 3
+Label(:heartbeat) -> "heartbeat"
