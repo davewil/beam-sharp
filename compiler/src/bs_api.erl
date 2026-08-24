@@ -228,21 +228,12 @@ operation(File, {signature, Line, Name, _Ret, Params, public}, Exports, Module) 
                  || {{param, _, PName}, T} <- lists:zip(Params, ParamTypes)],
       result => type_string(Result)}.
 
-%% `term` IS THE LANGUAGE'S WORD FOR THE TOP TYPE, and `bs_types:to_string/1`
-%% renders it as the six-way union of the algebra's points — correct, longer,
-%% and telling the caller less than the one word does. `HandleCall`'s `from`
-%% parameter is the case: `atom | int | tuple | list<term> | map | binary` where
-%% the source says `term`. 23 §12 keeps full weight on read cost, so the answer
-%% uses the word the language has.
-%%
-%% IT IS LOCAL TO THIS CHANNEL RATHER THAN A CHANGE TO `to_string/1`, because
-%% that function is shared with every diagnostic and a residual is a set the
-%% author must enumerate — there the expansion is the point.
-type_string(T) ->
-    case T =:= bs_types:term() of
-        true  -> "term";
-        false -> bs_types:to_string(T)
-    end.
+%% `term` IS THE LANGUAGE'S WORD FOR THE TOP TYPE. This channel used to strip
+%% the six-way expansion locally; ticket 61 found the same expansion reaching
+%% authors through `ValidationError` and the valve's diagnostics, and moved the
+%% rule into `bs_types:to_string/1` itself — the exact top now prints as `term`
+%% on every channel, and a partial residual is still enumerated.
+type_string(T) -> bs_types:to_string(T).
 
 %%% ---------------------------------------------------------------------------
 %%% Publishing

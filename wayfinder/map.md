@@ -271,14 +271,14 @@ Bodies in [`decisions.md`](decisions.md). Ticket text in `issues/`.
 - **Composable middleware, and what the valve reaches** `#31` `syntax` `patterns` `errors`
   yes — a terminal stage that always halts makes the unwrap **one clause**, which neither neighbour
   can state. The cost is the atom: a `200 OK` spelled `(:error, _)`; `|?>` refuses `option<T>` (→ 49)
-
----
 - **Division and modulo** `#38` `syntax` `types`
   `/` on two `int`s truncates, `%` is the remainder; **no precondition** — only a provably zero divisor is refused
 - **A refined parameter gets a boundary guard** `#46` `codegen` `types`
   yes, exported only — and it is **subtraction, not a flag**: 6 of `wire.bs`'s 11 clauses get nothing
 - **How opinionated is the language** `#22` `agent` `errors`
   **no incomplete marker**, so a clause-less signature stays a hard error and no keyword is spent; the domain arm is dead and 23 §7 is **overturned**
+- **`ValidateAs`'s pathed error stops at the row** `#61` `errors` `types` `tooling`
+  one absorption defect: `t_absorb` kept `X | X` and dropped mutual equals — an antichain fix restores the `"(N)"` descent, and the exact top prints `term`
 
 ## Not yet specified — index
 

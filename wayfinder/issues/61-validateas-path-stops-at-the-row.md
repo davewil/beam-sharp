@@ -1,7 +1,8 @@
 # 61 — `ValidateAs`'s pathed error stops at the row, and two renderings beside it
 
 Type: defect
-Status: open
+Status: **resolved 2026-08-24** — [ENG-243](https://linear.app/davewil/issue/ENG-243). All three
+repairs landed; see [Answer](#answer) at the end.
 
 Raised by exemplar 25d on 2026-08-24 while measuring per-row validation at result-set scale.
 Repo body: this file; measurements in
@@ -67,3 +68,38 @@ lost** — three concrete, checkable repairs.
 * **Ticket 25 / exemplar 25d** — where it was found, and the write-up's finding 5.
 * **Ticket 43** — the truncation rule; the *term* keeps everything, which is why rendering
   defects in the term are load-bearing.
+
+## Answer
+
+Resolved 2026-08-24, and defects 1 and 3 turned out to be **one defect, not two — and it was
+never the descent**. The `"(N)"` machinery this ticket asked for has existed since F18
+(`tuple_case({one, ...})` emits exactly those segments); what stopped it was `bs_types:t_absorb/1`
+comparing *distinct* members only (`Q =/= P`), so a product unioned with itself survived twice.
+`l_elem/1` does exactly that union for every `list<T>` — the element type is both the spine's
+prefix and its open tail — so every list-of-tuples validator received a two-member union of one
+product, the discriminator saw ambiguity where there was none, and the `{alts, _}` clause
+correctly stopped blame at the row *of the type it was actually given*. Deduplicate the union and
+the descent needs no change at all.
+
+The same comparison had a live soundness edge beyond the ticket: two structurally different
+spellings of one product (`(int, atom) | (atom, int)` written in both orders) each absorb the
+other and **both vanish** — a union of two inhabited types reporting empty, measured red in
+`types_tests` before the fix. `t_absorb/1` now folds to a **maximal antichain**: a product covered
+by anything already kept is dropped (equality keeps the first), and a kept product covered by a
+newcomer gives way. `m_absorb/1` had already fixed the dedup half — for maps only, on an earlier
+day — which is why F18.7's record-in-list descent always passed while 25d's tuple rows failed:
+a decided rule that never reached past its example.
+
+Defect 2 lived in **two** printers, not one. `to_string/1` renders `ValidationError`'s expected
+type; the valve's cannot-fail diagnostic renders through `to_pattern/1`; both now print the exact
+top as `term`. A *partial* residual is untouched — nothing short of the whole top takes the
+spelling — so "the residual is a set the author must enumerate" holds everywhere enumeration says
+anything, which dissolves the objection `bs_api` recorded when it met this defect earlier and
+patched it locally: that local patch is retired, the rule lives in the printers. (`_` was
+considered and refused for `to_pattern/1`: ticket 12 §2 makes a catch-all illegal over a closed
+residual, and a diagnostic must not recommend a form the checker refuses.)
+
+Measured at the boundary afterwards, the probe's §3 form returns
+`(:error, (["[1]", "(2)"], "string"))` — row, component, narrow type, the reference's own
+promise — and the valve control says `(:ok, term, term)`. Tests: seven new
+(`validate_as_tests`, `types_tests`, `pipe_tests`), all seen red first; 509 pass.

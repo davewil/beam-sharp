@@ -536,9 +536,26 @@ product_minus(A, B) ->
 
 %% Drop any product wholly contained in another. This removes redundancy without
 %% ever merging two products into a wider one.
+%%
+%% TICKET 61 — CONTAINMENT BETWEEN EQUALS MUST KEEP ONE, NOT TWO AND NOT ZERO.
+%% The previous spelling compared DISTINCT members only (`Q =/= P`), which had
+%% both failure modes at once: a product unioned with itself survived twice —
+%% `l_elem/1` does exactly that for every `list<T>`, and the doubled member then
+%% read as ambiguity, stopping the validator's descent at the row — while two
+%% structurally different spellings of the same product each absorbed the other
+%% and BOTH vanished, a union of inhabited types reporting empty. `m_absorb/1`
+%% fixed only the first half for maps; folding to a maximal antichain fixes
+%% both: a product covered by anything already kept is dropped (equality keeps
+%% the first), and a kept product covered by a newcomer gives way to it.
 t_absorb(Ps0) ->
     Ps = [P || P <- Ps0, not lists:any(fun is_none/1, P)],
-    [P || P <- Ps, not lists:any(fun(Q) -> Q =/= P andalso product_subset(P, Q) end, Ps)].
+    lists:foldl(fun(P, Kept) ->
+                        case lists:any(fun(Q) -> product_subset(P, Q) end, Kept) of
+                            true  -> Kept;
+                            false -> [Q || Q <- Kept, not product_subset(Q, P)]
+                                     ++ [P]
+                        end
+                end, [], Ps).
 
 product_subset(P, Q) ->
     length(P) =:= length(Q) andalso
@@ -954,10 +971,22 @@ sp_items(P) -> string:join([to_string(T) || T <- P], ", ").
 %%% it also gets a machine-readable form; until then it has to read well.
 %%% ---------------------------------------------------------------------------
 
+%% TICKET 61 — THE EXACT TOP PRINTS AS `term`, on every channel. `term` is not
+%% an author's alias that erased by diagnostic time; it is the name of the top,
+%% and its six-way decomposition tells the reader less than the one word does.
+%% A PARTIAL residual is untouched — nothing short of the whole top takes this
+%% spelling, so "the residual is a set the author must enumerate" still holds
+%% everywhere enumeration says anything. The subtype test degrades safely: a
+%% type semantically equal to the top but spelled through over-approximated
+%% parts merely keeps its enumerated form.
 to_string(T) ->
     case is_none(T) of
         true  -> "none";
-        false -> string:join(parts(T), " | ")
+        false ->
+            case is_subtype(term(), T) of
+                true  -> "term";
+                false -> string:join(parts(T), " | ")
+            end
     end.
 
 parts(#{atoms := As, ints := Is, tuples := Ts, lists := Ls, maps := Ms, bins := Bs}) ->
@@ -1033,10 +1062,17 @@ pattern_parts(T) ->
         false -> pat_parts(T)
     end.
 
-pat_parts(#{atoms := As, ints := Is, tuples := Ts, lists := Ls, maps := Ms,
-            bins := Bs}) ->
-    a_str(As) ++ [i_str(R) || R <- Is] ++ ts_pat(Ts) ++ l_str(Ls) ++ ms_pat(Ms)
-        ++ b_str(Bs).
+%% TICKET 61 — the exact top is one part, `term`, here as in `to_string/1`.
+%% The leaves of this printer are already type words (`int`, `tuple`, `map`),
+%% so the top's word is the consistent spelling — and suggesting `_` instead
+%% would recommend a form ticket 12 §2 refuses over a closed residual.
+pat_parts(T = #{atoms := As, ints := Is, tuples := Ts, lists := Ls, maps := Ms,
+                bins := Bs}) ->
+    case is_subtype(term(), T) of
+        true  -> ["term"];
+        false -> a_str(As) ++ [i_str(R) || R <- Is] ++ ts_pat(Ts) ++ l_str(Ls)
+                     ++ ms_pat(Ms) ++ b_str(Bs)
+    end.
 
 ts_pat(top) -> ["tuple"];
 ts_pat(Ps)  -> ["(" ++ string:join([to_pattern(C) || C <- P], ", ") ++ ")" || P <- Ps].

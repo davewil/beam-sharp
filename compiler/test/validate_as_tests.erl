@@ -232,6 +232,55 @@ a_tag_belonging_to_neither_is_rejected_test() ->
     ?assertMatch({error, {[], _}}, M:'Decode'(Bad)).
 
 %%% ---------------------------------------------------------------------------
+%%% Ticket 61 — the path descends into a tuple component, and the expectation
+%%% is printed the way the author would write it
+%%%
+%%% Raised by exemplar 25d: a result set crosses the boundary as a list of
+%%% tuple rows, and the error stopped at the row. The descent machinery was
+%%% never the gap — `t_absorb/1` kept two copies of an identical product, so
+%%% the element type arrived as a two-member union and the discriminator saw
+%%% ambiguity where there was none. `m_absorb/1` had already fixed exactly
+%%% this for records, which is why F18.7 above always passed.
+%%% ---------------------------------------------------------------------------
+
+wire_src() ->
+    "module VaWire\n"
+    "type WireRow = (int, string, term)\n"
+    "public result<list<WireRow>, ValidationError> Rows(term t)\n"
+    "Rows(t) -> ValidateAs<list<WireRow>>(t)\n".
+
+%% 25d §3's expectation, verbatim: the row, the component, and the narrow
+%% expected type — `(["[1]", "(2)"], "string")`, not a stop at the row.
+a_bad_tuple_component_names_row_and_component_test() ->
+    M = build_and_load(wire_src(), 'VaWire'),
+    ?assertEqual({error, {[<<"[1]">>, <<"(2)">>], <<"string">>}},
+                 M:'Rows'([{1, <<"ada">>, x}, {2, bad, y}])).
+
+a_clean_tuple_rowset_passes_test() ->
+    M = build_and_load(wire_src(), 'VaWire'),
+    ?assertEqual([{1, <<"ada">>, x}], M:'Rows'([{1, <<"ada">>, x}])).
+
+%% `l_elem` unions the spine's prefix with its tail, and for `list<P>` the two
+%% are the same type — the expectation must not say so twice.
+a_list_element_expectation_prints_once_test() ->
+    Src = "module VaPairList\n"
+          "type P = (int, int)\n"
+          "public result<list<P>, ValidationError> Go(term t)\n"
+          "Go(t) -> ValidateAs<list<P>>(t)\n",
+    M = build_and_load(Src, 'VaPairList'),
+    ?assertEqual({error, {[<<"[0]">>], <<"(int, int)">>}}, M:'Go'([x])).
+
+%% `term` is not an alias that erased by diagnostic time — it is the name of
+%% the top, and printing its six-way decomposition is strictly worse.
+term_prints_as_term_in_an_expectation_test() ->
+    Src = "module VaTermField\n"
+          "type Tagged = (:ok, term)\n"
+          "public result<Tagged, ValidationError> Go(term t)\n"
+          "Go(t) -> ValidateAs<Tagged>(t)\n",
+    M = build_and_load(Src, 'VaTermField'),
+    ?assertEqual({error, {[], <<"(:ok, term)">>}}, M:'Go'(42)).
+
+%%% ---------------------------------------------------------------------------
 %%% The type is the ALGEBRA's, not the surface's
 %%% ---------------------------------------------------------------------------
 

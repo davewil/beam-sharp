@@ -193,6 +193,25 @@ a_valve_over_a_value_that_cannot_fail_is_an_error_test() ->
                      ?assert(string:find(Out, "rc:1") =/= nomatch)
              end).
 
+%% Ticket 61's second sighting of the same rendering defect: this message names
+%% the subject TYPE, and a `term` component arrived as its six-way decomposition
+%% — `(:ok, atom | int | tuple | list<term> | map | binary, ...)` where the
+%% author wrote `(:ok, term, term)`. `term` is not an alias that erased; it is
+%% the name of the top, and this channel renders through `to_pattern/1`, which
+%% owes the same rule `to_string/1` has.
+the_infallible_subject_prints_term_as_term_test() ->
+    Src = "module W2\n"
+          "type Row = (:ok, term, term)\n"
+          "public term Run(Row r)\n"
+          "Run(r) -> r |?> Shaped()\n"
+          "private term Shaped(Row r)\n"
+          "Shaped((:ok, cols, rows)) -> rows\n",
+    [{error, _, 'Run', {valve_on_infallible, _}}] = errors(Src),
+    cli(Src, fun(Out) ->
+                     ?assert(string:find(Out, "(:ok, term, term)") =/= nomatch),
+                     ?assertEqual(nomatch, string:find(Out, "atom | int"))
+             end).
+
 %% AND NO WARNING LEAKS FROM THE ARMS THE COMPILER WROTE. Two would otherwise:
 %% `unreachable_arm` above, and ticket 12 §2's rule against a catch-all over a
 %% closed residual — which the value arm is, by construction, every single time.

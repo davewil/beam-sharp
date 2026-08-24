@@ -238,3 +238,35 @@ a_negative_literal_dispatches_in_a_pattern_test() ->
     ?assertEqual(negative,  M:'Sign'(-5)),
     ?assertEqual(zero,      M:'Sign'(0)),
     ?assertEqual(positive,  M:'Sign'(3)).
+
+%%% ---------------------------------------------------------------------------
+%%% Ticket 61 — absorption over equal products, and how the top prints
+%%% ---------------------------------------------------------------------------
+
+%% `t_absorb` dropped a product only when a DISTINCT product contained it, so a
+%% union of a product with itself kept both copies — and the printed algebra
+%% then claimed `X | X`, which the checker itself knows is false. The map part
+%% learned this in `m_absorb` (dedup before absorption); this is the tuple part
+%% owing the same repair.
+a_union_of_a_product_with_itself_is_the_product_test() ->
+    P = bs_types:tuple([bs_types:int(), bs_types:int()]),
+    ?assertEqual("(int, int)", bs_types:to_string(bs_types:union(P, P))).
+
+%% The sharper edge of the same line: two structurally DIFFERENT spellings of
+%% the same product each absorb the other, and BOTH vanish — the union of two
+%% inhabited types reporting empty. A dedup-only fix (usort before absorbing)
+%% passes the test above and still fails this one.
+mutually_containing_products_keep_a_representative_test() ->
+    IA = bs_types:tuple([bs_types:int(), bs_types:atom_top()]),
+    AI = bs_types:tuple([bs_types:atom_top(), bs_types:int()]),
+    X  = bs_types:union(IA, AI),
+    Y  = bs_types:union(AI, IA),
+    U  = bs_types:union(bs_types:tuple([X, bs_types:int()]),
+                        bs_types:tuple([Y, bs_types:int()])),
+    ?assertNot(bs_types:is_none(U)),
+    ?assert(bs_types:is_subtype(bs_types:tuple([X, bs_types:int()]), U)).
+
+%% The top prints as the word the language has for it. A PARTIAL residual is
+%% still enumerated — nothing short of the whole top takes this spelling.
+the_top_prints_as_term_test() ->
+    ?assertEqual("term", bs_types:to_string(bs_types:term())).

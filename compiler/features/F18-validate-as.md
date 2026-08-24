@@ -173,6 +173,13 @@ arity, two records with the same field set — blames at the node with that node
 expectation, and never invents a preference. Descending speculatively is the more useful error
 exactly when it happens to be right, and the compiler cannot know when that is.
 
+**The rule was right and the algebra under it was not — found by exemplar 25d, fixed 2026-08-24
+as [ticket 61](../../wayfinder/issues/61-validateas-path-stops-at-the-row.md).** `l_elem/1` hands
+every `list<T>` validator its element type as `T` unioned with itself, and `t_absorb/1` kept both
+copies — so a list of tuple rows arrived as a two-member union of one product, read as genuine
+ambiguity, and blamed the row where `"(N)"` descent was available. Nothing in this section
+changed; the union now deduplicates and the descent this section always promised happens.
+
 **Arity alone is not the discriminator, and writing it that way first is how that was found.** A
 tagged union is the idiomatic shape on this runtime and *every* member of one has the same arity, so
 grouping tuple products by arity reported `(:ok, int) | (:error, atom)` as ambiguous and blamed the
