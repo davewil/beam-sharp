@@ -71,8 +71,13 @@ its first type over which the headline guarantee says nothing.
 
 1. **Opaque, Gleam-shaped.** `map<K, V>` with `Get`/`Put`/`Delete`/`Keys` as compiler-known
    functions and **no pattern form**. Records stay the only brace-pattern surface; the pattern
-   grammar, the residual algebra and the catch-all rule are all untouched. Gleam's `Dict` is this,
-   deliberately.
+   grammar, the residual algebra and the catch-all rule are all untouched. ~~Gleam's `Dict` is this,
+   deliberately.~~ **Both of those words are wrong, corrected 2026-08-25 by the survey.** Gleam's
+   `Dict` is not `opaque` — that is a real Gleam keyword meaning *constructors exist but are
+   module-private*, and `Dict` is declared `pub type Dict(key, value)` with **no constructors at
+   all** and `@external` operations. And *"deliberately"* asserts an intent **no primary source
+   states**: the behaviour is documented, the reason is not. Gleam's `Dict` is this shape, shipped,
+   without a published argument. Keep the candidate; drop both claims about why.
 2. **Matchable, Erlang-shaped.** A pattern form in clause heads. Now known to be *possible* — the
    `Kind`-absent construction keeps it off records — at the price that matching a map proves
    nothing.
@@ -152,9 +157,17 @@ distinction was *"a form beam-sharp has no equivalent of"*, implying a pattern f
 (`48a` §1–3, §5): `=>` is **illegal** in an Erlang pattern — `illegal pattern, did you mean to use
 ':='?` — `:=` is **illegal** in an Erlang construction, and `:=` **is not an Elixir operator at
 all**. The two meet in exactly one place, Erlang's *update* expression, where `:=` demands the key
-exist (`{error,{badkey,k}}`) and `=>` inserts. **So it is an update form, not a pattern form, and
-beam-sharp already has one — `with`.** The live question it relocates to is whether `with` on a map
-requires the key to exist; nothing here answers that.
+exist (`{error,{badkey,k}}`) and `=>` inserts. **So it is an update form, not a pattern form.**
+
+The survey's own first draft then added *"and beam-sharp already has one — `with`"*, and that was a
+claim about this compiler made without running it. Run
+([`48d`](../prototypes/48d_with_is_record_only.sh)), it is false: `with` on a `list<(atom, term)>`,
+on a `term`, **and on an `int`** are all accepted at exit 0, while `with` on a record with an
+undeclared field is refused precisely (*"not declared by Order: NoSuchField"*). Three controls
+establish the checker is looking. **`with`'s subject is unchecked**, so its acceptance of a list is
+a hole rather than support — beam-sharp has a *record*-update form, not a map-update one. The arm
+therefore relocates to a construct that **would have to be added**, which is a different input to
+the grilling than "one that already exists".
 
 **On the name, all three sources disagree, so this is tier 3, not the tier-1 borrow this section
 assumed.** Erlang and Elixir call the type `map` and tolerate the collision with `Enum.map`; C#

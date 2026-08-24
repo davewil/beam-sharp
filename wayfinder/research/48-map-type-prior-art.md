@@ -16,6 +16,7 @@ a design *rationale*, which is not a thing a compiler can be asked.
 | Gleam | [`48b`](../prototypes/48b_gleam_dict_opacity.sh), gleam 1.18.1 | measured: the behaviour. cited: the reason |
 | Erlang / Elixir | [`48a`](../prototypes/48a_map_forms_erlang_elixir.sh), OTP 28 / Elixir on OTP 28 | measured, entirely |
 | C# | [`48c`](../prototypes/48c_csharp_dictionary_forms.sh), dotnet 9.0.306 | measured, entirely |
+| beam-sharp itself | [`48d`](../prototypes/48d_with_is_record_only.sh), the built `bsc` | measured — added when the survey caught itself asserting something about `with` it had not run |
 
 ---
 
@@ -26,9 +27,14 @@ a design *rationale*, which is not a thing a compiler can be asked.
 | has a map type | yes, `#{}` | yes, `%{}` | yes, `Dict` | yes, `Dictionary<K,V>` |
 | **matchable in a clause head** | **yes** | **yes** | **no** | **on properties only, never on keys** |
 | **enforces exhaustiveness** | no | no | **yes, refuses to compile** | no — warning only |
-| absence of a key is | a failed clause | a failed clause | **a returned value** (`Error(Nil)`) | an exception or `TryGetValue` |
+| absence of a key is | a failed clause | a failed clause | **a returned value** (`Error(Nil)`) | *not probed — see note* |
 | the type is called | `map` | `map` | `Dict` | `Dictionary` |
 | the map *function* is called | `lists:map` | `Enum.map` | `list.map` | **`Select`** |
+
+*Note on the one blank cell:* C#'s missing-key behaviour was **not probed**. `48c` measured pattern
+forms and the naming inventory and nothing else, and no conclusion in this file rests on it. The
+header rule above says every claim is measured or cited, so an unmeasured cell is left empty rather
+than filled from recollection.
 
 **The one source that shares beam-sharp's problem is also the only one with no map pattern.**
 Gleam is the only surveyed language that enforces exhaustiveness, and the only one you cannot match
@@ -80,12 +86,48 @@ on a map that LACKS the key #{}:
       M#{k => 9}  -> #{k => 9}
 ```
 
-**This relocates the arm.** The construct beam-sharp would be missing an equivalent of is not a
-pattern form — it is an **update** form, and beam-sharp already has one: `with`, which
-[25d](../prototypes/25d-database-querying.md) records earning its place in the fold accumulator.
-The live question that survives is therefore *"does `with` on a map require the key to exist, or
-insert it?"* — a real question, a smaller one, and one about a construct that already exists rather
-than one that would have to be invented. Elixir is not a source on it either way.
+**This relocates the arm** out of pattern position and into **update** position. Elixir is not a
+source on it either way.
+
+The first draft of this file then added *"...and beam-sharp already has one: `with`"*, which was a
+claim about **this compiler** written without running this compiler. Run
+([`48d`](../prototypes/48d_with_is_record_only.sh)), it is wrong, and the real answer is worse than
+either option:
+
+| probe | result |
+|---|---|
+| control — `with` on a record, correct field | accepted |
+| control — `with` on a record, **undeclared** field | **refused**: *"Bump updates an Order with the wrong fields / not declared by Order: NoSuchField"* |
+| control — a bad return type in the same position | **refused**, precisely |
+| `with` on a `list<(atom, term)>` | **accepted, exit 0** |
+| `with` on a `term` | **accepted, exit 0** |
+| **`with` on an `int`** | **accepted, exit 0** |
+
+The three controls matter because on this compiler a silent run *is* the success signal, so an
+unchecked construct and a correct one look identical. They establish that the checker reaches a
+function body and that it understands `with` well enough to enumerate a record's fields — which
+makes the last three rows real acceptances rather than a blind spot in the probe.
+
+`n with { Key = 1 }` where `n : int` is not a design question, it is nonsense. So **`with`'s subject
+is not checked at all**, and its apparent acceptance of a list or a foreign map is a **hole, not
+support**. beam-sharp does not already have a map-update form; it has a *record*-update form with a
+missing subject check.
+
+**So the arm relocates to a construct that would have to be added, not one that exists** — which is
+a materially different input to the grilling than the first draft claimed. The live question is not
+*"does `with` on a map require the key to exist?"* but *"is there a map-update form at all, and
+what does it do about a key that is not there?"*
+
+The unchecked subject is a defect in its own right and is not ticket 48's to fix; it is raised
+separately, with `48d` as its repro.
+
+<!-- ENG-249 -->
+
+
+
+**Note the shape of this correction.** It is the same failure the survey was written to catch, made
+by the survey: a claim asserted from familiarity instead of measured. Two of the three premise
+corrections above are the ticket's; this one is this file's.
 
 ### 2. "Exhaustiveness over a map is vacuous" is true of candidate 2 only
 

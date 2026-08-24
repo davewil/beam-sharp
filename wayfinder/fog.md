@@ -526,8 +526,10 @@
   ([research](research/48-map-type-prior-art.md), three probes, every arm run rather than read) and
   it took two of the ticket's own premises with it. The `:=` / `=>` distinction is **not a pattern
   form**: `=>` is illegal in an Erlang pattern, `:=` is illegal in an Erlang construction, and `:=`
-  is not an Elixir operator at all — the two meet only in Erlang's *update* expression, which
-  beam-sharp already has as `with`. And *"the first type over which the headline guarantee says
+  is not an Elixir operator at all — the two meet only in Erlang's *update* expression, a form
+  beam-sharp turns out **not** to have: `with` is record-only, and measured against the built `bsc`
+  its subject is not checked at all (`int with { Key = 1 }` compiles), so its apparent acceptance of
+  a list is a hole rather than support. And *"the first type over which the headline guarantee says
   nothing"* is a cost of the **matchable** candidate alone: Gleam has a map type, enforces
   exhaustiveness, and pays nothing, because `Dict` has no constructors for a pattern to destructure
   and absence comes back as a `Result` the checker can see. The survey also found that Gleam's
