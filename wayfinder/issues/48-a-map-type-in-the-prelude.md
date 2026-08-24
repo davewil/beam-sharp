@@ -67,6 +67,47 @@ its first type over which the headline guarantee says nothing.
 > total everywhere, and the prelude already ships the return type that makes it work. **The
 > objection that reads as fatal to "a map type" is an objection to "a map pattern".**
 
+## There are two tags, not one — measured 2026-08-25
+
+Raised by David while reading the survey: *"if I name map type dict in B#, does the interop with
+Elixir hold on struct/record types?"* The name does not reach the wire — `dict<K, V>` erases to the
+same BEAM map whatever it is called — but the question underneath is real, and this ticket's
+proposal had only ever considered **one** tag.
+
+    a B# record      is a map carrying   Kind        => :'MyApp.Response'
+    an Elixir struct is a map carrying   __struct__  => :'Elixir.Req.Response'
+
+Different atoms. So *"open map, `Kind` absent"* — this ticket's wording above — says **nothing at
+all** about `__struct__`. Measured on the `Descr` instrument
+([`48e`](../prototypes/48e_dict_vs_two_tags.exs), four controls first, both `true` and `false`
+reachable on each predicate):
+
+| | `dict` = *`Kind` absent* | `dict` = *both tags absent* |
+|---|---|---|
+| disjoint from a B# record | **yes** | **yes** |
+| admits a plain map | **yes** | **yes** |
+| **admits an Elixir struct** | **YES** | no — disjoint |
+
+**So the choice is real and both options work.** This is a decision, not a constraint:
+
+- **`Kind` absent only.** A foreign struct *is* a `dict`, so
+  [ticket 50](50-naming-a-foreign-struct.md)'s candidate 2 — *"read the struct as an ordinary open
+  map, keys narrowed at use"* — works with no extra surface. The price is that `dict` stops meaning
+  "not somebody else's aggregate": `Req.get!()`'s return value type-checks as `dict<atom, term>`.
+- **Both tags absent.** `dict` means what it says, and a foreign struct is not one. The price is
+  that reading a foreign struct then needs somewhere else to land, and the obvious candidate does
+  not work: an **unrestricted** open map admits a B# record *and* an Elixir struct (measured), so it
+  cannot tell them apart. 50's candidate 2 would need its own type rather than reusing this one.
+
+One reassurance from the same run: **a B# record and an Elixir struct are disjoint from each other**,
+so the two-tag scheme is sound in itself. The question is only which of them `dict` is allowed to
+overlap.
+
+<!-- the ex_struct shape is modelled on 51a's real measurement of 2026-08-21: Req's value carries __struct__ and does not carry Kind -->
+
+**This is the joint between 48 and 50**, and it is the concrete reason 50 asks to be resolved
+alongside this one rather than after it.
+
 ## The three candidates
 
 1. **Opaque, Gleam-shaped.** `map<K, V>` with `Get`/`Put`/`Delete`/`Keys` as compiler-known

@@ -54,6 +54,17 @@ Three shapes, none costed:
    [`31e`](../prototypes/31e_elixir_maps_vs_structs.exs) measured that `__struct__` and `Kind` are the
    *same mechanism* — a hidden tag key making otherwise-identical maps disjoint — and that a map type
    declaring the tag **absent** stays disjoint from every struct.
+
+   > **Sharpened 2026-08-25 — "the tag" is two tags, and which one you name decides this ticket.**
+   > That last clause is true only if the key declared absent is `__struct__`. Ticket 48's actual
+   > proposal declares **`Kind`** absent, which says nothing about `__struct__`, and measured
+   > ([`48e`](../prototypes/48e_dict_vs_two_tags.exs)) an Elixir struct **is** then a member of the
+   > map type. So this candidate does not merely *coexist* with 48 — **48's own wording already
+   > grants it**, for free and possibly by accident. The alternative, declaring both tags absent, is
+   > also available and also works, and it shuts this candidate off: an unrestricted open map, the
+   > obvious fallback, admits a B# record and an Elixir struct alike and so cannot separate them.
+   > **Whichever way 48 words its map type decides whether shape 2 here exists at all**, which is
+   > the strongest form yet of this ticket's own request to be resolved alongside it.
 3. **`ValidateAs<T>` at the boundary** — validate the foreign map into a native record once, then
    work with a real record. Honest, and it costs a traversal whose size a foreign sender chooses,
    which is exactly what ticket 11 refused to put in a clause head.
