@@ -522,9 +522,18 @@
   and worked around it each time — an `epgsql:connect/1` options map spelled as a proplist the
   library still happens to accept, a decoded `jsonb` document left as `term`, and a group-by on an
   open `string` key hand-built as an O(n) assoc list. With 25a's `#{ ... }` front wall that is four
-  demands from two exemplars. **What remains is the survey**: three of the borrow heuristic's four
-  sources are unmeasured, and Gleam's reasoning for making `Dict` deliberately unmatchable is
-  candidate 1 with the work already done.
+  demands from two exemplars. **The survey landed the same day**
+  ([research](research/48-map-type-prior-art.md), three probes, every arm run rather than read) and
+  it took two of the ticket's own premises with it. The `:=` / `=>` distinction is **not a pattern
+  form**: `=>` is illegal in an Erlang pattern, `:=` is illegal in an Erlang construction, and `:=`
+  is not an Elixir operator at all — the two meet only in Erlang's *update* expression, which
+  beam-sharp already has as `with`. And *"the first type over which the headline guarantee says
+  nothing"* is a cost of the **matchable** candidate alone: Gleam has a map type, enforces
+  exhaustiveness, and pays nothing, because `Dict` has no constructors for a pattern to destructure
+  and absence comes back as a `Result` the checker can see. The survey also found that Gleam's
+  *rationale* for that was never published — the behaviour is documented, the reason is not — so the
+  opaque candidate is a shipped precedent rather than a borrowed argument. **What remains is the
+  grilling**, which is now choosing between three costed candidates rather than clearing a blocker.
 
 - **What the valve keys on: the atom, or the declared type?** — → **[ticket 49](issues/49-what-the-valve-keys-on.md)**,
   raised 2026-08-21 out of ticket 31. 31c's **shape B** keys `|?>` on the stage's declared parameter

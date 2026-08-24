@@ -1,7 +1,8 @@
 # 48 — A map type in the prelude: opaque, matchable, or not at all?
 
 Type: grilling
-Status: open — [ENG-230](https://linear.app/davewil/issue/ENG-230)
+Status: claimed — [ENG-230](https://linear.app/davewil/issue/ENG-230). Survey landed 2026-08-25
+([research](../research/48-map-type-prior-art.md)); the grilling itself is unstarted.
 
 > **The ticket-to-issue arithmetic is dead, and this is a third data point.** 48 is ENG-230,
 > not the ENG-214 that `CLAUDE.md`'s `166+NN` rule predicts. Read the number, never compute it —
@@ -53,6 +54,19 @@ so a catch-all is always legal there (ticket 12's rule). Exhaustiveness over a m
 Elixir pays nothing for that because it never promised exhaustiveness; beam-sharp would be adding
 its first type over which the headline guarantee says nothing.
 
+> **Corrected 2026-08-25 by the survey — that last clause attaches to the wrong scope.** The
+> unbounded-key-domain half is confirmed and measured
+> ([`48a`](../prototypes/48a_map_forms_erlang_elixir.sh) §4: the fall-through clause `#{}` matches
+> every map, including maps lacking the key the previous clause asked for). But *"beam-sharp would
+> be adding its first type over which the headline guarantee says nothing"* is a cost of
+> **candidate 2 alone**, not of having a map type. Gleam has a map type and does not pay it,
+> because it has no map *pattern*: the only pattern over a `Dict` is a variable, total by
+> construction, so the checker is never asked. Absence moves into the value domain instead —
+> `dict.get` returns a `Result`, a closed two-constructor union the checker *can* see
+> ([`48b`](../prototypes/48b_gleam_dict_opacity.sh) §4–5). Under candidate 1 the guarantee stays
+> total everywhere, and the prelude already ships the return type that makes it work. **The
+> objection that reads as fatal to "a map type" is an objection to "a map pattern".**
+
 ## The three candidates
 
 1. **Opaque, Gleam-shaped.** `map<K, V>` with `Get`/`Put`/`Delete`/`Keys` as compiler-known
@@ -95,16 +109,70 @@ paid to go around. Maps are extremely familiar from Elixir, which is why they wo
 in without paying the toll — the toll is now paid on this arm, and **owed on the survey arm below**,
 which is what remains before this resolves.
 
-## Not yet surveyed
+## Surveyed — 2026-08-25
 
-The borrow heuristic wants all four sources and only one has been measured.
+Done, and every arm **run** rather than read:
+[`research/48-map-type-prior-art.md`](../research/48-map-type-prior-art.md), from
+[`48a`](../prototypes/48a_map_forms_erlang_elixir.sh) (Erlang/Elixir, OTP 28),
+[`48b`](../prototypes/48b_gleam_dict_opacity.sh) (gleam 1.18.1) and
+[`48c`](../prototypes/48c_csharp_dictionary_forms.sh) (dotnet 9.0.306).
 
-- **Gleam** — `Dict` is opaque and deliberately not matchable. *Why* is the most valuable
-  unread thing here, because it is candidate 1 with the reasoning already done.
-- **Erlang / Elixir** — matchable, and the `%{k := v}` / `%{k => v}` distinction between "must be
-  present" and "may be" is a form beam-sharp has no equivalent of.
-- **C#** — `Dictionary<K,V>` and the frozen collections; no pattern form worth borrowing, but the
-  *naming* question (`map` versus `dict`) is a tier-1 borrow decision.
+| | Erlang | Elixir | Gleam | C# |
+|---|---|---|---|---|
+| matchable in a clause head | yes | yes | **no** | on properties only, never on keys |
+| enforces exhaustiveness | no | no | **yes — refuses to compile** | no — warning only |
+| absence of a key is | a failed clause | a failed clause | **a returned value** | an exception or `TryGetValue` |
+| the type is called | `map` | `map` | `Dict` | `Dictionary` |
+| the map *function* is called | `lists:map` | `Enum.map` | `list.map` | `Select` |
+
+**The one surveyed language that shares this ticket's problem is also the only one with no map
+pattern.** Gleam is the only source that enforces exhaustiveness — `48b` runs that as a control
+before anything else and it goes red (`Inexhaustive patterns … The missing patterns are: Blue`) —
+and the only one you cannot match a map in. Absence moved to the value domain instead, where the
+checker can see it: `dict.get` returns a `Result`. That is candidate 1, shipped.
+
+Two precisions the survey insists on, both of which change how candidate 1 should be written:
+
+- **`Dict` is not `opaque`.** `opaque` is a real Gleam keyword — a custom type whose constructors
+  exist but are module-private. `Dict` has none to hide: it is declared `pub type Dict(key, value)`
+  with no constructor list and `@external` operations. Patterns destructure constructors, so there
+  is nothing for one to take apart. Candidate 1's *effect* is right; its mechanism is **"a type with
+  no constructors, implemented externally"**, not "a type whose constructors are hidden".
+- **Correction — "candidate 1 with the reasoning already done" is not true.** The behaviour is
+  documented (*"There is no dict literal syntax in Gleam, and you cannot pattern match on a dict.
+  Dicts are generally not used much in Gleam, custom types are more common."*) but **no primary
+  source gives a reason**, and specifically the exhaustiveness argument is nobody's but ours. The
+  FAQ's twelve rejected features do not include map patterns; there is no feature request and so no
+  rejection. Candidate 1 is a **shipped precedent with no published argument** — still worth a lot,
+  since a language promising exhaustiveness has lived without map patterns for years, but the
+  grilling must supply the argument rather than inherit it.
+
+**Correction — the `:=` / `=>` premise this section used to carry was wrong.** It said the
+distinction was *"a form beam-sharp has no equivalent of"*, implying a pattern form. Measured
+(`48a` §1–3, §5): `=>` is **illegal** in an Erlang pattern — `illegal pattern, did you mean to use
+':='?` — `:=` is **illegal** in an Erlang construction, and `:=` **is not an Elixir operator at
+all**. The two meet in exactly one place, Erlang's *update* expression, where `:=` demands the key
+exist (`{error,{badkey,k}}`) and `=>` inserts. **So it is an update form, not a pattern form, and
+beam-sharp already has one — `with`.** The live question it relocates to is whether `with` on a map
+requires the key to exist; nothing here answers that.
+
+**On the name, all three sources disagree, so this is tier 3, not the tier-1 borrow this section
+assumed.** Erlang and Elixir call the type `map` and tolerate the collision with `Enum.map`; C#
+calls it `Dictionary` and never had a collision, because LINQ took its verb from SQL and named the
+function `Select` (`48c` measures both: fourteen BCL types say `Dictionary`, no collection type
+says `Map`, `Enumerable.Select` exists and `Enumerable.Map` does not). Gleam is the one that had
+beam-sharp's exact problem — BEAM host, a `map`-named list function — and it is the one that
+changed the type's name, **for that reason, on the record**:
+
+> "`Map` is a little confusing as it collides with the common map function. Let's rename it."
+
+<!-- lpil, gleam-lang/gleam issue 2405, 2023-11-11; shipped as stdlib#510, deprecated in gleam_stdlib v0.33.0, removed in v0.35.0 -->
+
+Note *"the common map function"* — the map/filter/reduce family in general, not `list.map`
+specifically. The same release renamed `gleam/dynamic`'s `map` function to `dict`, which is what
+tells you the driver was the name and not the data structure. **This is the tie-break datum, and
+unlike the pattern-form question it is a documented decision rather than a silent one.** The choice
+is still the grilling's to make.
 
 ## Notes
 
