@@ -193,6 +193,14 @@ compiler **accepts it** — exit 0, no diagnostic. Ticket 12 §2 says that is an
 skeleton gap rather than a design change, and it is the first place the skeleton is known to be
 behind a closed decision.
 
+> **CORRECTED 2026-08-24 — F2 closed both halves on 2026-08-16 and this file never followed.**
+> The rule is enforced (probe 3's program is refused today, with a diagnostic naming the discarded
+> cases — re-measured by `25d_surface_probe.sh` §1), the signature *can* state a width
+> (`type Octet = int where ...`), and the interval-pattern coupling this section demanded held:
+> both landed in the one change, exactly as required. So "does not currently bite" above was true
+> for three days and stale for eight; the probe script's own 2c/3b sections were added when F2
+> landed and this prose was not updated beside them.
+
 ### The residual is a diagnostic, and it does not scale
 
 Ticket [23](../issues/23-what-the-language-owes-an-agent.md) makes the residual the thing the
@@ -434,7 +442,8 @@ Six things, ordered by how much they should worry you.
 
 6. **The skeleton accepts a catch-all over a closed residual** (probe 3), which ticket 12 §2 makes an
    error. A skeleton gap, not a design change — but the first known place the skeleton is behind a
-   closed decision. → the skeleton, ticket 12.
+   closed decision. *(Corrected 2026-08-24: F2 built the rule on 2026-08-16 — probe 3's program is
+   refused today. See the correction block in the method.bs section above.)* → the skeleton, ticket 12.
 
 ### What ticket 30 can now take from this
 

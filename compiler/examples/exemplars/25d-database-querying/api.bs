@@ -1,0 +1,13 @@
+// EXTRACTED — do not edit here.
+// Source: wayfinder/prototypes/25d-database-querying.md, section `api.bs`
+// Regenerate: compiler/bin/extract-exemplars.sh
+//
+// This file is OUT OF THE WALKING SKELETON SLICE and does not parse today.
+// It is a target for the compiler, not a passing example. The write-up it
+// came from carries the friction list explaining what is wrong with it and
+// why that is the point.
+
+public result<list<OrderRow>, FetchError> ByStatus(term pool, OrderStatus s, option<int> min, option<string> cust)
+
+ByStatus(pool, s, min, cust) -> :gen_server.call(pool, (:by_status, s, min, cust))
+

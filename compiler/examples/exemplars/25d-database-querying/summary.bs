@@ -1,0 +1,24 @@
+// EXTRACTED — do not edit here.
+// Source: wayfinder/prototypes/25d-database-querying.md, section `summary.bs`
+// Regenerate: compiler/bin/extract-exemplars.sh
+//
+// This file is OUT OF THE WALKING SKELETON SLICE and does not parse today.
+// It is a target for the compiler, not a passing example. The write-up it
+// came from carries the friction list explaining what is wrong with it and
+// why that is the point.
+
+public Totals Summarise(list<OrderRow> rows)
+
+Summarise(rows) -> Tally(rows, Totals { Placed = 0, Shipped = 0, Cancelled = 0 })
+
+private Totals Tally(list<OrderRow> rows, Totals t)
+
+Tally([], t)          -> t
+Tally([r, ..rest], t) -> Tally(rest, Add(t, r))
+
+private Totals Add(Totals t, OrderRow r)
+
+Add(t, { Status: :placed } r)    -> t with { Placed = t.Placed + r.TotalCents }
+Add(t, { Status: :shipped } r)   -> t with { Shipped = t.Shipped + r.TotalCents }
+Add(t, { Status: :cancelled } r) -> t with { Cancelled = t.Cancelled + r.TotalCents }
+

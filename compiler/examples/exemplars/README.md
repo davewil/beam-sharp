@@ -1,6 +1,10 @@
 # Ticket 25's exemplars, extracted
 
-**None of these parse today.** They are the compiler's *target*, not its test suite — the
+**None of these compile today.** ~~None of these parse today.~~ — corrected 2026-08-24, when 25d
+landed and got past the parser whole: its front wall is the missing `module` line, i.e. the
+module-name *decision* ticket 25 recorded and deliberately left unmade, and behind that wall one
+type error stands (the reply-channel finding, `api.bs`). The other three still stop in the parser.
+They are the compiler's *target*, not its test suite — the
 `examples/*.bs` one directory up are the passing ones, and `bin/spec-check.sh` globs that flat
 level deliberately so nothing here can break the gate.
 
@@ -20,6 +24,7 @@ friction these files contain is deliberate and is explained where it came from:
 | `25a-http-api-server/` | [`25a-http-api-server.md`](../../../wayfinder/prototypes/25a-http-api-server.md) | `25a_http_lowering.erl` |
 | `25b-websocket-handler/` | [`25b-websocket-handler.md`](../../../wayfinder/prototypes/25b-websocket-handler.md) | `25b_websocket_lowering.erl` |
 | `25c-event-queue-consumer/` | [`25c-event-queue-consumer.md`](../../../wayfinder/prototypes/25c-event-queue-consumer.md) | `25c_queue_lowering.erl` |
+| `25d-database-querying/` | [`25d-database-querying.md`](../../../wayfinder/prototypes/25d-database-querying.md) | `25d_db_lowering.erl` — replays terms captured live from PostgreSQL 16 (`25d_live_capture.escript`) |
 
 ## A divergence these files used to expose — CLOSED, and it was recorded backwards
 
@@ -176,9 +181,11 @@ one claim and neither is sufficient: `--check` proves these files match the writ
 gate proves the write-ups still describe a language the compiler has. Both can agree perfectly and
 both be obsolete, which is what happened.
 
-**One coupling is recorded in 25c and in neither ticket**: interval *patterns* and interval
-*refinements* must land in the **same** increment. Today a parameter declared `int` has an open
-residual, so wire dispatch gets its catch-all for free; the moment `type Octet = int where ...`
-lands, every wire dispatch acquires a **closed** residual — 252 unnamed values for an AMQP frame
-type — and without interval patterns to name them, wire parsing breaks. See
-`25c_residual_probe.sh`.
+~~**One coupling is recorded in 25c and in neither ticket**: interval *patterns* and interval
+*refinements* must land in the **same** increment.~~ **They did — F2, 2026-08-16, one change**
+(this paragraph was written as a warning and rotted into looking like an open risk; corrected
+2026-08-24). The pairing held exactly as 25c demanded: a refinement closes a residual and the span
+pattern is what answers in it. The measurement trail is `25c_residual_probe.sh` probes 2c/3b, and
+ticket 12 §2's closed-residual rule has been **enforced** since the same change — which 25c's
+prose and ticket 25's results section both failed to record for eight days; see 25d's write-up,
+finding 1.

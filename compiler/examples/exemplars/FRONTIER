@@ -41,3 +41,4 @@
 25a-http-api-server	create_order.bs	error: illegal characters "#"
 25b-websocket-handler	encode.bs	error: syntax error before: '=>'
 25c-event-queue-consumer	encode.bs	error: syntax error before: '<<'
+25d-database-querying	-	error: this directory holds `.bs` files and no `module` line

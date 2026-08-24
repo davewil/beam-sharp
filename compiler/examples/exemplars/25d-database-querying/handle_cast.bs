@@ -1,0 +1,13 @@
+// EXTRACTED — do not edit here.
+// Source: wayfinder/prototypes/25d-database-querying.md, section `handle_cast.bs`
+// Regenerate: compiler/bin/extract-exemplars.sh
+//
+// This file is OUT OF THE WALKING SKELETON SLICE and does not parse today.
+// It is a target for the compiler, not a passing example. The write-up it
+// came from carries the friction list explaining what is wrong with it and
+// why that is the point.
+
+public (:noreply, term) HandleCast(term msg, term conn)
+
+HandleCast(msg, conn) -> (:noreply, conn)
+

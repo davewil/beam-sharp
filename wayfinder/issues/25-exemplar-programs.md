@@ -166,7 +166,7 @@ remain.
 | HTTP API server | [`25a-http-api-server.md`](../prototypes/25a-http-api-server.md), [`25a_http_lowering.erl`](../prototypes/25a_http_lowering.erl) | **written, runs** |
 | WebSocket handler | [`25b-websocket-handler.md`](../prototypes/25b-websocket-handler.md), [`25b_websocket_lowering.erl`](../prototypes/25b_websocket_lowering.erl) | **written, runs** |
 | Event-queue consumer | [`25c-event-queue-consumer.md`](../prototypes/25c-event-queue-consumer.md), [`25c_queue_lowering.erl`](../prototypes/25c_queue_lowering.erl), [`25c_residual_probe.sh`](../prototypes/25c_residual_probe.sh) | **written, runs** (2026-08-13) |
-| Database querying | — | not written |
+| Database querying | [`25d-database-querying.md`](../prototypes/25d-database-querying.md), [`25d_db_lowering.erl`](../prototypes/25d_db_lowering.erl), [`25d_live_capture.escript`](../prototypes/25d_live_capture.escript), [`25d_surface_probe.sh`](../prototypes/25d_surface_probe.sh) | **written, runs** (2026-08-24) |
 | Async processing | — | not written |
 | Dynamic web page | — | not written |
 
@@ -336,7 +336,10 @@ records that coupling. → tickets 12, 20, 04.
 
 **Separately, the skeleton does not implement ticket 12 §2 at all** — it accepts a catch-all over a
 genuinely closed atom residual, exit 0, no diagnostic. A skeleton gap rather than a design change,
-and the first known place the skeleton is behind a closed decision.
+and the first known place the skeleton is behind a closed decision. *(Corrected 2026-08-24: F2
+built the rule on 2026-08-16, together with the interval coupling the paragraph above demands —
+re-measured refused by `25d_surface_probe.sh` §1. This line, 25c's write-up and LANGUAGE.md §5 all
+went stale the same way for eight days; all three corrected today.)*
 
 ### The residual does not scale as a diagnostic
 
@@ -482,3 +485,64 @@ Ticket 53 is the vindication of this ticket's own premise, arriving late. §"The
 to test" says the exemplars are how ticket 22's narrowing risk *"gets measured rather than argued"* —
 and the first time one of them met the compiler, it turned out the aggregate reads beautifully and
 the router cannot be written at all.
+
+---
+
+## RESULTS — fourth exemplar, database querying, 2026-08-24
+
+[`25d-database-querying.md`](../prototypes/25d-database-querying.md) — PostgreSQL via epgsql, with
+a lowering that compiles with no warnings and runs on OTP 28, replaying result-set terms **captured
+from a live PostgreSQL 16 through real epgsql 4.7.1**
+([`25d_live_capture.escript`](../prototypes/25d_live_capture.escript)) — the rows are another
+system's choices, not this session's, because a stub cannot be surprising and 25a already recorded
+what happens when an exemplar constructs its own evidence. Compiler measurements:
+[`25d_surface_probe.sh`](../prototypes/25d_surface_probe.sh).
+
+**The headline: 25d's front wall is a decision, not a construct.** `FRONTIER` records it stopping
+on the missing `module` line — the module-name question this ticket logged on 2026-08-17 and
+deliberately left unmade. Behind that wall stands exactly **one** type error (measured in a scratch
+copy): the reply-channel finding below. Behind *that*, **the whole module compiles**, `erlc` exit 0
+— the first exemplar within sight of clean, while 25a–c all still stop in the parser.
+
+The findings, compressed (full versions and measurements in the write-up):
+
+0. **The reply channel of a `gen_server` call has no type.** Ticket 14 §1 put the *request* type
+   on the client wrapper; the *reply* comes back `term`, narrowing it is a containment error, and
+   the two compiling spellings are both wrong (untype the API, or `ValidateAs` your own server's
+   proved reply). Nothing decided owns the reply direction. → 14, 24, 18.
+1. **Ticket 12 §2 has been enforced since F2 (2026-08-16) and three files still said otherwise.**
+   Probe 1 re-measured: `_` over a closed residual is refused, naming the discarded cases. 25c's
+   write-up, this ticket and LANGUAGE.md §3/§5 all corrected today, dated. The deliberate-close
+   count 12 asked these exemplars to keep is still **zero** — in 25d the rule only ever worked
+   *for* the program (`summary.bs`'s fold). → 12, 04.
+2. **A fallible per-element map costs three hand-written functions** — the valve composes stages,
+   not elements; no lambda, no `List.Map`, no traverse. Every future fallible row conversion is
+   the same three functions with different nouns. → 17, 15, stdlib fog.
+3. **`term` poisons every union it joins.** The pg error forces `(:pg, term)`; `option<term>`
+   *is* `term`, so the nullable column needs a purpose-built two-member union; SQL NULL is
+   `:null`, which `option<atom>` counts as *present* (measured); and a hand-written
+   `result<term, E>` self-absorbs **silently** with the diagnostic surfacing two files from the
+   cause — this exemplar's first draft hit it. → 09, 15.
+4. **The valve loses both ends of a real chain.** Renaming an error forces a `switch` at the seam,
+   and the seam's subtraction then makes the compiler itself demand `|>` for the next link
+   ("Write `|>` instead" — measured). Interior stages compose perfectly; `Shaped`'s two clauses
+   over the seam-subtracted union are the design at its best. Fourth exemplar, fourth different
+   edge of `|?>`. → 17, 49.
+5. **`ValidateAs` at 100k tuple rows: 21 ms — affordable — and the pathed error stops at the
+   row.** No `"(2)"` component segment despite the reference promising one, `term` rendered as a
+   six-way expansion, a union member printed twice. Raised as **ticket 61 / ENG-243**, this
+   series' first compiler-defect ticket. → 18, 23, 61.
+6. **What the wire really carries** (live): `numeric` is `{unknown_oid, 1700}` + binary text — so
+   money is `int` cents or it does not cross; a `timestamptz`'s seconds is a **float**, a value
+   B# cannot write as a literal; `jsonb` rewrites its own bytes; `equery`'s ok-shape depends on
+   the SQL verb, so every select consumer owes a count clause; the config a modern library wants
+   is a map (25d compiles only because a proplist form survives). → 48, the float row, stdlib.
+7. **Query building is 2^k clauses over k optional filters** — 17 job 1's third data point: still
+   no ladder, still no `cond` case; the cure is iolist/string building, which the language lacks.
+   And the closed-key group-by needs no map — record fields *are* the groups when the key is a
+   closed union — while group-by-customer (open key) has no spelling at all: 48's sharpest datum
+   yet, from an exemplar that *wanted* one. → 17, 48.
+
+**Two exemplars remain**: async processing (both its tickets resolved — it now only tests) and the
+dynamic web page (the last binary-accumulation case 17 job 2 asked for, and the first that would
+meet binary *construction* in expression position, which is 25c's current wall too).
