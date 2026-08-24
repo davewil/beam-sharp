@@ -64,7 +64,7 @@ its first type over which the headline guarantee says nothing.
    nothing.
 3. **Not at all.** `list<(atom, term)>` already carries the case that raised it.
 
-## The bar this has to clear, and why it is not resolvable yet
+## The bar this has to clear — cleared on the exemplar arm, 2026-08-25
 
 **The destination is a clean-room spec.** Every construct is a section an agent fleet implements
 from prose without David in the room, and a matchable map is the paragraph most likely to be got
@@ -75,11 +75,25 @@ So the test is the one that cut function values: [ticket 27](27-parametric-polym
 was cut on three measurements and one of them was flatly **"no exemplar declares one"**
 (→ [ticket 37](37-instantiation-by-matching.md)). Same test here.
 
-**Blocked by evidence that does not exist yet.** The exemplar most likely to want a map is
-**25a, the HTTP API server**, which is currently a router with no pipeline — and rewriting it as a
-pipeline is precisely what ticket 31 just unblocked. Resolve this **after** that rewrite, and let
-it answer from real code rather than from familiarity. Maps are extremely familiar from Elixir,
-which is exactly why they would otherwise slip in without paying the toll.
+**That test is now passed, by a different exemplar than this ticket predicted — 2026-08-25.**
+This paragraph used to say *"blocked by evidence that does not exist yet"* and nominate the **25a**
+pipeline rewrite as the gate. That rewrite has still not happened, and it is no longer the gate:
+[`25d`](../prototypes/25d-database-querying.md), the database exemplar written 2026-08-24, wants a
+map **three times** without one, and says so in its own words — *"this exemplar wanted one and
+worked around it, which is the sharper datum"*.
+
+| where 25d wanted a map | what it did instead |
+|---|---|
+| `epgsql:connect/1` takes a **map** of options | passed a proplist — a legacy form the library still accepts. **It compiled by luck**: the idiomatic configuration literal of every modern BEAM library is the one literal B# does not have |
+| a decoded `jsonb` document | stayed `term`. *What type it would be* is this ticket's question, reached from a second direction |
+| group-by on an **open** key (`string`) | an assoc list of pairs built by hand, O(n) per lookup. **A closed key is a record; an open key is this ticket, and nothing in between exists** |
+
+Add 25a's front wall — `#{ ... }`, the anonymous map literal, recorded in `FRONTIER` — and the
+exemplar arm has four independent demands from two exemplars. So the ticket-27 §(c) test that this
+paragraph set up (*"no exemplar declares one"*) does not cut the map: real code asked for it and
+paid to go around. Maps are extremely familiar from Elixir, which is why they would otherwise slip
+in without paying the toll — the toll is now paid on this arm, and **owed on the survey arm below**,
+which is what remains before this resolves.
 
 ## Not yet surveyed
 

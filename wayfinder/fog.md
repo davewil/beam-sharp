@@ -515,9 +515,16 @@
   apart** rather than what maps threaten. What survives is that a map's key domain is unbounded, so
   a pattern over it never closes a residual and exhaustiveness is **vacuous** there — beam-sharp's
   first type over which the headline guarantee says nothing. Three candidates: opaque and
-  Gleam-shaped, matchable and Erlang-shaped, or not at all. **Deliberately not resolvable yet** —
-  the test is the one that cut function values, *"no exemplar declares one"*, and the exemplar most
-  likely to want a map is 25a, whose pipeline rewrite ticket 31 has only just unblocked.
+  Gleam-shaped, matchable and Erlang-shaped, or not at all. This patch used to close *"deliberately
+  not resolvable yet"*, on the ticket-27 test *"no exemplar declares one"*, nominating 25a's pipeline
+  rewrite as the gate. **That arm is cleared as of 2026-08-25** and by a different exemplar: 25a's
+  rewrite never happened, but [`25d`](prototypes/25d-database-querying.md) wanted a map three times
+  and worked around it each time — an `epgsql:connect/1` options map spelled as a proplist the
+  library still happens to accept, a decoded `jsonb` document left as `term`, and a group-by on an
+  open `string` key hand-built as an O(n) assoc list. With 25a's `#{ ... }` front wall that is four
+  demands from two exemplars. **What remains is the survey**: three of the borrow heuristic's four
+  sources are unmeasured, and Gleam's reasoning for making `Dict` deliberately unmatchable is
+  candidate 1 with the work already done.
 
 - **What the valve keys on: the atom, or the declared type?** — → **[ticket 49](issues/49-what-the-valve-keys-on.md)**,
   raised 2026-08-21 out of ticket 31. 31c's **shape B** keys `|?>` on the stage's declared parameter
