@@ -481,6 +481,77 @@ matching; B# has just deferred pattern matching. Under *type first*, the domain-
 computation, which is what drives `m_decompose`. So the representation question can travel with the
 pattern form and be taken as one decision when it arrives, instead of being paid for now.
 
+### Elixir's two kinds of map, and assertive style — read 2026-08-25
+
+David: *"Elixir has 2 kinds of map … and recommended practice … and also structs are records which
+enforce pre-defined keys — does this material help with making a decision?"*
+
+**It does, and it is a different kind of input from everything above it**: `48m` measured the type
+system's *mechanics*, this is the ecosystem's *convention*. Two primary sources, read rather than
+recalled.
+
+**1. The two-worlds split is Elixir's documented convention, not an artefact.** The getting-started
+guide names both uses and gives each its own idiom:
+
+> *"Use maps when working with data that has a predefined set of keys."* … *"Elixir developers
+> typically prefer to use the `map.key` syntax and pattern matching instead of the functions in the
+> `Map` module when working with maps."*
+
+<!-- elixir hexdocs 1.20.3, keywords-and-maps -->
+
+against *"whenever you need to store key-value pairs, maps are the go-to data structure"* for the
+dynamic use, where the idiom is `map[key]` and the `Map` module. **So B#'s proposed rule — you can
+pattern-match exactly the keys you wrote down — is the same seam the BEAM already draws.** B# would
+be enforcing in the type system what Elixir enforces by convention, which is the strongest possible
+answer to the least-surprise constraint: the reader already thinks in these two worlds.
+
+**2. Assertive access is the ecosystem's answer to the exact defect `48l` measured.** The guide is
+explicit about why the strict form is preferred:
+
+> *"These operations have one large benefit in that they raise if the key does not exist … This
+> makes them useful to get quick feedback and spot bugs and typos early on."*
+
+and Dashbit's assertive-style post makes it a rule — *"we should prefer the strict syntax when
+possible as it helps us find bugs early on"*, `map.name` raising where `map[:name]` returns `nil`
+and *"opens code to unintended flexibility"*.
+
+<!-- dashbit.co/blog/writing-assertive-code-with-elixir -->
+
+`48l` measured B#'s workaround doing precisely the non-assertive thing: a misspelled key returns the
+absent answer, silently, at compile time and run time alike. **The BEAM's own guidance says that is
+the failure mode to design against.**
+
+**3. Structs are emphatically NOT dynamically accessible, and that sharpens Q3.** The post calls
+`Access` on structured data *"an anti-pattern itself"*; structs do not support `struct[:key]` unless
+you explicitly derive the protocol. Applied here, that says **B#'s own records must not be
+dictionaries you can `Get` from** — but a *foreign* aggregate, for which you have no declaration and
+whose only alternative is a measured silent trap (ticket 50 candidate 1), must be readable somehow.
+
+`48e`'s two options split on exactly that line:
+
+| | excludes B# records | admits a foreign struct |
+|---|---|---|
+| **`Kind` absent only** | yes | **yes** |
+| both tags absent | yes | no |
+
+**So `Kind`-absent-only is the option that honours the anti-pattern for your own data while leaving
+a foreign struct readable.** This confirms Q3's recommendation and replaces its reason: not merely
+*"50's fallback is a trap"*, but *"your own aggregates should not be dynamically accessible; someone
+else's, which you cannot declare, must be."*
+
+**4. `Map.fetch/2` unblocks Q6 without fixing the prelude first.** Elixir's dynamic-world lookup
+returns `{:ok, value} | :error` — a **tagged** success. B#'s `option<T>` and `result<T, E>` collapse
+at `T = term` because their success case is the *bare* value and `:nothing` is an atom inside it. A
+tagged success does not collapse. So `Get` can return `(:ok, V) | :absent` and be usable at
+`V = term` on day one. **The prelude collapse remains a real defect and still wants its own ticket —
+it just stops blocking this one.**
+
+**What this leaves for Q5.** Elixir ships *both* operations and recommends the strict one:
+`Map.fetch!` raises, `Map.fetch` returns the tagged pair. If B# follows, it needs a name for the
+raising form, and **`!` is not available** — that spelling was settled out of B# identifiers. Also
+unmeasured: `PRELUDE.md` lists `raise` as decided-but-unbuilt, so the assertive half may have no
+mechanism yet. Both are downstream questions, not blockers on the shape.
+
 ### The four questions
 
 > **Q1 and Q2 are now decided — see above.** Q3 and Q4 below are still open. The text of Q1 and Q2
