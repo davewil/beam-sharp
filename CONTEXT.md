@@ -226,8 +226,16 @@ always recoverable by matching.
 _Avoid_: type argument list, generic argument, turbofish, explicit instantiation
 
 **Prelude**:
-The definitions and codegen obligations available without import.
-_Avoid_: stdlib, core, builtins, runtime
+The definitions and codegen obligations available without import — reachable unqualified, with no
+prefix. B#'s counterpart to Elixir's `Kernel`, and much smaller.
+_Avoid_: stdlib, core, builtins, runtime — and in particular **standard library**, which is the
+separate layer below.
+
+**Standard library**:
+The modules that ship with the language and are reached **through a qualifier** — `Map.Get`, not
+`Get`. Distinct from the prelude, which needs no qualifier. Its module names are reserved, so a
+user cannot declare `module Map`. B# has none of this yet; `map<K, V>`'s operations are the first.
+_Avoid_: prelude, core, framework, BCL
 
 ## Codegen obligations
 

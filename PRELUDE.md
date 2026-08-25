@@ -98,6 +98,12 @@ rejected.
 
 ---
 
+> **Scope corrected 2026-08-25.** This file is the **prelude** — what is reachable *without a
+> qualifier*, B#'s `Kernel`-equivalent. The **standard library** is the separate layer reached
+> *through* a qualifier (`Map.Get`), and B# has none of it yet. Entries below about a collection
+> library are parked here for want of a home and belong to that layer, not this one; ticket 48
+> decided its first module. See `CONTEXT.md` for both terms.
+
 ## Not in the prelude, and a `Kernel` reader will look for them here
 
 | | Where it actually lives |

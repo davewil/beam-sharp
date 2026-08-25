@@ -342,7 +342,7 @@ preferred."*
 | **Q2** | one widened brace form, or a second? | **neither yet** — the type ships before the pattern form |
 | **Q3** | which tag does it exclude? | **`Kind` absent only** |
 | **Q4** | what is it called? | **`map<K, V>`** |
-| **Q5** | where do the operations live? | **a function prelude** |
+| **Q5** | where do the operations live? | **the standard library** — its first module |
 | **Q6** | does the `option<T>` collapse get fixed here? | **no — its own ticket** |
 | **Q7** | is the shipped brace map a `map<K, V>`? | **yes, one type family** |
 | **Q8** | what shape do the operations take? | **two, assertive preferred** |
@@ -368,6 +368,16 @@ new question rather than execution — see *Round 4* below.
   before the feature file is written, not after.
 - **Q7 has a shape to borrow**: in `Descr` the named-key and open-key maps are the *same
   constructor with a different tag value*, not two constructors (`48m`).
+
+> **Vocabulary corrected 2026-08-25, on David reading Elixir's `Kernel` page.** Q5, Q8 and Q9 were
+> written calling this *"a function prelude"*, and that is wrong by `CONTEXT.md`'s own definition:
+> a **prelude** is what is reachable *without import*, unqualified. `Map.Get` requires the `Map.`
+> prefix, so it is not prelude — it is the **standard library**, a layer B# does not have yet and
+> had no name for. Elixir draws the same line explicitly: *"You can invoke Kernel functions and
+> macros anywhere in Elixir code without the use of the `Kernel.` prefix"*, while `Map`, `List` and
+> `String` are *"the standard library"* and are not auto-imported. Both terms are now in
+> `CONTEXT.md`, and Q5's answer reads **"the standard library's first module"** rather than
+> "a function prelude".
 
 ## DECIDED 2026-08-25 — Q9: `Map.Get`, with the qualifier reserved
 
@@ -912,7 +922,7 @@ There is **no function prelude at all**, and none reachable: `unqualified_key/4`
 resolution steps and no prelude step among them, and `ValidateAs<T>`'s generator keys on a resolved
 type inside angle brackets, which `Get(m, k)` has not got.
 
-- **(a) build a function prelude** — the largest, and the only non-throwaway option: `PRELUDE.md`
+- **(a) build a standard library** — the largest, and the only non-throwaway option: `PRELUDE.md`
   still has the whole collection library open, `List.Map/Filter/Fold` unbuilt, so this bill arrives
   anyway;
 - **(b) compiler-known forms**, special-cased in the checker the way `ValidateAs<T>` is — cheaper,
