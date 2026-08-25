@@ -84,8 +84,12 @@ guarantee says nothing.
 
 ## There are two tags, not one — measured 2026-08-25
 
+> **Written under the working name `dict`, renamed in place 2026-08-25 when Q4 chose `map<K, V>`.**
+> David's raising quote below is left verbatim, as are every reference to Gleam's `Dict` and the
+> measurement that `map` and `dict` refuse identically today.
+
 Raised by David while reading the survey: *"if I name map type dict in B#, does the interop with
-Elixir hold on struct/record types?"* The name does not reach the wire — `dict<K, V>` erases to the
+Elixir hold on struct/record types?"* The name does not reach the wire — `map<K, V>` erases to the
 same BEAM map whatever it is called — but the question underneath is real, and this ticket's
 proposal had only ever considered **one** tag.
 
@@ -97,7 +101,7 @@ all** about `__struct__`. Measured on the `Descr` instrument
 ([`48e`](../prototypes/48e_dict_vs_two_tags.exs), four controls first, both `true` and `false`
 reachable on each predicate):
 
-| | `dict` = *`Kind` absent* | `dict` = *both tags absent* |
+| | `map` = *`Kind` absent* | `map` = *both tags absent* |
 |---|---|---|
 | disjoint from a B# record | **yes** | **yes** |
 | admits a plain map | **yes** | **yes** |
@@ -105,17 +109,17 @@ reachable on each predicate):
 
 **So the choice is real and both options work.** This is a decision, not a constraint:
 
-- **`Kind` absent only.** A foreign struct *is* a `dict`, so
+- **`Kind` absent only.** A foreign struct *is* a `map`, so
   [ticket 50](50-naming-a-foreign-struct.md)'s candidate 2 — *"read the struct as an ordinary open
-  map, keys narrowed at use"* — works with no extra surface. The price is that `dict` stops meaning
-  "not somebody else's aggregate": `Req.get!()`'s return value type-checks as `dict<atom, term>`.
-- **Both tags absent.** `dict` means what it says, and a foreign struct is not one. The price is
+  map, keys narrowed at use"* — works with no extra surface. The price is that `map` stops meaning
+  "not somebody else's aggregate": `Req.get!()`'s return value type-checks as `map<atom, term>`.
+- **Both tags absent.** `map` means what it says, and a foreign struct is not one. The price is
   that reading a foreign struct then needs somewhere else to land, and the obvious candidate does
   not work: an **unrestricted** open map admits a B# record *and* an Elixir struct (measured), so it
   cannot tell them apart. 50's candidate 2 would need its own type rather than reusing this one.
 
 One reassurance from the same run: **a B# record and an Elixir struct are disjoint from each other**,
-so the two-tag scheme is sound in itself. The question is only which of them `dict` is allowed to
+so the two-tag scheme is sound in itself. The question is only which of them `map` is allowed to
 overlap.
 
 <!-- the ex_struct shape is modelled on 51a's real measurement of 2026-08-21: Req's value carries __struct__ and does not carry Kind -->
@@ -327,6 +331,44 @@ read as obvious and was wrong on inspection.
 this ticket kept hitting was reasoning about the compiler instead of running it, and four separate
 claims went false that way.
 
+## DECIDED 2026-08-25 — the remaining six
+
+David, closing round 3: *"Q3 yes, Q4 map, Q5 prelude, q6 own ticket, q7 yes, q8 two, assertive
+preferred."*
+
+| | question | decision |
+|---|---|---|
+| **Q1** | does the key domain become unbounded? | **yes** — a second map member kind |
+| **Q2** | one widened brace form, or a second? | **neither yet** — the type ships before the pattern form |
+| **Q3** | which tag does it exclude? | **`Kind` absent only** |
+| **Q4** | what is it called? | **`map<K, V>`** |
+| **Q5** | where do the operations live? | **a function prelude** |
+| **Q6** | does the `option<T>` collapse get fixed here? | **no — its own ticket** |
+| **Q7** | is the shipped brace map a `map<K, V>`? | **yes, one type family** |
+| **Q8** | what shape do the operations take? | **two, assertive preferred** |
+
+**Ticket 48 is answered.** What remains is consequences, and one of them is large enough to be a
+new question rather than execution — see *Round 4* below.
+
+**Consequences that are execution, not decisions:**
+
+- **Q3 settles [ticket 50](50-naming-a-foreign-struct.md).** `Kind` absent only means a foreign
+  struct **is** a `map<atom, term>`, so 50's candidate 2 works with no new surface. Record it there;
+   50's candidate 1 stays unbuilt and keeps its measured silent trap, which is now a defect report
+  rather than a design option.
+- **Q4 renames this file's own prose.** The *"two tags"* section was written under `dict` and is
+  renamed in place above, with David's raising quote, every Gleam `Dict`, and the measurement that
+  both spellings refuse identically all left verbatim.
+- **Q6 owes a new ticket**: `option<T>` and `result<T, E>` collapse at `T = term`, because their
+  success case is the bare value and `:nothing` is an atom inside it. Not a map defect; a prelude
+  one that maps merely expose.
+- **Q8 owes a naming decision downstream**, and it is not free: `!` was settled out of B#
+  identifiers, so the raising form needs a name that is not `Get!`. `PRELUDE.md` also lists `raise`
+  as decided-but-unbuilt, so the assertive half may have no mechanism yet — that wants checking
+  before the feature file is written, not after.
+- **Q7 has a shape to borrow**: in `Descr` the named-key and open-key maps are the *same
+  constructor with a different tag value*, not two constructors (`48m`).
+
 ## Where the grilling is — round 2 put 2026-08-25, undecided
 
 **Round 1's six questions are withdrawn and replaced by these four.** Not because they were
@@ -346,7 +388,7 @@ What changed, precisely:
   values. It is folded into Q2. Where the *operations* live is downstream of Q1 and Q2 and belongs
   to a later round.
 - **Round 1's Q6 was the wrong shape.** Whether ticket 50 resolves *alongside* is procedural; the
-  substance is which tag `dict` excludes, and that is asked directly as Q3.
+  substance is which tag `map` excludes, and that is asked directly as Q3.
 
 ### The parser half is measured, and the measurement is not the conflict count
 
@@ -867,6 +909,43 @@ returns the absent answer silently.
 underneath it and neither blocks the shape: **`!` is not available** as a name for the raising form,
 that spelling having been settled out of B# identifiers; and `PRELUDE.md` lists `raise` as
 decided-but-unbuilt, so the assertive half may have no mechanism yet.
+
+### Round 4 — put 2026-08-25, one question
+
+Q5's answer opens one thing that would otherwise be assumed silently, and it is the same problem the
+type prelude was explicitly designed around.
+
+❓ **Q9 — what namespace does a prelude *function* live in?**
+
+The type prelude has no collision problem, and `bs_check.erl:710-712` says why, as a decision:
+lowercase is the prelude's, PascalCase is the user's, *"so the two cannot collide."* **That
+reasoning does not reach functions**, because a prelude function and a user function would both be
+PascalCase. Measured 2026-08-25, and both halves compile and run:
+
+    public int Get(int n)      // a user's own Get         -> 42
+    module Map                 // a user's own module Map  -> 42
+
+So neither the unqualified name nor the obvious qualifier is free.
+
+- **(a) qualified only — `Map.Get(m, k)`.** Reads well and matches Elixir's `Map.fetch`. But `Map`
+  is takeable as a module name today, so the prelude would have to reserve it, which is the first
+  reserved name in the language.
+- **(b) unqualified, user wins.** A user's `Get` shadows the prelude's. No breakage, and exactly the
+  kind of silent subtlety the standing constraint forbids.
+- **(c) unqualified, collision refused.** Declaring `Get` becomes an error. Honest and loud, but it
+  breaks code that compiles today, and the set of burned names grows with every prelude addition.
+- **(d) a namespace the user cannot take** — a sigil, a reserved prefix, or lowercase functions for
+  the prelude alone, mirroring what the type prelude already does.
+
+➡️ **(d), mirroring the type prelude.** It is the only option that keeps the existing decision's
+shape — the prelude owns a namespace the user's syntax cannot reach — instead of introducing
+reserved words (a), silent shadowing (b), or a growing list of burned names (c). It also answers
+Q8's naming problem in passing, since a distinct namespace can spell the assertive and tagged forms
+however it likes without competing with user identifiers.
+
+**This is a language-wide decision, not a map one.** It governs the whole collection library that
+`PRELUDE.md` still has open, so it wants deciding here and recording somewhere more central than
+ticket 48.
 
 ### Deferred further, because it is downstream of Q5
 
