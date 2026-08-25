@@ -2,7 +2,10 @@
 
 Type: grilling
 Status: claimed — [ENG-230](https://linear.app/davewil/issue/ENG-230). Survey landed 2026-08-25
-([research](../research/48-map-type-prior-art.md)); the grilling itself is unstarted.
+([research](../research/48-map-type-prior-art.md)). **The grilling opened 2026-08-25 and is
+mid-flight**: probes [`48f`](../prototypes/48f_brace_map_type_and_pattern.sh)–[`48j`](../prototypes/48j_the_two_walls.sh)
+falsified four of this file's own claims, the round is on the table, and the decisions are
+undecided — see *Where the grilling is* at the foot of this file.
 
 > **The ticket-to-issue arithmetic is dead, and this is a third data point.** 48 is ENG-230,
 > not the ENG-214 that `CLAUDE.md`'s `166+NN` rule predicts. Read the number, never compute it —
@@ -49,10 +52,21 @@ keeps them apart. `map<K, V>` would be internally *"open map, `Kind` absent"* �
 record by construction, needing no new discriminability rule. Row 2 also confirms ticket 26's own
 argument against a shipping implementation that made the same call for the same reason.
 
-**What survives.** A map's key domain is unbounded, so a pattern over it never closes a residual,
-so a catch-all is always legal there (ticket 12's rule). Exhaustiveness over a map is **vacuous**.
-Elixir pays nothing for that because it never promised exhaustiveness; beam-sharp would be adding
-its first type over which the headline guarantee says nothing.
+**What survives — and it is narrower than this paragraph first claimed.** Where a map's key set is
+**open**, a pattern over it never closes a residual, so a catch-all is always legal there (ticket
+12's rule) and exhaustiveness over it is vacuous. Elixir pays nothing for that because it never
+promised exhaustiveness; beam-sharp would be adding its first type over which the headline
+guarantee says nothing.
+
+> **Corrected 2026-08-25 by [`48g`](../prototypes/48g_map_exhaustiveness_not_vacuous.sh), which
+> ran it.** This paragraph used to assert *"Exhaustiveness over a map is **vacuous**"* flatly, and
+> that is false of the map beam-sharp **already ships**. A brace map is keyed by a fixed set of
+> PascalCase field names (`bs_parser.yrl:98`, `:490`), so its key set is **closed**: the compiler
+> refuses a map pattern that lacks a catch-all and prints the residual —
+> `Kind({ Status: _ }) -> ...` — as precisely as it does for the closed union standing beside it
+> as a control. The vacuity cost is real, but it attaches **only to the unbounded key domain this
+> ticket is actually asking for**, which is the new thing. Scoping it correctly matters, because
+> the cost was being charged to the pattern form, and the pattern form is already built.
 
 > **Corrected 2026-08-25 by the survey — that last clause attaches to the wrong scope.** The
 > unbounded-key-domain half is confirmed and measured
@@ -108,7 +122,29 @@ overlap.
 **This is the joint between 48 and 50**, and it is the concrete reason 50 asks to be resolved
 alongside this one rather than after it.
 
-## The three candidates
+## The three candidates — the axis is wrong, measured 2026-08-25
+
+> **These are not three points on one axis, and running them is what showed it.**
+> [`48f`](../prototypes/48f_brace_map_type_and_pattern.sh) went to price candidate 2 and found it
+> already paid: beam-sharp has had an anonymous map **type** and a map **pattern**, spelled with
+> **bare braces**, since F3. They compile, they dispatch (`:ok` on `200`, `:other` on `404`), and
+> the catch-all beside them is not merely legal but *live* — it fires. `Auth({ User: :anonymous })`
+> in the 31d middleware prototype has been one all along, without being called a map.
+>
+> So *"should a map be matchable"* is not an open question. What is missing is a key that is a
+> **value** rather than a PascalCase field name, and behind it an **unbounded key domain**.
+> [`48i`](../prototypes/48i_key_position_takes_no_value.sh) pins that: all three brace forms take
+> the single terminal `uident` in key position (`bs_parser.yrl:98`, `:490`, `:702`), and a string,
+> a lowercase name, an atom literal and a pinned variable are each refused **at the parser** —
+> while the same pin runs one position to the left. Both wants are gated by one line,
+> `bs_types.erl:99`, where `map_member()` is `{closed | open, #{atom() => ty()}}`: keys are atoms
+> end to end, and every intersection, subtraction and absorption routes through an atom-set
+> comparison (`bs_types.erl:735-738`). A parser change alone would emit a key with nowhere to land.
+>
+> **The three are kept below as the record of how the question was framed**, not as the menu the
+> grilling chose from. The live axis is: does the key domain become unbounded (the expensive
+> question — new algebra, not a table entry), does the pattern form extend to it (the machinery is
+> built), and does expression-level construction land with it (three files, no lexer change).
 
 1. **Opaque, Gleam-shaped.** `map<K, V>` with `Get`/`Put`/`Delete`/`Keys` as compiler-known
    functions and **no pattern form**. Records stay the only brace-pattern surface; the pattern
@@ -119,9 +155,28 @@ alongside this one rather than after it.
    all** and `@external` operations. And *"deliberately"* asserts an intent **no primary source
    states**: the behaviour is documented, the reason is not. Gleam's `Dict` is this shape, shipped,
    without a published argument. Keep the candidate; drop both claims about why.
-2. **Matchable, Erlang-shaped.** A pattern form in clause heads. Now known to be *possible* — the
+
+   **And its operations have nowhere to live — measured 2026-08-25.** This candidate is *defined
+   by* its operation set, and beam-sharp has no mechanism to ship one. There is no prelude of
+   callable functions: `prelude/0` (`bs_check.erl:706`) holds **types** only, and `callees/3`
+   (`bs_check.erl:520`) is built from local signatures, `foreign` declarations and qualified
+   imports — nothing injects a prelude entry. Nor could an unqualified call reach one:
+   `unqualified_key/4` (`bs_check.erl:2129-2144`) resolves local, then the `using` import table,
+   then fails — there is no prelude step. `ValidateAs<T>`'s generator cannot host `Get`/`Put`
+   either, because that machinery keys on the resolved type inside the angle brackets and
+   `Get(m, k)` has none. `List.Sum` is not compiler-known; it is an ordinary `.bs` file.
+   **So the option the survey called a shipped precedent is the one that needs a new subsystem
+   here, while candidate 2's machinery is already running.** That inverts the cost model this
+   ticket was working from.
+2. **Matchable, Erlang-shaped.** A pattern form in clause heads. ~~Now known to be *possible* — the
    `Kind`-absent construction keeps it off records — at the price that matching a map proves
-   nothing.
+   nothing.~~ **This candidate is not a proposal; it is a description of the compiler.** Measured
+   2026-08-25 by [`48f`](../prototypes/48f_brace_map_type_and_pattern.sh): the pattern form ships,
+   and `pattern_type/3` already carries a *"closes nothing"* flag with three precedents
+   (`p_bin`, `p_str`, `p_eqvar`, `bs_check.erl:2323` ff.) while `m_minus({open,_},{closed,_})`
+   already keeps a map residual open. The price *"matching a map proves nothing"* is **not** being
+   paid today, because today's key set is closed — see the correction above. It would be paid on an
+   unbounded key domain, and that is the only place it applies.
 3. **Not at all.** `list<(atom, term)>` already carries the case that raised it.
 
 ## The bar this has to clear — cleared on the exemplar arm, 2026-08-25
@@ -148,12 +203,26 @@ worked around it, which is the sharper datum"*.
 | a decoded `jsonb` document | stayed `term`. *What type it would be* is this ticket's question, reached from a second direction |
 | group-by on an **open** key (`string`) | an assoc list of pairs built by hand, O(n) per lookup. **A closed key is a record; an open key is this ticket, and nothing in between exists** |
 
-Add 25a's front wall — `#{ ... }`, the anonymous map literal, recorded in `FRONTIER` — and the
+Add 25a's front wall — anonymous map **construction**, recorded in `FRONTIER` as `#{ ... }` — and the
 exemplar arm has four independent demands from two exemplars. So the ticket-27 §(c) test that this
 paragraph set up (*"no exemplar declares one"*) does not cut the map: real code asked for it and
 paid to go around. Maps are extremely familiar from Elixir, which is why they would otherwise slip
 in without paying the toll — the toll is now paid on this arm, and **owed on the survey arm below**,
 which is what remains before this resolves.
+
+> **The `FRONTIER` wording is a foreign spelling — corrected 2026-08-25 by
+> [`48j`](../prototypes/48j_the_two_walls.sh).** Recording the wall as *"`#{ ... }`, the anonymous
+> map literal"* names an **Erlang** form. beam-sharp spells anonymous maps with **bare braces** at
+> the type and pattern levels (48f), and `#` is *absent* from `bs_lexer.xrl` rather than excluded —
+> it appears there only inside comments about C#. Adding `#` would give the language a second
+> spelling for a construct bare braces already serve at two of three levels.
+>
+> The wall is at the **third** level: there is no bare-brace **expression** production. Measured —
+> `{ Status = 200 }` in expression position is `syntax error before: '{'`, because
+> `bs_parser.yrl:696` is `expr -> uident '{' assign_fields '}'` and requires a record name in
+> front. So 25a's front wall is anonymous map **construction**, and it is three files with no
+> lexer change: an expr rule plus an `e_map` node, a `type_of` clause beside `e_record`'s, and an
+> `expr` clause in `bs_emit`.
 
 ## Surveyed — 2026-08-25
 
@@ -224,12 +293,66 @@ changed the type's name, **for that reason, on the record**:
 
 Note *"the common map function"* — the map/filter/reduce family in general, not `list.map`
 specifically. The same release renamed `gleam/dynamic`'s `map` function to `dict`, which is what
-tells you the driver was the name and not the data structure. **This is the tie-break datum, and
-unlike the pattern-form question it is a documented decision rather than a silent one.** The choice
+tells you the driver was the name and not the data structure. ~~**This is the tie-break datum, and
+unlike the pattern-form question it is a documented decision rather than a silent one.**~~ The choice
 is still the grilling's to make.
+
+> **The tie-break is disqualified, not overruled — measured 2026-08-25 by
+> [`48h`](../prototypes/48h_map_name_is_free.sh).** A borrowed reason is worth what its premise is
+> worth *here*, and Gleam's premise is that **one namespace holds both** the type and the
+> map/filter/reduce family. beam-sharp does not share it. The prelude owns the lowercase namespace
+> while user types and functions are PascalCase, and `bs_check.erl:710-712` states that as a
+> decision: *"so the two cannot collide."*
+>
+> Both halves were run. `Map` declares, resolves **unqualified** through `unqualified_key/4`, and
+> runs — `Uses(21)` → `42`. And a lowercase prelude type coexists with a PascalCase module of the
+> same word in one file, which the shipped surface has been doing all along:
+> `compiler/examples/Shop/Collections/List/List.bs:8-10` is `module Shop.Collections.List`
+> declaring `public int Sum(list<int> xs, int acc)`. The control holds too — `Map<T, U>` is still
+> `not-yet` (LANGUAGE.md:966-970) and refuses, so the collision has neither half.
+>
+> This matters more than a naming preference: it was **the one documented decision in the whole
+> four-language survey**, and it does not reach this language. The name is therefore decided on
+> accuracy rather than caution, and 48j confirms availability is not a factor either — `map` and
+> `dict` refuse *identically* today, both for want of a prelude entry.
 
 ## Notes
 
 Do not re-derive the record/map collision — it is measured above and it is not a problem. And do
 not treat "Elixir has maps" as an argument; ticket 31 §6 is a worked example of a premise that
 read as obvious and was wrong on inspection.
+
+**Do not re-derive the pattern form either.** It ships. `48f` is the measurement; the failure mode
+this ticket kept hitting was reasoning about the compiler instead of running it, and four separate
+claims went false that way.
+
+## Where the grilling is — opened 2026-08-25, undecided
+
+Six questions are on the table. **None of these is decided**; the arrows are the grilling's
+recommendation, recorded so the reasoning is not lost, not a resolution.
+
+| | question | recommended | why it is not obvious |
+|---|---|---|---|
+| 1 | Does the key domain become **unbounded**? | yes | the only expensive one: new algebra in `bs_types`, ~14 functions, not a table entry |
+| 2 | Does the **pattern form** extend to it? | yes | machinery is built, but a catch-all becomes permanently mandatory there — the first such place in B# |
+| 3 | Does **construction** land in the same ticket? | yes | three files, no lexer change; a type you cannot construct is unusable |
+| 4 | What is it **called**? | `map<K, V>` | the survey's tie-break is disqualified (48h); lowercase, beside `list<T>` |
+| 5 | Where do the **operations** live? | B#'s own literal + pattern + `with` | there is no function-prelude mechanism at all, so candidate 1's interface has nowhere to go |
+| 6 | Does [ticket 50](50-naming-a-foreign-struct.md) resolve **alongside**? | no — decide the tag here, record it there | 48e measured both tag choices sound, so this is a choice, not a constraint |
+
+**One sub-question is deliberately deferred to a later round**, and it is the sharpest thing left:
+the shipped brace forms take *field names*; a dictionary needs *value keys*. Do the brace forms
+**generalise** to value keys, or is that a second form standing beside them? The source does not
+decide it — `48i` establishes that a value key has nowhere to land today, and that value keys and
+an unbounded key domain share the single blocker at `bs_types.erl:99`, but whether **one** new
+shape serves both is a design question, not a measured one.
+
+Related defect found on the way and not fixed here: `with`'s subject is unchecked
+(`bs_check.erl:1742`, where `declared_fields/1` returning `unknown` is read as "no information"
+rather than "wrong kind of subject") — filed as ENG-249, and 48d is its measurement. Note the
+contrast `48i` §6 draws: a malformed **key** is caught at the parser, while a wrong-kind
+**subject** passes at exit 0.
+
+A decision brief with the corrected tree as a diagram, the six questions and a claim→source table
+is published at <https://claude.ai/code/artifact/64ddb8ca-a67c-4975-8591-f879c6311a7a>. This file
+stays canonical; that page is an ungated snapshot.
