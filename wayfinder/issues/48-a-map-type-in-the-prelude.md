@@ -496,5 +496,6 @@ contrast `48i` §6 draws: a malformed **key** is caught at the parser, while a w
 **subject** passes at exit 0.
 
 A decision brief with the corrected tree as a diagram, the six questions and a claim→source table
-is published at <https://claude.ai/code/artifact/64ddb8ca-a67c-4975-8591-f879c6311a7a>. It records
-round 1 and is now one round behind. This file stays canonical; that page is an ungated snapshot.
+is published at <https://claude.ai/code/artifact/64ddb8ca-a67c-4975-8591-f879c6311a7a>, refreshed
+to round 2 on 2026-08-25 with the 48k measurement table and round 1 kept below it as the record.
+This file stays canonical; that page is an ungated snapshot.
