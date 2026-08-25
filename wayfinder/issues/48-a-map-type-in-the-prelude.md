@@ -390,6 +390,37 @@ This is what the ticket is actually asking for, and nothing about it exists:
     type Assigns = map<atom, term>
     Get({ "user-id": id }) -> id
 
+**In plain terms, before the line numbers.** A B# map type today is a *struct definition*: a known
+list of field names, written in the source, complete before the program runs. The checker stores it
+as a flag plus that list —
+
+    {closed, #{'Status' => integer}}      "exactly these fields"
+    {open,   #{'Status' => integer}}      "at least these fields"
+
+A dictionary is a *phone book*. `map<string, int>` says "any string key at all, values are ints" —
+there is no list of names, the keys arrive at runtime, and there can be unboundedly many.
+
+That matters because exhaustiveness is proved with set operations, and for maps every one of them
+works by **comparing the lists of key names**:
+
+    same_keys(A, B)   -> lists:sort(maps:keys(A)) =:= lists:sort(maps:keys(B)).
+    keys_subset(S, P) -> lists:all(fun(K) -> maps:is_key(K, P) end, maps:keys(S)).
+
+Sort the keys, compare them. A phone book has nothing to sort, so the machinery that proves
+exhaustiveness cannot run on it at all.
+
+And the obvious fix is not one. *"Just allow key types other than atom"* — loosening
+`#{atom() => ty()}` — does not help, because the problem is not what **type** the keys are, it is
+that there is a **finite list at all**. A dictionary type is not a longer list of fields; it is a
+different kind of statement: one uniform rule covering unboundedly many keys, rather than an
+enumeration of them. Hence *second member kind*, not *widening* — the checker learns a second shape
+of map type, and every set operation learns to handle a mixture of the two.
+
+That last point is where the cost comes from. Intersection and subtraction each carry four clauses
+today, one per combination of `closed`/`open` on the two sides — a 2×2 grid. A third shape makes
+each a 3×3. The work grows by multiplication, not addition, which is the whole reason this is the
+expensive question.
+
 The compiler delta is not a table entry. `bs_types.erl:99` is
 `map_member() :: {closed | open, #{atom() => ty()}}` — a **finite product keyed by atom**, and the
 module says so itself at `:95-97`: *"The field product decomposes exactly the way the tuple product
@@ -415,8 +446,105 @@ maximally imprecise. `map_part()`'s `top` (`:143`) is *any map whatsoever* and p
 *"any map at all"* — with **nothing in between**. `map<K, V>` is precisely the missing middle.
 
 ➡️ **Yes, and pay for it as a second member kind rather than a widened one.** The middle is missing,
-`Assigns` is the third ticket to want it, and a coercion-based shortcut is unsound. But this is the
-expensive answer and the only one of the four that is, so it is the one worth refusing.
+**seven** distinct places have wanted it and worked around it (counted below, not three as this line
+first said), and a coercion-based shortcut is unsound. But this is the expensive answer and the only
+one of the four that is, so it is the one worth refusing.
+
+### What "no" loses and what "yes" costs — measured 2026-08-25 by [`48l`](../prototypes/48l_what_the_workaround_costs.sh)
+
+David, on being given Q1: *"If the key domain doesn't become unbounded what is lost? And if it does
+become unbounded what is the cost? That's what I need to make a decision."*
+
+> **The framing this measurement was written to test was wrong, and it is worth saying which half.**
+> The prediction was *"no map means the values are `term`, so nothing is checked"*. Run
+> ([`48l`](../prototypes/48l_what_the_workaround_costs.sh) §2): **false**. A bare `term` reaching an
+> `int` parameter is a **compile error**, so the checker forces a narrowing and a wrong value type
+> fails loudly. The **value** domain is checked. What is unchecked is the **key** domain — and that
+> is unchecked at compile time *and* at run time. The blindness is specific, not general.
+
+**What "no" loses.**
+
+1. **A misspelled key is silent end to end.** `48l` §1, three entry points over one assigns channel:
+   `Correct` → `42`; `Typo`, which reads `:userid` where the writer wrote `:user_id`, → **`0`**,
+   compiling clean and running clean. It returns the absent answer, and it is **indistinguishable
+   from a legitimately absent optional key**. Discipline does not fix it: even a hand-rolled
+   `(:ok, term) | :absent` — which the author must write, see (3) — gives `:absent` for a typo and
+   for a real absence alike. The checker can be made to force absence *handling*; it can never say
+   the absence is a misspelling.
+
+2. **A clause head cannot ask the key question.** `48l` §3. The only head form that parses asks a
+   **positional** question, not a key one. Two stages writing the same keys in different orders:
+
+       [(:user_id, 42), (:locale, :en)]   ->  :saw_user
+       [(:locale, :en), (:user_id, 42)]   ->  :no_user
+
+   Both compile without a warning. So key dispatch has to move out of the head and into the body,
+   which is exactly what B#'s dispatch story exists to avoid.
+
+3. **Ceremony, per channel and per read.** No prelude keyfind exists — PRELUDE.md still has the
+   collection library open — so every program hand-writes a ~4-line recursive lookup. Every read
+   costs ~5 lines of `ValidateAs<T>` + `switch`, per value type, because a `term` cannot reach a
+   concrete parameter and neither head-level narrowing nor `is_int`-style guards exist yet. And the
+   failure channel has to be hand-rolled, because **both prelude failure types collapse at exactly
+   the value type the workaround forces**: `option<term>` and `result<term, E>` both normalise back
+   to bare `term`, so a lookup cannot report "absent" in a type the checker can see. Lookup is O(n).
+
+4. **Seven confirmed wants, not four.** `fog.md:533` records *"four demands from two exemplars"*.
+   Opening the files gives seven, across four tickets and two exemplars: ticket 31 (`assigns`);
+   25d three times over (`epgsql:connect/1`'s options, a decoded `jsonb` document, and a group-by on
+   an open `string` key); 25a (response-body construction); ticket 50 (Req's untagged body and
+   headers); and ticket 09 — `type Json = ... | map<string, Json>`, the JSON type itself, cited
+   again by tickets 11 and 27.
+
+5. **"Compiled by luck" is a mechanism, not an anecdote, and it is the worst of the five.** 25d
+   declares `epgsql:connect/1` as taking `list<term>`; epgsql documents a **map**. It type-checks
+   because the author's `using` block and the author's caller agree *with each other* — a closed
+   loop that never touches the library's real contract. Reproduced directly by declaring
+   `:maps.size/1`, which takes a map, as taking a `list<term>`: **compiles at exit 0 with no
+   diagnostics, then crashes `badmap` at run time inside the callee.** B# could not spell the
+   documented form, so the author was pushed onto a legacy one — and the compiler's silence there is
+   the same silence it gives a declaration that is simply wrong.
+
+**What "yes" costs.**
+
+Already paid, and this is most of the surface:
+
+| | |
+|---|---|
+| the parser | **free** — `48k` measured 0 conflicts for a bounded `map_key` at all three positions |
+| the pattern form | **ships** — `48f`; exhaustiveness over closed keys enforced, `48g` |
+| the erasure target | **already value-keyed** — records erase to Erlang maps; the emitter mints `{atom, L, K}` from the field name and would need `expr(K, C)`. Mechanical |
+
+The real cost is the algebra, and it is the only real cost: **9 functions / 18 clauses** destructure
+`{closed | open, Fields}`, intersection and subtraction each go from a 2×2 grid to a 3×3, and 16
+more functions route through the pair, plus `bs_emit.erl:950-961` outside the module.
+
+**And one deflation, because it changes the size of the prize.** `map<atom, term>` buys much less
+than it looks. It removes the hand-written lookup, the O(n) walk and the position dependence in (2).
+It does **not** remove the `ValidateAs` + `switch` ceremony, and it does **not** fix the
+`option<term>` collapse in (3) — both survive unless the **value** type is concrete. The realistic
+saving at `map<atom, term>` is roughly 17 lines to 13, not 17 to 8. The large win needs
+`map<atom, int>`, which is to say: the prize is proportional to how concrete the values are.
+
+**What actually decides it.**
+
+**The unchecked open key domain exists today, spelled as a list.** Adding `map<K, V>` does not create
+it — it makes it a shape the compiler knows the name of. Exhaustiveness over open keys is vacuous
+either way, and `48l` §4 controls that claim from the other side: over a **closed** key set the
+guarantee is fully live, and growing a union by one member turns the clause set red. So "no" does
+**not** preserve a guarantee that "yes" gives up. That trade is not on the table; it only looked
+like it was.
+
+What "yes" buys, stated narrowly: the lookup becomes a language form instead of hand-written code,
+key dispatch returns to the clause head, and the value type can be concrete so the narrowing
+ceremony disappears. What it does not buy is any checking of the key domain itself — a misspelled
+key stays silent under `map<atom, term>` exactly as it is silent under the list.
+
+<!-- two things found on the way and not filed, both wanting a ticket: closing the key domain to a
+     union makes the typo an error but emits "clause 1 is unreachable ... matched by an earlier
+     clause" when there is no earlier clause; and the non-exhaustive residual prints only the record
+     tag without naming the missing member, which 25d's write-up records independently -->
+
 
 ---
 
