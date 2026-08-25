@@ -57,6 +57,17 @@ Reading a whole body file is almost never necessary and costs 400–800 lines.
   sanctioned for the walking skeleton only — see the map's Notes.
 - One ticket resolved per session, except research tickets which may run in parallel.
 - Claim a ticket (`Status: claimed`) before doing any work on it.
+- **Never write "this is not decided" without grepping `wayfinder/decisions.md` first.**
+  It is the index of every answer this project has reached. On 2026-08-25 a session
+  recorded the absence of `/` and `%` as *"a gap rather than a decision"* — ticket 38 had
+  settled them six days earlier, at `decisions.md:1458` — and separately put an options
+  list to David that **omitted the option ticket 17 §2 had already chosen**. Both were one
+  grep away. Four of that session's nineteen commits were corrections of this one habit.
+  The same rule reaches `CONTEXT.md` before coining or redefining a term.
+- **A round of questions is not asked until it is in the repo.** Put the round in the
+  ticket file in the same turn it goes to David, never in the chat alone. Round 3 of
+  ticket 48 lived only in conversation, and its numbers silently collided with round 1's —
+  the file defined one Q5 while the chat meant another.
 
 ## The failing test and the gate come first (David, 2026-08-18)
 
