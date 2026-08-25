@@ -3,9 +3,9 @@
 Type: grilling
 Status: claimed — [ENG-230](https://linear.app/davewil/issue/ENG-230). Survey landed 2026-08-25
 ([research](../research/48-map-type-prior-art.md)). **The grilling opened 2026-08-25 and is
-mid-flight**: probes [`48f`](../prototypes/48f_brace_map_type_and_pattern.sh)–[`48j`](../prototypes/48j_the_two_walls.sh)
-falsified four of this file's own claims, the round is on the table, and the decisions are
-undecided — see *Where the grilling is* at the foot of this file.
+mid-flight**: probes [`48f`](../prototypes/48f_brace_map_type_and_pattern.sh)–[`48k`](../prototypes/48k_widening_the_key_position.sh)
+falsified four of this file's own claims and priced the parser half. **Round 2 is on the table and
+the four decisions are undecided** — see *Where the grilling is* at the foot of this file.
 
 > **The ticket-to-issue arithmetic is dead, and this is a third data point.** 48 is ENG-230,
 > not the ENG-214 that `CLAUDE.md`'s `166+NN` rule predicts. Read the number, never compute it —
@@ -326,26 +326,168 @@ read as obvious and was wrong on inspection.
 this ticket kept hitting was reasoning about the compiler instead of running it, and four separate
 claims went false that way.
 
-## Where the grilling is — opened 2026-08-25, undecided
+## Where the grilling is — round 2 put 2026-08-25, undecided
 
-Six questions are on the table. **None of these is decided**; the arrows are the grilling's
-recommendation, recorded so the reasoning is not lost, not a resolution.
+**Round 1's six questions are withdrawn and replaced by these four.** Not because they were
+answered — they never were — but because [`48k`](../prototypes/48k_widening_the_key_position.sh)
+and the probes before it moved their prerequisites. Two of the six collapsed into others, and the
+sub-question round 1 deferred as *"the sharpest thing left"* is now on the frontier, because 48i
+and 48j settled what it was waiting for.
 
-| | question | recommended | why it is not obvious |
-|---|---|---|---|
-| 1 | Does the key domain become **unbounded**? | yes | the only expensive one: new algebra in `bs_types`, ~14 functions, not a table entry |
-| 2 | Does the **pattern form** extend to it? | yes | machinery is built, but a catch-all becomes permanently mandatory there — the first such place in B# |
-| 3 | Does **construction** land in the same ticket? | yes | three files, no lexer change; a type you cannot construct is unusable |
-| 4 | What is it **called**? | `map<K, V>` | the survey's tie-break is disqualified (48h); lowercase, beside `list<T>` |
-| 5 | Where do the **operations** live? | B#'s own literal + pattern + `with` | there is no function-prelude mechanism at all, so candidate 1's interface has nowhere to go |
-| 6 | Does [ticket 50](50-naming-a-foreign-struct.md) resolve **alongside**? | no — decide the tag here, record it there | 48e measured both tag choices sound, so this is a choice, not a constraint |
+What changed, precisely:
 
-**One sub-question is deliberately deferred to a later round**, and it is the sharpest thing left:
-the shipped brace forms take *field names*; a dictionary needs *value keys*. Do the brace forms
-**generalise** to value keys, or is that a second form standing beside them? The source does not
-decide it — `48i` establishes that a value key has nowhere to land today, and that value keys and
-an unbounded key domain share the single blocker at `bs_types.erl:99`, but whether **one** new
-shape serves both is a design question, not a measured one.
+- **Round 1's Q2 is gone.** Its stated cost — *"a catch-all becomes permanently mandatory there,
+  the first such place in B#"* — was charged to the pattern form, and `48g` showed the shipped
+  brace map already enforces exhaustiveness with a precise residual. That cost belongs to the
+  unbounded key domain alone, which is Q1 below.
+- **Round 1's Q3 and Q5 are consequences, not peers.** Construction is `assign_field` at
+  `bs_parser.yrl:702` — one of the three brace forms — so it reshapes if and only if keys become
+  values. It is folded into Q2. Where the *operations* live is downstream of Q1 and Q2 and belongs
+  to a later round.
+- **Round 1's Q6 was the wrong shape.** Whether ticket 50 resolves *alongside* is procedural; the
+  substance is which tag `dict` excludes, and that is asked directly as Q3.
+
+### The parser half is measured, and the measurement is not the conflict count
+
+[`48k`](../prototypes/48k_widening_the_key_position.sh), run 2026-08-25 with both controls
+(the untouched grammar reports 0; a deliberate reduce/reduce grammar reports 7, so the harness can
+see a conflict — the repo's rule that yecc conflicts are measured, not inferred from a quiet build):
+
+| grammar | conflicts | PascalCase key | string key | atom key | type decl |
+|---|---|---|---|---|---|
+| pristine (control) | 0 | ok | refused | refused | refused |
+| bounded `map_key`, all three positions | **0** | **ok** | ok | ok | ok |
+| literals inlined per rule, no shared nonterminal | **0** | **ok** | ok | ok | ok |
+| maximal: key becomes `pattern` | **0** | **REFUSED** | ok | ok | refused |
+
+**The last row is the finding.** It measures zero conflicts and destroys the PascalCase key that
+ships today, because there is no bare `pattern -> uident` in the grammar — only `:504`, `:516`,
+`:523`, all of which need more tokens. Widening the key to the value's own nonterminal *removes*
+the form that works. The subagent measurement that first found this also ran the full suite on that
+grammar: **475 pass, 34 fail**, against 508/509 on the bounded widening. Two shapes, the same
+conflict count, thirty-three tests apart. **A conflict count cannot see a regression, so it is not
+the measurement that decides this question** — which is the same trap `check-shell.sh` hit at
+severity `warning`.
+
+Caveat carried forward from that run, because it bounds what the green above means: the end-to-end
+build only type-checked a string key by coercing it to an atom, which collides `"acme"` with
+`acme` and `7` with `'7'`. **The parser is free; the type side is not.** That is Q1.
+
+### The four questions
+
+**None of these is decided.** The arrows are the grilling's recommendation, recorded so the
+reasoning is not lost, not a resolution.
+
+❓ **Q1 — Does the key domain become unbounded, given what that costs?**
+
+This ships today and is not in question:
+
+    record Order { Status: int }
+    Read({ Status: s }) -> s          // dispatches; exhaustiveness enforced, residual printed
+
+This is what the ticket is actually asking for, and nothing about it exists:
+
+    type Assigns = map<atom, term>
+    Get({ "user-id": id }) -> id
+
+The compiler delta is not a table entry. `bs_types.erl:99` is
+`map_member() :: {closed | open, #{atom() => ty()}}` — a **finite product keyed by atom**, and the
+module says so itself at `:95-97`: *"The field product decomposes exactly the way the tuple product
+does, keyed by field name instead of by position."* An unbounded domain is not a wider product; it
+is a uniform key-type-to-value-type constraint, so it is a **second member kind**, not a widening of
+the existing one. `maps:keys/1` has nothing to enumerate, `same_keys/2` and `keys_subset/2`
+(`:735-738`) cannot decide, and `m_decompose/3` (`:664`) emits one member per key of a set that is
+now infinite. **9 functions / 18 clauses** destructure the pair — `m_meet` and `m_minus` are each a
+2×2 over `closed`/`open` and become 3×3 — with **16 more** routing through it, plus
+`bs_emit.erl:950-961` outside the module.
+
+The floor is real and should be said plainly: ticket 31 found `list<(atom, term)>` carries the same
+state and **is not blocking**. The price of "no" is `term` values and a list walk.
+
+Worth knowing before answering: the algebra already has an unbounded escape, and it is
+maximally imprecise. `map_part()`'s `top` (`:143`) is *any map whatsoever* and prints as bare
+`"map"`. So today B# can say *"exactly these named fields"*, *"at least these named fields"*, and
+*"any map at all"* — with **nothing in between**. `map<K, V>` is precisely the missing middle.
+
+➡️ **Yes, and pay for it as a second member kind rather than a widened one.** The middle is missing,
+`Assigns` is the third ticket to want it, and a coercion-based shortcut is unsound. But this is the
+expensive answer and the only one of the four that is, so it is the one worth refusing.
+
+---
+
+❓ **Q2 — One widened brace form, or a second form standing beside it?**
+
+Measured above: a **bounded** `map_key` (name | string | atom | integer) is free at the parser — 0
+conflicts at each of the three positions and at all three together, in both the shared-nonterminal
+and the inlined shape, with the PascalCase key intact. The **maximal** generalisation is not free,
+and its cost is invisible to the conflict count.
+
+The repo's habit points the other way, though. F13 (binary patterns) added a new delimiter and
+three new nonterminals; F2 (intervals) added a new chain folded in by one alternative; F22/ticket 55
+added four parallel `pattern` productions beside the bare brace form. **All parallel.** F20
+(list-spine) is the only in-place generalisation, and it went the *other* direction — it
+**restricted** the rest position from any `pattern` to five named forms.
+
+The sharp edge, and the reason this is not merely a grammar question: records already erase to
+maps with **atom** keys (`bs_emit.erl:592`, `:759-761`, `:768-769`, where the key node is
+`{atom, L, K}` minted from the field name). So under one widened form, `{ Status: s }` is
+ambiguous *by construction* — a record field, or the atom key `'Status'` of a dictionary. At
+runtime they are the same map. Which reading the checker takes is decided by Q3, not here.
+
+➡️ **One form, widened to a bounded `map_key`.** A second brace form would have to be
+distinguished by a delimiter B# does not have spare, and the two would erase identically anyway.
+Construction (`assign_field`, `:702`) comes with it in the same change — three productions, no
+lexer change.
+
+---
+
+❓ **Q3 — Which tag does it exclude: `Kind` only, or both?**
+
+`48e` measured both options sound on the `Descr` instrument, so this is a choice, not a constraint,
+and it is the one with a consequence outside this ticket.
+
+    a B# record      is a map carrying   Kind        => :'MyApp.Response'
+    an Elixir struct is a map carrying   __struct__  => :'Elixir.Req.Response'
+
+- **`Kind` absent only** — a foreign struct *is* a `map<atom, term>`. Ticket 50's candidate 2 then
+  works with no new surface, and `Req.get!()`'s return value reads directly. The price: the type
+  stops meaning *"not somebody else's aggregate"*.
+- **Both absent** — the type means what it says, and a foreign struct is not one. The price: 50
+  needs its own answer, and its candidate 2 cannot be it, because an unrestricted open map admits
+  a B# record *and* an Elixir struct and cannot tell them apart.
+
+➡️ **Both absent.** B#'s whole aggregate story is that a tag gives a value identity; letting `map`
+silently admit `Req.Response` reintroduces for foreign structs exactly the dissolution this ticket
+proved it had avoided for records. 50 already has candidate 1 — `[external] record Req.Response
+{ ... }` — to land on. **This is the one to argue with**, because it decides 50 rather than merely
+informing it, and the opposite answer buys real interop for free.
+
+---
+
+❓ **Q4 — Is it called `map<K, V>` or `dict<K, V>`?**
+
+**This file currently says both**, which is the honest state: `dict` 20 times in the newest
+sections, `map<K, V>` in round 1's table, and both from David — *"probably want to add map to
+prelude"* on 2026-08-21, then *"if I name map type dict in B#"* on 2026-08-25.
+
+There is no mechanism left on either side. `48h` disqualified the survey's one documented
+tie-break: Gleam renamed `Map` to `Dict` because **one namespace held both** the type and the
+map/filter/reduce family, and B# does not share that premise — the prelude owns lowercase while
+user types and functions are PascalCase, stated as a decision at `bs_check.erl:710-712`
+(*"so the two cannot collide"*), and measured — `Map` declares, resolves unqualified, and runs.
+`48j` confirms availability is not a factor either: `map` and `dict` refuse identically today, both
+for want of a prelude entry.
+
+➡️ **`map<K, V>`.** It erases to a BEAM map, every BEAM language calls that a map, it sits beside
+`list<T>`, and the collision that made Gleam rename is measured not to exist here. Per the map's
+own rule, refuse on mechanism and not on taste — and there is no mechanism against `map`.
+
+### Deferred to a later round, because it is downstream of Q1 and Q2
+
+Where the **operations** live — `Get`/`Put`/`Delete`/`Keys`, or pattern-and-`with` only. One
+premise for it is now measured rather than assumed: the prelude at `bs_check.erl:706-726` is a
+**type** prelude, two strata, both about type authorship. There is no function-prelude mechanism,
+so a Gleam-shaped opaque interface would have to invent one.
 
 Related defect found on the way and not fixed here: `with`'s subject is unchecked
 (`bs_check.erl:1742`, where `declared_fields/1` returning `unknown` is read as "no information"
@@ -354,5 +496,5 @@ contrast `48i` §6 draws: a malformed **key** is caught at the parser, while a w
 **subject** passes at exit 0.
 
 A decision brief with the corrected tree as a diagram, the six questions and a claim→source table
-is published at <https://claude.ai/code/artifact/64ddb8ca-a67c-4975-8591-f879c6311a7a>. This file
-stays canonical; that page is an ungated snapshot.
+is published at <https://claude.ai/code/artifact/64ddb8ca-a67c-4975-8591-f879c6311a7a>. It records
+round 1 and is now one round behind. This file stays canonical; that page is an ungated snapshot.
