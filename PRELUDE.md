@@ -245,12 +245,43 @@ Sorting the actual inventory against both axes:
 | `ValidateAs<T>`, `ParseAtom<T>`, the encoder | yes | yes — codegen obligations |
 | `Map.Get`, `List.Map` | yes | **no** — qualified, and *inlined* (17 §2) |
 | `raise` | yes | yes |
-| `+`, `==`, `\|>`, `switch`, `using` | yes | **grammar — not a name at all** |
+| the 47 terminals below | yes | **grammar — not names at all** |
 | a user's own module | no | — |
 | an external dependency | no | — |
 
 **One inventory, two properties.** This file is already a census with status columns; it needs a
 **qualification column**, not a restructure.
+
+**The grammar row is a complete list, not a sample — swept 2026-08-25.** B#'s entire terminal
+alphabet is **47 tokens**. None of them is a name in the sense the second axis means, so none can
+collide with anything a user writes:
+
+    keywords (14)   and behaviour module or private public record switch type using var when where with
+    wildcard        _
+    arithmetic      + - *
+    comparison      == != < <= > >=
+    pipes           |>  |?>
+    union           |
+    match           =
+    arrows          ->  (clause head)      =>  (switch arm)
+    brackets        ( ) [ ] { }
+    binary open     <<                     (the close is two `>` tokens, not `>>`)
+    separators      , : . ..
+    optional        ?
+    name classes    uident lident atom_lit integer string_lit
+
+Three things the sweep turned up that are worth having written down:
+
+- **There is no division operator.** `+`, `-` and `*` are the whole of arithmetic — no `/`, and no
+  `div`/`rem` either. Whether that is deliberate (Erlang splits `/` from `div` on float-vs-integer
+  semantics) or simply not yet reached is **not recorded anywhere**, and it is a gap rather than a
+  decision.
+- **`behavior` and `behaviour` both lex**, to the same `'behaviour'` token. The US spelling is
+  accepted silently; no ticket records choosing that.
+- **`string_lit` is built inside a helper** (`str_token/2`) rather than inline in its rule, so a
+  naive sweep of the lexer under-reports the alphabet by one. Anyone re-deriving this list must read
+  the `Erlang code.` section too — which is the repo's own *"sweep the lexer and the parser
+  separately"* trap, met again.
 
 ### What the split buys, concretely
 
