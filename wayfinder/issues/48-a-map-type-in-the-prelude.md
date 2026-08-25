@@ -401,6 +401,11 @@ now infinite. **9 functions / 18 clauses** destructure the pair — `m_meet` and
 2×2 over `closed`/`open` and become 3×3 — with **16 more** routing through it, plus
 `bs_emit.erl:950-961` outside the module.
 
+<!-- the criterion, stated once because three different totals have been in circulation: 9/18 is
+     "destructures the {closed|open, Fields} pair", which is the defensible figure. The 16 are
+     second and third tier — they touch the field map or dispatch on the part without destructuring
+     the pair. Earlier drafts said ~14 and ~25; both were counting something else. -->
+
 The floor is real and should be said plainly: ticket 31 found `list<(atom, term)>` carries the same
 state and **is not blocking**. The price of "no" is `term` values and a list walk.
 
@@ -456,11 +461,19 @@ and it is the one with a consequence outside this ticket.
   needs its own answer, and its candidate 2 cannot be it, because an unrestricted open map admits
   a B# record *and* an Elixir struct and cannot tell them apart.
 
-➡️ **Both absent.** B#'s whole aggregate story is that a tag gives a value identity; letting `map`
-silently admit `Req.Response` reintroduces for foreign structs exactly the dissolution this ticket
-proved it had avoided for records. 50 already has candidate 1 — `[external] record Req.Response
-{ ... }` — to land on. **This is the one to argue with**, because it decides 50 rather than merely
-informing it, and the opposite answer buys real interop for free.
+➡️ **`Kind` absent only** — and this reverses the recommendation first written here, which was
+*"both absent"*. Two things overturned it. First, **50 candidate 1 is not a fallback that exists**:
+`50b` measured that a record-typed foreign return is *accepted* by the checker and then crashes
+`function_clause` at run time **with no diagnostic** (50's file, *"B# side: neither, and one of the
+refusals is silent"*). Sending 50 there means building a new declaration form *and* the diagnostic
+that plain form is missing. Second, the discriminability argument does not actually reach: B# has an
+identity to defend for **its own** records, and `Kind`-absent keeps them disjoint either way. An
+Elixir struct is not a B# aggregate, so an open map admitting one dissolves nothing — it is
+permissive exactly where an open map is supposed to be.
+
+**This is still the one to argue with**, because it decides 50 rather than merely informing it. The
+case for *both absent* is that `map` then means what it says; the measured price is that 50's only
+remaining shape is the one with a live silent trap.
 
 ---
 
