@@ -3,9 +3,10 @@
 Type: grilling
 Status: claimed — [ENG-230](https://linear.app/davewil/issue/ENG-230). Survey landed 2026-08-25
 ([research](../research/48-map-type-prior-art.md)). **The grilling opened 2026-08-25 and is
-mid-flight**: probes [`48f`](../prototypes/48f_brace_map_type_and_pattern.sh)–[`48k`](../prototypes/48k_widening_the_key_position.sh)
-falsified four of this file's own claims and priced the parser half. **Round 2 is on the table and
-the four decisions are undecided** — see *Where the grilling is* at the foot of this file.
+mid-flight**: probes [`48f`](../prototypes/48f_brace_map_type_and_pattern.sh)–[`48l`](../prototypes/48l_what_the_workaround_costs.sh)
+falsified five of this file's own claims and priced both sides of question 1. **Q1 and Q2 were
+DECIDED on 2026-08-25** — unbounded key domain yes, type before pattern form — and **Q3 and Q4 remain
+open**. See *Where the grilling is* at the foot of this file.
 
 > **The ticket-to-issue arithmetic is dead, and this is a third data point.** 48 is ENG-230,
 > not the ENG-214 that `CLAUDE.md`'s `166+NN` rule predicts. Read the number, never compute it —
@@ -373,7 +374,60 @@ Caveat carried forward from that run, because it bounds what the green above mea
 build only type-checked a string key by coercing it to an atom, which collides `"acme"` with
 `acme` and `7` with `'7'`. **The parser is free; the type side is not.** That is Q1.
 
+## DECIDED 2026-08-25 — Q1 yes, Q2 type first
+
+David, after the cost was priced on both sides: *"Q1 yes, Q2 type first, matchability later"*, with
+the standing constraint *"I want the language to have the least surprise, not subtle edge cases."*
+
+**Q1 — the key domain becomes unbounded. Yes.** `map<K, V>` enters the prelude as a second map
+member kind in `bs_types`, not as a widening of the existing one.
+
+**Q2 — the type ships before the pattern form.** `map<K, V>` can be declared, passed, stored and
+returned. It cannot be destructured in a clause head yet. This was chosen with the reasoning
+recorded, so it is not re-litigated later: **the expensive half of this feature is matchability, not
+existence.** `subtract/2` is driven by residual computation (`bs_check.erl:1951`, `:1984`, `:2253` —
+clause and arm exhaustiveness), so a type no pattern narrows never reaches `m_decompose/3`. Deferring
+the pattern form defers the permanently-mandatory catch-all, the asterisk on the exhaustiveness
+guarantee, and most of the algebra.
+
+> **The correction that survived the decision.** The lean into Q1 was argued as *"unbounded by key
+> domain is the right way forward to be the most exhaustive"*. That is backwards on its own terms —
+> an open key domain is the one place exhaustiveness **cannot** work, since no finite clause set ever
+> closes the residual (`48l`: adding `[]`, then `[(:user_id, _), ..]`, then `[(:locale, _), ..]`
+> still reports non-exhaustive). The decision stands on the corrected reason: **unbounded keys do not
+> make the language more exhaustive, they make an already-unexhaustive corner honest and typed.**
+> Today that corner exists as `list<(atom, term)>` with no checking at all.
+
+### The least-surprise constraint, and the one rule that discharges it
+
+B# **already ships a matchable brace map** — `Read({ Status: 200 })` dispatches today (`48f`). So
+"the type exists but is not matchable" risks two map-ish things with different rules, which is the
+subtle edge case the constraint forbids. The framing that makes them **one** rule:
+
+> **You can pattern-match exactly the keys you wrote down.**
+
+A key set written in the source can be named by a pattern. An open key domain has nothing for a
+pattern to name — the same reason a function cannot be destructured. One sentence, learnable, and it
+makes the eventual arrival of a pattern form an *extension* of the rule rather than a reversal.
+
+**This puts a hard requirement on the diagnostic, and the requirement is not met today.** Measured
+2026-08-25 — matching a value key emits a bare parser error that explains nothing:
+
+    Read({ "user-id": v }) -> 1
+    error: syntax error before: "user-id"
+
+Under the rule above the compiler knows exactly what happened and must say so: the key domain of this
+type is open, so its keys cannot be named in a pattern; bind it and use the operations. **A syntax
+error here would violate the constraint on day one**, so the diagnostic is part of the feature, not
+a follow-up.
+
+<!-- the gate for this ships before the implementation, per the repo's own rule: a test that asserts
+     the value-key diagnostic names the rule, and a --self-test that goes red on a bare syntax error -->
+
 ### The four questions
+
+> **Q1 and Q2 are now decided — see above.** Q3 and Q4 below are still open. The text of Q1 and Q2
+> is kept as the record of what was weighed.
 
 **None of these is decided.** The arrows are the grilling's recommendation, recorded so the
 reasoning is not lost, not a resolution.
