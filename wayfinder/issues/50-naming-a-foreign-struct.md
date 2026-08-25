@@ -136,6 +136,125 @@ exemplar would make. Raised separately; it is an FFI-surface gap rather than a n
 
 <!-- ENG-250 -->
 
+## Can a B# function name contain `!` or `?` — and should it? Settled 2026-08-25
+
+David reframed the previous section: *"I don't think it's a grammar decision per se, it's can a
+function name include `!` or `?`"*. Measured in
+[`50c`](../prototypes/50c_bang_and_question_spelling.sh), four parts.
+
+### 1. Neither character is idle, and allowing it removes behaviour silently
+
+`!` appears in B#'s lexer only inside `!=`; `?` is a token used in exactly one production — ticket
+26 §4's tripwire, which catches `Notes?: int` and redirects it to `Notes: option<T>`. Built as a
+throwaway leex scanner rather than reasoned about, because a lexer conflict is measured:
+
+```
+"a != b"        -> [{ident,"a"},'!=',{ident,"b"}]
+"a!=b"          -> [{bang_ident,"a!"},'=',{ident,"b"}]
+"a! = b"        -> [{bang_ident,"a!"},'=',{ident,"b"}]
+"Notes?: int"   -> [{q_uident,"Notes?"},':',{ident,"int"}]
+"Notes ?: int"  -> [{uident,"Notes"},'?',':',{ident,"int"}]
+```
+
+Lines 2 and 3 are **identical token streams**: with a bang in identifiers, `a!=b` stops being a
+comparison, and since `=` is *match* (F8) it silently becomes a match expression. Line 4: `Notes?:`
+becomes one token, so `field_decl -> uident '?' ':' type_expr` can never fire and the tripwire 26 §4
+paid for is disarmed — the field is simply named `Notes?`.
+
+**Neither case is an error. Both quietly delete behaviour that exists today**, which is a stronger
+argument than "the character is taken", and it is the same argument twice.
+
+### 2. `get` and `get!` are two functions, so an alias is required, not a workaround
+
+Req exports **18** bang functions. Measured against a stub returning a real transport error:
+
+| | |
+|---|---|
+| `Req.get/1` | `{:error, %Mint.TransportError{reason: :nxdomain}}` — a **value** |
+| `Req.get!/1` | **raises** `Mint.TransportError` |
+
+Two exports, two contracts. A module wanting both needs two B# names whatever the grammar allows.
+
+### 3. What the conventions actually say
+
+Elixir's official naming-conventions page, quoted rather than recalled:
+
+> "Functions that return a boolean are named with a trailing question mark."
+
+> "Type checks and other boolean checks that are allowed in guard clauses are named with an `is_`
+> prefix… precisely to indicate that they are allowed in guard clauses."
+
+> "A trailing question mark should not be used in combination with the `is_` prefix."
+
+> "A trailing bang (exclamation mark) signifies a function or macro where failure cases raise an
+> exception. They most often exist as a 'raising variant' of a function that returns `:ok`/`:error`
+> tuples (or `nil`)."
+
+<!-- hexdocs.pm/elixir/naming-conventions.html; verified against lib/elixir/pages/references/naming-conventions.md on main and at tag v1.20.0 -->
+
+Three corrections this survey owes against how the question was first put here:
+
+- **The bang's definition is only *"failure cases raise an exception"*.** The pairing with error
+  tuples is *"most often"* — descriptive, not definitional. *"raises instead of returning an error
+  tuple"* is a stronger claim than the source supports.
+- **A non-bang counterpart is explicitly optional**: *"In some situations, you may have bang
+  functions without a non-bang counterpart."* `50c` measured 11 unpaired bangs in the stdlib sample,
+  and that **confirms** the documented rule rather than finding an exception to it.
+- **`is_` is a naming signal, not a mechanism.** `defguard` is what makes something guard-usable;
+  `Map.has_key?/2` is barred from guards because it is an ordinary remote call, not because of how it
+  is spelled. Measured: `is_map/1` in a guard is allowed, `Map.has_key?/2` is `REFUSED`.
+
+`50c` also swept 18 stdlib modules for a counterexample to `? -> boolean` and found **none** in 66
+returning arity-1 calls.
+
+### 4. The decision, and why it is not a close call
+
+Elixir's two suffixes encode **three** facts. B# already carries all three, in the **signature**
+rather than the name:
+
+| Elixir encodes in the name | B# carries in the type |
+|---|---|
+| `!` — failure cases raise | `result<T, foreign_error>`, and F19 **emits the `try`** |
+| `?` — returns a boolean | the signature says `bool` |
+| `is_` vs `?` — guard-valid or not | **no such distinction exists** |
+
+The third row is measured: a user function in a B# guard is refused outright, so nothing
+user-written is guard-valid and there is no fact for a suffix to advertise. Elixir needs two
+spellings because *some* of its predicates are guard-usable; B# needs none, because none are.
+
+> The refusal is right and the *diagnostic* is not — it is erlc's text on a `.bs` line, and it
+> arrives with a `function 'Even'/1 is unused` warning about a function that is used, just
+> illegally. Raised separately; it matters here because that message is the **only** place a user
+> ever meets the rule that makes this row empty.
+>
+> <!-- ENG-251 -->
+
+**So nothing the convention carries is left over.** It is an artefact of a language with no
+signature to read. Adopting it here would duplicate a checked fact with an unchecked one and let the
+two disagree — nothing would stop `Fetch!` being declared to return a plain value.
+
+**Settled: neither character enters a B# identifier, and neither gains meaning in B#.** They stay
+what they are, characters in somebody else's atom, and the `using` block needs a way to bind a B#
+name to that atom. Ticket 32 already established that *"a foreign function is declared, and the
+declaration carries both spellings"* — this is that principle meeting a name B# cannot spell, and
+the foreign half is a quoted atom, which is a restricted context rather than an expression, so it
+carries none of §1's cost.
+
+### One mismatch to carry into the spec, which is not a blocker
+
+The bang governs **semantic** failure only — *"Errors that come from invalid argument types, or
+similar, must always raise regardless if the function has a bang or not."* B#'s
+`result<T, foreign_error>` emits a `try` that catches **both**. So declaring a bang function that way
+is right, but the B# type is *broader* than the convention it stands in for, and the spec should say
+so rather than implying they name the same set of failures.
+
+### Not decided here: what the B# aliases should be called
+
+C# and Elixir invert this convention — Elixir is `get` (returns) / `get!` (raises); C# is
+`TryGetValue` (returns) / `Get` (throws), where the bare name is the throwing one. So *"the plain
+name is the safe one"* is an Elixir assumption a C#-shaped audience will not share. That is a
+tier-1-versus-tier-2 naming question and it wants deciding deliberately.
+
 ## Why this is the better forcing case than the one that raised 48
 
 Ticket 48 was raised by middleware, where `list<(atom, term)>` already carried the state, so the
