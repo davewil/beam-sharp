@@ -66,7 +66,8 @@ syn match bsWildcard  "\<_\>"
 " here on purpose and there is none in the lexer either: `list<list<int>>`
 " closes two generics, so the compiler's grammar closes a binary pattern on two
 " separate `>` rather than take a token that would swallow them.
-syn match bsOperator  "->\|=>\|\.\.\||?>\||>\|==\|!=\|<<\|<=\|>=\|[<>+\-*=|?:]"
+" F26 / ticket 38 added `/` and `%` to the character class beside `+ - *`.
+syn match bsOperator  "->\|=>\|\.\.\||?>\||>\|==\|!=\|<<\|<=\|>=\|[<>+\-*/%=|?:]"
 
 " --- atoms -------------------------------------------------------------------
 " Defined after the operator rule so that `:` opening an atom beats `:` the

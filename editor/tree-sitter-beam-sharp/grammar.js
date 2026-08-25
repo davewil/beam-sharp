@@ -468,7 +468,10 @@ module.exports = grammar({
         [PREC.and, 'and', 'left'],
         [PREC.compare, choice('==', '!=', '<', '>', '<=', '>='), 'left'],
         [PREC.add, choice('+', '-'), 'left'],
-        [PREC.multiply, '*', 'left'],
+        // F26 / ticket 38. `/` and `%` sit at `*`'s level and associate left,
+        // which matters more here than for `*`: regrouping a truncating
+        // division changes the answer, and `7 / 2 * 2` is 6.
+        [PREC.multiply, choice('*', '/', '%'), 'left'],
       ];
       return choice(...table.map(([p, op, _assoc]) =>
         prec.left(p, seq(

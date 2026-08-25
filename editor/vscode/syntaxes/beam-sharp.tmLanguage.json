@@ -140,7 +140,7 @@
         {
           "_comment": "`<` and `>` are BOTH a comparison and a generic bracket, and nothing in a regex can tell them apart -- see the README. Ticket 28 settled the rule positionally and F6.9 pins it.",
           "name": "keyword.operator.beam-sharp",
-          "match": "[<>+\\-*=|?]"
+          "match": "[<>+\\-*/%=|?]"
         }
       ]
     },
