@@ -424,6 +424,63 @@ a follow-up.
 <!-- the gate for this ships before the implementation, per the repo's own rule: a test that asserts
      the value-key diagnostic names the rule, and a --self-test that goes red on a bare syntax error -->
 
+### How Elixir does it — measured 2026-08-25 by [`48m`](../prototypes/48m_elixir_maps_under_descr.exs)
+
+David, after Q1 and Q2 were decided: *"I need to see again how Elixir handles maps with pattern
+matching and set-theoretic typing."*
+
+Elixir is a sharper comparison than Gleam and the survey under-used it. It is **the only shipped
+system with both map patterns and a set-theoretic type system**, which is exactly B#'s combination.
+31e and 48e used `Module.Types.Descr` for tag questions; this asks the two structural ones.
+
+**1. The unbounded key domain exists — and it is not a second member kind.** Descr's map
+representation is a BDD of pairs `{tag_or_domain, fields}`, where `tag_or_domain` is `:closed`,
+`:open`, **or a map from domain keys to types**, and `fields` is the finite atom-keyed part. There
+are twelve domain key types: binary, integer, float, atom, tuple, map, list, fun, pid, port,
+reference, empty_list.
+
+So the thing this ticket called *"a second member kind"* is, in the one shipped set-theoretic
+implementation, **a third value of the existing tag slot**. B#'s
+`map_member() :: {closed | open, #{atom() => ty()}}` is the same shape with that case missing. That
+is a smaller and far more borrowable change than Q1's write-up assumed — the slot already exists.
+
+**2. Its subtraction is exact where B#'s surrenders.** `bs_types.erl`'s last `m_minus` clause says
+*"these fields, plus at least one more" is not something this algebra can name* and keeps the
+minuend whole. The same subtraction on the same instrument:
+
+| | |
+|---|---|
+| `closedA` is a subtype of `openA` | true |
+| **gave up** (`diff == openA`) | **false** |
+| `diff` excludes `closedA` | true |
+| `diff` still within `openA` (sound) | true |
+| `diff` empty (degenerate) | false |
+| `diff` still admits `%{a, b}` | true |
+
+**Elixir names the case B# cannot.** The reason is representational and stated in its own source:
+B#'s map part is a **flat list of members with no negation node**, while Descr keeps negations
+**symbolic in a BDD** — *"this representation keeps negations symbolic, and avoids distributing
+difference"*. So **the precision unknown is not inherent to set-theoretic maps. It is a consequence
+of the representation B# chose**, and there is a shipped fix for it.
+
+**3. But Elixir does not enforce exhaustiveness at all**, and this is what decides how much of the
+above transfers. Measured by compiling rather than reasoning: a function with a clause for `%{a: _}`,
+no clause for `%{b: _}` and no catch-all compiles at **exit 0 with no warning**. What Elixir does
+instead is **infer the domain from the clauses and check callers against it** — `pick(%{b: 1})`
+warns, `given types: -%{a: not_set(), b: integer()}-` against `expected: dynamic(%{..., a: term()})`.
+
+**What transfers, and what does not.** Elixir's exactness proves the imprecision is **fixable**, and
+hands over the shape to fix it with. It does **not** tell us how much precision B# needs, because
+Elixir is never asked to close a residual — it spends its precision on call-site checking, not
+totality. B# is asking a question Elixir does not ask, so the precision budget is still B#'s to set
+on its own terms.
+
+**And it makes the Q2 decision look better rather than worse.** Elixir's BDD exists to serve pattern
+matching; B# has just deferred pattern matching. Under *type first*, the domain-key tag is needed for
+**assignment compatibility and union membership** — `m_meet` and `m_subset` — and not for residual
+computation, which is what drives `m_decompose`. So the representation question can travel with the
+pattern form and be taken as one decision when it arrives, instead of being paid for now.
+
 ### The four questions
 
 > **Q1 and Q2 are now decided — see above.** Q3 and Q4 below are still open. The text of Q1 and Q2
