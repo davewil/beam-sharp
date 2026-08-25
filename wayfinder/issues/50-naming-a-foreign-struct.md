@@ -69,6 +69,73 @@ Three shapes, none costed:
    work with a real record. Honest, and it costs a traversal whose size a foreign sender chooses,
    which is exactly what ticket 11 refused to put in a clause head.
 
+## What `Req.get!` actually hands back, and what B# can say about it — 2026-08-25
+
+David: *"let's examine the result from `Req.get!` in Elixir — what does it return, an Elixir struct
+or map? if I call `Req.get!` from B# what do I get, record or dict?"*
+[`50b`](../prototypes/50b_what_req_get_hands_back.sh) answers both against a live Req 0.7.3, with
+the adapter **stubbed** so nothing reaches the network — this ticket's own rule — and the stub's
+values coming back verbatim is how that is known.
+
+### Elixir side: the question has no "or" in it
+
+| | |
+|---|---|
+| `is_struct?` | **true** |
+| `is_map?` | **true** |
+| `:maps.get(:'__struct__', …)` | `Req.Response` |
+| `:maps.is_key(:'Kind', …)` | `:false` |
+| keys | `[:__struct__, :body, :headers, :private, :status, :trailers]` |
+
+**A struct is a map.** There is no struct term on the BEAM, so "struct or map" is not a choice the
+runtime offers — it is a map carrying one extra key. That is the same mechanism as a beam-sharp
+record's minted `Kind`, which 31e already measured.
+
+**And one call returns both kinds, nested.** The response is a *tagged* map; its `body` is a
+**plain** map (`%{"id" => 7, "ok" => true}`, no `__struct__`) and so are its `headers`. So a binding
+to Req needs an answer for tagged foreign aggregates *and* for untagged foreign maps at the same
+time, from a single call. That is this ticket and ticket 48 arriving together in one value.
+
+### B# side: neither, and one of the refusals is silent
+
+| declaration | result |
+|---|---|
+| `map<atom, term> new(…)` | **refused** — *"no type named map takes a type argument"* |
+| `dict<atom, term> new(…)` | **refused** — *"no type named dict takes a type argument"* |
+| `term new(…)` (control) | accepted |
+| **`Response new(…)`, a record** | **accepted** |
+
+That last row is the finding. The compiler **type-checks a record-typed foreign return** — and then,
+run against the live value:
+
+    Tag()       -> :'Elixir.Req.Request'      (control: the call works)
+    HasKind()   -> :false                     (control: no beam-sharp tag)
+    Dispatch()  -> crashed: error:function_clause
+
+**So shape 1 is not merely absent — its naive form is accepted and then fails at run time with no
+diagnostic.** The clause head the compiler checked cannot match the value the function returns.
+This ticket already argued that a minted tag cannot match a foreign one; what is new is that
+nothing *says so* at the declaration, which makes it a silent trap rather than a refusal. Whatever
+shape this ticket picks, **the plain form wants a diagnostic** — the compiler knows records are
+tagged and knows a foreign function cannot mint the tag, so it has everything it needs to refuse.
+
+### And `Req.get!` cannot be named at all
+
+The bang is an ordinary character in an Erlang atom — `'Elixir.Req':'get!'/2` — and B# has no
+spelling for it. Both forms measured:
+
+| | |
+|---|---|
+| `term get!(…)` | **refused** — `illegal characters "!("` |
+| `term :'get!'(…)` | **refused** — `syntax error before: 'get!'` |
+
+A bang-free neighbour in the same block compiles, so this is the bang and not the probe. **This
+blocks the exemplar this ticket exists to serve** — `get!`, `fetch!`, `put!` and friends are the
+Elixir convention for the raising variant, and `Req.get!` is precisely the call the requested Req
+exemplar would make. Raised separately; it is an FFI-surface gap rather than a naming decision.
+
+<!-- ENG-250 -->
+
 ## Why this is the better forcing case than the one that raised 48
 
 Ticket 48 was raised by middleware, where `list<(atom, term)>` already carried the state, so the
