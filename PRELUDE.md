@@ -223,6 +223,68 @@ types** plus **codegen obligations**, both of which `CONTEXT.md` already names �
 word names nothing that is not already named. Renaming is not free: OCaml took **4.5 years** to go
 `Pervasives` → `Stdlib`.
 
+## The two areas — proposed 2026-08-25, and they are axes rather than categories
+
+David, after the survey: *"The way I see it is split into 2 areas. The out of the box environment —
+'the standard environment' — before any other external modules are included, and the names and
+functions that are available without qualification. We're still in the design phase through
+prototyping, so B# has the freedom to pivot to a cleaner distinction."*
+
+**This is cleaner than anything proposed above it, and the reason is structural: those are two
+independent properties, not two buckets.** Everything written earlier — including this file's own
+framing, and ticket 48's Q5 — treated *"prelude"* as naming both at once, which is why `Map.Get`
+kept looking anomalous. It is not anomalous. It ships out of the box **and** requires a qualifier;
+those facts simply do not conflict.
+
+Sorting the actual inventory against both axes:
+
+| Entry | ships out of the box | reachable unqualified |
+|---|---|---|
+| `int`, `bool`, `string`, `atom`, `term` | yes | yes — builtin |
+| `list<T>`, `option<T>`, `result<T, E>`, `map<K, V>` | yes | yes |
+| `ValidateAs<T>`, `ParseAtom<T>`, the encoder | yes | yes — codegen obligations |
+| `Map.Get`, `List.Map` | yes | **no** — qualified, and *inlined* (17 §2) |
+| `raise` | yes | yes |
+| `+`, `==`, `\|>`, `switch`, `using` | yes | **grammar — not a name at all** |
+| a user's own module | no | — |
+| an external dependency | no | — |
+
+**One inventory, two properties.** This file is already a census with status columns; it needs a
+**qualification column**, not a restructure.
+
+### What the split buys, concretely
+
+1. **`Map.Get` stops needing a category of its own.** It is in the standard environment and it is
+   qualified. Neither *"prelude"* nor *"standard library"* has to be stretched to cover it, and
+   ticket 48's Q5 — corrected once already — needs no third answer.
+2. **The recorded boundary reads correctly again.** *BOUNDARY — Standard library breadth* rules out
+   *"a library designed module-by-module"*. Shipping qualified compiler-known operations is not
+   designing a library, so `Map.Get` never crossed it.
+3. **The shadowing question becomes precise, and mostly answers itself.** The *"user names win"*
+   lesson five languages learned applies **only to the unqualified column, and only to entries that
+   are not keywords**. Today that is the codegen obligations and possibly `raise` — a closed,
+   compiler-owned set. A closed set needs no shadowing rule. The rule is owed only if that column
+   is ever opened to accretion.
+
+### The naming that follows
+
+- **Axis 1 — "the standard environment".** Miranda's own term, from `stdenv.m`: *"all the
+  identifiers in the Miranda standard environment"*. Miranda is Haskell's closest ancestor, so this
+  is the term Haskell **replaced** with *"prelude"* — and the survey found no primary source for why
+  it did. Borrowing it back is accurate on its face: it is an environment you are given, not a
+  library you import.
+- **Axis 2 — a property, not a category.** *"Unqualified"* describes it exactly, and needs no
+  coinage.
+
+**Which retires "prelude" entirely**, because with the axes separated, neither area needs it. That
+is a real loss of a familiar word — but the survey established the word reliably connotes almost
+nothing: not implicitness (PureScript), not one thing (Rust's five), not a module (Rust's is *"a
+collection of names"*), not functions (Gleam's has none). Little is given up.
+
+**Cost, measured.** Renaming the *concept* is cheap — `CONTEXT.md` and prose. Renaming this *file*
+is a chore: `PRELUDE.md` is cited from ten places including the `check-links` gate and three
+compiler modules (`bs_check.erl`, `bs_emit.erl`, `bs_diag.erl`), plus F18, F19 and a test. The two
+can be done separately, and the concept should not wait for the file.
 ---
 
 ## What is not decided
