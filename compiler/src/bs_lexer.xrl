@@ -229,6 +229,13 @@ _                       : {token, {'_', TokenLine}}.
 \+                      : {token, {'+', TokenLine}}.
 -                       : {token, {'-', TokenLine}}.
 \*                      : {token, {'*', TokenLine}}.
+%% F26 / ticket 38. `/` is TRUNCATED INTEGER DIVISION on two `int`s and lowers to
+%% Erlang's `div`, never its `/`, which is float division. `%` is the remainder
+%% that division leaves, signed by the dividend. `%` is escaped because leex
+%% reads a bare one as the start of a comment — unescaped, the rule vanishes and
+%% the token is silently never produced.
+/                       : {token, {'/', TokenLine}}.
+\%                      : {token, {'%', TokenLine}}.
 =                       : {token, {'=', TokenLine}}.
 %% The field separator in a record declaration and a record pattern. Ticket 26
 %% §2's split — colon for matching, equals for assigning — which the atom sigil

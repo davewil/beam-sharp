@@ -161,6 +161,10 @@ descriptor(Path, {Sev, Line, Fn, relational_in_bind}) ->
     (at(Sev, Path, Line, Fn))#{tag => relational_in_bind};
 descriptor(Path, {Sev, Line, Fn, no_clauses}) ->
     (at(Sev, Path, Line, Fn))#{tag => no_clauses};
+%% F26 / ticket 38. The operator is carried because the two spell the same
+%% mistake differently, and the fix differs with it.
+descriptor(Path, {Sev, Line, Fn, {divide_by_zero, Op}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => divide_by_zero, op => Op};
 descriptor(Path, {Sev, Line, Fn, {switch_inexhaustive, Residual}}) ->
     (at(Sev, Path, Line, Fn))#{tag => switch_inexhaustive,
                                residual => residual(Residual),
@@ -477,6 +481,17 @@ message(#{tag := relational_in_bind, file := P, line := L, function := Fn}) ->
      [P, L, Fn]};
 message(#{tag := no_clauses, file := P, line := L, function := Fn}) ->
     {"~s:~p: error: ~s has a signature but no clauses~n", [P, L, Fn]};
+%% Ticket 23 §2's test — does it hand the agent something to WRITE? A bare
+%% "divide by zero" does not, because the reader's next question is whether the
+%% language wanted a non-zero proof at every call site. It did not, and saying so
+%% is the whole message: only a divisor proved to BE zero is refused.
+message(#{tag := divide_by_zero, file := P, line := L, function := Fn,
+          op := Op}) ->
+    {"~s:~p: error: the right-hand side of `~s` in ~s is always zero~n"
+     "  `~s` needs no proof that a divisor is non-zero — a divisor that MIGHT~n"
+     "  be zero compiles and crashes at run time. Only one the compiler can~n"
+     "  prove is zero is refused, and this is one.~n",
+     [P, L, Op, Fn, Op]};
 %% Ticket 17 §6, and ticket 04's residual at a third site. Deliberately NOT
 %% routed through the head printer: that prints `Fn(:cancelled) -> ...`, and a
 %% switch has no function name and its arrow is `=>`.

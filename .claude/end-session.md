@@ -22,6 +22,7 @@ cd compiler && rebar3 eunit
 # --- the compiler ---------------------------------------------------------
 cd compiler && ./bin/check-language.sh          # blocks compile, `not-yet` blocks must NOT
 cd compiler && ./bin/check-list-length.sh       # the checker sees a list's length, both ways
+cd compiler && ./bin/check-division.sh          # `/` lowers to div; only a provable zero is refused
 cd compiler && ./bin/check-field-values.sh      # a field assignment is checked, at both spellings
 cd compiler && ./bin/check-record-pattern.sh    # a type prefix subtracts what the Kind spelling does
 cd compiler && ./bin/check-boundary-kind.sh     # an int parameter is an integer at the boundary

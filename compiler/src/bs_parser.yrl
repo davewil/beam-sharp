@@ -24,7 +24,7 @@ Terminals
   'module' 'type' 'when' 'using' 'behaviour' 'record' 'with' 'switch' 'var'
   'and' 'or' 'where' 'public' 'private'
   uident lident atom_lit integer string_lit '_'
-  '->' '=>' '==' '!=' '<=' '>=' '<<' '<' '>' '+' '-' '*'
+  '->' '=>' '==' '!=' '<=' '>=' '<<' '<' '>' '+' '-' '*' '/' '%'
   '=' '|' '|>' '|?>' ',' '(' ')' '[' ']' '{' '}' '..' '.' ':' '?'
   .
 
@@ -57,7 +57,10 @@ Nonassoc 300 '==' '!=' '<' '>' '<=' '>='.
 %% Both operators share the level so `a |?> F() |> G()` needs no bracket.
 Left 350 '|>' '|?>'.
 Left  400 '+' '-'.
-Left  500 '*'.
+%% F26 / ticket 38. `/` and `%` sit at `*`'s level and associate left, so
+%% `a / b / c` is `(a / b) / c` and `a / b * c` is `(a / b) * c`. Both matter for
+%% truncating division, where regrouping changes the answer: `7 / 2 * 2` is 6.
+Left  500 '*' '/' '%'.
 %% `with` binds tighter than any operator: `o with { Total = 1 } == x` reads as
 %% a comparison of the updated record, which is the only sensible parse.
 Nonassoc 600 'with'.
@@ -748,6 +751,8 @@ elist_items -> expr ',' elist_items :
 expr -> expr '+'  expr : {e_op, line('$2'), '+',  '$1', '$3'}.
 expr -> expr '-'  expr : {e_op, line('$2'), '-',  '$1', '$3'}.
 expr -> expr '*'  expr : {e_op, line('$2'), '*',  '$1', '$3'}.
+expr -> expr '/'  expr : {e_op, line('$2'), '/',  '$1', '$3'}.
+expr -> expr '%'  expr : {e_op, line('$2'), '%',  '$1', '$3'}.
 expr -> expr '==' expr : {e_op, line('$2'), '==', '$1', '$3'}.
 expr -> expr '!=' expr : {e_op, line('$2'), '!=', '$1', '$3'}.
 expr -> expr '<'  expr : {e_op, line('$2'), '<',  '$1', '$3'}.

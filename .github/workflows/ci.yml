@@ -333,6 +333,22 @@ jobs:
         working-directory: compiler
         run: ./bin/check-list-length.sh
 
+      # F26 / ticket 38. `/` lowers to Erlang's `div` and never its `/`, which
+      # is float division — a defect the type checker cannot see, because the
+      # emitter runs after it, and one that returns a FLOAT where the signature
+      # promised `int`. The gate asserts the value and gets the emission for
+      # free. Its other half is the pair of rules around a zero divisor, which
+      # fail in opposite directions: not firing at all, and firing on every
+      # literal. The self-test builds all three defects including that
+      # cry-wolf.
+      - name: The division gate proves it can fail
+        working-directory: compiler
+        run: ./bin/check-division.sh --self-test
+
+      - name: '`/` lowers to div, and only a provable zero is refused'
+        working-directory: compiler
+        run: ./bin/check-division.sh
+
       # F21 / ticket 36. `Order{ Id = :oops }` and `o with { Total = :oops }`
       # both compiled to a .beam, and `o with { Nope = 1 }` compiled and raised
       # {badkey,'Nope'} at RUN time — 26 §2 enforced by the BEAM rather than by

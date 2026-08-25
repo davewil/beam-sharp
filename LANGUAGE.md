@@ -426,10 +426,13 @@ Call it a **remainder**, never a modulus: they differ exactly on negative operan
 
 **`/` carries no precondition.** A divisor needs no proof that it is non-zero, so `/` stays total
 over its declared operand types like every other operator. The compiler refuses only a divisor it
-can prove *is* zero; one that merely might be crashes at run time with `badarith`. **decided**
+can prove *is* zero; one that merely might be crashes at run time with `badarith`. **shipped** — F26.
 <!-- decided by ticket 38; §2(b), a proof obligation on every divisor, was refused on cost to the caller -->
 
-```csharp not-yet
+`int` is arbitrary precision on the BEAM — not 32- or 64-bit — and division keeps it that way:
+`2^100 / 7` is exact, and the quotient and remainder still reconstruct the dividend.
+
+```csharp
 module Fuel
 
 public int Fuel(int mass)

@@ -895,6 +895,13 @@ erl_op('<=') -> '=<';                            % Erlang spells it the other wa
 %% the difference is real.
 erl_op('and') -> 'andalso';
 erl_op('or')  -> 'orelse';
+%% F26 / ticket 38: "emission maps `/` to Erlang's `div`, NEVER its `/`, which
+%% is float division". The catch-all below would otherwise pass `/` through
+%% unchanged and emit a float where the signature promised `int` — a defect the
+%% type checker cannot see, because the emitter runs after it. `%` is `rem`,
+%% whose sign follows the dividend, which is the semantics 38 chose.
+erl_op('/')  -> 'div';
+erl_op('%')  -> 'rem';
 erl_op(Op)   -> Op.                              % + - * < > >=
 
 %%% ---------------------------------------------------------------------------

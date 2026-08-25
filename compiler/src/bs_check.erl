@@ -1665,10 +1665,10 @@ type_of({e_tuple, _, Es}, S, C) ->
     {bs_types:tuple(Tys), D};
 %% Ticket 16 §2. `e_op` declares nothing, so it synthesises and never checks —
 %% and `1 + 2` is `int`, not `range(3,3)`: exact interval arithmetic is F2's.
-type_of({e_op, _, Op, A, B}, S, C) ->
+type_of({e_op, L, Op, A, B}, S, C) ->
     {_, D1} = type_of(A, S, C),
-    {_, D2} = type_of(B, S, C),
-    {op_type(Op), D1 ++ D2};
+    {BTy, D2} = type_of(B, S, C),
+    {op_type(Op), D1 ++ D2 ++ divisor_diags(Op, BTy, L, C)};
 type_of({e_nil, _}, _S, _C) -> {bs_types:nil(), []};
 type_of({e_list, _, Items, Rest}, S, C) ->
     {Tys, D1} = type_of_all(Items, S, C),
@@ -1954,7 +1954,33 @@ arms([{arm, AL, P, Guard, Body} | Rest], Residual, S, C, N, Tys, Diags, Origin) 
 op_type('+') -> bs_types:int();
 op_type('-') -> bs_types:int();
 op_type('*') -> bs_types:int();
+%% F26 / ticket 38. `int`, not an exact interval: `7 / 2` is `int` for the same
+%% reason `1 + 2` is, since exact interval arithmetic is F2's and not this one's.
+op_type('/') -> bs_types:int();
+op_type('%') -> bs_types:int();
 op_type(_)   -> bs_types:union(bs_types:atom_lit(true), bs_types:atom_lit(false)).
+
+%% F26 / ticket 38 §2. `/` CARRIES NO PRECONDITION: a divisor needs no proof it
+%% is non-zero, so `Mean(total, count) -> total / count` compiles and a zero at
+%% run time crashes — ticket 12's stance, not a gap. What is refused is a divisor
+%% the checker can prove IS zero, and the test is 38's own:
+%% `is_subtype(Divisor, range(0,0))` over a type it already computes.
+%%
+%% Subtype rather than equality on purpose. It catches `n / 0` and it also
+%% catches a divisor whose type has been narrowed to nothing but zero — a
+%% refinement, or a clause head that pinned it — which an equality test against
+%% the literal would miss. It cannot fire on `int`, whose type includes far more
+%% than zero, which is what keeps `Mean` compiling.
+%%
+%% 38 also records why this beats both sources it surveyed: `erlc` constant-folds
+%% only when BOTH operands are literals, so `variable(X) -> X div 0` warns
+%% nowhere today.
+divisor_diags(Op, BTy, L, C) when Op =:= '/'; Op =:= '%' ->
+    case bs_types:is_subtype(BTy, bs_types:range(0, 0)) of
+        true  -> [{error, L, C#ctx.fname, {divide_by_zero, Op}}];
+        false -> []
+    end;
+divisor_diags(_, _, _, _) -> [].
 
 %% A binding declares no type, so it is synthesis only — there is no site here.
 bind_step({bind, _, V, E}, {S, D}, C) ->
