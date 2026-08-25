@@ -342,7 +342,7 @@ preferred."*
 | **Q2** | one widened brace form, or a second? | **neither yet** — the type ships before the pattern form |
 | **Q3** | which tag does it exclude? | **`Kind` absent only** |
 | **Q4** | what is it called? | **`map<K, V>`** |
-| **Q5** | where do the operations live? | **the standard library** — its first module |
+| **Q5** | where do the operations live? | **corrected** — a compiler-known operation, qualified spelling, inlined (17 §2) |
 | **Q6** | does the `option<T>` collapse get fixed here? | **no — its own ticket** |
 | **Q7** | is the shipped brace map a `map<K, V>`? | **yes, one type family** |
 | **Q8** | what shape do the operations take? | **two, assertive preferred** |
@@ -917,6 +917,45 @@ Q1 and Q2 being settled unblocked these. Q5 and Q8 are both consequences of Q2 i
 no pattern form, the operations are the *only* way into a map.
 
 ❓ **Q5 — where do the operations live?** A hosting question, not a shape one.
+
+> **Q5's options list was incomplete, and the missing option was already decided — found 2026-08-25
+> while tracing where the word "prelude" entered the project.** Q5 offered *(a) build a function
+> prelude*, *(b) compiler-known forms*, *(c) index syntax*, and recommended (a) on the premise that
+> **no function-prelude mechanism exists**. The premise is true and **irrelevant**, because
+> [ticket 17 §2](17-pipeline-and-comprehension.md) had already settled the mechanism and it is not a
+> callable:
+>
+> > **The compiler-known prelude is inlined; user code is called. Precision follows the inlining.**
+>
+> It is spelled **`List.Map`** — *qualified* — while being compiler-known and **inlined at the call
+> site**, not a function in a module. So the shape `Map.Get` needs already exists, is decided, and
+> has a worked precedent. Q5's answer is therefore **(b), not (a)**: a compiler-known operation with
+> a qualified spelling, lowered to an inlined form.
+>
+> **This is a better answer than (a) on four counts, three of them measured by 17 §2 itself:**
+>
+> 1. **No mechanism has to be built.** Inlining needs no prelude of callables, which was (a)'s entire
+>    cost.
+> 2. **It is strictly more precise than a call.** 17 §2 measured `filter` emitting
+>    `[pos_integer()]`, narrowed out of the guards, where the surface signature can only say
+>    `list<T>` — *"the emitted code knows a fact the language's own type system discards"*.
+> 3. **A generic call is measured to be worse than Erlang's own.** A declared spec on a generic
+>    `list_map/2` overrides success typing of the body, so emitting the call loses what inlining
+>    keeps.
+> 4. **It does not cross a recorded boundary.** *BOUNDARY — Standard library breadth* rules out
+>    *"a library designed module-by-module"*. Under (a) `Map` was a module and 48 was designing one;
+>    under (b) nothing is designed — `Map.` is a qualified spelling for compiler-known operations.
+>
+> **What survives of Q9 is the smaller half.** The `Map.` qualifier must still be reserved, because
+> a user can declare `module Map` today. But there are **no prelude functions to collide with user
+> functions**, so Q9's unqualified-collision problem does not arise. It was created by (a), and (a)
+> is withdrawn.
+>
+> **What this does not settle:** whether these operations belong to *the prelude* (17 §2's own words,
+> "the compiler-known prelude", reached through a qualifier) or to *the standard library* as
+> `CONTEXT.md` now defines it. 17 §2 uses "prelude" for a qualified thing, which is the same
+> conflation corrected earlier today. The vocabulary needs one more pass; the **mechanism** is
+> settled either way.
 
 There is **no function prelude at all**, and none reachable: `unqualified_key/4` has three
 resolution steps and no prelude step among them, and `ValidateAs<T>`'s generator keys on a resolved
