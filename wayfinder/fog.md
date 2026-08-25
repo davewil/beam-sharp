@@ -515,6 +515,15 @@
   canonicality failure in the mirror direction, found 2026-08-22 while resolving ticket 55.
   Sequence with 50 and 52: all three ask what an FFI declaration carries.
 
+- **Negation has no spelling** — → **[ticket 63](issues/63-negation-has-no-spelling.md)**, raised
+  2026-08-25 by David reviewing the terminal alphabet: *"Keywords is missing not at the minimum."*
+  There is no `not` token and no production for one. Ticket 44 amending 08 settled `and` and `or`
+  in every position and said nothing about negation, so this is a hole rather than a recorded
+  omission. `!=` negates a **comparison**; an arbitrary predicate cannot be complemented, so
+  `when not IsAdmin(u)` has no spelling. The reason it might stay that way is item 4: `bs_types`
+  has **no negation node**, which is why `m_minus({open, _}, {closed, _})` over-approximates — a
+  `not` over a refinement predicate may be asking the algebra for what it cannot represent.
+
 - **A map type in the prelude** — → **[ticket 48](issues/48-a-map-type-in-the-prelude.md)**, raised
   2026-08-21 by David during ticket 31: *"probably want to add map to prelude"*. There is no map
   type; `map<atom, term>` is refused at the declaration and `list<(atom, term)>` is what ticket 31

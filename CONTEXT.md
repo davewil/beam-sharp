@@ -225,17 +225,17 @@ unconditionally a comparison. User code has no instantiation syntax, because a t
 always recoverable by matching.
 _Avoid_: type argument list, generic argument, turbofish, explicit instantiation
 
-**Prelude**:
-The definitions and codegen obligations available without import — reachable unqualified, with no
-prefix. B#'s counterpart to Elixir's `Kernel`, and much smaller.
-_Avoid_: stdlib, core, builtins, runtime — and in particular **standard library**, which is the
-separate layer below.
+**Standard environment**:
+Everything the compiler ships before any external module is included: the builtin type names, the
+codegen obligations, the compiler-known operations, and the grammar. Membership says nothing about
+how an entry is reached — that is the separate **unqualified** property.
+_Avoid_: prelude, stdlib, core, builtins, runtime, framework, BCL
 
-**Standard library**:
-The modules that ship with the language and are reached **through a qualifier** — `Map.Get`, not
-`Get`. Distinct from the prelude, which needs no qualifier. Its module names are reserved, so a
-user cannot declare `module Map`. B# has none of this yet; `map<K, V>`'s operations are the first.
-_Avoid_: prelude, core, framework, BCL
+**Unqualified**:
+A property of a standard-environment entry: reachable with no prefix. `option<T>` and
+`ValidateAs<T>` are unqualified; `Map.Get` is not. Orthogonal to whether the entry ships — a thing
+can be in the standard environment and still require a qualifier.
+_Avoid_: prelude, auto-imported, implicit, in scope, global
 
 ## Codegen obligations
 

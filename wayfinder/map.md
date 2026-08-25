@@ -273,6 +273,8 @@ Bodies in [`decisions.md`](decisions.md). Ticket text in `issues/`.
   can state. The cost is the atom: a `200 OK` spelled `(:error, _)`; `|?>` refuses `option<T>` (→ 49)
 - **Division and modulo** `#38` `syntax` `types`
   `/` on two `int`s truncates, `%` is the remainder; **no precondition** — only a provably zero divisor is refused
+- **A map type in the prelude** `#48` `types` `prelude`
+  **`map<K, V>` ships**, `Kind` absent only, type before pattern form, operations qualified under a reserved `Map`
 - **A refined parameter gets a boundary guard** `#46` `codegen` `types`
   yes, exported only — and it is **subtraction, not a flag**: 6 of `wire.bs`'s 11 clauses get nothing
 - **How opinionated is the language** `#22` `agent` `errors`
@@ -305,8 +307,7 @@ Bodies in [`fog.md`](fog.md). These are open: read the body before assuming a di
 - **Stdlib shape as a principle** `modules` `prelude`
   breadth is out of scope, the shape is not — and the prelude already has known contents
 - **Interop with Gleam and Elixir, both directions** `ffi` `modules`
-  inbound `#50`: the struct arrives tagged `:'Elixir.Req.Request'`, no `Kind`, **nothing can dispatch
-  on it**. outbound `#62`: Elixir cannot call a PascalCase export, and the tag is a required ABI
+  inbound `#50`: **answered by 48** — `Kind`-absent-only makes a foreign struct a `map<atom, term>`. outbound `#62`: Elixir cannot call a PascalCase export, and the tag is a required ABI
 - **Laziness and `stream<T>`** `#17` `types`
   **deferred rather than refused** — David: *"defer lazy, we will want it"*
 - **Bootstrapping — how much of beam-sharp is written in beam-sharp** `codegen` `agent`
@@ -322,9 +323,8 @@ Bodies in [`fog.md`](fog.md). These are open: read the body before assuming a di
   only in the environment that built them. The FFI declaration may already be the home
 - **A value-returned foreign error has no declared form** `#56` `ffi` `errors` `types`
   **the payload `foreign_error` asks for the wrapper, not the tag `:error`** — so `(:ok,B)|(:error,R)` is an ordinary union and needs no new syntax. F19 §2 reversed, its debt sentence deleted. **Built, F23**
-- **A map type in the prelude** `#48` `types` `prelude`
-  opaque, matchable, or not at all. The record/map collision is measured and **dead** — the minted
-  tag is what keeps them apart — but exhaustiveness over a map is vacuous. Waits on 25a's pipeline
+- **Negation has no spelling** `#63` `syntax` `patterns`
+  no `not` token, no production; 44 settled `and`/`or` and never covered it. `bs_types` has no negation node
   rewrite for *"no exemplar declares one"*
 - **`cond`, or whatever serves a long ladder of unrelated conditions** `#17` `syntax`
   no case for it yet; the width-five evidence was retracted and 25a's ladder is now a valve chain

@@ -1,4 +1,13 @@
-# The prelude
+# The standard environment
+
+> **Renamed in substance 2026-08-25, not yet in filename.** David settled the model: one axis is
+> *what ships out of the box before any external module*, called **the standard environment**
+> (Miranda's term); the other is whether an entry is reachable **unqualified**. They are independent
+> properties, so `Map.Get` is in the standard environment *and* requires a qualifier with no
+> contradiction. `CONTEXT.md` carries both terms; **"prelude" is retired**. The file is still called
+> `PRELUDE.md` because it is cited from ten places including the `check-links` gate and three
+> compiler modules — renaming it is a separate chore, deliberately not bundled here.
+
 
 **A census, not a decision.** Everything below is either already settled by a ticket — cited — or
 named explicitly as a gap. Nothing here is invented to fill a hole. Written 2026-08-15 on David's
@@ -43,12 +52,12 @@ Everything else in stratum 1 below is decided-and-unbuilt, and the whole of stra
 Ordinary aliases. The compiler draws no special inference from them; they win no resolution
 contest; they are in the prelude because you should not have to import them.
 
-| Entry | Spelling | Status | Ticket |
-|---|---|---|---|
-| `bool` | `type bool = true \| false` | **decided** — and **built as a builtin instead**, see Drift | 10 |
-| `option<T>` | `type option<T> = T \| :nothing` | **shipped** | 10 §5 |
-| `result<T, E>` | `type result<T, E> = T \| (:error, E)` | **shipped** | 15 |
-| the collection library | `List.Map`, `List.Filter`, `List.Fold` | **open** — see gaps | 27, 17 §2 |
+| Entry | Spelling | Reach | Status | Ticket |
+|---|---|---|---|---|
+| `bool` | `type bool = true \| false` | unqualified | **decided** — and **built as a builtin instead**, see Drift | 10 |
+| `option<T>` | `type option<T> = T \| :nothing` | unqualified | **shipped** | 10 §5 |
+| `result<T, E>` | `type result<T, E> = T \| (:error, E)` | unqualified | **shipped** | 15 |
+| the collection library | `List.Map`, `List.Filter`, `List.Fold` | **qualified** | **open** — see gaps | 27, 17 §2 |
 
 **`option` and `result` are not two spellings of one idea**, and the rule is worth stating because
 it decides which to reach for: *absence carries nothing, failure carries a reason*. `option<T>` is
@@ -75,16 +84,16 @@ What a user could not have written. Wins resolution, and the compiler draws infe
 **A user may not add to this stratum** — though see the gaps, because the *reason* for that "no"
 has been withdrawn.
 
-| Entry | What it is | Status | Ticket |
-|---|---|---|---|
-| `ValidateAs<T>` | codegen: validates a foreign term against `T`, returns `result<T, ValidationError>` | **built** — F18 | 11, amended by 15 |
-| `ValidationError` | the reason: a path into the term plus the type expected there, `(list<string>, string)` | **built** — F18. The spelling of a path segment is F18's recorded assumption, not a decision | 15 §2 |
-| `ParseAtom<T>` | codegen: parses to a **finite atom union**; a cofinite `T` is an error | **decided** | 10 §4 |
-| `ToExistingAtom` | the genuine interop escape — a peer node's reply, a dynamically named atom | **owed** — must be respelled | 10 §5, 15 §1 |
-| `foreign_error` | the foreign failure type | **decided** | 15 |
-| `string` | `binary` refined by valid UTF-8 | **built** — F9 as a *type*; F18 generates the membership check **inside `ValidateAs<T>`** and nowhere else, so a term from outside can now establish the property that only a literal could before | 20 |
-| a serialisation encoder | the fifth codegen obligation, generated against a type | **decided** | 16 §4 |
-| OTP message shapes | `Down`, `Exit`, `Timeout` | **decided** | 14 §6 |
+| Entry | What it is | Reach | Status | Ticket |
+|---|---|---|---|---|
+| `ValidateAs<T>` | codegen: validates a foreign term against `T`, returns `result<T, ValidationError>` | unqualified | **built** — F18 | 11, amended by 15 |
+| `ValidationError` | the reason: a path into the term plus the type expected there, `(list<string>, string)` | unqualified | **built** — F18. The spelling of a path segment is F18's recorded assumption, not a decision | 15 §2 |
+| `ParseAtom<T>` | codegen: parses to a **finite atom union**; a cofinite `T` is an error | unqualified | **decided** | 10 §4 |
+| `ToExistingAtom` | the genuine interop escape — a peer node's reply, a dynamically named atom | unqualified | **owed** — must be respelled | 10 §5, 15 §1 |
+| `foreign_error` | the foreign failure type | unqualified | **decided** | 15 |
+| `string` | `binary` refined by valid UTF-8 | unqualified | **built** — F9 as a *type*; F18 generates the membership check **inside `ValidateAs<T>`** and nowhere else, so a term from outside can now establish the property that only a literal could before | 20 |
+| a serialisation encoder | the fifth codegen obligation, generated against a type | unqualified | **decided** | 16 §4 |
+| OTP message shapes | `Down`, `Exit`, `Timeout` | unqualified | **decided** | 14 §6 |
 
 **`ToExistingAtom` is owed, not merely unbuilt.** Ticket 10 §5 wrote it as `atom | :nothing`, and
 ticket 15 §1 later made exactly that shape **an error at the declaration** — a singleton absorbed
@@ -109,9 +118,9 @@ rejected.
 | | Where it actually lives |
 |---|---|
 | `if`, `unless`, `cond`, `case` | nowhere — `switch` is the only branching construct (17 §6) |
-| `\|>`, `\|?>` | **grammar** (17 §3, §4) |
+| `\|>`, `\| unqualified |?>` | **grammar** (17 §3, §4) |
 | `==`, `!=`, `<`, `<=`, `+`, `-`, `*` | **operators** (8, 16). `==` means `=:=` |
-| `&&`, `\|\|` | **do not exist.** The conjunction is `and` / `or`, in every position (44 amending 8) |
+| `&&`, `\|\| unqualified |` | **do not exist.** The conjunction is `and` / `or`, in every position (44 amending 8) |
 | `is_atom/1` and friends | absent by design — the clause head and the checker do this |
 | `raise` | a prelude function taking **any term**, exactly `:erlang.error/1` (15). **decided**, unbuilt |
 | `try` | absent — `monitor` + `receive` replaces it for remote failure (15) |
