@@ -272,10 +272,30 @@ collide with anything a user writes:
 
 Three things the sweep turned up that are worth having written down:
 
-- **There is no division operator.** `+`, `-` and `*` are the whole of arithmetic — no `/`, and no
-  `div`/`rem` either. Whether that is deliberate (Erlang splits `/` from `div` on float-vs-integer
-  semantics) or simply not yet reached is **not recorded anywhere**, and it is a gap rather than a
-  decision.
+> **Corrected 2026-08-25, same day, by David: *"I thought we tackled div mod / % previously."*** He
+> is right and the claim below was wrong before it was rewritten. `/` and `%` are **decided** —
+> [ticket 38](wayfinder/issues/38-division-and-modulo.md): *"`/` on two `int`s is truncated integer
+> division and `%` is the remainder it leaves, signed by the dividend"* (`-7 / 2` is `-3`), with
+> emission mapping `/` to Erlang's **`div`** and never its `/`, which is float division. The
+> original text asserted the absence was *"not recorded anywhere"* and *"a gap rather than a
+> decision"* — asserted, not searched. It is a decision, and only the **implementation** is missing.
+
+- **`/` and `%` are decided and unbuilt.** Neither is a token: the lexer has `+`, `-` and `*` and
+  stops there. Ticket 38 settled the semantics; nothing has emitted them yet. That is a **feature
+  owed**, not an open question.
+- **`not` is missing outright, and this one *is* a gap.** There is no `not` token and no production
+  for it. [Ticket 44, amending 08](wayfinder/issues/44-conjunction-spelling.md), settled `and`
+  and `or` — *"one spelling now, in every position … `&&`/`||` are removed rather than kept as
+  synonyms"* — and **says nothing about negation**. So B# can spell conjunction and disjunction and
+  cannot spell negation. Searched before being claimed this time, unlike the division entry above.
+- **The pin operator is present; the grouping above hid it.** `bs_parser.yrl:355` is
+  `pattern -> '==' lident : {p_eqvar, ...}`, so ticket 45's pin **reuses the existing `==` token**
+  rather than adding one. The token list was right and the *classification* was not: `==` belongs
+  under comparison **and** under patterns.
+- **`?` is recognised only in order to be refused.** `bs_parser.yrl:103` is
+  `field_decl -> uident '?' ':' type_expr`, whose action is a `return_error` — so the optional-field
+  spelling is lexed, parsed, and then rejected with a diagnostic. It has **no accepted use**, which
+  is what "reserved" means here.
 - **`behavior` and `behaviour` both lex**, to the same `'behaviour'` token. The US spelling is
   accepted silently; no ticket records choosing that.
 - **`string_lit` is built inside a helper** (`str_token/2`) rather than inline in its rule, so a
