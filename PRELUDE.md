@@ -123,6 +123,75 @@ chosen.** It is a gap, listed below.
 
 ---
 
+## Is a prelude even required? — reviewed 2026-08-25
+
+David, on reading [`Kernel.SpecialForms`](https://elixir.hexdocs.pm/1.20.3/Kernel.SpecialForms.html):
+*"I think we need to review what goes in the prelude as well. Or whether one is even required given
+in Elixir they're macros we don't support (yet)."*
+
+**The observation is right and it shrinks this file's claim considerably.** Elixir needs `Kernel`
+and `Kernel.SpecialForms` to be *modules* because Elixir's syntax **is** macros — *"special forms
+are the basic building blocks of Elixir, and therefore cannot be overridden by the developer"*, and
+all 31 of them are macros auto-imported without a prefix. B# has no macros, so the same constructs
+land somewhere else. Sorting all 31 against B#:
+
+| Elixir special form | Where it lives in B# |
+|---|---|
+| `%{}`, `%struct{}`, `{args}`, `<<args>>` | **grammar** — brace forms, record construction, tuples, binary patterns (F13) |
+| `left = right`, `^var` | **grammar** — `=` is match (F8), the pin is `== name` (45) |
+| `left . right`, `left :: right`, `__block__` | **grammar** — field access, declaration syntax, blocks |
+| `case/2`, `cond/1` | **grammar** — `switch`, the only branching construct (17 §6) |
+| `alias/2`, `import/2` | **grammar** — `using` (40, 41) |
+| `quote`, `unquote`, `unquote_splicing`, `require/2`, `super/1`, `__CALLER__`, `__aliases__/1`, `__cursor__/1` | **nothing — B# has no macros.** Eight of the thirty-one, and the largest single group |
+| `try/1` | **absent by design** — `monitor` + `receive` replaces it (15) |
+| `for/1` | absent |
+| `__MODULE__`, `__DIR__`, `__ENV__`, `__STACKTRACE__` | absent — reflection is undecided, and nobody has asked |
+
+**Not one of them needs a prelude.** They are grammar, or they are macro machinery B# does not have.
+The same holds for `Kernel` proper: `+`, `==`, `<` are **operators** (8, 16), `|>` is **grammar**
+(17 §3), and `is_atom/1` and friends are *"absent by design — the clause head and the checker do
+this"*.
+
+**So what is actually left?** The inventory above, read honestly, is:
+
+- **type names** — `option`, `result`, `list`, `bool`, `string`, and now `map`;
+- **codegen obligations** — `ValidateAs<T>`, `ParseAtom<T>`, the serialisation encoder,
+  `ToExistingAtom`, plus the types they return;
+- **`raise`** — and it is the *only* function anywhere in this file;
+- one **unnamed gap**: `<`'s "named prelude escape" for the BEAM's universal term order.
+
+**Two entries ship today**, `option<T>` and `result<T, E>`, and both are types.
+
+### The consequence, and it reaches back into ticket 48
+
+**B# may need no prelude *functions* at all.** `raise` is the only candidate, and `raise` is not a
+keyword today — the lexer's entire reserved vocabulary is fifteen words: `_ and behaviour module or
+private public record switch type using var when where with`. So `raise` is unbuilt in both senses,
+and it could as easily be **grammar**, the way `switch` is, as a function.
+
+If `raise` is grammar, **the prelude contains zero functions**, and it is exactly two things that
+already have names of their own: *the builtin type names*, and *the codegen obligations*.
+
+That matters for [ticket 48](wayfinder/issues/48-a-map-type-in-the-prelude.md)'s Q9, which asked
+what namespace a prelude *function* lives in and measured that neither `Get` nor `Map` is free.
+**That problem only exists if prelude functions exist.** Ticket 48 put the map operations in the
+**standard library**, reached through a qualifier, so the unqualified-collision worry was created by
+calling that layer "a function prelude" in the first place. Q9's answer — reserve the `Map`
+qualifier — is still needed, because it is a *standard-library module name*. The rest of Q9's
+framing was solving a problem that may not arise.
+
+### Two questions this opens, both open
+
+1. **Is `raise` grammar or a prelude function?** Grammar makes the prelude function-free and keeps
+   the fifteen-keyword surface honest about what it costs. A function keeps the keyword count down
+   but reintroduces the one thing Q9 was worried about.
+2. **Does the term "prelude" survive?** It names a real set — *what is reachable without a
+   qualifier* — and the lowercase/PascalCase rule at `bs_check.erl:710-712` needs that set to have a
+   subject. But if the set is only types and codegen obligations, both already named in
+   `CONTEXT.md`, the term may be carrying less than its own file implies.
+
+---
+
 ## What is not decided
 
 Read this section before proposing anything. These are open, and three of them are the *same*
