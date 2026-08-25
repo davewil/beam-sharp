@@ -539,14 +539,15 @@ a foreign struct readable.** This confirms Q3's recommendation and replaces its 
 *"50's fallback is a trap"*, but *"your own aggregates should not be dynamically accessible; someone
 else's, which you cannot declare, must be."*
 
-**4. `Map.fetch/2` unblocks Q6 without fixing the prelude first.** Elixir's dynamic-world lookup
+**4. `Map.fetch/2` unblocks round 3's Q6 without fixing the prelude first.** Elixir's dynamic-world lookup
 returns `{:ok, value} | :error` — a **tagged** success. B#'s `option<T>` and `result<T, E>` collapse
 at `T = term` because their success case is the *bare* value and `:nothing` is an atom inside it. A
 tagged success does not collapse. So `Get` can return `(:ok, V) | :absent` and be usable at
 `V = term` on day one. **The prelude collapse remains a real defect and still wants its own ticket —
 it just stops blocking this one.**
 
-**What this leaves for Q5.** Elixir ships *both* operations and recommends the strict one:
+**What this leaves for round 3's Q8 — not Q5, which asks where the operations live rather than
+what they are.** Elixir ships *both* operations and recommends the strict one:
 `Map.fetch!` raises, `Map.fetch` returns the tagged pair. If B# follows, it needs a name for the
 raising form, and **`!` is not available** — that spelling was settled out of B# identifiers. Also
 unmeasured: `PRELUDE.md` lists `raise` as decided-but-unbuilt, so the assertive half may have no
@@ -805,7 +806,69 @@ for want of a prelude entry.
 `list<T>`, and the collision that made Gleam rename is measured not to exist here. Per the map's
 own rule, refuse on mechanism and not on taste — and there is no mechanism against `map`.
 
-### Deferred to a later round, because it is downstream of Q1 and Q2
+### Round 3 — put 2026-08-25, open
+
+**Numbering note, because this file briefly had two schemes.** Round 1's questions were numbered
+1–6 and are referred to above only as *"Round 1's Q3"*, *"Round 1's Q5"* and so on. Rounds 2 and 3
+share a single run of numbers: **Q1–Q4 from round 2** (Q1 and Q2 decided, Q3 and Q4 open), **Q5–Q8
+from round 3**. A bare `Q5` anywhere below this line means round 3's.
+
+Q1 and Q2 being settled unblocked these. Q5 and Q8 are both consequences of Q2 in particular: with
+no pattern form, the operations are the *only* way into a map.
+
+❓ **Q5 — where do the operations live?** A hosting question, not a shape one.
+
+There is **no function prelude at all**, and none reachable: `unqualified_key/4` has three
+resolution steps and no prelude step among them, and `ValidateAs<T>`'s generator keys on a resolved
+type inside angle brackets, which `Get(m, k)` has not got.
+
+- **(a) build a function prelude** — the largest, and the only non-throwaway option: `PRELUDE.md`
+  still has the whole collection library open, `List.Map/Filter/Fold` unbuilt, so this bill arrives
+  anyway;
+- **(b) compiler-known forms**, special-cased in the checker the way `ValidateAs<T>` is — cheaper,
+  but each is a permanent special case;
+- **(c) index syntax** — `m[k]`. `[` in that position is a syntax error today, so it is grammar
+  work, and it *fights the design*: C#'s indexer throws on absence while B# wants absence in the
+  value domain.
+
+➡️ **(a)**, and the Elixir reading above strengthens it rather than replacing it. Elixir hosts its
+map operations in **all three** places — `map.key` is syntax, `map[key]` is syntax via the Access
+protocol, and `Map.fetch/2` is a **library module**. The row B# cannot copy is the third, because it
+has no module-function mechanism for a prelude entry to live in. So if the `Map.fetch` equivalent is
+wanted at all, (a) is not avoidable.
+
+❓ **Q6 — does the `option<T>` collapse get fixed before the lookup ships?**
+
+`option<term>` and `result<term, E>` both normalise back to bare `term`, because their success case
+is the *bare* value and `:nothing` is an atom inside it. All three motivating cases use `term`
+values.
+
+➡️ **It stops blocking, and stays its own ticket.** `Map.fetch/2` returns `{:ok, value} | :error` —
+a **tagged** success, which does not collapse. A lookup returning `(:ok, V) | :absent` is therefore
+usable at `V = term` on day one. The collapse remains a real prelude defect and should be raised
+separately; shipping it together would have the lookup feel broken and the map type take the blame.
+
+❓ **Q7 — is the shipped brace map a `map<K, V>`?** One type family, or two that look alike?
+
+➡️ **One family.** Two unrelated map-ish types is precisely the surprise the standing constraint
+forbids. `48m` gives the shape to borrow: in `Descr` they are **the same constructor with a
+different tag value** — `:closed`, `:open`, or a domain-key map — not two constructors. Partly
+downstream of Q3, which decides where the boundary sits.
+
+❓ **Q8 — what shape do the operations take?** Raised 2026-08-25 by the Elixir reading, and
+distinct from Q5: Q5 asks *where they live*, this asks *what they are*.
+
+Elixir ships **two** and prefers the strict one — `Map.fetch!` raises, `Map.fetch` returns the
+tagged pair — because *"they raise if the key does not exist … useful to get quick feedback and spot
+bugs and typos early on"*. `48l` measured B#'s workaround doing the opposite: a misspelled key
+returns the absent answer silently.
+
+➡️ **Two operations, assertive preferred**, following the ecosystem. Two things are unresolved
+underneath it and neither blocks the shape: **`!` is not available** as a name for the raising form,
+that spelling having been settled out of B# identifiers; and `PRELUDE.md` lists `raise` as
+decided-but-unbuilt, so the assertive half may have no mechanism yet.
+
+### Deferred further, because it is downstream of Q5
 
 Where the **operations** live — `Get`/`Put`/`Delete`/`Keys`, or pattern-and-`with` only. One
 premise for it is now measured rather than assumed: the prelude at `bs_check.erl:706-726` is a
