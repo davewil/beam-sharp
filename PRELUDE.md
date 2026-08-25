@@ -190,6 +190,39 @@ framing was solving a problem that may not arise.
    subject. But if the set is only types and codegen obligations, both already named in
    `CONTEXT.md`, the term may be carrying less than its own file implies.
 
+### Where the word came from — surveyed 2026-08-25
+
+Full survey, primary sources only:
+[`research/prelude-the-word-across-languages.md`](wayfinder/research/prelude-the-word-across-languages.md).
+The four findings that bear on the two questions above:
+
+1. **No primary source says why Haskell chose the word.** Not the 2010 Report, not *A History of
+   Haskell* (8 occurrences, none etymological), not the 1.0 preface, which explains *"Haskell"* and
+   is silent on *"Prelude"*. One lead only: LML had one first. Miranda, Haskell's closest ancestor,
+   called it *"the standard environment"*.
+2. **The word connotes almost nothing.** Not implicitness — PureScript's must be imported by hand.
+   Not one thing — Rust has five. Not a module — Rust's is *"a collection of names"*. Not functions
+   — Gleam's has none.
+3. **Haskell 1.0 tried exactly this split and abolished it in 1.3.** `PreludeCore` was types,
+   classes and instances, always implicit and non-shadowable, with no free functions — killed
+   because users could not redefine `+`, `==`, `>`. **The failure mechanism was the classes**, whose
+   methods came in with them. Ticket 16 killed type classes for B#, so it cannot recur here.
+4. **Gleam's prelude is types and data constructors with zero function values**, on this platform —
+   shape-identical to B#'s. But Rust names its types-only layer the ***language*** prelude,
+   distinguished by a qualifier from the library one; and only Rust's trait/function prelude ever
+   needed versioning (2021, 2024). The types-only one never has.
+
+**And the C#-family answer is not a prelude at all**: `predefined_type` is a grammar nonterminal,
+`int`/`bool`/`string` are keywords aliasing `System` types. This file's own Drift section already
+records B# leaning that way without deciding to — `bool` is *"decided one way and built the other"*,
+a prelude alias in ticket 10 and `builtin(bool)` in `bs_check.erl`.
+
+**So the live options for question 2 are three, not two:** keep *prelude* as Gleam does; qualify it
+as Rust does (*language prelude* vs the standard library); or dissolve it C#-style into **builtin
+types** plus **codegen obligations**, both of which `CONTEXT.md` already names — in which case the
+word names nothing that is not already named. Renaming is not free: OCaml took **4.5 years** to go
+`Pervasives` → `Stdlib`.
+
 ---
 
 ## What is not decided
