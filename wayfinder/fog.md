@@ -343,7 +343,7 @@
   safety grounds and then narrowed that refusal to a placement rule. Note it constrains only the
   bracket-taking members: it says nothing about whether `foreign_error` or `string` belong, which is
   where the live question actually sits.
-- **Consuming Gleam and Elixir libraries** — possible, and at what ergonomic cost. **Sharper
+- **Interop with Gleam and Elixir, both directions** — possible, and at what ergonomic cost. **Sharper
   after ticket 10 §7**, which measured Gleam's representation rather than reading it: fieldless
   variants are bare atoms, variants with fields are tagged tuples, PascalCase becomes
   snake_case, `Nil` is the atom `nil` and `Result` is `{ok, _} | {error, _}`. So a Gleam type is
@@ -357,6 +357,17 @@
   returns `%Req.Response{}`, a map tagged `__struct__`, where a beam-sharp record mints `Kind` from
   its *own* qualified name and therefore cannot match it. Gleam's half stays here; its shapes are
   tuples and atoms, so it never asks the question.
+  **AND THE OUTBOUND DIRECTION IS NOW A TICKET TOO — 2026-08-25**, raised by David asking whether
+  being *called from* Elixir is FFI the same way: → **[ticket 62](issues/62-the-outbound-abi.md)**.
+  It is not — Erlang and Elixir are dynamic, so calling into B# needs no declaration and the FFI
+  burden is entirely on the typed side. But three frictions measured
+  ([`62a`](prototypes/62a_from_the_outside.sh)): Elixir **cannot call a PascalCase export with dot
+  syntax at all** and no module prefix rescues it, not even Elixir's own; a B# record arrives as a
+  plain tagged map rather than a struct; and the minted `Kind` tag is a **required part of the ABI**
+  that ticket 26 forbids B#'s own authors to write. Erlang and Gleam are both unaffected by the
+  first — Erlang quotes atoms freely, Gleam names foreign functions as strings. Note one precedent
+  sitting in this very entry: Gleam **downcases** when it emits to the BEAM, which is candidate 2
+  of 62 already shipped by somebody else.
 - **Laziness and `stream<T>`** — new with ticket 17 §5, and **deferred rather than refused**
   (David: *"defer lazy, we will want it"*). Nothing is lazy today: 17's fusion measurement showed
   the intermediate-list argument is already answered by the lowering, at no cost in precision. What

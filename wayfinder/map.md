@@ -304,9 +304,9 @@ Bodies in [`fog.md`](fog.md). These are open: read the body before assuming a di
   three owed items, recorded in full on ticket 20 §5
 - **Stdlib shape as a principle** `modules` `prelude`
   breadth is out of scope, the shape is not — and the prelude already has known contents
-- **Consuming Gleam and Elixir libraries** `ffi` `modules`
-  the Elixir half is now `#50`. Confirmed against Req itself: the call works, the struct arrives
-  tagged `:'Elixir.Req.Request'`, carries no `Kind`, and **no clause head can dispatch on it**
+- **Interop with Gleam and Elixir, both directions** `ffi` `modules`
+  inbound `#50`: the struct arrives tagged `:'Elixir.Req.Request'`, no `Kind`, **nothing can dispatch
+  on it**. outbound `#62`: Elixir cannot call a PascalCase export, and the tag is a required ABI
 - **Laziness and `stream<T>`** `#17` `types`
   **deferred rather than refused** — David: *"defer lazy, we will want it"*
 - **Bootstrapping — how much of beam-sharp is written in beam-sharp** `codegen` `agent`
