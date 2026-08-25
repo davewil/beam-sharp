@@ -369,6 +369,54 @@ new question rather than execution — see *Round 4* below.
 - **Q7 has a shape to borrow**: in `Descr` the named-key and open-key maps are the *same
   constructor with a different tag value*, not two constructors (`48m`).
 
+## DECIDED 2026-08-25 — Q9: `Map.Get`, with the qualifier reserved
+
+David: *"Elixir reserves or qualifies Map right? I'm ok with Map.Get as builtin/prelude"* —
+option (a), qualified.
+
+**The premise is false, and measuring it changes what (a) has to include.** Elixir does **not**
+reserve `Map`. It is an ordinary module in a flat global namespace, and the qualifier is
+unprotected. Measured 2026-08-25 on Elixir 1.19.5:
+
+    defmodule Map do
+      def get(_m, _k), do: :mine_not_stdlibs
+    end
+
+    warning: redefining module Map (current version loaded from .../Elixir.Map.beam)
+    ** (UndefinedFunctionError) function Map.update!/3 is undefined or private
+            (elixir 1.19.5) lib/module/types.ex:291: Module.Types.local_handler/5
+
+A warning, then the user's module **clobbers the standard one**, and **Elixir's own type checker
+crashes** — it was calling `Map.update!/3`. So Elixir's model is *first come, we warn*: the name is
+qualified, the qualifier is not protected, and shadowing it is catastrophic rather than merely
+confusing.
+
+**So B# takes (a) and adds the part Elixir lacks: the qualifier is reserved.** `Map` becomes a name
+a user cannot declare as a module, refused at the declaration with a diagnostic that says why.
+That keeps the decision loud rather than silent, which is what the standing least-surprise
+constraint asks for, and it is strictly better than the source it borrows from.
+
+**Why reserving the qualifier beats the alternatives**, and it answers the objection that sank
+option (c): reserving `Map` burns **one name per prelude module**, not a growing list of *function*
+names. `Get`, `Put`, `Delete` and `Keys` never compete with user identifiers at all, because they
+are only ever reached through the qualifier.
+
+**Measured costs, all cheap today:**
+
+| | |
+|---|---|
+| does anything declare `module Map`? | **no** — the name is free |
+| does anything declare a bare `module List`? | only [`48h`](../prototypes/48h_map_name_is_free.sh), a probe, not shipped code |
+| does B# already reserve any name? | **no** — this is the first. Ticket 08 reserved the `=>` **token**; no identifier or module name is reserved |
+
+**One policy question this opens, and it should be settled once rather than per module.** The same
+rule applied to the rest of the collection library reserves `List`, `String` and whatever else
+`PRELUDE.md` eventually names. That is predictable and familiar — every language protects its
+standard module names somehow — but it should be decided as a **policy** now, while the list is
+empty, rather than one name at a time as each prelude module lands. The alternative to a growing
+reserved list is a namespace the user's syntax cannot reach at all, which was Q9's option (d) and
+remains available if the list ever gets uncomfortable.
+
 ## Where the grilling is — round 2 put 2026-08-25, undecided
 
 **Round 1's six questions are withdrawn and replaced by these four.** Not because they were
