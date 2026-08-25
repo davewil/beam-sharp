@@ -97,9 +97,27 @@ compiler_tags() {
 # The helper's tags. The source is read from a FILE rather than interpolated
 # into -eval: a `.bs` program is multi-line and full of quotes, and building one
 # into a shell string is the mangling failure this repo already owns once.
+#
+# STDERR IS NOT DISCARDED, and the reason is a false red this gate produced.
+#
+# Measured 2026-08-26: a stray `C.beam` sitting in `compiler/` — gitignored
+# detritus from an earlier probe — shadows stdlib's `c` module, and bare `erl`
+# then dies DURING BOOT with `{undef,[{c,erlangrc,[],[]}...]}`. It prints
+# nothing on stdout. With `2>/dev/null` that is indistinguishable from a helper
+# that ran fine and found no diagnostics, so the gate reported
+# `the helper reports [none]` and accused the helper of not walking the
+# compiler's path. The helper was innocent; `erl` had never started.
+#
+# CI never sees it, because a fresh checkout has no `C.beam` — so this is a
+# failure mode that exists only where someone is working, which is the worst
+# place for a gate to lie.
+#
+# An `erl` that did not run now reports `__erl_failed__`, which can never equal
+# a compiler tag, plus the first line of stderr on this gate's own stderr.
 helper_tags() {
-  local src_file="$1" expr="$2"
-  erl -noshell -pa "$EBIN" -pa "$TESTBEAMS" -eval "
+  local src_file="$1" expr="$2" out rc err
+  err="$(mktemp)"
+  out="$(erl -noshell -pa "$EBIN" -pa "$TESTBEAMS" -eval "
     {ok, Bin} = file:read_file(\"$src_file\"),
     Src = binary_to_list(Bin),
     Diags =
@@ -114,7 +132,16 @@ helper_tags() {
             end || D <- Diags, is_tuple(D), tuple_size(D) >= 4,
                    element(1, D) =:= error],
     [io:format(\"~s~n\", [atom_to_list(T)]) || T <- lists:usort(Tags)],
-    halt(0)." 2>/dev/null | sort -u
+    halt(0)." 2>"$err")"
+  rc=$?
+  if [ "$rc" -ne 0 ]; then
+    echo "    erl did not run: $(head -1 "$err")" >&2
+    rm -f "$err"
+    echo "__erl_failed__"
+    return
+  fi
+  rm -f "$err"
+  printf '%s\n' "$out" | sort -u
 }
 
 # Compare one helper against the compiler across the corpus. One line per

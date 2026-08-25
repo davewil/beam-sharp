@@ -48,7 +48,16 @@ cd compiler && ./bin/extract-exemplars.sh --check
 it has been seen to go red, so the self-test pass is not optional decoration — it is the half
 that proves the green means something.
 
-**TWENTY gate scripts — `check-corrected-signature.sh` added 2026-08-23 by F25, hours after
+**A STRAY `C.beam` IN `compiler/` MAKES `check-helper-agrees.sh` LIE.** It shadows stdlib's `c`,
+so bare `erl` dies during boot with `{undef,[{c,erlangrc,...}]}`. The gate used to discard stderr,
+so this read as *"the helper reports [none]"* and accused the helper of not walking the compiler's
+path — a false red that cost twenty minutes on 2026-08-26 before anyone looked at stderr. CI never
+sees it, because a fresh checkout has no `C.beam`. The gate now prints the boot failure and reports
+`__erl_failed__`, but **the detritus is still worth deleting**: `rm -f compiler/C.beam` before a
+sweep, and note that `.gitignore` hides it so `git status` stays clean.
+
+**TWENTY-ONE gate scripts — `check-division.sh` added 2026-08-25 by F26, and
+`check-corrected-signature.sh` added 2026-08-23 by F25, hours after
 `check-boundary-kind.sh` made it nineteen the same day. It was `check-gates-wired.sh` that caught
 the omission rather than a reader, which is the third-edit rule working as designed.** Previously:
 `check-boundary-kind.sh` added 2026-08-23 by F24, one day after
