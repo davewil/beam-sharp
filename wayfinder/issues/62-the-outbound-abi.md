@@ -120,9 +120,22 @@ candidates, none costed:
 3. **Change B#'s own convention** to snake_case functions. Largest blast radius, and it fights the
    C#-family syntax that is the language's whole premise.
 
-And separately, a question the frictions raise together: **should the foreign-facing contract be
+And separately, a question the frictions raise together: ~~**should the foreign-facing contract be
 written down at all?** The `Kind` tag's spelling is load-bearing for external callers and is
-documented nowhere.
+documented nowhere.~~
+
+**Answered 2026-08-25, the same day it was asked** — David: *"write down the Kind contract for
+external callers"*. `LANGUAGE.md` §12, *"Being called from Erlang and Elixir"*, now states it: the
+module atom, the PascalCase exports and what they cost Elixir, the full erasure table read off the
+emitted `-spec`, the two arms that surprise a BEAM caller (`result<T, E>` succeeds as the **bare**
+value; `option<T>` is absent as the atom `nothing`), and the `Kind` rule itself — key, minted value,
+the full dotted path, and the three-line demonstration that a wrong tag and an Elixir struct are
+both `FunctionClauseError`.
+
+The section names the asymmetry as the reason it exists: `Kind` is the one key a construction may
+not name *inside* B#, and the one key every caller must name *outside* it. **So the tag is now a
+published interface rather than an accident**, and the remaining open decision in this ticket is
+the function-name casing alone.
 
 ## Notes
 

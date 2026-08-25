@@ -1153,7 +1153,128 @@ It is owed in **both** directions, and the second one is measured. Declaring
 wrapper catches a throw that never comes and nothing inspects the value that does. A wrong channel
 is now a wrong declaration like any other, and the boundary guard is what will catch it.
 
-## 12. Processes
+## 12. Being called from Erlang and Elixir
+
+Section 11 is one direction. This is the other, and **the two are not symmetric: calling *into*
+beam-sharp needs no declaration at all.** Erlang and Elixir are dynamic and a beam-sharp module is
+an ordinary `.beam`, so there is nothing on their side to declare. The whole FFI burden sits on the
+typed side.
+
+What a caller does need is the contract below. Parts of it are load-bearing, and none of it is
+guessable from the source.
+
+### The module atom is the dotted path, with no prefix
+
+`module Shop` emits the atom `'Shop'`; `module Shop.Reports` emits `'Shop.Reports'`. There is no
+language-wide prefix. Elixir has `Elixir.` because it resolves bare capitalised aliases to atoms and
+needs an encoding for that; beam-sharp has no such indirection, because the module declaration
+already *is* the atom.
+
+### Function names are exported PascalCase, exactly as written
+
+This costs Erlang nothing and costs Elixir its call syntax:
+
+```erlang
+'Shop':'New'(1).                  %% fine — Erlang quotes atoms freely
+```
+
+```elixir
+:Shop.New(1)               # SyntaxError: Elixir reads .Capitalized as an alias
+apply(:Shop, :New, [1])    # the way in
+```
+
+No module naming scheme changes this — the blocker is the *function* name, and prefixing the module
+does not reach it.
+
+<!-- ticket 62 holds the open decision on the casing; ENG-252 -->
+
+### What each type erases to
+
+Read off the `-spec` the compiler emits for every function whose type is known:
+
+| beam-sharp | Erlang |
+|---|---|
+| `int` | `integer()` |
+| `binary`, `string` | `binary()` |
+| `bool` | `false \| true` |
+| `atom` | `atom()` |
+| `list<T>` | `[T]` |
+| `(A, B)` | `{A, B}` |
+| `option<T>` | `T \| nothing` |
+| `result<T, E>` | `T \| {error, E}` |
+| a record | a map carrying `'Kind'` — see below |
+
+**Two of those will surprise a BEAM caller, and both follow from the prelude rather than from
+codegen:**
+
+- **`result<T, E>` success is the bare value.** There is no `{ok, _}` wrapper, because the type is
+  `T | (:error, E)` — the tag is a consequence of carrying a reason, so only the failure arm has
+  one. A caller writing `{ok, V}` will not match.
+- **`option<T>` absence is the atom `nothing`.** Not `nil`, not `undefined`, and not `{error, _}`.
+
+### The `Kind` contract
+
+A record erases to a map carrying **exactly one key beyond its declared fields**:
+
+- the key is the atom `'Kind'`;
+- the value is the atom `'<module>.<TypeName>'` — the module's full dotted path, then the record's
+  own name.
+
+```csharp
+record Point { X: int, Y: int }
+```
+
+Declared in `module Abi`, that is emitted as, and accepted as:
+
+```erlang
+#{'Kind' := 'Abi.Point', 'X' := integer(), 'Y' := integer()}
+```
+
+and in a module `Deep.Inner` a record `Thing` mints `'Deep.Inner.Thing'` — the path is the whole
+path, not the last segment.
+
+**A caller constructing a value to hand to beam-sharp must supply `Kind`, and must spell it
+exactly.** It is matched, not ignored:
+
+```elixir
+apply(:Shop, :Which, [%{Kind: :"Shop.Order", Id: 9, Total: 5}])   # => :order
+apply(:Shop, :Which, [%{Kind: :"MyApp.Order", Id: 9, Total: 5}])  # => FunctionClauseError
+apply(:Shop, :Which, [%MyApp.Order{Id: 9, Total: 5}])             # => FunctionClauseError
+```
+
+The third line is the one worth dwelling on: an Elixir **struct** with the right fields is still
+refused, because it carries `__struct__` and not `'Kind'`. The two tag conventions do not know about
+each other, and neither is wrong — they simply do not meet.
+
+**Note the asymmetry, because it is the reason this section exists.** Inside beam-sharp, `Kind` is
+the one key a construction may **not** name (section 6) — minting it is what makes aggregate
+identity the compiler's to guarantee rather than the author's to maintain. Outside beam-sharp, every
+caller **must** name it. The tag is private and public at once, so it is part of the published
+interface whether or not anyone intended that.
+
+### Reading the contract for a module you did not write
+
+Two spellings of the same answer:
+
+```
+bsc --api Abi          # in beam-sharp's types, tags included
+```
+
+```
+{ Kind: :'Abi.Point', X: int, Y: int } MakePoint(int)
+:nothing | int MaybeInt(:false | :true)
+int | (:error, atom) Res(:false | :true)
+```
+
+and the emitted `-spec` in the `.beam`, which says the same thing in Erlang's types and is what
+Dialyzer will read.
+
+**shipped** — the emission is what the compiler has always done. Writing it down as an *interface*
+is new, and what remains open is the function-name casing, not the tag.
+
+---
+
+## 13. Processes
 
 The concurrency vocabulary is OTP's, and **nothing in it is parameterised by a message type**.
 
@@ -1213,7 +1334,7 @@ client API function's signature, where you were going to write it anyway.
 `receive` is a **filter**, exempt from exhaustiveness — unmatched messages stay in the mailbox,
 which is what `gen_server:call`'s own reply correlation runs on. **decided**
 
-## 13. Refinements
+## 14. Refinements
 
 ```csharp
 type Octet = int where value >= 0 and value <= 255
@@ -1249,7 +1370,7 @@ dispatch open; a refinement without a span pattern closes it with nothing to ans
 
 ---
 
-## 14. What is deliberately absent
+## 15. What is deliberately absent
 
 Most of this table is an inventory of C#'s functional surface, sorted into what ports and what is
 **subsumed** by moving patterns into the parameter position. A construct is absent here because
@@ -1276,7 +1397,7 @@ something else already covers it, not because it was disliked.
 
 ---
 
-## 15. How it compiles
+## 16. How it compiles
 
 ```
 .bs → lex → parse → exhaustiveness check → Erlang abstract format → erlc +from_abstr → .beam
@@ -1307,7 +1428,7 @@ offending argument rather than returning something wrong.
 
 ---
 
-## 16. Using the compiler
+## 17. Using the compiler
 
 ```
 $ bsc fib.bs 5
@@ -1325,7 +1446,7 @@ the parser accepts back exactly what the printer emits. **shipped**
 
 ---
 
-## 17. What is actually built
+## 18. What is actually built
 
 | Area | State |
 |---|---|
@@ -1372,7 +1493,7 @@ the parser accepts back exactly what the printer emits. **shipped**
 
 ---
 
-## 18. Open questions
+## 19. Open questions
 
 - The language's **name**.
 - ~~**Module and namespace system**~~ — **built**. What remains open is only whether `using` gains
