@@ -25,18 +25,13 @@ spec exists.
 - **Canonicality is split with Linear** (2026-08-12). **Linear owns state** — status, native
   blocking relations, assignment, and the frontier query, because it renders the frontier
   *visually* where a `Blocked by:` line cannot. **This repo owns content** — ticket bodies,
-  research files, prototypes. Map is [ENG-165](https://linear.app/davewil/issue/ENG-165);
-  **ticket NN is ENG-(166+NN)**. Resolving a ticket means updating *both*: the answer here, the
-  state there.
-  **THE ARITHMETIC IS DEAD — query Linear for the id every time, never compute it.** Measured
-  offsets so far: `+166`, `+167`, `+168`, `+170`, `+172`, `+182` (ticket 55 is
-  [ENG-237](https://linear.app/davewil/issue/ENG-237), at `+182`). It broke on 2026-08-14 because
-  the compiler's **features** raise issues in the same team, and it has drifted at every subsequent
-  check. Also: **not every ticket is a child of ENG-165** — 36 onwards hang off the *project*, so
-  that query under-counts.
-  *This bullet held 28 lines of blow-by-blow corrections, compressed on 2026-08-22 for room. What
-  survived is below; the narrative is in git, and stacking one correction on the next is the failure
-  the exemplar README deleted rather than extended.*
+  research files, prototypes. Map is [ENG-165](https://linear.app/davewil/issue/ENG-165).
+  Resolving a ticket means updating *both*: the answer here, the state there.
+  **THERE IS NO TICKET-NUMBER FORMULA — query Linear for the id every time.** *(This bullet asserted
+  `ENG-(166+NN)` two lines above the sentence denying it until 2026-08-26.)* It broke on 2026-08-14
+  because the compiler's **features** raise issues in the same team, and has drifted at every check
+  since — `+166` at the start, `+190` by ticket 65. Also **not every ticket is a child of ENG-165**:
+  36 onwards hang off the *project*, so that query under-counts.
   **The two rules the drift produced, which are the part worth keeping:**
   - **Raising a ticket means writing the repo file AND creating the issue** — the same both-not-one
     rule as resolving. Tickets 38 and 39 once existed as repo files with no issue at all, which the
@@ -323,6 +318,10 @@ Bodies in [`fog.md`](fog.md). These are open: read the body before assuming a di
   only in the environment that built them. The FFI declaration may already be the home
 - **A value-returned foreign error has no declared form** `#56` `ffi` `errors` `types`
   **the payload `foreign_error` asks for the wrapper, not the tag `:error`** — so `(:ok,B)|(:error,R)` is an ordinary union and needs no new syntax. F19 §2 reversed, its debt sentence deleted. **Built, F23**
+- **Failure types collapse at `term`** `#64` `types` `prelude`
+  `option<term>` and `result<term, E>` normalise to bare `term`; a lookup cannot report absent
+- **Reserved names: the policy, not one name at a time** `#65` `modules` `syntax`
+  48 reserved `Map` and B# reserves nothing else; five languages learned "user names win"
 - **Negation has no spelling** `#63` `syntax` `patterns`
   no `not` token, no production; 44 settled `and`/`or` and never covered it. `bs_types` has no negation node
   rewrite for *"no exemplar declares one"*

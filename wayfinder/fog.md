@@ -515,6 +515,26 @@
   canonicality failure in the mirror direction, found 2026-08-22 while resolving ticket 55.
   Sequence with 50 and 52: all three ask what an FFI declaration carries.
 
+- **Failure types collapse at `term`** — → **[ticket 64](issues/64-failure-types-collapse-at-term.md)**,
+  measured 2026-08-25 by [`48l`](prototypes/48l_what_the_workaround_costs.sh) while pricing ticket
+  48. `option<T>` and `result<T, E>` both put the **bare value** in the success position, so at
+  `T = term` the union swallows its own tag — `:nothing` is an atom and `term` already holds every
+  atom. A lookup therefore cannot report "absent" in a type the checker can see, at exactly the
+  value type every caller reaches for first. **Ticket 15 §1 already met this once** and refused
+  `atom | :nothing` at the declaration for the same reason, leaving `ToExistingAtom` owed — the bug
+  was met and not generalised. Unblocked but not fixed: 48 followed `Map.fetch/2` to a **tagged**
+  success, `(:ok, V) | :absent`, which is a workaround at one call site rather than a repair.
+
+- **Reserved names: the policy, not one name at a time** — →
+  **[ticket 65](issues/65-reserved-names-policy.md)**, raised 2026-08-25 when ticket 48's question 9
+  escaped its scope. 48 reserved `Map` as a module name, and **B# reserves nothing else** — ticket
+  08 reserved the `=>` *token*, which is a different thing. `Map` costs nothing today; the next one
+  might, and the rule wants deciding while the list is empty. The survey found **five languages
+  independently landing on "user names must win"**, four of them only after shipping, and Scala
+  designing it in — *"lowest precedence… always shadowed by user code"*. The counter-consideration
+  is that the lesson is about namespaces that **accrete**: a closed compiler-owned set does not have
+  the problem, and deciding whether B#'s is closed is deciding this ticket.
+
 - **Negation has no spelling** — → **[ticket 63](issues/63-negation-has-no-spelling.md)**, raised
   2026-08-25 by David reviewing the terminal alphabet: *"Keywords is missing not at the minimum."*
   There is no `not` token and no production for one. Ticket 44 amending 08 settled `and` and `or`
