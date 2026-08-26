@@ -1,0 +1,49 @@
+# THE CLEAN-ROOM HANDOFF PACKAGE. ONE FILE, AND IT IS THE ONLY DEFINITION.
+#
+# Build it:      ./bin/build-handoff.sh --out <dir>
+# Verify it:     ./bin/check-handoff-package.sh
+#
+# WHY THIS FILE EXISTS
+# The package used to be defined by exclusion, inside `bin/check-links.sh`'s
+# `DOCS` array. That meant the only thing that knew what shipped was the gate
+# checking it: nothing could assemble the package, and nothing could ask what
+# was in it. This file is that definition lifted out to where a builder, a gate
+# and a reader can all read the same answer — the same shape as `.tool-versions`,
+# which made one manifest the only place the toolchain is named.
+#
+# ENTRY KINDS
+#   file <path>            one file, repo-relative
+#   tree <dir> <pattern>   every `find <dir> -name <pattern> -type f` match
+#
+# The `tree` entries are globs rather than a list on purpose. A feature file
+# added tomorrow ships tomorrow, with nobody remembering to come here — and
+# `check-handoff-package.sh` check 1 fails the build if the trees below ever
+# stop covering what is on disk, so an omission cannot pass quietly.
+
+# --- The specification a recipient implements from -------------------------
+# `README.md` is first because it is literally the first file anyone opens.
+file README.md
+file LANGUAGE.md
+file TOUR.md
+file CONTEXT.md
+file PRELUDE.md
+
+# --- The compiler's own documentation --------------------------------------
+# Not the compiler SOURCE. A clean-room recipient implements the compiler from
+# this package; shipping an implementation would defeat the exercise. What ships
+# is the record of what was built and why.
+file compiler/README.md
+tree compiler/features *.md
+
+# --- The corpus, which is the specification's oracle ------------------------
+# Every example opens with the command that runs it. These are what a recipient
+# checks an implementation against, so they ship whole.
+#
+# `*` RATHER THAN `*.bs` AND `*.md`, AND THAT IS A CORRECTION. The first draft
+# named those two extensions and silently dropped
+# `compiler/examples/exemplars/FRONTIER` — a 44-line data file recording where
+# each exemplar stops, which `exemplars/README.md` links to TWICE. The gate
+# caught it as a dangling link, which is the right way round, but the cause was
+# a manifest that described the corpus by file type instead of by content.
+# Everything in this tree is package material; enumerate it that way.
+tree compiler/examples *

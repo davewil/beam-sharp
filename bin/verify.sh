@@ -190,6 +190,11 @@ run_stages \
   "Build the escript" \
     "cd compiler && rebar3 escriptize" \
 \
+  "The handoff package is assembled, self-contained and reproducible" \
+    "./bin/build-handoff.sh --self-test &&
+     ./bin/check-handoff-package.sh --self-test &&
+     ./bin/check-handoff-package.sh" \
+\
   "The audition can tell an implementation from a lookup table" \
     "./handoff/audition-switch/check.sh --self-test &&
      ./handoff/audition-switch/stage.sh --self-test" \

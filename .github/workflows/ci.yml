@@ -217,6 +217,29 @@ jobs:
         working-directory: compiler
         run: rebar3 escriptize
 
+      # THE PACKAGE THAT SHIPS MUST STAND ALONE, WHICH IS NOT WHAT
+      # `check-links.sh` ABOVE ASKS.
+      #
+      # That gate holds the shipping documents to their link policy where they
+      # sit in this tree, and deliberately ALLOWS references into `wayfinder/` —
+      # it counts them and passes, with a comment saying the question is bigger
+      # than one gate. It is: measured 2026-08-26, the package carried 115 such
+      # references, 98 across 27 of the 28 feature files. Every one is correct
+      # in the repository and dead in a recipient's hands.
+      #
+      # This step assembles the package OUTSIDE the source tree and checks the
+      # thing a recipient would actually be given. It runs after the escript
+      # because its last question is whether the artifact's examples still
+      # compile — the specification/compiler boundary, with `bsc` as the oracle
+      # a clean-room recipient does not have.
+      - name: The handoff package proves it can fail
+        run: |
+          ./bin/build-handoff.sh --self-test
+          ./bin/check-handoff-package.sh --self-test
+
+      - name: The handoff package is self-contained and reproducible
+        run: ./bin/check-handoff-package.sh
+
       # TOUR.md quotes the corpus and pastes what the compiler printed, and
       # `check-language.sh` can reach neither. That gate COMPILES the blocks it
       # checks, which works for LANGUAGE.md because those blocks are whole

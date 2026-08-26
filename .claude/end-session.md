@@ -38,6 +38,11 @@ drift apart silently.
 cd compiler && rebar3 escriptize
 cd compiler && rebar3 eunit
 
+# --- the handoff package (needs bsc: its last check compiles the artifact) -
+./bin/build-handoff.sh --self-test              # the assembly transform discriminates
+./bin/check-handoff-package.sh --self-test      # missing file, dead reference, truncated manifest
+./bin/check-handoff-package.sh                  # the package a recipient gets stands alone
+
 # --- the compiler ---------------------------------------------------------
 ./bin/check-status-claims.sh                    # no document calls unbuilt what the corpus compiles
 cd compiler && ./bin/check-language.sh          # blocks compile, `not-yet` blocks must NOT
@@ -77,11 +82,13 @@ sees it, because a fresh checkout has no `C.beam`. The gate now prints the boot 
 `__erl_failed__`, but **the detritus is still worth deleting**: `rm -f compiler/C.beam` before a
 sweep, and note that `.gitignore` hides it so `git status` stays clean.
 
-**TWENTY-THREE `check-*` gate scripts — `check-negation.sh` added 2026-08-26 by F27, and
-`check-gates-wired.sh` caught it missing from *this list* on the run that was meant to be
-the final one, having already been added to the script, `ci.yml` and `verify.sh`. Three of
-four is the exact failure the four-edit rule exists for, and the fourth question is one day
-old.** Previously: `check-toolchain.sh` added 2026-08-26 by ENG-247,
+**TWENTY-FOUR `check-*` gate scripts — `check-handoff-package.sh` added 2026-08-26 by
+ENG-246, alongside `bin/build-handoff.sh`, which is a builder rather than a gate and so is
+outside the `check-` pattern exactly as `verify.sh` is. `check-gates-wired.sh` caught the
+new pair missing from *this list* having already been added to the script, `ci.yml` and
+`verify.sh` — three of four again, the same failure and the same gate catching it, one day
+after the previous one.** Previously TWENTY-THREE: `check-negation.sh` added 2026-08-26 by
+F27, missing from this list in precisely the same way. Previously: `check-toolchain.sh` added 2026-08-26 by ENG-247,
 which also added `bin/verify.sh` (an entry point rather than a gate, so the `check-`
 count above does not see it — run the pattern, then remember it is deliberately narrow).
 The four-edit rule below is now literally four: `check-gates-wired.sh` gained a fourth
