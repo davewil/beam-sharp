@@ -117,6 +117,7 @@ Erlang back to the decision that required it is one grep.
 | [F25 — the return-mismatch diagnostic carries the signature to paste](F25-corrected-signature.md) | **done 2026-08-23** | nothing. It is the only item on ticket 23 that was buildable without another ticket first, and it is what earns `return_not_declared` a place in `contractual/0` — until now it printed the uncovered residual and stopped, which answers what is WRONG and not what to WRITE. **It refuses more than it prints**: a record in the residual renders as ticket 26 §1's minted tag, so no signature is offered rather than one that looks pasteable and is not |
 | [F27 — there is no `not`, and the absence teaches](F27-no-negation.md) | **done 2026-08-26** | nothing, and it is the only row here that never will: this is a feature that ships a **refusal**. Ticket 63 answered *no negation* on redundancy — the guard fragment is already closed under complement — and David took the option that pairs the refusal with a diagnostic naming the comparison to write instead, which is what makes it a build rather than a document edit. **`not` is NOT reserved**: it is a legal identifier today, and taking a name out of the language is ticket 65's decision, so the hint is raised at the parse failure where it cannot reach a program that parses. The two positions the answer covers **fail at different tokens** (`'('` in a guard, `'>'` in a refinement), so the rule is a shape in the token stream and the refinement case is asserted rather than inherited from the guard one |
 | [F26 — `/` and `%`, and the one divisor the compiler refuses](F26-division-and-remainder.md) | **done 2026-08-25** | the AoC 2019 Day 1 workload that raised ticket 38, whose `Fuel(mass) -> mass / 3 - 2` had sat behind a `not-yet` fence in `LANGUAGE.md` since. `/` lowers to Erlang's **`div`** and never its `/`, which returns a float where the signature promised `int` — a defect the checker cannot see, since the emitter runs after it, so the tests assert the VALUE and get the emission for free. **The precondition rule fails two ways** and the gate's self-test builds both plus a cry-wolf: a divisor that might be zero compiles and crashes at run time, and only one the compiler proves IS zero is refused. `int` stays a bignum through it, now tested at 2^100 |
+| [F28 — recursive types](F28-recursive-types.md) | **not started** — spec written 2026-08-26 · [ENG-260](https://linear.app/davewil/issue/ENG-260) | exemplar **25e**, whose front wall *is* this; `iodata` as a declarable type; and F18's owed validator obligation. Ticket 09 decided recursion on 2026-08-12 — equirecursive, contractive, subtyping coinductive — and **nothing has ever tracked building it**: no F-file, no Linear issue, no map entry, while `LANGUAGE.md`, F6, F18 and `bs_check.erl` each wrote "when it lands" and routed to nobody. Its gate is a **stopwatch rather than a rejection test**, because the characteristic failure produces no output at all — F6 shipped a timing guard for exactly this after a cyclic alias *hung* on master |
 
 
 <!-- 2026-08-22: F22 shipped on 2026-08-21 and was NEVER GIVEN A ROW HERE, and the board line
@@ -126,7 +127,19 @@ Erlang back to the decision that required it is one grep.
      the board line's count matches the file count. That is a real owed check — it is the
      "a passing gate may never have looked" shape, one namespace along — and it is left as a
      recommendation rather than built by a session that was resolving a different ticket. -->
-**STATE OF THE BOARD — 2026-08-26. All twenty-seven features are done, and no row owes a file.**
+**STATE OF THE BOARD — 2026-08-26, second entry today. Twenty-seven of twenty-eight are done, and
+the queue is no longer empty: F28 is spec'd and not started.** It was added by the session that
+wrote exemplar 25e, on David's call, and the reason it is worth a board entry rather than a row
+alone is *how it was missing*. Ticket 09 decided recursive types on 2026-08-12. Four places then
+wrote "when it lands" — `LANGUAGE.md`, F6's out-of-scope, F18's out-of-scope (which had already
+worked out the memo-table obligation), and `bs_check.erl:855` (which calls the contractive case
+*"a feature, not a defect"*) — and **not one of them was a ticket**. No F-file, no Linear issue, no
+map entry. A decision two weeks old, documented in four files, tracked in none, and it took an
+exemplar walking into it to notice. That is the same shape as the missing map entries for 37, 25
+and 60 found the day before, one namespace along, and it is the *second* time in two days that the
+owed check named in the comment above would have caught something.
+
+**~~STATE OF THE BOARD — 2026-08-26. All twenty-seven features are done, and no row owes a file.~~**
 F27 is the first feature in this file that unblocks nothing, and the reason is worth keeping: it
 ships a **refusal**. Ticket 63 decided the language has no `not`, and the answer came with an
 obligation attached — the absence must *teach* — so a decision that looked like a documentation
