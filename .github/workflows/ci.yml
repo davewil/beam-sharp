@@ -33,7 +33,7 @@ jobs:
     # OTP build named exists for that image, and a note of the retirement date.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # THESE TWO NEED NO COMPILER, SO THEY RUN FIRST AND FAIL FAST.
       #
@@ -172,9 +172,9 @@ jobs:
       # check that runs after the escript is built is not a check "before
       # compilation" — it is a post-mortem. The editor gates' own reasoning
       # stayed where the gates are.
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: "22.22.3"
+          node-version: "24.19.0"
 
       - name: Install the tree-sitter CLI
         run: npm install -g tree-sitter-cli@0.25.10
@@ -641,7 +641,7 @@ jobs:
   clean-clone:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # The same four pins as the job above, and `check-toolchain.sh` is what
       # makes that safe: it reads every declaration in this file, so a version
@@ -653,9 +653,9 @@ jobs:
           otp-version: "28.5"
           rebar3-version: "3.27.0"
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: "22.22.3"
+          node-version: "24.19.0"
 
       - name: Install the tree-sitter CLI
         run: npm install -g tree-sitter-cli@0.25.10
