@@ -56,6 +56,11 @@ including the near-miss that reads as agreement, a workflow saying `28` where th
 If you get the toolchain some other way, `./bin/check-toolchain.sh --env` will tell you exactly
 which tool is at the wrong version, before anything compiles.
 
+**Supported surfaces: macOS and Linux.** Both are exercised — macOS locally, Ubuntu on every push
+in CI, and CI runs the same `./bin/verify.sh` a clean clone runs rather than a parallel recipe.
+Windows is not supported: every gate is a bash script and none has been run there. Nothing in the
+compiler is known to depend on the platform, so the gap is in the gates rather than in `bsc`.
+
 Without mise, install those four versions however you prefer and run the same check. The
 Tree-sitter CLI is also on npm at the same version number:
 `npm install -g tree-sitter-cli@0.25.10`.
@@ -74,9 +79,14 @@ git clone <this repo> /tmp/bs-check && cd /tmp/bs-check
 ./bin/verify.sh && ./bin/verify.sh
 ```
 
-One test class is known to be flaky — the tests that drive `bsc` as a subprocess fail
-intermittently, tracked as ENG-229 — so a red in the `Tests` stage is worth re-running once before
-believing it. Nothing else in the suite is known to be non-deterministic.
+One test class is known to be flaky: the tests that drive `bsc` as a subprocess fail
+intermittently, at a rate somewhere in the tens of percent of full runs. A red in the `Tests`
+stage is worth re-running once before believing it. Nothing else in the suite is known to be
+non-deterministic, and a red anywhere else should be believed on the first showing.
+<!-- the subprocess flake is ENG-229 -->
+
+A run that reports fewer tests than usual and calls itself cancelled is usually a stale eunit
+fixture directory rather than your change: `rm -rf /tmp/bsc_eunit` and run it again.
 
 Every gate takes `--self-test`, which builds the defect the gate names, requires a red on it, and
 requires a green on the correct form standing beside it. A gate here is not believed until it has

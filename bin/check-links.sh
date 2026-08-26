@@ -134,7 +134,14 @@ cd "$REPO"
 # The shipping package. `compiler/README.md` and the exemplars README are in it
 # too: they are the first files a reader opens, being the index of the features
 # and of the target corpus respectively.
+#
+# THE ROOT `README.md` JOINED THEM ON 2026-08-26, on that same reasoning taken
+# literally: it is now the first file a reader opens, full stop, and it did not
+# exist before that day. It was ungated for about an hour and in that hour it
+# advertised `examples/Totals`, a module that has never existed — the exact rot
+# check 2 was written for, in the one document a recipient reads first.
 DOCS=(
+    README.md
     LANGUAGE.md
     TOUR.md
     CONTEXT.md
