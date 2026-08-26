@@ -106,9 +106,21 @@ installed_version() {
       rm -rf "$scratch"
       # `otp_release` is the major alone — 28 for 28.5 — so the exact version
       # comes from the release's own OTP_VERSION file. Comparing the major is
-      # the defect this gate exists to catch; it must not commit it itself.
-      [ -f "$root/releases/$major/OTP_VERSION" ] || return 1
-      tr -d '[:space:]' < "$root/releases/$major/OTP_VERSION"
+      # the defect this gate exists to catch; it must not commit it itself,
+      # which is why there is NO FALLBACK to `otp_release` when the file is
+      # missing: a fallback would silently start comparing majors on exactly
+      # the machines where the check matters most.
+      #
+      # A missing file gets exit 3 and its own message rather than the
+      # not-installed one, because `erl` is plainly present and being told it is
+      # not would send a reader down the wrong path entirely. Some prebuilt
+      # tarballs ship without it.
+      [ -f "$root/releases/$major/OTP_VERSION" ] || return 3
+      # OTP appends `**` to the version of a build that is not a proper release.
+      # Stripped, because it is a statement about the build's provenance and not
+      # part of the number — left in, it reads as `28.5** != 28.5`, which is a
+      # confusing way to say the versions match.
+      tr -d '[:space:]' < "$root/releases/$major/OTP_VERSION" | sed 's/\**$//'
       ;;
     rebar)
       command -v rebar3 >/dev/null 2>&1 || return 1
@@ -203,6 +215,11 @@ env_drift() {
 
     if [ "$rc" -eq 2 ]; then
       printf '%s %s: this gate does not know how to ask that tool its version\n' "$tool" "$want"
+      continue
+    fi
+    if [ "$rc" -eq 3 ]; then
+      printf '%s %s: the tool is installed and its exact version could not be read.\n' "$tool" "$want"
+      printf '           This is not a missing toolchain — do not go looking for one.\n'
       continue
     fi
     if [ "$rc" -ne 0 ] || [ -z "$got" ]; then
