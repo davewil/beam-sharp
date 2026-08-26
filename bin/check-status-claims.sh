@@ -58,10 +58,16 @@
 #
 # WHAT IT DOES NOT CHECK
 #
-# The opposite direction — a document claiming something is built when it is not.
-# `check-language.sh` already holds that end: an untagged block in `LANGUAGE.md`
-# must compile, so a fabricated feature fails there. Duplicating it here would
-# leave two gates able to disagree about which is authoritative.
+# The opposite direction — a document claiming something is built when it is not
+# — only where that claim is CODE. `check-language.sh` holds that end for
+# `LANGUAGE.md`: an untagged block must compile, so a fabricated feature fails
+# there, and check A above holds it for every row of `PRELUDE.md`'s tables.
+#
+# A PROSE SENTENCE ANYWHERE ELSE CLAIMING SOMETHING IS BUILT IS STILL UNGATED.
+# `TOUR.md` or `features/README.md` can call a feature shipped that is not, and
+# nothing here fails. Said plainly because this gate exists in a ticket about
+# documents that assert things which are not so, and its own header is a
+# document.
 #
 # Usage:  bin/check-status-claims.sh [--self-test]
 
@@ -375,6 +381,65 @@ check_subjects() {
 }
 
 # ---------------------------------------------------------------------------
+# D. No document calls a ticket open that the tracker has resolved.
+#
+# ENG-245 names three axes — built/unbuilt, shipping/deferred, and
+# RESOLVED/OPEN — and the third is the one the other checks walk straight past.
+# `compiler/README.md` carried "records (26 open), angle-bracket syntax (28
+# open)" when tickets 26 and 28 were both long since resolved: a reader is told
+# a question is live and goes looking for an argument that finished.
+#
+# `wayfinder/` is the tracker's repo half and does not ship, but it is on disk
+# here, and `check-surface.sh` already reads `wayfinder/map.md` for the same
+# reason — the gate runs where both halves exist even though only one is handed
+# over.
+# ---------------------------------------------------------------------------
+check_open_tickets() {
+    local root="$1" n=0 bad=0 doc num line issue cand
+    while IFS= read -r doc; do
+        [ -f "$root/$doc" ] || continue
+        while IFS= read -r line; do
+            num="$(printf '%s' "$line" | sed 's/.*[^0-9]\([0-9][0-9]*\) open.*/\1/')"
+            [ -n "$num" ] || continue
+            # A glob rather than `ls` (SC2012), and a real disable would have
+            # been the wrong fix anyway: shellcheck is unpinned here, so a
+            # directive that satisfies the local version can redden on CI.
+            issue=""
+            for cand in "$HERE"/wayfinder/issues/"$num"-*.md; do
+                [ -e "$cand" ] || continue
+                issue="$cand"
+                break
+            done
+            [ -n "$issue" ] || continue
+            n=$((n + 1))
+            # BOTH SPELLINGS. Ticket files write the status either way — 26 has
+            # a bare `Status: resolved 2026-08-13`, 22 and 38 have
+            # `Status: **resolved ...**` — and matching only the bold one made
+            # this check pass over the very ticket that motivated it.
+            if grep -qiE '^Status: [*]*resolved' "$issue"; then
+                printf '%s: calls ticket %s open; %s says resolved.\n' \
+                    "$doc" "$num" "wayfinder/issues/$(basename "$issue")"
+                printf '    %s\n' "$(printf '%s' "$line" | cut -c1-120)"
+                bad=$((bad + 1))
+            fi
+        done < <(sed 's/~~[^~]*~~//g' "$root/$doc" | grep -nE '[0-9]+ open')
+    done < <(shipping_docs)
+    printf 'open-ticket claims checked against the tracker: %d\n' "$n"
+    # NO FLOOR HERE, DELIBERATELY, AND IT IS THE ONE CHECK THAT GETS NONE.
+    # A, B and C fail when they enumerate too little, because there is always
+    # something for them to look at. Zero is the RIGHT answer here: a repository
+    # whose documents call no resolved ticket open has nothing to find, and a
+    # floor would make keeping a stale claim the only way to stay green. What
+    # stops this passing by being blind is control 6 in the self-test, which
+    # writes the `records (26 open)` claim into a document and requires the red.
+    if [ "$n" -eq 0 ]; then
+        echo "    (none to check — no shipping document names a ticket as open. The"
+        echo "     self-test proves this check still fires; see control 6.)"
+    fi
+    return "$bad"
+}
+
+# ---------------------------------------------------------------------------
 # --self-test
 #
 # FOUR POSITIVE CONTROLS, one per way this gate can be defeated, and the third
@@ -485,16 +550,84 @@ if [ "${1:-}" = "--self-test" ]; then
         cp "$HERE/$doc" "$CTL/clean/$doc" 2>/dev/null || true
     done < <(shipping_docs)
     out="$(check_subjects "$CTL/clean" 2>&1)"; rc=$?
+    # BOTH HALVES. The first cut captured `rc` here and never tested it, so a
+    # check C that reddened on the committed tree would have passed its own
+    # negative control. C is the check most likely to start crying wolf as prose
+    # changes — an anchored alias beside a strong-phrase list is a heuristic, and
+    # it produced two false reds while being written — so it is the one that most
+    # needs to be held to green on clean input.
+    if [ "$rc" -ne 0 ]; then
+        echo "SELF-TEST FAILED: check C reddens on the tree as committed, so every control"
+        echo "                  above it is measuring a gate that fires on everything."
+        echo "$out"
+        fail=1
+    fi
     if ! printf '%s' "$out" | grep -q 'subjects demonstrated by a compiling example'; then
         echo "SELF-TEST FAILED: a run did not report how many subjects it probed, so a run"
         echo "                  that enumerated nothing looks identical to a clean one."
         fail=1
     fi
 
+    # --- control 5: a listed shipping document that is not on disk -----------
+    # THE CHECK ADDED LAST AND CONTROLLED LAST. `missing_docs` exists because the
+    # document list named `compiler/examples/README.md`, a file that has never
+    # existed, and the scan skipped it in silence. A check written to catch a
+    # silent skip is worth nothing until it has been watched not to skip
+    # silently itself.
+    mkdir -p "$CTL/gone"
+    while IFS= read -r doc; do
+        mkdir -p "$CTL/gone/$(dirname "$doc")"
+        cp "$HERE/$doc" "$CTL/gone/$doc" 2>/dev/null || true
+    done < <(shipping_docs)
+    out="$(missing_docs "$CTL/gone" 2>&1)"; rc=$?
+    if [ "$rc" -ne 0 ]; then
+        echo "SELF-TEST FAILED: the complete document set was reported as incomplete, so"
+        echo "                  control 5 cannot tell a missing file from a present one."
+        echo "$out"
+        fail=1
+    fi
+    rm -f "$CTL/gone/TOUR.md"
+    out="$(missing_docs "$CTL/gone" 2>&1)"; rc=$?
+    if [ "$rc" -eq 0 ]; then
+        echo "SELF-TEST FAILED: a shipping document was DELETED and the gate still passed."
+        echo "                  That is the `compiler/examples/README.md` case exactly: a"
+        echo "                  document retires from checking and nothing says so."
+        fail=1
+    fi
+    if ! printf '%s' "$out" | grep -q 'TOUR.md'; then
+        echo "SELF-TEST FAILED: the absent document was not named."
+        fail=1
+    fi
+
+    # --- control 6: a resolved ticket called open ---------------------------
+    # The `records (26 open)` case. Ticket 26 is resolved, so writing the claim
+    # into a document that never carried one must redden.
+    mkdir -p "$CTL/tix"
+    while IFS= read -r doc; do
+        mkdir -p "$CTL/tix/$(dirname "$doc")"
+        cp "$HERE/$doc" "$CTL/tix/$doc" 2>/dev/null || true
+    done < <(shipping_docs)
+    out="$(check_open_tickets "$CTL/tix" 2>&1)"; rc=$?
+    if [ "$rc" -ne 0 ]; then
+        echo "SELF-TEST FAILED: the committed tree already calls a resolved ticket open, so"
+        echo "                  control 6 cannot be told from the baseline."
+        echo "$out"
+        fail=1
+    fi
+    printf '\nRecords are still being argued about (26 open).\n' >> "$CTL/tix/CONTEXT.md"
+    out="$(check_open_tickets "$CTL/tix" 2>&1)"; rc=$?
+    if [ "$rc" -eq 0 ]; then
+        echo "SELF-TEST FAILED: a document called ticket 26 open and the tracker has it"
+        echo "                  resolved, and the gate passed. That is the third axis"
+        echo "                  ENG-245 names — resolved/open — going unchecked."
+        fail=1
+    fi
+
     if [ "$fail" -eq 0 ]; then
-        echo "self-test: caught a promised type bsc refuses, an unindexed feature file, and"
-        echo "           a brand-new sentence calling a built feature out of scope — and"
-        echo "           reported its own enumeration counts in every case."
+        echo "self-test: caught a promised type bsc refuses, an unindexed feature file, a"
+        echo "           brand-new sentence calling a built feature out of scope, a deleted"
+        echo "           shipping document, and a resolved ticket called open — and reported"
+        echo "           its own enumeration counts in every case."
         exit 0
     fi
     exit 1
@@ -529,6 +662,10 @@ check_features "$HERE/compiler/features" "$DOCROOT/compiler/features/README.md" 
 echo
 echo "--- C. no document calls unbuilt a feature the corpus demonstrates"
 check_subjects "$DOCROOT" || rc=1
+
+echo
+echo "--- D. no document calls a ticket open that the tracker has resolved"
+check_open_tickets "$DOCROOT" || rc=1
 
 echo
 if [ "$rc" -eq 0 ]; then
