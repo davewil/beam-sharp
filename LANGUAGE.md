@@ -1488,8 +1488,17 @@ the parser accepts back exactly what the printer emits. **shipped**
 
 ### Known inconsistencies
 
-- **Bare clause heads.** The exemplars elide the function name (`(body) -> ...`); the compiler
-  requires it (`CreateOrder(body) -> ...`). One of the two is wrong and it has not been settled.
+- ~~**Bare clause heads.** The exemplars elide the function name (`(body) -> ...`); the compiler
+  requires it (`CreateOrder(body) -> ...`). One of the two is wrong and it has not been settled.~~
+  **CLOSED — there was never a fork, and this bullet had it backwards.** A clause repeats its
+  function name; the compiler, the decision and its own worked example always agreed. What was
+  true was that the extracted exemplar files had been written in an older dialect that dropped
+  the name, and the 2026-08-15 rewrite fixed them. Measured across the exemplars on 2026-08-26:
+  **0 nameless clause heads, 76 named.** The exemplar write-up recorded this closed on
+  2026-08-18 and this bullet went on asserting the opposite for eight days — a clean-room
+  implementer following it would have built the wrong parser.
+  <!-- corrected 2026-08-26 by ENG-245; the exemplar side was fixed 2026-08-18 and this side was missed -->
+
 - **Map literals.** `#{ error = "invalid" }` appears in an exemplar and is specified nowhere.
 - **`float`** has no decided literal syntax, which matters because `1..5` only lexes as a range
   while the float rule demands digits either side of its dot.
