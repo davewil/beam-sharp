@@ -31,7 +31,7 @@ jobs:
     # What the deferred option needs, if it is taken: an image entry in
     # `.tool-versions`, a fifth row in `ci_declared`'s table, a check that the
     # OTP build named exists for that image, and a note of the retirement date.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -639,7 +639,7 @@ jobs:
   # valuable thing in this file — and a way to keep the toolchain steps, which
   # are `uses:` and cannot move into a script at all.
   clean-clone:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 

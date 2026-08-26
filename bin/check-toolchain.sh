@@ -200,6 +200,42 @@ EOF
   printf 'count %d %d\n' "$n" "$pinned"
 }
 
+# `runs-on: ubuntu-latest` IS A FLOATING INPUT IN A REPOSITORY THAT PINS
+# EVERYTHING ELSE, and it became load-bearing on 2026-08-26.
+#
+# It was always inconsistent — OTP, rebar, node, tree-sitter and every action are
+# pinned exactly, and the machine they run on was whatever GitHub rolled out that
+# week. What changed is that the precompiled Erlang this repository now installs
+# is keyed to the runner's OS version: the build is fetched from
+# `builds.hex.pm/builds/otp/<arch>/<os_ver>/`, so `ubuntu-latest` silently
+# selects which OTP tarball arrives. When `ubuntu-latest` rolls forward to an
+# image hex has no build for, the toolchain either changes underneath the pin or
+# the install fails — and neither is a thing to discover from a red build weeks
+# later.
+#
+# Same shape as the check above: a name that resolves to different things on
+# different days is not a pin, whether it is a git tag or a runner label.
+floating_runner() {
+  local ci="$1" line img n=0 pinned=0
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    n=$((n + 1))
+    img="$(printf '%s' "$line" | sed -e 's/.*runs-on:[[:space:]]*//' -e 's/[[:space:]]*#.*//' -e 's/[[:space:]]*$//')"
+    case "$img" in
+      *-latest)
+        printf '%s: `%s` is a floating runner image, not a pinned one\n' "${line%%:*}" "$img"
+        ;;
+      *)
+        pinned=$((pinned + 1))
+        ;;
+    esac
+  done <<EOF
+$(grep -nE '^[[:space:]]*runs-on:[[:space:]]*' "$ci" || true)
+EOF
+
+  printf 'count %d %d\n' "$n" "$pinned"
+}
+
 # AN EXACT-LOOKING VERSION IS NOT A PIN IF THE INSTALLER READS IT AS A RANGE.
 #
 # setup-beam defaults to `version-type: loose`, where the version is a SPEC and
@@ -327,6 +363,9 @@ tree-sitter 0.25.10
 TV
 
   cat > "$CTL/clean.yml" <<YML
+jobs:
+  one:
+    runs-on: ubuntu-24.04
 steps:
   - uses: actions/checkout@$SHA_A # v4
   - uses: erlef/setup-beam@$SHA_B # v1
@@ -348,6 +387,11 @@ YML
 
   # FLOATING: one action back on a mutable tag.
   sed "s|actions/checkout@$SHA_A # v4|actions/checkout@v4|" "$CTL/clean.yml" > "$CTL/floating.yml"
+
+  # LATEST-RUNNER: the machine goes back to whatever GitHub ships this week,
+  # while every version string in the file stays exactly as pinned. Nothing else
+  # in this gate can see it.
+  sed 's|runs-on: ubuntu-24.04|runs-on: ubuntu-latest|' "$CTL/clean.yml" > "$CTL/latest.yml"
 
   # UNKNOWN: a fifth tool the table has never heard of.
   cp "$CTL/tool-versions" "$CTL/tool-versions-unknown"
@@ -396,6 +440,8 @@ YML
   twojobs_out="$(drift "$CTL/tool-versions" "$CTL/twojobs.yml")"
   pinned_out="$(floating_actions "$CTL/clean.yml")"
   float_out="$(floating_actions "$CTL/floating.yml")"
+  runner_ok_out="$(floating_runner "$CTL/clean.yml")"
+  runner_bad_out="$(floating_runner "$CTL/latest.yml")"
   strict_out="$(loose_version_specs "$CTL/clean.yml")"
   loose_out="$(loose_version_specs "$CTL/loose.yml")"
   half_out="$(loose_version_specs "$CTL/halfstrict.yml")"
@@ -472,6 +518,25 @@ YML
     fail=1
   fi
 
+  if ! findings "$runner_bad_out" | grep -q 'ubuntu-latest.*floating runner image'; then
+    echo "SELF-TEST FAILED: a job on \`ubuntu-latest\` was not reported. Every version"
+    echo "                  string in that fixture is exactly pinned, so no other check"
+    echo "                  here can see it — and the precompiled OTP that gets"
+    echo "                  installed is selected BY the runner image."
+    fail=1
+  fi
+  if [ -n "$(findings "$runner_ok_out")" ]; then
+    echo "SELF-TEST FAILED: a pinned runner image was reported as floating, so the"
+    echo "                  runner check does not discriminate"
+    echo "$runner_ok_out"
+    fail=1
+  fi
+  if [ -n "$(count_violation "$runner_ok_out" runner)" ]; then
+    echo "SELF-TEST FAILED: the runner check enumerated no runs-on: lines, so it would"
+    echo "                  report success over a workflow that names no machine at all"
+    fail=1
+  fi
+
   if ! findings "$loose_out" | grep -q 'only 0 carrying'; then
     echo "SELF-TEST FAILED: a setup-beam step without \`version-type: strict\` was not"
     echo "                  reported. Every version string is exact and the installer"
@@ -495,9 +560,10 @@ YML
     echo "self-test: caught the major-only comparison, the tool the workflow never"
     echo "           declares, the two jobs declaring different versions of one tool,"
     echo "           the tool outside the table, the manifest pinning nothing, the"
-    echo "           action on a mutable tag, the setup-beam step reading its exact"
-    echo "           version as a range and the second job that reads it loosely —"
-    echo "           and left the exactly agreeing, fully pinned fixture alone"
+    echo "           action on a mutable tag, the job on a floating runner image, the"
+    echo "           setup-beam step reading its exact version as a range and the"
+    echo "           second job that reads it loosely — and left the exactly agreeing,"
+    echo "           fully pinned fixture alone"
     exit 0
   fi
   exit 1
@@ -523,12 +589,15 @@ case "$MODE" in
   drift|--drift)
     d_out="$(drift "$MANIFEST" "$CI")"
     a_out="$(floating_actions "$CI")"
+    r_out="$(floating_runner "$CI")"
     v_out="$(loose_version_specs "$CI")"
 
     problems="$(findings "$d_out")
 $(count_violation "$d_out" 'the manifest against the workflow')
 $(findings "$a_out")
 $(count_violation "$a_out" 'the workflow uses: lines')
+$(findings "$r_out")
+$(count_violation "$r_out" 'the workflow runs-on: lines')
 $(findings "$v_out")"
 
     if [ -n "$(printf '%s\n' "$problems" | grep -v '^$' || true)" ]; then
@@ -544,6 +613,8 @@ $(findings "$v_out")"
         awk '{printf "the manifest pins %d tools and the workflow declares all %d identically\n", $2, $3}'
       printf '%s\n' "$a_out" | grep '^count ' |
         awk '{printf "all %d uses: lines name an immutable commit\n", $2}'
+      printf '%s\n' "$r_out" | grep '^count ' |
+        awk '{printf "all %d runs-on: lines name a pinned runner image\n", $2}'
       printf '%s\n' "$v_out" | grep '^count ' |
         awk '{printf "all %d setup-beam step(s) read their versions literally\n", $2}'
     fi
