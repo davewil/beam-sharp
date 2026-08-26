@@ -4,9 +4,28 @@ Answers the generic `/end-session` skill would otherwise guess at. Commands, not
 
 ## Gates
 
-Every step CI runs, in CI's order. The first three need no compiler and fail fast.
+**There is one command now, and it is not this list.**
 
 ```sh
+./bin/verify.sh          # every stage below, in CI's order, fail-fast, from any directory
+```
+
+`bin/verify.sh` landed 2026-08-26 with ENG-247. It exists because this file was the most
+complete recipe in the repository and this file is an *agent overlay* — a clean-room recipient
+had no entry point at all. It also sets a fresh `SPEC_CHECK_DIR` per invocation, so "passes
+twice from clean" is two measurements rather than one warm tree measured twice; that used to be
+a sentence a caller had to remember.
+
+Prefer it. The itemised list below is for running **one** stage after a red, and
+`check-gates-wired.sh` now holds `verify.sh` to naming every gate on disk, so the two cannot
+drift apart silently.
+
+```sh
+# --- the toolchain: before anything compiles ------------------------------
+./bin/check-toolchain.sh                        # .tool-versions and ci.yml pin the same versions
+./bin/check-toolchain.sh --env                  # this machine runs those versions
+./bin/verify.sh --self-test                     # the entry point still refuses a failed stage
+
 # --- repo hygiene: no compiler needed, fails fast -------------------------
 ./bin/check-gates-wired.sh                      # every gate on disk is named by the workflow
 ./bin/check-cwd-independence.sh                 # a gate works from any directory
@@ -56,7 +75,13 @@ sees it, because a fresh checkout has no `C.beam`. The gate now prints the boot 
 `__erl_failed__`, but **the detritus is still worth deleting**: `rm -f compiler/C.beam` before a
 sweep, and note that `.gitignore` hides it so `git status` stays clean.
 
-**TWENTY-ONE gate scripts — `check-division.sh` added 2026-08-25 by F26, and
+**TWENTY-TWO `check-*` gate scripts — `check-toolchain.sh` added 2026-08-26 by ENG-247,
+which also added `bin/verify.sh` (an entry point rather than a gate, so the `check-`
+count above does not see it — run the pattern, then remember it is deliberately narrow).
+The four-edit rule below is now literally four: `check-gates-wired.sh` gained a fourth
+question, and it caught both new files missing from this list within a minute of being
+written, which is the third-edit rule working as designed for the second time.** Previously:
+`check-division.sh` added 2026-08-25 by F26, and
 `check-corrected-signature.sh` added 2026-08-23 by F25, hours after
 `check-boundary-kind.sh` made it nineteen the same day. It was `check-gates-wired.sh` that caught
 the omission rather than a reader, which is the third-edit rule working as designed.** Previously:

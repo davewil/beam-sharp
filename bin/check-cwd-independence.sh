@@ -45,6 +45,11 @@ RUNNABLE=(
   "bin/check-surface.sh"
   "bin/check-links.sh"
   "bin/check-gates-wired.sh"
+  # Its DEFAULT run compares `.tool-versions` against the workflow and needs no
+  # toolchain at all — which is why the default is the drift half and `--env`,
+  # which does need one, is a separate mode. A gate whose cheap answer depended
+  # on what happened to be installed could not be run twice like this.
+  "bin/check-toolchain.sh"
   "compiler/bin/check-diagnostics.sh"
   "compiler/bin/check-no-silent-skip.sh"
 )

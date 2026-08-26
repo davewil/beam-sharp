@@ -16,9 +16,24 @@ on:
 
 jobs:
   compiler:
+    # `ubuntu-latest` IS STILL A FLOATING PIN, AND THIS IS THE DEFERRED HALF.
+    #
+    # `bin/check-toolchain.sh` pins the four tools this repository installs, and
+    # every `uses:` below names a commit. The runner image is neither: GitHub
+    # moves `ubuntu-latest` between majors on its own schedule, and the image
+    # carries a compiler, a libc and a coreutils this repository never names.
+    #
+    # It is left floating deliberately rather than overlooked. Pinning it means
+    # `ubuntu-24.04`, which GitHub retires on a published date, so the pin has to
+    # be MAINTAINED — a dated migration rather than a one-line change — and the
+    # OTP builds this workflow installs are published per image, so the manifest
+    # would gain a fifth entry the local surfaces (macOS, Omarchy) cannot honour.
+    # What the deferred option needs, if it is taken: an image entry in
+    # `.tool-versions`, a fifth row in `ci_declared`'s table, a check that the
+    # OTP build named exists for that image, and a note of the retirement date.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       # THESE TWO NEED NO COMPILER, SO THEY RUN FIRST AND FAIL FAST.
       #
@@ -59,6 +74,8 @@ jobs:
           ./bin/check-map.sh --self-test
           ./bin/check-surface.sh --self-test
           ./bin/check-links.sh --self-test
+          ./bin/check-toolchain.sh --self-test
+          ./bin/verify.sh --self-test
           ./compiler/bin/extract-exemplars.sh --self-test
 
       # `check-map.sh` was written on 2026-08-15 and NEVER WIRED IN; it ran only
@@ -85,6 +102,14 @@ jobs:
       - name: The gates are shellcheck-clean
         run: ./bin/check-shell.sh
 
+      # THIS ONE RUNS BEFORE THE TOOLCHAIN IS INSTALLED, ON PURPOSE. It compares
+      # `.tool-versions` against the strings this file declares and against the
+      # commit every `uses:` names, and neither question needs a compiler. The
+      # matching question — is the toolchain that ARRIVED the pinned one — is a
+      # separate run further down, once there is something to ask.
+      - name: The manifest and the workflow pin the same toolchain
+        run: ./bin/check-toolchain.sh
+
       - name: The map is an index
         run: ./bin/check-map.sh
 
@@ -107,13 +132,47 @@ jobs:
       - name: The package points only at things it ships
         run: ./bin/check-links.sh
 
-      - uses: erlef/setup-beam@v1
+      # THE FOUR VERSIONS BELOW AND IN THE NODE STEP ARE COPIES, AND THE GATE
+      # ABOVE IS WHAT MAKES THAT SAFE. `.tool-versions` is the source; these
+      # literals exist because `with:` inputs cannot read a file, and
+      # `check-toolchain.sh` fails the build the moment a literal and the
+      # manifest disagree by so much as a dropped minor.
+      - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1
         with:
           # Ticket 13 §4 pins the supported range at the current release and the
           # previous two majors. Only the current one is exercised here; the
           # corpus proving the full range is a debt the skeleton still owes.
-          otp-version: "28"
-          rebar3-version: "3"
+          #
+          # EXACT, NOT `28`. A major installs whatever OTP 28 the builds server
+          # published this morning, so a green run recorded which day it was and
+          # nothing else — and a recipient reproducing it had to guess.
+          otp-version: "28.5"
+          rebar3-version: "3.27.0"
+
+      # NODE AND THE TREE-SITTER CLI ARE INSTALLED HERE RATHER THAN BESIDE THE
+      # EDITOR GATES THAT USE THEM. The whole pinned toolchain has to be present
+      # before the step below can say whether this machine is running it, and a
+      # check that runs after the escript is built is not a check "before
+      # compilation" — it is a post-mortem. The editor gates' own reasoning
+      # stayed where the gates are.
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22.22.3"
+
+      - name: Install the tree-sitter CLI
+        run: npm install -g tree-sitter-cli@0.25.10
+
+      # AND THE INSTALLED VERSIONS ARE CHECKED BEFORE ANYTHING COMPILES.
+      #
+      # The step above declares what to install; this one asks what actually
+      # arrived. They are different questions: `setup-beam` resolves a version
+      # string against what the builds server has, and a resolution that lands
+      # somewhere else is exactly the drift the manifest exists to prevent —
+      # silent, and visible only as a compiler behaving unlike the one at home.
+      # It runs here rather than with the cheap gates because there was no
+      # toolchain to ask until three lines ago.
+      - name: This machine runs the pinned toolchain
+        run: ./bin/check-toolchain.sh --env
 
       # THE ESCRIPT IS BUILT BEFORE THE TESTS, AND THE ORDER IS LOAD-BEARING.
       #
@@ -460,16 +519,16 @@ jobs:
       # this required rather than aspirational.
       #
       # `check-tokens.sh` needs nothing. `check-corpus.sh` SKIPS WITH EXIT 0 when
-      # the tree-sitter CLI is absent, so the CLI is installed here on purpose: a
+      # the tree-sitter CLI is absent, so the CLI is installed on purpose: a
       # gate that silently skips is worse than one that is honestly missing,
       # which is the whole argument of this file.
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-
-      - name: Install the tree-sitter CLI
-        run: npm install -g tree-sitter-cli
-
+      #
+      # THE TWO INSTALL STEPS MOVED UP TO THE TOOLCHAIN BLOCK on 2026-08-26 and
+      # the move is load-bearing rather than tidy. `check-toolchain.sh --env`
+      # asks all four pinned tools what version they are, and it has to be able
+      # to fail BEFORE anything compiles — which it cannot do if half the
+      # toolchain arrives four hundred lines after the escript is built.
+      #
       # BOTH SELF-TESTS ARE HERE RATHER THAN WITH THE CHEAP ONES because
       # `check-corpus.sh`'s controls run the Tree-sitter parser, and its
       # self-test FAILS rather than skips when the CLI is absent. The gate
@@ -518,6 +577,56 @@ jobs:
 
       - name: The exemplars stop where FRONTIER says they do
         run: ./compiler/bin/check-exemplar-frontier.sh
+
+  # THE ENTRY POINT A CLEAN CLONE IS TOLD TO RUN, ACTUALLY RUN.
+  #
+  # `README.md` gives a recipient two commands — `mise install` and
+  # `./bin/verify.sh` — and a documented command that nothing executes is the
+  # same claim this whole file was written about. The job above proves the gates
+  # pass; this one proves the SENTENCE IN THE README is true.
+  #
+  # It is not a duplicate of the job above in the way it looks. That one is
+  # twenty-odd named steps, each with the reasoning for why the gate exists, and
+  # a red there says which gate and why in one click. This one is a single
+  # opaque command and a red says "stage 14". Both are worth having, and they
+  # run in parallel, so the wall clock does not double even though the compute
+  # does.
+  #
+  # THE INTENDED END STATE IS ONE JOB, and the deferred half is recorded here
+  # rather than lost: collapse the job above into `./bin/verify.sh` once GitHub's
+  # log grouping makes a stage inside a script as navigable as a step (or once
+  # `verify.sh` emits `::group::` markers itself, which is the cheaper half).
+  # What that needs: the per-gate reasoning moved from step comments into
+  # `verify.sh`'s stage list without losing any of it — that prose is the most
+  # valuable thing in this file — and a way to keep the toolchain steps, which
+  # are `uses:` and cannot move into a script at all.
+  clean-clone:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      # The same four pins as the job above, and `check-toolchain.sh` is what
+      # makes that safe: it reads every declaration in this file, so a version
+      # bumped in one job and forgotten in the other is a tool declaring two
+      # things against a manifest that pins one, and the build goes red.
+      - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1
+        with:
+          otp-version: "28.5"
+          rebar3-version: "3.27.0"
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22.22.3"
+
+      - name: Install the tree-sitter CLI
+        run: npm install -g tree-sitter-cli@0.25.10
+
+      # NO `working-directory:`, AND THAT IS THE POINT OF THE STEP. The entry
+      # point anchors on its own location, so it is invoked from a path that is
+      # not the repository root to prove it.
+      - name: One command, from a clean clone
+        run: "$GITHUB_WORKSPACE/bin/verify.sh"
+        working-directory: /tmp
 
 # NOTHING IS EXCLUDED FROM THIS WORKFLOW.
 #

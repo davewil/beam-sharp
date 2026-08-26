@@ -103,6 +103,13 @@ unproven() {
 #
 # So the same enumeration is put to it. A gate on disk that this file does not
 # name is a gate the next session will not run.
+#
+# AND SINCE 2026-08-26 THERE IS A THIRD SURFACE OF THE SAME KIND: `bin/verify.sh`,
+# the one command a clean clone is told to run. It is the same failure waiting
+# in the same shape — a hand-written list of gates, in a file nothing was asking
+# anything — so it is put to the identical question by the identical function.
+# A gate it does not name is a gate the handoff recipient does not run, and they
+# are the one reader who cannot notice.
 unlisted() {
   local doc="$1"; shift
   local dir script name
@@ -169,9 +176,19 @@ YML
 ./bin/check-unproven.sh
 DOC
 
+  # The fourth surface: an entry point that names one of the three. Same
+  # function, same fixture shape — because it is the same failure, and giving it
+  # a second implementation would mean two things to keep right instead of one.
+  cat > "$CTL/verify.sh" <<'ENTRY'
+run_stages \
+  "a gate" "./bin/check-wired.sh" \
+  "another" "./bin/check-unproven.sh"
+ENTRY
+
   out="$(unwired "$CTL/ci.yml" "$CTL/bin" || true)"
   unp="$(unproven "$CTL/ci.yml" "$CTL/bin" || true)"
   unl="$(unlisted "$CTL/end-session.md" "$CTL/bin" || true)"
+  une="$(unlisted "$CTL/verify.sh" "$CTL/bin" || true)"
 
   fail=0
   if ! grep -q 'check-forgotten.sh' <<<"$out"; then
@@ -205,15 +222,28 @@ DOC
     fail=1
   fi
 
+  if ! grep -q 'check-forgotten.sh' <<<"$une"; then
+    echo "SELF-TEST FAILED: a gate the entry point never names was not reported — so"
+    echo "                  bin/verify.sh could omit a gate and a clean-room recipient"
+    echo "                  would run a short suite and be told it was the whole one"
+    fail=1
+  fi
+  if grep -q 'check-wired.sh' <<<"$une"; then
+    echo "SELF-TEST FAILED: a gate the entry point DOES name was reported as missing,"
+    echo "                  so the fourth check does not discriminate either"
+    fail=1
+  fi
+
   if [ "$fail" -eq 0 ]; then
-    echo "self-test: found the forgotten gate, the unproven one and the unlisted one,"
-    echo "           left the wired, proven and listed one alone — all three checks"
-    echo "           discriminate"
+    echo "self-test: found the forgotten gate, the unproven one, the unlisted one and"
+    echo "           the one the entry point never runs, and left the wired, proven,"
+    echo "           listed and entered one alone — all four checks discriminate"
     exit 0
   fi
   echo "$out"
   echo "$unp"
   echo "$unl"
+  echo "$une"
   exit 1
 fi
 
@@ -261,9 +291,30 @@ if [ -n "$unnamed" ]; then
   echo "A gate missing from the session list is a gate the next session does not run."
   echo "That list claims to be every step CI runs; it named six of sixteen once, was"
   echo "corrected, and was one short again one commit later. Add it there too — the"
-  echo "script, ci.yml, and .claude/end-session.md are three edits, not two."
+  echo "script, ci.yml, .claude/end-session.md and bin/verify.sh are four edits."
   exit 1
 fi
 
-echo "every gate on disk is named by the workflow and by the session list, and every"
-echo "one proves it can fail"
+ENTRY="$ROOT/bin/verify.sh"
+[ -f "$ENTRY" ] || {
+  echo "no entry point at bin/verify.sh — the one command a clean clone is told to"
+  echo "run is gone, and the verification recipe is back to living in a file written"
+  echo "for an agent rather than for a person. Restore it rather than letting this"
+  echo "check pass over nothing."
+  exit 1
+}
+
+unentered="$(unlisted "$ENTRY" "$ROOT/bin" "$ROOT/compiler/bin" "$ROOT/editor/bin" || true)"
+
+if [ -n "$unentered" ]; then
+  echo "$unentered"
+  echo
+  echo "A gate the entry point never names is a gate the clean-room recipient does not"
+  echo "run — and they are the one reader with nobody to ask. bin/verify.sh is the"
+  echo "fourth surface holding a list of gates, and the other three have each rotted"
+  echo "at least once. Add it there too."
+  exit 1
+fi
+
+echo "every gate on disk is named by the workflow, by the session list and by the"
+echo "entry point, and every one proves it can fail"

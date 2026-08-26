@@ -1,0 +1,25 @@
+# THE TOOLCHAIN THIS REPOSITORY IS BUILT WITH. ONE FILE, AND IT IS THE ONLY ONE.
+#
+# `mise install` reads this directly, so a clean clone installs the exact
+# versions rather than guessing from a floating major. `.github/workflows/ci.yml`
+# declares the same four strings, and `bin/check-toolchain.sh` fails the build if
+# either half drifts from the other — including the near-miss that reads as
+# agreement, a workflow saying `28` where this file says `28.5`.
+#
+# The names are mise's, which are also asdf's for three of the four. The
+# workflow spells each one differently, and the mapping is the closed table in
+# `ci_declared` in that gate:
+#
+#     erlang       ->  erlef/setup-beam    otp-version
+#     rebar        ->  erlef/setup-beam    rebar3-version
+#     node         ->  actions/setup-node  node-version
+#     tree-sitter  ->  npm                 tree-sitter-cli@<version>
+#
+# The tree-sitter CLI is one binary under two names: mise builds it from the
+# `tree-sitter/tree-sitter` release, CI takes the npm package `tree-sitter-cli`,
+# and both publish the same version number.
+
+erlang 28.5
+rebar 3.27.0
+node 22.22.3
+tree-sitter 0.25.10
