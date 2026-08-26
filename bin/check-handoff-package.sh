@@ -167,6 +167,13 @@ dangling_refs() {
     done < <(find "$art" -name '*.md' -type f | LC_ALL=C sort)
 }
 
+# Check 5b: files naming the directory the artifact was built at. A function so
+# the control below drives this code rather than a copy of the grep.
+path_leaks() {
+    local dir="$1" marker="$2"
+    grep -rl "$marker" "$dir" 2>/dev/null | sed "s|^$dir/||" || true
+}
+
 # Check 3, second half: any mention at all of excluded material.
 excluded_mentions() {
     local art="$1"
@@ -250,7 +257,20 @@ if [ "${1:-}" = "--self-test" ]; then
                   while 28 feature files went missing, which is precisely the
                   package a manifest-versus-artifact gate ships happily."
 
-    # --- the positive control: undamaged must pass all three ----------------
+    # --- control 4: the artifact names the path it was built at -------------
+    # Check 5a cannot see this — two builds to different directories produce
+    # byte-identical locks whether or not the documents embed a build path, so
+    # without this control there is no evidence check 5b does anything.
+    cp -R "$CTL/good" "$CTL/c4"
+    printf '\nBuilt at /var/folders/xx/a-marker-path-nobody-would-write.\n' \
+        >> "$CTL/c4/LANGUAGE.md"
+    l4="$(path_leaks "$CTL/c4" 'a-marker-path-nobody-would-write' | wc -l | tr -d ' ')"
+    [ "$l4" -gt 0 ] || say_fail "control 4 — a build path was embedded in a shipped document and check
+                  5b did not notice, so the package could be pinned to one
+                  machine's temp directory while the determinism check reports
+                  two identical builds."
+
+    # --- the positive control: undamaged must pass all four -----------------
     gg="$(manifest_gaps "$ROOT" "$CTL/listed-good" | wc -l | tr -d ' ')"
     dg="$(dangling_refs "$CTL/good" | wc -l | tr -d ' ')"
     eg="$(excluded_mentions "$CTL/good" | wc -l | tr -d ' ')"
@@ -262,9 +282,10 @@ if [ "${1:-}" = "--self-test" ]; then
     fi
 
     if [ "$fails" -eq 0 ]; then
-        echo "self-test: caught the missing file, the reference out of the package, and"
-        echo "           the manifest truncated to agree with a truncated artifact;"
-        echo "           accepted the undamaged build — the gate discriminates"
+        echo "self-test: caught the missing file, the reference out of the package, the"
+        echo "           manifest truncated to agree with a truncated artifact, and an"
+        echo "           embedded build path; accepted the undamaged build — the gate"
+        echo "           discriminates"
         exit 0
     fi
     exit 1
@@ -343,12 +364,30 @@ else
 fi
 
 # --- 5: the build is deterministic ------------------------------------------
-# A DIFFERENT output path, because a builder that embeds its own absolute path
-# passes a same-path comparison and ships a package pinned to one machine.
-"$BUILDER" --out "$WORK/second-build-different-path" >/dev/null 2>&1
-if ! diff -q "$ART/MANIFEST.lock" "$WORK/second-build-different-path/MANIFEST.lock" >/dev/null 2>&1; then
+SECOND="$WORK/second-build-at-a-quite-different-path"
+"$BUILDER" --out "$SECOND" >/dev/null 2>&1
+
+# 5a: two builds agree.
+if ! diff -q "$ART/MANIFEST.lock" "$SECOND/MANIFEST.lock" >/dev/null 2>&1; then
     echo "  NONDETERM  two builds to different paths disagree:"
-    diff "$ART/MANIFEST.lock" "$WORK/second-build-different-path/MANIFEST.lock" | head -10 | sed 's/^/    /'
+    diff "$ART/MANIFEST.lock" "$SECOND/MANIFEST.lock" | head -10 | sed 's/^/    /'
+    fail=1
+fi
+
+# 5b: THE ARTIFACT DOES NOT NAME THE PATH IT WAS BUILT AT.
+#
+# This is a SEPARATE check because 5a cannot make it. The lock records
+# artifact-relative paths and a revision derived from the tree, so two builds
+# to different directories produce byte-identical locks whether or not the
+# builder embedded its output path in the files. 5a would compare equal and
+# report determinism while every document carried one machine's temp directory.
+#
+# The second build's directory has a deliberately unmistakable name so this
+# grep cannot match by coincidence.
+leak="$(path_leaks "$SECOND" 'second-build-at-a-quite-different-path')"
+if [ -n "$leak" ]; then
+    echo "  PATHLEAK   the artifact names the directory it was built at:"
+    printf '%s\n' "$leak" | sed 's/^/    /'
     fail=1
 fi
 
@@ -369,10 +408,14 @@ else
     # root already stripped makes `bsc` print its usage and exit non-zero, which
     # this loop would report as sixteen modules failing to compile when the
     # artifact is perfect and the gate is the thing that is broken.
+    # A FRESH OUTPUT DIRECTORY PER MODULE, as `ci.yml` does with its own
+    # `mktemp -d`. Sharing one directory lets a second module's beam overwrite a
+    # first module's under the same name, with both compilations exiting 0 — the
+    # count would still read 16 and one module's output would never have existed.
     compiled=0
-    mkdir -p "$WORK/out"
     while IFS= read -r d; do
-        if ! ( cd "$ART/compiler" && "$BSC" --src-root examples -o "$WORK/out" "$d" ) \
+        out="$(mktemp -d "$WORK/out.XXXXXX")"
+        if ! ( cd "$ART/compiler" && "$BSC" --src-root examples -o "$out" "$d" ) \
                 >"$WORK/bsc.log" 2>&1; then
             echo "  NOCOMPILE  $d"
             sed 's/^/    /' "$WORK/bsc.log" | head -5
