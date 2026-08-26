@@ -143,6 +143,23 @@ jobs:
           # previous two majors. Only the current one is exercised here; the
           # corpus proving the full range is a debt the skeleton still owes.
           #
+          # `version-type: strict` IS THE PIN. WITHOUT IT `28.5` IS STILL A RANGE.
+          #
+          # setup-beam's default is `loose`, where a version is a SPEC and it
+          # installs the highest build matching it. Measured on the first CI run
+          # after this file was pinned: `otp-version: "28.5"` installed **28.5.0.5**,
+          # because the builds server has 28.5 through 28.5.0.5 and loose takes
+          # the newest. So the exact-looking string was a floating pin wearing an
+          # exact string's clothes, and local and CI were on different patch
+          # releases while both looked pinned.
+          #
+          # `check-toolchain.sh --env` is what caught it, on a runner, on its
+          # first run — the drift half cannot see this, because the gap is
+          # between what the workflow ASKS FOR and what it GETS, and that is only
+          # observable once something is installed. The gate now also requires
+          # this line to be present, so dropping it re-floats the pin loudly
+          # instead of silently.
+          version-type: strict
           # EXACT, NOT `28`. A major installs whatever OTP 28 the builds server
           # published this morning, so a green run recorded which day it was and
           # nothing else — and a recipient reproducing it had to guess.
@@ -611,6 +628,7 @@ jobs:
       # things against a manifest that pins one, and the build goes red.
       - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1
         with:
+          version-type: strict
           otp-version: "28.5"
           rebar3-version: "3.27.0"
 

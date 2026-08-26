@@ -200,6 +200,30 @@ EOF
   printf 'count %d %d\n' "$n" "$pinned"
 }
 
+# AN EXACT-LOOKING VERSION IS NOT A PIN IF THE INSTALLER READS IT AS A RANGE.
+#
+# setup-beam defaults to `version-type: loose`, where the version is a SPEC and
+# the newest matching build wins. Measured 2026-08-26 on the first CI run after
+# this repository was "pinned": `otp-version: "28.5"` installed 28.5.0.5. The
+# string was exact and the pin was not, which is the same defect as `28` wearing
+# a better disguise — and the drift half above cannot see it, because it compares
+# what the workflow SAYS against what the manifest says, and both said 28.5.
+#
+# So every setup-beam step is required to carry the line that makes its versions
+# literal. Counted rather than merely grepped: one step with it and one without
+# is the shape this would come back as.
+loose_version_specs() {
+  local ci="$1" beam strict
+  beam="$(grep -cE 'erlef/setup-beam@' "$ci" || true)"
+  strict="$(grep -cE 'version-type:[[:space:]]*strict' "$ci" || true)"
+
+  if [ "$beam" -gt 0 ] && [ "$strict" -lt "$beam" ]; then
+    printf '%d setup-beam step(s), only %d carrying `version-type: strict`\n' "$beam" "$strict"
+    printf '           Without it the version is a range and the newest match wins.\n'
+  fi
+  printf 'count %d %d\n' "$beam" "$strict"
+}
+
 env_drift() {
   local manifest="$1"
   local tool want got rc pinned=0 compared=0
@@ -307,6 +331,7 @@ steps:
   - uses: actions/checkout@$SHA_A # v4
   - uses: erlef/setup-beam@$SHA_B # v1
     with:
+      version-type: strict
       otp-version: "28.5"
       rebar3-version: "3.27.0"
   - uses: actions/setup-node@$SHA_A # v4
@@ -331,6 +356,24 @@ YML
   # EMPTY: a manifest that pins nothing at all.
   printf '# nothing pinned yet\n\n' > "$CTL/tool-versions-empty"
 
+  # LOOSE: the version strings are exact and the installer still reads them as a
+  # range. This is the defect that reddened master on 2026-08-26, and it is
+  # invisible to every other control here — the manifest and the workflow agree
+  # perfectly, and `28.5` installs 28.5.0.5.
+  grep -v 'version-type: strict' "$CTL/clean.yml" > "$CTL/loose.yml"
+
+  # SECOND-JOB-LOOSE: one setup-beam step pinned strictly and one not. The count
+  # is what sees this; a bare grep for the line finds it and calls the file fine.
+  cat "$CTL/clean.yml" > "$CTL/halfstrict.yml"
+  cat >> "$CTL/halfstrict.yml" <<YML
+  second-job:
+    steps:
+      - uses: erlef/setup-beam@$SHA_B # v1
+        with:
+          otp-version: "28.5"
+          rebar3-version: "3.27.0"
+YML
+
   # TWO JOBS, ONE UPDATED. The workflow has a second job that installs the same
   # toolchain, so this is not hypothetical: bump one and forget the other and
   # every version string is still present, every grep still finds something, and
@@ -353,6 +396,9 @@ YML
   twojobs_out="$(drift "$CTL/tool-versions" "$CTL/twojobs.yml")"
   pinned_out="$(floating_actions "$CTL/clean.yml")"
   float_out="$(floating_actions "$CTL/floating.yml")"
+  strict_out="$(loose_version_specs "$CTL/clean.yml")"
+  loose_out="$(loose_version_specs "$CTL/loose.yml")"
+  half_out="$(loose_version_specs "$CTL/halfstrict.yml")"
 
   fail=0
 
@@ -426,12 +472,32 @@ YML
     fail=1
   fi
 
+  if ! findings "$loose_out" | grep -q 'only 0 carrying'; then
+    echo "SELF-TEST FAILED: a setup-beam step without \`version-type: strict\` was not"
+    echo "                  reported. Every version string is exact and the installer"
+    echo "                  still takes the newest match — which is how a pinned 28.5"
+    echo "                  installed 28.5.0.5 and reddened master"
+    fail=1
+  fi
+  if ! findings "$half_out" | grep -q '2 setup-beam step(s), only 1'; then
+    echo "SELF-TEST FAILED: one strict step and one loose step was called fine, so the"
+    echo "                  check greps rather than counts and a second job can float"
+    fail=1
+  fi
+  if [ -n "$(findings "$strict_out")" ]; then
+    echo "SELF-TEST FAILED: a workflow whose setup-beam step IS strict was reported as"
+    echo "                  loose, so the check does not discriminate"
+    echo "$strict_out"
+    fail=1
+  fi
+
   if [ "$fail" -eq 0 ]; then
     echo "self-test: caught the major-only comparison, the tool the workflow never"
     echo "           declares, the two jobs declaring different versions of one tool,"
-    echo "           the tool outside the table, the manifest pinning nothing and the"
-    echo "           action on a mutable tag — and left the exactly agreeing, fully"
-    echo "           pinned fixture alone"
+    echo "           the tool outside the table, the manifest pinning nothing, the"
+    echo "           action on a mutable tag, the setup-beam step reading its exact"
+    echo "           version as a range and the second job that reads it loosely —"
+    echo "           and left the exactly agreeing, fully pinned fixture alone"
     exit 0
   fi
   exit 1
@@ -457,11 +523,13 @@ case "$MODE" in
   drift|--drift)
     d_out="$(drift "$MANIFEST" "$CI")"
     a_out="$(floating_actions "$CI")"
+    v_out="$(loose_version_specs "$CI")"
 
     problems="$(findings "$d_out")
 $(count_violation "$d_out" 'the manifest against the workflow')
 $(findings "$a_out")
-$(count_violation "$a_out" 'the workflow uses: lines')"
+$(count_violation "$a_out" 'the workflow uses: lines')
+$(findings "$v_out")"
 
     if [ -n "$(printf '%s\n' "$problems" | grep -v '^$' || true)" ]; then
       printf '%s\n' "$problems" | grep -v '^$'
@@ -476,6 +544,8 @@ $(count_violation "$a_out" 'the workflow uses: lines')"
         awk '{printf "the manifest pins %d tools and the workflow declares all %d identically\n", $2, $3}'
       printf '%s\n' "$a_out" | grep '^count ' |
         awk '{printf "all %d uses: lines name an immutable commit\n", $2}'
+      printf '%s\n' "$v_out" | grep '^count ' |
+        awk '{printf "all %d setup-beam step(s) read their versions literally\n", $2}'
     fi
     ;;
 
