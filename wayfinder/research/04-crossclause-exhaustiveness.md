@@ -733,6 +733,7 @@ practical position ([66]):
 | Elixir v1.19, Phoenix / Livebook / Credo | 6.3% / 3.3% / 2.4% of compile time | [74] |
 | Elixir v1.18-rc0 (Sept 2024), same 1M-LoC project | 11.1 s of 707.6 s = **1.6%**. Read the jump to 8.5% carefully: total compile time fell 68% while the checker's absolute time rose 75%, over 35% more modules (18,059 → 24,292) — so per-module checking cost fell even as the ratio quintupled | [74] |
 | One pathological case, after "eager literal intersections" | **10 s → 25 ms** | [73] |
+| Modules with 1000+ clauses under redundancy checking, after "eager literal differences" | *"dozens of seconds… now do so in milliseconds"* — qualitative; no per-case figures published | [91] |
 | v1.19 release candidates, before the lazy-BDD work | projects that type-checked instantly on v1.18 *"took minutes"*; anonymous-function inference became *"exponentially expensive"* | [72] |
 | CDuce website generator, 2004 (Pentium 4) | ~450 LoC + XHTML Strict DTD as types, ~3500 type nodes → **< 0.2 s**, half of it in subtyping, called **19,956 times** for 70,999 iterations | [75] |
 | POPL'15 local inference, curried arity | n=10 → 0.033 s; n=15 → 0.272 s; n=20 → 0.768 s; **n=25 → 2 m 39.7 s** | [76] |
@@ -744,6 +745,24 @@ The single most useful sentence for a compiler designer, from the Elixir lazy-BD
 troublesome because **we must expand the BDD every time we check for emptiness or
 subtyping**"* ([72]). Emptiness is the inner loop; anything that makes types
 grow makes every check worse.
+
+**Do not read [72] alone — the three posts are a round trip.** Elixir left an eager DNF for
+lazy BDDs to keep negation symbolic, then spent two further posts putting eagerness *back* at
+the literal level: intersections in February ([73]), differences in March ([91]). The net
+destination is not "adopt BDDs" but "prune eagerly on literal disjointness", which is the
+property a flat DNF representation already has by construction. Both eager optimisations are
+also **bounded by a degenerate class** where literal intersections are rarely empty — Elixir
+names its own, restricting the February trick to *closed* maps because applying it to open ones
+regressed performance ([73]). Any representation borrowing this owes an answer for its own
+equivalent class.
+
+The March post's *subject* is the one to watch rather than its mechanism: it exists because
+v1.20.0-rc.2 added **clause redundancy checking**, and *"projects where modules had 1000+ of
+clauses were taking too long to compile"* ([91]). That is this language's headline use case and
+its known pathological input, the same overlap §7.3 flags for Etylizer's 40-branch `case`
+expressions — and `compiler/src/bs_types.erl:681` already records beam-sharp's own version of
+the curve, measured at a 40-record dispatch costing 6.1 ms against an 80-record one at 47 ms,
+growing cubically. Same curve, three orders of magnitude further left.
 
 **Read the numbers in the right direction.** Frisch — the one author who measured first —
 refused to publish comparative benchmarks, because GC parameter tuning alone moved his
@@ -938,6 +957,7 @@ Compressed, decision-facing, all sourced above.
 | 88 | The system can encode polymorphic fixed-point combinators, giving polymorphic recursion, whose inference is long known undecidable | POPL 2024, §1 (citing Henglein 1993; Kfoury et al. 1993) |
 | 89 | Typing OTP behaviours à la Sesterl's functors is "a high priority in our future work list", with no design given | CDV24 §6 p.23 |
 | 90 | Integers are indivisible in Elixir's implementation — "every representable type in Elixir either contains all integer values or none"; no plan for integer subsets | CD26 §7.1 p.40; `lib/elixir/pages/references/typespecs.md` |
+| 91 | The same eager-literal optimisation applied to **differences**, driven by v1.20.0-rc.2's clause redundancy checking: "projects where modules had 1000+ of clauses were taking too long to compile"; "projects that would take dozens of seconds to compile could now do so in milliseconds" | Valim, *Lazy BDDs with eager literal differences*, 2026-03-19 — https://elixir-lang.org/blog/2026/03/19/lazy-bdds-with-eager-literal-differences/ |
 
 ### Source caveats
 
