@@ -323,8 +323,8 @@ Bodies in [`fog.md`](fog.md). These are open: read the body before assuming a di
 - **Reserved names: the policy, not one name at a time** `#65` `modules` `syntax`
   48 reserved `Map` and B# reserves nothing else; five languages learned "user names win"
 - **Negation has no spelling** `#63` `syntax` `patterns`
-  the guard fragment is **already closed under complement**, so `not` adds nothing — measured 2026-08-26,
-  nine pairs and two controls. Item 4's reason was false: the algebra complements exactly. Refusal recommended
+  **refused: no `not`, no `!`** — the guard fragment is already closed under complement, so it adds nothing.
+  The absence teaches, naming the comparison to write. `not` stays an identifier — that is 65. **Built, F27**
 - **`cond`, or whatever serves a long ladder of unrelated conditions** `#17` `syntax`
   no case for it yet; the width-five evidence was retracted and 25a's ladder is now a valve chain
 - **List length in the algebra: a proved-exhaustive program that crashes** `#54` `types` `patterns`

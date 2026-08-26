@@ -43,6 +43,7 @@ cd compiler && rebar3 eunit
 cd compiler && ./bin/check-language.sh          # blocks compile, `not-yet` blocks must NOT
 cd compiler && ./bin/check-list-length.sh       # the checker sees a list's length, both ways
 cd compiler && ./bin/check-division.sh          # `/` lowers to div; only a provable zero is refused
+cd compiler && ./bin/check-negation.sh          # no `not`, no `!`, both taught; `not` is still a name
 cd compiler && ./bin/check-field-values.sh      # a field assignment is checked, at both spellings
 cd compiler && ./bin/check-record-pattern.sh    # a type prefix subtracts what the Kind spelling does
 cd compiler && ./bin/check-boundary-kind.sh     # an int parameter is an integer at the boundary
@@ -76,7 +77,11 @@ sees it, because a fresh checkout has no `C.beam`. The gate now prints the boot 
 `__erl_failed__`, but **the detritus is still worth deleting**: `rm -f compiler/C.beam` before a
 sweep, and note that `.gitignore` hides it so `git status` stays clean.
 
-**TWENTY-TWO `check-*` gate scripts — `check-toolchain.sh` added 2026-08-26 by ENG-247,
+**TWENTY-THREE `check-*` gate scripts — `check-negation.sh` added 2026-08-26 by F27, and
+`check-gates-wired.sh` caught it missing from *this list* on the run that was meant to be
+the final one, having already been added to the script, `ci.yml` and `verify.sh`. Three of
+four is the exact failure the four-edit rule exists for, and the fourth question is one day
+old.** Previously: `check-toolchain.sh` added 2026-08-26 by ENG-247,
 which also added `bin/verify.sh` (an entry point rather than a gate, so the `check-`
 count above does not see it — run the pattern, then remember it is deliberately narrow).
 The four-edit rule below is now literally four: `check-gates-wired.sh` gained a fourth

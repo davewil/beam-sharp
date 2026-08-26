@@ -115,6 +115,7 @@ Erlang back to the decision that required it is one grep.
 | [F23 — a foreign error that arrives as a value](F23-value-returned-foreign-error.md) | **done 2026-08-22** · [ENG-228](https://linear.app/davewil/issue/ENG-228) | most of OTP's IO surface as a declarable FFI target — `file`, `inet`, `gen_tcp`, `erl_tar`. Resolves ticket 56 by **reversing F19 §2**: the wrapper keys on the payload `foreign_error`, not the tag `:error`. The first feature that REMOVES a diagnostic, and it extends the FFI declaration by nothing, which defuses ticket 52's 50/52/56 sequencing warning |
 | [F24 — an `int` parameter is an integer, at the boundary](F24-boundary-kind.md) | **done 2026-08-23** · [ENG-240](https://linear.app/davewil/issue/ENG-240) | nothing — it CLOSES ticket 18's outcome 3 on the one type the corpus refines. `Classify(100.5)` returned `:reserved` from a parameter published as `0..255`. Resolves ticket 58, which is the first ticket that was a **defect** rather than a question: 18 §1(b) decided it on 2026-08-13 and the rule was never in the emitter. The kind half only — ticket 46's range half is still unbuilt |
 | [F25 — the return-mismatch diagnostic carries the signature to paste](F25-corrected-signature.md) | **done 2026-08-23** | nothing. It is the only item on ticket 23 that was buildable without another ticket first, and it is what earns `return_not_declared` a place in `contractual/0` — until now it printed the uncovered residual and stopped, which answers what is WRONG and not what to WRITE. **It refuses more than it prints**: a record in the residual renders as ticket 26 §1's minted tag, so no signature is offered rather than one that looks pasteable and is not |
+| [F27 — there is no `not`, and the absence teaches](F27-no-negation.md) | **done 2026-08-26** | nothing, and it is the only row here that never will: this is a feature that ships a **refusal**. Ticket 63 answered *no negation* on redundancy — the guard fragment is already closed under complement — and David took the option that pairs the refusal with a diagnostic naming the comparison to write instead, which is what makes it a build rather than a document edit. **`not` is NOT reserved**: it is a legal identifier today, and taking a name out of the language is ticket 65's decision, so the hint is raised at the parse failure where it cannot reach a program that parses. The two positions the answer covers **fail at different tokens** (`'('` in a guard, `'>'` in a refinement), so the rule is a shape in the token stream and the refinement case is asserted rather than inherited from the guard one |
 | [F26 — `/` and `%`, and the one divisor the compiler refuses](F26-division-and-remainder.md) | **done 2026-08-25** | the AoC 2019 Day 1 workload that raised ticket 38, whose `Fuel(mass) -> mass / 3 - 2` had sat behind a `not-yet` fence in `LANGUAGE.md` since. `/` lowers to Erlang's **`div`** and never its `/`, which returns a float where the signature promised `int` — a defect the checker cannot see, since the emitter runs after it, so the tests assert the VALUE and get the emission for free. **The precondition rule fails two ways** and the gate's self-test builds both plus a cry-wolf: a divisor that might be zero compiles and crashes at run time, and only one the compiler proves IS zero is refused. `int` stays a bignum through it, now tested at 2^100 |
 
 
@@ -125,8 +126,21 @@ Erlang back to the decision that required it is one grep.
      the board line's count matches the file count. That is a real owed check — it is the
      "a passing gate may never have looked" shape, one namespace along — and it is left as a
      recommendation rather than built by a session that was resolving a different ticket. -->
-**STATE OF THE BOARD — 2026-08-23, second entry today. All twenty-five features are done, and no
-row owes a file.** F25 came off ticket 23 after its build state was measured for the first time:
+**STATE OF THE BOARD — 2026-08-26. All twenty-seven features are done, and no row owes a file.**
+F27 is the first feature in this file that unblocks nothing, and the reason is worth keeping: it
+ships a **refusal**. Ticket 63 decided the language has no `not`, and the answer came with an
+obligation attached — the absence must *teach* — so a decision that looked like a documentation
+edit turned out to have a compiler delta. The estimate put to David beforehand said *"compiler
+delta: none"*, and that was wrong for a reason worth naming: unlike `;`, `not` lexes perfectly
+well, so nothing was going to notice it without a rule. **The queue is empty for the seventh
+time**, and the decided-unbuilt table below now has no live row either — its one entry, 23 §10,
+was built as F17 on 2026-08-18 and the row was never updated.
+
+<!-- The struck-through count below is kept rather than corrected in place, per this file's own
+     rule two paragraphs down: a dated entry is read as a dated entry. -->
+
+**~~STATE OF THE BOARD — 2026-08-23, second entry today. All twenty-five features are done, and no
+row owes a file.~~** F25 came off ticket 23 after its build state was measured for the first time:
 six of its twelve sections were built and nothing had ever said which. F25 was the only unbuilt one
 whose precondition was met — §5 waits on ticket 16 §4, §7 on ticket 22's spelling, §3 and §6 are
 unbuilt outright, and §8a/§9 are unreachable because beam-sharp has no generator at all. The
@@ -700,7 +714,7 @@ multi-year track, or one capability the language owes its author"*:
 | | Where it stands |
 |---|---|
 | 23 §1 — the diagnostic is a **term**, prose a pure function of it | **BUILT — F16, 2026-08-18.** `bs_diag` owns the descriptor and every format string; `bsc --diagnostics term` publishes it, and `bin/check-diagnostics.sh` is what stops the drift reopening |
-| 23 §10 — `bsc --api <Module>` | **decided, unbuilt.** The map cites this by name as the example of what is *in* scope |
+| 23 §10 — `bsc --api <Module>` | **BUILT — F17, 2026-08-18** ([ENG-225](https://linear.app/davewil/issue/ENG-225)). *Corrected 2026-08-26: this row read "decided, unbuilt" for eight days after the thing was built, and it is the only row in this table, so a session reading it for takeable work is told there is some when there is none. The map still cites this by name as the example of what is* in *scope, which remains true* |
 | Columns | **no decision owed.** Measured in parsetools 2.7.1: leex predefines `TokenCol` and `TokenLoc`, and yecc's `error_location` already defaults to `column`. `bs_lexer.xrl` writes `TokenLine` by choice. Since `line/1` is `element(2, T)`, the lexer's actions are the whole change in the parser; the cost is downstream, in the `~s:~p:` format strings and the Abstract Format annotations |
 | 23 §5 — a JSON **encoding** of the term | **blocked**, and already logged: it inherits ticket 16 §4's serialisation mapping, which the map lists as owed and unwritten |
 

@@ -1,7 +1,11 @@
 # 63 — Negation has no spelling
 
 Type: grilling
-Status: **measured 2026-08-26, awaiting David** — [ENG-253](https://linear.app/davewil/issue/ENG-253).
+Status: **RESOLVED 2026-08-26 — no `not`, no `!`; the absence teaches** —
+[ENG-253](https://linear.app/davewil/issue/ENG-253). Answer and full reasoning in
+[`decisions.md`](../decisions.md); built the same day as
+[F27](../../compiler/features/F27-no-negation.md), gated by `compiler/bin/check-negation.sh`.
+David's answers to the round are at the foot of this file.
 All four of *Open* below are measured; item 4's stated reason is **false** and the correction is the
 answer. Probes [`63a`](../prototypes/63a_can_the_algebra_complement.escript),
 [`63b`](../prototypes/63b_guard_probe/), [`63c`](../prototypes/63c_guards_close_under_complement/);
@@ -289,3 +293,46 @@ open, so this is reachable rather than theoretical.
 **Q4 — Does `when` admit user-defined predicates at all?** Not this ticket, and 63b shows the answer
 is currently *no* by inheritance from the BEAM rather than by decision. Worth its own ticket if it is
 wanted; say so and it gets raised.
+
+---
+
+## Answered 2026-08-26 — David
+
+The round above was put into this file and into ENG-253 and **not in front of David**, who read the
+recommendation as a resolution: *"I didn't see any questions and thought it was decided not isn't
+required."* The repo's rule is that a round is not asked until it is in the ticket, and that was
+kept; what it does not cover is that it also has to be **asked**. Recording the gap here because the
+rule as written was satisfied while the round still sat unanswered for two hours.
+
+**Q1 — refused, and the diagnostic teaches the complement.** Not a plain syntax error. The message
+names the opposite of each comparison the guard fragment admits, so a reader who types `not` is told
+what to write. `!` is covered on the same grounds — it is the spelling the C#/TS audience reaches
+for on sight, and the map's own test is *"a construct a C# developer reads on sight versus one they
+must be taught"*.
+
+**Q2 — moot.** It only applied if Q1 went the other way.
+
+**Q3 — yes, the refusal carries a re-open trigger**, and building it surfaced a second. Both are in
+[`decisions.md`](../decisions.md): the first guard-legal, compiler-known predicate that is not a
+comparison; and a **lambda**, which would make `not (` parseable and change what the detection rule
+can assume.
+
+**Q4 — left as it is, with no ticket.** User-defined predicates in guards stay illegal by
+inheritance from the BEAM. Consequence worth knowing: this **stabilises ENG-256's repro**, since the
+input that provokes the raw `erlc` text stays illegal rather than becoming legal under a later
+decision.
+
+## What the build corrected in the estimate above
+
+**The delta quoted for the *no* branch was "none", and that was wrong.** It is stated in *The delta
+if the answer is yes* that refusing costs nothing in the compiler — true of the refusal, false of
+the obligation David attached to it. Unlike `;`, `not` **lexes perfectly well** as an identifier, so
+nothing would have noticed it without a rule. What shipped: two `descriptor/2` clauses, one
+`message/1` clause, a `not_in_prefix_position/2`, and the tokens now travelling with the parse error.
+
+**And the two positions fail at different tokens**, which the ticket's §4 argument would have hidden.
+That argument — *"one translator, so a refinement and a guard cannot come to disagree"* — is about
+`alternatives/1` in the **checker**, and the diagnostic lives in the **parser**, which they do not
+share. Measured: `when not (n > 100)` fails before `'('`, `int where not (value > 100)` fails before
+`'>'`. An implementation keyed on the token yecc reported would have covered guards and missed
+refinements silently. F27's gate asserts them separately for that reason.

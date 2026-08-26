@@ -108,6 +108,21 @@ no `||`; they were removed rather than kept as synonyms. This language puts patt
 C# separates its pattern `and` from its expression `&&` deliberately, and can afford to because
 patterns and expressions rarely touch there; here they always do.
 
+**There is no `not`, and no `!`.** Negation is not an operator in this language. The comparisons a
+guard admits already come in opposite pairs — `<=` against `>`, `>=` against `<`, `!=` against `==`
+— so the complement of any guard the checker can read is a guard you can already write, and a `not`
+would compile to exactly that. Where the checker *cannot* read a predicate, negating it buys nothing
+either: such a clause credits nothing towards exhaustiveness, and a refinement that cannot be
+translated is a hard error rather than a silent widening. Which case a clause takes is the head's
+job, not an operator's. Typing either spelling is met by a diagnostic naming the comparison to use
+instead. **shipped**
+
+A construct all four neighbouring languages have is refused here, so it is worth saying why it is
+not a divergence in practice. Every negation in a guard across OTP 28's `stdlib` and `kernel` — 16
+of them — wraps a type test or `is_map_key`. Type tests are absent from this language by design and
+`is_map_key` is a pattern, so the category those languages reach for `not` to negate is the category
+this one moved into the clause head.
+
 **A span of integers is a relational pattern.** `4..7` was refused: C#'s `..` builds a half-open
 slice over *indices*, is not enumerable, and in pattern position already means "the rest" — which
 this language uses for lists. **shipped**
@@ -222,7 +237,8 @@ how many it left; the residual itself is never summarised, and the full one is a
 
 A **catch-all is legal only where the residual is open** — over a `term`, or any type with an
 unbounded part. Where the compiler knows the remaining case names, `_` is an error: it would put
-the language's headline guarantee one character from being switched off invisibly. **decided**
+the language's headline guarantee one character from being switched off invisibly. **shipped** —
+and the diagnostic names the discarded cases as a head to write instead.
 
 ---
 
@@ -250,7 +266,9 @@ Describe(o) -> o.Status switch {
 The `_` here is legal because `Status` is an `atom` and the atom universe is open, so the residual
 cannot be enumerated — which is the only shape a catch-all is admitted over. Over a *closed*
 residual, where the compiler knows the missing case by name, §2 makes `_` an error telling you to
-name it. **That rule is decided and is not yet enforced**, at a switch arm or at a clause head.
+name it — **shipped**, at a switch arm and at a clause head alike.
+<!-- enforced by F2 (2026-08-16). This sentence read "decided and is not yet enforced" for eight
+     days after F2 landed; corrected 2026-08-24 when exemplar 25d's probe re-measured it -->
 
 For compound conditions, the subject is a **tuple** — which is the clause head's own shape, one
 level down:

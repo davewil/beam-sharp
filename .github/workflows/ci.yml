@@ -456,6 +456,25 @@ jobs:
         working-directory: compiler
         run: ./bin/check-division.sh
 
+      # F27 / ticket 63. The language has no `not`, and the decision came with
+      # an obligation: the absence must name the comparison to write instead.
+      #
+      # Two things make this worth a gate rather than only eunit. The positions
+      # the decision covers fail at DIFFERENT tokens — `'('` in a guard, `'>'`
+      # in a refinement — so an implementation keyed on the token yecc reported
+      # passes one and misses the other silently; the self-test's `half` stub
+      # is that defect. And `not` is a legal IDENTIFIER, which reserving it
+      # would quietly stop being true — that is ticket 65's decision, not 63's,
+      # so P4 compiles and runs a program using `not` as a variable name and
+      # asserts its value exactly.
+      - name: The negation gate proves it can fail
+        working-directory: compiler
+        run: ./bin/check-negation.sh --self-test
+
+      - name: 'No `not` and no `!`, both taught, and `not` is still a name'
+        working-directory: compiler
+        run: ./bin/check-negation.sh
+
       # F21 / ticket 36. `Order{ Id = :oops }` and `o with { Total = :oops }`
       # both compiled to a .beam, and `o with { Nope = 1 }` compiled and raised
       # {badkey,'Nope'} at RUN time — 26 §2 enforced by the BEAM rather than by

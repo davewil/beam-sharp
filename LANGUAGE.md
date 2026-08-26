@@ -228,6 +228,25 @@ no `||`; they were removed rather than kept as synonyms. This language puts patt
 C# separates its pattern `and` from its expression `&&` deliberately, and can afford to because
 patterns and expressions rarely touch there; here they always do.
 
+**There is no `not`, and no `!`.** Negation is not an operator in this language. The comparisons a
+guard admits already come in opposite pairs — `<=` against `>`, `>=` against `<`, `!=` against `==`
+— so the complement of any guard the checker can read is a guard you can already write, and a `not`
+would compile to exactly that. Where the checker *cannot* read a predicate, negating it buys nothing
+either: such a clause credits nothing towards exhaustiveness, and a refinement that cannot be
+translated is a hard error rather than a silent widening. Which case a clause takes is the head's
+job, not an operator's. Typing either spelling is met by a diagnostic naming the comparison to use
+instead. **shipped**
+<!-- decided by ticket 63; `not` remains a legal identifier, which is ticket 65's question.
+     Its two re-open triggers live in decisions.md and in F27, NOT here: `build-packet.py`
+     strips a ticket citation from the audition packet and keeps every other comment, so a
+     note about this project's process would reach a clean-room reader as if it were spec. -->
+
+A construct all four neighbouring languages have is refused here, so it is worth saying why it is
+not a divergence in practice. Every negation in a guard across OTP 28's `stdlib` and `kernel` — 16
+of them — wraps a type test or `is_map_key`. Type tests are absent from this language by design and
+`is_map_key` is a pattern, so the category those languages reach for `not` to negate is the category
+this one moved into the clause head.
+
 **A span of integers is a relational pattern.** `4..7` was refused: C#'s `..` builds a half-open
 slice over *indices*, is not enumerable, and in pattern position already means "the rest" — which
 this language uses for lists. **shipped**

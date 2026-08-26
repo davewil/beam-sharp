@@ -230,6 +230,9 @@ run_stages \
   "\`/\` lowers to div, and only a provable zero is refused" \
     "cd compiler && ./bin/check-division.sh --self-test && ./bin/check-division.sh" \
 \
+  "No \`not\` and no \`!\`, both taught, and \`not\` is still a name" \
+    "cd compiler && ./bin/check-negation.sh --self-test && ./bin/check-negation.sh" \
+\
   "A field assignment is checked, at both spellings" \
     "cd compiler && ./bin/check-field-values.sh --self-test && ./bin/check-field-values.sh" \
 \

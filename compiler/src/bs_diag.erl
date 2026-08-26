@@ -269,9 +269,37 @@ descriptor(Path, {Sev, Line, Fn, {not_an_obligation, Name}}) ->
 %% sharpest message rather than leex's raw tuple.
 descriptor(Path, {lex, {Line, _Mod, {illegal, ";"}}}) ->
     #{tag => stray_semicolon, severity => error, file => Path, line => Line};
+%% Ticket 63 refused negation, and refused it on REDUNDANCY rather than danger:
+%% the guard fragment `alternatives/1` reads is already closed under complement,
+%% so a `not` the translator had learned would compile into the exact spelling
+%% the author could have written. The refusal came with an obligation — the
+%% absence teaches — and these two clauses are it. `bin/check-negation.sh` is
+%% the gate.
+%%
+%% `!` FIRST, BECAUSE IT NEVER REACHES THE PARSER. It is an illegal character,
+%% so it fails here in the lexer, one stage earlier than `not` does. `!=` is a
+%% token of its own and so never arrives as an illegal character at all — the
+%% suite asserts that separately rather than leaving it to be assumed.
+descriptor(Path, {lex, {Line, _Mod, {illegal, [$! | _]}}}) ->
+    #{tag => no_negation, severity => error, file => Path, line => Line,
+      spelling => "!"};
 descriptor(Path, {lex, {Line, Mod, Reason}}) ->
     #{tag => lex_error, severity => error, file => Path, line => Line,
       detail => lists:flatten(Mod:format_error(Reason))};
+%% `not` IS NOT A KEYWORD AND MUST NOT BECOME ONE. It is a legal identifier
+%% today — `F(not) when not > 100` compiles and runs — and reserving it would be
+%% the cheap route to a sharp message while quietly taking a name out of the
+%% language. That is ticket 65's question (reserved names as a policy, not one
+%% name at a time) and 65 is open. So the hint is raised HERE, at the parse
+%% failure, where it cannot reach a program that parses.
+descriptor(Path, {parse, {Line, Mod, Reason}, Tokens}) ->
+    case not_in_prefix_position(Tokens, Line) of
+        true ->
+            #{tag => no_negation, severity => error, file => Path,
+              line => Line, spelling => "not"};
+        false ->
+            descriptor(Path, {parse, {Line, Mod, Reason}})
+    end;
 descriptor(Path, {parse, {Line, Mod, Reason}}) ->
     #{tag => parse_error, severity => error, file => Path, line => Line,
       detail => lists:flatten(Mod:format_error(Reason))};
@@ -437,6 +465,48 @@ descriptor(Path, {Sev, _Line, _Fn, _} = D) when Sev =:= error; Sev =:= warning -
     #{tag => unclassified, severity => Sev, file => Path, detail => D};
 descriptor(_Path, _Other) ->
     unhandled.
+
+%%% ---------------------------------------------------------------------------
+%%% `not` in prefix position — ticket 63
+%%%
+%%% WHY A SHAPE AND NOT A TOKEN. The two positions the decision covers fail at
+%%% DIFFERENT tokens, so a rule keyed on the one yecc reported would see the
+%%% first and miss the second entirely:
+%%%
+%%%     when not (n > 100)            syntax error before: '('
+%%%     int where not (value > 100)   syntax error before: '>'
+%%%
+%%% The ticket's argument that a guard and a refinement cannot come to disagree
+%%% is about the one `alternatives/1` they share in the CHECKER. It does not
+%%% reach the parser, so the refinement position is measured here rather than
+%%% inherited from the guard one.
+%%%
+%%% WHY THIS CANNOT MIS-FIRE ON A VALID PROGRAM. Two reasons, and the second is
+%%% the one that matters. It only runs after the parse has ALREADY failed. And
+%%% the shape it looks for cannot occur in a program that parses: applying a
+%%% variable would need an arrow, and F6 measured that `ty()` has no arrow part
+%%% and the surface language has no lambda. So `not (`, `not x`, `not 3` and
+%%% `not :a` are unparseable in every valid program, while a bare `not` used as
+%%% an ordinary variable — followed by an operator, a comma or a bracket — is
+%%% untouched by this and keeps working.
+%%%
+%%% IF LAMBDAS EVER ARRIVE, `not (` BECOMES PARSEABLE and this rule needs
+%%% revisiting. That sits beside ticket 63's other re-open trigger rather than
+%%% replacing it.
+%%% ---------------------------------------------------------------------------
+
+not_in_prefix_position([{lident, L, 'not'}, Next | Rest], Line) ->
+    (L =:= Line andalso is_operand(Next))
+        orelse not_in_prefix_position([Next | Rest], Line);
+not_in_prefix_position([_ | Rest], Line) -> not_in_prefix_position(Rest, Line);
+not_in_prefix_position([], _Line)        -> false.
+
+is_operand({'(', _})         -> true;
+is_operand({lident, _, _})   -> true;
+is_operand({uident, _, _})   -> true;
+is_operand({integer, _, _})  -> true;
+is_operand({atom_lit, _, _}) -> true;
+is_operand(_)                -> false.
 
 %%% ---------------------------------------------------------------------------
 %%% message/1 — the single owner of every format string
@@ -731,6 +801,17 @@ message(#{tag := lex_error, file := P, line := L, detail := D}) ->
     {"~s:~p: error: ~s~n", [P, L, D]};
 message(#{tag := parse_error, file := P, line := L, detail := D}) ->
     {"~s:~p: error: ~s~n", [P, L, D]};
+%% Ticket 63. The refusal names the thing to write instead, which is the whole
+%% reason the decision went this way rather than leaving a bare syntax error:
+%% every comparison the guard fragment admits has an opposite already in the
+%% language, so there is always a concrete answer to give.
+message(#{tag := no_negation, file := P, line := L, spelling := S}) ->
+    {"~s:~p: error: beam-sharp has no `~s`~n"
+     "  negation is not an operator here. A guard and a refinement are built~n"
+     "  from comparisons, and every comparison has an opposite you can write~n"
+     "  directly: `<=` for `not >`, `>=` for `not <`, `!=` for `not ==`,~n"
+     "  `==` for `not !=`. Which case a clause takes is the head's job.~n",
+     [P, L, S]};
 message(#{tag := no_sources_here, file := P}) ->
     {"bsc: no `.bs` files in ~s~n"
      "  a module is a directory holding `.bs` files (41 §5). If this~n"

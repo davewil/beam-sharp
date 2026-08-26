@@ -686,8 +686,13 @@ parse_string(Path, Src) ->
             report_fatal(Path, {lex, Err}), {error, lex};
         {ok, Tokens, _} ->
             case bs_parser:parse(Tokens) of
+                %% The tokens travel with the error because ticket 63's hint is
+                %% a SHAPE in the token stream (`not` in prefix position), not
+                %% the token yecc happened to stop on — guard and refinement
+                %% stop on different ones. `bs_diag` falls back to the plain
+                %% parse error when the shape is absent.
                 {error, Err} ->
-                    report_fatal(Path, {parse, Err}), {error, parse};
+                    report_fatal(Path, {parse, Err, Tokens}), {error, parse};
                 %% F14. The valve is the one construct the parser cannot finish
                 %% on its own — its lowering needs names that are unique across
                 %% the FILE, and a yecc action has nowhere to keep a counter. So
