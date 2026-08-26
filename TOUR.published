@@ -24,8 +24,21 @@
 # evidence here that is not self-reported.
 
 url       https://claude.ai/code/artifact/40f71cf4-d5d3-4b71-882c-ad73f630a03c
-sha256    bd8b38612e07f413881055c03164b5991dc5d323eccd6f4acc84087e82ff9767
-verified  2026-08-22 (for F23 / ticket 56) — chapter 14 taught only half the foreign
+sha256    75bde3b271ec62ea463c5de16d3a9ed73e39e987d4015901f6a7a34a4f1a3579
+verified  2026-08-26 (for ENG-245) — the "Decided but not built" table opened by calling
+          binary patterns "still open — the one numbered feature not started", sixty
+          lines above its own construct index listing SIX of them against
+          `examples/Frame/frame.bs`. F13 had shipped them on 2026-08-20. The row's
+          other half, a sized-binary type, was wrong in the opposite direction: not
+          awaiting a build but decided AGAINST, which is what LANGUAGE.md records
+          twice. Read back before republishing and the live page still carried the
+          old row, so the stale state was confirmed rather than assumed — and the
+          read again showed a plain render of TOUR.md with nothing saved into it
+          independently. Part 4 caught this republish being owed, which is the first
+          time the stamp has gone red on an edit made in the same session rather than
+          on drift left by an earlier one.
+
+          2026-08-22 (for F23 / ticket 56) — chapter 14 taught only half the foreign
           boundary: the wrapped `result<T, foreign_error>` declaration, with no
           mention that most of OTP never throws at all and returns its errors as
           ordinary values. That half was UNDECLARABLE until this ticket, so the
