@@ -1,0 +1,58 @@
+// EXTRACTED — do not edit here.
+// Source: wayfinder/prototypes/25e-dynamic-web-page.md, section `rows.bs`
+// Regenerate: compiler/bin/extract-exemplars.sh
+//
+// This file is OUT OF THE WALKING SKELETON SLICE and does not parse today.
+// It is a target for the compiler, not a passing example. The write-up it
+// came from carries the friction list explaining what is wrong with it and
+// why that is the point.
+
+private Iodata Rows(list<OrderRow> orders, list<Iodata> acc)
+
+Rows([], acc)          -> ReverseRows(acc, [])
+Rows([o, ..rest], acc) -> Rows(rest, [Row(o), ..acc])
+
+private Iodata Row(OrderRow o)
+
+Row(o) -> ["<tr><td>", :erlang.integer_to_binary(o.Id),
+           "</td><td>", Escape(o.Customer),
+           "</td><td>", Money(o.TotalCents),
+           "</td><td>", Status(o.Status),
+           "</td></tr>"]
+
+// Cents to pounds. F26 shipped `/` and `%`, so this is expressible — and it is
+// the one place in the exemplar where the language does the ordinary thing
+// without complaint.
+private Iodata Money(int cents)
+
+Money(cents) -> ["£", :erlang.integer_to_binary(cents / 100),
+                 ".", Pence(cents % 100)]
+
+// The two-digit pad. There is no formatting anywhere in the language, so it is
+// a clause head — which is, to be fair, exactly what this language is for.
+//
+// AND IT IS A GUARD, NOT A RELATIONAL PATTERN, because `Pence(<= 9)` binds no
+// name and the body needs the value. Measured: `F(<= 9) -> n` is
+// "F uses n, which nothing binds", while the same pattern with the value
+// unused compiles. There is no as-pattern in any spelling. See finding 5.
+private Iodata Pence(int p)
+
+Pence(p) when p <= 9 -> ["0", :erlang.integer_to_binary(p)]
+Pence(p)             -> :erlang.integer_to_binary(p)
+
+// A closed union renders as a total function with no catch-all. This is the
+// design at its best and it is worth saying so: three statuses, three clauses,
+// add a fourth to `OrderStatus` and the compiler names this function.
+private Iodata Status(OrderStatus s)
+
+Status(:placed)    -> "placed"
+Status(:shipped)   -> "shipped"
+Status(:cancelled) -> "cancelled"
+
+// The same six tokens as `escape.bs`'s `ReverseParts`, with one word of the
+// signature changed — and a name invented purely so the two can coexist.
+private list<Iodata> ReverseRows(list<Iodata> xs, list<Iodata> acc)
+
+ReverseRows([], acc)          -> acc
+ReverseRows([x, ..rest], acc) -> ReverseRows(rest, [x, ..acc])
+

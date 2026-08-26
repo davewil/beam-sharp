@@ -546,3 +546,94 @@ The findings, compressed (full versions and measurements in the write-up):
 **Two exemplars remain**: async processing (both its tickets resolved — it now only tests) and the
 dynamic web page (the last binary-accumulation case 17 job 2 asked for, and the first that would
 meet binary *construction* in expression position, which is 25c's current wall too).
+
+---
+
+## RESULTS — fifth exemplar, the dynamic web page, 2026-08-26
+
+[`25e-dynamic-web-page.md`](../prototypes/25e-dynamic-web-page.md) — a server-rendered order-list
+page, with a lowering that compiles under `+warnings_as_errors` and runs on OTP 28
+([`25e_page_lowering.erl`](../prototypes/25e_page_lowering.erl)). Its output is **parsed back with
+`xmerl`**, so an escaping leak is a red rather than something a reader has to spot; that check
+carries a negative control which renders the same page through a deliberately leaking escaper and
+requires the check to go red on it. Compiler measurements, every refusal with a control:
+[`25e_surface_probe.sh`](../prototypes/25e_surface_probe.sh).
+
+**The headline: this is the first exemplar stopped by the checker rather than the parser, and it is
+stopped by its own type.** The other four die in the lexer or the grammar on a construct the
+language has not grown. 25e dies on `type Iodata = binary | list<Iodata>` — iodata, the argument
+type of every BEAM web stack's reply function — which is **decided** (equirecursive, contractive,
+ticket 09) and which the algebra has no binder to hold. A page is a tree of fragments and the tree
+recurses. So the fifth wall is a *type-algebra* gap where the other four are surface gaps.
+
+**Behind that wall stands exactly one genuine defect in the whole module.** Measured in a scratch
+copy: with `Iodata = list<binary>` eight errors appear and every one is a nested return the flat
+type cannot hold; with `Iodata = term` only `Pence` survives (finding 3 below). 25e is not a program
+blocked on a dozen missing things — it is blocked on one, which happens to be the type of every
+value it produces.
+
+The findings, compressed (full versions and controls in the write-up):
+
+1. **`string` is not closed under binary decomposition.** The tail of a binary pattern over a
+   `string` is `binary \ string` — measured at 8 bits and at 32, so it is the refinement and not the
+   width, and the control over a bare `binary` type-checks. This is **correct**: 20 §4 makes
+   `string = binary where valid_utf8`, and a byte off a multi-byte codepoint leaves invalid UTF-8.
+   The consequence is that **no character-level loop over a `string` can be written at all** — widen
+   to `binary`, and F9 records the way back is deliberately unspelled. HTML escaping cannot return a
+   `string`, and the page is `binary` from the escaper outward. → 20, 09.
+2. **Without binary construction the only correct escaper is one FFI call per character.**
+   `<<c:8>>` in expression position does not parse; `:binary.encode_unsigned/1` works and is
+   measured correct end to end. The alternative — dropping the byte, which is what the language
+   leaves you when there is nowhere to put it — also compiles, also runs, and **silently deletes
+   every unescaped character**: `Escape("a<b&c")` returns `["&lt;", "&amp;"]`. Binary construction
+   has no decision behind it, and this is the case for making one. → 20, 30, F13.
+3. **A relational pattern binds nothing, and there is no as-pattern in any spelling.**
+   `Pence(<= 9) -> … p …` is *"uses p, which nothing binds"*; the control with the value unused —
+   which is every prior use in the corpus — compiles. `p @ <= 9` and the C# postfix `<= 9 p` both
+   fail. **Second sighting of one hole**: 25c's recorded wall is `Frame { … } f`, where `p_alias`
+   has no surface. Different pattern kind, same missing binder. → 42, 08.
+4. **A vacuous clause is reported as shadowed, and that is untrue.** A clause whose pattern matches
+   no value of the declared domain gets *"every value it matches is matched by an earlier clause"* —
+   **even when it is the only clause in the function**, controlled three ways. It bites because
+   `option<T>` is `T | :nothing` untagged, so `Note((:some, s))` — what a C#, Rust or F# reader
+   writes first — is vacuous, and the compiler sends them hunting a shadowing clause that does not
+   exist. Filed as [ENG-259](https://linear.app/davewil/issue/ENG-259). → 23.
+5. **`+` over two strings is ticket 33's decision meeting its price.** `a + b` on two strings
+   type-checks and crashes with `badarith`; every arithmetic operator does it, over every operand
+   type. **This is decided, not broken** — 33 §2 rules there is no sixth obligation site because
+   `e_op` declares no type. What this exemplar adds is that F5 illustrates the rule with `:a + 1`,
+   which nobody writes, while the realistic case is string concatenation in the one program where
+   joining strings is the entire job. A cost to weigh, not a bug to fix. → 33, 16 §2.
+6. **The two `Reverse`s collide, and the module refuses them.** `escape.bs` and `rows.bs` each want
+   the same six-token accumulator reversal at a different type; a module is one beam, so `Reverse/2`
+   twice is an error. The workaround for a missing generic is therefore not "write it twice" but
+   "write it twice under invented names". Third sighting after 25d's `Prepend`, and the first where
+   the language forces the naming. → 37.
+7. **Iodata's empty fragment is free, and that is the argument *for* the type.** `[]` is the absent
+   section — no `option<Iodata>`, no sentinel, no empty-string case — and the conditional and
+   optional sections are two clauses each. Measured: `admin_link(false)` contributes zero bytes.
+   Ticket 09's cost side now has a benefit beside it. → 09.
+8. **Declaring a `module` is not enough while the directories are named after ticket numbers.** 25e
+   is the first exemplar to declare one, and F15 makes the declaration and the path the same name
+   written twice — so `module Shop.Page` inside `25e-dynamic-web-page/` is *"does not match its
+   directory"*. The 2026-08-17 note above now has a second half: naming the modules does not make
+   these trees compilable, renaming the directories does. → the note above.
+9. **`<<>>` has no production; `<<"">>` is the empty binary.** `bin_segments` is one-or-more
+   (`bs_parser.yrl:410`), so the base case of every binary loop has no literal spelling. The
+   string-literal segment supplies one and it works. A wart with an unguessable workaround. → F13.
+10. **Every byte operation in the page is foreign, and the difference from 25d is in kind not
+    number.** 25e declares four (`iolist_size`, `iolist_to_binary`, `integer_to_binary`,
+    `binary:encode_unsigned`) and all four are byte manipulation; 25d declares three (counted:
+    `epgsql:connect`, `epgsql:equery`, `gen_server:call`, its only two `using` blocks) and all
+    three are driver calls, with its row validation and totals in B#. The language does the
+    dispatch and the domain, and does not yet do the bytes. → 16.
+
+**What ticket 22 can take:** the DDD constructs did not get in the way and were barely present — one
+record for a row, one for the model, one closed union for status. Third exemplar to say so, and from
+the least domain-shaped program in the set. What was miserable was strings and sequences, which is
+orthogonal to how opinionated the language is about domains.
+
+**One exemplar remains**: async processing. Both its tickets (14, 15) are resolved, so it tests and
+invents nothing — the cleanest condition in the set — and it is the only remaining shape with **no
+long-lived server and no wire format**, which all five written so far have had. It should not be
+written as a sixth `gen_server`.

@@ -1,0 +1,35 @@
+// EXTRACTED — do not edit here.
+// Source: wayfinder/prototypes/25e-dynamic-web-page.md, section `layout.bs`
+// Regenerate: compiler/bin/extract-exemplars.sh
+//
+// This file is OUT OF THE WALKING SKELETON SLICE and does not parse today.
+// It is a target for the compiler, not a passing example. The write-up it
+// came from carries the friction list explaining what is wrong with it and
+// why that is the point.
+
+public Iodata Layout(PageModel m)
+
+Layout(m) -> ["<!doctype html><html><head><title>", Escape(m.Title),
+              "</title></head><body><h1>", Escape(m.Title), "</h1>",
+              Note(m.Note),
+              AdminLink(m.IsAdmin),
+              "<table>", Rows(m.Orders, []), "</table>",
+              "</body></html>"]
+
+// AN OPTIONAL SECTION. `option<T>` is `T | :nothing`, untagged — so the
+// `:nothing` clause comes FIRST and the bound clause is the residual. Write it
+// the other way, or write `(:some, s)`, and see §"A diagnostic that names the
+// wrong cause".
+private Iodata Note(option<string> n)
+
+Note(:nothing) -> []
+Note(s)        -> ["<p class=\"note\">", Escape(s), "</p>"]
+
+// A CONDITIONAL SECTION, which is two clauses because there is no `if`
+// (ticket 17 §6). It reads well. `[]` as the empty fragment is iodata's own
+// identity element and needs no special case anywhere.
+private Iodata AdminLink(bool isAdmin)
+
+AdminLink(true)  -> ["<a href=\"/admin\">admin</a>"]
+AdminLink(false) -> []
+

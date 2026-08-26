@@ -1,0 +1,56 @@
+// EXTRACTED — do not edit here.
+// Source: wayfinder/prototypes/25e-dynamic-web-page.md, section `escape.bs`
+// Regenerate: compiler/bin/extract-exemplars.sh
+//
+// This file is OUT OF THE WALKING SKELETON SLICE and does not parse today.
+// It is a target for the compiler, not a passing example. The write-up it
+// came from carries the friction list explaining what is wrong with it and
+// why that is the point.
+
+// HTML escaping.
+//
+// TAKES a `string` and RETURNS `list<binary>`, and the asymmetry is forced.
+// `string` is `binary where valid_utf8` (ticket 20 §4), and taking one byte off
+// a UTF-8 binary does NOT leave a UTF-8 binary — chop a byte off a multi-byte
+// codepoint and the remainder is invalid. So the checker types the tail of
+// every binary pattern as `binary \ string` and refuses the recursive call.
+//
+// It is right to. The consequence is that a character-level loop over a
+// `string` cannot be written, the loop must widen to `binary`, and F9 records
+// that the way back has no spelling — deliberately, because it costs an O(n)
+// validity scan. The page is a `binary` from here outward.
+public list<binary> Escape(string s)
+
+Escape(s) -> Walk(s, [])
+
+private list<binary> Walk(binary s, list<binary> acc)
+
+// The base case. `<<>>` does not parse — `bin_segments` in the grammar is
+// one-or-more, so the empty binary has no production. `<<"">>` is the spelling,
+// via the string-literal segment, and it works. A wart, not a wall.
+Walk(<<"">>, acc)           -> ReverseParts(acc, [])
+Walk(<<0x26:8, rest>>, acc) -> Walk(rest, ["&amp;", ..acc])
+Walk(<<0x3C:8, rest>>, acc) -> Walk(rest, ["&lt;", ..acc])
+Walk(<<0x3E:8, rest>>, acc) -> Walk(rest, ["&gt;", ..acc])
+Walk(<<0x22:8, rest>>, acc) -> Walk(rest, ["&quot;", ..acc])
+// AND HERE IS THE COST. `c` is an int the segment refined to 0..255. To put it
+// back on an iodata list it must become a one-byte binary, and the construct
+// for that — `<<c:8>>` in expression position — does not exist: F13 built the
+// consuming direction only, and F13 itself records that "building a binary from
+// parts has no decision behind it yet". The only working spelling is a foreign
+// call, once per unescaped byte.
+Walk(<<c:8, rest>>, acc)    -> Walk(rest, [:binary.encode_unsigned(c), ..acc])
+// A trailing partial byte. `_` over a binary is always legal (ticket 30) and
+// absorbs silently — so this clause is where malformed input goes, and the
+// compiler will never ask for it.
+Walk(_, acc)                -> ReverseParts(acc, [])
+
+// NOT `Reverse`. `rows.bs` needs the identical function over `list<Iodata>`,
+// a module is ONE beam, and two signatures of the same arity are one function
+// declared twice — so the two monomorphic copies COLLIDE and the compiler
+// refuses the module. Finding 8; the names are invented to get around it.
+private list<binary> ReverseParts(list<binary> xs, list<binary> acc)
+
+ReverseParts([], acc)          -> acc
+ReverseParts([x, ..rest], acc) -> ReverseParts(rest, [x, ..acc])
+

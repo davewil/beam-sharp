@@ -1,0 +1,24 @@
+// EXTRACTED — do not edit here.
+// Source: wayfinder/prototypes/25e-dynamic-web-page.md, section `render.bs`
+// Regenerate: compiler/bin/extract-exemplars.sh
+//
+// This file is OUT OF THE WALKING SKELETON SLICE and does not parse today.
+// It is a target for the compiler, not a passing example. The write-up it
+// came from carries the friction list explaining what is wrong with it and
+// why that is the point.
+
+public Response Render(PageModel m)
+
+Render(m) -> Respond(Layout(m))
+
+private Response Respond(Iodata body)
+
+// `iolist_size/1` is the Content-Length, and it is a foreign call over the
+// recursive type. There is no builtin: `ByteSize` does not exist, and the
+// language has no size operator of any kind — measured, the name resolves to
+// nothing and the diagnostic is "which nothing declares".
+Respond(body) -> (200,
+                  [("content-type", "text/html; charset=utf-8"),
+                   ("content-length", :erlang.integer_to_binary(:erlang.iolist_size(body)))],
+                  body)
+

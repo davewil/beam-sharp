@@ -1,0 +1,41 @@
+// EXTRACTED — do not edit here.
+// Source: wayfinder/prototypes/25e-dynamic-web-page.md, section `index.bs`
+// Regenerate: compiler/bin/extract-exemplars.sh
+//
+// This file is OUT OF THE WALKING SKELETON SLICE and does not parse today.
+// It is a target for the compiler, not a passing example. The write-up it
+// came from carries the friction list explaining what is wrong with it and
+// why that is the point.
+
+module Shop.Page
+
+// THE TYPE THIS WHOLE EXEMPLAR IS ABOUT. Refused: recursive, well formed,
+// unbuilt. Everything below is written as if it existed, because writing it
+// any other way would be writing a different program to flatter the compiler —
+// which is the failure 25a recorded when it constructed its own evidence.
+type Iodata = binary | list<Iodata>
+
+using :erlang {
+    int    iolist_size(Iodata d)
+    binary iolist_to_binary(Iodata d)
+    binary integer_to_binary(int n)
+}
+
+using :binary {
+    // The escape hatch §"escape.bs" is about. One call per unescaped byte.
+    binary encode_unsigned(int n)
+}
+
+type OrderStatus = :placed | :shipped | :cancelled
+
+record OrderRow {
+    Id: int, Customer: string, TotalCents: int, Status: OrderStatus
+}
+
+record PageModel {
+    Title: string, Orders: list<OrderRow>, Note: option<string>, IsAdmin: bool
+}
+
+type Header   = (binary, binary)
+type Response = (int, list<Header>, Iodata)
+

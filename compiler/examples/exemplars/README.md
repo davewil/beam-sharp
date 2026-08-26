@@ -25,6 +25,7 @@ friction these files contain is deliberate and is explained where it came from:
 | `25b-websocket-handler/` | [`25b-websocket-handler.md`](../../../wayfinder/prototypes/25b-websocket-handler.md) | `25b_websocket_lowering.erl` |
 | `25c-event-queue-consumer/` | [`25c-event-queue-consumer.md`](../../../wayfinder/prototypes/25c-event-queue-consumer.md) | `25c_queue_lowering.erl` |
 | `25d-database-querying/` | [`25d-database-querying.md`](../../../wayfinder/prototypes/25d-database-querying.md) | `25d_db_lowering.erl` — replays terms captured live from PostgreSQL 16 (`25d_live_capture.escript`) |
+| `25e-dynamic-web-page/` | [`25e-dynamic-web-page.md`](../../../wayfinder/prototypes/25e-dynamic-web-page.md) | `25e_page_lowering.erl` — renders the page and parses it back with `xmerl`, so an escaping leak is a red |
 
 ## A divergence these files used to expose — CLOSED, and it was recorded backwards
 
@@ -64,8 +65,18 @@ and `readings.bs` is simply written the verbose way.
 
 Ordered by how many exemplars each unblocks, which is roughly the order to build them.
 
+**The `Blocks` column's counts are as-measured when each row was written, and "all three" means
+the three that existed then.** 25d and 25e were added later and their rows were not re-derived
+across the whole table — the two rows added on 2026-08-26 say which exemplars they were measured
+against, and nothing above them was re-measured that day. Recorded because this table's failure
+mode is the optimistic one: it once marked four built capabilities `out`, which is how
+[`FRONTIER`](FRONTIER) and its gate came to exist.
+
 | Capability | Blocks | Slice status | Ticket |
 |---|---|---|---|
+| **Recursive types** — `type Iodata = binary \| list<Iodata>` | 25e | out — **the wall 25e stops on**; decided (equirecursive, contractive) and unbuilt. The first wall in the set raised by the **checker** rather than the parser | **09** |
+| **Binary construction** — `<<c:8>>` in expression position | 25c, 25e | out — F13 built the consuming direction only and says so; **no decision behind it** | 20, 30, unasked |
+| **A binder on a relational pattern** — `Pence(<= 9) -> … p …` | 25e | out — the pattern tests or names, never both; same missing capability as 25c's `p_alias` | 42, 08 |
 | **Records** — declaration, construction, `with`, projection | all three | **in** — F3, 2026-08-14 | 26 |
 | **Angle brackets** — `list<T>`, `option<T>`, `result<T, E>` | all three | **in** — F6, 2026-08-14 | 27, 28 |
 | **`ValidateAs<T>`** — a codegen obligation, not a generic call | 25a, 25c | **in** — F18, 2026-08-18 | 11, 27 §8 |
