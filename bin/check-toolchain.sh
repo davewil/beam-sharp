@@ -15,19 +15,38 @@
 # tree, and a recipient reproducing it had to guess which. The clean-room
 # handoff is the thing this breaks — the reader has nobody to ask.
 #
+# AND THE FIRST CHECK INVERTED ON 2026-08-26, WHICH IS WHY THIS FILE IS SMALLER
+# THAN ITS HISTORY SUGGESTS.
+#
+# It used to compare the manifest against version literals copied into the
+# workflow, because `with:` inputs cannot read a file and the four versions had
+# to appear in each of two jobs. CI now installs with `jdx/mise-action`, which
+# reads `.tool-versions` directly, so THE COPIES NO LONGER EXIST — and a check
+# comparing against them would have reported "4 enumerated, 0 compared" forever.
+# Two checks were deleted rather than left standing: that one, and the
+# `version-type: strict` check, which guarded a setup-beam input that is gone.
+# A gate that keeps asking a question its subject no longer has is precisely the
+# vacuity the count rule below exists to catch.
+#
 # WHAT IT CHECKS
-#   1. DRIFT (the default run, and it needs no toolchain at all). Every tool
-#      `.tool-versions` pins is declared with the SAME EXACT STRING everywhere
-#      the workflow spells it. Exact, not prefix: `28` against a pinned `28.5`
-#      is the defect this gate was written for, and a gate comparing majors
-#      would pass the tree it was written against forever.
+#   1. The manifest is the SOLE source (the default run, and it needs no
+#      toolchain at all). The workflow must install from `.tool-versions` and
+#      must not re-declare any version itself. A re-introduced literal is a
+#      second source of truth with nothing reconciling it against the first.
+#      The installer is REQUIRED, because a workflow that installs nothing
+#      declares no versions either and would satisfy "no copies" perfectly.
 #   2. Every `uses:` in the workflow names an immutable 40-character commit,
 #      never a mutable tag. `@v4` is a moving reference: the code it runs today
 #      is not the code it ran last week, and nothing in the repository records
 #      which was which.
-#   3. `--env`: the versions actually INSTALLED match the manifest, so a
+#   3. Every `runs-on:` names a pinned image, never `*-latest`. The precompiled
+#      OTP is fetched from a path keyed to the runner's OS version, so the
+#      machine label selects which toolchain arrives.
+#   4. `--env`: the versions actually INSTALLED match the manifest, so a
 #      mismatch is a clear failure BEFORE anything compiles rather than a
-#      confusing one after.
+#      confusing one after. This is the one check one installer reading one
+#      manifest does NOT make redundant: a tool that failed to install, or a
+#      system copy earlier on PATH, both leave the manifest looking satisfied.
 #
 # THE COUNT IS PART OF THE CLAIM, AND THAT IS DELIBERATE.
 # Both halves of this gate are greps, and a grep that finds nothing is
@@ -145,39 +164,6 @@ installed_version() {
 # `count <pinned> <compared>` line, which `count_violation` then judges.
 # ---------------------------------------------------------------------------
 
-drift() {
-  local manifest="$1" ci="$2"
-  local tool want got rc pinned=0 compared=0
-
-  while read -r tool want; do
-    [ -n "$tool" ] || continue
-    pinned=$((pinned + 1))
-
-    set +e
-    got="$(ci_declared "$ci" "$tool")"
-    rc=$?
-    set -e
-
-    if [ "$rc" -eq 2 ]; then
-      printf '%s %s: this gate does not know where the workflow declares it, so it\n' "$tool" "$want"
-      printf '           cannot be compared. Add it to the table in ci_declared.\n'
-      continue
-    fi
-    if [ -z "$got" ]; then
-      printf '%s %s: pinned by the manifest and never declared in the workflow, so\n' "$tool" "$want"
-      printf '           the pin governs nothing that runs.\n'
-      continue
-    fi
-    if [ "$got" != "$want" ]; then
-      printf '%s: the manifest pins %s, the workflow declares %s\n' "$tool" "$want" "$got"
-    fi
-    compared=$((compared + 1))
-  done <<EOF
-$(manifest_tools "$manifest")
-EOF
-
-  printf 'count %d %d\n' "$pinned" "$compared"
-}
 
 # A `uses:` that names a tag runs whatever that tag points at today. The value
 # is stripped of a trailing `# v4` comment first, because the comment is how a
@@ -198,6 +184,59 @@ $(grep -nE '^[[:space:]]*(-[[:space:]]*)?uses:[[:space:]]*' "$ci" || true)
 EOF
 
   printf 'count %d %d\n' "$n" "$pinned"
+}
+
+# THE MANIFEST IS THE SOLE SOURCE, AND THIS CHECK INVERTED WHEN mise ARRIVED.
+#
+# Until 2026-08-26 the main question here was "does every version literal in the
+# workflow agree with the manifest", because `with:` inputs cannot read a file
+# and the four versions had to be COPIED into each of two jobs. `jdx/mise-action`
+# reads `.tool-versions` directly, so the copies are gone — and with them the
+# only thing `drift()` had to compare. Keeping that function would have left a
+# check reporting "4 enumerated, 0 compared" forever, which is this repository's
+# most-repeated failure wearing a new hat.
+#
+# The right question is now the opposite one: IS THERE A COPY AT ALL? A
+# re-introduced literal is a second source of truth with nothing checking it
+# against the first, and it would be invisible — CI would install from the
+# manifest and the literal would sit there looking authoritative.
+#
+# THE INSTALLER IS REQUIRED, AND THAT IS WHAT STOPS THIS PASSING VACUOUSLY. A
+# workflow that installs no toolchain declares no versions either, and would
+# satisfy "no copies" perfectly while building on whatever the runner shipped.
+manifest_is_sole_source() {
+  local manifest="$1" ci="$2" tool want declared rc n=0 clean=0 mise
+  mise="$(grep -cE 'jdx/mise-action@' "$ci" || true)"
+  if [ "$mise" -eq 0 ]; then
+    printf 'the workflow names no `jdx/mise-action` step, so nothing installs the\n'
+    printf '           manifest and every pin in it governs nothing that runs.\n'
+  fi
+
+  while read -r tool want; do
+    [ -n "$tool" ] || continue
+    n=$((n + 1))
+
+    set +e
+    declared="$(ci_declared "$ci" "$tool")"
+    rc=$?
+    set -e
+
+    if [ "$rc" -eq 2 ]; then
+      printf '%s %s: this gate does not know how the workflow would spell that tool,\n' "$tool" "$want"
+      printf '           so it cannot say whether a copy of it is present.\n'
+      continue
+    fi
+    if [ -n "$declared" ]; then
+      printf '%s: the workflow declares %s itself while `.tool-versions` pins %s.\n' "$tool" "$declared" "$want"
+      printf '           Two places to change it is how the two come apart.\n'
+      continue
+    fi
+    clean=$((clean + 1))
+  done <<EOF
+$(manifest_tools "$manifest")
+EOF
+
+  printf 'count %d %d\n' "$n" "$clean"
 }
 
 # `runs-on: ubuntu-latest` IS A FLOATING INPUT IN A REPOSITORY THAT PINS
@@ -236,29 +275,6 @@ EOF
   printf 'count %d %d\n' "$n" "$pinned"
 }
 
-# AN EXACT-LOOKING VERSION IS NOT A PIN IF THE INSTALLER READS IT AS A RANGE.
-#
-# setup-beam defaults to `version-type: loose`, where the version is a SPEC and
-# the newest matching build wins. Measured 2026-08-26 on the first CI run after
-# this repository was "pinned": `otp-version: "28.5"` installed 28.5.0.5. The
-# string was exact and the pin was not, which is the same defect as `28` wearing
-# a better disguise — and the drift half above cannot see it, because it compares
-# what the workflow SAYS against what the manifest says, and both said 28.5.
-#
-# So every setup-beam step is required to carry the line that makes its versions
-# literal. Counted rather than merely grepped: one step with it and one without
-# is the shape this would come back as.
-loose_version_specs() {
-  local ci="$1" beam strict
-  beam="$(grep -cE 'erlef/setup-beam@' "$ci" || true)"
-  strict="$(grep -cE 'version-type:[[:space:]]*strict' "$ci" || true)"
-
-  if [ "$beam" -gt 0 ] && [ "$strict" -lt "$beam" ]; then
-    printf '%d setup-beam step(s), only %d carrying `version-type: strict`\n' "$beam" "$strict"
-    printf '           Without it the version is a range and the newest match wins.\n'
-  fi
-  printf 'count %d %d\n' "$beam" "$strict"
-}
 
 env_drift() {
   local manifest="$1"
@@ -362,28 +378,34 @@ node 22.22.3
 tree-sitter 0.25.10
 TV
 
+  # The clean fixture is a mise-shaped workflow: an installer, and NOT ONE
+  # VERSION STRING. That is the whole point of the arrangement it now checks.
   cat > "$CTL/clean.yml" <<YML
 jobs:
   one:
     runs-on: ubuntu-24.04
 steps:
   - uses: actions/checkout@$SHA_A # v4
-  - uses: erlef/setup-beam@$SHA_B # v1
+  - uses: jdx/mise-action@$SHA_B # v4.3.0
     with:
-      version-type: strict
-      otp-version: "28.5"
-      rebar3-version: "3.27.0"
-  - uses: actions/setup-node@$SHA_A # v4
-    with:
-      node-version: "22.22.3"
-  - run: npm install -g tree-sitter-cli@0.25.10
+      install: true
 YML
 
-  # MAJOR-ONLY: every version present, one of them truncated to its major.
-  sed 's/otp-version: "28.5"/otp-version: "28"/' "$CTL/clean.yml" > "$CTL/major.yml"
+  # A COPY COMES BACK. One literal re-introduced beside the manifest — the
+  # arrangement this file spent its first month policing, now forbidden outright
+  # because nothing reconciles it any more.
+  cat "$CTL/clean.yml" > "$CTL/copy.yml"
+  cat >> "$CTL/copy.yml" <<'YML'
+  - uses: erlef/setup-beam@0000000000000000000000000000000000000000 # v1
+    with:
+      otp-version: "28.5"
+YML
 
-  # MISSING: node is pinned by the manifest and never mentioned by the workflow.
-  grep -v 'node-version' "$CTL/clean.yml" > "$CTL/missing.yml"
+  # NO INSTALLER AT ALL. This is the vacuity control and it is the one a
+  # plausible implementation fails: a workflow that installs nothing declares no
+  # versions either, so a check that only looked for copies would call it
+  # perfect while the build ran on whatever the runner image happened to ship.
+  grep -v 'mise-action' "$CTL/clean.yml" > "$CTL/noinstaller.yml"
 
   # FLOATING: one action back on a mutable tag.
   sed "s|actions/checkout@$SHA_A # v4|actions/checkout@v4|" "$CTL/clean.yml" > "$CTL/floating.yml"
@@ -400,51 +422,15 @@ YML
   # EMPTY: a manifest that pins nothing at all.
   printf '# nothing pinned yet\n\n' > "$CTL/tool-versions-empty"
 
-  # LOOSE: the version strings are exact and the installer still reads them as a
-  # range. This is the defect that reddened master on 2026-08-26, and it is
-  # invisible to every other control here — the manifest and the workflow agree
-  # perfectly, and `28.5` installs 28.5.0.5.
-  grep -v 'version-type: strict' "$CTL/clean.yml" > "$CTL/loose.yml"
-
-  # SECOND-JOB-LOOSE: one setup-beam step pinned strictly and one not. The count
-  # is what sees this; a bare grep for the line finds it and calls the file fine.
-  cat "$CTL/clean.yml" > "$CTL/halfstrict.yml"
-  cat >> "$CTL/halfstrict.yml" <<YML
-  second-job:
-    steps:
-      - uses: erlef/setup-beam@$SHA_B # v1
-        with:
-          otp-version: "28.5"
-          rebar3-version: "3.27.0"
-YML
-
-  # TWO JOBS, ONE UPDATED. The workflow has a second job that installs the same
-  # toolchain, so this is not hypothetical: bump one and forget the other and
-  # every version string is still present, every grep still finds something, and
-  # the two halves of CI build different compilers.
-  cat "$CTL/clean.yml" > "$CTL/twojobs.yml"
-  cat >> "$CTL/twojobs.yml" <<YML
-  second-job:
-    steps:
-      - uses: erlef/setup-beam@$SHA_B # v1
-        with:
-          otp-version: "28.4.3"
-          rebar3-version: "3.27.0"
-YML
-
-  clean_out="$(drift "$CTL/tool-versions" "$CTL/clean.yml")"
-  major_out="$(drift "$CTL/tool-versions" "$CTL/major.yml")"
-  missing_out="$(drift "$CTL/tool-versions" "$CTL/missing.yml")"
-  unknown_out="$(drift "$CTL/tool-versions-unknown" "$CTL/clean.yml")"
-  empty_out="$(drift "$CTL/tool-versions-empty" "$CTL/clean.yml")"
-  twojobs_out="$(drift "$CTL/tool-versions" "$CTL/twojobs.yml")"
+  clean_out="$(manifest_is_sole_source "$CTL/tool-versions" "$CTL/clean.yml")"
+  copy_out="$(manifest_is_sole_source "$CTL/tool-versions" "$CTL/copy.yml")"
+  noinst_out="$(manifest_is_sole_source "$CTL/tool-versions" "$CTL/noinstaller.yml")"
+  unknown_out="$(manifest_is_sole_source "$CTL/tool-versions-unknown" "$CTL/clean.yml")"
+  empty_out="$(manifest_is_sole_source "$CTL/tool-versions-empty" "$CTL/clean.yml")"
   pinned_out="$(floating_actions "$CTL/clean.yml")"
   float_out="$(floating_actions "$CTL/floating.yml")"
   runner_ok_out="$(floating_runner "$CTL/clean.yml")"
   runner_bad_out="$(floating_runner "$CTL/latest.yml")"
-  strict_out="$(loose_version_specs "$CTL/clean.yml")"
-  loose_out="$(loose_version_specs "$CTL/loose.yml")"
-  half_out="$(loose_version_specs "$CTL/halfstrict.yml")"
 
   fail=0
 
@@ -461,36 +447,29 @@ YML
     fail=1
   fi
 
-  if ! findings "$major_out" | grep -q '^erlang: the manifest pins 28.5, the workflow declares 28$'; then
-    echo "SELF-TEST FAILED: a workflow declaring the MAJOR 28 against a pinned 28.5 was"
-    echo "                  not reported — which is the exact state of this repository"
-    echo "                  before this gate, and a gate comparing majors passes it"
-    echo "                  forever while pinning nothing"
+  if ! findings "$copy_out" | grep -q '^erlang: the workflow declares 28.5 itself'; then
+    echo "SELF-TEST FAILED: a version literal re-introduced beside the manifest was not"
+    echo "                  reported. That is a second source of truth with nothing"
+    echo "                  reconciling it against the first — CI installs from the"
+    echo "                  manifest and the literal sits there looking authoritative."
+    fail=1
+  fi
+  if [ -z "$(count_violation "$copy_out" copy)" ]; then
+    echo "SELF-TEST FAILED: a tool carrying a copy did not shorten the count, so a"
+    echo "                  workflow that re-declared ALL FOUR would still report four"
+    echo "                  clean tools"
     fail=1
   fi
 
-  if ! findings "$missing_out" | grep -q '^node 22.22.3: pinned by the manifest and never declared'; then
-    echo "SELF-TEST FAILED: a tool absent from the workflow was not reported. A grep"
-    echo "                  that finds nothing is not agreement."
-    fail=1
-  fi
-  if [ -z "$(count_violation "$missing_out" missing)" ]; then
-    echo "SELF-TEST FAILED: a tool that could not be compared did not shorten the count,"
-    echo "                  so a workflow declaring NOTHING would report four clean"
-    echo "                  comparisons"
+  if ! findings "$noinst_out" | grep -q 'no .jdx/mise-action. step'; then
+    echo "SELF-TEST FAILED: a workflow that installs NOTHING was accepted. It declares"
+    echo "                  no versions either, so 'no copies' is perfectly satisfied —"
+    echo "                  and the build would run on whatever the runner image ships."
+    echo "                  This is the vacuity this whole file exists to refuse."
     fail=1
   fi
 
-  if ! findings "$twojobs_out" | grep -q '^erlang: the manifest pins 28.5, the workflow declares 28.4.3 and 28.5$'; then
-    echo "SELF-TEST FAILED: two jobs declaring DIFFERENT versions of the same tool were"
-    echo "                  not reported. Every string is present and every grep finds"
-    echo "                  something, so a check that stopped at the first match calls"
-    echo "                  this agreement while the two halves of CI build different"
-    echo "                  compilers"
-    fail=1
-  fi
-
-  if ! findings "$unknown_out" | grep -q '^gleam 1.18.1: this gate does not know where'; then
+  if ! findings "$unknown_out" | grep -q '^gleam 1.18.1: this gate does not know'; then
     echo "SELF-TEST FAILED: a tool outside the table was skipped rather than reported,"
     echo "                  which makes every tool added after today a free pass"
     fail=1
@@ -537,33 +516,12 @@ YML
     fail=1
   fi
 
-  if ! findings "$loose_out" | grep -q 'only 0 carrying'; then
-    echo "SELF-TEST FAILED: a setup-beam step without \`version-type: strict\` was not"
-    echo "                  reported. Every version string is exact and the installer"
-    echo "                  still takes the newest match — which is how a pinned 28.5"
-    echo "                  installed 28.5.0.5 and reddened master"
-    fail=1
-  fi
-  if ! findings "$half_out" | grep -q '2 setup-beam step(s), only 1'; then
-    echo "SELF-TEST FAILED: one strict step and one loose step was called fine, so the"
-    echo "                  check greps rather than counts and a second job can float"
-    fail=1
-  fi
-  if [ -n "$(findings "$strict_out")" ]; then
-    echo "SELF-TEST FAILED: a workflow whose setup-beam step IS strict was reported as"
-    echo "                  loose, so the check does not discriminate"
-    echo "$strict_out"
-    fail=1
-  fi
-
   if [ "$fail" -eq 0 ]; then
-    echo "self-test: caught the major-only comparison, the tool the workflow never"
-    echo "           declares, the two jobs declaring different versions of one tool,"
-    echo "           the tool outside the table, the manifest pinning nothing, the"
-    echo "           action on a mutable tag, the job on a floating runner image, the"
-    echo "           setup-beam step reading its exact version as a range and the"
-    echo "           second job that reads it loosely — and left the exactly agreeing,"
-    echo "           fully pinned fixture alone"
+    echo "self-test: caught the version literal re-introduced beside the manifest, the"
+    echo "           workflow that installs nothing at all, the tool outside the table,"
+    echo "           the manifest pinning nothing, the action on a mutable tag and the"
+    echo "           job on a floating runner image — and left the fixture that installs"
+    echo "           from the manifest, names no version and pins everything alone"
     exit 0
   fi
   exit 1
@@ -587,18 +545,16 @@ rc=0
 
 case "$MODE" in
   drift|--drift)
-    d_out="$(drift "$MANIFEST" "$CI")"
+    d_out="$(manifest_is_sole_source "$MANIFEST" "$CI")"
     a_out="$(floating_actions "$CI")"
     r_out="$(floating_runner "$CI")"
-    v_out="$(loose_version_specs "$CI")"
 
     problems="$(findings "$d_out")
 $(count_violation "$d_out" 'the manifest against the workflow')
 $(findings "$a_out")
 $(count_violation "$a_out" 'the workflow uses: lines')
 $(findings "$r_out")
-$(count_violation "$r_out" 'the workflow runs-on: lines')
-$(findings "$v_out")"
+$(count_violation "$r_out" 'the workflow runs-on: lines')"
 
     if [ -n "$(printf '%s\n' "$problems" | grep -v '^$' || true)" ]; then
       printf '%s\n' "$problems" | grep -v '^$'
@@ -610,13 +566,11 @@ $(findings "$v_out")"
       rc=1
     else
       printf '%s\n' "$d_out" | grep '^count ' |
-        awk '{printf "the manifest pins %d tools and the workflow declares all %d identically\n", $2, $3}'
+        awk '{printf "the manifest pins %d tools and the workflow re-declares none of the %d\n", $2, $3}'
       printf '%s\n' "$a_out" | grep '^count ' |
         awk '{printf "all %d uses: lines name an immutable commit\n", $2}'
       printf '%s\n' "$r_out" | grep '^count ' |
         awk '{printf "all %d runs-on: lines name a pinned runner image\n", $2}'
-      printf '%s\n' "$v_out" | grep '^count ' |
-        awk '{printf "all %d setup-beam step(s) read their versions literally\n", $2}'
     fi
     ;;
 

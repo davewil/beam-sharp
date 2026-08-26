@@ -16,21 +16,24 @@ on:
 
 jobs:
   compiler:
-    # `ubuntu-latest` IS STILL A FLOATING PIN, AND THIS IS THE DEFERRED HALF.
+    # THE RUNNER IMAGE IS PINNED, AND IT STOPPED BEING OPTIONAL ON 2026-08-26.
     #
-    # `bin/check-toolchain.sh` pins the four tools this repository installs, and
-    # every `uses:` below names a commit. The runner image is neither: GitHub
-    # moves `ubuntu-latest` between majors on its own schedule, and the image
-    # carries a compiler, a libc and a coreutils this repository never names.
+    # This block used to argue the opposite — that `ubuntu-latest` was left
+    # floating deliberately, because pinning means a dated migration GitHub
+    # forces on its own schedule. That reasoning was sound while the image only
+    # supplied a libc and a coreutils. It stopped being sound when the toolchain
+    # moved to `mise`: the precompiled OTP is fetched from
+    # `builds.hex.pm/builds/otp/<arch>/<os_ver>/`, so the runner label now
+    # SELECTS WHICH OTP TARBALL ARRIVES. A floating image is a floating compiler.
     #
-    # It is left floating deliberately rather than overlooked. Pinning it means
-    # `ubuntu-24.04`, which GitHub retires on a published date, so the pin has to
-    # be MAINTAINED — a dated migration rather than a one-line change — and the
-    # OTP builds this workflow installs are published per image, so the manifest
-    # would gain a fifth entry the local surfaces (macOS, Omarchy) cannot honour.
-    # What the deferred option needs, if it is taken: an image entry in
-    # `.tool-versions`, a fifth row in `ci_declared`'s table, a check that the
-    # OTP build named exists for that image, and a note of the retirement date.
+    # The cost the old note named is real and is now simply owed: `ubuntu-24.04`
+    # has a published retirement date, and this line is a maintenance task rather
+    # than a set-and-forget. `MISE_ERLANG_COMPILE: "false"` is what makes that
+    # safe to forget until it matters — when hex has no build for the image, the
+    # install fails loudly instead of quietly compiling from source.
+    #
+    # `bin/check-toolchain.sh` enforces this, and was seen to fail on both jobs
+    # before the pin went in.
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -102,11 +105,12 @@ jobs:
       - name: The gates are shellcheck-clean
         run: ./bin/check-shell.sh
 
-      # THIS ONE RUNS BEFORE THE TOOLCHAIN IS INSTALLED, ON PURPOSE. It compares
-      # `.tool-versions` against the strings this file declares and against the
-      # commit every `uses:` names, and neither question needs a compiler. The
-      # matching question — is the toolchain that ARRIVED the pinned one — is a
-      # separate run further down, once there is something to ask.
+      # THIS ONE RUNS BEFORE THE TOOLCHAIN IS INSTALLED, ON PURPOSE. It asks
+      # whether this file re-declares any version the manifest already pins,
+      # whether every `uses:` names a commit, and whether every `runs-on:` names
+      # a pinned image — none of which needs a compiler. The matching question,
+      # is the toolchain that ARRIVED the pinned one, is a separate run further
+      # down, once there is something to ask.
       - name: The manifest and the workflow pin the same toolchain
         run: ./bin/check-toolchain.sh
 
@@ -132,62 +136,68 @@ jobs:
       - name: The package points only at things it ships
         run: ./bin/check-links.sh
 
-      # THE FOUR VERSIONS BELOW AND IN THE NODE STEP ARE COPIES, AND THE GATE
-      # ABOVE IS WHAT MAKES THAT SAFE. `.tool-versions` is the source; these
-      # literals exist because `with:` inputs cannot read a file, and
-      # `check-toolchain.sh` fails the build the moment a literal and the
-      # manifest disagree by so much as a dropped minor.
-      - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1
-        with:
-          # Ticket 13 §4 pins the supported range at the current release and the
-          # previous two majors. Only the current one is exercised here; the
-          # corpus proving the full range is a debt the skeleton still owes.
-          #
-          # `version-type: strict` IS THE PIN. WITHOUT IT `28.5` IS STILL A RANGE.
-          #
-          # setup-beam's default is `loose`, where a version is a SPEC and it
-          # installs the highest build matching it. Measured on the first CI run
-          # after this file was pinned: `otp-version: "28.5"` installed **28.5.0.5**,
-          # because the builds server has 28.5 through 28.5.0.5 and loose takes
-          # the newest. So the exact-looking string was a floating pin wearing an
-          # exact string's clothes, and local and CI were on different patch
-          # releases while both looked pinned.
-          #
-          # `check-toolchain.sh --env` is what caught it, on a runner, on its
-          # first run — the drift half cannot see this, because the gap is
-          # between what the workflow ASKS FOR and what it GETS, and that is only
-          # observable once something is installed. The gate now also requires
-          # this line to be present, so dropping it re-floats the pin loudly
-          # instead of silently.
-          version-type: strict
-          # EXACT, NOT `28`. A major installs whatever OTP 28 the builds server
-          # published this morning, so a green run recorded which day it was and
-          # nothing else — and a recipient reproducing it had to guess.
-          otp-version: "28.5"
-          rebar3-version: "3.27.0"
-
-      # NODE AND THE TREE-SITTER CLI ARE INSTALLED HERE RATHER THAN BESIDE THE
-      # EDITOR GATES THAT USE THEM. The whole pinned toolchain has to be present
+      # ONE INSTALLER, READING THE ONE MANIFEST.
+      #
+      # `.tool-versions` was already the source of truth; it is now the only
+      # place the versions appear at all. This file used to carry four literals
+      # in each of two jobs, purely because `with:` inputs cannot read a file,
+      # and a gate existed to catch them drifting from the manifest. `mise`
+      # installs from the manifest directly, so the copies — and the entire class
+      # of bug where a copy and the manifest disagree — are gone rather than
+      # policed. Ticket 13 §4 still pins the supported range at the current
+      # release and the previous two majors; only the current one is exercised
+      # here, and the corpus proving the full range remains a debt.
+      #
+      # THIS IS NOT A DOWNGRADE FROM setup-beam, AND IT WAS MEASURED BEFORE IT
+      # WAS BELIEVED. mise fetches precompiled OTP from
+      # `builds.hex.pm/builds/otp/<arch>/<os_ver>/builds.txt` — the SAME host,
+      # the same path shape and the same tarballs `erlef/setup-beam` fetches on
+      # Linux, checksummed from the same listing. In an `ubuntu:24.04` container
+      # it installed `amd64__ubuntu-24.04__OTP-28.5.tar.gz` in 13 seconds and
+      # `OTP_VERSION` read exactly `28.5`. The one capability setup-beam has that
+      # mise lacks is hex MIRROR fallback, which matters during a hex outage and
+      # not otherwise.
+      #
+      # `28.5` IS EXACT HERE WITHOUT HAVING TO ASK. setup-beam defaulted to
+      # `loose`, where a version is a SPEC, and installed **28.5.0.5** from the
+      # string `28.5` — an exact-looking pin that floated, and the reason
+      # `version-type: strict` used to be on the step above. mise lists `28.5` as
+      # a version in its own right, distinct from `28.5.0.1`–`28.5.0.5`, so there
+      # is no range to opt out of.
+      #
+      # `MISE_ERLANG_COMPILE: "false"` FORBIDS THE SOURCE BUILD rather than
+      # merely preferring a binary. Left unset, mise falls back to a kerl build
+      # when no precompiled target matches: a green run that quietly takes
+      # fifteen minutes and yields a differently-built OTP. In
+      # `src/plugins/core/erlang.rs` that fallback becomes `bail!` when this is
+      # false, so a missing build for a future runner image is a loud red. It is
+      # also why `runs-on` is pinned — the precompiled URL is keyed to the image.
+      #
+      # NODE AND THE TREE-SITTER CLI ARRIVE HERE TOO, rather than beside the
+      # editor gates that use them. The whole pinned toolchain has to be present
       # before the step below can say whether this machine is running it, and a
       # check that runs after the escript is built is not a check "before
       # compilation" — it is a post-mortem. The editor gates' own reasoning
       # stayed where the gates are.
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        env:
+          MISE_ERLANG_COMPILE: "false"
         with:
-          node-version: "24.19.0"
-
-      - name: Install the tree-sitter CLI
-        run: npm install -g tree-sitter-cli@0.25.10
+          # mise itself is pinned, for the same reason everything else here is:
+          # an unpinned installer is a floating input one level up.
+          version: 2026.8.14
+          install: true
+          cache: true
 
       # AND THE INSTALLED VERSIONS ARE CHECKED BEFORE ANYTHING COMPILES.
       #
       # The step above declares what to install; this one asks what actually
-      # arrived. They are different questions: `setup-beam` resolves a version
-      # string against what the builds server has, and a resolution that lands
-      # somewhere else is exactly the drift the manifest exists to prevent —
-      # silent, and visible only as a compiler behaving unlike the one at home.
-      # It runs here rather than with the cheap gates because there was no
-      # toolchain to ask until three lines ago.
+      # arrived. They remain different questions even with one installer reading
+      # one manifest — a tool that failed to install, or a system copy earlier on
+      # PATH, both leave the manifest looking satisfied. That is not theoretical:
+      # on the machine this was written on, `node` resolved to a hand-managed
+      # install mise had no view of, and `--env` was the only thing that could
+      # have noticed.
       - name: This machine runs the pinned toolchain
         run: ./bin/check-toolchain.sh --env
 
@@ -643,22 +653,18 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # The same four pins as the job above, and `check-toolchain.sh` is what
-      # makes that safe: it reads every declaration in this file, so a version
-      # bumped in one job and forgotten in the other is a tool declaring two
-      # things against a manifest that pins one, and the build goes red.
-      - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1
+      # THE SAME TOOLCHAIN AS THE JOB ABOVE, AND NOW LITERALLY SO. This block
+      # used to repeat four version strings, and `check-toolchain.sh` earned its
+      # keep by catching the case where one job was bumped and the other was
+      # not. Both jobs now read `.tool-versions`, so the two cannot disagree —
+      # there is nothing left here to disagree with.
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        env:
+          MISE_ERLANG_COMPILE: "false"
         with:
-          version-type: strict
-          otp-version: "28.5"
-          rebar3-version: "3.27.0"
-
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: "24.19.0"
-
-      - name: Install the tree-sitter CLI
-        run: npm install -g tree-sitter-cli@0.25.10
+          version: 2026.8.14
+          install: true
+          cache: true
 
       # NO `working-directory:`, AND THAT IS THE POINT OF THE STEP. The entry
       # point anchors on its own location, so it is invoked from a path that is
