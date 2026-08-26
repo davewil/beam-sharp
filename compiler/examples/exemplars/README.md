@@ -44,7 +44,10 @@ Classify((:ok, 0))            -> :zero
 So the compiler, the map's index line and the decision all agree, and always did. What was true is
 that these extracted files were written in an older dialect that dropped the name — **63 nameless
 heads** when the 2026-08-15 dialect rewrite counted them. That rewrite fixed it. Measured across
-this directory today: **0 nameless clause heads, 69 named ones.**
+this directory on 2026-08-18: **0 nameless clause heads, 69 named ones.** Re-measured 2026-08-26:
+**0 nameless, 76 named.** The nameless count is the claim; the named count moves as exemplars are
+added, so both are dated rather than written as "today" — which is exactly what let the earlier
+figure read as current eight days after it was taken.
 
 The old paragraph claimed the opposite — that *"the skeleton implements the form the map did not
 choose"* — and quoted a clause production that was stale twice over (`expr` for `body`, and a `;`
