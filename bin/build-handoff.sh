@@ -331,6 +331,14 @@ if [ -n "$(cd "$ROOT" && git status --porcelain 2>/dev/null)" ]; then
     rev="$rev-dirty"
 fi
 
+# THE DECLARED PIN, NOT THE VERSION THIS MACHINE IS RUNNING, and the difference
+# is not academic: `erlang 28.5` is a loose string that `setup-beam` has already
+# been seen to resolve to 28.5.0.5. Recording what the builder happened to be
+# running would be more precise and would make the lock machine-dependent, so
+# two correct builds of one revision would compare unequal and the determinism
+# check would be measuring the host. What a recipient needs is the input they
+# should reproduce, which is the manifest; whether a given machine matches it is
+# `check-toolchain.sh --env`'s question, asked separately and already gated.
 tool() { grep -E "^$1 " "$ROOT/.tool-versions" | awk '{print $2}'; }
 
 LOCK="$OUT/MANIFEST.lock"
