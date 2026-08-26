@@ -43,6 +43,13 @@ These are the only tags you may print:
 below.** The names are listed so that your output can be compared
 mechanically — they are a vocabulary, not a definition of the rules.
 
+The specification describes **more diagnostics than this exercise marks**. It is
+the language reference, not a task sheet, and it is given to you whole rather
+than filtered so that nothing it says is missing a reason. Where it describes a
+diagnostic that is not in the list above, that rule is still true of the
+language and no file you are given violates it — say nothing about it. Printing
+a tag outside the list fails a case exactly as a wrong tag would.
+
 Exit code is ignored. Order does not matter and duplicates are ignored; only
 the set of tags is compared.
 
@@ -149,8 +156,6 @@ and costs a false friend.
 is two or more and discards the tail; `[a, b, ..t]` is two or more and binds it. The marker is a
 marker and not a pattern — `..` or `..name`, nothing else — so a list pattern says how long the list
 is and what is in the positions it names, and nothing about the rest. **shipped**
-<!-- ticket 08 as amended by ticket 54; ticket 53 found the closed form and
-     ticket 54 replaced its spelling; the four-language survey is in 54 -->
 
 `[a, b]` means exactly two in Erlang, Elixir, C# and Gleam alike. That is the one place this
 language's two reference families agree, so refusing it was the divergence rather than admitting it
@@ -175,7 +180,6 @@ clause you can paste: `[]` beside `[a, b, ..]` leaves `[int]` — exactly-one �
 an O(1) length would say `{ Length: 1 }` and this one has no `length` to say it with. Depth is
 bounded by the longest prefix any clause writes, per nesting level, which is what makes the
 recursion terminate. **shipped**
-<!-- ticket 54, built as F20; the repro it deletes is four lines and is in that ticket -->
 
 A consequence worth stating: a closed residual over a list forbids a catch-all exactly as any other
 closed residual does, so a `list<bool>` missing its two length-one cases is an error naming
@@ -247,7 +251,6 @@ and the diagnostic names the discarded cases as a head to write instead.
 ## 5. Control flow
 
 **`switch` is the only branching construct.** There is no `if`, no `else`, no ternary.
-<!-- decided by ticket 17, which also settled `|>` and `|?>` -->
 
 <!-- check:
 type Verdict = :new | :gone | :unknown
@@ -267,8 +270,6 @@ The `_` here is legal because `Status` is an `atom` and the atom universe is ope
 cannot be enumerated — which is the only shape a catch-all is admitted over. Over a *closed*
 residual, where the compiler knows the missing case by name, §2 makes `_` an error telling you to
 name it — **shipped**, at a switch arm and at a clause head alike.
-<!-- enforced by F2 (2026-08-16). This sentence read "decided and is not yet enforced" for eight
-     days after F2 landed; corrected 2026-08-24 when exemplar 25d's probe re-measured it -->
 
 For compound conditions, the subject is a **tuple** — which is the clause head's own shape, one
 level down:
@@ -304,12 +305,6 @@ a bare name in a pattern *introduces* a name, so an arm written `n when n < 5` w
 the parameter is `rebinding`, not a match against it. **The guard is not what makes it an error.**
 A bare `n` as an arm pattern is rejected with no guard present at all; `m when m < 5` and a plain
 `< 5` are both accepted. To match the value `n` already holds, §2's spelling is `== n`.
-<!-- ticket 45 owns `== name`; ticket 34 owns rebinding. This paragraph exists because §5 used to
-     illustrate the guard with `n when n < 5` beside a parameter named `n` — a program the compiler
-     rejects — in loose prose that no fence gated. Three clean-room candidates read the packet, had
-     §2's rule in front of them, and all three reproduced the illustration rather than the rule:
-     handoff/audition-switch, round 1, 2026-08-22. An example outranks a stated rule when the two
-     disagree. -->
 
 Nested inside a record pattern, `{ Deliveries: > 5 }` is not
 built: a relational pattern goes where a whole argument goes.
@@ -319,5 +314,132 @@ built: a relational pattern goes where a whole argument goes.
 `else` is absent because it is what a *binary unnamed* conditional needs; every fall-through here is
 a pattern. `cond` is **open** — deliberately unpaid-for until the shape is shown to occur. Measured
 so far: a four-wide tuple reads fine.
+
+### What the compiler says about a switch
+
+A `switch` is **checked**, not merely compiled, and there are seven things it can be told. Every
+one names the file, the line and the enclosing function, and hands back the material needed to fix
+it rather than only reporting that something was wrong.
+
+Three of these are about the arms as a set, three are about what an arm's body does, and one is
+about where a `switch` may appear at all.
+
+**A switch must cover its subject.** If some value of the subject's type matches no arm, that is
+`switch_inexhaustive`, and the message hands back the arm you have not written:
+
+```csharp
+public atom Ready(bool b)
+
+Ready(b) -> b switch {
+    true => :yes
+}
+```
+
+— *this switch in `Ready` is not exhaustive; no arm matches: `false => ...`*. The residual is the
+missing case, so what makes the error legitimate is the same thing that answers it.
+
+**An arm every earlier arm already covers is dead.** That is `unreachable_arm`, and it is a
+**warning** rather than an error: the program still compiles, because the arm changes nothing.
+The message counts arms from one:
+
+```csharp
+public atom Which(atom a)
+
+Which(a) -> a switch {
+    _  => :any,
+    :x => :ex
+}
+```
+
+— *arm 2 of this switch in `Which` is unreachable; every value it matches is matched by an earlier
+arm.* Note that the catch-all is legal here, by the rule at the top of this section: `a` is an
+`atom`, so the residual is open.
+
+**A name in an arm pattern is introduced, never matched against.** An arm whose pattern is a bare
+name already in scope is `rebinding` — the rule §2 states for clause heads, reaching arms
+unchanged, and the paragraph above gives it in full:
+
+```csharp
+public atom Pick(int n, term e)
+
+Pick(n, e) -> e switch {
+    n => :same,
+    _ => :other
+}
+```
+
+— *`Pick` binds `n` twice; a name means one thing in a clause. There is no mutation to assign
+with, so rename the second one.* Renaming is one way out; the paragraph above gives the other, for
+when you meant to match the value `n` already holds rather than introduce a new name: `== n`.
+
+**An arm's bindings are its own.** A name bound by one arm's pattern is not in scope in another
+arm's body; each arm is a separate branch, and only one of them runs. Reaching for a neighbour's
+name is `unbound_variable`:
+
+```csharp
+public term Bad(term e)
+
+Bad(e) -> e switch {
+    (:ok, v) => w,
+    (:no, w) => w
+}
+```
+
+— *`Bad` uses `w`, which nothing binds; a name comes from a clause head or a binding above it.*
+The second arm is well-formed: `w` is bound by its own pattern and used in its own body.
+
+**Every arm returns a value the signature declares.** The declared return type covers the whole
+`switch`, not each arm separately, so a single arm returning something outside it is
+`return_not_declared`:
+
+```csharp
+public atom Verdict(bool b)
+
+Verdict(b) -> b switch {
+    true  => :yes,
+    false => 0
+}
+```
+
+— *`Verdict` returns a value its signature does not declare; not covered by the declared return
+type: `0`.* Where the clauses justify a wider signature, the message also offers the one they
+support, so the fix can be to the declaration rather than to the body.
+
+**An arm's body is checked against what it calls.** A value that reaches an arm still has to
+satisfy the functions that arm hands it to; if it does not, that is `arg_not_accepted`, reported
+against the *caller*:
+
+```csharp
+public bool Big(int n)
+Big(n) -> n > 100
+
+public atom Tag(atom a)
+Tag(a) -> :seen
+
+public atom Check(int n)
+Check(n) -> n switch {
+    m when Big(m) => Tag(m),
+    _             => :small
+}
+```
+
+— *`Check` hands `Tag` an argument it does not accept; argument 1 is not covered by `Tag`'s
+declared type: `int`.* The proposed edit is always to the function being checked, never to the
+callee: the fix is `Check`'s to make.
+
+**A guard may not branch.** A guard asks a question about values a clause has already matched, so a
+`switch` inside one is `switch_in_guard` — a parse the expression grammar allows and the checker
+refuses:
+
+```csharp
+public atom F(atom x)
+
+F(x) when x switch { :a => true, _ => false } -> :yes
+F(x) -> :no
+```
+
+— *`F` has a switch in a guard; a guard asks a question about the values a clause already matched,
+it cannot branch. Move the switch into the body.*
+
 
 ---

@@ -369,6 +369,26 @@ jobs:
         working-directory: compiler
         run: ./bin/check-language.sh
 
+      # ENG-248. The step above proves every example in the reference does what
+      # it claims; this one proves the reference has an example for every
+      # diagnostic a `switch` can provoke — which is the half that was missing.
+      #
+      # The clean-room audition hands a worker sections 2, 3 and 5 and asks for
+      # the exhaustiveness checker back. Three of the seven diagnostics those
+      # programs can provoke were named nowhere in the reference, so no reader
+      # of it could have known they existed. The surface is re-read from
+      # `switch_tests.erl` on every run rather than kept as a list here: the
+      # audition's own report counted six because `switch_in_guard` is asserted
+      # as a bare atom where the others carry a payload, and a list would have
+      # inherited that miscount permanently.
+      - name: The switch diagnostic gate proves it can fail
+        working-directory: compiler
+        run: ./bin/check-switch-diagnostics.sh --self-test
+
+      - name: Every switch diagnostic is in the specification
+        working-directory: compiler
+        run: ./bin/check-switch-diagnostics.sh
+
       # PER DIRECTORY SINCE F15, because a directory IS the module now (ticket 13
       # §3). A per-file invocation is not merely outdated here, it is wrong: it
       # emits a `.beam` missing every other file in the module, which loads,

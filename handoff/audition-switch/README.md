@@ -3,28 +3,71 @@
 An audition for the question the handoff turns on: **which models can implement
 B# from the specification alone, and at what cost?**
 
-The slice is `switch`. It was chosen on evidence rather than taste — §5 is 54
-lines of specification carrying 19 tests, the densest gate-per-spec-line ratio
-in the language. Pipelines, the runner-up, is 64 lines with 13 tests and two
-tags. Switch is also the feature that exercises what B# exists for: proven
-clause exhaustiveness.
+The slice is `switch`. It was chosen on evidence rather than taste — at the time
+of choosing, §5 was 54 lines of specification carrying 19 tests, the densest
+gate-per-spec-line ratio in the language. Pipelines, the runner-up, was 64 lines
+with 13 tests and two tags. Switch is also the feature that exercises what B#
+exists for: proven clause exhaustiveness.
 
-**Four diagnostic tags, not six.** This paragraph claimed six —
-`switch_inexhaustive`, `unreachable_arm`, `rebinding`, `return_not_declared`,
-plus `unbound_variable` and `arg_not_accepted`. Checked 2026-08-20: the last two
-appear **nowhere in `LANGUAGE.md`**, and so nowhere in the packet, which lists
-only four. They are real and they are switch-specific — `switch_tests.erl:175`
-has `arg_not_accepted` on an arm that calls a function with a refined value, and
-`switch_tests.erl:221` has `unbound_variable` on an arm referencing a name bound
-in a *different* arm — but the compiler emits them and the specification never
-names them.
+<!-- The 54-line figure is kept as the reason for the CHOICE and is no longer a
+     measurement of §5: it was already 78 lines by 2026-08-24 and is 217 after
+     ENG-248 added the seven diagnostic examples. Re-measure before reusing it. -->
 
-That gap is the deliverable's problem, not the audition's: **two of the six
-diagnostics a clean-room implementer must reproduce are unspecified**, and no
-reader of the spec could know they exist. They are deliberately kept out of the
-cases, because a case whose answer the packet does not imply measures the
-specification's holes rather than the worker's. They belong in **Findings**
-below, and they are owed a paragraph in §5 before the spec ships.
+## What this evidence covers, and what it does not
+
+**This is one slice of nineteen.** `LANGUAGE.md` has 19 numbered sections; the
+packet ships **three** of them — §2, §3 and §5 — and the worker is asked for one
+program, `switchcheck`, that reads a file and prints diagnostic tags.
+
+A perfect score here is evidence that **the specification of `switch` transfers**.
+It is not evidence that the language transfers. Nothing in this exercise touches
+records, generics, the boundary, processes, binaries, pipelines, the module
+system, or code generation — a worker scoring 15/15 has never emitted a `.beam`
+file, and `switchcheck` is an analyser rather than a compiler.
+
+Read a result here as: *a capable model, given three sections and eight worked
+cases, reproduces this checker's behaviour on cases it has not seen.* Any
+statement broader than that sentence is not supported by what is in this
+directory.
+
+The generalisation this is a down payment on — that the whole reference is
+sufficient for a clean-room reimplementation — needs slices with a different
+shape before it is believable: one that produces running code, and one whose
+rules are spread across sections rather than concentrated in one.
+
+**Seven diagnostics reachable, four of them marked.** This paragraph has been
+wrong twice, in opposite directions, and both errors are instructive.
+
+It first claimed six tags. Checked 2026-08-20, two of those six —
+`unbound_variable` and `arg_not_accepted` — appeared **nowhere in
+`LANGUAGE.md`**, and so nowhere in the packet; the count was corrected to four
+*marked* against six *reachable*.
+
+**Re-measured 2026-08-27 (ENG-248): there are seven, not six.** `switch_in_guard`
+was missed by both earlier counts. It is asserted in the suite as a **bare atom**
+— `{error, _, 'F', switch_in_guard}` — where the other six carry a payload —
+`{error, _, 'Bad', {unbound_variable, w}}` — so any survey looking for
+`{tag, ...}` sees six and reports a clean number. It was as unspecified as the
+other two.
+
+All seven are now stated in §5 with a worked example each, and the examples are
+compiled on every CI run: `check-language.sh` asserts each block provokes that
+diagnostic **and no other**, and `check-switch-diagnostics.sh` re-reads
+`switch_tests.erl` to assert every diagnostic a `switch` can provoke has such an
+example, inside a section the packet ships. The surface is re-measured rather
+than listed, precisely because a list is what carried the miscount for a week.
+
+**The marking still uses four tags**, and deliberately. `cases/` and
+`expected/` are the measuring instrument; changing them invalidates the results
+already recorded against them without producing replacements. The three
+newly-specified diagnostics are now derivable from the packet — which is the
+bar this file sets for a held-out case — so cases for them are the obvious next
+increment, and they need a fresh engine run to be worth anything.
+
+**The packet changed on 2026-08-27, and the scores below predate it.** §5 is
+longer by seven examples, and `build-packet.py` now strips every HTML comment
+except the `check:` blocks. Both are improvements to what a worker receives and
+neither has been auditioned.
 
 ## What a worker is asked to do
 
@@ -370,10 +413,16 @@ language.
   let this one survive is knowable — it sat in **loose prose rather than a
   fence**, where `check-language.sh` cannot reach. Every ungated code fragment in
   `LANGUAGE.md` is a candidate. 46 of its 84 fences are bare and ungated.
-- **`unbound_variable` and `arg_not_accepted`** remain genuinely unspecified —
-  unlike `rebinding`, these really are absent from `LANGUAGE.md` (the top of this
-  file has it right). Still owed a paragraph in §5.
-- **`h05`.** §5 says the catch-all-over-closed rule "is decided and is **not yet
-  enforced**"; the compiler rejects the program anyway as `unreachable_arm`.
-  Two of three candidates derived the right answer regardless, so this is not the
-  3/3 signal `c07` was — but the sentence is still false and is owed a fix.
+- ~~**`unbound_variable` and `arg_not_accepted`** remain genuinely
+  unspecified.~~ **Closed 2026-08-27 (ENG-248)**, along with `switch_in_guard`,
+  which this list did not know about. All three are stated in §5 with a compiled
+  example, and a gate now asserts the set is complete rather than a reader
+  checking it. See the corrected count at the top of this file.
+- ~~**`h05`.** §5 says the catch-all-over-closed rule "is decided and is **not
+  yet enforced**"; the compiler rejects the program anyway.~~ **Already false
+  when this bullet was written.** F2 enforced the rule on 2026-08-16 and the
+  sentence was corrected on 2026-08-24 — `LANGUAGE.md:578` now reads "**shipped**,
+  at a switch arm and at a clause head alike", and carries a comment recording
+  that it had been wrong for eight days. This bullet outlived the defect it
+  named by three days, which is the same failure one level up: a finding is only
+  closed when the file that records it says so.

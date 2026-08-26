@@ -27,6 +27,45 @@
 #                            of unchecked blocks stays visible rather than
 #                            drifting upward unnoticed.
 #
+# THE THIRD CLAIM: AN EXAMPLE THAT DEMONSTRATES A DIAGNOSTIC
+#
+#   <!-- diagnoses: unbound_variable -->
+#   ```csharp
+#   ...
+#
+# The block must produce EXACTLY that one diagnostic tag, published on
+# `--diagnostics term` — the same boundary `oracle.sh` records the audition's
+# expectations from, so a rule stated in the reference is verified through the
+# compiler's public output rather than against a hand-written belief about it.
+#
+# WHY THIS WAS NEEDED (ENG-248, 2026-08-27). Until this existed the reference
+# could not state a rule about a REJECTED program and have the statement
+# checked. The three claims above cover "compiles", "does not compile yet" and
+# "not checked", and an example of a diagnostic fits none of them: a bare fence
+# fails, `not-yet` passes while asserting the falsehood that shipped behaviour
+# is planned, and `illustrative` is the ungated prose that finding 9 of the
+# switch audition identified as the place documentation rots. Three of the
+# switch slice's seven diagnostics — `unbound_variable`, `arg_not_accepted` and
+# `switch_in_guard` — were undocumented for exactly this reason.
+#
+# NOT `rejects:`. `unreachable_arm` is a WARNING, so a block demonstrating it
+# still compiles. The claim is about the diagnostic the example provokes, not
+# about the exit status, and the word has to survive both kinds.
+#
+# EXACTLY ONE TAG, NOT "AT LEAST". A superset would let a careless example
+# satisfy the gate while provoking two unrelated errors on the way to the one
+# being illustrated, and the reader would have no way to tell which of them the
+# surrounding prose is about.
+#
+# WHY A COMMENT AND NOT A FENCE TAG. `build-packet.py` copies sections 2, 3 and
+# 5 of this file VERBATIM into the audition packet, stripping only
+# `<!-- decided by ... -->`. A ```` ```csharp diagnoses:unbound_variable ````
+# fence would therefore reach the worker with the answer printed on the example
+# — the exact leak that generator's own comment exists to prevent ("a candidate
+# read the answer off the mark sheet instead of deriving it"). An HTML comment
+# is invisible in rendered Markdown and, unlike the `check:` preambles, carries
+# nothing the example needs in order to compile.
+#
 # GIVING A BLOCK ITS CONTEXT
 # Most blocks are excerpts and do not declare the types they mention. An HTML
 # comment immediately before the fence supplies the missing declarations. It is
@@ -137,6 +176,114 @@ if [ "${1:-}" = "--self-test" ]; then
     } >> "$CTL/badtag.md"
     expect "BAD TAG" "$CTL/badtag.md" "an unknown fence tag"
 
+    # ------------------------------------------------------------------
+    # CONTROLS 4-7 — the `diagnoses:` claim (ENG-248).
+    #
+    # A CLAIM ABOUT A DIAGNOSTIC NEEDS THREE CONTROLS, and only the first is
+    # obvious. All three are ways for this check to be worthless while green:
+    #
+    #   SILENT    the example provokes NOTHING. A gate that only asked "did it
+    #             fail?" would be satisfied by `not-yet` and would never notice
+    #             that the paragraph's example stopped illustrating anything.
+    #   WRONG     the example provokes a DIFFERENT diagnostic. This is the
+    #             control that separates `diagnoses:` from `not-yet` — both
+    #             blocks fail to compile, and only one of them is right. Without
+    #             it the tag name is decoration.
+    #   SUPERSET  the example provokes the claimed diagnostic AND others. The
+    #             plausible-but-wrong implementation is `grep -q`, which passes
+    #             this. A reader cannot tell which of three errors the prose is
+    #             about, so the example has to be minimal to be an example.
+    #
+    # And the fourth is the ordinary one: two claims about one block.
+    # ------------------------------------------------------------------
+
+    # A well-formed switch, claimed to diagnose something.
+    cp "$REPO/LANGUAGE.md" "$CTL/silent.md"
+    {
+        printf '\n<!-- diagnoses: unbound_variable -->\n'
+        printf '```csharp\n'
+        printf 'module DiagSilent\n'
+        printf 'public atom Describe(atom s)\n'
+        printf 'Describe(s) -> s switch {\n'
+        printf '    :placed => :new,\n'
+        printf '    _       => :unknown\n'
+        printf '}\n'
+        printf '```\n'
+    } >> "$CTL/silent.md"
+    expect "WRONG DIAG" "$CTL/silent.md" "an example that provokes no diagnostic at all"
+
+    # The unbound-variable program, claimed to be about rebinding.
+    cp "$REPO/LANGUAGE.md" "$CTL/wrongtag.md"
+    {
+        printf '\n<!-- diagnoses: rebinding -->\n'
+        printf '```csharp\n'
+        printf 'module DiagWrong\n'
+        printf 'public term Bad(term e)\n'
+        printf 'Bad(e) -> e switch {\n'
+        printf '    (:ok, v) => w,\n'
+        printf '    (:no, w) => w\n'
+        printf '}\n'
+        printf '```\n'
+    } >> "$CTL/wrongtag.md"
+    expect "WRONG DIAG" "$CTL/wrongtag.md" "an example that provokes a different diagnostic"
+
+    # The claimed diagnostic, plus an unrelated second one.
+    cp "$REPO/LANGUAGE.md" "$CTL/superset.md"
+    {
+        printf '\n<!-- diagnoses: unbound_variable -->\n'
+        printf '```csharp\n'
+        printf 'module DiagSuperset\n'
+        printf 'public term Bad(term e)\n'
+        printf 'Bad(e) -> e switch {\n'
+        printf '    (:ok, v) => w,\n'
+        printf '    (:no, w) => w\n'
+        printf '}\n'
+        printf '\n'
+        printf 'public atom Gappy(bool b)\n'
+        printf 'Gappy(b) -> b switch {\n'
+        printf '    true => :yes\n'
+        printf '}\n'
+        printf '```\n'
+    } >> "$CTL/superset.md"
+    expect "WRONG DIAG" "$CTL/superset.md" "an example carrying a second, unrelated diagnostic"
+
+    # A fence tag and a preamble, disagreeing about one block.
+    cp "$REPO/LANGUAGE.md" "$CTL/twoclaims.md"
+    {
+        printf '\n<!-- diagnoses: unbound_variable -->\n'
+        printf '```csharp not-yet\n'
+        printf 'module DiagTwoClaims\n'
+        printf 'public int Twice(int n)\n'
+        printf 'Twice(n) -> n * 2\n'
+        printf '```\n'
+    } >> "$CTL/twoclaims.md"
+    expect "BAD TAG" "$CTL/twoclaims.md" "a block carrying two different claims"
+
+    # POSITIVE CONTROL — a correct `diagnoses:` block must be ACCEPTED.
+    #
+    # Without this the three above are satisfied by a check that rejects every
+    # `diagnoses:` block it sees, which is the cry-wolf stub: it fires on the
+    # defect and on the correct form alike, and is worthless in the same way a
+    # check that never fires is. CLAUDE.md's rule, both halves.
+    cp "$REPO/LANGUAGE.md" "$CTL/good.md"
+    {
+        printf '\n<!-- diagnoses: unbound_variable -->\n'
+        printf '```csharp\n'
+        printf 'module DiagGood\n'
+        printf 'public term Bad(term e)\n'
+        printf 'Bad(e) -> e switch {\n'
+        printf '    (:ok, v) => w,\n'
+        printf '    (:no, w) => w\n'
+        printf '}\n'
+        printf '```\n'
+    } >> "$CTL/good.md"
+    if CHECK_LANGUAGE_DOC="$CTL/good.md" "${BASH_SOURCE[0]}" > /dev/null 2>&1
+    then :; else
+        echo "SELF-TEST FAILED: a correct \`diagnoses:\` example was rejected, so this"
+        echo "                  check fires on the defect and the correct form alike"
+        st_fail=1
+    fi
+
     # NEGATIVE CONTROL — the reference as committed.
     if CHECK_LANGUAGE_DOC="$REPO/LANGUAGE.md" "${BASH_SOURCE[0]}" > /dev/null 2>&1
     then :; else
@@ -147,8 +294,10 @@ if [ "${1:-}" = "--self-test" ]; then
 
     if [ "$st_fail" -eq 0 ]; then
         echo "self-test: reported the uncompilable block, the construct that has since"
-        echo "           shipped and the unknown tag; accepted the committed reference"
-        echo "           — the gate discriminates in both directions"
+        echo "           shipped, the unknown tag, and four ways a \`diagnoses:\` example"
+        echo "           can be wrong — silent, mislabelled, carrying a second diagnostic,"
+        echo "           and claimed twice; accepted a correct one and the committed"
+        echo "           reference — the gate discriminates in both directions"
         exit 0
     fi
     exit 1
@@ -168,16 +317,31 @@ trap 'rm -rf "$WORK"' EXIT
 # is three lines of grammar and the alternative is a dependency the compiler
 # does not otherwise have.
 awk -v out="$WORK" '
-function flush_preamble() { pre = ""; }
+function flush_preamble() { pre = ""; dg = ""; }
 /^<!-- check:/ { inpre = 1; pre = ""; next }
 inpre && /^-->/ { inpre = 0; next }
 inpre { pre = pre $0 "\n"; next }
+
+# `<!-- diagnoses: tag -->`. Reset by flush_preamble along with the `check:`
+# block, so it binds to the fence it sits immediately above and cannot drift
+# down the document to claim a block written later.
+/^<!-- diagnoses:/ {
+    dg = $0
+    sub(/^<!-- diagnoses:[ \t]*/, "", dg)
+    sub(/[ \t]*-->.*$/, "", dg)
+    next
+}
 
 /^```csharp/ {
     n++
     tag = $0
     sub(/^```csharp[ \t]*/, "", tag)
-    if (tag == "") tag = "must-compile"
+    # A fence tag and a `diagnoses:` preamble make two different claims about
+    # one block. Rather than pick a winner, emit something no case matches so
+    # it surfaces as BAD TAG.
+    if (tag != "" && dg != "") tag = "both:" tag ":" dg
+    else if (tag == "" && dg != "") tag = "diagnoses:" dg
+    else if (tag == "") tag = "must-compile"
     print tag > (out "/" n ".tag")
     print NR + 1 > (out "/" n ".line")
     body = ""
@@ -227,6 +391,47 @@ for i in $(seq 1 "$COUNT"); do
     src="$WORK/b$i/$(printf '%s' "$mod" | tr '.' '/')/$i.bs"
     mkdir -p "$(dirname "$src")"
     cp "$WORK/$i.bs" "$src"
+
+    # A `diagnoses:` block is judged on WHAT THE COMPILER PUBLISHED, not on
+    # whether it compiled. `unreachable_arm` is a warning, so its example
+    # compiles and still carries the diagnostic the prose is about; an exit
+    # status cannot tell those two situations apart.
+    #
+    # `--diagnostics term` and this extraction are `oracle.sh`'s, deliberately:
+    # the audition's expectations and the reference's examples then agree
+    # because they are read off the same public output, rather than because two
+    # authors believed the same thing on two different days.
+    case "$tag" in
+    diagnoses:*)
+        want="${tag#diagnoses:}"
+        # THROUGH A FILE, NOT A PIPELINE INSIDE `$( )`. The obvious spelling is
+        # `got="$({ "$BSC" ... || true; } | sed ...)"`, and bash 3.2 — which is
+        # what macOS ships and what this repo is developed on — cannot parse a
+        # brace group inside command substitution across a line continuation.
+        # CI's bash 5 parses it, so the construct is green there and a syntax
+        # error here. Worse, bash parses incrementally: `--self-test` returns
+        # before reaching this line, so the parent looked healthy while every
+        # child died into `2>&1` and all seven controls reported only that they
+        # "cannot fire".
+        #
+        # `|| true` — a block that demonstrates an ERROR exits non-zero, which
+        # is the normal case here and must not abort the run under `pipefail`.
+        "$BSC" --diagnostics term --src-root "$WORK/b$i" -o "$out" "$src" \
+            > "$WORK/$i.term" 2>/dev/null || true
+        got="$(sed -n 's/.*tag => \([a-z_][a-z_0-9]*\).*/\1/p' "$WORK/$i.term" | sort -u | tr '\n' ' ')"
+        got="${got% }"
+        if [ "$got" = "$want" ]; then
+            pass=$((pass + 1))
+            printf '  %-12s LANGUAGE.md:%s\n' "ok ($tag)" "$line"
+        else
+            fail=$((fail + 1))
+            printf '  %-12s LANGUAGE.md:%s  the example claims `%s`, the compiler published `%s`\n' \
+                   "WRONG DIAG" "$line" "$want" "${got:-nothing}"
+            FAILURES="$FAILURES $i"
+        fi
+        continue
+        ;;
+    esac
 
     if "$BSC" --src-root "$WORK/b$i" -o "$out" "$src" >"$WORK/$i.log" 2>&1; then
         compiled=1

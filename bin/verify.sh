@@ -214,6 +214,9 @@ run_stages \
   "LANGUAGE.md compiles" \
     "cd compiler && ./bin/check-language.sh --self-test && ./bin/check-language.sh" \
 \
+  "Every switch diagnostic is in the specification" \
+    "cd compiler && ./bin/check-switch-diagnostics.sh --self-test && ./bin/check-switch-diagnostics.sh" \
+\
   "Examples compile and run" \
     "cd compiler &&
      find examples -path examples/exemplars -prune -o -name '*.bs' -print0 |
