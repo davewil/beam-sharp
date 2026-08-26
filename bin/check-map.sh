@@ -40,7 +40,15 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # that matter.
 WAYFINDER="${CHECK_MAP_DIR:-$HERE/wayfinder}"
 MAP="$WAYFINDER/map.md"
-BUDGET=350
+# RAISED 350 -> 365 on 2026-08-26, and the reason matters more than the number.
+# The budget was not binding on sprawl; it was binding on ABSENCE. Reviewing
+# ticket 37 found that 37, 25 and 60 had ticket files and no index entry at all
+# — dropped by the 2026-08-15 split and never noticed — and at 349/350 the
+# budget was the single thing preventing them from being added back. A budget
+# that forces entries to be OMITTED rather than SHORTENED inverts this gate's
+# purpose, so it moved. Check 2 (ENTRY_MAX) is the check that actually keeps
+# this file an index, and it is unchanged.
+BUDGET=365
 ENTRY_MAX=4
 
 [ -f "$MAP" ] || { echo "no map at $MAP" >&2; exit 2; }

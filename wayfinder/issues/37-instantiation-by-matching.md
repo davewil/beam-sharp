@@ -2,7 +2,8 @@
 
 Type: grilling
 Status: **open** — raised 2026-08-14 from building
-[F6](../../compiler/features/F6-angle-brackets.md)
+[F6](../../compiler/features/F6-angle-brackets.md); **re-measured 2026-08-26** — three of the four
+premises verified intact, one measured false and corrected below
 
 ## Question
 
@@ -67,15 +68,85 @@ matching, and the phrase everything rests on is stated in three places and speci
   `Name<T, U>` in type position, and a signature's `<T, U>` declaration list is the same three
   tokens. Whatever this ticket decides, it inherits a parser that can spell it.
 
+## Re-measured 2026-08-26
+
+Twelve days on, at `117d850`, with F7–F27 landed since. **Nothing here resolves the ticket.** Three
+of F6's four measurements are unchanged, one is now false, and ticket 63 narrows the algorithm
+question from three doubts to one.
+
+### Still true — verified against the tree, not carried over
+
+- **`ty()` still has no arrow part.** Its six parts are `atoms`, `ints`, `tuples`, `lists`, `maps`,
+  `bins`. The map part arrived with ticket 48 and is not one, so `Map` still cannot be written.
+- **There is still no lambda.** `=>` lexes as a switch arm, and the lexer's own header says `=>` is
+  *"reserved for lambdas, which this slice does not have"*.
+- **No exemplar declares a polymorphic function.** All 37 signatures across the four exemplar
+  directories were swept. Every angle bracket is a ground application or a `ValidateAs` obligation,
+  and no signature carries a `<T>` declaration list.
+- **Nothing in the checker solves for a variable.** `bs_check.erl` names instantiation only in
+  comments — 28's bracket rule and 15's failure-member rule. The tree's only `unify/4` is
+  `bs_repl.erl`'s, which matches *values* in the REPL. The algorithm is still unwritten rather than
+  written badly, so this ticket is stale in its facts and not in its question.
+
+### Ticket 63 collapses two of the three doubts, and sharpens the third
+
+The union bullet above puts all three of 27 §1's adjectives — *structural, cheap, unique* — in doubt
+for `T | :nothing = int | :nothing`. Ticket 63 measured, and F27 shipped against, the guard fragment
+being **closed under complement**: `bs_types:subtract/2` is exact part by part, and the atom part
+carries a `{finite, …} | {cofinite, …}` representation whose complement is a one-line flip.
+
+So **`structural` and `cheap` are no longer in doubt** — the subtraction is a real, total, cheap
+operation on the algebra that exists today.
+
+**Uniqueness is the sole survivor, and 63 does not touch it.** Exactness is not uniqueness. `T = int`
+and `T = int | :nothing` both still satisfy the equation; an exact subtraction yields the *smallest*
+solution without establishing that smallest is *intended*. That is a materially narrower question
+than the one this ticket was raised with — not *"is matching well-defined over a union"* but
+**"when a union admits a family of solutions, does the algorithm take the least, and is least
+right?"**
+
+### Now false — the claim that parametric aliases already cover §(c)'s second use
+
+Exemplar **25d** landed 2026-08-24, ten days after this ticket was written. Its `rows.bs` contains:
+
+```csharp
+private result<list<OrderRow>, FetchError> Prepend(OrderRow row, result<list<OrderRow>, FetchError> rest)
+
+Prepend(row, (:error, e)) -> (:error, e)
+Prepend(row, rows)        -> [row, ..rows]
+```
+
+That is `Prepend<T, E>(T, result<list<T>, E>) -> result<list<T>, E>`, written out at one
+instantiation. **A parametric alias cannot express it.** An alias substitutes ground arguments into a
+type; this relates the *first parameter's* type to the *return's element* type, which is a variable
+in a signature — exactly §(c). And it needs **no arrow**, so it is not blocked on what the first half
+of the cost argument is blocked on.
+
+Swept for company across all 37 exemplar signatures, `Prepend` is the **only** one of its kind. The
+two neighbours that look similar — `Rowed(list<WireRow>) -> result<list<OrderRow>, FetchError>` and
+`Checked(list<term>) -> result<list<WireRow>, FetchError>` — are traverses, and generalising *those*
+does need an arrow. So the corpus **splits** the cost argument rather than overturning it: one
+first-order case §(c) alone would serve, and a higher-order library still waiting on arrows.
+
+### What this does to the ordering question — evidence, not an answer
+
+The corpus now answers a *piece* of the closing question with measurement instead of argument: there
+is exactly one exemplar case, it is first-order, and it is a private helper inside one module. The
+honest reading is that §(c) is **not blocked** on arrows, and **not yet earned** by the corpus at
+n = 1. Which of those two facts governs is David's call, and **n = 1 is itself the finding**.
+
 ## Notes
 
 HITL. **Not urgent, and that is the finding rather than an excuse**: the two things §(c) buys are a
 shared container library (27 §1's cost argument) and relating a function's output type to its input.
-The first needs arrows and lambdas, and the second is what parametric *aliases* already do for the
-cases the exemplars contain.
+The first needs arrows and lambdas. **The second was recorded here as something parametric aliases
+already cover for the cases the exemplars contain — measured false 2026-08-26**, see *Re-measured*
+above; exemplar 25d's `Prepend` is a case they cannot cover, and it needs no arrow.
 
 So the honest ordering question this ticket asks the map is whether §(c) is wanted **before** a
-higher-order function type exists, or falls out of the same increment as one.
+higher-order function type exists, or falls out of the same increment as one. **25d moved this
+question without settling it**: the arrow is no longer a precondition for every case, only for the
+library.
 
 **Linear**: [ENG-204](https://linear.app/davewil/issue/ENG-204). Verified against the workspace
 before creating rather than derived — ENG-203 was the highest issue in the team, so the offset held

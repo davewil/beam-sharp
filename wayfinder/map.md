@@ -331,6 +331,15 @@ Bodies in [`fog.md`](fog.md). These are open: read the body before assuming a di
   **decompose the cons, never measure it** — Gleam's answer; Elixir's set-theoretic types share the hole. Rest is a marker, `[a, b]` exactly-two, `..[]` retired: 08 amended, 53 answered. **Built, F20**
 - **The boundary guard applies two rules with different scopes** `#59` `codegen` `types`
   the record tag test is emitted on **private** functions and F24's `is_integer` is exported-only per 18 §4. 46 measured it and left it. Which scope governs both?
+- **"Instantiation is matching, not solving": what is the algorithm?** `#37` `types` `generics`
+  27's §(c), polymorphic function *signatures*. Re-measured 2026-08-26: `ty()` still has no arrow
+  part, 63 leaves **uniqueness** the only doubt, 25d's `Prepend` is the first case aliases cannot cover
+- **Exemplar programs the design must serve** `#25` `agent` `tooling`
+  a standing test suite for the design, not one session's work. Four of six written (25a–25d); three
+  of the six hit binaries, which is where ticket 20 records the theory is missing
+- **Which modules may name this one?** `#60` `modules`
+  `public`/`private` shipped the *what* half as F12; the *who* half has no spelling. Split from 22.
+  Do not borrow C#'s `internal` — it is assembly-scoped and this language has no assembly
 
 ---
 
