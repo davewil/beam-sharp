@@ -116,6 +116,11 @@ Prepend(row, (:error, e)) -> (:error, e)
 Prepend(row, rows)        -> [row, ..rows]
 ```
 
+**25d does not parse today**, and its own header says so — it is *"a target for the compiler, not a
+passing example."* That is precisely what ticket 25's corpus is for, exemplars the design **must
+serve**, so this is evidence about what the language is asked to express and not about what
+compiles. It does not weaken the point: the shape is what an alias cannot reach.
+
 That is `Prepend<T, E>(T, result<list<T>, E>) -> result<list<T>, E>`, written out at one
 instantiation. **A parametric alias cannot express it.** An alias substitutes ground arguments into a
 type; this relates the *first parameter's* type to the *return's element* type, which is a variable

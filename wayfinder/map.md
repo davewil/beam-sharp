@@ -279,7 +279,8 @@ Bodies in [`decisions.md`](decisions.md). Ticket text in `issues/`.
 
 ## Not yet specified — index
 
-Bodies in [`fog.md`](fog.md). These are open: read the body before assuming a direction.
+Bodies in [`fog.md`](fog.md) — except where an entry has none, and then the ticket in `issues/` is
+the body. These are open: read the body before assuming a direction.
 
 - **A refined `int` parameter admits a float** `#58` `codegen` `types`
   **`is_integer/1` in the exported head unless the pattern pins the kind** — 18 §1(b), decided and never emitted. A range subtraction does NOT fix it: `100.5` reaches `>= 9` and `=< 255` is true. **Built, F24**
