@@ -1296,7 +1296,6 @@ produce.
 
 | | |
 |---|---|
-| binary patterns `<<…>>` and a sized-binary type | the binaries decision is still open — the one numbered feature not started |
 | the UTF-8 entry check, `binary` → `string` | the one direction chapter 10 has no spelling for |
 | polymorphic function signatures — `Map<T, U>` | needs an arrow type |
 | the behaviour contract checked as a type | Dialyzer does it at the boundary today |
@@ -1306,6 +1305,20 @@ produce.
 | an alias on `using` | the last open question in the module system |
 
 The language's **name** is also open. `beam-sharp` is a working title.
+
+> **Corrected 2026-08-26 by ENG-245.** This table opened with a row reading:
+>
+> ~~binary patterns `<<…>>` and a sized-binary type | the binaries decision is still open — the one numbered feature not started~~
+>
+> **Both halves were wrong, in opposite directions, which is why the row is gone rather than
+> mended.** F13 shipped binary patterns on 2026-08-20, and the construct index below this very
+> table already listed **six** of them against `examples/Frame/frame.bs` — so the tour called a
+> feature unstarted sixty lines above demonstrating it. And the sized-binary type is not
+> *awaiting* a build: it was **decided against**. A width refines the value it binds, so no type
+> form arises — chapter 10 says so in as many words ("there is no sized binary type", and
+> `binary<32>` is a syntax error), and the language reference records it as *not coming*.
+> Listing a closed decision under "decided but not built" promises a reader something that is
+> never going to arrive.
 
 <!-- ticket 30, ticket 20 §4, ticket 27, ticket 47, LANGUAGE.md §17 and §18 -->
 

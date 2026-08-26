@@ -39,6 +39,7 @@ cd compiler && rebar3 escriptize
 cd compiler && rebar3 eunit
 
 # --- the compiler ---------------------------------------------------------
+./bin/check-status-claims.sh                    # no document calls unbuilt what the corpus compiles
 cd compiler && ./bin/check-language.sh          # blocks compile, `not-yet` blocks must NOT
 cd compiler && ./bin/check-list-length.sh       # the checker sees a list's length, both ways
 cd compiler && ./bin/check-division.sh          # `/` lowers to div; only a provable zero is refused

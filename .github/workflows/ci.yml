@@ -361,6 +361,27 @@ jobs:
               ./_build/default/bin/bsc --src-root examples -o "$(mktemp -d)" "$d" || exit 1
             done
 
+      # A SHIPPING DOCUMENT MAY NOT CONTRADICT THE COMPILER ABOUT WHAT IS BUILT.
+      #
+      # It runs HERE, after the examples, because that is its oracle: it asks
+      # whether `examples/Shop` compiles and then refuses to let any document
+      # call records unbuilt. Placed with the other document gates above it
+      # would have no compiler to ask and would pass by finding nothing.
+      #
+      # The defect it was written against (ENG-245) is the sharpest kind this
+      # repo has had, because every gate was green while it stood:
+      # `compiler/README.md` listed records, angle brackets, modules, FFI, OTP
+      # behaviours, refinements and binaries as "deliberately out" — all seven
+      # shipped, and SIX OF THEM ARE COMPILED BY THE STEP DIRECTLY ABOVE THIS
+      # ONE. The repository was building the refutation of its own README on
+      # every run and reporting success, because nothing had ever asked a
+      # document whether it agreed with the compiler.
+      - name: The status-claim gate proves it can fail
+        run: ./bin/check-status-claims.sh --self-test
+
+      - name: Shipping documents agree with the compiler about what is built
+        run: ./bin/check-status-claims.sh
+
       # THE DIAGNOSTIC IS A TERM, AND PROSE IS A PURE FUNCTION OF IT (F16).
       #
       # This one guards a drift that reopens SILENTLY and with every test still

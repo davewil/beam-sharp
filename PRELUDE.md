@@ -42,8 +42,18 @@ actually modelled the stratification on.
 
 ## What ships today
 
-**Two entries.** `bs_check:prelude/0` holds `option<T>` and `result<T, E>` and nothing else.
-Everything else in stratum 1 below is decided-and-unbuilt, and the whole of stratum 2 is unbuilt.
+**Four entries.** `bs_check:prelude/0` is `maps:merge(stratum_one(), stratum_two())`.
+`stratum_one()` holds `option<T>`, `result<T, E>` and `foreign_error`; `stratum_two()` holds
+`ValidationError`. Everything else in the tables below is decided-and-unbuilt.
+
+> **Corrected 2026-08-26 by ENG-245.** This paragraph read *"**Two entries.** `bs_check:prelude/0`
+> holds `option<T>` and `result<T, E>` and nothing else. Everything else in stratum 1 below is
+> decided-and-unbuilt, and the whole of stratum 2 is unbuilt."* Every clause of that was false by
+> the time it was read: F19 put `foreign_error` in `stratum_one()`, F18 put `ValidationError` in
+> `stratum_two()`, and the stratum-2 table forty lines below this one marked **three** entries
+> **built** — so the document contradicted itself within a single screen, and contradicted the
+> compiler in both directions at once. `bin/check-status-claims.sh` now probes every row in these
+> tables through `bsc` and fails on exactly this.
 
 ---
 
@@ -90,7 +100,7 @@ has been withdrawn.
 | `ValidationError` | the reason: a path into the term plus the type expected there, `(list<string>, string)` | unqualified | **built** — F18. The spelling of a path segment is F18's recorded assumption, not a decision | 15 §2 |
 | `ParseAtom<T>` | codegen: parses to a **finite atom union**; a cofinite `T` is an error | unqualified | **decided** | 10 §4 |
 | `ToExistingAtom` | the genuine interop escape — a peer node's reply, a dynamically named atom | unqualified | **owed** — must be respelled | 10 §5, 15 §1 |
-| `foreign_error` | the foreign failure type | unqualified | **decided** | 15 |
+| `foreign_error` | the foreign failure type | unqualified | **built** — F19. Stored in `stratum_one()` though it is listed here: its TYPE is nameable by an author, which is how the wrapper is asked for, while only generated code produces the VALUES | 15 |
 | `string` | `binary` refined by valid UTF-8 | unqualified | **built** — F9 as a *type*; F18 generates the membership check **inside `ValidateAs<T>`** and nowhere else, so a term from outside can now establish the property that only a literal could before | 20 |
 | a serialisation encoder | the fifth codegen obligation, generated against a type | unqualified | **decided** | 16 §4 |
 | OTP message shapes | `Down`, `Exit`, `Timeout` | unqualified | **decided** | 14 §6 |
@@ -169,7 +179,11 @@ this"*.
 - **`raise`** — and it is the *only* function anywhere in this file;
 - one **unnamed gap**: `<`'s "named prelude escape" for the BEAM's universal term order.
 
-**Two entries ship today**, `option<T>` and `result<T, E>`, and both are types.
+**Four entries ship today** — `option<T>`, `result<T, E>`, `foreign_error` and `ValidationError` —
+and all four are types. <!-- corrected 2026-08-26, ENG-245; said "Two entries ship today" -->
+
+That the count is four rather than two does not soften the point this section is making, and it
+is worth saying why: all four are **types**, so the prelude still ships no function at all.
 
 ### The consequence, and it reaches back into ticket 48
 

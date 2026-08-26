@@ -160,7 +160,11 @@ erl -pa /tmp -eval "io:format(\"~p~n\", ['Readings':'Classify'({ok,5})])."
 
 ## The slice
 
-Deliberately only decisions the map has **closed**:
+**This section describes the slice F1 cut on 2026-08-13, and it is kept in the past tense it
+earned.** The table below is what the walking skeleton was; it is not what the compiler is now.
+Read the [feature index](features/README.md) for that.
+
+Deliberately only decisions the map had **closed** at the time:
 
 | In | From |
 |---|---|
@@ -171,8 +175,28 @@ Deliberately only decisions the map has **closed**:
 | Retained failure arm | 12 |
 | Abstract Format emission with a `-spec` | 13 |
 
-Deliberately **out**: records (26 open), angle-bracket syntax (28 open), modules and imports
-(still fog), FFI, OTP behaviours, refinements, binaries.
+~~Deliberately **out**: records (26 open), angle-bracket syntax (28 open), modules and imports~~
+~~(still fog), FFI, OTP behaviours, refinements, binaries.~~
+
+**ALL SEVEN SHIPPED, and this line went on denying it for up to twelve days** — corrected
+2026-08-26 by ENG-245. Left standing rather than deleted, because what it cost is the useful
+part: six of the seven have a worked example in `examples/` that the full verification COMPILES
+ON EVERY RUN, so the repository was building the refutation of its own README and reporting
+green. Nothing was asking a document whether it agreed with the compiler. Now
+`bin/check-status-claims.sh` does, and this line is the defect it was written against.
+
+| Was called "out" | Shipped | Compiles today as |
+|---|---|---|
+| records | F3, 2026-08-14 (ticket 26 resolved) | `examples/Shop` |
+| angle-bracket syntax | F6, 2026-08-14 (ticket 28 resolved) | `examples/Parcel` |
+| modules and imports | F11 and F15, 2026-08-17 | `examples/Shop/Reports/` |
+| FFI | F19 and F23 | `examples/Interop`, `examples/Foreign` |
+| OTP behaviours | F10, 2026-08-15 | `examples/Counter` |
+| refinements | F2, 2026-08-16 | `examples/Wire` |
+| binaries | F13, 2026-08-20 | `examples/Frame` |
+
+The parenthetical ticket states were stale in the same way: tickets 26 and 28 are both resolved,
+and the fog the third one named was lifted by two feature files.
 
 ## What it is for
 

@@ -218,6 +218,9 @@ run_stages \
          ./_build/default/bin/bsc --src-root examples -o \"\$(mktemp -d)\" \"\$d\" || exit 1
        done" \
 \
+  "Shipping documents agree with the compiler about what is built" \
+    "./bin/check-status-claims.sh --self-test && ./bin/check-status-claims.sh" \
+\
   "Diagnostics are terms" \
     "cd compiler && ./bin/check-diagnostics.sh --self-test && ./bin/check-diagnostics.sh" \
 \
