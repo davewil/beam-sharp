@@ -5,7 +5,7 @@
 -import(bs_test_support, [project_root/0, escript/0, run_cli/1, with_src/3,
                           showcase_src/0, shop_src/0, an_order/0]).
 
--define(OUT, "/tmp/bsc_eunit").
+-define(OUT, bs_test_support:run_root()).
 
 %%% ---------------------------------------------------------------------------
 %%% The built escript
@@ -63,6 +63,47 @@ built_escript_compiles_a_file_test() ->
     ?assert(string:find(Result, "rc:0") =/= nomatch),
     ?assert(filelib:is_regular(Out ++ "/Readings.beam")).
 
+%% A failed child has two independent facts: what it printed and how it exited.
+%% Keep them separate at the process boundary rather than asking a shell echo
+%% embedded in the captured text to stand in for the exit status.
+a_cli_failure_keeps_exit_status_and_output_separate_test() ->
+    {Rc, Output} = bs_test_support:run_cli_result("--definitely-not-a-flag"),
+    ?assertEqual(2, Rc),
+    ?assertNotEqual(nomatch, string:find(Output, "usage:")),
+    ?assertEqual(nomatch, string:find(Output, "rc:")).
+
+%% The old fixed root made every previous run part of this run's source index.
+%% Put a duplicate dependency in that retired location and drive the real CLI:
+%% the current run must compile its own dependency without ever seeing it.
+a_previous_runs_fixture_cannot_enter_this_runs_source_index_test() ->
+    Case = "eng229-isolation-" ++ os:getpid() ++ "-" ++
+           integer_to_list(erlang:unique_integer([positive])),
+    Root = filename:join(bs_test_support:run_root(), Case),
+    Main = bs_test_support:place(
+             Root, "main.bs",
+             "module Eng229Main\n"
+             "using Eng229Dep\n"
+             "public int Go()\n"
+             "Go() -> Value()\n"),
+    _Dep = bs_test_support:place(
+             Root, "dep.bs",
+             "module Eng229Dep\n"
+             "public int Value()\n"
+             "Value() -> 1\n"),
+    PoisonRoot = filename:join("/tmp/bsc_eunit", Case),
+    _Poison = bs_test_support:place(
+                PoisonRoot, "poison.bs",
+                "module Eng229Dep\n"
+                "public atom Value()\n"
+                "Value() -> :stale\n"),
+    try
+        {Rc, Output} = bs_test_support:run_cli_result(
+                         "--src-root " ++ Root ++ " -o " ++ Root ++ "/out " ++ Main),
+        ?assertEqual({0, ""}, {Rc, Output})
+    after
+        ok = file:del_dir_r(PoisonRoot)
+    end.
+
 %%% ---------------------------------------------------------------------------
 %%% Running a program — `bsc fib.bs 5`
 %%%
@@ -99,7 +140,6 @@ run_computes_rather_than_parrots_test() ->
                 ?assertEqual("55", hd(string:lexemes(R, "\n")))
             end)
     end.
-
 %% Results print in beam-sharp notation, and the argument parser accepts back
 %% exactly what the printer emits — `(:ok, 7)`, not `{ok,7}`.
 run_round_trips_beam_sharp_notation_test() ->
@@ -242,4 +282,3 @@ the_cli_reports_an_unreadable_argument_test() ->
                 ?assertEqual(nomatch, string:find(R, "badmap"))
             end)
     end.
-

@@ -4,7 +4,7 @@
 
 -import(bs_test_support, [compile/1, build_and_load/2, check_only/1]).
 
--define(OUT, "/tmp/bsc_eunit").
+-define(OUT, bs_test_support:run_root()).
 
 %%% ---------------------------------------------------------------------------
 %%% Behaviours
@@ -180,4 +180,3 @@ a_tuple_pattern_over_term_is_reachable_test() ->
 a_catch_all_still_covers_every_tuple_test() ->
     Src = "module T\npublic atom F(term x)\nF(_) -> :other\n",
     ?assertMatch({ok, _, []}, check_only(Src)).
-

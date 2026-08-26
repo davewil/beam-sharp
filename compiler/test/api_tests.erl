@@ -33,22 +33,13 @@ escript() ->
         false -> throw({no_escript, E, "run `rebar3 escriptize` first"})
     end.
 
-%% A FIXTURE ROOT OF THIS FILE'S OWN, DELIBERATELY NOT UNDER `/tmp/bsc_eunit`.
+%% A FIXTURE ROOT OF THIS FILE'S OWN.
 %%
-%% Everything else in the suite uses `bs_test_support:fixture_root/0`, and that
-%% is right for a fixture the compiler reads once. It is wrong for a file this
-%% file reads BACK, because three separate things delete `/tmp/bsc_eunit` — the
-%% gate script, CI, and anybody following this project's own recorded advice
-%% about a "cancelled" eunit run — and a parallel worktree doing any of them
-%% deletes this run's directory too.
-%%
-%% The failure that costs is not the deletion, it is its SHAPE: a capture file
-%% removed after the shell opened it still gets written, the redirect still
-%% exits 0, and the read comes back empty. `rc:0` with empty stdout is
-%% indistinguishable from the compiler answering nothing, so the assertion that
-%% fires is about the ANSWER rather than about the missing file. Measured on a
-%% full-suite run, one test into a green one. `_build/test` is rebar's, gitignored,
-%% and outside every gate's `find`.
+%% These tests read stdout and stderr back from separate capture files after the
+%% child exits. Keeping source and captures together in a unique per-case
+%% directory prevents another test or VM from replacing either stream between
+%% the shell redirect and that read. `_build/test` is rebar's, gitignored, and
+%% outside every gate's `find`.
 root() ->
     D = project_root() ++ "/_build/test/api_fixtures/fx-" ++ os:getpid() ++
         "-" ++ integer_to_list(erlang:unique_integer([positive])),

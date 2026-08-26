@@ -220,7 +220,8 @@ a_type_prefixed_partial_cover_is_inexhaustive_test() ->
 emitted_forms(Src) ->
     {ok, _} = bs_test_support:compile(Src),
     {ok, {_, [{abstract_code, {_, Forms}}]}} =
-        beam_lib:chunks("/tmp/bsc_eunit/Wire.beam", [abstract_code]),
+        beam_lib:chunks(filename:join(bs_test_support:run_root(), "Wire.beam"),
+                        [abstract_code]),
     Forms.
 
 an_unused_binder_lowers_to_an_underscored_name_test() ->

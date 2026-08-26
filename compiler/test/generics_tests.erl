@@ -5,7 +5,7 @@
 -import(bs_test_support, [compile/1, build_and_load/2, check_only/1, errors/1,
                           escript/0, run_cli/1, with_src/3]).
 
--define(OUT, "/tmp/bsc_eunit").
+-define(OUT, bs_test_support:run_root()).
 
 %%% ---------------------------------------------------------------------------
 %%% F6 — angle brackets and parametric types
@@ -261,4 +261,3 @@ the_emitted_spec_is_the_expanded_ground_type_test() ->
     ?assert(string:find(Printed, "nothing") =/= nomatch),
     %% Nothing parametric survives into what is published.
     ?assertEqual(nomatch, string:find(Printed, "option")).
-

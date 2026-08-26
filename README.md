@@ -79,14 +79,14 @@ git clone <this repo> /tmp/bs-check && cd /tmp/bs-check
 ./bin/verify.sh && ./bin/verify.sh
 ```
 
-One test class is known to be flaky: the tests that drive `bsc` as a subprocess fail
-intermittently, at a rate somewhere in the tens of percent of full runs. A red in the `Tests`
-stage is worth re-running once before believing it. Nothing else in the suite is known to be
-non-deterministic, and a red anywhere else should be believed on the first showing.
-<!-- the subprocess flake is ENG-229 -->
-
-A run that reports fewer tests than usual and calls itself cancelled is usually a stale eunit
-fixture directory rather than your change: `rm -rf /tmp/bsc_eunit` and run it again.
+The test stage has no retry. Local verification and CI both invoke `rebar3 eunit`, under EUnit's
+five-second per-test timeout, so a red is believed on its first showing. Each EUnit VM owns a
+separate fixture root under `compiler/_build/test/bsc_eunit/`; source fixtures are separate again
+per case. A prior run, another checkout and a concurrent worktree therefore cannot enter this
+run's source index or replace its emitted beams. Subprocess tests capture the CLI's exit status
+through the shared CLI runner separately from merged output, rather than trusting a shell-appended
+marker.
+<!-- the fixed-root and subprocess-capture failures were ENG-229 -->
 
 Every gate takes `--self-test`, which builds the defect the gate names, requires a red on it, and
 requires a green on the correct form standing beside it. A gate here is not believed until it has

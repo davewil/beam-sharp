@@ -5,7 +5,7 @@
 -import(bs_test_support, [compile/1, build_and_load/2, check_only/1, errors/1,
                           run_cli/1, with_src/3]).
 
--define(OUT, "/tmp/bsc_eunit").
+-define(OUT, bs_test_support:run_root()).
 
 %%% ---------------------------------------------------------------------------
 %%% F2 — interval refinements, and the interval patterns that had to land with

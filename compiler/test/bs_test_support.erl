@@ -10,10 +10,11 @@
 -include_lib("eunit/include/eunit.hrl").
 
 -export([compile/1, build_and_load/2, check_only/1, errors/1, project_root/0,
-         escript/0, built/0, run_cli/1, with_src/3, fixture_root/0, place/3,
+         escript/0, built/0, run_cli/1, run_cli_result/1, with_src/3,
+         run_root/0, fixture_root/0, place/3,
          showcase_src/0, shop_src/0, an_order/0, count/2]).
 
--define(OUT, "/tmp/bsc_eunit").
+-define(OUT, run_root()).
 
 %%% ---------------------------------------------------------------------------
 %%% Helpers
@@ -41,16 +42,20 @@
 %%% The name is read out of the source rather than passed in, so no call site has
 %%% to repeat what its own first line already says.
 
-%% A root nobody else is writing into — INCLUDING A PREVIOUS RUN.
+%% A root nobody else is writing into — INCLUDING A PREVIOUS RUN OR WORKTREE.
 %%
-%% `erlang:unique_integer/1` is unique within a node and every `rebar3 eunit` is a
-%% fresh one, so the counter restarts and run two writes into run one's
-%% directories. That is not a stale-file annoyance now that a directory is a
-%% module: a leftover `repl.bs` beside a fresh `in.bs` in the same module
-%% directory is one module declaring both files' functions, and the suite fails
-%% with `name_redeclared` in whichever tests happened to collide. Measured: two
-%% consecutive runs of the same tree failed 2 and then 4, in different modules.
-%% The OS pid is what makes the root new on every run.
+%% The old fixed `/tmp/bsc_eunit` parent accumulated every fixture forever. One
+%% test then treated that parent as its source root and recursively indexed the
+%% whole history: measured at 5,355 roots, it crossed EUnit's five-second timeout.
+%% A path under this checkout's `_build/test` separates worktrees; pid plus the VM
+%% start timestamp separates overlapping and later runs in one checkout.
+run_root() ->
+    Run = "run-" ++ os:getpid() ++ "-" ++
+          integer_to_list(erlang:system_info(start_time)),
+    D = filename:join([project_root(), "_build", "test", "bsc_eunit", Run]),
+    ok = filelib:ensure_dir(D ++ "/x"),
+    D.
+
 fixture_root() ->
     D = ?OUT ++ "/fx-" ++ os:getpid() ++ "-" ++
         integer_to_list(erlang:unique_integer([positive])),
@@ -151,7 +156,27 @@ built() ->
     end.
 
 run_cli(Args) ->
-    os:cmd(escript() ++ " " ++ Args ++ " 2>&1; echo rc:$?").
+    {Rc, Output} = run_cli_result(Args),
+    Output ++ "rc:" ++ integer_to_list(Rc) ++ "\n".
+
+%% The shell still parses the argument strings used throughout this boundary
+%% suite, but it no longer has to report its own status by echoing into stdout.
+%% `exec` replaces it with the escript, so the port's exit_status is the CLI's
+%% status and the captured data is only what the CLI wrote.
+run_cli_result(Args) ->
+    Port = open_port({spawn_executable, "/bin/sh"},
+                     [binary, exit_status, stderr_to_stdout, use_stdio,
+                      {args, ["-c", "exec " ++ escript() ++ " " ++ Args]}]),
+    collect_cli(Port, []).
+
+collect_cli(Port, Chunks) ->
+    receive
+        {Port, {data, Data}} ->
+            collect_cli(Port, [Data | Chunks]);
+        {Port, {exit_status, Rc}} ->
+            Output = iolist_to_binary(lists:reverse(Chunks)),
+            {Rc, binary_to_list(Output)}
+    end.
 
 with_src(Name, Src, Fun) ->
     Root = fixture_root(),

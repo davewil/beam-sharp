@@ -301,7 +301,7 @@ a_nested_generic_and_a_binary_pattern_coexist_test() ->
 %% is asserted rather than eyeballed from a quiet build.
 the_grammar_has_no_conflicts_test() ->
     Yrl = filename:join(bs_test_support:project_root(), "src/bs_parser.yrl"),
-    Out = filename:join("/tmp/bsc_eunit", "conflict_check"),
+    Out = filename:join(bs_test_support:run_root(), "conflict_check"),
     ok = filelib:ensure_dir(Out ++ "/x"),
     ?assertMatch({ok, _, []},
                  yecc:file(Yrl, [{parserfile, Out ++ ".erl"}, {return, true}])).

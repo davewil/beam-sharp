@@ -31,7 +31,7 @@
 
 -import(bs_test_support, [escript/0, with_src/3]).
 
--define(OUT, "/tmp/bsc_eunit").
+-define(OUT, bs_test_support:run_root()).
 
 src() ->
     "module Repl\n"

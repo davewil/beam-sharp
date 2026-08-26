@@ -5,7 +5,7 @@
 -import(bs_test_support, [compile/1, build_and_load/2, check_only/1,
                           showcase_src/0]).
 
--define(OUT, "/tmp/bsc_eunit").
+-define(OUT, bs_test_support:run_root()).
 
 %%% ---------------------------------------------------------------------------
 %%% The showcase: N clauses in, N native clause heads out
@@ -79,4 +79,3 @@ unreachable_clause_is_warned_test() ->
           "Classify((:error, e))         -> :unknown\n",
     {ok, _, Diags} = check_only(Src),
     ?assertMatch([{warning, _, 'Classify', {unreachable_clause, 2}}], Diags).
-

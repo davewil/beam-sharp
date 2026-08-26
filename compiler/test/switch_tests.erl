@@ -4,7 +4,7 @@
 
 -import(bs_test_support, [compile/1, build_and_load/2, check_only/1, errors/1]).
 
--define(OUT, "/tmp/bsc_eunit").
+-define(OUT, bs_test_support:run_root()).
 
 %%% ---------------------------------------------------------------------------
 %%% F7 — `switch`, ticket 17 §6
@@ -367,4 +367,3 @@ a_switch_in_tail_position_keeps_the_tail_call_test() ->
     ?assertEqual([], Bad),
     M = build_and_load(Src, 'LoopS'),
     ?assertEqual(500500, M:'Down'(1000, 0)).
-

@@ -5,7 +5,7 @@
 -import(bs_test_support, [compile/1, build_and_load/2, check_only/1, errors/1,
                           shop_src/0, an_order/0, count/2]).
 
--define(OUT, "/tmp/bsc_eunit").
+-define(OUT, bs_test_support:run_root()).
 
 %%% ---------------------------------------------------------------------------
 %%% F3 — records. Scenario ids are the feature file's, so a failure names the
@@ -225,4 +225,3 @@ a_field_without_a_space_says_what_to_do_test() ->
     {ok, Toks, _} = bs_lexer:string(Src),
     {error, {_, _, Message}} = bs_parser:parse(Toks),
     ?assert(string:find(lists:flatten(Message), "lexes as an atom") =/= nomatch).
-

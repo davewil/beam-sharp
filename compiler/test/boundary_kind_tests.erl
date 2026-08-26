@@ -4,7 +4,7 @@
 
 -import(bs_test_support, [compile/1, build_and_load/2]).
 
--define(OUT, "/tmp/bsc_eunit").
+-define(OUT, bs_test_support:run_root()).
 
 %%% ---------------------------------------------------------------------------
 %%% F24 — the kind half of the boundary guard: an `int` parameter is an integer

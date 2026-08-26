@@ -20,7 +20,7 @@
 -import(bs_test_support, [compile/1, build_and_load/2, check_only/1,
                           escript/0, run_cli/1, with_src/3, built/0]).
 
--define(OUT, "/tmp/bsc_eunit").
+-define(OUT, bs_test_support:run_root()).
 
 %%% ---------------------------------------------------------------------------
 %%% Fixtures
