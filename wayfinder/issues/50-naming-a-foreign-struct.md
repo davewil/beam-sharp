@@ -1,7 +1,10 @@
 # 50 — Consuming an Elixir library: how is a foreign struct named?
 
 Type: grilling
-Status: open — [ENG-232](https://linear.app/davewil/issue/ENG-232)
+Status: **resolved 2026-08-26** — [ENG-232](https://linear.app/davewil/issue/ENG-232). Answered by
+[ticket 48](48-a-map-type-in-the-prelude.md)'s Q3 (`Kind` absent only) on 2026-08-25: a foreign
+struct **is** a `map<atom, term>`, shape 2, with no new surface. See *DECIDED* at the foot. The Req
+exemplar this ticket asks for is still owed — naming is settled, the binding is not written.
 
 Raised 2026-08-21 by David: *"Req is one of the most used Elixir libraries, I'd like an exemplar
 importing that and proving the beam-sharp bindings all work."* This sharpens the standing fog patch
@@ -281,3 +284,35 @@ would need revisiting. That is the whole argument for the exemplars, applied to 
 
 **The exemplar must not make a real HTTP call.** Req ships `Req.Test` and a `plug:` option for
 stubbing; a gate that reaches the network is flaky by construction.
+
+---
+
+## DECIDED — shape 2, by ticket 48's Q3. Recorded 2026-08-26
+
+**This ticket is answered, and it was answered elsewhere.** [Ticket 48](48-a-map-type-in-the-prelude.md)
+closed on 2026-08-25 with *"Q3 — which tag does it exclude? **`Kind` absent only**"*, and 48's own
+resolution names the consequence as execution rather than a decision: *"Q3 settles ticket 50 …
+Record it there."* This section is that recording. Nothing new is decided here.
+
+**A foreign aggregate gets no name of its own. It is a `map<atom, term>`, and that works with no new
+surface.** Shape 2 above, exactly as its *Sharpened 2026-08-25* note predicted: because the excluded
+tag is `Kind` and **not** `__struct__`, the map type says nothing about `__struct__`, and
+[`48e`](../prototypes/48e_dict_vs_two_tags.exs) measured that an Elixir struct is therefore a member
+of it. `%Req.Response{}` is a `map<atom, term>` a clause head can take.
+
+The fork this ticket identified is worth keeping visible, because 48 could have closed it and did
+not. Had 48 declared **both** tags absent — an option that was available, and works — an Elixir
+struct would have been excluded from the map type and shape 2 would not exist at all. The two
+tickets really were one question, as this file argued three times; the answer arrived through 48.
+
+**Shapes 1 and 3 are not chosen, and they exit differently:**
+
+- **Shape 1, the `[external] record` declaration, stays unbuilt** — and its measured silent trap is
+  now a **defect report rather than a design option**, since nothing will be built that could hit it.
+- **Shape 3, `ValidateAs<T>` at the boundary, remains available and is not refused.** It is the right
+  tool where a caller wants a real record and will pay the traversal knowingly; what 11 refused was
+  paying it *implicitly in a clause head*, which shape 2 does not do.
+
+**What this does not settle.** The exemplar David asked for is still owed — this decides how a
+foreign struct is *named*, not that the Req binding has been written. The requirement above stands
+unchanged, Req rather than Jason, with `Req.Test` stubbing and no real HTTP call.

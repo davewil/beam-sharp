@@ -1,12 +1,18 @@
 # 48 — A map type in the prelude: opaque, matchable, or not at all?
 
 Type: grilling
-Status: claimed — [ENG-230](https://linear.app/davewil/issue/ENG-230). Survey landed 2026-08-25
-([research](../research/48-map-type-prior-art.md)). **The grilling opened 2026-08-25 and is
-mid-flight**: probes [`48f`](../prototypes/48f_brace_map_type_and_pattern.sh)–[`48l`](../prototypes/48l_what_the_workaround_costs.sh)
-falsified five of this file's own claims and priced both sides of question 1. **Q1 and Q2 were
-DECIDED on 2026-08-25** — unbounded key domain yes, type before pattern form — and **Q3 and Q4 remain
-open**. See *Where the grilling is* at the foot of this file.
+Status: **resolved 2026-08-25** — [ENG-230](https://linear.app/davewil/issue/ENG-230). Survey landed
+2026-08-25 ([research](../research/48-map-type-prior-art.md)); probes
+[`48f`](../prototypes/48f_brace_map_type_and_pattern.sh)–[`48m`](../prototypes/48m_elixir_maps_under_descr.exs)
+falsified five of this file's own claims and priced both sides of question 1. **All nine questions
+are answered** — see *DECIDED … the remaining six* and *DECIDED … Q9* below, and the file's own
+verdict: *"Ticket 48 is answered."*
+
+> *Header corrected 2026-08-26. It read `claimed … Q3 and Q4 remain open` for a day after the body
+> recorded every answer, and ENG-230 stayed `In Progress` beside it — so both trackers called a
+> finished ticket in-flight. The sections below are the record; this line was simply never updated
+> when they landed. Two consequences were also owed and are now discharged: Q3's settlement of
+> [ticket 50](50-naming-a-foreign-struct.md) is recorded there, and Q6's new ticket is 64.*
 
 > **The ticket-to-issue arithmetic is dead, and this is a third data point.** 48 is ENG-230,
 > not the ENG-214 that `CLAUDE.md`'s `166+NN` rule predicts. Read the number, never compute it —
