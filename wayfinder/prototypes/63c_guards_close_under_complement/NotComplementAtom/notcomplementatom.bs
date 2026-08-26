@@ -1,0 +1,18 @@
+// 63c CONTROL (atom arm) — the control `NotComplement` does not provide.
+//
+// `NotComplement` is over `int`, so it shows the checker sees a gap in an
+// INTEGER domain. It says nothing about atoms, and the atom arm needs its own
+// control for a specific reason: `atom` is the COFINITE top (ticket 10 opened
+// the universe), and ticket 12 permits a catch-all over an OPEN residual. So
+// `AtomEq`'s pair could have compiled because the checker is permissive about
+// open atom residuals rather than because `!=` is an exact complement.
+//
+// This pair is two INCLUDES rather than a complement: `== :ok` and `== :error`
+// leave every other atom uncovered, over a domain that is open. It must be
+// REFUSED. If it compiles, the atom arm of 63c's closure claim is vacuous and
+// the result covers integers only.
+module NotComplementAtom
+
+public atom AtomEq(atom a)
+AtomEq(a) when a == :ok    -> :yes
+AtomEq(a) when a == :error -> :no

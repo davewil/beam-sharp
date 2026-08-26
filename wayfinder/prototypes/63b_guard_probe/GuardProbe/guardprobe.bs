@@ -1,0 +1,22 @@
+// 63b — is a USER FUNCTION CALL legal in a guard?
+//
+// Ticket 63's motivating example is `when not IsAdmin(u)`. That example assumes
+// the un-negated form `when IsAdmin(u)` is legal. Every guard in the shipped
+// example corpus is a comparison; not one calls a function. This file asks the
+// compiler directly.
+//
+// Erlang forbids it — a guard admits only guard BIFs, never a user function —
+// and B# emits Erlang Abstract Format, so the restriction is inherited unless
+// the compiler refuses it earlier with a better message.
+module GuardProbe
+
+public atom IsAdmin(int u)
+IsAdmin(1) -> :yes
+IsAdmin(_) -> :no
+
+// The un-negated form. If THIS is refused, ticket 63's example was never
+// available with or without a `not`, and item 1 is asking about a construct that
+// does not exist rather than about negation.
+public atom Check(int u)
+Check(u) when IsAdmin(u) == :yes -> :admin
+Check(_)                         -> :ordinary

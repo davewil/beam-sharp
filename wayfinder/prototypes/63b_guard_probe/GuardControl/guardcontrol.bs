@@ -1,0 +1,17 @@
+// 63b CONTROL — the same file shape with a COMPARISON guard instead of a call.
+//
+// Without this, "the guard probe was refused" is equally well explained by the
+// probe file being malformed, by --src-root being wrong, or by two clauses over
+// `int` failing exhaustiveness. This file differs from `GuardProbe` in exactly
+// one respect: the guard is `u == 1` rather than `IsAdmin(u) == :yes`.
+//
+// It must COMPILE. If it does not, 63b measured nothing.
+module GuardControl
+
+public atom IsAdmin(int u)
+IsAdmin(1) -> :yes
+IsAdmin(_) -> :no
+
+public atom Check(int u)
+Check(u) when u == 1 -> :admin
+Check(_)             -> :ordinary

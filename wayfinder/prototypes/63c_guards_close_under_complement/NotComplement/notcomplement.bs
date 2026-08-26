@@ -1,0 +1,15 @@
+// 63c CONTROL — a clause pair that is NOT a complement, and must be REFUSED.
+//
+// Without this file, `Complement` compiling proves nothing: a checker that
+// accepts any two-clause function accepts complementary pairs too. This file
+// differs from `Complement`'s `Gt` in exactly one character — `<=` becomes `>=`
+// — so the two clauses overlap instead of partitioning, and every integer in
+// 1..1000 is covered by neither.
+//
+// It must FAIL with an inexhaustiveness diagnostic naming the residual. If it
+// compiles, 63c measured nothing and the `Complement` result is worthless.
+module NotComplement
+
+public atom Gt(int n)
+Gt(n) when n > 1000 -> :yes
+Gt(n) when n >= 1000 -> :no

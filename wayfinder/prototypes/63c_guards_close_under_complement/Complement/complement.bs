@@ -1,0 +1,72 @@
+// 63c — is the guard fragment already closed under complement?
+//
+// Ticket 63 asks whether B# needs a `not`. The checker's translatable guard
+// fragment is `and`/`or` over six integer comparisons and two atom comparisons
+// (`bs_check.erl:2659-2693`); everything else translates to `unknown`.
+//
+// If that set is closed under complement, then for every guard P there is
+// already a guard meaning `not P`, and a `not` token would add no expressive
+// power. The claim is not "the runtime agrees" — it is the stronger one that the
+// CHECKER agrees, and the language has a way to state that:
+//
+//     a clause pair split on P and complement(P), with NO catch-all clause,
+//     compiles only if the checker proves the two together exhaust the domain.
+//
+// Every function below is such a pair. If this file compiles, each complement is
+// exact in the type algebra, not merely at run time.
+//
+// The control lives in ../NotComplement, and it must be REFUSED.
+module Complement
+
+// --- the six integer comparisons, each paired with its complement -----------
+
+// not (n > 1000)  is  n <= 1000
+public atom Gt(int n)
+Gt(n) when n > 1000  -> :yes
+Gt(n) when n <= 1000 -> :no
+
+// not (n >= 1000)  is  n < 1000
+public atom Ge(int n)
+Ge(n) when n >= 1000 -> :yes
+Ge(n) when n < 1000  -> :no
+
+// not (n < 1000)  is  n >= 1000
+public atom Lt(int n)
+Lt(n) when n < 1000  -> :yes
+Lt(n) when n >= 1000 -> :no
+
+// not (n <= 1000)  is  n > 1000
+public atom Le(int n)
+Le(n) when n <= 1000 -> :yes
+Le(n) when n > 1000  -> :no
+
+// not (n == 7)  is  n != 7
+public atom Eq(int n)
+Eq(n) when n == 7 -> :yes
+Eq(n) when n != 7 -> :no
+
+// not (n != 7)  is  n == 7
+public atom Ne(int n)
+Ne(n) when n != 7 -> :yes
+Ne(n) when n == 7 -> :no
+
+// --- the two atom comparisons ----------------------------------------------
+
+// not (a == :ok)  is  a != :ok. Note this is the case that needs the COFINITE
+// atom set to be exact: `atom \ :ok` has no finite representation (ticket 10
+// made the universe open), and 63a measured the round trip.
+public atom AtomEq(atom a)
+AtomEq(a) when a == :ok -> :yes
+AtomEq(a) when a != :ok -> :no
+
+// --- De Morgan: the connectives are duals, and BOTH are in the language ------
+
+// not (n > 0 and n < 10)  is  (n <= 0 or n >= 10)
+public atom Conj(int n)
+Conj(n) when n > 0 and n < 10   -> :inside
+Conj(n) when n <= 0 or n >= 10  -> :outside
+
+// not (n < 0 or n > 10)  is  (n >= 0 and n <= 10)
+public atom Disj(int n)
+Disj(n) when n < 0 or n > 10    -> :outside
+Disj(n) when n >= 0 and n <= 10 -> :inside
