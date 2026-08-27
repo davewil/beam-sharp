@@ -118,6 +118,7 @@ Erlang back to the decision that required it is one grep.
 | [F27 — there is no `not`, and the absence teaches](F27-no-negation.md) | **done 2026-08-26** | nothing, and it is the only row here that never will: this is a feature that ships a **refusal**. Ticket 63 answered *no negation* on redundancy — the guard fragment is already closed under complement — and David took the option that pairs the refusal with a diagnostic naming the comparison to write instead, which is what makes it a build rather than a document edit. **`not` is NOT reserved**: it is a legal identifier today, and taking a name out of the language is ticket 65's decision, so the hint is raised at the parse failure where it cannot reach a program that parses. The two positions the answer covers **fail at different tokens** (`'('` in a guard, `'>'` in a refinement), so the rule is a shape in the token stream and the refinement case is asserted rather than inherited from the guard one |
 | [F26 — `/` and `%`, and the one divisor the compiler refuses](F26-division-and-remainder.md) | **done 2026-08-25** | the AoC 2019 Day 1 workload that raised ticket 38, whose `Fuel(mass) -> mass / 3 - 2` had sat behind a `not-yet` fence in `LANGUAGE.md` since. `/` lowers to Erlang's **`div`** and never its `/`, which returns a float where the signature promised `int` — a defect the checker cannot see, since the emitter runs after it, so the tests assert the VALUE and get the emission for free. **The precondition rule fails two ways** and the gate's self-test builds both plus a cry-wolf: a divisor that might be zero compiles and crashes at run time, and only one the compiler proves IS zero is refused. `int` stays a bignum through it, now tested at 2^100 |
 | [F28 — recursive types](F28-recursive-types.md) | **not started** — spec written 2026-08-26 · [ENG-260](https://linear.app/davewil/issue/ENG-260) | exemplar **25e**, whose front wall *is* this; `iodata` as a declarable type; and F18's owed validator obligation. Ticket 09 decided recursion on 2026-08-12 — equirecursive, contractive, subtyping coinductive — and **nothing has ever tracked building it**: no F-file, no Linear issue, no map entry, while `LANGUAGE.md`, F6, F18 and `bs_check.erl` each wrote "when it lands" and routed to nobody. Its gate is a **stopwatch rather than a rejection test**, because the characteristic failure produces no output at all — F6 shipped a timing guard for exactly this after a cyclic alias *hung* on master |
+| [F29 — the residual prints a pattern](F29-residual-prints-a-pattern.md) | **not started** — spec written 2026-08-27 · [ENG-266](https://linear.app/davewil/issue/ENG-266) | [ENG-263](https://linear.app/davewil/issue/ENG-263)'s gate going green, and six documented diagnostics becoming replayable. It is **the printer half of two features that already shipped**: ticket 42 settled `Classify(<= -1)` on 2026-08-15 and `bs_parser.yrl:462-465` was written to accept it back, while F22 gave a record pattern its type name on 2026-08-22 — and neither delta list named `bs_types:to_pattern/1`, so neither reached the printer. The symptom was then filed as a discovery three times. **That is this row's warning to the next F-file**: a printer is not part of the surface being added, so nothing greps for it. It also takes two surface decisions — a narrow generic-binder production, measured at 0 conflicts where the obvious wide form is 6 reduce/reduce and does not build; and an extension of ticket 12 §2 to the type-annotated binder |
 
 
 <!-- 2026-08-22: F22 shipped on 2026-08-21 and was NEVER GIVEN A ROW HERE, and the board line
@@ -126,9 +127,27 @@ Erlang back to the decision that required it is one grep.
      entry; there is no equivalent asserting that every `F*.md` has a row in this table and that
      the board line's count matches the file count. That is a real owed check — it is the
      "a passing gate may never have looked" shape, one namespace along — and it is left as a
-     recommendation rather than built by a session that was resolving a different ticket. -->
-**STATE OF THE BOARD — 2026-08-26, second entry today. Twenty-seven of twenty-eight are done, and
-the queue is no longer empty: F28 is spec'd and not started.** It was added by the session that
+     recommendation rather than built by a session that was resolving a different ticket.
+
+     2026-08-27: HALF OF THIS WAS BUILT AND THE COMMENT WAS NEVER UPDATED. `bin/check-status-
+     claims.sh` section B (`check_features`, :312-332) walks `compiler/features/F*.md` and
+     requires a `| [FNN ` row in this table for each, with a `-lt 1` floor so it cannot pass by
+     enumerating nothing. It reported `feature files checked: 29` on the run that added F29.
+     What is STILL unbuilt is the second half: nothing compares the board line's spelled-out
+     count to the file count, so "Twenty-seven of twenty-nine" below is prose no gate reads. -->
+**STATE OF THE BOARD — 2026-08-27. Twenty-seven of twenty-nine are done, and the queue has two:
+F28 and F29, both spec'd, neither started.** F29 was added by a grilling session on ENG-263, and
+what it records is the same failure as F28's entry below, one layer in. F28 was a *decision* that
+four files wrote "when it lands" about and no ticket tracked. F29 is two decisions that **did**
+get F-files, got built, and left their printer behind: ticket 42's `Classify(<= -1)` and F22's
+record type-prefix both shipped, and `bs_types:to_pattern/1` appears in neither delta list. The
+symptom — a residual that does not paste — was then filed as new three times. **The owed check in
+the comment above would not have caught this one**, and that is worth saying plainly: a row here
+and a Linear issue both existed. What was missing was a delta list naming the printer, which is a
+thing only the F-file's author can see.
+
+**~~STATE OF THE BOARD — 2026-08-26, second entry today. Twenty-seven of twenty-eight are done, and
+the queue is no longer empty: F28 is spec'd and not started.~~** It was added by the session that
 wrote exemplar 25e, on David's call, and the reason it is worth a board entry rather than a row
 alone is *how it was missing*. Ticket 09 decided recursive types on 2026-08-12. Four places then
 wrote "when it lands" — `LANGUAGE.md`, F6's out-of-scope, F18's out-of-scope (which had already
@@ -731,8 +750,13 @@ multi-year track, or one capability the language owes its author"*:
 | Columns | **no decision owed.** Measured in parsetools 2.7.1: leex predefines `TokenCol` and `TokenLoc`, and yecc's `error_location` already defaults to `column`. `bs_lexer.xrl` writes `TokenLine` by choice. Since `line/1` is `element(2, T)`, the lexer's actions are the whole change in the parser; the cost is downstream, in the `~s:~p:` format strings and the Abstract Format annotations |
 | 23 §5 — a JSON **encoding** of the term | **blocked**, and already logged: it inherits ticket 16 §4's serialisation mapping, which the map lists as owed and unwritten |
 
-**And the thing worth not losing**: the residual is already pasteable source. `heads/2` prints the
-clause to add, `caller_head/3` the one the caller must write, F7 the missing arm. 17c measured Gleam
+**And the thing worth not losing**: the residual is *meant to be* pasteable source. `heads/2` prints
+the clause to add, `caller_head/3` the one the caller must write, F7 the missing arm.
+**Corrected 2026-08-27: this paragraph read "is already pasteable source", and it was measured
+false the same day** — of eight residual shapes round-tripped, three are syntax errors, one
+raises `repeated_in_head`, and one compiles in a spelling F22 exists to replace. F29 is what
+makes the sentence true; until it lands, the claim below holds for the atom and product cases
+and not for intervals, lists or records. 17c measured Gleam
 printing *"The missing patterns are: False"* — prose, which a human reads and a tool cannot act on.
 An editor action that inserts a clause derived from the residual **cannot be wrong**, because the
 residual *is* the missing case. That is a reason to build 23 §1 for its own sake, and it holds
