@@ -70,6 +70,9 @@ residual_names_the_missing_case_test() ->
     {error, [{error, _, _, {inexhaustive, Residual}}]} = check_only(Src),
     ?assertEqual("((:ok, int <= 0))", bs_types:to_string(Residual)).
 
+%% THE CONTROL for the three tests below, and the reason this one is left
+%% untouched: clause 2 IS covered by clause 1, so "matched by an earlier clause"
+%% is the true statement about it. ENG-259 splits the tag; it must not move this.
 unreachable_clause_is_warned_test() ->
     Src = "module R\n"
           "type Reading = (:ok, int) | (:error, atom)\n"
@@ -79,3 +82,73 @@ unreachable_clause_is_warned_test() ->
           "Classify((:error, e))         -> :unknown\n",
     {ok, _, Diags} = check_only(Src),
     ?assertMatch([{warning, _, 'Classify', {unreachable_clause, 2}}], Diags).
+
+%%% --- ENG-259: three faults shared one diagnostic ----------------------------
+%%%
+%%% `is_none(intersect(Possible, Residual))` is true of a clause an earlier
+%%% clause covers, of a clause whose pattern is not a member of the declared
+%%% input, AND of a clause whose guard admits nothing. Only the first is
+%%% "matched by an earlier clause", and that was the prose all three got.
+%%%
+%%% The measurement that matters is the SOLE-CLAUSE case: there is no earlier
+%%% clause at all, so the message cannot be read as loosely true.
+
+vacuous_clause_is_not_reported_as_shadowed_test() ->
+    Src = "module R\n"
+          "type K = :a | :b\n"
+          "public int F(K k)\n"
+          "F((:some, x)) -> 0\n",
+    {error, Diags} = check_only(Src),
+    ?assertMatch([{warning, _, 'F', {vacuous_clause, 1, _}},
+                  {error,   _, 'F', {inexhaustive, _}}], Diags).
+
+%% The domain is what the author is missing — `(:some, x)` is what a reader
+%% arriving from C#, Rust or F# writes for an untagged `option<T>` — so the
+%% descriptor carries it rather than leaving the accompanying residual to hint.
+vacuous_clause_carries_the_domain_it_is_not_a_member_of_test() ->
+    Src = "module R\n"
+          "type K = :a | :b\n"
+          "public int F(K k)\n"
+          "F((:some, x)) -> 0\n",
+    {error, [{warning, _, 'F', {vacuous_clause, 1, Domain}} | _]} = check_only(Src),
+    ?assertEqual("(:a | :b)", bs_types:to_string(Domain)).
+
+%% A vacuous clause standing in front of clauses that DO cover the domain is the
+%% case that pins severity. This program compiles today, so the split must not
+%% turn it into a rejection — and the two covering clauses must still count, or
+%% the fix has broken exhaustiveness while fixing prose.
+vacuous_clause_does_not_make_a_covered_function_inexhaustive_test() ->
+    Src = "module R\n"
+          "type K = :a | :b\n"
+          "public int F(K k)\n"
+          "F((:some, x)) -> 0\n"
+          "F(:a)         -> 1\n"
+          "F(:b)         -> 2\n",
+    {ok, _, Diags} = check_only(Src),
+    ?assertMatch([{warning, _, 'F', {vacuous_clause, 1, _}}], Diags).
+
+%% The THIRD fault, which ENG-259 did not name and the probe found: the pattern
+%% is a perfectly good member of `int`; it is the guard that admits nothing. So
+%% this cannot share `vacuous_clause`'s prose either — that message names a type
+%% the pattern is not in, and here the pattern IS in it.
+unsatisfiable_guard_is_its_own_diagnostic_test() ->
+    Src = "module R\n"
+          "public int G(int n)\n"
+          "G(n) when n > 5 and n < 3 -> 0\n"
+          "G(n)                      -> 1\n",
+    {ok, _, Diags} = check_only(Src),
+    ?assertMatch([{warning, _, 'G', {unsatisfiable_guard, 1}}], Diags).
+
+%% THE CONTROL THAT STOPS THE NEW TAG CRYING WOLF. `n > m` compares two
+%% variables, which `comparison/1` answers `unknown` for — and an untranslatable
+%% guard returns `Possible` UNREDUCED (`{none(), Ty}`), precisely so the checker
+%% never claims a clause matches nothing merely because it could not read the
+%% guard. If `unsatisfiable_guard` ever fires here it is reporting its own
+%% ignorance as the author's mistake.
+an_untranslatable_guard_is_not_called_unsatisfiable_test() ->
+    Src = "module R\n"
+          "public int G(int n, int m)\n"
+          "G(n, m) when n > m -> 0\n"
+          "G(n, m)            -> 1\n",
+    {ok, _, Diags} = check_only(Src),
+    ?assertEqual([], Diags).

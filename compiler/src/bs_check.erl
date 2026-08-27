@@ -1063,7 +1063,7 @@ check_fn(F = #fn{name = Name, line = Line, params = Params, ret = Ret}, Ctx0) ->
         [] ->
             {F, [{error, Line, Name, no_clauses}]};
         Clauses ->
-            {Residual, Diags0} = walk(Clauses, Declared, Ctx, [], 1),
+            {Residual, Diags0} = walk(Clauses, Declared, Declared, Ctx, [], 1),
             Diags = with_corrected_signature(F, Diags0),
             Final =
                 case bs_types:is_none(Residual) of
@@ -2229,9 +2229,9 @@ record_name(Ty) ->
             unknown
     end.
 
-walk([], Residual, _Ctx, Diags, _N) ->
+walk([], Residual, _Declared, _Ctx, Diags, _N) ->
     {Residual, lists:reverse(Diags)};
-walk([C = {clause, CLine, Name, _, _, _} | Rest], Residual, Ctx, Diags, N) ->
+walk([C = {clause, CLine, Name, _, _, _} | Rest], Residual, Declared, Ctx, Diags, N) ->
     Env = Ctx#ctx.types,
     %% Two bounds, and conflating them is a soundness bug rather than an
     %% imprecision. `Certain` is what the clause is *guaranteed* to match, and is
@@ -2241,14 +2241,27 @@ walk([C = {clause, CLine, Name, _, _, _} | Rest], Residual, Ctx, Diags, N) ->
     %% an under-estimate there would call a live clause dead.
     %%
     %% They differ exactly when a guard is not translatable to a type operation.
-    {Certain, Possible, Bindings} = clause_type(C, Env),
+    {Certain, Possible, Bindings, Base} = clause_type(C, Env),
     %% Redundancy is *relative* — clause i against the clauses before it — which
     %% is why it is checked against the running residual rather than the declared
     %% type. Ticket 04 drew that distinction and it falls straight out here.
+    %%
+    %% ENG-259 — AND "ADDS NOTHING" IS THREE FAULTS, NOT ONE. A clause adds
+    %% nothing when an earlier clause already covers it, when its pattern is not
+    %% a member of the declared input at all, or when its guard admits no value.
+    %% Only the first is "matched by an earlier clause", and until this split a
+    %% SOLE clause was reported that way — naming a clause that does not exist,
+    %% and pointing the author at a repair that is not available.
+    %%
+    %% The residual cannot tell them apart because it *is* the declared type by
+    %% the time clause 1 is judged: the one fact needed to answer the question
+    %% is the one the fold has already spent. So `Declared` is threaded.
     Diags1 =
-        case bs_types:is_none(bs_types:intersect(Possible, Residual)) of
-            true  -> [{warning, CLine, Name, {unreachable_clause, N}} | Diags];
-            false -> Diags
+        case redundancy(Base, Possible, Residual, Declared) of
+            vacuous    -> [{warning, CLine, Name, {vacuous_clause, N, Declared}} | Diags];
+            dead_guard -> [{warning, CLine, Name, {unsatisfiable_guard, N}} | Diags];
+            shadowed   -> [{warning, CLine, Name, {unreachable_clause, N}} | Diags];
+            live       -> Diags
         end,
     %% TICKET 12 §2 — a catch-all is legal only over an OPEN residual, and F2 is
     %% the feature that makes the rule reachable. Until refinements landed, every
@@ -2276,7 +2289,31 @@ walk([C = {clause, CLine, Name, _, _, _} | Rest], Residual, Ctx, Diags, N) ->
     %% That is the failure mode that ships.
     Domain = bs_types:intersect(Residual, Possible),
     Diags3 = clause_diags(C, Domain, Bindings, Ctx) ++ Diags2,
-    walk(Rest, bs_types:subtract(Residual, Certain), Ctx, Diags3, N + 1).
+    walk(Rest, bs_types:subtract(Residual, Certain), Declared, Ctx, Diags3, N + 1).
+
+%% ENG-259's three-way split, in one place so the ORDER is reviewable — that is
+%% the whole of what a clause guilty of more than one fault is reported as.
+%%
+%% `Base` is the pattern's own type BEFORE the guard reduces it, and asking the
+%% second question with `Possible` instead would defeat the split: an
+%% unsatisfiable guard collapses `Possible` to `none`, which is then
+%% indistinguishable from a pattern that was never in the domain.
+%%
+%% A guard the checker CANNOT read is not a fault and must never reach
+%% `dead_guard`. `apply_guard/3` answers `{none(), Ty}` for one — `Possible`
+%% unreduced — so an unreadable guard leaves `GuardAdmits` true and the clause
+%% is judged on its pattern alone. Reporting otherwise would be the checker
+%% announcing its own ignorance as the author's mistake.
+redundancy(Base, Possible, Residual, Declared) ->
+    InDomain    = not bs_types:is_none(bs_types:intersect(Base, Declared)),
+    GuardAdmits = not bs_types:is_none(bs_types:intersect(Possible, Declared)),
+    Adds        = not bs_types:is_none(bs_types:intersect(Possible, Residual)),
+    if
+        not InDomain    -> vacuous;
+        not GuardAdmits -> dead_guard;
+        not Adds        -> shadowed;
+        true            -> live
+    end.
 
 %% WHAT COUNTS AS A CATCH-ALL, stated once, because the rule is only as good as
 %% this line and ticket 12 §2 wrote it in terms of the glyph: *"`_` here is an
@@ -2324,14 +2361,18 @@ clause_type({clause, _, _, Patterns, Guard, _}, Env) ->
     {Components, Bindings, Exact} = pattern_row(Patterns, Env),
     Base = bs_types:tuple(Components),
     {Certain, Possible} = apply_guard(Base, Bindings, Guard),
+    %% `Base` is returned alongside the two bounds because ENG-259's split needs
+    %% the pattern's type BEFORE the guard touched it — see `redundancy/4`. It
+    %% is the pattern alone, so it is unaffected by `Exact`, which is a statement
+    %% about what may be CREDITED rather than about what the pattern denotes.
     case Exact of
-        true  -> {Certain, Possible, Bindings};
+        true  -> {Certain, Possible, Bindings, Base};
         %% An inexact pattern over-states what it matches — `[0, ..t]` is not
         %% every non-empty list — so it may bound Possible but must credit
         %% NOTHING to Certain. Same rule as an untranslatable guard, and the same
         %% reason: crediting an over-estimate is what makes a compiler claim
         %% coverage it does not have.
-        false -> {bs_types:none(), Possible, Bindings}
+        false -> {bs_types:none(), Possible, Bindings, Base}
     end.
 
 pattern_row(Patterns, Env) ->

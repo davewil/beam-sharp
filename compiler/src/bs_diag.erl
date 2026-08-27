@@ -178,6 +178,19 @@ descriptor(Path, {Sev, Line, Fn, switch_in_guard}) ->
     (at(Sev, Path, Line, Fn))#{tag => switch_in_guard};
 descriptor(Path, {Sev, Line, Fn, {unreachable_clause, N}}) ->
     (at(Sev, Path, Line, Fn))#{tag => unreachable_clause, clause_number => N};
+%% ENG-259. The two faults that used to borrow `unreachable_clause`'s prose.
+%%
+%% `vacuous_clause` carries the DOMAIN rather than the offending pattern, because
+%% the domain is the half the author does not have — they wrote the pattern, so
+%% repeating it back says nothing, while the type it is not a member of is the
+%% fact that ends the search. It goes through `residual/1` for the same reason
+%% `inexhaustive` does: the term keeps the parts, and prose is a pure function
+%% of the term (F16), so the rendering is not baked in at the site.
+descriptor(Path, {Sev, Line, Fn, {vacuous_clause, N, Domain}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => vacuous_clause, clause_number => N,
+                               domain => residual(Domain)};
+descriptor(Path, {Sev, Line, Fn, {unsatisfiable_guard, N}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => unsatisfiable_guard, clause_number => N};
 descriptor(Path, {Sev, Line, Fn, {rebinding, V}}) ->
     (at(Sev, Path, Line, Fn))#{tag => rebinding, name => V};
 descriptor(Path, {Sev, Line, Fn, {repeated_in_head, V}}) ->
@@ -599,6 +612,30 @@ message(#{tag := unreachable_clause, file := P, line := L, function := Fn,
           clause_number := N}) ->
     {"~s:~p: warning: clause ~p of ~s is unreachable~n"
      "  every value it matches is matched by an earlier clause.~n",
+     [P, L, N, Fn]};
+%% ENG-259. THE WORDING IS THE WHOLE FIX, so both of these say what the other
+%% one does not. `unreachable_clause` above sends the reader to look for the
+%% clause that covers this one; neither of these has such a clause, and the
+%% first of them may be the only clause in the function.
+%%
+%% This one names the type, because the pattern is not a member of it and that
+%% membership is the thing the author got wrong. It is the most likely first
+%% mistake in the language: `option<T>` is `T | :nothing`, UNTAGGED, so the
+%% `(:some, x)` a reader brings from C#, Rust or F# matches nothing at all.
+message(#{tag := vacuous_clause, file := P, line := L, function := Fn,
+          clause_number := N, domain := Dom}) ->
+    {"~s:~p: warning: clause ~p of ~s matches no value of its input~n"
+     "  the declared input is ~s, and this clause's pattern is not~n"
+     "  a member of it — so no call can reach this clause.~n",
+     [P, L, N, Fn, Dom]};
+%% And this one must NOT name the type: the pattern is a perfectly good member
+%% of it, and the guard is what admits nothing. Telling this author to check the
+%% pattern would be the same misdirection in a new costume.
+message(#{tag := unsatisfiable_guard, file := P, line := L, function := Fn,
+          clause_number := N}) ->
+    {"~s:~p: warning: clause ~p of ~s has a guard no value satisfies~n"
+     "  the pattern is a member of the input; it is the guard that~n"
+     "  admits nothing. Widen the guard, or delete the clause.~n",
      [P, L, N, Fn]};
 %% Ticket 34. Both of these would otherwise reach the author as an `erlc` error
 %% against the emitted `.abstr` — a file they did not write and cannot fix.
