@@ -66,7 +66,7 @@ the_residual_over_records_synthesises_the_missing_head_test() ->
           "public atom Which(Doc)\n"
           "Which({ Kind: :'Shop.Order' }) -> :order\n",
     {error, Diags} = check_only(Src),
-    [{error, _, 'Which', {inexhaustive, Residual}}] =
+    [{error, _, 'Which', {inexhaustive, Residual, _}}] =
         [D || D <- Diags, element(1, D) =:= error],
     %% The residual's tuple part is the ARGUMENT LIST, so the head is built from
     %% its components — the same unpacking `bsc:heads/2` does to print it.
@@ -89,7 +89,7 @@ the_synthesised_head_compiles_when_pasted_in_test() ->
            "public atom Which(Doc)\n"
            "Which({ Kind: :'Shop.Order' }) -> :order\n",
     {error, Diags} = check_only(Base),
-    [{error, _, 'Which', {inexhaustive, Residual}}] =
+    [{error, _, 'Which', {inexhaustive, Residual, _}}] =
         [D || D <- Diags, element(1, D) =:= error],
     #{tuples := [[Arg]]} = Residual,
     Synthesised = "Which(" ++ bs_types:to_pattern(Arg) ++ ") -> :invoice\n",

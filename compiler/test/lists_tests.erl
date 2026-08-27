@@ -55,7 +55,7 @@ missing_nil_clause_is_caught_test() ->
     {ok, Toks, _} = bs_lexer:string(Src),
     {ok, Decls} = bs_parser:parse(Toks),
     {error, Diags} = bs_check:check(Decls),
-    [{error, _, 'Rev', {inexhaustive, Residual}}] =
+    [{error, _, 'Rev', {inexhaustive, Residual, _}}] =
         [D || D <- Diags, element(1, D) =:= error],
     ?assert(string:find(bs_types:to_string(Residual), "[]") =/= nomatch).
 
@@ -111,7 +111,7 @@ shape_src(Clauses) ->
 %% says "not exhaustive" is a cheaper decision than the one ticket 54 took.
 a_two_element_prefix_does_not_cover_a_one_element_list_test() ->
     Src = shape_src("Shape([]) -> :empty\nShape([a, b, ..]) -> :many\n"),
-    [{error, _, 'Shape', {inexhaustive, Residual}}] = errors(Src),
+    [{error, _, 'Shape', {inexhaustive, Residual, _}}] = errors(Src),
     %% The parentheses are the ARGUMENT LIST, not the list type: a residual is a
     %% product over the parameters, and this function has one. `check-list-length.sh`
     %% asserts the user-visible form, `Shape([int]) -> ...`; this asserts the
@@ -192,7 +192,7 @@ a_nested_rest_pattern_is_retired_and_names_the_fix_test() ->
 a_catch_all_over_a_closed_list_residual_is_refused_test() ->
     Src = "module Cb\npublic atom F(list<bool> xs)\n"
           "F([]) -> :e\nF([a, b, ..]) -> :m\nF(_) -> :o\n",
-    ?assertMatch([{error, _, 'F', {catch_all_over_closed, _}}], errors(Src)).
+    ?assertMatch([{error, _, 'F', {catch_all_over_closed, _, _}}], errors(Src)).
 
 a_catch_all_over_an_open_list_residual_is_still_legal_test() ->
     Src = shape_src("Shape([]) -> :empty\nShape([a, b, ..]) -> :many\n"
@@ -237,7 +237,7 @@ a_residual_over_a_union_element_does_not_enumerate_products_test() ->
     Src = "module Cap\ntype Q = :a | :b | :c | :d\n"
           "public atom F(list<Q> xs)\n"
           "F([]) -> :e\nF([x, y, z, ..]) -> :m\n",
-    [{error, _, 'F', {inexhaustive, Residual}}] = errors(Src),
+    [{error, _, 'F', {inexhaustive, Residual, _}}] = errors(Src),
     %% Two spines — lengths 1 and 2 — each carrying the whole union inline at
     %% every position. Sixteen products would be sixteen bracketed groups.
     ?assertEqual("([:a | :b | :c | :d] | [:a | :b | :c | :d, :a | :b | :c | :d])",

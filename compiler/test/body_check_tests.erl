@@ -62,10 +62,16 @@ the_call_site_residual_is_the_callers_clause_head_test() ->
                   "Wrong(i) -> Update(i)\n",
             with_src("callsite.bs", Src, fun(Path, Out) ->
                 R = run_cli("-o " ++ Out ++ " " ++ Path),
-                ?assert(string:find(R, "Wrong({ Kind: :'Shop.Invoice' }) -> ...")
-                        =/= nomatch),
+                %% CORRECTED 2026-08-27. This asserted the discriminator
+                %% spelling, `Wrong({ Kind: :'Shop.Invoice' })`. `caller_head` is
+                %% a PASTE site and was reading the description printer; F29
+                %% routes it through the head channel, so it names the type the
+                %% way F22 says to write it. What the test is FOR is unchanged:
+                %% the head proposed is the caller's, never the callee's.
+                ?assert(string:find(R, "Wrong(Invoice i) -> ...") =/= nomatch),
                 %% Never a suggestion to widen the callee.
-                ?assertEqual(nomatch, string:find(R, "Update({"))
+                ?assertEqual(nomatch, string:find(R, "Update({")),
+                ?assertEqual(nomatch, string:find(R, "Update(Invoice"))
             end)
     end.
 
@@ -429,7 +435,7 @@ a_guard_over_a_list_element_still_credits_nothing_test() ->
           "Sign([])             -> :empty\n"
           "Sign([x, ..r]) when x > 0  -> :positive\n"
           "Sign([x, ..r]) when x <= 0 -> :nonpositive\n",
-    ?assertMatch([{error, _, 'Sign', {inexhaustive, _}}], errors(Src)).
+    ?assertMatch([{error, _, 'Sign', {inexhaustive, _, _}}], errors(Src)).
 
 
 %%% ---------------------------------------------------------------------------

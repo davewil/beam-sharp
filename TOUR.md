@@ -149,9 +149,9 @@ Delete the `4..7` clause from `examples/Wire/wire.bs` and ask for a build:
 
 ```
 $ bsc --src-root examples examples/Wire
-examples/Wire/wire.bs:39: error: Classify is not exhaustive
+examples/Wire/wire.bs:40: error: Classify is not exhaustive
   no clause matches:
-    Classify(4..7) -> ...
+    Classify(>= 4 and <= 7) -> ...
 ```
 
 It is not "some cases are unhandled". It is the head you are missing, pasteable.
@@ -163,7 +163,7 @@ The same machinery over a union of records — delete the `Invoice` clause from
 $ bsc --src-root examples examples/Shop
 examples/Shop/shop.bs:16: error: Which is not exhaustive
   no clause matches:
-    Which({ Kind: :'Shop.Invoice' }) -> ...
+    Which(Invoice i) -> ...
 ```
 
 And the rule that follows from taking it seriously: **over a closed domain, `_` is an
@@ -174,7 +174,7 @@ $ bsc --src-root examples examples/Wire
 examples/Wire/wire.bs:48: error: Classify discards cases the compiler can name
   every value left here comes from a type you declared, so `_`
   hides a case rather than admitting an unknown one:
-    Classify(9..255) -> ...
+    Classify(>= 9 and <= 255) -> ...
   a catch-all is for a residual with an unbounded top in it — a
   `term` argument, or the open atom universe — where a foreign
   sender chooses the inhabitants and there is nothing to enumerate.
@@ -1261,7 +1261,7 @@ $ bsc --diagnostics term --src-root examples examples/Wire
 #{function => 'Classify',line => 39,tag => inexhaustive,
   file => "examples/Wire/wire.bs",severity => error,
   heads => #{kind => products,products => [[["4..7"]]],
-             pasteable => ["Classify(4..7) -> ..."]},
+             pasteable => ["Classify(>= 4 and <= 7) -> ..."]},
   residual => "(4..7)"}
 ```
 

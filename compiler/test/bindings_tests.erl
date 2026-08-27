@@ -239,7 +239,7 @@ a_matched_name_does_not_widen_its_neighbours_test() ->
 %% F9's byte count — so the test has to be for the diagnostic's PRESENCE.
 a_marked_name_credits_nothing_to_certain_test() ->
     Src = "module NC\npublic atom F(int acc, int m)\nF(acc, == acc) -> :same\n",
-    ?assertMatch([{error, _, 'F', {inexhaustive, _}}], errors(Src)).
+    ?assertMatch([{error, _, 'F', {inexhaustive, _, _}}], errors(Src)).
 
 %% F8.10 — A REPEATED BARE NAME IN A HEAD IS AN ERROR, AND UNTIL 2026-08-16 IT
 %% WAS A LIVE SOUNDNESS HOLE.

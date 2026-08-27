@@ -21,7 +21,8 @@ That is not exhaustive, and the compiler does not shrug at it:
 ```
 demo.bs:5: error: Classify is not exhaustive
   no clause matches:
-    Classify(int <= 199 | 300..399) -> ...
+    Classify(<= 199) -> ...
+    Classify(>= 300 and <= 399) -> ...
 ```
 
 **The residual is the missing case.** The compiler does not report that something is wrong

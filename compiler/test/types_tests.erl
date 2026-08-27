@@ -33,7 +33,7 @@ interval_hole_is_found_test() ->
           "public Band Classify(int n)\n"
           "Classify(n) when n < 10   -> :low\n"
           "Classify(n) when n >= 100 -> :high\n",
-    {error, [{error, _, _, {inexhaustive, Residual}}]} = check_only(Src),
+    {error, [{error, _, _, {inexhaustive, Residual, _}}]} = check_only(Src),
     ?assertEqual("(10..99)", bs_types:to_string(Residual)).
 
 conjunction_in_a_guard_is_credited_test() ->
@@ -53,7 +53,7 @@ uncreditable_guard_credits_nothing_test() ->
           "public int F(int n)\n"
           "F(n) when Weird(n) -> n\n",
     {error, Diags} = check_only(Src),
-    ?assertMatch([{error, _, 'F', {inexhaustive, _}}], Diags).
+    ?assertMatch([{error, _, 'F', {inexhaustive, _, _}}], Diags).
 
 %%% ---------------------------------------------------------------------------
 %%% The algebra's own laws — no boundary reaches these

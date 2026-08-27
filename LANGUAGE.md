@@ -352,7 +352,7 @@ rather than a complaint to interpret.
 ```
 readings.bs:4: error: Classify is not exhaustive
   no clause matches:
-    Classify((:ok, int <= 0)) -> ...
+    Classify((:ok, n)) when n <= 0 -> ...
 ```
 
 The error is the **missing clause**, not a complaint — the residual is computed exactly and printed
@@ -508,9 +508,12 @@ private atom Classify(Octet t)
 Classify(1) -> :method
 Classify(2) -> :header
 Classify(8) -> :heartbeat
-// omit these two and the compiler answers
+// omit these three and the compiler answers
 //   Classify is not exhaustive
-//     no clause matches:  Classify(0 | 3..7 | 9..255) -> ...
+//     no clause matches:
+//       Classify(0) -> ...
+//       Classify(>= 3 and <= 7) -> ...
+//       Classify(>= 9 and <= 255) -> ...
 Classify(>= 9) -> :reserved
 Classify(0) -> :reserved
 Classify(>= 3 and <= 7) -> :reserved

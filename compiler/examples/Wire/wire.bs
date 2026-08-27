@@ -13,7 +13,9 @@
 // without the second would have turned working programs into rejected ones.
 //
 // Delete `Classify(>= 4 and <= 7)` and the compiler does not shrug -- it hands
-// back `4..7` as the clause to add. The residual IS the missing case.
+// the same line straight back as the clause to add. The residual IS the missing
+// case, and since F29 it is spelled the way you would write it: a relational
+// pattern, not the `4..7` type notation this comment used to quote.
 module Wire
 
 // A REFINEMENT, ticket 20 §5. `value` names the thing being refined; it is an

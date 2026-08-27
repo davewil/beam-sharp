@@ -115,7 +115,7 @@ a_catch_all_over_a_closed_residual_is_an_error_test() ->
           "Classify(3) -> :body\n"
           "Classify(8) -> :heartbeat\n"
           "Classify(_) -> :reserved\n",
-    [{error, _, 'Classify', {catch_all_over_closed, Residual}}] = errors(Src),
+    [{error, _, 'Classify', {catch_all_over_closed, Residual, _}}] = errors(Src),
     %% The residual IS the checklist — ticket 04 — so assert what it says and not
     %% merely that something was said. 25c predicted exactly this shape.
     ?assertEqual("(0 | 4..7 | 9..255)", bs_types:to_pattern(Residual)).
@@ -152,7 +152,7 @@ a_guarded_wildcard_is_not_a_catch_all_test() ->
     Src = "module Guarded\n" ++ octet() ++
           "public atom Classify(Octet)\n"
           "Classify(_) when 1 > 0 -> :anything\n",
-    ?assertMatch([{error, _, 'Classify', {inexhaustive, _}}], errors(Src)).
+    ?assertMatch([{error, _, 'Classify', {inexhaustive, _, _}}], errors(Src)).
 
 %% Ticket 12 §2 at the switch. An arm is the clause head's own pattern grammar
 %% one level down (F7), so a rule about what a head may discard is a rule about
@@ -165,7 +165,7 @@ a_catch_all_arm_over_a_closed_residual_is_an_error_test() ->
           "    :placed => :new,\n"
           "    _       => :other\n"
           "}\n",
-    ?assertMatch([{error, _, 'Which', {catch_all_over_closed, _}}], errors(Src)).
+    ?assertMatch([{error, _, 'Which', {catch_all_over_closed, _, _}}], errors(Src)).
 
 %%% --- F2.3 — an interval pattern names a span --------------------------------
 
@@ -231,7 +231,7 @@ dropping_the_span_leaves_exactly_the_span_test() ->
           "public atom Classify(Octet)\n"
           "Classify(>= 0 and <= 3) -> :low\n"
           "Classify(>= 8)          -> :high\n",
-    [{error, _, 'Classify', {inexhaustive, Residual}}] = errors(Src),
+    [{error, _, 'Classify', {inexhaustive, Residual, _}}] = errors(Src),
     ?assertEqual("(4..7)", bs_types:to_pattern(Residual)).
 
 %% A NEGATIVE BOUND, which is the residual's own spelling for the lower half of
@@ -311,11 +311,17 @@ a_relational_pattern_in_a_bind_is_refused_test() ->
 %% disjoint intervals — scattered on purpose, because `i_norm/1` merges ADJACENT
 %% ranges, so a stride of 1 would coalesce to one interval and truncate nothing.
 %%
-%% The expected string is exact. 43 measured the untruncated line at 453
-%% characters and one head rather than 41 — `heads/2` splits on the tuple part,
-%% so a union of intervals stays inside a single argument. That correction is
-%% what made the rule "three CASES" rather than "three heads", which would have
-%% truncated nothing at all today.
+%% CORRECTED 2026-08-27, WHEN F29 SPLIT THE HEADS ONTO THEIR OWN LINES. This test
+%% used to assert one head containing `int <= 9 | 11..19 | 21..29 | ... (38
+%% more)`. That head did not parse — a clause head has no `|` — and F29.2 made a
+%% union of parts N head lines for exactly that reason.
+%%
+%% 43's rule is untouched and is what is asserted here: *"at most three of
+%% whatever it is enumerating"*, with 41 cases enumerated and 38 named as a
+%% count. Only the UNIT moved, from cases-inside-one-head to head lines, which is
+%% the reading 43's own correction was reaching for — it noted the rule had to be
+%% "three CASES" rather than "three heads" precisely because a union of intervals
+%% stayed inside a single argument. It no longer does.
 the_residual_truncates_at_three_cases_test() ->
     Src = ["module Scattered\npublic atom Classify(int n)\n"
            | [io_lib:format("Classify(~p) -> :known\n", [N * 10])
@@ -323,10 +329,16 @@ the_residual_truncates_at_three_cases_test() ->
     with_src("scattered.bs", lists:flatten(Src),
              fun(Path, Out) ->
                      Got = run_cli("-o " ++ Out ++ " " ++ Path),
-                     ?assert(string:find(
-                               Got,
-                               "Classify(int <= 9 | 11..19 | 21..29 | "
-                               "... (38 more)) -> ...") =/= nomatch)
+                     Lines = [L || L <- string:split(Got, "\n", all),
+                                   string:find(L, "Classify(") =/= nomatch],
+                     ?assertEqual(3, length(Lines)),
+                     ?assert(string:find(Got, "Classify(<= 9) -> ...") =/= nomatch),
+                     ?assert(string:find(Got, "Classify(>= 11 and <= 19) -> ...")
+                             =/= nomatch),
+                     ?assert(string:find(Got, "... (38 more)") =/= nomatch),
+                     %% And the form that used to be printed is gone, not merely
+                     %% joined differently: no `|` and no type prefix in a head.
+                     ?assertEqual(nomatch, string:find(Got, "Classify(int"))
              end).
 
 %% THE HEAD-LINE HALF OF 43's RULE, AND IT IS NEEDED TODAY RATHER THAN AFTER
@@ -350,18 +362,31 @@ the_head_lines_truncate_at_three_too_test() ->
                                    string:find(L, "Classify(") =/= nomatch],
                      ?assertEqual(3, length(Lines)),
                      ?assert(string:find(Got, "    ... (38 more)") =/= nomatch),
-                     %% The inner truncation still runs inside the first line, so
-                     %% the two depths compose rather than one shadowing the other.
-                     ?assert(string:find(
-                               Got,
-                               "Classify(int <= 9 | 11..19 | 21..29 | "
-                               "... (38 more), atom) -> ...") =/= nomatch)
+                     %% CORRECTED 2026-08-27. There is no inner truncation to
+                     %% compose with any more: F29.2 put each case on its own
+                     %% line, so the two depths became one unit. What replaced it
+                     %% is the second enumeration on this program — the forty
+                     %% products whose atom component is `atom \\ (:x)`, which no
+                     %% pattern spells. It is capped by the same rule, which is
+                     %% the half that would otherwise have printed forty products
+                     %% on one line.
+                     ?assert(string:find(Got, "Classify(<= 9, a) -> ...")
+                             =/= nomatch),
+                     ?assert(string:find(Got, "and no pattern spells:")
+                             =/= nomatch),
+                     ?assert(string:find(Got, "(400, atom \\ (:x))") =/= nomatch),
+                     ?assert(string:find(Got, "... (37 more)") =/= nomatch)
              end).
 
 %% AND THE HALF THAT MAKES IT ONE FORMAT RATHER THAN TWO. At three cases or fewer
-%% it prints byte-identically to what the compiler printed before any of this
-%% existed, so there is no threshold to tune and no *"why did the format change"*
-%% to explain. Every other shape ticket 43 priced has to switch.
+%% nothing is elided and there is no threshold to tune.
+%%
+%% CORRECTED 2026-08-27. This used to add that a small residual printed
+%% *"byte-identically to what the compiler printed before any of this existed"*,
+%% which F29 makes false: `Classify(int <= -1 | int >= 1)` is now two head lines,
+%% because that one was not a clause head anyone could paste. The claim that
+%% survives is the one the test is for — below the cap nothing is dropped and no
+%% `... (N more)` appears.
 a_small_residual_is_not_truncated_test() ->
     Src = "module Small\n"
           "public atom Classify(int n)\n"
@@ -369,9 +394,8 @@ a_small_residual_is_not_truncated_test() ->
     with_src("small.bs", Src,
              fun(Path, Out) ->
                      Got = run_cli("-o " ++ Out ++ " " ++ Path),
-                     ?assert(string:find(
-                               Got, "Classify(int <= -1 | int >= 1) -> ...")
-                             =/= nomatch),
+                     ?assert(string:find(Got, "Classify(<= -1) -> ...") =/= nomatch),
+                     ?assert(string:find(Got, "Classify(>= 1) -> ...") =/= nomatch),
                      ?assertEqual(nomatch, string:find(Got, "more)"))
              end).
 
@@ -386,7 +410,7 @@ a_guard_and_a_type_refinement_do_not_double_count_test() ->
     Src = "module Band\n" ++ octet() ++
           "public atom Big(Octet n)\n"
           "Big(n) when n > 128 -> :big\n",
-    [{error, _, 'Big', {inexhaustive, Residual}}] = errors(Src),
+    [{error, _, 'Big', {inexhaustive, Residual, _}}] = errors(Src),
     ?assertEqual("(0..128)", bs_types:to_pattern(Residual)).
 
 %%% --- openness, which is the discriminator all of F2.2 rests on --------------

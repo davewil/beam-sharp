@@ -158,8 +158,12 @@ a_synthesisable_caller_head_is_pasteable_test() ->
     Residual = bs_types:atom_lit(oops),
     Desc = bs_diag:descriptor("x.bs",
                               {error, 3, "F",
-                               {arg_not_accepted, 'G', 1, Residual, {1, 2}}}),
-    ?assertMatch(#{caller_head := "F(:oops, _) -> ..."}, Desc).
+                               {arg_not_accepted, 'G', 1, Residual,
+                                {1, 2, #{}}}}),
+    %% F29 — A LIST, because the residual is a union and a head is not. One
+    %% element here because `:oops` is one atom; an interval residual with two
+    %% spans is two clauses to add, and joining them with `|` was the defect.
+    ?assertMatch(#{caller_head := ["F(:oops, _) -> ..."]}, Desc).
 
 %%% --- F16.7 — no generic renderer --------------------------------------------
 

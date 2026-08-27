@@ -133,7 +133,7 @@ list_of_string_and_a_string_field_resolve_test() ->
 %% component that quietly reports empty is this compiler's recurring failure, and
 %% a residual that is exact is the observable that rules it out.
 the_residual_over_a_string_union_is_exact_test() ->
-    [{error, _, 'Kind', {inexhaustive, R}}] =
+    [{error, _, 'Kind', {inexhaustive, R, _}}] =
         errors("module Res\n"
                "type Payload = string | :nothing\n"
                "public atom Kind(Payload p)\n"
@@ -198,7 +198,7 @@ a_string_literal_works_in_a_guard_test() ->
 %% So the guard is `Possible`, the clause earns no exhaustiveness credit, and
 %% dropping the catch-all is an ERROR rather than a silent pass.
 a_string_guard_earns_no_exhaustiveness_credit_test() ->
-    ?assertMatch([{error, _, 'Pick', {inexhaustive, _}}],
+    ?assertMatch([{error, _, 'Pick', {inexhaustive, _, _}}],
                  errors("module Gu\n"
                         "public atom Pick(string s)\n"
                         "Pick(s) when s == \"hello\" -> :hit\n")).

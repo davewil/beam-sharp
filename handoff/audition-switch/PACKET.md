@@ -231,7 +231,7 @@ rather than a complaint to interpret.
 ```
 readings.bs:4: error: Classify is not exhaustive
   no clause matches:
-    Classify((:ok, int <= 0)) -> ...
+    Classify((:ok, n)) when n <= 0 -> ...
 ```
 
 The error is the **missing clause**, not a complaint — the residual is computed exactly and printed

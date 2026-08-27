@@ -1,7 +1,9 @@
 # F29 — the residual prints a pattern: the printer half of ticket 42 and F22
 
-**Status**      **not started** — spec written 2026-08-27 ·
-                [ENG-266](https://linear.app/davewil/issue/ENG-266)
+**Status**      **shipped 2026-08-27** — spec written 2026-08-27 ·
+                [ENG-266](https://linear.app/davewil/issue/ENG-266). **§1 and §2 were not
+                built**, and were not skipped: they turned out not to be needed. See
+                "The two decisions in this file", corrected in place below.
 **Implements**  [42](../../wayfinder/issues/42-interval-pattern-spelling.md) (a span is a relational
                 pattern), [55](../../wayfinder/issues/55-destructure-and-bind.md)/[F22](F22-record-pattern-and-binder.md)
                 (a record pattern may name its type), ticket 23 §2 (the lowering). **Decides two
@@ -102,7 +104,38 @@ Recorded here because they were taken on 2026-08-27 and this is where the work l
 language-surface decisions living in an F-file rather than a ticket** — `map.md`'s index will not
 see them, and that is a known cost, flagged rather than absorbed.
 
-**§1 — A pattern may carry a generic type and a binder.** One production, admitted narrowly:
+**§1 — A pattern may carry a generic type and a binder. NOT BUILT, and not needed.**
+
+**Corrected 2026-08-27, when the feature was built.** The measurement below stands — the narrow
+form is 0/0 and the wide form is six reduce/reduce — and the production was still not added,
+because the case it was for does not arise.
+
+§1's argument is *"a list pattern constrains a prefix … nothing spells every element"*. That is a
+ONE-HEAD argument, and **F29.2, four sections down in this same file, made a residual N heads.**
+Once it is N heads, the folded `list<Order>` residual is what it always was in the algebra —
+`[] | [Order, ..]` — and it prints as the two clauses an author actually writes:
+
+```csharp
+Ship([]) -> ...
+Ship([Order o, ..]) -> ...
+```
+
+Both are grammatical today. Measured 2026-08-27: pasted back together they drive the residual to
+`none` and the module compiles clean. What made the production look necessary was `l_str/1`'s
+FOLD — it rejoins `[] | [T, ..]` into `list<T>` so an ordinary list type does not read like a
+residual — being inherited by the head channel, where it collapses two spines that each have a
+pattern into one that has none. The head channel does not inherit the fold; that is the whole fix,
+and it is four lines rather than a grammar change, an AST node, a checker case and an emitter case.
+
+A fixture holds it: `bin/fixtures/residual/WholeList/` is the only roster shape that reaches the
+folded residual, and it was added in this commit because the gate had no row for it. Without it
+the production would have shipped measured, built, and emitted by nothing.
+
+**It also deleted a soundness question this file never asked.** `list<Order> xs` has no Erlang
+pattern; the runtime test is `is_list`, which cannot tell `list<Order>` from `list<Invoice>`. A
+`p_typed` checker case would have needed a width rule to stay sound, and §1 does not specify one.
+
+The measurement, kept because it is the reason a wider form is still refused:
 
 ```
 pattern -> lident '<' type_list '>' lident      // list<Invoice> invs
@@ -128,12 +161,50 @@ here despite reading like the obvious companion case.
 It cannot reuse `p_rec`: `list<Invoice>` is not a record. It needs a new AST node, `p_typed`, with
 cases in `bs_check` and the emitter.
 
-**§2 — Ticket 12 §2 extends to the type-annotated binder.** A `p_typed` binder whose type is
-strictly wider than the residual, over a **closed** residual, is the same defect as `_` and gets the
-same error. Without this, `Ship(list<Invoice> invs)` over a residual of `[Invoice]` — a list of
-exactly one — pastes, compiles, is exhaustive, and hides an enumerable case. That is precisely what
-12 §2 exists to prevent, in a form harder to spot. The test goes where one already runs,
-`bs_check.erl:2302`.
+**§2 — Ticket 12 §2 extends to the type-annotated binder. MOOT, not unimplemented.**
+
+**Corrected 2026-08-27.** §2 existed to refuse `Ship(list<Invoice> invs)` over a closed residual —
+*"a catch-all wearing a type"* that pastes, compiles, is exhaustive and hides an enumerable case.
+With §1 not built there is no such pattern to write, and the head the printer emits in its place —
+`Ship([])` beside `Ship([Invoice i, ..])` — discriminates on the spine and hides nothing. The
+hazard is deleted rather than guarded.
+
+If §1 is ever wanted for its own sake, §2 is its precondition and this paragraph is the record of
+why: the rule was designed before the production, and the production was dropped first.
+
+## What the spec had wrong, found by building it
+
+Three, all measured 2026-08-27 and all corrected in place above or below.
+
+**1. `TupleNested` is not a `syntax:<=` row.** "Where it starts" records it as a parse failure. It
+parses. `Step((:ok, <= 0))` is refused on MEANING — *"a relational pattern goes where a whole
+argument goes … write the comparison as a guard there"* — and the diagnostic names the fix. So a
+span at argument position is ticket 42's pattern and a span below it is a **binder plus a hoisted
+`when` clause**, which this file did not anticipate and which `i_pat/2` now decides on position.
+The printer was emitting a form its own checker rejects.
+
+**2. The gate's paste-back was self-contradictory.** `check-residual-pasteable.sh` pasted
+`head -n 1` and demanded rc 0, while its `channels()` asserted `ManyHeads` carries five heads. No
+correct compiler satisfies both. It was unreachable before F29 because the `|`-joined head did not
+parse, so every multi-head shape stopped at `syntax:|`. Corrected there, dated, with the roster
+grown to eleven.
+
+**3. F29.9 is per PRODUCT, not per residual.** A residual can be part spellable and part not:
+`Classify(int n, atom a)` leaves one product with forty-one heads and forty whose atom component is
+`atom \ (:x)`. Emitting only the heads is a diagnostic wrong by omission, so both keys are carried
+and both are capped by ticket 43's rule. Building this also found `{cofinite, []}` — *every* atom,
+which a binder spells — being treated as unspellable alongside `{cofinite, [:x]}`, which turned a
+forty-one-head diagnostic into a wall of type notation.
+
+**4. `caller_head` was the eighth site and it was broken the same way.** This file's table names
+`bs_diag.erl:1151` a **paste** site, and it was reading `to_pattern/1`. So an interval residual
+printed `F(int <= 5, _) -> ...` under the heading *"the clause to add here"* — a head that does not
+parse, at the one place a reader is most likely to paste from. Nothing had found it, for this
+feature's own stated reason: a printer is not part of any surface being added. It now returns a
+LIST through the head channel, and `none` where no part of the residual has a pattern, which makes
+23 §2's *"where the residual is not expressible the term says so and offers nothing"* reachable
+rather than aspirational. The record name reaches it through `head_hint/2` rather than a sixth
+element on `arg_not_accepted`, which leaves that diagnostic's shape alone.
 
 ## Scenarios
 
@@ -289,11 +360,12 @@ untested until now. Its residual is five heads; the prose prints three and `... 
 
 ## Done when
 
-**Every entry in `expected` in `check-residual-pasteable.sh` reads `clean`** — that is the whole
-condition, and the six that do not today are `Interval`, `IntervalUnion`, `TupleNested`,
-`RecordInList`, `BinTag` and `ManyHeads`, plus the three that compile with the wrong spelling
-(`RecordUnion`, `OpenList`, `TopString`). `Ship(list<Invoice> invs)` is a legal clause head with a
-measured conflict count of 0/0, `to_string/1` prints exactly what it printed before,
+**Every entry in `expected` in `check-residual-pasteable.sh` reads `clean`** — met 2026-08-27,
+across **eleven** shapes rather than ten: `WholeList` was added because nothing in the roster
+reached the folded list residual. The six that did not paste were `Interval`, `IntervalUnion`,
+`TupleNested`, `RecordInList`, `BinTag` and `ManyHeads`, plus the three that compiled with the
+wrong spelling (`RecordUnion`, `OpenList`, `TopString`). `Ship(list<Invoice> invs)` is **still a syntax error** — §1 was not
+built, see above — `to_string/1` prints exactly what it printed before,
 `Classify(int n)` is still a syntax error, the display sites replay, and
 `check-residual-pasteable.sh --self-test` has been seen red on all five stubs — including the
 over-informed one — with a green on the correct form beside them.

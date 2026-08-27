@@ -24,7 +24,7 @@
 # evidence here that is not self-reported.
 
 url       https://claude.ai/code/artifact/40f71cf4-d5d3-4b71-882c-ad73f630a03c
-sha256    75bde3b271ec62ea463c5de16d3a9ed73e39e987d4015901f6a7a34a4f1a3579
+sha256    c14dd8f896e77c48d051b0471e2debc034b1622bdf0e146af0b64ead805dc7f4
 verified  2026-08-26 (for ENG-245) — the "Decided but not built" table opened by calling
           binary patterns "still open — the one numbered feature not started", sixty
           lines above its own construct index listing SIX of them against

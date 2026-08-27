@@ -95,7 +95,7 @@ a_tag_dispatch_head_names_its_residual_test() ->
           "public atom Read(binary b)\n"
           "Read(<<t:8, _>>) -> Classify(t)\n"
           "Read(_) -> :short\n",
-    [{error, _, 'Classify', {inexhaustive, Residual}}] = errors(Src),
+    [{error, _, 'Classify', {inexhaustive, Residual, _}}] = errors(Src),
     ?assertEqual("(0 | 4..255)", bs_types:to_pattern(Residual)).
 
 %% F13.4 — THE SUB-BYTE PROOF, and the reason ticket 30 carries a warning.
@@ -118,7 +118,7 @@ a_sub_byte_width_refines_its_binding_test() ->
           "public atom Read(binary b)\n"
           "Read(<<_:4, op:4, _>>) -> Op(op)\n"
           "Read(_) -> :short\n",
-    [{error, _, 'Op', {inexhaustive, Residual}}] = errors(Src),
+    [{error, _, 'Op', {inexhaustive, Residual, _}}] = errors(Src),
     ?assertEqual("(3..7 | 11..15)", bs_types:to_pattern(Residual)).
 
 %% TICKET 30'S SHARP EDGE, ASSERTED AS A DESIGN RATHER THAN FOUND AS A BUG.
@@ -249,7 +249,7 @@ string_literals_alone_are_not_exhaustive_test() ->
           "public atom Verb(string s)\n"
           "Verb(\"GET\") -> :get\n"
           "Verb(\"PUT\") -> :put\n",
-    ?assertMatch([{error, _, 'Verb', {inexhaustive, _}}], errors(Src)).
+    ?assertMatch([{error, _, 'Verb', {inexhaustive, _, _}}], errors(Src)).
 
 %% A STRING LITERAL AS A SEGMENT, which is the prefix match — `<<"GET", rest>>`.
 %% Ticket 30 §4 cites Gleam permitting both `"GET" <> rest` and

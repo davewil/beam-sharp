@@ -21,8 +21,19 @@
 # No doc block can express it.
 #
 # The three probes are asserted on the DIAGNOSTIC, never on the exit code. A
-# residual that merely refuses is candidate 1; a residual that names `[int]` is
+# residual that merely refuses is candidate 1; a residual that names `[n]` is
 # the decision ticket 54 actually took.
+#
+# THE ELEMENT IS SPELLED `n` AND NOT `int`. Corrected 2026-08-27 when F29 landed.
+# This gate asserted `Shape([int])`, and `int` is lowercase in pattern position —
+# so that head bound a VARIABLE NAMED int, and only compiled correctly because
+# `list<int>` already constrains the element. F29's `OpenList` fixture was filed
+# on exactly that, and the head is now `Shape([n])`: an honest binder.
+#
+# What this gate measures is untouched. Ticket 54's decision is the LENGTH
+# distinction — `[n]` is a list of exactly one and `[n, ..]` is one or more — and
+# the self-test's under-subtracting stub still separates them. Only the element's
+# spelling moved.
 
 set -euo pipefail
 
@@ -51,14 +62,14 @@ judge() {
   # A two-element prefix matches lists of length >= 2, so a one-element list
   # matches nothing. Two assertions, and the second is the one that separates
   # this decision from a cheaper one: refusing is not enough, the residual has
-  # to NAME the missing case as `[int]`.
+  # to NAME the missing case as `[n]`.
   if grep -q 'syntax error\|illegal characters' <<<"$p1"; then
     echo "probe 1: did not compile, so nothing was measured. it said:"
     sed 's/^/           /' <<<"$p1"
   elif ! grep -q 'not exhaustive' <<<"$p1"; then
     echo "probe 1: [] + [a, b, ..] was accepted as exhaustive — it crashes on [7]"
-  elif ! grep -qF 'Shape([int]) ->' <<<"$p1"; then
-    echo "probe 1: reported inexhaustive but did not name the missing case as [int]."
+  elif ! grep -qF 'Shape([n]) ->' <<<"$p1"; then
+    echo "probe 1: reported inexhaustive but did not name the missing case as [n]."
     echo "         the residual has to be a clause you can paste. it said:"
     sed 's/^/           /' <<<"$p1"
   fi
@@ -160,16 +171,16 @@ OUT
   cat > "$CTL/under/P1.out" <<'OUT'
 P1/P1.bs:2: error: Shape is not exhaustive
   no clause matches:
-    Shape([int, ..]) -> ...
+    Shape([n, ..]) -> ...
 OUT
   cat > "$CTL/under/P2.out" <<'OUT'
 P2/P2.bs:2: error: Shape is not exhaustive
   no clause matches:
-    Shape([int, ..]) -> ...
+    Shape([n, ..]) -> ...
 OUT
   : > "$CTL/under/P3.out"                    # nothing subtracted, so nothing is unreachable
   under="$(judge "$CTL/under" || true)"
-  grep -q '^probe 1:' <<<"$under" || { echo "SELF-TEST FAILED: probe 1 accepted a residual of [int, ..] where the answer is [int]"; fail=1; }
+  grep -q '^probe 1:' <<<"$under" || { echo "SELF-TEST FAILED: probe 1 accepted a residual of [n, ..] where the answer is [n]"; fail=1; }
   grep -q '^probe 2:' <<<"$under" || { echo "SELF-TEST FAILED: probe 2 missed the under-subtracting stub — the invisible closed clause"; fail=1; }
   if grep -q '^probe 3:' <<<"$under"; then
     echo "SELF-TEST FAILED: probe 3 fired on the under-subtracting stub, which it should pass."
@@ -182,7 +193,7 @@ OUT
   cat > "$CTL/good/P1.out" <<'OUT'
 P1/P1.bs:2: error: Shape is not exhaustive
   no clause matches:
-    Shape([int]) -> ...
+    Shape([n]) -> ...
 OUT
   : > "$CTL/good/P2.out"
   : > "$CTL/good/P3.out"
@@ -288,7 +299,7 @@ if [ -n "$violations" ]; then
   exit 1
 fi
 
-echo "  ok         [] + [a, b, ..] names the missing case as [int]"
+echo "  ok         [] + [a, b, ..] names the missing case as [n]"
 echo "  ok         [] + [a] + [a, b, ..] is exhaustive and silent"
 echo "  ok         a clause that matches [7] is not called unreachable"
 echo

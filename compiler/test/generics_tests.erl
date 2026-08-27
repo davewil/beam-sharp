@@ -47,7 +47,7 @@ the_residual_of_a_bracket_is_its_payload_test() ->
           "type Weighed = result<int, atom>\n"
           "public atom Grade(Weighed w)\n"
           "Grade((:error, e)) -> e\n",
-    ?assertMatch([{error, _, 'Grade', {inexhaustive, _}}], errors(Src)).
+    ?assertMatch([{error, _, 'Grade', {inexhaustive, _, _}}], errors(Src)).
 
 %% F6.2 — ticket 26 §4 says there are no absent fields, and `option<T>` is what
 %% that costs a field. Until F6 the compiler could not let anyone obey the rule.

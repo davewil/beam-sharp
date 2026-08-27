@@ -137,14 +137,14 @@ format(Desc) ->
 at(Sev, Path, Line, Fn) ->
     #{severity => Sev, file => Path, line => Line, function => Fn}.
 
-descriptor(Path, {Sev, Line, Fn, {inexhaustive, Residual}}) ->
+descriptor(Path, {Sev, Line, Fn, {inexhaustive, Residual, Names}}) ->
     (at(Sev, Path, Line, Fn))#{tag => inexhaustive,
                                residual => residual(Residual),
-                               heads => heads(Fn, Residual)};
-descriptor(Path, {Sev, Line, Fn, {catch_all_over_closed, Residual}}) ->
+                               heads => heads(Fn, Residual, Names)};
+descriptor(Path, {Sev, Line, Fn, {catch_all_over_closed, Residual, Names}}) ->
     (at(Sev, Path, Line, Fn))#{tag => catch_all_over_closed,
                                residual => residual(Residual),
-                               heads => heads(Fn, Residual)};
+                               heads => heads(Fn, Residual, Names)};
 %%% F13 — the four ways a binary segment can be wrong. Each one names the fix,
 %%% because each is a shape the author meant something specific by.
 descriptor(Path, {Sev, Line, Fn, {unsized_segment_not_last, _Size, _L}}) ->
@@ -1125,30 +1125,85 @@ message(#{tag := unclassified, file := P, detail := D}) ->
 
 %% The residual's tuple part is the *argument list*, so each product is a clause
 %% head the author can paste in.
-heads(Fn, Residual) ->
+heads(Fn, Residual, Names) ->
     #{tuples := Products} = Residual,
     case Products of
         [] -> #{kind => residual_only, parts => parts(Residual)};
-        _  -> #{kind => products,
-                products => [[parts(C) || C <- P] || P <- Products],
-                pasteable => [pasteable(Fn, P) || P <- Products]}
+        _  ->
+            Base = #{kind => products,
+                     products => [[parts(C) || C <- P] || P <- Products]},
+            %% F29.9 — ABSENT, NOT EMPTY, AND BOTH KEYS WHERE THE RESIDUAL IS
+            %% MIXED. A cofinite atom set and `binary \ string` are sets the
+            %% surface has no pattern for, and `pasteable => []` invites a
+            %% consumer to render an empty list as though it were a suggestion.
+            %%
+            %% THE SPLIT IS PER PRODUCT, not per residual, because a residual can
+            %% be part spellable and part not: `Classify(int n, atom a)` leaves
+            %% one product with forty-one heads and forty products whose atom
+            %% component is `atom \ (:x)`. Reporting only the heads would show a
+            %% list of clauses that does not cover the residual and say nothing
+            %% about the rest — wrong by omission rather than by content. So the
+            %% unspellable products are carried beside the heads.
+            {Lines, Unspellable} =
+                lists:foldl(fun(P, {Ls, Us}) ->
+                                    case pasteable(Fn, P, Names) of
+                                        [] -> {Ls, [product_str(P) | Us]};
+                                        L  -> {Ls ++ L, Us}
+                                    end
+                            end, {[], []}, Products),
+            with_description(with_pasteable(Base, Lines), lists:reverse(Unspellable))
     end.
 
-%% Untruncated and pasteable — what a consumer acts on. Derived from the same
-%% joiner the prose uses, at no cap, so the two cannot say different things.
-pasteable(Fn, Product) ->
-    lists:flatten(
-      io_lib:format("~s(~s) -> ...",
-                    [Fn, lists:join(", ", [join(parts(C), infinity)
-                                           || C <- Product])])).
+with_pasteable(Base, [])    -> Base;
+with_pasteable(Base, Lines) -> Base#{pasteable => Lines}.
+
+with_description(Base, [])  -> Base;
+with_description(Base, Ds)  -> Base#{description => Ds}.
+
+%% One product as a description. Untruncated, like everything else the term
+%% carries — the prose is where ticket 43's cap lives.
+product_str(P) ->
+    lists:flatten(["(", lists:join(", ", [join(parts(C), infinity) || C <- P]), ")"]).
+
+%% ONE HEAD PER LINE, WHICH IS F29.2 AND IS WHY THIS IS A LIST.
+%%
+%% A residual argument is a UNION and a clause head is not: `Classify(<= 199 |
+%% 300..399)` is a syntax error, and joining the parts with `|` was the printer
+%% asserting a form the grammar has never had. So the parts are expanded across
+%% the arguments and each combination is its own head — which is also why the
+%% count can exceed the product count, and why ticket 43's cap counts LINES.
+%%
+%% `name_binders/1` runs on the assembled line rather than on the parts, because
+%% two binders spelled the same in one head is `repeated_in_head` — the very
+%% defect `RecordInList` was filed for — and no part can see its siblings.
+%% The arrow is appended AFTER the binders are named, because naming is also
+%% where a nested span's `when` clause is hoisted to, and a guard goes before the
+%% arrow rather than after it.
+pasteable(Fn, Product, Names) ->
+    [lists:flatten(bs_types:name_binders(
+                     io_lib:format("~s(~s)", [Fn, lists:join(", ", Combo)]))
+                   ++ " -> ...")
+     || Combo <- bs_types:head_combos(Product, Names)].
 
 heads_prose(_Fn, #{kind := residual_only, parts := Parts}) ->
     io_lib:format("    ~s~n", [join(Parts, ?RESIDUAL_CASES)]);
-heads_prose(Fn, #{kind := products, products := Products}) ->
-    cap([io_lib:format("    ~s(~s) -> ...~n",
-                       [Fn, lists:join(", ", [join(Arg, ?RESIDUAL_CASES)
-                                              || Arg <- Product])])
-         || Product <- Products]).
+%% F29.10 — THE PROSE IS A PREFIX OF THE TERM CHANNEL, now by construction. The
+%% claim below used to be that the two "cannot say different things"; it was true
+%% on content and false on completeness, because the term joined at `infinity`
+%% and the prose capped, from two separate expressions. They are one expression
+%% now, and the cap is the only difference between them.
+heads_prose(_Fn, H = #{kind := products, pasteable := Lines}) ->
+    [cap([io_lib:format("    ~s~n", [L]) || L <- Lines]), unspellable_prose(H)];
+heads_prose(_Fn, H = #{kind := products}) ->
+    unspellable_prose(H).
+
+%% CAPPED LIKE THE HEADS, and for the same reason: ticket 43 scoped its rule to
+%% *"at most three of whatever it is enumerating"*, and this is enumerating too.
+%% Uncapped, a two-argument residual printed forty-one products on one line.
+unspellable_prose(#{description := Ds}) ->
+    [io_lib:format("  and no pattern spells:~n", []),
+     cap([io_lib:format("    ~s~n", [D]) || D <- Ds])];
+unspellable_prose(_) -> [].
 
 %% THE RULE APPLIES TO HEAD LINES TOO, AND AT TWO DEPTHS AT ONCE. A residual over
 %% a two-argument function is a PRODUCT, so the head count is the product of the
@@ -1182,17 +1237,39 @@ residual(Ty) -> join(parts(Ty), infinity).
 %% expression has no position in the head to put a pattern in, and inventing one
 %% would hand back something that does not compile. `none` is 23 §2's *"where
 %% the residual is not expressible the term says so and offers nothing"*.
+%% F29 — A PASTE SITE, SO IT USES THE HEAD PRINTER AND RETURNS A LIST.
+%%
+%% This read `to_pattern/1`, which is the DESCRIPTION printer: an interval
+%% residual produced `F(int <= 5, _) -> ...` under the heading *"the clause to
+%% add here"*, and that head does not parse. It is the same defect as the
+%% inexhaustive site, at the one place a reader is most likely to paste from,
+%% and nothing found it because a printer is not part of any surface being added.
+%%
+%% A list, for F29.2's reason: the residual is a union and a clause head is not.
+%% `none` where the argument is not a whole parameter, and `none` again where no
+%% part of the residual has a pattern — 23 §2's *"where the residual is not
+%% expressible the term says so and offers nothing"*, which is now reachable
+%% rather than aspirational.
 caller_head(_Fn, none, _Residual) -> none;
-caller_head(Fn, {Pos, Arity}, Residual) ->
-    Slots = [case I of
-                 Pos -> bs_types:to_pattern(Residual);
-                 _   -> "_"
-             end || I <- lists:seq(1, Arity)],
-    lists:flatten(io_lib:format("~s(~s) -> ...", [Fn, lists:join(", ", Slots)])).
+caller_head(Fn, {Pos, Arity, Names}, Residual) ->
+    case bs_types:head_parts(Residual, Names) of
+        [] -> none;
+        Parts ->
+            [lists:flatten(
+               bs_types:name_binders(
+                 io_lib:format("~s(~s)",
+                               [Fn, lists:join(", ", slots(Pos, Arity, Part))]))
+               ++ " -> ...")
+             || Part <- Parts]
+    end.
+
+slots(Pos, Arity, Part) ->
+    [case I of Pos -> Part; _ -> "_" end || I <- lists:seq(1, Arity)].
 
 caller_head_prose(_Fn, none) -> "";
-caller_head_prose(_Fn, Head) ->
-    io_lib:format("  the clause to add here:~n    ~s~n", [Head]).
+caller_head_prose(_Fn, Heads) ->
+    ["  the clause to add here:\n",
+     cap([io_lib:format("    ~s~n", [H]) || H <- Heads])].
 
 %% Construction supplies a field set; `with` updates one. Ticket 26 §2 is the
 %% reason `update` can never carry a `Missing` list.

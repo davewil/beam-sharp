@@ -80,13 +80,22 @@ judge() {
   #   Which(Method m) -> :method        // and no Header clause
   #
   # Accepting this is the ticket 54 failure: proved exhaustive, crashes on a
-  # Header. Asserting the residual NAMES `Wire.Header` rather than merely that
+  # Header. Asserting the residual NAMES `Header` rather than merely that
   # something was refused is what stops a compiler that rejects the program for
   # an unrelated reason from passing.
+  #
+  # THE SPELLING ASSERTED IS `Which(Header h)`. Corrected 2026-08-27 when F29
+  # landed. This grepped for `Wire.Header` — the minted tag — which is what the
+  # printer emitted before the head channel existed. F22 shipped the
+  # type-prefixed pattern on 2026-08-22 and `bs_parser.yrl:499-501` says writing
+  # the tag by hand "makes an erasure detail load-bearing in source"; the printer
+  # simply never caught up, which is the whole of what F29 is. What this gate
+  # measures is unchanged — the residual still has to NAME the member left out,
+  # and it now names it the way F22 says to write it.
   if grep -q 'syntax error\|illegal characters' <<<"$p2"; then
     echo "probe 2: did not compile, so nothing was measured. it said:"
     sed 's/^/           /' <<<"$p2"
-  elif ! grep -q "Wire.Header" <<<"$p2"; then
+  elif ! grep -q "Which(Header h)" <<<"$p2"; then
     echo "probe 2: a partial cover was accepted, or was refused without naming the"
     echo "         member left out. the type prefix is subtracting more than the"
     echo "         Kind spelling does, and a Header reaches no clause. it said:"
@@ -101,7 +110,7 @@ judge() {
   # same residual. If this and probe 2 ever disagree, the two spellings mean
   # different things and the feature has introduced the divergence it exists to
   # avoid.
-  if ! grep -q "Wire.Header" <<<"$p3"; then
+  if ! grep -q "Which(Header h)" <<<"$p3"; then
     echo "probe 3: the Kind spelling stopped refusing a partial cover. this is a"
     echo "         regression in surface that shipped with F3, not in F22. it said:"
     sed 's/^/           /' <<<"${p3:-(nothing)}"
@@ -161,7 +170,7 @@ if [ "${1:-}" = "--self-test" ]; then
   fail=0
   residual="in.bs:5: error: Which is not exhaustive
   no clause matches:
-    Which({ Kind: :'Wire.Header' }) -> ..."
+    Which(Header h) -> ..."
 
   expect() {
     local name="$1" dir="$2" want="$3" got

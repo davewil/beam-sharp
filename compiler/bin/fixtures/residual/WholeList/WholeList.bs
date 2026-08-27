@@ -1,0 +1,29 @@
+// whole-list — THE FOLDED LIST RESIDUAL, which no other row reaches. Added
+// 2026-08-27 while building F29.
+//
+// The other list rows leave a residual with a known PREFIX — `[Order o, ..]`,
+// `[n]` — and a list pattern constrains a prefix, so those spell themselves with
+// the grammar F22 already had. This one leaves the whole list type. `list<Order>`
+// is `[] | [Order, ..]`: two spines, and `l_str/1` folds them back into
+// `list<Order>` so that an ordinary list type does not read like a residual.
+//
+// THAT FOLD IS WHY F29 §1 PROPOSED A GRAMMAR CHANGE, and why it is not needed.
+// Inheriting the fold on the head channel collapses two spines that each have a
+// pattern into one that has none, which made `pattern -> lident '<' type_list
+// '>' lident` look like the only way to spell the row. F29.2 — in the same file
+// — had already made a residual N HEADS, and once it is N heads the answer is
+// the two clauses an author writes:
+//
+//     Ship([]) -> ...
+//     Ship([Order o, ..]) -> ...
+//
+// So this fixture's job is to keep the head channel from re-inheriting the fold.
+// If it ever prints one head again, that is the regression.
+module WholeList
+
+record Order { Id: int, Total: int }
+
+type Job = list<Order> | :none
+
+public atom Ship(Job j)
+Ship(:none) -> :nothing

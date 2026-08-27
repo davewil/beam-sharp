@@ -37,6 +37,10 @@
 -export([union/2, union/1, intersect/2, subtract/2]).
 -export([is_none/1, is_open/1, is_subtype/2, to_string/1, to_pattern/1,
          pattern_parts/1, atom_str/1]).
+%% F29 — the paste channel. `head_parts/2` is the printer whose output is meant
+%% to be pasted back into the source; `to_pattern/1` above stays the DESCRIPTION
+%% printer and its callers are unchanged.
+-export([head_parts/2, head_combos/2, name_binders/1]).
 
 -export_type([ty/0]).
 
@@ -1076,6 +1080,268 @@ pat_parts(T = #{atoms := As, ints := Is, tuples := Ts, lists := Ls, maps := Ms,
 
 ts_pat(top) -> ["tuple"];
 ts_pat(Ps)  -> ["(" ++ string:join([to_pattern(C) || C <- P], ", ") ++ ")" || P <- Ps].
+
+%%% ---------------------------------------------------------------------------
+%%% F29 — THE HEAD CHANNEL, which is a different job from the one above.
+%%%
+%%% `to_pattern/1` DESCRIBES a set: it is rendered into `rejected`, `member`,
+%%% `undeclared`, `unmatched`, `subject` and the switch `arm`, all of which are
+%%% sentences about a type. This printer produces text meant to be PASTED BACK
+%%% INTO THE SOURCE, and the two come apart at every leaf where the surface's
+%%% type syntax is not its pattern syntax:
+%%%
+%%%   int span      `300..399` describes; `>= 300 and <= 399` is what you write.
+%%%                 Ticket 42 settled that on 2026-08-15 and the parser was built
+%%%                 for it (`bs_parser.yrl:462-465`); only the printer was not.
+%%%   union         `a | b` describes; a head has no `|`, so a union of parts is
+%%%                 N HEAD LINES. F29.2.
+%%%   record        `{ Kind: :'M.Order' }` describes; F22's `Order o` is what you
+%%%                 write, where the name resolves at the error site.
+%%%   list element  the element printer was `to_string`, so a record inside a
+%%%                 list printed its field types and bound `int` twice. This one
+%%%                 recurses into the head printer instead.
+%%%   type word     `int`, `string`, `tuple`, `map`, `term` are TYPE words. In
+%%%                 pattern position a lowercase word is a BINDER, so
+%%%                 `Kind(string)` silently means `Kind(s)`. The head channel
+%%%                 emits the binder it actually means, and `to_string/1` keeps
+%%%                 the type word — which is why ticket 61's answer is untouched
+%%%                 here (F29.8).
+%%%
+%%% NOT EVERYTHING HAS A HEAD. A cofinite atom set and `binary \ string` describe
+%%% sets the surface cannot spell as a pattern, and inventing one would be worse
+%%% than saying so. Those contribute NO part, which empties the head list and
+%%% makes `pasteable` absent rather than empty (F29.9).
+%%%
+%%% BINDERS ARE PLACEHOLDERS UNTIL THE LINE IS ASSEMBLED. A head is built from
+%%% parts that do not know about each other, and two binders spelled the same in
+%%% one head is `repeated_in_head` — the exact defect this feature exists to stop
+%%% emitting. So a binder travels as an open byte, its base name and a close
+%%% byte, and `name_binders/1` numbers them once the whole line exists. The
+%%% convention and its resolver live together here so that no caller can
+%%% half-implement it.
+%%%
+%%% `Names` maps a record's minted tag to the source name that resolves AT THE
+%%% ERROR SITE. It is threaded rather than derived from the tag, because the
+%%% segment after the last dot is a name whether or not it is in scope, and
+%%% suggesting a head that names a type the file cannot see is a worse failure
+%%% than the discriminator it replaces (F29.4).
+%%% ---------------------------------------------------------------------------
+
+-define(B_OPEN, 0).
+-define(B_CLOSE, 1).
+-define(G_OPEN, 2).
+-define(G_CLOSE, 3).
+-define(G_SELF, 4).
+
+binder(Base) -> [?B_OPEN] ++ Base ++ [?B_CLOSE].
+
+%% A CONDITION ON THE BINDER TO ITS LEFT, hoisted to a `when` clause once the
+%% line exists. `?G_SELF` stands for that binder's eventual name, and appears
+%% twice in a two-sided span because `n >= 300 and n <= 399` names it twice.
+guard(Cond) -> [?G_OPEN] ++ Cond ++ [?G_CLOSE].
+
+%% The parts of a head, unjoined and one per LINE — never `|`-joined, which is
+%% the whole of F29.2. `none` has no head: there is nothing left to match.
+head_parts(T, Names) ->
+    case is_none(T) of
+        true  -> [];
+        false -> hd_parts(T, Names, arg)
+    end.
+
+%% The top is a binder, not `term`. Ticket 61 gave the top its word on the
+%% DESCRIPTION channel and this narrows that to the description channel rather
+%% than overturning it: `Fn(term)` binds a variable named `term`, which is not
+%% what the word was chosen to mean.
+hd_parts(T = #{atoms := As, ints := Is, tuples := Ts, lists := Ls, maps := Ms,
+               bins := Bs}, Names, Pos) ->
+    case is_subtype(term(), T) of
+        true  -> [binder("x")];
+        false -> a_pat(As) ++ [i_pat(R, Pos) || R <- Is] ++ ts_hd(Ts, Names)
+                     ++ l_pat(Ls, Names) ++ ms_hd(Ms, Names) ++ b_pat(Bs)
+    end.
+
+%% A finite atom set is already pattern syntax.
+%%
+%% THE TWO COFINITE CASES ARE NOT THE SAME SET AND DO NOT GET THE SAME ANSWER.
+%% `{cofinite, []}` is EVERY atom, which a binder spells exactly; `{cofinite,
+%% [:x]}` is every atom except `:x`, which no pattern spells at all. Collapsing
+%% them turned a forty-one-head diagnostic into a wall of type notation — the
+%% failure F29.9's description channel exists to prevent, produced by the
+%% mechanism meant to prevent it. Measured 2026-08-27 against `Classify(int n,
+%% atom a)`.
+a_pat({finite, []})    -> [];
+a_pat({finite, L})     -> [atom_str(A) || A <- L];
+a_pat({cofinite, []})  -> [binder("a")];
+a_pat({cofinite, _})   -> [].
+
+%% TICKET 42'S SPELLING, which the parser has accepted since 2026-08-15 and
+%% nothing ever emitted. The `int` prefix is a TYPE prefix and does not belong in
+%% a pattern; `..` was refused by 42 on meaning — "borrow the construct, or don't
+%% borrow the glyph" — so a bounded span is the conjunction of its two bounds.
+%% A RELATIONAL PATTERN GOES WHERE A WHOLE ARGUMENT GOES, and nowhere else. The
+%% compiler already says so — `Step((:ok, <= 0))` is refused with *"a relational
+%% pattern goes where a whole argument goes ... write the comparison as a guard
+%% there"* — and the printer was emitting the refused form. Measured 2026-08-27:
+%% F29's own table recorded `TupleNested` as a `syntax:<=` row, which it is not;
+%% it parses and is then refused on meaning, and the fix is the shape the
+%% diagnostic itself recommends.
+%%
+%% So at argument position a span is ticket 42's pattern, and below it a span is
+%% a binder plus a guard. Both spell the same set; only one of them is legal at
+%% each site.
+i_pat({neg_inf, pos_inf}, _Pos) -> binder("n");
+%% A single integer is a LITERAL, and a literal is a pattern at every depth.
+i_pat({Lo, Lo}, _Pos)           -> integer_to_list(Lo);
+i_pat({neg_inf, Hi}, arg)       -> "<= " ++ integer_to_list(Hi);
+i_pat({Lo, pos_inf}, arg)       -> ">= " ++ integer_to_list(Lo);
+i_pat({Lo, Hi}, arg)            -> ">= " ++ integer_to_list(Lo) ++
+                                       " and <= " ++ integer_to_list(Hi);
+i_pat({neg_inf, Hi}, nested)    ->
+    binder("n") ++ guard([?G_SELF] ++ " <= " ++ integer_to_list(Hi));
+i_pat({Lo, pos_inf}, nested)    ->
+    binder("n") ++ guard([?G_SELF] ++ " >= " ++ integer_to_list(Lo));
+i_pat({Lo, Hi}, nested)         ->
+    binder("n") ++ guard([?G_SELF] ++ " >= " ++ integer_to_list(Lo) ++
+                             " and " ++ [?G_SELF] ++ " <= " ++ integer_to_list(Hi)).
+
+%% A tuple component that is itself a union multiplies the head lines, which is
+%% F29.2 one level down. `TupleNested` exists because a printer fixed only at the
+%% top level leaves this row broken.
+ts_hd(top, _Names) -> [binder("t")];
+ts_hd(Ps, Names)   ->
+    lists:append(
+      [["(" ++ string:join(Combo, ", ") ++ ")"
+        || Combo <- combos([hd_parts(C, Names, nested) || C <- P])] || P <- Ps]).
+
+%% THE LIST PATH, which is where the hardest row of this feature lives. The
+%% element printer below is `hd_parts/2` and not `to_string/1`; that one
+%% substitution is the whole of `RecordInList`.
+%% THE FOLD IS NOT INHERITED, AND THAT IS THE WHOLE OF THE `list<T>` CASE.
+%%
+%% `l_str/1` folds `[] | [T, ..]` back into `list<T>` so that an ordinary list
+%% type does not READ like a residual. On the head channel the same fold is
+%% harmful: it collapses two spines that each have a pattern into one that has
+%% none, and that absence is what made a new grammar production look necessary.
+%%
+%% F29 §1 was recorded on 2026-08-27 to close exactly this gap — `pattern ->
+%% lident '<' type_list '>' lident`, so that `Ship(list<Order> xs)` could be
+%% written. IT IS NOT NEEDED AND IS NOT BUILT. §1's argument is *"a list pattern
+%% constrains a prefix … nothing spells every element"*, which is a ONE-HEAD
+%% argument; F29.2, in the same file, made a residual N heads. Once it is N
+%% heads, `list<Order>` is the two heads the author actually writes:
+%%
+%%     Ship([]) -> ...
+%%     Ship([Order o, ..]) -> ...
+%%
+%% Measured 2026-08-27: both are grammatical today, and pasted back together they
+%% drive the residual to none. See F29 §1 and §2, corrected in place.
+l_pat([], _Names) -> [];
+l_pat(Ss0, Names) ->
+    lists:append([sp_pat(S, Names) || S <- lists:sort(Ss0)]).
+
+%% An OPEN spine with no known prefix is `[] | [T, ..]` — both halves, because
+%% neither alone covers it. This is the decomposition the fold above hides.
+sp_pat({[], closed}, _Names)      -> ["[]"];
+sp_pat({[], {open, any}}, _Names) -> ["[]", "[" ++ binder("x") ++ ", ..]"];
+sp_pat({[], {open, T}}, Names)    ->
+    ["[]"] ++ ["[" ++ H ++ ", ..]" || H <- hd_parts(T, Names, nested)];
+sp_pat({P, closed}, Names)        ->
+    ["[" ++ string:join(C, ", ") ++ "]"
+     || C <- combos([hd_parts(E, Names, nested) || E <- P])];
+sp_pat({P, {open, _}}, Names)     ->
+    ["[" ++ string:join(C, ", ") ++ ", ..]"
+     || C <- combos([hd_parts(E, Names, nested) || E <- P])].
+
+ms_hd(top, _Names)    -> [binder("m")];
+ms_hd(Members, Names) -> [m_hd(M, Names) || M <- Members].
+
+%% F22'S SPELLING WHERE THE NAME RESOLVES, and 26 §1's discriminator where it
+%% does not. `bs_parser.yrl:499-501` says the hand-written minted tag "makes an
+%% erasure detail load-bearing in source" — F22 exists to replace exactly this,
+%% and shipped without reaching the printer.
+m_hd({_Kind, Fields}, Names) ->
+    case maps:find('Kind', Fields) of
+        {ok, #{atoms := {finite, [Tag]}, ints := [], tuples := [],
+               lists := [], maps := [], bins := []}} ->
+            case maps:find(Tag, Names) of
+                {ok, Src} -> Src ++ " " ++ binder(initial(Src));
+                error     -> "{ Kind: " ++ atom_str(Tag) ++ " }"
+            end;
+        _ ->
+            Ks = lists:sort(maps:keys(Fields)),
+            "{ " ++ string:join([atom_to_list(K) ++ ": _" || K <- Ks], ", ") ++ " }"
+    end.
+
+%% `string` and `binary` are type words and become binders for the same reason
+%% `int` does. `binary \ string` has no surface spelling at all — `b_str/1` says
+%% so in as many words — so it contributes no head.
+b_pat([])            -> [];
+b_pat([utf8])        -> [binder("s")];
+b_pat([other, utf8]) -> [binder("b")];
+b_pat([other])       -> [].
+
+initial([C | _]) when C >= $A, C =< $Z -> [C + 32];
+initial([C | _])                       -> [C];
+initial([])                            -> "x".
+
+%% ONE ARGUMENT LIST PER HEAD LINE. The expansion lives here rather than in
+%% `bs_diag` so that the tuple case above and the argument case below cannot
+%% drift: a residual nested in a tuple multiplies head lines for exactly the same
+%% reason a residual argument does, and `TupleNested` is the fixture that would
+%% catch them disagreeing.
+head_combos(Tys, Names) -> combos([head_parts(T, Names) || T <- Tys]).
+
+%% The cartesian product, in argument order, with the empty case preserved: a
+%% component with NO head spelling kills the lines it would have appeared in
+%% rather than producing a head with a hole in it.
+combos([]) -> [[]];
+combos([P | Rest]) ->
+    [[X | C] || X <- P, C <- combos(Rest)].
+
+%% ONE PASS OVER THE FINISHED LINE, because uniqueness is a property of the line
+%% and the parts are built without reference to each other. The first binder with
+%% a given base keeps it; the rest are numbered. `Kind(s)` reads better than
+%% `Kind(s1)`, and a second `s` in the same head is `repeated_in_head`, so both
+%% halves are load-bearing.
+%% The guards are hoisted rather than printed in place, and joined with `and`
+%% because a `when` clause takes one condition however many parts contributed to
+%% it. They are appended here rather than by the caller so that a head is a
+%% finished head the moment this returns.
+name_binders(Line) ->
+    {Text, Guards} = nb(lists:flatten(Line), [], [], "", []),
+    case Guards of
+        [] -> Text;
+        _  -> Text ++ " when " ++ string:join(Guards, " and ")
+    end.
+
+nb([], _Used, Acc, _Last, Gs) -> {lists:reverse(Acc), lists:reverse(Gs)};
+nb([?B_OPEN | Rest], Used, Acc, _Last, Gs) ->
+    {Base, Tail} = lists:splitwith(fun(C) -> C =/= ?B_CLOSE end, Rest),
+    Name = fresh(Base, Used),
+    nb(tl(Tail), [Name | Used], lists:reverse(Name) ++ Acc, Name, Gs);
+nb([?G_OPEN | Rest], Used, Acc, Last, Gs) ->
+    {Cond, Tail} = lists:splitwith(fun(C) -> C =/= ?G_CLOSE end, Rest),
+    nb(tl(Tail), Used, Acc, Last, [self_named(Cond, Last) | Gs]);
+nb([C | Rest], Used, Acc, Last, Gs) -> nb(Rest, Used, [C | Acc], Last, Gs).
+
+%% `?G_SELF` is "the binder this condition is about", resolved to the name that
+%% binder was actually given — which is not known until the line is walked,
+%% because a second `n` in the same head is numbered.
+self_named(Cond, Last) ->
+    lists:append([case C of ?G_SELF -> Last; _ -> [C] end || C <- Cond]).
+
+fresh(Base, Used) ->
+    case lists:member(Base, Used) of
+        false -> Base;
+        true  -> fresh_n(Base, Used, 2)
+    end.
+
+fresh_n(Base, Used, N) ->
+    Try = Base ++ integer_to_list(N),
+    case lists:member(Try, Used) of
+        false -> Try;
+        true  -> fresh_n(Base, Used, N + 1)
+    end.
 
 ms_pat(top)     -> ["map"];
 ms_pat(Members) -> [m_pat(M) || M <- Members].

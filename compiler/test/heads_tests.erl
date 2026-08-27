@@ -58,7 +58,7 @@ inexhaustive_is_rejected_test() ->
           "Classify((:ok, n)) when n > 0 -> :positive\n"
           "Classify((:error, e))         -> :unknown\n",
     {error, Diags} = check_only(Src),
-    ?assertMatch([{error, _, 'Classify', {inexhaustive, _}}], Diags).
+    ?assertMatch([{error, _, 'Classify', {inexhaustive, _, _}}], Diags).
 
 %% The residual IS the missing case — not a count, not "some value".
 residual_names_the_missing_case_test() ->
@@ -67,7 +67,7 @@ residual_names_the_missing_case_test() ->
           "public atom Classify(Reading r)\n"
           "Classify((:ok, n)) when n > 0 -> :positive\n"
           "Classify((:error, e))         -> :unknown\n",
-    {error, [{error, _, _, {inexhaustive, Residual}}]} = check_only(Src),
+    {error, [{error, _, _, {inexhaustive, Residual, _}}]} = check_only(Src),
     ?assertEqual("((:ok, int <= 0))", bs_types:to_string(Residual)).
 
 %% THE CONTROL for the three tests below, and the reason this one is left
@@ -100,7 +100,7 @@ vacuous_clause_is_not_reported_as_shadowed_test() ->
           "F((:some, x)) -> 0\n",
     {error, Diags} = check_only(Src),
     ?assertMatch([{warning, _, 'F', {vacuous_clause, 1, _}},
-                  {error,   _, 'F', {inexhaustive, _}}], Diags).
+                  {error,   _, 'F', {inexhaustive, _, _}}], Diags).
 
 %% The domain is what the author is missing — `(:some, x)` is what a reader
 %% arriving from C#, Rust or F# writes for an untagged `option<T>` — so the

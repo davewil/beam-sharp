@@ -10,7 +10,7 @@
 # the printer still ignoring it on 2026-08-16, and ENG-263 filed it as new on
 # 2026-08-27.
 #
-# WHY THIS GATE IS GREEN WHILE SIX OF TEN SHAPES ARE BROKEN.
+# WHY THIS GATE WAS GREEN WHILE SIX OF TEN SHAPES WERE BROKEN.
 #
 # The printer is F29's job, not this gate's. A gate that simply demanded "every
 # head pastes" would be red on master from the moment it landed until F29 ships,
@@ -44,6 +44,29 @@
 # the fixture's name. That is deliberate and the `over_informed` self-test stub
 # is what holds it to it.
 #
+# WHY THE PASTE-BACK IS EVERY HEAD AND NOT THE FIRST. Corrected 2026-08-27 when
+# F29 landed.
+#
+# This script was built pasting `head -n 1` back and demanding rc 0 from it,
+# while `channels()` two functions below asserts that `ManyHeads` carries FIVE
+# term heads and a `... (2 more)` prose line. Those two cannot both be satisfied
+# by any correct compiler: one of five heads leaves the other four uncovered, so
+# the function is still inexhaustive and the paste-back cannot exit 0.
+#
+# The contradiction was unreachable before F29 and that is why it shipped. The
+# old printer `|`-joined a residual's parts into ONE line, and that line did not
+# parse — so every multi-head shape stopped at `syntax:|` and the rc-0 demand was
+# never exercised against a head that compiles. F29.2 splits the parts onto their
+# own lines because a clause head has no `|`, and the first head then covers only
+# the first part.
+#
+# So the paste-back is the WHOLE suggestion. That is also what an author does
+# with it: the diagnostic says "no clause matches" and lists the clauses, and
+# writing one of them down is not the fix. `refused_spelling` runs over every
+# head for the same reason — a shape whose second head is type notation and whose
+# first is clean would otherwise go green, which is the `over_informed` stub's
+# defect one level down.
+#
 # WHY THE FLOOR IS A ROSTER AND NOT A COUNT.
 #
 # `check-language.sh` counts its blocks and never floors them, so `seq 1 0`
@@ -59,7 +82,7 @@ BSC="$HERE/_build/default/bin/bsc"
 FIXTURES="$HERE/bin/fixtures/residual"
 
 # The roster. A name here with no result in the run is red.
-ROSTER="Atom Interval IntervalUnion RecordUnion RecordInList TupleNested OpenList BinTag TopString ManyHeads"
+ROSTER="Atom Interval IntervalUnion RecordUnion RecordInList TupleNested OpenList BinTag TopString ManyHeads WholeList"
 
 # ---------------------------------------------------------------------------
 # expected — the table F29 empties. Every entry that is not `clean` is a
@@ -68,15 +91,16 @@ ROSTER="Atom Interval IntervalUnion RecordUnion RecordInList TupleNested OpenLis
 expected() {
   case "$1" in
     Atom)           echo "clean" ;;
-    Interval)       echo "syntax:.." ;;
-    IntervalUnion)  echo "syntax:<=" ;;
-    RecordUnion)    echo "spelling" ;;
-    RecordInList)   echo "binds" ;;
-    TupleNested)    echo "syntax:<=" ;;
-    OpenList)       echo "spelling" ;;
-    BinTag)         echo "syntax:|" ;;
-    TopString)      echo "spelling" ;;
-    ManyHeads)      echo "syntax:|" ;;
+    Interval)       echo "clean" ;;
+    IntervalUnion)  echo "clean" ;;
+    RecordUnion)    echo "clean" ;;
+    RecordInList)   echo "clean" ;;
+    TupleNested)    echo "clean" ;;
+    OpenList)       echo "clean" ;;
+    BinTag)         echo "clean" ;;
+    TopString)      echo "clean" ;;
+    ManyHeads)      echo "clean" ;;
+    WholeList)      echo "clean" ;;
     *)              echo "" ;;
   esac
 }
@@ -111,7 +135,7 @@ refused_spelling() {
 # status is what separates them, so it is recorded and read.
 # ---------------------------------------------------------------------------
 classify() {
-  local dir="$1" shape="$2" rc out head
+  local dir="$1" shape="$2" rc out head h
   if [ ! -f "$dir/$shape.rc" ]; then echo "unrun"; return; fi
   rc="$(cat "$dir/$shape.rc")"
   out="$(cat "$dir/$shape.paste" 2>/dev/null || true)"
@@ -121,7 +145,12 @@ classify() {
 
   if [ "$rc" = "0" ]; then
     if [ -n "$out" ]; then echo "other"; return; fi
-    if [ -n "$(refused_spelling "$head")" ]; then echo "spelling"; else echo "clean"; fi
+    # EVERY head, not the first. A suggestion is only as good as its worst line.
+    while IFS= read -r h; do
+      [ -n "$h" ] || continue
+      if [ -n "$(refused_spelling "$h")" ]; then echo "spelling"; return; fi
+    done < "$dir/$shape.term"
+    echo "clean"
     return
   fi
 
@@ -152,8 +181,13 @@ classify() {
 channels() {
   local dir="$1" shape="$2" t p more want
   [ -f "$dir/$shape.term" ] || { echo "$shape: no term channel captured"; return; }
-  t="$(grep -c . "$dir/$shape.term" 2>/dev/null || echo 0)"
-  p="$(grep -c . "$dir/$shape.prose" 2>/dev/null || echo 0)"
+  # `grep -c` PRINTS 0 AND EXITS 1 on no match, so `|| echo 0` appended a second
+  # zero and every arithmetic test below took a two-line string. Found 2026-08-27
+  # when an empty term channel reached it for the first time.
+  t="$(grep -c . "$dir/$shape.term" 2>/dev/null || true)"
+  p="$(grep -c . "$dir/$shape.prose" 2>/dev/null || true)"
+  [ -n "$t" ] || t=0
+  [ -n "$p" ] || p=0
   more="$(cat "$dir/$shape.more" 2>/dev/null || true)"
 
   if [ "$t" -le 3 ]; then
@@ -222,8 +256,14 @@ probe() {
     # Term channel: every pasteable head, one per line. Extracted by matching
     # the quoted head strings rather than by bracket-balancing, because a head
     # can itself contain `]`.
+    #
+    # ANCHORED ON THE ARROW, NOT ON A CLOSING PAREN. The first form of this
+    # required `) -> ...`, which silently captured nothing the moment a head
+    # carried a `when` clause — and F29 emits one wherever a span sits below
+    # argument position, because a relational pattern is legal only at the top.
+    # An empty capture reads as `unrun`, so the failure was at least loud.
     "$BSC" --diagnostics term "$src" 2>&1 \
-      | grep -o '"[A-Za-z_][A-Za-z0-9_]*([^"]*) -> \.\.\."' \
+      | grep -o '"[A-Za-z_][A-Za-z0-9_]*([^"]* -> \.\.\."' \
       | sed 's/^"//; s/"$//' > "$dir/$shape.term" || true
 
     # Prose channel: the head lines, and the cap line if there is one.
@@ -235,9 +275,9 @@ probe() {
     printf '%s' "$head" > "$dir/$shape.head"
     [ -n "$head" ] || continue
 
-    # Paste it back with a real body. Every fixture returns `atom`, so one body
-    # serves all of them.
-    printf '%s\n' "$head" | sed 's/-> \.\.\./-> :pasted/' >> "$src"
+    # Paste back the WHOLE suggestion — see the header. Every fixture returns
+    # `atom`, so one body serves all of them.
+    sed 's/-> \.\.\./-> :pasted/' "$dir/$shape.term" >> "$src"
     out="$("$BSC" "$src" 2>&1)"
     printf '%s' "$?" > "$dir/$shape.rc"
     printf '%s' "$out" > "$dir/$shape.paste"
@@ -245,7 +285,7 @@ probe() {
 }
 
 # ---------------------------------------------------------------------------
-# --self-test — four defects and one correct form, over fabricated text, with
+# --self-test — seven defects and one correct form, over fabricated text, with
 # no compiler involved. A check that fires on everything passes the red half
 # and is worthless, so the green half is not optional.
 #
@@ -275,39 +315,58 @@ if [ "${1:-}" = "--self-test" ]; then
     printf '%s' "$4" > "$d/$2.paste"
     printf '%s' "$5" > "$d/$2.rc"
   }
+  # two/1 — a shape whose residual is TWO heads. F29.2 made this the ordinary
+  # case rather than the exceptional one, and a stub set that only ever built
+  # single-head shapes could not drive the per-line spelling check.
+  two() { # two DIR SHAPE HEAD1 HEAD2
+    local d="$W/$1"; mkdir -p "$d"
+    printf '%s\n%s\n' "$3" "$4" > "$d/$2.term"
+    cp "$d/$2.term" "$d/$2.prose"
+    : > "$d/$2.more"
+    printf '%s' "$3" > "$d/$2.head"
+    : > "$d/$2.paste"
+    printf '0' > "$d/$2.rc"
+  }
   # many/1 — the capped shape: five heads in the term channel, three in prose.
   many() { # many DIR
     local d="$W/$1"; mkdir -p "$d"
     cat > "$d/ManyHeads.term" <<'T'
-Trip(:a3, :b1 | :b2 | :b3, :c1 | :c2 | :c3) -> ...
-Trip(:a2, :b1 | :b3, :c1 | :c2 | :c3) -> ...
-Trip(:a2, :b2, :c1 | :c3) -> ...
-Trip(:a1, :b1, :c2 | :c3) -> ...
-Trip(:a1, :b2 | :b3, :c1 | :c2 | :c3) -> ...
+Trip(:a3, :b1, :c1) -> ...
+Trip(:a3, :b1, :c2) -> ...
+Trip(:a3, :b1, :c3) -> ...
+Trip(:a3, :b2, :c1) -> ...
+Trip(:a3, :b2, :c2) -> ...
 T
     head -n 3 "$d/ManyHeads.term" > "$d/ManyHeads.prose"
     printf '2' > "$d/ManyHeads.more"
     head -n 1 "$d/ManyHeads.term" | tr -d '\n' > "$d/ManyHeads.head"
-    printf '%s' "x.bs:9: error: syntax error before: '|'" > "$d/ManyHeads.paste"
-    printf '1' > "$d/ManyHeads.rc"
+    : > "$d/ManyHeads.paste"
+    printf '0' > "$d/ManyHeads.rc"
   }
 
+  # The two failures the printer used to produce, kept as stubs rather than
+  # deleted with the table entries that used to expect them. Every row reads
+  # `clean` now, so nothing in `today` reaches `classify`'s syntax or binder
+  # branches — and a verdict branch no stub drives is a branch that ships
+  # untested. These are the regressions, not the history.
   SY_DD="x.bs:7: error: syntax error before: '..'"
-  SY_LE="x.bs:7: error: syntax error before: '<='"
-  SY_OR="x.bs:9: error: syntax error before: '|'"
   BINDS="x.bs:7: error: Ship binds int twice in one head"
 
-  # The correct form: today's table, exactly.
+  # The correct form: F29's printer, which is what the table now says. Updated
+  # 2026-08-27 when F29 emptied the table — the stub set is the SPELLING the gate
+  # is defending, so it moves when the defended spelling moves, and `good` is red
+  # if it does not.
   today() { # today DIR
-    one "$1" Atom          "Name(:blue) -> ..."                                  ""       0
-    one "$1" Interval      "Big(0..128) -> ..."                                  "$SY_DD" 1
-    one "$1" IntervalUnion "Classify(int <= 199 | 300..399) -> ..."              "$SY_LE" 1
-    one "$1" RecordUnion   "Which({ Kind: :'RecordUnion.Invoice' }) -> ..."      ""       0
-    one "$1" RecordInList  "Ship([{ Kind: :'M.Order', Id: int, Total: int }, ..]) -> ..." "$BINDS" 1
-    one "$1" TupleNested   "Step((:ok, int <= 0)) -> ..."                        "$SY_LE" 1
-    one "$1" OpenList      "Shape([int]) -> ..."                                 ""       0
-    one "$1" BinTag        "Classify(0 | 4..255) -> ..."                         "$SY_OR" 1
-    one "$1" TopString     "Kind(string) -> ..."                                 ""       0
+    one "$1" Atom          "Name(:blue) -> ..."                     "" 0
+    one "$1" Interval      "Big(>= 0 and <= 128) -> ..."            "" 0
+    two "$1" IntervalUnion "Classify(<= 199) -> ..."                "Classify(>= 300 and <= 399) -> ..."
+    one "$1" RecordUnion   "Which(Invoice i) -> ..."                "" 0
+    one "$1" RecordInList  "Ship([Order o, ..]) -> ..."             "" 0
+    one "$1" TupleNested   "Step((:ok, n)) when n <= 0 -> ..."      "" 0
+    one "$1" OpenList      "Shape([n]) -> ..."                      "" 0
+    two "$1" BinTag        "Classify(0) -> ..."                     "Classify(>= 4 and <= 255) -> ..."
+    one "$1" TopString     "Kind(s) -> ..."                         "" 0
+    two "$1" WholeList     "Ship([]) -> ..."                       "Ship([Order o, ..]) -> ..."
     many "$1"
   }
 
@@ -316,16 +375,41 @@ T
   today type_notation
   one type_notation Atom "Name(int <= 5) -> ..." "" 0
 
+  # THE SECOND LINE, WHICH IS THE HALF `head -n 1` COULD NOT SEE. A shape whose
+  # first head is clean and whose second is type notation went green while the
+  # spelling check read only the first line.
+  #
+  # The second head has to carry a TYPE WORD and not a `..`: a span that does not
+  # parse is caught by the paste-back, so a `..` here would go red for the wrong
+  # reason and prove nothing about the per-line spelling check. Found by the stub
+  # failing to fire on its first spelling.
+  today second_line
+  two second_line IntervalUnion "Classify(<= 199) -> ..." "Classify(int >= 300) -> ..."
+
   mkdir -p "$W/silent"
   one silent Atom "Name(:blue) -> ..." "" 0
 
   today cry_wolf
   one cry_wolf Interval "Big(0..128) -> ..." "" 2
 
+  # THE SPAN REGRESSES TO TYPE NOTATION AND STOPS PARSING. Ticket 42 settled the
+  # relational spelling in 2026-08-15 and the printer ignored it for twelve days;
+  # this is what that looked like, and it is the shape that comes back if
+  # `i_pat/2` is ever routed through `i_str/1` again.
+  today dot_dot
+  one dot_dot Interval "Big(0..128) -> ..." "$SY_DD" 1
+
+  # THE LIST ELEMENT REGRESSES TO ITS FIELD TYPES AND BINDS `int` TWICE. The
+  # original `RecordInList` defect: `pat_parts/1` reached `l_str/1`, whose
+  # element printer was hardwired to `to_string`.
+  today rebinds
+  one rebinds RecordInList \
+      "Ship([{ Kind: :'M.Order', Id: int, Total: int }, ..]) -> ..." "$BINDS" 1
+
   today over_informed
   one over_informed Extra "Extra(int) -> ..." "" 0
 
-  for bad in type_notation silent cry_wolf over_informed; do
+  for bad in type_notation second_line silent cry_wolf over_informed dot_dot rebinds; do
     if [ -z "$(judge "$W/$bad")" ]; then
       echo "  x SELF-TEST: '$bad' produced no complaint - the gate cannot see it"; fail=1
     else
@@ -338,7 +422,7 @@ T
     echo "  ok green on the correct form"
   fi
   [ "$fail" -eq 0 ] || { echo "self-test FAILED"; exit 1; }
-  echo "self-test passed: four defects seen, today's table accepted"
+  echo "self-test passed: seven defects seen, today's table accepted"
   exit 0
 fi
 
@@ -355,5 +439,5 @@ if [ -n "$out" ]; then
   echo "\`expected\` in this script; if the printer changed, change the table with it."
   exit 1
 fi
-echo "  ok         10 residual shapes round-tripped, each to the verdict recorded for it"
-echo "             (4 clean-or-spelling, 6 refused - F29 is done when all ten read 'clean')"
+echo "  ok         11 residual shapes round-tripped, each to the verdict recorded for it"
+echo "             (every entry in \`expected\` reads 'clean' - F29's done-when, met)"

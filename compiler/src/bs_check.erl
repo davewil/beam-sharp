@@ -1071,7 +1071,9 @@ check_fn(F = #fn{name = Name, line = Line, params = Params, ret = Ret}, Ctx0) ->
                     %% The residual is carried as a *type*, not a string: ticket
                     %% 04 found it IS the missing case, so the caller formats it
                     %% as a clause head rather than as a type expression.
-                    false -> Diags ++ [{error, Line, Name, {inexhaustive, Residual}}]
+                    false -> Diags ++ [{error, Line, Name,
+                                       {inexhaustive, Residual,
+                                        record_names(Env)}}]
                 end,
             {F, Final}
     end.
@@ -1934,7 +1936,8 @@ arms([{arm, AL, P, Guard, Body} | Rest], Residual, S, C, N, Tys, Diags, Origin) 
                  %% arm may discard. A `_` arm over `Disposition` is the same
                  %% defect as a `_` clause over it.
                  ++ catch_all_diags({clause, AL, C#ctx.fname, [P], Guard, ignored},
-                                    Residual, AL, C#ctx.fname)
+                                    Residual, AL, C#ctx.fname,
+                                    record_names(C#ctx.types))
          end,
     %% `Possible`, never `Certain` — F5.7's trap, at a second site and with the
     %% same failure mode. `Certain` is `none` under an untranslatable guard, and
@@ -2126,9 +2129,14 @@ arg_diags(L, Callee, [A | As], [T | Ts], [P | Ps], I, C) ->
 
 %% A head can only be synthesised when the argument IS a whole parameter; an
 %% arbitrary expression has no position in the caller's head to put a pattern in.
-head_hint({e_var, _, V}, #ctx{binds = B, arity = N}) ->
+%%
+%% F29 — THE NAME MAP RIDES ALONG IN THE HINT rather than as a sixth element of
+%% the diagnostic. `caller_head` is a PASTE site — `bs_diag` prints it under
+%% *"the clause to add here"* — so it needs what every paste site needs, and
+%% widening the hint leaves `arg_not_accepted`'s own shape alone.
+head_hint({e_var, _, V}, #ctx{binds = B, arity = N, types = Env}) ->
     case maps:get(V, B, undefined) of
-        [I] when is_integer(I) -> {I, N};
+        [I] when is_integer(I) -> {I, N, record_names(Env)};
         _                      -> none
     end;
 head_hint(_, _) -> none.
@@ -2221,6 +2229,42 @@ field_value_diags(Keys, Tys, RecTy, Name, L, C) ->
 %% tag from the qualified name, so the declared name is the segment after the
 %% last dot. A base that is a union of records has no single name — and
 %% `declared_fields/1` has already declined that case, so the two guards agree.
+%% F29.4 — THE NAMES THAT RESOLVE AT THIS SITE, keyed by minted tag.
+%%
+%% The head printer wants F22's `Order o` where `{ Kind: :'M.Order' }` is what it
+%% has. The segment after the last dot is *a* name whether or not it is in scope,
+%% so deriving one from the tag would let the compiler suggest a head naming a
+%% type the file cannot see — a worse failure than the discriminator, because it
+%% does not compile and looks like it should. So the map is built from the
+%% environment the site actually has, and a tag missing from it keeps 26 §1's
+%% discriminator.
+%%
+%% An ALIAS drops out for free rather than by exclusion: `type Doc = Order |
+%% Invoice` resolves to a union whose `Kind` carries two atoms, so it does not
+%% match the single-tag shape below. A name is recorded only when it names one
+%% record — which is exactly when `Name x` is a pattern that matches it.
+record_names(Env) ->
+    maps:from_list(
+      [{Tag, atom_to_list(Name)}
+       || Name <- maps:keys(Env),
+          Tag <- [minted_tag(Name, Env)],
+          Tag =/= undefined]).
+
+%% Resolution is attempted rather than assumed: an environment entry may be
+%% parametric, cyclic or unknown, and every one of those raises out of
+%% `resolve/2`. A name that cannot be resolved simply is not offered as a head.
+minted_tag(Name, Env) ->
+    try resolve({t_ref, Name}, Env) of
+        Ty ->
+            case field_type(Ty, 'Kind') of
+                #{atoms := {finite, [Tag]}, ints := [], tuples := [],
+                  lists := [], maps := [], bins := []} -> Tag;
+                _ -> undefined
+            end
+    catch
+        _:_ -> undefined
+    end.
+
 record_name(Ty) ->
     case field_type(Ty, 'Kind') of
         #{atoms := {finite, [Tag]}} ->
@@ -2277,7 +2321,7 @@ walk([C = {clause, CLine, Name, _, _, _} | Rest], Residual, Declared, Ctx, Diags
     %% This is why F2 is ONE feature and not two — recorded in 25c, and learned
     %% rather than assumed. A refinement without a way to name a span would turn
     %% working programs into rejected ones with nothing to answer the compiler in.
-    Diags2 = catch_all_diags(C, Residual, CLine, Name) ++ Diags1,
+    Diags2 = catch_all_diags(C, Residual, CLine, Name, record_names(Env)) ++ Diags1,
     %% THE BODY CHECK — ticket 33, and the whole of why walk/5 changed. The
     %% domain is the running residual intersected with `Possible`, which is a
     %% value this function already computed and threw away, so this is not a
@@ -2334,12 +2378,12 @@ redundancy(Base, Possible, Residual, Declared) ->
 %% Measured before landing: the compiling corpus has ZERO all-wildcard clauses,
 %% so this rejects nothing that runs today. `queue.bs`'s `(true, _, _)` is a
 %% tuple with a discriminating component, not a catch-all.
-catch_all_diags({clause, _, _, Patterns, none, _}, Residual, Line, Name) ->
+catch_all_diags({clause, _, _, Patterns, none, _}, Residual, Line, Name, Names) ->
     case all_wild(Patterns) andalso closed_and_inhabited(Residual) of
-        true  -> [{error, Line, Name, {catch_all_over_closed, Residual}}];
+        true  -> [{error, Line, Name, {catch_all_over_closed, Residual, Names}}];
         false -> []
     end;
-catch_all_diags(_C, _Residual, _Line, _Name) ->
+catch_all_diags(_C, _Residual, _Line, _Name, _Names) ->
     [].
 
 all_wild([])       -> false;      % a nullary function has nothing to catch
