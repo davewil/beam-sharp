@@ -325,7 +325,22 @@ fi
 # packet is built from the real `LANGUAGE.md` and cannot be current with a
 # temporary copy that has had a control block appended to it.
 if [ "$DOC" = "$REPO/LANGUAGE.md" ]; then
-    if ! python3 "$REPO/handoff/audition-switch/build-packet.py" --check; then
+    # THE DEPENDENCY IS NAMED BEFORE IT IS USED.
+    #
+    # `python3` carries no version line in `.tool-versions` — the note there says
+    # why — and `bin/check-toolchain.sh --env` is what reports it missing, which
+    # `verify.sh` runs as its first stage. Invoked on its own, though, this gate
+    # would fail with a bare `python3: command not found` sitting directly under a
+    # comment about packet staleness, which sends the reader to the wrong file
+    # entirely. It still fails either way; this only makes it say what is wrong.
+    if ! command -v python3 >/dev/null 2>&1; then
+        echo "python3 is not on PATH, and this gate needs it to rebuild the audition"
+        echo "packet and compare it against the committed one. It is required and"
+        echo "deliberately unpinned — see the note in .tool-versions — so whichever"
+        echo "python3 your platform ships will do. \`./bin/check-toolchain.sh --env\`"
+        echo "reports this before anything compiles."
+        rc=1
+    elif ! python3 "$REPO/handoff/audition-switch/build-packet.py" --check; then
         rc=1
     fi
 
