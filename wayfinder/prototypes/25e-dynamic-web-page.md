@@ -131,10 +131,12 @@ Measured. So the pattern a C#, Rust or F# reader writes first —
 Note((:some, s)) -> ["<p>", s, "</p>"]
 ```
 
-— matches no value of `option<string>` at all, and **the diagnostic for that is false**. It reports
-`clause 1 of Note is unreachable — every value it matches is matched by an earlier clause`, when
-clause 1 has no earlier clause; §"A diagnostic that names the wrong cause" below has the controls
-and the issue number. The author is sent looking for a shadowing clause that does not exist.
+— matches no value of `option<string>` at all. Until 2026-08-27 **the diagnostic for that was
+false**: it reported `clause 1 of Note is unreachable — every value it matches is matched by an
+earlier clause`, when clause 1 has no earlier clause, and sent the author looking for a shadowing
+clause that does not exist. Fixed in `95225ff`; it now reports `clause 1 of Note matches no value
+of its input` and names the declared input. §"A diagnostic that names the wrong cause" below has
+the controls and the issue number.
 
 ---
 
@@ -483,16 +485,25 @@ capability rather than two.
 
 ### 6. A diagnostic that names the wrong cause
 
-A clause whose pattern matches **no value of the declared domain** is reported as
-`unreachable — every value it matches is matched by an earlier clause`, **even when it is the only
+**Fixed 2026-08-27 in `95225ff`.** Recorded here as measured, because this section is what raised
+the issue.
+
+A clause whose pattern matched **no value of the declared domain** was reported as
+`unreachable — every value it matches is matched by an earlier clause`, **even when it was the only
 clause in the function.** Controlled three ways in [`25e_surface_probe.sh`](25e_surface_probe.sh) §6:
 a genuinely shadowed clause 2 (correct message), a vacuous clause 1 with two clauses after it, and
-a vacuous clause that is the sole clause. All three get the shadowing wording.
+a vacuous clause that is the sole clause. All three got the shadowing wording.
 
-Two different faults share one message, and the wrong one is the likelier: `Note((:some, s))` over
-`option<string>` is the first thing a reader with C#, Rust or F# in their hands writes. They are
-told to look for a shadowing clause. There is none. → filed as [ENG-259](https://linear.app/davewil/issue/ENG-259);
-no `issues/` file and no map number, because a defect is not a design question.
+The wrong one was the likelier: `Note((:some, s))` over `option<string>` is the first thing a
+reader with C#, Rust or F# in their hands writes. They were told to look for a shadowing clause.
+There is none. → filed as [ENG-259](https://linear.app/davewil/issue/ENG-259); no `issues/` file
+and no map number, because a defect is not a design question.
+
+**This section's own count was one short.** Building the fix found a *third* fault reaching the
+same branch — a guard no value satisfies, which the two-way split would have mislabelled, since
+its pattern *is* a member of the input. The tags are now `vacuous_clause`, `unsatisfiable_guard`
+and an unchanged `unreachable_clause`. The switch-arm twin reproduces identically and is
+deliberately still open as [ENG-269](https://linear.app/davewil/issue/ENG-269).
 
 ### 7. `+` over two strings is a priced decision, and this is the price
 

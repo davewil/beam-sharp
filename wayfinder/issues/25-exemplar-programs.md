@@ -592,12 +592,17 @@ The findings, compressed (full versions and controls in the write-up):
    which is every prior use in the corpus — compiles. `p @ <= 9` and the C# postfix `<= 9 p` both
    fail. **Second sighting of one hole**: 25c's recorded wall is `Frame { … } f`, where `p_alias`
    has no surface. Different pattern kind, same missing binder. → 42, 08.
-4. **A vacuous clause is reported as shadowed, and that is untrue.** A clause whose pattern matches
-   no value of the declared domain gets *"every value it matches is matched by an earlier clause"* —
-   **even when it is the only clause in the function**, controlled three ways. It bites because
-   `option<T>` is `T | :nothing` untagged, so `Note((:some, s))` — what a C#, Rust or F# reader
-   writes first — is vacuous, and the compiler sends them hunting a shadowing clause that does not
-   exist. Filed as [ENG-259](https://linear.app/davewil/issue/ENG-259). → 23.
+4. **A vacuous clause was reported as shadowed, and that was untrue.** FIXED 2026-08-27 in
+   `95225ff`. A clause whose pattern matched no value of the declared domain got *"every value it
+   matches is matched by an earlier clause"* — **even when it was the only clause in the
+   function**, controlled three ways. It bit because `option<T>` is `T | :nothing` untagged, so
+   `Note((:some, s))` — what a C#, Rust or F# reader writes first — is vacuous, and the compiler
+   sent them hunting a shadowing clause that does not exist. Building the fix found the count was
+   one short: a **third** fault reaches the same branch, a guard no value satisfies, whose pattern
+   *is* a member of the input and so needs its own message. Now `vacuous_clause` (names the
+   declared input), `unsatisfiable_guard`, and an unchanged `unreachable_clause`.
+   [ENG-259](https://linear.app/davewil/issue/ENG-259) closed; the switch-arm twin reproduces
+   identically and stays open as [ENG-269](https://linear.app/davewil/issue/ENG-269). → 23.
 5. **`+` over two strings is ticket 33's decision meeting its price.** `a + b` on two strings
    type-checks and crashes with `badarith`; every arithmetic operator does it, over every operand
    type. **This is decided, not broken** — 33 §2 rules there is no sixth obligation site because

@@ -178,10 +178,19 @@ F(n) when n <= 9 -> n
 F(_)             -> 0' F 3
 
 echo "==================================================================="
-echo "6. A vacuous clause is reported as SHADOWED, and that is untrue."
+echo "6. A vacuous clause was reported as SHADOWED. FIXED 2026-08-27."
 echo "==================================================================="
 echo "option<T> is T | :nothing, UNTAGGED — so (:some, s) matches no value of"
-echo "option<string>. The diagnostic for that names the wrong cause."
+echo "option<string>. This section raised ENG-259, which found that the check"
+echo "'this clause adds nothing' was reached by THREE faults, not the two the"
+echo "issue named, and printed one message for all of them. 95225ff split it:"
+echo "  vacuous_clause       pattern is not a member of the declared input;"
+echo "                       the message now NAMES that input"
+echo "  unsatisfiable_guard  pattern is a member, guard admits nothing"
+echo "  unreachable_clause   unchanged — an earlier clause really does cover it"
+echo "The probes below now show the corrected wording. They are kept because"
+echo "the controls are the evidence the split discriminates, not because the"
+echo "defect is still live."
 echo
 probe "a vacuous clause 1, with clauses after it" 'module P
 type K = :a | :b
@@ -190,10 +199,11 @@ F((:some, x)) -> 0
 F(:a)         -> 1
 F(:b)         -> 2'
 
-echo "THE ONE THAT SETTLES IT — a vacuous clause that is the ONLY clause is"
-echo "still reported as 'matched by an earlier clause'. There is no earlier"
-echo "clause. Two different faults share one message and the wrong one is"
-echo "the likelier, because (:some, s) is what a C#/Rust/F# reader writes."
+echo "THE ONE THAT SETTLED IT — a vacuous clause that is the ONLY clause was"
+echo "reported as 'matched by an earlier clause'. There is no earlier clause,"
+echo "so the message could not even be read as loosely true. It now names the"
+echo "declared input instead, which is the half the author does not have —"
+echo "(:some, s) is what a C#/Rust/F# reader writes first."
 probe "a vacuous clause that is the ONLY clause" 'module P
 type K = :a | :b
 public int F(K k)
