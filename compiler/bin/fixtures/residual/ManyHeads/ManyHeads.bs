@@ -1,0 +1,23 @@
+// many-heads — the ONLY fixture that reaches the prose cap, and the only one
+// that can test the completeness claim at bs_diag.erl:1100-1101 ("the prose and
+// the term channel cannot say different things"). On CONTENT that is true. On
+// COMPLETENESS it is false by design and nothing tested it: this residual is
+// five heads, the prose prints three and a `... (2 more)` line, and the term
+// channel carries all five.
+//
+// Nine fixtures produce exactly one head each, so without this one the cap
+// branch of the channel check would ship never having executed — the shape of
+// defect check-language.sh has, where `seq 1 0` iterates nothing and exits 0.
+//
+// It doubles as the atom-union-in-one-head row: `:b1 | :b2 | :b3` inside a
+// single head does not parse, and that is a different route to `|` than the
+// binary tag fixture takes.
+module ManyHeads
+
+type A = :a1 | :a2 | :a3
+type B = :b1 | :b2 | :b3
+type C = :c1 | :c2 | :c3
+
+public atom Trip(A x, B y, C z)
+Trip(:a1, :b1, :c1) -> :hit
+Trip(:a2, :b2, :c2) -> :hit2

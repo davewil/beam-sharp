@@ -47,6 +47,7 @@ cd compiler && rebar3 eunit
 ./bin/check-status-claims.sh                    # no document calls unbuilt what the corpus compiles
 cd compiler && ./bin/check-language.sh          # blocks compile, `not-yet` blocks must NOT
 cd compiler && ./bin/check-switch-diagnostics.sh # every switch diagnostic has an example in §5
+cd compiler && ./bin/check-residual-pasteable.sh # the synthesised head round-trips to its recorded verdict
 cd compiler && ./bin/check-list-length.sh       # the checker sees a list's length, both ways
 cd compiler && ./bin/check-division.sh          # `/` lowers to div; only a provable zero is refused
 cd compiler && ./bin/check-negation.sh          # no `not`, no `!`, both taught; `not` is still a name
@@ -83,7 +84,13 @@ sees it, because a fresh checkout has no `C.beam`. The gate now prints the boot 
 `__erl_failed__`, but **the detritus is still worth deleting**: `rm -f compiler/C.beam` before a
 sweep, and note that `.gitignore` hides it so `git status` stays clean.
 
-**TWENTY-FOUR `check-*` gate scripts — `check-handoff-package.sh` added 2026-08-26 by
+**TWENTY-SIX `check-*` gate scripts — `check-residual-pasteable.sh` added 2026-08-27 by
+ENG-263, and `check-switch-diagnostics.sh` added 2026-08-27 by ENG-248. This line read
+TWENTY-FOUR until 2026-08-27 and was wrong by one for most of that day: ENG-248 added its
+gate to `ci.yml`, `verify.sh` and the list above but not to this count, which is the
+four-edit rule failing on its fourth edit rather than its third. `check-gates-wired.sh`
+does not read this number — it checks that every gate is NAMED on each surface, and a
+name was present, so the miscount was invisible to it. Previously `check-handoff-package.sh` added 2026-08-26 by
 ENG-246, alongside `bin/build-handoff.sh`, which is a builder rather than a gate and so is
 outside the `check-` pattern exactly as `verify.sh` is. `check-gates-wired.sh` caught the
 new pair missing from *this list* having already been added to the script, `ci.yml` and

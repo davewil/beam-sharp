@@ -1,0 +1,15 @@
+// binary — ticket 30's sub-byte residual, reached through an 8-bit tag field.
+// The union spelling fails in the parser exactly as the interval union does,
+// but it arrives from the binary path, which has its own printer route.
+module BinTag
+
+type Octet = int where value >= 0 and value <= 255
+
+private atom Classify(Octet t)
+Classify(1) -> :method
+Classify(2) -> :header
+Classify(3) -> :body
+
+public atom Read(binary b)
+Read(<<t:8, _>>) -> Classify(t)
+Read(_) -> :short

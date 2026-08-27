@@ -217,6 +217,9 @@ run_stages \
   "Every switch diagnostic is in the specification" \
     "cd compiler && ./bin/check-switch-diagnostics.sh --self-test && ./bin/check-switch-diagnostics.sh" \
 \
+  "The synthesised head round-trips" \
+    "cd compiler && ./bin/check-residual-pasteable.sh --self-test && ./bin/check-residual-pasteable.sh" \
+\
   "Examples compile and run" \
     "cd compiler &&
      find examples -path examples/exemplars -prune -o -name '*.bs' -print0 |

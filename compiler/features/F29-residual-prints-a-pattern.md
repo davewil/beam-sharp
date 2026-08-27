@@ -223,12 +223,23 @@ Named explicitly, because this is the section F22 was missing when it left this 
 **Owed by [ENG-263](https://linear.app/davewil/issue/ENG-263), and written before this feature** —
 per the standing rule, and because a check written after the code is written to agree with it.
 
-`compiler/bin/check-residual-pasteable.sh` walks a fixtures corpus plus a mutation stage over
-`examples/Wire`, extracts the suggested head(s), pastes them back and requires a clean compile on
-the term channel and a prefix relation on the prose. It asserts the **preferred** spelling, not only
-that the text parses — without that it certifies the record row in §"Where it starts". Its floor is
-a **shape roster**, not a count: atom, interval, interval-union, record, record-in-list,
-tuple-nested, open-list, binary, top. A shape the roster names and the run never saw is red.
+`compiler/bin/check-residual-pasteable.sh` walks the fixtures corpus at
+`compiler/bin/fixtures/residual/`, extracts the suggested head(s) from the **term** channel, pastes
+the first back with a body and records the compiler's output **and its exit status**. It asserts the
+**preferred** spelling, not only that the text parses — without that it certifies the record row in
+§"Where it starts". Its floor is a **shape roster**, not a count: atom, interval, interval-union,
+record, record-in-list, tuple-nested, open-list, binary, top, many-heads. A shape the roster names
+and the run never saw is red; so is a result the roster does not name, which is what stops the
+verdict function degenerating into a lookup table on fixture names.
+
+The exit status is recorded because an empty `.paste` looks identical whether the compiler said
+nothing or was never invoked, and this repo has already shipped a check that asserted an absence
+against a run that never compiled. `unrun` is a verdict, and `cry_wolf` is the stub that holds it.
+
+**Built 2026-08-27 without the `examples/Wire` mutation stage**, which ENG-263 also owes. The
+fixtures corpus is the spine and stands alone; the mutation stage exists to retire the unchecked
+claim in `wire.bs:15` and close its drift against `TOUR.md:148`, and it is the same machinery the
+`expect-after` display-site directive needs. Both remain open on ENG-263.
 
 `--self-test` drives the verdict function over fabricated diagnostic text — no compiler rebuild —
 with five stubs: type-notation (red), the correct form (green), silent (red), cry-wolf (red), and
@@ -236,8 +247,24 @@ with five stubs: type-notation (red), the correct form (green), silent (red), cr
 against and type notation for one it was not. The last is the only control that catches a gate whose
 verdict is a lookup table of expected strings.
 
-**F29 is done when that gate is green**, and the gate is believed only once it has been seen red on
-today's compiler.
+**Corrected 2026-08-27, when the gate was built.** This section said *"F29 is done when that gate
+is green"*. **The gate is already green** — and it has to be, because a gate that is red on master
+from the moment it lands until F29 ships is one nobody can act on. Its floor is a per-shape
+**expected-verdict table**: every shape carries the verdict it produces *today* (`clean`,
+`spelling`, `syntax:TOK`, `binds`), and the gate is red if any shape moves **in either direction**.
+That guards the shapes that already work, records the six that do not, and makes this feature's
+completion checkable:
+
+> **F29 is done when every entry in `expected` in `check-residual-pasteable.sh` reads `clean`.**
+
+A shape that starts pasting is red exactly as loudly as one that stops, so F29's commit must empty
+the table in the same change that fixes the printer. The gate was seen red on today's compiler in
+both directions and on a missing fixture before it was believed.
+
+**The roster is ten, not nine.** `many-heads` was added: it is the only fixture that reaches the
+prose cap, and therefore the only one that can test `bs_diag.erl:1100-1101`'s claim that the prose
+and term channels *"cannot say different things"* — true on content, **false on completeness**, and
+untested until now. Its residual is five heads; the prose prints three and `... (2 more)`.
 
 ## Out of scope
 
@@ -262,8 +289,17 @@ today's compiler.
 
 ## Done when
 
-The eight shapes in §"Where it starts" round-trip, `Ship(list<Invoice> invs)` is a legal clause head
-with a measured conflict count of 0/0, `to_string/1` prints exactly what it printed before,
-`Classify(int n)` is still a syntax error, the six display sites replay, and
+**Every entry in `expected` in `check-residual-pasteable.sh` reads `clean`** — that is the whole
+condition, and the six that do not today are `Interval`, `IntervalUnion`, `TupleNested`,
+`RecordInList`, `BinTag` and `ManyHeads`, plus the three that compile with the wrong spelling
+(`RecordUnion`, `OpenList`, `TopString`). `Ship(list<Invoice> invs)` is a legal clause head with a
+measured conflict count of 0/0, `to_string/1` prints exactly what it printed before,
+`Classify(int n)` is still a syntax error, the display sites replay, and
 `check-residual-pasteable.sh --self-test` has been seen red on all five stubs — including the
 over-informed one — with a green on the correct form beside them.
+
+**Two rows compile and are still wrong, not one.** §"Where it starts" recorded only the record row.
+`OpenList` — `Shape([int])` — compiles clean at rc 0: `int` is lowercase in pattern position, so it
+is a *binder named int*, and for `list<int>` the declared parameter type already constrains the
+element, so the pasted clause even behaves correctly. That is why nothing caught it. `TopString` is
+the same defect without a list. Measured 2026-08-27.

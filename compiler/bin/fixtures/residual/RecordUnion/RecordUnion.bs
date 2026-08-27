@@ -1,0 +1,13 @@
+// record — this one COMPILES, and is still wrong. `{ Kind: :'M.Invoice' }` is
+// the hand-written minted tag F22 was built to replace: bs_parser.yrl:499-501
+// says writing it by hand "makes an erasure detail load-bearing in source".
+// A gate that asks only "does it compile" blesses this row. That is why the
+// verdict vocabulary has `spelling` and not just pass/fail.
+module RecordUnion
+
+record Order { Id: int, Total: int }
+record Invoice { Id: int, Total: int }
+type Doc = Order | Invoice
+
+public atom Which(Doc)
+Which({ Kind: :'RecordUnion.Order' }) -> :order

@@ -1,0 +1,10 @@
+// record-in-list — the hardest failure, and a SEMANTIC one rather than a parse
+// one. The element printer is hardwired to `to_string`, so the field types
+// print as `Id: int, Total: int` — two lowercase names in pattern position,
+// which is one binder introduced twice. bs_check.erl raises `repeated_in_head`.
+module RecordInList
+
+record Order { Id: int, Total: int }
+
+public atom Ship(list<Order> ds)
+Ship([]) -> :none

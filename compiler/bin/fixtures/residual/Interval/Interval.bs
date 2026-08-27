@@ -1,0 +1,9 @@
+// interval — ticket 42 settled on 2026-08-15 that a span synthesises as a
+// RELATIONAL pattern, `Big(<= 128)`. The printer still emits `0..128`, and the
+// grammar has no `..` in pattern position, so the head does not parse.
+module Interval
+
+type Octet = int where value >= 0 and value <= 255
+
+public atom Big(Octet n)
+Big(n) when n > 128 -> :big

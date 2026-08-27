@@ -1,0 +1,10 @@
+// atom — a union with one member uncovered. The residual is a literal, and a
+// literal is already the syntax you would write. This row is the CONTROL: if it
+// ever stops pasting, the defect is in the paste harness, not in the printer.
+module Atom
+
+type Colour = :red | :green | :blue
+
+public atom Name(Colour c)
+Name(:red)   -> :r
+Name(:green) -> :g

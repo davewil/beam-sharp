@@ -1,0 +1,12 @@
+// top — the residual is the whole unrefined declared type and prints as a BARE
+// TYPE NAME. `Kind(string)` compiles, because `string` is lowercase and becomes
+// a binder. Same defect class as open-list, reached without a list: any type
+// the algebra cannot enumerate lands here.
+//
+// The obvious route to this shape — an opaque guard calling a local function —
+// is NOT usable: erlc rejects the call in a guard, so the fixture would fail
+// for a reason that has nothing to do with the printer.
+module TopString
+
+public atom Kind(string s)
+Kind("a") -> :a

@@ -1,0 +1,11 @@
+// open-list — COMPILES CLEAN AND IS SILENTLY WRONG, which is the row no filing
+// had caught. `Shape([int])` reads as "a one-element list of int"; `int` is
+// lowercase in pattern position, so it is a BINDER NAMED int. For `list<int>`
+// the declared parameter type already constrains the element, so the pasted
+// clause behaves correctly — which is precisely why nothing noticed. Change the
+// element type and the same spelling is wrong.
+module OpenList
+
+public atom Shape(list<int> xs)
+Shape([]) -> :empty
+Shape([a, b, ..]) -> :many

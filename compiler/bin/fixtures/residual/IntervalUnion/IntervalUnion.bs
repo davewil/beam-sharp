@@ -1,0 +1,9 @@
+// interval-union — three defects in one head: the `int` type prefix, the `..`
+// span and the `|` union. This is the shape LANGUAGE.md:348 and README.md:26
+// both display, which is why it is the one the promise is judged on.
+module IntervalUnion
+
+public atom Classify(int)
+Classify(>= 200 and < 300) -> :ok
+Classify(>= 400 and < 500) -> :client_error
+Classify(>= 500)           -> :server_error

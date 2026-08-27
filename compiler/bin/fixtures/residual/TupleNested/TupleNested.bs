@@ -1,0 +1,8 @@
+// tuple-nested — the interval defect one level down, inside a tuple. It is a
+// separate row because a printer fixed only at the top level would leave this
+// one broken, and LANGUAGE.md:352-356 displays exactly this shape.
+module TupleNested
+
+public atom Step((:ok | :err, int) p)
+Step((:err, n)) -> :e
+Step((:ok, n)) when n > 0 -> :o
