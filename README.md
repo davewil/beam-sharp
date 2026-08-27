@@ -48,22 +48,28 @@ mise install        # reads .tool-versions
 ```
 
 `.tool-versions` is the **single source of truth** for the toolchain — Erlang/OTP, rebar3, Node
-and the Tree-sitter CLI, each pinned to an exact version. `.github/workflows/ci.yml` repeats those
-four strings because a GitHub Actions `with:` input cannot read a file, and
-[`bin/check-toolchain.sh`](bin/check-toolchain.sh) fails the build the moment the two disagree —
-including the near-miss that reads as agreement, a workflow saying `28` where the manifest says
-`28.5`.
+and the Tree-sitter CLI, each pinned to an exact version. `.github/workflows/ci.yml` installs from
+that same file through `jdx/mise-action` and repeats none of the four strings;
+[`bin/check-toolchain.sh`](bin/check-toolchain.sh) fails the build the moment a version literal is
+copied back beside the manifest, because that is a second source of truth with nothing reconciling
+it against the first.
+
+**One further tool is required and deliberately carries no version line: `python3`.**
+`compiler/bin/check-switch-diagnostics.sh` shells to it to rebuild the audition packet and check
+that the committed `PACKET.md` still matches `LANGUAGE.md`, so it is a hard dependency of a gate
+that runs in CI. Any python3 will do — the scripts import nothing outside the standard library —
+and `.tool-versions` records why it is not pinned.
 
 If you get the toolchain some other way, `./bin/check-toolchain.sh --env` will tell you exactly
-which tool is at the wrong version, before anything compiles.
+which tool is at the wrong version or missing, before anything compiles.
 
 **Supported surfaces: macOS and Linux.** Both are exercised — macOS locally, Ubuntu on every push
 in CI, and CI runs the same `./bin/verify.sh` a clean clone runs rather than a parallel recipe.
 Windows is not supported: every gate is a bash script and none has been run there. Nothing in the
 compiler is known to depend on the platform, so the gap is in the gates rather than in `bsc`.
 
-Without mise, install those four versions however you prefer and run the same check. The
-Tree-sitter CLI is also on npm at the same version number:
+Without mise, install those four versions however you prefer — plus any `python3` — and run the
+same check. The Tree-sitter CLI is also on npm at the same version number:
 `npm install -g tree-sitter-cli@0.25.10`.
 
 ## Verifying

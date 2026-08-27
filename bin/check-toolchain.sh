@@ -47,6 +47,12 @@
 #      confusing one after. This is the one check one installer reading one
 #      manifest does NOT make redundant: a tool that failed to install, or a
 #      system copy earlier on PATH, both leave the manifest looking satisfied.
+#   5. `--env` also checks that every tool this repository requires but does NOT
+#      pin is present. There is exactly one: `python3`, which
+#      `compiler/bin/check-switch-diagnostics.sh` shells to. Checks 1-4 are all
+#      about versions and therefore cannot see it at all — an unpinned tool has
+#      no version to compare, so it was invisible to every gate here until
+#      2026-08-28 and absent from the manifest, the workflow and the README.
 #
 # THE COUNT IS PART OF THE CLAIM, AND THAT IS DELIBERATE.
 # Both halves of this gate are greps, and a grep that finds nothing is
@@ -313,6 +319,46 @@ EOF
   printf 'count %d %d\n' "$pinned" "$compared"
 }
 
+# REQUIRED, AND DELIBERATELY NOT PINNED.
+#
+# `python3` is a hard dependency of `compiler/bin/check-switch-diagnostics.sh`,
+# which shells to `handoff/audition-switch/build-packet.py --check` to ask
+# whether the committed `PACKET.md` is what `LANGUAGE.md` would produce today.
+# `handoff/audition-switch/run.sh` and `stage.sh` shell to it too. That gate runs
+# in `verify.sh` and in CI.
+#
+# Until 2026-08-28 it was named in NO manifest, no workflow step, no gate and no
+# README, while `.tool-versions` opened by calling itself the only file that
+# records what this repository is built with. The build was green the whole time
+# because the pinned runner image and the Xcode command line tools each happen to
+# ship a python3 — an accident, and the kind that surfaces on somebody else's
+# machine rather than here.
+#
+# PRESENCE, NOT VERSION, and the asymmetry is the decision. The four tools in the
+# manifest are pinned because each has a second declaration to drift from and
+# because the artifacts they produce depend on their version. Neither of those is
+# true here: both scripts import only `io`, `os`, `re` and `sys`, and what they
+# write is sections of `LANGUAGE.md` copied verbatim, so every python3 produces
+# the same bytes. A version line would assert a requirement nobody has measured.
+#
+# The tool names are parameters for the same reason every other function's inputs
+# are: --self-test drives THIS code over a name that cannot exist, rather than a
+# second copy of its logic.
+required_unpinned() {
+  local tool required=0 present=0
+  for tool in "$@"; do
+    required=$((required + 1))
+    if command -v "$tool" >/dev/null 2>&1; then
+      present=$((present + 1))
+    else
+      printf '%s: required by this repository and not on PATH. It is deliberately not\n' "$tool"
+      printf '         pinned in .tool-versions — the note there says why — so whichever\n'
+      printf '         version your platform ships will do.\n'
+    fi
+  done
+  printf 'count %d %d\n' "$required" "$present"
+}
+
 # THE COUNT RULE. Zero comparisons is a gate that never looked; fewer
 # comparisons than pins is a gate that looked at some of it and reported
 # success for the rest.
@@ -342,7 +388,7 @@ findings() {
 # ---------------------------------------------------------------------------
 # --self-test
 #
-# SIX CONTROLS, AND THE FIRST TWO ARE THE ONES THAT EARN THIS GATE.
+# NINE CONTROLS, AND THE FIRST TWO ARE THE ONES THAT EARN THIS GATE.
 #
 # MAJOR-ONLY is the plausible implementation, not a silly one: a gate that
 # compares `28` against a pinned `28.5` and calls it agreement passes the tree
@@ -361,6 +407,15 @@ findings() {
 # And CLEAN is the discrimination half: all four agreeing, every action pinned,
 # and the gate must find nothing. A check that fires on everything satisfies
 # every control above and is worthless.
+#
+# THE LAST THREE COVER THE UNPINNED TOOL, and they are driven by names rather
+# than by the real python3 on purpose. ABSENT uses a name no PATH can satisfy;
+# PRESENT uses `sh`, which is running this script. A control written as
+# `command -v python3` would report whatever the developer's machine happens to
+# have — green here, green in CI, and never once a measurement — which is the
+# accident that hid this dependency in the first place. EMPTY-UNPINNED is the
+# vacuity half again: drop the argument from the call and the check must go red
+# rather than pass over a list of nothing.
 # ---------------------------------------------------------------------------
 if [ "${1:-}" = "--self-test" ]; then
   CTL="$(mktemp -d)"
@@ -431,6 +486,15 @@ YML
   float_out="$(floating_actions "$CTL/floating.yml")"
   runner_ok_out="$(floating_runner "$CTL/clean.yml")"
   runner_bad_out="$(floating_runner "$CTL/latest.yml")"
+
+  # ABSENT is driven by a name no PATH can satisfy, and PRESENT by `sh`, which
+  # is the one command this script is already running under. Neither touches the
+  # real python3, so the control says the same thing on a machine that has one
+  # and on a machine that does not — which a `command -v python3` control would
+  # not, and it would pass here forever while proving nothing.
+  unpinned_absent_out="$(required_unpinned bsharp-no-such-tool-2026)"
+  unpinned_present_out="$(required_unpinned sh)"
+  unpinned_empty_out="$(required_unpinned)"
 
   fail=0
 
@@ -516,12 +580,45 @@ YML
     fail=1
   fi
 
+  if ! findings "$unpinned_absent_out" |
+       grep -q '^bsharp-no-such-tool-2026: required by this repository and not on PATH'; then
+    echo "SELF-TEST FAILED: a required tool absent from PATH was not reported. That is"
+    echo "                  this check's entire purpose — python3 carries no version"
+    echo "                  line, so no other check in this file can see it missing,"
+    echo "                  and a gate in CI shells to it."
+    fail=1
+  fi
+  if [ -z "$(count_violation "$unpinned_absent_out" absent)" ]; then
+    echo "SELF-TEST FAILED: an absent tool did not shorten the count, so a run in which"
+    echo "                  every required tool was missing would still report them present"
+    fail=1
+  fi
+  if [ -n "$(findings "$unpinned_present_out")" ]; then
+    echo "SELF-TEST FAILED: a tool demonstrably on PATH was reported missing, so this"
+    echo "                  check fires on everything and is worth nothing"
+    echo "$unpinned_present_out"
+    fail=1
+  fi
+  if [ -n "$(count_violation "$unpinned_present_out" present)" ]; then
+    echo "SELF-TEST FAILED: one required tool present was not one comparison, so the"
+    echo "                  count rule cannot be trusted for this check"
+    fail=1
+  fi
+  if [ -z "$(count_violation "$unpinned_empty_out" 'empty unpinned')" ]; then
+    echo "SELF-TEST FAILED: an EMPTY list of required tools was accepted. An edit that"
+    echo "                  dropped python3 from the call would then report success over"
+    echo "                  a list nothing enumerated — the same vacuity this file"
+    echo "                  already refuses for a manifest that pins nothing."
+    fail=1
+  fi
+
   if [ "$fail" -eq 0 ]; then
     echo "self-test: caught the version literal re-introduced beside the manifest, the"
     echo "           workflow that installs nothing at all, the tool outside the table,"
-    echo "           the manifest pinning nothing, the action on a mutable tag and the"
-    echo "           job on a floating runner image — and left the fixture that installs"
-    echo "           from the manifest, names no version and pins everything alone"
+    echo "           the manifest pinning nothing, the action on a mutable tag, the"
+    echo "           job on a floating runner image and the required tool absent from"
+    echo "           PATH — and left the fixture that installs from the manifest, names"
+    echo "           no version and pins everything, and a tool that is present, alone"
     exit 0
   fi
   exit 1
@@ -576,9 +673,12 @@ $(count_violation "$r_out" 'the workflow runs-on: lines')"
 
   --env)
     e_out="$(env_drift "$MANIFEST")"
+    u_out="$(required_unpinned python3)"
 
     problems="$(findings "$e_out")
-$(count_violation "$e_out" 'the manifest against this machine')"
+$(count_violation "$e_out" 'the manifest against this machine')
+$(findings "$u_out")
+$(count_violation "$u_out" 'the required tools that carry no version')"
 
     if [ -n "$(printf '%s\n' "$problems" | grep -v '^$' || true)" ]; then
       printf '%s\n' "$problems" | grep -v '^$'
@@ -591,10 +691,15 @@ $(count_violation "$e_out" 'the manifest against this machine')"
       echo
       echo "The tree-sitter CLI is also available as an npm package, if that is how this"
       echo "machine gets it: npm install -g tree-sitter-cli@\$(awk '/^tree-sitter /{print \$2}' .tool-versions)"
+      echo
+      echo "A missing python3 is NOT fixed by any of the above — it carries no version"
+      echo "line, so \`mise install\` never sees it. Install your platform's python3."
       rc=1
     else
       printf '%s\n' "$e_out" | grep '^count ' |
         awk '{printf "all %d pinned tools are installed here at exactly the pinned version\n", $3}'
+      printf '%s\n' "$u_out" | grep '^count ' |
+        awk '{printf "and the %d required tool that carries no version line is present\n", $2}'
     fi
     ;;
 
