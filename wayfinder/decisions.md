@@ -272,9 +272,10 @@
   polymorphism wearing a bracket; **declared, C# `T`-convention** — forced, because beam-sharp's
   builtins are lowercase, so lowercase-implicit is ambiguous where Gleam's is not; and **variance
   is not a concept**, since 09's abolition of nominality leaves nothing to annotate or infer.
-  *Rejected: monomorphise per call site* — it fights ticket 13's aggregate-granularity hot loading
-  and separate compilation, working *inside* an aggregate and failing exactly where a shared
-  `List.Map` lives. Two measurements: **an emitted polymorphic `-spec` is documentation, not
+  *Rejected: monomorphise per call site* — it fights ticket 13's aggregate granularity, and works
+  *inside* an aggregate while failing exactly where a shared `List.Map` lives. <!-- the "and hot
+  loading / separate compilation" half of this line cited 13's standing obligation; corrected
+  2026-08-27, see 27's leg B and 16's amendment of that date --> Two measurements: **an emitted polymorphic `-spec` is documentation, not
   enforcement** (Dialyzer reads the variables as `any()`; the monomorphic control fires), so
   **choosing generics made the boundary strictly weaker → ticket 18**; and **syntax recovers an
   element-type relation with zero polymorphism** (`roundtrip` preserves `[integer()] -> [binary()]`
@@ -324,7 +325,9 @@
   obligation**; a capability over a set known at the definition is a **union parameter** with a
   clause each; a capability over an unknown set is **passed as an argument**. Protocols died on
   ticket 13, not on taste — open extension needs whole-program consolidation, which fights
-  aggregate granularity and hot loading, *the same argument 27 used against monomorphisation* —
+  13 §3's coincidence of consistency unit and deployment unit, *the same argument 27 used against
+  monomorphisation*; **hot loading is a consequence of that coincidence, not a second ground**
+  (re-derived 2026-08-27) —
   and the static-closed variant is bucket 2 with ceremony, which **corrects this ticket's earlier
   "consolidation by construction"** line. Measured: the BEAM's term order is **total across every
   type** (`1 < :ok` is `true`), so "anything comparable" needs no mechanism — but `<` is
@@ -720,10 +723,33 @@
   with ceremony" — a union parameter with a clause each — **is** protocol dispatch once the tag is in
   the term, checked exhaustive at the definition, and needs no construct because the language's
   headline feature already is the dispatch construct. What remains refused is a second aggregate
-  adding a case without editing the first, which is **13's constraint, so 13 is the ticket that would
-  have to give**. 16's headline survives and reads stronger: the capability arrives *without* an
+  adding a case without editing the first — attributed here to **13's constraint**, which
+  **ticket 13 does not contain**; corrected 2026-08-27, next entry. 16's headline survives and reads stronger: the capability arrives *without* an
   ad-hoc polymorphism construct. Note for the record — **26 was not a data-modelling decision that
   happened to help here; records were introduced for this**, and 26's own entry does not say so.
+
+- **AMENDMENT 2026-08-27 to [16](issues/16-ad-hoc-polymorphism.md) and
+  [27](issues/27-parametric-polymorphism.md) — both cite a constraint ticket 13 does not contain.**
+  Prompted by David asking whether not needing hot code loading changes the open-extension answer.
+  **It does not, and the design is unchanged** — what changes is why. Ticket 13 discusses unions,
+  protocols and whole-program compilation nowhere; "aggregate granularity and hot loading" was 16's
+  own characterisation of 13 §§2–3, written 2026-08-14 and never checked against 13. Re-derived:
+  **13 §2 is not available** — the obligation forbids *in-process compiler state* so `.abstr` +
+  `erlc` always works, not a build-time pass over sources, and `bsc` already threads a `World` across
+  the transitive `using` closure (`bsc.erl:278`), with `rebar_mix` consolidating 14 `Jason.Encoder`
+  impls measured working on this platform (51 §119). **13 §3 is available, and hot loading is not
+  why** — consolidation makes A's `.beam` depend on B's source, breaking *"the consistency unit and
+  the deployment unit coincide"*, so the ground survives with hot loading removed entirely.
+  **A stronger ground exists that 16 never had**: `bs_api.erl:22` — *"a type name does not cross the
+  module boundary"* — so B cannot name A's union at all; architectural, and it should lead.
+  research/07's "permitted set at the declaration, not by scanning" is **suggestive only** — it
+  carries the LDM's own caution that it be measured. **The refusal is a deferral with an inherited,
+  checkable trigger**: 01d §129-131 and `13:202` — *open extension becomes available iff the
+  operation replaces the aggregate as the unit of deployment*; 01d rules observability out itself
+  (`dbg:tpl` traces a function). Note the coupling — that trigger is reachable **only while hot
+  loading is retained**; drop it and the deferral becomes a plain rejection. 27 survives intact,
+  losing one leg of one sub-argument to the same miscitation and keeping it on a fact its prose never
+  stated: knowing every module in the `using` closure is not knowing every instantiation.
 
 - [Local bindings](issues/34-local-bindings.md) — **the language has them, and their absence was an
   accident rather than a position.** Raised and resolved 2026-08-14 by David typing

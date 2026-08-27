@@ -420,7 +420,7 @@ of them without either ticket noticing.
 | This ticket's reason | Status |
 |---|---|
 | Dispatch cannot key on a name that is not in the term ([09](09-union-representation.md) §5, cited here as making type classes *unresolvable*, not merely costly) | **Invalidated.** 26 §1 mints a record's discriminating tag from its qualified type name and puts it **in the term as data** — the same move this ticket credited Elixir's `__struct__` with, and 26 states beam-sharp resolves it *statically* where Elixir needs a consolidation pass. |
-| Open extension needs a whole-program consolidation pass, which fights [13](13-compilation-target-decision.md)'s aggregate granularity and hot loading | **Stands, untouched.** |
+| Open extension needs a whole-program consolidation pass, which fights [13](13-compilation-target-decision.md)'s aggregate granularity and hot loading | **The conclusion stands; this citation does not.** Ticket 13 holds no such constraint — re-derived 2026-08-27, below. |
 
 **So the refusal narrows from "no protocols" to "no *open* protocols".** What this ticket called
 "bucket 2 with ceremony" — a capability over a set known at the definition, spelled as a union
@@ -447,13 +447,83 @@ finding survives intact; what changes is that bucket 2 was written up as a worka
 the answer.
 
 **What remains genuinely refused is open extension** — a second aggregate adding `Triangle` without
-editing `Shapes`. That is ticket 13's constraint, not this one's, so **13 is the ticket that would
-have to give**, and this ticket should not be re-litigated for it.
+editing `Shapes`. This amendment attributed that to ticket 13 and said 13 "is the ticket that would
+have to give". **Ticket 13 does not contain it**; the grounds were re-derived on 2026-08-27, below.
+The refusal holds. The citation did not.
 
 **Consequence for the record**: this ticket's headline — *"the language gets no ad-hoc polymorphism
 construct"* — is still true and now reads as a stronger result rather than a gap, because the
 capability arrives without one. And **26 was not a data-modelling decision that happened to help
 here; records were introduced for this**, which the map's entry for 26 does not say.
+
+## AMENDED 2026-08-27 — the open-extension refusal re-derived; the ground cited above is not in ticket 13
+
+**The defect.** The table row and the paragraph above attribute the surviving refusal to
+[ticket 13](13-compilation-target-decision.md). Ticket 13 discusses unions, protocols and
+whole-program compilation **nowhere**. "Aggregate granularity and hot loading" is *this ticket's*
+characterisation of 13 §§2–3, written in the 2026-08-14 amendment and never checked against 13's
+text. Ticket 27 carries the same defect in its monomorphisation rejection; corrected there the same
+day.
+
+**What put it to the test.** David, 2026-08-27: *"I don't need hot loading — does that change the
+decision?"* Grilled to a frontier. **Answer: no design change** — open extension stays refused and
+hot code loading stays exactly as 13 §3 left it. Only the reasoning is corrected.
+
+**1. Ticket 13 §2 is not available as a ground.** The obligation is that *"the frontend must never
+depend on in-process compiler state"* so that `.abstr` + `erlc +from_abstr` always works
+(`13:177-179`), and its named failure mode is drift into *"parse transforms, shared PLT state and
+incremental term reuse"* (`13:186-188`). A build-time pass that reads sources and emits
+self-contained forms breaches none of that — and `bsc` **already** threads a `World` across the
+transitive `using` closure (`bsc.erl:162-215`; `close_over/3` at `:278` pulls in modules never named
+on the command line) without anyone calling that a breach. Build-time consolidation is also measured
+working on this platform: `rebar_mix` consolidating 14 `Jason.Encoder` implementations
+(`51:119`, 2026-08-21).
+
+**2. Ticket 13 §3 *is* available — and hot loading is not why.** Consolidation makes aggregate A's
+emitted `.beam` depend on aggregate B's *source*, because B is where the added case lives. That
+breaks §3's actual claim that *"the consistency unit and the deployment unit coincide"*
+(`13:304-306`): deploying B would require redeploying A. The `relup` clause is a **consequence** of
+that coincidence, not the reason for it — so **this ground survives with hot code loading removed
+entirely**, which is exactly why David's stated indifference to it moved nothing. The 2026-08-14 row
+stated one ground as two.
+
+**3. A stronger ground exists that this ticket never had.** `bs_api.erl:22-28`: **"A TYPE NAME DOES
+NOT CROSS THE MODULE BOUNDARY."** `exports_of/1` hands a dependent the *resolved* type, not the name
+the author wrote, and `import_env/3` builds no table of types at all. Module B cannot **name** module
+A's union, so extension has no surface to express it. This is architectural, independent of build
+topology, and post-dates this ticket (it arrived with F17). **It should lead the refusal.**
+
+**4. The unconsolidated variant remains dead** on this ticket's own third bullet: it accepts a
+runtime no-clause failure in a language whose pitch is that every case has a clause.
+
+**5. One ground is weaker than it reads.** `research/07:927-929` — exhaustiveness needing *"the
+permitted set written at the declaration, not discovered by scanning"* — is the `allows.md` argument
+**plus the LDM's own counter-caution that it should be measured rather than assumed**. Cite it as
+suggestive, never as load-bearing.
+
+**This is a deferral, not a rejection, and the trigger is inherited.** Prototype 01d already named
+it (`01d:129-131`): wanting the **operation** to be the unit of deployment *or* observability — and
+01d rules observability out itself, since `dbg:tpl(Mod, Fun, Arity, …)` already traces a single
+function without it being a module. `13:202-203` carries it forward verbatim. So:
+
+> **Open extension becomes available if and only if the operation replaces the aggregate as the unit
+> of deployment.**
+
+Checkable, and the answer today is no.
+
+**A coupling worth recording.** That trigger is reachable *only while hot code loading is retained*.
+Drop it and deployment granularity below the aggregate has nothing left to mean — 01d's own
+falsifier becomes unreachable and this deferral converts to a plain **rejection**. Three of 01d's
+four grounds are independent of hot loading anyway, and 01d had already corrected the fourth down
+from correctness to ergonomics itself (`01d:46-58`, *"That argument is weaker than it looks, and it
+should not be used"*, because `code:atomic_load/1` exists).
+
+**A seam this ticket does not cover.** The refusal bites at the **clause set, not the type**. Module
+B can hand-spell a wider union — quoted atoms lex (`bs_lexer.xrl:161`), `kind_field_is_minted`
+(`bs_check.erl:796-798`) refuses only the `record` form, and `26:229` holds that a hand-written
+`type` with the same tag *is* the same type. What B cannot do is add a clause to A's function, whose
+clause set lives in one aggregate's source. Filed separately; an implementer reading "no open
+extension" would not predict that the type side is reachable.
 
 ## Not decided here
 

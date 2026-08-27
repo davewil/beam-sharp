@@ -205,8 +205,13 @@ survive contact with ticket 13. A specialisation has to be emitted somewhere. In
 aggregate: `List` no longer owns its own code, a fix to `Map` requires recompiling every caller,
 and hot-loading `List` updates nothing — against ticket 13 §3, which chose the aggregate as **the
 consistency unit** for hot code loading, deliberately. In `List`'s *own* aggregate: you must know
-every instantiation when `List` is compiled, which is whole-program compilation, against ticket
-13's standing obligation that the frontend never depend on in-process compiler state. Monomorphisation
+every instantiation when `List` is compiled, which is whole-program compilation. This originally
+read "against ticket 13's standing obligation that the frontend never depend on in-process compiler
+state"; **that citation was wrong and is corrected 2026-08-27** — the obligation forbids in-process
+state, not a build-time pass over sources, and `bsc` already walks the transitive `using` closure
+(`bsc.erl:278`). The leg survives on a different fact the prose never stated: **knowing every module
+in that closure is not knowing every instantiation**, since a caller may sit outside it. See ticket
+16's 2026-08-27 amendment for the full re-derivation. Monomorphisation
 is a whole-program technique (Rust, C++, MLton); the BEAM is separately compiled and hot-swappable
 per module. **It works inside an aggregate and fails at exactly the boundary where a shared
 `List.Map` lives.**
