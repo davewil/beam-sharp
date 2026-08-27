@@ -380,6 +380,21 @@ language.
     it obeys — **a hand-edited copy drifts from what it copies.** The path was
     the last hand-edited copy in this directory.
 
+    **The binding held; its control did not (2026-08-27).** The control that
+    checks the binding compared the manifest's path against `$HERE` — and the
+    manifest carries a *resolved* path while `$HERE` keeps whatever symlinks the
+    caller walked through. Two spellings of one directory, reported as two
+    directories. It never fired in the main checkout or on Linux CI, and fired
+    every time under macOS's `mktemp -d`, where `/var` is a symlink to
+    `/private/var` — so it failed on precisely the workflow this project
+    mandates, `git clone` into a temp dir, at stage 12 of 34, taking the
+    twenty-two stages after it with it. The comparison now resolves both sides,
+    and the self-test reaches its own harness through a deliberate symlink rather
+    than waiting for a platform to supply one. The second half of that control
+    matters more than the first: a copy of the harness stages its own manifest
+    and must still be rejected, because "goes green through a symlink" is
+    otherwise satisfiable by weakening the assertion this whole entry is about.
+
 11. **The spec fix was verified, and the prediction was exact.** `§5`'s
     illustration was replaced with a **gated fence** using a fresh name, and the
     rule was stated beside the example rather than seventy lines away in §2.

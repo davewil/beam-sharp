@@ -23,6 +23,28 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# The same directory, spelled physically — every symlink resolved. Both spellings
+# are needed and neither is redundant.
+#
+# `pwd` above is LOGICAL: it keeps whatever symlinks the caller walked through,
+# which is what the human-facing messages should echo back. But
+# `build-run-manifest.py` calls `.resolve()` on HARNESS, so every path it writes
+# is symlink-free. Comparing a manifest path against $HERE therefore compares two
+# spellings of one directory and calls them different.
+#
+# Found 2026-08-27: on macOS `/var` is a symlink to `/private/var` and `mktemp -d`
+# hands back the logical form, so `git clone` into a temp dir — the exact shape of
+# "the gates pass twice from a clean checkout" — made the binding control below
+# fail against a manifest the harness had just staged itself. It is stage 12 of
+# 34 and verify.sh stops at the first failure, so twenty-two stages went unrun for
+# a reason unrelated to any change. Green on Linux CI and in a checkout under
+# /Volumes, which is why it went unseen.
+#
+# The repair belongs on this side. Dropping the `.resolve()` in the builder would
+# also make the two agree, and would be wrong: the manifest names the file that
+# scores the run, and a path a symlink can alias is not that guarantee.
+HERE_P="$(cd "$HERE" && pwd -P)"
+
 # NOT `for key in $KEYS` — this shell word-splits differently under zsh, where an
 # unquoted parameter stays one word and the loop silently runs once on a
 # nonsense name. An array is the portable spelling.
@@ -42,6 +64,15 @@ KEYS=(codex grok copilot-sonnet5 copilot-haiku45 free-deepseek)
 # detected, which told us nothing about the check.
 leaks() {
   find "$1" -maxdepth 2 -type d \( -name 'expected' -o -name 'heldout' \) 2>/dev/null
+}
+
+# Which check.sh does a run manifest bind to? Factored out for the same reason
+# `leaks` is: --self-test must be able to point it at a manifest staged by a
+# DIFFERENT copy of the harness and require a rejection. A control that
+# re-spelled this grep would be testing its own copy of the rule, and would go on
+# passing after the shipped one drifted.
+bound_check() {
+  grep -o '"check": "[^"]*check\.sh' "$1" | sed 's/.*: "//' | sort -u
 }
 
 if [ "${1:-}" = "--self-test" ]; then
@@ -87,11 +118,11 @@ if [ "${1:-}" = "--self-test" ]; then
 
   STAGED="$CTL/staged"
   if "${BASH_SOURCE[0]}" "$STAGED" >/dev/null 2>&1 && [ -f "$HERE/manifest.run.json" ]; then
-    bound="$(grep -o '"check": "[^"]*check\.sh' "$HERE/manifest.run.json" | sed 's/.*: "//' | sort -u)"
-    if [ "$bound" != "$HERE/check.sh" ]; then
+    bound="$(bound_check "$HERE/manifest.run.json")"
+    if [ "$bound" != "$HERE_P/check.sh" ]; then
       echo "SELF-TEST FAILED: the generated run manifest does not bind to this harness."
       echo "                  expected every check to invoke:"
-      echo "                    $HERE/check.sh"
+      echo "                    $HERE_P/check.sh"
       echo "                  got:"
       printf '                    %s\n' "$bound"
       echo "                  A manifest that scores with a DIFFERENT copy of check.sh is"
@@ -109,7 +140,63 @@ if [ "${1:-}" = "--self-test" ]; then
     fail=1
   fi
 
-  [ "$fail" -eq 0 ] && { echo "self-test: found the planted answers and the planted held-out set, cleared the clean tree, and bound the run manifest to this harness"; exit 0; }
+  # CONTROL — THE BINDING COMPARISON MUST SURVIVE A SYMLINKED PATH AND MUST STILL
+  # REJECT A FOREIGN HARNESS. BOTH HALVES, OR NEITHER IS EVIDENCE.
+  #
+  # The control above compares a manifest path against this directory, and that
+  # comparison was wrong from the day it was written without any control seeing
+  # it — because the two spellings only diverge when the harness is reached
+  # THROUGH A SYMLINK. That never happens in the main checkout or on Linux CI,
+  # and it happens every single time under macOS's `mktemp -d`. So the first half
+  # reaches the harness through a symlink on purpose, rather than waiting for a
+  # platform to supply one and calling the result a surprise.
+  #
+  # The second half is the one that carries the weight. What is being repaired is
+  # itself a self-test, so "goes green through a symlink" is satisfiable by
+  # weakening the assertion until it asserts nothing — and this assertion is what
+  # stops a foreign check.sh scoring the run, which on 2026-08-22 handed three
+  # held-out answers to a worker. So a SECOND copy of the harness stages its own
+  # manifest, and this directory's comparison must still call it foreign. A
+  # control that only proved the green would pass while protecting nothing.
+  #
+  # The first half re-enters this --self-test, so both halves are skipped when
+  # nested; without the guard the control recurses until the process table
+  # objects.
+  if [ "${AUDITION_SELFTEST_NESTED:-}" != "1" ]; then
+    ln -s "$HERE_P" "$CTL/link"
+    if ! AUDITION_SELFTEST_NESTED=1 "$CTL/link/stage.sh" --self-test >/dev/null 2>&1; then
+      echo "SELF-TEST FAILED: the self-test does not pass when this same harness is"
+      echo "                  reached through a symlink. The binding comparison is"
+      echo "                  holding one spelling of this directory against another"
+      echo "                  rather than comparing the directories. A clean clone"
+      echo "                  under macOS's /var arrives by exactly this path, and"
+      echo "                  loses every stage after this one."
+      fail=1
+    fi
+
+    # Copied from the physical path so the copy is a genuine second directory
+    # rather than another name for this one, and stripped of any manifest it
+    # inherited so the one it is judged on is the one it just staged.
+    cp -Rp "$HERE_P" "$CTL/foreign"
+    rm -f "$CTL/foreign/manifest.run.json"
+    if "$CTL/foreign/stage.sh" "$CTL/staged-foreign" >/dev/null 2>&1 \
+         && [ -f "$CTL/foreign/manifest.run.json" ]; then
+      if [ "$(bound_check "$CTL/foreign/manifest.run.json")" = "$HERE_P/check.sh" ]; then
+        echo "SELF-TEST FAILED: a manifest staged by a DIFFERENT copy of the harness"
+        echo "                  binds to THIS directory's check.sh. The comparison has"
+        echo "                  stopped discriminating, so the 2026-08-22 leak — a run"
+        echo "                  scored by a check.sh four commits behind the one that"
+        echo "                  staged it — is open again."
+        fail=1
+      fi
+    else
+      echo "SELF-TEST FAILED: the second copy of the harness staged no manifest, so the"
+      echo "                  half of this control that requires a REJECTION never ran."
+      fail=1
+    fi
+  fi
+
+  [ "$fail" -eq 0 ] && { echo "self-test: found the planted answers and the planted held-out set, cleared the clean tree, and bound the run manifest to this harness — through a symlinked path, and not to a second copy of it"; exit 0; }
   exit 1
 fi
 
