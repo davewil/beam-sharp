@@ -1,0 +1,18 @@
+// 49a control — is a FIXED short-circuit set safe against ticket 15's collapse?
+//
+// A valve that keys on the fixed set `(:error, _) | :nothing` (shape C) is only
+// sound where `:nothing` is still a distinguishable member of the subject. It is
+// not, in one case ticket 15 measured: `option<atom>` normalises to bare `atom`,
+// because `:nothing` IS an atom and 09's rule absorbs a singleton into the
+// cofinite top. A valve over such a value would short-circuit on a legitimate
+// success.
+//
+// Ticket 15 made that collapse "an error at the declaration" — decisions.md:297.
+// If that refusal is real, the hazard cannot reach a valve, and shape C needs no
+// new machinery to be safe. This probe is the check.
+module Collapse
+
+// Expected: refused at the declaration, before any valve is involved.
+public option<atom> Lookup(int id)
+Lookup(id) when id > 0  -> :found
+Lookup(id) when id <= 0 -> :nothing

@@ -312,8 +312,9 @@ the body. These are open: read the body before assuming a direction.
   20% slower on a tight loop while emitting **identical instructions**; a dead heat once the
   runtime dominates. The question is why it is not *ahead* — it discards intervals at emission
 - **What the valve keys on: the atom, or the declared type?** `#49` `syntax` `types`
-  31c's shape B, with two measurements behind it — the one-clause unwrap removes the ergonomic
-  case, and `|?>` **refuses `option<T>`**, the construct ticket 17 borrowed it for
+  both measurements hold, but 31c's compiler claim does not: a residual can be **unguardable**
+  (`binary \ string`), so shape B needs a refusal that does not exist. 15 §2 and 17 §4 disagree on
+  which member is null's analogue, and a **fixed set** (shape C) was never costed. Round 1 open
 - **Dependency provenance: what a `.bs` file says about what it needs** `#52` `ffi` `tooling`
   51 left it: `using :'Elixir.Req'` names the *module*, never the *application*, so dependencies live
   only in the environment that built them. The FFI declaration may already be the home

@@ -1,0 +1,26 @@
+// 49a — the arm shape B would have to emit, in a program someone would write.
+//
+// Under shape B the valve short-circuits on `Subject \ ParamType`: the members
+// of the incoming value that are NOT in the stage's declared parameter type
+// pass through untouched. That residual is a TYPE, and the emitter needs a
+// runtime TEST for it.
+//
+// Here the subject is `binary` and the stage is declared over `string`. The
+// residual is `binary \ string` — measured non-empty by the algebra, with no
+// head F29 can spell and (measured with erlc) no BEAM guard behind it, because
+// UTF-8 validity over a whole binary is not a guard expression.
+//
+// Nothing about this program is exotic: `string` is B#'s refinement of `binary`
+// (F10), and declaring a stage over the narrower of the two is the ordinary
+// reason to narrow at all.
+module Narrow
+
+public atom Run(binary raw)
+Run(raw) -> Bytes(raw) |?> Decode()
+
+private binary Bytes(binary raw)
+Bytes(raw) -> raw
+
+// The stage that narrows. Under shape B, `binary \ string` short-circuits here.
+private atom Decode(string s)
+Decode(s) -> :decoded
