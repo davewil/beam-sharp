@@ -1,7 +1,10 @@
 # 49 — What the valve keys on: the atom, or the declared type?
 
 Type: grilling
-Status: claimed — [ENG-231](https://linear.app/davewil/issue/ENG-231)
+Status: **round 1 open with David, 2026-08-28** — [ENG-231](https://linear.app/davewil/issue/ENG-231).
+Measured ([`49a`](../prototypes/49a-what-the-arm-must-be/)): both of this file's own measurements
+hold, 31c's compiler claim is false in two of three parts, and the framing premise is mis-sourced —
+17 §4 assigns null's analogue on the record. Nobody is working it; it is waiting on four answers.
 
 Raised 2026-08-21 out of [ticket 31](31-composable-middleware.md), which measured two things that
 bear on a remedy [`31c`](../prototypes/31c-middleware-on-the-page.md) had already drafted and
@@ -154,7 +157,10 @@ The ticket presents a binary. A **fixed** short-circuit set is neither:
 | **shape C** | the fixed set `(:error, _) \| :nothing` |
 
 Shape C closes the `option<T>` gap, keeps the arm a **literal** in `bs_lower`, needs no signature at
-emit, and never reaches the unguardable residual — both its members are guard-testable. It is also
+emit, and **cannot** reach the unguardable residual. That last is structural rather than lucky: the
+short-circuit set is a constant, so what the valve tests is always `subject ∩ {(:error, _),
+:nothing}` and never `subject \ param`. A meet with a fixed two-member set is a tuple test or an atom
+equality, whatever the subject is; row 4 is unreachable by construction. It is also
 **closer to the borrow 17 claimed** than shape B is: C#'s `?.` keys on a fixed sentinel, not on the
 callee's parameter type.
 
