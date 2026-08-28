@@ -1,10 +1,11 @@
 # 49 — What the valve keys on: the atom, or the declared type?
 
 Type: grilling
-Status: **round 1 open with David, 2026-08-28** — [ENG-231](https://linear.app/davewil/issue/ENG-231).
-Measured ([`49a`](../prototypes/49a-what-the-arm-must-be/)): both of this file's own measurements
-hold, 31c's compiler claim is false in two of three parts, and the framing premise is mis-sourced —
-17 §4 assigns null's analogue on the record. Nobody is working it; it is waiting on four answers.
+Status: **RESOLVED 2026-08-28 — the valve keys on a fixed pair, `(:error, _) | :nothing`** —
+[ENG-231](https://linear.app/davewil/issue/ENG-231). Shape B is **refused on the measurement**
+([`49a`](../prototypes/49a-what-the-arm-must-be/)): a residual can be unguardable, so it needs a
+refusal that does not exist. `:nothing` **is** null's analogue and **17 §4 is overruled** — see
+*DECIDED* below. Not built; the build is F30.
 
 Raised 2026-08-21 out of [ticket 31](31-composable-middleware.md), which measured two things that
 bear on a remedy [`31c`](../prototypes/31c-middleware-on-the-page.md) had already drafted and
@@ -208,3 +209,101 @@ written **as** is a clause head"*. Under shape A the head is visible from the op
 shape B the marker is written but its pattern comes from a signature elsewhere. 17 §4 treated the
 mandatory marker as satisfying 08 — so this is **not** foreclosed, but it is nearer the rule 17
 closed than the ticket suggests.
+
+## DECIDED 2026-08-28 — the fixed pair, and 17 §4 is overruled
+
+**David, on Q1:** *"`:nothing` is null's analogue, go with the fixed pair, how `(:error, E)` could
+replace null boggles the mind."*
+
+### Q1 — `:nothing` is null's analogue
+
+15 §2 wins, 17 §4 is **wrong and is corrected in place** at
+[17 §4](17-pipeline-and-comprehension.md). Its sentence read:
+
+> Ticket 15's untagged `result` makes `(:error, E)` the exact analogue of `null`.
+
+The reasoning was about the *shape of the chain* — the success side is bare, so a plain `Valid`
+flows where a nullable `T?` would — and that observation is true. It does not make `(:error, E)`
+null. Null is **absence carrying no information**, which is 15 §2's own definition of `:nothing`; a
+`(:error, E)` carries a reason, and a reason is the one thing null never has. 17 read the borrow off
+the chain's silhouette and never checked it against 15's vocabulary one section down.
+
+This does not disturb the rest of 17 §4. The valve beat `Result.Then` and `[Propagates]` on cost of
+mechanism, and none of those comparisons turn on which member is null.
+
+### Q2, Q3 — the valve keys on the fixed pair `(:error, _) | :nothing`
+
+```csharp
+option<User>    Fetch(int id)
+option<Account> For(User u)
+
+Load(id) -> Fetch(id) |?> For()     // refused before this decision; correct after it
+```
+
+**Shape B — keying on the stage's declared parameter type — is refused**, and on the measurement
+rather than on taste. 31c argued it needs *"nothing the compiler does not already have"*. Measured
+([`49a`](../prototypes/49a-what-the-arm-must-be/)):
+
+- the check-time side table it needs is precedented (F18 `validators`, F19 `foreigns`, 41 §2
+  `imports`), so **pass order is not the obstacle** and 31c is right on that point;
+- but a residual can span N members, so the valve stops being two-armed; and
+- `binary \ string` is a **non-empty residual with no head and no BEAM guard** — F29's head channel
+  yields zero parts and `erlc` rejects the only stdlib test as `illegal guard expression`, in either
+  polarity, because UTF-8 validity is a linear scan. So **ticket 09's *"discriminable by one BEAM
+  guard in O(1)"* does not hold in general.**
+
+Shape B would therefore *accept* a program the compiler refuses honestly today and then fail to
+lower it, which needs a refusal nobody has designed. The fixed pair cannot reach that case **by
+construction**: the set is a constant, so the valve tests `subject ∩ {(:error, _), :nothing}` and
+never `subject \ param`, and a meet with two fixed members is a tuple test or an atom equality
+whatever the subject is.
+
+It is also the **closer borrow**, which is what 17 §4 was reaching for and mis-aimed: C#'s `?.` and
+TS's optional chaining key on a fixed sentinel, not on the callee's signature.
+
+### Q4 — 08 is not reached
+
+Moot once shape B is refused. Recorded because it was asked: 08's *"what narrowing is written as is
+a clause head"* is satisfied under the fixed pair, since the head is a literal the reader can
+recognise from the operator alone, exactly as today.
+
+## What the build owes — F30
+
+Not built. The decision is recorded; the compiler still stops only on `(:error, _)`.
+
+1. **`bs_lower` emits three arms, not two** — `(:error, e)`, `:nothing`, and the value arm. Both new
+   arms stay **literals**, so no signature reaches `bs_lower` and `bs_emit` needs nothing new. This
+   is the whole reason the fixed pair is cheap.
+2. **`valve_on_infallible` changes meaning**: it fires when `subject ∩ {(:error, _), :nothing}` is
+   empty, not when the subject has no `(:error, _)` member. Its message names the member it looked
+   for, so the prose changes with it.
+3. **The residual passed to the stage** is the subject minus *both* members, which F2's subtraction
+   already computes.
+4. **`CONTEXT.md:129` and `LANGUAGE.md` §5 owe an update** — both currently define the valve by the
+   error member alone. Deliberately left stale until F30 lands, so no document asserts behaviour the
+   compiler does not have.
+
+## Accepted exposure, and what would remove it
+
+Two cases where the fixed pair stops on a value the author meant as a success. David accepted both
+with the decision; recorded so the price is not rediscovered as a defect.
+
+**Measured, and covered by an existing decision.** `option<atom>` normalises to bare `atom`, so a
+valve over it would stop on any atom. 15 §1 refuses that *at the declaration* — **decided and
+unbuilt**, filed as [ENG-272](https://linear.app/davewil/issue/ENG-272). **F30 should not land before
+ENG-272**, or the hazard is reachable.
+
+**Measured, and covered by nothing.** `:found | :nothing` does **not** collapse, so 15 §1 passes it
+even once built, and the valve still stops on `:nothing` while `valve_on_infallible` stays quiet —
+the meet is non-empty. A stage meaning `:nothing` as a value is skipped **silently**:
+
+```csharp
+type Answer = :yes | :no | :nothing    // :nothing is a VALUE here, not absence
+Ask(q) |?> Record()                    // stops anyway, with no diagnostic
+```
+
+Shape A had no analogue of this: `(:error, _)` is a tuple with a tag nobody writes by accident,
+where `:nothing` is a bare atom in the ordinary namespace. **The deferred remedy**, if this ever
+bites: refuse `:nothing`-as-value where a valve can reach it — 15 §1's argument applied one step
+further out. It needs the reachability question answered first (is it every declaration, or only a
+valve subject?), which is why it is not decided here.

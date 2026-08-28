@@ -313,9 +313,15 @@ because that is where the reader needs it.
 **On the spelling.** `?` is free: prototype 01g and ticket 10 accepted losing C#'s ternary as the
 price of `:atom`, and *no BEAM language has one*. The `?` is not decoration — C#'s null-conditional
 `a?.B()` and TypeScript's optional chaining are the **same semantics**: if the left is the absent
-case, the rest of the chain does not run and that case is the result. Ticket 15's untagged `result`
-makes `(:error, E)` the exact analogue of `null`. This is a **tier-1 borrow for both halves of the
-audience simultaneously**, which is rare in this map. `|?>` keeps the `|>` silhouette intact with
+case, the rest of the chain does not run and that case is the result. ~~Ticket 15's untagged
+`result` makes `(:error, E)` the exact analogue of `null`.~~ **Overruled 2026-08-28 by
+[ticket 49](49-what-the-valve-keys-on.md): `:nothing` is null's analogue, not `(:error, E)`.** What
+this sentence got right is the *chain's silhouette* — the success side is bare, so a plain `Valid`
+flows where a nullable `T?` would. What it got wrong is null itself: null is absence carrying no
+information, which is [15](15-error-model.md) §2's own definition of `:nothing`, and a
+`(:error, E)` carries a reason. The valve now keys on the fixed pair `(:error, _) | :nothing`, which
+is the closer borrow. This is a **tier-1 borrow for both halves of the audience simultaneously**,
+which is rare in this map. `|?>` keeps the `|>` silhouette intact with
 the `?` inside it, so it reads as a variant of the pipe rather than a new token; `?|>` was the more
 literal transcription of `?.` and was declined for splitting the pipe's shape. `?>` was rejected for
 dropping the `|` and adding another `>` to a language where [ticket 28](28-generic-bracket-parsing.md)

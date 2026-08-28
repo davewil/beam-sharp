@@ -370,7 +370,9 @@
   combinator forces a function-as-value spelling; the fully implicit rule was closed by 08's
   *narrowing is always written, never inferred*. `?` is free (10 dropped the ternary) and is a
   **tier-1 borrow for both audiences at once** — C#'s `?.` and TS's optional chaining are the same
-  semantics, and 15's untagged `result` makes `(:error, E)` the exact analogue of `null`. **There is
+  semantics, and ~~15's untagged `result` makes `(:error, E)` the exact analogue of `null`~~ —
+  **overruled 2026-08-28 by 49: `:nothing` is null's analogue, and the valve keys on the fixed pair
+  `(:error, _) | :nothing`**. **There is
   no `if`**: `switch` is the only branching construct, *the way Go has one loop* (David), with a
   **tuple subject** for the subject-less ladder — tier-1 C#, Gleam's multi-subject `case`, and the
   clause head's own shape, converging. Measured, not cited: **Gleam has no `if` at all** and its
@@ -1699,3 +1701,35 @@
   higher-order library still waiting. **Whether that earns §(c) now is David's call and is
   deliberately not answered.** Probe:
   [`37a`](prototypes/37a_instantiation_by_matching.escript), six measurements, each with a control.
+- **What the valve keys on: the atom, or the declared type?** — [ticket 49](issues/49-what-the-valve-keys-on.md),
+  raised 2026-08-21 out of 31, resolved 2026-08-28. **`|?>` short-circuits on `(:error, _) | :nothing`** —
+  a constant, not the stage's declared parameter type. **31c's shape B is refused on the measurement**
+  ([`49a`](prototypes/49a-what-the-arm-must-be/)): its claim of *"nothing the compiler does not
+  already have"* holds only for the side table it needs, which is precedented three times over
+  (F18 `validators`, F19 `foreigns`, 41 §2 `imports`) — `bs_lower` runs before types exist and
+  `bs_emit` sees `env` but not `callees`, so **pass order was never the obstacle**. It fails on two
+  others: a residual can span N members, so the valve stops being two-armed; and **the arm is not
+  always emittable**. `binary \ string` is a non-empty residual with **zero** F29 head parts and no
+  BEAM guard — `erlc` rejects the only stdlib test as `illegal guard expression`, in either polarity,
+  UTF-8 validity being a linear scan. **So ticket 09's *"discriminable by one BEAM guard in O(1)"*
+  does not hold in general**, and anything leaning on it inherits the correction. Shape B would
+  accept a program today's compiler refuses honestly and then fail to lower it. The fixed pair cannot
+  reach that case **by construction** — the valve tests `subject ∩ {(:error, _), :nothing}`, never
+  `subject \ param`, and a meet with two fixed members is a tuple test or an atom equality whatever
+  the subject is. **17 §4 is overruled, corrected in place**: its *"15's untagged `result` makes
+  `(:error, E)` the exact analogue of `null`"* read the borrow off the chain's silhouette and never
+  checked it against 15 §2 one section down — null is **absence carrying no information**, which is
+  `:nothing`, where `(:error, E)` carries a reason (David: *"how `(:error, E)` could replace null
+  boggles the mind"*). The fixed pair is also the **closer borrow**: C#'s `?.` keys on a fixed
+  sentinel, not on the callee's signature. 08 is not reached — the head stays a literal, recognisable
+  from the operator alone. **Both of ticket 49's own premises re-measured and held**, including the
+  diagnostic text after ENG-269. **Not built — F30**, which owes three arms from `bs_lower` (both new
+  ones literals, so `bs_emit` needs nothing), a `valve_on_infallible` that fires on the empty meet
+  rather than the absent `(:error, _)`, and updates to `CONTEXT.md:129` and `LANGUAGE.md` §5, left
+  deliberately stale until it lands. **Two accepted exposures**, both measured: `option<atom>`
+  collapses to bare `atom`, which 15 §1 refuses at the declaration — **decided and unbuilt**
+  (ENG-272), so **F30 must not land before it**; and `:found | :nothing` does *not* collapse, so
+  15 §1 passes it and the valve stops on `:nothing` **silently**, the meet being non-empty. Shape A
+  had no analogue of the second — `(:error, _)` is a tuple nobody writes by accident where `:nothing`
+  is a bare atom in the ordinary namespace. Deferred remedy recorded: refuse `:nothing`-as-value
+  where a valve can reach it, which needs the reachability question answered first.
