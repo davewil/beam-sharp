@@ -62,7 +62,7 @@ preconditions:
 - **Row 5.** `option<atom>` normalises to bare `atom`, so a fixed set would stop on a legitimate
   success. Ticket 15 §1 refuses this *at the declaration* — **decided, and measured unbuilt**:
   `Collapse/collapse.bs` compiles clean, exit 0. F18 built the collapse check only at the
-  `ValidateAs<T>` obligation site.
+  `ValidateAs<T>` obligation site. Filed as [ENG-272](https://linear.app/davewil/issue/ENG-272).
 - **Row 6.** `:found | :nothing` does **not** collapse, so 15 §1 passes it even once built — yet a
   fixed set still short-circuits on `:nothing`, and `valve_on_infallible` does not fire because the
   meet is non-empty. Shape A has no analogue: `(:error, _)` is a tuple with a tag nobody writes by

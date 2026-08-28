@@ -163,7 +163,8 @@ Its cost is two preconditions, and the second is the serious one:
 - `option<atom>` normalises to bare `atom`, so a fixed set would stop on a legitimate success.
   15 §1 refuses this *at the declaration* — **decided, and measured unbuilt**: an ordinary
   `public option<atom> Lookup(int id)` compiles clean, exit 0. F18 built the collapse check only at
-  the `ValidateAs<T>` site. Filed separately; it is a compiler gap, not a map question.
+  the `ValidateAs<T>` site. Filed as [ENG-272](https://linear.app/davewil/issue/ENG-272) — a
+  compiler gap, not a map question, so no ticket number and no map entry.
 - `:found | :nothing` does **not** collapse, so 15 §1 passes it even once built — yet shape C still
   short-circuits on `:nothing`, and `valve_on_infallible` does not fire because the meet is
   non-empty. Shape A has no analogue: `(:error, _)` is a tuple with a tag nobody writes by accident,
