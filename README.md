@@ -86,6 +86,20 @@ git clone <this repo> /tmp/bs-check && cd /tmp/bs-check
 ./bin/verify.sh && ./bin/verify.sh
 ```
 
+**The two halves catch different faults, which is why neither one alone is the bar.** A clean
+checkout is what measures the repository rather than the disk. `compiler/src/bs_lexer.erl` and
+`bs_parser.erl` have never been committed — they are leex and yecc output, and the `.xrl` and
+`.yrl` beside them are the tracked sources — and `_build/`, `*.beam`, `*.plt` and `*.abstr` are
+ignored for the same reason. So a gate in a warm tree can go green against a parser generated
+three commits ago, or against a file edited and never added, and say nothing. The second run is
+what measures state dependence, and it only does so with the fresh `SPEC_CHECK_DIR` above: warm,
+run two asserts against the PLT run one left behind, in the 0.05 s that reusing it costs rather
+than the 9 s that building it does. One clean-clone run cannot see the second fault and two warm
+runs cannot see the first.
+
+One mistake voids both at once. If `HEAD` moves after the clone — an amend, a rebase — the two
+runs measured a commit that no longer exists. Commit first, then clone, then run twice.
+
 The test stage has no retry. Local verification and CI both invoke `rebar3 eunit`, under EUnit's
 five-second per-test timeout, so a red is believed on its first showing. Each EUnit VM owns a
 separate fixture root under `compiler/_build/test/bsc_eunit/`; source fixtures are separate again
