@@ -778,28 +778,30 @@ scan_ty(_, _Env, _L, _Seen) ->
 
 collapse_members(Ms, _Env, _L) when length(Ms) < 2 -> ok;
 collapse_members(Ms, Env, L) ->
-    Resolved = [resolve(M, Env) || M <- Ms],
-    Indexed  = lists:zip(lists:seq(1, length(Ms)), Ms),
-    lists:foreach(
-      fun({I, M}) ->
-              case failure_channel(M) of
-                  no ->
-                      ok;
-                  {yes, Channel} ->
-                      Failure = lists:nth(I, Resolved),
-                      Others  = bs_types:union(
-                                  [R || {J, R} <- lists:zip(
-                                                    lists:seq(1, length(Resolved)),
-                                                    Resolved), J =/= I]),
-                      case absorbed(Failure, Others) of
-                          true ->
-                              erlang:error({collapsed_failure_channel, L,
-                                            Channel, Failure, Others});
-                          false ->
-                              ok
-                      end
-              end
-      end, Indexed).
+    each_member(Ms, [resolve(M, Env) || M <- Ms], [], L).
+
+%% ONE MEMBER AT A TIME AGAINST THE UNION OF ALL THE OTHERS, which is what
+%% `T | F ≡ T` asks: `F` is absorbed when the rest of the union already contains
+%% it. The two lists are walked in step — surface members to recognise the
+%% channel by its shape, resolved ones to do the algebra — and `Before` carries
+%% what has already been passed, so "the others" is the ones before plus the ones
+%% after, with no indices to get wrong. `Before` accumulates reversed and that is
+%% harmless: union is commutative.
+each_member([], [], _Before, _L) ->
+    ok;
+each_member([M | Ms], [R | Rs], Before, L) ->
+    case failure_channel(M) of
+        no ->
+            ok;
+        {yes, Channel} ->
+            Others = bs_types:union(Before ++ Rs),
+            case absorbed(R, Others) of
+                true  -> erlang:error({collapsed_failure_channel, L,
+                                       Channel, R, Others});
+                false -> ok
+            end
+    end,
+    each_member(Ms, Rs, [R | Before], L).
 
 %% The prelude's two failure members and no others - `bs_check:stratum_one/0`
 %% defines `option<T>` as `T | :nothing` and `result<T, E>` as `T | (:error, E)`.
