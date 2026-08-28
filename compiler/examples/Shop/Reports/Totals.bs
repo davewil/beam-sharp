@@ -9,8 +9,9 @@
 module Shop.Reports
 
 // Module tier (41 §2): the names come in UNQUALIFIED. This is TypeScript's
-// named-import semantics exactly, and C#'s middle tier does not exist here
-// because B# has no namespace/type split to hang it on.
+// named-import semantics exactly. Corrected 2026-08-28: this comment used to
+// add that C#'s middle tier "does not exist here" — 41 §5 had already overturned
+// that as overstated, and the namespace import nine lines down IS that tier.
 using Shop.Collections.List
 
 // Namespace tier (41 §5): `Shop.Collections` holds no functions of its own, so it
