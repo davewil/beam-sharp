@@ -44,25 +44,43 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # exact function over fixtures rather than over a second copy of its logic.
 # ---------------------------------------------------------------------------
 run_stages() {
-  local label cmd n=0
+  local label cmd n=0 started elapsed run_started
+  run_started=$SECONDS
   while [ "$#" -gt 0 ]; do
     label="$1"; cmd="$2"; shift 2
     n=$((n + 1))
+    if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
+      printf '::group::=== [%d] %s\n' "$n" "$label"
+    fi
     printf '\n=== [%d] %s\n' "$n" "$label"
+    started=$SECONDS
     if ! ( eval "$cmd" ); then
-      printf '\nFAILED at stage %d: %s\n' "$n" "$label"
+      elapsed=$((SECONDS - started))
+      printf '\nFAILED at stage %d: %s (elapsed: %ds)\n' "$n" "$label" "$elapsed"
+      if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
+        printf '::endgroup::\n'
+      fi
       printf 'Nothing after this ran. Fix that stage and run ./bin/verify.sh again.\n'
       return 1
     fi
+    elapsed=$((SECONDS - started))
+    printf 'PASSED stage %d: %s (elapsed: %ds)\n' "$n" "$label" "$elapsed"
+    if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
+      printf '::endgroup::\n'
+    fi
   done
-  printf '\nAll %d stages passed.\n' "$n"
+  elapsed=$((SECONDS - run_started))
+  printf '\nAll %d stages passed (elapsed: %ds).\n' "$n" "$elapsed"
   return 0
 }
 
 # ---------------------------------------------------------------------------
 # --self-test
 #
-# THREE CLAIMS, AND THE THIRD IS THE ONE A PLAUSIBLE IMPLEMENTATION FAILS.
+# THE RUNNER'S CLAIMS ARE ALL OBSERVABLE HERE. A red stage exits non-zero, names
+# itself, reports its elapsed time and stops the run. A green run reports every
+# stage's elapsed time and its total. Under GitHub Actions, every stage is one
+# closed log group — including the stage that fails.
 #
 # A runner written as `for s in "${stages[@]}"; do $s || rc=1; done` exits
 # non-zero on a failure and reports the label, so it satisfies the first two
@@ -71,8 +89,8 @@ run_stages() {
 # a wall of subprocess errors that are all one problem. The marker file is what
 # separates the two designs: it must NOT exist.
 #
-# The fourth control is the discrimination half. A runner that reported failure
-# unconditionally would pass the three above and be worthless.
+# The green control is the discrimination half. A runner that reported failure
+# unconditionally would pass the red controls and be worthless.
 # ---------------------------------------------------------------------------
 if [ "${1:-}" = "--self-test" ]; then
   CTL="$(mktemp -d)"
@@ -83,7 +101,7 @@ if [ "${1:-}" = "--self-test" ]; then
   set +e
   out="$(run_stages \
       "a stage that passes"  "true" \
-      "a stage that fails"   "false" \
+      "a stage that fails"   "sleep 1; false" \
       "a stage after it"     "touch '$CTL/ran-after'" 2>&1)"
   rc=$?
   set -e
@@ -98,6 +116,11 @@ if [ "${1:-}" = "--self-test" ]; then
     echo "                  that something somewhere went wrong"
     fail=1
   fi
+  if ! printf '%s' "$out" | grep -Eq 'FAILED at stage 2: a stage that fails \(elapsed: [1-9][0-9]*s\)'; then
+    echo "SELF-TEST FAILED: the failing stage did not report a whole-second elapsed"
+    echo "                  duration, so a red run gives no indication of where time went"
+    fail=1
+  fi
   if [ -e "$CTL/ran-after" ]; then
     echo "SELF-TEST FAILED: a stage AFTER the failure ran. Everything downstream of a"
     echo "                  red gate reports the same problem again in a less useful"
@@ -107,7 +130,7 @@ if [ "${1:-}" = "--self-test" ]; then
   fi
 
   set +e
-  out_ok="$(run_stages "one" "true" "two" "true" 2>&1)"
+  out_ok="$(run_stages "one" "sleep 1" "two" "true" 2>&1)"
   rc_ok=$?
   set -e
 
@@ -117,15 +140,48 @@ if [ "${1:-}" = "--self-test" ]; then
     echo "$out_ok"
     fail=1
   fi
-  if ! printf '%s' "$out_ok" | grep -q 'All 2 stages passed'; then
-    echo "SELF-TEST FAILED: a clean run did not report how many stages it ran, so it"
-    echo "                  cannot be told from a run that enumerated nothing"
+  if ! printf '%s' "$out_ok" | grep -Eq 'All 2 stages passed \(elapsed: [1-9][0-9]*s\)\.'; then
+    echo "SELF-TEST FAILED: a clean run did not report its stage count and total elapsed"
+    echo "                  time, so it cannot be told from an empty or untimed run"
+    fail=1
+  fi
+  if ! printf '%s' "$out_ok" | grep -Eq 'PASSED stage 1: one \(elapsed: [1-9][0-9]*s\)' ||
+     ! printf '%s' "$out_ok" | grep -Eq 'PASSED stage 2: two \(elapsed: [0-9]+s\)'; then
+    echo "SELF-TEST FAILED: every successful stage must report its whole-second elapsed"
+    echo "                  duration, so a long green verification can be understood locally"
+    fail=1
+  fi
+  if printf '%s' "$out_ok" | grep -Fq '::group::'; then
+    echo "SELF-TEST FAILED: local output contained GitHub Actions grouping commands"
+    fail=1
+  fi
+
+  set +e
+  out_ci="$(GITHUB_ACTIONS=true run_stages \
+      "a CI stage that passes" "true" \
+      "a CI stage that fails"  "false" 2>&1)"
+  rc_ci=$?
+  set -e
+
+  if [ "$rc_ci" -eq 0 ]; then
+    echo "SELF-TEST FAILED: a failing CI stage exited 0"
+    fail=1
+  fi
+  ci_markers="$(printf '%s\n' "$out_ci" | grep -E '^::(group::.*|endgroup::)$' || true)"
+  expected_ci_markers=$'::group::=== [1] a CI stage that passes\n::endgroup::\n::group::=== [2] a CI stage that fails\n::endgroup::'
+  if [ "$ci_markers" != "$expected_ci_markers" ]; then
+    echo "SELF-TEST FAILED: GitHub Actions did not bound each numbered stage in its own group"
+    fail=1
+  fi
+  if [[ "$out_ci" != *$'FAILED at stage 2: a CI stage that fails'*$'::endgroup::'* ]]; then
+    echo "SELF-TEST FAILED: the failed CI stage did not close its log group"
     fail=1
   fi
 
   if [ "$fail" -eq 0 ]; then
-    echo "self-test: stopped at the failing stage, named it, ran nothing after it, and"
-    echo "           left a run whose stages all pass alone"
+    echo "self-test: stopped at the failing stage, named and timed every stage, ran"
+    echo "           nothing after the failure, kept local output plain, bounded every"
+    echo "           GitHub Actions stage in its own group, and accepted a green run"
     exit 0
   fi
   exit 1

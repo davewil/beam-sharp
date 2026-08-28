@@ -79,6 +79,12 @@ suite, Dialyzer over the emitted specs, and the two editor grammars. It stops at
 stage and names it. It works from any directory, and it gives each run a fresh `SPEC_CHECK_DIR`,
 because the PLT that makes a second run fast is also what stops it being an independent one.
 
+Each stage reports its elapsed time, and a clean run reports the total. A failed stage reports its
+time too, so a red run says both where it stopped and how long that stage ran.
+
+In GitHub Actions, those stages become collapsible log groups. Local output stays plain; grouping
+is enabled only when `GITHUB_ACTIONS=true`.
+
 **The bar is two consecutive clean passes from a clean checkout.** Not two runs in the same tree:
 
 ```sh
