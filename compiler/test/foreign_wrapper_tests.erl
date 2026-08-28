@@ -292,20 +292,26 @@ there_is_no_try_in_the_surface_test() ->
 
 %% `result<term, E>` IS `term` — ticket 15 §2 measured exactly this row, "only
 %% the top absorbs everything" — so there is no failure member left to find and
-%% no wrapper is emitted. Recorded as a test rather than left to be rediscovered:
-%% it looks like the wrapper failing to fire and it is the declaration being
-%% degenerate, which is what 15 §1's collapse check exists to refuse at the
-%% declaration. That check is not built, so this is the shape it will catch.
-a_term_return_is_not_a_declared_channel_test() ->
+%% no wrapper is emitted.
+%%
+%% THIS TEST PREDICTED ITS OWN REPLACEMENT AND THE PREDICTION CAME TRUE ON
+%% 2026-08-28. It used to compile this module and assert that `Parse` ran and
+%% crashed with `badarg`, above a comment reading: "which is what 15 §1's
+%% collapse check exists to refuse at the declaration. That check is not built,
+%% so this is the shape it will catch." F31 built it, and this is that shape, so
+%% the module no longer compiles at all. The behaviour being recorded is
+%% unchanged — a `term` return is not a declared failure channel — but it is now
+%% recorded as the refusal it always should have been rather than as a wrapper
+%% quietly not firing.
+a_term_return_is_refused_at_the_declaration_test() ->
     Src = "module Fw8\n"
           "using :erlang {\n"
           "    result<term, foreign_error> binary_to_integer(binary b)\n"
           "}\n"
           "public term Parse(binary b)\n"
           "Parse(b) -> :erlang.binary_to_integer(b)\n",
-    M = build_and_load(Src, 'Fw8'),
-    ?assertEqual(8080, M:'Parse'(<<"8080">>)),
-    ?assertError(badarg, M:'Parse'(<<"abc">>)).
+    ?assertError({collapsed_failure_channel, _, error, _, _},
+                 bs_test_support:check_only(Src)).
 
 %%% ---------------------------------------------------------------------------
 %%% Ticket 56 — a foreign error that arrives as a VALUE

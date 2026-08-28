@@ -952,6 +952,35 @@ Exhaustive, and nothing in those clause heads knows about a bracket: `result<int
 a style choice: `atom | :error` collapses (`:error` is absorbed into the atom top) while
 `atom | (:error, binary)` does not.
 
+### A failure channel that does not survive normalisation is refused
+
+**Shipped.** A union is normalised before the checker sees it, so a failure member the success type
+already contains simply disappears — and the declared type becomes the success type alone, with no
+failure clause left for a caller to write. That is an **error at the declaration**, not a warning
+and not a diagnostic at the match site, because the declaration is where the fix is:
+
+    public option<atom> Lookup(int id)
+    // error: `:nothing` is absorbed by `atom`
+    //   the failure channel does not survive normalisation, so the type
+    //   declared here IS `atom`. No caller can write the failure clause,
+    //   because no failure member is left to match.
+    //   hint: tag it - (:some, atom) | :nothing
+
+The rule is one equation — reject when `T | <failure member>` is `T` — rather than a list of cases,
+and that matters because the cases do not all involve an atom top. `option<option<int>>` is
+`option<int>`, so "key absent" and "key present, value absent" would be the same value.
+`result<(atom, binary), binary>` collapses on a **tuple shape**: `(:error, binary)` is already a
+`(atom, binary)`. Both are refused, and neither has a cofinite atom anywhere in it.
+
+It is keyed on the type, never on the spelling. `type M = atom | :nothing` is refused exactly as
+`option<atom>` is, because §9 makes them one type rather than two that agree. The check runs at
+every declaration that carries a written type: a signature's return and parameters, a `foreign`
+signature's, a record field, a type alias body, a refinement's base — and inside a tuple or a
+generic argument, since a dead channel one level down is just as dead.
+
+`option<int>`, `option<bool>` and `result<int, binary>` are unaffected; so is `(:ok, T) | :absent`,
+which is why a map lookup is spelled that way.
+
 `raise` takes any term. **There is no `try`** — a foreign call that can throw gets a wrapper the
 compiler writes from your declared return type, and process failure is `monitor` plus `receive`,
 which yields a better reason than `try` does.

@@ -1727,8 +1727,10 @@
   ones literals, so `bs_emit` needs nothing), a `valve_on_infallible` that fires on the empty meet
   rather than the absent `(:error, _)`, and updates to `CONTEXT.md:129` and `LANGUAGE.md` §5, left
   deliberately stale until it lands. **Two accepted exposures**, both measured: `option<atom>`
-  collapses to bare `atom`, which 15 §1 refuses at the declaration — **decided and unbuilt**
-  (ENG-272), so **F30 must not land before it**; and `:found | :nothing` does *not* collapse, so
+  collapses to bare `atom`, which 15 §1 refuses at the declaration — **decided, and built as F31 on
+  2026-08-28** (ENG-272), so the precondition F30 was waiting on is met and this exposure is now
+  closed rather than accepted <!-- corrected 2026-08-28; read "decided and unbuilt, so F30 must not
+  land before it" -->; and `:found | :nothing` does *not* collapse, so
   15 §1 passes it and the valve stops on `:nothing` **silently**, the meet being non-empty. Shape A
   had no analogue of the second — `(:error, _)` is a tuple nobody writes by accident where `:nothing`
   is a bare atom in the ordinary namespace. Deferred remedy recorded: refuse `:nothing`-as-value

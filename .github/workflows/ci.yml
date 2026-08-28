@@ -534,6 +534,28 @@ jobs:
         working-directory: compiler
         run: ./bin/check-negation.sh
 
+      # F31 / ticket 15 §1, ENG-272. A declared failure channel must survive
+      # normalisation: `option<atom>` IS `atom`, so no caller can write the
+      # failure clause. F18 built the predicate at the `ValidateAs<T>`
+      # obligation site only, and two documents — ticket 49's shape C and
+      # `PRELUDE.md`'s `ToExistingAtom` entry — leaned on a declaration-site
+      # refusal that did not exist.
+      #
+      # The roster is eleven shapes because 15 §1 names its own wrong
+      # implementation: "an implementer would write the cofinite check alone".
+      # `option<option<int>>` has no atom top and `result<(atom, binary),
+      # binary>` collides on a TUPLE SHAPE, so the self-test's `atom_top` stub
+      # is that exact defect and both shapes are what see it. The `spelling`
+      # stub is the other one: a rule keyed on `option<...>` misses the
+      # hand-written alias, which is how `ToExistingAtom` is spelled.
+      - name: The collapse gate proves it can fail
+        working-directory: compiler
+        run: ./bin/check-collapse.sh --self-test
+
+      - name: 'A declared failure channel survives normalisation'
+        working-directory: compiler
+        run: ./bin/check-collapse.sh
+
       # F21 / ticket 36. `Order{ Id = :oops }` and `o with { Total = :oops }`
       # both compiled to a .beam, and `o with { Nope = 1 }` compiled and raised
       # {badkey,'Nope'} at RUN time — 26 §2 enforced by the BEAM rather than by

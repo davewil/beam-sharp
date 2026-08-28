@@ -168,10 +168,14 @@ callee's parameter type.
 Its cost is two preconditions, and the second is the serious one:
 
 - `option<atom>` normalises to bare `atom`, so a fixed set would stop on a legitimate success.
-  15 §1 refuses this *at the declaration* — **decided, and measured unbuilt**: an ordinary
-  `public option<atom> Lookup(int id)` compiles clean, exit 0. F18 built the collapse check only at
-  the `ValidateAs<T>` site. Filed as [ENG-272](https://linear.app/davewil/issue/ENG-272) — a
-  compiler gap, not a map question, so no ticket number and no map entry.
+  15 §1 refuses this *at the declaration* — **decided, and built as F31 on 2026-08-28**: an
+  ordinary `public option<atom> Lookup(int id)` is now refused. Filed as
+  [ENG-272](https://linear.app/davewil/issue/ENG-272) — a compiler gap, not a map question, so no
+  ticket number and no map entry.
+  <!-- corrected 2026-08-28: read "decided, and measured unbuilt: ... compiles clean, exit 0.
+       F18 built the collapse check only at the ValidateAs<T> site." True when written; F31
+       closed it the same evening. -->
+  **This precondition is met.**
 - `:found | :nothing` does **not** collapse, so 15 §1 passes it even once built — yet shape C still
   short-circuits on `:nothing`, and `valve_on_infallible` does not fire because the meet is
   non-empty. Shape A has no analogue: `(:error, _)` is a tuple with a tag nobody writes by accident,
@@ -288,10 +292,13 @@ Not built. The decision is recorded; the compiler still stops only on `(:error, 
 Two cases where the fixed pair stops on a value the author meant as a success. David accepted both
 with the decision; recorded so the price is not rediscovered as a defect.
 
-**Measured, and covered by an existing decision.** `option<atom>` normalises to bare `atom`, so a
-valve over it would stop on any atom. 15 §1 refuses that *at the declaration* — **decided and
-unbuilt**, filed as [ENG-272](https://linear.app/davewil/issue/ENG-272). **F30 should not land before
-ENG-272**, or the hazard is reachable.
+**Measured, and now closed rather than accepted.** `option<atom>` normalises to bare `atom`, so a
+valve over it would stop on any atom. 15 §1 refuses that *at the declaration* — **decided, and
+built as F31 on 2026-08-28**, filed as [ENG-272](https://linear.app/davewil/issue/ENG-272). The
+declaration this exposure needed can no longer be written, so **F30's precondition is met** and
+this is one exposure, not two.
+<!-- corrected 2026-08-28: read "decided and unbuilt ... F30 should not land before ENG-272, or the
+     hazard is reachable". ENG-272 shipped; the sentence stood for about six hours. -->
 
 **Measured, and covered by nothing.** `:found | :nothing` does **not** collapse, so 15 §1 passes it
 even once built, and the valve still stops on `:nothing` while `valve_on_infallible` stays quiet —

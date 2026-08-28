@@ -11,6 +11,13 @@
 //
 // `option<atom>` is 15's own worked case: `:nothing` is absorbed by the atom
 // top, so this declaration IS the degenerate one the rule exists to reject.
+//
+// ANSWERED 2026-08-28, and the answer changed. This probe compiled clean when
+// it was written, which was the finding. F31 (ENG-272) built 15 §1 at the
+// declaration, and `collapse_refused/2` now runs over every declaration form —
+// so this file is REFUSED, and the control has served its purpose. The two
+// sentences above about `validate_collapses/2` having exactly one caller were
+// true of the compiler they described and are no longer true of this one.
 module Collapse
 
 type Absorbed = atom | :nothing

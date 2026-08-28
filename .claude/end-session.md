@@ -51,6 +51,7 @@ cd compiler && ./bin/check-residual-pasteable.sh # the synthesised head round-tr
 cd compiler && ./bin/check-list-length.sh       # the checker sees a list's length, both ways
 cd compiler && ./bin/check-division.sh          # `/` lowers to div; only a provable zero is refused
 cd compiler && ./bin/check-negation.sh          # no `not`, no `!`, both taught; `not` is still a name
+cd compiler && ./bin/check-collapse.sh          # a declared failure channel survives normalisation
 cd compiler && ./bin/check-field-values.sh      # a field assignment is checked, at both spellings
 cd compiler && ./bin/check-record-pattern.sh    # a type prefix subtracts what the Kind spelling does
 cd compiler && ./bin/check-boundary-kind.sh     # an int parameter is an integer at the boundary
@@ -84,7 +85,8 @@ sees it, because a fresh checkout has no `C.beam`. The gate now prints the boot 
 `__erl_failed__`, but **the detritus is still worth deleting**: `rm -f compiler/C.beam` before a
 sweep, and note that `.gitignore` hides it so `git status` stays clean.
 
-**TWENTY-SIX `check-*` gate scripts — `check-residual-pasteable.sh` added 2026-08-27 by
+**TWENTY-SEVEN `check-*` gate scripts — `check-collapse.sh` added 2026-08-28 by F31 /
+ENG-272. Previously TWENTY-SIX: `check-residual-pasteable.sh` added 2026-08-27 by
 ENG-263, and `check-switch-diagnostics.sh` added 2026-08-27 by ENG-248. This line read
 TWENTY-FOUR until 2026-08-27 and was wrong by one for most of that day: ENG-248 added its
 gate to `ci.yml`, `verify.sh` and the list above but not to this count, which is the

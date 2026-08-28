@@ -344,9 +344,15 @@ generated(M) ->
 %% TICKET 15 §1, met at an instantiation rather than at a declaration. `term` is
 %% the only type that absorbs the tagged failure member, and it is also the one
 %% instantiation that is vacuous: every term inhabits `term`.
+%%
+%% THE RETURN TYPE IS `result<int, …>` AND WAS `result<term, …>` until F31
+%% (2026-08-28). 15 §1's collapse is now refused at the declaration too, so the
+%% old spelling was refused before the obligation site was ever reached and this
+%% test would have been measuring F31 while claiming to measure F18. The
+%% obligation's TYPE ARGUMENT is what this test is about, and it is unchanged.
 validate_as_term_is_refused_test() ->
     Src = "module VaTerm\n"
-          "public result<term, ValidationError> Any(term t)\n"
+          "public result<int, ValidationError> Any(term t)\n"
           "Any(t) -> ValidateAs<term>(t)\n",
     ?assertMatch([{error, _, 'Any', {validate_collapses, _}}], errors(Src)).
 
@@ -487,9 +493,12 @@ validation_error_is_in_scope_with_no_declaration_test() ->
 
 %% {tag, source, a fragment of the sentence that appears on ONE line}
 prose_cases() ->
+     %% `result<int, …>`, not `result<term, …>` - see the note on
+     %% `validate_as_term_is_refused_test`. F31 refuses the old spelling at the
+     %% declaration, and this block must reach the OBLIGATION site's prose.
     [{validate_collapses,
       "module VaProseCollapse\n"
-      "public result<term, ValidationError> Any(term t)\n"
+      "public result<int, ValidationError> Any(term t)\n"
       "Any(t) -> ValidateAs<term>(t)\n",
       "absorbs its own"},
      {obligation_arity,

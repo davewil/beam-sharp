@@ -244,6 +244,9 @@ run_stages \
   "No \`not\` and no \`!\`, both taught, and \`not\` is still a name" \
     "cd compiler && ./bin/check-negation.sh --self-test && ./bin/check-negation.sh" \
 \
+  "A declared failure channel survives normalisation" \
+    "cd compiler && ./bin/check-collapse.sh --self-test && ./bin/check-collapse.sh" \
+\
   "A field assignment is checked, at both spellings" \
     "cd compiler && ./bin/check-field-values.sh --self-test && ./bin/check-field-values.sh" \
 \

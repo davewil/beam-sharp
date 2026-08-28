@@ -102,6 +102,11 @@ check_dir(Sources, World, Expect) ->
     [no_function_in_index(P, D) || {P, D} <- Sources],
     compiler_known_redeclared(Decls),
     Env = type_env(Decls),
+    %% F31 / ticket 15 §1. Here rather than later because it is a fact about a
+    %% DECLARATION, decided by the same env every other declaration refusal in
+    %% this block uses, and because a type whose failure channel has already
+    %% collapsed makes every diagnostic after it describe a type nobody wrote.
+    collapse_refused(Decls, Env),
     Module = module_name(Decls),
     module_matches_path(Module, Sources, Expect),
     name_redeclared(Decls),
@@ -357,6 +362,16 @@ private_callback(Decls) ->
 %% Third appearance of the shape ticket 40 §2 was written about.
 exports_of(Decls) ->
     Env = type_env(Decls),
+    %% F31. `--api` is a DECLARATION pass of its own (`bs_api:resolved/2`), and
+    %% it already surfaces the refusals `type_env/1` raises - a record with a
+    %% `Kind` field is refused here exactly as it is at a compile. A collapsed
+    %% failure channel has to be one of them, or `bsc --api` would answer a
+    %% question about `option<atom>` with the signature `atom Go(int)` and no
+    %% indication that the type it was asked about is not the type it printed.
+    %%
+    %% It cannot fire for the OTHER caller: `bsc:build/4` reaches this only on
+    %% the `{ok, Beam}` branch, so that module has already been checked clean.
+    collapse_refused(Decls, Env),
     maps:from_list([{{N, length(Ps)}, sig(Ps, R, Env)}
                     || {signature, _, N, R, Ps, V} <- Decls, V =:= public]).
 
@@ -658,6 +673,143 @@ error_members(#{tuples := Products}) ->
 %% equality in it — the same identity `resolve/2` relies on when it says
 %% `option<int>` and `int | :nothing` are one type rather than two that agree.
 same_type(A, B) -> bs_types:is_subtype(A, B) andalso bs_types:is_subtype(B, A).
+
+%%% ---------------------------------------------------------------------------
+%%% F31 / ENG-272 — ticket 15 §1 AT THE DECLARATION
+%%%
+%%% F18 built 15 §1's predicate at the `ValidateAs<T>` obligation site, and the
+%%% comment at `bs_diag.erl:280` recorded what was left: "met at an instantiation
+%%% rather than at a declaration". This is the other site, and 15 §1 chose it for
+%%% ticket 09 §4's reason - "rejected at the declaration, not at the match site,
+%%% so the diagnostic lands where the fix is".
+%%%
+%%% WHY IT IS A PASS OVER `Decls` AND NOT A CLAUSE IN `resolve/3`. No type
+%%% expression node carries a line: not `t_union`, not `t_generic`, not `param`,
+%%% not `field`. Lines live on the enclosing declaration tuple alone, which is
+%%% why `unknown_type` has no line and `kind_field_is_minted` does.
+%%% `compiler_known_redeclared/1` is the same shape for the same reason.
+%%%
+%%% WHAT IT LOOKS FOR is a member the PRELUDE calls a failure - `:nothing`, or
+%%% `(:error, E)` - that does not survive being unioned with what it sits beside.
+%%% Deliberately not "any absorbed member": `binary | string` and `term | int`
+%%% also have one, and the sentence this raises ("the failure channel does not
+%%% survive normalisation") would be false about them. That wider rule is ticket
+%%% 09 §4, which is unimplemented, and answering it here would be inventing a
+%%% decision F31 was not asked for.
+%%% ---------------------------------------------------------------------------
+
+collapse_refused(Decls, Env) ->
+    lists:foreach(fun(D) -> collapse_decl(D, Env) end, Decls).
+
+%% The five declaration forms that carry a type an author wrote. A parametric
+%% `type_alias` is skipped by the `[]` in the head: its body has free variables,
+%% and there is nothing to normalise until it is instantiated - which is the same
+%% reason `type_env/1` leaves it unresolved.
+collapse_decl({signature, L, _N, Ret, Params, _}, Env) ->
+    collapse_ty(Ret, Env, L),
+    lists:foreach(fun({param, T, _}) -> collapse_ty(T, Env, L) end, Params);
+collapse_decl({foreign, _, _Mod, Sigs}, Env) ->
+    lists:foreach(
+      fun({foreign_sig, L, _N, Ret, Ps}) ->
+              collapse_ty(Ret, Env, L),
+              lists:foreach(fun({param, T, _}) -> collapse_ty(T, Env, L) end, Ps)
+      end, Sigs);
+collapse_decl({type_alias, L, _N, [], Body}, Env)  -> collapse_ty(Body, Env, L);
+collapse_decl({type_refined, L, _N, Base, _}, Env) -> collapse_ty(Base, Env, L);
+collapse_decl({record_decl, L, _N, Fields}, Env) ->
+    lists:foreach(fun({field, _, T}) -> collapse_ty(T, Env, L) end, Fields);
+collapse_decl(_, _Env) -> ok.
+
+%% A type this pass cannot resolve is NOT this pass's error to report. `callees/3`
+%% and `check_fn/2` resolve the very same expressions a moment later and raise
+%% `unknown_type` and its neighbours with the wording that belongs to them, so
+%% swallowing here leaves the first diagnostic a broken program sees exactly
+%% where it was. The collapse itself is re-raised with its stack intact.
+collapse_ty(T, Env, L) ->
+    try scan_ty(T, Env, L, [])
+    catch
+        error:{collapsed_failure_channel, _, _, _, _} = E:S ->
+            erlang:raise(error, E, S);
+        error:_ ->
+            ok
+    end.
+
+%% `Seen` IS `resolve/3`'S GUARD, AND IT IS NOT OPTIONAL. The first draft of this
+%% pass had no chain and expanded a contractive alias forever:
+%% `generics_tests:a_contractive_alias_is_an_unbuilt_feature_test` did not fail,
+%% it TIMED OUT, and took the rest of that eunit run with it. A recursive alias
+%% is an unbuilt feature refused elsewhere; here it only has to terminate.
+scan_ty({t_union, Ms}, Env, L, Seen) ->
+    collapse_members(Ms, Env, L),
+    lists:foreach(fun(M) -> scan_ty(M, Env, L, Seen) end, Ms);
+%% An instantiation is expanded HERE rather than left to `resolve/3`, because
+%% `bs_types:union/1` erases the member boundary permanently and the members are
+%% exactly what has to be examined. This is `resolve/3`'s own substitution, run
+%% one step at a time: arguments resolve in the caller's chain, then `subst/2`
+%% puts them into the template, and the result is a union whose members are still
+%% separate terms.
+scan_ty({t_generic, N, Args}, Env, L, Seen) ->
+    lists:foreach(fun(A) -> scan_ty(A, Env, L, Seen) end, Args),
+    case maps:get(N, Env, undefined) of
+        {parametric, Params, Body} when length(Params) =:= length(Args) ->
+            case lists:member(N, Seen) of
+                true ->
+                    ok;
+                false ->
+                    Sub = maps:from_list(
+                            lists:zip(Params, [resolve(A, Env) || A <- Args])),
+                    scan_ty(subst(Body, Sub), Env, L, [N | Seen])
+            end;
+        _ ->
+            ok
+    end;
+%% Nested positions, because a failure channel is equally dead one level down:
+%% `(option<atom>, int)` normalises to `(atom, int)`.
+scan_ty({t_tuple, Cs}, Env, L, Seen) ->
+    lists:foreach(fun(C) -> scan_ty(C, Env, L, Seen) end, Cs);
+scan_ty({t_map, Fields}, Env, L, Seen) ->
+    lists:foreach(fun({field, _, T}) -> scan_ty(T, Env, L, Seen) end, Fields);
+scan_ty({t_refined, _, Base, _}, Env, L, Seen) ->
+    scan_ty(Base, Env, L, Seen);
+%% A `t_ref` is NOT followed. The alias it names is checked at its own
+%% declaration, and following it would report one defect once per mention.
+scan_ty(_, _Env, _L, _Seen) ->
+    ok.
+
+collapse_members(Ms, _Env, _L) when length(Ms) < 2 -> ok;
+collapse_members(Ms, Env, L) ->
+    Resolved = [resolve(M, Env) || M <- Ms],
+    Indexed  = lists:zip(lists:seq(1, length(Ms)), Ms),
+    lists:foreach(
+      fun({I, M}) ->
+              case failure_channel(M) of
+                  no ->
+                      ok;
+                  {yes, Channel} ->
+                      Failure = lists:nth(I, Resolved),
+                      Others  = bs_types:union(
+                                  [R || {J, R} <- lists:zip(
+                                                    lists:seq(1, length(Resolved)),
+                                                    Resolved), J =/= I]),
+                      case absorbed(Failure, Others) of
+                          true ->
+                              erlang:error({collapsed_failure_channel, L,
+                                            Channel, Failure, Others});
+                          false ->
+                              ok
+                      end
+              end
+      end, Indexed).
+
+%% The prelude's two failure members and no others - `bs_check:stratum_one/0`
+%% defines `option<T>` as `T | :nothing` and `result<T, E>` as `T | (:error, E)`.
+%% Matched on the SURFACE node, which survives `subst/2` untouched: substitution
+%% only replaces a `t_ref`, so `:nothing` and the `(:error, _)` tag are still
+%% themselves after an instantiation, while the payload beside them may already
+%% be an algebra map.
+failure_channel({t_atom, nothing})                 -> {yes, nothing};
+failure_channel({t_tuple, [{t_atom, error}, _]})   -> {yes, error};
+failure_channel(_)                                 -> no.
 
 %%% ---------------------------------------------------------------------------
 %%% Resolving surface types into the algebra
@@ -1866,9 +2018,14 @@ reported() -> bs_types:none().
 %% `result<T, ValidationError>`, not `T | :error`. Built from the prelude's own
 %% entry rather than from a literal written here, so the two cannot drift.
 validate_result(Ty, Env) ->
-    Err = bs_types:tuple([bs_types:atom_lit(error),
-                          maps:get('ValidationError', Env)]),
-    bs_types:union(Ty, Err).
+    bs_types:union(Ty, validate_error(Env)).
+
+%% The failure member `ValidateAs<T>` adds, on its own. Split out by F31 so the
+%% obligation site can hand it to the shared predicate instead of asking a
+%% question only it knows how to phrase.
+validate_error(Env) ->
+    bs_types:tuple([bs_types:atom_lit(error),
+                    maps:get('ValidationError', Env)]).
 
 %% TICKET 15 §1'S PREDICATE, WRITTEN AS THE EQUATION RATHER THAN AS A CASE LIST.
 %% *"Reject an instantiation when `T | <failure member> ≡ T`"* — 15 is emphatic
@@ -1884,7 +2041,17 @@ validate_result(Ty, Env) ->
 %% is vacuous on its own terms: every term inhabits `term`, so the validator
 %% could never fail and the caller would have no failure clause to write.
 validate_collapses(Ty, Env) ->
-    bs_types:is_subtype(validate_result(Ty, Env), Ty).
+    absorbed(validate_error(Env), Ty).
+
+%% F31 — 15 §1'S EQUATION, REDUCED, AND THE ONE PLACE IT IS DECIDED.
+%% `T | F ≡ T` holds exactly when `F ⊆ T`: a union is always a supertype of its
+%% members, so the other direction cannot fail and mutual containment would be
+%% asking the same question twice. `validate_collapses/2` above was already this
+%% with the member synthesised inside it rather than passed in; F31 needed the
+%% same question about a member the DECLARATION wrote, so the member became an
+%% argument and 15 §1 kept one implementation. Two would drift, which is what
+%% the note at the top of this file exists to prevent.
+absorbed(Failure, Success) -> bs_types:is_subtype(Failure, Success).
 
 type_of_all(Es, S, C) ->
     {Tys, Ds} = lists:unzip([type_of(E, S, C) || E <- Es]),

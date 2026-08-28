@@ -111,6 +111,11 @@ into a cofinite top, so the failure channel collapses and `atom | :nothing` *is*
 known-good answers exist (a tagged failure member, or a success type narrower than the atom top)
 and neither has been chosen. **Do not implement it from this file.**
 
+**And that refusal is now the compiler's, not only the ticket's** (F31 / ENG-272, 2026-08-28).
+`type M = atom | :nothing` is rejected at the declaration, in the same spelling this entry is
+written in — so `ToExistingAtom` cannot be implemented as written even by accident. The choice
+between the two known-good answers is still open, and is still not this file's to make.
+
 **One hard rule stratum 2 has and stratum 1 does not**: ticket 27 §8 — *a codegen obligation
 requires a ground type argument*. So `ValidateAs<TSource>` inside a polymorphic function is
 rejected.

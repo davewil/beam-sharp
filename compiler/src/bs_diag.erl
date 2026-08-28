@@ -418,6 +418,15 @@ descriptor(Path, {compiler_known_type, Name, Line}) ->
 descriptor(Path, {kind_field_is_minted, Line, Name}) ->
     #{tag => kind_field_is_minted, severity => error, file => Path, line => Line,
       record => Name};
+%% F31. Ticket 15 §1's collapse at the site 15 §1 chose, beside the other
+%% declaration refusals rather than beside F18's. The descriptor carries the
+%% CHANNEL as well as the two types, because the hint differs by channel and a
+%% consumer should not have to parse the sentence to find out which one it was.
+descriptor(Path, {collapsed_failure_channel, Line, Channel, Member, Absorber}) ->
+    #{tag => collapsed_failure_channel, severity => error, file => Path,
+      line => Line, channel => Channel,
+      member => bs_types:to_string(Member),
+      absorbed_by => bs_types:to_string(Absorber)};
 %% F2 / ticket 20 §5. The two tiers are told apart by what the predicate SAYS.
 descriptor(Path, {opaque_refinement, Line}) ->
     #{tag => opaque_refinement, severity => error, file => Path, line => Line};
@@ -996,6 +1005,30 @@ message(#{tag := recursive_type, file := P, type := N}) ->
      "  algebra has no binder to hold it with, which is a gap in this~n"
      "  compiler rather than a mistake in your type.~n",
      [P, N]};
+%% F31 / ticket 15 §1. TWO MESSAGES, BECAUSE THE HINT IS NOT ONE HINT.
+%% 15 §1 wrote `hint: tag it - (:some, atom) | :nothing`, which repairs an
+%% absorbed `:nothing` and is nonsense about an absorbed `(:error, E)` - that
+%% member is already tagged, so the advice would name a form that does not fix
+%% the program. F31 records the split as an assumption rather than a decision:
+%% 15 §1 only wrote the one.
+message(#{tag := collapsed_failure_channel, file := P, line := L,
+          channel := nothing, member := M, absorbed_by := A}) ->
+    {"~s:~p: error: `~s` is absorbed by `~s`~n"
+     "  the failure channel does not survive normalisation, so the type~n"
+     "  declared here IS `~s`. No caller can write the failure clause,~n"
+     "  because no failure member is left to match.~n"
+     "  hint: tag it - (:some, ~s) | :nothing~n",
+     [P, L, M, A, A, A]};
+message(#{tag := collapsed_failure_channel, file := P, line := L,
+          channel := error, member := M, absorbed_by := A}) ->
+    {"~s:~p: error: `~s` is absorbed by `~s`~n"
+     "  the failure channel does not survive normalisation, so the type~n"
+     "  declared here IS `~s`. No caller can write the failure clause,~n"
+     "  because no failure member is left to match.~n"
+     "  The failure member already carries its tag, so tagging it again~n"
+     "  repairs nothing: narrow the success type until it cannot hold an~n"
+     "  `(:error, ...)` of its own.~n",
+     [P, L, M, A, A]};
 message(#{tag := kind_field_is_minted, file := P, line := L, record := Name}) ->
     {"~s:~p: error: ~s declares a field named Kind~n"
      "  the tag is minted from the type's qualified name, so a record~n"
