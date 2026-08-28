@@ -1656,3 +1656,46 @@
   `(:error, (["[1]", "(2)"], "string"))` — the row, the component, the narrow type, exactly as
   `LANGUAGE.md` §10 promised, and the valve's cannot-fail diagnostic says `(:ok, term, term)` in the
   author's own spelling.
+
+- **"Instantiation is matching, not solving": what is the algorithm?** —
+  [ticket 37](issues/37-instantiation-by-matching.md), the algorithm half resolved 2026-08-28 and the
+  **ordering half left with David**. Three steps: **solve least, per occurrence** — bare takes the
+  whole share, `list<_>` takes the element, a tuple component takes the component, and inside a union
+  a member's share is the argument **minus every other member's maximal extent**, the subtraction 63
+  proved exact; **join across occurrences**, licensed by 27 §2's opacity and needing no new rule,
+  since a body that cannot inspect a variable is exactly a slot for values it carries; then
+  **substitute and contain**. *Least* was the whole of the surviving doubt and it resolved on a
+  criterion the ticket had not named: **soundness does not choose** — measured, `T = int` and
+  `T = int | :nothing` are both accepted at site 1 — so the tie-break is the **return type**, where
+  least gives `First<T>(option<T>)` handed `:nothing` a return of exactly `:nothing` and greatest
+  gives `term`. *Exactness is not uniqueness* stands; uniqueness was never the thing to want.
+  **The expected answer to "solve then contain" was overturned by its own measurement.** The
+  hypothesis that containment cannot fail after a non-empty solve — argued from 27 §5's no-variance —
+  is false at **382 of 781** enumerated pairs, because **a template only interrogates the parts it
+  names**: `F<T>(list<T>)` handed `list<int> | :nothing` solves `T = int` happily, `list_elem` being
+  unable to see the `:nothing`. What replaces it holds at **781/781, both directions**, with a
+  wrong-extent control disagreeing 314 times: **containment fails exactly when an argument escapes
+  its parameter's maximal extent** — the ground skeleton with every variable at `term`. So solve is
+  **total**, the only failure is a **shape** mismatch decidable *before* solving and *without
+  naming a variable*, and the ticket's fear that the diagnostic "must say which of the two failed"
+  dissolves: only one half can fail and `arg_diags/7` already emits its residual. Falling out of the
+  same rule, and not asked for: **both prelude parametric aliases are unfailable in a bare-variable
+  position** — `T`, `option<T>` and `result<T, E>` have maximal extent `term` and reject nothing,
+  while `option<int>` (the control) and `result<list<T>, E>` (`Prepend`'s own parameter) do not. 27
+  §2's "decorative variable" worry is therefore **true of a bare variable as a direct union member
+  and of nothing else**, a property of the alias shape rather than of the algorithm or the union;
+  recorded, not decided. **Cost, so the ordering can be priced**: no new `ty()` part and no variable
+  node — only a tuple-component projection `bs_types` does not export — three `bs_check` edits on
+  paths that exist (`resolve/2`, `sig/3`, `arg_diags/7`), **no grammar change**, and no new failure
+  diagnostic; `27b` already measured that a polymorphic emitted spec is inert, Dialyzer reading its
+  variables as `any()`. **The corpus moved under the ticket twice.** The 2026-08-26 re-measure's
+  `n = 1` went false **fifty-one minutes after it was written** — 25e landed at `caa3c52` (20:37)
+  against `5b56c47` (19:46) — and the sweep covered four exemplar directories where there are now
+  five. Two distinct shapes, three occurrences, and the second one's cost is **not duplication**:
+  `escape.bs` and `rows.bs` both need `Reverse<T>(list<T>, list<T>)`, a module is one beam, and
+  `error: Reverse/2 is declared more than once` forces two invented names that describe nothing
+  except which clone they are — a language-level workaround compounding per element type. Neither
+  shape needs an arrow, so the split survives: one first-order group §(c) alone would serve, a
+  higher-order library still waiting. **Whether that earns §(c) now is David's call and is
+  deliberately not answered.** Probe:
+  [`37a`](prototypes/37a_instantiation_by_matching.escript), six measurements, each with a control.

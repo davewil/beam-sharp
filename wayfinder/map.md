@@ -334,8 +334,8 @@ the body. These are open: read the body before assuming a direction.
 - **The boundary guard applies two rules with different scopes** `#59` `codegen` `types`
   the record tag test is emitted on **private** functions and F24's `is_integer` is exported-only per 18 §4. 46 measured it and left it. Which scope governs both?
 - **"Instantiation is matching, not solving": what is the algorithm?** `#37` `types` `generics`
-  27's §(c), polymorphic function *signatures*. Re-measured 2026-08-26: `ty()` still has no arrow
-  part, 63 leaves **uniqueness** the only doubt, 25d's `Prepend` is the first case aliases cannot cover
+  **Algorithm resolved 2026-08-28**: solve least per occurrence, join across them, then contain.
+  Least because the *return type* chooses, not soundness. **The ordering — build §(c) now? — is David's**
 - **Exemplar programs the design must serve** `#25` `agent` `tooling`
   a standing test suite for the design, not one session's work. Five of six written (25a–25e); 25e
   is the first stopped by the **checker** — `iodata` is recursive and 09's binder is unbuilt
