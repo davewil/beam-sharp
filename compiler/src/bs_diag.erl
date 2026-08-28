@@ -126,7 +126,13 @@ format(Desc) ->
     io_lib:format(Fmt, Args).
 
 %%% ---------------------------------------------------------------------------
-%%% descriptor/2 — the returned diagnostics (`bsc:report/2`'s 24)
+%%% descriptor/2 — the returned diagnostics (every term `bsc:report/2` publishes)
+%%%
+%%% THE COUNT THAT USED TO SIT IN THAT HEADING SAID 24, and there are 69 clauses
+%%% below it minting 73 distinct tags. Whatever it counted on the day F16 landed,
+%%% nothing re-measured it and no gate reads it, so it had been drifting for as
+%%% long as diagnostics have been added. Replaced with a phrase rather than a
+%%% corrected number, which would only start the same drift again (ENG-269).
 %%% ---------------------------------------------------------------------------
 
 %% The four keys every returned diagnostic carries. Severity travels as DATA
@@ -174,6 +180,21 @@ descriptor(Path, {Sev, Line, Fn, {valve_on_infallible, Ty}}) ->
                                subject => bs_types:to_pattern(Ty)};
 descriptor(Path, {Sev, Line, Fn, {unreachable_arm, N}}) ->
     (at(Sev, Path, Line, Fn))#{tag => unreachable_arm, arm_number => N};
+%% ENG-269. The arm twins of `vacuous_clause` and `unsatisfiable_guard` below.
+%%
+%% TWO TAGS RATHER THAN ONE PER FAULT SHARED ACROSS BOTH SITES, for the reason
+%% `unreachable_clause` and `unreachable_arm` are already two: a consumer matches
+%% on the tag and then reads the keys, so one tag carrying `clause_number` at one
+%% site and `arm_number` at the other would leave the key set undetermined by the
+%% tag — and F16's "prose is a pure function of the term" would still need two
+%% `message/1` clauses to say "arm" rather than "clause". Nothing is saved and a
+%% contract is lost. ENG-269 proposed reusing `unsatisfiable_guard`; that is the
+%% one place this fix departs from the issue, and this is why.
+descriptor(Path, {Sev, Line, Fn, {vacuous_arm, N, Domain}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => vacuous_arm, arm_number => N,
+                               domain => residual(Domain)};
+descriptor(Path, {Sev, Line, Fn, {unsatisfiable_arm_guard, N}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => unsatisfiable_arm_guard, arm_number => N};
 descriptor(Path, {Sev, Line, Fn, switch_in_guard}) ->
     (at(Sev, Path, Line, Fn))#{tag => switch_in_guard};
 descriptor(Path, {Sev, Line, Fn, {unreachable_clause, N}}) ->
@@ -600,6 +621,27 @@ message(#{tag := unreachable_arm, file := P, line := L, function := Fn,
           arm_number := N}) ->
     {"~s:~p: warning: arm ~p of this switch in ~s is unreachable~n"
      "  every value it matches is matched by an earlier arm.~n",
+     [P, L, N, Fn]};
+%% ENG-269. The wording is the whole fix here too, and "arm" is not the only
+%% word that has to change from the clause pair: the repair differs. A clause
+%% that is not a member of its input is edited or deleted; an arm has a THIRD
+%% option, because the subject is right there and may itself be the mistake.
+message(#{tag := vacuous_arm, file := P, line := L, function := Fn,
+          arm_number := N, domain := Dom}) ->
+    {"~s:~p: warning: arm ~p of this switch in ~s matches no value~n"
+     "  the subject's type is ~s, and this arm's pattern is not a~n"
+     "  member of it — so no value reaching this switch can take~n"
+     "  this arm.~n",
+     [P, L, N, Fn, Dom]};
+%% And this one must NOT name the type, for `unsatisfiable_guard`'s reason: the
+%% pattern is a perfectly good member of it, and the guard is what admits
+%% nothing. Sending this author to look at the pattern would be the same
+%% misdirection in a new costume.
+message(#{tag := unsatisfiable_arm_guard, file := P, line := L, function := Fn,
+          arm_number := N}) ->
+    {"~s:~p: warning: arm ~p of this switch in ~s has an unsatisfiable guard~n"
+     "  the pattern is a member of the subject's type; it is the~n"
+     "  guard that admits nothing. Widen the guard, or delete the arm.~n",
      [P, L, N, Fn]};
 %% F7's own grammar opens this, the way F5's opened `_`-as-a-value: a guard
 %% shares the whole expression grammar, so a switch parses inside one.

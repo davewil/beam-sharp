@@ -231,10 +231,12 @@ Both operators run, ten gates are green and the suite is **319** tests. The pipe
 and that was the prediction: it is a parser rewrite, so `bs_check` and `bs_emit` never learned the
 operator exists. The valve cost the whole feature, and every one of its costs came from the same
 place — **the lowered `switch` is code the author did not write, and a compiler that cannot tell the
-difference gives advice about it.** A bare `e_switch` would have earned `unreachable_arm` on the
+difference gives advice about it.** A bare `e_switch` would have earned `vacuous_arm` on the
 generated error arm (the exact message F14 §4 exists to replace) and ticket 12 §2's catch-all rule
 against the value arm, which is a catch-all *every single time*. So the node stays marked to the
-checker and is unwrapped only at emission.
+checker and is unwrapped only at emission. (That tag read `unreachable_arm` in this paragraph until
+2026-08-28: ENG-269 split it three ways, and a subject that cannot fail has no `(:error, _)` member,
+so the generated arm's fault is the vacuous one. The valve itself did not move.)
 
 **The second thing it revealed is that two gates were lying by omission, which is the shape F11 and
 F15 also found.** `bs_test_support:check_only/1` called `bs_parser:parse` directly and skipped the

@@ -317,11 +317,11 @@ so far: a four-wide tuple reads fine.
 
 ### What the compiler says about a switch
 
-A `switch` is **checked**, not merely compiled, and there are seven things it can be told. Every
+A `switch` is **checked**, not merely compiled, and there are nine things it can be told. Every
 one names the file, the line and the enclosing function, and hands back the material needed to fix
 it rather than only reporting that something was wrong.
 
-Three of these are about the arms as a set, three are about what an arm's body does, and one is
+Five of these are about the arms as a set, three are about what an arm's body does, and one is
 about where a `switch` may appear at all.
 
 **A switch must cover its subject.** If some value of the subject's type matches no arm, that is
@@ -354,6 +354,49 @@ Which(a) -> a switch {
 — *arm 2 of this switch in `Which` is unreachable; every value it matches is matched by an earlier
 arm.* Note that the catch-all is legal here, by the rule at the top of this section: `a` is an
 `atom`, so the residual is open.
+
+**An arm may also be dead without any earlier arm covering it**, and the two are not the same
+mistake. If the arm's pattern is not a member of the subject's type at all, no value can reach it
+no matter what the other arms do — so it is `vacuous_arm`, and the message names the type rather
+than sending you to look for an earlier arm there is no reason to expect:
+
+```csharp
+type Verdict = :pass | :fail
+
+public int Score(Verdict v)
+
+Score(v) -> v switch {
+    (:pass, n) => n,
+    :pass      => 1,
+    :fail      => 0
+}
+```
+
+— *arm 1 of this switch in `Score` matches no value; the subject's type is `:pass | :fail`, and
+this arm's pattern is not a member of it.* This is the shape the tagged unions of other languages
+teach you to write. A `Verdict` is `:pass | :fail`, so `(:pass, n)` is a two-tuple that no
+`Verdict` ever is — and the same reading error is what makes `(:some, s)` the first thing most
+people try on an `option<T>`, which is `T | :nothing` and **untagged**. The type is the half you
+do not have when you make it, so the message is the half that hands it over.
+
+**And an arm can be dead because of its guard rather than its pattern.** Then the pattern is a
+perfectly good member of the subject's type and the guard admits nothing, which is
+`unsatisfiable_arm_guard` — a third repair, and a message that deliberately does *not* name the
+type, because the type is not what is wrong:
+
+```csharp
+public int Grade(int n)
+
+Grade(n) -> n switch {
+    x when x > 5 and x < 3 => 0,
+    x                      => 1
+}
+```
+
+— *arm 1 of this switch in `Grade` has an unsatisfiable guard; the pattern is a member of the
+subject's type, it is the guard that admits nothing.* A guard the compiler **cannot read** — one
+comparing two variables, say — is not this, and is never reported: an arm is judged on its pattern
+alone there, rather than the compiler announcing its own ignorance as your mistake.
 
 **A name in an arm pattern is introduced, never matched against.** An arm whose pattern is a bare
 name already in scope is `rebinding` — the rule §2 states for clause heads, reaching arms

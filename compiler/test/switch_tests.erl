@@ -184,6 +184,9 @@ an_arm_body_under_an_unreadable_guard_is_still_checked_test() ->
 %% ticket 10 made the atom universe open — so the catch-all is legal there, which
 %% is 12 §2's own second bullet: a foreign sender chooses the inhabitants and
 %% there is nothing to enumerate.
+%% AND THE CONTROL FOR ENG-269's three-way split at the end of this file: arm 2
+%% here IS covered by arm 1, so "matched by an earlier arm" is the true statement
+%% about it. The split must leave this one exactly where it is.
 a_redundant_arm_is_a_warning_about_an_arm_test() ->
     Src = "module Dead\n"
           "public atom Which(atom a)\n"
@@ -367,3 +370,96 @@ a_switch_in_tail_position_keeps_the_tail_call_test() ->
     ?assertEqual([], Bad),
     M = build_and_load(Src, 'LoopS'),
     ?assertEqual(500500, M:'Down'(1000, 0)).
+
+%%% --- ENG-269: the arm half of ENG-259 ---------------------------------------
+%%%
+%%% `is_none(intersect(Possible, Residual))` is true of three different faults at
+%%% the arm site exactly as it is at the clause site, and until this split all
+%%% three printed "every value it matches is matched by an earlier arm" — a
+%%% sentence that names an arm which, in the first two tests below, does not
+%%% exist. `a_redundant_arm_is_a_warning_about_an_arm_test` above is the CONTROL:
+%%% its arm 2 really is covered by arm 1, so it must not move.
+%%%
+%%% The measurement that matters is the SOLE-ARM case: there is no earlier arm at
+%%% all, so the old message cannot be read as loosely true.
+
+a_vacuous_arm_is_not_reported_as_shadowed_test() ->
+    Src = "module VacS\n"
+          "type K = :a | :b\n"
+          "public int H(K k)\n"
+          "H(k) -> k switch {\n"
+          "    (:some, x) => 0\n"
+          "}\n",
+    {error, Diags} = check_only(Src),
+    ?assertEqual([{vacuous_arm, 1}],
+                 [{T, N} || {warning, _, 'H', {T, N, _}} <- Diags]),
+    %% And the switch is still uncovered, because a vacuous arm covers nothing.
+    ?assertMatch([{switch_inexhaustive, _}],
+                 [P || {error, _, 'H', P = {switch_inexhaustive, _}} <- Diags]).
+
+%% The subject type is the half the author does not have: they wrote the pattern,
+%% so repeating it back says nothing, while the type it is not a member of ends
+%% the search. `:a | :b` UNPARENTHESISED, unlike `vacuous_clause`'s `(:a | :b)` —
+%% a clause head's domain is a product of its parameters and a switch subject is
+%% one value, and the rendering is the algebra's rather than this diagnostic's.
+a_vacuous_arm_carries_the_domain_it_is_not_a_member_of_test() ->
+    Src = "module VacD\n"
+          "type K = :a | :b\n"
+          "public int H(K k)\n"
+          "H(k) -> k switch {\n"
+          "    (:some, x) => 0\n"
+          "}\n",
+    {error, Diags} = check_only(Src),
+    [Domain] = [D || {warning, _, 'H', {vacuous_arm, 1, D}} <- Diags],
+    ?assertEqual(":a | :b", bs_types:to_string(Domain)).
+
+%% A vacuous arm standing in front of arms that DO cover the subject is the case
+%% that pins severity. This program compiles today, so the split must not turn it
+%% into a rejection — and the two covering arms must still count, or the fix has
+%% broken exhaustiveness while fixing prose.
+a_vacuous_arm_does_not_make_a_covered_switch_inexhaustive_test() ->
+    Src = "module VacC\n"
+          "type K = :a | :b\n"
+          "public int H(K k)\n"
+          "H(k) -> k switch {\n"
+          "    (:some, x) => 0,\n"
+          "    :a         => 1,\n"
+          "    :b         => 2\n"
+          "}\n",
+    {ok, _, Diags} = check_only(Src),
+    ?assertMatch([{warning, _, 'H', {vacuous_arm, 1, _}}], Diags).
+
+%% The third fault. The pattern is a perfectly good member of `int`; it is the
+%% guard that admits nothing, so this cannot share `vacuous_arm`'s prose either —
+%% that message names a type the pattern is not in, and here the pattern IS in it.
+%%
+%% A SEPARATE TAG FROM THE CLAUSE SITE'S `unsatisfiable_guard`, and deliberately.
+%% F16 makes prose a pure function of the term, so a consumer matches on the tag
+%% and then reads the keys; one tag carrying `clause_number` here and `arm_number`
+%% there would leave the key set undetermined by the tag. `unreachable_clause` /
+%% `unreachable_arm` already settled this split in this module.
+an_unsatisfiable_arm_guard_is_its_own_diagnostic_test() ->
+    Src = "module GuardS\n"
+          "public int Grade(int n)\n"
+          "Grade(n) -> n switch {\n"
+          "    x when x > 5 and x < 3 => 0,\n"
+          "    x                      => 1\n"
+          "}\n",
+    {ok, _, Diags} = check_only(Src),
+    ?assertMatch([{warning, _, 'Grade', {unsatisfiable_arm_guard, 1}}], Diags).
+
+%% THE CONTROL THAT STOPS THE NEW TAG CRYING WOLF, and the arm copy of ENG-259's.
+%% `x > m` compares two variables, which `comparison/1` answers `unknown` for, and
+%% an untranslatable guard returns `Possible` UNREDUCED — precisely so the checker
+%% never claims an arm matches nothing merely because it could not read the guard.
+%% If `unsatisfiable_arm_guard` ever fires here it is reporting its own ignorance
+%% as the author's mistake.
+an_untranslatable_arm_guard_is_not_called_unsatisfiable_test() ->
+    Src = "module GuardU\n"
+          "public int Cmp(int n, int m)\n"
+          "Cmp(n, m) -> n switch {\n"
+          "    x when x > m => 0,\n"
+          "    x            => 1\n"
+          "}\n",
+    {ok, _, Diags} = check_only(Src),
+    ?assertEqual([], Diags).

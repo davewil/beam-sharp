@@ -75,11 +75,18 @@ pipe_into(L, Value, {e_inst, _, Name, TypeArgs, Args}) ->
 %%
 %% The marker is not decoration. A bare `switch` would be indistinguishable from
 %% one the author wrote, and the checker would then report two diagnostics about
-%% generated code: `unreachable_arm` for the `(:error, e)` arm when the subject
+%% generated code: `vacuous_arm` for the `(:error, e)` arm when the subject
 %% cannot fail (F14 §4 exists to replace exactly that message), and ticket 12
 %% §2's catch-all rule against the value arm, which is a catch-all by
 %% construction. So the node stays marked all the way to `bs_check`, which
 %% suppresses both, and to `bs_emit`, which unwraps it and emits the `case`.
+%%
+%% `unreachable_arm` here until 2026-08-28, when ENG-269 split that tag three
+%% ways. Nothing about the valve moved — the arm is suppressed either way — but
+%% a subject that cannot fail has no `(:error, _)` member, so the pattern is not
+%% in the subject's type and the fault this names is the vacuous one. Measured
+%% by writing the lowered switch out as an authored one, which is the only way
+%% to reach the `authored` branch with that arm in it.
 valves(T) ->
     {T1, _} = lower(T, 0),
     T1.

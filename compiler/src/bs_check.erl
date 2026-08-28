@@ -1894,7 +1894,11 @@ type_of_all(Es, S, C) ->
 %% subject's type is passed IN rather than synthesised here, because the valve
 %% has to interrogate it before deciding whether to walk the arms at all.
 switch_over(L, SubjTy, Arms, S, C, Origin) ->
-    {Tys, Residual, D1} = arms(Arms, SubjTy, S, C, 1, [], [], Origin),
+    %% `SubjTy` twice, and the second one is ENG-269. The first is the running
+    %% residual, which the fold spends; the second is the declared subject,
+    %% carried unchanged so that arm 1 can still be asked the one question the
+    %% residual can no longer answer — see `redundancy/4`.
+    {Tys, Residual, D1} = arms(Arms, SubjTy, SubjTy, S, C, 1, [], [], Origin),
     D2 = case bs_types:is_none(Residual) of
              true  -> [];
              %% The residual IS the missing arm — ticket 04's finding at a third
@@ -1913,9 +1917,9 @@ switch_over(L, SubjTy, Arms, S, C, Origin) ->
 %% chose, and the valve's two arms were chosen by `bs_lower`. Everything else —
 %% the body's own diagnostics, the guard's, the exhaustiveness of the whole —
 %% runs identically, because those are about the program either way.
-arms([], Residual, _S, _C, _N, Tys, Diags, _Origin) ->
+arms([], Residual, _Declared, _S, _C, _N, Tys, Diags, _Origin) ->
     {Tys, Residual, Diags};
-arms([{arm, AL, P, Guard, Body} | Rest], Residual, S, C, N, Tys, Diags, Origin) ->
+arms([{arm, AL, P, Guard, Body} | Rest], Residual, Declared, S, C, N, Tys, Diags, Origin) ->
     {PTy, Binds, Exact} = pattern_type(P, [], C#ctx.types),
     {Certain0, Possible} = apply_guard(PTy, Binds, Guard),
     %% An inexact pattern over-states what it matches, so it may bound Possible
@@ -1926,9 +1930,28 @@ arms([{arm, AL, P, Guard, Body} | Rest], Residual, S, C, N, Tys, Diags, Origin) 
     D1 = case Origin of
              generated -> [];
              authored ->
-                 case bs_types:is_none(bs_types:intersect(Possible, Residual)) of
-                     true  -> [{warning, AL, C#ctx.fname, {unreachable_arm, N}}];
-                     false -> []
+                 %% ENG-269 — THE ARM HALF OF ENG-259, and the same three faults.
+                 %% An arm adds nothing when an earlier arm already covers it,
+                 %% when its pattern is not a member of the subject's type at
+                 %% all, or when its guard admits no value. Only the first is
+                 %% "matched by an earlier arm", and until this split the FIRST
+                 %% arm of a switch was reported that way — naming an arm that
+                 %% does not exist.
+                 %%
+                 %% `redundancy/4` is `walk/6`'s, reused rather than rewritten:
+                 %% the question is identical one construct down, and a second
+                 %% copy of it is a second thing to keep true. `PTy` is the
+                 %% pattern's own type BEFORE `apply_guard` reduced it, which is
+                 %% what makes the first two answers distinguishable — see the
+                 %% note on `redundancy/4` itself.
+                 case redundancy(PTy, Possible, Residual, Declared) of
+                     vacuous    -> [{warning, AL, C#ctx.fname,
+                                     {vacuous_arm, N, Declared}}];
+                     dead_guard -> [{warning, AL, C#ctx.fname,
+                                     {unsatisfiable_arm_guard, N}}];
+                     shadowed   -> [{warning, AL, C#ctx.fname,
+                                     {unreachable_arm, N}}];
+                     live       -> []
                  end
                  %% Ticket 12 §2 at the switch, for F7's own reason for existing:
                  %% an arm is the clause head's pattern grammar one level down, so
@@ -1951,7 +1974,7 @@ arms([{arm, AL, P, Guard, Body} | Rest], Residual, S, C, N, Tys, Diags, Origin) 
                             [{V, at_path(Domain, Path)}
                              || {V, Path} <- maps:to_list(Binds)])),
     {BodyTy, D2} = type_of(Body, Scope, C),
-    arms(Rest, bs_types:subtract(Residual, Certain), S, C, N + 1,
+    arms(Rest, bs_types:subtract(Residual, Certain), Declared, S, C, N + 1,
          Tys ++ [BodyTy], Diags ++ D1 ++ guard_diags(Guard, C) ++ D2, Origin).
 
 op_type('+') -> bs_types:int();
@@ -2337,6 +2360,13 @@ walk([C = {clause, CLine, Name, _, _, _} | Rest], Residual, Declared, Ctx, Diags
 
 %% ENG-259's three-way split, in one place so the ORDER is reviewable — that is
 %% the whole of what a clause guilty of more than one fault is reported as.
+%%
+%% ENG-269 GAVE IT A SECOND CALLER, `arms/9`, and this function is the reason
+%% the arm fix is six lines: the question a switch arm asks is the question a
+%% clause head asks, and the two sites already agreed on `Certain`/`Possible`
+%% and on what an inexact pattern may credit. What differs is only the four
+%% arguments — a clause's domain is the product of its parameters, an arm's is
+%% the subject alone — and none of the reasoning below depends on which.
 %%
 %% `Base` is the pattern's own type BEFORE the guard reduces it, and asking the
 %% second question with `Possible` instead would defeat the split: an

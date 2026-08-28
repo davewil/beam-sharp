@@ -213,10 +213,13 @@ the_infallible_subject_prints_term_as_term_test() ->
              end).
 
 %% AND NO WARNING LEAKS FROM THE ARMS THE COMPILER WROTE. Two would otherwise:
-%% `unreachable_arm` above, and ticket 12 §2's rule against a catch-all over a
-%% closed residual — which the value arm is, by construction, every single time.
-%% This is why the lowered switch stays wrapped in a marker instead of being
-%% emitted bare.
+%% `vacuous_arm` — the `(:error, e)` arm's pattern is not a member of a subject
+%% that cannot fail — and ticket 12 §2's rule against a catch-all over a closed
+%% residual, which the value arm is, by construction, every single time. This is
+%% why the lowered switch stays wrapped in a marker instead of being emitted
+%% bare, and the assertion below is `[]` rather than a count, so it holds no
+%% matter which of the two the first one would have been. (`unreachable_arm`
+%% until ENG-269 split that tag three ways on 2026-08-28.)
 a_well_formed_valve_produces_no_diagnostics_at_all_test() ->
     Src = res_src() ++
           "private Res Charge(int v)\n"

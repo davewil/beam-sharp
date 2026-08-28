@@ -239,11 +239,14 @@ yecc action cannot carry a counter, so the numbering is a walk after the parse. 
 `pipe_into/3`, which the parser calls directly, so the rewrite has one definition rather than two.
 
 **The lowered switch stays wrapped in a marker.** Emitting a bare `e_switch` was the obvious move and
-is wrong twice over: the checker would report `unreachable_arm` for the generated `(:error, e)` arm
+is wrong twice over: the checker would report `vacuous_arm` for the generated `(:error, e)` arm
 when the subject cannot fail — which is exactly the message §4 exists to replace — and ticket 12 §2's
 rule against a catch-all over a closed residual would fire on the value arm, which is a catch-all by
 construction, **every time**. So `{e_valve, L, Switch}` reaches `bs_check`, which passes `generated`
 to the arm walk, and `bs_emit`, which unwraps it. Every other site is one line of delegation.
+(That tag read `unreachable_arm` until 2026-08-28, when ENG-269 split it three ways. The valve did
+not move — the arm is suppressed either way — but a subject that cannot fail has no `(:error, _)`
+member, so the fault the marker is preventing a message about is the vacuous one.)
 
 **Two gates were lying by omission, and both are fixed here.** `bs_test_support:check_only/1` called
 `bs_parser:parse` directly and would have skipped the lowering entirely — an unlowered `e_valve`
