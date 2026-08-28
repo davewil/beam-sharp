@@ -148,6 +148,14 @@ by construction, checked at compile time; a binary built or received at runtime 
 through the generated entry check. Distinct from a bare `binary`, which is bytes.
 _Avoid_: text, char list, String, utf8 binary
 
+**Failure channel**:
+The member of a declared union that reports the operation did not produce a value — `:nothing` or
+`(:error, E)`. Umbrella term covering both, so it includes the absence channel; where the two are
+being told apart, `option&lt;T&gt;` is *absence* and `result&lt;T, E&gt;` is *failure*. A failure channel
+**survives normalisation** when it is still a distinct member after the union is normalised; one
+that does not is an error at the declaration.
+_Avoid_: error case, the None case, the left, the sad path
+
 **option&lt;T&gt;**:
 `T | :nothing`. The **absence** channel: a value is missing, and there is nothing further to say
 about why. Bare because absence carries no information. Partial — an instantiation is rejected at

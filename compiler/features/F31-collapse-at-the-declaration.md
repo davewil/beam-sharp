@@ -211,6 +211,26 @@ half the suite. `collapse_tests` has two regression tests for it, and both asser
 the `recursive_type` refusal that must still arrive rather than merely that the
 call returns.
 
+## Recorded assumptions
+
+1. **The hint splits by channel** — see *The diagnostic* above. 15 §1 wrote one
+   hint and it repairs only the `:nothing` case.
+2. **The refusal is suppressible by an unrelated error in the same type
+   expression.** `collapse_ty/3` wraps each written type in a `try` that swallows
+   everything except the collapse, so that `unknown_type` and its neighbours keep
+   being reported by the passes that own their wording rather than arriving early
+   from here. The consequence: `(option<atom>, Unknown)` reports the unknown type
+   and *not* the collapse, until the unknown one is fixed. First error wins, which
+   is this compiler's habit elsewhere — but the refusal is not unconditional, and
+   a reader of the code should not have to derive that from a `catch`.
+3. **`CONTEXT.md` was a third document asserting this refusal before it existed.**
+   The `option<T>` entry already read *"Partial — an instantiation is rejected at
+   the declaration when `T | :nothing` ≡ `T`"*, which was true of the decision and
+   false of the compiler. It is now true of both, and needed no edit. **What did
+   need one**: 15 §1's sentence calls `:nothing` a *failure channel* while
+   `CONTEXT.md` had split absence from failure, so the diagnostic's own vocabulary
+   had no glossary entry. Added as **Failure channel**, the umbrella sense.
+
 ## Residuals
 
 1. **[ENG-254](https://linear.app/davewil/issue/ENG-254) / ticket 64 is
