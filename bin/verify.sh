@@ -130,7 +130,13 @@ if [ "${1:-}" = "--self-test" ]; then
   fi
 
   set +e
-  out_ok="$(run_stages "one" "sleep 1" "two" "true" 2>&1)"
+  # The LOCAL case has to be measured locally. `GITHUB_ACTIONS=true` is exactly
+  # what the runner puts in the ambient environment, so without this unset the
+  # plain-output check below read grouped output and called it a defect — green
+  # on every developer machine and red on the only machine that gates the push.
+  # The command substitution is already a subshell, so the unset cannot leak;
+  # the CI case opposite supplies the variable just as explicitly.
+  out_ok="$(unset GITHUB_ACTIONS; run_stages "one" "sleep 1" "two" "true" 2>&1)"
   rc_ok=$?
   set -e
 
