@@ -786,29 +786,25 @@ emit(_Path, Opts = #opts{outdir = Dir}, Module) ->
 %% The whole point of ticket 13's contract: OTP does the translation, from
 %% serialised text, with no `.erl` anywhere on disk.
 build(AbstrPath, Dir, Opts) ->
-    Cmd = lists:flatten(io_lib:format("erlc +from_abstr +debug_info -o ~s ~s 2>&1; echo \"bsc_exit:$?\"",
+    Cmd = lists:flatten(io_lib:format("erlc +from_abstr +debug_info -o ~s ~s",
                                       [Dir, AbstrPath])),
-    Out = os:cmd(Cmd),
+    {Rc, Out} = bs_process:run_merged(Cmd),
     Beam = filename:rootname(AbstrPath) ++ ".beam",
     %% erlc reports warnings on the same stream as errors, so the exit status is
     %% the only honest discriminator — treating any output as failure made the
     %% first green build look red.
-    case lists:suffix("bsc_exit:0\n", Out) of
-        true ->
-            case string:trim(strip_status(Out)) of
+    case Rc of
+        0 ->
+            case string:trim(Out) of
                 ""   -> ok;
                 Warn -> io:format(standard_error, "erlc: ~s~n", [Warn])
             end,
             verbose(Opts, "built ~s~n", [Beam]),
             {ok, Beam};
-        false ->
-            io:format(standard_error, "erlc: ~s~n", [strip_status(Out)]),
-            {error, {erlc, strip_status(Out)}}
+        _ ->
+            io:format(standard_error, "erlc: ~s~n", [Out]),
+            {error, {erlc, Out}}
     end.
-
-strip_status(Out) ->
-    Lines = string:split(Out, "\n", all),
-    string:join([L || L <- Lines, not lists:prefix("bsc_exit:", L)], "\n").
 
 verbose(#opts{verbose = true}, F, A) -> io:format(F, A);
 verbose(_, _, _) -> ok.

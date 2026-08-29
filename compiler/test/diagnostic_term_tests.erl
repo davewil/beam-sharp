@@ -2,7 +2,7 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
--import(bs_test_support, [escript/0, with_src/3, project_root/0]).
+-import(bs_test_support, [with_src/3, project_root/0]).
 
 %%% ---------------------------------------------------------------------------
 %%% F16 — the diagnostic is a term, and prose is a pure function of it
@@ -23,8 +23,13 @@
 
 %% The suite's other CLI tests merge the streams (`2>&1`), which is exactly what
 %% these cannot do: the feature's claim is that the two channels are SEPARATE.
-out(Args) -> os:cmd(escript() ++ " " ++ Args ++ " 2>/dev/null").
-err(Args) -> os:cmd(escript() ++ " " ++ Args ++ " 2>&1 1>/dev/null").
+out(Args) ->
+    {_, Stdout, _} = bs_test_support:run_cli_split_result(Args),
+    Stdout.
+
+err(Args) ->
+    {_, _, Stderr} = bs_test_support:run_cli_split_result(Args),
+    Stderr.
 
 guarded(Fun) ->
     case bs_test_support:built() of
@@ -128,9 +133,8 @@ a_warning_carries_its_severity_and_still_compiles_test() ->
             Desc = parse_term(out(Args)),
             ?assertMatch(#{tag := unreachable_clause, severity := warning}, Desc),
             %% It is a warning, so the compiler carried on and emitted.
-            ?assertNotEqual(nomatch,
-                            string:find(os:cmd(escript() ++ " " ++ Args ++
-                                                   " 2>&1; echo rc:$?"), "rc:0"))
+            {Rc, _Output} = bs_test_support:run_cli_result(Args),
+            ?assertEqual(0, Rc)
         end)
     end).
 
@@ -223,8 +227,8 @@ the_diagnostics_gate_passes_test() ->
     case filelib:is_regular(Script) of
         false -> ?assert(false);
         true  ->
-            Out = os:cmd(Script ++ " 2>&1; echo rc:$?"),
-            ?assertNotEqual({nomatch, Out}, {string:find(Out, "rc:0"), Out})
+            {Rc, _Output} = bs_test_support:run_command_result(Script),
+            ?assertEqual(0, Rc)
     end.
 
 %%% --- the framing, which is the part a consumer depends on -------------------
@@ -264,7 +268,8 @@ the_term_channel_is_refused_in_the_repl_test() ->
         %% `ibs` is a thin front end on `bsc --repl`, so that is the flag
         %% the refusal has to see; `-S` alone is accepted and ignored by
         %% the arg parser, exactly as `iex -S mix` spells it.
-        Out = os:cmd(escript() ++ " --repl -S x.bs --diagnostics term 2>&1; echo rc:$?"),
+        {Rc, Out} = bs_test_support:run_cli_result(
+                      "--repl -S x.bs --diagnostics term"),
         ?assertNotEqual(nomatch, string:find(Out, "not available in the REPL")),
-        ?assertNotEqual(nomatch, string:find(Out, "rc:2"))
+        ?assertEqual(2, Rc)
     end).

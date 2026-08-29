@@ -29,7 +29,7 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
--import(bs_test_support, [escript/0, with_src/3]).
+-import(bs_test_support, [with_src/3]).
 
 -define(OUT, bs_test_support:run_root()).
 
@@ -65,8 +65,9 @@ repl(Lines) ->
                      In = Out ++ "/repl.in",
                      ok = file:write_file(
                             In, string:join(Lines ++ [":quit"], "\n") ++ "\n"),
-                     os:cmd(escript() ++ " --repl -o " ++ Out ++ " " ++ Path ++
-                            " < " ++ In ++ " 2>&1")
+                     {_, Output} = bs_test_support:run_cli_with_stdin_file_result(
+                                     "--repl -o " ++ Out ++ " " ++ Path, In),
+                     Output
              end).
 
 %% Asserts on a SUBSTRING rather than the whole transcript, because the banner

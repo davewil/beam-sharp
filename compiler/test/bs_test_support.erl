@@ -10,7 +10,8 @@
 -include_lib("eunit/include/eunit.hrl").
 
 -export([compile/1, build_and_load/2, check_only/1, errors/1, project_root/0,
-         escript/0, built/0, run_cli/1, run_cli_result/1, with_src/3,
+         escript/0, built/0, run_command_result/1, run_cli/1, run_cli_result/1,
+         run_cli_split_result/1, run_cli_with_stdin_file_result/2, with_src/3,
          run_root/0, fixture_root/0, place/3,
          showcase_src/0, shop_src/0, an_order/0, count/2]).
 
@@ -159,24 +160,31 @@ run_cli(Args) ->
     {Rc, Output} = run_cli_result(Args),
     Output ++ "rc:" ++ integer_to_list(Rc) ++ "\n".
 
+run_command_result(Command) ->
+    bs_process:run_merged(Command).
+
 %% The shell still parses the argument strings used throughout this boundary
 %% suite, but it no longer has to report its own status by echoing into stdout.
 %% `exec` replaces it with the escript, so the port's exit_status is the CLI's
 %% status and the captured data is only what the CLI wrote.
 run_cli_result(Args) ->
-    Port = open_port({spawn_executable, "/bin/sh"},
-                     [binary, exit_status, stderr_to_stdout, use_stdio,
-                      {args, ["-c", "exec " ++ escript() ++ " " ++ Args]}]),
-    collect_cli(Port, []).
+    run_command_result(escript() ++ " " ++ Args).
 
-collect_cli(Port, Chunks) ->
-    receive
-        {Port, {data, Data}} ->
-            collect_cli(Port, [Data | Chunks]);
-        {Port, {exit_status, Rc}} ->
-            Output = iolist_to_binary(lists:reverse(Chunks)),
-            {Rc, binary_to_list(Output)}
-    end.
+run_cli_with_stdin_file_result(Args, InputPath) ->
+    run_command_result(escript() ++ " " ++ Args ++ " < " ++ InputPath).
+
+run_cli_split_result(Args) ->
+    CaptureRoot = fixture_root(),
+    StdoutPath = filename:join(CaptureRoot, "stdout"),
+    StderrPath = filename:join(CaptureRoot, "stderr"),
+    {Rc, _} = run_command_result(escript() ++ " " ++ Args ++
+                                 " > " ++ StdoutPath ++
+                                 " 2> " ++ StderrPath),
+    {Rc, read_capture(StdoutPath), read_capture(StderrPath)}.
+
+read_capture(Path) ->
+    {ok, Bin} = file:read_file(Path),
+    binary_to_list(Bin).
 
 with_src(Name, Src, Fun) ->
     Root = fixture_root(),

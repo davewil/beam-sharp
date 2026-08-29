@@ -59,8 +59,9 @@ built_escript_compiles_a_file_test() ->
     Root = bs_test_support:fixture_root(),
     Src = bs_test_support:place(Root, "in.bs", showcase_src()),
     Out = Root ++ "/out",
-    Result = os:cmd(Escript ++ " -o " ++ Out ++ " " ++ Src ++ " 2>&1; echo rc:$?"),
-    ?assert(string:find(Result, "rc:0") =/= nomatch),
+    {Rc, _Output} = bs_test_support:run_cli_result(
+                      "-o " ++ Out ++ " " ++ Src),
+    ?assertEqual(0, Rc),
     ?assert(filelib:is_regular(Out ++ "/Readings.beam")).
 
 %% A failed child has two independent facts: what it printed and how it exited.

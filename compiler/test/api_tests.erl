@@ -35,11 +35,11 @@ escript() ->
 
 %% A FIXTURE ROOT OF THIS FILE'S OWN.
 %%
-%% These tests read stdout and stderr back from separate capture files after the
-%% child exits. Keeping source and captures together in a unique per-case
-%% directory prevents another test or VM from replacing either stream between
-%% the shell redirect and that read. `_build/test` is rebar's, gitignored, and
-%% outside every gate's `find`.
+%% These tests keep source in a unique per-case directory. The shared process
+%% helper gives its stdout and stderr captures a separate unique per-case
+%% directory, so another test or VM cannot replace either stream between the
+%% shell redirect and the read. `_build/test` is rebar's, gitignored, and outside
+%% every gate's `find`.
 root() ->
     D = project_root() ++ "/_build/test/api_fixtures/fx-" ++ os:getpid() ++
         "-" ++ integer_to_list(erlang:unique_integer([positive])),
@@ -49,18 +49,8 @@ root() ->
 %% {ExitCode, Stdout, Stderr}. Redirected to files rather than merged, so a test
 %% can say which stream a line arrived on.
 run(Args) ->
-    Root = root(),
-    Out = Root ++ "/stdout",
-    Err = Root ++ "/stderr",
-    Rc = os:cmd(escript() ++ " " ++ Args ++ " > " ++ Out ++ " 2> " ++ Err ++
-                    "; printf '%s' $?"),
-    {list_to_integer(string:trim(Rc)), slurp(Out), slurp(Err)}.
-
-%% LOUD, per the comment on `root/0`. A capture file that cannot be read is a
-%% broken test run, not an empty answer, and the two must not look alike.
-slurp(Path) ->
-    {ok, Bin} = file:read_file(Path),
-    binary_to_list(Bin).
+    _ = escript(),
+    bs_test_support:run_cli_split_result(Args).
 
 lines(S) -> [L || L <- string:split(string:trim(S), "\n", all), L =/= ""].
 

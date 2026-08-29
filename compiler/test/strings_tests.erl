@@ -13,7 +13,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 -import(bs_test_support, [compile/1, build_and_load/2, check_only/1, errors/1,
-                          escript/0, with_src/3]).
+                          with_src/3]).
 
 -define(OUT, bs_test_support:run_root()).
 
@@ -273,7 +273,8 @@ the_cli_prints_a_string_test() ->
              "public string Greet()\n"
              "Greet() -> \"hello\"\n",
              fun(Path, Out) ->
-                 R = os:cmd(escript() ++ " -o " ++ Out ++ " " ++ Path ++ " Greet"),
+                 {_, R} = bs_test_support:run_cli_result(
+                            "-o " ++ Out ++ " " ++ Path ++ " Greet"),
                  ?assertEqual("\"hello\"\n", R)
              end).
 
@@ -318,7 +319,8 @@ the_boundary_error_names_the_replacement_test() ->
              "public int N()\n"
              "N() -> 1\n",
              fun(Path, Out) ->
-                 R = os:cmd(escript() ++ " -o " ++ Out ++ " " ++ Path ++ " 2>&1"),
+                 {_, R} = bs_test_support:run_cli_result(
+                            "-o " ++ Out ++ " " ++ Path),
                  ?assert(string:find(R, "declare it `binary`") =/= nomatch),
                  ?assert(string:find(R, "entry check") =/= nomatch)
              end).
