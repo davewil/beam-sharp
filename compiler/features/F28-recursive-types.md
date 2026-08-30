@@ -1,7 +1,7 @@
 # F28 — recursive types: the binder ticket 09 decided and nothing built
 
-**Status**      **in progress** — spec written 2026-08-26, build started 2026-08-30 ·
-                [ENG-260](https://linear.app/davewil/issue/ENG-260)
+**Status**      **done 2026-08-30** — 562 tests, 36 verify stages, and a new gate,
+                `check-recursive-types.sh` · [ENG-260](https://linear.app/davewil/issue/ENG-260)
 **Implements**  [09](../../wayfinder/issues/09-union-representation.md) (equirecursive, contractive,
                 subtyping decided coinductively) — decides nothing new
 **Unblocks**    exemplar **25e** (its front wall *is* this), `iodata` as a declarable type, and
@@ -237,16 +237,64 @@ families**, the tuple part (`t_*`, `product_*`), the list part (`l_*`, `sp_meet`
 including `m_decompose/3` and `m_zip_intersect/2`). Each edit is mechanical; the count is the point,
 because this file budgeted for a binder and the bill is the algebra.
 
-### What is built, and where
+### The bug the threading produced, and the two probes that hid it
 
-`compiler/bin/check-recursive-types.sh` is **written and has been seen red** — eight positive probes
-refused as an unbuilt feature, both controls already correct — and its `--self-test` is green over
-five defects and the correct form. It is **not on master**, because `check-gates-wired.sh` requires
-every executable gate to be named in `ci.yml` and `ci.yml`'s own foot block refuses exclusions: a
-gate lands with the feature it gates, not before it. It sits on branch
-`worktree-eng-260-f28-recursive-types` with the binder foundation (`mu/2`, `recvar/1`, `unfold/1`,
-`subst_rec/3`, and `is_none/2`'s assumption set — 562 tests still green), which is where the next
-session starts.
+**`is_none/2` could not see an empty spine through a bound variable, and nine green probes did not
+notice.** Two defects, both reachable only by a recursive type: it answered `false` for every
+`recvar`, ignoring the chain — but inside the binder that named it, a `recvar` *is* the thing being
+assumed empty, so dropping `Seen` made the coinduction a no-op. And its head demanded
+`lists := []`, a **literally** empty spine list, which was true by construction — `mk_spine/2` and
+`cons/1` collapse an empty-element spine to `none()`, and `sp_minus_aligned/3` filters through
+`sp_empty/1` — until a subtraction that ties a knot builds one whose element is the assumption
+variable, which `sp_empty/1` cannot see through because it carries no chain.
+
+So `Iodata \ term` came back inhabited, **`is_subtype(Iodata, term)` was false**, a total function
+was reported inexhaustive, and printing the residual did not terminate. Tuple recursion was
+unaffected throughout, which is why R1 stayed green: the tuple part decides emptiness through
+`is_none` on components and the list part did not.
+
+**Two probes were asserting nothing.** R2 declared `Iodata` as a **return type only** — a recursive
+type in a return position is built, one in a parameter is *matched*, and matching is what drives the
+subtraction. R9 declared `type Tree` and never wrote `ValidateAs<Tree>`, so it went green over a
+generator that crashed on a binder. Both now carry the position that exercises them, and R10 (bare
+`list<N>`, matched) and the `list_blind` self-test defect exist because of this.
+
+### A third refusal, which ticket 09 did not reach
+
+A parametric alias that recurs under **different arguments** — `type T<X> = (X, list<T<list<X>>>)` —
+is contractive, so the constructor rule does not touch it, and is not a regular tree: unfolding gives
+`T<int>`, `T<list<int>>`, `T<list<list<int>>>`, never repeating. No binder can hold it. It is refused
+by name, because expanding is the hang. 09 permits polymorphic recursion and 04 paid for it with
+mandatory signatures; **neither considered the non-regular case**, so this is a finding rather than a
+decision taken inside a feature. R11 is its control, and the self-test's seventh defect is the silent
+way to get it wrong — tying the knot on the name rather than the instantiation, which claims two
+unequal types are one.
+
+### The memo-disabled red is real, and only one shape can produce it
+
+`--self-test` carries seven stubbed defects **and one real hang**. `BS_NO_TYPE_MEMO=1` makes
+`bs_types:assumed/2` never remember a pair, so the walk cannot close, and the same program compiles
+fine with the table on — red and green from one binary.
+
+**A tuple-recursive type cannot demonstrate it.** `subtract(A, A)` and `intersect(A, A)`
+short-circuit on identical operands, and after `unfold/1` substitutes the binder into its own
+components, `Tree`'s recursive positions *are* `Tree` — so the walk closes on identity and never
+consults the table. Measured: a memo-disabled build compiles `type Tree = :leaf | (:node, Tree,
+Tree)` perfectly happily. The list shape is the one where the pair genuinely differs at each step,
+so `type I = binary | list<I>` is what the self-test compiles. A self-test written against the
+obvious example would have gone green while proving nothing.
+
+Equirecursive subtyping does not need the table either: `L1 <: L2` and `L2 <: L1` both come back
+`true` with it disabled, because the products bottom out on emptiness first. The table is
+load-bearing exactly where a *list spine* is involved, which is the same place `is_none/2` was blind.
+
+### What F18 actually owed
+
+Less than it thought. `close_over/2` already wrote `Acc#{Ty => Name}` *before* walking children, so
+the name was assigned in time and the worklist was always going to terminate. What broke was
+narrower: `children/1` and `validator_form/3` destructure the six-part map and a binder is not one.
+`validator_form/3` now keeps the binder for the **error** — a failure says `expected Tree`, the
+author's own word — and takes the unfolding for the **clauses**.
 
 ## Out of scope
 

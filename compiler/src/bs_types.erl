@@ -573,7 +573,7 @@ u_parts(A, B) ->
 %% be threaded back out.
 rec_step(Op, A, B, As, Parts) ->
     Key = {A, B},
-    case lists:keyfind(Key, 1, As) of
+    case assumed(Key, As) of
         {_, Name} -> recvar(Name);
         false ->
             Name = nm(length(As)),
@@ -582,6 +582,23 @@ rec_step(Op, A, B, As, Parts) ->
     end.
 
 nm(D) -> list_to_atom("$mu" ++ integer_to_list(D)).
+
+%% THE SEAM THAT LETS THE STOPWATCH BE SEEN TO FIRE, and it exists because F28's
+%% own bar asks for it: the gate must go red on *a build with the memo table
+%% disabled*. Stubbing a timeout into the gate's fixtures proves only that
+%% `judge` can READ one; it does not prove the clock fires. With
+%% `BS_NO_TYPE_MEMO` set, this never remembers a pair, so the walk over a regular
+%% tree cannot close and the compile blows the budget — a real red, from a real
+%% build, on the real defect.
+%%
+%% Read here rather than cached because the cost is paid only when a recursive
+%% type is actually being compared, and a cached flag would be one more piece of
+%% state to get wrong. Nothing outside the gate's `--self-test` ever sets it.
+assumed(Key, As) ->
+    case os:getenv("BS_NO_TYPE_MEMO") of
+        false -> lists:keyfind(Key, 1, As);
+        _     -> false
+    end.
 
 %%% ---------------------------------------------------------------------------
 %%% Intersection

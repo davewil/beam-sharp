@@ -481,8 +481,60 @@ if [ "${1:-}" = "--self-test" ]; then
   else
     echo "  ok green on the correct form"
   fi
+  # -------------------------------------------------------------------------
+  # THE EIGHTH DEFECT IS A REAL BUILD, NOT A STUB, and it is the one this file's
+  # own header claims. Everything above proves `judge` can READ a timeout; none
+  # of it proves the clock FIRES. `BS_NO_TYPE_MEMO=1` makes `bs_types:assumed/2`
+  # never remember a pair, so the walk over a regular tree cannot close.
+  #
+  # THE PROGRAM MATTERS. A tuple-recursive type is NOT enough: `subtract(A, A)`
+  # and `intersect(A, A)` short-circuit on identical operands, so `Tree` closes
+  # without ever consulting the table and a memo-disabled build returns
+  # perfectly happily. Measured. The list shape is the one where the pair
+  # genuinely differs at each step, so it is the one that hangs.
+  #
+  # Both halves, as everywhere else: red with the table off, GREEN with it on,
+  # same program, same binary.
+  # -------------------------------------------------------------------------
+  [ -x "$BSC" ] || { echo "no built bsc at $BSC - run rebar3 escriptize"; exit 2; }
+  RW="$(mktemp -d)"; mkdir -p "$RW/MZ"
+  printf 'module MZ\n\ntype I = binary | list<I>\n\npublic :ok F(I i)\nF(i) -> :ok\n' \
+    > "$RW/MZ/MZ.bs"
+  # A shorter budget than the probes get: this one is EXPECTED to hang, and the
+  # green half compiles in well under a second, so waiting the full budget just
+  # makes CI slower. The subshells keep the shell's own "Alarm clock" job report
+  # off the output.
+  HANG_BUDGET="${BS_RECURSIVE_SELFTEST_BUDGET:-6}"
+  # The `{ ...; } 2>/dev/null` wraps the SHELL's own reporting, not the command's:
+  # bash announces "Alarm clock" on its own stderr when a foreground child dies
+  # of a signal, and that lands in the gate's output where a reader would take
+  # it for a failure.
+  set +e
+  { BS_NO_TYPE_MEMO=1 perl -e 'alarm shift; exec @ARGV' "$HANG_BUDGET" \
+      "$BSC" "$RW/MZ/MZ.bs" F ':leaf' > /dev/null 2>&1
+    off=$?
+  } 2>/dev/null
+  { perl -e 'alarm shift; exec @ARGV' "$HANG_BUDGET" \
+      "$BSC" "$RW/MZ/MZ.bs" F ':leaf' > /dev/null 2>&1
+    on=$?
+  } 2>/dev/null
+  set -e
+  rm -rf "$RW"
+  if [ "$off" -eq 142 ] || [ "$off" -eq 14 ]; then
+    echo "  ok red on a memo-disabled BUILD (a real hang, not a stubbed one)"
+  else
+    echo "  x SELF-TEST: with the memo table disabled the compile still finished (exit $off) - the stopwatch has never been seen to fire"
+    fail=1
+  fi
+  if [ "$on" -eq 0 ]; then
+    echo "  ok green on the same program with the memo table on"
+  else
+    echo "  x SELF-TEST: the same program FAILED with the memo table on (exit $on) - the control is broken, so the red above proves nothing"
+    fail=1
+  fi
+
   [ "$fail" -eq 0 ] || { echo "self-test FAILED"; exit 1; }
-  echo "self-test passed: seven defects seen, correct form accepted"
+  echo "self-test passed: seven stubbed defects and one real hang, correct form accepted"
   exit 0
 fi
 
