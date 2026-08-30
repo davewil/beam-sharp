@@ -184,7 +184,7 @@ type Iodata = binary | list<Iodata>
 public Iodata Page(string title)
 Page(t) -> ["<html>", ["<h1>", t, "</h1>"], "</html>"]
 
-public :atom Go(int n)
+public :ok Go(int n)
 Go(n) -> :ok
 '
   shot R2 R2 Go 1
@@ -195,7 +195,7 @@ Go(n) -> :ok
 
 record Node { Value: int, Kids: list<Node> }
 
-public :atom Go(Node n)
+public :ok Go(Node n)
 Go(n) -> :ok
 '
   shot R3 R3 Go '#{value => 1, kids => []}'
@@ -206,7 +206,7 @@ Go(n) -> :ok
 type A = :nil | (:a, B)
 type B = :nil | (:b, A)
 
-public :atom Go(A a)
+public :ok Go(A a)
 Go(a) -> :ok
 '
   shot R4 R4 Go 'nil'
@@ -218,7 +218,7 @@ Go(a) -> :ok
 
 type Tree<T> = (T, list<Tree<T>>)
 
-public :atom Go(Tree<int> a, Tree<string> b)
+public :ok Go(Tree<int> a, Tree<string> b)
 Go(a, b) -> :ok
 '
   shot R5 R5 Go '{1,[]}' '{<<"x">>,[]}'
@@ -257,7 +257,7 @@ type L2 = :nil | (:cons, int, :nil | (:cons, int, L2))
 public L2 Widen(L1 x)
 Widen(x) -> x
 
-public :atom Go(int n)
+public :ok Go(int n)
 Go(n) -> :ok
 '
   shot R7 R7 Go 1
@@ -282,7 +282,7 @@ Size((:node, l, r)) -> 1 + Size(l) + Size(r)
 
 type Tree = :leaf | (:node, Tree, Tree)
 
-public :atom Go(term t)
+public :ok Go(term t)
 Go(t) -> :ok
 '
   shot R9 R9 Go 1

@@ -833,8 +833,14 @@ type_env(Decls) ->
     %% entry is pre-resolved to an algebra type here, once; a parametric one
     %% cannot be — its body has free variables — so it stays a surface template
     %% and is resolved per use site, after substitution.
+    %% F28 — AN ENTRY IS RESOLVED UNDER ITS OWN NAME. Seeding the chain with the
+    %% name being defined is what lets `Tree`'s body reach back to `Tree` and
+    %% tie, and it makes the binder the top of the result rather than one
+    %% unfolding below it. Without the seed the type still comes out
+    %% equirecursively correct — the inner occurrence binds and the outer level
+    %% is a copy — but every such type would carry a redundant unfolding.
     maps:map(fun(_, {parametric, _, _} = P) -> P;
-                (_, T) -> resolve(T, Env)
+                (N, T) -> bs_types:mu(N, resolve(T, Env, [N]))
              end, Env).
 
 alias([], Body)     -> Body;
@@ -1061,17 +1067,28 @@ resolve({t_builtin, B}, Env, Seen) ->
         undefined -> builtin(B);
         T when is_map(T) -> T;
         Surface ->
-            seen(B, Seen),
-            resolve(Surface, Env, [B | Seen])
+            case revisit(B, Seen) of
+                knot -> bs_types:recvar(B);
+                new  -> bs_types:mu(B, resolve(Surface, Env, [B | Seen]))
+            end
     end;
+%% F28 — THE REVISIT IS THE BINDER, and this is the whole of the change from
+%% "not built yet" to a type. `revisit/2` still refuses the non-contractive case
+%% exactly as before; what used to be an error on the contractive one is now a
+%% back-reference, and the resolution that entered the name wraps its result in
+%% the matching `mu`. `bs_types:mu/2` drops the binder when the body never
+%% mentions it, so a non-recursive alias comes out byte-identical to before.
 resolve({t_ref, N}, Env, Seen) ->
-    seen(N, Seen),
-    case maps:get(N, Env, undefined) of
-        undefined -> erlang:error({unknown_type, N});
-        {parametric, Params, _} ->
-            erlang:error({needs_type_args, N, length(Params)});
-        T when is_map(T) -> T;
-        Surface -> resolve(Surface, Env, [N | Seen])
+    case revisit(N, Seen) of
+        knot -> bs_types:recvar(N);
+        new ->
+            case maps:get(N, Env, undefined) of
+                undefined -> erlang:error({unknown_type, N});
+                {parametric, Params, _} ->
+                    erlang:error({needs_type_args, N, length(Params)});
+                T when is_map(T) -> T;
+                Surface -> bs_types:mu(N, resolve(Surface, Env, [N | Seen]))
+            end
     end;
 resolve({t_tuple, Cs}, Env, Seen) ->
     bs_types:tuple([resolve(C, Env, ctor(Seen)) || C <- Cs]);
@@ -1093,16 +1110,35 @@ resolve({t_generic, list, Args}, _Env, _Seen) ->
 %% which is why F6 adds no node to the algebra and no case to any operation on
 %% it — and why `option<int>` and a hand-written `int | :nothing` are the same
 %% type rather than two types that agree (F6.3).
+%% F28 — A PARAMETRIC ALIAS KNOTS ON THE INSTANTIATION, NOT ON THE NAME, and
+%% that distinction is load-bearing rather than tidy. `type T<X> = (X,
+%% list<T<X>>)` recurses at the SAME argument, so `T<int>` meeting `T<int>` is a
+%% genuine cycle and ties. Keying on the bare name would also tie `T<int>` to
+%% `T<list<int>>`, which are different types — a knot where there is none, and
+%% the resulting binder would claim two unequal types are one.
+%%
+%% The other side of that: a name that recurs under DIFFERENT arguments is not
+%% a regular tree, and no binder can hold it. That is refused by name rather
+%% than expanded, because expanding is the hang this feature's gate exists to
+%% catch. Ticket 09 permits polymorphic recursion and 04 paid for it with
+%% mandatory signatures; neither considered the non-regular case, so this
+%% refusal is a finding for the map rather than a decision taken here.
 resolve({t_generic, N, Args}, Env, Seen) ->
-    seen(N, Seen),
     case maps:get(N, Env, undefined) of
         undefined -> erlang:error({unknown_generic, N});
         {parametric, Params, Body} when length(Params) =:= length(Args) ->
             %% Arguments are resolved in the CALLER's chain, not the callee's:
             %% they are siblings of this application, not steps below it.
-            Sub = maps:from_list(
-                    lists:zip(Params, [resolve(A, Env, Seen) || A <- Args])),
-            resolve(subst(Body, Sub), Env, [N | Seen]);
+            RArgs = [resolve(A, Env, Seen) || A <- Args],
+            Key = {N, RArgs},
+            case revisit(Key, Seen) of
+                knot -> bs_types:recvar(gen_name(Key));
+                new ->
+                    non_regular_check(N, RArgs, Seen),
+                    Sub = maps:from_list(lists:zip(Params, RArgs)),
+                    bs_types:mu(gen_name(Key),
+                                resolve(subst(Body, Sub), Env, [Key | Seen]))
+            end;
         {parametric, Params, _} ->
             erlang:error({generic_arity, N, length(Params), length(Args)});
         _Ground ->
@@ -1162,18 +1198,46 @@ refine(Base, Pred, Line) ->
 %% three fields are three siblings below ONE crossing.
 ctor(Seen) -> ['$ctor' | Seen].
 
-seen(N, Seen) ->
-    case lists:member(N, Seen) of
-        false -> ok;
+%% F28 — WHAT USED TO BE TWO ERRORS IS NOW ONE ERROR AND ONE BINDER. The
+%% contractive case was never a defect in the user's type; it was this
+%% compiler's gap, and closing the gap turns it into `knot` — tie the recursion
+%% off here and let the caller name it. The non-contractive case is unchanged
+%% and must stay unchanged: `type X = X | int` describes no set of values and
+%% never will.
+%%
+%% `Key` is an atom for a ground alias and `{Name, ResolvedArgs}` for a
+%% parametric one; see the `t_generic` clause for why the arguments belong in
+%% the key.
+revisit(Key, Seen) ->
+    case lists:member(Key, Seen) of
+        false -> new;
         true  ->
-            %% Everything entered since this name was, most recent first. A
+            %% Everything entered since this key was, most recent first. A
             %% marker in there means the recursion crossed a constructor and the
             %% definition is contractive.
-            Since = lists:takewhile(fun(E) -> E =/= N end, Seen),
+            Since = lists:takewhile(fun(E) -> E =/= Key end, Seen),
             case lists:member('$ctor', Since) of
-                true  -> erlang:error({recursive_type, N});
-                false -> erlang:error({cyclic_type, N})
+                true  -> knot;
+                false -> erlang:error({cyclic_type, key_name(Key)})
             end
+    end.
+
+key_name({N, _}) -> N;
+key_name(N)      -> N.
+
+%% One binder name per INSTANTIATION. `T<int>` and `T<string>` are two types and
+%% get two names; the hash is over the resolved arguments, so the same
+%% instantiation always lands on the same name and ties to itself.
+gen_name({N, RArgs}) ->
+    list_to_atom(atom_to_list(N) ++ "$" ++ integer_to_list(erlang:phash2(RArgs))).
+
+%% The same name already open at DIFFERENT arguments: the expansion is not a
+%% regular tree, so no binder can hold it and unfolding would not terminate.
+%% Refused rather than expanded, because expanding is the hang.
+non_regular_check(N, RArgs, Seen) ->
+    case [K || {M, A} = K <- Seen, M =:= N, A =/= RArgs] of
+        []      -> ok;
+        [_ | _] -> erlang:error({non_regular_recursion, N})
     end.
 
 %% Substitution is over the SURFACE type, and what it substitutes IN is an
@@ -2388,9 +2452,17 @@ field_delta(Supplied, Declared) ->
 
 %% The declared field set, read off the RESOLVED type rather than the surface
 %% one `record_fields/1` reads for the emitter. `Kind` is minted, never assigned.
+%% F28 — A BINDER IS UNFOLDED BEFORE ITS PARTS ARE READ, and the clause has to
+%% come FIRST here. `declared_fields/1`'s catch-all answers `unknown`, which for
+%% a recursive record would be a silent degrade rather than an error: the fields
+%% are perfectly well known, they are just one unfolding down. Unfolding
+%% terminates because a `mu` body is a partition, and the nested case (mutual
+%% recursion) is finite in the nesting depth.
+declared_fields(#{mu := _} = T) -> declared_fields(bs_types:unfold(T));
 declared_fields(#{maps := [{closed, Fs}]}) -> maps:keys(Fs) -- ['Kind'];
 declared_fields(_)                         -> unknown.
 
+field_type(#{mu := _} = T, Field) -> field_type(bs_types:unfold(T), Field);
 field_type(#{maps := top}, _Field) -> bs_types:term();
 field_type(#{maps := Members}, Field) ->
     union_of([maps:get(Field, Fs) || {_, Fs} <- Members, maps:is_key(Field, Fs)]).
