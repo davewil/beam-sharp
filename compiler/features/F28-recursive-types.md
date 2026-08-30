@@ -1,6 +1,6 @@
 # F28 — recursive types: the binder ticket 09 decided and nothing built
 
-**Status**      **not started** — spec written 2026-08-26 ·
+**Status**      **in progress** — spec written 2026-08-26, build started 2026-08-30 ·
                 [ENG-260](https://linear.app/davewil/issue/ENG-260)
 **Implements**  [09](../../wayfinder/issues/09-union-representation.md) (equirecursive, contractive,
                 subtyping decided coinductively) — decides nothing new
@@ -57,11 +57,25 @@ F6's guard holds. Five reach one refusal and the sixth reaches the other:
 | `type Iodata = binary \| list<Iodata>` | same — this is 25e's front wall, and `FRONTIER`'s fifth record |
 | `record Node { Value: int, Kids: list<Node> }` | same |
 | `type A = :nil \| (:a, B)` / `type B = :nil \| (:b, A)` (mutual) | same, reported against `A` |
-| `type Tree<T> = (T, list<Tree<T>>)` | same |
+| `type Tree<T> = (T, list<Tree<T>>)` | same — **but only when it is USED**; see below |
 | `type X = X \| int` | **a different message**, and a correct one: *"the recursion does not pass through a constructor … that is not a missing feature"* |
 
 That last row is the one to keep. The contractive/non-contractive split is already implemented and
 already worded; F28 must move the first five and **leave the sixth exactly where it is**.
+
+**Row 5 was overstated, corrected 2026-08-30 at `43771f0`.** A parametric alias is not refused by
+its declaration. `type_env/1` stores a parametric entry as an unresolved `{parametric, …}` template
+— the `maps:map` that resolves every other entry skips it deliberately, because its body has free
+variables — so it is resolved *per use site*, and a module that declares
+`type T<X> = (X, list<T<X>>)` and never mentions `T<int>` **compiles and runs today**. Re-measured:
+declaration alone exits 0; `public int Go(T<int> t)` produces the recursive-type refusal. The other
+four rows refuse at the declaration, because `type_env/1` resolves them eagerly.
+
+Two consequences, both binding on this feature. **F28.5's probe must contain a use site** or it
+asserts an absence against a program the checker never looked at — the vacuous-pass defect this
+repo has shipped before. And the non-contractive control has a parametric twin,
+`type Y<X> = Y<X> | int`, which *is* correctly refused at its use site with the same wording as
+F28.6 — so the split survives substitution and the gate should say so.
 
 ## Scenarios
 
@@ -169,6 +183,70 @@ note says the mutation *"had to be measured by a clock, not by a red test"*.
 
 `timeout(1)` is not on macOS. `perl -e 'alarm N; exec @ARGV'` is, and is what this session used to
 measure the table above.
+
+## What the build found — 2026-08-30, and it corrects this file's central claim
+
+**"The work is a binder, not a lattice" is wrong, and the counter-example is
+`intersect/2`.** The evidence this file offered for the claim — nest a fragment one level and the
+residual comes back exact — measures *one unfolding of a non-recursive type*. It says nothing about
+an operation whose two arguments are both cyclic, and that is where the work actually is.
+
+The asymmetry, which is the whole of it: on meeting a pair of binders it has already visited,
+
+* `subtract` may assume the difference **empty**. That is the greatest-fixed-point reading and it
+  is correct — `L1 \ L2` is empty exactly when every finite unfolding's difference is.
+* `intersect` may **not**. `Tree ∩ Tree` is `Tree`, not nothing. Intersecting two regular trees has
+  to *produce a fresh binder*, so the operation must be closed over recursive types rather than
+  merely terminate over them.
+
+That second line is a new capability in the algebra, not a new name for an old one. It is still
+inside ticket 09 — "subtyping decided coinductively" implies exactly this — so **nothing here is a
+decision 09 failed to take, and there is no new ticket owed.** What was wrong was this file's
+estimate of the work, not its design.
+
+### The representation, and why this shape
+
+A recursive type is a **binder plus a back-reference**: `mu('Tree', :leaf | (:node, recvar('Tree'),
+recvar('Tree')))`, with `unfold/1` substituting the binder for its own variable in one step. Erlang
+has no cyclic terms, so the cycle is spelled by name and closed on demand. `mu/2` returns its body
+unwrapped when the name does not occur, so a non-recursive alias is byte-identical to what it was
+before this feature and nothing downstream unfolds a type that does not need it.
+
+Equirecursive means **the name is not part of the meaning** — it is a binding occurrence so
+`recvar` has something to point at, and two binders with different names can be the same type. That
+is precisely why F28.7 needs coinduction rather than comparison, and it is the line between this
+and an isorecursive system where the name *is* the type.
+
+`is_none` assumes **empty on revisit**, and that is the correct reading of inhabitation rather than
+merely a way to stop: `type T = (:node, T, T)` is contractive — 09 admits the definition — and has
+no finite values at all. Assuming the binder inhabited would report a type with no values as usable
+and every containment over it would pass vacuously.
+
+**The assumption set is threaded explicitly and must not live in the process dictionary.** A leaked
+assumption would prove a type empty, and a type wrongly proved empty makes the compiler go *quieter*
+rather than red — the failure `is_none/1`'s own comment already calls this module's sharpest trap.
+Hidden state is the wrong trade here even though it would save the threading below.
+
+### The measured cost of the threading
+
+Component recursion runs through the **public** `subtract/2`, `intersect/2` and `is_none/1` —
+`product_minus/2` calls all three on tuple components — so the assumption set has to reach every
+helper that descends. Counted on the tree at `43771f0`: roughly **35 functions across three
+families**, the tuple part (`t_*`, `product_*`), the list part (`l_*`, `sp_meet`, `sp_minus`,
+`sp_minus_aligned`, `sp_rest_minus`, `sp_grow`, `sp_norm`, `sp_subset`) and the map part (`m_*`,
+including `m_decompose/3` and `m_zip_intersect/2`). Each edit is mechanical; the count is the point,
+because this file budgeted for a binder and the bill is the algebra.
+
+### What is built, and where
+
+`compiler/bin/check-recursive-types.sh` is **written and has been seen red** — eight positive probes
+refused as an unbuilt feature, both controls already correct — and its `--self-test` is green over
+five defects and the correct form. It is **not on master**, because `check-gates-wired.sh` requires
+every executable gate to be named in `ci.yml` and `ci.yml`'s own foot block refuses exclusions: a
+gate lands with the feature it gates, not before it. It sits on branch
+`worktree-eng-260-f28-recursive-types` with the binder foundation (`mu/2`, `recvar/1`, `unfold/1`,
+`subst_rec/3`, and `is_none/2`'s assumption set — 562 tests still green), which is where the next
+session starts.
 
 ## Out of scope
 
