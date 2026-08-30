@@ -314,7 +314,7 @@ the body. These are open: read the body before assuming a direction.
 - **What the valve keys on: the atom, or the declared type?** `#49` `syntax` `types`
   **resolved: the fixed pair `(:error, _) | :nothing`**. Shape B refused on measurement — a residual
   can be **unguardable** (`binary \ string`), so 09's "one guard in O(1)" does not hold. `:nothing`
-  is null's analogue and **17 §4 is overruled**. Not built — **F30**, unblocked by F31 (ENG-272)
+  is null's analogue and **17 §4 is overruled**. Not built — **F30** spec'd 2026-08-30 (ENG-279)
 - **Dependency provenance: what a `.bs` file says about what it needs** `#52` `ffi` `tooling`
   51 left it: `using :'Elixir.Req'` names the *module*, never the *application*, so dependencies live
   only in the environment that built them. The FFI declaration may already be the home
