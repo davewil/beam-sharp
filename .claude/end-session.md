@@ -86,7 +86,13 @@ sees it, because a fresh checkout has no `C.beam`. The gate now prints the boot 
 `__erl_failed__`, but **the detritus is still worth deleting**: `rm -f compiler/C.beam` before a
 sweep, and note that `.gitignore` hides it so `git status` stays clean.
 
-**TWENTY-SEVEN `check-*` gate scripts — `check-collapse.sh` added 2026-08-28 by F31 /
+**TWENTY-EIGHT `check-*` gate scripts — `check-recursive-types.sh` added 2026-08-30 by F28 /
+ENG-260, and this line was wrong for the length of that session in precisely the way it warns
+about below.** The gate was added to the script, `ci.yml`, `verify.sh` and the list above —
+`check-gates-wired.sh` insisted on all four and named the one that was missing — and then this
+count, a fifth surface no gate reads, went stale anyway. Counted rather than incremented:
+`ls bin/check-*.sh compiler/bin/check-*.sh editor/bin/check-*.sh | wc -l` is 28 (9 + 17 + 2).
+Previously TWENTY-SEVEN: `check-collapse.sh` added 2026-08-28 by F31 /
 ENG-272. Previously TWENTY-SIX: `check-residual-pasteable.sh` added 2026-08-27 by
 ENG-263, and `check-switch-diagnostics.sh` added 2026-08-27 by ENG-248. This line read
 TWENTY-FOUR until 2026-08-27 and was wrong by one for most of that day: ENG-248 added its
