@@ -485,7 +485,13 @@ union([]) -> none();
 union([T]) -> T;
 union([H | T]) -> union(H, union(T)).
 
-union(A, B) ->
+%% F28 — UNION NEEDS TO UNFOLD AND NOTHING MORE. It never descends into a
+%% component itself; the only descent below it is absorption, which asks
+%% containment through `subtract/3` and gets that operation's own assumption set
+%% with it. So there is no cycle for union to cut.
+union(A, B) -> u_parts(unfold(A), unfold(B)).
+
+u_parts(A, B) ->
     #{atoms  => a_union(maps:get(atoms, A), maps:get(atoms, B)),
       ints   => i_union(maps:get(ints, A), maps:get(ints, B)),
       %% Products are kept as separate members. Absorption is applied so a
@@ -502,27 +508,79 @@ union(A, B) ->
       bins   => ordsets:union(maps:get(bins, A), maps:get(bins, B))}.
 
 %%% ---------------------------------------------------------------------------
+%%% F28 — the assumption set, and why both operations below return a BINDER
+%%% ---------------------------------------------------------------------------
+%%
+%% `As` is the chain of argument pairs this operation has already entered,
+%% each paired with the name it was given. Meeting a pair twice means the walk
+%% has come back to where it was, and a regular tree has finitely many distinct
+%% subtrees, so the pairs are finite and the chain always closes.
+%%
+%% BOTH OPERATIONS TIE THE KNOT WITH A FRESH BINDER, and `subtract` in
+%% particular must NOT answer `none` there. The tempting reading — "assume the
+%% difference is empty on revisit" — is the right way to DECIDE subtyping and
+%% the wrong way to COMPUTE a residual: it makes the residual too small in
+%% exactly the recursive positions, and a residual too small reports a false
+%% *exhaustive*. That is the direction ticket 54's defect ran in and the one
+%% this algebra is built to avoid. So the difference of two regular trees is
+%% itself a regular tree, spelled with a binder, and the emptiness question is
+%% left to `is_none/2`, which assumes empty on revisit and is the only place
+%% that may.
+%%
+%% The name is the DEPTH of the chain. Two binders minted at the same depth are
+%% in disjoint sibling subtrees — a `recvar` is only ever created by a
+%% descendant of the binder that named it — so the scopes cannot overlap, and
+%% `subst_rec/3` stops at a shadowing `mu` in the nested case. No counter has to
+%% be threaded back out.
+rec_step(A, B, As, Parts) ->
+    Key = {A, B},
+    case lists:keyfind(Key, 1, As) of
+        {_, Name} -> recvar(Name);
+        false ->
+            Name = nm(length(As)),
+            mu(Name, Parts(unfold(A), unfold(B), [{Key, Name} | As]))
+    end.
+
+nm(D) -> list_to_atom("$mu" ++ integer_to_list(D)).
+
+%%% ---------------------------------------------------------------------------
 %%% Intersection
 %%% ---------------------------------------------------------------------------
 
-intersect(A, B) ->
+intersect(A, B) -> intersect(A, B, []).
+
+intersect(A, B, As) ->
+    case is_rec(A) orelse is_rec(B) of
+        true  -> rec_step(A, B, As, fun i_parts/3);
+        false -> i_parts(A, B, As)
+    end.
+
+i_parts(A, B, As) ->
     #{atoms  => a_intersect(maps:get(atoms, A), maps:get(atoms, B)),
       ints   => i_intersect(maps:get(ints, A), maps:get(ints, B)),
-      tuples => t_intersect(maps:get(tuples, A), maps:get(tuples, B)),
-      lists  => l_intersect(maps:get(lists, A), maps:get(lists, B)),
-      maps   => m_intersect(maps:get(maps, A), maps:get(maps, B)),
+      tuples => t_intersect(maps:get(tuples, A), maps:get(tuples, B), As),
+      lists  => l_intersect(maps:get(lists, A), maps:get(lists, B), As),
+      maps   => m_intersect(maps:get(maps, A), maps:get(maps, B), As),
       bins   => ordsets:intersection(maps:get(bins, A), maps:get(bins, B))}.
 
 %%% ---------------------------------------------------------------------------
 %%% Subtraction — this is what computes ticket 04's residual
 %%% ---------------------------------------------------------------------------
 
-subtract(A, B) ->
+subtract(A, B) -> subtract(A, B, []).
+
+subtract(A, B, As) ->
+    case is_rec(A) orelse is_rec(B) of
+        true  -> rec_step(A, B, As, fun s_parts/3);
+        false -> s_parts(A, B, As)
+    end.
+
+s_parts(A, B, As) ->
     #{atoms  => a_subtract(maps:get(atoms, A), maps:get(atoms, B)),
       ints   => i_subtract(maps:get(ints, A), maps:get(ints, B)),
-      tuples => t_subtract(maps:get(tuples, A), maps:get(tuples, B)),
-      lists  => l_subtract(maps:get(lists, A), maps:get(lists, B)),
-      maps   => m_subtract(maps:get(maps, A), maps:get(maps, B)),
+      tuples => t_subtract(maps:get(tuples, A), maps:get(tuples, B), As),
+      lists  => l_subtract(maps:get(lists, A), maps:get(lists, B), As),
+      maps   => m_subtract(maps:get(maps, A), maps:get(maps, B), As),
       %% Set difference, so `binary \ string` is `[other]` — the non-UTF-8
       %% binaries, exactly and unspellably. See `b_str/1`.
       bins   => ordsets:subtract(maps:get(bins, A), maps:get(bins, B))}.
@@ -636,14 +694,14 @@ t_union(top, _) -> top;
 t_union(_, top) -> top;
 t_union(As, Bs) -> t_absorb(As ++ Bs).
 
-t_intersect(top, Bs) -> Bs;
-t_intersect(As, top) -> As;
-t_intersect(As, Bs) ->
+t_intersect(top, Bs, _Asm) -> Bs;
+t_intersect(As, top, _Asm) -> As;
+t_intersect(As, Bs, Asm) ->
     t_absorb([P || A <- As, B <- Bs, length(A) =:= length(B),
-                   (P = product_meet(A, B)) =/= empty]).
+                   (P = product_meet(A, B, Asm)) =/= empty]).
 
-product_meet(A, B) ->
-    Cs = [intersect(X, Y) || {X, Y} <- lists:zip(A, B)],
+product_meet(A, B, Asm) ->
+    Cs = [intersect(X, Y, Asm) || {X, Y} <- lists:zip(A, B)],
     case lists:any(fun is_none/1, Cs) of
         true  -> empty;
         false -> Cs
@@ -653,11 +711,13 @@ product_meet(A, B) ->
 %% these", so it keeps the residual too BIG rather than too small - a false
 %% inexhaustive rather than a false exhaustive. `anything \\ top` is empty, which
 %% is exact, and is what makes a `_` catch-all remove every tuple.
-t_subtract(_, top) -> [];
-t_subtract(top, _) -> top;
-t_subtract(As, Bs) -> lists:foldl(fun(B, Acc) -> t_minus_all(Acc, B) end, As, Bs).
+t_subtract(_, top, _Asm) -> [];
+t_subtract(top, _, _Asm) -> top;
+t_subtract(As, Bs, Asm) ->
+    lists:foldl(fun(B, Acc) -> t_minus_all(Acc, B, Asm) end, As, Bs).
 
-t_minus_all(As, B) -> t_absorb(lists:append([product_minus(A, B) || A <- As])).
+t_minus_all(As, B, Asm) ->
+    t_absorb(lists:append([product_minus(A, B, Asm) || A <- As])).
 
 %% (A1×…×An) \ (B1×…×Bn) decomposes into n disjoint products:
 %%
@@ -665,13 +725,13 @@ t_minus_all(As, B) -> t_absorb(lists:append([product_minus(A, B) || A <- As])).
 %%
 %% Exact, and the reason a two-component tuple can be subtracted at all — a
 %% componentwise subtraction would be plain wrong.
-product_minus(A, B) when length(A) =/= length(B) -> [A];
-product_minus(A, B) ->
+product_minus(A, B, _Asm) when length(A) =/= length(B) -> [A];
+product_minus(A, B, Asm) ->
     N = length(A),
     Products =
         [begin
-             Prefix = [intersect(lists:nth(J, A), lists:nth(J, B)) || J <- lists:seq(1, I - 1)],
-             Middle = subtract(lists:nth(I, A), lists:nth(I, B)),
+             Prefix = [intersect(lists:nth(J, A), lists:nth(J, B), Asm) || J <- lists:seq(1, I - 1)],
+             Middle = subtract(lists:nth(I, A), lists:nth(I, B), Asm),
              Suffix = [lists:nth(J, A) || J <- lists:seq(I + 1, N)],
              Prefix ++ [Middle] ++ Suffix
          end || I <- lists:seq(1, N)],
@@ -725,48 +785,50 @@ m_union(top, _) -> top;
 m_union(_, top) -> top;
 m_union(As, Bs) -> m_absorb(As ++ Bs).
 
-m_intersect(top, Bs) -> Bs;
-m_intersect(As, top) -> As;
-m_intersect(As, Bs) ->
-    m_absorb([M || A <- As, B <- Bs, (M = m_meet(A, B)) =/= empty]).
+m_intersect(top, Bs, _Asm) -> Bs;
+m_intersect(As, top, _Asm) -> As;
+m_intersect(As, Bs, Asm) ->
+    m_absorb([M || A <- As, B <- Bs, (M = m_meet(A, B, Asm)) =/= empty]).
 
 %% Same reasoning as `t_subtract`: the algebra cannot name "every map except
 %% these", so `top` minus anything stays `top` — a residual kept too BIG, which
 %% reports a false inexhaustive rather than a false exhaustive. `anything \ top`
 %% is empty, which is what makes a `_` catch-all remove every map.
-m_subtract(_, top) -> [];
-m_subtract(top, _) -> top;
-m_subtract(As, Bs) -> lists:foldl(fun(B, Acc) -> m_minus_all(Acc, B) end, As, Bs).
+m_subtract(_, top, _Asm) -> [];
+m_subtract(top, _, _Asm) -> top;
+m_subtract(As, Bs, Asm) ->
+    lists:foldl(fun(B, Acc) -> m_minus_all(Acc, B, Asm) end, As, Bs).
 
-m_minus_all(As, B) -> m_absorb(lists:append([m_minus(A, B) || A <- As])).
+m_minus_all(As, B, Asm) ->
+    m_absorb(lists:append([m_minus(A, B, Asm) || A <- As])).
 
 %%% --- meet -------------------------------------------------------------------
 
-m_meet({closed, FA}, {closed, FB}) ->
+m_meet({closed, FA}, {closed, FB}, Asm) ->
     %% Both fix the domain, so they must fix the same one.
     case same_keys(FA, FB) of
-        true  -> m_check({closed, m_zip_intersect(FA, FB)});
+        true  -> m_check({closed, m_zip_intersect(FA, FB, Asm)});
         false -> empty
     end;
-m_meet({closed, FA}, {open, FB}) ->
+m_meet({closed, FA}, {open, FB}, Asm) ->
     %% The closed side fixes the domain; the open side may only constrain fields
     %% that domain has.
     case keys_subset(FB, FA) of
-        true  -> m_check({closed, m_zip_intersect(FA, FB)});
+        true  -> m_check({closed, m_zip_intersect(FA, FB, Asm)});
         false -> empty
     end;
-m_meet(A = {open, _}, B = {closed, _}) ->
-    m_meet(B, A);
-m_meet({open, FA}, {open, FB}) ->
+m_meet(A = {open, _}, B = {closed, _}, Asm) ->
+    m_meet(B, A, Asm);
+m_meet({open, FA}, {open, FB}, Asm) ->
     %% Neither fixes the domain, so the result constrains the union of the two
     %% field sets and stays open.
-    m_check({open, m_zip_intersect(FA, FB)}).
+    m_check({open, m_zip_intersect(FA, FB, Asm)}).
 
 %% Intersect on shared keys; keep the unshared ones as they are.
-m_zip_intersect(FA, FB) ->
+m_zip_intersect(FA, FB, Asm) ->
     maps:fold(fun(K, VB, Acc) ->
                       case maps:find(K, Acc) of
-                          {ok, VA} -> Acc#{K => intersect(VA, VB)};
+                          {ok, VA} -> Acc#{K => intersect(VA, VB, Asm)};
                           error    -> Acc#{K => VB}
                       end
               end, FA, FB).
@@ -782,38 +844,38 @@ m_check(M) -> case m_empty(M) of true -> empty; false -> M end.
 %%
 %% Componentwise subtraction would be plain wrong here for the same reason it is
 %% wrong for tuples.
-m_minus({closed, FA}, {closed, FB}) ->
+m_minus({closed, FA}, {closed, FB}, Asm) ->
     case same_keys(FA, FB) of
-        true  -> m_decompose(closed, FA, FB);
+        true  -> m_decompose(closed, FA, FB, Asm);
         false -> [{closed, FA}]           % disjoint domains
     end;
-m_minus({closed, FA}, {open, FB}) ->
+m_minus({closed, FA}, {open, FB}, Asm) ->
     case keys_subset(FB, FA) of
-        true  -> m_decompose(closed, FA, FB);
+        true  -> m_decompose(closed, FA, FB, Asm);
         false -> [{closed, FA}]           % the pattern names a field this record has not got
     end;
-m_minus({open, FA}, {open, FB}) ->
+m_minus({open, FA}, {open, FB}, Asm) ->
     case keys_subset(FB, FA) of
-        true  -> m_decompose(open, FA, FB);
+        true  -> m_decompose(open, FA, FB, Asm);
         false -> [{open, FA}]
     end;
-m_minus({open, FA}, {closed, _FB}) ->
+m_minus({open, FA}, {closed, _FB}, _Asm) ->
     %% An open member contains maps with fields the closed one has not got, and
     %% "these fields, plus at least one more" is not something this algebra can
     %% name. Keep the minuend whole: too big rather than too small, the same
     %% honesty the list part applies to its cons element.
     [{open, FA}].
 
-m_decompose(Kind, FA, FB) ->
+m_decompose(Kind, FA, FB, Asm) ->
     Ks = lists:sort(maps:keys(FB)),
     Members =
         [begin
              {Before, [K | _]} = lists:splitwith(fun(X) -> X =/= K end, Ks),
              Narrowed = lists:foldl(
                           fun(J, Acc) ->
-                                  Acc#{J => intersect(maps:get(J, FA), maps:get(J, FB))}
+                                  Acc#{J => intersect(maps:get(J, FA), maps:get(J, FB), Asm)}
                           end, FA, Before),
-             {Kind, Narrowed#{K => subtract(maps:get(K, FA), maps:get(K, FB))}}
+             {Kind, Narrowed#{K => subtract(maps:get(K, FA), maps:get(K, FB), Asm)}}
          end || K <- Ks],
     [M || M <- Members, not m_empty(M)].
 
@@ -904,12 +966,12 @@ keys_subset(Sub, Sup) ->
 
 l_union(A, B) -> l_absorb(A ++ B).
 
-l_intersect(A, B) ->
-    l_absorb([S || X <- A, Y <- B, S <- sp_meet(X, Y)]).
+l_intersect(A, B, Asm) ->
+    l_absorb([S || X <- A, Y <- B, S <- sp_meet(X, Y, Asm)]).
 
-l_subtract(A, B) ->
+l_subtract(A, B, Asm) ->
     l_absorb(lists:foldl(
-               fun(Y, Acc) -> lists:append([sp_minus(X, Y) || X <- Acc]) end,
+               fun(Y, Acc) -> lists:append([sp_minus(X, Y, Asm) || X <- Acc]) end,
                A, B)).
 
 sp_len({P, _}) -> length(P).
@@ -935,17 +997,17 @@ sp_grow(S, L) -> lists:append([sp_grow(X, L) || X <- sp_unfold(S)]).
 
 %% --- meet ------------------------------------------------------------------
 
-sp_meet({P1, R1}, {P2, R2}) when length(P1) =:= length(P2) ->
-    Ps = [intersect(A, B) || {A, B} <- lists:zip(P1, P2)],
+sp_meet({P1, R1}, {P2, R2}, Asm) when length(P1) =:= length(P2) ->
+    Ps = [intersect(A, B, Asm) || {A, B} <- lists:zip(P1, P2)],
     case lists:any(fun is_none/1, Ps) of
         true  -> [];
         false ->
-            case rest_meet(R1, R2) of
+            case rest_meet(R1, R2, Asm) of
                 empty -> [];
                 R     -> [{Ps, R}]
             end
     end;
-sp_meet(X, Y) ->
+sp_meet(X, Y, Asm) ->
     %% Unequal prefixes: grow the shorter one to the longer's length. A shorter
     %% CLOSED spine is one exact length and the other is longer, so they are
     %% disjoint — that is the base case, and it is what stops the recursion.
@@ -955,31 +1017,31 @@ sp_meet(X, Y) ->
                     end,
     case Short of
         {_, closed} -> [];
-        _ -> lists:append([sp_meet(S, Long) || S <- sp_grow(Short, sp_len(Long))])
+        _ -> lists:append([sp_meet(S, Long, Asm) || S <- sp_grow(Short, sp_len(Long))])
     end.
 
 %% An open rest at length n INCLUDES length exactly n — "every later element is
 %% in T" is vacuous when there are none. So closed ∩ open is closed.
-rest_meet(closed, closed)         -> closed;
-rest_meet(closed, {open, _})      -> closed;
-rest_meet({open, _}, closed)      -> closed;
-rest_meet({open, T1}, {open, T2}) ->
-    case e_intersect(T1, T2) of
+rest_meet(closed, closed, _Asm)         -> closed;
+rest_meet(closed, {open, _}, _Asm)      -> closed;
+rest_meet({open, _}, closed, _Asm)      -> closed;
+rest_meet({open, T1}, {open, T2}, Asm) ->
+    case e_intersect(T1, T2, Asm) of
         none -> closed;   %% no later element is admissible: exactly this length
         T    -> {open, T}
     end.
 
 %% --- difference ------------------------------------------------------------
 
-sp_minus(X, Y) ->
+sp_minus(X, Y, Asm) ->
     N1 = sp_len(X), N2 = sp_len(Y),
     if
-        N1 =:= N2 -> sp_minus_aligned(X, Y);
+        N1 =:= N2 -> sp_minus_aligned(X, Y, Asm);
         N1 < N2 ->
             case X of
                 %% X is one exact length, shorter than everything Y describes.
                 {_, closed} -> [X];
-                _ -> lists:append([sp_minus(S, Y) || S <- sp_grow(X, N2)])
+                _ -> lists:append([sp_minus(S, Y, Asm) || S <- sp_grow(X, N2)])
             end;
         true ->
             case Y of
@@ -989,7 +1051,7 @@ sp_minus(X, Y) ->
                     %% Grow Y to X's length. Only its longest member can meet X;
                     %% the closed ones it sheds are all shorter, so disjoint.
                     [Y2] = [S || S <- sp_grow(Y, N1), sp_len(S) =:= N1],
-                    sp_minus_aligned(X, Y2)
+                    sp_minus_aligned(X, Y2, Asm)
             end
     end.
 
@@ -1000,16 +1062,16 @@ sp_minus(X, Y) ->
 %%     ∪  [P₁∩Q₁, …, Pₙ∩Qₙ] × (RA \ RB)          the prefix matches throughout
 %%
 %% which is `product_minus/2` verbatim plus the last line. Exact.
-sp_minus_aligned({P, RA}, {Q, RB}) ->
+sp_minus_aligned({P, RA}, {Q, RB}, Asm) ->
     N = length(P),
     Differs =
         [begin
-             Pre = [intersect(lists:nth(J, P), lists:nth(J, Q)) || J <- lists:seq(1, I - 1)],
-             Mid = subtract(lists:nth(I, P), lists:nth(I, Q)),
+             Pre = [intersect(lists:nth(J, P), lists:nth(J, Q), Asm) || J <- lists:seq(1, I - 1)],
+             Mid = subtract(lists:nth(I, P), lists:nth(I, Q), Asm),
              Suf = [lists:nth(J, P) || J <- lists:seq(I + 1, N)],
              {Pre ++ [Mid] ++ Suf, RA}
          end || I <- lists:seq(1, N)],
-    Meet = [intersect(A, B) || {A, B} <- lists:zip(P, Q)],
+    Meet = [intersect(A, B, Asm) || {A, B} <- lists:zip(P, Q)],
     Matches = case lists:any(fun is_none/1, Meet) of
                   true  -> [];
                   false -> sp_rest_minus(Meet, RA, RB)
@@ -1059,7 +1121,11 @@ sp_norm(S) -> S.
 
 sp_empty({P, _}) -> lists:any(fun is_none/1, P).
 
-sp_subset(S, Q) -> [] =:= [X || X <- sp_minus(S, Q), not sp_empty(X)].
+%% ABSORPTION ASKS A FRESH QUESTION, so it starts a fresh assumption chain. It
+%% is a containment test between two types that have already been computed, not
+%% a step in the descent that produced them — and `subtract/3` cuts its own
+%% cycles, so nothing here can spin.
+sp_subset(S, Q) -> [] =:= [X || X <- sp_minus(S, Q, []), not sp_empty(X)].
 
 %% A tail marker becoming a prefix element. `any` is kept as a marker in the
 %% tail so `term()` does not recurse into itself; it expands here, and the
@@ -1072,11 +1138,11 @@ e_none(none) -> true;
 e_none(any)  -> false;
 e_none(T)    -> is_none(T).
 
-e_intersect(none, _) -> none;
-e_intersect(_, none) -> none;
-e_intersect(any, C)  -> C;
-e_intersect(C, any)  -> C;
-e_intersect(A, B)    -> intersect(A, B).
+e_intersect(none, _, _Asm) -> none;
+e_intersect(_, none, _Asm) -> none;
+e_intersect(any, C, _Asm)  -> C;
+e_intersect(C, any, _Asm)  -> C;
+e_intersect(A, B, Asm)     -> intersect(A, B, Asm).
 
 %% Does B cover A?
 e_covers(_, none)  -> true;
