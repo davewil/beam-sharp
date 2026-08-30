@@ -45,7 +45,7 @@
 %% refer back to it; `recvar/1` is that back-reference. `unfold/1` is the only
 %% way to look inside one, and every operation in this module calls it before
 %% touching a part.
--export([mu/2, recvar/1, is_rec/1, unfold/1, rec_name/1]).
+-export([mu/2, recvar/1, is_rec/1, unfold/1, rec_name/1, components/1]).
 
 -export_type([ty/0]).
 
@@ -387,19 +387,41 @@ is_none(T) -> is_none(T, []).
 %% second time.
 is_none(#{mu := N} = M, Seen) ->
     lists:member(N, Seen) orelse is_none(unfold(M), [N | Seen]);
-%% A free variable here is a defect in `resolve/3`, which binds every one it
-%% introduces. Answering `false` keeps it INHABITED, so the mistake fails
-%% loudly downstream instead of proving something empty and going quiet — the
-%% direction this module's sharpest trap runs in.
-is_none(#{recvar := _}, _) ->
-    false;
-is_none(#{atoms := {finite, []}, ints := [], tuples := Ts, lists := [],
+%% A BOUND VARIABLE IS THE HYPOTHESIS ITSELF; A FREE ONE IS A DEFECT.
+%%
+%% Inside the binder that named it, `recvar(N)` is exactly the thing being
+%% assumed empty, so it answers `true` — dropping `Seen` here is what makes the
+%% coinduction a no-op, and it is the defect that made `is_subtype(Iodata,
+%% term)` answer FALSE: `Iodata \ term` ties the knot and returns a binder over
+%% its own variable, which is empty, and reading that variable as inhabited made
+%% a type fail to be a subtype of the top.
+%%
+%% Free — not on the chain — it is a defect in `resolve/3`, which binds every
+%% variable it introduces. There `false` keeps it INHABITED, so the mistake
+%% fails loudly downstream instead of proving something empty and going quiet.
+is_none(#{recvar := N}, Seen) ->
+    lists:member(N, Seen);
+%% THE LIST PART IS CHECKED, NOT REQUIRED TO BE ABSENT. This head used to demand
+%% `lists := []`, which was true by construction: `mk_spine/2` and `cons/1`
+%% collapse a spine with an empty element to `none()`, and `sp_minus_aligned/3`
+%% filters its results through `sp_empty/1`, so an inhabited-looking spine over
+%% an empty element could not be built. A subtraction that ties a knot can build
+%% one — its element is the assumption variable, which `sp_empty/1` cannot see
+%% through because it carries no chain — so emptiness is decided here instead,
+%% where the chain exists.
+is_none(#{atoms := {finite, []}, ints := [], tuples := Ts, lists := Ls,
           maps := Ms, bins := []}, Seen)
   when Ts =/= top, Ms =/= top ->
     lists:all(fun(Cs) -> lists:any(fun(C) -> is_none(C, Seen) end, Cs) end, Ts)
+        andalso lists:all(fun(S) -> sp_none(S, Seen) end, Ls)
         andalso lists:all(fun(M) -> m_empty(M, Seen) end, Ms);
 is_none(_, _) ->
     false.
+
+%% A spine is empty when a written position is. `{[], closed}` is `[]` — one
+%% real value, never empty — and `{[], {open, any}}` is every list, so a spine
+%% with no prefix is inhabited whatever its tail says.
+sp_none({P, _}, Seen) -> lists:any(fun(C) -> is_none(C, Seen) end, P).
 
 m_empty(M) -> m_empty(M, []).
 
@@ -489,7 +511,24 @@ union([H | T]) -> union(H, union(T)).
 %% component itself; the only descent below it is absorption, which asks
 %% containment through `subtract/3` and gets that operation's own assumption set
 %% with it. So there is no cycle for union to cut.
-union(A, B) -> u_parts(unfold(A), unfold(B)).
+%% IDEMPOTENCE FIRST, and it is not an optimisation. A bare `recvar` has no
+%% parts to read, and the commonest way one reaches an operation is a spine
+%% asking what its elements are: `list<Iodata>` holds `recvar('Iodata')` in both
+%% its prefix and its tail, so `l_elem/1` unions the variable with itself. That
+%% answer is the variable, and it is exact.
+union(A, A) -> A;
+union(A, B) -> u_parts(open_for(union, A, B), open_for(union, B, A)).
+
+%% A `mu` opens by unfolding. A bare `recvar` cannot: it is a name whose meaning
+%% lives in an enclosing binder this operation was not given, and the algebra is
+%% in disjunctive normal form with no union node to hold "this variable or that
+%% partition". Unequal operands here would be a defect in the caller rather than
+%% a user's type, so it says so instead of reading a key that is not there —
+%% `badkey` from three frames down is the version of this that costs an hour.
+open_for(_Op, #{mu := _} = T, _Other) -> unfold(T);
+open_for(Op, #{recvar := N}, Other) ->
+    erlang:error({free_recursive_variable, Op, N, Other});
+open_for(_Op, T, _Other) -> T.
 
 u_parts(A, B) ->
     #{atoms  => a_union(maps:get(atoms, A), maps:get(atoms, B)),
@@ -532,13 +571,14 @@ u_parts(A, B) ->
 %% descendant of the binder that named it — so the scopes cannot overlap, and
 %% `subst_rec/3` stops at a shadowing `mu` in the nested case. No counter has to
 %% be threaded back out.
-rec_step(A, B, As, Parts) ->
+rec_step(Op, A, B, As, Parts) ->
     Key = {A, B},
     case lists:keyfind(Key, 1, As) of
         {_, Name} -> recvar(Name);
         false ->
             Name = nm(length(As)),
-            mu(Name, Parts(unfold(A), unfold(B), [{Key, Name} | As]))
+            mu(Name, Parts(open_for(Op, A, B), open_for(Op, B, A),
+                           [{Key, Name} | As]))
     end.
 
 nm(D) -> list_to_atom("$mu" ++ integer_to_list(D)).
@@ -549,9 +589,21 @@ nm(D) -> list_to_atom("$mu" ++ integer_to_list(D)).
 
 intersect(A, B) -> intersect(A, B, []).
 
+%% `A ∩ A` is `A` for every type, and stating it here is what lets a bare
+%% `recvar` meet itself — which happens whenever a recursive type's own
+%% components are compared — without opening a variable that cannot be opened.
+intersect(A, A, _As) -> A;
+%% A FREE VARIABLE IS UNDECIDABLE HERE, SO IT IS KEPT WHOLE — the same choice
+%% `t_subtract/3` and `m_subtract/3` already make for `top`, and for the same
+%% reason. A `recvar` names a type whose meaning lives in a binder this
+%% operation was not handed, so no exact answer is available; keeping the
+%% operand keeps the result too BIG, which reports a false inexhaustive rather
+%% than a false exhaustive. Erring the other way is the defect ticket 54 deleted.
+intersect(#{recvar := _} = A, _B, _As) -> A;
+intersect(A, #{recvar := _}, _As)      -> A;
 intersect(A, B, As) ->
     case is_rec(A) orelse is_rec(B) of
-        true  -> rec_step(A, B, As, fun i_parts/3);
+        true  -> rec_step(intersect, A, B, As, fun i_parts/3);
         false -> i_parts(A, B, As)
     end.
 
@@ -569,9 +621,18 @@ i_parts(A, B, As) ->
 
 subtract(A, B) -> subtract(A, B, []).
 
+%% `A \ A` is empty for every type, and as with `intersect/3` this is what lets
+%% a bare `recvar` be subtracted from itself. It also short-circuits the common
+%% case where a clause covers a component exactly.
+subtract(A, A, _As) -> none();
+%% Undecidable, kept whole, too big rather than too small — see `intersect/3`.
+%% Both directions land on the minuend: an unknown minus anything is still that
+%% unknown, and anything minus an unknown has had nothing proved removable.
+subtract(#{recvar := _} = A, _B, _As) -> A;
+subtract(A, #{recvar := _}, _As)      -> A;
 subtract(A, B, As) ->
     case is_rec(A) orelse is_rec(B) of
-        true  -> rec_step(A, B, As, fun s_parts/3);
+        true  -> rec_step(subtract, A, B, As, fun s_parts/3);
         false -> s_parts(A, B, As)
     end.
 
@@ -1198,6 +1259,32 @@ to_string(T) ->
             end
     end.
 
+%%% F28 — HOW A BINDER PRINTS, and the two cases are not the same reader.
+%%%
+%%% A binder that came from a `type` declaration carries the AUTHOR'S OWN NAME,
+%%% and that is the best thing a message can say: `Tree` means something to the
+%%% person reading it and its unfolding does not.
+%%%
+%%% One minted by `subtract/3` or `intersect/3` carries a synthetic name — the
+%%% residual of `N \ :leaf` is a real recursive type nobody named — and `$mu0`
+%%% would be noise. Those print ONE unfolding with the recursive positions shown
+%%% as `...`, because the shape is what the author needs to see and the depth is
+%%% not. Printing terminates either way: the name is a leaf, and the unfolding's
+%%% own back-references are `recvar`, which is also a leaf.
+rec_str(N) ->
+    case synthetic(N) of
+        false -> atom_to_list(N);
+        true  -> "..."
+    end.
+
+synthetic(N) -> lists:prefix("$mu", atom_to_list(N)).
+
+parts(#{mu := N, body := B}) ->
+    case synthetic(N) of
+        false -> [atom_to_list(N)];
+        true  -> parts(B)
+    end;
+parts(#{recvar := N}) -> [rec_str(N)];
 parts(#{atoms := As, ints := Is, tuples := Ts, lists := Ls, maps := Ms, bins := Bs}) ->
     a_str(As) ++ [i_str(R) || R <- Is] ++ ts_str(Ts) ++ l_str(Ls) ++ ms_str(Ms)
         ++ b_str(Bs).
@@ -1275,6 +1362,12 @@ pattern_parts(T) ->
 %% The leaves of this printer are already type words (`int`, `tuple`, `map`),
 %% so the top's word is the consistent spelling — and suggesting `_` instead
 %% would recommend a form ticket 12 §2 refuses over a closed residual.
+pat_parts(#{mu := N, body := B}) ->
+    case synthetic(N) of
+        false -> [atom_to_list(N)];
+        true  -> pat_parts(B)
+    end;
+pat_parts(#{recvar := N}) -> [rec_str(N)];
 pat_parts(T = #{atoms := As, ints := Is, tuples := Ts, lists := Ls, maps := Ms,
                 bins := Bs}) ->
     case is_subtype(term(), T) of
@@ -1357,6 +1450,18 @@ head_parts(T, Names) ->
 %% DESCRIPTION channel and this narrows that to the description channel rather
 %% than overturning it: `Fn(term)` binds a variable named `term`, which is not
 %% what the word was chosen to mean.
+%% F28 — ON THE PASTE CHANNEL A BINDER UNFOLDS, AND ITS BACK-REFERENCE BINDS.
+%%
+%% This is the one printer where the author's own type name is the WRONG answer
+%% even though it is the most readable one: a head is a pattern, and `Tree` is
+%% not a pattern. So a `mu` shows one unfolding — the shapes the author has to
+%% write clauses for — and each `recvar` inside becomes an ordinary binder,
+%% which is exactly what a hand-written clause does: `Size((:node, l, r))` binds
+%% the two subtrees rather than spelling them out. One unfolding is also all
+%% that terminates, and all that is useful: the next level is the same shapes
+%% again.
+hd_parts(#{mu := _} = T, Names, Pos) -> hd_parts(unfold(T), Names, Pos);
+hd_parts(#{recvar := _}, _Names, _Pos) -> [binder("x")];
 hd_parts(T = #{atoms := As, ints := Is, tuples := Ts, lists := Ls, maps := Ms,
                bins := Bs}, Names, Pos) ->
     case is_subtype(term(), T) of

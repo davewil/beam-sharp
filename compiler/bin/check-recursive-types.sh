@@ -67,7 +67,7 @@ judge() {
   local dir="$1" p st
 
   # --- the stopwatch, over every probe including the controls -------------
-  for p in R1 R2 R3 R4 R5 R6 R6b R7 R8 R9; do
+  for p in R1 R2 R3 R4 R5 R6 R6b R7 R8 R9 R10; do
     st="$(cat "$dir/$p.st")"
     if [ "$st" = "hung" ]; then
       echo "$p: exceeded the ${BUDGET}s budget -- the walk did not terminate. This is the failure the gate exists for: an unmemoised walk over a regular tree is not slow, it is infinite."
@@ -90,12 +90,13 @@ judge() {
   }
 
   check_ok R1 "2"  "a recursive type, two clauses, no catch-all"
-  check_ok R2 "ok" "the iodata shape, nested -- 25e's front wall"
-  check_ok R3 "ok" "recursion through a record field"
-  check_ok R4 "ok" "MUTUAL recursion -- a binder keyed on the name being resolved fails exactly here"
-  check_ok R5 "ok" "recursion under a type parameter, USED at two instantiations"
-  check_ok R7 "ok" "EQUIRECURSIVE -- two spellings are one type; a nominal binder fails exactly here"
-  check_ok R9 "ok" "ValidateAs over a recursive type terminates (F18's owed obligation)"
+  check_ok R2 ":ok" "the iodata shape, nested -- 25e's front wall"
+  check_ok R3 ":ok" "recursion through a record field"
+  check_ok R4 ":ok" "MUTUAL recursion -- a binder keyed on the name being resolved fails exactly here"
+  check_ok R5 ":ok" "recursion under a type parameter, USED at two instantiations"
+  check_ok R7 ":ok" "EQUIRECURSIVE -- two spellings are one type; a nominal binder fails exactly here"
+  check_ok R9 ":ok" "ValidateAs over a recursive type terminates (F18's owed obligation)"
+  check_ok R10 ":ok" "recursion through a BARE LIST, matched -- no tuple anywhere, and the shape that hung"
 
   # --- R8: the residual is computed, names `:leaf`, and RETURNS ------------
   local r8
@@ -173,16 +174,25 @@ public int Size(Tree t)
 Size(:leaf)         -> 0
 Size((:node, l, r)) -> 1 + Size(l) + Size(r)
 '
-  shot R1 R1 Size '{node,leaf,{node,leaf,leaf}}'
+  shot R1 R1 Size '(:node, :leaf, (:node, :leaf, :leaf))'
 
   # R2 -- the iodata shape. NESTED on purpose: a flat literal already compiles
   # as `list<binary>` and would prove nothing.
+  # `Render` is the point of this probe as much as `Page` is. A recursive type
+  # in a RETURN position is only ever built; one in a PARAMETER is MATCHED, and
+  # matching is what drives the subtraction that has to terminate. The first
+  # draft declared `Iodata` only as a return type and went green over a compiler
+  # that hung on `Render` -- an absence asserted against a program the checker
+  # never looked at, in the exact shape this gate exists for.
   mk R2 'module R2
 
 type Iodata = binary | list<Iodata>
 
 public Iodata Page(string title)
 Page(t) -> ["<html>", ["<h1>", t, "</h1>"], "</html>"]
+
+public :ok Render(Iodata d)
+Render(d) -> :ok
 
 public :ok Go(int n)
 Go(n) -> :ok
@@ -221,7 +231,7 @@ type Tree<T> = (T, list<Tree<T>>)
 public :ok Go(Tree<int> a, Tree<string> b)
 Go(a, b) -> :ok
 '
-  shot R5 R5 Go '{1,[]}' '{<<"x">>,[]}'
+  shot R5 R5 Go '(1, [])' '("x", [])'
 
   # R6 -- THE CONTROL. Not contractive, and must stay refused with today's
   # wording.
@@ -286,6 +296,27 @@ public :ok Go(term t)
 Go(t) -> :ok
 '
   shot R9 R9 Go 1
+
+  # R10 -- RECURSION THROUGH A BARE LIST, MATCHED. `:leaf | list<N>` has no
+  # tuple anywhere: the list part is algebra-primitive and resolved in its own
+  # clause, so it reaches the subtraction by a different path than R1 does, and
+  # the spine has to cancel against the top's `{[], {open, any}}` for the
+  # residual to come out empty.
+  #
+  # This shape is why the probe exists. It hung -- `is_none/2` dropped the
+  # coinductive hypothesis for a bound variable and demanded a literally empty
+  # spine list, so `Iodata \ term` came back inhabited and `is_subtype(Iodata,
+  # term)` was FALSE. Every probe above was green while that was true.
+  mk R10 'module R10
+
+type N = :leaf | list<N>
+
+public :ok F(N n)
+F(:leaf)      -> :ok
+F([])         -> :ok
+F([h, ..t])   -> :ok
+'
+  shot R10 R10 F ':leaf'
 }
 
 # ---------------------------------------------------------------------------
@@ -331,7 +362,7 @@ if [ "${1:-}" = "--self-test" ]; then
     local d="$W/$1"; shift
     mkdir -p "$d"
     local i=1
-    for p in R1 R2 R3 R4 R5 R6 R6b R7 R8 R9; do
+    for p in R1 R2 R3 R4 R5 R6 R6b R7 R8 R9 R10; do
       eval "printf '%s' \"\${$i}\" > \"\$d/\$p.out\""
       printf 'ok' > "$d/$p.st"
       i=$((i + 1))
@@ -340,33 +371,47 @@ if [ "${1:-}" = "--self-test" ]; then
 
   # The correct form: positives run, both controls refuse, the residual names
   # `:leaf`. R6/R6b exit non-zero, which `judge` reads from `.out`, not `.st`.
-  stub good "2" "ok" "ok" "ok" "ok" "$NONCON" "$NONCONB" "ok" "$RESIDUAL" "ok"
+  stub good "2" ":ok" ":ok" ":ok" ":ok" "$NONCON" "$NONCONB" ":ok" "$RESIDUAL" ":ok" ":ok"
   printf 'rc1' > "$W/good/R6.st"; printf 'rc1' > "$W/good/R6b.st"
   printf 'rc1' > "$W/good/R8.st"
 
   stub silent "$REFUSED" "$REFUSED" "$REFUSED" "$REFUSED" "$REFUSED" \
-              "$NONCON" "$NONCONB" "$REFUSED" "$REFUSED" "$REFUSED"
+              "$NONCON" "$NONCONB" "$REFUSED" "$REFUSED" "$REFUSED" "$REFUSED"
   printf 'rc1' > "$W/silent/R6.st"; printf 'rc1' > "$W/silent/R6b.st"
 
   # The refusal dropped entirely: X = X | int now compiles and returns 1.
-  stub unsound "2" "ok" "ok" "ok" "ok" "1" "1" "ok" "$RESIDUAL" "ok"
+  stub unsound "2" ":ok" ":ok" ":ok" ":ok" "1" "1" ":ok" "$RESIDUAL" ":ok" ":ok"
   printf 'rc1' > "$W/unsound/R8.st"
 
   # R8 never returns. Its output is empty, exactly as a real hang's is.
-  stub hung "2" "ok" "ok" "ok" "ok" "$NONCON" "$NONCONB" "ok" "" "ok"
+  stub hung "2" ":ok" ":ok" ":ok" ":ok" "$NONCON" "$NONCONB" ":ok" "" ":ok" ":ok"
   printf 'rc1' > "$W/hung/R6.st"; printf 'rc1' > "$W/hung/R6b.st"
   printf 'hung' > "$W/hung/R8.st"
 
-  stub name_keyed "2" "ok" "ok" "$REFUSED" "ok" "$NONCON" "$NONCONB" "ok" "$RESIDUAL" "ok"
+  stub name_keyed "2" ":ok" ":ok" "$REFUSED" ":ok" "$NONCON" "$NONCONB" ":ok" "$RESIDUAL" ":ok" ":ok"
   printf 'rc1' > "$W/name_keyed/R6.st"; printf 'rc1' > "$W/name_keyed/R6b.st"
   printf 'rc1' > "$W/name_keyed/R4.st"; printf 'rc1' > "$W/name_keyed/R8.st"
 
   ISO="R7.bs: error: Widen returns L1 where L2 is declared"
-  stub isorecursive "2" "ok" "ok" "ok" "ok" "$NONCON" "$NONCONB" "$ISO" "$RESIDUAL" "ok"
+  stub isorecursive "2" ":ok" ":ok" ":ok" ":ok" "$NONCON" "$NONCONB" "$ISO" "$RESIDUAL" ":ok" ":ok"
   printf 'rc1' > "$W/isorecursive/R6.st"; printf 'rc1' > "$W/isorecursive/R6b.st"
   printf 'rc1' > "$W/isorecursive/R7.st"; printf 'rc1' > "$W/isorecursive/R8.st"
 
-  for bad in silent unsound hung name_keyed isorecursive; do
+  # THE DEFECT THIS GATE ACTUALLY SHIPPED WITH, kept as a control because it got
+  # past nine green probes. `is_none/2` dropped the coinductive hypothesis for a
+  # bound variable and demanded a literally empty spine list, so the LIST part's
+  # subtraction never cancelled: `Iodata \ term` came back inhabited and
+  # `is_subtype(Iodata, term)` was false. The visible face is a false
+  # inexhaustive on a total function over a list-recursive type. Tuple recursion
+  # (R1) is unaffected, which is exactly why one probe per constructor kind is
+  # not a luxury.
+  LISTBLIND="R10.bs:5: error: the clauses of F do not cover N
+  not covered: list<...>"
+  stub list_blind "2" ":ok" ":ok" ":ok" ":ok" "$NONCON" "$NONCONB" ":ok" "$RESIDUAL" ":ok" "$LISTBLIND"
+  printf 'rc1' > "$W/list_blind/R6.st"; printf 'rc1' > "$W/list_blind/R6b.st"
+  printf 'rc1' > "$W/list_blind/R8.st"; printf 'rc1' > "$W/list_blind/R10.st"
+
+  for bad in silent unsound hung name_keyed isorecursive list_blind; do
     if [ -z "$(judge "$W/$bad")" ]; then
       echo "  x SELF-TEST: '$bad' produced no complaint - the gate cannot see it"; fail=1
     else
@@ -379,7 +424,7 @@ if [ "${1:-}" = "--self-test" ]; then
     echo "  ok green on the correct form"
   fi
   [ "$fail" -eq 0 ] || { echo "self-test FAILED"; exit 1; }
-  echo "self-test passed: five defects seen, correct form accepted"
+  echo "self-test passed: six defects seen, correct form accepted"
   exit 0
 fi
 

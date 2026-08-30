@@ -191,23 +191,29 @@ bs_parser_support_parse(Src) ->
 %%% reported "Failed: 0" while running less than half of itself.
 %%% ---------------------------------------------------------------------------
 
-%% The declaration refusal these programs already carry (`recursive_type`) must
-%% still be what arrives. Asserting the EXACT existing error, rather than merely
-%% that the call returns, is what makes this a test of termination and not of a
-%% new error swallowing an old one.
-a_contractive_alias_terminates_and_keeps_its_own_refusal_test() ->
-    ?assertError({recursive_type, 'Tree'},
+%% F28 — THE TERMINATION CLAIM SURVIVES, THE REFUSAL DOES NOT.
+%%
+%% These two existed because the collapse pass expanded a parametric alias
+%% without carrying `resolve/3`'s chain and recursed forever, and what they
+%% really assert is that it TERMINATES. That is still worth asserting and is now
+%% a stronger claim, not a weaker one: before, the walk stopped because the type
+%% was refused before the pass could reach it, so the pass was never actually
+%% run over a recursive type. It is now, and it has to come back.
+a_contractive_alias_terminates_and_resolves_test() ->
+    ?assertMatch({ok, _, _},
                  check_only("module E\ntype Tree<T> = (T, list<Tree<T>>)\n"
                             "public atom F(Tree<int> t)\nF(t) -> :ok\n")),
-    ?assertError({recursive_type, 'Nest'},
+    ?assertMatch({ok, _, _},
                  check_only("module E\ntype Nest = :leaf | list<Nest>\n"
                             "public atom F(Nest n)\nF(n) -> :ok\n")).
 
 %% The same shape with a FAILURE MEMBER in it, which is the one this pass walks
 %% into rather than past. `option<Tree<int>>` expands to a union whose success
-%% member is the recursive alias.
+%% member is the recursive alias — so the collapse check now has to decide
+%% discriminability with a binder on one side, which is the case that could not
+%% arise while the type was refused.
 a_contractive_alias_under_a_failure_member_terminates_test() ->
-    ?assertError({recursive_type, 'Tree'},
+    ?assertMatch({ok, _, _},
                  check_only("module E\ntype Tree<T> = (T, list<Tree<T>>)\n"
                             "public option<Tree<int>> F(int n)\nF(n) -> :nothing\n")).
 

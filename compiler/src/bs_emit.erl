@@ -100,6 +100,10 @@ forms(Module = #{module := Mod, functions := Fns, env := Env}) ->
     [{attribute, ?A, module, Mod},
      {attribute, ?A, export, [{name(F, Behaviours), A} || {F, A} <- Exports]}]
     ++ [{attribute, ?A, behaviour, bs_otp:behaviour_name(B)} || B <- Behaviours]
+    %% F28 — the recursive `-type` declarations the specs below refer to. Before
+    %% the groups, so a reader meets the definition before its uses; Erlang
+    %% itself does not care about the order.
+    ++ rec_type_attrs(Fns, Env)
     ++ lists:append([file_group(Path, Fs, Env, Behaviours, Ctx)
                      || {Path, Fs} <- Files])
     %% The generated validators go last and carry no `file` attribute of their
@@ -923,15 +927,50 @@ spec_attr(F, Env, Behaviours) ->
 %% that rule to live and drift.
 bs_check_resolve(T, Env) -> bs_check:resolve(T, Env).
 
-%% Where a set-theoretic type has no Erlang spelling, widen to the nearest
-%% supertype that does. A cofinite atom set is the clearest case: Erlang can say
-%% `atom()` but cannot say "every atom except :ok", so the exclusion is dropped.
+%% F28 — A RECURSIVE TYPE IS EMITTED AS A NAMED `-type`, NOT INLINED. Erlang's
+%% type language has recursion of its own (`-type tree() :: leaf | {node,
+%% tree(), tree()}.`), so this is one of the few places where the algebra and
+%% Erlang agree exactly and nothing has to be widened.
+%%
+%% BOTH HALVES OF THE BINDER EMIT THE SAME REFERENCE. `mu` and `recvar` are the
+%% two ends of one cycle and both become `Name()`; the body is declared once, by
+%% `rec_type_attrs/2`, from the same binder. Inlining instead would not
+%% terminate, and widening to `any()` would PASS Dialyzer while saying nothing —
+%% which is the failure F28.10 exists to catch, and the reason that scenario
+%% asserts the emitted text rather than only that Dialyzer was quiet.
+spec_type(#{mu := N})     -> {user_type, ?A, N, []};
+spec_type(#{recvar := N}) -> {user_type, ?A, N, []};
 spec_type(Ty) ->
     case parts(Ty) of
         []  -> {type, ?A, none, []};
         [P] -> P;
         Ps  -> {type, ?A, union, Ps}
     end.
+
+%% One `-type` per distinct binder reachable from any signature in the module.
+%% Collected in a separate pass rather than threaded out of `spec_type/1`, which
+%% stays a pure function from a type to a form — the alternative is an
+%% accumulator through `parts/1`, `map_part/1` and `tuple_parts/1`, and this
+%% needs no such thing.
+rec_type_attrs(Fns, Env) ->
+    Tys = lists:append(
+            [[bs_check_resolve(T, Env) || {param, T, _} <- element(5, F)]
+             ++ [bs_check_resolve(element(4, F), Env)] || F <- Fns]),
+    Binders = lists:foldl(fun collect_mu/2, #{}, Tys),
+    [{attribute, ?A, type, {N, spec_type(Body), []}}
+     || {N, Body} <- lists:sort(maps:to_list(Binders))].
+
+%% The `maps:is_key` guard is what makes this terminate: a binder already
+%% collected is not walked again, and its body's back-references are `recvar`,
+%% which collects nothing.
+collect_mu(#{mu := N, body := B}, Acc) ->
+    case maps:is_key(N, Acc) of
+        true  -> Acc;
+        false -> lists:foldl(fun collect_mu/2, Acc#{N => B}, bs_types:components(B))
+    end;
+collect_mu(#{recvar := _}, Acc) -> Acc;
+collect_mu(Ty, Acc) ->
+    lists:foldl(fun collect_mu/2, Acc, bs_types:components(Ty)).
 
 parts(Ty = #{atoms := As, ints := Is, tuples := Ts, maps := Ms,
              bins := Bs}) ->

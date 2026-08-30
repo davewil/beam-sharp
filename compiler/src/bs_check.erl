@@ -833,15 +833,27 @@ type_env(Decls) ->
     %% entry is pre-resolved to an algebra type here, once; a parametric one
     %% cannot be — its body has free variables — so it stays a surface template
     %% and is resolved per use site, after substitution.
-    %% F28 — AN ENTRY IS RESOLVED UNDER ITS OWN NAME. Seeding the chain with the
-    %% name being defined is what lets `Tree`'s body reach back to `Tree` and
-    %% tie, and it makes the binder the top of the result rather than one
-    %% unfolding below it. Without the seed the type still comes out
-    %% equirecursively correct — the inner occurrence binds and the outer level
-    %% is a copy — but every such type would carry a redundant unfolding.
-    maps:map(fun(_, {parametric, _, _} = P) -> P;
-                (N, T) -> bs_types:mu(N, resolve(T, Env, [N]))
-             end, Env).
+    %% F28 — AN ENTRY IS RESOLVED UNDER ITS OWN NAME, AND IN A SORTED ORDER.
+    %%
+    %% The seed is what lets a name reach back to itself and tie, and it puts
+    %% the binder at the top of the entry rather than one unfolding below it.
+    %% A record needs it: its fields resolve through a closed map, and without
+    %% the name on the chain the tie happens somewhere the field walk cannot
+    %% see.
+    %%
+    %% THE SORT IS NOT COSMETIC. Seeding moves detection of a NON-contractive
+    %% cycle into this pass, so the entry that reports it is whichever one is
+    %% reached first — and `maps:map/2` has no defined order. `type A = B` /
+    %% `type B = A` began naming `B` instead of `A` on nothing the author could
+    %% see or predict. Folding over sorted keys makes the reported name a
+    %% property of the program rather than of a hash.
+    lists:foldl(
+      fun(N, Acc) ->
+              case maps:get(N, Env) of
+                  {parametric, _, _} = P -> Acc#{N => P};
+                  T -> Acc#{N => bs_types:mu(N, resolve(T, Env, [N]))}
+              end
+      end, #{}, lists:sort(maps:keys(Env))).
 
 alias([], Body)     -> Body;
 alias(Params, Body) -> {parametric, Params, Body}.

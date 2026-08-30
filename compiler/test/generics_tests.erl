@@ -162,19 +162,27 @@ a_non_contractive_alias_is_a_permanent_error_test() ->
                  check_only("module E\ntype X = X | int\n"
                             "public atom F(X x)\nF(x) -> :ok\n")).
 
-a_contractive_alias_is_an_unbuilt_feature_test() ->
+%% F28 — WHAT WAS AN UNBUILT FEATURE IS NOW A TYPE. Ticket 09 decided these on
+%% 2026-08-12 and F28 built the binder, so all three resolve. The assertion is
+%% inverted rather than deleted: the three shapes are still worth naming because
+%% they reach the algebra by three DIFFERENT paths, and one of them shipped
+%% broken.
+a_contractive_alias_now_resolves_test() ->
     %% Through a tuple, and through a `list<T>` inside it.
-    ?assertError({recursive_type, 'Tree'},
+    ?assertMatch({ok, _, _},
                  check_only("module E\ntype Tree<T> = (T, list<Tree<T>>)\n"
                             "public atom F(Tree<int> t)\nF(t) -> :ok\n")),
     %% Through a bare `list<T>`, with no tuple involved at all — the list part
     %% is algebra-primitive and resolved in its own clause, so it is a separate
-    %% path to the same conclusion.
-    ?assertError({recursive_type, 'Nest'},
+    %% path. NOT REDUNDANT WITH THE FIRST: this is the one that hung. `is_none/2`
+    %% dropped the coinductive hypothesis for a bound variable and required a
+    %% literally empty spine list, so the list part's subtraction never
+    %% cancelled and `is_subtype(Nest, term)` was false.
+    ?assertMatch({ok, _, _},
                  check_only("module E\ntype Nest = :leaf | list<Nest>\n"
                             "public atom F(Nest n)\nF(n) -> :ok\n")),
     %% And through a record field, which resolves as a closed map.
-    ?assertError({recursive_type, 'Node'},
+    ?assertMatch({ok, _, _},
                  check_only("module E\nrecord Node { Kids: list<Node> }\n"
                             "public atom F(Node n)\nF(n) -> :ok\n")).
 
@@ -197,11 +205,19 @@ the_two_refusals_read_differently_test() ->
                              ?assert(string:find(O, "not a missing feature") =/= nomatch),
                              ?assertEqual(nomatch, string:find(O, "not built yet"))
                      end),
+            %% F28 — THE SPLIT IS NOW A REFUSAL AND A COMPILE, which is the
+            %% strongest form it can take. The contractive side used to be told
+            %% "not built yet"; it is built, so it must be told nothing at all.
+            %% Asserting the absence of BOTH messages is what keeps this a test
+            %% of the split rather than of one message: a compiler that lost the
+            %% non-contractive refusal would still pass the `Bad` half only if
+            %% it kept the wording, and would fail here if it started refusing
+            %% `Tree`.
             with_src("in.bs", Good,
                      fun(P, R) ->
                              O = run_cli("--src-root " ++ R ++ " " ++ P),
-                             ?assert(string:find(O, "not built yet") =/= nomatch),
-                             ?assert(string:find(O, "gap in this") =/= nomatch),
+                             ?assertEqual(nomatch, string:find(O, "not built yet")),
+                             ?assertEqual(nomatch, string:find(O, "gap in this")),
                              ?assertEqual(nomatch, string:find(O, "not a missing feature"))
                      end)
     end.
