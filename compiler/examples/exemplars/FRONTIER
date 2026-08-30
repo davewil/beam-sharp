@@ -42,4 +42,4 @@
 25b-websocket-handler	encode.bs	error: syntax error before: '=>'
 25c-event-queue-consumer	encode.bs	error: syntax error before: '<<'
 25d-database-querying	-	error: this directory holds `.bs` files and no `module` line
-25e-dynamic-web-page	index.bs	error: Iodata is a recursive type, and those are not built yet
+25e-dynamic-web-page	index.bs	error: `module Shop.Page` does not match its directory

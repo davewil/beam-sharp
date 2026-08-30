@@ -406,8 +406,20 @@ descriptor(Path, {not_parametric, N}) ->
 %% implementation; the other is well formed and simply unbuilt.
 descriptor(Path, {cyclic_type, N}) ->
     #{tag => cyclic_type, severity => error, file => Path, type => N};
-descriptor(Path, {recursive_type, N}) ->
-    #{tag => recursive_type, severity => error, file => Path, type => N};
+%% F28 — `recursive_type` IS GONE, and its absence is the feature. It said "well
+%% formed, and this compiler has no binder for it"; the binder exists, so the
+%% only honest thing to do with the tag is delete it rather than leave a message
+%% nothing can print. `cyclic_type` above stays exactly as it was: that one was
+%% never about a missing feature.
+%%
+%% What took its place is narrower and genuinely unbuildable. A parametric alias
+%% that recurs under DIFFERENT arguments — `type T<X> = (X, list<T<list<X>>>)` —
+%% is not a regular tree: unfolding it produces `T<int>`, `T<list<int>>`,
+%% `T<list<list<int>>>` and never repeats, so there is no finite binder to hold
+%% it. Refused by name because the alternative is expanding forever, which is
+%% the hang this feature's gate exists to catch.
+descriptor(Path, {non_regular_recursion, N}) ->
+    #{tag => non_regular_recursion, severity => error, file => Path, type => N};
 %% F18. Stratum 2 of the prelude is compiler-known and a user may not add to it
 %% (`PRELUDE.md`, ticket 27 §8). Refused at the DECLARATION rather than resolved
 %% by shadowing, because the alternative is a type error somewhere else with
@@ -994,17 +1006,20 @@ message(#{tag := cyclic_type, file := P, type := N}) ->
      "  not a missing feature. Put the recursion inside a shape (a~n"
      "  tuple, a list, or a record field), or drop it.~n",
      [P, N]};
-%% The other side, and the author has done nothing wrong: the definition is
-%% CONTRACTIVE, so it denotes a perfectly good regular tree. The message says
-%% which of those two facts it is reporting, because that is the whole
-%% difference between "fix your code" and "wait for us".
-message(#{tag := recursive_type, file := P, type := N}) ->
-    {"~s: error: ~s is a recursive type, and those are not built yet~n"
-     "  the definition is well formed -- the recursion passes through a~n"
-     "  constructor, so it describes a real set of values. The checker's~n"
-     "  algebra has no binder to hold it with, which is a gap in this~n"
-     "  compiler rather than a mistake in your type.~n",
-     [P, N]};
+%% F28 — the third case, and the only one left that a binder cannot hold. The
+%% recursion IS through a constructor, so the contractive rule is satisfied and
+%% `cyclic_type` above does not apply; what fails is regularity. The message
+%% says which argument changed, because that is the one thing the author can
+%% act on, and it names the repair rather than only the refusal.
+message(#{tag := non_regular_recursion, file := P, type := N}) ->
+    {"~s: error: ~s recurs at a different type argument each time~n"
+     "  the recursion passes through a constructor, so the definition is~n"
+     "  contractive -- but each unfolding names a WIDER argument than the~n"
+     "  last, so it never comes back to itself and there is no finite~n"
+     "  type to hold it.~n"
+     "  Recur at the SAME argument (`~s<X>` inside `~s<X>`), or give the~n"
+     "  inner position a concrete type.~n",
+     [P, N, N, N]};
 %% F31 / ticket 15 §1. TWO MESSAGES, BECAUSE THE HINT IS NOT ONE HINT.
 %% 15 §1 wrote `hint: tag it - (:some, atom) | :nothing`, which repairs an
 %% absorbed `:nothing` and is nonsense about an absorbed `(:error, E)` - that

@@ -51,6 +51,7 @@ cd compiler && ./bin/check-residual-pasteable.sh # the synthesised head round-tr
 cd compiler && ./bin/check-list-length.sh       # the checker sees a list's length, both ways
 cd compiler && ./bin/check-division.sh          # `/` lowers to div; only a provable zero is refused
 cd compiler && ./bin/check-negation.sh          # no `not`, no `!`, both taught; `not` is still a name
+cd compiler && ./bin/check-recursive-types.sh   # recursive types resolve; the two that cannot still refuse
 cd compiler && ./bin/check-collapse.sh          # a declared failure channel survives normalisation
 cd compiler && ./bin/check-field-values.sh      # a field assignment is checked, at both spellings
 cd compiler && ./bin/check-record-pattern.sh    # a type prefix subtracts what the Kind spelling does

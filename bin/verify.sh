@@ -306,6 +306,9 @@ run_stages \
   "No \`not\` and no \`!\`, both taught, and \`not\` is still a name" \
     "cd compiler && ./bin/check-negation.sh --self-test && ./bin/check-negation.sh" \
 \
+  "Recursive types resolve, and the two that cannot still refuse" \
+    "cd compiler && ./bin/check-recursive-types.sh --self-test && ./bin/check-recursive-types.sh" \
+\
   "A declared failure channel survives normalisation" \
     "cd compiler && ./bin/check-collapse.sh --self-test && ./bin/check-collapse.sh" \
 \

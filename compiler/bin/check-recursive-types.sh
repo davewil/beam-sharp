@@ -67,7 +67,7 @@ judge() {
   local dir="$1" p st
 
   # --- the stopwatch, over every probe including the controls -------------
-  for p in R1 R2 R3 R4 R5 R6 R6b R7 R8 R9 R10; do
+  for p in R1 R2 R3 R4 R5 R6 R6b R7 R8 R9 R10 R11; do
     st="$(cat "$dir/$p.st")"
     if [ "$st" = "hung" ]; then
       echo "$p: exceeded the ${BUDGET}s budget -- the walk did not terminate. This is the failure the gate exists for: an unmemoised walk over a regular tree is not slow, it is infinite."
@@ -131,13 +131,31 @@ judge() {
     *"$NON_CONTRACTIVE_2"*) ;;
     *) echo "R6b: the parametric twin \`type Y<X> = Y<X> | int\` was not refused at its use site (got '$r6b') -- the contractive split must survive substitution" ;;
   esac
+
+  # --- R11: THE THIRD REFUSAL, and the one this feature introduced ---------
+  # `type T<X> = (X, list<T<list<X>>>)` IS contractive -- the recursion passes
+  # through a list -- so the R6 rule does not reach it. What fails is
+  # REGULARITY: each unfolding names a wider argument, the type never comes back
+  # to itself, and no finite binder can hold it. The only two ways to get this
+  # wrong are to expand it (which does not terminate, so the stopwatch above
+  # catches it) or to tie a knot on the NAME and claim two unequal types are one
+  # -- which is silent, unsound, and what this assertion is for.
+  local r11
+  r11="$(cat "$dir/R11.out")"
+  case "$r11" in
+    *"recurs at a different type argument"*) ;;
+    *":ok"*)
+      echo "R11: non-regular polymorphic recursion was ACCEPTED (got '$r11') -- the binder tied on the NAME rather than the instantiation, so \`T<int>\` and \`T<list<int>>\` were claimed to be one type" ;;
+    *)
+      echo "R11: non-regular polymorphic recursion was not refused by name (got '$r11')" ;;
+  esac
 }
 
 # ---------------------------------------------------------------------------
 # probe -- one directory per module, because a module is a directory here.
 # ---------------------------------------------------------------------------
 probe() {
-  local dir="$1" name rc out
+  local dir="$1" rc out
 
   mk() {
     local n="$1" src="$2"
@@ -326,6 +344,19 @@ F([])         -> :ok
 F([h, ..t])   -> :ok
 '
   shot R10 R10 F ':leaf'
+
+  # R11 -- NON-REGULAR polymorphic recursion. Contractive, so R6's rule does not
+  # reach it, and yet unfoldable forever: T<int>, T<list<int>>,
+  # T<list<list<int>>>, never repeating. Refused by name, because expanding is
+  # the hang.
+  mk R11 'module R11
+
+type T<X> = (X, list<T<list<X>>>)
+
+public :ok F(T<int> t)
+F(t) -> :ok
+'
+  shot R11 R11 F 1
 }
 
 # ---------------------------------------------------------------------------
@@ -367,6 +398,11 @@ if [ "${1:-}" = "--self-test" ]; then
   # R9's round trip: the nested value comes back unchanged, which it can only do
   # if the generated validator called itself.
   VALID="(:node, :leaf, (:node, :leaf, :leaf))"
+  NONREG="R11.bs: error: T recurs at a different type argument each time
+  the recursion passes through a constructor, so the definition is
+  contractive -- but each unfolding names a WIDER argument than the
+  last, so it never comes back to itself and there is no finite
+  type to hold it."
 
   # stub <name> <R1> <R2> <R3> <R4> <R5> <R6> <R6b> <R7> <R8> <R9>
   # every .st is `ok` unless overridden afterwards.
@@ -374,7 +410,7 @@ if [ "${1:-}" = "--self-test" ]; then
     local d="$W/$1"; shift
     mkdir -p "$d"
     local i=1
-    for p in R1 R2 R3 R4 R5 R6 R6b R7 R8 R9 R10; do
+    for p in R1 R2 R3 R4 R5 R6 R6b R7 R8 R9 R10 R11; do
       eval "printf '%s' \"\${$i}\" > \"\$d/\$p.out\""
       printf 'ok' > "$d/$p.st"
       i=$((i + 1))
@@ -383,29 +419,29 @@ if [ "${1:-}" = "--self-test" ]; then
 
   # The correct form: positives run, both controls refuse, the residual names
   # `:leaf`. R6/R6b exit non-zero, which `judge` reads from `.out`, not `.st`.
-  stub good "2" ":ok" ":ok" ":ok" ":ok" "$NONCON" "$NONCONB" ":ok" "$RESIDUAL" "$VALID" ":ok"
+  stub good "2" ":ok" ":ok" ":ok" ":ok" "$NONCON" "$NONCONB" ":ok" "$RESIDUAL" "$VALID" ":ok" "$NONREG"
   printf 'rc1' > "$W/good/R6.st"; printf 'rc1' > "$W/good/R6b.st"
   printf 'rc1' > "$W/good/R8.st"
 
   stub silent "$REFUSED" "$REFUSED" "$REFUSED" "$REFUSED" "$REFUSED" \
-              "$NONCON" "$NONCONB" "$REFUSED" "$REFUSED" "$REFUSED" "$REFUSED"
+              "$NONCON" "$NONCONB" "$REFUSED" "$REFUSED" "$REFUSED" "$REFUSED" "$NONREG"
   printf 'rc1' > "$W/silent/R6.st"; printf 'rc1' > "$W/silent/R6b.st"
 
   # The refusal dropped entirely: X = X | int now compiles and returns 1.
-  stub unsound "2" ":ok" ":ok" ":ok" ":ok" "1" "1" ":ok" "$RESIDUAL" "$VALID" ":ok"
+  stub unsound "2" ":ok" ":ok" ":ok" ":ok" "1" "1" ":ok" "$RESIDUAL" "$VALID" ":ok" "$NONREG"
   printf 'rc1' > "$W/unsound/R8.st"
 
   # R8 never returns. Its output is empty, exactly as a real hang's is.
-  stub hung "2" ":ok" ":ok" ":ok" ":ok" "$NONCON" "$NONCONB" ":ok" "" "$VALID" ":ok"
+  stub hung "2" ":ok" ":ok" ":ok" ":ok" "$NONCON" "$NONCONB" ":ok" "" "$VALID" ":ok" "$NONREG"
   printf 'rc1' > "$W/hung/R6.st"; printf 'rc1' > "$W/hung/R6b.st"
   printf 'hung' > "$W/hung/R8.st"
 
-  stub name_keyed "2" ":ok" ":ok" "$REFUSED" ":ok" "$NONCON" "$NONCONB" ":ok" "$RESIDUAL" "$VALID" ":ok"
+  stub name_keyed "2" ":ok" ":ok" "$REFUSED" ":ok" "$NONCON" "$NONCONB" ":ok" "$RESIDUAL" "$VALID" ":ok" "$NONREG"
   printf 'rc1' > "$W/name_keyed/R6.st"; printf 'rc1' > "$W/name_keyed/R6b.st"
   printf 'rc1' > "$W/name_keyed/R4.st"; printf 'rc1' > "$W/name_keyed/R8.st"
 
   ISO="R7.bs: error: Widen returns L1 where L2 is declared"
-  stub isorecursive "2" ":ok" ":ok" ":ok" ":ok" "$NONCON" "$NONCONB" "$ISO" "$RESIDUAL" "$VALID" ":ok"
+  stub isorecursive "2" ":ok" ":ok" ":ok" ":ok" "$NONCON" "$NONCONB" "$ISO" "$RESIDUAL" "$VALID" ":ok" "$NONREG"
   printf 'rc1' > "$W/isorecursive/R6.st"; printf 'rc1' > "$W/isorecursive/R6b.st"
   printf 'rc1' > "$W/isorecursive/R7.st"; printf 'rc1' > "$W/isorecursive/R8.st"
 
@@ -419,11 +455,21 @@ if [ "${1:-}" = "--self-test" ]; then
   # not a luxury.
   LISTBLIND="R10.bs:5: error: the clauses of F do not cover N
   not covered: list<...>"
-  stub list_blind "2" ":ok" ":ok" ":ok" ":ok" "$NONCON" "$NONCONB" ":ok" "$RESIDUAL" "$VALID" "$LISTBLIND"
+  stub list_blind "2" ":ok" ":ok" ":ok" ":ok" "$NONCON" "$NONCONB" ":ok" "$RESIDUAL" "$VALID" "$LISTBLIND" "$NONREG"
   printf 'rc1' > "$W/list_blind/R6.st"; printf 'rc1' > "$W/list_blind/R6b.st"
   printf 'rc1' > "$W/list_blind/R8.st"; printf 'rc1' > "$W/list_blind/R10.st"
 
-  for bad in silent unsound hung name_keyed isorecursive list_blind; do
+  # The knot tied on the NAME instead of the instantiation: `T<int>` and
+  # `T<list<int>>` are claimed to be one type, so the non-regular definition is
+  # accepted and every other probe still passes. This is the silent half of the
+  # regularity question -- the loud half is a hang, which the stopwatch already
+  # sees.
+  stub non_regular_accepted "2" ":ok" ":ok" ":ok" ":ok" "$NONCON" "$NONCONB" ":ok" "$RESIDUAL" "$VALID" ":ok" ":ok"
+  printf 'rc1' > "$W/non_regular_accepted/R6.st"
+  printf 'rc1' > "$W/non_regular_accepted/R6b.st"
+  printf 'rc1' > "$W/non_regular_accepted/R8.st"
+
+  for bad in silent unsound hung name_keyed isorecursive list_blind non_regular_accepted; do
     if [ -z "$(judge "$W/$bad")" ]; then
       echo "  x SELF-TEST: '$bad' produced no complaint - the gate cannot see it"; fail=1
     else
@@ -436,7 +482,7 @@ if [ "${1:-}" = "--self-test" ]; then
     echo "  ok green on the correct form"
   fi
   [ "$fail" -eq 0 ] || { echo "self-test FAILED"; exit 1; }
-  echo "self-test passed: six defects seen, correct form accepted"
+  echo "self-test passed: seven defects seen, correct form accepted"
   exit 0
 fi
 

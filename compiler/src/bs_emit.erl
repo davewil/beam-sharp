@@ -1094,13 +1094,20 @@ tuple_part(Components) ->
 %%% generate the *same* validator, because they are the same type by the time
 %%% this module sees either — F6.3's property, one layer down.
 %%%
-%%% TERMINATION IS UPSTREAM, AND IT IS NOT PERMANENT. Ticket 09 committed to
-%%% equirecursive contractive types and `bs_check:resolve/3` raises
-%%% `{recursive_type, N}` for one today, so every `ty()` reaching here is a FINITE
-%%% TREE and `close_over/2`'s worklist cannot cycle. When 09's machinery lands,
-%%% this needs the name assigned to a type BEFORE its body is generated, or
-%%% `Tree = :leaf | (:node, Tree, Tree)` recurses forever at compile time. The
-%%% generated code itself already terminates: it walks a term, which is finite.
+%%% TERMINATION IS NO LONGER UPSTREAM — F28 LANDED AND THIS PARAGRAPH'S OWN
+%%% OBLIGATION CAME DUE. It used to say that `bs_check:resolve/3` raised
+%%% `{recursive_type, N}`, so every `ty()` reaching here was a finite tree and
+%%% `close_over/2`'s worklist could not cycle; and it named what would be needed
+%%% when 09's machinery landed — *the name assigned to a type BEFORE its body is
+%%% generated*.
+%%%
+%%% That turned out to be already true. `close_over/2` writes `Acc#{Ty => Name}`
+%%% and passes it into the same call that walks the children, so a recursive
+%%% type's own occurrences find the name and emit a call back into the function
+%%% being generated. What actually had to change was smaller: `children/1` and
+%%% `validator_form/3` destructure the six-part map, and a binder is not one, so
+%%% both unfold first. The generated code terminates as it always did — it walks
+%%% a term, which is finite.
 %%%
 %%% TWO PROTOCOLS, AND THE SPLIT IS LOAD-BEARING. Internally every validator
 %%% returns `{ok, V} | {error, {Path, Expected}}`; the ROOT wrapper unwraps that

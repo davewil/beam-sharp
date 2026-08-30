@@ -534,6 +534,23 @@ jobs:
         working-directory: compiler
         run: ./bin/check-negation.sh
 
+      # F28 / ticket 09, ENG-260. A STOPWATCH, not a rejection test: the
+      # characteristic failure of recursive types produces no output at all,
+      # because the checker walks a regular tree forever. F6 measured that shape
+      # once already — a cyclic alias did not error on master, it hung, and took
+      # the rest of that eunit run with it under a `Failed: 0` summary. So every
+      # probe compiles under a wall-clock budget, and the self-test carries seven
+      # defects including the two that are silent rather than slow: the refusal
+      # dropped entirely, and a binder tied on the name rather than the
+      # instantiation.
+      - name: The recursive-types gate proves it can fail
+        working-directory: compiler
+        run: ./bin/check-recursive-types.sh --self-test
+
+      - name: Recursive types resolve, and the two that cannot still refuse
+        working-directory: compiler
+        run: ./bin/check-recursive-types.sh
+
       # F31 / ticket 15 §1, ENG-272. A declared failure channel must survive
       # normalisation: `option<atom>` IS `atom`, so no caller can write the
       # failure clause. F18 built the predicate at the `ValidateAs<T>`

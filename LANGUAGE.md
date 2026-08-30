@@ -1180,20 +1180,32 @@ Sum((a, b)) -> a + b
 So a bracket costs no new node in the checker and nothing in the emitted code: what is published is
 the expanded ground `-spec`.
 
-A recursive type is **refused by name** rather than expanded. Recursion is decided — equirecursive
-and **contractive** — and the algebra cannot hold one yet, so every recursive definition is an error
-today. But there are **two** refusals, and they are not the same thing.
+A recursive type is **expanded, not refused**. Recursion is **equirecursive** — two spellings of the
+same set are one type, with no conversion between them — and must be **contractive**. Subtyping over
+one is decided coinductively, so a definition that unfolds an extra level is interchangeable with the
+one it unfolds.
 
 A definition whose recursion passes through a **constructor** — a tuple, a `list<T>`, or a record
-field — describes a real set of values. It is well formed, and the refusal is a gap in the compiler:
+field — describes a real set of values, and the checker sees through it well enough to prove a
+two-clause function exhaustive **with no catch-all**:
 
-```csharp not-yet
+```csharp
 type Tree = :leaf | (:node, Tree, Tree)
+
+public int Size(Tree t)
+Size(:leaf)         -> 0
+Size((:node, l, r)) -> 1 + Size(l) + Size(r)
 ```
+
+**shipped** — `:leaf` and the node tuple partition `Tree`, so the pair is total and a `_` would be
+refused as unreachable. Delete either clause and the residual names the shape that is missing rather
+than unfolding forever. The emitted `-spec` is a recursive Erlang `-type`, not `any()`, and
+`ValidateAs<Tree>` generates a validator that calls itself: handed `(:node, :leaf, 7)` it returns
+`(:error, (["(3)"], "Tree"))` — the position inside the tree and the type expected there.
 
 A definition whose recursion passes through nothing but unions and aliases describes no value at
 all, and no amount of implementation will change that. A union is a **Boolean connective, not a
-constructor**:
+constructor**, so this stays an error now that the one above is not:
 
 ```csharp not-yet
 type X = X | int
