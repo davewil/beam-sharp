@@ -41,6 +41,11 @@
 %% to be pasted back into the source; `to_pattern/1` above stays the DESCRIPTION
 %% printer and its callers are unchanged.
 -export([head_parts/2, head_combos/2, name_binders/1]).
+%% F28 — the binder ticket 09 decided. `mu/2` names a type so its own body can
+%% refer back to it; `recvar/1` is that back-reference. `unfold/1` is the only
+%% way to look inside one, and every operation in this module calls it before
+%% touching a part.
+-export([mu/2, recvar/1, is_rec/1, unfold/1, rec_name/1]).
 
 -export_type([ty/0]).
 
@@ -125,8 +130,28 @@
 %% changing its shape.
 -type bin_part() :: [utf8 | other].
 
+%% F28 — A TYPE IS EITHER A PARTITION OR A BINDER, and the binder is the whole
+%% of ticket 09's recursion arriving in the algebra.
+%%
+%% A partition is the six-part map above and is what every operation here
+%% actually computes over. A binder names a type so its own body can refer back
+%% to it, which is the one thing a finite Erlang term cannot otherwise express:
+%% `type Tree = :leaf | (:node, Tree, Tree)` is `mu('Tree', :leaf | (:node,
+%% recvar('Tree'), recvar('Tree')))`. Erlang has no cyclic terms, so the cycle
+%% is spelled by NAME and closed by `unfold/1`.
+%%
+%% EQUIRECURSIVE, WHICH IS WHY THE NAME IS NOT PART OF THE MEANING. Ticket 09
+%% decided two names over the same set are the same type. The name in a `mu` is
+%% a binding occurrence and nothing more — it exists so `recvar` has something
+%% to point at, and two binders with different names can be equal types. That is
+%% what makes `is_subtype/2` need coinduction rather than comparison, and it is
+%% the difference between what shipped here and an isorecursive system where the
+%% name IS the type.
+-type rec_ty() :: #{mu := atom(), body := ty()} | #{recvar := atom()}.
+
 -type ty() :: #{atoms := atom_part(), ints := int_part(), tuples := tuple_part(),
-                lists := list_part(), maps := map_part(), bins := bin_part()}.
+                lists := list_part(), maps := map_part(), bins := bin_part()}
+            | rec_ty().
 
 %%% ---------------------------------------------------------------------------
 %%% Constructors
@@ -134,6 +159,94 @@
 
 none() -> #{atoms => {finite, []}, ints => [], tuples => [], lists => [],
             maps => [], bins => []}.
+
+%%% ---------------------------------------------------------------------------
+%%% F28 — the binder
+%%% ---------------------------------------------------------------------------
+
+%% `mu(Name, Body)` where `Body` may contain `recvar(Name)`. A binder whose body
+%% never mentions its own name is not recursive and is returned unwrapped, so
+%% nothing downstream has to unfold a type that does not need it — and so a
+%% non-recursive alias is byte-identical to what it was before this feature.
+mu(Name, Body) ->
+    case mentions(Name, Body) of
+        false -> Body;
+        true  -> #{mu => Name, body => Body}
+    end.
+
+recvar(Name) when is_atom(Name) -> #{recvar => Name}.
+
+is_rec(#{mu := _})     -> true;
+is_rec(#{recvar := _}) -> true;
+is_rec(_)              -> false.
+
+rec_name(#{mu := N})     -> N;
+rec_name(#{recvar := N}) -> N.
+
+%% UNFOLDING IS SUBSTITUTION OF THE BINDER FOR ITS OWN VARIABLE, which is what
+%% makes the representation equirecursive: `mu(T, B)` and `B[mu(T,B)/T]` are the
+%% same type, and every operation may replace one with the other whenever it
+%% needs to see a part.
+%%
+%% One step, never a fixpoint. The result is a partition whose components may
+%% contain the SAME binder again, and that is exactly what terminates: a regular
+%% tree has finitely many distinct subtrees, so the pairs an operation can meet
+%% are finite and the assumption set below closes the loop.
+unfold(#{mu := N, body := B} = M) -> subst_rec(B, N, M);
+unfold(T)                         -> T.
+
+%% A free `recvar` reaching an operation is a compiler defect, not a user error:
+%% `resolve/3` binds every variable it introduces. Crashing here is deliberate —
+%% the alternative is treating it as `none`, which would prove types empty and
+%% go quiet rather than red, the failure mode `is_none/1` calls its sharpest
+%% trap.
+subst_rec(#{recvar := N}, N, M)          -> M;
+subst_rec(#{recvar := _} = V, _, _)      -> V;
+subst_rec(#{mu := N} = Inner, N, _)      -> Inner;   % shadowed; leave it alone
+subst_rec(#{mu := M0, body := B}, N, Sub) -> #{mu => M0, body => subst_rec(B, N, Sub)};
+subst_rec(T, N, Sub) ->
+    T#{tuples => case maps:get(tuples, T) of
+                     top -> top;
+                     Ps  -> [[subst_rec(C, N, Sub) || C <- P] || P <- Ps]
+                 end,
+       lists  => [sp_map(fun(C) -> subst_rec(C, N, Sub) end, S)
+                  || S <- maps:get(lists, T)],
+       maps   => case maps:get(maps, T) of
+                     top -> top;
+                     Ms  -> [{K, maps:map(fun(_, C) -> subst_rec(C, N, Sub) end, F)}
+                             || {K, F} <- Ms]
+                 end}.
+
+%% Does `Name` occur free in `T`? Used only by `mu/2`, to decide whether a
+%% binder is needed at all.
+mentions(N, #{recvar := N2}) -> N =:= N2;
+mentions(N, #{mu := N})      -> false;                       % shadowed
+mentions(N, #{mu := _, body := B}) -> mentions(N, B);
+mentions(N, T) ->
+    lists:any(fun(C) -> mentions(N, C) end, components(T)).
+
+%% A spine is `{Prefix, closed}` or `{Prefix, {open, T}}`, and `{open, any}` is
+%% the unconstrained tail `term/0` carries. `any` is a MARKER, not a type, so
+%% neither helper may descend into it.
+sp_map(F, {P, closed})      -> {[F(C) || C <- P], closed};
+sp_map(F, {P, {open, any}}) -> {[F(C) || C <- P], {open, any}};
+sp_map(F, {P, {open, T}})   -> {[F(C) || C <- P], {open, F(T)}}.
+
+sp_components({P, closed})      -> P;
+sp_components({P, {open, any}}) -> P;
+sp_components({P, {open, T}})   -> P ++ [T].
+
+%% Every component type held inside a partition, flattened. One place, so a part
+%% added later is added here too rather than being silently skipped by three
+%% separate walks.
+components(T) ->
+    Ts = case maps:get(tuples, T) of top -> []; Ps -> lists:append(Ps) end,
+    Ls = lists:append([sp_components(S) || S <- maps:get(lists, T)]),
+    Ms = case maps:get(maps, T) of
+             top -> [];
+             Fs  -> lists:append([maps:values(F) || {_, F} <- Fs])
+         end,
+    Ts ++ Ls ++ Ms.
 
 %% `term` in the surface language. The tuple part is deliberately absent: this
 %% slice has no arity-polymorphic tuple top, and ticket 11 says a foreign value
@@ -257,15 +370,41 @@ map_member(Kind, Fields) when is_map(Fields) ->
 %% quieter rather than red, which is F5's `Certain`/`Possible` failure in a third
 %% costume: no passing test can see it, so `bins := []` below is verified by
 %% mutating this line and watching the suite go red.
+is_none(T) -> is_none(T, []).
+
+%% F28 — ASSUME EMPTY ON REVISIT, and that is the CORRECT reading of
+%% inhabitation rather than merely a way to stop walking.
+%%
+%% `type T = (:node, T, T)` is contractive — the recursion passes through a
+%% constructor, so ticket 09 admits the definition — and yet it has no finite
+%% values at all: every inhabitant would have to contain one already. Assuming a
+%% binder empty until something proves otherwise returns exactly that. Assuming
+%% it inhabited would report a type with no values as a usable one, and every
+%% containment over it would then pass vacuously.
+%%
+%% `Tree = :leaf | (:node, Tree, Tree)` is untouched by the assumption: `:leaf`
+%% proves it inhabited on the first unfolding, before the binder is reached a
+%% second time.
+is_none(#{mu := N} = M, Seen) ->
+    lists:member(N, Seen) orelse is_none(unfold(M), [N | Seen]);
+%% A free variable here is a defect in `resolve/3`, which binds every one it
+%% introduces. Answering `false` keeps it INHABITED, so the mistake fails
+%% loudly downstream instead of proving something empty and going quiet — the
+%% direction this module's sharpest trap runs in.
+is_none(#{recvar := _}, _) ->
+    false;
 is_none(#{atoms := {finite, []}, ints := [], tuples := Ts, lists := [],
-          maps := Ms, bins := []})
+          maps := Ms, bins := []}, Seen)
   when Ts =/= top, Ms =/= top ->
-    lists:all(fun(Cs) -> lists:any(fun is_none/1, Cs) end, Ts)
-        andalso lists:all(fun m_empty/1, Ms);
-is_none(_) ->
+    lists:all(fun(Cs) -> lists:any(fun(C) -> is_none(C, Seen) end, Cs) end, Ts)
+        andalso lists:all(fun(M) -> m_empty(M, Seen) end, Ms);
+is_none(_, _) ->
     false.
 
-m_empty({_Kind, Fields}) -> lists:any(fun is_none/1, maps:values(Fields)).
+m_empty(M) -> m_empty(M, []).
+
+m_empty({_Kind, Fields}, Seen) ->
+    lists:any(fun(C) -> is_none(C, Seen) end, maps:values(Fields)).
 
 is_subtype(A, B) -> is_none(subtract(A, B)).
 
