@@ -95,7 +95,7 @@ judge() {
   check_ok R4 ":ok" "MUTUAL recursion -- a binder keyed on the name being resolved fails exactly here"
   check_ok R5 ":ok" "recursion under a type parameter, USED at two instantiations"
   check_ok R7 ":ok" "EQUIRECURSIVE -- two spellings are one type; a nominal binder fails exactly here"
-  check_ok R9 ":ok" "ValidateAs over a recursive type terminates (F18's owed obligation)"
+  check_ok R9 "(:node, :leaf, (:node, :leaf, :leaf))" "ValidateAs over a recursive type terminates AND round-trips a nested value (F18's owed obligation)"
   check_ok R10 ":ok" "recursion through a BARE LIST, matched -- no tuple anywhere, and the shape that hung"
 
   # --- R8: the residual is computed, names `:leaf`, and RETURNS ------------
@@ -288,14 +288,23 @@ Size((:node, l, r)) -> 1 + Size(l) + Size(r)
   # R9 -- F18's owed obligation, written down in that feature before this one
   # existed: the memo table must hold the function name for a type WHILE that
   # type is still being generated, or the generator recurses into itself.
+  # R9 -- F18's owed obligation, written down in that feature before this one
+  # existed: the memo table must hold the function name for a type WHILE that
+  # type is still being generated, or the generator recurses into itself.
+  #
+  # THE FIRST DRAFT OF THIS PROBE DECLARED `Tree` AND NEVER CALLED
+  # `ValidateAs<Tree>`, so it asserted nothing about the validator at all and
+  # went green over a generator that crashed on a binder. The round trip below
+  # is the assertion: a NESTED value has to survive, which it can only do if the
+  # generated validator calls itself.
   mk R9 'module R9
 
 type Tree = :leaf | (:node, Tree, Tree)
 
-public :ok Go(term t)
-Go(t) -> :ok
+public result<Tree, ValidationError> Check(term t)
+Check(t) -> ValidateAs<Tree>(t)
 '
-  shot R9 R9 Go 1
+  shot R9 R9 Check '(:node, :leaf, (:node, :leaf, :leaf))'
 
   # R10 -- RECURSION THROUGH A BARE LIST, MATCHED. `:leaf | list<N>` has no
   # tuple anywhere: the list part is algebra-primitive and resolved in its own
@@ -355,6 +364,9 @@ if [ "${1:-}" = "--self-test" ]; then
   not a missing feature."
   RESIDUAL="R8.bs: error: the clauses of Size do not cover Tree
   not covered: :leaf"
+  # R9's round trip: the nested value comes back unchanged, which it can only do
+  # if the generated validator called itself.
+  VALID="(:node, :leaf, (:node, :leaf, :leaf))"
 
   # stub <name> <R1> <R2> <R3> <R4> <R5> <R6> <R6b> <R7> <R8> <R9>
   # every .st is `ok` unless overridden afterwards.
@@ -371,7 +383,7 @@ if [ "${1:-}" = "--self-test" ]; then
 
   # The correct form: positives run, both controls refuse, the residual names
   # `:leaf`. R6/R6b exit non-zero, which `judge` reads from `.out`, not `.st`.
-  stub good "2" ":ok" ":ok" ":ok" ":ok" "$NONCON" "$NONCONB" ":ok" "$RESIDUAL" ":ok" ":ok"
+  stub good "2" ":ok" ":ok" ":ok" ":ok" "$NONCON" "$NONCONB" ":ok" "$RESIDUAL" "$VALID" ":ok"
   printf 'rc1' > "$W/good/R6.st"; printf 'rc1' > "$W/good/R6b.st"
   printf 'rc1' > "$W/good/R8.st"
 
@@ -380,20 +392,20 @@ if [ "${1:-}" = "--self-test" ]; then
   printf 'rc1' > "$W/silent/R6.st"; printf 'rc1' > "$W/silent/R6b.st"
 
   # The refusal dropped entirely: X = X | int now compiles and returns 1.
-  stub unsound "2" ":ok" ":ok" ":ok" ":ok" "1" "1" ":ok" "$RESIDUAL" ":ok" ":ok"
+  stub unsound "2" ":ok" ":ok" ":ok" ":ok" "1" "1" ":ok" "$RESIDUAL" "$VALID" ":ok"
   printf 'rc1' > "$W/unsound/R8.st"
 
   # R8 never returns. Its output is empty, exactly as a real hang's is.
-  stub hung "2" ":ok" ":ok" ":ok" ":ok" "$NONCON" "$NONCONB" ":ok" "" ":ok" ":ok"
+  stub hung "2" ":ok" ":ok" ":ok" ":ok" "$NONCON" "$NONCONB" ":ok" "" "$VALID" ":ok"
   printf 'rc1' > "$W/hung/R6.st"; printf 'rc1' > "$W/hung/R6b.st"
   printf 'hung' > "$W/hung/R8.st"
 
-  stub name_keyed "2" ":ok" ":ok" "$REFUSED" ":ok" "$NONCON" "$NONCONB" ":ok" "$RESIDUAL" ":ok" ":ok"
+  stub name_keyed "2" ":ok" ":ok" "$REFUSED" ":ok" "$NONCON" "$NONCONB" ":ok" "$RESIDUAL" "$VALID" ":ok"
   printf 'rc1' > "$W/name_keyed/R6.st"; printf 'rc1' > "$W/name_keyed/R6b.st"
   printf 'rc1' > "$W/name_keyed/R4.st"; printf 'rc1' > "$W/name_keyed/R8.st"
 
   ISO="R7.bs: error: Widen returns L1 where L2 is declared"
-  stub isorecursive "2" ":ok" ":ok" ":ok" ":ok" "$NONCON" "$NONCONB" "$ISO" "$RESIDUAL" ":ok" ":ok"
+  stub isorecursive "2" ":ok" ":ok" ":ok" ":ok" "$NONCON" "$NONCONB" "$ISO" "$RESIDUAL" "$VALID" ":ok"
   printf 'rc1' > "$W/isorecursive/R6.st"; printf 'rc1' > "$W/isorecursive/R6b.st"
   printf 'rc1' > "$W/isorecursive/R7.st"; printf 'rc1' > "$W/isorecursive/R8.st"
 
@@ -407,7 +419,7 @@ if [ "${1:-}" = "--self-test" ]; then
   # not a luxury.
   LISTBLIND="R10.bs:5: error: the clauses of F do not cover N
   not covered: list<...>"
-  stub list_blind "2" ":ok" ":ok" ":ok" ":ok" "$NONCON" "$NONCONB" ":ok" "$RESIDUAL" ":ok" "$LISTBLIND"
+  stub list_blind "2" ":ok" ":ok" ":ok" ":ok" "$NONCON" "$NONCONB" ":ok" "$RESIDUAL" "$VALID" "$LISTBLIND"
   printf 'rc1' > "$W/list_blind/R6.st"; printf 'rc1' > "$W/list_blind/R6b.st"
   printf 'rc1' > "$W/list_blind/R8.st"; printf 'rc1' > "$W/list_blind/R10.st"
 

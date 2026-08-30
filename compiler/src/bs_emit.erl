@@ -1149,6 +1149,12 @@ close_over([Ty | Rest], Acc) ->
 %% constructor does NOT pick out a single candidate — each candidate as a type in
 %% its own right, so the "try each, blame here" fallback is built from the same
 %% generator rather than from a second one.
+%% F28 — a binder's children are its unfolding's children, and the recursive
+%% positions among them ARE this same binder, which `close_over/2` has already
+%% put in the accumulator before descending. That is what terminates the
+%% worklist, and it is the obligation F18 wrote down: the name is assigned to a
+%% type BEFORE its body is walked.
+children(#{mu := _} = Ty) -> children(bs_types:unfold(Ty));
 children(Ty) ->
     #{tuples := Ts, maps := Ms} = Ty,
     tuple_children(Ts) ++ list_children(Ty) ++ map_children(Ms).
@@ -1285,13 +1291,26 @@ root_form(Name) ->
 root_name(Name)   -> list_to_atom(atom_to_list(Name) ++ "@r").
 walker_name(Name) -> list_to_atom(atom_to_list(Name) ++ "@e").
 
+%% F28 — THE ERROR KEEPS THE BINDER, THE CLAUSES TAKE THE UNFOLDING.
+%%
+%% `error_expr/1` prints the type a failure names, and for a recursive one the
+%% author's own word is the whole point: "expected Tree" is useful and one
+%% unfolding of Tree is not. The traversal, though, has to see constructors, so
+%% it is generated from the unfolding — whose own recursive positions are the
+%% SAME `mu` node, already in `Table` under the same name, so they emit a call
+%% back to this function. That is the recursion, and it is why the generated
+%% validator is finite over an infinite type.
+%%
+%% `unfold/1` on a non-recursive type returns it unchanged, so this costs the
+%% ordinary case nothing.
 validator_form(Ty, Name, Table) ->
     Err = error_expr(Ty),
-    Clauses = ty_clauses(Ty, Name, Table, Err)
+    Body = bs_types:unfold(Ty),
+    Clauses = ty_clauses(Body, Name, Table, Err)
               ++ [{clause, ?A, [{var, ?A, '_'}], [], [Err]}],
     Fn = {function, ?A, Name, 2,
           [{clause, ?A, [?VV, ?VP], [], [{'case', ?A, ?VV, Clauses}]}]},
-    [Fn | walker_form(Ty, Name, Table, Err)].
+    [Fn | walker_form(Body, Name, Table, Err)].
 
 %% THE SINGLE SITE THAT BUILDS A `ValidationError`, which is why the path is
 %% carried reversed everywhere else: one `lists:reverse/1` per failure rather
