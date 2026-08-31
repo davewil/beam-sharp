@@ -24,8 +24,30 @@
 # evidence here that is not self-reported.
 
 url       https://claude.ai/code/artifact/40f71cf4-d5d3-4b71-882c-ad73f630a03c
-sha256    c14dd8f896e77c48d051b0471e2debc034b1622bdf0e146af0b64ead805dc7f4
-verified  2026-08-26 (for ENG-245) — the "Decided but not built" table opened by calling
+sha256    75d52e944c6414bc283ba404502538e116eee6f18d9b5a12014a502582bfe412
+verified  2026-09-01 (for the ENG-263 display-site drift) — chapter 2's two transcripts and
+          the term-channel appendix carried three stale line numbers. `wire.bs:40` and
+          `line => 39` both name the inexhaustive `Classify`, which the compiler reports at
+          42; `wire.bs:48` names the catch-all refusal, which it reports at 50. The prose
+          sites were wrong by two and the term site by three, so they were captured at
+          three different times and no one re-read any of them.
+
+          The instruction above the first was worse than stale. It said to delete "the
+          `4..7` clause", and there has been no such clause since F29 respelled it
+          `Classify(>= 4 and <= 7)` — a reader following TOUR literally would have found
+          nothing to delete. `wire.bs:15` was corrected for F29 and TOUR was not, so the
+          drift ENG-263 records between those two files had reversed direction rather
+          than closed.
+
+          Read back before republishing and the live page still carried all three old
+          numbers, so the stale state was confirmed rather than assumed, and the read
+          again showed a plain render of TOUR.md with nothing saved into it
+          independently. All four sites sit inside part 3's deliberate skip, so no gate
+          saw them and none will until ENG-263's `expect-after` directive lands. Two
+          further transcripts were measured the same way and were correct —
+          `shop.bs:16` and `shop.bs:37` — and were deliberately left alone.
+
+          2026-08-26 (for ENG-245) — the "Decided but not built" table opened by calling
           binary patterns "still open — the one numbered feature not started", sixty
           lines above its own construct index listing SIX of them against
           `examples/Frame/frame.bs`. F13 had shipped them on 2026-08-20. The row's

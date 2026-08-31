@@ -145,11 +145,11 @@ The compiler subtracts each clause head from the parameter type. What is left ov
 **residual**. If the residual is empty the function is exhaustive; if it is not, the residual
 *is the missing clause*, and the compiler writes it out for you.
 
-Delete the `4..7` clause from `examples/Wire/wire.bs` and ask for a build:
+Delete the `Classify(>= 4 and <= 7)` clause from `examples/Wire/wire.bs` and ask for a build:
 
 ```
 $ bsc --src-root examples examples/Wire
-examples/Wire/wire.bs:40: error: Classify is not exhaustive
+examples/Wire/wire.bs:42: error: Classify is not exhaustive
   no clause matches:
     Classify(>= 4 and <= 7) -> ...
 ```
@@ -171,7 +171,7 @@ error**. Replace `Classify(>= 9)` with `Classify(_)`:
 
 ```
 $ bsc --src-root examples examples/Wire
-examples/Wire/wire.bs:48: error: Classify discards cases the compiler can name
+examples/Wire/wire.bs:50: error: Classify discards cases the compiler can name
   every value left here comes from a type you declared, so `_`
   hides a case rather than admitting an unknown one:
     Classify(>= 9 and <= 255) -> ...
@@ -1258,7 +1258,7 @@ atom Which({ Kind: :'Shop.Invoice', Id: int, Total: int } | { Kind: :'Shop.Order
 
 ```
 $ bsc --diagnostics term --src-root examples examples/Wire
-#{function => 'Classify',line => 39,tag => inexhaustive,
+#{function => 'Classify',line => 42,tag => inexhaustive,
   file => "examples/Wire/wire.bs",severity => error,
   heads => #{kind => products,products => [[["4..7"]]],
              pasteable => ["Classify(>= 4 and <= 7) -> ..."]},
