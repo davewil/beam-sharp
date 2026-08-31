@@ -385,8 +385,14 @@ question wearing different clothes.
    justification for "a user may not add to stratum 2", and the "no" now stands without its reason.
 3. **How the two strata are documented differently**, and what *"in the prelude versus in a module
    you import"* means once the answer is a compiler guarantee rather than a definition.
-4. **The collection library** — names, shapes, and which module holds it. Blocked on the module
-   system, which is the map's most load-bearing fog patch.
+4. **The collection library** — names, shapes, and which module holds it. ~~Blocked on the module
+   system, which is the map's most load-bearing fog patch.~~ **Corrected 2026-08-31 (ENG-281): that
+   blocker has been gone since 2026-08-17.** F11, F15 and F12 landed that day and tickets 40 and 41
+   resolved; F11's own row in `compiler/features/README.md` reads *"Unblocks: the collection
+   library"*. The sentence above dates from 2026-08-15 and outlived what it named by two weeks,
+   which is this file's own failure mode — a document falsified at a distance by a commit with no
+   reason to open it. What is actually in the way now is ticket 65's reserved-names policy
+   (ENG-255), which decides whether `List` may be the module's name at all.
 5. **The name of the universal-order escape** (see `<` above).
 6. **`ToExistingAtom`'s respelling** — owed, two known-good answers, neither chosen.
 7. **Whether `hd`, `tl`, `length`, `elem` exist at all.** No decision was found for or against.
@@ -409,7 +415,13 @@ prelude gains a shadowing rule.
 
 ## What gates this file
 
-**Nothing yet, and that is a known hole.** `LANGUAGE.md`'s blocks are compiled bidirectionally by
+~~**Nothing yet, and that is a known hole.**~~ **Half of it was built on 2026-08-26 and this
+paragraph did not hear — corrected 2026-08-31 (ENG-281).** `bin/check-status-claims.sh` section A,
+added by ENG-245, probes **every row in the stratum tables below** through the public `bsc` CLI: a
+row marked shipped whose entry does not resolve is red, and so is a row marked `decided` or `open`
+whose entry does. So this file can no longer lie about what is BUILT. What is still unbuilt is the
+other direction the paragraph goes on to ask for — a `not-yet`-style bidirectional gate over the
+prose — and that half of the hole is real. `LANGUAGE.md`'s blocks are compiled bidirectionally by
 `bin/check-language.sh` — must-compile blocks must compile, `not-yet` blocks must **not** — so it
 cannot drift silently. This file has no such gate, and most of its entries are `decided`-but-unbuilt,
 which is precisely the shape the `not-yet` tag exists for. Extending the gate here would mean that

@@ -292,7 +292,7 @@ the body. These are open: read the body before assuming a direction.
   which behaviours ship built in, and how a user declares one
 - **A refinement cannot say `-5`** `#57` `types` `syntax`
   refused, though the same literal in a *pattern* reads fine — half of every signed domain is unnameable
-- **The language's name** `naming`
+- **The language's name** `naming` <!-- tracked by ENG-280 -->
   unresolved. `beam-sharp` is a working title
 - **Does `using` get an alias?** `#47` `modules` `syntax`
   §2 inverted the argument that shelved it; may be the only spelling when two imports collide
@@ -300,13 +300,13 @@ the body. These are open: read the body before assuming a direction.
   ticket 20 §5 settles half; refinement in type declarations is available where the predicate is decidable
 - **How a user-declared opaque refinement is actually checked** `#29` `types`
   three owed items, recorded in full on ticket 20 §5
-- **Stdlib shape as a principle** `modules` `prelude`
+- **Stdlib shape as a principle** `modules` `prelude` <!-- tracked by ENG-281 -->
   breadth is out of scope, the shape is not — and the prelude already has known contents
 - **Interop with Gleam and Elixir, both directions** `ffi` `modules`
   inbound `#50`: **answered by 48** — `Kind`-absent-only makes a foreign struct a `map<atom, term>`. outbound `#62`: Elixir cannot call a PascalCase export, and the tag is a required ABI
-- **Laziness and `stream<T>`** `#17` `types`
+- **Laziness and `stream<T>`** `#17` `types` <!-- tracked by ENG-283 -->
   **deferred rather than refused** — David: *"defer lazy, we will want it"*
-- **Bootstrapping — how much of beam-sharp is written in beam-sharp** `codegen` `agent`
+- **Bootstrapping — how much of beam-sharp is written in beam-sharp** `codegen` `agent` <!-- tracked by ENG-284 -->
   three axes, and the map has nothing on any of them
 - **Emitted code quality, and where the ceiling is** `#39` `codegen`
   20% slower on a tight loop while emitting **identical instructions**; a dead heat once the
@@ -327,7 +327,7 @@ the body. These are open: read the body before assuming a direction.
 - **Negation has no spelling** `#63` `syntax` `patterns`
   **refused: no `not`, no `!`** — the guard fragment is already closed under complement, so it adds nothing.
   The absence teaches, naming the comparison to write. `not` stays an identifier — that is 65. **Built, F27**
-- **`cond`, or whatever serves a long ladder of unrelated conditions** `#17` `syntax`
+- **`cond`, or whatever serves a long ladder of unrelated conditions** `#17` `syntax` <!-- tracked by ENG-282 -->
   no case for it yet; the width-five evidence was retracted and 25a's ladder is now a valve chain
 - **List length in the algebra: a proved-exhaustive program that crashes** `#54` `types` `patterns`
   **decompose the cons, never measure it** — Gleam's answer; Elixir's set-theoretic types share the hole. Rest is a marker, `[a, b]` exactly-two, `..[]` retired: 08 amended, 53 answered. **Built, F20**
