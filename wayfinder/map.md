@@ -295,8 +295,8 @@ the body. These are open: read the body before assuming a direction.
 - **The language's name** `naming` <!-- tracked by ENG-280 -->
   unresolved. `beam-sharp` is a working title
 - **Does `using` get an alias?** `#47` `modules` `syntax`
-  measured: never the only spelling for a collision — but a top-level module is unreachable from
-  one that declares its name. Round 1 with David, 2026-08-28
+  **resolved 2026-08-31: no alias, two import tiers** — every import key stays derived. The answer
+  that carried it is 41 §2's shadow check firing at the **call site**, which unblocks ENG-270. Unbuilt
 - **Where DDD invariants live** `types` `errors`
   ticket 20 §5 settles half; refinement in type declarations is available where the predicate is decidable
 - **How a user-declared opaque refinement is actually checked** `#29` `types`

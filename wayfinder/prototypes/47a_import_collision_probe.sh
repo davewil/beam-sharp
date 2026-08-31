@@ -7,7 +7,7 @@
 # reachable from two sources. This probe measures that claim against the
 # compiler rather than reasoning about it.
 #
-# Fourteen shapes, each with an EXPECTED VERDICT pinned below. The fix belongs
+# Seventeen shapes, each with an EXPECTED VERDICT pinned below. The fix belongs
 # to a different ticket, so this probe is a record of what the compiler does
 # TODAY: it goes red if a verdict moves in EITHER direction, which is what makes
 # it evidence rather than a rubber stamp.

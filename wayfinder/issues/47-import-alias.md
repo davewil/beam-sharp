@@ -1,7 +1,8 @@
 # 47 — Does `using` get an alias, now that unqualified names are legal?
 
 Type: `wayfinder:decision`
-Status: claimed — [ENG-219](https://linear.app/davewil/issue/ENG-219) · round 1 with David, 2026-08-28
+Status: **resolved 2026-08-31** — [ENG-219](https://linear.app/davewil/issue/ENG-219). **No alias.**
+The shadowing half of 41 §2 fires at the **call site**, which unblocks [ENG-270](https://linear.app/davewil/issue/ENG-270)
 Raised by: [ticket 41](41-imports-and-cross-module-scope.md) on resolving it, 2026-08-16
 Blocks: nothing — 41 resolved without it
 
@@ -227,9 +228,11 @@ Go(n) -> S.Sum([n], 0) + Sum([n], 0)
 The compiler delta for the alias: one grammar arm on `'using' uident '=' modpath` (`'='` already
 has a precedence slot, so no new terminal), one write to `mods` and none to `funs`, and the first
 author-chosen key ever to enter either table — every key today is derived, `{Name, Arity}` from the
-callee's exports and the short name from `strip_prefix/2`. It also owes a re-run of the yecc
+callee's exports and the short name from `strip_prefix/2`. ~~It also owes a re-run of the yecc
 conflict check that ticket 41 left standing at `bs_parser.yrl:157-169`, because it is a third arm
-discriminated on `=` after a `uident` that `modpath` also accepts.
+discriminated on `=` after a `uident` that `modpath` also accepts.~~ **Run 2026-08-31 — §7 below.
+The grammar half of the delta is free: 0 → 0 conflicts, and the corpus parses identically.** The
+`mods` half — the first author-chosen key — is a checker question and is still unpriced.
 
 **Q2. Where should `import_shadows_local` fire?** Moving it to the call site is what unblocks `P9`,
 and it makes §2's one sentence fire consistently in both halves. But §2's wording is yours, and it
@@ -249,3 +252,163 @@ Go(n) -> Alpha.Coll.List.Sum([n], 0)      // ← never reached; line 3 already f
 Delta: delete the eager raise at `bs_check.erl:416`, and let `unqualified_key/4` report the clash
 where the bare name is used. `funs` is already list-valued during resolution, so the machinery for
 a deferred report is the one `ambiguous_call` uses.
+
+---
+
+# §7 — The grammar cost, measured 2026-08-31
+
+Round 1 handed David a cost estimate for Q1 and marked half of it **unrun**: the yecc conflict
+check that ticket 41 left standing. [`47c_alias_grammar_conflicts.sh`](../prototypes/47c_alias_grammar_conflicts.sh)
+runs it. **The estimate holds, and the grammar half of the alias is free.**
+
+| | shipped grammar | + the alias arm |
+|---|---|---|
+| yecc conflicts | **0** | **0** |
+| `compiler/examples` parsed by both, ASTs compared | — | **0 differences** (47 files; 2 unlexable, skipped) |
+
+The arm measured is round 1's own, verbatim — `using_decl -> 'using' uident '=' modpath`, building
+an `import_alias` that carries the author-chosen key beside the module atom, which is §5's answer to
+owed item 2 (a module, never a function).
+
+**Why there is no conflict.** After `using` has read a `uident`, one token of lookahead separates
+the two arms cleanly, because nothing else can follow a `modpath` in a `using` line — `=` is match
+in expressions and the type-alias `=` sits behind the `type` keyword. The arm that ticket 41 got
+wrong was not discriminated on `=` at all; it was the **recursion direction**, a different failure.
+
+**And a conflict count is not the measurement — this repo has already been caught by that.**
+`bs_parser.yrl:157-169` records ticket 41's right-recursive `modpath` *building* and then misparsing
+`List.Map(x)` as `syntax error before: '('`. So 47c parses eight shapes as well as counting:
+
+| | | base | + alias |
+|---|---|---|---|
+| `A1` `A2` | `using Solo`, `using Shop.Collections.List` | parses | parses |
+| `A3` `A4` | `using S = Solo`, `using L = Shop.Collections.List` | refused | **parses** |
+| `A5` | qualified call through a plain import | parses | parses |
+| `A6` | qualified call through the alias | refused | **parses** |
+| `A7` | short-qualified call, namespace tier (41 §5) | parses | parses |
+| `A8` | **fully-qualified call — ticket 41's breakage** | parses | parses |
+
+`A8` is the one that earns the probe. It is the exact shape a clean build hid last time, and it is
+untouched.
+
+**47c's self-test rebuilds ticket 41's defect** and requires the probe to see both of its failure
+modes — conflicts, and the misparse — with the correct grammar green beside it. Both halves, because
+a check that fires on everything passes the first and is worthless.
+
+## What §7 does *not* say
+
+**It prices Q1; it does not answer it.** §6 rests the recommendation on the lockout (ENG-270), not
+on grammar cost. A costly arm would have argued against the alias; a free one does not argue for it,
+and the survey and the lockout are unmoved by this measurement.
+
+**One cost stays unpriced**, and §5 named it: `mods` would take its **first author-chosen key**,
+where every key in either table is derived today. That is a checker question and 47c does not reach
+the checker.
+
+## One stale number corrected
+
+`bs_parser.yrl` said the right-recursive grammar *"builds with 2 shift/reduce conflicts"*. Rebuilt
+today it is **3** — the grammar has grown since ticket 41 measured it, so a present-tense claim had
+gone stale. The comment now cites the probe instead of asserting a number. The **misparse**, which
+is the half that carries the finding, reproduces exactly.
+
+Separately, `47a`'s own header said *"Fourteen shapes"* while it pins **seventeen**; corrected.
+
+---
+
+# Round 2 — for David, 2026-08-31
+
+**Round 1 asked Q1 and Q2 as two independent picks, and they are not independent.** Answered
+separately they can produce a pair that leaves `P9` unspellable with nothing scheduled to fix it, so
+this round asks them as one choice between four coherent pairings. Nothing new has been measured
+against §6's recommendation — §7 priced the grammar and the price was zero, which removes an
+argument *against* the alias without supplying one for it.
+
+The dependency runs **Q2 → Q1**. Where `import_shadows_local` fires decides whether the lockout has
+a fix at all; only then does the alias's status follow.
+
+| | `import_shadows_local` fires | alias exists | what it means |
+|---|---|---|---|
+| **A** | **call site** | **no** | §6's recommendation. ENG-270 fixed by moving the check; two import tiers; `47c`'s free arm goes unused |
+| **B** | **call site** | **yes** | fix the lockout *and* take the convenience. Three tiers, and `mods` gains its first author-chosen key |
+| **C** | **eager** (unchanged) | **yes** | §2 meant the eager check. The alias becomes the *escape*: `using S = Solo` writes `mods` only, so it cannot shadow — and it is then load-bearing, not a convenience |
+| **D** | **eager** (unchanged) | **no** | §2 meant the eager check and the alias is still refused. **`P9` stays unspellable** and ENG-270 needs a third fix nobody has proposed |
+
+**A is the recommendation** and it resolves against a three-of-four survey; §6 argues that out.
+
+**C is the branch round 1 flagged.** If §2's wording meant the eager check, the alias stops being a
+convenience and becomes the only escape from the lockout — which inverts §6 entirely, because §6's
+whole case is that the qualification is the broken thing.
+
+**D is a real answer, not an incoherent one**, but it owes a fix for ENG-270 that this ticket has not
+found. Choosing it should say what that fix is, or accept that `Interop`, `Label`, `Foreign` and
+`Pipeline` stay uncallable from any module declaring one of their names.
+
+**ENG-270 is gated on this** and is unlabelled `ready-for-agent` until it is answered.
+
+---
+
+# Answer — David, 2026-08-31
+
+**Round 2's outcome A, both halves.** The recommendation in §6 stands as given.
+
+## Q2 — `import_shadows_local` fires at the call site
+
+*"Only where the name is used."* The compiler complains when a bare name genuinely has two
+meanings, not when an import merely *could* shadow one. So §2's one sentence now fires the same way
+in both of its halves — the asymmetry F15 built was an artefact, not the rule.
+
+Directly consequent, and the reason this was the gating question:
+
+- **`P9` becomes legal.** A module that declares `Sum/2` may `using Solo` and call
+  `Solo.Sum(...)` beside its own `Sum(...)`. Every B# program now has a spelling.
+- **`Interop`, `Label`, `Foreign` and `Pipeline` stop being unreachable** from any module declaring
+  one of their exported names.
+- **`P10`'s diagnostic stops recommending a form that cannot be followed** — calling the import only
+  in full is now sufficient, because that is exactly what the check tests.
+- **[ENG-270](https://linear.app/davewil/issue/ENG-270) is unblocked** and is the ticket that builds
+  this. It is no longer gated.
+
+## Q1 — no alias. B# has two import tiers, not three
+
+C#'s third tier does not exist in B#. The comparison ticket 41 set up — *"against a bare unqualified
+name, an alias is the form that says where the name came from"* — is real but does not carry a
+feature: the corpus has **four native `using` lines and not one wants a chosen name**, and a short
+name is already **derived** in both module shapes (`Solo.Sum(...)` is short; `using Shop.Collections`
+gives `List.Sum(...)`).
+
+**It resolves against a three-of-four survey and that is deliberate** (§4, §6). In C#, Elixir and
+TypeScript the alias is convenience layered over a qualification that always works. In B# the
+qualification was the broken thing — and Q2 fixes *that*, which is what the alias would have been
+papering over.
+
+**A property worth stating, because it is now a rule rather than an accident:** every key in either
+import table stays **derived** — `{Name, Arity}` from the callee's exports, the short name from
+`strip_prefix/2`. No author-chosen key enters either table. The unpriced cost §7 named is therefore
+not owed; it is refused.
+
+## What the four owed items ended at
+
+| | | |
+|---|---|---|
+| 1 | Does the alias exist? | **No.** |
+| 2 | Module, function, or both? | Moot. Had it existed it would have been a module only (§5). |
+| 3 | Interaction with the ambiguity rule? | **Dissolved by §1** — an alias is never the only spelling. |
+| 4 | Do the exemplars need it? | **No** — four `using` lines, none wanting a chosen name. |
+
+## What this owes, and what it does not
+
+**Owed — and it belongs to [ENG-270](https://linear.app/davewil/issue/ENG-270), not here.** The
+failing test and the gate come before the implementation. When the check moves, `47a` **will go red**
+on `P5`, `P9`, `P10` and `P11`, and that is the probe working as designed: its verdicts are pinned to
+today, so the fix must re-pin them and say so. `modules_tests.erl` still has no test for this shape,
+and [ENG-271](https://linear.app/davewil/issue/ENG-271) records that `ambiguous_module` has never
+been provoked by anything — which is how the two halves of one sentence came to fire at different
+points unnoticed.
+
+**Not owed.** `47c`'s grammar arm goes unused; it stays in the tree as the measurement of a road not
+taken, and as the standing answer to *"what would the alias have cost?"* — asked twice already, by
+ticket 41 and by round 1.
+
+**Not reopened.** §2's unqualified names and §5's namespace tier are untouched. This ticket changed
+*when* a shadow is reported, never *what* the import tiers mean.

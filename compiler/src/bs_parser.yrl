@@ -158,10 +158,16 @@ module_decl -> 'module' modpath : {module, line('$1'), modatom('$2')}.
 %% THE TICKET'S CLAIM IS HALF FALSE.
 %%
 %% Its literal delta was RIGHT-recursive — `modpath -> uident '.' modpath` — and
-%% that grammar builds with 2 shift/reduce conflicts and then MISPARSES the thing
+%% that grammar builds with shift/reduce conflicts and then MISPARSES the thing
 %% it exists for: `List.Map(x)` is `syntax error before: '('`, because the
 %% recursive arm greedily takes `List.Map` as the path and leaves no function
 %% name behind. Building is not parsing, which is why this had to be run.
+%%
+%% The count used to be written here as "2" and is not a fixed property of the
+%% defect: `47c_alias_grammar_conflicts.sh` rebuilds this exact grammar and
+%% measured 3 on 2026-08-31, the grammar having grown in between. The MISPARSE
+%% is the finding and it reproduces unchanged; the number was the part that
+%% could go stale, so it is now measured by the probe rather than asserted here.
 %%
 %% LEFT recursion is the fix and it is the whole fix. At `modpath '.' uident`
 %% with `(` ahead, yecc's shift preference takes the `(` — so the last segment
