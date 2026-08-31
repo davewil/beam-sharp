@@ -49,8 +49,22 @@
 # carries no tracker references, and the rule is load-bearing rather than tidy:
 # the clean-room handoff gives an implementer this document and no access to
 # Linear, so an issue id in the running text points at something they do not
-# have. `build-packet.py` strips every comment except `check:` blocks, so the
-# id is greppable here and absent there.
+# have. A comment satisfies both — greppable here, invisible in the rendered
+# document — and ticket citations have shipped that way since 2026-08-15.
+#
+# DO NOT REACH FOR `build-packet.py` AS THE REASON. The first version of this
+# header said the id never reaches a worker because that script "strips every
+# comment except `check:` blocks", and that is not what it does to a citation of
+# this shape: the substitution is `^<!--(?!\s*check:).*?-->\n`, ANCHORED AT LINE
+# START, and its own comment says why — "so an inline comment inside an example
+# is left alone". A citation sitting at the end of a bullet is exactly that, and
+# it would survive.
+#
+# What actually holds is narrower and worth stating: the audition packet is
+# assembled from LANGUAGE.md sections 2, 3 and 5, and section 19 is not among
+# them, so it is never assembled in the first place. The claim was true for the
+# wrong reason, which is the kind of true that stops being true when somebody
+# adds a section to the packet.
 #
 # WHAT IT DOES NOT CHECK, deliberately: whether the issue is OPEN. That would
 # make this gate depend on the network, and a gate that cannot run offline runs
