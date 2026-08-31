@@ -32,6 +32,7 @@ drift apart silently.
 ./bin/check-shell.sh                            # the gates are shellcheck-clean
 ./bin/check-map.sh                              # map.md is an index, not a store
 ./bin/check-surface.sh                          # syntax decisions are cited in LANGUAGE.md
+./bin/check-open-questions.sh                   # every open question in the spec names an issue
 ./bin/check-links.sh                            # the package points only at things it ships
 
 # --- build: escriptize BEFORE eunit, several tests drive bsc --------------
@@ -86,13 +87,16 @@ sees it, because a fresh checkout has no `C.beam`. The gate now prints the boot 
 `__erl_failed__`, but **the detritus is still worth deleting**: `rm -f compiler/C.beam` before a
 sweep, and note that `.gitignore` hides it so `git status` stays clean.
 
-**TWENTY-EIGHT `check-*` gate scripts — `check-recursive-types.sh` added 2026-08-30 by F28 /
-ENG-260, and this line was wrong for the length of that session in precisely the way it warns
-about below.** The gate was added to the script, `ci.yml`, `verify.sh` and the list above —
-`check-gates-wired.sh` insisted on all four and named the one that was missing — and then this
-count, a fifth surface no gate reads, went stale anyway. Counted rather than incremented:
-`ls bin/check-*.sh compiler/bin/check-*.sh editor/bin/check-*.sh | wc -l` is 28 (9 + 17 + 2).
-Previously TWENTY-SEVEN: `check-collapse.sh` added 2026-08-28 by F31 /
+**TWENTY-NINE `check-*` gate scripts — `check-open-questions.sh` added 2026-08-31, which is the
+first gate here that reads neither the compiler nor a claim about it.** It asks whether an open
+question in `LANGUAGE.md` §19 names a Linear issue; five of six did not, and Linear owns state, so
+those five had no owner and no age and no place in the frontier query. Counted rather than
+incremented, which is this paragraph's own rule:
+`ls bin/check-*.sh compiler/bin/check-*.sh editor/bin/check-*.sh | wc -l` is 29 (10 + 17 + 2).
+Previously TWENTY-EIGHT: `check-recursive-types.sh` added 2026-08-30 by F28 /
+ENG-260, and that line was wrong for the length of its session in precisely the way it warns
+about below — the gate reached the script, `ci.yml`, `verify.sh` and the list above, and then this
+count, a fifth surface no gate reads, went stale anyway. Previously TWENTY-SEVEN: `check-collapse.sh` added 2026-08-28 by F31 /
 ENG-272. Previously TWENTY-SIX: `check-residual-pasteable.sh` added 2026-08-27 by
 ENG-263, and `check-switch-diagnostics.sh` added 2026-08-27 by ENG-248. This line read
 TWENTY-FOUR until 2026-08-27 and was wrong by one for most of that day: ENG-248 added its

@@ -1756,14 +1756,14 @@ the parser accepts back exactly what the printer emits. **shipped**
 
 ## 19. Open questions
 
-- The language's **name**.
+- The language's **name**. <!-- tracked by ENG-280 -->
 - ~~**Module and namespace system**~~ — **built**. What remains open is only whether `using` gains
-  an **alias** (`using Orders = Shop.Orders`).
-- **Stdlib shape** — what is in the prelude versus a module you import.
-- **`cond`**, or whatever serves a long ladder of unrelated conditions.
-- **Laziness** and `stream<T>` — deferred, not refused.
+  an **alias** (`using Orders = Shop.Orders`). <!-- tracked by ENG-219 -->
+- **Stdlib shape** — what is in the prelude versus a module you import. <!-- tracked by ENG-281 -->
+- **`cond`**, or whatever serves a long ladder of unrelated conditions. <!-- tracked by ENG-282 -->
+- **Laziness** and `stream<T>` — deferred, not refused. <!-- tracked by ENG-283 -->
 - **Bootstrapping** — how much of B# is written in B#. The front end likely stays Erlang, as
-  Elixir's did; the OTP layer is the valuable target.
+  Elixir's did; the OTP layer is the valuable target. <!-- tracked by ENG-284 -->
 
 ---
 

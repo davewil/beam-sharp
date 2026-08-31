@@ -222,6 +222,7 @@ run_stages \
      ./bin/check-shell.sh --self-test &&
      ./bin/check-map.sh --self-test &&
      ./bin/check-surface.sh --self-test &&
+     ./bin/check-open-questions.sh --self-test &&
      ./bin/check-links.sh --self-test &&
      ./bin/check-toolchain.sh --self-test &&
      ./bin/verify.sh --self-test &&
@@ -245,6 +246,9 @@ run_stages \
 \
   "Surface decisions are traceable from LANGUAGE.md" \
     "./bin/check-surface.sh" \
+\
+  "Every open question in the spec names an issue" \
+    "./bin/check-open-questions.sh" \
 \
   "The package points only at things it ships" \
     "./bin/check-links.sh" \

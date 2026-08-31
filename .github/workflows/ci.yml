@@ -76,6 +76,7 @@ jobs:
           ./compiler/bin/check-no-silent-skip.sh --self-test
           ./bin/check-map.sh --self-test
           ./bin/check-surface.sh --self-test
+          ./bin/check-open-questions.sh --self-test
           ./bin/check-links.sh --self-test
           ./bin/check-toolchain.sh --self-test
           ./bin/verify.sh --self-test
@@ -119,6 +120,18 @@ jobs:
 
       - name: Surface decisions are traceable from LANGUAGE.md
         run: ./bin/check-surface.sh
+
+      # `check-open-questions.sh` is the same idea one layer out. The two gates
+      # above ask whether a DECISION reached the documents. This one asks
+      # whether an UNDECIDED question reached the tracker, which nothing did:
+      # on the day it was written, five of the six questions in LANGUAGE.md
+      # section 19 had no Linear issue anywhere in team ENG. Linear owns state
+      # in this project, so those five had no owner and no age, and the
+      # frontier query could not see them. Measured cost: five questions that
+      # surfaced 9 to 14 days late, every one found by something walking into
+      # it rather than by any of the 28 gates that came before this one.
+      - name: Every open question in the spec names an issue
+        run: ./bin/check-open-questions.sh
 
       # `check-links.sh` closes the gap the two above still leave open. They both
       # check that a DECISION is reflected in the documents; neither checks that
