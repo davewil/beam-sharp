@@ -23,7 +23,7 @@
 # `tree-sitter/tree-sitter` release, CI takes the npm package `tree-sitter-cli`,
 # and both publish the same version number.
 #
-# ONE REQUIRED TOOL HAS NO LINE BELOW, AND IS NAMED HERE ANYWAY: python3.
+# TWO REQUIRED TOOLS HAVE NO LINE BELOW, AND ARE NAMED HERE ANYWAY: python3 and mise.
 #
 # `compiler/bin/check-switch-diagnostics.sh` shells to
 # `handoff/audition-switch/build-packet.py --check`, which asks whether the
@@ -50,6 +50,20 @@
 #
 # `bin/check-toolchain.sh --env` checks that it is PRESENT, and says so before
 # anything compiles. A missing python3 is not something `mise install` can fix.
+#
+# AND MISE ITSELF, REQUIRED SINCE 2026-09-01. It was optional until then: the
+# README told a reader to install these four however they liked. `--env` now
+# also checks that each tool resolves on PATH to a binary mise owns, because a
+# version string cannot see provenance — an unmanaged copy holding the pinned
+# number passes every version comparison in that file while the build runs on a
+# toolchain nothing here installed. That check cannot be stated without a
+# manager to ask, so the manager became a requirement rather than a suggestion.
+#
+# It carries no version line for a different reason than python3's. mise does
+# not decide what gets installed — this file does — so its own version does not
+# change the artefacts. Pinning it would also need something to install mise at
+# a pinned version, and that bootstrap has to stop somewhere. CI pins it anyway,
+# by the action's commit SHA, because that is free there.
 
 erlang 28.5
 rebar 3.27.0

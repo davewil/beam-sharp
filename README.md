@@ -54,23 +54,28 @@ that same file through `jdx/mise-action` and repeats none of the four strings;
 copied back beside the manifest, because that is a second source of truth with nothing reconciling
 it against the first.
 
-**One further tool is required and deliberately carries no version line: `python3`.**
+**Two further tools are required and deliberately carry no version line: `python3` and `mise`.**
 `compiler/bin/check-switch-diagnostics.sh` shells to it to rebuild the audition packet and check
 that the committed `PACKET.md` still matches `LANGUAGE.md`, so it is a hard dependency of a gate
 that runs in CI. Any python3 will do — the scripts import nothing outside the standard library —
 and `.tool-versions` records why it is not pinned.
 
-If you get the toolchain some other way, `./bin/check-toolchain.sh --env` will tell you exactly
-which tool is at the wrong version or missing, before anything compiles.
+`./bin/check-toolchain.sh --env` names exactly which tool is at the wrong version, missing, or
+resolving to a copy mise does not own — before anything compiles.
 
 **Supported surfaces: macOS and Linux.** Both are exercised — macOS locally, Ubuntu on every push
 in CI, and CI runs the same `./bin/verify.sh` a clean clone runs rather than a parallel recipe.
 Windows is not supported: every gate is a bash script and none has been run there. Nothing in the
 compiler is known to depend on the platform, so the gap is in the gates rather than in `bsc`.
 
-Without mise, install those four versions however you prefer — plus any `python3` — and run the
-same check. The Tree-sitter CLI is also on npm at the same version number:
-`npm install -g tree-sitter-cli@0.25.10`.
+**mise is required, as of 2026-09-01.** It was optional until then, and this paragraph used to say
+so. `--env` now also checks that each pinned tool resolves *on PATH* to a binary mise owns, not
+merely to one reporting the right number — because a version string cannot see provenance, and an
+unmanaged copy holding the pinned version satisfies every other check here while the build runs on
+a toolchain nothing in this repository installed. A hand-installed OTP therefore fails that check
+by construction. The Tree-sitter CLI is on npm at the same version number
+(`npm install -g tree-sitter-cli@0.25.10`), and installing it that way now leaves the gate red for
+the same reason.
 
 ## Verifying
 

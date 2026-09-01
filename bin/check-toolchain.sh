@@ -45,8 +45,18 @@
 #   4. `--env`: the versions actually INSTALLED match the manifest, so a
 #      mismatch is a clear failure BEFORE anything compiles rather than a
 #      confusing one after. This is the one check one installer reading one
-#      manifest does NOT make redundant: a tool that failed to install, or a
-#      system copy earlier on PATH, both leave the manifest looking satisfied.
+#      manifest does NOT make redundant: a system copy earlier on PATH leaves
+#      the manifest looking perfectly satisfied.
+#
+#      CORRECTED 2026-09-01. This paragraph also claimed it catches "a tool that
+#      failed to install". Measured: mise INSTALLS a pinned version on demand the
+#      first time a shim is invoked, so on a machine using the manager that state
+#      mostly cannot persist and this check was never really its catcher. The
+#      shadowing half is the real one, and it is why check 6 below exists.
+#   6. `--env`: every pinned tool resolves ON PATH to a binary the manager owns.
+#      Checks 1-5 compare version STRINGS, and a version string cannot see
+#      provenance: an unmanaged copy holding the pinned number satisfies all of
+#      them while the build runs on a toolchain nothing here installed.
 #   5. `--env` also checks that every tool this repository requires but does NOT
 #      pin is present. There is exactly one: `python3`, which
 #      `compiler/bin/check-switch-diagnostics.sh` shells to. Checks 1-4 are all
@@ -109,6 +119,66 @@ ci_declared() {
     tr '\n' ',' | sed -e 's/,$//' -e 's/,/ and /g'
 }
 
+# A VERSION THAT MATCHES IS NOT A TOOLCHAIN THAT MATCHES.
+#
+# `env_drift` below compares version strings, and a version string cannot see
+# provenance. If Homebrew's `erl` were also 28.5, every check in this file would
+# be green while the build ran on a toolchain nothing here installed — built
+# with different flags, updated on somebody else's schedule, and drifting the
+# moment either side moved. Measured 2026-09-01 in a shell whose PATH predated
+# the shims: `erl` and `rebar3` came from Homebrew, `node` from ~/.local/bin and
+# `tree-sitter` from a Neovim plugin directory. Four tools, three different
+# unmanaged sources, and a version comparison would have cleared any of them
+# that happened to hold the right number.
+#
+# So the rule is about WHERE the binary lives, not what it reports. `mise which`
+# names the file the manager resolves; everything the manager owns sits under
+# the data directory that path exposes, whether reached through a shim or
+# directly. A binary on PATH from anywhere else is the manager being bypassed.
+#
+# Judged on paths alone, and the self-test drives it on fabricated ones. A
+# control that asked the real mise would report whatever this machine happens to
+# have, which is the accident the unpinned-tool controls already name.
+under_managed_root() {   # $1 = what PATH resolves, $2 = what `mise which` resolves
+  local root="${2%%/installs/*}"
+  # No `/installs/` segment means this is not a path the manager laid down, so
+  # the root cannot be derived and nothing can be judged. Exit 2 and say so:
+  # returning agreement here would clear every machine whose manager moved its
+  # data directory.
+  [ "$root" != "$2" ] || return 2
+  case "$1" in
+    "$root"/*) return 0 ;;   # a shim, or the install dir `mise exec` puts on PATH
+    *)         return 1 ;;   # anywhere else: the manager is being bypassed
+  esac
+}
+
+# WHERE `erl` IS PROBED FROM, AND WHY IT IS NOT A SYSTEM TEMP DIRECTORY.
+# Two constraints pull in opposite directions.
+#
+#   NOT the repository root. A stray `C.beam` there shadows stdlib's `c` and
+#   kills the boot with `{undef,[{c,erlangrc,...}]}`. This repository's own
+#   algebra probes leave exactly that detritus, `*.beam` is gitignored so it is
+#   invisible to `git status`, and it has already made one gate lie.
+#
+#   INSIDE the repository all the same. A directory-scoped version manager
+#   resolves `.tool-versions` by walking UP from the working directory. Probed
+#   from `mktemp -d` there is no manifest anywhere above it, so a shim falls
+#   through to whatever is next on PATH. Measured 2026-09-01 with mise shims on
+#   PATH: probed from a system temp dir this gate reported Homebrew's 29.0.5
+#   while every build in this tree used the pinned 28.5 — the gate naming a
+#   version no build here would ever use, which is worse than the mismatch it
+#   exists to report, because it is a false one.
+#
+# A fresh directory strictly inside the root satisfies both: empty by
+# construction, and with the manifest above it.
+probe_dir_ok() {   # $1 = candidate directory, $2 = repository root
+  case "$1" in
+    "$2")    return 1 ;;   # the root itself: the detritus lives here
+    "$2"/?*) return 0 ;;   # strictly inside: empty, and the manifest is above it
+    *)       return 1 ;;   # anywhere else: nothing above it to resolve from
+  esac
+}
+
 # What the machine running this actually has. Same closed-table rule: an unknown
 # tool exits 2 rather than reporting nothing.
 #
@@ -121,7 +191,11 @@ installed_version() {
   case "$tool" in
     erlang)
       command -v erl >/dev/null 2>&1 || return 1
-      scratch="$(mktemp -d)"
+      scratch="$(mktemp -d "$ROOT/.toolchain-probe.XXXXXX")" || return 4
+      # Belt and braces: the rule the self-test pins, asserted on the directory
+      # actually built. A construction that stops satisfying it fails loudly
+      # here rather than quietly measuring the wrong erl.
+      probe_dir_ok "$scratch" "$ROOT" || { rm -rf "$scratch"; return 4; }
       root="$(cd "$scratch" && erl -noshell -eval 'io:format("~s",[code:root_dir()]),halt().' 2>/dev/null)" || {
         rm -rf "$scratch"; return 1
       }
@@ -282,6 +356,69 @@ EOF
 }
 
 
+# Which binary each manifest NAME provides. The manifest speaks in mise's
+# vocabulary — `rebar` is the tool, `rebar3` is the command — so the two cannot
+# be assumed equal. Closed table, and an unknown name exits 2 rather than being
+# skipped, because a skip reads as agreement.
+tool_command() {
+  case "$1" in
+    erlang)      echo erl ;;
+    rebar)       echo rebar3 ;;
+    node)        echo node ;;
+    tree-sitter) echo tree-sitter ;;
+    *)           return 2 ;;
+  esac
+}
+
+# Every pinned tool must resolve, on PATH, to a binary the manager owns.
+path_bypass() {
+  local manifest="$1" tool want cmd wh onpath rc checked=0 managed=0
+  # mise absent is not silence here. The count goes out at zero and the count
+  # rule turns that red, which is the same floor every other check in this file
+  # stands on; `required_unpinned` names the tool itself.
+  if ! command -v mise >/dev/null 2>&1; then
+    printf 'count 0 0\n'
+    return 0
+  fi
+  while read -r tool want; do
+    [ -n "$tool" ] || continue
+    if ! cmd="$(tool_command "$tool")"; then
+      printf '%s: this gate does not know which binary that manifest name provides\n' "$tool"
+      continue
+    fi
+    checked=$((checked + 1))
+    if ! onpath="$(command -v "$cmd" 2>/dev/null)"; then
+      printf '%s: `%s` is on no PATH entry at all\n' "$tool" "$cmd"
+      continue
+    fi
+    if ! wh="$(cd "$ROOT" && mise which "$cmd" 2>/dev/null)" || [ -z "$wh" ]; then
+      printf '%s: mise resolves no `%s` for this project, so the manifest is not\n' "$tool" "$cmd"
+      printf '           installed even though something of that name is on PATH\n'
+      continue
+    fi
+    set +e
+    under_managed_root "$onpath" "$wh"
+    rc=$?
+    set -e
+    if [ "$rc" -eq 2 ]; then
+      printf '%s: mise resolves %s, which has no recognisable managed root, so\n' "$tool" "$wh"
+      printf '           provenance could not be judged either way\n'
+      continue
+    fi
+    if [ "$rc" -ne 0 ]; then
+      printf '%s: `%s` on PATH is %s,\n' "$tool" "$cmd" "$onpath"
+      printf '           which mise does not own. It resolves %s.\n' "$wh"
+      printf '           The VERSION may well match — provenance is what differs, and a\n'
+      printf '           version comparison cannot see it.\n'
+      continue
+    fi
+    managed=$((managed + 1))
+  done <<EOF
+$(grep -vE '^[[:space:]]*#|^[[:space:]]*$' "$manifest")
+EOF
+  printf 'count %d %d\n' "$checked" "$managed"
+}
+
 env_drift() {
   local manifest="$1"
   local tool want got rc pinned=0 compared=0
@@ -299,6 +436,12 @@ env_drift() {
       printf '%s %s: this gate does not know how to ask that tool its version\n' "$tool" "$want"
       continue
     fi
+    if [ "$rc" -eq 4 ]; then
+      printf '%s %s: no probe directory could be made inside the repository, so the\n' "$tool" "$want"
+      printf '           version was not read at all. This is not a missing toolchain\n'
+      printf '           either — check the root is writable.\n'
+      continue
+    fi
     if [ "$rc" -eq 3 ]; then
       printf '%s %s: the tool is installed and its exact version could not be read.\n' "$tool" "$want"
       printf '           This is not a missing toolchain — do not go looking for one.\n'
@@ -309,7 +452,7 @@ env_drift() {
       continue
     fi
     if [ "$got" != "$want" ]; then
-      printf '%s: the manifest pins %s, this machine has %s\n' "$tool" "$want" "$got"
+      printf '%s: the manifest pins %s, this checkout resolves %s\n' "$tool" "$want" "$got"
     fi
     compared=$((compared + 1))
   done <<EOF
@@ -388,7 +531,7 @@ findings() {
 # ---------------------------------------------------------------------------
 # --self-test
 #
-# NINE CONTROLS, AND THE FIRST TWO ARE THE ONES THAT EARN THIS GATE.
+# SIXTEEN CONTROLS, AND THE FIRST TWO ARE THE ONES THAT EARN THIS GATE.
 #
 # MAJOR-ONLY is the plausible implementation, not a silly one: a gate that
 # compares `28` against a pinned `28.5` and calls it agreement passes the tree
@@ -416,6 +559,17 @@ findings() {
 # accident that hid this dependency in the first place. EMPTY-UNPINNED is the
 # vacuity half again: drop the argument from the call and the check must go red
 # rather than pass over a list of nothing.
+#
+# THE LAST THREE ARE THE PROBE DIRECTORY, added 2026-09-01. They are fabricated
+# paths and no `erl` runs in them, for the reason the unpinned controls give
+# above: a control that asked the real version manager would report whatever
+# this machine happens to have. OUTSIDE is the defect that prompted them — a
+# system temp dir has no `.tool-versions` above it, so a shim resolves to
+# whatever is next on PATH and the gate reports a version no build here uses.
+# ROOT is the older defect pulling the other way, the `C.beam` that has already
+# made one gate lie. INSIDE is the discrimination half: both constraints are
+# satisfiable at once, and a rule that refused every directory would satisfy
+# the first two perfectly while leaving the gate unable to measure anything.
 # ---------------------------------------------------------------------------
 if [ "${1:-}" = "--self-test" ]; then
   CTL="$(mktemp -d)"
@@ -612,13 +766,83 @@ YML
     fail=1
   fi
 
+  # THE PROBE DIRECTORY — three controls over FABRICATED paths. No `erl` runs
+  # and no version manager is consulted, for the reason the unpinned-tool
+  # controls above give: a control that asked the real mise would report
+  # whatever this machine happens to have, and would be green everywhere
+  # without once being a measurement.
+  if probe_dir_ok "/tmp/tmp.XXXX" "/repo"; then
+    echo "SELF-TEST FAILED: a probe directory OUTSIDE the repository was accepted. A"
+    echo "                  directory-scoped version manager resolves .tool-versions by"
+    echo "                  walking UP from the working directory, so probed from a"
+    echo "                  system temp dir a shim falls through to the next thing on"
+    echo "                  PATH and this gate reports a version no build here uses."
+    fail=1
+  fi
+  if probe_dir_ok "/repo" "/repo"; then
+    echo "SELF-TEST FAILED: the repository ROOT was accepted as a probe directory. A"
+    echo "                  stray C.beam there shadows stdlib's \`c\` and kills the boot,"
+    echo "                  and this repository's own algebra probes leave exactly that."
+    fail=1
+  fi
+  if ! probe_dir_ok "/repo/.toolchain-probe.a1b2c3" "/repo"; then
+    echo "SELF-TEST FAILED: a fresh directory strictly inside the repository was"
+    echo "                  refused. Both constraints are satisfiable at once and this"
+    echo "                  check must not fire on the form that satisfies them."
+    fail=1
+  fi
+
+  # THE MANAGED ROOT — four controls on fabricated paths, no mise consulted.
+  # BYPASS is the defect: a binary on PATH that the manager does not own. It is
+  # stated without a version anywhere in it on purpose, because the case that
+  # matters most is the one where the versions AGREE and only the provenance
+  # differs. SHIM and DIRECT are the two shapes a correct answer takes — through
+  # a shim, and through the install directory that `mise exec` puts on PATH —
+  # and a rule that refused either would satisfy BYPASS perfectly while calling
+  # every correct machine broken. MALFORMED is the vacuity half: handed a path
+  # with no recognisable managed root, the rule must say it cannot judge rather
+  # than quietly return agreement.
+  if under_managed_root "/opt/homebrew/bin/erl" "/home/u/.local/share/mise/installs/erlang/28.5/bin/erl"; then
+    echo "SELF-TEST FAILED: a binary the manager does not own was accepted. A version"
+    echo "                  comparison cannot see this: if the unmanaged copy happened"
+    echo "                  to hold the pinned version every other check here would be"
+    echo "                  green while the build ran on a toolchain nothing installed."
+    fail=1
+  fi
+  if ! under_managed_root "/home/u/.local/share/mise/shims/erl" "/home/u/.local/share/mise/installs/erlang/28.5/bin/erl"; then
+    echo "SELF-TEST FAILED: a shim was reported as a bypass. That is the ordinary"
+    echo "                  correct answer on a machine using this manager, so the"
+    echo "                  rule fires on everything and is worth nothing."
+    fail=1
+  fi
+  if ! under_managed_root "/home/u/.local/share/mise/installs/erlang/28.5/bin/erl" "/home/u/.local/share/mise/installs/erlang/28.5/bin/erl"; then
+    echo "SELF-TEST FAILED: the install path itself was reported as a bypass. That is"
+    echo "                  what \`mise exec\` puts on PATH, which is how CI runs."
+    fail=1
+  fi
+  set +e
+  under_managed_root "/opt/homebrew/bin/erl" "/somewhere/with/no/managed/root/erl"
+  umr_rc=$?
+  set -e
+  if [ "$umr_rc" -ne 2 ]; then
+    echo "SELF-TEST FAILED: a resolved path with no recognisable managed root did not"
+    echo "                  report that it cannot be judged. Silently returning"
+    echo "                  agreement there is the same vacuity this file refuses for"
+    echo "                  a manifest that pins nothing."
+    fail=1
+  fi
+
   if [ "$fail" -eq 0 ]; then
     echo "self-test: caught the version literal re-introduced beside the manifest, the"
     echo "           workflow that installs nothing at all, the tool outside the table,"
     echo "           the manifest pinning nothing, the action on a mutable tag, the"
     echo "           job on a floating runner image and the required tool absent from"
-    echo "           PATH — and left the fixture that installs from the manifest, names"
-    echo "           no version and pins everything, and a tool that is present, alone"
+    echo "           PATH, the probe directory outside the repository and the one at"
+    echo "           its root, and the binary on PATH that the manager does not own"
+    echo "           — and left the fixture that installs from the manifest,"
+    echo "           names no version and pins everything, a tool that is present, and"
+    echo "           a probe directory strictly inside the root, and a binary the"
+    echo "           manager owns reached both ways, alone"
     exit 0
   fi
   exit 1
@@ -673,12 +897,15 @@ $(count_violation "$r_out" 'the workflow runs-on: lines')"
 
   --env)
     e_out="$(env_drift "$MANIFEST")"
-    u_out="$(required_unpinned python3)"
+    u_out="$(required_unpinned python3 mise)"
+    b_out="$(path_bypass "$MANIFEST")"
 
     problems="$(findings "$e_out")
 $(count_violation "$e_out" 'the manifest against this machine')
 $(findings "$u_out")
-$(count_violation "$u_out" 'the required tools that carry no version')"
+$(count_violation "$u_out" 'the required tools that carry no version')
+$(findings "$b_out")
+$(count_violation "$b_out" 'the pinned tools against what PATH resolves')"
 
     if [ -n "$(printf '%s\n' "$problems" | grep -v '^$' || true)" ]; then
       printf '%s\n' "$problems" | grep -v '^$'
@@ -699,7 +926,9 @@ $(count_violation "$u_out" 'the required tools that carry no version')"
       printf '%s\n' "$e_out" | grep '^count ' |
         awk '{printf "all %d pinned tools are installed here at exactly the pinned version\n", $3}'
       printf '%s\n' "$u_out" | grep '^count ' |
-        awk '{printf "and the %d required tool that carries no version line is present\n", $2}'
+        awk '{printf "and the %d required tools that carry no version line are present\n", $2}'
+      printf '%s\n' "$b_out" | grep '^count ' |
+        awk '{printf "and all %d resolve on PATH to a binary mise owns\n", $3}'
     fi
     ;;
 

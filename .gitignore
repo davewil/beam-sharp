@@ -37,3 +37,9 @@ compiler/*.beam
 compiler/src/bs_lexer.erl
 compiler/src/bs_parser.erl
 manifest.run.json
+
+# `check-toolchain.sh` probes `erl` from a fresh directory it makes here, because
+# the version manager resolves .tool-versions by walking up and a system temp dir
+# has nothing above it. Removed on every path out of that function; this line is
+# for the run that is killed between the mktemp and the rm.
+.toolchain-probe.*
