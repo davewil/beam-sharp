@@ -45,6 +45,11 @@ Start every session by reading `wayfinder/map.md` — it is the low-resolution v
 whole effort, and since 2026-08-15 it is **only** that: ~280 lines of destination, working notes
 and a tagged index. Do not read every ticket; zoom in on demand.
 
+**To choose what to work on, run `/frontier`** (`.claude/skills/frontier/`). It ranks the open
+work by claim, blocking, priority, the `quick-fix` and `ready-for-agent` labels, and the
+build-before-decide rule, then claims the pick in both trackers and routes it to `/implement` or
+`/wayfinder`. The ranking exists because sorting by age picked wrong three times.
+
 **Zooming in has two steps now.** Each index entry carries its ticket number and topic tags, so
 grep the map first (`grep -n 'records' wayfinder/map.md`), then grep the body file the entry names
 (`grep -n 'Data modelling' wayfinder/decisions.md`), and only then open the ticket in `issues/`.
