@@ -21,7 +21,7 @@ will not.
 | Gate suite | 37/37, twice from clean | 562 eunit tests green both runs. CI green on the last three pushes to master |
 | REPL (`ibs`) | complete for its scope | Call-and-bind prompt over one module, 22 tests. One stale transcript (`ENG-286`); `:reload` never tested for its purpose (`ENG-288`) |
 | LSP / completion | none | Highlighting only. No server, none started. Two of four compiler prerequisites built |
-| Clean-room handoff | gate green, 13 gaps | Package builds and self-checks. Its README names files it does not ship (`ENG-289`); the audition cannot be re-run from the repo alone (`ENG-301`) |
+| Clean-room handoff | gate green, 13 gaps | Package builds and self-checks. Its README names files it does not ship (`ENG-289`); the audition's orchestrator contract is unwritten (`ENG-301`) |
 
 ## 1. What the compiler is today
 
@@ -229,8 +229,8 @@ criterion is open on exactly this.
 | package | The shipped README tells the recipient to run `mise install` and `./bin/verify.sh`; neither `.tool-versions` nor `bin/` ships. The gate inspects markdown links only | artifact `README.md:46-47`; `check-handoff-package.sh:94, 148-168` | `ENG-289` |
 | package | The Layout block names `bin/`, `editor/`, `handoff/` without a "not shipped" mark | artifact `README.md:157-162` | `ENG-289` |
 | package | A recipient without mise learns nothing: stage 1 requires mise-owned binaries and the runner stops at the first red | `README.md:71-72`; `verify.sh:57-63` | a decision, recorded on `ENG-244`, not a child |
-| audition | `ringer.py` exists nowhere in the repo or on PATH | audition `README.md:125-126` | `ENG-301` |
-| audition | three of five lanes need a hand-edited `~/.config/ringer/config.toml` | `ENGINES.md:77-80` | `ENG-301` |
+| audition | the orchestrator contract is stated nowhere runner-independently; the README gives `ringer.py` as the only recipe. *Corrected 2026-09-01 23:07: this row first said the runner was missing. David: "ringer.py is not necessarily a pre-requisite, it was an example of what might be used to orchestrate the build of the clean-room handoff, other implementors might choose a different path."* | audition `README.md:125-126`; `stage.sh:11-16`; `run.sh:8-25` | `ENG-301` |
+| audition | `ENGINES.md`'s manual paste is that example orchestrator's configuration, presented as a step in the recipe | `ENGINES.md:77-80` | `ENG-301` |
 | audition | `manifest.json` hardcodes this checkout's absolute path five times | `manifest.json:11,24,37,50,63` | `ENG-300` |
 | audition | the scores predate the packet | audition `README.md:67-70` | `ENG-248` |
 | evidence | no round directory has a summary | `evidence/` | `ENG-302` |
@@ -256,7 +256,7 @@ them, then the frontier that was already filed.
 | | frontier | `ENG-270` (High, ready-for-agent), `ENG-279` (F30, David's read), `ENG-249`, `ENG-273` |
 | `ENG-205` LSP | prerequisites, in order | `ENG-297` → `ENG-298` → `ENG-299` → `ENG-305` |
 | `ENG-244` handoff | quick fixes | `ENG-289`, `ENG-290`, `ENG-304` |
-| | then | `ENG-300`, `ENG-302`, `ENG-303`, `ENG-301` (ready-for-human) |
+| | then | `ENG-300`, `ENG-302`, `ENG-303`, `ENG-301` (write the orchestrator contract once, runner-independently) |
 | | unchanged | `ENG-248` (fresh engine run; `c09`–`c11` need no engine), `ENG-229` (rate only), `ENG-263` (two build items) |
 
 ## 8. Claim → source
