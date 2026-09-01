@@ -230,6 +230,12 @@ jobs:
         working-directory: compiler
         run: rebar3 escriptize
 
+      - name: The README REPL transcript gate proves it can fail
+        run: ./compiler/bin/check-readme.sh --self-test
+
+      - name: README bindings replay in the public REPL
+        run: ./compiler/bin/check-readme.sh
+
       # THE PACKAGE THAT SHIPS MUST STAND ALONE, WHICH IS NOT WHAT
       # `check-links.sh` ABOVE ASKS.
       #

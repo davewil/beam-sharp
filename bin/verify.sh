@@ -256,6 +256,9 @@ run_stages \
   "Build the escript" \
     "cd compiler && rebar3 escriptize" \
 \
+  "README bindings replay in the public REPL" \
+    "./compiler/bin/check-readme.sh --self-test && ./compiler/bin/check-readme.sh" \
+\
   "The handoff package is assembled, self-contained and reproducible" \
     "./bin/build-handoff.sh --self-test &&
      ./bin/check-handoff-package.sh --self-test &&

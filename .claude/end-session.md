@@ -38,6 +38,7 @@ drift apart silently.
 # --- build: escriptize BEFORE eunit, several tests drive bsc --------------
 cd compiler && rebar3 escriptize
 cd compiler && rebar3 eunit
+cd compiler && ./bin/check-readme.sh             # README bindings replay in bsc --repl
 
 # --- the handoff package (needs bsc: its last check compiles the artifact) -
 ./bin/build-handoff.sh --self-test              # the assembly transform discriminates
@@ -87,12 +88,14 @@ sees it, because a fresh checkout has no `C.beam`. The gate now prints the boot 
 `__erl_failed__`, but **the detritus is still worth deleting**: `rm -f compiler/C.beam` before a
 sweep, and note that `.gitignore` hides it so `git status` stays clean.
 
-**TWENTY-NINE `check-*` gate scripts — `check-open-questions.sh` added 2026-08-31, which is the
+**THIRTY `check-*` gate scripts — `check-readme.sh` added 2026-09-02 for ENG-286, so the
+compiler README's binding transcript is replayed through the public REPL. Previously TWENTY-NINE:
+`check-open-questions.sh` added 2026-08-31, which is the
 first gate here that reads neither the compiler nor a claim about it.** It asks whether an open
 question in `LANGUAGE.md` §19 names a Linear issue; five of six did not, and Linear owns state, so
 those five had no owner and no age and no place in the frontier query. Counted rather than
 incremented, which is this paragraph's own rule:
-`ls bin/check-*.sh compiler/bin/check-*.sh editor/bin/check-*.sh | wc -l` is 29 (10 + 17 + 2).
+`ls bin/check-*.sh compiler/bin/check-*.sh editor/bin/check-*.sh | wc -l` is 30 (10 + 18 + 2).
 Previously TWENTY-EIGHT: `check-recursive-types.sh` added 2026-08-30 by F28 /
 ENG-260, and that line was wrong for the length of its session in precisely the way it warns
 about below — the gate reached the script, `ci.yml`, `verify.sh` and the list above, and then this

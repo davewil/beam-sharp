@@ -124,9 +124,9 @@ expressions. A wider prompt waits on the surface growing an expression parser.
 ticket 34 put bindings in a *body*; keeping one across prompts is what stops you retyping a value:
 
 ```
-bs> t = 9
-bs> o = {Kind = :'Shop.Order', Id = 1, Total = 41}
-bs> n = Bump(o)
+bs> var t = 9
+bs> var o = {Kind = :'Shop.Order', Id = 1, Total = 41}
+bs> var n = Bump(o)
 n = {Kind = :'Shop.Order', Id = 1, Total = 42}
 bs> Squared({Kind = :'Shop.Order', Id = 1, Total = t})
 81
