@@ -66,6 +66,29 @@
 # is invisible in rendered Markdown and, unlike the `check:` preambles, carries
 # nothing the example needs in order to compile.
 #
+# THE FOURTH CLAIM: WHAT THE COMPILER SAYS AFTER A NAMED EDIT (ENG-263)
+#
+#   <!-- expect-after: delete Classify(>= 9); delete Classify(0) -->
+#   ```csharp
+#   ...a block that compiles as written...
+#   ```
+#   ```
+#   error: Classify is not exhaustive
+#     no clause matches:
+#   ...
+#   ```
+#
+# The block compiles as written, like any untagged block. Then the named edits
+# are applied to a copy and the compiler's output — minus the location prefix,
+# since the block's file name is this script's — must equal the plain fence
+# that follows. Until this existed the reference could show a residual only as
+# prose or a comment, and two of its three residual displays had drifted: a
+# bound the printer does not produce, and a line number from a file that does
+# not exist. `delete <prefix>` and `replace <prefix> with <text>`, joined with
+# `;`, each naming exactly one line — the same vocabulary `check-tour.sh` reads
+# above its transcripts. `build-packet.py` strips the comment, so a worker sees
+# the example and its answer as the spec has always shown them.
+#
 # GIVING A BLOCK ITS CONTEXT
 # Most blocks are excerpts and do not declare the types they mention. An HTML
 # comment immediately before the fence supplies the missing declarations. It is
@@ -284,6 +307,62 @@ if [ "${1:-}" = "--self-test" ]; then
         st_fail=1
     fi
 
+    # ------------------------------------------------------------------
+    # CONTROLS 8-11 — the `expect-after` claim (ENG-263, 2026-09-02).
+    #
+    # A block that compiles and then, after a named edit, prints the fence
+    # below it. The first control is the defect this was built from: §3 showed
+    # `n <= 0` for a residual the compiler prints as `n <= -1`, and a line
+    # number from a file that does not exist, for eighteen days.
+    # ------------------------------------------------------------------
+    after_block() {  # after_block FILE DIRECTIVE EXPECTED-THIRD-LINE
+        {
+            printf '\n<!-- expect-after: %s -->\n' "$2"
+            printf '```csharp\n'
+            printf 'module After%s\n' "$4"
+            printf 'type Colour = :red | :amber | :green\n\n'
+            printf 'public atom Go(Colour c)\n\n'
+            printf 'Go(:red)   -> :stop\n'
+            printf 'Go(:amber) -> :wait\n'
+            printf 'Go(:green) -> :go\n'
+            printf '```\n\n'
+            if [ -n "$3" ]; then
+                printf '```\n'
+                printf 'error: Go is not exhaustive\n'
+                printf '  no clause matches:\n'
+                printf '%s\n' "$3"
+                printf '```\n'
+            fi
+        } >> "$1"
+    }
+
+    # 8 — the fence shows a head the compiler does not print.
+    cp "$REPO/LANGUAGE.md" "$CTL/afterdrift.md"
+    after_block "$CTL/afterdrift.md" "delete Go(:green)" "    Go(:amber) -> ..." Drift
+    expect "AFTER DRIFT" "$CTL/afterdrift.md" "a wrong output after an edit"
+
+    # 9 — an edit naming a clause the block does not have.
+    cp "$REPO/LANGUAGE.md" "$CTL/nosuchline.md"
+    after_block "$CTL/nosuchline.md" "delete Go(:blue)" "    Go(:green) -> ..." NoLine
+    expect "NO SUCH LINE" "$CTL/nosuchline.md" "an edit naming a line the block lacks"
+
+    # 10 — a directive with no fence of expected output after the block.
+    cp "$REPO/LANGUAGE.md" "$CTL/noexpected.md"
+    after_block "$CTL/noexpected.md" "delete Go(:green)" "" NoFence
+    expect "NO EXPECTED" "$CTL/noexpected.md" "a directive with nothing to compare against"
+
+    # 11 — the correct form, which must be ACCEPTED. Same reason as the
+    # `diagnoses:` positive control: three reds are also satisfied by a check
+    # that rejects every directive it sees.
+    cp "$REPO/LANGUAGE.md" "$CTL/aftergood.md"
+    after_block "$CTL/aftergood.md" "delete Go(:green)" "    Go(:green) -> ..." Good
+    if CHECK_LANGUAGE_DOC="$CTL/aftergood.md" "${BASH_SOURCE[0]}" > /dev/null 2>&1
+    then :; else
+        echo "SELF-TEST FAILED: a correct \`expect-after\` example was rejected, so this"
+        echo "                  check fires on the defect and the correct form alike"
+        st_fail=1
+    fi
+
     # NEGATIVE CONTROL — the reference as committed.
     if CHECK_LANGUAGE_DOC="$REPO/LANGUAGE.md" "${BASH_SOURCE[0]}" > /dev/null 2>&1
     then :; else
@@ -296,8 +375,10 @@ if [ "${1:-}" = "--self-test" ]; then
         echo "self-test: reported the uncompilable block, the construct that has since"
         echo "           shipped, the unknown tag, and four ways a \`diagnoses:\` example"
         echo "           can be wrong — silent, mislabelled, carrying a second diagnostic,"
-        echo "           and claimed twice; accepted a correct one and the committed"
-        echo "           reference — the gate discriminates in both directions"
+        echo "           and claimed twice; three ways an \`expect-after\` example can be"
+        echo "           wrong — drifted, naming no line, showing no output; accepted a"
+        echo "           correct one of each and the committed reference — the gate"
+        echo "           discriminates in both directions"
         exit 0
     fi
     exit 1
@@ -317,10 +398,21 @@ trap 'rm -rf "$WORK"' EXIT
 # is three lines of grammar and the alternative is a dependency the compiler
 # does not otherwise have.
 awk -v out="$WORK" '
-function flush_preamble() { pre = ""; dg = ""; }
+function flush_preamble() { pre = ""; dg = ""; ea = ""; }
 /^<!-- check:/ { inpre = 1; pre = ""; next }
 inpre && /^-->/ { inpre = 0; next }
 inpre { pre = pre $0 "\n"; next }
+
+# `<!-- expect-after: edit; edit -->`. Binds to the fence below it like
+# `diagnoses:`; the block must compile as written, and after the edits it must
+# print the plain fence that FOLLOWS the block. Written to `<n>.edits`, and the
+# expected text to `<n>.want` once that fence is read.
+/^<!-- expect-after:/ {
+    ea = $0
+    sub(/^<!-- expect-after:[ \t]*/, "", ea)
+    sub(/[ \t]*-->.*$/, "", ea)
+    next
+}
 
 # `<!-- diagnoses: tag -->`. Reset by flush_preamble along with the `check:`
 # block, so it binds to the fence it sits immediately above and cannot drift
@@ -344,6 +436,10 @@ inpre { pre = pre $0 "\n"; next }
     else if (tag == "") tag = "must-compile"
     print tag > (out "/" n ".tag")
     print NR + 1 > (out "/" n ".line")
+    # A previous block still waiting for its expected fence has lost it: the
+    # judge reports NO EXPECTED for a `.edits` with no `.want`.
+    wantfor = 0
+    if (ea != "") { print ea > (out "/" n ".edits"); wantfor = n }
     body = ""
     inblock = 1
     next
@@ -357,14 +453,123 @@ inblock && /^```/ {
     next
 }
 inblock { body = body $0 "\n"; next }
+# The plain fence after an `expect-after` block is the output it expects.
+inwant && /^```/ { printf "%s", want > (out "/" wantfor ".want"); inwant = 0; wantfor = 0; next }
+inwant { want = want $0 "\n"; next }
+wantfor && /^```/ { inwant = 1; want = ""; next }
 { if (!inpre) flush_preamble() }
 END { print n > (out "/count") }
 ' "$DOC"
 
 COUNT="$(cat "$WORK/count")"
 
-pass=0; fail=0; skipped=0
+pass=0; fail=0; skipped=0; mutated=0
 FAILURES=""
+
+# apply_edits ROOT TARGET EDITS — an `expect-after` directive, applied to a copy.
+#
+# The same reader `check-tour.sh` carries, and a copy rather than a shared file
+# on purpose: `check-shell.sh` lints only executables and `check-gates-wired.sh`
+# takes every executable for a gate, so a sourced helper would sit outside the
+# one and inside the other. Two edits, joined with `;`:
+#
+#   delete <prefix>                 remove the one line that starts with <prefix>
+#   replace <prefix> with <text>    rewrite that line's <prefix> as <text>
+#
+# A prefix is matched with runs of whitespace collapsed and must name EXACTLY
+# ONE line. Prints the reason and returns 1 otherwise. Nothing here reaches a
+# shell: the pieces go to awk as values.
+apply_edits() {
+    local root="$1" target="$2" edits="$3" edit mode prefix text files f n total hit
+    if [ -d "$root/$target" ]; then
+        files="$(find "$root/$target" -name '*.bs' | sort)"
+    else
+        files="$root/$target"
+    fi
+    while IFS= read -r edit; do
+        edit="$(printf '%s' "$edit" | sed 's/^ *//; s/ *$//')"
+        [ -n "$edit" ] || continue
+        case "$edit" in
+            'delete '*)
+                mode=delete; prefix="${edit#delete }"; text="" ;;
+            'replace '*)
+                mode=replace; prefix="${edit#replace }"
+                case "$prefix" in
+                    *' with '*) text="${prefix##* with }"; prefix="${prefix% with *}" ;;
+                    *) echo "BAD EDIT  '$edit' — replace needs 'with'"; return 1 ;;
+                esac ;;
+            *)  echo "BAD EDIT  '$edit' — only 'delete <prefix>' and 'replace <prefix> with <text>' exist"
+                return 1 ;;
+        esac
+        prefix="$(printf '%s' "$prefix" | tr -s '[:blank:]' ' ')"
+        total=0; hit=""
+        while IFS= read -r f; do
+            [ -n "$f" ] || continue
+            n="$(awk -v p="$prefix" 'BEGIN { c = 0 }
+                { l = $0; gsub(/[ \t]+/, " ", l); sub(/^ /, "", l); if (index(l, p) == 1) c++ }
+                END { print c }' "$f")"
+            if [ "$n" -gt 0 ]; then total=$((total + n)); hit="$f"; fi
+        done <<< "$files"
+        if [ "$total" -eq 0 ]; then
+            echo "NO SUCH LINE  '$edit' — no line of the block starts with '$prefix'"
+            return 1
+        elif [ "$total" -gt 1 ]; then
+            echo "AMBIGUOUS  '$edit' — $total lines of the block start with '$prefix'"
+            return 1
+        fi
+        awk -v p="$prefix" -v r="$text" -v m="$mode" '
+            { l = $0; gsub(/[ \t]+/, " ", l); sub(/^ /, "", l)
+              if (index(l, p) == 1) {
+                  if (m == "delete") next
+                  print r substr(l, length(p) + 1); next
+              }
+              print }' "$hit" > "$hit.tmp" && mv "$hit.tmp" "$hit"
+    done <<< "$(printf '%s' "$edits" | tr ';' '\n')"
+    return 0
+}
+
+# judge_after I LINE SRC — the block compiled; now apply its edits to a copy and
+# compare what the compiler says with the fence the document shows.
+#
+# The location prefix (`…/12.bs:4: `) is dropped from what the compiler prints
+# before comparing, because the block's file name is this script's and not the
+# reader's; the text from `error:` on is compared byte for byte.
+judge_after() {
+    local i="$1" line="$2" src="$3" edits rel after out2 reason got want
+    edits="$(cat "$WORK/$i.edits")"
+    if [ ! -f "$WORK/$i.want" ]; then
+        fail=$((fail + 1))
+        printf '  %-12s LANGUAGE.md:%s  `expect-after` names an edit, but no plain fence follows the block with the output it expects\n' \
+               "NO EXPECTED" "$line"
+        FAILURES="$FAILURES $i"
+        return 0
+    fi
+    rel="${src#"$WORK/b$i/"}"
+    after="$WORK/a$i"
+    rm -rf "$after"; mkdir -p "$after"
+    cp -R "$WORK/b$i" "$after/b"
+    if ! reason="$(apply_edits "$after/b" "$rel" "$edits")"; then
+        fail=$((fail + 1))
+        printf '  %-12s LANGUAGE.md:%s  %s\n' "BAD EDIT" "$line" "$reason"
+        FAILURES="$FAILURES $i"
+        return 0
+    fi
+    out2="$WORK/aout$i"; mkdir -p "$out2"
+    "$BSC" --src-root "$after/b" -o "$out2" "$after/b/$rel" > "$WORK/$i.after" 2>&1 || true
+    got="$(sed 's/^[^ ]*\.bs:[0-9][0-9]*: //' "$WORK/$i.after")"
+    want="$(cat "$WORK/$i.want")"
+    if [ "$got" = "$want" ]; then
+        mutated=$((mutated + 1))
+        printf '  %-12s LANGUAGE.md:%s  after: %s\n' "ok (after)" "$line" "$edits"
+    else
+        fail=$((fail + 1))
+        printf '  %-12s LANGUAGE.md:%s  after `%s` the compiler does not print the fence shown\n' \
+               "AFTER DRIFT" "$line" "$edits"
+        printf '%s\n' "$want" | sed 's/^/                 shown:   /'
+        printf '%s\n' "$got"  | sed 's/^/                 prints:  /'
+        FAILURES="$FAILURES $i"
+    fi
+}
 
 for i in $(seq 1 "$COUNT"); do
     tag="$(cat "$WORK/$i.tag")"
@@ -462,6 +667,17 @@ for i in $(seq 1 "$COUNT"); do
             FAILURES="$FAILURES $i"
             ;;
     esac
+
+    # The fourth claim. Only a block that compiled as written is edited: a
+    # BROKEN block has already been reported, and editing it proves nothing.
+    if [ -f "$WORK/$i.edits" ] && [ "$tag" = "must-compile" ] && [ "$compiled" -eq 1 ]; then
+        judge_after "$i" "$line" "$src"
+    elif [ -f "$WORK/$i.edits" ] && [ "$tag" != "must-compile" ]; then
+        fail=$((fail + 1))
+        printf '  %-12s LANGUAGE.md:%s  `expect-after` belongs on an untagged block that compiles, not a `%s` one\n' \
+               "BAD TAG" "$line" "$tag"
+        FAILURES="$FAILURES $i"
+    fi
 done
 
 if [ "$VERBOSE" = 1 ] && [ -n "$FAILURES" ]; then
@@ -475,7 +691,7 @@ if [ "$VERBOSE" = 1 ] && [ -n "$FAILURES" ]; then
 fi
 
 echo
-echo "$COUNT blocks: $pass ok, $fail wrong, $skipped illustrative"
+echo "$COUNT blocks: $pass ok, $fail wrong, $skipped illustrative; $mutated replayed after an edit"
 [ "$fail" -eq 0 ] || {
     echo
     echo "Re-run with -v to see the source and the compiler's output."

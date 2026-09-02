@@ -85,6 +85,119 @@ FIXTURES="$HERE/bin/fixtures/residual"
 ROSTER="Atom Interval IntervalUnion RecordUnion RecordInList TupleNested OpenList BinTag TopString ManyHeads WholeList"
 
 # ---------------------------------------------------------------------------
+# THE MUTATION STAGE — `examples/Wire`, one clause at a time (ENG-263, 2026-09-02).
+#
+# `wire.bs:15` has said since F2 that deleting `Classify(>= 4 and <= 7)` makes
+# the compiler hand "the same line straight back". The fixtures above prove the
+# printer's spelling shape by shape; nothing ran that sentence against the file
+# it is written in, and it went false once already — TOUR.md told the reader to
+# delete a `4..7` clause that F29 had respelled, and the two files disagreed
+# for days about which spelling was the refused one.
+#
+# So every `Classify` clause in `wire.bs` is deleted in turn, the residual read
+# off the term channel, and the head pasted back with the clause's own body.
+# Two verdicts are correct, and the table below says which clause earns which:
+#
+#   same        one head, and it IS the deleted line — the sentence at wire.bs:15
+#   respelled:H one head, pastes clean, but the compiler spelled it H rather
+#               than the line deleted. `Classify(>= 9)` comes back with the
+#               domain's top on it, `>= 9 and <= 255`, because the residual is
+#               computed from `Octet` and not from the clause that used to be
+#               there. Correct, and not the same line.
+#
+# Everything else is red: `split` (the residual came back as several heads),
+# `nohead`, `refused` (the paste-back did not compile), `unrun`. The roster is
+# the clause list itself, so a clause added to or removed from `wire.bs` is red
+# until this table says what it should do.
+# ---------------------------------------------------------------------------
+WIRE="$HERE/examples/Wire/wire.bs"
+WIRE_ROSTER='Classify(1)
+Classify(2)
+Classify(3)
+Classify(8)
+Classify(0)
+Classify(>= 4 and <= 7)
+Classify(>= 9)'
+
+wire_expected() {
+  case "$1" in
+    "Classify(>= 9)") echo "respelled:Classify(>= 9 and <= 255) -> ..." ;;
+    *)                echo "same" ;;
+  esac
+}
+
+# classify_wire DIR K — one deleted clause's verdict, from the recorded files.
+classify_wire() {
+  local dir="$1" k="$2" deleted n rc out head
+  [ -f "$dir/wire/c$k.deleted" ] || { echo "unrun"; return; }
+  deleted="$(cat "$dir/wire/c$k.deleted")"
+  n="$(grep -c . "$dir/wire/c$k.term" 2>/dev/null || true)"
+  [ -n "$n" ] || n=0
+  if [ "$n" -eq 0 ]; then echo "nohead"; return; fi
+  if [ "$n" -gt 1 ]; then echo "split"; return; fi
+  [ -f "$dir/wire/c$k.rc" ] || { echo "unrun"; return; }
+  rc="$(cat "$dir/wire/c$k.rc")"
+  out="$(cat "$dir/wire/c$k.paste" 2>/dev/null || true)"
+  if [ "$rc" != "0" ]; then
+    if [ -z "$out" ]; then echo "unrun"; else echo "refused"; fi
+    return
+  fi
+  head="$(cat "$dir/wire/c$k.term")"
+  if [ "$head" = "$deleted -> ..." ]; then echo "same"; else echo "respelled:$head"; fi
+}
+
+# judge_wire DIR — the stage's opinion. Silence is a pass. Both halves of the
+# floor, as for the shapes: a roster clause never deleted, and a deleted clause
+# the roster does not know.
+judge_wire() {
+  local dir="$1" h f k got want
+  [ -d "$dir/wire" ] || { echo "Wire: the mutation stage never ran"; return; }
+  while IFS= read -r h; do
+    [ -n "$h" ] || continue
+    f="$(grep -lxF -- "$h" "$dir"/wire/c*.deleted 2>/dev/null | head -n 1)"
+    if [ -z "$f" ]; then echo "Wire $h: in the roster and never deleted"; continue; fi
+    k="$(basename "$f" .deleted)"; k="${k#c}"
+    got="$(classify_wire "$dir" "$k")"
+    want="$(wire_expected "$h")"
+    [ "$got" = "$want" ] || echo "Wire $h: deleted, the verdict is '$got', the table says '$want'"
+  done <<< "$WIRE_ROSTER"
+  for f in "$dir"/wire/c*.deleted; do
+    [ -e "$f" ] || continue
+    h="$(cat "$f")"
+    grep -qxF -- "$h" <<< "$WIRE_ROSTER" \
+      || echo "Wire $h: deleted but not in the roster - wire.bs gained a Classify clause; say what it should do"
+  done
+}
+
+# probe_wire DIR — delete each clause in a copy, record the residual and the
+# paste-back. The clause's own body goes back with the head: `Classify` returns
+# `FrameType`, so the fixtures' `:pasted` body would be a type error here.
+probe_wire() {
+  local dir="$1" k=0 entry ln line head body root out rc
+  mkdir -p "$dir/wire"
+  grep -n '^Classify(' "$WIRE" > "$dir/wire/clauses"
+  while IFS= read -r entry; do
+    k=$((k + 1))
+    ln="${entry%%:*}"; line="${entry#*:}"
+    head="$(printf '%s' "${line%%->*}" | tr -s '[:blank:]' ' ' | sed 's/ *$//')"
+    body="$(printf '%s' "${line#*->}" | sed 's/^ *//; s/ *$//')"
+    printf '%s\n' "$head" > "$dir/wire/c$k.deleted"
+    root="$dir/wire/c$k"
+    rm -rf "$root"; mkdir -p "$root"
+    cp -R "$HERE/examples" "$root/examples"
+    sed "${ln}d" "$WIRE" > "$root/examples/Wire/wire.bs"
+    (cd "$root" && "$BSC" --diagnostics term --src-root examples examples/Wire 2>&1) \
+      | grep -o '"[A-Za-z_][A-Za-z0-9_]*([^"]* -> \.\.\."' \
+      | sed 's/^"//; s/"$//' > "$dir/wire/c$k.term" || true
+    [ -s "$dir/wire/c$k.term" ] || continue
+    sed "s/-> \.\.\./-> $body/" "$dir/wire/c$k.term" >> "$root/examples/Wire/wire.bs"
+    out="$(cd "$root" && "$BSC" --src-root examples examples/Wire 2>&1)"; rc=$?
+    printf '%s' "$rc" > "$dir/wire/c$k.rc"
+    printf '%s' "$out" > "$dir/wire/c$k.paste"
+  done < "$dir/wire/clauses"
+}
+
+# ---------------------------------------------------------------------------
 # expected — the table F29 empties. Every entry that is not `clean` is a
 # defect the printer still has, recorded so that fixing it is visible.
 # ---------------------------------------------------------------------------
@@ -238,6 +351,8 @@ judge() {
       *) echo "$base: measured but not in the roster (verdict '$(classify "$dir" "$base")') - add it or remove the fixture" ;;
     esac
   done
+
+  judge_wire "$dir"
 }
 
 # ---------------------------------------------------------------------------
@@ -368,6 +483,22 @@ T
     one "$1" TopString     "Kind(s) -> ..."                         "" 0
     two "$1" WholeList     "Ship([]) -> ..."                       "Ship([Order o, ..]) -> ..."
     many "$1"
+    wire_ok "$1"
+  }
+  # wire_ok/1 — the seven Wire clauses at the verdicts the table records.
+  wire_ok() { # wire_ok DIR
+    local d="$W/$1/wire" k=0 h; mkdir -p "$d"
+    while IFS= read -r h; do
+      k=$((k + 1))
+      printf '%s\n' "$h" > "$d/c$k.deleted"
+      if [ "$h" = "Classify(>= 9)" ]; then
+        printf '%s\n' "Classify(>= 9 and <= 255) -> ..." > "$d/c$k.term"
+      else
+        printf '%s\n' "$h -> ..." > "$d/c$k.term"
+      fi
+      : > "$d/c$k.paste"
+      printf '0' > "$d/c$k.rc"
+    done <<< "$WIRE_ROSTER"
   }
 
   today good
@@ -409,7 +540,37 @@ T
   today over_informed
   one over_informed Extra "Extra(int) -> ..." "" 0
 
-  for bad in type_notation second_line silent cry_wolf over_informed dot_dot rebinds; do
+  # THE MUTATION STAGE'S STUBS. `c6` is `Classify(>= 4 and <= 7)` in roster
+  # order — the clause wire.bs:15 makes its claim about.
+  #
+  #   wire_paraphrase  the residual pastes and is not the deleted line: the
+  #                    `4..7` spelling coming back, which is F29 regressing and
+  #                    the sentence at wire.bs:15 going false while compiling.
+  #   wire_split       the one clause came back as two heads.
+  #   wire_refused     the head did not compile when pasted.
+  #   wire_unrun       the paste-back never ran.
+  #   wire_missing     six clauses measured; the roster's seventh never deleted.
+  #   wire_extra       an eighth clause deleted that the table has no row for.
+  #   wire_never       the stage produced nothing at all.
+  today wire_paraphrase
+  printf '%s\n' "Classify(4..7) -> ..." > "$W/wire_paraphrase/wire/c6.term"
+  today wire_split
+  printf '%s\n%s\n' "Classify(>= 4 and <= 5) -> ..." "Classify(>= 6 and <= 7) -> ..." > "$W/wire_split/wire/c6.term"
+  today wire_refused
+  printf '%s' "$SY_DD" > "$W/wire_refused/wire/c6.paste"; printf '1' > "$W/wire_refused/wire/c6.rc"
+  today wire_unrun
+  rm -f "$W/wire_unrun/wire/c6.rc"
+  today wire_missing
+  rm -f "$W/wire_missing/wire/c6".*
+  today wire_extra
+  printf '%s\n' "Classify(255)" > "$W/wire_extra/wire/c8.deleted"
+  printf '%s\n' "Classify(255) -> ..." > "$W/wire_extra/wire/c8.term"
+  : > "$W/wire_extra/wire/c8.paste"; printf '0' > "$W/wire_extra/wire/c8.rc"
+  today wire_never
+  rm -rf "$W/wire_never/wire"
+
+  for bad in type_notation second_line silent cry_wolf over_informed dot_dot rebinds \
+             wire_paraphrase wire_split wire_refused wire_unrun wire_missing wire_extra wire_never; do
     if [ -z "$(judge "$W/$bad")" ]; then
       echo "  x SELF-TEST: '$bad' produced no complaint - the gate cannot see it"; fail=1
     else
@@ -422,22 +583,28 @@ T
     echo "  ok green on the correct form"
   fi
   [ "$fail" -eq 0 ] || { echo "self-test FAILED"; exit 1; }
-  echo "self-test passed: seven defects seen, today's table accepted"
+  echo "self-test passed: fourteen defects seen, today's tables accepted"
   exit 0
 fi
 
 [ -x "$BSC" ] || { echo "no built bsc at $BSC - run rebar3 escriptize"; exit 2; }
 [ -d "$FIXTURES" ] || { echo "no fixture corpus at $FIXTURES"; exit 2; }
 
+[ -f "$WIRE" ] || { echo "no examples/Wire/wire.bs at $WIRE"; exit 2; }
+
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 probe "$W"
+probe_wire "$W"
 out="$(judge "$W")"
 if [ -n "$out" ]; then
   echo "$out"
   echo
   echo "the residual round-trip moved. Every shape's verdict is written down in"
-  echo "\`expected\` in this script; if the printer changed, change the table with it."
+  echo "\`expected\` in this script, and every Wire clause's in \`wire_expected\`;"
+  echo "if the printer changed, change the table with it."
   exit 1
 fi
 echo "  ok         11 residual shapes round-tripped, each to the verdict recorded for it"
 echo "             (every entry in \`expected\` reads 'clean' - F29's done-when, met)"
+echo "  ok         $(grep -c . "$W/wire/clauses") Wire clauses deleted in turn: six handed back as the same line,"
+echo "             the open span closed on the domain's top - wire.bs:15's sentence, run"

@@ -349,10 +349,25 @@ name is inexhaustive over the whole subject type.
 rather than a complaint to interpret.
 <!-- decided by ticket 04 -->
 
+<!-- expect-after: delete Classify((:ok, n)) -> :negative -->
+```csharp
+type Verdict = :positive | :zero | :negative | :unknown
+type Reading = (:ok, int) | (:error, atom)
+
+public Verdict Classify(Reading r)
+
+Classify((:ok, n)) when n > 0 -> :positive
+Classify((:ok, 0))            -> :zero
+Classify((:ok, n))            -> :negative
+Classify((:error, e))         -> :unknown
 ```
-readings.bs:4: error: Classify is not exhaustive
+
+Delete the third clause and the compiler answers:
+
+```
+error: Classify is not exhaustive
   no clause matches:
-    Classify((:ok, n)) when n <= 0 -> ...
+    Classify((:ok, n)) when n <= -1 -> ...
 ```
 
 The error is the **missing clause**, not a complaint — the residual is computed exactly and printed
@@ -502,18 +517,13 @@ computed and exhaustiveness bites:
 <!-- check:
 type Octet = int where value >= 0 and value <= 255
 -->
+<!-- expect-after: delete Classify(>= 9); delete Classify(0); delete Classify(>= 3 and <= 7) -->
 ```csharp
 private atom Classify(Octet t)
 
 Classify(1) -> :method
 Classify(2) -> :header
 Classify(8) -> :heartbeat
-// omit these three and the compiler answers
-//   Classify is not exhaustive
-//     no clause matches:
-//       Classify(0) -> ...
-//       Classify(>= 3 and <= 7) -> ...
-//       Classify(>= 9 and <= 255) -> ...
 Classify(>= 9) -> :reserved
 Classify(0) -> :reserved
 Classify(>= 3 and <= 7) -> :reserved
@@ -521,6 +531,16 @@ Classify(>= 3 and <= 7) -> :reserved
 public atom Read(binary b)
 Read(<<t:8, rest>>) -> Classify(t)
 Read(_) -> :incomplete
+```
+
+Omit the three `:reserved` clauses and the compiler answers:
+
+```
+error: Classify is not exhaustive
+  no clause matches:
+    Classify(0) -> ...
+    Classify(>= 3 and <= 7) -> ...
+    Classify(>= 9 and <= 255) -> ...
 ```
 
 **Write the tag dispatch inline in the binary patterns instead and the checking is silently lost** —

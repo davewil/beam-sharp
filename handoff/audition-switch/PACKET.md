@@ -228,10 +228,24 @@ name is inexhaustive over the whole subject type.
 **residual is the missing case**, which is why the diagnostic below hands you a clause to paste
 rather than a complaint to interpret.
 
+```csharp
+type Verdict = :positive | :zero | :negative | :unknown
+type Reading = (:ok, int) | (:error, atom)
+
+public Verdict Classify(Reading r)
+
+Classify((:ok, n)) when n > 0 -> :positive
+Classify((:ok, 0))            -> :zero
+Classify((:ok, n))            -> :negative
+Classify((:error, e))         -> :unknown
 ```
-readings.bs:4: error: Classify is not exhaustive
+
+Delete the third clause and the compiler answers:
+
+```
+error: Classify is not exhaustive
   no clause matches:
-    Classify((:ok, n)) when n <= 0 -> ...
+    Classify((:ok, n)) when n <= -1 -> ...
 ```
 
 The error is the **missing clause**, not a complaint — the residual is computed exactly and printed

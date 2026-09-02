@@ -147,6 +147,7 @@ The compiler subtracts each clause head from the parameter type. What is left ov
 
 Delete the `Classify(>= 4 and <= 7)` clause from `examples/Wire/wire.bs` and ask for a build:
 
+<!-- expect-after: delete Classify(>= 4 and <= 7) -->
 ```
 $ bsc --src-root examples examples/Wire
 examples/Wire/wire.bs:42: error: Classify is not exhaustive
@@ -159,6 +160,7 @@ It is not "some cases are unhandled". It is the head you are missing, pasteable.
 The same machinery over a union of records — delete the `Invoice` clause from
 `examples/Shop/shop.bs`:
 
+<!-- expect-after: delete Which({ Kind: :'Shop.Invoice' }) -->
 ```
 $ bsc --src-root examples examples/Shop
 examples/Shop/shop.bs:16: error: Which is not exhaustive
@@ -169,6 +171,7 @@ examples/Shop/shop.bs:16: error: Which is not exhaustive
 And the rule that follows from taking it seriously: **over a closed domain, `_` is an
 error**. Replace `Classify(>= 9)` with `Classify(_)`:
 
+<!-- expect-after: replace Classify(>= 9) with Classify(_) -->
 ```
 $ bsc --src-root examples examples/Wire
 examples/Wire/wire.bs:50: error: Classify discards cases the compiler can name
@@ -1254,15 +1257,17 @@ int Total(int)
 atom Which({ Kind: :'Shop.Invoice', Id: int, Total: int } | { Kind: :'Shop.Order', Id: int, Total: int })
 ```
 
-**Every diagnostic is a term.** The prose is a pure function of it, at every site:
+**Every diagnostic is a term.** The prose is a pure function of it, at every site. With the
+`Classify(>= 4 and <= 7)` clause deleted again, the term goes to stdout on one line and the prose it
+produces follows on stderr:
 
+<!-- expect-after: delete Classify(>= 4 and <= 7) -->
 ```
 $ bsc --diagnostics term --src-root examples examples/Wire
-#{function => 'Classify',line => 42,tag => inexhaustive,
-  file => "examples/Wire/wire.bs",severity => error,
-  heads => #{kind => products,products => [[["4..7"]]],
-             pasteable => ["Classify(>= 4 and <= 7) -> ..."]},
-  residual => "(4..7)"}
+#{function => 'Classify',line => 42,tag => inexhaustive,file => "examples/Wire/wire.bs",severity => error,heads => #{kind => products,products => [[["4..7"]]],pasteable => ["Classify(>= 4 and <= 7) -> ..."]},residual => "(4..7)"}
+examples/Wire/wire.bs:42: error: Classify is not exhaustive
+  no clause matches:
+    Classify(>= 4 and <= 7) -> ...
 ```
 
 The descriptor carries the residual's **parts**, not the finished display string — because the

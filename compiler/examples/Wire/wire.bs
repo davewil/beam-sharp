@@ -12,10 +12,10 @@
 // So the refinement and the span pattern are one change: shipping the first
 // without the second would have turned working programs into rejected ones.
 //
-// Delete `Classify(>= 4 and <= 7)` and the compiler does not shrug -- it hands
-// the same line straight back as the clause to add. The residual IS the missing
-// case, and since F29 it is spelled the way you would write it: a relational
-// pattern, not the `4..7` type notation this comment used to quote.
+// Delete `Classify(>= 4 and <= 7)` and the compiler hands the same line straight
+// back as the clause to add -- the residual IS the missing case, spelled since
+// F29 the way you would write it. `bin/check-residual-pasteable.sh` runs that
+// sentence: it deletes every `Classify` clause below in turn and reads the reply.
 module Wire
 
 // A REFINEMENT, ticket 20 §5. `value` names the thing being refined; it is an

@@ -24,8 +24,19 @@
 # evidence here that is not self-reported.
 
 url       https://claude.ai/code/artifact/40f71cf4-d5d3-4b71-882c-ad73f630a03c
-sha256    75d52e944c6414bc283ba404502538e116eee6f18d9b5a12014a502582bfe412
-verified  2026-09-01 (for the ENG-263 display-site drift) — chapter 2's two transcripts and
+sha256    c442159f8e1d69027d9e00d9c01a5e14c5d0a9797846d51d1ca6589afd65b455
+verified  2026-09-02 (for ENG-263's `expect-after` directive) — the four diagnostic transcripts
+          now carry `<!-- expect-after: … -->` above their fences, and part 3 replays them
+          under the edit instead of skipping them: 51 commands replayed, 4 after an edit,
+          where the day before it was 47 replayed and 4 skipped. The term-channel appendix
+          changed shape as a result: it used to show the descriptor hand-wrapped over five
+          lines with no prose after it, and the compiler prints it on one line to stdout
+          with the three prose lines on stderr, so the block now shows exactly that. Read
+          back before republishing and the live page still carried the wrapped block and no
+          directives, so the stale state was confirmed rather than assumed, and the read
+          again showed a plain render of TOUR.md with nothing saved into it independently.
+
+          2026-09-01 (for the ENG-263 display-site drift) — chapter 2's two transcripts and
           the term-channel appendix carried three stale line numbers. `wire.bs:40` and
           `line => 39` both name the inexhaustive `Classify`, which the compiler reports at
           42; `wire.bs:48` names the catch-all refusal, which it reports at 50. The prose

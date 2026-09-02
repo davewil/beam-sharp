@@ -166,8 +166,88 @@ if [ "${1:-}" = "--self-test" ]; then
        st_fail=1 ;;
   esac
 
+  # ------------------------------------------------------------------
+  # CONTROLS 7-11 — the `expect-after` directive (ENG-263, 2026-09-02).
+  #
+  # A transcript replayed under an edit can be wrong in more ways than a plain
+  # one, and each way below was either the defect cd61280 fixed by hand or the
+  # way this directive could quietly stop meaning anything. Every control
+  # mutates the real document's FIRST directive, so a control that finds
+  # nothing to mutate is itself red: the `sed` is checked to have changed the
+  # file, rather than trusted.
+  # ------------------------------------------------------------------
+  D1='<!-- expect-after: delete Classify(>= 4 and <= 7) -->'
+  mutate() {  # mutate OUT SED-EXPRESSION — a copy of the document, changed, provably
+    sed "$2" "$DOC" > "$1"
+    if cmp -s "$1" "$DOC"; then
+      echo "SELF-TEST FAILED: control $1 changed nothing — the document no longer holds"
+      echo "                  the line the control edits, so the control is decorative"
+      st_fail=1
+    fi
+  }
+  # `sed` needs the directive's `(`, `)`, `>` and `<` taken literally, which in
+  # a basic regex they already are; only `/` would need care, and there is none.
+
+  # 7 — a diagnostic transcript whose directive has been removed. The state the
+  # document was in for eighteen days, and the state the next hand-pasted
+  # transcript arrives in.
+  mutate "$CTL/7.md" "/^$D1\$/d"
+  case "$(control "$CTL/7.md")" in
+    *'NO DIRECTIVE'*) ;;
+    *) echo "SELF-TEST FAILED: a diagnostic transcript with no directive was not reported —"
+       echo "                  it would be replayed against clean sources or skipped"
+       st_fail=1 ;;
+  esac
+
+  # 8 — a directive naming a clause the corpus no longer has. This is the
+  # instruction TOUR.md carried until cd61280: delete "the 4..7 clause", when
+  # F29 had respelled it and there was nothing of that name to delete.
+  mutate "$CTL/8.md" "s/^$D1\$/<!-- expect-after: delete Classify(>= 4 and <= 6) -->/"
+  case "$(control "$CTL/8.md")" in
+    *'NO SUCH LINE'*) ;;
+    *) echo "SELF-TEST FAILED: an edit naming a line the corpus does not have was not"
+       echo "                  reported — a stale instruction would replay as a drift"
+       st_fail=1 ;;
+  esac
+
+  # 9 — a prefix that names two lines. A reader could not follow it either.
+  mutate "$CTL/9.md" "s/^$D1\$/<!-- expect-after: delete Classify( -->/"
+  case "$(control "$CTL/9.md")" in
+    *AMBIGUOUS*) ;;
+    *) echo "SELF-TEST FAILED: an edit matching two lines was not reported — the gate"
+       echo "                  would silently pick one"
+       st_fail=1 ;;
+  esac
+
+  # 10 — the output under a directive one line number off. The exact defect:
+  # `wire.bs:40` sat in this transcript while the compiler said 42.
+  mutate "$CTL/10.md" 's/^examples\/Wire\/wire.bs:42: error: Classify is not exhaustive$/examples\/Wire\/wire.bs:40: error: Classify is not exhaustive/'
+  case "$(control "$CTL/10.md")" in
+    *DRIFTED*) ;;
+    *) echo "SELF-TEST FAILED: a stale line number under a directive was not reported —"
+       echo "                  the edited replay is not being compared"
+       st_fail=1 ;;
+  esac
+
+  # 11 — a directive with no transcript under it. A check that never looked.
+  printf '\n<!-- expect-after: delete Classify(1) -->\n```\n$ rebar3 escriptize\n```\n' \
+      > "$CTL/11.md.tmp"
+  cat "$DOC" "$CTL/11.md.tmp" > "$CTL/11.md"
+  case "$(control "$CTL/11.md")" in
+    *DANGLING*) ;;
+    *) echo "SELF-TEST FAILED: a directive over a fence with no bsc transcript was"
+       echo "                  accepted — it asserts nothing and reads as if it did"
+       st_fail=1 ;;
+  esac
+
   # NEGATIVE CONTROL — the document and the stamp as they stand.
-  if control "$DOC" > /dev/null 2>&1; then :; else
+  #
+  # NOT THROUGH `control`. That helper ends in `|| true` so the positive
+  # controls can read a failing run's output under `pipefail`, which means it
+  # returns 0 for every run — and this check, which is about the exit status,
+  # passed for as long as it was written that way. Found 2026-09-02 when it
+  # stayed green over a stale stamp that part 4 was correctly rejecting.
+  if TOUR_DOC="$DOC" "${BASH_SOURCE[0]}" > /dev/null 2>&1; then :; else
     echo "SELF-TEST FAILED: the document as committed was rejected, so this gate"
     echo "                  would fail every clean tree and be removed"
     st_fail=1
@@ -176,8 +256,10 @@ if [ "${1:-}" = "--self-test" ]; then
   if [ "$st_fail" -eq 0 ]; then
     echo "self-test: reported the invented clause, the dropped capability, the wrong"
     echo "           output, the unpublished edit and the missing stamp; refused to"
-    echo "           execute a command in the document; accepted the committed one"
-    echo "           — the gate discriminates"
+    echo "           execute a command in the document; reported the diagnostic with"
+    echo "           no directive, the edit naming no line, the edit naming two, the"
+    echo "           stale number under an edit and the directive over nothing;"
+    echo "           accepted the committed one — the gate discriminates"
     exit 0
   fi
   exit 1
@@ -186,7 +268,10 @@ fi
 # One flattened copy of every example, so a line is checked with one grep.
 ALL="$(mktemp)"
 RAW="$(mktemp)"
-trap 'rm -f "$ALL" "$RAW"' EXIT
+# Part 3 copies the corpus here before applying an `expect-after` edit, so the
+# tree is never touched. One copy per edited transcript, numbered.
+SCRATCH="$(mktemp -d)"
+trap 'rm -rf "$ALL" "$RAW" "$SCRATCH"' EXIT
 find "$CORPUS" -name '*.bs' -exec cat {} + > "$RAW"
 # Comment text counts — see the tolerance above. Both spellings of a commented
 # line go into the haystack, so a quote matches whichever way it was written.
@@ -296,11 +381,40 @@ fi
 # carry pasted output, and without this they are the ungated half of a document
 # whose whole pitch is that it cannot drift.
 #
-# A transcript showing a DIAGNOSTIC is skipped, and the reason is in the prose
-# beside it: those were produced by editing a corpus file in place, so replaying
-# the command against clean sources would correctly print nothing. Skipping is
-# named in the output rather than silent — `bin/check-no-silent-skip.sh` exists
-# because a check that says `ok` for work it did not do is not a check.
+# A transcript showing a DIAGNOSTIC was produced by editing a corpus file in
+# place, so replaying its command against clean sources would correctly print
+# nothing. Until 2026-09-02 those four were SKIPPED, and the skip was named in
+# the output rather than silent — which was honest, and still left the
+# transcripts whose whole point is the diagnostic under no check at all. Three
+# stale line numbers and one instruction naming a clause that no longer existed
+# sat in them for days, found by a reader and fixed by hand in `cd61280`, whose
+# own message said the numbers would drift again (ENG-263).
+#
+# THE EDIT IS NOW WRITTEN ABOVE THE FENCE, WHERE THIS GATE CAN READ IT:
+#
+#   <!-- expect-after: delete Classify(>= 4 and <= 7) -->
+#   ```
+#   $ bsc --src-root examples examples/Wire
+#   examples/Wire/wire.bs:42: error: Classify is not exhaustive
+#   ...
+#
+# The corpus is copied, the edit applied to the copy under the path the command
+# names last, and the command replayed from there — so the output, paths and
+# line numbers included, is compared byte for byte like every other transcript.
+# Two edits exist, and several may be joined with `;`:
+#
+#   delete <prefix>                 remove the one line that starts with <prefix>
+#   replace <prefix> with <text>    rewrite that line's <prefix> as <text>
+#
+# A prefix is matched with runs of whitespace collapsed, so a clause the file
+# aligns with spaces is named without them, and it must match EXACTLY ONE line:
+# zero is an instruction that has gone stale, two is one a reader could not
+# follow either, and both are red. A diagnostic transcript with no directive is
+# red as well, rather than skipped — the next transcript pasted in from an edit
+# made by hand would otherwise start the same rot over again.
+#
+# The directive never reaches a shell. It is cut on `;` and ` with ` in bash and
+# the pieces go to awk as values, for the reason `split_command` below exists.
 BSC="$REPO/compiler/_build/default/bin/bsc"
 [ -x "$BSC" ] || {
     echo "no escript at $BSC — run \`rebar3 escriptize\` in compiler/ first" >&2
@@ -313,10 +427,71 @@ echo
 
 replayed=0
 drifted=0
-skipped=0
+mutated=0
 cmd=""
 want=""
+edits=""
+block_cmds=0
 in_block=0
+# The document carried four transcripts under an edit on the day this landed.
+# Fewer is a directive that stopped being read, not a document that got
+# shorter — the diagnostic-shape test in `replay` is the other half of this
+# floor, and a change that blinds both at once is what the number is for.
+EXPECT_AFTER_FLOOR=4
+
+# apply_edits ROOT TARGET EDITS — the directive, applied to a copy of the corpus.
+#
+# TARGET is the path the command names, relative to ROOT; a directory means
+# every `.bs` beneath it. Prints one line naming the reason and returns 1 when
+# an edit does not name exactly one line, or is not an edit this gate knows.
+apply_edits() {
+    local root="$1" target="$2" edits="$3" edit mode prefix text files f n total hit
+    if [ -d "$root/$target" ]; then
+        files="$(find "$root/$target" -name '*.bs' | sort)"
+    else
+        files="$root/$target"
+    fi
+    while IFS= read -r edit; do
+        edit="$(printf '%s' "$edit" | sed 's/^ *//; s/ *$//')"
+        [ -n "$edit" ] || continue
+        case "$edit" in
+            'delete '*)
+                mode=delete; prefix="${edit#delete }"; text="" ;;
+            'replace '*)
+                mode=replace; prefix="${edit#replace }"
+                case "$prefix" in
+                    *' with '*) text="${prefix##* with }"; prefix="${prefix% with *}" ;;
+                    *) echo "BAD EDIT  '$edit' — replace needs 'with'"; return 1 ;;
+                esac ;;
+            *)  echo "BAD EDIT  '$edit' — only 'delete <prefix>' and 'replace <prefix> with <text>' exist"
+                return 1 ;;
+        esac
+        prefix="$(printf '%s' "$prefix" | tr -s '[:blank:]' ' ')"
+        total=0; hit=""
+        while IFS= read -r f; do
+            [ -n "$f" ] || continue
+            n="$(awk -v p="$prefix" 'BEGIN { c = 0 }
+                { l = $0; gsub(/[ \t]+/, " ", l); sub(/^ /, "", l); if (index(l, p) == 1) c++ }
+                END { print c }' "$f")"
+            if [ "$n" -gt 0 ]; then total=$((total + n)); hit="$f"; fi
+        done <<< "$files"
+        if [ "$total" -eq 0 ]; then
+            echo "NO SUCH LINE  '$edit' — nothing under $target starts with '$prefix'"
+            return 1
+        elif [ "$total" -gt 1 ]; then
+            echo "AMBIGUOUS  '$edit' — $total lines under $target start with '$prefix'"
+            return 1
+        fi
+        awk -v p="$prefix" -v r="$text" -v m="$mode" '
+            { l = $0; gsub(/[ \t]+/, " ", l); sub(/^ /, "", l)
+              if (index(l, p) == 1) {
+                  if (m == "delete") next
+                  print r substr(l, length(p) + 1); next
+              }
+              print }' "$hit" > "$hit.tmp" && mv "$hit.tmp" "$hit"
+    done <<< "$(printf '%s' "$edits" | tr ';' '\n')"
+    return 0
+}
 
 # SPLITTING A COMMAND LINE WITHOUT A SHELL, AND WHY IT IS WORTH THE LINES.
 #
@@ -361,12 +536,8 @@ split_command() {
 
 replay() {
     [ -n "$cmd" ] || return 0
-    # A diagnostic transcript needs an edit the prose describes; see above.
-    case "$want" in
-        examples/*:[0-9]*|'#{'*|'error: '*)
-            skipped=$((skipped + 1)); return 0 ;;
-    esac
     replayed=$((replayed + 1))
+    block_cmds=$((block_cmds + 1))
 
     if ! split_command "$cmd"; then
         echo "  UNBALANCED QUOTE  \$ $cmd"
@@ -374,13 +545,43 @@ replay() {
         return 0
     fi
 
-    local got
+    local got root last reason
     # ARGV[0] is the literal `bsc` the document writes; the escript is under
     # _build. Everything after it is passed as an argument vector, never as a
     # string a shell gets to look at again.
-    got="$(cd "$REPO/compiler" && "$BSC" "${ARGV[@]:1}" 2>&1)" || true
+    if [ -n "$edits" ]; then
+        # The transcript came from an edited corpus. Rebuild that corpus in a
+        # scratch copy — never the tree — and replay from there, so `examples/…`
+        # in the command and in the output resolve exactly as they do in the
+        # document.
+        mutated=$((mutated + 1))
+        root="$SCRATCH/$mutated"
+        rm -rf "$root"; mkdir -p "$root"
+        cp -R "$CORPUS" "$root/examples"
+        last="${ARGV[$((${#ARGV[@]} - 1))]}"
+        if ! reason="$(apply_edits "$root" "$last" "$edits")"; then
+            echo "  $reason"
+            echo "    under:   <!-- expect-after: $edits -->"
+            echo "    \$ $cmd"
+            drifted=1; fail=1
+            return 0
+        fi
+        got="$(cd "$root" && "$BSC" "${ARGV[@]:1}" 2>&1)" || true
+    else
+        # A diagnostic transcript needs the edit that produced it; see above.
+        case "$want" in
+            examples/*:[0-9]*|'#{'*|'error: '*)
+                echo "  NO DIRECTIVE  \$ $cmd"
+                echo "    the pasted output is a diagnostic, so it came from an edited corpus."
+                echo "    Say which edit, above the fence: <!-- expect-after: delete <clause> -->"
+                drifted=1; fail=1
+                return 0 ;;
+        esac
+        got="$(cd "$REPO/compiler" && "$BSC" "${ARGV[@]:1}" 2>&1)" || true
+    fi
     if [ "$got" != "$want" ]; then
         echo "  DRIFTED   \$ $cmd"
+        [ -z "$edits" ] || echo "    after:   $edits"
         echo "    pasted:  $want"
         echo "    prints:  $got"
         drifted=1; fail=1
@@ -390,12 +591,32 @@ replay() {
 while IFS= read -r line; do
     case "$line" in
         '```'*)
-            [ "$in_block" -eq 1 ] && { replay; cmd=""; want=""; }
+            if [ "$in_block" -eq 1 ]; then
+                replay; cmd=""; want=""
+                # A directive with nothing under it to replay is a check that
+                # never looked. Loud, for the same reason the roster floors are.
+                if [ -n "$edits" ] && [ "$block_cmds" -eq 0 ]; then
+                    echo "  DANGLING  <!-- expect-after: $edits -->"
+                    echo "    no \`\$ bsc\` transcript follows it in the next fence"
+                    drifted=1; fail=1
+                fi
+                edits=""; block_cmds=0
+            fi
             in_block=$((1 - in_block))
             continue
             ;;
     esac
-    [ "$in_block" -eq 1 ] || continue
+    if [ "$in_block" -eq 0 ]; then
+        # The directive binds to the next fence. Inside a fence the same text
+        # would be output, which is why this is read only between blocks.
+        case "$line" in
+            '<!-- expect-after:'*)
+                edits="${line#<!-- expect-after:}"
+                edits="${edits%-->}"
+                edits="$(printf '%s' "$edits" | sed 's/^ *//; s/ *$//')" ;;
+        esac
+        continue
+    fi
 
     case "$line" in
         '$ bsc '*)
@@ -419,9 +640,15 @@ replay
 # The verdict word is computed, not written. An earlier draft printed `ok`
 # unconditionally under the DRIFTED lines it had just emitted, which is the
 # same class of defect as a gate that returns success for work it did not do.
+if [ "$drifted" -eq 0 ] && [ "$mutated" -lt "$EXPECT_AFTER_FLOOR" ]; then
+    echo "  TOO FEW   $mutated transcripts replayed under an edit; the document had $EXPECT_AFTER_FLOOR"
+    echo "            on 2026-09-02. A directive stopped being read, or a transcript"
+    echo "            lost its edit — lower the floor only if one was removed on purpose."
+    drifted=1; fail=1
+fi
 if [ "$drifted" -eq 0 ]; then
-    printf '  %-9s %d commands replayed, %d diagnostics skipped (they need an edit)\n' \
-        "ok" "$replayed" "$skipped"
+    printf '  %-9s %d commands replayed, %d of them after an edit the document names\n' \
+        "ok" "$replayed" "$mutated"
 else
     echo
     echo "TOUR.md pastes output the compiler no longer produces."

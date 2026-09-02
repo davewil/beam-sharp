@@ -270,8 +270,12 @@ text has confused the two jobs the split exists to separate.
 
 **F29.12 — the six display sites replay.** `README.md:22`, `TOUR.md:150`, `TOUR.md:172`,
 `LANGUAGE.md:352-356`, `LANGUAGE.md:513` and `compiler/examples/Wire/wire.bs:8-16`. Their expected
-text moves when the printer changes; three of them need ENG-263's `expect-after` directive before
-they are runnable at all.
+text moves when the printer changes. *Replayed since 2026-09-02*: the four TOUR transcripts and the
+two LANGUAGE.md sites carry an `<!-- expect-after: … -->` directive naming the edit that produced
+them, and `check-tour.sh` / `check-language.sh` apply it to a copy and compare; `wire.bs:15`'s
+sentence is run by `check-residual-pasteable.sh`'s mutation stage. The first replay of the
+LANGUAGE.md §3 site found it wrong twice over — a bound the printer does not produce and a line
+number from a file that does not exist. `README.md:22` is ENG-264's.
 
 ## What the compiler gains
 
@@ -307,10 +311,13 @@ The exit status is recorded because an empty `.paste` looks identical whether th
 nothing or was never invoked, and this repo has already shipped a check that asserted an absence
 against a run that never compiled. `unrun` is a verdict, and `cry_wolf` is the stub that holds it.
 
-**Built 2026-08-27 without the `examples/Wire` mutation stage**, which ENG-263 also owes. The
-fixtures corpus is the spine and stands alone; the mutation stage exists to retire the unchecked
-claim in `wire.bs:15` and close its drift against `TOUR.md:148`, and it is the same machinery the
-`expect-after` display-site directive needs. Both remain open on ENG-263.
+**Built 2026-08-27 without the `examples/Wire` mutation stage; the stage landed 2026-09-02.** The
+fixtures corpus is the spine and stands alone. The mutation stage deletes each `Classify` clause of
+`wire.bs` in turn, reads the residual off the term channel and pastes it back with the clause's own
+body, against a second verdict table: six clauses come back as *the same line* — `wire.bs:15`'s
+sentence, now run rather than believed — and the open span `Classify(>= 9)` comes back closed on
+the domain's top, recorded as `respelled`. The `expect-after` directive that replays the display
+sites landed the same day; neither remains open on ENG-263.
 
 `--self-test` drives the verdict function over fabricated diagnostic text — no compiler rebuild —
 with five stubs: type-notation (red), the correct form (green), silent (red), cry-wolf (red), and
