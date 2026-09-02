@@ -462,11 +462,11 @@ descriptor(Path, {ambiguous_call, Name, Arity, Mods, Line}) ->
       name => Name, arity => Arity, candidates => Mods,
       heads => [lists:flatten(io_lib:format("~s.~s(...)", [M, Name]))
                 || M <- Mods]};
-%% 41 §2 requirement 2, and NOT the analogy ticket 40 §2 refused: there each
-%% overload had a defined meaning, here the unqualified name has none at all.
-descriptor(Path, {import_shadows_local, Name, Arity, Mod, Line}) ->
-    #{tag => import_shadows_local, severity => error, file => Path, line => Line,
-      name => Name, arity => Arity, module => Mod};
+%% `import_shadows_local` stood here until 2026-09-02. Ticket 47 Q2 settled that
+%% a local and an import are not two meanings of a bare name — 41 §2 resolves
+%% them "local, then imports" — so nothing raises the term any more and the
+%% descriptor went with the check (ENG-270). `ambiguous_call` above is the
+%% surviving half of §2's one sentence, and it fires at the use.
 descriptor(Path, {unknown_module, Mod, Line}) ->
     #{tag => unknown_module, severity => error, file => Path, line => Line,
       module => Mod};
@@ -1110,12 +1110,6 @@ message(#{tag := ambiguous_call, file := P, line := L, name := Name,
      "~s",
      [P, L, Name, Arity, length(Mods),
       [io_lib:format("    ~s.~s(...)~n", [M, Name]) || M <- Mods]]};
-message(#{tag := import_shadows_local, file := P, line := L, name := Name,
-          arity := Arity, module := Mod}) ->
-    {"~s:~p: error: importing ~s brings in ~s/~p, which this module also declares~n"
-     "  the unqualified name would have no defined meaning. Call the~n"
-     "  import as ~s.~s(...) and the local one as ~s(...).~n",
-     [P, L, Mod, Name, Arity, Mod, Name, Name]};
 message(#{tag := unknown_module, file := P, line := L, module := Mod}) ->
     {"~s:~p: error: `using ~s` names no module and no namespace~n"
      "  a module is a source file this invocation can reach; a namespace~n"

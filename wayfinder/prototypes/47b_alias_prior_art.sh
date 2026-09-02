@@ -118,7 +118,12 @@ sum(_) -> 0.
 go() -> sum([1, 2, 3]).
 EOF
 erlc -o . erl6.erl 2>&1 | tail -4
-echo "    hard error => the same rule as B#'s import_shadows_local."
+echo "    hard error. This WAS the same rule as B#'s import_shadows_local;"
+echo "    since 2026-09-02 (ENG-270) B# diverges here and accepts the shape,"
+echo "    resolving the bare name to the local by 41 §2's 'local, then imports'."
+echo "    Erlang can afford the refusal because -import is optional sugar for a"
+echo "    call it can always spell as lists:sum/1; in B# the using line IS the"
+echo "    dependency list (41 §1), so refusing it left the callee unreachable."
 echo "    Erlang has NO module renaming at all; -import names functions only."
 
 echo

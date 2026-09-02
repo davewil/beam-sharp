@@ -132,7 +132,7 @@ check_dir(Sources, World, Expect) ->
                          %% at run time". The emitter reads this table rather
                          %% than resolving a second time — the same reason
                          %% `resolve/2` is exported instead of copied.
-                         imports => resolved_funs(Imports),
+                         imports => resolved_funs(Imports, local_keys(Decls)),
                          %% The namespace tier resolves a SHORT name to a full
                          %% module, and the emitter needs the same answer: the
                          %% atom it writes into the remote call is the full
@@ -396,15 +396,14 @@ private_of(Decls) ->
 import_env(Decls, Self, World) ->
     Imports = [{L, M} || {import, L, M} <- Decls],
     Known = maps:keys(World),
-    Local = [{N, length(Ps)} || {signature, _, N, _, Ps, _} <- Decls],
-    lists:foldl(fun({L, M}, Acc) -> add_import(L, M, Self, World, Known, Local, Acc) end,
+    lists:foldl(fun({L, M}, Acc) -> add_import(L, M, Self, World, Known, Acc) end,
                 #{funs => #{}, mods => #{}, qual => qual_table(World),
                   privates => private_table(World), imported => []},
                 Imports).
 
-add_import(L, M, Self, World, Known, Local, Acc) ->
+add_import(L, M, Self, World, Known, Acc) ->
     case maps:is_key(M, World) of
-        true  -> add_module_import(L, M, World, Local, Acc);
+        true  -> add_module_import(M, World, Acc);
         false ->
             %% Not a module. 41 §5: a path that is not itself a module but is a
             %% PREFIX of ones that are is a namespace — erased entirely, no atom,
@@ -419,18 +418,20 @@ add_import(L, M, Self, World, Known, Local, Acc) ->
             end
     end.
 
-add_module_import(L, M, World, Local, Acc) ->
+%% 41 §2 requirement 2 USED to be enforced here, eagerly: an import that brought
+%% in a name the module also declared was refused at the `using` line. Ticket 47
+%% Q2 (2026-08-31) removed it. §2's one sentence makes ambiguity AND local
+%% shadowing errors without saying where either fires, and F15 built the two
+%% halves differently; the answer is that both fire only where a bare name
+%% GENUINELY has two meanings, which a local and an import never do — §2's
+%% resolution order settles them as "local, then imports". See `unqualified_key/4`.
+%%
+%% The eager check made a whole class of program unspellable, not merely awkward:
+%% a top-level callee has no namespace tier to be imported through, so a module
+%% declaring one of its exported names could not reach it by any route (ENG-270).
+add_module_import(M, World, Acc) ->
     Exports = maps:get(exports, maps:get(M, World)),
     Funs0 = maps:get(funs, Acc),
-    %% 41 §2 requirement 2: an import shadowing a local name is an error, fixed
-    %% by qualifying. NOT the analogy ticket 40 §2 refused — there `Fib/1` and
-    %% `Fib/2` each have a perfectly defined meaning; here the unqualified name
-    %% has NO defined meaning at all, which is what makes the same intuition
-    %% load-bearing in one case and decorative in the other.
-    case [K || K <- maps:keys(Exports), lists:member(K, Local)] of
-        [{N, A} | _] -> erlang:error({import_shadows_local, N, A, M, L});
-        []           -> ok
-    end,
     Funs = maps:fold(fun(K, _Sig, F) ->
                              %% Ambiguity is recorded rather than raised here:
                              %% 41 §2 makes it an error AT THE CALL SITE, so an
@@ -469,10 +470,32 @@ private_table(World) ->
 
 %% Only names with exactly one source reach the emitter. An ambiguous one is an
 %% error at its call site, so it must never be silently resolved here.
-resolved_funs(Imports) ->
-    maps:fold(fun(K, [M], Acc) -> Acc#{K => M};
-                 (_, _,   Acc) -> Acc
+%%
+%% A name the module DECLARES ITSELF is dropped outright, and that is 41 §2's
+%% "local, then imports" applied once, at check time, exactly where the comment
+%% on `imports =>` says the resolution happens. `unqualified_key/4` answers a
+%% bare call with the local; if this table still carried the import for the same
+%% key, the emitter would write a REMOTE call for a name the checker had typed
+%% against the LOCAL — the two resolvers would disagree and the program would
+%% compile and then run the wrong function.
+%%
+%% That is not hypothetical: it is what this table did the moment ENG-270 lifted
+%% the eager shadow refusal, because until then a local and an import could not
+%% share a key and the question never arose. `47a`'s P5 returned 3, the imported
+%% sum, where the local clause answers 0.
+resolved_funs(Imports, Local) ->
+    maps:fold(fun(K, [M], Acc) ->
+                      case lists:member(K, Local) of
+                          true  -> Acc;
+                          false -> Acc#{K => M}
+                      end;
+                 (_, _, Acc) -> Acc
               end, #{}, maps:get(funs, Imports, #{})).
+
+%% The `{Name, Arity}` keys this module declares. 41 §2 resolves a bare name
+%% against these before any import, so they are what an import must lose to.
+local_keys(Decls) ->
+    [{N, length(Ps)} || {signature, _, N, _, Ps, _} <- Decls].
 
 resolved_mods(Imports) ->
     maps:fold(fun(K, [M], Acc) -> Acc#{K => M};
@@ -2414,10 +2437,19 @@ foreign_name(Mod, Fun) ->
 
 %% 41 §2's resolution order, stated there as "local, then imports".
 %%
-%% A LOCAL WINS OUTRIGHT and never reaches the ambiguity rule, because a clash
-%% between a local and an import was already refused at the `using` line by
-%% `add_module_import/5`. So by the time a call is resolved, an unqualified name
-%% is either local or imported, never both.
+%% A LOCAL WINS OUTRIGHT, and that IS the rule rather than an accident of the
+%% lookup order — `callees` is consulted before `funs` because §2 says to. A
+%% clash between a local and an import used to be impossible here, refused
+%% eagerly at the `using` line; ticket 47 Q2 deleted that check, so the clash now
+%% reaches this function and the local answers it.
+%%
+%% This is NOT the silent-shadow failure the `ambiguous_call` branch below
+%% guards against, and the difference is worth keeping next to the code. There,
+%% two remote candidates have equal claim and picking either would be a coin
+%% flip the author never sees. Here one of the two is the author's own
+%% declaration, in the file they are reading, and a language whose local
+%% definitions can be captured by a later import is the surprising one. So the
+%% bare name has one meaning, not two, and only two IMPORTS are ever ambiguous.
 unqualified_key(Name, Arity, L, C) ->
     Key = {Name, Arity},
     case maps:is_key(Key, C#ctx.callees) of

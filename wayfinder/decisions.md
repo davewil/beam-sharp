@@ -1752,10 +1752,19 @@
   the answer that carries the ticket. §2's sentence covers ambiguity *and* local-shadowing, specifies
   no firing point for either, and F15 built the first lazily and the second eagerly — so an import was
   refused for a clash the program never made. That asymmetry was an artefact of the build, not the
-  rule. **Both halves now fire the same way**, and the delta is a deletion: the eager raise at
-  `bs_check.erl:416` goes, and `unqualified_key/4` reports the clash where the bare name is used —
-  no new syntax, no new table key, no new keyword. **Not built** — it is
-  [ENG-270](https://linear.app/davewil/issue/ENG-270), which this unblocks and was gated on it.
+  rule. **Both halves now fire the same way**, and the delta is a deletion: the eager raise in
+  `add_module_import` goes, and a bare name resolves to the local — no new syntax, no new table key,
+  no new keyword. **Built 2026-09-02** by [ENG-270](https://linear.app/davewil/issue/ENG-270), which
+  this unblocked and was gated on it.
+
+  *Corrected 2026-09-02, on building it: this paragraph said `unqualified_key/4` "reports the clash
+  where the bare name is used", and it does not — there is no clash left to report. A local and an
+  import are not two meanings, so the local simply answers and only two IMPORTS are ever ambiguous.
+  The paragraph also missed half the delta. Deleting the raise alone made the compiler emit the
+  WRONG function: `resolved_funs/1`, the table the emitter reads, resolved on imports alone and had
+  never needed to know about locals, because until then a local and an import could not share a key.
+  `47a`'s `P5` returned 3, the imported sum, where the local clause answers 0. The resolution order
+  now applies once, at check time, in the table both resolvers read.*
 
   **The premise the ticket rested on was false, and measuring it is what redirected the ticket.**
   Owed item 3 claimed an alias may be *"not a convenience but the ONLY spelling"* for a name reachable

@@ -398,10 +398,17 @@ not owed; it is refused.
 
 ## What this owes, and what it does not
 
-**Owed — and it belongs to [ENG-270](https://linear.app/davewil/issue/ENG-270), not here.** The
-failing test and the gate come before the implementation. When the check moves, `47a` **will go red**
-on `P5`, `P9`, `P10` and `P11`, and that is the probe working as designed: its verdicts are pinned to
-today, so the fix must re-pin them and say so. `modules_tests.erl` still has no test for this shape,
+**Owed — and it belongs to [ENG-270](https://linear.app/davewil/issue/ENG-270), not here.**
+~~The failing test and the gate come before the implementation.~~ **Discharged 2026-09-02.** The
+failing test and the gate went in first, `47a` went red on exactly `P5`, `P9`, `P10` and `P11` as
+predicted, and all four are re-pinned with a stated reason each. One prediction here was wrong and
+worth recording: §6 said the deletion alone was the whole delta, *"because `unqualified_key/4`
+already consults local `callees` before `funs`"*. It does — but the **emitter** reads a second,
+flattened table (`resolved_funs/1`) that resolved on imports alone, so with the raise gone the
+checker typed the call against the local while the emitter wrote a remote call to the import. `P5`
+returned 3 where the local answers 0. The resolution order now applies once, at check time, in the
+table both read. When the check moved, `47a` went red exactly as designed: its verdicts are pinned to
+today, so the fix re-pinned them and said so. `modules_tests.erl` still has no test for this shape,
 and [ENG-271](https://linear.app/davewil/issue/ENG-271) records that `ambiguous_module` has never
 been provoked by anything — which is how the two halves of one sentence came to fire at different
 points unnoticed.

@@ -88,7 +88,8 @@ Restate(o) -> Sum(o)               // resolved to 'Shop.Orders':Sum/1 at CHECK t
 | F11.6 | `using Shop.Orders` then unqualified `Sum(o)` | resolves to `'Shop.Orders':Sum/1`, emits remote | 0 |
 | F11.7 | `using Shop` then `Orders.Sum(o)` | namespace tier — resolves via the module table | 0 |
 | F11.8 | two imports both exporting `Sum/1`, called unqualified | `{ambiguous_call, …}` printing **qualified** candidates | 1 |
-| F11.9 | an import whose `Sum/1` collides with a local `Sum/1` | `{import_shadows_local, …}` | 1 |
+| F11.9 | an import whose `Sum/1` collides with a local `Sum/1` | ~~`{import_shadows_local, …}`~~ **accepted since 2026-09-02** — the local answers, by 41 §2's "local, then imports" (ENG-270) | 0 |
+| F11.9b | a **top-level** module exporting `Sum/2` imported by a module declaring `Sum/2` | **accepted** — it has no namespace tier to be reached through, so this shape had no legal spelling at all until F11.9 changed | 0 |
 | F11.10 | `Sum/1` imported beside a local `Sum/2` | **accepted** — resolution is by name *and* arity (40 §2) | 0 |
 | F11.11 | two `Combine/2` signatures in one module | `{name_redeclared, Combine, 2, Line}` **before** the exhaustiveness walk | 1 |
 | F11.12 | `Fib/1` and `Fib/2` in one module | **accepted** — arity overloading is permitted (40 §2) | 0 |

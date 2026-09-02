@@ -49,9 +49,24 @@ ok_rc(Out)  -> ?assert(string:find(Out, "rc:0") =/= nomatch).
 bad_rc(Out) -> ?assert(string:find(Out, "rc:1") =/= nomatch).
 has(Out, S) -> ?assert(string:find(Out, S) =/= nomatch).
 
+%% The value the program printed, without the `rc:` line `run_cli/1` appends.
+%% A test that turns on WHICH clause answered needs the value itself: `has(Out,
+%% "0")` also matches that `rc:0` line, so it would assert nothing at all.
+value(Out) -> string:trim(hd(string:split(Out, "\n"))).
+
 list_mod() ->
     {"List.bs",
      "module Shop.List\n"
+     "public int Sum(list<int> xs, int acc)\n"
+     "Sum([], acc) -> acc\n"
+     "Sum([x, ..rest], acc) -> Sum(rest, acc + x)\n"}.
+
+%% A TOP-LEVEL module — no namespace above it, which is the whole point of the
+%% shape it appears in. `using Shop.Collections` can be moved up a tier to stop
+%% it binding a bare name; `using Solo` has no tier to move to.
+solo_mod() ->
+    {"Solo.bs",
+     "module Solo\n"
      "public int Sum(list<int> xs, int acc)\n"
      "Sum([], acc) -> acc\n"
      "Sum([x, ..rest], acc) -> Sum(rest, acc + x)\n"}.
@@ -179,20 +194,49 @@ an_ambiguous_unqualified_call_is_an_error_naming_both_test() ->
     has(Out, "Shop.List.Sum"),
     has(Out, "Shop.Other.Sum").
 
-%% 41 §2 requirement 2, and the ticket is careful this is NOT the analogy 40 §2
-%% refused: there each overload has a defined meaning, here the unqualified name
-%% has none at all.
-an_import_shadowing_a_local_is_an_error_test() ->
-    Out = compile_set([{"R.bs",
-                        "module Shop.Reports\n"
-                        "using Shop.List\n"
-                        "public int Sum(list<int> xs, int acc)\n"
-                        "Sum(xs, acc) -> acc\n"
-                        "public int Go(int n)\n"
-                        "Go(n) -> Sum([n], 0)\n"},
-                       list_mod()]),
-    bad_rc(Out),
-    has(Out, "which this module also declares").
+%% 41 §2 requirement 2, as ticket 47 Q2 settled it on 2026-08-31. The shadowing
+%% half fires only where a bare name GENUINELY has two meanings, and a local
+%% beside an import is not two meanings: §2's resolution order is "local, then
+%% imports", so the local IS the answer. Until then this was refused eagerly at
+%% the `using` line, which is what made the shape below unspellable.
+%%
+%% The assertion is exact on purpose. The local returns its `acc`, so the answer
+%% is 0; had the import won it would be 3. "Contains 0" would pass either way,
+%% because `run_cli/1` appends an `rc:0` line.
+an_import_may_shadow_a_local_and_the_local_wins_test() ->
+    Out = run([{"R.bs",
+                "module Shop.Reports\n"
+                "using Shop.List\n"
+                "public int Sum(list<int> xs, int acc)\n"
+                "Sum(xs, acc) -> acc\n"
+                "public int Go(int n)\n"
+                "Go(n) -> Sum([n], 0)\n"},
+               list_mod()],
+              "Go 3"),
+    ok_rc(Out),
+    ?assertEqual("0", value(Out)).
+
+%% ENG-270 — THE LOCKOUT. A top-level callee has no namespace tier, so the
+%% escape that rescues a namespaced one (import the parent, which writes `mods`
+%% and never `funs`, and bind no bare name) does not exist for it. A module
+%% declaring `Sum/2` therefore could not reach `Solo.Sum/2` by ANY route: the
+%% `using` line was refused, and dropping it made the qualified call unreachable
+%% under 41 §1. There was no legal spelling of this program.
+%%
+%% 3 + 0: the qualified call sums the list, the bare one is the local returning
+%% `acc`. Had the bare name resolved to the import it would be 6.
+a_top_level_module_shadowing_a_local_is_still_reachable_test() ->
+    Out = run([{"R.bs",
+                "module Shop.Reports\n"
+                "using Solo\n"
+                "public int Sum(list<int> xs, int acc)\n"
+                "Sum(xs, acc) -> acc\n"
+                "public int Go(int n)\n"
+                "Go(n) -> Solo.Sum([n], 0) + Sum([n], 0)\n"},
+               solo_mod()],
+              "Go 3"),
+    ok_rc(Out),
+    ?assertEqual("3", value(Out)).
 
 %% 41 §2 requirement 3: resolution is by name AND arity, since 40 §2 permits
 %% overloading. `Sum/2` imported beside a local `Sum/1` is not a conflict.

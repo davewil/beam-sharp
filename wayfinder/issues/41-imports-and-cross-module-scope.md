@@ -158,7 +158,7 @@ B, and it does not survive contact with the fix.
 bs_check     an import environment: {Name, Arity} -> Module, built from each `using`
              resolution order for an unqualified call — local, then imports
              a {Name, Arity} reachable from 2+ sources raises {ambiguous_call, ...}
-             an import shadowing a local raises {import_shadows_local, ...}
+             an import shadowing a local raises {import_shadows_local, ...}   [1]
              both into the bsc:resolve_error/2 path, both printing QUALIFIED candidates
 
 bs_emit      an unqualified call to an imported name emits a REMOTE call to that
@@ -166,6 +166,17 @@ bs_emit      an unqualified call to an imported name emits a REMOTE call to that
 
 diagnostics  every printed call/head is fully qualified, unconditionally
 ```
+
+**[1] Superseded 2026-09-02 — `{import_shadows_local, …}` no longer exists.** §2's sentence made
+ambiguity *and* local-shadowing errors without saying where either fires; F15 built the first at the
+call site and the second eagerly at the `using` line, and that asymmetry made a whole class of
+program unspellable — a module declaring `Sum/2` could not reach a top-level module exporting it by
+any route. Ticket 47 Q2 settled that both halves fire only where a bare name **genuinely has two
+meanings**, which a local and an import never do: the resolution order on the line above already
+answers them. So the shadow raise and its diagnostic were deleted, and the line above it — *"local,
+then imports"* — is now the whole of the rule. Built by
+[ENG-270](https://linear.app/davewil/issue/ENG-270); the surviving half is `ambiguous_call`, for two
+**imports**.
 
 ---
 
