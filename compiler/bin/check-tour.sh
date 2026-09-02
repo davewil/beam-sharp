@@ -167,7 +167,7 @@ if [ "${1:-}" = "--self-test" ]; then
   esac
 
   # ------------------------------------------------------------------
-  # CONTROLS 7-11 — the `expect-after` directive (ENG-263, 2026-09-02).
+  # CONTROLS 7-12 — the `expect-after` directive (ENG-263, 2026-09-02).
   #
   # A transcript replayed under an edit can be wrong in more ways than a plain
   # one, and each way below was either the defect cd61280 fixed by hand or the
@@ -240,6 +240,34 @@ if [ "${1:-}" = "--self-test" ]; then
        st_fail=1 ;;
   esac
 
+  # 12 — the command's final argument is document-controlled, so it must not
+  # escape the per-replay corpus and turn the edit vocabulary into a file
+  # writer. Both mktemp calls create siblings; two `..` components therefore
+  # reach this sentinel from `$SCRATCH/<replay>/` on macOS and Linux.
+  CTL_BASE="$(basename "$CTL")"
+  printf 'module Sentinel\npublic atom Keep()\nKeep() -> :yes\n' > "$CTL/sentinel.bs"
+  cp "$CTL/sentinel.bs" "$CTL/sentinel.want"
+  cp "$DOC" "$CTL/12.md"
+  {
+    printf '\n<!-- expect-after: delete Keep() -->\n'
+    printf '```\n'
+    printf '$ bsc --src-root examples ../../%s/sentinel.bs\n' "$CTL_BASE"
+    printf 'irrelevant: this command must be rejected before it runs\n'
+    printf '```\n'
+  } >> "$CTL/12.md"
+  out12="$(control "$CTL/12.md")"
+  case "$out12" in
+    *'BAD TARGET'*) ;;
+    *) echo "SELF-TEST FAILED: an expect-after target outside its scratch corpus"
+       echo "                  was not rejected — document text can name another file"
+       st_fail=1 ;;
+  esac
+  if ! cmp -s "$CTL/sentinel.bs" "$CTL/sentinel.want"; then
+    echo "SELF-TEST FAILED: an expect-after target escaped its scratch corpus and"
+    echo "                  modified an external sentinel"
+    st_fail=1
+  fi
+
   # NEGATIVE CONTROL — the document and the stamp as they stand.
   #
   # NOT THROUGH `control`. That helper ends in `|| true` so the positive
@@ -258,7 +286,8 @@ if [ "${1:-}" = "--self-test" ]; then
     echo "           output, the unpublished edit and the missing stamp; refused to"
     echo "           execute a command in the document; reported the diagnostic with"
     echo "           no directive, the edit naming no line, the edit naming two, the"
-    echo "           stale number under an edit and the directive over nothing;"
+    echo "           stale number under an edit, the directive over nothing and an"
+    echo "           edit target outside its scratch corpus;"
     echo "           accepted the committed one — the gate discriminates"
     exit 0
   fi
@@ -446,10 +475,53 @@ EXPECT_AFTER_FLOOR=4
 # an edit does not name exactly one line, or is not an edit this gate knows.
 apply_edits() {
     local root="$1" target="$2" edits="$3" edit mode prefix text files f n total hit
-    if [ -d "$root/$target" ]; then
-        files="$(find "$root/$target" -name '*.bs' | sort)"
+    local path examples_root resolved parent
+    # TARGET comes from the transcript's final argument. Keep it inside the
+    # copied corpus before either awk or mv sees it: `../` here would otherwise
+    # turn a documentation edit into a write anywhere reachable from SCRATCH.
+    case "$target" in
+        examples|examples/*) ;;
+        *) echo "BAD TARGET  '$target' — expect-after may edit only compiler example paths"
+           return 1 ;;
+    esac
+    case "/$target/" in
+        *'/../'*|*'/./'*|*'//'*)
+            echo "BAD TARGET  '$target' — expect-after paths must be canonical"
+            return 1 ;;
+    esac
+    path="$root/$target"
+    examples_root="$(cd "$root/examples" && pwd -P)"
+    if [ -d "$path" ]; then
+        resolved="$(cd "$path" 2>/dev/null && pwd -P)" || {
+            echo "BAD TARGET  '$target' — expect-after could not resolve that path"
+            return 1
+        }
+        case "$resolved" in
+            "$examples_root"|"$examples_root"/*) ;;
+            *) echo "BAD TARGET  '$target' — expect-after resolved outside compiler examples"
+               return 1 ;;
+        esac
+        files="$(find "$resolved" -name '*.bs' | sort)"
     else
-        files="$root/$target"
+        case "$target" in
+            *.bs) ;;
+            *) echo "BAD TARGET  '$target' — expect-after files must end in .bs"
+               return 1 ;;
+        esac
+        [ -f "$path" ] && [ ! -L "$path" ] || {
+            echo "BAD TARGET  '$target' — expect-after files must be regular .bs files"
+            return 1
+        }
+        parent="$(cd "$(dirname "$path")" 2>/dev/null && pwd -P)" || {
+            echo "BAD TARGET  '$target' — expect-after could not resolve that path"
+            return 1
+        }
+        resolved="$parent/$(basename "$path")"
+        case "$resolved" in
+            "$examples_root"/*) files="$resolved" ;;
+            *) echo "BAD TARGET  '$target' — expect-after resolved outside compiler examples"
+               return 1 ;;
+        esac
     fi
     while IFS= read -r edit; do
         edit="$(printf '%s' "$edit" | sed 's/^ *//; s/ *$//')"

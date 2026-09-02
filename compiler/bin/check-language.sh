@@ -308,7 +308,7 @@ if [ "${1:-}" = "--self-test" ]; then
     fi
 
     # ------------------------------------------------------------------
-    # CONTROLS 8-11 — the `expect-after` claim (ENG-263, 2026-09-02).
+    # CONTROLS 8-13 — the `expect-after` claim (ENG-263, 2026-09-02).
     #
     # A block that compiles and then, after a named edit, prints the fence
     # below it. The first control is the defect this was built from: §3 showed
@@ -363,6 +363,18 @@ if [ "${1:-}" = "--self-test" ]; then
         st_fail=1
     fi
 
+    # 12 — both production directives removed. Ordinary blocks still compile,
+    # so without a floor the summary quietly says `0 replayed after an edit`
+    # and exits green: the mutation half of the reference has disappeared.
+    sed '/^<!-- expect-after:/d' "$REPO/LANGUAGE.md" > "$CTL/noafter.md"
+    expect "TOO FEW" "$CTL/noafter.md" "a reference with no expect-after directives"
+
+    # 13 — one of the two production displays removed. This distinguishes the
+    # committed floor from a weaker `mutated > 0` check.
+    awk '!removed && /^<!-- expect-after:/ { removed = 1; next } { print }' \
+        "$REPO/LANGUAGE.md" > "$CTL/oneafter.md"
+    expect "TOO FEW" "$CTL/oneafter.md" "a reference with only one expect-after directive"
+
     # NEGATIVE CONTROL — the reference as committed.
     if CHECK_LANGUAGE_DOC="$REPO/LANGUAGE.md" "${BASH_SOURCE[0]}" > /dev/null 2>&1
     then :; else
@@ -376,7 +388,8 @@ if [ "${1:-}" = "--self-test" ]; then
         echo "           shipped, the unknown tag, and four ways a \`diagnoses:\` example"
         echo "           can be wrong — silent, mislabelled, carrying a second diagnostic,"
         echo "           and claimed twice; three ways an \`expect-after\` example can be"
-        echo "           wrong — drifted, naming no line, showing no output; accepted a"
+        echo "           wrong — drifted, naming no line, showing no output, or too few"
+        echo "           production displays remaining; accepted a"
         echo "           correct one of each and the committed reference — the gate"
         echo "           discriminates in both directions"
         exit 0
@@ -464,6 +477,10 @@ END { print n > (out "/count") }
 COUNT="$(cat "$WORK/count")"
 
 pass=0; fail=0; skipped=0; mutated=0
+# LANGUAGE.md carried two verified diagnostic displays when `expect-after`
+# landed. Fewer means a display stopped being parsed or lost its directive;
+# ordinary compilation alone cannot reveal that loss.
+EXPECT_AFTER_FLOOR=2
 FAILURES=""
 
 # apply_edits ROOT TARGET EDITS — an `expect-after` directive, applied to a copy.
@@ -679,6 +696,14 @@ for i in $(seq 1 "$COUNT"); do
         FAILURES="$FAILURES $i"
     fi
 done
+
+if [ "$fail" -eq 0 ] && [ "$mutated" -lt "$EXPECT_AFTER_FLOOR" ]; then
+    echo
+    echo "  TOO FEW      $mutated blocks replayed after an edit; the reference had $EXPECT_AFTER_FLOOR"
+    echo "               on 2026-09-02. A directive stopped being read or a display"
+    echo "               lost its edit — lower the floor only if one was removed on purpose."
+    fail=$((fail + 1))
+fi
 
 if [ "$VERBOSE" = 1 ] && [ -n "$FAILURES" ]; then
     for i in $FAILURES; do
