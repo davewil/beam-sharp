@@ -80,6 +80,7 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BSC="$HERE/_build/default/bin/bsc"
 FIXTURES="$HERE/bin/fixtures/residual"
+EXAMPLES="$HERE/examples"
 
 # The roster. A name here with no result in the run is red.
 ROSTER="Atom Interval IntervalUnion RecordUnion RecordInList TupleNested OpenList BinTag TopString ManyHeads WholeList"
@@ -353,6 +354,181 @@ judge() {
   done
 
   judge_wire "$dir"
+  judge_promise "$dir"
+}
+
+# ---------------------------------------------------------------------------
+# THE PROMISE STAGE — the sentence, not just the behaviour (ENG-263, 2026-09-02).
+#
+# The Wire stage above runs `wire.bs:15`'s CLAIM. It does not read the sentence,
+# and a stage that checks behaviour cannot see a stale one. `shop.bs:22` is the
+# proof: it promised the compiler writes
+#
+#     Which({ Kind: :'Shop.Invoice' }) -> ...
+#
+# against a compiler that writes `Which(Invoice i) -> ...`. It quoted the
+# hand-written minted tag — the form ticket 55 calls "the one place the surface
+# makes an erasure detail load-bearing", and the one `refused_spelling` above
+# rejects when the PRINTER emits it. Nothing applied that judgement to prose,
+# and the Wire stage could not: it never reads a comment, and never touches Shop.
+#
+# So an entry here is a THREE-WAY agreement, and any two of the three parting
+# company is red:
+#
+#   the compiler   the residual head produced when the clause is deleted
+#   this table     `promise_head`, the head both of the others must carry
+#   the comment    the promise in the source, which is what a reader believes
+#
+# WHY THE PROMISE IS READ FROM COMMENT LINES ONLY.
+#
+# `Classify(>= 4 and <= 7)` occurs TWICE in `wire.bs` — at `:15` in the comment
+# and at `:49` as a clause. A whole-file search for the promise matches the
+# clause, so it would pass with the comment deleted outright, and the half of
+# this stage that is its whole point would ship never having been exercised.
+# `promise_unclaimed` below is the stub that holds this to it.
+# ---------------------------------------------------------------------------
+PROMISES="Wire Shop"
+
+promise_file()   { case "$1" in Wire) echo "Wire/wire.bs" ;; Shop) echo "Shop/shop.bs" ;; *) echo "" ;; esac; }
+promise_module() { case "$1" in Wire) echo "Wire" ;;         Shop) echo "Shop" ;;         *) echo "" ;; esac; }
+
+# The clause deleted, matched as a LITERAL PREFIX at column 1 — see probe_promise.
+promise_clause() {
+  case "$1" in
+    Wire) echo "Classify(>= 4 and <= 7)" ;;
+    Shop) echo "Which({ Kind: :'Shop.Invoice' })" ;;
+    *)    echo "" ;;
+  esac
+}
+
+# The head the compiler must produce AND the source comment must promise.
+promise_head() {
+  case "$1" in
+    Wire) echo "Classify(>= 4 and <= 7) -> ..." ;;
+    Shop) echo "Which(Invoice i) -> ..." ;;
+    *)    echo "" ;;
+  esac
+}
+
+# The body pasted onto the suggested head. Not one body for both: `Classify`
+# returns `FrameType`, a closed atom union, so an invented atom is a type error
+# and the paste-back would go red for a reason that is not this stage's.
+promise_body() {
+  case "$1" in
+    Wire) echo ":reserved" ;;
+    Shop) echo ":invoice" ;;
+    *)    echo "" ;;
+  esac
+}
+
+expected_promise() { case "$1" in Wire|Shop) echo "clean" ;; *) echo "" ;; esac; }
+
+# classify_promise DIR P — the order of the tests is the order of blame.
+# `moved` outranks a paste failure because a head that is not the one promised
+# is the finding whatever the paste then does; `unclaimed` outranks a clean
+# paste because a comment that no longer describes the compiler is the defect
+# this stage exists for.
+classify_promise() {
+  local dir="$1" p="$2" rc out head want claim n
+  [ -f "$dir/promise/$p.rc" ] || { echo "unrun"; return; }
+  rc="$(cat "$dir/promise/$p.rc")"
+  out="$(cat "$dir/promise/$p.paste" 2>/dev/null || true)"
+  head="$(cat "$dir/promise/$p.head" 2>/dev/null || true)"
+  claim="$(cat "$dir/promise/$p.claim" 2>/dev/null || true)"
+  want="$(promise_head "$p")"
+
+  [ -n "$head" ] || { echo "nohead"; return; }
+  n="$(grep -c . "$dir/promise/$p.term" 2>/dev/null || true)"
+  [ -n "$n" ] || n=0
+  [ "$n" = "1" ] || { echo "split:$n"; return; }
+  [ "$head" = "$want" ]  || { echo "moved"; return; }
+  [ "$claim" = "found" ] || { echo "unclaimed"; return; }
+
+  if [ "$rc" = "0" ]; then
+    [ -z "$out" ] || { echo "other"; return; }
+    echo "clean"; return
+  fi
+  [ -n "$out" ] || { echo "unrun"; return; }
+  case "$out" in *"twice in one head"*) echo "binds"; return ;; esac
+  case "$out" in
+    *"syntax error before:"*)
+      local t="${out#*syntax error before: \'}"; t="${t%%\'*}"; echo "syntax:$t"; return ;;
+  esac
+  echo "other"
+}
+
+# judge_promise DIR — both halves of the floor, as everywhere else here.
+judge_promise() {
+  local dir="$1" p got want f base
+  for p in $PROMISES; do
+    if [ ! -f "$dir/promise/$p.rc" ] && [ ! -f "$dir/promise/$p.head" ]; then
+      echo "$p: in the promise roster and never measured"
+      continue
+    fi
+    got="$(classify_promise "$dir" "$p")"
+    want="$(expected_promise "$p")"
+    [ "$got" = "$want" ] && continue
+    echo "$p: promise verdict is '$got', the table says '$want'"
+    case "$got" in
+      moved)
+        echo "    ^ deleted \`$(promise_clause "$p")\` and the compiler suggested"
+        echo "      '$(cat "$dir/promise/$p.head" 2>/dev/null || true)', not '$(promise_head "$p")'." ;;
+      unclaimed)
+        echo "    ^ the compiler is right and the PROSE is stale: no comment line in"
+        echo "      examples/$(promise_file "$p") promises '$(promise_head "$p")'." ;;
+    esac
+  done
+  for f in "$dir"/promise/*.head; do
+    [ -e "$f" ] || continue
+    base="$(basename "$f" .head)"
+    case " $PROMISES " in
+      *" $base "*) ;;
+      *) echo "$base: promise measured but not in the roster - add it or drop it" ;;
+    esac
+  done
+}
+
+# probe_promise DIR — the claim is read from the PRISTINE source, before the edit.
+probe_promise() {
+  local dir="$1" p file mod clause want src out head
+  mkdir -p "$dir/promise"
+  for p in $PROMISES; do
+    file="$(promise_file "$p")"; mod="$(promise_module "$p")"
+    clause="$(promise_clause "$p")"; want="$(promise_head "$p")"
+    [ -f "$EXAMPLES/$file" ] || { echo "missing example: $EXAMPLES/$file" >&2; continue; }
+
+    # Comment lines only. Compared without the ` -> ...` tail, because prose
+    # quotes the head and not the arrow — `wire.bs:15` does exactly this.
+    if grep '^//' "$EXAMPLES/$file" | grep -qF "${want% -> ...}"; then
+      printf 'found' > "$dir/promise/$p.claim"
+    else
+      : > "$dir/promise/$p.claim"
+    fi
+
+    rm -rf "$dir/ex/$p"; mkdir -p "$dir/ex/$p"
+    cp -R "$EXAMPLES/." "$dir/ex/$p/"
+    src="$dir/ex/$p/$file"
+
+    # A LITERAL PREFIX at column 1. `awk index($0,c)==1` rather than `grep -v`,
+    # because the Shop clause carries `{`, `}` and a `.` that a basic regular
+    # expression reads as metacharacters — and because anchoring is what keeps
+    # the comment at `wire.bs:15`, which holds the same text, out of the cut.
+    awk -v c="$clause" 'index($0, c) == 1 { next } { print }' "$src" > "$src.cut"
+    mv "$src.cut" "$src"
+
+    "$BSC" --diagnostics term --src-root "$dir/ex/$p" "$dir/ex/$p/$mod" 2>&1 \
+      | grep -o '"[A-Za-z_][A-Za-z0-9_]*([^"]* -> \.\.\."' \
+      | sed 's/^"//; s/"$//' > "$dir/promise/$p.term" || true
+
+    head="$(head -n 1 "$dir/promise/$p.term" 2>/dev/null || true)"
+    printf '%s' "$head" > "$dir/promise/$p.head"
+    [ -n "$head" ] || continue
+
+    sed "s/-> \.\.\./-> $(promise_body "$p")/" "$dir/promise/$p.term" >> "$src"
+    out="$("$BSC" --src-root "$dir/ex/$p" "$dir/ex/$p/$mod" 2>&1)"
+    printf '%s' "$?" > "$dir/promise/$p.rc"
+    printf '%s' "$out" > "$dir/promise/$p.paste"
+  done
 }
 
 # ---------------------------------------------------------------------------
@@ -484,6 +660,23 @@ T
     two "$1" WholeList     "Ship([]) -> ..."                       "Ship([Order o, ..]) -> ..."
     many "$1"
     wire_ok "$1"
+    promise_ok "$1"
+  }
+  # promise_ok/1 — both promise entries agreeing with compiler and comment.
+  # `today` must lay these down for EVERY stub set: with the promise floor
+  # inside `judge`, a set carrying no promise data is red on the floor rather
+  # than on its own defect, and each `bad` case below would print "ok red"
+  # while testing nothing. `good` is what holds this honest, since it is the
+  # one that must come out silent.
+  promise_ok() { # promise_ok DIR
+    local d="$W/$1/promise" p; mkdir -p "$d"
+    for p in $PROMISES; do
+      printf '%s\n' "$(promise_head "$p")" > "$d/$p.term"
+      printf '%s'   "$(promise_head "$p")" > "$d/$p.head"
+      printf 'found' > "$d/$p.claim"
+      : > "$d/$p.paste"
+      printf '0' > "$d/$p.rc"
+    done
   }
   # wire_ok/1 — the seven Wire clauses at the verdicts the table records.
   wire_ok() { # wire_ok DIR
@@ -569,8 +762,52 @@ T
   today wire_never
   rm -rf "$W/wire_never/wire"
 
+  # ---- the promise stage's own six -------------------------------------
+  #
+  # promise_unclaimed  THE ONE THIS STAGE EXISTS FOR, and the defect shop.bs:22
+  #                    actually had: the compiler is right and the prose is
+  #                    stale. Without it the comment check ships unexercised,
+  #                    because `Classify(>= 4 and <= 7)` sits in wire.bs twice
+  #                    and a whole-file search would match the clause.
+  # promise_moved      the printer regresses to the minted tag, so the comment
+  #                    is now right about a compiler that changed under it.
+  # promise_unpasteable the promised head comes back and does not compile.
+  # promise_cry_wolf   the paste-back never ran, reported as success: empty
+  #                    output with a non-zero status.
+  # promise_missing    a roster entry never measured — the floor.
+  # promise_extra      one measured and not in the roster. The over-informed
+  #                    control: a verdict keyed on entry NAME rather than on
+  #                    the recorded head and claim passes everything else here.
+
+  today promise_unclaimed
+  : > "$W/promise_unclaimed/promise/Shop.claim"
+
+  today promise_moved
+  printf '%s\n' "Which({ Kind: :'Shop.Invoice' }) -> ..." > "$W/promise_moved/promise/Shop.term"
+  printf '%s'   "Which({ Kind: :'Shop.Invoice' }) -> ..." > "$W/promise_moved/promise/Shop.head"
+
+  today promise_unpasteable
+  printf '%s' "$SY_DD" > "$W/promise_unpasteable/promise/Wire.paste"
+  printf '1'           > "$W/promise_unpasteable/promise/Wire.rc"
+
+  today promise_cry_wolf
+  : > "$W/promise_cry_wolf/promise/Wire.paste"
+  printf '2' > "$W/promise_cry_wolf/promise/Wire.rc"
+
+  today promise_missing
+  rm -f "$W/promise_missing/promise/Shop."*
+
+  today promise_extra
+  printf '%s\n' "Nope(:x) -> ..." > "$W/promise_extra/promise/Bogus.term"
+  printf '%s'   "Nope(:x) -> ..." > "$W/promise_extra/promise/Bogus.head"
+  printf 'found' > "$W/promise_extra/promise/Bogus.claim"
+  : > "$W/promise_extra/promise/Bogus.paste"
+  printf '0' > "$W/promise_extra/promise/Bogus.rc"
+
   for bad in type_notation second_line silent cry_wolf over_informed dot_dot rebinds \
-             wire_paraphrase wire_split wire_refused wire_unrun wire_missing wire_extra wire_never; do
+             wire_paraphrase wire_split wire_refused wire_unrun wire_missing wire_extra wire_never \
+             promise_unclaimed promise_moved promise_unpasteable promise_cry_wolf \
+             promise_missing promise_extra; do
     if [ -z "$(judge "$W/$bad")" ]; then
       echo "  x SELF-TEST: '$bad' produced no complaint - the gate cannot see it"; fail=1
     else
@@ -583,7 +820,7 @@ T
     echo "  ok green on the correct form"
   fi
   [ "$fail" -eq 0 ] || { echo "self-test FAILED"; exit 1; }
-  echo "self-test passed: fourteen defects seen, today's tables accepted"
+  echo "self-test passed: twenty defects seen, today's tables accepted"
   exit 0
 fi
 
@@ -595,6 +832,7 @@ fi
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 probe "$W"
 probe_wire "$W"
+probe_promise "$W"
 out="$(judge "$W")"
 if [ -n "$out" ]; then
   echo "$out"
@@ -608,3 +846,5 @@ echo "  ok         11 residual shapes round-tripped, each to the verdict recorde
 echo "             (every entry in \`expected\` reads 'clean' - F29's done-when, met)"
 echo "  ok         $(grep -c . "$W/wire/clauses") Wire clauses deleted in turn: six handed back as the same line,"
 echo "             the open span closed on the domain's top - wire.bs:15's sentence, run"
+echo "  ok          2 source comments promise the head the compiler actually prints,"
+echo "             and it pasted clean - the sentence checked, not only the behaviour"
