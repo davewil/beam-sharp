@@ -1,6 +1,6 @@
 # F21 — A field assignment is checked, at both spellings and on both halves
 
-**Status**      **done 2026-08-21**
+**Status**      **done 2026-08-21** · [ENG-203](https://linear.app/davewil/issue/ENG-203)
 **Implements**  [ticket 36](../../wayfinder/issues/36-field-value-obligations.md), resolved
                 2026-08-21 — which widens
                 [ticket 33](../../wayfinder/issues/33-body-check-site.md) §2's site-2 *relation*

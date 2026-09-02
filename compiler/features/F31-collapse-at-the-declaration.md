@@ -178,6 +178,41 @@ form that does not fix the program; there the fix is to narrow the success type,
 and that is what is said instead. If a later ticket wants one wording for both,
 this is the line to change.
 
+## The scenarios
+
+`collapse_tests.erl` opens its sections with these identifiers, and this is what each one
+establishes.
+
+| | | |
+|---|---|---|
+| F31.1 | **the shape** — `option<atom>`, then `option<option<int>>`, against the types that must *not* collapse | both refused; the second has no atom top anywhere, so an implementation checking for a cofinite atom accepts it and is wrong |
+| F31.2 | **the site** — the five declaration forms that carry a written type besides the signature return: parameter, record field, type-alias body, foreign return, foreign parameter; then a collapsing type nested in a **tuple component**, and the `--api` query path | each refused. A check wired to the signature alone passes all of F31.1 and none of these |
+| F31.3 | **termination**, over a contractive parametric alias | the pass terminates. A regression test for a defect this feature shipped and then fixed |
+| F31.4 | **the line, and the sentence** — the declaration's line number; the `tag it` hint on `:nothing` but not on `(:error, E)`; and the `ValidateAs` site | the line arrives from the enclosing declaration, the hint is printed only where it would help, and the obligation site keeps its own tag and text |
+
+**Why F31.2 is a scenario and not more cases of F31.1.** No type-expression node carries a line —
+`t_union`, `t_generic`, `param` and `field` all lack one — so the check cannot live in `resolve/3`
+and has to be reached from each declaration form separately. The five forms are five call sites,
+and every one of them accepted a collapsing type on `master` before this feature.
+
+Two of F31.2's assertions are not declaration forms and are worth naming separately. The **tuple
+component** is there because the channel is equally dead one level down: `(option<atom>, int)` was
+reported by `--api` as `(atom, int)`. The **`--api` query path** is there because it resolves
+signatures through `exports_of/1`, a *second* declaration pass that does not go through `check/2`
+at all — the first draft of this feature refused the type at a compile and answered `atom Go(int)`
+to `--api` for the same file, which is one half of the compiler reporting the collapse while the
+other printed it as fact.
+
+**Why F31.3 is a scenario about the test suite.** The first draft expanded a parametric alias
+without carrying `resolve/3`'s `Seen` chain and recursed forever. The contractive-alias test did
+not go red — it **timed out**, and eunit cancelled every module after it, so the suite reported
+`Failed: 0` while running less than half of itself. The scenario asserts termination, which is a
+stronger claim than the refusal it replaced: before, the walk stopped only because the type was
+refused before the pass could reach it.
+
+**F31.4 heads two sections**, the diagnostic's line and text, and the `ValidateAs` site that must
+keep its own. They share an identifier because they are one claim about one message.
+
 ## What ships
 
 | | |

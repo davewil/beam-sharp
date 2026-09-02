@@ -100,6 +100,28 @@ catches `n / 0`, and it also catches a divisor narrowed to nothing but zero by a
 refinement or a clause head, which an equality test would miss. It cannot fire
 on `int`, which is what keeps `Mean(total, count) -> total / count` compiling.
 
+## The scenarios
+
+`division_tests.erl` opens its sections with these identifiers, and this is what each one
+establishes. The lettered `F26.1b` is a sub-part of `F26.1` rather than a fourth scenario:
+it asserts the same two operators over a value no machine word holds.
+
+| | | |
+|---|---|---|
+| F26.1 | `Slash(-7, 2)`, `Pct(-7, 2)`, and the identity over a spread of signs | `-3` and `-1` — `/` truncates **toward zero** and `%` is signed by the **dividend**, so `q * b + r` reconstructs `a` |
+| F26.1b | 2^100 divided by 7, passed in **and** written as a literal in B# source | exact — `int` is a bignum at both ends, and the front end carries a 101-bit literal through |
+| F26.2 | `total / count`; then `n / 0`, `n % 0`, `n / 2`, and `n / d` where `d` is `int where value != 0` | the possibly-zero divisor **compiles** (ticket 38: `/` carries no precondition); only the *provably* zero one is refused, at both operators, and neither control is touched |
+
+**Why `F26.1b` exists at all**, since it asserts something that was already true: every other
+case in the file fits in a machine word, so a change that clamped `int` to 64 bits or emitted a
+fixed-width operator would leave the whole suite green. It is a scenario about what the *other*
+scenarios cannot see.
+
+**Why the last two rows of `F26.2` are controls and not cases.** A rule that refused every
+literal divisor satisfies `n / 0` and `n % 0` and is still wrong; a rule keyed on literals alone
+misses that a refinement excluding zero is a different way of saying the same thing. Both are
+listed here because a reader counting assertions would otherwise read four tests as one claim.
+
 ## What this does not do
 
 - **No `float / float`.** 38 phrased the rule over the operand types precisely

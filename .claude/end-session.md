@@ -52,6 +52,7 @@ cd compiler && ./bin/check-switch-diagnostics.sh # every switch diagnostic has a
 cd compiler && ./bin/check-residual-pasteable.sh # the synthesised head round-trips to its recorded verdict
 cd compiler && ./bin/check-list-length.sh       # the checker sees a list's length, both ways
 cd compiler && ./bin/check-division.sh          # `/` lowers to div; only a provable zero is refused
+cd compiler && ./bin/check-feature-scenarios.sh # every scenario id the code cites is defined in its F-file
 cd compiler && ./bin/check-negation.sh          # no `not`, no `!`, both taught; `not` is still a name
 cd compiler && ./bin/check-recursive-types.sh   # recursive types resolve; the two that cannot still refuse
 cd compiler && ./bin/check-collapse.sh          # a declared failure channel survives normalisation

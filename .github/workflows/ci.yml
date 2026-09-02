@@ -592,6 +592,25 @@ jobs:
         working-directory: compiler
         run: ./bin/check-collapse.sh
 
+      # ENG-276. The test suite navigates by scenario identifier — `%% F25.4 —
+      # a record in the RESIDUAL has no writable spelling` — and three features
+      # cited sixteen of them from tests while defining none in the feature
+      # file. A clean-room reader following the citation found the document and
+      # no such section, with only the excluded compiler source to fall back on.
+      #
+      # The self-test's `index_only` stub is the one that earns this gate: the
+      # identifier IS under `features/`, in `README.md`. A gate that greps the
+      # directory rather than the named file goes green on it and the reader
+      # still finds nothing. `suffix` is the other: `F26.1b` is real, and a rule
+      # that strips the letter reports green over a missing section.
+      - name: The feature-scenario gate proves it can fail
+        working-directory: compiler
+        run: ./bin/check-feature-scenarios.sh --self-test
+
+      - name: 'Every scenario identifier the code cites is defined in its feature document'
+        working-directory: compiler
+        run: ./bin/check-feature-scenarios.sh
+
       # F21 / ticket 36. `Order{ Id = :oops }` and `o with { Total = :oops }`
       # both compiled to a .beam, and `o with { Nope = 1 }` compiled and raised
       # {badkey,'Nope'} at RUN time — 26 §2 enforced by the BEAM rather than by

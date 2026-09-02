@@ -26,7 +26,8 @@ it, in as many words:
 > `%% The bound is a LITERAL, and negative bounds are the case that makes this its`
 > `%% own nonterminal:` `Classify(<= -1)` `is the residual's own spelling for the`
 > `%% negative half of` `int`, `so the diagnostic 23 §2 synthesises has to be`
-> `%% something the parser accepts back.` — `bs_parser.yrl:462-465`
+> `%% something the parser accepts back.` — `bs_parser.yrl`, the comment above the `int_lit`
+> productions
 
 Ticket 43 §0 then measured the printer still emitting `Classify(int <= 9 | 11..19 | …)` and recorded
 23 §2's lowering as **unbuilt**. F22 shipped the type-prefix record pattern on 2026-08-22; its "what
@@ -62,41 +63,57 @@ Two rows need reading twice.
 
 **The record row compiles and is still wrong.** `{ Kind: :'B2.Tri' }` is the hand-written form F22
 was written to replace — its own comment says writing the minted tag by hand *"makes an erasure
-detail load-bearing in source"* (`bs_parser.yrl:499-501`). **A gate that only asked "does it
+detail load-bearing in source"* (`bs_parser.yrl`, the ticket 55 / F22 comment above `p_rec`).
+**A gate that only asked "does it
 compile" would bless this row**, which is why ENG-263's gate asserts the spelling and not only
 parseability.
 
 **The list row fails hardest and is the F3 bug reached by a new route.** `int` is a lowercase name
-in pattern position, so it binds a variable, twice — `bs_check.erl:1250` raises `repeated_in_head`.
-`to_pattern/1`'s own header (`bs_types.erl:1030-1040`) says the discriminator form exists precisely
-to prevent this. The cause is one line: `pat_parts/1` has pattern-side variants for tuples
-(`ts_pat`) and maps (`ms_pat`), but **not for lists** — it reuses `l_str/1`, whose element printer
-`sp_items/1` is hardwired to `to_string` (`bs_types.erl:965`).
+in pattern position, so it binds a variable, twice — `bs_check`'s `head_scope/3` raises
+`repeated_in_head`. `to_pattern/1`'s own header in `bs_types` says the discriminator form exists
+precisely to prevent this. The cause is one line: `pat_parts/1` has pattern-side variants for
+tuples (`ts_pat`) and maps (`ms_pat`), but **not for lists** — it reuses `l_str/1`, whose element
+printer `sp_items/1` is hardwired to `to_string`.
 
-## One function, two jobs, eight sites
+## One function, two jobs, nine sites
 
-`to_pattern/1` is rendered into eight diagnostic fields, and they do not all have the same job:
+`to_pattern/1` is rendered into nine diagnostic fields, and they do not all have the same job.
 
-| Site | Field | Job |
+Each site is named by the **diagnostic tag** whose `descriptor/2` clause holds the field, because a
+tag is stable and a line number is not: this table was first written with line numbers, and by
+2026-09-02 every one of the fifteen in this file pointed at something else.
+
+*(Corrected 2026-09-02, ENG-276. The count read **eight** and the `rejected` row covered two call
+sites in one line, so the table said eight and enumerated nine. Both `rejected` sites are now
+listed, because they belong to different diagnostics — one is an argument a callee refused, the
+other a value a record refused.)*
+
+| Site — `descriptor/2` clause for | Field | Job |
 |---|---|---|
-| `bs_diag.erl:171` | `arm` (switch) | **description** — already declared so, see below |
-| `bs_diag.erl:174` | `subject` | description |
-| `bs_diag.erl:192`, `:208` | `rejected` | description — an argument the callee refused |
-| `bs_diag.erl:213` | `member` | description |
-| `bs_diag.erl:221` | `undeclared` | description |
-| `bs_diag.erl:226` | `unmatched` | description |
-| `bs_diag.erl:1151` | `caller_head` | **paste** |
-| `bs_diag.erl:1091-1106` | `heads` / `pasteable` | **paste** |
+| `switch_inexhaustive` | `arm` | **description** — already declared so, see below |
+| `valve_on_infallible` | `subject` | description |
+| `arg_not_accepted` | `rejected` | description — an argument the callee refused |
+| `field_value_not_accepted` | `rejected` | description — the same field, a value a record refused |
+| `field_absent` | `member` | description |
+| `return_not_declared` | `undeclared` | description |
+| `bind_may_fail` | `unmatched` | description |
+| `arg_not_accepted` | `caller_head` | **paste** |
+| `inexhaustive`, `catch_all_over_closed` | `heads` / `pasteable` | **paste** |
 
 The split is already half-discovered. `switch_inexhaustive` deliberately does not route through the
-head printer at all (`bs_diag.erl:566-568`):
+head printer at all — the comment above `message/1`'s `switch_inexhaustive` clause in `bs_diag`:
 
 > *"Deliberately NOT routed through the head printer: that prints `Fn(:cancelled) -> ...`, and a
 > switch has no function name and its arrow is `=>`."*
 
 **So the deliverable is the split, not a patch to the renderings.** `to_pattern/1` keeps its meaning
 and its callers for the description sites; a new head printer serves the paste sites. Each of the
-eight declares which it is, in source, once.
+nine declares which it is, in source, once.
+
+**That split has since happened, and it is visible in the call graph.** `to_pattern/1` is now
+reached from the seven description fields only; the two paste fields are served by `heads/3` and
+`caller_head/3`. A reader counting `to_pattern` call sites in `bs_diag` today finds seven, not
+nine, and the difference is exactly this feature.
 
 ## The two decisions in this file
 
@@ -196,8 +213,8 @@ and both are capped by ticket 43's rule. Building this also found `{cofinite, []
 which a binder spells — being treated as unspellable alongside `{cofinite, [:x]}`, which turned a
 forty-one-head diagnostic into a wall of type notation.
 
-**4. `caller_head` was the eighth site and it was broken the same way.** This file's table names
-`bs_diag.erl:1151` a **paste** site, and it was reading `to_pattern/1`. So an interval residual
+**4. `caller_head` was the last site and it was broken the same way.** This file's table names
+`arg_not_accepted`'s `caller_head` a **paste** site, and it was reading `to_pattern/1`. So an interval residual
 printed `F(int <= 5, _) -> ...` under the heading *"the clause to add here"* — a head that does not
 parse, at the one place a reader is most likely to paste from. Nothing had found it, for this
 feature's own stated reason: a printer is not part of any surface being added. It now returns a
@@ -222,7 +239,8 @@ Classify(<= 199) -> ...
 Classify(>= 300 and <= 399) -> ...
 ```
 
-`or` is available in `rel_pattern` (`bs_parser.yrl:454-455`) and is **deliberately not used** — a
+`or` is available in `rel_pattern` (`bs_parser.yrl`'s `rel_pattern -> rel_pattern 'or' rel_pattern`
+production) and is **deliberately not used** — a
 line mixing `or` with `join/2`'s `|` truncation would read as two different alternations at once.
 Ticket 43's cap counts lines.
 
@@ -255,14 +273,19 @@ its answer for `to_string/1`** — this narrows 61 to the description channel an
 it. A diff that changes what `to_string` prints has gone too far.
 
 **F29.9 — the description channel is never rendered as a head.** `binary \ string`
-(`bs_types.erl:1006-1009`, which has no surface spelling and says so) and a cofinite atom set are
+(which `bs_types`' `b_str/1` renders, and which has no surface spelling — `b_str/1` says so) and a cofinite atom set are
 carried on a separate field and rendered with wording that does not invite a paste. The `pasteable`
 key is absent, not empty.
 
-**F29.10 — the prose is a prefix of the term channel.** `bs_diag.erl:1100-1101` claims the two
-*"cannot say different things"*; they differ in completeness, because `pasteable/2` joins at
-`infinity` (`:1104-1106`) while the prose caps at three in two places (`:1122-1136`). The scenario
-asserts the prose head lines are the term list's first three plus the `... (N more)` line.
+**F29.10 — the prose is a prefix of the term channel.** `bs_diag`'s comment on `heads_prose/2` used
+to claim the two *"cannot say different things"*. That was true on content and **false on
+completeness**: `pasteable/3` joined at `infinity` while the prose capped at three, from two
+separate expressions. This feature made them one expression, so the cap is now the only difference
+between them and the prefix property holds by construction. The scenario asserts the prose head
+lines are the term list's first three plus the `... (N more)` line.
+
+*(Corrected 2026-09-02, ENG-276: this paragraph described the defect in the present tense after
+the fix had shipped, and called the function `pasteable/2` — it is `pasteable/3`.)*
 
 **F29.11 — the seven description sites keep type notation.** `rejected`, `member`, `undeclared`,
 `unmatched`, `subject` and the switch `arm` are unchanged by this feature. A diff that alters their
@@ -281,13 +304,19 @@ number from a file that does not exist. `README.md:22` is ENG-264's.
 
 Named explicitly, because this is the section F22 was missing when it left this feature undone.
 
+**This list was written before the build and three of its bullets did not happen.** §1 and §2 were
+not built — see the Status line and "The two decisions in this file" — so `p_typed` does not exist
+in the AST, `bs_check` gained no case for it and no subtype test, and the emitter gained no case
+either. `bs_parser.yrl` gained nothing. The `bs_types` and `bs_diag` bullets are what shipped.
+*(Recorded 2026-09-02, ENG-276; the `bs_check` bullet also carried a source line that had drifted.)*
+
 - **`bs_types`** — a head printer split out from `to_pattern/1`; `i_pat/1` beside `i_str/1`;
   `l_pat`/`sp_pat`/`sp_items_pat` beside the `_str` triple; `m_pat/1` reached from the list path;
   the type-word leaves removed from the head side only.
 - **`bs_parser.yrl`** — the two productions in §1. Nothing else. The measured conflict count is
   0/0 and a build that reports otherwise means the productions were widened.
 - **AST** — `p_typed`, new.
-- **`bs_check`** — a case for `p_typed`; §2's subtype test at `bs_check.erl:2302`; a reverse map
+- **`bs_check`** — *(not built: a case for `p_typed`, and §2's subtype test)*; a reverse map
   from minted tag atom to source type name, and the scope set, threaded to the diagnostic for F29.4.
 - **Emitter** — a case for `p_typed`.
 - **`bs_diag`** — each of the eight sites declares head or description; the description channel as
@@ -340,7 +369,7 @@ the table in the same change that fixes the printer. The gate was seen red on to
 both directions and on a missing fixture before it was believed.
 
 **The roster is ten, not nine.** `many-heads` was added: it is the only fixture that reaches the
-prose cap, and therefore the only one that can test `bs_diag.erl:1100-1101`'s claim that the prose
+prose cap, and therefore the only one that can test `heads_prose/2`'s claim that the prose
 and term channels *"cannot say different things"* — true on content, **false on completeness**, and
 untested until now. Its residual is five heads; the prose prints three and `... (2 more)`.
 
@@ -360,8 +389,9 @@ untested until now. Its residual is five heads; the prose prints three and `... 
 - **`int n` as a pattern.** Excluded by §1 deliberately, not by oversight.
 - **Truncation as a tunable.** Ticket 43 settled *"no tunable, no flag, no switch"* and the term
   channel is already uncapped, so nothing here needs one.
-- **The `switch_inexhaustive` arm gaining a pasteable head.** `bs_diag.erl:566-568` refused it with
-  a reason that still holds: a switch has no function name and its arrow is `=>`.
+- **The `switch_inexhaustive` arm gaining a pasteable head.** The comment above `message/1`'s
+  `switch_inexhaustive` clause refused it with a reason that still holds: a switch has no function
+  name and its arrow is `=>`.
 - **README's gating.** [ENG-264](https://linear.app/davewil/issue/ENG-264) owns it; F29.12 moves the
   text, not the gate that would catch it moving.
 

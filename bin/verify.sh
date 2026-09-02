@@ -331,6 +331,9 @@ run_stages \
   "A return mismatch hands over the signature to paste" \
     "cd compiler && ./bin/check-corrected-signature.sh --self-test && ./bin/check-corrected-signature.sh" \
 \
+  "Every scenario identifier the code cites is defined in its feature document" \
+    "cd compiler && ./bin/check-feature-scenarios.sh --self-test && ./bin/check-feature-scenarios.sh" \
+\
   "Emitted specs survive Dialyzer" \
     "cd compiler && ./bin/spec-check.sh" \
 \

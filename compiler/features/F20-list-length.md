@@ -1,6 +1,6 @@
 # F20 — List length: the cons cell decomposes, and length falls out
 
-**Status**      **done 2026-08-21**
+**Status**      **done 2026-08-21** · [ENG-236](https://linear.app/davewil/issue/ENG-236)
 **Implements**  [ticket 54](../../wayfinder/issues/54-list-length-in-the-algebra.md), resolved
                 2026-08-21 — which also amends
                 [ticket 08](../../wayfinder/issues/08-head-and-guard-syntax.md) (the rest becomes a

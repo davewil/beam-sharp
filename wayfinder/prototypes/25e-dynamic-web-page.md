@@ -502,8 +502,12 @@ and no map number, because a defect is not a design question.
 **This section's own count was one short.** Building the fix found a *third* fault reaching the
 same branch — a guard no value satisfies, which the two-way split would have mislabelled, since
 its pattern *is* a member of the input. The tags are now `vacuous_clause`, `unsatisfiable_guard`
-and an unchanged `unreachable_clause`. The switch-arm twin reproduces identically and is
-deliberately still open as [ENG-269](https://linear.app/davewil/issue/ENG-269).
+and an unchanged `unreachable_clause`. The switch-arm twin reproduces identically and was
+deliberately split off rather than folded in; it shipped on 2026-08-28 as
+[ENG-269](https://linear.app/davewil/issue/ENG-269), now closed, with the same three-way split at
+the arm site — `vacuous_arm`, `unsatisfiable_arm_guard` and an unchanged `unreachable_arm`.
+*(Corrected 2026-09-02: this sentence said "deliberately still open" for five days after it
+shipped.)*
 
 ### 7. `+` over two strings is a priced decision, and this is the price
 

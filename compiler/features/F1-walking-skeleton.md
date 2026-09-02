@@ -1,7 +1,17 @@
 # F1 — Walking skeleton: `.bs` in, callable `.beam` out
 
 **Status**      done (2026-08-13), with three named gaps below
-**Implements**  tickets 01, 04, 08, 09, 10, 12, 13, 20
+**Implements**  [ticket 01](../../wayfinder/issues/01-sample-code.md) (the sample the language
+                had to compile), [04](../../wayfinder/issues/04-crossclause-exhaustiveness.md)
+                (cross-clause exhaustiveness),
+                [08](../../wayfinder/issues/08-head-and-guard-syntax.md) (head and guard syntax),
+                [09](../../wayfinder/issues/09-union-representation.md) (union representation),
+                [10](../../wayfinder/issues/10-atoms-in-a-csharp-skin.md) (atoms in a C# skin),
+                [12](../../wayfinder/issues/12-totality-vs-let-it-crash.md) (totality vs
+                let-it-crash), [13](../../wayfinder/issues/13-compilation-target-decision.md)
+                (the compilation target) and
+                [20](../../wayfinder/issues/20-untheorised-term-shapes.md) (untheorised term
+                shapes)
 **Unblocks**    `examples/Math/math.bs`, `examples/Readings/readings.bs`
 **Depends on**  nothing
 

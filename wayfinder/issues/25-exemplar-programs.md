@@ -601,8 +601,12 @@ The findings, compressed (full versions and controls in the write-up):
    one short: a **third** fault reaches the same branch, a guard no value satisfies, whose pattern
    *is* a member of the input and so needs its own message. Now `vacuous_clause` (names the
    declared input), `unsatisfiable_guard`, and an unchanged `unreachable_clause`.
-   [ENG-259](https://linear.app/davewil/issue/ENG-259) closed; the switch-arm twin reproduces
-   identically and stays open as [ENG-269](https://linear.app/davewil/issue/ENG-269). → 23.
+   [ENG-259](https://linear.app/davewil/issue/ENG-259) closed; the switch-arm twin reproduced
+   identically and was closed the same way on 2026-08-28 —
+   [ENG-269](https://linear.app/davewil/issue/ENG-269), which splits the arm site three ways in
+   its turn: `vacuous_arm`, `unsatisfiable_arm_guard`, and an unchanged `unreachable_arm`.
+   *(Corrected 2026-09-02: this line said the twin "stays open" for five days after it shipped.)*
+   → 23.
 5. **`+` over two strings is ticket 33's decision meeting its price.** `a + b` on two strings
    type-checks and crashes with `badarith`; every arithmetic operator does it, over every operand
    type. **This is decided, not broken** — 33 §2 rules there is no sixth obligation site because

@@ -138,6 +138,44 @@ evolution §4 chose maps for.
   actually do rather than OTP's six-way union.
 - **§8's first half**, the named stub type in a generated payload. There is no generator.
 
+## The scenarios
+
+`corrected_signature_tests.erl` opens its sections with these identifiers, and this is what each
+one establishes. The first six go through the `bsc` CLI; the last three read the diagnostic term
+directly, because that is where the claim lives.
+
+| | | |
+|---|---|---|
+| F25.1 | `Answer(n) -> :oops` under `public int Answer(int n)` | the output carries `public int \| :oops Answer(int n)` — a **whole signature**, not a type fragment |
+| F25.2 | the same program, looking for the older message | `not covered by the declared return type:` still stands beside it |
+| F25.3 | two offending clauses, `:zero` and `(:error, string)` | **two** diagnostics, and the **same** line on both: `public int \| :zero \| (:error, string) Go(int n)` |
+| F25.4 | a record in the **residual** — `Make` declared `Order`, returning `Invoice` | no signature line at all; the ordinary message and the residual's `Kind: :'M4.Invoice'` both survive |
+| F25.5 | the mirror — a record as the **declared** type, returning `:oops` | `public Order \| :oops Make(int n)`, and no `Kind:` anywhere |
+| F25.6 | a private `Helper` beside a public `Entry` | `int \| :oops Helper(int n)` — and **not** `public …` |
+| F25.7 | `bs_diag:contractual()` | `return_not_declared` is a member |
+| F25.8 | the descriptor for a mismatch | the term carries `corrected := "public int \| :oops Answer(int n)"` under its own key |
+| F25.9 | the descriptor when no signature can be written | `corrected := none` — the key is present and says nothing, rather than being absent |
+
+**F25.3 was measured before it was designed.** Two offending clauses produce two diagnostics; if
+each carried its own correction the compiler would print two contradictory pasteable lines, and
+pasting either would leave the other clause wrong. One line, from the union of every residual,
+attached to both.
+
+**F25.4 and F25.5 are one decision seen from both sides, and F25.4 is the half a gate written
+after the code would miss.** A record in the residual has no writable spelling: `bs_types` renders
+it as `{ Kind: :'M4.Invoice', Id: int, Total: int }`, which describes the set correctly and is a
+bad thing to paste, because ticket 26 §1 mints that tag from the qualified module path — pasting
+it hard-codes a mint instead of naming `Invoice`. So the **tag is expected in the output and
+forbidden in the signature**, and the first draft of F25.4 asserted it was absent altogether,
+which forbids the correct behaviour. The residual is asserted **present** so that a refusal is
+known to have dropped one line rather than the whole diagnostic. F25.5 is why the declared half is
+read from the source AST rather than from the algebra: through the algebra a declared record would
+render as its mint tag and be refused too — a refusal with no cause.
+
+**F25.9 exists so a consumer never has to tell "absent" from "refused".** F16 makes the term
+canonical and the prose a pure function of it, so a key that vanishes when there is nothing to say
+would push that distinction onto every reader of the term.
+
 ## The gate
 
 `compiler/bin/check-corrected-signature.sh`, with `--self-test`. The self-test builds four stubs
