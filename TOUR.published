@@ -24,7 +24,7 @@
 # evidence here that is not self-reported.
 
 url       https://claude.ai/code/artifact/40f71cf4-d5d3-4b71-882c-ad73f630a03c
-sha256    91281d5299c307ede0486e7b6b514420990784e52e68147a0cb13b4a9472ec18
+sha256    e1d8fbdc1ae487295b14496c0e45f1c10d16aa42e98ea2395aa8a259e7d13de4
 verified  2026-09-03 (for ENG-307's record idiom) — chapter 6's quoted block dispatched on the
           hand-written minted tag, `Which({ Kind: :'Shop.Order' })`, and its `expect-after`
           directive named that clause; both now carry ticket 55's `Which(Order o)`, verbatim

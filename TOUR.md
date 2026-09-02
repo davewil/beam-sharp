@@ -1311,8 +1311,9 @@ produce.
 The language's **name** is also open. `beam-sharp` is a working title.
 
 > **Corrected 2026-09-03.** A row reading ~~an alias on `using` | the last open question in the
-> module system~~ came out for the reason the note below gives: ticket 47 decided **against** an
-> alias on 2026-08-31, so it is closed, not unbuilt.
+> module system~~ came out for the same reason as the row below it: the module system decided
+> **against** an alias on 2026-08-31, and a closed decision is not an unbuilt one.
+> <!-- ticket 47, ENG-219 -->
 
 > **Corrected 2026-08-26 by ENG-245.** This table opened with a row reading:
 >

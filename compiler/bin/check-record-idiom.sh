@@ -74,13 +74,16 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # The regex is ERE with no backslash so it survives `awk -v` unchanged. The
 # braces are bracketed rather than escaped because BSD awk and GNU awk disagree
 # about `\{` in a dynamic regex.
-HATCH_RE="[{] *Kind: *:'[^']*'[^}]*[}].*(->|=>)"
+HATCH_RE="[{] *Kind *: *:'[^']*'[^}]*[}].*(->|=>)"
 
 # The exception list, by basename. A function rather than a variable so the
 # self-test drives the same lookup the run does.
 exempt() {
   case "$1" in
     record_pattern_tests.erl) return 0 ;;
+    # Outside the sweep today (no gate reads another gate's probes), and named
+    # anyway so a future widening to `bin/*.sh` keeps the control it holds.
+    check-record-pattern.sh)  return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -89,7 +92,10 @@ exempt() {
 # differ only in what they blank before matching.
 scan_bs()  { awk -v re="$HATCH_RE" '{ l = $0; sub(/\/\/.*/, "", l); if (l ~ re) print NR ": " $0 }' "$1"; }
 scan_erl() { awk -v re="$HATCH_RE" '/^[ \t]*%/ { next } $0 ~ re { print NR ": " $0 }' "$1"; }
-scan_md()  { awk -v re="$HATCH_RE" '/^[ \t]*```/ { fence = !fence; next } fence && $0 ~ re { print NR ": " $0 }' "$1"; }
+# A fence inside a blockquote (`> ```) is still a fence: TOUR.md's dated
+# corrections quote struck-out rows that way, and a quoted fence teaches
+# exactly what an unquoted one does. The quote prefix is stripped first.
+scan_md()  { awk -v re="$HATCH_RE" '{ l = $0; sub(/^[ \t]*(> ?)*/, "", l) } l ~ /^```/ { fence = !fence; next } fence && l ~ re { print NR ": " $0 }' "$1"; }
 
 # judge ROOT — every hit under one tree, as `path:line: text`. A parameter so
 # --self-test drives this function over fixtures rather than a copy of it.
@@ -128,7 +134,7 @@ EOF
 }
 
 # ---------------------------------------------------------------------------
-# --self-test — five defects and six correct forms, each built as a small tree
+# --self-test — six defects and six correct forms, each built as a small tree
 # in the repo's layout and judged by the function above.
 #
 # The green half is not optional: a check that fires on everything passes the
@@ -142,6 +148,8 @@ EOF
 #   fixture   the hatch under `bin/fixtures/`, where the residual gate's own
 #             input lived in it.
 #   fence     a document teaching it inside a code fence.
+#   quoted    the same fence inside a blockquote (`> ```), which a scanner that
+#             recognises fences at column 1 reads as prose.
 #   erl       a test fixture string. Same text as `prose`'s sentence, and it
 #             must go the other way, because a test is copied and a sentence
 #             is read.
@@ -172,6 +180,12 @@ self_test() {
   expect() { # expect NAME red|green [SUBSTRING]
     local name="$1" want="$2" needle="${3:-}" out rc=0
     out="$(judge "$W/$name")" || rc=$?
+    # A judge that CRASHED prints nothing, which is what a green control looks
+    # like. Under `set -e` a failing awk or find inside `judge` exits non-zero,
+    # and that must be its own failure rather than a pass on the green half.
+    if [ "$rc" -ne 0 ]; then
+      echo "SELF-TEST FAILED: judging '$name' exited $rc; a crashed judge is not a verdict"; failed=1; return
+    fi
     case "$want" in
       red)
         if [ -z "$out" ]; then
@@ -184,7 +198,6 @@ self_test() {
           echo "SELF-TEST FAILED: '$name' is the correct form and the gate refused it:"; printf '%s\n' "$out" | indent; failed=1
         fi ;;
     esac
-    : "$rc"
   }
 
   # --- red -----------------------------------------------------------------
@@ -206,6 +219,12 @@ self_test() {
   tree fence
   printf "# Tour\n\n\`\`\`\nWhich({ Kind: :'M.Order' }) -> :order\n\`\`\`\n" > "$W/fence/TOUR.md"
   expect fence red "TOUR.md:4:"
+
+  # The quoted fence: a gate that only sees a fence at column 1 reads a
+  # blockquoted one as prose and goes green over it.
+  tree quoted_fence
+  printf "> **Corrected.** The row was:\n>\n> \`\`\`\n> Which({ Kind: :'M.Order' }) -> :order\n> \`\`\`\n" > "$W/quoted_fence/TOUR.md"
+  expect quoted_fence red "TOUR.md:4:"
 
   tree erl
   printf "shop_src() ->\n    \"Which({ Kind: :'M.Order' }) -> :order\\\\n\".\n" > "$W/erl/compiler/test/shop_tests.erl"
@@ -253,8 +272,8 @@ self_test() {
   if [ "$failed" -ne 0 ]; then
     echo "SELF-TEST FAILED"; return 1
   fi
-  echo "self-test: refused the hatch in a clause head, a switch arm, a fixture, a fence"
-  echo "           and a test string; accepted the type prefix, prose, values, comments,"
+  echo "self-test: refused the hatch in a clause head, a switch arm, a fixture, a fence,"
+  echo "           a quoted fence and a test string; accepted the type prefix, prose, values, comments,"
   echo "           a type alias and the named exception, and refused that exception's"
   echo "           text under any other name"
 }
