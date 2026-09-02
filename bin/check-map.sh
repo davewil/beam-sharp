@@ -40,6 +40,17 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # that matter.
 WAYFINDER="${CHECK_MAP_DIR:-$HERE/wayfinder}"
 MAP="$WAYFINDER/map.md"
+# RAISED 365 -> 400 on 2026-09-02, for the same reason it moved the first time
+# and with the same caveat. Ticket 66 landed at exactly 365/365, so the next
+# ticket filed would have been red here with nowhere to put its entry — the
+# ABSENCE failure below, arriving again seven days later. Headroom now, not a
+# decision that the map may sprawl.
+#
+# The headroom is deliberately not the fix. The wayfinder corpus is 3.9MB over
+# 116 files — issues/ alone is 20,247 lines and decisions.md is 1,778 — and no
+# reader, human or agent, holds that at once. Raising a ceiling buys time
+# against a problem that is about the OTHER files; see ENG-310.
+#
 # RAISED 350 -> 365 on 2026-08-26, and the reason matters more than the number.
 # The budget was not binding on sprawl; it was binding on ABSENCE. Reviewing
 # ticket 37 found that 37, 25 and 60 had ticket files and no index entry at all
@@ -48,7 +59,7 @@ MAP="$WAYFINDER/map.md"
 # that forces entries to be OMITTED rather than SHORTENED inverts this gate's
 # purpose, so it moved. Check 2 (ENTRY_MAX) is the check that actually keeps
 # this file an index, and it is unchanged.
-BUDGET=365
+BUDGET=400
 ENTRY_MAX=4
 
 [ -f "$MAP" ] || { echo "no map at $MAP" >&2; exit 2; }
