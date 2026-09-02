@@ -19,7 +19,14 @@ Which({ Kind: :'Shop.Order' })   -> :order
 Which({ Kind: :'Shop.Invoice' }) -> :invoice
 
 // Drop either clause and the compiler names the case you missed and writes the
-// head for you:  Which({ Kind: :'Shop.Invoice' }) -> ...
+// head for you:  Which(Invoice i) -> ...
+//
+// Note it does NOT hand back the spelling above. These clauses match on the
+// minted tag by hand; the residual comes back in F22's type-prefixed form,
+// because that is the spelling the language prefers and writing the tag out
+// makes an erasure detail load-bearing in source. Checked by the mutation
+// stage of `check-residual-pasteable.sh`, which is what caught this sentence
+// promising the refused form.
 
 // The dot projects and is never a call. Legal over the union because BOTH
 // members carry `Total`, and it emits one `map_get` whichever arrived.
