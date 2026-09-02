@@ -508,10 +508,10 @@ apply_edits() {
             *) echo "BAD TARGET  '$target' — expect-after files must end in .bs"
                return 1 ;;
         esac
-        [ -f "$path" ] && [ ! -L "$path" ] || {
+        if [ ! -f "$path" ] || [ -L "$path" ]; then
             echo "BAD TARGET  '$target' — expect-after files must be regular .bs files"
             return 1
-        }
+        fi
         parent="$(cd "$(dirname "$path")" 2>/dev/null && pwd -P)" || {
             echo "BAD TARGET  '$target' — expect-after could not resolve that path"
             return 1
