@@ -396,7 +396,7 @@ promise_module() { case "$1" in Wire) echo "Wire" ;;         Shop) echo "Shop" ;
 promise_clause() {
   case "$1" in
     Wire) echo "Classify(>= 4 and <= 7)" ;;
-    Shop) echo "Which({ Kind: :'Shop.Invoice' })" ;;
+    Shop) echo "Which(Invoice i)" ;;
     *)    echo "" ;;
   esac
 }

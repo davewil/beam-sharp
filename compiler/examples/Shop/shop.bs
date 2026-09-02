@@ -15,18 +15,19 @@ type Doc = Order | Invoice
 
 public atom Which(Doc d)
 
-Which({ Kind: :'Shop.Order' })   -> :order
-Which({ Kind: :'Shop.Invoice' }) -> :invoice
+Which(Order o)   -> :order
+Which(Invoice i) -> :invoice
 
 // Drop either clause and the compiler names the case you missed and writes the
 // head for you:  Which(Invoice i) -> ...
 //
-// Note it does NOT hand back the spelling above. These clauses match on the
-// minted tag by hand; the residual comes back in F22's type-prefixed form,
-// because that is the spelling the language prefers and writing the tag out
-// makes an erasure detail load-bearing in source. Checked by the mutation
-// stage of `check-residual-pasteable.sh`, which is what caught this sentence
-// promising the refused form.
+// That is the clause you deleted, spelling and all. Naming the type is the
+// whole pattern: the tag is minted from `Shop.Invoice` and is never written.
+// `Which({ Kind: :'Shop.Invoice' })` would also compile, because the tag is an
+// ordinary field — but it spells an erasure detail out by hand, and this file
+// taught that as the idiom until 2026-09-03. `check-record-idiom.sh` refuses
+// it in the corpus now, and the mutation stage of `check-residual-pasteable.sh`
+// holds the promise two lines up to what the compiler actually prints.
 
 // The dot projects and is never a call. Legal over the union because BOTH
 // members carry `Total`, and it emits one `map_get` whichever arrived.

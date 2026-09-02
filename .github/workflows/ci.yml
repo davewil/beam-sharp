@@ -647,6 +647,25 @@ jobs:
         working-directory: compiler
         run: ./bin/check-record-pattern.sh
 
+      # ENG-307 / ticket 55. The gate above proves the two spellings agree; it
+      # says nothing about which one the corpus TEACHES, and the corpus taught
+      # the hatch: `shop.bs`, TOUR.md, F3's scenarios, the shared test fixture
+      # and the residual gate's own `RecordUnion` input all dispatched with a
+      # hand-written `{ Kind: :'Shop.Order' }` — fifteen lines, seven files,
+      # and `refused_spelling` only ever judged what the PRINTER emits.
+      #
+      # The self-test's ARM stub earns this gate: a switch arm starts with `{`,
+      # not a function name, so a gate that finds clause heads by their leading
+      # identifier reads straight past it. PROSE is the other half — this
+      # comment names the hatch and must not be a defect.
+      - name: The record-idiom gate proves it can fail
+        working-directory: compiler
+        run: ./bin/check-record-idiom.sh --self-test
+
+      - name: 'A record is dispatched by naming its type, never by writing its tag'
+        working-directory: compiler
+        run: ./bin/check-record-idiom.sh
+
       # F24 / ticket 58. `Classify(100.5)` returned `:reserved` from a parameter
       # published as `-spec 'Classify'(0..255)` — ticket 18 §1 rule C case (b),
       # decided 2026-08-13 with no opt-out, and never in the emitter.

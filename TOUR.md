@@ -160,7 +160,7 @@ It is not "some cases are unhandled". It is the head you are missing, pasteable.
 The same machinery over a union of records — delete the `Invoice` clause from
 `examples/Shop/shop.bs`:
 
-<!-- expect-after: delete Which({ Kind: :'Shop.Invoice' }) -->
+<!-- expect-after: delete Which(Invoice i) -->
 ```
 $ bsc --src-root examples examples/Shop
 examples/Shop/shop.bs:16: error: Which is not exhaustive
@@ -366,14 +366,14 @@ type Doc = Order | Invoice
 
 public atom Which(Doc d)
 
-Which({ Kind: :'Shop.Order' })   -> :order
-Which({ Kind: :'Shop.Invoice' }) -> :invoice
+Which(Order o)   -> :order
+Which(Invoice i) -> :invoice
 ```
 
 A record erases to a map carrying a **tag minted from its fully qualified type name**. So
 aggregate identity is in the term itself, two records with identical field sets are still two
-types, and a union of records is dispatched by an ordinary clause head — no new pattern form,
-no runtime type dispatch.
+types, and a union of records is dispatched by an ordinary clause head that names the member —
+the tag is minted from the name and never written, and there is no runtime type dispatch.
 
 ```
 $ bsc --src-root examples examples/Shop Which "{ Kind = :'Shop.Invoice', Id = 2, Total = 9 }"
@@ -1307,9 +1307,12 @@ produce.
 | the collection library | names, shapes and holding module all undecided |
 | `float` | no decided literal syntax; `1..5` currently only lexes as a range |
 | `cond`, or whatever serves a long ladder of unrelated conditions | open |
-| an alias on `using` | the last open question in the module system |
 
 The language's **name** is also open. `beam-sharp` is a working title.
+
+> **Corrected 2026-09-03.** A row reading ~~an alias on `using` | the last open question in the
+> module system~~ came out for the reason the note below gives: ticket 47 decided **against** an
+> alias on 2026-08-31, so it is closed, not unbuilt.
 
 > **Corrected 2026-08-26 by ENG-245.** This table opened with a row reading:
 >

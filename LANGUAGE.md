@@ -901,11 +901,12 @@ error, because they meet the same declaration.
 
 **shipped**, with two things worth knowing:
 
-- **The pattern spelling is the property pattern, and that is the shipped half of a wider form.**
-  Dispatch compiles today as `Area({ Kind: :'Shapes.Circle' })`. The tag is an ordinary field, so no
-  record-specific pattern form is *needed* — but writing one means hand-writing a
-  **compiler-minted, fully-qualified tag atom** to say "this is a Circle", which is the one place
-  the surface makes an erasure detail load-bearing. The wider form is below.
+- **The pattern spelling is the type prefix, and the property pattern beneath it is still legal.**
+  Dispatch is written `Area(Circle c)` — the form below. `Area({ Kind: :'Shapes.Circle' })` also
+  compiles, because the tag is an ordinary field and no record-specific pattern form is *needed* —
+  but it hand-writes a **compiler-minted, fully-qualified tag atom** to say "this is a Circle", which
+  is the one place the surface makes an erasure detail load-bearing. It is the escape hatch, not the
+  idiom, and nothing the language ships is written in it.
 - **A construction site is not checked.** A record's field set is exact in the type algebra and
   unpoliced where it is built, so a body can produce a map wearing an `Order` tag without
   `Order`'s fields. The compiler checks five sites in a body, and a construction is not one of

@@ -150,7 +150,7 @@ type Spelled = { Kind: :'Shop.Order', Id: int, Total: int }
 type Either  = Order | Spelled
 
 atom Which(Either)
-Which({ Kind: :'Shop.Order' }) -> :order
+Which(Order o) -> :order
 ```
 
 Expect: exhaustive, exit `0`, **from one clause**. This is §1's own stated test that the minting is
@@ -171,7 +171,7 @@ record Invoice { Id: int, Total: int }
 type Doc = Order | Invoice
 
 atom Which(Doc)
-Which({ Kind: :'Shop.Order' }) -> :order
+Which(Order o) -> :order
 ```
 
 Expect: **error**, exit non-zero. Identical field sets, different tags, and the checker treats them
@@ -191,8 +191,12 @@ F3.3's program, read for its **diagnostic** rather than its exit code — the sa
 between rejecting an inexhaustive function and naming the case it missed, which the existing suite
 already carries as two separate tests.
 
-Expect the message to synthesise `Which({ Kind: :'Shop.Invoice' }) -> ...`, and adding that clause
-to compile clean. This is ticket 04's guarantee and ticket 23's synthesised head reaching the
+Expect the message to synthesise `Which(Invoice i) -> ...`, and adding that clause to compile
+clean. *(Corrected 2026-09-03: this read `Which({ Kind: :'Shop.Invoice' }) -> ...` from the day F3
+shipped, and the head printer has emitted the type prefix since F29. The algebra's own rendering
+of the residual member is still `{ Kind: :'Shop.Invoice' }`, which is what the F3.4 test pastes and
+compiles; the pattern-position scenarios above were rewritten to the prefix the same day, under
+ENG-307.)* This is ticket 04's guarantee and ticket 23's synthesised head reaching the
 construct ticket 26 §5 says four of six exemplars are built from — and it is the scenario that
 proves the fourth algebra partition produces a residual a human can act on, not merely an empty-set
 answer.

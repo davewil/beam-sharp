@@ -52,6 +52,8 @@ RUNNABLE=(
   "bin/check-toolchain.sh"
   "compiler/bin/check-diagnostics.sh"
   "compiler/bin/check-no-silent-skip.sh"
+  # A text sweep over the corpus: no escript, no toolchain.
+  "compiler/bin/check-record-idiom.sh"
 )
 
 # Run one script from two different working directories and report if the exit

@@ -325,6 +325,9 @@ run_stages \
   "A type prefix subtracts what the Kind spelling subtracts" \
     "cd compiler && ./bin/check-record-pattern.sh --self-test && ./bin/check-record-pattern.sh" \
 \
+  "A record is dispatched by naming its type, never by writing its tag" \
+    "cd compiler && ./bin/check-record-idiom.sh --self-test && ./bin/check-record-idiom.sh" \
+\
   "An int parameter is an integer at the boundary" \
     "cd compiler && ./bin/check-boundary-kind.sh --self-test && ./bin/check-boundary-kind.sh" \
 \

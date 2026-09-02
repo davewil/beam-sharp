@@ -10,4 +10,4 @@ record Invoice { Id: int, Total: int }
 type Doc = Order | Invoice
 
 public atom Which(Doc)
-Which({ Kind: :'RecordUnion.Order' }) -> :order
+Which(Order o) -> :order

@@ -41,7 +41,7 @@ a_hand_written_type_with_the_same_tag_is_the_same_type_test() ->
           "type Spelled = { Kind: :'Shop.Order', Id: int, Total: int }\n"
           "type Either = Order | Spelled\n"
           "public atom Which(Either)\n"
-          "Which({ Kind: :'Shop.Order' }) -> :order\n",
+          "Which(Order o) -> :order\n",
     ?assertMatch({ok, _, _}, check_only(Src)).
 
 %% F3.3 — identical field sets, different tags, two types. Under ticket 09
@@ -52,7 +52,7 @@ two_records_over_identical_field_sets_are_two_types_test() ->
           "record Invoice { Id: int, Total: int }\n"
           "type Doc = Order | Invoice\n"
           "public atom Which(Doc)\n"
-          "Which({ Kind: :'Shop.Order' }) -> :order\n",
+          "Which(Order o) -> :order\n",
     ?assertMatch({error, _}, check_only(Src)).
 
 %% F3.4 — the residual synthesises the head you must write. Ticket 23: a head
@@ -64,7 +64,7 @@ the_residual_over_records_synthesises_the_missing_head_test() ->
           "record Invoice { Id: int, Total: int }\n"
           "type Doc = Order | Invoice\n"
           "public atom Which(Doc)\n"
-          "Which({ Kind: :'Shop.Order' }) -> :order\n",
+          "Which(Order o) -> :order\n",
     {error, Diags} = check_only(Src),
     [{error, _, 'Which', {inexhaustive, Residual, _}}] =
         [D || D <- Diags, element(1, D) =:= error],
@@ -87,7 +87,7 @@ the_synthesised_head_compiles_when_pasted_in_test() ->
            "record Invoice { Id: int, Total: int }\n"
            "type Doc = Order | Invoice\n"
            "public atom Which(Doc)\n"
-           "Which({ Kind: :'Shop.Order' }) -> :order\n",
+           "Which(Order o) -> :order\n",
     {error, Diags} = check_only(Base),
     [{error, _, 'Which', {inexhaustive, Residual, _}}] =
         [D || D <- Diags, element(1, D) =:= error],

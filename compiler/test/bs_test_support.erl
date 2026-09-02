@@ -204,8 +204,8 @@ shop_src() ->
     "public int Either(Doc d)\n"
     "Either(d) -> d.Total\n"
     "public atom Which(Doc)\n"
-    "Which({ Kind: :'Shop.Order' }) -> :order\n"
-    "Which({ Kind: :'Shop.Invoice' }) -> :invoice\n"
+    "Which(Order o) -> :order\n"
+    "Which(Invoice i) -> :invoice\n"
     "public int Total(int n)\n"
     "Total(n) -> n + 1\n".
 

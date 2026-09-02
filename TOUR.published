@@ -24,8 +24,18 @@
 # evidence here that is not self-reported.
 
 url       https://claude.ai/code/artifact/40f71cf4-d5d3-4b71-882c-ad73f630a03c
-sha256    c442159f8e1d69027d9e00d9c01a5e14c5d0a9797846d51d1ca6589afd65b455
-verified  2026-09-02 (for ENG-263's `expect-after` directive) — the four diagnostic transcripts
+sha256    91281d5299c307ede0486e7b6b514420990784e52e68147a0cb13b4a9472ec18
+verified  2026-09-03 (for ENG-307's record idiom) — chapter 6's quoted block dispatched on the
+          hand-written minted tag, `Which({ Kind: :'Shop.Order' })`, and its `expect-after`
+          directive named that clause; both now carry ticket 55's `Which(Order o)`, verbatim
+          from the rewritten `shop.bs`, and the prose beneath no longer says "no new pattern
+          form". The "Decided but not built" table also lost its `using`-alias row, which
+          ticket 47 had closed against on 2026-08-31. Read back before republishing and the
+          live page still carried the hatch at the block, the old directive and the alias
+          row, so the stale state was confirmed rather than assumed, and the read again
+          showed a plain render of TOUR.md with nothing saved into it independently.
+
+          2026-09-02 (for ENG-263's `expect-after` directive) — the four diagnostic transcripts
           now carry `<!-- expect-after: … -->` above their fences, and part 3 replays them
           under the edit instead of skipping them: 51 commands replayed, 4 after an edit,
           where the day before it was 47 replayed and 4 skipped. The term-channel appendix

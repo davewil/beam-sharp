@@ -2801,7 +2801,9 @@ pattern_type({p_tuple, _, Ps}, Path, Env) ->
 %% A property pattern is OPEN: it constrains the fields it names and nothing
 %% else. That is what lets `Which({ Kind: :'Shop.Order' })` cover a whole record
 %% in one clause, and it is exact — the pattern matches precisely the maps whose
-%% named fields lie in those types, so it credits `Certain` in full.
+%% named fields lie in those types, so it credits `Certain` in full. The corpus
+%% writes that clause as `Which(Order o)` (ticket 55): `p_rec` below resolves
+%% to the same open map with the tag minted rather than written.
 %%
 %% Field paths are real rather than `no_path`. Handing these to the guard
 %% machinery as unrefinable would be worse than imprecise: `refine_all/3` turns

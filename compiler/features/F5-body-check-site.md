@@ -120,8 +120,11 @@ named, and the thing F3 could not deliver because there was no call site to reje
 F5.2's program read for its diagnostic rather than its exit code — the same split F1 makes between
 rejecting an inexhaustive function and naming the case it missed.
 
-Expect `Wrong({ Kind: :'Shop.Invoice' }) -> ...`, from the same printer that formats an
-exhaustiveness residual. **It proposes an edit to the function being checked, never to the callee**,
+Expect `Wrong(Invoice i) -> ...`, from the same printer that formats an exhaustiveness residual
+*(corrected 2026-09-03: this read `Wrong({ Kind: :'Shop.Invoice' }) -> ...` from the day F5 shipped;
+the test beside it was corrected on 2026-08-27 when F29 routed `caller_head` through the head
+channel, and the prose was not. The residual member itself still renders `{ Kind: :'Shop.Invoice' }`
+in the line above the head)*. **It proposes an edit to the function being checked, never to the callee**,
 which is [ticket 18](../../wayfinder/issues/18-boundary-defence.md) §4's function-local rule
 showing up in a diagnostic: nothing here suggests you widen `Update`.
 

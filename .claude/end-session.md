@@ -58,6 +58,7 @@ cd compiler && ./bin/check-recursive-types.sh   # recursive types resolve; the t
 cd compiler && ./bin/check-collapse.sh          # a declared failure channel survives normalisation
 cd compiler && ./bin/check-field-values.sh      # a field assignment is checked, at both spellings
 cd compiler && ./bin/check-record-pattern.sh    # a type prefix subtracts what the Kind spelling does
+cd compiler && ./bin/check-record-idiom.sh      # the corpus dispatches by type name, never by a hand-written tag
 cd compiler && ./bin/check-boundary-kind.sh     # an int parameter is an integer at the boundary
 cd compiler && ./bin/check-corrected-signature.sh # a return mismatch hands over the line to paste
 cd compiler && ./bin/check-diagnostics.sh       # every tag has a message, and vice versa

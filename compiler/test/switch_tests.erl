@@ -270,6 +270,12 @@ a_switch_return_is_checked_against_the_signature_test() ->
 %% not by conflict count — F6.9's note stands: yecc resolves shift/reduce
 %% silently through the precedence table, and every one of ticket 28a's four
 %% variants reported zero conflicts including the one that read the case wrong.
+%%
+%% The arms are BARE property patterns on purpose: an arm that opens with `{`
+%% directly after `switch {` is the nesting under test, and a type prefix
+%% (`Order o =>`) would move the brace behind an identifier and test something
+%% else. They match on a field rather than on the minted tag because the tag is
+%% not written by hand anywhere the corpus teaches from (ticket 55, ENG-307).
 braces_nest_three_ways_test() ->
     Src = "module Nesting\n"
           "record Order   { Id: int, Total: int }\n"
@@ -277,8 +283,8 @@ braces_nest_three_ways_test() ->
           "type Doc = Order | Invoice\n"
           "public Order Normalise(Doc d)\n"
           "Normalise(d) -> d switch {\n"
-          "    { Kind: :'Nesting.Order' }   => Order{ Id = 1, Total = 2 },\n"
-          "    { Kind: :'Nesting.Invoice' } => Order{ Id = 3, Total = 4 }\n"
+          "    { Id: 9 } => Order{ Id = 1, Total = 2 },\n"
+          "    { Id: i } => Order{ Id = i, Total = 4 }\n"
           "}\n"
           "public atom Pair(atom a, atom b)\n"
           "Pair(a, b) -> a switch {\n"
@@ -293,7 +299,9 @@ braces_nest_three_ways_test() ->
     ?assertEqual(one_other, M:'Pair'(one, three)),
     ?assertEqual(other,     M:'Pair'(nine, two)),
     ?assertEqual(1, maps:get('Id', M:'Normalise'(#{'Kind' => 'Nesting.Order',
-                                                   'Id' => 9, 'Total' => 9}))).
+                                                   'Id' => 9, 'Total' => 9}))),
+    ?assertEqual(4, maps:get('Id', M:'Normalise'(#{'Kind' => 'Nesting.Invoice',
+                                                   'Id' => 4, 'Total' => 9}))).
 
 %% F7.12. F7's grammar opens this the way F5's opened `_`-as-a-value: a guard
 %% shares the whole expression grammar, so a switch parses inside one. Erlang's
