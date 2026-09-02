@@ -325,6 +325,10 @@ the body. These are open: read the body before assuming a direction.
   `option<term>` and `result<term, E>` normalise to bare `term`; a lookup cannot report absent
 - **Reserved names: the policy, not one name at a time** `#65` `modules` `syntax`
   48 reserved `Map` and B# reserves nothing else; five languages learned "user names win"
+- **Can a union name a pattern?** `#66` `syntax` `patterns` `types` <!-- tracked by ENG-309 -->
+  55 gave the type prefix to records and said nothing about aliases. The plain case already works —
+  the signature carries `in C` and the head just binds. The gap is a union inside a *wider*
+  parameter, where the body must be duplicated per member; and a non-member clause only warns
 - **Negation has no spelling** `#63` `syntax` `patterns`
   **refused: no `not`, no `!`** — the guard fragment is already closed under complement, so it adds nothing.
   The absence teaches, naming the comparison to write. `not` stays an identifier — that is 65. **Built, F27**
