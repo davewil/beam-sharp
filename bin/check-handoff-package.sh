@@ -266,7 +266,9 @@ unrunnable_commands() {
 # ---------------------------------------------------------------------------
 # --self-test
 #
-# THREE CONTROLS, and the third is the one that earns the gate.
+# SEVEN CONTROLS. Three and six are the ones that earn the gate: each is a
+# case where the damaged input and the correct input look alike to a check
+# written the obvious way.
 #
 #   1. A FILE THE MANIFEST NAMES IS DELETED from the artifact. Check 2 must see
 #      it. This is the obvious control and the weakest.
@@ -282,8 +284,29 @@ unrunnable_commands() {
 #      source tree — can see this, and without this control there is no evidence
 #      check 1 does anything at all.
 #
-# A POSITIVE CONTROL STANDS BESIDE ALL THREE: the undamaged artifact must pass.
-# A gate that fires on everything satisfies the red half and is worthless.
+#   4. A DOCUMENT EMBEDS THE BUILD PATH. Check 5a cannot see it: two builds to
+#      different directories produce byte-identical locks either way, so
+#      without this there is no evidence check 5b does anything.
+#
+#   5. A FENCED COMMAND NAMES A WITHHELD PATH — `mise install` and
+#      `./bin/verify.sh`, the package's own opening instruction. Check 3c must
+#      see it.
+#
+#   6. THE OVER-INFORMED STUB, and the one that keeps check 3c honest. Every
+#      path in it is legitimate: a prose citation of a gate, a function/arity
+#      span, and the recipient's own not-yet-built `_build/` output. It must
+#      stay GREEN. A check written to the tempting rule — every repo-relative
+#      path in a code span must resolve — reports all three, passes controls 5
+#      and 7, and is a marking campaign over documents that were never wrong.
+#
+#   7. THE ESCAPE HATCH EXEMPTS EXACTLY ONE FENCE. Two fences, one marked: the
+#      marked one green, the unmarked one red. This caught a real defect while
+#      it was being written — the mark survived the blank line after its own
+#      fence and silently exempted the next one.
+#
+# A POSITIVE CONTROL STANDS BESIDE ALL SEVEN: the undamaged artifact must pass
+# every check. A gate that fires on everything satisfies the red half and is
+# worthless.
 # ---------------------------------------------------------------------------
 if [ "${1:-}" = "--self-test" ]; then
     CTL="$(mktemp -d)"
@@ -414,7 +437,7 @@ if [ "${1:-}" = "--self-test" ]; then
                   which is one report; got $u7. A mark that leaks to the next
                   fence turns one exemption into a blanket one."
 
-    # --- the positive control: undamaged must pass all four -----------------
+    # --- the positive control: undamaged must pass all five checks ----------
     gg="$(manifest_gaps "$ROOT" "$CTL/listed-good" | wc -l | tr -d ' ')"
     dg="$(dangling_refs "$CTL/good" | wc -l | tr -d ' ')"
     eg="$(excluded_mentions "$CTL/good" | wc -l | tr -d ' ')"

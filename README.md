@@ -166,8 +166,8 @@ documents above are written to stand without it, and
 bin/                  repo-wide gates, and verify.sh                 (not shipped)
 compiler/             bsc: the compiler, its tests, its gates, its corpus
 compiler/features/    what has been built, feature by feature
-editor/               tree-sitter and Neovim/VS Code grammars         (not shipped)
-handoff/              the clean-room audition packet                  (not shipped)
+editor/               tree-sitter and Neovim/VS Code grammars        (not shipped)
+handoff/              the clean-room audition packet                 (not shipped)
 wayfinder/            the design record                              (not shipped)
 ```
 
