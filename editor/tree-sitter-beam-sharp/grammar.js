@@ -269,6 +269,7 @@ module.exports = grammar({
       $.wildcard,
       $.tuple_pattern,
       $.record_pattern,
+      $.typed_binder_pattern,
       $.list_pattern,
       $.match_pattern,
       $.relational_pattern,
@@ -293,7 +294,38 @@ module.exports = grammar({
     // A property pattern is OPEN: it constrains the fields it names and says
     // nothing about the rest, which is what lets one clause cover a record by
     // naming only its tag.
-    record_pattern: $ => seq('{', commaSep1($.field_pattern), '}'),
+    //
+    // Ticket 55 / F22 — THE TYPE PREFIX AND THE TRAILING BINDER. `bs_parser.yrl`
+    // has four productions beside the bare property pattern, mirrored here as
+    // two optionals rather than written from the decision:
+    //
+    //   Order { Id: 1 }      the prefix mints the tag the bare form spells out
+    //   Order { Id: 1 } o    ... with a binder over the whole value
+    //   Order o              a type and a name, no fields — a parameter's shape
+    //   { Id: 1 } o          the bare pattern with a binder
+    //
+    // The binder is a bare trailing name with no keyword: `as` is the checked
+    // conversion and `=` introduces a body binding. It hangs off THESE forms
+    // only, exactly as the yecc grammar has it, not off `pattern` at large.
+    //
+    // This rule lagged the compiler by fifteen days. F22 shipped 2026-08-19
+    // and no example used the prefix until ENG-307 rewrote `shop.bs` to the
+    // decided spelling on 2026-09-03, at which point `check-corpus.sh` went
+    // red on the flagship record example — the corpus gate measuring what the
+    // corpus teaches, and the grammar having never been asked.
+    record_pattern: $ => seq(
+      optional(field('type', $.type_identifier)),
+      '{', commaSep1($.field_pattern), '}',
+      optional(field('binder', $.variable)),
+    ),
+
+    // `Circle c` — a type and a name, no fields. An empty record pattern with
+    // a binder in the compiler; a rule of its own here because the braces are
+    // what the rule above keys on.
+    typed_binder_pattern: $ => seq(
+      field('type', $.type_identifier),
+      field('binder', $.variable),
+    ),
 
     field_pattern: $ => seq(
       field('name', $.field_name),
