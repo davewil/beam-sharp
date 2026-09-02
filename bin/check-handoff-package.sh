@@ -181,6 +181,89 @@ excluded_mentions() {
 }
 
 # ---------------------------------------------------------------------------
+# Check 3c: a COMMAND the recipient is told to run that names a path they do
+# not have.
+#
+# Checks 3 and 3b read markdown links and excluded mentions. Neither reads a
+# fenced command, so the package shipped `mise install` and `./bin/verify.sh`
+# as its opening instructions while carrying neither `.tool-versions` nor
+# `bin/` — the recipient's first two steps, unfollowable from inside the
+# package they arrived in, and green by every measure the gate had.
+#
+# COMMANDS, NOT CITATIONS, AND THAT DISTINCTION IS THE WHOLE DESIGN. The
+# tempting rule is "every repo-relative path in a code span must resolve".
+# Measured against the real package that rule reports fifty-plus lines: the
+# feature files cite gates constantly (`bin/spec-check.sh` nineteen times,
+# `bin/check-language.sh` twelve) and the compiler's own documentation is
+# dense with function/arity spans — `to_pattern/1`, `resolve/2` — which are
+# not paths at all but match every path-shaped regex. Those citations are
+# provenance: they tell a recipient where a decision was made in the source
+# repository, and a recipient is not expected to open them. An instruction
+# inside a `sh` fence is different in kind. It is addressed to the reader in
+# the imperative, and it either runs or it does not.
+#
+# So the check reads only lines inside ```sh, ```bash and ```console fences,
+# and only paths rooted at a directory the package may withhold. Prose stays
+# free, which is what keeps this gate from becoming a marking campaign over
+# documents that were never wrong.
+#
+# TWO KINDS OF ABSENT PATH, and only one is a defect. `_build/default/bin/bsc`
+# is absent because the recipient has not built it yet — it is the output of
+# the compiler they are here to write, and naming it is how they are told
+# where it lands. `bin/verify.sh` is absent because it was withheld. The
+# boundary class below requires a path to START at a withheld root, so
+# `./_build/default/bin/bsc` does not match on its embedded `bin/` segment.
+#
+# THE ESCAPE HATCH is `<!-- not shipped: <reason> -->` on the line before the
+# fence, the same shape `check-open-questions.sh` uses for a deliberate
+# omission. It exempts that one fence. It is deliberately NOT a way to keep
+# writing unfollowable instructions: an exempted fence still owes the reader a
+# visible sentence saying whose machine the commands are for, because an HTML
+# comment is invisible in rendered markdown and the recipient cannot see it.
+# The mark satisfies the gate; the prose beside it is what satisfies the
+# reader.
+# ---------------------------------------------------------------------------
+runnable_paths() {
+    local art="$1" doc rel
+    while IFS= read -r doc; do
+        rel="${doc#"$art"/}"
+        awk -v rel="$rel" '
+            # A fence opens. It is exempt if the last non-blank line before it
+            # carried the mark.
+            /^```(sh|bash|console)[ \t]*$/ { fence = 1; exempt = mark; mark = 0; next }
+            # Closing a fence clears the mark too. Without this the mark
+            # survives the blank line after the fence it exempted and silently
+            # exempts the NEXT one — control 7 is what caught that.
+            /^```/                         { fence = 0; mark = 0; next }
+            fence {
+                if (exempt) next
+                line = $0
+                while (match(line, /(^|[ \t="`(])(\.\/)?(bin|editor|handoff|wayfinder|compiler)\/[A-Za-z0-9_.-]+(\/[A-Za-z0-9_.-]+)*|(^|[ \t="`(])\.tool-versions/)) {
+                    tok = substr(line, RSTART, RLENGTH)
+                    sub(/^[ \t="`(]/, "", tok)
+                    sub(/^\.\//, "", tok)
+                    print rel "\t" tok
+                    line = substr(line, RSTART + RLENGTH)
+                }
+                next
+            }
+            {
+                if ($0 ~ /<!-- not shipped:/)      mark = 1
+                else if ($0 !~ /^[ \t]*$/)         mark = 0
+            }
+        ' "$doc"
+    done < <(find "$art" -name '*.md' -type f | LC_ALL=C sort)
+}
+
+unrunnable_commands() {
+    local art="$1" rel tok
+    while IFS="$(printf '\t')" read -r rel tok; do
+        [ -n "$tok" ] || continue
+        [ -e "$art/$tok" ] || printf '%s -> %s\n' "$rel" "$tok"
+    done < <(runnable_paths "$art")
+}
+
+# ---------------------------------------------------------------------------
 # --self-test
 #
 # THREE CONTROLS, and the third is the one that earns the gate.
@@ -270,22 +353,86 @@ if [ "${1:-}" = "--self-test" ]; then
                   machine's temp directory while the determinism check reports
                   two identical builds."
 
+    # --- control 5: a command naming a withheld path ------------------------
+    # Scratch directories rather than artifact copies: these three controls
+    # measure one function over documents built for it, so a defect elsewhere
+    # in the real package cannot make them pass or fail for the wrong reason.
+    mkdir -p "$CTL/c5"
+    {
+        printf '%s\n' 'Two commands.'
+        printf '%s\n' ''
+        printf '%s\n' '```sh'
+        printf '%s\n' 'mise install        # reads .tool-versions'
+        printf '%s\n' './bin/verify.sh     # every gate, in CI order'
+        printf '%s\n' '```'
+    } > "$CTL/c5/README.md"
+    u5="$(unrunnable_commands "$CTL/c5" | wc -l | tr -d ' ')"
+    [ "$u5" -gt 0 ] || say_fail "control 5 — a fenced command named .tool-versions and ./bin/verify.sh,
+                  neither of them present, and check 3c did not notice. That is
+                  the package's own opening instruction and the defect this
+                  check exists for."
+
+    # --- control 6: THE OVER-INFORMED STUB ----------------------------------
+    # Every path here is legitimate, and a gate written to the tempting rule —
+    # "every repo-relative path in a code span must resolve" — reports all
+    # three. A prose citation of a gate is provenance, not an instruction; an
+    # arity span is not a path at all; and `_build/…` is absent because the
+    # recipient has not built it yet. Without this control, a check that fires
+    # on every backticked path passes controls 5 and 7 and is worthless.
+    mkdir -p "$CTL/c6"
+    {
+        printf '%s\n' 'The residual printer is `to_pattern/1`, gated by `bin/spec-check.sh`'
+        printf '%s\n' 'and cross-checked in `bin/check-language.sh`. See `resolve/2`.'
+        printf '%s\n' ''
+        printf '%s\n' '```sh'
+        printf '%s\n' './_build/default/bin/bsc --src-root examples -o /tmp/out examples/Wire'
+        printf '%s\n' '```'
+    } > "$CTL/c6/LANGUAGE.md"
+    u6="$(unrunnable_commands "$CTL/c6" | wc -l | tr -d ' ')"
+    [ "$u6" -eq 0 ] || say_fail "control 6 — the OVER-INFORMED stub was rejected. Prose citations of
+                  gates, function/arity spans and the recipient's own unbuilt
+                  _build/ output were reported as unrunnable commands ($u6 of
+                  them). A check that fires on those is a marking campaign over
+                  documents that were never wrong."
+
+    # --- control 7: the escape hatch exempts one fence ----------------------
+    mkdir -p "$CTL/c7"
+    {
+        printf '%s\n' 'These run in the source repository, which you do not have.'
+        printf '%s\n' '<!-- not shipped: the source repository, not this package -->'
+        printf '%s\n' '```sh'
+        printf '%s\n' './bin/verify.sh'
+        printf '%s\n' '```'
+        printf '%s\n' ''
+        printf '%s\n' '```sh'
+        printf '%s\n' './bin/check-links.sh'
+        printf '%s\n' '```'
+    } > "$CTL/c7/README.md"
+    u7="$(unrunnable_commands "$CTL/c7" | wc -l | tr -d ' ')"
+    [ "$u7" -eq 1 ] || say_fail "control 7 — the mark must exempt exactly the fence it precedes.
+                  Expected the marked fence green and the unmarked one red,
+                  which is one report; got $u7. A mark that leaks to the next
+                  fence turns one exemption into a blanket one."
+
     # --- the positive control: undamaged must pass all four -----------------
     gg="$(manifest_gaps "$ROOT" "$CTL/listed-good" | wc -l | tr -d ' ')"
     dg="$(dangling_refs "$CTL/good" | wc -l | tr -d ' ')"
     eg="$(excluded_mentions "$CTL/good" | wc -l | tr -d ' ')"
     mg="$(artifact_gaps "$CTL/good" "$CTL/listed-good" | wc -l | tr -d ' ')"
-    if [ "$gg" -ne 0 ] || [ "$dg" -ne 0 ] || [ "$eg" -ne 0 ] || [ "$mg" -ne 0 ]; then
+    ug="$(unrunnable_commands "$CTL/good" | wc -l | tr -d ' ')"
+    if [ "$gg" -ne 0 ] || [ "$dg" -ne 0 ] || [ "$eg" -ne 0 ] || [ "$mg" -ne 0 ] || [ "$ug" -ne 0 ]; then
         say_fail "the POSITIVE control failed — an undamaged artifact was rejected
-                  (manifest gaps $gg, dangling $dg, excluded $eg, missing $mg).
-                  A gate that fires on everything discriminates nothing."
+                  (manifest gaps $gg, dangling $dg, excluded $eg, missing $mg,
+                  unrunnable $ug). A gate that fires on everything discriminates
+                  nothing."
     fi
 
     if [ "$fails" -eq 0 ]; then
         echo "self-test: caught the missing file, the reference out of the package, the"
-        echo "           manifest truncated to agree with a truncated artifact, and an"
-        echo "           embedded build path; accepted the undamaged build — the gate"
-        echo "           discriminates"
+        echo "           manifest truncated to agree with a truncated artifact, an"
+        echo "           embedded build path, and a fenced command naming a withheld"
+        echo "           path; accepted prose citations, an unbuilt _build/ output and"
+        echo "           the undamaged build — the gate discriminates"
         exit 0
     fi
     exit 1
@@ -340,6 +487,11 @@ fi
 exc="$(excluded_mentions "$ART")"
 if [ -n "$exc" ]; then
     printf '%s\n' "$exc" | while IFS= read -r e; do echo "  EXCLUDED   $e mentions excluded material"; done
+    fail=1
+fi
+unrun="$(unrunnable_commands "$ART")"
+if [ -n "$unrun" ]; then
+    printf '%s\n' "$unrun" | while IFS= read -r u; do echo "  UNRUNNABLE $u is named as a command and is not in the package"; done
     fail=1
 fi
 

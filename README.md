@@ -40,8 +40,16 @@ language the compiler does not have.
 
 ## Setting up
 
+**This section, *Verifying* and *Building something* are about the source repository.** If you are
+reading this inside the clean-room handoff package, you have the specification documents, the
+compiler's feature record and the example corpus — but not the compiler, not its gates, and not
+the toolchain manifest, so none of the commands in those three sections will run. That is deliberate: implementing the compiler from the
+specification is the exercise, and shipping one would defeat it. The corpus is your oracle
+instead, and every example opens with the command that runs it once you have a compiler to run.
+
 Two commands. The first needs [mise](https://mise.jdx.dev); the second needs nothing else.
 
+<!-- not shipped: bin/ and .tool-versions belong to the source repository, not the package -->
 ```sh
 mise install        # reads .tool-versions
 ./bin/verify.sh     # every gate, in CI's order, from any directory
@@ -92,6 +100,7 @@ is enabled only when `GITHUB_ACTIONS=true`.
 
 **The bar is two consecutive clean passes from a clean checkout.** Not two runs in the same tree:
 
+<!-- not shipped: bin/ belongs to the source repository, not the package -->
 ```sh
 git clone <this repo> /tmp/bs-check && cd /tmp/bs-check
 ./bin/verify.sh && ./bin/verify.sh
@@ -154,10 +163,17 @@ documents above are written to stand without it, and
 ## Layout
 
 ```
-bin/                  repo-wide gates, and verify.sh
+bin/                  repo-wide gates, and verify.sh                 (not shipped)
 compiler/             bsc: the compiler, its tests, its gates, its corpus
 compiler/features/    what has been built, feature by feature
-editor/               tree-sitter, Neovim and VS Code grammars, and their gates
-handoff/              the clean-room audition packet
-wayfinder/            the design record (not shipped)
+editor/               tree-sitter and Neovim/VS Code grammars         (not shipped)
+handoff/              the clean-room audition packet                  (not shipped)
+wayfinder/            the design record                              (not shipped)
 ```
+
+**"Not shipped" is relative to the clean-room handoff package.** It carries the five
+specification documents, `compiler/README.md`, `compiler/features/` and `compiler/examples/` —
+and none of the compiler's source, because implementing that from the specification is the
+exercise. `handoff/MANIFEST` is the single definition of what ships, and
+`bin/check-handoff-package.sh` holds the package to it: nothing may dangle out of it, and no
+fenced command may name a path the recipient does not have.
