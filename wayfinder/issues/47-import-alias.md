@@ -408,10 +408,12 @@ flattened table (`resolved_funs/1`) that resolved on imports alone, so with the 
 checker typed the call against the local while the emitter wrote a remote call to the import. `P5`
 returned 3 where the local answers 0. The resolution order now applies once, at check time, in the
 table both read. When the check moved, `47a` went red exactly as designed: its verdicts are pinned to
-today, so the fix re-pinned them and said so. `modules_tests.erl` still has no test for this shape,
-and [ENG-271](https://linear.app/davewil/issue/ENG-271) records that `ambiguous_module` has never
-been provoked by anything — which is how the two halves of one sentence came to fire at different
-points unnoticed.
+today, so the fix re-pinned them and said so. ~~`modules_tests.erl` still has no test for this
+shape~~ — it has two as of 2026-09-02, one for the local winning and one for the top-level module
+being reachable at all, and both were written red before the raise came out.
+[ENG-271](https://linear.app/davewil/issue/ENG-271) still stands: `ambiguous_module` has never been
+provoked by anything, which is how the two halves of one sentence came to fire at different points
+unnoticed.
 
 **Not owed.** `47c`'s grammar arm goes unused; it stays in the tree as the measurement of a road not
 taken, and as the standing answer to *"what would the alias have cost?"* — asked twice already, by

@@ -213,8 +213,10 @@ public int Go(int n)
 Go(n) -> Alpha.Coll.List.Sum([n], 0)
 EOF
 
-# THE LOCKOUT. A TOP-LEVEL module has no namespace above it, so the P6/P7/P8
-# escape does not exist. Import it and the local Sum/2 refuses the import...
+# THE LOCKOUT, as it stood until 2026-09-02. A TOP-LEVEL module has no namespace
+# above it, so the P6/P7/P8 escape does not exist. Importing it USED TO be
+# refused because this module declares Sum/2; it now compiles, and the bare call
+# means the local.
 mk P9 <<'EOF'
 module P9
 
@@ -238,8 +240,9 @@ public int Go(int n)
 Go(n) -> Solo.Sum([n], 0) + Sum([n], 0)
 EOF
 
-# Control for P5: the shadow fires even when the import is ONLY ever qualified,
-# which is the very spelling the diagnostic recommends.
+# Control for P5: the shadow USED TO fire even when the import is ONLY ever
+# qualified, which was the very spelling the diagnostic recommended. That was the
+# clearest statement of the defect, and since 2026-09-02 this compiles.
 mk P10 <<'EOF'
 module P10
 

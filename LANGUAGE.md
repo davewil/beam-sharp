@@ -152,10 +152,11 @@ scope. **shipped**
 
 Resolution is by name **and arity**, and it happens at compile time: an unqualified call to an
 imported name emits a *remote* call, so nothing is resolved at run time. A name reachable from two
-sources is an error at the call site printing the qualified candidates; an import that would shadow a
-local name is an error at the `using` line. A qualified call to a module with no `using` is an error
-too — a file's `using` lines are its dependency list, and a call that skipped them would make that
-list wrong. **shipped**
+sources is an error at the call site printing the qualified candidates. An import that brings in a
+name the module **also declares** is not an error: the local wins, because resolution is *local, then
+imports*, so the bare name has one meaning rather than two. A qualified call to a module with no
+`using` is an error too — a file's `using` lines are its dependency list, and a call that skipped
+them would make that list wrong. **shipped**
 
 A function name may carry **more than one arity** — the BEAM's own identity rule, unmodified — so
 `Fib/1` and `Fib/2` are two functions. Two signatures of the *same* arity are one function declared
