@@ -85,6 +85,20 @@ both times — not two runs in the same tree. `spec-check.sh` caches a PLT under
 `$TMPDIR` and `fixture_root/0` seeds off the OS pid, so a second run in a warm tree is
 not an independent measurement of the first. Set `SPEC_CHECK_DIR` per run.
 
+**Once per unit of work, at the final SHA — not once per commit** (David, 2026-09-02).
+A pair is ~13 minutes, and on 2026-09-02 a session burned ~30 of them running the full
+suite four times for three commits, two of which touched only markdown and one shell
+constant: each mid-session request moved `HEAD` and the pair was restarted instead of the
+work being batched. Batch first, verify last.
+
+The full pair is for changes that can alter behaviour — `compiler/src`, `compiler/test`,
+`compiler/bin`, `bin/`, `.github/workflows`. **A docs-or-ticket change gets the gates that
+read it** (`check-map.sh`, `check-links.sh`, and `check-tour.sh` / `check-language.sh` if
+those files moved), once. Running eunit, the PLT and the tree-sitter build over a
+`wayfinder/` edit measures nothing and costs everything. If a docs-only commit lands on
+top of an already-verified SHA, the standing pair still covers every code change in the
+batch — do not restart it.
+
 **A gate is believed only once it has been seen to fail.** Every gate carries a
 `--self-test` that builds the defect it names, requires a red, and requires a green on
 the correct form standing beside it. Both halves: a check that fires on everything
