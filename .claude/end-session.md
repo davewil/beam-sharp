@@ -66,10 +66,7 @@ cd compiler && ./bin/check-no-silent-skip.sh    # no test reports ok for work it
 cd compiler && ./bin/check-tour.sh              # TOUR replays, and the page is not stale
 cd compiler && ./bin/check-exemplar-frontier.sh # the exemplar frontier has not moved silently
 cd compiler && ./bin/check-helper-agrees.sh
-cd compiler && find examples -path examples/exemplars -prune -o -name '*.bs' -print0 |
-    while IFS= read -r -d '' f; do dirname "$f"; done | sort -u |
-    while IFS= read -r d; do
-        ./_build/default/bin/bsc --src-root examples -o "$(mktemp -d)" "$d" || exit 1; done
+cd compiler && ./bin/check-examples.sh          # every example module compiles, one VM for all
 cd compiler && ./bin/spec-check.sh              # Dialyzer, plus two negative controls
 cd compiler && ./bin/extract-exemplars.sh --check
 

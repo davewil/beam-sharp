@@ -84,10 +84,12 @@ if [ "${1:-}" = "--self-test" ]; then
   # THE CONTROLS RUN AT ONCE, AND EACH VERDICT IS READ FROM ITS OWN FILE
   # (ENG-315, 2026-09-03).
   #
-  # A control is this whole gate over the whole document, and part 3 boots
-  # one VM per transcript, so thirteen controls over fifty-odd transcripts
-  # ran for 332s on the CI runner — with check-language.sh's, 65% of the
-  # job. The controls share nothing: each reads its own copy of the
+  # A control is this whole gate over the whole document, and part 3 booted
+  # one VM per transcript until ENG-314 landed the same day, so thirteen
+  # controls over fifty-odd transcripts ran for 332s on the CI runner — with
+  # check-language.sh's, 65% of the job. Part 3 is one `bsc --batch` per run
+  # now, and the controls still run at once because thirteen sequential
+  # boots are still thirteen. The controls share nothing: each reads its own copy of the
   # document under $CTL, and the gate writes under a scratch of its own.
   # So a control is built here, launched in the background by `launch`,
   # and only QUEUED for judgement by `expect` or `accept`; after `wait`
@@ -111,7 +113,9 @@ if [ "${1:-}" = "--self-test" ]; then
   # directory under $TMPDIR from `erlang:unique_integer` — unique within
   # one VM, repeated across VMs: 12 distinct values from 30 fresh VMs when
   # measured on 2026-09-03. Two concurrent runs of this gate would share
-  # one `Fib.beam` path. `bsc` reads TMPDIR itself, so a private one per
+  # one `Fib.beam` path. The batch form changes the count, not the race:
+  # one run's replays now share a VM and cannot collide with each other,
+  # while two runs are still two VMs. `bsc` reads TMPDIR itself, so a private one per
   # control keeps their scratch apart; `mktemp -d` honours it on Linux and
   # ignores it on macOS, which is why control 12 below opts out.
   # ------------------------------------------------------------------
@@ -507,6 +511,9 @@ want=""
 edits=""
 block_cmds=0
 in_block=0
+queued_cmds=0
+MANIFEST="$SCRATCH/manifest"
+RESULTS="$SCRATCH/results"
 # The document carried four transcripts under an edit on the day this landed.
 # Fewer is a directive that stopped being read, not a document that got
 # shorter — the diagnostic-shape test in `replay` is the other half of this
@@ -662,7 +669,7 @@ replay() {
         return 0
     fi
 
-    local got root last reason
+    local root last reason where a
     # ARGV[0] is the literal `bsc` the document writes; the escript is under
     # _build. Everything after it is passed as an argument vector, never as a
     # string a shell gets to look at again.
@@ -683,7 +690,7 @@ replay() {
             drifted=1; fail=1
             return 0
         fi
-        got="$(cd "$root" && "$BSC" "${ARGV[@]:1}" 2>&1)" || true
+        where="$root"
     else
         # A diagnostic transcript needs the edit that produced it; see above.
         case "$want" in
@@ -694,15 +701,67 @@ replay() {
                 drifted=1; fail=1
                 return 0 ;;
         esac
-        got="$(cd "$REPO/compiler" && "$BSC" "${ARGV[@]:1}" 2>&1)" || true
+        where="$REPO/compiler"
     fi
-    if [ "$got" != "$want" ]; then
-        echo "  DRIFTED   \$ $cmd"
-        [ -z "$edits" ] || echo "    after:   $edits"
-        echo "    pasted:  $want"
-        echo "    prints:  $got"
+
+    # QUEUED, NOT RUN (ENG-314, 2026-09-03). Every transcript used to be its own
+    # `bsc` process here, and a process is a VM boot: fifty-odd of them, times
+    # the thirteen controls in the self-test, was 332s on the CI runner. The
+    # invocation goes into one manifest instead — its working directory, then
+    # ONE `arg` LINE PER ELEMENT OF ARGV — and `bsc --batch` runs the whole
+    # document in one VM after the scan. The argument vector `split_command`
+    # built is preserved exactly: a newline is the boundary, nothing is quoted
+    # and nothing downstream re-parses a command line, so the `; touch pwned`
+    # control still reaches the compiler as arguments and never a shell. The
+    # verdict is read from `<id>.output` after the batch, in `judge_replays`.
+    queued_cmds=$((queued_cmds + 1))
+    {
+        printf 'entry t%d\n' "$queued_cmds"
+        printf 'cwd %s\n' "$where"
+        for a in "${ARGV[@]:1}"; do printf 'arg %s\n' "$a"; done
+        printf 'end\n\n'
+    } >> "$MANIFEST"
+    printf '%s' "$cmd"   > "$SCRATCH/t$queued_cmds.cmd"
+    printf '%s' "$want"  > "$SCRATCH/t$queued_cmds.want"
+    printf '%s' "$edits" > "$SCRATCH/t$queued_cmds.edits"
+}
+
+# One VM over every queued transcript, then each verdict from its own files.
+# The merged stream is what `2>&1` delivered before, and `$(cat …)` strips the
+# trailing newline exactly as the command substitution around the old
+# per-process run did, so the comparison is the same comparison.
+#
+# A BATCH THAT CANNOT RUN IS RED ONCE, NOT FIFTY TIMES: nothing below it is
+# judged, and a transcript with no status file is reported rather than skipped.
+judge_replays() {
+    local n=1 got
+    [ "$queued_cmds" -gt 0 ] || return 0
+    if ! "$BSC" --batch "$MANIFEST" "$RESULTS" > "$SCRATCH/batch.log" 2>&1; then
+        echo "  BATCH FAILED  bsc --batch could not replay the transcripts; none was judged"
+        sed 's/^/                /' "$SCRATCH/batch.log"
         drifted=1; fail=1
+        return 0
     fi
+    while [ "$n" -le "$queued_cmds" ]; do
+        cmd="$(cat "$SCRATCH/t$n.cmd")"
+        want="$(cat "$SCRATCH/t$n.want")"
+        edits="$(cat "$SCRATCH/t$n.edits")"
+        if [ ! -f "$RESULTS/t$n.status" ]; then
+            echo "  NO RESULT  \$ $cmd"
+            echo "    the batch wrote no verdict for this transcript"
+            drifted=1; fail=1
+        else
+            got="$(cat "$RESULTS/t$n.output")"
+            if [ "$got" != "$want" ]; then
+                echo "  DRIFTED   \$ $cmd"
+                [ -z "$edits" ] || echo "    after:   $edits"
+                echo "    pasted:  $want"
+                echo "    prints:  $got"
+                drifted=1; fail=1
+            fi
+        fi
+        n=$((n + 1))
+    done
 }
 
 while IFS= read -r line; do
@@ -753,6 +812,7 @@ $line"; fi
     esac
 done < "$DOC"
 replay
+judge_replays
 
 # The verdict word is computed, not written. An earlier draft printed `ok`
 # unconditionally under the DRIFTED lines it had just emitted, which is the

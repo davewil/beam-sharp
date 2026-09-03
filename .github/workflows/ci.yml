@@ -438,20 +438,21 @@ jobs:
       # walks through the second. `--src-root examples` is named because the
       # corpus holds dotted modules — `Shop.Reports` lives at `Shop/Reports` —
       # and 41 §3 makes naming the root the caller's job, never the compiler's.
+      #
+      # A SCRIPT SINCE ENG-314 (2026-09-03), not a loop written here and again
+      # in `bin/verify.sh`: the modules compile in one `bsc --batch` VM, and a
+      # manifest-writing loop copied into two files is the drift
+      # `check-gates-wired.sh` exists to stop. `exemplars/` is still pruned, for
+      # the reason the script's header gives — ticket 25's three exemplars are
+      # the target and none parses yet — and the gate now has the `--self-test`
+      # the inline loop never had.
+      - name: The examples gate proves it can fail
+        working-directory: compiler
+        run: ./bin/check-examples.sh --self-test
+
       - name: Examples compile and run
         working-directory: compiler
-        run: |
-          # `exemplars/` is PRUNED, and that exclusion is the point of the step
-          # rather than an oversight: ticket 25's three exemplars are the
-          # compiler's target and none of them parses yet. The old top-level glob
-          # excluded them by accident; recursing without this prune turns the
-          # must-run surface into a must-fail one.
-          find examples -path examples/exemplars -prune -o -name '*.bs' -print0 |
-            while IFS= read -r -d '' f; do dirname "$f"; done | sort -u |
-            while IFS= read -r d; do
-              echo "  $d"
-              ./_build/default/bin/bsc --src-root examples -o "$(mktemp -d)" "$d" || exit 1
-            done
+        run: ./bin/check-examples.sh
 
       # A SHIPPING DOCUMENT MAY NOT CONTRADICT THE COMPILER ABOUT WHAT IS BUILT.
       #

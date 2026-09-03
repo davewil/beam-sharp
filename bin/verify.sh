@@ -290,13 +290,7 @@ run_stages \
     "cd compiler && ./bin/check-residual-pasteable.sh --self-test && ./bin/check-residual-pasteable.sh" \
 \
   "Examples compile and run" \
-    "cd compiler &&
-     find examples -path examples/exemplars -prune -o -name '*.bs' -print0 |
-       while IFS= read -r -d '' f; do dirname \"\$f\"; done | sort -u |
-       while IFS= read -r d; do
-         echo \"  \$d\"
-         ./_build/default/bin/bsc --src-root examples -o \"\$(mktemp -d)\" \"\$d\" || exit 1
-       done" \
+    "cd compiler && ./bin/check-examples.sh --self-test && ./bin/check-examples.sh" \
 \
   "Shipping documents agree with the compiler about what is built" \
     "./bin/check-status-claims.sh --self-test && ./bin/check-status-claims.sh" \

@@ -156,9 +156,12 @@ if [ "${1:-}" = "--self-test" ]; then
     # (ENG-315, 2026-09-03).
     #
     # A control is this whole gate over the whole reference, and the gate
-    # boots one VM per fenced block, so fifteen controls over fifty-odd
-    # blocks ran for 321s on the CI runner — with check-tour.sh's, 65% of
-    # the job. The controls share nothing: each reads its own copy of the
+    # booted one VM per fenced block until ENG-314 landed the same day, so
+    # fifteen controls over fifty-odd blocks ran for 321s on the CI runner —
+    # with check-tour.sh's, 65% of the job. Each control is one VM now (see
+    # the batch below the self-test), and they still run at once because
+    # fifteen sequential boots of the compiler are still fifteen boots. The
+    # controls share nothing: each reads its own copy of the
     # document under $CTL and the gate writes under a scratch of its own.
     # So a control is built here, launched in the background by `launch`,
     # and only QUEUED for judgement by `expect` or `accept`; after `wait`
@@ -614,58 +617,50 @@ apply_edits() {
     return 0
 }
 
-# judge_after I LINE SRC — the block compiled; now apply its edits to a copy and
-# compare what the compiler says with the fence the document shows.
+# --- one VM for every block (ENG-314, 2026-09-03) -----------------------------
 #
-# The location prefix (`…/12.bs:4: `) is dropped from what the compiler prints
-# before comparing, because the block's file name is this script's and not the
-# reader's; the text from `error:` on is compared byte for byte.
-judge_after() {
-    local i="$1" line="$2" src="$3" edits rel after out2 reason got want
-    edits="$(cat "$WORK/$i.edits")"
-    if [ ! -f "$WORK/$i.want" ]; then
-        fail=$((fail + 1))
-        printf '  %-12s LANGUAGE.md:%s  `expect-after` names an edit, but no plain fence follows the block with the output it expects\n' \
-               "NO EXPECTED" "$line"
-        FAILURES="$FAILURES $i"
-        return 0
-    fi
-    rel="${src#"$WORK/b$i/"}"
-    after="$WORK/a$i"
-    rm -rf "$after"; mkdir -p "$after"
-    cp -R "$WORK/b$i" "$after/b"
-    if ! reason="$(apply_edits "$after/b" "$rel" "$edits")"; then
-        fail=$((fail + 1))
-        printf '  %-12s LANGUAGE.md:%s  %s\n' "BAD EDIT" "$line" "$reason"
-        FAILURES="$FAILURES $i"
-        return 0
-    fi
-    out2="$WORK/aout$i"; mkdir -p "$out2"
-    "$BSC" --src-root "$after/b" -o "$out2" "$after/b/$rel" > "$WORK/$i.after" 2>&1 || true
-    got="$(sed 's/^[^ ]*\.bs:[0-9][0-9]*: //' "$WORK/$i.after")"
-    want="$(cat "$WORK/$i.want")"
-    if [ "$got" = "$want" ]; then
-        mutated=$((mutated + 1))
-        printf '  %-12s LANGUAGE.md:%s  after: %s\n' "ok (after)" "$line" "$edits"
-    else
-        fail=$((fail + 1))
-        printf '  %-12s LANGUAGE.md:%s  after `%s` the compiler does not print the fence shown\n' \
-               "AFTER DRIFT" "$line" "$edits"
-        printf '%s\n' "$want" | sed 's/^/                 shown:   /'
-        printf '%s\n' "$got"  | sed 's/^/                 prints:  /'
-        FAILURES="$FAILURES $i"
+# Each block used to be its own `bsc` process, and a `bsc` process is a VM
+# boot; fifty-odd blocks, times the fifteen controls in the self-test, was 321s
+# on the CI runner. So the run is three passes now. The first writes every
+# block's invocation into one manifest — one `arg` line per argument, so
+# nothing is quoted and nothing is re-parsed — and `bsc --batch` runs them all
+# in one VM, writing each block's stdout, stderr, merged output and exit status
+# to `$WORK/r1/b<n>.*`. The second queues the `expect-after` replays, which can
+# only be built once the first pass says which blocks compiled, and runs them
+# as a second batch. The third judges every block in document order from the
+# files, printing exactly what the per-process loop printed.
+#
+# A BLOCK WITH NO STATUS FILE IS RED. The batch writes all four files for every
+# entry or refuses the whole manifest before running any, so a missing verdict
+# means the batch itself did not run — and `run_batch` says so and stops rather
+# than letting a loop over nothing report `0 wrong`.
+manifest_entry() {   # manifest_entry MANIFEST ID ARG... — one entry, one argument per line
+    local f="$1" id="$2" a
+    shift 2
+    {
+        printf 'entry %s\n' "$id"
+        for a in "$@"; do printf 'arg %s\n' "$a"; done
+        printf 'end\n\n'
+    } >> "$f"
+}
+
+run_batch() {        # run_batch MANIFEST RESULTS — every entry, one VM
+    [ -s "$1" ] || return 0
+    if ! "$BSC" --batch "$1" "$2" > "$2.log" 2>&1; then
+        echo "  BATCH FAILED  bsc --batch could not run the blocks, so nothing below was judged"
+        sed 's/^/                /' "$2.log"
+        return 1
     fi
 }
 
+status_of() {        # status_of RESULTS ID — the exit status, or `none`
+    cat "$1/$2.status" 2>/dev/null || echo none
+}
+
+# Pass 1 — every block that is checked at all, into one manifest.
 for i in $(seq 1 "$COUNT"); do
     tag="$(cat "$WORK/$i.tag")"
-    line="$(cat "$WORK/$i.line")"
-
-    if [ "$tag" = "illustrative" ]; then
-        skipped=$((skipped + 1))
-        printf '  %-12s LANGUAGE.md:%s\n' "skipped" "$line"
-        continue
-    fi
+    [ "$tag" = "illustrative" ] && continue
 
     out="$WORK/out$i"
     mkdir -p "$out"
@@ -682,34 +677,122 @@ for i in $(seq 1 "$COUNT"); do
     src="$WORK/b$i/$(printf '%s' "$mod" | tr '.' '/')/$i.bs"
     mkdir -p "$(dirname "$src")"
     cp "$WORK/$i.bs" "$src"
+    printf '%s' "$src" > "$WORK/$i.src"
 
     # A `diagnoses:` block is judged on WHAT THE COMPILER PUBLISHED, not on
     # whether it compiled. `unreachable_arm` is a warning, so its example
     # compiles and still carries the diagnostic the prose is about; an exit
     # status cannot tell those two situations apart.
     #
-    # `--diagnostics term` and this extraction are `oracle.sh`'s, deliberately:
-    # the audition's expectations and the reference's examples then agree
-    # because they are read off the same public output, rather than because two
-    # authors believed the same thing on two different days.
+    # `--diagnostics term` and the extraction in pass 3 are `oracle.sh`'s,
+    # deliberately: the audition's expectations and the reference's examples
+    # then agree because they are read off the same public output, rather than
+    # because two authors believed the same thing on two different days.
+    case "$tag" in
+    diagnoses:*)
+        manifest_entry "$WORK/m1" "b$i" --diagnostics term \
+            --src-root "$WORK/b$i" -o "$out" "$src" ;;
+    *)
+        manifest_entry "$WORK/m1" "b$i" --src-root "$WORK/b$i" -o "$out" "$src" ;;
+    esac
+done
+
+run_batch "$WORK/m1" "$WORK/r1" || exit 1
+
+# Pass 2 — the `expect-after` replays. Only a block that compiled as written is
+# edited: a BROKEN block has already been reported, and editing it proves
+# nothing. An edit that cannot be applied is recorded here and reported in
+# pass 3, where the block's other lines are.
+for i in $(seq 1 "$COUNT"); do
+    [ -f "$WORK/$i.edits" ] || continue
+    [ "$(cat "$WORK/$i.tag")" = "must-compile" ] || continue
+    [ "$(status_of "$WORK/r1" "b$i")" = "0" ] || continue
+    [ -f "$WORK/$i.want" ] || continue
+    src="$(cat "$WORK/$i.src")"
+    rel="${src#"$WORK/b$i/"}"
+    after="$WORK/a$i"
+    rm -rf "$after"; mkdir -p "$after"
+    cp -R "$WORK/b$i" "$after/b"
+    if ! reason="$(apply_edits "$after/b" "$rel" "$(cat "$WORK/$i.edits")")"; then
+        printf '%s' "$reason" > "$WORK/$i.badedit"
+        continue
+    fi
+    mkdir -p "$WORK/aout$i"
+    manifest_entry "$WORK/m2" "a$i" --src-root "$after/b" -o "$WORK/aout$i" "$after/b/$rel"
+done
+
+run_batch "$WORK/m2" "$WORK/r2" || exit 1
+
+# judge_after I LINE — the block compiled and its edited copy has been replayed;
+# compare what the compiler said with the fence the document shows.
+#
+# The location prefix (`…/12.bs:4: `) is dropped from what the compiler prints
+# before comparing, because the block's file name is this script's and not the
+# reader's; the text from `error:` on is compared byte for byte.
+judge_after() {
+    local i="$1" line="$2" edits got want
+    edits="$(cat "$WORK/$i.edits")"
+    if [ ! -f "$WORK/$i.want" ]; then
+        fail=$((fail + 1))
+        printf '  %-12s LANGUAGE.md:%s  `expect-after` names an edit, but no plain fence follows the block with the output it expects\n' \
+               "NO EXPECTED" "$line"
+        FAILURES="$FAILURES $i"
+        return 0
+    fi
+    if [ -f "$WORK/$i.badedit" ]; then
+        fail=$((fail + 1))
+        printf '  %-12s LANGUAGE.md:%s  %s\n' "BAD EDIT" "$line" "$(cat "$WORK/$i.badedit")"
+        FAILURES="$FAILURES $i"
+        return 0
+    fi
+    if [ "$(status_of "$WORK/r2" "a$i")" = "none" ]; then
+        fail=$((fail + 1))
+        printf '  %-12s LANGUAGE.md:%s  the batch wrote no verdict for the edited replay\n' \
+               "NO RESULT" "$line"
+        FAILURES="$FAILURES $i"
+        return 0
+    fi
+    got="$(sed 's/^[^ ]*\.bs:[0-9][0-9]*: //' "$WORK/r2/a$i.output")"
+    want="$(cat "$WORK/$i.want")"
+    if [ "$got" = "$want" ]; then
+        mutated=$((mutated + 1))
+        printf '  %-12s LANGUAGE.md:%s  after: %s\n' "ok (after)" "$line" "$edits"
+    else
+        fail=$((fail + 1))
+        printf '  %-12s LANGUAGE.md:%s  after `%s` the compiler does not print the fence shown\n' \
+               "AFTER DRIFT" "$line" "$edits"
+        printf '%s\n' "$want" | sed 's/^/                 shown:   /'
+        printf '%s\n' "$got"  | sed 's/^/                 prints:  /'
+        FAILURES="$FAILURES $i"
+    fi
+}
+
+# Pass 3 — the verdicts, in document order, from what the batch wrote.
+for i in $(seq 1 "$COUNT"); do
+    tag="$(cat "$WORK/$i.tag")"
+    line="$(cat "$WORK/$i.line")"
+
+    if [ "$tag" = "illustrative" ]; then
+        skipped=$((skipped + 1))
+        printf '  %-12s LANGUAGE.md:%s\n' "skipped" "$line"
+        continue
+    fi
+
+    status="$(status_of "$WORK/r1" "b$i")"
+    if [ "$status" = "none" ]; then
+        fail=$((fail + 1))
+        printf '  %-12s LANGUAGE.md:%s  the batch wrote no verdict for this block\n' \
+               "NO RESULT" "$line"
+        FAILURES="$FAILURES $i"
+        continue
+    fi
+
     case "$tag" in
     diagnoses:*)
         want="${tag#diagnoses:}"
-        # THROUGH A FILE, NOT A PIPELINE INSIDE `$( )`. The obvious spelling is
-        # `got="$({ "$BSC" ... || true; } | sed ...)"`, and bash 3.2 — which is
-        # what macOS ships and what this repo is developed on — cannot parse a
-        # brace group inside command substitution across a line continuation.
-        # CI's bash 5 parses it, so the construct is green there and a syntax
-        # error here. Worse, bash parses incrementally: `--self-test` returns
-        # before reaching this line, so the parent looked healthy while every
-        # child died into `2>&1` and all seven controls reported only that they
-        # "cannot fire".
-        #
-        # `|| true` — a block that demonstrates an ERROR exits non-zero, which
-        # is the normal case here and must not abort the run under `pipefail`.
-        "$BSC" --diagnostics term --src-root "$WORK/b$i" -o "$out" "$src" \
-            > "$WORK/$i.term" 2>/dev/null || true
-        got="$(sed -n 's/.*tag => \([a-z_][a-z_0-9]*\).*/\1/p' "$WORK/$i.term" | sort -u | tr '\n' ' ')"
+        # The term went to stdout and the prose to stderr, as `2>/dev/null` once
+        # kept them apart; only the stdout file is read.
+        got="$(sed -n 's/.*tag => \([a-z_][a-z_0-9]*\).*/\1/p' "$WORK/r1/b$i.stdout" | sort -u | tr '\n' ' ')"
         got="${got% }"
         if [ "$got" = "$want" ]; then
             pass=$((pass + 1))
@@ -724,11 +807,7 @@ for i in $(seq 1 "$COUNT"); do
         ;;
     esac
 
-    if "$BSC" --src-root "$WORK/b$i" -o "$out" "$src" >"$WORK/$i.log" 2>&1; then
-        compiled=1
-    else
-        compiled=0
-    fi
+    if [ "$status" = "0" ]; then compiled=1; else compiled=0; fi
 
     case "$tag:$compiled" in
         must-compile:1|not-yet:0)
@@ -754,10 +833,9 @@ for i in $(seq 1 "$COUNT"); do
             ;;
     esac
 
-    # The fourth claim. Only a block that compiled as written is edited: a
-    # BROKEN block has already been reported, and editing it proves nothing.
+    # The fourth claim.
     if [ -f "$WORK/$i.edits" ] && [ "$tag" = "must-compile" ] && [ "$compiled" -eq 1 ]; then
-        judge_after "$i" "$line" "$src"
+        judge_after "$i" "$line"
     elif [ -f "$WORK/$i.edits" ] && [ "$tag" != "must-compile" ]; then
         fail=$((fail + 1))
         printf '  %-12s LANGUAGE.md:%s  `expect-after` belongs on an untagged block that compiles, not a `%s` one\n' \
@@ -780,7 +858,7 @@ if [ "$VERBOSE" = 1 ] && [ -n "$FAILURES" ]; then
         echo "=== block at LANGUAGE.md:$(cat "$WORK/$i.line") ==="
         cat "$WORK/$i.bs"
         echo "--- bsc said ---"
-        cat "$WORK/$i.log"
+        cat "$WORK/r1/b$i.output"
     done
 fi
 

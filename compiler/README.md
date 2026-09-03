@@ -57,6 +57,22 @@ $ bsc --src-root examples examples/Shop/Reports Restate 3
 9
 ```
 
+`bsc --batch MANIFEST RESULTS` runs many invocations in **one VM**. Each entry of the manifest is
+`entry ID`, an optional `cwd DIR`, one `arg TEXT` line per argument and `end`; for each, the batch
+writes `RESULTS/ID.stdout`, `.stderr`, `.output` (both streams in the order they were written, as
+`2>&1` would deliver them) and `.status`. It exists for the gates: `check-language.sh` compiles
+fifty-odd blocks and `check-tour.sh` replays fifty-odd transcripts, and each used to be a VM boot.
+An argument is one line, so nothing is quoted and nothing re-parses a command line — a transcript
+saying `; touch pwned` reaches the compiler as arguments. A malformed manifest runs nothing and
+names its line; `--repl` is refused in an entry, since a batch has no stdin to hand a prompt.
+
+```
+$ printf 'entry fib\narg --src-root\narg examples\narg examples/Fib\narg 10\nend\n' > m
+$ bsc --batch m out && cat out/fib.stdout out/fib.status
+55
+0
+```
+
 `--diagnostics term` publishes the diagnostic as a **term** on stdout, alongside the prose that
 still goes to stderr. Ticket 23 §1 decided that the diagnostic *is* a term and the prose is a pure
 function of it — so this is not a second rendering that could disagree, it is the value the message
