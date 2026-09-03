@@ -137,7 +137,8 @@
   — and **Gleam supplies the empirical case against it**, having taken that fork and needed a
   carve-out for `ok`/`error`/booleans in the shipped language. **`true`/`false` are the only
   keyword atoms** (semantics coincide with C#'s `bool`; `null` fails the same test `union`
-  failed), `bool` is a prelude alias not a builtin, and there is **no truthiness** — so ticket
+  failed), `bool` is a builtin *(corrected 2026-09-03 by ticket 67 — it read "a prelude alias not a builtin",
+  and the compiler had been built the other way since F1)*, and there is **no truthiness** — so ticket
   09's Json example is corrected to `:null`. Module identifiers in value position are checked
   atom singletons. **The prelude cannot mint**, because minting from a literal is already
   spelled `:foo`. Three findings the ticket did not anticipate: the sigil's last objection is

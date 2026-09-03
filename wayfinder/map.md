@@ -139,7 +139,7 @@ spec exists.
   closed** (2026-08-12, ticket 10): Gleam is installed via `mise use -g gleam@1.18.1`, and its
   stance on foreign callers is now *observed* rather than inferred from the absence of guard
   emission — see [`prototypes/10c_gleam_forge.erl`](prototypes/10c_gleam_forge.erl). Prefer
-  measuring Gleam to citing it. Remaining gap: Elixir 1.20 was not exercised. **Provenance
+  measuring Gleam to citing it. ~~Remaining gap: Elixir 1.20 was not exercised.~~ Exercised 2026-09-03 (1.20.4, ticket 67). **Provenance
   warning for Roc**: `roc-lang.org` is stale — `/functional` still describes the *removed* `Task`
   design. Use `docs/langref/` in the `roc-lang/roc` repo.
 
@@ -303,7 +303,7 @@ the body. These are open: read the body before assuming a direction.
   three owed items, recorded in full on ticket 20 §5
 - **Stdlib shape as a principle** `#67` `modules` `prelude` <!-- tracked by ENG-281 -->
   **claimed 2026-09-03.** Four types ship and no function. `LANGUAGE.md` calls `List.Map` "a B# module"
-  on one page and "compiler-known, inlined" on another — that contradiction is the question
+  on one page and "compiler-known, inlined" on another. **(b), compiler-known — David 2026-09-03**; round 2 open
 - **Interop with Gleam and Elixir, both directions** `ffi` `modules`
   inbound `#50`: **answered by 48** — `Kind`-absent-only makes a foreign struct a `map<atom, term>`. outbound `#62`: Elixir cannot call a PascalCase export, and the tag is a required ABI
 - **Laziness and `stream<T>`** `#17` `types` <!-- tracked by ENG-283 -->

@@ -197,13 +197,14 @@ ABSENT='out of scope|deliberately \*\*out\*\*|deliberately out|not implemented|u
 # builtin   — the name resolves, but NOT as the prelude entry the row describes,
 #             so the probe answers a different question than the row asks
 #
-# `bool` is the `builtin` case and it is the same mistake as `ValidateAs<T>` in a
-# second costume. Its row reads "**decided** — and **built as a builtin
-# instead**", which is precise: the PRELUDE ALIAS `type bool = true | false` was
-# never added, and `bool` resolves because the compiler has it as a builtin. The
-# probe below cannot tell an alias from a builtin, so asking it about `bool`
-# produces a confident red against a row that is already telling the truth.
-# Excluded, with the reason stated, rather than silently dropped.
+# `bool` WAS the `builtin` case until 2026-09-03. Its row read "**decided** — and
+# **built as a builtin instead**": the PRELUDE ALIAS `type bool = true | false`
+# was never added and `bool` resolved because the compiler had it as a builtin,
+# so the probe — which cannot tell an alias from a builtin — would have gone red
+# against a row telling the truth. Ticket 67 corrected ticket 10 IN PLACE (the
+# builtin was the decision the compiler had been applying all along), the row
+# now says shipped, and the probe answers the row's own question. The `builtin`
+# form stays in the legend for the next entry whose text and resolution part.
 # ---------------------------------------------------------------------------
 prelude_entries() {
     cat <<'EOF'
@@ -212,7 +213,7 @@ result<T, E>|type|result<int, int>
 foreign_error|type|foreign_error
 ValidationError|type|ValidationError
 string|type|string
-bool|builtin|bool
+bool|type|bool
 ParseAtom<T>|type|ParseAtom<int>
 map<K, V>|type|map<atom, term>
 EOF

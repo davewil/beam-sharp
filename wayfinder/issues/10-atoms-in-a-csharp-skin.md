@@ -86,7 +86,7 @@ intersection with the declared parameter type — a type error from machinery al
 to. The exposure is confined to positions where no declared type is in scope, i.e. `dynamic`
 positions, which belong to ticket 11.
 
-### 2. `true` and `false` are the only keyword atoms; `bool` is a prelude alias
+### 2. `true` and `false` are the only keyword atoms; `bool` is a ~~prelude alias~~ builtin *(corrected 2026-09-03)*
 
 On the BEAM, booleans *are* atoms (`is_atom(true)` → `true`, `atom_to_binary(true)` →
 `<<"true">>`). Elixir goes further and makes its keywords literal atom spellings: `nil ==
@@ -107,10 +107,18 @@ The discriminator is the heuristic's own tier-1 test — *semantics*, not syntax
 `:true` and `:false` remain legal — under an open universe you cannot ban a literal without a
 special case — and denote the same values. Diagnostics normalise to `true`/`false`.
 
-**`bool` needs no builtin.** It is a prelude alias under ticket 09's single naming construct:
+**`bool` is a builtin** — *corrected 2026-09-03 by [ticket 67](67-stdlib-shape-as-a-principle.md),
+David: "on bool correct ticket 10".* This paragraph read *"`bool` needs no builtin. It is a prelude
+alias under ticket 09's single naming construct"*, and the compiler was built the other way from F1:
+`bs_check.erl` has `builtin(bool) -> union(atom_lit(true), atom_lit(false))` beside `int`, `atom`,
+`term`, `binary` and `string`. The type it names is unchanged — the two-atom union below — and so
+is everything else in this section. What changed is *how it ships*: as a rule in the compiler, like
+every other lowercase type name, not as a `type` line. C#'s `bool` is a keyword aliasing
+`System.Boolean`, which is the same placement. `PRELUDE.md` had carried this as drift since
+2026-08-15; the decision moved, not the compiler.
 
 ```
-type bool = true | false;
+type bool = true | false;   // the type it names — not how it ships
 ```
 
 Elixir's own type system represents `boolean()` as precisely that two-atom union (see the

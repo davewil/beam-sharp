@@ -234,3 +234,152 @@ place to "builtin", dated, rather than rewriting the compiler to match a sentenc
 - `LANGUAGE.md` says "prelude" 8 times after `CONTEXT.md` retired the word on 2026-08-25.
 - `PRELUDE.md`: `/` and `%` *"neither is a token"* — both are; the `foreign_error` row's stratum.
 - `LANGUAGE.md:1384` or `:1178` — whichever Q1 does not choose.
+
+## Round 1 — answered 2026-09-03
+
+| | answer |
+|---|---|
+| Q1 | **(b), compiler-known.** David: *"I think b), how does Elixir provide lists though?"* — answered below |
+| Q2 | **not answered** — *"I have no idea what you're asking, make it more simple."* Re-put as Q5 |
+| Q3 | **grammar** |
+| Q4 | **`result<atom, string>`** — *"ok fine"* |
+| `bool` | **correct ticket 10** — done in place and dated in the same commit as this section; `PRELUDE.md`'s row and `check-status-claims.sh`'s carve-out follow it |
+
+### How Elixir provides lists — measured 2026-09-03, Elixir 1.20.4 on OTP 29, `local`
+
+| | where it lives | how it is reached |
+|---|---|---|
+| `List`, `Enum`, `Kernel` | ordinary compiled beams under `lib/elixir/ebin` (`:code.which/1`) | qualified calls into a shipped library |
+| `List.flatten/1` | delegates to Erlang's `:lists.flatten/1` | a call |
+| `hd/1`, `tl/1`, `length/1`, `elem/2` | `Kernel` functions whose docs say **"Inlined by the compiler"** — Erlang BIFs | unqualified, because `Kernel` is auto-imported |
+| `for` | a special form | inlined |
+| `defmodule List` in user code | warns, then clobbers the shipped beam — 48 measured Elixir's own type checker crashing | — |
+
+So Elixir is **shape (a) with a small inlined core**: the collection library is a shipped, called
+library, and only four BIFs and the comprehension are the compiler's own. B# under (b) draws the
+line in a different place: **every `List.` operation is what Elixir's `hd/1` is** — inlined by the
+compiler, no beam behind it — **and nothing is what `Enum.map/2` is**. B# ships no `List.beam`, so a
+compiled B# program's only runtime dependency stays the BEAM itself, which extends 51's
+zero-dependency finding to the collection library.
+
+The map's provenance note *"Elixir 1.20 was not exercised"* is corrected in place by this
+measurement.
+
+### What (b) settles, recorded
+
+- **`List` is the second reserved qualifier** after `Map` (48). Ticket 65's *"closed by intent"*
+  is answered: the set is closed by construction, and nothing a user writes can accrete into it.
+- **`LANGUAGE.md:1384`** — `List.Map(x)` | *a B# module* — is the wrong row and becomes *a reserved
+  qualifier*. `LANGUAGE.md:1178` stands.
+- **The function-taking operations wait on the lambda.** `List.Map`, `List.Filter`, `List.Fold` can
+  only be spelled once `=>` exists (27 §(c), ENG-295). But under (b) a lambda is only ever an
+  argument to an inlined operation, so it never has to be a *value* at run time — `xs |> Sum` stays
+  a syntax error (`LANGUAGE.md:1098`) and *no function values* survives intact. Which operations
+  exist at all is breadth — the map's boundary — and not this ticket's.
+- **F11's own example goes red** the day `List` is reserved: `Totals.bs` and `LANGUAGE.md:139` write
+  `List.Length` meaning `Shop.Collections.List`. Q6 decides what the compiler says there.
+
+## Round 2 — put 2026-09-03
+
+Q5 is Q2 said simply. Q6–Q8 were waiting on Q1 and are unblocked by (b). None depends on another.
+
+---
+
+❓ **Q5 — Two kinds of thing ship with the compiler. Is the line between them "a `.bs` file could have said this"?**
+
+```csharp
+type option<T> = T | :nothing;      // kind one: a line you could paste into your own file.
+                                    //   The compiler ships it so you don't have to.
+string                              // kind two: no `.bs` line can define it. It exists only
+ValidateAs<T>                       //   because the compiler has code for it.
+List.Sum(xs)                        //   Under Q1(b), so does this.
+```
+
+That is the whole question. `PRELUDE.md` calls the two kinds *stratum 1* and *stratum 2*, and
+records three attempts to say what separates them, each broken by one entry. The test above is
+what `bs_check.erl` has done since F1 — `stratum_one()` is literally a map of alias-shaped
+declarations, and everything else is a clause in the compiler — and it is broken by none of them:
+`string` is kind two, `foreign_error` is kind one (which is where the code already keeps it), and a
+user's own opaque refinement is neither, because the user wrote it. `bool`, now corrected, is kind two.
+
+**Compiler delta: none.** Doc delta: two `PRELUDE.md` rows move (`foreign_error` to kind one, `bool`
+to kind two), the criterion sentence replaces *What is not decided* item 1, and `CONTEXT.md` gets two
+terms — it has none for either today. Proposed: **declared entry** and **compiler-known entry**.
+
+➡️ **Yes, with those two names.**
+
+---
+
+❓ **Q6 — When a user's module is also called `List`, what does the compiler say?**
+
+```csharp
+module Shop.Collections.List            // F11's own example, in the corpus today
+public int Length(list<int> xs)
+...
+module Shop.Reports.Totals
+using Shop.Collections
+Counted(n) -> List.Length([n, n])      // today: the user's module. After Q1: `List` is reserved.
+```
+
+Three builds:
+
+- **(i) Refuse the declaration.** `module Shop.Collections.List` is an error because its last
+  segment is a reserved qualifier — 48's *"cannot declare `module Map`"* widened from the bare name
+  to any last segment. Burns `List` as a path segment everywhere; nobody has asked for that.
+- **(ii) The reserved qualifier wins, silently.** `List.Length` is the compiler's; the user's module
+  is reachable only in full. Nothing is refused and nothing says so — Elixir's clobber, reversed.
+- **(iii) Refuse at the call site.** `List.Length(...)` is an error when a `using` short-qualifies a
+  user module to a reserved word: *"`List` is reserved, and `using Shop.Collections` also brings
+  `Shop.Collections.List` in as `List`; write `Shop.Collections.List.Length(...)`"*. This is the rule
+  [ticket 47](47-does-using-get-an-alias.md) chose for the same shape between two user modules —
+  41 §2's shadow check, firing at the call site (ENG-270) — applied to one more source of shadow.
+  Delta: one check where a qualified call resolves, over *reserved ∩ short-qualified imports*.
+
+➡️ **(iii).** It is the decision already made for this shape, it burns nothing, and it is loud where
+(ii) is silent. `Totals.bs` and `LANGUAGE.md:139` then go red on the day, and the fix is theirs to
+make — rename the example's module or call it in full — in the same commit.
+
+---
+
+❓ **Q7 — What is the universal-order escape called?**
+
+```csharp
+public list<term> Sorted(list<term> xs)
+Sorted(xs) -> xs |> List.Sort()               // mixed keys — needs the BEAM's order over all terms
+
+Before(a, b) -> Term.Compare(a, b)           // :lt | :eq | :gt
+```
+
+Ticket 16 restricted `<` to same-type operands and kept the BEAM's total order as *"a named prelude
+escape"* for `ordered_set` and mixed-key sorting. The name was never chosen (`PRELUDE.md` item 5).
+Under (b) it is one more compiler-known operation under one more reserved qualifier.
+
+**Delta:** `Term` joins the reserved set; one lowering to the BEAM's own `<` and `==` (`=:=` is 16's
+`==`, and which of the two `1` versus `1.0` gets is measured when built, not decided here). A
+three-atom result is a union a `switch` must cover, which a `bool` ordering is not.
+
+➡️ **`Term.Compare(a, b)` returning `:lt | :eq | :gt`.** It is Elixir's own `compare/2` convention —
+what `Enum.sort/2` accepts a module for — and Gleam's `order.Order`, so both neighbours read it on
+sight. `Term` is the qualifier because that is the type it is defined over.
+
+---
+
+❓ **Q8 — Do `hd`, `tl`, `length`, `elem` exist?**
+
+```csharp
+First([x, ..rest])  -> x                    // hd and tl are the pattern
+Count(xs)           -> List.Length(xs)      // length is a List operation
+Second((_, b, _))   -> b                    // elem is the pattern
+```
+
+`PRELUDE.md` item 7 records the four as *"absent evidence rather than a no"*. Under (b) the
+language has no lowercase callable at all — the grammar has no call form for one — and three of
+the four are patterns already. **Delta: none.**
+
+➡️ **No.** Record it as a decision so item 7 closes.
+
+## Waits on round 2
+
+- **(Q5)** How declared and compiler-known entries are documented differently — `PRELUDE.md` item 3.
+- **Ticket 65** inherits Q1's closedness; its reservation policy is its own to decide, and Q6's
+  answer is the shape it would enforce.

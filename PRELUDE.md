@@ -64,7 +64,7 @@ contest; they are in the prelude because you should not have to import them.
 
 | Entry | Spelling | Reach | Status | Ticket |
 |---|---|---|---|---|
-| `bool` | `type bool = true \| false` | unqualified | **decided** — and **built as a builtin instead**, see Drift | 10 |
+| `bool` | `builtin(bool)` — the two-atom union `true \| false` | unqualified | **shipped** — ticket 10 corrected 2026-09-03 to say builtin (67); it sits in this table until 67's Q5 settles the two kinds | 10 |
 | `option<T>` | `type option<T> = T \| :nothing` | unqualified | **shipped** | 10 §5 |
 | `result<T, E>` | `type result<T, E> = T \| (:error, E)` | unqualified | **shipped** | 15 |
 | the collection library | `List.Map`, `List.Filter`, `List.Fold` | **qualified** | **open** — see gaps | 27, 17 §2 |
@@ -410,6 +410,11 @@ nothing comparing the two.
 It is behaviourally invisible today (both spellings produce the same type), which is exactly why it
 survived. It stops being invisible the moment a user writes `type bool = ...` themselves, or the
 prelude gains a shadowing rule.
+
+**Resolved 2026-09-03 — the decision moved, not the compiler** ([ticket 67](wayfinder/issues/67-stdlib-shape-as-a-principle.md),
+David: *"on bool correct ticket 10"*). Ticket 10 §2 is corrected in place to say builtin; the row
+above says **shipped**; and `check-status-claims.sh` now probes `bool` like every other type name
+instead of carving it out as the one row whose text and resolution disagreed.
 
 ---
 
