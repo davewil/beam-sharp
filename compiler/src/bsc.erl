@@ -1,7 +1,7 @@
 %%% bsc — the beam-sharp walking-skeleton compiler.
 %%%
 %%%     .bs  ->  lex  ->  parse  ->  exhaustiveness check  ->  abstract format
-%%%          ->  erlc +from_abstr  ->  .beam
+%%%          ->  .abstr  ->  compile:file from_abstr (what erlc runs)  ->  .beam
 %%%
 %%% The slice deliberately covers only decisions the map has closed: multi-clause
 %%% heads under a mandatory signature (01, 04, 08), atoms and structural unions
@@ -24,6 +24,10 @@
 %% "naming a file names its module" are all rules this file already owns.
 -export([module_dirs/1, dir_kind/1, expected_module/2, parse_path/1,
          module_dir_of/1]).
+%% ENG-314 — `status/2` is one invocation as a NUMBER rather than as a dead VM,
+%% which is what lets `bs_batch` run fifty of them in one process; `exit_with/1`
+%% is how every site that used to `halt` reaches it, from `bs_api` as well.
+-export([status/2, exit_with/1]).
 
 -record(opts, {outdir = ".", emit_abstr = true, verbose = false, repl = false,
                %% F15 / ticket 41 §3. The source root is a BUILD-TOOL input, and
@@ -60,9 +64,40 @@ file_to_dir(Path, Dir) -> file(Path, #opts{outdir = Dir}).
 %%% CLI
 %%% ---------------------------------------------------------------------------
 
-main([]) ->
+%% ENG-314 — `--batch` is dispatched before anything else and takes exactly its
+%% two arguments. Every other invocation is one `status/2`, and the VM halts
+%% with what it returns — which is what `halt/1` did at every exit site until
+%% the batch form needed those sites to return instead.
+main(["--batch", Manifest, Results]) ->
+    erlang:halt(bs_batch:run(Manifest, Results));
+main(Args) ->
+    erlang:halt(status(Args, standalone)).
+
+%% One invocation, as its exit status. `Context` is `standalone` for the CLI
+%% and `batch` for an entry `bs_batch` is running in a shared VM; the only
+%% thing that reads it is the REPL refusal below.
+%%
+%% THE EXIT IS A THROW, AND `halt/1` IS NOT CALLED BELOW THIS LINE. Every site
+%% that used to halt calls `exit_with/1`, which throws `{bsc_exit, N}`; this is
+%% the one place it is caught. A `try` in between must therefore never catch a
+%% throw it did not itself raise — `check_and_emit/4` catches `error:` only,
+%% `bs_run:call/3` wraps the user's program and nothing of ours, and
+%% `bs_run:read_arg/1` names its own throw. A catch-all added later would turn
+%% an exit status into a normal return, and the test that would notice is the
+%% one that compares a batch entry's status to its standalone run's.
+status(Args, Context) ->
+    try dispatch(Args, Context) of
+        _ -> 0
+    catch
+        throw:{bsc_exit, N} -> N
+    end.
+
+exit_with(Status) when is_integer(Status) -> throw({bsc_exit, Status}).
+
+usage() ->
     io:format("usage: bsc [-o DIR] [-v] [--src-root DIR] [--diagnostics term]~n"
               "           [--api] PATH [FUNCTION] [ARG...]~n"
+              "       bsc --batch MANIFEST RESULTS~n"
               "  PATH is a module, which is a DIRECTORY — naming one of its~n"
               "  files means the same thing. With no ARGs it compiles; with~n"
               "  ARGs it compiles then runs:~n"
@@ -70,10 +105,31 @@ main([]) ->
               "      bsc --src-root examples examples/Shop/Reports Restate 3~n"
               "  --api reports what operations the module offers, in~n"
               "  beam-sharp's own types and with nothing built:~n"
-              "      bsc --api examples/Counter~n"),
-    halt(2);
-main(Args) ->
+              "      bsc --api examples/Counter~n"
+              "  --batch runs every invocation listed in MANIFEST in this one~n"
+              "  VM and writes each one's stdout, stderr, merged output and~n"
+              "  exit status under RESULTS as <id>.stdout, .stderr, .output~n"
+              "  and .status. The manifest is `entry ID`, an optional `cwd DIR`,~n"
+              "  one `arg TEXT` line per argument, and `end`.~n"),
+    exit_with(2).
+
+dispatch([], _Context) ->
+    usage();
+dispatch(Args, Context) ->
     {Opts, Files, Argv} = parse_args(Args, #opts{}, []),
+    %% ENG-314 — REFUSED IN A BATCH RATHER THAN IGNORED THERE, for the reason
+    %% the two refusals below give: the prompt is a session on stdin, and a
+    %% batch entry has no stdin to hand it. Accepting the flag and compiling
+    %% the file would be a flag accepted and not honoured.
+    case {Opts#opts.repl, Context} of
+        {true, batch} ->
+            io:format(standard_error,
+                      "bsc: --repl is not available in a batch entry~n"
+                      "  the prompt is a session on stdin, and a batch entry has~n"
+                      "  no stdin. Run `bsc --repl FILE` on its own.~n", []),
+            exit_with(2);
+        _ -> ok
+    end,
     %% F16 — set HERE and nowhere else. A library caller and every
     %% in-process test therefore gets `prose`, and cannot be polluted by
     %% another test: the CLI is a fresh OS process every time it runs.
@@ -89,7 +145,7 @@ main(Args) ->
                       "bsc: --diagnostics term is not available in the REPL~n"
                       "  the prompt prints values on stdout, so a descriptor~n"
                       "  there would be indistinguishable from a result.~n", []),
-            halt(2);
+            exit_with(2);
         _ -> ok
     end,
     %% F17 — AND `--api` IS REFUSED THERE FOR THE SAME REASON, not silently
@@ -103,14 +159,14 @@ main(Args) ->
                       "bsc: --api is not available in the REPL~n"
                       "  the query answers and exits; the prompt is a session~n"
                       "  over a module. Ask for one or the other.~n", []),
-            halt(2);
+            exit_with(2);
         _ -> ok
     end,
     bs_diag:set_channel(Opts#opts.diagnostics),
     %% F17 / ticket 23 §10 — BEFORE the REPL and before the compile path,
     %% because `--api` does neither: it reads source and reports what the
-    %% module offers. `bs_api:answer/3` halts, so this returns only when the
-    %% flag was absent.
+    %% module offers. `bs_api:answer/3` ends in `exit_with/1`, so this returns
+    %% only when the flag was absent.
     case Opts#opts.api of
         true  -> bs_api:answer(Files, Argv, Opts#opts.src_root);
         false -> ok
@@ -119,7 +175,7 @@ main(Args) ->
         {true, [File], _} -> repl(File, Opts);
         {true, [], _} ->
             io:format(standard_error, "usage: ibs -S FILE.bs~n", []),
-            halt(2);
+            exit_with(2);
         {false, F, A} -> compile_or_run(F, A, Opts)
     end.
 
@@ -141,21 +197,21 @@ compile_or_run(Files, Argv, Opts) ->
                               "~s",
                               [A, [io_lib:format("      ~s~n", [D])
                                    || D <- module_dirs(A)]]),
-                    halt(2);
-                false -> main([])
+                    exit_with(2);
+                false -> usage()
             end;
-        {[], _}           -> main([]);
+        {[], _}           -> usage();
         {[File], [_ | _]} -> run(File, Opts, Argv);
         {_, [_ | _]}     ->
             io:format(standard_error, "bsc: cannot run more than one file~n", []),
-            halt(2);
+            exit_with(2);
         {_, []}          -> compile_only(Files, Opts)
     end.
 
 compile_only(Files, Opts) ->
     case compile_set(Files, Opts) of
-        {ok, _Beams} -> halt(0);
-        {error, _}   -> halt(1)
+        {ok, _Beams} -> exit_with(0);
+        {error, _}   -> exit_with(1)
     end.
 
 %%% ---------------------------------------------------------------------------
@@ -502,10 +558,20 @@ parse_args(["--diagnostics", "prose" | Rest], O, Fs) ->
 %% argument of its own: the module it answers about is the ordinary PATH
 %% argument every other mode already takes.
 parse_args(["--api" | Rest], O, Fs)   -> parse_args(Rest, O#opts{api = true}, Fs);
+%% ENG-314. `--batch` is matched whole in `main/1`; reaching it here means it
+%% was combined with something else, and the something else is refused rather
+%% than guessed at — `-o DIR --batch …` has no meaning, since every entry
+%% carries its own flags.
+parse_args(["--batch" | _], _O, _Fs) ->
+    io:format(standard_error,
+              "bsc: --batch takes a manifest and a results directory, and nothing else~n"
+              "      bsc --batch MANIFEST RESULTS~n"
+              "  each entry of the manifest carries its own flags.~n", []),
+    exit_with(2);
 parse_args(["--diagnostics", Other | _], _O, _Fs) ->
     io:format(standard_error,
               "bsc: --diagnostics takes `prose` or `term`, not ~s~n", [Other]),
-    halt(2);
+    exit_with(2);
 parse_args([A | Rest], O, Fs) ->
     case is_path_arg(A) of
         true  -> parse_args(Rest, O, [A | Fs]);
@@ -547,7 +613,7 @@ run(File, Opts0, Argv) ->
             Mod = list_to_atom(filename:basename(Beam, ".beam")),
             report_run(bs_run:run(filename:dirname(Beam), Mod, Argv));
         _ ->
-            halt(1)
+            exit_with(1)
     end.
 
 %% F15 — the build's results are keyed by MODULE DIRECTORY, because that is the
@@ -565,13 +631,13 @@ beam_for(Path, Beams) ->
 
 report_run({ok, Value}) ->
     io:format("~s~n", [bs_run:format_value(Value)]),
-    halt(0);
+    exit_with(0);
 report_run({crashed, error, {Tag, Detail}, _}) when is_atom(Tag) ->
     io:format(standard_error, "crashed: ~p ~s~n", [Tag, bs_run:format_value(Detail)]),
-    halt(1);
+    exit_with(1);
 report_run({crashed, Class, Reason, _}) ->
     io:format(standard_error, "crashed: ~p:~p~n", [Class, Reason]),
-    halt(1);
+    exit_with(1);
 %% F12, amended 2026-08-17 — THE MOMENT THE DEFAULT BITES.
 %%
 %% Private is now the default, so a module nobody has marked exports nothing and
@@ -590,13 +656,13 @@ report_run({error, {ambiguous, []}}) ->
               "  a signature with no `public` in front of it is private, and a~n"
               "  private function is not exported. Mark the one you want to run~n"
               "  `public`.~n", []),
-    halt(2);
+    exit_with(2);
 report_run({error, {ambiguous, Names}}) ->
     io:format(standard_error,
               "bsc: which function? the module exports ~s~n"
               "  bsc FILE.bs FUNCTION ARG...~n",
               [lists:join(", ", [atom_to_list(N) || N <- Names])]),
-    halt(2);
+    exit_with(2);
 %% F12. Exit 2 rather than 1: this is the same class as `ambiguous` and
 %% `bad_arity` above — the compiler succeeded and the INVOCATION is wrong.
 report_run({error, {private, Mod, Fn}}) ->
@@ -605,20 +671,20 @@ report_run({error, {private, Mod, Fn}}) ->
               "  it is defined, and not exported, so it cannot be called from~n"
               "  outside its module. Mark it `public` to run it directly.~n",
               [Fn, Mod]),
-    halt(2);
+    exit_with(2);
 report_run({error, {bad_arity, Fn, Got, Want}}) ->
     io:format(standard_error, "bsc: ~s takes ~s argument(s), got ~p~n",
               [Fn, lists:join(" or ", [integer_to_list(A) || A <- Want]), Got]),
-    halt(2);
+    exit_with(2);
 %% The reader already built the sentence; printing it with `~p` would hand back
 %% a list of character codes, which is the generic clause below doing exactly
 %% the kind of damage this message exists to undo.
 report_run({error, {unreadable_argument, Msg}}) ->
     io:format(standard_error, "bsc: ~ts~n", [Msg]),
-    halt(2);
+    exit_with(2);
 report_run({error, R}) ->
     io:format(standard_error, "bsc: ~p~n", [R]),
-    halt(1).
+    exit_with(1).
 
 repl(File, Opts0) ->
     Opts = case Opts0#opts.outdir of
@@ -633,9 +699,9 @@ repl(File, Opts0) ->
             true = code:add_patha(Dir),
             {module, Mod} = code:ensure_loaded(Mod),
             bs_repl:start(File, Dir, Mod),
-            halt(0);
+            exit_with(0);
         _ ->
-            halt(1)
+            exit_with(1)
     end.
 
 tmpdir() ->
@@ -785,25 +851,47 @@ emit(_Path, Opts = #opts{outdir = Dir}, Module) ->
 
 %% The whole point of ticket 13's contract: OTP does the translation, from
 %% serialised text, with no `.erl` anywhere on disk.
+%%
+%% IN-PROCESS SINCE ENG-314, AND STILL FROM THE FILE. This shelled out to
+%% `erlc +from_abstr` per module, and that second VM boot was two thirds of
+%% what a block cost: measured 2026-09-03 at 0.24s per block, of which the
+%% bare `bsc` VM was 0.08s. `compile:file/2` with `from_abstr` is the function
+%% erlc itself calls, over the same `.abstr` on disk — so the forms are still
+%% serialised and read back through OTP's reader on every build, and ticket
+%% 13's standing obligation (the frontend never depends on in-process compiler
+%% state, so `.abstr` plus external `erlc` always works) is measured where it
+%% always was, by `spec-check.sh` running the real `erlc` over the real
+%% `.abstr`. What a reader sees is unchanged: the compiler's report text is
+%% caught rather than read from a port, and still arrives on stderr under the
+%% `erlc: ` prefix `check-diagnostics.sh` allows by name.
 build(AbstrPath, Dir, Opts) ->
-    Cmd = lists:flatten(io_lib:format("erlc +from_abstr +debug_info -o ~s ~s",
-                                      [Dir, AbstrPath])),
-    {Rc, Out} = bs_process:run_merged(Cmd),
+    Options = [from_abstr, debug_info, {outdir, Dir},
+               report_errors, report_warnings],
+    {Outcome, {_Stdout, _Stderr, Merged}} =
+        bs_capture:run(fun() -> compile:file(AbstrPath, Options) end, infinity),
+    Out = case unicode:characters_to_list(Merged) of
+              L when is_list(L) -> L;
+              _                 -> binary_to_list(Merged)
+          end,
     Beam = filename:rootname(AbstrPath) ++ ".beam",
-    %% erlc reports warnings on the same stream as errors, so the exit status is
-    %% the only honest discriminator — treating any output as failure made the
-    %% first green build look red.
-    case Rc of
-        0 ->
+    %% The compiler reports warnings on the same stream as errors, so its
+    %% return is the only honest discriminator — treating any output as
+    %% failure made the first green build look red.
+    case Outcome of
+        {ok, {ok, _Mod}} ->
             case string:trim(Out) of
                 ""   -> ok;
                 Warn -> io:format(standard_error, "erlc: ~s~n", [Warn])
             end,
             verbose(Opts, "built ~s~n", [Beam]),
             {ok, Beam};
-        _ ->
+        {ok, _Failed} ->
             io:format(standard_error, "erlc: ~s~n", [Out]),
-            {error, {erlc, Out}}
+            {error, {erlc, Out}};
+        {crashed, Class, Reason} ->
+            Text = Out ++ lists:flatten(io_lib:format("~w:~p", [Class, Reason])),
+            io:format(standard_error, "erlc: ~s~n", [Text]),
+            {error, {erlc, Text}}
     end.
 
 verbose(#opts{verbose = true}, F, A) -> io:format(F, A);

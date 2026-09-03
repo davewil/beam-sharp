@@ -283,3 +283,202 @@ the_cli_reports_an_unreadable_argument_test() ->
                 ?assertEqual(nomatch, string:find(R, "badmap"))
             end)
     end.
+
+%%% ---------------------------------------------------------------------------
+%%% ENG-314 — the batch form: many invocations, one VM.
+%%%
+%%% `check-language.sh` compiles fifty-odd fenced blocks and `check-tour.sh`
+%%% replays fifty-odd transcripts, each as its own `bsc` process, and their
+%%% self-tests run each gate fifteen times over — measured at 65% of the CI job
+%%% on 2026-09-02. `--batch MANIFEST RESULTS` runs every entry of the manifest in
+%%% one VM and writes what each would have written on its own: `<id>.stdout`,
+%%% `<id>.stderr`, `<id>.output` (both streams, in the order they were written,
+%%% which is what `2>&1` gives) and `<id>.status`.
+%%%
+%%% THE ORACLE IS THE STANDALONE RUN. Every entry below is also run as its own
+%%% process and the four files must equal what that process produced, byte for
+%%% byte. That is the whole contract: a gate that switches to the batch form
+%%% keeps reading exactly the text it read before.
+%%%
+%%% One entry FAILS and one SUCCEEDS in the same batch, per the issue. Two more
+%%% are the cases a single VM gets wrong where fifty processes could not:
+%%% `rerun` compiles a SECOND module called `Fib` from a different tree and
+%%% runs it, so a module left loaded by the entry before it would answer with
+%%% stale code; and `inject` hands over an argument carrying `; touch`, which
+%%% must reach the compiler as one argument and never a shell.
+%%% ---------------------------------------------------------------------------
+
+%% The manifest is line-framed, one argument per `arg` line, so an argument
+%% boundary is a newline and never a quoting rule anything has to re-parse.
+manifest(Entries) ->
+    lists:append(
+      [["entry ", Id, "\n",
+        case Cwd of undefined -> ""; _ -> ["cwd ", Cwd, "\n"] end,
+        [["arg ", A, "\n"] || A <- Args],
+        "end\n\n"]
+       || {Id, Cwd, Args} <- Entries]).
+
+read_result(Dir, Id, Ext) ->
+    {ok, Bin} = file:read_file(filename:join(Dir, Id ++ "." ++ Ext)),
+    binary_to_list(Bin).
+
+%% The standalone run the batch is measured against: split streams from one
+%% process, the merged stream and the status from another. Arguments are
+%% single-quoted for the shell; none below carries a quote of its own.
+standalone(Args) ->
+    Quoted = lists:flatten(lists:join(" ", ["'" ++ A ++ "'" || A <- Args])),
+    {Rc, Out, Err} = bs_test_support:run_cli_split_result(Quoted),
+    {Rc2, Merged} = bs_test_support:run_cli_result(Quoted),
+    ?assertEqual(Rc, Rc2),
+    #{status => Rc, stdout => Out, stderr => Err, output => Merged}.
+
+inexhaustive_src() ->
+    "module Bad\n"
+    "type Colour = :red | :amber | :green\n"
+    "public atom Go(Colour c)\n"
+    "Go(:red)   -> :stop\n"
+    "Go(:amber) -> :wait\n".
+
+%% Spelled as the UTF-8 BYTES, because `place/3` writes a list of characters
+%% one byte each: a literal `é` here is codepoint 233 and would land in the file
+%% as latin1, which the compiler's UTF-8 check refuses before anything runs.
+accented_src() ->
+    "module Label\n"
+    "public string Accented()\n"
+    "Accented() -> \"h\303\251llo\"\n".
+
+batch_runs_every_entry_in_one_vm_and_attributes_each_test_() ->
+    {timeout, 120, fun batch_runs_every_entry_in_one_vm_and_attributes_each/0}.
+
+batch_runs_every_entry_in_one_vm_and_attributes_each() ->
+    Root = bs_test_support:fixture_root(),
+    Good  = bs_test_support:place(Root, "good.bs", showcase_src()),
+    Bad   = bs_test_support:place(Root, "bad.bs", inexhaustive_src()),
+    Fib   = bs_test_support:place(Root, "fib.bs", fib_src()),
+    Label = bs_test_support:place(Root, "label.bs", accented_src()),
+    %% A second tree with its own `module Fib`, answering 100 where the first
+    %% answers 55. Same module atom, different code: the stale-load control.
+    Root2 = bs_test_support:fixture_root(),
+    Fib2  = bs_test_support:place(Root2, "fib.bs",
+                                  "module Fib\npublic int Fib(int n)\n"
+                                  "Fib(n) when n <= 1 -> 100\n"
+                                  "Fib(n) when n > 1  -> 100\n"),
+    Out = fun(N) -> filename:join(Root, "out" ++ integer_to_list(N)) end,
+    Pwned = filename:join(Root, "pwned"),
+    Entries =
+        [{"good",   undefined, ["--src-root", Root, "-o", Out(1), Good]},
+         {"bad",    undefined, ["--src-root", Root, "-o", Out(2), Bad]},
+         {"term",   undefined, ["--diagnostics", "term", "--src-root", Root,
+                                "-o", Out(3), Bad]},
+         {"run",    undefined, ["--src-root", Root, "-o", Out(4), Fib, "10"]},
+         {"rerun",  undefined, ["--src-root", Root2, "-o", Out(5), Fib2, "10"]},
+         {"rel",    Root,      ["-o", Out(6), "Bad/bad.bs"]},
+         {"utf",    undefined, ["--src-root", Root, "-o", Out(7), Label, "Accented"]},
+         {"inject", undefined, ["--src-root", Root, "-o", Out(8), Fib, "Fib",
+                                "10; touch " ++ Pwned]},
+         {"space",  undefined, ["--src-root", Root, "-o", Out(9), Good,
+                                "Classify", "(:ok, 7)"]},
+         {"repl",   undefined, ["--repl", Good]}],
+    ManifestPath = filename:join(Root, "batch.manifest"),
+    ok = file:write_file(ManifestPath, manifest(Entries)),
+    Results = filename:join(Root, "results"),
+    {Rc, BatchOutput} = bs_test_support:run_cli_result(
+                          "--batch " ++ ManifestPath ++ " " ++ Results),
+    ?assertEqual({0, ""}, {Rc, BatchOutput}),
+
+    %% Every entry against its own standalone run, all four files.
+    Compare =
+        fun(Id, Args) ->
+                Want = standalone(Args),
+                Got = #{status => list_to_integer(
+                                    string:trim(read_result(Results, Id, "status"))),
+                        stdout => read_result(Results, Id, "stdout"),
+                        stderr => read_result(Results, Id, "stderr"),
+                        output => read_result(Results, Id, "output")},
+                ?assertEqual({Id, Want}, {Id, Got})
+        end,
+    [Compare(Id, Args) || {Id, undefined, Args} <- Entries, Id =/= "repl"],
+
+    %% And the facts the comparison alone would let a broken pair of runs
+    %% agree on: a success and a failure in one batch, the term on stdout with
+    %% the prose on stderr and both in the merged stream in that order, the
+    %% second `Fib` answering with its own code, and the injection inert.
+    ?assertEqual("0", string:trim(read_result(Results, "good", "status"))),
+    ?assertEqual("1", string:trim(read_result(Results, "bad", "status"))),
+    ?assertNotEqual(nomatch, string:find(read_result(Results, "bad", "stderr"),
+                                         "Go is not exhaustive")),
+    TermOut = read_result(Results, "term", "stdout"),
+    TermErr = read_result(Results, "term", "stderr"),
+    ?assertNotEqual(nomatch, string:find(TermOut, "tag => inexhaustive")),
+    ?assertEqual(nomatch, string:find(TermErr, "tag =>")),
+    ?assertEqual(TermOut ++ TermErr, read_result(Results, "term", "output")),
+    ?assertEqual("55\n", read_result(Results, "run", "stdout")),
+    ?assertEqual("100\n", read_result(Results, "rerun", "stdout")),
+    %% Read back as bytes, so the expectation is the UTF-8 encoding of `é`.
+    ?assertEqual("\"h\303\251llo\"\n", read_result(Results, "utf", "stdout")),
+    ?assertEqual(":positive\n", read_result(Results, "space", "stdout")),
+    ?assertEqual("2", string:trim(read_result(Results, "inject", "status"))),
+    ?assertNot(filelib:is_file(Pwned)),
+
+    %% The relative path resolved against the entry's `cwd`, and the
+    %% diagnostic names it as the entry spelled it.
+    ?assertEqual("1", string:trim(read_result(Results, "rel", "status"))),
+    ?assertNotEqual(nomatch, string:find(read_result(Results, "rel", "stderr"),
+                                         "Bad/bad.bs:3: error:")),
+
+    %% `--repl` is refused in an entry rather than ignored, for the reason
+    %% `--diagnostics term` is refused in the REPL: a flag accepted and not
+    %% honoured costs the flag its credibility everywhere else.
+    ?assertEqual("2", string:trim(read_result(Results, "repl", "status"))),
+    ?assertNotEqual(nomatch, string:find(read_result(Results, "repl", "stderr"),
+                                         "--repl is not available in a batch")).
+
+%% A manifest the reader cannot parse runs NOTHING and says which line. A batch
+%% that ran the entries it understood and skipped the rest would hand a gate a
+%% results directory with holes in it, and a gate reading `<id>.status` files
+%% would have to know to count them.
+a_malformed_manifest_runs_nothing_and_names_the_line_test() ->
+    Root = bs_test_support:fixture_root(),
+    Good = bs_test_support:place(Root, "good.bs", showcase_src()),
+    ManifestPath = filename:join(Root, "bad.manifest"),
+    ok = file:write_file(ManifestPath,
+                         "entry one\narg " ++ Good ++ "\nend\n"
+                         "entry two\nargh " ++ Good ++ "\nend\n"),
+    Results = filename:join(Root, "results"),
+    {Rc, Output} = bs_test_support:run_cli_result(
+                     "--batch " ++ ManifestPath ++ " " ++ Results),
+    ?assertEqual(2, Rc),
+    ?assertNotEqual(nomatch, string:find(Output, "bad.manifest:5")),
+    ?assertEqual({error, enoent},
+                 file:read_file(filename:join(Results, "one.status"))),
+    %% And the flag takes exactly its two arguments — combined with anything
+    %% else it is refused, not reinterpreted as a compile.
+    {Rc2, Output2} = bs_test_support:run_cli_result(
+                       "-o " ++ Root ++ " --batch " ++ ManifestPath ++ " " ++ Results),
+    ?assertEqual(2, Rc2),
+    ?assertNotEqual(nomatch, string:find(Output2, "--batch")),
+    {Rc3, _} = bs_test_support:run_cli_result("--batch " ++ ManifestPath),
+    ?assertEqual(2, Rc3).
+
+%% THE ERLC STEP MOVED IN-PROCESS WITH THIS FEATURE, AND THIS PINS WHAT IT
+%% PRINTS. `bsc` shelled out to `erlc +from_abstr` per module, and that boot
+%% was two thirds of a block's cost (measured 2026-09-03: 0.24s per block, of
+%% which the bare `bsc` VM was 0.08s). `compile:file/2` over the same `.abstr`
+%% is the same OTP code erlc calls, and ticket 13's obligation — the serialised
+%% forms plus external erlc always work — is still what `spec-check.sh`
+%% measures. What a reader could notice is the prose: erlc's warning text
+%% reached stderr under an `erlc: ` prefix, and it still must.
+an_erlc_warning_still_reaches_stderr_under_its_prefix_test() ->
+    Root = bs_test_support:fixture_root(),
+    %% A private function nothing calls: erlc deletes it and says so.
+    Src = bs_test_support:place(Root, "half.bs",
+                                "module Half\n"
+                                "public int Whole(int n)\n"
+                                "Whole(n) -> n\n"
+                                "int Half(int n)\n"
+                                "Half(n) -> n\n"),
+    {Rc, Out, Err} = bs_test_support:run_cli_split_result(
+                       "--src-root " ++ Root ++ " -o " ++ Root ++ "/out " ++ Src),
+    ?assertEqual({0, ""}, {Rc, Out}),
+    ?assertNotEqual(nomatch, string:find(Err, "erlc: ")),
+    ?assertNotEqual(nomatch, string:find(Err, "is unused")).

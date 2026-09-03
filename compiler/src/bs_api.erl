@@ -74,13 +74,13 @@ answer(_Paths, [A | _], _Root) ->
               "bsc: --api answers about a module, it does not run one~n"
               "  drop `~s`. The query reads source and reports what the module~n"
               "  offers, with nothing built and nothing called.~n", [A]),
-    halt(2);
+    bsc:exit_with(2);
 answer([], [], _Root) ->
     io:format(standard_error,
               "bsc: --api needs a module~n"
               "      bsc --api examples/Counter~n"
               "      bsc --src-root examples --api examples/Shop/Reports~n", []),
-    halt(2);
+    bsc:exit_with(2);
 answer(Paths, [], Root) ->
     %% A PATH THAT DOES NOT EXIST IS CAUGHT HERE, AND IT HAS TO BE. `.bs` on the
     %% end makes an argument a path whether or not the file is there, so
@@ -96,7 +96,7 @@ answer(Paths, [], Root) ->
             %% implementation on purpose.
             Dirs = lists:usort([bsc:module_dir_of(P) || P <- Paths]),
             lists:foreach(fun(D) -> module(D, Root) end, Dirs),
-            halt(0)
+            bsc:exit_with(0)
     end.
 
 module(Dir, Root) ->
@@ -135,7 +135,7 @@ sources(Dir) ->
 parse(File) ->
     case bsc:parse_path(File) of
         {ok, Decls} -> Decls;
-        {error, _}  -> halt(1)
+        {error, _}  -> bsc:exit_with(1)
     end.
 
 %% The same default `bs_check:module_name/1` applies, and it is a field read
@@ -311,13 +311,13 @@ refuse_namespace(Dir) ->
               "~s",
               [Dir, [io_lib:format("      ~s~n", [D])
                      || D <- bsc:module_dirs(Dir)]]),
-    halt(2).
+    bsc:exit_with(2).
 
 refuse_not_a_module(A) ->
     io:format(standard_error,
               "bsc: ~s is not a module~n"
               "  --api takes a `.bs` file or a directory holding one.~n", [A]),
-    halt(2).
+    bsc:exit_with(2).
 
 %% A condition about the SOURCE. It is published through `bs_diag` with its
 %% existing descriptor and its existing prose — this feature mints no tag of its
@@ -334,4 +334,4 @@ fail(Path, Reason) ->
                Found     -> Found
            end,
     bs_diag:emit(bs_diag:channel(), Desc),
-    halt(1).
+    bsc:exit_with(1).
