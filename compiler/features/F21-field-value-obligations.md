@@ -107,19 +107,22 @@ someone declared, and the only difference is which declaration.
 
 ## The gate — `bin/check-field-values.sh`
 
-Four probes. Three assert a diagnostic appears; the fourth asserts a correct record program
-compiles **clean**, and captures the **exit code** beside the output so that "clean" means rc 0 and
-nothing said, rather than merely nothing said.
+Five probes *(four until 2026-09-03; see [the subject](#corrected-2026-09-03--the-subject-eng-249))*.
+Four assert a diagnostic appears; probe 4 asserts a correct record program compiles **clean**,
+and captures the **exit code** beside the output so that "clean" means rc 0 and nothing said,
+rather than merely nothing said.
 
-**The self-test's third stub is what earns this gate.**
+**The self-test's third stub is what earns this gate**, and the fifth is what the gate could not
+see for thirteen days.
 
 | Stub | What it is | Fails |
 |---|---|---|
-| `SILENT` | the compiler as ticket 36 found it | probes 1, 2, 3 |
+| `SILENT` | the compiler as ticket 36 found it | probes 1, 2, 3, 5 |
 | `CRYWOLF` | says every right word, on every program including the correct one | probe 4 only |
-| `VALUE-ONLY` | **the ticket's stated delta, built exactly as written** | **probe 3 only** |
+| `VALUE-ONLY` | **the ticket's stated delta, built exactly as written** | **probe 3** and 5 |
+| `SUBJECT-BLIND` | **F21 as it shipped** — both halves, both spellings, and the base never asked what it is | **probe 5 only** |
 | `GOOD` | the decided behaviour | nothing |
-| `BROKEN` | nothing compiles | all four |
+| `BROKEN` | nothing compiles | all five |
 
 `VALUE-ONLY` is the build a careful reader of the ticket produces. It is a real improvement, it
 passes three of four probes, and it leaves `{badkey,'Nope'}` in the tree. `CRYWOLF` is the
@@ -146,6 +149,12 @@ All in `test/body_check_tests.erl` beside F5's site-2 tests, except F21.7's sibl
 | F21.7 | `with` may not invent a field, **at compile time** |
 | F21.8 | the `with` diagnostic says "updates", never "builds", and invents no missing field |
 | F21.9 | the value diagnostic reaches the author as prose |
+| F21.10 | `with` on an `int` is refused, with `int` as the member handed back, and **one** error — the refusal does not cascade into the return check *(ENG-249)* |
+| F21.11 | `with` on a bare `term` is refused — a foreign map is not known to be a record |
+| F21.12 | `with` on a `list<(atom, term)>` is refused — ticket 48's probe, the shape that was read as map-update support |
+| F21.13 | `with` on a union where one member lacks the field is refused, and the residual is that member |
+| F21.14 | `with` on a union where every member carries the field is legal, and the value half runs **per member** |
+| F21.15 | `with` on a recursive record is still a record update — the control at the binder |
 
 ## Built 2026-08-21
 
@@ -164,3 +173,32 @@ recording a missing compile-time check as a feature.**
 
 **Two tests changed only by gaining `construction`** in the `field_set_mismatch` tuple, which is the
 whole cost of the verb fix at the term level.
+
+## Corrected 2026-09-03 — the subject (ENG-249)
+
+**`with` checked the fields it named and never asked what was being updated.** The clause above
+reads `declared_fields/1` off the base's type, and when the base is not one closed record the
+answer is `unknown` — which the clause took as *no information* and passed the base's type through
+untouched. So `n with { Total = 1 }` on an `int` typed as `int`, the `int` return type was
+satisfied, and the BEAM raised `{badmap, N}` when it ran. A `term` and a `list<(atom, term)>` were
+accepted the same way. Found on 2026-08-25 by a probe written for ticket 48 to check a claim its
+own survey had made — that `with` was already a map-update form. It was, in the sense that nothing
+looked.
+
+**The fix is site 3's relation in `with`'s verb, and nothing new in `bs_types`.** One closed
+record keeps the path built above, byte for byte. Everything else is asked `subject \ { K: term, .. }`
+per field: a non-empty residual is the member that may lack the field, handed back exactly as the
+dot hands it back, and `field_absent` gained a `form` (`projection` | `update`) the way
+`field_set_mismatch` did rather than a sibling. The refused expression synthesises `reported()`,
+so the return check no longer certifies whatever an updated `int` would have been.
+
+**One thing the fix reaches that the defect did not name.** A union of records whose every member
+carries the field is a *legal* subject — the subtraction is empty — and the value half then runs
+against **each member's own declaration** (F21.14). It has to: the subject may be either record at
+run time, and a value one member's `Total` accepts and the other's rejects would build the second
+record in breach of its own type. Two members, two verdicts, each naming its record.
+
+**Six tests, one probe, one control.** F21.10–F21.15 in `body_check_tests.erl`; probe 5 in the
+gate, and the `SUBJECT-BLIND` stub, which is this feature exactly as it shipped and which the gate
+passed for thirteen days. Two projection tests changed only by gaining `projection` in the
+`field_absent` tuple. `LANGUAGE.md` §6 gained the sentence and a replayed example.

@@ -1946,7 +1946,8 @@ type_of({e_proj, L, V, Field}, S, C) ->
     case bs_types:is_none(Lacking) of
         true  -> {field_type(Recv, Field), []};
         false -> {reported(),
-                  [{error, L, C#ctx.fname, {field_absent, Field, Lacking}}]}
+                  [{error, L, C#ctx.fname,
+                    {field_absent, projection, Field, Lacking}}]}
     end;
 %% SITE 2 — construction. F3 shipped without this and said so: a body could
 %% build a map wearing an `Order` tag without `Order`'s fields and nothing
@@ -1990,23 +1991,37 @@ type_of({e_record, L, Name, Fields}, S, C) ->
 %% so 26 §2 was being enforced by the BEAM rather than by the compiler. The
 %% relation differs from construction's by exactly what 26 §2 says — SUBSET, not
 %% equality — so `with` can never report a missing field.
+%%
+%% AND THE SUBJECT — ENG-249, 2026-09-03. Both halves above are asked of
+%% `declared_fields/1`, which answers `unknown` for anything but one closed
+%% record, and for thirteen days that `unknown` was a silent pass: `n with
+%% { Total = 1 }` on an `int` typed as `int`, the return check was content, and
+%% the BEAM raised `{badmap, N}` at run time. So there are two paths here. One
+%% closed record keeps the path F21 built, byte for byte. Everything else is
+%% asked site 3's question in `with`'s verb: the subject minus an open map
+%% carrying the field is the member that may lack it, and a non-empty residual
+%% refuses. An int, a `term`, a list of pairs and a union one member short all
+%% fall to the same subtraction — and a union whose every member carries the
+%% field is a legal subject, checked on the value half per member, because
+%% the value has to satisfy whichever record arrives.
 type_of({e_with, L, Base, Fields}, S, C) ->
     {T, D1} = type_of(Base, S, C),
     {Tys, D2} = type_of_all([E || {_, E} <- Fields], S, C),
     Keys = [K || {K, _} <- Fields],
-    D3 = case {declared_fields(T), record_name(T)} of
-             {unknown, _} -> [];
-             {_, unknown} -> [];
-             {Declared, Name} ->
-                 case lists:sort(Keys -- Declared) of
-                     [] ->
-                         field_value_diags(Keys, Tys, T, Name, L, C);
-                     Extra ->
-                         [{error, L, C#ctx.fname,
-                           {field_set_mismatch, Name, update, [], Extra}}]
-                 end
-         end,
-    {T, D1 ++ D2 ++ D3};
+    {Ty, D3} =
+        case {declared_fields(T), record_name(T)} of
+            {Declared, Name} when Declared =/= unknown, Name =/= unknown ->
+                case lists:sort(Keys -- Declared) of
+                    [] ->
+                        {T, field_value_diags(Keys, Tys, T, Name, L, C)};
+                    Extra ->
+                        {T, [{error, L, C#ctx.fname,
+                              {field_set_mismatch, Name, update, [], Extra}}]}
+                end;
+            _ ->
+                with_subject(T, Keys, Tys, L, C)
+        end,
+    {Ty, D1 ++ D2 ++ D3};
 %% Ticket 17 §6 — `walk/5` over ONE COLUMN. A clause row's domain is a product of
 %% declared parameter types and a switch's is a single synthesised type, and that
 %% is the whole of the difference: the same `pattern_type/3`, the same
@@ -2529,6 +2544,70 @@ field_value_diags(Keys, Tys, RecTy, Name, L, C) ->
      || {K, VTy} <- lists:zip(Keys, Tys),
         R <- [bs_types:subtract(VTy, field_type(RecTy, K))],
         not bs_types:is_none(R)].
+
+%% THE SUBJECT OF A `with` THAT IS NOT ONE CLOSED RECORD — ENG-249.
+%%
+%% Site 3's relation, one subtraction per field: `subject \ { K: term, .. }` is
+%% the part of the subject that may lack `K`, and it is handed back as the
+%% member to discriminate on, exactly as the dot hands it back. Per field
+%% rather than once over all the keys, because on a union the residual is
+%% precise per field — `Note` lacks `Total` and carries `Id` — and one
+%% subtraction over both would name a member without saying which field it
+%% lacks.
+%%
+%% A base whose own synthesis already failed is `reported()`, which is
+%% `none()`, and `none \ T` is empty — so it would sail through the absence
+%% check and into the value half against a type with no members. It is stopped
+%% at the door instead, and stays `reported()`: the second complaint would be
+%% about an expression the author has already been told about.
+%%
+%% A refused subject synthesises `reported()` too. This is the half of the
+%% defect that hid it: `int with { … }` used to type as `int`, so the `int`
+%% return type was satisfied and nothing else looked.
+with_subject(T, Keys, Tys, L, C) ->
+    case bs_types:is_none(T) of
+        true ->
+            {T, []};
+        false ->
+            Absent = [{K, Lacking}
+                      || K <- Keys,
+                         Lacking <- [bs_types:subtract(
+                                       T, bs_types:map_open(#{K => bs_types:term()}))],
+                         not bs_types:is_none(Lacking)],
+            case Absent of
+                [] ->
+                    {T, member_value_diags(T, Keys, Tys, L, C)};
+                _ ->
+                    {reported(),
+                     [{error, L, C#ctx.fname, {field_absent, update, K, Lacking}}
+                      || {K, Lacking} <- Absent]}
+            end
+    end.
+
+%% The value half over a subject that reached here: every member carries every
+%% key, and there is more than one member or the one member has no name. Each
+%% member is checked against ITS OWN declaration — a value one record's
+%% `Total` accepts and another's rejects would build the second record in
+%% breach of its own type, and the subject may be either at run time. The
+%% member is named by its tag where it has one, and by its printed shape where
+%% it has not, so no member's verdict goes unreported for want of a name.
+%%
+%% No catch-all. `maps := top` cannot reach here — `term \ { K: term, .. }`
+%% is never empty — and any other shape is a change in `bs_types` this clause
+%% should refuse to guess about, which is the lesson of the `unknown` above.
+member_value_diags(#{mu := _} = T, Keys, Tys, L, C) ->
+    member_value_diags(bs_types:unfold(T), Keys, Tys, L, C);
+member_value_diags(#{maps := Members}, Keys, Tys, L, C) when is_list(Members) ->
+    lists:append(
+      [field_value_diags(Keys, Tys, MTy, member_label(MTy), L, C)
+       || {Kind, Fs} <- Members,
+          MTy <- [(bs_types:none())#{maps => [{Kind, Fs}]}]]).
+
+member_label(MTy) ->
+    case record_name(MTy) of
+        unknown -> lists:flatten(bs_types:to_pattern(MTy));
+        Name    -> Name
+    end.
 
 %% The record's declared name, read back off the minted tag.
 %%

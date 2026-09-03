@@ -285,8 +285,10 @@ claim about this compiler made without running it. Run
 ([`48d`](../prototypes/48d_with_is_record_only.sh)), it is false: `with` on a `list<(atom, term)>`,
 on a `term`, **and on an `int`** are all accepted at exit 0, while `with` on a record with an
 undeclared field is refused precisely (*"not declared by Order: NoSuchField"*). Three controls
-establish the checker is looking. **`with`'s subject is unchecked**, so its acceptance of a list is
-a hole rather than support — beam-sharp has a *record*-update form, not a map-update one. The arm
+establish the checker is looking. **`with`'s subject is unchecked** *(was — fixed 2026-09-03 under
+ENG-249, and all three are now refused with the member that lacks the field)*, so its acceptance of
+a list is a hole rather than support — beam-sharp has a *record*-update form, not a map-update one.
+The arm
 therefore relocates to a construct that **would have to be added**, which is a different input to
 the grilling than "one that already exists".
 
@@ -1059,7 +1061,9 @@ so a Gleam-shaped opaque interface would have to invent one.
 
 Related defect found on the way and not fixed here: `with`'s subject is unchecked
 (`bs_check.erl:1742`, where `declared_fields/1` returning `unknown` is read as "no information"
-rather than "wrong kind of subject") — filed as ENG-249, and 48d is its measurement. Note the
+rather than "wrong kind of subject") — filed as ENG-249, and 48d is its measurement. *Resolved
+2026-09-03: the `unknown` now routes to site 3's subtraction, and 48d prints REFUSED on all three.*
+Note the
 contrast `48i` §6 draws: a malformed **key** is caught at the parser, while a wrong-kind
 **subject** passes at exit 0.
 

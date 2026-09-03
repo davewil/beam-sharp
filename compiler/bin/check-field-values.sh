@@ -27,6 +27,14 @@
 # THE ASSERTIONS ARE ON THE DIAGNOSTIC, NEVER ON THE EXIT CODE ALONE. Refusing
 # the program is candidate zero; naming the field and handing back the residual
 # is the decision, and it is what ticket 23 asks a diagnostic to do.
+#
+# PROBE 5 — THE SUBJECT (ENG-249, 2026-09-03). F21 checked the fields named in
+# a `with` and never asked what was being updated: `n with { Total = 1 }` on an
+# `int` compiled at exit 0, typed as `int`, and raised `{badmap, N}` when it
+# ran. A probe written for ticket 48 found it — the survey had claimed `with`
+# was already a map-update form, and the claim was true only because the
+# subject was unchecked. The SUBJECT-BLIND control below is F21 exactly as it
+# shipped on 2026-08-21, and this gate went green over it for thirteen days.
 
 set -euo pipefail
 
@@ -36,17 +44,18 @@ BSC="$HERE/_build/default/bin/bsc"
 # ---------------------------------------------------------------------------
 # judge — the whole of the gate's opinion, in one place.
 #
-# Reads P1.out … P4.out and P4.rc from a directory and prints one line per
+# Reads P1.out … P5.out and P4.rc from a directory and prints one line per
 # violation. A function over a directory so --self-test drives THIS code path
 # rather than a copy of it.
 # ---------------------------------------------------------------------------
 judge() {
   local dir="$1"
-  local p1 p2 p3 p4 rc4
+  local p1 p2 p3 p4 p5 rc4
   p1="$(cat "$dir/P1.out")"
   p2="$(cat "$dir/P2.out")"
   p3="$(cat "$dir/P3.out")"
   p4="$(cat "$dir/P4.out")"
+  p5="$(cat "$dir/P5.out")"
   rc4="$(cat "$dir/P4.rc")"
 
   # PROBE 1 — construction, the value half.
@@ -133,6 +142,30 @@ judge() {
     echo "probe 4: a correct record program compiled, and the compiler complained:"
     sed 's/^/           /' <<<"$p4"
   fi
+
+  # PROBE 5 — THE SUBJECT. ENG-249.
+  #
+  #   int Bump(int n)
+  #   Bump(n) -> n with { Total = 1 }
+  #
+  # Probes 2 and 3 ask about the fields; this one asks what is being updated.
+  # `with` is a record update, and an `int` carries no field to update — so the
+  # refusal is site 3's relation (`subject \ { Total: term }` is non-empty)
+  # spoken in `with`'s verb, and the residual handed back is the member that
+  # lacks the field. Here that member is the whole subject.
+  if grep -q 'syntax error\|illegal characters' <<<"$p5"; then
+    echo "probe 5: did not compile, so nothing was measured. it said:"
+    sed 's/^/           /' <<<"$p5"
+  elif ! grep -q 'updates Total on a value that may not carry it' <<<"$p5"; then
+    echo "probe 5: n with { Total = 1 } on an int was accepted. the subject of a"
+    echo "         \`with\` is unchecked, so it types as whatever it was and raises"
+    echo "         {badmap, N} at run time. it said:"
+    sed 's/^/           /' <<<"${p5:-(nothing)}"
+  elif ! grep -qw 'int' <<<"$p5"; then
+    echo "probe 5: refused the update but did not hand back the residual. the"
+    echo "         member that lacks the field is the thing to discriminate on."
+    sed 's/^/           /' <<<"$p5"
+  fi
 }
 
 # ---------------------------------------------------------------------------
@@ -154,13 +187,18 @@ judge() {
 #               the build a careful reader of the ticket produces, and catching
 #               it is the whole reason the gate has a third probe.
 #
-#   GOOD        the decided behaviour. Must pass all four.
+#   SUBJECT-BLIND  F21 exactly as it shipped (ENG-249): both halves checked at
+#               both spellings, and the base of a `with` never asked what it
+#               is. Passes probes 1–4 and fails ONLY probe 5. This is what the
+#               tree looked like for thirteen days with this gate green.
+#
+#   GOOD        the decided behaviour. Must pass all five.
 #
 #   BROKEN      nothing compiles. Every probe must fire, probe 4 included.
 #
 # The stubs fail on DIFFERENT probes, and the gate is believed only if it
 # catches each one AND lets each one's other probes through. A check that fired
-# on everything would catch all four stubs and be worthless — `check-shell.sh`'s
+# on everything would catch all five stubs and be worthless — `check-shell.sh`'s
 # lesson from ticket 15, written at a severity where the tree was already clean.
 # ---------------------------------------------------------------------------
 if [ "${1:-}" = "--self-test" ]; then
@@ -175,9 +213,10 @@ if [ "${1:-}" = "--self-test" ]; then
   : > "$CTL/silent/P2.out"
   : > "$CTL/silent/P3.out"
   : > "$CTL/silent/P4.out"
+  : > "$CTL/silent/P5.out"
   echo 0 > "$CTL/silent/P4.rc"
   silent="$(judge "$CTL/silent" || true)"
-  for n in 1 2 3; do
+  for n in 1 2 3 5; do
     grep -q "^probe $n:" <<<"$silent" || {
       echo "SELF-TEST FAILED: probe $n missed the silent stub — the compiler as ticket 36 found it"
       fail=1
@@ -215,6 +254,12 @@ P4/P4.bs:9: error: New assigns Id a value Order does not accept
   not covered by the declared type of Id:
     int
 OUT
+  cat > "$CTL/crywolf/P5.out" <<'OUT'
+P5/P5.bs:5: error: Bump updates Total on a value that may not carry it
+  this member has no Total:
+    int
+  discriminate on the tag first, in a clause head.
+OUT
   echo 1 > "$CTL/crywolf/P4.rc"
   crywolf="$(judge "$CTL/crywolf" || true)"
   grep -q '^probe 4:' <<<"$crywolf" || {
@@ -224,7 +269,7 @@ OUT
     echo "                  see it, and it did not."
     fail=1
   }
-  for n in 1 2 3; do
+  for n in 1 2 3 5; do
     if grep -q "^probe $n:" <<<"$crywolf"; then
       echo "SELF-TEST FAILED: probe $n fired on the cry-wolf stub, whose probe $n is correct."
       fail=1
@@ -249,6 +294,7 @@ P2/P2.bs:7: error: Bump assigns Total a value Order does not accept
 OUT
   : > "$CTL/valueonly/P3.out"          # `Nope` sails through, exactly as before
   : > "$CTL/valueonly/P4.out"
+  : > "$CTL/valueonly/P5.out"          # ...and so does the int: it never looked
   echo 0 > "$CTL/valueonly/P4.rc"
   valueonly="$(judge "$CTL/valueonly" || true)"
   grep -q '^probe 3:' <<<"$valueonly" || {
@@ -264,12 +310,39 @@ OUT
     fi
   done
 
+  # --- SUBJECT-BLIND -----------------------------------------------------
+  #
+  # F21 as it shipped. Probes 1–4 are the compiler's real answers on
+  # 2026-08-21; probe 5 is what it said about `n with { Total = 1 }` on an
+  # `int`, which is nothing. The stub the fifth probe exists for.
+  mkdir -p "$CTL/subjectblind"
+  cp "$CTL/crywolf/P1.out" "$CTL/subjectblind/P1.out"
+  cp "$CTL/crywolf/P2.out" "$CTL/subjectblind/P2.out"
+  cp "$CTL/crywolf/P3.out" "$CTL/subjectblind/P3.out"
+  : > "$CTL/subjectblind/P4.out"
+  : > "$CTL/subjectblind/P5.out"
+  echo 0 > "$CTL/subjectblind/P4.rc"
+  subjectblind="$(judge "$CTL/subjectblind" || true)"
+  grep -q '^probe 5:' <<<"$subjectblind" || {
+    echo "SELF-TEST FAILED: probe 5 missed the subject-blind stub — F21 as it shipped,"
+    echo "                  which this gate passed for thirteen days."
+    fail=1
+  }
+  for n in 1 2 3 4; do
+    if grep -q "^probe $n:" <<<"$subjectblind"; then
+      echo "SELF-TEST FAILED: probe $n fired on the subject-blind stub, whose probe $n is correct."
+      echo "                  a probe that fires on everything proves nothing."
+      fail=1
+    fi
+  done
+
   # --- GOOD --------------------------------------------------------------
   mkdir -p "$CTL/good"
   cp "$CTL/crywolf/P1.out" "$CTL/good/P1.out"
   cp "$CTL/crywolf/P2.out" "$CTL/good/P2.out"
   cp "$CTL/crywolf/P3.out" "$CTL/good/P3.out"
   : > "$CTL/good/P4.out"
+  cp "$CTL/crywolf/P5.out" "$CTL/good/P5.out"
   echo 0 > "$CTL/good/P4.rc"
   good="$(judge "$CTL/good" || true)"
   if [ -n "$good" ]; then
@@ -280,13 +353,13 @@ OUT
 
   # --- BROKEN ------------------------------------------------------------
   mkdir -p "$CTL/broken"
-  for f in P1 P2 P3 P4; do
+  for f in P1 P2 P3 P4 P5; do
     printf '%s/%s.bs:7: error: syntax error before: %s\n' "$f" "$f" "']'" \
       > "$CTL/broken/$f.out"
   done
   echo 1 > "$CTL/broken/P4.rc"
   broken="$(judge "$CTL/broken" || true)"
-  for n in 1 2 3 4; do
+  for n in 1 2 3 4 5; do
     grep -q "^probe $n:" <<<"$broken" || {
       echo "SELF-TEST FAILED: probe $n went green over a module that did not compile."
       echo "                  an absent diagnostic is not a passing measurement."
@@ -295,10 +368,10 @@ OUT
   done
 
   if [ "$fail" -eq 0 ]; then
-    echo "self-test: caught the silent, cry-wolf and value-only stubs on different"
-    echo "           probes, passed each one's other probes, passed the correct"
-    echo "           control, and refused a run that never compiled — the gate"
-    echo "           discriminates and does not pass vacuously"
+    echo "self-test: caught the silent, cry-wolf, value-only and subject-blind stubs"
+    echo "           on different probes, passed each one's other probes, passed the"
+    echo "           correct control, and refused a run that never compiled — the"
+    echo "           gate discriminates and does not pass vacuously"
     exit 0
   fi
   exit 1
@@ -315,7 +388,7 @@ fi
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
-mkdir -p "$WORK/P1" "$WORK/P2" "$WORK/P3" "$WORK/P4"
+mkdir -p "$WORK/P1" "$WORK/P2" "$WORK/P3" "$WORK/P4" "$WORK/P5"
 
 cat > "$WORK/P1/P1.bs" <<'BS'
 module P1
@@ -374,7 +447,17 @@ Twice(o) ->
     o with { Total = t }
 BS
 
-for p in P1 P2 P3 P4; do
+# The subject. No record is declared at all: the only thing `with` could be
+# updating here is an int, and an int carries no field.
+cat > "$WORK/P5/P5.bs" <<'BS'
+module P5
+
+public int Bump(int n)
+
+Bump(n) -> n with { Total = 1 }
+BS
+
+for p in P1 P2 P3 P4 P5; do
   # Captured, not piped: a probe that reports a diagnostic exits non-zero, and
   # for P1..P3 that is the expected shape rather than a failure of the gate.
   # P4's code is kept, because for P4 it is the measurement.
@@ -399,5 +482,6 @@ echo "  ok         Order{ Id = :oops } names the field and hands back :oops"
 echo "  ok         o with { Total = :oops } is checked too, and opens no sixth site"
 echo "  ok         o with { Nope = 1 } is refused at compile time, not at run time"
 echo "  ok         a correct record program compiles clean, and is seen to compile"
+echo "  ok         n with { Total = 1 } on an int is refused, and int is handed back"
 echo
-echo "a field assignment is checked, at both spellings and on both halves"
+echo "a field assignment is checked, at both spellings, on both halves, and on its subject"

@@ -240,8 +240,13 @@ descriptor(Path, {Sev, Line, Fn, {field_value_not_accepted, Record, Field, Resid
                                field => Field,
                                residual => residual(Residual),
                                rejected => bs_types:to_pattern(Residual)};
-descriptor(Path, {Sev, Line, Fn, {field_absent, Field, Residual}}) ->
+%% SITE 3 — and, since ENG-249, `with`'s subject. The verb is read from the
+%% form, as `field_set_mismatch` reads its own: the dot PROJECTS a field from
+%% a value, `with` UPDATES one on it, and the residual and the fix are the same
+%% in both — the member that lacks the field, discriminated on first.
+descriptor(Path, {Sev, Line, Fn, {field_absent, Form, Field, Residual}}) ->
     (at(Sev, Path, Line, Fn))#{tag => field_absent,
+                               form => Form,
                                field => Field,
                                residual => residual(Residual),
                                member => bs_types:to_pattern(Residual)};
@@ -761,13 +766,19 @@ message(#{tag := field_value_not_accepted, file := P, line := L, function := Fn,
      [P, L, Fn, Field, Record, Field, Rejected]};
 %% SITE 3. The residual IS the member that lacks the field, which is the tag to
 %% discriminate on — the sentence F3.8 deferred, needing no new machinery.
+%% ENG-249 — the same sentence serves `with`, whose subject was unchecked until
+%% 2026-09-03: "updates Total on a value that may not carry it". The member
+%% handed back may be the whole subject (`int`) or one arm of a union; the
+%% advice is right for the second and harmless for the first, and one sentence
+%% beats two that a reader must tell apart.
 message(#{tag := field_absent, file := P, line := L, function := Fn,
-          field := Field, member := Member}) ->
-    {"~s:~p: error: ~s projects ~s from a value that may not carry it~n"
+          form := Form, field := Field, member := Member}) ->
+    {"~s:~p: error: ~s ~s ~s ~s a value that may not carry it~n"
      "  this member has no ~s:~n"
      "    ~s~n"
      "  discriminate on the tag first, in a clause head.~n",
-     [P, L, Fn, Field, Field, Member]};
+     [P, L, Fn, field_absent_verb(Form), Field, field_absent_prep(Form),
+      Field, Member]};
 %% SITE 4. Without this, beam-sharp emits a `-spec` claiming what its own body
 %% does not deliver — the defect ticket 18 measured in Gleam, from a body rather
 %% than from an FFI declaration.
@@ -1359,6 +1370,14 @@ caller_head_prose(_Fn, Heads) ->
 %% reason `update` can never carry a `Missing` list.
 field_set_verb(construction) -> "builds";
 field_set_verb(update)       -> "updates".
+
+%% "projects Total FROM a value" / "updates Total ON a value" — the verb and
+%% its preposition travel together, so both are read from the form.
+field_absent_verb(projection) -> "projects";
+field_absent_verb(update)     -> "updates".
+
+field_absent_prep(projection) -> "from";
+field_absent_prep(update)     -> "on".
 
 field_list(_Label, [])    -> "";
 field_list(Label, Fields) ->

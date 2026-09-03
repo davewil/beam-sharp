@@ -110,7 +110,7 @@ projecting_a_field_one_member_lacks_names_that_member_test() ->
           "type Doc = Order | Note\n"
           "public int Amount(Doc d)\n"
           "Amount(d) -> d.Total\n",
-    [{error, _, 'Amount', {field_absent, 'Total', Residual}}] = errors(Src),
+    [{error, _, 'Amount', {field_absent, projection, 'Total', Residual}}] = errors(Src),
     ?assertEqual("{ Kind: :'Shop.Note' }",
                  lists:flatten(bs_types:to_pattern(Residual))).
 
@@ -157,7 +157,8 @@ an_untranslatable_guard_leaves_the_body_typed_test() ->
           "public atom Classify(int n)\n"
           "Classify(n) when Weird(n) -> n.Total\n"
           "Classify(n)               -> :other\n",
-    ?assertMatch([{error, _, 'Classify', {field_absent, 'Total', _}}], errors(Src)).
+    ?assertMatch([{error, _, 'Classify', {field_absent, projection, 'Total', _}}],
+                 errors(Src)).
 
 %% F5.8 — ticket 32 dissolved the foreign case. `collect/1` excludes foreign
 %% declarations by design, which is right for clause checking and wrong for a
@@ -573,3 +574,97 @@ the_value_diagnostic_reaches_the_author_as_prose_test() ->
         ?assert(string:find(R, "not covered by the declared type of Id:") =/= nomatch),
         ?assert(string:find(R, ":oops") =/= nomatch)
     end).
+
+%%% ---------------------------------------------------------------------------
+%%% F21 / ENG-249 — THE SUBJECT OF A `with`, 2026-09-03.
+%%%
+%%% F21 checked the fields a `with` names and never asked what was being
+%%% updated. The clause read `declared_fields/1` off the base's type, and when
+%%% the base was not a single closed record the answer was `unknown` and the
+%%% clause passed the base's type through untouched — so `n with { Total = 1 }`
+%%% on an `int` typed as `int`, the return check was content, and the BEAM
+%%% raised `{badmap, N}` at run time. Found by a probe written for ticket 48 to
+%%% check a claim its own survey had made: that `with` was already a map-update
+%%% form. It was, in the sense that nothing looked.
+%%%
+%%% The relation is site 3's, in `with`'s verb: the subject minus an open map
+%%% carrying the field is the member that may lack it, and a non-empty residual
+%%% is the refusal. One subtraction serves an int, a foreign map, a list of
+%%% pairs and a union with one member short — the same query the dot already
+%%% asks, which is why `field_absent` gained a `form` rather than a sibling.
+%%% ---------------------------------------------------------------------------
+
+%% F21.10 — an int is not a record. The case that settles it: not a design
+%% question, nonsense, and it compiled. ONE error, not two — the refused
+%% expression synthesises `reported()`, so the `int` return type is not asked
+%% to cover whatever an updated int would have been.
+with_on_an_int_is_refused_test() ->
+    Src = "module Shop\n"
+          "public int Bump(int n)\n"
+          "Bump(n) -> n with { Total = 1 }\n",
+    [{error, _, 'Bump', {field_absent, update, 'Total', Residual}}] = errors(Src),
+    ?assertEqual("int", lists:flatten(bs_types:to_pattern(Residual))).
+
+%% F21.11 — a bare `term` is not known to be a record either. Ticket 48's
+%% survey read this acceptance as support for updating a foreign map; it was
+%% the subject going unchecked. A `term` may be a map without `Total`, or not a
+%% map at all, and the residual says so.
+with_on_a_term_is_refused_test() ->
+    Src = "module Shop\n"
+          "public term Put(term m)\n"
+          "Put(m) -> m with { Total = 1 }\n",
+    ?assertMatch([{error, _, 'Put', {field_absent, update, 'Total', _}}],
+                 errors(Src)).
+
+%% F21.12 — the shape ticket 48 actually probed: a list of pairs, which is what
+%% a stage's local state was declared as for want of a map type.
+with_on_a_list_of_pairs_is_refused_test() ->
+    Src = "module Shop\n"
+          "public list<(atom, term)> Put(list<(atom, term)> m)\n"
+          "Put(m) -> m with { Total = 1 }\n",
+    ?assertMatch([{error, _, 'Put', {field_absent, update, 'Total', _}}],
+                 errors(Src)).
+
+%% F21.13 — a union of records where one member lacks the field. The residual
+%% is that member, exactly as F3.8's projection hands it back, and the fix is
+%% the same: discriminate on the tag first.
+with_on_a_union_member_lacking_the_field_is_refused_test() ->
+    Src = "module Shop\n"
+          "record Order { Id: int, Total: int }\n"
+          "record Note  { Id: int }\n"
+          "type Doc = Order | Note\n"
+          "public Doc Pay(Doc d)\n"
+          "Pay(d) -> d with { Total = 500 }\n",
+    [{error, _, 'Pay', {field_absent, update, 'Total', Residual}}] = errors(Src),
+    ?assertEqual("{ Kind: :'Shop.Note' }",
+                 lists:flatten(bs_types:to_pattern(Residual))).
+
+%% F21.14 — a union where EVERY member carries the field is a legal subject,
+%% and the value half then runs against each member's own declaration. It has
+%% to: the subject may be either record at run time, so a value one member's
+%% `Total` accepts and the other's rejects would build a record its own
+%% declaration refuses. Two members, two declarations, two verdicts.
+with_on_a_union_every_member_carries_runs_the_value_half_per_member_test() ->
+    Base = "module Shop\n"
+           "record Order   { Id: int, Total: int }\n"
+           "record Invoice { Id: int, Total: int }\n"
+           "type Doc = Order | Invoice\n"
+           "public Doc Pay(Doc d)\n",
+    ?assertMatch({ok, _, _}, check_only(Base ++ "Pay(d) -> d with { Total = 500 }\n")),
+    Errors = errors(Base ++ "Pay(d) -> d with { Total = :oops }\n"),
+    ?assertEqual(['Invoice', 'Order'],
+                 lists:sort([R || {error, _, 'Pay',
+                                   {field_value_not_accepted, R, 'Total', _}} <- Errors])),
+    ?assertEqual(2, length(Errors)).
+
+%% F21.15 — the control at the binder. A recursive record's fields are one
+%% unfolding down, and F28's own comment on `declared_fields/1` warns that the
+%% catch-all's `unknown` is a silent degrade there rather than an error. The
+%% subject check reads the type after the same unfolding, so a recursive record
+%% is still a record to `with`.
+with_on_a_recursive_record_compiles_test() ->
+    Src = "module Shop\n"
+          "record Node { Kids: list<Node> }\n"
+          "public Node Clear(Node n)\n"
+          "Clear(n) -> n with { Kids = [] }\n",
+    ?assertMatch({ok, _, _}, check_only(Src)).

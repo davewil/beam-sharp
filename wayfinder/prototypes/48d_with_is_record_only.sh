@@ -17,6 +17,11 @@
 # The answer turned out to be worse than either option: `with` is record-only
 # in intent, and its SUBJECT is not checked at all.
 #
+# FIXED 2026-09-03 under ENG-249. The three acceptances below now print
+# REFUSED — "updates Key on a value that may not carry it" — and the three
+# controls are unchanged. The prose beneath each probe describes the tree as
+# it was measured on 2026-08-25, and is kept as that measurement.
+#
 #   ./48d_with_is_record_only.sh
 #
 # Requires: OTP 28, rebar3, a built bsc. Runs in a temp dir.

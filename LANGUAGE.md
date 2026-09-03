@@ -899,6 +899,17 @@ A field assignment is also checked against the type the record declaration wrote
 holds at **both** spellings — `Order{ Total = :oops }` and `o with { Total = :oops }` are the same
 error, because they meet the same declaration.
 
+The **subject** is checked before the fields are. `with` updates a record, so a value that may not
+carry the field — an `int`, a bare `term`, a union with one member short of it — is refused, and
+what is handed back is the member that lacks the field, the same residual the dot hands back when
+it projects one:
+
+<!-- diagnoses: field_absent -->
+```csharp
+public int Bump(int n)
+Bump(n) -> n with { Total = 1 }
+```
+
 **shipped**, with two things worth knowing:
 
 - **The pattern spelling is the type prefix, and the property pattern beneath it is still legal.**
