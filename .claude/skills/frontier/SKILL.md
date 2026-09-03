@@ -34,6 +34,11 @@ Apply in order; the first rule that separates two candidates decides.
 1. **Claimed beats fresh.** An issue that both trackers call in-flight (Linear `In Progress`
    and repo `Status: claimed`, for map tickets) outranks anything unstarted. One tracker alone
    is a stale label, not work. `In Review` is waiting on David, not on a session: skip it.
+   A Linear-only issue has one tracker, so its `In Progress` counts on its own, and it counts
+   even when no session is holding it and even over a `quick-fix` — David confirmed this on the
+   skill's first run (2026-09-01, ENG-263 over ENG-289). Started work finishes before new work
+   starts. An issue whose own last note says closing it is David's call is waiting on him: skip
+   it the way `In Review` is skipped.
 2. **Unblocked only.** An open `blockedBy` removes an issue from the frontier. Where the graph
    is empty, read the acceptance criteria for implicit ordering ("needs the assembled
    artifact" is a blocker with no edge).

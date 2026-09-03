@@ -32,7 +32,7 @@ fi
 echo "== master CI"
 if command -v gh >/dev/null 2>&1; then
   gh run list --branch master --limit 3 --json status,conclusion,headSha,createdAt \
-    --template '{{range .}}  {{.conclusion}} {{slice .headSha 0 7}} {{.createdAt}}{{"\n"}}{{end}}' \
+    --template '{{range .}}  {{if .conclusion}}{{.conclusion}}{{else}}{{.status}}{{end}} {{slice .headSha 0 7}} {{.createdAt}}{{"\n"}}{{end}}' \
     2>/dev/null || echo "  (gh run list failed; check CI by hand before trusting local green)"
 else
   echo "  (gh not installed; check CI by hand before trusting local green)"
