@@ -45,3 +45,9 @@ manifest.run.json
 # has nothing above it. Removed on every path out of that function; this line is
 # for the run that is killed between the mktemp and the rm.
 .toolchain-probe.*
+
+# Agent tooling writes `.agents/skills.json` and a tree of symlinks pointing at
+# `.claude/skills`, which is already tracked. It is a generated index of a
+# tracked directory, so committing it would be the same content under a second
+# name — and an untracked one makes every `/frontier` run report a dirty tree.
+.agents/
