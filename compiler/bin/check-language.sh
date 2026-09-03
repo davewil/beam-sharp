@@ -151,19 +151,60 @@ if [ "${1:-}" = "--self-test" ]; then
     CTL="$(mktemp -d)"
     trap 'rm -rf "$CTL"' EXIT
 
-    # Captured, not piped: a control run is meant to exit 1, and `pipefail`
-    # would report that status even when the marker was found.
-    control() {
-        CHECK_LANGUAGE_DOC="$1" "${BASH_SOURCE[0]}" 2>&1 || true
+    # ------------------------------------------------------------------
+    # THE CONTROLS RUN AT ONCE, AND EACH VERDICT IS READ FROM ITS OWN FILE
+    # (ENG-315, 2026-09-03).
+    #
+    # A control is this whole gate over the whole reference, and the gate
+    # boots one VM per fenced block, so fifteen controls over fifty-odd
+    # blocks ran for 321s on the CI runner — with check-tour.sh's, 65% of
+    # the job. The controls share nothing: each reads its own copy of the
+    # document under $CTL and the gate writes under a scratch of its own.
+    # So a control is built here, launched in the background by `launch`,
+    # and only QUEUED for judgement by `expect` or `accept`; after `wait`
+    # the loop at the end reads every control's captured output and exit
+    # status back from `$CTL/<name>.out` and `.status`. A control that
+    # never wrote its status is red, never green.
+    #
+    # THE VERDICT COMES FROM THE FILES, NOT FROM THE LAUNCHER. The old
+    # `control` helper ended in `|| true` so a failing run's output could
+    # be read under `pipefail`, and the negative control that read its
+    # exit status through that helper passed for as long as it was written
+    # that way (check-tour.sh, found 2026-09-02). Here nothing reads the
+    # launcher's status at all.
+    #
+    # Bash 3.2 as well as 5: `wait -n` is 4.3+, so a bare `wait` collects
+    # every job and the files carry the results.
+    #
+    # EACH RUN GETS ITS OWN TMPDIR. `bsc` names its scratch directory under
+    # $TMPDIR from `erlang:unique_integer`, which is unique within one VM
+    # and repeats across VMs — 12 distinct values from 30 fresh VMs when
+    # measured on 2026-09-03 — so two concurrent runs of a gate could share
+    # one `.beam` path. Every `bsc` call in this gate passes `-o`, so here
+    # it is a precaution; in check-tour.sh's plain replays it is the race.
+    # ------------------------------------------------------------------
+    launch() {   # launch <name> [VAR=value ...] — this gate, in the background
+        local name="$1"; shift
+        mkdir -p "$CTL/$name.tmp"
+        (
+            rc=0
+            env TMPDIR="$CTL/$name.tmp" "$@" "${BASH_SOURCE[0]}" \
+                > "$CTL/$name.out" 2>&1 || rc=$?
+            echo "$rc" > "$CTL/$name.status"
+        ) &
+    }
+    doc() {      # doc <name> — launch over $CTL/<name>.md
+        launch "$1" CHECK_LANGUAGE_DOC="$CTL/$1.md"
     }
 
-    st_fail=0
-    expect() {   # expect <marker> <file> <what the control built>
-        case "$(control "$2")" in
-            *"$1"*) ;;
-            *) echo "SELF-TEST FAILED: $3 was not reported — the $1 check cannot fire"
-               st_fail=1 ;;
-        esac
+    queued=0
+    expect() {   # expect <marker> <name> <what the control built> — judged after wait
+        MARK[$queued]="$1"; NAME[$queued]="$2"; WHAT[$queued]="$3"
+        queued=$((queued + 1))
+    }
+    accept() {   # accept <name> <why a rejection is wrong> — must exit 0
+        MARK[$queued]=""; NAME[$queued]="$1"; WHAT[$queued]="$2"
+        queued=$((queued + 1))
     }
 
     # CONTROL 1 — the reference showing something the language has never had.
@@ -177,7 +218,8 @@ if [ "${1:-}" = "--self-test" ]; then
         printf '    o\n'
         printf '```\n'
     } >> "$CTL/broken.md"
-    expect "BROKEN" "$CTL/broken.md" "an untagged block that does not compile"
+    doc broken
+    expect "BROKEN" broken "an untagged block that does not compile"
 
     # CONTROL 2 — a block still marked planned that the compiler now accepts.
     cp "$REPO/LANGUAGE.md" "$CTL/promoted.md"
@@ -187,7 +229,8 @@ if [ "${1:-}" = "--self-test" ]; then
         printf 'Twice(n) -> n * 2\n'
         printf '```\n'
     } >> "$CTL/promoted.md"
-    expect "PROMOTED" "$CTL/promoted.md" "a shipped construct still tagged not-yet"
+    doc promoted
+    expect "PROMOTED" promoted "a shipped construct still tagged not-yet"
 
     # CONTROL 3 — a tag nothing knows. It must be an error, not a quiet skip.
     cp "$REPO/LANGUAGE.md" "$CTL/badtag.md"
@@ -197,7 +240,8 @@ if [ "${1:-}" = "--self-test" ]; then
         printf 'Twice(n) -> n * 2\n'
         printf '```\n'
     } >> "$CTL/badtag.md"
-    expect "BAD TAG" "$CTL/badtag.md" "an unknown fence tag"
+    doc badtag
+    expect "BAD TAG" badtag "an unknown fence tag"
 
     # ------------------------------------------------------------------
     # CONTROLS 4-7 — the `diagnoses:` claim (ENG-248).
@@ -233,7 +277,8 @@ if [ "${1:-}" = "--self-test" ]; then
         printf '}\n'
         printf '```\n'
     } >> "$CTL/silent.md"
-    expect "WRONG DIAG" "$CTL/silent.md" "an example that provokes no diagnostic at all"
+    doc silent
+    expect "WRONG DIAG" silent "an example that provokes no diagnostic at all"
 
     # The unbound-variable program, claimed to be about rebinding.
     cp "$REPO/LANGUAGE.md" "$CTL/wrongtag.md"
@@ -248,7 +293,8 @@ if [ "${1:-}" = "--self-test" ]; then
         printf '}\n'
         printf '```\n'
     } >> "$CTL/wrongtag.md"
-    expect "WRONG DIAG" "$CTL/wrongtag.md" "an example that provokes a different diagnostic"
+    doc wrongtag
+    expect "WRONG DIAG" wrongtag "an example that provokes a different diagnostic"
 
     # The claimed diagnostic, plus an unrelated second one.
     cp "$REPO/LANGUAGE.md" "$CTL/superset.md"
@@ -268,7 +314,8 @@ if [ "${1:-}" = "--self-test" ]; then
         printf '}\n'
         printf '```\n'
     } >> "$CTL/superset.md"
-    expect "WRONG DIAG" "$CTL/superset.md" "an example carrying a second, unrelated diagnostic"
+    doc superset
+    expect "WRONG DIAG" superset "an example carrying a second, unrelated diagnostic"
 
     # A fence tag and a preamble, disagreeing about one block.
     cp "$REPO/LANGUAGE.md" "$CTL/twoclaims.md"
@@ -280,7 +327,8 @@ if [ "${1:-}" = "--self-test" ]; then
         printf 'Twice(n) -> n * 2\n'
         printf '```\n'
     } >> "$CTL/twoclaims.md"
-    expect "BAD TAG" "$CTL/twoclaims.md" "a block carrying two different claims"
+    doc twoclaims
+    expect "BAD TAG" twoclaims "a block carrying two different claims"
 
     # POSITIVE CONTROL — a correct `diagnoses:` block must be ACCEPTED.
     #
@@ -300,12 +348,9 @@ if [ "${1:-}" = "--self-test" ]; then
         printf '}\n'
         printf '```\n'
     } >> "$CTL/good.md"
-    if CHECK_LANGUAGE_DOC="$CTL/good.md" "${BASH_SOURCE[0]}" > /dev/null 2>&1
-    then :; else
-        echo "SELF-TEST FAILED: a correct \`diagnoses:\` example was rejected, so this"
-        echo "                  check fires on the defect and the correct form alike"
-        st_fail=1
-    fi
+    doc good
+    accept good "a correct \`diagnoses:\` example was rejected, so this
+                  check fires on the defect and the correct form alike"
 
     # ------------------------------------------------------------------
     # CONTROLS 8-13 — the `expect-after` claim (ENG-263, 2026-09-02).
@@ -339,49 +384,73 @@ if [ "${1:-}" = "--self-test" ]; then
     # 8 — the fence shows a head the compiler does not print.
     cp "$REPO/LANGUAGE.md" "$CTL/afterdrift.md"
     after_block "$CTL/afterdrift.md" "delete Go(:green)" "    Go(:amber) -> ..." Drift
-    expect "AFTER DRIFT" "$CTL/afterdrift.md" "a wrong output after an edit"
+    doc afterdrift
+    expect "AFTER DRIFT" afterdrift "a wrong output after an edit"
 
     # 9 — an edit naming a clause the block does not have.
     cp "$REPO/LANGUAGE.md" "$CTL/nosuchline.md"
     after_block "$CTL/nosuchline.md" "delete Go(:blue)" "    Go(:green) -> ..." NoLine
-    expect "NO SUCH LINE" "$CTL/nosuchline.md" "an edit naming a line the block lacks"
+    doc nosuchline
+    expect "NO SUCH LINE" nosuchline "an edit naming a line the block lacks"
 
     # 10 — a directive with no fence of expected output after the block.
     cp "$REPO/LANGUAGE.md" "$CTL/noexpected.md"
     after_block "$CTL/noexpected.md" "delete Go(:green)" "" NoFence
-    expect "NO EXPECTED" "$CTL/noexpected.md" "a directive with nothing to compare against"
+    doc noexpected
+    expect "NO EXPECTED" noexpected "a directive with nothing to compare against"
 
     # 11 — the correct form, which must be ACCEPTED. Same reason as the
     # `diagnoses:` positive control: three reds are also satisfied by a check
     # that rejects every directive it sees.
     cp "$REPO/LANGUAGE.md" "$CTL/aftergood.md"
     after_block "$CTL/aftergood.md" "delete Go(:green)" "    Go(:green) -> ..." Good
-    if CHECK_LANGUAGE_DOC="$CTL/aftergood.md" "${BASH_SOURCE[0]}" > /dev/null 2>&1
-    then :; else
-        echo "SELF-TEST FAILED: a correct \`expect-after\` example was rejected, so this"
-        echo "                  check fires on the defect and the correct form alike"
-        st_fail=1
-    fi
+    doc aftergood
+    accept aftergood "a correct \`expect-after\` example was rejected, so this
+                  check fires on the defect and the correct form alike"
 
     # 12 — both production directives removed. Ordinary blocks still compile,
     # so without a floor the summary quietly says `0 replayed after an edit`
     # and exits green: the mutation half of the reference has disappeared.
     sed '/^<!-- expect-after:/d' "$REPO/LANGUAGE.md" > "$CTL/noafter.md"
-    expect "TOO FEW" "$CTL/noafter.md" "a reference with no expect-after directives"
+    doc noafter
+    expect "TOO FEW" noafter "a reference with no expect-after directives"
 
     # 13 — one of the two production displays removed. This distinguishes the
     # committed floor from a weaker `mutated > 0` check.
     awk '!removed && /^<!-- expect-after:/ { removed = 1; next } { print }' \
         "$REPO/LANGUAGE.md" > "$CTL/oneafter.md"
-    expect "TOO FEW" "$CTL/oneafter.md" "a reference with only one expect-after directive"
+    doc oneafter
+    expect "TOO FEW" oneafter "a reference with only one expect-after directive"
 
     # NEGATIVE CONTROL — the reference as committed.
-    if CHECK_LANGUAGE_DOC="$REPO/LANGUAGE.md" "${BASH_SOURCE[0]}" > /dev/null 2>&1
-    then :; else
-        echo "SELF-TEST FAILED: the reference as committed was rejected, so this gate"
-        echo "                  would fail every clean tree and be removed"
-        st_fail=1
-    fi
+    launch committed CHECK_LANGUAGE_DOC="$REPO/LANGUAGE.md"
+    accept committed "the reference as committed was rejected, so this gate
+                  would fail every clean tree and be removed"
+
+    # ------------------------------------------------------------------
+    # Every control is running. Collect them all, then judge each from what
+    # it wrote. Nothing below reads `$?` of a run.
+    # ------------------------------------------------------------------
+    wait
+
+    st_fail=0
+    i=0
+    while [ "$i" -lt "$queued" ]; do
+        out="$(cat "$CTL/${NAME[$i]}.out" 2>/dev/null || true)"
+        status="$(cat "$CTL/${NAME[$i]}.status" 2>/dev/null || echo "never wrote one")"
+        if [ -n "${MARK[$i]}" ]; then
+            case "$out" in
+                *"${MARK[$i]}"*) ;;
+                *) echo "SELF-TEST FAILED: ${WHAT[$i]} was not reported — the ${MARK[$i]} check cannot fire"
+                   st_fail=1 ;;
+            esac
+        elif [ "$status" != "0" ]; then
+            echo "SELF-TEST FAILED: ${WHAT[$i]}"
+            echo "                  (exit status: $status)"
+            st_fail=1
+        fi
+        i=$((i + 1))
+    done
 
     if [ "$st_fail" -eq 0 ]; then
         echo "self-test: reported the uncompilable block, the construct that has since"

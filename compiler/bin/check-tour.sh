@@ -80,16 +80,64 @@ if [ "${1:-}" = "--self-test" ]; then
   CTL="$(mktemp -d)"
   trap 'rm -rf "$CTL"' EXIT
 
-  # A control run must not see the self-test flag again, or it recurses.
+  # ------------------------------------------------------------------
+  # THE CONTROLS RUN AT ONCE, AND EACH VERDICT IS READ FROM ITS OWN FILE
+  # (ENG-315, 2026-09-03).
   #
-  # ITS OUTPUT IS CAPTURED RATHER THAN PIPED, and that is not a style choice.
-  # `set -o pipefail` is on, and a control run is SUPPOSED to exit 1 — so
-  # `control … | grep -q` returns the failing left-hand status even when grep
-  # matched, and all three positive controls reported "cannot fire" on the first
-  # run of this self-test while the gate was working perfectly. A self-test
-  # wrong about the gate it is checking is worse than none.
-  control() {
-    TOUR_DOC="$1" "${BASH_SOURCE[0]}" 2>&1 || true
+  # A control is this whole gate over the whole document, and part 3 boots
+  # one VM per transcript, so thirteen controls over fifty-odd transcripts
+  # ran for 332s on the CI runner — with check-language.sh's, 65% of the
+  # job. The controls share nothing: each reads its own copy of the
+  # document under $CTL, and the gate writes under a scratch of its own.
+  # So a control is built here, launched in the background by `launch`,
+  # and only QUEUED for judgement by `expect` or `accept`; after `wait`
+  # the loop at the end reads every control's captured output and exit
+  # status back from `$CTL/<name>.out` and `.status`. A control that never
+  # wrote its status is red, never green.
+  #
+  # THE VERDICT COMES FROM THE FILES, NOT FROM THE LAUNCHER. A control run
+  # must not see the self-test flag again, or it recurses; and its output
+  # used to be captured through a helper ending in `|| true`, so a failing
+  # run's text could be read under `pipefail` — which meant the negative
+  # control, which is about the EXIT STATUS, passed for as long as it was
+  # written through that helper (found 2026-09-02, over a stale stamp part
+  # 4 was correctly rejecting). Here nothing reads a launcher's status.
+  #
+  # Bash 3.2 as well as 5: `wait -n` is 4.3+, so a bare `wait` collects
+  # every job and the files carry the results.
+  #
+  # EACH RUN GETS ITS OWN TMPDIR, AND THAT IS THE RACE. Part 3's plain
+  # replays run `bsc` with no `-o`, and `bsc` then names its scratch
+  # directory under $TMPDIR from `erlang:unique_integer` — unique within
+  # one VM, repeated across VMs: 12 distinct values from 30 fresh VMs when
+  # measured on 2026-09-03. Two concurrent runs of this gate would share
+  # one `Fib.beam` path. `bsc` reads TMPDIR itself, so a private one per
+  # control keeps their scratch apart; `mktemp -d` honours it on Linux and
+  # ignores it on macOS, which is why control 12 below opts out.
+  # ------------------------------------------------------------------
+  launch() {   # launch [--inherit-tmpdir] <name> [VAR=value ...] — this gate, in the background
+    local tmp name
+    if [ "$1" = "--inherit-tmpdir" ]; then
+      tmp="${TMPDIR:-/tmp}"; shift
+    else
+      tmp="$CTL/$1.tmp"; mkdir -p "$tmp"
+    fi
+    name="$1"; shift
+    (
+      rc=0
+      env TMPDIR="$tmp" "$@" "${BASH_SOURCE[0]}" > "$CTL/$name.out" 2>&1 || rc=$?
+      echo "$rc" > "$CTL/$name.status"
+    ) &
+  }
+
+  queued=0
+  expect() {   # expect <marker> <name> <message if absent> — judged after wait
+    MARK[$queued]="$1"; NAME[$queued]="$2"; WHAT[$queued]="$3"
+    queued=$((queued + 1))
+  }
+  accept() {   # accept <name> <message if rejected> — must exit 0
+    MARK[$queued]=""; NAME[$queued]="$1"; WHAT[$queued]="$2"
+    queued=$((queued + 1))
   }
 
   st_fail=0
@@ -97,46 +145,31 @@ if [ "${1:-}" = "--self-test" ]; then
   # POSITIVE CONTROL 1 — a quoted line the corpus does not contain. `module
   # Readings` is quoted in chapter 1; the corpus has no `module ReadingsX`.
   sed 's/^module Readings$/module ReadingsX/' "$DOC" > "$CTL/1.md"
-  out1="$(control "$CTL/1.md")"
-  case "$out1" in
-    *'NOT IN CORPUS'*) ;;
-    *) echo "SELF-TEST FAILED: an invented clause was not reported — part 1 cannot fire"
-       st_fail=1 ;;
-  esac
+  launch 1 TOUR_DOC="$CTL/1.md"
+  expect 'NOT IN CORPUS' 1 "an invented clause was not reported — part 1 cannot fire"
 
   # POSITIVE CONTROL 2 — an appendix that no longer names a shipped capability.
   sed 's/^| a valve into a call |/| a valve into a callX |/' "$DOC" > "$CTL/2.md"
-  out2="$(control "$CTL/2.md")"
-  case "$out2" in
-    *'NOT IN TOUR'*) ;;
-    *) echo "SELF-TEST FAILED: a dropped capability was not reported — part 2 cannot fire"
-       st_fail=1 ;;
-  esac
+  launch 2 TOUR_DOC="$CTL/2.md"
+  expect 'NOT IN TOUR' 2 "a dropped capability was not reported — part 2 cannot fire"
 
   # POSITIVE CONTROL 3 — a transcript one digit away from what `bsc` prints.
   sed 's/^\[0, 1, 1, 2, 3, 5, 8, 13, 21, 34\]$/[0, 1, 1, 2, 3, 5, 8, 13, 21, 35]/' \
       "$DOC" > "$CTL/3.md"
-  out3="$(control "$CTL/3.md")"
-  case "$out3" in
-    *DRIFTED*) ;;
-    *) echo "SELF-TEST FAILED: a wrong pasted output was not reported — part 3 cannot fire"
-       st_fail=1 ;;
-  esac
+  launch 3 TOUR_DOC="$CTL/3.md"
+  expect DRIFTED 3 "a wrong pasted output was not reported — part 3 cannot fire"
 
   # POSITIVE CONTROL 4 — the injection this gate's `eval` once allowed. The
   # command must reach `bsc` as arguments and NOT run, which is checked by the
-  # side effect it would have had rather than by reading the code.
+  # side effect it would have had rather than by reading the code — so it is
+  # launched here and judged by hand after `wait`.
   #
   # THE SENTINEL IS UNDER $CTL, not /tmp: parallel runs share /tmp, and a stale
   # file from a previous run would make this control pass without firing.
   printf '\n```\n$ bsc --src-root examples examples/Fib Fib 10; touch %s/pwned\n[0, 1, 1, 2, 3, 5, 8, 13, 21, 34]\n```\n' \
       "$CTL" >> "$CTL/4.md.tmp"
   cat "$DOC" "$CTL/4.md.tmp" > "$CTL/4.md"
-  control "$CTL/4.md" > /dev/null 2>&1 || true
-  if [ -e "$CTL/pwned" ]; then
-    echo "SELF-TEST FAILED: a command in TOUR.md executed — the gate runs a shell"
-    st_fail=1
-  fi
+  launch 4 TOUR_DOC="$CTL/4.md"
 
   # POSITIVE CONTROL 5 — the tour edited since the page was published. This is
   # the whole point of part 4, and to a comparison that cannot see the page an
@@ -148,23 +181,15 @@ if [ "${1:-}" = "--self-test" ]; then
   # control produced the real stamp and reported that part 4 could not fire.
   sed 's/^sha256.*/sha256    0000000000000000000000000000000000000000000000000000000000000000/' \
       "$REPO/TOUR.published" > "$CTL/stale.published"
-  out5="$(TOUR_STAMP="$CTL/stale.published" "${BASH_SOURCE[0]}" 2>&1 || true)"
-  case "$out5" in
-    *UNPUBLISHED*) ;;
-    *) echo "SELF-TEST FAILED: a tour edited since publication was not reported —"
-       echo "                  the page can go stale with the build green"
-       st_fail=1 ;;
-  esac
+  launch 5 TOUR_STAMP="$CTL/stale.published"
+  expect UNPUBLISHED 5 "a tour edited since publication was not reported —
+                  the page can go stale with the build green"
 
   # POSITIVE CONTROL 6 — the stamp deleted. A check you can silence by removing
   # a file is a suggestion, so its absence has to be the loud case.
-  out6="$(TOUR_STAMP="$CTL/not-here.published" "${BASH_SOURCE[0]}" 2>&1 || true)"
-  case "$out6" in
-    *"NO STAMP"*) ;;
-    *) echo "SELF-TEST FAILED: a missing stamp was accepted — part 4 can be turned"
-       echo "                  off by deleting one file"
-       st_fail=1 ;;
-  esac
+  launch 6 TOUR_STAMP="$CTL/not-here.published"
+  expect "NO STAMP" 6 "a missing stamp was accepted — part 4 can be turned
+                  off by deleting one file"
 
   # ------------------------------------------------------------------
   # CONTROLS 7-12 — the `expect-after` directive (ENG-263, 2026-09-02).
@@ -192,58 +217,49 @@ if [ "${1:-}" = "--self-test" ]; then
   # document was in for eighteen days, and the state the next hand-pasted
   # transcript arrives in.
   mutate "$CTL/7.md" "/^$D1\$/d"
-  case "$(control "$CTL/7.md")" in
-    *'NO DIRECTIVE'*) ;;
-    *) echo "SELF-TEST FAILED: a diagnostic transcript with no directive was not reported —"
-       echo "                  it would be replayed against clean sources or skipped"
-       st_fail=1 ;;
-  esac
+  launch 7 TOUR_DOC="$CTL/7.md"
+  expect 'NO DIRECTIVE' 7 "a diagnostic transcript with no directive was not reported —
+                  it would be replayed against clean sources or skipped"
 
   # 8 — a directive naming a clause the corpus no longer has. This is the
   # instruction TOUR.md carried until cd61280: delete "the 4..7 clause", when
   # F29 had respelled it and there was nothing of that name to delete.
   mutate "$CTL/8.md" "s/^$D1\$/<!-- expect-after: delete Classify(>= 4 and <= 6) -->/"
-  case "$(control "$CTL/8.md")" in
-    *'NO SUCH LINE'*) ;;
-    *) echo "SELF-TEST FAILED: an edit naming a line the corpus does not have was not"
-       echo "                  reported — a stale instruction would replay as a drift"
-       st_fail=1 ;;
-  esac
+  launch 8 TOUR_DOC="$CTL/8.md"
+  expect 'NO SUCH LINE' 8 "an edit naming a line the corpus does not have was not
+                  reported — a stale instruction would replay as a drift"
 
   # 9 — a prefix that names two lines. A reader could not follow it either.
   mutate "$CTL/9.md" "s/^$D1\$/<!-- expect-after: delete Classify( -->/"
-  case "$(control "$CTL/9.md")" in
-    *AMBIGUOUS*) ;;
-    *) echo "SELF-TEST FAILED: an edit matching two lines was not reported — the gate"
-       echo "                  would silently pick one"
-       st_fail=1 ;;
-  esac
+  launch 9 TOUR_DOC="$CTL/9.md"
+  expect AMBIGUOUS 9 "an edit matching two lines was not reported — the gate
+                  would silently pick one"
 
   # 10 — the output under a directive one line number off. The exact defect:
   # `wire.bs:40` sat in this transcript while the compiler said 42.
   mutate "$CTL/10.md" 's/^examples\/Wire\/wire.bs:42: error: Classify is not exhaustive$/examples\/Wire\/wire.bs:40: error: Classify is not exhaustive/'
-  case "$(control "$CTL/10.md")" in
-    *DRIFTED*) ;;
-    *) echo "SELF-TEST FAILED: a stale line number under a directive was not reported —"
-       echo "                  the edited replay is not being compared"
-       st_fail=1 ;;
-  esac
+  launch 10 TOUR_DOC="$CTL/10.md"
+  expect DRIFTED 10 "a stale line number under a directive was not reported —
+                  the edited replay is not being compared"
 
   # 11 — a directive with no transcript under it. A check that never looked.
   printf '\n<!-- expect-after: delete Classify(1) -->\n```\n$ rebar3 escriptize\n```\n' \
       > "$CTL/11.md.tmp"
   cat "$DOC" "$CTL/11.md.tmp" > "$CTL/11.md"
-  case "$(control "$CTL/11.md")" in
-    *DANGLING*) ;;
-    *) echo "SELF-TEST FAILED: a directive over a fence with no bsc transcript was"
-       echo "                  accepted — it asserts nothing and reads as if it did"
-       st_fail=1 ;;
-  esac
+  launch 11 TOUR_DOC="$CTL/11.md"
+  expect DANGLING 11 "a directive over a fence with no bsc transcript was
+                  accepted — it asserts nothing and reads as if it did"
 
   # 12 — the command's final argument is document-controlled, so it must not
   # escape the per-replay corpus and turn the edit vocabulary into a file
   # writer. Both mktemp calls create siblings; two `..` components therefore
   # reach this sentinel from `$SCRATCH/<replay>/` on macOS and Linux.
+  #
+  # THIS ONE INHERITS THE SELF-TEST'S TMPDIR. The sibling relation is between
+  # $CTL and the gate's $SCRATCH, both from `mktemp -d`; under a private TMPDIR
+  # the gate's would move on Linux and stay put on macOS, and the sentinel
+  # would be reachable on one platform and decorative on the other. It runs
+  # alone in the shared TMPDIR, every other control having left it.
   CTL_BASE="$(basename "$CTL")"
   printf 'module Sentinel\npublic atom Keep()\nKeep() -> :yes\n' > "$CTL/sentinel.bs"
   cp "$CTL/sentinel.bs" "$CTL/sentinel.want"
@@ -255,29 +271,50 @@ if [ "${1:-}" = "--self-test" ]; then
     printf 'irrelevant: this command must be rejected before it runs\n'
     printf '```\n'
   } >> "$CTL/12.md"
-  out12="$(control "$CTL/12.md")"
-  case "$out12" in
-    *'BAD TARGET'*) ;;
-    *) echo "SELF-TEST FAILED: an expect-after target outside its scratch corpus"
-       echo "                  was not rejected — document text can name another file"
-       st_fail=1 ;;
-  esac
-  if ! cmp -s "$CTL/sentinel.bs" "$CTL/sentinel.want"; then
-    echo "SELF-TEST FAILED: an expect-after target escaped its scratch corpus and"
-    echo "                  modified an external sentinel"
+  launch --inherit-tmpdir 12 TOUR_DOC="$CTL/12.md"
+  expect 'BAD TARGET' 12 "an expect-after target outside its scratch corpus
+                  was not rejected — document text can name another file"
+
+  # NEGATIVE CONTROL — the document and the stamp as they stand. Judged on its
+  # exit status, which is why `accept` reads `.status` and nothing else.
+  launch committed TOUR_DOC="$DOC"
+  accept committed "the document as committed was rejected, so this gate
+                  would fail every clean tree and be removed"
+
+  # ------------------------------------------------------------------
+  # Every control is running. Collect them all, then judge each from what
+  # it wrote. Nothing below reads `$?` of a run.
+  # ------------------------------------------------------------------
+  wait
+
+  i=0
+  while [ "$i" -lt "$queued" ]; do
+    out="$(cat "$CTL/${NAME[$i]}.out" 2>/dev/null || true)"
+    status="$(cat "$CTL/${NAME[$i]}.status" 2>/dev/null || echo "never wrote one")"
+    if [ -n "${MARK[$i]}" ]; then
+      case "$out" in
+        *"${MARK[$i]}"*) ;;
+        *) echo "SELF-TEST FAILED: ${WHAT[$i]}"
+           st_fail=1 ;;
+      esac
+    elif [ "$status" != "0" ]; then
+      echo "SELF-TEST FAILED: ${WHAT[$i]}"
+      echo "                  (exit status: $status)"
+      st_fail=1
+    fi
+    i=$((i + 1))
+  done
+
+  # Control 4, by its side effect.
+  if [ -e "$CTL/pwned" ]; then
+    echo "SELF-TEST FAILED: a command in TOUR.md executed — the gate runs a shell"
     st_fail=1
   fi
 
-  # NEGATIVE CONTROL — the document and the stamp as they stand.
-  #
-  # NOT THROUGH `control`. That helper ends in `|| true` so the positive
-  # controls can read a failing run's output under `pipefail`, which means it
-  # returns 0 for every run — and this check, which is about the exit status,
-  # passed for as long as it was written that way. Found 2026-09-02 when it
-  # stayed green over a stale stamp that part 4 was correctly rejecting.
-  if TOUR_DOC="$DOC" "${BASH_SOURCE[0]}" > /dev/null 2>&1; then :; else
-    echo "SELF-TEST FAILED: the document as committed was rejected, so this gate"
-    echo "                  would fail every clean tree and be removed"
+  # Control 12, by its side effect.
+  if ! cmp -s "$CTL/sentinel.bs" "$CTL/sentinel.want"; then
+    echo "SELF-TEST FAILED: an expect-after target escaped its scratch corpus and"
+    echo "                  modified an external sentinel"
     st_fail=1
   fi
 
