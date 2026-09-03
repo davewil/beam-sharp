@@ -55,8 +55,17 @@
 -export([run/2]).
 
 %% Returns the batch's exit status: 0 when the manifest read and every entry
-%% ran — whatever each entry's own status was — and 2 when it could not start.
+%% ran — whatever each entry's own status was — and 2 when it could not start,
+%% or could not restore the VM between two entries (see `run_entries/2`).
 run(ManifestPath, ResultsDir) ->
+    try run_1(ManifestPath, ResultsDir)
+    catch
+        Class:Reason ->
+            io:format(standard_error, "bsc: the batch stopped: ~w:~p~n", [Class, Reason]),
+            2
+    end.
+
+run_1(ManifestPath, ResultsDir) ->
     case read_manifest(ManifestPath) of
         {error, Line, Reason} ->
             %% `~ts`, not `~s`: the reasons carry an em dash, and the path may
@@ -76,8 +85,10 @@ run(ManifestPath, ResultsDir) ->
                     2;
                 ok ->
                     preload_own_modules(),
-                    lists:foreach(fun(E) -> run_entry(E, ResultsDir) end, Entries),
-                    0
+                    case run_entries(Entries, ResultsDir) of
+                        ok           -> 0;
+                        {error, Why} -> io:format(standard_error, "bsc: ~ts~n", [Why]), 2
+                    end
             end
     end.
 
@@ -159,34 +170,67 @@ valid_id(Id) ->
 %%% Running an entry
 %%% ---------------------------------------------------------------------------
 
+%% WHAT CAN GO WRONG AROUND AN ENTRY, AND WHO IS TOLD. The entry's own run is
+%% already safe: `bs_capture:run/2` turns a crash into an outcome. The steps
+%% around it are not, and they fail in two different directions. Failing to
+%% ENTER the entry's `cwd` (deleted between the manifest check and now) is
+%% that entry's problem, so it is recorded as that entry's status 127 with the
+%% reason on its stderr, and the batch goes on. Failing to RESTORE the VM
+%% afterwards is every later entry's problem — they would run from the wrong
+%% directory, against a stale code path, or with another entry's module still
+%% loaded, and the files they wrote would be wrong rather than missing. So
+%% that stops the batch: `run/2` says why and exits 2, and the entries after
+%% it have no files, which is the case every gate already reports.
+run_entries([], _ResultsDir) -> ok;
+run_entries([E | Rest], ResultsDir) ->
+    case run_entry(E, ResultsDir) of
+        ok           -> run_entries(Rest, ResultsDir);
+        {error, Why} -> {error, Why}
+    end.
+
 run_entry(#{id := Id, cwd := Cwd, args := Args}, ResultsDir) ->
     {ok, Cwd0} = file:get_cwd(),
     Path0 = code:get_path(),
     Loaded0 = code:all_loaded(),
-    case Cwd of
-        undefined -> ok;
-        _         -> ok = file:set_cwd(Cwd)
-    end,
     {Outcome, {Out, Err, Merged}} =
-        bs_capture:run(fun() -> bsc:status(Args, batch) end, infinity),
-    ok = file:set_cwd(Cwd0),
-    [code:del_path(D) || D <- code:get_path() -- Path0],
-    unload_new(Loaded0),
+        case enter(Cwd) of
+            ok ->
+                bs_capture:run(fun() -> bsc:status(Args, batch) end, infinity);
+            {error, Reason} ->
+                {{crashed, error, {cannot_enter, Cwd, Reason}}, {<<>>, <<>>, <<>>}}
+        end,
     {Status, Err1, Merged1} =
         case Outcome of
             {ok, N} when is_integer(N) ->
                 {N, Err, Merged};
-            {crashed, Class, Reason} ->
+            {crashed, Class, Detail} ->
                 %% A standalone escript dies with this line and status 127. The
                 %% VM survives here, so the entry gets the same two facts.
                 Crash = unicode:characters_to_binary(
-                          io_lib:format("escript: exception ~w: ~p~n", [Class, Reason])),
+                          io_lib:format("escript: exception ~w: ~p~n", [Class, Detail])),
                 {127, <<Err/binary, Crash/binary>>, <<Merged/binary, Crash/binary>>}
         end,
     write(ResultsDir, Id, "stdout", Out),
     write(ResultsDir, Id, "stderr", Err1),
     write(ResultsDir, Id, "output", Merged1),
-    write(ResultsDir, Id, "status", integer_to_list(Status) ++ "\n").
+    write(ResultsDir, Id, "status", integer_to_list(Status) ++ "\n"),
+    restore(Cwd0, Path0, Loaded0).
+
+enter(undefined) -> ok;
+enter(Cwd)       -> file:set_cwd(Cwd).
+
+restore(Cwd0, Path0, Loaded0) ->
+    try
+        ok = file:set_cwd(Cwd0),
+        [code:del_path(D) || D <- code:get_path() -- Path0],
+        unload_new(Loaded0),
+        ok
+    catch
+        Class:Reason ->
+            {error, io_lib:format("the VM could not be restored after an entry (~w:~p),~n"
+                                  "  so the entries after it did not run and have no result files",
+                                  [Class, Reason])}
+    end.
 
 write(Dir, Id, Ext, Data) ->
     ok = file:write_file(filename:join(Dir, Id ++ "." ++ Ext), Data).

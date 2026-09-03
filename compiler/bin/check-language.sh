@@ -634,6 +634,11 @@ apply_edits() {
 # entry or refuses the whole manifest before running any, so a missing verdict
 # means the batch itself did not run — and `run_batch` says so and stops rather
 # than letting a loop over nothing report `0 wrong`.
+#
+# `check-tour.sh` and `check-examples.sh` write the same four lines inline
+# rather than sourcing these, for the reason `apply_edits` above gives: a
+# sourced helper would sit outside `check-shell.sh` and inside
+# `check-gates-wired.sh`.
 manifest_entry() {   # manifest_entry MANIFEST ID ARG... — one entry, one argument per line
     local f="$1" id="$2" a
     shift 2

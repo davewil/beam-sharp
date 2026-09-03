@@ -60,6 +60,10 @@ judge() {
         n=$((n + 1))
         mkdir -p "$work/out$n"
         printf '%s' "$d" > "$work/e$n.dir"
+        # `check-language.sh`'s `manifest_entry`, written here rather than
+        # sourced: `check-shell.sh` lints only executables and
+        # `check-gates-wired.sh` takes every executable for a gate, so a
+        # shared helper file would sit outside the one and inside the other.
         {
             printf 'entry e%d\n' "$n"
             printf 'arg %s\n' --src-root "$root" -o "$work/out$n" "$d"

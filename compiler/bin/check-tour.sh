@@ -714,6 +714,8 @@ replay() {
     # and nothing downstream re-parses a command line, so the `; touch pwned`
     # control still reaches the compiler as arguments and never a shell. The
     # verdict is read from `<id>.output` after the batch, in `judge_replays`.
+    # The four lines are `check-language.sh`'s `manifest_entry`, written here
+    # rather than sourced for the reason `apply_edits` above gives.
     queued_cmds=$((queued_cmds + 1))
     {
         printf 'entry t%d\n' "$queued_cmds"
