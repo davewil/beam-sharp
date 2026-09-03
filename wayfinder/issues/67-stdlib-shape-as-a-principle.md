@@ -383,3 +383,18 @@ the four are patterns already. **Delta: none.**
 - **(Q5)** How declared and compiler-known entries are documented differently — `PRELUDE.md` item 3.
 - **Ticket 65** inherits Q1's closedness; its reservation policy is its own to decide, and Q6's
   answer is the shape it would enforce.
+
+## Found on the way — filed, not resolved here
+
+- **`7a945bb`'s message is wrong about the gate's count.** It says `check-status-claims.sh` probes
+  *"eight rows where it was seven"*. Measured afterwards by replaying the extractor over both versions
+  of `PRELUDE.md`: **six before, seven after.** The numbers were assumed, not measured, and the memory
+  rule that caught it — *check the gate's item count went up* — is the one that should have run
+  before the message was written. The direction was right; the figures were not.
+- **The same replay found `map<K, V>` in neither count.** Ticket 48 decided it on 2026-08-25;
+  `map<atom, term>` is refused today; no feature file has it; the features README said its
+  decided-unbuilt table had *"no live row"*. → [ENG-319](https://linear.app/davewil/issue/ENG-319) (High, `ready-for-agent`), which by
+  the frontier's rule 6 outranks this ticket for the *next* session.
+- **The gate skips an entry with no row, silently.** `map<K, V>` has been in `prelude_entries()`
+  since `aa04d0c` with nothing to read a status from. → [ENG-320](https://linear.app/davewil/issue/ENG-320) (quick-fix). The row is added
+  in this commit so the entry is probed from now on, marked **decided** so it stays green while refused.

@@ -183,7 +183,9 @@ obligation attached — the absence must *teach* — so a decision that looked l
 edit turned out to have a compiler delta. The estimate put to David beforehand said *"compiler
 delta: none"*, and that was wrong for a reason worth naming: unlike `;`, `not` lexes perfectly
 well, so nothing was going to notice it without a rule. **The queue is empty for the seventh
-time**, and the decided-unbuilt table below now has no live row either — its one entry, 23 §10,
+time**, and ~~the decided-unbuilt table below now has no live row either~~ — **corrected 2026-09-03 by
+ticket 67: it has one, 48's `map<K, V>`, decided 2026-08-25 and refused by the compiler today
+([ENG-319](https://linear.app/davewil/issue/ENG-319)); the row is in the table** — its one entry at the time, 23 §10,
 was built as F17 on 2026-08-18 and the row was never updated.
 
 <!-- The struck-through count below is kept rather than corrected in place, per this file's own
@@ -767,6 +769,7 @@ multi-year track, or one capability the language owes its author"*:
 |---|---|
 | 23 §1 — the diagnostic is a **term**, prose a pure function of it | **BUILT — F16, 2026-08-18.** `bs_diag` owns the descriptor and every format string; `bsc --diagnostics term` publishes it, and `bin/check-diagnostics.sh` is what stops the drift reopening |
 | 23 §10 — `bsc --api <Module>` | **BUILT — F17, 2026-08-18** ([ENG-225](https://linear.app/davewil/issue/ENG-225)). *Corrected 2026-08-26: this row read "decided, unbuilt" for eight days after the thing was built, and it is the only row in this table, so a session reading it for takeable work is told there is some when there is none. The map still cites this by name as the example of what is* in *scope, which remains true* |
+| 48 — `map<K, V>`, and `Map.Get` under a reserved `Map` | **decided 2026-08-25, unbuilt** — [ENG-319](https://linear.app/davewil/issue/ENG-319). Found 2026-09-03 by ticket 67: `map<atom, term>` is refused (*"no type named map takes a type argument"*), no feature file has it, and `check-status-claims.sh`'s entry for it had no `PRELUDE.md` row to read a status from, so the gate never probed it ([ENG-320](https://linear.app/davewil/issue/ENG-320)). Nine days decided with no row anywhere |
 | Columns | **no decision owed.** Measured in parsetools 2.7.1: leex predefines `TokenCol` and `TokenLoc`, and yecc's `error_location` already defaults to `column`. `bs_lexer.xrl` writes `TokenLine` by choice. Since `line/1` is `element(2, T)`, the lexer's actions are the whole change in the parser; the cost is downstream, in the `~s:~p:` format strings and the Abstract Format annotations |
 | 23 §5 — a JSON **encoding** of the term | **blocked**, and already logged: it inherits ticket 16 §4's serialisation mapping, which the map lists as owed and unwritten |
 

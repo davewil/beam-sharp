@@ -67,6 +67,7 @@ contest; they are in the prelude because you should not have to import them.
 | `bool` | `builtin(bool)` — the two-atom union `true \| false` | unqualified | **shipped** — ticket 10 corrected 2026-09-03 to say builtin (67); it sits in this table until 67's Q5 settles the two kinds | 10 |
 | `option<T>` | `type option<T> = T \| :nothing` | unqualified | **shipped** | 10 §5 |
 | `result<T, E>` | `type result<T, E> = T \| (:error, E)` | unqualified | **shipped** | 15 |
+| `map<K, V>` | 48's map type — `Kind` absent only, type before pattern form | unqualified | **decided** — refused today (*"no type named map takes a type argument"*); [ENG-319](https://linear.app/davewil/issue/ENG-319) builds it. Row added 2026-09-03 (67): without it `check-status-claims.sh` had no status to read and silently never probed the entry ([ENG-320](https://linear.app/davewil/issue/ENG-320)) | 48 |
 | the collection library | `List.Map`, `List.Filter`, `List.Fold` | **qualified** | **open** — see gaps | 27, 17 §2 |
 
 **`option` and `result` are not two spellings of one idea**, and the rule is worth stating because
