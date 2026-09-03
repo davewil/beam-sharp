@@ -110,7 +110,12 @@ forms(Module = #{module := Mod, functions := Fns, env := Env}) ->
     %% own: they belong to no `.bs`, and pointing them at one would be a lie the
     %% next crash would tell. Nothing in them can crash — every branch returns a
     %% value — so no stack frame ever names them.
-    ++ validator_forms(Validators).
+    ++ validator_forms(Validators)
+    %% TICKET 67 — the reserved qualifiers' operations, generated into the module
+    %% that uses them. Last, and carrying no `file` attribute, for the validators'
+    %% reason: they belong to no `.bs`, and pointing them at one would be a lie
+    %% the next crash would tell.
+    ++ reserved_forms(Fns).
 
 %% `undefined` is the one-source callers (`compile_string/2`, the REPL) that have
 %% no path to attribute to. Emitting an attribute naming nothing would be worse
@@ -749,8 +754,19 @@ expr({e_inst, L, 'ValidateAs', [TypeExpr], [Arg]}, C) ->
 %% `List.Map(xs)`. The module atom is already the full dotted path (40 §1), which
 %% is why nothing here has to build a name: `'Shop.Orders'` is what the dependency
 %% emitted and what `ls` shows.
+%%
+%% TICKET 67 — UNLESS THE QUALIFIER IS RESERVED, in which case there is no module
+%% to name. The call becomes a local one to a function generated into THIS module,
+%% which is the whole of 67's (b): no `List.beam` ships, and a compiled program's
+%% only runtime dependency is the BEAM. A reserved qualifier can only reach here
+%% unshadowed — `bs_check:reserved_call/6` refuses the collision — so this needs
+%% no second copy of that question.
 expr({e_qcall, L, Mod, Fn, As}, C) ->
-    remote(L, Mod, Fn, As, C);
+    case lists:member(Mod, bs_check:reserved_qualifiers()) of
+        true  -> {call, L, {atom, L, reserved_name(Mod, Fn, length(As))},
+                  [expr(A, C) || A <- As]};
+        false -> remote(L, Mod, Fn, As, C)
+    end;
 expr({e_op, L, Op, A, B}, C)  -> {op, L, erl_op(Op), expr(A, C), expr(B, C)};
 expr({e_nil, L}, _C)          -> {nil, L};
 
@@ -1294,6 +1310,96 @@ root_form(Name) ->
          [{clause, ?A, [{tuple, ?A, [{atom, ?A, ok}, VV]}], [], [VV]},
           {clause, ?A, [{tuple, ?A, [{atom, ?A, error}, EV]}], [],
            [{tuple, ?A, [{atom, ?A, error}, EV]}]}]}]}]}.
+
+%%% ---------------------------------------------------------------------------
+%%% TICKET 67 — THE RESERVED QUALIFIERS' OPERATIONS, GENERATED
+%%%
+%%% 67 chose (b) — an operation inlined at the site — over (a), a shipped module
+%%% the compiler resolves through the module table. The two are indistinguishable
+%%% from anything a program PRINTS, so the difference lives entirely here: this
+%%% file emits a local recursive function and never a call, remote or otherwise.
+%%% A `lists:sum/1` would be (a) wearing (b)'s clothes, which is why
+%%% `check-reserved-qualifiers.sh` names `lists` in the same probe as `List`.
+%%%
+%%% ONE FUNCTION PER {QUALIFIER, NAME, ARITY} USED, and no type in the key —
+%%% unlike `validator_table/2`, whose generated code differs per type. None of
+%%% these traversals mentions the element at all, so a `list<int>` and a
+%%% `list<Order>` share one emitted `Reverse` rather than getting two identical
+%%% ones. Monomorphic at every use site is still satisfied: the CHECKER typed the
+%%% site, and what is emitted is the same instructions either way.
+%%% ---------------------------------------------------------------------------
+
+%% A generic walk, `inst_nodes/1`'s shape and for its reason: a qualified call may
+%% sit anywhere an expression may, and a walk taught each node would go stale the
+%% first time one is added.
+reserved_forms(Fns) ->
+    Used = lists:usort([{M, F, length(As)}
+                        || {e_qcall, _, M, F, As} <- qcall_nodes(Fns),
+                           lists:member(M, bs_check:reserved_qualifiers())]),
+    lists:append([reserved_form(K) || K <- Used]).
+
+qcall_nodes(T) when is_tuple(T) ->
+    Here = case T of
+               {e_qcall, _, _, _, _} -> [T];
+               _                     -> []
+           end,
+    Here ++ qcall_nodes(tuple_to_list(T));
+qcall_nodes(L) when is_list(L) -> lists:append([qcall_nodes(E) || E <- L]);
+qcall_nodes(_)                 -> [].
+
+%% `@` cannot appear in a B# identifier, so a generated name can never collide
+%% with one an author wrote. Same guarantee `bs@validate@N` relies on.
+reserved_name(Q, Fn, Arity) ->
+    list_to_atom("bs@" ++ atom_to_list(Q) ++ "@" ++ atom_to_list(Fn)
+                 ++ "@" ++ integer_to_list(Arity)).
+
+%% EVERY LIST OPERATION IS TAIL-RECURSIVE THROUGH AN ACCUMULATOR, which is why
+%% each emits two functions rather than one. A body-recursive `Sum` would build a
+%% stack frame per element and the difference shows on a long list — this is
+%% generated code no author can rewrite, so it does not get to be the naive one.
+reserved_form({'List', 'Sum', 1}) ->
+    acc_form('List', 'Sum', 1, 'Bs@h', {integer, ?A, 0},
+             fun(H, Acc) -> {op, ?A, '+', Acc, H} end);
+%% THE HEAD IS BOUND `_Bs@h` HERE AND `Bs@h` IN THE OTHER TWO, because `Length`
+%% is the one operation that does not look at the element. `erlc` warns on an
+%% unused variable and `bsc` surfaces that warning against the author's own `.bs`
+%% — a file which, for generated code, contains nothing they could change. F4's
+%% rule again: the compiler owns diagnostics about the author's source, so it
+%% must not manufacture one about code the author never wrote.
+reserved_form({'List', 'Length', 1}) ->
+    acc_form('List', 'Length', 1, '_Bs@h', {integer, ?A, 0},
+             fun(_H, Acc) -> {op, ?A, '+', Acc, {integer, ?A, 1}} end);
+reserved_form({'List', 'Reverse', 1}) ->
+    acc_form('List', 'Reverse', 1, 'Bs@h', {nil, ?A},
+             fun(H, Acc) -> {cons, ?A, H, Acc} end);
+%% 16's universal-order escape. Erlang's own term order is the definition — that
+%% is what makes it universal — so the comparison is the BEAM's and only the
+%% ANSWER is B#'s: three atoms a `switch` must cover, rather than a boolean pair
+%% that cannot express `eq`.
+reserved_form({'Term', 'Compare', 2}) ->
+    A = {var, ?A, 'Bs@a'},
+    B = {var, ?A, 'Bs@b'},
+    [{function, ?A, reserved_name('Term', 'Compare', 2), 2,
+      [{clause, ?A, [A, B], [[{op, ?A, '<', A, B}]], [{atom, ?A, lt}]},
+       {clause, ?A, [A, B], [[{op, ?A, '>', A, B}]], [{atom, ?A, gt}]},
+       {clause, ?A, [{var, ?A, '_'}, {var, ?A, '_'}], [], [{atom, ?A, eq}]}]}].
+
+%% The shared shape: a public arity-1 entry that seeds the accumulator, and a
+%% private arity-2 walker. `Step` builds the new accumulator from the head and the
+%% old one, which is the only thing that differs between the three.
+acc_form(Q, Fn, Arity, Head, Seed, Step) ->
+    Name = reserved_name(Q, Fn, Arity),
+    Walk = list_to_atom(atom_to_list(Name) ++ "@w"),
+    XV = {var, ?A, 'Bs@x'},
+    HV = {var, ?A, Head},
+    TV = {var, ?A, 'Bs@t'},
+    AV = {var, ?A, 'Bs@acc'},
+    [{function, ?A, Name, 1,
+      [{clause, ?A, [XV], [], [{call, ?A, {atom, ?A, Walk}, [XV, Seed]}]}]},
+     {function, ?A, Walk, 2,
+      [{clause, ?A, [{nil, ?A}, AV], [], [AV]},
+       {clause, ?A, [{cons, ?A, HV, TV}, AV], [],
+        [{call, ?A, {atom, ?A, Walk}, [TV, Step(HV, AV)]}]}]}].
 
 root_name(Name)   -> list_to_atom(atom_to_list(Name) ++ "@r").
 walker_name(Name) -> list_to_atom(atom_to_list(Name) ++ "@e").

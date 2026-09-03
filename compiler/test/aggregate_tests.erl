@@ -86,7 +86,7 @@ a_file_with_no_module_line_inherits_the_directorys_test() ->
 %%% F15.4 — one directory is one module
 %%% ---------------------------------------------------------------------------
 
-%% `examples/collections/` held exactly this shape until F15 — `Shop.Collections.List`
+%% `examples/collections/` held exactly this shape until F15 — `Shop.Collections.Ints`
 %% beside `Shop.Reports` in one directory. F11 shipped it because nothing said it
 %% was wrong.
 two_module_declarations_in_one_directory_are_refused_test() ->
@@ -296,7 +296,7 @@ crash_site(Fn) ->
 %% A diagnostic is `{error, Line, FnName, Descriptor}` — a name and no arity —
 %% and ticket 40 §2 permits two arities of one name, which one function per file
 %% then puts in two files. Any lookup keyed by name would point a human at the
-%% wrong file with every check green. `examples/Shop/Collections/List/List.bs`
+%% wrong file with every check green. `examples/Shop/Collections/Ints/Ints.bs`
 %% already has `Length/1` beside `Length/2`, so this is not hypothetical.
 %%
 %% Both files declare an inexhaustive function; each error must name its own.

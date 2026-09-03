@@ -216,6 +216,9 @@ string|type|string
 bool|type|bool
 ParseAtom<T>|type|ParseAtom<int>
 map<K, V>|type|map<atom, term>
+List.Sum|qualified|List.Sum([1, 2])
+Term.Compare|qualified|Term.Compare(1, 2)
+Map.Get|qualified|Map.Get([1], 1)
 EOF
 }
 
@@ -226,6 +229,28 @@ resolves_as_type() {
     w="$(mktemp -d)"; o="$(mktemp -d)"
     mkdir -p "$w/P"
     { echo "module P"; echo; echo "public int Use($ty x)"; echo; echo "Use(x) -> 0"; } > "$w/P/p.bs"
+    "$BSC" --src-root "$w" -o "$o" "$w/P" >/dev/null 2>&1
+    rc=$?
+    rm -rf "$w" "$o"
+    return "$rc"
+}
+
+# Ticket 67's entries are reached in EXPRESSION position under a qualifier, never
+# as a type, so `resolves_as_type` answers a different question about them than
+# their rows ask — the mistake the `codegen`/`type` split was written to prevent,
+# one column over. `term` is the declared return because these entries answer with
+# different types and the row is about whether the name RESOLVES, not about what
+# it yields; every one of them is a subtype of `term`, so a widened return cannot
+# turn a refusal into a pass.
+#
+# There is no `using` line, and that is the assertion: a reserved qualifier that
+# needed one would not be a reserved qualifier.
+resolves_as_call() {
+    local ex="$1" w o rc
+    w="$(mktemp -d)"; o="$(mktemp -d)"
+    mkdir -p "$w/P"
+    { echo "module P"; echo; echo "public term Use(int n)"; echo;
+      echo "Use(n) -> $ex"; } > "$w/P/p.bs"
     "$BSC" --src-root "$w" -o "$o" "$w/P" >/dev/null 2>&1
     rc=$?
     rm -rf "$w" "$o"
@@ -255,12 +280,31 @@ prelude_status() {
         tr -d '*'
 }
 
+# One place that knows which probe a form takes, so the loop below states the
+# question once and the legend above stays the only description of the forms.
+probe_entry() {
+    case "$1" in
+        type)      resolves_as_type "$2" ;;
+        qualified) resolves_as_call "$2" ;;
+        *)         return 1 ;;
+    esac
+}
+
 check_prelude() {
     local doc="$1" n=0 bad=0 entry form expr status want
     [ -f "$doc" ] || { echo "check-status-claims: no PRELUDE at $doc"; return 1; }
     while IFS='|' read -r entry form expr; do
         [ -n "$entry" ] || continue
-        [ "$form" = "type" ] || continue
+        # DISPATCH ON THE FORM RATHER THAN SKIPPING EVERYTHING THAT IS NOT A
+        # TYPE. This line read `[ "$form" = "type" ] || continue` until 2026-09-04,
+        # which meant the legend above documented three forms and the loop could
+        # evaluate one — a row given any other form was counted as unrecognised
+        # vocabulary or silently dropped. F32 added the first `qualified` rows and
+        # would have been reported as unbuilt forever.
+        case "$form" in
+            type|qualified) ;;
+            *) continue ;;
+        esac
         status="$(prelude_status "$doc" "$entry")"
         [ -n "$status" ] || continue
         # THE COUNTER COUNTS ROWS ACTUALLY EVALUATED, not rows matched, and the
@@ -284,7 +328,7 @@ check_prelude() {
                 ;;
         esac
         n=$((n + 1))
-        if resolves_as_type "$expr"; then
+        if probe_entry "$form" "$expr"; then
             if [ "$want" = no ]; then
                 printf 'PRELUDE.md: `%s` is marked **%s**, but `%s` RESOLVES through bsc.\n' \
                     "$entry" "$status" "$expr"

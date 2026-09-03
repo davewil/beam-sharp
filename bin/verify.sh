@@ -304,6 +304,9 @@ run_stages \
   "\`/\` lowers to div, and only a provable zero is refused" \
     "cd compiler && ./bin/check-division.sh --self-test && ./bin/check-division.sh" \
 \
+  "\`List\`, \`Term\` and \`Map\` are reserved qualifiers, inlined at the site" \
+    "cd compiler && ./bin/check-reserved-qualifiers.sh --self-test && ./bin/check-reserved-qualifiers.sh" \
+\
   "No \`not\` and no \`!\`, both taught, and \`not\` is still a name" \
     "cd compiler && ./bin/check-negation.sh --self-test && ./bin/check-negation.sh" \
 \

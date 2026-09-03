@@ -275,6 +275,18 @@ descriptor(Path, {Sev, Line, Fn, {arity_mismatch, Callee, Got, Want}}) ->
 descriptor(Path, {Sev, Line, Fn, {arity_not_declared, Callee, Got, Have}}) ->
     (at(Sev, Path, Line, Fn))#{tag => arity_not_declared,
                                callee => Callee, got => Got, declared => Have};
+%%% Ticket 67's two CALL-SITE refusals. The shadow one is `ambiguous_module` with
+%%% a compiler-known claimant on one side, so it is shaped like it — both
+%%% candidates named, the full path offered as the fix.
+descriptor(Path, {Sev, Line, Fn, {reserved_qualifier_shadowed, Q, Op, Mods}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => reserved_qualifier_shadowed,
+                               qualifier => Q, operation => Op,
+                               candidates => Mods};
+descriptor(Path, {Sev, Line, Fn,
+                  {unknown_reserved_operation, Q, Op, Got, Have}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => unknown_reserved_operation,
+                               qualifier => Q, operation => Op,
+                               got => Got, declared => Have};
 descriptor(Path, {Sev, Line, Fn, {unknown_record, Name}}) ->
     (at(Sev, Path, Line, Fn))#{tag => unknown_record, record => Name};
 descriptor(Path, {Sev, Line, Fn, wildcard_as_value}) ->
@@ -483,6 +495,12 @@ descriptor(Path, {module_not_imported, Mod, Line}) ->
 descriptor(Path, {ambiguous_module, Short, Mods, Line}) ->
     #{tag => ambiguous_module, severity => error, file => Path, line => Line,
       module => Short, candidates => Mods};
+%%% Ticket 67's DECLARATION refusal. Raised, so it carries its own line — the
+%%% same shape as `module_path_mismatch` beside it and for the same reason: there
+%%% is no function to attribute it to, only a directory and a `module` line.
+descriptor(Path, {reserved_module_name, Module, Line}) ->
+    #{tag => reserved_module_name, severity => error, file => Path, line => Line,
+      module => Module};
 %% Two modules importing each other. F6's cyclic-ALIAS guard is the precedent 41
 %% names: refuse by name rather than expand, because resolving a cycle by
 %% following it is a loop — and that guard shipped after a HANG, which no green
@@ -849,6 +867,53 @@ message(#{tag := arity_not_declared, file := P, line := L, function := Fn,
      [P, L, Fn, Callee, Got, Callee,
       lists:join(", ", [[$/ | integer_to_list(A)] || A <- Have]),
       Callee, Got]};
+%% TICKET 67's THREE.
+%%
+%% The first names the two other spellings that ARE legal, because 67 Q6 burned
+%% only the bare name and an author who has just been refused needs to know that
+%% `Shop.Collections.List` is still available to them.
+message(#{tag := reserved_module_name, file := P, line := L, module := Mod}) ->
+    {"~s:~p: error: `~s` is a reserved qualifier, so no module may be called it~n"
+     "  `~s.` names operations the compiler knows and inlines at the site;~n"
+     "  no beam ships for it and no `using` is ever written. The name is~n"
+     "  taken only as a WHOLE module name — `Shop.~s` is still legal, and~n"
+     "  so is any other path with `~s` as a segment.~n",
+     [P, L, Mod, Mod, Mod, Mod]};
+%% The second is `ambiguous_module`'s shape with a compiler-known claimant: both
+%% meanings named, the full path handed over as the fix. A message naming only
+%% the reserved word would tell an author nothing they can act on.
+message(#{tag := reserved_qualifier_shadowed, file := P, line := L,
+          function := Fn, qualifier := Q, operation := Op,
+          candidates := Mods}) ->
+    {"~s:~p: error: ~s calls ~s.~s, and `~s` means two things here~n"
+     "  `~s` is a reserved qualifier — the compiler's own operations —~n"
+     "  and a `using` line also short-qualifies these to it:~n"
+     "~s"
+     "  write the module's full path to reach it, or drop the namespace~n"
+     "  import to reach `~s.~s`.~n",
+     [P, L, Fn, Q, Op, Q, Q,
+      [io_lib:format("    ~s.~s(...)~n", [M, Op]) || M <- Mods],
+      Q, Op]};
+%% The third exists so that an unknown operation does NOT fall through to
+%% `module_not_imported`, whose advice — "add `using List`" — is the one fix that
+%% can never work for a reserved qualifier. Measured as the live behaviour on
+%% 2026-09-04, before this feature.
+message(#{tag := unknown_reserved_operation, file := P, line := L,
+          function := Fn, qualifier := Q, operation := Op, got := Got,
+          declared := []}) ->
+    {"~s:~p: error: ~s calls ~s.~s/~p, and `~s` has no operation of that name~n"
+     "  `~s` is a reserved qualifier, so this cannot be fixed with a~n"
+     "  `using` line — the operations under it are the compiler's own.~n",
+     [P, L, Fn, Q, Op, Got, Q, Q]};
+message(#{tag := unknown_reserved_operation, file := P, line := L,
+          function := Fn, qualifier := Q, operation := Op, got := Got,
+          declared := Have}) ->
+    {"~s:~p: error: ~s calls ~s.~s/~p, and `~s.~s` takes ~s~n"
+     "  the operations under a reserved qualifier are the compiler's own,~n"
+     "  so the arity is fixed rather than overloadable.~n",
+     [P, L, Fn, Q, Op, Got, Q, Op,
+      lists:join(" or ", [[integer_to_list(A), " argument",
+                           case A of 1 -> ""; _ -> "s" end] || A <- Have])]};
 message(#{tag := unknown_record, file := P, line := L, function := Fn,
           record := Name}) ->
     {"~s:~p: error: ~s builds an ~s, which no record or type declares~n",

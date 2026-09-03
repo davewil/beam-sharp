@@ -312,7 +312,7 @@ the_pipe_probe_does_not_match_a_valve_test() ->
                  re:run("Place(n) -> Start(n) |?> Charge()", Pipe,
                         [multiline, {capture, none}])),
     ?assertEqual(match,
-                 re:run("Restated(n) -> [n] |> List.Sum(0)", Pipe,
+                 re:run("Restated(n) -> [n] |> Ints.Sum(0)", Pipe,
                         [multiline, {capture, none}])),
     %% And the union bar, which is the other `|` in this language and appears in
     %% every second type declaration.
@@ -323,7 +323,7 @@ the_pipe_probe_does_not_match_a_valve_test() ->
 the_valve_probe_does_not_match_a_pipe_test() ->
     {_, Valve} = lists:keyfind("a valve into a call", 1, demonstrated_surface()),
     ?assertEqual(nomatch,
-                 re:run("Restated(n) -> [n] |> List.Sum(0)", Valve,
+                 re:run("Restated(n) -> [n] |> Ints.Sum(0)", Valve,
                         [multiline, {capture, none}])),
     ?assertEqual(match,
                  re:run("Place(n) -> Start(n) |?> Charge()", Valve,

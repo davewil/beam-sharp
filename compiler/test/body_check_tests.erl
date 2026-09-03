@@ -365,7 +365,7 @@ every_example_still_compiles() ->
     [?assertEqual({D, ok}, {D, compiles(Root, D)}) || D <- Dirs].
 
 %% `--src-root` is named here because the corpus holds dotted modules
-%% (`Shop.Reports`, `Shop.Collections.List`) and a dotted module is a nested
+%% (`Shop.Reports`, `Shop.Collections.Ints`) and a dotted module is a nested
 %% directory. 41 §3: naming the source root is the caller's job.
 compiles(Root, Dir) ->
     Out = bs_test_support:run_cli("--src-root " ++ Root ++ " -o " ++ ?OUT ++

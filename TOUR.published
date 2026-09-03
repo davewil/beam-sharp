@@ -24,8 +24,20 @@
 # evidence here that is not self-reported.
 
 url       https://claude.ai/code/artifact/40f71cf4-d5d3-4b71-882c-ad73f630a03c
-sha256    e1d8fbdc1ae487295b14496c0e45f1c10d16aa42e98ea2395aa8a259e7d13de4
-verified  2026-09-03 (for ENG-307's record idiom) — chapter 6's quoted block dispatched on the
+sha256    f8b4a46e5adf8a5ecf34d64ee40098cbf7e4d96049389cdd9bfc6f4a0cdd5641
+verified  2026-09-04 (for F32's reserved qualifiers) — chapter 11's worked module was
+          `Shop.Collections.List`, and short-qualifying it to `List` through the namespace tier
+          is exactly the program F32 now refuses, so the corpus module was renamed to
+          `Shop.Collections.Ints` and chapters 11 and 12 follow it. The "Decided but not built"
+          table lost its `the collection library | names, shapes and holding module all
+          undecided` row, which was wrong on all three counts: the shapes were settled, the
+          holding-module question was answered *there isn't one*, and four operations are built.
+          Two narrower rows replace it. Read back before republishing and the live page still
+          carried the old module name in both chapters, both appendix rows and the stale table
+          row, so the stale state was confirmed rather than assumed, and the read again showed
+          a plain render of TOUR.md with nothing saved into it independently.
+
+          2026-09-03 (for ENG-307's record idiom) — chapter 6's quoted block dispatched on the
           hand-written minted tag, `Which({ Kind: :'Shop.Order' })`, and its `expect-after`
           directive named that clause; both now carry ticket 55's `Which(Order o)`, verbatim
           from the rewritten `shop.bs`, and the prose beneath no longer says "no new pattern

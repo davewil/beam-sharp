@@ -102,7 +102,7 @@ have to declare `module examples.Fib`.
 | F15.8 | `Shop/` holding only directories | classified a **namespace** — no atom, no `.beam`, nothing emitted (41 §5) | 0 |
 | F15.9 | a runtime crash in `Total.bs` of an aggregate | the stack names `Total.bs` and its line, not the aggregate — 13 §3, measured in `13b` | — |
 | F15.10 | `Shop/Orders/` with no `index.bs`, holding `Total.bs` | **accepted** — §5's test is `.bs` files present, not `index.bs` present (see the wording drift below) | 0 |
-| F15.11 | `Shop/` holding `.bs` files **and** `Shop/Collections/List/` holding `.bs` files | **two modules** — `Shop` and `Shop.Collections.List`, with `Shop/Collections/` a namespace between them. §5's classification is per-directory and total | 0 |
+| F15.11 | `Shop/` holding `.bs` files **and** `Shop/Collections/Ints/` holding `.bs` files | **two modules** — `Shop` and `Shop.Collections.Ints`, with `Shop/Collections/` a namespace between them. §5's classification is per-directory and total | 0 |
 | F15.12 | a diagnostic on `Length/2` where `Length/1` and `Length/2` are in **different files** of one directory | names `Length2.bs` — the file the clause is actually in | 1 |
 | F15.13 | a sibling file with **no** `module` declaration | the two existing defaults disagree today; F15 makes them agree (see below) | — |
 | F15.14 | the whole `examples/` **and** `aoc/` corpora after the rewrite | every module compiles and runs; both gates loop over **directories** | 0 |
@@ -220,7 +220,7 @@ and there is no conflict to resolve.
 So F15 builds §5's classification as **per-directory and total**, and F15.11 pins it rather than
 leaving it to whatever falls out of a glob. The corpus then *exercises* the mixed case instead of
 dodging it: `examples/Shop/` holds `.bs` files and a `Collections/` subdirectory, `Collections/`
-holds only directories and is therefore a namespace, and `Collections/List/` is a module again.
+holds only directories and is therefore a namespace, and `Collections/Ints/` is a module again.
 That is all three tiers of 41 §5 in one path, runnable.
 
 ## Out of scope
@@ -248,7 +248,7 @@ directories.
 **A diagnostic must name the file the clause is in** (F15.12), not the directory and not the first
 file in it. The diagnostic 4-tuple `{error, Line, FnName, Descriptor}` carries a name and no arity,
 so under 40 §2's arity overloading a `{Name, Arity} -> Path` lookup cannot answer it — and
-`examples/Shop/Collections/List/List.bs` **already** has `Length/1` beside `Length/2`. A lossy lookup here
+`examples/Shop/Collections/Ints/Ints.bs` **already** has `Length/1` beside `Length/2`. A lossy lookup here
 points a human at the wrong file while every check stays green, which is this project's recorded
 worst failure shape and has now appeared four times. The path travels with the declaration.
 

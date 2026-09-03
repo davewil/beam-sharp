@@ -1,11 +1,11 @@
 // F11 — a module another module can import. Ticket 40 §1: the module's atom is
-// its FULL dotted path, so this emits 'Shop.Collections.List' and `ls` shows a
+// its FULL dotted path, so this emits 'Shop.Collections.Ints' and `ls` shows a
 // file of that name. Nothing about the tag mint (26 §1) moves — it was always
 // written against the module atom rather than against a single segment.
 //
 //   bsc examples/Shop/Reports/Totals.bs Restate 3
 //
-module Shop.Collections.List
+module Shop.Collections.Ints
 
 public int Sum(list<int> xs, int acc)
 Sum([], acc)          -> acc

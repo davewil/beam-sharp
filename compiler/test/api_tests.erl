@@ -312,7 +312,7 @@ a_namespace_is_not_a_module_test() ->
     ?assertEqual(2, Rc),
     ?assertEqual("", Out),
     ?assertNotEqual(nomatch, string:find(Err, "is a namespace, not a module")),
-    ?assertNotEqual(nomatch, string:find(Err, "Shop/Collections/List")).
+    ?assertNotEqual(nomatch, string:find(Err, "Shop/Collections/Ints")).
 
 %% `.bs` on the end makes an argument a path whether the file is there or not,
 %% and its directory may be a perfectly good module — so without this the query

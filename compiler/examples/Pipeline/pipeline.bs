@@ -12,20 +12,20 @@
 // residual for free.
 module Pipeline
 
-// Namespace tier (41 §5) — `List` here is short for `Shop.Collections.List`.
+// Namespace tier (41 §5) — `Ints` here is short for `Shop.Collections.Ints`.
 using Shop.Collections
 
 public int Restated(int n)
-// The piped value becomes the FIRST argument, so this is `List.Sum([n,n,n], 0)`.
+// The piped value becomes the FIRST argument, so this is `Ints.Sum([n,n,n], 0)`.
 // Names are qualified: `xs.Sum(0)` would need type-directed resolution of an
 // unqualified name, which ticket 17 §1 closed off — the pipe is what survived
 // that argument rather than a second spelling beside it.
-Restated(n) -> [n, n, n] |> List.Sum(0)
+Restated(n) -> [n, n, n] |> Ints.Sum(0)
 
 public int Fully(int n)
 // Fully qualified pipes the same way. There is no third rule for the operator;
 // it prepends an argument to whatever call was written.
-Fully(n) -> [n, n] |> Shop.Collections.List.Sum(0)
+Fully(n) -> [n, n] |> Shop.Collections.Ints.Sum(0)
 
 public int Doubled(int n)
 // And a local call, which is the plain case.

@@ -539,6 +539,28 @@ jobs:
         working-directory: compiler
         run: ./bin/check-division.sh
 
+      # Ticket 67. `List` is an operation set the compiler knows, not a module
+      # it ships — and 67's (b) is INDISTINGUISHABLE from its (a) in anything a
+      # program prints. `List.Sum([2,2,2])` is 6 either way. So this gate reads
+      # the compiled beam's import chunk: an inlined operation names no module,
+      # a resolved one names exactly the module it resolved to, and a
+      # `lists:sum/1` is (a) wearing (b)'s clothes. Its self-test's
+      # `shipped_module` stub is the over-informed one — right answer, wrong
+      # design — and it is the only stub a value-checking gate would pass.
+      #
+      # The other four probes are two pairs that fail in opposite directions:
+      # `module List` is refused while `module Shop.List` must not be (67 Q6
+      # declined burning the path segment), and a namespace import shadowing
+      # `List` is refused at the call while a non-reserved short qualifier must
+      # keep working. The self-test builds both cry-wolves.
+      - name: The reserved-qualifier gate proves it can fail
+        working-directory: compiler
+        run: ./bin/check-reserved-qualifiers.sh --self-test
+
+      - name: '`List`, `Term` and `Map` are reserved qualifiers, inlined at the site'
+        working-directory: compiler
+        run: ./bin/check-reserved-qualifiers.sh
+
       # F27 / ticket 63. The language has no `not`, and the decision came with
       # an obligation: the absence must name the comparison to write instead.
       #

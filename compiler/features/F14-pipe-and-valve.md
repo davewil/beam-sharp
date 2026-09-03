@@ -190,7 +190,7 @@ message knows it was tried. The zero-conflict grammar was judged worth more than
 |---|---|---|---|---|
 | F14.1 | `Double(n) -> n \|> Add(n)` over `Add(int, int)` | `bsc … Double 4` | `8` | 0 |
 | F14.2 | a three-stage chain of ordinary calls | `bsc …` | the value of the nested call | 0 |
-| F14.3 | `n \|> Shop.Collections.List.Sum(0)` | `bsc --src-root examples …` | qualified and namespace-short both pipe | 0 |
+| F14.3 | `n \|> Shop.Collections.Ints.Sum(0)` | `bsc --src-root examples …` | qualified and namespace-short both pipe | 0 |
 | F14.4 | `x \|> F` — no argument list | `bsc` it | a **syntax** error, not a type error | 1 |
 | F14.5 | `a + b \|> F()` | the parse | `(a + b) \|> F()` — the pipe binds looser than arithmetic | 0 |
 | F14.6 | a valve chain whose first stage yields `(:error, :bad)` | `bsc …` | `(:error, :bad)`, and no later stage runs | 0 |

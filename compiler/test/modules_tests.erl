@@ -54,9 +54,9 @@ has(Out, S) -> ?assert(string:find(Out, S) =/= nomatch).
 %% "0")` also matches that `rc:0` line, so it would assert nothing at all.
 value(Out) -> string:trim(hd(string:split(Out, "\n"))).
 
-list_mod() ->
-    {"List.bs",
-     "module Shop.List\n"
+ints_mod() ->
+    {"Ints.bs",
+     "module Shop.Ints\n"
      "public int Sum(list<int> xs, int acc)\n"
      "Sum([], acc) -> acc\n"
      "Sum([x, ..rest], acc) -> Sum(rest, acc + x)\n"}.
@@ -106,20 +106,20 @@ a_record_in_a_dotted_module_mints_the_qualified_tag_test() ->
 an_unqualified_call_reaches_an_imported_function_test() ->
     Out = run([{"R.bs",
                 "module Shop.Reports\n"
-                "using Shop.List\n"
+                "using Shop.Ints\n"
                 "public int Go(int n)\n"
                 "Go(n) -> Sum([n, n], 0)\n"},
-               list_mod()],
+               ints_mod()],
               "Go 4"),
     has(Out, "8").
 
 a_fully_qualified_call_needs_no_unqualified_scope_test() ->
     Out = run([{"R.bs",
                 "module Shop.Reports\n"
-                "using Shop.List\n"
+                "using Shop.Ints\n"
                 "public int Go(int n)\n"
-                "Go(n) -> Shop.List.Sum([n], 0)\n"},
-               list_mod()],
+                "Go(n) -> Shop.Ints.Sum([n], 0)\n"},
+               ints_mod()],
               "Go 5"),
     has(Out, "5").
 
@@ -130,8 +130,8 @@ a_namespace_import_short_qualifies_its_modules_test() ->
                 "module Shop.Reports\n"
                 "using Shop\n"
                 "public int Go(int n)\n"
-                "Go(n) -> List.Sum([n, n, n], 0)\n"},
-               list_mod()],
+                "Go(n) -> Ints.Sum([n, n, n], 0)\n"},
+               ints_mod()],
               "Go 2"),
     has(Out, "6").
 
@@ -142,10 +142,10 @@ a_namespace_import_short_qualifies_its_modules_test() ->
 a_qualified_call_to_an_undeclared_function_is_an_error_test() ->
     Out = compile_set([{"R.bs",
                         "module Shop.Reports\n"
-                        "using Shop.List\n"
+                        "using Shop.Ints\n"
                         "public int Go(int n)\n"
-                        "Go(n) -> Shop.List.Product([n], 0)\n"},
-                       list_mod()]),
+                        "Go(n) -> Shop.Ints.Product([n], 0)\n"},
+                       ints_mod()]),
     bad_rc(Out),
     has(Out, "which nothing declares").
 
@@ -156,8 +156,8 @@ a_qualified_call_to_an_unimported_module_is_an_error_test() ->
     Out = compile_set([{"R.bs",
                         "module Shop.Reports\n"
                         "public int Go(int n)\n"
-                        "Go(n) -> Shop.List.Sum([n], 0)\n"},
-                       list_mod()]),
+                        "Go(n) -> Shop.Ints.Sum([n], 0)\n"},
+                       ints_mod()]),
     bad_rc(Out),
     has(Out, "never imported").
 
@@ -180,18 +180,18 @@ using_something_that_is_neither_module_nor_namespace_is_an_error_test() ->
 an_ambiguous_unqualified_call_is_an_error_naming_both_test() ->
     Out = compile_set([{"R.bs",
                         "module Shop.Reports\n"
-                        "using Shop.List\n"
+                        "using Shop.Ints\n"
                         "using Shop.Other\n"
                         "public int Go(int n)\n"
                         "Go(n) -> Sum([n], 0)\n"},
-                       list_mod(),
+                       ints_mod(),
                        {"Other.bs",
                         "module Shop.Other\n"
                         "public int Sum(list<int> xs, int acc)\n"
                         "Sum(xs, acc) -> acc\n"}]),
     bad_rc(Out),
     has(Out, "is ambiguous"),
-    has(Out, "Shop.List.Sum"),
+    has(Out, "Shop.Ints.Sum"),
     has(Out, "Shop.Other.Sum").
 
 %% 41 §2 requirement 2, as ticket 47 Q2 settled it on 2026-08-31. The shadowing
@@ -206,12 +206,12 @@ an_ambiguous_unqualified_call_is_an_error_naming_both_test() ->
 an_import_may_shadow_a_local_and_the_local_wins_test() ->
     Out = run([{"R.bs",
                 "module Shop.Reports\n"
-                "using Shop.List\n"
+                "using Shop.Ints\n"
                 "public int Sum(list<int> xs, int acc)\n"
                 "Sum(xs, acc) -> acc\n"
                 "public int Go(int n)\n"
                 "Go(n) -> Sum([n], 0)\n"},
-               list_mod()],
+               ints_mod()],
               "Go 3"),
     ok_rc(Out),
     ?assertEqual("0", value(Out)).
@@ -243,12 +243,12 @@ a_top_level_module_shadowing_a_local_is_still_reachable_test() ->
 an_import_differing_only_in_arity_is_not_a_conflict_test() ->
     Out = run([{"R.bs",
                 "module Shop.Reports\n"
-                "using Shop.List\n"
+                "using Shop.Ints\n"
                 "public int Sum(list<int> xs)\n"
                 "Sum(xs) -> Sum(xs, 0)\n"
                 "public int Go(int n)\n"
                 "Go(n) -> Sum([n, n])\n"},
-               list_mod()],
+               ints_mod()],
               "Go 6"),
     has(Out, "12").
 
@@ -361,12 +361,12 @@ two_modules_importing_each_other_are_refused_test() ->
 a_dependency_not_named_on_the_command_line_is_found_and_built_test() ->
     {Root, Main} = in_dir([{"R.bs",
                             "module Shop.Reports\n"
-                            "using Shop.List\n"
+                            "using Shop.Ints\n"
                             "public int Go(int n)\n"
                             "Go(n) -> Sum([n], 0)\n"},
-                           list_mod()]),
+                           ints_mod()]),
     Out = bs_test_support:run_cli("--src-root " ++ Root ++ " -o " ++ Root ++
                                       "/out " ++ Main),
     ok_rc(Out),
-    ?assert(filelib:is_regular(Root ++ "/out/Shop.List.beam")),
+    ?assert(filelib:is_regular(Root ++ "/out/Shop.Ints.beam")),
     ?assert(filelib:is_regular(Root ++ "/out/Shop.Reports.beam")).

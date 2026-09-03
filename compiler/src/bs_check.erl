@@ -32,6 +32,12 @@
 %% than its own copy. The copy predates records and adding a second minting site
 %% to it would have put ticket 26 §1's qualified-name rule in two places.
 -export([resolve/2, qualified/2, record_fields/1]).
+%% Ticket 67 — the reserved qualifiers and the operations under them. Exported
+%% because the EMITTER needs the same two facts and a second copy of either is a
+%% second chance to disagree: `bs_emit` asks which qualifiers are reserved so it
+%% can emit a local form instead of a remote call, and asks the table which
+%% operations exist so it generates exactly the functions the checker admitted.
+-export([reserved_qualifiers/0, reserved_table/0]).
 
 %% `vis` is LAST on purpose. `bs_emit` reads this record positionally through
 %% `element/2` — it has no access to the definition — so every field before it
@@ -108,6 +114,13 @@ check_dir(Sources, World, Expect) ->
     %% collapsed makes every diagnostic after it describe a type nobody wrote.
     collapse_refused(Decls, Env),
     Module = module_name(Decls),
+    %% Ticket 67 clause 2, BEFORE the path check and not after it. `module List`
+    %% in a directory called anything else is already refused for the path
+    %% mismatch, which LOOKS like a reserved-name refusal and is not one — that
+    %% is precisely how this clause was first measured as already built when it
+    %% did not exist. Asking the more fundamental question first means the author
+    %% of `List/List.bs` and the author of `Foo/List.bs` get the same answer.
+    reserved_module_name(Module, Sources),
     module_matches_path(Module, Sources, Expect),
     name_redeclared(Decls),
     private_callback(Decls),
@@ -244,6 +257,29 @@ module_matches_path(Module, Sources, Expect) ->
                []      -> 1
            end,
     erlang:error({module_path_mismatch, Module, Expect, Line}).
+
+%% TICKET 67 CLAUSE 2 — A RESERVED QUALIFIER IS NOT A MODULE NAME.
+%%
+%% `compiler_known_redeclared/1` is the precedent one level down: a compiler-known
+%% TYPE may not be redeclared, for the reason that the name would then mean two
+%% things. This is the same rule about a MODULE, and it is what makes the standard
+%% environment closed by construction — nothing a user writes can accrete into it.
+%%
+%% THE BARE NAME ONLY. 67 Q6 declined option (i), burning the path segment, so
+%% `Shop.Collections.List` stays a legal module and this compares the whole
+%% declared name rather than its last segment. A check on the segment would take
+%% the option the ticket refused, and would do it silently.
+reserved_module_name(Module, Sources) ->
+    case lists:member(Module, reserved_qualifiers()) of
+        false -> ok;
+        true  ->
+            Line = case [L || {_, D} <- Sources, {module, L, N} <- D,
+                              N =:= Module] of
+                       [L | _] -> L;
+                       []      -> 1
+                   end,
+            erlang:error({reserved_module_name, Module, Line})
+    end.
 
 %% The behaviours this module implements, checked for completeness — ticket 35 §3.
 %%
@@ -967,6 +1003,67 @@ stratum_two() ->
 %% decided-and-unbuilt, and not an obligation at all. A lexer could only have
 %% produced `syntax error before: '<'` for the last two.
 codegen_obligations() -> ['ValidateAs', 'ParseAtom', 'ToExistingAtom'].
+
+%%% ---------------------------------------------------------------------------
+%%% Ticket 67 — RESERVED QUALIFIERS
+%%%
+%%% A codegen obligation and a reserved-qualifier operation are the SAME KIND of
+%%% entry — compiler-known, existing only as a rule in this file — and they sit
+%%% together for that reason. What separates them is the surface: an obligation
+%%% is named unqualified, an operation under a qualifier. 67: "nothing unqualified
+%%% is a function", so the two lists cannot merge.
+%%% ---------------------------------------------------------------------------
+
+%% `Map` is here with nothing under it yet, and that is deliberate rather than an
+%% oversight: ticket 48 reserved the NAME in 2026-08-25, and its operations
+%% (`Map.Get`, `map<K, V>`) are ENG-319, landing on the table below. Reserving the
+%% name now is what stops a user module called `Map` being written in the meantime
+%% and having to be taken away afterwards.
+reserved_qualifiers() -> ['List', 'Map', 'Term'].
+
+%% THE LOWERING TABLE'S KEYS. `{Qualifier, Name, Arity}` — keyed by arity because
+%% the BEAM's identity rule is arity-sensitive and because the corpus's own habit
+%% is the WRONG arity here: `Shop.Collections.List` declared `Sum/2` with an
+%% accumulator, and an author carrying that habit over writes `List.Sum(xs, 0)`.
+%% Keying by name alone would accept it and silently ignore the second argument.
+%%
+%% Which operations exist is BREADTH, which 67 puts out of scope on the map. These
+%% four are the ones the corpus already writes, plus 16's universal-order escape.
+%% `Fold`, `Map` and `Filter` wait on the lambda (ENG-295) — each takes one, and
+%% `=>` is 27 §(c).
+reserved_table() ->
+    [{'List', 'Sum', 1}, {'List', 'Length', 1}, {'List', 'Reverse', 1},
+     {'Term', 'Compare', 2}].
+
+%% The signature an operation is checked against, AT THE SITE. `Reverse` is the
+%% one entry whose result depends on its argument — it returns the list it was
+%% handed — which is what "inlined with that site's ground element type" has to
+%% mean to be worth anything. The others are monomorphic and say so.
+reserved_sig('List', 'Sum', 1, _ATys) ->
+    {ok, {[bs_types:list(bs_types:int())], bs_types:int()}};
+reserved_sig('List', 'Length', 1, _ATys) ->
+    {ok, {[bs_types:list(bs_types:term())], bs_types:int()}};
+reserved_sig('List', 'Reverse', 1, [ATy]) ->
+    {ok, {[bs_types:list(bs_types:term())],
+          bs_types:list(bs_types:list_elem(ATy))}};
+reserved_sig('Term', 'Compare', 2, _ATys) ->
+    %% 16's escape, named by 67 §Two owed spellings. An ordinary three-atom
+    %% union, so a `switch` over it is exhaustive with three arms and a missing
+    %% one leaves `:gt` as the residual — which is the whole reason it is this
+    %% and not `atom`, whose residual would name every atom there is.
+    {ok, {[bs_types:term(), bs_types:term()], order_type()}};
+reserved_sig(_Q, _Fun, _Arity, _ATys) -> error.
+
+order_type() ->
+    bs_types:union([bs_types:atom_lit(lt),
+                    bs_types:atom_lit(eq),
+                    bs_types:atom_lit(gt)]).
+
+%% The arities this qualifier does have for this name. Empty means the NAME is
+%% unknown; non-empty means the author wrote the wrong arity of a real operation,
+%% and `unresolved/6` above settled that those are different sentences.
+reserved_arities(Q, Fun) ->
+    [A || {Q1, F1, A} <- reserved_table(), Q1 =:= Q, F1 =:= Fun].
 
 %% Stratum 2's *"a user may not add to this stratum"*, enforced where the fix is.
 %% Every declaration form that introduces a type name is checked, because the
@@ -2119,10 +2216,62 @@ type_of({e_foreign_call, L, Mod, Fun, Args}, S, C) ->
 %% first, so `using Shop` + `Orders.Sum(o)` and `using Shop.Orders` +
 %% `Shop.Orders.Sum(o)` reach the same callee by different spellings.
 type_of({e_qcall, L, Mod0, Fun, Args}, S, C) ->
-    Mod = qualified_module(Mod0, L, C),
-    call(L, {q, Mod, Fun, length(Args)}, qualified_name(Mod, Fun), Args, S, C);
+    %% Ticket 67. The reserved fork comes BEFORE `qualified_module/3`, because
+    %% that function's whole job is to resolve a name through the import tables —
+    %% and a reserved qualifier is in none of them by construction. Falling
+    %% through to it is what produced the measured "List is called but never
+    %% imported", advice no author can act on.
+    case lists:member(Mod0, reserved_qualifiers()) of
+        true  -> reserved_call(L, Mod0, Fun, Args, S, C);
+        false ->
+            Mod = qualified_module(Mod0, L, C),
+            call(L, {q, Mod, Fun, length(Args)}, qualified_name(Mod, Fun),
+                 Args, S, C)
+    end;
 type_of(_, _S, _C) ->
     {bs_types:term(), []}.
+
+%% TICKET 67 CLAUSE 3 — THE COLLISION, AT THE CALL SITE AND NOT AT THE IMPORT.
+%%
+%% 67 Q6 (iii) is ticket 47's rule for two user modules applied to one more source
+%% of shadow, and 47's shape is the point: the import stands, and only a call that
+%% genuinely has two meanings is refused. A file may go on importing a namespace
+%% that happens to contain a `List`; what it may not do is short-qualify to the
+%% reserved word and expect either meaning to win silently. Elixir's clobber is
+%% the thing being refused.
+%%
+%% NAMESPACE-TIER-ONLY FOR FREE, rather than by a condition written here.
+%% `add_module_import/3` populates `funs` and `imported`; `add_namespace_import/3`
+%% populates `mods`. A reserved name can only be shadowed by a key of `mods`, so
+%% asking `mods` cannot fire on the module tier — `using Shop.List` followed by an
+%% unqualified `Sum(…)` is untouched, and so is any fully qualified call.
+reserved_call(L, Q, Fun, Args, S, C) ->
+    case maps:get(Q, maps:get(mods, C#ctx.imports, #{}), []) of
+        [] -> reserved_op(L, Q, Fun, Args, S, C);
+        Claimants ->
+            %% The arguments are still walked. A diagnostic about the QUALIFIER
+            %% is no reason to withhold the ones about what was passed to it, and
+            %% an author fixing the call would otherwise meet them one at a time.
+            {_ATys, D} = type_of_all(Args, S, C),
+            {reported(),
+             D ++ [{error, L, C#ctx.fname,
+                    {reserved_qualifier_shadowed, Q, Fun, lists:sort(Claimants)}}]}
+    end.
+
+%% The table lookup. `arg_diags/7` is reused rather than reimplemented: a reserved
+%% operation's arguments are checked by exactly the rule every other call's are,
+%% and the residual it produces is the clause the CALLER must write.
+reserved_op(L, Q, Fun, Args, S, C) ->
+    {ATys, D} = type_of_all(Args, S, C),
+    case reserved_sig(Q, Fun, length(Args), ATys) of
+        error ->
+            {reported(),
+             D ++ [{error, L, C#ctx.fname,
+                    {unknown_reserved_operation, Q, Fun, length(Args),
+                     reserved_arities(Q, Fun)}}]};
+        {ok, {Ps, Ret}} ->
+            {Ret, arg_diags(L, qualified_name(Q, Fun), Args, ATys, Ps, 1, C) ++ D}
+    end.
 
 %% The type of an expression that has ALREADY produced a diagnostic. `none` is a
 %% subtype of everything, so every site above it passes vacuously and the author

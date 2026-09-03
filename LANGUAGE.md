@@ -129,22 +129,22 @@ executed instead as `compiler/examples/Shop/`, which the example gate runs —
 ```csharp illustrative
 module Shop.Reports
 
-using Shop.Collections.List
+using Shop.Collections.Ints
 using Shop.Collections
 
 public int Restate(int n)
 Restate(n) -> Sum([n, n, n], 0)
 
 public int Counted(int n)
-Counted(n) -> List.Length([n, n])
+Counted(n) -> Ints.Length([n, n])
 
 public int Fully(int n)
-Fully(n) -> Shop.Collections.List.Sum([n], 0)
+Fully(n) -> Shop.Collections.Ints.Sum([n], 0)
 ```
 
-`using Shop.Collections.List` brings that module's names in **unqualified** — TypeScript's
+`using Shop.Collections.Ints` brings that module's names in **unqualified** — TypeScript's
 named-import semantics exactly. `using Shop.Collections` names a **namespace** and brings its modules
-in short-qualified (`List.Length(...)`). A namespace is a path other modules sit under; it is erased
+in short-qualified (`Ints.Length(...)`). A namespace is a path other modules sit under; it is erased
 entirely, with no atom and nothing emitted. A fully qualified call is always legal regardless of what
 is in scope, which is why every **diagnostic** prints that form and never has to know the call site's
 scope. **shipped**
@@ -1175,9 +1175,12 @@ logger being the obvious one, is **not a stage**: it takes `|>` and wraps the ch
 because skipping the stage is precisely what the valve is for.
 <!-- decided by ticket 31, measured against Plug and ASP.NET Core; the atom is ticket 49's question -->
 
-Both operators are built. What is **not** built is the collection prelude they are usually shown
-with — `List.Map` and friends as compiler-known functions — nor the function *value* that `f` and
-`g` stand for here, which this language was measured not to have:
+Both operators are built, and so is the collection prelude they are usually shown with.
+*Corrected 2026-09-04: this paragraph said that prelude was "**not** built", which was true when
+written and stopped being true when the reserved qualifiers below shipped.* What remains unbuilt is
+the function
+*value* that `f` and `g` stand for below, which this language was measured not to have — so the
+operations that take one wait with it:
 
 ```csharp not-yet
 xs |> List.Map(f) |> List.Filter(g)
@@ -1187,6 +1190,54 @@ There is **no comprehension syntax**. The compiler inlines its own collection op
 recovers precise emitted types that a call to a generic function loses.
 
 **decided**
+
+### Reserved qualifiers — `List`, `Term` and `Map`
+
+**A collection operation is a rule in the compiler, not a module that ships.** Every operation
+under a reserved qualifier is **inlined at the site that uses it**, with that site's ground element
+type. No `List.beam` is produced, a compiled program's only runtime dependency is the BEAM, and
+**no `using` line is ever written** for one:
+
+```csharp
+module Totals
+
+public int Total(list<int> xs)
+Total(xs) -> List.Sum(xs)
+
+public int Count(list<int> xs)
+Count(xs) -> xs |> List.Length()
+
+public list<int> Newest(list<int> xs)
+Newest(xs) -> List.Reverse(xs)
+
+public atom Before(int a, int b)
+Before(a, b) -> Term.Compare(a, b)
+```
+
+`Term.Compare` returns `:lt | :eq | :gt` — the universal-order escape, and an ordinary union a
+`switch` must cover. `List.Sum`, `List.Length` and `List.Reverse` are the operations the corpus
+writes; which others exist is breadth, deliberately out of scope.
+
+**Three names are reserved: `List`, `Map` and `Term`.** `Map`'s operations are not built yet, and
+the name is taken anyway — reserving it later would mean taking it away from a program that had
+already used it.
+
+The reservation burns the **bare name only**. `module List` is refused; `module Shop.Collections.List`
+is perfectly legal, and so is any other path with `List` as a segment. What is refused is the one
+place the two could be confused — a call whose qualifier means both:
+
+```csharp illustrative
+using Shop.Collections      // this namespace holds a module called List
+
+Counted(n) -> List.Length([n, n])   // error: `List` means two things here
+```
+
+The import itself is fine; only the call is refused, and the diagnostic names both claimants and
+prints the module's full path as the fix. Nothing is burned and nothing is silent — the quiet
+resolution other languages take here is exactly what is being refused. **shipped**
+<!-- decided by ticket 67 (and 48 for `Map`); built by F32 -->
+
+---
 
 ---
 
@@ -1768,6 +1819,8 @@ the parser accepts back exactly what the printer emits. **shipped**
 | the foreign `try` wrapper and `foreign_error`, from the declared return type | **shipped** — F19 |
 | the diagnostic as a term (`--diagnostics term`) | **shipped** — F16 |
 | the query mode (`--api`) | **shipped** — F17 |
+| reserved qualifiers — `List.Sum` / `Length` / `Reverse` and `Term.Compare`, inlined at the site | **shipped** — F32 |
+| `Map.Get` and the `map<K, V>` type, under the reserved `Map` | not started — the name is reserved, the operations are not |
 | `behaviour GenServer` — the attribute, callback names, and mandatory-callback presence | **shipped** — F10 |
 | behaviour contract checked as a **type** | not started — Dialyzer does it at the boundary today |
 
@@ -1795,10 +1848,12 @@ the parser accepts back exactly what the printer emits. **shipped**
 - The language's **name**. <!-- tracked by ENG-280 -->
 - ~~**Module and namespace system**~~ — **built**. What remains open is only whether `using` gains
   an **alias** (`using Orders = Shop.Orders`). <!-- tracked by ENG-219 -->
-- ~~**Stdlib shape**~~ — **decided**: the standard environment is the builtin type names, the declared
-  aliases, the codegen obligations, and compiler-known operations inlined under the reserved
-  qualifiers `Map`, `List` and `Term`; nothing unqualified is a function, and `raise` is a keyword.
-  Unbuilt, and the build is its own issue. <!-- tracked by ENG-281 -->
+- ~~**Stdlib shape**~~ — **decided and built**: the standard environment is the builtin type names,
+  the declared aliases, the codegen obligations, and compiler-known operations inlined under the
+  reserved qualifiers `Map`, `List` and `Term`; nothing unqualified is a function, and `raise` is a
+  keyword. *Corrected 2026-09-04: this said "Unbuilt, and the build is its own issue" until that
+  build shipped.* `Map`'s own operations and `map<K, V>` remain unbuilt, and `raise` is still
+  owed. <!-- tracked by ENG-281 --> <!-- built by F32; ENG-319 and ENG-293 remain -->
 - **`cond`**, or whatever serves a long ladder of unrelated conditions. <!-- tracked by ENG-282 -->
 - **Laziness** and `stream<T>` — deferred, not refused. <!-- tracked by ENG-283 -->
 - **Bootstrapping** — how much of B# is written in B#. The front end likely stays Erlang, as

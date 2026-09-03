@@ -12,7 +12,7 @@ module Shop.Reports
 // named-import semantics exactly. Corrected 2026-08-28: this comment used to
 // add that C#'s middle tier "does not exist here" — 41 §5 had already overturned
 // that as overstated, and the namespace import nine lines down IS that tier.
-using Shop.Collections.List
+using Shop.Collections.Ints
 
 // Namespace tier (41 §5): `Shop.Collections` holds no functions of its own, so it
 // is a NAMESPACE — erased entirely, no atom, nothing emitted. It is a way of
@@ -21,17 +21,17 @@ using Shop.Collections
 
 public int Restate(int n)
 // `Sum` unqualified, through the module-tier import. It resolves at CHECK time
-// and emits a remote call to 'Shop.Collections.List' — the resolution never
+// and emits a remote call to 'Shop.Collections.Ints' — the resolution never
 // happens at run time.
 Restate(n) -> Sum([n, n, n], 0)
 
 public int Counted(int n)
-// The same callee named through the namespace tier instead. `List` here is short
-// for `Shop.Collections.List`, resolved through the module table.
-Counted(n) -> List.Length([n, n])
+// The same callee named through the namespace tier instead. `Ints` here is short
+// for `Shop.Collections.Ints`, resolved through the module table.
+Counted(n) -> Ints.Length([n, n])
 
 public int Fully(int n)
 // And fully qualified, which is legal regardless of what is in scope — which is
 // exactly why 41 §2 can require every DIAGNOSTIC to print this form and never
 // have to know the call site's scope.
-Fully(n) -> Shop.Collections.List.Sum([n], 0)
+Fully(n) -> Shop.Collections.Ints.Sum([n], 0)

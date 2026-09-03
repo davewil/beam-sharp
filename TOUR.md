@@ -834,10 +834,10 @@ the module's full dotted path. A directory holding no `.bs` files of its own is 
 **namespace**: erased entirely, no atom, nothing emitted — a way of naming, not a thing that
 exists at run time.
 
-`examples/Shop/Collections/List/List.bs`:
+`examples/Shop/Collections/Ints/Ints.bs`:
 
 ```
-module Shop.Collections.List
+module Shop.Collections.Ints
 
 public int Sum(list<int> xs, int acc)
 Sum([], acc)          -> acc
@@ -859,17 +859,17 @@ Three ways to reach another module, all in `examples/Shop/Reports/Totals.bs`:
 ```
 module Shop.Reports
 
-using Shop.Collections.List
+using Shop.Collections.Ints
 using Shop.Collections
 
 public int Restate(int n)
 Restate(n) -> Sum([n, n, n], 0)
 
 public int Counted(int n)
-Counted(n) -> List.Length([n, n])
+Counted(n) -> Ints.Length([n, n])
 
 public int Fully(int n)
-Fully(n) -> Shop.Collections.List.Sum([n], 0)
+Fully(n) -> Shop.Collections.Ints.Sum([n], 0)
 ```
 
 ```
@@ -879,10 +879,10 @@ $ bsc --src-root examples examples/Shop/Reports Counted 5
 2
 ```
 
-- **The module tier** — `using Shop.Collections.List` brings names in **unqualified**. This is
+- **The module tier** — `using Shop.Collections.Ints` brings names in **unqualified**. This is
   TypeScript's named-import semantics exactly.
-- **The namespace tier** — `using Shop.Collections` makes `List` short for
-  `Shop.Collections.List`.
+- **The namespace tier** — `using Shop.Collections` makes `Ints` short for
+  `Shop.Collections.Ints`.
 - **Fully qualified** is legal regardless of what is in scope, which is why every *diagnostic*
   can print this form without knowing the call site's scope.
 
@@ -909,7 +909,7 @@ module Pipeline
 using Shop.Collections
 
 public int Restated(int n)
-Restated(n) -> [n, n, n] |> List.Sum(0)
+Restated(n) -> [n, n, n] |> Ints.Sum(0)
 
 public int Chained(int n)
 Chained(n) -> n |> Twice() |> Twice() |> Twice()
@@ -1304,11 +1304,20 @@ produce.
 | the UTF-8 entry check, `binary` → `string` | the one direction chapter 10 has no spelling for |
 | polymorphic function signatures — `Map<T, U>` | needs an arrow type |
 | the behaviour contract checked as a type | Dialyzer does it at the boundary today |
-| the collection library | names, shapes and holding module all undecided |
+| the operations that take a **function value** — `List.Map`, `List.Filter`, `List.Fold` | they need the arrow type the row above is waiting for |
+| `Map.Get`, and the `map<K, V>` type beside it | the name `Map` is reserved; its operations are not built |
 | `float` | no decided literal syntax; `1..5` currently only lexes as a range |
 | `cond`, or whatever serves a long ladder of unrelated conditions | open |
 
 The language's **name** is also open. `beam-sharp` is a working title.
+
+> **Corrected 2026-09-04.** A row reading ~~the collection library | names, shapes and holding
+> module all undecided~~ was wrong on all three counts by the time it was read. The names and
+> shapes were settled, the "holding module" question was answered *there isn't one* — the
+> operations are compiler-known and inlined at the site — and `List.Sum`, `List.Length`,
+> `List.Reverse` and `Term.Compare` are built. What is genuinely unbuilt is narrower and now has
+> its own two rows above.
+> <!-- ticket 67, ENG-321, F32 -->
 
 > **Corrected 2026-09-03.** A row reading ~~an alias on `using` | the last open question in the
 > module system~~ came out for the same reason as the row below it: the module system decided
@@ -1374,7 +1383,7 @@ grows a capability the tour has not met.
 | a string literal | `examples/Label/label.bs` | 10 |
 | string as a declared type | `examples/Label/label.bs` | 10 |
 | binary as a declared type | `examples/Label/label.bs` | 10 |
-| a dotted module path | `examples/Shop/Collections/List/List.bs` | 11 |
+| a dotted module path | `examples/Shop/Collections/Ints/Ints.bs` | 11 |
 | a native module import | `examples/Shop/Reports/Totals.bs` | 11 |
 | a qualified call | `examples/Shop/Reports/Totals.bs` | 11 |
 | a pipe into a call | `examples/Pipeline/pipeline.bs` | 12 |
@@ -1404,7 +1413,7 @@ that it does not name:
 | Form | Example | Chapter |
 |---|---|---|
 | a module is a directory | `examples/Shop/Reports/Totals.bs` | 11 |
-| arity overloading | `examples/Shop/Collections/List/List.bs` | 11 |
+| arity overloading | `examples/Shop/Collections/Ints/Ints.bs` | 11 |
 | a type-only parameter | `examples/Wire/wire.bs` | 4 |
 | the wildcard `_` | `examples/Math/math.bs` | 7 |
 | tuple type and tuple pattern | `examples/Readings/readings.bs` | 1 |

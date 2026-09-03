@@ -8,7 +8,7 @@
 %%% a program's output and has to be read off the emitted beam.
 %%%
 %%% The corpus carries the positive half: `examples/Fib` has a private `Series/4`
-%%% and `Reverse/2`, and `Shop.Collections.List` has a private `Length/2` beside
+%%% and `Reverse/2`, and `Shop.Collections.Ints` has a private `Length/2` beside
 %%% a public `Length/1`.
 -module(visibility_tests).
 
@@ -125,7 +125,7 @@ a_private_function_is_callable_within_its_module_test() ->
 
 %% Ticket 40 §2 permits arity overloading and §3 marks each signature, so the
 %% two meet here: visibility is per NAME AND ARITY. This is the shape
-%% `Shop.Collections.List` carries in the corpus.
+%% `Shop.Collections.Ints` carries in the corpus.
 two_arities_of_one_name_may_differ_in_visibility_test() ->
     Src = "module Pair\n"
           "public int Length(list<int> xs)\n"
