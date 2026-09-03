@@ -301,8 +301,9 @@ the body. These are open: read the body before assuming a direction.
   ticket 20 §5 settles half; refinement in type declarations is available where the predicate is decidable
 - **How a user-declared opaque refinement is actually checked** `#29` `types`
   three owed items, recorded in full on ticket 20 §5
-- **Stdlib shape as a principle** `modules` `prelude` <!-- tracked by ENG-281 -->
-  breadth is out of scope, the shape is not — and the prelude already has known contents
+- **Stdlib shape as a principle** `#67` `modules` `prelude` <!-- tracked by ENG-281 -->
+  **claimed 2026-09-03.** Four types ship and no function. `LANGUAGE.md` calls `List.Map` "a B# module"
+  on one page and "compiler-known, inlined" on another — that contradiction is the question
 - **Interop with Gleam and Elixir, both directions** `ffi` `modules`
   inbound `#50`: **answered by 48** — `Kind`-absent-only makes a foreign struct a `map<atom, term>`. outbound `#62`: Elixir cannot call a PascalCase export, and the tag is a required ABI
 - **Laziness and `stream<T>`** `#17` `types` <!-- tracked by ENG-283 -->
