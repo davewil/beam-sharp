@@ -298,6 +298,8 @@
   a tagged failure member, or a success type narrower than the atom top. Left as a spec-drafting
   detail rather than a ticket because it is one prelude signature with two known-good answers, but
   it is *owed*, and it lives here rather than only as a correction on closed ticket 10.
+  **Resolved 2026-09-03 — [ticket 67](issues/67-stdlib-shape-as-a-principle.md).** The answer is in
+  [`decisions.md`](decisions.md); this body is the history that led to it.
   **Ticket 15 populates both strata further and adds a wrinkle**: `result<T, E>` joins stratum 1 (an ordinary parametric alias), `foreign_error` joins
   stratum 2 — but `foreign_error` is *not* a codegen obligation and takes no type argument, so it
   fails 27's candidate criterion while still belonging to the compiler-known stratum. **So the

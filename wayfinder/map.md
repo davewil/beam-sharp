@@ -302,8 +302,9 @@ the body. These are open: read the body before assuming a direction.
 - **How a user-declared opaque refinement is actually checked** `#29` `types`
   three owed items, recorded in full on ticket 20 §5
 - **Stdlib shape as a principle** `#67` `modules` `prelude` <!-- tracked by ENG-281 -->
-  **claimed 2026-09-03.** Four types ship and no function. `LANGUAGE.md` calls `List.Map` "a B# module"
-  on one page and "compiler-known, inlined" on another. **(b), compiler-known — David 2026-09-03**; round 2 open
+  **resolved 2026-09-03: compiler-known, inlined, under reserved qualifiers** — `List` and `Term` join
+  `Map`; two kinds of entry, *declared* and *compiler-known*; `raise` is grammar; nothing unqualified
+  is a function. Unbuilt — ENG-321
 - **Interop with Gleam and Elixir, both directions** `ffi` `modules`
   inbound `#50`: **answered by 48** — `Kind`-absent-only makes a foreign struct a `map<atom, term>`. outbound `#62`: Elixir cannot call a PascalCase export, and the tag is a required ABI
 - **Laziness and `stream<T>`** `#17` `types` <!-- tracked by ENG-283 -->

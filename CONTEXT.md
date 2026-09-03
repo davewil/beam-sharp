@@ -245,6 +245,24 @@ A property of a standard-environment entry: reachable with no prefix. `option<T>
 can be in the standard environment and still require a qualifier.
 _Avoid_: prelude, auto-imported, implicit, in scope, global
 
+**Declared entry**:
+A standard-environment entry the compiler ships as a line the language can spell — `type option<T>
+= T | :nothing;` is one, and so are `result<T, E>` and `foreign_error`. A `.bs` file could have said
+it; the compiler says it so no file has to.
+_Avoid_: stratum 1, prelude alias, built-in alias
+
+**Compiler-known entry**:
+A standard-environment entry that exists only as a rule in the compiler and that no line of the
+language could spell: the builtin type names, the codegen obligations, and every operation under a
+reserved qualifier. The compiler draws inferences from it and inlines it where it is used.
+_Avoid_: stratum 2, intrinsic, primitive, magic function
+
+**Reserved qualifier**:
+A name a user cannot declare a module under — `Map`, `List`, `Term` — because it prefixes
+compiler-known operations (`Map.Get`, `List.Sum`, `Term.Compare`). A user's own module may still
+end in the word; a call that could mean either is refused at the call site.
+_Avoid_: reserved module, stdlib module, namespace, prelude module
+
 ## Codegen obligations
 
 **Codegen obligation**:

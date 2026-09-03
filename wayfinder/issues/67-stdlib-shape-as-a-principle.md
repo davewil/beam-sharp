@@ -1,7 +1,7 @@
 # 67 — Stdlib shape as a principle: what is in the standard environment versus a module you import
 
 Type: grilling
-Status: claimed — [ENG-281](https://linear.app/davewil/issue/ENG-281), 2026-09-03 by `/frontier`
+Status: **resolved 2026-09-03** — [ENG-281](https://linear.app/davewil/issue/ENG-281). Claimed the same day by `/frontier`; two rounds, eight questions, all answered by David.
 
 Raised 2026-08-31 by the §19-as-queue rule. The history — two strata modelled on
 `Kernel.SpecialForms`, the reopening on opaque refinements, ticket 27 moving the collection library,
@@ -398,3 +398,73 @@ the four are patterns already. **Delta: none.**
 - **The gate skips an entry with no row, silently.** `map<K, V>` has been in `prelude_entries()`
   since `aa04d0c` with nothing to read a status from. → [ENG-320](https://linear.app/davewil/issue/ENG-320) (quick-fix). The row is added
   in this commit so the entry is probed from now on, marked **decided** so it stays green while refused.
+
+## Round 2 — answered 2026-09-03
+
+| | answer |
+|---|---|
+| Q5 | **yes** — the line is *a `.bs` file could have said this*; the two kinds are **declared entries** and **compiler-known entries** |
+| Q6 | **(iii)** — refused at the call site, 47's rule |
+| Q7 | **`Term.Compare(a, b)` → `:lt \| :eq \| :gt`** — *"ok"* |
+| Q8 | **no** — *"ok"* |
+
+The frontier is empty: the only item that waited on round 2 was how the two kinds are documented,
+and once they have names that is the census's job, done below.
+
+## Answer
+
+**`List` is an operation set the compiler knows, not a module it ships.** Every collection
+operation is inlined at the site that uses it, with that site's ground element type, under a
+**reserved qualifier**. No `List.beam` ships, a compiled program's only runtime dependency is the
+BEAM, and no `using` is ever written for it. `List` and `Term` join `Map` (48) as the reserved
+qualifiers. This is the rule 48 chose for `Map.Get` and the sentence 17 §2 wrote, made general; and
+it is what makes the standard environment **closed by construction** — nothing a user writes can
+accrete into it, which answers the first question [ticket 65](65-reserved-names-policy.md) put to
+itself. Elixir, measured, draws the line elsewhere: its `List` and `Enum` are shipped beams and only
+`hd`/`tl`/`length`/`elem` and `for` are the compiler's own. B# makes every `List.` operation what
+Elixir's `hd/1` is and nothing what its `Enum.map/2` is.
+
+**The standard environment has two kinds of entry, and the line between them is whether a `.bs`
+file could have said it.** A **declared entry** is a line the language can spell, shipped so no
+file has to — `option<T>`, `result<T, E>`, `foreign_error`. A **compiler-known entry** exists only
+as a rule in the compiler — the builtin type names (`bool` among them), the codegen obligations,
+and every operation under a reserved qualifier. This is what `bs_check.erl` has done since F1; it
+survives the three falsifiers `PRELUDE.md` recorded; and it retires 27's *"a user could have written
+it"*, which was about capability rather than about how the thing ships. One entry the criterion
+sorts differently from the code's two maps: `ValidationError` is declared by shape and *protected*
+because an obligation returns it — protection is a property of an entry, not of a kind. A user's
+own opaque refinement is neither kind, because the user wrote it; "compiler-generated" was never
+the test, and *"may a user add to the second kind"* dissolves — a user's declaration is the user's.
+
+**Nothing unqualified is a function.** `raise` is grammar — a fifteenth keyword, `raise expr`, of
+type `none`, lowered to `erlang:error/1` — as 12 §5's own example spelled it; 15's *"a prelude
+function"* is corrected. `hd`, `tl`, `length` and `elem` do not exist: the pattern does three of
+them and `List.Length` the fourth, and the grammar has no call form for a lowercase name anyway.
+The unqualified column is therefore types and codegen obligations only, which is Gleam's shape.
+
+**Two owed spellings, chosen.** `ToExistingAtom` returns `result<atom, string>` — `option<atom>`
+collapses (15 §1, F31) and there is no success type narrower than `atom`. The universal-order
+escape 16 kept and never named is `Term.Compare(a, b)` returning `:lt | :eq | :gt` — Elixir's
+`compare/2` convention and Gleam's `Order`, a union a `switch` must cover.
+
+**When a user's module is also called `List`, the call site is refused.** `using Shop.Collections`
+beside a reserved `List` makes `List.Length(...)` an error naming both claimants and printing the
+full path as the fix — [ticket 47](47-import-alias.md)'s rule for two user modules, applied to one
+more source of shadow. Nothing is burned (`Shop.Collections.List` stays a legal module name) and
+nothing is silent (Elixir's clobber is the thing refused).
+
+**And `bool` was always a builtin.** Ticket 10 said alias; the compiler said builtin from F1; the
+decision moved, in place and dated, not the compiler.
+
+## What this answers elsewhere, and what it leaves
+
+- **Ticket 65** — closedness answered here; its reservation *policy* stays its own, and Q6 is the
+  shape any policy would enforce. `Term` is the third name on the list.
+- **`LANGUAGE.md:1384`** — corrected in this commit: the left side of a qualified call is *a reserved
+  qualifier, or a B# module*. `LANGUAGE.md:1178` stands. §19's open question is struck.
+- **Built by:** [ENG-321](https://linear.app/davewil/issue/ENG-321) (the reserved set, the lowering table, the call-site check —
+  decided, unbuilt); [ENG-319](https://linear.app/davewil/issue/ENG-319) (`map<K, V>` and `Map.Get` on the same table);
+  [ENG-293](https://linear.app/davewil/issue/ENG-293) (`raise` as grammar); [ENG-294](https://linear.app/davewil/issue/ENG-294) (`ToExistingAtom` as `result<atom, string>`).
+- **Chores:** [ENG-322](https://linear.app/davewil/issue/ENG-322) — "prelude" ×8 in `LANGUAGE.md`, and `PRELUDE.md`'s name.
+- **Out of scope, still:** which operations `List` has. Breadth is the map's boundary; `Binary.Append`
+  (25b) is the next qualifier the corpus will ask for and is not decided here.

@@ -57,18 +57,18 @@ actually modelled the stratification on.
 
 ---
 
-## Stratum 1 — definitions a user could have written
+## Declared entries — stratum 1: a line the language can spell, shipped so no file has to
 
+**The criterion, decided 2026-09-03 by [ticket 67](wayfinder/issues/67-stdlib-shape-as-a-principle.md): a `.bs` file could have said it.**
 Ordinary aliases. The compiler draws no special inference from them; they win no resolution
-contest; they are in the prelude because you should not have to import them.
+contest; they are in the standard environment because you should not have to import them.
 
 | Entry | Spelling | Reach | Status | Ticket |
 |---|---|---|---|---|
-| `bool` | `builtin(bool)` — the two-atom union `true \| false` | unqualified | **shipped** — ticket 10 corrected 2026-09-03 to say builtin (67); it sits in this table until 67's Q5 settles the two kinds | 10 |
 | `option<T>` | `type option<T> = T \| :nothing` | unqualified | **shipped** | 10 §5 |
 | `result<T, E>` | `type result<T, E> = T \| (:error, E)` | unqualified | **shipped** | 15 |
+| `foreign_error` | the foreign failure type, `(:error, term) \| (:throw, term) \| (:exit, term)` | unqualified | **built** — F19. Moved here 2026-09-03 (67): it is alias-shaped and `stratum_one()` always held it; only generated code produces the VALUES, but that is true of a value, not of the type's kind | 15 |
 | `map<K, V>` | 48's map type — `Kind` absent only, type before pattern form | unqualified | **decided** — refused today (*"no type named map takes a type argument"*); [ENG-319](https://linear.app/davewil/issue/ENG-319) builds it. Row added 2026-09-03 (67): without it `check-status-claims.sh` had no status to read and silently never probed the entry ([ENG-320](https://linear.app/davewil/issue/ENG-320)) | 48 |
-| the collection library | `List.Map`, `List.Filter`, `List.Fold` | **qualified** | **open** — see gaps | 27, 17 §2 |
 
 **`option` and `result` are not two spellings of one idea**, and the rule is worth stating because
 it decides which to reach for: *absence carries nothing, failure carries a reason*. `option<T>` is
@@ -89,19 +89,23 @@ must state (→ 18).
 
 ---
 
-## Stratum 2 — compiler-known
+## Compiler-known entries — stratum 2: a rule in the compiler that no line can spell
 
-What a user could not have written. Wins resolution, and the compiler draws inferences from it.
-**A user may not add to this stratum** — though see the gaps, because the *reason* for that "no"
+**The criterion, decided 2026-09-03 by [ticket 67](wayfinder/issues/67-stdlib-shape-as-a-principle.md): no `.bs` line could define it; it exists only because the compiler has code for it.**
+Wins resolution, and the compiler draws inferences from it — and, since 67, inlines it where it is
+used. **A user cannot add to this kind**, by definition rather than by rule: a user's declaration is
+the user's, whatever the compiler generates for it. The paragraph below is the history of that
+"no" ~~— though see the gaps, because the *reason* for that "no"~~
 has been withdrawn.
 
 | Entry | What it is | Reach | Status | Ticket |
 |---|---|---|---|---|
+| `bool` | `builtin(bool)` — the two-atom union `true \| false` | unqualified | **shipped** — a builtin like `int` and `string`; ticket 10 corrected 2026-09-03 to say so (67) | 10 |
+| the collection library | `List.Sum`, `List.Length`, `List.Reverse`, … — **inlined at the site under the reserved `List`**; `Map.Get` under `Map` (48); `Term.Compare` under `Term` | **qualified** | **decided** 2026-09-03 (67), unbuilt — [ENG-321](https://linear.app/davewil/issue/ENG-321). Which operations exist is breadth, out of scope | 67, 48, 17 §2 |
 | `ValidateAs<T>` | codegen: validates a foreign term against `T`, returns `result<T, ValidationError>` | unqualified | **built** — F18 | 11, amended by 15 |
-| `ValidationError` | the reason: a path into the term plus the type expected there, `(list<string>, string)` | unqualified | **built** — F18. The spelling of a path segment is F18's recorded assumption, not a decision | 15 §2 |
+| `ValidationError` | the reason: a path into the term plus the type expected there, `(list<string>, string)` | unqualified | **built** — F18. The spelling of a path segment is F18's recorded assumption, not a decision. By 67's criterion this is *declared* by shape and **protected** because an obligation returns it — protection is a property of the entry, not of the kind; it stays in this table for the gate's sake | 15 §2 |
 | `ParseAtom<T>` | codegen: parses to a **finite atom union**; a cofinite `T` is an error | unqualified | **decided** | 10 §4 |
 | `ToExistingAtom` | the genuine interop escape — a peer node's reply, a dynamically named atom | unqualified | **owed** — must be respelled | 10 §5, 15 §1 |
-| `foreign_error` | the foreign failure type | unqualified | **built** — F19. Stored in `stratum_one()` though it is listed here: its TYPE is nameable by an author, which is how the wrapper is asked for, while only generated code produces the VALUES | 15 |
 | `string` | `binary` refined by valid UTF-8 | unqualified | **built** — F9 as a *type*; F18 generates the membership check **inside `ValidateAs<T>`** and nowhere else, so a term from outside can now establish the property that only a literal could before | 20 |
 | a serialisation encoder | the fifth codegen obligation, generated against a type | unqualified | **decided** | 16 §4 |
 | OTP message shapes | `Down`, `Exit`, `Timeout` | unqualified | **decided** | 14 §6 |
@@ -138,7 +142,8 @@ rejected.
 | `==`, `!=`, `<`, `<=`, `+`, `-`, `*` | **operators** (8, 16). `==` means `=:=` |
 | `&&`, `\|\| unqualified |` | **do not exist.** The conjunction is `and` / `or`, in every position (44 amending 8) |
 | `is_atom/1` and friends | absent by design — the clause head and the checker do this |
-| `raise` | a prelude function taking **any term**, exactly `:erlang.error/1` (15). **decided**, unbuilt |
+| `hd`, `tl`, `length`, `elem` | **do not exist** (67, 2026-09-03) — the pattern does three of them, `List.Length` the fourth, and the grammar has no call form for a lowercase name |
+| `raise` | **grammar** — a keyword, `raise expr`, of type `none`, lowered to `:erlang.error/1`. Decided 2026-09-03 by 67, correcting 15's *"a prelude function"*; 12 §5's own example had no parentheses. Unbuilt — [ENG-293](https://linear.app/davewil/issue/ENG-293) |
 | `try` | absent — `monitor` + `receive` replaces it for remote failure (15) |
 
 **`<` carries an owed prelude entry.** Ticket 16 restricts `<` to **same-type operands**, and keeps
@@ -209,12 +214,15 @@ calling that layer "a function prelude" in the first place. Q9's answer — rese
 qualifier — is still needed, because it is a *standard-library module name*. The rest of Q9's
 framing was solving a problem that may not arise.
 
-### Two questions this opens, both open
+### Two questions this opened — both answered
 
-1. **Is `raise` grammar or a prelude function?** Grammar makes the prelude function-free and keeps
+1. **Is `raise` grammar or a prelude function?** ~~Grammar makes the prelude function-free and keeps
    the fifteen-keyword surface honest about what it costs. A function keeps the keyword count down
-   but reintroduces the one thing Q9 was worried about.
-2. **Does the term "prelude" survive?** It names a real set — *what is reachable without a
+   but reintroduces the one thing Q9 was worried about.~~ **Grammar — David, 2026-09-03, ticket 67.**
+   The grammar has no call form for a lowercase name, so the function reading would have cost a
+   production anyway, plus the shadowing rule 65 has not written. The unqualified column holds zero
+   functions.
+2. **Does the term "prelude" survive?** ~~Retired 2026-08-25, below.~~ It names a real set — *what is reachable without a
    qualifier* — and the lowercase/PascalCase rule at `bs_check.erl:710-712` needs that set to have a
    subject. But if the set is only types and codegen obligations, both already named in
    `CONTEXT.md`, the term may be carrying less than its own file implies.
@@ -273,7 +281,7 @@ Sorting the actual inventory against both axes:
 | `list<T>`, `option<T>`, `result<T, E>`, `map<K, V>` | yes | yes |
 | `ValidateAs<T>`, `ParseAtom<T>`, the encoder | yes | yes — codegen obligations |
 | `Map.Get`, `List.Map` | yes | **no** — qualified, and *inlined* (17 §2) |
-| `raise` | yes | yes |
+| `raise` | yes | **grammar — a keyword, not a name** (67) |
 | the 47 terminals below | yes | **grammar — not names at all** |
 | a user's own module | no | — |
 | an external dependency | no | — |
@@ -309,9 +317,9 @@ Three things the sweep turned up that are worth having written down:
 > original text asserted the absence was *"not recorded anywhere"* and *"a gap rather than a
 > decision"* — asserted, not searched. It is a decision, and only the **implementation** is missing.
 
-- **`/` and `%` are decided and unbuilt.** Neither is a token: the lexer has `+`, `-` and `*` and
-  stops there. Ticket 38 settled the semantics; nothing has emitted them yet. That is a **feature
-  owed**, not an open question.
+- ~~**`/` and `%` are decided and unbuilt.** Neither is a token~~ — **stale by 2026-09-03 (67): both are
+  terminals now (`bs_parser.yrl:27`) and `check-division.sh` gates them.** The sentence stood for nine
+  days after the feature landed, which is this file's own failure mode again.
 - **`not` is missing outright, and this one *is* a gap.** There is no `not` token and no production
   for it. [Ticket 44, amending 08](wayfinder/issues/44-conjunction-spelling.md), settled `and`
   and `or` — *"one spelling now, in every position … `&&`/`||` are removed rather than kept as
@@ -367,10 +375,21 @@ compiler modules (`bs_check.erl`, `bs_emit.erl`, `bs_diag.erl`), plus F18, F19 a
 can be done separately, and the concept should not wait for the file.
 ---
 
-## What is not decided
+## What was not decided — all seven resolved 2026-09-03 by ticket 67
 
-Read this section before proposing anything. These are open, and three of them are the *same*
-question wearing different clothes.
+~~Read this section before proposing anything. These are open, and three of them are the *same*
+question wearing different clothes.~~ Every item below has an answer now; the list is kept as the
+record of what was asked. The answers, in the order of the items:
+
+| item | answer |
+|---|---|
+| 1 | **a `.bs` file could have said it** — declared entry versus compiler-known entry; the criterion `bs_check` applied since F1 |
+| 2 | **no** — a user's declaration is the user's, whatever the compiler generates for it; the kinds are about how a thing *ships* |
+| 3 | this file: two headings, two tables, the criterion under each |
+| 4 | **compiler-known, inlined at the site, under the reserved `List`** — no module holds it because no beam ships; ENG-321 |
+| 5 | **`Term.Compare(a, b)` → `:lt \| :eq \| :gt`**, under the reserved `Term` |
+| 6 | **`result<atom, string>`** — ENG-294 |
+| 7 | **no** — the pattern does three, `List.Length` the fourth |
 
 1. **What actually distinguishes stratum 1 from stratum 2.** Three candidate criteria have each
    been falsified by an existing member:
