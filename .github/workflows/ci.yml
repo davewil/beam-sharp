@@ -285,11 +285,15 @@ jobs:
       # rather than skipping when the escript is missing, which is what keeps
       # this placement from quietly becoming a no-op if the steps are reordered.
       #
-      # Four positive controls, because the gate makes four claims: an invented
-      # clause, a dropped capability, a wrong pasted output, and a command in
-      # the document that must NOT execute. The last is checked by its side
-      # effect rather than by reading the code, since this gate did once run a
-      # markdown line through `eval`.
+      # Twelve positive controls and one negative, one per claim the gate
+      # makes: the four it was built with — an invented clause, a dropped
+      # capability, a wrong pasted output, and a command in the document that
+      # must NOT execute — the stamp's two, and six ways an `expect-after`
+      # transcript can be wrong. The command is checked by its side effect
+      # rather than by reading the code, since this gate did once run a
+      # markdown line through `eval`. The controls run concurrently since
+      # ENG-315 (2026-09-03); each is still the whole gate over the whole
+      # document, and each verdict is read from that run's own output.
       - name: The tour gate proves it can fail
         run: ./compiler/bin/check-tour.sh --self-test
 

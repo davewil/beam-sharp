@@ -456,7 +456,7 @@ if [ "${1:-}" = "--self-test" ]; then
         echo "self-test: reported the uncompilable block, the construct that has since"
         echo "           shipped, the unknown tag, and four ways a \`diagnoses:\` example"
         echo "           can be wrong — silent, mislabelled, carrying a second diagnostic,"
-        echo "           and claimed twice; three ways an \`expect-after\` example can be"
+        echo "           and claimed twice; four ways an \`expect-after\` example can be"
         echo "           wrong — drifted, naming no line, showing no output, or too few"
         echo "           production displays remaining; accepted a"
         echo "           correct one of each and the committed reference — the gate"

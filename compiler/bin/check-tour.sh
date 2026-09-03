@@ -258,8 +258,9 @@ if [ "${1:-}" = "--self-test" ]; then
   # THIS ONE INHERITS THE SELF-TEST'S TMPDIR. The sibling relation is between
   # $CTL and the gate's $SCRATCH, both from `mktemp -d`; under a private TMPDIR
   # the gate's would move on Linux and stay put on macOS, and the sentinel
-  # would be reachable on one platform and decorative on the other. It runs
-  # alone in the shared TMPDIR, every other control having left it.
+  # would be reachable on one platform and decorative on the other. It is the
+  # only control whose TMPDIR is the ambient one, so no other control's `bsc`
+  # writes scratch beside its replays while they all run together.
   CTL_BASE="$(basename "$CTL")"
   printf 'module Sentinel\npublic atom Keep()\nKeep() -> :yes\n' > "$CTL/sentinel.bs"
   cp "$CTL/sentinel.bs" "$CTL/sentinel.want"
@@ -305,7 +306,14 @@ if [ "${1:-}" = "--self-test" ]; then
     i=$((i + 1))
   done
 
-  # Control 4, by its side effect.
+  # Control 4, by its side effect — and first by having run at all. Nothing
+  # queued a judgement on its output, so a launch that never reached the gate
+  # would leave no sentinel and read as the gate refusing to execute.
+  if [ ! -f "$CTL/4.status" ]; then
+    echo "SELF-TEST FAILED: the injection control never ran, so an absent sentinel"
+    echo "                  proves nothing about whether the gate runs a shell"
+    st_fail=1
+  fi
   if [ -e "$CTL/pwned" ]; then
     echo "SELF-TEST FAILED: a command in TOUR.md executed — the gate runs a shell"
     st_fail=1
