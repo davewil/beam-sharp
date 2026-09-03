@@ -42,7 +42,10 @@
 #      exactly one row in `features/README.md`. That check is owed in writing:
 #      the index carries a comment saying F22 "shipped on 2026-08-21 and was
 #      NEVER GIVEN A ROW HERE ... NOTHING GATES THIS. That is a real owed check."
-#      This is it.
+#      This is it. And the rows are ONE table: a `| [F` row whose previous line
+#      is not a table line is a row markdown renders in a second, headerless
+#      table, which is what a blank line at `README.md:112` did for thirteen
+#      days while every row still had its grep hit (ENG-287).
 #
 #   C. NO DOCUMENT CALLS UNBUILT A FEATURE THE CORPUS DEMONSTRATES. For each
 #      subject below there is an example directory the compiler builds. If the
@@ -329,7 +332,8 @@ check_features() {
     # two tables and every row below the split has no header. The per-file
     # grep above cannot see this — it asks whether the row EXISTS, and a row
     # in the second table exists. `README.md:112` sat blank between F20 and
-    # F21 for eleven days under a green section B (ENG-287, 2026-09-03).
+    # F21 from 2026-08-21, when F21's row was appended below it, to 2026-09-03,
+    # under a green section B throughout (ENG-287).
     local split
     split="$(awk 'NR > 1 && /^\| \[F/ && prev !~ /^\|/ { print NR ":" prev_nr }
                   { prev = $0; prev_nr = NR }' "$index")"
@@ -474,6 +478,11 @@ check_open_tickets() {
 #   4. A prelude row marked decided whose entry the compiler RESOLVES. This is
 #      the `foreign_error` case and it is the direction a gate written only
 #      against "claims built, is not" would miss.
+#   5. A listed shipping document deleted from disk.
+#   6. A document calling a resolved ticket open (the `records (26 open)` case).
+#   7. The feature table split — a blank line, and then a prose line, inserted
+#      before a row in the middle of it. Every row still exists, so control 2
+#      is blind to both.
 #
 # The negative control is the tree as committed: it must be green, and it must
 # say how much it looked at, so a run that enumerated nothing cannot be mistaken
@@ -544,22 +553,34 @@ if [ "${1:-}" = "--self-test" ]; then
         fail=1
     fi
 
-    # --- control 7: a blank line inside the feature table -------------------
+    # --- control 7: the feature table split ---------------------------------
     # The ENG-287 case. Every row still exists, so control 2's check is blind
     # to it; the table is nonetheless two tables. Inserted before F5's row, a
     # row in the middle, so a check that only inspects the first or last row
-    # passes control 2 and fails here.
+    # passes control 2 and fails here. Its GREEN half is control 2's second
+    # run just above: the committed index, one table, must pass this check too.
+    # Two mutations, because the rule is "not a table line" and not "blank": a
+    # check written as `prev == ""` passes the first and fails the second.
     awk '/^\| \[F5 / { print "" } { print }' "$CTL/features/README.md" > "$CTL/features/README.split.md"
     out="$(check_features "$CTL/features" "$CTL/features/README.split.md" 2>&1)"; rc=$?
     if [ "$rc" -eq 0 ]; then
         echo "SELF-TEST FAILED: a blank line inside the feature table was not caught. Every"
         echo "                  row still has a grep hit, and the index renders as two tables"
-        echo "                  with the second one headerless — README.md:112, for eleven days."
+        echo "                  with the second one headerless — README.md:112, 2026-08-21 to 09-03."
         fail=1
     fi
     if ! printf '%s' "$out" | grep -q 'the feature table is split'; then
         echo "SELF-TEST FAILED: the split was caught but not named as a split, so a red run"
         echo "                  does not say what to fix."
+        fail=1
+    fi
+    awk '/^\| \[F5 / { print "A sentence of prose, which also ends a markdown table." } { print }' \
+        "$CTL/features/README.md" > "$CTL/features/README.split.md"
+    out="$(check_features "$CTL/features" "$CTL/features/README.split.md" 2>&1)"; rc=$?
+    if [ "$rc" -eq 0 ]; then
+        echo "SELF-TEST FAILED: a prose line inside the feature table was not caught. The"
+        echo "                  rule is 'not a table line'; a check that asks only for a blank"
+        echo "                  passes the first mutation and is blind to this one."
         fail=1
     fi
     rm -f "$CTL/features/README.split.md"

@@ -772,11 +772,11 @@ multi-year track, or one capability the language owes its author"*:
 
 **And the thing worth not losing**: the residual *is* pasteable source. `heads/2` prints
 the clause to add, `caller_head/3` the one the caller must write, F7 the missing arm.
-**Corrected 2026-08-27: this paragraph read "is already pasteable source", and it was measured
-false the same day** — of eight residual shapes round-tripped, three are syntax errors, one
-raises `repeated_in_head`, and one compiles in a spelling F22 exists to replace. **Corrected
-again 2026-09-03: F29 shipped later on 2026-08-27, and the sentence above then stood for a
-week saying the residual was not yet pasteable while a green gate refuted it on every run.**
+**Corrected 2026-08-27: the opening sentence was measured false the day it was written** — of
+eight residual shapes round-tripped, three were syntax errors, one raised `repeated_in_head`, and
+one compiled in a spelling F22 exists to replace. **Corrected again 2026-09-03: F29 shipped later
+on 2026-08-27 and made the sentence true, and this note then stood for a week saying the residual
+was not yet pasteable while a green gate refuted it on every run.**
 `compiler/bin/check-residual-pasteable.sh` round-trips eleven residual shapes — atoms, intervals,
 records, lists, tuples, binaries, a many-headed residual — and records each one's verdict; every
 entry in its `expected` table reads `clean`, which is F29's own done-when. So the claim below
