@@ -323,6 +323,25 @@ check_features() {
             bad=$((bad + 1))
         fi
     done
+    # THE TABLE MUST BE ONE TABLE. A `| [FNN ` row whose previous line is not a
+    # table line is a row the table lost: markdown closes a table at the first
+    # blank line and opens a new one at the next row, so the index renders as
+    # two tables and every row below the split has no header. The per-file
+    # grep above cannot see this — it asks whether the row EXISTS, and a row
+    # in the second table exists. `README.md:112` sat blank between F20 and
+    # F21 for eleven days under a green section B (ENG-287, 2026-09-03).
+    local split
+    split="$(awk 'NR > 1 && /^\| \[F/ && prev !~ /^\|/ { print NR ":" prev_nr }
+                  { prev = $0; prev_nr = NR }' "$index")"
+    if [ -n "$split" ]; then
+        while IFS=: read -r row before; do
+            printf '%s:%s: the feature table is split — line %s is not a table line, so\n' \
+                "${index#"$DOCROOT"/}" "$before" "$before"
+            printf '    the row at line %s and everything below it render as a second table.\n' \
+                "$row"
+            bad=$((bad + 1))
+        done <<< "$split"
+    fi
     printf 'feature files checked: %d\n' "$n"
     if [ "$n" -lt 1 ]; then
         echo "check-status-claims: no feature files found — this check enumerated nothing."
@@ -442,7 +461,7 @@ check_open_tickets() {
 # ---------------------------------------------------------------------------
 # --self-test
 #
-# FOUR POSITIVE CONTROLS, one per way this gate can be defeated, and the third
+# POSITIVE CONTROLS, one per way this gate can be defeated, and the third
 # is the one a plausible implementation fails.
 #
 #   1. A prelude row marked built whose entry the compiler refuses.
@@ -524,6 +543,26 @@ if [ "${1:-}" = "--self-test" ]; then
         echo "$out"
         fail=1
     fi
+
+    # --- control 7: a blank line inside the feature table -------------------
+    # The ENG-287 case. Every row still exists, so control 2's check is blind
+    # to it; the table is nonetheless two tables. Inserted before F5's row, a
+    # row in the middle, so a check that only inspects the first or last row
+    # passes control 2 and fails here.
+    awk '/^\| \[F5 / { print "" } { print }' "$CTL/features/README.md" > "$CTL/features/README.split.md"
+    out="$(check_features "$CTL/features" "$CTL/features/README.split.md" 2>&1)"; rc=$?
+    if [ "$rc" -eq 0 ]; then
+        echo "SELF-TEST FAILED: a blank line inside the feature table was not caught. Every"
+        echo "                  row still has a grep hit, and the index renders as two tables"
+        echo "                  with the second one headerless — README.md:112, for eleven days."
+        fail=1
+    fi
+    if ! printf '%s' "$out" | grep -q 'the feature table is split'; then
+        echo "SELF-TEST FAILED: the split was caught but not named as a split, so a red run"
+        echo "                  does not say what to fix."
+        fail=1
+    fi
+    rm -f "$CTL/features/README.split.md"
 
     # --- control 3: a document that never carried the claim gains one -------
     # THE OVER-INFORMED CONTROL. Written into CONTEXT.md, a glossary that says
@@ -625,9 +664,9 @@ if [ "${1:-}" = "--self-test" ]; then
 
     if [ "$fail" -eq 0 ]; then
         echo "self-test: caught a promised type bsc refuses, an unindexed feature file, a"
-        echo "           brand-new sentence calling a built feature out of scope, a deleted"
-        echo "           shipping document, and a resolved ticket called open — and reported"
-        echo "           its own enumeration counts in every case."
+        echo "           split feature table, a brand-new sentence calling a built feature"
+        echo "           out of scope, a deleted shipping document, and a resolved ticket"
+        echo "           called open — and reported its own enumeration counts in every case."
         exit 0
     fi
     exit 1

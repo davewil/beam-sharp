@@ -1,6 +1,6 @@
 # F28 — recursive types: the binder ticket 09 decided and nothing built
 
-**Status**      **done 2026-08-30** — 562 tests, 36 verify stages, and a new gate,
+**Status**      **done 2026-08-30** — 562 tests and a new gate,
                 `check-recursive-types.sh` · [ENG-260](https://linear.app/davewil/issue/ENG-260)
 **Implements**  [09](../../wayfinder/issues/09-union-representation.md) (equirecursive, contractive,
                 subtyping decided coinductively) — decides nothing new
