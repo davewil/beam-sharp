@@ -861,9 +861,11 @@ emit(_Path, Opts = #opts{outdir = Dir}, Module) ->
 %% 13's standing obligation (the frontend never depends on in-process compiler
 %% state, so `.abstr` plus external `erlc` always works) is measured where it
 %% always was, by `spec-check.sh` running the real `erlc` over the real
-%% `.abstr`. What a reader sees is unchanged: the compiler's report text is
-%% caught rather than read from a port, and still arrives on stderr under the
-%% `erlc: ` prefix `check-diagnostics.sh` allows by name.
+%% `.abstr`. The compiler's report text is caught rather than read from a port
+%% and still arrives on stderr, under the `compile: ` prefix that
+%% `check-diagnostics.sh` allows by name. It read `erlc: ` for a day after
+%% erlc stopped running; David asked for the text to stay honest, and the
+%% `compile` module is the thing that spoke.
 build(AbstrPath, Dir, Opts) ->
     Options = [from_abstr, debug_info, {outdir, Dir},
                report_errors, report_warnings],
@@ -881,17 +883,17 @@ build(AbstrPath, Dir, Opts) ->
         {ok, {ok, _Mod}} ->
             case string:trim(Out) of
                 ""   -> ok;
-                Warn -> io:format(standard_error, "erlc: ~s~n", [Warn])
+                Warn -> io:format(standard_error, "compile: ~ts~n", [Warn])
             end,
             verbose(Opts, "built ~s~n", [Beam]),
             {ok, Beam};
         {ok, _Failed} ->
-            io:format(standard_error, "erlc: ~s~n", [Out]),
-            {error, {erlc, Out}};
+            io:format(standard_error, "compile: ~ts~n", [Out]),
+            {error, {compile, Out}};
         {crashed, Class, Reason} ->
             Text = Out ++ lists:flatten(io_lib:format("~w:~p", [Class, Reason])),
-            io:format(standard_error, "erlc: ~s~n", [Text]),
-            {error, {erlc, Text}}
+            io:format(standard_error, "compile: ~ts~n", [Text]),
+            {error, {compile, Text}}
     end.
 
 verbose(#opts{verbose = true}, F, A) -> io:format(F, A);

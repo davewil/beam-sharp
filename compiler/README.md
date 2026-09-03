@@ -2,8 +2,15 @@
 
 ```
 .bs  →  lex  →  parse  →  exhaustiveness check  →  abstract format
-     →  erlc +from_abstr  →  .beam
+     →  .abstr on disk  →  compile:file from_abstr  →  .beam
 ```
+
+The last step is the Erlang compiler, in-process, reading the `.abstr` file `bsc` just wrote — the
+same `compile` module and the same `from_abstr` reader `erlc` runs, without `erlc`'s own VM boot per
+module (ENG-314, 2026-09-03; that boot was two thirds of a block's cost in the gates). Its report
+reaches stderr under a `compile:` prefix. Ticket 13's obligation — the forms are the contract, and
+`.abstr` plus an external `erlc +from_abstr` must always work — is unchanged, and `spec-check.sh`
+still runs the real `erlc` over the real `.abstr`.
 
 Written in Erlang, because `leex` and `yecc` ship with OTP, `merl`'s `?Q` quasi-quoting rides on
 an Erlang parse transform that Elixir cannot use, and the target runtime is already installed.

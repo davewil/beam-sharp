@@ -40,7 +40,9 @@
 #   bsc.erl    `crashed: ...` — a RUNNING program died. Ticket 23 §6 puts the
 #              structured form of that on `error_info` in emitted code, which is
 #              a separate decision with a size cost, and F16 does not build it.
-#   bsc.erl    `erlc: ...` — erlc's own output, passed through verbatim. Wrapping
+#   bsc.erl    `compile: ...` — the Erlang compiler's own report, passed through
+#              verbatim (it read `erlc: ...` while erlc was a subprocess; since
+#              ENG-314 the same OTP `compile` module runs in-process). Wrapping
 #              it would be claiming authorship of a message we did not write.
 #   bs_repl.erl  the REPL's own echo. It renders messages the compiler already
 #              produced; it does not produce any.

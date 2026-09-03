@@ -466,11 +466,14 @@ a_malformed_manifest_runs_nothing_and_names_the_line_test() ->
 %% which the bare `bsc` VM was 0.08s). `compile:file/2` over the same `.abstr`
 %% is the same OTP code erlc calls, and ticket 13's obligation — the serialised
 %% forms plus external erlc always work — is still what `spec-check.sh`
-%% measures. What a reader could notice is the prose: erlc's warning text
-%% reached stderr under an `erlc: ` prefix, and it still must.
-an_erlc_warning_still_reaches_stderr_under_its_prefix_test() ->
+%% measures. What a reader could notice is the prose: the Erlang compiler's
+%% warning text reaches stderr under a prefix naming who said it. That prefix
+%% read `erlc: ` for a day after erlc stopped running (David, 2026-09-03:
+%% "keep the docs/warning text honest"); it names the `compile` module now,
+%% which is the thing that actually spoke.
+the_erlang_compilers_warning_reaches_stderr_under_an_honest_prefix_test() ->
     Root = bs_test_support:fixture_root(),
-    %% A private function nothing calls: erlc deletes it and says so.
+    %% A private function nothing calls: the compiler deletes it and says so.
     Src = bs_test_support:place(Root, "half.bs",
                                 "module Half\n"
                                 "public int Whole(int n)\n"
@@ -480,5 +483,6 @@ an_erlc_warning_still_reaches_stderr_under_its_prefix_test() ->
     {Rc, Out, Err} = bs_test_support:run_cli_split_result(
                        "--src-root " ++ Root ++ " -o " ++ Root ++ "/out " ++ Src),
     ?assertEqual({0, ""}, {Rc, Out}),
-    ?assertNotEqual(nomatch, string:find(Err, "erlc: ")),
+    ?assertNotEqual(nomatch, string:find(Err, "compile: ")),
+    ?assertEqual(nomatch, string:find(Err, "erlc")),
     ?assertNotEqual(nomatch, string:find(Err, "is unused")).

@@ -183,6 +183,13 @@ Verified: `erlc +from_abstr` builds a working module with **no `.erl` anywhere o
 format is a *sequence of terms, one per form*, each terminated with `.` — feeding it a single list
 crashes `erl_lint` (13a §1).
 
+*Note, 2026-09-03 (ENG-314): `bsc` no longer spawns `erlc`. It writes the `.abstr` and compiles it
+in-process with `compile:file/2` and `from_abstr` — the call erlc makes — because erlc's own VM boot
+was two thirds of what a block cost the document gates. The obligation above is unchanged: the file
+is still written and read back on every build, and `spec-check.sh` runs the external `erlc` over the
+same `.abstr`, which is where "always works" is measured. Elixir's compiler and Mix make the same
+choice (`compile:noenv_forms/2`, `:compile.file/2`); David accepted it the same day.*
+
 **Why the obligation and not just the observation**: without it a frontend drifts into parse
 transforms, shared PLT state and incremental term reuse, and the text route quietly stops working
 precisely when someone wants to rewrite the frontend in another language. Keeping the promise is
