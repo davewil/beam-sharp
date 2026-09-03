@@ -155,6 +155,7 @@ All in `test/body_check_tests.erl` beside F5's site-2 tests, except F21.7's sibl
 | F21.13 | `with` on a union where one member lacks the field is refused, and the residual is that member |
 | F21.14 | `with` on a union where every member carries the field is legal, and the value half runs **per member** |
 | F21.15 | `with` on a recursive record is still a record update — the control at the binder |
+| F21.16 | an **undeclared** field on a union subject is the name defect, `not declared by …` per member, never "may not carry it" |
 
 ## Built 2026-08-21
 
@@ -186,7 +187,7 @@ own survey had made — that `with` was already a map-update form. It was, in th
 looked.
 
 **The fix is site 3's relation in `with`'s verb, and nothing new in `bs_types`.** One closed
-record keeps the path built above, byte for byte. Everything else is asked `subject \ { K: term, .. }`
+record keeps the branch built above unchanged. Everything else is asked `subject \ { K: term, .. }`
 per field: a non-empty residual is the member that may lack the field, handed back exactly as the
 dot hands it back, and `field_absent` gained a `form` (`projection` | `update`) the way
 `field_set_mismatch` did rather than a sibling. The refused expression synthesises `reported()`,
@@ -198,7 +199,14 @@ against **each member's own declaration** (F21.14). It has to: the subject may b
 run time, and a value one member's `Total` accepts and the other's rejects would build the second
 record in breach of its own type. Two members, two verdicts, each naming its record.
 
-**Six tests, one probe, one control.** F21.10–F21.15 in `body_check_tests.erl`; probe 5 in the
+**And the review of the fix found the third verdict.** `d with { Nope = 1 }` over `Order | Invoice`
+is not a subject that *may* lack `Nope` — no member has it — so "discriminate on the tag first"
+would point at a clause that cannot exist. Ticket 36's one site says this is `o with { Nope = 1 }`
+again, and it now gets that diagnostic, `not declared by Order`, per member (F21.16). Three
+verdicts per key: carried by every member, declared by none, or lacking from some — and only the
+last is the residual case.
+
+**Seven tests, one probe, one control.** F21.10–F21.16 in `body_check_tests.erl`; probe 5 in the
 gate, and the `SUBJECT-BLIND` stub, which is this feature exactly as it shipped and which the gate
 passed for thirteen days. Two projection tests changed only by gaining `projection` in the
 `field_absent` tuple. `LANGUAGE.md` §6 gained the sentence and a replayed example.

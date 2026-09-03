@@ -152,15 +152,17 @@ Zero() -> 0
 '
 
 echo "==============================================================="
-echo "VERDICT"
+echo "VERDICT — as measured 2026-08-25; the subject check landed 2026-09-03 (ENG-249)"
 echo "==============================================================="
 echo "    \`with\` is record-only in INTENT — control B proves the compiler"
 echo "    knows a record's field set and refuses an undeclared field."
-echo "    But its SUBJECT is unchecked: an int, a term and a list of pairs"
-echo "    are all accepted, and the int case cannot be anything but a bug."
+echo "    But its SUBJECT was unchecked: an int, a term and a list of pairs"
+echo "    were all accepted, and the int case could not be anything but a"
+echo "    bug. (Today each prints REFUSED above, with the subject as the"
+echo "    member that lacks the field.)"
 echo
 echo "    So beam-sharp does NOT already have a map-update form. It has a"
-echo "    RECORD-update form with a missing subject check. The Erlang"
-echo "    ':=' vs '=>' question relocates to a construct that would have"
-echo "    to be ADDED, not one that exists."
+echo "    RECORD-update form — one whose subject check was missing when"
+echo "    this was measured. The Erlang ':=' vs '=>' question relocates to"
+echo "    a construct that would have to be ADDED, not one that exists."
 echo "done."

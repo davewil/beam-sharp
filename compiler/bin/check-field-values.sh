@@ -258,7 +258,8 @@ OUT
 P5/P5.bs:5: error: Bump updates Total on a value that may not carry it
   this member has no Total:
     int
-  discriminate on the tag first, in a clause head.
+  `with` updates a record: give it one, or discriminate on the tag
+  first, in a clause head.
 OUT
   echo 1 > "$CTL/crywolf/P4.rc"
   crywolf="$(judge "$CTL/crywolf" || true)"
@@ -300,6 +301,11 @@ OUT
   grep -q '^probe 3:' <<<"$valueonly" || {
     echo "SELF-TEST FAILED: probe 3 missed the value-only stub — the third defect,"
     echo "                  which the ticket's own scope fence forbade looking for."
+    fail=1
+  }
+  grep -q '^probe 5:' <<<"$valueonly" || {
+    echo "SELF-TEST FAILED: probe 5 missed the value-only stub, which never looked"
+    echo "                  at the subject either."
     fail=1
   }
   for n in 1 2 4; do

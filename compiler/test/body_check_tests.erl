@@ -657,6 +657,23 @@ with_on_a_union_every_member_carries_runs_the_value_half_per_member_test() ->
                                    {field_value_not_accepted, R, 'Total', _}} <- Errors])),
     ?assertEqual(2, length(Errors)).
 
+%% F21.16 — an undeclared field on a union subject is the NAME defect, not the
+%% discriminator one. No member of `Doc` has `Nope`, so "discriminate on the
+%% tag first" would point at a clause that cannot exist; ticket 36's one site
+%% says this is `o with { Nope = 1 }` again, and it gets that diagnostic per
+%% member. Asserted that no `field_absent` appears beside them.
+with_on_a_union_undeclared_field_is_the_name_defect_test() ->
+    Src = "module Shop\n"
+          "record Order   { Id: int, Total: int }\n"
+          "record Invoice { Id: int, Total: int }\n"
+          "type Doc = Order | Invoice\n"
+          "public Doc Grow(Doc d)\n"
+          "Grow(d) -> d with { Nope = 1 }\n",
+    Errors = errors(Src),
+    ?assertEqual([{field_set_mismatch, 'Invoice', update, [], ['Nope']},
+                  {field_set_mismatch, 'Order',   update, [], ['Nope']}],
+                 lists:sort([D || {error, _, 'Grow', D} <- Errors])).
+
 %% F21.15 — the control at the binder. A recursive record's fields are one
 %% unfolding down, and F28's own comment on `declared_fields/1` warns that the
 %% catch-all's `unknown` is a silent degrade there rather than an error. The

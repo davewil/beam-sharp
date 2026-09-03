@@ -1942,7 +1942,7 @@ type_of({e_block, _, Binds, Final}, S, C) ->
 %% sentence F3.8 deferred: the tag to discriminate on.
 type_of({e_proj, L, V, Field}, S, C) ->
     Recv = maps:get(V, S, bs_types:term()),
-    Lacking = bs_types:subtract(Recv, bs_types:map_open(#{Field => bs_types:term()})),
+    Lacking = lacking(Recv, Field),
     case bs_types:is_none(Lacking) of
         true  -> {field_type(Recv, Field), []};
         false -> {reported(),
@@ -1997,7 +1997,7 @@ type_of({e_record, L, Name, Fields}, S, C) ->
 %% record, and for thirteen days that `unknown` was a silent pass: `n with
 %% { Total = 1 }` on an `int` typed as `int`, the return check was content, and
 %% the BEAM raised `{badmap, N}` at run time. So there are two paths here. One
-%% closed record keeps the path F21 built, byte for byte. Everything else is
+%% closed record keeps the branch F21 built, unchanged. Everything else is
 %% asked site 3's question in `with`'s verb: the subject minus an open map
 %% carrying the field is the member that may lack it, and a non-empty residual
 %% refuses. An int, a `term`, a list of pairs and a union one member short all
@@ -2564,45 +2564,114 @@ field_value_diags(Keys, Tys, RecTy, Name, L, C) ->
 %% A refused subject synthesises `reported()` too. This is the half of the
 %% defect that hid it: `int with { … }` used to type as `int`, so the `int`
 %% return type was satisfied and nothing else looked.
+%%
+%% THREE VERDICTS PER KEY, not two, and the third is ticket 36's one-site rule
+%% reaching the union. `d with { Nope = 1 }` over `Order | Invoice` is not a
+%% subject that MAY lack `Nope` — no member has it, so "discriminate on the
+%% tag first" would send the author to a clause that cannot exist. It is the
+%% name defect, `not declared by Order`, and it gets that diagnostic per
+%% member, as the single-record path gives it. Found by the review of this
+%% change, which asked the question the tests had not.
 with_subject(T, Keys, Tys, L, C) ->
     case bs_types:is_none(T) of
         true ->
             {T, []};
         false ->
-            Absent = [{K, Lacking}
-                      || K <- Keys,
-                         Lacking <- [bs_types:subtract(
-                                       T, bs_types:map_open(#{K => bs_types:term()}))],
-                         not bs_types:is_none(Lacking)],
-            case Absent of
-                [] ->
+            Verdicts = [{K, subject_verdict(T, K)} || K <- Keys],
+            Absent   = [{K, Lacking} || {K, {absent, Lacking}} <- Verdicts],
+            Invented = [K || {K, invented} <- Verdicts],
+            case {Absent, Invented} of
+                {[], []} ->
                     {T, member_value_diags(T, Keys, Tys, L, C)};
                 _ ->
                     {reported(),
                      [{error, L, C#ctx.fname, {field_absent, update, K, Lacking}}
-                      || {K, Lacking} <- Absent]}
+                      || {K, Lacking} <- Absent]
+                     ++ invented_diags(T, Invented, L, C)}
             end
     end.
 
+%% `carried`  — every member has the key: the value half runs.
+%% `invented` — NO member has it, and every member is a named closed record,
+%%              so this is a name nobody declared rather than a member to
+%%              discriminate on. `T \ Lacking` empty says nothing in `T`
+%%              carries the key; the record test keeps an `int` or a `term`
+%%              out, since neither has a declaration to be "not declared by".
+%% `absent`   — some member lacks it, or the subject is not a record at all,
+%%              and the residual is what lacks it.
+subject_verdict(T, K) ->
+    Lacking = lacking(T, K),
+    case bs_types:is_none(Lacking) of
+        true ->
+            carried;
+        false ->
+            case bs_types:is_none(bs_types:subtract(T, Lacking))
+                 andalso all_named_records(T) of
+                true  -> invented;
+                false -> {absent, Lacking}
+            end
+    end.
+
+%% A subject that is nothing but closed records, each wearing one tag. The
+%% `false` arm is a CLASSIFICATION, not a pass: what it sends a key to is the
+%% `absent` refusal, so an unforeseen shape is refused with its residual
+%% rather than accepted.
+all_named_records(#{mu := _} = T) ->
+    all_named_records(bs_types:unfold(T));
+all_named_records(#{maps := Members} = T) when is_list(Members), Members =/= [] ->
+    bs_types:is_none(bs_types:subtract(T, bs_types:map_open(#{})))
+        andalso lists:all(fun(M) -> record_name(M) =/= unknown end,
+                          member_types(Members));
+all_named_records(_) ->
+    false.
+
+%% Nothing invented, nothing to say — and the members are not asked for, since
+%% the subject may be an `int` or a `term` with no member list at all. That
+%% clause was missing on the first build, and the crash it caused on `term`
+%% is the reason the guard is a clause of its own rather than a comment.
+invented_diags(_T, [], _L, _C) ->
+    [];
+invented_diags(T, Ks, L, C) ->
+    [{error, L, C#ctx.fname,
+      {field_set_mismatch, record_name(M), update, [], lists:sort(Ks)}}
+     || M <- member_types(members_of(T))].
+
+%% SITE 3's RELATION, shared with the dot: the part of `Ty` that may not carry
+%% `Field`. Empty when every member carries it; otherwise the member to
+%% discriminate on. F21 says projection and update are one relation, and this
+%% is that sentence as one function.
+lacking(Ty, Field) ->
+    bs_types:subtract(Ty, bs_types:map_open(#{Field => bs_types:term()})).
+
 %% The value half over a subject that reached here: every member carries every
-%% key, and there is more than one member or the one member has no name. Each
-%% member is checked against ITS OWN declaration — a value one record's
-%% `Total` accepts and another's rejects would build the second record in
-%% breach of its own type, and the subject may be either at run time. The
-%% member is named by its tag where it has one, and by its printed shape where
-%% it has not, so no member's verdict goes unreported for want of a name.
-%%
+%% key, and the subject is not one closed named record — a union of records,
+%% or a single member `declared_fields/1` does not read, such as the open map
+%% an F22 pattern on a `term` parameter narrows to. Each member is checked
+%% against ITS OWN declaration — a value one record's `Total` accepts and
+%% another's rejects would build the second record in breach of its own type,
+%% and the subject may be either at run time.
+member_value_diags(T, Keys, Tys, L, C) ->
+    lists:append(
+      [field_value_diags(Keys, Tys, MTy, member_label(MTy), L, C)
+       || MTy <- member_types(members_of(T))]).
+
 %% No catch-all. `maps := top` cannot reach here — `term \ { K: term, .. }`
 %% is never empty — and any other shape is a change in `bs_types` this clause
 %% should refuse to guess about, which is the lesson of the `unknown` above.
-member_value_diags(#{mu := _} = T, Keys, Tys, L, C) ->
-    member_value_diags(bs_types:unfold(T), Keys, Tys, L, C);
-member_value_diags(#{maps := Members}, Keys, Tys, L, C) when is_list(Members) ->
-    lists:append(
-      [field_value_diags(Keys, Tys, MTy, member_label(MTy), L, C)
-       || {Kind, Fs} <- Members,
-          MTy <- [(bs_types:none())#{maps => [{Kind, Fs}]}]]).
+members_of(#{mu := _} = T)                          -> members_of(bs_types:unfold(T));
+members_of(#{maps := Members}) when is_list(Members) -> Members.
 
+%% One member of a union of maps, as a type of its own, so `record_name/1` and
+%% `field_type/2` can be asked of it. `Openness` is `closed | open` — not the
+%% minted `'Kind'` field, which lives inside `Fs`.
+member_types(Members) ->
+    [(bs_types:none())#{maps => [{Openness, Fs}]} || {Openness, Fs} <- Members].
+
+%% The name the value diagnostic prints. A member wearing one tag is named by
+%% it, as every other site names a record. A member without one — a map with
+%% no `Kind`, which no surface declaration spells today — is named by its
+%% printed shape rather than dropped: a verdict with an odd name beats a
+%% value that goes unchecked for want of one, which is how this defect began.
 member_label(MTy) ->
     case record_name(MTy) of
         unknown -> lists:flatten(bs_types:to_pattern(MTy));
