@@ -56,7 +56,8 @@ age picked wrong three times.
   in the same turn it goes to David, never in the chat alone — a round that lived only in
   conversation silently collided its question numbers with an earlier round's.
 - **When resolving a ticket**: write the answer in the repo file, commit, then set the Linear
-  issue's state and paste the gist into its description. Both, not one.
+  issue's state and paste the gist into its description. Both, not one — and the issue id comes
+  from Linear, never from arithmetic on the ticket number.
 
 ## The failing test and the gate come first (David, 2026-08-18)
 

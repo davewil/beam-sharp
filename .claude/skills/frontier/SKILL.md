@@ -1,6 +1,7 @@
 ---
 name: frontier
-description: Pick the next piece of beam-sharp work from Linear and the repo, ranked by claim, priority, what it unblocks, and the repo's own rules; claim it in both trackers and route it. Load BEFORE starting on any ticket, feature or defect here - when asked what to work on next, or when a session begins with no piece of work already named. It carries the traps that picking walks into: the ticket-number rule, where feature status comes from, and defect-versus-ticket.
+description: Pick the next piece of beam-sharp work from Linear and the repo, ranked by claim, priority, what it unblocks, and the repo's own rules; claim it in both trackers and route it. It also carries the traps that picking walks into: the ticket-number rule, where feature status comes from, and defect-versus-ticket.
+disable-model-invocation: true
 ---
 
 # Frontier
@@ -89,6 +90,18 @@ ticket, also `Status: claimed` in its repo file. Then route by kind:
 
 Report: a table of the top five with rule, priority, label and what each blocks; then the pick,
 the rule, and what it unblocks. Done when the claim is visible in both trackers.
+
+## Why this skill is user-invoked
+
+`disable-model-invocation` is set deliberately. Step 5 writes to two places before any work
+happens — a Linear issue's state and assignee, and a `Status:` line in a tracked file — and a
+model-invocable skill would reach that step on its own judgment that a session was picking work.
+
+**Headless and multi-session claiming without David's approval is the intended destination**
+(David, 2026-09-04), gated behind other workflow refinements first. What it needs before the flag
+comes off is [ENG-326](https://linear.app/davewil/issue/ENG-326); the short form is that a claim
+has to survive two agents racing for it, has to be reapable when the session holding it dies, and
+has to be distinguishable from a claim David made himself.
 
 ## Frontier, not backlog
 
