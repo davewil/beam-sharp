@@ -58,7 +58,7 @@ flat, no module wrapper, no attribute — despite ticket 32's own resolution pro
 
 ## How real BEAM-family tools solve this — surveyed against real files
 
-**rebar3, this project's own.** `compiler/rebar.config:2` is `{deps, [].}` — no dependency today,
+**rebar3, this project's own.** `compiler/rebar.config:2` is `{deps, []}.` — no dependency today,
 and `compiler/rebar.lock` is `[].` to match. `rebar3 tree` confirms: `└─ bsc─0.1.0 (project app)`,
 nothing else. To see the *shape* rebar3 uses when a dependency exists, I generated a fresh
 `rebar3 new app` scaffold (which itself writes `{deps, []}.`, matching the compiler's own file —
@@ -243,8 +243,9 @@ made `rebar3 compile` go try to resolve it against a registry (`===> Failed to u
 from repo hexpm`). A reader coming from rebar3 or mix — the two tools ticket 51 explicitly made
 beam-sharp ride on — will bring that expectation to a `.bs` file's version syntax, and "purely
 advisory, never enforced" is a promise the surrounding ecosystem's own tools do not keep for the
-identical syntax. This is the sub-question 1 risk the ticket itself names — *"a version constraint
-edges into resolution, which is out of scope"* — now backed by a real tool actually doing exactly
+identical syntax. This is the sub-question 1 risk the ticket itself names — its own text reads *"a
+version constraint is resolution, which is the boundary's territory and should stay refused"*
+(wayfinder/issues/52-dependency-provenance.md:56) — now backed by a real tool actually doing exactly
 that under the identical spelling. Elm's own precedent (unverified live here, but well-documented)
 cuts the same way from a different angle: Elm reserves ranges for **packages** meant to be
 recombined by others, and pins **exact** versions for **applications** meant to run — a `.bs`
@@ -258,9 +259,10 @@ not what this option as stated proposes.
 1. **Spell the extension as a `using`/`foreign_decl` grammar addition, not a bracket attribute.**
    Ticket 22's measured finding — every prior `[attribute: value]` proposal in this project's design
    prose shipped as a keyword instead, and there is no bracket-attribute grammar anywhere in
-   `bs_parser.yrl` today — predates ticket 52 by two days and applies to it directly. The ticket's
-   own candidate spelling should be read as "carry an application name on the declaration," not as
-   a commitment to bracket syntax.
+   `bs_parser.yrl` today — was resolved two days *after* ticket 52 was raised (52: 2026-08-21; 22:
+   resolved 2026-08-23), so it postdates 52's own candidate spelling but is available now and
+   applies to it directly. The ticket's own candidate spelling should be read as "carry an
+   application name on the declaration," not as a commitment to bracket syntax.
 2. **The compile-time check (`code:which/1` at `bs_check.erl:596-602`, following the
    `admissible_foreign_ret/5` pattern at `bs_check.erl:619-623`) is worth building independent of
    whether an app-name attribute ships**, because it needs no new syntax at all — only the atom

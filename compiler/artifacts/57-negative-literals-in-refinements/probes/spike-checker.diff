@@ -1,0 +1,46 @@
+--- /home/user/beam-sharp/compiler/src/bs_check.erl	2026-09-04 13:56:39.943431773 +0000
++++ /tmp/beamsharp-spike-checker/compiler/src/bs_check.erl	2026-09-04 14:20:50.987398584 +0000
+@@ -3487,8 +3487,16 @@
+         Constraint  -> [[Constraint]]
+     end.
+ 
+-comparison({e_op, _, Op, {e_var, _, V}, {e_int, _, K}}) -> int_cmp(Op, V, K);
+-comparison({e_op, _, Op, {e_int, _, K}, {e_var, _, V}}) -> int_cmp(flip(Op), V, K);
++comparison({e_op, _, Op, {e_var, _, V}, R}) ->
++    case const_int(R) of
++        {ok, K} -> int_cmp(Op, V, K);
++        error   -> unknown
++    end;
++comparison({e_op, _, Op, L, {e_var, _, V}}) ->
++    case const_int(L) of
++        {ok, K} -> int_cmp(flip(Op), V, K);
++        error   -> unknown
++    end;
+ comparison({e_op, _, '==', {e_var, _, V}, {e_atom, _, A}}) ->
+     {V, {include, bs_types:atom_lit(A)}};
+ comparison({e_op, _, '!=', {e_var, _, V}, {e_atom, _, A}}) ->
+@@ -3496,6 +3504,24 @@
+ comparison(_) ->
+     unknown.
+ 
++%% SPIKE (ticket 57, checker-side candidate): fold literal integer arithmetic
++%% before asking whether a comparand is constant. `-5` arrives as
++%% `{e_op,'-',{e_int,0},{e_int,5}}` (the parser's uniform lowering of unary
++%% minus, `bs_parser.yrl`), and this recognises that shape and the ordinary
++%% binary +/-/* cases too, so `2 + 3` folds the same way. Anything with a
++%% variable anywhere inside stays `error`, so `value >= n` is untouched.
++const_int({e_int, _, K}) -> {ok, K};
++const_int({e_op, _, '+', L, R}) -> fold2(fun(A, B) -> A + B end, L, R);
++const_int({e_op, _, '-', L, R}) -> fold2(fun(A, B) -> A - B end, L, R);
++const_int({e_op, _, '*', L, R}) -> fold2(fun(A, B) -> A * B end, L, R);
++const_int(_) -> error.
++
++fold2(F, L, R) ->
++    case {const_int(L), const_int(R)} of
++        {{ok, A}, {ok, B}} -> {ok, F(A, B)};
++        _ -> error
++    end.
++
+ int_cmp('>',  V, K) -> {V, {include, bs_types:range(K + 1, pos_inf)}};
+ int_cmp('>=', V, K) -> {V, {include, bs_types:range(K, pos_inf)}};
+ int_cmp('<',  V, K) -> {V, {include, bs_types:range(neg_inf, K - 1)}};
