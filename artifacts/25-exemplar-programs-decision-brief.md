@@ -194,8 +194,13 @@ awaited.bs: error: Start uses receive, which nothing binds
   a name comes from a clause head or a binding above it.
 ```
 
-**`!` (raw send) does not exist in the grammar at all** — not documented as a gap anywhere in
-`LANGUAGE.md` or the tickets, discovered only by trying to write it — and **`receive` is lexed as
+**`!` (raw send) does not exist in the grammar at all.** This brief's independent verifier
+(`artifacts/25-exemplar-programs-VERIFICATION.md`) correctly flags that the *absence* is not
+undocumented the way this section originally implied: LANGUAGE.md already states plainly that
+there is no `!` (ticket 63/F27's shipped negation-refusal diagnostic covers the same token), and
+ticket 14 §1 discusses "raw `!` from Erlang" by name. What discovering it by trying to write it
+adds is confirming the compiler actually enforces that absence today, not that the absence itself
+was previously unrecorded — and **`receive` is lexed as
 an ordinary identifier**, matching what LANGUAGE.md §13 already says ("`receive` is a filter...
 decided") but conspicuously never says is *built*, unlike the adjacent "shipped" callouts for
 `behaviour GenServer` two paragraphs above it. Grepped directly against the grammar to confirm

@@ -47,8 +47,11 @@ worth fixing, and is the fix simple enough to be worth doing now."
    loop constructing and dispatching over them) vs a hand-written Erlang counterpart using
    beam-sharp's own map erasure (`#{'Kind' => 'ShapeBench.Circle', 'R' => R}`, confirmed against
    the actual disassembly): **beam-sharp is consistently 17–19% slower** (`04-records-dispatch-otp25.txt`,
-   five runs, 19.75–20.20ms vs 16.60–17.01ms min). Disassembly diff shows `Loop`/`Pick` are
-   instruction-identical; the difference is in `Area`, where beam-sharp's `.R`/`.S` field access
+   five runs, 19.75–20.20ms vs 16.60–17.01ms min). Disassembly diff shows `Pick` is
+   instruction-identical and `Loop` differs only by extra `{tr,...}` annotations on beam-sharp's
+   side (working in beam-sharp's favor, not against it — flagged by this brief's independent
+   verifier, `artifacts/39-emitted-code-quality-VERIFICATION.md` §4); the load-bearing difference is
+   in `Area`, where beam-sharp's `.R`/`.S` field access
    compiles to `{bif, map_get, ...}` while Erlang's map-pattern head compiles to
    `{get_map_elements, ...}`. Isolated in a controlled microbenchmark (`mapget_probe2.erl`, map
    construction forced through an opaque cross-module call so the optimizer can't fold the round
@@ -66,8 +69,15 @@ worth fixing, and is the fix simple enough to be worth doing now."
 
    **Spike result** (`06-mapget-alt-lowering-otp25.txt`): a `case M of #{'R' := V} -> V end`
    lowering, tested standing beside both the current `map_get` path and the pattern-match path,
-   **fully closes the gap** — 1.00–1.01x against the pattern-match baseline, four runs. So a fix
-   exists and was measured to work, but it isn't a one-line swap: it only applies where the
+   **closes the gap to approximately native pattern-match speed** — captured at 1.00–1.01x across
+   four runs, though this brief's independent verifier found that specific figure is order-sensitive
+   under a plain rerun of this harness (1.09–1.21x more often than not across ten reruns), tracing
+   it to a single-process sequential-timing warm-up artifact; two corrected methodologies (a
+   fresh-process-per-call variant, and a warm-up-plus-GC variant) both reliably restore 1.00–1.01x.
+   **The direction and the qualitative conclusion — `case`-lowering matches native pattern-match
+   speed, `map_get` does not — hold; treat the exact "1.00–1.01x" figure as the least repeatable
+   number in this brief, not as a precise measurement.** So a fix exists and was measured to work,
+   but it isn't a one-line swap: it only applies where the
    projection is *not* inside a guard, so `bs_emit` would need to keep `map_get` for guard
    positions and switch to the `case` lowering for body positions — two code paths, not one.
 
@@ -87,9 +97,12 @@ OTP 28 leaves the original finding unaddressed rather than refuted.
 
 **(b) Fix `.field` projection: `map_get` in guards, `case`-with-map-pattern in bodies.** For
 evidence: a controlled, disassembly-verified microbenchmark showing the proposed lowering matches
-native-pattern-match speed exactly (1.00–1.01x) while the current lowering costs ~30% on the
-isolated read and 17–19% on a realistic records+dispatch workload — both reproduced across
-multiple runs. This is a real, understood, actionable mechanism with a tested candidate fix,
+native-pattern-match speed under corrected (order-controlled) methodology, while the current
+lowering costs ~30% on the isolated read and 17–19% on a realistic records+dispatch workload — the
+latter two reproduced across multiple runs and confirmed order-insensitive; the case-lowering's own
+headline number is order-sensitive on a plain rerun and should be read as "closes the gap" rather
+than as a precise ratio (see the caveat above). This is a real, understood, actionable mechanism
+with a tested candidate fix,
 independent of any OTP-28-vs-25 uncertainty (the mechanism is `map_get` vs `get_map_elements`,
 which exists on both). Against it: `bs_emit` would need guard-position tracking for `{e_proj,...}`
 that may not currently exist at that call site (unverified — I read the lowering, not the
@@ -131,6 +144,15 @@ committing to it.
 
 ## What I could not verify
 
+- **The isolated `map_get`-vs-`case`-lowering microbenchmark's exact headline number is
+  order-sensitive.** Flagged by this brief's independent verifier, not caught here originally: a
+  plain rerun of `06-mapget-alt-lowering-otp25.txt`'s harness gives 1.09–1.21x more often than the
+  captured 1.00–1.01x, traced to a single-process sequential-timing warm-up artifact (the function
+  timed first in the sequence comes out fastest). The qualitative conclusion is unaffected — two
+  corrected methodologies (fresh-process-per-call; warm-up+GC before each timed loop) both reliably
+  restore 1.00–1.01x, and the realistic `ShapeBench` workload is independently confirmed
+  order-insensitive — but the precise ratio for the isolated microbenchmark should not be read as a
+  tightly repeatable number the way the rest of this brief's figures are.
 - **The OTP-28 vs OTP-25 JIT gap.** This sandbox has Erlang/OTP 25.3.2 only; the project is pinned
   to OTP 28.5, and mise/asdf are unavailable while github.com/api.github.com return HTTP 403
   (confirmed org egress block). Every number in this brief is an OTP-25 number. The ticket's
