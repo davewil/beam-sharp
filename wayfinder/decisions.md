@@ -943,7 +943,7 @@
 
   <details><summary>The patch as it stood before the ticket, preserved</summary>
 
-- **Module and namespace system**, and function identity — BEAM identifies functions by
+  **Module and namespace system**, and function identity — BEAM identifies functions by
   name *and arity*, which multi-clause heads and optional parameters both disturb. **Ticket 10
   §3 adds one requirement**: a module identifier in value position is an atom singleton, so this
   fog owes an answer to *what atom is actually emitted* — a bare snake_cased name, which risks
