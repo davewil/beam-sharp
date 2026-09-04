@@ -26,12 +26,18 @@
 #
 #   the discarded status   `rc=$?` where `$rc` is never read again. That is
 #                          d67ab38 exactly.
-#   the neutralised subject  a call to a function DEFINED IN THIS SCRIPT, inside
-#                          the self-test, terminated by `|| true`. A function the
-#                          script defines is the thing under test; a `grep` or a
-#                          `find` is not, and neither is a cleanup.
+#   the neutralised subject  a call to a function DEFINED IN THIS SCRIPT,
+#                          terminated by `|| true`. A function the script defines
+#                          is the thing under test; a `grep` or a `find` is not,
+#                          and neither is a cleanup.
 #
-# Zero findings today — all three were fixed. This is a regression guard, and its
+# ANYWHERE IN THE FILE, not only inside `--self-test`. The three incidents on
+# record were all in self-test blocks, and scoping the rule to those blocks is
+# the tempting reading of them - but the live hit this detector actually found,
+# `check-reserved-qualifiers.sh:136`, was in `probe()`, on the gate's main path.
+# A control that cannot fail is no better for sitting outside a self-test.
+#
+# Zero findings once that one was fixed. This is a regression guard, and its
 # `--self-test` is where the evidence lives.
 
 set -euo pipefail

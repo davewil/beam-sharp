@@ -22,10 +22,11 @@ A snapshot, like the 2026-09-01 review. It will go stale; the detectors will not
 | Distinct classes found | 11 |
 | Classes with a detector | 9 |
 | Classes named without one | 2, each with the reason |
-| Live instances found | 20 |
+| Live instances found by the detectors | 18 |
+| Further instances found while building them | 2 |
 | Live instances fixed | 20 |
 | Detectors that fire on their own historical commit | 9 of 9 |
-| Detectors green on the tree after the fixes | 9 of 9 |
+| Detectors green on the tree after the fixes | 9 of 9 on macOS. On the CI runner: all nine `--self-test`s green, then the first detector run red and the other eight **skipped**, not green — `verify.sh` aborts at the first failure. See §6 row 21 |
 
 ---
 
@@ -280,7 +281,19 @@ at the line.
 | 14–15 | stale suite count | `stage.sh` and the audition README both said "stage 12 of 34" | Deleted rather than corrected, per `910ed93` |
 | 16 | shared scratch | The audition harness defaulted its workdir to `/tmp/bsharp-audition`, so two runs shared a directory | `mktemp -d`, printed on start |
 | 17–18 | unenumerated directory | `wayfinder/prototypes` (34 scripts) and `.claude/skills/frontier` were in no enumeration and no exclusion list | Both excluded, each with its reason — `5abb590` decided the first deliberately, and the state the detector refuses is the third one: never considered |
+| 21 | *(found by CI, 2026-09-04)* | `detect-unmanifested-tool.sh` reported `editor` in two detectors — a case-arm alternation member, `_build/*\|editor/node_modules/*)`, read as a command because a word after `\|` is a command position. **Only on Linux**: the detector suppresses parse artefacts with `command -v`, and `/usr/bin/editor` is a Debian alternatives symlink that macOS has no equivalent of, so a green local pair sat under a red master | `case_labels()` — the arm class had no `/`, was anchored to `^` so an inline `case … in` arm was invisible, and did not reduce a path member to the first segment the extractor reports. A seventh control, `casearm`, covers both spellings |
 | 19–20 | *(found while building)* | `detect-unmanifested-tool.sh` died silently on any tree older than `aeb4fd8`; `check-shell.sh` did not reach `detectors/lib`, which no `-perm -u+x` test can ever match | Both fixed in place |
+
+
+**Row 21 is the one to read.** This detector's findings depend on the host, in one
+direction: a word that is a parse artefact is reported only if `command -v` finds a binary of
+that name, so the machine with more binaries reports more. That is the fail-loud direction and
+CI is the strictest host, which is the good half. The bad half is that the local clean pair —
+the whole twice-from-clean bar — cannot see a false positive that needs a Linux binary to
+appear, so *for a lexical rule with a `command -v` filter, a green pair is not the last word
+and master CI is*. The audit that wrote this row also committed a `mktemp -d -t` that works on
+BSD and fails on GNU and busybox, in the same push. Two instances, one afternoon, of the class
+*this machine's shell is a different language from CI's* — bash 3.2 and BSD sed here, bash 5 and GNU sed on the runner — already had a card for.
 
 ---
 

@@ -32,7 +32,15 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # a killed one - shared a directory and each read the other's leftovers. That is
 # ENG-318's hazard one level up, and `detectors/detect-shared-scratch.sh` is what
 # now refuses it. Pass a path as $1 when you want a run you can find again.
-WORKDIR="${1:-$(mktemp -d -t bsharp-audition)}"
+#
+# NOT `mktemp -d -t bsharp-audition`. `-t` takes a PREFIX on BSD/macOS and a
+# TEMPLATE on GNU coreutils and busybox, so that spelling works here and fails on
+# Linux - `too few X's in template` under GNU, `Invalid argument` under busybox,
+# both measured. This harness ships in the handoff and the recipient is likelier
+# to be on Linux than on a Mac, so the explicit template is the only portable
+# form. That the first fix for a scratch-sharing hazard introduced a
+# platform-specific one is this repository's own recurring class, not an aside.
+WORKDIR="${1:-$(mktemp -d "${TMPDIR:-/tmp}/bsharp-audition.XXXXXXXX")}"
 DEADLINE="${AUDITION_TIMEOUT_S:-900}"
 
 # --- the candidates ---------------------------------------------------------

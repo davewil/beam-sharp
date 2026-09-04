@@ -54,6 +54,15 @@
 # not on it must be declared, so the cost of a missing entry is a false red that
 # gets fixed by adding a line here with a reason — never a silent green.
 
+#
+# THIS DETECTOR'S FINDINGS DEPEND ON THE HOST, in one direction. A word that is a
+# parse artefact is only reported if `command -v` finds a binary of that name, so
+# a machine with more binaries reports more. That is the fail-loud direction and
+# CI is the strictest host - `/usr/bin/editor` exists on the ubuntu runner and
+# not on macOS, which is how the case-arm bug above was found, by a red master
+# under a green local pair. It also means the extraction has to be right on its
+# own: the `command -v` filter is there to suppress noise, not to be the thing
+# standing between this gate and a page of false positives.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -138,6 +147,41 @@ commands_in() {
     sort -u
 }
 
+# Every case-arm label in a script, one alternation member per word.
+#
+# A CASE LABEL IS NOT A COMMAND POSITION, and `|` inside one is not a pipe. This
+# has to be right or the rule is unsound in the reporting direction: in
+# `_build/*|editor/node_modules/*)` the extractor sees a word after `|` and calls
+# it a command. Three things the first draft got wrong, all of them found by CI
+# rather than here:
+#
+#   the member class had no `/`, so a path glob matched nothing at all and the
+#     whole arm went unprotected;
+#   the match was anchored to `^`, so an arm sharing a line with its `case ... in`
+#     - `case "$f" in _build/*|editor/node_modules/*) continue ;; esac` - was
+#     never seen;
+#   a member may be a path, and the extractor reports only its first segment, so
+#     the label set has to carry that segment too.
+#
+# The alternation is spelled out rather than folded into one character class:
+# putting whitespace in the class lets the pattern run past the arm and swallow
+# an ordinary command line that happens to end in `)`, which would hide findings.
+case_labels() {
+  local script="$1" m arm
+  m='[a-zA-Z0-9_.*/@?+-]+'
+  arm="$m([[:space:]]*\|[[:space:]]*$m)*\)"
+  {
+    grep -oE "^[[:space:]]*\(?$arm" "$script"
+    grep -oE "(^|[[:space:]])(in|;;)[[:space:]]+$arm" "$script" |
+      sed -E 's/^[[:space:]]*(in|;;)[[:space:]]+//'
+  } 2>/dev/null |
+    tr -d ' )' | tr '|' '\n' |
+    sed -E 's#/.*$##; s#\*##g' |
+    grep -vE '^$' |
+    sort -u | tr '\n' ' '
+  return 0
+}
+
 # Report every command a script runs that is neither baseline, nor a function it
 # defines, nor guarded by `command -v`, nor in the declared set. Parameters, so
 # --self-test drives this function over fixtures rather than a copy of it.
@@ -148,8 +192,7 @@ undeclared_in() {
   # undeclared tool.
   funcs="$(grep -hoE '^[[:space:]]*[a-zA-Z_][a-zA-Z0-9_]*\(\)' "$script" "$ROOT"/detectors/lib/*.sh 2>/dev/null | tr -d ' ()' | tr '\n' ' ')"
   guarded="$(grep -oE 'command -v [a-zA-Z0-9_.-]+' "$script" | awk '{print $3}' | tr '\n' ' ')"
-  # `a|b|c)` arms too: a case label is not a command position.
-  labels="$(grep -oE '^[[:space:]]*\**[a-zA-Z0-9_.*|-]+\)' "$script" | tr -d ' )*' | tr '|' '\n' | tr '\n' ' ')"
+  labels="$(case_labels "$script")"
   commands_in "$script" | while read -r w; do
     [ -z "$w" ] && continue
     case "$BASELINE" in *" $w "*) continue ;; esac
@@ -169,7 +212,7 @@ undeclared_in() {
 # ---------------------------------------------------------------------------
 # --self-test
 #
-# SIX CONTROLS, AND FOUR OF THEM ARE ABOUT THE STRIPPER RATHER THAN THE RULE.
+# SEVEN CONTROLS, AND FIVE OF THEM ARE ABOUT READING SHELL RATHER THAN THE RULE.
 # The rule — "an undeclared command is reported" — is nearly trivial. What is not
 # trivial, and what two earlier drafts of `shell_code` got wrong in opposite
 # directions, is telling code from prose in a repository whose gates are mostly
@@ -235,6 +278,22 @@ nl(n) -> n
 PROG
 SH
 
+  # NEGATIVE — case arms. Both spellings that were unprotected: an arm sharing a
+  # line with its `case ... in`, and an arm at the start of its own line, each
+  # with a path glob whose first segment names a binary. This is the exact shape
+  # of `detect-split-table.sh:130`, and it turned master red.
+  cat > "$CTL/casearm.sh" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+for f in *; do
+  case "$f" in _build/*|nl/generated/*) continue ;; esac
+  case "$f" in
+    _build/*|nl/vendor/*) continue ;;
+    *) : ;;
+  esac
+done
+SH
+
   # NEGATIVE — guarded. The dependency is visible and fails honestly.
   cat > "$CTL/guarded.sh" <<'SH'
 #!/usr/bin/env bash
@@ -272,10 +331,14 @@ SH
                   real tree and a detector nobody would leave switched on"
   expect_green heredoc "an identifier in a heredoc body was reported as a command"
   expect_green guarded "a tool guarded by \`command -v\` was reported; the guard IS the declaration"
+  expect_green casearm \
+    "a case-arm alternation member was reported as a command. \`|\` inside a case
+                  label is not a pipe, and the member may be a path glob — this is the
+                  false positive that turned master red under a green local pair"
 
   if [ "$fail" -eq 0 ]; then
     echo "self-test: reported the bare, substituted and prefixed calls; stayed silent on"
-    echo "           prose, heredoc bodies and a guarded call — the detector discriminates"
+    echo "           prose, heredoc bodies, a guarded call and case-arm labels — it discriminates"
     exit 0
   fi
   exit 1

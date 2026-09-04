@@ -264,6 +264,41 @@ run_stages \
   "The package points only at things it ships" \
     "./bin/check-links.sh" \
 \
+  "Every tool a gate runs is one the manifest declares" \
+    "./detectors/detect-unmanifested-tool.sh" \
+\
+\
+  "No prose hand-counts the verify suite" \
+    "./detectors/detect-stale-suite-count.sh" \
+\
+\
+  "No document cites a source line past the end of its file" \
+    "./detectors/detect-stale-citation.sh" \
+\
+\
+  "Every control's subject can still report failure" \
+    "./detectors/detect-swallowed-status.sh" \
+\
+\
+  "A self-test builds the runner environment, never inherits it" \
+    "./detectors/detect-inherited-runner-env.sh" \
+\
+\
+  "Every directory of shell is enumerated or excluded with a reason" \
+    "./detectors/detect-unenumerated-shell-dir.sh" \
+\
+\
+  "Scratch directories are created, not named" \
+    "./detectors/detect-shared-scratch.sh" \
+\
+\
+  "No markdown table is split by a blank or prose line" \
+    "./detectors/detect-split-table.sh" \
+\
+\
+  "The design record and the package cite paths that exist" \
+    "./detectors/detect-dead-repo-path.sh" \
+\
   "Build the escript" \
     "cd compiler && rebar3 escriptize" \
 \
@@ -361,37 +396,4 @@ run_stages \
   "The editor grammar parses every example" \
     "./editor/bin/check-corpus.sh --self-test && ./editor/bin/check-corpus.sh"\
 \
-  "Every tool a gate runs is one the manifest declares" \
-    "./detectors/detect-unmanifested-tool.sh" \
-\
-\
-  "No prose hand-counts the verify suite" \
-    "./detectors/detect-stale-suite-count.sh" \
-\
-\
-  "No document cites a source line past the end of its file" \
-    "./detectors/detect-stale-citation.sh" \
-\
-\
-  "Every control's subject can still report failure" \
-    "./detectors/detect-swallowed-status.sh" \
-\
-\
-  "A self-test builds the runner environment, never inherits it" \
-    "./detectors/detect-inherited-runner-env.sh" \
-\
-\
-  "Every directory of shell is enumerated or excluded with a reason" \
-    "./detectors/detect-unenumerated-shell-dir.sh" \
-\
-\
-  "Scratch directories are created, not named" \
-    "./detectors/detect-shared-scratch.sh" \
-\
-\
-  "No markdown table is split by a blank or prose line" \
-    "./detectors/detect-split-table.sh" \
-\
-\
-  "The design record and the package cite paths that exist" \
-    "./detectors/detect-dead-repo-path.sh"
+
