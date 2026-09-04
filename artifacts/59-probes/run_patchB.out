@@ -1,0 +1,103 @@
+
+=== applying patch B ===
+ compiler/src/bs_emit.erl | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+diff --git a/compiler/src/bs_emit.erl b/compiler/src/bs_emit.erl
+index e713dbf..7d39a14 100644
+--- a/compiler/src/bs_emit.erl
++++ b/compiler/src/bs_emit.erl
+@@ -312,7 +312,7 @@ boundary_guards(Patterns, Params, Line, Ctx, Public) ->
+ %% The two guards are mutually exclusive by construction rather than by an
+ %% ordering choice: a record type has a `maps` part and an integer type does
+ %% not, so no parameter is ever a candidate for both.
+-guard_one(Pat, {param, TypeExpr, _}, I, Line, Ctx, Public) ->
++guard_one(Pat, {param, TypeExpr, _}, I, Line, Ctx, _Public) ->
+     case record_tag(TypeExpr, Ctx) of
+         {ok, Tag} ->
+             case constrains_kind(Pat) of
+@@ -321,10 +321,8 @@ guard_one(Pat, {param, TypeExpr, _}, I, Line, Ctx, Public) ->
+                     {Var, Pat1} = ensure_var(Pat, I, Line),
+                     {Pat1, [tag_test(Var, Tag, Line)]}
+             end;
+-        none when Public ->
+-            int_guard(Pat, TypeExpr, I, Line, Ctx);
+         none ->
+-            {Pat, []}
++            int_guard(Pat, TypeExpr, I, Line, Ctx)
+     end.
+ 
+ %%% ---------------------------------------------------------------------------
+
+=== building the patched compiler ===
+[0;32m===> Verifying dependencies...
+[0m[0;32m===> Analyzing applications...
+[0m[0;32m===> Compiling bsc
+[0m[0;32m===> Building escript for bsc...
+[0m
+=== compiling probes against the patched compiler ===
+--- F/1 (IntPrivate) SOURCE (.abstr), before any BEAM-level optimization ---
+{function,0,'F',1,
+          [{clause,6,
+                   [{var,6,'N'}],
+                   [[{call,6,
+                           {remote,6,{atom,6,erlang},{atom,6,is_integer}},
+                           [{var,6,'N'}]}]],
+                   [{atom,6,ok}]}]}.
+--- F/1 (IntPrivate) COMPILED (disassembled) -- does OTP's own optimizer strip it? ---
+[{line,2},
+ {label,3},
+ {func_info,{atom,'IntPrivate'},{atom,'F'},1},
+ {label,4},
+ {move,{atom,ok},{x,0}},
+ return]
+--- same question, two independent call sites (IntPrivateTwoCallers) ---
+[{line,3},
+ {label,5},
+ {func_info,{atom,'IntPrivateTwoCallers'},{atom,'F'},1},
+ {label,6},
+ {move,{atom,ok},{x,0}},
+ return]
+--- Inner/1 (AttackInt) SOURCE (.abstr) -- the realistic, non-optimizable case ---
+{function,0,'Inner',1,
+          [{clause,14,
+                   [{var,14,'N'}],
+                   [[{call,14,
+                           {remote,14,{atom,14,erlang},{atom,14,is_integer}},
+                           [{var,14,'N'}]}]],
+                   [{atom,14,accepted}]}]}.
+
+=== the forged binary/float attack, AGAINST THE PATCHED COMPILER ===
+Calling AttackInt:'Outer'(#{'Payload' => <<"not an integer at all">>})
+CRASHED: error:function_clause
+Calling AttackInt:'Outer'(#{'Payload' => 300.5})
+CRASHED: error:function_clause
+Calling AttackInt:'Outer'(#{'Payload' => 100})
+RETURNED (no crash): accepted
+
+=== Code chunk size: unpatched (shipped) vs patched, AttackInt.beam ===
+AtU8         86 bytes
+Code         89 bytes
+StrT          0 bytes
+ImpT         40 bytes
+ExpT         40 bytes
+LocT         16 bytes
+Attr         40 bytes
+CInf        165 bytes
+Dbgi        350 bytes
+Line         41 bytes
+Type         26 bytes
+TOTAL FILE   1008 bytes
+AtU8         86 bytes
+Code         92 bytes
+StrT          0 bytes
+ImpT         40 bytes
+ExpT         40 bytes
+LocT         16 bytes
+Attr         40 bytes
+CInf        172 bytes
+Dbgi        367 bytes
+Line         41 bytes
+Type         26 bytes
+TOTAL FILE   1028 bytes
+
+=== DONE with patch B. cleanup trap now reverts and rebuilds. ===

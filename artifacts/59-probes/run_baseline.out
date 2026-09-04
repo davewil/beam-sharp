@@ -1,0 +1,76 @@
+
+=== 0. building the shipped compiler ===
+[0;32m===> Verifying dependencies...
+[0m[0;32m===> Analyzing applications...
+[0m[0;32m===> Compiling bsc
+[0m[0;32m===> Building escript for bsc...
+[0m
+=== 1. SUB-DECISION 1 -- which guard fires on a private function, today ===
+compile: Probe/probe.bs:0: Warning: function 'PrivateOctet'/1 is unused
+--- Probe.abstr: PrivateOrder (record param, private) ---
+{function,0,'PrivateOrder',1,
+          [{clause,19,
+                   [{var,19,'O'}],
+                   [[{op,19,'=:=',
+                         {call,19,
+                               {remote,19,{atom,19,erlang},{atom,19,map_get}},
+                               [{atom,19,'Kind'},{var,19,'O'}]},
+--- Probe.abstr: PrivateOctet (refined-int param, private) ---
+{function,0,'PrivateOctet',1,[{clause,29,[{var,29,'_N'}],[],[{atom,29,ok}]}]}.
+{attribute,0,spec,
+    {{'EnterViaPublic',1},
+--- Probe.abstr: PublicOrder (record param, exported), for contrast ---
+{function,0,'PublicOrder',1,
+          [{clause,15,
+                   [{var,15,'O'}],
+                   [[{op,15,'=:=',
+                         {call,15,
+                               {remote,15,{atom,15,erlang},{atom,15,map_get}},
+                               [{atom,15,'Kind'},{var,15,'O'}]},
+--- Probe.abstr: PublicOctet (refined-int param, exported), for contrast ---
+{function,0,'PublicOctet',1,
+          [{clause,25,
+                   [{var,25,'N'}],
+                   [[{call,25,
+                           {remote,25,{atom,25,erlang},{atom,25,is_integer}},
+                           [{var,25,'N'}]}]],
+
+=== 2. THE FORGED-RECORD ATTACK -- Order/Invoice, wrapped one field deep ===
+--- Outer/1's own emitted guard (none -- Wrapper is neither a closed record nor int-only) ---
+{function,0,'Outer',1,
+    [{clause,31,
+         [{var,31,'W'}],
+         [],
+         [{call,31,
+              {atom,31,'Inner'},
+              [{call,31,
+--- Inner/1's own emitted guard (the tag test, unconditional, private) ---
+{function,0,'Inner',1,
+          [{clause,35,
+                   [{var,35,'O'}],
+                   [[{op,35,'=:=',
+                         {call,35,
+                               {remote,35,{atom,35,erlang},{atom,35,map_get}},
+                               [{atom,35,'Kind'},{var,35,'O'}]},
+--- shipped compiler: forged Invoice through Outer(exported, unguarded) -> Inner(private) ---
+Calling Attack:'Outer'(#{'Payload' =>
+                             #{'Id' => 1,'Kind' => 'Attack.Invoice',
+                               'Total' => 999999}})
+CRASHED: error:function_clause
+Calling Attack:'Outer'(#{'Payload' =>
+                             #{'Id' => 1,'Kind' => 'Attack.Order',
+                               'Total' => 50}})
+RETURNED (no crash): accepted
+
+=== 2a. same attack, INT guard's existing exported-only scope (already shipped, unpatched) ===
+--- Inner/1's own emitted guard (none -- private, so 18 sec 4 scope excludes it) ---
+{function,0,'Inner',1,[{clause,14,[{var,14,'_N'}],[],[{atom,14,accepted}]}]}.
+--- shipped compiler: forged binary/float through Outer(exported, unguarded) -> Inner(private) ---
+Calling AttackInt:'Outer'(#{'Payload' => <<"not an integer at all">>})
+RETURNED (no crash): accepted
+Calling AttackInt:'Outer'(#{'Payload' => 300.5})
+RETURNED (no crash): accepted
+Calling AttackInt:'Outer'(#{'Payload' => 100})
+RETURNED (no crash): accepted
+
+=== DONE -- baseline. compiler/src untouched throughout. ===

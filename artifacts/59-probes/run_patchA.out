@@ -1,0 +1,56 @@
+
+=== applying patch A ===
+ compiler/src/bs_emit.erl | 3 +++
+ 1 file changed, 3 insertions(+)
+
+=== building the patched compiler ===
+[0;32m===> Verifying dependencies...
+[0m[0;32m===> Analyzing applications...
+[0m[0;32m===> Compiling bsc
+[0m[0;32m===> Building escript for bsc...
+[0m
+=== compiling probes against the patched compiler ===
+--- F/1 (RecUnconstrained, private, record param) -- guard gone? ---
+{function,0,'F',1,[{clause,6,[{var,6,'_O'}],[],[{atom,6,ok}]}]}.
+--- Inner/1 (Attack, private, record param) -- guard gone? ---
+{function,0,'Inner',1,[{clause,35,[{var,35,'_O'}],[],[{atom,35,accepted}]}]}.
+
+=== Code chunk size: unpatched (shipped) vs patched, RecUnconstrained.beam ===
+AtU8        111 bytes
+Code        115 bytes
+StrT          0 bytes
+ImpT         40 bytes
+ExpT         40 bytes
+LitT         54 bytes
+LocT         16 bytes
+Attr         40 bytes
+CInf        179 bytes
+Dbgi        459 bytes
+Line         48 bytes
+Type         62 bytes
+TOTAL FILE   1280 bytes
+AtU8         75 bytes
+Code        101 bytes
+StrT          0 bytes
+ImpT         28 bytes
+ExpT         40 bytes
+LitT         54 bytes
+LocT         16 bytes
+Attr         40 bytes
+CInf        187 bytes
+Dbgi        421 bytes
+Line         48 bytes
+Type         26 bytes
+TOTAL FILE   1156 bytes
+
+=== the forged-Invoice attack, AGAINST THE PATCHED COMPILER ===
+Calling Attack:'Outer'(#{'Payload' =>
+                             #{'Id' => 1,'Kind' => 'Attack.Invoice',
+                               'Total' => 999999}})
+RETURNED (no crash): accepted
+Calling Attack:'Outer'(#{'Payload' =>
+                             #{'Id' => 1,'Kind' => 'Attack.Order',
+                               'Total' => 50}})
+RETURNED (no crash): accepted
+
+=== DONE with patch A. cleanup trap now reverts and rebuilds. ===
