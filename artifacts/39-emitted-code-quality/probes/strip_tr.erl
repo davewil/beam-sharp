@@ -13,27 +13,43 @@
 -module(strip_tr).
 -export([main/1]).
 
-main([InFile, NewModuleAtomStr, OutDir]) ->
+to_list(A) when is_atom(A) -> atom_to_list(A);
+to_list(L) when is_list(L) -> L.
+
+main([InFileA, NewModuleAtomA, OutDirA]) ->
+    InFile = to_list(InFileA),
+    NewModuleAtomStr = to_list(NewModuleAtomA),
+    OutDir = to_list(OutDirA),
     NewMod = list_to_atom(NewModuleAtomStr),
-    {ok, Forms} = file:consult(InFile),
-    Stripped = [strip(rename(F, NewMod)) || F <- Forms],
+    {ok, Forms0} = file:consult(InFile),
+    [{module, OldMod} | _] = Forms0,
+    Forms = [substmod(F, OldMod, NewMod) || F <- Forms0],
+    Stripped = [strip(F) || F <- Forms],
     OutS = filename:join(OutDir, NewModuleAtomStr ++ ".S"),
     ok = file:write_file(OutS, [io_lib:format("~p.~n~n", [F]) || F <- Stripped]),
     io:format("wrote ~s~n", [OutS]),
     case compile:file(OutS, [from_asm, {outdir, OutDir}, binary]) of
-        {ok, NewMod, _Bin} ->
-            io:format("compiled ~s from stripped asm (from_asm)~n", [NewModuleAtomStr]);
-        {ok, NewMod, _Bin, _Warnings} ->
-            io:format("compiled ~s from stripped asm (from_asm), with warnings~n", [NewModuleAtomStr]);
+        {ok, NewMod, Bin} ->
+            BeamPath = filename:join(OutDir, NewModuleAtomStr ++ ".beam"),
+            ok = file:write_file(BeamPath, Bin),
+            io:format("compiled ~s from stripped asm (from_asm) -> ~s~n", [NewModuleAtomStr, BeamPath]);
+        {ok, NewMod, Bin, _Warnings} ->
+            BeamPath = filename:join(OutDir, NewModuleAtomStr ++ ".beam"),
+            ok = file:write_file(BeamPath, Bin),
+            io:format("compiled ~s from stripped asm (from_asm), with warnings -> ~s~n", [NewModuleAtomStr, BeamPath]);
         Error ->
             io:format("COMPILE FAILED: ~p~n", [Error])
     end,
     halt().
 
-rename({module, _}, New) -> {module, New};
-rename({attributes, Attrs}, New) ->
-    {attributes, [case A of {source, _} -> {source, atom_to_list(New) ++ ".S"}; _ -> A end || A <- Attrs]};
-rename(Other, _New) -> Other.
+%% Every occurrence of the old module atom -> new module atom, everywhere
+%% in the term tree (module decl, func_info, call targets, source attr).
+substmod(OldMod, OldMod, NewMod) -> NewMod;
+substmod(T, OldMod, NewMod) when is_tuple(T) ->
+    list_to_tuple([substmod(E, OldMod, NewMod) || E <- tuple_to_list(T)]);
+substmod(L, OldMod, NewMod) when is_list(L) ->
+    [substmod(E, OldMod, NewMod) || E <- L];
+substmod(Other, _OldMod, _NewMod) -> Other.
 
 %% Recursively strip {tr, Reg, _Type} -> Reg anywhere in the term tree.
 strip({tr, Reg, _Type}) -> strip(Reg);

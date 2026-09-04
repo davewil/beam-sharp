@@ -1,0 +1,15 @@
+--- /home/user/beam-sharp/compiler/src/bs_parser.yrl	2026-09-04 13:56:39.947431773 +0000
++++ /tmp/compiler-spike-grammar/src/bs_parser.yrl	2026-09-04 14:12:24.955410158 +0000
+@@ -592,7 +592,11 @@
+ %% Lowered to `0 - e` rather than given its own node, so nothing downstream of
+ %% the parser learns a new shape: the checker's `op_type('-')` and the emitter's
+ %% `erl_op('-')` both already answer.
+-expr -> '-' expr : {e_op, line('$1'), '-', {e_int, line('$1'), 0}, '$2'}.
++expr -> '-' expr :
++    case '$2' of
++        {e_int, _, N} -> {e_int, line('$1'), -N};
++        _ -> {e_op, line('$1'), '-', {e_int, line('$1'), 0}, '$2'}
++    end.
+ expr -> atom_lit : {e_atom, line('$1'), value('$1')}.
+ %% Expression position only. A string literal in PATTERN position would need a
+ %% value-level singleton in the binary part of the algebra, and ticket 20's

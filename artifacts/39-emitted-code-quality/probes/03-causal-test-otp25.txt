@@ -1,0 +1,40 @@
+4732 rotations, 673364 clicks simulated per run
+
+                                 answer      min ms    med ms      rel
+Erlang (annotated, original)     6770         17.79     18.11    1.00x
+Erlang (tr-stripped)             6770         19.16     19.77    1.08x
+beam-sharp                       6770         17.87     18.20    1.00x
+
+all three agree on 6770
+4732 rotations, 673364 clicks simulated per run
+
+                                 answer      min ms    med ms      rel
+Erlang (annotated, original)     6770         17.69     18.00    1.00x
+Erlang (tr-stripped)             6770         18.63     19.09    1.05x
+beam-sharp                       6770         17.76     18.12    1.00x
+
+all three agree on 6770
+4732 rotations, 673364 clicks simulated per run
+
+                                 answer      min ms    med ms      rel
+Erlang (annotated, original)     6770         17.74     18.15    1.00x
+Erlang (tr-stripped)             6770         18.69     19.16    1.05x
+beam-sharp                       6770         17.93     18.42    1.01x
+
+all three agree on 6770
+4732 rotations, 673364 clicks simulated per run
+
+                                 answer      min ms    med ms      rel
+Erlang (annotated, original)     6770         18.02     18.55    1.00x
+Erlang (tr-stripped)             6770         18.87     19.23    1.05x
+beam-sharp                       6770         17.94     18.23    1.00x
+
+all three agree on 6770
+4732 rotations, 673364 clicks simulated per run
+
+                                 answer      min ms    med ms      rel
+Erlang (annotated, original)     6770         17.93     18.18    1.01x
+Erlang (tr-stripped)             6770         18.72     19.88    1.05x
+beam-sharp                       6770         17.82     18.06    1.00x
+
+all three agree on 6770
