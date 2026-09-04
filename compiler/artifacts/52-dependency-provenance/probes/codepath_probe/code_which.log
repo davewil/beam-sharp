@@ -1,0 +1,22 @@
+=== control: ERL_LIBS unset ===
+code:which(fauxmod) -> non_existing
+=== ERL_LIBS pointed at fauxapp's parent dir (the app-root shape ERL_LIBS expects: <ERL_LIBS>/<app>/ebin) ===
+code:which(fauxmod) -> "/tmp/claude-0/-home-user-beam-sharp/097e4c17-8977-5e27-9064-ba1c03f49e82/scratchpad/codepath_probe/fauxapp/ebin/fauxmod.beam"
+=== control removed again after this call, to show it is not sticky ===
+code:which(fauxmod) -> non_existing
+=== can the app name be derived from a loaded foreign module? application:get_application/1 ===
+lists -> {ok,stdlib}
+maps -> {ok,stdlib}
+fauxmod (not loaded) -> undefined
+=== after loading fauxmod (still not part of any .app) ===
+fauxmod -> undefined
+=== control: ERL_LIBS unset, 'Elixir.Enum' ===
+code:which -> non_existing
+=== ERL_LIBS=Elixir's app-root dir ===
+code:which -> non_existing
+application:get_application -> undefined
+=== ERL_LIBS=/usr/lib/elixir/bin/../lib (elixir's real app-root), 'Elixir.Enum' ===
+code:which -> "/usr/lib/elixir/bin/../lib/elixir/ebin/Elixir.Enum.beam"
+application:get_application -> undefined
+=== after application:load(elixir) explicitly ===
+get_application -> {ok,elixir}

@@ -1,0 +1,20 @@
+// Probe 03: does a GUARD (not a refinement) handle a negative literal
+// comparison correctly today? Same `expr` grammar as a refinement predicate
+// (`guard_expr -> expr`, `refinement -> expr`), and `apply_guard/3` calls the
+// SAME `alternatives/1` that `refine/3` calls -- so if the two sites truly
+// disagree, the disagreement is not in the shared grammar, it is in
+// `comparison/1`'s narrower notion of "constant" plus how the two call sites
+// react to `unknown` (refine/3 errors; apply_guard/3 silently credits nothing).
+//
+// These two clauses partition int exactly at -5: if the guard genuinely
+// narrows the residual, the pair is exhaustive and the compiler accepts it
+// with no catch-all. If the guard's negative literal is read as `unknown`
+// (silently, per apply_guard/3's `{bs_types:none(), Ty}` branch), the second
+// clause credits nothing and the compiler reports a missing catch-all
+// instead of compiling clean.
+module Probe03
+
+public atom Classify(int n)
+
+Classify(n) when n >= -5 -> :in
+Classify(n) when n < -5  -> :out

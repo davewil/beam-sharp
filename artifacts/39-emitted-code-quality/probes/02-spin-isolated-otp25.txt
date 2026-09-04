@@ -1,0 +1,12 @@
+             answer                min ms    med ms      rel
+Erlang       {14,6734}              17.07     17.23    1.00x
+beam-sharp   {14,6734}              17.53     17.86    1.03x
+             answer                min ms    med ms      rel
+Erlang       {14,6734}              16.99     17.80    1.00x
+beam-sharp   {14,6734}              17.64     17.98    1.04x
+             answer                min ms    med ms      rel
+Erlang       {14,6734}              17.05     17.35    1.00x
+beam-sharp   {14,6734}              17.64     17.95    1.03x
+             answer                min ms    med ms      rel
+Erlang       {14,6734}              17.19     17.77    1.00x
+beam-sharp   {14,6734}              17.34     18.34    1.01x

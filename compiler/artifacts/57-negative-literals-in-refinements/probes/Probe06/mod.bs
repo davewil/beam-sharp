@@ -1,0 +1,9 @@
+// Probe 06: sanity baseline -- a genuinely non-constant refinement comparand
+// (`value >= n`, where `n` is not `value` and not in scope) must stay refused
+// under any fix. This is the "never" case the ticket names.
+module Probe06
+
+type T = int where value >= n
+
+public T Id(T x)
+Id(x) -> x

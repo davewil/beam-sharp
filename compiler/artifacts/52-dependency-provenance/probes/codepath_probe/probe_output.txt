@@ -1,0 +1,12 @@
+=== (1) code:which/1, ERL_LIBS unset ===
+non_existing
+=== (1) code:which/1, ERL_LIBS pointed at the app root ===
+"/home/user/beam-sharp/compiler/artifacts/52-dependency-provenance/probes/codepath_probe/fauxapp/ebin/fauxmod.beam"
+=== (2) application:get_application/1 on a real, loaded stdlib module ===
+lists -> {ok,stdlib}
+=== (2) application:get_application/1 on fauxmod: on the path, but no .app file names it ===
+fauxmod -> undefined
+=== (2) same probe against REAL Elixir (Elixir.Enum), app root from :code.lib_dir(:elixir) ===
+which -> "/usr/lib/elixir/bin/../lib/elixir/ebin/Elixir.Enum.beam"
+get_application (no explicit load) -> undefined
+get_application (after application:load(elixir)) -> {ok,elixir}

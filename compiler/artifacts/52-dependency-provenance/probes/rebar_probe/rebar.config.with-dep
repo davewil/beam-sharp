@@ -1,0 +1,2 @@
+{erl_opts, [debug_info]}.
+{deps, [{req, "0.5.6"}]}.

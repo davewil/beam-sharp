@@ -1,0 +1,9 @@
+// Probe 05: does `type T = int where value >= 2 + 3` already work or fail
+// today? Tests whether the checker's notion of "constant" already includes
+// any arithmetic, or truly only a bare literal.
+module Probe05
+
+type T = int where value >= 2 + 3
+
+public T Id(T x)
+Id(x) -> x

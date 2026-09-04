@@ -1,0 +1,4 @@
+/tmp/claude-0/-home-user-beam-sharp/097e4c17-8977-5e27-9064-ba1c03f49e82/scratchpad/bs-probe/DupTest/index.bs:1: error: Reverse/2 is declared more than once
+  a name may carry MORE THAN ONE ARITY, so Reverse/2 and Reverse/3 would
+  be two functions \x{2014} but two signatures of the SAME arity are one
+  function declared twice, and its clauses would merge silently.

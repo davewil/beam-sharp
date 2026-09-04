@@ -1,0 +1,33 @@
+// Probe v2 for ticket 39 sub-investigation #1. v1 (SpinOnly.bs) made Spin
+// itself `public` to call it directly, which turned out to change the
+// measurement: making Spin public triggers boundary is_integer guards
+// (bs_emit's public/private boundary, ticket 18) AND defeats the standard
+// OTP optimizer's cross-call-site type narrowing for the SAME reason it
+// defeats it for an -export'd Erlang function. So v1 was comparing two
+// already-widened loops, not isolating the real, narrowly-typed private
+// Spin used in the actual Day01 benchmark.
+//
+// v2 keeps Spin PRIVATE (identical to Day01/bench_bs.bs) and adds a thin
+// PUBLIC wrapper Grind/1 as the only entry point, so Spin's own type
+// inference is exactly what it is inside the real benchmark.
+module GrindOnly
+
+using :erlang {
+    int rem(int a, int b)
+}
+
+private int Wrap(int n)
+Wrap(n) -> :erlang.rem(:erlang.rem(n, 100) + 100, 100)
+
+private int Hit(int pos)
+Hit(0) -> 1
+Hit(n) -> 0
+
+private (int, int) Spin(int pos, int step, int left, int zeros)
+Spin(pos, step, 0, zeros) -> (pos, zeros)
+Spin(pos, step, left, zeros) ->
+    var next = Wrap(pos + step)
+    Spin(next, step, left - 1, zeros + Hit(next))
+
+public (int, int) Grind(int left)
+Grind(left) -> Spin(50, 1, left, 0)

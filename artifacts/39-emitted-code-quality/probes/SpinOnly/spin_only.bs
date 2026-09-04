@@ -1,0 +1,21 @@
+// Probe for ticket 39 sub-investigation #1: time the hot Spin loop in
+// isolation, bypassing Clicks' list traversal / Sign / Size overhead.
+// Identical body to Day01's Spin/Wrap/Hit, just exported directly.
+module SpinOnly
+
+using :erlang {
+    int rem(int a, int b)
+}
+
+private int Wrap(int n)
+Wrap(n) -> :erlang.rem(:erlang.rem(n, 100) + 100, 100)
+
+private int Hit(int pos)
+Hit(0) -> 1
+Hit(n) -> 0
+
+public (int, int) Spin(int pos, int step, int left, int zeros)
+Spin(pos, step, 0, zeros) -> (pos, zeros)
+Spin(pos, step, left, zeros) ->
+    var next = Wrap(pos + step)
+    Spin(next, step, left - 1, zeros + Hit(next))

@@ -1,0 +1,19 @@
+Probes run 2026-09-04 in this sandbox, via the pre-configured agent proxy.
+
+$ curl -sS -m 8 -o /dev/null -w "HTTP %{http_code}\n" https://hex.pm
+HTTP 200
+
+$ curl -sS -m 8 -o /dev/null -w "HTTP %{http_code}\n" https://repo.hex.pm
+curl: (56) CONNECT tunnel failed, response 403
+[agent-proxy] repo.hex.pm:443 -- connect_rejected (organization policy)
+
+$ curl -sS -m 8 -o /dev/null -w "HTTP %{http_code}\n" https://package.elm-lang.org
+curl: (56) CONNECT tunnel failed, response 403
+[agent-proxy] package.elm-lang.org:443 -- connect_rejected (organization policy)
+
+Conclusion: the top-level hex.pm marketing site is reachable, but repo.hex.pm --
+the actual package CDN mix/rebar3/hex fetch from -- is blocked by the org egress
+policy, as is package.elm-lang.org (Elm's package index, needed even for a bare
+`elm init` with zero dependencies). This is why the mix and rebar3 probes below
+show real resolution failures rather than a completed fetch, and why no fresh
+elm.json could be generated in this sandbox.

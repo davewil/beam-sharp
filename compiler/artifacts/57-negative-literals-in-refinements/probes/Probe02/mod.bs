@@ -1,0 +1,11 @@
+// Probe 02: the ticket's pattern-position counterpart.
+// A relational PATTERN with a negative literal comparand -- the ticket's claim
+// is that this compiles fine while probe 01's refinement, same literal and
+// operator, is refused.
+module Probe02
+
+public atom Sign(int n)
+
+Sign(<= -1) -> :neg
+Sign(0)     -> :zero
+Sign(>= 1)  -> :pos

@@ -1,0 +1,9 @@
+// Probe 04: control for Probe03 -- the same partition, at a POSITIVE literal,
+// to confirm the guard mechanism itself is sound and it is specifically the
+// negative literal that breaks it.
+module Probe04
+
+public atom Classify(int n)
+
+Classify(n) when n >= 5 -> :in
+Classify(n) when n < 5  -> :out

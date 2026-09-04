@@ -1,0 +1,8 @@
+// Probe 01: the ticket's core repro.
+// A refinement with a negative literal comparand.
+module Probe01
+
+type T = int where value >= -5
+
+public T Id(T x)
+Id(x) -> x

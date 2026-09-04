@@ -1,0 +1,7 @@
+artifacts/57-negative-literals-in-refinements/probes/Probe01/mod.bs:5: error: this refinement is not a predicate the checker can read
+  a refinement narrows a type, so the compiler has to be able to
+  reason about it: comparisons on `value`, joined with `and`/`or`.
+  `int where value >= 0 and value <= 255` is one.
+  A predicate that reads the value instead \x{2014} `WellFormed(value)` \x{2014}
+  is the O(n) tier. It is established once at a boundary and never
+  reasoned about, and this compiler has no site to establish it at.

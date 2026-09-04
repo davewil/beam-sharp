@@ -1,0 +1,20 @@
+$ elm init   (in an empty scratch directory, answering Y)
+
+Hello! Elm projects always start with an elm.json file. I can create them!
+...
+Knowing all that, would you like me to create an elm.json file now? [Y/n]:
+-- PROBLEM LOADING PACKAGE LIST ------------------------------------------------
+
+I need the list of published packages before I can start initializing projects,
+so I tried to fetch:
+
+    https://package.elm-lang.org/all-packages
+
+But my HTTP library is giving me the following error message:
+
+    ProxyConnectException "package.elm-lang.org" 403 (Status {statusCode = 403, ...})
+...
+Result: no elm.json was written. ~/.elm/0.19.1/packages is empty (just a `lock`
+file) -- there is no cached package index to fall back to, so `elm init` cannot
+proceed offline even for zero dependencies. This is a hard sandbox gap: see
+../network_reachability.log.

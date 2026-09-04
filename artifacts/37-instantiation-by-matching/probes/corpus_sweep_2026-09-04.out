@@ -1,0 +1,76 @@
+== per-directory signature counts (ticket's counting rule) ==
+25a-http-api-server: 9
+25b-websocket-handler: 5
+25c-event-queue-consumer: 9
+25d-database-querying: 17
+25e-dynamic-web-page: 14
+
+== total ==
+54
+
+== which exemplar directories exist today ==
+25a-http-api-server/
+25b-websocket-handler/
+25c-event-queue-consumer/
+25d-database-querying/
+25e-dynamic-web-page/
+
+== every signature, for shape inspection (does any carry a <T> declaration list?) ==
+10:public Response Admit(Request)
+23:private result<Request, Response> Authenticated(Request)
+27:private result<Request, Response> Verified(Request)
+31:private result<Request, Response> WithinQuota(Request)
+35:private result<Request, Response> WithinSize(Request)
+39:private result<Request, Response> InBeta(Request)
+10:private Response CreateOrder(term)
+10:public (int, binary) EncodeResponse(Response)
+10:public Response Route(Method, list<string>, term)
+10:public Decoded Decode(binary)
+10:public binary Encode(Opcode, binary)
+15:private binary Fragments(list<binary>)
+10:public (:noreply, State) HandleInfo(term, State)
+10:private Opcode Opcode(int)
+10:public result<Delivery, ConsumeError> Consume(binary)
+16:public result<Delivery, ConsumeError> Consume(binary)
+10:public Disposition Decide(result<Delivery, ConsumeError> outcome, bool redelivered, int deliveries)
+10:public binary EncodeAck(int deliveryTag, bool multiple)
+16:private binary Wrap(int type, int channel, binary payload)
+10:private result<(Frame, binary), FrameError> DecodeFrame(binary)
+28:private (binary, binary) ShortStr(binary)
+10:public (:noreply, State) HandleInfo(term, State)
+10:private result<Delivery, MethodError> DecodeMethod(binary)
+10:public result<list<OrderRow>, FetchError> ByStatus(term pool, OrderStatus s, option<int> min, option<string> cust)
+10:public result<list<OrderRow>, FetchError> Fetch(term conn, OrderStatus s, option<int> min, option<string> cust)
+10:public (:reply, result<list<OrderRow>, FetchError>, term) HandleCall(Request req, term from, term conn)
+10:public (:noreply, term) HandleCast(term msg, term conn)
+10:public InitOutcome Init(list<term> opts)
+10:private list<term> Config()
+10:private result<list<OrderRow>, FetchError> Rowed(list<WireRow> rows)
+18:private result<OrderRow, FetchError> Build(WireRow w)
+26:private result<OrderStatus, FetchError> ParseStatus(string s)
+33:private Shipment Shipped(term v)
+38:private result<list<OrderRow>, FetchError> Prepend(OrderRow row, result<list<OrderRow>, FetchError> rest)
+10:private result<list<term>, FetchError> Shaped(QueryOk q)
+15:private result<list<WireRow>, FetchError> Checked(list<term> rows)
+10:private (string, list<term>) Compose(OrderStatus s, option<int> min, option<string> cust)
+10:public Totals Summarise(list<OrderRow> rows)
+14:private Totals Tally(list<OrderRow> rows, Totals t)
+19:private Totals Add(Totals t, OrderRow r)
+22:public list<binary> Escape(string s)
+26:private list<binary> Walk(binary s, list<binary> acc)
+52:private list<binary> ReverseParts(list<binary> xs, list<binary> acc)
+10:public Iodata Layout(PageModel m)
+23:private Iodata Note(option<string> n)
+31:private Iodata AdminLink(bool isAdmin)
+10:public Response Render(PageModel m)
+14:private Response Respond(Iodata body)
+10:private Iodata Rows(list<OrderRow> orders, list<Iodata> acc)
+15:private Iodata Row(OrderRow o)
+26:private Iodata Money(int cents)
+38:private Iodata Pence(int p)
+46:private Iodata Status(OrderStatus s)
+54:private list<Iodata> ReverseRows(list<Iodata> xs, list<Iodata> acc)
+
+== signatures carrying an angle-bracket TYPE PARAMETER DECLARATION (Name<T,...>(...)) ==
+   (as opposed to a ground application like list<OrderRow> or result<X,Y>)
+  (none found)

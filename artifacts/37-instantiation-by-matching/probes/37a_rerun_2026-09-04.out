@@ -1,0 +1,62 @@
+
+== 37a \x{2014} instantiation by matching, over the real algebra ==
+
+M1 \x{2014} is the solution really an interval, and is it computable?
+  option<T> vs `int | :nothing`
+    least    T = int   (contains: true)
+    greatest T = :nothing | int   (contains: true)
+    => two DISTINCT solutions, both sound: true
+  CONTROL list<T> vs `list<int>`: T = int, unique: true
+  PASS \x{2014} the interval exists ONLY where a bare variable shares a union
+
+M2 \x{2014} least vs greatest: what does the RETURN type become?
+  option<T> First<T>(option<T>) given `:nothing`
+    least    -> returns :nothing
+    greatest -> returns term
+    both sound at site 1: true
+    least return IS `:nothing` exactly: true
+    greatest return admits `int`:       true
+  PASS \x{2014} soundness does not choose; the return type does \x{2014} LEAST
+
+M3 \x{2014} do the corpus's own §(c) shapes come out right?
+  Prepend: T = :order_row, E = :fetch_error
+    return = (:error, :fetch_error) | list<:order_row>
+    equals the hand-written signature: true
+  Reverse, ONE template, TWO instantiations: binary and :iodata
+    both check: true
+  CONTROL Reverse(int, list<binary>): T = binary, fails: true
+  PASS \x{2014} both corpus shapes reproduce; the control fails
+
+M4 \x{2014} can containment fail after a solve that found a part?
+  781 (template, argument-tuple) pairs enumerated
+  H1 'contain cannot fail after a non-empty solve': 382 counterexamples
+  H1 is FALSIFIED \x{2014} the covariance argument does not reach.
+    e.g. F<T>(list<T>) with int
+    e.g. F<T>(list<T>) with int
+    e.g. F<T>(list<T>) with term
+  H2 'contain fails <=> an argument escapes the maximal extent':
+    disagreements in either direction: 0
+  CONTROL the same test with a deliberately wrong extent: 314 disagreements
+  PASS \x{2014} H1 falsified, H2 holds both ways, and the control shows H2 can fail
+
+M5 \x{2014} `T Pick<T>(T, T)` with an int and an atom
+  T = :a | int   (call checks: true)
+    contains both arguments: true, and nothing more: true
+  CONTROL Pick(int, int): T = int, collapses: true
+  PASS \x{2014} the join is the union of the occurrences, and only that
+
+M6 \x{2014} which parameter shapes can reject an argument at all?
+    T                    extent is `term`, rejects nothing: true
+    list<T>              extent is `term`, rejects nothing: false
+    option<T>            extent is `term`, rejects nothing: true
+    result<T, E>         extent is `term`, rejects nothing: true
+    result<list<T>, E>   extent is `term`, rejects nothing: false
+    (T, int)             extent is `term`, rejects nothing: false
+    option<int>          extent is `term`, rejects nothing: false
+  unfailable: T, option<T>, result<T, E>
+  failable:   list<T>, result<list<T>, E>, (T, int), option<int>
+  CONTROL option<int> (same union, ground member) is failable: true
+  PASS \x{2014} a bare variable as a direct union member makes the parameter unfailable
+
+-- 6 measurements, 6 as expected --
+37a: all measurements as expected

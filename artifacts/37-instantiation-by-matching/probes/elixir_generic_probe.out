@@ -1,0 +1,10 @@
+$ elixirc generic_probe.ex -o . ; echo exit=$?
+reverse_bytes: [3, 2, 1]
+reverse_strings: ["b", "a"]
+mismatched (should be a type error in a real generic system): [3, :not_an_int, 2, 1]
+exit=0
+
+$ elixir generic_probe.ex
+reverse_bytes: [3, 2, 1]
+reverse_strings: ["b", "a"]
+mismatched (should be a type error in a real generic system): [3, :not_an_int, 2, 1]
