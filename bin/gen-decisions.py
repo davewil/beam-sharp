@@ -36,12 +36,26 @@ relative to decisions.md and would be wrong from inside `issues/` — a fence
 makes it inert text rather than a broken link.
 
 WHY AN ORDER FILE. decisions.md's order is curated, not numeric: it opens 00,
-03, 19, 01, 21, 08. It is not map.md's order either — map.md's decisions index
-is missing eleven of the sixty-one entries and orders several differently,
-which is ENG-257 showing up inside this issue. That curation is information, so
-it is recorded rather than recomputed. The manifest cannot silently lose an
-entry: `check-decisions.sh`'s NOENTRY already requires decisions.md to name
-every resolved ticket, and decisions.md is now this file's output.
+03, 19, 01, 21, 08. It is not map.md's order either — of the 59 subjects with an
+entry here, map.md indexes 50 under "Decisions so far", files eight (63, 37, 49,
+47, 67, 50, 56, 58) under "Not yet specified" although their decision is
+written, and does not tag the walking skeleton at all. That curation is
+information, so it is recorded rather than recomputed.
+
+WHAT GUARDS THE MANIFEST, precisely, because a wrong sentence here is worse
+than none. Three mechanisms with three exit codes:
+
+  * a manifest line for a ticket whose entry block is missing — this script
+    exits 2 naming the file, because it will not emit a short file quietly;
+  * a manifest line deleted — the entry vanishes from decisions.md, which
+    `check-decisions-derived.sh` sees as drift before regeneration and
+    `check-decisions.sh`'s NOENTRY sees after it, since NOENTRY requires
+    decisions.md to name every RESOLVED ticket;
+  * a newly resolved ticket with neither block nor manifest line — NOENTRY,
+    which reads the resolved set from Status rather than from this manifest.
+
+The gap that leaves: `skeleton` is not a resolved ticket, so NOENTRY does not
+guard it. Delete that one line after regenerating and nothing here objects.
 
 Usage:
   bin/gen-decisions.py --check    exit 1 and print a diff if decisions.md has

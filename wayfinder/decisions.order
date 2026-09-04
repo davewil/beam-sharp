@@ -3,9 +3,10 @@
 # The order is curated, not numeric — the file opens 00, 03, 19, 01, 21, 08,
 # grouping each decision beside the one it answers rather than beside the one
 # that happened next. That curation is information, so it is recorded here
-# rather than recomputed. It is NOT map.md's order either: map.md's decisions
-# index is missing eleven of these entries and orders several differently,
-# which is ENG-257 showing up inside ENG-310.
+# rather than recomputed. It is NOT map.md's order either: of the 59 subjects
+# with an entry, map.md indexes 50 under "Decisions so far", files eight under
+# "Not yet specified" although their decision is written, and does not tag the
+# walking skeleton at all. See ENG-327 and ENG-257.
 #
 # One key per entry, in the order they appear. A bare number is a ticket's
 # first entry; `16:2` is its second. `skeleton` is the one entry whose subject

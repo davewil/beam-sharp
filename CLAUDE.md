@@ -18,7 +18,8 @@ version control.
 | What | Where | Canonical for |
 |---|---|---|
 | Map (index) | [ENG-165](https://linear.app/davewil/issue/ENG-165) · `wayfinder/map.md` | Linear: status. Repo: destination, working notes, and a tagged index of every entry |
-| Map (bodies) | `wayfinder/decisions.md`, `fog.md`, `scope.md` | Repo only; the index links to each |
+| Map (bodies) | `wayfinder/fog.md`, `scope.md` | Repo only; the index links to each |
+| Map (bodies, generated) | `wayfinder/decisions.md` | **Do not edit.** Each entry is a ```` ```decisions-entry ```` block in the ticket it names, assembled in `decisions.order`'s order by `bin/gen-decisions.py --write` |
 | Tickets | `wayfinder/issues/NN-<slug>.md` | **Linear**: status, blocking, assignment, frontier. **Repo**: the question, the answer, all cross-references |
 | Research findings | `wayfinder/research/NN-<slug>.md` | Repo only (~380KB; issues link to them) |
 | Prototypes | `wayfinder/prototypes/` | Repo only |
@@ -51,7 +52,10 @@ age picked wrong three times.
 - **Never write "this is not decided" without grepping `wayfinder/decisions.md` first.** It is
   the index of every answer this project has reached, and a session once filed as *"a gap rather
   than a decision"* something a ticket had settled six days earlier. The same rule reaches
-  `CONTEXT.md` before coining or redefining a term.
+  `CONTEXT.md` before coining or redefining a term. **Grep it, never edit it** — it is generated
+  from the tickets, an edit here is reverted by the next regeneration, and
+  `bin/check-decisions-derived.sh` reds the build first. Change the entry where it lives, in the
+  ticket's `## Decisions entry` section, then run `bin/gen-decisions.py --write`.
 - **A design question is B# code plus the compiler delta, and nothing else.** Write the realistic
   program, show what it compiles to, and state what the compiler must gain as concrete work — a
   symbol-table entry, an emitted function, a pass. Option menus with labelled trade-offs are the

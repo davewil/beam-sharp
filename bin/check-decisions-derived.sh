@@ -18,8 +18,10 @@
 #   * ticket 40's preserved fog body opened with a column-0 bullet, so every
 #     parser read it as a second ticket-40 entry (fixed in `ea5d453`);
 #   * map.md's decisions index — the file that is supposed to BE the index of
-#     decisions.md — is missing eleven of the sixty-one entries and orders
-#     several differently. That one is NOT fixed here; see ENG-257.
+#     decisions.md — files eight subjects whose decision is written (63, 37,
+#     49, 47, 67, 50, 56, 58) under "Not yet specified" instead, and does not
+#     tag the walking skeleton at all. That one is NOT fixed here; see ENG-327
+#     for why no gate noticed, and ENG-257.
 #
 # Every one of those is a copy disagreeing with its original. Generation is the
 # only fix that cannot recur, because after it there is no second copy to
