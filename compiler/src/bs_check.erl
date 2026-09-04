@@ -1237,6 +1237,17 @@ resolve({t_generic, list, [T]}, Env, Seen) ->
     bs_types:list(resolve(T, Env, ctor(Seen)));
 resolve({t_generic, list, Args}, _Env, _Seen) ->
     erlang:error({generic_arity, list, 1, length(Args)});
+%% Ticket 48 — `map<K, V>`, and it is algebra-primitive for exactly `list<T>`'s
+%% reason one clause up: a domain member is a pair of TYPES, not an alias body,
+%% so no `type map<K, V> = ...` could express it and it is resolved here.
+%%
+%% Note what does NOT appear: any handling of a `Kind` exclusion. Q3 lives in the
+%% member's own meaning (`bs_types:map_dom/2`), so the surface says only what the
+%% author wrote.
+resolve({t_generic, map, [K, V]}, Env, Seen) ->
+    bs_types:map_dom(resolve(K, Env, ctor(Seen)), resolve(V, Env, ctor(Seen)));
+resolve({t_generic, map, Args}, _Env, _Seen) ->
+    erlang:error({generic_arity, map, 2, length(Args)});
 %% Ticket 27 §(b), executable: substitute the ground arguments into the alias
 %% body and resolve THAT. The variable is gone before `bs_types` sees anything,
 %% which is why F6 adds no node to the algebra and no case to any operation on
@@ -1413,7 +1424,33 @@ check_fn(F = #fn{name = Name, line = Line, params = Params, ret = Ret}, Ctx0) ->
         [] ->
             {F, [{error, Line, Name, no_clauses}]};
         Clauses ->
-            {Residual, Diags0} = walk(Clauses, Declared, Declared, Ctx, [], 1),
+            {Residual, Diags0} =
+                case map_pattern_diags(Clauses, Params, Env, Name) of
+                    %% TICKET 48 Q2 IS ENFORCED HERE AND NOT BY THE ALGEBRA, and
+                    %% that placement is the point. `redundancy/4`'s own comment
+                    %% says reporting an unreadable case as the author's mistake
+                    %% would be "the checker announcing its own ignorance as the
+                    %% author's mistake" — and that is exactly what happens if
+                    %% the deferral is left to fall out of the meet: `#{Status
+                    %% => 1}` IS a member of `map<atom, term>`, so "this clause's
+                    %% pattern is not a member of it" would be a false sentence
+                    %% about the language rather than a true one about the
+                    %% compiler.
+                    %%
+                    %% Reported instead of walked, because every downstream
+                    %% number — the residual, the corrected signature — would be
+                    %% computed from a pattern the compiler cannot honour.
+                    %%
+                    %% THE RESIDUAL IS EMPTIED RATHER THAN PASSED THROUGH so this
+                    %% is ONE error and not two. Handing back `Declared` leaves
+                    %% the function looking inexhaustive and adds a second
+                    %% sentence about coverage, which is a consequence of the
+                    %% first error rather than a fault of its own — and the
+                    %% author would go and fix the wrong one. Compilation fails
+                    %% on the error either way.
+                    [_ | _] = Ds -> {bs_types:none(), Ds};
+                    []           -> walk(Clauses, Declared, Declared, Ctx, [], 1)
+                end,
             Diags = with_corrected_signature(F, Diags0),
             Final =
                 case bs_types:is_none(Residual) of
@@ -2187,7 +2224,27 @@ type_of({e_inst, L, 'ValidateAs', TypeArgs, Args}, S, C) ->
             case validate_collapses(Ty, C#ctx.types) of
                 true  -> {reported(),
                           D0 ++ [{error, L, C#ctx.fname, {validate_collapses, Ty}}]};
-                false -> {validate_result(Ty, C#ctx.types), D0}
+                false ->
+                    %% TICKET 48 Q2 REACHES `ValidateAs<T>`, AND IT HAD TO BE
+                    %% STOPPED HERE RATHER THAN LEFT TO FAIL LATER. `map_cases/1`
+                    %% in `bs_emit` builds its worklist as
+                    %% `[M || M = {closed,_} <- Ms] ++ [M || M = {open,_} <- Ms]`,
+                    %% so a domain member is DROPPED rather than crashing: the
+                    %% generated validator would walk nothing, accept every term
+                    %% it was handed, and answer `ok` for a value of any shape at
+                    %% all. That is a validator that certifies what it never
+                    %% looked at — the worst failure this obligation can have,
+                    %% and silent.
+                    %%
+                    %% The walk is deferred with the pattern form (ENG-323): both
+                    %% need the same thing, which is a decomposition over an
+                    %% unbounded key set.
+                    case bs_types:is_dom(Ty) of
+                        true  -> {reported(),
+                                  D0 ++ [{error, L, C#ctx.fname,
+                                          {validate_domain_map, Ty}}]};
+                        false -> {validate_result(Ty, C#ctx.types), D0}
+                    end
             end;
         _ ->
             {reported(),
@@ -2877,6 +2934,24 @@ record_name(Ty) ->
         _ ->
             unknown
     end.
+
+%% Ticket 48 Q2 — one diagnostic per clause that destructures a parameter whose
+%% type is a domain map. Paired BY POSITION rather than by scanning the clause
+%% for any map pattern at all: a clause may legitimately destructure a record in
+%% column 1 while column 2 is a `map<K, V>` it only binds, and refusing that
+%% would refuse a program 48 explicitly ships.
+map_pattern_diags(Clauses, Params, Env, Name) ->
+    Doms = [I || {I, {param, T, _}} <- lists:enumerate(Params),
+                 bs_types:is_dom(resolve(T, Env))],
+    [{error, CLine, Name, {map_pattern_deferred, resolve(ParamT, Env)}}
+     || {clause, CLine, _, Patterns, _, _} <- Clauses,
+        I <- Doms,
+        length(Patterns) >= I,
+        is_map_pattern(lists:nth(I, Patterns)),
+        {param, ParamT, _} <- [lists:nth(I, Params)]].
+
+is_map_pattern({p_map, _, _}) -> true;
+is_map_pattern(_)             -> false.
 
 walk([], Residual, _Declared, _Ctx, Diags, _N) ->
     {Residual, lists:reverse(Diags)};

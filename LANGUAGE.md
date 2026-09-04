@@ -1299,6 +1299,42 @@ The compiler says which of the two it has found. That distinction is the whole r
 down here: an author who wrote the first should wait for a feature, and an author who wrote the
 second should rewrite their type, and one diagnostic cannot tell them apart.
 
+### Dictionaries — `map<K, V>`
+
+A record fixes its field names in the source. A `map<K, V>` does not: the keys arrive at runtime and
+there can be unboundedly many, which is what a dictionary is. Both are maps on the runtime; they are
+told apart by whether the set of keys is written down.
+
+```csharp
+type Assigns = map<atom, term>
+
+public Assigns Passthrough(Assigns a)
+Passthrough(a) -> a
+```
+
+**shipped** — the type can be declared, passed, stored in a record field and returned. It is
+**covariant in its value**, so a `map<atom, int>` goes where a `map<atom, term>` is asked for and not
+the other way round.
+
+A record is **not** a `map<K, V>`. A declared record carries a minted `Kind` tag, and this type
+excludes exactly that — so `Order` will not pass where `map<atom, term>` is expected, and a brace map
+with no tag will.
+
+**Matching one in a clause head is not built.** That is deliberate rather than pending: a pattern
+over an unbounded key set cannot be proved exhaustive, because no finite set of clauses ever closes
+the residual — and cross-clause exhaustiveness is the guarantee every other head in this language
+keeps. So the compiler refuses the head and says which half it has:
+
+```csharp not-yet
+public term Read(map<atom, term> a)
+Read({ Status: s }) -> s
+```
+
+Reading a value out therefore needs `Map.Get`, which is not built either — the qualifier `Map` is
+reserved for it. Until it lands this type is for values that pass **through** a program: a foreign
+struct handed to an Erlang or Elixir call, which today would be a `list<(atom, term)>` with no
+checking at all.
+
 ### Polymorphic function signatures — next
 
 ```csharp not-yet

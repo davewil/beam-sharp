@@ -169,6 +169,15 @@ Tagged because it carries a payload, not for discrimination's own sake. The succ
 untagged — there is no `:ok`.
 _Avoid_: either, try, outcome, Result with an ok tag
 
+**map&lt;K, V&gt;**:
+The **dictionary**: keys arrive at runtime and there can be unboundedly many, so the set of keys is
+not written in the source. A **record** is the other kind of map — its field names are fixed at the
+declaration — and the two are told apart by the record's minted `Kind` tag, which a `map<K, V>`
+excludes and nothing else does. Covariant in `V`. Ships as a type only: it is declared, passed,
+stored and returned, and matching one in a clause head is refused, because a pattern over an
+unbounded key set cannot be proved exhaustive.
+_Avoid_: dict, hash, dictionary, assoc, keyword list
+
 **foreign_error**:
 `(:error, term) | (:throw, term) | (:exit, term)`. The `E` produced by a compiler-emitted foreign
 wrapper, preserving *which* of the BEAM's three exception classes fired. Compiler-known: a user

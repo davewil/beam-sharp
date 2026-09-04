@@ -1012,6 +1012,13 @@ bin_parts(_)   -> [{type, ?A, binary, []}].
 map_parts(top) -> [{type, ?A, map, any}];
 map_parts(Members) -> [map_part(M) || M <- Members].
 
+%% Ticket 48's domain member, and Erlang already spells it: `map_field_assoc` is
+%% the `=>` association, so `#{K() => V()}` says "keys of this type, values of
+%% that type" exactly. NOTHING IS WIDENED TO `map()` HERE EITHER — the paragraph
+%% above claims that for the whole constructor, and the third kind keeps it
+%% rather than becoming its first exception.
+map_part({dom, K, V}) ->
+    {type, ?A, map, [{type, ?A, map_field_assoc, [spec_type(K), spec_type(V)]}]};
 map_part({Kind, Fields}) ->
     Exact = [{type, ?A, map_field_exact, [{atom, ?A, K}, spec_type(V)]}
              || {K, V} <- lists:sort(maps:to_list(Fields))],

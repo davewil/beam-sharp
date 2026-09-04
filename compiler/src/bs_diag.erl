@@ -300,6 +300,12 @@ descriptor(Path, {Sev, Line, Fn, wildcard_as_value}) ->
 descriptor(Path, {Sev, Line, Fn, {validate_collapses, Ty}}) ->
     (at(Sev, Path, Line, Fn))#{tag => validate_collapses,
                                type => bs_types:to_string(Ty)};
+descriptor(Path, {Sev, Line, Fn, {validate_domain_map, Ty}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => validate_domain_map,
+                               type => bs_types:to_string(Ty)};
+descriptor(Path, {Sev, Line, Fn, {map_pattern_deferred, Ty}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => map_pattern_deferred,
+                               type => bs_types:to_string(Ty)};
 descriptor(Path, {Sev, Line, Fn, {obligation_arity, Name, Types, Args}}) ->
     (at(Sev, Path, Line, Fn))#{tag => obligation_arity,
                                obligation => Name,
@@ -940,6 +946,36 @@ message(#{tag := validate_collapses, file := P, line := L, function := Fn,
      "  T, so the validator could only ever succeed and no caller could~n"
      "  write the failure clause. Validate against the type you actually~n"
      "  expect.~n",
+     [P, L, Fn, Ty]};
+%% SAYS THE COMPILER IS NOT READY, NOT THAT THE PATTERN IS WRONG. `{ Status: s }`
+%% genuinely IS a member of `map<atom, term>`, so the nearby "matches no value of
+%% its input" would be a false sentence about the language here rather than a
+%% true one about this compiler.
+message(#{tag := map_pattern_deferred, file := P, line := L, function := Fn,
+          type := Ty}) ->
+    {"~s:~p: error: ~s destructures a map whose keys are not a fixed list~n"
+     "  the parameter's type is: ~s~n"
+     "  `map<K, V>` ships as a type — declare it, pass it, store it,~n"
+     "  return it — but matching one in a clause head is not built. A~n"
+     "  pattern over an unbounded key set cannot be proved exhaustive,~n"
+     "  which is the guarantee every other head in this language keeps.~n"
+     "  Bind the whole map and read it, or declare a record if the keys~n"
+     "  are known.~n",
+     [P, L, Fn, Ty]};
+%% NAMES THE DEFERRAL, NOT A DEFECT. The author wrote something reasonable and
+%% the answer is "not yet", so the message says which half of ticket 48 shipped
+%% and points at the one that did not — the alternative being a validator that
+%% silently certifies anything.
+message(#{tag := validate_domain_map, file := P, line := L, function := Fn,
+          type := Ty}) ->
+    {"~s:~p: error: ~s validates against a map type whose keys are not~n"
+     "  a fixed list~n"
+     "  the type is: ~s~n"
+     "  `map<K, V>` ships as a type — it can be declared, passed, stored~n"
+     "  and returned — but the walk that would check an unbounded set of~n"
+     "  keys is not built, and a generated validator would accept every~n"
+     "  term it was handed. Validate against a record, or a `type` whose~n"
+     "  fields are written out.~n",
      [P, L, Fn, Ty]};
 message(#{tag := obligation_arity, file := P, line := L, function := Fn,
           obligation := Name, type_args := Types, args := Args}) ->

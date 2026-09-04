@@ -33,7 +33,7 @@
 %% at all. Neither wants a spine.
 -export([list_elem/1, has_lists/1, has_nil/1, has_cons/1, spine/2]).
 -export([binary_top/0, string/0]).
--export([map_closed/1, map_open/1]).
+-export([map_closed/1, map_open/1, map_dom/2, is_dom/1]).
 -export([union/2, union/1, intersect/2, subtract/2]).
 -export([is_none/1, is_open/1, is_subtype/2, to_string/1, to_pattern/1,
          pattern_parts/1, atom_str/1]).
@@ -104,7 +104,34 @@
 %% Like the tuple part, members are kept separate and only absorbed — never
 %% merged into a wider one. The field product decomposes exactly the way the
 %% tuple product does, keyed by field name instead of by position.
--type map_member() :: {closed | open, #{atom() => ty()}}.
+%%
+%%   `dom`    — TICKET 48 Q1, and it is a THIRD KIND rather than a widening of
+%%              the other two. `{closed | open, Fields}` is a finite product
+%%              keyed by atom: `maps:keys/1` has something to enumerate, and
+%%              `same_keys/2` and `keys_subset/2` decide by comparing those
+%%              lists. `{dom, K, V}` is one uniform rule over an unbounded key
+%%              domain — there is no list of names to sort — so the key
+%%              machinery cannot run on it at all. That is why "just allow key
+%%              types other than atom" is not the fix: the problem is not what
+%%              type the keys are, it is that there is a finite list at all.
+%%
+%% Q7 fixes the shape and it is borrowed rather than invented: in Elixir's
+%% `Descr` the named-key and domain-key maps are the SAME CONSTRUCTOR WITH A
+%% DIFFERENT TAG VALUE, not two constructors. Being a 3-tuple beside two
+%% 2-tuples is load-bearing — `m_subset({_, FP}, {open, FQ})` and
+%% `discriminator({_Kind, Fields})` both match any 2-tuple, so a domain member
+%% cannot fall into a named-field clause by accident.
+%%
+%% A DOMAIN MEMBER CARRIES Q3's EXCLUSION IN ITS MEANING: "every key in K, every
+%% value in V, AND NO `Kind` KEY". It needs no fourth element to say so, because
+%% a record is `{closed, #{'Kind' => atom_lit(Tag), ...}}` and the exclusion is
+%% therefore decidable by `maps:is_key('Kind', Fields)` on the other side.
+%%
+%% This is the MISSING MIDDLE and that is the whole argument for paying for it.
+%% `top` below is *any map whatsoever* and prints as bare `"map"`, so before 48
+%% the algebra could say "exactly these named fields", "at least these named
+%% fields", and "any map at all", with nothing in between.
+-type map_member() :: {closed | open, #{atom() => ty()}} | {dom, ty(), ty()}.
 -type map_part() :: top | [map_member()].
 
 %% A binary part — ticket 20 §4's `string = binary where valid_utf8`, which is a
@@ -244,7 +271,16 @@ components(T) ->
     Ls = lists:append([sp_components(S) || S <- maps:get(lists, T)]),
     Ms = case maps:get(maps, T) of
              top -> [];
-             Fs  -> lists:append([maps:values(F) || {_, F} <- Fs])
+             %% A DOMAIN MEMBER'S TWO TYPES ARE COMPONENTS TOO, and the clause
+             %% above is a comprehension FILTER — a 3-tuple simply does not
+             %% match `{_, F}`, so without this line `K` and `V` are dropped in
+             %% silence rather than crashing. That is the failure the paragraph
+             %% above this function exists to prevent, arriving by the exact
+             %% route it names.
+             Fs  -> lists:append([case M of
+                                      {dom, K, V} -> [K, V];
+                                      {_, F}      -> maps:values(F)
+                                  end || M <- Fs])
          end,
     Ts ++ Ls ++ Ms.
 
@@ -359,6 +395,29 @@ map_member(Kind, Fields) when is_map(Fields) ->
         false -> (none())#{maps => [{Kind, Fields}]}
     end.
 
+%% Ticket 48 — `map<K, V>`. NOTE WHAT THIS DOES NOT DO: it has no emptiness
+%% short-circuit, and that is the difference from `map_member/2` above rather
+%% than an omission from it.
+%%
+%% A NAMED FIELD MUST BE PRESENT, so a field typed `none` admits no map and the
+%% member collapses. A DOMAIN IS A CONSTRAINT ON ENTRIES THAT EXIST, so `#{}`
+%% satisfies "every key in K, every value in V" vacuously and inhabits
+%% `map<atom, Never>` — the type is populated no matter how empty K or V are.
+%%
+%% Reusing the field rule here would be the exact failure `is_none/1`'s own
+%% comment describes one screen down: the type reports EMPTY, every containment
+%% over it passes vacuously, and the compiler goes quieter rather than red. No
+%% passing test sees that, so `map_type_tests` asserts the inhabitedness at the
+%% boundary instead.
+map_dom(K, V) -> (none())#{maps => [{dom, K, V}]}.
+
+%% Does this type contain a domain member? The surface needs to ask, because
+%% the pattern form is deferred (48 Q2) and both refusals that enforce the
+%% deferral are stated against the TYPE rather than against the algebra.
+is_dom(#{maps := Ms}) when is_list(Ms) ->
+    lists:any(fun({dom, _, _}) -> true; (_) -> false end, Ms);
+is_dom(_) -> false.
+
 %%% ---------------------------------------------------------------------------
 %%% Emptiness
 %%% ---------------------------------------------------------------------------
@@ -425,6 +484,10 @@ sp_none({P, _}, Seen) -> lists:any(fun(C) -> is_none(C, Seen) end, P).
 
 m_empty(M) -> m_empty(M, []).
 
+%% `#{}` inhabits every domain member, so one is never empty. See `map_dom/2`
+%% for why this is not the named-field rule with a different shape.
+m_empty({dom, _K, _V}, _Seen) ->
+    false;
 m_empty({_Kind, Fields}, Seen) ->
     lists:any(fun(C) -> is_none(C, Seen) end, maps:values(Fields)).
 
@@ -496,6 +559,15 @@ m_open(top) -> true;
 %% An `open` member is *at least* these fields, so it admits maps carrying
 %% arbitrary others. That is the same unbounded top the name already says.
 m_open(Ms)  -> lists:any(fun({open, _}) -> true;
+                            %% A domain member's key set is unbounded, which is
+                            %% the same unboundedness `open` reports — and 48
+                            %% priced exactly this: an open key domain is the one
+                            %% place exhaustiveness cannot work, since no finite
+                            %% clause set closes the residual. So a catch-all
+                            %% over it is legitimate rather than the
+                            %% `catch_all_over_closed` mistake, which is what
+                            %% this predicate decides.
+                            ({dom, _, _}) -> true;
                             ({closed, Fs}) -> lists:any(fun is_open/1, maps:values(Fs))
                          end, Ms).
 
@@ -881,6 +953,31 @@ m_minus_all(As, B, Asm) ->
     m_absorb(lists:append([m_minus(A, B, Asm) || A <- As])).
 
 %%% --- meet -------------------------------------------------------------------
+%%%
+%%% TICKET 48'S 2×2 IS NOW A 3×3, and the five new cells are here. The cost grew
+%%% by multiplication rather than addition, which is the whole reason 48 called
+%%% Q1 the expensive question and answered it anyway.
+%%%
+%%% The domain cells are stated FIRST so they are reached before the named-field
+%%% clauses, which is a correctness requirement and not a style: `{dom, K, V}` is
+%%% a 3-tuple and cannot match `{closed, F}` or `{open, F}`, but a mixed pair
+%%% would fall through to `function_clause` without them.
+
+%% Two domains meet pointwise: the entries that satisfy both rules are exactly
+%% those whose key satisfies both and whose value satisfies both.
+m_meet({dom, KA, VA}, {dom, KB, VB}, Asm) ->
+    m_check({dom, intersect(KA, KB, Asm), intersect(VA, VB, Asm)});
+%% A named-field member meeting a domain is that member, kept or dropped: it
+%% already fixes its keys, so the domain either admits all of them or none.
+%% `fields_fit/4` carries Q3 — a member with a `Kind` is a record and no record
+%% is a `map<K, V>`.
+m_meet(A = {Kind, FA}, {dom, KB, VB}, Asm) when Kind =:= closed; Kind =:= open ->
+    case fields_fit(Kind, FA, KB, VB, Asm) of
+        true  -> m_check(A);
+        false -> empty
+    end;
+m_meet(A = {dom, _, _}, B = {Kind, _}, Asm) when Kind =:= closed; Kind =:= open ->
+    m_meet(B, A, Asm);
 
 m_meet({closed, FA}, {closed, FB}, Asm) ->
     %% Both fix the domain, so they must fix the same one.
@@ -922,6 +1019,49 @@ m_check(M) -> case m_empty(M) of true -> empty; false -> M end.
 %%
 %% Componentwise subtraction would be plain wrong here for the same reason it is
 %% wrong for tuples.
+%%
+%% THE DOMAIN CELLS ARE WHERE SUBTYPING IS DECIDED, and that is worth saying
+%% plainly because 48 Q2 makes it easy to assume otherwise. Deferring the pattern
+%% form spares `m_decompose/3`; it does NOT spare subtraction, because
+%% `is_subtype(A, B) -> is_none(subtract(A, B))` and every parameter pass in the
+%% language goes through it. A domain cell that returned the minuend
+%% unconditionally would type-check nothing and refuse everything.
+%%
+%% Each cell that cannot decide keeps the minuend WHOLE — too big rather than too
+%% small, the same honesty `{open, FA} \ {closed, _}` already applies. Too big
+%% costs a refusal; too small costs a false exhaustiveness proof, and this
+%% language's one promise is that the second never happens.
+
+%% Domain minus domain. Subtracting a wider rule from a narrower one empties it,
+%% which is what makes `map<atom, int>` pass where `map<atom, term>` is asked
+%% for. Anything else keeps the minuend: "every atom key except the ones whose
+%% value is an int" is not something this algebra can name.
+m_minus({dom, KA, VA}, {dom, KB, VB}, Asm) ->
+    case sub(KA, KB, Asm) andalso sub(VA, VB, Asm) of
+        true  -> [];
+        false -> [{dom, KA, VA}]
+    end;
+%% A CLOSED MEMBER MINUS A DOMAIN, AND THIS IS THE CELL Q3 AND Q7 BOTH LAND ON.
+%% Q7 says the shipped brace map and `map<K, V>` are one type family, so a closed
+%% member whose keys and values fit the rule IS one and subtracts away. Q3 says
+%% the exclusion is `Kind` absent only, so a record — which carries a minted
+%% `Kind` — never fits, and `Order` is not a `map<atom, term>`.
+m_minus({closed, FA}, {dom, KB, VB}, Asm) ->
+    case fields_fit(closed, FA, KB, VB, Asm) of
+        true  -> [];
+        false -> [{closed, FA}]
+    end;
+%% An open member is "at least these fields", so it admits maps carrying keys
+%% nobody has named. Those may fall outside the domain, or carry a `Kind`.
+%% Unprovable, so the minuend stays whole.
+m_minus(A = {open, _}, {dom, _, _}, _Asm) ->
+    [A];
+%% A domain minus a named-field member. One member removes one shape from an
+%% unbounded family and leaves an infinity behind, which is not nameable — the
+%% same shape as `top` minus anything.
+m_minus(A = {dom, _, _}, {Kind, _}, _Asm) when Kind =:= closed; Kind =:= open ->
+    [A];
+
 m_minus({closed, FA}, {closed, FB}, Asm) ->
     case same_keys(FA, FB) of
         true  -> m_decompose(closed, FA, FB, Asm);
@@ -988,6 +1128,10 @@ m_absorb(Ms0) ->
 
 %% A member's tag, where it has exactly one. Anything else — no `Kind`, a
 %% cofinite one, a union of tags — is `none` and is compared against everything.
+%% A domain member has no `Kind` BY CONSTRUCTION — that is Q3 — so it is
+%% untagged and compared against everything, which is what `none` means here.
+discriminator({dom, _, _}) ->
+    none;
 discriminator({_Kind, Fields}) ->
     case maps:find('Kind', Fields) of
         {ok, #{atoms := {finite, [Tag]}, ints := [], tuples := [],
@@ -1002,6 +1146,18 @@ rivals(M, Groups, Untagged, All) ->
     end.
 
 %% Is P contained in Q?
+%%
+%% The domain clauses come first for the reason the meet grid gives: a 3-tuple
+%% cannot match `{_, FP}`, but a MIXED pair would reach a named-field clause and
+%% crash rather than answer.
+m_subset({dom, KP, VP}, {dom, KQ, VQ}) ->
+    sub(KP, KQ, []) andalso sub(VP, VQ, []);
+m_subset({Kind, FP}, {dom, KQ, VQ}) when Kind =:= closed; Kind =:= open ->
+    fields_fit(Kind, FP, KQ, VQ, []);
+%% A domain admits maps no finite field list names, so it is inside no
+%% named-field member.
+m_subset({dom, _, _}, {_, _}) ->
+    false;
 m_subset({_, FP}, {open, FQ}) ->
     %% Q constrains only its own keys, so P must have them and be narrower there.
     keys_subset(FQ, FP) andalso
@@ -1014,6 +1170,33 @@ m_subset({closed, FP}, {closed, FQ}) ->
 m_subset({open, _}, {closed, _}) ->
     %% An open member admits extra fields; a closed one does not.
     false.
+
+%% Containment, spelled once. `m_subset/2` already reaches for the public
+%% `is_none(subtract(A, B))` rather than threading assumptions, and the domain
+%% cells follow it rather than inventing a second convention beside it.
+sub(A, B, Asm) -> is_none(subtract(A, B, Asm)).
+
+%% DOES A FINITE FIELD LIST SATISFY A DOMAIN RULE? This is where Q3 and Q7 are
+%% enforced, and it is three conditions rather than two:
+%%
+%%   1. NO `Kind` — Q3's "`Kind` absent only". A record is
+%%      `{closed, #{'Kind' => atom_lit(Tag), ...}}`, so this one line is what
+%%      makes `Order` fail to be a `map<atom, term>`. Without it the domain
+%%      quietly becomes `top`, which is the imprecision 48 exists to sit between.
+%%   2. every key is in K — the key is a NAME, so it is tested as the singleton
+%%      atom type it denotes.
+%%   3. every value type is in V.
+%%
+%% An OPEN member can never satisfy this whatever its named fields say, because
+%% the fields it does not name are unconstrained and may be a `Kind`. Saying so
+%% here keeps the three callers from each having to remember it.
+fields_fit(open, _Fields, _K, _V, _Asm) ->
+    false;
+fields_fit(closed, Fields, K, V, Asm) ->
+    not maps:is_key('Kind', Fields) andalso
+        lists:all(fun({Name, T}) ->
+                          sub(atom_lit(Name), K, Asm) andalso sub(T, V, Asm)
+                  end, maps:to_list(Fields)).
 
 same_keys(A, B) -> lists:sort(maps:keys(A)) =:= lists:sort(maps:keys(B)).
 
@@ -1328,6 +1511,12 @@ ms_str(Members) -> [m_str(M) || M <- Members].
 %% IS the missing case and ticket 23 makes it the thing an agent is handed to
 %% write. `Kind` is printed first when present — it is the discriminator, so it
 %% is the field a reader needs to see to know which record is missing a clause.
+%% Printed the way the SURFACE spells it, which for a domain is `map<K, V>` and
+%% not a brace form — there is no brace form to print, the pattern half being
+%% deferred (48 Q2). A member kind with no printer reaches the author as a raw
+%% Erlang term in the middle of a diagnostic.
+m_str({dom, K, V}) ->
+    "map<" ++ to_string(K) ++ ", " ++ to_string(V) ++ ">";
 m_str({Kind, Fields}) ->
     Ks = case maps:is_key('Kind', Fields) of
              true  -> ['Kind' | lists:sort(maps:keys(maps:remove('Kind', Fields)))];
@@ -1586,6 +1775,12 @@ ms_hd(Members, Names) -> [m_hd(M, Names) || M <- Members].
 %% does not. `bs_parser.yrl:499-501` says the hand-written minted tag "makes an
 %% erasure detail load-bearing in source" — F22 exists to replace exactly this,
 %% and shipped without reaching the printer.
+%% A RESIDUAL HEAD FOR A DOMAIN MEMBER IS A PATTERN NOBODY CAN WRITE YET, and
+%% printing a brace form here would hand the author a suggestion the parser
+%% refuses — the failure mode ENG-312 names one constructor over. The type is
+%% what can honestly be said, so a binder typed by it is what is offered.
+m_hd({dom, K, V}, _Names) ->
+    binder("m") ++ ": map<" ++ to_string(K) ++ ", " ++ to_string(V) ++ ">";
 m_hd({_Kind, Fields}, Names) ->
     case maps:find('Kind', Fields) of
         {ok, #{atoms := {finite, [Tag]}, ints := [], tuples := [],
@@ -1673,6 +1868,14 @@ fresh_n(Base, Used, N) ->
 ms_pat(top)     -> ["map"];
 ms_pat(Members) -> [m_pat(M) || M <- Members].
 
+%% `to_pattern/1` DESCRIBES a set — it is the channel `ms_pat(top) -> ["map"]`
+%% belongs to — so a domain member describes as the type the author wrote. It is
+%% NOT the paste channel and must not carry a binder: `binder/1`'s delimiters are
+%% control bytes that only `nb/5` removes, and `nb/5` runs on the head channel
+%% alone. A binder here reaches the author as `( m)` with two invisible
+%% characters around the name, which is what the first cut of this clause did.
+m_pat({dom, K, V}) ->
+    "map<" ++ to_string(K) ++ ", " ++ to_string(V) ++ ">";
 m_pat({_Kind, Fields}) ->
     case maps:find('Kind', Fields) of
         %% `bins := []` belongs in this pattern for the same reason it belongs in
