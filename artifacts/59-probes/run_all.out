@@ -1,0 +1,20 @@
+
+=== 0. building the shipped compiler ===
+
+=== 1. SUB-DECISION 1 -- which guard fires on a private function, today ===
+compile: Probe/probe.bs:0: Warning: function 'PrivateOctet'/1 is unused
+--- Probe.abstr: PrivateOrder (record param, private) ---
+{function,0,'PrivateOrder',1,
+          [{clause,19,
+                   [{var,19,'O'}],
+                   [[{op,19,'=:=',
+                         {call,19,
+                               {remote,19,{atom,19,erlang},{atom,19,map_get}},
+                               [{atom,19,'Kind'},{var,19,'O'}]},
+--- Probe.abstr: PrivateOctet (refined-int param, private) ---
+{function,0,'PrivateOctet',1,[{clause,29,[{var,29,'_N'}],[],[{atom,29,ok}]}]}.
+{attribute,0,spec,
+    {{'EnterViaPublic',1},
+
+=== 2. THE FORGED-RECORD ATTACK -- Order/Invoice, wrapped one field deep ===
+File has no extension: /home/user/beam-sharp/artifacts/59-probes/-o

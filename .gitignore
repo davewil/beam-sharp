@@ -20,6 +20,10 @@
 # aoc/bench/gleam whenever a probe or benchmark run exercises it.
 aoc/bench/gleam/build/
 
+# A real fetched dependency (its own git checkout) used as scratch evidence
+# for ticket 52's probes — not something to vendor as a nested repo.
+artifacts/scratch/rebarlib/
+
 # A crashed `erl` writes one of these wherever it was run. Committed once by
 # accident (069fda7) and modified by a later session before being caught.
 erl_crash.dump
