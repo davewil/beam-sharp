@@ -52,6 +52,15 @@ age picked wrong three times.
   the index of every answer this project has reached, and a session once filed as *"a gap rather
   than a decision"* something a ticket had settled six days earlier. The same rule reaches
   `CONTEXT.md` before coining or redefining a term.
+- **A design question is B# code plus the compiler delta, and nothing else.** Write the realistic
+  program, show what it compiles to, and state what the compiler must gain as concrete work — a
+  symbol-table entry, an emitted function, a pass. Option menus with labelled trade-offs are the
+  banned shape, and a matrix of coupled options is that same ban in a new costume: where one
+  question gates another, **ask the gating one alone** and let the second follow. David decides by
+  reading code and judging whether it is pleasant, then asking what it costs — a four-way matrix
+  written in compiler vocabulary was rejected outright, and the same decision took four words once
+  it was a program that compiles under one answer and is refused under the other.
+  <!-- established ticket 32, 2026-08-14; reconfirmed ticket 47 / ENG-219, 2026-08-31 -->
 - **A round of questions is not asked until it is in the repo.** Put the round in the ticket file
   in the same turn it goes to David, never in the chat alone — a round that lived only in
   conversation silently collided its question numbers with an earlier round's.
