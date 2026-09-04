@@ -1,0 +1,35 @@
+--- /home/user/beam-sharp/compiler/src/bs_check.erl	2026-09-04 13:56:39.943431773 +0000
++++ /tmp/beamsharp-spike-checker-narrow/compiler/src/bs_check.erl	2026-09-04 14:23:20.003395176 +0000
+@@ -3487,8 +3487,16 @@
+         Constraint  -> [[Constraint]]
+     end.
+ 
+-comparison({e_op, _, Op, {e_var, _, V}, {e_int, _, K}}) -> int_cmp(Op, V, K);
+-comparison({e_op, _, Op, {e_int, _, K}, {e_var, _, V}}) -> int_cmp(flip(Op), V, K);
++comparison({e_op, _, Op, {e_var, _, V}, R}) ->
++    case const_int(R) of
++        {ok, K} -> int_cmp(Op, V, K);
++        error   -> unknown
++    end;
++comparison({e_op, _, Op, L, {e_var, _, V}}) ->
++    case const_int(L) of
++        {ok, K} -> int_cmp(flip(Op), V, K);
++        error   -> unknown
++    end;
+ comparison({e_op, _, '==', {e_var, _, V}, {e_atom, _, A}}) ->
+     {V, {include, bs_types:atom_lit(A)}};
+ comparison({e_op, _, '!=', {e_var, _, V}, {e_atom, _, A}}) ->
+@@ -3496,6 +3504,13 @@
+ comparison(_) ->
+     unknown.
+ 
++%% SPIKE VARIANT (narrow): recognise ONLY the exact shape the parser produces
++%% for a literal negative integer -- `{e_op,'-',{e_int,0},{e_int,K}}` -- and
++%% nothing else. No general arithmetic folding, so `2 + 3` stays refused.
++const_int({e_int, _, K}) -> {ok, K};
++const_int({e_op, _, '-', {e_int, _, 0}, {e_int, _, K}}) -> {ok, -K};
++const_int(_) -> error.
++
+ int_cmp('>',  V, K) -> {V, {include, bs_types:range(K + 1, pos_inf)}};
+ int_cmp('>=', V, K) -> {V, {include, bs_types:range(K, pos_inf)}};
+ int_cmp('<',  V, K) -> {V, {include, bs_types:range(neg_inf, K - 1)}};

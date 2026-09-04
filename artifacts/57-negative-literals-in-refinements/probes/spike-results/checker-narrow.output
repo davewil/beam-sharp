@@ -1,0 +1,27 @@
+# Spike variant: checker-narrow
+--- Probe01 ---
+exit: 0
+--- Probe02 ---
+exit: 0
+--- Probe03 ---
+exit: 0
+--- Probe04 ---
+exit: 0
+--- Probe05 ---
+/home/user/beam-sharp/compiler/artifacts/57-negative-literals-in-refinements/probes/Probe05/mod.bs:6: error: this refinement is not a predicate the checker can read
+  a refinement narrows a type, so the compiler has to be able to
+  reason about it: comparisons on `value`, joined with `and`/`or`.
+  `int where value >= 0 and value <= 255` is one.
+  A predicate that reads the value instead \x{2014} `WellFormed(value)` \x{2014}
+  is the O(n) tier. It is established once at a boundary and never
+  reasoned about, and this compiler has no site to establish it at.
+exit: 1
+--- Probe06 ---
+/home/user/beam-sharp/compiler/artifacts/57-negative-literals-in-refinements/probes/Probe06/mod.bs:6: error: this refinement is not a predicate the checker can read
+  a refinement narrows a type, so the compiler has to be able to
+  reason about it: comparisons on `value`, joined with `and`/`or`.
+  `int where value >= 0 and value <= 255` is one.
+  A predicate that reads the value instead \x{2014} `WellFormed(value)` \x{2014}
+  is the O(n) tier. It is established once at a boundary and never
+  reasoned about, and this compiler has no site to establish it at.
+exit: 1

@@ -1,0 +1,31 @@
+// Probe for ticket 39 sub-investigation #4 ("records and dispatch"). Neither
+// benchmark workload in aoc/bench touches a record; this constructs a fresh
+// tagged-map record each iteration and dispatches over a two-member union,
+// to see whether ticket 18/F3's boundary tag guard shows a gap the tight
+// integer loop does not.
+module ShapeBench
+
+using :erlang {
+    int rem(int a, int b)
+}
+
+record Circle { R: int }
+record Square { S: int }
+type Shape = Circle | Square
+
+private int Area(Shape shape)
+Area(Circle c) -> c.R * c.R * 3
+Area(Square s) -> s.S * s.S
+
+private Shape Pick(int tag, int n)
+Pick(0, n) -> Circle { R = n }
+Pick(tag, n) -> Square { S = n }
+
+private int Loop(int left, int acc)
+Loop(0, acc) -> acc
+Loop(left, acc) ->
+    var shape = Pick(:erlang.rem(left, 2), left)
+    Loop(left - 1, acc + Area(shape))
+
+public int Grind(int left)
+Grind(left) -> Loop(left, 0)
