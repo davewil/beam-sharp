@@ -118,8 +118,8 @@ nine, and the difference is exactly this feature.
 ## The two decisions in this file
 
 Recorded here because they were taken on 2026-08-27 and this is where the work lands. **Both are
-language-surface decisions living in an F-file rather than a ticket** — `map.md`'s index will not
-see them, and that is a known cost, flagged rather than absorbed.
+language-surface decisions living in an F-file rather than a ticket** — a grep of `issues/` will
+not find them, and that is a known cost, flagged rather than absorbed.
 
 **§1 — A pattern may carry a generic type and a binder. NOT BUILT, and not needed.**
 

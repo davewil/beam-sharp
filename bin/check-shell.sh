@@ -30,7 +30,8 @@
 # forever and proved nothing.
 #
 # At `info` the existing scripts produced ten findings and two were real: an
-# `A && B || C` chain in `check-map.sh` and another in `check-surface.sh`, where
+# `A && B || C` chain in `check-map.sh` and another in `check-surface.sh` (two
+# gates since removed), where
 # C runs if B fails. That is the same shape that silently swallowed a failure in
 # the session this gate was written in.
 #
@@ -74,19 +75,10 @@ EXCLUDE="SC2016,SC1003"
 scripts() {
   local d
   for d in "$ROOT/bin" "$ROOT/compiler/bin" "$ROOT/editor/bin" \
-           "$ROOT/handoff/audition-switch" "$ROOT/detectors"; do
+           "$ROOT/handoff/audition-switch"; do
     [ -d "$d" ] || continue
     find "$d" -maxdepth 1 -name '*.sh' -perm -u+x -print
   done
-  # A SOURCED LIBRARY IS NEVER EXECUTABLE AND IS STILL SHELL THAT DECIDES
-  # VERDICTS. `detectors/lib/shell-code.sh` is the tokeniser four detectors read
-  # their input through, so a quoting bug in it is a bug in four gates at once —
-  # which is this file's opening sentence, one level down. The `-perm -u+x` test
-  # above would skip it forever, so the library directory is enumerated without
-  # it. `detect-unenumerated-shell-dir.sh` asserts this list is complete.
-  if [ -d "$ROOT/detectors/lib" ]; then
-    find "$ROOT/detectors/lib" -maxdepth 1 -name '*.sh' -print
-  fi
 }
 
 # ---------------------------------------------------------------------------

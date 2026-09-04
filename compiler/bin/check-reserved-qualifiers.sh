@@ -143,8 +143,8 @@ probe() {
   ## error — it writes nothing, and an EMPTY IMPORT LIST IS EXACTLY WHAT A
   ## CORRECTLY INLINED OPERATION PRODUCES. The judge below would fall through its
   ## `case` to the passing arm and the gate would go green having read nothing.
-  ## That is be6307b's shape and `detectors/detect-swallowed-status.sh` is what
-  ## found it here.
+  ## That is be6307b's shape, and a 2026-09-04 sweep for swallowed statuses is
+  ## what found it here.
   if ! called_modules "$dir/out/P.beam" > "$dir/P2.out" 2>&1; then
     printf 'BEAM-UNREADABLE\n' > "$dir/P2.out"
   fi

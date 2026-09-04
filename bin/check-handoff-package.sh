@@ -215,8 +215,7 @@ excluded_mentions() {
 # `./_build/default/bin/bsc` does not match on its embedded `bin/` segment.
 #
 # THE ESCAPE HATCH is `<!-- not shipped: <reason> -->` on the line before the
-# fence, the same shape `check-open-questions.sh` uses for a deliberate
-# omission. It exempts that one fence. It is deliberately NOT a way to keep
+# fence. It exempts that one fence. It is deliberately NOT a way to keep
 # writing unfollowable instructions: an exempted fence still owes the reader a
 # visible sentence saying whose machine the commands are for, because an HTML
 # comment is invisible in rendered markdown and the recipient cannot see it.

@@ -38,68 +38,43 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # THESE TWO NEED NO COMPILER, SO THEY RUN FIRST AND FAIL FAST.
+      # THE GATES THAT CHECK THE GATES RUN FIRST. They need no compiler, so a
+      # suite that cannot be trusted goes red before anything expensive runs.
       #
-      # `check-map.sh` existed since the map was split on 2026-08-15 and was
-      # NEVER WIRED IN — it ran only when somebody remembered, which is the
-      # same failure this whole file was written about. On the day it was
-      # finally added here it was already catching two real defects per run.
+      # EVERY GATE RUNS ITS OWN --self-test FIRST, as a separate step. A gate is
+      # believed here only if it has been shown to fail on the defect it names
+      # and to pass on the correct form beside it; `spec-check.sh` has held that
+      # line since ticket 15 lost a session to a harness that supplied the
+      # protection it was measuring. Folded into the gate itself, one exit code
+      # would cover two questions and "the suite is green" would stop
+      # distinguishing "no violations" from "the check still works".
       #
-      # `check-surface.sh` is new. It closes the one gap `check-language.sh`
-      # cannot reach: that gate proves LANGUAGE.md matches the COMPILER, and
-      # unbuilt syntax does not compile, so a `not-yet` block holding the
-      # decided syntax and one holding SUPERSEDED syntax are indistinguishable
-      # to it. Ticket 44 changed the conjunction and left a stale block with
-      # every gate green; ticket 42 added a construct the doc never mentioned.
-      # Since a `not-yet` block IS the clean-room handoff's spec, the place the
-      # other gates cannot see is the place the handoff most depends on.
-      # THE FOUR GATES BELOW CHECK THE GATES, and they run first because a
-      # suite that cannot be trusted makes every result after it unreadable.
-      # Added 2026-08-18 from an audit of the last twenty commits for
-      # self-inflicted defects — the classes are not hypothetical, each one is
-      # named in a commit message or in a comment in this file.
-      #
-      # EVERY ONE OF THEM RUNS ITS OWN --self-test FIRST. A gate is believed
-      # here only if it has been shown to fail on the defect it names and to
-      # pass on the correct form beside it; `spec-check.sh` has held that line
-      # since ticket 15 lost a session to a harness that supplied the protection
-      # it was measuring, and these four inherit it rather than reinvent it.
-      #
-      # The self-test is a SEPARATE step on purpose. Folded into the gate it
-      # would be one exit code covering two questions, and "the suite is green"
-      # would stop distinguishing "no violations" from "the check still works".
+      # ON 2026-09-05 SEVEN GATES AND NINE DETECTORS WERE REMOVED FROM THIS
+      # SECTION: the map-index budget, three checks on a generated decisions
+      # digest, surface and open-question traceability into the tracker, a
+      # cwd-independence check on the gates themselves, and a detector suite for
+      # the repository's own recurring mistakes. Every one guarded the tracking
+      # layer rather than the language or the handoff, and that layer had begun
+      # generating its own commits: fourteen of the sixty before the cut were
+      # about its shape, against eleven on the compiler. The design record is
+      # the tickets in `wayfinder/issues/`; Linear owns their state; nothing
+      # gates their form.
       - name: The gate-gates prove they can fail
         run: |
           ./bin/check-gates-wired.sh --self-test
-          ./bin/check-cwd-independence.sh --self-test
           ./bin/check-shell.sh --self-test
           ./compiler/bin/check-no-silent-skip.sh --self-test
-          ./bin/check-map.sh --self-test
-          ./bin/check-decisions.sh --self-test
-          ./bin/check-decisions-derived.sh --self-test
-          ./bin/check-decisions-size.sh --self-test
-          ./bin/check-surface.sh --self-test
-          ./bin/check-open-questions.sh --self-test
           ./bin/check-links.sh --self-test
           ./bin/check-toolchain.sh --self-test
           ./bin/verify.sh --self-test
           ./compiler/bin/extract-exemplars.sh --self-test
 
-      # `check-map.sh` was written on 2026-08-15 and NEVER WIRED IN; it ran only
-      # when somebody remembered. `editor/bin/` held two more this file had
-      # never mentioned, and they collected five features of drift. Prose at the
-      # foot of this file already forbade both. Prose cannot check itself.
+      # A gate nothing runs is not a gate. `editor/bin/` held two gates this
+      # file had never mentioned, and they collected five features of grammar
+      # drift while every named gate stayed green. Prose at the foot of this
+      # file already forbade it. Prose cannot check itself.
       - name: Every gate on disk is wired into this file
         run: ./bin/check-gates-wired.sh
-
-      # A gate that cannot find its files reports NO VIOLATIONS, which is the
-      # same output as success. A README change committed from the wrong
-      # directory once meant two gates did not run and nothing said so. This
-      # runs each cheap gate from two directories and requires the same verdict
-      # — a run rather than a grep, because the first draft grepped for
-      # `BASH_SOURCE` and falsely accused a script that anchors with `$0`.
-      - name: Gates give the same verdict from any directory
-        run: ./bin/check-cwd-independence.sh
 
       # Every gate here is shell, so a quoting bug in one is a bug in the thing
       # that decides whether everything else is correct — and this repo's own
@@ -118,111 +93,8 @@ jobs:
       - name: The manifest and the workflow pin the same toolchain
         run: ./bin/check-toolchain.sh
 
-      # ---------------------------------------------------------------------
-      # THE DETECTORS. Added 2026-09-04 from an audit of the last hundred commits
-      # and the 2026-09-01 review for self-inflicted defects — the same exercise
-      # that produced the four gate-gates above on 2026-08-18, one level out.
-      #
-      # Every class below is named in a commit message in this repository's own
-      # history, most of them more than once, and none of them was catchable by
-      # anything already here. They found twenty live instances on the day they
-      # were written, including three tools that no manifest declared (`perl`,
-      # `shasum`, `tar` — python3's defect exactly, two weeks after it was fixed),
-      # a control whose subject was neutralised by `|| true`, and a feature index
-      # citing a source line four hundred past the end of its file.
-      #
-      # THEY RUN THEIR OWN --self-test FIRST, in a separate step, for the reason
-      # the gate-gates give above: folded together, one exit code would cover two
-      # questions and "green" would stop distinguishing "no violations" from "the
-      # detector still works".
-      - name: The detectors prove they can fail
-        run: |
-          ./detectors/detect-unmanifested-tool.sh --self-test
-          ./detectors/detect-stale-suite-count.sh --self-test
-          ./detectors/detect-stale-citation.sh --self-test
-          ./detectors/detect-swallowed-status.sh --self-test
-          ./detectors/detect-inherited-runner-env.sh --self-test
-          ./detectors/detect-unenumerated-shell-dir.sh --self-test
-          ./detectors/detect-shared-scratch.sh --self-test
-          ./detectors/detect-split-table.sh --self-test
-          ./detectors/detect-dead-repo-path.sh --self-test
-
-      - name: Every tool a gate runs is one the manifest declares
-        run: ./detectors/detect-unmanifested-tool.sh
-
-      - name: No prose hand-counts the verify suite
-        run: ./detectors/detect-stale-suite-count.sh
-
-      - name: No document cites a source line past the end of its file
-        run: ./detectors/detect-stale-citation.sh
-
-      - name: Every control's subject can still report failure
-        run: ./detectors/detect-swallowed-status.sh
-
-      - name: A self-test builds the runner environment, never inherits it
-        run: ./detectors/detect-inherited-runner-env.sh
-
-      - name: Every directory of shell is enumerated or excluded with a reason
-        run: ./detectors/detect-unenumerated-shell-dir.sh
-
-      - name: Scratch directories are created, not named
-        run: ./detectors/detect-shared-scratch.sh
-
-      - name: No markdown table is split by a blank or prose line
-        run: ./detectors/detect-split-table.sh
-
-      - name: The design record and the package cite paths that exist
-        run: ./detectors/detect-dead-repo-path.sh
-
-      - name: The map is an index
-        run: ./bin/check-map.sh
-
-      # `check-decisions.sh` asks the question `check-map.sh` cannot: the map
-      # gate keeps the INDEX an index, and says nothing about whether the thing
-      # being indexed exists. Measured at e4f3e84 for ENG-310, 19 of 58 resolved
-      # tickets had no answer section in any spelling, six had no decisions.md
-      # entry, one sent its reader to decisions.md for an answer decisions.md
-      # says lives in the ticket, and one carried a Status no check recognised —
-      # which had silently exempted it from every check that reads Status.
-      - name: Every resolved ticket owns its own answer
-        run: ./bin/check-decisions.sh
-
-      # And `check-decisions-derived.sh` asks what neither of the two above can:
-      # whether decisions.md still EQUALS the tickets it summarises. Stage 1 made
-      # the answer exist in one spelling; stage 2 (ENG-310) made decisions.md
-      # assembled from `decisions-entry` blocks, so the hand-edit that put ticket
-      # 44's decision inside ticket 63's bullet, and lost six entries entirely,
-      # has nowhere left to land. Every red here is fixed by editing the ticket
-      # and running `bin/gen-decisions.py --write`.
-      - name: decisions.md is what its tickets say it is
-        run: ./bin/check-decisions-derived.sh
-
-      # ENG-310's acceptance test, written last instead of first: what was
-      # decided, readable in a few hundred lines. Two stages under that issue
-      # landed with decisions.md at 1,910 lines and this check absent. It is
-      # a budget on a GENERATED file, so it cannot be satisfied by omitting an
-      # entry — only by shortening one in its ticket.
-      - name: decisions.md is small enough to read
-        run: ./bin/check-decisions-size.sh
-
-      - name: Surface decisions are traceable from LANGUAGE.md
-        run: ./bin/check-surface.sh
-
-      # `check-open-questions.sh` is the same idea one layer out. The two gates
-      # above ask whether a DECISION reached the documents. This one asks
-      # whether an UNDECIDED question reached the tracker, which nothing did:
-      # on the day it was written, five of the six questions in LANGUAGE.md
-      # section 19 had no Linear issue anywhere in team ENG. Linear owns state
-      # in this project, so those five had no owner and no age, and the
-      # frontier query could not see them. Measured cost: five questions that
-      # surfaced 9 to 14 days late, every one found by something walking into
-      # it rather than by any of the 28 gates that came before this one.
-      - name: Every open question in the spec names an issue
-        run: ./bin/check-open-questions.sh
-
-      # `check-links.sh` closes the gap the two above still leave open. They both
-      # check that a DECISION is reflected in the documents; neither checks that
-      # the documents point at things that exist. Measured 2026-08-18, the
+      # `check-links.sh` asks whether the shipping documents point at things
+      # that exist, which no compiler-facing gate can. Measured 2026-08-18, the
       # shipping package carried 25 citations of `examples/<name>.bs` paths that
       # had not existed since F15 made a module a DIRECTORY — in the feature
       # files, in `LANGUAGE.md`, and in the header comment of `Totals.bs` telling

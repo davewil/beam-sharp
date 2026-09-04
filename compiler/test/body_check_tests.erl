@@ -377,8 +377,8 @@ compiles(Root, Dir) ->
 
 %% ...AND `aoc/`, WHICH NO GATE REACHED UNTIL F8.
 %%
-%% CI runs check-map, check-surface, eunit, check-language, spec-check and
-%% extract-exemplars. Not one of them compiles `aoc/`, so the only real programs
+%% At the time CI ran check-map, check-surface, eunit, check-language, spec-check
+%% and extract-exemplars. Not one of them compiled `aoc/`, so the only real programs
 %% anybody has written in this language — as opposed to the examples written to
 %% demonstrate it — were outside every gate.
 %%

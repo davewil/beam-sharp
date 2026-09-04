@@ -71,11 +71,9 @@ Done when: one issue is chosen and the sentence naming the rule that chose it is
   issues in the same team. Before using a number, check what the issue actually is — two
   different questions were both called "ticket 48" for four days, one in Linear only and one
   in the repo only.
-- A map ticket with a file and an issue may have no map entry at all. Absence from `map.md`
-  is not absence.
 - A defect is a Linear issue with no ticket number; a decision is a map ticket with both a
   file and an issue. Filing the wrong kind is a red gate or a lost number.
-- Before writing "this is not decided", grep `wayfinder/decisions.md`.
+- Before writing "this is not decided", grep `wayfinder/issues/`.
 
 ## 5. Claim and route
 

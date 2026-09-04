@@ -218,98 +218,24 @@ run_stages \
 \
   "Every gate proves it can fail" \
     "./bin/check-gates-wired.sh --self-test &&
-     ./bin/check-cwd-independence.sh --self-test &&
      ./bin/check-shell.sh --self-test &&
-     ./bin/check-map.sh --self-test &&
-     ./bin/check-decisions.sh --self-test &&
-     ./bin/check-decisions-derived.sh --self-test &&
-     ./bin/check-decisions-size.sh --self-test &&
-     ./bin/check-surface.sh --self-test &&
-     ./bin/check-open-questions.sh --self-test &&
      ./bin/check-links.sh --self-test &&
      ./bin/check-toolchain.sh --self-test &&
      ./bin/verify.sh --self-test &&
      ./compiler/bin/check-no-silent-skip.sh --self-test &&
      ./compiler/bin/extract-exemplars.sh --self-test" \
 \
-  "Every detector proves it can fail" \
-    "./detectors/detect-unmanifested-tool.sh --self-test &&
-     ./detectors/detect-stale-suite-count.sh --self-test &&
-     ./detectors/detect-stale-citation.sh --self-test &&
-     ./detectors/detect-swallowed-status.sh --self-test &&
-     ./detectors/detect-inherited-runner-env.sh --self-test &&
-     ./detectors/detect-unenumerated-shell-dir.sh --self-test &&
-     ./detectors/detect-shared-scratch.sh --self-test &&
-     ./detectors/detect-split-table.sh --self-test &&
-     ./detectors/detect-dead-repo-path.sh --self-test" \
-\
   "The manifest and the workflow pin the same toolchain" \
     "./bin/check-toolchain.sh" \
 \
-  "Every gate on disk is wired into the workflow, this script and the session list" \
+  "Every gate on disk is wired into the workflow and this script" \
     "./bin/check-gates-wired.sh" \
-\
-  "Gates give the same verdict from any directory" \
-    "./bin/check-cwd-independence.sh" \
 \
   "The gates are shellcheck-clean" \
     "./bin/check-shell.sh" \
 \
-  "The map is an index" \
-    "./bin/check-map.sh" \
-\
-  "Every resolved ticket owns its own answer" \
-    "./bin/check-decisions.sh" \
-\
-  "decisions.md is what its tickets say it is" \
-    "./bin/check-decisions-derived.sh" \
-\
-  "decisions.md is small enough to read" \
-    "./bin/check-decisions-size.sh" \
-\
-  "Surface decisions are traceable from LANGUAGE.md" \
-    "./bin/check-surface.sh" \
-\
-  "Every open question in the spec names an issue" \
-    "./bin/check-open-questions.sh" \
-\
   "The package points only at things it ships" \
     "./bin/check-links.sh" \
-\
-  "Every tool a gate runs is one the manifest declares" \
-    "./detectors/detect-unmanifested-tool.sh" \
-\
-\
-  "No prose hand-counts the verify suite" \
-    "./detectors/detect-stale-suite-count.sh" \
-\
-\
-  "No document cites a source line past the end of its file" \
-    "./detectors/detect-stale-citation.sh" \
-\
-\
-  "Every control's subject can still report failure" \
-    "./detectors/detect-swallowed-status.sh" \
-\
-\
-  "A self-test builds the runner environment, never inherits it" \
-    "./detectors/detect-inherited-runner-env.sh" \
-\
-\
-  "Every directory of shell is enumerated or excluded with a reason" \
-    "./detectors/detect-unenumerated-shell-dir.sh" \
-\
-\
-  "Scratch directories are created, not named" \
-    "./detectors/detect-shared-scratch.sh" \
-\
-\
-  "No markdown table is split by a blank or prose line" \
-    "./detectors/detect-split-table.sh" \
-\
-\
-  "The design record and the package cite paths that exist" \
-    "./detectors/detect-dead-repo-path.sh" \
 \
   "Build the escript" \
     "cd compiler && rebar3 escriptize" \

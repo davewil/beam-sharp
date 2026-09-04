@@ -7,8 +7,8 @@
 # repo has broken it twice, both times for the same reason: prose cannot check
 # itself.
 #
-#   `check-map.sh` was written when the map was split on 2026-08-15 and was
-#   NEVER WIRED IN. It ran only when somebody remembered. On the day it was
+#   `check-map.sh` (a gate since removed) was written when the map was split
+#   on 2026-08-15 and was NEVER WIRED IN. It ran only when somebody remembered. On the day it was
 #   finally added to the workflow it was already catching two real defects per
 #   run, which is what it had been failing to catch for as long as it existed.
 #
@@ -44,7 +44,7 @@ unwired() {
       [ -x "$script" ] || continue
       name="$(basename "$script")"
       # The workflow names a gate by its path, so the basename is the anchor —
-      # `./bin/check-map.sh` and `./compiler/bin/spec-check.sh` both match on it
+      # `./bin/check-links.sh` and `./compiler/bin/spec-check.sh` both match on it
       # without this gate having to know which working-directory the step uses.
       if ! grep -qF "$name" "$ci"; then
         printf '%s: never named in %s\n' "${script#"$ROOT"/}" "${ci#"$ROOT"/}"
@@ -90,25 +90,11 @@ unproven() {
 
 # AND THE LIST OF GATES IS ITSELF A SURFACE, SO IT ROTS TOO.
 #
-# `.claude/end-session.md` calls itself "every step CI runs, in CI's order", and
-# it is what a session reads to find out what to run. On 2026-08-21 it was found
-# naming SIX of sixteen — nine missing, including a gate added the same day — so
-# a session followed it, ran six gates, and believed it had run them all.
-#
-# THAT WAS FIXED, AND IT DRIFTED AGAIN ONE COMMIT LATER. F21 added
-# `check-field-values.sh` on the same day the list was corrected, and the list
-# was one short again before anything had read it. Twice in a day is not
-# carelessness, it is a missing check: the two questions above are asked of the
-# WORKFLOW, and nothing was asking the DOCUMENT anything at all.
-#
-# So the same enumeration is put to it. A gate on disk that this file does not
-# name is a gate the next session will not run.
-#
-# AND SINCE 2026-08-26 THERE IS A THIRD SURFACE OF THE SAME KIND: `bin/verify.sh`,
-# the one command a clean clone is told to run. It is the same failure waiting
-# in the same shape — a hand-written list of gates, in a file nothing was asking
-# anything — so it is put to the identical question by the identical function.
-# A gate it does not name is a gate the handoff recipient does not run, and they
+# `bin/verify.sh` is the one command a clean clone is told to run, and it is a
+# hand-written list of gates. A hand-kept list of this kind drifted twice in one
+# day on 2026-08-21 (a session overlay that named six of sixteen gates, since
+# deleted), so the entry point is put to the same question as the workflow. A
+# gate it does not name is a gate the handoff recipient does not run, and they
 # are the one reader who cannot notice.
 unlisted() {
   local doc="$1"; shift
@@ -136,7 +122,7 @@ unlisted() {
 # The same pair again for `unproven`, since it makes a different claim about the
 # same files: a gate can be wired and still never have been shown to fail. And
 # again for `unlisted`, which makes a third claim about them: a gate can be
-# wired AND proven and still be absent from the list a human reads.
+# wired AND proven and still be absent from the entry point.
 # ---------------------------------------------------------------------------
 if [ "${1:-}" = "--self-test" ]; then
   CTL="$(mktemp -d)"
@@ -165,20 +151,10 @@ steps:
     run: ./bin/check-wired.sh --self-test
 YML
 
-  # A list that names one of the three. `check-wired.sh` is wired AND proven AND
-  # listed; `check-unproven.sh` is wired and listed but never proven. So the
-  # third check must report `check-forgotten.sh` and `check-unproven.sh` is
-  # NOT a control for it — the control is `check-wired.sh`, which all three
-  # checks must leave alone.
-  cat > "$CTL/end-session.md" <<'DOC'
-## Gates
-./bin/check-wired.sh
-./bin/check-unproven.sh
-DOC
-
-  # The fourth surface: an entry point that names one of the three. Same
-  # function, same fixture shape — because it is the same failure, and giving it
-  # a second implementation would mean two things to keep right instead of one.
+  # The third surface: an entry point that names two of the three. `check-wired.sh`
+  # is wired AND proven AND entered; `check-unproven.sh` is wired and entered but
+  # never proven. So the third check must report `check-forgotten.sh`, and
+  # `check-wired.sh` is the control all three checks must leave alone.
   cat > "$CTL/verify.sh" <<'ENTRY'
 run_stages \
   "a gate" "./bin/check-wired.sh" \
@@ -187,7 +163,6 @@ ENTRY
 
   out="$(unwired "$CTL/ci.yml" "$CTL/bin" || true)"
   unp="$(unproven "$CTL/ci.yml" "$CTL/bin" || true)"
-  unl="$(unlisted "$CTL/end-session.md" "$CTL/bin" || true)"
   une="$(unlisted "$CTL/verify.sh" "$CTL/bin" || true)"
 
   fail=0
@@ -211,17 +186,6 @@ ENTRY
     fail=1
   fi
 
-  if ! grep -q 'check-forgotten.sh' <<<"$unl"; then
-    echo "SELF-TEST FAILED: a gate the session list never names was not reported —"
-    echo "                  which is how that list came to name six of sixteen"
-    fail=1
-  fi
-  if grep -q 'check-wired.sh' <<<"$unl"; then
-    echo "SELF-TEST FAILED: a listed gate was reported as unlisted, so the third check"
-    echo "                  does not discriminate either"
-    fail=1
-  fi
-
   if ! grep -q 'check-forgotten.sh' <<<"$une"; then
     echo "SELF-TEST FAILED: a gate the entry point never names was not reported — so"
     echo "                  bin/verify.sh could omit a gate and a clean-room recipient"
@@ -230,19 +194,18 @@ ENTRY
   fi
   if grep -q 'check-wired.sh' <<<"$une"; then
     echo "SELF-TEST FAILED: a gate the entry point DOES name was reported as missing,"
-    echo "                  so the fourth check does not discriminate either"
+    echo "                  so the third check does not discriminate either"
     fail=1
   fi
 
   if [ "$fail" -eq 0 ]; then
-    echo "self-test: found the forgotten gate, the unproven one, the unlisted one and"
-    echo "           the one the entry point never runs, and left the wired, proven,"
-    echo "           listed and entered one alone — all four checks discriminate"
+    echo "self-test: found the forgotten gate, the unproven one and the one the entry"
+    echo "           point never runs, and left the wired, proven and entered one"
+    echo "           alone — all three checks discriminate"
     exit 0
   fi
   echo "$out"
   echo "$unp"
-  echo "$unl"
   echo "$une"
   exit 1
 fi
@@ -253,7 +216,7 @@ fi
 CI="$ROOT/.github/workflows/ci.yml"
 [ -f "$CI" ] || { echo "no workflow at ${CI#"$ROOT"/} — there is nothing running any gate"; exit 1; }
 
-missing="$(unwired "$CI" "$ROOT/bin" "$ROOT/compiler/bin" "$ROOT/editor/bin" "$ROOT/detectors" || true)"
+missing="$(unwired "$CI" "$ROOT/bin" "$ROOT/compiler/bin" "$ROOT/editor/bin" || true)"
 
 if [ -n "$missing" ]; then
   echo "$missing"
@@ -264,7 +227,7 @@ if [ -n "$missing" ]; then
   exit 1
 fi
 
-unshown="$(unproven "$CI" "$ROOT/bin" "$ROOT/compiler/bin" "$ROOT/editor/bin" "$ROOT/detectors" || true)"
+unshown="$(unproven "$CI" "$ROOT/bin" "$ROOT/compiler/bin" "$ROOT/editor/bin" || true)"
 
 if [ -n "$unshown" ]; then
   echo "$unshown"
@@ -272,26 +235,6 @@ if [ -n "$unshown" ]; then
   echo "A gate nobody has seen fail is a claim, not a check. Give it a --self-test"
   echo "that builds the defect it names, requires a red, and requires a green on the"
   echo "correct form beside it — then run both from ci.yml."
-  exit 1
-fi
-
-DOC="$ROOT/.claude/end-session.md"
-[ -f "$DOC" ] || {
-  echo "no session list at ${DOC#"$ROOT"/} — the file that tells a session what to run"
-  echo "is gone, and a missing list cannot be checked against. Restore it rather than"
-  echo "letting this check pass over nothing."
-  exit 1
-}
-
-unnamed="$(unlisted "$DOC" "$ROOT/bin" "$ROOT/compiler/bin" "$ROOT/editor/bin" "$ROOT/detectors" || true)"
-
-if [ -n "$unnamed" ]; then
-  echo "$unnamed"
-  echo
-  echo "A gate missing from the session list is a gate the next session does not run."
-  echo "That list claims to be every step CI runs; it named six of sixteen once, was"
-  echo "corrected, and was one short again one commit later. Add it there too — the"
-  echo "script, ci.yml, .claude/end-session.md and bin/verify.sh are four edits."
   exit 1
 fi
 
@@ -304,17 +247,17 @@ ENTRY="$ROOT/bin/verify.sh"
   exit 1
 }
 
-unentered="$(unlisted "$ENTRY" "$ROOT/bin" "$ROOT/compiler/bin" "$ROOT/editor/bin" "$ROOT/detectors" || true)"
+unentered="$(unlisted "$ENTRY" "$ROOT/bin" "$ROOT/compiler/bin" "$ROOT/editor/bin" || true)"
 
 if [ -n "$unentered" ]; then
   echo "$unentered"
   echo
   echo "A gate the entry point never names is a gate the clean-room recipient does not"
   echo "run — and they are the one reader with nobody to ask. bin/verify.sh is the"
-  echo "fourth surface holding a list of gates, and the other three have each rotted"
-  echo "at least once. Add it there too."
+  echo "second surface holding a list of gates, and lists like it have rotted before."
+  echo "Add it there too."
   exit 1
 fi
 
-echo "every gate on disk is named by the workflow, by the session list and by the"
-echo "entry point, and every one proves it can fail"
+echo "every gate on disk is named by the workflow and by the entry point, and every"
+echo "one proves it can fail"

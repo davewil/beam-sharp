@@ -15,8 +15,9 @@ Traceability still exists, in HTML comments the reader never sees:
 <!-- decided by ticket 44, amending ticket 08 -->
 ```
 
-`bin/check-surface.sh` requires one for every decision the map tags `syntax` or `patterns`, so a
-construct cannot be decided without this document being opened at the paragraph that describes it.
+Every decided construct carries one, so a paragraph can be traced to the ticket that decided it
+without a ticket number appearing in the prose — the comment is the only place one may appear, and
+`bin/check-links.sh` refuses one anywhere the reader can see it.
 **A handful of older paragraphs still name tickets inline** — they predate the convention and are
 the exception this note is written against.
 
@@ -238,7 +239,7 @@ translated is a hard error rather than a silent widening. Which case a clause ta
 job, not an operator's. Typing either spelling is met by a diagnostic naming the comparison to use
 instead. **shipped**
 <!-- decided by ticket 63; `not` remains a legal identifier, which is ticket 65's question.
-     Its two re-open triggers live in decisions.md and in F27, NOT here: `build-packet.py`
+     Its two re-open triggers live in ticket 63 and in F27, NOT here: `build-packet.py`
      strips a ticket citation from the audition packet and keeps every other comment, so a
      note about this project's process would reach a clean-room reader as if it were spec. -->
 

@@ -41,8 +41,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # under /Volumes, which is why it went unseen.
 #
 # The stage numbers this note used to carry are gone rather than corrected: a
-# stage count is re-staled by every gate added, which is 910ed93's rule and what
-# `detectors/detect-stale-suite-count.sh` now enforces.
+# stage count is re-staled by every gate added, which is 910ed93's rule.
 #
 # The repair belongs on this side. Dropping the `.resolve()` in the builder would
 # also make the two agree, and would be wrong: the manifest names the file that

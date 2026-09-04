@@ -264,11 +264,8 @@ callable and the emitted `-spec` byte-identical on all five — see
 
 ## Decisions entry
 
-<!-- This ticket's entry. wayfinder/decisions.md is GENERATED from blocks like this
-     one and carries only the first sentence; the whole entry is read here. Edit it here and run `bin/gen-decisions.py --write`;
-     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
-     The `issues/…` link is relative to decisions.md, so it is fenced rather than
-     live — from inside issues/ it would point at nothing. -->
+<!-- This ticket's entry, in the shape every resolved ticket carries. The link inside
+     is fenced rather than live. -->
 
 ```decisions-entry
 - [The walking skeleton, first slice](../compiler/README.md) — **built 2026-08-13, and the premise

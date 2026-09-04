@@ -80,8 +80,8 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # `CHECK_STATUS_DIR` exists for the self-test and holds mutated copies of the
 # documents this gate reads, under their real relative paths. Nothing else sets
-# it; without it every path resolves from the script's own location, which is
-# what `check-cwd-independence.sh` requires.
+# it; without it every path resolves from the script's own location, so the
+# gate gives the same verdict from any directory.
 DOCROOT="${CHECK_STATUS_DIR:-$HERE}"
 BSC="$HERE/compiler/_build/default/bin/bsc"
 
@@ -498,8 +498,7 @@ check_subjects() {
 # a question is live and goes looking for an argument that finished.
 #
 # `wayfinder/` is the tracker's repo half and does not ship, but it is on disk
-# here, and `check-surface.sh` already reads `wayfinder/map.md` for the same
-# reason — the gate runs where both halves exist even though only one is handed
+# here — the gate runs where both halves exist even though only one is handed
 # over.
 # ---------------------------------------------------------------------------
 check_open_tickets() {

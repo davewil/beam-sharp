@@ -218,7 +218,7 @@ over something at `ibs`; this is the first to arrive with tests, and the first w
 found was a limit of the mechanism rather than a defect in it.
 
 **The map tag was hiding the surface.** Ticket 40 was tagged `modules` `codegen`, and
-`check-surface.sh` selects on `syntax` or `patterns` — so the decision that puts a keyword on every
+`check-surface.sh` (a gate since removed) selected on `syntax` or `patterns` — so the decision that puts a keyword on every
 signature in the language was never asked for a `LANGUAGE.md` paragraph. This feature could have
 rewritten all 32 `.bs` files with the reference silent and every gate green. **A gate that selects
 on tags is only as good as the tagging**, and a tag is applied when a decision is *made*, before

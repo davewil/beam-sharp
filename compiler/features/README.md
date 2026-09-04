@@ -56,15 +56,12 @@ three above all gate against the **compiler**, and there is a class of defect no
 unbuilt syntax does not compile, so a `not-yet` block in `LANGUAGE.md` holding the **decided** form
 and one holding a **superseded** form fail identically. Ticket 44 changed the conjunction and left a
 stale block with every gate green; ticket 42 added relational patterns the doc never mentioned.
-[`bin/check-surface.sh`](../../bin/check-surface.sh) closes it by requiring every decision the map
-tags `syntax` or `patterns` to cite its ticket in `LANGUAGE.md` — mechanical, and it puts whoever
-lands a decision at the paragraph that needs changing. **This matters more than it looks**: a
-`not-yet` block *is* the handoff's spec, so the one place the compiler-facing gates cannot reach is
-the place a clean-room implementer depends on most.
-
-**And `bin/check-map.sh` was never wired into CI** until the same day, having existed since the map
-was split — it ran only when somebody remembered, and was catching two real defects per run on the
-day it was finally added. Both now run **first** in the workflow, since neither needs a compiler.
+`bin/check-surface.sh` closed it from 2026-08-18 to 2026-09-05 by requiring every decision the map
+tagged `syntax` or `patterns` to cite its ticket in `LANGUAGE.md`. It was removed with the rest of
+the tracking-layer gates; the convention it enforced — a `<!-- decided by ticket NN -->` comment on
+the paragraph — stays, unenforced. **The gap is real**: a `not-yet` block *is* the handoff's spec,
+so the one place the compiler-facing gates cannot reach is the place a clean-room implementer
+depends on most.
 
 ## Anatomy of a feature file
 
@@ -345,7 +342,7 @@ else, and ticket 40 is closed. Ten gates, 302 tests, 66 corpus signatures of whi
 private**.
 
 **The finding is a tag, and it is worth more than the feature.** Ticket 40 was tagged `modules`
-`codegen`. `check-surface.sh` selects on `syntax` or `patterns` — so **the one decision that puts a
+`codegen`. `check-surface.sh` selected on `syntax` or `patterns` — so **the one decision that puts a
 keyword on every signature in the language was never asked for a `LANGUAGE.md` paragraph**, and this
 feature could have rewritten all 32 `.bs` files with the reference silent and every gate green. That
 is this file's own recurring subject arriving by a new route: not a gate that stopped looking (F11,

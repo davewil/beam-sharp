@@ -175,7 +175,7 @@ examples parse with no ERROR node), a TextMate grammar and a vim syntax file (st
 keyword present in both). `editor/README.md:11-12` is candid that the regex grammars cannot separate
 `list<int>` from `a < b && c > d` and that tree-sitter is the destination.
 
-The LSP is deliberately off the design map (`wayfinder/scope.md:35`) and tracked as `ENG-205`. Its
+The LSP is deliberately off the design map and tracked as `ENG-205`. Its
 prerequisite table had aged: it still said ticket 23 §1 and §10 were unbuilt, and both shipped on
 2026-08-18 as F16 and F17. Corrected in place on 2026-09-01. The prerequisites, in build order:
 

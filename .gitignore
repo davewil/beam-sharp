@@ -2,14 +2,12 @@
 .omc/
 .DS_Store
 
-# Linked worktrees live inside `.claude/`, and `.claude/` became a TRACKED
-# directory on 2026-08-16 when the end-session overlay landed in it. Without
-# this line a `git add -A` in the main working copy sweeps in every worktree —
-# an entire second checkout, committed by accident. Two things in `.claude/`
-# belong to the repo: the overlay, and the project skills under `skills/`
-# (added 2026-09-01 with `/frontier`). Everything else there is a worktree.
+# Linked worktrees live inside `.claude/`, and `.claude/` is a TRACKED
+# directory. Without this line a `git add -A` in the main working copy sweeps in
+# every worktree — an entire second checkout, committed by accident. One thing
+# in `.claude/` belongs to the repo: the project skills under `skills/` (added
+# 2026-09-01 with `/frontier`). Everything else there is a worktree.
 .claude/*
-!.claude/end-session.md
 !.claude/skills/
 
 # Build artefacts from running the prototypes

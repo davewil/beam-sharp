@@ -30,8 +30,8 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # A FRESH WORKDIR PER RUN, not a fixed one. This defaulted to
 # `/tmp/bsharp-audition`, so two audition runs on one machine - or a re-run after
 # a killed one - shared a directory and each read the other's leftovers. That is
-# ENG-318's hazard one level up, and `detectors/detect-shared-scratch.sh` is what
-# now refuses it. Pass a path as $1 when you want a run you can find again.
+# ENG-318's hazard one level up. Pass a path as $1 when you want a run you can
+# find again.
 #
 # NOT `mktemp -d -t bsharp-audition`. `-t` takes a PREFIX on BSD/macOS and a
 # TEMPLATE on GNU coreutils and busybox, so that spelling works here and fails on

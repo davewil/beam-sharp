@@ -1,88 +1,20 @@
-# THE TOOLCHAIN THIS REPOSITORY IS BUILT WITH. ONE FILE, AND IT IS THE ONLY ONE
-# THAT PINS A VERSION.
+# THE TOOLCHAIN THIS REPOSITORY IS BUILT WITH. This is the only file that pins a
+# version: `mise install` reads it, `.github/workflows/ci.yml` installs from it
+# through `jdx/mise-action` and re-declares none of the four strings, and
+# `bin/check-toolchain.sh` fails the build if a literal is ever copied back
+# beside the manifest.
 #
-# `mise install` reads this directly, so a clean clone installs the exact
-# versions rather than guessing from a floating major. `.github/workflows/ci.yml`
-# installs from this same file through `jdx/mise-action` and re-declares NONE of
-# the four strings itself. `bin/check-toolchain.sh` fails the build if a literal
-# is ever copied back beside the manifest — that is a second source of truth with
-# nothing reconciling it against the first, and it is the arrangement this
-# repository spent its first month policing before the copies were deleted on
-# 2026-08-26.
+# The names are mise's. `tree-sitter` here is the CLI, which npm calls
+# `tree-sitter-cli`; both publish the same version number.
 #
-# The names are mise's, which are also asdf's for three of the four. Where the
-# workflow WOULD spell each one, were a copy ever reintroduced, is the closed
-# table in `ci_declared` in that gate:
-#
-#     erlang       ->  erlef/setup-beam    otp-version
-#     rebar        ->  erlef/setup-beam    rebar3-version
-#     node         ->  actions/setup-node  node-version
-#     tree-sitter  ->  npm                 tree-sitter-cli@<version>
-#
-# The tree-sitter CLI is one binary under two names: mise builds it from the
-# `tree-sitter/tree-sitter` release, CI takes the npm package `tree-sitter-cli`,
-# and both publish the same version number.
-#
-# FIVE REQUIRED TOOLS HAVE NO LINE BELOW, AND ARE NAMED HERE ANYWAY: python3,
-# mise, perl, shasum and tar.
-#
-# THE LAST THREE WERE FOUND ON 2026-09-04 BY `detectors/detect-unmanifested-tool.sh`,
-# which asks the direction `--env` never did: not "is every declared tool
-# present" but "is every tool a gate RUNS declared". They are the same defect
-# python3 was, with the same reason nobody noticed — every machine has them:
-#
-#   perl    `compiler/bin/check-recursive-types.sh` is a stopwatch, and its own
-#           line 16 explains the choice: "timeout(1) is not on macOS;
-#           perl -e \'alarm N; exec @ARGV\' is". Three call sites.
-#   shasum  `bin/build-handoff.sh`, `bin/check-handoff-package.sh` and
-#           `compiler/bin/check-tour.sh` checksum the package and the published
-#           page with it.
-#   tar     `bin/check-links.sh` unpacks the built package to read it.
-#
-# UNPINNED FOR THE SAME REASON python3 IS. None of the three decides what gets
-# built: perl runs a five-token alarm, shasum reports a digest every version
-# agrees on, and tar unpacks an archive this repository also created. A version
-# line would assert a requirement nobody has measured.
-#
-# `compiler/bin/check-switch-diagnostics.sh` shells to
-# `handoff/audition-switch/build-packet.py --check`, which asks whether the
-# committed `PACKET.md` is what `LANGUAGE.md` sections 2, 3 and 5 would produce
-# today. `handoff/audition-switch/run.sh` and `stage.sh` shell to it as well.
-# That makes python3 a hard dependency of a gate that runs in `verify.sh` and in
-# CI, and of the audition harness.
-#
-# Until 2026-08-28 it was named in no manifest, no workflow step, no gate and no
-# README, while the first line of this file called it the only record of what the
-# repository is built with. Every build was green throughout, because the pinned
-# runner image and the Xcode command line tools each happen to ship a python3. An
-# accident that holds on both machines a project is developed on is precisely the
-# one that breaks on somebody else's.
-#
-# IT IS DELIBERATELY NOT PINNED, and the asymmetry with the four below is the
-# decision rather than an oversight. Those are pinned because each has a second
-# declaration to drift from and because the artifacts they produce depend on
-# their version. Neither holds here: both scripts import only `io`, `os`, `re`
-# and `sys`, and what they write is sections of `LANGUAGE.md` copied verbatim, so
-# every python3 emits the same bytes. A version line would assert a requirement
-# nobody has measured — and this repository has already been caught believing a
-# declared version string that was not what arrived.
-#
-# `bin/check-toolchain.sh --env` checks that it is PRESENT, and says so before
-# anything compiles. A missing python3 is not something `mise install` can fix.
-#
-# AND MISE ITSELF, REQUIRED SINCE 2026-09-01. It was optional until then: the
-# README told a reader to install these four however they liked. `--env` now
-# also checks that each tool resolves on PATH to a binary mise owns, because a
-# version string cannot see provenance — an unmanaged copy holding the pinned
-# number passes every version comparison in that file while the build runs on a
-# toolchain nothing here installed. That check cannot be stated without a
-# manager to ask, so the manager became a requirement rather than a suggestion.
-#
-# It carries no version line for a different reason than python3's. mise does
-# not decide what gets installed — this file does — so its own version does not
-# change the artefacts. Pinning it would also need something to install mise at
-# a pinned version, and that bootstrap has to stop somewhere. CI pins it anyway,
-# by the action's commit SHA, because that is free there.
+# Required and deliberately unpinned: mise itself, python3, perl, shasum and
+# tar. None of them decides what gets built (python3 copies sections of
+# LANGUAGE.md verbatim; perl runs a five-token alarm; shasum and tar handle an
+# archive this repository also created), so a version line would assert a
+# requirement nobody has measured. `bin/check-toolchain.sh --env` checks each
+# is present, and that the four below resolve to binaries mise owns — an
+# unmanaged copy holding the pinned number passes every version comparison
+# while the build runs on a toolchain nothing here installed.
 
 erlang 28.5
 rebar 3.27.0
