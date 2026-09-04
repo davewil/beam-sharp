@@ -1,0 +1,3 @@
+public atom Compute(term caller, int item)
+
+Compute(caller, item) -> caller ! (:result, :erlang.self(), item * item)

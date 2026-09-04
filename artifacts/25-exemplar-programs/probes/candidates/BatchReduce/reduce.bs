@@ -1,0 +1,3 @@
+public result<int, ValidationError> Reduce(term coordinator, list<int> items)
+
+Reduce(coordinator, items) -> ValidateAs<int>(:gen_server.call(coordinator, (:reduce, items), 5000))

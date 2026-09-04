@@ -1,0 +1,8 @@
+module OneShotFuture
+
+using :erlang {
+    (term, term) spawn_monitor(atom m, atom f, list<term> args)
+    term self()
+}
+
+type Item = int

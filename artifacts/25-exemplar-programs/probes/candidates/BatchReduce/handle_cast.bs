@@ -1,0 +1,4 @@
+public (:noreply, BatchState) HandleCast(term msg, BatchState state)
+
+HandleCast((:result, value), state) -> Checked(ValidateAs<int>(value), state)
+HandleCast(_, state)                -> (:noreply, state)

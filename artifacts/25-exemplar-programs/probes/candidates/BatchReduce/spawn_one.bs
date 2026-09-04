@@ -1,0 +1,6 @@
+private Reply SpawnOne(int x, list<int> rest, term from, BatchState state)
+
+SpawnOne(x, rest, from, state) ->
+    var (worker, ref) = :erlang.spawn_monitor(:'BatchReduce', :'Work', [:erlang.self(), x])
+    var state2 = BatchState { Pending = state.Pending + 1, Total = state.Total, From = from }
+    StartWorkers(rest, from, state2)

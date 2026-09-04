@@ -1,0 +1,3 @@
+module ResidualProbe
+
+type Ev = :a | :b | :c

@@ -1,0 +1,6 @@
+private (:ok, PoolState) Boot(int remaining, list<term> workers)
+
+Boot(0, workers)         -> (:ok, PoolState { Workers = workers })
+Boot(remaining, workers) ->
+    var (started, pid) = :gen_server.start_link(:'Worker', :none, [])
+    Boot(remaining - 1, [pid, ..workers])

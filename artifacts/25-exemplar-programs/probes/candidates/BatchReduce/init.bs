@@ -1,0 +1,3 @@
+public (:ok, BatchState) Init(term args)
+
+Init(args) -> (:ok, BatchState { Pending = 0, Total = 0, From = :none })

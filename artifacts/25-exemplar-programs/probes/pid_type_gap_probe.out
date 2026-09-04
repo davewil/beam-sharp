@@ -1,0 +1,5 @@
+--- 'pid' used as a declared type, per LANGUAGE.md section 13's own prose ('a process identifier is a pid') ---
+/home/user/beam-sharp/artifacts/25-exemplar-programs/probes/candidates/_isolation_probes/PidTypeGap/index.bs: error: pid is not a builtin type
+  this slice has `int`, `atom`, `term`, `bool`, `binary`,
+  `string` and `list<T>`.
+(this is why every candidate above spells a process identifier as 'term', not 'pid')

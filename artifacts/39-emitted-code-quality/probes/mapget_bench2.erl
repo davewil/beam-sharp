@@ -4,8 +4,9 @@
 -define(ITERS, 673364).
 
 main() ->
-    Impls = [{"get_map_elements (pattern)", fun mapget_probe2:via_pattern/1},
-             {"map_get BIF (bs_emit's .field)", fun mapget_probe2:via_bif/1}],
+    Impls = [{"get_map_elements (pattern match)", fun mapget_probe2:via_pattern/1},
+             {"map_get BIF (bs_emit's .field today)", fun mapget_probe2:via_bif/1},
+             {"case+map-pattern (proposed lowering)", fun mapget_probe2:via_case/1}],
     Results = [run(Name, F) || {Name, F} <- Impls],
     report(Results),
     halt().

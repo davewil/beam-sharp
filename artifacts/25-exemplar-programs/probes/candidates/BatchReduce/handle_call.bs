@@ -1,0 +1,3 @@
+public Reply HandleCall(Request request, term from, BatchState state)
+
+HandleCall((:reduce, items), from, state) -> StartWorkers(items, from, state)

@@ -1,0 +1,3 @@
+public atom Start()
+
+Start() -> receive

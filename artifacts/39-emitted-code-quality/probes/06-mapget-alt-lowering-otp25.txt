@@ -1,0 +1,16 @@
+                                      min ms    med ms      rel
+get_map_elements (pattern match)       11.83     12.45    1.00x
+map_get BIF (bs_emit's .field toda     15.51     16.04    1.31x
+case+map-pattern (proposed lowerin     11.88     12.35    1.00x
+                                      min ms    med ms      rel
+get_map_elements (pattern match)       11.75     12.19    1.00x
+map_get BIF (bs_emit's .field toda     15.40     15.61    1.31x
+case+map-pattern (proposed lowerin     11.86     12.11    1.01x
+                                      min ms    med ms      rel
+get_map_elements (pattern match)       11.82     12.16    1.00x
+map_get BIF (bs_emit's .field toda     15.65     16.02    1.32x
+case+map-pattern (proposed lowerin     11.90     12.32    1.01x
+                                      min ms    med ms      rel
+get_map_elements (pattern match)       11.72     12.31    1.00x
+map_get BIF (bs_emit's .field toda     15.53     15.92    1.33x
+case+map-pattern (proposed lowerin     11.72     12.09    1.00x

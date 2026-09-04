@@ -1,0 +1,6 @@
+public (:noreply, BatchState) HandleInfo(term msg, BatchState state)
+
+HandleInfo((:'DOWN', _, :process, _, :normal), state)                 -> (:noreply, state)
+HandleInfo((:'DOWN', _, :process, _, _), state) when state.Pending > 0 -> Accumulate(0, state)
+HandleInfo((:'DOWN', _, :process, _, _), state)                       -> (:noreply, state)
+HandleInfo(_, state)                                                  -> (:noreply, state)

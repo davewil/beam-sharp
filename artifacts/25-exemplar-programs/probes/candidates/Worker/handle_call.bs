@@ -1,0 +1,4 @@
+public (:reply, int, atom) HandleCall(term request, term from, atom state)
+
+HandleCall((:work, n), from, state) -> (:reply, n * n, state)
+HandleCall(_, from, state)          -> (:reply, 0, state)

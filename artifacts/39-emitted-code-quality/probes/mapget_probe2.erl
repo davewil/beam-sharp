@@ -25,3 +25,19 @@ loop_bif(N, Acc) ->
     M = mapget_helper:mk(N),
     R = erlang:map_get('R', M),
     loop_bif(N - 1, Acc + R).
+
+%% SPIKE for sub-investigation #3: an alternative Core-Erlang-reachable
+%% lowering for `o.Field` that bs_emit's {e_proj,...} clause could target
+%% instead of `erlang:map_get/2` -- a `case` with ONE map-pattern clause,
+%% which is the same Abstract Format shape a `#{Field := V} = M` pattern
+%% match itself lowers through, and is expressible from a plain expression
+%% position (no guard needed), so it does not require projection's
+%% guard-safety property to change: `case M of #{'R' := V} -> V end` is
+%% itself guard-safe by construction, just like `map_get/2` is documented
+%% to be in bs_emit.erl.
+via_case(N) -> loop_case(N, 0).
+loop_case(0, Acc) -> Acc;
+loop_case(N, Acc) ->
+    M = mapget_helper:mk(N),
+    R = case M of #{'R' := V} -> V end,
+    loop_case(N - 1, Acc + R).

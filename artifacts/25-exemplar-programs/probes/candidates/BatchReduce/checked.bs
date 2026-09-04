@@ -1,0 +1,4 @@
+private (:noreply, BatchState) Checked(result<int, ValidationError> validated, BatchState state)
+
+Checked((:error, _), state) -> (:noreply, state)
+Checked(n, state)           -> Accumulate(n, state)

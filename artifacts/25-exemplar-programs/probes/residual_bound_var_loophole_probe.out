@@ -1,0 +1,12 @@
+--- F(x) -> :other   (bound variable, closed residual Ev = :a | :b | :c) ---
+exit=0 (expect 0 -- ACCEPTED)
+
+--- F(_) -> :other   (wildcard, same closed residual) ---
+/home/user/beam-sharp/artifacts/25-exemplar-programs/probes/candidates/_isolation_probes/ResidualProbe/f.bs:4: error: F discards cases the compiler can name
+  every value left here comes from a type you declared, so `_`
+  hides a case rather than admitting an unknown one:
+    F(:b) -> ...
+    F(:c) -> ...
+  a catch-all is for a residual with an unbounded top in it \x{2014} a
+  `term` argument, or the open atom universe \x{2014} where a foreign
+  sender chooses the inhabitants and there is nothing to enumerate.

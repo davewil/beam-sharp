@@ -1,0 +1,13 @@
+module WorkerPool
+
+behaviour GenServer
+
+using :gen_server {
+    (:ok, term) start_link(atom m, term args, list<term> opts)
+    term call(term server, term request, int timeout)
+    atom cast(term server, term msg)
+}
+
+record PoolState { Workers: list<term> }
+
+type Request = (:submit, int)

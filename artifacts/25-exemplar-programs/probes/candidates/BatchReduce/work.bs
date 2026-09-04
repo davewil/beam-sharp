@@ -1,0 +1,3 @@
+public atom Work(term coordinator, int item)
+
+Work(coordinator, item) -> :gen_server.cast(coordinator, (:result, item * item))

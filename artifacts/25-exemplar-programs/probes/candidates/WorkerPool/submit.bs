@@ -1,0 +1,3 @@
+public result<int, ValidationError> Submit(term pool, int item)
+
+Submit(pool, item) -> ValidateAs<int>(:gen_server.call(pool, (:submit, item), 5000))

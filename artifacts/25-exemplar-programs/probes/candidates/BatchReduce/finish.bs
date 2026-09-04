@@ -1,0 +1,6 @@
+private (:noreply, BatchState) Finish(int value, BatchState state)
+
+Finish(value, state) ->
+    var total = state.Total + value
+    _ = :gen_server.reply(state.From, total)
+    (:noreply, BatchState { Pending = 0, Total = 0, From = :none })

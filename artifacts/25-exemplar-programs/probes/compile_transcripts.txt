@@ -1,0 +1,29 @@
+=== bsc $(basename BatchReduce)  -- Candidate B: fan-out/fan-in map-reduce ===
+exit=0
+
+=== bsc Worker  -- Candidate A part 1/2: per-job worker gen_server ===
+exit=0
+
+=== bsc WorkerPool  -- Candidate A part 2/2: pool coordinator gen_server ===
+exit=0
+
+=== bsc OneShotFuture  -- Candidate C: raw spawn+monitor+receive, as first written ===
+/home/user/beam-sharp/artifacts/25-exemplar-programs/probes/candidates/OneShotFuture/awaited.bs:6: error: syntax error before: '('
+exit=1
+
+=== isolating exactly which construct kills Candidate C: the compute.bs send alone ===
+(index.bs + compute.bs only, receive-using awaited.bs removed)
+public atom Compute(term caller, int item)
+
+Compute(caller, item) -> caller ! (:result, :erlang.self(), item * item)
+--- error, with the only-other construct (spawn_monitor) already accepted ---
+--- isolated: '!' alone (no receive in the file at all) ---
+/home/user/beam-sharp/artifacts/25-exemplar-programs/probes/candidates/_isolation_probes/SendOnly/compute.bs:3: error: beam-sharp has no `!`
+  negation is not an operator here. A guard and a refinement are built
+  from comparisons, and every comparison has an opposite you can write
+  directly: `<=` for `not >`, `>=` for `not <`, `!=` for `not ==`,
+  `==` for `not !=`. Which case a clause takes is the head's job.
+
+--- isolated: bare 'receive' alone (no '!' in the file at all) ---
+/home/user/beam-sharp/artifacts/25-exemplar-programs/probes/candidates/_isolation_probes/ReceiveOnly/start.bs:3: error: Start uses receive, which nothing binds
+  a name comes from a clause head or a binding above it.

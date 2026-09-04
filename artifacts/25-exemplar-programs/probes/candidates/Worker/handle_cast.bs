@@ -1,0 +1,3 @@
+public (:noreply, atom) HandleCast(term msg, atom state)
+
+HandleCast(msg, state) -> (:noreply, state)

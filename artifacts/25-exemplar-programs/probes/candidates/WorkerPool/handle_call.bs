@@ -1,0 +1,3 @@
+public (:reply, result<int, ValidationError>, PoolState) HandleCall(Request request, term from, PoolState state)
+
+HandleCall((:submit, item), from, state) -> Dispatch(item, state)

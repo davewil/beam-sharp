@@ -1,0 +1,3 @@
+public (:noreply, PoolState) HandleCast(term msg, PoolState state)
+
+HandleCast(msg, state) -> (:noreply, state)

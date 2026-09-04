@@ -1,0 +1,3 @@
+public (:ok, atom) Init(term args)
+
+Init(args) -> (:ok, :idle)

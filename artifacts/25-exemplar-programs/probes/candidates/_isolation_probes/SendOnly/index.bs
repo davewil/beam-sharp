@@ -1,0 +1,5 @@
+module OneShotFuture2
+
+using :erlang {
+    term self()
+}

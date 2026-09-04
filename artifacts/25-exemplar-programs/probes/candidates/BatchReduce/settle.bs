@@ -1,0 +1,4 @@
+private Reply Settle(BatchState state)
+
+Settle(state) when state.Pending == 0 -> (:reply, state.Total, state)
+Settle(state)                         -> (:noreply, state)

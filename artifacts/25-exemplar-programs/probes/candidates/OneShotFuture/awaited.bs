@@ -1,0 +1,8 @@
+public int Await(int item)
+
+Await(item) ->
+    var (worker, ref) = :erlang.spawn_monitor(:'OneShotFuture', :'Compute', [:erlang.self(), item])
+    receive {
+        (:result, worker, value)                    -> value
+        (:'DOWN', ref, :process, worker, reason)     -> raise (:worker_failed, reason)
+    }

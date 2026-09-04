@@ -1,0 +1,4 @@
+private Reply StartWorkers(list<int> items, term from, BatchState state)
+
+StartWorkers([], from, state)          -> Settle(state)
+StartWorkers([x, ..rest], from, state) -> SpawnOne(x, rest, from, state)

@@ -1,0 +1,6 @@
+private (:reply, result<int, ValidationError>, PoolState) Dispatch(int item, PoolState state)
+
+Dispatch(item, PoolState { Workers: [w, ..rest] })
+    -> (:reply, ValidateAs<int>(:gen_server.call(w, (:work, item), 5000)), PoolState { Workers = [w, ..rest] })
+Dispatch(item, PoolState { Workers: [] })
+    -> (:reply, ValidateAs<int>(:no_workers), PoolState { Workers = [] })

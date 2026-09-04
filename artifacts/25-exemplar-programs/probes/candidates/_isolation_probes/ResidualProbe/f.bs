@@ -1,0 +1,4 @@
+public atom F(Ev e)
+
+F(:a) -> :got_a
+F(_)  -> :other

@@ -1,0 +1,4 @@
+private (:noreply, BatchState) Accumulate(int value, BatchState state)
+
+Accumulate(value, state) when state.Pending <= 1 -> Finish(value, state)
+Accumulate(value, state)                          -> (:noreply, BatchState { Pending = state.Pending - 1, Total = state.Total + value, From = state.From })

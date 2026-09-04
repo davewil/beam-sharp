@@ -1,0 +1,12 @@
+=== Candidate B (BatchReduce) — happy path, empty batch, simulated worker kill ===
+happy path  Reduce([1..5])     = 55 (want 55)
+empty batch Reduce([])         = 0 (want 0)
+crash path  Reduce([10,20,30]) = 1400 (one worker killed pre-cast)
+
+=== Candidate B (BatchReduce) — repeated 3x for determinism (55 every time) ===
+Reduce([1..5]) = 55
+Reduce([1..5]) = 55
+Reduce([1..5]) = 55
+
+=== Candidate A (Worker + WorkerPool) — pool of 3, five submits ===
+Submit results = [1,4,9,16,25]

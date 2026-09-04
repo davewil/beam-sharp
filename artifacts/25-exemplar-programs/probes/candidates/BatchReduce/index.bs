@@ -1,0 +1,20 @@
+module BatchReduce
+
+behaviour GenServer
+
+using :erlang {
+    (term, term) spawn_monitor(atom m, atom f, list<term> args)
+    term self()
+}
+
+using :gen_server {
+    term call(term server, term request, int timeout)
+    atom cast(term server, term msg)
+    atom reply(term from, term reply)
+}
+
+record BatchState { Pending: int, Total: int, From: term }
+
+type Item    = int
+type Request = (:reduce, list<Item>)
+type Reply   = (:reply, int, BatchState) | (:noreply, BatchState)

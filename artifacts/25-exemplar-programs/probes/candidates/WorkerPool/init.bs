@@ -1,0 +1,3 @@
+public (:ok, PoolState) Init(int n)
+
+Init(n) -> Boot(n, [])
