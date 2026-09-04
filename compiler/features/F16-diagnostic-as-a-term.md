@@ -21,9 +21,16 @@ It goes before `bsc --api` because **§10 is specified on top of §1**. §10 rea
 answer. The only channel the ticket defines is §1's. Building `--api` first means either inventing
 a provisional shape §1 then replaces, or building a second descriptor for the API path — which is
 the failure `bsc.erl` already names about `resolve/2`: *a classification rule with two
-implementations has two answers*. `bsc.erl:1374` and `F2-interval-refinements.md:180` both describe
-`--api` as **the full-fidelity channel** against ticket 43's truncated form, and fidelity is a
-property of the channel.
+implementations has two answers*. `bs_diag.erl`'s module comment and `F2-interval-refinements.md`'s note on
+ticket 43 both describe `--api` as **the full-fidelity channel** against ticket 43's truncated
+form, and fidelity is a property of the channel.
+<!-- Corrected 2026-09-04: this cited bsc.erl at a line number, and
+     F2-interval-refinements.md at another. The first named a line past the end of a
+     932-line file AND the wrong file - the sentence is in bs_diag.erl and bs_api.erl,
+     never in bsc.erl; the second was off by one. Both are names rather than line
+     numbers now, per 9f4590c: names do not drift. The old numbers are described
+     rather than quoted, because a correction note that spells the dead citation
+     leaves the dead citation in the file for the next sweep to find. -->
 
 ## Measured before this file was written, not assumed
 

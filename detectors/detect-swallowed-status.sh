@@ -37,7 +37,10 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-# shellcheck source=lib/shell-code.sh
+# The library is linted in its own right by check-shell.sh, which enumerates
+# detectors/lib without the executable test a sourced file can never pass. This
+# suppresses only the note that shellcheck was not handed it here.
+# shellcheck source=lib/shell-code.sh disable=SC1091
 . "$ROOT/detectors/lib/shell-code.sh"
 
 GATE_DIRS=("bin" "compiler/bin" "editor/bin" "handoff/audition-switch" "detectors")

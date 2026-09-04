@@ -57,7 +57,10 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-# shellcheck source=lib/shell-code.sh
+# The library is linted in its own right by check-shell.sh, which enumerates
+# detectors/lib without the executable test a sourced file can never pass. This
+# suppresses only the note that shellcheck was not handed it here.
+# shellcheck source=lib/shell-code.sh disable=SC1091
 . "$ROOT/detectors/lib/shell-code.sh"
 
 # The directories holding gate scripts. Enumerated here and asserted complete by
@@ -99,15 +102,23 @@ binaries_of_pinned() {
 
 # Read, not copied: whatever `check-toolchain.sh` passes to `required_unpinned`
 # outside its own self-test is the declaration.
+# RETURNS 0 AND AN EMPTY LIST WHEN THE GATE HAS NO SUCH CALL. `required_unpinned`
+# was added by aeb4fd8 itself, so on any tree older than 2026-08-28 the grep
+# matches nothing, the pipeline fails under `pipefail`, and `set -e` killed the
+# whole detector at the `declared=` line — exit 1 with NOT ONE WORD of output.
+# Found by running this detector against `aeb4fd8^`, which is the one tree it
+# most needed to work on.
 unpinned_tools() {
-  local gate="$1"
-  shell_code "$gate" |
+  local gate="$1" out
+  out="$(shell_code "$gate" |
     grep -oE 'required_unpinned[[:space:]]+[a-zA-Z0-9_. -]+' |
     sed -E 's/^required_unpinned[[:space:]]+//' |
     tr ' ' '\n' |
     grep -vE '^(bsharp-no-such-tool|sh)?$' |
     grep -v 'bsharp-no-such-tool' |
-    sort -u
+    sort -u || true)"
+  printf '%s\n' "$out"
+  return 0
 }
 
 # Every command this script runs, at a command position, with any `VAR=value`
@@ -116,6 +127,10 @@ unpinned_tools() {
 # an earlier draft got this wrong in opposite directions.
 commands_in() {
   shell_code "$1" |
+    # ARITHMETIC IS NOT A COMMAND POSITION. `$(( start - 1 ))` opens with the same
+    # two characters as a command substitution, so the command-position pattern
+    # below reads `start` as a command — and `start` is a real binary on macOS.
+    sed -E 's/\$\(\([^)]*\)\)/ /g' |
     sed -E 's/\{/ ; /g; s/\}/ ; /g' |
     grep -oE '(^|[|;&]|\([[:space:]]|\$\(|&&|\|\|)([[:space:]]*[A-Za-z_][A-Za-z0-9_]*=[^[:space:];|&()]*)*[[:space:]]*[a-zA-Z_][a-zA-Z0-9_.-]*[=[]?' |
     sed -E 's/^[^a-zA-Z_]*//; s/^([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)+//' |

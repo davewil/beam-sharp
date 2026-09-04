@@ -119,7 +119,7 @@ F15 cannot compile its own corpus without it, and the reason is sharper than "30
 
 - **`aoc/` is a second corpus and it is worse**, which F8 already had to learn once. All three of
   its files declare `module Day01` — `aoc/2019/day01/day01.bs`, `aoc/2025/day01/day01.bs` and
-  `aoc/bench/bench_bs.bs` — and not one sits in a directory that matches. Two are `day01` against
+  `aoc/bench/Day01/bench_bs.bs` — and not one sits in a directory that matches. Two are `day01` against
   `Day01` (a case difference, which is a mismatch), and the third is in `bench/`. `bsc.erl:159-165`
   names this file exactly, as the reason it refused to infer a module name from a path:
   *"the repo's own files do not keep that correspondence — `aoc/2019/day01/day01.bs` declares

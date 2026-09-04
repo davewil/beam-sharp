@@ -23,7 +23,26 @@
 # `tree-sitter/tree-sitter` release, CI takes the npm package `tree-sitter-cli`,
 # and both publish the same version number.
 #
-# TWO REQUIRED TOOLS HAVE NO LINE BELOW, AND ARE NAMED HERE ANYWAY: python3 and mise.
+# FIVE REQUIRED TOOLS HAVE NO LINE BELOW, AND ARE NAMED HERE ANYWAY: python3,
+# mise, perl, shasum and tar.
+#
+# THE LAST THREE WERE FOUND ON 2026-09-04 BY `detectors/detect-unmanifested-tool.sh`,
+# which asks the direction `--env` never did: not "is every declared tool
+# present" but "is every tool a gate RUNS declared". They are the same defect
+# python3 was, with the same reason nobody noticed — every machine has them:
+#
+#   perl    `compiler/bin/check-recursive-types.sh` is a stopwatch, and its own
+#           line 16 explains the choice: "timeout(1) is not on macOS;
+#           perl -e \'alarm N; exec @ARGV\' is". Three call sites.
+#   shasum  `bin/build-handoff.sh`, `bin/check-handoff-package.sh` and
+#           `compiler/bin/check-tour.sh` checksum the package and the published
+#           page with it.
+#   tar     `bin/check-links.sh` unpacks the built package to read it.
+#
+# UNPINNED FOR THE SAME REASON python3 IS. None of the three decides what gets
+# built: perl runs a five-token alarm, shasum reports a digest every version
+# agrees on, and tar unpacks an archive this repository also created. A version
+# line would assert a requirement nobody has measured.
 #
 # `compiler/bin/check-switch-diagnostics.sh` shells to
 # `handoff/audition-switch/build-packet.py --check`, which asks whether the

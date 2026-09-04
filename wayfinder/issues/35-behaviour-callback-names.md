@@ -3,7 +3,7 @@
 Type: grilling
 Status: resolved 2026-08-15
 
-Raised 2026-08-14 while wiring up CI. `bin/spec-check.sh` fails on `master`, and the cause is a
+Raised 2026-08-14 while wiring up CI. `compiler/bin/spec-check.sh` fails on `master`, and the cause is a
 decision nobody has taken rather than a defect in the script.
 
 ## Question
@@ -61,7 +61,7 @@ and 2 land.
 
 ## Notes
 
-**This blocks a gate.** `bin/spec-check.sh` cannot pass until it is answered, so it is excluded
+**This blocks a gate.** `compiler/bin/spec-check.sh` cannot pass until it is answered, so it is excluded
 from CI with a pointer here — see `.github/workflows/ci.yml`. That exclusion is the cost of
 leaving this open, and it is the only one.
 

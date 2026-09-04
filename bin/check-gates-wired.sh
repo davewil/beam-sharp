@@ -253,7 +253,7 @@ fi
 CI="$ROOT/.github/workflows/ci.yml"
 [ -f "$CI" ] || { echo "no workflow at ${CI#"$ROOT"/} — there is nothing running any gate"; exit 1; }
 
-missing="$(unwired "$CI" "$ROOT/bin" "$ROOT/compiler/bin" "$ROOT/editor/bin" || true)"
+missing="$(unwired "$CI" "$ROOT/bin" "$ROOT/compiler/bin" "$ROOT/editor/bin" "$ROOT/detectors" || true)"
 
 if [ -n "$missing" ]; then
   echo "$missing"
@@ -264,7 +264,7 @@ if [ -n "$missing" ]; then
   exit 1
 fi
 
-unshown="$(unproven "$CI" "$ROOT/bin" "$ROOT/compiler/bin" "$ROOT/editor/bin" || true)"
+unshown="$(unproven "$CI" "$ROOT/bin" "$ROOT/compiler/bin" "$ROOT/editor/bin" "$ROOT/detectors" || true)"
 
 if [ -n "$unshown" ]; then
   echo "$unshown"
@@ -283,7 +283,7 @@ DOC="$ROOT/.claude/end-session.md"
   exit 1
 }
 
-unnamed="$(unlisted "$DOC" "$ROOT/bin" "$ROOT/compiler/bin" "$ROOT/editor/bin" || true)"
+unnamed="$(unlisted "$DOC" "$ROOT/bin" "$ROOT/compiler/bin" "$ROOT/editor/bin" "$ROOT/detectors" || true)"
 
 if [ -n "$unnamed" ]; then
   echo "$unnamed"
@@ -304,7 +304,7 @@ ENTRY="$ROOT/bin/verify.sh"
   exit 1
 }
 
-unentered="$(unlisted "$ENTRY" "$ROOT/bin" "$ROOT/compiler/bin" "$ROOT/editor/bin" || true)"
+unentered="$(unlisted "$ENTRY" "$ROOT/bin" "$ROOT/compiler/bin" "$ROOT/editor/bin" "$ROOT/detectors" || true)"
 
 if [ -n "$unentered" ]; then
   echo "$unentered"

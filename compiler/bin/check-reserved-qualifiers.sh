@@ -62,6 +62,10 @@ judge() {
   ## generated local recursive function, and a remote call to the stdlib is still
   ## a remote call.
   case " $p2 " in
+    ## Red rather than silent: see the probe. An unreadable beam and a perfectly
+    ## inlined one both produce an empty import list.
+    *" BEAM-UNREADABLE "*)
+      echo "P2: called_modules could not read the beam, so this probe read nothing — and reading nothing is what a correct answer looks like here" ;;
     *" List "*)  echo "P2: the beam calls out to 'List' — the operation was resolved, not inlined" ;;
     *" lists "*) echo "P2: the beam calls out to 'lists' — 67 asks for a generated local form, not a stdlib call" ;;
     *) ;;
@@ -133,7 +137,17 @@ probe() {
   ## P2 compiles rather than runs, because the subject is the ARTEFACT. `-o` is
   ## what makes the beam readable; the run above never writes one out.
   "$BSC" --src-root "$dir/src" -o "$dir/out" "$dir/src/P" >/dev/null 2>&1 || true
-  called_modules "$dir/out/P.beam" > "$dir/P2.out" 2>&1 || true
+  ## `|| true` HERE WOULD MAKE P2 VACUOUS, and P2 is the only probe that
+  ## separates 67's (a) from its (b). `called_modules` reads the beam's import
+  ## chunk; if it cannot — no beam, a chunk it does not understand, a `beam_lib`
+  ## error — it writes nothing, and an EMPTY IMPORT LIST IS EXACTLY WHAT A
+  ## CORRECTLY INLINED OPERATION PRODUCES. The judge below would fall through its
+  ## `case` to the passing arm and the gate would go green having read nothing.
+  ## That is be6307b's shape and `detectors/detect-swallowed-status.sh` is what
+  ## found it here.
+  if ! called_modules "$dir/out/P.beam" > "$dir/P2.out" 2>&1; then
+    printf 'BEAM-UNREADABLE\n' > "$dir/P2.out"
+  fi
 
   "$BSC" --src-root "$dir/bad" "$dir/bad/List" Go 1 > "$dir/P3.out" 2>&1 || true
   "$BSC" --src-root "$dir/src" "$dir/src/Shop/List" Sum '[1]' 0 > "$dir/P4.out" 2>&1 || true

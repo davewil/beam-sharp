@@ -48,7 +48,10 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-# shellcheck source=lib/shell-code.sh
+# The library is linted in its own right by check-shell.sh, which enumerates
+# detectors/lib without the executable test a sourced file can never pass. This
+# suppresses only the note that shellcheck was not handed it here.
+# shellcheck source=lib/shell-code.sh disable=SC1091
 . "$ROOT/detectors/lib/shell-code.sh"
 
 GATE_DIRS=("bin" "compiler/bin" "editor/bin" "handoff/audition-switch" "detectors")
@@ -58,18 +61,18 @@ GATE_DIRS=("bin" "compiler/bin" "editor/bin" "handoff/audition-switch" "detector
 # script here would plausibly branch on.
 RUNNER_VARS="GITHUB_ACTIONS CI RUNNER_OS GITHUB_REF GITHUB_SHA GITHUB_WORKFLOW CONTINUOUS_INTEGRATION"
 
-# THE REGION IS FOUND IN STRIPPED CODE AND SLICED OUT OF THE RAW FILE.
+# THE START IS FOUND IN THE RAW FILE, THE END IN THE STRIPPED ONE, AND THE SLICE
+# IS TAKEN FROM THE RAW FILE. Three different reasons, one per step.
 #
 # The obvious version — awk from the guard line to the first `^fi$` — ends the
-# region inside the first heredoc that contains a shell `fi` at column 0. Every
+# region inside the first heredoc holding a shell `fi` at column 0. Every
 # self-test here writes control scripts into heredocs, so the region stopped
-# several controls early and this detector reported ITSELF for a repair that was
-# three lines further down. `shell_code` blanks heredoc bodies, so the `fi` it
-# sees is a real one; the line NUMBERS it reports are then used to slice the raw
-# file, because the assertions being read are inside the quoted strings that
-# `shell_code` blanks.
-# The START is found in the RAW file and the END in the stripped one, because the
-# two markers live in different places. The guard reads
+# several controls early and this detector reported ITSELF for a repair three
+# lines further down. `shell_code` blanks heredoc bodies, so the `fi` it sees is
+# a real one.
+#
+# But the START cannot be found there, because the two markers live in different
+# places. The guard reads
 # `[ "${1:-}" = "--self-test" ]`, so the words `--self-test` sit INSIDE a quoted
 # span — which `shell_code` blanks, taking the start marker with it. The closing
 # `fi` is bare code, and stripping is what tells it from the `fi` inside a

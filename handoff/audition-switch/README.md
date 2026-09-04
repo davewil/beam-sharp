@@ -387,8 +387,8 @@ language.
     directories. It never fired in the main checkout or on Linux CI, and fired
     every time under macOS's `mktemp -d`, where `/var` is a symlink to
     `/private/var` — so it failed on precisely the workflow this project
-    mandates, `git clone` into a temp dir, at stage 12 of 34, taking the
-    twenty-two stages after it with it. The comparison now resolves both sides,
+    mandates, `git clone` into a temp dir, early in `verify.sh` and taking
+    every stage after it with it. The comparison now resolves both sides,
     and the self-test reaches its own harness through a deliberate symlink rather
     than waiting for a platform to supply one. The second half of that control
     matters more than the first: a copy of the harness stages its own manifest

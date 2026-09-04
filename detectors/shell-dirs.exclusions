@@ -3,3 +3,5 @@
 # pasted a path in" are the same state, and this file is the only thing that tells
 # them apart. See detect-unenumerated-shell-dir.sh for the two incidents behind it.
 
+wayfinder/prototypes      # 34 one-off measurement scripts, each written to answer one ticket and never run again. 5abb590 records the decision: wayfinder/ is outside check-links and check-shell, and its scripts are shellchecked by hand when written. Linting them on every run would gate 34 dead files on a tool version.
+.claude/skills/frontier   # the /frontier skill's repo-side probe. Agent tooling rather than a gate: it reports, it does not decide, and nothing in verify.sh or ci.yml runs it. It is not shipped in the handoff package either.

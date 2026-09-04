@@ -897,7 +897,7 @@ $(count_violation "$r_out" 'the workflow runs-on: lines')"
 
   --env)
     e_out="$(env_drift "$MANIFEST")"
-    u_out="$(required_unpinned python3 mise)"
+    u_out="$(required_unpinned python3 mise perl shasum tar)"
     b_out="$(path_bypass "$MANIFEST")"
 
     problems="$(findings "$e_out")

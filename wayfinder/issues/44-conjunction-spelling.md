@@ -85,7 +85,7 @@ resolving.
 
 `&&` is shipped, not merely decided:
 
-- `compiler/examples/math.bs` — two occurrences, and `examples/` is a **must-run** surface.
+- `compiler/examples/Math/math.bs` — two occurrences, and `examples/` is a **must-run** surface.
 - `LANGUAGE.md` — prose *and* code blocks, and CI validates the blocks **bidirectionally**, so the
   prose and the compiler must agree or the gate fails.
 - The refinement predicate in F2's own scenarios (`where value >= 0 && value <= 255`).
@@ -220,6 +220,6 @@ change.** F2 is the natural home, since 42 already obliges it to reserve the key
 - **Lexer**: nothing further. Ticket 42 reserves `and` / `or` for the pattern combinator regardless,
   and the variable namespace has already paid for them there. **44's marginal lexer cost is zero.**
 - **Parser**: the guard grammar's `&&` / `||` productions take the new tokens; `expr` loses two.
-- **Migration**: three call sites — `compiler/examples/math.bs` (two occurrences),
+- **Migration**: three call sites — `compiler/examples/Math/math.bs` (two occurrences),
   `LANGUAGE.md` (prose and blocks), and F2's own scenarios.
 - **Removed**: two lexer rules, which is a rare direction of travel for a language decision.

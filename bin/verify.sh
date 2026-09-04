@@ -229,6 +229,17 @@ run_stages \
      ./compiler/bin/check-no-silent-skip.sh --self-test &&
      ./compiler/bin/extract-exemplars.sh --self-test" \
 \
+  "Every detector proves it can fail" \
+    "./detectors/detect-unmanifested-tool.sh --self-test &&
+     ./detectors/detect-stale-suite-count.sh --self-test &&
+     ./detectors/detect-stale-citation.sh --self-test &&
+     ./detectors/detect-swallowed-status.sh --self-test &&
+     ./detectors/detect-inherited-runner-env.sh --self-test &&
+     ./detectors/detect-unenumerated-shell-dir.sh --self-test &&
+     ./detectors/detect-shared-scratch.sh --self-test &&
+     ./detectors/detect-split-table.sh --self-test &&
+     ./detectors/detect-dead-repo-path.sh --self-test" \
+\
   "The manifest and the workflow pin the same toolchain" \
     "./bin/check-toolchain.sh" \
 \
@@ -348,4 +359,39 @@ run_stages \
     "./editor/bin/check-tokens.sh --self-test && ./editor/bin/check-tokens.sh" \
 \
   "The editor grammar parses every example" \
-    "./editor/bin/check-corpus.sh --self-test && ./editor/bin/check-corpus.sh"
+    "./editor/bin/check-corpus.sh --self-test && ./editor/bin/check-corpus.sh"\
+\
+  "Every tool a gate runs is one the manifest declares" \
+    "./detectors/detect-unmanifested-tool.sh" \
+\
+\
+  "No prose hand-counts the verify suite" \
+    "./detectors/detect-stale-suite-count.sh" \
+\
+\
+  "No document cites a source line past the end of its file" \
+    "./detectors/detect-stale-citation.sh" \
+\
+\
+  "Every control's subject can still report failure" \
+    "./detectors/detect-swallowed-status.sh" \
+\
+\
+  "A self-test builds the runner environment, never inherits it" \
+    "./detectors/detect-inherited-runner-env.sh" \
+\
+\
+  "Every directory of shell is enumerated or excluded with a reason" \
+    "./detectors/detect-unenumerated-shell-dir.sh" \
+\
+\
+  "Scratch directories are created, not named" \
+    "./detectors/detect-shared-scratch.sh" \
+\
+\
+  "No markdown table is split by a blank or prose line" \
+    "./detectors/detect-split-table.sh" \
+\
+\
+  "The design record and the package cite paths that exist" \
+    "./detectors/detect-dead-repo-path.sh"

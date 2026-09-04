@@ -115,6 +115,62 @@ jobs:
       - name: The manifest and the workflow pin the same toolchain
         run: ./bin/check-toolchain.sh
 
+      # ---------------------------------------------------------------------
+      # THE DETECTORS. Added 2026-09-04 from an audit of the last hundred commits
+      # and the 2026-09-01 review for self-inflicted defects — the same exercise
+      # that produced the four gate-gates above on 2026-08-18, one level out.
+      #
+      # Every class below is named in a commit message in this repository's own
+      # history, most of them more than once, and none of them was catchable by
+      # anything already here. They found twenty live instances on the day they
+      # were written, including three tools that no manifest declared (`perl`,
+      # `shasum`, `tar` — python3's defect exactly, two weeks after it was fixed),
+      # a control whose subject was neutralised by `|| true`, and a feature index
+      # citing a source line four hundred past the end of its file.
+      #
+      # THEY RUN THEIR OWN --self-test FIRST, in a separate step, for the reason
+      # the gate-gates give above: folded together, one exit code would cover two
+      # questions and "green" would stop distinguishing "no violations" from "the
+      # detector still works".
+      - name: The detectors prove they can fail
+        run: |
+          ./detectors/detect-unmanifested-tool.sh --self-test
+          ./detectors/detect-stale-suite-count.sh --self-test
+          ./detectors/detect-stale-citation.sh --self-test
+          ./detectors/detect-swallowed-status.sh --self-test
+          ./detectors/detect-inherited-runner-env.sh --self-test
+          ./detectors/detect-unenumerated-shell-dir.sh --self-test
+          ./detectors/detect-shared-scratch.sh --self-test
+          ./detectors/detect-split-table.sh --self-test
+          ./detectors/detect-dead-repo-path.sh --self-test
+
+      - name: Every tool a gate runs is one the manifest declares
+        run: ./detectors/detect-unmanifested-tool.sh
+
+      - name: No prose hand-counts the verify suite
+        run: ./detectors/detect-stale-suite-count.sh
+
+      - name: No document cites a source line past the end of its file
+        run: ./detectors/detect-stale-citation.sh
+
+      - name: Every control's subject can still report failure
+        run: ./detectors/detect-swallowed-status.sh
+
+      - name: A self-test builds the runner environment, never inherits it
+        run: ./detectors/detect-inherited-runner-env.sh
+
+      - name: Every directory of shell is enumerated or excluded with a reason
+        run: ./detectors/detect-unenumerated-shell-dir.sh
+
+      - name: Scratch directories are created, not named
+        run: ./detectors/detect-shared-scratch.sh
+
+      - name: No markdown table is split by a blank or prose line
+        run: ./detectors/detect-split-table.sh
+
+      - name: The design record and the package cite paths that exist
+        run: ./detectors/detect-dead-repo-path.sh
+
       - name: The map is an index
         run: ./bin/check-map.sh
 

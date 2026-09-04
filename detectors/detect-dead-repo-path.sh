@@ -73,6 +73,18 @@ dead_paths_in() {
     if [ -n "$ok" ]; then
       continue
     fi
+    # A FEATURE SPEC NAMES THE GATE IT WILL CREATE, and that is not rot. F30 is
+    # `not started` and its "The gate" section names `check-valve.sh`, which is
+    # exactly what a spec written before the build is supposed to do. The marker
+    # is worth having beyond the exemption: it distinguishes "will exist" from
+    # "used to exist", which is the whole question this detector asks and which a
+    # bare missing path cannot answer.
+    if printf '%s' "$line" | grep -qF 'dead-path: planned'; then
+      continue
+    fi
+    if sed -n "$(( ln > 1 ? ln - 1 : 1 )),${ln}p" "$f" | grep -qF 'dead-path: planned'; then
+      continue
+    fi
     printf '%s:%s: `%s` — the `%s/` directory is here and that path is not\n' \
            "${f#"$base"/}" "$ln" "$p" "$seg"
   done

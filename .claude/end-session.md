@@ -35,6 +35,17 @@ drift apart silently.
 ./bin/check-open-questions.sh                   # every open question in the spec names an issue
 ./bin/check-links.sh                            # the package points only at things it ships
 
+# --- the recurring self-inflicted failure modes ---------------------------
+./detectors/detect-unmanifested-tool.sh            # every tool a gate runs is one the manifest declares
+./detectors/detect-stale-suite-count.sh            # no prose hand-counts the verify suite
+./detectors/detect-stale-citation.sh               # no document cites a source line past the end of its file
+./detectors/detect-swallowed-status.sh             # every control's subject can still report failure
+./detectors/detect-inherited-runner-env.sh         # a self-test builds the runner environment, never inherits it
+./detectors/detect-unenumerated-shell-dir.sh       # every directory of shell is enumerated or excluded with a reason
+./detectors/detect-shared-scratch.sh               # scratch directories are created, not named
+./detectors/detect-split-table.sh                  # no markdown table is split by a blank or prose line
+./detectors/detect-dead-repo-path.sh               # the design record and the package cite paths that exist
+
 # --- build: escriptize BEFORE eunit, several tests drive bsc --------------
 cd compiler && rebar3 escriptize
 cd compiler && rebar3 eunit

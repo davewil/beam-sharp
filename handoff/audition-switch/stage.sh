@@ -35,10 +35,14 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Found 2026-08-27: on macOS `/var` is a symlink to `/private/var` and `mktemp -d`
 # hands back the logical form, so `git clone` into a temp dir — the exact shape of
 # "the gates pass twice from a clean checkout" — made the binding control below
-# fail against a manifest the harness had just staged itself. It is stage 12 of
-# 34 and verify.sh stops at the first failure, so twenty-two stages went unrun for
-# a reason unrelated to any change. Green on Linux CI and in a checkout under
-# /Volumes, which is why it went unseen.
+# fail against a manifest the harness had just staged itself. verify.sh stops at
+# the first failure and this stage sits early in it, so everything after it went
+# unrun for a reason unrelated to any change. Green on Linux CI and in a checkout
+# under /Volumes, which is why it went unseen.
+#
+# The stage numbers this note used to carry are gone rather than corrected: a
+# stage count is re-staled by every gate added, which is 910ed93's rule and what
+# `detectors/detect-stale-suite-count.sh` now enforces.
 #
 # The repair belongs on this side. Dropping the `.resolve()` in the builder would
 # also make the two agree, and would be wrong: the manifest names the file that

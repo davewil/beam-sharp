@@ -86,6 +86,18 @@ shell_code() {
         c = substr(line, i, 1)
         here = ctx[top]
 
+        # ARITHMETIC. `$(( ... ))` opens with the same two characters as a
+        # command substitution, so without a context of its own
+        # `$(( start - 1 ))` hands a scanner `start` at what looks like a
+        # command position — and `start` is a real binary on macOS. Its closing
+        # `))` also unbalanced the stack, which is why the arithmetic in
+        # detect-shared-scratch.sh came out of an earlier draft as
+        # `$(( start - 1 )`. Blanked entirely: nothing in arithmetic is a command.
+        if (here == "ARITH") {
+          if (c == ")" && substr(line, i, 2) == "))") { top--; out = out "  "; i += 2; continue }
+          out = out " "; i++; continue
+        }
+
         if (here == "SQ") {
           if (c == "\047") { top-- }
           out = out " "; i++; continue
@@ -98,6 +110,7 @@ shell_code() {
           # `$(` leaves the command inside it preceded by whitespace and
           # therefore invisible — which is how the draft before this one lost
           # `perl` and `shasum`, the only two real findings in the tree.
+          if (c == "$" && substr(line, i, 3) == "$((") { top++; ctx[top] = "ARITH"; out = out "   "; i += 3; continue }
           if (c == "$" && substr(line, i, 2) == "$(") {
             top++; ctx[top] = "CODE"
             out = out "$("; i += 2; continue
@@ -110,6 +123,7 @@ shell_code() {
         if (c == "\\" && i < n) { out = out substr(line, i, 2); i += 2; continue }
         if (c == "\047") { top++; ctx[top] = "SQ"; out = out "~"; i++; continue }
         if (c == "\"")   { top++; ctx[top] = "DQ"; out = out "~"; i++; continue }
+        if (c == "$" && substr(line, i, 3) == "$((") { top++; ctx[top] = "ARITH"; out = out "   "; i += 3; continue }
         if (c == "$" && substr(line, i, 2) == "$(") {
           top++; ctx[top] = "CODE"
           out = out "$("; i += 2; continue

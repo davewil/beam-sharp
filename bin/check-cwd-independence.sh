@@ -54,6 +54,12 @@ RUNNABLE=(
   "compiler/bin/check-no-silent-skip.sh"
   # A text sweep over the corpus: no escript, no toolchain.
   "compiler/bin/check-record-idiom.sh"
+  # Two of the nine detectors, chosen because they exercise the two ways this
+  # directory can be cwd-dependent: one resolves paths against `$ROOT` only, and
+  # one shells to `git ls-files`, which answers relative to the CWD and would
+  # quietly read a different file set from a different directory.
+  "detectors/detect-unenumerated-shell-dir.sh"
+  "detectors/detect-dead-repo-path.sh"
 )
 
 # Run one script from two different working directories and report if the exit
@@ -154,7 +160,8 @@ done
 # for a script that is executed rather than sourced, and accepting only the
 # first is what made this check's own first draft accuse a correct script.
 static=""
-for s in "$ROOT"/bin/*.sh "$ROOT"/compiler/bin/*.sh "$ROOT"/editor/bin/*.sh; do
+for s in "$ROOT"/bin/*.sh "$ROOT"/compiler/bin/*.sh "$ROOT"/editor/bin/*.sh \
+         "$ROOT"/detectors/*.sh; do
   [ -x "$s" ] || continue
   rel="${s#"$ROOT"/}"
   case " ${RUNNABLE[*]} " in *" $rel "*) continue ;; esac

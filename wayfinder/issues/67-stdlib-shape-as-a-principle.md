@@ -52,7 +52,7 @@ stale worktrees and tripled every number; the table is the corrected one.
 | `:lists.sum`, `:lists.reverse` | 1 each | `Interop/interop.bs` — **the FFI is the collection library today** |
 
 **One collection module exists, and a user wrote it.**
-[`compiler/examples/Shop/Collections/List/List.bs`](../../compiler/examples/Shop/Collections/List/List.bs)
+[`compiler/examples/Shop/Collections/Ints/Ints.bs`](../../compiler/examples/Shop/Collections/List/List.bs)
 is F11's own example: `module Shop.Collections.List`, `Sum(list<int>, int)` and `Length(list<int>)`,
 monomorphic, reached as `List.Length([n, n])` after `using Shop.Collections` and as
 `Shop.Collections.List.Sum([n], 0)` in full. That is the lived shape: a PascalCase qualifier that is

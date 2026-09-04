@@ -2,7 +2,7 @@
 #
 # Run the clean-room audition across every candidate CLI and mark the results.
 #
-#   ./run.sh [workdir]        default workdir: /tmp/bsharp-audition
+#   ./run.sh [workdir]        default: a fresh mktemp dir, printed on start
 #   ./run.sh --self-test      prove the timeout and the marking both work
 #
 # TWO INVARIANTS ARE LOAD-BEARING HERE, AND BOTH WERE LEARNED BY LOSING THEM.
@@ -27,7 +27,12 @@
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WORKDIR="${1:-/tmp/bsharp-audition}"
+# A FRESH WORKDIR PER RUN, not a fixed one. This defaulted to
+# `/tmp/bsharp-audition`, so two audition runs on one machine - or a re-run after
+# a killed one - shared a directory and each read the other's leftovers. That is
+# ENG-318's hazard one level up, and `detectors/detect-shared-scratch.sh` is what
+# now refuses it. Pass a path as $1 when you want a run you can find again.
+WORKDIR="${1:-$(mktemp -d -t bsharp-audition)}"
 DEADLINE="${AUDITION_TIMEOUT_S:-900}"
 
 # --- the candidates ---------------------------------------------------------

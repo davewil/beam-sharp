@@ -161,6 +161,7 @@ shape from the one that was refused.
 
 ## The gate
 
+<!-- dead-path: planned - F30 is not started; this names the gate the build owes. -->
 `compiler/bin/check-valve.sh`. **A rejection test, not a stopwatch** — every failure this feature
 can produce is visible, which is the opposite of F28 and worth saying so the next author does not
 copy the wrong template.
