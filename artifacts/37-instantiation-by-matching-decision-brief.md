@@ -221,12 +221,12 @@ style cost. If David expects the standard library or more exemplar domains to ad
 
 **What N to name, and why:** the ticket's own history is the basis — n went from "not yet
 observed" (F6, 2026-08-14) to 1 (`Prepend`, 25d, 2026-08-24) to 3 across 2 shapes (`Reverse`
-duplicated, 25e, 51 minutes after a re-measure) to unchanged-at-3 ten days later (this session).
+duplicated, 25e, 51 minutes after a re-measure) to unchanged-at-3 one week later (this session).
 That is roughly one new occurrence per exemplar-directory addition, and five exemplar directories
 have shipped total. A reasonable trigger is **N = 5 occurrences, or a third distinct shape**,
 whichever comes first — roughly one more exemplar-domain's worth of evidence at the observed rate,
 and a third shape would mean the pattern is domain-general rather than an artifact of two adjacent
-write-ups (`25d`/`25e` shipped one day apart).
+write-ups (`25d`/`25e` shipped two days apart).
 
 ### (c) Build only the narrow first-order case now; explicitly refuse the higher-order/lambda-dependent generalization until arrows exist
 **For:** This is not really a third option so much as a scope note on (a) — the ticket's own
@@ -277,7 +277,7 @@ confirming signal costs little and avoids building surface area three signatures
   environment artifact rather than a real finding, but I did not chase it further since `elixirc`'s
   own result already answered the question the probe was for.
 - **OTP-28-specific behavior is unverified.** Everything measured here ran on Erlang/OTP 25.3.2
-  (erts-13.2.2.5); the project is pinned to OTP 28.5 (`wayfinder/.tool-versions`) and neither mise
+  (erts-13.2.2.5); the project is pinned to OTP 28.5 (`.tool-versions`) and neither mise
   nor asdf are available to install it, nor is github.com reachable to fetch it another way. I have
   no specific reason to expect `bs_types`/`bs_check`/the parser to behave differently on 28, and
   none of this brief's findings depend on Erlang-version-sensitive behavior (map ordering,

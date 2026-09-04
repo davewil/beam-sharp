@@ -1,0 +1,12 @@
+                                      min ms    med ms      rel
+get_map_elements (pattern)             11.89     12.69    1.00x
+map_get BIF (bs_emit's .field)         15.23     15.70    1.28x
+                                      min ms    med ms      rel
+get_map_elements (pattern)             11.83     12.07    1.00x
+map_get BIF (bs_emit's .field)         15.27     15.78    1.29x
+                                      min ms    med ms      rel
+get_map_elements (pattern)             11.74     12.22    1.00x
+map_get BIF (bs_emit's .field)         15.18     15.44    1.29x
+                                      min ms    med ms      rel
+get_map_elements (pattern)             11.88     12.23    1.00x
+map_get BIF (bs_emit's .field)         15.41     15.97    1.30x

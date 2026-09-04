@@ -1,0 +1,14 @@
+probe 1 -- late monitor on an already-exited normal worker:
+  mailbox after 200ms = [{cast,42},
+                         {'DOWN',#Ref<0.1917566627.1344798722.99655>,process,
+                                 <0.79.0>,noproc}]
+  (a monitor established AFTER the target already exited still
+   enqueues an immediate DOWN -- the naive fan-in double-counts
+   unless it special-cases reason =:= normal)
+probe 2 -- spawn_monitor (atomic) on a fast, successful worker:
+  mailbox after 200ms = [{cast,144},
+                         {'DOWN',#Ref<0.1917566627.1344798722.99670>,process,
+                                 <0.80.0>,normal}]
+  (BOTH the cast and the DOWN arrive -- atomicity does not
+   remove the double signal, it only removes the race window)
+probe 3 -- 10000 spawn_monitor+DOWN round trips: 17659 us total, 1.77 us each

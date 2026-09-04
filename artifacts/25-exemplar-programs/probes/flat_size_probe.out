@@ -1,0 +1,5 @@
+DOWN tuple (normal)      : 9 words (72 bytes)
+DOWN tuple (crash reason): 12 words (96 bytes)
+(:result, int) cast msg  : 3 words (24 bytes)
+(:reduce, [1..100]) call : 203 words (1624 bytes)
+BatchState (tagged map)  : 12 words (96 bytes)
