@@ -20,7 +20,7 @@
 rediscovered three times.**
 
 Ticket 42 settled on 2026-08-15 that an interval residual synthesises as `Classify(<= -1)` —
-*"a pattern, with no binder and no guard"* (`decisions.md:991-993`) — and the parser was built for
+*"a pattern, with no binder and no guard"* (ticket 42's entry, `wayfinder/issues/42-interval-pattern-spelling.md`) — and the parser was built for
 it, in as many words:
 
 > `%% The bound is a LITERAL, and negative bounds are the case that makes this its`

@@ -14,7 +14,7 @@
 **Unblocks**    **F30** (the valve's fixed short-circuit set). Ticket 49 accepted
                 shape C's `option<atom>` exposure *on the grounds that 15 §1
                 refuses it*; until this ships, that refusal does not exist and
-                the hazard is reachable. `decisions.md:1731` — *"F30 must not
+                the hazard is reachable. ticket 49's entry, `wayfinder/issues/49-what-the-valve-keys-on.md` — *"F30 must not
                 land before it"*
 **Depends on**  F6 (`resolve/3` and the parametric env), F16 (the diagnostic is
                 a term), F18 (which built 15 §1's predicate at **one** site)

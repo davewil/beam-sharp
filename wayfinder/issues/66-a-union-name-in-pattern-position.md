@@ -17,7 +17,7 @@ David's framing: *"`Handle(C c)` is whatever the union of A and B are, but patte
 
 [Ticket 55](55-destructure-and-bind.md) settled the **record** type prefix —
 `Frame { Type: :method } f`, and `Frame f` when only the type matters. It is silent on union
-aliases. `decisions.md:669`'s *"matching a variable inside a union is undecided"* is about generic
+aliases. ticket 28's entry's *"matching a variable inside a union is undecided"* is about generic
 type variables and belongs to [ticket 37](37-instantiation-by-matching.md), not here.
 
 ## The exemplars
