@@ -269,10 +269,20 @@ resolves_as_call() {
 # `ParseAtom` specifically: it is the row that proved the extractor blind.
 #
 # A cell may contain an escaped `\|`, so those are masked before splitting.
+# ONE ANCHOR FOR BOTH QUESTIONS. "Does this entry have a row?" and "what does
+# its row say?" must be the same match, or the gate grows the ENG-320 hole back
+# under a new name: a looser existence test finds the two-axes table's prose
+# cell (`list<T>`, `option<T>`, `result<T, E>`, `map<K, V>` in ONE cell), calls
+# the row present, extracts no status from it, and skips exactly as before.
+# Control 8b pins this.
+prelude_row() {
+    local doc="$1" entry="$2"
+    grep -F "| \`$entry\`" "$doc" 2>/dev/null | head -1
+}
+
 prelude_status() {
     local doc="$1" entry="$2"
-    grep -F "| \`$entry\`" "$doc" 2>/dev/null |
-        head -1 |
+    prelude_row "$doc" "$entry" |
         sed 's/\\|/\x01/g' |
         awk -F'|' '{ print $5 }' |
         grep -o '\*\*[a-z ]*\*\*' |
@@ -291,7 +301,7 @@ probe_entry() {
 }
 
 check_prelude() {
-    local doc="$1" n=0 bad=0 entry form expr status want
+    local doc="$1" n=0 listed=0 bad=0 entry form expr status want
     [ -f "$doc" ] || { echo "check-status-claims: no PRELUDE at $doc"; return 1; }
     while IFS='|' read -r entry form expr; do
         [ -n "$entry" ] || continue
@@ -305,8 +315,34 @@ check_prelude() {
             type|qualified) ;;
             *) continue ;;
         esac
+        listed=$((listed + 1))
+        # AN ENTRY THE LIST NAMES AND THE TABLE DOES NOT CARRY IS RED. This line
+        # read `[ -n "$status" ] || continue` until 2026-09-04, so an entry with
+        # no row was neither probed nor reported: `map<K, V>` was in this list
+        # from 2026-08-26 (`aa04d0c`) and had no row until 2026-09-03, and the
+        # nine days of silence are ENG-319's — a type sat unbuilt and unreported
+        # while `prelude entries probed:` printed what a full sweep prints. The
+        # gate's own comment below warns of this failure for `ParseAtom<T>` and
+        # then left the same `continue` for the case where there is no row at
+        # all. ENG-320.
+        if [ -z "$(prelude_row "$doc" "$entry")" ]; then
+            printf 'PRELUDE.md: `%s` is named by prelude_entries and has NO row in the table.\n' \
+                "$entry"
+            printf '    The list and the document have drifted. Write the row, or drop the\n'
+            printf '    entry — an entry with no row is not a passing entry, it is an unasked\n'
+            printf '    question.\n'
+            bad=$((bad + 1))
+            continue
+        fi
         status="$(prelude_status "$doc" "$entry")"
-        [ -n "$status" ] || continue
+        if [ -z "$status" ]; then
+            # The row exists and its status cell yields no bold word. Distinct
+            # from the case above, and distinct from an unknown word below.
+            printf 'PRELUDE.md: `%s` has a row whose status cell carries no bold status word.\n' \
+                "$entry"
+            bad=$((bad + 1))
+            continue
+        fi
         # THE COUNTER COUNTS ROWS ACTUALLY EVALUATED, not rows matched, and the
         # difference is not pedantry: while the extractor was blind to
         # `ParseAtom<T>` the count read 6 both before and after the fix, because
@@ -342,7 +378,11 @@ check_prelude() {
             fi
         fi
     done < <(prelude_entries)
-    printf 'prelude entries probed: %d\n' "$n"
+    # N OF M, NOT N. The probed count alone was the only thing that would have
+    # shown `map<K, V>` going unprobed, and it read like a full sweep because
+    # nothing stood beside it (ENG-320, owed item 3). M is the entries this walk
+    # dispatched on, so a skip is visible as a gap rather than inferred.
+    printf 'prelude entries probed: %d of %d\n' "$n" "$listed"
     # A run that probed nothing is a run that proved nothing. Seven of the eight
     # registry rows are `type`; a floor well under that still catches a table
     # rename that makes every row invisible.
@@ -528,6 +568,12 @@ check_open_tickets() {
 #   7. The feature table split — a blank line, and then a prose line, inserted
 #      before a row in the middle of it. Every row still exists, so control 2
 #      is blind to both.
+#   8. An entry in `prelude_entries` with NO row in PRELUDE.md. Controls 1 and
+#      4 both mutate a row that exists, so both are blind to an entry the table
+#      never carried — which is how `map<K, V>` went nine days unprobed while
+#      the count line read like a full sweep (ENG-320). Its over-informed half
+#      is a prose cell listing four type names, which is not a row for any of
+#      them.
 #
 # The negative control is the tree as committed: it must be green, and it must
 # say how much it looked at, so a run that enumerated nothing cannot be mistaken
@@ -558,7 +604,11 @@ if [ "${1:-}" = "--self-test" ]; then
         fail=1
     fi
     # The mutation that must be caught: mark a refused entry as shipped.
-    sed 's/^| `map<K, V>`.*//; s/| `ParseAtom<T>` \(.*\)\*\*decided\*\*/| `ParseAtom<T>` \1**built**/' \
+    # The `map<K, V>` row was deleted here as well until 2026-09-04. Once an
+    # entry with no row is red in its own right (ENG-320, control 8), that
+    # deletion would have reddened this mutation for a reason that is not the
+    # mutation, and a control that can pass for the wrong reason is not one.
+    sed 's/| `ParseAtom<T>` \(.*\)\*\*decided\*\*/| `ParseAtom<T>` \1**built**/' \
         "$CTL/PRELUDE.md" > "$CTL/PRELUDE.mut.md"
     out="$(check_prelude "$CTL/PRELUDE.mut.md" 2>&1)"; rc=$?
     if [ "$rc" -eq 0 ]; then
@@ -574,6 +624,82 @@ if [ "${1:-}" = "--self-test" ]; then
     if ! printf '%s' "$out" | grep -q 'prelude entries probed'; then
         echo "SELF-TEST FAILED: the prelude check did not report how many rows it probed,"
         echo "                  so a blind run cannot be told from a clean one."
+        fail=1
+    fi
+
+    # --- control 8: an entry the list names and the table does not carry ----
+    # ENG-320. `map<K, V>` sat in prelude_entries from 2026-08-26 (`aa04d0c`)
+    # with no row in PRELUDE.md, and the loop's `[ -n "$status" ] || continue`
+    # skipped it in silence for nine days while `prelude entries probed: N`
+    # read exactly like a full sweep. The rule: an entry the list names and the
+    # table does not carry is RED, and the red names the entry.
+    sed '/^| `map<K, V>` /d' "$CTL/PRELUDE.md" > "$CTL/PRELUDE.m8.md"
+    if [ "$(grep -cF '| `map<K, V>`' "$CTL/PRELUDE.m8.md")" -ne 0 ]; then
+        echo "SELF-TEST FAILED: control 8 did not remove the \`map<K, V>\` row, so it is"
+        echo "                  measuring the committed table, not a missing row."
+        fail=1
+    fi
+    out="$(check_prelude "$CTL/PRELUDE.m8.md" 2>&1)"; rc=$?
+    if [ "$rc" -eq 0 ]; then
+        echo "SELF-TEST FAILED: an entry in prelude_entries with NO row in PRELUDE.md was"
+        echo "                  skipped and the gate passed. That is ENG-320 exactly — the"
+        echo "                  list and the table drift apart, and the count line still"
+        echo "                  reads like a full sweep."
+        fail=1
+    fi
+    if ! printf '%s' "$out" | grep -q 'map<K, V>'; then
+        echo "SELF-TEST FAILED: the entry with no row was not named, so a red run does not"
+        echo "                  say which entry needs a row."
+        fail=1
+    fi
+
+    # THE OVER-INFORMED CONTROL for the same rule. PRELUDE.md's two-axes table
+    # has a row whose FIRST CELL lists four type names in prose — `list<T>`,
+    # `option<T>`, `result<T, E>`, `map<K, V>` — three of them named by
+    # prelude_entries. It is not any of their rows. `prelude_status` anchors on
+    # a pipe followed by the backticked entry, so a comma-preceded mention
+    # cannot match it; this control pins that, because a row-existence test
+    # written as a bare `grep -F "\`$entry\`"` would find that line, call the
+    # row present, and hand the silence straight back.
+    sed '/^| `option<T>` /d' "$CTL/PRELUDE.md" > "$CTL/PRELUDE.m8b.md"
+    if ! grep -q 'option<T>' "$CTL/PRELUDE.m8b.md"; then
+        echo "SELF-TEST FAILED: control 8b removed every mention of \`option<T>\`, so it no"
+        echo "                  longer tells a row from a prose mention."
+        fail=1
+    fi
+    out="$(check_prelude "$CTL/PRELUDE.m8b.md" 2>&1)"; rc=$?
+    if [ "$rc" -eq 0 ]; then
+        echo "SELF-TEST FAILED: \`option<T>\` lost its row and the gate passed — the prose"
+        echo "                  mention in the two-axes table was taken for the row."
+        fail=1
+    fi
+
+    # The third cell of the same rule: a row that EXISTS and yields no bold
+    # status word. Splitting "no row" from "no status" gave this branch its own
+    # verdict, and a branch with no control is a verdict nobody has watched
+    # fail. Distinct from the unknown-vocabulary case below it, which fires on
+    # a bold word the gate does not know rather than on no bold word at all.
+    sed 's/^| `map<K, V>` .*/| `map<K, V>` | the map type | unqualified | built, with no bold word | 48 |/' \
+        "$CTL/PRELUDE.md" > "$CTL/PRELUDE.m8c.md"
+    if ! grep -q 'with no bold word' "$CTL/PRELUDE.m8c.md"; then
+        echo "SELF-TEST FAILED: control 8c did not rewrite the \`map<K, V>\` row, so it is"
+        echo "                  not measuring a row with an unbolded status cell."
+        fail=1
+    fi
+    out="$(check_prelude "$CTL/PRELUDE.m8c.md" 2>&1)"; rc=$?
+    if [ "$rc" -eq 0 ]; then
+        echo "SELF-TEST FAILED: a row whose status cell carries no bold word was skipped and"
+        echo "                  the gate passed — the ENG-320 silence, one cell along."
+        fail=1
+    fi
+
+    # Owed item 3 of ENG-320: the count line must carry the list length beside
+    # the probed count. Nothing compared N to the length, so 10-of-11 and
+    # 11-of-11 printed the same line.
+    out="$(check_prelude "$CTL/PRELUDE.md" 2>&1)"
+    if ! printf '%s' "$out" | grep -qE 'prelude entries probed: [0-9]+ of [0-9]+'; then
+        echo "SELF-TEST FAILED: the probed count does not name the list length beside it, so"
+        echo "                  a sweep that skipped an entry prints what a full one prints."
         fail=1
     fi
 
@@ -729,10 +855,11 @@ if [ "${1:-}" = "--self-test" ]; then
     fi
 
     if [ "$fail" -eq 0 ]; then
-        echo "self-test: caught a promised type bsc refuses, an unindexed feature file, a"
-        echo "           split feature table, a brand-new sentence calling a built feature"
-        echo "           out of scope, a deleted shipping document, and a resolved ticket"
-        echo "           called open — and reported its own enumeration counts in every case."
+        echo "self-test: caught a promised type bsc refuses, an entry the list names with"
+        echo "           no row in the table, an unindexed feature file, a split feature"
+        echo "           table, a brand-new sentence calling a built feature out of scope,"
+        echo "           a deleted shipping document, and a resolved ticket called open —"
+        echo "           and reported its own enumeration counts in every case."
         exit 0
     fi
     exit 1
