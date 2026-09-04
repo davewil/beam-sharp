@@ -303,8 +303,9 @@ descriptor(Path, {Sev, Line, Fn, {validate_collapses, Ty}}) ->
 descriptor(Path, {Sev, Line, Fn, {validate_domain_map, Ty}}) ->
     (at(Sev, Path, Line, Fn))#{tag => validate_domain_map,
                                type => bs_types:to_string(Ty)};
-descriptor(Path, {Sev, Line, Fn, {map_pattern_deferred, Ty}}) ->
+descriptor(Path, {Sev, Line, Fn, {map_pattern_deferred, Site, Ty}}) ->
     (at(Sev, Path, Line, Fn))#{tag => map_pattern_deferred,
+                               site => Site,
                                type => bs_types:to_string(Ty)};
 descriptor(Path, {Sev, Line, Fn, {obligation_arity, Name, Types, Args}}) ->
     (at(Sev, Path, Line, Fn))#{tag => obligation_arity,
@@ -952,16 +953,24 @@ message(#{tag := validate_collapses, file := P, line := L, function := Fn,
 %% its input" would be a false sentence about the language here rather than a
 %% true one about this compiler.
 message(#{tag := map_pattern_deferred, file := P, line := L, function := Fn,
-          type := Ty}) ->
+          site := Site, type := Ty}) ->
+    %% The two sites are the same refusal and NOT the same sentence: an arm's
+    %% subject is not a parameter, and telling an author about "a clause head"
+    %% when they are looking at a `switch` sends them to the wrong line.
+    {Where, Subject} =
+        case Site of
+            head -> {"a clause head", "the parameter's type is"};
+            arm  -> {"a switch arm",  "the subject's type is"}
+        end,
     {"~s:~p: error: ~s destructures a map whose keys are not a fixed list~n"
-     "  the parameter's type is: ~s~n"
+     "  ~s: ~s~n"
      "  `map<K, V>` ships as a type — declare it, pass it, store it,~n"
-     "  return it — but matching one in a clause head is not built. A~n"
-     "  pattern over an unbounded key set cannot be proved exhaustive,~n"
-     "  which is the guarantee every other head in this language keeps.~n"
+     "  return it — but matching one in ~s is not built. A pattern~n"
+     "  over an unbounded key set cannot be proved exhaustive, which is~n"
+     "  the guarantee every other head in this language keeps.~n"
      "  Bind the whole map and read it, or declare a record if the keys~n"
      "  are known.~n",
-     [P, L, Fn, Ty]};
+     [P, L, Fn, Subject, Ty, Where]};
 %% NAMES THE DEFERRAL, NOT A DEFECT. The author wrote something reasonable and
 %% the answer is "not yet", so the message says which half of ticket 48 shipped
 %% and points at the one that did not — the alternative being a validator that

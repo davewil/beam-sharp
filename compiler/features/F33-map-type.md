@@ -1,6 +1,6 @@
 # F33 — `map<K, V>` is a third map member kind, not a wider record
 
-**Status**      **done 2026-09-04** — 14 new tests, 615 in the suite, up from 601.
+**Status**      **done 2026-09-04** — 20 new tests, 621 in the suite, up from 601.
                 No new gate: `check-status-claims.sh` already carried the entry
                 and this feature is what turns its row green
 **Implements**  [ticket 48](../../wayfinder/issues/48-a-map-type-in-the-prelude.md),
@@ -132,6 +132,54 @@ this compiler. `redundancy/4`'s own comment names the rule that was being broken
 *"Reporting otherwise would be the checker announcing its own ignorance as the
 author's mistake."* The refusal moved to `map_pattern_diags/4`, before the walk,
 and says which half of ticket 48 shipped.
+
+### The refusal covers three spellings and must not cover a fourth
+
+The first cut of `map_pattern_diags/4` matched a bare `{p_map, _, _}` and nothing
+else, which is one of the four ways a pattern reaches a `map<K, V>` parameter:
+
+| written | parses to | verdict |
+|---|---|---|
+| `{ Status: s }` | `p_map` | **refused** — the deferral |
+| `{ Status: s } whole` | `p_bind` around a `p_map` (`bs_parser.yrl:539`) | **refused** — ticket 55 made naming and binding independent, so the bind wraps the destructuring rather than replacing it |
+| `{ Status: s } => …` in a `switch` | an arm, classified in `walk/6` | **refused** |
+| `Order o` | `p_bind` around a `p_rec` | **not** refused — the ordinary message is correct here |
+
+The last row is the one that keeps the refusal honest. A record carries a minted
+`Kind` and Q3 excludes exactly that, so *"this clause's pattern is not a member
+of it"* is a **true** sentence about a record against a `map<K, V>`. A refusal
+that fired on it would replace a true message with a misleading one — the mirror
+of the defect this exists to fix — so it has a test of its own asserting the
+deferral text is **absent**.
+
+**The arm was the worse half.** An arm is classified in `walk/6`, which
+`check_fn`'s guard never reaches, and a vacuous arm is a **warning**. So
+
+```
+a switch { { Status: s } => s, _ => 0 }
+```
+
+over a `map<K, V>` compiled with **exit 0**, emitted a beam, and answered from
+the `_` arm with the first one dead — a silently wrong answer at runtime from a
+program the author had every reason to think was accepted. It is an error at
+both sites now, and the message says *which* site, because "the parameter's
+type" sends a reader looking at a `switch` to the wrong line.
+
+## What a union keeps is where Q3 and Q7 are visible
+
+`m_absorb/1` drops a member contained in another, so the members a union keeps
+*are* the boundary between the two map kinds:
+
+```
+{ X: int, Y: int }  ∪  map<atom, term>   =  map<atom, term>
+{ Kind: :'Z.Order', S: int }  ∪  map<atom, term>
+                                         =  { Kind: :'Z.Order', S: int } | map<atom, term>
+```
+
+The `Kind`-less map is absorbed — Q7's "one type family". The record survives
+beside the domain — Q3's "`Kind` absent only". Both are asserted, and unit-level
+because a union of map types reaches an author through an alias, which prints as
+its own name: the surface never shows the members.
 
 ## `components/1` was silently skipping the new kind
 

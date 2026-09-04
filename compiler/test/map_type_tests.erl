@@ -160,7 +160,56 @@ destructuring_a_domain_map_is_refused_with_a_reason_test() ->
     Out = compile_set([caller("public term Use(map<atom, term> x)\n"
                               "Use({ Status: s }) -> s\n")]),
     bad_rc(Out),
-    has(Out, "map<atom, term>").
+    has(Out, "map<atom, term>"),
+    has(Out, "a clause head").
+
+%% THE SAME DESTRUCTURING, WRAPPED. Ticket 55 made naming the type and binding
+%% the value independent, so `{ ... } name` is a `p_bind` AROUND a `p_map`
+%% (`bs_parser.yrl:539`). A refusal that matched only the bare `p_map` — which is
+%% what the first cut did — let this spelling through to the ordinary "not a
+%% member of it" message, which is false: `#{Status => 1}` IS a member of
+%% `map<atom, term>`.
+the_bind_whole_spelling_is_refused_too_test() ->
+    Out = compile_set([caller("public term Use(map<atom, term> x)\n"
+                              "Use({ Status: s } whole) -> s\n")]),
+    bad_rc(Out),
+    has(Out, "a clause head").
+
+%% THE ARM HALF, AND IT WAS THE WORSE OF THE TWO. An arm is classified in
+%% `walk/6`, which the clause-head guard never reaches, and a vacuous arm is a
+%% WARNING — so this program compiled with **exit 0**, emitted a beam, and
+%% answered from the `_` arm with the first one dead. A silently wrong answer at
+%% runtime, which is the one outcome this feature must not have.
+destructuring_a_domain_map_in_a_switch_arm_is_refused_test() ->
+    Out = compile_set([caller("public term Use(map<atom, term> x)\n"
+                              "Use(x) -> x switch {\n"
+                              "    { Status: s } => s,\n"
+                              "    _ => 0\n"
+                              "}\n")]),
+    bad_rc(Out),
+    has(Out, "a switch arm"),
+    has(Out, "the subject's type is").
+
+%% THE CONTROL THAT KEEPS THE REFUSAL NARROW, and without it a version that
+%% refused any clause containing any map pattern would pass every other test in
+%% this file. Column 1 destructures a record — legal, and 48 ships it — while
+%% column 2 is a `map<K, V>` the clause only binds.
+a_record_pattern_beside_a_bound_map_is_accepted_test() ->
+    ok_rc(compile_set([caller("record Order { Status: int }\n\n"
+                              "public int Use(Order o, map<atom, term> x)\n"
+                              "Use({ Status: s }, x) -> s\n")])).
+
+%% THE OTHER HALF OF THAT CONTROL: `Order o` against a `map<K, V>` parameter must
+%% keep the ORDINARY message. A record carries a minted `Kind`, Q3 excludes
+%% exactly that, so "this clause's pattern is not a member of it" is TRUE here —
+%% and a refusal that fired on it would be replacing a true sentence with a
+%% misleading one, which is the mirror of the defect it exists to fix.
+a_record_pattern_against_a_domain_map_keeps_the_ordinary_message_test() ->
+    Out = compile_set([caller("record Order { Status: int }\n\n"
+                              "public term Use(map<atom, term> x)\n"
+                              "Use(Order o) -> 1\n")]),
+    bad_rc(Out),
+    ?assert(string:find(Out, "destructures a map") =:= nomatch).
 
 %%% ---------------------------------------------------------------------------
 %%% Cell 6 — the two silent hazards named in the header
@@ -190,6 +239,30 @@ two_domain_maps_with_disjoint_values_overlap_test() ->
     A = bs_types:map_dom(bs_types:atom_top(), bs_types:int()),
     B = bs_types:map_dom(bs_types:atom_top(), bs_types:string()),
     ?assertNot(bs_types:is_none(bs_types:intersect(A, B))).
+
+%% Q3 AND Q7 AS ONE PAIR OF ASSERTIONS, which is the clearest place either is
+%% visible. `m_absorb/1` drops a member contained in another, so what a union
+%% keeps IS the boundary between the two map kinds:
+%%
+%%   a `Kind`-less closed map is ABSORBED  — Q7, "one type family"
+%%   a record SURVIVES beside the domain   — Q3, "`Kind` absent only"
+%%
+%% Unit-level because a union of two map types reaches the author through an
+%% alias, which prints as its own name — the surface never shows the members, so
+%% the boundary cannot be read off any diagnostic.
+a_kindless_map_is_absorbed_by_a_domain_test() ->
+    I  = bs_types:int(),
+    Pt = bs_types:map_closed(#{'X' => I, 'Y' => I}),
+    D  = bs_types:map_dom(bs_types:atom_top(), bs_types:term()),
+    ?assertEqual("map<atom, term>",
+                 bs_types:to_string(bs_types:union(Pt, D))).
+
+a_record_survives_beside_a_domain_test() ->
+    Rec = bs_types:map_closed(#{'Kind' => bs_types:atom_lit('Z.Order'),
+                                'S'    => bs_types:int()}),
+    D   = bs_types:map_dom(bs_types:atom_top(), bs_types:term()),
+    ?assertEqual("{ Kind: :'Z.Order', S: int } | map<atom, term>",
+                 bs_types:to_string(bs_types:union(Rec, D))).
 
 %% `ValidateAs<T>` generates a deep validator by walking the members. A third
 %% kind is DROPPED by `map_cases/1`'s two comprehensions rather than crashing, so

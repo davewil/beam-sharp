@@ -2433,6 +2433,17 @@ arms([{arm, AL, P, Guard, Body} | Rest], Residual, Declared, S, C, N, Tys, Diags
                  %% pattern's own type BEFORE `apply_guard` reduced it, which is
                  %% what makes the first two answers distinguishable — see the
                  %% note on `redundancy/4` itself.
+                 case map_arm_deferred(P, Declared) of
+                     %% Ahead of `redundancy/4` and an ERROR rather than a
+                     %% warning, which is the fix and not a matter of severity
+                     %% taste: the arm is vacuous only because this compiler
+                     %% cannot honour the pattern, and reporting that as a
+                     %% warning let the switch compile with a dead arm and
+                     %% answer from `_` instead.
+                     true ->
+                         [{error, AL, C#ctx.fname,
+                           {map_pattern_deferred, arm, Declared}}];
+                     false ->
                  case redundancy(PTy, Possible, Residual, Declared) of
                      vacuous    -> [{warning, AL, C#ctx.fname,
                                      {vacuous_arm, N, Declared}}];
@@ -2441,6 +2452,7 @@ arms([{arm, AL, P, Guard, Body} | Rest], Residual, Declared, S, C, N, Tys, Diags
                      shadowed   -> [{warning, AL, C#ctx.fname,
                                      {unreachable_arm, N}}];
                      live       -> []
+                 end
                  end
                  %% Ticket 12 §2 at the switch, for F7's own reason for existing:
                  %% an arm is the clause head's pattern grammar one level down, so
@@ -2943,15 +2955,40 @@ record_name(Ty) ->
 map_pattern_diags(Clauses, Params, Env, Name) ->
     Doms = [I || {I, {param, T, _}} <- lists:enumerate(Params),
                  bs_types:is_dom(resolve(T, Env))],
-    [{error, CLine, Name, {map_pattern_deferred, resolve(ParamT, Env)}}
+    [{error, CLine, Name, {map_pattern_deferred, head, resolve(ParamT, Env)}}
      || {clause, CLine, _, Patterns, _, _} <- Clauses,
         I <- Doms,
         length(Patterns) >= I,
-        is_map_pattern(lists:nth(I, Patterns)),
+        destructures_map(lists:nth(I, Patterns)),
         {param, ParamT, _} <- [lists:nth(I, Params)]].
 
-is_map_pattern({p_map, _, _}) -> true;
-is_map_pattern(_)             -> false.
+%% DOES THIS PATTERN TAKE A MAP APART? Three spellings reach one `p_map`, and the
+%% first cut of this predicate saw only the bare one:
+%%
+%%   `{ Status: s }`         `p_map` directly
+%%   `{ Status: s } whole`   `bs_parser.yrl:539` — ticket 55 made naming the type
+%%                           and binding the value independent, so the bind wraps
+%%                           the destructuring rather than replacing it
+%%   `Order o`               `p_rec` inside a `p_bind`, and this one is NOT here
+%%                           on purpose: a record carries a minted `Kind`, Q3
+%%                           excludes exactly that, so "not a member of it" is a
+%%                           TRUE sentence about a record against a `map<K, V>`
+%%                           and needs no special case.
+%%
+%% The distinction is the whole point. This refusal exists to stop the compiler
+%% stating a falsehood, so it must not fire where the ordinary message is true.
+destructures_map({p_map, _, _})       -> true;
+destructures_map({p_bind, _, _, Ptn}) -> destructures_map(Ptn);
+destructures_map(_)                   -> false.
+
+%% Ticket 48 Q2 AT THE SWITCH, and it is not the same site as the clause head.
+%% An arm is classified in `walk/6`, which `check_fn`'s guard never reaches, and
+%% the arm half is the WORSE of the two: a vacuous arm is a WARNING, so
+%% `a switch { { Status: s } => s, _ => 0 }` over a `map<K, V>` compiled with
+%% exit 0 and emitted a beam whose first arm is dead. A silently wrong answer at
+%% runtime, from a program the author had every reason to think was accepted.
+map_arm_deferred(P, Subject) ->
+    bs_types:is_dom(Subject) andalso destructures_map(P).
 
 walk([], Residual, _Declared, _Ctx, Diags, _N) ->
     {Residual, lists:reverse(Diags)};
