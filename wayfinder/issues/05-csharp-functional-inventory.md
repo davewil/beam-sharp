@@ -83,3 +83,20 @@ implementation**. `ValidateAs<T>` is `T.TryParse` where no type had to declare i
 One leftover that is *not* polymorphism: C# lets you put a function in another namespace so it
 appears on that type without an import. That is name resolution → the map's **imports and
 cross-module scope** fog.
+
+## Decisions entry
+
+<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
+     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
+     The `issues/…` link is relative to decisions.md, so it is fenced rather than
+     live — from inside issues/ it would point at nothing. -->
+
+```decisions-entry
+- [C# functional feature inventory](issues/05-csharp-functional-inventory.md) — LINQ query
+  comprehension is portable (ECMA-334 makes it a pure syntactic rewrite, bound before type
+  binding, with no `IEnumerable<T>` dependency); extension-method chaining *is* already a
+  pipeline rewrite; `with` becomes more central than in C#. Dropped: `init`/`readonly`,
+  nullable reference types, iterators and `async`/`await`. Two debts left open — no ad-hoc
+  polymorphism story, and slice patterns over cons cells.
+```

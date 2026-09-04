@@ -553,3 +553,38 @@ without this one's answer about how much the core claims.
 
 HITL. Raised 2026-08-12 from ticket 01's design conversation. Blocked by 21 because the precedents
 carry the failure modes, and this decision is close to irreversible.
+
+## Decisions entry
+
+<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
+     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
+     The `issues/…` link is relative to decisions.md, so it is fenced rather than
+     live — from inside issues/ it would point at nothing. -->
+
+```decisions-entry
+- **How opinionated is the language** — [ticket 22](issues/22-how-opinionated.md), resolved
+  2026-08-23, overturning [ticket 23](issues/23-what-the-language-owes-an-agent.md) §7. Deferred on
+  2026-08-12 to be decided against code rather than precedent, and the code answered it. **There is
+  no incomplete marker: a signature with no clauses stays a hard error, and no keyword is spent.**
+  David, once the cost had been measured rather than argued: *"no, I don't think a half-written
+  module is worth running, the compiler error is enough."* The spelling question 23 §7 handed over —
+  attribute, keyword or convention — is never asked, because the construct does not exist. **The
+  survey that preceded the decision is kept, because two of its findings outlive it.** No surveyed
+  language spells an unfinished marker as an attribute: Gleam uses the keyword `todo` and C# a
+  library exception, both in **body** position, and a bodiless *declaration* is a hard error in C#
+  (CS8795), Erlang and beam-sharp alike — so beam-sharp was in the majority all along, not being
+  unusually strict. And §7's promised diagnostic already exists: `--api` answers for a half-written
+  module at exit 0 and prints `int Priority(:body | :header | :heartbeat | :method)`, which is the
+  residual §7 wanted, on a channel that works. What §7 additionally asked for was a `.beam` emitted
+  from a module with a hole in it; measured, that costs one error per unwritten function and zero
+  `.beam` files, while suppressing no other diagnostic. That was the part refused. **The domain arm
+  is dead on mechanism**: no attribute grammar has ever existed, `[Port]` lost its enforcement job
+  to F18 and F24, and the one non-vacuous DDD invariant — aggregate boundary — is already bought by
+  26 §1's record tag minted from the qualified module path (F3). The guardrail argument survives but
+  supports the half already built: every drift the exemplars actually produced was caught by an
+  architecture-neutral structural rule (F3, F11, F15), and none would have been caught by
+  `[Aggregate]` or `[Command]`. Visibility split out and shipped without this ticket as F12; *which
+  modules may name this one* is split out again as its own question. Probes:
+  [`prototypes/22a_incomplete_marker_probe/`](prototypes/22a_incomplete_marker_probe/).
+```

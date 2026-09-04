@@ -574,3 +574,44 @@ a `term` until you match it."* This ticket adds the failure half without changin
 including the unprotected one. The harness was wrapping each case in `catch` — supplying the very
 protection the probe existed to measure. The correction is recorded in the file itself so it is not
 repeated. A probe that returns the answer you expected is the one to re-read.
+
+## Decisions entry
+
+<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
+     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
+     The `issues/…` link is relative to decisions.md, so it is fenced rather than
+     live — from inside issues/ it would point at nothing. -->
+
+```decisions-entry
+- [Error model](issues/15-error-model.md) — **the headline question was already closed and the
+  ticket did not know it**: ticket 12 §3's signature-directed stance means there is no global
+  error-model preference to pick. What was open was the *shape* of failure, and it had a defect in
+  it. **The untagged failure channel collapses** — measured on Elixir 1.19.5, `option<atom>`,
+  `ValidateAs<atom>` and `option<option<int>>` all normalise to their success type, because ticket
+  09's own normalisation rule absorbs a singleton into a cofinite top before discriminability is
+  ever asked. **Ticket 10 §5 had already written a degenerate line** (`ToExistingAtom // atom |
+  :nothing` *is* `atom`). The shape stays untagged and **the collapse is an error at the
+  declaration** — 09's rule turned on the prelude, diagnostic landing where the fix is; tagging both
+  channels was refused because the cost falls on `as T`, the showcase narrowing. The rule for the
+  two spellings is **absence carries nothing, failure carries a reason**: `option<T> = T |
+  :nothing` bare, `result<T, E> = T | (:error, E)` tagged — **and the tag is a consequence of the
+  payload, not a separate choice**, since `atom | (:error, binary)` does *not* collapse where `atom
+  | :error` does. So the payload is what makes the channel survive, not merely what makes it
+  informative. **Amends ticket 11**: `ValidateAs<T>` returns `result<T, ValidationError>`. `raise`
+  takes **any term** (exactly `:erlang.error/1`) sharing its vocabulary with `E`, which makes
+  escalation an ordinary three-line function rather than a `?` operator. **There is no `try` in the
+  surface**: measured, `monitor`+`receive` replaces it for *remote* failure using only ticket 14's
+  `receive`, and yields a **better** reason than `try` does — leaving foreign in-process throws as
+  the only gap, closed by a compiler-emitted wrapper from the declared return type, the fourth
+  codegen obligation. **Gleam was measured into this position, not the stricter one** — no surface
+  `rescue`, nine `try`/`catch` in its FFI — so the question was never whether the `try` exists but
+  whether it is *checked* or a human's unverified assertion. `throw` and `exit` get **no spelling to
+  produce** (clause heads and `(:stop, …)` already do their jobs) and the wrapper catches all three
+  classes into `foreign_error`, **safe because exit *signals* are uncatchable** — a locally-raised
+  `exit/1` and a signal are different mechanisms sharing a keyword, so no supervision decision can
+  be swallowed. Sequencing is **required and handed to ticket 17**: `with` is spoken for by ticket
+  26's record update. *A methodological note kept in the file: the first run of 15c reported every
+  case surviving, because the harness wrapped each in `catch` — supplying the protection the probe
+  existed to measure.*
+```

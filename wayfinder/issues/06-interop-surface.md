@@ -107,3 +107,22 @@ ticket 18.
 
 Source-only sub-modules (ticket 13 §3) also settle this ticket's related ask directly: an Erlang
 caller sees a normal module, `'Shop.Orders.Order':apply(O, E)`, with no facade.
+
+## Decisions entry
+
+<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
+     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
+     The `issues/…` link is relative to decisions.md, so it is fenced rather than
+     live — from inside issues/ it would point at nothing. -->
+
+```decisions-entry
+- [Erlang/Elixir interop surface](issues/06-interop-surface.md) — the surface is **smaller than
+  expected** (`-behaviour` has no runtime effect; Elixir needs no special machinery), but the
+  violation surface is **eight channels**, not one. The load-bearing finding: **an untyped
+  caller does not always crash** — there are three outcomes, and the third is *silent
+  unsoundness* (`add(1.5, 2.5)` returning `4.0` from an `Int, Int -> Int` function). Only that
+  third case argues for emitted guards. Neither Gleam nor purerl defends against any of it.
+  Gleam's answer to typed OTP was to not implement the behaviour contract at all — a route
+  closed to this language, since ticket 00 makes `handle_call/3` the showcase.
+```

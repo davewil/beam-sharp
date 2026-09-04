@@ -379,3 +379,41 @@ Two consequences:
 Visible in the Core generated *out of* the emitted abstract forms
 ([`prototypes/13a_target_measurements.md`](../prototypes/13a_target_measurements.md) §3): the
 `( <_1> when 'true' ->` clause is `erlc`'s, not beam-sharp's.
+
+## Decisions entry
+
+<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
+     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
+     The `issues/…` link is relative to decisions.md, so it is fenced rather than
+     live — from inside issues/ it would point at nothing. -->
+
+```decisions-entry
+- [Totality versus let-it-crash](issues/12-totality-vs-let-it-crash.md) — **the two were never
+  opposed; let-it-crash is how you spell partiality.** Exhaustiveness is a **hard error with no
+  opt-out** — two of the ticket's four candidates were already dead, since both presupposed a
+  dynamic region ticket 11 removed. PureScript's `Partial` lost twice over: ticket 19 found it
+  **erased before codegen**, and a propagating constraint is a second effect system beside an
+  algorithm ticket 04 found has no complexity bound. A **catch-all is legal only over an *open*
+  residual** — permitted where an unbounded top remains (and ticket 11 already forces it), an error
+  where the residual is closed and the compiler knows the case names; a tier-3 invention, accepted
+  because a uniform `_` puts the headline guarantee one character from being switched off
+  invisibly. The boundary stance is **signature-directed**: write the honest value your return type
+  admits, `raise` only where it admits none — so "crash in a call, ignore in a loop" is only the
+  shadow cast by two return types, and **`ValidateAs<T>`'s `T | :error` is not an exception but a
+  declared failure channel**. This is ticket 21's discriminator again: the decision *became a type*.
+  The bottom is **`none`, first-class** (verified: `never()` is undefined on OTP 28, `erl_types`
+  prints `none()`), mirroring ticket 11's `term` override — one heritage names the whole lattice;
+  its false friend is the prelude's `:nothing`. A deliberate crash is **`raise`**, tier-2 from
+  Elixir, verified to produce the **error** class, so C#'s `throw` is out on semantics — the BEAM's
+  `throw` is the *catchable* class. **Both neighbours chose a keyword**, Gleam's bottom-typed
+  `panic` decisively so, having had the function option and declined it — and the `Partial` benefit
+  returns anyway, since a user-declared `none Reject(Reason);` *is* a greppable typed crash site.
+  Finally, **this ticket reverses its own prior note**: the failure arm is **always emitted**.
+  Omitting it saves **40 bytes (4.8%)** and destroys the crash report — `error:if_clause` (the
+  wrong class) with an arity in place of the offending argument. `erlc`'s omission proves coverage
+  over *all terms*; beam-sharp's is over the *declared type*, and ticket 21 says no foreign caller
+  can be ruled out. So **yes, the process still dies cleanly**, deliberately paid for. Emitted
+  guards (→ 18) are the only sound route to the saving, and it is only *available* on the Core
+  Erlang path at all (→ 13).
+```

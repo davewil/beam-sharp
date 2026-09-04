@@ -275,3 +275,24 @@ that has never existed; the file is `26-data-modelling.md`) went unseen because 
 corpus excludes `wayfinder/issues/`. Fixed here. A scan of all 55 issue files found exactly one
 other — [48](48-a-map-type-in-the-prelude.md) points at `27-generics-and-parametricity.md`, and the
 file is `27-parametric-polymorphism.md`.
+
+## Decisions entry
+
+<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
+     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
+     The `issues/…` link is relative to decisions.md, so it is fenced rather than
+     live — from inside issues/ it would point at nothing. -->
+
+```decisions-entry
+- [Is the value assigned to a field checked, and is `with` a sixth site?](issues/36-field-value-obligations.md)
+  — **yes to both, and neither is a sixth site.** A field assignment is checked against the type the
+  record declaration wrote down, at construction *and* at `with`. **Site 2 is not "construction"; it
+  is field assignment**, and `Order{ … }` and `o with { … }` are its two spellings. The asymmetry the
+  ticket called "the actual cost to weigh" never arises. Ticket 33 §2's closing sentence enumerates
+  the forms that declare nothing — `e_op`, `e_tuple`, `e_list`, `e_block` — and **`e_with` is not
+  among them**, because the type governing `o with { Total = … }` is `Total: int`, written in the
+  record declaration: one declaration, two expressions meeting it. The measurement found the ticket
+  had **under-counted the defect and mis-drawn its own scope fence** — three defects, not two.
+  Resolved 2026-08-21 — [ENG-203](https://linear.app/davewil/issue/ENG-203).
+```

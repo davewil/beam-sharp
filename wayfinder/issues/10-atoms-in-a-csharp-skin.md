@@ -523,3 +523,31 @@ respelled — a tagged failure member, or a narrower success type than the atom 
 
 This does not disturb §5's decision that `type option<T> = T | :nothing;` is the right shape; it
 disturbs the assumption that the shape is total.
+
+## Decisions entry
+
+<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
+     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
+     The `issues/…` link is relative to decisions.md, so it is fenced rather than
+     live — from inside issues/ it would point at nothing. -->
+
+```decisions-entry
+- [Atoms in a C# skin](issues/10-atoms-in-a-csharp-skin.md) — **the atom universe is open**:
+  `:ok` is a singleton type, `atom` the cofinite top, and nothing declares an atom. Declare-
+  before-use was not a live option — it contradicts ticket 09's "no syntax that declares a type"
+  — and **Gleam supplies the empirical case against it**, having taken that fork and needed a
+  carve-out for `ok`/`error`/booleans in the shipped language. **`true`/`false` are the only
+  keyword atoms** (semantics coincide with C#'s `bool`; `null` fails the same test `union`
+  failed), `bool` is a builtin *(corrected 2026-09-03 by ticket 67 — it read "a prelude alias not a builtin",
+  and the compiler had been built the other way since F1)*, and there is **no truthiness** — so ticket
+  09's Json example is corrected to `:null`. Module identifiers in value position are checked
+  atom singletons. **The prelude cannot mint**, because minting from a literal is already
+  spelled `:foo`. Three findings the ticket did not anticipate: the sigil's last objection is
+  visual not lexical and is **withdrawn**; **atoms appearing only in type positions are not
+  interned**, a codegen obligation Erlang does not have (→ 13); and **`erlc` constant-folds
+  `binary_to_atom` on literals**, so the table can only be exhausted by a runtime-built string,
+  which makes provenance — not minting — the real rule (→ 20). **Gleam is now installed and
+  ticket 06's silent unsoundness is demonstrated**: a Gleam function spec'd `-> float()`
+  returned a binary when called from raw Erlang.
+```

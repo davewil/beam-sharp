@@ -520,3 +520,49 @@ before a keyword is paid for it. Adding `cond` later is purely additive.
   without recompilation. The prelude is compiler-known so this is probably fine, but it is a stated
   assumption rather than an established one.
 - **`cond`**, and **`stream<T>`** — both deferred above with their requirements captured.
+
+## Decisions entry
+
+<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
+     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
+     The `issues/…` link is relative to decisions.md, so it is fenced rather than
+     live — from inside issues/ it would point at nothing. -->
+
+```decisions-entry
+- [Pipeline and comprehension idiom](issues/17-pipeline-and-comprehension.md) — **four constructs
+  removed, one added.** The chaining form is `|>` with **qualified** names, and the dot fell to a
+  *mechanism* rather than to taste: `xs.Filter(f)` needs type-directed resolution of an unqualified
+  name, which 08 (no overloading) and 16 (one dispatch mechanism) both closed and 16 §6 had already
+  parked in the fog. **LINQ dies to the identical argument** — ECMA-334's translation emits
+  unqualified names — so **this ticket's stated conditional was answered by rejecting its premise**:
+  the cost was never in the type system, and LINQ pays exactly what the dot pays. The dot is not
+  abolished but *narrowed to never being a call* (→ 26). **There is no comprehension syntax, because
+  precision is a lowering decision, measured**: emitting an inlined comprehension recovers 27a's
+  exact `[integer()] -> [binary()]`, where emitting a call to the generic prelude loses **both**
+  sides — worse than `lists:map/2` loses, since beam-sharp's own declared spec overrides its body's
+  success typing. Fusion is free and lossless. So one rule: **the compiler-known prelude is inlined,
+  user code is called, and precision follows the inlining** — which creates a **two-tier emitted
+  boundary** the spec must state (→ 18). **27a's fold limit is corrected**: inlined monomorphic
+  recursion keeps both sides for fold too, so the mechanism was never "comprehension" but *a
+  monomorphic body the analyser sees through*, and one rule covers map, filter and fold. Fallible
+  sequencing is **the valve, `|?>`** — chosen over a generated `[Propagates]` clause because that
+  would have been the **sixth codegen obligation**, and over `Result.Then` because only the
+  combinator forces a function-as-value spelling; the fully implicit rule was closed by 08's
+  *narrowing is always written, never inferred*. `?` is free (10 dropped the ternary) and is a
+  **tier-1 borrow for both audiences at once** — C#'s `?.` and TS's optional chaining are the same
+  semantics, and ~~15's untagged `result` makes `(:error, E)` the exact analogue of `null`~~ —
+  **overruled 2026-08-28 by 49: `:nothing` is null's analogue, and the valve keys on the fixed pair
+  `(:error, _) | :nothing`**. **There is
+  no `if`**: `switch` is the only branching construct, *the way Go has one loop* (David), with a
+  **tuple subject** for the subject-less ladder — tier-1 C#, Gleam's multi-subject `case`, and the
+  clause head's own shape, converging. Measured, not cited: **Gleam has no `if` at all** and its
+  error text hands you `case`; **`else` is an `if`-only keyword** — Elixir's `case` and `cond` reject
+  it outright, and `cond`'s catch-all is a *clause*. The structural reading is what decided it —
+  `else` is what a binary unnamed conditional needs, and keeping it would have added the only
+  construct whose fall-through is not expressible as a pattern. Two questions die with `if`: the
+  one-armed case 10 routed here, and 15's `option<atom>` collapse landmine. Strict only; **lazy
+  deferred, not refused** (David), and cheap to add *because* names are qualified. Bonus finding:
+  **Gleam's inexhaustive-`case` error prints the missing pattern**, which is 04's residual observed
+  live (→ 23).
+```

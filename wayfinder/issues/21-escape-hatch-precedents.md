@@ -152,3 +152,35 @@ ticket got wrong.
 eight channels, the DbC survival analysis, and `requires` as a stealable contract mechanism. Elm's
 inclusion changes the *general* claim about how languages defend, not any finding about the languages
 this ticket actually examined.
+
+## Decisions entry
+
+<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
+     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
+     The `issues/…` link is relative to decisions.md, so it is fenced rather than
+     live — from inside issues/ it would point at nothing. -->
+
+```decisions-entry
+- [Escape-hatch precedents](issues/21-escape-hatch-precedents.md) — **neither Roc's nor Unison's
+  mechanism transplants, and they fail for the same reason in opposite directions: both control
+  what a program may *reach*, where ticket 06's problem is what may reach the *program*.** Roc's
+  guarantee rests on **link-time closure**, which the BEAM is committed to not having — `apply/3`,
+  no visibility modifiers, hot code loading, and "no way to publish a function to your own compiler
+  but not to `erl`". Unison's abilities discharge at a *call site*, so they reach **1 of the 8
+  violation channels** — nothing invokes your handler when a monitor fires. **No language in the
+  file defends its boundary by checking data; they defend it by controlling who may be on the other
+  side.** So the only mechanism reaching all eight is a **check emitted where an external term
+  becomes a typed value** — a codegen obligation, and available precisely because beam-sharp
+  compiles the `receive`, the `handle_info`, the ETS wrapper and `code_change`. Three further
+  findings: every model that enforces anything does so **with the tool that already builds the
+  code** (the one needing a second tool, .NET Code Contracts, was simply not run); **no model has
+  both enforcement and revisability** — Phoenix could move contexts three times because nothing
+  depended on them, and Roc's FAQ answers "No" to swapping platforms; and Roc's **`requires`**
+  clause is directly stealable as a typed, compiler-checked OTP behaviour contract, strictly better
+  than Erlang's `-callback`. **A premise in my own brief was inverted by the research**: DbC did not
+  survive as libraries — Eiffel's `require`/`ensure` are *still grammar*, Ada's `Pre`/`Post` are
+  *still aspects*, and it is the **library** form that died (.NET Code Contracts, archived
+  2023-07-15). The discriminator is **tooling weight**, and **Microsoft's named successor is
+  nullable reference types — the contract that survived is the one that became a type.**
+```

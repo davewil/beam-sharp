@@ -316,3 +316,24 @@ tickets really were one question, as this file argued three times; the answer ar
 **What this does not settle.** The exemplar David asked for is still owed — this decides how a
 foreign struct is *named*, not that the Req binding has been written. The requirement above stands
 unchanged, Req rather than Jason, with `Req.Test` stubbing and no real HTTP call.
+
+## Decisions entry
+
+<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
+     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
+     The `issues/…` link is relative to decisions.md, so it is fenced rather than
+     live — from inside issues/ it would point at nothing. -->
+
+```decisions-entry
+- [Consuming an Elixir library: how is a foreign struct named?](issues/50-naming-a-foreign-struct.md)
+  — **a foreign aggregate gets no name of its own: it is a `map<atom, term>`, and that works with no
+  new surface.** This ticket was answered elsewhere and the recording is the point — ticket 48's Q3
+  chose `Kind` absent only, and because the excluded tag is **not** `__struct__`, the map type says
+  nothing about `__struct__` and an Elixir struct is a member of it. `%Req.Response{}` is a
+  `map<atom, term>` a clause head can take. **The fork is worth keeping visible because 48 could have
+  closed it and did not**: had 48 declared *both* tags absent — available, and it works — a struct
+  would have been excluded and this shape would not exist. The two tickets really were one question.
+  Settled separately here: **neither `!` nor `?` may appear in a B# function name**, so `Req.get!`
+  cannot be named at all and an alias is required rather than a workaround. Resolved 2026-08-26.
+```

@@ -320,3 +320,34 @@ compiler can say so up front rather than failing at a match site. Read it before
 
 HITL. Probably the sharpest design tension in the map: the headline feature pulls
 structural, the syntax goal pulls nominal. Surfaced during charting.
+
+## Decisions entry
+
+<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
+     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
+     The `issues/…` link is relative to decisions.md, so it is fenced rather than
+     live — from inside issues/ it would point at nothing. -->
+
+```decisions-entry
+- [Union representation](issues/09-union-representation.md) — **structural and open; there is no
+  nominal type in the language and no union declaration form.** Naming is **aliasing**: `type X =
+  ...` is the single naming construct for records, tuples, scalars and unions alike, the name
+  never enters the algebra, and two names over the same set are the same type. `union` was
+  rejected on the borrow heuristic's own terms — C#'s spelling carries closed nominal semantics
+  this language does not deliver, while C#'s `using` alias and TS's `type` both match the
+  semantics exactly. Recursion is **equirecursive and must be contractive**, so subtyping is
+  decided coinductively. Indiscriminable unions are an **error at the declaration**, normalised
+  first, with **BEAM guards as the vocabulary** for what "discriminable" means. **The cost is
+  newtypes** — `Meters` and `Feet` over `float` are one type; the remedy is the BEAM's free tuple
+  tag, with refinement types the alternative (→ ticket 20). **This answers ticket 07 §5.0**:
+  compile-time-only nominality *is* available on the BEAM and buys nothing, because erased
+  nominality is exactly an alias — the wrapper premise was a CLR artefact, but removing that cost
+  never addressed the capability gap (negation, union closure, boundary enforceability). Sharpest
+  downstream consequence: **[ticket 16](issues/16-ad-hoc-polymorphism.md) loses its resolution
+  key** — **dispatch cannot key on a name that is not in the term**, so type classes as
+  PureScript/Haskell/Rust know them are not merely costly here, they are unresolvable. *Elixir's
+  structs and protocols are not a counter-example but the worked remedy* — `__struct__` is an atom
+  **in the data**, so the name is a tag, and beam-sharp can resolve it statically where Elixir
+  needs a consolidation pass (verified: `prototypes/16a_elixir_protocol_dispatch.exs`).
+```

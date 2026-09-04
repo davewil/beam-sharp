@@ -238,3 +238,80 @@ itself. It is resolved on `==` without waiting, because F8 is **not yet built**:
 overruled the cost is a find-and-replace across two markdown files and one grammar line, and no
 `.bs` file has been written in it. Every argument above is mechanism, and mechanism is what the map
 refuses on; the taste call remains open until David says otherwise.
+
+## Decisions entry
+
+<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
+     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
+     The `issues/…` link is relative to decisions.md, so it is fenced rather than
+     live — from inside issues/ it would point at nothing. -->
+
+```decisions-entry
+- **A match against a bound value is `== name`** — [ticket 45](issues/45-match-token.md), resolved
+  2026-08-16. Raised by F8, which makes `var` bind and a bare `=` match, and which therefore needs a
+  spelling for the third case: a pattern that must match **the value a name already holds**. David
+  settled the shape on 2026-08-15 — *mark the match, one token, and not `^`* — on frequency, since
+  binding is the common case and you mark the rare one, and because `^` has been C#'s index-from-end
+  operator since C# 8. **This ticket settled only the token, and settled it by measurement.**
+
+  **The control is the part worth copying.** Eight grammar variants were generated and every one
+  came back clean first time — which is precisely what a broken harness reports. So yecc was fed a
+  grammar already known to be bad: F8 records `binding -> pattern '=' expr` at fifteen reduce/reduce
+  with yecc refusing to generate, and [`45a`](prototypes/45a_match_token_probe.escript) reproduces
+  **15**, to the number. Only after that does a clean result carry information. This is F6.9's rule
+  pushed one step further back — that rule says assert by *parse* rather than by conflict count,
+  because yecc resolves shift/reduce silently through the precedence table; the control adds *and do
+  not believe the count is being reported until you have watched it report one.*
+
+  **The cost is one grammar line and no lexer change at all**, which is the whole mechanism argument
+  against the other five candidates. `==` has lexed since the walking skeleton and ticket 16 already
+  fixed its meaning as `=:=`, so the glyph carries into pattern position with exactly the meaning it
+  has everywhere else in the language. `$acc`, `~acc` and `&acc` each need a lexer rule for a
+  character `bs_lexer.xrl` has none for; `same acc` needs a reserved word.
+
+  **The space is not significant, and that owed item dissolved rather than resolving.** `==acc` and
+  `== acc` are the same token stream, because `==` is a maximal-munch rule and an identifier cannot
+  begin with it. Both parse; they are one program. House style is `== acc`, matching `>= 4` — a
+  statement about how the corpus is written, not about what the grammar accepts, and enforceable
+  only by a formatter that does not exist.
+
+  **It parses in every position a pattern goes** — clause head, `switch` arm, list element, record
+  field, tuple element — **and nested at arbitrary depth**, which strikes an item off F8's *Out of
+  scope*: that file called `({ Kind: ==k }, x)` unmeasured. Depth was never a separate question,
+  because `== name` is a `pattern` and `pattern` is already recursive through every compound form;
+  it only looked like one while nobody had run it.
+
+  **It does not parse to the left of a bare `=`, and that is right rather than a gap.** The left of
+  a bind is an expression narrowed by `to_pattern/1`, and no expression starts with `==`. Nothing is
+  lost: under F8 a bare `=` against a name in scope already *is* a match, so `acc = x` already means
+  what `== acc` would. **A marker is owed only where the ambiguity is**, and `var` has removed it
+  there.
+
+  **What did NOT come free is the half of this entry most likely to be rediscovered as a bug.**
+  Admitting `== name` does not admit `>= acc` (a span bounded by a **runtime** value), and does not
+  make `== 4` a second spelling for the literal pattern `4`. Both were measured as refused by the
+  proposed grammar — and both were then measured as **yecc-clean if deliberately added**. So each is
+  *available and deliberately not taken*, which is a different claim from impossible. `>= acc` is a
+  capability no ticket has decided and is not this one's to grant as a side effect of choosing a
+  token; that would be exactly the silent surface drift `bin/check-surface.sh` exists to catch, and
+  if wanted it is a ticket. `== 4` is refused on one-meaning-one-spelling. The family therefore
+  reads: **relational operators take a literal, `==` takes a name.**
+
+  **And the token buys back something the target never lost.** A bound variable in an Erlang pattern
+  *is* a match, so `p_eqvar` lowers to the variable itself and emits no guard. beam-sharp needs a
+  spelling only because it forbids rebinding and so cannot use Erlang's own rule — which is the same
+  position Elixir is in, and the reason `^` exists there.
+
+  **And the finding the ticket did not go looking for.** `src/bs_repl.erl:193–197` implements
+  **pin-by-default** — a bare bound name in a pattern matches — under a comment stating *"the
+  language needs no `^`: there is nothing to disambiguate."* Shipped 2026-08-15, the same day David
+  settled the opposite shape. F8.8 already records that the prompt and the compiler disagree, but it
+  does not say which side moves, and that comment says with confidence the question is moot. **45
+  settles the direction: the marked rule wins and `bs_repl` is what changes**, by this ticket's own
+  argument turned on itself — a bare name cannot *also* mean match, or `== name` is a second
+  spelling for something already spelled, which is the exact ground `== 4` was refused on. What the
+  unmarked form *does* mean in a head (a fresh bind, or an error) stays F8's and ticket 34's; 45
+  asserts only that it is not a match. Worth recording because the misleading artefact is a
+  confident comment in shipped source, and its next reader is whoever implements F8.
+```

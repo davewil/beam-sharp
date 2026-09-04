@@ -160,3 +160,35 @@ The ticket was raised from a diagnostic and a grammar file, and it was wrong. It
 files and about twenty minutes to find out. **A ticket whose premise can be compiled should be
 compiled before it is argued**, and this repo now has a `check-exemplar-frontier.sh` precisely
 because a claim about the language that nobody executed is the failure mode it keeps meeting.
+
+## Decisions entry
+
+<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
+     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
+     The `issues/…` link is relative to decisions.md, so it is fenced rather than
+     live — from inside issues/ it would point at nothing. -->
+
+```decisions-entry
+- [A route table needs a closed list pattern, and ticket 08 refused one](issues/53-a-route-table-needs-a-closed-list-pattern.md) —
+  **resolved against its own premise, hours after it was raised, and the correction is the answer.**
+  The ticket said there is no spelling for *"a path of exactly two segments"*. There is:
+  **`["orders", id, ..[]]`**. The rest of a prefix-plus-rest pattern is itself a pattern and `[]` is
+  a pattern, so the form closes itself — ticket 08's own grammar used twice, no language change, and
+  available the whole time. Measured in [`53a`](prototypes/53a-closed-list-patterns.md):
+  `/orders/42/lines` reaches the catch-all instead of being swallowed by the `Fetch` clause, which
+  is the property the ticket said could not be expressed. **The exemplar was written wrong, not
+  refused** — the diagnostic *"a list pattern needs a rest"* refuses a **missing** rest, and reads
+  like a refusal of closed lists only to someone who has not run it. `route.bs` is fixed.
+  Of the four candidates: 1 was already true, 2 and 4 are moot, and *routes are not lists* survives
+  as a smaller question to reopen only if an exemplar demands it.
+  **What survives is the read cost** — `..[]` says "exactly two" in punctuation neither audience
+  recognises, since C# and TypeScript both spell it `["orders", id]` — **and it is now second in
+  line behind [`#54`](issues/54-list-length-in-the-algebra.md)**, because measuring the premise found
+  that a closed-length clause is invisible to the exhaustiveness checker. The route table above is
+  exhaustive only by virtue of its catch-all; sugar over a form the checker cannot see would make
+  the surface read more like C# while the guarantee behind it stayed absent.
+  The reusable part is the shape: **a ticket whose premise can be compiled should be compiled before
+  it is argued.** This one was raised from a grammar file and a diagnostic, and three probe files
+  took twenty minutes to disprove it.
+```

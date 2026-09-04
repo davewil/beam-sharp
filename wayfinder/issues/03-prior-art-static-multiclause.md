@@ -75,3 +75,23 @@ Prefer measuring. Two claims already re-checked and confirmed
 ## Notes
 
 AFK. Feeds tickets 11 and 12.
+
+## Decisions entry
+
+<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
+     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
+     The `issues/…` link is relative to decisions.md, so it is fenced rather than
+     live — from inside issues/ it would point at nothing. -->
+
+```decisions-entry
+- [Prior art: static types plus multi-clause heads](issues/03-prior-art-static-multiclause.md)
+  — **Gleam never rejected multi-clause heads; it never considered them.** No rationale
+  exists, and the soundness hypothesis is affirmatively weakened (Gleam's shipped checker
+  already runs Jules Jacobs' algorithm over nested multi-column patterns). Projects stall on
+  **commercial dependency**, not type theory — purerl survives because a company ships on it;
+  Hamler, Caramel and Alpaca each had zero internal consumers. The core bet is proven
+  feasible: Alpaca shipped multi-clause heads on an HM BEAM language. **NVLang is a citation
+  hazard** — see the ticket before citing it anywhere. *(One claim in this ticket was later
+  retracted by ticket 19 — see there.)*
+```

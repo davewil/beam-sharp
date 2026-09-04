@@ -687,3 +687,105 @@ absorbed**: the import alias is now [ticket 47](47-import-alias.md), because thi
 that §2 *inverted* the argument against it and said it *"should be re-asked rather than inherited"* —
 and re-asking is a decision. **Ticket 16 §4 is discharged as a prerequisite here**: §3 landed on A,
 so nothing is serialised.
+
+## Decisions entry
+
+<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
+     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
+     The `issues/…` link is relative to decisions.md, so it is fenced rather than
+     live — from inside issues/ it would point at nothing. -->
+
+```decisions-entry
+- **Imports and cross-module scope** — [ticket 41](issues/41-imports-and-cross-module-scope.md),
+  resolved 2026-08-16 across two sessions; §1, §2 and §5 on 08-15, §3 and §4 on 08-16. Raised
+  alongside 40. **§1 is answered on mechanism**: `using` generalises rather than needing a second
+  keyword, because the native and foreign forms differ in the *token class* of the left side
+  (`uident` path vs `atom_lit`) — the same discriminator `LANGUAGE.md` §11 already uses for the
+  three dot-forms — and because the FFI `using` **already introduces no B# name**, so a native one
+  that also introduces none is the same construct rather than an overloaded one. It also answers
+  23 §11 directly: a file's `using` lines are its dependency list.
+
+  **§2: `using` brings names into scope UNQUALIFIED** (David: *"I think B would be expected"*). The
+  audience test decided it — an import that leaves every call site qualified makes the `using` line
+  look inert. The one mechanism objection — diagnostics emit pasteable source, so the printer must
+  pick a spelling — **dissolves**: print fully qualified always, which is legal in any scope.
+  Requires ambiguity and local-shadowing to be **errors printing qualified candidates**, and
+  resolution by name *and* arity.
+
+  **§5: a namespace is a directory holding no `.bs` files**; one holding `.bs` files is a module.
+  Decidable by `ls`, no marker, no keyword. The earlier claim that B# *"has no room"* for C#'s middle
+  tier was overstated — B# lacked a **name** for the case, not the case, since ticket 13 had already
+  made a directory inside a module a source-only sub-module. It restores all three C# tiers with §2
+  as the middle one and **costs nothing at runtime**: a namespace emits no atom, no beam, no
+  attribute. One new check, with a precedent: a file's `module` declaration must match its directory
+  path — 13's measured `erlc` atom/filename rule lifted from the artefact to the source tree.
+
+  **§3 was the prerequisite, not a neighbour**, so §2 and §5 were answered-but-unverifiable for a
+  day: neither unqualified names nor namespace resolution can be checked without knowing where the
+  checker gets another module's types. **It is answered by re-checking the dependency's source, and
+  the compiler owns the dependency graph** — and the section's own opening premise turned out to be
+  **false**, which is what changed the price. *"The compiler is single-file"* is wrong: measured in
+  [`41a`](prototypes/41a_multifile_probe.sh), `bsc Alpha.bs Beta.bs` exits 0 and emits **both**
+  beams, because `compile_only/2` is already a map over a file list. What is single-file is the
+  **environment**, not the invocation — so fork A needs the loop that already exists to carry an
+  accumulator, not a new CLI, entry point or artefact. The isolation is also **clean and
+  order-independent**: a file calling a function defined in another file of the same invocation is
+  rejected identically in both argument orders, so there is no undocumented leakage to undo.
+
+  **The build-tool option collapses rather than losing on preference.** An externally computed
+  compile order buys nothing on its own, because a later invocation still starts with an empty
+  environment and the `.beam` carries no B# types; to make an order useful the signatures must
+  persist between invocations, and a persisted signature artefact **is fork B** — already disposed
+  of twice (no source-less consumer exists; blocked on ticket 16 §4's serialisation mapping). So
+  *"the build tool owns the graph"* is not a third option, it **reduces to B and inherits B's
+  blocker**. Same shape as F10's collapse of ticket 35: check whether the alternative can be
+  *completed* before weighing it. What is left for a build tool is stated so it is not the next
+  unraised blocker — **the source root and the file set, never the order** — and it is recorded
+  rather than ticketed, because nothing needs building that a file list cannot express yet.
+
+  **§4: `index.bs` holds everything except functions**, and one-function-per-file has no exception.
+  **The three exemplars had already answered it and nobody had looked** — all three `index.bs` files
+  hold *zero* functions, only `using`, `type`, `record` and `behaviour`. The mechanism is
+  `write_scope`: the standing constraint makes one function per file a bounded blast radius, and
+  `index.bs` is the module's **contended** file by construction, since every new type, record and
+  `using` line lands there. Permitting functions would merge the most-contended file with the one
+  thing file-per-function exists to isolate, so two agents adding unrelated functions collide in a
+  file *neither function is in*. The write-cost objection does not survive the standing constraint —
+  ceremony is near-free, agents author these files — and read cost points the same way, since an
+  exception gives every search for `Total/1` a second place to look. It also **strengthens §5**:
+  `index.bs` is unambiguously the declaration file and its presence is the module marker, where the
+  alternative leaves it meaning "declarations, and also maybe some functions". A private helper gets
+  its own file with 40 §2's `private`; ticket 13's aggregate rule and `13b`'s measured per-file
+  attribution make that cost one file and zero runtime. **An error, not a convention** —
+  `{function_in_index, Name, Line}`, because an ungated convention decays exactly as the exemplars'
+  dead dialect and `LANGUAGE.md`'s `true` claim did.
+
+  **Four checks are specified and unbuilt**, belonging to the feature that implements the module
+  system: `{module_path_mismatch, …}` (§5), `{function_in_index, …}` (§4), §2's ambiguity rule, and
+  §3's environment-threading. **Two things §3 added rather than decided**: a cycle rule for mutually
+  importing modules (F6's cyclic-alias guard is the precedent — refuse by name rather than expand),
+  and re-checking cost, which is compile-time only and whose fix is a cache, which is fork B again.
+  **One item spun out rather than absorbed**: the import alias is now
+  [ticket 47](issues/47-import-alias.md), because 41 recorded that §2 *inverted* the argument
+  against it and said it *"should be re-asked rather than inherited"* — and re-asking is a decision.
+  **Ticket 16 §4 is discharged as a prerequisite here**: §3 landed on A, so nothing is serialised.
+
+  **ALL FOUR CHECKS ARE BUILT — F15, 2026-08-17**, and §3's source root is now `bsc --src-root`,
+  defaulting to the module directory's own parent. **Two wordings in this ticket disagree with
+  themselves, F15 built one side of each, and neither is settled** — they are recorded here so the
+  choice is the map's rather than a feature's:
+
+  1. **Is `index.bs` mandatory?** §5's operative rule is the classification test — *"a directory
+     containing `.bs` files is a module"* — while §4, arguing for keeping it function-free, says
+     *"`index.bs` is unambiguously the declaration file and **its presence is the module marker**"*.
+     F15 built §5's, because it is the one written as a test.
+  2. **What is a "sub-module"?** §5 glosses ticket 13 as having *"made a directory inside a module a
+     source-only sub-module"*, which read literally makes a module directory holding another module
+     directory a single aggregate — contradicting §5's own rule. **13's measurement settles it and
+     the gloss is the imprecise half**: 13 §3's observed output is two *files* in one beam, and its
+     `Order/` is the module directory. 13's sub-module is a **file**, so "one `.beam` per aggregate"
+     and "one `.beam` per directory" are the same sentence. F15 therefore applies §5 per directory
+     and totally, and `examples/Shop/` exercises all three tiers in one path: a module holding a
+     namespace holding a module.
+```

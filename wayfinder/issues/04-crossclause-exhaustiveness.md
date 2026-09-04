@@ -56,3 +56,22 @@ polymorphism, OTP behaviours.
 
 AFK. This is the research risk at the heart of the effort — the part nobody has shipped in
 a mainstream BEAM language. Feeds tickets 09, 11 and 12.
+
+## Decisions entry
+
+<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
+     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
+     The `issues/…` link is relative to decisions.md, so it is fenced rather than
+     live — from inside issues/ it would point at nothing. -->
+
+```decisions-entry
+- [Cross-clause exhaustiveness](issues/04-crossclause-exhaustiveness.md) — **the mechanism is
+  not a research risk; it has been solved and shipped since 2003.** But exhaustiveness is only
+  well-posed against a **declared** input type: redundancy is relative, exhaustiveness is
+  absolute. CDuce checks it because functions carry a mandatory interface; Elixir cannot,
+  because it *builds* the function type from the clauses, making the check vacuous.
+  **Therefore multi-clause functions in this language must carry signatures — inference alone
+  doesn't weaken the guarantee, it makes the question disappear.** That is a binding constraint
+  on tickets 08 and 11. Also: Elixir v1.20 ships **redundancy only, not exhaustiveness**.
+```

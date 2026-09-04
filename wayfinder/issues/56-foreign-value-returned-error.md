@@ -155,3 +155,28 @@ for 50 or 52 to collide with, and both are free to design their own additions wi
 this one. The warning still stands between 50 and 52.
 
 ## Notes
+
+## Decisions entry
+
+<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
+     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
+     The `issues/…` link is relative to decisions.md, so it is fenced rather than
+     live — from inside issues/ it would point at nothing. -->
+
+```decisions-entry
+- [A foreign function returning `(:ok, V) | (:error, R)` as values](issues/56-foreign-value-returned-error.md)
+  — **it is declared as an ordinary union naming its own error payload, and nothing else changes.**
+  No wrapper is emitted, both arms are typed, and `(:error, :enoent)` is an ordinary clause head.
+  **The question assumed the missing thing was a form; it was not — the form already existed and the
+  check was reading it wrong.** F19 §2 inferred the failure *channel* from the *shape* of the return
+  type, and for most of OTP that inference is false; the compiler cannot do better, since nothing
+  about `{:file, read_file, 1}` reveals whether it raises. The channel is knowledge only the author
+  has, so it must be something the author writes — and they already can. **The wrapper is requested
+  by the payload `foreign_error`, not by the tag `:error`**, which is one predicate narrowed: no new
+  syntax, no new prelude entry, no widening, and no extension to the FFI declaration at all. This
+  makes F19 §1 more true, not less. **Numbered 48 for four days and it was the wrong number** — two
+  trackers disagreed about what "48" meant; renumbered 2026-08-22. Resolved 2026-08-22, built the
+  same day as [F23](../../compiler/features/F23-value-returned-foreign-error.md) —
+  [ENG-228](https://linear.app/davewil/issue/ENG-228).
+```

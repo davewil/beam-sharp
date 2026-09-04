@@ -178,3 +178,37 @@ matching rather than solving.
 writable, because **string literals do not exist**: ticket 20 makes `string` a `binary` refined by
 valid UTF-8, and binaries are a later feature. The binding half of that line shipped; the literal
 half did not.
+
+## Decisions entry
+
+<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
+     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
+     The `issues/…` link is relative to decisions.md, so it is fenced rather than
+     live — from inside issues/ it would point at nothing. -->
+
+```decisions-entry
+- [Local bindings](issues/34-local-bindings.md) — **the language has them, and their absence was an
+  accident rather than a position.** Raised and resolved 2026-08-14 by David typing
+  `o = Order{Id = 1, Total = 500}` at the REPL one minute after records shipped. Twenty-four tickets
+  had settled the type system, the error model, dispatch, pipelines and records **without anyone
+  writing down whether you can name a value** — a grep for it across every ticket, this map and
+  `CONTEXT.md` returned nothing. A body is now **zero or more bindings followed by one expression**,
+  so a body is still an expression with names in front of it; **bindings do not shadow**, since
+  there is no mutation to assign with and 08's *narrowing is always written* extends to names.
+  **The methodological lesson is the part worth keeping**: this ticket's headline evidence was
+  *"zero binding-shaped lines across 25a and 25c"*, which measures **nobody trying, not nobody
+  wanting** — those exemplars were written by agents inside a language that had no bindings. *A
+  measurement taken inside a constraint cannot test the constraint*, and the map should treat
+  exemplar silence as weak evidence wherever the exemplars were written by the same process that
+  set the constraint. Two smaller corrections, both recorded on the ticket: the lowering was
+  claimed to need a `case`/`begin` block and needs **neither** — an Erlang clause body is already a
+  sequence and `{match, …}` an ordinary form, so the body stays a flat list and the last expression
+  stays in **tail position**. **Destructuring binds are deferred to
+  [ticket 33](issues/33-body-check-site.md), not refused** — `(a, b) = pair` can fail, which is a
+  branch exhaustiveness never sees, and the map already has the machinery to make it *provably
+  irrefutable* (`subtract(TypeOfExpr, TypeOfPattern)` empty) as soon as a body is typed. **That is
+  the second capability 33 gates**, after F3's three. Sharpest downstream consequence: a scope pass
+  now **walks a body**, and the line against 33 must stay sharp — **33 is about whether a body is
+  *typed***, and rebinding, shadowing and unbound-name checks ask no type question at all.
+```

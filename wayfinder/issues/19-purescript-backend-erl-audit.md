@@ -72,3 +72,21 @@ ticket 12 on the `Partial` constraint's fate in codegen.
 
 Worth reading closely rather than skimming: this is a working, shipped implementation of the
 exact thing the walking skeleton will have to do.
+
+## Decisions entry
+
+<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
+     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
+     The `issues/…` link is relative to decisions.md, so it is fenced rather than
+     live — from inside issues/ it would point at nothing. -->
+
+```decisions-entry
+- [Audit of `purescript-backend-erl`](issues/19-purescript-backend-erl-audit.md) — **retracts a
+  ticket 03 claim**: it emits **exactly one clause per function, always, with no guard**, not
+  native clause heads. The cause is upstream and unreachable from any backend — `purs` merges
+  equations into one CoreFn `ExprCase` and the optimiser's IR has no pattern node at all.
+  **Net for ticket 13: no BEAM backend fed by a curried functional frontend emits clause heads.**
+  The only two that keep heads are LFE and Elixir, whose surface syntax has them natively —
+  which is beam-sharp's position, making this a counter-example rather than a template.
+```

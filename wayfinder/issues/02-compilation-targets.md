@@ -74,3 +74,22 @@ not the choice.
 
 Resolved from a complete research file after the agent hit a session limit before it could
 update this ticket; the findings are the agent's, the ticket update is not.
+
+## Decisions entry
+
+<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
+     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
+     The `issues/…` link is relative to decisions.md, so it is fenced rather than
+     live — from inside issues/ it would point at nothing. -->
+
+```decisions-entry
+- [Compilation targets](issues/02-compilation-targets.md) — **three tiers, not a binary.** The
+  **Abstract Format expresses multi-clause heads natively** (a function *is* a clause list);
+  Core Erlang does not at the head but hands you the primitive one level down, costing a
+  mechanical ~50-line wrapper; BEAM bytecode needs a full match compiler. The cliff is between
+  Core and bytecode, not between Abstract Format and Core. **Dialyzer is the sharpest
+  discriminator and it fails silently**: compiling from `.core` emits an empty abstract chunk
+  with no warning, and a `-spec` is lost through that path — which collides directly with
+  ticket 06's recommendation to emit specs.
+```

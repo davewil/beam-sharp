@@ -427,3 +427,41 @@ foreign sender ticket 21 says cannot be ruled out.
   borrow heuristic exists to avoid. Accepted because deleting it costs `spawn` and reply
   correlation.
 - **A tagged process handle stays available** (§1) if the client-API answer proves insufficient.
+
+## Decisions entry
+
+<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
+     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
+     The `issues/…` link is relative to decisions.md, so it is fenced rather than
+     live — from inside issues/ it would point at nothing. -->
+
+```decisions-entry
+- [Concurrency and the OTP model](issues/14-concurrency-and-otp-model.md) — **the concurrency
+  vocabulary is OTP's, and nothing in it is parameterised by a message type.** Ticket 03's
+  `Pid[τ]` is **declined**: it is inexpressible (ticket 09 has no nominality, so `pid<A>` and
+  `pid<B>` are the same set — Gleam's phantom parameter works only because Gleam is nominal),
+  unnecessary (the message type belongs on the **client API function's signature**, where it was
+  going to be written anyway), and unsound-proof-free (ticket 21 rules out ruling out foreign
+  senders). Measured: **four of the five wrong-pid failures are exits**, so the type system can
+  decline to model process identity and lose almost nothing; only a *shape collision* returns a
+  wrong value, and that is ticket 18's. **No `async`/`await`/`Task`** — `async` colours functions,
+  which is the second effect system ticket 12 already refused. **Pinto's closures-as-messages is
+  inadmissible** under ticket 11's arrow rule, so callbacks are per-module multi-clause functions.
+  **`[module: GenServer]` names a contract the compiler knows as a type**; the user writes a
+  narrower signature and the compiler checks containment — **Dialyzer already does exactly this**
+  for the return direction and silently misses the *argument* direction, which beam-sharp gets
+  free from contravariance. That choice is the reversible one: the wide contract is reachable as a
+  signature a user writes, or a generator default (→ 23). **`receive` is syntax and a *filter*,
+  exempt from exhaustiveness** — unmatched messages stay in the mailbox, which is what
+  `gen_server:call`'s own reply correlation runs on. **The prelude is stratified** à la Elixir's
+  `Kernel.SpecialForms`, with OTP's message shapes in the compiler-known stratum. That last one
+  closes a hole the ticket found and nothing else catches: a **mis-shaped `handle_info` clause
+  never fires and the mandatory catch-all absorbs it in silence** — invisible to exhaustiveness
+  (open residual) and to redundancy (every clause reachable against `term`). **Ticket 03's Gleam
+  gap is closed by measurement**: `Subject` types the send side only, receive is a runtime
+  `{tag, arity}` map lookup, unmatched messages are logged and dropped, and **named subjects are
+  forgeable from raw Erlang** via `registered()/0`. Corrects prototype 01e. Sharpest downstream
+  consequence: **ticket 27 loses a motivating case** — `Pid[τ]` was the clearest demand for a real
+  type parameter in the map.
+```

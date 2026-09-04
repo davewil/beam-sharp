@@ -340,3 +340,41 @@ Giving the reason a payload makes the member a tuple, and `atom | (:error, binar
 collapse. So the payload is what makes the channel survive, not merely what makes it informative.
 
 `ValidationError` is a path into the term plus the expected type — Gleam's decoder shape.
+
+## Decisions entry
+
+<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
+     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
+     The `issues/…` link is relative to decisions.md, so it is fenced rather than
+     live — from inside issues/ it would point at nothing. -->
+
+```decisions-entry
+- [Type system shape and the `dynamic` boundary](issues/11-type-system-shape.md) — **there is no
+  `dynamic` in this language.** The ticket's own framing treated it as a *place*; both shipping
+  implementations treat it as something else, and beam-sharp takes neither — Elixir makes it a
+  **field on every type** (`%{dynamic: :term}`) needing a **second, weaker relation**
+  (`subtype?(integer, dynamic) = false` but `compatible?(dynamic, integer) = true`), Gleam makes
+  it an **opaque library type** entered by a free `identity` cast and exited by a hand-written
+  decoder. beam-sharp has neither: external values arrive as `term`, **the clause head is the
+  decoder**, and the exhaustiveness residual *is* the boundary case you failed to handle. So
+  **one relation, not two** — plain set-theoretic containment, coinductive per ticket 09.
+  Patterns over a `term` are **O(1) guard-decidable only** (ticket 09's discriminability rule
+  extended verbatim — BEAM guards are the vocabulary); deep validation is an explicit call to a
+  generated **`ValidateAs<T>`**, because emitting the traversal inside a clause head would make a
+  dispatch construct do unbounded work **whose size a foreign sender chooses**. `ValidateAs<T>`
+  **rejects arrow types at compile time**: `erlang:fun_info` yields identity, never types, and
+  the top arrow is `none() -> term()` — uncallable, since arrow subtyping is contravariant, so
+  "narrow it to `fn(term)->term`" is unsound. Foreign funs are holdable and returnable, never
+  callable; the boundary is **MFA**, which is guard-decidable data. Higher-order contract
+  wrapping is the literature's correct answer and was rejected on the same hidden-cost grounds,
+  **chosen partly for reversibility** — wrapping is purely additive later. The top type is
+  spelled **`term`**, a deliberate **override of the borrow heuristic** (TS's `unknown` is tier
+  1): the top here is a *set* you take complements of, not an epistemic state, and it matches the
+  emitted `-spec`. The guarantee: **"Every case your types admit has a clause — and everything
+  from outside is a `term` until you match it."** Deliberately **stable under ticket 18**; the
+  rejected candidate pinned it to *who called you*, which ticket 09 §5 says the BEAM cannot
+  enforce. **Two cautions**: `ParseAtom<T>` and `ValidateAs<T>` are type-directed **codegen, not
+  generics** (→ ticket 27), and my own claim that OTP prefers MFA because funs go stale is true of
+  **closures only** — `fun M:F/1` is late-bound and survived a purge that killed a closure.
+```

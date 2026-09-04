@@ -417,3 +417,30 @@ cross-process probe had the caster signal the observer before it called, creatin
 chain. It reported 200/200 like every other row and could not have recorded a miss if one existed —
 the §"testing trap" reproduced while measuring it. The positive control was added for that reason
 and is the only row proving the harness works.*
+
+## Decisions entry
+
+<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
+     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
+     The `issues/…` link is relative to decisions.md, so it is fenced rather than
+     live — from inside issues/ it would point at nothing. -->
+
+```decisions-entry
+- [The testing story](issues/24-testing-story.md) — **exhaustiveness converts coverage tests into
+  value tests; it does not reduce their number**, because 23's clause synthesis adds guessed bodies
+  at the same rate it removes coverage questions. Four categories genuinely retire, and 27 §2's is
+  the one to notice: opaque type variables make **one ground instantiation evidence about all of
+  them**. The unit is the **client API against a running process** — the OTP callback is the most
+  compiler-owned function in the language, so testing it directly tests the compiler — and the
+  boundary is **published by `bsc --api` with the behaviour contract as discriminator**, needing no
+  visibility feature and so not waiting on 22. **Ticket 04's "sampled counter-value" is retracted**:
+  measured, every CDuce sample is a *type*, never an inhabitant, so no generator is inherited and
+  the language publishes the residual instead — 09's contractivity turns out to be what would make
+  one terminate. Measured too: `sys:get_state` buys **no** determinism a client-API call does not,
+  and a cross-process cast passes 200/200 on scheduling bias, flipping to 0/200 with a 20 ms head
+  start — hence *every async operation owes a synchronous observation in the same client API*.
+  §2, §5 and the compiler's published **elisions** consolidate into one **boundary manifest**.
+  Tests are ordinary beam-sharp, no exemption. Closes 14's catch-all question with a **no**: cause
+  the real event and the boundary test catches a mis-shaped clause.
+```

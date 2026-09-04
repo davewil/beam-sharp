@@ -1106,3 +1106,28 @@ A decision brief with the corrected tree as a diagram, the six questions and a c
 is published at <https://claude.ai/code/artifact/64ddb8ca-a67c-4975-8591-f879c6311a7a>, refreshed
 to round 2 on 2026-08-25 with the 48k measurement table and round 1 kept below it as the record.
 This file stays canonical; that page is an ungated snapshot.
+
+## Decisions entry
+
+<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
+     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
+     The `issues/…` link is relative to decisions.md, so it is fenced rather than
+     live — from inside issues/ it would point at nothing. -->
+
+```decisions-entry
+- [A map type in the prelude](issues/48-a-map-type-in-the-prelude.md) — **`map<K, V>` enters the
+  prelude as a second map member kind, declarable but not yet destructurable, with `Map.Get` a
+  compiler-known operation under a reserved qualifier.** All nine questions are answered across three
+  dated `DECIDED` sections. The type ships before the pattern form because **the expensive half of
+  this feature is matchability, not existence** — a type no pattern narrows never reaches
+  `m_decompose/3`, so deferring the pattern form defers the permanently-mandatory catch-all and most
+  of the algebra. The excluded tag is **`Kind` absent only**, which is what makes an Elixir struct a
+  member of the map type and settles ticket 50 as execution. **Two of the ticket's own premises were
+  falsified and both corrections stand with the decision**: Elixir does *not* reserve `Map` — an
+  ordinary module in a flat namespace, measured on 1.19.5 — so reserving it is beam-sharp's choice,
+  not a borrowed one; and unbounded keys do **not** make the language more exhaustive, since an open
+  key domain is the one place exhaustiveness cannot work. They make an already-unexhaustive corner
+  honest and typed, where today it is `list<(atom, term)>` with no checking at all. Resolved
+  2026-08-25 — [ENG-230](https://linear.app/davewil/issue/ENG-230).
+```

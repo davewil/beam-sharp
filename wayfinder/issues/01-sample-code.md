@@ -107,3 +107,22 @@ circles; the same argument conducted over a snippet resolves quickly, because ev
 see what they are objecting to. It also unblocks more tickets than any other.
 
 HITL — the reactions are the deliverable, not the code.
+
+## Decisions entry
+
+<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
+     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
+     The `issues/…` link is relative to decisions.md, so it is fenced rather than
+     live — from inside issues/ it would point at nothing. -->
+
+```decisions-entry
+- [A page of idiomatic beam-sharp](issues/01-sample-code.md) — **Variant A settled**: equations
+  under a signature. The design is smaller than expected — **C# already supplies every pattern
+  form needed**, so the language is one structural move: C#'s pattern grammar out of `switch`
+  arms and into the parameter position, N declarations where C# allows one. The showcase was
+  lowered to Erlang and **run on OTP 28**: five clauses in, five native clause heads out.
+  **It also amended ticket 00** — multi-clause heads are notationally, not semantically,
+  distinct from Gleam's multi-subject `case`; the differentiator is now a stated design
+  preference. Do not re-derive this.
+```

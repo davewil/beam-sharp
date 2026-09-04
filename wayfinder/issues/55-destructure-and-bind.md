@@ -243,3 +243,41 @@ two land together or the frontier record does not move.
   unbuilt.
 
 ## Notes
+
+## Decisions entry
+
+<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
+     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
+     The `issues/…` link is relative to decisions.md, so it is fenced rather than
+     live — from inside issues/ it would point at nothing. -->
+
+```decisions-entry
+- [A record pattern may name its type, and any pattern may take a trailing binder](issues/55-destructure-and-bind.md) —
+  **`Frame { Type: :method } f`, and `Frame f` when only the type matters.** The front wall of
+  exemplar 25c, and **unasked for nine days** while two files recorded it independently — the
+  exemplar README under `unasked`, and `LANGUAGE.md` as *"a grammar-opinion question that is still
+  open"*. Neither raised it, which is the map's oldest recurring failure wearing a third set of
+  clothes. **The mechanism was already built**: `p_alias` is live in `bs_emit.erl` and every
+  tag-dispatching clause emits one, with no surface that reaches it. **The survey is unanimous on
+  the type prefix** — C#, Erlang, Elixir and Gleam all name the type in a record pattern and
+  beam-sharp alone could not, with Elixir's bare-map escape hatch (`%{__struct__: Frame, …}`)
+  costing exactly what beam-sharp's `{ Kind: :'Shop.Frame' }` costs: hand-writing a **minted tag**
+  to say *"this is a Frame"*. That is the real argument, not 25c — it is the one place the surface
+  makes an erasure detail load-bearing. **It splits 2–2 on the binder and both sides are spent
+  here**: `=` was deliberately kept out of pattern position by ticket 45 and spent on bindings by
+  F8, and `as` is committed to C#'s checked conversion — free in the lexer, reserved on the map.
+  So the binder is C#'s **bare trailing designation**, which is also the shape a signature already
+  has (`param -> type_prim lident`, so `Order o`). **Four grammar variants measured at zero yecc
+  conflicts** ([`55f`](prototypes/55f_yecc_conflicts.sh)), which **refutes the ticket's own named
+  risk** that the pattern/construction disambiguator sits two tokens past yecc's one of lookahead.
+  **One zero is not to be trusted and the self-test is why that is known**: variant (c)'s `=`
+  carries `Nonassoc 50`, and yecc resolves a conflict on a token with a precedence *silently*. That
+  trap had already produced a wrong answer — the first control was `pattern 'and' pattern`, which
+  the grammar predicts conflicts and which measured clean because `and` carries `Left 200`;
+  rebuilt as a reduce/reduce conflict, which no precedence can mask, the harness reported 7 while
+  the untouched grammar reported 0 in the same run. **Decided, not built**, and the coupling to
+  respect is that the type prefix and the binder must land together — `bsc` stops at the first
+  error and that error is `Frame`, so answering the binder alone leaves 25c's wall exactly where
+  it is
+```

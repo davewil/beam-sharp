@@ -222,3 +222,27 @@ feature nobody has asked for yet, and it is named in F10's out-of-scope rather t
 
 Nothing was re-raised. The four rows in *"already decided"* above all stand, and this answer is
 built on two of them rather than around them.
+
+## Decisions entry
+
+<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
+     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
+     The `issues/…` link is relative to decisions.md, so it is fenced rather than
+     live — from inside issues/ it would point at nothing. -->
+
+```decisions-entry
+- [What name does a behaviour callback emit?](issues/35-behaviour-callback-names.md) — **a fixed
+  table in `bs_otp`, and a module declaring a behaviour it does not satisfy is refused at the
+  declaration.** Sub-question 1 answers itself on *mechanism* rather than preference: `uident` is
+  `[A-Z]{ALNUM}*` in the lexer, so **a beam-sharp function name is PascalCase by construction** and
+  `handle_call` is not a spellable name — the alternative could not be written down. That leaves the
+  table ticket 32 already pointed at, one level down. **Both tables live in `bs_otp`** and both
+  `bs_check` and `bs_emit` read the one copy, because a behaviour whose name the compiler knows and
+  whose callbacks it does not is the state that produced this ticket. The rename is scoped to a name
+  *and arity* that is a callback of a **declared** behaviour, which is what stops it being a naming
+  rule by another route. `gen_statem`'s `{'StateName', 3}` is absent on purpose — those names are the
+  user's. **Ticket 14 §4's type containment is not owed here, measured rather than deferred**:
+  Dialyzer accepts a narrowed callback spec and still rejects a wrong one, so doing it in the
+  compiler buys a diagnostic and no safety. Resolved 2026-08-15.
+```

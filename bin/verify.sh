@@ -222,6 +222,7 @@ run_stages \
      ./bin/check-shell.sh --self-test &&
      ./bin/check-map.sh --self-test &&
      ./bin/check-decisions.sh --self-test &&
+     ./bin/check-decisions-derived.sh --self-test &&
      ./bin/check-surface.sh --self-test &&
      ./bin/check-open-questions.sh --self-test &&
      ./bin/check-links.sh --self-test &&
@@ -258,6 +259,9 @@ run_stages \
 \
   "Every resolved ticket owns its own answer" \
     "./bin/check-decisions.sh" \
+\
+  "decisions.md is what its tickets say it is" \
+    "./bin/check-decisions-derived.sh" \
 \
   "Surface decisions are traceable from LANGUAGE.md" \
     "./bin/check-surface.sh" \

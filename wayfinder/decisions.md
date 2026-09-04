@@ -6,11 +6,18 @@
 > headline, ticket number and topic tags per entry — and this file carries the bodies.
 >
 > One entry per closed ticket. The ticket itself, in `issues/`, is still where the full reasoning lives; these entries are the cross-ticket view of it.
+>
+> **THIS FILE IS GENERATED (2026-09-04, ENG-310 stage 2).** Every entry below is assembled from
+> a `decisions-entry` block in the ticket it names, in the order
+> [`decisions.order`](decisions.order) records. **Edit the entry in its ticket and run
+> `bin/gen-decisions.py --write`** — an edit made here is reverted by the next regeneration, and
+> `bin/check-decisions-derived.sh` reds the build before that can happen. The entries were moved,
+> not rewritten: all 1,776 non-blank lines are byte-identical to the hand-kept file at `38acb27`.
 
 ## Decisions so far
 
 <!-- one line per closed ticket: enough to judge relevance, then open the ticket for detail -->
-
+<!-- BEGIN GENERATED — bin/gen-decisions.py; edit the ticket, not this file -->
 - [Charting: differentiator, typing stance, scope](issues/00-charting-decisions.md) — the
   language exists for the multi-clause heads Gleam explicitly refuses; typing is
   static-by-default set-theoretic with enforced cross-clause exhaustiveness; tooling,
@@ -18,6 +25,7 @@
   four are boundaries on *this map*, and none is a refusal: three wait on a use case, and
   alternative runtimes/backends wait on traction and a request. See Out of scope, which now says
   which is which and what a requester inherits.**
+
 - [Prior art: static types plus multi-clause heads](issues/03-prior-art-static-multiclause.md)
   — **Gleam never rejected multi-clause heads; it never considered them.** No rationale
   exists, and the soundness hypothesis is affirmatively weakened (Gleam's shipped checker
@@ -27,6 +35,7 @@
   feasible: Alpaca shipped multi-clause heads on an HM BEAM language. **NVLang is a citation
   hazard** — see the ticket before citing it anywhere. *(One claim in this ticket was later
   retracted by ticket 19 — see there.)*
+
 - [Audit of `purescript-backend-erl`](issues/19-purescript-backend-erl-audit.md) — **retracts a
   ticket 03 claim**: it emits **exactly one clause per function, always, with no guard**, not
   native clause heads. The cause is upstream and unreachable from any backend — `purs` merges
@@ -34,6 +43,7 @@
   **Net for ticket 13: no BEAM backend fed by a curried functional frontend emits clause heads.**
   The only two that keep heads are LFE and Elixir, whose surface syntax has them natively —
   which is beam-sharp's position, making this a counter-example rather than a template.
+
 - [A page of idiomatic beam-sharp](issues/01-sample-code.md) — **Variant A settled**: equations
   under a signature. The design is smaller than expected — **C# already supplies every pattern
   form needed**, so the language is one structural move: C#'s pattern grammar out of `switch`
@@ -42,6 +52,7 @@
   **It also amended ticket 00** — multi-clause heads are notationally, not semantically,
   distinct from Gleam's multi-subject `case`; the differentiator is now a stated design
   preference. Do not re-derive this.
+
 - [Escape-hatch precedents](issues/21-escape-hatch-precedents.md) — **neither Roc's nor Unison's
   mechanism transplants, and they fail for the same reason in opposite directions: both control
   what a program may *reach*, where ticket 06's problem is what may reach the *program*.** Roc's
@@ -63,6 +74,7 @@
   *still aspects*, and it is the **library** form that died (.NET Code Contracts, archived
   2023-07-15). The discriminator is **tooling weight**, and **Microsoft's named successor is
   nullable reference types — the contract that survived is the one that became a type.**
+
 - [Head and guard syntax](issues/08-head-and-guard-syntax.md) — **the surface is settled.**
   Guards use the **expansion rule** (verified on Elixir 1.19.5: *"Only macros can be invoked
   inside a guard"*), with a **`guard` modifier** for named guards — `defguard` with a different
@@ -74,6 +86,7 @@
   **amended by ticket 11**, where the rule holds and loses its keyword, since narrowing is
   written *as a clause head* and no `dynamic` exists.
   Declarations file is `index.bs`. List patterns are prefix-plus-rest only.
+
 - [Compilation targets](issues/02-compilation-targets.md) — **three tiers, not a binary.** The
   **Abstract Format expresses multi-clause heads natively** (a function *is* a clause list);
   Core Erlang does not at the head but hands you the primitive one level down, costing a
@@ -82,6 +95,7 @@
   discriminator and it fails silently**: compiling from `.core` emits an empty abstract chunk
   with no warning, and a `-spec` is lost through that path — which collides directly with
   ticket 06's recommendation to emit specs.
+
 - [Cross-clause exhaustiveness](issues/04-crossclause-exhaustiveness.md) — **the mechanism is
   not a research risk; it has been solved and shipped since 2003.** But exhaustiveness is only
   well-posed against a **declared** input type: redundancy is relative, exhaustiveness is
@@ -90,6 +104,7 @@
   **Therefore multi-clause functions in this language must carry signatures — inference alone
   doesn't weaken the guarantee, it makes the question disappear.** That is a binding constraint
   on tickets 08 and 11. Also: Elixir v1.20 ships **redundancy only, not exhaustiveness**.
+
 - [Erlang/Elixir interop surface](issues/06-interop-surface.md) — the surface is **smaller than
   expected** (`-behaviour` has no runtime effect; Elixir needs no special machinery), but the
   violation surface is **eight channels**, not one. The load-bearing finding: **an untyped
@@ -98,6 +113,7 @@
   third case argues for emitted guards. Neither Gleam nor purerl defends against any of it.
   Gleam's answer to typed OTP was to not implement the behaviour contract at all — a route
   closed to this language, since ticket 00 makes `handle_call/3` the showcase.
+
 - [C# 15 `union` and TypeScript discriminated unions](issues/07-csharp15-and-ts-unions.md)
   — C# unions are **preview, not shipped**, and the design is still moving (champion issue is
   #9662, not #8928; no primary source for "GA Nov 2026"). They are nominal, closed struct
@@ -105,6 +121,7 @@
   C# killed both structural/erased union designs on CLR artefacts — reified generics and
   nominal identity — **and neither rock exists on the BEAM**. TypeScript is structural but
   stops short of set-theoretic (syntactic intersections, no negation, opt-in exhaustiveness).
+
 - [Union representation](issues/09-union-representation.md) — **structural and open; there is no
   nominal type in the language and no union declaration form.** Naming is **aliasing**: `type X =
   ...` is the single naming construct for records, tuples, scalars and unions alike, the name
@@ -125,12 +142,14 @@
   structs and protocols are not a counter-example but the worked remedy* — `__struct__` is an atom
   **in the data**, so the name is a tag, and beam-sharp can resolve it statically where Elixir
   needs a consolidation pass (verified: `prototypes/16a_elixir_protocol_dispatch.exs`).
+
 - [C# functional feature inventory](issues/05-csharp-functional-inventory.md) — LINQ query
   comprehension is portable (ECMA-334 makes it a pure syntactic rewrite, bound before type
   binding, with no `IEnumerable<T>` dependency); extension-method chaining *is* already a
   pipeline rewrite; `with` becomes more central than in C#. Dropped: `init`/`readonly`,
   nullable reference types, iterators and `async`/`await`. Two debts left open — no ad-hoc
   polymorphism story, and slice patterns over cons cells.
+
 - [Atoms in a C# skin](issues/10-atoms-in-a-csharp-skin.md) — **the atom universe is open**:
   `:ok` is a singleton type, `atom` the cofinite top, and nothing declares an atom. Declare-
   before-use was not a live option — it contradicts ticket 09's "no syntax that declares a type"
@@ -517,6 +536,7 @@
   keeping: the borrow heuristic ran *correctly* and still missed this, because it has no rung for a
   language neither audience uses which solved exactly this problem — the reason to raise a prior-art
   ticket is the mechanism being invented, not the heuristic misfiring.
+
 - [The walking skeleton, first slice](../compiler/README.md) — **built 2026-08-13, and the premise
   that delayed it was stale.** The fog said the slice "cannot be phrased sharply until the language
   surface exists"; that was written at charting, before any of the twenty-three resolutions, and it
@@ -870,7 +890,6 @@
   only its headline verb was wrong, because `with` updates rather than builds. Built as
   [F21](../compiler/features/F21-field-value-obligations.md).
 
-
 - **Module and namespace system, and function identity** — [ticket 40](issues/40-module-and-namespace-system.md),
   resolved 2026-08-15. Three sections, and they were answered by three different kinds of argument,
   which is the reason this entry is worth reading rather than the ticket's headline.
@@ -1081,6 +1100,7 @@
   example, in one change — F2's job, since 42 already obliges it to reserve the keywords. **44's own
   marginal lexer cost is therefore zero**, and it *removes* two rules, which is a rare direction of
   travel for a language decision.
+
 - [Negation has no spelling](issues/63-negation-has-no-spelling.md) — **there is no `not` and no
   `!`**, resolved 2026-08-26, completing the territory ticket 44 opened. 44 settled conjunction and
   disjunction and said nothing about negation, which made this a hole rather than a recorded
@@ -1159,7 +1179,6 @@
   currently *no* by inheritance from the BEAM rather than by any decision here, and David's call was
   to leave it that way without a ticket. Worth knowing that this also **stabilises the repro** for
   ENG-256 — the raw `erlc` text `63b` provokes — since the input it depends on stays illegal.
-
 
 - **A match against a bound value is `== name`** — [ticket 45](issues/45-match-token.md), resolved
   2026-08-16. Raised by F8, which makes `var` bind and a bare `=` match, and which therefore needs a
@@ -1469,6 +1488,7 @@
   respect is that the type prefix and the binder must land together — `bsc` stops at the first
   error and that error is `Frame`, so answering the binder alone leaves 25c's wall exactly where
   it is
+
 - [Composable middleware, and what the valve reaches](issues/31-composable-middleware.md) —
   **`|?>` expresses it, and the gap is one stage-shape rather than a mechanism.** The chain
   `Auth(req) |?> Quota() |?> Dispatch()` compiles and runs; a halting stage stops the pipeline and
@@ -1581,6 +1601,7 @@
   a guard"* — F2 landed the day after the ticket was raised, and `int where value != 0` compiles.
   Emission maps `/` to Erlang's **`div`**, never its `/`, which is float division. Raised by an
   outside workload (AoC 2019 Day 1), which is the better class of evidence.
+
 - [A refined parameter gets a boundary guard](issues/46-refined-parameter-at-the-boundary.md) —
   **yes, and the guard is the part of the refinement the clause does not already prove.**
   `Classify(>= 9)` emits `andalso Bs@r1 =< 255` and nothing else; `Classify(1)` and
@@ -1702,6 +1723,7 @@
   higher-order library still waiting. **Whether that earns §(c) now is David's call and is
   deliberately not answered.** Probe:
   [`37a`](prototypes/37a_instantiation_by_matching.escript), six measurements, each with a control.
+
 - **What the valve keys on: the atom, or the declared type?** — [ticket 49](issues/49-what-the-valve-keys-on.md),
   raised 2026-08-21 out of 31, resolved 2026-08-28. **`|?>` short-circuits on `(:error, _) | :nothing`** —
   a constant, not the stage's declared parameter type. **31c's shape B is refused on the measurement**
@@ -1884,3 +1906,5 @@
   **A comparison proves ordering, not kind.** Resolved 2026-08-23, built as
   [F24](../../compiler/features/F24-boundary-kind.md) —
   [ENG-240](https://linear.app/davewil/issue/ENG-240).
+
+<!-- END GENERATED -->

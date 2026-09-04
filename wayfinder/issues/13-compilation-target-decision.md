@@ -460,3 +460,36 @@ boundary guards earn their keep.
 branches are unreachable from the current surface. `range` is the branch most likely to behave
 differently, since Dialyzer quantises integer ranges onto a fixed ladder (ticket 20). **When the
 next slice makes intervals reachable, re-run this first.**
+
+## Decisions entry
+
+<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
+     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
+     The `issues/…` link is relative to decisions.md, so it is fenced rather than
+     live — from inside issues/ it would point at nothing. -->
+
+```decisions-entry
+- [Compilation target decision](issues/13-compilation-target-decision.md) — **the Erlang Abstract
+  Format**, and the decisive reason is none of the five the ticket had stacked: the choice is a
+  **one-way door, not a rung on a ladder**. `.abstr → Core` is `erlc +from_abstr +to_core`, free,
+  OTP doing the translation; `.core → abstract forms` is `{raw_abstract_v1,[]}`, unrecoverable.
+  Core's one live advantage — a `when` wider than Erlang's — was already spent by tickets 08 and 09
+  fixing the guard vocabulary to the BEAM guard set. The emission contract is **a sequence of
+  abstract-format forms**, with a standing obligation that the frontend **never depend on
+  in-process compiler state**, so `erlc +from_abstr` always works (verified: builds with no `.erl`
+  on disk) — which **frees the compiler's host language** and costs `erl_syntax`/`merl` as a churn
+  abstraction, permanently; §4's pinned OTP range (current + previous two majors) proved by a CI
+  corpus is the replacement. **Sub-modules are source-only**, one `.beam` per aggregate, and 01d's
+  sharpest objection is **largely false on this target**: repeated `{attribute, ANNO, file, …}`
+  forms re-point everything after them, so two functions in one BEAM module report crashes against
+  two different `.bs` files — per-function hot swap is rejected, not deferred. **A `-spec` is
+  emitted for every function whose type is known**, widening to the nearest expressible supertype
+  where set-theoretic types have no Erlang spelling (silent: `-Wunderspecs`/`-Wspecdiffs` turn
+  warnings *on*). **This discharges the 13/18 coupling** rather than deferring it — it was
+  conditional on the Core branch — so ticket 06's recommendation stands. Sharpest downstream
+  consequence: **ticket 18 loses an argument.** Ticket 12's 40-byte saving is unavailable on this
+  target at all (`erlc` inserts the `match_fail` arm and it cannot be suppressed), so emitted
+  guards are no longer the route to a saving that exists — **18's remaining motivation is silent
+  unsoundness alone**. Ticket 14 inherits no facade to design.
+```

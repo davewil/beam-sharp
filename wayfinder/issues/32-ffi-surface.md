@@ -313,3 +313,55 @@ compile-time constructs of Elixir's compiler and **not callable from another lan
 FFI to Elixir reaches its functions and never its macros, and `use GenServer` is unreachable across
 the boundary — which means bootstrapping axis (c), *"a beam-sharp `GenServer`, as Elixir has one"*,
 cannot be Elixir's shape at that seam even after this ticket lands.
+
+## Decisions entry
+
+<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
+     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
+     The `issues/…` link is relative to decisions.md, so it is fenced rather than
+     live — from inside issues/ it would point at nothing. -->
+
+```decisions-entry
+- [The FFI surface](issues/32-ffi-surface.md) — **a foreign function is declared, and the
+  declaration carries both spellings.** Settled by David reading the three shapes written out as
+  ordinary code ([`32e`](prototypes/32e-ffi-on-the-page.md)) — *"A clearly reads better"* — which is
+  **the standing constraint reaching its own conclusion**: declaring up front is write cost, priced
+  near-free, and narrowing a `term` at each use is read cost, which carries full weight. Elixir's
+  zero-ceremony shape loses on a cost that is **regressive**, nearly free on values you were going to
+  validate anyway and most annoying on `system_time`/`byte_size`/`length`. The answer was derivable
+  before any measurement and nobody derived it. **The declaration binds the module**
+  (`[external: erlang, "ets"] module Ets { list<term> Lookup(atom, term); }` → `Ets.Lookup(t, k)`),
+  which is *not* per-module import — each function keeps its own signature and its single arity;
+  only the name binding is per module, and that is the part with no arity to select. **Fork 1
+  dissolved rather than being decided**: this shares its grammar with 23 §7's stub and nothing else,
+  because the markers mean opposites — a stub is *unfinished* and **must** trip a release-gate text
+  search, a foreign declaration is *finished elsewhere* and must not — so **32 decides no part of
+  ~~deferred~~ ticket 22**. **Corrected 2026-08-23**: 22 is *resolved*, and it resolved by removing
+  the stub marker entirely, so there is no release-gate text search and the contrast this paragraph
+  draws no longer has a second term. The conclusion is unaffected and is now stronger — 32's
+  `foreign` declaration is the language's **only** clause-less declaration, because the one
+  construct that would have been the other is never built. **There is no snake_case⇄PascalCase rule anywhere in the language**, and
+  [`32b`](prototypes/32b_name_census.md) stands as the evidence for why not rather than the input to
+  one: a mapping reaches 1,920 of 1,924 stdlib+kernel names but cannot spell `'PKCS-1'`,
+  `'OTP-PKIX'` or a quarter of Elixir's function names (`fetch!`, `valid?`, `&&&`) under any rule.
+  **Exactly one arity per declaration** — measured, 45 of 756 multi-arity stdlib pairs have **gaps**
+  (`inet_udp:send/2,4` with no `/3`), so a foreign arity family is not 08's contiguous generated
+  ladder and cannot be described as it. **A third shape died on contact with the page, not with a
+  measurement**: C#'s identity-by-default needs a lowercase name, which 26's casing rule lexes as a
+  field projection. **The lowering is decided too, because §2 made the declaration a named thing with
+  a signature** — a real emitted function carrying 15's `try` and 18's guard, measured at **~60 bytes
+  once, flat, against ~65 bytes per call site if inlined** ([`32d`](prototypes/32d_where_boundary_code_lives.md),
+  43× apart at 40 call sites). **Gleam emits a wrapper where the *module's API* needs one and never
+  where the boundary does** — a public external never called still gets a function and a `-spec`; a
+  private one that *is* called is erased ([`32a`](prototypes/32a_gleam_external.md)) — affordable only
+  because it checks nothing. So: **borrow Gleam's syntax, refuse its semantics (18), refuse its
+  lowering (here).** **A correction the ticket owes the spec**: it framed unchecked FFI as Gleam's
+  flaw against a clean C# borrow, and measured, **`extern` is unchecked too** — two C# names over one
+  symbol with different declared return types both ran ([`32c`](prototypes/32c_csharp_foreign_declaration.md))
+  — so 18's guard diverges from **both** audiences, compensated by the fact that beam-sharp emits the
+  `-spec` Gleam emits and **unlike Gleam's it is not a lie**. Sharpest downstream consequence:
+  **bootstrapping axis (b) is closed and (c) is unblocked** — but `use GenServer` can never cross,
+  because Elixir exports macros as `MACRO-`-prefixed functions that are not callable from another
+  language.
+```

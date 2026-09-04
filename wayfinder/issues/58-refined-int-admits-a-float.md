@@ -166,3 +166,28 @@ RANGE stub — 46's answer implemented exactly — that it must catch.
   so `boundary_guards/5` now applies two rules with different scopes. 46 measured that and left it;
   F24 raised it as [ticket 59](59-boundary-guard-scope-asymmetry.md) /
   [ENG-241](https://linear.app/davewil/issue/ENG-241) rather than inheriting it unrecorded.
+
+## Decisions entry
+
+<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
+     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
+     The `issues/…` link is relative to decisions.md, so it is fenced rather than
+     live — from inside issues/ it would point at nothing. -->
+
+```decisions-entry
+- [A refined `int` parameter admits a float](issues/58-refined-int-admits-a-float.md) — **nothing
+  here needed deciding: ticket 18 §1 rule C decided it on 2026-08-13 and §5 refused an opt-out, so
+  this is one resolved rule missing from `bs_emit`.** A refined `int` parameter is an `int`
+  parameter, so the refinement changes nothing about which case applies; the emitter owes the type
+  test and does not emit it. Ticket 46 raised it rather than absorbing it, correctly — this is not
+  18's standing question about every parameter reopened. **The finding worth carrying forward is that
+  a range subtraction does not fix this and would have looked like it did**: `100.5` reaches the
+  `Classify(>= 9)` clause, so 46's `P \ D` yields `=< 255` there and `100.5 =< 255` is true. A
+  range-only fix crashes `300.5` while leaving `100.5` answering `:reserved` — the reported defect,
+  unmoved, with the easier half fixed. `300.5` reads like the natural probe and is the wrong one, so
+  `check-boundary-kind.sh` probes on `100.5` and its self-test carries a RANGE stub it must catch.
+  **A comparison proves ordering, not kind.** Resolved 2026-08-23, built as
+  [F24](../../compiler/features/F24-boundary-kind.md) —
+  [ENG-240](https://linear.app/davewil/issue/ENG-240).
+```

@@ -933,3 +933,53 @@ ordinary analysis.
 | [`prototypes/18d_state_channel.erl`](../prototypes/18d_state_channel.erl) | `sys:replace_state/2` replaces a typed gen_server state from any process, declared-integer field returning a binary; and `binary_to_term/2 [safe]` defends the atom table, not the shape | `local`, OTP 28 |
 | `predictex` (local Elixir app) | 9 changeset pipelines / 29 `validate_*` beside 5 ETS reads that bind the payload bare | `local` |
 | [`research/18-elm-port-validation.md`](../research/18-elm-port-validation.md) | Elm synthesises and runs a decoder per incoming value; admissible set = decidable structural tests; `_Json_decodeInt` accepts `1e300`; `--optimize` collapses the error to a URL | `local` + `src`, Elm 0.19.1 |
+
+## Decisions entry
+
+<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
+     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
+     The `issues/…` link is relative to decisions.md, so it is fenced rather than
+     live — from inside issues/ it would point at nothing. -->
+
+```decisions-entry
+- [Boundary defence](issues/18-boundary-defence.md) — **the eight channels were never eight
+  questions.** Ticket 11 had already defended every `term → typed` transition *inside* the language
+  by making narrowing syntactic, so five channels were closed on arrival and what remained was every
+  point where a **type is declared at an entry**. The guarantee is **"a foreign term that breaks your
+  types will crash — not always where it entered, but never silently"**: outcome 1-or-2, never
+  outcome 3, with a guard emitted **only where the function's own body would not object** and
+  **always** where generated code consumes the value (16's encoder, 17's inlined operations),
+  **never** on type variables. **The census is why it is that and not more**: measured across all of
+  stdlib and kernel, **83.3% of exported parameter positions are bare variables** — Erlang buys
+  outcome 2 for free from its BIFs and pays nothing at the boundary, so C tops up only where the free
+  check is absent, which after 16 and 17 is exactly where *generated code replaced a body you could
+  read*. **Foreign declarations may promise only what one BEAM guard decides in O(1)**; `list<Order>`
+  is an error at the declaration and crosses as `list<term>` + `ValidateAs<T>`, whose `result` forces
+  the failure arm — **ticket 11 §2's rule at a second site, closing channels 5/6/8/10 together and
+  dissolving the FFI `-spec` sub-question** (a checked claim needs no exception). This is **Ecto's
+  idiom made uniform**: measured in a local app, 9 changeset pipelines beside 5 ETS reads that all
+  bind the payload bare — *the same shape the Gleam probe produced*, because "you filled that table
+  yourself" is what 21 says you cannot prove. **Gleam trusts its `@external` and publishes the false
+  claim as a `-spec`** (measured: `-> Int` returned `41.5`), and **Erlang and Elixir are not
+  precedents at all** — no construct declares a foreign type, so they cannot break a claim they never
+  made. **The state channel is wider than charted and 14 left it open**: `sys:replace_state/2` let any
+  process substitute a state whose declared-`int` field returned a binary, so defence sits at the
+  *entrances* — `ValidateAs<State>` in `code_change/3`, `init` trusted, nothing per-message — with
+  `sys:replace_state` a **named limit**, a point 21's mechanism cannot reach because OTP applies the
+  fun inside a loop beam-sharp does not compile. The analysis is **function-local**, decided by the
+  standing constraint: whole-aggregate would let an edit to one file silently move another file's
+  boundary, reintroducing the blast radius one-function-per-file removed. **No opt-out.** Cost
+  measured and small (+3–5 bytes per `is_integer`, call time below the ±0.09 ns/call resolution), and
+  one structural finding kills a design option: **elision is exported-vs-local, not local-call vs
+  remote-call**, since a BEAM function has one entry label — so a guarded-public/unguarded-internal
+  pair is impossible, and interior functions already pay nothing. **Elm is the one language that
+  genuinely defends its boundary and it does not transplant** — it synthesises a decoder per incoming
+  value, but owns *the one door*; **this partially retracts ticket 21**, whose "no language defends by
+  checking data" is false, sharpened to *checking data is what you do at a door you own*. Two
+  corroborations worth keeping: Elm's admissible port set is **exactly ticket 09 §4's rule reached
+  independently**, and **outcome 3 survives inside Elm's checking boundary** (`1e300` through an `Int`
+  port) — a leak beam-sharp does not inherit, since `is_integer` is exact. The tag/payload asymmetry
+  was sighted **three times in one session** — Gleam's FFI, a real Elixir ETS read, an OTP callback
+  head — which is the ticket's strongest evidence that a pattern match is not a check.
+```

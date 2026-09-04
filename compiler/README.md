@@ -261,3 +261,36 @@ The `.abstr` this compiler emits builds unchanged on **OTP 24, 25, 26, 27 and 28
 callable and the emitted `-spec` byte-identical on all five — see
 `wayfinder/research/13-otp-range-corpus.md`. Note the portable artefact is the **`.abstr`**, not the
 `.beam`: a 28-built `.beam` is `{error,badfile}` on 26.
+
+## Decisions entry
+
+<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
+     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
+     The `issues/…` link is relative to decisions.md, so it is fenced rather than
+     live — from inside issues/ it would point at nothing. -->
+
+```decisions-entry
+- [The walking skeleton, first slice](../compiler/README.md) — **built 2026-08-13, and the premise
+  that delayed it was stale.** The fog said the slice "cannot be phrased sharply until the language
+  surface exists"; that was written at charting, before any of the twenty-three resolutions, and it
+  is true only of the *whole* surface. A slice touching **only closed decisions** existed and was
+  invisible because nobody re-tested the claim. `.bs` in, callable `.beam` out: lex → parse →
+  exhaustiveness check → abstract format → `erlc +from_abstr`. **Host is Erlang** — `leex` and
+  `yecc` ship with OTP, and `merl`'s `?Q` quasi-quoting rides on a parse transform Elixir cannot
+  use, so ticket 13's freeing of the host language was exercised rather than merely enjoyed.
+  In: 01/04/08's multi-clause heads under a mandatory signature, 09/10's atoms and structural
+  unions, **20's exact-union algebra and real integer intervals**, 08's guards-as-type-operations,
+  12's failure arm, 13's Abstract Format with an emitted `-spec`. Out on purpose: records, generic
+  syntax, modules, imports, FFI, OTP behaviours, refinements, binaries. **Ticket 01's hand-verified
+  finding is now produced by a compiler** — four beam-sharp clauses, four native Erlang clause
+  heads, guard firing, and a *precise* spec (`{ok, integer()} | {error, atom()}`), not a widened
+  one. **Two of the eleven skeleton debts are discharged** (see the two struck-through entries
+  below), and **two bugs were found by tests, one of them a soundness bug**: an uncreditable guard
+  was subtracting its whole pattern, so `F(n) when Weird(n)` reported exhaustive — ticket 08's
+  "credits nothing" must mean the clause contributes *nothing*, and `Certain`/`Possible` are now
+  separate bounds. The other grew a lower bound from nothing on disjoint range subtraction
+  (`{64,64} \ {32,32}` gave `{33,64}`), which breaks the one property ticket 20 exists to
+  guarantee. **Names are emitted losslessly and quoted** (`'Readings':'Classify'`) — provisional,
+  and deliberately the option that pre-empts the modules fog least.
+```

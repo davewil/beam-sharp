@@ -76,6 +76,7 @@ jobs:
           ./compiler/bin/check-no-silent-skip.sh --self-test
           ./bin/check-map.sh --self-test
           ./bin/check-decisions.sh --self-test
+          ./bin/check-decisions-derived.sh --self-test
           ./bin/check-surface.sh --self-test
           ./bin/check-open-questions.sh --self-test
           ./bin/check-links.sh --self-test
@@ -184,6 +185,16 @@ jobs:
       # which had silently exempted it from every check that reads Status.
       - name: Every resolved ticket owns its own answer
         run: ./bin/check-decisions.sh
+
+      # And `check-decisions-derived.sh` asks what neither of the two above can:
+      # whether decisions.md still EQUALS the tickets it summarises. Stage 1 made
+      # the answer exist in one spelling; stage 2 (ENG-310) made decisions.md
+      # assembled from `decisions-entry` blocks, so the hand-edit that put ticket
+      # 44's decision inside ticket 63's bullet, and lost six entries entirely,
+      # has nowhere left to land. Every red here is fixed by editing the ticket
+      # and running `bin/gen-decisions.py --write`.
+      - name: decisions.md is what its tickets say it is
+        run: ./bin/check-decisions-derived.sh
 
       - name: Surface decisions are traceable from LANGUAGE.md
         run: ./bin/check-surface.sh

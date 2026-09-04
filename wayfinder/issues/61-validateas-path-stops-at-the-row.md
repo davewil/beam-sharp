@@ -103,3 +103,34 @@ Measured at the boundary afterwards, the probe's §3 form returns
 `(:error, (["[1]", "(2)"], "string"))` — row, component, narrow type, the reference's own
 promise — and the valve control says `(:ok, term, term)`. Tests: seven new
 (`validate_as_tests`, `types_tests`, `pipe_tests`), all seen red first; 509 pass.
+
+## Decisions entry
+
+<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
+     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
+     The `issues/…` link is relative to decisions.md, so it is fenced rather than
+     live — from inside issues/ it would point at nothing. -->
+
+```decisions-entry
+- **`ValidateAs`'s pathed error stops at the row** — [ticket 61](issues/61-validateas-path-stops-at-the-row.md),
+  raised by exemplar 25d on 2026-08-24 and resolved the same day; the series' first compiler-defect
+  ticket. Three defects in one term, and the first two shared a root: `t_absorb/1` compared
+  *distinct* members only, so a product unioned with itself survived twice — which `l_elem/1` does
+  for every `list<T>`, the element type being both the spine's prefix and its tail — and the doubled
+  member then read as ambiguity, stopping the validator's descent at the row with the expectation
+  printed as `X | X`. The same comparison had a worse edge, measured live before the fix: two
+  structurally different spellings of one product absorb each other and **both vanish**, a union of
+  two inhabited types reporting empty. One repair covers all of it — `t_absorb/1` folds to a maximal
+  antichain, keeping the first representative of equals — and `m_absorb/1` turns out to have fixed
+  the dedup half for records in isolation on an earlier day, which is why F18.7's record descent
+  always worked while 25d's tuple rows did not: a decided rule that never reached past its example.
+  The third defect was the printers': the exact top rendered as its six-way decomposition, and
+  `bs_api` had already met this and patched it *locally*, arguing the expansion is the point in a
+  residual. It is — for a *partial* residual, which never equals the top. The rule now lives in
+  `to_string/1` and `to_pattern/1` themselves: the exact top prints `term`, everywhere, and partial
+  residuals are still enumerated. Measured at the boundary afterwards:
+  `(:error, (["[1]", "(2)"], "string"))` — the row, the component, the narrow type, exactly as
+  `LANGUAGE.md` §10 promised, and the valve's cannot-fail diagnostic says `(:ok, term, term)` in the
+  author's own spelling.
+```

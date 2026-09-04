@@ -551,3 +551,45 @@ because the BEAM's term order is total over every term (measured:
 **§6's finding is amplified, not softened.** The inert polymorphic `-spec` now has a second
 consumer: ticket 16's generated encoder trusts a declared type the Erlang boundary does not
 enforce → [ticket 18](18-boundary-defence.md).
+
+## Decisions entry
+
+<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
+     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
+     The `issues/…` link is relative to decisions.md, so it is fenced rather than
+     live — from inside issues/ it would point at nothing. -->
+
+```decisions-entry
+- [Parametric polymorphism](issues/27-parametric-polymorphism.md) — **the language has real
+  parametric polymorphism, and it is the smallest version of it that works.** The ticket's question
+  was three questions wearing one coat, and only one was live: parameterised *constructors*
+  (`list<int>`) were already forced by 09/11 and are not polymorphism at all, parametric *aliases*
+  (`option<T>`) arrived near-settled from 10, and only **polymorphic function signatures** were
+  open. Yes — on a cost argument the map must now protect: the frightening results attach to
+  *inference* and to *intersection-typed* functions, and **beam-sharp had already refused both for
+  unrelated reasons** (04 made signatures mandatory; 08 settled one arrow per arity with union
+  parameters, so a function type is `(A|B) -> (C|D)`, never `(A->C) & (B->D)`). Instantiation is
+  therefore matching, not solving — and **§3 unbounded and §7 no-row-polymorphism are what keep
+  that true**, not independent preferences. Four rules: variables are **opaque in clause heads and
+  guards** (a bare variable admits exactly one clause — bind it; structure *around* it matches
+  freely, so `Map`'s `[]`/`[h, ..t]` are exhaustive at the definition for every instantiation);
+  **unbounded**, with capability constraints deferred to ticket 16 because a bound is *ad-hoc*
+  polymorphism wearing a bracket; **declared, C# `T`-convention** — forced, because beam-sharp's
+  builtins are lowercase, so lowercase-implicit is ambiguous where Gleam's is not; and **variance
+  is not a concept**, since 09's abolition of nominality leaves nothing to annotate or infer.
+  *Rejected: monomorphise per call site* — it fights ticket 13's aggregate granularity, and works
+  *inside* an aggregate while failing exactly where a shared `List.Map` lives. <!-- the "and hot
+  loading / separate compilation" half of this line cited 13's standing obligation; corrected
+  2026-08-27, see 27's leg B and 16's amendment of that date --> Two measurements: **an emitted polymorphic `-spec` is documentation, not
+  enforcement** (Dialyzer reads the variables as `any()`; the monomorphic control fires), so
+  **choosing generics made the boundary strictly weaker → ticket 18**; and **syntax recovers an
+  element-type relation with zero polymorphism** (`roundtrip` preserves `[integer()] -> [binary()]`
+  where the same computation through an opaque fun collapses to `[any()]`), which is why row
+  polymorphism was declined — `with`/spread already covers the case that would demand a row
+  variable. Forced consequences: **codegen obligations require a ground type argument**, so
+  `ValidateAs<TSource>` is rejected inside a polymorphic function; and **polymorphic recursion is
+  permitted** because 04 already paid for mandatory signatures — the undecidability is about
+  inference. **Ticket 16 is unblocked**, and inherits the rule that names its own boundary: *a type
+  variable is a slot for values you carry; a union is a slot for values you examine.*
+```

@@ -127,3 +127,21 @@ nominal and closed** — a declared, fixed set of case types — whereas **TypeS
 set-theoretic unions are structural and open**. BEAM data is structural and carries no
 nominal identity. The headline feature pulls structural; the syntax goal pulls nominal.
 Deferred to ticket 09.
+
+## Decisions entry
+
+<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
+     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
+     The `issues/…` link is relative to decisions.md, so it is fenced rather than
+     live — from inside issues/ it would point at nothing. -->
+
+```decisions-entry
+- [Charting: differentiator, typing stance, scope](issues/00-charting-decisions.md) — the
+  language exists for the multi-clause heads Gleam explicitly refuses; typing is
+  static-by-default set-theoretic with enforced cross-clause exhaustiveness; tooling,
+  stdlib breadth, macros and alternative backends are out of scope. **Audited 2026-08-15 — all
+  four are boundaries on *this map*, and none is a refusal: three wait on a use case, and
+  alternative runtimes/backends wait on traction and a request. See Out of scope, which now says
+  which is which and what a requester inherits.**
+```

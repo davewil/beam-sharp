@@ -303,3 +303,83 @@ either way** and this can flip later without a breaking change.
    there is no tunable because the rule degenerates to the exact form at small width. §4.
 4. **Whether the complement is computed** — no. It is never the smallest form, and it is large in
    exactly the case that made this ticket. §0.
+
+## Decisions entry
+
+<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
+     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
+     The `issues/…` link is relative to decisions.md, so it is fenced rather than
+     live — from inside issues/ it would point at nothing. -->
+
+```decisions-entry
+- **An inexhaustive residual truncates at three cases** — [ticket 43](issues/43-residual-summarised-form.md),
+  resolved 2026-08-16. F2.4 asked what the compiler emits when 40 singleton clauses leave a residual
+  of 41 disjoint intervals. The answer is that **the prose prints the exact residual with a stop in
+  it** — three cases, then `... (K more)` — **and nothing else summarises**: not the term, not the
+  synthesised head, and no complement is computed. Measured throughout by
+  [`43a`](prototypes/43a_residual_at_width.escript), which drives the real `bsc` for what is printed
+  and works in `bs_types` for the shapes that are functions of the residual term.
+
+  **Two of the ticket's own premises were wrong, and the corrections are the whole answer.** Hole 1
+  asserted that 41 intervals *"lower to 41 heads"*; measured, `bsc` prints **one** head of **453
+  characters**, because `heads/2` in `compiler/src/bsc.erl` splits on the tuple part — one product
+  per *argument position* — and a union of intervals lives inside a single argument. The 41-head
+  claim describes [ticket 23](issues/23-what-the-language-owes-an-agent.md) §2's lowering, which is
+  unbuilt. So Hole 1's *"there are two artefacts and F2.4 asked about one"* is a conditional, not a
+  fact, and §3 of the answer gives both one rule anyway: **truncate at three of whatever the printer
+  is enumerating** — intervals inside the one head today, head lines once §2 lowers.
+
+  **Naming the unit per stage is the part that had to be got right, and the first draft got it
+  wrong** — it said "three heads", which would truncate *nothing* today, because §0 had just
+  established that today there is only one head. The correction is recorded rather than quietly
+  fixed because it is the same failure in miniature that the ticket exists to correct: the rule was
+  stated in the units of the premise that had already been measured false. After §2 the unit *must*
+  become heads, since a residual over two arguments is a product and an interval rule would then
+  print an unbounded number of lines.
+
+  **The complement was refused on measurement, not on the finiteness argument the ticket expected.**
+  Its aside — *"for an unbounded `int` the complement is not finite"* — is wrong: the complement of
+  the residual is the **covered** set, finite whenever the clauses cover finitely much, which is
+  25c's case exactly. It loses on size instead, and never wins: 22 chars against `exact`'s 20 when
+  the singletons are contiguous, 245 against 432 when they are scattered, 25 against 11 and 237
+  against 404 over a closed octet. **The residual and the covered set are long together** — a covered
+  set dense enough to state as a short exclusion is one that made the residual coalesce, and a
+  residual that sprawled did so because the covered set was scattered, which its own rendering then
+  is. Hole 2's intuition that *"40 named singletons out of a bounded octet is small to state as an
+  exclusion"* is measurably false in the case that raised the ticket.
+
+  **The shape was chosen because it is not a second format.** At or under three cases it prints
+  byte-identically to what the compiler prints today, so the *"why did the format change"* confusion
+  Hole 3 raises cannot arise — there is nothing to switch into. Every rival candidate must switch,
+  because each *replaces* the residual with a description of it and none can render a two-interval
+  residual without being worse than the enumeration (49, 22 and 24 characters against 20, and none
+  of them says what the missing case is). The decisive measurement is that **cardinality degenerates
+  on the open residual**: over `int` the count is unbounded, so `bounds and count` reads
+  `41 intervals spanning -inf..+inf, unbounded values` and cardinality-only reads
+  `unbounded unnamed values`. A shape that says nothing on the open case cannot be the general one,
+  and until F2 lands *every* residual is open.
+
+  **The threshold's unit was measured rather than argued, and turned out not to matter.** Hole 3
+  claimed the units disagree — *"three intervals over `int` render longer than twenty over
+  `0..255`"*. They do not: 3 over `int` is 30 characters (60 with 19-digit bounds, built adversarially),
+  20 over `0..255` is 100, and interval count and character length order every case identically. So
+  character length is not load-bearing and the testable unit wins. **There is also no threshold in
+  the tunable sense**: this takes Hole 3's *"no threshold at all"* option, and the truncated-exact
+  shape is what makes it free, since always-on costs a small residual nothing. No flag, no switch.
+
+  **One thing is defaulted rather than settled, and it is flagged as David's.** Ticket 12 §2 makes a
+  catch-all an *error* over a **closed** residual, so after F2 an octet with 40 scattered clauses has
+  41 clauses to write and no `_` available — the enumeration *is* the checklist, and truncating hides
+  work. Default taken: **truncate anyway**, because the term keeps all 41, `bsc --api` (23 §10) is
+  the full-fidelity channel, and printing in full for closed residuals reintroduces exactly the
+  format switch this shape was chosen to avoid, keyed on something the reader cannot see. The delta
+  if the other answer is wanted is one argument to `heads/2` — the checker already knows whether the
+  residual is closed, because 12 §2 already tests it — and it changes nothing F2 builds, so **F2 is
+  unblocked either way** and this flips later without a breaking change.
+
+  **The compiler gains one truncation and nothing else.** `bs_types` gains nothing: every shape
+  considered is a function of the residual it already produces, and the chosen one is the printer it
+  already has. 23 §4's descriptor gains nothing, so this ticket freezes nothing new into the
+  published contract.
+```

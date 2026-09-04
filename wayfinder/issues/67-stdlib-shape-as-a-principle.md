@@ -468,3 +468,30 @@ decision moved, in place and dated, not the compiler.
 - **Chores:** [ENG-322](https://linear.app/davewil/issue/ENG-322) — "prelude" ×8 in `LANGUAGE.md`, and `PRELUDE.md`'s name.
 - **Out of scope, still:** which operations `List` has. Breadth is the map's boundary; `Binary.Append`
   (25b) is the next qualifier the corpus will ask for and is not decided here.
+
+## Decisions entry
+
+<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
+     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
+     The `issues/…` link is relative to decisions.md, so it is fenced rather than
+     live — from inside issues/ it would point at nothing. -->
+
+```decisions-entry
+- **Stdlib shape as a principle** — [ticket 67](issues/67-stdlib-shape-as-a-principle.md),
+  raised 2026-08-31 by the §19-as-queue rule, resolved 2026-09-03. **`List` is an operation set the
+  compiler knows, not a module it ships**: every collection operation is inlined at its site under a
+  **reserved qualifier**, `List` and `Term` join `Map`, no `List.beam` ships, and the standard
+  environment is closed by construction — which answers 65's first question. The issue's own
+  *"Erlang-ish, C#-ish or Gleam-ish"* was already answered cell by cell by closed tickets; the live
+  question was `LANGUAGE.md` calling `List.Map` *a B# module* on one page and *compiler-known,
+  inlined* on another. **Two kinds of entry, and the line is whether a `.bs` file could have said
+  it**: *declared* (`option`, `result`, `foreign_error`) and *compiler-known* (the builtins, the
+  obligations, everything under a reserved qualifier) — the criterion `bs_check` had applied since
+  F1, surviving the three `PRELUDE.md` recorded as falsified. **Nothing unqualified is a function**:
+  `raise` is grammar, as 12 §5 spelled it; `hd`/`tl`/`length`/`elem` do not exist. `ToExistingAtom`
+  returns `result<atom, string>`; the order escape is `Term.Compare` → `:lt | :eq | :gt`; a user
+  module also called `List` is refused at the call site, 47's rule. `bool` was always a builtin —
+  ticket 10 corrected in place. Elixir measured on the way: `List` and `Enum` are shipped beams, only
+  four BIFs and `for` are inlined, so B# draws the line where Elixir's `hd` is. Unbuilt — ENG-321.
+```

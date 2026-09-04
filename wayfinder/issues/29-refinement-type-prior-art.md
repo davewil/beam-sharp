@@ -147,3 +147,30 @@ on; and what happens when a user predicate itself raises (ticket 15's `result<T,
 AFK. Raised 2026-08-13 immediately after ticket 20 resolved, on David's call, because the ticket
 invented a mechanism without checking who had built one before. Does not block anything; ticket
 20 stays closed.
+
+## Decisions entry
+
+<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
+     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
+     The `issues/…` link is relative to decisions.md, so it is fenced rather than
+     live — from inside issues/ it would point at nothing. -->
+
+```decisions-entry
+- [Refinement types in shipping languages: what did ticket 20 reinvent?](issues/29-refinement-type-prior-art.md)
+  — the prior-art pass ticket 20 was resolved without. **Nothing it decided is wrong**, and the
+  amendments are folded into 20's entry above; what belongs to *this* ticket is the verdict.
+  **Ada corroborates the two-tier structure and contradicts the cut** — it divides on the
+  predicate's *syntactic form*, not its cost, so beam-sharp's O(1) line is **attested nowhere in the
+  prior art surveyed** (Ada, Liquid Haskell, F\*, Nim, Whiley, Dafny) and is a tier-3 divergence
+  rather than the map's recurring rule applied again. The relation is **containment**: every Ada
+  static predicate is one BEAM guard, so beam-sharp liberalises a line Ada drew for want of a
+  platform-given decidable predicate language. **Solver-free interval refinement does ship** — CDuce
+  0.6.0 measured at last, exact including complement, no SMT linked, free at 40 clauses and quadratic
+  past ~200 — which is what turns 20's affordability argument from asserted into demonstrated. And
+  **GNATprove discharges an O(n) content predicate statically when the caller's contract entails
+  it**, the measurement that narrowed 20's blanket refusal to a placement rule. Method note worth
+  keeping: the borrow heuristic ran *correctly* and still missed this, because it has no rung for a
+  language neither audience uses which solved exactly this problem — the reason to raise a prior-art
+  ticket is the mechanism being invented, not the heuristic misfiring.
+```

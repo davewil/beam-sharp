@@ -604,3 +604,47 @@ the human reviewer and onto the channel whose primary consumer is a program.
 - **A question to the map's _imports and cross-module scope_ fog**: §11 declined to decide whether
   anything should *forbid* an edit in one file changing another's meaning, because making the
   dependency explicit is that patch's business.
+
+## Decisions entry
+
+<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
+     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
+     The `issues/…` link is relative to decisions.md, so it is fenced rather than
+     live — from inside issues/ it would point at nothing. -->
+
+```decisions-entry
+- [What the language owes an agent that writes it](issues/23-what-the-language-owes-an-agent.md) —
+  **the ticket's premise was wrong in the language's favour**: the platform already has three
+  diagnostic channels and beam-sharp inherits all of them, measured in
+  [`23a`](prototypes/23a_otp_diagnostic_channels.sh) — `compile:file/2`'s
+  `{Location, Module, Descriptor}` with prose derived by `format_error/1`, the `abstract_code`
+  chunk carrying the emitted forms verbatim, and `error_info` carrying a structured `cause` at
+  runtime since OTP 24. **So Elm's port failure was never inevitable.** What *is* attested is the
+  failure mode: **`erlc` publishes none of its own structured form** — no flag recovers it — so the
+  platform builds the value and destroys it exactly where the consumer stands. **The term is the
+  diagnostic and the prose is a pure function of it**, published at the CLI, with JSON as a second
+  encoding reusing 16 §4's owed serialisation mapping (`json` ships in stdlib and **refuses
+  tuples**, which is what these diagnostics are made of). **The compiler synthesises the clause
+  head and never the body** — a head is derived from the residual and cannot be wrong, a body is a
+  guess — and **where the residual is not guard-expressible it says so and offers nothing**, which
+  is exactly ticket 20's opaque tier. **Only a named subset is contractual** (`inexhaustive`,
+  `defended`, `unreachable_clause`), the test being *does it hand the agent something to write*;
+  payloads are **maps not tuples** so additive change cannot break a matcher. That is narrower than
+  OTP, which documents the envelope and leaves the descriptor opaque — a position that works for
+  `{unbound_var,'Y'}` and fails for a residual. **18's boundary question is answered on that same
+  channel**, its objection dissolved rather than overruled. **A stub is legal**: its residual is the
+  whole declared type, so refusing to compile withholds the most informative diagnostic the language
+  has, and `no_clauses` stops being a special case. **The generator smuggles in no crash policy**,
+  and emits a *named* stub type rather than `term` because a `term` return decays invisibly.
+  **Blast radius is complete within the compilation unit** — free, because 13 made the directory the
+  module — and silent beyond it. Two rules did work here rather than decorating: `error_info` is
+  attached **only to compiler-generated code**, because that is where a reviewer has no source
+  (11's counterweight, answered), and *read cost keeps full weight* **changed an answer** — three
+  markers per scaffolded operation became one, with the compiler enumerating the holes, since an
+  unwritten clause is a residual it can compute. One line of skeleton prose was cut in the session
+  as a worked instance: *"the residual is the clause you must write"* narrated the mechanism where
+  the two lines above it stated the fact. **Scope clarification, general (David)**: the map's
+  out-of-scope *tooling* entry rules out the **ecosystem track**, not any capability that happens to
+  serve tooling — a `bsc --api` query mode is in.
+```

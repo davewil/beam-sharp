@@ -79,3 +79,21 @@ a legitimate answer, though it supplies no semantics or exhaustiveness story.
 
 AFK. Feeds ticket 09 directly. Added during charting after the C# 15 union feature turned
 out to be much further along than assumed.
+
+## Decisions entry
+
+<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
+     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
+     The `issues/…` link is relative to decisions.md, so it is fenced rather than
+     live — from inside issues/ it would point at nothing. -->
+
+```decisions-entry
+- [C# 15 `union` and TypeScript discriminated unions](issues/07-csharp15-and-ts-unions.md)
+  — C# unions are **preview, not shipped**, and the design is still moving (champion issue is
+  #9662, not #8928; no primary source for "GA Nov 2026"). They are nominal, closed struct
+  wrappers; exhaustiveness only suppresses a *warning*. **The rejected designs matter more**:
+  C# killed both structural/erased union designs on CLR artefacts — reified generics and
+  nominal identity — **and neither rock exists on the BEAM**. TypeScript is structural but
+  stops short of set-theoretic (syntactic intersections, no negation, opt-in exhaustiveness).
+```

@@ -589,3 +589,48 @@ the same instinct that made `Order` and `Invoice` distinct in §1.
   and §4's absence of optional fields, there is nothing left to hand over — a wider record is
   simply a different type.
 
+
+## Decisions entry
+
+<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
+     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
+     The `issues/…` link is relative to decisions.md, so it is fenced rather than
+     live — from inside issues/ it would point at nothing. -->
+
+```decisions-entry
+- [Data modelling: records, and what named types erase to](issues/26-data-modelling.md) — **a record
+  erases to a map, and `record` is sugar for a minted tag — but everything stays structural.**
+  `type X = { ... }` remains the alias ticket 09 settled; a second form desugars to a `type` whose
+  field set carries a discriminating tag minted from the type's *qualified* name. **The name enters
+  the term, as data, never the type algebra** — the test that proves it is not nominality is that a
+  hand-written `type` with the same tag *is* the same type, which is also why codegen (15's
+  `ValidationError`, 18's foreign declarations, `ValidateAs<T>`) needs no privileged constructor.
+  **This amends 09's inventory and not its reasoning**: union closure, negation, the boundary and
+  exhaustiveness all survive, where real nominality would have cost all four. **David forced it on
+  DDD identity** — under 09 as written, `Order` and `Invoice` over identical fields are one type, so
+  `Update(Order o)` accepts an `Invoice` and `Order | Invoice` is not a union of two things; a
+  hand-written tag fixes that but is *omittable*, and an omitted tag unifies two aggregates in
+  silence. **Elixir is measured into this position rather than cited**: `Module.Types.Descr` types a
+  struct as an **open map over an atom singleton** with no nominal construct anywhere, identical
+  fields with different tags come back disjoint, and struct exactness is a compile-time courtesy the
+  term model does not carry (`Map.put` widens one and it still satisfies `is_struct/2`). **The number
+  ticket 18 asserted is now measured and lands the good way**: the map discriminator is +29 B against
+  the tuple's +13 B, but a *tagged* map is **+14 B and flat in field count**, because `map_get/2`
+  fails a guard silently on an absent key — so **the DDD requirement and the cheapest possible
+  boundary guard want the same thing**. Guard content follows 18's own rule with no new one: tag test
+  always, presence and value tests per 18 §1, exact-set test only where a codegen obligation consumes
+  the record. Surface: **`with` alone, spread refused** — spread's defining capability is widening,
+  which 27 §7 closed, and a non-widening spread is `with` with a second spelling, so **27 §7's debt
+  is paid rather than reopened**; **construction names the type** (`Order { Id = "A-1" }`),
+  target-typing refused on read cost; **the separator is `=` where declarations and patterns use
+  `:`** — C#'s own split, forced independently because `Status: :placed` puts two colons adjacent;
+  **the dot projects**, disambiguated *lexically* by casing rather than by type (`o.Status` vs
+  `List.Map`), legal over a union where every member carries the field and **free there only because
+  §1 chose maps** — a tuple erasure would have needed real dispatch. **No absent fields**: every
+  declared field is always present, optionality is `option<T>`, and `?` is refused because *k*
+  optional fields denote **2^k shapes** for a guard 18 emits everywhere — with the modelling
+  consequence being the point, since an optional field is usually two record types wearing one name
+  and §1 just made that cheap. Sharpest downstream consequence: **ticket 25 is unblocked in
+  practice**, four of its six exemplars having waited on exactly these constructs.
+```

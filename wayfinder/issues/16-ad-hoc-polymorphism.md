@@ -621,3 +621,86 @@ extension" would not predict that the type side is reachable.
   the rule was tested against.
 - Whether a user may **add** to prelude stratum 2. Unchanged and still open; §8 narrows the
   criterion question without answering it.
+
+## Decisions entry
+
+<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
+     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
+     The `issues/…` link is relative to decisions.md, so it is fenced rather than
+     live — from inside issues/ it would point at nothing. -->
+
+```decisions-entry
+- [Ad-hoc polymorphism](issues/16-ad-hoc-polymorphism.md) — **the language gets no ad-hoc
+  polymorphism construct, and the hole ticket 05 flagged was half imaginary.** The three
+  motivating capabilities were *measured* before being designed for and land in three different
+  buckets, none of which is dispatch: a capability the type determines becomes a **codegen
+  obligation**; a capability over a set known at the definition is a **union parameter** with a
+  clause each; a capability over an unknown set is **passed as an argument**. Protocols died on
+  ticket 13, not on taste — open extension needs whole-program consolidation, which fights
+  13 §3's coincidence of consistency unit and deployment unit, *the same argument 27 used against
+  monomorphisation*; **hot loading is a consequence of that coincidence, not a second ground**
+  (re-derived 2026-08-27) —
+  and the static-closed variant is bucket 2 with ceremony, which **corrects this ticket's earlier
+  "consolidation by construction"** line. Measured: the BEAM's term order is **total across every
+  type** (`1 < :ok` is `true`), so "anything comparable" needs no mechanism — but `<` is
+  restricted to **same-type operands** with the universal order kept as a *named* prelude escape
+  (`ordered_set`, mixed-key sorting). **`==` means `=:=`**, decided on internal agreement rather
+  than familiarity: Erlang's `==` coerces through tuples, lists and map *values* then **stops at
+  map keys**, while the clause head and `maps:get` do not coerce at all — so the exact spelling
+  agrees with two constructs and disagrees with none. The generation rule is **the type determines
+  the result, inherently or by published decree**; serialisation qualifies by decree because
+  `json:encode/1` **fails on tuples at any depth, at runtime**, and tuples are this language's
+  workhorse (09's newtype remedy, 15's `(:error, E)`) — generation moves that to compile time, and
+  **only the encode direction is new** since decode is `ValidateAs<T>` after a parse. `<` and `==`
+  work on **bare type variables** (total, non-dispatching, cannot fail), so `Sort<T>` and `Max<T>`
+  are free — and **bounds are refused outright**, not deferred: both routes to discharging one are
+  closed by 09 and 27, which **retires 27's cost measurement**. Finally, **ticket 05 miscategorised
+  extension methods** (David) — one debt, not two; the call-syntax half was always 17's and the
+  overloading half was always 08's, leaving *static abstract interface members* as the whole real
+  hole, and **a codegen obligation is exactly that with the compiler writing the implementation**.
+  Sharpest downstream consequence: **ticket 18 gains a consumer** — a generated encoder trusts a
+  declared type the boundary does not enforce, and crashes inside code no one reviewed.
+```
+
+```decisions-entry
+- **AMENDMENT 2026-08-14 to [ticket 16](issues/16-ad-hoc-polymorphism.md) — one of its two reasons
+  for refusing protocols was invalidated by ticket 26 and nobody went back.** David, stating 26's
+  intent: *"Exactly records, that's why they were introduced alongside `type` — for protocol
+  dispatch."* 16 refused protocols because **dispatch cannot key on a name that is not in the term**
+  (09 §5) *and* because open extension needs whole-program consolidation (13). **26 §1 put the name
+  in the term** — a minted tag, as data — so the first reason is gone and only the second stands.
+  **The refusal narrows from "no protocols" to "no *open* protocols".** What 16 wrote up as "bucket 2
+  with ceremony" — a union parameter with a clause each — **is** protocol dispatch once the tag is in
+  the term, checked exhaustive at the definition, and needs no construct because the language's
+  headline feature already is the dispatch construct. What remains refused is a second aggregate
+  adding a case without editing the first — attributed here to **13's constraint**, which
+  **ticket 13 does not contain**; corrected 2026-08-27, next entry. 16's headline survives and reads stronger: the capability arrives *without* an
+  ad-hoc polymorphism construct. Note for the record — **26 was not a data-modelling decision that
+  happened to help here; records were introduced for this**, and 26's own entry does not say so.
+```
+
+```decisions-entry
+- **AMENDMENT 2026-08-27 to [16](issues/16-ad-hoc-polymorphism.md) and
+  [27](issues/27-parametric-polymorphism.md) — both cite a constraint ticket 13 does not contain.**
+  Prompted by David asking whether not needing hot code loading changes the open-extension answer.
+  **It does not, and the design is unchanged** — what changes is why. Ticket 13 discusses unions,
+  protocols and whole-program compilation nowhere; "aggregate granularity and hot loading" was 16's
+  own characterisation of 13 §§2–3, written 2026-08-14 and never checked against 13. Re-derived:
+  **13 §2 is not available** — the obligation forbids *in-process compiler state* so `.abstr` +
+  `erlc` always works, not a build-time pass over sources, and `bsc` already threads a `World` across
+  the transitive `using` closure (`bsc.erl:278`), with `rebar_mix` consolidating 14 `Jason.Encoder`
+  impls measured working on this platform (51 §119). **13 §3 is available, and hot loading is not
+  why** — consolidation makes A's `.beam` depend on B's source, breaking *"the consistency unit and
+  the deployment unit coincide"*, so the ground survives with hot loading removed entirely.
+  **A stronger ground exists that 16 never had**: `bs_api.erl:22` — *"a type name does not cross the
+  module boundary"* — so B cannot name A's union at all; architectural, and it should lead.
+  research/07's "permitted set at the declaration, not by scanning" is **suggestive only** — it
+  carries the LDM's own caution that it be measured. **The refusal is a deferral with an inherited,
+  checkable trigger**: 01d §129-131 and `13:202` — *open extension becomes available iff the
+  operation replaces the aggregate as the unit of deployment*; 01d rules observability out itself
+  (`dbg:tpl` traces a function). Note the coupling — that trigger is reachable **only while hot
+  loading is retained**; drop it and the deferral becomes a plain rejection. 27 survives intact,
+  losing one leg of one sub-argument to the same miscitation and keeping it on a fact its prose never
+  stated: knowing every module in the `using` closure is not knowing every instantiation.
+```

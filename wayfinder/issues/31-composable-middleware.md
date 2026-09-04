@@ -303,3 +303,42 @@ the six exemplar workloads — with one named gap (§3) and one naming cost (§2
   documents an invocation that does not work — map keys must be quoted atoms
   (`#{'Kind' => 'Shop.Invoice', …}`), and the unquoted form in the comment is rejected with
   `cannot read … as a value`.
+
+## Decisions entry
+
+<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
+     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+     editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
+     The `issues/…` link is relative to decisions.md, so it is fenced rather than
+     live — from inside issues/ it would point at nothing. -->
+
+```decisions-entry
+- [Composable middleware, and what the valve reaches](issues/31-composable-middleware.md) —
+  **`|?>` expresses it, and the gap is one stage-shape rather than a mechanism.** The chain
+  `Auth(req) |?> Quota() |?> Dispatch()` compiles and runs; a halting stage stops the pipeline and
+  its response reaches the caller **unchanged through two intervening stages**, so routing really is
+  one stage near the end. Measured rather than argued
+  ([`31d-middleware-measured`](prototypes/31d-middleware-measured/Middleware/middleware.bs)), which is what the
+  2026-08-18 note on the ticket asked for once F14 made the valve real. **The cost is one word, not a
+  shape**: a terminal stage never passes through, so it is declared `(:error, Response)` and the
+  pipeline has **one** member — the unwrap is one clause the compiler proves is enough, which
+  neither Plug nor ASP.NET Core can state, since in both a halted and a live value have the same
+  type. What is wrong is the atom: a `200 OK` is spelled `(:error, _)` and that reaches the `-spec`
+  and the crash report. **The two-clause unwrap this entry first reported was an artefact** of a
+  probe that declared the router over `Response`; 31c had already written the better shape and this
+  session nearly missed it. **Ticket 15 §1's collapse does not fire** — on the algebra, not on the
+  measurement first claimed: `validate_collapses/2` has one caller, the `ValidateAs<T>` site, so a
+  user declaration never reaches it. Chasing that found **half of 15 §1 unbuilt**:
+  `type Absorbed = atom | :nothing`, its own worked degenerate case, compiles.
+  **The one thing it cannot say is in-the-chain-and-still-runs** — a stage observing both outcomes is
+  piped with `|>` and wraps the chain from outside, where Plug's logging plug sits *mid-list* and
+  still sees halted conns. That is also where the ticket's own premise was wrong: `halt/1` sets a
+  flag checked *between* stages and `before_send` still fires, where the valve returns and nothing
+  downstream runs at all. **The `Plug.Builder` worry restated**: a runtime list of stages has no
+  spelling for want of an arrow type, but that is deferred to ticket 37 rather than refused, and
+  Builder assembles at compile time too — alignment, not a gap. Two smaller findings owed onward:
+  stage-local state is `list<(atom, term)>` because `with` is width-preserving and there is no map
+  type (→ ticket 48), and a stage dispatching on a **field projection** needs a catch-all, since
+  guards discharge the residual on a bare parameter and **not** on a projection (controlled for).
+  **25a is now rewritable as a pipeline**, which its own notes call the largest thing wrong with it.
+```
