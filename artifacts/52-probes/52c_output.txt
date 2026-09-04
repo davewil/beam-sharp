@@ -1,0 +1,6 @@
+code:which('Elixir.Req')                     = /tmp/tmp.e6VsQ3mLOy/req/ebin/Elixir.Req.beam
+app dir one level up from ebin/               = /tmp/tmp.e6VsQ3mLOy/req
+app name derived purely from directory layout = req
+
+=== Control: what happens if the SAME module atom is asked for and it is NOT on the path? ===
+code:which('Elixir.NoSuchDep') = non_existing

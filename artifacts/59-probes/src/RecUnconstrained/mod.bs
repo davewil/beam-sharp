@@ -1,0 +1,6 @@
+module RecUnconstrained
+record Order { Id: int, Total: int }
+public atom Call(int id, int total)
+Call(id, total) -> F(Order{ Id = id, Total = total })
+private atom F(Order o)
+F(o) -> :ok

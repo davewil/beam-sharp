@@ -1,0 +1,31 @@
+=== 1. Every place '[' or ']' appears as a grammar TERMINAL use in bs_parser.yrl ===
+28:  '=' '|' '|>' '|?>' ',' '(' ')' '[' ']' '{' '}' '..' '.' ':' '?'
+541:pattern -> '[' ']'          : {p_nil, line('$1')}.
+542:pattern -> '[' plist_items ']' :
+563:%% "syntax error before: '['". `..[]` was ticket 53's answer and is used four
+565:plist_items -> '..' '[' ']'             :
+569:plist_items -> '..' '[' plist_items ']' :
+748:expr -> '[' ']'          : {e_nil, line('$1')}.
+749:expr -> '[' elist_items ']' :
+
+=== 2. The full 'decl' alternation -- every top-level declaration form the parser accepts ===
+79:decl -> module_decl : '$1'.
+80:decl -> type_decl   : '$1'.
+81:decl -> signature   : '$1'.
+82:decl -> clause      : '$1'.
+83:decl -> foreign_decl : '$1'.
+84:decl -> behaviour_decl : '$1'.
+85:decl -> record_decl : '$1'.
+86:decl -> using_decl  : '$1'.
+
+=== 3. The foreign declaration production, verbatim, as it exists TODAY ===
+134:foreign_decl -> 'using' atom_lit '{' foreign_sigs '}' :
+135-    {foreign, line('$1'), value('$2'), '$4'}.
+
+=== 4. Every .bs file in the repo: does any line begin with '[' (an attribute)? ===
+files with a line starting '[': 2
+./compiler/examples/exemplars/25e-dynamic-web-page/render.bs:21:                  [("content-type", "text/html; charset=utf-8"),
+./compiler/examples/exemplars/25d-database-querying/sql.bs:14:     [s])
+./compiler/examples/exemplars/25d-database-querying/sql.bs:17:     [s, c])
+./compiler/examples/exemplars/25d-database-querying/sql.bs:20:     [s, min])
+./compiler/examples/exemplars/25d-database-querying/sql.bs:23:     [s, min, c])

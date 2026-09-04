@@ -1,0 +1,14 @@
+--- /home/user/beam-sharp/compiler/src/bsc.erl	2026-09-04 13:56:40.686494147 +0000
++++ src/bsc.erl	2026-09-04 23:18:56.220924894 +0000
+@@ -252,6 +252,11 @@
+                                      %% refusal can say `private` rather than
+                                      %% `unknown`.
+                                      private => bs_check:private_of(Decls),
++                                     %% PROTOTYPE for ticket 60 — the fourth
++                                     %% field a callee's World entry carries,
++                                     %% same construction shape as the other
++                                     %% three.
++                                     friends => bs_check:friends_of(Decls),
+                                      behaviours => [B || {behaviour, _, B} <- Decls]}},
+             build(Rest, Opts, World1, [{Dir, Beam} | Acc]);
+         Error ->

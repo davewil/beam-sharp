@@ -1,0 +1,135 @@
+=== attempted: elm init (real command, real failure) ===
+Hello! Elm projects always start with an elm.json file. I can create them!
+
+Now you may be wondering, what will be in this file? How do I add Elm files to
+my project? How do I see it in the browser? How will my code grow? Do I need
+more directories? What about tests? Etc.
+
+Check out <https://elm-lang.org/0.19.2/init> for all the answers!
+
+Knowing all that, would you like me to create an elm.json file now? [Y/n]: -- PROBLEM LOADING PACKAGE LIST ------------------------------------------------
+
+I need the list of published packages before I can start initializing projects,
+so I tried to fetch:
+
+    https://package.elm-lang.org/all-packages
+
+But my HTTP library is giving me the following error message:
+
+    ProxyConnectException "package.elm-lang.org" 443 (Status {statusCode = 403, statusMessage = "Forbidden"})
+
+Are you somewhere with a slow internet connection? Or no internet? Does the link
+I am trying to fetch work in your browser? Maybe the site is down? Does your
+internet connection have a firewall that blocks certain domains? It is usually
+something like that!
+
+exit: 1
+
+=== proxy status for the denied host ===
+{
+  "enabled": true,
+  "port": 40603,
+  "caBundlePath": "/root/.ccr/ca-bundle.crt",
+  "hasSystemCa": true,
+  "noProxy": "localhost,127.0.0.1,::1,127.0.0.0/8,0.0.0.0/8,::,169.254.0.0/16,api.anthropic.com,api-staging.anthropic.com,api-pr-preview.anthropic.com,mcp-proxy.anthropic.com,mcp-proxy-staging.anthropic.com,registry.npmjs.org,jsr.io,npm.jsr.io,pypi.org,files.pythonhosted.org,index.crates.io,proxy.golang.org,host.docker.internal,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,100.64.0.0/10,.svc.cluster.local,*.svc.cluster.local",
+  "selective": false,
+  "standalone": false,
+  "toolScoped": false,
+  "installedProxyPreconfiguredClis": [],
+  "javaTrustStorePath": "/root/.ccr/java-truststore.p12",
+  "readmePath": "/root/.ccr/README.md",
+  "gitConfigInjection": true,
+  "gitSshRewrite": true,
+  "recentRelayFailures": [
+    {
+      "ts": "2026-09-04T23:06:10.681Z",
+      "kind": "connect_rejected",
+      "detail": "gateway answered 403 to CONNECT (policy denial or upstream failure)",
+      "host": "ppa.launchpadcontent.net:443"
+    },
+    {
+      "ts": "2026-09-04T23:06:10.960Z",
+      "kind": "connect_rejected",
+      "detail": "gateway answered 403 to CONNECT (policy denial or upstream failure)",
+      "host": "ppa.launchpadcontent.net:443"
+    },
+    {
+      "ts": "2026-09-04T23:06:12.933Z",
+      "kind": "connect_rejected",
+      "detail": "gateway answered 403 to CONNECT (policy denial or upstream failure)",
+      "host": "ppa.launchpadcontent.net:443"
+    },
+    {
+      "ts": "2026-09-04T23:06:13.193Z",
+      "kind": "connect_rejected",
+      "detail": "gateway answered 403 to CONNECT (policy denial or upstream failure)",
+      "host": "ppa.launchpadcontent.net:443"
+    },
+    {
+
+=== substitute: a real elm/core package manifest (package-type elm.json), fetched from GitHub ===
+{
+    "type": "package",
+    "name": "elm/core",
+    "summary": "Elm's standard libraries",
+    "license": "BSD-3-Clause",
+    "version": "1.0.5",
+    "exposed-modules": {
+        "Primitives": [
+            "Basics",
+            "String",
+            "Char",
+            "Bitwise",
+            "Tuple"
+        ],
+        "Collections": [
+            "List",
+            "Dict",
+            "Set",
+            "Array"
+        ],
+        "Error Handling": [
+            "Maybe",
+            "Result"
+        ],
+        "Debug": [
+            "Debug"
+        ],
+        "Effects": [
+            "Platform.Cmd",
+            "Platform.Sub",
+            "Platform",
+            "Process",
+            "Task"
+        ]
+    },
+    "elm-version": "0.19.0 <= v < 0.20.0",
+    "dependencies": {},
+    "test-dependencies": {}
+}
+
+=== substitute: a real elm-todomvc APPLICATION manifest (application-type elm.json), fetched from GitHub ===
+{
+    "type": "application",
+    "source-directories": [
+        "src"
+    ],
+    "elm-version": "0.19.1",
+    "dependencies": {
+        "direct": {
+            "elm/browser": "1.0.2",
+            "elm/core": "1.0.2",
+            "elm/html": "1.0.0",
+            "elm/json": "1.1.3"
+        },
+        "indirect": {
+            "elm/time": "1.0.0",
+            "elm/url": "1.0.0",
+            "elm/virtual-dom": "1.0.2"
+        }
+    },
+    "test-dependencies": {
+        "direct": {},
+        "indirect": {}
+    }
+}

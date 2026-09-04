@@ -1,0 +1,5 @@
+name = "billing_pkg"
+version = "1.0.0"
+
+[dependencies]
+orders_pkg = { path = "../orders_pkg" }

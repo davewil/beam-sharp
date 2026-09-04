@@ -1,0 +1,25 @@
+--- /home/user/beam-sharp/compiler/src/bs_diag.erl	2026-09-04 13:56:40.678494146 +0000
++++ src/bs_diag.erl	2026-09-04 23:19:18.924926244 +0000
+@@ -494,6 +494,10 @@
+ descriptor(Path, {unknown_module, Mod, Line}) ->
+     #{tag => unknown_module, severity => error, file => Path, line => Line,
+       module => Mod};
++%% PROTOTYPE for ticket 60 sub-decision 4.
++descriptor(Path, {not_a_friend, Mod, Self, Line}) ->
++    #{tag => not_a_friend, severity => error, file => Path, line => Line,
++      module => Mod, caller => Self};
+ %% 41 §1 reason 3 met rather than decided: a file's `using` lines ARE its
+ %% dependency list, in the file and checkable (ticket 23 §11).
+ descriptor(Path, {module_not_imported, Mod, Line}) ->
+@@ -1244,6 +1248,11 @@
+      "  a module is a source file this invocation can reach; a namespace~n"
+      "  is a path that other modules sit under. Neither matched.~n",
+      [P, L, Mod]};
++%% PROTOTYPE for ticket 60 sub-decision 4.
++message(#{tag := not_a_friend, file := P, line := L, module := Mod, caller := Self}) ->
++    {"~s:~p: error: `using ~s` is refused — ~s does not name ~s as a friend~n"
++     "  ~s only takes calls from a module it names with `friend ~s`~n",
++     [P, L, Mod, Mod, Self, Mod, Self]};
+ message(#{tag := module_not_imported, file := P, line := L, module := Mod}) ->
+     {"~s:~p: error: ~s is called but never imported~n"
+      "  add `using ~s` — a file's `using` lines are its dependency list,~n"

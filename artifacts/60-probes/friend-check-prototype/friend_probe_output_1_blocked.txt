@@ -1,0 +1,2 @@
+examples_probe/Shop/Reports/Totals.bs:15: error: `using Shop.Collections.Ints` is refused \x{2014} Shop.Collections.Ints does not name Shop.Reports as a friend
+  Shop.Collections.Ints only takes calls from a module it names with `friend Shop.Reports`

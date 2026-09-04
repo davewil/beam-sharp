@@ -1,0 +1,6 @@
+module RecNoTag
+type OrderLike = { Id: int, Total: int }
+public atom Call(int id, int total)
+Call(id, total) -> F(OrderLike{ Id = id, Total = total })
+private atom F(OrderLike o)
+F(o) -> :ok

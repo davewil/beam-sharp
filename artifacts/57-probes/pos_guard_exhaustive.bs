@@ -1,0 +1,8 @@
+// Control: identical shape, but the boundary is a POSITIVE literal (5, not -5).
+// If comparison/1 is the culprit, this must compile clean where the negative
+// version above is misjudged (either erroring or reporting non-exhaustive).
+module PosGuardExhaustive
+
+public atom Classify(int n)
+Classify(n) when n >= 5 -> :hi
+Classify(n) when n < 5  -> :lo

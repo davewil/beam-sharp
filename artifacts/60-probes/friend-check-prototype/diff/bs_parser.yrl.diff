@@ -1,0 +1,39 @@
+--- /home/user/beam-sharp/compiler/src/bs_parser.yrl	2026-09-04 13:56:40.682494146 +0000
++++ src/bs_parser.yrl	2026-09-04 23:18:01.744921656 +0000
+@@ -17,12 +17,12 @@
+   guard guard_expr
+   body binding
+   expr expr_list elist_items assign_fields assign_field
+-  switch_arms switch_arm modpath using_decl visibility call
++  switch_arms switch_arm modpath using_decl friend_decl visibility call
+   .
+ 
+ Terminals
+   'module' 'type' 'when' 'using' 'behaviour' 'record' 'with' 'switch' 'var'
+-  'and' 'or' 'where' 'public' 'private'
++  'and' 'or' 'where' 'public' 'private' 'friend'
+   uident lident atom_lit integer string_lit '_'
+   '->' '=>' '==' '!=' '<=' '>=' '<<' '<' '>' '+' '-' '*' '/' '%'
+   '=' '|' '|>' '|?>' ',' '(' ')' '[' ']' '{' '}' '..' '.' ':' '?'
+@@ -84,6 +84,7 @@
+ decl -> behaviour_decl : '$1'.
+ decl -> record_decl : '$1'.
+ decl -> using_decl  : '$1'.
++decl -> friend_decl : '$1'.
+ 
+ %% --- records ----------------------------------------------------------------
+ %% Ticket 26 §1. A record erases to a MAP carrying a tag minted from its
+@@ -147,6 +148,13 @@
+ %% construct, told apart by the token class of what follows.
+ using_decl -> 'using' modpath : {import, line('$1'), modatom('$2')}.
+ 
++%% PROTOTYPE for ticket 60 — the callee names its friends, one per line, same
++%% shape `using` takes for the reverse direction (a dependent declaring what it
++%% depends on). No friend line at all means "open to everyone", so no existing
++%% `.bs` file needs to change — same backward-compatibility shape ticket 40 §3
++%% got by defaulting `private`.
++friend_decl -> 'friend' modpath : {friend, line('$1'), modatom('$2')}.
++
+ %% --- module -----------------------------------------------------------------
+ %% Ticket 40 §1: a module's atom is its FULL dotted path, because ticket 26's tag
+ %% mint is `Mod ++ "." ++ Name` and only a unique `Mod` keeps two bounded

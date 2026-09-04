@@ -1,0 +1,6 @@
+module IntPrivate
+type Octet = int where value >= 0 and value <= 255
+public atom Call(Octet n)
+Call(n) -> F(n)
+private atom F(Octet n)
+F(n) -> :ok

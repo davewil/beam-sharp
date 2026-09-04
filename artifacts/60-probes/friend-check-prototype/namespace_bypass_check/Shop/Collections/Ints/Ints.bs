@@ -1,0 +1,27 @@
+// F11 — a module another module can import. Ticket 40 §1: the module's atom is
+// its FULL dotted path, so this emits 'Shop.Collections.Ints' and `ls` shows a
+// file of that name. Nothing about the tag mint (26 §1) moves — it was always
+// written against the module atom rather than against a single segment.
+//
+//   bsc examples/Shop/Reports/Totals.bs Restate 3
+//
+module Shop.Collections.Ints
+
+// PROTOTYPE for ticket 60: only Shop.Billing may call this module. This
+// deliberately EXCLUDES Shop.Reports, the caller in Totals.bs below.
+friend Shop.Billing
+
+public int Sum(list<int> xs, int acc)
+Sum([], acc)          -> acc
+Sum([x, ..rest], acc) -> Sum(rest, acc + x)
+
+private int Length(list<int> xs, int acc)
+Length([], acc)          -> acc
+Length([x, ..rest], acc) -> Length(rest, acc + 1)
+
+// Ticket 40 §2: arity overloading is PERMITTED — the BEAM's own identity rule,
+// unmodified. `Length/2` above and `Length/1` here are two functions, and before
+// F11 the checker could not represent that: callees were keyed by name alone, so
+// `maps:from_list/1` kept whichever was written last.
+public int Length(list<int> xs)
+Length(xs) -> Length(xs, 0)

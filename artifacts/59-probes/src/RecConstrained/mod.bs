@@ -1,0 +1,6 @@
+module RecConstrained
+record Order { Id: int, Total: int }
+public atom Call(Order o)
+Call(o) -> F(o)
+private atom F(Order o)
+F(Order o) -> :ok

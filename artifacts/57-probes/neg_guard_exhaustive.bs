@@ -1,0 +1,15 @@
+// Does a negative literal in a GUARD hit the same comparison/1 blind spot as a
+// refinement? refine/3 and apply_guard/2 both call alternatives/1, and
+// alternatives/1 bottoms out in comparison/1, which pattern-matches directly on
+// {e_int, _, K} -- so a guard `n >= -5` should ALSO fail to translate. Unlike a
+// refinement (which errors loudly, opaque_refinement), a guard falling through
+// to `unknown` just "credits nothing" (apply_guard's unknown clause) -- so the
+// clause contributes nothing to what's covered, and exhaustiveness checking
+// should therefore judge two clauses partitioning all of int at -5 as
+// NON-exhaustive (missing case), even though on paper (n < -5) or (n >= -5)
+// covers everything.
+module NegGuardExhaustive
+
+public atom Classify(int n)
+Classify(n) when n >= -5 -> :hi
+Classify(n) when n < -5  -> :lo

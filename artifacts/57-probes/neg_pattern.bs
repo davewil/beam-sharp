@@ -1,0 +1,5 @@
+module NegPattern
+
+public atom Sign(int n)
+Sign(>= 0) -> :nonneg
+Sign(<= -1) -> :neg

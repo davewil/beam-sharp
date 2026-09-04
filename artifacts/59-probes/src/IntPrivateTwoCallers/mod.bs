@@ -1,0 +1,8 @@
+module IntPrivateTwoCallers
+type Octet = int where value >= 0 and value <= 255
+public atom CallA(Octet n)
+CallA(n) -> F(n)
+public atom CallB(Octet n)
+CallB(n) -> F(n)
+private atom F(Octet n)
+F(n) -> :ok

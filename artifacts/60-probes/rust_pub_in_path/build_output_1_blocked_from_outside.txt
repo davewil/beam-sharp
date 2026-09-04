@@ -1,0 +1,27 @@
+   Compiling pub_in_path_probe v0.1.0 (/home/user/beam-sharp/artifacts/60-probes/rust_pub_in_path)
+error[E0603]: function `recompute_total` is private
+ --> src/billing/mod.rs:5:30
+  |
+5 |     crate::orders::internal::recompute_total();
+  |                              ^^^^^^^^^^^^^^^ private function
+  |
+note: the function `recompute_total` is defined here
+ --> src/orders/internal.rs:3:1
+  |
+3 | pub(in crate::orders) fn recompute_total() {
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0603]: function `recompute_total` is private
+ --> src/main.rs:7:23
+  |
+7 |     orders::internal::recompute_total();
+  |                       ^^^^^^^^^^^^^^^ private function
+  |
+note: the function `recompute_total` is defined here
+ --> src/orders/internal.rs:3:1
+  |
+3 | pub(in crate::orders) fn recompute_total() {
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For more information about this error, try `rustc --explain E0603`.
+error: could not compile `pub_in_path_probe` (bin "pub_in_path_probe") due to 2 previous errors

@@ -16,6 +16,10 @@
 *.beam
 *.plt
 
+# Gleam's own build cache, written by `gleam build`/`gleam deps download` under
+# aoc/bench/gleam whenever a probe or benchmark run exercises it.
+aoc/bench/gleam/build/
+
 # A crashed `erl` writes one of these wherever it was run. Committed once by
 # accident (069fda7) and modified by a later session before being caught.
 erl_crash.dump

@@ -1,0 +1,11 @@
+// Same file, with the module-tier `using Shop.Collections.Ints` line REMOVED,
+// reaching the same callee ONLY through the namespace tier (`using
+// Shop.Collections`, resolved via `add_namespace_import/3`, which the patch
+// never touches). Ints.bs still carries `friend Shop.Billing` / `friend
+// Shop.Reports` from examples_probe - copied here unedited.
+module Shop.Reports
+
+using Shop.Collections
+
+public int Counted(int n)
+Counted(n) -> Ints.Length([n, n])

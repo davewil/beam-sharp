@@ -1,0 +1,45 @@
+=== real rebar.config, dependency declared via a real (local) git remote ===
+{erl_opts, [debug_info]}.
+{deps, [{rebarlib, {git, "file:///tmp/tmp.QIHewwch6O/rebarlib", {tag, "0.1.0"}}}]}.
+
+{shell, [
+  % {config, "config/sys.config"},
+    {apps, [rebardemo]}
+]}.
+
+=== 1. dependency PRESENT: rebar3 compile ===
+[0;32m===> Verifying dependencies...
+[0m[0;32m===> Fetching rebarlib (from {git,"file:///tmp/tmp.QIHewwch6O/rebarlib",{tag,"0.1.0"}})
+[0m[0;32m===> Analyzing applications...
+[0m[0;32m===> Compiling rebarlib
+[0m[0;32m===> Analyzing applications...
+[0m[0;32m===> Compiling rebardemo
+[0mexit: 0
+
+=== 2. dependency REMOVED from rebar.config AND rebar.lock (fully undeclared), call left in source ===
+--- rebar3 compile (plain compile: does it notice the undefined remote call?) ---
+[0;32m===> Verifying dependencies...
+[0m[0;32m===> Analyzing applications...
+[0m[0;32m===> Compiling rebardemo
+[0mexit: 0
+
+--- running the built app: does it crash with error:undef at RUN time? ---
+{'EXIT',{undef,[{rebarlib,greet,["world"],[]},
+                {rebardemo_app,start,2,
+                               [{file,"/tmp/tmp.QIHewwch6O/rebardemo/src/rebardemo_app.erl"},
+                                {line,5}]},
+                {erl_eval,do_apply,7,[{file,"erl_eval.erl"},{line,744}]},
+                {erl_eval,expr,6,[{file,"erl_eval.erl"},{line,480}]},
+                {erl_eval,expr,6,[{file,"erl_eval.erl"},{line,282}]},
+                {erl_eval,expr_list,7,[{file,"erl_eval.erl"},{line,961}]},
+                {erl_eval,expr,6,[{file,"erl_eval.erl"},{line,454}]},
+                {erl_eval,exprs,6,[{file,"erl_eval.erl"},{line,136}]}]}}
+
+--- rebar3 xref (a SEPARATE, non-default pass): does IT catch the same thing at compile time? ---
+[0;32m===> Verifying dependencies...
+[0m[0;32m===> Analyzing applications...
+[0m[0;32m===> Compiling rebardemo
+[0m[0;32m===> Running cross reference analysis...
+[0m[0;31m===> [1msrc/rebardemo_app.erl:4: Warning: rebardemo_app:start/2 calls undefined function rebarlib:greet/1 (Xref)
+
+[0m[0mexit: 1

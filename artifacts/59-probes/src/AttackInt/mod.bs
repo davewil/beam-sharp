@@ -1,0 +1,14 @@
+// AttackInt.bs -- the same shape as Attack.bs, for the INT-KIND guard instead
+// of the record tag guard, to see whether the SAME hole exists there too.
+module AttackInt
+
+type Octet = int where value >= 0 and value <= 255
+type Wrapper = { Payload: Octet }
+
+public atom Outer(Wrapper w)
+
+Outer(w) -> Inner(w.Payload)
+
+private atom Inner(Octet n)
+
+Inner(n) -> :accepted

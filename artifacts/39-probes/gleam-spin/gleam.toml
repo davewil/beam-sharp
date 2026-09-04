@@ -1,0 +1,5 @@
+name = "probe_gleam_spin"
+version = "1.0.0"
+target = "erlang"
+
+[dependencies]

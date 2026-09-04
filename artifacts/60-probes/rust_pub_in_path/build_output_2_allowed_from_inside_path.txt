@@ -1,0 +1,11 @@
+   Compiling pub_in_path_probe v0.1.0 (/home/user/beam-sharp/artifacts/60-probes/rust_pub_in_path)
+warning: function `unused` is never used
+ --> src/billing/mod.rs:3:8
+  |
+3 | pub fn unused() {}
+  |        ^^^^^^
+  |
+  = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `pub_in_path_probe` (bin "pub_in_path_probe") generated 1 warning
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.15s

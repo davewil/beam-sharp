@@ -1,0 +1,53 @@
+=== the ONE grammar production that builds the {foreign, ...} tuple ===
+134:foreign_decl -> 'using' atom_lit '{' foreign_sigs '}' :
+135-    {foreign, line('$1'), value('$2'), '$4'}.
+136-
+
+=== every HAND-WRITTEN site that pattern-matches {foreign, ...} (excludes generated bs_parser.erl) ===
+src/bs_check.erl:600:               || {foreign, _, Mod, Sigs} <- Decls,
+src/bs_check.erl:678:       || {foreign, _, Mod, Sigs} <- Decls,
+src/bs_check.erl:770:collapse_decl({foreign, _, _Mod, Sigs}, Env) ->
+
+=== every .bs file in the repo using the foreign 'using :atom { ... }' form today (quoted or bare atom) ===
+./aoc/2019/Day01/day01.bs
+./aoc/2025/Day01/day01.bs
+./aoc/bench/Day01/bench_bs.bs
+./artifacts/39-probes/ProbeBsSpin/probe_spin.bs
+./compiler/examples/Foreign/foreign.bs
+./compiler/examples/Interop/interop.bs
+./compiler/examples/Label/label.bs
+./compiler/examples/exemplars/25d-database-querying/index.bs
+./compiler/examples/exemplars/25e-dynamic-web-page/index.bs
+./wayfinder/prototypes/50a-elixir-ffi/Elx/elx.bs
+./wayfinder/prototypes/51a-code-path/Elx/elx.bs
+./wayfinder/prototypes/51a-code-path/Req/req.bs
+
+=== how many such using-blocks total (the existing-file migration cost if the field became MANDATORY) ===
+20
+
+=== precedent: the diagnostic machinery a comparable NEW check costs (reserved_module_name), counted ===
+-- bs_check.erl definition --
+272:reserved_module_name(Module, Sources) ->
+273-    case lists:member(Module, reserved_qualifiers()) of
+274-        false -> ok;
+275-        true  ->
+276-            Line = case [L || {_, D} <- Sources, {module, L, N} <- D,
+277-                              N =:= Module] of
+278-                       [L | _] -> L;
+279-                       []      -> 1
+280-                   end,
+281-            erlang:error({reserved_module_name, Module, Line})
+282-    end.
+-- bs_diag.erl descriptor/2 clause --
+508:descriptor(Path, {reserved_module_name, Module, Line}) ->
+509-    #{tag => reserved_module_name, severity => error, file => Path, line => Line,
+510-      module => Module};
+-- bs_diag.erl message/1 clause --
+882:message(#{tag := reserved_module_name, file := P, line := L, module := Mod}) ->
+883-    {"~s:~p: error: `~s` is a reserved qualifier, so no module may be called it~n"
+884-     "  `~s.` names operations the compiler knows and inlines at the site;~n"
+885-     "  no beam ships for it and no `using` is ever written. The name is~n"
+886-     "  taken only as a WHOLE module name — `Shop.~s` is still legal, and~n"
+887-     "  so is any other path with `~s` as a segment.~n",
+888-     [P, L, Mod, Mod, Mod, Mod]};
+889-%% The second is `ambiguous_module`'s shape with a compiler-known claimant: both

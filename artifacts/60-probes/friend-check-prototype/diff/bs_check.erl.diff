@@ -1,0 +1,60 @@
+--- /home/user/beam-sharp/compiler/src/bs_check.erl	2026-09-04 13:56:40.678494146 +0000
++++ src/bs_check.erl	2026-09-04 23:19:08.320925614 +0000
+@@ -27,7 +27,7 @@
+ %% F11 — the import environment a dependent module is checked against. Built by
+ %% `bsc` from modules it has ALREADY checked in this invocation (41 §3, fork A:
+ %% the compiler re-checks the dependency's source and keeps its signatures).
+--export([exports_of/1, private_of/1]).
++-export([exports_of/1, private_of/1, friends_of/1]).
+ %% Exported so the emitter resolves surface types through THIS function rather
+ %% than its own copy. The copy predates records and adding a second minting site
+ %% to it would have put ticket 26 §1's qualified-name rule in two places.
+@@ -419,6 +419,16 @@
+                                        V =/= public],
+                    true).
+ 
++%% PROTOTYPE for ticket 60 sub-decision 4. Directory-level, not per-function:
++%% every `friend` line this module wrote, or the atom `open` when it wrote
++%% none — which is what makes the feature backward compatible with the 130
++%% `.bs` files in this repo that use no such line today.
++friends_of(Decls) ->
++    case [M || {friend, _, M} <- Decls] of
++        []      -> open;
++        Friends -> Friends
++    end.
++
+ %% The two tables 41 §5 asks for, plus the qualified one, from this module's
+ %% `using` lines and the modules already checked in this invocation.
+ %%
+@@ -439,7 +449,7 @@
+ 
+ add_import(L, M, Self, World, Known, Acc) ->
+     case maps:is_key(M, World) of
+-        true  -> add_module_import(M, World, Acc);
++        true  -> add_module_import(M, Self, L, World, Acc);
+         false ->
+             %% Not a module. 41 §5: a path that is not itself a module but is a
+             %% PREFIX of ones that are is a namespace — erased entirely, no atom,
+@@ -465,7 +475,21 @@
+ %% The eager check made a whole class of program unspellable, not merely awkward:
+ %% a top-level callee has no namespace tier to be imported through, so a module
+ %% declaring one of its exported names could not reach it by any route (ENG-270).
+-add_module_import(M, World, Acc) ->
++%% PROTOTYPE for ticket 60 sub-decision 4 — the one new check `add_module_import`
++%% gains. `Self` was already available one frame up at `add_import/6`; the only
++%% change here is threading it the rest of the way and reading a THIRD field
++%% off the callee's World entry, the same shape `exports` and `private` already
++%% take. `open` (no `friend` line written) short-circuits before the check, so
++%% every module that has not opted in pays nothing extra.
++add_module_import(M, Self, L, World, Acc) ->
++    case maps:get(friends, maps:get(M, World), open) of
++        open -> ok;
++        Friends ->
++            case lists:member(Self, Friends) of
++                true  -> ok;
++                false -> erlang:error({not_a_friend, M, Self, L})
++            end
++    end,
+     Exports = maps:get(exports, maps:get(M, World)),
+     Funs0 = maps:get(funs, Acc),
+     Funs = maps:fold(fun(K, _Sig, F) ->

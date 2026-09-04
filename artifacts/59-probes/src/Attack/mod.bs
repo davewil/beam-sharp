@@ -1,0 +1,35 @@
+// Attack.bs -- ticket 59's forged-record scenario, built literally.
+//
+// `Order` and `Invoice` share an identical field shape (Id: int, Total: int),
+// which is ticket 26's whole reason for minting a tag: under structural typing
+// alone they would be one type. `Wrapper` is an ORDINARY alias -- not a
+// `record` -- so it mints no tag of its own and its `Payload` field is read by
+// plain projection, which performs no shape check at all.
+//
+// `Outer` is EXPORTED. Its own parameter type is `Wrapper`, which is neither a
+// closed record (so `record_tag/2` finds no `Kind` field to test) nor an
+// int-only type -- so under the standing rule ("only where the function's own
+// body would not object") `Outer` gets NO boundary guard at all, and its body
+// does not object either: `w.Payload` is one `map_get`, unconditional, and
+// whatever comes back is handed on unexamined.
+//
+// `Inner` is PRIVATE and declares `Order`. Every beam-sharp call site that
+// reaches it (there is exactly one, `Outer`'s body) has already been through
+// the type checker, which never lets a raw `Wrapper.Payload` projection stand
+// for a verified `Order` -- so from beam-sharp's own point of view nothing
+// here is unsound. The question is what a caller `bsc`/the type checker never
+// saw does to it.
+module Attack
+
+record Order   { Id: int, Total: int }
+record Invoice { Id: int, Total: int }
+
+type Wrapper = { Payload: Order }
+
+public atom Outer(Wrapper w)
+
+Outer(w) -> Inner(w.Payload)
+
+private atom Inner(Order o)
+
+Inner(o) -> :accepted

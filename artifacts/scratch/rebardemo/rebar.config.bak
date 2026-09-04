@@ -1,0 +1,7 @@
+{erl_opts, [debug_info]}.
+{deps, [{rebarlib, {git, "file:///home/user/beam-sharp/artifacts/scratch/rebarlib", {tag, "0.1.0"}}}]}.
+
+{shell, [
+  % {config, "config/sys.config"},
+    {apps, [rebardemo]}
+]}.

@@ -1,0 +1,35 @@
+// probe.bs -- ticket 59. Two private functions, one taking a record parameter
+// and one taking a refined-int parameter, sitting beside their exported
+// counterparts so the scope asymmetry in `bs_emit:boundary_guards/5` can be
+// read directly out of the emitted abstract code for a single module.
+module Probe
+
+record Order { Id: int, Total: int }
+
+type Octet = int where value >= 0 and value <= 255
+
+// --- record parameter: exported and private, side by side --------------
+
+public atom PublicOrder(Order o)
+
+PublicOrder(o) -> :ok
+
+private atom PrivateOrder(Order o)
+
+PrivateOrder(o) -> :ok
+
+// --- refined-int parameter: exported and private, side by side ---------
+
+public atom PublicOctet(Octet n)
+
+PublicOctet(n) -> :ok
+
+private atom PrivateOctet(Octet n)
+
+PrivateOctet(n) -> :ok
+
+// --- the exported entry point PrivateOrder needs to be reachable through,
+// for the forged-record attack probe below.
+public atom EnterViaPublic(Order o)
+
+EnterViaPublic(o) -> PrivateOrder(o)

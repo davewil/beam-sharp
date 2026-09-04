@@ -1,0 +1,119 @@
+######## bsc: refinement with -5 (module dir must match declared name) ########
+/tmp/NegRefinement/a.bs:3: error: this refinement is not a predicate the checker can read
+  a refinement narrows a type, so the compiler has to be able to
+  reason about it: comparisons on `value`, joined with `and`/`or`.
+  `int where value >= 0 and value <= 255` is one.
+  A predicate that reads the value instead \x{2014} `WellFormed(value)` \x{2014}
+  is the O(n) tier. It is established once at a boundary and never
+  reasoned about, and this compiler has no site to establish it at.
+exit=1
+
+######## bsc: relational PATTERN with -1 (same literal, pattern position) ########
+exit=0
+
+######## bsc: GUARD with a negative-literal boundary (new finding: shares the bug) ########
+/tmp/NegGuardExhaustive/a.bs:13: error: Classify is not exhaustive
+  no clause matches:
+    Classify(n) -> ...
+exit=1
+
+######## bsc: control -- identical shape, POSITIVE boundary (5, not -5) ########
+exit=0
+
+######## ticket 38's own probe 38b (independent re-run, unmodified) ########
+== Can a non-zero divisor be declared? ==
+ok  NotEqualZero                       accepted (expected accepted)
+== ...and does it actually EXCLUDE zero, or is it a silent no-op? ==
+ok  ZeroRejected                       refused (expected refused)
+== Is a DISJOINT refinement the problem? (no -- this is accepted) ==
+ok  DisjointOr                         accepted (expected accepted)
+== It is the NEGATIVE LITERAL. All three of these are refused. ==
+ok  NegSingle                          refused (expected refused)
+ok  NegAnd                             refused (expected refused)
+ok  NegOr                              refused (expected refused)
+== ...while a relational PATTERN reads the same literal fine. ==
+ok  NegPattern                         accepted (expected accepted)
+
+== The residuals the algebra hands back for a divisor ==
+  unbounded int, minus zero : int <= -1 | int >= 1
+  -10..10,       minus zero : -10..-1 | 1..10
+  The second is the one that matters: a BOUNDED divisor's residual names a
+  negative bound, and the probes above show the surface cannot spell it.
+
+all 7 probes matched expectation
+
+######## erlang: guard `X >= -5` runs correctly + real parse tree for it ########
+classify/1 guard `X >= -5` works: hi(-5)=hi hi(0)=hi lo(-6)=lo
+
+ Parsed form for `f(X) when X >= -5 -> ok.`:
+  {function,1,f,1,
+            [{clause,1,
+                     [{var,1,'X'}],
+                     [[{op,1,'>=',{var,1,'X'},{op,1,'-',{integer,1,5}}}]],
+                     [{atom,1,ok}]}]}
+
+######## erlang: pattern position folds ARBITRARY closed arithmetic (not just '-') ########
+f(-5)     = neg_five
+f(5)      = two_plus_three
+f(16)     = shift
+f(0)      = other
+
+######## elixir: guard with -5, and REAL two-variable subtraction in a guard ########
+classify(-5): :hi
+classify(0): :hi
+classify(-6): :lo
+classify2(3,5) (3-5=-2 -> neg): :neg
+classify2(5,3) (5-3=2 -> nonneg): :nonneg
+sign(-5): :neg_five
+sign(0): :zero
+
+######## elixir: pattern position REFUSES constant arithmetic other than a literal -N ########
+** (CompileError) elixir_pattern_arith.exs:5: cannot invoke remote function :erlang.+/2 inside a match
+    elixir_pattern_arith.exs:5: (module)
+
+######## elixir: whitespace between '-' and digit does not change acceptance ########
+f(-5) [no space in call site, decl uses -5 tight]: :tight
+f(-5) via pattern `- 5` (spaced): :spaced
+
+######## gleam: build output for guard `x >=. -5.0` and pattern `-1` ########
+  Compiling gleam_probe
+   Compiled in 0.25s
+-- generated Erlang (gleam_probe.erl) --
+-module(gleam_probe).
+-compile([no_auto_import, nowarn_unused_vars, nowarn_unused_function, nowarn_nomatch]).
+
+-export([classify/1, sign/1, main/0]).
+
+-file("src/gleam_probe.gleam", 1).
+-spec classify(float()) -> binary().
+classify(X) ->
+    case X of
+        _ when X >= -5.0 ->
+            <<"hi"/utf8>>;
+
+        _ ->
+            <<"lo"/utf8>>
+    end.
+
+-file("src/gleam_probe.gleam", 8).
+-spec sign(integer()) -> binary().
+sign(N) ->
+    case N of
+        -1 ->
+            <<"neg_one"/utf8>>;
+
+        0 ->
+            <<"zero"/utf8>>;
+
+        _ ->
+            <<"other"/utf8>>
+    end.
+
+-file("src/gleam_probe.gleam", 16).
+-spec main() -> binary().
+main() ->
+    classify(-5.0),
+    classify(-6.0),
+    sign(-1).
+
+ALL PROBES RAN

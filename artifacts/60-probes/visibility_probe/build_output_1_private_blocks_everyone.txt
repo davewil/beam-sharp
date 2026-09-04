@@ -1,0 +1,18 @@
+  Resolving versions
+  Compiling visibility_probe
+warning: Unused imported module
+  ┌─ /home/user/beam-sharp/artifacts/60-probes/visibility_probe/src/billing/caller.gleam:1:1
+  │
+1 │ import orders/internal
+  │ ^^^^^^^^^^^^^^^^^^^^^^ This imported module is never used
+
+Hint: You can safely remove it.
+
+error: Unknown module value
+  ┌─ /home/user/beam-sharp/artifacts/60-probes/visibility_probe/src/billing/caller.gleam:4:12
+  │
+4 │   internal.recompute_total()
+  │            ^^^^^^^^^^^^^^^ Did you mean `call_from_same_module`?
+
+The module `orders/internal` does not have a `recompute_total` value.
+

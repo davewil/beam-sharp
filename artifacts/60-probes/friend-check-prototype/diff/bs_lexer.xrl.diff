@@ -1,0 +1,13 @@
+--- /home/user/beam-sharp/compiler/src/bs_lexer.xrl	2026-09-04 13:56:40.678494146 +0000
++++ src/bs_lexer.xrl	2026-09-04 23:17:37.916920240 +0000
+@@ -47,6 +47,10 @@
+ %% `.bs` file in the repo uses either word for anything, so no name is captured.
+ public                  : {token, {'public',  TokenLine}}.
+ private                 : {token, {'private', TokenLine}}.
++%% PROTOTYPE for ticket 60 — "who may name this one". Directory-level
++%% declaration, same shape as `using`, not a third visibility marker on the
++%% signature (60's own sub-question 3).
++friend                  : {token, {'friend', TokenLine}}.
+ %% Ticket 26 §1's provisional spelling; the surface question is ticket 22's.
+ record                  : {token, {'record', TokenLine}}.
+ %% `o with { Total = 500 }` — ticket 26 §2, width-preserving update. C#-only of

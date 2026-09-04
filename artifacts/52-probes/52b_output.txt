@@ -1,0 +1,4 @@
+code:which('lists')            = "/usr/lib/erlang/lib/stdlib-4.3.1.3/ebin/lists.beam"
+code:which('Elixir.Req')        = non_existing (before adding it to the path)
+code:which('Elixir.Req')        = "/home/user/beam-sharp/artifacts/scratch/reqebin_stub/Elixir.Req.beam" (after add_patha, ERL_LIBS-equivalent)
+code:is_loaded('Elixir.Req')    = false (never loaded by the check itself)
