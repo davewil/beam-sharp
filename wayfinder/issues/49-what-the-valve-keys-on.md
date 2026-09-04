@@ -314,3 +314,45 @@ where `:nothing` is a bare atom in the ordinary namespace. **The deferred remedy
 bites: refuse `:nothing`-as-value where a valve can reach it — 15 §1's argument applied one step
 further out. It needs the reachability question answered first (is it every declaration, or only a
 valve subject?), which is why it is not decided here.
+
+## Answer
+
+**`|?>` short-circuits on `(:error, _) | :nothing` — a fixed pair, a constant, not the stage's
+declared parameter type — and 17 §4 is overruled.**
+
+The per-question detail is in *DECIDED 2026-08-28 — the fixed pair, and 17 §4 is overruled* above;
+this is the verdict that section reached.
+
+**31c's shape B is refused on the measurement** ([`49a`](../prototypes/49a-what-the-arm-must-be/)).
+Its claim of *"nothing the compiler does not already have"* holds only for the side table it needs,
+which is precedented three times over (F18 `validators`, F19 `foreigns`, 41 §2 `imports`) — so
+**pass order was never the obstacle**. It fails on two others: a residual can span N members, so the
+valve stops being two-armed; and **the arm is not always emittable**. `binary \ string` is a
+non-empty residual with **zero** F29 head parts and no BEAM guard — `erlc` rejects the only stdlib
+test as `illegal guard expression`, in either polarity, UTF-8 validity being a linear scan. **So
+ticket 09's *"discriminable by one BEAM guard in O(1)"* does not hold in general**, and anything
+leaning on it inherits the correction. Shape B would accept a program today's compiler refuses
+honestly and then fail to lower it. The fixed pair cannot reach that case **by construction**: the
+valve tests `subject ∩ {(:error, _), :nothing}`, never `subject \ param`, and a meet with two fixed
+members is a tuple test or an atom equality whatever the subject is.
+
+**17 §4 is overruled, and corrected in place.** Its *"15's untagged `result` makes `(:error, E)` the
+exact analogue of `null`"* read the borrow off the chain's silhouette and never checked it against
+15 §2 one section down — null is **absence carrying no information**, which is `:nothing`, where
+`(:error, E)` carries a reason (David: *"how `(:error, E)` could replace null boggles the mind"*).
+The fixed pair is also the **closer borrow**: C#'s `?.` keys on a fixed sentinel, not on the
+callee's signature. Ticket 08 is not reached — the head stays a literal, recognisable from the
+operator alone. **Both of this ticket's own premises were re-measured and held**, including the
+diagnostic text after ENG-269.
+
+**Not built — F30**, which owes three arms from `bs_lower` (both new ones literals, so `bs_emit`
+needs nothing), a `valve_on_infallible` that fires on the empty meet rather than on the absent
+`(:error, _)`, and updates to `CONTEXT.md:129` and `LANGUAGE.md` §5, left deliberately stale until
+it lands. **Two accepted exposures**, both measured: `option<atom>` collapses to bare `atom`, which
+15 §1 refuses at the declaration — **decided, and built as F31 on 2026-08-28**
+([ENG-272](https://linear.app/davewil/issue/ENG-272)), so the precondition F30 was waiting on is met
+and that exposure is now closed rather than accepted; and `:found | :nothing` does *not* collapse,
+so 15 §1 passes it and the valve stops on `:nothing` **silently**, the meet being non-empty. Shape A
+had no analogue of the second — `(:error, _)` is a tuple nobody writes by accident, where `:nothing`
+is a bare atom in the ordinary namespace. Deferred remedy recorded: refuse `:nothing`-as-value where
+a valve can reach it, which needs the reachability question answered first.

@@ -1,7 +1,7 @@
 # 11 — Type system shape and the `dynamic()` boundary
 
 Type: grilling
-Status: closed
+Status: resolved 2026-08-12
 Blocked by: 03, 04, 09
 
 ## Question
@@ -137,7 +137,7 @@ tickets), so it was split rather than answered thinly:
 - **Not reopened**: inference strength. Tickets 04 and 08 already settled it — signatures are
   mandatory on multi-clause functions.
 
-## Answer — in progress, 2026-08-12
+## Answer — resolved 2026-08-12
 
 ### 1. There is no `dynamic` in this language
 

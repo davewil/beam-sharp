@@ -69,7 +69,70 @@ claims it.
 
 ---
 
-# Answer — 2026-08-13
+## Answer — 2026-08-13
+
+**`<` opens an instantiation bracket after a compiler-known codegen-obligation name and is
+comparison everywhere else — one lexer rule over a closed set of three names.**
+
+The second bullet collapsed the ticket, and its own motivating premise is measured false.
+Explicit instantiation *is* needed, on **exactly three names** — `ValidateAs`, `ParseAtom`,
+`ToExistingAtom` — because a codegen obligation's type argument appears **only in the return
+type**, which is the one thing matching cannot recover. Everywhere else instantiation is
+recoverable, so **user code never writes a type argument**, and the rule needs no lookahead, no
+backtracking and no turbofish: names in the closed set lex as their own token class, so the parser
+never faces the choice. That forces the rule ticket 27 implied and never wrote: **every type
+variable in a user signature must appear in at least one parameter position**, which is the
+condition under which *"instantiation is matching, not solving"* is a true sentence.
+
+**C#'s rule was measured, not cited** (dotnet 9.0.306): a follow-token test that is correct in
+both directions — `CS0019` for a bare identifier after `>`, `CS0118` for `(` — and it is **not
+LALR(1)-expressible**, since the decision point sits after an unbounded suffix while `yecc` must
+commit at the `<`. So this is a **tier-3 divergence with a stated reason**, and it is
+unobservable: the two rules agree on the case that occurs and differ only on a form beam-sharp
+cannot express.
+
+**Guards are exempt, and the exemption falls out rather than being written** — tickets 08 and 11
+between them keep every type out of a guard, so nothing is there for a bracket to attach to. Two
+things the platform had already given free, neither chosen for this purpose: **`a < b > c` is a
+syntax error today** (`Nonassoc 300`, in the skeleton's operator table for readability), which
+removes the C++ chained case entirely; and **no `>>` operator exists**, so `list<list<int>>`
+parses — though ticket 20's binary grammar needs `>>` as a *delimiter*, so that half is **owed a
+re-check when binaries land**.
+
+**The loose end is closed: `[h, ..t]` is adopted in both pattern and construction position**,
+tier-1 C# collection expressions, and free against ticket 26's projection dot outright. Against
+float literals it is **earned rather than free**: `1..5` lexes as `1 .. 5` and not `1.` `.5`
+*because* the float rule demands digits on both sides of its dot. The skeleton has no float
+literal at all, so this is a **constraint `..` imposes on whoever settles them** — Erlang draws
+the same line, so it is cheap — and `..` staying unclaimed as a range spelling for ticket 20's
+intervals rides on it.
+
+Sharpest downstream consequence: **ticket 27's stratum-2 rule gains a second job.** *"A codegen
+obligation requires a ground type argument"* was a typing rule and is now **the parser's
+disambiguator**, so the compiler-known set is load-bearing in the grammar, and **stratum 2's
+membership is fixed at lex time**.
+
+### Built 2026-08-14 as F6
+
+Shipped as [F6](../../compiler/features/F6-angle-brackets.md) — the **type-position half only**,
+124 tests up from 109. `result<T, E>`, `option<T>`, nesting, and user-declared `type Pair<T>`, all
+by **substitution**: the variable is gone before the algebra sees it, so the bracket added no node
+to `bs_types` and nothing to the emitted code. **The value-position rule was not written and did
+not need to be** — with `ValidateAs`/`ParseAtom`/`ToExistingAtom` unbuilt the closed set is
+*empty*, so `<` is comparison unconditionally, and F6 pins that against the **real** grammar where
+[`28a`](../prototypes/28a_bracket_disambiguation.escript) measured a patched copy.
+`list<list<int>>` now has a test, which is where the owed `>>` re-check will trip.
+
+Ticket 27's §(c) — polymorphic function *signatures*, which are **matching and not substitution**
+— was cut on ticket 27's own *"the costs are asymmetric and they do not chain"*, with three
+measurements behind it: `Map` needs an arrow type the algebra lacks, no exemplar declares one, and
+matching a variable **inside a union** is undecided →
+[ticket 37](37-instantiation-by-matching.md).
+
+**The hazard F6 found was not a rejection, it was a hang.** A cyclic alias did not error on
+master, it spun — invisible to a green suite, and reachable for the first time because a parameter
+is what makes `type Tree<T>` natural to write. It is guarded, and the control is a stopwatch
+(0.093s versus no output at all), because a test that never returns is not a failing test.
 
 **The second bullet did collapse it, and the ticket's own motivating premise is measured false.**
 Every claim below is measured against the walking skeleton's real grammar

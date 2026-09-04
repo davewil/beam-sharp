@@ -148,7 +148,52 @@ what the type of `Map` is.
 
 ---
 
-# ANSWER — resolved 2026-08-12
+## Answer — resolved 2026-08-12
+
+**The language has real parametric polymorphism, and it is the smallest version of it that
+works.**
+
+The ticket's question was three questions wearing one coat, and only one was live: parameterised
+*constructors* (`list<int>`) were already forced by tickets 09 and 11 and are not polymorphism at
+all, parametric *aliases* (`option<T>`) arrived near-settled from ticket 10, and only
+**polymorphic function signatures** were open. Yes to those — on a cost argument the map must now
+protect: the frightening results attach to *inference* and to *intersection-typed* functions, and
+**beam-sharp had already refused both for unrelated reasons** (04 made signatures mandatory; 08
+settled one arrow per arity with union parameters, so a function type is `(A|B) -> (C|D)`, never
+`(A->C) & (B->D)`). Instantiation is therefore **matching, not solving** — and §3's unboundedness
+and §7's refusal of row polymorphism are what keep that true, not independent preferences.
+
+**Four rules.** Type variables are **opaque in clause heads and guards** — a bare variable admits
+exactly one clause, so bind it; structure *around* it matches freely, which is why `Map`'s `[]`
+and `[h, ..t]` are exhaustive at the definition for every instantiation. They are **unbounded**,
+with capability constraints deferred to ticket 16, because a bound is *ad-hoc* polymorphism
+wearing a bracket. They are **declared, on C#'s `T` convention** — forced rather than chosen,
+because beam-sharp's builtins are lowercase, so lowercase-implicit is ambiguous here where
+Gleam's is not. And **variance is not a concept**, since ticket 09's abolition of nominality
+leaves nothing to annotate and nothing to infer.
+
+**Rejected: monomorphise per call site.** It fights ticket 13's aggregate granularity, and works
+*inside* an aggregate while failing exactly where a shared `List.Map` lives. That leg originally
+cited ticket 13's standing obligation that the frontend never depend on in-process compiler
+state; **the citation was wrong and is corrected 2026-08-27** — the obligation forbids in-process
+state, not a build-time pass over sources — and the leg survives on a different fact the prose
+never stated: **knowing every module in the transitive `using` closure is not knowing every
+instantiation**, since a caller may sit outside it. See §1 above and ticket 16's amendment of the
+same date.
+
+**Two measurements.** An emitted polymorphic `-spec` is **documentation, not enforcement** —
+Dialyzer reads the variables as `any()` and stays silent where the monomorphic control fires — so
+**choosing generics made the boundary strictly weaker → ticket 18**. And **syntax recovers an
+element-type relation with zero polymorphism**: `roundtrip` preserves `[integer()] -> [binary()]`
+where the same computation through an opaque fun collapses to `[any()]`, which is why row
+polymorphism was declined — `with`/spread already covers the case that would demand a row
+variable.
+
+**Forced consequences.** **Codegen obligations require a ground type argument**, so
+`ValidateAs<TSource>` is rejected inside a polymorphic function; and **polymorphic recursion is
+permitted**, because ticket 04 already paid for mandatory signatures — the undecidability is about
+inference. **Ticket 16 is unblocked**, and inherits the rule that names its own boundary: *a type
+variable is a slot for values you carry; a union is a slot for values you examine.*
 
 **The language has real parametric polymorphism, and it is the smallest version of it that
 works.** Type variables are declared, opaque, unbounded, and never annotated for variance.

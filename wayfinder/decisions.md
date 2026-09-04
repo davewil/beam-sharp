@@ -1057,6 +1057,30 @@
   meaning, not position** — recorded because 42 alone could be misread as *"only use a C# symbol
   exactly where C# uses it"*, which would have forbidden this and been wrong.
 
+  **And the reason to unify is beam-sharp's own.** C#'s split costs nothing there because patterns
+  and expressions rarely touch. This language's defining move puts patterns in the *parameter*
+  position, so a pattern and a guard sit on the **same line**, in the central construct, in every
+  non-trivial function. The condition that makes C#'s split free is exactly the one beam-sharp does
+  not satisfy.
+
+  **Ticket 08's `as` answer survives, and was checked rather than assumed.** 08 made
+  `(d as int) > 0` the answer to `dynamic` in a guard, reasoning that *"`&&` never changes
+  meaning"*. The lifting that yields false on failure is on the **comparison** — it produces `false`
+  before any conjunction sees it — so 08's sentence is a claim about the *absence* of special
+  conjunction behaviour, and an absence survives a rename. 08's table row is amended; the row
+  beneath it stands.
+
+  **`&&`/`||` are removed rather than aliased**, on the standing constraint: write cost carries
+  little weight, read cost carries full weight, and a reader meeting both spellings must ask whether
+  the difference is meaningful — a question they should never have been made to ask. **Flagged in
+  the ticket as the piece most worth overruling**, being the only part not forced by the reasoning.
+
+  **No source changed, and it could not have.** `LANGUAGE.md` is gated bidirectionally and the
+  compiler does not lex `and` today (`src/bs_lexer.xrl` carries `&&`/`||` at lines 112–113 and no
+  `and`/`or` rule), so editing the doc before the lexer turns the gate red. Lexer first, then doc and
+  example, in one change — F2's job, since 42 already obliges it to reserve the keywords. **44's own
+  marginal lexer cost is therefore zero**, and it *removes* two rules, which is a rare direction of
+  travel for a language decision.
 - [Negation has no spelling](issues/63-negation-has-no-spelling.md) — **there is no `not` and no
   `!`**, resolved 2026-08-26, completing the territory ticket 44 opened. 44 settled conjunction and
   disjunction and said nothing about negation, which made this a hole rather than a recorded
@@ -1136,30 +1160,6 @@
   to leave it that way without a ticket. Worth knowing that this also **stabilises the repro** for
   ENG-256 — the raw `erlc` text `63b` provokes — since the input it depends on stays illegal.
 
-  **And the reason to unify is beam-sharp's own.** C#'s split costs nothing there because patterns
-  and expressions rarely touch. This language's defining move puts patterns in the *parameter*
-  position, so a pattern and a guard sit on the **same line**, in the central construct, in every
-  non-trivial function. The condition that makes C#'s split free is exactly the one beam-sharp does
-  not satisfy.
-
-  **Ticket 08's `as` answer survives, and was checked rather than assumed.** 08 made
-  `(d as int) > 0` the answer to `dynamic` in a guard, reasoning that *"`&&` never changes
-  meaning"*. The lifting that yields false on failure is on the **comparison** — it produces `false`
-  before any conjunction sees it — so 08's sentence is a claim about the *absence* of special
-  conjunction behaviour, and an absence survives a rename. 08's table row is amended; the row
-  beneath it stands.
-
-  **`&&`/`||` are removed rather than aliased**, on the standing constraint: write cost carries
-  little weight, read cost carries full weight, and a reader meeting both spellings must ask whether
-  the difference is meaningful — a question they should never have been made to ask. **Flagged in
-  the ticket as the piece most worth overruling**, being the only part not forced by the reasoning.
-
-  **No source changed, and it could not have.** `LANGUAGE.md` is gated bidirectionally and the
-  compiler does not lex `and` today (`src/bs_lexer.xrl` carries `&&`/`||` at lines 112–113 and no
-  `and`/`or` rule), so editing the doc before the lexer turns the gate red. Lexer first, then doc and
-  example, in one change — F2's job, since 42 already obliges it to reserve the keywords. **44's own
-  marginal lexer cost is therefore zero**, and it *removes* two rules, which is a rare direction of
-  travel for a language decision.
 
 - **A match against a bound value is `== name`** — [ticket 45](issues/45-match-token.md), resolved
   2026-08-16. Raised by F8, which makes `var` bind and a bare `=` match, and which therefore needs a
@@ -1803,3 +1803,84 @@
   module also called `List` is refused at the call site, 47's rule. `bool` was always a builtin —
   ticket 10 corrected in place. Elixir measured on the way: `List` and `Enum` are shipped beams, only
   four BIFs and `for` are inlined, so B# draws the line where Elixir's `hd` is. Unbuilt — ENG-321.
+
+- [What name does a behaviour callback emit?](issues/35-behaviour-callback-names.md) — **a fixed
+  table in `bs_otp`, and a module declaring a behaviour it does not satisfy is refused at the
+  declaration.** Sub-question 1 answers itself on *mechanism* rather than preference: `uident` is
+  `[A-Z]{ALNUM}*` in the lexer, so **a beam-sharp function name is PascalCase by construction** and
+  `handle_call` is not a spellable name — the alternative could not be written down. That leaves the
+  table ticket 32 already pointed at, one level down. **Both tables live in `bs_otp`** and both
+  `bs_check` and `bs_emit` read the one copy, because a behaviour whose name the compiler knows and
+  whose callbacks it does not is the state that produced this ticket. The rename is scoped to a name
+  *and arity* that is a callback of a **declared** behaviour, which is what stops it being a naming
+  rule by another route. `gen_statem`'s `{'StateName', 3}` is absent on purpose — those names are the
+  user's. **Ticket 14 §4's type containment is not owed here, measured rather than deferred**:
+  Dialyzer accepts a narrowed callback spec and still rejects a wrong one, so doing it in the
+  compiler buys a diagnostic and no safety. Resolved 2026-08-15.
+
+- [Is the value assigned to a field checked, and is `with` a sixth site?](issues/36-field-value-obligations.md)
+  — **yes to both, and neither is a sixth site.** A field assignment is checked against the type the
+  record declaration wrote down, at construction *and* at `with`. **Site 2 is not "construction"; it
+  is field assignment**, and `Order{ … }` and `o with { … }` are its two spellings. The asymmetry the
+  ticket called "the actual cost to weigh" never arises. Ticket 33 §2's closing sentence enumerates
+  the forms that declare nothing — `e_op`, `e_tuple`, `e_list`, `e_block` — and **`e_with` is not
+  among them**, because the type governing `o with { Total = … }` is `Total: int`, written in the
+  record declaration: one declaration, two expressions meeting it. The measurement found the ticket
+  had **under-counted the defect and mis-drawn its own scope fence** — three defects, not two.
+  Resolved 2026-08-21 — [ENG-203](https://linear.app/davewil/issue/ENG-203).
+
+- [A map type in the prelude](issues/48-a-map-type-in-the-prelude.md) — **`map<K, V>` enters the
+  prelude as a second map member kind, declarable but not yet destructurable, with `Map.Get` a
+  compiler-known operation under a reserved qualifier.** All nine questions are answered across three
+  dated `DECIDED` sections. The type ships before the pattern form because **the expensive half of
+  this feature is matchability, not existence** — a type no pattern narrows never reaches
+  `m_decompose/3`, so deferring the pattern form defers the permanently-mandatory catch-all and most
+  of the algebra. The excluded tag is **`Kind` absent only**, which is what makes an Elixir struct a
+  member of the map type and settles ticket 50 as execution. **Two of the ticket's own premises were
+  falsified and both corrections stand with the decision**: Elixir does *not* reserve `Map` — an
+  ordinary module in a flat namespace, measured on 1.19.5 — so reserving it is beam-sharp's choice,
+  not a borrowed one; and unbounded keys do **not** make the language more exhaustive, since an open
+  key domain is the one place exhaustiveness cannot work. They make an already-unexhaustive corner
+  honest and typed, where today it is `list<(atom, term)>` with no checking at all. Resolved
+  2026-08-25 — [ENG-230](https://linear.app/davewil/issue/ENG-230).
+
+- [Consuming an Elixir library: how is a foreign struct named?](issues/50-naming-a-foreign-struct.md)
+  — **a foreign aggregate gets no name of its own: it is a `map<atom, term>`, and that works with no
+  new surface.** This ticket was answered elsewhere and the recording is the point — ticket 48's Q3
+  chose `Kind` absent only, and because the excluded tag is **not** `__struct__`, the map type says
+  nothing about `__struct__` and an Elixir struct is a member of it. `%Req.Response{}` is a
+  `map<atom, term>` a clause head can take. **The fork is worth keeping visible because 48 could have
+  closed it and did not**: had 48 declared *both* tags absent — available, and it works — a struct
+  would have been excluded and this shape would not exist. The two tickets really were one question.
+  Settled separately here: **neither `!` nor `?` may appear in a B# function name**, so `Req.get!`
+  cannot be named at all and an alias is required rather than a workaround. Resolved 2026-08-26.
+
+- [A foreign function returning `(:ok, V) | (:error, R)` as values](issues/56-foreign-value-returned-error.md)
+  — **it is declared as an ordinary union naming its own error payload, and nothing else changes.**
+  No wrapper is emitted, both arms are typed, and `(:error, :enoent)` is an ordinary clause head.
+  **The question assumed the missing thing was a form; it was not — the form already existed and the
+  check was reading it wrong.** F19 §2 inferred the failure *channel* from the *shape* of the return
+  type, and for most of OTP that inference is false; the compiler cannot do better, since nothing
+  about `{:file, read_file, 1}` reveals whether it raises. The channel is knowledge only the author
+  has, so it must be something the author writes — and they already can. **The wrapper is requested
+  by the payload `foreign_error`, not by the tag `:error`**, which is one predicate narrowed: no new
+  syntax, no new prelude entry, no widening, and no extension to the FFI declaration at all. This
+  makes F19 §1 more true, not less. **Numbered 48 for four days and it was the wrong number** — two
+  trackers disagreed about what "48" meant; renumbered 2026-08-22. Resolved 2026-08-22, built the
+  same day as [F23](../../compiler/features/F23-value-returned-foreign-error.md) —
+  [ENG-228](https://linear.app/davewil/issue/ENG-228).
+
+- [A refined `int` parameter admits a float](issues/58-refined-int-admits-a-float.md) — **nothing
+  here needed deciding: ticket 18 §1 rule C decided it on 2026-08-13 and §5 refused an opt-out, so
+  this is one resolved rule missing from `bs_emit`.** A refined `int` parameter is an `int`
+  parameter, so the refinement changes nothing about which case applies; the emitter owes the type
+  test and does not emit it. Ticket 46 raised it rather than absorbing it, correctly — this is not
+  18's standing question about every parameter reopened. **The finding worth carrying forward is that
+  a range subtraction does not fix this and would have looked like it did**: `100.5` reaches the
+  `Classify(>= 9)` clause, so 46's `P \ D` yields `=< 255` there and `100.5 =< 255` is true. A
+  range-only fix crashes `300.5` while leaving `100.5` answering `:reserved` — the reported defect,
+  unmoved, with the easier half fixed. `300.5` reads like the natural probe and is the wrong one, so
+  `check-boundary-kind.sh` probes on `100.5` and its self-test carries a RANGE stub it must catch.
+  **A comparison proves ordering, not kind.** Resolved 2026-08-23, built as
+  [F24](../../compiler/features/F24-boundary-kind.md) —
+  [ENG-240](https://linear.app/davewil/issue/ENG-240).

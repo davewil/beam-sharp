@@ -98,7 +98,26 @@ then the residual comparisons.** Emitting either alone leaves a channel open.
 
 ---
 
-# Resolved — 2026-08-23, built as [F24](../../compiler/features/F24-boundary-kind.md)
+## Answer — resolved 2026-08-23, built as [F24](../../compiler/features/F24-boundary-kind.md)
+
+**Nothing here needed deciding — ticket 18 §1 rule C decided it on 2026-08-13 and §5 refused an
+opt-out, so this is one resolved rule missing from `bs_emit`, built as
+[F24](../../compiler/features/F24-boundary-kind.md).**
+
+A refined `int` parameter is an `int` parameter, so nothing about the refinement changes which
+case of rule C applies: the emitter owes the type test and does not emit it. Ticket 46 raised
+this rather than absorbing it because 46's scope note is correct — this is not 18's standing
+question about every parameter reopened, it is one rule that is not in the compiler.
+
+**The one finding worth carrying forward: a range subtraction does not fix this, and would have
+looked like it did.** `100.5` reaches the `Classify(>= 9)` clause, so ticket 46's `P \ D` yields
+`=< 255` there — and `100.5 =< 255` is true. A range-only fix crashes `300.5` and leaves `100.5`
+answering `:reserved`: the reported defect, unmoved, with the *easier* half of it fixed. `300.5`
+is the value that reads like the natural probe and it is the wrong one, which is why
+`check-boundary-kind.sh` probes on `100.5` and its self-test carries a RANGE stub — ticket 46's
+answer implemented exactly — that it must catch.
+
+**A comparison proves ordering, not kind** is the sentence the whole feature reduces to.
 
 **`erlang:is_integer/1` is emitted in the clause head of an exported function, on every parameter
 whose declared type is int-only, unless that clause's own pattern already pins the kind.**

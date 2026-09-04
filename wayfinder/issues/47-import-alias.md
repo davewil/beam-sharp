@@ -348,7 +348,57 @@ found. Choosing it should say what that fix is, or accept that `Interop`, `Label
 
 ---
 
-# Answer — David, 2026-08-31
+## Answer — David, 2026-08-31
+
+**No alias — B# has two import tiers, not three — and 41 §2's shadowing half fires at the call
+site, which is the half that carries the ticket.**
+
+Round 2's outcome A, both halves; §6's recommendation stands as given, and the per-question working
+is in *Answer — David, 2026-08-31* above. Two answers, and the second is the one that mattered.
+
+**No alias.** C#, Elixir and TypeScript all have one, and this resolves against that three-of-four
+survey deliberately: everywhere else the alias is convenience layered over a qualification that
+always works, and in B# **the qualification was the broken thing**. The corpus has four native
+`using` lines and not one wants a chosen name, and a short name is already *derived* in both module
+shapes — `Solo.Sum(…)` is short, and `using Shop.Collections` gives `List.Sum(…)`. So **every key
+in either import table stays derived**: `{Name, Arity}` from the callee's exports, the short name
+from `strip_prefix/2`, and no author-chosen key ever enters either.
+
+**41 §2's shadowing half fires at the CALL SITE** (David: *"only where the name is used"*). §2's
+sentence covers ambiguity *and* local-shadowing, specifies no firing point for either, and F15 built
+the first lazily and the second eagerly — so an import was refused for a clash the program never
+made. That asymmetry was an artefact of the build, not the rule. **Both halves now fire the same
+way**, and the delta is a deletion: the eager raise in `add_module_import` goes, and a bare name
+resolves to the local — no new syntax, no new table key, no new keyword. **Built 2026-09-02** by
+[ENG-270](https://linear.app/davewil/issue/ENG-270), which this unblocked and was gated on it.
+
+*Corrected 2026-09-02, on building it: there is no clash left to report at the call site. A local
+and an import are not two meanings, so the local simply answers, and only two IMPORTS are ever
+ambiguous. The delta was also larger than a deletion — `resolved_funs/1`, the flattened table the
+emitter reads, resolved on imports alone and had never needed to know about locals, because until
+then a local and an import could not share a key. `47a`'s `P5` returned 3, the imported sum, where
+the local clause answers 0. The resolution order now applies once, at check time, in the table both
+resolvers read.*
+
+**The premise the ticket rested on was false, and measuring it is what redirected the ticket.**
+Owed item 3 claimed an alias may be *"not a convenience but the ONLY spelling"* for a name reachable
+from two sources. Seventeen shapes through `bsc` (`47a_import_collision_probe.sh`) say otherwise:
+both colliding modules may be imported side by side and separated at the call site (`P2c`), and a
+local `Sum/2` coexists with both in one expression (`P7`). The diagnostic says *"name one of these
+in full instead"* and the form it recommends works. **But one program had no spelling at all, and it
+was not an ambiguity** — a module declaring `Sum/2` could not reach a top-level `Solo` exporting it
+by any route, because the namespace tier that rescues every other shape writes `mods` and never
+`funs`, and a top-level module has no namespace above it. Not an edge case: `Interop`, `Label`,
+`Foreign` and `Pipeline` are all top-level modules.
+
+**The grammar cost was measured before the question was put, and it was zero** —
+`47c_alias_grammar_conflicts.sh`: 0 → 0 yecc conflicts, 47 corpus files parsing identically, the
+fully-qualified call unmoved. It is recorded because it did **not** decide anything: a costly arm
+would have argued against the alias, a free one does not argue for it. The probe stays in the tree
+as the standing answer to *"what would the alias have cost?"*, asked twice now. Its self-test
+rebuilds ticket 41's right-recursive `modpath` — which **built cleanly and then misparsed**
+`List.Map(x)` — because a conflict count alone would have passed that grammar, and this repository
+has already been caught by exactly that.
 
 **Round 2's outcome A, both halves.** The recommendation in §6 stands as given.
 

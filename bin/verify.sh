@@ -221,6 +221,7 @@ run_stages \
      ./bin/check-cwd-independence.sh --self-test &&
      ./bin/check-shell.sh --self-test &&
      ./bin/check-map.sh --self-test &&
+     ./bin/check-decisions.sh --self-test &&
      ./bin/check-surface.sh --self-test &&
      ./bin/check-open-questions.sh --self-test &&
      ./bin/check-links.sh --self-test &&
@@ -254,6 +255,9 @@ run_stages \
 \
   "The map is an index" \
     "./bin/check-map.sh" \
+\
+  "Every resolved ticket owns its own answer" \
+    "./bin/check-decisions.sh" \
 \
   "Surface decisions are traceable from LANGUAGE.md" \
     "./bin/check-surface.sh" \

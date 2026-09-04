@@ -183,7 +183,53 @@ wire parsing makes wire parsing harder to write. That trade is the decision.
 
 ---
 
-# ANSWER — 2026-08-20
+## Answer — 2026-08-20
+
+**A binary gets no structure in the type language: a segment's *width* becomes an interval
+refinement on the value it binds — `t:8` is an `Octet` by inference — and that inference is the whole
+of what this ticket adds.**
+
+Resolved 2026-08-20, against a survey of four languages, all compiled and run:
+[`research/30-binary-grammar-prior-art.md`](../research/30-binary-grammar-prior-art.md). Nothing
+enters the type lattice — the binary part stays the four-point set F9 shipped.
+
+**Three refusals sit around the one inference.** Sizes stay **erased**: `payload:size` runs and
+`payload` is typed `binary`, because relating two fields of one pattern is refused by every language
+measured, three of them with a dedicated diagnostic — Erlang's `bad binary type`, Elixir's typespec
+grammar enumerating its only three forms, and C# `CS9135`. **§3's sized-binary spelling never
+arises**, which retires F9's fear of a pattern and a type in disagreeing notations; C# is the
+positive evidence, being the one language with both a sized sequence type and a sequence pattern and
+unable to use them together (`CS8985`). **String literals in pattern position are admitted** as
+byte-string singletons, with a catch-all always required, because a `string`'s residual is always
+open.
+
+**The binary pattern does shape; a function head does value.** A `_` over a binary is always legal —
+a binary can always be too short — so it also absorbs any wire value left unhandled, and the compiler
+is not asked to see through that. Value dispatch belongs in a second head, where the residual is
+computed. That deliberately makes an idiom of the shape 25b filed as a smell, and the price is real:
+write the tag dispatch inline in the binary patterns and the checking is silently lost with no
+diagnostic saying so, which F13 owes in its docs.
+
+**Two things this answer said were corrected by F13 the same day, and the correction is the later
+word.** As first written it named two general gaps as the real cost — interval patterns in nested
+position, and a residual renderer that keeps sub-position facts — and repeated 25c's coupling that
+interval patterns and interval refinements must land in the same increment. **Neither cost row was
+built and neither was needed**: this answer's own rule puts every residual F13 can produce at
+whole-argument position, where the renderer already prints legibly and relational patterns have
+worked since F2, and 25c's coupling had already been satisfied for four days when this answer
+repeated it — `Classify(>= 4)` closes a 4-bit opcode in one clause where 25b priced saying
+"reserved" at eleven. Both gaps remain real and general, now with nothing waiting on them. The
+second correction is §4's owed test, **discharged by F13**: `binary_tests` runs a set of string
+literals with a catch-all (accepted) and the same set without one (`inexhaustive`).
+
+**Flagged as a reversal risk, and this is the decision to revisit first.** Nobody proves coverage
+over a *sub-byte* field: C# does coverage properly but has no sub-byte concept at all, Erlang does no
+exhaustiveness checking whatever, Elixir's set-theoretic machinery provably does not reach binaries,
+and Gleam has subsumption over bit arrays and refuses coverage even for a 1-bit tag with both values
+named. Both exemplars are bit-packed in their first eight bits, so **for the case that actually
+matters the survey is unanimous against this answer**. It is defensible because none of the four
+failed by *trying and finding it unsound*, and cheap to reverse, since nothing entered the type
+lattice — backing out means dropping an inference, not unwinding an algebra.
 
 **A binary gets no structure in the type language. A segment's *width* becomes an interval
 refinement on the value it binds, and that is the whole of what this ticket adds.**

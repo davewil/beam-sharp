@@ -287,7 +287,7 @@ stubbing; a gate that reaches the network is flaky by construction.
 
 ---
 
-## DECIDED — shape 2, by ticket 48's Q3. Recorded 2026-08-26
+## Answer — shape 2, by ticket 48's Q3. Recorded 2026-08-26
 
 **This ticket is answered, and it was answered elsewhere.** [Ticket 48](48-a-map-type-in-the-prelude.md)
 closed on 2026-08-25 with *"Q3 — which tag does it exclude? **`Kind` absent only**"*, and 48's own

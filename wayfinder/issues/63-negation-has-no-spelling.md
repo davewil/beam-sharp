@@ -2,8 +2,8 @@
 
 Type: grilling
 Status: **RESOLVED 2026-08-26 — no `not`, no `!`; the absence teaches** —
-[ENG-253](https://linear.app/davewil/issue/ENG-253). Answer and full reasoning in
-[`decisions.md`](../decisions.md); built the same day as
+[ENG-253](https://linear.app/davewil/issue/ENG-253). Answer and full reasoning are in the `## Answer`
+section at the foot of this file; built the same day as
 [F27](../../compiler/features/F27-no-negation.md), gated by `compiler/bin/check-negation.sh`.
 David's answers to the round are at the foot of this file.
 All four of *Open* below are measured; item 4's stated reason is **false** and the correction is the
@@ -336,3 +336,85 @@ That argument — *"one translator, so a refinement and a guard cannot come to d
 share. Measured: `when not (n > 100)` fails before `'('`, `int where not (value > 100)` fails before
 `'>'`. An implementation keyed on the token yecc reported would have covered guards and missed
 refinements silently. F27's gate asserts them separately for that reason.
+
+## Answer
+
+**There is no `not` and no `!` — negation has no spelling, and it is refused on REDUNDANCY, not on
+danger.**
+
+Resolved 2026-08-26, completing the territory ticket 44 opened: 44 settled conjunction and
+disjunction and said nothing about negation, which made this a hole rather than a recorded omission.
+The distinction between redundancy and danger is the entry.
+
+**The reason the ticket nominated as the possible blocker was false.** Its item 4 said the algebra
+has no negation node, so a `not` over a refinement *"may be asking the algebra for exactly the thing
+it cannot represent"*, and named itself *"the question that could make the answer no"*. The first
+half is true and the second does not follow: cofinite atom sets close the algebra under complement
+**without** a negation node (`bs_types.erl:20-23`).
+[`63a`](../prototypes/63a_can_the_algebra_complement.escript) measured it with a control on each arm
+— `atom \ (atom \ :ok)` round-trips to `:ok`, `binary \ string` is representable and prints, and
+`open \ closed` keeps the minuend whole **while** `closed \ closed` is exact, which locates that
+widening in the open/closed pairing rather than in any missing complement. A missing negation *node*
+and an inability to *complement* are different things.
+
+**What refuses it instead: the guard fragment is already closed under complement.**
+`alternatives/1` (`bs_check.erl:2659-2693`) is the only thing that reads a guard, and its fragment —
+`and`/`or` over six integer comparisons and two atom comparisons — is closed by construction.
+[`63c`](../prototypes/63c_guards_close_under_complement/) proves it *in the algebra* rather than at
+run time: nine clause pairs split on P and its complement with **no catch-all**, so they compile only
+if the checker proves the pair exhausts the domain. All nine compile; both controls are refused. The
+atom control earns its place, since `atom` is the cofinite top and ticket 12 permits a catch-all over
+an open residual, so that pair could otherwise have passed from permissiveness alone. A `not` the
+translator *did* learn would be a De Morgan rewrite into the existing fragment — it would compile
+`not (n > K)` into precisely the `n <= K` already available. A construct whose whole implementation
+is *"rewrite it into the spelling you already have"* is redundant, and the refinement position
+inherits the result because it shares that one translator.
+
+**It cannot be made unsafe either way, which is why the argument had to be redundancy.** An earlier
+draft argued an unlearned `not` would be *harmful*; that is wrong in the direction that matters. A
+guard the checker cannot read credits **nothing** (`bs_check.erl:2636-2645`), so such a function is
+refused as inexhaustive — loud and sound; and in a refinement an untranslatable predicate is
+`{opaque_refinement, Line}`, a hard error.
+
+**A second of the ticket's premises was false.** Its cost section offered `when not IsAdmin(u)` as
+the thing that cannot be written. [`63b`](../prototypes/63b_guard_probe/) shows the *un-negated*
+`when IsAdmin(u)` is illegal — a user function cannot appear in a guard at all, inherited from
+Erlang — with a control differing only in `u == 1` that compiles. The example was never available
+with or without a `not`, so it was not a negation cost.
+
+**The four-language survey looks unanimous and does not reach the question.** Erlang, Elixir, Gleam
+and Roc all spell negation, and resolving against a unanimous survey is a reversal waiting to happen.
+But all **16** guard negations in OTP 28's `stdlib` and `kernel`, read directly rather than counted
+by a regex, wrap a type test or `is_map_key` — `not is_list` ×8, `not is_tuple` ×4, `not is_map_key`
+×3, then one each of `is_pid`, `is_function`, `is_binary`, `is_integer`. **Not one wraps a
+comparison.** Type tests are *"absent by design — the clause head and the checker do this"*
+(`PRELUDE.md:134`) and `is_map_key` is a pattern here. The category those languages reach for `not`
+to negate is the category this language moved into the clause head, so B# is not diverging from them;
+the construct they negate does not exist. Recorded as a deliberate **tier-3 divergence**.
+
+**David's answer added the obligation that made this a build.** Given the choice between a plain
+syntax error and one naming the complement, he took the second: *"turn the absence into a teaching
+moment rather than a gap."* So the refusal ships with a diagnostic listing the opposite of each
+comparison, and `!` is covered too — it fails one stage earlier, in the lexer, and is the spelling
+the C#/TS audience reaches for on sight. **Built as F27**
+([F27-no-negation.md](../../compiler/features/F27-no-negation.md)), same day, gated by
+`compiler/bin/check-negation.sh`.
+
+**`not` is NOT reserved, and that is deliberate.** It is a legal identifier today —
+`F(not) when not > 100` compiles and runs — and making it a keyword would have been the one-line
+route to a sharp message while quietly taking a name out of the language. Reserving names is
+[ticket 65](65-reserved-names-policy.md), which is open, so the hint is raised at the **parse
+failure** where it cannot reach a program that parses. This is the seam between a feature and a
+ticket working as intended: F27 needed a decision it did not own, and declined to make it.
+
+**Two re-open triggers, written down rather than assumed.** (1) The redundancy argument holds only
+while every guard-legal, compiler-known predicate is a *comparison*. `PRELUDE.md`'s collection
+library is open, so the first guard-legal `Map.HasKey` or `List.Any` would be the first guard
+predicate with no complement operator beside it, and re-opens this. (2) A **lambda** would make
+`not (` parseable and would want the detection rule revisited; F6 measured that `ty()` has no arrow
+part and the surface language has no lambda, which is what makes the rule safe today.
+
+**Deliberately not raised**: whether `when` should admit user-defined predicates at all. It is
+currently *no* by inheritance from the BEAM rather than by any decision here, and David's call was to
+leave it that way without a ticket. Worth knowing that this also **stabilises the repro** for
+ENG-256 — the raw `erlc` text `63b` provokes — since the input it depends on stays illegal.

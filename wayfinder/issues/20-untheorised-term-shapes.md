@@ -214,7 +214,108 @@ failure mode any approximate answer to this ticket would risk.
 
 ---
 
-# Answer — resolved 2026-08-13
+## Answer — resolved 2026-08-13
+
+**The type system takes Erlang's full `<<_:M, _:_*N>>` binary grammar with an exact union, makes
+`string` a `binary` refined by valid UTF-8, and admits refinements in two tiers cut on what one
+BEAM guard decides in O(1) — with the opaque tier's user-declared half later narrowed to a
+placement rule rather than a ban.**
+
+The five sightings of *"binaries are where precision dies"* have one cause, and it is not
+binaries. Every one traces to a **join that over-approximates on the way in**, never to a
+subtraction failing on the way out: `erl_types` collapses `<<_:32>> | <<_:64>>` into
+`<<_:32,_:_*32>>`, which admits a 96-bit value nobody declared, and ticket 04's residual then
+subtracts correctly and walks forever. The same failure appears in a **second domain** — integer
+ranges are quantised onto a fixed ladder, `5..20` snapping to `1..255` — so the finding
+generalises: **beam-sharp inherits this platform's type *grammar* and cannot inherit its
+*algebra*, in any domain**, because Dialyzer is a success-typing tool that may only ever be
+optimistic.
+
+**Binaries (§2).** The surface admits the full grammar with an exact union: a fixed size is a
+closed set and provable, a repeating unit is open and takes ticket 12's catch-all, and exact
+negation is never needed, since only emptiness and openness must be decided.
+
+**The boundary (§3).** Ticket 18's boundary question answers *"anything the grammar can spell"* —
+`byte_size` and `bit_size rem N` are guard BIFs, measured O(1) at 8 B and 8 MiB alike. That lands
+opposite to expectation: **binaries need no `ValidateAs` where ticket 26's records do.** Ticket
+17 §3's fixpoint widening was never a codegen artefact — its probe declared no spec, and a
+declared one lands in the abstract chunk verbatim.
+
+**Serialisation (§4).** `json:encode/1` crashes on non-UTF-8 binaries and on all bitstrings, a
+fifth sighting ticket 16 §4 assumed away. So **`string` is `binary` refined by valid UTF-8**, a
+bare `binary` encodes as base64, a non-byte-aligned bitstring is a compile-time error, and **a
+literal is a `string` by construction**.
+
+**Refinements (§5).** That forces refinements, in two tiers cut on the map's recurring line.
+Guard refinements are reasoned about, legal in clause heads and at FFI, and **user-declarable**;
+opaque O(n) refinements are **compiler-known only** — ticket 11's *"size a foreign sender
+chooses"* at a second site — which **answers the fog's question about adding to the prelude's
+second stratum: no**. **Integer intervals join the algebra**, buying guarded partitions without a
+catch-all and `-spec` precision — *not* `Fib`.
+
+**A named limit, a refusal, and two corrections.** `is_list` admits `[1,2|3]`, so `list<T>` is
+not O(1)-decidable and **improper lists are a named limit** (§6) — but the adopted lowering gives
+`function_clause`, so ticket 18's guarantee holds. **Taint is refused**, per ticket 21 (§7). Two
+corrections travel with it: **ticket 11 overstated its own debt in both halves** (exhaustiveness
+never needed intervals; termination was never promised), and **refinements do not settle ticket
+09's newtype gap** — a refinement is a set, so `Meters` and `Feet` as `float where value >= 0`
+are still one type, and **09's tuple tag stands**.
+
+### Amended 2026-08-13 by ticket 29
+
+[Ticket 29](29-refinement-type-prior-art.md) checked this ticket against the prior art it was
+resolved without. **Nothing decided here is wrong; four things change and one is reopened.**
+
+- **The two-tier cut is a tier-3 divergence, not the O(1) line applied again.** *No shipping
+  language cuts refinements on the cost of deciding the predicate*, Ada included, and Ada 2012
+  divides on the predicate's **syntactic form** instead — measured on GNAT 12.2, `Odd mod 2 = 1`
+  is rejected as not predicate-static while `Positive_Ish > 0` is accepted, identical runtime
+  cost and opposite tiers. The relation is **containment**: every Ada static predicate is one
+  BEAM guard and the converse fails, so beam-sharp's cut liberalises a line Ada drew syntactically
+  for want of a platform-given decidable predicate language.
+- **Ada corroborates the structure independently**, having barred its dynamic tier since 2012
+  from every construct where the compiler must enumerate or bound the subtype.
+- **CDuce is measured at last** — `doc` upgraded to `local`, pinned at **0.6.0 (2017-03-17)** and
+  installed via `archive.debian.org`. Its interval algebra is exact at every operation *including
+  complement*, and **no SMT library is linked**, so §5's affordability argument is demonstrated
+  rather than asserted. 29 also publishes the cost nobody had: below the measurement floor at 40
+  clauses, quadratic past ~200.
+- **The `string`/`binary` split is a tier-1 borrow this ticket did not claim** — but both
+  audiences silently substitute U+FFFD on invalid UTF-8, which is ticket 06's outcome 3 in the two
+  languages beam-sharp borrows from, so the *behaviour* is a deliberate divergence. .NET's
+  serialiser independently reaches §4's base64 where node does not.
+- **A third `erl_types` lossiness**, verified here as `t_bitstr(8,72)` → `<<_:64,_:_*8>>`, and its
+  motive is worse than the other two: a **finite-height lattice, exactness traded for termination**
+  by the platform's own designers, in the domain this ticket commits to exactness in.
+  **beam-sharp escapes it, and the skeleton is the evidence** — ticket 04 made signatures
+  mandatory, so nothing iterates to a fixpoint and the residual only shrinks; the skeleton's
+  unbounded interval lattice terminates at every clause count measured.
+
+**Reopened for David by that amendment**: whether users may declare *opaque* refinements at all.
+Ada permits them and contains them with the same placement rule beam-sharp already applies, so
+the ban on *declaring* one may do no safety work the placement rule is not already doing — against
+which beam-sharp's checks have **no opt-out** where Ada's switch off with `-gnata`.
+
+### Resolved the same day — the refusal is narrowed to a placement rule (David, 2026-08-13)
+
+**User-declared opaque refinements are barred from clause heads and foreign declarations, and
+permitted elsewhere.** Gap [g3] — GNATprove never run — is closed, and it decided this:
+**GNATprove 12.1.0 discharges a `Dynamic_Predicate` statically whenever the caller's contract
+entails it, including an O(n) content predicate**, the direct analogue of
+`binary where valid_utf8`, with the induction carried by an ordinary loop invariant. So Ada's
+permissiveness is *not* "permit and check later". Also measured: **SPARK's line is not Ada's** —
+`Odd mod 2 = 1` is refused Ada's static tier on form while `Pos > 0` is admitted, and SPARK treats
+them identically, so Ada's split is front-end *legality* where SPARK's is *entailment*.
+
+**The evidence and the rule are the same shape.** SPARK proves it where the caller is inside the
+verified subset, and at beam-sharp's boundary the caller never is (ticket 21 rules out ruling out
+a foreign sender). Interior, caller known — the predicate is a dischargeable obligation.
+Boundary, caller unknown — it is unbounded cost with nothing to discharge it against. Accepted
+with the cost open-eyed: **beam-sharp pays for every check, always**, where Ada's switch off with
+`-gnata`. Three things this owes are recorded above — whether the compiler may call user code at
+a boundary, a spelling for the check site, and what happens when the predicate raises (ticket 15's
+`result<T, E>`, with Ada's `Predicate_Failure` the precedent). Residual limit: `alt-ergo` would
+not run, so a *negative* proof result must not be read as unprovable.
 
 > Decision brief: [`../beam-sharp-eng-186.html`](../beam-sharp-eng-186.html) ·
 > [published artifact](https://claude.ai/code/artifact/bdcae90e-5667-47b6-949b-7cb41534bb36)

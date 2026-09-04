@@ -17,7 +17,7 @@ Status: **resolved 2026-08-22** — raised 2026-08-18 while building
 > found while resolving [ticket 55](55-destructure-and-bind.md) — the same class of defect, which is
 > why it was looked for.
 
-## The answer
+## Answer
 
 **It is declared as an ordinary union naming its own error payload, and nothing else changes.**
 

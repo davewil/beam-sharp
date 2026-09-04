@@ -339,6 +339,41 @@ read as obvious and was wrong on inspection.
 this ticket kept hitting was reasoning about the compiler instead of running it, and four separate
 claims went false that way.
 
+## Answer
+
+**`map<K, V>` enters the prelude as a second map member kind — declarable, passable and
+returnable, but not yet destructurable in a clause head — with `Map.Get` a compiler-known
+operation under a qualifier the language reserves.**
+
+All nine questions are answered. The detail is in the three `DECIDED` sections below, which are
+kept as they were put because each records what David was asked and what he replied:
+
+| | question | decision | where |
+|---|---|---|---|
+| **Q1** | does the key domain become unbounded? | **yes** — a second map member kind | *Q1 yes, Q2 type first* |
+| **Q2** | one widened brace form, or a second? | **neither yet** — the type ships before the pattern form | *Q1 yes, Q2 type first* |
+| **Q3** | which tag does it exclude? | **`Kind` absent only** | *the remaining six* |
+| **Q4** | what is it called? | **`map<K, V>`** | *the remaining six* |
+| **Q5** | where do the operations live? | a compiler-known operation, qualified spelling, inlined (17 §2) | *the remaining six* |
+| **Q6** | does the `option<T>` collapse get fixed here? | **no — its own ticket** | *the remaining six* |
+| **Q7** | is the shipped brace map a `map<K, V>`? | **yes, one type family** | *the remaining six* |
+| **Q8** | what shape do the operations take? | **two, assertive preferred** | *the remaining six* |
+| **Q9** | how is the operation spelled? | **`Map.Get`, with the qualifier reserved** | *Q9* |
+
+**Two of this ticket's own premises were falsified on the way, and both corrections stand with
+the decision rather than beside it.** Elixir does **not** reserve `Map` — it is an ordinary
+module in a flat global namespace and the qualifier is unprotected, measured on Elixir 1.19.5 —
+so reserving it here is beam-sharp's choice and not a borrowed one. And the argument that
+unbounded keys make the language *more* exhaustive is backwards on its own terms: an open key
+domain is the one place exhaustiveness cannot work, since no finite clause set closes the
+residual. The decision stands on the corrected reason — **unbounded keys do not make the
+language more exhaustive, they make an already-unexhaustive corner honest and typed**, where
+today that corner is `list<(atom, term)>` with no checking at all.
+
+The expensive half of this feature is matchability, not existence, which is why Q2 ships the
+type first: a type no pattern narrows never reaches `m_decompose/3`, so deferring the pattern
+form defers the permanently-mandatory catch-all and most of the algebra with it.
+
 ## DECIDED 2026-08-25 — the remaining six
 
 David, closing round 3: *"Q3 yes, Q4 map, Q5 prelude, q6 own ticket, q7 yes, q8 two, assertive

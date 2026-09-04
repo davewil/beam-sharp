@@ -446,3 +446,69 @@ default is chosen, one check joining that filter to `bs_otp:callback_name/3`.
 The collection library, and through it three things that each name the module system as their
 blocker: AoC file input (F9's own note — `string` removed *one of three*), every string
 *operation* (`LANGUAGE.md:184`), and four of the seven exemplar dialect gaps.
+
+## Answer
+
+**A module's atom is its full dotted path, arity overloading is permitted unmodified from the BEAM,
+and visibility is `public`/`private` written on the signature — with an unmarked signature private by
+default.**
+
+Resolved 2026-08-15, §3 amended 2026-08-17. Three sections, answered by three different kinds of
+argument.
+
+**§1 — the emitted atom was FORCED, not chosen.** `module Shop.Orders` emits `'Shop.Orders'`,
+because ticket 26 §1's tag mints from the qualified name and delivers aggregate identity *only if*
+`Mod` is itself unique — with a leaf name, `Shop.Orders.Order` and `Billing.Invoices.Order` both mint
+`'Orders.Order'` and two bounded contexts unify invisibly. **The compiler already implements it**:
+`bs_check:qualified/2` and the `bsc.erl` emit path need no change, because both were written against
+the module *atom* rather than a single segment, so §1 costs one grammar rule. Re-measured on OTP 28;
+`13a` had measured it already. **One correction is on the record**: the first reason given for
+needing no `Elixir.`-style prefix — *"PascalCase sits outside Erlang's snake_case namespace"* — is
+**false**, and `32b_name_census.md:30–35` had already measured it false, 265 of 1,315 loadable Erlang
+modules not being plain lowercase. The surviving reason is narrower and is the one to quote: **none
+of them contains a dot.**
+
+**§2 — arity overloading is PERMITTED**, the BEAM's own rule unmodified (David: *"one arity per name
+seems a complete dead end"*). The argument for restricting it — ticket 34's *"a name means one thing
+in a clause"*, lifted to the module — is an **analogy, not a mechanism**, and was left unmade.
+`examples/fib.bs` writing `Fib`/`Series`/`Reverse` is idiom, not constraint. **The hazard cited
+against it had been mis-read, and correcting it moved it out of this ticket**: `01b:587–591` says
+`Fib/1`, `Fib/2` and `Fib/2` *again* — the same name **and** the same arity, which is a duplicate
+declaration under either answer and never an argument for one. Measured while correcting it: the
+checker **merges** two same-signature declarations into a single four-clause function and reports
+*"clause 3 is unreachable"*; the only thing that stops the build is `erlc` saying
+`function 'Combine'/2 already defined` against `Silent.abstr:0`, with no line and no `.bs` name.
+**The defect is the diagnosis, not the outcome** — the identical costume to F7's `true`/`false` bug,
+and the second appearance of that shape.
+
+**§3 — `public`/`private` on the signature**: Elixir's placement, C#'s words (David: *"Follow the
+beam convention for exports, elixir uses def/defp right?"*). Both BEAM languages make export an
+explicit per-function decision and differ only in *where* it is written; taking Elixir's site rather
+than Erlang's `-export` list avoids a second place that must agree with the definition, which is the
+drift `bs_emit`'s single `name/2` funnel exists to prevent. Taking C#'s words is the amended borrow
+heuristic working as intended — survey all three tiers, take the most accurate word — and it is the
+same shape as ticket 35's `behaviour`: mechanism from the BEAM, spelling from wherever it reads best.
+
+**AMENDED 2026-08-17 — an unmarked signature is PRIVATE**, and `public` deliberately exposes. The
+resolution had taken Elixir's *no unmarked case* and recorded it as a stated assumption with a
+one-line reversal named in advance; **this is that reversal**, and the reason is that the original
+framing had already measured the case and the resolution went the other way. C# defaults members to
+private, the BEAM defaults to unexported, TypeScript defaults to module-private — every tier-1 and
+tier-2 source defaults *closed*, so on this question all three tiers agree, which is as strong as the
+borrow heuristic ever gets. *No unmarked case* was the one convention with no second vote behind it.
+`private` stays legal and means what its absence already means, so no `.bs` file needed editing; the
+whole compiler cost was **deleting** the `missing_visibility` check, there being nothing left to
+miss.
+
+**Two checks were specified and unbuilt, and both are built.** `{name_redeclared, Name, Arity, Line}`
+for §2, by F11; and — because ticket 06 measured that `-behaviour` has no runtime effect and **only
+exports matter** — an error when a `private` function is a callback of a declared behaviour, by F12
+(2026-08-17), which F10's contract-scoped table already made cheap. Without the second, a `private`
+callback breaks the behaviour at run time, silently.
+
+**Three sections here and only §3 changes the language surface**, which is why the decision that puts
+a keyword on every signature in the language is easy to file as being about modules and codegen
+rather than about syntax.
+
+**Not decided here**: where tests live (ticket 24), and everything about *naming another* module →
+[ticket 41](41-imports-and-cross-module-scope.md).

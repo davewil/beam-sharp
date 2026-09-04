@@ -72,7 +72,45 @@ map's Notes.
 
 ---
 
-# Answer — resolved 2026-08-15
+## Answer — resolved 2026-08-15
+
+**A callback's emitted name comes from a fixed table in `bs_otp`, and a module that declares a
+behaviour without defining its mandatory callbacks is refused at the declaration.**
+
+**Sub-question 1 answers itself on mechanism rather than on preference — the alternative cannot
+be written down.** It offered "something the user writes", meaning the author spells the OTP name
+themselves. They cannot: `uident` is `[A-Z]{ALNUM}*` in the lexer, so **a beam-sharp function
+name is PascalCase by construction** and `handle_call` is not a spellable function name. It never
+will be without changing the rule that lets the grammar tell a type from a function with no
+symbol table. That leaves the table ticket 32 already pointed at — names the compiler knows, the
+way it knows `ValidateAs` — one level down.
+
+**Both tables live in `bs_otp`**, which is a real move rather than tidiness: a behaviour whose
+name the compiler knows and whose callbacks it does not is exactly the state that produced this
+ticket. `bs_check` (the presence check) and `bs_emit` (the lowering) read the one table, the rule
+F5 applied when it exported `resolve/2` instead of letting the emitter keep a copy.
+
+**The name changes, with no wrapper**, and the Question's own worry — that renaming is "one
+function, two spellings, a naming rule by another route" — is answered by scoping rather than
+waved away: a row fires only for a name *and arity* that is a callback of a behaviour the module
+**declares**.
+
+**A contract that cannot be satisfied is refused, not emitted and not silently omitted.** The
+error names the missing callbacks in the spelling the author must write.
+
+**`gen_statem`'s `{'StateName', 3}` is absent from the table on purpose.** It is OTP's
+placeholder for state functions in `state_functions` mode, whose names are the *user's*, so they
+are ordinary beam-sharp functions and must not lower. A table of known names cannot hold a name
+nobody knows yet, and inventing one would be ticket 32's derivation rule arriving through the one
+door left open.
+
+**Ticket 14 §4's type containment is not owed here, and that was measured rather than deferred.**
+A narrowed callback spec is accepted by Dialyzer and `erlc`, so 14 §4's promise survives contact
+with the platform — contravariance does not bite, because Dialyzer's behaviour check is
+success-typing rather than strict subtyping. A wrong spec is still reported `Invalid type
+specification`, so the attribute does not make Dialyzer more permissive. Doing it in the compiler
+as well would buy a better diagnostic and no additional safety, and it is named in F10's
+out-of-scope rather than left implied.
 
 **A compiler-known callback table, contract-scoped and keyed by `{behaviour, name, arity}`. The
 name changes; no wrapper. A behaviour declared without its mandatory callbacks is an error at the

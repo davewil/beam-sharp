@@ -178,7 +178,94 @@ at the Erlang boundary.
 
 ---
 
-# Answer — resolved 2026-08-12
+## Answer — resolved 2026-08-12
+
+**The language gets no ad-hoc polymorphism construct, and the hole ticket 05 flagged was half
+imaginary.**
+
+The three motivating capabilities — "anything comparable", "anything with a length", "anything
+serialisable" — were *measured* before being designed for, and they land in three different
+buckets, none of which is dispatch. A capability the type determines becomes a **codegen
+obligation**, which the compiler writes. A capability over a set of types known at the definition
+is a **union parameter** with a clause each. A capability over a set that is not known is **passed
+as an argument**, an ordinary value. The bucket is chosen by what the capability *is*, not by
+preference, and that is what stops the first one growing by taste.
+
+Type classes stay dead on [ticket 09](09-union-representation.md): resolution keys on a nominal
+head and there are no nominal heads. **Protocols died on [ticket 13](13-compilation-target-decision.md),
+not on taste** — open extension needs whole-program consolidation, which fights 13 §3's
+coincidence of the consistency unit and the deployment unit, *the same argument
+[ticket 27](27-parametric-polymorphism.md) used against monomorphisation*. **Hot loading is a
+consequence of that coincidence, not a second ground** (re-derived 2026-08-27, below). And the
+static-closed variant is bucket 2 with ceremony, which **corrects this ticket's earlier
+"consolidation by construction" line**.
+
+Measured: the BEAM's term order is **total across every type** — `1 < :ok` is `true` — so "anything
+comparable" needs no mechanism at all. `<` is nonetheless restricted to **same-type operands**, with
+the universal order kept as a *named* prelude escape for the cases that genuinely need it
+(`ordered_set` tables, sorting a mixed-key list). **`==` means `=:=`**, decided on internal
+agreement rather than on familiarity: Erlang's coercing `==` runs through tuples, lists and map
+*values* and then **stops dead at map keys**, while the clause head and `maps:get` do not coerce at
+all — so the exact spelling agrees with two constructs and disagrees with none.
+
+The generation rule is that **the type determines the result, either inherently or by published
+decree**. Serialisation qualifies by decree, and the measurement is why the decree is worth paying
+for: `json:encode/1` **fails on tuples at any depth, at runtime**, and the tuple is this language's
+workhorse (09's newtype remedy, 15's `(:error, E)`). Generation moves that failure to compile time,
+naming the member with no encoding, which a runtime protocol could never do. **Only the encode
+direction is new** — decoding is already `ValidateAs<T>` after a parse.
+
+`<` and `==` work on **bare type variables** — total, non-dispatching, and unable to fail — so
+`Sort<T>` and `Max<T>` cost nothing. **Bounds are refused outright**, not deferred: both routes to
+discharging one are closed, monomorphisation by 27 and a runtime dictionary by 09, so a bound would
+be documentation with a colon in it. **This retires ticket 27's cost measurement**, the requirement
+27 §3 called "the serious one".
+
+Finally, **ticket 05 miscategorised extension methods** (David, 2026-08-12) — one debt, not two.
+The call-syntax half was always [ticket 17](17-pipeline-and-comprehension.md)'s and the overloading
+half was always [ticket 08](08-head-and-guard-syntax.md)'s, which leaves *static abstract interface
+members* as the whole of the real hole — and **a codegen obligation is exactly that with the
+compiler writing the implementation**.
+
+**Amended 2026-08-14** — one of the two reasons for refusing protocols was invalidated by
+[ticket 26](26-data-modelling.md) and nobody went back. David, stating 26's intent: *"Exactly
+records, that's why they were introduced alongside `type` — for protocol dispatch."* This ticket
+refused protocols because dispatch cannot key on a name that is not in the term (09 §5) *and*
+because open extension needs whole-program consolidation. **26 §1 put the name in the term** — a
+minted tag, as data — so the first reason is gone and only the second stands. **The refusal narrows
+from "no protocols" to "no *open* protocols".** What this ticket wrote up as "bucket 2 with
+ceremony" **is** protocol dispatch once the tag is in the term, checked exhaustive at the
+definition, and it needs no construct because the language's headline feature already *is* the
+dispatch construct. The headline survives and reads stronger: the capability arrives *without* an
+ad-hoc polymorphism construct. For the record — **26 was not a data-modelling decision that
+happened to help here; records were introduced for this**, and 26's own entry does not say so.
+
+**Amended 2026-08-27** — this ticket and ticket 27 both cite a constraint ticket 13 does not
+contain. Prompted by David asking whether not needing hot code loading changes the open-extension
+answer: **it does not, and the design is unchanged** — what changes is why. Ticket 13 discusses
+unions, protocols and whole-program compilation nowhere; "aggregate granularity and hot loading"
+was this ticket's own characterisation of 13 §§2–3, written on 2026-08-14 and never checked against
+13. Re-derived: **13 §2 is not available**, because the obligation forbids *in-process compiler
+state* so that `.abstr` plus `erlc` always works, not a build-time pass over sources — and `bsc`
+already threads a `World` across the transitive `using` closure (`bsc.erl:278`), with `rebar_mix`
+consolidating 14 `Jason.Encoder` implementations measured working on this platform (51 §119).
+**13 §3 is available, and hot loading is not why**: consolidation makes A's `.beam` depend on B's
+source, breaking *"the consistency unit and the deployment unit coincide"*, so the ground survives
+with hot loading removed entirely. **A stronger ground exists that this ticket never had** —
+`bs_api.erl:22`, *"a type name does not cross the module boundary"*, so B cannot name A's union at
+all. That is architectural, and **it should lead the refusal**. research/07's "permitted set at the
+declaration, not by scanning" is **suggestive only**, since it carries the LDM's own caution that it
+be measured. **The refusal is a deferral with an inherited, checkable trigger** — 01d §129-131 and
+`13:202`: *open extension becomes available if and only if the operation replaces the aggregate as
+the unit of deployment*, with 01d ruling observability out itself because `dbg:tpl` already traces a
+single function. Note the coupling: that trigger is reachable **only while hot loading is
+retained**, so dropping hot loading turns the deferral into a plain rejection. Ticket 27 survives
+intact, losing one leg of one sub-argument to the same miscitation and keeping it on a fact its
+prose never stated — knowing every module in the `using` closure is not knowing every instantiation.
+
+The sharpest downstream consequence is that **[ticket 18](18-boundary-defence.md) gains a
+consumer**: a generated encoder trusts a declared type the boundary does not enforce, and crashes
+inside code no one reviewed.
 
 **The language gets no ad-hoc polymorphism construct, and the hole ticket 05 flagged turns
 out to be smaller than it recorded — because half of it was never a hole.**

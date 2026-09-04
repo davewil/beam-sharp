@@ -92,7 +92,47 @@ compiler is now publishing in a `-spec`.
 
 ---
 
-# Resolved — 2026-08-23
+## Answer — resolved 2026-08-23
+
+**Yes, a refined parameter gets a boundary guard — and the guard is the part of the refinement the
+clause head does not already prove.**
+
+`Classify(>= 9)` emits `andalso Bs@r1 =< 255` and nothing else; `Classify(1)` and
+`Classify(>= 4 and <= 7)` emit nothing at all, because a literal and a two-sided span already prove
+themselves inside `0..255`. It is **emitted always, on exported functions only** — 18 §4 scopes
+rule C to *"the exported function's own clause heads"* — and **there is no second tier**: a record's
+shape has two forgeable parts and a refinement has one, so 26 §1's tag/exact-set split has no
+analogue here (§1 above).
+
+**The generalisation is the result worth keeping** (§2). `constrains_kind/1` is a boolean because a
+tag either is or is not constrained, but a bound can be *half* proved — so the emitter **subtracts**,
+`bs_types:subtract(Accepts, Declared)`, rather than testing a flag. Measured over
+`examples/Wire/wire.bs`: 6 of 11 clauses need nothing, and the other 5 carry **six comparisons**
+between them against 22 for naive two-per-clause emission, so the ticket's *"a range test is two
+comparisons"* is the worst case, not the cost. `Band(n) when n <= 64` emits the **lower** bound and
+is what catches `Band(-5)`, which returns `:low` today: the ticket framed the question entirely
+around values above the domain, and half the escapes are below it.
+
+Failure is `function_clause`, matching the record tag test — **inspectability is ticket 23's**,
+which 18 §7 already handed it (§3). The guard stands wherever a **fixed number of projections**
+reaches the value — whole parameter, tuple element, record field, since 26 §7 already puts a field's
+value test inside 18's scope — and never through a collection, a `list<Octet>` being O(n) in a
+length the foreign caller chooses: ticket 11's refusal at a third site (§4).
+
+**Three of this ticket's own premises were corrected**, in *Corrections* above. 18 did not call the
+exported check optional — *its intake did*, at `18-boundary-defence.md:107`, inside a section
+gathering ticket 09's material, and 18 resolved the day after with §1's rule C and a §5 titled
+*"No opt-out"*. The admissible-vocabulary claim holds but not on the cited authority: `18:99–102` is
+ticket 09's *union-discriminability* set and contains no comparison at all, so the citation that
+works is **20 §5** — a guard-decidable refinement is *"legal in a clause head, legal at an FFI
+declaration"*. And `boundary_guards/4` is **not** scoped to exported functions despite a comment
+saying it is; measured, a private `Inner(Order o)` receives the tag test.
+
+**This hands ticket 18 a correction to its census**, which counts a parameter defended if every
+clause *"constrains it structurally or mentions it in a guard"* — `Classify(>= 9)` does the latter
+and admits `300` anyway, so the heuristic and rule C diverge exactly on F2's construct. And it
+raised [ticket 58](58-refined-int-admits-a-float.md) beside it: `Classify(100.5)` is `:reserved`,
+which 18 §1(b) decided and the emitter never built, and on which this guard's soundness rests.
 
 **Yes. An exported function whose parameter is a refined integer gets a boundary guard, and the
 guard is the part of the refinement the clause does not already prove.**

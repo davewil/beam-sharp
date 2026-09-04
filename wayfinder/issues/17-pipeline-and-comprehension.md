@@ -134,7 +134,54 @@ do-notation, without settling the conditional either way.
 
 ---
 
-# Answer — resolved 2026-08-13
+## Answer — resolved 2026-08-13
+
+**Four constructs were removed from the language here — dot-chaining, comprehension syntax, `if`
+and `else` — and one was added, the valve `|?>`.**
+
+The chaining form is `|>` with **qualified** names, and the dot fell to a *mechanism* rather than to
+taste: `xs.Filter(f)` needs type-directed resolution of an unqualified name, which
+[ticket 08](08-head-and-guard-syntax.md) (no overloading) and
+[ticket 16](16-ad-hoc-polymorphism.md) (one dispatch mechanism) had both already closed, and which
+16 §6 had already parked in the map's imports fog. **LINQ dies to the identical argument** —
+ECMA-334's translation emits unqualified names — so **this ticket's stated conditional was answered
+by rejecting its premise**: the cost was never in the type system, and LINQ pays exactly what the
+dot pays. The dot is not abolished but *narrowed to never being a call*, which leaves
+[ticket 26](26-data-modelling.md) owning whether it projects.
+
+**There is no comprehension syntax, because precision is a lowering decision, and it was measured.**
+Emitting an inlined comprehension recovers 27a's exact `[integer()] -> [binary()]`, where emitting a
+call to the generic prelude loses **both** sides — worse than `lists:map/2` loses, since
+beam-sharp's own declared spec overrides its body's success typing. Fusion is free and lossless. So
+one rule: **the compiler-known prelude is inlined, user code is called, and precision follows the
+inlining** — which creates a **two-tier emitted boundary** the spec must state, and which
+[ticket 18](18-boundary-defence.md) inherits. **27a's fold limit is corrected**: inlined monomorphic
+recursion keeps both sides for fold too, so the mechanism was never "comprehension" but *a
+monomorphic body the analyser can see through*, and one rule covers map, filter and fold alike.
+
+Fallible sequencing is **the valve, `|?>`**. It was chosen over a generated `[Propagates]` clause
+because that would have been the **sixth codegen obligation**, and over `Result.Then` because only
+the combinator forces a function-as-value spelling; the fully implicit rule was closed by ticket
+08's *narrowing is always written, never inferred*. `?` is free — ticket 10 dropped the ternary —
+and it is a **tier-1 borrow for both audiences at once**, since C#'s `?.` and TypeScript's optional
+chaining are the same semantics. ~~Ticket 15's untagged `result` makes `(:error, E)` the exact
+analogue of `null`.~~ **Overruled 2026-08-28 by [ticket 49](49-what-the-valve-keys-on.md):
+`:nothing` is null's analogue, and the valve keys on the fixed pair `(:error, _) | :nothing`.**
+
+**There is no `if`.** `switch` is the only branching construct, *the way Go has one loop* (David),
+with a **tuple subject** for the subject-less ladder — tier-1 C#, Gleam's multi-subject `case`, and
+the clause head's own shape, all converging. Measured rather than cited: **Gleam has no `if` at
+all** and its error text hands you `case`; **`else` is an `if`-only keyword**, with Elixir's `case`
+and `cond` rejecting it outright and `cond`'s catch-all being a *clause*. The structural reading is
+what decided it — `else` is what a binary unnamed conditional needs, and keeping it would have added
+the only construct in the language whose fall-through is not expressible as a pattern. Two questions
+die with `if`: the one-armed case ticket 10 routed here, and ticket 15's `option<atom>` collapse
+landmine.
+
+Strict only; **laziness is deferred, not refused** (David), and it stays cheap to add *because*
+names are qualified. Bonus finding: **Gleam's inexhaustive-`case` error prints the missing
+pattern**, which is ticket 04's residual observed live in a shipping BEAM compiler, and it goes to
+[ticket 23](23-what-the-language-owes-an-agent.md).
 
 **The pipe is the only chaining form, it carries qualified names, and every other question this
 ticket held turned out to be a lowering decision or a construct to delete.** Four things were

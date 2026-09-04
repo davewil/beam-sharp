@@ -75,6 +75,7 @@ jobs:
           ./bin/check-shell.sh --self-test
           ./compiler/bin/check-no-silent-skip.sh --self-test
           ./bin/check-map.sh --self-test
+          ./bin/check-decisions.sh --self-test
           ./bin/check-surface.sh --self-test
           ./bin/check-open-questions.sh --self-test
           ./bin/check-links.sh --self-test
@@ -173,6 +174,16 @@ jobs:
 
       - name: The map is an index
         run: ./bin/check-map.sh
+
+      # `check-decisions.sh` asks the question `check-map.sh` cannot: the map
+      # gate keeps the INDEX an index, and says nothing about whether the thing
+      # being indexed exists. Measured at e4f3e84 for ENG-310, 19 of 58 resolved
+      # tickets had no answer section in any spelling, six had no decisions.md
+      # entry, one sent its reader to decisions.md for an answer decisions.md
+      # says lives in the ticket, and one carried a Status no check recognised —
+      # which had silently exempted it from every check that reads Status.
+      - name: Every resolved ticket owns its own answer
+        run: ./bin/check-decisions.sh
 
       - name: Surface decisions are traceable from LANGUAGE.md
         run: ./bin/check-surface.sh
