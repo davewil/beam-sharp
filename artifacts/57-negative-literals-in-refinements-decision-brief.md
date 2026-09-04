@@ -81,7 +81,9 @@ expr -> '-' expr :
     end.
 ```
 
-- **Diff size**: 1 file (`bs_parser.yrl`), 4 lines changed (1 removed / 4 added).
+- **Diff size**: 1 file (`bs_parser.yrl`), 5 lines added / 1 removed (corrected by this brief's
+  independent verifier — originally stated as "4 lines changed"; the diff-size *ordering* between
+  the three options below is unaffected).
 - **Test suite**: `rebar3 eunit` — 620 passed, the same 1 pre-existing unrelated failure as
   baseline (`cli_tests:batch_runs_every_entry_in_one_vm_and_attributes_each`, a UTF-8/locale
   assertion, `probes/baseline-eunit.log` — fails identically on an untouched checkout). Every
@@ -110,7 +112,7 @@ As the ticket phrases it — *"constant-folding a literal arithmetic node before
 comparand is constant"*, implemented generally (fold `+`, `-`, `*` over literals recursively) in
 `comparison/1`:
 
-- **Diff size**: 1 file (`bs_check.erl`), 28 lines added, 2 removed.
+- **Diff size**: 1 file (`bs_check.erl`), 26 lines added, 2 removed.
 - **Test suite**: identical clean result to Option A — 620/621 eunit, same one pre-existing
   failure, same gate scripts all green, `check-residual-pasteable.sh` fails identically.
 - **Fixes**: Probe01/02/03/04 all clean, same as Option A.
@@ -129,10 +131,11 @@ comparand is constant"*, implemented generally (fold `+`, `-`, `*` over literals
 
 I also tried a checker-side fold that recognises *only* the exact shape the parser produces for a
 literal negation — `{e_op,'-',{e_int,0},{e_int,K}}` — and nothing else (`probes/spike-checker-narrow.diff`,
-9 lines net). It passes the same 620/621 eunit run, and Probe05 (`2 + 3`) correctly **stays
+16 lines added / 2 removed — corrected by this brief's independent verifier, originally understated
+as "9 lines net"). It passes the same 620/621 eunit run, and Probe05 (`2 + 3`) correctly **stays
 refused** — no scope creep. Structurally this is the checker-side mirror of Option A: same
-recognised shape, same scope, implemented one file over. It is smaller than the general fold (9
-lines vs. 28) but larger than Option A (9 vs. 4), and it does not touch the AST shape unary minus
+recognised shape, same scope, implemented one file over. It is smaller than the general fold (18
+vs. 28 lines touched) but larger than Option A (18 vs. 6), and it does not touch the AST shape unary minus
 produces for the rest of the compiler — the tradeoff is the reverse of Option A's counterargument:
 this leaves `{e_op,'-',{e_int,0},K}` as a node other passes still have to know is "really" a
 literal, in every place that isn't `comparison/1`.
@@ -145,7 +148,7 @@ different AST shape everywhere in the language.**
 
 The one piece of evidence that tips it: **Option A is the only candidate that fixes the guard
 failure (Probe03) as a side effect of fixing the stated bug, using the smallest diff of the three
-working candidates (4 lines), with zero scope creep (Probe05 stays refused) — and it does this
+working candidates (6 lines touched), with zero scope creep (Probe05 stays refused) — and it does this
 *without* touching `bs_check.erl` at all, so it cannot be the checker-side "where does the fold
 stop" risk the ticket itself names, because there is no fold in the checker to stop.** The general
 checker fold (the ticket's own literal phrasing) is the one candidate that measurably changes
@@ -156,11 +159,16 @@ in a different file.
 
 ## What I could not verify
 
-- Whether any code outside `bs_check.erl`/`bs_lower.erl`/`bs_run.erl` (the three I grepped)
-  pattern-matches the specific `{e_op,'-',{e_int,0},N}` shape rather than going through
-  `op_type('-')`/`erl_op('-')` generically — I did not read every module, only grepped for the
-  literal tuple shape. This is Option A's one live risk and it's a grep-scale check, not a
-  read-everything one.
+- **Correction from this brief's independent verifier**: the original grep here named
+  `bs_check.erl`/`bs_lower.erl`/`bs_run.erl` as "the three I grepped," but `bs_lower.erl` and
+  `bs_run.erl` don't reference the relevant AST shape at all — the actual emitter,
+  `bs_emit.erl`, is the file that matters and was not grepped in this pass. The verifier grepped it
+  independently and it confirms the brief's conclusion (no code there pattern-matches the specific
+  `{e_op,'-',{e_int,0},N}` shape either; `bs_emit.erl` goes through `erl_op('-')` generically, as
+  the grammar's own comment at `:592-594` says it should), but that check should be attributed to
+  the verification pass, not to this brief's original sweep. Neither pass read every module, only
+  grepped for the literal tuple shape — this is Option A's one live risk and remains a grep-scale
+  check, not a read-everything one.
 - Whether OTP version drift (28.5 pinned vs. 25.3.2 available here) affects `yecc`'s conflict
   resolution or output in a way that would change either spike's behavior — both spikes compiled
   with zero `yecc` conflict warnings on 25.3.2, but I have no way to build against 28.5 here
