@@ -1,0 +1,5 @@
+# Directories holding executable shell that no enumeration reaches, each with
+# the reason it is out. A bare path is refused: "never considered" and "somebody
+# pasted a path in" are the same state, and this file is the only thing that tells
+# them apart. See detect-unenumerated-shell-dir.sh for the two incidents behind it.
+
