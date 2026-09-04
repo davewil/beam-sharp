@@ -47,6 +47,43 @@ SCAN_GLOBS=('wayfinder/issues/*.md' 'wayfinder/decisions.md' 'wayfinder/map.md'
 
 PATH_RE='`[A-Za-z0-9_][A-Za-z0-9_./-]*\.(bs|erl|xrl|yrl|sh|py|md|json|yml|beam|abstr)`'
 
+# Does `dir/rest` exist, spelled EXACTLY that way?
+#
+# `[ -e ]` ASKS THE FILESYSTEM, AND ON MACOS THE FILESYSTEM IS CASE-INSENSITIVE.
+# `aoc/2019/day01/day01.bs` resolves here and does not exist: the directory is
+# `Day01`. Five citations across F15 and ticket 40 were dead in the repository and
+# alive on this laptop, so a green clean pair sat under a red master for the second
+# time in one afternoon — the first was `/usr/bin/editor`, a different mechanism
+# with the same shape. Both say the same thing: a rule that asks the host a
+# question gets the host's answer.
+#
+# So each segment is matched against the real entries of its parent by name, which
+# is case-exact on every filesystem. `$2` may be empty at the tail; the loop ends
+# when there is nothing left to match rather than when a test passes.
+exists_exact() {
+  local dir="$1" rest="$2" seg e found
+  while [ -n "$rest" ]; do
+    seg="${rest%%/*}"
+    case "$rest" in */*) rest="${rest#*/}" ;; *) rest="" ;; esac
+    if [ ! -d "$dir" ]; then return 1; fi
+    found=""
+    for e in "$dir"/*; do
+      if [ ! -e "$e" ] && [ ! -L "$e" ]; then continue; fi
+      if [ "${e##*/}" = "$seg" ]; then found=1; break; fi
+    done
+    if [ -z "$found" ]; then return 1; fi
+    dir="$dir/$seg"
+  done
+  return 0
+}
+
+# The same question, but the answer must also be a directory.
+dir_exists_exact() {
+  if ! exists_exact "$1" "$2"; then return 1; fi
+  if [ ! -d "$1/$2" ]; then return 1; fi
+  return 0
+}
+
 dead_paths_in() {
   local f="$1" base="${2:-$ROOT}" p seg d anchored ok line ln
   grep -noE "$PATH_RE" "$f" 2>/dev/null | while IFS= read -r line; do
@@ -59,12 +96,12 @@ dead_paths_in() {
     anchored=""; ok=""
     while :; do
       if [ "$d" = "." ]; then
-        if [ -d "$base/$seg" ]; then anchored=1; fi
-        if [ -e "$base/$p" ]; then ok=1; fi
+        if dir_exists_exact "$base" "$seg"; then anchored=1; fi
+        if exists_exact "$base" "$p"; then ok=1; fi
         break
       fi
-      if [ -d "$base/$d/$seg" ]; then anchored=1; fi
-      if [ -e "$base/$d/$p" ]; then ok=1; fi
+      if dir_exists_exact "$base" "$d/$seg"; then anchored=1; fi
+      if exists_exact "$base" "$d/$p"; then ok=1; fi
       d="$(dirname "$d")"
     done
     if [ -z "$anchored" ]; then
@@ -107,6 +144,15 @@ if [ "${1:-}" = "--self-test" ]; then
   printf 'see `prototypes/p1.erl` beside this\n'          > "$CTL/docs/sibling.md"
   printf 'the function `to_pattern/1` and file `README.md`\n' > "$CTL/docs/bare.md"
 
+  # CASE. `[ -e ]` is case-insensitive on macOS, so a citation whose spelling
+  # differs only in case from the real file resolves here and is dead in the
+  # repository. These two controls are the pair that catches it: without
+  # `exists_exact`, `casewrong` is green on this laptop and red on the runner.
+  mkdir -p "$CTL/Cased"
+  : > "$CTL/Cased/Day01.bs"
+  printf 'see `Cased/day01.bs` for it\n' > "$CTL/docs/casewrong.md"
+  printf 'see `Cased/Day01.bs` for it\n' > "$CTL/docs/caseright.md"
+
   fail=0
   red() { [ -z "$(dead_paths_in "$CTL/docs/$1" "$CTL")" ] && { echo "SELF-TEST FAILED: $1 — $2"; fail=1; }; return 0; }
   green() {
@@ -124,10 +170,16 @@ if [ "${1:-}" = "--self-test" ]; then
                   wayfinder/issues/*.md cite prototypes/... meaning wayfinder/prototypes' 
   green bare.md     'a bare filename was reported. to_pattern/1 is an arity span and
                   README.md names no directory, so neither is a claim about a location' 
+  red casewrong.md 'a citation differing from the real file ONLY IN CASE was not reported.
+                  `[ -e ]` asks a case-insensitive filesystem on macOS, so five dead paths
+                  in F15 and ticket 40 were alive on this laptop and dead on the runner'
+  green caseright.md 'a citation matching the real file exactly was reported — the
+                  case-exact resolver must still accept the correct spelling' 
 
   if [ "$fail" -eq 0 ]; then
     echo "self-test: reported the dead repo-internal path; accepted a live one, an"
-    echo "           external tree, an ancestor-relative one and a bare name"
+    echo "           external tree, an ancestor-relative one, a bare name and a"
+    echo "           correctly-cased path; caught one wrong only in case"
     exit 0
   fi
   exit 1

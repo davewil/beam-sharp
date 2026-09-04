@@ -16,7 +16,7 @@ interlock: §2 here decides what a name identifies, and 41 §1 decides how anoth
 
 ## The failure is already in the repo
 
-`aoc/2019/day01/day01.bs` and `aoc/2025/day01/day01.bs` both open with `module Day01`. Built to a
+`aoc/2019/Day01/day01.bs` and `aoc/2025/Day01/day01.bs` both open with `module Day01`. Built to a
 shared output directory the second silently overwrites the first — measured:
 
 ```
