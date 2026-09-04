@@ -430,8 +430,8 @@ foreign sender ticket 21 says cannot be ruled out.
 
 ## Decisions entry
 
-<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
-     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+<!-- This ticket's entry. wayfinder/decisions.md is GENERATED from blocks like this
+     one and carries only the first sentence; the whole entry is read here. Edit it here and run `bin/gen-decisions.py --write`;
      editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
      The `issues/…` link is relative to decisions.md, so it is fenced rather than
      live — from inside issues/ it would point at nothing. -->

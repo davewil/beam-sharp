@@ -116,14 +116,19 @@ PY
   # 2. TICKETEDIT — a ticket's entry block edited and decisions.md not
   #    regenerated. The committed file must lose to the ticket.
   python3 - "$fixture/wayfinder/issues" <<'PY'
-import os, sys
+import os, re, sys
 d = sys.argv[1]
 for fn in sorted(os.listdir(d)):
     p = os.path.join(d, fn)
     s = open(p).read()
     if '```decisions-entry\n' in s:
-        s = s.replace('```decisions-entry\n', '```decisions-entry\n- ZZ-TICKETEDIT-ZZ\n', 1)
-        open(p, 'w').write(s)
+        # Edit the first SENTENCE of the block, which is the part that reaches
+        # decisions.md, rather than prepending a malformed line the lead parser
+        # refuses before any diff is produced.
+        s2 = re.sub(r'(```decisions-entry\n- [^\n]*? — )', r'\1ZZ-TICKETEDIT-ZZ ', s, count=1)
+        if s2 == s:
+            sys.exit('first block has no ` — ` to edit — fixture is wrong')
+        open(p, 'w').write(s2)
         break
 else:
     sys.exit('no ticket carries a decisions-entry block — fixture is wrong')

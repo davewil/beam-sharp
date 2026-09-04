@@ -19,7 +19,7 @@ version control.
 |---|---|---|
 | Map (index) | [ENG-165](https://linear.app/davewil/issue/ENG-165) · `wayfinder/map.md` | Linear: status. Repo: destination, working notes, and a tagged index of every entry |
 | Map (bodies) | `wayfinder/fog.md`, `scope.md` | Repo only; the index links to each |
-| Map (bodies, generated) | `wayfinder/decisions.md` | **Do not edit.** Each entry is a ```` ```decisions-entry ```` block in the ticket it names, assembled in `decisions.order`'s order by `bin/gen-decisions.py --write` |
+| Decisions (generated) | `wayfinder/decisions.md` | **Do not edit.** One line per decision: the headline and first sentence of the ```` ```decisions-entry ```` block in the ticket it names, in `decisions.order`'s order, by `bin/gen-decisions.py --write`. The whole entry is read in the ticket |
 | Tickets | `wayfinder/issues/NN-<slug>.md` | **Linear**: status, blocking, assignment, frontier. **Repo**: the question, the answer, all cross-references |
 | Research findings | `wayfinder/research/NN-<slug>.md` | Repo only (~380KB; issues link to them) |
 | Prototypes | `wayfinder/prototypes/` | Repo only |

@@ -624,8 +624,8 @@ extension" would not predict that the type side is reachable.
 
 ## Decisions entry
 
-<!-- The body of this ticket's entry in wayfinder/decisions.md, which is GENERATED
-     from blocks like this one. Edit it here and run `bin/gen-decisions.py --write`;
+<!-- This ticket's entry. wayfinder/decisions.md is GENERATED from blocks like this
+     one and carries only the first sentence; the whole entry is read here. Edit it here and run `bin/gen-decisions.py --write`;
      editing decisions.md directly is what bin/check-decisions-derived.sh refuses.
      The `issues/…` link is relative to decisions.md, so it is fenced rather than
      live — from inside issues/ it would point at nothing. -->
@@ -664,8 +664,8 @@ extension" would not predict that the type side is reachable.
 ```
 
 ```decisions-entry
-- **AMENDMENT 2026-08-14 to [ticket 16](issues/16-ad-hoc-polymorphism.md) — one of its two reasons
-  for refusing protocols was invalidated by ticket 26 and nobody went back.** David, stating 26's
+- **AMENDMENT 2026-08-14 to [ticket 16](issues/16-ad-hoc-polymorphism.md)** — one of its two reasons
+  for refusing protocols was invalidated by ticket 26 and nobody went back. David, stating 26's
   intent: *"Exactly records, that's why they were introduced alongside `type` — for protocol
   dispatch."* 16 refused protocols because **dispatch cannot key on a name that is not in the term**
   (09 §5) *and* because open extension needs whole-program consolidation (13). **26 §1 put the name
@@ -682,7 +682,7 @@ extension" would not predict that the type side is reachable.
 
 ```decisions-entry
 - **AMENDMENT 2026-08-27 to [16](issues/16-ad-hoc-polymorphism.md) and
-  [27](issues/27-parametric-polymorphism.md) — both cite a constraint ticket 13 does not contain.**
+  [27](issues/27-parametric-polymorphism.md)** — both cite a constraint ticket 13 does not contain.
   Prompted by David asking whether not needing hot code loading changes the open-extension answer.
   **It does not, and the design is unchanged** — what changes is why. Ticket 13 discusses unions,
   protocols and whole-program compilation nowhere; "aggregate granularity and hot loading" was 16's

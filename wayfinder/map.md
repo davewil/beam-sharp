@@ -203,6 +203,8 @@ Bodies in [`decisions.md`](decisions.md). Ticket text in `issues/`.
 - **Error model** `#15` `errors`
   `option<T>` collapse is an error at the declaration, not at the use
 - **Ad-hoc polymorphism** `#16` `types`
+- **AMENDMENT 2026-08-14 to [ticket 16](issues/16-ad-hoc-polymorphism.md)** `#16` `types`
+- **AMENDMENT 2026-08-27 to [16](issues/16-ad-hoc-polymorphism.md) and [27](issues/27-parametric-polymorphism.md)** `#16` `types`
   `==` means `=:=`; open protocols refused once records landed
 - **Pipeline and comprehension idiom** `#17` `syntax` `built:F7,F14`
   `|>` and `|?>`; `switch` is the only branching construct, and there is no `if`.

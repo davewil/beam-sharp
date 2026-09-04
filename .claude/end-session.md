@@ -33,6 +33,7 @@ drift apart silently.
 ./bin/check-map.sh                              # map.md is an index, not a store
 ./bin/check-decisions.sh                        # a resolved ticket owns its own answer
 ./bin/check-decisions-derived.sh                # decisions.md still equals its tickets
+./bin/check-decisions-size.sh                   # and is small enough to read
 ./bin/check-surface.sh                          # syntax decisions are cited in LANGUAGE.md
 ./bin/check-open-questions.sh                   # every open question in the spec names an issue
 ./bin/check-links.sh                            # the package points only at things it ships

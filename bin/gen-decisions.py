@@ -23,8 +23,18 @@ measurement that killed it is worth keeping:
     the answer, not a prefix of it, so it cannot be extracted by taking a lead.
 
 So the entry is its own artefact and its home is the ticket. Each ticket owns
-its entry verbatim in a `decisions-entry` fenced block, and this script
-concatenates them in the order `decisions.order` records.
+its entry verbatim in a `decisions-entry` fenced block, and this script emits
+ONE LINE per entry — the headline and the first sentence — in the order
+`decisions.order` records. The whole entry is read in the ticket.
+
+WHY ONE LINE (2026-09-05). The first version of this script emitted every
+block whole, and decisions.md stayed at 1,910 lines: generated, drift-proof,
+and exactly as unreadable as before. ENG-310 exists because the corpus is too
+big to read, and its acceptance test — "was X decided, and where" in a few
+hundred lines — was the one thing two stages under that issue had not built.
+David: "a massive fail of the goal." `bin/check-decisions-size.sh` is that test
+now, and at one line per entry the file is ~80 lines. The file's own header
+comment had promised "one line per closed ticket" since the 2026-08-15 split.
 
 WHY VERBATIM, AND WHY FENCED. The entries are not uniform enough to hold as
 fields — most open `- [Headline](issues/NN-slug.md) — …`, but ticket 16's two
@@ -168,17 +178,35 @@ def assemble(wayfinder):
             die('%s has %d decisions-entry block(s); decisions.order asks for #%d'
                 % (rel, len(blocks), slot))
         block = list(blocks[slot - 1])
-        # Trailing blank lines inside a block are storage noise, not content:
-        # in the hand-kept file 43 of 60 entries carried one and 17 did not.
-        # The separator is normalised here so the same input always produces
-        # the same bytes.
         while block and not block[-1].strip():
             block.pop()
         if not block:
             die('%s: decisions-entry block #%d is empty' % (path, slot))
-        body.extend(block)
-        body.append('')
+        body.append(lead(block, path, slot))
     return body
+
+
+# The lead is the headline plus the first sentence of the body. A sentence ends
+# at `.`, `!` or `?` followed by whitespace and something that starts a new
+# one — a capital, an opening bracket, emphasis or code. That last clause is
+# what stops `e.g. the` and `OTP 28. five` splitting early; it is a heuristic,
+# and an entry whose first sentence reads badly is fixed by editing its block
+# in the ticket, not by teaching this function more grammar.
+HEADLINE = re.compile(r'^- (\[[^\]]*\]\([^)]*\)|\*\*.*?\*\*)\s*[—–-]+\s*(.*)$', re.S)
+SENTENCE_END = re.compile(r'[.!?][)*_`]*(?=\s+[A-Z(\[*_`"])')
+
+
+def lead(block, path, slot):
+    """`- [Headline](link) — first sentence.` on one line."""
+    para = ' '.join(l.strip() for l in block if l.strip())
+    m = HEADLINE.match(para)
+    if not m:
+        die('%s: decisions-entry block #%d does not open `- [headline](link) — `'
+            ' or `- **headline** — `' % (path, slot))
+    head, rest = m.group(1), m.group(2)
+    end = SENTENCE_END.search(rest)
+    first = rest[:end.end()] if end else rest
+    return '- %s — %s' % (head, first.strip())
 
 
 def current(decisions):

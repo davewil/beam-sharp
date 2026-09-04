@@ -77,6 +77,7 @@ jobs:
           ./bin/check-map.sh --self-test
           ./bin/check-decisions.sh --self-test
           ./bin/check-decisions-derived.sh --self-test
+          ./bin/check-decisions-size.sh --self-test
           ./bin/check-surface.sh --self-test
           ./bin/check-open-questions.sh --self-test
           ./bin/check-links.sh --self-test
@@ -195,6 +196,14 @@ jobs:
       # and running `bin/gen-decisions.py --write`.
       - name: decisions.md is what its tickets say it is
         run: ./bin/check-decisions-derived.sh
+
+      # ENG-310's acceptance test, written last instead of first: what was
+      # decided, readable in a few hundred lines. Two stages under that issue
+      # landed with decisions.md at 1,910 lines and this check absent. It is
+      # a budget on a GENERATED file, so it cannot be satisfied by omitting an
+      # entry — only by shortening one in its ticket.
+      - name: decisions.md is small enough to read
+        run: ./bin/check-decisions-size.sh
 
       - name: Surface decisions are traceable from LANGUAGE.md
         run: ./bin/check-surface.sh
