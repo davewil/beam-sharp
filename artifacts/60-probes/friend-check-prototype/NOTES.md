@@ -5,7 +5,7 @@ and enforce it in `add_module_import/3`, rebuilt with the project's own `rebar3 
 (`warnings_as_errors` is on in `rebar.config`, unmodified — the patch had to build clean under the
 same flags the real compiler does), and exercised against a copy of the real `examples/Shop` tree.
 
-**This is one concrete spelling among the options in the brief (Option C there), not a claim that
+**This is one concrete spelling among the options in the brief (Option A there), not a claim that
 this is the only or the recommended shape** — it exists to make sub-decision 4 ("what does the
 checker cost") a measured number instead of an estimate, per this run's ground rules.
 
@@ -20,7 +20,7 @@ Counting only lines that are not blank and not a `%%` comment: **29 lines across
 | `bs_parser.yrl` | 4 | `friend` terminal, `friend_decl` nonterminal, one `decl` alternative, one production (`friend_decl -> 'friend' modpath`) — same shape as `using_decl` one line above it |
 | `bs_check.erl` | 15 | `friends_of/1` (mirrors `private_of/1`); threading `Self`/`L` one parameter further into `add_module_import`, which already had `Self` available one frame up at `add_import/6`; the membership check itself (`open` short-circuits, `lists:member/2` otherwise); `-export` line |
 | `bsc.erl` | 1 | one new key in the `World1` map literal that already builds `exports`/`private`/`behaviours` this same way |
-| `bs_diag.erl` | 8 | one `descriptor/2` clause, one `message/1` clause — same shape as the existing `unknown_module` pair beside them |
+| `bs_diag.erl` | 7 | one `descriptor/2` clause, one `message/1` clause — same shape as the existing `unknown_module` pair beside them |
 
 The real diffs are in `diff/`. `add_module_import` is the exact site the ticket names
 (`bs_check.erl:407-425` at `0b761f6` per the ticket; **re-measured this run at `1a86b0b`: it is now

@@ -11,6 +11,17 @@ BSC="$COMP/_build/default/bin/bsc"
 HERE="$REPO/artifacts/59-probes"
 cd "$HERE"
 
+# However this script exits -- success, a real failure, or a self-check
+# tripping -- leave compiler/src/bs_emit.erl exactly as git already has it.
+# Without this, an assertion failure under `set -e` would abort mid-patch and
+# hand the next reader (or the OTHER agents on this shared machine) a dirty
+# compiler tree.
+cleanup() {
+  git -C "$REPO" checkout -- compiler/src/bs_emit.erl 2>/dev/null || true
+  ( cd "$COMP" && rebar3 escriptize >/dev/null 2>&1 ) || true
+}
+trap cleanup EXIT
+
 say() { echo; echo "=== $* ==="; }
 
 require_clean() {
@@ -28,6 +39,28 @@ compile_mod() {
   local dir="$1" mod="$2"
   rm -rf "out/$dir"; mkdir -p "out/$dir"
   ( cd src && "$BSC" --src-root . -o "../out/$dir" "$mod" )
+}
+
+# This machine runs other agents concurrently against the same shared
+# compiler/src tree (observed directly: a `compiler/src/bs_emit.erl` diff and
+# an `artifacts/60-probes/` tree appeared mid-session that this session never
+# wrote). A `rebar3 escriptize` racing against a concurrent one from another
+# session could silently hand back a `bsc` built from the WRONG source. So
+# every claim about what got emitted is re-checked against the .abstr text
+# itself, not just against a runtime result -- a runtime result alone cannot
+# distinguish "the guard fired" from "the guard was never there to begin
+# with", which is exactly the failure mode a build race produces.
+assert_abstr() {
+  local file="$1" needle="$2" label="$3"
+  if grep -qF "$needle" "$file"; then
+    echo "  ok: $label"
+  else
+    echo "FATAL: $label -- expected to find in $file:"
+    echo "  $needle"
+    echo "This almost certainly means a concurrent build on this shared machine raced"
+    echo "this script's rebar3 escriptize. Re-run from a quiet moment."
+    exit 1
+  fi
 }
 
 erlc_local() { ( cd "$HERE" && erlc -o "$HERE" "$1" >/dev/null ); }
@@ -78,6 +111,12 @@ PY
 build
 compile_mod RecUnconstrainedPatchedA RecUnconstrained
 compile_mod AttackPatched Attack
+assert_abstr "out/RecUnconstrainedPatchedA/RecUnconstrained.abstr" \
+  "{function,0,'F',1,[{clause,6,[{var,6,'_O'}],[],[{atom,6,ok}]}]}" \
+  "patch A really removed F/1's tag guard (RecUnconstrained)"
+assert_abstr "out/AttackPatched/Attack.abstr" \
+  "{function,0,'Inner',1,[{clause,35,[{var,35,'_O'}],[],[{atom,35,accepted}]}]}" \
+  "patch A really removed Inner/1's tag guard (Attack)"
 echo "--- Code chunk size, private record-tagged F/1: before vs after narrowing ---"
 erl -noshell -eval 'chunk_size:main(["out/RecUnconstrained/RecUnconstrained.beam"]), halt().'
 erl -noshell -eval 'chunk_size:main(["out/RecUnconstrainedPatchedA/RecUnconstrained.beam"]), halt().'
@@ -113,6 +152,12 @@ build
 compile_mod IntPrivatePatchedB IntPrivate
 compile_mod IntPrivateTwoCallers IntPrivateTwoCallers
 compile_mod AttackIntPatched AttackInt
+assert_abstr "out/IntPrivatePatchedB/IntPrivate.abstr" \
+  "{call,6,{remote,6,{atom,6,erlang},{atom,6,is_integer}},[{var,6,'N'}]}" \
+  "patch B really added F/1's is_integer guard in SOURCE (IntPrivate) before any BEAM-level optimization"
+assert_abstr "out/AttackIntPatched/AttackInt.abstr" \
+  "{call,14,{remote,14,{atom,14,erlang},{atom,14,is_integer}},[{var,14,'N'}]}" \
+  "patch B really added Inner/1's is_integer guard in SOURCE (AttackInt) before any BEAM-level optimization"
 echo "--- trivial passthrough case: guard optimized away even after widening? ---"
 erl -noshell -eval '
 {beam_file,_,_,_,_,Fns} = beam_disasm:file("out/IntPrivatePatchedB/IntPrivate.beam"),
