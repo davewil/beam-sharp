@@ -1,7 +1,6 @@
 ---
 name: frontier
-description: Pick the next piece of beam-sharp work from Linear and the repo, ranked by claim, priority, what it unblocks, and the repo's own rules; claim it in both trackers and route it.
-disable-model-invocation: true
+description: Pick the next piece of beam-sharp work from Linear and the repo, ranked by claim, priority, what it unblocks, and the repo's own rules; claim it in both trackers and route it. Load BEFORE starting on any ticket, feature or defect here - when asked what to work on next, or when a session begins with no piece of work already named. It carries the traps that picking walks into: the ticket-number rule, where feature status comes from, and defect-versus-ticket.
 ---
 
 # Frontier
@@ -66,7 +65,11 @@ Done when: one issue is chosen and the sentence naming the rule that chose it is
 ## 4. Check the pick against the traps
 
 - Feature status comes from the F-file's own `**Status**` line, never from the README's narrative.
-- There is no ticket-number formula. The id came from Linear in step 2, not from arithmetic.
+- **There is no ticket-number formula. Query Linear for the id, every time.** `ENG-(166+NN)`
+  held for tickets 00–32 and has broken repeatedly since, because the compiler's features raise
+  issues in the same team. Before using a number, check what the issue actually is — two
+  different questions were both called "ticket 48" for four days, one in Linear only and one
+  in the repo only.
 - A map ticket with a file and an issue may have no map entry at all. Absence from `map.md`
   is not absence.
 - A defect is a Linear issue with no ticket number; a decision is a map ticket with both a
