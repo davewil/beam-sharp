@@ -22,9 +22,9 @@ A snapshot, like the 2026-09-01 review. It will go stale; the detectors will not
 | Distinct classes found | 11 |
 | Classes with a detector | 9 |
 | Classes named without one | 2, each with the reason |
-| Live instances found by the detectors | 18 |
-| Further instances found while building them | 2 |
-| Live instances fixed | 20 |
+| Defects in the repository, found by the detectors | 23 — 18 on the first run, 5 more once the resolver stopped asking a case-folding filesystem |
+| Defects in the detectors themselves, found afterwards | 5 — two while building, one by review, two by CI. Listed at §6 rows 19–22, because a check that was wrong is evidence about checks |
+| Of those 28, fixed | 28 |
 | Detectors that fire on their own historical commit | 9 of 9 |
 | Detectors green on the tree after the fixes | 9 of 9 on macOS **and** 9 of 9 on a Linux host with a case-sensitive filesystem and an `/usr/bin/editor`. Two CI reds were needed to get there — §6 rows 21 and 22 |
 
