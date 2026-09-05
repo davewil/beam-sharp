@@ -1019,8 +1019,11 @@ root_form(Name) ->
 %%%
 %%% A reserved qualifier's operation is emitted as a local recursive function
 %%% in the module that uses it, never as a call to a shipped module or to
-%%% `lists`; a compiled program's only runtime dependency is the BEAM
-%%% (ticket 67). One function per {qualifier, name, arity} used, with no type
+%%% `lists`: no `List.beam` ships, so nothing has to be installed beside a
+%%% compiled program (ticket 67). The rule is about what B# ships and not
+%%% about what emitted code may call — the validators below reach `lists` and
+%%% `unicode`, and a `using` call reaches whatever module it names.
+%%% One function per {qualifier, name, arity} used, with no type
 %%% in the key: none of these traversals looks at the element, so `list<int>`
 %%% and `list<Order>` share one `Reverse`.
 %%% ---------------------------------------------------------------------------

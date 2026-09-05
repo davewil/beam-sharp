@@ -508,8 +508,12 @@ is_operand(_)                -> false.
 %%% ---------------------------------------------------------------------------
 %%% message/1 — the single owner of every format string
 %%%
-%%% The prose is contractual to the byte: the tests, the gates and the spec
-%%% replay it, so a change here is a change to the language's surface.
+%%% Every format string lives here and nowhere else, so prose changes in one
+%%% place. The tests, the gates and the shipping documents replay these
+%%% strings, and a change to one is a change to what they assert. This is a
+%%% weaker promise than `contractual/0` above, which freezes the payload
+%%% *shape* of seven tags (ticket 23 §4); no clause's prose is frozen by that
+%%% list, and not every string here is replayed by something.
 %%% ---------------------------------------------------------------------------
 
 message(#{tag := inexhaustive, file := P, line := L, function := Fn,

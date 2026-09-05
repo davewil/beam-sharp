@@ -489,8 +489,9 @@ sig(Params, Ret, Env) ->
 %%% error payload makes the compiler emit the wrapper; there is no `try` in
 %%% the surface. The trigger is the resolved type, not the spelling: a user
 %%% alias naming that union behaves identically to
-%%% `result<T, foreign_error>` (ticket 09 §4). A foreign signature admits
-%%% only a named type, so the union is reached through a `type` alias.
+%%% `result<T, foreign_error>` (ticket 09 §4). Every position in a foreign
+%%% signature is a single type and never an inline `a | b`, so the union is
+%%% reached through a `type` alias.
 %%% ---------------------------------------------------------------------------
 
 foreign_wrappers(Decls, Env) ->
