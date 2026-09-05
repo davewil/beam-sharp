@@ -1,0 +1,4 @@
+N=50000000, median of 5
+Loop:'Sum'/3 (exported, tag test on every recursive call): 760423 us
+Loop:'SumViaPrivate' -> private SumPriv (tag test once, at the public wrapper only): 665372 us
+ratio Sum/SumViaPrivate: 1.143

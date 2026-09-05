@@ -1,0 +1,25 @@
+// Probe for ticket 39: is `.field` projection's unconditional lowering to
+// erlang:map_get/2 (bs_emit.erl:793-795) measurably slower than the
+// get_map_elements instruction Erlang's own case/map-pattern matching uses?
+//
+// Sum(r, 0) sums r.Total N times via tail recursion — isolates repeated
+// field projection from everything else. SumPriv is identical but PRIVATE,
+// called through one public wrapper, to isolate whether the exported
+// boundary's record tag guard (ticket 26 §1 / ticket 59) firing on every
+// recursive call (since Sum is exported and BEAM has one entry label for
+// both external and internal calls, per ticket 18 §1) adds its own cost on
+// top of the map_get-vs-get_map_elements difference.
+module Loop
+
+record Order { Id: int, Total: int }
+
+public int Sum(Order r, int n, int acc)
+Sum(_, 0, acc) -> acc
+Sum(r, n, acc) -> Sum(r, n - 1, acc + r.Total)
+
+public int SumViaPrivate(Order r, int n, int acc)
+SumViaPrivate(r, n, acc) -> SumPriv(r, n, acc)
+
+private int SumPriv(Order r, int n, int acc)
+SumPriv(_, 0, acc) -> acc
+SumPriv(r, n, acc) -> SumPriv(r, n - 1, acc + r.Total)

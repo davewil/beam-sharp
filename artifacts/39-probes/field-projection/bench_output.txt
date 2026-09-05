@@ -1,0 +1,6 @@
+N=50000000 iterations, median of 5 trials, microseconds
+Loop:'Sum'/3      (bsc, erlang:map_get/2 via bif)  : 757479 us
+loop_mapget:sum/3 (hand, erlang:map_get/2 via bif) : 390618 us
+loop_case:sum/3   (hand, get_map_elements)         : 130509 us
+Loop vs loop_case ratio: 5.804
+loop_mapget vs loop_case ratio (isolates map_get vs get_map_elements): 2.993

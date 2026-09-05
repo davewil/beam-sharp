@@ -359,6 +359,74 @@ with the order, the 20% figure was never about emitted code quality at all; if i
 missing-annotation mechanism this brief tested and found wanting on OTP 25 would need to be re-run
 concretely on OTP 28/ARM64 before concluding anything further about causation.
 
+## Addendum — a real, orphaned prior finding, now given evidence
+
+A separate autonomous pass over this same ticket ran earlier (Linear comment on ENG-211,
+`2026-09-04T14:29:38Z`) and reported a genuinely different performance defect that this brief's
+main body never went looking for: `.field` projection lowers unconditionally to
+`erlang:map_get/2` (confirmed live at `compiler/src/bs_emit.erl:791-795`, `expr({e_proj,...})`)
+where Erlang's own map-*pattern* matching (a `case`/`#{K := V}` clause head) instead emits the BEAM
+`get_map_elements` instruction — and that pass claimed a 17–30% real-world cost from this.
+
+**That comment's own artifact file (`artifacts/39-emitted-code-quality-decision-brief.md` and its
+probes) was never committed** — `git log --all` finds no trace of it in this repo, on any branch.
+Whatever container ran it did not survive to push, which is exactly the failure mode a mid-session
+container restart during *this* run demonstrated firsthand (a background probe under
+`artifacts/59-probes/scratch_gleam/` was lost the same way, though that one was already disclosed
+as incomplete before the restart and cost nothing). The result: a specific, falsifiable performance
+claim has been sitting on ENG-211 with zero supporting evidence anywhere in the repository — the
+exact gap this project's own evidence-provenance discipline exists to prevent.
+
+**Reproduced it from scratch, with real code, real bytecode, and a real benchmark**, under
+`artifacts/39-probes/field-projection/`:
+
+- `root/Loop/loop.bs` — a minimal `record Order { Id: int, Total: int }` and three functions doing
+  50,000,000 tail-recursive summations of `r.Total`: `Sum` (public/exported), `SumViaPrivate` (a
+  public wrapper calling a `private SumPriv` with the identical body).
+- Compiled with the real `bsc` (`bsc -o out --src-root root root/Loop`). Disassembled with
+  `beam_disasm:file/1`: `'Sum'/3`'s opcode list includes `bif` (the `map_get` BIF), confirming the
+  cited `bs_emit.erl` lowering is exactly what ships today, not a stale reading of the source.
+- `loop_case.erl` (hand-written control, same semantics, `case R of #{'Total' := Total} -> ...`)
+  disassembles to `get_map_elements` instead of `bif`. `loop_mapget.erl` (hand-written,
+  `erlang:map_get('Total', R)` directly) disassembles to `bif`, isolating "does the instruction
+  choice matter" from "does anything else about bsc's codegen shape matter."
+- `bench.erl`, median of 5 trials at N=50,000,000 (`bench_output.txt`):
+
+  | function | instruction | median time |
+  |---|---|---|
+  | `Loop:'Sum'/3` (bsc-emitted) | `bif` (map_get) + per-call tag test | 757,479 µs |
+  | `loop_mapget:sum/3` (hand, map_get only) | `bif` (map_get) | 390,618 µs |
+  | `loop_case:sum/3` (hand, map pattern) | `get_map_elements` | 130,509 µs |
+
+  `map_get` alone (isolating just the earlier pass's claimed cause) is **2.99x** slower than
+  `get_map_elements` on this isolated tight loop — a real, reproduced, and larger effect than the
+  17–30% the orphaned comment estimated, which makes sense once the second factor below is added:
+  a 17–30% figure sounds like it came from a *realistic* mixed workload, where field access is a
+  minority of the work, diluting a multi-x effect on the field-access instruction itself down to
+  that range. This brief did not have time to reconstruct that exact "realistic" shape, so the
+  17–30% figure itself remains unverified even though its underlying mechanism is now confirmed.
+
+- **A second, compounding cause turned up while isolating the first**, and it connects this ticket
+  directly to ticket 59: `Loop:'Sum'/3` (757,479 µs) is still **1.14x** slower than
+  `Loop:'SumViaPrivate'/3` (665,372 µs, `bench2_output.txt`) even though both run the identical
+  `.Total` projection the identical number of times. Per ticket 59's own finding (measured
+  independently in this run, not merely cited): the record boundary's tag test fires on **every**
+  function regardless of visibility, so `SumPriv` pays it too — `SumViaPrivate` is only barely
+  faster than `Sum`, not free of the cost, because the private callee still carries its own
+  redundant tag test on every one of the 50,000,000 recursive calls. Ticket 59's own recommendation
+  (widen the int guard to match the record guard, don't narrow the record guard) does not remove
+  this cost; only a reachability-based discriminator (ticket 59's Option C, explicitly deferred to
+  a separate ticket there) or ticket 39 resolving in favour of skipping the tag check on a
+  self-recursive call within the same function would.
+
+**This does not change this brief's own Recommendation above about the tight-integer-loop /
+missing-JIT-annotation question** — that mechanism was tested directly and found not to apply here,
+independent of records. It is a second, additive, and now independently-reproduced performance
+question this ticket also covers, worth its own line in whatever tracks the "ceiling" question:
+**the record field-projection lowering (`map_get` vs. a map-pattern `case`) plus the always-on
+boundary tag test are real, measured, compounding costs on any hot path that touches a record
+field**, orthogonal to the tight-integer-loop annotation question this brief's main body settles.
+
 ## Verification
 
 **No subagent-spawning tool was available in this runtime** (checked via `ToolSearch` for
