@@ -2,14 +2,10 @@
 %%%
 %%%     bsc fib.bs 5          =>  Fib(5) = 5
 %%%
-%%% Development is driven by runnable code (David, 2026-08-14), so the compiler
-%%% owes a way to *see a program run* without a second `erl -pa` invocation and a
-%%% hand-written eval string. Ticket 23's scope clarification puts this in: a
-%%% capability the language owes its author is in scope where the ecosystem track
-%%% is not.
-%%%
-%%% Results print in **beam-sharp** notation, not Erlang's — `:positive`, not
-%%% `positive` — because the person reading the output is reading beam-sharp.
+%%% The compiler owes its author a way to see a program run without a second
+%%% `erl -pa` invocation, so this is in scope where the ecosystem track is not
+%%% (ticket 23 §10). Results print in beam-sharp notation, not Erlang's —
+%%% `:positive`, not `positive` — because the reader is reading beam-sharp.
 -module(bs_run).
 
 -export([run/3, format_value/1, parse_arg/1, read_arg/1, read_arg/2,
@@ -53,8 +49,8 @@ read_args(Raw) ->
                 end, {ok, []}, Raw).
 
 %% Three ways to name the function, in order. The middle one is the rule that
-%% matters: under one function per file the file name *is* the function name, so
-%% `bsc fib.bs 5` needs nothing else. The first and last exist because the
+%% matters: under one function per file the file name IS the function name,
+%% so `bsc fib.bs 5` needs nothing else. The first and last exist because the
 %% examples predating that convention put several functions in one file.
 resolve(Mod, Exports, Argv) ->
     Names = [F || {F, _} <- Exports],
@@ -73,27 +69,13 @@ resolve(Mod, Exports, Argv) ->
             resolve_without_name(Mod, Exports, Names, Argv)
     end.
 
-%% F12 — WHAT THE BEAM ALREADY KNOWS, and what it costs to ask it.
-%%
-%% After ticket 40 §3 a private function is simply absent from the export list,
-%% so naming one here used to fall through `resolve_without_name/4`, match the
-%% file-name rule, take the module's public function instead, and then try to
-%% read the FUNCTION NAME as an argument — reporting an unreadable argument for
-%% something that was never an argument. Measured before it shipped; it is the
-%% fifth instance of the shape that fails by going quiet.
-%%
-%% `module_info(functions)` lists every function the module defines, exported or
-%% not (measured on OTP 28), so the true sentence needs nothing threaded down
-%% from the compiler — and the REPL, which shares this path, gets it for free.
-%%
-%% ONE BOUNDARY, MEASURED RATHER THAN ASSUMED: `erlc` DELETES an unexported
-%% function that nothing calls, warning `function 'Half'/1 is unused`. So a
-%% private function that is genuinely dead is not in the beam at all, and this
-%% falls back to "no such function" — which is the true sentence for it. Every
-%% private function in the corpus is called, so the fallback is the rare path
-%% and not the common one. Worth knowing rather than fixing: threading the
-%% compiler's own private set down here would buy a better message only for code
-%% the compiler has just told you to delete.
+%% A private function is absent from the export list (ticket 40 §3), so naming
+%% one must say "private" rather than fall through to the file-name rule and
+%% then misread the function name as an argument. `module_info(functions)`
+%% lists every function the module defines, exported or not, so nothing is
+%% threaded down from the compiler (F12). One boundary: `erlc` deletes an
+%% unexported function nothing calls, so a dead private function is not in the
+%% beam and falls back to "no such function", which is true of it.
 private_names(Mod, Exports) ->
     Defined = [F || {F, _} <- Mod:module_info(functions), F =/= module_info],
     Defined -- [F || {F, _} <- Exports].
@@ -124,23 +106,15 @@ pascal(S) -> list_to_atom(S).
 %%% ---------------------------------------------------------------------------
 %%% Arguments
 %%%
-%%% Typed at a shell, so they arrive as strings. Integers and `:atom` cover the
-%%% surface the skeleton actually has; anything else is parsed as an Erlang term
-%%% so a tuple subject (`"{ok,5}"`) can be passed without waiting on a beam-sharp
-%%% literal parser this slice does not have.
+%%% Typed at a shell, so they arrive as strings. Integers, `:atom`, strings,
+%%% tuples, lists and records are read in beam-sharp spelling; anything else
+%%% falls through to the Erlang term reader.
 %%% ---------------------------------------------------------------------------
 
-%% A quoted atom — `:'Shop.Order'`. Records made this reachable from the command
-%% line, because ticket 26 §1's tag mints from a qualified name and a dot is not
-%% something the bare sigil can spell.
-%% An environment of names the REPL has bound. Threaded through the compound
-%% forms so a bound name works at any DEPTH — `Pay({Total = t})` and not only
-%% `Squared(t)`. Without it the inner `t` fell through to the Erlang reader and
-%% came back as the atom `t`, which then failed arithmetic three frames later:
-%% the same silent-wrong-value shape as the binary fallback this replaced.
-%%
-%% Purely additive — a name the environment does not hold behaves exactly as
-%% before, so the CLI, which never has one, is unchanged.
+%% `Env` holds the names the REPL has bound, threaded through every compound
+%% form so a bound name resolves at any depth — `Pay({Total = t})`, not only
+%% `Squared(t)`. A name the environment does not hold reads as before, so the
+%% CLI, which passes an empty environment, is unchanged.
 parse_arg(S) -> parse_arg(S, #{}).
 
 parse_arg(S0, Env) ->
@@ -150,6 +124,8 @@ parse_arg(S0, Env) ->
         error   -> parse_bare(S, Env)
     end.
 
+%% A quoted atom, `:'Shop.Order'`: a record tag mints from a qualified name
+%% (ticket 26 §1), and the bare sigil cannot spell a dot.
 parse_bare([$:, $' | Rest], _Env) when Rest =/= [] ->
     case lists:last(Rest) of
         $' -> list_to_atom(lists:sublist(Rest, length(Rest) - 1));
@@ -170,19 +146,16 @@ parse_compound(S, Env) ->
         {$(, $)} -> list_to_tuple(parse_inner(S, Env));
         {$[, $]} -> parse_inner(S, Env);
         {${, $}} -> parse_braced(S, Env);
-        %% F9, and it is the round-trip rule above rather than a new one. A
-        %% beam-sharp string is a BINARY, and `format_value/1` prints a binary as
-        %% `"hello"` — so handing that back to the reader has to produce a
-        %% binary. Erlang's own reader makes it a char list, which then prints
-        %% back as `[104, 101, ...]`: the value changes type on a round trip and
-        %% the prompt stops being able to show you what it just showed you.
+        %% A beam-sharp string is a binary and prints as `"hello"`, so reading
+        %% that back must yield a binary, not Erlang's char list, or the value
+        %% changes type on a round trip (F9).
         {$", $"} when length(S) >= 2 -> parse_string(S);
         _        -> parse_term(S)
     end.
 
-%% Read through Erlang's scanner rather than by stripping quotes, so escapes mean
-%% at the prompt what they mean in a `.bs` file, and then re-encode to UTF-8 —
-%% `erl_scan` yields codepoints and a beam-sharp string is bytes.
+%% Read through Erlang's scanner rather than by stripping quotes, so escapes
+%% mean at the prompt what they mean in a `.bs` file, then re-encoded to
+%% UTF-8: `erl_scan` yields codepoints and a beam-sharp string is bytes.
 parse_string(S) ->
     case erl_scan:string(S ++ ".") of
         {ok, [{string, _, Chars}, {dot, _}], _} ->
@@ -193,34 +166,11 @@ parse_string(S) ->
         _ -> unreadable(S)
     end.
 
-%% In beam-sharp a brace is a RECORD — `{Id = 1, Kind = :'Shop.Order'}`. The
-%% discriminator is a top-level `=` in every part, which a record always has.
-%%
-%% When the parts have no `=` this falls through to the Erlang reader, so
-%% `{1, 2}` is accepted as an Erlang tuple — and printed back as `(1, 2)`,
-%% because `format_value/1` prints beam-sharp. David caught the asymmetry at the
-%% prompt on 2026-08-15: *"we've got a weird syntax on tuples here — entered as
-%% `x = {1, 2}`, output as `(1,2)`."*
-%%
-%% **The cause was one layer up and is fixed**: he reached for braces because
-%% `(1, 2)` was being eaten by `parse_call/1`, which took any text before a `(`
-%% for a function name.
-%%
-%% **RULED 2026-08-15 (David): *"I don't want to fight the erlang compiler if
-%% tuples are better expressed with {} over (). If () for tuples to match C# is
-%% doable that is preferable."*** It is doable, and it is already done — measured
-%% rather than assumed: `type Pair = (int, int)`, `Swap((a, b)) -> (b, a)` and
-%% `(:ok, n)` all compile and run, and lower to `{tuple, L, …}` abstract-format
-%% terms. **There was never a fight to have**, because ticket 13 emits *terms*
-%% rather than Erlang source text, so Erlang's own `{}` syntax appears nowhere a
-%% person or the compiler writes.
-%%
-%% So the Erlang fallback goes. It was not a second spelling for a tuple — `{}`
-%% is *taken* in beam-sharp, it means a record or a map type, so `{1, 2}` was
-%% malformed record syntax being silently reinterpreted as something else. That
-%% supersedes `an_erlang_term_is_still_readable_test`'s reasoning ("the fallback
-%% that was removed was the SILENT one, not this"): this one was silent too, just
-%% about a different thing.
+%% A brace is a RECORD — `{Id = 1, Kind = :'Shop.Order'}` — and a tuple is
+%% parenthesised, as in C#. Every part of a record has a top-level `=`; parts
+%% without one are refused rather than handed to the Erlang reader, because
+%% `{}` is taken in beam-sharp and `{1, 2}` is malformed record syntax, not a
+%% second spelling for a tuple.
 parse_braced(S, Env) ->
     Parts = case string:trim(lists:sublist(S, 2, length(S) - 2)) of
                 ""    -> [];
@@ -295,15 +245,11 @@ parse_term(S) ->
         {error, _, _} -> unreadable(S)
     end.
 
-%% This used to be `list_to_binary(S)`, which meant an argument the reader could
-%% not understand was silently handed to the function as a binary — so
-%% `Pay(Order{Id = 1})` crashed with `{badmap, <<"Order{Id = 1}">>}`, showing the
-%% user their own source text inside an error about a map. A reader that cannot
-%% read something should say so, which is ticket 23's rule reaching the one
-%% place a person actually types at.
-%%
-%% The two named cases are the two mistakes the surface invites: arguments here
-%% are VALUES, so neither construction nor a nested call is available.
+%% An argument the reader cannot read is refused with a sentence, never handed
+%% to the function as a binary: the silent form crashed with
+%% `{badmap, <<"Order{Id = 1}">>}`, the user's own text inside a map error.
+%% The two named cases are the two mistakes the surface invites: arguments are
+%% VALUES, so neither construction nor a nested call is available.
 unreadable(S) ->
     throw({unreadable, explain(S)}).
 
@@ -313,14 +259,9 @@ explain(S) ->
         false        -> explain_value(S)
     end.
 
-%% A DECLARATION typed at the prompt. `record Order { … }` is the shape David
-%% reached for on 2026-08-15, and the old answer — *"cannot read … as a value"* —
-%% was true and useless: it named what the prompt wanted rather than where the
-%% thing he was typing actually goes.
-%%
-%% The prompt evaluates calls and values against a module that is already
-%% compiled; it is not an evaluator and has never claimed to be. So the honest
-%% answer names the route that works, which is the file plus `:reload`.
+%% A declaration typed at the prompt, `record Order { … }`, is answered with
+%% where it goes — the file, then `:reload` — rather than "cannot read as a
+%% value": the prompt evaluates calls and values against a compiled module.
 declaration(S) ->
     Word = string:trim(hd(string:split(string:trim(S), " "))),
     case lists:member(Word, ["module", "type", "record", "using", "behaviour"]) of
@@ -360,9 +301,9 @@ construction(_) -> false.
 %%% Rendering a result in beam-sharp notation
 %%% ---------------------------------------------------------------------------
 
-%% Quoted where the bare sigil cannot spell it, using the SAME rule the residual
-%% printer uses — so a record's minted tag round-trips through the shell rather
-%% than printing as something that cannot be typed back in.
+%% An atom is quoted where the bare sigil cannot spell it, by the same rule the
+%% residual printer uses, so a record's minted tag round-trips through the
+%% shell rather than printing as something that cannot be typed back in.
 format_value(A) when is_atom(A) -> bs_types:atom_str(A);
 format_value(I) when is_integer(I) -> integer_to_list(I);
 format_value(F) when is_float(F) -> io_lib:format("~p", [F]);

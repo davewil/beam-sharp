@@ -4,13 +4,10 @@
 %%%     Fib(5)
 %%%     5
 %%%
-%%% Deliberately *not* a beam-sharp expression evaluator. The parser in this
-%%% slice reads declarations, not expressions, so the REPL reads exactly one
-%%% form — a **call** — which is the form you want at a prompt anyway. Anything
-%%% wider waits on the surface growing an expression parser.
-%%%
-%%% `:reload` is the point of the thing: edit the file, reload, call again,
-%%% without leaving the shell. Development is driven by runnable code.
+%%% Not an expression evaluator: the parser reads declarations, not
+%%% expressions, so the prompt reads a CALL, a value, or a binding of one,
+%%% against a module that is already compiled. `:reload` recompiles the file
+%%% in place, so edit, reload, call again never leaves the shell.
 -module(bs_repl).
 
 -export([start/3]).
@@ -36,7 +33,7 @@ exports(Mod) ->
     try [{F, A} || {F, A} <- Mod:module_info(exports), F =/= module_info]
     catch _:_ -> [] end.
 
-%% F12 — every function the module DEFINES, private ones included.
+%% Every function the module DEFINES, private ones included (F12).
 defined(Mod) ->
     try [{F, A} || {F, A} <- Mod:module_info(functions), F =/= module_info]
     catch _:_ -> [] end.
@@ -80,15 +77,12 @@ dispatch(Line, File, Dir, Mod, Env) ->
     loop(File, Dir, Mod, run(Line, Mod, Env)).
 
 %%% ---------------------------------------------------------------------------
-%%% Bindings at the prompt.
+%%% Bindings at the prompt
 %%%
-%%% Ticket 34 put bindings in the LANGUAGE, where they belong to a body. Holding
-%%% one across prompts is a different thing — a property of this shell, not of
-%%% beam-sharp — and it is here because a REPL you cannot name a value in makes
-%%% you retype the value instead, which is exactly what the tool exists to avoid.
-%%%
-%%% The environment does not survive `:reload`; that is deliberate, since the
-%%% values in it were produced by code that has just been replaced.
+%%% A name bound at the prompt is held across prompts, which is a property of
+%%% this shell and not of the language, where a binding belongs to a body
+%%% (ticket 34). The environment does not survive `:reload`, since its values
+%%% came from code that has just been replaced.
 %%% ---------------------------------------------------------------------------
 
 run(Line, Mod, Env) ->
@@ -127,14 +121,10 @@ do_match(Pat, Rhs, Mod, Env, Intro) ->
             io:format(standard_error, "~ts~n", [Msg]), Env
     end.
 
-%% `x = ...` where the name is a beam-sharp variable. Split on the FIRST `=`,
-%% since the right-hand side may contain more of them — a record is
-%% `{Kind = ..., Id = ...}`.
-%% A LINE THAT IS A CALL IS NEVER A BINDING, and this guard is not decoration:
-%% a record argument carries `=` inside it, so `Squared({Kind = :'M.Order',
-%% Id = 1})` split on the first `=` and — once the left side stopped having to be
-%% a plain name — was read as a pattern match against `Squared({Kind`. Caught by
-%% the two oldest tests in this file, which is the whole point of having them.
+%% A line that is a call is never a binding, even though a record argument
+%% carries `=` inside it: `Squared({Kind = :'M.Order', Id = 1})` must not be
+%% split at its first `=`. Any other line is split on the first `=`, since
+%% the right-hand side may hold more of them.
 binding(Line) ->
     %% `{error, _}` first: a call result is also a two-tuple, so the general
     %% clause would swallow it.
@@ -150,35 +140,30 @@ split_binding(Line) ->
             Rhs = string:trim(Rhs0),
             case Lhs of
                 "" -> none;
-                %% F8 — `var` INTRODUCES, at the prompt exactly as in a file.
+                %% `var` INTRODUCES, at the prompt exactly as in a file (F8).
                 "var " ++ Pat0 ->
                     case string:trim(Pat0) of
                         ""  -> none;
                         Pat ->
                             case is_name(Pat) of
-                                %% Keyed by the name AS TYPED, because that is
-                                %% what the reader has to match when it meets the
-                                %% name nested in a literal.
+                                %% Keyed by the name AS TYPED, because that
+                                %% is what the reader has to match when it
+                                %% meets the name nested in a literal.
                                 true  -> {Pat, Rhs};
                                 false -> {match_intro, Pat, Rhs}
                             end
                     end;
-                %% A bare `=` MATCHES — David, 2026-08-15: *"I do want Elixir
-                %% matching behaviour. e.g x = 1, then 1 = x, 2 = x is an
-                %% error."* What F8 changed is only that it may not INTRODUCE, so
-                %% a plain name here is the mistake the message names.
+                %% A bare `=` MATCHES and may not introduce (F8): after
+                %% `x = 1`, `1 = x` passes and `2 = x` is an error, as in
+                %% Elixir. A plain name here is the mistake `match/4` names.
                 _ -> {match, Lhs, Rhs}
             end;
         _ -> none
     end.
 
-%% Split on the first `=` THAT IS NOT PART OF `==`.
-%%
-%% `string:split(Line, "=")` was right until ticket 45 put `==` in patterns: it
-%% cut `(== n, b) = p` after the first character, handing the reader `(` as a
-%% pattern. The right-hand side may still contain any number of `=` — a record is
-%% `{Kind = ..., Id = ...}` — so this stays a split on the FIRST separator, with
-%% only the definition of "separator" corrected.
+%% Split on the first `=` that is not part of `==`: ticket 45 put `==` in
+%% patterns, so `(== n, b) = p` must not be cut after `(`, and the right-hand
+%% side may still hold any number of `=`.
 split_eq(Line) -> split_eq(Line, []).
 
 split_eq([$=, $= | T], Acc) -> split_eq(T, [$=, $= | Acc]);
@@ -186,9 +171,9 @@ split_eq([$= | T], Acc)     -> [lists:reverse(Acc), T];
 split_eq([C | T], Acc)      -> split_eq(T, [C | Acc]);
 split_eq([], _Acc)          -> [].
 
-%% Every name a prompt pattern would INTRODUCE. A bare `=` may introduce nothing,
-%% which is `to_match/1`'s rule in the parser wearing the shell's clothes — the
-%% same sentence enforced on both surfaces, which is what F8.8 asks for.
+%% Every name a prompt pattern would INTRODUCE. A bare `=` may introduce
+%% nothing, which is the parser's `to_match/1` rule on the shell's
+%% surface (F8.8).
 introduced(wild)         -> [];
 introduced({bind, N})    -> [N];
 introduced({lit, _})     -> [];
@@ -199,29 +184,16 @@ introduced(_)            -> [].
 %%% ---------------------------------------------------------------------------
 %%% `=` is a MATCH, not an assignment
 %%%
-%%% The language already had this and the prompt did not. In a file:
-%%%
-%%%     x = 1
-%%%     1 = x        accepted — F5 proves the bind cannot fail
-%%%     2 = x        error: "this bind in Bad can fail"
-%%%
-%%% and beam-sharp's version is STRONGER than the one being asked for, because
-%%% F5 rejects the second at COMPILE TIME where Elixir raises `MatchError` at run
-%%% time. The residual it prints is the value the name can hold that the pattern
-%%% does not cover.
-%%%
-%%% At the prompt there is no compile step for a bind, so the check happens
-%%% against the value the name actually holds. Same rule, same message shape,
-%%% earlier information.
-%%%
-%%% A bare name INTRODUCES; `== name` matches the value a name already holds.
-%%% One rule, both surfaces — F8.8 — and the prompt is the surface that moved.
-%%% Ticket 34's "a name means one thing" makes a bare rebinding an error here as
-%%% it is in a file, and ticket 45 supplies the spelling for the other intent.
+%%% In a file `x = 1` then `1 = x` is accepted and `2 = x` is a compile error,
+%%% because F5 proves whether a bind can fail. The prompt has no compile step,
+%%% so the same check runs against the value the name holds: same rule, same
+%%% message shape. A bare name INTRODUCES and `== name` matches the value a
+%%% name already holds, on both surfaces (F8.8, tickets 34 and 45), so a bare
+%%% rebinding is an error here as it is in a file.
 %%% ---------------------------------------------------------------------------
 
-%% `Intro` says whether this match is allowed to introduce names: `var` says yes,
-%% a bare `=` says no. Same rule as `to_match/1` in the parser, and it is here
+%% `Intro` says whether this match may introduce names: `var` says yes, a
+%% bare `=` says no. Same rule as `to_match/1` in the parser, and it is here
 %% rather than in the caller so the check sits next to the pattern it is about.
 match(Text, Value, Env, Intro) ->
     case pattern(string:trim(Text), Env) of
@@ -245,18 +217,9 @@ match(Text, Value, Env, Intro) ->
 %% A pattern is read from the same surface the value reader takes, with one
 %% difference: an unbound lowercase name is a BINDER rather than an error.
 pattern("_", _Env) -> {ok, wild};
-%% F8 / ticket 45 — `== name` MATCHES the value a name already holds.
-%%
-%% This clause replaces pin-by-default, which shipped here on 2026-08-15 under a
-%% comment asserting *"the language needs no `^`: there is nothing to
-%% disambiguate"* — written the same day David settled the opposite shape, and
-%% found by ticket 45 rather than by anything failing. F8.8 knew the prompt and
-%% the compiler disagreed; it did not say which side moved. The marked rule won,
-%% so this is the side that moved.
-%%
-%% The claim was deleted along with the behaviour, deliberately. A confident
-%% comment arguing a settled question away is worse than the wrong branch beneath
-%% it: the branch fails a test, the comment persuades the next reader.
+%% `== name` MATCHES the value a name already holds (F8, ticket 45). This
+%% replaced pin-by-default at the prompt: the compiler and the prompt
+%% disagreed, and the marked rule won.
 pattern([$=, $= | Rest], Env) ->
     Name = string:trim(Rest),
     case is_name(Name) of
@@ -273,10 +236,10 @@ pattern(S, Env) ->
     case is_name(S) of
         true ->
             case maps:find(S, Env) of
-                %% ALREADY BOUND — and a bare name INTRODUCES, so this is a
-                %% rebinding, which ticket 34 makes an error. The prompt has no
-                %% compile step, so it is caught against the value the name
-                %% actually holds; same rule, same message shape, earlier.
+                %% Already bound, and a bare name INTRODUCES, so this is a
+                %% rebinding, which is an error (ticket 34). Caught against
+                %% the value the name holds, since the prompt has no compile
+                %% step.
                 {ok, _V} -> {error, io_lib:format(
                                "~ts is already bound -- a name means one thing. "
                                "Write `== ~ts` to match the value it holds",
@@ -362,18 +325,11 @@ value_of(S, Mod, Env) ->
             end
     end.
 
-%% A bare name resolves from the environment before anything else tries to read
-%% it — otherwise `Squared(t)` would pass the ATOM `t`, which is the Erlang
-%% reader's fallback showing through and never what anyone meant. beam-sharp
-%% spells an atom `:t`, so nothing is lost.
-%% The two keyword atoms, which are NOT names — they are the one place the
-%% language spells an atom without the sigil (ticket 10, `LANGUAGE.md` §4). The
-%% lookup above them is what made this necessary: a bare word resolves from the
-%% environment first, so `true` reached `is_name/1` and was reported unbound.
-%%
-%% Found by running `ibs -S examples/queue.bs` before writing F7's build note
-%% rather than after, which is the fourth surface feature in a row to find
-%% something at this prompt.
+%% A bare name resolves from the environment before anything tries to read
+%% it; otherwise `Squared(t)` would pass the ATOM `t`, the Erlang reader's
+%% fallback. beam-sharp spells an atom `:t`, so nothing is lost. `true` and
+%% `false` are the only atoms spelled without the sigil (LANGUAGE.md §4), so
+%% they are matched before the name lookup could report them unbound.
 resolve("true", _Env)  -> {ok, true};
 resolve("false", _Env) -> {ok, false};
 resolve(S, Env) ->
@@ -383,8 +339,8 @@ resolve(S, Env) ->
             case is_name(S) of
                 true  -> {error, io_lib:format("~ts is not bound -- :env lists "
                                                "what is", [S])};
-                %% Anything compound goes to the reader WITH the environment, so
-                %% a bound name nested in a literal resolves too.
+                %% Anything compound goes to the reader WITH the environment,
+                %% so a bound name nested in a literal resolves too.
                 false -> bs_run:read_arg(S, Env)
             end
     end.
@@ -393,10 +349,9 @@ resolve(S, Env) ->
 %%% One form: Name(arg, arg, ...)
 %%% ---------------------------------------------------------------------------
 
-%% `apply/3` here is constrained to a {name, arity} pair checked against the
-%% module's own export list, on a module the user just compiled from their own
-%% source, in a local dev shell. That is what a REPL is; there is no wider
-%% evaluation and no untrusted input path.
+%% `apply/3` below is constrained to a {name, arity} pair checked against the
+%% export list of a module the user compiled from their own source, in a local
+%% shell: there is no wider evaluation and no untrusted input path.
 read_args(Raw, Env) ->
     lists:foldr(fun(_, {error, M}) -> {error, M};
                    (A, {ok, Acc}) ->
@@ -409,14 +364,10 @@ read_args(Raw, Env) ->
 apply_call(Mod, Fn, Args) ->
     case lists:member({Fn, length(Args)}, exports(Mod)) of
         false ->
-            %% F12 — "no such function" and "you may not call it" are different
-            %% sentences, and only one of them is true here. `module_info/1`
-            %% carries the full definition list beside the export list, so the
-            %% prompt tells them apart without the compiler passing anything in.
-            %%
-            %% The features README records that F4, F5 and F7 each found a hole
-            %% at this prompt and none closed the gap. This one is closed in the
-            %% feature that opens it.
+            %% "No such function" and "you may not call it" are different
+            %% sentences, and `module_info/1` carries the definition list
+            %% beside the export list, so the prompt tells them apart with
+            %% nothing passed in from the compiler (F12).
             case lists:member({Fn, length(Args)}, defined(Mod)) of
                 true ->
                     {error, io_lib:format("~s/~p is private in ~s -- defined, "
@@ -431,11 +382,9 @@ apply_call(Mod, Fn, Args) ->
     end.
 
 %% A call's name must be PascalCase, because that is what the grammar says a
-%% call IS — `expr -> uident '(' expr_list ')'`. Without this check ANY text
-%% before a `(` was taken for a function name, which is how David's
-%% `x = (1, 2)` became a call to a nameless function and answered
-%% *"no /2 -- try :exports"* (2026-08-15). It is also why braces looked like the
-%% only way to type a tuple: the correct spelling was being eaten one layer up.
+%% call IS — `expr -> uident '(' expr_list ')'`. Without this check any text
+%% before a `(` was taken for a function name, and `x = (1, 2)` became a call
+%% to a nameless function instead of a tuple.
 parse_call(Line) ->
     case string:split(Line, "(") of
         [Name0, Rest0] ->
@@ -456,15 +405,9 @@ closed_call(Name, Rest0, Line) ->
             {error, io_lib:format("missing closing ) in ~ts", [Line])}
     end.
 
-%% The prompt reads a call or a value, so anything else has to say what it got
-%% rather than only what it wanted.
-%%
-%% This used to carry a third branch telling the reader that **beam-sharp has no
-%% bindings**. It did not, for about half an hour: ticket 34 shipped them, and
-%% the message outlived the fact it was describing — which is the same failure
-%% as LANGUAGE.md showing syntax the compiler had never had, in the opposite
-%% direction. A diagnostic that states a language rule is a claim, and it goes
-%% stale exactly like a reference does.
+%% The prompt reads a call or a value, so anything else says what it got
+%% rather than only what it wanted, and states no language rule: a message
+%% that states one is a claim, and it goes stale exactly as a reference does.
 no_call(Line) ->
     case construction(Line) of
         true ->

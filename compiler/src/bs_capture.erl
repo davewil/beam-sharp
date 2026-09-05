@@ -1,39 +1,29 @@
 %%% bs_capture — stdout and stderr, caught in-process, in the order they were
-%%% written.
+%%% written. A batch entry gets the three things a gate reads from a
+%%% subprocess: stdout, stderr, and the two interleaved as `2>&1` would have
+%%% delivered them (ENG-314).
 %%%
-%%% ENG-314. `bsc --batch` runs many invocations in one VM and owes each of
-%%% them the three things a gate reads from a subprocess: what it wrote to
-%%% stdout, what it wrote to stderr, and the two interleaved as `2>&1` would
-%%% have delivered them. `bsc` also compiles the emitted `.abstr` in-process
-%%% now, and the compiler's warning text has to be read back the way `erlc`'s
-%%% output was read from a port.
+%%% Erlang IO is a protocol: `io:format/2` sends an `io_request` to the
+%%% caller's group leader, `io:format(standard_error, …)` sends one to the
+%%% process registered under that name, and each waits for its reply. The
+%%% capture is three processes: two thin faces, one installed as group leader
+%%% and one registered as `standard_error`, each tagging requests with its
+%%% stream and forwarding to one server that keeps the buffers. One server
+%%% makes the merged order a guarantee: a write is not replied to until it is
+%%% buffered, so the next write cannot overtake it.
 %%%
-%%% HOW A WRITE REACHES HERE. Erlang IO is a protocol: `io:format/2` sends an
-%%% `io_request` to the caller's group leader and waits for the reply, and
-%%% `io:format(standard_error, …)` sends the same request to whatever process
-%%% is registered under that name. So a capture is a process that speaks the
-%%% protocol — and to tell the two streams apart it is THREE processes: two
-%%% thin faces, one installed as the group leader and one registered as
-%%% `standard_error`, each tagging what it receives with its stream and
-%%% forwarding to a single server that keeps the buffers and answers the
-%%% caller. One server, not two, is what makes the merged stream's order a
-%%% guarantee rather than an observation: every write waits for its reply, so
-%%% the next write cannot be sent until the previous one has been buffered.
-%%%
-%%% THE BYTES ARE THE DEVICE'S BYTES. A real device encodes the characters it
-%%% is handed according to its own `encoding` option — measured on OTP 28 with
-%%% both streams redirected to files, that is `unicode` for both, so a `~s`
-%%% over the raw bytes of a UTF-8 name double-encodes exactly as it does when
-%%% `bsc` runs alone. The encodings are read from the real devices when the
-%%% capture starts and applied here, rather than assumed.
+%%% The captured bytes are what the real device would have written: each
+%%% device's `encoding` option is read when the capture starts and applied to
+%%% every write, so a `~s` over UTF-8 bytes double-encodes here exactly as it
+%%% does when `bsc` runs alone.
 -module(bs_capture).
 
 -export([start/0, stop/1, run/2]).
 
 -record(capture, {server, stdout, stderr, real_stderr}).
 
-%% Install a capture: the calling process's group leader and the registered
-%% `standard_error` both now write here. Returns the handle `stop/1` needs.
+%% Install a capture: the registered `standard_error` now writes here, and the
+%% caller uses the returned handle's stdout face as a group leader.
 start() ->
     Encodings = {device_encoding(standard_io), device_encoding(standard_error)},
     Server = spawn_link(fun() -> server(Encodings, [], [], []) end),
@@ -56,9 +46,9 @@ stop(#capture{server = Server, stdout = Out, stderr = Err, real_stderr = Real}) 
     Result.
 
 %% Run `Fun` in a fresh process whose group leader is the capture's stdout
-%% face, and return `{Outcome, {Stdout, Stderr, Merged}}` where Outcome is
-%% `{ok, Value}` or `{crashed, Class, Reason}`. Everything the fun writes to
-%% either stream is caught; the caller's own streams are untouched.
+%% face; return `{Outcome, {Stdout, Stderr, Merged}}` where Outcome is
+%% `{ok, Value}` or `{crashed, Class, Reason}`. The caller's own streams are
+%% untouched.
 run(Fun, Timeout) ->
     Capture = start(),
     Parent = self(),
@@ -110,11 +100,8 @@ server({OutEnc, ErrEnc} = Encs, Out, Err, Merged) ->
                     iolist_to_binary(lists:reverse(Merged))}}
     end.
 
-%% The requests a writer sends. `put_chars` in both of its forms is what
-%% `io:format` and `io:put_chars` produce; `requests` batches several; the
-%% option requests are answered so a caller that asks is not hung. Anything
-%% that READS is answered `eof` — a batch entry has no stdin, which is also why
-%% the REPL is refused in one.
+%% Writes are buffered, option requests are answered so a caller is not hung,
+%% and anything that reads is answered `eof`: a batch entry has no stdin.
 answer({put_chars, Enc, Chars}, DevEnc, Acc) ->
     put_chars(Chars, Enc, DevEnc, Acc);
 answer({put_chars, Enc, M, F, A}, DevEnc, Acc) ->

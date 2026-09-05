@@ -1,40 +1,28 @@
-%%% What the compiler knows about OTP behaviours — ticket 35, resolved 2026-08-15.
+%%% What the compiler knows about OTP behaviours: the five behaviour names it
+%%% lowers and the callbacks of each (ticket 32, ticket 35).
 %%%
-%%% TWO TABLES, ONE HOME. The behaviour NAME already lowered through a fixed
-%%% table of five (`'GenServer' -> gen_server`), settled by ticket 32 and living
-%%% in `bs_emit`. Ticket 35 is that construct one level down: the callback names.
-%%% They are siblings and they belong together, because the thing that would rot
-%%% if they were apart is the pairing — a behaviour whose name the compiler knows
-%%% and whose callbacks it does not is exactly the state that broke `spec-check`.
+%%% Both tables live here and nowhere else. `bs_check` asks which declared
+%%% callbacks are missing; `bs_emit` asks what a behaviour and each callback
+%%% lower to. A behaviour whose name the compiler knows but whose callbacks it
+%%% does not is the state that would rot if the two tables were apart.
 %%%
-%%% Both the checker and the emitter read from here, which is why this is its own
-%%% module rather than an export from either. `bs_check` asks whether the declared
-%%% callbacks are present; `bs_emit` asks what each one lowers to. One table, and
-%%% no second place for the answer to live — the same rule F5 applied when it
-%%% exported `resolve/2` rather than letting the emitter keep a copy.
+%%% These are tables, not a naming rule. A snake_case<->PascalCase derivation
+%%% reaches 1,920 of 1,924 stdlib+kernel names and cannot spell `'PKCS-1'` or
+%%% `'OTP-PKIX'`, so the language has no such rule (ticket 32). Every row is
+%%% written out by hand and nothing here is extended by inference.
 %%%
-%%% A TABLE, NOT A RULE, AND THE DISTINCTION IS LOAD-BEARING. Ticket 32 measured
-%%% that a snake_case<->PascalCase derivation reaches 1,920 of 1,924 stdlib+kernel
-%%% names and cannot spell `'PKCS-1'`, `'OTP-PKIX'`, or a quarter of Elixir's
-%%% function names — so the language has no such rule anywhere and this does not
-%%% introduce one. Every row below is written out by hand. That the rows happen to
-%%% look like a pattern is a property of OTP's own naming, not a function the
-%%% compiler applies, and nothing here can be extended by inference.
-%%%
-%%% AND IT IS CONTRACT-SCOPED, which is what answers 35's own objection that
-%%% renaming would be "a naming rule by another route". A row fires only for a
-%%% function whose name AND arity match a callback of a behaviour THIS MODULE
-%%% DECLARES. `HandleCall/3` in a module with no `behaviour` line stays
-%%% `'HandleCall'/3`, and so does `HandleCall/2` in a module that declares
-%%% `GenServer` — the arity is part of the key precisely so a helper that happens
-%%% to share a callback's name is not silently captured.
+%%% Callback renaming is contract-scoped: a row fires only for a function whose
+%%% name AND arity match a callback of a behaviour this module declares.
+%%% `HandleCall/3` in a module with no `behaviour` line stays `'HandleCall'/3`,
+%%% and so does `HandleCall/2` in a module that declares `GenServer`, so a
+%%% helper that shares a callback's name is never silently captured.
 
 -module(bs_otp).
 
 -export([behaviour_name/1, callbacks/1, callback_name/3, missing/2]).
 
 %%% ---------------------------------------------------------------------------
-%%% The behaviour name — ticket 32, unchanged, moved here from `bs_emit`
+%%% The behaviour name (ticket 32)
 %%% ---------------------------------------------------------------------------
 
 behaviour_name('GenServer')   -> gen_server;
@@ -45,13 +33,11 @@ behaviour_name('GenEvent')    -> gen_event;
 behaviour_name(Other)         -> erlang:error({unknown_behaviour, Other}).
 
 %%% ---------------------------------------------------------------------------
-%%% The callback table
+%%% The callback table: `{B# name, arity, OTP name, mandatory | optional}`.
 %%%
-%%% `{B# name, arity, OTP name, mandatory | optional}`.
-%%%
-%%% The mandatory/optional split is OTP's own and was read off the runtime rather
-%%% than written from memory: `M:behaviour_info(callbacks) -- M:behaviour_info(
-%%% optional_callbacks)`, measured on OTP 28.
+%%% The mandatory/optional split is OTP's own, read from
+%%% `M:behaviour_info(callbacks) -- M:behaviour_info(optional_callbacks)` on
+%%% OTP 28.
 %%% ---------------------------------------------------------------------------
 
 callbacks('GenServer') ->
@@ -72,12 +58,9 @@ callbacks('Application') ->
      {'ConfigChange', 3, config_change, optional},
      {'PrepStop',     1, prep_stop,     optional},
      {'StartPhase',   3, start_phase,   optional}];
-%% `gen_statem` lists `{'StateName',3}` among its callbacks, and it is
-%% DELIBERATELY ABSENT here. That entry is OTP's placeholder for state functions
-%% in `state_functions` mode, whose names are the *user's* — so they are ordinary
-%% beam-sharp functions and must not lower. A table of known names cannot contain
-%% a name nobody knows yet, and pretending otherwise is the derivation rule
-%% ticket 32 closed, arriving through the one door left open.
+%% `gen_statem`'s `{'StateName',3}` is deliberately absent: it is OTP's
+%% placeholder for state functions, whose names are the user's own, so they
+%% stay ordinary beam-sharp functions and must not lower.
 callbacks('GenStatem') ->
     [{'Init',         1, init,          mandatory},
      {'CallbackMode', 0, callback_mode, mandatory},
@@ -99,8 +82,7 @@ callbacks(Other) ->
     erlang:error({unknown_behaviour, Other}).
 
 %% What `Name/Arity` lowers to, given the behaviours this module declares, or
-%% `none` when it is an ordinary function. Both halves of the key matter — see
-%% the contract-scoping note at the top.
+%% `none` when it is an ordinary function. Both name and arity must match.
 callback_name(_Name, _Arity, []) ->
     none;
 callback_name(Name, Arity, [B | Rest]) ->
@@ -110,14 +92,11 @@ callback_name(Name, Arity, [B | Rest]) ->
     end.
 
 %% The mandatory callbacks of `Behaviour` that `Defined` does not supply, as
-%% `{B# name, arity}` — the spelling the author must write, not OTP's.
+%% `{B# name, arity}`: the spelling the author must write, not OTP's.
 %%
-%% Ticket 14 §4 makes the compiler know the contract as a TYPE and check the
-%% user's narrower signature by containment. This is the presence half only. The
-%% type half is not owed here: Dialyzer already performs it at the boundary
-%% against OTP's own `-callback` declarations, measured — a narrowed callback
-%% spec is accepted and a wrong one is still reported `Invalid type
-%% specification`.
+%% Presence only. The type half of the contract (ticket 14 §4) is left to
+%% Dialyzer, which checks a narrowed callback spec against OTP's own
+%% `-callback` declarations at the boundary.
 missing(Behaviour, Defined) ->
     [{N, A} || {N, A, _, mandatory} <- callbacks(Behaviour),
                not lists:member({N, A}, Defined)].

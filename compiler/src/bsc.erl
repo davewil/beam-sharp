@@ -1,59 +1,54 @@
-%%% bsc — the beam-sharp walking-skeleton compiler.
+%%% bsc — the beam-sharp compiler's command line.
 %%%
-%%%     .bs  ->  lex  ->  parse  ->  exhaustiveness check  ->  abstract format
-%%%          ->  .abstr  ->  compile:file from_abstr (what erlc runs)  ->  .beam
+%%% A module is a DIRECTORY. One holding `.bs` files is a module and those
+%%% files are its source; one holding only directories is a namespace, which
+%%% is erased. Naming a file names its module. `bsc PATH` compiles the module
+%%% and every module it reaches through `using`, dependencies first;
+%%% `bsc PATH FUNCTION ARG...` compiles and then runs one exported function;
+%%% `--api PATH` reports what operations a module offers, with nothing built;
+%%% `--repl` (`ibs -S FILE`) opens a prompt over the compiled module; and
+%%% `--batch MANIFEST RESULTS` runs many invocations in this one VM.
 %%%
-%%% The slice deliberately covers only decisions the map has closed: multi-clause
-%%% heads under a mandatory signature (01, 04, 08), atoms and structural unions
-%%% (09, 10), the type algebra with exact unions and real integer intervals (20),
-%%% the retained failure arm (12), and Abstract Format emission with a `-spec`
-%%% (13). Records (26), generic syntax (28), modules and imports (fog), FFI and
-%%% OTP behaviours are all out of the slice on purpose.
+%%% Each source file passes through:
+%%%
+%%%     lex -> parse -> lower valves -> check (types, exhaustiveness, path)
+%%%         -> abstract format -> .abstr -> compile:file from_abstr -> .beam
+%%%
+%%% Every diagnostic is a term rendered once, in `bs_diag`; nothing here
+%%% prints one of its own.
 
 -module(bsc).
 
 -export([main/1, file/1, file/2, file_to_dir/2, compile_string/2]).
-%% F15 — exported so the corpus gates enumerate module directories through the
-%% SAME function the compiler classifies with, rather than through a second
-%% wildcard of their own. Same reason `bs_check:resolve/2` is exported instead of
-%% copied: a classification rule with two implementations has two answers.
-%% F17 — `bs_api` is the second reader of those same rules, which is why
-%% `expected_module/2`, `parse_path/1` and `module_dir_of/1` join them here
-%% rather than being written a second time inside the query mode: the module
-%% a path implies (41 §5), the parse that publishes its own diagnostics, and
-%% "naming a file names its module" are all rules this file already owns.
+%% The corpus gates and `bs_api` classify directories and parse files through
+%% these same functions rather than through copies of their own: a
+%% classification rule with two implementations has two answers (F15, F17).
 -export([module_dirs/1, dir_kind/1, expected_module/2, parse_path/1,
          module_dir_of/1]).
-%% ENG-314 — `status/2` is one invocation as a NUMBER rather than as a dead VM,
-%% which is what lets `bs_batch` run fifty of them in one process; `exit_with/1`
-%% is how every site that used to `halt` reaches it, from `bs_api` as well.
+%% `status/2` returns one invocation's exit status instead of halting, which
+%% is what lets `bs_batch` run many in one VM; `exit_with/1` is how every
+%% exit site, `bs_api` included, reaches it (ENG-314).
 -export([status/2, exit_with/1]).
 
 -record(opts, {outdir = ".", emit_abstr = true, verbose = false, repl = false,
-               %% F15 / ticket 41 §3. The source root is a BUILD-TOOL input, and
-               %% §3 said so before anything needed it: "a build tool's job is
-               %% which files, WHERE THE SOURCE ROOT IS, and what to do with the
-               %% output — not in what sequence". `undefined` means the default
-               %% below, not "no check".
+               %% The source root is a build-tool input (ticket 41 §3).
+               %% `undefined` means the default in `expected_module/2`,
+               %% not "no check".
                src_root = undefined,
-               %% Ticket 41 §5's check needs a source root, and a caller that
-               %% hands over a bare path has not named one. The CLI always has a
-               %% root (the flag, or the module directory's parent by default) and
-               %% always checks; `file/2` is a library entry point that does not,
-               %% so it aggregates the directory WITHOUT the path check rather
-               %% than inventing a root to check against.
+               %% The CLI always has a root and always checks the `module`
+               %% line against the path; `file/2` is a library entry point
+               %% with no root, so it aggregates the directory without the
+               %% check rather than inventing a root (ticket 41 §5).
                check_path = true,
-               %% F16 / ticket 23 §1. The channel the CLI publishes on.
+               %% The channel the CLI publishes on, `prose` or `term` (F16).
                diagnostics = prose,
-               %% F17 / ticket 23 §10. The query mode: report what a module
-               %% offers, rather than compiling it.
+               %% Query mode: report what a module offers instead of
+               %% compiling it (F17).
                api = false}).
 
-%% Ticket 43's threshold. One number, used at both depths the inexhaustive
-%% diagnostic enumerates — see `heads/2` and `truncated/1` at the bottom of the
-%% file. It is not a tunable and there is no flag: the truncated form IS the
-%% exact form at three cases or fewer, so "always on" costs a small residual
-%% nothing and there is no second shape to switch into.
+%% The cap on printed residual cases (ticket 43). The cap is applied in
+%% `bs_diag`, which carries its own copy; nothing in this module reads this
+%% one.
 -define(RESIDUAL_CASES, 3).
 
 %% For callers outside the CLI (the REPL's `:reload`) that have a directory
@@ -64,27 +59,21 @@ file_to_dir(Path, Dir) -> file(Path, #opts{outdir = Dir}).
 %%% CLI
 %%% ---------------------------------------------------------------------------
 
-%% ENG-314 — `--batch` is dispatched before anything else and takes exactly its
-%% two arguments. Every other invocation is one `status/2`, and the VM halts
-%% with what it returns — which is what `halt/1` did at every exit site until
-%% the batch form needed those sites to return instead.
+%% `--batch` is dispatched before anything else and takes exactly its two
+%% arguments. Every other invocation is one `status/2`, and the VM halts with
+%% what it returns (ENG-314).
 main(["--batch", Manifest, Results]) ->
     erlang:halt(bs_batch:run(Manifest, Results));
 main(Args) ->
     erlang:halt(status(Args, standalone)).
 
 %% One invocation, as its exit status. `Context` is `standalone` for the CLI
-%% and `batch` for an entry `bs_batch` is running in a shared VM; the only
-%% thing that reads it is the REPL refusal below.
+%% and `batch` for an entry run in a shared VM; only the REPL refusal reads it.
 %%
-%% THE EXIT IS A THROW, AND `halt/1` IS NOT CALLED BELOW THIS LINE. Every site
-%% that used to halt calls `exit_with/1`, which throws `{bsc_exit, N}`; this is
-%% the one place it is caught. A `try` in between must therefore never catch a
-%% throw it did not itself raise — `check_and_emit/4` catches `error:` only,
-%% `bs_run:call/3` wraps the user's program and nothing of ours, and
-%% `bs_run:read_arg/1` names its own throw. A catch-all added later would turn
-%% an exit status into a normal return, and the test that would notice is the
-%% one that compares a batch entry's status to its standalone run's.
+%% The exit is a throw, and `halt/1` is not called below this line: every
+%% exit site calls `exit_with/1`, which throws `{bsc_exit, N}`, caught only
+%% here. A `try` in between must never catch a throw it did not raise, or an
+%% exit status becomes a normal return.
 status(Args, Context) ->
     try dispatch(Args, Context) of
         _ -> 0
@@ -117,10 +106,8 @@ dispatch([], _Context) ->
     usage();
 dispatch(Args, Context) ->
     {Opts, Files, Argv} = parse_args(Args, #opts{}, []),
-    %% ENG-314 — REFUSED IN A BATCH RATHER THAN IGNORED THERE, for the reason
-    %% the two refusals below give: the prompt is a session on stdin, and a
-    %% batch entry has no stdin to hand it. Accepting the flag and compiling
-    %% the file would be a flag accepted and not honoured.
+    %% `--repl` is refused in a batch rather than ignored: the prompt is a
+    %% session on stdin, and a batch entry has none (ENG-314).
     case {Opts#opts.repl, Context} of
         {true, batch} ->
             io:format(standard_error,
@@ -130,15 +117,11 @@ dispatch(Args, Context) ->
             exit_with(2);
         _ -> ok
     end,
-    %% F16 — set HERE and nowhere else. A library caller and every
-    %% in-process test therefore gets `prose`, and cannot be polluted by
-    %% another test: the CLI is a fresh OS process every time it runs.
-    %%
-    %% REFUSED IN THE REPL RATHER THAN IGNORED THERE. `ibs` prints values on
-    %% stdout, so the flag's own contract — stdout carries descriptors — cannot
-    %% hold, and a consumer redirecting the stream would get a mix. Accepting a
-    %% flag and quietly not honouring it is the worse of the two failures: it
-    %% costs the flag its credibility everywhere else it is used.
+    %% The channel is set HERE and nowhere else, so a library caller and every
+    %% in-process test gets `prose` (F16). `--diagnostics term` is refused in
+    %% the REPL rather than ignored: the prompt prints values on stdout, so
+    %% the flag's contract that stdout carries descriptors cannot hold, and a
+    %% flag accepted and not honoured costs it its credibility everywhere.
     case {Opts#opts.repl, Opts#opts.diagnostics} of
         {true, term} ->
             io:format(standard_error,
@@ -148,11 +131,9 @@ dispatch(Args, Context) ->
             exit_with(2);
         _ -> ok
     end,
-    %% F17 — AND `--api` IS REFUSED THERE FOR THE SAME REASON, not silently
-    %% preferred. The query answers and exits; the prompt is a session over a
-    %% module. Honouring one and dropping the other is the failure the clause
-    %% above exists to avoid: a flag accepted and not honoured costs the flag
-    %% its credibility everywhere else it is used.
+    %% `--api` is refused in the REPL for the same reason: the query answers
+    %% and exits, the prompt is a session, and neither may be silently
+    %% dropped in favour of the other (F17).
     case {Opts#opts.repl, Opts#opts.api} of
         {true, true} ->
             io:format(standard_error,
@@ -163,10 +144,9 @@ dispatch(Args, Context) ->
         _ -> ok
     end,
     bs_diag:set_channel(Opts#opts.diagnostics),
-    %% F17 / ticket 23 §10 — BEFORE the REPL and before the compile path,
-    %% because `--api` does neither: it reads source and reports what the
-    %% module offers. `bs_api:answer/3` ends in `exit_with/1`, so this returns
-    %% only when the flag was absent.
+    %% `--api` runs before the REPL and the compile path because it does
+    %% neither (F17). `bs_api:answer/3` ends in `exit_with/1`, so this
+    %% returns only when the flag was absent.
     case Opts#opts.api of
         true  -> bs_api:answer(Files, Argv, Opts#opts.src_root);
         false -> ok
@@ -181,10 +161,10 @@ dispatch(Args, Context) ->
 
 compile_or_run(Files, Argv, Opts) ->
     case {Files, Argv} of
-        %% F15 — a NAMESPACE named on the command line reaches here, because
-        %% `is_path_arg/1` only counts a directory as a path if it is a module.
-        %% Falling through to the usage text would answer a precise mistake with
-        %% a general message; 41 §5 gives it an exact name, so use it.
+        %% A namespace named on the command line arrives in the argv, not the
+        %% paths, because `is_path_arg/1` counts a directory as a path only
+        %% if it is a module. It gets its exact name rather than the usage
+        %% text (ticket 41 §5).
         {[], [A | _]} ->
             case filelib:is_dir(A) andalso dir_kind(A) =:= namespace of
                 true ->
@@ -215,18 +195,12 @@ compile_only(Files, Opts) ->
     end.
 
 %%% ---------------------------------------------------------------------------
-%%% F11 — compiling a SET of modules, in dependency order
+%%% Compiling a SET of modules, in dependency order
 %%%
-%%% Ticket 41 §3, fork A: the compiler resolves `using` edges itself, checks a
-%%% dependency before its dependents, and keeps the dependency's signatures in
-%%% one environment threaded through the build. No artefact, nothing to go
-%%% stale, correct by construction.
-%%%
-%%% The ticket's own opening premise — "the compiler is single-file" — was FALSE
-%%% and the correction is what made this cheap: `compile_only/2` was already a
-%%% map over a file list. What was single-file was the ENVIRONMENT, not the
-%%% invocation, so this is the fold that loop already was, carrying an
-%%% accumulator. No new CLI, no new entry point, no new artefact.
+%%% The compiler resolves `using` edges itself, checks a dependency before
+%%% its dependents, and threads the dependency's signatures through one
+%%% environment for the whole build. No artefact, nothing to go
+%%% stale (F11, ticket 41 §3).
 %%% ---------------------------------------------------------------------------
 
 compile_set(Paths, Opts) ->
@@ -247,10 +221,10 @@ build([{Dir, Sources, Mod} | Rest], Opts, World, Acc) ->
         {ok, Beam} ->
             Decls = decls(Sources),
             World1 = World#{Mod => #{exports => bs_check:exports_of(Decls),
-                                     %% F12 — carried BESIDE the exports, not
+                                     %% Carried BESIDE the exports, not
                                      %% subtracted from them, so a dependent's
                                      %% refusal can say `private` rather than
-                                     %% `unknown`.
+                                     %% `unknown` (F12).
                                      private => bs_check:private_of(Decls),
                                      behaviours => [B || {behaviour, _, B} <- Decls]}},
             build(Rest, Opts, World1, [{Dir, Beam} | Acc]);
@@ -260,9 +234,9 @@ build([{Dir, Sources, Mod} | Rest], Opts, World, Acc) ->
 
 decls(Sources) -> lists:append([D || {_, D} <- Sources]).
 
-%% The given module directories, plus every module they reach through `using`. A
-%% dependency that was not named on the command line is found in the source tree —
-%% which is 41 §3's "`using Shop.Orders` is a path on disk; `bsc` resolves it".
+%% The given module directories, plus every module they reach through
+%% `using`. A dependency not named on the command line is found in the source
+%% tree: `using Shop.Orders` is a path on disk (ticket 41 §3).
 load_all(Paths, Opts) ->
     Dirs = lists:usort([module_dir_of(P) || P <- Paths]),
     case parse_all(Dirs) of
@@ -272,14 +246,10 @@ load_all(Paths, Opts) ->
             close_over(Given, Index, [M || {_, _, M} <- Given])
     end.
 
-%% WHAT A `using` LINE ACTUALLY DEPENDS ON, which is not always what it names.
-%%
-%% 41 §5 decides the tier by what the path resolves to rather than by its
-%% spelling, so `using Shop` may name a NAMESPACE — and a namespace is erased,
-%% meaning the real dependencies are the modules underneath it. Both discovery
-%% and ordering need that expansion: without it `using Shop` pulled in nothing,
-%% and `Shop.Reports` was checked against a world that had never heard of
-%% `Shop.List`.
+%% What a `using` line depends on, which is not always what it names: `using
+%% Shop` may name a NAMESPACE, and a namespace is erased, so the real
+%% dependencies are the modules under it (ticket 41 §5). Discovery and
+%% ordering both need the expansion.
 import_targets(Decls, Known) ->
     lists:append([case lists:member(M, Known) of
                       true  -> [M];
@@ -299,20 +269,12 @@ parse_all([D | Rest], Acc) ->
         Error   -> Error
     end.
 
-%% F15 — a unit is now `{Dir, [{Path, Decls}], Mod}` rather than one file's
-%% `{Path, Decls, Mod}`. The per-file list survives all the way to the checker and
-%% the emitter, because both need to know which file a thing came from: the
-%% checker to put a diagnostic beside the right path, the emitter to put 13 §3's
-%% `file` attribute in front of the right functions.
-%% THIS IS REACHED BY A PATH THAT DOES NOT EXIST, which is not the case it looks
-%% like it is for. `is_path_arg/1` keeps a real namespace out and
-%% `compile_or_run/3` names that mistake, so the way in is an unmatched shell
-%% glob: `bsc examples/*.bs` with no top-level `.bs` files passes the literal
-%% string through, the `.bs` extension makes it a file argument, and its
-%% directory holds no sources. Two of this repo's own gate scripts did exactly
-%% that, and the first version of this function answered them with
-%% `no match of right hand side value namespace` — an escript stack trace, from
-%% a mistake with an obvious sentence attached to it.
+%% A unit is `{Dir, [{Path, Decls}], Mod}`: the per-file list reaches the
+%% checker and the emitter, so a diagnostic lands beside the right path and
+%% the emitted `file` attribute precedes the right functions (F15, ticket 13
+%% §3). The `namespace` arm is reached by a path that does not exist, such
+%% as an unmatched shell glob `bsc examples/*.bs`, and it gets a sentence
+%% rather than a stack trace.
 load_unit(Dir) ->
     case dir_kind(Dir) of
         namespace ->
@@ -347,21 +309,15 @@ close_over(Units, Index, Have) ->
     end.
 
 %%% ---------------------------------------------------------------------------
-%%% F15 — what a directory IS. Ticket 41 §5's classification, in ONE function.
+%%% What a directory IS, in one function (F15, ticket 41 §5)
 %%%
-%%%   a directory holding `.bs` files -> a MODULE, and those files are its source
+%%%   a directory holding `.bs` files -> a MODULE; those files are its source
 %%%   a directory holding only dirs   -> a NAMESPACE: no atom, no beam, nothing
 %%%
-%%% Decidable by `ls`, no marker and no keyword, which is 41 §5 verbatim.
-%%%
-%%% IT IS ONE FUNCTION BECAUSE TWO WOULD DISAGREE. Before F15 the source index
-%%% globbed `**/*.bs` from each root while a per-directory unit would naturally
-%%% glob `*.bs`, and the two answers differ for exactly the file that matters: one
-%%% sitting in a SUBDIRECTORY of a module directory. The index would map its
-%%% module atom to a path, `using` would resolve against it, and the unit former
-%%% would never compile it — a call the checker passes and the runtime cannot
-%%% make. That is the `undef`-from-green-source shape F11 already hit once, and
-%%% the repo's answer to it is the same every time: resolve once, in one place.
+%%% Decidable by `ls`, with no marker and no keyword. It is one function
+%%% because two would disagree: a `**/*.bs` index and a `*.bs` unit differ on
+%%% a file in a subdirectory of a module, which the index would resolve and
+%%% the build would never compile.
 %%% ---------------------------------------------------------------------------
 
 dir_kind(Dir) ->
@@ -370,15 +326,11 @@ dir_kind(Dir) ->
         Files -> {module, Files}
     end.
 
-%% NON-RECURSIVE, and that is the whole of F15.11. A subdirectory is its own
-%% directory and gets its own classification: `Shop/` may hold `.bs` files AND a
-%% `Collections/` subdirectory, in which case `Shop` is a module and what is under
-%% `Collections` is decided by applying this same rule again.
-%%
-%% `index.bs` sorts FIRST, which is not cosmetic. 41 §4 makes it the declaration
-%% file, so at the head of the list its `module` line and its `using` lines are the
-%% first the checker sees — and every sibling file that declares no module of its
-%% own then inherits from it.
+%% Non-recursive: a subdirectory is its own directory and gets its own
+%% classification (F15.11). `index.bs` sorts FIRST because it is the
+%% declaration file (ticket 41 §4): its `module` and `using` lines are the
+%% first the checker sees, and every sibling that declares no module of its
+%% own inherits from it.
 bs_here(Dir) ->
     Files = filelib:wildcard(filename:join(Dir, "*.bs")),
     Index = [F || F <- Files, filename:basename(F) =:= "index.bs"],
@@ -394,9 +346,9 @@ module_dirs(Dir) ->
            end,
     Here ++ lists:append([module_dirs(S) || S <- Subs]).
 
-%% The module directory a command-line argument names: itself if it is one, and
-%% otherwise the directory the named file sits in. Naming a file names its module,
-%% which is what keeps `bsc examples/Fib/fib.bs 5` working now that the unit is the
+%% The module directory an argument names: itself if it is one, otherwise the
+%% directory the named file sits in. Naming a file names its module, which is
+%% what keeps `bsc examples/Fib/fib.bs 5` working when the unit is the
 %% directory.
 module_dir_of(P) ->
     case filelib:is_dir(P) of
@@ -404,15 +356,12 @@ module_dir_of(P) ->
         false -> filename:dirname(P)
     end.
 
-%% Module atom -> module DIRECTORY, over every module directory under the roots.
-%%
-%% BUILT BY PARSING RATHER THAN BY NAMING. Resolving `Shop.Orders` to
-%% `Shop/Orders` would be cheaper and would still be wrong to rely on here: the
-%% index has to answer for the tree as it IS, including a directory whose
-%% declaration does not match its path, because that mismatch is a diagnostic
-%% F15 wants to report rather than a file it wants to lose. A directory that
-%% fails to parse is skipped: it is not a dependency anybody asked for, and if it
-%% is, the error arrives when it is compiled.
+%% Module atom -> module DIRECTORY, over every module directory under the
+%% roots. Built by parsing rather than by naming, because the index must
+%% answer for the tree as it is, including a directory whose declaration does
+%% not match its path: that mismatch is a diagnostic to report, not a file to
+%% lose (F15). A directory that fails to parse is skipped; if it is a
+%% dependency, the error arrives when it is compiled.
 source_index(Dirs, Root) ->
     Roots = case Root of
                 undefined -> lists:usort([filename:dirname(D) || D <- Dirs]);
@@ -441,26 +390,16 @@ module_of(Decls) ->
     end.
 
 %%% ---------------------------------------------------------------------------
-%%% F15 — the module atom a DIRECTORY PATH implies, which is what ticket 41 §5's
-%%% check compares a declaration against.
+%%% The module atom a directory path implies, which the `module` line is
+%%% checked against (F15, ticket 41 §5)
 %%%
-%%% THE DEFAULT ROOT IS THE MODULE DIRECTORY'S OWN PARENT, not the cwd. That
-%%% makes a single-segment module need no flag — `bsc examples/Fib` checks `Fib`
-%%% against `module Fib` — and makes a multi-segment one fail LOUDLY until a root
-%%% is named: `bsc examples/Shop/Reports` defaults to a root of `examples/Shop`,
-%%% expects `module Reports`, finds `module Shop.Reports` and says so.
-%%%
-%%% That is the property a default here has to have. It is never silently weaker
-%%% than the explicit form, and it teaches the flag at the moment the flag is
-%%% needed. The cwd was the other candidate and loses on the same test: every
-%%% gate in this repo runs from a directory that is not the source root, so
-%%% `examples/Fib` would have had to declare `module examples.Fib`.
-%%%
-%%% A SUFFIX MATCH WAS THE OTHER TEMPTING READING AND IT IS A WEAKER RULE, not a
-%%% cheaper one — it needs no root at all and it ACCEPTS `Shop/Orders/Total.bs`
-%%% declaring `module Orders`, because `Orders` is a suffix of `…/Shop/Orders`. A
-%%% module quietly dropping its leading segments mints a different atom, which is
-%%% the drift between 40 §1's atom and the path on disk that §5 exists to stop.
+%%% The default root is the module directory's own parent, not the cwd, so a
+%%% single-segment module needs no flag (`bsc examples/Fib` expects
+%%% `module Fib`) and a multi-segment one fails LOUDLY until a root is named
+%%% (`bsc examples/Shop/Reports` expects `module Reports` and finds
+%%% `module Shop.Reports`). The default is never silently weaker than the
+%%% explicit form; a suffix match would accept `Shop/Orders/Total.bs`
+%%% declaring `module Orders`, an atom that has drifted from the path.
 %%% ---------------------------------------------------------------------------
 
 expected_module(Dir, Root0) ->
@@ -479,9 +418,9 @@ expected_module(Dir, Root0) ->
             end
     end.
 
-%% Absolute and `..`-free, so that a root given as `examples` and a directory
-%% reached as `./examples/Fib` still share a prefix. Without this the check
-%% silently does not apply, which is the one outcome a check must never have.
+%% Absolute and `..`-free, so a root given as `examples` and a directory
+%% reached as `./examples/Fib` share a prefix; otherwise the check silently
+%% does not apply.
 norm(Path) ->
     lists:foldl(fun("..", [_ | Up]) -> Up;
                    ("..", [])       -> [];
@@ -489,9 +428,8 @@ norm(Path) ->
                    (Seg, Acc)       -> Acc ++ [Seg]
                 end, [], filename:split(filename:absname(Path))).
 
-%% Dependencies before dependents. A cycle is refused BY NAME rather than
-%% followed — F6's cyclic-alias precedent, which shipped after a hang that no
-%% green suite could see, and the same hazard is here.
+%% Dependencies before dependents. A cycle is refused by name rather than
+%% followed, since following one hangs (F6's cyclic-alias precedent).
 order(Units) ->
     Index = maps:from_list([{M, U} || U = {_, _, M} <- Units]),
     visit(Units, Index, [], [], []).
@@ -511,11 +449,10 @@ emit_one({_, Sources, M} = U, Index, Path, Done, Acc) ->
             case lists:member(M, Path) of
                 true  -> {error, {cycle, lists:reverse([M | Path])}};
                 false ->
-                    %% `D =/= M` because a namespace expands to everything under
-                    %% it, and a module sitting in the namespace it imports is
-                    %% under it too. Without this `module Shop.Reports` with
-                    %% `using Shop` depended on itself and was reported as a
-                    %% cycle with one member, twice.
+                    %% `D =/= M` because a namespace expands to everything
+                    %% under it, and a module inside the namespace it imports
+                    %% is under it too; without this `module Shop.Reports`
+                    %% with `using Shop` depended on itself.
                     Deps = [maps:get(D, Index)
                             || D <- import_targets(Decls, maps:keys(Index)),
                                D =/= M, maps:is_key(D, Index)],
@@ -533,35 +470,31 @@ deps([D | Rest], Index, Path, Done, Acc) ->
         {ok, Done1, Acc1} -> deps(Rest, Index, Path, Done1, Acc1)
     end.
 
-%% Bare arguments ending in `.bs` are files; the first that does not begins the
-%% run argv, so `bsc fib.bs 5` and `bsc a.bs b.bs` both read correctly without a
+%% Bare arguments that are paths are files; the first that is not begins the
+%% run argv, so `bsc fib.bs 5` and `bsc a.bs b.bs` both read without a
 %% separator.
 parse_args(["-o", Dir | Rest], O, Fs) -> parse_args(Rest, O#opts{outdir = Dir}, Fs);
 parse_args(["-v" | Rest], O, Fs)      -> parse_args(Rest, O#opts{verbose = true}, Fs);
 parse_args(["--repl" | Rest], O, Fs)  -> parse_args(Rest, O#opts{repl = true}, Fs);
-%% `-S FILE` is iex's spelling and costs nothing to accept; the file is picked up
-%% by the ordinary bare-argument rule below.
+%% `-S FILE` is iex's spelling and costs nothing to accept; the file is picked
+%% up by the ordinary bare-argument rule below.
 parse_args(["-S" | Rest], O, Fs)      -> parse_args(Rest, O, Fs);
-%% F15 / ticket 41 §3: "a build tool's job is which files, WHERE THE SOURCE ROOT
-%% IS, and what to do with the output — not in what sequence to compile them."
+%% The source root is a build-tool input: which files, where the root is, and
+%% what to do with the output (ticket 41 §3).
 parse_args(["--src-root", Dir | Rest], O, Fs) ->
     parse_args(Rest, O#opts{src_root = Dir}, Fs);
-%% F16 / ticket 23 §1. The ticket names no flag anywhere — it says only
-%% that "the CLI publishes both" — so the spelling is F16's, and it splits
-%% by STREAM: prose stays on stderr, the term goes to stdout, and a
-%% consumer redirects rather than parses.
+%% `--diagnostics` splits by STREAM: prose stays on stderr, the term goes to
+%% stdout, and a consumer redirects rather than parses (F16, ticket 23 §1).
 parse_args(["--diagnostics", "term" | Rest], O, Fs) ->
     parse_args(Rest, O#opts{diagnostics = term}, Fs);
 parse_args(["--diagnostics", "prose" | Rest], O, Fs) ->
     parse_args(Rest, O#opts{diagnostics = prose}, Fs);
-%% F17 / ticket 23 §10. A query rather than a compilation, so it takes no
-%% argument of its own: the module it answers about is the ordinary PATH
-%% argument every other mode already takes.
+%% `--api` takes no argument of its own: the module it answers about is the
+%% ordinary PATH argument every other mode takes (F17).
 parse_args(["--api" | Rest], O, Fs)   -> parse_args(Rest, O#opts{api = true}, Fs);
-%% ENG-314. `--batch` is matched whole in `main/1`; reaching it here means it
-%% was combined with something else, and the something else is refused rather
-%% than guessed at — `-o DIR --batch …` has no meaning, since every entry
-%% carries its own flags.
+%% `--batch` is matched whole in `main/1`; reaching it here means it was
+%% combined with something else, which is refused rather than guessed at,
+%% since every entry carries its own flags (ENG-314).
 parse_args(["--batch" | _], _O, _Fs) ->
     io:format(standard_error,
               "bsc: --batch takes a manifest and a results directory, and nothing else~n"
@@ -579,13 +512,10 @@ parse_args([A | Rest], O, Fs) ->
     end;
 parse_args([], O, Fs)                 -> {O, lists:reverse(Fs), []}.
 
-%% A `.bs` file, or a DIRECTORY THAT IS A MODULE — 41 §3 names both as inputs:
-%% "`bsc` is given a set of `.bs` files (as it already is) or a directory to walk".
-%%
-%% The module test matters and is not pedantry. Bare arguments that are not paths
-%% begin the run argv, so `bsc examples/Fib Fib 5` must not read `Fib` as a
-%% directory just because something called `Fib` happens to exist in the cwd. A
-%% directory only counts if it actually holds `.bs` files.
+%% A `.bs` file, or a directory that is a MODULE (ticket 41 §3). The module
+%% test matters: bare arguments that are not paths begin the run argv, so
+%% `bsc examples/Fib Fib 5` must not read `Fib` as a directory just because
+%% something called `Fib` exists in the cwd.
 is_path_arg(A) ->
     filename:extension(A) =:= ".bs"
         orelse (filelib:is_dir(A) andalso dir_kind(A) =/= namespace).
@@ -593,8 +523,7 @@ is_path_arg(A) ->
 %%% ---------------------------------------------------------------------------
 %%% Running
 %%%
-%%% Development is driven by runnable code (David, 2026-08-14): `bsc fib.bs 5`
-%%% should print Fib of 5 without a second `erl -pa` invocation.
+%%% `bsc fib.bs 5` prints Fib of 5 without a second `erl -pa` invocation.
 %%% ---------------------------------------------------------------------------
 
 run(File, Opts0, Argv) ->
@@ -602,11 +531,9 @@ run(File, Opts0, Argv) ->
                "." -> Opts0#opts{outdir = tmpdir()};
                _   -> Opts0
            end,
-    %% F11 — through the SET path, not `file/2`. A file with a `using` line needs
-    %% its dependencies compiled and on the code path before it can run, and the
-    %% same is true at the `ibs` prompt below. Four features in a row found a
-    %% hole at that prompt because a new capability was wired into the compile
-    %% path and not into this one.
+    %% Through the SET path, not `file/2`: a file with a `using` line needs
+    %% its dependencies compiled and on the code path before it can run, and
+    %% the same is true at the `ibs` prompt below (F11).
     case compile_set([File], Opts) of
         {ok, Beams} ->
             Beam = beam_for(File, Beams),
@@ -616,15 +543,9 @@ run(File, Opts0, Argv) ->
             exit_with(1)
     end.
 
-%% F15 — the build's results are keyed by MODULE DIRECTORY, because that is the
-%% unit now. The argument may still be a file, and `bsc fib.bs 5` and `ibs -S
-%% fib.bs` both arrive here with one.
-%%
-%% THIS IS THE SIXTH FEATURE TO FIND A HOLE AT THIS SEAM and the comment on
-%% `run/3` above predicted it in so many words: a capability gets wired into the
-%% compile path and not into this one. It was a `no match of right hand side
-%% value false` at the `ibs` prompt — an escript stack trace, which is the worst
-%% diagnostic this compiler produces.
+%% The build's results are keyed by MODULE DIRECTORY, the unit, while the
+%% argument may still be a file: `bsc fib.bs 5` and `ibs -S fib.bs` both
+%% arrive here with one (F15).
 beam_for(Path, Beams) ->
     {_, Beam} = lists:keyfind(module_dir_of(Path), 1, Beams),
     Beam.
@@ -638,18 +559,10 @@ report_run({crashed, error, {Tag, Detail}, _}) when is_atom(Tag) ->
 report_run({crashed, Class, Reason, _}) ->
     io:format(standard_error, "crashed: ~p:~p~n", [Class, Reason]),
     exit_with(1);
-%% F12, amended 2026-08-17 — THE MOMENT THE DEFAULT BITES.
-%%
-%% Private is now the default, so a module nobody has marked exports nothing and
-%% the clause below would print "the module exports " with an empty list after
-%% it. Measured on a fresh one-function module: `erlc` first says
-%% `function 'Go'/1 is unused` — because an unexported function nothing calls is
-%% deleted — and then this prints a question with no answers in it. That is the
-%% default arriving at exactly the moment the language is least able to explain
-%% itself, and the harness exists to make code runnable.
-%%
-%% So the empty case is its own sentence, and it teaches the one word being
-%% asked for rather than reporting an absence.
+%% Private is the default (F12), so a module nobody has marked exports
+%% nothing, and the clause below would print "the module exports " with an
+%% empty list after it. The empty case is its own sentence and teaches the one
+%% word being asked for.
 report_run({error, {ambiguous, []}}) ->
     io:format(standard_error,
               "bsc: this module exports nothing, so there is no function to run~n"
@@ -663,8 +576,8 @@ report_run({error, {ambiguous, Names}}) ->
               "  bsc FILE.bs FUNCTION ARG...~n",
               [lists:join(", ", [atom_to_list(N) || N <- Names])]),
     exit_with(2);
-%% F12. Exit 2 rather than 1: this is the same class as `ambiguous` and
-%% `bad_arity` above — the compiler succeeded and the INVOCATION is wrong.
+%% Exit 2 rather than 1: as with `ambiguous` and `bad_arity`, the compiler
+%% succeeded and the INVOCATION is wrong (F12).
 report_run({error, {private, Mod, Fn}}) ->
     io:format(standard_error,
               "bsc: ~s is private in ~s~n"
@@ -676,9 +589,8 @@ report_run({error, {bad_arity, Fn, Got, Want}}) ->
     io:format(standard_error, "bsc: ~s takes ~s argument(s), got ~p~n",
               [Fn, lists:join(" or ", [integer_to_list(A) || A <- Want]), Got]),
     exit_with(2);
-%% The reader already built the sentence; printing it with `~p` would hand back
-%% a list of character codes, which is the generic clause below doing exactly
-%% the kind of damage this message exists to undo.
+%% The reader already built the sentence; the generic clause's `~p` would
+%% print it as a list of character codes.
 report_run({error, {unreadable_argument, Msg}}) ->
     io:format(standard_error, "bsc: ~ts~n", [Msg]),
     exit_with(2);
@@ -704,14 +616,10 @@ repl(File, Opts0) ->
             exit_with(1)
     end.
 
-%% THE SCRATCH DIRECTORY IS NAMED FOR THIS PROCESS. It was `bsc-<N>` with
-%% `N = erlang:unique_integer([positive])`, which is unique within one VM and
-%% restarts with every VM: 12 distinct values from 30 fresh VMs (ENG-318,
-%% measured 2026-09-03). Two concurrent runs without `-o` could share one
-%% `Fib.beam`, and a sequential clean pair went red at the tour gate when a
-%% fresh VM's counter landed on a directory a dead one had left populated. The
-%% OS pid is unique among processes alive at once, which is exactly the set
-%% that can collide; the counter still separates two calls within one VM.
+%% The scratch directory is named for this OS process, because
+%% `unique_integer` alone restarts with every VM (12 distinct values from 30
+%% fresh VMs, ENG-318) and two runs without `-o` could share one `Fib.beam`.
+%% The counter still separates two calls within one VM.
 tmpdir() ->
     Base = case os:getenv("TMPDIR") of false -> "/tmp"; T -> T end,
     Dir = filename:join(Base, "bsc-" ++ os:getpid() ++ "-" ++
@@ -725,15 +633,10 @@ tmpdir() ->
 
 file(Path) -> file(Path, #opts{}).
 
-%% F15 — NAMING A FILE NAMES ITS MODULE, and its module is now its directory.
-%%
-%% This used to read one file and compile it alone, which was the same thing when
-%% one file was one module. It is not any more: compiling `Shop/Orders/Total.bs`
-%% by itself emits a `'Shop.Orders'` beam with `Apply/1` missing from it — a beam
-%% that loads, exports less than the module declares, and fails at the call site.
-%%
-%% So it goes through the set path like everything else. The path check does not
-%% run here; see `check_path` on `#opts{}`.
+%% Naming a file names its module, and its module is its directory (F15):
+%% compiling `Shop/Orders/Total.bs` alone would emit a `'Shop.Orders'` beam
+%% missing every sibling file's function, so this goes through the set path.
+%% The path check does not run here; see `check_path` on `#opts{}`.
 file(Path, Opts) ->
     case filelib:is_file(Path) of
         true  -> compile_set([Path], Opts#opts{check_path = false});
@@ -748,8 +651,8 @@ compile_string(Src, Opts, Path) ->
 with_stages(Path, Opts, Src) ->
     case parse_string(Path, Src) of
         {error, R}  -> {error, R};
-        %% The one remaining single-source caller, and legitimately so: a string
-        %% has no directory to aggregate and no path to check against.
+        %% The one single-source caller: a string has no directory to
+        %% aggregate and no path to check against.
         {ok, Decls} ->
             check_and_emit(filename:dirname(Path), [{Path, Decls}],
                            Opts#opts{check_path = false}, #{})
@@ -761,18 +664,16 @@ parse_string(Path, Src) ->
             report_fatal(Path, {lex, Err}), {error, lex};
         {ok, Tokens, _} ->
             case bs_parser:parse(Tokens) of
-                %% The tokens travel with the error because ticket 63's hint is
-                %% a SHAPE in the token stream (`not` in prefix position), not
-                %% the token yecc happened to stop on — guard and refinement
-                %% stop on different ones. `bs_diag` falls back to the plain
-                %% parse error when the shape is absent.
+                %% The tokens travel with the error because the hint for a
+                %% `not` in prefix position is a SHAPE in the token stream,
+                %% not the token yecc stopped on (ticket 63). `bs_diag` falls
+                %% back to the plain parse error when the shape is absent.
                 {error, Err} ->
                     report_fatal(Path, {parse, Err, Tokens}), {error, parse};
-                %% F14. The valve is the one construct the parser cannot finish
-                %% on its own — its lowering needs names that are unique across
-                %% the FILE, and a yecc action has nowhere to keep a counter. So
-                %% it lands here, between parsing and everything else, and no
-                %% later stage ever sees an unlowered `e_valve`.
+                %% Valves are lowered here, between parsing and everything
+                %% else, because their lowering needs names unique across the
+                %% FILE and a yecc action has nowhere to keep a counter (F14).
+                %% No later stage sees an unlowered `e_valve`.
                 {ok, Decls} ->
                     {ok, bs_lower:valves(Decls)}
             end
@@ -784,9 +685,8 @@ parse_path(Path) ->
         {error, R} -> report_fatal(Path, {cannot_read, R}), {error, R}
     end.
 
-%% The same, with nothing reported — used only to build the module index, where
-%% an unrelated broken file must not stop the build of the files that were asked
-%% for.
+%% The same with nothing reported, for the module index: an unrelated broken
+%% file must not stop the build of the files that were asked for.
 parse_quietly(Path) ->
     case file:read_file(Path) of
         {ok, Bin} ->
@@ -802,16 +702,13 @@ parse_quietly(Path) ->
     end.
 
 check_and_emit(Dir, Sources, Opts, World) ->
-    %% The checker signals a handful of conditions by raising rather than by
-    %% returning a diagnostic, because they are found while RESOLVING types —
-    %% below the level that carries a line and a function name. Uncaught, they
-    %% reached the author as an escript stack trace, which is the worst
-    %% diagnostic this compiler produced: found by running LANGUAGE.md's own
-    %% examples through it, where two blocks hit `unknown_type`.
+    %% The checker raises a handful of conditions found while RESOLVING types,
+    %% below the level that carries a line and a function name. They are
+    %% caught here so they reach the author as a diagnostic, not a stack trace.
     try bs_check:check_dir(Sources, World, expect(Dir, Opts)) of
         {error, Diags} ->
-            %% F15 — each diagnostic arrives already tagged with the file it came
-            %% from, which is why the checker runs its function pass per file.
+            %% Each diagnostic arrives tagged with the file it came from,
+            %% which is why the checker runs its function pass per file (F15).
             [report(P, D) || {P, D} <- Diags],
             {error, check};
         {ok, Module, Diags} ->
@@ -825,22 +722,20 @@ check_and_emit(Dir, Sources, Opts, World) ->
             end
     end.
 
-%% Which file a RAISED condition is reported against. The returned diagnostics
-%% carry their own path; these are found while resolving over the whole
-%% directory's declarations, so the best available answer is the module's
-%% declaration file — `index.bs` when there is one, since `bs_here/1` sorts it
-%% first. A raise site that can do better wraps itself in `{in_file, Path, …}`.
+%% A RAISED condition is reported against the module's declaration file,
+%% `index.bs` when there is one, since it was found over the whole directory
+%% and carries no path of its own. A raise site that can do better wraps
+%% itself in `{in_file, Path, …}`.
 primary(_Dir, [{P, _} | _]) when is_list(P) -> P;
 primary(Dir, _)                             -> Dir.
 
 expect(_Dir, #opts{check_path = false}) -> undefined;
 expect(Dir, #opts{src_root = Root})     -> expected_module(Dir, Root).
 
-%% F16 / ticket 23 §1 — THE RAISE PATH IS NOT A SECOND CHANNEL. A raised
-%% condition gets a descriptor exactly like a returned one, and `bs_diag`
-%% owns both its shape and its prose. `unhandled` still means re-raise: a
-%% raised tuple with no clause there would otherwise be swallowed, and what
-%% the author sees instead is an escript stack trace.
+%% The raise path is not a second channel: a raised condition gets a
+%% descriptor exactly like a returned one, and `bs_diag` owns both shape and
+%% prose (F16). `unhandled` means re-raise, so a tuple `bs_diag` has no
+%% clause for is not swallowed.
 resolve_error(Path, Reason) ->
     case bs_diag:descriptor(Path, Reason) of
         unhandled -> unhandled;
@@ -850,31 +745,20 @@ resolve_error(Path, Reason) ->
 emit(_Path, Opts = #opts{outdir = Dir}, Module) ->
     Forms = bs_emit:forms(Module),
     Mod = maps:get(module, Module),
-    %% Ticket 13 measured that `erlc` enforces module-name/filename matching on
-    %% the `from_abstr` path, so the file must be named for the module atom.
+    %% The file must be named for the module atom: `erlc` enforces
+    %% module-name/filename matching on the `from_abstr` path (ticket 13).
     AbstrPath = filename:join(Dir, atom_to_list(Mod) ++ ".abstr"),
     ok = filelib:ensure_dir(AbstrPath),
     ok = file:write_file(AbstrPath, bs_emit:to_abstr(Forms)),
     verbose(Opts, "wrote ~s~n", [AbstrPath]),
     build(AbstrPath, Dir, Opts).
 
-%% The whole point of ticket 13's contract: OTP does the translation, from
-%% serialised text, with no `.erl` anywhere on disk.
-%%
-%% IN-PROCESS SINCE ENG-314, AND STILL FROM THE FILE. This shelled out to
-%% `erlc +from_abstr` per module, and that second VM boot was two thirds of
-%% what a block cost: measured 2026-09-03 at 0.24s per block, of which the
-%% bare `bsc` VM was 0.08s. `compile:file/2` with `from_abstr` is the function
-%% erlc itself calls, over the same `.abstr` on disk — so the forms are still
-%% serialised and read back through OTP's reader on every build, and ticket
-%% 13's standing obligation (the frontend never depends on in-process compiler
-%% state, so `.abstr` plus external `erlc` always works) is measured where it
-%% always was, by `spec-check.sh` running the real `erlc` over the real
-%% `.abstr`. The compiler's report text is caught rather than read from a port
-%% and still arrives on stderr, under the `compile: ` prefix that
-%% `check-diagnostics.sh` allows by name. It read `erlc: ` for a day after
-%% erlc stopped running; David asked for the text to stay honest, and the
-%% `compile` module is the thing that spoke.
+%% OTP does the translation from serialised text, with no `.erl` anywhere on
+%% disk (ticket 13). `compile:file/2` with `from_abstr` is the function `erlc`
+%% itself calls, run in-process over the same `.abstr` on disk, so `.abstr`
+%% plus an external `erlc` always works; a second VM per module was two
+%% thirds of a block's cost (ENG-314). The compiler's report text is captured
+%% and still arrives on stderr, under the `compile: ` prefix.
 build(AbstrPath, Dir, Opts) ->
     Options = [from_abstr, debug_info, {outdir, Dir},
                report_errors, report_warnings],
@@ -886,8 +770,7 @@ build(AbstrPath, Dir, Opts) ->
           end,
     Beam = filename:rootname(AbstrPath) ++ ".beam",
     %% The compiler reports warnings on the same stream as errors, so its
-    %% return is the only honest discriminator — treating any output as
-    %% failure made the first green build look red.
+    %% return value is the only honest discriminator.
     case Outcome of
         {ok, {ok, _Mod}} ->
             case string:trim(Out) of
@@ -912,26 +795,20 @@ verbose(_, _, _) -> ok.
 %%% ---------------------------------------------------------------------------
 %%% Diagnostics
 %%%
-%%% Ticket 04 established that the exhaustiveness residual *is* the missing case,
-%%% and ticket 23 decided the rest: the diagnostic is a TERM and prose is a pure
-%%% function of it. F16 built that, and it moved every message this compiler can
-%%% print into `bs_diag` — including the head synthesis, which is a real
-%%% compilation step (23 §2) rather than a printing detail.
-%%%
-%%% What is left here is the two call sites, because a diagnostic is reported
-%%% from where the checking happened and rendered from exactly one place.
-%%% `bin/check-diagnostics.sh` is what keeps it that way: the drift this closes
-%%% reopens silently, since a new site calling `io:format` directly would pass
-%%% every test with the prose still right.
+%%% A diagnostic is a TERM and prose is a pure function of it, so every
+%%% message this compiler prints lives in `bs_diag` (F16, ticket 23 §1). What
+%%% is left here is the call sites: a diagnostic is reported from where the
+%%% checking happened and rendered from exactly one place. A new site calling
+%%% `io:format` directly would pass every test with the prose still right,
+%%% which is why `bin/check-diagnostics.sh` exists.
 %%% ---------------------------------------------------------------------------
 
 report(Path, Diag)       -> publish(Path, Diag).
 
 report_fatal(Path, Reason) -> publish(Path, Reason).
 
-%% A shape `bs_diag` does not know still gets reported rather than crashing —
-%% the behaviour both printers had, kept, because the alternative is an escript
-%% stack trace at the one moment the compiler is already confused.
+%% A shape `bs_diag` does not know is still reported rather than crashing,
+%% because the alternative is a stack trace when the compiler is already lost.
 publish(Path, D) ->
     Desc = case bs_diag:descriptor(Path, D) of
                unhandled -> #{tag => unclassified, severity => error,

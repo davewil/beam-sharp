@@ -2,61 +2,42 @@
 %%%
 %%%     bsc --batch MANIFEST RESULTS
 %%%
-%%% ENG-314. `check-language.sh` compiled fifty-odd fenced blocks and
-%%% `check-tour.sh` replayed fifty-odd transcripts, each in a `bsc` process of
-%%% its own, and each gate's self-test ran the whole gate fifteen times over.
-%%% Measured on the CI runner on 2026-09-02: 321s and 332s, 65% of the job. A
-%%% VM boot is a fixed cost paid per block, and nothing about a block needs a
-%%% VM of its own — so this runs every entry of a manifest in one VM and writes
-%%% for each what its own process would have written.
+%%% Every entry of a manifest runs in this one VM, and each gets exactly the
+%%% files a `bsc` process of its own would have written. A VM boot is a fixed
+%%% cost per invocation, and no invocation needs a VM of its own (ENG-314).
 %%%
-%%% THE MANIFEST IS LINE-FRAMED, ONE ARGUMENT PER LINE:
+%%% The manifest is line-framed, one argument per line:
 %%%
 %%%     entry <id>
 %%%     cwd <directory>          optional, at most one
 %%%     arg <text>               one per argument, `arg` alone is an empty one
 %%%     end
 %%%
-%%% A newline is the argument boundary, so the writer needs no quoting rule and
-%%% the reader re-parses nothing. `check-tour.sh` carries a control in which a
-%%% transcript says `; touch pwned`: that text arrives here as one `arg` line
-%%% and reaches the compiler as one argument, and there is no shell anywhere in
-%%% between. An argument cannot contain a newline; none of the gates' can, and
-%%% a format that could carry one would need the quoting rule this one exists
-%%% not to have.
+%%% A newline is the argument boundary, so there is no quoting rule and no
+%%% shell between the manifest and the compiler: an `arg` line saying
+%%% `; touch pwned` reaches `bsc` as one argument. An argument therefore
+%%% cannot contain a newline.
 %%%
-%%% WHAT EACH ENTRY GETS BACK — `RESULTS/<id>.stdout`, `.stderr`, `.output`
-%%% (both streams in the order they were written, which is what `2>&1` would
-%%% have delivered) and `.status`. A gate that redirected `> log 2>&1` reads
-%%% `.output`; one that split the streams reads the two; the exit status it
-%%% tested is in the fourth file. Nothing a gate parsed has changed shape.
+%%% Each entry gets `RESULTS/<id>.stdout`, `.stderr`, `.output` (both streams
+%%% in write order, as `2>&1` would deliver them) and `.status`.
 %%%
-%%% A MALFORMED MANIFEST RUNS NOTHING. The whole file is read before the first
-%%% entry runs, and a line the reader cannot place fails the batch with its
-%%% number and exit status 2 — with no result files at all, so a gate cannot
-%%% mistake a partial run for a complete one. A gate that reads `<id>.status`
-%%% and finds no file has the loud case it needs.
+%%% A malformed manifest runs nothing: the whole file is read before the
+%%% first entry runs, and a line the reader cannot place fails the batch with
+%%% its number and exit status 2, leaving no result files at all. So a missing
+%%% `<id>.status` is the one shape a partial run can have.
 %%%
-%%% WHAT A SINGLE VM HAS TO UNDO BETWEEN ENTRIES, and a fresh process never
-%%% did. Each entry runs in a process of its own, so the process dictionary —
-%%% where `bs_diag` keeps the channel and `bs_emit` a counter — starts empty.
-%%% The rest is VM-global and is restored by hand after every entry: the
-%%% working directory (an entry may name a `cwd`, and diagnostics print paths
-%%% as the entry spelled them), the code path (`bs_run` adds the output
-%%% directory to it), and the LOADED MODULES. That last one is the one that
-%%% would have produced a wrong answer rather than an error: `bs_run` loads
-%%% the module it is about to call and `code:ensure_loaded/1` is a no-op for a
-%%% module already there, so an entry running a `Fib` edited under an
-%%% `expect-after` directive would have run the `Fib` an earlier entry loaded.
-%%% Every module an entry loaded is purged when it ends, except the compiler's
-%%% own and OTP's, which are preloaded so they never count as new.
+%%% Between entries the VM is restored by hand: the working directory, the
+%%% code path, and every module an entry loaded. The last one matters most,
+%%% because `code:ensure_loaded/1` is a no-op for a module already present, so
+%%% a stale module would run an earlier entry's code rather than fail. The
+%%% process dictionary needs no restoring: each entry runs in its own process.
 -module(bs_batch).
 
 -export([run/2]).
 
 %% Returns the batch's exit status: 0 when the manifest read and every entry
-%% ran — whatever each entry's own status was — and 2 when it could not start,
-%% or could not restore the VM between two entries (see `run_entries/2`).
+%% ran, whatever each entry's own status was; 2 when it could not start or
+%% could not restore the VM between two entries (see `run_entries/2`).
 run(ManifestPath, ResultsDir) ->
     try run_1(ManifestPath, ResultsDir)
     catch
@@ -170,17 +151,14 @@ valid_id(Id) ->
 %%% Running an entry
 %%% ---------------------------------------------------------------------------
 
-%% WHAT CAN GO WRONG AROUND AN ENTRY, AND WHO IS TOLD. The entry's own run is
-%% already safe: `bs_capture:run/2` turns a crash into an outcome. The steps
-%% around it are not, and they fail in two different directions. Failing to
-%% ENTER the entry's `cwd` (deleted between the manifest check and now) is
-%% that entry's problem, so it is recorded as that entry's status 127 with the
-%% reason on its stderr, and the batch goes on. Failing to RESTORE the VM
-%% afterwards is every later entry's problem — they would run from the wrong
-%% directory, against a stale code path, or with another entry's module still
-%% loaded, and the files they wrote would be wrong rather than missing. So
-%% that stops the batch: `run/2` says why and exits 2, and the entries after
-%% it have no files, which is the case every gate already reports.
+%% Failing to enter an entry's `cwd` is that entry's problem: it is recorded
+%% as status 127 with the reason on its stderr, and the batch goes on.
+%% Failing to restore the VM afterwards is every later entry's problem, since
+%% they would run from the wrong directory, a stale code path or another
+%% entry's module and write wrong files rather than none. So that stops the
+%% batch: `run/2` says why and exits 2, and the entries after it have no
+%% files. The entry's own run needs neither: `bs_capture:run/2` turns a crash
+%% into an outcome.
 run_entries([], _ResultsDir) -> ok;
 run_entries([E | Rest], ResultsDir) ->
     case run_entry(E, ResultsDir) of
@@ -235,10 +213,9 @@ restore(Cwd0, Path0, Loaded0) ->
 write(Dir, Id, Ext, Data) ->
     ok = file:write_file(filename:join(Dir, Id ++ "." ++ Ext), Data).
 
-%% The compiler's own modules, loaded before the first entry so that an entry
-%% that is the first to reach `bs_run` or `bs_repl` does not see it purged at
-%% its end. `unload_new/1` also refuses to touch anything under the escript or
-%% under OTP, so this is belt as well as braces.
+%% The compiler's own modules are loaded before the first entry, so the entry
+%% that first reaches `bs_run` or `bs_repl` does not see it purged at its end.
+%% `unload_new/1` also refuses to touch anything under the escript or OTP.
 preload_own_modules() ->
     case application:load(bsc) of
         ok -> ok;

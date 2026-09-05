@@ -1,50 +1,42 @@
-%%% beam-sharp's type algebra — the walking-skeleton slice.
+%%% beam-sharp's type algebra.
 %%%
-%%% A type is held as a **disjunctive normal form partitioned by constructor**:
-%%% an atom part, an integer part, and a tuple part. Different constructors never
-%%% interact, so union, intersection and subtraction are componentwise except
-%%% inside tuples.
+%%% A type is a disjunctive normal form partitioned by constructor: atoms,
+%%% integers, tuples, lists, maps and binaries. Constructors never interact, so
+%%% union, intersection and subtraction are componentwise except inside a
+%%% product (a tuple, a map's fields, a list's spine). A recursive type is a
+%%% binder over such a partition (F28).
 %%%
-%%% Two decisions from the map are load-bearing here, and this module is the
-%%% first place either is executable rather than argued:
+%%% The union is exact: nothing here widens (ticket 20). `erl_types` collapses
+%%% same-constructor unions (`<<_:32>> | <<_:64>>` becomes a progression that
+%%% admits 96 bits), which is sound for success typing and fatal for a checker
+%%% that must prove a residual empty. Integer intervals are in the algebra, so
+%%% the checker credits a guard such as `n > 1` as a type operation
+%%% (ticket 20 §5, ticket 08).
 %%%
-%%%   * Ticket 20 — **the union is exact.** `erl_types` collapses same-constructor
-%%%     unions (measured: `<<_:32>> | <<_:64>>` becomes an arithmetic progression
-%%%     admitting 96 bits), which is sound for a success-typing tool and fatal for
-%%%     a checker that must prove a residual empty. Nothing here widens.
-%%%
-%%%   * Ticket 20 §5 — **integer intervals are in the algebra**, so ticket 08's
-%%%     rule that the checker credits `n > 1` as a type operation is honoured
-%%%     rather than aspirational.
-%%%
-%%% Atoms are held as a finite set or a **cofinite** one, because ticket 10 made
-%%% the atom universe open: `atom` is the cofinite top, and `atom \ :ok` has no
-%%% finite representation. Cofinite sets close the algebra under complement
-%%% without a negation node.
+%%% Atoms are a finite set or a cofinite one, because the atom universe is open
+%%% (ticket 10): `atom` is the cofinite top and `atom \ :ok` has no finite
+%%% form. Cofinite sets close the algebra under complement without a negation
+%%% node.
 
 -module(bs_types).
 
 -export([none/0, term/0, atom_lit/1, atom_top/0, int/0, range/2, tuple/1]).
 -export([nil/0, cons/1, list/1]).
-%% F20: the list part stopped being two flags and became a union of spines, so
-%% the places that used to pattern-match its shape ask for what they wanted
-%% instead. `bs_check` wanted the element type of a tail; `bs_emit` wanted the
-%% same thing for its walker, and wanted to know whether a type holds any list
-%% at all. Neither wants a spine.
+%% The list part is a union of spines, so callers ask for what they want (the
+%% element type, whether any list, `[]` or a cons is admitted) rather than
+%% reading the shape (F20).
 -export([list_elem/1, has_lists/1, has_nil/1, has_cons/1, spine/2]).
 -export([binary_top/0, string/0]).
 -export([map_closed/1, map_open/1, map_dom/2, is_dom/1]).
 -export([union/2, union/1, intersect/2, subtract/2]).
 -export([is_none/1, is_open/1, is_subtype/2, to_string/1, to_pattern/1,
          pattern_parts/1, atom_str/1]).
-%% F29 — the paste channel. `head_parts/2` is the printer whose output is meant
-%% to be pasted back into the source; `to_pattern/1` above stays the DESCRIPTION
-%% printer and its callers are unchanged.
+%% `head_parts/2` prints text meant to be pasted back into the source;
+%% `to_pattern/1` above describes a set (F29).
 -export([head_parts/2, head_combos/2, name_binders/1]).
-%% F28 — the binder ticket 09 decided. `mu/2` names a type so its own body can
-%% refer back to it; `recvar/1` is that back-reference. `unfold/1` is the only
-%% way to look inside one, and every operation in this module calls it before
-%% touching a part.
+%% `mu/2` names a type so its own body can refer back to it; `recvar/1` is
+%% that back-reference; `unfold/1` is the only way to look inside one, and
+%% every operation here calls it before touching a part (F28).
 -export([mu/2, recvar/1, is_rec/1, unfold/1, rec_name/1, components/1]).
 
 -export_type([ty/0]).
@@ -56,124 +48,86 @@
 -type bound() :: integer() | neg_inf | pos_inf.
 -type int_part() :: [{bound(), bound()}].
 
-%% A tuple part: a union of products, each a list of component types - or `top`,
-%% every tuple of every arity, which is what `term` contains and what no finite
-%% product list can express.
+%% A tuple part: a union of products, each a list of component types, or
+%% `top`, every tuple of every arity, which is what `term` contains and what
+%% no finite product list can express.
 -type tuple_part() :: top | [[ty()]].
 
-%% A list part: a union of SPINES.
-%%
-%% A spine describes a set of lists by a prefix of element types plus what
-%% follows the prefix:
+%% A list part: a union of SPINES. A spine is a prefix of element types plus
+%% what follows the prefix:
 %%
 %%   {P, closed}      length is exactly length(P); element i is in P_i
 %%   {P, {open, T}}   length is at least length(P); element i is in P_i for
 %%                    i =< length(P), and every LATER element is in T
 %%
 %% `[]` is `{[], closed}`. `none` is the empty union. `term()`'s lists are
-%% `{[], {open, any}}` — length >= 0, elements unconstrained — which is every
-%% list including the empty one, so the top needs one spine rather than two.
+%% `{[], {open, any}}`, every list including the empty one.
 %%
-%% THIS REPLACES `{boolean(), elem()}`, WHICH HAD NOWHERE TO PUT A LENGTH.
-%% That was ticket 54's defect: a cons pattern was subtracted as *non-empty*
-%% whatever its prefix, so `[]` beside `[a, b, ..]` was proved exhaustive and
-%% crashed on `[7]`. The old comment defended two flags on the grounds that
-%% "the pattern language can only ask two questions of a list" — which was true
-%% of ticket 08's grammar as written and false of the programs people wrote in
-%% it.
+%% A spine carries a length, which a non-empty flag plus an element type could
+%% not: a cons pattern was subtracted as merely non-empty, so `[]` beside
+%% `[a, b, ..]` was proved exhaustive and crashed on `[7]` (ticket 54, F20).
 %%
-%% `any` survives as a TAIL marker so `term()` can contain lists without
-%% recursing into itself; a prefix holds real `ty()`, and `e_ty/1` expands the
-%% marker at the one place a tail becomes a prefix element.
+%% `any` is a TAIL marker so `term()` can contain lists without recursing into
+%% itself; a prefix holds real `ty()`, and `e_ty/1` expands the marker at the
+%% one place a tail becomes a prefix element.
 -type elem() :: none | any | ty().
 -type rest() :: closed | {open, elem()}.
 -type spine() :: {[ty()], rest()}.
 -type list_part() :: [spine()].
 
-%% A map part — ticket 26's records, and the anonymous map types they are equal
-%% to. A member is a field set plus whether that set is the WHOLE domain:
+%% A map part: a union of members, or `top`, any map at all. A member is a
+%% field set plus whether that set is the WHOLE domain, or a domain rule
+%% (ticket 26, ticket 48):
 %%
-%%   `closed` — exactly these fields. A declared record, or a `type` written out.
-%%   `open`   — at least these fields. What a property pattern matches, since
+%%   `closed` — exactly these fields: a declared record, or a `type` written
+%%              out.
+%%   `open`   — at least these fields: what a property pattern matches, since
 %%              `{ Kind: :'Shop.Order' }` says nothing about the other fields.
+%%   `dom`    — `map<K, V>`: every key in K, every value in V, and NO `Kind`
+%%              key. The exclusion needs no fourth element because a record is
+%%              `{closed, #{'Kind' => atom_lit(Tag), ...}}`, so it is decided
+%%              by `maps:is_key('Kind', Fields)` on the other side (48 Q3).
 %%
-%% The two are not decoration. A declared type is closed and a pattern is open,
-%% so every subtraction the checker performs is closed-minus-open, and keeping
-%% them apart is what lets one clause cover a record by naming only its tag.
+%% A declared type is closed and a pattern is open, so every subtraction the
+%% checker performs is closed-minus-open, which is what lets one clause cover a
+%% record by naming only its tag. Like the tuple part, members are kept
+%% separate and only absorbed, never merged, and the field product decomposes
+%% the way the tuple product does, keyed by field name instead of position.
 %%
-%% Like the tuple part, members are kept separate and only absorbed — never
-%% merged into a wider one. The field product decomposes exactly the way the
-%% tuple product does, keyed by field name instead of by position.
-%%
-%%   `dom`    — TICKET 48 Q1, and it is a THIRD KIND rather than a widening of
-%%              the other two. `{closed | open, Fields}` is a finite product
-%%              keyed by atom: `maps:keys/1` has something to enumerate, and
-%%              `same_keys/2` and `keys_subset/2` decide by comparing those
-%%              lists. `{dom, K, V}` is one uniform rule over an unbounded key
-%%              domain — there is no list of names to sort — so the key
-%%              machinery cannot run on it at all. That is why "just allow key
-%%              types other than atom" is not the fix: the problem is not what
-%%              type the keys are, it is that there is a finite list at all.
-%%
-%% Q7 fixes the shape and it is borrowed rather than invented: in Elixir's
-%% `Descr` the named-key and domain-key maps are the SAME CONSTRUCTOR WITH A
-%% DIFFERENT TAG VALUE, not two constructors. Being a 3-tuple beside two
-%% 2-tuples is load-bearing — `m_subset({_, FP}, {open, FQ})` and
-%% `discriminator({_Kind, Fields})` both match any 2-tuple, so a domain member
-%% cannot fall into a named-field clause by accident.
-%%
-%% A DOMAIN MEMBER CARRIES Q3's EXCLUSION IN ITS MEANING: "every key in K, every
-%% value in V, AND NO `Kind` KEY". It needs no fourth element to say so, because
-%% a record is `{closed, #{'Kind' => atom_lit(Tag), ...}}` and the exclusion is
-%% therefore decidable by `maps:is_key('Kind', Fields)` on the other side.
-%%
-%% This is the MISSING MIDDLE and that is the whole argument for paying for it.
-%% `top` below is *any map whatsoever* and prints as bare `"map"`, so before 48
-%% the algebra could say "exactly these named fields", "at least these named
-%% fields", and "any map at all", with nothing in between.
+%% A domain member is a 3-tuple beside two 2-tuples on purpose: the named-field
+%% clauses (`m_subset({_, FP}, {open, FQ})`, `discriminator({_Kind, Fields})`)
+%% match any 2-tuple, so a domain member can never fall into one by accident,
+%% and there is no finite key list for `same_keys/2` and `keys_subset/2` to run
+%% on (48 Q1, Q7; the shape is Elixir's `Descr`).
 -type map_member() :: {closed | open, #{atom() => ty()}} | {dom, ty(), ty()}.
 -type map_part() :: top | [map_member()].
 
-%% A binary part — ticket 20 §4's `string = binary where valid_utf8`, which is a
-%% REFINEMENT and therefore a subset: `string` is not a second type beside
-%% `binary`, it is the half of it that is valid UTF-8. So the part is the
-%% two-element powerset of {the valid-UTF-8 binaries, the rest}:
+%% A binary part. `string` is `binary` refined by valid UTF-8, a subset rather
+%% than a second type, so the part is the two-element powerset of {the
+%% valid-UTF-8 binaries, the rest} (ticket 20 §4, F9):
 %%
 %%   []              empty
 %%   [utf8]          `string`
 %%   [other, utf8]   `binary`
-%%   [other]         no surface spelling — see `b_str/1`
+%%   [other]         `binary \ string`, which has no surface spelling
 %%
-%% This is the smallest encoding that is EXACT, and exactness is 20's headline:
-%% `binary \ string` is the non-UTF-8 binaries, and both available shortcuts are
-%% the failures that ticket. Collapsing it to `binary` widens, which is the
-%% `erl_types` behaviour 20 spent itself refusing; collapsing it to `none`
-%% reports a residual empty when it is not.
-%%
-%% Sizes are deliberately absent. Ticket 20 §2 published `<<_:M, _:_*N>>` with an
-%% exact union, but that grammar has no surface spelling here and ticket 30 —
-%% which needs one for the pattern form too — is open. F9 ships the top and the
-%% refinement; the part is a set so a size partition refines it later without
+%% This is the smallest EXACT encoding: collapsing `binary \ string` to
+%% `binary` widens, and collapsing it to `none` reports a residual empty when
+%% it is not. Sizes are absent because the surface has no spelling for them
+%% yet (ticket 30 is open); a size partition can refine the set later without
 %% changing its shape.
 -type bin_part() :: [utf8 | other].
 
-%% F28 — A TYPE IS EITHER A PARTITION OR A BINDER, and the binder is the whole
-%% of ticket 09's recursion arriving in the algebra.
+%% A type is either a partition (the six-part map every operation computes
+%% over) or a binder (F28, ticket 09). A binder names a type so its own body
+%% can refer back to it: `type Tree = :leaf | (:node, Tree, Tree)` is
+%% `mu('Tree', :leaf | (:node, recvar('Tree'), recvar('Tree')))`. Erlang has
+%% no cyclic terms, so the cycle is spelled by NAME and closed by `unfold/1`.
 %%
-%% A partition is the six-part map above and is what every operation here
-%% actually computes over. A binder names a type so its own body can refer back
-%% to it, which is the one thing a finite Erlang term cannot otherwise express:
-%% `type Tree = :leaf | (:node, Tree, Tree)` is `mu('Tree', :leaf | (:node,
-%% recvar('Tree'), recvar('Tree')))`. Erlang has no cyclic terms, so the cycle
-%% is spelled by NAME and closed by `unfold/1`.
-%%
-%% EQUIRECURSIVE, WHICH IS WHY THE NAME IS NOT PART OF THE MEANING. Ticket 09
-%% decided two names over the same set are the same type. The name in a `mu` is
-%% a binding occurrence and nothing more — it exists so `recvar` has something
-%% to point at, and two binders with different names can be equal types. That is
-%% what makes `is_subtype/2` need coinduction rather than comparison, and it is
-%% the difference between what shipped here and an isorecursive system where the
-%% name IS the type.
+%% Types are EQUIRECURSIVE: two names over the same set are the same type, so
+%% the name in a `mu` is a binding occurrence and nothing more, two binders
+%% with different names can be equal, and `is_subtype/2` decides by coinduction
+%% rather than by comparison.
 -type rec_ty() :: #{mu := atom(), body := ty()} | #{recvar := atom()}.
 
 -type ty() :: #{atoms := atom_part(), ints := int_part(), tuples := tuple_part(),
@@ -188,13 +142,12 @@ none() -> #{atoms => {finite, []}, ints => [], tuples => [], lists => [],
             maps => [], bins => []}.
 
 %%% ---------------------------------------------------------------------------
-%%% F28 — the binder
+%%% The binder (F28)
 %%% ---------------------------------------------------------------------------
 
-%% `mu(Name, Body)` where `Body` may contain `recvar(Name)`. A binder whose body
-%% never mentions its own name is not recursive and is returned unwrapped, so
-%% nothing downstream has to unfold a type that does not need it — and so a
-%% non-recursive alias is byte-identical to what it was before this feature.
+%% `mu(Name, Body)` where `Body` may contain `recvar(Name)`. A binder whose
+%% body never mentions its own name is not recursive and is returned
+%% unwrapped, so a non-recursive alias is the same term it always was.
 mu(Name, Body) ->
     case mentions(Name, Body) of
         false -> Body;
@@ -210,23 +163,18 @@ is_rec(_)              -> false.
 rec_name(#{mu := N})     -> N;
 rec_name(#{recvar := N}) -> N.
 
-%% UNFOLDING IS SUBSTITUTION OF THE BINDER FOR ITS OWN VARIABLE, which is what
-%% makes the representation equirecursive: `mu(T, B)` and `B[mu(T,B)/T]` are the
-%% same type, and every operation may replace one with the other whenever it
-%% needs to see a part.
-%%
-%% One step, never a fixpoint. The result is a partition whose components may
-%% contain the SAME binder again, and that is exactly what terminates: a regular
-%% tree has finitely many distinct subtrees, so the pairs an operation can meet
-%% are finite and the assumption set below closes the loop.
+%% Unfolding substitutes the binder for its own variable, one step and never a
+%% fixpoint: `mu(T, B)` and `B[mu(T,B)/T]` are the same type. The result's
+%% components may contain the SAME binder again, and that is what terminates:
+%% a regular tree has finitely many distinct subtrees, so the pairs an
+%% operation can meet are finite and the assumption set closes the loop.
 unfold(#{mu := N, body := B} = M) -> subst_rec(B, N, M);
 unfold(T)                         -> T.
 
-%% A free `recvar` reaching an operation is a compiler defect, not a user error:
-%% `resolve/3` binds every variable it introduces. Crashing here is deliberate —
-%% the alternative is treating it as `none`, which would prove types empty and
-%% go quiet rather than red, the failure mode `is_none/1` calls its sharpest
-%% trap.
+%% A free `recvar` reaching an operation is a compiler defect, not a user
+%% error: `resolve/3` binds every variable it introduces. Crashing is
+%% deliberate; treating it as `none` would prove types empty and go quiet
+%% rather than red.
 subst_rec(#{recvar := N}, N, M)          -> M;
 subst_rec(#{recvar := _} = V, _, _)      -> V;
 subst_rec(#{mu := N} = Inner, N, _)      -> Inner;   % shadowed; leave it alone
@@ -252,9 +200,7 @@ mentions(N, #{mu := _, body := B}) -> mentions(N, B);
 mentions(N, T) ->
     lists:any(fun(C) -> mentions(N, C) end, components(T)).
 
-%% A spine is `{Prefix, closed}` or `{Prefix, {open, T}}`, and `{open, any}` is
-%% the unconstrained tail `term/0` carries. `any` is a MARKER, not a type, so
-%% neither helper may descend into it.
+%% `any` is a tail MARKER, not a type, so neither helper may descend into it.
 sp_map(F, {P, closed})      -> {[F(C) || C <- P], closed};
 sp_map(F, {P, {open, any}}) -> {[F(C) || C <- P], {open, any}};
 sp_map(F, {P, {open, T}})   -> {[F(C) || C <- P], {open, F(T)}}.
@@ -263,20 +209,15 @@ sp_components({P, closed})      -> P;
 sp_components({P, {open, any}}) -> P;
 sp_components({P, {open, T}})   -> P ++ [T].
 
-%% Every component type held inside a partition, flattened. One place, so a part
-%% added later is added here too rather than being silently skipped by three
-%% separate walks.
+%% Every component type held inside a partition, flattened. One place, so a
+%% part added later is added here rather than skipped by three separate walks.
 components(T) ->
     Ts = case maps:get(tuples, T) of top -> []; Ps -> lists:append(Ps) end,
     Ls = lists:append([sp_components(S) || S <- maps:get(lists, T)]),
     Ms = case maps:get(maps, T) of
              top -> [];
-             %% A DOMAIN MEMBER'S TWO TYPES ARE COMPONENTS TOO, and the clause
-             %% above is a comprehension FILTER — a 3-tuple simply does not
-             %% match `{_, F}`, so without this line `K` and `V` are dropped in
-             %% silence rather than crashing. That is the failure the paragraph
-             %% above this function exists to prevent, arriving by the exact
-             %% route it names.
+             %% A domain member's two types are components too; a `{_, F}`
+             %% comprehension pattern would silently filter the 3-tuple out.
              Fs  -> lists:append([case M of
                                       {dom, K, V} -> [K, V];
                                       {_, F}      -> maps:values(F)
@@ -284,23 +225,18 @@ components(T) ->
          end,
     Ts ++ Ls ++ Ms.
 
-%% `term` in the surface language. The tuple part is deliberately absent: this
-%% slice has no arity-polymorphic tuple top, and ticket 11 says a foreign value
-%% must be matched rather than assumed, so nothing here needs one yet.
-%%
-%% The binary part is NOT one of those deliberate absences and must be full. A
-%% `term` missing it stops being the top type, and every residual subtracted
-%% from it is then wrong in the quiet direction.
+%% `term` in the surface language: the top of every part. Every part must be
+%% full, because a `term` missing one stops being the top type and every
+%% residual subtracted from it is then wrong in the quiet direction.
 term() ->
     #{atoms => {cofinite, []}, ints => [{neg_inf, pos_inf}], tuples => top,
       lists => [{[], {open, any}}], maps => top, bins => [other, utf8]}.
 
-%% `binary` — the top of the part, both halves.
+%% `binary`: the top of the part, both halves.
 binary_top() -> (none())#{bins => [other, utf8]}.
 
-%% `string` — ticket 20 §4, `binary` refined by valid UTF-8. A subset of
-%% `binary_top/0`, so `is_subtype(string(), binary_top())` holds and the reverse
-%% does not, which is the whole of F9's containment story.
+%% `string`: `binary` refined by valid UTF-8, a subset of `binary_top/0`
+%% (ticket 20 §4, F9).
 string() -> (none())#{bins => [utf8]}.
 
 atom_lit(A) when is_atom(A) -> (none())#{atoms => {finite, [A]}}.
@@ -325,22 +261,19 @@ cons(T) ->
         false -> (none())#{lists => [{[T], {open, T}}]}
     end.
 
-%% `list<T>` — the two together, which is what a signature declares and what the
-%% pair `[]` / `[h, ..t]` must cover to be exhaustive.
+%% `list<T>`: the two together, which is what a signature declares and what
+%% the pair `[]` / `[h, ..t]` must cover to be exhaustive.
 list(T) -> union(nil(), cons(T)).
 
-%% Everything any list in T can hold, at any position — the union of every
-%% spine's prefix components and every spine's tail. A caller asking this wants
-%% "what is in the list", which survives the spine representation unchanged.
+%% Everything any list in T can hold, at any position: the union of every
+%% spine's prefix components and every spine's tail.
 list_elem(#{lists := Ss}) -> l_elem(Ss).
 
-%% F20 — THE ONE SURFACE A LIST PATTERN HAS INTO THE ALGEBRA.
-%%
-%% `Prefix` is the type at each written position; `closed` means the pattern
-%% ended (`[a, b]`, exactly two) and `open` means a rest marker followed
-%% (`[a, b, ..]`, two or more). The marker constrains nothing, so the tail is
-%% the top — which is also why unfolding terminates: no pattern can ever ask
-%% about a position it did not write.
+%% The one surface a list pattern has into the algebra (F20). `Prefix` is the
+%% type at each written position; `closed` means the pattern ended (`[a, b]`,
+%% exactly two) and `open` means a rest marker followed (`[a, b, ..]`, two or
+%% more). The marker constrains nothing, so the tail is the top, and no
+%% pattern can ask about a position it did not write, which bounds unfolding.
 spine(Prefix, closed) when is_list(Prefix) -> mk_spine(Prefix, closed);
 spine(Prefix, open)   when is_list(Prefix) -> mk_spine(Prefix, {open, any}).
 
@@ -380,13 +313,12 @@ tuple(Components) when is_list(Components) ->
         false -> (none())#{tuples => [Components]}
     end.
 
-%% Exactly these fields — a declared record, or the `type` a user writes that is
-%% equal to it. Ticket 26 §1: the minting is not nominality, so a hand-written
-%% type carrying the same tag IS the same type, and that falls out here because
-%% nothing distinguishes them once both are a closed field set.
+%% Exactly these fields: a declared record, or a hand-written type carrying
+%% the same tag, which IS the same type because the minted tag is not nominal
+%% (ticket 26 §1).
 map_closed(Fields) -> map_member(closed, Fields).
 
-%% At least these fields — what a property pattern matches.
+%% At least these fields: what a property pattern matches.
 map_open(Fields) -> map_member(open, Fields).
 
 map_member(Kind, Fields) when is_map(Fields) ->
@@ -395,25 +327,16 @@ map_member(Kind, Fields) when is_map(Fields) ->
         false -> (none())#{maps => [{Kind, Fields}]}
     end.
 
-%% Ticket 48 — `map<K, V>`. NOTE WHAT THIS DOES NOT DO: it has no emptiness
-%% short-circuit, and that is the difference from `map_member/2` above rather
-%% than an omission from it.
-%%
-%% A NAMED FIELD MUST BE PRESENT, so a field typed `none` admits no map and the
-%% member collapses. A DOMAIN IS A CONSTRAINT ON ENTRIES THAT EXIST, so `#{}`
-%% satisfies "every key in K, every value in V" vacuously and inhabits
-%% `map<atom, Never>` — the type is populated no matter how empty K or V are.
-%%
-%% Reusing the field rule here would be the exact failure `is_none/1`'s own
-%% comment describes one screen down: the type reports EMPTY, every containment
-%% over it passes vacuously, and the compiler goes quieter rather than red. No
-%% passing test sees that, so `map_type_tests` asserts the inhabitedness at the
-%% boundary instead.
+%% `map<K, V>` (ticket 48). No emptiness short-circuit, unlike `map_member/2`:
+%% a named field must be present, so a field typed `none` admits no map, but a
+%% domain constrains only the entries that exist, so `#{}` inhabits every
+%% `map<K, V>` however empty K or V are. Reporting it empty would make every
+%% containment over it pass vacuously; `map_type_tests` asserts the
+%% inhabitedness at the boundary.
 map_dom(K, V) -> (none())#{maps => [{dom, K, V}]}.
 
-%% Does this type contain a domain member? The surface needs to ask, because
-%% the pattern form is deferred (48 Q2) and both refusals that enforce the
-%% deferral are stated against the TYPE rather than against the algebra.
+%% Does this type contain a domain member? The surface asks because the
+%% pattern form of a domain map is refused against the TYPE (48 Q2).
 is_dom(#{maps := Ms}) when is_list(Ms) ->
     lists:any(fun({dom, _, _}) -> true; (_) -> false end, Ms);
 is_dom(_) -> false.
@@ -422,52 +345,32 @@ is_dom(_) -> false.
 %%% Emptiness
 %%% ---------------------------------------------------------------------------
 
-%% AN ERLANG MAP PATTERN IS PARTIAL, WHICH MAKES THIS HEAD THE FEATURE'S SHARPEST
-%% TRAP. A component added to `none/0` and forgotten here does not fail — the
-%% head still matches, a type whose only inhabitant is a binary reports EMPTY,
-%% and every containment over it then passes vacuously. The compiler goes
-%% quieter rather than red, which is F5's `Certain`/`Possible` failure in a third
-%% costume: no passing test can see it, so `bins := []` below is verified by
-%% mutating this line and watching the suite go red.
+%% An Erlang map pattern is partial, so a part added to `none/0` and forgotten
+%% in the head below does not fail: the head still matches, a type inhabited
+%% only in that part reports EMPTY, and every containment over it passes
+%% vacuously. No passing test can see that, so the head is verified by
+%% mutating it and watching the suite go red.
 is_none(T) -> is_none(T, []).
 
-%% F28 — ASSUME EMPTY ON REVISIT, and that is the CORRECT reading of
-%% inhabitation rather than merely a way to stop walking.
-%%
-%% `type T = (:node, T, T)` is contractive — the recursion passes through a
-%% constructor, so ticket 09 admits the definition — and yet it has no finite
-%% values at all: every inhabitant would have to contain one already. Assuming a
-%% binder empty until something proves otherwise returns exactly that. Assuming
-%% it inhabited would report a type with no values as a usable one, and every
-%% containment over it would then pass vacuously.
-%%
-%% `Tree = :leaf | (:node, Tree, Tree)` is untouched by the assumption: `:leaf`
-%% proves it inhabited on the first unfolding, before the binder is reached a
-%% second time.
+%% A binder is assumed empty on revisit, which is the correct reading of
+%% inhabitation and not merely a way to stop walking (F28): `type T = (:node,
+%% T, T)` is contractive yet has no finite values, and the assumption returns
+%% exactly that. `Tree = :leaf | (:node, Tree, Tree)` is proved inhabited by
+%% `:leaf` before the binder is reached a second time.
 is_none(#{mu := N} = M, Seen) ->
     lists:member(N, Seen) orelse is_none(unfold(M), [N | Seen]);
-%% A BOUND VARIABLE IS THE HYPOTHESIS ITSELF; A FREE ONE IS A DEFECT.
-%%
-%% Inside the binder that named it, `recvar(N)` is exactly the thing being
-%% assumed empty, so it answers `true` — dropping `Seen` here is what makes the
-%% coinduction a no-op, and it is the defect that made `is_subtype(Iodata,
-%% term)` answer FALSE: `Iodata \ term` ties the knot and returns a binder over
-%% its own variable, which is empty, and reading that variable as inhabited made
-%% a type fail to be a subtype of the top.
-%%
-%% Free — not on the chain — it is a defect in `resolve/3`, which binds every
-%% variable it introduces. There `false` keeps it INHABITED, so the mistake
-%% fails loudly downstream instead of proving something empty and going quiet.
+%% A bound variable is the hypothesis itself, so it answers `true`; dropping
+%% `Seen` here made the coinduction a no-op and `is_subtype(Iodata, term)`
+%% answer false. A free variable is a defect in `resolve/3` and answers
+%% `false`, so it stays INHABITED and fails loudly downstream instead of
+%% proving something empty and going quiet.
 is_none(#{recvar := N}, Seen) ->
     lists:member(N, Seen);
-%% THE LIST PART IS CHECKED, NOT REQUIRED TO BE ABSENT. This head used to demand
-%% `lists := []`, which was true by construction: `mk_spine/2` and `cons/1`
-%% collapse a spine with an empty element to `none()`, and `sp_minus_aligned/3`
-%% filters its results through `sp_empty/1`, so an inhabited-looking spine over
-%% an empty element could not be built. A subtraction that ties a knot can build
-%% one — its element is the assumption variable, which `sp_empty/1` cannot see
-%% through because it carries no chain — so emptiness is decided here instead,
-%% where the chain exists.
+%% The list part is checked, not required to be absent. Constructors collapse
+%% a spine over an empty element to `none()`, but a subtraction that ties a
+%% knot builds one whose element is the assumption variable, which
+%% `sp_empty/1` cannot see through; emptiness is decided here, where the chain
+%% exists.
 is_none(#{atoms := {finite, []}, ints := [], tuples := Ts, lists := Ls,
           maps := Ms, bins := []}, Seen)
   when Ts =/= top, Ms =/= top ->
@@ -477,15 +380,14 @@ is_none(#{atoms := {finite, []}, ints := [], tuples := Ts, lists := Ls,
 is_none(_, _) ->
     false.
 
-%% A spine is empty when a written position is. `{[], closed}` is `[]` — one
-%% real value, never empty — and `{[], {open, any}}` is every list, so a spine
-%% with no prefix is inhabited whatever its tail says.
+%% A spine is empty when a written position is. A spine with no prefix is
+%% inhabited whatever its tail says: `{[], closed}` is `[]` and
+%% `{[], {open, any}}` is every list.
 sp_none({P, _}, Seen) -> lists:any(fun(C) -> is_none(C, Seen) end, P).
 
 m_empty(M) -> m_empty(M, []).
 
-%% `#{}` inhabits every domain member, so one is never empty. See `map_dom/2`
-%% for why this is not the named-field rule with a different shape.
+%% `#{}` inhabits every domain member, so one is never empty (see `map_dom/2`).
 m_empty({dom, _K, _V}, _Seen) ->
     false;
 m_empty({_Kind, Fields}, Seen) ->
@@ -494,42 +396,27 @@ m_empty({_Kind, Fields}, Seen) ->
 is_subtype(A, B) -> is_none(subtract(A, B)).
 
 %%% ---------------------------------------------------------------------------
-%%% Openness — ticket 12 §2's discriminator, and F2 is what makes it reachable
+%%% Openness: a catch-all is legal only over an OPEN residual (ticket 12 §2).
 %%%
-%%% *"A catch-all is legal only over an OPEN residual."* Until this feature there
-%%% was no way to ask: every integer domain the surface could declare was `int`,
-%%% which is open by construction, so `_` was always legal over one and the rule
-%%% had nothing to bite on. `type Octet = int where value >= 0 and value <= 255`
-%%% is the first CLOSED numeric domain the language can spell, and 252 unnamed
-%%% octets is exactly the case 12 §2 wants named rather than swallowed.
+%%% Open means *contains an unbounded top*, not "large". `0..255` has 256
+%%% inhabitants and is closed; `int >= 0` is open. The question is whether the
+%%% compiler could, in principle, hand the author the list of cases it wants
+%%% written.
 %%%
-%%% Open means *contains an unbounded top* — not "large". `0..255` has 256
-%%% inhabitants and is closed; `int >= 0` has infinitely many and is open. The
-%%% question the rule asks is whether the compiler could, in principle, hand the
-%%% author the list of cases it wants written.
-%%%
-%%% THE SIX-KEY PATTERN IS DELIBERATE, for the reason `is_none/1` states one
-%%% screen up: an Erlang map pattern is partial, so a component added to the
-%%% algebra and forgotten here would not fail — the head would still match. The
-%%% failure direction happens to be the loud one (a forgotten component reports
-%%% CLOSED, and a legal catch-all becomes an error somebody notices immediately)
-%%% but relying on that is relying on luck, and the next component might not be.
-%%%
-%%% `none()` ANSWERS FALSE. It has no unbounded top because it has nothing at
-%%% all — the right answer to the question this asks, and the wrong one for a
-%%% caller reading it as *"must be enumerated"*, since there is nothing to
-%%% enumerate. Ask `is_none/1` first where that matters;
-%%% `bs_check:closed_and_inhabited/1` is the only caller today and does.
+%%% The six-key pattern is deliberate: a map pattern is partial, so a forgotten
+%%% component would still match. `none()` answers false, since it has no
+%%% unbounded top; a caller reading false as "must be enumerated" asks
+%%% `is_none/1` first, as `bs_check:closed_and_inhabited/1` does.
 is_open(#{atoms := As, ints := Is, tuples := Ts, lists := Ls, maps := Ms,
           bins := Bs}) ->
     a_open(As) orelse lists:any(fun r_unbounded/1, Is) orelse t_open(Ts)
         orelse l_open(Ls) orelse m_open(Ms)
-        %% Any non-empty binary part is unbounded: the sender chooses the length,
-        %% which is ticket 11's own reason for refusing unbounded work in a head.
+        %% Any non-empty binary part is unbounded: the sender chooses the
+        %% length (ticket 11).
         orelse Bs =/= [].
 
-%% Ticket 10 made the atom universe open, so a cofinite set is the top and cannot
-%% be enumerated — a foreign sender chooses the inhabitants.
+%% A cofinite set is the top of an open atom universe and cannot be
+%% enumerated: a foreign sender chooses the inhabitants (ticket 10).
 a_open({cofinite, _}) -> true;
 a_open({finite, _})   -> false.
 
@@ -540,16 +427,10 @@ r_unbounded({_, _})       -> false.
 t_open(top) -> true;
 t_open(Ps)  -> lists:any(fun(P) -> lists:any(fun is_open/1, P) end, Ps).
 
-%% A list part is open when some spine leaves something unbounded — either its
-%% length, or an element inside it.
-%%
-%% THIS IS WHERE TICKET 12 §2 REACHES LISTS, AND IT IS A BEHAVIOUR CHANGE.
-%% Before ticket 54 the rule was "anything admitting a non-empty list is open,
-%% because the length is unbounded" — true of the only two shapes the old
-%% representation could hold. A union of CLOSED spines is not unbounded: over
+%% A list part is open when some spine leaves something unbounded: its length,
+%% or an element inside it. A union of CLOSED spines is not unbounded: over
 %% `list<bool>`, a residual of `[{[bool], closed}]` is `[true]` and `[false]`,
-%% two values, and a catch-all over it is now the error that names them. The
-%% residual decides, never the type constructor.
+%% and a catch-all over it is the error that names them (ticket 54).
 l_open(Ss) -> lists:any(fun sp_open/1, Ss).
 
 sp_open({P, closed})     -> lists:any(fun is_open/1, P);
@@ -559,44 +440,34 @@ m_open(top) -> true;
 %% An `open` member is *at least* these fields, so it admits maps carrying
 %% arbitrary others. That is the same unbounded top the name already says.
 m_open(Ms)  -> lists:any(fun({open, _}) -> true;
-                            %% A domain member's key set is unbounded, which is
-                            %% the same unboundedness `open` reports — and 48
-                            %% priced exactly this: an open key domain is the one
-                            %% place exhaustiveness cannot work, since no finite
-                            %% clause set closes the residual. So a catch-all
-                            %% over it is legitimate rather than the
-                            %% `catch_all_over_closed` mistake, which is what
-                            %% this predicate decides.
+                            %% A domain's key set is unbounded, so no finite
+                            %% clause set closes the residual and a catch-all
+                            %% over it is legitimate (ticket 48).
                             ({dom, _, _}) -> true;
                             ({closed, Fs}) -> lists:any(fun is_open/1, maps:values(Fs))
                          end, Ms).
 
 %%% ---------------------------------------------------------------------------
-%%% Union — exact, never widening
+%%% Union: exact, never widening
 %%% ---------------------------------------------------------------------------
 
 union([]) -> none();
 union([T]) -> T;
 union([H | T]) -> union(H, union(T)).
 
-%% F28 — UNION NEEDS TO UNFOLD AND NOTHING MORE. It never descends into a
-%% component itself; the only descent below it is absorption, which asks
-%% containment through `subtract/3` and gets that operation's own assumption set
-%% with it. So there is no cycle for union to cut.
-%% IDEMPOTENCE FIRST, and it is not an optimisation. A bare `recvar` has no
-%% parts to read, and the commonest way one reaches an operation is a spine
-%% asking what its elements are: `list<Iodata>` holds `recvar('Iodata')` in both
-%% its prefix and its tail, so `l_elem/1` unions the variable with itself. That
-%% answer is the variable, and it is exact.
+%% Union unfolds and nothing more: the only descent below it is absorption,
+%% which asks containment through `subtract/3` with its own assumption set, so
+%% there is no cycle for union to cut (F28). Idempotence comes first because a
+%% bare `recvar` has no parts to read, and `l_elem/1` unions `recvar('Iodata')`
+%% with itself for `list<Iodata>`; that answer is the variable, and it is
+%% exact.
 union(A, A) -> A;
 union(A, B) -> u_parts(open_for(union, A, B), open_for(union, B, A)).
 
-%% A `mu` opens by unfolding. A bare `recvar` cannot: it is a name whose meaning
-%% lives in an enclosing binder this operation was not given, and the algebra is
-%% in disjunctive normal form with no union node to hold "this variable or that
-%% partition". Unequal operands here would be a defect in the caller rather than
-%% a user's type, so it says so instead of reading a key that is not there —
-%% `badkey` from three frames down is the version of this that costs an hour.
+%% A `mu` opens by unfolding. A bare `recvar` cannot: its meaning lives in a
+%% binder this operation was not given, and the algebra has no union node to
+%% hold "this variable or that partition". Unequal operands here are a caller
+%% defect, so it says so rather than failing with `badkey` three frames down.
 open_for(_Op, #{mu := _} = T, _Other) -> unfold(T);
 open_for(Op, #{recvar := N}, Other) ->
     erlang:error({free_recursive_variable, Op, N, Other});
@@ -605,44 +476,37 @@ open_for(_Op, T, _Other) -> T.
 u_parts(A, B) ->
     #{atoms  => a_union(maps:get(atoms, A), maps:get(atoms, B)),
       ints   => i_union(maps:get(ints, A), maps:get(ints, B)),
-      %% Products are kept as separate members. Absorption is applied so a
-      %% member contained in another does not survive, but two overlapping
-      %% products are BOTH kept — collapsing them is exactly the widening
-      %% ticket 20 measured and refused.
+      %% Products are kept as separate members: a member contained in another
+      %% is absorbed, but two overlapping products are BOTH kept, since
+      %% merging them is the widening ticket 20 refused.
       tuples => t_union(maps:get(tuples, A), maps:get(tuples, B)),
       lists  => l_union(maps:get(lists, A), maps:get(lists, B)),
       maps   => m_union(maps:get(maps, A), maps:get(maps, B)),
-      %% Plain set union, so `string | binary` ABSORBS to `binary` rather than
-      %% erroring. 20 §2's absorption rule is about containment and 09 §4's
-      %% error is about indiscriminable members; `string` is nested, not
-      %% overlapping, so the neighbouring rule correctly does not fire.
+      %% Plain set union, so `string | binary` absorbs to `binary`: `string`
+      %% is nested, not overlapping, so the indiscriminable-members error
+      %% (ticket 09 §4) does not apply.
       bins   => ordsets:union(maps:get(bins, A), maps:get(bins, B))}.
 
 %%% ---------------------------------------------------------------------------
-%%% F28 — the assumption set, and why both operations below return a BINDER
+%%% The assumption set (F28): why intersection and subtraction return a BINDER
 %%% ---------------------------------------------------------------------------
 %%
 %% `As` is the chain of argument pairs this operation has already entered,
-%% each paired with the name it was given. Meeting a pair twice means the walk
-%% has come back to where it was, and a regular tree has finitely many distinct
-%% subtrees, so the pairs are finite and the chain always closes.
+%% each with the name it was given. Meeting a pair twice means the walk has
+%% come back to where it was; a regular tree has finitely many distinct
+%% subtrees, so the chain always closes.
 %%
-%% BOTH OPERATIONS TIE THE KNOT WITH A FRESH BINDER, and `subtract` in
-%% particular must NOT answer `none` there. The tempting reading — "assume the
-%% difference is empty on revisit" — is the right way to DECIDE subtyping and
-%% the wrong way to COMPUTE a residual: it makes the residual too small in
-%% exactly the recursive positions, and a residual too small reports a false
-%% *exhaustive*. That is the direction ticket 54's defect ran in and the one
-%% this algebra is built to avoid. So the difference of two regular trees is
-%% itself a regular tree, spelled with a binder, and the emptiness question is
-%% left to `is_none/2`, which assumes empty on revisit and is the only place
-%% that may.
+%% Both operations tie the knot with a fresh binder, and `subtract` must NOT
+%% answer `none` there: assuming the difference empty on revisit is the right
+%% way to DECIDE subtyping and the wrong way to COMPUTE a residual, since it
+%% makes the residual too small in the recursive positions and reports a false
+%% exhaustive (ticket 54's direction). The difference of two regular trees is
+%% itself a regular tree, and emptiness is left to `is_none/2`, the only place
+%% that may assume it.
 %%
-%% The name is the DEPTH of the chain. Two binders minted at the same depth are
-%% in disjoint sibling subtrees — a `recvar` is only ever created by a
-%% descendant of the binder that named it — so the scopes cannot overlap, and
-%% `subst_rec/3` stops at a shadowing `mu` in the nested case. No counter has to
-%% be threaded back out.
+%% The name is the DEPTH of the chain. Two binders minted at the same depth
+%% are in disjoint sibling subtrees, so scopes cannot overlap, and
+%% `subst_rec/3` stops at a shadowing `mu` in the nested case.
 rec_step(Op, A, B, As, Parts) ->
     Key = {A, B},
     case assumed(Key, As) of
@@ -655,17 +519,11 @@ rec_step(Op, A, B, As, Parts) ->
 
 nm(D) -> list_to_atom("$mu" ++ integer_to_list(D)).
 
-%% THE SEAM THAT LETS THE STOPWATCH BE SEEN TO FIRE, and it exists because F28's
-%% own bar asks for it: the gate must go red on *a build with the memo table
-%% disabled*. Stubbing a timeout into the gate's fixtures proves only that
-%% `judge` can READ one; it does not prove the clock fires. With
-%% `BS_NO_TYPE_MEMO` set, this never remembers a pair, so the walk over a regular
-%% tree cannot close and the compile blows the budget — a real red, from a real
-%% build, on the real defect.
-%%
-%% Read here rather than cached because the cost is paid only when a recursive
-%% type is actually being compared, and a cached flag would be one more piece of
-%% state to get wrong. Nothing outside the gate's `--self-test` ever sets it.
+%% With `BS_NO_TYPE_MEMO` set no pair is remembered, so the walk over a
+%% regular tree cannot close and the compile blows its budget. That is how the
+%% recursive-types gate is seen to go red on a real build; nothing outside its
+%% `--self-test` sets it (F28). Read here rather than cached because the cost
+%% is paid only when a recursive type is compared.
 assumed(Key, As) ->
     case os:getenv("BS_NO_TYPE_MEMO") of
         false -> lists:keyfind(Key, 1, As);
@@ -678,16 +536,13 @@ assumed(Key, As) ->
 
 intersect(A, B) -> intersect(A, B, []).
 
-%% `A ∩ A` is `A` for every type, and stating it here is what lets a bare
-%% `recvar` meet itself — which happens whenever a recursive type's own
-%% components are compared — without opening a variable that cannot be opened.
+%% `A ∩ A` is `A`, and stating it first lets a bare `recvar` meet itself
+%% without opening a variable that cannot be opened.
 intersect(A, A, _As) -> A;
-%% A FREE VARIABLE IS UNDECIDABLE HERE, SO IT IS KEPT WHOLE — the same choice
-%% `t_subtract/3` and `m_subtract/3` already make for `top`, and for the same
-%% reason. A `recvar` names a type whose meaning lives in a binder this
-%% operation was not handed, so no exact answer is available; keeping the
-%% operand keeps the result too BIG, which reports a false inexhaustive rather
-%% than a false exhaustive. Erring the other way is the defect ticket 54 deleted.
+%% A free variable is undecidable here, so it is kept whole, as `t_subtract/3`
+%% and `m_subtract/3` do for `top`. Keeping the operand keeps the result too
+%% BIG, which reports a false inexhaustive rather than a false exhaustive
+%% (ticket 54).
 intersect(#{recvar := _} = A, _B, _As) -> A;
 intersect(A, #{recvar := _}, _As)      -> A;
 intersect(A, B, As) ->
@@ -705,18 +560,17 @@ i_parts(A, B, As) ->
       bins   => ordsets:intersection(maps:get(bins, A), maps:get(bins, B))}.
 
 %%% ---------------------------------------------------------------------------
-%%% Subtraction — this is what computes ticket 04's residual
+%%% Subtraction: computes the residual (ticket 04)
 %%% ---------------------------------------------------------------------------
 
 subtract(A, B) -> subtract(A, B, []).
 
-%% `A \ A` is empty for every type, and as with `intersect/3` this is what lets
-%% a bare `recvar` be subtracted from itself. It also short-circuits the common
-%% case where a clause covers a component exactly.
+%% `A \ A` is empty, which lets a bare `recvar` be subtracted from itself and
+%% short-circuits a clause covering a component exactly.
 subtract(A, A, _As) -> none();
-%% Undecidable, kept whole, too big rather than too small — see `intersect/3`.
-%% Both directions land on the minuend: an unknown minus anything is still that
-%% unknown, and anything minus an unknown has had nothing proved removable.
+%% Undecidable, kept whole, too big rather than too small, as in `intersect/3`.
+%% Both directions land on the minuend: an unknown minus anything is still
+%% that unknown, and anything minus an unknown has had nothing proved removed.
 subtract(#{recvar := _} = A, _B, _As) -> A;
 subtract(A, #{recvar := _}, _As)      -> A;
 subtract(A, B, As) ->
@@ -731,8 +585,8 @@ s_parts(A, B, As) ->
       tuples => t_subtract(maps:get(tuples, A), maps:get(tuples, B), As),
       lists  => l_subtract(maps:get(lists, A), maps:get(lists, B), As),
       maps   => m_subtract(maps:get(maps, A), maps:get(maps, B), As),
-      %% Set difference, so `binary \ string` is `[other]` — the non-UTF-8
-      %% binaries, exactly and unspellably. See `b_str/1`.
+      %% Set difference, so `binary \ string` is `[other]`: the non-UTF-8
+      %% binaries, exactly (see `b_str/1`).
       bins   => ordsets:subtract(maps:get(bins, A), maps:get(bins, B))}.
 
 %%% ---------------------------------------------------------------------------
@@ -758,10 +612,8 @@ a_complement({cofinite, X}) -> {finite, os(X)}.
 os(L) -> ordsets:from_list(L).
 
 %%% ---------------------------------------------------------------------------
-%%% Integer part — a real interval domain.
-%%%
-%%% Ticket 20 measured that `erl_types` has none: it snaps 5..20 to 1..255 and
-%%% 500..2000 to 1..1114111. Everything below is exact, which is the point.
+%%% Integer part: a real interval domain, exact throughout. `erl_types` has
+%%% none and snaps 5..20 to 1..255 (ticket 20).
 %%% ---------------------------------------------------------------------------
 
 i_union(A, B) -> i_norm(A ++ B).
@@ -773,11 +625,9 @@ i_subtract(A, B) -> lists:foldl(fun(Y, Acc) -> i_norm(r_minus_all(Acc, Y)) end, 
 
 r_minus_all(Ranges, Y) -> lists:append([r_minus(X, Y) || X <- Ranges]).
 
-%% One range minus one range: nothing, a prefix, a suffix, or both.
-%%
-%% The disjoint case must be handled first. Without it, {64,64} \ {32,32} returns
-%% {33,64} — a range that grows a lower bound out of thin air. Found by the
-%% union-is-exact test, which is the one property ticket 20 exists to guarantee.
+%% One range minus one range: nothing, a prefix, a suffix, or both. The
+%% disjoint case comes first: without it `{64,64} \ {32,32}` returns
+%% `{33,64}`, a bound grown out of thin air.
 r_minus(A, B) ->
     case r_meet(A, B) of
         empty -> [A];
@@ -858,9 +708,9 @@ product_meet(A, B, Asm) ->
     end.
 
 %% `top \\ anything` stays `top`: the algebra cannot name "every tuple except
-%% these", so it keeps the residual too BIG rather than too small - a false
-%% inexhaustive rather than a false exhaustive. `anything \\ top` is empty, which
-%% is exact, and is what makes a `_` catch-all remove every tuple.
+%% these", so it keeps the residual too BIG rather than too small, a false
+%% inexhaustive rather than a false exhaustive. `anything \\ top` is empty,
+%% which is exact, and is what makes a `_` catch-all remove every tuple.
 t_subtract(_, top, _Asm) -> [];
 t_subtract(top, _, _Asm) -> top;
 t_subtract(As, Bs, Asm) ->
@@ -887,19 +737,14 @@ product_minus(A, B, Asm) ->
          end || I <- lists:seq(1, N)],
     [P || P <- Products, not lists:any(fun is_none/1, P)].
 
-%% Drop any product wholly contained in another. This removes redundancy without
-%% ever merging two products into a wider one.
-%%
-%% TICKET 61 — CONTAINMENT BETWEEN EQUALS MUST KEEP ONE, NOT TWO AND NOT ZERO.
-%% The previous spelling compared DISTINCT members only (`Q =/= P`), which had
-%% both failure modes at once: a product unioned with itself survived twice —
-%% `l_elem/1` does exactly that for every `list<T>`, and the doubled member then
-%% read as ambiguity, stopping the validator's descent at the row — while two
-%% structurally different spellings of the same product each absorbed the other
-%% and BOTH vanished, a union of inhabited types reporting empty. `m_absorb/1`
-%% fixed only the first half for maps; folding to a maximal antichain fixes
-%% both: a product covered by anything already kept is dropped (equality keeps
-%% the first), and a kept product covered by a newcomer gives way to it.
+%% Drop any product wholly contained in another, without ever merging two into
+%% a wider one. The fold keeps a maximal antichain: a product covered by
+%% anything already kept is dropped (equality keeps the first), and a kept
+%% product covered by a newcomer gives way to it. Containment between equals
+%% must keep one, not two and not zero: comparing DISTINCT members only let a
+%% product unioned with itself survive twice, which read as ambiguity, and let
+%% two spellings of one product absorb each other so both vanished
+%% (ticket 61).
 t_absorb(Ps0) ->
     Ps = [P || P <- Ps0, not lists:any(fun is_none/1, P)],
     lists:foldl(fun(P, Kept) ->
@@ -915,20 +760,15 @@ product_subset(P, Q) ->
         lists:all(fun({X, Y}) -> is_none(subtract(X, Y)) end, lists:zip(P, Q)).
 
 %%% ---------------------------------------------------------------------------
-%%% Map part — ticket 26's records.
+%%% Map part: records, and the anonymous map types equal to them (ticket 26).
 %%%
-%%% The nearest prior art is the tuple part above, and this is deliberately its
-%%% mirror: members kept separate, absorption but never merging, and a product
-%%% decomposition for subtraction. The only difference is that the product is
-%%% keyed by field NAME rather than by position, which is exactly what §1's map
-%%% erasure bought — under the tuple erasure ticket 26 rejected, a field sits at
-%%% a different offset per member and none of this would compose.
+%%% A mirror of the tuple part: members kept separate, absorption but never
+%%% merging, and a product decomposition for subtraction keyed by field NAME
+%%% rather than by position, which is what the map erasure bought (26 §1).
 %%%
-%%% One asymmetry with tuples is real and is why `closed`/`open` exist. Two
-%%% tuples of different arity are disjoint, full stop. Two maps of different
-%%% field sets are disjoint only if BOTH fix their domain — and a pattern never
-%%% does, since `{ Kind: :'Shop.Order' }` constrains one field and says nothing
-%%% about the rest.
+%%% The one asymmetry is why `closed`/`open` exist. Two tuples of different
+%%% arity are disjoint. Two maps of different field sets are disjoint only if
+%%% BOTH fix their domain, and a pattern never does.
 %%% ---------------------------------------------------------------------------
 
 m_union(top, _) -> top;
@@ -940,10 +780,9 @@ m_intersect(As, top, _Asm) -> As;
 m_intersect(As, Bs, Asm) ->
     m_absorb([M || A <- As, B <- Bs, (M = m_meet(A, B, Asm)) =/= empty]).
 
-%% Same reasoning as `t_subtract`: the algebra cannot name "every map except
-%% these", so `top` minus anything stays `top` — a residual kept too BIG, which
-%% reports a false inexhaustive rather than a false exhaustive. `anything \ top`
-%% is empty, which is what makes a `_` catch-all remove every map.
+%% `top` minus anything stays `top`, as in `t_subtract/3`: the algebra cannot
+%% name "every map except these", so the residual is kept too BIG.
+%% `anything \ top` is empty, which makes a `_` catch-all remove every map.
 m_subtract(_, top, _Asm) -> [];
 m_subtract(top, _, _Asm) -> top;
 m_subtract(As, Bs, Asm) ->
@@ -952,25 +791,20 @@ m_subtract(As, Bs, Asm) ->
 m_minus_all(As, B, Asm) ->
     m_absorb(lists:append([m_minus(A, B, Asm) || A <- As])).
 
-%%% --- meet -------------------------------------------------------------------
+%%% --- meet ------------------------------------------------------------------
 %%%
-%%% TICKET 48'S 2×2 IS NOW A 3×3, and the five new cells are here. The cost grew
-%%% by multiplication rather than addition, which is the whole reason 48 called
-%%% Q1 the expensive question and answered it anyway.
-%%%
-%%% The domain cells are stated FIRST so they are reached before the named-field
-%%% clauses, which is a correctness requirement and not a style: `{dom, K, V}` is
-%%% a 3-tuple and cannot match `{closed, F}` or `{open, F}`, but a mixed pair
-%%% would fall through to `function_clause` without them.
+%%% The domain cells are stated FIRST so they are reached before the
+%%% named-field clauses: `{dom, K, V}` is a 3-tuple and cannot match
+%%% `{closed, F}` or `{open, F}`, but a mixed pair would fall through to
+%%% `function_clause` without them (ticket 48).
 
 %% Two domains meet pointwise: the entries that satisfy both rules are exactly
 %% those whose key satisfies both and whose value satisfies both.
 m_meet({dom, KA, VA}, {dom, KB, VB}, Asm) ->
     m_check({dom, intersect(KA, KB, Asm), intersect(VA, VB, Asm)});
 %% A named-field member meeting a domain is that member, kept or dropped: it
-%% already fixes its keys, so the domain either admits all of them or none.
-%% `fields_fit/4` carries Q3 — a member with a `Kind` is a record and no record
-%% is a `map<K, V>`.
+%% already fixes its keys, so the domain admits all of them or none.
+%% `fields_fit/5` carries the rule that a record is never a `map<K, V>`.
 m_meet(A = {Kind, FA}, {dom, KB, VB}, Asm) when Kind =:= closed; Kind =:= open ->
     case fields_fit(Kind, FA, KB, VB, Asm) of
         true  -> m_check(A);
@@ -986,8 +820,8 @@ m_meet({closed, FA}, {closed, FB}, Asm) ->
         false -> empty
     end;
 m_meet({closed, FA}, {open, FB}, Asm) ->
-    %% The closed side fixes the domain; the open side may only constrain fields
-    %% that domain has.
+    %% The closed side fixes the domain; the open side may only constrain
+    %% fields that domain has.
     case keys_subset(FB, FA) of
         true  -> m_check({closed, m_zip_intersect(FA, FB, Asm)});
         false -> empty
@@ -1010,42 +844,33 @@ m_zip_intersect(FA, FB, Asm) ->
 
 m_check(M) -> case m_empty(M) of true -> empty; false -> M end.
 
-%%% --- subtraction ------------------------------------------------------------
+%%% --- subtraction -----------------------------------------------------------
 
 %% (F1 × … × Fn) \ (G1 × … × Gn) over the subtrahend's keys, exactly as
-%% `product_minus` does over a tuple's positions:
+%% `product_minus/3` does over a tuple's positions:
 %%
 %%   ⋃ᵢ  F where k₁…kᵢ₋₁ are intersected, kᵢ is subtracted, the rest untouched
 %%
-%% Componentwise subtraction would be plain wrong here for the same reason it is
-%% wrong for tuples.
+%% The domain cells decide subtyping, since `is_subtype(A, B)` is
+%% `is_none(subtract(A, B))` and every parameter pass goes through it; a cell
+%% that returned the minuend unconditionally would refuse everything.
 %%
-%% THE DOMAIN CELLS ARE WHERE SUBTYPING IS DECIDED, and that is worth saying
-%% plainly because 48 Q2 makes it easy to assume otherwise. Deferring the pattern
-%% form spares `m_decompose/3`; it does NOT spare subtraction, because
-%% `is_subtype(A, B) -> is_none(subtract(A, B))` and every parameter pass in the
-%% language goes through it. A domain cell that returned the minuend
-%% unconditionally would type-check nothing and refuse everything.
-%%
-%% Each cell that cannot decide keeps the minuend WHOLE — too big rather than too
-%% small, the same honesty `{open, FA} \ {closed, _}` already applies. Too big
-%% costs a refusal; too small costs a false exhaustiveness proof, and this
-%% language's one promise is that the second never happens.
+%% Each cell that cannot decide keeps the minuend WHOLE: too big costs a
+%% refusal, too small costs a false exhaustiveness proof, and the language's
+%% one promise is that the second never happens.
 
-%% Domain minus domain. Subtracting a wider rule from a narrower one empties it,
-%% which is what makes `map<atom, int>` pass where `map<atom, term>` is asked
-%% for. Anything else keeps the minuend: "every atom key except the ones whose
-%% value is an int" is not something this algebra can name.
+%% Domain minus domain. Subtracting a wider rule from a narrower one empties
+%% it, which is what makes `map<atom, int>` pass where `map<atom, term>` is
+%% asked for. Anything else keeps the minuend: "every atom key except the ones
+%% whose value is an int" is not something this algebra can name.
 m_minus({dom, KA, VA}, {dom, KB, VB}, Asm) ->
     case sub(KA, KB, Asm) andalso sub(VA, VB, Asm) of
         true  -> [];
         false -> [{dom, KA, VA}]
     end;
-%% A CLOSED MEMBER MINUS A DOMAIN, AND THIS IS THE CELL Q3 AND Q7 BOTH LAND ON.
-%% Q7 says the shipped brace map and `map<K, V>` are one type family, so a closed
-%% member whose keys and values fit the rule IS one and subtracts away. Q3 says
-%% the exclusion is `Kind` absent only, so a record — which carries a minted
-%% `Kind` — never fits, and `Order` is not a `map<atom, term>`.
+%% A closed member whose keys and values fit the rule IS a `map<K, V>` and
+%% subtracts away. A record carries a minted `Kind`, never fits, and so is not
+%% a `map<atom, term>` (48 Q3, Q7).
 m_minus({closed, FA}, {dom, KB, VB}, Asm) ->
     case fields_fit(closed, FA, KB, VB, Asm) of
         true  -> [];
@@ -1056,9 +881,9 @@ m_minus({closed, FA}, {dom, KB, VB}, Asm) ->
 %% Unprovable, so the minuend stays whole.
 m_minus(A = {open, _}, {dom, _, _}, _Asm) ->
     [A];
-%% A domain minus a named-field member. One member removes one shape from an
-%% unbounded family and leaves an infinity behind, which is not nameable — the
-%% same shape as `top` minus anything.
+%% A domain minus a named-field member keeps the domain: one member removes
+%% one shape from an unbounded family, and the rest is not nameable, as with
+%% `top` minus anything.
 m_minus(A = {dom, _, _}, {Kind, _}, _Asm) when Kind =:= closed; Kind =:= open ->
     [A];
 
@@ -1078,10 +903,9 @@ m_minus({open, FA}, {open, FB}, Asm) ->
         false -> [{open, FA}]
     end;
 m_minus({open, FA}, {closed, _FB}, _Asm) ->
-    %% An open member contains maps with fields the closed one has not got, and
-    %% "these fields, plus at least one more" is not something this algebra can
-    %% name. Keep the minuend whole: too big rather than too small, the same
-    %% honesty the list part applies to its cons element.
+    %% An open member admits fields the closed one has not got, and "these
+    %% fields plus at least one more" is not nameable here. Keep the minuend
+    %% whole: too big rather than too small.
     [{open, FA}].
 
 m_decompose(Kind, FA, FB, Asm) ->
@@ -1097,28 +921,20 @@ m_decompose(Kind, FA, FB, Asm) ->
          end || K <- Ks],
     [M || M <- Members, not m_empty(M)].
 
-%%% --- absorption -------------------------------------------------------------
+%%% --- absorption ------------------------------------------------------------
 
-%% Absorption is the checker's hot spot at scale, because it runs after every
-%% subtraction and is quadratic in the number of members with a `subtract` per
-%% field inside it. Measured before this was added: a 40-record dispatch cost
-%% 6.1 ms and an 80-record one 47 ms, growing cubically in the clause count.
-%%
-%% The fix is the language's own discriminability rule (ticket 09) turned into
-%% an index. **Absorption can only ever succeed between members that agree on
-%% their discriminator**: `m_subset` requires the tag of the contained member to
-%% subtract away against the container's, and two distinct singleton atoms never
-%% do. So members are grouped by tag and compared only within their group —
-%% plus against the members that carry no singleton tag, which are the only ones
-%% that can swallow a member from any group.
-%%
-%% Nothing is merged that was not merged before; this changes which pairs are
-%% CONSIDERED, not what containment means.
+%% Members are compared only within their discriminator group, plus against
+%% the untagged members, which are the only ones that can swallow a member
+%% from any group: absorption succeeds only when the contained member's tag
+%% subtracts away against the container's, and two distinct singleton atoms
+%% never do (ticket 09). Absorption runs after every subtraction and is
+%% quadratic in the member count with a `subtract` per field; before the index
+%% a 40-record dispatch cost 6.1 ms and an 80-record one 47 ms. This changes
+%% which pairs are CONSIDERED, not what containment means.
 m_absorb(Ms0) ->
-    %% `usort` first: absorption compares DISTINCT members, so two members that
-    %% are the same term survive each other and a union of one record with
-    %% itself would report two. Deduplication is not widening — the members are
-    %% equal, so nothing is merged that was not already identical.
+    %% `usort` first: absorption compares DISTINCT members, so two equal
+    %% members would survive each other and a union of one record with itself
+    %% would report two.
     Ms = lists:usort([M || M <- Ms0, not m_empty(M)]),
     Groups = maps:groups_from_list(fun discriminator/1, Ms),
     Untagged = maps:get(none, Groups, []),
@@ -1126,10 +942,9 @@ m_absorb(Ms0) ->
           not lists:any(fun(N) -> N =/= M andalso m_subset(M, N) end,
                         rivals(M, Groups, Untagged, Ms))].
 
-%% A member's tag, where it has exactly one. Anything else — no `Kind`, a
-%% cofinite one, a union of tags — is `none` and is compared against everything.
-%% A domain member has no `Kind` BY CONSTRUCTION — that is Q3 — so it is
-%% untagged and compared against everything, which is what `none` means here.
+%% A member's tag, where it has exactly one. Anything else (no `Kind`, a
+%% cofinite one, a union of tags, or a domain member, which has no `Kind` by
+%% construction) is `none` and is compared against everything.
 discriminator({dom, _, _}) ->
     none;
 discriminator({_Kind, Fields}) ->
@@ -1145,11 +960,8 @@ rivals(M, Groups, Untagged, All) ->
         Tag  -> maps:get(Tag, Groups, []) ++ Untagged
     end.
 
-%% Is P contained in Q?
-%%
-%% The domain clauses come first for the reason the meet grid gives: a 3-tuple
-%% cannot match `{_, FP}`, but a MIXED pair would reach a named-field clause and
-%% crash rather than answer.
+%% Is P contained in Q? The domain clauses come first, as in the meet: a MIXED
+%% pair would otherwise reach a named-field clause and crash.
 m_subset({dom, KP, VP}, {dom, KQ, VQ}) ->
     sub(KP, KQ, []) andalso sub(VP, VQ, []);
 m_subset({Kind, FP}, {dom, KQ, VQ}) when Kind =:= closed; Kind =:= open ->
@@ -1159,7 +971,8 @@ m_subset({Kind, FP}, {dom, KQ, VQ}) when Kind =:= closed; Kind =:= open ->
 m_subset({dom, _, _}, {_, _}) ->
     false;
 m_subset({_, FP}, {open, FQ}) ->
-    %% Q constrains only its own keys, so P must have them and be narrower there.
+    %% Q constrains only its own keys, so P must have them and be narrower
+    %% there.
     keys_subset(FQ, FP) andalso
         lists:all(fun(K) -> is_none(subtract(maps:get(K, FP), maps:get(K, FQ))) end,
                   maps:keys(FQ));
@@ -1171,25 +984,18 @@ m_subset({open, _}, {closed, _}) ->
     %% An open member admits extra fields; a closed one does not.
     false.
 
-%% Containment, spelled once. `m_subset/2` already reaches for the public
-%% `is_none(subtract(A, B))` rather than threading assumptions, and the domain
-%% cells follow it rather than inventing a second convention beside it.
+%% Containment, spelled once.
 sub(A, B, Asm) -> is_none(subtract(A, B, Asm)).
 
-%% DOES A FINITE FIELD LIST SATISFY A DOMAIN RULE? This is where Q3 and Q7 are
-%% enforced, and it is three conditions rather than two:
+%% Does a finite field list satisfy a domain rule? Three conditions:
 %%
-%%   1. NO `Kind` — Q3's "`Kind` absent only". A record is
-%%      `{closed, #{'Kind' => atom_lit(Tag), ...}}`, so this one line is what
-%%      makes `Order` fail to be a `map<atom, term>`. Without it the domain
-%%      quietly becomes `top`, which is the imprecision 48 exists to sit between.
-%%   2. every key is in K — the key is a NAME, so it is tested as the singleton
-%%      atom type it denotes.
+%%   1. no `Kind`: a record is `{closed, #{'Kind' => atom_lit(Tag), ...}}`,
+%%      so this line is what keeps `Order` out of `map<atom, term>` (48 Q3);
+%%   2. every key is in K, tested as the singleton atom type it denotes;
 %%   3. every value type is in V.
 %%
-%% An OPEN member can never satisfy this whatever its named fields say, because
-%% the fields it does not name are unconstrained and may be a `Kind`. Saying so
-%% here keeps the three callers from each having to remember it.
+%% An OPEN member never satisfies it whatever its named fields say: the fields
+%% it does not name are unconstrained and may be a `Kind`.
 fields_fit(open, _Fields, _K, _V, _Asm) ->
     false;
 fields_fit(closed, Fields, K, V, Asm) ->
@@ -1204,19 +1010,14 @@ keys_subset(Sub, Sup) ->
     lists:all(fun(K) -> maps:is_key(K, Sup) end, maps:keys(Sub)).
 
 %%% ---------------------------------------------------------------------------
-%%% List part — F20, ticket 54.
+%%% List part.
 %%%
 %%% THE ALGEBRA NEVER MEASURES A LENGTH. It decomposes the cons cell, and length
 %%% falls out. A non-empty list is a product of an element and a tail, and the
-%%% rule that subtracts it exactly is `product_minus/2` above — already written,
-%%% already exact, applied to tuples and maps and simply never applied here.
-%%%
-%%% The four languages surveyed for ticket 54 split on this. C# names a missing
-%%% case `{ Length: 1 }`, because an array has an O(1) `Length` for the type
-%%% system to talk about. Gleam names it `[_]`, because a cons chain has none —
-%%% and beam-sharp has none either, so this is Gleam's answer. Elixir's
-%%% set-theoretic checker, which rests on the same theory as this module, has
-%%% the same hole this replaces.
+%%% rule that subtracts it exactly is `product_minus/3` above, the one already
+%%% applied to tuples and maps. A cons chain has no O(1) length for the type
+%%% system to talk about, so a missing case is named as a shape (`[int]`) and
+%%% never as a count (ticket 54, F20).
 %%%
 %%% Termination lives in `sp_grow/2`: nothing unfolds on its own, unfolding is
 %%% driven by the SUBTRAHEND's prefix length, and that is a syntactic property
@@ -1322,7 +1123,7 @@ sp_minus(X, Y, Asm) ->
 %%     = ⋃ᵢ [P₁∩Q₁, …, Pᵢ\Qᵢ, …, Pₙ] × RA        the prefix differs at i
 %%     ∪  [P₁∩Q₁, …, Pₙ∩Qₙ] × (RA \ RB)          the prefix matches throughout
 %%
-%% which is `product_minus/2` verbatim plus the last line. Exact.
+%% which is `product_minus/3` verbatim plus the last line. Exact.
 sp_minus_aligned({P, RA}, {Q, RB}, Asm) ->
     N = length(P),
     Differs =
@@ -1353,15 +1154,16 @@ sp_rest_minus(Meet, {open, TA}, closed) ->
 sp_rest_minus(Meet, {open, TA}, {open, TB}) ->
     case e_covers(TB, TA) of
         true  -> [];
-        %% NOT EXPRESSIBLE AS ONE SPINE — "some later element is outside TB" is a
-        %% disjunction over positions. Keep A, which UNDER-subtracts, which makes
-        %% the residual too LARGE, which reports a false "not exhaustive". That
-        %% is the safe direction; over-subtracting is the defect F20 deletes.
+        %% NOT EXPRESSIBLE AS ONE SPINE — "some later element is outside TB"
+        %% is a disjunction over positions. Keep A, which UNDER-subtracts,
+        %% which makes the residual too LARGE, which reports a false "not
+        %% exhaustive". That is the safe direction; over-subtracting is the
+        %% defect the list part exists to remove (F20).
         %%
         %% Unreachable from source: every spine a PATTERN produces has rest
         %% `closed` or `{open, any}`, because the marker binds without
-        %% constraining. Only declared-type-minus-declared-type with incomparable
-        %% element types arrives here.
+        %% constraining. Only declared-type-minus-declared-type with
+        %% incomparable element types arrives here.
         false -> [{Meet, {open, TA}}]
     end.
 
@@ -1414,8 +1216,8 @@ e_covers(B, A)     -> is_none(subtract(A, B)).
 
 %% A SPINE PRINTS AS A CLAUSE HEAD YOU CAN PASTE, which is the property that
 %% makes a residual the clause the caller must write. `[]` beside `[a, b, ..]`
-%% leaves `[int]`, not a quantity — C# would say `{ Length: 1 }` here and this
-%% language has no `length` to say it with.
+%% leaves `[int]`, not a quantity: this language has no `length` to say
+%% `{ Length: 1 }` with.
 l_str([]) -> [];
 l_str(Ss0) ->
     %% The folded forms. `list<T>` is `[] | [T, ..]` and printing it as two
@@ -1435,13 +1237,12 @@ sp_str({P, {open, _}})     -> "[" ++ sp_items(P) ++ ", ..]".
 sp_items(P) -> string:join([to_string(T) || T <- P], ", ").
 
 %%% ---------------------------------------------------------------------------
-%%% Printing — the residual is the diagnostic, so this is a product surface.
-%%%
-%%% Ticket 04: the residual *is* the missing case. Ticket 23 will decide whether
-%%% it also gets a machine-readable form; until then it has to read well.
+%%% Printing. The residual is the diagnostic: what prints here is the missing
+%%% case itself, handed to the author to write, so it is a product surface and
+%%% has to read well (ticket 04, ticket 23).
 %%% ---------------------------------------------------------------------------
 
-%% TICKET 61 — THE EXACT TOP PRINTS AS `term`, on every channel. `term` is not
+%% THE EXACT TOP PRINTS AS `term`, on every channel (ticket 61). `term` is not
 %% an author's alias that erased by diagnostic time; it is the name of the top,
 %% and its six-way decomposition tells the reader less than the one word does.
 %% A PARTIAL residual is untouched — nothing short of the whole top takes this
@@ -1459,11 +1260,11 @@ to_string(T) ->
             end
     end.
 
-%%% F28 — HOW A BINDER PRINTS, and the two cases are not the same reader.
-%%%
-%%% A binder that came from a `type` declaration carries the AUTHOR'S OWN NAME,
-%%% and that is the best thing a message can say: `Tree` means something to the
-%%% person reading it and its unfolding does not.
+%%% A BINDER PRINTS BY ITS OWN NAME WHEN THE AUTHOR GAVE IT ONE, and as one
+%%% unfolding when the algebra minted it (F28). A binder from a `type`
+%%% declaration carries the author's name, and that is the best thing a message
+%%% can say: `Tree` means something to the person reading it and its unfolding
+%%% does not.
 %%%
 %%% One minted by `subtract/3` or `intersect/3` carries a synthetic name — the
 %%% residual of `N \ :leaf` is a real recursive type nobody named — and `$mu0`
@@ -1492,13 +1293,13 @@ parts(#{atoms := As, ints := Is, tuples := Ts, lists := Ls, maps := Ms, bins := 
 %% Three of the four points have a surface spelling and the fourth does not.
 %%
 %% `[other]` is `binary \ string` and there is nothing to write for it: the
-%% surface has a word for the top and a word for the refinement, and none for the
-%% complement of a refinement inside its base. It is representable because the
-%% alternatives are unsound (see `subtract/2`) and it is currently UNREACHABLE —
-%% producing it needs a clause covering `string` but not `binary`, and F9 has no
-%% pattern that discriminates the two. So this arm is defensive: it names the set
-%% rather than crashing, and whoever lands the UTF-8 entry check or a `string`
-%% pattern inherits the printing question with the representation already right.
+%% surface has a word for the top and a word for the refinement, and none for
+%% the complement of a refinement inside its base. It is representable because
+%% the alternatives are unsound (see `subtract/2`) and it is currently
+%% UNREACHABLE: producing it needs a clause covering `string` but not `binary`,
+%% and no pattern discriminates the two (F9). So this arm is defensive: it names
+%% the set rather than crashing, and whoever lands a `string` pattern inherits
+%% the printing question with the representation already right.
 b_str([])            -> [];
 b_str([utf8])        -> ["string"];
 b_str([other, utf8]) -> ["binary"];
@@ -1507,14 +1308,13 @@ b_str([other])       -> ["binary \\ string"].
 ms_str(top) -> ["map"];
 ms_str(Members) -> [m_str(M) || M <- Members].
 
-%% Printed the way the surface spells it, because ticket 04 found the residual
-%% IS the missing case and ticket 23 makes it the thing an agent is handed to
-%% write. `Kind` is printed first when present — it is the discriminator, so it
-%% is the field a reader needs to see to know which record is missing a clause.
-%% Printed the way the SURFACE spells it, which for a domain is `map<K, V>` and
-%% not a brace form — there is no brace form to print, the pattern half being
-%% deferred (48 Q2). A member kind with no printer reaches the author as a raw
-%% Erlang term in the middle of a diagnostic.
+%% A member prints the way the surface spells it, because the residual is the
+%% missing case an author is handed to write (ticket 04, ticket 23). `Kind` is
+%% printed first when present — it is the discriminator, so it is the field a
+%% reader needs to see to know which record is missing a clause. A domain
+%% prints as `map<K, V>`, never as a brace form: there is none to print while
+%% the pattern half is deferred (48 Q2). Every member kind needs a clause here,
+%% or it reaches the author as a raw Erlang term in the middle of a diagnostic.
 m_str({dom, K, V}) ->
     "map<" ++ to_string(K) ++ ", " ++ to_string(V) ++ ">";
 m_str({Kind, Fields}) ->
@@ -1529,45 +1329,45 @@ m_str({Kind, Fields}) ->
 ts_str(top) -> ["tuple"];
 ts_str(Ps)  -> [t_str(P) || P <- Ps].
 
-%%% What you WRITE to match a type, as against what the type IS. The two coincide
-%%% everywhere the surface's type syntax and pattern syntax coincide — which is
-%%% most of this slice — and come apart at records.
+%%% What you WRITE to match a type, as against what the type IS. The two
+%%% coincide everywhere the surface's type syntax and pattern syntax coincide —
+%%% which is most of this slice — and come apart at records.
 %%%
-%%% A record's whole field set is a correct description of the residual and a bad
-%%% clause head: pasted in, `{ Kind: :'Shop.Invoice', Id: int, Total: int }` binds
-%%% variables named `int` twice, because a lowercase name in pattern position is a
-%%% variable. The head that covers the case is its **discriminator** — 26 §1 put
-%%% the tag in the term precisely so one field decides it — so that is what is
-%%% synthesised. Ticket 23: the compiler synthesises the head and never the body,
-%%% and a head derived from the residual cannot be wrong.
+%%% A record's whole field set is a correct description of the residual and a
+%%% bad clause head: pasted in, `{ Kind: :'Shop.Invoice', Id: int, Total: int }`
+%%% binds variables named `int` twice, because a lowercase name in pattern
+%%% position is a variable. The head that covers the case is its
+%%% **discriminator**, the tag having been put in the term precisely so one
+%%% field decides it (26 §1), so that is what is synthesised. The compiler
+%%% synthesises the head and never the body, and a head derived from the
+%%% residual cannot be wrong (ticket 23).
 to_pattern(T) ->
     case is_none(T) of
         true  -> "none";
         false -> string:join(pat_parts(T), " | ")
     end.
 
-%% The same parts, UNJOINED — ticket 43's truncation runs over the rendered
-%% sequence, so the thing being truncated has to be a sequence when it arrives.
+%% The same parts, UNJOINED: the caller truncates the rendered sequence, so
+%% the thing being truncated has to be a sequence when it arrives (ticket 43).
+%% This is deliberately not machinery — no cardinality function, no complement,
+%% no second format — because exporting a list the printer already builds is
+%% the narrowest thing that lets `bsc` do the job.
 %%
-%% This is the whole of what 43 costs `bs_types`, and it is deliberately not
-%% machinery: no cardinality function, no complement, no second format. 43's own
-%% delta says this module gains nothing, and exporting a list the printer already
-%% builds is the narrowest reading of that which still lets `bsc` do the job.
-%%
-%% Truncating HERE instead would have been one line shorter and wrong: every
-%% other diagnostic site — the call argument, the projection, the clause return,
-%% the destructuring bind, the switch arm — goes through `to_pattern/1`, and 43
-%% scoped the rule to the inexhaustive head rather than to the printer.
+%% Truncating HERE instead would be wrong: every other diagnostic site — the
+%% call argument, the projection, the clause return, the destructuring bind,
+%% the switch arm — goes through `to_pattern/1`, and the truncation rule is
+%% scoped to the inexhaustive head rather than to the printer.
 pattern_parts(T) ->
     case is_none(T) of
         true  -> ["none"];
         false -> pat_parts(T)
     end.
 
-%% TICKET 61 — the exact top is one part, `term`, here as in `to_string/1`.
+%% The exact top is one part, `term`, here as in `to_string/1` (ticket 61).
 %% The leaves of this printer are already type words (`int`, `tuple`, `map`),
 %% so the top's word is the consistent spelling — and suggesting `_` instead
-%% would recommend a form ticket 12 §2 refuses over a closed residual.
+%% would recommend a form the compiler refuses over a closed residual
+%% (ticket 12 §2).
 pat_parts(#{mu := N, body := B}) ->
     case synthetic(N) of
         false -> [atom_to_list(N)];
@@ -1586,42 +1386,40 @@ ts_pat(top) -> ["tuple"];
 ts_pat(Ps)  -> ["(" ++ string:join([to_pattern(C) || C <- P], ", ") ++ ")" || P <- Ps].
 
 %%% ---------------------------------------------------------------------------
-%%% F29 — THE HEAD CHANNEL, which is a different job from the one above.
+%%% THE HEAD CHANNEL prints text meant to be PASTED BACK INTO THE SOURCE, which
+%%% is a different job from the one above (F29). `to_pattern/1` DESCRIBES a
+%%% set: it is rendered into `rejected`, `member`, `undeclared`, `unmatched`,
+%%% `subject` and the switch `arm`, all of which are sentences about a type.
+%%% The two come apart at every leaf where the surface's type syntax is not its
+%%% pattern syntax:
 %%%
-%%% `to_pattern/1` DESCRIBES a set: it is rendered into `rejected`, `member`,
-%%% `undeclared`, `unmatched`, `subject` and the switch `arm`, all of which are
-%%% sentences about a type. This printer produces text meant to be PASTED BACK
-%%% INTO THE SOURCE, and the two come apart at every leaf where the surface's
-%%% type syntax is not its pattern syntax:
-%%%
-%%%   int span      `300..399` describes; `>= 300 and <= 399` is what you write.
-%%%                 Ticket 42 settled that on 2026-08-15 and the parser was built
-%%%                 for it (`bs_parser.yrl:462-465`); only the printer was not.
+%%%   int span      `300..399` describes; `>= 300 and <= 399` is what you write,
+%%%                 the relational pattern the parser accepts (ticket 42).
 %%%   union         `a | b` describes; a head has no `|`, so a union of parts is
-%%%                 N HEAD LINES. F29.2.
-%%%   record        `{ Kind: :'M.Order' }` describes; F22's `Order o` is what you
-%%%                 write, where the name resolves at the error site.
-%%%   list element  the element printer was `to_string`, so a record inside a
-%%%                 list printed its field types and bound `int` twice. This one
-%%%                 recurses into the head printer instead.
+%%%                 N HEAD LINES (F29.2).
+%%%   record        `{ Kind: :'M.Order' }` describes; `Order o` is what you
+%%%                 write, where the name resolves at the error site (F22).
+%%%   list element  a record inside a list is printed by the head printer, not
+%%%                 by `to_string/1`, which would print its field types and bind
+%%%                 `int` twice.
 %%%   type word     `int`, `string`, `tuple`, `map`, `term` are TYPE words. In
 %%%                 pattern position a lowercase word is a BINDER, so
 %%%                 `Kind(string)` silently means `Kind(s)`. The head channel
 %%%                 emits the binder it actually means, and `to_string/1` keeps
-%%%                 the type word — which is why ticket 61's answer is untouched
-%%%                 here (F29.8).
+%%%                 the type word, so the top's word there is untouched here
+%%%                 (F29.8, ticket 61).
 %%%
-%%% NOT EVERYTHING HAS A HEAD. A cofinite atom set and `binary \ string` describe
-%%% sets the surface cannot spell as a pattern, and inventing one would be worse
-%%% than saying so. Those contribute NO part, which empties the head list and
-%%% makes `pasteable` absent rather than empty (F29.9).
+%%% NOT EVERYTHING HAS A HEAD. A cofinite atom set and `binary \ string`
+%%% describe sets the surface cannot spell as a pattern, and inventing one would
+%%% be worse than saying so. Those contribute NO part, which empties the head
+%%% list and makes `pasteable` absent rather than empty (F29.9).
 %%%
 %%% BINDERS ARE PLACEHOLDERS UNTIL THE LINE IS ASSEMBLED. A head is built from
-%%% parts that do not know about each other, and two binders spelled the same in
-%%% one head is `repeated_in_head` — the exact defect this feature exists to stop
-%%% emitting. So a binder travels as an open byte, its base name and a close
-%%% byte, and `name_binders/1` numbers them once the whole line exists. The
-%%% convention and its resolver live together here so that no caller can
+%%% parts that do not know about each other, and two binders spelled the same
+%%% in one head is `repeated_in_head` — the exact defect this printer exists to
+%%% stop emitting. So a binder travels as an open byte, its base name and a
+%%% close byte, and `name_binders/1` numbers them once the whole line exists.
+%%% The convention and its resolver live together here so that no caller can
 %%% half-implement it.
 %%%
 %%% `Names` maps a record's minted tag to the source name that resolves AT THE
@@ -1644,20 +1442,19 @@ binder(Base) -> [?B_OPEN] ++ Base ++ [?B_CLOSE].
 %% twice in a two-sided span because `n >= 300 and n <= 399` names it twice.
 guard(Cond) -> [?G_OPEN] ++ Cond ++ [?G_CLOSE].
 
-%% The parts of a head, unjoined and one per LINE — never `|`-joined, which is
-%% the whole of F29.2. `none` has no head: there is nothing left to match.
+%% The parts of a head, unjoined and one per LINE — never `|`-joined (F29.2).
+%% `none` has no head: there is nothing left to match.
 head_parts(T, Names) ->
     case is_none(T) of
         true  -> [];
         false -> hd_parts(T, Names, arg)
     end.
 
-%% The top is a binder, not `term`. Ticket 61 gave the top its word on the
-%% DESCRIPTION channel and this narrows that to the description channel rather
-%% than overturning it: `Fn(term)` binds a variable named `term`, which is not
-%% what the word was chosen to mean.
-%% F28 — ON THE PASTE CHANNEL A BINDER UNFOLDS, AND ITS BACK-REFERENCE BINDS.
+%% The top is a binder, not `term`: `Fn(term)` binds a variable named `term`,
+%% which is not what the word was chosen to mean. The top keeps its word on the
+%% DESCRIPTION channel only (ticket 61).
 %%
+%% ON THE PASTE CHANNEL A BINDER UNFOLDS, AND ITS BACK-REFERENCE BINDS (F28).
 %% This is the one printer where the author's own type name is the WRONG answer
 %% even though it is the most readable one: a head is a pattern, and `Tree` is
 %% not a pattern. So a `mu` shows one unfolding — the shapes the author has to
@@ -1681,30 +1478,26 @@ hd_parts(T = #{atoms := As, ints := Is, tuples := Ts, lists := Ls, maps := Ms,
 %% THE TWO COFINITE CASES ARE NOT THE SAME SET AND DO NOT GET THE SAME ANSWER.
 %% `{cofinite, []}` is EVERY atom, which a binder spells exactly; `{cofinite,
 %% [:x]}` is every atom except `:x`, which no pattern spells at all. Collapsing
-%% them turned a forty-one-head diagnostic into a wall of type notation — the
-%% failure F29.9's description channel exists to prevent, produced by the
-%% mechanism meant to prevent it. Measured 2026-08-27 against `Classify(int n,
-%% atom a)`.
+%% them turned a forty-one-head diagnostic into a wall of type notation, the
+%% failure the description channel exists to prevent (F29.9; measured
+%% 2026-08-27 against `Classify(int n, atom a)`).
 a_pat({finite, []})    -> [];
 a_pat({finite, L})     -> [atom_str(A) || A <- L];
 a_pat({cofinite, []})  -> [binder("a")];
 a_pat({cofinite, _})   -> [].
 
-%% TICKET 42'S SPELLING, which the parser has accepted since 2026-08-15 and
-%% nothing ever emitted. The `int` prefix is a TYPE prefix and does not belong in
-%% a pattern; `..` was refused by 42 on meaning — "borrow the construct, or don't
-%% borrow the glyph" — so a bounded span is the conjunction of its two bounds.
-%% A RELATIONAL PATTERN GOES WHERE A WHOLE ARGUMENT GOES, and nowhere else. The
-%% compiler already says so — `Step((:ok, <= 0))` is refused with *"a relational
-%% pattern goes where a whole argument goes ... write the comparison as a guard
-%% there"* — and the printer was emitting the refused form. Measured 2026-08-27:
-%% F29's own table recorded `TupleNested` as a `syntax:<=` row, which it is not;
-%% it parses and is then refused on meaning, and the fix is the shape the
-%% diagnostic itself recommends.
+%% A BOUNDED SPAN IS THE CONJUNCTION OF ITS TWO BOUNDS, `>= Lo and <= Hi`,
+%% the relational pattern the parser accepts (ticket 42). The `int` prefix is
+%% a TYPE prefix and does not belong in a pattern, and `..` was refused on
+%% meaning: "borrow the construct, or don't borrow the glyph".
 %%
-%% So at argument position a span is ticket 42's pattern, and below it a span is
+%% A RELATIONAL PATTERN GOES WHERE A WHOLE ARGUMENT GOES, and nowhere else.
+%% The compiler already says so — `Step((:ok, <= 0))` is refused with *"a
+%% relational pattern goes where a whole argument goes ... write the comparison
+%% as a guard there"* — so the printer must never emit the refused form. At
+%% argument position a span is the relational pattern, and below it a span is
 %% a binder plus a guard. Both spell the same set; only one of them is legal at
-%% each site.
+%% each site (the `TupleNested` fixture reaches the nested case).
 i_pat({neg_inf, pos_inf}, _Pos) -> binder("n");
 %% A single integer is a LITERAL, and a literal is a pattern at every depth.
 i_pat({Lo, Lo}, _Pos)           -> integer_to_list(Lo);
@@ -1720,37 +1513,29 @@ i_pat({Lo, Hi}, nested)         ->
     binder("n") ++ guard([?G_SELF] ++ " >= " ++ integer_to_list(Lo) ++
                              " and " ++ [?G_SELF] ++ " <= " ++ integer_to_list(Hi)).
 
-%% A tuple component that is itself a union multiplies the head lines, which is
-%% F29.2 one level down. `TupleNested` exists because a printer fixed only at the
-%% top level leaves this row broken.
+%% A tuple component that is itself a union multiplies the head lines: the
+%% one-line-per-part rule applies one level down too (F29.2). The `TupleNested`
+%% fixture is what catches a printer fixed only at the top level.
 ts_hd(top, _Names) -> [binder("t")];
 ts_hd(Ps, Names)   ->
     lists:append(
       [["(" ++ string:join(Combo, ", ") ++ ")"
         || Combo <- combos([hd_parts(C, Names, nested) || C <- P])] || P <- Ps]).
 
-%% THE LIST PATH, which is where the hardest row of this feature lives. The
-%% element printer below is `hd_parts/2` and not `to_string/1`; that one
-%% substitution is the whole of `RecordInList`.
-%% THE FOLD IS NOT INHERITED, AND THAT IS THE WHOLE OF THE `list<T>` CASE.
-%%
-%% `l_str/1` folds `[] | [T, ..]` back into `list<T>` so that an ordinary list
-%% type does not READ like a residual. On the head channel the same fold is
-%% harmful: it collapses two spines that each have a pattern into one that has
-%% none, and that absence is what made a new grammar production look necessary.
-%%
-%% F29 §1 was recorded on 2026-08-27 to close exactly this gap — `pattern ->
-%% lident '<' type_list '>' lident`, so that `Ship(list<Order> xs)` could be
-%% written. IT IS NOT NEEDED AND IS NOT BUILT. §1's argument is *"a list pattern
-%% constrains a prefix … nothing spells every element"*, which is a ONE-HEAD
-%% argument; F29.2, in the same file, made a residual N heads. Once it is N
-%% heads, `list<Order>` is the two heads the author actually writes:
+%% THE `list<T>` FOLD IS NOT INHERITED ON THE HEAD CHANNEL. `l_str/1` folds
+%% `[] | [T, ..]` back into `list<T>` so that an ordinary list type does not
+%% READ like a residual. Here the same fold would be harmful: it collapses two
+%% spines that each have a pattern into one that has none, and that absence
+%% would make a `list<Order> xs` pattern production look necessary. It is not
+%% needed and is not built: a residual is N head lines (F29.2), so `list<Order>`
+%% is the two heads the author actually writes, both grammatical today, and
+%% pasted back together they drive the residual to none (F29 §1, §2):
 %%
 %%     Ship([]) -> ...
 %%     Ship([Order o, ..]) -> ...
 %%
-%% Measured 2026-08-27: both are grammatical today, and pasted back together they
-%% drive the residual to none. See F29 §1 and §2, corrected in place.
+%% The element printer below is `hd_parts/3` and not `to_string/1`, so a record
+%% inside a list prints as a head (the `RecordInList` row).
 l_pat([], _Names) -> [];
 l_pat(Ss0, Names) ->
     lists:append([sp_pat(S, Names) || S <- lists:sort(Ss0)]).
@@ -1771,10 +1556,11 @@ sp_pat({P, {open, _}}, Names)     ->
 ms_hd(top, _Names)    -> [binder("m")];
 ms_hd(Members, Names) -> [m_hd(M, Names) || M <- Members].
 
-%% F22'S SPELLING WHERE THE NAME RESOLVES, and 26 §1's discriminator where it
-%% does not. `bs_parser.yrl:499-501` says the hand-written minted tag "makes an
-%% erasure detail load-bearing in source" — F22 exists to replace exactly this,
-%% and shipped without reaching the printer.
+%% A RECORD PRINTS AS `Name binder` WHERE THE NAME RESOLVES, and as its
+%% discriminator `{ Kind: tag }` where it does not (F22, 26 §1). A hand-written
+%% minted tag makes an erasure detail load-bearing in source, so it is the
+%% fallback and never the first choice.
+%%
 %% A RESIDUAL HEAD FOR A DOMAIN MEMBER IS A PATTERN NOBODY CAN WRITE YET, and
 %% printing a brace form here would hand the author a suggestion the parser
 %% refuses — the failure mode ENG-312 names one constructor over. The type is
@@ -1808,9 +1594,9 @@ initial([])                            -> "x".
 
 %% ONE ARGUMENT LIST PER HEAD LINE. The expansion lives here rather than in
 %% `bs_diag` so that the tuple case above and the argument case below cannot
-%% drift: a residual nested in a tuple multiplies head lines for exactly the same
-%% reason a residual argument does, and `TupleNested` is the fixture that would
-%% catch them disagreeing.
+%% drift: a residual nested in a tuple multiplies head lines for exactly the
+%% same reason a residual argument does, and `TupleNested` is the fixture that
+%% would catch them disagreeing.
 head_combos(Tys, Names) -> combos([head_parts(T, Names) || T <- Tys]).
 
 %% The cartesian product, in argument order, with the empty case preserved: a
@@ -1820,14 +1606,15 @@ combos([]) -> [[]];
 combos([P | Rest]) ->
     [[X | C] || X <- P, C <- combos(Rest)].
 
-%% ONE PASS OVER THE FINISHED LINE, because uniqueness is a property of the line
-%% and the parts are built without reference to each other. The first binder with
-%% a given base keeps it; the rest are numbered. `Kind(s)` reads better than
-%% `Kind(s1)`, and a second `s` in the same head is `repeated_in_head`, so both
-%% halves are load-bearing.
+%% ONE PASS OVER THE FINISHED LINE, because uniqueness is a property of the
+%% line and the parts are built without reference to each other. The first
+%% binder with a given base keeps it; the rest are numbered. `Kind(s)` reads
+%% better than `Kind(s1)`, and a second `s` in the same head is
+%% `repeated_in_head`, so both halves are load-bearing.
+%%
 %% The guards are hoisted rather than printed in place, and joined with `and`
-%% because a `when` clause takes one condition however many parts contributed to
-%% it. They are appended here rather than by the caller so that a head is a
+%% because a `when` clause takes one condition however many parts contributed
+%% to it. They are appended here rather than by the caller so that a head is a
 %% finished head the moment this returns.
 name_binders(Line) ->
     {Text, Guards} = nb(lists:flatten(Line), [], [], "", []),
@@ -1869,19 +1656,19 @@ ms_pat(top)     -> ["map"];
 ms_pat(Members) -> [m_pat(M) || M <- Members].
 
 %% `to_pattern/1` DESCRIBES a set — it is the channel `ms_pat(top) -> ["map"]`
-%% belongs to — so a domain member describes as the type the author wrote. It is
-%% NOT the paste channel and must not carry a binder: `binder/1`'s delimiters are
-%% control bytes that only `nb/5` removes, and `nb/5` runs on the head channel
-%% alone. A binder here reaches the author as `( m)` with two invisible
-%% characters around the name, which is what the first cut of this clause did.
+%% belongs to — so a domain member describes as the type the author wrote. It
+%% is NOT the paste channel and must not carry a binder: `binder/1`'s
+%% delimiters are control bytes that only `nb/5` removes, and `nb/5` runs on
+%% the head channel alone. A binder here would reach the author as `( m)` with
+%% two invisible characters around the name.
 m_pat({dom, K, V}) ->
     "map<" ++ to_string(K) ++ ", " ++ to_string(V) ++ ">";
 m_pat({_Kind, Fields}) ->
     case maps:find('Kind', Fields) of
-        %% `bins := []` belongs in this pattern for the same reason it belongs in
-        %% `is_none/1`: the map pattern is partial, so without it a `Kind` field
-        %% typed `:'Shop.Order' | string` would print as a bare tag and the
-        %% synthesised head would silently drop the string half.
+        %% `bins := []` belongs in this pattern for the same reason it belongs
+        %% in `is_none/1`: the map pattern is partial, so without it a `Kind`
+        %% field typed `:'Shop.Order' | string` would print as a bare tag and
+        %% the synthesised head would silently drop the string half.
         {ok, #{atoms := {finite, [Tag]}, ints := [], tuples := [],
                lists := [], maps := [], bins := []}} ->
             "{ Kind: " ++ atom_str(Tag) ++ " }";
@@ -1897,10 +1684,9 @@ a_str({finite, L})    -> [atom_str(A) || A <- L];
 a_str({cofinite, []}) -> ["atom"];
 a_str({cofinite, L})  -> ["atom \\ (" ++ string:join([atom_str(A) || A <- L], " | ") ++ ")"].
 
-%% Quoted where the bare sigil cannot spell it. Ticket 04 makes the residual the
-%% missing case and ticket 23 makes it the clause an agent is handed to write —
-%% so it has to be something that lexes. A record's minted tag is the case in
-%% point: `:Shop.Invoice` is not a token, `:'Shop.Invoice'` is.
+%% Quoted where the bare sigil cannot spell it, so that a residual pasted back
+%% as a clause head always lexes (ticket 04, ticket 23). A record's minted tag
+%% is the case in point: `:Shop.Invoice` is not a token, `:'Shop.Invoice'` is.
 atom_str(A) ->
     case atom_to_list(A) of
         S = [C | Rest] when C >= $a, C =< $z ->
