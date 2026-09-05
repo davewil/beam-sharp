@@ -239,8 +239,9 @@ and after the wrapper, because the wrapper is *how* that type becomes true.
 - **A general `try`/`catch` in the surface.** Refused by 15 §4 — a general escape hatch (ticket 21)
   that invites exceptions-as-control-flow. Chosen partly for reversibility: adding one later is
   purely additive.
-- **`raise`.** Ticket 12 §5 decided the spelling and it is still unbuilt. It is the *producing* half
-  of the error model and this is the *recognising* half.
+- ~~**`raise`.** Ticket 12 §5 decided the spelling and it is still unbuilt. It is the *producing* half
+  of the error model and this is the *recognising* half.~~ **Built 2026-09-05 by F34**
+  ([ENG-293](https://linear.app/davewil/issue/ENG-293)); this file's half is unchanged by it.
 - **A mapping from `foreign_error` to a domain reason.** 15 §5 states the cost — the author writes
   the mapping function themselves — and an ordinary clause head is already enough to write it.
 - **The per-call-site cost number.** The map's fog records the wrapper as the fourth codegen

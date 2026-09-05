@@ -432,6 +432,12 @@ used_vars({e_switch, _, Subject, Arms}, Acc) ->
 %% A valve is walked like the switch it wraps, for the same reason: a
 %% parameter read only inside a stage must not be underscored (F14).
 used_vars({e_valve, _, Switch}, Acc) -> used_vars(Switch, Acc);
+%% A reason is read like any other expression, and the failure without this
+%% clause is the same one the switch above describes, measured rather than
+%% predicted: `Unwrap((:error, e)) -> raise e` emitted `_E` in the head and
+%% `E` in the body, and `erlc` rejected the module with `variable 'E' is
+%% unbound` — a name the author never wrote, against a file they never wrote.
+used_vars({e_raise, _, Reason}, Acc) -> used_vars(Reason, Acc);
 used_vars({e_list, _, Items, Rest}, Acc) ->
     R = case Rest of nil -> Acc; _ -> used_vars(Rest, Acc) end,
     lists:foldl(fun used_vars/2, R, Items);
@@ -609,6 +615,17 @@ expr({e_with, L, Base, Fields}, C) ->
 expr({e_proj, L, V, Field}, _C) ->
     {call, L, {remote, L, {atom, L, erlang}, {atom, L, map_get}},
      [{atom, L, Field}, {var, L, var_name(V)}]};
+%% `raise` lowers to `erlang:error/1` and to nothing else. That call is the
+%% ERROR class — the one that kills processes and that `function_clause`
+%% belongs to — which is the whole reason the word is not spelled `throw`: the
+%% BEAM's `throw` is the catchable non-local return, so emitting it would make
+%% a fatal crash recoverable by any enclosing wrapper (ticket 12 §5).
+%%
+%% The reason is emitted as an ordinary expression, so a raise inside a foreign
+%% call's argument, or a foreign call inside a reason, both work without this
+%% clause knowing about either.
+expr({e_raise, L, Reason}, C) ->
+    {call, L, {remote, L, {atom, L, erlang}, {atom, L, error}}, [expr(Reason, C)]};
 %% A foreign call is an ordinary remote call, wrapped in a `try` only when its
 %% declaration named a failure channel (F19). The boundary guard LANGUAGE.md
 %% §10 describes over the eight violation channels is not emitted here yet

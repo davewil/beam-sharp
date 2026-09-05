@@ -411,7 +411,7 @@ of them is a union like any other, which is why `Verdict` above needs no special
 | `(A, B)` | tuple | **shipped** |
 | `list<T>` | `[]` and `[h, ..t]` partition it, and a longer prefix narrows it: the cons cell decomposes, so length falls out without the type carrying one | **shipped** |
 | `term` | the top type — everything | **shipped** |
-| `none` | the bottom type, first-class | **shipped** |
+| `none` | the bottom type — `raise` has it, and every exhaustive function's residual is it. First-class **by decision** and not yet writable in a signature, which is the only part outstanding | **partly shipped** |
 | `float` | | **open** |
 | `binary` | the top, and it stays the top — sizes are not in the type language | **shipped** |
 | `string` | `binary` refined by valid UTF-8; a literal is one by construction | **shipped** |
@@ -1017,7 +1017,61 @@ which is why a map lookup is spelled that way.
 compiler writes from your declared return type, and process failure is `monitor` plus `receive`,
 which yields a better reason than `try` does.
 
-**decided** — and the wrapper half is **shipped**; see §11.
+**Shipped**, both halves: the producing half below, and the wrapper in §11.
+
+### A deliberate crash is spelled `raise`
+
+`raise` is a **keyword**, so it cannot also be a name: a parameter called `raise` is a syntax
+error, exactly as one called `and` is. A crash could have been an ordinary function returning
+`none` and needing no grammar at all; the keyword was chosen on read cost, because a function is
+lexically identical to a call, keeps its signature in another file, and leaves no single token
+that finds every crash site.
+
+Its type is `none`, the bottom — a type no value inhabits and therefore a subtype of every other.
+That is what lets a raising clause stand beside one that returns a value without widening the
+declared return type: the crash contributes nothing to the type the clauses justify.
+
+<!-- check:
+type Fetched = int | (:error, atom)
+-->
+```csharp
+public int Unwrap(Fetched r)
+Unwrap((:error, e)) -> raise e
+Unwrap(v)           -> v
+```
+
+`Unwrap` returns `int` and means it. The reason travels in the argument position rather than as an
+effect on the signature, so there is **no checked-exception surface**: what a function raises is
+data it was handed, and nothing in a caller's type has to account for it.
+
+A function whose every path crashes would *say* so by being declared `-> none`, and that is the one
+part of this not yet built — `none` is the bottom type and appears in diagnostics, but cannot yet
+be written in a signature. Until it can, a crash is spelled at the point of failure rather than
+named by a function that never returns. That is also why escalating from
+the `result` channel to a crash is an ordinary clause and needs no `?` and no `unwrap` primitive —
+a raised reason and a carried reason are the same kind of thing, and share their vocabulary with
+`result`'s `E`.
+
+**The exception class is the BEAM's `error`** — the one that kills processes and that
+`function_clause` belongs to. It is not `throw`. The BEAM's `throw` is the *catchable* non-local
+return, so spelling this `throw` as C# does would read as recoverable where the language means
+fatal. `throw` and `exit` have no producing spelling at all: clause heads and the `result` channel
+replace the first, and stopping yourself is a return value under §14's `(:stop, Reason, State)`.
+
+Any term is a legal reason; an atom or a tagged tuple is the recommendation.
+
+A guard is not a place a program may crash on purpose, and a guard shares the whole expression
+grammar — so this parses and is refused:
+
+<!-- diagnoses: raise_in_guard -->
+```csharp
+public int F(int x)
+F(x) when raise :boom -> x
+F(_)                  -> 0
+```
+
+— *`F` raises in a guard; a guard chooses which clause runs, it cannot crash. Move the raise into
+the body of the clause it should fail.*
 
 ### What a wrapped foreign call fails with
 
@@ -1887,8 +1941,12 @@ the parser accepts back exactly what the printer emits. **shipped**
   the declared aliases, the codegen obligations, and compiler-known operations inlined under the
   reserved qualifiers `Map`, `List` and `Term`; nothing unqualified is a function, and `raise` is a
   keyword. *Corrected 2026-09-04: this said "Unbuilt, and the build is its own issue" until that
-  build shipped.* `Map`'s own operations and `map<K, V>` remain unbuilt, and `raise` is still
-  owed. <!-- tracked by ENG-281 --> <!-- built by F32; ENG-319 and ENG-293 remain -->
+  build shipped.* `Map`'s own operations remain unbuilt, and ~~`raise` is still owed~~ — **`raise`
+  shipped 2026-09-05 (F34)**; what the error model still owes is a **writable `none`** — the bottom
+  type is first-class by decision and appears in diagnostics today, but cannot yet be written in a
+  signature. *Corrected 2026-09-05: this also said `map<K, V>` remains unbuilt, which had shipped
+  the day before it was written.*
+  <!-- tracked by ENG-281 --> <!-- built by F32, F33 and F34; ENG-324 and ENG-328 remain -->
 - **`cond`**, or whatever serves a long ladder of unrelated conditions. <!-- tracked by ENG-282 -->
 - **Laziness** and `stream<T>` — deferred, not refused. <!-- tracked by ENG-283 -->
 - **Bootstrapping** — how much of B# is written in B#. The front end likely stays Erlang, as

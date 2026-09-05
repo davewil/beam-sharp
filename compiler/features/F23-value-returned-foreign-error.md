@@ -196,4 +196,5 @@ modules compiled, `examples/Foreign` among them, negative controls still firing.
   channel it does not.
 - **A union inline in a `using` block.** §3. A grammar change owing `yecc:file/2`, buying only a
   second spelling.
-- **`raise`.** Still ticket 12 §5, still unbuilt — the *producing* half of the error model.
+- ~~**`raise`.** Still ticket 12 §5, still unbuilt — the *producing* half of the error model.~~
+  **Built 2026-09-05 by F34** ([ENG-293](https://linear.app/davewil/issue/ENG-293)).

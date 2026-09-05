@@ -22,6 +22,11 @@ syn keyword bsKeyword     module type record using behaviour behavior with var w
 
 " The one conjunction, in every position -- guard, pattern combinator and
 " refinement predicate (ticket 44, amending ticket 08). There is no && and no ||.
+" `raise` crashes on purpose and is the only way to produce one (ticket 12 §5).
+" Its own group rather than bsKeyword: `Exception` is what a reader's colour
+" scheme already reserves for the word that leaves a function without returning.
+syn keyword bsException   raise
+
 syn keyword bsOperator    and or
 
 " The two keyword atoms. Highlighting these as constants rather than as
@@ -96,5 +101,6 @@ hi def link bsNumber      Number
 hi def link bsAtom        Constant
 hi def link bsWildcard    Special
 hi def link bsOperator    Operator
+hi def link bsException   Exception
 
 let b:current_syntax = "bs"

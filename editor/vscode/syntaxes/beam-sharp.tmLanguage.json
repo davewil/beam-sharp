@@ -55,6 +55,11 @@
           "match": "\\b(switch|when)\\b"
         },
         {
+          "_comment": "`raise` deliberately crashes and is the only spelling that produces one (ticket 12 §5). Scoped `exception` rather than sharing the line above, so a theme can colour the word that leaves without returning differently from the one that branches.",
+          "name": "keyword.control.exception.beam-sharp",
+          "match": "\\b(raise)\\b"
+        },
+        {
           "_comment": "`var` INTRODUCES a name (F8, ticket 45) and `where` carries a type's refinement predicate (F2, ticket 20 §5). `var` shipped with F8 and was never added here; the token gate says so by name, which is what it is for.",
           "name": "keyword.declaration.beam-sharp",
           "match": "\\b(module|type|record|using|behaviour|behavior|with|var|where|public|private)\\b"

@@ -1,0 +1,42 @@
+// escalate.bs -- `raise`, the producing half of the error model (F34, tickets
+// 12 §5 and 15 §3). The consuming half is `Foreign/` and `Interop/`.
+//
+//     bsc --src-root examples examples/Escalate Unwrap "(:ok, 7)"    -> 7
+//     bsc --src-root examples examples/Escalate Ceiling 40           -> 40
+//
+// THE PROPERTY WORTH LOOKING AT is that `Unwrap` below is declared to return
+// `int` and does not lie, even though one of its two clauses returns nothing at
+// all. `raise` has type `none` -- the type no value inhabits, and therefore a
+// subtype of every type -- so the raising clause contributes NOTHING to the
+// type the clauses justify. Delete the `raise` and put `e` in its place and the
+// compiler hands back `public int | atom Unwrap(Fetched f)`, because then the
+// clause really does return something the signature does not admit.
+module Escalate
+
+type Fetched = (:ok, int) | (:error, atom)
+
+// ESCALATING FROM THE `result` CHANNEL TO A CRASH IS AN ORDINARY CLAUSE. There
+// is no `?`, no `unwrap` primitive and no new construct, because a raised
+// reason and a carried reason are the same kind of thing: `e` is bound by the
+// pattern and handed straight to `raise`. That sharing is ticket 15 §3's, and
+// it is why the error model needs no checked-exception surface -- a function
+// that raises says so by returning `none`, and what it raises is data it was
+// handed.
+public int Unwrap(Fetched f)
+
+Unwrap((:ok, n))    -> n
+Unwrap((:error, e)) -> raise e
+
+// THE REASON IS AN ORDINARY EXPRESSION, and `raise` is the loosest thing in the
+// operator table, so it extends to the end of it: this raises the whole tuple
+// rather than the atom, and no bracket is needed to say so.
+//
+// A tagged tuple is what ticket 15 §3 recommends when the reason carries a
+// value, and an atom when it does not -- the same vocabulary a `result`'s error
+// member would use, which is the point of sharing it.
+type Height = int where value >= 0 and value <= 40
+
+public Height Ceiling(int metres)
+
+Ceiling(m) when m >= 0 and m <= 40 -> m
+Ceiling(m)                         -> raise (:above_ceiling, m)

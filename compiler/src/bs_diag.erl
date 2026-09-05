@@ -157,6 +157,8 @@ descriptor(Path, {Sev, Line, Fn, {unsatisfiable_arm_guard, N}}) ->
     (at(Sev, Path, Line, Fn))#{tag => unsatisfiable_arm_guard, arm_number => N};
 descriptor(Path, {Sev, Line, Fn, switch_in_guard}) ->
     (at(Sev, Path, Line, Fn))#{tag => switch_in_guard};
+descriptor(Path, {Sev, Line, Fn, raise_in_guard}) ->
+    (at(Sev, Path, Line, Fn))#{tag => raise_in_guard};
 descriptor(Path, {Sev, Line, Fn, {unreachable_clause, N}}) ->
     (at(Sev, Path, Line, Fn))#{tag => unreachable_clause, clause_number => N};
 %% `vacuous_clause` carries the domain rather than the offending pattern: the
@@ -604,6 +606,16 @@ message(#{tag := switch_in_guard, file := P, line := L, function := Fn}) ->
     {"~s:~p: error: ~s has a switch in a guard~n"
      "  a guard asks a question about the values a clause already~n"
      "  matched; it cannot branch. Move the switch into the body.~n",
+     [P, L, Fn]};
+%% Same reason as the switch above: a guard shares the whole expression grammar,
+%% so a raise parses inside one and is refused here rather than in the grammar.
+%% The repair names the body because that is where a crash belongs — the guard
+%% chooses a clause, and a clause that should crash is a clause whose body is
+%% the raise (ticket 12 §5).
+message(#{tag := raise_in_guard, file := P, line := L, function := Fn}) ->
+    {"~s:~p: error: ~s raises in a guard~n"
+     "  a guard chooses which clause runs; it cannot crash. Move~n"
+     "  the raise into the body of the clause it should fail.~n",
      [P, L, Fn]};
 message(#{tag := unreachable_clause, file := P, line := L, function := Fn,
           clause_number := N}) ->

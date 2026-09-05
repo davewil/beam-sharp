@@ -1600,6 +1600,10 @@
         {
           "type": "SYMBOL",
           "name": "switch_expression"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "raise_expression"
         }
       ]
     },
@@ -2147,6 +2151,27 @@
           "value": "]"
         }
       ]
+    },
+    "raise_expression": {
+      "type": "PREC_RIGHT",
+      "value": 40,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "STRING",
+            "value": "raise"
+          },
+          {
+            "type": "FIELD",
+            "name": "reason",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_expression"
+            }
+          }
+        ]
+      }
     },
     "rest_expression": {
       "type": "SEQ",

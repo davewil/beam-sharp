@@ -1103,6 +1103,48 @@ the callee returned, and those are different repairs.
 
 <!-- ticket 19, F19 -->
 
+### Going the other way: `raise`
+
+Everything above is about *receiving* a failure. `raise` is how you cause one, and it is the only
+way — there is no `throw` and no `exit` to write.
+
+```csharp
+type Fetched = (:ok, int) | (:error, atom)
+
+public int Unwrap(Fetched f)
+
+Unwrap((:ok, n))    -> n
+Unwrap((:error, e)) -> raise e
+```
+
+```
+$ bsc --src-root examples examples/Escalate Unwrap '(:ok, 7)'
+7
+```
+
+**`Unwrap` returns `int` and does not lie**, though one of its two clauses returns nothing at all.
+`raise` has type `none` — the type no value inhabits, and so a subtype of every type — which is why
+the raising clause adds nothing to what the clauses justify. Replace `raise e` with plain `e` and
+the compiler says so:
+
+    error: Unwrap returns a value its signature does not declare
+      not covered by the declared return type:
+        atom
+      the signature its clauses justify:
+        public int | atom Unwrap(Fetched f)
+
+Escalating from the `result` channel to a crash needs no `?`, no `unwrap` primitive and no new
+construct, because a raised reason and a carried reason are the same kind of thing: `e` is bound by
+the pattern and handed straight to `raise`. Any term is a legal reason; an atom or a tagged tuple is
+the recommendation.
+
+The word is Elixir's rather than C#'s `throw`, and that is a semantic choice rather than a stylistic
+one: on the BEAM `throw` is the *catchable* class, so a reader would take it for recoverable where
+the language means fatal. `raise` produces the error class — the one that kills processes, and the
+one `function_clause` belongs to.
+
+<!-- ticket 12 §5, ticket 15 §3, F34 -->
+
 ---
 
 ## 15. The boundary, and the one construct that crosses it
@@ -1344,8 +1386,8 @@ The language's **name** is also open. `beam-sharp` is a working title.
 
 ## Appendix: the construct index
 
-**The corpus gate names 51 capabilities and fails by name when one has no example to look
-at.** All 51 are below, in the gate's own wording, so the two lists can be diffed by machine
+**The corpus gate names 53 capabilities and fails by name when one has no example to look
+at.** All 53 are below, in the gate's own wording, so the two lists can be diffed by machine
 — `compiler/bin/check-tour.sh` does exactly that, and this table is red the day the compiler
 grows a capability the tour has not met.
 
@@ -1392,6 +1434,7 @@ grows a capability the tour has not met.
 | a foreign call | `examples/Interop/interop.bs` | 13 |
 | a foreign declaration whose THROW is turned into a value | `examples/Foreign/foreign.bs` | 14 |
 | a foreign call whose error arrives as a value, unwrapped | `examples/Foreign/foreign.bs` | 14 |
+| a deliberate crash | `examples/Escalate/escalate.bs` | 14 |
 | a codegen obligation instantiated | `examples/Intake/intake.bs` | 15 |
 | ValidationError as a declared type | `examples/Intake/intake.bs` | 15 |
 | a binary pattern | `examples/Frame/frame.bs` | 10 |

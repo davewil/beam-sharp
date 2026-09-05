@@ -68,6 +68,10 @@
             "named": true
           },
           {
+            "type": "raise_expression",
+            "named": true
+          },
+          {
             "type": "record_construction",
             "named": true
           },
@@ -201,6 +205,10 @@
           },
           {
             "type": "qualified_call",
+            "named": true
+          },
+          {
+            "type": "raise_expression",
             "named": true
           },
           {
@@ -392,6 +400,10 @@
             "named": true
           },
           {
+            "type": "raise_expression",
+            "named": true
+          },
+          {
             "type": "record_construction",
             "named": true
           },
@@ -477,6 +489,10 @@
         },
         {
           "type": "qualified_call",
+          "named": true
+        },
+        {
+          "type": "raise_expression",
           "named": true
         },
         {
@@ -591,6 +607,10 @@
         },
         {
           "type": "qualified_call",
+          "named": true
+        },
+        {
+          "type": "raise_expression",
           "named": true
         },
         {
@@ -724,6 +744,10 @@
           },
           {
             "type": "qualified_call",
+            "named": true
+          },
+          {
+            "type": "raise_expression",
             "named": true
           },
           {
@@ -896,6 +920,10 @@
         },
         {
           "type": "qualified_call",
+          "named": true
+        },
+        {
+          "type": "raise_expression",
           "named": true
         },
         {
@@ -1089,6 +1117,10 @@
           "named": true
         },
         {
+          "type": "raise_expression",
+          "named": true
+        },
+        {
           "type": "record_construction",
           "named": true
         },
@@ -1199,6 +1231,10 @@
           "named": true
         },
         {
+          "type": "raise_expression",
+          "named": true
+        },
+        {
           "type": "record_construction",
           "named": true
         },
@@ -1283,6 +1319,10 @@
         },
         {
           "type": "qualified_call",
+          "named": true
+        },
+        {
+          "type": "raise_expression",
           "named": true
         },
         {
@@ -1528,6 +1568,10 @@
             "named": true
           },
           {
+            "type": "raise_expression",
+            "named": true
+          },
+          {
             "type": "record_construction",
             "named": true
           },
@@ -1695,6 +1739,10 @@
           "named": true
         },
         {
+          "type": "raise_expression",
+          "named": true
+        },
+        {
           "type": "record_construction",
           "named": true
         },
@@ -1723,6 +1771,94 @@
           "named": true
         }
       ]
+    }
+  },
+  {
+    "type": "raise_expression",
+    "named": true,
+    "fields": {
+      "reason": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "atom",
+            "named": true
+          },
+          {
+            "type": "binary_expression",
+            "named": true
+          },
+          {
+            "type": "boolean",
+            "named": true
+          },
+          {
+            "type": "call",
+            "named": true
+          },
+          {
+            "type": "foreign_call",
+            "named": true
+          },
+          {
+            "type": "instantiation",
+            "named": true
+          },
+          {
+            "type": "integer",
+            "named": true
+          },
+          {
+            "type": "list",
+            "named": true
+          },
+          {
+            "type": "pipe_expression",
+            "named": true
+          },
+          {
+            "type": "projection",
+            "named": true
+          },
+          {
+            "type": "qualified_call",
+            "named": true
+          },
+          {
+            "type": "raise_expression",
+            "named": true
+          },
+          {
+            "type": "record_construction",
+            "named": true
+          },
+          {
+            "type": "record_update",
+            "named": true
+          },
+          {
+            "type": "string",
+            "named": true
+          },
+          {
+            "type": "switch_expression",
+            "named": true
+          },
+          {
+            "type": "tuple",
+            "named": true
+          },
+          {
+            "type": "variable",
+            "named": true
+          },
+          {
+            "type": "wildcard",
+            "named": true
+          }
+        ]
+      }
     }
   },
   {
@@ -1870,6 +2006,10 @@
           "named": true
         },
         {
+          "type": "raise_expression",
+          "named": true
+        },
+        {
           "type": "record_construction",
           "named": true
         },
@@ -1980,6 +2120,10 @@
         },
         {
           "type": "qualified_call",
+          "named": true
+        },
+        {
+          "type": "raise_expression",
           "named": true
         },
         {
@@ -2175,6 +2319,10 @@
             "named": true
           },
           {
+            "type": "raise_expression",
+            "named": true
+          },
+          {
             "type": "record_construction",
             "named": true
           },
@@ -2279,6 +2427,10 @@
             "named": true
           },
           {
+            "type": "raise_expression",
+            "named": true
+          },
+          {
             "type": "record_construction",
             "named": true
           },
@@ -2370,6 +2522,10 @@
         },
         {
           "type": "qualified_call",
+          "named": true
+        },
+        {
+          "type": "raise_expression",
           "named": true
         },
         {
@@ -2723,6 +2879,10 @@
   },
   {
     "type": "public",
+    "named": false
+  },
+  {
+    "type": "raise",
     "named": false
   },
   {

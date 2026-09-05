@@ -26,6 +26,9 @@
  */
 
 const PREC = {
+  // Lowest in the table, matching `bs_parser.yrl`: a raise takes the whole
+  // expression to its right, so `raise (:bad, n + 1)` needs no bracket.
+  raise: 40,
   bind: 50,
   or: 100,
   and: 200,
@@ -405,6 +408,7 @@ module.exports = grammar({
       $.binary_expression,
       $.pipe_expression,
       $.switch_expression,
+      $.raise_expression,
     ),
 
     call: $ => seq(
@@ -485,6 +489,14 @@ module.exports = grammar({
       optional($.rest_expression),
       ']',
     ),
+
+    // `raise` deliberately crashes (ticket 12 §5). `prec.right` because the
+    // operand extends as far right as it can, which is what the reference
+    // parser's lowest precedence buys there.
+    raise_expression: $ => prec.right(PREC.raise, seq(
+      'raise',
+      field('reason', $._expression),
+    )),
 
     rest_expression: $ => seq('..', $._expression),
 

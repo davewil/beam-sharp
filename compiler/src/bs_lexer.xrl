@@ -49,6 +49,14 @@ switch                  : {token, {'switch', TokenLine}}.
 %% 2026-08-16) and yecc refuses to generate (F8).
 var                     : {token, {'var', TokenLine}}.
 
+%% `raise` crashes on purpose, and is a keyword rather than a prelude function
+%% returning `none`: a function would be lexically identical to a call, would
+%% keep its signature in another file under one-function-per-file, and would
+%% leave no single token that finds every crash site (ticket 12 §5). Being a
+%% keyword, it is not available as a name — a parameter called `raise` is a
+%% syntax error, the same consequence `and` and `or` carry below.
+raise                   : {token, {'raise', TokenLine}}.
+
 %% `and`/`or` are the only conjunctions, in guards and in patterns alike; `&&`
 %% and `||` are not accepted, even as synonyms, and a parameter may not be
 %% named `and` or `or` (ticket 44, amending ticket 08). Erlang's `and` does not

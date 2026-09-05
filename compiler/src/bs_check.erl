@@ -1406,6 +1406,10 @@ expr_vars({e_switch, _, Subject, Arms}) ->
 %% the grammar and falls through to `[]`, so without this clause a misspelled
 %% name inside a valve stage would be accepted in silence.
 expr_vars({e_valve, _, Switch})        -> expr_vars(Switch);
+%% Same reason again: without this clause a misspelled name in a raised reason
+%% is accepted in silence, and the author learns of it from `erlc` or from a
+%% crash carrying the wrong term.
+expr_vars({e_raise, _, Reason})        -> expr_vars(Reason);
 expr_vars(_)                           -> [].
 
 arm_free_vars({arm, _, P, Guard, Body}) ->
@@ -1531,25 +1535,38 @@ literal_diags(_, _) -> [].
 %% so both parse; left alone, `_` reaches `bs_emit:expr/2` as a crash and the
 %% switch reaches the author as `illegal guard expression` from `erlc`
 %% against a file they did not write (F5, F7, F4.7).
+%% Three refusals, one walk. `raise` is the third node this guard has had to
+%% refuse, and the note that used to sit on `wildcards/1` said a third copy of
+%% the walk was the wrong answer before there was one — so the walk is named
+%% once and the three callers differ only in the node they look for.
+%%
+%% Why each is refused rather than left to the BEAM:
+%%   `_`      reaches `bs_emit:expr/2` as a crash (F5).
+%%   `switch` reaches the author as `illegal guard expression` from `erlc`
+%%            against a file they did not write (F7).
+%%   `raise`  the same, and for the same reason — `erlang:error/1` is not a
+%%            guard BIF, and a guard chooses which clause runs rather than
+%%            crashing (ticket 12 §5).
 guard_diags(none, _Ctx) -> [];
 guard_diags({guard, Expr}, C) ->
-    [{error, L, C#ctx.fname, wildcard_as_value} || L <- wildcards(Expr)]
-        ++ [{error, L, C#ctx.fname, switch_in_guard} || L <- switches(Expr)].
+    [{error, L, C#ctx.fname, wildcard_as_value} || L <- nodes_of(e_wild, Expr)]
+        ++ [{error, L, C#ctx.fname, switch_in_guard} || L <- nodes_of(e_switch, Expr)]
+        ++ [{error, L, C#ctx.fname, raise_in_guard} || L <- nodes_of(e_raise, Expr)].
 
-%% Generic, because a guard shares the whole expression grammar and enumerating
-%% it a third time to find one node would be three copies of the same walk.
-wildcards({e_wild, L})           -> [L];
-wildcards(T) when is_tuple(T)    -> wildcards(tuple_to_list(T));
-wildcards(L) when is_list(L)     -> lists:append([wildcards(E) || E <- L]);
-wildcards(_)                     -> [].
-
-%% The same walk, stopping at a switch rather than descending through it:
-%% one error per guard is what the author needs, and a switch nested inside a
-%% refused switch is not a second mistake.
-switches({e_switch, L, _, _})    -> [L];
-switches(T) when is_tuple(T)     -> switches(tuple_to_list(T));
-switches(L) when is_list(L)      -> lists:append([switches(E) || E <- L]);
-switches(_)                      -> [].
+%% Generic over the tuple/list shape rather than over the grammar, because a
+%% guard shares the whole expression grammar and enumerating it once per node
+%% kind would be a copy of the same walk each time.
+%%
+%% It STOPS at a match rather than descending through it: one error per guard
+%% is what the author needs, and a switch nested inside a refused switch is not
+%% a second mistake. `e_wild` is a leaf, so stopping costs it nothing.
+%%
+%% Every node carries its line second, which is what makes one walk serve all
+%% three; a node shape that broke that would have to be matched on its own.
+nodes_of(Tag, T) when is_tuple(T), element(1, T) =:= Tag -> [element(2, T)];
+nodes_of(Tag, T) when is_tuple(T) -> nodes_of(Tag, tuple_to_list(T));
+nodes_of(Tag, L) when is_list(L)  -> lists:append([nodes_of(Tag, E) || E <- L]);
+nodes_of(_Tag, _)                 -> [].
 
 %% Site 4, the clause return: a body's type must be contained in the declared
 %% return type. Every function is emitted with a `-spec` (ticket 13), so an
@@ -1629,6 +1646,21 @@ type_of({e_var, _, V}, S, _C)   -> {maps:get(V, S, bs_types:term()), []};
 %% from `erlc` against a file they did not write.
 type_of({e_wild, L}, _S, C) ->
     {reported(), [{error, L, C#ctx.fname, wildcard_as_value}]};
+%% A raise has type `none`, the bottom: no value inhabits it, so it is a
+%% subtype of every type and a raising clause satisfies whatever return the
+%% signature declares (ticket 12 §4, §5). Nothing special-cases the return
+%% check to allow this — `is_subtype/2` is `is_none(subtract(A, B))` and
+%% subtracting anything from the empty set leaves it empty, so the containment
+%% simply holds. The consequence worth naming: a raising clause contributes
+%% NOTHING to the type the clauses justify, so F25 never asks the author to
+%% widen a signature to admit a crash.
+%%
+%% This returns the same type as `reported()` and means something different.
+%% There the bottom suppresses a cascade after an error; here it is the honest
+%% type of an expression that does not return, so the call is written out.
+type_of({e_raise, _, Reason}, S, C) ->
+    {_, D} = type_of(Reason, S, C),
+    {bs_types:none(), D};
 type_of({e_tuple, _, Es}, S, C) ->
     {Tys, D} = type_of_all(Es, S, C),
     {bs_types:tuple(Tys), D};

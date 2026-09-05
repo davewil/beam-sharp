@@ -24,8 +24,20 @@
 # evidence here that is not self-reported.
 
 url       https://claude.ai/code/artifact/40f71cf4-d5d3-4b71-882c-ad73f630a03c
-sha256    f8b4a46e5adf8a5ecf34d64ee40098cbf7e4d96049389cdd9bfc6f4a0cdd5641
-verified  2026-09-04 (for F32's reserved qualifiers) — chapter 11's worked module was
+sha256    9320fcfb97d3f0e056a78bda1444043027aa7c1a1a7380890f8d6ffffd912dd5
+verified  2026-09-05 (for F34's `raise`) — chapter 14 taught only how to RECEIVE a failure; the
+          producing half had no spelling until this feature, so a new section closes it with the
+          `Unwrap` escalation, the `none` return type that makes a raising clause honest, and the
+          class argument for Elixir's word over C#'s `throw`. The appendix gained
+          `a deliberate crash`. Its own prose said the gate names **51** capabilities where the
+          gate now reads **53** — that count had rotted silently, because part 2 checks that every
+          capability APPEARS and never reads the number beside it, so it was already wrong by one
+          before this feature added the row. Read back in full before republishing and the live
+          page still ended chapter 14 at the foreign-error section with no raise anywhere, so the
+          stale state was confirmed rather than assumed, and the read showed a plain render of
+          TOUR.md with nothing saved into it independently.
+
+          2026-09-04 (for F32's reserved qualifiers) — chapter 11's worked module was
           `Shop.Collections.List`, and short-qualifying it to `List` through the namespace tier
           is exactly the program F32 now refuses, so the corpus module was renamed to
           `Shop.Collections.Ints` and chapters 11 and 12 follow it. The "Decided but not built"

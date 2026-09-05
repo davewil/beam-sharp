@@ -22,7 +22,7 @@ Nonterminals
 
 Terminals
   'module' 'type' 'when' 'using' 'behaviour' 'record' 'with' 'switch' 'var'
-  'and' 'or' 'where' 'public' 'private'
+  'and' 'or' 'where' 'public' 'private' 'raise'
   uident lident atom_lit integer string_lit '_'
   '->' '=>' '==' '!=' '<=' '>=' '<<' '<' '>' '+' '-' '*' '/' '%'
   '=' '|' '|>' '|?>' ',' '(' ')' '[' ']' '{' '}' '..' '.' ':' '?'
@@ -35,6 +35,14 @@ Rootsymbol program.
 %% fail-to-false (ticket 08, amended by 44). `=` is not an expression
 %% operator, a binding is a body form (ticket 34), but it needs the lowest
 %% precedence so `x = 1 + 2` shifts the operator instead of reducing the bind.
+%% `raise` takes the whole expression to its right: it is looser than every
+%% operator, so `raise (:bad, n + 1)` needs no bracket around the arithmetic and
+%% `raise x switch { ... }` raises the switch's value rather than switching on a
+%% crash. Lowest in the table is what buys that — every operator's precedence
+%% exceeds it, so yecc shifts the operator instead of reducing the raise. There
+%% is no reading in which a raise should stop early: its operand is a reason,
+%% and a reason is whatever expression the author wrote (ticket 12 §5).
+Nonassoc  40 'raise'.
 Nonassoc  50 '='.
 Left  100 'or'.
 Left  200 'and'.
@@ -419,6 +427,14 @@ expr -> lident   : {e_var, line('$1'), value('$1')}.
 %% `_` is an expression only so that `(a, _) = pair` parses, the left of a
 %% bare `=` being an expression. Used as a value it is rejected by `bs_check`.
 expr -> '_'      : {e_wild, line('$1')}.
+
+%% A deliberate crash. It is an expression rather than a statement because a
+%% body is one expression (ticket 34), so a clause that only crashes needs no
+%% second form — and because its type is `none`, it may stand anywhere a value
+%% is expected, including a switch arm beside arms that return (ticket 12 §5).
+%% The operand is an ordinary expression and is checked as one; nothing here
+%% restricts it to a literal.
+expr -> 'raise' expr : {e_raise, line('$1'), '$2'}.
 
 %% --- calls ------------------------------------------------------------------
 %% The call forms are a nonterminal of their own because a pipe's right

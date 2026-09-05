@@ -48,6 +48,11 @@ demonstrated_surface() ->
      {"a field projection",                      "\\.[A-Z]"},
      {"a tag or property pattern",               "\\{ [A-Z][A-Za-z]*:"},
      {"a guard",                                 " when "},
+     %% F34. Anchored on the keyword and a trailing space, so it probes the
+     %% construct rather than the word: `raise` cannot appear as an identifier
+     %% anywhere in the corpus, being a keyword, and the comment lines this
+     %% probe runs over have already been stripped.
+     {"a deliberate crash",                      "raise "},
      %% Ticket 44 renamed the conjunction from `&&` to `and`, and this probe is
      %% where the rename first showed up as a red gate rather than as a diff: the
      %% old regex was one glyph that could not appear in any other construct, and
