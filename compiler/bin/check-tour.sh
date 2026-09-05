@@ -242,7 +242,7 @@ if [ "${1:-}" = "--self-test" ]; then
 
   # 10 — the output under a directive one line number off. The exact defect:
   # `wire.bs:40` sat in this transcript while the compiler said 42.
-  mutate "$CTL/10.md" 's/^examples\/Wire\/wire.bs:42: error: Classify is not exhaustive$/examples\/Wire\/wire.bs:40: error: Classify is not exhaustive/'
+  mutate "$CTL/10.md" 's/^examples\/Wire\/wire.bs:42:18: error: Classify is not exhaustive$/examples\/Wire\/wire.bs:40:18: error: Classify is not exhaustive/'
   launch 10 TOUR_DOC="$CTL/10.md"
   expect DRIFTED 10 "a stale line number under a directive was not reported —
                   the edited replay is not being compared"

@@ -276,5 +276,8 @@ a_diagnostic_inside_a_piped_call_names_the_pipes_line_test() ->
           "public int Run(int n)\n"
           "Run(n) -> n |>\n"
           "  Twice(:oops)\n",
-    %% The pipe is on line 5 and `Twice(` is on line 6.
-    [{error, 5, 'Run', _}] = errors(Src).
+    %% The pipe is on line 5 and `Twice(` is on line 6. The column is left
+    %% open: what this test claims is which LINE the diagnostic is attributed
+    %% to, and pinning the column would make it fail on a re-indent that does
+    %% not change the answer.
+    [{error, {5, _}, 'Run', _}] = errors(Src).

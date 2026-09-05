@@ -188,9 +188,14 @@ no_function_in_index(_Path, _Decls) -> ok.
 module_matches_path(_Module, _Sources, undefined) -> ok;
 module_matches_path(Module, _Sources, Module) -> ok;
 module_matches_path(Module, Sources, Expect) ->
+    %% The fallback is a POSITION, not a line: a file with no `module` line
+    %% has nothing to point at, so this is attributed to the top of it, and
+    %% since F35 the top of a file is `{1, 1}`. A bare integer here reaches
+    %% `bs_diag` as a descriptor with a line and no column, and `message/1`
+    %% has no catch-all — it crashes rather than printing half a position.
     Line = case [L || {_, D} <- Sources, {module, L, N} <- D, N =:= Module] of
                [L | _] -> L;
-               []      -> 1
+               []      -> {1, 1}
            end,
     erlang:error({module_path_mismatch, Module, Expect, Line}).
 
@@ -202,10 +207,13 @@ reserved_module_name(Module, Sources) ->
     case lists:member(Module, reserved_qualifiers()) of
         false -> ok;
         true  ->
+            %% `{1, 1}` for the same reason as `module_matches_path/3`
+            %% above: the fallback is a position, and the top of a file is
+            %% both halves of one.
             Line = case [L || {_, D} <- Sources, {module, L, N} <- D,
                               N =:= Module] of
                        [L | _] -> L;
-                       []      -> 1
+                       []      -> {1, 1}
                    end,
             erlang:error({reserved_module_name, Module, Line})
     end.
@@ -285,8 +293,8 @@ exports_of(Decls) ->
     %% `option<atom>` (F31). For `bsc:build/4` this cannot fire: the module
     %% was already checked clean.
     collapse_refused(Decls, Env),
-    maps:from_list([{{N, length(Ps)}, sig(Ps, R, Env)}
-                    || {signature, _, N, R, Ps, V} <- Decls, V =:= public]).
+    maps:from_list([{{N, length(Ps)}, at_loc(L, fun() -> sig(Ps, R, Env) end)}
+                    || {signature, L, N, R, Ps, V} <- Decls, V =:= public]).
 
 %% The names a dependent may not call, carried so the refusal can say why.
 %% No signature: nothing outside the module may use one.
@@ -435,10 +443,12 @@ collect(Decls) ->
 %% permitted (ticket 40 §2) and a name-only map would keep whichever arity
 %% was written last.
 callees(Decls, Env, Imports) ->
-    Local = [{{N, length(Ps)}, sig(Ps, R, Env)} || {signature, _, N, R, Ps, _} <- Decls],
+    Local = [{{N, length(Ps)}, at_loc(SL, fun() -> sig(Ps, R, Env) end)}
+             || {signature, SL, N, R, Ps, _} <- Decls],
     Foreign = [begin
                    admissible_foreign_ret(L, Mod, N, R, Env),
-                   {{f, Mod, N, length(Ps)}, sig(Ps, R, Env)}
+                   {{f, Mod, N, length(Ps)},
+                    at_loc(L, fun() -> sig(Ps, R, Env) end)}
                end
                || {foreign, _, Mod, Sigs} <- Decls,
                   {foreign_sig, L, N, R, Ps} <- Sigs],
@@ -481,6 +491,51 @@ opaque_refinement(Ty = #{tuples := Ps, maps := Ms}) ->
 
 sig(Params, Ret, Env) ->
     {[resolve(T, Env) || {param, T, _} <- Params], resolve(Ret, Env)}.
+
+%% A RESOLVE-TIME CONDITION GETS THE POSITION OF THE DECLARATION IT WAS FOUND
+%% IN, AND NOT ITS OWN.
+%%
+%% `resolve/3` is handed a type expression, and the grammar attaches no
+%% position to one: `type_prim -> uident : {t_ref, value('$1')}` drops the
+%% token's location, as does every other type production. So the six
+%% conditions raised from below it carry nothing an editor can place, and
+%% before F35 they reached the author as `file: error: ...` with no position
+%% at all (ENG-297).
+%%
+%% The position is attached HERE, by the nearest enclosing node that has one,
+%% rather than threaded through `resolve/3` — that would mean a position on
+%% every type node and a change to every consumer of one, which is a larger
+%% increment than this and belongs with the type grammar rather than beside
+%% it. The honest limit: an editor underlines the DECLARATION that names the
+%% missing type, not the name itself.
+%%
+%% A condition that already carries a position is re-raised untouched, so
+%% `kind_field_is_minted` and its neighbours keep the position they mint.
+%% A caller with no position to give asks for none: the prelude's entries are
+%% not declared anywhere in the file being checked.
+at_loc(undefined, Fun) ->
+    Fun();
+at_loc(Loc, Fun) ->
+    try Fun()
+    catch
+        error:Reason:S when is_tuple(Reason), tuple_size(Reason) > 0 ->
+            case positionless(element(1, Reason)) of
+                true  -> erlang:raise(error, {at, Loc, Reason}, S);
+                false -> erlang:raise(error, Reason, S)
+            end
+    end.
+
+%% The closed set from `editor/README.md`'s prerequisite 2. It is written out
+%% rather than derived because a new resolve-time condition should have to
+%% decide whether it carries its own position, and adding a name here is that
+%% decision taken deliberately.
+positionless(unknown_type)    -> true;
+positionless(unknown_builtin) -> true;
+positionless(generic_arity)   -> true;
+positionless(needs_type_args) -> true;
+positionless(not_parametric)  -> true;
+positionless(cyclic_type)     -> true;
+positionless(_)               -> false.
 
 %%% ---------------------------------------------------------------------------
 %%% The foreign `try` wrapper, decided at the declaration (F19, ticket 15 §4)
@@ -670,11 +725,24 @@ type_env(Decls) ->
     %% because a non-contractive cycle is reported by whichever entry is
     %% reached first and `maps:map/2` has no defined order: sorting makes the
     %% reported name a property of the program rather than of a hash.
+    %% Each entry resolves under the position of the DECLARATION it came
+    %% from, so `type Wrong<T> = (T, U)` names its own line rather than the
+    %% file (F35). The prelude's entries have no declaration and resolve
+    %% under `undefined`, which `at_loc/2` passes through untouched.
+    Locs = maps:from_list(
+             [{N, L} || {type_alias, L, N, _, _} <- Decls]
+             ++ [{N, L} || {type_refined, L, N, _, _} <- Decls]
+             ++ [{N, L} || {record_decl, L, N, _} <- Decls]),
     lists:foldl(
       fun(N, Acc) ->
               case maps:get(N, Env) of
                   {parametric, _, _} = P -> Acc#{N => P};
-                  T -> Acc#{N => bs_types:mu(N, resolve(T, Env, [N]))}
+                  T ->
+                      Loc = maps:get(N, Locs, undefined),
+                      Acc#{N => at_loc(Loc,
+                                       fun() ->
+                                           bs_types:mu(N, resolve(T, Env, [N]))
+                                       end)}
               end
       end, #{}, lists:sort(maps:keys(Env))).
 

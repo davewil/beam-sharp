@@ -95,16 +95,26 @@ nested_generics_parse_because_there_is_no_shift_operator_test() ->
           "Depth([xs, ..r]) -> 1\n",
     ?assertMatch({ok, _, _}, check_only(Src)).
 
+%%% `{at, Loc, Condition}` IS THE POSITION WRAPPER, AND THE `_` IS DELIBERATE.
+%%%
+%%% Since F35 a resolve-time condition is re-raised by `bs_check:at_loc/2`
+%%% carrying the position of the declaration it was found in, because the
+%%% grammar attaches none to a type. What these tests claim is WHICH
+%%% condition each mistake raises; that it carries a position, and which one,
+%%% is `columns_tests`' claim and is asserted there at the boundary. Pinning
+%%% the loc in both places would make every one of these fail on a re-indent
+%%% that changes no answer.
+
 %% F6.6 — a bracket the compiler KNOWS at the wrong arity is a different mistake
 %% from one it does not know, and it needs a different edit to fix.
 a_bracket_at_the_wrong_arity_says_so_test() ->
-    ?assertError({generic_arity, result, 2, 1},
+    ?assertError({at, _, {generic_arity, result, 2, 1}},
                  check_only("module E\ntype B = result<int>\n"
                             "public atom F(B b)\nF(b) -> :ok\n")),
-    ?assertError({generic_arity, option, 1, 2},
+    ?assertError({at, _, {generic_arity, option, 1, 2}},
                  check_only("module E\ntype B = option<int, atom>\n"
                             "public atom F(B b)\nF(b) -> :ok\n")),
-    ?assertError({generic_arity, list, 1, 2},
+    ?assertError({at, _, {generic_arity, list, 1, 2}},
                  check_only("module E\npublic atom F(list<int, atom> xs)\nF(xs) -> :ok\n")).
 
 %% A parametric name written without its bracket. `option` alone is not an
@@ -112,15 +122,15 @@ a_bracket_at_the_wrong_arity_says_so_test() ->
 %% (prelude) and PascalCase (user) halves reach that answer down different
 %% resolver arms, so both are asserted.
 a_parametric_name_without_its_bracket_says_so_test() ->
-    ?assertError({needs_type_args, option, 1},
+    ?assertError({at, _, {needs_type_args, option, 1}},
                  check_only("module E\npublic atom F(option o)\nF(o) -> :ok\n")),
-    ?assertError({needs_type_args, 'Pair', 1},
+    ?assertError({at, _, {needs_type_args, 'Pair', 1}},
                  check_only("module E\ntype Pair<T> = (T, T)\n"
                             "public atom F(Pair p)\nF(p) -> :ok\n")).
 
 %% ...and its mirror: a bracket on a name that takes none.
 a_bracket_on_a_ground_type_says_so_test() ->
-    ?assertError({not_parametric, 'Plain'},
+    ?assertError({at, _, {not_parametric, 'Plain'}},
                  check_only("module E\ntype Plain = int\n"
                             "public atom F(Plain<int> p)\nF(p) -> :ok\n")),
     ?assertError({unknown_generic, stack},
@@ -130,7 +140,7 @@ a_bracket_on_a_ground_type_says_so_test() ->
 %% §4 forced declaration for exactly that reason), so nothing but the parameter
 %% list tells them apart. `U` is therefore a type name, and there isn't one.
 an_undeclared_variable_in_an_alias_body_is_caught_test() ->
-    ?assertError({unknown_type, 'U'},
+    ?assertError({at, _, {unknown_type, 'U'}},
                  check_only("module E\ntype Wrong<T> = (T, U)\n"
                             "public atom F(Wrong<int> w)\nF(w) -> :ok\n")).
 
@@ -152,13 +162,13 @@ an_undeclared_variable_in_an_alias_body_is_caught_test() ->
 %% what let the compiler tell an author their mistake was a missing feature.
 a_non_contractive_alias_is_a_permanent_error_test() ->
     %% Through an alias chain: no constructor anywhere on the path.
-    ?assertError({cyclic_type, 'A'},
+    ?assertError({at, _, {cyclic_type, 'A'}},
                  check_only("module E\ntype A = B\ntype B = A\n"
                             "public atom F(A a)\nF(a) -> :ok\n")),
     %% And through a UNION, which is the canonical case and the one that proves
     %% the marker is not simply "did we walk anywhere". A union is a Boolean
     %% connective, not a constructor, so it must not make `X` contractive.
-    ?assertError({cyclic_type, 'X'},
+    ?assertError({at, _, {cyclic_type, 'X'}},
                  check_only("module E\ntype X = X | int\n"
                             "public atom F(X x)\nF(x) -> :ok\n")).
 

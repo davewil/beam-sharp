@@ -150,7 +150,7 @@ Delete the `Classify(>= 4 and <= 7)` clause from `examples/Wire/wire.bs` and ask
 <!-- expect-after: delete Classify(>= 4 and <= 7) -->
 ```
 $ bsc --src-root examples examples/Wire
-examples/Wire/wire.bs:42: error: Classify is not exhaustive
+examples/Wire/wire.bs:42:18: error: Classify is not exhaustive
   no clause matches:
     Classify(>= 4 and <= 7) -> ...
 ```
@@ -163,7 +163,7 @@ The same machinery over a union of records — delete the `Invoice` clause from
 <!-- expect-after: delete Which(Invoice i) -->
 ```
 $ bsc --src-root examples examples/Shop
-examples/Shop/shop.bs:16: error: Which is not exhaustive
+examples/Shop/shop.bs:16:13: error: Which is not exhaustive
   no clause matches:
     Which(Invoice i) -> ...
 ```
@@ -174,7 +174,7 @@ error**. Replace `Classify(>= 9)` with `Classify(_)`:
 <!-- expect-after: replace Classify(>= 9) with Classify(_) -->
 ```
 $ bsc --src-root examples examples/Wire
-examples/Wire/wire.bs:50: error: Classify discards cases the compiler can name
+examples/Wire/wire.bs:50:1: error: Classify discards cases the compiler can name
   every value left here comes from a type you declared, so `_`
   hides a case rather than admitting an unknown one:
     Classify(>= 9 and <= 255) -> ...
@@ -413,7 +413,7 @@ $ bsc --src-root examples examples/Shop New 7
 
   ```
   $ bsc --src-root examples examples/Shop
-  examples/Shop/shop.bs:37: error: New builds an Order with the wrong fields
+  examples/Shop/shop.bs:45:12: error: New builds an Order with the wrong fields
     missing, and must be supplied:
       Total
   ```
@@ -1306,8 +1306,8 @@ produces follows on stderr:
 <!-- expect-after: delete Classify(>= 4 and <= 7) -->
 ```
 $ bsc --diagnostics term --src-root examples examples/Wire
-#{function => 'Classify',line => 42,tag => inexhaustive,file => "examples/Wire/wire.bs",severity => error,heads => #{kind => products,products => [[["4..7"]]],pasteable => ["Classify(>= 4 and <= 7) -> ..."]},residual => "(4..7)"}
-examples/Wire/wire.bs:42: error: Classify is not exhaustive
+#{function => 'Classify',line => 42,tag => inexhaustive,file => "examples/Wire/wire.bs",column => 18,severity => error,heads => #{kind => products,products => [[["4..7"]]],pasteable => ["Classify(>= 4 and <= 7) -> ..."]},residual => "(4..7)"}
+examples/Wire/wire.bs:42:18: error: Classify is not exhaustive
   no clause matches:
     Classify(>= 4 and <= 7) -> ...
 ```

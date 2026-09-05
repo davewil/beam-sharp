@@ -123,10 +123,15 @@ expected(Dir, Root, Sources) ->
         error:Reason when is_tuple(Reason) -> fail(primary(Sources), Reason)
     end.
 
+%% The fallback is a POSITION, not a line. A file with no `module` line has
+%% nothing to point at, so the diagnostic is attributed to the top of it —
+%% and since F35 the top of a file is `{1, 1}`, because every descriptor that
+%% names a line names a column beside it and `message/1` has no catch-all to
+%% fall through to when one is missing.
 module_line(Decls) ->
     case [L || {module, L, _} <- Decls] of
         [L | _] -> L;
-        []      -> 1
+        []      -> {1, 1}
     end.
 
 %% A condition found over the whole directory is reported against the module's

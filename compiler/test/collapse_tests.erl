@@ -227,13 +227,13 @@ a_contractive_alias_under_a_failure_member_terminates_test() ->
 the_refusal_names_the_line_of_the_declaration_test() ->
     Src = "module L1\n\n// a comment\n\npublic option<atom> Go(int id)\n"
           "Go(id) -> :nothing\n",
-    ?assertError({collapsed_failure_channel, 5, nothing, _, _}, check_only(Src)).
+    ?assertError({collapsed_failure_channel, {5, _}, nothing, _, _}, check_only(Src)).
 
 %% 15 §1 pins the sentence. The `tag it` hint is printed for the `:nothing`
 %% channel only — see F31's recorded assumption: an absorbed `(:error, E)` is
 %% ALREADY tagged, so that advice would name a form that does not fix it.
 the_message_says_the_channel_did_not_survive_normalisation_test() ->
-    D = bs_diag:descriptor("x.bs", {collapsed_failure_channel, 5, nothing,
+    D = bs_diag:descriptor("x.bs", {collapsed_failure_channel, {5, 21}, nothing,
                                     bs_types:atom_lit(nothing),
                                     bs_types:atom_top()}),
     S = lists:flatten(io_lib:format(element(1, bs_diag:message(D)),
@@ -242,7 +242,7 @@ the_message_says_the_channel_did_not_survive_normalisation_test() ->
     ?assert(string:find(S, "tag it") =/= nomatch).
 
 the_error_channel_is_not_told_to_tag_what_is_already_tagged_test() ->
-    D = bs_diag:descriptor("x.bs", {collapsed_failure_channel, 5, error,
+    D = bs_diag:descriptor("x.bs", {collapsed_failure_channel, {5, 21}, error,
                                     bs_types:atom_lit(error),
                                     bs_types:atom_top()}),
     S = lists:flatten(io_lib:format(element(1, bs_diag:message(D)),

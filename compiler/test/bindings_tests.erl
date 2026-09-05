@@ -92,7 +92,7 @@ an_unbound_name_is_caught_before_erlc_test() ->
     %% Line 3 is the clause, not line 4 where the name appears: the final
     %% expression carries no line of its own, so it is reported against the
     %% smallest span that is certainly right.
-    ?assertMatch([{error, 3, 'F', {unbound_variable, total}}],
+    ?assertMatch([{error, {3, _}, 'F', {unbound_variable, total}}],
                  [D || D <- Diags, element(1, D) =:= error]).
 
 %% A bound name nothing later mentions is legal and warning-free: naming a value
@@ -276,7 +276,11 @@ a_repeated_bare_name_inside_a_pattern_is_an_error_test() ->
 a_marked_name_that_is_not_bound_is_an_error_test() ->
     Src = "module UB\npublic atom F(int m)\nF(== acc) -> :same\n",
     Errs = [D || D <- errors(Src), element(1, D) =:= error],
-    ?assert(lists:member({error, 3, 'F', {unbound_variable, acc}}, Errs)).
+    %% Matched rather than compared: a position is `{Line, Column}` since F35
+    %% and the line is what this asserts, so `lists:member/2` on a whole term
+    %% would pin a column the test does not claim.
+    ?assert([] =/= [E || E = {error, {3, _}, 'F', {unbound_variable, acc}}
+                             <- Errs]).
 
 %% --- helpers ----------------------------------------------------------------
 

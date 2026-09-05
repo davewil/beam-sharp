@@ -731,9 +731,12 @@ run_batch "$WORK/m2" "$WORK/r2" || exit 1
 # judge_after I LINE — the block compiled and its edited copy has been replayed;
 # compare what the compiler said with the fence the document shows.
 #
-# The location prefix (`…/12.bs:4: `) is dropped from what the compiler prints
-# before comparing, because the block's file name is this script's and not the
-# reader's; the text from `error:` on is compared byte for byte.
+# The location prefix (`…/12.bs:4:14: `) is dropped from what the compiler
+# prints before comparing, because the block's file name is this script's and
+# not the reader's; the text from `error:` on is compared byte for byte. The
+# column is optional in the pattern rather than required: the six resolve-time
+# conditions carry one only when the declaration they were found in has a
+# position, so both `file:line:` and `file:line:column:` reach here (F35).
 judge_after() {
     local i="$1" line="$2" edits got want
     edits="$(cat "$WORK/$i.edits")"
@@ -757,7 +760,7 @@ judge_after() {
         FAILURES="$FAILURES $i"
         return 0
     fi
-    got="$(sed 's/^[^ ]*\.bs:[0-9][0-9]*: //' "$WORK/r2/a$i.output")"
+    got="$(sed 's/^[^ ]*\.bs:[0-9][0-9]*\(:[0-9][0-9]*\)\{0,1\}: //' "$WORK/r2/a$i.output")"
     want="$(cat "$WORK/$i.want")"
     if [ "$got" = "$want" ]; then
         mutated=$((mutated + 1))

@@ -23,31 +23,31 @@ Rules.
 
 %% Keywords must precede the identifier rule: leex prefers the earliest rule
 %% among equal-length matches.
-module                  : {token, {'module', TokenLine}}.
-type                    : {token, {'type', TokenLine}}.
-when                    : {token, {'when', TokenLine}}.
-using                   : {token, {'using', TokenLine}}.
+module                  : {token, {'module', TokenLoc}}.
+type                    : {token, {'type', TokenLoc}}.
+when                    : {token, {'when', TokenLoc}}.
+using                   : {token, {'using', TokenLoc}}.
 %% Both spellings are accepted and one token is produced; the emitter writes
 %% the BEAM's own `behaviour`.
-behaviour               : {token, {'behaviour', TokenLine}}.
-behavior                : {token, {'behaviour', TokenLine}}.
+behaviour               : {token, {'behaviour', TokenLoc}}.
+behavior                : {token, {'behaviour', TokenLoc}}.
 %% Visibility is written on the signature, in C#'s words: `public` exports a
 %% function and there is no separate export list (F12, ticket 40 §3).
-public                  : {token, {'public',  TokenLine}}.
-private                 : {token, {'private', TokenLine}}.
+public                  : {token, {'public',  TokenLoc}}.
+private                 : {token, {'private', TokenLoc}}.
 %% `record` declares a record type (ticket 26 §1).
-record                  : {token, {'record', TokenLine}}.
+record                  : {token, {'record', TokenLoc}}.
 %% `o with { Total = 500 }` updates a record without changing its field set;
 %% there is no spread form (ticket 26 §2).
-with                    : {token, {'with', TokenLine}}.
+with                    : {token, {'with', TokenLoc}}.
 %% `switch` is the only branching construct, spelled postfix as in C#; there is
 %% no `if`, `else` or ternary (ticket 17 §6).
-switch                  : {token, {'switch', TokenLine}}.
+switch                  : {token, {'switch', TokenLoc}}.
 %% `var` marks a binding that introduces names; a bare `=` only matches. The
 %% marker lets the parser take a `pattern` directly: without it
 %% `binding -> pattern '=' expr` is 15 reduce/reduce conflicts (measured
 %% 2026-08-16) and yecc refuses to generate (F8).
-var                     : {token, {'var', TokenLine}}.
+var                     : {token, {'var', TokenLoc}}.
 
 %% `raise` crashes on purpose, and is a keyword rather than a prelude function
 %% returning `none`: a function would be lexically identical to a call, would
@@ -55,27 +55,27 @@ var                     : {token, {'var', TokenLine}}.
 %% leave no single token that finds every crash site (ticket 12 §5). Being a
 %% keyword, it is not available as a name — a parameter called `raise` is a
 %% syntax error, the same consequence `and` and `or` carry below.
-raise                   : {token, {'raise', TokenLine}}.
+raise                   : {token, {'raise', TokenLoc}}.
 
 %% `and`/`or` are the only conjunctions, in guards and in patterns alike; `&&`
 %% and `||` are not accepted, even as synonyms, and a parameter may not be
 %% named `and` or `or` (ticket 44, amending ticket 08). Erlang's `and` does not
 %% short-circuit, but a guard is the only context a conjunction lowers into and
 %% there a raising guard simply fails, so the difference is unobservable.
-and                     : {token, {'and', TokenLine}}.
-or                      : {token, {'or', TokenLine}}.
+and                     : {token, {'and', TokenLoc}}.
+or                      : {token, {'or', TokenLoc}}.
 
 %% `where` attaches a predicate to a type alias:
 %% `type Octet = int where value >= 0 and value <= 255` (ticket 20 §5).
 %% `value` is not a keyword: it is an ordinary identifier the refinement
 %% translator gives meaning to, so a parameter named `value` stays legal.
-where                   : {token, {'where', TokenLine}}.
+where                   : {token, {'where', TokenLoc}}.
 
 %% `true` and `false` are the only keyword atoms (ticket 10, LANGUAGE.md §4).
 %% Without these rules a bare `true` lexes as a lowercase identifier, which in
 %% pattern position is a variable that matches everything.
-true                    : {token, {atom_lit, TokenLine, true}}.
-false                   : {token, {atom_lit, TokenLine, false}}.
+true                    : {token, {atom_lit, TokenLoc, true}}.
+false                   : {token, {atom_lit, TokenLoc, false}}.
 
 %% A string literal must be valid UTF-8, checked here because this is the one
 %% place with the bytes and a line number at once, so no later stage validates
@@ -83,88 +83,88 @@ false                   : {token, {atom_lit, TokenLine, false}}.
 %% multi-byte character arrives as its UTF-8 bytes and needs no re-encoding.
 %% `\\.` is one backslash then any character; written doubled it would match
 %% two backslashes and no escape would ever lex.
-"(\\.|[^"\\])*"         : str_token(TokenLine, TokenChars).
+"(\\.|[^"\\])*"         : str_token(TokenLoc, TokenChars).
 
 %% `:name` is an atom. The universe is open: nothing declares an atom and the
 %% lexer interns what it sees (ticket 10).
-:{LOWER}{ALNUM}*        : {token, {atom_lit, TokenLine, list_to_atom(tl(TokenChars))}}.
-:true                   : {token, {atom_lit, TokenLine, true}}.
-:false                  : {token, {atom_lit, TokenLine, false}}.
+:{LOWER}{ALNUM}*        : {token, {atom_lit, TokenLoc, list_to_atom(tl(TokenChars))}}.
+:true                   : {token, {atom_lit, TokenLoc, true}}.
+:false                  : {token, {atom_lit, TokenLoc, false}}.
 
 %% A quoted atom spells what the bare sigil cannot, such as `:'Shop.Order'`,
 %% the tag minted from a record's qualified name (ticket 26 §1, F3.2).
-:'[^']*'                : {token, {atom_lit, TokenLine,
+:'[^']*'                : {token, {atom_lit, TokenLoc,
                                    list_to_atom(lists:sublist(TokenChars, 3, length(TokenChars) - 3))}}.
 
 %% `0xCE` is an integer, accepted everywhere and not only inside a binary
 %% segment; marker and digits are case-insensitive. Longest-match puts it
 %% ahead of `{D}+` with no ordering dependency (F13).
-0[xX]{H}+               : {token, {integer, TokenLine,
+0[xX]{H}+               : {token, {integer, TokenLoc,
                                    list_to_integer(lists:nthtail(2, TokenChars), 16)}}.
-{D}+                    : {token, {integer, TokenLine, list_to_integer(TokenChars)}}.
+{D}+                    : {token, {integer, TokenLoc, list_to_integer(TokenChars)}}.
 
-_                       : {token, {'_', TokenLine}}.
+_                       : {token, {'_', TokenLoc}}.
 
 %% PascalCase: a user type or a function name.
-{UPPER}{ALNUM}*         : {token, {uident, TokenLine, list_to_atom(TokenChars)}}.
+{UPPER}{ALNUM}*         : {token, {uident, TokenLoc, list_to_atom(TokenChars)}}.
 
 %% lowercase: a variable, a parameter, or a builtin type (`int`, `atom`).
-{LOWER}{ALNUM}*         : {token, {lident, TokenLine, list_to_atom(TokenChars)}}.
+{LOWER}{ALNUM}*         : {token, {lident, TokenLoc, list_to_atom(TokenChars)}}.
 
 %% `.` joins module path segments, calls into a foreign module (`:ets.lookup`)
 %% and projects a record field. `..` wins by longest-match, so the two never
 %% collide whatever the rule order.
-\.                      : {token, {'.', TokenLine}}.
+\.                      : {token, {'.', TokenLoc}}.
 
 %% `..` is the rest marker in `[h, ..t]`, in pattern and construction position
 %% alike (ticket 28).
-\.\.                    : {token, {'..', TokenLine}}.
-->                      : {token, {'->', TokenLine}}.
+\.\.                    : {token, {'..', TokenLoc}}.
+->                      : {token, {'->', TokenLoc}}.
 %% `->` opens a clause body and `=>` a switch arm. Longest-match keeps `=>` off
 %% the `=` rule below whatever the rule order (F7).
-=>                      : {token, {'=>', TokenLine}}.
-==                      : {token, {'==', TokenLine}}.
-!=                      : {token, {'!=', TokenLine}}.
-<=                      : {token, {'<=', TokenLine}}.
->=                      : {token, {'>=', TokenLine}}.
+=>                      : {token, {'=>', TokenLoc}}.
+==                      : {token, {'==', TokenLoc}}.
+!=                      : {token, {'!=', TokenLoc}}.
+<=                      : {token, {'<=', TokenLoc}}.
+>=                      : {token, {'>=', TokenLoc}}.
 
 %% `<<` opens a binary pattern, and there is no `>>` token: `list<list<int>>`
 %% must lex its close as two `>` tokens, so the parser closes a binary on two
 %% `'>'` tokens too. `<<` is safe because no other form puts two `<` adjacent;
 %% a generic's bracket always follows a name (F13).
-<<                      : {token, {'<<', TokenLine}}.
-<                       : {token, {'<', TokenLine}}.
->                       : {token, {'>', TokenLine}}.
-\+                      : {token, {'+', TokenLine}}.
--                       : {token, {'-', TokenLine}}.
-\*                      : {token, {'*', TokenLine}}.
+<<                      : {token, {'<<', TokenLoc}}.
+<                       : {token, {'<', TokenLoc}}.
+>                       : {token, {'>', TokenLoc}}.
+\+                      : {token, {'+', TokenLoc}}.
+-                       : {token, {'-', TokenLoc}}.
+\*                      : {token, {'*', TokenLoc}}.
 %% `/` is truncating integer division and lowers to Erlang's `div`, never its
 %% float `/`; `%` is the remainder, signed by the dividend (F26, ticket 38).
 %% `%` is escaped because leex reads a bare one as a comment and silently
 %% drops the rule.
-/                       : {token, {'/', TokenLine}}.
-\%                      : {token, {'%', TokenLine}}.
-=                       : {token, {'=', TokenLine}}.
+/                       : {token, {'/', TokenLoc}}.
+\%                      : {token, {'%', TokenLoc}}.
+=                       : {token, {'=', TokenLoc}}.
 %% `:` separates a field from its type in a declaration and from its pattern
 %% in a record pattern; `=` assigns in construction (ticket 26 §2).
 %% Longest-match gives `:placed` to the atom rule, so `Id:int` lexes `:int` as
 %% an atom; the parser refuses that shape by name.
-:                       : {token, {':', TokenLine}}.
+:                       : {token, {':', TokenLoc}}.
 %% `?` is not a language construct: there are no optional fields. It is lexed
 %% so the parser can refuse `Notes?: int` by name (ticket 26 §4).
-\?                      : {token, {'?', TokenLine}}.
+\?                      : {token, {'?', TokenLoc}}.
 %% `|>` is the pipe, `|?>` the valve, and `|` joins union members. Longest-match
 %% keeps the three apart with no lexer state (ticket 17 §1 and §4).
-\|\?>                    : {token, {'|?>', TokenLine}}.
-\|>                      : {token, {'|>', TokenLine}}.
-\|                      : {token, {'|', TokenLine}}.
-,                       : {token, {',', TokenLine}}.
-\(                      : {token, {'(', TokenLine}}.
-\)                      : {token, {')', TokenLine}}.
-\{                      : {token, {'{', TokenLine}}.
-\}                      : {token, {'}', TokenLine}}.
-\[                      : {token, {'[', TokenLine}}.
-\]                      : {token, {']', TokenLine}}.
+\|\?>                    : {token, {'|?>', TokenLoc}}.
+\|>                      : {token, {'|>', TokenLoc}}.
+\|                      : {token, {'|', TokenLoc}}.
+,                       : {token, {',', TokenLoc}}.
+\(                      : {token, {'(', TokenLoc}}.
+\)                      : {token, {')', TokenLoc}}.
+\{                      : {token, {'{', TokenLoc}}.
+\}                      : {token, {'}', TokenLoc}}.
+\[                      : {token, {'[', TokenLoc}}.
+\]                      : {token, {']', TokenLoc}}.
 
 Erlang code.
 

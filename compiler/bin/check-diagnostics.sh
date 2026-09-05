@@ -18,14 +18,23 @@
 # WHAT IT CHECKS
 #   1. NO DIAGNOSTIC-SHAPED MESSAGE OUTSIDE `bs_diag.erl`. The test is the shape
 #      of the format string, not the call: a diagnostic names a source location,
-#      so `~s:~p: error:` and `~s:~p: warning:` are its signature. This is
-#      deliberately narrower than "no `io:format(standard_error, ...)` outside
-#      bs_diag", which would be wrong — see the allowlist below.
+#      so `~s:~p:~p: error:` and `~s:~p:~p: warning:` are its signature. The
+#      middle `~p:` is optional in the pattern because F35 added the column and
+#      the two-part spelling is still what a stray copied from an older file
+#      would carry — both are the defect. This is deliberately narrower than
+#      "no `io:format(standard_error, ...)` outside bs_diag", which would be
+#      wrong — see the allowlist below.
 #   2. EVERY TAG `descriptor/2` MINTS HAS A `message/1` CLAUSE. A tag with none
 #      crashes at the moment it is reported. That is intended and is why
 #      `message/1` has no generic catch-all: a renderer that could always print
 #      *something* would let a new diagnostic ship looking like it had a message.
 #   3. THE TWO CALL SITES STILL DELEGATE. `bsc:publish/2` must reach `bs_diag`.
+#   4. A DIAGNOSTIC THAT NAMES A LINE NAMES A COLUMN. A position is both halves
+#      (F35, ENG-297): an editor cannot underline a line number. The test is on
+#      the format string because that is where the halves drift apart — a new
+#      clause copied from a neighbour written before F35 renders `~s:~p:` and
+#      prints half a position, while the term beside it still carries the
+#      column and every test still passes.
 #
 # WHAT IS DELIBERATELY ALLOWED, AND WHY
 # These write to stderr and are NOT diagnostics. Every one of them is about the
@@ -119,6 +128,26 @@ if [ "${1:-}" = "--self-test" ]; then
     expect "a diagnostic is formatted outside bs_diag.erl" "$CTL/stray" \
         "a diagnostic formatted outside bs_diag"
 
+    # CONTROL 1b — the same defect in the CURRENT house style. Control 1 builds
+    # the pre-F35 two-part prefix, which is what a stray copied from an old file
+    # carries; this one is what a stray copied from `bs_diag` as it stands today
+    # carries. The pattern has to catch both, and a pattern that pinned the
+    # column would have passed control 1 while missing every new stray.
+    fresh "$CTL/stray3"
+    printf '\nstray_report(F, L, C) ->\n    io:format(standard_error, "~s:~p:~p: error: nope~n", [F, L, C]).\n' \
+        >> "$CTL/stray3/bs_check.erl"
+    expect "a diagnostic is formatted outside bs_diag.erl" "$CTL/stray3" \
+        "a diagnostic formatted outside bs_diag in the three-part spelling"
+
+    # CONTROL 5 — a position printed with its column dropped. This is the shape
+    # a new clause copied from a neighbour written before F35 would have, and
+    # the term beside it would still carry the column, so no test would see it.
+    fresh "$CTL/halved"
+    printf '\n%%%% self-test control\n%%%% "~s:~p: error: nope~n"\n' \
+        >> "$CTL/halved/bs_diag.erl"
+    expect "a diagnostic prints a line with no column" "$CTL/halved" \
+        "a position rendered without its column"
+
     # CONTROL 2 — a tag minted with no clause to render it. Left alone this
     # crashes at the moment the diagnostic is reported, which is intended
     # behaviour and exactly why nothing else would catch it first.
@@ -166,7 +195,7 @@ say() { printf '%s\n' "$*"; }
 # --- 1. No diagnostic-shaped message outside bs_diag -------------------------
 
 say "==> diagnostics are written in one place"
-strays=$(grep -rn '~s:~p: \(error\|warning\):' "$SRC"/ --include='*.erl' \
+strays=$(grep -rn '~s:~p:\(~p:\)\? \(error\|warning\):' "$SRC"/ --include='*.erl' \
              | grep -v "^$SRC/bs_diag\.erl:" || true)
 if [ -n "$strays" ]; then
     say "ERROR: a diagnostic is formatted outside bs_diag.erl:"
@@ -223,6 +252,27 @@ if grep -q 'bs_diag:emit' "$SRC"/bsc.erl && grep -q 'bs_diag:descriptor' "$SRC"/
 else
     say "ERROR: bsc.erl no longer reports through bs_diag."
     fail=1
+fi
+
+# --- 4. A diagnostic that names a line names a column ------------------------
+#
+# The two halves of a position travel together. `bs_diag` is the only file that
+# may render one, so the whole check is one grep over it: the two-part prefix
+# is the pre-F35 spelling and nothing may still be written that way.
+
+say "==> a diagnostic that names a line names a column"
+halved=$(grep -n '"~s:~p: ' "$SRC"/bs_diag.erl || true)
+if [ -n "$halved" ]; then
+    say "ERROR: a diagnostic prints a line with no column:"
+    say "$halved"
+    say ""
+    say "  A position is a line AND a column (F35). The header is"
+    say "  \`~s:~p:~p: \`, and the clause head reads \`column := C\` beside"
+    say "  \`line := L\`. A term that carries the column while the prose drops"
+    say "  it leaves the two disagreeing about what the compiler knows."
+    fail=1
+else
+    say "    ok — every rendered position names both halves"
 fi
 
 say ""

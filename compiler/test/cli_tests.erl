@@ -460,8 +460,11 @@ batch_runs_every_entry_in_one_vm_and_attributes_each() ->
     %% The relative path resolved against the entry's `cwd`, and the
     %% diagnostic names it as the entry spelled it.
     ?assertEqual("1", string:trim(read_result(Results, "rel", "status"))),
+    %% The path and the line are what this asserts — that the entry's own
+    %% relative spelling reached the diagnostic. The column follows the line
+    %% since F35 and is not this test's claim, so it is not pinned here.
     ?assertNotEqual(nomatch, string:find(read_result(Results, "rel", "stderr"),
-                                         "Bad/bad.bs:3: error:")),
+                                         "Bad/bad.bs:3:")),
 
     %% `--repl` is refused in an entry rather than ignored, for the reason
     %% `--diagnostics term` is refused in the REPL: a flag accepted and not

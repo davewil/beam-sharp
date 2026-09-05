@@ -24,8 +24,21 @@
 # evidence here that is not self-reported.
 
 url       https://claude.ai/code/artifact/40f71cf4-d5d3-4b71-882c-ad73f630a03c
-sha256    9320fcfb97d3f0e056a78bda1444043027aa7c1a1a7380890f8d6ffffd912dd5
-verified  2026-09-05 (for F34's `raise`) — chapter 14 taught only how to RECEIVE a failure; the
+sha256    d0a5c36521c3389c97a685ca5570514d77b6ecb4d93cdcd1586b07bdbde21214
+verified  2026-09-05 (for F35's columns) — every diagnostic now names a column, so all four
+          replayed transcripts moved: `wire.bs:42` became `wire.bs:42:18`, `shop.bs:16` became
+          `shop.bs:16:13`, `wire.bs:50` became `wire.bs:50:1`, and the term-channel appendix
+          gained `column => 18`. A **fifth** site moved for a different reason and had been
+          wrong before this feature touched it: chapter 6's field-set-mismatch fence said
+          `shop.bs:37` where the compiler says **45**, eight lines stale. It sits inside an
+          INDENTED fence, which part 3 does not replay for the same reason `check-language.sh`
+          cannot see one (ENG-238), so no gate had ever read it; it was re-measured against the
+          real compiler rather than adjusted by hand. Read back in full before republishing and
+          the live page still carried all four old positions and the stale `:37`, so the stale
+          state was confirmed rather than assumed, and the read again showed a plain render of
+          TOUR.md with nothing saved into it independently.
+
+          2026-09-05 (for F34's `raise`) — chapter 14 taught only how to RECEIVE a failure; the
           producing half had no spelling until this feature, so a new section closes it with the
           `Unwrap` escalation, the `none` return type that makes a raising clause honest, and the
           class argument for Elixir's word over C#'s `throw`. The appendix gained

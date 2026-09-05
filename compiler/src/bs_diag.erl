@@ -107,42 +107,66 @@ format(Desc) ->
 at(Sev, Path, Line, Fn) ->
     #{severity => Sev, file => Path, line => Line, function => Fn}.
 
-descriptor(Path, {Sev, Line, Fn, {inexhaustive, Residual, Names}}) ->
+%% A POSITION IS SPLIT HERE AND NOWHERE ELSE.
+%%
+%% The lexer writes `TokenLoc`, so a position arrives from the parser as
+%% `{Line, Column}` and every one of the 84 clauses below passes it through
+%% under the key `line` without knowing that. This is the single place it
+%% becomes two keys, which is why a new clause cannot forget to do it (F35).
+%%
+%% The column is a NEW key rather than a tuple in the old one. Ticket 23 §4
+%% makes payload evolution additive only, and the suite matches `#{line := 3}`
+%% in map patterns throughout: a tuple here would break every one of them and
+%% would be the first payload change to do so.
+descriptor(Path, D) ->
+    place(built(Path, D)).
+
+%% `unhandled` is not a descriptor and must survive: the caller re-raises on
+%% it. A descriptor whose line is already bare passes through by the last
+%% clause, which is what the two internal `built/2` calls rely on.
+place(unhandled) ->
+    unhandled;
+place(#{line := {Line, Column}} = Desc) ->
+    Desc#{line := Line, column => Column};
+place(Desc) ->
+    Desc.
+
+built(Path, {Sev, Line, Fn, {inexhaustive, Residual, Names}}) ->
     (at(Sev, Path, Line, Fn))#{tag => inexhaustive,
                                residual => residual(Residual),
                                heads => heads(Fn, Residual, Names)};
-descriptor(Path, {Sev, Line, Fn, {catch_all_over_closed, Residual, Names}}) ->
+built(Path, {Sev, Line, Fn, {catch_all_over_closed, Residual, Names}}) ->
     (at(Sev, Path, Line, Fn))#{tag => catch_all_over_closed,
                                residual => residual(Residual),
                                heads => heads(Fn, Residual, Names)};
 %%% Each way a binary segment can be wrong gets its own tag, so the message
 %%% can name the fix for that shape (F13).
-descriptor(Path, {Sev, Line, Fn, {unsized_segment_not_last, _Size, _L}}) ->
+built(Path, {Sev, Line, Fn, {unsized_segment_not_last, _Size, _L}}) ->
     (at(Sev, Path, Line, Fn))#{tag => unsized_segment_not_last};
-descriptor(Path, {Sev, Line, Fn, {segment_width_not_positive, N, _L}}) ->
+built(Path, {Sev, Line, Fn, {segment_width_not_positive, N, _L}}) ->
     (at(Sev, Path, Line, Fn))#{tag => segment_width_not_positive, width => N};
-descriptor(Path, {Sev, Line, Fn, {segment_literal_too_wide, K, N, _L}}) ->
+built(Path, {Sev, Line, Fn, {segment_literal_too_wide, K, N, _L}}) ->
     (at(Sev, Path, Line, Fn))#{tag => segment_literal_too_wide,
                                value => K, width => N,
                                max => (1 bsl N) - 1};
-descriptor(Path, {Sev, Line, Fn, {segment_size_not_bound, V, _L}}) ->
+built(Path, {Sev, Line, Fn, {segment_size_not_bound, V, _L}}) ->
     (at(Sev, Path, Line, Fn))#{tag => segment_size_not_bound, name => V};
-descriptor(Path, {Sev, Line, Fn, relational_in_bind}) ->
+built(Path, {Sev, Line, Fn, relational_in_bind}) ->
     (at(Sev, Path, Line, Fn))#{tag => relational_in_bind};
-descriptor(Path, {Sev, Line, Fn, no_clauses}) ->
+built(Path, {Sev, Line, Fn, no_clauses}) ->
     (at(Sev, Path, Line, Fn))#{tag => no_clauses};
 %% The operator is carried because the two division operators spell the same
 %% mistake differently, and the fix differs with it (F26, ticket 38).
-descriptor(Path, {Sev, Line, Fn, {divide_by_zero, Op}}) ->
+built(Path, {Sev, Line, Fn, {divide_by_zero, Op}}) ->
     (at(Sev, Path, Line, Fn))#{tag => divide_by_zero, op => Op};
-descriptor(Path, {Sev, Line, Fn, {switch_inexhaustive, Residual}}) ->
+built(Path, {Sev, Line, Fn, {switch_inexhaustive, Residual}}) ->
     (at(Sev, Path, Line, Fn))#{tag => switch_inexhaustive,
                                residual => residual(Residual),
                                arm => bs_types:to_pattern(Residual)};
-descriptor(Path, {Sev, Line, Fn, {valve_on_infallible, Ty}}) ->
+built(Path, {Sev, Line, Fn, {valve_on_infallible, Ty}}) ->
     (at(Sev, Path, Line, Fn))#{tag => valve_on_infallible,
                                subject => bs_types:to_pattern(Ty)};
-descriptor(Path, {Sev, Line, Fn, {unreachable_arm, N}}) ->
+built(Path, {Sev, Line, Fn, {unreachable_arm, N}}) ->
     (at(Sev, Path, Line, Fn))#{tag => unreachable_arm, arm_number => N};
 %% The arm twins of `vacuous_clause` and `unsatisfiable_guard` below. They are
 %% tags of their own rather than one tag per fault shared across both sites,
@@ -150,40 +174,40 @@ descriptor(Path, {Sev, Line, Fn, {unreachable_arm, N}}) ->
 %% carrying `clause_number` at one site and `arm_number` at the other would
 %% leave the key set undetermined by the tag (ENG-269 proposed reusing
 %% `unsatisfiable_guard`; this is the one departure from it).
-descriptor(Path, {Sev, Line, Fn, {vacuous_arm, N, Domain}}) ->
+built(Path, {Sev, Line, Fn, {vacuous_arm, N, Domain}}) ->
     (at(Sev, Path, Line, Fn))#{tag => vacuous_arm, arm_number => N,
                                domain => residual(Domain)};
-descriptor(Path, {Sev, Line, Fn, {unsatisfiable_arm_guard, N}}) ->
+built(Path, {Sev, Line, Fn, {unsatisfiable_arm_guard, N}}) ->
     (at(Sev, Path, Line, Fn))#{tag => unsatisfiable_arm_guard, arm_number => N};
-descriptor(Path, {Sev, Line, Fn, switch_in_guard}) ->
+built(Path, {Sev, Line, Fn, switch_in_guard}) ->
     (at(Sev, Path, Line, Fn))#{tag => switch_in_guard};
-descriptor(Path, {Sev, Line, Fn, raise_in_guard}) ->
+built(Path, {Sev, Line, Fn, raise_in_guard}) ->
     (at(Sev, Path, Line, Fn))#{tag => raise_in_guard};
-descriptor(Path, {Sev, Line, Fn, {unreachable_clause, N}}) ->
+built(Path, {Sev, Line, Fn, {unreachable_clause, N}}) ->
     (at(Sev, Path, Line, Fn))#{tag => unreachable_clause, clause_number => N};
 %% `vacuous_clause` carries the domain rather than the offending pattern: the
 %% author wrote the pattern, so the type it is not a member of is the half
 %% they lack. It goes through `residual/1` so the term keeps the parts and
 %% the prose stays a pure function of it (ENG-259, F16).
-descriptor(Path, {Sev, Line, Fn, {vacuous_clause, N, Domain}}) ->
+built(Path, {Sev, Line, Fn, {vacuous_clause, N, Domain}}) ->
     (at(Sev, Path, Line, Fn))#{tag => vacuous_clause, clause_number => N,
                                domain => residual(Domain)};
-descriptor(Path, {Sev, Line, Fn, {unsatisfiable_guard, N}}) ->
+built(Path, {Sev, Line, Fn, {unsatisfiable_guard, N}}) ->
     (at(Sev, Path, Line, Fn))#{tag => unsatisfiable_guard, clause_number => N};
-descriptor(Path, {Sev, Line, Fn, {rebinding, V}}) ->
+built(Path, {Sev, Line, Fn, {rebinding, V}}) ->
     (at(Sev, Path, Line, Fn))#{tag => rebinding, name => V};
-descriptor(Path, {Sev, Line, Fn, {repeated_in_head, V}}) ->
+built(Path, {Sev, Line, Fn, {repeated_in_head, V}}) ->
     (at(Sev, Path, Line, Fn))#{tag => repeated_in_head, name => V};
-descriptor(Path, {Sev, Line, Fn, {unbound_variable, V}}) ->
+built(Path, {Sev, Line, Fn, {unbound_variable, V}}) ->
     (at(Sev, Path, Line, Fn))#{tag => unbound_variable, name => V};
-descriptor(Path, {Sev, Line, Fn, {arg_not_accepted, Callee, Pos, Residual, Head}}) ->
+built(Path, {Sev, Line, Fn, {arg_not_accepted, Callee, Pos, Residual, Head}}) ->
     (at(Sev, Path, Line, Fn))#{tag => arg_not_accepted,
                                callee => Callee,
                                position => Pos,
                                residual => residual(Residual),
                                rejected => bs_types:to_pattern(Residual),
                                caller_head => caller_head(Fn, Head, Residual)};
-descriptor(Path, {Sev, Line, Fn, {field_set_mismatch, Record, Form, Missing, Extra}}) ->
+built(Path, {Sev, Line, Fn, {field_set_mismatch, Record, Form, Missing, Extra}}) ->
     (at(Sev, Path, Line, Fn))#{tag => field_set_mismatch,
                                record => Record,
                                form => Form,
@@ -191,7 +215,7 @@ descriptor(Path, {Sev, Line, Fn, {field_set_mismatch, Record, Form, Missing, Ext
                                extra => Extra};
 %% The residual is a type, so the exhaustiveness printer renders it and this
 %% is a new tag rather than a new shape of diagnostic (ticket 36).
-descriptor(Path, {Sev, Line, Fn, {field_value_not_accepted, Record, Field, Residual}}) ->
+built(Path, {Sev, Line, Fn, {field_value_not_accepted, Record, Field, Residual}}) ->
     (at(Sev, Path, Line, Fn))#{tag => field_value_not_accepted,
                                record => Record,
                                field => Field,
@@ -200,7 +224,7 @@ descriptor(Path, {Sev, Line, Fn, {field_value_not_accepted, Record, Field, Resid
 %% The verb is read from the form: a dot projects a field from a value and
 %% `with` updates one on it, while the residual and the fix are the same for
 %% both, the member that lacks the field (ENG-249).
-descriptor(Path, {Sev, Line, Fn, {field_absent, Form, Field, Residual}}) ->
+built(Path, {Sev, Line, Fn, {field_absent, Form, Field, Residual}}) ->
     (at(Sev, Path, Line, Fn))#{tag => field_absent,
                                form => Form,
                                field => Field,
@@ -208,42 +232,42 @@ descriptor(Path, {Sev, Line, Fn, {field_absent, Form, Field, Residual}}) ->
                                member => bs_types:to_pattern(Residual)};
 %% `corrected` is `none` when there is nothing writable to offer, never
 %% absent, so a consumer never has to tell "refused" from "missing" (F25).
-descriptor(Path, {Sev, Line, Fn, {return_not_declared, Residual, Corrected}}) ->
+built(Path, {Sev, Line, Fn, {return_not_declared, Residual, Corrected}}) ->
     (at(Sev, Path, Line, Fn))#{tag => return_not_declared,
                                residual => residual(Residual),
                                undeclared => bs_types:to_pattern(Residual),
                                corrected => Corrected};
-descriptor(Path, {Sev, Line, Fn, {bind_may_fail, Residual}}) ->
+built(Path, {Sev, Line, Fn, {bind_may_fail, Residual}}) ->
     (at(Sev, Path, Line, Fn))#{tag => bind_may_fail,
                                residual => residual(Residual),
                                unmatched => bs_types:to_pattern(Residual)};
-descriptor(Path, {Sev, Line, Fn, {private_function, Mod, Callee, Arity}}) ->
+built(Path, {Sev, Line, Fn, {private_function, Mod, Callee, Arity}}) ->
     (at(Sev, Path, Line, Fn))#{tag => private_function,
                                module => Mod, callee => Callee, arity => Arity};
-descriptor(Path, {Sev, Line, Fn, {unknown_callee, Callee, Arity}}) ->
+built(Path, {Sev, Line, Fn, {unknown_callee, Callee, Arity}}) ->
     (at(Sev, Path, Line, Fn))#{tag => unknown_callee,
                                callee => Callee, arity => Arity};
-descriptor(Path, {Sev, Line, Fn, {arity_mismatch, Callee, Got, Want}}) ->
+built(Path, {Sev, Line, Fn, {arity_mismatch, Callee, Got, Want}}) ->
     (at(Sev, Path, Line, Fn))#{tag => arity_mismatch,
                                callee => Callee, got => Got, want => Want};
-descriptor(Path, {Sev, Line, Fn, {arity_not_declared, Callee, Got, Have}}) ->
+built(Path, {Sev, Line, Fn, {arity_not_declared, Callee, Got, Have}}) ->
     (at(Sev, Path, Line, Fn))#{tag => arity_not_declared,
                                callee => Callee, got => Got, declared => Have};
 %%% The two call-site refusals for a reserved qualifier. The shadow one is
 %%% `ambiguous_module` with a compiler-known claimant on one side, so it is
 %%% shaped like it: both candidates named, the full path offered (ticket 67).
-descriptor(Path, {Sev, Line, Fn, {reserved_qualifier_shadowed, Q, Op, Mods}}) ->
+built(Path, {Sev, Line, Fn, {reserved_qualifier_shadowed, Q, Op, Mods}}) ->
     (at(Sev, Path, Line, Fn))#{tag => reserved_qualifier_shadowed,
                                qualifier => Q, operation => Op,
                                candidates => Mods};
-descriptor(Path, {Sev, Line, Fn,
+built(Path, {Sev, Line, Fn,
                   {unknown_reserved_operation, Q, Op, Got, Have}}) ->
     (at(Sev, Path, Line, Fn))#{tag => unknown_reserved_operation,
                                qualifier => Q, operation => Op,
                                got => Got, declared => Have};
-descriptor(Path, {Sev, Line, Fn, {unknown_record, Name}}) ->
+built(Path, {Sev, Line, Fn, {unknown_record, Name}}) ->
     (at(Sev, Path, Line, Fn))#{tag => unknown_record, record => Name};
-descriptor(Path, {Sev, Line, Fn, wildcard_as_value}) ->
+built(Path, {Sev, Line, Fn, wildcard_as_value}) ->
     (at(Sev, Path, Line, Fn))#{tag => wildcard_as_value};
 
 %%% --- The codegen-obligation refusals (F18) ---------------------------------
@@ -251,23 +275,23 @@ descriptor(Path, {Sev, Line, Fn, wildcard_as_value}) ->
 %% The collapse met at an instantiation rather than at a declaration. The
 %% descriptor carries the type, not the sentence, so a consumer can see which
 %% instantiation was asked for (ticket 15 §1).
-descriptor(Path, {Sev, Line, Fn, {validate_collapses, Ty}}) ->
+built(Path, {Sev, Line, Fn, {validate_collapses, Ty}}) ->
     (at(Sev, Path, Line, Fn))#{tag => validate_collapses,
                                type => bs_types:to_string(Ty)};
-descriptor(Path, {Sev, Line, Fn, {validate_domain_map, Ty}}) ->
+built(Path, {Sev, Line, Fn, {validate_domain_map, Ty}}) ->
     (at(Sev, Path, Line, Fn))#{tag => validate_domain_map,
                                type => bs_types:to_string(Ty)};
-descriptor(Path, {Sev, Line, Fn, {map_pattern_deferred, Site, Ty}}) ->
+built(Path, {Sev, Line, Fn, {map_pattern_deferred, Site, Ty}}) ->
     (at(Sev, Path, Line, Fn))#{tag => map_pattern_deferred,
                                site => Site,
                                type => bs_types:to_string(Ty)};
-descriptor(Path, {Sev, Line, Fn, {obligation_arity, Name, Types, Args}}) ->
+built(Path, {Sev, Line, Fn, {obligation_arity, Name, Types, Args}}) ->
     (at(Sev, Path, Line, Fn))#{tag => obligation_arity,
                                obligation => Name,
                                type_args => Types, args => Args};
-descriptor(Path, {Sev, Line, Fn, {obligation_unbuilt, Name}}) ->
+built(Path, {Sev, Line, Fn, {obligation_unbuilt, Name}}) ->
     (at(Sev, Path, Line, Fn))#{tag => obligation_unbuilt, obligation => Name};
-descriptor(Path, {Sev, Line, Fn, {not_an_obligation, Name}}) ->
+built(Path, {Sev, Line, Fn, {not_an_obligation, Name}}) ->
     (at(Sev, Path, Line, Fn))#{tag => not_an_obligation, name => Name,
                                obligations => ['ValidateAs', 'ParseAtom',
                                                'ToExistingAtom']};
@@ -278,7 +302,7 @@ descriptor(Path, {Sev, Line, Fn, {not_an_obligation, Name}}) ->
 
 %% beam-sharp has no statement terminator and both audiences type one from
 %% habit, so this most likely error gets a sharper message than leex's tuple.
-descriptor(Path, {lex, {Line, _Mod, {illegal, ";"}}}) ->
+built(Path, {lex, {Line, _Mod, {illegal, ";"}}}) ->
     #{tag => stray_semicolon, severity => error, file => Path, line => Line};
 %% Negation has no spelling: the guard fragment is closed under complement,
 %% so a `not` would compile into the spelling the author could have written,
@@ -286,29 +310,29 @@ descriptor(Path, {lex, {Line, _Mod, {illegal, ";"}}}) ->
 %% is the gate). `!` is an illegal character, so it fails here in the lexer,
 %% a stage before `not` does. `!=` is a token of its own and never arrives
 %% as an illegal character.
-descriptor(Path, {lex, {Line, _Mod, {illegal, [$! | _]}}}) ->
+built(Path, {lex, {Line, _Mod, {illegal, [$! | _]}}}) ->
     #{tag => no_negation, severity => error, file => Path, line => Line,
       spelling => "!"};
-descriptor(Path, {lex, {Line, Mod, Reason}}) ->
+built(Path, {lex, {Line, Mod, Reason}}) ->
     #{tag => lex_error, severity => error, file => Path, line => Line,
       detail => lists:flatten(Mod:format_error(Reason))};
 %% `not` is a legal identifier and must not become a keyword (reserving names
 %% is ticket 65's open question), so the hint is raised here, at the parse
 %% failure, where it cannot reach a program that parses.
-descriptor(Path, {parse, {Line, Mod, Reason}, Tokens}) ->
+built(Path, {parse, {Line, Mod, Reason}, Tokens}) ->
     case not_in_prefix_position(Tokens, Line) of
         true ->
             #{tag => no_negation, severity => error, file => Path,
               line => Line, spelling => "not"};
         false ->
-            descriptor(Path, {parse, {Line, Mod, Reason}})
+            built(Path, {parse, {Line, Mod, Reason}})
     end;
-descriptor(Path, {parse, {Line, Mod, Reason}}) ->
+built(Path, {parse, {Line, Mod, Reason}}) ->
     #{tag => parse_error, severity => error, file => Path, line => Line,
       detail => lists:flatten(Mod:format_error(Reason))};
 %% Most often an unmatched shell glob rather than a real directory, so the
 %% message says what was looked for instead of only naming the path (F15).
-descriptor(Path, no_sources_here) ->
+built(Path, no_sources_here) ->
     #{tag => no_sources_here, severity => error, file => Path};
 
 %%% ---------------------------------------------------------------------------
@@ -322,146 +346,157 @@ descriptor(Path, no_sources_here) ->
 
 %% A raise site that knows its file says so; the inner tuple keeps the shape
 %% ticket 41 specified.
-descriptor(_Path, {in_file, Path, Reason}) ->
-    descriptor(Path, Reason);
+built(_Path, {in_file, Path, Reason}) ->
+    built(Path, Reason);
 
-descriptor(Path, {behaviour_not_satisfied, Line, Behaviour, Missing}) ->
+built(Path, {behaviour_not_satisfied, Line, Behaviour, Missing}) ->
     #{tag => behaviour_not_satisfied, severity => error, file => Path,
       line => Line, behaviour => Behaviour, missing => Missing};
 %% `-behaviour` has no runtime effect and only exports matter, so a private
 %% callback would break the contract at run time and silently (ticket 06).
-descriptor(Path, {private_callback, N, A, Otp, Line}) ->
+built(Path, {private_callback, N, A, Otp, Line}) ->
     #{tag => private_callback, severity => error, file => Path, line => Line,
       name => N, arity => A, otp_name => Otp};
-descriptor(Path, {unknown_behaviour, B}) ->
+built(Path, {unknown_behaviour, B}) ->
     #{tag => unknown_behaviour, severity => error, file => Path, behaviour => B};
-descriptor(Path, {unknown_type, N}) ->
+%% `{at, Loc, Reason}` is a position wrapped around a condition raised from
+%% below the level that holds one (`bs_check:at_loc/2`). It is unwrapped here
+%% rather than given its own tag, so the inner condition keeps the tag, the
+%% payload and the prose it already had and gains only the position — and
+%% `place/1` splits that into `line` and `column` on the way out, exactly as
+%% it does for every other diagnostic.
+built(Path, {at, Loc, Reason}) ->
+    case built(Path, Reason) of
+        unhandled -> unhandled;
+        Desc      -> Desc#{line => Loc}
+    end;
+built(Path, {unknown_type, N}) ->
     #{tag => unknown_type, severity => error, file => Path, type => N};
 %% A type prefix in a pattern names something that is not a record (F22).
-descriptor(Path, {not_a_record, Line, N}) ->
+built(Path, {not_a_record, Line, N}) ->
     #{tag => not_a_record, severity => error, file => Path, line => Line,
       type => N};
 %% A field named beside a type prefix that the record has not got (F22).
-descriptor(Path, {pattern_field_unknown, Line, Record, Field, Declared}) ->
+built(Path, {pattern_field_unknown, Line, Record, Field, Declared}) ->
     #{tag => pattern_field_unknown, severity => error, file => Path,
       line => Line, record => Record, field => Field, declared => Declared};
-descriptor(Path, {unknown_builtin, B}) ->
+built(Path, {unknown_builtin, B}) ->
     #{tag => unknown_builtin, severity => error, file => Path, type => B};
 %% The message names the replacement, because the fix is always the same edit
 %% and the reason is not obvious from the rule (F9.11).
-descriptor(Path, {opaque_ret_at_boundary, Line, Mod, Fun}) ->
+built(Path, {opaque_ret_at_boundary, Line, Mod, Fun}) ->
     #{tag => opaque_ret_at_boundary, severity => error, file => Path,
       line => Line, module => bs_types:atom_str(Mod), function => Fun};
-descriptor(Path, {unknown_generic, N}) ->
+built(Path, {unknown_generic, N}) ->
     #{tag => unknown_generic, severity => error, file => Path, type => N};
 %% A bracket the compiler knows at the wrong arity is a different mistake from
 %% a bracket it does not know, and the fix is a different edit (F6.6).
-descriptor(Path, {generic_arity, N, Want, Got}) ->
+built(Path, {generic_arity, N, Want, Got}) ->
     #{tag => generic_arity, severity => error, file => Path, type => N,
       want => Want, got => Got};
-descriptor(Path, {needs_type_args, N, Want}) ->
+built(Path, {needs_type_args, N, Want}) ->
     #{tag => needs_type_args, severity => error, file => Path, type => N,
       want => Want};
-descriptor(Path, {not_parametric, N}) ->
+built(Path, {not_parametric, N}) ->
     #{tag => not_parametric, severity => error, file => Path, type => N};
 %% A type defined in terms of itself with no constructor between describes no
 %% set of values, and no implementation could give it one (F6.8, ticket 09
 %% §3). Recursion through a constructor is well formed and has had a binder
 %% since F28, so there is no "unbuilt" refusal beside this one any more.
-descriptor(Path, {cyclic_type, N}) ->
+built(Path, {cyclic_type, N}) ->
     #{tag => cyclic_type, severity => error, file => Path, type => N};
 %% A parametric alias that recurs under different arguments, such as
 %% `type T<X> = (X, list<T<list<X>>>)`, is not a regular tree: unfolding it
 %% never repeats, so no finite binder holds it. Refused by name because the
 %% alternative is expanding forever (F28).
-descriptor(Path, {non_regular_recursion, N}) ->
+built(Path, {non_regular_recursion, N}) ->
     #{tag => non_regular_recursion, severity => error, file => Path, type => N};
 %% Stratum 2 of the prelude is compiler-known and a user may not redeclare it.
 %% Refused at the declaration rather than resolved by shadowing, because the
 %% alternative is a type error elsewhere with nothing pointing at the cause
 %% (F18, ticket 27 §8, `PRELUDE.md`).
-descriptor(Path, {compiler_known_type, Name, Line}) ->
+built(Path, {compiler_known_type, Name, Line}) ->
     #{tag => compiler_known_type, severity => error, file => Path, line => Line,
       type => Name};
-descriptor(Path, {kind_field_is_minted, Line, Name}) ->
+built(Path, {kind_field_is_minted, Line, Name}) ->
     #{tag => kind_field_is_minted, severity => error, file => Path, line => Line,
       record => Name};
 %% The collapse refused at the declaration. The descriptor carries the channel
 %% as well as the two types, because the hint differs by channel and a
 %% consumer should not parse the sentence to learn which (F31, ticket 15 §1).
-descriptor(Path, {collapsed_failure_channel, Line, Channel, Member, Absorber}) ->
+built(Path, {collapsed_failure_channel, Line, Channel, Member, Absorber}) ->
     #{tag => collapsed_failure_channel, severity => error, file => Path,
       line => Line, channel => Channel,
       member => bs_types:to_string(Member),
       absorbed_by => bs_types:to_string(Absorber)};
 %% The two refinement tiers are told apart by what the predicate says (F2,
 %% ticket 20 §5).
-descriptor(Path, {opaque_refinement, Line}) ->
+built(Path, {opaque_refinement, Line}) ->
     #{tag => opaque_refinement, severity => error, file => Path, line => Line};
-descriptor(Path, {empty_refinement, Line}) ->
+built(Path, {empty_refinement, Line}) ->
     #{tag => empty_refinement, severity => error, file => Path, line => Line};
 %% A relational pattern ships in the parameter position only, and a bare
 %% "syntax error" would make that chosen omission look like an oversight (F2).
-descriptor(Path, {relational_pattern_nested, Line}) ->
+built(Path, {relational_pattern_nested, Line}) ->
     #{tag => relational_pattern_nested, severity => error, file => Path,
       line => Line};
 %% Two signatures of the same arity are one function declared twice, and its
 %% clauses would otherwise merge silently (ticket 40 §2).
-descriptor(Path, {name_redeclared, Name, Arity, Line}) ->
+built(Path, {name_redeclared, Name, Arity, Line}) ->
     #{tag => name_redeclared, severity => error, file => Path, line => Line,
       name => Name, arity => Arity};
 %% The candidates print qualified because a qualified call is legal whatever
 %% is in scope, so the message is pasteable source (ticket 41 §2, 23).
-descriptor(Path, {ambiguous_call, Name, Arity, Mods, Line}) ->
+built(Path, {ambiguous_call, Name, Arity, Mods, Line}) ->
     #{tag => ambiguous_call, severity => error, file => Path, line => Line,
       name => Name, arity => Arity, candidates => Mods,
       heads => [lists:flatten(io_lib:format("~s.~s(...)", [M, Name]))
                 || M <- Mods]};
-descriptor(Path, {unknown_module, Mod, Line}) ->
+built(Path, {unknown_module, Mod, Line}) ->
     #{tag => unknown_module, severity => error, file => Path, line => Line,
       module => Mod};
 %% A file's `using` lines are its dependency list, so a call that skips them
 %% is refused (ticket 41 §1, 23 §11).
-descriptor(Path, {module_not_imported, Mod, Line}) ->
+built(Path, {module_not_imported, Mod, Line}) ->
     #{tag => module_not_imported, severity => error, file => Path, line => Line,
       module => Mod};
-descriptor(Path, {ambiguous_module, Short, Mods, Line}) ->
+built(Path, {ambiguous_module, Short, Mods, Line}) ->
     #{tag => ambiguous_module, severity => error, file => Path, line => Line,
       module => Short, candidates => Mods};
 %%% The declaration refusal for a reserved qualifier. Raised, so it carries its
 %%% own line, like `module_path_mismatch`: there is no function to attribute
 %%% it to, only a directory and a `module` line (ticket 67).
-descriptor(Path, {reserved_module_name, Module, Line}) ->
+built(Path, {reserved_module_name, Module, Line}) ->
     #{tag => reserved_module_name, severity => error, file => Path, line => Line,
       module => Module};
 %% Two modules importing each other are refused by name rather than resolved
 %% by following the cycle, which is a loop; F6's cyclic-alias guard is the
 %% precedent, and it shipped after a hang (ticket 41).
-descriptor(_Path, {import_cycle, Cycle}) ->
+built(_Path, {import_cycle, Cycle}) ->
     #{tag => import_cycle, severity => error, cycle => Cycle};
 %% `index.bs` holds everything except functions (ticket 41 §4).
-descriptor(Path, {function_in_index, Name, Line}) ->
+built(Path, {function_in_index, Name, Line}) ->
     #{tag => function_in_index, severity => error, file => Path, line => Line,
       function => Name};
 %% A module's declared name must match its directory: `erlc`'s module-atom
 %% and filename rule, lifted from the artefact to the source tree (ticket 41
 %% §5, 13).
-descriptor(Path, {module_path_mismatch, Declared, Expected, Line}) ->
+built(Path, {module_path_mismatch, Declared, Expected, Line}) ->
     #{tag => module_path_mismatch, severity => error, file => Path, line => Line,
       declared => Declared, expected => Expected};
 %% One directory is one module (ticket 13 §3).
-descriptor(_Path, {module_disagreement, Declared}) ->
+built(_Path, {module_disagreement, Declared}) ->
     #{tag => module_disagreement, severity => error,
       count => length(lists:usort([M || {_, M, _} <- Declared])),
       declarations => Declared};
-descriptor(_Path, {no_module_declaration, Paths}) ->
+built(_Path, {no_module_declaration, Paths}) ->
     #{tag => no_module_declaration, severity => error, files => Paths};
 %% The build tool's whole job is to name the source root, so a root that does
 %% not contain the module is a usage error (ticket 41 §3).
-descriptor(_Path, {src_root_mismatch, Dir, Root}) ->
+built(_Path, {src_root_mismatch, Dir, Root}) ->
     #{tag => src_root_mismatch, severity => error, directory => Dir,
       root => Root};
-descriptor(_Path, {src_root_is_the_module, Dir}) ->
+built(_Path, {src_root_is_the_module, Dir}) ->
     #{tag => src_root_is_the_module, severity => error, directory => Dir};
 
 %%% ---------------------------------------------------------------------------
@@ -472,9 +507,9 @@ descriptor(_Path, {src_root_is_the_module, Dir}) ->
 %%% trace rather than nothing.
 %%% ---------------------------------------------------------------------------
 
-descriptor(Path, {Sev, _Line, _Fn, _} = D) when Sev =:= error; Sev =:= warning ->
+built(Path, {Sev, _Line, _Fn, _} = D) when Sev =:= error; Sev =:= warning ->
     #{tag => unclassified, severity => Sev, file => Path, detail => D};
-descriptor(_Path, _Other) ->
+built(_Path, _Other) ->
     unhandled.
 
 %%% ---------------------------------------------------------------------------
@@ -494,11 +529,24 @@ descriptor(_Path, _Other) ->
 %%% parseable and this rule needs revisiting.
 %%% ---------------------------------------------------------------------------
 
+%% THE COMPARISON IS ON THE LINE ALONE, AND MUST STAY THAT WAY.
+%%
+%% Since F35 a position is `{Line, Column}`, and these two are different
+%% positions: `L` is where `not` sits and `Line` is where yecc stopped, which
+%% is the token AFTER it. Comparing whole locations therefore matches
+%% nothing — measured, and the failure is silent in the worst way: the taught
+%% `not` diagnostic degrades to a plain `syntax error before: '('`, which is
+%% the message ticket 63 exists to replace.
 not_in_prefix_position([{lident, L, 'not'}, Next | Rest], Line) ->
-    (L =:= Line andalso is_operand(Next))
+    (line_of(L) =:= line_of(Line) andalso is_operand(Next))
         orelse not_in_prefix_position([Next | Rest], Line);
 not_in_prefix_position([_ | Rest], Line) -> not_in_prefix_position(Rest, Line);
 not_in_prefix_position([], _Line)        -> false.
+
+%% A location is a `{Line, Column}` pair from the lexer and a bare line from
+%% anything that predates F35 or reports without a column. Both answer this.
+line_of({Line, _Column}) -> Line;
+line_of(Line)            -> Line.
 
 is_operand({'(', _})         -> true;
 is_operand({lident, _, _})   -> true;
@@ -518,334 +566,354 @@ is_operand(_)                -> false.
 %%% list, and not every string here is replayed by something.
 %%% ---------------------------------------------------------------------------
 
-message(#{tag := inexhaustive, file := P, line := L, function := Fn,
+%% A CONDITION WHOSE POSITION IS OPTIONAL BUILDS ITS HEADER RATHER THAN
+%% WRITING IT.
+%%
+%% The six resolve-time conditions are found below the level that holds a
+%% position and are given one by `bs_check:at_loc/2` when the declaration
+%% they were found in has one. That is most of the time and not all of it, so
+%% both shapes are real and the header is a function of which arrived:
+%% `~s:~p:~p: ` with a position, `~s: ` without.
+%%
+%% Every OTHER diagnostic carries a position always and writes its header as
+%% a literal, which is what `bin/check-diagnostics.sh` reads. These six are
+%% the deliberate exception, and they are the only ones: a clause that writes
+%% `~s:~p: ` literally is the gate's defect, because it drops a column the
+%% term beside it carries.
+placed(#{line := _, column := _}) -> "~s:~p:~p: ";
+placed(_)                         -> "~s: ".
+
+placed_args(#{file := P, line := L, column := C}) -> [P, L, C];
+placed_args(#{file := P})                         -> [P].
+
+message(#{tag := inexhaustive, file := P, line := L, column := C, function := Fn,
           heads := Heads}) ->
-    {"~s:~p: error: ~s is not exhaustive~n"
+    {"~s:~p:~p: error: ~s is not exhaustive~n"
      "  no clause matches:~n~s",
-     [P, L, Fn, heads_prose(Fn, Heads)]};
+     [P, L, C, Fn, heads_prose(Fn, Heads)]};
 %% A catch-all is legal only over an open residual, and this message has to
 %% carry a conditionally legal `_` to a reader from C# or TypeScript who has
 %% never met one. So it says why the residual is closed and hands back the
 %% cases: the residual is the missing case, so what makes the error
 %% legitimate is what answers it (ticket 12 §2, 04).
-message(#{tag := catch_all_over_closed, file := P, line := L, function := Fn,
+message(#{tag := catch_all_over_closed, file := P, line := L, column := C, function := Fn,
           heads := Heads}) ->
-    {"~s:~p: error: ~s discards cases the compiler can name~n"
+    {"~s:~p:~p: error: ~s discards cases the compiler can name~n"
      "  every value left here comes from a type you declared, so `_`~n"
      "  hides a case rather than admitting an unknown one:~n~s"
      "  a catch-all is for a residual with an unbounded top in it — a~n"
      "  `term` argument, or the open atom universe — where a foreign~n"
      "  sender chooses the inhabitants and there is nothing to enumerate.~n",
-     [P, L, Fn, heads_prose(Fn, Heads)]};
+     [P, L, C, Fn, heads_prose(Fn, Heads)]};
 %% The construct is a head's, so the message says where to put it rather than
 %% only that it is wrong (F2).
-message(#{tag := relational_in_bind, file := P, line := L, function := Fn}) ->
-    {"~s:~p: error: ~s binds a relational pattern~n"
+message(#{tag := relational_in_bind, file := P, line := L, column := C, function := Fn}) ->
+    {"~s:~p:~p: error: ~s binds a relational pattern~n"
      "  `>= 4` names a span of values and introduces no name, so there~n"
      "  is nothing for a bind to bind. A bind must also be provably~n"
      "  irrefutable, and a span is the refutable construct itself.~n"
      "  Dispatch on it in a clause head instead.~n",
-     [P, L, Fn]};
-message(#{tag := no_clauses, file := P, line := L, function := Fn}) ->
-    {"~s:~p: error: ~s has a signature but no clauses~n", [P, L, Fn]};
+     [P, L, C, Fn]};
+message(#{tag := no_clauses, file := P, line := L, column := C, function := Fn}) ->
+    {"~s:~p:~p: error: ~s has a signature but no clauses~n", [P, L, C, Fn]};
 %% Only a divisor proved to be zero is refused, and the message says so,
 %% because a reader's next question is whether every call site needs a
 %% non-zero proof. It does not (ticket 23 §2).
-message(#{tag := divide_by_zero, file := P, line := L, function := Fn,
+message(#{tag := divide_by_zero, file := P, line := L, column := C, function := Fn,
           op := Op}) ->
-    {"~s:~p: error: the right-hand side of `~s` in ~s is always zero~n"
+    {"~s:~p:~p: error: the right-hand side of `~s` in ~s is always zero~n"
      "  `~s` needs no proof that a divisor is non-zero — a divisor that MIGHT~n"
      "  be zero compiles and crashes at run time. Only one the compiler can~n"
      "  prove is zero is refused, and this is one.~n",
-     [P, L, Op, Fn, Op]};
+     [P, L, C, Op, Fn, Op]};
 %% Not routed through the head printer: that prints `Fn(:cancelled) -> ...`,
 %% and a switch has no function name and its arrow is `=>` (ticket 17 §6).
-message(#{tag := switch_inexhaustive, file := P, line := L, function := Fn,
+message(#{tag := switch_inexhaustive, file := P, line := L, column := C, function := Fn,
           arm := Arm}) ->
-    {"~s:~p: error: this switch in ~s is not exhaustive~n"
+    {"~s:~p:~p: error: this switch in ~s is not exhaustive~n"
      "  no arm matches:~n"
      "    ~s => ...~n",
-     [P, L, Fn, Arm]};
+     [P, L, C, Fn, Arm]};
 %% A valve over a value with no `(:error, _)` member generates an arm that can
 %% never match, but the author wrote no arms; they wrote the wrong operator,
 %% so the diagnostic names the right one (F14 §4).
-message(#{tag := valve_on_infallible, file := P, line := L, function := Fn,
+message(#{tag := valve_on_infallible, file := P, line := L, column := C, function := Fn,
           subject := Ty}) ->
-    {"~s:~p: error: this |?> in ~s is over a value that cannot fail~n"
+    {"~s:~p:~p: error: this |?> in ~s is over a value that cannot fail~n"
      "  ~s has no (:error, _) member, so the valve would never stop.~n"
      "  Write |> instead.~n",
-     [P, L, Fn, Ty]};
+     [P, L, C, Fn, Ty]};
 %% Arm, not clause: a construct with no clauses in it cannot be told which
 %% clause is dead.
-message(#{tag := unreachable_arm, file := P, line := L, function := Fn,
+message(#{tag := unreachable_arm, file := P, line := L, column := C, function := Fn,
           arm_number := N}) ->
-    {"~s:~p: warning: arm ~p of this switch in ~s is unreachable~n"
+    {"~s:~p:~p: warning: arm ~p of this switch in ~s is unreachable~n"
      "  every value it matches is matched by an earlier arm.~n",
-     [P, L, N, Fn]};
+     [P, L, C, N, Fn]};
 %% "Arm" is not the only word that changes from the clause pair: an arm has a
 %% third repair, because the subject is right there and may itself be the
 %% mistake (ENG-269).
-message(#{tag := vacuous_arm, file := P, line := L, function := Fn,
+message(#{tag := vacuous_arm, file := P, line := L, column := C, function := Fn,
           arm_number := N, domain := Dom}) ->
-    {"~s:~p: warning: arm ~p of this switch in ~s matches no value~n"
+    {"~s:~p:~p: warning: arm ~p of this switch in ~s matches no value~n"
      "  the subject's type is ~s, and this arm's pattern is not a~n"
      "  member of it — so no value reaching this switch can take~n"
      "  this arm.~n",
-     [P, L, N, Fn, Dom]};
+     [P, L, C, N, Fn, Dom]};
 %% This one must not name the type: the pattern is a good member of it, and
 %% the guard is what admits nothing.
-message(#{tag := unsatisfiable_arm_guard, file := P, line := L, function := Fn,
+message(#{tag := unsatisfiable_arm_guard, file := P, line := L, column := C, function := Fn,
           arm_number := N}) ->
-    {"~s:~p: warning: arm ~p of this switch in ~s has an unsatisfiable guard~n"
+    {"~s:~p:~p: warning: arm ~p of this switch in ~s has an unsatisfiable guard~n"
      "  the pattern is a member of the subject's type; it is the~n"
      "  guard that admits nothing. Widen the guard, or delete the arm.~n",
-     [P, L, N, Fn]};
+     [P, L, C, N, Fn]};
 %% A guard shares the whole expression grammar, so a switch parses inside one
 %% and is refused here rather than in the grammar (F7).
-message(#{tag := switch_in_guard, file := P, line := L, function := Fn}) ->
-    {"~s:~p: error: ~s has a switch in a guard~n"
+message(#{tag := switch_in_guard, file := P, line := L, column := C, function := Fn}) ->
+    {"~s:~p:~p: error: ~s has a switch in a guard~n"
      "  a guard asks a question about the values a clause already~n"
      "  matched; it cannot branch. Move the switch into the body.~n",
-     [P, L, Fn]};
+     [P, L, C, Fn]};
 %% Same reason as the switch above: a guard shares the whole expression grammar,
 %% so a raise parses inside one and is refused here rather than in the grammar.
 %% The repair names the body because that is where a crash belongs — the guard
 %% chooses a clause, and a clause that should crash is a clause whose body is
 %% the raise (ticket 12 §5).
-message(#{tag := raise_in_guard, file := P, line := L, function := Fn}) ->
-    {"~s:~p: error: ~s raises in a guard~n"
+message(#{tag := raise_in_guard, file := P, line := L, column := C, function := Fn}) ->
+    {"~s:~p:~p: error: ~s raises in a guard~n"
      "  a guard chooses which clause runs; it cannot crash. Move~n"
      "  the raise into the body of the clause it should fail.~n",
-     [P, L, Fn]};
-message(#{tag := unreachable_clause, file := P, line := L, function := Fn,
+     [P, L, C, Fn]};
+message(#{tag := unreachable_clause, file := P, line := L, column := C, function := Fn,
           clause_number := N}) ->
-    {"~s:~p: warning: clause ~p of ~s is unreachable~n"
+    {"~s:~p:~p: warning: clause ~p of ~s is unreachable~n"
      "  every value it matches is matched by an earlier clause.~n",
-     [P, L, N, Fn]};
+     [P, L, C, N, Fn]};
 %% Neither of the next two has an earlier clause covering it, so neither may
 %% borrow `unreachable_clause`'s wording. This one names the type, because
 %% the pattern is not a member of it and that is what the author got wrong:
 %% `option<T>` is `T | :nothing`, untagged, so a `(:some, x)` brought from
 %% C#, Rust or F# matches nothing at all (ENG-259).
-message(#{tag := vacuous_clause, file := P, line := L, function := Fn,
+message(#{tag := vacuous_clause, file := P, line := L, column := C, function := Fn,
           clause_number := N, domain := Dom}) ->
-    {"~s:~p: warning: clause ~p of ~s matches no value of its input~n"
+    {"~s:~p:~p: warning: clause ~p of ~s matches no value of its input~n"
      "  the declared input is ~s, and this clause's pattern is not~n"
      "  a member of it — so no call can reach this clause.~n",
-     [P, L, N, Fn, Dom]};
+     [P, L, C, N, Fn, Dom]};
 %% This one must not name the type: the pattern is a good member of it, and
 %% the guard is what admits nothing.
-message(#{tag := unsatisfiable_guard, file := P, line := L, function := Fn,
+message(#{tag := unsatisfiable_guard, file := P, line := L, column := C, function := Fn,
           clause_number := N}) ->
-    {"~s:~p: warning: clause ~p of ~s has a guard no value satisfies~n"
+    {"~s:~p:~p: warning: clause ~p of ~s has a guard no value satisfies~n"
      "  the pattern is a member of the input; it is the guard that~n"
      "  admits nothing. Widen the guard, or delete the clause.~n",
-     [P, L, N, Fn]};
+     [P, L, C, N, Fn]};
 %% Both of the next two would otherwise reach the author as an `erlc` error
 %% against the emitted `.abstr`, a file they did not write (ticket 34).
-message(#{tag := rebinding, file := P, line := L, function := Fn, name := V}) ->
-    {"~s:~p: error: ~s binds ~s twice~n"
+message(#{tag := rebinding, file := P, line := L, column := C, function := Fn, name := V}) ->
+    {"~s:~p:~p: error: ~s binds ~s twice~n"
      "  a name means one thing in a clause. There is no mutation to~n"
      "  assign with, so rename the second one.~n",
-     [P, L, Fn, V]};
+     [P, L, C, Fn, V]};
 %% The same offence as `rebinding` and a different fix, hence a different tag:
 %% in a body you rename, in a head you almost always meant the same value
 %% again, spelled `== x` (F8.10, ticket 45).
-message(#{tag := repeated_in_head, file := P, line := L, function := Fn,
+message(#{tag := repeated_in_head, file := P, line := L, column := C, function := Fn,
           name := V}) ->
-    {"~s:~p: error: ~s binds ~s twice in one head~n"
+    {"~s:~p:~p: error: ~s binds ~s twice in one head~n"
      "  a name means one thing in a clause, so this introduces ~s and~n"
      "  then introduces it again. To match the value the first one~n"
      "  holds, write `== ~s`.~n",
-     [P, L, Fn, V, V, V]};
-message(#{tag := unbound_variable, file := P, line := L, function := Fn,
+     [P, L, C, Fn, V, V, V]};
+message(#{tag := unbound_variable, file := P, line := L, column := C, function := Fn,
           name := V}) ->
-    {"~s:~p: error: ~s uses ~s, which nothing binds~n"
+    {"~s:~p:~p: error: ~s uses ~s, which nothing binds~n"
      "  a name comes from a clause head or a binding above it.~n",
-     [P, L, Fn, V]};
+     [P, L, C, Fn, V]};
 %% The residual is the clause the caller must write: the fix proposed is an
 %% edit to the function being checked, never to the callee (ticket 33 site
 %% 1; 18 §4's function-local rule).
-message(#{tag := arg_not_accepted, file := P, line := L, function := Fn,
+message(#{tag := arg_not_accepted, file := P, line := L, column := C, function := Fn,
           callee := Callee, position := Pos, rejected := Rejected,
           caller_head := Head}) ->
-    {"~s:~p: error: ~s hands ~s an argument it does not accept~n"
+    {"~s:~p:~p: error: ~s hands ~s an argument it does not accept~n"
      "  argument ~p is not covered by ~s's declared type:~n"
      "    ~s~n~s",
-     [P, L, Fn, Callee, Pos, Callee, Rejected, caller_head_prose(Fn, Head)]};
+     [P, L, C, Fn, Callee, Pos, Callee, Rejected, caller_head_prose(Fn, Head)]};
 %% Answered in field names, because `Order{Id} \ Order` would name the type
 %% being built rather than the field forgotten. The verb is read from the
 %% form: "builds an Order with the wrong fields" is false of a `with` that
 %% invented a name, while the `Extra` sentence already fits both and
 %% `field_list/2` renders an empty `Missing` as nothing (ticket 33 site 2,
 %% 36, 23).
-message(#{tag := field_set_mismatch, file := P, line := L, function := Fn,
+message(#{tag := field_set_mismatch, file := P, line := L, column := C, function := Fn,
           record := Record, form := Form, missing := Missing, extra := Extra}) ->
-    {"~s:~p: error: ~s ~s an ~s with the wrong fields~n~s~s",
-     [P, L, Fn, field_set_verb(Form), Record,
+    {"~s:~p:~p: error: ~s ~s an ~s with the wrong fields~n~s~s",
+     [P, L, C, Fn, field_set_verb(Form), Record,
       field_list("  missing, and must be supplied", Missing),
       field_list("  not declared by " ++ atom_to_list(Record), Extra)]};
 %% Shaped on `return_not_declared`'s message: both say a synthesised value is
 %% not contained in a declared type, differing only in which declaration.
-message(#{tag := field_value_not_accepted, file := P, line := L, function := Fn,
+message(#{tag := field_value_not_accepted, file := P, line := L, column := C, function := Fn,
           record := Record, field := Field, rejected := Rejected}) ->
-    {"~s:~p: error: ~s assigns ~s a value ~s does not accept~n"
+    {"~s:~p:~p: error: ~s assigns ~s a value ~s does not accept~n"
      "  not covered by the declared type of ~s:~n"
      "    ~s~n",
-     [P, L, Fn, Field, Record, Field, Rejected]};
+     [P, L, C, Fn, Field, Record, Field, Rejected]};
 %% The residual is the member that lacks the field, which is the tag to
 %% discriminate on (ticket 33 site 3, F3.8).
-message(#{tag := field_absent, file := P, line := L, function := Fn,
+message(#{tag := field_absent, file := P, line := L, column := C, function := Fn,
           form := projection, field := Field, member := Member}) ->
-    {"~s:~p: error: ~s projects ~s from a value that may not carry it~n"
+    {"~s:~p:~p: error: ~s projects ~s from a value that may not carry it~n"
      "  this member has no ~s:~n"
      "    ~s~n"
      "  discriminate on the tag first, in a clause head.~n",
-     [P, L, Fn, Field, Field, Member]};
+     [P, L, C, Fn, Field, Field, Member]};
 %% The member handed back is either one arm of a union or the whole subject,
 %% and the fix differs: the first is discriminated on, the second has no tag
 %% and needs a record where an int is. So the line names both edits
 %% (ENG-249, ticket 23 §4).
-message(#{tag := field_absent, file := P, line := L, function := Fn,
+message(#{tag := field_absent, file := P, line := L, column := C, function := Fn,
           form := update, field := Field, member := Member}) ->
-    {"~s:~p: error: ~s updates ~s on a value that may not carry it~n"
+    {"~s:~p:~p: error: ~s updates ~s on a value that may not carry it~n"
      "  this member has no ~s:~n"
      "    ~s~n"
      "  `with` updates a record: give it one, or discriminate on the tag~n"
      "  first, in a clause head.~n",
-     [P, L, Fn, Field, Field, Member]};
+     [P, L, C, Fn, Field, Field, Member]};
 %% Without this, the emitted `-spec` would claim what the body does not
 %% deliver (ticket 33 site 4, 18). The residual answers what is not covered
 %% and the signature answers what to write, so the signature is added, never
 %% substituted (F25, ticket 23 §8). The `none` clause comes first: the
 %% residual has no writable spelling, such as a record or `binary \ string`.
-message(#{tag := return_not_declared, file := P, line := L, function := Fn,
+message(#{tag := return_not_declared, file := P, line := L, column := C, function := Fn,
           undeclared := Undeclared, corrected := none}) ->
-    {"~s:~p: error: ~s returns a value its signature does not declare~n"
+    {"~s:~p:~p: error: ~s returns a value its signature does not declare~n"
      "  not covered by the declared return type:~n"
      "    ~s~n",
-     [P, L, Fn, Undeclared]};
-message(#{tag := return_not_declared, file := P, line := L, function := Fn,
+     [P, L, C, Fn, Undeclared]};
+message(#{tag := return_not_declared, file := P, line := L, column := C, function := Fn,
           undeclared := Undeclared, corrected := Corrected}) ->
-    {"~s:~p: error: ~s returns a value its signature does not declare~n"
+    {"~s:~p:~p: error: ~s returns a value its signature does not declare~n"
      "  not covered by the declared return type:~n"
      "    ~s~n"
      "  the signature its clauses justify:~n"
      "    ~s~n",
-     [P, L, Fn, Undeclared, Corrected]};
+     [P, L, C, Fn, Undeclared, Corrected]};
 %% A destructuring bind is allowed exactly when this residual is empty, so it
 %% is provably irrefutable (ticket 33 site 5, 34).
-message(#{tag := bind_may_fail, file := P, line := L, function := Fn,
+message(#{tag := bind_may_fail, file := P, line := L, column := C, function := Fn,
           unmatched := Unmatched}) ->
-    {"~s:~p: error: this bind in ~s can fail~n"
+    {"~s:~p:~p: error: this bind in ~s can fail~n"
      "  the pattern does not match:~n"
      "    ~s~n"
      "  a bind that can fail is a branch the exhaustiveness checker~n"
      "  never sees. Match it in a clause head instead.~n",
-     [P, L, Fn, Unmatched]};
+     [P, L, C, Fn, Unmatched]};
 %% Reported as `unknown_callee` this would say the function does not exist,
 %% when it is one word away from callable; that is why `bs_check:exports_of/1`
 %% does not simply filter private functions out (F12, ticket 40 §3).
-message(#{tag := private_function, file := P, line := L, function := Fn,
+message(#{tag := private_function, file := P, line := L, column := C, function := Fn,
           module := Mod, callee := Callee, arity := Arity}) ->
-    {"~s:~p: error: ~s calls ~s/~p, which ~s declares `private`~n"
+    {"~s:~p:~p: error: ~s calls ~s/~p, which ~s declares `private`~n"
      "  a private function is not exported, so no other module can~n"
      "  reach it. Mark it `public` in ~s, or move the call inside it.~n",
-     [P, L, Fn, Callee, Arity, Mod, Mod]};
-message(#{tag := unknown_callee, file := P, line := L, function := Fn,
+     [P, L, C, Fn, Callee, Arity, Mod, Mod]};
+message(#{tag := unknown_callee, file := P, line := L, column := C, function := Fn,
           callee := Callee, arity := Arity}) ->
-    {"~s:~p: error: ~s calls ~s/~p, which nothing declares~n"
+    {"~s:~p:~p: error: ~s calls ~s/~p, which nothing declares~n"
      "  every function has a signature. Write one, or fix the name.~n",
-     [P, L, Fn, Callee, Arity]};
-message(#{tag := arity_mismatch, file := P, line := L, function := Fn,
+     [P, L, C, Fn, Callee, Arity]};
+message(#{tag := arity_mismatch, file := P, line := L, column := C, function := Fn,
           callee := Callee, got := Got, want := Want}) ->
-    {"~s:~p: error: ~s calls ~s with ~p arguments, and it takes ~p~n",
-     [P, L, Fn, Callee, Got, Want]};
+    {"~s:~p:~p: error: ~s calls ~s with ~p arguments, and it takes ~p~n",
+     [P, L, C, Fn, Callee, Got, Want]};
 %% Arity overloading is permitted, so this is not "wrong number of arguments"
 %% but a function not declared, beside ones that are. Naming the arities that
 %% do exist keeps it a fix rather than a verdict (ticket 40 §2).
-message(#{tag := arity_not_declared, file := P, line := L, function := Fn,
+message(#{tag := arity_not_declared, file := P, line := L, column := C, function := Fn,
           callee := Callee, got := Got, declared := Have}) ->
-    {"~s:~p: error: ~s calls ~s/~p, which nothing declares~n"
+    {"~s:~p:~p: error: ~s calls ~s/~p, which nothing declares~n"
      "  ~s is declared at ~s. Arity overloading is permitted, so~n"
      "  ~s/~p would be a new function and needs its own signature.~n",
-     [P, L, Fn, Callee, Got, Callee,
+     [P, L, C, Fn, Callee, Got, Callee,
       lists:join(", ", [[$/ | integer_to_list(A)] || A <- Have]),
       Callee, Got]};
 %% The three reserved-qualifier refusals (ticket 67). The first names the
 %% spellings that are still legal, because only the bare name is taken and an
 %% author just refused needs to know `Shop.Collections.List` remains open.
-message(#{tag := reserved_module_name, file := P, line := L, module := Mod}) ->
-    {"~s:~p: error: `~s` is a reserved qualifier, so no module may be called it~n"
+message(#{tag := reserved_module_name, file := P, line := L, column := C, module := Mod}) ->
+    {"~s:~p:~p: error: `~s` is a reserved qualifier, so no module may be called it~n"
      "  `~s.` names operations the compiler knows and inlines at the site;~n"
      "  no beam ships for it and no `using` is ever written. The name is~n"
      "  taken only as a WHOLE module name — `Shop.~s` is still legal, and~n"
      "  so is any other path with `~s` as a segment.~n",
-     [P, L, Mod, Mod, Mod, Mod]};
+     [P, L, C, Mod, Mod, Mod, Mod]};
 %% The second is `ambiguous_module`'s shape with a compiler-known claimant:
 %% both meanings named, the full path handed over as the fix.
-message(#{tag := reserved_qualifier_shadowed, file := P, line := L,
+message(#{tag := reserved_qualifier_shadowed, file := P, line := L, column := C,
           function := Fn, qualifier := Q, operation := Op,
           candidates := Mods}) ->
-    {"~s:~p: error: ~s calls ~s.~s, and `~s` means two things here~n"
+    {"~s:~p:~p: error: ~s calls ~s.~s, and `~s` means two things here~n"
      "  `~s` is a reserved qualifier — the compiler's own operations —~n"
      "  and a `using` line also short-qualifies these to it:~n"
      "~s"
      "  write the module's full path to reach it, or drop the namespace~n"
      "  import to reach `~s.~s`.~n",
-     [P, L, Fn, Q, Op, Q, Q,
+     [P, L, C, Fn, Q, Op, Q, Q,
       [io_lib:format("    ~s.~s(...)~n", [M, Op]) || M <- Mods],
       Q, Op]};
 %% The third stops an unknown operation falling through to
 %% `module_not_imported`, whose "add `using List`" is the one fix that can
 %% never work for a reserved qualifier.
-message(#{tag := unknown_reserved_operation, file := P, line := L,
+message(#{tag := unknown_reserved_operation, file := P, line := L, column := C,
           function := Fn, qualifier := Q, operation := Op, got := Got,
           declared := []}) ->
-    {"~s:~p: error: ~s calls ~s.~s/~p, and `~s` has no operation of that name~n"
+    {"~s:~p:~p: error: ~s calls ~s.~s/~p, and `~s` has no operation of that name~n"
      "  `~s` is a reserved qualifier, so this cannot be fixed with a~n"
      "  `using` line — the operations under it are the compiler's own.~n",
-     [P, L, Fn, Q, Op, Got, Q, Q]};
-message(#{tag := unknown_reserved_operation, file := P, line := L,
+     [P, L, C, Fn, Q, Op, Got, Q, Q]};
+message(#{tag := unknown_reserved_operation, file := P, line := L, column := C,
           function := Fn, qualifier := Q, operation := Op, got := Got,
           declared := Have}) ->
-    {"~s:~p: error: ~s calls ~s.~s/~p, and `~s.~s` takes ~s~n"
+    {"~s:~p:~p: error: ~s calls ~s.~s/~p, and `~s.~s` takes ~s~n"
      "  the operations under a reserved qualifier are the compiler's own,~n"
      "  so the arity is fixed rather than overloadable.~n",
-     [P, L, Fn, Q, Op, Got, Q, Op,
+     [P, L, C, Fn, Q, Op, Got, Q, Op,
       lists:join(" or ", [[integer_to_list(A), " argument",
                            case A of 1 -> ""; _ -> "s" end] || A <- Have])]};
-message(#{tag := unknown_record, file := P, line := L, function := Fn,
+message(#{tag := unknown_record, file := P, line := L, column := C, function := Fn,
           record := Name}) ->
-    {"~s:~p: error: ~s builds an ~s, which no record or type declares~n",
-     [P, L, Fn, Name]};
+    {"~s:~p:~p: error: ~s builds an ~s, which no record or type declares~n",
+     [P, L, C, Fn, Name]};
 %% `_` is an expression only so that `(a, _) = pair` parses (F5), so its use
 %% as a value is caught here rather than by `erlc` against a file the author
 %% did not write (F4.7).
-message(#{tag := wildcard_as_value, file := P, line := L, function := Fn}) ->
-    {"~s:~p: error: ~s uses `_` as a value~n"
+message(#{tag := wildcard_as_value, file := P, line := L, column := C, function := Fn}) ->
+    {"~s:~p:~p: error: ~s uses `_` as a value~n"
      "  `_` is a pattern. It may stand on the left of `=` or in a~n"
      "  clause head; it names nothing to read back.~n",
-     [P, L, Fn]};
+     [P, L, C, Fn]};
 
 %%% --- the codegen-obligation refusals (F18) ---------------------------------
 
 %% The message says why rather than only what, because the rule is not
 %% obvious and the fix is to want something else entirely.
-message(#{tag := validate_collapses, file := P, line := L, function := Fn,
+message(#{tag := validate_collapses, file := P, line := L, column := C, function := Fn,
           type := Ty}) ->
-    {"~s:~p: error: ~s validates against a type that absorbs its own~n"
+    {"~s:~p:~p: error: ~s validates against a type that absorbs its own~n"
      "  failure channel~n"
      "  the type is: ~s~n"
      "  `result<T, ValidationError>` over it normalises straight back to~n"
      "  T, so the validator could only ever succeed and no caller could~n"
      "  write the failure clause. Validate against the type you actually~n"
      "  expect.~n",
-     [P, L, Fn, Ty]};
+     [P, L, C, Fn, Ty]};
 %% Says the compiler is not ready, not that the pattern is wrong:
 %% `{ Status: s }` is a member of `map<atom, term>`, so "matches no value"
 %% would be false.
-message(#{tag := map_pattern_deferred, file := P, line := L, function := Fn,
+message(#{tag := map_pattern_deferred, file := P, line := L, column := C, function := Fn,
           site := Site, type := Ty}) ->
     %% The same refusal, not the same sentence: an arm's subject is not a
     %% parameter, and "a clause head" would send a `switch` author to the
@@ -855,7 +923,7 @@ message(#{tag := map_pattern_deferred, file := P, line := L, function := Fn,
             head -> {"a clause head", "the parameter's type is"};
             arm  -> {"a switch arm",  "the subject's type is"}
         end,
-    {"~s:~p: error: ~s destructures a map whose keys are not a fixed list~n"
+    {"~s:~p:~p: error: ~s destructures a map whose keys are not a fixed list~n"
      "  ~s: ~s~n"
      "  `map<K, V>` ships as a type — declare it, pass it, store it,~n"
      "  return it — but matching one in ~s is not built. A pattern~n"
@@ -863,13 +931,13 @@ message(#{tag := map_pattern_deferred, file := P, line := L, function := Fn,
      "  the guarantee every other head in this language keeps.~n"
      "  Bind the whole map and read it, or declare a record if the keys~n"
      "  are known.~n",
-     [P, L, Fn, Subject, Ty, Where]};
+     [P, L, C, Fn, Subject, Ty, Where]};
 %% Names the deferral, not a defect: the walk over an unbounded key set is
 %% unbuilt, and a generated validator would silently certify anything
 %% (ticket 48).
-message(#{tag := validate_domain_map, file := P, line := L, function := Fn,
+message(#{tag := validate_domain_map, file := P, line := L, column := C, function := Fn,
           type := Ty}) ->
-    {"~s:~p: error: ~s validates against a map type whose keys are not~n"
+    {"~s:~p:~p: error: ~s validates against a map type whose keys are not~n"
      "  a fixed list~n"
      "  the type is: ~s~n"
      "  `map<K, V>` ships as a type — it can be declared, passed, stored~n"
@@ -877,60 +945,60 @@ message(#{tag := validate_domain_map, file := P, line := L, function := Fn,
      "  keys is not built, and a generated validator would accept every~n"
      "  term it was handed. Validate against a record, or a `type` whose~n"
      "  fields are written out.~n",
-     [P, L, Fn, Ty]};
-message(#{tag := obligation_arity, file := P, line := L, function := Fn,
+     [P, L, C, Fn, Ty]};
+message(#{tag := obligation_arity, file := P, line := L, column := C, function := Fn,
           obligation := Name, type_args := Types, args := Args}) ->
-    {"~s:~p: error: ~s writes ~s with ~p type arguments and ~p values~n"
+    {"~s:~p:~p: error: ~s writes ~s with ~p type arguments and ~p values~n"
      "  ~s is a codegen obligation, not a function: it takes exactly one~n"
      "  type argument and one value. The bracket names the type to~n"
      "  generate a check for, the parentheses hold the term to check.~n"
      "  Write `~s<T>(x)`.~n",
-     [P, L, Fn, Name, Types, Args, Name, Name]};
+     [P, L, C, Fn, Name, Types, Args, Name, Name]};
 %% Two sentences, because the closed set of obligations lives in the checker
 %% rather than the lexer: one is "wait for us", the other "that was never
 %% going to work".
-message(#{tag := obligation_unbuilt, file := P, line := L, function := Fn,
+message(#{tag := obligation_unbuilt, file := P, line := L, column := C, function := Fn,
           obligation := Name}) ->
-    {"~s:~p: error: ~s uses ~s, which is decided and not built yet~n"
+    {"~s:~p:~p: error: ~s uses ~s, which is decided and not built yet~n"
      "  the instantiation bracket admits it — ticket 28 fixed the set of~n"
      "  names it may follow — but this compiler generates nothing for it.~n"
      "  ValidateAs<T> is the one that is built.~n",
-     [P, L, Fn, Name]};
-message(#{tag := not_an_obligation, file := P, line := L, function := Fn,
+     [P, L, C, Fn, Name]};
+message(#{tag := not_an_obligation, file := P, line := L, column := C, function := Fn,
           name := Name, obligations := Names}) ->
-    {"~s:~p: error: ~s writes ~s<...>, and ~s is not a codegen obligation~n"
+    {"~s:~p:~p: error: ~s writes ~s<...>, and ~s is not a codegen obligation~n"
      "  user code has no instantiation syntax: a type argument is written~n"
      "  only after a compiler-known name, which is ~s.~n"
      "  Everywhere else `<` is a comparison.~n",
-     [P, L, Fn, Name, Name,
+     [P, L, C, Fn, Name, Name,
       lists:join(", ", [atom_to_list(N) || N <- Names])]};
-message(#{tag := compiler_known_type, file := P, line := L, type := Name}) ->
-    {"~s:~p: error: ~s is a compiler-known type and cannot be redeclared~n"
+message(#{tag := compiler_known_type, file := P, line := L, column := C, type := Name}) ->
+    {"~s:~p:~p: error: ~s is a compiler-known type and cannot be redeclared~n"
      "  the prelude has two strata: ordinary aliases you could have~n"
      "  written, and names the compiler owns because it is the only thing~n"
      "  that builds a value of them. ~s is in the second. Pick another~n"
      "  name.~n",
-     [P, L, Name, Name]};
+     [P, L, C, Name, Name]};
 
 %%% --- the fatal ones --------------------------------------------------------
 
-message(#{tag := stray_semicolon, file := P, line := L}) ->
-    {"~s:~p: error: beam-sharp has no `;`~n"
+message(#{tag := stray_semicolon, file := P, line := L, column := C}) ->
+    {"~s:~p:~p: error: beam-sharp has no `;`~n"
      "  a declaration ends where the next one begins. Remove it.~n",
-     [P, L]};
-message(#{tag := lex_error, file := P, line := L, detail := D}) ->
-    {"~s:~p: error: ~s~n", [P, L, D]};
-message(#{tag := parse_error, file := P, line := L, detail := D}) ->
-    {"~s:~p: error: ~s~n", [P, L, D]};
+     [P, L, C]};
+message(#{tag := lex_error, file := P, line := L, column := C, detail := D}) ->
+    {"~s:~p:~p: error: ~s~n", [P, L, C, D]};
+message(#{tag := parse_error, file := P, line := L, column := C, detail := D}) ->
+    {"~s:~p:~p: error: ~s~n", [P, L, C, D]};
 %% The refusal names what to write instead: every comparison the guard
 %% fragment admits has an opposite already in the language (ticket 63).
-message(#{tag := no_negation, file := P, line := L, spelling := S}) ->
-    {"~s:~p: error: beam-sharp has no `~s`~n"
+message(#{tag := no_negation, file := P, line := L, column := C, spelling := S}) ->
+    {"~s:~p:~p: error: beam-sharp has no `~s`~n"
      "  negation is not an operator here. A guard and a refinement are built~n"
      "  from comparisons, and every comparison has an opposite you can write~n"
      "  directly: `<=` for `not >`, `>=` for `not <`, `!=` for `not ==`,~n"
      "  `==` for `not !=`. Which case a clause takes is the head's job.~n",
-     [P, L, S]};
+     [P, L, C, S]};
 message(#{tag := no_sources_here, file := P}) ->
     {"bsc: no `.bs` files in ~s~n"
      "  a module is a directory holding `.bs` files (41 §5). If this~n"
@@ -940,84 +1008,84 @@ message(#{tag := no_sources_here, file := P}) ->
 
 %%% --- the raised ones -------------------------------------------------------
 
-message(#{tag := behaviour_not_satisfied, file := P, line := L,
+message(#{tag := behaviour_not_satisfied, file := P, line := L, column := C,
           behaviour := B, missing := Missing}) ->
-    {"~s:~p: error: behaviour ~s is declared and not satisfied~n"
+    {"~s:~p:~p: error: behaviour ~s is declared and not satisfied~n"
      "  these callbacks are mandatory and this module does not define them:~n"
      "~s"
      "  a `behaviour` attribute is emitted for the whole contract, so a~n"
      "  partial one would fail when the process starts rather than here.~n",
-     [P, L, B, [io_lib:format("    ~s/~p~n", [N, A]) || {N, A} <- Missing]]};
-message(#{tag := private_callback, file := P, line := L, name := N,
+     [P, L, C, B, [io_lib:format("    ~s/~p~n", [N, A]) || {N, A} <- Missing]]};
+message(#{tag := private_callback, file := P, line := L, column := C, name := N,
           arity := A, otp_name := Otp}) ->
-    {"~s:~p: error: ~s/~p is `private` and is a callback~n"
+    {"~s:~p:~p: error: ~s/~p is `private` and is a callback~n"
      "  this module declares a behaviour that calls it as ~s/~p, and a~n"
      "  behaviour is dispatched through the export list — `-behaviour`~n"
      "  itself has no runtime effect. Private, it would fail when the~n"
      "  process starts rather than here. Mark it `public`.~n",
-     [P, L, N, A, Otp, A]};
+     [P, L, C, N, A, Otp, A]};
 message(#{tag := unknown_behaviour, file := P, behaviour := B}) ->
     {"~s: error: no behaviour named ~s~n"
      "  the compiler knows `GenServer`, `Supervisor`, `Application`,~n"
      "  `GenStatem` and `GenEvent`.~n",
      [P, B]};
-message(#{tag := unknown_type, file := P, type := N}) ->
-    {"~s: error: no type named ~s~n"
+message(#{tag := unknown_type, type := N} = D) ->
+    {placed(D) ++ "error: no type named ~s~n"
      "  declare it with `type ~s = ...` or `record ~s { ... }`.~n",
-     [P, N, N, N]};
+     placed_args(D) ++ [N, N, N]};
 %% The fix is named because the alternative always exists: a property pattern
 %% constrains fields without naming a type at all (F22).
-message(#{tag := not_a_record, file := P, line := L, type := N}) ->
-    {"~s:~p: error: ~s is not a record, so it cannot name a pattern~n"
+message(#{tag := not_a_record, file := P, line := L, column := C, type := N}) ->
+    {"~s:~p:~p: error: ~s is not a record, so it cannot name a pattern~n"
      "  only a `record` declaration mints the tag a type prefix matches on.~n"
      "  to constrain fields without naming a type, write `{ Field: ... }`.~n",
-     [P, L, N]};
+     [P, L, C, N]};
 %% Shaped on `field_set_mismatch`'s "not declared by Order" sentence, the
 %% same mistake at a different site, and it hands back the field list (F22,
 %% ticket 23).
-message(#{tag := pattern_field_unknown, file := P, line := L, record := R,
+message(#{tag := pattern_field_unknown, file := P, line := L, column := C, record := R,
           field := F, declared := Declared}) ->
-    {"~s:~p: error: ~s is not declared by ~s~n"
+    {"~s:~p:~p: error: ~s is not declared by ~s~n"
      "  ~s declares:~n~s",
-     [P, L, F, R, R,
+     [P, L, C, F, R, R,
       field_list("", [D || D <- Declared, D =/= 'Kind'])]};
-message(#{tag := unknown_builtin, file := P, type := B}) ->
-    {"~s: error: ~s is not a builtin type~n"
+message(#{tag := unknown_builtin, type := B} = D) ->
+    {placed(D) ++ "error: ~s is not a builtin type~n"
      "  this slice has `int`, `atom`, `term`, `bool`, `binary`,~n"
      "  `string` and `list<T>`.~n",
-     [P, B]};
-message(#{tag := opaque_ret_at_boundary, file := P, line := L, module := Mod,
+     placed_args(D) ++ [B]};
+message(#{tag := opaque_ret_at_boundary, file := P, line := L, column := C, module := Mod,
           function := Fun}) ->
-    {"~s:~p: error: ~s.~s returns `string`, which a guard cannot decide~n"
+    {"~s:~p:~p: error: ~s.~s returns `string`, which a guard cannot decide~n"
      "  `string` is `binary` refined by valid UTF-8, and checking that~n"
      "  reads every byte of a value the sender sizes.~n"
      "  declare it `binary`. Establishing the refinement is the UTF-8~n"
      "  entry check, which this compiler does not have yet.~n",
-     [P, L, Mod, Fun]};
+     [P, L, C, Mod, Fun]};
 message(#{tag := unknown_generic, file := P, type := N}) ->
     {"~s: error: no type named ~s takes a type argument~n"
      "  the prelude has `list<T>`, `option<T>` and `result<T, E>`;~n"
      "  your own take one with `type ~s<T> = ...`.~n",
      [P, N, N]};
-message(#{tag := generic_arity, file := P, type := N, want := Want,
-          got := Got}) ->
-    {"~s: error: ~s takes ~p type argument~s, and got ~p~n",
-     [P, N, Want, plural(Want), Got]};
-message(#{tag := needs_type_args, file := P, type := N, want := Want}) ->
-    {"~s: error: ~s is parametric and was written without a bracket~n"
+message(#{tag := generic_arity, type := N, want := Want,
+          got := Got} = D) ->
+    {placed(D) ++ "error: ~s takes ~p type argument~s, and got ~p~n",
+     placed_args(D) ++ [N, Want, plural(Want), Got]};
+message(#{tag := needs_type_args, type := N, want := Want} = D) ->
+    {placed(D) ++ "error: ~s is parametric and was written without a bracket~n"
      "  it takes ~p type argument~s: write `~s<...>`.~n",
-     [P, N, Want, plural(Want), N]};
-message(#{tag := not_parametric, file := P, type := N}) ->
-    {"~s: error: ~s takes no type arguments~n"
+     placed_args(D) ++ [N, Want, plural(Want), N]};
+message(#{tag := not_parametric, type := N} = D) ->
+    {placed(D) ++ "error: ~s takes no type arguments~n"
      "  declare it as `type ~s<T> = ...` if it should.~n",
-     [P, N, N]};
-message(#{tag := cyclic_type, file := P, type := N}) ->
-    {"~s: error: the type ~s is defined in terms of itself, and the~n"
+     placed_args(D) ++ [N, N]};
+message(#{tag := cyclic_type, type := N} = D) ->
+    {placed(D) ++ "error: the type ~s is defined in terms of itself, and the~n"
      "  recursion does not pass through a constructor~n"
      "  so there is no set of values it could describe -- and that is~n"
      "  not a missing feature. Put the recursion inside a shape (a~n"
      "  tuple, a list, or a record field), or drop it.~n",
-     [P, N]};
+     placed_args(D) ++ [N]};
 %% The recursion is through a constructor, so `cyclic_type` does not apply;
 %% what fails is regularity, and the message names the repair as well (F28).
 message(#{tag := non_regular_recursion, file := P, type := N}) ->
@@ -1032,106 +1100,106 @@ message(#{tag := non_regular_recursion, file := P, type := N}) ->
 %% Two messages, because the hint is not one hint: "tag it" repairs an
 %% absorbed `:nothing` and is nonsense about an absorbed `(:error, E)`, which
 %% is already tagged (F31; ticket 15 §1 wrote only the first).
-message(#{tag := collapsed_failure_channel, file := P, line := L,
+message(#{tag := collapsed_failure_channel, file := P, line := L, column := C,
           channel := nothing, member := M, absorbed_by := A}) ->
-    {"~s:~p: error: `~s` is absorbed by `~s`~n"
+    {"~s:~p:~p: error: `~s` is absorbed by `~s`~n"
      "  the failure channel does not survive normalisation, so the type~n"
      "  declared here IS `~s`. No caller can write the failure clause,~n"
      "  because no failure member is left to match.~n"
      "  hint: tag it - (:some, ~s) | :nothing~n",
-     [P, L, M, A, A, A]};
-message(#{tag := collapsed_failure_channel, file := P, line := L,
+     [P, L, C, M, A, A, A]};
+message(#{tag := collapsed_failure_channel, file := P, line := L, column := C,
           channel := error, member := M, absorbed_by := A}) ->
-    {"~s:~p: error: `~s` is absorbed by `~s`~n"
+    {"~s:~p:~p: error: `~s` is absorbed by `~s`~n"
      "  the failure channel does not survive normalisation, so the type~n"
      "  declared here IS `~s`. No caller can write the failure clause,~n"
      "  because no failure member is left to match.~n"
      "  The failure member already carries its tag, so tagging it again~n"
      "  repairs nothing: narrow the success type until it cannot hold an~n"
      "  `(:error, ...)` of its own.~n",
-     [P, L, M, A, A]};
-message(#{tag := kind_field_is_minted, file := P, line := L, record := Name}) ->
-    {"~s:~p: error: ~s declares a field named Kind~n"
+     [P, L, C, M, A, A]};
+message(#{tag := kind_field_is_minted, file := P, line := L, column := C, record := Name}) ->
+    {"~s:~p:~p: error: ~s declares a field named Kind~n"
      "  the tag is minted from the type's qualified name, so a record~n"
      "  cannot also declare one. Rename the field.~n",
-     [P, L, Name]};
-message(#{tag := opaque_refinement, file := P, line := L}) ->
-    {"~s:~p: error: this refinement is not a predicate the checker can read~n"
+     [P, L, C, Name]};
+message(#{tag := opaque_refinement, file := P, line := L, column := C}) ->
+    {"~s:~p:~p: error: this refinement is not a predicate the checker can read~n"
      "  a refinement narrows a type, so the compiler has to be able to~n"
      "  reason about it: comparisons on `value`, joined with `and`/`or`.~n"
      "  `int where value >= 0 and value <= 255` is one.~n"
      "  A predicate that reads the value instead — `WellFormed(value)` —~n"
      "  is the O(n) tier. It is established once at a boundary and never~n"
      "  reasoned about, and this compiler has no site to establish it at.~n",
-     [P, L]};
-message(#{tag := empty_refinement, file := P, line := L}) ->
-    {"~s:~p: error: this refinement admits no values at all~n"
+     [P, L, C]};
+message(#{tag := empty_refinement, file := P, line := L, column := C}) ->
+    {"~s:~p:~p: error: this refinement admits no values at all~n"
      "  the predicate contradicts itself, so nothing has this type and~n"
      "  no call to a function over it could ever be written.~n",
-     [P, L]};
-message(#{tag := relational_pattern_nested, file := P, line := L}) ->
-    {"~s:~p: error: a relational pattern goes where a whole argument goes~n"
+     [P, L, C]};
+message(#{tag := relational_pattern_nested, file := P, line := L, column := C}) ->
+    {"~s:~p:~p: error: a relational pattern goes where a whole argument goes~n"
      "  `Classify(>= 4 and <= 7)` is the shipped form. Inside a record~n"
      "  pattern, a tuple or a list it is not built yet — write the~n"
      "  comparison as a guard there: `when o.Total > 100`.~n",
-     [P, L]};
+     [P, L, C]};
 %%% The binary segment refusals (F13).
-message(#{tag := unsized_segment_not_last, file := P, line := L}) ->
-    {"~s:~p: error: a segment with no width is the REMAINDER~n"
+message(#{tag := unsized_segment_not_last, file := P, line := L, column := C}) ->
+    {"~s:~p:~p: error: a segment with no width is the REMAINDER~n"
      "  so it can only come last — anything after it would never~n"
      "  match. Give it a width (`payload:16`), size it by a field~n"
      "  bound earlier in the same pattern (`payload:size`), or move~n"
      "  it to the end.~n",
-     [P, L]};
-message(#{tag := segment_width_not_positive, file := P, line := L, width := N}) ->
-    {"~s:~p: error: a segment's width must be a positive number of bits~n"
+     [P, L, C]};
+message(#{tag := segment_width_not_positive, file := P, line := L, column := C, width := N}) ->
+    {"~s:~p:~p: error: a segment's width must be a positive number of bits~n"
      "  `~p` is not one. Omit the width entirely to bind the~n"
      "  remainder of the binary.~n",
-     [P, L, N]};
-message(#{tag := segment_literal_too_wide, file := P, line := L,
+     [P, L, C, N]};
+message(#{tag := segment_literal_too_wide, file := P, line := L, column := C,
           value := K, width := N, max := Max}) ->
-    {"~s:~p: error: ~p does not fit in ~p bits~n"
+    {"~s:~p:~p: error: ~p does not fit in ~p bits~n"
      "  a ~p-bit segment holds 0..~p. The mistake is usually the~n"
      "  WIDTH rather than the value — check the field's size in the~n"
      "  format you are parsing.~n",
-     [P, L, K, N, N, Max]};
-message(#{tag := segment_size_not_bound, file := P, line := L, name := V}) ->
-    {"~s:~p: error: `~s` is not bound where this segment's size needs it~n"
+     [P, L, C, K, N, N, Max]};
+message(#{tag := segment_size_not_bound, file := P, line := L, column := C, name := V}) ->
+    {"~s:~p:~p: error: `~s` is not bound where this segment's size needs it~n"
      "  a binary is matched LEFT TO RIGHT, so a size must name a~n"
      "  field bound EARLIER in the same pattern. Erlang accepts this~n"
      "  and the match then silently never succeeds, which is why it~n"
      "  is refused here.~n",
-     [P, L, V]};
-message(#{tag := name_redeclared, file := P, line := L, name := Name,
+     [P, L, C, V]};
+message(#{tag := name_redeclared, file := P, line := L, column := C, name := Name,
           arity := Arity}) ->
-    {"~s:~p: error: ~s/~p is declared more than once~n"
+    {"~s:~p:~p: error: ~s/~p is declared more than once~n"
      "  a name may carry MORE THAN ONE ARITY, so ~s/~p and ~s/~p would~n"
      "  be two functions — but two signatures of the SAME arity are one~n"
      "  function declared twice, and its clauses would merge silently.~n",
-     [P, L, Name, Arity, Name, Arity, Name, Arity + 1]};
-message(#{tag := ambiguous_call, file := P, line := L, name := Name,
+     [P, L, C, Name, Arity, Name, Arity, Name, Arity + 1]};
+message(#{tag := ambiguous_call, file := P, line := L, column := C, name := Name,
           arity := Arity, candidates := Mods}) ->
-    {"~s:~p: error: ~s/~p is ambiguous — ~p imports declare it~n"
+    {"~s:~p:~p: error: ~s/~p is ambiguous — ~p imports declare it~n"
      "  name one of these instead:~n"
      "~s",
-     [P, L, Name, Arity, length(Mods),
+     [P, L, C, Name, Arity, length(Mods),
       [io_lib:format("    ~s.~s(...)~n", [M, Name]) || M <- Mods]]};
-message(#{tag := unknown_module, file := P, line := L, module := Mod}) ->
-    {"~s:~p: error: `using ~s` names no module and no namespace~n"
+message(#{tag := unknown_module, file := P, line := L, column := C, module := Mod}) ->
+    {"~s:~p:~p: error: `using ~s` names no module and no namespace~n"
      "  a module is a source file this invocation can reach; a namespace~n"
      "  is a path that other modules sit under. Neither matched.~n",
-     [P, L, Mod]};
-message(#{tag := module_not_imported, file := P, line := L, module := Mod}) ->
-    {"~s:~p: error: ~s is called but never imported~n"
+     [P, L, C, Mod]};
+message(#{tag := module_not_imported, file := P, line := L, column := C, module := Mod}) ->
+    {"~s:~p:~p: error: ~s is called but never imported~n"
      "  add `using ~s` — a file's `using` lines are its dependency list,~n"
      "  and a call that skips them makes that list wrong.~n",
-     [P, L, Mod, Mod]};
-message(#{tag := ambiguous_module, file := P, line := L, module := Short,
+     [P, L, C, Mod, Mod]};
+message(#{tag := ambiguous_module, file := P, line := L, column := C, module := Short,
           candidates := Mods}) ->
-    {"~s:~p: error: ~s is ambiguous — ~p namespaces hold a module of that name~n"
+    {"~s:~p:~p: error: ~s is ambiguous — ~p namespaces hold a module of that name~n"
      "  name one of these in full instead:~n"
      "~s",
-     [P, L, Short, length(Mods), [io_lib:format("    ~s~n", [M]) || M <- Mods]]};
+     [P, L, C, Short, length(Mods), [io_lib:format("    ~s~n", [M]) || M <- Mods]]};
 message(#{tag := import_cycle, cycle := Cycle}) ->
     {"error: these modules import each other in a cycle~n"
      "~s"
@@ -1139,25 +1207,25 @@ message(#{tag := import_cycle, cycle := Cycle}) ->
      "  cycle has no order to check them in. Break it by moving the~n"
      "  shared declarations into a module both can import.~n",
      [[io_lib:format("    ~s~n", [M]) || M <- Cycle]]};
-message(#{tag := function_in_index, file := P, line := L, function := Name}) ->
-    {"~s:~p: error: ~s is a function, and index.bs holds no functions~n"
+message(#{tag := function_in_index, file := P, line := L, column := C, function := Name}) ->
+    {"~s:~p:~p: error: ~s is a function, and index.bs holds no functions~n"
      "  index.bs is the module's DECLARATION file — using, type, record~n"
      "  and behaviour. It is also the file every new declaration lands~n"
      "  in, so it is the most contended one in the module by~n"
      "  construction; putting functions there merges it with the one~n"
      "  thing file-per-function exists to keep apart.~n"
      "  Give ~s its own file in the same directory.~n",
-     [P, L, Name, Name]};
-message(#{tag := module_path_mismatch, file := P, line := L,
+     [P, L, C, Name, Name]};
+message(#{tag := module_path_mismatch, file := P, line := L, column := C,
           declared := Declared, expected := Expected}) ->
-    {"~s:~p: error: `module ~s` does not match its directory~n"
+    {"~s:~p:~p: error: `module ~s` does not match its directory~n"
      "  this directory says `module ~s`~n"
      "  a module's declaration and its path are the same name written~n"
      "  twice, and 40 §1 makes the declaration the emitted ATOM — so~n"
      "  when they disagree the atom and the tree have drifted apart.~n"
      "  Rename the directory, fix the declaration, or name the source~n"
      "  root with --src-root if this tree is rooted somewhere else.~n",
-     [P, L, Declared, Expected]};
+     [P, L, C, Declared, Expected]};
 message(#{tag := module_disagreement, count := Count,
           declarations := Declared}) ->
     {"error: one directory is one module, and this one declares ~p~n"

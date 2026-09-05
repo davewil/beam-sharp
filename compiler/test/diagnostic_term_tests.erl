@@ -148,8 +148,12 @@ a_warning_carries_its_severity_and_still_compiles_test() ->
 %% parameter, which no clause head can be written for.
 an_unsynthesisable_caller_head_offers_nothing_test() ->
     Residual = bs_types:atom_lit(oops),
+    %% `{3, 7}` rather than `3`: a position is both halves since F35, and
+    %% `descriptor/2` splits the pair into `line` and `column`. A bare line
+    %% here would build a descriptor no `message/1` clause matches, which is
+    %% a fixture the compiler could never produce.
     Desc = bs_diag:descriptor("x.bs",
-                              {error, 3, "F",
+                              {error, {3, 7}, "F",
                                {arg_not_accepted, 'G', 1, Residual, none}}),
     ?assertMatch(#{tag := arg_not_accepted, caller_head := none}, Desc),
     %% And the prose says nothing rather than proposing something wrong.
