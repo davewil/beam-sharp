@@ -155,8 +155,9 @@ begin; it never guesses.
 | [`compiler/features/`](compiler/features/) | numbered capabilities, each citing the decisions it implements |
 | [`compiler/examples/`](compiler/examples/) | the corpus every gate compiles |
 
-The design record — tickets, research, prototypes and the map of what is decided and what is still
-fog — lives under `wayfinder/` and is deliberately **not** part of the shipping package. The
+The design record — tickets, research and prototypes — lives under `wayfinder/` and is
+deliberately **not** part of the shipping package; there is no separate map or digest, the tickets
+are the record. The
 documents above are written to stand without it, and
 [`bin/check-links.sh`](bin/check-links.sh) holds them to that.
 

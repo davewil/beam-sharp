@@ -180,7 +180,7 @@ an error channel beside it.
 - [x] `check-boundary-kind.sh` exists, has been **seen to go red** on the real defect, and its
       self-test catches a SILENT, a CRY-WOLF and a RANGE stub on different probes, passes the
       decided behaviour, and refuses a run that never compiled
-- [x] the gate is wired into `ci.yml` **and** `.claude/end-session.md` — three edits, not two
+- [x] the gate is wired into `ci.yml` **and** `.claude/end-session.md` (the overlay; deleted 2026-09-05) — three edits, not two
 - [x] Dialyzer accepts every emitted spec; the corpus diff is guard insertions and nothing else
 - [x] ticket 58's false premise about ticket 46's emitted guard corrected in place, in the repo
       file and in ENG-240

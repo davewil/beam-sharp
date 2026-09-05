@@ -55,8 +55,10 @@ jobs:
       # cwd-independence check on the gates themselves, and a detector suite for
       # the repository's own recurring mistakes. Every one guarded the tracking
       # layer rather than the language or the handoff, and that layer had begun
-      # generating its own commits: fourteen of the sixty before the cut were
-      # about its shape, against eleven on the compiler. The design record is
+      # generating its own commits: of the sixty before the cut, classified by
+      # the first bucket each touches, 11 were compiler source and tests, 21 the
+      # spec and its gates, 6 tickets and research, and 20 the tracking layer
+      # and its gates. The design record is
       # the tickets in `wayfinder/issues/`; Linear owns their state; nothing
       # gates their form.
       - name: The gate-gates prove they can fail

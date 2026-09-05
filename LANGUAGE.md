@@ -16,10 +16,8 @@ Traceability still exists, in HTML comments the reader never sees:
 ```
 
 A decided construct carries one, so a paragraph can be traced to the ticket that decided it
-without a ticket number appearing in the prose — the comment is the only place one may appear, and
-`bin/check-links.sh` refuses one anywhere the reader can see it.
-**A handful of older paragraphs still name tickets inline** — they predate the convention and are
-the exception this note is written against.
+without a ticket number appearing in the prose — the comment is the only place one may appear.
+Nothing checks that every construct has one.
 
 Every construct is marked with its status:
 

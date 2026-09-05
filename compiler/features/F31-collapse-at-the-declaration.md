@@ -222,7 +222,7 @@ keep its own. They share an identifier because they are one claim about one mess
 | `bin/check-collapse.sh` | the eleven shapes above, plus `--self-test` |
 | `test/collapse_tests.erl` | the eleven shapes, the six declaration sites, termination, and the message |
 | `LANGUAGE.md` | §7 *A failure channel that does not survive normalisation is refused*, as prose — a refusal has no `examples/` demo |
-| `ci.yml`, `verify.sh`, `.claude/end-session.md` | the four-edit rule, count sentence included |
+| `ci.yml`, `verify.sh`, `.claude/end-session.md` (the overlay; deleted 2026-09-05) | the four-edit rule, count sentence included |
 
 ## Two things measured during the build that the plan did not have
 

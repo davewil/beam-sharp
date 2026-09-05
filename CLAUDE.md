@@ -28,9 +28,11 @@ Project: <https://linear.app/davewil/project/beam-sharp-design-map-bfc1fc086d36>
 
 **There is no index file, digest, or glossary of decisions in the repo, on purpose.** Until
 2026-09-05 there were four (`map.md`, `fog.md`, `scope.md`, a generated `decisions.md`) plus seven
-gates and nine detectors keeping them in shape, and in the five days before the cut that layer took
-fourteen commits against the compiler's eleven. The tickets are the record. Anything cut that turns
-out to be needed is in git history before `96fc0b2`, and can be rederived from the tickets.
+gates and nine detectors keeping them in shape. Of the sixty commits before the cut (2026-08-31 to
+09-05), classifying each by the first bucket it touches — compiler source and tests; the spec and
+its gates; tickets and research; the tracking layer and its gates — 11 were compiler, 21 spec, 6
+tickets and **20 the tracking layer**. The tickets are the record. Anything cut that turns out to
+be needed is in the tree at `96fc0b2`, and can be rederived from the tickets.
 
 ## Starting a session
 
@@ -88,7 +90,9 @@ each of the two halves catches a fault the other cannot see.
 **Once per unit of work, at the final SHA — not once per commit** (David, 2026-09-02). A pair is
 ~13 minutes, and restarting it every time `HEAD` moves burns them for nothing. Batch first,
 verify last. **A docs-or-ticket change gets only the gates that read it** — `check-links.sh`,
-and `check-tour.sh` / `check-language.sh` if those files moved; a ticket-only change gets none. A docs-only
+`check-tour.sh` / `check-language.sh` if those files moved, and `check-status-claims.sh` if a
+ticket's `Status:` line changed, since it reads those to judge "N open" claims in the shipping
+documents. A docs-only
 commit landing on an already-verified SHA does not restart the standing pair.
 
 **A gate is believed only once it has been seen to fail.** Every gate carries a `--self-test`

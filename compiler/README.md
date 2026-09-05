@@ -264,8 +264,8 @@ callable and the emitted `-spec` byte-identical on all five — see
 
 ## Decisions entry
 
-<!-- This ticket's entry, in the shape every resolved ticket carries. The link inside
-     is fenced rather than live. -->
+<!-- The walking skeleton's decisions entry, in the same fenced shape every resolved ticket
+     carries, so a grep for `decisions-entry` finds it with the rest. -->
 
 ```decisions-entry
 - [The walking skeleton, first slice](../compiler/README.md) — **built 2026-08-13, and the premise

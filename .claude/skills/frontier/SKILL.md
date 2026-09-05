@@ -72,7 +72,7 @@ Done when: one issue is chosen and the sentence naming the rule that chose it is
   different questions were both called "ticket 48" for four days, one in Linear only and one
   in the repo only.
 - A defect is a Linear issue with no ticket number; a decision is a map ticket with both a
-  file and an issue. Filing the wrong kind is a red gate or a lost number.
+  file and an issue. Filing the wrong kind is a lost number; no gate sees it.
 - Before writing "this is not decided", grep `wayfinder/issues/`.
 
 ## 5. Claim and route

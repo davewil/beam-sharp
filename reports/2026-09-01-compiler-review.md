@@ -129,7 +129,9 @@ Two fresh clones of `be9d56c`, each through `mise exec -- ./bin/verify.sh`, each
 
 CI on master: the last three pushes (2026-08-31 01:35, 2026-08-31 13:57, 2026-09-01 00:22) all
 green, about 12 minutes each. Thirty gate scripts across four `bin` directories, every one wired
-into CI, `verify.sh` and the session list, which stage 4 asserts.
+into CI, `verify.sh` and the session list, which stage 4 asserts. *(2026-09-05: the session list
+and seven of those gates were deleted at `ab7a196`; stage 4 now asserts the workflow and the entry
+point.)*
 
 Two counts in the tree are behind the 37: F28's status line says 36 stages, and the audition's
 `stage.sh` comment says "stage 12 of 34". Neither is a gate failure. → `ENG-287`, `ENG-290`
@@ -175,7 +177,8 @@ examples parse with no ERROR node), a TextMate grammar and a vim syntax file (st
 keyword present in both). `editor/README.md:11-12` is candid that the regex grammars cannot separate
 `list<int>` from `a < b && c > d` and that tree-sitter is the destination.
 
-The LSP is deliberately off the design map and tracked as `ENG-205`. Its
+The LSP is deliberately off the design map and tracked as `ENG-205` *(this sentence cited
+`wayfinder/scope.md:35` until 2026-09-05, when that file was deleted)*. Its
 prerequisite table had aged: it still said ticket 23 §1 and §10 were unbuilt, and both shipped on
 2026-08-18 as F16 and F17. Corrected in place on 2026-09-01. The prerequisites, in build order:
 

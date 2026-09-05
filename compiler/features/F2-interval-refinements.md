@@ -10,7 +10,8 @@
                 emitting only what the clause does not already prove.** Unbuilt
 
 **Brief**       [The octet coupling](https://claude.ai/code/artifact/ac3174ee-507b-4ae6-97e3-fa7a2ea6ce43)
-                · source `wayfinder/beam-sharp-eng-214.html`
+                · its HTML render was committed as `wayfinder/beam-sharp-eng-214.html` until
+                2026-09-05; the ticket is the source
 
 ## What building it found
 

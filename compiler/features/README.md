@@ -123,7 +123,7 @@ Erlang back to the decision that required it is one grep.
 
 <!-- 2026-08-22: F22 shipped on 2026-08-21 and was NEVER GIVEN A ROW HERE, and the board line
      still read "twenty-one" while twenty-two F-files existed. Both fixed above, by F23's session.
-     NOTHING GATES THIS. `check-map.sh` enforces that every wayfinder body entry has an index
+     NOTHING GATES THIS. `check-map.sh` (deleted 2026-09-05) enforced that every wayfinder body entry had an index
      entry; there is no equivalent asserting that every `F*.md` has a row in this table and that
      the board line's count matches the file count. That is a real owed check — it is the
      "a passing gate may never have looked" shape, one namespace along — and it is left as a
