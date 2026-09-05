@@ -704,9 +704,18 @@ repl(File, Opts0) ->
             exit_with(1)
     end.
 
+%% THE SCRATCH DIRECTORY IS NAMED FOR THIS PROCESS. It was `bsc-<N>` with
+%% `N = erlang:unique_integer([positive])`, which is unique within one VM and
+%% restarts with every VM: 12 distinct values from 30 fresh VMs (ENG-318,
+%% measured 2026-09-03). Two concurrent runs without `-o` could share one
+%% `Fib.beam`, and a sequential clean pair went red at the tour gate when a
+%% fresh VM's counter landed on a directory a dead one had left populated. The
+%% OS pid is unique among processes alive at once, which is exactly the set
+%% that can collide; the counter still separates two calls within one VM.
 tmpdir() ->
     Base = case os:getenv("TMPDIR") of false -> "/tmp"; T -> T end,
-    Dir = filename:join(Base, "bsc-" ++ integer_to_list(erlang:unique_integer([positive]))),
+    Dir = filename:join(Base, "bsc-" ++ os:getpid() ++ "-" ++
+                              integer_to_list(erlang:unique_integer([positive]))),
     ok = filelib:ensure_dir(filename:join(Dir, "x")),
     Dir.
 

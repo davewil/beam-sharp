@@ -192,6 +192,43 @@ reload_picks_up_a_changed_file_test() ->
     {module, 'Fib'} = code:ensure_loaded('Fib'),
     ?assertEqual(100, 'Fib':'Fib'(6)).
 
+%% ENG-318 — TWO `bsc` RUNS COULD SHARE A SCRATCH DIRECTORY. Without `-o`
+%% the scratch was `$TMPDIR/bsc-<N>` with `N = erlang:unique_integer([positive])`,
+%% unique within one VM and restarted by every VM: 12 distinct values from 30
+%% fresh VMs, measured 2026-09-03. Two concurrent runs shared `Fib.beam`, and a
+%% sequential clean pair went red at the tour gate when a fresh VM's counter
+%% landed on a directory a dead one had left populated.
+%%
+%% The name now carries the OS pid, which is unique among processes alive at
+%% the same time — exactly the set that can collide. This asserts it at the
+%% boundary: run the escript without `-o`, read the pid the port spawned, and
+%% require the path `-v` prints to sit under `bsc-<that pid>-`. Deterministic;
+%% a test that raced N runs and waited for a collision would be red only
+%% sometimes, which is not a red. `env` rather than a leading assignment, since
+%% `exec VAR=x prog` would try to run a file called `VAR=x`.
+a_scratch_directory_is_named_for_the_process_that_made_it_test() ->
+    case bs_test_support:built() of
+        false -> ok;
+        true ->
+            with_src("fib.bs", fib_src(), fun(Path, Root) ->
+                Tmp = filename:join(Root, "scratch"),
+                ok = filelib:ensure_dir(filename:join(Tmp, "x")),
+                {Rc, Output, OsPid} = bs_process:run_merged_with_pid(
+                    "env TMPDIR=" ++ Tmp ++ " " ++ bs_test_support:escript() ++
+                    " -v " ++ Path ++ " 5"),
+                ?assertEqual({0, "5"}, {Rc, lists:last(string:lexemes(Output, "\n"))}),
+                Wrote = [string:prefix(L, "wrote ")
+                         || L <- string:lexemes(Output, "\n"),
+                            string:prefix(L, "wrote ") =/= nomatch],
+                ?assertMatch([_ | _], Wrote),
+                Scratch = filename:dirname(hd(Wrote)),
+                ?assertEqual(Tmp, filename:dirname(Scratch)),
+                Expected = "bsc-" ++ integer_to_list(OsPid) ++ "-",
+                ?assertEqual(Expected,
+                             string:slice(filename:basename(Scratch), 0, length(Expected)))
+            end)
+    end.
+
 %%% ---------------------------------------------------------------------------
 %%% The reader's diagnostics.
 %%%

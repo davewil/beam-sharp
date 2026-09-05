@@ -108,16 +108,17 @@ if [ "${1:-}" = "--self-test" ]; then
   # Bash 3.2 as well as 5: `wait -n` is 4.3+, so a bare `wait` collects
   # every job and the files carry the results.
   #
-  # EACH RUN GETS ITS OWN TMPDIR, AND THAT IS THE RACE. Part 3's plain
-  # replays run `bsc` with no `-o`, and `bsc` then names its scratch
-  # directory under $TMPDIR from `erlang:unique_integer` — unique within
-  # one VM, repeated across VMs: 12 distinct values from 30 fresh VMs when
-  # measured on 2026-09-03. Two concurrent runs of this gate would share
-  # one `Fib.beam` path. The batch form changes the count, not the race:
-  # one run's replays now share a VM and cannot collide with each other,
-  # while two runs are still two VMs. `bsc` reads TMPDIR itself, so a private one per
-  # control keeps their scratch apart; `mktemp -d` honours it on Linux and
-  # ignores it on macOS, which is why control 12 below opts out.
+  # EACH RUN GETS ITS OWN TMPDIR, AND THAT WAS THE RACE. Part 3's plain
+  # replays run `bsc` with no `-o`, and until 2026-09-05 `bsc` named its
+  # scratch directory under $TMPDIR from `erlang:unique_integer` alone —
+  # unique within one VM, repeated across VMs: 12 distinct values from 30
+  # fresh VMs when measured on 2026-09-03. Two concurrent runs of this gate
+  # shared one `Fib.beam` path, and a sequential clean pair went red here
+  # when a fresh VM landed on a dead VM's leftover. ENG-318 put the OS pid
+  # in the name, which closes both. The private TMPDIR per control stays:
+  # it keeps each control's leftovers out of the others' sight and out of
+  # the machine's $TMPDIR. `mktemp -d` honours it on Linux and ignores it on
+  # macOS, which is why control 12 below opts out.
   # ------------------------------------------------------------------
   launch() {   # launch [--inherit-tmpdir] <name> [VAR=value ...] — this gate, in the background
     local tmp name
