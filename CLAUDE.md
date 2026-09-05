@@ -7,24 +7,29 @@ exhaustiveness**.
 
 `beam-sharp` is a working name. Naming is unresolved.
 
-## The goal: two parts and a follow-up
+## The goal: two parts, a follow-up, and the tooling
 
-1. **B#, the language.** A C#-syntax BEAM language whose defining feature is multi-clause
+1. **Design the language, B#.** A C#-syntax BEAM language whose defining feature is multi-clause
    function heads checked by a set-theoretic type system that proves exhaustiveness, decided one
    B# program at a time.
-2. **bsc, the compiler.** Every decision made real: each feature built, each exemplar compiling
-   and running, the diagnostics a program's author actually sees.
-3. **The follow-up: the clean-room handoff.** A spec complete enough that a stranger, or a fleet,
-   builds the compiler from it without David, proved by the audition.
+2. **The reference compiler.** Built as the language is designed, so every decision is real
+   before the next is taken. It is the oracle: any other implementation of B# is right when it
+   agrees with this one.
+3. **The follow-up: the clean-room handoff.** A delivered spec that a stranger, or a fleet,
+   develops against blind, with the reference compiler as the judge. The audition is that
+   development, measured.
+4. **The tooling.** `bsc` the CLI, `ibs` the REPL, the LSP, the tree-sitter grammar, and whatever
+   else a program's author needs to write B# comfortably.
 
-Progress shows in exactly two places, and a session reports one of them at its end:
+Progress shows in three places, and a session reports one of them at its end:
 
 - **An exemplar program that did not compile and run yesterday does today** (parts 1 and 2).
 - **The audition passes more tickets than its last run** (part 3).
+- **A program's author can do something in the editor or the REPL they could not before** (part 4).
 
-A session that moved neither has not advanced the project, whatever else it landed: a check, a
-doc, a hook or a tracker change never counts. (David, 2026-09-05, after a week in which the
-apparatus grew and no language work happened.)
+A session that moved none of the three has not advanced the project, whatever else it landed: a
+check, a doc, a hook or a tracker change never counts. (David, 2026-09-05, after a week in which
+the apparatus grew and no language work happened.)
 
 ## Where things live
 
