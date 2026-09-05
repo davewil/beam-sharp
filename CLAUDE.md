@@ -26,6 +26,14 @@ version control.
 Project: <https://linear.app/davewil/project/beam-sharp-design-map-bfc1fc086d36>
 (the map, [ENG-165](https://linear.app/davewil/issue/ENG-165), is its index issue).
 
+## Agent skills
+
+### Issue tracker
+
+Linear: team `Engineering` (`ENG`), project `beam-sharp design map`, map issue ENG-165, tickets as
+its sub-issues. How `/wayfinder`, `/frontier` and the other engineering skills express the map,
+claims, blocking and resolution there is in `docs/agents/issue-tracker.md`.
+
 **There is no index file, digest, or glossary of decisions in the repo, on purpose.** Until
 2026-09-05 there were four (`map.md`, `fog.md`, `scope.md`, a generated `decisions.md`) plus seven
 gates and nine detectors keeping them in shape. Of the sixty commits before the cut (2026-08-31 to
