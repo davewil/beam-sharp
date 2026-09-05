@@ -7,17 +7,24 @@ exhaustiveness**.
 
 `beam-sharp` is a working name. Naming is unresolved.
 
-## The goal, and the only two measures of progress
+## The goal: two parts and a follow-up
 
-The destination is a language specification complete enough that a stranger can build the
-compiler from it, proved by the audition. Progress shows in exactly two places:
+1. **B#, the language.** A C#-syntax BEAM language whose defining feature is multi-clause
+   function heads checked by a set-theoretic type system that proves exhaustiveness, decided one
+   B# program at a time.
+2. **bsc, the compiler.** Every decision made real: each feature built, each exemplar compiling
+   and running, the diagnostics a program's author actually sees.
+3. **The follow-up: the clean-room handoff.** A spec complete enough that a stranger, or a fleet,
+   builds the compiler from it without David, proved by the audition.
 
-1. **An exemplar program that did not compile and run yesterday does today.**
-2. **The audition passes more tickets than its last run.**
+Progress shows in exactly two places, and a session reports one of them at its end:
 
-A session reports one of those two at its end. A session that moved neither has not advanced the
-project, whatever else it landed: a check, a doc, a hook or a tracker change never counts.
-(David, 2026-09-05, after a week in which the apparatus grew and no language work happened.)
+- **An exemplar program that did not compile and run yesterday does today** (parts 1 and 2).
+- **The audition passes more tickets than its last run** (part 3).
+
+A session that moved neither has not advanced the project, whatever else it landed: a check, a
+doc, a hook or a tracker change never counts. (David, 2026-09-05, after a week in which the
+apparatus grew and no language work happened.)
 
 ## Where things live
 
