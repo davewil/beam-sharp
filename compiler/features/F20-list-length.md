@@ -239,10 +239,15 @@ F(xs) -> xs switch { [] => :e, [a] => :one, [a, b, ..] => :m }    // exhaustive,
 F(xs) -> xs switch { [] => :e, [a, b, ..] => :m }
 //   error: this switch in F is not exhaustive
 //     no arm matches:
-//       [int] => ...
+//       [n] => ...
 ```
 
-The arm names `[int]`, exactly as the head does, because `arm_type` routes through `pattern_type`.
+The arm names the element as the head does, because `arm_type` routes through `pattern_type`.
+*The spelling was `[int]` until 2026-09-06 ([ENG-312](https://linear.app/davewil/issue/ENG-312)),
+here and in the head both: a lowercase type name in pattern position is a BINDER named `int`, not
+a type, which is the `OpenList` defect `check-residual-pasteable.sh` records. Routing the arm
+through the head channel's `head_combos/2` picked up that fix with everything else — the point of
+having one printer rather than two.*
 **A compiler that proved length in heads and not in arms would be worse than one that proved it
 nowhere**, because nobody would expect the asymmetry — so this is now covered by tests rather than
 by the inference that it must work.

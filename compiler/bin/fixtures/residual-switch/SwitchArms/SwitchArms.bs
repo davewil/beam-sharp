@@ -1,0 +1,19 @@
+// The switch fixture for `check-residual-pasteable.sh`'s third stage (ENG-312).
+//
+// TWO RESIDUAL MEMBERS, one a record and one an atom, because the defect this
+// stage exists to catch has two halves and either can be closed alone:
+// a printer that renders every member through the record spelling mangles
+// `:nothing`, and one that never splits the union leaves a `|` in an arm,
+// which is not arm syntax at all. Only both together paste.
+module SwitchArms
+
+record Order   { Id: int, Total: int }
+record Invoice { Id: int, Total: int }
+
+type Doc = Order | Invoice | :nothing
+
+public atom Which(Doc d)
+
+Which(d) -> d switch {
+    Order o => :order
+}

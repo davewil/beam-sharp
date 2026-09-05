@@ -2022,10 +2022,23 @@ switch_over(L, SubjTy, Arms, S, C, Origin) ->
     {Tys, Residual, D1} = arms(Arms, SubjTy, SubjTy, S, C, 1, [], [], Origin),
     D2 = case bs_types:is_none(Residual) of
              true  -> [];
-             %% The residual is the missing arm (ticket 04), and it needs no
-             %% new printer: `to_pattern/1` already renders a tuple as
-             %% `(a, b, c)` and a record union as its discriminator.
-             false -> [{error, L, C#ctx.fname, {switch_inexhaustive, Residual}}]
+             %% The residual is the missing arm (ticket 04), and it is spelled
+             %% by the HEAD channel — `record_names/1` for the same reason the
+             %% head site passes it, so a record member prints `Invoice i`.
+             %%
+             %% THIS READ "it needs no new printer: `to_pattern/1` already
+             %% renders a tuple as `(a, b, c)` and a record union as its
+             %% discriminator" UNTIL 2026-09-06 (ENG-312). True when F7
+             %% shipped, and false from F22, which gave a record a spelling in
+             %% pattern position; F29 taught the head channel that spelling and
+             %% the switch was never routed through it. `to_pattern/1` renders
+             %% the WHOLE residual, so it can neither split the members nor
+             %% name a record — it printed the erasure detail
+             %% `{ Kind: :'M.Invoice' }`, which `check-record-idiom.sh` refuses
+             %% in the corpus.
+             false -> [{error, L, C#ctx.fname,
+                        {switch_inexhaustive, Residual,
+                         record_names(C#ctx.types)}}]
          end,
     {union_of(Tys), D1 ++ D2}.
 

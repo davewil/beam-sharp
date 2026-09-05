@@ -159,10 +159,18 @@ built(Path, {Sev, Line, Fn, no_clauses}) ->
 %% mistake differently, and the fix differs with it (F26, ticket 38).
 built(Path, {Sev, Line, Fn, {divide_by_zero, Op}}) ->
     (at(Sev, Path, Line, Fn))#{tag => divide_by_zero, op => Op};
-built(Path, {Sev, Line, Fn, {switch_inexhaustive, Residual}}) ->
-    (at(Sev, Path, Line, Fn))#{tag => switch_inexhaustive,
-                               residual => residual(Residual),
-                               arm => bs_types:to_pattern(Residual)};
+built(Path, {Sev, Line, Fn, {switch_inexhaustive, Residual, Names}}) ->
+    Base = (at(Sev, Path, Line, Fn))#{tag => switch_inexhaustive,
+                                      residual => residual(Residual)},
+    %% `arms` is a LIST, like the head channel's `pasteable`, and for the same
+    %% reason: `arm` was one string holding the whole residual, so a two-member
+    %% residual arrived as `:nothing | { Kind: ... }` — a `|` no arm grammar
+    %% accepts. The split is the fix, not a presentation choice (ENG-312).
+    case arms(Residual, Names) of
+        [] -> Base#{arms => [],
+                    description => [lists:flatten(bs_types:to_pattern(Residual))]};
+        As -> Base#{arms => As}
+    end;
 built(Path, {Sev, Line, Fn, {valve_on_infallible, Ty}}) ->
     (at(Sev, Path, Line, Fn))#{tag => valve_on_infallible,
                                subject => bs_types:to_pattern(Ty)};
@@ -626,14 +634,16 @@ message(#{tag := divide_by_zero, file := P, line := L, column := C, function := 
      "  be zero compiles and crashes at run time. Only one the compiler can~n"
      "  prove is zero is refused, and this is one.~n",
      [P, L, C, Op, Fn, Op]};
-%% Not routed through the head printer: that prints `Fn(:cancelled) -> ...`,
+%% Not routed through `heads_prose/2`: that prints `Fn(:cancelled) -> ...`,
 %% and a switch has no function name and its arrow is `=>` (ticket 17 §6).
+%% That much was always right, and it is only about the WRAPPER — the pattern
+%% inside it is the head channel's, via `arms/2`. Until 2026-09-06 the whole
+%% arm was `to_pattern/1`'s, which is what ENG-312 named.
 message(#{tag := switch_inexhaustive, file := P, line := L, column := C, function := Fn,
-          arm := Arm}) ->
+          arms := Arms} = D) ->
     {"~s:~p:~p: error: this switch in ~s is not exhaustive~n"
-     "  no arm matches:~n"
-     "    ~s => ...~n",
-     [P, L, C, Fn, Arm]};
+     "  no arm matches:~n~s",
+     [P, L, C, Fn, arms_prose(Arms, D)]};
 %% A valve over a value with no `(:error, _)` member generates an arm that can
 %% never match, but the author wrote no arms; they wrote the wrong operator,
 %% so the diagnostic names the right one (F14 §4).
@@ -1328,6 +1338,34 @@ pasteable(Fn, Product, Names) ->
                      io_lib:format("~s(~s)", [Fn, lists:join(", ", Combo)]))
                    ++ " -> ...")
      || Combo <- bs_types:head_combos(Product, Names)].
+
+%% ONE ARM PER RESIDUAL MEMBER, SPELLED AS A HEAD SPELLS IT (ENG-312).
+%%
+%% `head_combos/2` is the head channel's own expansion, called with a
+%% ONE-ELEMENT argument list because a switch subject is one value where a
+%% function's residual is a product over its parameters. That single call is
+%% the whole fix, and it is deliberate that it is a call rather than a second
+%% printer: a residual in argument position and a residual under a switch are
+%% the same question asked twice, and F7's separate `to_pattern/1` rendering
+%% is precisely what let the two drift for the fifteen days between F22 and
+%% this. One minting point for the spelling, so there is nothing to drift.
+%%
+%% The empty list is not "no cases" but "no case a pattern can spell" — a
+%% cofinite atom set or `binary \\ string` — and the caller carries it as
+%% `description`, the same split `heads/3` makes for the same reason.
+arms(Residual, Names) ->
+    [lists:flatten(bs_types:name_binders(Combo))
+     || Combo <- bs_types:head_combos([Residual], Names)].
+
+%% Capped like the heads, and the unspellable remainder is reported in the
+%% head channel's own words rather than handed over with a `=>` after it: an
+%% arm the author cannot write is not a suggestion, and printing
+%% `atom \\ (:x) => ...` invited pasting a type expression as a pattern.
+arms_prose([], #{description := Ds}) ->
+    [io_lib:format("  and no pattern spells:~n", []),
+     cap([io_lib:format("    ~s~n", [D]) || D <- Ds])];
+arms_prose(Arms, _D) ->
+    cap([io_lib:format("    ~s => ...~n", [A]) || A <- Arms]).
 
 heads_prose(_Fn, #{kind := residual_only, parts := Parts}) ->
     io_lib:format("    ~s~n", [join(Parts, ?RESIDUAL_CASES)]);

@@ -130,10 +130,22 @@ Which(e) -> e switch {
 }
 ```
 
-→ **error** naming `:cancelled => ...`. Not routed through `heads/2`, which prints
-`Which(:cancelled) -> ...`: a switch has no function name and its arrow is `=>`. A tuple subject
-renders `(false, false, true) => ...` and a union of records renders `{ Kind: :'Shop.Invoice' } => ...`,
-both free, because `to_pattern/1` was already the printer for exactly this shape.
+→ **error** naming `:cancelled => ...`. The WRAPPER is not routed through `heads_prose/2`,
+which prints `Which(:cancelled) -> ...`: a switch has no function name and its arrow is `=>`. The
+PATTERN inside the arm is the head channel's own — `arms/2` calls `head_combos/2`, the expansion a
+clause head uses — so a tuple subject renders `(false, false, true) => ...`, a union of records
+renders `Invoice i => ...`, and a residual with two members is two arms rather than one.
+
+*Corrected 2026-09-06 ([ENG-312](https://linear.app/davewil/issue/ENG-312)). This read: "A tuple
+subject renders `(false, false, true) => ...` and a union of records renders
+`{ Kind: :'Shop.Invoice' } => ...`, both free, because `to_pattern/1` was already the printer for
+exactly this shape." True when F7 shipped, and false from F22, which gave a record a spelling in
+pattern position — F29 then taught the head channel that spelling and the switch was never routed
+through it. `to_pattern/1` renders the whole residual at once, so it could neither split the
+members nor name a record: it printed the erasure detail `check-record-idiom.sh` refuses in the
+corpus, and a two-member residual arrived as a single arm carrying a `|`, which no arm grammar
+accepts. `check-residual-pasteable.sh` grew a switch stage that pastes the arms back, so the
+sentence above is now run rather than asserted.*
 
 ### F7.4 — an arm guard refines, and this is the scenario that crashes without the empty-path clause
 

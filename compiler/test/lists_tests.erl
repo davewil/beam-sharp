@@ -215,7 +215,7 @@ switch_src(Arms) ->
 a_switch_arm_sees_list_length_too_test() ->
     Src = switch_src("    [] => :empty,\n"
                      "    [a, b, ..] => :many"),
-    [{error, _, 'Shape', {switch_inexhaustive, Residual}}] = errors(Src),
+    [{error, _, 'Shape', {switch_inexhaustive, Residual, _}}] = errors(Src),
     ?assertEqual("[int]", bs_types:to_string(Residual)).
 
 a_switch_over_every_length_needs_no_catch_all_test() ->

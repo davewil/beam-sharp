@@ -86,6 +86,54 @@ EXAMPLES="$HERE/examples"
 ROSTER="Atom Interval IntervalUnion RecordUnion RecordInList TupleNested OpenList BinTag TopString ManyHeads WholeList"
 
 # ---------------------------------------------------------------------------
+# THE SWITCH STAGE — the residual as an ARM, not a head (ENG-312, 2026-09-06).
+#
+# The two stages above are both about clause heads, and the printer they guard
+# was taught F22's record spelling by F29. The switch was never routed through
+# it: `bs_diag.erl` rendered the arm with `to_pattern/1` over the WHOLE
+# residual, and its note said that needed no new printer because the residual
+# "renders a record union as its discriminator". True when F7 shipped, and
+# false from F22.
+#
+# So the compiler handed an author `{ Kind: :'M.Invoice' } => ...` — the
+# hand-written minted tag that `refused_spelling` below already refuses in a
+# head, and that `check-record-idiom.sh` refuses in the corpus. The arm was the
+# one place the escape hatch was still being TAUGHT.
+#
+# TWO MEMBERS IN THE FIXTURE, and that is what makes this stage discriminating
+# rather than decorative. The defect has two halves and either can be closed on
+# its own, leaving the other shipping:
+#
+#   spelling   a member spelled as its erasure — `{ Kind: :'M.Invoice' }`
+#              where a head says `Invoice i`.
+#   union      the members never SPLIT, so one arm carries `|`. A clause head
+#              has no `|` and neither does an arm — F29.2 split the head lines
+#              for exactly this reason — so the line does not parse at all.
+#
+# A fix that routes every member through the record printer closes `spelling`
+# and mangles `:nothing`. One that special-cases a single record closes
+# neither. Only the head channel's own expansion produces both lines, which is
+# the point of the fix: one minting point for the spelling, not a second table.
+#
+# THE TABLE SAYS `clean`, NOT TODAY'S DEFECT, unlike the shape table above. The
+# shapes were recorded as they stood because F29 had not shipped and a red gate
+# nobody can act on is one everybody learns to ignore. This stage had a fix
+# landing in the same unit of work, so it was written to the correct verdict
+# and SEEN RED against the broken printer first. A table recording the defect
+# would have made the gate green on that printer, which is what a check written
+# after the code always does.
+# ---------------------------------------------------------------------------
+SWITCH_FIXTURES="$HERE/bin/fixtures/residual-switch"
+SWITCH_ROSTER="SwitchArms"
+
+switch_expected() {
+  case "$1" in
+    SwitchArms) echo "clean" ;;
+    *)          echo "" ;;
+  esac
+}
+
+# ---------------------------------------------------------------------------
 # THE MUTATION STAGE — `examples/Wire`, one clause at a time (ENG-263, 2026-09-02).
 #
 # `wire.bs:15` has said since F2 that deleting `Classify(>= 4 and <= 7)` makes
@@ -354,6 +402,7 @@ judge() {
   done
 
   judge_wire "$dir"
+  judge_switch "$dir"
   judge_promise "$dir"
 }
 
@@ -592,6 +641,107 @@ probe() {
 #                  never heard of whose head is type notation. A verdict
 #                  function keyed on fixture names says nothing here.
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# probe_switch DIR — read the arms the compiler suggests for a switch that is
+# missing two, paste them back INSIDE the braces, and re-run.
+#
+# THE PROSE CHANNEL, NOT THE TERM CHANNEL. An arm is what an author reads and
+# copies, and the prose is the one surface that exists on both sides of the
+# fix: the term channel's key changed from `arm` to `arms` when the members
+# were split, so a stage reading it could not have been written first — and
+# writing this stage first is the whole reason it is trustworthy.
+# ---------------------------------------------------------------------------
+probe_switch() {
+  local dir="$1" shape src armsf pasted out rc n a
+  mkdir -p "$dir/switch"
+  for shape in $SWITCH_ROSTER; do
+    [ -d "$SWITCH_FIXTURES/$shape" ] || { echo "missing switch fixture: $SWITCH_FIXTURES/$shape" >&2; continue; }
+    rm -rf "$dir/switch/$shape"
+    mkdir -p "$dir/switch/$shape"
+    cp -R "$SWITCH_FIXTURES/$shape" "$dir/switch/$shape/"
+    src="$dir/switch/$shape/$shape/$shape.bs"
+    armsf="$dir/switch/$shape.arms"
+
+    "$BSC" "$src" 2>&1 \
+      | grep -- '=> \.\.\.$' \
+      | sed 's/^ *//; s/ *=> \.\.\.$//' > "$armsf" || true
+
+    n="$(grep -c . "$armsf" 2>/dev/null || true)"
+    [ -n "$n" ] || n=0
+    [ "$n" -gt 0 ] || continue
+
+    # The closing brace comes off, the arm that was last gains a comma, the
+    # suggestions go in with a real body, and the brace goes back.
+    pasted="$dir/switch/$shape.pasted.bs"
+    {
+      sed '$d' "$src" | sed '$s/$/,/'
+      while IFS= read -r a; do
+        [ -n "$a" ] || continue
+        printf '    %s => :pasted,\n' "$a"
+      done < "$armsf"
+    } | sed '$s/,$//' > "$pasted"
+    printf '}\n' >> "$pasted"
+    cp "$pasted" "$src"
+
+    out="$("$BSC" "$src" 2>&1)"; rc=$?
+    printf '%s' "$rc" > "$dir/switch/$shape.rc"
+    printf '%s' "$out" > "$dir/switch/$shape.paste"
+  done
+}
+
+# ---------------------------------------------------------------------------
+# classify_switch DIR SHAPE — one switch shape's verdict.
+#
+# The arm TEXT is judged before the compile result, so the diagnosis names the
+# defect rather than only its symptom: an arm carrying `|` does not parse, and
+# `refused` is a true but useless thing to say about it. `refused_spelling` is
+# the head stage's own rule, reused rather than restated — an arm and a head
+# are the same pattern grammar, so a second copy could only drift.
+# ---------------------------------------------------------------------------
+classify_switch() {
+  local dir="$1" shape="$2" armsf rc out a
+  armsf="$dir/switch/$shape.arms"
+  [ -f "$armsf" ] || { echo "unrun"; return; }
+  [ -s "$armsf" ] || { echo "noarm"; return; }
+  while IFS= read -r a; do
+    [ -n "$a" ] || continue
+    if [ -n "$(refused_spelling "$a")" ]; then echo "spelling"; return; fi
+    case "$a" in *"|"*) echo "union"; return ;; esac
+  done < "$armsf"
+  [ -f "$dir/switch/$shape.rc" ] || { echo "unrun"; return; }
+  rc="$(cat "$dir/switch/$shape.rc")"
+  out="$(cat "$dir/switch/$shape.paste" 2>/dev/null || true)"
+  if [ "$rc" != "0" ]; then
+    if [ -z "$out" ]; then echo "unrun"; else echo "refused"; fi
+    return
+  fi
+  [ -z "$out" ] || { echo "other"; return; }
+  echo "clean"
+}
+
+# judge_switch DIR — both halves of the floor, as for the shapes above: a
+# roster name never measured, and a measurement the roster does not know.
+judge_switch() {
+  local dir="$1" shape got want f base
+  for shape in $SWITCH_ROSTER; do
+    if [ ! -f "$dir/switch/$shape.arms" ] && [ ! -f "$dir/switch/$shape.rc" ]; then
+      echo "Switch $shape: in the roster and never measured"
+      continue
+    fi
+    got="$(classify_switch "$dir" "$shape")"
+    want="$(switch_expected "$shape")"
+    [ "$got" = "$want" ] || echo "Switch $shape: verdict is '$got', the table says '$want'"
+  done
+  for f in "$dir"/switch/*.arms; do
+    [ -e "$f" ] || continue
+    base="$(basename "$f" .arms)"
+    case " $SWITCH_ROSTER " in
+      *" $base "*) ;;
+      *) echo "Switch $base: measured but not in the roster (verdict '$(classify_switch "$dir" "$base")') - add it or remove the fixture" ;;
+    esac
+  done
+}
+
 if [ "${1:-}" = "--self-test" ]; then
   W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
   fail=0
@@ -660,6 +810,7 @@ T
     two "$1" WholeList     "Ship([]) -> ..."                       "Ship([Order o, ..]) -> ..."
     many "$1"
     wire_ok "$1"
+    switch_ok "$1"
     promise_ok "$1"
   }
   # promise_ok/1 — both promise entries agreeing with compiler and comment.
@@ -677,6 +828,18 @@ T
       : > "$d/$p.paste"
       printf '0' > "$d/$p.rc"
     done
+  }
+  # switch_ok/1 — the switch stage's correct form: TWO arms, one per residual
+  # member, the record spelled as a head spells it. Laid down for every stub
+  # set for the same reason `promise_ok` is — with the switch floor inside
+  # `judge`, a set carrying no switch data goes red on the floor rather than on
+  # its own defect, and every case below would print "ok red" while testing
+  # nothing.
+  switch_ok() { # switch_ok DIR
+    local d="$W/$1/switch"; mkdir -p "$d"
+    printf ':nothing\nInvoice i\n' > "$d/SwitchArms.arms"
+    : > "$d/SwitchArms.paste"
+    printf '0' > "$d/SwitchArms.rc"
   }
   # wire_ok/1 — the seven Wire clauses at the verdicts the table records.
   wire_ok() { # wire_ok DIR
@@ -804,10 +967,46 @@ T
   : > "$W/promise_extra/promise/Bogus.paste"
   printf '0' > "$W/promise_extra/promise/Bogus.rc"
 
+  # ---- the switch stage's own five (ENG-312) ---------------------------
+  #
+  # switch_spelling  THE DEFECT THIS STAGE EXISTS FOR: the members split, but a
+  #                  record member is spelled as its erasure. This is what the
+  #                  compiler printed until the fix, and the half a reader
+  #                  would paste into code `check-record-idiom.sh` refuses.
+  # switch_union     the other half, and the one a record-only fix leaves
+  #                  behind: the members never split, so one arm carries `|`.
+  #                  No record in it, so `refused_spelling` cannot fire and the
+  #                  `union` branch is what has to catch it — which is the
+  #                  point, since a stage that only ever saw the minted tag
+  #                  would pass a printer that had merely stopped splitting.
+  # switch_refused   arms spelled correctly that do not compile when pasted.
+  # switch_missing   the roster entry never measured — the floor.
+  # switch_extra     one measured and not in the roster. The over-informed
+  #                  half: a verdict function keyed on fixture names is silent
+  #                  here.
+  today switch_spelling
+  printf ":nothing\n{ Kind: :'SwitchArms.Invoice' }\n" > "$W/switch_spelling/switch/SwitchArms.arms"
+
+  today switch_union
+  printf ':nothing | :other\n' > "$W/switch_union/switch/SwitchArms.arms"
+
+  today switch_refused
+  printf '%s' "$SY_DD" > "$W/switch_refused/switch/SwitchArms.paste"
+  printf '1'           > "$W/switch_refused/switch/SwitchArms.rc"
+
+  today switch_missing
+  rm -f "$W/switch_missing/switch/SwitchArms."*
+
+  today switch_extra
+  printf ':other\n' > "$W/switch_extra/switch/Bogus.arms"
+  : > "$W/switch_extra/switch/Bogus.paste"
+  printf '0' > "$W/switch_extra/switch/Bogus.rc"
+
   for bad in type_notation second_line silent cry_wolf over_informed dot_dot rebinds \
              wire_paraphrase wire_split wire_refused wire_unrun wire_missing wire_extra wire_never \
              promise_unclaimed promise_moved promise_unpasteable promise_cry_wolf \
-             promise_missing promise_extra; do
+             promise_missing promise_extra \
+             switch_spelling switch_union switch_refused switch_missing switch_extra; do
     if [ -z "$(judge "$W/$bad")" ]; then
       echo "  x SELF-TEST: '$bad' produced no complaint - the gate cannot see it"; fail=1
     else
@@ -820,7 +1019,7 @@ T
     echo "  ok green on the correct form"
   fi
   [ "$fail" -eq 0 ] || { echo "self-test FAILED"; exit 1; }
-  echo "self-test passed: twenty defects seen, today's tables accepted"
+  echo "self-test passed: twenty-five defects seen, today's tables accepted"
   exit 0
 fi
 
@@ -832,6 +1031,7 @@ fi
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 probe "$W"
 probe_wire "$W"
+probe_switch "$W"
 probe_promise "$W"
 out="$(judge "$W")"
 if [ -n "$out" ]; then
@@ -846,5 +1046,7 @@ echo "  ok         11 residual shapes round-tripped, each to the verdict recorde
 echo "             (every entry in \`expected\` reads 'clean' - F29's done-when, met)"
 echo "  ok         $(grep -c . "$W/wire/clauses") Wire clauses deleted in turn: six handed back as the same line,"
 echo "             the open span closed on the domain's top - wire.bs:15's sentence, run"
+echo "  ok          1 switch residual pasted back as ARMS: the members split, and"
+echo "             each spelled as a head spells it rather than as its erasure"
 echo "  ok          2 source comments promise the head the compiler actually prints,"
 echo "             and it pasted clean - the sentence checked, not only the behaviour"

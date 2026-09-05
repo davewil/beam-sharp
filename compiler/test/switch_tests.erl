@@ -88,7 +88,7 @@ an_inexhaustive_switch_names_the_missing_arm_test() ->
           "    :placed  => :new,\n"
           "    :shipped => :gone\n"
           "}\n",
-    [{error, _, 'Which', {switch_inexhaustive, Residual}}] = errors(Src),
+    [{error, _, 'Which', {switch_inexhaustive, Residual, _}}] = errors(Src),
     ?assertEqual(":cancelled", bs_types:to_pattern(Residual)).
 
 %% F7.4. An arm guard is credited to the exhaustiveness check, which is
@@ -131,7 +131,7 @@ a_guard_on_an_arm_leaves_the_gap_it_should_test() ->
           "    m when m > 0 => :positive,\n"
           "    m when m < 0 => :negative\n"
           "}\n",
-    [{error, _, 'Sign', {switch_inexhaustive, Residual}}] = errors(Src),
+    [{error, _, 'Sign', {switch_inexhaustive, Residual, _}}] = errors(Src),
     ?assertEqual("0", bs_types:to_pattern(Residual)).
 
 %% F7.5. F5.7's lesson at a second site, and the reason this test exists rather
@@ -149,7 +149,7 @@ an_untranslatable_arm_guard_credits_nothing_test() ->
           "Check(n) -> n switch {\n"
           "    m when Big(m) => :big\n"
           "}\n",
-    [{error, _, 'Check', {switch_inexhaustive, Residual}}] = errors(Src),
+    [{error, _, 'Check', {switch_inexhaustive, Residual, _}}] = errors(Src),
     ?assertEqual("int", bs_types:to_pattern(Residual)).
 
 %% ...and this is the one that actually catches the mutation, which the test
@@ -402,8 +402,8 @@ a_vacuous_arm_is_not_reported_as_shadowed_test() ->
     ?assertEqual([{vacuous_arm, 1}],
                  [{T, N} || {warning, _, 'H', {T, N, _}} <- Diags]),
     %% And the switch is still uncovered, because a vacuous arm covers nothing.
-    ?assertMatch([{switch_inexhaustive, _}],
-                 [P || {error, _, 'H', P = {switch_inexhaustive, _}} <- Diags]).
+    ?assertMatch([{switch_inexhaustive, _, _}],
+                 [P || {error, _, 'H', P = {switch_inexhaustive, _, _}} <- Diags]).
 
 %% The subject type is the half the author does not have: they wrote the pattern,
 %% so repeating it back says nothing, while the type it is not a member of ends
@@ -471,3 +471,43 @@ an_untranslatable_arm_guard_is_not_called_unsatisfiable_test() ->
           "}\n",
     {ok, _, Diags} = check_only(Src),
     ?assertEqual([], Diags).
+
+%% F7.13 / ENG-312. THE SWITCH RESIDUAL IS SPELLED BY THE HEAD CHANNEL.
+%%
+%% F7 printed the arm with `to_pattern/1`, and its own note said that needed no
+%% new printer because the residual "renders a record union as its
+%% discriminator". That was true when F7 shipped and stopped being true twice:
+%% F22 gave a record a spelling in pattern position, and F29 taught the head
+%% channel to use it. The switch was the one construct left rendering the
+%% erasure detail — and `check-record-idiom.sh` (ENG-307) refuses that very form
+%% in the corpus, so the compiler was handing an author an arm the corpus gate
+%% would reject.
+%%
+%% TWO MEMBERS ON PURPOSE, and this is what makes the test discriminating. The
+%% defect has two halves and a plausible fix closes only one:
+%%   * route everything through the record printer -> `:nothing` is mangled;
+%%   * special-case a single record        -> the union is never split, and
+%%     the arm stays `:nothing | Invoice i`, which is not a pattern.
+%% Only the head channel's own expansion produces both lines, which is the
+%% point: one minting point for the spelling, not a second table.
+a_switch_residual_is_spelled_as_a_head_spells_it_test() ->
+    Src = "module SwR\n"
+          "record Order   { Id: int, Total: int }\n"
+          "record Invoice { Id: int, Total: int }\n"
+          "type Doc = Order | Invoice | :nothing\n"
+          "public atom Which(Doc d)\n"
+          "Which(d) -> d switch {\n"
+          "    Order o => :order\n"
+          "}\n",
+    [E = {error, _, 'Which', P}] = errors(Src),
+    ?assertEqual(switch_inexhaustive, element(1, P)),
+    Text = lists:flatten(bs_diag:format(bs_diag:descriptor("swr.bs", E))),
+    %% One arm per residual member, each pasteable as written.
+    ?assertNotEqual(nomatch, string:find(Text, ":nothing => ...")),
+    ?assertNotEqual(nomatch, string:find(Text, "Invoice i => ...")),
+    %% The hand-written minted tag never reaches an author again.
+    ?assertEqual(nomatch, string:find(Text, "Kind: :'")),
+    %% And the members are separate arms, not one arm with a union in it: `|`
+    %% is not arm syntax, so a single line here is unpasteable however it is
+    %% spelled.
+    ?assertEqual(nomatch, string:find(Text, "|")).
