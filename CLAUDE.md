@@ -7,6 +7,18 @@ exhaustiveness**.
 
 `beam-sharp` is a working name. Naming is unresolved.
 
+## The goal, and the only two measures of progress
+
+The destination is a language specification complete enough that a stranger can build the
+compiler from it, proved by the audition. Progress shows in exactly two places:
+
+1. **An exemplar program that did not compile and run yesterday does today.**
+2. **The audition passes more tickets than its last run.**
+
+A session reports one of those two at its end. A session that moved neither has not advanced the
+project, whatever else it landed: a check, a doc, a hook or a tracker change never counts.
+(David, 2026-09-05, after a week in which the apparatus grew and no language work happened.)
+
 ## Where things live
 
 **Canonicality is split, deliberately.** Linear owns *state*, because it renders the frontier
