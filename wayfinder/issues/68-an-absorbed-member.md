@@ -1,8 +1,43 @@
 # 68 — An absorbed member, and whether 09 §4 has anything left to refuse
 
 Type: grilling
-Status: claimed — [ENG-273](https://linear.app/davewil/issue/ENG-273)
+Status: resolved 2026-09-06 — [ENG-273](https://linear.app/davewil/issue/ENG-273)
 Blocked by: —
+
+## Answer — a written member that is not in the type is an error, and reachability is by clause head
+
+**Two refusals at the declaration, with two sentences.**
+
+1. **An absorbed member is an error where it is written.** Any member `M` where
+   `M ⊆ union(others)` — generalising F31 from the failure channel to every member. The predicate
+   is unchanged (`absorbed/2`, `bs_check.erl:2008`); what goes is the `failure_channel/1` filter.
+2. **A union no clause head can take apart is an error where it is written.** This is ticket 09
+   §4, built at last — but its criterion is **reachability by a clause head, pattern or guard**,
+   not 09 §4's *"a BEAM guard"*, which refuses `list<int> | list<binary>` that the same section
+   accepts.
+
+**Two tags, not one**, because the fixes differ in kind. The absorption tag states the normalised
+type as fact and offers the repair as a fork — *delete the absorbed member, or narrow the one
+absorbing it* — since `binary | string` proves the compiler cannot know which was meant. F31's
+failure-channel wording survives as a hint variant under it. The unreachability tag names the
+pattern grammar as its reason, so the refusal reads as temporary: it **is** temporary.
+
+**The diagnostic carries a path** (`Job.Tag`, not just `Job`), because no type-expression node
+carries a line and `scan_ty/4` already knows where it is.
+
+**A union is writable wherever a type is** — `param`, `signature` and `foreign_sig` all take a
+`type_expr` ([ENG-331](https://linear.app/davewil/issue/ENG-331), measured conflict-free). So
+ticket 09 §1's inline illustration parses, and the refusal covers bare inline unions as well as the
+four nested positions.
+
+**Matchability is derived, not tabulated.** `head_parts/2` is refactored onto a structured
+intermediate carrying *binder* or *shape* per member, which the printer renders and the oracle
+queries — neither reading the other's words. The pattern half is then derived and moves on its own
+when ticket 48 ships a map pattern form; the guard half stays a table and does not go stale,
+because it is the BEAM's vocabulary rather than the language's.
+
+**The cost, accepted**: `type Envelope = term | int` is refused, and a union that is only ever
+passed through can no longer be written un-named. The blast radius is one eunit test.
 
 Raised 2026-09-06 while grilling [ENG-273](https://linear.app/davewil/issue/ENG-273), which was
 filed as a *debt* — a decision the compiler had not built. Measuring it found a different shape:
@@ -526,6 +561,39 @@ names the connection.
 (b) costs a refactor of a function three callers depend on (`head_parts/2`, `head_combos/2`,
 `name_binders/1`, plus the residual printer in `bs_diag`), on a path F29 built deliberately narrow.
 
+## Round 5 — answered 2026-09-06 (David)
+
+**Q9 → (b). Printer and oracle share a structured intermediate.** `head_parts/2` is refactored to
+produce, per member, a value carrying *binder* or *shape*; the printer renders it and the oracle
+queries it. (a) — reading the printed text — is the mistake this session made once already in a
+cheaper form, when `pattern_parts/1` was reached for as an oracle and returned
+`"map<string, int>"` beside `"[int, ..]"`. Under (a) a printing change silently moves what the
+compiler refuses, which is the staleness Q8(b) was chosen to avoid, relocated into a string format
+where no test names the connection.
+
 ## Decisions entry
 
-<!-- Written when the ticket resolves. -->
+```decisions-entry
+- [An absorbed member](issues/68-an-absorbed-member.md) — **a member you wrote that is not in the
+  type is an error where you wrote it, and "can this be taken apart" is asked of the clause head
+  rather than of the BEAM guard.** Two refusals at the declaration with **two sentences**:
+  `M ⊆ union(others)` generalises [F31](../compiler/features/F31-collapse-at-the-declaration.md)
+  from the failure channel to every member, and ticket 09 §4's indiscriminability rule is built at
+  last. **09 §4's own criterion was wrong about its own example** — *"a BEAM guard"* refuses
+  `list<int> | list<binary>`, which §4 lists as accepted, because no guard reaches inside a
+  container and a **pattern** does; the criterion is reachability by a clause head, pattern or
+  guard. ENG-273, filed as a debt, was **not** one: its four measured shapes are absorption, which
+  [ticket 20](issues/20-untheorised-term-shapes.md):389 already ruled legal —
+  *"subsumption is not indiscriminability, and conflating them would reject a legal type."* What
+  09 §4 decided had no writable subject until [ticket 48](issues/48-a-map-type-in-the-prelude.md)
+  gave it one by **withholding a pattern form**: `map<string, int> | map<string, binary>` keeps both
+  members and nothing can take it apart, so a union's legality is now a function of the **pattern
+  grammar** and this refusal is temporary by construction. Matchability is therefore **derived**,
+  not tabulated — `head_parts/2` gains a structured intermediate that the printer renders and the
+  oracle queries — while the guard half stays a table because it is the BEAM's vocabulary rather
+  than the language's. A union becomes writable **wherever a type is** (ENG-331), so ticket 09 §1's
+  inline illustration parses at last. **The cost is a union that is only ever passed through**:
+  `type Envelope = term | int` is refused, and the repair is free because the normalised type is
+  the repair. Blast radius: **one eunit test**, `strings_tests.erl:111-118`, whose doc twin F9.7
+  keeps its reasoning and reverses its verdict.
+```

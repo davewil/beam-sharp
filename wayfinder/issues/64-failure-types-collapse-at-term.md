@@ -1,7 +1,8 @@
 # 64 — `option<term>` and `result<term, E>` collapse to bare `term`
 
 Type: grilling
-Status: open — [ENG-254](https://linear.app/davewil/issue/ENG-254)
+Status: open — [ENG-254](https://linear.app/davewil/issue/ENG-254); narrowed to the expressiveness
+question 2026-09-06 by [ticket 68](68-an-absorbed-member.md)
 
 Measured 2026-08-25 by [`48l`](../prototypes/48l_what_the_workaround_costs.sh) while pricing
 [ticket 48](48-a-map-type-in-the-prelude.md)'s question 1, and split out here because it is a
@@ -47,13 +48,23 @@ and never lifted to the rule underneath.
 
 ## Open
 
-1. **Is it a defect at all, or the type system working correctly?** `term | :nothing` really *is*
-   `term`. The collapse is sound. What it costs is expressiveness, not soundness.
+**Narrowed 2026-09-06 by [ticket 68](68-an-absorbed-member.md): questions 1 and 4 are answered
+there, and this ticket is now the expressiveness question alone.**
+
+1. ~~**Is it a defect at all, or the type system working correctly?**~~ **Answered by ticket 68
+   Q1.** Both: the collapse is sound and it is **still refused**, because what it costs is the
+   author's intent rather than soundness. Any member `M` where `M ⊆ union(others)` is an error at
+   the declaration.
 2. **If it is to be fixed, how?** A tagged success on `option<T>` itself changes every existing use.
    Refusing `option<T>` at `T = term` is loud, and leaves the author with nothing to reach for.
-3. **Does the same reasoning reach `result<T, E>` at `E = term`?** Not measured.
-4. **Is there one rule here rather than two special cases?** Every prelude union whose success arm
-   is a bare type variable has this shape. `48l` found two; 15 §1 found a third. There may be more.
+   **Still open, and now the whole of this ticket.** F31 already made the refusal real (its
+   scenarios S5 and S7); ticket 68 confirms it generalises. So the loudness is settled and the
+   *"leaves the author with nothing"* half is what remains — sharpest at
+   `map<string, term>`, which is the shape all three of ticket 48's motivating cases carry.
+3. **Does the same reasoning reach `result<T, E>` at `E = term`?** Not measured. **Still open.**
+4. ~~**Is there one rule here rather than two special cases?**~~ **Answered by ticket 68 Q1.**
+   One rule — `M ⊆ union(others)` — and 15 §1's failure channel was a filter on it, not a rule of
+   its own.
 
 ## Notes
 
