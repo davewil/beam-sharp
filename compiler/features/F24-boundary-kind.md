@@ -2,7 +2,10 @@
 
 **Status**      **done 2026-08-23** · [ENG-240](https://linear.app/davewil/issue/ENG-240) —
                 492 tests, nineteen gate scripts. The first feature whose ticket was a
-                **defect** rather than a question: nothing here was decided by this work
+                **defect** rather than a question: nothing here was decided by this work.
+                **Amended 2026-09-07** ([ENG-330](https://linear.app/davewil/issue/ENG-330)):
+                §6 builds the same rule at the narrowing site, which §5's list of what
+                was out of scope did not name — 646 tests
 **Implements**  [ticket 58](../../wayfinder/issues/58-refined-int-admits-a-float.md), and through
                 it [ticket 18](../../wayfinder/issues/18-boundary-defence.md) §1 rule C case (b),
                 §4 (exported only, function-local) and §5 (no opt-out) — decided 2026-08-13 and
@@ -161,6 +164,53 @@ parameters and this feature built what it measured.
 18 §7 handed that to ticket 23 and 46 §3 added an instance; this adds a third rather than inventing
 an error channel beside it.
 
+## 6. The narrowing site — amended 2026-09-07, [ENG-330](https://linear.app/davewil/issue/ENG-330)
+
+**The list in §5 was not complete, and the item it missed was the unsound one.** §5 names four owed
+edges; every one of them is a channel this feature did not open (`atom`, `binary`, the range half, a
+projection deep). None of them is the case where the rule this feature *did* build was needed at a
+second site and was not there.
+
+That site is a guard that **narrows** rather than one that **selects**. §2 emits the test where a
+parameter's declared type is `int`-only. Where the declared type is a union, the checker reaches the
+same conclusion by a different route — `apply_guard/3` intersects the variable with
+`range(0, pos_inf)` — and nothing emitted it:
+
+```
+type T = int | atom
+int Tag(int x)                    // private: no boundary guard of its own
+Tag(x) -> x
+public int Bump(T n)
+Bump(n) when n >= 0 -> Tag(n)
+Bump(n)             -> 0
+```
+
+```
+bs> Bump(:foo)
+:foo
+```
+
+Ticket 18's **outcome 3** again, one level in: an atom returned from `public int`, no crash and no
+diagnostic. **Privacy is what makes it silent** — declare `Tag` public and its own §2 guard raises
+`function_clause`, which is why this first read as ticket 25 §5's decided arithmetic cost.
+
+**Nothing here was decided by this work either.** It is ticket 58's own sentence — *a comparison
+proves ordering, not kind* — reaching past the example ticket 58 measured on.
+
+**Two lowering sites, and they take the test differently.** A relational pattern subtree is
+orderings against integer literals over one variable, so one test leads the whole subtree; `strip_rels/2`
+carries it, which covers a clause head and a `switch` arm together because both lower through it.
+A user's `when` guard cannot be treated that way. `bs_check:alternatives/1` splits
+`n >= 0 or n == :ok` into two and credits the second as the atom, so **the test goes on the
+comparison node, never on the guard** — conjoining it at the top would delete an alternative the
+checker proved the clause takes, making emission stricter than the checker and the residual
+subtracted below it wrong in the unsafe direction. `kind_tested/2` mirrors `bs_check:comparison/1`'s
+two shapes for exactly this reason, and stops at the four ordering operators: `==` and `!=` already
+discriminate an atom from an integer, and a test on `!=` would be that inverted hole.
+
+**Still owed, unchanged:** everything in §5. The kind channel here is `int` for the same reason it is
+`int` there.
+
 ## Scenarios
 
 | id | scenario | expected |
@@ -172,6 +222,11 @@ an error channel beside it.
 | F24.5 | `Add(1.5, 2.5)` where `int Add(int a, int b)` | `function_clause`, and one test per int parameter |
 | F24.6 | a private `Inner(int n)` beside an exported `Outer(int n)` | `Inner` unguarded, `Outer` guarded |
 | F24.7 | `Echo(atom a)` | untouched — the kind channel for `atom` is owed |
+| F24.8 | `Bump(:foo)` where `T = int \| atom`, clause 1 is `when n >= 0` and calls a private `int` helper | `0` — clause 2 takes it; no atom crosses the `public int` boundary |
+| F24.9 | `Bump(1.5)` through that same clause | `0` — the test is `is_integer`, so the float goes the way of the atom |
+| F24.10 | `>= 0` in pattern position, and the same comparison as a `switch` arm | both refuse the atom — one lowering, `strip_rels/2`, serves both |
+| F24.11 | `when n >= 0 or n == :ok`, called with `:ok` | `1` — the atom alternative survives, because the test is on the comparison and not on the guard |
+| F24.12 | the emitted guard of an `Octet` parameter narrowed by `when n >= 9` | one test per clause, §2's and no other — an established kind gains no second |
 
 ## Done when
 

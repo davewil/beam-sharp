@@ -142,7 +142,13 @@ clause({clause, Line, _Name, Patterns, Guard, Body}, Params, Ctx, Public) ->
     %% guard only ever sees a variable. Desugaring lives here rather than in
     %% `pattern/2` because resolving a record tag needs `Ctx`'s `env` (F22).
     Desugared = [desugar(P, Ctx) || P <- Patterns],
-    {Patterns0, RelTests} = strip_rels(Desugared),
+    %% A parameter already known to be an integer needs no second test, at
+    %% either site below: the boundary guard establishes it when the function
+    %% is public (F24), and a checked B# call site does when it is private
+    %% (ticket 18 §4). Computed from the declared types, so it is the same
+    %% question `int_guard/5` asks, asked once per position.
+    IntOnly = [is_int_only(T, Ctx) || {param, T, _} <- Params],
+    {Patterns0, RelTests} = strip_rels(Desugared, IntOnly),
     %% The boundary guard is injected before `Used` is computed. It mentions
     %% the parameter variable, so a parameter the body never names would
     %% otherwise lower to `_Foo` while the guard referenced `Foo`, a compile
@@ -152,7 +158,8 @@ clause({clause, Line, _Name, Patterns, Guard, Body}, Params, Ctx, Public) ->
     %% The boundary tests lead the guard: `is_integer/1` first, then the
     %% comparisons, so a wrong-kind term fails on one test rather than three
     %% (F24, ticket 58).
-    Guard1 = conjoin(Tests ++ RelTests, Guard, Line),
+    Guard1 = conjoin(Tests ++ RelTests, kind_tested(Guard, skips(Patterns0, IntOnly)),
+                     Line),
     %% A `== acc` in one pattern reads `acc` bound by another, and
     %% `used_vars/2` looks only at the body and guard. Without seeding `Used`
     %% from the patterns the binder would lower to `_Acc` while the match
@@ -368,19 +375,29 @@ tag_test(Var, Tag, Line) ->
 %%% constrains a single value twice. Only the top of each argument is walked:
 %%% the checker refuses a relational pattern anywhere else
 %%% (`argument_position/2`), so nesting never reaches emission.
-strip_rels(Patterns) ->
+strip_rels(Patterns, IntOnly) ->
     {Ps, Tests, _N} =
         lists:foldl(
-          fun(P, {Acc, Ts, N}) ->
+          fun({P, Known}, {Acc, Ts, N}) ->
                   case is_rel(P) of
                       false -> {Acc ++ [P], Ts, N};
                       true  ->
                           L = element(2, P),
                           V = list_to_atom("bs@r" ++ integer_to_list(N)),
-                          {Acc ++ [{p_var, L, V}], Ts ++ [rel_expr(P, V)], N + 1}
+                          {Acc ++ [{p_var, L, V}],
+                           Ts ++ [with_kind(rel_expr(P, V), V, L, Known)],
+                           N + 1}
                   end
-          end, {[], [], 1}, Patterns),
+          end, {[], [], 1}, lists:zip(Patterns, IntOnly)),
     {Ps, Tests}.
+
+%% The kind test leads the whole relational subtree rather than each comparison
+%% in it, because every leaf of one is an ordering against an integer literal
+%% over the SAME variable — `>= 4 and <= 7` constrains one value twice, so one
+%% test settles both. A user's `when` guard is the case that cannot be treated
+%% this way; `kind_tested/2` below says why.
+with_kind(Expr, _V, _L, true)  -> Expr;
+with_kind(Expr, V, L, false)   -> {e_op, L, 'and', int_test(V, L), Expr}.
 
 is_rel({p_rel, _, _, _}) -> true;
 is_rel({p_and, _, _, _}) -> true;
@@ -392,6 +409,58 @@ is_rel(_)                -> false.
 rel_expr({p_rel, L, Op, K}, V) -> {e_op, L, Op, {e_var, L, V}, {e_int, L, K}};
 rel_expr({p_and, L, A, B}, V)  -> {e_op, L, 'and', rel_expr(A, V), rel_expr(B, V)};
 rel_expr({p_or,  L, A, B}, V)  -> {e_op, L, 'or',  rel_expr(A, V), rel_expr(B, V)}.
+
+%%% ---------------------------------------------------------------------------
+%%% The kind test on a narrowing guard
+%%%
+%%% AN ORDERING COMPARISON PROVES ORDERING, NOT KIND — ticket 58's sentence, at
+%%% the site where the checker uses one to NARROW rather than to select. Every
+%%% atom sorts above every integer on the BEAM, so `:foo >= 0` is `true`; the
+%%% checker's `apply_guard/3` reads that same comparison as an intersection with
+%%% `range(0, pos_inf)` and drops the union's other parts. Without the test below
+%%% the two disagree, and a clause runs with a term its body's callees were
+%%% type-checked never to see (ENG-330).
+%%%
+%%% THE TEST GOES ON THE COMPARISON, NEVER ON THE GUARD, and that is the whole
+%%% difficulty. `bs_check:alternatives/1` splits `n >= 0 or n == :ok` into two
+%%% alternatives and credits the second as the atom, so both are values the
+%%% clause legitimately matches. Conjoining `is_integer/1` onto the guard would
+%%% delete the second: emission would refuse a value the checker proved the
+%%% clause takes, and the residual it subtracted for the clauses below would be
+%%% wrong in the unsafe direction.
+%%%
+%%% Only the four ordering operators, and only against an integer literal — the
+%%% two shapes `bs_check:comparison/1` reads, mirrored here so the emitter can
+%%% never credit less than the checker did. `==` and `!=` are value tests that
+%%% already discriminate an atom from an integer, and `!=` keeps the other parts
+%%% in what the clause matches, so a test there would make emission STRICTER than
+%%% the checker — the same hole, inverted.
+%%% ---------------------------------------------------------------------------
+
+kind_tested(none, _Skip) -> none;
+kind_tested({guard, Expr}, Skip) -> {guard, kind_expr(Expr, Skip)}.
+
+kind_expr({e_op, L, Op, A, B}, Skip) when Op =:= 'and'; Op =:= 'or' ->
+    {e_op, L, Op, kind_expr(A, Skip), kind_expr(B, Skip)};
+kind_expr(E = {e_op, L, Op, {e_var, _, V}, {e_int, _, _}}, Skip) ->
+    ordering(E, Op, V, L, Skip);
+kind_expr(E = {e_op, L, Op, {e_int, _, _}, {e_var, _, V}}, Skip) ->
+    ordering(E, Op, V, L, Skip);
+kind_expr(E, _Skip) ->
+    E.
+
+ordering(E, Op, V, L, Skip)
+  when Op =:= '>'; Op =:= '>='; Op =:= '<'; Op =:= '<=' ->
+    with_kind(E, V, L, maps:get(V, Skip, false));
+ordering(E, _Op, _V, _L, _Skip) ->
+    E.
+
+%% Which variables need no test, by name. A bare binder at a position whose
+%% declared type is int-only is the one shape that can be read off with
+%% certainty; an alias or anything structural is left to gain the test, since a
+%% redundant `is_integer/1` is a guard BIF and costs nothing worth chasing.
+skips(Patterns, IntOnly) ->
+    maps:from_list([{V, true} || {{p_var, _, V}, true} <- lists:zip(Patterns, IntOnly)]).
 
 conjoin([], Guard, _Line) -> Guard;
 conjoin(Tests, none, Line) -> {guard, fold_and(Tests, Line)};
@@ -701,8 +770,13 @@ wrapper_var(Prefix, N) -> list_to_atom(Prefix ++ integer_to_list(N)).
 %% them a `p_rec` or `p_rel` would reach `pattern/2`, which has no clause for
 %% either.
 arm({arm, L, P, Guard, Body}, C) ->
-    {[P1], RelTests} = strip_rels([desugar(P, C)]),
-    Guard1 = conjoin(RelTests, Guard, L),
+    %% An arm's subject is an expression, not a declared parameter, so there is
+    %% no int-only type to read: the kind test is emitted unconditionally here.
+    %% Redundant on an integer subject, and never wrong — which is the right way
+    %% round, since a vacuous arm is only a warning and a missing test would let
+    %% the arm match an atom while the program still compiled (ENG-330).
+    {[P1], RelTests} = strip_rels([desugar(P, C)], [false]),
+    Guard1 = conjoin(RelTests, kind_tested(Guard, #{}), L),
     Used = used_vars(Body, guard_vars(Guard1)),
     {clause, L, [pattern(P1, Used)], guard(Guard1, C), [expr(Body, C)]}.
 
