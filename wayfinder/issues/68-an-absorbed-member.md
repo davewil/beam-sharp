@@ -388,6 +388,84 @@ name never enters the algebra — is true whether or not the inline form is spel
 This decides whether Q1(a)'s refusal ever fires at a **bare** inline union. Under (b) it never
 does, and the four nested positions are the only inline sites it has to cover.
 
+## Round 3 — answered 2026-09-06 (David)
+
+**Q5 → (b). The diagnostic carries a path.** `scan_ty/4` already knows where it is at each step,
+and the reason F31 reports at the declaration — no type-expression node carries a line — is exactly
+why the position must arrive some other way or not at all. A record with two `atom`-typed fields is
+ordinary, and declaration-only wording gives it two messages differing only in the member name.
+
+**Q6 → (a). File the grammar gap.** `param` takes a `type_prim`, so ticket 09 §1's inline
+illustration does not parse; the answer is to make it parse, not to correct the illustration. This
+reverses the recommendation, and it widens Q1(a): the refusal must fire at a **bare** inline union
+in a parameter position, not only at the four nested positions.
+
+## Round 4
+
+Asked 2026-09-06. Q6(a) is filed as [ENG-331](https://linear.app/davewil/issue/ENG-331), measured
+conflict-free by `yecc:file/2` with `{report, true}` on the grammar before and after, and the
+generated parser run against real sources.
+
+### Q7 — Does the grammar gap reach the return and foreign positions, or parameters only?
+
+The same one-word change at `signature` (`bs_parser.yrl:214-217`) and `foreign_sig` (`:126`) is
+also conflict-free, and these parse under it:
+
+```csharp
+public :a | :b Pick(int n)
+:a | :b Pick(int n)                    // no visibility marker
+public :a | :b Flip(:a | :b x)
+public atom | :nothing Go(int n)       // F31's collapse shape, in a return
+```
+
+**(a) Parameters only.** 09 §1's claim is about parameters, and the return position keeps its
+alias-only discipline. F31's recorded scenario — *"there is no 'bare union in a return position'
+scenario"* — stays true.
+
+**(b) All three positions.** A union is a type, and a type is writable wherever a type is written.
+F31's scenario list gains a case, and `collapse_decl/2` already covers `signature`, so the check
+follows without change.
+
+The cost of (a) is a rule a reader has to learn for no reason: `Handle(:a | :b x)` legal and
+`:a | :b Pick(int)` not. The cost of (b) is that `public atom | :nothing Go(int n)` puts a `|`
+between the marker and the function name, which is the hardest place in a C-family declaration to
+scan.
+
+### Q8 — How does the unreachability check know which shapes a clause head can match?
+
+Q2(a) made a union's legality a function of the **pattern grammar**, so `Slot` is refused today and
+must become legal on the day ticket 48 ships a map pattern form:
+
+```csharp
+type Slot = map<string, int> | map<string, binary>
+```
+
+**The obvious derivation is not available.** `bs_types:pattern_parts/1` looks like the oracle and is
+not one — measured, it returns *type strings, not patterns*:
+
+```
+map<string,int> | map<string,binary>  -->  ["map<string, int>", "map<string, binary>"]
+list<int> | list<binary>              -->  ["[]", "[int, ..]", "[binary, ..]"]
+atom | int                            -->  ["atom", "int"]
+(:a, int) | (:b, binary)              -->  ["(:a, int)", "(:b, binary)"]
+```
+
+Rows 2 and 4 are real patterns. Rows 1 and 3 are not — nobody writes `map<string, int>` or `atom`
+in a clause head. Its own header says why (`bs_types.erl:1350-1354`): *"This is deliberately not
+machinery — no cardinality function, no complement, no second format."*
+
+**(a) A per-bucket table in the check** saying which buckets have a whole-bucket pattern —
+binary `<<b>>`, list `[]` / `[h, ..t]`, tuple `(a, b)`, tagged map `{ Kind: :t }` — and which do
+not: atoms and ints (guard-decided instead) and `map<K, V>` (neither). One line to update when a
+pattern form ships, and nothing forces the update.
+
+**(b) Make the oracle real**: extend `pattern_parts/1` or add a sibling that answers *is this member
+matchable*, reversing F29's deliberate restraint and giving the check a derivation that cannot go
+stale.
+
+The trap under (a) is specific and datable: ticket 48 ships a map pattern, nobody edits the table,
+and `Slot` stays refused for a reason that is no longer true.
+
 ## Decisions entry
 
 <!-- Written when the ticket resolves. -->
