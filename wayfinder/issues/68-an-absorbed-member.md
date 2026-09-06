@@ -223,6 +223,62 @@ with `type T = int | atom` and `when n >= 0` crashes `badarith`, because `rel_ex
 comparison and `boundary_guards/5` adds `is_integer` only for an int-only parameter. The type half
 of ticket 46's boundary guard; ENG-292 is the range half.
 
+## Round 2
+
+Asked 2026-09-06. Two questions; the sites question and the parametric-alias question wait on a
+blast-radius measurement and belong to round 3.
+
+### Q3 — How many sentences does the declaration site have?
+
+After round 1 all three of these are refused. Today the first is refused and the other two compile
+silently.
+
+```csharp
+type Ledger = atom | :nothing                        // absorbed, and it IS the failure channel
+type Label  = binary | string                        // absorbed, not the failure channel
+type Slot   = map<string, int> | map<string, binary> // nothing absorbed; no head reaches either
+```
+
+`Ledger` gets F31's message today, and it earns its keep — it names the harm (*"no caller can write
+the failure clause"*) and gives a hint that is specific and correct: *"tag it — `(:some, T) |
+:nothing`"*.
+
+**`Label` is where "print the normalised type as the repair" breaks.** The normalised type is
+`binary`, so the mechanical repair is `type Label = binary` — and that is almost certainly *not*
+what the author meant. Someone writing `binary | string` wanted either-or; the likelier intent is
+`string`. The compiler knows the type and cannot know the intent.
+
+`Slot` needs a different sentence again, because the fix is different in kind: tag the members, and
+note that the refusal is **temporary** — under Q2(a) `Slot` becomes legal the day ticket 48 ships a
+map pattern form. A message that says "tag them" as though it were permanent will be wrong within
+one feature.
+
+**The compiler delta**: how many tags in `bs_diag.erl`, and whether `collapsed_failure_channel`
+survives as its own tag or becomes a hint line under a general one. F31 already varies its hint by
+channel (`bs_diag.erl:1103-1110` for `:nothing`, `:1111-1120` for `(:error, _)`), so "one tag whose
+hint varies" is a shape this compiler already has.
+
+### Q4 — Does this close [ticket 64](64-failure-types-collapse-at-term.md)'s first question?
+
+Ticket 64 asks four things. Its Q1 is *"Is it a defect at all, or the type system working
+correctly?"* — and round 1's Q1(a) answers it: the collapse is sound and it is **still** refused,
+because what it costs is the author's intent rather than soundness.
+
+Its Q4 — *"Is there one rule here rather than two special cases?"* — is answered too: there is one
+rule, `M ⊆ union(others)`, and F31's failure channel was a filter on it.
+
+What round 1 does **not** answer is 64's expressiveness half. A `map<string, term>` lookup — the
+shape all three of ticket 48's motivating cases have — still cannot say "absent" in a type the
+checker can see, and now it is refused loudly rather than collapsing silently:
+
+```csharp
+public option<term> Fetch(map<string, term> m, string k)   // refused: term | :nothing IS term
+public (:ok, term) | :absent Fetch(map<string, term> m, string k)   // 48's workaround, per call site
+```
+
+So: does ticket 64 narrow to that expressiveness question and stay open, or is there a reason to
+keep its Q1 open too?
+
 ## Decisions entry
 
 <!-- Written when the ticket resolves. -->
