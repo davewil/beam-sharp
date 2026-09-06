@@ -74,12 +74,32 @@ refusal is a filter change, not new machinery.**
 and rejected at the declaration"*); and ticket 15:226. None is backed by a check — the same
 failure mode F31 §3 found and named, now at three more sites.
 
-Whether any writable B# type can be indiscriminable **at all** today is being measured; it gates
-Q2, not Q1.
+**But 09 §4 does have a subject, and it arrived through [ticket 48](48-a-map-type-in-the-prelude.md).**
+Measured 2026-09-06:
+
+```csharp
+type Slot = map<string, int> | map<string, binary>
+```
+
+Both members survive normalisation — `bsc --api` prints
+`map<string, int> | map<string, binary> Handle(map<string, int> | map<string, binary>)` — and the
+declaration compiles clean. Every way of taking it apart is refused, because ticket 48 shipped
+`map<K, V>` with no pattern form:
+
+```
+MapPat.bs:6:1: error: Handle destructures a map whose keys are not a fixed list
+  the parameter's type is: map<string, int> | map<string, binary>
+  ...matching one in a clause head is not built.
+```
+
+So the language has a union that can be declared, passed and returned and **never taken apart** —
+exactly the shape 09 §4 said to refuse. It became writable not because a type was added but
+because a *pattern form was withheld*. That is Q2.
 
 ## Round 1
 
-Asked 2026-09-06. One question: the rest of the tree hangs off it.
+Asked 2026-09-06. Q1 first, alone; Q2 added the same round once the measurement below landed. The
+two are independent — Q1's programs all have an absorbed member, and Q2's witness has none.
 
 ### Q1 — What sentence, if any, covers an absorbed member outside the failure channel?
 
@@ -133,6 +153,52 @@ member and `each_member/4` (`bs_check.erl:675-695`) reports every absorbed one; 
 true of `binary | string`, and which can print the repair, because the normalised type **is** the
 repair — *"`Status` is `atom`; write `type Status = atom`, or narrow it."* Parametric aliases are
 skipped by `collapse_decl/2` today and would stay skipped, so `Span<T>` is unaffected.
+
+### Q2 — 09 §4's criterion contradicts 09 §4's own accepted example. Which is wrong?
+
+09 §4 accepts the first of these and its criterion refuses the second. Measured, they are the same
+shape: both keep two members, and **neither is decided by any BEAM guard.**
+
+```csharp
+type Xs   = list<int> | list<binary>            // 09 §4: accepted, "overlap at [], not a defect"
+type Slot = map<string, int> | map<string, binary>   // criterion says refuse
+```
+
+`bsc --api` prints `Xs` as `[] | [int, ..] | [binary, ..]` — three spines, no merge. A clause head
+decides it, and this ran:
+
+```csharp
+Kind([])           -> :empty
+Kind([<<b>>, ..t]) -> :bins      // Kind([<<"a">>]) evaluates to :bins
+Kind([n, ..t])     -> :ints
+```
+
+That is a **pattern**, not a guard. No BEAM guard can reach inside a list to tell `int` from
+`binary`, so under 09 §4's stated vocabulary — *"a member is discriminable iff the compiler can
+synthesise a BEAM guard expression that decides it"* — `Xs` would be refused, and the ticket lists
+it as ✓.
+
+`Slot` fails for a different reason: `map<K, V>` has no pattern form at all, so nothing reaches
+its members. The two cases are separated by the **pattern grammar**, not by the guard vocabulary.
+
+**(a) The examples are right, the vocabulary is wrong.** Discriminable means *some clause head can
+decide it* — pattern **or** guard. `Xs` is accepted, `Slot` is refused, and a union's legality
+becomes a function of what the pattern grammar admits, so `Slot` becomes legal on the day ticket
+48 ships a map pattern.
+
+**(b) The vocabulary is right, the ✓ example was wrong.** `Xs` is refused too, along with every
+container union whose members differ only inside.
+
+**The compiler delta for (a)**: a pairwise pass beside `collapse_refused/2` in `check_dir/3`
+(`bs_check.erl:87-113`), running on normalised members per 09 §4's own normalise-first rule, which
+`m_absorb/1` has already applied by the time it looks. The reachability question is one the
+compiler already answers — `bs_types:pattern_parts/1` is what the residual printer uses to decide
+whether a shape can be spelled. Refusing `Slot` needs no new analysis, only a new caller.
+
+Note this makes *unspellable* and *indiscriminable* the same property, which they are not today:
+F29 records shapes the printer cannot spell (`{cofinite, [:x]}`, `binary \ string`) that a guard
+decides perfectly well. Under (a) the criterion has to be reachability by a head, not spellability
+of a residual — related, and not the same function.
 
 ## Decisions entry
 
