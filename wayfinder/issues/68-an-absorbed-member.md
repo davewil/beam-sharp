@@ -279,6 +279,22 @@ public (:ok, term) | :absent Fetch(map<string, term> m, string k)   // 48's work
 So: does ticket 64 narrow to that expressiveness question and stay open, or is there a reason to
 keep its Q1 open too?
 
+## Round 2 — answered 2026-09-06 (David)
+
+**Q3 → two tags.** One for absorption, one for unreachability, because the fixes differ in kind
+rather than in degree. The absorption tag states the normalised type as **fact** — *"`Label` is
+`binary`"* — and offers the repair as a fork, *delete the absorbed member, or narrow the one
+absorbing it*, because the compiler cannot tell which the author meant and `binary | string` is the
+case that proves it. F31's failure-channel wording survives as a **third hint variant** under that
+tag, not as a tag of its own: its harm sentence is a specialisation of *"a member you wrote is not
+in the type"*, and its hint is too specific to lose. The unreachability tag says the members are
+fine and nothing can reach them, and names the pattern grammar as the reason, so the refusal's
+temporariness is visible.
+
+**Q4 → narrow ticket 64.** Its Q1 and Q4 are answered by this ticket and are to be marked so in its
+file; Q2 and Q3 stay live. Ticket 64 stops being *"is the collapse a defect"* and becomes *"what
+does a `term`-valued lookup reach for"*.
+
 ## Decisions entry
 
 <!-- Written when the ticket resolves. -->
