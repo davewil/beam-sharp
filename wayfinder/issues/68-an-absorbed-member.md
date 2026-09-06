@@ -295,6 +295,99 @@ temporariness is visible.
 file; Q2 and Q3 stay live. Ticket 64 stops being *"is the collapse a defect"* and becomes *"what
 does a `term`-valued lookup reach for"*.
 
+## Blast radius, measured 2026-09-06
+
+Every `.bs` file in the tree (105 files, 78 directories) parsed per-directory, every top-level
+union's members resolved individually and tested with the exact Q1(a) predicate
+`bs_types:is_subtype(Mi, bs_types:union(others))` — the call `absorbed/2` makes. Markdown, the
+eunit suite's inline program strings and the gate heredocs swept alongside.
+
+| | newly failing |
+|---|---|
+| `.bs` modules | **0** |
+| eunit tests | **1** |
+| gate scripts | **0** |
+| compiled-doc gates (`check-language`, `check-tour`, `check-readme`) | **0** |
+| Q2(a), everything | **0** |
+
+The one test is `string_or_binary_absorbs_to_binary_test/0`,
+`compiler/test/strings_tests.erl:111-118`, which asserts `{ok, _, []}` — zero diagnostics — for
+`type Any = string | binary`. Its doc twin is scenario **F9.7**,
+`compiler/features/F9-strings-and-binaries.md:120-123`: *"`string | binary` absorbs to `binary`
+rather than erroring."*
+
+**F9.7's reasoning survives; only its verdict changes.** Its comment reads *"09 §4 errors on
+INDISCRIMINABLE members and `string` is nested rather than overlapping, so the neighbouring rule
+correctly does not fire"* — still true under Q2(a). What refuses it is Q1(a), a rule that did not
+exist when F9.7 was written.
+
+Of the four shapes F31 enumerated as the general rule's targets, exactly one is instantiated
+anywhere in the tree, and it is that test.
+
+**Two sites facts, measured the same day:**
+
+- **A bare inline union does not parse in a parameter position.** `param` takes a `type_prim`
+  (`bs_parser.yrl:229-230`), exactly as `signature` (`:214-217`) and `foreign_sig` (`:126`) do —
+  F31's citation of `:140` is stale. But `type_expr` *is* admitted in four nested positions —
+  record and map fields (`:92`), tuple elements and generic arguments (`:205-206`), and alias
+  bodies — and an absorbed member there compiles silently today:
+  `public string H((atom | :ok, int) x)` resolves to `string H((atom, int))`.
+- **A parametric alias is already collapse-checked at its instantiation.** `scan_ty/4`'s
+  `t_generic` clause (`bs_check.erl:645-660`) substitutes and re-descends, so `Opt<atom>` is
+  refused today at the **signature** line, not the alias line. Under Q1(a), `type Pair<T> = T | int`
+  at `Pair<term>` needs no new traversal — only the gate removed. No such instantiation exists in
+  the tree.
+
+## Round 3
+
+Asked 2026-09-06.
+
+### Q5 — For a nested absorbed member, does the diagnostic name the position or only the declaration?
+
+Both of these compile silently today and are refused under Q1(a). Neither has the absorbed member
+at the top level of the declaration:
+
+```csharp
+record Job { Id: int, Tag: atom | :urgent, Owner: atom | :nobody }
+
+public string Route((atom | :ok, int) x)
+```
+
+F31 reports at the declaration because **no type-expression node carries a line** — lines live on
+the enclosing declaration tuple (`bs_check.erl:596-597`). So the line number cannot disambiguate
+`Tag` from `Owner`, and F31's message names the member and its absorber but not the position.
+
+**(a) Declaration only.** *"`:urgent` is absorbed by `atom`"*, reported at `Job`'s line. Matches
+F31 exactly; costs nothing. With two absorbing fields it emits two diagnostics on one line, and
+neither says which field.
+
+**(b) Carry a path.** *"`Job.Tag` is `atom`; `:urgent` is absorbed by it"* and *"the first element
+of `Route`'s parameter…"*. `scan_ty/4` already descends with `(Env, L, Seen)` and knows exactly
+where it is at each step; a path accumulator is one more argument threaded through five clauses
+(`bs_check.erl:638-673`).
+
+### Q6 — Ticket 09 §1's illustration does not parse. Grammar gap, or stale text?
+
+09 §1 shows the inline form as identical to the named one, and it is the passage the "naming is
+aliasing" decision rests on:
+
+```csharp
+Handle(PaymentResult r)
+Handle({ :ok, string } | { :error, string } r)   // measured: syntax error before ":ok"
+```
+
+It is stale twice over — a bare union does not parse in a parameter position at all, and the
+example spells tuples with braces, which is not this language's tuple syntax.
+
+**(a) File a grammar gap**: `param` should take a `type_expr`, so the inline form works and 09 §1's
+claim is literally true at the surface.
+
+**(b) Correct the ticket text**: the alias is the intended spelling, and 09 §1's actual claim — the
+name never enters the algebra — is true whether or not the inline form is spellable.
+
+This decides whether Q1(a)'s refusal ever fires at a **bare** inline union. Under (b) it never
+does, and the four nested positions are the only inline sites it has to cover.
+
 ## Decisions entry
 
 <!-- Written when the ticket resolves. -->
