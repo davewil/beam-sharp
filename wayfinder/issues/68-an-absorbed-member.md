@@ -200,6 +200,29 @@ F29 records shapes the printer cannot spell (`{cofinite, [:x]}`, `binary \ strin
 decides perfectly well. Under (a) the criterion has to be reachability by a head, not spellability
 of a residual — related, and not the same function.
 
+## Round 1 — answered 2026-09-06 (David)
+
+**Q1 → (a). An absorbed member is an error where it is written.** Any member `M` where
+`M ⊆ union(others)` is refused at the declaration, generalising F31 from the failure channel to
+every member. The cost is accepted: `type Envelope = term | int` stops, and the repair — deleting
+the member — is free, because the normalised type *is* the repair and the compiler can print it.
+
+**Q2 → (a). Discriminable means a clause head can decide it — pattern or guard.** 09 §4's ✓
+examples are the decided part; *"a BEAM guard"* was vocabulary reached for before ticket 04's
+pattern-based exhaustiveness was the mechanism, and taken literally it refuses
+`list<int> | list<binary>`, which the same section accepts. So `Xs` stays legal, `Slot` is refused,
+and `Slot` becomes legal on the day ticket 48 ships a map pattern form.
+
+Carried forward into the wording: the criterion is **reachability by a clause head**, which is close
+to but not the same function as **spellability by the residual printer** — F29 records shapes the
+printer cannot spell that a guard decides perfectly well.
+
+**Filed alongside, not part of this ticket**:
+[ENG-330](https://linear.app/davewil/issue/ENG-330) — `Bump(:foo)` over a `public int Bump(T n)`
+with `type T = int | atom` and `when n >= 0` crashes `badarith`, because `rel_expr/2` emits a bare
+comparison and `boundary_guards/5` adds `is_integer` only for an int-only parameter. The type half
+of ticket 46's boundary guard; ENG-292 is the range half.
+
 ## Decisions entry
 
 <!-- Written when the ticket resolves. -->
