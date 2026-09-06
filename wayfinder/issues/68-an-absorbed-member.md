@@ -466,6 +466,66 @@ stale.
 The trap under (a) is specific and datable: ticket 48 ships a map pattern, nobody edits the table,
 and `Slot` stays refused for a reason that is no longer true.
 
+## Round 4 — answered 2026-09-06 (David)
+
+**Q7 → (b). All three positions.** `param`, `signature` and `foreign_sig` all take a `type_expr`.
+Measured conflict-free; [ENG-331](https://linear.app/davewil/issue/ENG-331) covers both halves.
+
+**Q8 → (b). Build the matchability oracle**, rather than a per-bucket table with a forcing
+self-test. This reverses the recommendation.
+
+### What (b) costs, measured after the answer
+
+`head_parts/2` already computes the volatile half. Decoding its binder markers:
+
+| union | heads |
+|---|---|
+| `map<string,int> \| map<string,binary>` | `m: map<string, int>`, `m: map<string, binary>` |
+| `map<string,int> \| int` | `n`, `m: map<string, int>` |
+| `list<int> \| list<binary>` | `[]`, `[n, ..]`, `[b, ..]` |
+| `atom \| int` | `a`, `n` |
+| `(:a, int) \| (:b, binary)` | `(:a, n)`, `(:b, b)` |
+| `{ Kind: :a, X: int } \| { Kind: :b, X: binary }` | `{ Kind: :a }`, `{ Kind: :b }` |
+
+A member printed as an **annotated binder** (`m: map<string, int>`) has no legal clause head —
+there are no typed binders in pattern position. A member printed with structure does. That is the
+pattern half of matchability, already computed.
+
+**So the oracle splits, and only one half is volatile:**
+
+- the **pattern** half is derivable from what `head_parts/2` already knows, and it is exactly what
+  changes when ticket 48 ships a map pattern form;
+- the **guard** half — `is_atom`, `is_integer`, `is_binary`, `is_tuple`, `is_map` — is the BEAM's
+  vocabulary rather than the language's, so a table of it does not go stale. `atom | int` is two
+  bare binders and is still discriminable, by guard.
+
+Q8(b) therefore does not abolish the table; it moves the table to the stable half and derives the
+volatile one. That is a better split than either option as it was put.
+
+## Round 5
+
+Asked 2026-09-06. One question: the frontier is nearly empty and this one gates what is left.
+
+### Q9 — Does the oracle read the printer's output, or do they share a structured intermediate?
+
+`head_parts/2` returns text meant to be pasted into source (`bs_types.erl:34`). The oracle needs a
+predicate. Two ways to connect them:
+
+**(a) The oracle reads `head_parts/2`'s output** and tests whether a member came back as a bare or
+annotated binder rather than a structural pattern.
+
+**(b) `head_parts/2` is refactored onto a structured intermediate** — one per member, carrying
+whether it is a binder or a shape — which the printer renders and the oracle queries.
+
+**(a) is the mistake this session already made once, in a cheaper form.** `pattern_parts/1` looked
+like an oracle and was a printer; reading it that way would have shipped a check that refuses the
+wrong programs. (a) repeats the shape knowingly: a printing change — F29 adding an annotation,
+someone renaming a binder — silently changes what the compiler refuses, and no test necessarily
+names the connection.
+
+(b) costs a refactor of a function three callers depend on (`head_parts/2`, `head_combos/2`,
+`name_binders/1`, plus the residual printer in `bs_diag`), on a path F29 built deliberately narrow.
+
 ## Decisions entry
 
 <!-- Written when the ticket resolves. -->
