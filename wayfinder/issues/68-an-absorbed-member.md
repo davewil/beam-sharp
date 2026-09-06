@@ -44,7 +44,7 @@ filed as a *debt* — a decision the compiler had not built. Measuring it found 
 the thing ENG-273 measured is already decided **legal**, and the thing ticket 09 §4 actually
 decided has **no program that can express it**. So this is a ticket, not a feature.
 
-Every program below was run through `bin/ibs` at `1fd9036`, 2026-09-06.
+Every program below was run through `bin/ibs` at `90551a6`, 2026-09-06.
 
 ## What ENG-273 measured, and what is already decided about it
 
@@ -80,7 +80,7 @@ sentence is Q1.
 [ticket 15](15-error-model.md) §1: an absorbed member is refused **when it is the failure
 channel**, and only then. The gate is `failure_channel/1` (`compiler/src/bs_check.erl:700-702`),
 matching exactly two surface shapes — `:nothing` and `(:error, _)`. The scope limit is stated in
-the source, `bs_check.erl:597-599`: *"Only the two failure members are checked: `binary | string`
+the source, `bs_check.erl:597-598`: *"Only the two failure members are checked: `binary | string`
 also has an absorbed member, but the sentence this raises would be false about it."*
 
 The predicate underneath is already general — `absorbed/2` at `bs_check.erl:2008` is
@@ -290,7 +290,7 @@ one feature.
 
 **The compiler delta**: how many tags in `bs_diag.erl`, and whether `collapsed_failure_channel`
 survives as its own tag or becomes a hint line under a general one. F31 already varies its hint by
-channel (`bs_diag.erl:1103-1110` for `:nothing`, `:1111-1120` for `(:error, _)`), so "one tag whose
+channel (`bs_diag.erl:1113-1120` for `:nothing`, `:1121-1130` for `(:error, _)`), so "one tag whose
 hint varies" is a shape this compiler already has.
 
 ### Q4 — Does this close [ticket 64](64-failure-types-collapse-at-term.md)'s first question?
@@ -389,7 +389,7 @@ public string Route((atom | :ok, int) x)
 ```
 
 F31 reports at the declaration because **no type-expression node carries a line** — lines live on
-the enclosing declaration tuple (`bs_check.erl:596-597`). So the line number cannot disambiguate
+the enclosing declaration tuple (`bs_check.erl:595-596`). So the line number cannot disambiguate
 `Tag` from `Owner`, and F31's message names the member and its absorber but not the position.
 
 **(a) Declaration only.** *"`:urgent` is absorbed by `atom`"*, reported at `Job`'s line. Matches
