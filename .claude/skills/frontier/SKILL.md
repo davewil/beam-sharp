@@ -42,24 +42,56 @@ Apply in order; the first rule that separates two candidates decides.
 2. **Unblocked only.** An open `blockedBy` removes an issue from the frontier. Where the graph
    is empty, read the acceptance criteria for implicit ordering ("needs the assembled
    artifact" is a blocker with no edge).
-3. **Priority, then the agent label.** High before Medium before Low before No-priority.
+3. **A container is not work.** An issue with open children is a place to hang them, not
+   something to build: rank its children, never it. No earlier rule removes one, so a session
+   that ranks a parent either takes it by mistake or skips it on judgment this skill never
+   wrote down. Both of the project's containers sit at High and can never close — `ENG-285`
+   (12 open children) and `ENG-244` (6) — so they occupy the top band permanently.
+4. **Unblocking value, and it reaches across bands.** An issue that `blocks` others outranks
+   one that blocks none; where what it blocks sits in a **higher** priority band, it is ranked
+   in that band. Otherwise a blocker is sorted on its own priority and the thing it holds up
+   is never reached. Measured 2026-09-07: `ENG-331` — Medium, unlabelled, grammar-only, and
+   `yecc`-measured conflict-free — was the sole `blockedBy` of High `ENG-332`, and rule 5's
+   label clause separated it from all sixteen `ready-for-agent` issues before this rule was
+   consulted. A gate that guards a register (`ENG-291` for `debt`) outranks the entries it
+   guards.
+5. **Priority, then the agent label.** High before Medium before Low before No-priority.
    Within a band, `ready-for-agent` before unlabelled. `ready-for-human` is David's, not
    yours: name it in the report and move on. Every numbered map ticket is No-priority, so
-   age never gets to decide against a prioritised issue.
-4. **Quick fixes before the frontier.** Within a band, `quick-fix` first: each closes a
+   age never gets to decide against a prioritised issue. **Know what this clause now selects
+   for**: every open `ready-for-agent` issue also carries `apparatus` (16 of 16 on
+   2026-09-07), and every open `quick-fix` does too (6 of 6). The label did not start that
+   way — `ENG-319`, `ENG-321`, `ENG-297`, `ENG-307` and `ENG-260` were `ready-for-agent`
+   features and are all Done. The takeable language work drained and the apparatus did not,
+   so the clause promotes apparatus over unlabelled work in every band by attrition.
+   Whether `apparatus` should therefore rank last in its band is David's call, open and
+   unmade.
+6. **Quick fixes before the frontier.** Within a band, `quick-fix` first: each closes a
    documented falsehood or a gate that cannot see one, and stops the record drifting while the
    frontier moves.
-5. **Unblocking value.** An issue that `blocks` others outranks one that blocks none. A gate
-   that guards a register (`ENG-291` for `debt`) outranks the entries it guards.
-6. **Build before decide.** A feature file marked `not started`, or a row in the features
-   README's *decided, unbuilt* table, outranks a map design ticket. Decisions keep; an unbuilt
-   decision compounds. Take a design ticket only when both lists are blocked or when a feature
+7. **Build before decide.** A decision keeps; an unbuilt decision compounds, so an unbuilt
+   feature outranks a map design ticket. **Three sources, and the first two were empty when
+   this was measured on 2026-09-07** — which is why the rule had stopped reaching anything:
+   - a feature file marked `not started` — only `F30`, which rule 8 hands to David;
+   - a row in the features README's *decided, unbuilt* table — **zero live rows**, every row
+     reading BUILT (F16, F17, F32, F33) and the one exception blocked on ticket 16 §4;
+   - **the `debt` label in Linear**, which is where that inventory actually lives (7 open).
+
+   Take a `debt` issue only where its ticket has decided the spelling. `ENG-324` and `ENG-323`
+   carry the label and still owe a decision — `ENG-324`'s own text is *"the naming call for the
+   assertive form — David's, and it is not free"* — so they are ticket material, not build
+   material, and routing one to `/implement` would build what no ticket settled.
+
+   Take a design ticket only when all three sources are blocked or empty, or when a feature
    raises a question it may not answer itself.
-7. **Self-disqualification.** Read the Notes and the Status line of anything that looks
+8. **Self-disqualification.** Read the Notes and the Status line of anything that looks
    takeable. A ticket that names its own precondition, calls itself "not urgent", or declares
-   itself a standing resource has ranked itself last. A feature whose `ready-for-agent` is
-   deliberately off (F30) is David's read first.
-8. **Age, last,** and only within a band.
+   itself a standing resource has ranked itself last. This fires far more often than its
+   position suggests: on 2026-09-07 it disqualified four of the seven High issues — `ENG-204`
+   (*"HITL. Not urgent"*), `ENG-279` (F30), `ENG-291` (*"Left in Backlog: the scope call is
+   David's"*) and, with rule 1, `ENG-248`. A feature whose `ready-for-agent` is deliberately
+   off (F30) is David's read first.
+9. **Age, last,** and only within a band.
 
 Done when: one issue is chosen and the sentence naming the rule that chose it is written.
 
@@ -106,3 +138,26 @@ has to be distinguishable from a claim David made himself.
 The frontier is the edge of the known: what can be taken now. Everything blocked, in review,
 or waiting on David is the backlog behind it. Report the frontier; mention the backlog only
 where it explains why a High issue is not on the frontier.
+
+**There is no `/backlog` skill, and the reason is worth keeping** (David asked, 2026-09-07).
+The complaint that prompted it — that this skill *"seems to avoid general backlog items"* —
+was right about the symptom and wrong about the cause. Every open issue is already in scope
+here; none is excluded. What made the useful half unreachable was the ordering, measured that
+day at `fd6db43`:
+
+- all seven High issues were unpickable — two containers, one blocked, four self-disqualified
+  — so the band that is drained first yielded **nothing**, and no rule said so;
+- rule 7's two named inventories were both empty, so *build before decide* reached nothing
+  either;
+- and rule 5's label clause, which now selects `apparatus` by attrition, sorted the one item
+  that would have unblocked a High build behind sixteen documentation chores.
+
+Rules 3, 4 and 7 are the repair. A second picker would have duplicated §1, §2, §4 and §5 of
+this skill and differed only in its ranking — which is the thing that was broken.
+
+**What a `/backlog` skill would legitimately be**, if one is ever wanted: not "regular work"
+but *the work that is deliberately not progress*. 23 of the 63 open issues carry `apparatus`,
+and CLAUDE.md holds that a check, a doc, a hook or a tracker change never counts as progress.
+Those items can never win an honest ranking, so either they are never done or they get their
+own explicitly-invoked queue that David drains when he decides it is apparatus time. Not
+built: one occurrence.
