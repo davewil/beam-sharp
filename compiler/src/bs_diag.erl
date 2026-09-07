@@ -1152,7 +1152,7 @@ message(#{tag := absorbed_member, file := P, line := L, column := C,
 %% cannot know the intent, so it states the type as FACT and offers both
 %% repairs rather than guessing (68 Q3).
 message(#{tag := absorbed_member, file := P, line := L, column := C,
-          where := W, member := M, absorbed_by := A}) ->
+          where := W, channel := none, member := M, absorbed_by := A}) ->
     {"~s:~p:~p: error: `~s` is absorbed by `~s`~n"
      "  in ~s~n"
      "  every value of `~s` is already a `~s`, so the type declared here~n"

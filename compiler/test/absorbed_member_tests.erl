@@ -235,3 +235,37 @@ two_records_are_discriminable_test() ->
                 "record Invoice { Id: int }\n"
                 "type Doc = Order | Invoice"),
     ?assertMatch({ok, _, _}, check_only(Src)).
+
+%%% ---------------------------------------------------------------------------
+%%% F36.7 — NORMALISE FIRST. A written member that is itself a union is not a
+%%% member of the normalised type; it is however many the algebra kept.
+%%%
+%%% 09 §4: "Normalise first, then check pairwise on the NORMALISED members."
+%%% Pairing the members an author WROTE gets both answers wrong, in both
+%%% directions, and the two below are the witnesses. Neither is reachable
+%%% through a union of atomic members, which is why they need their own
+%%% scenario: every case in F36.5 and F36.6 has one written member per
+%%% constituent, so a check that skips normalisation passes all of them.
+%%% ---------------------------------------------------------------------------
+
+%% THE FALSE POSITIVE, and the one that matters: ticket 20:389 warns that
+%% "conflating them would reject a legal type". Normalised, `C` is
+%% `atom | int | map<string, int>` and a guard decides all three. Pairing the
+%% written members compares two lumps, finds neither reaches by pattern and
+%% both "occupy" the map bucket, and refuses a legal declaration.
+a_union_of_unions_is_paired_after_normalising_test() ->
+    Src = decls("A21",
+                "type A = map<string, int> | int\n"
+                "type B = map<string, int> | atom\n"
+                "type C = A | B"),
+    ?assertMatch({ok, _, _}, check_only(Src)).
+
+%% THE FALSE NEGATIVE, the same defect in the other direction. Normalised, `B`
+%% holds the two domain maps `Slot` exists to refuse — but one written member
+%% is a lump whose list spine satisfies "something here has a pattern", so the
+%% pair is waved through and the indiscriminable maps are never compared.
+an_indiscriminable_pair_hidden_in_a_lump_is_still_refused_test() ->
+    Src = decls("A22",
+                "type A = list<int> | map<string, int>\n"
+                "type B = A | map<string, binary>"),
+    ?assertError({indiscriminable_union, _, _, _, _}, check_only(Src)).

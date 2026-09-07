@@ -86,6 +86,21 @@ positions that parsed before it.
 both members through normalisation and no clause head reaches either, so it is
 refused under the second rule rather than the first.
 
+**F36.7 — normalise first, and the two witnesses that it was not free.** A
+written member that is itself a union is **not** a member of the normalised
+type. `type C = A | B` writes two and normalises to however many the algebra
+keeps, so the pairs come from `bs_types:constituents/1` and not from what was
+written. Pairing the written members is wrong in both directions:
+`type A = map<string,int> | int` beside `type B = map<string,int> | atom` makes
+`type C = A | B` **refused** though its normal form `atom | int |
+map<string,int>` is decided by a guard — ticket 20:389's *"conflating them
+would reject a legal type"*, exactly; and `type A = list<int> |
+map<string,int>` beside `type B = A | map<string,binary>` **compiles** though
+the flattening holds the two domain maps `Slot` exists to refuse, because the
+lump's list spine satisfied *"something here has a pattern"*. Neither is
+reachable through a union of atomic members, so every case in F36.5 and F36.6
+passes without normalisation.
+
 **F36.6 — the controls, which outnumber the refusals.** Ticket 20:389 warns
 that *"subsumption is not indiscriminability, and conflating them would reject a
 legal type"*, and 09 §4's stated criterion does exactly that to its own accepted
@@ -154,6 +169,32 @@ nominal identity. Under rule 1 each member absorbs the other, so it is refused �
 **and the refusal proves the same thing more directly**: were the mint nominal,
 the two would be distinct types, neither would absorb the other, and the
 program would compile. The test asserts the refusal and says so.
+
+## What the two-axis review caught, after the pair was green
+
+Both findings were made by `/code-review` against `b3d468d` **after** 37 stages
+had passed twice. Neither gate could have caught either: the suite had no union
+of unions in it, and no gate compares a shipped sentence with the predicate
+underneath it.
+
+**The normalisation defect (fixed here).** The spec axis measured both witnesses
+in F36.7 above and named the wrong belief in this feature's own source comment —
+*"comes free here because absorption has already raised"*. It does not: absorption
+proves no written member is contained by the others, which is not the same as
+making each one atomic. The false positive is the serious half, since it refuses
+a legal declaration.
+
+**The container limit ([ENG-334](https://linear.app/davewil/issue/ENG-334), open,
+NOT fixed here).** The standards axis measured that
+`list<map<string,int>> | list<map<string,binary>>` is accepted while
+`map<string,int> | map<string,binary>` is refused — the same members one
+container level in. `discriminable/4` asks whether a pattern *reaches* a
+constituent, never whether it *separates* the pair, and a list spine reaches
+both without telling them apart. That matches 68 Q2(a) as written and
+contradicts `LANGUAGE.md`'s *"can distinguish two of its members"*. It
+**under**-refuses, so no legal program breaks. Deepening it decides more
+programs illegal and needs its own blast radius, so it is a ticket rather than a
+build call, and `LANGUAGE.md` now states the limit and cites it.
 
 ## The record, checked rather than assumed
 

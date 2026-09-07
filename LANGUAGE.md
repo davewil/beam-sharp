@@ -1113,7 +1113,14 @@ of its own, and `is_atom` tells them apart without one.
 
 So the two halves are asked in order — *is there a pattern that reaches this member*, and failing
 that, *is there a guard that separates it from the others* — and `Slot` above is the shape that
-answers no to both.
+answers no to both. The question is asked of the type **after** normalisation, so
+`type C = A | B` over two unions is judged on what `C` actually is, not on the two names written.
+
+**The check does not yet recur into a container.** `list<map<string, int>> | list<map<string, binary>>`
+is accepted today, though it holds one level in exactly the members `Slot` is refused for: the list
+spine is a pattern that *reaches* both members without *separating* them, and the criterion asks
+only the first. Whether it should ask the second is
+[ENG-334](https://linear.app/davewil/issue/ENG-334), open. It errs toward accepting.
 
 ### A deliberate crash is spelled `raise`
 

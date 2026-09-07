@@ -31,10 +31,9 @@ A residual built only from declared cases, so the compiler knows each one by nam
 _Avoid_: finite residual, known gap
 
 **Discriminable**:
-Of union members: distinguishable from one another by a **clause head** — a pattern that reaches
-the member, or a guard that separates it from the others. Indiscriminable members are an error at
-the declaration, and the error is temporary by construction: it lifts when a pattern form for those
-members ships.
+Of union members, after normalisation: distinguishable from one another by a **clause head** — a
+pattern that reaches the member, or a guard that separates it from the others. Indiscriminable
+members are an error at the declaration.
 _Avoid_: disjoint, tagged, distinguishable, decided by a BEAM guard
 
 **Absorbed**:
@@ -66,9 +65,8 @@ _Avoid_: generic parameter, type argument, rigid variable, `a`, bounded type var
 `M` alone is a fixed size and a **closed** set; any `N > 0` makes the type **open**. Both halves
 are decided by one BEAM guard in O(1), `M` by `byte_size`/`bit_size` and `N` by a modulus. A union
 over binary types where one member contains another absorbs, and the absorbed member is rejected at
-the declaration. Overlap **without** containment is not distinguished here: the checker's binary
-bucket carries UTF-8-ness and not `M`/`N`, so two binary types that overlap partially are not a
-shape it can represent.
+the declaration. Two binary types that overlap **without** either containing the other have no
+verdict: the type language has no spelling for a sized binary type, so the case is unreachable.
 _Avoid_: bitstring pattern, size specifier, binary spec
 
 **Refinement**:

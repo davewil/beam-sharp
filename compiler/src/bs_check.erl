@@ -745,18 +745,34 @@ failure_channel(_)                                 -> none.
 %%% ---------------------------------------------------------------------------
 %%% Ticket 09 §4, built: a union no clause head can take apart
 %%%
-%%% PAIRWISE ON NORMALISED MEMBERS, which is 09 §4's own rule and comes free
-%%% here because absorption has already raised. Two members are discriminable
-%%% when EITHER has a pattern that reaches it, or when the BEAM's guard
-%%% vocabulary puts them in different buckets. `bs_types:head_reach/1` answers
-%%% the first from the same structured parts the residual printer renders, so
-%%% the volatile half of this rule moves when the pattern grammar moves and
-%%% cannot be left behind by an edit to a table (68 Q8(b), Q9(b)).
+%%% PAIRWISE ON NORMALISED MEMBERS, which is 09 §4's own rule and does NOT come
+%%% free from absorption having raised first. Absorption proves no written
+%%% member is contained by the others; it does not make a written member
+%%% atomic. `type C = A | B` over two unions writes two members and normalises
+%%% to however many the algebra keeps, so the pairs have to come from the
+%%% normalised type — `bs_types:constituents/1` — and not from what was
+%%% written. Pairing the written members is wrong in BOTH directions, and
+%%% F36.7 holds a witness for each.
+%%%
+%%% Two constituents are discriminable when EITHER has a pattern that reaches
+%%% it, or when the BEAM's guard vocabulary puts them in different buckets.
+%%% `bs_types:head_reach/1` answers the first from the same structured parts
+%%% the residual printer renders, so the volatile half of this rule moves when
+%%% the pattern grammar moves and cannot be left behind by an edit to a table
+%%% (68 Q8(b), Q9(b)).
+%%%
+%%% KNOWN LIMIT, and it under-refuses rather than over-refuses: "reaches" is
+%%% asked of the constituent, not of the pair, so a pattern that reaches both
+%%% members without separating them still counts —
+%%% `list<map<string,int>> | list<map<string,binary>>` is accepted today. The
+%%% criterion 68 decided is reachability; "separates" is a stronger question
+%%% that changes what is legal, so it is a ticket rather than a build call.
 %%% ---------------------------------------------------------------------------
 
 indiscriminable_members(Ms, _Env, _L, _Path) when length(Ms) < 2 -> ok;
 indiscriminable_members(Ms, Env, L, Path) ->
-    pairwise([resolve(M, Env) || M <- Ms], L, Path).
+    Normalised = bs_types:union([resolve(M, Env) || M <- Ms]),
+    pairwise(bs_types:constituents(Normalised), L, Path).
 
 pairwise([], _L, _Path) -> ok;
 pairwise([R | Rs], L, Path) ->
@@ -2083,7 +2099,10 @@ validate_collapses(Ty, Env) ->
 %% its members, so the other direction cannot fail (ticket 15 §1). This is
 %% the one implementation of that equation; `validate_collapses/2` and the
 %% declaration check (F31) both ask it here so the two cannot drift.
-absorbed(Failure, Success) -> bs_types:is_subtype(Failure, Success).
+%% `T | M ≡ T`, F31's one-line normal form. The names said `Failure` and
+%% `Success` while the rule was the failure channel's; ticket 68 Q1(a) made it
+%% every member, and the predicate itself never changed.
+absorbed(Member, Others) -> bs_types:is_subtype(Member, Others).
 
 type_of_all(Es, S, C) ->
     {Tys, Ds} = lists:unzip([type_of(E, S, C) || E <- Es]),

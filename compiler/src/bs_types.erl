@@ -36,7 +36,7 @@
 -export([head_parts/2, head_combos/2, name_binders/1]).
 %% The matchability oracle (ticket 68 Q8(b), Q9(b)). It shares the structured
 %% intermediate below with the printer above rather than reading its text.
--export([head_reach/1, guard_buckets/1]).
+-export([head_reach/1, guard_buckets/1, constituents/1]).
 %% `mu/2` names a type so its own body can refer back to it; `recvar/1` is
 %% that back-reference; `unfold/1` is the only way to look inside one, and
 %% every operation here calls it before touching a part (F28).
@@ -1522,6 +1522,11 @@ head_reach(T) ->
 %% `is_integer`, `is_tuple`, `is_list`, `is_map`, `is_binary`. Two members in
 %% disjoint buckets are discriminable however little pattern either one has —
 %% `atom | int` is two bare binders and is decided by a guard.
+%%
+%% PRECONDITION: called on a CONSTITUENT, from `constituents/1` below, so each
+%% bucket is either absent or inhabited. It is a shallow test — `is_none/2`'s
+%% header explains why a non-empty list part can still be empty — and reading
+%% it as a general emptiness oracle would answer `tuple` for `{[none]}`.
 guard_buckets(#{mu := _} = T) -> guard_buckets(unfold(T));
 guard_buckets(#{recvar := _}) -> [atom, int, tuple, list, map, bin];
 guard_buckets(#{atoms := As, ints := Is, tuples := Ts, lists := Ls,
@@ -1532,6 +1537,36 @@ guard_buckets(#{atoms := As, ints := Is, tuples := Ts, lists := Ls,
     [list  || Ls =/= []] ++
     [map   || Ms =/= []] ++
     [bin   || Bs =/= []].
+
+%% THE NORMALISED TYPE'S OWN MEMBERS, which is what 09 §4 means by "check
+%% pairwise on the NORMALISED members" and is NOT the list of members an
+%% author wrote. `type C = A | B` writes two, and if `A` and `B` are
+%% themselves unions the algebra keeps however many survive flattening and
+%% absorption. Pairing the written members instead compares two lumps and is
+%% wrong in both directions: it refuses `C` above, whose normal form
+%% `atom | int | map<string, int>` a guard decides perfectly well, and it
+%% accepts a union whose flattening holds two domain maps, because some other
+%% part of one lump had a pattern.
+%%
+%% A `mu` is ONE constituent. Splitting it would mean unfolding to decide what
+%% is inside, and the useful answer is already available: `head_reach/1`
+%% unfolds it once and finds the shapes the author writes clauses for.
+constituents(#{mu := _} = T)     -> [T];
+constituents(#{recvar := _} = T) -> [T];
+constituents(#{atoms := As, ints := Is, tuples := Ts, lists := Ls,
+               maps := Ms, bins := Bs}) ->
+    N = none(),
+    [N#{atoms => As} || As =/= {finite, []}]
+        ++ [N#{ints => [R]} || R <- Is]
+        ++ part_cs(Ts, fun(V) -> N#{tuples => V} end)
+        ++ [N#{lists => [S]} || S <- Ls]
+        ++ part_cs(Ms, fun(V) -> N#{maps => V} end)
+        ++ [N#{bins => Bs} || Bs =/= []].
+
+%% `top` is one constituent — every tuple, or every map — and is not a list to
+%% take apart.
+part_cs(top, Mk) -> [Mk(top)];
+part_cs(Ps, Mk)  -> [Mk([P]) || P <- Ps].
 
 %% The top is a binder, not `term`: `Fn(term)` binds a variable named `term`,
 %% which is not what the word was chosen to mean. The top keeps its word on the
