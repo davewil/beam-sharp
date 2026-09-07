@@ -1,0 +1,58 @@
+// aliasing.bs -- "naming is aliasing" (ticket 09 §1), and the inline spelling
+// that had to exist before that sentence was true (ticket 68 Q7, ENG-331).
+//
+//     bsc --src-root examples examples/Aliasing ViaAlias "(:ok, 7)"      -> 7
+//     bsc --src-root examples examples/Aliasing Inline "(:error, :nope)" -> 0
+//     bsc --src-root examples examples/Aliasing Pick 1                   -> :ok
+//
+// THE PROPERTY WORTH LOOKING AT is that `ViaAlias` and `Inline` below are the
+// same function. Ticket 09 §1 argues that a `type` declaration introduces no
+// new type -- it names one that already exists -- and it showed the two
+// spellings side by side to make the point. The second one did not parse.
+// `param`, `signature` and `foreign_sig` each took a `type_prim`, and only
+// `type_expr` reached the union rule, so a union was writable inside a tuple,
+// a record field or a generic argument, but not in the position a reader tries
+// first. The argument for naming-is-aliasing was written in a syntax the
+// language did not have.
+module Aliasing
+
+type Fetched = (:ok, int) | (:error, atom)
+
+// THE NAMED SPELLING.
+public int ViaAlias(Fetched f)
+
+ViaAlias((:ok, n))    -> n
+ViaAlias((:error, _)) -> 0
+
+// THE INLINE SPELLING, AND IT IS THE SAME TYPE. The same clause heads
+// discriminate it, the same exhaustiveness check proves it, and deleting a
+// clause produces the same residual. Nothing about the union reaches the
+// checker differently: `resolve` sees a `t_union` whichever way it was
+// written, which is why this was a grammar change and nothing else.
+public int Inline((:ok, int) | (:error, atom) f)
+
+Inline((:ok, n))    -> n
+Inline((:error, _)) -> 0
+
+// A RETURN POSITION TAKES ONE TOO. Ticket 68 Q7 answered (b) -- all three
+// positions -- rather than parameters alone, because (a) leaves the reader a
+// rule with nothing behind it but the order the grammar happened to be written
+// in: `Handle(:ok | :error x)` legal and `:ok | :error Pick(int)` a syntax
+// error.
+public :ok | :error Pick(int n)
+
+Pick(n) when n > 0  -> :ok
+Pick(n) when n <= 0 -> :error
+
+// AN UNMARKED SIGNATURE IS PRIVATE (F12), so here the union sits between
+// nothing at all and the function name. Q7 weighed this as the hardest place
+// in a C-family declaration to scan, and took it anyway rather than ship the
+// asymmetry.
+int Score(:ok | :error r)
+
+Score(:ok)    -> 1
+Score(:error) -> 0
+
+public int Rate(int n)
+
+Rate(n) -> Score(Pick(n))

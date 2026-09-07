@@ -425,7 +425,7 @@
           "name": "return",
           "content": {
             "type": "SYMBOL",
-            "name": "type_prim"
+            "name": "type_expression"
           }
         },
         {
@@ -692,7 +692,7 @@
           "name": "return",
           "content": {
             "type": "SYMBOL",
-            "name": "type_prim"
+            "name": "type_expression"
           }
         },
         {
@@ -767,7 +767,7 @@
           "name": "type",
           "content": {
             "type": "SYMBOL",
-            "name": "type_prim"
+            "name": "type_expression"
           }
         },
         {

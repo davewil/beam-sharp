@@ -270,3 +270,107 @@ mutually_containing_products_keep_a_representative_test() ->
 %% still enumerated — nothing short of the whole top takes this spelling.
 the_top_prints_as_term_test() ->
     ?assertEqual("term", bs_types:to_string(bs_types:term())).
+
+%%% ---------------------------------------------------------------------------
+%%% ENG-331 / ticket 68 Q7 — an inline union is writable where a type is written
+%%% ---------------------------------------------------------------------------
+
+%%% Ticket 09 §1 argues "naming is aliasing" by showing the two spellings as the
+%%% same thing, and the second one did not parse. `param`, `signature` and
+%%% `foreign_sig` each took a `type_prim`, and only `type_expr` reached
+%%% `type_union_members`, so `Handle(:ok | :error x)` was a syntax error at the
+%%% pipe while `Handle(R x)` was fine. Ticket 68 Q7 answered (b) — all three
+%%% positions take a `type_expr` — on the ground that the alternative is a rule
+%%% a reader has to learn for no reason.
+
+inline_union_parameter_is_exhaustive_test() ->
+    Src = "module M\n"
+          "public int Handle(:ok | :error x)\n"
+          "Handle(:ok)    -> 1\n"
+          "Handle(:error) -> 0\n",
+    ?assertMatch({ok, _, []}, check_only(Src)).
+
+%% Parsing is not the claim; MEANING the same is. A missing clause must produce
+%% the same residual whichever way the union reached the checker, or "naming is
+%% aliasing" is false in exactly the place 09 §1 asserts it.
+inline_union_and_its_alias_give_the_same_residual_test() ->
+    Inline = "module M\n"
+             "public int Handle(:ok | :error x)\n"
+             "Handle(:ok) -> 1\n",
+    Alias  = "module M\n"
+             "type R = :ok | :error\n"
+             "public int Handle(R x)\n"
+             "Handle(:ok) -> 1\n",
+    {error, [{error, _, _, {inexhaustive, RInline, _}}]} = check_only(Inline),
+    {error, [{error, _, _, {inexhaustive, RAlias,  _}}]} = check_only(Alias),
+    ?assertEqual(bs_types:to_string(RAlias), bs_types:to_string(RInline)),
+    ?assertEqual("(:error)", bs_types:to_string(RInline)).
+
+%% 09 §1's own illustration, in the tuple syntax the language actually has.
+%% The ticket's text spells it `{ :ok, string }`, which is the map syntax; that
+%% line is stale twice over and the correction is recorded on the ticket.
+inline_union_of_tuples_in_a_parameter_test() ->
+    Src = "module M\n"
+          "public int Handle((:ok, int) | (:error, int) r)\n"
+          "Handle((:ok, n))    -> n\n"
+          "Handle((:error, _)) -> 0\n",
+    ?assertMatch({ok, _, []}, check_only(Src)).
+
+anonymous_inline_union_parameter_test() ->
+    Src = "module M\n"
+          "public int Handle(:ok | :error)\n"
+          "Handle(:ok)    -> 1\n"
+          "Handle(:error) -> 0\n",
+    ?assertMatch({ok, _, []}, check_only(Src)).
+
+inline_union_beside_an_ordinary_parameter_test() ->
+    Src = "module M\n"
+          "public int Handle(:ok | :error x, int n)\n"
+          "Handle(:ok, n)    -> n\n"
+          "Handle(:error, _) -> 0\n",
+    ?assertMatch({ok, _, []}, check_only(Src)).
+
+%% Q7(b)'s return half. Q7(a) would have left this a syntax error.
+inline_union_in_a_return_position_test() ->
+    Src = "module M\n"
+          "public :ok | :error Pick(int n)\n"
+          "Pick(n) when n > 0  -> :ok\n"
+          "Pick(n) when n <= 0 -> :error\n",
+    ?assertMatch({ok, _, []}, check_only(Src)).
+
+%% The unmarked signature is private (F12), so the union sits between nothing
+%% and the function name — the position Q7 weighed as the hardest to scan.
+inline_union_return_without_a_visibility_marker_test() ->
+    Src = "module M\n"
+          "public int Total(int n)\n"
+          "Total(n) -> Score(Pick(n))\n"
+          ":ok | :error Pick(int n)\n"
+          "Pick(n) when n > 0  -> :ok\n"
+          "Pick(n) when n <= 0 -> :error\n"
+          "int Score(:ok | :error r)\n"
+          "Score(:ok)    -> 1\n"
+          "Score(:error) -> 0\n",
+    ?assertMatch({ok, _, []}, check_only(Src)).
+
+%% THE FOREIGN FUNCTION IS A REAL ONE AND SO IS ITS UNION. `check_only` never
+%% calls across the boundary, so a made-up contract here would go green while
+%% asserting a falsehood about OTP; `application:get_env/2` genuinely returns
+%% `{ok, Val} | undefined`, which is the shape being declared.
+inline_union_in_a_foreign_signature_test() ->
+    Src = "module M\n"
+          "using :application {\n"
+          "    (:ok, term) | :undefined get_env(atom app, atom par)\n"
+          "}\n"
+          "public (:ok, term) | :undefined Setting(atom a, atom p)\n"
+          "Setting(a, p) -> :application.get_env(a, p)\n",
+    ?assertMatch({ok, _, []}, check_only(Src)).
+
+%% The form does not merely check — it runs.
+inline_union_parameter_actually_runs_test() ->
+    Src = "module InlineUnion\n"
+          "public int Handle(:ok | :error x)\n"
+          "Handle(:ok)    -> 1\n"
+          "Handle(:error) -> 0\n",
+    M = build_and_load(Src, 'InlineUnion'),
+    ?assertEqual(1, M:'Handle'(ok)),
+    ?assertEqual(0, M:'Handle'(error)).

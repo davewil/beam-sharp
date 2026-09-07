@@ -66,6 +66,21 @@ Go(...)` is a *syntax error before `'|'`* — `foreign_sig` and `signature` take
 always arrives through a `type_alias`, which is why the alias body is a site and
 why there is no "bare union in a return position" scenario below.
 
+**Corrected 2026-09-07 ([ENG-331](https://linear.app/davewil/issue/ENG-331)).** The
+paragraph above was true when it was written and is false now. Ticket 68 Q7
+answered **(b)**: `param`, `signature` and `foreign_sig` all take a `type_expr`,
+so `public atom | :nothing Go(int n)` parses, and the scenario this said did not
+exist does.
+
+**It is refused anyway, and nothing in F31 had to change to make that happen** —
+which is the "keyed on the type, not on the spelling" paragraph above earning its
+keep. Had the predicate been wired to the `type_alias` production instead, the
+grammar change would have opened a hole in 15 §1's rule with the whole suite
+still green, because until that day no test could express the case. The alias
+body remains a site in its own right, so the two spellings are refused at
+different **lines** — the alias at its declaration, the inline at the signature —
+and both are now pinned in `collapse_tests.erl`.
+
 **There is no local-binding annotation site.** 15 §1's illustration writes
 `option<atom> z;`, and the language has no such form: a binding is `var pattern =
 expr` (`bs_parser.yrl:323`). The illustration is 15's prose, not a surface the

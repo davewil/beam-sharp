@@ -34,6 +34,29 @@ Handle({ :ok, string } | { :error, string } r) -> ...
 Retry(PaymentResult and not { :ok, _ } r) -> ...
 ```
 
+**Corrected 2026-09-07 ([ENG-331](https://linear.app/davewil/issue/ENG-331)).** The block above
+is 2026-08-12 prose and is stale in its spelling, not in its argument. A tuple is `(:ok, string)`
+— braces are the anonymous **map** type — there is no trailing `;`, and a signature carries no
+arrow. More to the point, **the second `Handle` line did not parse until today**: `param`,
+`signature` and `foreign_sig` each took a `type_prim`, and only `type_expr` reached the union
+rule, so the inline spelling this section uses to *demonstrate* that naming is aliasing was a
+syntax error at the pipe. Ticket 68 Q7 answered (b) and ENG-331 built it. In current syntax the
+claim is written, compiled and run in `compiler/examples/Aliasing/aliasing.bs`:
+
+```csharp
+type PaymentResult = (:ok, string) | (:error, string)
+
+public string Named(PaymentResult r)
+
+Named((:ok, s))    -> s
+Named((:error, _)) -> ""
+
+public string Inline((:ok, string) | (:error, string) r)
+
+Inline((:ok, s))    -> s
+Inline((:error, _)) -> ""
+```
+
 The prior art is the `role NamedAOrB : (A | B);` sketch from the C# discriminated-unions
 working group (ticket 07 §2.7) — a name over a structural union with equivalency to the
 underlying type. Two sentences in a 2022 minute, never developed because C# roles were

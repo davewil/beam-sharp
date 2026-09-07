@@ -123,7 +123,9 @@ foreign_decl -> 'using' atom_lit '{' foreign_sigs '}' :
 foreign_sigs -> foreign_sig              : ['$1'].
 foreign_sigs -> foreign_sig foreign_sigs : ['$1' | '$2'].
 
-foreign_sig -> type_prim lident '(' params ')' :
+%% `type_expr` in the return position for the reason recorded at `param` below:
+%% ticket 68 Q7 took all three signature positions rather than parameters alone.
+foreign_sig -> type_expr lident '(' params ')' :
     {foreign_sig, line('$2'), value('$2'), '$1', '$4'}.
 
 %% --- native imports ---------------------------------------------------------
@@ -211,9 +213,14 @@ type_list -> type_expr ',' type_list : ['$1' | '$3'].
 %% marker is optional and an unmarked signature is private: it carries `none`,
 %% and every reader tests `=:= public`, so `none` sorts as private by
 %% construction (F12, ticket 40 §3 as amended 2026-08-17).
-signature -> type_prim uident '(' params ')' :
+%% `type_expr` in the return position, so `public :ok | :error Pick(int n)` is
+%% legal — see `param` below for why all three positions moved together. In the
+%% unmarked form the union sits between nothing at all and the function name,
+%% which Q7 weighed as the hardest place in a C-family declaration to scan and
+%% took anyway, rather than ship the asymmetry.
+signature -> type_expr uident '(' params ')' :
     {signature, line('$2'), value('$2'), '$1', '$4', none}.
-signature -> visibility type_prim uident '(' params ')' :
+signature -> visibility type_expr uident '(' params ')' :
     {signature, line('$3'), value('$3'), '$2', '$5', '$1'}.
 
 visibility -> 'public'  : public.
@@ -226,8 +233,30 @@ param_list -> param                : ['$1'].
 param_list -> param ',' param_list : ['$1' | '$3'].
 
 %% A parameter may be named or anonymous: `Order o` or just `Order`.
-param -> type_prim lident : {param, '$1', value('$2')}.
-param -> type_prim        : {param, '$1', '_'}.
+%%
+%% `type_expr` AND NOT `type_prim`, WHICH IS WHAT MAKES `Handle(:ok | :error x)`
+%% legal (ticket 68 Q7, ENG-331). The union rule lives above `type_prim` — only
+%% `type_expr` reaches `type_union_members` — so every position wired to
+%% `type_prim` had silently lost the ability to spell a union, while the nested
+%% ones (record and map fields, tuple elements, generic arguments, alias bodies)
+%% kept it. The gap survived because the language LOOKED like it had inline
+%% unions everywhere a reader would try one first.
+%%
+%% Ticket 09 §1 argues "naming is aliasing" by showing the inline and named
+%% spellings as the same thing, and the inline one was a syntax error at the
+%% pipe: the argument was written in a syntax this grammar did not have. Q7
+%% answered (b) — `param`, `signature` and `foreign_sig` together — because (a),
+%% parameters alone, leaves the reader a rule with nothing behind it but the
+%% order this file happened to be written in.
+%%
+%% Nothing downstream changed. `check_fn/2` and the clause-head machinery
+%% receive a resolved parameter type either way, and F31's collapse refusal
+%% reached the newly writable site for free, because it is keyed on the resolved
+%% type rather than on the spelling. Measured conflict-free with `yecc:file/2`
+%% and `{report, true}` before and after, per the standing rule that conflicts
+%% are measured and not inferred.
+param -> type_expr lident : {param, '$1', value('$2')}.
+param -> type_expr        : {param, '$1', '_'}.
 
 %% --- clauses ----------------------------------------------------------------
 clause -> uident '(' patterns ')' guard '->' body :

@@ -399,6 +399,37 @@ type Band    = :low | :mid | :high
 `type X = ...` is the **single naming construct** — for unions, tuples, scalars, records alike. The
 name never enters the algebra; it is an alias. **shipped**
 
+**Because the name is only an alias, a union can be written where it is used.** The declaration buys
+a name and nothing else, so `Named` and `Inline` below are the same function: the same clause heads
+discriminate them, the same exhaustiveness check proves them, and deleting a clause from either
+produces the same residual. A union is writable in a **parameter**, in a **return position** and in
+a **foreign signature** — every position that takes a type, rather than only the nested ones.
+
+```csharp
+type Reading = (:ok, int) | (:error, atom)
+
+public int Named(Reading r)
+
+Named((:ok, n))    -> n
+Named((:error, _)) -> 0
+
+public int Inline((:ok, int) | (:error, atom) r)
+
+Inline((:ok, n))    -> n
+Inline((:error, _)) -> 0
+
+public :ok | :error Pick(int n)
+
+Pick(n) when n > 0  -> :ok
+Pick(n) when n <= 0 -> :error
+```
+
+**shipped** — ENG-331.
+<!-- decided by ticket 68 Q7 -->
+<!-- see compiler/examples/Aliasing/aliasing.bs -->
+
+
+
 **An atom is `:name`, and nothing declares one.** The universe of atoms is open; a type naming some
 of them is a union like any other, which is why `Verdict` above needs no special form.
 <!-- decided by ticket 10 -->

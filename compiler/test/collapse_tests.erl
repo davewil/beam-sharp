@@ -270,3 +270,43 @@ the_obligation_site_still_reports_under_its_own_tag_test() ->
     ?assert(lists:any(fun({error, _, _, {validate_collapses, _}}) -> true;
                          (_) -> false
                       end, Errs)).
+
+%%% ---------------------------------------------------------------------------
+%%% ENG-331 — the site F31 recorded as unreachable
+%%% ---------------------------------------------------------------------------
+
+%%% F31 recorded that "a bare union cannot be written in a signature at all" and
+%%% scoped its site list on exactly that: the hand-written case always arrived
+%%% through a `type_alias`, so there was "no bare union in a return position
+%%% scenario". Ticket 68 Q7 made the bare form writable, and the scenario F31
+%%% said did not exist now does.
+%%%
+%%% It is refused, and for free — the predicate is keyed on the RESOLVED type
+%%% rather than on the spelling that produced it, which is F31's own design note
+%%% earning its keep. Had it been wired to the `type_alias` production instead,
+%%% the grammar change would have opened a hole with the whole suite still
+%%% green, because until today no test could express the case.
+
+a_bare_inline_union_in_a_return_position_collapses_test() ->
+    Src = "module B1\n\npublic atom | :nothing Go(int n)\n"
+          "Go(n) when n > 0  -> :yes\n"
+          "Go(n) when n <= 0 -> :nothing\n",
+    ?assertError({collapsed_failure_channel, {3, _}, nothing, _, _},
+                 check_only(Src)).
+
+%% The same union through the alias, side by side, so the pair says what the
+%% claim is: one type, one rule, two spellings.
+%%
+%% WHAT DIFFERS IS THE LINE, AND IT SHOULD. The aliased form is refused at its
+%% `type` declaration (line 3) and the inline form at the signature (line 3 of
+%% its own source), because the alias body is a collapse site in its own right —
+%% F31 lists it as one. So the position tracks where the union was WRITTEN,
+%% which is what a reader needs, rather than where it was used. Asserting line 5
+%% here — the signature, by analogy with the inline case — is the plausible
+%% wrong expectation, and it is what the first draft of this test asserted.
+the_aliased_spelling_of_the_same_union_collapses_identically_test() ->
+    Src = "module B2\n\ntype M = atom | :nothing\n\npublic M Go(int n)\n"
+          "Go(n) when n > 0  -> :yes\n"
+          "Go(n) when n <= 0 -> :nothing\n",
+    ?assertError({collapsed_failure_channel, {3, _}, nothing, _, _},
+                 check_only(Src)).

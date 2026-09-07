@@ -1002,7 +1002,7 @@
         "required": true,
         "types": [
           {
-            "type": "type_prim",
+            "type": "type_expression",
             "named": true
           }
         ]
@@ -1445,7 +1445,7 @@
         "required": true,
         "types": [
           {
-            "type": "type_prim",
+            "type": "type_expression",
             "named": true
           }
         ]
@@ -2195,7 +2195,7 @@
         "required": true,
         "types": [
           {
-            "type": "type_prim",
+            "type": "type_expression",
             "named": true
           }
         ]

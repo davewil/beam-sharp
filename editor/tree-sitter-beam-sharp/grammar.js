@@ -167,7 +167,7 @@ module.exports = grammar({
     ),
 
     foreign_signature: $ => seq(
-      field('return', $.type_prim),
+      field('return', $.type_expression),
       field('name', $.lident),
       '(', optional(commaSep1($.parameter)), ')',
     ),
@@ -209,7 +209,7 @@ module.exports = grammar({
     // why nothing in this file had to change.
     signature: $ => seq(
       optional(field('visibility', $.visibility)),
-      field('return', $.type_prim),
+      field('return', $.type_expression),
       field('name', $.function_name),
       '(', optional(commaSep1($.parameter)), ')',
     ),
@@ -217,7 +217,7 @@ module.exports = grammar({
     visibility: $ => choice('public', 'private'),
 
     parameter: $ => seq(
-      field('type', $.type_prim),
+      field('type', $.type_expression),
       optional(field('name', $.lident)),
     ),
 
