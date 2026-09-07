@@ -152,12 +152,20 @@ day at `fd6db43`:
 - and rule 5's label clause, which now selects `apparatus` by attrition, sorted the one item
   that would have unblocked a High build behind sixteen documentation chores.
 
-Rules 3, 4 and 7 are the repair. A second picker would have duplicated §1, §2, §4 and §5 of
-this skill and differed only in its ranking — which is the thing that was broken.
+Rules 3, 4 and 7 repair *that* frontier, and a second picker would not have: it would have
+duplicated §1, §2, §4 and §5 of this skill and differed only in the ranking that was broken.
+
+**They do not close the complaint, and the record should not say they do.** Run them forward
+two picks: rule 4 lifts `ENG-331` into High, it is built, `ENG-332` becomes High-and-unblocked
+and is built. The High band is then empty again — and the Medium band still sorts sixteen
+`apparatus` items ahead of the five `debt` builds whose ticket has decided the spelling,
+because rule 5's label clause fires before rule 7 is ever reached. The third pick is a
+documentation chore. What is left is not a bug in these rules; it is the open call below.
 
 **What a `/backlog` skill would legitimately be**, if one is ever wanted: not "regular work"
 but *the work that is deliberately not progress*. 23 of the 63 open issues carry `apparatus`,
 and CLAUDE.md holds that a check, a doc, a hook or a tracker change never counts as progress.
 Those items can never win an honest ranking, so either they are never done or they get their
 own explicitly-invoked queue that David drains when he decides it is apparatus time. Not
-built: one occurrence.
+built: one occurrence. Until that call is made, a session that reaches the Medium band should
+say in its report that the pick is apparatus, and let David redirect it.
