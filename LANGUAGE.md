@@ -1050,6 +1050,71 @@ which yields a better reason than `try` does.
 
 **Shipped**, both halves: the producing half below, and the wrapper in §11.
 
+### Any absorbed member is refused, not only the failure channel
+
+**Shipped.** The rule above is one case of a general one: **a member you wrote that is not in the
+type is an error where you wrote it.** Any member `M` of a union where `M` is already contained by
+the union of the others is refused, because the type you declared is not the type you wrote and the
+difference is invisible at every later site.
+
+<!-- diagnoses: absorbed_member -->
+```csharp
+module Ledger
+
+type Label = binary | string
+
+public int Go(int id)
+Go(id) -> id
+```
+
+`string` is `binary` refined by UTF-8, so `Label` **is** `binary` and the second member is not in
+it. The repair is offered as a **fork** — delete the absorbed member, or narrow the one absorbing
+it — because the compiler knows the type and cannot know the intent. Someone writing
+`binary | string` wanted either-or; the mechanical repair, `type Label = binary`, is the one thing
+they almost certainly did not mean.
+
+The failure channel keeps its own hint, because *"no caller can write the failure clause"* is a
+sharper sentence than the general one and its repair is specific. It is the same rule and the same
+error, reported with a hint that knows more.
+
+The cost is deliberate and worth stating: `type Envelope = term | int` is refused, so a union that
+is only ever passed through can no longer be written un-named. The repair is free, because the
+normalised type *is* the repair and the compiler prints it.
+
+### A union no clause head can take apart is refused
+
+**Shipped.** A union earns its keep by being taken apart. If **no clause head** — pattern or guard
+— can distinguish two of its members, the declaration is refused where it is written:
+
+<!-- diagnoses: indiscriminable_union -->
+```csharp
+module Slots
+
+type Slot = map<string, int> | map<string, binary>
+
+public int Go(int id)
+Go(id) -> id
+```
+
+Both members survive normalisation, so the rule above does not fire: neither contains the other.
+What is missing is a way to *reach* them. `map<K, V>` ships with no pattern form (§9), and `is_map`
+cannot tell a `map<string, int>` from a `map<string, binary>`, so `Slot` can be declared, passed
+and returned and never matched on.
+
+**This refusal is temporary by construction, and says so.** It names the pattern grammar as its
+reason, because the day a map pattern form ships, `Slot` becomes legal with no change to this rule.
+
+The criterion is a **clause head**, not a BEAM guard, and the difference decides a real case.
+`type Xs = list<int> | list<binary>` is **legal**. A guard-only criterion would refuse it, because
+no BEAM guard reaches *inside* a list — `is_list` is true of both members. A **pattern** does reach
+inside: `[x, ..rest]` binds the element, and a guard on that binding decides which member the value
+came from. `atom | int` is legal for the other half of the criterion: neither member has a pattern
+of its own, and `is_atom` tells them apart without one.
+
+So the two halves are asked in order — *is there a pattern that reaches this member*, and failing
+that, *is there a guard that separates it from the others* — and `Slot` above is the shape that
+answers no to both.
+
 ### A deliberate crash is spelled `raise`
 
 `raise` is a **keyword**, so it cannot also be a name: a parameter called `raise` is a syntax

@@ -587,15 +587,31 @@ same_type(A, B) -> bs_types:is_subtype(A, B) andalso bs_types:is_subtype(B, A).
 %%% The failure channel must survive normalisation, checked at the
 %%% declaration (F31, ticket 15 §1)
 %%%
-%%% A declared type is refused when a member the prelude calls a failure,
-%%% `:nothing` or `(:error, E)`, is absorbed by what it sits beside, so the
-%%% diagnostic lands where the fix is (ticket 09 §4). `ValidateAs<T>` asks
-%%% the same question at its instantiation (F18).
+%%% A declared type is refused when a member of it is not IN it, so the
+%%% diagnostic lands where the fix is. Ticket 68 settled two rules here, and
+%%% they are two rather than one because their repairs differ in kind:
+%%%
+%%%   ABSORPTION - any member `M` where `M ⊆ union(others)`. F31 asked this of
+%%%                the failure channel alone, `:nothing` and `(:error, E)`;
+%%%                68 Q1(a) generalises it to every member. The predicate
+%%%                (`absorbed/2`) is untouched — what went is the filter.
+%%%   INDISCRIMINABILITY - a union no clause head can take apart. This is
+%%%                ticket 09 §4, and its criterion is 68 Q2(a)'s "a clause
+%%%                head, pattern or guard", NOT 09 §4's own "a BEAM guard",
+%%%                which refuses `list<int> | list<binary>` that the same
+%%%                section lists as accepted.
+%%%
+%%% THE ORDER IS THE RULE, NOT AN OPTIMISATION. Absorption raises first, so
+%%% indiscriminability only ever sees members that survived normalisation.
+%%% That is 09 §4's own "normalise first, then check pairwise", and it is what
+%%% keeps `:ok | atom` — the section's named false positive — out of the
+%%% second rule's reach.
 %%%
 %%% It is a pass over `Decls` rather than a clause in `resolve/3` because no
-%%% type expression node carries a line; lines live on the declaration.
-%%% Only the two failure members are checked: `binary | string` also has an
-%%% absorbed member, but the sentence this raises would be false about it.
+%%% type expression node carries a line; lines live on the declaration. That
+%%% is also why a PATH is threaded (68 Q5(b)): a record with two absorbing
+%%% fields is ordinary, and its two diagnostics land on one line, so the
+%%% position has to arrive some other way or not at all.
 %%% ---------------------------------------------------------------------------
 
 collapse_refused(Decls, Env) ->
@@ -604,29 +620,50 @@ collapse_refused(Decls, Env) ->
 %% The five declaration forms that carry a type an author wrote. A
 %% parametric alias is skipped: its body has free variables, and nothing can
 %% be normalised until it is instantiated.
-collapse_decl({signature, L, _N, Ret, Params, _}, Env) ->
-    collapse_ty(Ret, Env, L),
-    lists:foreach(fun({param, T, _}) -> collapse_ty(T, Env, L) end, Params);
+%%
+%% Each seeds the path with what an author would call the position: a
+%% signature's own name for its return, `Fn.arg` for a parameter, `Rec.Field`
+%% for a record field.
+collapse_decl({signature, L, N, Ret, Params, _}, Env) ->
+    collapse_ty(Ret, Env, L, root(N)),
+    lists:foreach(fun({param, T, P}) -> collapse_ty(T, Env, L, seg(root(N), P))
+                  end, Params);
 collapse_decl({foreign, _, _Mod, Sigs}, Env) ->
     lists:foreach(
-      fun({foreign_sig, L, _N, Ret, Ps}) ->
-              collapse_ty(Ret, Env, L),
-              lists:foreach(fun({param, T, _}) -> collapse_ty(T, Env, L) end, Ps)
+      fun({foreign_sig, L, N, Ret, Ps}) ->
+              collapse_ty(Ret, Env, L, root(N)),
+              lists:foreach(
+                fun({param, T, P}) -> collapse_ty(T, Env, L, seg(root(N), P))
+                end, Ps)
       end, Sigs);
-collapse_decl({type_alias, L, _N, [], Body}, Env)  -> collapse_ty(Body, Env, L);
-collapse_decl({type_refined, L, _N, Base, _}, Env) -> collapse_ty(Base, Env, L);
-collapse_decl({record_decl, L, _N, Fields}, Env) ->
-    lists:foreach(fun({field, _, T}) -> collapse_ty(T, Env, L) end, Fields);
+collapse_decl({type_alias, L, N, [], Body}, Env)  ->
+    collapse_ty(Body, Env, L, root(N));
+collapse_decl({type_refined, L, N, Base, _}, Env) ->
+    collapse_ty(Base, Env, L, root(N));
+collapse_decl({record_decl, L, N, Fields}, Env) ->
+    lists:foreach(fun({field, F, T}) -> collapse_ty(T, Env, L, seg(root(N), F))
+                  end, Fields);
 collapse_decl(_, _Env) -> ok.
+
+%% A path is dotted text, built as the scan descends and rendered by
+%% `bs_diag` exactly as it arrives. `Job.Tag` names a record's field;
+%% `Route.x.1` names the first element of a tuple parameter.
+root(N) when is_atom(N) -> atom_to_list(N);
+root(N) when is_list(N) -> N;
+root(N)                 -> lists:flatten(io_lib:format("~p", [N])).
+
+seg(Path, S) -> Path ++ "." ++ root(S).
 
 %% A type this pass cannot resolve is not its error to report: `callees/3`
 %% and `check_fn/2` resolve the same expressions next and raise
-%% `unknown_type` and its neighbours with their own wording. Only the
-%% collapse is re-raised, with its stack intact.
-collapse_ty(T, Env, L) ->
-    try scan_ty(T, Env, L, [])
+%% `unknown_type` and its neighbours with their own wording. Only this pass's
+%% own refusals are re-raised, with their stacks intact.
+collapse_ty(T, Env, L, Path) ->
+    try scan_ty(T, Env, L, Path, [])
     catch
-        error:{collapsed_failure_channel, _, _, _, _} = E:S ->
+        error:{absorbed_member, _, _, _, _, _} = E:S ->
+            erlang:raise(error, E, S);
+        error:{indiscriminable_union, _, _, _, _} = E:S ->
             erlang:raise(error, E, S);
         error:_ ->
             ok
@@ -635,15 +672,16 @@ collapse_ty(T, Env, L) ->
 %% `Seen` is the cycle guard, and it is not optional: without it a
 %% contractive alias expands forever. A recursive alias is handled by
 %% `resolve/3`; here it only has to terminate.
-scan_ty({t_union, Ms}, Env, L, Seen) ->
-    collapse_members(Ms, Env, L),
-    lists:foreach(fun(M) -> scan_ty(M, Env, L, Seen) end, Ms);
+scan_ty({t_union, Ms}, Env, L, Path, Seen) ->
+    collapse_members(Ms, Env, L, Path),
+    indiscriminable_members(Ms, Env, L, Path),
+    lists:foreach(fun(M) -> scan_ty(M, Env, L, Path, Seen) end, Ms);
 %% An instantiation is expanded here rather than left to `resolve/3`,
 %% because `bs_types:union/1` erases the member boundary and the members are
 %% what has to be examined. Arguments resolve in the caller's chain, then
 %% `subst/2` puts them into the template.
-scan_ty({t_generic, N, Args}, Env, L, Seen) ->
-    lists:foreach(fun(A) -> scan_ty(A, Env, L, Seen) end, Args),
+scan_ty({t_generic, N, Args}, Env, L, Path, Seen) ->
+    lists:foreach(fun(A) -> scan_ty(A, Env, L, Path, Seen) end, Args),
     case maps:get(N, Env, undefined) of
         {parametric, Params, Body} when length(Params) =:= length(Args) ->
             case lists:member(N, Seen) of
@@ -652,54 +690,94 @@ scan_ty({t_generic, N, Args}, Env, L, Seen) ->
                 false ->
                     Sub = maps:from_list(
                             lists:zip(Params, [resolve(A, Env) || A <- Args])),
-                    scan_ty(subst(Body, Sub), Env, L, [N | Seen])
+                    scan_ty(subst(Body, Sub), Env, L, Path, [N | Seen])
             end;
         _ ->
             ok
     end;
 %% Nested positions, because a failure channel is equally dead one level down:
-%% `(option<atom>, int)` normalises to `(atom, int)`.
-scan_ty({t_tuple, Cs}, Env, L, Seen) ->
-    lists:foreach(fun(C) -> scan_ty(C, Env, L, Seen) end, Cs);
-scan_ty({t_map, Fields}, Env, L, Seen) ->
-    lists:foreach(fun({field, _, T}) -> scan_ty(T, Env, L, Seen) end, Fields);
-scan_ty({t_refined, _, Base, _}, Env, L, Seen) ->
-    scan_ty(Base, Env, L, Seen);
+%% `(option<atom>, int)` normalises to `(atom, int)`. A tuple element is named
+%% by its ordinal, which is what an author counts.
+scan_ty({t_tuple, Cs}, Env, L, Path, Seen) ->
+    lists:foreach(fun({I, C}) -> scan_ty(C, Env, L, seg(Path, I), Seen) end,
+                  lists:zip(lists:seq(1, length(Cs)), Cs));
+scan_ty({t_map, Fields}, Env, L, Path, Seen) ->
+    lists:foreach(fun({field, F, T}) -> scan_ty(T, Env, L, seg(Path, F), Seen)
+                  end, Fields);
+scan_ty({t_refined, _, Base, _}, Env, L, Path, Seen) ->
+    scan_ty(Base, Env, L, Path, Seen);
 %% A `t_ref` is NOT followed. The alias it names is checked at its own
 %% declaration, and following it would report one defect once per mention.
-scan_ty(_, _Env, _L, _Seen) ->
+scan_ty(_, _Env, _L, _Path, _Seen) ->
     ok.
 
-collapse_members(Ms, _Env, _L) when length(Ms) < 2 -> ok;
-collapse_members(Ms, Env, L) ->
-    each_member(Ms, [resolve(M, Env) || M <- Ms], [], L).
+collapse_members(Ms, _Env, _L, _Path) when length(Ms) < 2 -> ok;
+collapse_members(Ms, Env, L, Path) ->
+    each_member(Ms, [resolve(M, Env) || M <- Ms], [], L, Path).
 
 %% One member at a time against the union of all the others, which is what
-%% `T | F ≡ T` asks. Surface members identify the channel by shape; resolved
-%% ones do the algebra. `Before` accumulates reversed, which is harmless
-%% because union is commutative.
-each_member([], [], _Before, _L) ->
+%% `T | F ≡ T` asks. `Before` accumulates reversed, which is harmless because
+%% union is commutative.
+%%
+%% EVERY MEMBER IS ASKED, NOT ONLY A FAILURE CHANNEL (68 Q1(a)). The surface
+%% member still selects the HINT, because "no caller can write the failure
+%% clause" is a sharper sentence than the general one and its repair is
+%% specific — but it no longer decides whether the question is asked at all.
+each_member([], [], _Before, _L, _Path) ->
     ok;
-each_member([M | Ms], [R | Rs], Before, L) ->
-    case failure_channel(M) of
-        no ->
-            ok;
-        {yes, Channel} ->
-            Others = bs_types:union(Before ++ Rs),
-            case absorbed(R, Others) of
-                true  -> erlang:error({collapsed_failure_channel, L,
-                                       Channel, R, Others});
-                false -> ok
-            end
+each_member([M | Ms], [R | Rs], Before, L, Path) ->
+    Others = bs_types:union(Before ++ Rs),
+    case absorbed(R, Others) of
+        true  -> erlang:error({absorbed_member, L, Path, failure_channel(M),
+                               R, Others});
+        false -> ok
     end,
-    each_member(Ms, Rs, [R | Before], L).
+    each_member(Ms, Rs, [R | Before], L, Path).
 
 %% The prelude's two failure members: `option<T>` is `T | :nothing` and
 %% `result<T, E>` is `T | (:error, E)`. Matched on the surface node, which
 %% `subst/2` leaves untouched, since substitution only replaces a `t_ref`.
-failure_channel({t_atom, nothing})                 -> {yes, nothing};
-failure_channel({t_tuple, [{t_atom, error}, _]})   -> {yes, error};
-failure_channel(_)                                 -> no.
+%% This now names a HINT VARIANT rather than gating the rule (68 Q3).
+failure_channel({t_atom, nothing})                 -> nothing;
+failure_channel({t_tuple, [{t_atom, error}, _]})   -> error;
+failure_channel(_)                                 -> none.
+
+%%% ---------------------------------------------------------------------------
+%%% Ticket 09 §4, built: a union no clause head can take apart
+%%%
+%%% PAIRWISE ON NORMALISED MEMBERS, which is 09 §4's own rule and comes free
+%%% here because absorption has already raised. Two members are discriminable
+%%% when EITHER has a pattern that reaches it, or when the BEAM's guard
+%%% vocabulary puts them in different buckets. `bs_types:head_reach/1` answers
+%%% the first from the same structured parts the residual printer renders, so
+%%% the volatile half of this rule moves when the pattern grammar moves and
+%%% cannot be left behind by an edit to a table (68 Q8(b), Q9(b)).
+%%% ---------------------------------------------------------------------------
+
+indiscriminable_members(Ms, _Env, _L, _Path) when length(Ms) < 2 -> ok;
+indiscriminable_members(Ms, Env, L, Path) ->
+    pairwise([resolve(M, Env) || M <- Ms], L, Path).
+
+pairwise([], _L, _Path) -> ok;
+pairwise([R | Rs], L, Path) ->
+    lists:foreach(fun(O) -> discriminable(R, O, L, Path) end, Rs),
+    pairwise(Rs, L, Path).
+
+discriminable(A, B, L, Path) ->
+    case reaches(A) orelse reaches(B) orelse disjoint_buckets(A, B) of
+        true  -> ok;
+        false -> erlang:error({indiscriminable_union, L, Path, A, B})
+    end.
+
+%% A member a clause head can name. `pattern` is a structural head or a
+%% guarded binder; `guard` is a bare binder, which names nothing on its own
+%% and is left to the bucket test below; `none` is a typed binder, which is
+%% not a pattern at all.
+reaches(T) -> bs_types:head_reach(T) =:= pattern.
+
+disjoint_buckets(A, B) ->
+    Bs = bs_types:guard_buckets(B),
+    [] =:= [X || X <- bs_types:guard_buckets(A), lists:member(X, Bs)].
 
 %%% ---------------------------------------------------------------------------
 %%% Resolving surface types into the algebra

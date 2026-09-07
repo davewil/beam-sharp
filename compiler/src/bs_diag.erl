@@ -429,14 +429,27 @@ built(Path, {compiler_known_type, Name, Line}) ->
 built(Path, {kind_field_is_minted, Line, Name}) ->
     #{tag => kind_field_is_minted, severity => error, file => Path, line => Line,
       record => Name};
-%% The collapse refused at the declaration. The descriptor carries the channel
-%% as well as the two types, because the hint differs by channel and a
+%% The absorption refused at the declaration. The descriptor carries the
+%% channel as well as the two types, because the hint differs by channel and a
 %% consumer should not parse the sentence to learn which (F31, ticket 15 §1).
-built(Path, {collapsed_failure_channel, Line, Channel, Member, Absorber}) ->
-    #{tag => collapsed_failure_channel, severity => error, file => Path,
-      line => Line, channel => Channel,
+%%
+%% ONE TAG, THREE HINTS (68 Q3). The failure channel is a SPECIALISATION of
+%% "a member you wrote is not in the type", not a separate rule, so it varies
+%% the hint rather than the tag. `where` carries the path, because the line
+%% cannot tell two absorbing fields of one record apart (68 Q5(b)).
+built(Path, {absorbed_member, Line, Where, Channel, Member, Absorber}) ->
+    #{tag => absorbed_member, severity => error, file => Path,
+      line => Line, channel => Channel, where => Where,
       member => bs_types:to_string(Member),
       absorbed_by => bs_types:to_string(Absorber)};
+%% Ticket 09 §4's refusal, and the only one in the compiler that is TEMPORARY
+%% BY CONSTRUCTION: it ends when the pattern grammar grows, so the message
+%% names the grammar as its reason rather than blaming the type.
+built(Path, {indiscriminable_union, Line, Where, A, B}) ->
+    #{tag => indiscriminable_union, severity => error, file => Path,
+      line => Line, where => Where,
+      member => bs_types:to_string(A),
+      beside => bs_types:to_string(B)};
 %% The two refinement tiers are told apart by what the predicate says (F2,
 %% ticket 20 §5).
 built(Path, {opaque_refinement, Line}) ->
@@ -1107,27 +1120,59 @@ message(#{tag := non_regular_recursion, file := P, type := N}) ->
      "  Recur at the SAME argument (`~s<X>` inside `~s<X>`), or give the~n"
      "  inner position a concrete type.~n",
      [P, N, N, N]};
-%% Two messages, because the hint is not one hint: "tag it" repairs an
-%% absorbed `:nothing` and is nonsense about an absorbed `(:error, E)`, which
-%% is already tagged (F31; ticket 15 §1 wrote only the first).
-message(#{tag := collapsed_failure_channel, file := P, line := L, column := C,
-          channel := nothing, member := M, absorbed_by := A}) ->
+%% THREE MESSAGES, BECAUSE THE HINT IS NOT ONE HINT. "tag it" repairs an
+%% absorbed `:nothing`, is nonsense about an absorbed `(:error, E)` which is
+%% already tagged, and is nonsense again about `binary | string`, which is not
+%% a failure channel at all (F31 wrote the first; ticket 68 Q3 added the
+%% third and made all three one tag).
+message(#{tag := absorbed_member, file := P, line := L, column := C,
+          where := W, channel := nothing, member := M, absorbed_by := A}) ->
     {"~s:~p:~p: error: `~s` is absorbed by `~s`~n"
+     "  in ~s~n"
      "  the failure channel does not survive normalisation, so the type~n"
      "  declared here IS `~s`. No caller can write the failure clause,~n"
      "  because no failure member is left to match.~n"
      "  hint: tag it - (:some, ~s) | :nothing~n",
-     [P, L, C, M, A, A, A]};
-message(#{tag := collapsed_failure_channel, file := P, line := L, column := C,
-          channel := error, member := M, absorbed_by := A}) ->
+     [P, L, C, M, A, W, A, A]};
+message(#{tag := absorbed_member, file := P, line := L, column := C,
+          where := W, channel := error, member := M, absorbed_by := A}) ->
     {"~s:~p:~p: error: `~s` is absorbed by `~s`~n"
+     "  in ~s~n"
      "  the failure channel does not survive normalisation, so the type~n"
      "  declared here IS `~s`. No caller can write the failure clause,~n"
      "  because no failure member is left to match.~n"
      "  The failure member already carries its tag, so tagging it again~n"
      "  repairs nothing: narrow the success type until it cannot hold an~n"
      "  `(:error, ...)` of its own.~n",
-     [P, L, C, M, A, A]};
+     [P, L, C, M, A, W, A]};
+%% THE GENERAL CASE, AND THE REPAIR IS A FORK ON PURPOSE. `binary | string`
+%% normalises to `binary`, so the mechanical repair is to delete the member —
+%% and that is almost certainly not what the author meant, since someone who
+%% writes `binary | string` wanted either-or. The compiler knows the type and
+%% cannot know the intent, so it states the type as FACT and offers both
+%% repairs rather than guessing (68 Q3).
+message(#{tag := absorbed_member, file := P, line := L, column := C,
+          where := W, member := M, absorbed_by := A}) ->
+    {"~s:~p:~p: error: `~s` is absorbed by `~s`~n"
+     "  in ~s~n"
+     "  every value of `~s` is already a `~s`, so the type declared here~n"
+     "  IS `~s` and the member you wrote is not in it.~n"
+     "  Delete the absorbed member, or narrow the one absorbing it -~n"
+     "  which of those you meant is not something the compiler can tell.~n",
+     [P, L, C, M, A, W, M, A, A]};
+%% THE REFUSAL THAT EXPIRES. It names the pattern grammar rather than the
+%% type, because the members are fine: nothing can reach them YET. When a map
+%% pattern form ships this stops firing with no edit here (68 Q2(a)).
+message(#{tag := indiscriminable_union, file := P, line := L, column := C,
+          where := W, member := M, beside := B}) ->
+    {"~s:~p:~p: error: no clause head can tell `~s` from `~s`~n"
+     "  in ~s~n"
+     "  both members survive normalisation, so neither is absorbed - but~n"
+     "  no pattern reaches either one and no guard separates them, so a~n"
+     "  value of this type can be passed and returned and never matched.~n"
+     "  This is a limit of the pattern grammar, not of the types: it~n"
+     "  lifts when a pattern form for these members ships.~n",
+     [P, L, C, M, B, W]};
 message(#{tag := kind_field_is_minted, file := P, line := L, column := C, record := Name}) ->
     {"~s:~p:~p: error: ~s declares a field named Kind~n"
      "  the tag is minted from the type's qualified name, so a record~n"

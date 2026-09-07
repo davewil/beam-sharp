@@ -34,6 +34,9 @@
 %% `head_parts/2` prints text meant to be pasted back into the source;
 %% `to_pattern/1` above describes a set (F29).
 -export([head_parts/2, head_combos/2, name_binders/1]).
+%% The matchability oracle (ticket 68 Q8(b), Q9(b)). It shares the structured
+%% intermediate below with the printer above rather than reading its text.
+-export([head_reach/1, guard_buckets/1]).
 %% `mu/2` names a type so its own body can refer back to it; `recvar/1` is
 %% that back-reference; `unfold/1` is the only way to look inside one, and
 %% every operation here calls it before touching a part (F28).
@@ -1444,11 +1447,88 @@ guard(Cond) -> [?G_OPEN] ++ Cond ++ [?G_CLOSE].
 
 %% The parts of a head, unjoined and one per LINE — never `|`-joined (F29.2).
 %% `none` has no head: there is nothing left to match.
-head_parts(T, Names) ->
+head_parts(T, Names) -> [Text || {_Kind, Text} <- head_kinds(T, Names, arg)].
+
+%%% ---------------------------------------------------------------------------
+%%% THE STRUCTURED INTERMEDIATE, and the oracle over it (ticket 68 Q9(b))
+%%%
+%%% THE PRINTER RENDERS THESE AND THE ORACLE QUERIES THEM, AND NEITHER READS THE
+%%% OTHER'S WORDS. The alternative — asking the oracle to inspect the printed
+%%% text — is a mistake this codebase already made once in a cheaper form:
+%%% `pattern_parts/1` looks like an oracle, is a printer, and answers
+%%% `"map<string, int>"` beside `"[int, ..]"` as though both were patterns.
+%%% Reading text would mean that F29 adding an annotation, or anyone renaming a
+%%% binder, silently changes which programs the compiler REFUSES, with no test
+%%% naming the connection.
+%%%
+%%% THE FOUR KINDS, and what each one means to a clause head:
+%%%
+%%%   shape     - a structural pattern: an atom literal, an integer literal, a
+%%%               relational pattern, a tuple, a list spine, a record
+%%%               discriminator. A head can name this member directly.
+%%%   guarded   - a binder carrying a `when` condition on itself. Also reaches:
+%%%               68 Q2(a)'s criterion is "a clause head, PATTERN OR GUARD", and
+%%%               a guarded binder is how the printer spells a refined int below
+%%%               argument position.
+%%%   binder    - a bare binder. Matches anything in its bucket and so
+%%%               distinguishes nothing on its own — but the BEAM's guard
+%%%               vocabulary tells one bucket from another, which is the second
+%%%               half of the criterion.
+%%%   annotated - a binder carrying a TYPE. Not a pattern at all: there are no
+%%%               typed binders in pattern position, so a member printed this
+%%%               way has NO legal clause head. `map<K, V>` is the only one
+%%%               today, and it is why `Slot` is refused.
+%%%
+%%% ONLY THE `shape`/`guarded` HALF IS VOLATILE. It moves on its own the day
+%%% ticket 48 ships a map pattern form, because `m_hd/2` will stop returning an
+%%% annotated binder and this oracle will stop refusing without being edited.
+%%% The bucket table below is the BEAM's vocabulary rather than the language's,
+%%% so it does not go stale.
+%%% ---------------------------------------------------------------------------
+
+head_kinds(T, Names, Pos) ->
     case is_none(T) of
         true  -> [];
-        false -> hd_parts(T, Names, arg)
+        false -> hd_parts(T, Names, Pos)
     end.
+
+%% Can a clause head reach this member at all?
+%%
+%% ASKED AT `nested`, WHICH IS THE CONSERVATIVE POSITION AND NEVER THE WRONG
+%% ANSWER. The two positions differ for exactly one constructor — a bounded int
+%% span is a relational pattern at `arg` and a guarded binder below it — and
+%% both of those reach. Everywhere else the two agree, so a member reachable at
+%% `nested` is reachable at `arg`, and asking the narrower question cannot
+%% refuse a union that a real clause head could take apart.
+%%
+%% `Names` is empty because the answer does not depend on it: a record resolves
+%% to `Name binder` when its tag is in scope and to `{ Kind: :tag }` when it is
+%% not, and BOTH are shapes.
+head_reach(T) ->
+    Kinds = [K || {K, _} <- head_kinds(T, #{}, nested)],
+    case lists:any(fun(K) -> K =:= shape orelse K =:= guarded end, Kinds) of
+        true  -> pattern;
+        false ->
+            case lists:member(binder, Kinds) of
+                true  -> guard;
+                false -> none
+            end
+    end.
+
+%% The BEAM guard vocabulary, as the buckets it can tell apart: `is_atom`,
+%% `is_integer`, `is_tuple`, `is_list`, `is_map`, `is_binary`. Two members in
+%% disjoint buckets are discriminable however little pattern either one has —
+%% `atom | int` is two bare binders and is decided by a guard.
+guard_buckets(#{mu := _} = T) -> guard_buckets(unfold(T));
+guard_buckets(#{recvar := _}) -> [atom, int, tuple, list, map, bin];
+guard_buckets(#{atoms := As, ints := Is, tuples := Ts, lists := Ls,
+                maps := Ms, bins := Bs}) ->
+    [atom  || As =/= {finite, []}] ++
+    [int   || Is =/= []] ++
+    [tuple || Ts =/= []] ++
+    [list  || Ls =/= []] ++
+    [map   || Ms =/= []] ++
+    [bin   || Bs =/= []].
 
 %% The top is a binder, not `term`: `Fn(term)` binds a variable named `term`,
 %% which is not what the word was chosen to mean. The top keeps its word on the
@@ -1463,15 +1543,36 @@ head_parts(T, Names) ->
 %% the two subtrees rather than spelling them out. One unfolding is also all
 %% that terminates, and all that is useful: the next level is the same shapes
 %% again.
-hd_parts(#{mu := _} = T, Names, Pos) -> hd_parts(unfold(T), Names, Pos);
-hd_parts(#{recvar := _}, _Names, _Pos) -> [binder("x")];
+%% ONE UNFOLDING, AND THE GUARD IS WHAT MAKES IT ONE. `unfold/1` substitutes
+%% the WHOLE `mu` back into its own body rather than leaving a `recvar` behind,
+%% so descending into the result meets the same `mu` again and unfolds it
+%% again, forever. The paragraph above always said one unfolding was "all that
+%% terminates and all that is useful"; until ticket 68 gave the oracle below a
+%% reason to ask about a recursive type, no caller ever reached the case, and
+%% the printer would have hung on a recursive residual.
+%%
+%% A REPEAT IS A BINDER, which is what the `recvar` clause already does and
+%% what a hand-written clause does: `Size((:node, l, r))` binds the subtrees
+%% rather than spelling them out.
+hd_parts(T, Names, Pos) -> hd_parts(T, Names, Pos, []).
+
+hd_parts(#{mu := N} = T, Names, Pos, Seen) ->
+    case lists:member(N, Seen) of
+        true  -> [{binder, binder("x")}];
+        false -> hd_parts(unfold(T), Names, Pos, [N | Seen])
+    end;
+hd_parts(#{recvar := _}, _Names, _Pos, _Seen) -> [{binder, binder("x")}];
 hd_parts(T = #{atoms := As, ints := Is, tuples := Ts, lists := Ls, maps := Ms,
-               bins := Bs}, Names, Pos) ->
+               bins := Bs}, Names, Pos, Seen) ->
     case is_subtype(term(), T) of
-        true  -> [binder("x")];
-        false -> a_pat(As) ++ [i_pat(R, Pos) || R <- Is] ++ ts_hd(Ts, Names)
-                     ++ l_pat(Ls, Names) ++ ms_hd(Ms, Names) ++ b_pat(Bs)
+        true  -> [{binder, binder("x")}];
+        false -> a_pat(As) ++ [i_pat(R, Pos) || R <- Is] ++ ts_hd(Ts, Names, Seen)
+                     ++ l_pat(Ls, Names, Seen) ++ ms_hd(Ms, Names) ++ b_pat(Bs)
     end.
+
+%% The text of each part, for the composite forms below: a tuple or a list
+%% spine renders its components and is itself a `shape` whatever they were.
+texts(Parts) -> [Text || {_Kind, Text} <- Parts].
 
 %% A finite atom set is already pattern syntax.
 %%
@@ -1482,8 +1583,8 @@ hd_parts(T = #{atoms := As, ints := Is, tuples := Ts, lists := Ls, maps := Ms,
 %% failure the description channel exists to prevent (F29.9; measured
 %% 2026-08-27 against `Classify(int n, atom a)`).
 a_pat({finite, []})    -> [];
-a_pat({finite, L})     -> [atom_str(A) || A <- L];
-a_pat({cofinite, []})  -> [binder("a")];
+a_pat({finite, L})     -> [{shape, atom_str(A)} || A <- L];
+a_pat({cofinite, []})  -> [{binder, binder("a")}];
 a_pat({cofinite, _})   -> [].
 
 %% A BOUNDED SPAN IS THE CONJUNCTION OF ITS TWO BOUNDS, `>= Lo and <= Hi`,
@@ -1498,29 +1599,36 @@ a_pat({cofinite, _})   -> [].
 %% argument position a span is the relational pattern, and below it a span is
 %% a binder plus a guard. Both spell the same set; only one of them is legal at
 %% each site (the `TupleNested` fixture reaches the nested case).
-i_pat({neg_inf, pos_inf}, _Pos) -> binder("n");
+i_pat({neg_inf, pos_inf}, _Pos) -> {binder, binder("n")};
 %% A single integer is a LITERAL, and a literal is a pattern at every depth.
-i_pat({Lo, Lo}, _Pos)           -> integer_to_list(Lo);
-i_pat({neg_inf, Hi}, arg)       -> "<= " ++ integer_to_list(Hi);
-i_pat({Lo, pos_inf}, arg)       -> ">= " ++ integer_to_list(Lo);
-i_pat({Lo, Hi}, arg)            -> ">= " ++ integer_to_list(Lo) ++
-                                       " and <= " ++ integer_to_list(Hi);
+i_pat({Lo, Lo}, _Pos)           -> {shape, integer_to_list(Lo)};
+i_pat({neg_inf, Hi}, arg)       -> {shape, "<= " ++ integer_to_list(Hi)};
+i_pat({Lo, pos_inf}, arg)       -> {shape, ">= " ++ integer_to_list(Lo)};
+i_pat({Lo, Hi}, arg)            -> {shape, ">= " ++ integer_to_list(Lo) ++
+                                        " and <= " ++ integer_to_list(Hi)};
+%% A BOUND BELOW ARGUMENT POSITION IS A GUARD, AND A GUARD REACHES. This is
+%% the one constructor whose KIND differs between the two positions, and the
+%% reason `head_reach/1` asks at `nested`: were this classified as a bare
+%% binder, two disjoint refined ints inside a tuple would look identical to the
+%% bucket table and be refused, though `n when n >= 10` decides them.
 i_pat({neg_inf, Hi}, nested)    ->
-    binder("n") ++ guard([?G_SELF] ++ " <= " ++ integer_to_list(Hi));
+    {guarded, binder("n") ++ guard([?G_SELF] ++ " <= " ++ integer_to_list(Hi))};
 i_pat({Lo, pos_inf}, nested)    ->
-    binder("n") ++ guard([?G_SELF] ++ " >= " ++ integer_to_list(Lo));
+    {guarded, binder("n") ++ guard([?G_SELF] ++ " >= " ++ integer_to_list(Lo))};
 i_pat({Lo, Hi}, nested)         ->
-    binder("n") ++ guard([?G_SELF] ++ " >= " ++ integer_to_list(Lo) ++
-                             " and " ++ [?G_SELF] ++ " <= " ++ integer_to_list(Hi)).
+    {guarded, binder("n") ++ guard([?G_SELF] ++ " >= " ++ integer_to_list(Lo) ++
+                                       " and " ++ [?G_SELF] ++ " <= " ++
+                                       integer_to_list(Hi))}.
 
 %% A tuple component that is itself a union multiplies the head lines: the
 %% one-line-per-part rule applies one level down too (F29.2). The `TupleNested`
 %% fixture is what catches a printer fixed only at the top level.
-ts_hd(top, _Names) -> [binder("t")];
-ts_hd(Ps, Names)   ->
+ts_hd(top, _Names, _Seen) -> [{binder, binder("t")}];
+ts_hd(Ps, Names, Seen)    ->
     lists:append(
-      [["(" ++ string:join(Combo, ", ") ++ ")"
-        || Combo <- combos([hd_parts(C, Names, nested) || C <- P])] || P <- Ps]).
+      [[{shape, "(" ++ string:join(Combo, ", ") ++ ")"}
+        || Combo <- combos([texts(hd_parts(C, Names, nested, Seen)) || C <- P])]
+       || P <- Ps]).
 
 %% THE `list<T>` FOLD IS NOT INHERITED ON THE HEAD CHANNEL. `l_str/1` folds
 %% `[] | [T, ..]` back into `list<T>` so that an ordinary list type does not
@@ -1536,24 +1644,27 @@ ts_hd(Ps, Names)   ->
 %%
 %% The element printer below is `hd_parts/3` and not `to_string/1`, so a record
 %% inside a list prints as a head (the `RecordInList` row).
-l_pat([], _Names) -> [];
-l_pat(Ss0, Names) ->
-    lists:append([sp_pat(S, Names) || S <- lists:sort(Ss0)]).
+l_pat([], _Names, _Seen) -> [];
+l_pat(Ss0, Names, Seen)  ->
+    lists:append([sp_pat(S, Names, Seen) || S <- lists:sort(Ss0)]).
 
 %% An OPEN spine with no known prefix is `[] | [T, ..]` — both halves, because
 %% neither alone covers it. This is the decomposition the fold above hides.
-sp_pat({[], closed}, _Names)      -> ["[]"];
-sp_pat({[], {open, any}}, _Names) -> ["[]", "[" ++ binder("x") ++ ", ..]"];
-sp_pat({[], {open, T}}, Names)    ->
-    ["[]"] ++ ["[" ++ H ++ ", ..]" || H <- hd_parts(T, Names, nested)];
-sp_pat({P, closed}, Names)        ->
-    ["[" ++ string:join(C, ", ") ++ "]"
-     || C <- combos([hd_parts(E, Names, nested) || E <- P])];
-sp_pat({P, {open, _}}, Names)     ->
-    ["[" ++ string:join(C, ", ") ++ ", ..]"
-     || C <- combos([hd_parts(E, Names, nested) || E <- P])].
+sp_pat({[], closed}, _Names, _Seen)      -> [{shape, "[]"}];
+sp_pat({[], {open, any}}, _Names, _Seen) ->
+    [{shape, "[]"}, {shape, "[" ++ binder("x") ++ ", ..]"}];
+sp_pat({[], {open, T}}, Names, Seen)     ->
+    [{shape, "[]"}] ++
+        [{shape, "[" ++ H ++ ", ..]"}
+         || H <- texts(hd_parts(T, Names, nested, Seen))];
+sp_pat({P, closed}, Names, Seen)         ->
+    [{shape, "[" ++ string:join(C, ", ") ++ "]"}
+     || C <- combos([texts(hd_parts(E, Names, nested, Seen)) || E <- P])];
+sp_pat({P, {open, _}}, Names, Seen)      ->
+    [{shape, "[" ++ string:join(C, ", ") ++ ", ..]"}
+     || C <- combos([texts(hd_parts(E, Names, nested, Seen)) || E <- P])].
 
-ms_hd(top, _Names)    -> [binder("m")];
+ms_hd(top, _Names)    -> [{binder, binder("m")}];
 ms_hd(Members, Names) -> [m_hd(M, Names) || M <- Members].
 
 %% A RECORD PRINTS AS `Name binder` WHERE THE NAME RESOLVES, and as its
@@ -1565,27 +1676,34 @@ ms_hd(Members, Names) -> [m_hd(M, Names) || M <- Members].
 %% printing a brace form here would hand the author a suggestion the parser
 %% refuses — the failure mode ENG-312 names one constructor over. The type is
 %% what can honestly be said, so a binder typed by it is what is offered.
+%% THE ONE `annotated` IN THE LANGUAGE, and the whole subject of ticket 09 §4's
+%% refusal. A typed binder is not a pattern, so this member has no clause head
+%% at all — which is why `map<string, int> | map<string, binary>` is refused and
+%% why that refusal ends the day ticket 48 ships a map pattern form and this
+%% clause stops being reached.
 m_hd({dom, K, V}, _Names) ->
-    binder("m") ++ ": map<" ++ to_string(K) ++ ", " ++ to_string(V) ++ ">";
+    {annotated,
+     binder("m") ++ ": map<" ++ to_string(K) ++ ", " ++ to_string(V) ++ ">"};
 m_hd({_Kind, Fields}, Names) ->
     case maps:find('Kind', Fields) of
         {ok, #{atoms := {finite, [Tag]}, ints := [], tuples := [],
                lists := [], maps := [], bins := []}} ->
             case maps:find(Tag, Names) of
-                {ok, Src} -> Src ++ " " ++ binder(initial(Src));
-                error     -> "{ Kind: " ++ atom_str(Tag) ++ " }"
+                {ok, Src} -> {shape, Src ++ " " ++ binder(initial(Src))};
+                error     -> {shape, "{ Kind: " ++ atom_str(Tag) ++ " }"}
             end;
         _ ->
             Ks = lists:sort(maps:keys(Fields)),
-            "{ " ++ string:join([atom_to_list(K) ++ ": _" || K <- Ks], ", ") ++ " }"
+            {shape, "{ " ++ string:join([atom_to_list(K) ++ ": _" || K <- Ks],
+                                        ", ") ++ " }"}
     end.
 
 %% `string` and `binary` are type words and become binders for the same reason
 %% `int` does. `binary \ string` has no surface spelling at all — `b_str/1` says
 %% so in as many words — so it contributes no head.
 b_pat([])            -> [];
-b_pat([utf8])        -> [binder("s")];
-b_pat([other, utf8]) -> [binder("b")];
+b_pat([utf8])        -> [{binder, binder("s")}];
+b_pat([other, utf8]) -> [{binder, binder("b")}];
 b_pat([other])       -> [].
 
 initial([C | _]) when C >= $A, C =< $Z -> [C + 32];

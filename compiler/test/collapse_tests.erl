@@ -47,7 +47,7 @@ ret(Mod, Ty, Extra) ->
 %% 15 §1's worked case. `:nothing` is a singleton absorbed by a cofinite top, so
 %% the declared type IS `atom` and no caller can write the failure clause.
 option_at_the_atom_top_is_refused_test() ->
-    ?assertError({collapsed_failure_channel, _, nothing, _, _},
+    ?assertError({absorbed_member, _, _, nothing, _, _},
                  check_only(ret("S3", "option<atom>"))).
 
 %% CONTROL 1, and the reason the predicate is an equation rather than a case
@@ -55,32 +55,32 @@ option_at_the_atom_top_is_refused_test() ->
 %% the INNER union, which already contains one. An implementation that checks
 %% for a cofinite atom accepts this.
 nested_option_is_refused_though_no_top_is_involved_test() ->
-    ?assertError({collapsed_failure_channel, _, nothing, _, _},
+    ?assertError({absorbed_member, _, _, nothing, _, _},
                  check_only(ret("S4", "option<option<int>>"))).
 
 %% Ticket 64 / ENG-254's measured case, and this feature decides it by
 %% construction: the silent collapse becomes a loud refusal.
 option_at_term_is_refused_test() ->
-    ?assertError({collapsed_failure_channel, _, nothing, _, _},
+    ?assertError({absorbed_member, _, _, nothing, _, _},
                  check_only(ret("S5", "option<term>"))).
 
 %% The same, through the OTHER channel. Only the top absorbs a tuple.
 result_at_term_is_refused_test() ->
-    ?assertError({collapsed_failure_channel, _, error, _, _},
+    ?assertError({absorbed_member, _, _, error, _, _},
                  check_only(ret("S7", "result<term, binary>"))).
 
 %% CONTROL 2. The collision is a TUPLE SHAPE, not an atom: `(:error, binary)` is
 %% a subtype of `(atom, binary)` because `:error` is an atom. 15 §2 measured this
 %% one and it is the second case the cofinite check cannot see.
 result_whose_success_type_shadows_the_error_tuple_is_refused_test() ->
-    ?assertError({collapsed_failure_channel, _, error, _, _},
+    ?assertError({absorbed_member, _, _, error, _, _},
                  check_only(ret("S8", "result<(atom, binary), binary>"))).
 
 %% CONTROL 3. Keyed on the TYPE, not on the spelling `option<...>`. Ticket 09 §4
 %% fixed that a name never enters the algebra, so this is the same type as S3 —
 %% and it is the spelling `ToExistingAtom` is written in (`PRELUDE.md:108`).
 a_hand_written_alias_of_the_same_shape_is_refused_test() ->
-    ?assertError({collapsed_failure_channel, _, nothing, _, _},
+    ?assertError({absorbed_member, _, _, nothing, _, _},
                  check_only(ret("S9", "M", "type M = atom | :nothing"))).
 
 %%% --- and the five that must keep compiling ----------------------------------
@@ -127,19 +127,19 @@ a_hand_written_tagged_union_still_compiles_test() ->
 
 a_collapsing_signature_PARAMETER_is_refused_test() ->
     Src = "module P1\n\npublic :ok Go(option<atom> x)\nGo(x) -> :ok\n",
-    ?assertError({collapsed_failure_channel, _, nothing, _, _}, check_only(Src)).
+    ?assertError({absorbed_member, _, _, nothing, _, _}, check_only(Src)).
 
 a_collapsing_RECORD_FIELD_is_refused_test() ->
     Src = "module P2\n\nrecord Box { Id: int, Note: option<atom> }\n\n"
           "public :ok Go(int id)\nGo(id) -> :ok\n",
-    ?assertError({collapsed_failure_channel, _, nothing, _, _}, check_only(Src)).
+    ?assertError({absorbed_member, _, _, nothing, _, _}, check_only(Src)).
 
 %% The alias BODY, checked once where it is written rather than once per use —
 %% following a `t_ref` would report the same defect at every mention of it.
 a_collapsing_TYPE_ALIAS_body_is_refused_test() ->
     Src = "module P3\n\ntype M = atom | :nothing\n\n"
           "public :ok Go(int id)\nGo(id) -> :ok\n",
-    ?assertError({collapsed_failure_channel, _, nothing, _, _}, check_only(Src)).
+    ?assertError({absorbed_member, _, _, nothing, _, _}, check_only(Src)).
 
 %% The FOREIGN boundary, which is where this matters most: `ToExistingAtom` is a
 %% boundary function, and a collapsed failure channel on a foreign return is one
@@ -147,19 +147,19 @@ a_collapsing_TYPE_ALIAS_body_is_refused_test() ->
 a_collapsing_FOREIGN_return_is_refused_test() ->
     Src = "module P4\n\nusing :lists {\n    option<atom> last(list<atom> xs)\n}\n\n"
           "public :ok Go(int id)\nGo(id) -> :ok\n",
-    ?assertError({collapsed_failure_channel, _, nothing, _, _}, check_only(Src)).
+    ?assertError({absorbed_member, _, _, nothing, _, _}, check_only(Src)).
 
 a_collapsing_FOREIGN_parameter_is_refused_test() ->
     Src = "module P5\n\nusing :lists {\n    atom last(option<atom> xs)\n}\n\n"
           "public :ok Go(int id)\nGo(id) -> :ok\n",
-    ?assertError({collapsed_failure_channel, _, nothing, _, _}, check_only(Src)).
+    ?assertError({absorbed_member, _, _, nothing, _, _}, check_only(Src)).
 
 %% NESTED, because the channel is equally dead one level down. Measured on
 %% master: `(option<atom>, int)` is reported by `--api` as `(atom, int)`.
 a_collapsing_TUPLE_COMPONENT_is_refused_test() ->
     Src = "module P6\n\npublic (option<atom>, int) Go(int id)\n"
           "Go(id) -> (:nothing, 1)\n",
-    ?assertError({collapsed_failure_channel, _, nothing, _, _}, check_only(Src)).
+    ?assertError({absorbed_member, _, _, nothing, _, _}, check_only(Src)).
 
 %% `bsc --api` resolves signatures through `exports_of/1`, which is a SECOND
 %% declaration pass and does not go through `check/2` at all. Measured while
@@ -170,7 +170,7 @@ the_api_query_path_refuses_it_too_test() ->
     {ok, _, Decls} = bs_parser_support_parse("module A1\n\n"
                                              "public option<atom> Go(int id)\n"
                                              "Go(id) -> :nothing\n"),
-    ?assertError({collapsed_failure_channel, _, nothing, _, _},
+    ?assertError({absorbed_member, _, _, nothing, _, _},
                  bs_check:exports_of(Decls)).
 
 %% The parse half of `check_only/1`, without the check - there is no helper for
@@ -227,13 +227,13 @@ a_contractive_alias_under_a_failure_member_terminates_test() ->
 the_refusal_names_the_line_of_the_declaration_test() ->
     Src = "module L1\n\n// a comment\n\npublic option<atom> Go(int id)\n"
           "Go(id) -> :nothing\n",
-    ?assertError({collapsed_failure_channel, {5, _}, nothing, _, _}, check_only(Src)).
+    ?assertError({absorbed_member, {5, _}, _, nothing, _, _}, check_only(Src)).
 
 %% 15 §1 pins the sentence. The `tag it` hint is printed for the `:nothing`
 %% channel only — see F31's recorded assumption: an absorbed `(:error, E)` is
 %% ALREADY tagged, so that advice would name a form that does not fix it.
 the_message_says_the_channel_did_not_survive_normalisation_test() ->
-    D = bs_diag:descriptor("x.bs", {collapsed_failure_channel, {5, 21}, nothing,
+    D = bs_diag:descriptor("x.bs", {absorbed_member, {5, 21}, "Go", nothing,
                                     bs_types:atom_lit(nothing),
                                     bs_types:atom_top()}),
     S = lists:flatten(io_lib:format(element(1, bs_diag:message(D)),
@@ -242,7 +242,7 @@ the_message_says_the_channel_did_not_survive_normalisation_test() ->
     ?assert(string:find(S, "tag it") =/= nomatch).
 
 the_error_channel_is_not_told_to_tag_what_is_already_tagged_test() ->
-    D = bs_diag:descriptor("x.bs", {collapsed_failure_channel, {5, 21}, error,
+    D = bs_diag:descriptor("x.bs", {absorbed_member, {5, 21}, "Go", error,
                                     bs_types:atom_lit(error),
                                     bs_types:atom_top()}),
     S = lists:flatten(io_lib:format(element(1, bs_diag:message(D)),
@@ -291,7 +291,7 @@ a_bare_inline_union_in_a_return_position_collapses_test() ->
     Src = "module B1\n\npublic atom | :nothing Go(int n)\n"
           "Go(n) when n > 0  -> :yes\n"
           "Go(n) when n <= 0 -> :nothing\n",
-    ?assertError({collapsed_failure_channel, {3, _}, nothing, _, _},
+    ?assertError({absorbed_member, {3, _}, _, nothing, _, _},
                  check_only(Src)).
 
 %% The same union through the alias, side by side, so the pair says what the
@@ -308,5 +308,5 @@ the_aliased_spelling_of_the_same_union_collapses_identically_test() ->
     Src = "module B2\n\ntype M = atom | :nothing\n\npublic M Go(int n)\n"
           "Go(n) when n > 0  -> :yes\n"
           "Go(n) when n <= 0 -> :nothing\n",
-    ?assertError({collapsed_failure_channel, {3, _}, nothing, _, _},
+    ?assertError({absorbed_member, {3, _}, _, nothing, _, _},
                  check_only(Src)).

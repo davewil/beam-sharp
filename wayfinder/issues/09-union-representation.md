@@ -147,6 +147,16 @@ Two rules make it precise:
   guard vocabulary ticket 08 already committed to. No new mechanism, and the rule gets a
   precise boundary instead of a judgement call.
 
+  **Amended 2026-09-07 by [ticket 68](68-an-absorbed-member.md) Q2(a), which is what the
+  compiler enforces.** The criterion is **reachability by a clause head — pattern or guard**,
+  not a BEAM guard alone. Taken literally, the sentence above refuses
+  `list<int> | list<binary>`, which this very section lists as **accepted** below: no guard
+  reaches inside a container and a *pattern* does. *"A BEAM guard"* was vocabulary reached for
+  before ticket 04's pattern-based exhaustiveness was the mechanism. Two of the five BIFs named
+  here — `is_function` and `binary_to_existing_atom` — are not in the compiler at all, and
+  `fun<int>` has no function type to be refused for. Built as
+  [F36](../../compiler/features/F36-an-absorbed-member.md).
+
 ```
 type Handler = fun<int> | fun<string>;
 // ✗ error at the declaration: members not discriminable

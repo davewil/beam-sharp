@@ -117,10 +117,21 @@ cast**, because there isn't one — the fix is the entry check, and F9 does not 
 clause-return site doing exactly what it was built for, on a type that did not exist when it was
 built.
 
-**F9.7 — `string | binary` absorbs to `binary` rather than erroring.** 20 §2's absorption rule,
-which is about containment: `<<_:32>> | <<_:32,_:_*8>>` absorbs, and so does this. It is worth a
-scenario only because the neighbouring rule looks like it should fire and does not — 09 §4 errors
-on **indiscriminable** members, not on nested ones, and `string` is nested.
+**F9.7 — `string | binary` absorbs to `binary`, and is refused for saying so.** 20 §2's absorption
+rule, which is about containment: `<<_:32>> | <<_:32,_:_*8>>` absorbs, and so does this.
+
+**The reasoning below survives untouched; only the verdict changed** (ticket 68, 2026-09-07). It
+was worth a scenario because the neighbouring rule looks like it should fire and does not — 09 §4
+errors on **indiscriminable** members, not on nested ones, and `string` is nested. That is still
+true, and `check-collapse.sh` still proves it: the indiscriminability rule does not fire here.
+
+What refuses it is a rule that did not exist when this scenario was written.
+[Ticket 68](../../wayfinder/issues/68-an-absorbed-member.md) Q1(a) generalised F31 from the failure
+channel to **every** member, so `type Any = string | binary` now raises `absorbed_member`: the
+declared type is `binary`, and the member the author wrote is not in it. The repair is offered as a
+fork — delete the absorbed member, or narrow the one absorbing it — because someone who writes
+`binary | string` wanted either-or, and the mechanical repair is the one thing they did not mean.
+This scenario was the entire blast radius the ticket measured across 105 `.bs` files.
 
 **F9.8 — `list<string>` and a `string` record field both resolve.**
 

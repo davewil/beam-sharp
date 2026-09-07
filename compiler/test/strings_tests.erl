@@ -105,13 +105,22 @@ the_unspellable_point_prints_as_a_difference_test() ->
     ?assertNot(bs_types:is_none(Diff)),
     ?assertEqual("binary \\ string", bs_types:to_string(Diff)).
 
-%% F9.7 — absorption, not an error. 09 §4 errors on INDISCRIMINABLE members and
-%% `string` is nested rather than overlapping, so the neighbouring rule correctly
-%% does not fire.
+%% F9.7 — THE ALGEBRA IS UNCHANGED AND THE VERDICT IS REVERSED (ticket 68).
+%%
+%% The first assertion is what this test always said and still says: `string`
+%% is `binary` refined by UTF-8, so the union IS `binary`. The reasoning that
+%% went with it survives too — 09 §4 errors on INDISCRIMINABLE members, and
+%% `string` is nested rather than overlapping, so that neighbouring rule still
+%% correctly does not fire here.
+%%
+%% What changed is that a SECOND rule now does. Ticket 68 Q1(a) refuses any
+%% member absorbed by the union of the others, not only a failure channel, and
+%% under it `type Any = string | binary` declares a member that is not in the
+%% type it declares. That rule did not exist when this test was written.
 string_or_binary_absorbs_to_binary_test() ->
     ?assertEqual(bs_types:binary_top(),
                  bs_types:union(bs_types:string(), bs_types:binary_top())),
-    ?assertMatch({ok, _, []},
+    ?assertError({absorbed_member, _, _, none, _, _},
                  check_only("module Abs\n"
                             "type Any = string | binary\n"
                             "public Any Wide()\n"

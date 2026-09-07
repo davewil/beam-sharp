@@ -32,9 +32,19 @@ a_record_constructs_a_tagged_map_test() ->
     M = build_and_load(shop_src(), 'Shop'),
     ?assertEqual(an_order(), M:'Draft'()).
 
-%% F3.2 — §1's own test that the minting is not nominality. Routed through
-%% exhaustiveness: if the mint created an identity, `Either` would be a union of
-%% two things and one clause would leave a residual.
+%% F3.2 — §1's own test that the minting is not nominality.
+%%
+%% ROUTED THROUGH THE ABSORPTION REFUSAL SINCE TICKET 68, AND IT PROVES THE
+%% SAME THING MORE DIRECTLY THAN EXHAUSTIVENESS DID. This asserted `{ok, ...}`
+%% until 2026-09-07: `Either` was a legal union and one clause covered it,
+%% which showed the two spellings were one type. Rule 1 now refuses a member
+%% absorbed by the union of the others, and `Spelled` IS `Order` — so the
+%% union declares a member that is not in it, and the refusal is the evidence.
+%%
+%% THE DIRECTION OF THE PROOF IS WHAT MATTERS. If the mint created a nominal
+%% identity, `Order` and `Spelled` would be two distinct types, neither would
+%% absorb the other, and this program would COMPILE. It is refused precisely
+%% because they are one type.
 a_hand_written_type_with_the_same_tag_is_the_same_type_test() ->
     Src = "module Shop\n"
           "record Order { Id: int, Total: int }\n"
@@ -42,7 +52,7 @@ a_hand_written_type_with_the_same_tag_is_the_same_type_test() ->
           "type Either = Order | Spelled\n"
           "public atom Which(Either)\n"
           "Which(Order o) -> :order\n",
-    ?assertMatch({ok, _, _}, check_only(Src)).
+    ?assertError({absorbed_member, _, _, none, _, _}, check_only(Src)).
 
 %% F3.3 — identical field sets, different tags, two types. Under ticket 09
 %% before the minting this WOULD have been exhaustive, which is the whole point.

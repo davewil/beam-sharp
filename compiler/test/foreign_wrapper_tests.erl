@@ -310,7 +310,7 @@ a_term_return_is_refused_at_the_declaration_test() ->
           "}\n"
           "public term Parse(binary b)\n"
           "Parse(b) -> :erlang.binary_to_integer(b)\n",
-    ?assertError({collapsed_failure_channel, _, error, _, _},
+    ?assertError({absorbed_member, _, _, error, _, _},
                  bs_test_support:check_only(Src)).
 
 %%% ---------------------------------------------------------------------------

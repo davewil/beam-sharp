@@ -31,9 +31,18 @@ A residual built only from declared cases, so the compiler knows each one by nam
 _Avoid_: finite residual, known gap
 
 **Discriminable**:
-Of union members: distinguishable from one another by a synthesised BEAM guard. Indiscriminable
-members are an error at the declaration.
-_Avoid_: disjoint, tagged, distinguishable
+Of union members: distinguishable from one another by a **clause head** — a pattern that reaches
+the member, or a guard that separates it from the others. Indiscriminable members are an error at
+the declaration, and the error is temporary by construction: it lifts when a pattern form for those
+members ships.
+_Avoid_: disjoint, tagged, distinguishable, decided by a BEAM guard
+
+**Absorbed**:
+Of a union member: already contained by the union of the members beside it, so the declared type
+does not include it as a distinct alternative. An absorbed member is an error where it is written.
+Distinct from **indiscriminable**: an absorbed member is not in the type, whereas indiscriminable
+members are both in it and cannot be told apart.
+_Avoid_: subsumed, redundant, collapsed
 
 **Alias**:
 A name bound to a type by `type X = ...`. The single naming construct in the language; the name
@@ -55,9 +64,11 @@ _Avoid_: generic parameter, type argument, rigid variable, `a`, bounded type var
 **Binary type**:
 `<<_:M, _:_*N>>` — a base of `M` bits followed by any number of repetitions of an `N`-bit unit.
 `M` alone is a fixed size and a **closed** set; any `N > 0` makes the type **open**. Both halves
-are decided by one BEAM guard in O(1), `M` by `byte_size`/`bit_size` and `N` by a modulus. Unions
-over binary types are exact: two members where one contains the other absorb, and two that overlap
-without containment are indiscriminable and rejected at the declaration.
+are decided by one BEAM guard in O(1), `M` by `byte_size`/`bit_size` and `N` by a modulus. A union
+over binary types where one member contains another absorbs, and the absorbed member is rejected at
+the declaration. Overlap **without** containment is not distinguished here: the checker's binary
+bucket carries UTF-8-ness and not `M`/`N`, so it cannot represent two binary types that overlap
+partially (ticket 30 open).
 _Avoid_: bitstring pattern, size specifier, binary spec
 
 **Refinement**:
