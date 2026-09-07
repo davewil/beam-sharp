@@ -116,9 +116,12 @@
 %%
 %% This is the smallest EXACT encoding: collapsing `binary \ string` to
 %% `binary` widens, and collapsing it to `none` reports a residual empty when
-%% it is not. Sizes are absent because the surface has no spelling for them
-%% yet (ticket 30 is open); a size partition can refine the set later without
-%% changing its shape.
+%% it is not. Sizes are absent because the surface has no spelling for a SIZED
+%% BINARY TYPE -- ticket 30 resolved 2026-08-20 and gave sizes to binary
+%% PATTERNS, not to type expressions. A size partition can refine the set
+%% later without changing its shape. Until one does, two binary types that
+%% overlap without either containing the other are not a shape this bucket
+%% can hold, which is why `CONTEXT.md` no longer claims they are refused.
 -type bin_part() :: [utf8 | other].
 
 %% A type is either a partition (the six-part map every operation computes

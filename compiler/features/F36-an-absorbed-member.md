@@ -28,13 +28,14 @@
                 `foreign_sig` — without it rule 1 could not fire at a bare
                 inline union, only at the four nested positions; and F31, whose
                 `absorbed/2` predicate is reused **unchanged**
-**Leaves**      the **`bins` bucket's missing sizes** — `CONTEXT.md` asserted
+**Leaves**      the **`bins` bucket's missing sizes**. `CONTEXT.md` asserted
                 that two binary types overlapping without containment are
-                rejected, and the checker cannot represent that: `bin_part()`
-                carries UTF-8-ness, not `M`/`N` (ticket 30 open). The entry is
-                corrected rather than the checker; and **ticket 64's Q1/Q4**,
-                which 68 Round 2 said to mark answered in 64's own file — see
-                *What is owed* below
+                rejected at the declaration, and the checker cannot represent
+                the question: `bin_part()` carries UTF-8-ness, not `M`/`N`.
+                Ticket 30 gave sizes to binary **patterns**, not to type
+                expressions, so the entry is corrected rather than the checker.
+                A size partition can refine the bucket later without changing
+                its shape, and this rule would then reach those unions for free
 
 ## The two rules, and why they are two
 
@@ -52,6 +53,49 @@
 indiscriminability only ever sees members that survived normalisation — 09 §4's
 own *normalise first, then check pairwise*, which is what keeps `:ok | atom`,
 the section's named false positive, out of the second rule's reach.
+
+## Scenarios
+
+Asserted in `compiler/test/absorbed_member_tests.erl`, which is a separate file
+from `collapse_tests.erl` for the reason that file gives: a capability whose
+whole behaviour is a rejection has nowhere in `examples/` to be looked at.
+
+**F36.1 — absorption outside the failure channel.** The four shapes ENG-273
+measured — `binary | string`, `atom | :ok`, `term | int`, `list<term> |
+list<int>` — each resolve to a single member and reported zero diagnostics
+before this feature. All four are refused now. The last is the control that
+absorption reaches *through a container*: an implementation comparing only the
+members' outermost constructor accepts it, since both members are lists.
+
+**F36.2 — the failure-channel hint survives.** `option<atom>` keeps the
+`nothing` hint and `result<term, atom>` keeps the `error` one, under the single
+`absorbed_member` tag. These assert the discriminator rather than the prose: a
+widening that dropped the channel would still pass F36.1.
+
+**F36.3 — the diagnostic carries a path.** `Job.Tag` names a record's field and
+`Route.x.1` the first element of a tuple parameter. The pair that matters is
+one record absorbing at `Tag` and another at `Owner`: a path hardcoded to the
+declaration, or to whichever field comes first, fails exactly one of them.
+
+**F36.4 — every site a union can be written in.** ENG-331 made a union writable
+wherever a type is, so the rule is asserted at a bare inline union in a
+parameter, in a return, and in a `foreign_sig` — not only at the four nested
+positions that parsed before it.
+
+**F36.5 — indiscriminability.** `map<string, int> | map<string, binary>` keeps
+both members through normalisation and no clause head reaches either, so it is
+refused under the second rule rather than the first.
+
+**F36.6 — the controls, which outnumber the refusals.** Ticket 20:389 warns
+that *"subsumption is not indiscriminability, and conflating them would reject a
+legal type"*, and 09 §4's stated criterion does exactly that to its own accepted
+example. So every shape 68 accepts is asserted to **compile**: `list<int> |
+list<binary>` (pattern reaches inside a container), `atom | int` (guard
+separates two bare binders), `(:a, int) | (:b, binary)`, `map<string, int> |
+int` (a domain map is not indiscriminable *on its own* — `is_map` tells it from
+an int), two records, and two disjoint refined ints both nested in a tuple and
+at the top. A wrong implementation of rule 2 passes every refusal above and
+fails these.
 
 ## The matchability oracle (68 Q8(b), Q9(b))
 

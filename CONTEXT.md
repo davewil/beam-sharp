@@ -67,8 +67,8 @@ _Avoid_: generic parameter, type argument, rigid variable, `a`, bounded type var
 are decided by one BEAM guard in O(1), `M` by `byte_size`/`bit_size` and `N` by a modulus. A union
 over binary types where one member contains another absorbs, and the absorbed member is rejected at
 the declaration. Overlap **without** containment is not distinguished here: the checker's binary
-bucket carries UTF-8-ness and not `M`/`N`, so it cannot represent two binary types that overlap
-partially (ticket 30 open).
+bucket carries UTF-8-ness and not `M`/`N`, so two binary types that overlap partially are not a
+shape it can represent.
 _Avoid_: bitstring pattern, size specifier, binary spec
 
 **Refinement**:
