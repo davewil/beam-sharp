@@ -5,7 +5,9 @@
                 **defect** rather than a question: nothing here was decided by this work.
                 **Amended 2026-09-07** ([ENG-330](https://linear.app/davewil/issue/ENG-330)):
                 §6 builds the same rule at the narrowing site, which §5's list of what
-                was out of scope did not name — 646 tests
+                was out of scope did not name — 646 tests.
+                **§5's "range half" item closed 2026-09-08** by
+                [F37](F37-boundary-range.md) / [ENG-292](https://linear.app/davewil/issue/ENG-292)
 **Implements**  [ticket 58](../../wayfinder/issues/58-refined-int-admits-a-float.md), and through
                 it [ticket 18](../../wayfinder/issues/18-boundary-defence.md) §1 rule C case (b),
                 §4 (exported only, function-local) and §5 (no opt-out) — decided 2026-08-13 and
@@ -150,9 +152,13 @@ a different test and are **owed, not decided differently**. `int` is built first
 `a_non_int_parameter_is_untouched_test` pins the boundary as a measurement so it cannot drift from
 this sentence.
 
-**Ticket 46's range half.** Still unbuilt. `Classify(300)` — an out-of-range *integer* — is still
-accepted and returns `:reserved`. F24 closes the kind channel only, and 46's answer is a complete
-specification of the other one.
+**Ticket 46's range half.** ~~Still unbuilt. `Classify(300)` — an out-of-range *integer* — is still
+accepted and returns `:reserved`.~~ **Built 2026-09-08 as [F37](F37-boundary-range.md)**
+([ENG-292](https://linear.app/davewil/issue/ENG-292)): `Classify(300)`, `Band(-5)` and
+`Sizing(300)` are all refused at the boundary. F24 closed the kind channel only, and 46's answer
+was a complete specification of the other one — which is what let F37 build it without reopening
+anything. The two guards are emitted at the same site, `int_guard/6`, with the type test leading
+the comparisons.
 
 **A refined `int` below the top of a parameter.** `handle_call({add, N}, _From, State)` guards
 `State` and not `N`, so a float still reaches `State + N` one projection deep. Ticket 46 §4 already

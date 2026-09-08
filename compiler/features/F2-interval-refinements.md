@@ -7,7 +7,9 @@
 **Raises**      [ticket 46](../../wayfinder/issues/46-refined-parameter-at-the-boundary.md) ·
                 [ENG-218](https://linear.app/davewil/issue/ENG-218) — a refined parameter is not
                 checked at the exported boundary. **Resolved 2026-08-23: yes, exported only,
-                emitting only what the clause does not already prove.** Unbuilt
+                emitting only what the clause does not already prove.** **Built 2026-09-08 as
+                [F37](F37-boundary-range.md)** — the *Done when* clause this ticket was raised
+                for is closed
 
 **Brief**       [The octet coupling](https://claude.ai/code/artifact/ac3174ee-507b-4ae6-97e3-fa7a2ea6ce43)
                 · its HTML render was committed as `wayfinder/beam-sharp-eng-214.html` until

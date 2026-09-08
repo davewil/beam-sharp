@@ -676,6 +676,30 @@ jobs:
         working-directory: compiler
         run: ./bin/check-boundary-kind.sh
 
+      # F37 / ticket 46 — the OTHER half of the same guard, and a separate gate
+      # because each one's stub set is the other's blind spot. The kind gate's
+      # decisive case is `100.5`, a value of the wrong KIND that passes every
+      # comparison; this one's is `Foo(300, 1)`, a value of the right kind and
+      # the wrong RANGE reaching a clause whose guard the checker cannot read.
+      #
+      # Its CERTAIN stub is the reason it exists: an emitter correct on every
+      # clause the checker can read and silently absent on the ones it cannot
+      # passes probes 1, 2, 3, 5 and 6, and only probe 4 sees it. Measured
+      # 2026-09-08, this compiler does not have that emitter under either bound
+      # — bs_check:positions/2 answers `term` for an uninhabited type, and that
+      # fallback, not the choice of bound, is what probe 4 defends.
+      #
+      # Probe 5 counts the emitted comparisons, because a naive
+      # two-per-clause emission crashes on exactly the same inputs as the
+      # decided subtraction and no behavioural probe can tell them apart.
+      - name: The boundary-range gate proves it can fail
+        working-directory: compiler
+        run: ./bin/check-boundary-range.sh --self-test
+
+      - name: A refined int parameter is inside its refinement at the boundary
+        working-directory: compiler
+        run: ./bin/check-boundary-range.sh
+
       # F25 / ticket 23 §8 — a return-mismatch diagnostic must hand over the
       # signature to PASTE, not only the residual that is uncovered. §4's test
       # for the contractual subset is §2's: does it hand the agent something to

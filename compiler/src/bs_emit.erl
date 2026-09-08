@@ -134,7 +134,7 @@ function(F, Ctx) ->
 %% A parameter the body and guard never mention lowers to a `_`-prefixed
 %% variable, because Erlang warns on an unused one and `(:ok, n) -> :negative`
 %% is idiomatic B#, with the name as documentation.
-clause({clause, Line, _Name, Patterns, Guard, Body}, Params, Ctx, Public) ->
+clause({clause, Line, _Name, Patterns, Guard, Body} = C, Params, Ctx, Public) ->
     %% Desugaring runs first and relational patterns are stripped second, both
     %% before the boundary guard. `ensure_var/3` wraps a pattern it cannot
     %% name in a `p_alias`, and an aliased `p_rel` or `p_rec` would reach
@@ -154,10 +154,19 @@ clause({clause, Line, _Name, Patterns, Guard, Body}, Params, Ctx, Public) ->
     %% otherwise lower to `_Foo` while the guard referenced `Foo`, a compile
     %% error in the emitted Erlang. The relational tests mention `bs@rN` and
     %% are in the same list for the same reason.
-    {Patterns1, Tests} = boundary_guards(Patterns0, Params, Line, Ctx, Public),
+    %% What each parameter position accepts, read from the RAW clause: the
+    %% checker's own pattern and guard reader runs over the surface AST, and by
+    %% this line `desugar/2` and `strip_rels/2` have rewritten both. It is the
+    %% same clause the checker already typed, asked once more for one answer
+    %% (F37, ticket 46 §2).
+    Accepts = accepts(C, Ctx, length(Patterns)),
+    {Patterns1, Tests} = boundary_guards(Patterns0, Params, Line, Ctx, Public, Accepts),
     %% The boundary tests lead the guard: `is_integer/1` first, then the
     %% comparisons, so a wrong-kind term fails on one test rather than three
-    %% (F24, ticket 58).
+    %% (F24, ticket 58). The order is load-bearing and not tidiness: a
+    %% comparison against a non-number is not an error in Erlang, it is a
+    %% silently wrong answer, so the range test is only meaningful once the
+    %% type test standing before it has short-circuited (F37).
     Guard1 = conjoin(Tests ++ RelTests, kind_tested(Guard, skips(Patterns0, IntOnly)),
                      Line),
     %% A `== acc` in one pattern reads `acc` bound by another, and
@@ -221,16 +230,17 @@ later_vars(Rest, Final) ->
 %%% performs the identical test.
 %%% ---------------------------------------------------------------------------
 
-boundary_guards(Patterns, Params, Line, Ctx, Public) ->
+boundary_guards(Patterns, Params, Line, Ctx, Public, Accepts) ->
     Zipped = lists:zip3(Patterns, Params, lists:seq(1, length(Patterns))),
-    Folded = [guard_one(P, Param, I, Line, Ctx, Public) || {P, Param, I} <- Zipped],
+    Folded = [guard_one(P, Param, lists:nth(I, Accepts), I, Line, Ctx, Public)
+              || {P, Param, I} <- Zipped],
     {[NewP || {NewP, _} <- Folded],
      [T || {_, Ts} <- Folded, T <- Ts]}.
 
 %% The tag guard and the integer guard are mutually exclusive: a record type
 %% has a `maps` part and an integer type does not, so no parameter is a
 %% candidate for both.
-guard_one(Pat, {param, TypeExpr, _}, I, Line, Ctx, Public) ->
+guard_one(Pat, {param, TypeExpr, _}, Accept, I, Line, Ctx, Public) ->
     case record_tag(TypeExpr, Ctx) of
         {ok, Tag} ->
             case constrains_kind(Pat) of
@@ -240,9 +250,20 @@ guard_one(Pat, {param, TypeExpr, _}, I, Line, Ctx, Public) ->
                     {Pat1, [tag_test(Var, Tag, Line)]}
             end;
         none when Public ->
-            int_guard(Pat, TypeExpr, I, Line, Ctx);
+            int_guard(Pat, TypeExpr, Accept, I, Line, Ctx);
         none ->
             {Pat, []}
+    end.
+
+%% What each parameter position accepts, or `term` for every position if the
+%% checker cannot say. The fallback is the WIDEST answer, not the narrowest:
+%% subtracting the declared type from `term` emits every bound the refinement
+%% has, so a position the checker could not read is over-guarded rather than
+%% unguarded. `check/2` has already run and reported by the time the emitter
+%% is called, so a raise here would be a second report of a settled program.
+accepts(C, #{env := Env}, N) ->
+    try bs_check:clause_accepts(C, Env)
+    catch _:_ -> lists:duplicate(N, bs_types:term())
     end.
 
 %%% ---------------------------------------------------------------------------
@@ -262,13 +283,138 @@ guard_one(Pat, {param, TypeExpr, _}, I, Line, Ctx, Public) ->
 %%% different test and is still owed.
 %%% ---------------------------------------------------------------------------
 
-int_guard(Pat, TypeExpr, I, Line, Ctx) ->
-    case is_int_only(TypeExpr, Ctx) andalso not pins_integer(Pat) of
+int_guard(Pat, TypeExpr, Accept, I, Line, Ctx) ->
+    case is_int_only(TypeExpr, Ctx) of
         false -> {Pat, []};
         true  ->
-            {Var, Pat1} = ensure_var(Pat, I, Line),
-            {Pat1, [int_test(Var, Line)]}
+            NeedKind = not pins_integer(Pat),
+            Arms     = owed_arms(TypeExpr, Accept, Ctx),
+            case NeedKind orelse Arms =/= [] of
+                false -> {Pat, []};
+                true  ->
+                    {Var, Pat1} = ensure_var(Pat, I, Line),
+                    Kind = case NeedKind of
+                               true  -> [int_test(Var, Line)];
+                               false -> []
+                           end,
+                    {Pat1, Kind ++ range_test(Var, Arms, Line)}
+            end
     end.
+
+%%% ---------------------------------------------------------------------------
+%%% The range guard — ticket 46's subtraction
+%%%
+%%% An exported function whose parameter is a REFINED int carries the part of
+%%% the refinement its own clause head has not already proved, and nothing more.
+%%%
+%%%     Classify(1)             -> nothing    the literal proves 1 ∈ 0..255
+%%%     Classify(>= 4 and <= 7) -> nothing    the span proves 4..7 ⊆ 0..255
+%%%     Classify(>= 9)          -> =< 255     the lower half is proved
+%%%     Band(n) when n <= 64    -> >= 0       the UPPER half is proved
+%%%
+%%% WHY THIS SUBTRACTS RATHER THAN TESTING A FLAG (46 §2). `constrains_kind/1`
+%%% above is a boolean because a tag either is or is not constrained. A bound is
+%%% not like that: a clause can prove HALF of a refinement and owe the other
+%%% half, and `Classify(>= 9)` is exactly that clause. Over `wire.bs` the
+%%% difference is six comparisons against twenty-two.
+%%%
+%%% `Band(n) when n <= 64` is the case worth reading twice. It emits the LOWER
+%%% bound, and it is what catches `Band(-5)` — which answered `:low`. Ticket 46
+%%% framed the whole question around values above the domain; half the escapes
+%%% are below it.
+%%% ---------------------------------------------------------------------------
+
+%% The bounds a clause owes, as a list of ARMS. Each arm is one range of the
+%% declared type and carries the comparisons that range still needs; the arms
+%% are alternatives, because a refinement may name more than one range. `[]`
+%% means nothing is owed.
+owed_arms(TypeExpr, Accept, #{env := Env}) ->
+    try
+        Declared = bs_check:resolve(TypeExpr, Env),
+        %% Nothing escapes: every integer this clause head can match is already
+        %% inside the declared type, so every comparison would be dead weight.
+        %% This is the subtraction, and it is what makes a literal clause and a
+        %% two-sided span cost nothing.
+        case bs_types:is_none(ints_of(bs_types:subtract(Accept, Declared))) of
+            true  -> [];
+            false ->
+                case ranges(bs_types:intersect(Accept, Declared)) of
+                    %% The clause matches only integers OUTSIDE the declared
+                    %% type — a vacuous clause, which the checker reports as a
+                    %% warning and still compiles. Every finite bound of the
+                    %% declared type is emitted, which is false for every
+                    %% integer this clause can reach: the clause is dead for
+                    %% valid input and the guard says so.
+                    [] -> [bounds(R, keep, keep) || R <- ranges(Declared)];
+                    Keep -> trim(Keep, Accept)
+                end
+        end
+    catch _:_ -> []
+    end.
+
+%% Only the LOWEST arm's lower bound and the HIGHEST arm's upper bound may be
+%% dropped, and only where the clause head admits no integer on that side.
+%% Interior bounds are always kept: they are the walls of the hole between two
+%% ranges, and a clause proves nothing about a hole by lying outside it.
+trim(Ranges, Accept) ->
+    N = length(Ranges),
+    [bounds(R,
+            case I =:= 1 andalso not has_below(Accept, R) of
+                true  -> drop; false -> keep
+            end,
+            case I =:= N andalso not has_above(Accept, R) of
+                true  -> drop; false -> keep
+            end)
+     || {R, I} <- lists:zip(Ranges, lists:seq(1, N))].
+
+%% An infinite bound is never a comparison; a dropped one is one the clause has
+%% already proved.
+bounds({Lo, Hi}, LoK, HiK) ->
+    [{'>=', Lo} || Lo =/= neg_inf, LoK =:= keep] ++
+    [{'<=', Hi} || Hi =/= pos_inf, HiK =:= keep].
+
+%% Whether the clause head admits an integer strictly below (above) a range.
+%% Read off the algebra rather than off the range list, so `term`, a union and
+%% a bare `int` are all answered by the same question.
+has_below(_Accept, {neg_inf, _}) -> false;
+has_below(Accept, {Lo, _}) ->
+    not bs_types:is_none(
+          bs_types:intersect(Accept, bs_types:range(neg_inf, Lo - 1))).
+
+has_above(_Accept, {_, pos_inf}) -> false;
+has_above(Accept, {_, Hi}) ->
+    not bs_types:is_none(
+          bs_types:intersect(Accept, bs_types:range(Hi + 1, pos_inf))).
+
+ints_of(Ty) -> bs_types:intersect(Ty, bs_types:int()).
+
+%% The integer part's ranges: sorted, disjoint and non-adjacent, which is what
+%% lets `trim/2` read the first and last as the outermost.
+ranges(Ty) ->
+    try #{ints := Rs} = bs_types:unfold(Ty), Rs
+    catch _:_ -> []
+    end.
+
+%% The arms are alternatives and each arm is a conjunction, so a two-range
+%% refinement lowers to `(V >= a andalso V =< b) orelse (V >= c andalso V =< d)`.
+%% Built as surface nodes so `used_vars/2`, `guard/2` and `erl_op/1` handle them
+%% by their existing paths — `<=` becomes Erlang's `=<` and `or` becomes
+%% `orelse` there, in the one place that mapping lives.
+range_test(_Var, [], _Line) -> [];
+range_test(Var, Arms, Line) ->
+    %% An empty arm is a range with no finite bound left to test, so that
+    %% alternative is true for every integer and the whole disjunction is
+    %% vacuous. Emitting it would be a guard that cannot fail.
+    case lists:any(fun(A) -> A =:= [] end, Arms) of
+        true  -> [];
+        false -> [fold_or([fold_and([cmp(Var, Op, K, Line) || {Op, K} <- A], Line)
+                           || A <- Arms], Line)]
+    end.
+
+cmp(Var, Op, K, Line) -> {e_op, Line, Op, {e_var, Line, Var}, {e_int, Line, K}}.
+
+fold_or([E], _Line) -> E;
+fold_or([E | Rest], Line) -> {e_op, Line, 'or', E, fold_or(Rest, Line)}.
 
 %% A type is int-only when every part but the integer one is empty and the
 %% integer one is inhabited. `Octet` and `int` are the same shape with

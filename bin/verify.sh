@@ -312,6 +312,9 @@ run_stages \
   "An int parameter is an integer at the boundary" \
     "cd compiler && ./bin/check-boundary-kind.sh --self-test && ./bin/check-boundary-kind.sh" \
 \
+  "A refined int parameter is inside its refinement at the boundary" \
+    "cd compiler && ./bin/check-boundary-range.sh --self-test && ./bin/check-boundary-range.sh" \
+\
   "A return mismatch hands over the signature to paste" \
     "cd compiler && ./bin/check-corrected-signature.sh --self-test && ./bin/check-corrected-signature.sh" \
 \

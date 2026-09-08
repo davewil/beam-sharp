@@ -33,6 +33,9 @@
 %% The emitter resolves surface types and mints record tags through these,
 %% so the qualified-name rule has one site (ticket 26 §1).
 -export([resolve/2, qualified/2, record_fields/1]).
+%% The emitter subtracts what a clause head already proves from the declared
+%% refinement, so the boundary guard carries only the rest (F37, ticket 46 §2).
+-export([clause_accepts/2]).
 %% The emitter asks which qualifiers are reserved, to emit a local form
 %% rather than a remote call, and which operations exist under them, to
 %% generate exactly the functions the checker admitted (ticket 67).
@@ -2773,6 +2776,61 @@ clause_type({clause, _, _, Patterns, Guard, _}, Env) ->
         %% nothing to Certain, as with an untranslatable guard: crediting an
         %% over-estimate is what makes a compiler claim coverage it lacks.
         false -> {bs_types:none(), Possible, Bindings, Base}
+    end.
+
+%% The per-parameter upper bound on what a clause head matches, one type per
+%% position, for the boundary guard to subtract the declared refinement from
+%% (F37, ticket 46 §2).
+%%
+%% POSSIBLE, NOT CERTAIN. `Certain` is what the clause DEFINITELY matches, and
+%% it is deliberately `none` wherever a guard cannot be read (ticket 08) or a
+%% pattern over-states itself — crediting an over-estimate is what makes a
+%% compiler claim coverage it lacks. An emitter that subtracted the declared
+%% type from `none` would find nothing to emit and the clause would silently
+%% lose its boundary guard, which is the one direction a boundary must never
+%% fail in. `Possible` is an upper bound, so subtracting from it emits at worst
+%% a redundant comparison.
+%%
+%% MEASURED 2026-09-08, BECAUSE THE PARAGRAPH ABOVE IS NOT WHY THE BOUNDARY
+%% HOLDS. Swapping `Possible` for `Certain` here leaves all of
+%% `boundary_range_tests` and all six probes of `check-boundary-range.sh`
+%% green. `apply_guard/3` answers `{Ty, Ty}` or `{Refined, Refined}` where it
+%% can read the guard and `{none, Ty}` where it cannot, so `Certain` is either
+%% `none` or IDENTICAL to `Possible` — never something narrower in between —
+%% and `positions/2` below answers `term` for an uninhabited type. The
+%% unreadable clause comes out over-guarded, not unguarded.
+%%
+%% So `Possible` is the honest bound to name and `positions/2`'s treatment of
+%% an uninhabited type is what actually carries the safety. Both are stated
+%% because either alone reads as a reason and only the pair is one.
+clause_accepts({clause, _, _, Patterns, _, _} = Clause, Env) ->
+    {_Certain, Possible, _Bindings, _Base} = clause_type(Clause, Env),
+    positions(Possible, length(Patterns)).
+
+%% `clause_type/2` builds one product over the parameter positions, but
+%% `apply_guard/3` unions the alternatives of an `or` guard and may hand back
+%% several. Reading each position as the union across products drops the
+%% CORRELATION between positions — `(n, m)` where one alternative constrains
+%% `n` and another `m` — which widens each position and so can only add a
+%% comparison, never remove one. Any shape that is not a product list at all
+%% answers `term` for every position, the widest answer there is.
+%% NO PRODUCT OF THE RIGHT ARITY MEANS `term` AT EVERY POSITION, WHICH IS THE
+%% WIDEST ANSWER AND NOT THE NARROWEST. An uninhabited type reaches here — a
+%% clause whose guard could not be read is `none` — and answering it with its
+%% own empty integer part would tell the emitter that nothing escapes the
+%% declared type and so nothing is owed. That is a boundary guard deleted by
+%% arithmetic. `term` says instead that the clause might match anything, and
+%% the emitter writes every bound the refinement has.
+positions(Ty, N) ->
+    Products = try
+                   #{tuples := Ps} = bs_types:unfold(Ty),
+                   [P || P <- Ps, is_list(P), length(P) =:= N]
+               catch _:_ -> []
+               end,
+    case Products of
+        []   -> lists:duplicate(N, bs_types:term());
+        Ps2  -> [bs_types:union([lists:nth(I, P) || P <- Ps2])
+                 || I <- lists:seq(1, N)]
     end.
 
 pattern_row(Patterns, Env) ->

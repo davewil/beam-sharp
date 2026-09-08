@@ -1992,6 +1992,7 @@ the parser accepts back exactly what the printer emits. **shipped**
 | local bindings in a body, with rebinding and unbound names rejected | **shipped** |
 | destructuring binds (`(a, b) = pair`), where they cannot fail | **shipped** |
 | the boundary tag guard on an exported record parameter | **shipped** |
+| the boundary guard on an exported **refined `int`** parameter — the kind test and the range bounds the clause has not already proved | **shipped** — F24, F37 |
 | exact field sets at a construction site | **shipped** |
 | call arguments, projections and clause returns checked in a body | **shipped** |
 | refinements + interval patterns | **shipped** — F2 |
