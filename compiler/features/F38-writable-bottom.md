@@ -10,12 +10,15 @@
 **Implements**  [ticket 12](../../wayfinder/issues/12-totality-vs-let-it-crash.md)
                 §4, the half F34 left, and through it §5's `Partial` benefit
 **Closes**      [ENG-328](https://linear.app/davewil/issue/ENG-328)
-**Decides**     nothing about the language. 12 §4 settled the spelling, the
-                first-class stance and the reason for both. **One implementation
-                choice is named here** because no ticket reached it: the
-                corrected-signature printer omits the declared return entirely
-                when it is the bottom, rather than unioning through the algebra
-                (§F38.3)
+**Decides**     nothing about the language, and nothing a ticket could have been
+                asked to decide instead. 12 §4 settled the spelling, the
+                first-class stance and the reason for both. The
+                corrected-signature printer's treatment of the bottom (§F38.3)
+                is **forced, not chosen**: `none | X` *is* `X`, so omitting the
+                member is the only correct rendering, and the alternative is not
+                a rival design but a wrong one that ticket 68 refuses. Recorded
+                here because it is not obvious from the diff — not because it
+                was a call this feature made
 **Depends on**  F34, which made `raise` an expression of type `none` and left
                 this; F25, whose corrected-signature line is the thing that had
                 to move with it; F36, whose absorbed-member refusal is what makes
@@ -149,16 +152,21 @@ enforces; it is the only reason this shipped correct.
 ### F38.5 — the other type positions, measured and not decided
 
 `builtin/1` is consulted wherever a type is named, so `none` became writable in
-**every** position at once, not only in a return. Measured after the change, and
-recorded here rather than frozen in a test, because **nothing decided any of
-it** — it falls out of the algebra, and a test would certify as intended what
-no ticket has chosen:
+**every** position at once, not only in the return position ENG-328 specified.
+All five reachable positions were measured after the change and are recorded
+here rather than frozen in tests, because **nothing decided any of them** — each
+falls out of the algebra, and a test would certify as intended what no ticket
+has chosen. *(The last two rows were added 2026-09-08 after the `/code-review`
+spec axis pointed out that the first survey stopped at three and the table
+nonetheless read as the complete set.)*
 
 | written | what happens today |
 | --- | --- |
 | `public Never Reject(term r)` where `type Never = none` | works, and the corrected signature resolves through the alias — this one *is* tested, being the control that says the repair keys on the resolved type and not on the source text |
 | `public int F(none n)` | compiles with a **warning**: *"clause 1 of F matches no value of its input … no call can reach this clause"*. Correct and already-existing behaviour for a vacuous clause; whether declaring an uncallable function should instead be refused is undecided |
 | `public int F(list<none> xs)` | compiles silently. `list<none>` is the empty list and nothing else, which is arguably the right answer and is nobody's decision yet |
+| `record Box { Id: int, Impossible: none }` | the record becomes **uninhabited**, and a function taking one warns exactly as a `none` parameter does. Correct and not special-cased: `bs_types:map_closed/1` already answers `none` for a field with an empty type, so the bottom propagates through the product it sits in. The most instructive of the five |
+| `public int Size(map<atom, none> m)` | compiles silently, and does **not** collapse the way the record does — a domain map with an empty value type is still inhabited by the empty map, which is F33's form working as built |
 
 If any of these should be refused rather than allowed, that is a ticket, not a
 build — per CLAUDE.md, *a feature that needs a decision raises a ticket rather
