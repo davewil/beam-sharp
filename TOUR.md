@@ -589,7 +589,8 @@ worth looking at: a `_` would satisfy the compiler in all of them and none of th
 
 **The job:** a parcel that may not have been weighed, and may have failed to weigh.
 
-Two aliases come from the prelude, and the difference between them is a rule worth carrying:
+Two aliases come from the standard environment, and the difference between them is a rule worth
+carrying:
 **absence carries nothing, failure carries a reason.**
 
 ```
@@ -647,8 +648,8 @@ $ bsc --src-root examples examples/Parcel Width '(3, 11)'
 ```
 
 `T` is bound at the declaration, substituted at the use, and gone before the type algebra sees
-anything — `Span<int>` simply *is* `(int, int)`. Lowercase is the prelude's namespace, so a
-user's alias is PascalCase like every other user type.
+anything — `Span<int>` simply *is* `(int, int)`. Lowercase is the standard environment's
+namespace, so a user's alias is PascalCase like every other user type.
 
 What is **not** built is a polymorphic *function* signature — `Map<T, U>` needs an arrow type
 and the language does not have one yet.
@@ -1333,7 +1334,7 @@ produce.
 - **No macros.** `switch`, `|>`, `|?>` and `with` are grammar, not library.
 - **No type-test guards** — no `is_integer`, no `is_atom`. Those exist in Elixir because its
   runtime has no static types; here the clause head plus the checker does that job, and a
-  prelude `is_integer` would be conceding that the checker does not work.
+  compiler-known `is_integer` would be conceding that the checker does not work.
 - **No optional record fields.** `Notes?: int` is *lexed* purely so the parser can refuse it
   by name rather than the scanner failing on an illegal character. Absence is a value —
   `option<T>` — so it is matched, not tested for.

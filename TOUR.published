@@ -24,8 +24,18 @@
 # evidence here that is not self-reported.
 
 url       https://claude.ai/code/artifact/40f71cf4-d5d3-4b71-882c-ad73f630a03c
-sha256    d0a5c36521c3389c97a685ca5570514d77b6ecb4d93cdcd1586b07bdbde21214
-verified  2026-09-05 (for F35's columns) — every diagnostic now names a column, so all four
+sha256    f3eb26dfd8a7296cb3fa1a916b63276c75bf88cd9b5bca7b06458f785c333cbc
+verified  2026-09-08 (for ENG-322's vocabulary) — `CONTEXT.md` retired "prelude" on 2026-08-25 and
+          the tour still used it in three places: chapter 9's *"Two aliases come from the
+          prelude"* and *"Lowercase is the prelude's namespace"*, and chapter 18's *"a prelude
+          `is_integer`"*. The "How to read this" link also pointed at `PRELUDE.md`, which this
+          commit renames to `STANDARD-ENVIRONMENT.md`, so the link would have been dead. None of
+          the four is a quoted corpus line, so parts 1 to 3 were unaffected and only the stamp
+          went red. Read back in full before republishing and the live page still carried all
+          four, so the stale state was confirmed rather than assumed, and the read again showed
+          a plain render of TOUR.md with nothing saved into it independently.
+
+          2026-09-05 (for F35's columns) — every diagnostic now names a column, so all four
           replayed transcripts moved: `wire.bs:42` became `wire.bs:42:18`, `shop.bs:16` became
           `shop.bs:16:13`, `wire.bs:50` became `wire.bs:50:1`, and the term-channel appendix
           gained `column => 18`. A **fifth** site moved for a different reason and had been
