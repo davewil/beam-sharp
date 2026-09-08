@@ -167,7 +167,7 @@ judge() {
 # ---------------------------------------------------------------------------
 # --self-test — build the defects this gate names and require a red on each.
 #
-# A gate that has never been seen to fail is not believed. Three stubs, each
+# A gate that has never been seen to fail is not believed. Four stubs, each
 # wrong in a different way, plus the decided behaviour and a run that never
 # compiled. Every stub must also PASS the probes it does not break: a probe
 # that fires on everything is worthless.

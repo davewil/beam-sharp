@@ -26,13 +26,14 @@
                 declared return), and the set-theoretic algebra's empty type,
                 which has been in `bs_types` since the beginning under the name
                 this feature finally lets a program reach
-**Leaves**      `none` **still unwritable in a signature**
-                ([ENG-328](https://linear.app/davewil/issue/ENG-328)). 12 §4
-                decided the bottom is first-class and `builtin/1` does not have
-                it, so `public none Reject(term r)` is refused today. `raise`
-                does not need it — see *What the bottom did not need* below —
-                so it is a separate unbuilt decision rather than a hole in this
-                one
+**Leaves**      ~~`none` **still unwritable in a signature**
+                ([ENG-328](https://linear.app/davewil/issue/ENG-328))~~ —
+                **discharged 2026-09-08 by [F38](F38-writable-bottom.md)**,
+                which added `builtin(none)` and the spec block. The reasoning
+                stands as written: `raise` did not need it — see *What the
+                bottom did not need* below — so it was a separate unbuilt
+                decision rather than a hole in this one, and F38 confirmed that
+                by needing no change to the containment rule
 
 ## What shipped
 
