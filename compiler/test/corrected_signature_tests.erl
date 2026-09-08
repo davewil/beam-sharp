@@ -57,6 +57,30 @@ the_uncovered_residual_survives_beside_it_test() ->
     Out = cli("M2", Src),
     ?assert(string:find(Out, "not covered by the declared return type:") =/= nomatch).
 
+%% ENG-328 / ticket 12 §4. The correction is built by writing the DECLARED
+%% return's source text beside the rendered residual, which keeps the author's
+%% own alias name instead of the algebra's expansion of it. That concatenation
+%% is safe for every type but the bottom, because a residual is the COMPLEMENT
+%% of what was declared and so cannot absorb it — `int` against a `term` body
+%% gives `int | atom | tuple | list<term> | map | binary`, never `int | term`.
+%%
+%% `none` is the exception, and it only became reachable when `none` became
+%% writable: its complement is everything, so the residual is the whole of
+%% `term` and the naive line reads `public none | term Reject(term r)`. Ticket
+%% 68 REFUSES an absorbed member at a declaration, so that line is a program
+%% this compiler rejects, offered as the fix — ticket 23 §2's failure mode
+%% reached through a type rather than through a mint tag.
+%%
+%% Asserted at the CLI because that is where an agent reads it, and asserted as
+%% an ABSENCE beside a presence: the `none |` check alone would pass over a run
+%% that printed nothing at all.
+a_none_return_is_corrected_without_an_absorbed_member_test() ->
+    Src = "module M10\npublic none Reject(term r)\nReject(r) -> r\n",
+    Out = cli("M10", Src),
+    ?assert(string:find(Out, ?HEADING) =/= nomatch),
+    ?assert(string:find(Out, "public term Reject(term r)") =/= nomatch),
+    ?assertEqual(nomatch, string:find(Out, "none |")).
+
 %%% ---------------------------------------------------------------------------
 %%% 3 — the correction is a property of the FUNCTION
 %%% ---------------------------------------------------------------------------

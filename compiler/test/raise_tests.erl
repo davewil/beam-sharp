@@ -156,6 +156,58 @@ a_reason_extends_over_a_switch_test() ->
     ?assertError(other, M:'Pick'(other)).
 
 %%% ---------------------------------------------------------------------------
+%%% The bottom type has a SURFACE — `none` is writable in a signature
+%%% ---------------------------------------------------------------------------
+
+%% Ticket 12 §4 decided the bottom is spelled `none` and is FIRST-CLASS rather
+%% than checker-internal, and the reason it gave was an asymmetry rather than a
+%% use case: `bs_types:to_string/1` already prints `none` into a residual, so an
+%% agent READS the name in compiler output whether or not it can write it. A
+%% type readable in a diagnostic and unwritable in a signature is the gratuitous
+%% half, and `term` — the other end of the same lattice — is writable.
+reject_src() ->
+    "module Rejecting\n"
+    "public none Reject(term r)\n"
+    "Reject(r) -> raise (:rejected, r)\n".
+
+%% 12 §5's `Partial` benefit, which is what the surface buys: a named, greppable,
+%% type-checked crash site obtained from the lattice rather than from a
+%% propagating constraint. Before this, every crash site had to be a literal
+%% `raise` at the point of failure, because the function that does nothing but
+%% crash could not be DECLARED.
+a_none_return_may_be_declared_test() ->
+    {ok, _, Diags} = check_only(reject_src()),
+    ?assertEqual([], Diags).
+
+%% THE ASSERTION THAT PROVES `none` WAS NOT QUIETLY READ AS `term`, and the one
+%% test in this section that would still matter if the others were deleted.
+%% Every other assertion about `none` passes under a build that resolved it to
+%% the TOP: a raising body satisfies `term` too, the declaration parses either
+%% way, and `--api` prints the word either way. Only a body that RETURNS A VALUE
+%% separates the two readings — against `none` it must be refused, since no
+%% value inhabits the empty type, and against `term` it is the most ordinary
+%% program there is.
+a_none_return_refuses_a_returned_value_test() ->
+    Src = "module Rejecting\n"
+          "public none Reject(term r)\n"
+          "Reject(r) -> r\n",
+    ?assertMatch([{error, _, 'Reject', {return_not_declared, _, _}} | _],
+                 errors(Src)).
+
+%% A raising clause may stand beside one that returns — but not under a `none`
+%% return, because the returning clause is exactly the value the type refuses.
+%% Pinned because the obvious build checks the FIRST clause and stops: a
+%% function whose first clause raises would then compile with a second clause
+%% returning an int, and the declared "never returns" would be a lie.
+a_returning_clause_beside_a_raising_one_is_still_refused_test() ->
+    Src = "module Rejecting\n"
+          "public none Reject(term r)\n"
+          "Reject(:ok) -> raise :not_ok\n"
+          "Reject(r)   -> r\n",
+    ?assertMatch([{error, _, 'Reject', {return_not_declared, _, _}} | _],
+                 errors(Src)).
+
+%%% ---------------------------------------------------------------------------
 %%% Where the word may not appear
 %%% ---------------------------------------------------------------------------
 

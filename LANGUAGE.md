@@ -442,7 +442,7 @@ of them is a union like any other, which is why `Verdict` above needs no special
 | `(A, B)` | tuple | **shipped** |
 | `list<T>` | `[]` and `[h, ..t]` partition it, and a longer prefix narrows it: the cons cell decomposes, so length falls out without the type carrying one | **shipped** |
 | `term` | the top type — everything | **shipped** |
-| `none` | the bottom type — `raise` has it, and every exhaustive function's residual is it. First-class **by decision** and not yet writable in a signature, which is the only part outstanding | **partly shipped** |
+| `none` | the bottom type — `raise` has it, and every exhaustive function's residual is it. First-class: writable in a signature, so a function that never returns can be declared. Not to be confused with `:nothing`, which is a value — see §7 | **shipped** |
 | `float` | | **open** |
 | `binary` | the top, and it stays the top — sizes are not in the type language | **shipped** |
 | `string` | `binary` refined by valid UTF-8; a literal is one by construction | **shipped** |
@@ -1148,10 +1148,29 @@ Unwrap(v)           -> v
 effect on the signature, so there is **no checked-exception surface**: what a function raises is
 data it was handed, and nothing in a caller's type has to account for it.
 
-A function whose every path crashes would *say* so by being declared `-> none`, and that is the one
-part of this not yet built — `none` is the bottom type and appears in diagnostics, but cannot yet
-be written in a signature. Until it can, a crash is spelled at the point of failure rather than
-named by a function that never returns. That is also why escalating from
+A function whose every path crashes **says so by being declared `none`**, because the bottom is
+first-class rather than checker-internal. The reason it is writable is an asymmetry rather than a
+use case: `none` already appears in compiler output — every exhaustive function's residual is it —
+so a reader meets the name whether or not the language lets them write it, and `term`, the other
+end of the same lattice, has always been writable.
+
+```csharp
+public none Reject(term reason)
+Reject(reason) -> raise (:rejected, reason)
+```
+
+What that buys is a **named, greppable, type-checked crash site** obtained from the lattice rather
+than from a propagating constraint: `raise` is the primitive, and this is the function. A body that
+*returns a value* under a `none` return is refused, since no value inhabits the empty type — which
+is the whole content of the declaration.
+
+**`none` and `:nothing` are opposites, not synonyms.** `none` is a *type* no value inhabits, so
+`-> none` means **does not return**. `:nothing` is a *value* meaning absence, the one `option<T>`
+carries. A function returning `:nothing` returns normally and hands back a value; a function
+returning `none` never hands anything back at all. They read as near-synonyms and nothing else in
+the language is as easy to swap by accident.
+
+That is also why escalating from
 the `result` channel to a crash is an ordinary clause and needs no `?` and no `unwrap` primitive —
 a raised reason and a carried reason are the same kind of thing, and share their vocabulary with
 `result`'s `E`.
@@ -2049,11 +2068,11 @@ the parser accepts back exactly what the printer emits. **shipped**
   reserved qualifiers `Map`, `List` and `Term`; nothing unqualified is a function, and `raise` is a
   keyword. *Corrected 2026-09-04: this said "Unbuilt, and the build is its own issue" until that
   build shipped.* `Map`'s own operations remain unbuilt, and ~~`raise` is still owed~~ — **`raise`
-  shipped 2026-09-05 (F34)**; what the error model still owes is a **writable `none`** — the bottom
-  type is first-class by decision and appears in diagnostics today, but cannot yet be written in a
-  signature. *Corrected 2026-09-05: this also said `map<K, V>` remains unbuilt, which had shipped
-  the day before it was written.*
-  <!-- tracked by ENG-281 --> <!-- built by F32, F33 and F34; ENG-324 and ENG-328 remain -->
+  shipped 2026-09-05 (F34)**; ~~what the error model still owes is a **writable `none`**~~ —
+  **the writable bottom shipped 2026-09-08 (ENG-328)**, so `none` can now be declared as a return
+  and §7 demonstrates it. *Corrected 2026-09-05: this also said `map<K, V>` remains unbuilt, which
+  had shipped the day before it was written.*
+  <!-- tracked by ENG-281 --> <!-- built by F32, F33, F34 and ENG-328; ENG-324 remains -->
 - **`cond`**, or whatever serves a long ladder of unrelated conditions. <!-- tracked by ENG-282 -->
 - **Laziness** and `stream<T>` — deferred, not refused. <!-- tracked by ENG-283 -->
 - **Bootstrapping** — how much of B# is written in B#. The front end likely stays Erlang, as

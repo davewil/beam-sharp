@@ -1074,7 +1074,7 @@ message(#{tag := pattern_field_unknown, file := P, line := L, column := C, recor
       field_list("", [D || D <- Declared, D =/= 'Kind'])]};
 message(#{tag := unknown_builtin, type := B} = D) ->
     {placed(D) ++ "error: ~s is not a builtin type~n"
-     "  this slice has `int`, `atom`, `term`, `bool`, `binary`,~n"
+     "  this slice has `int`, `atom`, `term`, `none`, `bool`, `binary`,~n"
      "  `string` and `list<T>`.~n",
      placed_args(D) ++ [B]};
 message(#{tag := opaque_ret_at_boundary, file := P, line := L, column := C, module := Mod,

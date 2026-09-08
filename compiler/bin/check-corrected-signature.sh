@@ -47,12 +47,13 @@ HEADING='the signature its clauses justify:'
 # ---------------------------------------------------------------------------
 judge() {
   local dir="$1"
-  local p1 p2 p3 p4
+  local p1 p2 p3 p4 p5
 
   p1="$(cat "$dir/P1.out")"
   p2="$(cat "$dir/P2.out")"
   p3="$(cat "$dir/P3.out")"
   p4="$(cat "$dir/P4.out")"
+  p5="$(cat "$dir/P5.out")"
 
   # PROBE 1 — the line exists, and it is a whole signature.
   #
@@ -130,6 +131,37 @@ judge() {
     echo "         this compile is clean."
     sed 's/^/           /' <<<"$p4"
   fi
+
+  # PROBE 5 — a `none` return's correction carries NO ABSORBED MEMBER.
+  #
+  # The line is built by concatenating the declared return's SOURCE TEXT with
+  # the rendered residual, which is safe for every other type because the
+  # residual is the COMPLEMENT of what was declared and so cannot absorb it:
+  # `int` against a `term` body prints `int | atom | tuple | ...`, never
+  # `int | term`. The bottom is the one type that breaks it. `none`'s
+  # complement is everything, so the concatenation yields `none | term` — and
+  # ticket 68, built as ENG-332, REFUSES an absorbed member at a declaration.
+  #
+  # So the compiler would be printing, as the line to paste, a program it
+  # rejects. That is precisely ticket 23 §2's failure mode — a line that looks
+  # pasteable and is not is worse than no line — reached through a type rather
+  # than through a mint tag, which is why it needs its own probe and not an
+  # extension of probe 3.
+  if ! grep -qF "$HEADING" <<<"$p5"; then
+    echo 'probe 5: no corrected signature for a return mismatch under `none`.'
+    echo '         `none` is writable since ENG-328, so this is an ordinary'
+    echo '         return mismatch and owes the same pasteable line as probe 1.'
+  elif grep -qE 'none *\|' <<<"$p5"; then
+    echo 'probe 5: the corrected signature offers an ABSORBED member.'
+    echo '         ticket 68 refuses `none | term` at a declaration, so this line'
+    echo '         is a program the compiler rejects, offered as the fix.'
+    sed 's/^/           /' <<<"$p5"
+  elif ! grep -qF 'public term Reject(term r)' <<<"$p5"; then
+    echo 'probe 5: the corrected signature under `none` is not the line to paste.'
+    echo '         expected: public term Reject(term r)'
+    echo "         got:"
+    sed 's/^/           /' <<<"$p5"
+  fi
 }
 
 # ---------------------------------------------------------------------------
@@ -166,6 +198,14 @@ m.bs:4: error: Go returns a value its signature does not declare
   not covered by the declared return type:
     { Kind: :'M4.Invoice' }"
 
+  # ENG-328. `none` is writable, so a body that RETURNS is an ordinary mismatch
+  # - and the correction must be `term` alone, not `none | term`.
+  good_p5="m.bs:3: error: Reject returns a value its signature does not declare
+  not covered by the declared return type:
+    term
+  the signature its clauses justify:
+    public term Reject(term r)"
+
   # --- SILENT ------------------------------------------------------------
   #
   # The defect F25 exists for: the residual is printed and nothing else. This
@@ -181,6 +221,7 @@ m.bs:4: error: Go returns a value its signature does not declare
   not covered by the declared return type:
     (:error, string)" > "$CTL/silent/P2.out"
   printf '%s\n' "$good_p3" > "$CTL/silent/P3.out"
+  printf '%s\n' "$good_p5" > "$CTL/silent/P5.out"
   : > "$CTL/silent/P4.out"
   silent="$(judge "$CTL/silent" || true)"
   grep -q '^probe 1:' <<<"$silent" || { echo "SELF-TEST FAILED: probe 1 missed the silent stub — the reported defect"; fail=1; }
@@ -212,6 +253,7 @@ m.bs:4: error: Go returns a value its signature does not declare
   the signature its clauses justify:
     public int | (:error, string) Go(int n)" > "$CTL/perclause/P2.out"
   printf '%s\n' "$good_p3" > "$CTL/perclause/P3.out"
+  printf '%s\n' "$good_p5" > "$CTL/perclause/P5.out"
   : > "$CTL/perclause/P4.out"
   perclause="$(judge "$CTL/perclause" || true)"
   grep -q '^probe 3:' <<<"$perclause" || {
@@ -240,6 +282,7 @@ m.bs:4: error: Go returns a value its signature does not declare
     { Kind: :'M4.Invoice' }
   the signature its clauses justify:
     public { Kind: :'M4.Order', Id: int, Total: int } | { Kind: :'M4.Invoice', Id: int, Total: int } Make(int n)" > "$CTL/overreach/P3.out"
+  printf '%s\n' "$good_p5" > "$CTL/overreach/P5.out"
   : > "$CTL/overreach/P4.out"
   overreach="$(judge "$CTL/overreach" || true)"
   grep -q '^probe 3:' <<<"$overreach" || {
@@ -255,11 +298,43 @@ m.bs:4: error: Go returns a value its signature does not declare
     fi
   done
 
+  # --- ABSORBED ----------------------------------------------------------
+  #
+  # THE STUB PROBE 5 EXISTS FOR, and it is the plausible-but-wrong fix rather
+  # than an absurd one: it is what the printer does when `none` becomes
+  # writable and nobody teaches the concatenation about the bottom. Every line
+  # is present, well-formed and function-wide - probes 1 to 4 all pass - and
+  # the one line offered for pasting is a program ticket 68 refuses.
+  mkdir -p "$CTL/absorbed"
+  printf '%s\n' "$good_p1" > "$CTL/absorbed/P1.out"
+  printf '%s\n' "$good_p2" > "$CTL/absorbed/P2.out"
+  printf '%s\n' "$good_p3" > "$CTL/absorbed/P3.out"
+  : > "$CTL/absorbed/P4.out"
+  printf '%s\n' "m.bs:3: error: Reject returns a value its signature does not declare
+  not covered by the declared return type:
+    term
+  the signature its clauses justify:
+    public none | term Reject(term r)" > "$CTL/absorbed/P5.out"
+  absorbed="$(judge "$CTL/absorbed" || true)"
+  grep -q '^probe 5:' <<<"$absorbed" || {
+    echo 'SELF-TEST FAILED: probe 5 accepted an absorbed member in a pasteable'
+    echo '                  signature. ticket 68 refuses `none | term`, so the'
+    echo '                  compiler would be offering a program it rejects.'
+    fail=1
+  }
+  for n in 1 2 3 4; do
+    if grep -q "^probe $n:" <<<"$absorbed"; then
+      echo "SELF-TEST FAILED: probe $n fired on the absorbed stub, which it should pass."
+      fail=1
+    fi
+  done
+
   # --- GOOD --------------------------------------------------------------
   mkdir -p "$CTL/good"
   printf '%s\n' "$good_p1" > "$CTL/good/P1.out"
   printf '%s\n' "$good_p2" > "$CTL/good/P2.out"
   printf '%s\n' "$good_p3" > "$CTL/good/P3.out"
+  printf '%s\n' "$good_p5" > "$CTL/good/P5.out"
   : > "$CTL/good/P4.out"
   good="$(judge "$CTL/good" || true)"
   if [ -n "$good" ]; then
@@ -276,9 +351,10 @@ m.bs:4: error: Go returns a value its signature does not declare
   : > "$CTL/broken/P1.out"
   : > "$CTL/broken/P2.out"
   : > "$CTL/broken/P3.out"
+  : > "$CTL/broken/P5.out"
   printf '%s\n' "m.bs:1: error: syntax error before: 'module'" > "$CTL/broken/P4.out"
   broken="$(judge "$CTL/broken" || true)"
-  for n in 1 2 3 4; do
+  for n in 1 2 3 4 5; do
     grep -q "^probe $n:" <<<"$broken" || {
       echo "SELF-TEST FAILED: probe $n went green over a run that never compiled."
       echo "                  an absent diagnostic is not a passing measurement."
@@ -287,9 +363,10 @@ m.bs:4: error: Go returns a value its signature does not declare
   done
 
   if [ "$fail" -eq 0 ]; then
-    echo "self-test: caught three defects on different probes — the silent case, the"
-    echo "           per-clause correction that prints two contradictory lines, and"
-    echo "           the mint tag in a pasteable signature — passed each stub's other"
+    echo "self-test: caught four defects on different probes — the silent case, the"
+    echo "           per-clause correction that prints two contradictory lines, the"
+    echo "           mint tag in a pasteable signature, and the absorbed member a"
+    echo "           writable bottom introduces — passed each stub's other"
     echo "           probes, passed the decided behaviour, and refused a run that"
     echo "           never compiled. the gate discriminates and does not pass vacuously"
     exit 0
@@ -308,7 +385,8 @@ fi
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
-mkdir -p "$WORK/src/P1" "$WORK/src/P2" "$WORK/src/P3" "$WORK/src/P4" "$WORK/out"
+mkdir -p "$WORK/src/P1" "$WORK/src/P2" "$WORK/src/P3" "$WORK/src/P4" \
+         "$WORK/src/P5" "$WORK/out"
 
 cat > "$WORK/src/P1/p1.bs" <<'BS'
 module P1
@@ -342,7 +420,15 @@ public atom Answer(int n)
 Answer(n) -> :ok
 BS
 
-for p in P1 P2 P3 P4; do
+# ENG-328 / ticket 12 section 4. `none` is writable, so this is an ordinary
+# return mismatch - and the only one whose residual ABSORBS the declared type.
+cat > "$WORK/src/P5/p5.bs" <<'BS'
+module P5
+public none Reject(term r)
+Reject(r) -> r
+BS
+
+for p in P1 P2 P3 P4 P5; do
   "$BSC" --src-root "$WORK/src" -o "$WORK/out" "$WORK/src/$p" \
       > "$WORK/$p.out" 2>&1 || true
   # The gate reads the diagnostic text only; the path prefix varies per run.
@@ -360,7 +446,8 @@ if [ -n "$violations" ]; then
   exit 1
 fi
 
-echo "corrected signature: 4 probes — the line is present and pasteable, the"
+echo "corrected signature: 5 probes — the line is present and pasteable, the"
 echo "                     residual survives beside it, two clauses share one"
 echo "                     function-wide correction, no mint tag reaches a"
-echo "                     signature, and a clean module stays silent"
+echo "                     signature, a clean module stays silent, and a"
+echo '                     `none` return is corrected without an absorbed member'

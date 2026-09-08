@@ -1211,6 +1211,14 @@ subst(T, _Sub)                     -> T.
 builtin(int)  -> bs_types:int();
 builtin(atom) -> bs_types:atom_top();
 builtin(term) -> bs_types:term();
+%% The bottom, beside the top it mirrors (ticket 12 §4). It is first-class
+%% rather than checker-internal because `bs_types:to_string/1` already
+%% prints `none` into a residual: a type an agent READS in a diagnostic and
+%% cannot WRITE in a signature is a gratuitous asymmetry, and `term` is
+%% writable. What it buys is 12 §5's `Partial` benefit — a declarable
+%% never-returning function, so a crash site can be named and greppable
+%% instead of a literal `raise` at every point of failure.
+builtin(none) -> bs_types:none();
 builtin(bool) -> bs_types:union(bs_types:atom_lit(true), bs_types:atom_lit(false));
 %% `string` is `binary` refined by valid UTF-8, so it resolves to a subset
 %% and `string <: binary` falls out of the algebra (ticket 20 §4).
@@ -1251,7 +1259,7 @@ check_fn(F = #fn{name = Name, line = Line, params = Params, ret = Ret}, Ctx0) ->
                     [_ | _] = Ds -> {bs_types:none(), Ds};
                     []           -> walk(Clauses, Declared, Declared, Ctx, [], 1)
                 end,
-            Diags = with_corrected_signature(F, Diags0),
+            Diags = with_corrected_signature(F, Ctx#ctx.ret, Diags0),
             Final =
                 case bs_types:is_none(Residual) of
                     true  -> Diags;
@@ -1279,10 +1287,10 @@ check_fn(F = #fn{name = Name, line = Line, params = Params, ret = Ret}, Ctx0) ->
 %%% unioned first and the one answer is attached to all of them.
 %%% ---------------------------------------------------------------------------
 
-with_corrected_signature(F, Diags) ->
+with_corrected_signature(F, Declared, Diags) ->
     case [R || {error, _, _, {return_not_declared, R}} <- Diags] of
         []  -> Diags;
-        Rs  -> C = corrected_signature(F, bs_types:union(Rs)),
+        Rs  -> C = corrected_signature(F, Declared, bs_types:union(Rs)),
                [attach_correction(D, C) || D <- Diags]
     end.
 
@@ -1294,7 +1302,8 @@ attach_correction(D, _C) ->
 %% A signature that cannot be rendered as pasteable source is `none`, never a
 %% guess: a line that looks pasteable and is not is worse than no
 %% line (ticket 23 §2).
-corrected_signature(#fn{name = Name, ret = Ret, params = Params, vis = Vis}, Union) ->
+corrected_signature(#fn{name = Name, ret = Ret, params = Params, vis = Vis},
+                    Declared, Union) ->
     Rendered = bs_types:to_string(Union),
     case writable(Rendered) of
         false -> none;
@@ -1303,9 +1312,29 @@ corrected_signature(#fn{name = Name, ret = Ret, params = Params, vis = Vis}, Uni
                 {none, _} -> none;
                 {_, none} -> none;
                 {RetSrc, Ps} ->
-                    lists:flatten([vis_source(Vis), RetSrc, " | ", Rendered,
-                                   " ", atom_to_list(Name), "(", Ps, ")"])
+                    lists:flatten([vis_source(Vis), declared_member(Declared, RetSrc),
+                                   Rendered, " ", atom_to_list(Name), "(", Ps, ")"])
             end
+    end.
+
+%% The declared return joins the residual as a WRITTEN union member, keeping the
+%% author's own alias name rather than the algebra's expansion of it — which is
+%% why this is a concatenation and not a `bs_types:union/2`.
+%%
+%% The bottom is the one declared type that must not be written back. For every
+%% other type the concatenation is safe because the residual is the COMPLEMENT
+%% of what was declared and so cannot absorb it: `int` against a `term` body
+%% yields `int | atom | tuple | list<term> | map | binary`, never `int | term`.
+%% `none`'s complement is everything, so the residual is the whole of `term` and
+%% `none | term` is an absorbed member — which ticket 68 (ENG-332) REFUSES at a
+%% declaration. Emitting it would offer, as the line to paste, a program this
+%% compiler rejects: ticket 23 §2's failure mode reached through a type instead
+%% of through a mint tag. `none | X` is `X`, so the residual alone is both the
+%% correct answer and the pasteable one.
+declared_member(Declared, RetSrc) ->
+    case bs_types:is_none(Declared) of
+        true  -> "";
+        false -> RetSrc ++ " | "
     end.
 
 %% A rendered type is pasteable unless it contains a spelling B# source cannot
