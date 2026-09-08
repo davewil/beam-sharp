@@ -442,7 +442,7 @@ of them is a union like any other, which is why `Verdict` above needs no special
 | `(A, B)` | tuple | **shipped** |
 | `list<T>` | `[]` and `[h, ..t]` partition it, and a longer prefix narrows it: the cons cell decomposes, so length falls out without the type carrying one | **shipped** |
 | `term` | the top type — everything | **shipped** |
-| `none` | the bottom type — `raise` has it, and every exhaustive function's residual is it. First-class: writable in a signature, so a function that never returns can be declared. Not to be confused with `:nothing`, which is a value — see §7 | **shipped** |
+| `none` | the bottom type — `raise` has it, and every exhaustive function's residual is it. First-class: writable in a signature, so a function that never returns can be declared. Not to be confused with `:nothing`, which is a value, nor with C#'s `void`, which returns — see §7 | **shipped** |
 | `float` | | **open** |
 | `binary` | the top, and it stays the top — sizes are not in the type language | **shipped** |
 | `string` | `binary` refined by valid UTF-8; a literal is one by construction | **shipped** |
@@ -1169,6 +1169,17 @@ is the whole content of the declaration.
 carries. A function returning `:nothing` returns normally and hands back a value; a function
 returning `none` never hands anything back at all. They read as near-synonyms and nothing else in
 the language is as easy to swap by accident.
+
+**And `none` is not C#'s `void`** — the same warning, read from the other side. `void` says a
+method **does** return and hands back nothing worth binding; `none` says it **does not return** at
+all. C# needs `void` because a method can complete without producing a value. B# never needs it,
+because on the BEAM every call that returns, returns something — so "no useful result" is spelled
+`:nothing` or `:ok`, as a *value*. **`:nothing` is what `void` translates to here; `none` is not.**
+
+C#'s own way of saying never-returns is the `[DoesNotReturn]` attribute — an annotation the flow
+analysis reads, sitting beside a return type rather than being one. Here it *is* the return type,
+and the checker uses it as one: a raising clause contributes nothing to the type its clauses
+justify, which is why `Unwrap` above can declare `int` and mean it.
 
 That is also why escalating from
 the `result` channel to a crash is an ordinary clause and needs no `?` and no `unwrap` primitive —
