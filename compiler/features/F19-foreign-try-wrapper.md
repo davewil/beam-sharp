@@ -55,7 +55,7 @@ declaration itself. Ticket 18 §2's `admissible_foreign_ret/5` already lets `res
 because every member of it is decided by one BEAM guard in O(1).
 
 **`foreign_error` does not resolve.** `error: foreign_error is not a builtin type`. It is
-PRELUDE.md stratum 2, **decided** and unbuilt, and nothing can be declared over it until it exists.
+STANDARD-ENVIRONMENT.md stratum 2, **decided** and unbuilt, and nothing can be declared over it until it exists.
 
 **A repeated synthesised variable is a compile error, not a silent match.** Measured directly with
 `erlc`, because the wrapper binds two names per call site:

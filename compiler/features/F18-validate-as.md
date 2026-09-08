@@ -29,7 +29,7 @@ other half (18 §3's emitted guards) is not.
 **And because the decided-unbuilt table is the backlog, not the feature rows.** F16 recorded that
 the fourth starvation broke the cycle: a decision that is closed and unbuilt is a feature without a
 number yet. `ValidateAs<T>` has been closed since ticket 11 and amended by 15 on 2026-08-12 — it is
-the oldest entry in stratum 2 of `PRELUDE.md` marked **decided**, and the only one of the five
+the oldest entry in stratum 2 of `STANDARD-ENVIRONMENT.md` marked **decided**, and the only one of the five
 codegen obligations whose input type, output type and failure payload are all settled.
 
 ## The premise that was wrong, and it is a write-scope correction
@@ -152,7 +152,7 @@ used to keep 23 §5's JSON encoding out.
 `ValidationError` enters **stratum 2** of the prelude — the compiler-known stratum a user could not
 have written. Not because its *body* is unwritable (it plainly is writable, and is written above in
 stratum-1 vocabulary), but because the compiler is the only thing that constructs a value of it, and
-`PRELUDE.md`'s test for the stratum is authorship, not expressibility. This feature is also the
+`STANDARD-ENVIRONMENT.md`'s test for the stratum is authorship, not expressibility. This feature is also the
 first time `bs_check:prelude/0` is **split into the two strata** rather than being one flat map;
 stratum 1 keeps `option` and `result`, stratum 2 gains `ValidationError` and the codegen-obligation
 roster that ticket 28's bracket is restricted to.
@@ -240,7 +240,7 @@ failure clause to write.
 
 ### `string`'s membership check is generated here
 
-`PRELUDE.md` marks `string` **built as a type** and its membership check **still owed** — *"a literal
+`STANDARD-ENVIRONMENT.md` marks `string` **built as a type** and its membership check **still owed** — *"a literal
 establishes the property at compile time, and nothing else can establish it at all yet."* This
 feature discharges that for the `ValidateAs` surface and no other: `string` is `binary` refined by
 valid UTF-8 (20 §4), and the algebra holds the refinement exactly (`bins => [utf8]`), so the
@@ -291,7 +291,7 @@ produces it.
   a test asserting on nothing.
 - **`ParseAtom<T>` and `ToExistingAtom`.** The bracket now admits them and the checker refuses them
   by name. `ParseAtom<T>` is decided (10 §4) and simply unbuilt — a feature, not a ticket.
-  `ToExistingAtom` is **owed**: `PRELUDE.md` records that 10 §5 spelled it `atom | :nothing` and 15
+  `ToExistingAtom` is **owed**: `STANDARD-ENVIRONMENT.md` records that 10 §5 spelled it `atom | :nothing` and 15
   §1 later made exactly that shape an error, with two known-good answers and neither chosen. It must
   not be implemented from the prelude file, so it is not implemented here.
 - **The emitted boundary guard and the foreign wrapper** (18 §3, LANGUAGE.md §10's "Owed"). This

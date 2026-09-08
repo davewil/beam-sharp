@@ -1,12 +1,12 @@
 # The standard environment
 
-> **Renamed in substance 2026-08-25, not yet in filename.** David settled the model: one axis is
+> **Renamed 2026-08-25 in substance, 2026-09-08 in filename.** David settled the model: one axis is
 > *what ships out of the box before any external module*, called **the standard environment**
 > (Miranda's term); the other is whether an entry is reachable **unqualified**. They are independent
 > properties, so `Map.Get` is in the standard environment *and* requires a qualifier with no
-> contradiction. `CONTEXT.md` carries both terms; **"prelude" is retired**. The file is still called
-> `PRELUDE.md` because it is cited from ten places including the `check-links` gate and three
-> compiler modules — renaming it is a separate chore, deliberately not bundled here.
+> contradiction. `CONTEXT.md` carries both terms; **"prelude" is retired**. The filename followed on
+> 2026-09-08 ([ENG-322](https://linear.app/davewil/issue/ENG-322)) — 49 citations across 17 files,
+> not the ten estimated below.
 
 
 **A census, not a decision.** Everything below is either already settled by a ticket — cited — or
@@ -135,7 +135,7 @@ rejected.
 > library are parked here for want of a home and belong to that layer, not this one; ticket 48
 > decided its first module. See `CONTEXT.md` for both terms.
 
-## Not in the prelude, and a `Kernel` reader will look for them here
+## Not in the standard environment, and a `Kernel` reader will look for them here
 
 | | Where it actually lives |
 |---|---|
@@ -372,9 +372,10 @@ nothing: not implicitness (PureScript), not one thing (Rust's five), not a modul
 collection of names"*), not functions (Gleam's has none). Little is given up.
 
 **Cost, measured.** Renaming the *concept* is cheap — `CONTEXT.md` and prose. Renaming this *file*
-is a chore: `PRELUDE.md` is cited from ten places including the `check-links` gate and three
-compiler modules (`bs_check.erl`, `bs_emit.erl`, `bs_diag.erl`), plus F18, F19 and a test. The two
-can be done separately, and the concept should not wait for the file.
+was estimated at ten citations including the `check-links` gate and three compiler modules
+(`bs_check.erl`, `bs_emit.erl`, `bs_diag.erl`), plus F18, F19 and a test. *Measured 2026-09-08 when
+ENG-322 did it: 49 citations across 17 files, and `bs_emit.erl` had none.* The two were done
+separately, and the concept did not wait for the file.
 ---
 
 ## What was not decided — all seven resolved 2026-09-03 by ticket 67

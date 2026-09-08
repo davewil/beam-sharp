@@ -10,8 +10,9 @@ walk through what that buys you.
 ## How to read this
 
 This is a **tour**, not the reference. [`LANGUAGE.md`](LANGUAGE.md) states the rules;
-[`CONTEXT.md`](CONTEXT.md) defines the vocabulary; [`PRELUDE.md`](PRELUDE.md) says what
-you get without importing anything. This file walks the constructs in the order they make
+[`CONTEXT.md`](CONTEXT.md) defines the vocabulary;
+[`STANDARD-ENVIRONMENT.md`](STANDARD-ENVIRONMENT.md) says what you get without importing
+anything. This file walks the constructs in the order they make
 sense to meet, each one in a small program with a job to do, and shows what the compiler
 actually says.
 

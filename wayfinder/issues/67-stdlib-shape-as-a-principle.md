@@ -7,7 +7,7 @@ Raised 2026-08-31 by the §19-as-queue rule. The history — two strata modelled
 `Kernel.SpecialForms`, the reopening on opaque refinements, ticket 27 moving the collection library,
 the 2026-08-25 survey and David's two-axes model — is the fog body at
 [`fog.md` § Stdlib shape as a principle](../fog.md) and is not repeated here. The census is
-[`PRELUDE.md`](../../PRELUDE.md). Everything below was measured at `f310425` on 2026-09-03 against
+[`STANDARD-ENVIRONMENT.md`](../../STANDARD-ENVIRONMENT.md). Everything below was measured at `f310425` on 2026-09-03 against
 a built `bsc`, not read off a summary.
 
 ## Question

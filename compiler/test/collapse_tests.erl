@@ -78,7 +78,7 @@ result_whose_success_type_shadows_the_error_tuple_is_refused_test() ->
 
 %% CONTROL 3. Keyed on the TYPE, not on the spelling `option<...>`. Ticket 09 §4
 %% fixed that a name never enters the algebra, so this is the same type as S3 —
-%% and it is the spelling `ToExistingAtom` is written in (`PRELUDE.md:108`).
+%% and it is the spelling `ToExistingAtom` is written in (`STANDARD-ENVIRONMENT.md:108`).
 a_hand_written_alias_of_the_same_shape_is_refused_test() ->
     ?assertError({absorbed_member, _, _, nothing, _, _},
                  check_only(ret("S9", "M", "type M = atom | :nothing"))).

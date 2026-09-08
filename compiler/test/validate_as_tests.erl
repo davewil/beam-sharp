@@ -145,7 +145,7 @@ a_utf8_binary_is_a_string_test() ->
     M = build_and_load(string_src(), 'VaStr'),
     ?assertEqual(<<"h", 195, 169, "llo">>, M:'Text'(<<"h", 195, 169, "llo">>)).
 
-%% THE CHECK `PRELUDE.md` HAS BEEN RECORDING AS OWED. Until this feature a
+%% THE CHECK `STANDARD-ENVIRONMENT.md` HAS BEEN RECORDING AS OWED. Until this feature a
 %% literal was the only thing that could establish valid UTF-8, and it did so at
 %% compile time — nothing could establish it for a term that arrived from
 %% outside, which is the only place the question is interesting.
@@ -434,7 +434,7 @@ declaring_the_result_type_is_accepted_test() ->
 %%% Stratum 2 of the prelude
 %%% ---------------------------------------------------------------------------
 
-%% `PRELUDE.md`: stratum 2 is compiler-known and *"a user may not add to this
+%% `STANDARD-ENVIRONMENT.md`: stratum 2 is compiler-known and *"a user may not add to this
 %% stratum"*. Refused at the DECLARATION rather than resolved by shadowing —
 %% shadowing would leave the author with a type error somewhere else and nothing
 %% pointing at the line that caused it.

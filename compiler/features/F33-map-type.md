@@ -107,7 +107,7 @@ decomposition over an unbounded key set.
 
 ## Three things the build found that the plan did not have
 
-**The `map<K, V>` row already existed.** ENG-319 says *"`PRELUDE.md`'s stratum
+**The `map<K, V>` row already existed.** ENG-319 says *"`STANDARD-ENVIRONMENT.md`'s stratum
 tables have no `map<K, V>` row"*, and that was true when it was filed at
 `7a945bb`. Ticket 67 added the row the **same evening**, at `ef6fadf`, so the
 first edit of this session added a duplicate. The gate said so in the only way it

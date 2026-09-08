@@ -210,8 +210,8 @@ _Avoid_: type class, protocol, interface, trait, constraint
 
 **Term order**:
 The BEAM's total order over all values, which compares any two terms of any types. Reachable as a
-named prelude function; it is **not** what `<` means, since comparison operators require operands
-of the same type.
+a named operation in the standard environment; it is **not** what `<` means, since comparison
+operators require operands of the same type.
 _Avoid_: natural order, default ordering, universal comparison
 
 **Record**:
@@ -334,7 +334,8 @@ _Avoid_: API dump, export list, manifest file, test manifest
 **Elision**:
 A check the compiler decided not to emit because something else already makes it unnecessary — a
 literal that is a `string` by construction, a body whose own clause heads would reject the term, an
-inlined prelude operation. Named because an elided check makes a test of that path measure nothing.
+inlined compiler-known operation. Named because an elided check makes a test of that path measure
+nothing.
 _Avoid_: optimisation, omission, skipped check
 
 **The test boundary**:

@@ -26,7 +26,7 @@ file README.md
 file LANGUAGE.md
 file TOUR.md
 file CONTEXT.md
-file PRELUDE.md
+file STANDARD-ENVIRONMENT.md
 
 # --- The compiler's own documentation --------------------------------------
 # Not the compiler SOURCE. A clean-room recipient implements the compiler from

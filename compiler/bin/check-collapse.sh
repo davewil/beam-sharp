@@ -7,7 +7,7 @@
 # so out loud — "ticket 15 §1's collapse, met at an instantiation rather than at
 # a declaration" — and that sentence was the whole gap. Ticket 49 accepted the
 # valve's shape-C exposure ON THE GROUNDS that this refusal exists, and
-# `PRELUDE.md:108` records `ToExistingAtom` as owed for the same reason. Two
+# `STANDARD-ENVIRONMENT.md:108` records `ToExistingAtom` as owed for the same reason. Two
 # documents leaned on a check the compiler did not have.
 #
 # WHY ELEVEN SHAPES AND NOT ONE. 15 §1 names its own wrong implementation:

@@ -24,7 +24,7 @@
 Ticket 15 §1 is the sharpest kind of unbuilt decision: it is not merely absent,
 it is **cited as present**. Ticket 49 weighed three shapes for the valve and
 accepted shape C's exposure because 15 §1 was understood to refuse the case that
-makes it dangerous. `PRELUDE.md:108` records `ToExistingAtom` as **owed** for the
+makes it dangerous. `STANDARD-ENVIRONMENT.md:108` records `ToExistingAtom` as **owed** for the
 same reason. Two documents lean on a refusal the compiler does not have.
 
 F18 built the predicate at the `ValidateAs<T>` obligation site and nowhere else.

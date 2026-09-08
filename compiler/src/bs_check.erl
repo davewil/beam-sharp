@@ -15,7 +15,7 @@
 %%%
 %%% In file order: the directory-shaped module and its declaration refusals;
 %%% imports and the callee tables; surface types resolved into `bs_types`'
-%%% algebra, with the prelude and the reserved qualifiers; the corrected
+%%% algebra, with the standard environment and the reserved qualifiers; the corrected
 %%% signature; scope; the body check at the five sites where a type is
 %%% declared; patterns as types; guards as type operations. `bs_emit` reads
 %%% the resolver and the tables from here rather than keeping copies.
@@ -514,8 +514,8 @@ sig(Params, Ret, Env) ->
 %%
 %% A condition that already carries a position is re-raised untouched, so
 %% `kind_field_is_minted` and its neighbours keep the position they mint.
-%% A caller with no position to give asks for none: the prelude's entries are
-%% not declared anywhere in the file being checked.
+%% A caller with no position to give asks for none: the standard
+%% environment's entries are not declared anywhere in the file being checked.
 at_loc(undefined, Fun) ->
     Fun();
 at_loc(Loc, Fun) ->
@@ -737,7 +737,7 @@ each_member([M | Ms], [R | Rs], Before, L, Path) ->
     end,
     each_member(Ms, Rs, [R | Before], L, Path).
 
-%% The prelude's two failure members: `option<T>` is `T | :nothing` and
+%% The standard environment's two failure members: `option<T>` is `T | :nothing` and
 %% `result<T, E>` is `T | (:error, E)`. Matched on the surface node, which
 %% `subst/2` leaves untouched, since substitution only replaces a `t_ref`.
 %% This now names a HINT VARIANT rather than gating the rule (68 Q3).
@@ -824,7 +824,7 @@ type_env(Decls) ->
     %% reported name a property of the program rather than of a hash.
     %% Each entry resolves under the position of the DECLARATION it came
     %% from, so `type Wrong<T> = (T, U)` names its own line rather than the
-    %% file (F35). The prelude's entries have no declaration and resolve
+    %% file (F35). The standard environment's entries have no declaration and resolve
     %% under `undefined`, which `at_loc/2` passes through untouched.
     Locs = maps:from_list(
              [{N, L} || {type_alias, L, N, _, _} <- Decls]
@@ -846,16 +846,18 @@ type_env(Decls) ->
 alias([], Body)     -> Body;
 alias(Params, Body) -> {parametric, Params, Body}.
 
-%% The prelude is held here, spelled in the language's own alias mechanism,
-%% because there is no import system for a prelude file to arrive
+%% The standard environment is held here, spelled in the language's own alias
+%% mechanism, because there is no import system for a file of it to arrive
 %% through (ticket 10 §5, LANGUAGE.md §7). It is two maps, following
-%% `PRELUDE.md`'s strata: what a user could have written, and what only the
-%% compiler constructs. Nothing here lets a user add to it.
+%% `STANDARD-ENVIRONMENT.md`'s two kinds: declared entries, what a user could
+%% have written, and compiler-known entries, what only the compiler
+%% constructs. Nothing here lets a user add to it.
 prelude() -> maps:merge(stratum_one(), stratum_two()).
 
-%% Stratum 1: ordinary aliases a user could have written (tickets 10 §5, 15
-%% §2). Lowercase because the prelude owns that namespace as `list` does; a
-%% user's parametric alias is PascalCase, so the two cannot collide.
+%% Declared entries (`stratum_one/0`): ordinary aliases a user could have
+%% written (tickets 10 §5, 15 §2). Lowercase because the standard environment
+%% owns that namespace as `list` does; a user's parametric alias is PascalCase,
+%% so the two cannot collide.
 stratum_one() ->
     #{option => {parametric, ['T'],
                  {t_union, [{t_ref, 'T'}, {t_atom, nothing}]}},
@@ -872,16 +874,17 @@ stratum_one() ->
                      {t_tuple, [{t_atom, throw}, {t_builtin, term}]},
                      {t_tuple, [{t_atom, exit},  {t_builtin, term}]}]}}.
 
-%% Stratum 2: compiler-known types a user could not have written.
+%% Compiler-known entries (`stratum_two/0`): types a user could not have written.
 %% `ValidationError` is `ValidateAs<T>`'s payload, a path into the term plus
 %% the type expected there, spelled as a tuple (ticket 15 §2); the segment
 %% spelling (`".Total"`, `"[2]"`, `"(1)"`) is F18's. PascalCase because a
 %% signature names it.
 %%
 %% It is not made unshadowable by merge order: `type_env/1` merges user
-%% declarations over the prelude, so a user's `type ValidationError = int`
-%% would silently take effect. The rule that a user may not add to this
-%% stratum is enforced as a refusal at the declaration instead
+%% declarations over the standard environment, so a user's
+%% `type ValidationError = int` would silently take effect. The rule that a
+%% user may not add to this kind is enforced as a refusal at the declaration
+%% instead
 %% (`compiler_known_redeclared/1`), so the diagnostic lands where the fix is.
 stratum_two() ->
     #{'ValidationError' =>
@@ -945,7 +948,7 @@ order_type() ->
 reserved_arities(Q, Fun) ->
     [A || {Q1, F1, A} <- reserved_table(), Q1 =:= Q, F1 =:= Fun].
 
-%% A user may not redeclare a stratum-2 type. Every form that introduces a
+%% A user may not redeclare a compiler-known entry. Every form that introduces a
 %% type name is checked, because the hazard is the name being taken.
 compiler_known_redeclared(Decls) ->
     Known = maps:keys(stratum_two()),
@@ -1022,10 +1025,10 @@ resolve(T, Env) -> resolve(T, Env, []).
 
 resolve(T, _Env, _Seen) when is_map(T) -> T;
 resolve({t_atom, A}, _Env, _Seen)    -> bs_types:atom_lit(A);
-%% A lowercase name is a builtin or a prelude entry. `option` alone is a
+%% A lowercase name is a builtin or a declared entry. `option` alone is a
 %% known type written without its bracket, not an unknown one, and only the
-%% environment knows what the prelude holds, so the check is here rather
-%% than in `builtin/1`. A ground prelude entry such as `foreign_error`
+%% type environment knows what the standard environment holds, so the check is
+%% here rather than in `builtin/1`. A ground declared entry such as `foreign_error`
 %% resolves like any other alias, in both forms: still a surface tuple while
 %% `type_env/1` is resolving, and a reduced map afterwards (F19). It owes
 %% the same cycle guard as `{t_ref, N}`.
@@ -1066,8 +1069,8 @@ resolve({t_map, Fields}, Env, Seen) ->
     bs_types:map_closed(
       maps:from_list([{N, resolve(T, Env, ctor(Seen))} || {field, N, T} <- Fields]));
 %% `list<T>` is algebra-primitive — the list part is a pair of flags, not an
-%% alias body — so it is the one bracket that cannot be written as a prelude
-%% alias and is resolved here.
+%% alias body — so it is the one bracket that cannot be written as a declared
+%% entry and is resolved here.
 resolve({t_generic, list, [T]}, Env, Seen) ->
     bs_types:list(resolve(T, Env, ctor(Seen)));
 resolve({t_generic, list, Args}, _Env, _Seen) ->
@@ -2077,7 +2080,7 @@ reserved_op(L, Q, Fun, Args, S, C) ->
 reported() -> bs_types:none().
 
 %% `ValidateAs<T>` returns `result<T, ValidationError>`, not
-%% `T | :error` (F18, ticket 15 §2). Built from the prelude's own entry
+%% `T | :error` (F18, ticket 15 §2). Built from the standard environment's own entry
 %% rather than from a literal written here, so the two cannot drift.
 validate_result(Ty, Env) ->
     bs_types:union(Ty, validate_error(Env)).

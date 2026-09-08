@@ -562,7 +562,7 @@ jobs:
       # normalisation: `option<atom>` IS `atom`, so no caller can write the
       # failure clause. F18 built the predicate at the `ValidateAs<T>`
       # obligation site only, and two documents — ticket 49's shape C and
-      # `PRELUDE.md`'s `ToExistingAtom` entry — leaned on a declaration-site
+      # `STANDARD-ENVIRONMENT.md`'s `ToExistingAtom` entry — leaned on a declaration-site
       # refusal that did not exist.
       #
       # The roster is eleven shapes because 15 §1 names its own wrong

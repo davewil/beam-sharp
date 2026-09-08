@@ -995,8 +995,9 @@ type result<T, E> = T | (:error, E)
 ```
 
 Both are **in the compiler**, and the block above stays planned surface for one reason: they are
-**prelude** entries and the prelude namespace is lowercase, while `type` declares a PascalCase name.
-So this is what the prelude holds, not something you can type. What you can type is the use:
+**declared entries** and that namespace is lowercase, while `type` declares a PascalCase name.
+So this is what the standard environment holds, not something you can type. What you can type is
+the use:
 
 <!-- check:
 type Weighed = result<int, atom>
@@ -1178,9 +1179,10 @@ the body of the clause it should fail.*
 
 ### What a wrapped foreign call fails with
 
-`foreign_error` is the type the compiler-written wrapper produces. It is a **prelude** entry rather
-than something you declare, and it stays in the planned-surface block for the same reason `option`
-and `result` do — the prelude namespace is lowercase and `type` declares a PascalCase name:
+`foreign_error` is the type the compiler-written wrapper produces. It is a **declared entry** the
+compiler ships rather than something you write, and it stays in the planned-surface block for the
+same reason `option` and `result` do — that namespace is lowercase and `type` declares a PascalCase
+name:
 
 ```csharp not-yet
 type foreign_error = (:error, term) | (:throw, term) | (:exit, term)
@@ -1331,9 +1333,9 @@ logger being the obvious one, is **not a stage**: it takes `|>` and wraps the ch
 because skipping the stage is precisely what the valve is for.
 <!-- decided by ticket 31, measured against Plug and ASP.NET Core; the atom is ticket 49's question -->
 
-Both operators are built, and so is the collection prelude they are usually shown with.
-*Corrected 2026-09-04: this paragraph said that prelude was "**not** built", which was true when
-written and stopped being true when the reserved qualifiers below shipped.* What remains unbuilt is
+Both operators are built, and so are the collection operations they are usually shown with.
+*Corrected 2026-09-04: this paragraph said those operations were "**not** built", which was true
+when written and stopped being true when the reserved qualifiers below shipped.* What remains unbuilt is
 the function
 *value* that `f` and `g` stand for below, which this language was measured not to have — so the
 operations that take one wait with it:
@@ -1406,7 +1408,8 @@ chain."*
 ### Parametric types — shipped
 
 Ground applications and parametric aliases. `list<T>`, `option<T>` and `result<T, E>` come from the
-prelude; your own take a parameter at the declaration and are PascalCase like any other user type.
+standard environment; your own take a parameter at the declaration and are PascalCase like any
+other user type.
 
 ```csharp
 type Pair<T> = (T, T)
@@ -1735,8 +1738,8 @@ Read off the `-spec` the compiler emits for every function whose type is known:
 | `result<T, E>` | `T \| {error, E}` |
 | a record | a map carrying `'Kind'` — see below |
 
-**Two of those will surprise a BEAM caller, and both follow from the prelude rather than from
-codegen:**
+**Two of those will surprise a BEAM caller, and both follow from the standard environment rather
+than from codegen:**
 
 - **`result<T, E>` success is the bare value.** There is no `{ok, _}` wrapper, because the type is
   `T | (:error, E)` — the tag is a consequence of carrying a reason, so only the failure arm has

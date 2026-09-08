@@ -19,7 +19,7 @@
 #   have a worked example in `compiler/examples/` that `verify.sh` COMPILES ON
 #   EVERY RUN. The repository was compiling the refutation of its own README.
 #
-#   `PRELUDE.md` opened with "**Two entries.** `bs_check:prelude/0` holds
+#   `STANDARD-ENVIRONMENT.md` opened with "**Two entries.** `bs_check:prelude/0` holds
 #   `option<T>` and `result<T, E>` and nothing else", and forty lines later
 #   marked three entries **built**. The compiler's `prelude/0` is
 #   `maps:merge(stratum_one(), stratum_two())` and `stratum_one()` alone holds
@@ -33,7 +33,7 @@
 #
 # WHAT IT CHECKS
 #
-#   A. THE PRELUDE LEDGER AGAINST THE COMPILER. Each entry in `PRELUDE.md`'s
+#   A. THE PRELUDE LEDGER AGAINST THE COMPILER. Each entry in `STANDARD-ENVIRONMENT.md`'s
 #      stratum tables is probed through the public `bsc` CLI in the position it
 #      is actually used. A row marked shipped/built whose entry does not resolve
 #      is red; so is a row marked decided/owed/open whose entry does.
@@ -64,7 +64,7 @@
 # The opposite direction — a document claiming something is built when it is not
 # — only where that claim is CODE. `check-language.sh` holds that end for
 # `LANGUAGE.md`: an untagged block must compile, so a fabricated feature fails
-# there, and check A above holds it for every row of `PRELUDE.md`'s tables.
+# there, and check A above holds it for every row of `STANDARD-ENVIRONMENT.md`'s tables.
 #
 # A PROSE SENTENCE ANYWHERE ELSE CLAIMING SOMETHING IS BUILT IS STILL UNGATED.
 # `TOUR.md` or `features/README.md` can call a feature shipped that is not, and
@@ -91,7 +91,7 @@ BSC="$HERE/compiler/_build/default/bin/bsc"
 #
 # NOTE, AND IT IS A FINDING RATHER THAN AN OVERSIGHT: this set is WIDER than
 # `check-links.sh`'s package, which ships `LANGUAGE.md`, `CONTEXT.md`,
-# `PRELUDE.md`, `compiler/features/` and `compiler/examples/` and does not
+# `STANDARD-ENVIRONMENT.md`, `compiler/features/` and `compiler/examples/` and does not
 # include `README.md`, `TOUR.md` or `compiler/README.md`. Those three are read
 # by a recipient and are exactly where two of the four known contradictions
 # lived. Which set is THE package is ENG-246's question, not this gate's; until
@@ -102,7 +102,7 @@ shipping_docs() {
 README.md
 LANGUAGE.md
 TOUR.md
-PRELUDE.md
+STANDARD-ENVIRONMENT.md
 CONTEXT.md
 compiler/README.md
 compiler/features/README.md
@@ -140,7 +140,7 @@ missing_docs() {
 # THE ALIASES ARE ANCHORED AND PLURAL, AND BOTH HALVES WERE PAID FOR. The first
 # cut used `records?` unanchored and reddened two innocent lines: `compiler/
 # features/README.md` says "recorded what the unbuilt half owed" — `record`
-# inside `recorded`, `unbuilt` later in the sentence — and `PRELUDE.md` lists
+# inside `recorded`, `unbuilt` later in the sentence — and `STANDARD-ENVIRONMENT.md` lists
 # the KEYWORD `record` in a run of keywords that ends "`raise` is unbuilt".
 # Prose about the feature says "records"; the grammar's keyword is `record`.
 # Taking the plural only separates the two at no cost to what this gate is for.
@@ -257,7 +257,7 @@ resolves_as_call() {
     return "$rc"
 }
 
-# Read a row's status word out of PRELUDE.md — FROM THE STATUS COLUMN, which is
+# Read a row's status word out of STANDARD-ENVIRONMENT.md — FROM THE STATUS COLUMN, which is
 # the fourth cell of `| Entry | What | Reach | Status | Ticket |`.
 #
 # THE FIRST CUT TOOK THE FIRST BOLD WORD ON THE ROW AND THAT WAS WRONG IN A WAY
@@ -302,7 +302,7 @@ probe_entry() {
 
 check_prelude() {
     local doc="$1" n=0 listed=0 bad=0 entry form expr status want
-    [ -f "$doc" ] || { echo "check-status-claims: no PRELUDE at $doc"; return 1; }
+    [ -f "$doc" ] || { echo "check-status-claims: no STANDARD-ENVIRONMENT at $doc"; return 1; }
     while IFS='|' read -r entry form expr; do
         [ -n "$entry" ] || continue
         # DISPATCH ON THE FORM RATHER THAN SKIPPING EVERYTHING THAT IS NOT A
@@ -326,7 +326,7 @@ check_prelude() {
         # then left the same `continue` for the case where there is no row at
         # all. ENG-320.
         if [ -z "$(prelude_row "$doc" "$entry")" ]; then
-            printf 'PRELUDE.md: `%s` is named by prelude_entries and has NO row in the table.\n' \
+            printf 'STANDARD-ENVIRONMENT.md: `%s` is named by prelude_entries and has NO row in the table.\n' \
                 "$entry"
             printf '    The list and the document have drifted. Write the row, or drop the\n'
             printf '    entry — an entry with no row is not a passing entry, it is an unasked\n'
@@ -338,7 +338,7 @@ check_prelude() {
         if [ -z "$status" ]; then
             # The row exists and its status cell yields no bold word. Distinct
             # from the case above, and distinct from an unknown word below.
-            printf 'PRELUDE.md: `%s` has a row whose status cell carries no bold status word.\n' \
+            printf 'STANDARD-ENVIRONMENT.md: `%s` has a row whose status cell carries no bold status word.\n' \
                 "$entry"
             bad=$((bad + 1))
             continue
@@ -356,7 +356,7 @@ check_prelude() {
                 # An unrecognised status word means the table gained vocabulary
                 # this gate does not know. Silence there is how the blindness
                 # above survived; say so instead.
-                printf 'PRELUDE.md: `%s` has status "**%s**", which this gate does not know.\n' \
+                printf 'STANDARD-ENVIRONMENT.md: `%s` has status "**%s**", which this gate does not know.\n' \
                     "$entry" "$status"
                 printf '    Add it to the shipped/unshipped split in prelude_entries, or the row goes unchecked.\n'
                 bad=$((bad + 1))
@@ -366,13 +366,13 @@ check_prelude() {
         n=$((n + 1))
         if probe_entry "$form" "$expr"; then
             if [ "$want" = no ]; then
-                printf 'PRELUDE.md: `%s` is marked **%s**, but `%s` RESOLVES through bsc.\n' \
+                printf 'STANDARD-ENVIRONMENT.md: `%s` is marked **%s**, but `%s` RESOLVES through bsc.\n' \
                     "$entry" "$status" "$expr"
                 bad=$((bad + 1))
             fi
         else
             if [ "$want" = yes ]; then
-                printf 'PRELUDE.md: `%s` is marked **%s**, but `%s` is REFUSED by bsc.\n' \
+                printf 'STANDARD-ENVIRONMENT.md: `%s` is marked **%s**, but `%s` is REFUSED by bsc.\n' \
                     "$entry" "$status" "$expr"
                 bad=$((bad + 1))
             fi
@@ -567,7 +567,7 @@ check_open_tickets() {
 #   7. The feature table split — a blank line, and then a prose line, inserted
 #      before a row in the middle of it. Every row still exists, so control 2
 #      is blind to both.
-#   8. An entry in `prelude_entries` with NO row in PRELUDE.md. Controls 1 and
+#   8. An entry in `prelude_entries` with NO row in STANDARD-ENVIRONMENT.md. Controls 1 and
 #      4 both mutate a row that exists, so both are blind to an entry the table
 #      never carried — which is how `map<K, V>` went nine days unprobed while
 #      the count line read like a full sweep (ENG-320). Its over-informed half
@@ -594,8 +594,8 @@ if [ "${1:-}" = "--self-test" ]; then
     # `option<T>` is marked **shipped**. Rename the entry the table names to one
     # that does not resolve, leaving the status word alone.
     sed 's/^| `option<T>` | `type option<T>/| `option<T>` | `type nosuchtype<T>/' \
-        "$CTL/PRELUDE.md" > "$CTL/p1.md" || true
-    out="$(CHECK_STATUS_DIR="$CTL" check_prelude "$CTL/PRELUDE.md" 2>&1)"; rc=$?
+        "$CTL/STANDARD-ENVIRONMENT.md" > "$CTL/p1.md" || true
+    out="$(CHECK_STATUS_DIR="$CTL" check_prelude "$CTL/STANDARD-ENVIRONMENT.md" 2>&1)"; rc=$?
     if [ "$rc" -ne 0 ]; then
         echo "SELF-TEST FAILED: the committed prelude table is already red, so control 1"
         echo "                  cannot be told from the baseline."
@@ -608,7 +608,7 @@ if [ "${1:-}" = "--self-test" ]; then
     # deletion would have reddened this mutation for a reason that is not the
     # mutation, and a control that can pass for the wrong reason is not one.
     sed 's/| `ParseAtom<T>` \(.*\)\*\*decided\*\*/| `ParseAtom<T>` \1**built**/' \
-        "$CTL/PRELUDE.md" > "$CTL/PRELUDE.mut.md"
+        "$CTL/STANDARD-ENVIRONMENT.md" > "$CTL/PRELUDE.mut.md"
     out="$(check_prelude "$CTL/PRELUDE.mut.md" 2>&1)"; rc=$?
     if [ "$rc" -eq 0 ]; then
         echo "SELF-TEST FAILED: a prelude entry marked **built** that bsc REFUSES was not"
@@ -618,7 +618,7 @@ if [ "${1:-}" = "--self-test" ]; then
 
     # --- control 4: a decided row the compiler resolves ---------------------
     # The `foreign_error` case: shipped in stratum_one, documented as decided.
-    sed 's/| `bool` \(.*\)\*\*decided\*\*/| `bool` \1**decided**/' "$CTL/PRELUDE.md" > "$CTL/PRELUDE.m4.md"
+    sed 's/| `bool` \(.*\)\*\*decided\*\*/| `bool` \1**decided**/' "$CTL/STANDARD-ENVIRONMENT.md" > "$CTL/PRELUDE.m4.md"
     out="$(check_prelude "$CTL/PRELUDE.m4.md" 2>&1)"; rc=$?
     if ! printf '%s' "$out" | grep -q 'prelude entries probed'; then
         echo "SELF-TEST FAILED: the prelude check did not report how many rows it probed,"
@@ -628,11 +628,11 @@ if [ "${1:-}" = "--self-test" ]; then
 
     # --- control 8: an entry the list names and the table does not carry ----
     # ENG-320. `map<K, V>` sat in prelude_entries from 2026-08-26 (`aa04d0c`)
-    # with no row in PRELUDE.md, and the loop's `[ -n "$status" ] || continue`
+    # with no row in STANDARD-ENVIRONMENT.md, and the loop's `[ -n "$status" ] || continue`
     # skipped it in silence for nine days while `prelude entries probed: N`
     # read exactly like a full sweep. The rule: an entry the list names and the
     # table does not carry is RED, and the red names the entry.
-    sed '/^| `map<K, V>` /d' "$CTL/PRELUDE.md" > "$CTL/PRELUDE.m8.md"
+    sed '/^| `map<K, V>` /d' "$CTL/STANDARD-ENVIRONMENT.md" > "$CTL/PRELUDE.m8.md"
     if [ "$(grep -cF '| `map<K, V>`' "$CTL/PRELUDE.m8.md")" -ne 0 ]; then
         echo "SELF-TEST FAILED: control 8 did not remove the \`map<K, V>\` row, so it is"
         echo "                  measuring the committed table, not a missing row."
@@ -640,7 +640,7 @@ if [ "${1:-}" = "--self-test" ]; then
     fi
     out="$(check_prelude "$CTL/PRELUDE.m8.md" 2>&1)"; rc=$?
     if [ "$rc" -eq 0 ]; then
-        echo "SELF-TEST FAILED: an entry in prelude_entries with NO row in PRELUDE.md was"
+        echo "SELF-TEST FAILED: an entry in prelude_entries with NO row in STANDARD-ENVIRONMENT.md was"
         echo "                  skipped and the gate passed. That is ENG-320 exactly — the"
         echo "                  list and the table drift apart, and the count line still"
         echo "                  reads like a full sweep."
@@ -652,7 +652,7 @@ if [ "${1:-}" = "--self-test" ]; then
         fail=1
     fi
 
-    # THE OVER-INFORMED CONTROL for the same rule. PRELUDE.md's two-axes table
+    # THE OVER-INFORMED CONTROL for the same rule. STANDARD-ENVIRONMENT.md's two-axes table
     # has a row whose FIRST CELL lists four type names in prose — `list<T>`,
     # `option<T>`, `result<T, E>`, `map<K, V>` — three of them named by
     # prelude_entries. It is not any of their rows. `prelude_status` anchors on
@@ -660,7 +660,7 @@ if [ "${1:-}" = "--self-test" ]; then
     # cannot match it; this control pins that, because a row-existence test
     # written as a bare `grep -F "\`$entry\`"` would find that line, call the
     # row present, and hand the silence straight back.
-    sed '/^| `option<T>` /d' "$CTL/PRELUDE.md" > "$CTL/PRELUDE.m8b.md"
+    sed '/^| `option<T>` /d' "$CTL/STANDARD-ENVIRONMENT.md" > "$CTL/PRELUDE.m8b.md"
     if ! grep -q 'option<T>' "$CTL/PRELUDE.m8b.md"; then
         echo "SELF-TEST FAILED: control 8b removed every mention of \`option<T>\`, so it no"
         echo "                  longer tells a row from a prose mention."
@@ -679,7 +679,7 @@ if [ "${1:-}" = "--self-test" ]; then
     # fail. Distinct from the unknown-vocabulary case below it, which fires on
     # a bold word the gate does not know rather than on no bold word at all.
     sed 's/^| `map<K, V>` .*/| `map<K, V>` | the map type | unqualified | built, with no bold word | 48 |/' \
-        "$CTL/PRELUDE.md" > "$CTL/PRELUDE.m8c.md"
+        "$CTL/STANDARD-ENVIRONMENT.md" > "$CTL/PRELUDE.m8c.md"
     if ! grep -q 'with no bold word' "$CTL/PRELUDE.m8c.md"; then
         echo "SELF-TEST FAILED: control 8c did not rewrite the \`map<K, V>\` row, so it is"
         echo "                  not measuring a row with an unbolded status cell."
@@ -695,7 +695,7 @@ if [ "${1:-}" = "--self-test" ]; then
     # Owed item 3 of ENG-320: the count line must carry the list length beside
     # the probed count. Nothing compared N to the length, so 10-of-11 and
     # 11-of-11 printed the same line.
-    out="$(check_prelude "$CTL/PRELUDE.md" 2>&1)"
+    out="$(check_prelude "$CTL/STANDARD-ENVIRONMENT.md" 2>&1)"
     if ! printf '%s' "$out" | grep -qE 'prelude entries probed: [0-9]+ of [0-9]+'; then
         echo "SELF-TEST FAILED: the probed count does not name the list length beside it, so"
         echo "                  a sweep that skipped an entry prints what a full one prints."
@@ -884,7 +884,7 @@ missing_docs "$DOCROOT" || rc=1
 
 echo
 echo "--- A. the prelude ledger against the compiler"
-check_prelude "$DOCROOT/PRELUDE.md" || rc=1
+check_prelude "$DOCROOT/STANDARD-ENVIRONMENT.md" || rc=1
 
 echo
 echo "--- B. every feature file has a row in the index"

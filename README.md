@@ -150,7 +150,7 @@ begin; it never guesses.
 |---|---|
 | [`TOUR.md`](TOUR.md) | the language as a narrative, every line quoted from the corpus and every transcript replayed by CI |
 | [`LANGUAGE.md`](LANGUAGE.md) | the reference. Untagged blocks compile; `not-yet` blocks are decided syntax the compiler has not reached |
-| [`PRELUDE.md`](PRELUDE.md) | what the prelude contains, and what it deliberately does not |
+| [`STANDARD-ENVIRONMENT.md`](STANDARD-ENVIRONMENT.md) | what the standard environment contains, and what it deliberately does not |
 | [`CONTEXT.md`](CONTEXT.md) | the glossary. Terms only — what a word means, never why it was chosen |
 | [`compiler/features/`](compiler/features/) | numbered capabilities, each citing the decisions it implements |
 | [`compiler/examples/`](compiler/examples/) | the corpus every gate compiles |

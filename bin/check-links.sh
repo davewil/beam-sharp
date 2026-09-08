@@ -3,7 +3,7 @@
 # The clean-room handoff package must not point at things the reader will not have.
 #
 # WHY THIS EXISTS
-# The package that ships is `LANGUAGE.md`, `CONTEXT.md`, `PRELUDE.md`,
+# The package that ships is `LANGUAGE.md`, `CONTEXT.md`, `STANDARD-ENVIRONMENT.md`,
 # `compiler/features/` and `compiler/examples/`. `wayfinder/` — 4.1M of tickets,
 # research and prototypes — does NOT ship. Measured 2026-08-18, that package
 # carried 341 references out of itself and, worse, **26 citations of
@@ -145,7 +145,7 @@ DOCS=(
     LANGUAGE.md
     TOUR.md
     CONTEXT.md
-    PRELUDE.md
+    STANDARD-ENVIRONMENT.md
     compiler/README.md
     compiler/examples/exemplars/README.md
 )

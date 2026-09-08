@@ -419,10 +419,10 @@ built(Path, {cyclic_type, N}) ->
 %% alternative is expanding forever (F28).
 built(Path, {non_regular_recursion, N}) ->
     #{tag => non_regular_recursion, severity => error, file => Path, type => N};
-%% Stratum 2 of the prelude is compiler-known and a user may not redeclare it.
+%% A compiler-known entry of the standard environment may not be redeclared.
 %% Refused at the declaration rather than resolved by shadowing, because the
 %% alternative is a type error elsewhere with nothing pointing at the cause
-%% (F18, ticket 27 §8, `PRELUDE.md`).
+%% (F18, ticket 27 §8, `STANDARD-ENVIRONMENT.md`).
 built(Path, {compiler_known_type, Name, Line}) ->
     #{tag => compiler_known_type, severity => error, file => Path, line => Line,
       type => Name};
@@ -997,10 +997,10 @@ message(#{tag := not_an_obligation, file := P, line := L, column := C, function 
       lists:join(", ", [atom_to_list(N) || N <- Names])]};
 message(#{tag := compiler_known_type, file := P, line := L, column := C, type := Name}) ->
     {"~s:~p:~p: error: ~s is a compiler-known type and cannot be redeclared~n"
-     "  the prelude has two strata: ordinary aliases you could have~n"
-     "  written, and names the compiler owns because it is the only thing~n"
-     "  that builds a value of them. ~s is in the second. Pick another~n"
-     "  name.~n",
+     "  the standard environment has two kinds of entry: declared entries,~n"
+     "  ordinary aliases you could have written, and compiler-known entries,~n"
+     "  names the compiler owns because it is the only thing that builds a~n"
+     "  value of them. ~s is compiler-known. Pick another name.~n",
      [P, L, C, Name, Name]};
 
 %%% --- the fatal ones --------------------------------------------------------
@@ -1087,7 +1087,7 @@ message(#{tag := opaque_ret_at_boundary, file := P, line := L, column := C, modu
      [P, L, C, Mod, Fun]};
 message(#{tag := unknown_generic, file := P, type := N}) ->
     {"~s: error: no type named ~s takes a type argument~n"
-     "  the prelude has `list<T>`, `option<T>` and `result<T, E>`;~n"
+     "  the standard environment has `list<T>`, `option<T>` and `result<T, E>`;~n"
      "  your own take one with `type ~s<T> = ...`.~n",
      [P, N, N]};
 message(#{tag := generic_arity, type := N, want := Want,
