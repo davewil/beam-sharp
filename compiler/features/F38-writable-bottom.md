@@ -1,11 +1,12 @@
 # F38 — the bottom is writable: `none` in a signature
 
-**Status**      **done 2026-09-08** — 4 new tests, 693 in the suite, up from 689.
+**Status**      **done 2026-09-08** — 6 new tests, 695 in the suite, up from 689.
                 No new gate. `check-corrected-signature.sh` gained a fifth probe
                 and a fifth `--self-test` stub, because the defect this feature
                 surfaced is one that gate already exists to prevent — a line
                 that looks pasteable and is not — reached through a type instead
-                of through a mint tag
+                of through a mint tag. `./bin/verify.sh` green **twice from a
+                clean clone**, 38/38 stages both times
 **Implements**  [ticket 12](../../wayfinder/issues/12-totality-vs-let-it-crash.md)
                 §4, the half F34 left, and through it §5's `Partial` benefit
 **Closes**      [ENG-328](https://linear.app/davewil/issue/ENG-328)
@@ -68,10 +69,10 @@ site had to be a literal `raise` at the point of failure.
 
 ### F38.2 — the test that separates `none` from `term`
 
-Three of the four new tests pass under a build that resolved `none` to the
+Most of the six new tests pass under a build that resolved `none` to the
 **top**: a raising body satisfies `term` too, the declaration parses either way,
-and the spec block compiles either way. Only a body that **returns a value**
-separates the two readings — against `none` it must be refused, since no value
+the emitted function runs either way, and the spec block compiles either way.
+Only a body that **returns a value** separates the two readings — against `none` it must be refused, since no value
 inhabits the empty type, and against `term` it is the most ordinary program
 there is.
 
@@ -144,6 +145,36 @@ compiler. That is cheap and is not a habit anything in the repository currently
 enforces; it is the only reason this shipped correct.
 
 ## What this leaves
+
+### F38.5 — the other type positions, measured and not decided
+
+`builtin/1` is consulted wherever a type is named, so `none` became writable in
+**every** position at once, not only in a return. Measured after the change, and
+recorded here rather than frozen in a test, because **nothing decided any of
+it** — it falls out of the algebra, and a test would certify as intended what
+no ticket has chosen:
+
+| written | what happens today |
+| --- | --- |
+| `public Never Reject(term r)` where `type Never = none` | works, and the corrected signature resolves through the alias — this one *is* tested, being the control that says the repair keys on the resolved type and not on the source text |
+| `public int F(none n)` | compiles with a **warning**: *"clause 1 of F matches no value of its input … no call can reach this clause"*. Correct and already-existing behaviour for a vacuous clause; whether declaring an uncallable function should instead be refused is undecided |
+| `public int F(list<none> xs)` | compiles silently. `list<none>` is the empty list and nothing else, which is arguably the right answer and is nobody's decision yet |
+
+If any of these should be refused rather than allowed, that is a ticket, not a
+build — per CLAUDE.md, *a feature that needs a decision raises a ticket rather
+than making one*.
+
+### F38.6 — the builtin slice is enumerated twice, by hand
+
+`bs_check:builtin/1` has one clause per builtin and `bs_diag`'s
+`unknown_builtin` message lists them in prose; adding `none` meant editing both,
+and nothing holds them together. ENG-328 named this — *"the refusal message's
+list of builtins updated in step — it enumerates the slice by hand"* — and asked
+only for the update, so deriving the message from the clause list was left
+alone. It is the obvious next tidy-up and would need a `builtins/0` the message
+and the resolver share.
+
+### F38.7 — the roster
 
 `none` is not in `corpus_tests:demonstrated_surface/0`. That roster names
 capabilities that owe a corpus example, and no builtin **type name** has a row —

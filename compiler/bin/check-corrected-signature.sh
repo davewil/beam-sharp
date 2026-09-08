@@ -134,19 +134,11 @@ judge() {
 
   # PROBE 5 — a `none` return's correction carries NO ABSORBED MEMBER.
   #
-  # The line is built by concatenating the declared return's SOURCE TEXT with
-  # the rendered residual, which is safe for every other type because the
-  # residual is the COMPLEMENT of what was declared and so cannot absorb it:
-  # `int` against a `term` body prints `int | atom | tuple | ...`, never
-  # `int | term`. The bottom is the one type that breaks it. `none`'s
-  # complement is everything, so the concatenation yields `none | term` — and
-  # ticket 68, built as ENG-332, REFUSES an absorbed member at a declaration.
-  #
-  # So the compiler would be printing, as the line to paste, a program it
-  # rejects. That is precisely ticket 23 §2's failure mode — a line that looks
-  # pasteable and is not is worse than no line — reached through a type rather
-  # than through a mint tag, which is why it needs its own probe and not an
-  # extension of probe 3.
+  # Ticket 68 refuses `none | term` at a declaration, so a correction that
+  # printed it would be a program this compiler rejects, offered as the fix —
+  # ticket 23 §2's failure mode reached through a TYPE rather than through the
+  # mint tag probe 3 covers, which is why it is its own probe. Why the bottom
+  # is the only declared type that gets here: F38 §F38.3.
   if ! grep -qF "$HEADING" <<<"$p5"; then
     echo 'probe 5: no corrected signature for a return mismatch under `none`.'
     echo '         `none` is writable since ENG-328, so this is an ordinary'
@@ -301,10 +293,10 @@ m.bs:4: error: Go returns a value its signature does not declare
   # --- ABSORBED ----------------------------------------------------------
   #
   # THE STUB PROBE 5 EXISTS FOR, and it is the plausible-but-wrong fix rather
-  # than an absurd one: it is what the printer does when `none` becomes
-  # writable and nobody teaches the concatenation about the bottom. Every line
-  # is present, well-formed and function-wide - probes 1 to 4 all pass - and
-  # the one line offered for pasting is a program ticket 68 refuses.
+  # than an absurd one: it is what the printer does when nobody teaches the
+  # concatenation about the bottom. Every line is present, well-formed and
+  # function-wide — probes 1 to 4 all pass — and the one line offered for
+  # pasting is a program ticket 68 refuses.
   mkdir -p "$CTL/absorbed"
   printf '%s\n' "$good_p1" > "$CTL/absorbed/P1.out"
   printf '%s\n' "$good_p2" > "$CTL/absorbed/P2.out"

@@ -2072,7 +2072,7 @@ the parser accepts back exactly what the printer emits. **shipped**
   **the writable bottom shipped 2026-09-08 (ENG-328)**, so `none` can now be declared as a return
   and §7 demonstrates it. *Corrected 2026-09-05: this also said `map<K, V>` remains unbuilt, which
   had shipped the day before it was written.*
-  <!-- tracked by ENG-281 --> <!-- built by F32, F33, F34 and ENG-328; ENG-324 remains -->
+  <!-- tracked by ENG-281 --> <!-- built by F32, F33, F34 and F38; ENG-324 remains -->
 - **`cond`**, or whatever serves a long ladder of unrelated conditions. <!-- tracked by ENG-282 -->
 - **Laziness** and `stream<T>` — deferred, not refused. <!-- tracked by ENG-283 -->
 - **Bootstrapping** — how much of B# is written in B#. The front end likely stays Erlang, as

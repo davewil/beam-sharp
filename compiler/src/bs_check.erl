@@ -1317,20 +1317,13 @@ corrected_signature(#fn{name = Name, ret = Ret, params = Params, vis = Vis},
             end
     end.
 
-%% The declared return joins the residual as a WRITTEN union member, keeping the
-%% author's own alias name rather than the algebra's expansion of it — which is
-%% why this is a concatenation and not a `bs_types:union/2`.
-%%
-%% The bottom is the one declared type that must not be written back. For every
-%% other type the concatenation is safe because the residual is the COMPLEMENT
-%% of what was declared and so cannot absorb it: `int` against a `term` body
-%% yields `int | atom | tuple | list<term> | map | binary`, never `int | term`.
-%% `none`'s complement is everything, so the residual is the whole of `term` and
-%% `none | term` is an absorbed member — which ticket 68 (ENG-332) REFUSES at a
-%% declaration. Emitting it would offer, as the line to paste, a program this
-%% compiler rejects: ticket 23 §2's failure mode reached through a type instead
-%% of through a mint tag. `none | X` is `X`, so the residual alone is both the
-%% correct answer and the pasteable one.
+%% The declared return is written back as a union member to keep the author's
+%% own alias name, which is why this is a concatenation and not a
+%% `bs_types:union/2`. The bottom is the one type that must not be: `none | X`
+%% is `X`, and ticket 68 refuses the absorbed member — so emitting it would
+%% offer a program this compiler rejects. Tested on the RESOLVED type, so an
+%% alias for the bottom is caught too. Why no other type reaches this:
+%% `compiler/features/F38-writable-bottom.md` §F38.3.
 declared_member(Declared, RetSrc) ->
     case bs_types:is_none(Declared) of
         true  -> "";

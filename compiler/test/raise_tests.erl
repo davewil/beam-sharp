@@ -15,6 +15,14 @@
 %%% The two refusals (`raise` in a guard, `raise` as a name) are asserted
 %%% through `check_only/1` rather than the CLI because both are decisions about
 %%% where the word may appear, and the diagnostic tag is the stable surface.
+%%%
+%%% The `none` refusals below are a THIRD category — a type rule, not a
+%%% placement rule — and they use the same helper for a different reason:
+%%% `return_not_declared` is the tag `body_check_tests` already asserts this way
+%%% (`body_check_tests.erl:31`), so the two files agree on what a return
+%%% mismatch looks like. The line an author actually READS for this rule is
+%%% asserted at the CLI, in `corrected_signature_tests`, because what is worth
+%%% pinning there is the pasteable signature and not the tag.
 
 -module(raise_tests).
 
@@ -175,7 +183,21 @@ reject_src() ->
 %% propagating constraint. Before this, every crash site had to be a literal
 %% `raise` at the point of failure, because the function that does nothing but
 %% crash could not be DECLARED.
-a_none_return_may_be_declared_test() ->
+%%
+%% Asserted at this file's own boundary — a loaded `.beam` called, and the way
+%% the call fails compared — rather than through `check_only/1`. Type-checking
+%% clean is the weaker claim: it would hold for a build that accepted the
+%% declaration and emitted nothing callable. The `Partial` benefit is a crash
+%% site that RUNS, so the assertion is the crash.
+a_none_return_may_be_declared_and_the_function_runs_test() ->
+    M = build_and_load(reject_src(), 'Rejecting'),
+    ?assertError({rejected, 7}, M:'Reject'(7)).
+
+%% ...and it declares cleanly, with no corrected-signature warning beside it.
+%% Separate from the run because F25's report is a WARNING in some shapes: a
+%% check that only asked "did it load and crash" would pass while the compiler
+%% told the author their `none` signature needed widening.
+a_none_return_declares_without_a_diagnostic_test() ->
     {ok, _, Diags} = check_only(reject_src()),
     ?assertEqual([], Diags).
 
@@ -193,6 +215,20 @@ a_none_return_refuses_a_returned_value_test() ->
           "Reject(r) -> r\n",
     ?assertMatch([{error, _, 'Reject', {return_not_declared, _, _}} | _],
                  errors(Src)).
+
+%% THE CONTROL THAT SAYS THE FIX IS RIGHT BY CONSTRUCTION AND NOT BY LUCK.
+%% The corrected-signature repair keys on the RESOLVED declared type being
+%% empty, not on its source text reading `none`. An alias is what separates the
+%% two: a printer that matched the string would emit `public Never | term`,
+%% which ticket 68 refuses exactly as it refuses `none | term` — the same defect
+%% wearing the author's own name for the bottom.
+a_none_behind_an_alias_is_still_the_bottom_test() ->
+    Src = "module Rejecting\n"
+          "type Never = none\n"
+          "public Never Reject(term r)\n"
+          "Reject(r) -> r\n",
+    [{error, _, 'Reject', {return_not_declared, _, Corrected}} | _] = errors(Src),
+    ?assertEqual("public term Reject(term r)", Corrected).
 
 %% A raising clause may stand beside one that returns — but not under a `none`
 %% return, because the returning clause is exactly the value the type refuses.
