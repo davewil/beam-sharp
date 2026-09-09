@@ -1,0 +1,7 @@
+module Leak
+public term Take(term t)
+
+Take(t) -> t switch {
+    (:left, a)  => b,
+    (:right, b) => b
+}

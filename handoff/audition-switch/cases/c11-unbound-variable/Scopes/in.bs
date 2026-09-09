@@ -1,0 +1,7 @@
+module Scopes
+public term Bad(term e)
+
+Bad(e) -> e switch {
+    (:ok, v) => w,
+    (:no, w) => w
+}

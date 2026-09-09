@@ -1,0 +1,10 @@
+module Scored
+type Verdict = :pass | :fail
+
+public int Score(Verdict v)
+
+Score(v) -> v switch {
+    (:pass, n) => n,
+    :pass      => 1,
+    :fail      => 0
+}

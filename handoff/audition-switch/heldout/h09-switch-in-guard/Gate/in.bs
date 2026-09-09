@@ -1,0 +1,5 @@
+module Gate
+public atom Allow(int n)
+
+Allow(n) when n switch { 0 => true, _ => false } -> :zero
+Allow(n) -> :other

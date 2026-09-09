@@ -1,0 +1,7 @@
+module Sizes
+public atom Bucket(int n)
+
+Bucket(n) -> n switch {
+    :small => :s,
+    _      => :other
+}

@@ -50,19 +50,41 @@ was missed by both earlier counts. It is asserted in the suite as a **bare atom*
 `{tag, ...}` sees six and reports a clean number. It was as unspecified as the
 other two.
 
-All seven are now stated in §5 with a worked example each, and the examples are
+All seven were stated in §5 with a worked example each, and the examples are
 compiled on every CI run: `check-language.sh` asserts each block provokes that
 diagnostic **and no other**, and `check-switch-diagnostics.sh` re-reads
 `switch_tests.erl` to assert every diagnostic a `switch` can provoke has such an
 example, inside a section the packet ships. The surface is re-measured rather
 than listed, precisely because a list is what carried the miscount for a week.
 
-**The marking still uses four tags**, and deliberately. `cases/` and
-`expected/` are the measuring instrument; changing them invalidates the results
-already recorded against them without producing replacements. The three
-newly-specified diagnostics are now derivable from the packet — which is the
-bar this file sets for a held-out case — so cases for them are the obvious next
-increment, and they need a fresh engine run to be worth anything.
+**Seven became nine on 2026-08-28, the day after the count was written down.**
+`vacuous_arm` and `unsatisfiable_arm_guard` arrived with the valve work in
+`c7c99be`, and the number seven survived in this file and in ENG-248 for eleven
+days because both were re-read rather than re-measured. The gate was right the
+whole time: it re-reads the suite and has been reporting nine since the day they
+landed. **This is the same failure the miscount above was about, caught by the
+same instrument and believed a fortnight later anyway** — which is the argument
+for the gate and against the sentence.
+
+**The marking used four tags until 2026-09-09; it now uses nine.** `cases/` and
+`expected/` are the measuring instrument, so growing them invalidates the
+results already recorded against them — which is why it was held off. What
+released it is that those results had been overtaken regardless: the packet was
+rebuilt on 2026-09-02 (`be6307b`), so the scores below already described an
+artifact that no longer exists. There was no longer a live measurement to
+protect.
+
+**Ten cases were added, not five.** A visible case and a structurally unlike
+held-out case for each of `arg_not_accepted`, `switch_in_guard`,
+`unbound_variable`, `vacuous_arm` and `unsatisfiable_arm_guard`. Adding only the
+visible half would have grown the tutorial and left the exam still testing four
+of the nine diagnostics the specification states — and the visible score is the
+one this file already demonstrates cannot tell an implementation from a lookup
+table.
+
+**The scores below were measured against a fifteen-case instrument; the next run
+is against twenty-five. The two are not comparable.** The earlier numbers stay
+as the record of what they measured, not as a baseline to beat.
 
 **The packet changed on 2026-08-27, and the scores below predate it.** §5 is
 longer by seven examples, and `build-packet.py` now strips every HTML comment
@@ -207,10 +229,16 @@ program, now derivable from the packet rather than contradicted by it.
 
 ## The held-out set
 
-Seven cases, none staged, every expectation recorded by `oracle.sh` rather than
+Twelve cases, none staged, every expectation recorded by `oracle.sh` rather than
 typed. Each is derivable from the packet — the third column names the sentence
 that decides it — and each is structurally unlike anything in `cases/`, because
 a held-out case that rhymes with a visible one tests nothing new.
+
+`h08`–`h12` were added on 2026-09-09 with the vocabulary. Their visible partners
+`c09`–`c13` are §5's own worked examples, so the held-out five deliberately are
+not: each states the same rule through a different subject type, a different
+arity or a different operator, because a worker that pattern-matched §5's text
+would otherwise score on recognition.
 
 | case | compiler says | derivable from |
 |---|---|---|
@@ -221,6 +249,11 @@ a held-out case that rhymes with a visible one tests nothing new.
 | `h05-catchall-over-closed` | `unreachable_arm` | §5's `_` rule, reached from the other side — both arms of a closed type are covered, so `_` matches nothing |
 | `h06-tuple-mixed` | `switch_inexhaustive` | §5's tuple subject, with a closed type on one axis rather than two `bool`s |
 | `h07-atom-return` | `return_not_declared` | §2's mandatory signature, with an `int` arm under an `atom` return |
+| `h08-arg-not-accepted` | `arg_not_accepted` | §5: an arm's body "still has to satisfy the functions that arm hands it to" — here an `int` handed to a `bool` parameter, where §5's example hands one to an `atom` |
+| `h09-switch-in-guard` | `switch_in_guard` | §5: a guard "asks a question about the values a clause already matched, it cannot branch" — over an `int` subject rather than §5's `atom` |
+| `h10-unbound-variable` | `unbound_variable` | §5: "A name bound by one arm's pattern is not in scope in another arm's body" — the borrowed name is in the first arm, with the arms' tags renamed |
+| `h11-vacuous-arm` | `vacuous_arm` | §5's vacuity rule from the other side: an atom pattern against an `int` subject, where §5 puts a tuple against an atom union. The subject type is primitive rather than declared, so nothing in the file names the members |
+| `h12-unsatisfiable-guard` | `unsatisfiable_arm_guard` | §5's guard rule with crossing `>=` and `<=` bounds rather than `>` and `<`, and the dead arm returning an atom rather than an `int` |
 
 **`h05` deserves a note.** §5 says the catch-all-over-closed rule "is decided and
 is **not yet enforced**", which invites a worker to expect silence. The compiler

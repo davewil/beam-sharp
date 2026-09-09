@@ -1,0 +1,12 @@
+module Dispatch
+public bool Hot(int c)
+Hot(c) -> c > 30
+
+public atom Label(bool b)
+Label(b) -> :labelled
+
+public atom Report(int c)
+Report(c) -> c switch {
+    d when Hot(d) => Label(d),
+    _             => :cold
+}

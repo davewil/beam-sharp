@@ -1,0 +1,5 @@
+module Guarded
+public atom F(atom x)
+
+F(x) when x switch { :a => true, _ => false } -> :yes
+F(x) -> :no

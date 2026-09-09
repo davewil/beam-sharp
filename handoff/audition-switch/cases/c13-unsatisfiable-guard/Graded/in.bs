@@ -1,0 +1,7 @@
+module Graded
+public int Grade(int n)
+
+Grade(n) -> n switch {
+    x when x > 5 and x < 3 => 0,
+    x                      => 1
+}

@@ -1,0 +1,12 @@
+module Calls
+public bool Big(int n)
+Big(n) -> n > 100
+
+public atom Tag(atom a)
+Tag(a) -> :seen
+
+public atom Check(int n)
+Check(n) -> n switch {
+    m when Big(m) => Tag(m),
+    _             => :small
+}

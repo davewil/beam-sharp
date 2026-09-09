@@ -84,19 +84,23 @@ These are the only tags you may print:
 
     switch_inexhaustive
     unreachable_arm
+    vacuous_arm
+    unsatisfiable_arm_guard
     rebinding
+    unbound_variable
     return_not_declared
+    arg_not_accepted
+    switch_in_guard
 
 **What each of those means is for you to determine from the specification
 below.** The names are listed so that your output can be compared
 mechanically — they are a vocabulary, not a definition of the rules.
 
-The specification describes **more diagnostics than this exercise marks**. It is
-the language reference, not a task sheet, and it is given to you whole rather
-than filtered so that nothing it says is missing a reason. Where it describes a
-diagnostic that is not in the list above, that rule is still true of the
-language and no file you are given violates it — say nothing about it. Printing
-a tag outside the list fails a case exactly as a wrong tag would.
+The specification is the language reference, not a task sheet, and it is given
+to you whole rather than filtered so that nothing it says is missing a reason.
+Where it describes a rule whose diagnostic is not in the list above, that rule
+is still true of the language — say nothing about it. Printing a tag outside the
+list fails a case exactly as a wrong tag would.
 
 Exit code is ignored. Order does not matter and duplicates are ignored; only
 the set of tags is compared.
@@ -150,7 +154,9 @@ body = re.sub(r"^<!--(?!\s*check:).*?-->\n", "", body, flags=re.M | re.S)
 out = os.path.join(HERE, "PACKET.md")
 content = BRIEF + body + "\n"
 
-leaks = [t for t in ("switch_inexhaustive", "unreachable_arm", "rebinding", "return_not_declared")
+leaks = [t for t in ("switch_inexhaustive", "unreachable_arm", "vacuous_arm",
+                     "unsatisfiable_arm_guard", "rebinding", "unbound_variable",
+                     "return_not_declared", "arg_not_accepted", "switch_in_guard")
          if re.search(r"`%s`\s*\|" % t, BRIEF)]
 if leaks:
     raise SystemExit("the brief defines tags it should only name: %s" % ", ".join(leaks))

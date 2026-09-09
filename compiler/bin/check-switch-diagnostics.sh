@@ -264,9 +264,15 @@ if [ "${1:-}" = "--self-test" ]; then
     # The instruction and the marking disagree, and the worker is the one that
     # looks wrong. Built by recording an extra expectation, which is exactly
     # what adding a case does: `oracle.sh` writes one `.tags` file per case.
+    # The planted tag must be one the packet's vocabulary will never hold.
+    # It was `unbound_variable` until ENG-248 grew the vocabulary from four tags
+    # to nine and swept that tag into it — at which point this control stopped
+    # being able to fire and said nothing about it. `unknown_generic` is a real
+    # diagnostic (`bs_diag.erl`) that no `switch` can provoke, so it stays
+    # outside the vocabulary for the same reason the vocabulary exists.
     mkdir -p "$CTL/expected"
     cp "$REPO/handoff/audition-switch/expected/"*.tags "$CTL/expected/"
-    printf 'unbound_variable\n' > "$CTL/expected/c99-invented.tags"
+    printf 'unknown_generic\n' > "$CTL/expected/c99-invented.tags"
     case "$(packet_marking "$REPO/handoff/audition-switch/PACKET.md" "$CTL/expected" || true)" in
         *MISMARKED*) ;;
         *) echo "SELF-TEST FAILED: a case provoking a tag the packet forbids was not"
