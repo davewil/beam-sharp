@@ -156,10 +156,29 @@ packet, or it measures the specification rather than the worker.
 ./oracle.sh                      # record expectations for cases/ AND heldout/
 ./check.sh --self-test           # prove the check can fail before trusting it
 ./check.sh <dir>                 # score one submission: visible, then held-out
-./stage.sh /tmp/bsharp-audition  # one sandbox per candidate; neither answer set
-ringer.py lint  manifest.json
-ringer.py run   manifest.json --identity <who-you-are>
+./stage.sh ~/.ringer/audition-<date>   # one sandbox per candidate; neither answer set
+ringer.py lint  manifest.run.json
+ringer.py run   manifest.run.json --identity <who-you-are>
 ```
+
+**`manifest.run.json`, not `manifest.json`, and the difference is the one that
+leaked.** `stage.sh` writes the run manifest and rewrites both the workdir and
+every `check` to bind to the harness that just staged. The committed
+`manifest.json` is the template: its `check` paths are absolute into whichever
+checkout wrote them, and on 2026-08-22 that was a tree four commits behind, which
+is how three held-out case names reached `copilot-haiku45`'s retry prompt.
+`stage.sh` prints the file to use and says to use it; these two lines named the
+template until 2026-09-10.
+
+**Pass a fresh workdir.** The old `/tmp/bsharp-audition` is one fixed path shared
+by every run on the machine, so a re-run after a killed one reads the previous
+one's leavings.
+
+**Check the tree before you stage.** Round 3's first staging copied eight cases
+against a twenty-five-case answer key, because the checkout was behind `master`
+and did not hold `c09`–`c13` yet. Every worker would have been marked on
+diagnostics its own packet forbade it from printing. `ls cases/ | wc -l` in a
+staged sandbox is the whole check.
 
 `stage.sh` copies `PACKET.md` and `cases/` into each worker's directory and
 verifies that **neither `expected/` nor `heldout/`** is reachable from it. The
@@ -170,6 +189,29 @@ finding.
 There are two secrets, and the leak check names both. Staging `heldout/` would
 not look like a leak from the results — the worker would simply score well — so
 it has to be caught on disk rather than noticed in a number.
+
+### The codex lane names its model, and the other lanes always did
+
+`manifest.json` gave the `codex` task no `model` field until 2026-09-10, so
+Ringer wrote its log rows with a blank model. A blank model is *unattributed*:
+Ringer quarantines those rows, never credits them to an engine default, and never
+ranks them. Round 3's codex lane scored 25/25 and taught the scoreboard nothing.
+
+Codex does self-report — its header carried `model: gpt-6-astra` — and Ringer's
+taxonomy calls a harness self-report the strongest evidence there is. It did not
+help: `DEFAULT_CODEX_MODEL_REPORT_REGEX` anchors `^model:` at line start, and
+Codex writes the line as `\x1b[1mmodel:\x1b[0m gpt-6-astra`. Measured 2026-09-10
+against the round 3 log: no match raw, matches `gpt-6-astra` with the ANSI escapes
+stripped. **That is a Ringer defect and this repository cannot fix it**, so the
+lane names its model instead, which is evidence Ringer already accepts.
+
+Pinning is right for an audition anyway. The panel is held constant on purpose so
+a shared miss points at the specification rather than at a changed roster, and a
+lane riding a harness default silently changes model whenever the harness does.
+
+Not pinned, and worth knowing: Codex reported `reasoning effort: high`. Ringer
+treats effort as part of model identity when the harness sets it explicitly and
+records nothing when it does not, so these rows will read `(effort unrecorded)`.
 
 ## The candidates, and why these four
 
