@@ -1,8 +1,8 @@
 # 70 — A container whose elements no clause head can tell apart
 
 Type: grilling
-Status: claimed — raised 2026-09-07 as [ENG-334](https://linear.app/davewil/issue/ENG-334),
-taken 2026-09-09
+Status: resolved 2026-09-09 — [ENG-334](https://linear.app/davewil/issue/ENG-334). Raised
+2026-09-07 by F36, taken and answered the same day
 Blocked by: —
 
 ## Why this is raised now
@@ -224,4 +224,36 @@ than what its checker does with an unmatchable union. The constraint is the
 
 ## Decisions entry
 
-_Written on resolution._
+```decisions-entry
+- [A container of indiscriminable members](issues/70-a-container-of-indiscriminable-members.md) —
+  **a union whose members no clause head can tell apart is legal one container level in, and the
+  compiler's job is to stop contradicting itself about it.** The criterion stays **reachability**,
+  as [ticket 68](issues/68-an-absorbed-member.md)'s header settled it: a pattern that *reaches* a
+  member discriminates it, even where nothing *decides* which member arrived.
+  `list<map<string, int>> | list<map<string, binary>>` is therefore legal while
+  `map<string, int> | map<string, binary>` is refused, and that asymmetry is **decided rather than
+  pending**. The reason is that the declaration is not the wrong thing: the type names a real set
+  of values, every one of which can be built, passed and returned. What is wrong is expecting to
+  dispatch on it, and the repair is to **tag the two members** — which 09 §5 anticipated, *"two
+  cases with the same payload need a tag, and the leading atom in a tuple already is one."*
+  **The objection belongs in the advice, so two diagnostics are owed**: F25 must run the
+  declaration check before printing a corrected signature, because it currently recommends
+  `map<string, int> | map<string, binary>` and the declaration checker refuses that exact line —
+  measured with **no container and no union declared anywhere**, so it is a defect of its own and
+  not this ticket's; and `ValidateAs<T>` must refuse a target whose members it cannot report having
+  told apart, since `ValidateAs<Payload>` today walks the term, decides at run time which member
+  arrived, and discards the answer because the union has nowhere to record it. **Prior art decided
+  nothing here and the survey says why**: no other language is asked this question — Elm and Gleam
+  are nominal and cannot write the union (an escape ticket 09 §5 refused, because nominal identity
+  is a lie across the Erlang boundary), TypeScript forms unions exactly as B# does and answers
+  *leave it* while pairing that with a type predicate whose body it never checks, Elixir ships
+  redundancy only, and CDuce's patterns type-test at depth. The constraint is the **BEAM's O(1)
+  guard**, chosen by 09, not set theory's — so **TypeScript's predicate hatch is deliberately not
+  imported, and is not needed**: `ValidateAs<T>` is the checked analogue and B# has it already.
+```
+
+<!-- The round was rewritten three times before it was answered, twice on David's objection that
+     the example was not a program anybody would write, and once after an advisor review found a
+     third option and two errors in how the choice had been put: that the printed-repair
+     contradiction is independent of this ticket, and that refusing the declaration would have
+     re-decided 68's header three days after F36 shipped on it. -->

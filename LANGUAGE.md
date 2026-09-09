@@ -1084,8 +1084,9 @@ normalised type *is* the repair and the compiler prints it.
 
 ### A union no clause head can take apart is refused
 
-**Shipped.** A union earns its keep by being taken apart. If **no clause head** — pattern or guard
-— can distinguish two of its members, the declaration is refused where it is written:
+**Shipped.** A union earns its keep by being taken apart. If two of its members can be neither
+**reached** by a pattern nor **separated** by a guard, the declaration is refused where it is
+written:
 
 <!-- diagnoses: indiscriminable_union -->
 ```csharp
@@ -1108,8 +1109,10 @@ reason, because the day a map pattern form ships, `Slot` becomes legal with no c
 The criterion is a **clause head**, not a BEAM guard, and the difference decides a real case.
 `type Xs = list<int> | list<binary>` is **legal**. A guard-only criterion would refuse it, because
 no BEAM guard reaches *inside* a list — `is_list` is true of both members. A **pattern** does reach
-inside: `[x, ..rest]` binds the element, and a guard on that binding decides which member the value
-came from. `atom | int` is legal for the other half of the criterion: neither member has a pattern
+inside: `[x, ..rest]` binds the element, and here `is_integer` on that binding decides which member
+the value came from. **Reaching is the criterion, and deciding is not**: the guard settles this
+example, but the rule asks only that a pattern reach the member — see the container note below,
+where reaching and deciding come apart. `atom | int` is legal for the other half of the criterion: neither member has a pattern
 of its own, and `is_atom` tells them apart without one.
 
 So the two halves are asked in order — *is there a pattern that reaches this member*, and failing
@@ -1117,11 +1120,21 @@ that, *is there a guard that separates it from the others* — and `Slot` above 
 answers no to both. The question is asked of the type **after** normalisation, so
 `type C = A | B` over two unions is judged on what `C` actually is, not on the two names written.
 
-**The check does not yet recur into a container.** `list<map<string, int>> | list<map<string, binary>>`
-is accepted today, though it holds one level in exactly the members `Slot` is refused for: the list
-spine is a pattern that *reaches* both members without *separating* them, and the criterion asks
-only the first. Whether it should ask the second is
-[ENG-334](https://linear.app/davewil/issue/ENG-334), open. It errs toward accepting.
+**The check does not recur into a container, and that is decided rather than pending.**
+`list<map<string, int>> | list<map<string, binary>>` is **legal**, though it holds one level in
+exactly the members `Slot` is refused for: the list spine is a pattern that *reaches* both members
+without *separating* them, and the criterion asks only the first.
+
+**That is decided, and decided toward accepting.** A union of that shape
+names a real set of values — every one can be built, passed and returned — so the objection belongs
+to the advice given when you try to dispatch on it, not to the declaration. The repair is to tag
+the two members, which is what a discriminated union looks like when its members are not
+self-discriminating. The compiler's job is to say so: it does not recommend a signature it would
+refuse, and it does not validate a foreign term into a union whose members it cannot report having
+told apart.
+
+<!-- ticket 70, resolved 2026-09-09: the criterion stays reachability; the two owed diagnostics
+     are the F25 corrected signature and ValidateAs<T>'s target. -->
 
 ### A deliberate crash is spelled `raise`
 

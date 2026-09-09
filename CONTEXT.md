@@ -31,9 +31,11 @@ A residual built only from declared cases, so the compiler knows each one by nam
 _Avoid_: finite residual, known gap
 
 **Discriminable**:
-Of union members, after normalisation: distinguishable from one another by a **clause head** — a
-pattern that reaches the member, or a guard that separates it from the others. Indiscriminable
-members are an error at the declaration.
+Of union members, after normalisation: **reachable** by a clause head — a pattern that reaches the
+member, or, where no pattern does, a guard that separates it from the others. The test is
+reachability, not decidability, and the two come apart one container level in: a member reached by
+a pattern that cannot decide which member arrived is still discriminable. Indiscriminable members
+are an error at the declaration.
 _Avoid_: disjoint, tagged, distinguishable, decided by a BEAM guard
 
 **Absorbed**:
