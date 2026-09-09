@@ -1,0 +1,629 @@
+#!/usr/bin/env python3
+"""Specification-based switch checking, with symbolic value-space subtraction."""
+import re
+import sys
+
+
+ANY = ('any',)
+INT = ('int', float('-inf'), float('inf'))
+ATOM = ('atom', None, frozenset())
+STRING = ('string', None, frozenset())
+BOOL = [('bool', False), ('bool', True)]
+
+
+def intersection(a, b):
+    if a == ANY:
+        return [b]
+    if b == ANY:
+        return [a]
+    if a[0] != b[0]:
+        return []
+    kind = a[0]
+    if kind == 'int':
+        lo, hi = max(a[1], b[1]), min(a[2], b[2])
+        return [('int', lo, hi)] if lo <= hi else []
+    if kind in ('atom', 'string'):
+        if a[1] is not None:
+            return [a] if (a[1] == b[1] or b[1] is None and a[1] not in b[2]) else []
+        if b[1] is not None:
+            return intersection(b, a)
+        return [(kind, None, a[2] | b[2])]
+    if kind == 'tuple':
+        if len(a[1]) != len(b[1]):
+            return []
+        parts = [intersect(x, y) for x, y in zip(a[1], b[1])]
+        return [('tuple', tuple(parts))] if all(parts) else []
+    if kind == 'record':
+        if a[1] is not None and b[1] is not None and a[1] != b[1]:
+            return []
+        af, bf = dict(a[2]), dict(b[2])
+        fields = tuple((key, intersect(af.get(key, [ANY]), bf.get(key, [ANY])))
+                       for key in sorted(af.keys() | bf.keys()))
+        return [('record', a[1] or b[1], fields)] if all(v for _, v in fields) else []
+    if kind == 'list':
+        return [('list', intersect(a[1], b[1]))]
+    if kind == 'cons':
+        head, tail = intersect(a[1], b[1]), intersect(a[2], b[2])
+        return [('cons', head, tail)] if head and tail else []
+    return [a] if a == b else []
+
+
+def expand_list(a):
+    return [('nil',), ('cons', a[1], [a])] if a[1] else [('nil',)]
+
+
+def intersect(xs, ys):
+    out = []
+    for a in xs:
+        for b in ys:
+            if a[0] == 'list' and b[0] in ('nil', 'cons'):
+                out.extend(intersect(expand_list(a), [b]))
+            elif b[0] == 'list' and a[0] in ('nil', 'cons'):
+                out.extend(intersect([a], expand_list(b)))
+            else:
+                out.extend(intersection(a, b))
+    return out
+
+
+def difference(a, b):
+    if b == ANY or a == b:
+        return []
+    if a[0] == 'list' and b[0] in ('nil', 'cons'):
+        return subtract(expand_list(a), [b])
+    if b[0] == 'list' and a[0] in ('nil', 'cons'):
+        return subtract([a], expand_list(b))
+    if not intersect([a], [b]):
+        return [a]
+    if a == ANY:
+        # An unrestricted term remains open after a shape-specific arm.
+        return [a]
+    kind = a[0]
+    if kind == 'int':
+        out = []
+        if a[1] < b[1]:
+            out.append(('int', a[1], b[1] - 1))
+        if b[2] < a[2]:
+            out.append(('int', b[2] + 1, a[2]))
+        return out
+    if kind in ('atom', 'string'):
+        if a[1] is not None:
+            return []
+        if b[1] is not None:
+            return [(kind, None, a[2] | {b[1]})]
+        return [(kind, v, frozenset()) for v in b[2] - a[2]]
+    if kind in ('tuple', 'cons'):
+        ap = a[1] if kind == 'tuple' else a[1:]
+        bp = b[1] if kind == 'tuple' else b[1:]
+        out, prefix = [], []
+        for i, (x, y) in enumerate(zip(ap, bp)):
+            missing = subtract(x, y)
+            if missing:
+                parts = tuple(prefix + [missing] + list(ap[i + 1:]))
+                out.append(('tuple', parts) if kind == 'tuple' else ('cons', *parts))
+            common = intersect(x, y)
+            if not common:
+                break
+            prefix.append(common)
+        return out
+    if kind == 'record':
+        af, bf = dict(a[2]), dict(b[2])
+        keys = sorted(af.keys() | bf.keys())
+        ap = ('tuple', tuple(af.get(key, [ANY]) for key in keys))
+        bp = ('tuple', tuple(bf.get(key, [ANY]) for key in keys))
+        return [('record', a[1], tuple(zip(keys, cell[1])))
+                for cell in difference(ap, bp)]
+    if kind == 'list':
+        return [] if not subtract(a[1], b[1]) else [a]
+    return []
+
+
+def subtract(xs, ys):
+    for b in ys:
+        xs = [part for a in xs for part in difference(a, b)]
+    return xs
+
+
+def literal(value):
+    if value in ('true', 'false'):
+        return [('bool', value == 'true')]
+    if value.startswith(':'):
+        return [('atom', value[1:], frozenset())]
+    if value.startswith('"'):
+        return [('string', value, frozenset())]
+    if re.fullmatch(r'-?\d+', value):
+        return [('int', int(value), int(value))]
+    return None
+
+
+TOKEN = re.compile(r'//[^\n]*|/\*[\s\S]*?\*/|"(?:\\.|[^"\\])*"|(?<![A-Za-z0-9_]):[A-Za-z_]\w*|\d+|[A-Za-z_]\w*|=>|->|>=|<=|==|!=|\.\.|[^\s]')
+
+
+class Parser:
+    def __init__(self, source):
+        self.tokens = [m.group() for m in TOKEN.finditer(source)
+                       if not m.group().startswith(('//', '/*'))]
+        self.i = 0
+        self.aliases = {}
+        self.signatures = {}
+        self.clauses = []
+
+    def peek(self):
+        return self.tokens[self.i] if self.i < len(self.tokens) else ''
+
+    def take(self, expected=None):
+        token = self.peek()
+        if not token or expected is not None and token != expected:
+            raise ValueError('unexpected token')
+        self.i += 1
+        return token
+
+    def accept(self, token):
+        if self.peek() == token:
+            self.i += 1
+            return True
+        return False
+
+    def sequence(self, end, reader):
+        parts = []
+        if not self.accept(end):
+            while True:
+                parts.append(reader())
+                if self.accept(end):
+                    break
+                self.take(',')
+                if self.accept(end):
+                    break
+        return parts
+
+    def type_expr(self):
+        parts = [self.type_one()]
+        while self.accept('|'):
+            parts.append(self.type_one())
+        return ('union', parts) if len(parts) > 1 else parts[0]
+
+    def type_one(self):
+        token = self.take()
+        if token == '(':
+            return ('product', self.sequence(')', self.type_expr))
+        if self.accept('<'):
+            return ('generic', token, self.sequence('>', self.type_expr))
+        return ('type', token)
+
+    def program(self):
+        while self.peek():
+            if self.accept('module'):
+                self.take()
+            elif self.accept('type'):
+                name = self.take()
+                self.take('=')
+                self.aliases[name] = self.type_expr()
+            elif self.accept('record'):
+                name = self.take()
+                self.take('{')
+                fields = []
+                while not self.accept('}'):
+                    key = self.take()
+                    self.take(':')
+                    fields.append((key, self.type_expr()))
+                    self.accept(',')
+                    self.accept(';')
+                self.aliases[name] = ('record', fields)
+            elif self.peek() in ('public', 'private'):
+                self.take()
+                result = self.type_expr()
+                name = self.take()
+                self.take('(')
+                def parameter():
+                    ty = self.type_expr()
+                    self.take()
+                    return ty
+                self.signatures[name] = (result, self.sequence(')', parameter))
+            else:
+                name = self.take()
+                self.take('(')
+                patterns = self.sequence(')', self.pattern)
+                guard = self.expr() if self.accept('when') else None
+                self.take('->')
+                body = self.expr()
+                self.clauses.append((name, patterns, guard, body))
+            self.accept(';')
+        return self
+
+    def pattern(self, minimum=0):
+        token = self.take()
+        if token == '(':
+            node = ('tuple', self.sequence(')', self.pattern))
+        elif token == '{' or self.peek() == '{':
+            record_name = None if token == '{' else token
+            if record_name is not None:
+                self.take('{')
+            def field():
+                key = self.take()
+                self.take(':')
+                return key, self.pattern()
+            node = ('record', record_name, self.sequence('}', field))
+        elif token == '[':
+            parts, rest = [], None
+            if not self.accept(']'):
+                while True:
+                    if self.accept('..'):
+                        rest = self.take() if self.peek() not in (']', ',') else '_'
+                        self.accept(',')
+                        self.take(']')
+                        break
+                    parts.append(self.pattern())
+                    if self.accept(']'):
+                        break
+                    self.take(',')
+            node = ('list', parts, rest)
+        elif token in ('<', '<=', '>', '>='):
+            sign = '-' if self.accept('-') else ''
+            node = ('relation', token, int(sign + self.take()))
+        elif token == '==':
+            node = ('match', self.take())
+        elif token == '-':
+            node = ('lit', '-' + self.take())
+        elif literal(token) is not None:
+            node = ('lit', token)
+        else:
+            node = ('bind', token)
+        while self.peek() in ('and', 'or'):
+            op = self.peek()
+            priority = 2 if op == 'and' else 1
+            if priority < minimum:
+                break
+            self.take()
+            node = (op, node, self.pattern(priority + 1))
+        return node
+
+    def expr(self, minimum=0):
+        token = self.take()
+        if token == '(':
+            parts = self.sequence(')', self.expr)
+            node = parts[0] if len(parts) == 1 else ('tuple', parts)
+        elif token == '[':
+            node = ('list', self.sequence(']', self.expr))
+        elif token == '-':
+            node = ('negative', self.expr(7))
+        elif literal(token) is not None:
+            node = ('lit', token)
+        else:
+            node = ('var', token)
+        precedence = {'or': 1, 'and': 2, '==': 3, '!=': 3,
+                      '>': 4, '<': 4, '>=': 4, '<=': 4,
+                      '+': 5, '-': 5, '*': 6, '/': 6, '%': 6}
+        while True:
+            op = self.peek()
+            if op == '(' and node[0] == 'var':
+                self.take()
+                node = ('call', node[1], self.sequence(')', self.expr))
+            elif op == '.':
+                self.take()
+                node = ('field', node, self.take())
+            elif op == 'switch' and minimum == 0:
+                self.take()
+                self.take('{')
+                arms = []
+                while not self.accept('}'):
+                    pattern = self.pattern()
+                    guard = self.expr() if self.accept('when') else None
+                    self.take('=>')
+                    body = self.expr()
+                    arms.append((pattern, guard, body))
+                    if not self.accept(','):
+                        self.take('}')
+                        break
+                node = ('switch', node, arms)
+            elif op in precedence and precedence[op] >= minimum:
+                self.take()
+                node = ('binary', op, node, self.expr(precedence[op] + 1))
+            else:
+                break
+        return node
+
+
+def relation(op, number):
+    if op == '<':
+        return [('int', float('-inf'), number - 1)]
+    if op == '<=':
+        return [('int', float('-inf'), number)]
+    if op == '>':
+        return [('int', number + 1, float('inf'))]
+    return [('int', number, float('inf'))]
+
+
+def project(space, path):
+    if not path:
+        return space
+    out = []
+    for cell in space:
+        if cell == ANY:
+            out.extend(project([ANY], path[1:]))
+        elif cell[0] == 'tuple':
+            out.extend(project(cell[1][path[0]], path[1:]))
+        elif cell[0] == 'cons':
+            out.extend(project(cell[path[0] + 1], path[1:]))
+        elif cell[0] == 'list':
+            out.extend(project(expand_list(cell), path))
+        elif cell[0] == 'record':
+            out.extend(project(dict(cell[2]).get(path[0], []), path[1:]))
+    return out
+
+
+def restrict(space, path, allowed):
+    if not path:
+        return intersect(space, allowed)
+    out = []
+    for cell in space:
+        if cell[0] == 'list':
+            out.extend(restrict(expand_list(cell), path, allowed))
+        elif cell[0] in ('tuple', 'cons'):
+            parts = list(cell[1] if cell[0] == 'tuple' else cell[1:])
+            parts[path[0]] = restrict(parts[path[0]], path[1:], allowed)
+            if all(parts):
+                out.append(('tuple', tuple(parts)) if cell[0] == 'tuple' else ('cons', *parts))
+        elif cell[0] == 'record':
+            fields = dict(cell[2])
+            fields[path[0]] = restrict(fields.get(path[0], []), path[1:], allowed)
+            if all(fields.values()):
+                out.append(('record', cell[1], tuple(sorted(fields.items()))))
+    return out
+
+
+class Checker:
+    def __init__(self, program):
+        self.program = program
+        self.tags = set()
+        self.signatures = {name: (self.resolve(ret), [self.resolve(a) for a in args])
+                           for name, (ret, args) in program.signatures.items()}
+
+    def resolve(self, node, visited=frozenset()):
+        kind = node[0]
+        if kind == 'union':
+            return [cell for part in node[1] for cell in self.resolve(part, visited)]
+        if kind == 'product':
+            return [('tuple', tuple(self.resolve(p, visited) for p in node[1]))]
+        if kind == 'generic':
+            inner = self.resolve(node[2][0], visited)
+            if node[1] == 'option':
+                return inner + literal(':nothing')
+            if node[1] == 'list':
+                return [('list', inner)]
+            return [ANY]
+        if kind == 'record':
+            return [('record', None, tuple((key, self.resolve(p, visited)) for key, p in node[1]))]
+        name = node[1]
+        if name in self.program.aliases and name not in visited:
+            alias = self.program.aliases[name]
+            if alias[0] == 'record':
+                return [('record', name, tuple((key, self.resolve(p, visited | {name}))
+                                               for key, p in alias[1]))]
+            return self.resolve(self.program.aliases[name], visited | {name})
+        return {'int': [INT], 'atom': [ATOM], 'bool': BOOL,
+                'string': [STRING], 'term': [ANY]}.get(name, literal(name) or [ANY])
+
+    def pattern_space(self, node, env, paths, path=()):
+        kind = node[0]
+        if kind == 'bind':
+            name = node[1]
+            if name != '_':
+                if name in env or name in paths:
+                    self.tags.add('rebinding')
+                paths[name] = path
+            return [ANY], True
+        if kind == 'match':
+            if node[1] not in env and node[1] not in paths:
+                self.tags.add('unbound_variable')
+            return env.get(node[1], [ANY]), False
+        if kind == 'lit':
+            return literal(node[1]), True
+        if kind == 'relation':
+            return relation(node[1], node[2]), True
+        if kind in ('and', 'or'):
+            left, lc = self.pattern_space(node[1], env, paths, path)
+            right, rc = self.pattern_space(node[2], env, paths, path)
+            return (intersect(left, right) if kind == 'and' else left + right), lc and rc
+        if kind == 'tuple':
+            parts = [self.pattern_space(p, env, paths, path + (i,)) for i, p in enumerate(node[1])]
+            return [('tuple', tuple(p for p, _ in parts))], all(c for _, c in parts)
+        if kind == 'record':
+            fields = [(key, self.pattern_space(p, env, paths, path + (key,)))
+                      for key, p in node[2]]
+            return [('record', node[1], tuple((key, value) for key, (value, _) in fields))], all(
+                certain for _, (_, certain) in fields)
+        if kind == 'list':
+            parts = [self.pattern_space(p, env, paths, path + (1,) * i + (0,))
+                     for i, p in enumerate(node[1])]
+            tail = [('nil',)] if node[2] is None else [('list', [ANY])]
+            if node[2] is not None:
+                self.pattern_space(('bind', node[2]), env, paths, path + (1,) * len(parts))
+            for p, _ in reversed(parts):
+                tail = [('cons', p, tail)]
+            return tail, all(c for _, c in parts)
+        return [ANY], False
+
+    def guard_space(self, node, space, paths, env):
+        if node[0] == 'lit' and node[1] in ('true', 'false'):
+            return space if node[1] == 'true' else []
+        if node[0] != 'binary':
+            return None
+        op, left, right = node[1:]
+        if op in ('and', 'or'):
+            a = self.guard_space(left, space, paths, env)
+            b = self.guard_space(right, space, paths, env)
+            if a is None or b is None:
+                return None
+            return intersect(a, b) if op == 'and' else a + b
+        if right[0] == 'var' and left[0] in ('lit', 'negative'):
+            left, right = right, left
+            op = {'<': '>', '>': '<', '<=': '>=', '>=': '<='}.get(op, op)
+        if left[0] != 'var' or right[0] not in ('lit', 'negative'):
+            return None
+        if right[0] == 'negative' and right[1][0] == 'lit':
+            value = literal('-' + right[1][1])
+        elif right[0] == 'lit':
+            value = literal(right[1])
+        else:
+            return None
+        if value is None:
+            return None
+        name = left[1]
+        path = paths.get(name)
+        base = project(space, path) if path is not None else env.get(name, [ANY])
+        if op in ('<', '<=', '>', '>=') and value[0][0] == 'int':
+            allowed = intersect(base, relation(op, value[0][1]))
+        elif op == '==':
+            allowed = intersect(base, value)
+        elif op == '!=':
+            allowed = subtract(base, value)
+        else:
+            return None
+        if path is None:
+            if not allowed:
+                return []
+            return space if not subtract(base, allowed) else None
+        return restrict(space, path, allowed)
+
+    def expression(self, node, env, in_guard=False):
+        kind = node[0]
+        if kind == 'lit':
+            return literal(node[1])
+        if kind == 'var':
+            if node[1] not in env:
+                self.tags.add('unbound_variable')
+            return env.get(node[1], [])
+        if kind == 'tuple':
+            parts = tuple(self.expression(p, env, in_guard) for p in node[1])
+            return [('tuple', parts)] if all(parts) else []
+        if kind == 'list':
+            tail = [('nil',)]
+            for part in reversed(node[1]):
+                tail = [('cons', self.expression(part, env, in_guard), tail)]
+            return tail
+        if kind == 'negative':
+            value = self.expression(node[1], env, in_guard)
+            return [('int', -c[2], -c[1]) for c in value if c[0] == 'int']
+        if kind == 'binary':
+            left = self.expression(node[2], env, in_guard)
+            right = self.expression(node[3], env, in_guard)
+            if not left or not right:
+                return []
+            return BOOL if node[1] in ('and', 'or', '<', '<=', '>', '>=', '==', '!=') else [INT]
+        if kind == 'call':
+            args = [self.expression(a, env, in_guard) for a in node[2]]
+            signature = self.signatures.get(node[1])
+            if signature:
+                for actual, expected in zip(args, signature[1]):
+                    if subtract(actual, expected):
+                        self.tags.add('arg_not_accepted')
+                return signature[0]
+            return [ANY]
+        if kind == 'field':
+            records = self.expression(node[1], env, in_guard)
+            return [value for record in records if record[0] == 'record'
+                    for value in dict(record[2]).get(node[2], [])]
+        if kind == 'switch':
+            if in_guard:
+                self.tags.add('switch_in_guard')
+            subject = self.expression(node[1], env, in_guard)
+            covered, result = [], []
+            for pattern, guard, body in node[2]:
+                paths = {}
+                shape, certain = self.pattern_space(pattern, env, paths)
+                possible = intersect(subject, shape)
+                branch = dict(env)
+                branch.update({name: project(possible, path) for name, path in paths.items()})
+                refined = possible
+                readable = True
+                if guard is not None:
+                    self.expression(guard, branch, True)
+                    refined = self.guard_space(guard, possible, paths, branch)
+                    readable = refined is not None
+                    if not readable:
+                        refined = possible
+                if not possible:
+                    self.tags.add('vacuous_arm')
+                elif not refined:
+                    self.tags.add('unsatisfiable_arm_guard')
+                elif not subtract(refined, covered):
+                    self.tags.add('unreachable_arm')
+                branch.update({name: project(refined, path) for name, path in paths.items()})
+                result.extend(self.expression(body, branch, in_guard))
+                if certain and readable:
+                    covered.extend(refined)
+            if subtract(subject, covered):
+                self.tags.add('switch_inexhaustive')
+            return result
+        return [ANY]
+
+    def check_names(self, node, env):
+        """Resolve lexical scopes before relying on inferred value spaces."""
+        kind = node[0]
+        if kind == 'var':
+            if node[1] not in env:
+                self.tags.add('unbound_variable')
+        elif kind in ('tuple', 'list'):
+            for part in node[1]:
+                self.check_names(part, env)
+        elif kind in ('negative', 'field'):
+            self.check_names(node[1], env)
+        elif kind == 'binary':
+            self.check_names(node[2], env)
+            self.check_names(node[3], env)
+        elif kind == 'call':
+            for argument in node[2]:
+                self.check_names(argument, env)
+        elif kind == 'switch':
+            self.check_names(node[1], env)
+            for pattern, guard, body in node[2]:
+                paths = {}
+                self.pattern_space(pattern, env, paths)
+                branch = dict(env)
+                branch.update({name: [ANY] for name in paths})
+                if guard is not None:
+                    self.check_names(guard, branch)
+                self.check_names(body, branch)
+
+    def run(self):
+        # A failed binding pass has no sound types to feed the semantic pass.
+        for name, patterns, guard, body in self.program.clauses:
+            if name not in self.signatures:
+                continue
+            paths = {}
+            self.pattern_space(('tuple', patterns), {}, paths)
+            env = {key: [ANY] for key in paths}
+            if guard is not None:
+                self.check_names(guard, env)
+            self.check_names(body, env)
+        if self.tags:
+            return self.tags
+
+        for name, patterns, guard, body in self.program.clauses:
+            signature = self.signatures.get(name)
+            if signature is None:
+                continue
+            result, arguments = signature
+            env, paths = {}, {}
+            shape, _ = self.pattern_space(('tuple', patterns), env, paths)
+            matched = intersect([('tuple', tuple(arguments))], shape)
+            env.update({key: project(matched, path) for key, path in paths.items()})
+            if guard is not None:
+                self.expression(guard, env, True)
+                refined = self.guard_space(guard, matched, paths, env)
+                if refined is not None:
+                    env.update({key: project(refined, path) for key, path in paths.items()})
+            actual = self.expression(body, env)
+            if subtract(actual, result):
+                self.tags.add('return_not_declared')
+        return self.tags
+
+
+def main():
+    with open(sys.argv[1], encoding='utf-8') as source:
+        program = Parser(source.read()).program()
+    for tag in sorted(Checker(program).run()):
+        print(tag)
+
+
+if __name__ == '__main__':
+    main()

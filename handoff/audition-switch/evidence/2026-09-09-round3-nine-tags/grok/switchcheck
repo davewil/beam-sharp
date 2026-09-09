@@ -1,0 +1,1869 @@
+#!/usr/bin/env python3
+"""Exhaustiveness checker for switch expressions (.bs)."""
+
+from __future__ import annotations
+
+import sys
+from dataclasses import dataclass
+from typing import Any, Optional
+
+
+TAGS = (
+    "switch_inexhaustive",
+    "unreachable_arm",
+    "vacuous_arm",
+    "unsatisfiable_arm_guard",
+    "rebinding",
+    "unbound_variable",
+    "return_not_declared",
+    "arg_not_accepted",
+    "switch_in_guard",
+)
+
+
+# ---------------------------------------------------------------------------
+# Lexer
+# ---------------------------------------------------------------------------
+
+KEYWORDS = {
+    "module",
+    "type",
+    "record",
+    "public",
+    "when",
+    "switch",
+    "and",
+    "or",
+}
+
+BOOLS = {"true": True, "false": False}
+
+TWOCHAR = {
+    "->": "ARROW",
+    "=>": "FATARROW",
+    ">=": "GE",
+    "<=": "LE",
+    "==": "EQEQ",
+    "!=": "NE",
+    "..": "DOTDOT",
+}
+
+
+@dataclass
+class Tok:
+    kind: str
+    value: Any
+    pos: int
+
+
+class Lexer:
+    def __init__(self, src: str):
+        self.src = src
+        self.n = len(src)
+        self.i = 0
+
+    def peek(self) -> str:
+        return self.src[self.i] if self.i < self.n else ""
+
+    def advance(self) -> str:
+        ch = self.src[self.i]
+        self.i += 1
+        return ch
+
+    def skip_ws_and_comments(self) -> None:
+        while self.i < self.n:
+            ch = self.peek()
+            if ch.isspace():
+                self.advance()
+                continue
+            if ch == "#" or (
+                ch == "/" and self.i + 1 < self.n and self.src[self.i + 1] == "/"
+            ):
+                while self.i < self.n and self.peek() != "\n":
+                    self.advance()
+                continue
+            if self.src.startswith("<!--", self.i):
+                end = self.src.find("-->", self.i + 4)
+                self.i = self.n if end < 0 else end + 3
+                continue
+            break
+
+    def tokenize(self) -> list[Tok]:
+        out: list[Tok] = []
+        while True:
+            self.skip_ws_and_comments()
+            if self.i >= self.n:
+                out.append(Tok("EOF", None, self.i))
+                break
+            pos = self.i
+            ch = self.peek()
+            pair = self.src[self.i : self.i + 2]
+            if pair in TWOCHAR:
+                out.append(Tok(TWOCHAR[pair], pair, pos))
+                self.i += 2
+                continue
+            if ch == ":":
+                self.advance()
+                if self.peek().isalpha() or self.peek() == "_":
+                    name = self._ident()
+                    out.append(Tok("ATOM", name, pos))
+                else:
+                    out.append(Tok("COLON", ":", pos))
+                continue
+            if ch.isalpha() or ch == "_":
+                name = self._ident()
+                if name == "_":
+                    out.append(Tok("UNDERSCORE", "_", pos))
+                elif name in BOOLS:
+                    out.append(Tok("BOOL", BOOLS[name], pos))
+                elif name in KEYWORDS:
+                    out.append(Tok(name.upper(), name, pos))
+                else:
+                    out.append(Tok("IDENT", name, pos))
+                continue
+            if ch.isdigit():
+                out.append(Tok("INT", self._number(), pos))
+                continue
+            singles = {
+                "(": "LPAREN",
+                ")": "RPAREN",
+                "{": "LBRACE",
+                "}": "RBRACE",
+                "[": "LBRACKET",
+                "]": "RBRACKET",
+                ",": "COMMA",
+                "|": "PIPE",
+                ".": "DOT",
+                ">": "GT",
+                "<": "LT",
+                "+": "PLUS",
+                "-": "MINUS",
+                "*": "STAR",
+                "/": "SLASH",
+                "=": "EQ",
+            }
+            if ch in singles:
+                self.advance()
+                out.append(Tok(singles[ch], ch, pos))
+                continue
+            self.advance()
+        return out
+
+    def _ident(self) -> str:
+        start = self.i
+        while self.i < self.n and (self.src[self.i].isalnum() or self.src[self.i] == "_"):
+            self.i += 1
+        return self.src[start : self.i]
+
+    def _number(self) -> int:
+        start = self.i
+        while self.i < self.n and self.src[self.i].isdigit():
+            self.i += 1
+        return int(self.src[start : self.i])
+
+
+# ---------------------------------------------------------------------------
+# AST
+# ---------------------------------------------------------------------------
+
+@dataclass
+class NamedType:
+    name: str
+
+@dataclass
+class AtomLitType:
+    name: str
+
+@dataclass
+class IntType:
+    pass
+
+@dataclass
+class BoolType:
+    pass
+
+@dataclass
+class AtomType:
+    pass
+
+@dataclass
+class TermType:
+    pass
+
+@dataclass
+class StringType:
+    pass
+
+@dataclass
+class TupleType:
+    elems: list[Any]
+
+@dataclass
+class ListType:
+    elem: Any
+
+@dataclass
+class UnionType:
+    variants: list[Any]
+
+@dataclass
+class RecordType:
+    name: str
+    fields: dict[str, Any]
+
+
+BUILTINS = {
+    "int": IntType(),
+    "atom": AtomType(),
+    "bool": BoolType(),
+    "term": TermType(),
+    "string": StringType(),
+}
+
+
+@dataclass
+class WildcardPat:
+    pass
+
+@dataclass
+class VarPat:
+    name: str
+
+@dataclass
+class AtomPat:
+    name: str
+
+@dataclass
+class IntPat:
+    value: int
+
+@dataclass
+class BoolPat:
+    value: bool
+
+@dataclass
+class TuplePat:
+    elems: list[Any]
+
+@dataclass
+class ListPat:
+    elems: list[Any]
+    rest: Optional[str]  # None = exact; "" = ..; "x" = ..x
+
+@dataclass
+class RelPat:
+    op: str
+    value: int
+
+@dataclass
+class EqNamePat:
+    name: str
+
+@dataclass
+class AndPat:
+    left: Any
+    right: Any
+
+@dataclass
+class OrPat:
+    left: Any
+    right: Any
+
+
+@dataclass
+class NameExpr:
+    name: str
+
+@dataclass
+class IntExpr:
+    value: int
+
+@dataclass
+class AtomExpr:
+    name: str
+
+@dataclass
+class BoolExpr:
+    value: bool
+
+@dataclass
+class TupleExpr:
+    elems: list[Any]
+
+@dataclass
+class ListExpr:
+    elems: list[Any]
+
+@dataclass
+class CallExpr:
+    func: str
+    args: list[Any]
+
+@dataclass
+class FieldExpr:
+    obj: Any
+    field: str
+
+@dataclass
+class UnExpr:
+    op: str
+    expr: Any
+
+@dataclass
+class BinExpr:
+    op: str
+    left: Any
+    right: Any
+
+@dataclass
+class SwitchExpr:
+    subject: Any
+    arms: list["Arm"]
+
+
+@dataclass
+class Arm:
+    pattern: Any
+    guard: Any
+    body: Any
+
+
+@dataclass
+class Clause:
+    patterns: list[Any]
+    guard: Any
+    body: Any
+
+
+@dataclass
+class Func:
+    name: str
+    params: list[tuple[str, Any]]
+    ret: Any
+    clauses: list[Clause]
+
+
+@dataclass
+class Program:
+    types: dict[str, Any]
+    records: dict[str, RecordType]
+    functions: list[Func]
+
+
+# ---------------------------------------------------------------------------
+# Parser
+# ---------------------------------------------------------------------------
+
+class ParseError(Exception):
+    pass
+
+
+class Parser:
+    def __init__(self, tokens: list[Tok]):
+        self.toks = tokens
+        self.i = 0
+
+    def cur(self) -> Tok:
+        return self.toks[self.i]
+
+    def at(self, *kinds: str) -> bool:
+        return self.cur().kind in kinds
+
+    def eat(self, kind: str) -> Tok:
+        if self.cur().kind != kind:
+            raise ParseError(f"expected {kind} got {self.cur().kind}")
+        t = self.cur()
+        self.i += 1
+        return t
+
+    def accept(self, kind: str) -> Optional[Tok]:
+        if self.cur().kind == kind:
+            t = self.cur()
+            self.i += 1
+            return t
+        return None
+
+    def parse(self) -> Program:
+        if self.at("MODULE"):
+            self.eat("MODULE")
+            self.eat("IDENT")
+        types: dict[str, Any] = {}
+        records: dict[str, RecordType] = {}
+        functions: list[Func] = []
+        while not self.at("EOF"):
+            if self.at("TYPE"):
+                name, ty = self.parse_type_def()
+                types[name] = ty
+            elif self.at("RECORD"):
+                rec = self.parse_record_def()
+                records[rec.name] = rec
+                types[rec.name] = rec
+            elif self.at("PUBLIC"):
+                functions.append(self.parse_func())
+            else:
+                self.i += 1
+        return Program(types, records, functions)
+
+    def parse_type_def(self) -> tuple[str, Any]:
+        self.eat("TYPE")
+        name = self.eat("IDENT").value
+        self.eat("EQ")
+        ty = self.parse_type()
+        return name, ty
+
+    def parse_record_def(self) -> RecordType:
+        self.eat("RECORD")
+        name = self.eat("IDENT").value
+        self.eat("LBRACE")
+        fields: dict[str, Any] = {}
+        while not self.at("RBRACE", "EOF"):
+            fname = self.eat("IDENT").value
+            self.eat("COLON")
+            fty = self.parse_type()
+            fields[fname] = fty
+            self.accept("COMMA")
+        self.eat("RBRACE")
+        return RecordType(name, fields)
+
+    def parse_type(self) -> Any:
+        ty = self.parse_type_atom()
+        if self.at("PIPE"):
+            variants = [ty]
+            while self.accept("PIPE"):
+                variants.append(self.parse_type_atom())
+            return UnionType(variants)
+        return ty
+
+    def parse_type_atom(self) -> Any:
+        if self.at("ATOM"):
+            return AtomLitType(self.eat("ATOM").value)
+        if self.at("IDENT"):
+            name = self.eat("IDENT").value
+            if self.accept("LT"):
+                args = [self.parse_type()]
+                while self.accept("COMMA"):
+                    args.append(self.parse_type())
+                self.eat("GT")
+                if name == "list" and len(args) == 1:
+                    return ListType(args[0])
+                return NamedType(name)
+            if name in BUILTINS:
+                return BUILTINS[name]
+            return NamedType(name)
+        if self.accept("LPAREN"):
+            elems = [self.parse_type()]
+            if self.at("COMMA"):
+                while self.accept("COMMA"):
+                    if self.at("RPAREN"):
+                        break
+                    elems.append(self.parse_type())
+                self.eat("RPAREN")
+                return TupleType(elems)
+            self.eat("RPAREN")
+            return elems[0]
+        raise ParseError(f"type at {self.cur().kind}")
+
+    def parse_func(self) -> Func:
+        self.eat("PUBLIC")
+        ret = self.parse_type()
+        name = self.eat("IDENT").value
+        self.eat("LPAREN")
+        params: list[tuple[str, Any]] = []
+        if not self.at("RPAREN"):
+            while True:
+                pty = self.parse_type()
+                pname = self.eat("IDENT").value
+                params.append((pname, pty))
+                if not self.accept("COMMA"):
+                    break
+        self.eat("RPAREN")
+        clauses: list[Clause] = []
+        while self.at("IDENT") and self.cur().value == name:
+            clauses.append(self.parse_clause())
+        return Func(name, params, ret, clauses)
+
+    def parse_clause(self) -> Clause:
+        self.eat("IDENT")
+        self.eat("LPAREN")
+        pats: list[Any] = []
+        if not self.at("RPAREN"):
+            pats.append(self.parse_pattern())
+            while self.accept("COMMA"):
+                pats.append(self.parse_pattern())
+        self.eat("RPAREN")
+        guard = None
+        if self.accept("WHEN"):
+            guard = self.parse_expr()
+        self.eat("ARROW")
+        body = self.parse_expr()
+        return Clause(pats, guard, body)
+
+    def parse_pattern(self) -> Any:
+        return self.parse_pat_or()
+
+    def parse_pat_or(self) -> Any:
+        left = self.parse_pat_and()
+        while self.at("OR"):
+            self.eat("OR")
+            left = OrPat(left, self.parse_pat_and())
+        return left
+
+    def parse_pat_and(self) -> Any:
+        left = self.parse_pat_primary()
+        while self.at("AND"):
+            self.eat("AND")
+            left = AndPat(left, self.parse_pat_primary())
+        return left
+
+    def parse_pat_primary(self) -> Any:
+        if self.accept("UNDERSCORE"):
+            return WildcardPat()
+        if self.at("IDENT"):
+            return VarPat(self.eat("IDENT").value)
+        if self.at("ATOM"):
+            return AtomPat(self.eat("ATOM").value)
+        if self.at("BOOL"):
+            return BoolPat(self.eat("BOOL").value)
+        if self.at("INT"):
+            return IntPat(self.eat("INT").value)
+        if self.at("MINUS"):
+            return IntPat(self.parse_signed_int())
+        if self.at("GE", "LE", "GT", "LT"):
+            op = self.cur().value
+            self.i += 1
+            return RelPat(op, self.parse_signed_int())
+        if self.at("EQEQ"):
+            self.eat("EQEQ")
+            if self.at("IDENT"):
+                return EqNamePat(self.eat("IDENT").value)
+            if self.at("INT") or self.at("MINUS"):
+                return RelPat("==", self.parse_signed_int())
+            raise ParseError("== pattern")
+        if self.accept("LPAREN"):
+            if self.at("RPAREN"):
+                self.eat("RPAREN")
+                return TuplePat([])
+            first = self.parse_pattern()
+            if self.at("COMMA"):
+                elems = [first]
+                while self.accept("COMMA"):
+                    if self.at("RPAREN"):
+                        break
+                    elems.append(self.parse_pattern())
+                self.eat("RPAREN")
+                return TuplePat(elems)
+            self.eat("RPAREN")
+            return first
+        if self.accept("LBRACKET"):
+            elems: list[Any] = []
+            rest: Optional[str] = None
+            if not self.at("RBRACKET"):
+                while True:
+                    if self.at("DOTDOT"):
+                        self.eat("DOTDOT")
+                        if self.at("IDENT"):
+                            rest = self.eat("IDENT").value
+                        else:
+                            rest = ""
+                        break
+                    elems.append(self.parse_pattern())
+                    if not self.accept("COMMA"):
+                        break
+            self.eat("RBRACKET")
+            return ListPat(elems, rest)
+        raise ParseError(f"pattern at {self.cur().kind}")
+
+    def parse_signed_int(self) -> int:
+        if self.at("INT") and isinstance(self.cur().value, int) and self.cur().value < 0:
+            return self.eat("INT").value
+        neg = bool(self.accept("MINUS"))
+        n = self.eat("INT").value
+        return -n if neg else n
+
+    def parse_expr(self) -> Any:
+        return self.parse_or_expr()
+
+    def parse_or_expr(self) -> Any:
+        left = self.parse_and_expr()
+        while self.at("OR"):
+            self.eat("OR")
+            left = BinExpr("or", left, self.parse_and_expr())
+        return left
+
+    def parse_and_expr(self) -> Any:
+        left = self.parse_cmp_expr()
+        while self.at("AND"):
+            self.eat("AND")
+            left = BinExpr("and", left, self.parse_cmp_expr())
+        return left
+
+    def parse_cmp_expr(self) -> Any:
+        left = self.parse_add_expr()
+        if self.at("GE", "LE", "GT", "LT", "EQEQ", "NE"):
+            op = self.cur().value
+            self.i += 1
+            return BinExpr(op, left, self.parse_add_expr())
+        return left
+
+    def parse_add_expr(self) -> Any:
+        left = self.parse_mul_expr()
+        while self.at("PLUS", "MINUS"):
+            op = self.cur().value
+            self.i += 1
+            left = BinExpr(op, left, self.parse_mul_expr())
+        return left
+
+    def parse_mul_expr(self) -> Any:
+        left = self.parse_unary()
+        while self.at("STAR", "SLASH"):
+            op = self.cur().value
+            self.i += 1
+            left = BinExpr(op, left, self.parse_unary())
+        return left
+
+    def parse_unary(self) -> Any:
+        if self.at("MINUS"):
+            self.eat("MINUS")
+            return UnExpr("-", self.parse_unary())
+        return self.parse_postfix()
+
+    def parse_postfix(self) -> Any:
+        expr = self.parse_primary()
+        while True:
+            if self.accept("DOT"):
+                field = self.eat("IDENT").value
+                expr = FieldExpr(expr, field)
+            elif self.at("LPAREN") and isinstance(expr, NameExpr):
+                self.eat("LPAREN")
+                args: list[Any] = []
+                if not self.at("RPAREN"):
+                    args.append(self.parse_expr())
+                    while self.accept("COMMA"):
+                        args.append(self.parse_expr())
+                self.eat("RPAREN")
+                expr = CallExpr(expr.name, args)
+            elif self.at("SWITCH"):
+                self.eat("SWITCH")
+                self.eat("LBRACE")
+                arms: list[Arm] = []
+                while not self.at("RBRACE", "EOF"):
+                    arms.append(self.parse_arm())
+                    self.accept("COMMA")
+                    if self.at("RBRACE"):
+                        break
+                self.eat("RBRACE")
+                expr = SwitchExpr(expr, arms)
+            else:
+                break
+        return expr
+
+    def parse_primary(self) -> Any:
+        if self.at("IDENT"):
+            return NameExpr(self.eat("IDENT").value)
+        if self.at("INT"):
+            return IntExpr(self.eat("INT").value)
+        if self.at("ATOM"):
+            return AtomExpr(self.eat("ATOM").value)
+        if self.at("BOOL"):
+            return BoolExpr(self.eat("BOOL").value)
+        if self.accept("LPAREN"):
+            if self.at("RPAREN"):
+                self.eat("RPAREN")
+                return TupleExpr([])
+            first = self.parse_expr()
+            if self.at("COMMA"):
+                elems = [first]
+                while self.accept("COMMA"):
+                    if self.at("RPAREN"):
+                        break
+                    elems.append(self.parse_expr())
+                self.eat("RPAREN")
+                return TupleExpr(elems)
+            self.eat("RPAREN")
+            return first
+        if self.accept("LBRACKET"):
+            elems: list[Any] = []
+            if not self.at("RBRACKET"):
+                elems.append(self.parse_expr())
+                while self.accept("COMMA"):
+                    if self.at("RBRACKET"):
+                        break
+                    elems.append(self.parse_expr())
+            self.eat("RBRACKET")
+            return ListExpr(elems)
+        raise ParseError(f"expr at {self.cur().kind}")
+
+    def parse_arm(self) -> Arm:
+        pat = self.parse_pattern()
+        guard = None
+        if self.accept("WHEN"):
+            guard = self.parse_expr()
+        self.eat("FATARROW")
+        body = self.parse_expr()
+        return Arm(pat, guard, body)
+
+
+# ---------------------------------------------------------------------------
+# Types
+# ---------------------------------------------------------------------------
+
+def resolve(ty: Any, types: dict[str, Any]) -> Any:
+    if ty is None:
+        return None
+    if isinstance(ty, NamedType):
+        if ty.name in types:
+            return resolve(types[ty.name], types)
+        if ty.name in BUILTINS:
+            return BUILTINS[ty.name]
+        return ty
+    if isinstance(ty, UnionType):
+        return UnionType([resolve(v, types) for v in ty.variants])
+    if isinstance(ty, TupleType):
+        return TupleType([resolve(e, types) for e in ty.elems])
+    if isinstance(ty, ListType):
+        return ListType(resolve(ty.elem, types))
+    if isinstance(ty, RecordType):
+        return RecordType(ty.name, {k: resolve(v, types) for k, v in ty.fields.items()})
+    return ty
+
+
+def flatten_union(ty: Any) -> list[Any]:
+    if isinstance(ty, UnionType):
+        out: list[Any] = []
+        for v in ty.variants:
+            out.extend(flatten_union(v))
+        return out
+    return [ty]
+
+
+def is_member(got: Any, expected: Any, types: dict[str, Any]) -> bool:
+    got = resolve(got, types)
+    expected = resolve(expected, types)
+    if got is None or expected is None:
+        return True
+    if isinstance(expected, TermType):
+        return True
+    if isinstance(got, TermType):
+        return isinstance(expected, TermType)
+    if isinstance(got, UnionType):
+        return all(is_member(v, expected, types) for v in flatten_union(got))
+    if isinstance(expected, UnionType):
+        return any(is_member(got, v, types) for v in flatten_union(expected))
+    if isinstance(expected, AtomType):
+        return isinstance(got, (AtomType, AtomLitType))
+    if isinstance(expected, AtomLitType):
+        return isinstance(got, AtomLitType) and got.name == expected.name
+    if isinstance(expected, IntType):
+        return isinstance(got, IntType)
+    if isinstance(expected, BoolType):
+        return isinstance(got, BoolType)
+    if isinstance(expected, StringType):
+        return isinstance(got, StringType)
+    if isinstance(expected, TupleType) and isinstance(got, TupleType):
+        if len(got.elems) != len(expected.elems):
+            return False
+        return all(is_member(a, b, types) for a, b in zip(got.elems, expected.elems))
+    if isinstance(expected, ListType) and isinstance(got, ListType):
+        return is_member(got.elem, expected.elem, types)
+    if isinstance(expected, RecordType) and isinstance(got, RecordType):
+        return expected.name == got.name
+    return False
+
+
+# ---------------------------------------------------------------------------
+# Patterns: names, inhabitance
+# ---------------------------------------------------------------------------
+
+def introduced_names(pat: Any) -> list[str]:
+    if isinstance(pat, VarPat):
+        return [pat.name]
+    if isinstance(pat, TuplePat):
+        names: list[str] = []
+        for e in pat.elems:
+            names.extend(introduced_names(e))
+        return names
+    if isinstance(pat, ListPat):
+        names = []
+        for e in pat.elems:
+            names.extend(introduced_names(e))
+        if pat.rest:
+            names.append(pat.rest)
+        return names
+    if isinstance(pat, AndPat):
+        return introduced_names(pat.left) + introduced_names(pat.right)
+    if isinstance(pat, OrPat):
+        return introduced_names(pat.left) + introduced_names(pat.right)
+    return []
+
+
+def add_bindings(pat: Any, ty: Any, scope: dict[str, Any], types: dict[str, Any]) -> None:
+    ty = resolve(ty, types)
+    if isinstance(ty, UnionType):
+        matching = [v for v in flatten_union(ty) if pattern_inhabited(pat, v, types)]
+        if len(matching) == 1:
+            add_bindings(pat, matching[0], scope, types)
+            return
+        if len(matching) > 1:
+            # bind each name to a union of the per-variant types
+            tmp_scopes = []
+            for v in matching:
+                s: dict[str, Any] = {}
+                add_bindings(pat, v, s, types)
+                tmp_scopes.append(s)
+            all_names = set()
+            for s in tmp_scopes:
+                all_names |= set(s)
+            for n in all_names:
+                tys = [s[n] for s in tmp_scopes if n in s]
+                if not tys:
+                    continue
+                if len(tys) == 1:
+                    scope[n] = tys[0]
+                else:
+                    scope[n] = UnionType(tys)
+            return
+        add_bindings_term(pat, scope)
+        return
+    if isinstance(pat, VarPat):
+        scope[pat.name] = ty
+        return
+    if isinstance(pat, TuplePat):
+        if isinstance(ty, TupleType) and len(ty.elems) == len(pat.elems):
+            for p, t in zip(pat.elems, ty.elems):
+                add_bindings(p, t, scope, types)
+        elif isinstance(ty, TermType):
+            for p in pat.elems:
+                add_bindings(p, TermType(), scope, types)
+        else:
+            for p in pat.elems:
+                add_bindings(p, TermType(), scope, types)
+        return
+    if isinstance(pat, ListPat):
+        elem_ty: Any = ty.elem if isinstance(ty, ListType) else TermType()
+        for p in pat.elems:
+            add_bindings(p, elem_ty, scope, types)
+        if pat.rest:
+            scope[pat.rest] = ty if isinstance(ty, ListType) else ListType(TermType())
+        return
+    if isinstance(pat, AndPat):
+        add_bindings(pat.left, ty, scope, types)
+        add_bindings(pat.right, ty, scope, types)
+        return
+    if isinstance(pat, OrPat):
+        add_bindings(pat.left, ty, scope, types)
+        add_bindings(pat.right, ty, scope, types)
+
+
+def add_bindings_term(pat: Any, scope: dict[str, Any]) -> None:
+    for n in introduced_names(pat):
+        scope[n] = TermType()
+
+
+def pattern_inhabited(pat: Any, ty: Any, types: dict[str, Any]) -> bool:
+    ty = resolve(ty, types)
+    if ty is None:
+        return True
+    if isinstance(pat, (WildcardPat, VarPat, EqNamePat)):
+        return True
+    if isinstance(pat, AndPat):
+        return pattern_inhabited(pat.left, ty, types) and pattern_inhabited(
+            pat.right, ty, types
+        )
+    if isinstance(pat, OrPat):
+        return pattern_inhabited(pat.left, ty, types) or pattern_inhabited(
+            pat.right, ty, types
+        )
+    if isinstance(ty, UnionType):
+        return any(pattern_inhabited(pat, v, types) for v in flatten_union(ty))
+    if isinstance(ty, TermType):
+        return True
+    if isinstance(pat, AtomPat):
+        if isinstance(ty, AtomType):
+            return True
+        if isinstance(ty, AtomLitType):
+            return ty.name == pat.name
+        return False
+    if isinstance(pat, BoolPat):
+        return isinstance(ty, BoolType)
+    if isinstance(pat, IntPat):
+        return isinstance(ty, IntType)
+    if isinstance(pat, RelPat):
+        return isinstance(ty, IntType)
+    if isinstance(pat, TuplePat):
+        if isinstance(ty, TupleType) and len(ty.elems) == len(pat.elems):
+            return all(
+                pattern_inhabited(p, t, types) for p, t in zip(pat.elems, ty.elems)
+            )
+        return False
+    if isinstance(pat, ListPat):
+        return isinstance(ty, ListType)
+    return False
+
+
+# ---------------------------------------------------------------------------
+# Integer intervals
+# ---------------------------------------------------------------------------
+
+NINF = float("-inf")
+PINF = float("inf")
+
+
+class IntervalSet:
+    def __init__(self, ivs: Optional[list[tuple[float, float]]] = None):
+        self.ivs = self._norm(ivs or [])
+
+    @staticmethod
+    def full() -> "IntervalSet":
+        return IntervalSet([(NINF, PINF)])
+
+    @staticmethod
+    def empty() -> "IntervalSet":
+        return IntervalSet([])
+
+    @staticmethod
+    def singleton(n: int) -> "IntervalSet":
+        return IntervalSet([(n, n)])
+
+    def is_empty(self) -> bool:
+        return not self.ivs
+
+    def is_full(self) -> bool:
+        return self.ivs == [(NINF, PINF)]
+
+    def _norm(self, ivs: list[tuple[float, float]]) -> list[tuple[float, float]]:
+        cleaned = [(lo, hi) for lo, hi in ivs if lo <= hi]
+        if not cleaned:
+            return []
+        cleaned.sort(key=lambda x: (x[0], x[1]))
+        out = [cleaned[0]]
+        for lo, hi in cleaned[1:]:
+            plo, phi = out[-1]
+            if lo <= phi + 1:
+                out[-1] = (plo, max(phi, hi))
+            else:
+                out.append((lo, hi))
+        return out
+
+    def union(self, other: "IntervalSet") -> "IntervalSet":
+        return IntervalSet(self.ivs + other.ivs)
+
+    def intersect(self, other: "IntervalSet") -> "IntervalSet":
+        out: list[tuple[float, float]] = []
+        for a in self.ivs:
+            for b in other.ivs:
+                lo = max(a[0], b[0])
+                hi = min(a[1], b[1])
+                if lo <= hi:
+                    out.append((lo, hi))
+        return IntervalSet(out)
+
+    def subtract(self, other: "IntervalSet") -> "IntervalSet":
+        result = list(self.ivs)
+        for slo, shi in other.ivs:
+            nxt: list[tuple[float, float]] = []
+            for lo, hi in result:
+                if hi < slo or lo > shi:
+                    nxt.append((lo, hi))
+                    continue
+                if lo < slo:
+                    nxt.append((lo, min(hi, slo - 1)))
+                if hi > shi:
+                    nxt.append((max(lo, shi + 1), hi))
+            result = nxt
+        return IntervalSet(result)
+
+
+def interval_from_cmp(op: str, value: int) -> IntervalSet:
+    if op == "<":
+        return IntervalSet([(NINF, value - 1)])
+    if op == "<=":
+        return IntervalSet([(NINF, value)])
+    if op == ">":
+        return IntervalSet([(value + 1, PINF)])
+    if op == ">=":
+        return IntervalSet([(value, PINF)])
+    if op == "==":
+        return IntervalSet.singleton(value)
+    if op == "!=":
+        return IntervalSet([(NINF, value - 1), (value + 1, PINF)])
+    return IntervalSet.empty()
+
+
+# ---------------------------------------------------------------------------
+# Guards
+# ---------------------------------------------------------------------------
+
+@dataclass
+class GuardStat:
+    kind: str  # none | readable | unsat | unread
+    iv: Optional[IntervalSet] = None
+
+
+def flip_op(op: str) -> str:
+    return {">": "<", "<": ">", ">=": "<=", "<=": ">=", "==": "==", "!=": "!="}.get(
+        op, op
+    )
+
+
+def eval_guard(
+    g: Any, aliases: set[str], scope: dict[str, Any], types: dict[str, Any]
+) -> GuardStat:
+    if g is None:
+        return GuardStat("none")
+    if isinstance(g, (SwitchExpr, CallExpr, FieldExpr, TupleExpr, ListExpr)):
+        return GuardStat("unread")
+    if isinstance(g, BinExpr):
+        if g.op == "and":
+            return and_combine(
+                eval_guard(g.left, aliases, scope, types),
+                eval_guard(g.right, aliases, scope, types),
+            )
+        if g.op == "or":
+            return or_combine(
+                eval_guard(g.left, aliases, scope, types),
+                eval_guard(g.right, aliases, scope, types),
+            )
+        if g.op in ("<", ">", "<=", ">=", "==", "!="):
+            return cmp_guard(g, aliases, scope, types)
+        return GuardStat("unread")
+    return GuardStat("unread")
+
+
+def int_literal(expr: Any) -> Optional[int]:
+    if isinstance(expr, IntExpr):
+        return expr.value
+    if isinstance(expr, UnExpr) and expr.op == "-" and isinstance(expr.expr, IntExpr):
+        return -expr.expr.value
+    return None
+
+
+def cmp_guard(
+    g: BinExpr, aliases: set[str], scope: dict[str, Any], types: dict[str, Any]
+) -> GuardStat:
+    name = None
+    op = g.op
+    lit = None
+    if isinstance(g.left, NameExpr):
+        lit = int_literal(g.right)
+        if lit is not None:
+            name, op = g.left.name, g.op
+    if name is None and isinstance(g.right, NameExpr):
+        lit = int_literal(g.left)
+        if lit is not None:
+            name, op = g.right.name, flip_op(g.op)
+    if name is None or lit is None:
+        return GuardStat("unread")
+    if name not in aliases:
+        return GuardStat("unread")
+    nty = resolve(scope.get(name), types)
+    if not isinstance(nty, IntType):
+        return GuardStat("unread")
+    iv = interval_from_cmp(op, lit)
+    if iv.is_empty():
+        return GuardStat("unsat")
+    return GuardStat("readable", iv)
+
+
+def and_combine(a: GuardStat, b: GuardStat) -> GuardStat:
+    if a.kind == "unsat" or b.kind == "unsat":
+        return GuardStat("unsat")
+    if a.kind == "unread" or b.kind == "unread":
+        return GuardStat("unread")
+    if a.kind == "none":
+        return b
+    if b.kind == "none":
+        return a
+    assert a.iv is not None and b.iv is not None
+    inter = a.iv.intersect(b.iv)
+    if inter.is_empty():
+        return GuardStat("unsat")
+    return GuardStat("readable", inter)
+
+
+def or_combine(a: GuardStat, b: GuardStat) -> GuardStat:
+    if a.kind == "unsat" and b.kind == "unsat":
+        return GuardStat("unsat")
+    if a.kind == "unsat":
+        return b
+    if b.kind == "unsat":
+        return a
+    if a.kind == "unread" or b.kind == "unread":
+        return GuardStat("unread")
+    if a.kind == "none" or b.kind == "none":
+        return GuardStat("none")
+    assert a.iv is not None and b.iv is not None
+    return GuardStat("readable", a.iv.union(b.iv))
+
+
+# ---------------------------------------------------------------------------
+# Residual algebra
+# ---------------------------------------------------------------------------
+
+@dataclass
+class Res:
+    kind: str
+    iv: Optional[IntervalSet] = None
+    vals: Optional[set] = None
+    excluded: Optional[set] = None
+    elems: Optional[list] = None
+    vs: Optional[list] = None
+    elem: Optional["Res"] = None
+    empty_ok: bool = False
+    cons: Any = None  # None | True | list[(Res, Res)]
+    name: Optional[str] = None
+
+
+def r_empty() -> Res:
+    return Res("empty")
+
+
+def r_int(iv: Optional[IntervalSet] = None) -> Res:
+    if iv is None:
+        iv = IntervalSet.full()
+    if iv.is_empty():
+        return r_empty()
+    return Res("int", iv=iv)
+
+
+def r_finite(vals: set) -> Res:
+    if not vals:
+        return r_empty()
+    return Res("finite", vals=set(vals))
+
+
+def r_atom_open(excluded: Optional[set] = None) -> Res:
+    return Res("atom_open", excluded=set(excluded or []))
+
+
+def r_term() -> Res:
+    return Res("term")
+
+
+def r_string() -> Res:
+    return Res("string")
+
+
+def r_tuple(elems: list[Res]) -> Res:
+    if any(is_empty(e) for e in elems):
+        return r_empty()
+    return Res("tuple", elems=list(elems))
+
+
+def r_list(elem: Res, empty_ok: bool, cons: Any) -> Res:
+    cons = _norm_cons(cons)
+    if not empty_ok and cons is None:
+        return r_empty()
+    return Res("list", elem=elem, empty_ok=empty_ok, cons=cons)
+
+
+def r_record(name: str) -> Res:
+    return Res("record", name=name)
+
+
+def is_empty(r: Res) -> bool:
+    if r.kind == "empty":
+        return True
+    if r.kind == "int":
+        return r.iv is None or r.iv.is_empty()
+    if r.kind == "finite":
+        return not r.vals
+    if r.kind == "union":
+        return all(is_empty(v) for v in (r.vs or []))
+    if r.kind == "tuple":
+        return any(is_empty(e) for e in (r.elems or []))
+    if r.kind == "list":
+        return (not r.empty_ok) and r.cons is None
+    return False
+
+
+def _norm_cons(cons: Any) -> Any:
+    if cons is True or cons is None:
+        return cons
+    pairs = []
+    for h, t in cons:
+        if is_empty(h) or is_empty(t):
+            continue
+        pairs.append((h, t))
+    if not pairs:
+        return None
+    return pairs
+
+
+def res_union(a: Res, b: Res) -> Res:
+    if is_empty(a):
+        return b
+    if is_empty(b):
+        return a
+    if a.kind == "term" or b.kind == "term":
+        return r_term()
+    if a.kind == "int" and b.kind == "int":
+        return r_int(a.iv.union(b.iv))  # type: ignore
+    if a.kind == "finite" and b.kind == "finite":
+        return r_finite(a.vals | b.vals)  # type: ignore
+    if a.kind == "atom_open" and b.kind == "atom_open":
+        return r_atom_open(a.excluded & b.excluded)  # type: ignore
+    if a.kind == "atom_open" and b.kind == "finite":
+        names = {v[1] for v in b.vals or [] if v[0] == "atom"}
+        return r_atom_open((a.excluded or set()) - names)
+    if b.kind == "atom_open" and a.kind == "finite":
+        return res_union(b, a)
+    if a.kind == "tuple" and b.kind == "tuple" and a.elems and b.elems and len(a.elems) == len(b.elems):
+        # keep as union; merging rectangles is optional
+        pass
+    if a.kind == "list" and b.kind == "list":
+        empty_ok = a.empty_ok or b.empty_ok
+        if a.cons is True or b.cons is True:
+            cons: Any = True
+        else:
+            cons = (a.cons or []) + (b.cons or [])
+            cons = cons or None
+        return r_list(a.elem or b.elem or r_term(), empty_ok, cons)
+    vs: list[Res] = []
+    for x in (a, b):
+        if x.kind == "union":
+            vs.extend(x.vs or [])
+        else:
+            vs.append(x)
+    return normalize_union(vs)
+
+
+def res_union_all(rs: list[Res]) -> Res:
+    acc = r_empty()
+    for r in rs:
+        acc = res_union(acc, r)
+    return acc
+
+
+def normalize_union(vs: list[Res]) -> Res:
+    vs = [v for v in vs if not is_empty(v)]
+    if not vs:
+        return r_empty()
+    if len(vs) == 1:
+        return vs[0]
+    # merge finites, ints
+    fin: set = set()
+    ints = IntervalSet.empty()
+    has_int = False
+    rest: list[Res] = []
+    atom_open = None
+    has_term = False
+    for v in vs:
+        if v.kind == "term":
+            has_term = True
+        elif v.kind == "finite":
+            fin |= v.vals or set()
+        elif v.kind == "int":
+            has_int = True
+            ints = ints.union(v.iv or IntervalSet.empty())
+        elif v.kind == "atom_open":
+            atom_open = v if atom_open is None else res_union(atom_open, v)
+        elif v.kind == "union":
+            rest.extend(v.vs or [])
+        else:
+            rest.append(v)
+    if has_term:
+        return r_term()
+    out: list[Res] = []
+    if fin:
+        if atom_open is not None:
+            names = {x[1] for x in fin if x[0] == "atom"}
+            atom_open = r_atom_open((atom_open.excluded or set()) - names)
+            fin = {x for x in fin if x[0] != "atom"}
+        if fin:
+            out.append(r_finite(fin))
+    if has_int:
+        out.append(r_int(ints))
+    if atom_open is not None:
+        out.append(atom_open)
+    out.extend(rest)
+    out = [v for v in out if not is_empty(v)]
+    if not out:
+        return r_empty()
+    if len(out) == 1:
+        return out[0]
+    return Res("union", vs=out)
+
+
+def from_type(ty: Any, types: dict[str, Any]) -> Res:
+    ty = resolve(ty, types)
+    if ty is None:
+        return r_term()
+    if isinstance(ty, IntType):
+        return r_int()
+    if isinstance(ty, BoolType):
+        return r_finite({("bool", True), ("bool", False)})
+    if isinstance(ty, AtomLitType):
+        return r_finite({("atom", ty.name)})
+    if isinstance(ty, AtomType):
+        return r_atom_open()
+    if isinstance(ty, TermType):
+        return r_term()
+    if isinstance(ty, StringType):
+        return r_string()
+    if isinstance(ty, TupleType):
+        return r_tuple([from_type(e, types) for e in ty.elems])
+    if isinstance(ty, UnionType):
+        return res_union_all([from_type(v, types) for v in flatten_union(ty)])
+    if isinstance(ty, ListType):
+        return r_list(from_type(ty.elem, types), True, True)
+    if isinstance(ty, RecordType):
+        return r_record(ty.name)
+    return r_term()
+
+
+def applies_int_guard(pat: Any, gstat: GuardStat, aliases: set[str]) -> bool:
+    if gstat.kind != "readable" or gstat.iv is None:
+        return False
+    if isinstance(pat, (WildcardPat,)):
+        return True
+    if isinstance(pat, VarPat) and pat.name in aliases:
+        return True
+    return False
+
+
+def restrict(res: Res, pat: Any, gstat: GuardStat, aliases: set[str]) -> Res:
+    if is_empty(res):
+        return res
+    if isinstance(pat, EqNamePat):
+        return r_empty()
+    if isinstance(pat, AndPat):
+        return restrict(restrict(res, pat.left, gstat, aliases), pat.right, gstat, aliases)
+    if isinstance(pat, OrPat):
+        return res_union(
+            restrict(res, pat.left, gstat, aliases),
+            restrict(res, pat.right, gstat, aliases),
+        )
+    if res.kind == "union":
+        return res_union_all([restrict(v, pat, gstat, aliases) for v in (res.vs or [])])
+    if isinstance(pat, (WildcardPat, VarPat)):
+        if res.kind == "int" and applies_int_guard(pat, gstat, aliases):
+            return r_int(res.iv.intersect(gstat.iv))  # type: ignore
+        return res
+    if isinstance(pat, RelPat):
+        if res.kind != "int":
+            return r_empty()
+        iv = interval_from_cmp(pat.op, pat.value)
+        if gstat.kind == "readable" and gstat.iv is not None:
+            iv = iv.intersect(gstat.iv)
+        return r_int(res.iv.intersect(iv))  # type: ignore
+    if isinstance(pat, IntPat):
+        if res.kind != "int":
+            return r_empty()
+        iv = IntervalSet.singleton(pat.value)
+        if gstat.kind == "readable" and gstat.iv is not None:
+            iv = iv.intersect(gstat.iv)
+        return r_int(res.iv.intersect(iv))  # type: ignore
+    if isinstance(pat, BoolPat):
+        if res.kind == "finite":
+            key = ("bool", pat.value)
+            return r_finite({key} if key in (res.vals or set()) else set())
+        return r_empty()
+    if isinstance(pat, AtomPat):
+        if res.kind == "finite":
+            key = ("atom", pat.name)
+            return r_finite({key} if key in (res.vals or set()) else set())
+        if res.kind == "atom_open":
+            if pat.name in (res.excluded or set()):
+                return r_empty()
+            return r_finite({("atom", pat.name)})
+        return r_empty()
+    if isinstance(pat, TuplePat):
+        if res.kind != "tuple" or not res.elems or len(res.elems) != len(pat.elems):
+            return r_empty()
+        parts = [
+            restrict(e, p, gstat, aliases) for e, p in zip(res.elems, pat.elems)
+        ]
+        return r_tuple(parts)
+    if isinstance(pat, ListPat):
+        if res.kind != "list":
+            return r_empty()
+        return restrict_list(res, pat.elems, pat.rest, gstat, aliases)
+    return r_empty()
+
+
+def restrict_list(
+    res: Res, elems: list[Any], rest: Optional[str], gstat: GuardStat, aliases: set[str]
+) -> Res:
+    if not elems and rest is None:
+        if res.empty_ok:
+            return r_list(res.elem or r_term(), True, None)
+        return r_empty()
+    if not elems and rest is not None:
+        # [..] — whole list
+        return res
+    # nonempty prefix: must be a cons
+    if res.cons is None:
+        return r_empty()
+    head_pat = elems[0]
+    tail_pat = ListPat(elems[1:], rest)
+    pairs = cons_pairs(res)
+    out_pairs = []
+    for h, t in pairs:
+        rh = restrict(h, head_pat, gstat, aliases)
+        rt = restrict(t, tail_pat, gstat, aliases)
+        if not is_empty(rh) and not is_empty(rt):
+            out_pairs.append((rh, rt))
+    return r_list(res.elem or r_term(), False, out_pairs or None)
+
+
+def cons_pairs(res: Res) -> list[tuple[Res, Res]]:
+    if res.cons is None:
+        return []
+    if res.cons is True:
+        elem = res.elem or r_term()
+        return [(elem, r_list(elem, True, True))]
+    return list(res.cons)
+
+
+def diff(a: Res, b: Res) -> Res:
+    """a minus b, assuming b is a subset of a (restrict result)."""
+    if is_empty(a):
+        return a
+    if is_empty(b):
+        return a
+    if a.kind == "term":
+        return r_empty() if b.kind == "term" else a
+    if a.kind == "string":
+        return r_empty() if b.kind == "string" else a
+    if a.kind == "record":
+        return r_empty() if b.kind == "record" and b.name == a.name else a
+    if a.kind == "int" and b.kind == "int":
+        return r_int(a.iv.subtract(b.iv))  # type: ignore
+    if a.kind == "finite" and b.kind == "finite":
+        return r_finite((a.vals or set()) - (b.vals or set()))
+    if a.kind == "atom_open":
+        if b.kind == "atom_open":
+            return r_empty()
+        if b.kind == "finite":
+            names = {v[1] for v in (b.vals or set()) if v[0] == "atom"}
+            return r_atom_open((a.excluded or set()) | names)
+        return a
+    if a.kind == "tuple" and b.kind == "tuple" and a.elems and b.elems:
+        if len(a.elems) != len(b.elems):
+            return a
+        leftovers: list[Res] = []
+        prefix: list[Res] = []
+        for i in range(len(a.elems)):
+            left_i = diff(a.elems[i], b.elems[i])
+            if not is_empty(left_i):
+                leftovers.append(r_tuple(prefix + [left_i] + a.elems[i + 1 :]))
+            if is_empty(b.elems[i]):
+                break
+            prefix.append(b.elems[i])
+        return res_union_all(leftovers)
+    if a.kind == "list" and b.kind == "list":
+        empty_ok = a.empty_ok and not b.empty_ok
+        if a.cons is None:
+            cons: Any = None
+        elif b.cons is True:
+            cons = None
+        elif a.cons is True and b.cons is None:
+            cons = True
+        elif a.cons is True:
+            # full nonempty minus some cons rectangles
+            elem = a.elem or r_term()
+            full_h, full_t = elem, r_list(elem, True, True)
+            leftover_pairs: list[tuple[Res, Res]] = []
+            covered = b.cons or []
+            # start from full, subtract each covered pair
+            current = [(full_h, full_t)]
+            for ch, ct in covered:
+                nxt = []
+                for h, t in current:
+                    # product diff
+                    dh = diff(h, ch)
+                    if not is_empty(dh):
+                        nxt.append((dh, t))
+                    if not is_empty(ch):
+                        dt = diff(t, ct)
+                        if not is_empty(dt):
+                            nxt.append((ch, dt))
+                current = nxt
+            leftover_pairs = current
+            cons = leftover_pairs or None
+        else:
+            # both lists of pairs: subtract b's pairs from a's
+            current = list(a.cons or [])
+            for ch, ct in (b.cons or []):
+                nxt = []
+                for h, t in current:
+                    dh = diff(h, ch)
+                    if not is_empty(dh):
+                        nxt.append((dh, t))
+                    inter_h = ch  # subset
+                    # only subtract tail where heads overlap; use inter as ch since ch ⊆ h theoretically
+                    # more correctly: restrict head overlap
+                    # we treat ch as the covered head rectangle
+                    dt = diff(t, ct)
+                    # head intersection: if we cannot intersect residuals generally, keep product formula
+                    # (h,t) - (ch,ct) = (h-ch, t) ∪ (h∩ch, t-ct)
+                    # h∩ch ≈ ch when ch ⊆ h
+                    if not is_empty(dt):
+                        nxt.append((ch, dt))
+                current = nxt
+            cons = current or None
+        return r_list(a.elem or r_term(), empty_ok, cons)
+    if a.kind == "union":
+        return res_union_all([diff(v, b) for v in (a.vs or [])])
+    if b.kind == "union":
+        acc = a
+        for v in (b.vs or []):
+            acc = diff(acc, v)
+        return acc
+    return a
+
+
+def subtract(res: Res, pat: Any, gstat: GuardStat, aliases: set[str]) -> Res:
+    if is_empty(res):
+        return res
+    if gstat.kind in ("unread", "unsat"):
+        return res
+    # Subtract per union variant. Product-diff of a sibling variant against
+    # a restrict of the whole union is not a subset and invents leftover.
+    if res.kind == "union":
+        return res_union_all(
+            [subtract(v, pat, gstat, aliases) for v in (res.vs or [])]
+        )
+    covered = restrict(res, pat, gstat, aliases)
+    return diff(res, covered)
+
+
+def overlaps(res: Res, pat: Any, gstat: GuardStat, aliases: set[str]) -> bool:
+    """Could this arm match some remaining value?"""
+    if is_empty(res):
+        return False
+    if gstat.kind == "unsat":
+        return False
+    return overlaps_pat(res, pat, gstat, aliases)
+
+
+def overlaps_pat(res: Res, pat: Any, gstat: GuardStat, aliases: set[str]) -> bool:
+    if is_empty(res):
+        return False
+    if isinstance(pat, EqNamePat):
+        return True
+    if isinstance(pat, AndPat):
+        # may over-approx: both sides overlap does not mean intersection does,
+        # but for ints we can restrict
+        if res.kind == "int":
+            r = restrict(res, pat, GuardStat("none"), aliases)
+            if gstat.kind == "readable" and gstat.iv is not None and r.kind == "int":
+                r = r_int(r.iv.intersect(gstat.iv))  # type: ignore
+            return not is_empty(r)
+        return overlaps_pat(res, pat.left, gstat, aliases) and overlaps_pat(
+            res, pat.right, gstat, aliases
+        )
+    if isinstance(pat, OrPat):
+        return overlaps_pat(res, pat.left, gstat, aliases) or overlaps_pat(
+            res, pat.right, gstat, aliases
+        )
+    if res.kind == "union":
+        return any(overlaps_pat(v, pat, gstat, aliases) for v in (res.vs or []))
+    if res.kind == "term":
+        return True
+    if isinstance(pat, (WildcardPat, VarPat)):
+        if res.kind == "int" and applies_int_guard(pat, gstat, aliases):
+            return not res.iv.intersect(gstat.iv).is_empty()  # type: ignore
+        return True
+    if isinstance(pat, RelPat):
+        if res.kind != "int":
+            return False
+        iv = interval_from_cmp(pat.op, pat.value)
+        if gstat.kind == "readable" and gstat.iv is not None:
+            iv = iv.intersect(gstat.iv)
+        return not res.iv.intersect(iv).is_empty()  # type: ignore
+    if isinstance(pat, IntPat):
+        if res.kind != "int":
+            return False
+        iv = IntervalSet.singleton(pat.value)
+        if gstat.kind == "readable" and gstat.iv is not None:
+            iv = iv.intersect(gstat.iv)
+        return not res.iv.intersect(iv).is_empty()  # type: ignore
+    if isinstance(pat, BoolPat):
+        if res.kind == "finite":
+            return ("bool", pat.value) in (res.vals or set())
+        return False
+    if isinstance(pat, AtomPat):
+        if res.kind == "finite":
+            return ("atom", pat.name) in (res.vals or set())
+        if res.kind == "atom_open":
+            return pat.name not in (res.excluded or set())
+        return False
+    if isinstance(pat, TuplePat):
+        if res.kind != "tuple" or not res.elems or len(res.elems) != len(pat.elems):
+            return False
+        return all(
+            overlaps_pat(e, p, gstat, aliases) for e, p in zip(res.elems, pat.elems)
+        )
+    if isinstance(pat, ListPat):
+        if res.kind != "list":
+            return False
+        if not pat.elems and pat.rest is None:
+            return res.empty_ok
+        if not pat.elems and pat.rest is not None:
+            return not is_empty(res)
+        if res.cons is None:
+            return False
+        for h, t in cons_pairs(res):
+            if overlaps_pat(h, pat.elems[0], gstat, aliases) and overlaps_pat(
+                t, ListPat(pat.elems[1:], pat.rest), gstat, aliases
+            ):
+                return True
+        return False
+    return False
+
+
+def reportable_missing(res: Res) -> bool:
+    """switch_inexhaustive only when leftover cases can be named.
+
+    `term` is the open top type: subtracting a few tuple shapes still leaves
+    `term`, and the checker does not demand a catch-all there. Closed unions,
+    bools, ints, open atoms, and lists do get a residual you can write down.
+    """
+    if is_empty(res):
+        return False
+    if res.kind == "term":
+        return False
+    if res.kind == "string":
+        return False
+    if res.kind == "record":
+        return False
+    if res.kind == "union":
+        return any(reportable_missing(v) for v in (res.vs or []))
+    return True
+
+
+# ---------------------------------------------------------------------------
+# Type of expressions
+# ---------------------------------------------------------------------------
+
+def type_of(
+    expr: Any, scope: dict[str, Any], funcs: dict[str, Func], types: dict[str, Any]
+) -> Any:
+    if expr is None:
+        return None
+    if isinstance(expr, IntExpr):
+        return IntType()
+    if isinstance(expr, UnExpr) and expr.op == "-" and isinstance(expr.expr, IntExpr):
+        return IntType()
+    if isinstance(expr, AtomExpr):
+        return AtomLitType(expr.name)
+    if isinstance(expr, BoolExpr):
+        return BoolType()
+    if isinstance(expr, NameExpr):
+        if expr.name in scope:
+            return resolve(scope[expr.name], types)
+        return None
+    if isinstance(expr, CallExpr):
+        if expr.func in funcs:
+            return resolve(funcs[expr.func].ret, types)
+        return None
+    if isinstance(expr, TupleExpr):
+        elems = [type_of(e, scope, funcs, types) for e in expr.elems]
+        if any(e is None for e in elems):
+            return None
+        return TupleType(elems)
+    if isinstance(expr, ListExpr):
+        if not expr.elems:
+            return ListType(TermType())
+        return ListType(type_of(expr.elems[0], scope, funcs, types))
+    if isinstance(expr, FieldExpr):
+        obj_ty = resolve(type_of(expr.obj, scope, funcs, types), types)
+        if isinstance(obj_ty, RecordType) and expr.field in obj_ty.fields:
+            return resolve(obj_ty.fields[expr.field], types)
+        return None
+    if isinstance(expr, BinExpr):
+        if expr.op in ("<", ">", "<=", ">=", "==", "!=", "and", "or"):
+            return BoolType()
+        if expr.op in ("+", "-", "*", "/"):
+            return IntType()
+        return None
+    if isinstance(expr, UnExpr):
+        return type_of(expr.expr, scope, funcs, types)
+    if isinstance(expr, SwitchExpr):
+        return None
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Checker
+# ---------------------------------------------------------------------------
+
+class Checker:
+    def __init__(self, prog: Program):
+        self.types = prog.types
+        self.records = prog.records
+        self.funcs = {f.name: f for f in prog.functions}
+        self.diags: list[str] = []
+
+    def emit(self, tag: str) -> None:
+        self.diags.append(tag)
+
+    def run(self) -> list[str]:
+        for fn in self.funcs.values():
+            self.check_func(fn)
+        return self.diags
+
+    def check_func(self, fn: Func) -> None:
+        for cl in fn.clauses:
+            scope: dict[str, Any] = {}
+            for pname, pty in fn.params:
+                scope[pname] = pty
+            for pat, (_, pty) in zip(cl.patterns, fn.params):
+                add_bindings(pat, pty, scope, self.types)
+            if cl.guard is not None:
+                self.analyze_expr(
+                    cl.guard, scope, expected=None, in_guard=True, check_types=False
+                )
+            self.analyze_expr(
+                cl.body, scope, expected=fn.ret, in_guard=False, check_types=True
+            )
+
+    def analyze_expr(
+        self,
+        expr: Any,
+        scope: dict[str, Any],
+        expected: Any,
+        in_guard: bool,
+        check_types: bool,
+    ) -> None:
+        if expr is None:
+            return
+        if isinstance(expr, SwitchExpr):
+            self.analyze_switch(expr, scope, expected, in_guard, check_types)
+            return
+        if isinstance(expr, NameExpr):
+            if expr.name not in scope:
+                self.emit("unbound_variable")
+            return
+        if isinstance(expr, CallExpr):
+            fn = self.funcs.get(expr.func)
+            for i, arg in enumerate(expr.args):
+                self.analyze_expr(arg, scope, None, in_guard, check_types)
+                if check_types and fn is not None and i < len(fn.params):
+                    at = type_of(arg, scope, self.funcs, self.types)
+                    if at is not None and not is_member(
+                        at, fn.params[i][1], self.types
+                    ):
+                        self.emit("arg_not_accepted")
+            return
+        if isinstance(expr, BinExpr):
+            self.analyze_expr(expr.left, scope, None, in_guard, check_types)
+            self.analyze_expr(expr.right, scope, None, in_guard, check_types)
+            return
+        if isinstance(expr, UnExpr):
+            self.analyze_expr(expr.expr, scope, None, in_guard, check_types)
+            return
+        if isinstance(expr, FieldExpr):
+            self.analyze_expr(expr.obj, scope, None, in_guard, check_types)
+            return
+        if isinstance(expr, TupleExpr):
+            for e in expr.elems:
+                self.analyze_expr(e, scope, None, in_guard, check_types)
+            return
+        if isinstance(expr, ListExpr):
+            for e in expr.elems:
+                self.analyze_expr(e, scope, None, in_guard, check_types)
+            return
+
+    def analyze_switch(
+        self,
+        sw: SwitchExpr,
+        scope: dict[str, Any],
+        expected: Any,
+        in_guard: bool,
+        check_types: bool,
+    ) -> None:
+        if in_guard:
+            self.emit("switch_in_guard")
+        self.analyze_expr(sw.subject, scope, None, in_guard, check_types)
+
+        subj_ty = type_of(sw.subject, scope, self.funcs, self.types)
+        aliases: set[str] = set()
+        if isinstance(sw.subject, NameExpr):
+            aliases.add(sw.subject.name)
+
+        residual: Optional[Res] = None
+        if subj_ty is not None:
+            residual = from_type(subj_ty, self.types)
+
+        for arm in sw.arms:
+            outer_names = set(scope.keys())
+            names = introduced_names(arm.pattern)
+            seen: set[str] = set()
+            for n in names:
+                if n in seen or n in outer_names:
+                    self.emit("rebinding")
+                seen.add(n)
+
+            arm_scope = dict(scope)
+            if subj_ty is not None:
+                add_bindings(arm.pattern, subj_ty, arm_scope, self.types)
+
+            g_aliases = set(aliases) | set(names)
+            gstat = eval_guard(arm.guard, g_aliases, arm_scope, self.types)
+
+            inhabited = subj_ty is None or pattern_inhabited(
+                arm.pattern, subj_ty, self.types
+            )
+
+            if arm.guard is not None:
+                self.analyze_expr(
+                    arm.guard, arm_scope, None, in_guard=True, check_types=False
+                )
+
+            vacuous = not inhabited
+            if vacuous:
+                self.emit("vacuous_arm")
+
+            unsat = (not vacuous) and gstat.kind == "unsat"
+            if unsat:
+                self.emit("unsatisfiable_arm_guard")
+
+            if not vacuous and not unsat and residual is not None:
+                if not overlaps(residual, arm.pattern, gstat, g_aliases):
+                    self.emit("unreachable_arm")
+                residual = subtract(residual, arm.pattern, gstat, g_aliases)
+
+            body_check = check_types and not vacuous
+            self.analyze_expr(
+                arm.body, arm_scope, expected, in_guard, check_types=body_check
+            )
+            if (
+                body_check
+                and expected is not None
+                and not isinstance(arm.body, SwitchExpr)
+            ):
+                t = type_of(arm.body, arm_scope, self.funcs, self.types)
+                if t is not None and not is_member(t, expected, self.types):
+                    self.emit("return_not_declared")
+
+        if residual is not None and reportable_missing(residual):
+            self.emit("switch_inexhaustive")
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+def check_file(path: str) -> list[str]:
+    with open(path, encoding="utf-8") as f:
+        src = f.read()
+    tokens = Lexer(src).tokenize()
+    try:
+        prog = Parser(tokens).parse()
+    except ParseError:
+        return []
+    return Checker(prog).run()
+
+
+def main(argv: list[str]) -> int:
+    if len(argv) < 2:
+        return 0
+    for tag in check_file(argv[1]):
+        print(tag)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv))

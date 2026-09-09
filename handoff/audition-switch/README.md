@@ -82,9 +82,22 @@ of the nine diagnostics the specification states — and the visible score is th
 one this file already demonstrates cannot tell an implementation from a lookup
 table.
 
-**The scores below were measured against a fifteen-case instrument; the next run
-is against twenty-five. The two are not comparable.** The earlier numbers stay
-as the record of what they measured, not as a baseline to beat.
+**The scores below were measured against a fifteen-case instrument; round 3 ran
+the same evening against twenty-five. The two are not comparable.** The earlier
+numbers stay as the record of what they measured, not as a baseline to beat.
+
+**Round 3 ran on 2026-09-09 and the specification transferred.** `codex` and
+`grok-4.6` each reached **13/13 visible and 12/12 held-out** — every one of the
+nine diagnostics implemented from the packet alone, including the five that had
+been specified but never auditioned. Both copilot lanes scored a **perfect 13/13
+visible and still failed held-out cases**, which is the split's purpose
+demonstrated live, and both missed the same two: `h04-matched-name` and
+`h11-vacuous-arm`. Several workers missing the same clause is this file's own
+definition of a specification hole rather than a weak worker, so `h11` is a
+candidate defect — §5 teaches vacuity through a tuple against a *declared* union
+and `h11` asks it of an atom against a primitive `int`. Full numbers, the
+revealed failures and the provenance:
+[`evidence/2026-09-09-round3-nine-tags/`](evidence/2026-09-09-round3-nine-tags/NOTES.md).
 
 **The packet changed on 2026-08-27, and the scores below predate it.** §5 is
 longer by seven examples, and `build-packet.py` now strips every HTML comment

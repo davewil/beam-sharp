@@ -1,0 +1,601 @@
+#!/usr/bin/env python3
+"""
+Exhaustiveness checker for switch statements in the .bs language.
+"""
+
+import sys
+import re
+from typing import Dict, List, Set, Tuple, Optional
+
+class Checker:
+    def __init__(self, source: str):
+        self.source = source
+        self.lines = source.split('\n')
+        self.errors: Set[str] = set()
+        
+        # Builtin types: name -> (is_closed, cases_set)
+        self.types: Dict[str, Tuple[bool, Optional[Set[str]]]] = {
+            'atom': (False, None),
+            'int': (False, None),
+            'term': (False, None),
+            'bool': (True, {':true', ':false'}),
+        }
+        
+        # Functions: name -> (param_types, return_type, param_names)
+        self.functions: Dict[str, Tuple[List[str], str, List[str]]] = {}
+        
+        self._parse_types_and_functions()
+        self._check_all_switches()
+    
+    def _parse_types_and_functions(self):
+        """Parse type and function declarations."""
+        i = 0
+        while i < len(self.lines):
+            line = self.lines[i]
+            stripped = line.strip()
+            
+            # Parse type declarations
+            if stripped.startswith('type '):
+                m = re.match(r'type\s+(\w+)\s*=\s*(.*)', stripped)
+                if m:
+                    type_name = m.group(1)
+                    cases_str = m.group(2)
+                    cases = set()
+                    for case in cases_str.split('|'):
+                        case = case.strip()
+                        if case.startswith(':'):
+                            cases.add(case)
+                    self.types[type_name] = (True, cases)
+            
+            # Parse function signatures
+            elif stripped.startswith('public '):
+                m = re.match(r'public\s+(\w+)\s+(\w+)\s*\((.*?)\)', stripped)
+                if m:
+                    return_type = m.group(1)
+                    func_name = m.group(2)
+                    params_str = m.group(3)
+                    
+                    # Parse parameter types and names
+                    param_types = []
+                    param_names = []
+                    for param in params_str.split(','):
+                        param = param.strip()
+                        if param:
+                            parts = param.split()
+                            if len(parts) >= 2:
+                                param_type = parts[0]
+                                param_name = parts[1]
+                                param_types.append(param_type)
+                                param_names.append(param_name)
+                    
+                    self.functions[func_name] = (param_types, return_type, param_names)
+            
+            i += 1
+    
+    def _check_all_switches(self):
+        """Find and check all switch statements."""
+        i = 0
+        while i < len(self.lines):
+            line = self.lines[i]
+            if 'switch' in line and '{' in line:
+                self._check_switch_at_line(i)
+            i += 1
+    
+    def _check_switch_at_line(self, line_idx: int):
+        """Check a switch starting at the given line."""
+        line = self.lines[line_idx]
+        
+        # Check for switch in guard (before the ->)
+        if '->' in line:
+            arrow_pos = line.find('->')
+            if 'when' in line[:arrow_pos]:
+                guard_part = line[:arrow_pos]
+                if 'switch' in guard_part:
+                    self.errors.add('switch_in_guard')
+                    return
+        
+        # Find the function this switch belongs to
+        func_name, param_names, param_types, return_type = self._find_enclosing_function(line_idx)
+        if not func_name:
+            return
+        
+        # Extract the subject type from the switch line
+        # Pass param_names and param_types for type lookup
+        subject_type_name, subject_element_types = self._extract_subject_type(line, param_names, param_types)
+        is_closed_type, type_cases = self.types.get(subject_type_name, (False, None))
+        
+        # If it's a tuple type, treat it as closed
+        if subject_type_name == 'tuple' and subject_element_types:
+            is_closed_type = True
+            type_cases = None  # Will be computed based on element types
+        
+        # Collect all arms
+        start_idx, end_idx = self._find_switch_bounds(line_idx)
+        arms = self._extract_arms(start_idx, end_idx)
+        
+        if not arms:
+            return
+        
+        # Build variable context: clause parameters
+        var_context = dict(zip(param_names, param_types))
+        
+        # Check each arm
+        seen_literal_patterns = set()
+        seen_catchall = False
+        
+        for arm_idx, arm in enumerate(arms):
+            pattern_part, guard_part, body_part = arm
+            
+            # Extract base pattern and any guard
+            base_pattern = pattern_part.strip()
+            
+            # Check if this arm is unreachable due to earlier catch-all
+            if seen_catchall:
+                self.errors.add('unreachable_arm')
+            
+            # 1. Check rebinding: pattern that shadows a clause parameter
+            self._check_rebinding(base_pattern, var_context, param_names)
+            
+            # 2. Check vacuous: pattern impossible for subject type
+            self._check_vacuous(base_pattern, is_closed_type, type_cases, arm_idx + 1)
+            
+            # 3. Check unreachable: duplicate literal pattern or covered by earlier pattern
+            if base_pattern == '_':
+                seen_catchall = True
+            elif self._is_literal_pattern(base_pattern):
+                if base_pattern in seen_literal_patterns:
+                    self.errors.add('unreachable_arm')
+                else:
+                    seen_literal_patterns.add(base_pattern)
+            
+            # 4. Check unsatisfiable guard
+            if guard_part:
+                self._check_unsatisfiable_guard(guard_part, arm_idx + 1)
+            
+            # 5. Check unbound variables in body
+            # Get variables bound by this arm
+            arm_vars = dict(var_context)
+            self._collect_pattern_variables(base_pattern, arm_vars, subject_type_name)
+            self._check_unbound_in_body(body_part, arm_vars, func_name)
+            
+            # 6. Check return type
+            self._check_return_type(body_part, return_type)
+            
+            # 7. Check function calls
+            self._check_function_calls_in_body(body_part, arm_vars)
+        
+        # 8. Check exhaustiveness
+        self._check_exhaustiveness(arms, is_closed_type, type_cases, subject_type_name, subject_element_types, param_names, var_context)
+    
+    def _find_enclosing_function(self, switch_line_idx: int) -> Tuple[Optional[str], List[str], List[str], str]:
+        """Find the function that contains this switch."""
+        # Search backwards for a clause head pattern
+        for i in range(switch_line_idx, -1, -1):
+            line = self.lines[i].strip()
+            
+            # Match pattern: FunctionName(params) -> or FunctionName(params) when ...
+            m = re.match(r'^(\w+)\s*\((.*?)\)(\s+when\s+.*)?\s*->', line)
+            if m:
+                func_name = m.group(1)
+                params_str = m.group(2)
+                
+                # Extract parameter names from clause
+                param_names = [p.strip() for p in params_str.split(',') if p.strip()]
+                
+                # Look up in functions
+                if func_name in self.functions:
+                    param_types, return_type, _ = self.functions[func_name]
+                    return func_name, param_names, param_types, return_type
+        
+        return None, [], [], 'term'
+    
+    def _extract_subject_type(self, switch_line: str, param_names: List[str], param_types: List[str]) -> Tuple[str, List[str]]:
+        """Extract the type name of the switch subject.
+        Returns (type_name, element_types) where element_types is non-empty for tuples.
+        """
+        # Match: X switch { or (X) switch { or (X, Y) switch {
+        
+        # First try: simple parameter name
+        m = re.search(r'->\s*(\w+)\s+switch\s*\{', switch_line)
+        if m:
+            subject = m.group(1)
+            # Look up this variable's type in the parameter list
+            if subject in param_names:
+                idx = param_names.index(subject)
+                if idx < len(param_types):
+                    return param_types[idx], []
+            return 'term', []
+        
+        # Try tuple
+        m = re.search(r'->\s*\((.*?)\)\s+switch\s*\{', switch_line)
+        if m:
+            inner = m.group(1)
+            elements = [e.strip() for e in inner.split(',')]
+            # Look up types of the tuple elements
+            element_types = []
+            for elem in elements:
+                if elem in param_names:
+                    idx = param_names.index(elem)
+                    if idx < len(param_types):
+                        element_types.append(param_types[idx])
+                    else:
+                        element_types.append('term')
+                else:
+                    element_types.append('term')
+            return 'tuple', element_types
+        
+        return 'term', []
+    
+    def _find_switch_bounds(self, start_line: int) -> Tuple[int, int]:
+        """Find the start and end line indices of a switch block."""
+        start_idx = start_line
+        end_idx = start_line
+        
+        # Count braces to find the closing brace
+        brace_depth = 0
+        found_opening = False
+        
+        for i in range(start_line, len(self.lines)):
+            line = self.lines[i]
+            
+            for char in line:
+                if char == '{':
+                    brace_depth += 1
+                    found_opening = True
+                elif char == '}':
+                    brace_depth -= 1
+                    if found_opening and brace_depth == 0:
+                        end_idx = i
+                        return start_idx, end_idx
+        
+        return start_idx, end_idx
+    
+    def _extract_arms(self, start_line: int, end_line: int) -> List[Tuple[str, str, str]]:
+        """Extract switch arms as (pattern, guard, body) tuples."""
+        # Collect all lines
+        all_text = '\n'.join(self.lines[start_line:end_line+1])
+        
+        # Find content between { and }
+        open_pos = all_text.find('{')
+        close_pos = all_text.rfind('}')
+        if open_pos < 0 or close_pos < 0:
+            return []
+        
+        content = all_text[open_pos+1:close_pos]
+        
+        # Split by => to find arms
+        arms = []
+        # Split carefully to preserve the patterns
+        
+        # Use regex to split on => (but not in strings)
+        parts = re.split(r'=>', content)
+        
+        for i in range(len(parts) - 1):
+            # Get pattern from end of current part
+            pattern_text = parts[i].rstrip()
+            # Body from start of next part
+            body_text = parts[i+1].lstrip()
+            
+            # Split pattern and body by comma (body ends at comma)
+            # The body ends at the comma before the next pattern
+            body_lines = body_text.split('\n')
+            first_line = body_lines[0]
+            
+            # Extract body up to comma
+            comma_pos = first_line.find(',')
+            if comma_pos > 0:
+                body = first_line[:comma_pos].strip()
+            else:
+                body = first_line.strip()
+            
+            # Extract pattern (handle "pattern when guard")
+            # Last line(s) of pattern
+            pattern_lines = pattern_text.split('\n')
+            full_pattern = pattern_lines[-1].strip() if pattern_lines else ""
+            
+            # Split pattern and guard
+            guard = ""
+            if ' when ' in full_pattern:
+                full_pattern, guard = full_pattern.split(' when ', 1)
+                guard = guard.strip()
+            
+            if full_pattern:
+                arms.append((full_pattern.strip(), guard, body))
+        
+        return arms
+    
+    def _is_literal_pattern(self, pattern: str) -> bool:
+        """Check if pattern is a literal (atom, number, etc)."""
+        # Atom literal
+        if re.match(r'^:\w+$', pattern):
+            return True
+        # Integer literal (including negative)
+        if re.match(r'^-?\d+$', pattern):
+            return True
+        # Boolean literals
+        if pattern in ('true', 'false'):
+            return True
+        return False
+    
+    def _check_rebinding(self, pattern: str, var_context: Dict[str, str], clause_params: List[str]):
+        """Check if pattern rebinds a clause parameter."""
+        # Simple name that matches an existing clause param
+        if re.match(r'^\w+$', pattern) and pattern != '_':
+            if pattern in var_context:
+                self.errors.add('rebinding')
+    
+    def _check_vacuous(self, pattern: str, is_closed: bool, cases: Optional[Set[str]], arm_num: int):
+        """Check if pattern is impossible for the type."""
+        # Pattern is vacuous if it's not a member of the type
+        
+        # Only check closed types
+        if not is_closed or cases is None:
+            return
+        
+        # Tuple pattern is vacuous if subject isn't a tuple type
+        if pattern.startswith('('):
+            # Subjects are not tuple types in these examples
+            # Actually, looking at c12: the subject is Verdict = :pass | :fail
+            # And pattern (:pass, n) is vacuous
+            self.errors.add('vacuous_arm')
+            return
+        
+        # Atom literal pattern
+        if re.match(r'^:\w+', pattern):
+            atom = re.match(r'^(:\w+)', pattern).group(1)
+            if atom not in cases:
+                self.errors.add('vacuous_arm')
+            return
+    
+    def _check_unsatisfiable_guard(self, guard: str, arm_num: int):
+        """Check if guard condition is impossible."""
+        # Patterns like: x > 5 and x < 3, etc.
+        
+        # Match "VAR > NUM and VAR < NUM2" where NUM >= NUM2
+        m = re.match(r'(\w+)\s*>\s*(\d+)\s+and\s+(\w+)\s*<\s*(\d+)', guard)
+        if m:
+            var1, num1_str, var2, num2_str = m.groups()
+            if var1 == var2:
+                num1, num2 = int(num1_str), int(num2_str)
+                if num1 >= num2:
+                    self.errors.add('unsatisfiable_arm_guard')
+    
+    def _collect_pattern_variables(self, pattern: str, var_context: Dict[str, str], subject_type: str = 'term'):
+        """Add variables bound by this pattern to the context."""
+        # Simple name
+        if re.match(r'^\w+$', pattern) and pattern != '_':
+            if pattern not in var_context:
+                # Use subject type if available
+                var_context[pattern] = subject_type
+        
+        # Tuple (a, b, c)
+        m = re.match(r'^\((.*)\)$', pattern)
+        if m:
+            parts = [p.strip() for p in m.group(1).split(',')]
+            for part in parts:
+                if re.match(r'^\w+$', part) and part != '_':
+                    if part not in var_context:
+                        var_context[part] = 'term'
+            return
+        
+        # Compound like (:ok, v)
+        m = re.match(r'^\(:?\w+,\s*(\w+)\)', pattern)
+        if m:
+            var = m.group(1)
+            if var not in var_context:
+                var_context[var] = 'term'
+    
+    def _check_unbound_in_body(self, body: str, var_context: Dict[str, str], func_name: str):
+        """Check if body uses undefined variables."""
+        # Extract identifiers that are NOT part of atom literals (:name)
+        identifiers = set()
+        for match in re.finditer(r'\b([a-zA-Z_]\w*)\b', body):
+            # Skip if preceded by :
+            if match.start() > 0 and body[match.start()-1] == ':':
+                continue
+            identifiers.add(match.group(1))
+        
+        for ident in identifiers:
+            # Skip function names
+            if ident == func_name or ident in self.functions:
+                continue
+            
+            # Skip keywords
+            if ident in ('true', 'false'):
+                continue
+            
+            # Check if it's in context
+            if ident not in var_context:
+                self.errors.add('unbound_variable')
+                break
+    
+    def _check_return_type(self, body: str, expected_type: str):
+        """Check if body returns the correct type."""
+        body = body.strip()
+        
+        # Atom return value
+        if body.startswith(':'):
+            if expected_type not in ('atom', 'term'):
+                self.errors.add('return_not_declared')
+            return
+        
+        # Integer return value
+        if re.match(r'^\d+$', body):
+            if expected_type not in ('int', 'term'):
+                self.errors.add('return_not_declared')
+            return
+    
+    def _check_function_calls_in_body(self, body: str, var_context: Dict[str, str]):
+        """Check function calls in body have correct argument types."""
+        # Find calls: FUNC(args)
+        for m in re.finditer(r'(\w+)\s*\(([^)]*)\)', body):
+            func_name = m.group(1)
+            args_str = m.group(2)
+            
+            if func_name in self.functions:
+                param_types, _, _ = self.functions[func_name]
+                args = [a.strip() for a in args_str.split(',') if a.strip()]
+                
+                # Check each argument type
+                for idx, arg in enumerate(args):
+                    if idx >= len(param_types):
+                        break
+                    
+                    expected_type = param_types[idx]
+                    actual_type = var_context.get(arg, 'term')
+                    
+                    # Check compatibility
+                    if actual_type != expected_type and actual_type != 'term' and expected_type != 'term':
+                        self.errors.add('arg_not_accepted')
+                        return
+    
+    def _check_exhaustiveness(self, arms: List[Tuple[str, str, str]], 
+                             is_closed: bool, cases: Optional[Set[str]],
+                             subject_type_name: str, subject_element_types: List[str],
+                             param_names: List[str], var_context: Dict[str, str]):
+        """Check if switch is exhaustive."""
+        # Only check if subject is closed type
+        if not is_closed:
+            return
+        
+        # Check if any arm is a catch-all _
+        has_catchall = any(pattern.strip() == '_' for pattern, _, _ in arms)
+        
+        if has_catchall:
+            # Catch-all only legal on open types
+            self.errors.add('switch_inexhaustive')
+            return
+        
+        # For tuple types
+        if subject_type_name == 'tuple' and subject_element_types:
+            # Generate all possible tuples for the element types
+            all_possible_tuples = self._generate_tuple_cases(subject_element_types)
+            
+            # Collect what's covered by the arms
+            covered_tuples = set()
+            for pattern, _, _ in arms:
+                pattern = pattern.strip()
+                if pattern.startswith('(') and pattern.endswith(')'):
+                    inner = pattern[1:-1]
+                    elements = [e.strip() for e in inner.split(',')]
+                    # Generate tuples this pattern covers
+                    covered = self._tuples_covered_by_pattern(elements, subject_element_types)
+                    covered_tuples.update(covered)
+            
+            # Check if all tuples are covered
+            if covered_tuples != all_possible_tuples:
+                self.errors.add('switch_inexhaustive')
+            return
+        
+        # For simple atom types
+        if cases is None:
+            return
+        
+        # Check if any pattern is a relational pattern (>= X, <= X, etc.) or list pattern
+        # If so, skip exhaustiveness checking as it requires interval arithmetic or complex list analysis
+        has_relational = any(
+            re.match(r'^(>=|<=|>|<|\w+ when|\[)', pattern.strip())
+            for pattern, _, _ in arms
+        )
+        if has_relational:
+            return
+        
+        if all(re.match(r'^:\w+', case) for case in cases):
+            # Collect all literal patterns covered
+            covered = set()
+            for pattern, guard, _ in arms:
+                pattern = pattern.strip()
+                if re.match(r'^:\w+$', pattern):
+                    covered.add(pattern)
+                # Also handle bare boolean literals
+                elif pattern == 'true':
+                    covered.add(':true')
+                elif pattern == 'false':
+                    covered.add(':false')
+            
+            # Check if all cases are covered
+            if covered != cases:
+                self.errors.add('switch_inexhaustive')
+    
+    def _generate_tuple_cases(self, element_types: List[str]) -> Set[Tuple]:
+        """Generate all possible tuple values for given element types."""
+        if not element_types:
+            return {()}
+        
+        element_type = element_types[0]
+        rest_types = element_types[1:]
+        
+        # Get possible values for this element
+        if element_type == 'bool':
+            element_values = [':true', ':false']
+        else:
+            element_values = ['_']  # Open type, can't enumerate
+        
+        rest_cases = self._generate_tuple_cases(rest_types)
+        
+        result = set()
+        for val in element_values:
+            for rest_tuple in rest_cases:
+                result.add((val,) + rest_tuple)
+        
+        return result
+    
+    def _tuples_covered_by_pattern(self, elements: List[str], element_types: List[str]) -> Set[Tuple]:
+        """Get the set of tuples covered by a tuple pattern."""
+        if not elements:
+            return {()}
+        
+        element = elements[0]
+        rest_elements = elements[1:]
+        rest_types = element_types[1:] if element_types else []
+        
+        # Get possible values for this element
+        if element == '_':
+            # Wildcard covers all values of the type
+            if element_types and element_types[0] == 'bool':
+                element_values = [':true', ':false']
+            else:
+                element_values = ['_']
+        elif element == 'true':
+            # Bare 'true' literal
+            element_values = [':true']
+        elif element == 'false':
+            # Bare 'false' literal
+            element_values = [':false']
+        elif element.startswith(':'):
+            # Atom literal value
+            element_values = [element]
+        else:
+            # Variable, covers all values (acts like wildcard)
+            if element_types and element_types[0] == 'bool':
+                element_values = [':true', ':false']
+            else:
+                element_values = ['_']
+        
+        rest_cases = self._tuples_covered_by_pattern(rest_elements, rest_types)
+        
+        result = set()
+        for val in element_values:
+            for rest_tuple in rest_cases:
+                result.add((val,) + rest_tuple)
+        
+        return result
+
+def main():
+    if len(sys.argv) != 2:
+        sys.exit(1)
+    
+    try:
+        with open(sys.argv[1], 'r') as f:
+            source = f.read()
+    except:
+        sys.exit(1)
+    
+    checker = Checker(source)
+    
+    # Output errors
+    for error in sorted(checker.errors):
+        print(error)
+
+if __name__ == '__main__':
+    main()
