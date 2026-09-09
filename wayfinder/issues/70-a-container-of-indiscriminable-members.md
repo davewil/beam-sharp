@@ -53,27 +53,65 @@ domain map.
 
 ## Round 1 — asked 2026-09-09
 
+**Sharpened before it was answered, same day.** The first framing showed the type declarations and
+a function whose body was `-> :rows`. David: *"the Rows example is weak … what if the return type
+is something more complex than an atom and m and t are accessed in the clause?"* He is right — a
+body that never touches the binding never pays for the members being indiscriminable, so the
+question had no teeth. The programs below use the binding, and what they turn up is not the
+weaker fault the first framing showed.
+
 **Q1. This compiles today. Should it?**
 
 ```csharp
-type Slot  = map<string, int> | map<string, binary>               // refused today
-type Slots = list<map<string, int>> | list<map<string, binary>>   // compiles today
+type Rows = list<map<string, int>> | list<map<string, binary>>   // compiles today
+type Slot = map<string, int> | map<string, binary>               // REFUSED today
 ```
 
-`Slots` is `Slot` inside a list. A clause head can reach an element of `Slots` — `[m, ..t]` binds
-one — and cannot decide which member it came from, because that is what `Slot`'s refusal says.
-Answer **refuse it** or **leave it**.
+`Rows` is `Slot` inside a list. Measured at `ea7f896`, a body that uses the binding is boxed in —
+every route out is refused, and the last one is refused by the compiler's own advice:
+
+```csharp
+public map<string, int> Head(Rows b)
+Head([m, ..t]) -> m
+```
+> `error: Head returns a value its signature does not declare`
+> `  not covered by the declared return type:`
+> `    map<string, binary>`
+> `  the signature its clauses justify:`
+> `    public map<string, int> | map<string, binary> Head(Rows b)`
+
+Sound, and the repair is printed. **Paste that repair:**
+
+```csharp
+public map<string, int> | map<string, binary> Head(Rows b)
+Head([m, ..t]) -> m
+```
+> `error: no clause head can tell `map<string, int>` from `map<string, binary>``
+> `  in Head`
+
+**The compiler prints a signature and then refuses that exact signature.** Passing the binding on
+instead of returning it lands in the same place — `Kind([m, ..t]) -> Use(m)` over
+`Use(map<string, int> m)` is refused with *"argument 1 is not covered: `map<string, binary>`"*, and
+widening `Use`'s parameter to the honest union is the refused declaration again.
+
+So nothing unsound gets through: no `map<string, binary>` reaches a `map<string, int>` position.
+What is wrong is that the author is admitted to a state with no legal exit, one container level
+past the declaration that would have told them. Answer **refuse it** or **leave it**.
 
 **What the compiler gains if it is refused.** `discriminable/4` recurses into container elements
 and bottoms out at *"the elements are discriminable"* rather than at *"the elements have
-patterns"*, so `list<int> | list<binary>` stays legal — 09 §4's own accepted example. The recursion
-needs the same `mu` guard F36 added to `head_parts/2`. It decides more programs illegal, so it owes
-a blast-radius measurement over `compiler/examples` before it lands. `LANGUAGE.md` §7 then says
-what the compiler holds; today it says more.
+patterns"*, so `list<int> | list<binary>` stays legal — 09 §4's own accepted example. The
+recursion needs the same `mu` guard F36 added to `head_parts/2`. It decides more programs illegal,
+so it owes a blast-radius measurement over `compiler/examples` before it lands. The refusal costs
+nothing permanent: `Slot`'s own diagnostic says it *"lifts when a pattern form for these members
+ships"*, so both lift together the day ticket 48's map pattern lands.
 
-**If it is left**, §7's sentence and `CONTEXT.md`'s **Discriminable** entry are rewritten to
-*reaches*, F36's known-limit note becomes the permanent record, and the divergence stops being a
-defect.
+**If it is left**, `LANGUAGE.md` §7 and `CONTEXT.md`'s **Discriminable** entry are rewritten to
+*reaches*, F36's known-limit note becomes the permanent record, and the box above is the language's
+documented behaviour rather than a defect.
+
+<!-- The same shape as the F19 finding: before trusting a refusal, run the form it RECOMMENDS.
+     Here the recommended form is refused by a different check in the same compiler. -->
 
 ## Decisions entry
 
