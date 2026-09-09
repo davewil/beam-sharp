@@ -1,3 +1,7 @@
+# Conventions
+
+Please remove all mannered prose.
+
 # beam-sharp
 
 A design effort for a BEAM-targeting programming language with C#-family brace syntax,
