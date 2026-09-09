@@ -133,10 +133,11 @@ and no comprehension syntax.
 _Avoid_: chain, fluent call, method call, forward operator
 
 **Valve**:
-`|?>`, the pipe that stops the flow. Where its left operand is `(:error, _)` the remaining stages do
-not run and that error is the result; otherwise the stage applies to the **narrowed** value, so a
-stage is declared over the type left after the error member is subtracted. A valve over a type with
-no `(:error, _)` member is an error. Named for what it is: a valve stops flow in a pipe.
+`|?>`, the pipe that stops the flow. Where its left operand is `(:error, _)` or `:nothing` the
+remaining stages do not run and that value is the result, returned unchanged; otherwise the stage
+applies to the **narrowed** value, so a stage is declared over the type left after both members are
+subtracted. A valve over a type carrying neither member is an error. Named for what it is: a valve
+stops flow in a pipe.
 _Avoid_: bind, andThen, try operator, safe pipe, monadic pipe
 
 **switch**:

@@ -75,9 +75,23 @@ lower({e_valve, L, Subject, Call}, N) ->
     %% `v => F(v)`: the pipe rewrite over the narrowed value. `v`'s type is the
     %% subject minus the error member, so a stage declared over the narrow type
     %% (`CheckStock(Valid v)`) checks without the author restating the union.
+    %% `:nothing => :nothing`: absence is returned UNCHANGED, exactly as the
+    %% error is and for the same reason — the arm's job is to BE the value, so
+    %% it is rebuilt rather than aliased (F30, ticket 49). The arm is a literal
+    %% on both sides, which is the whole reason the fixed pair is cheap where
+    %% shape B was not: no signature reaches this pass and `bs_emit` needs
+    %% nothing new. A session tempted by a check-time side table should stop
+    %% here; that table is shape B's cost, and shape B was refused.
+    %%
+    %% IT IS EMITTED UNCONDITIONALLY, over every subject. `bs_lower` runs before
+    %% the checker and has no types to ask, so the arm cannot be omitted where
+    %% the subject carries no `:nothing`. What keeps that from widening every
+    %% existing valve is in `bs_check:arms/9`: a GENERATED arm no value reaches
+    %% contributes no type.
+    NothArm = {arm, L, {p_atom, L, nothing}, none, {e_atom, L, nothing}},
     ValArm = {arm, L, {p_var, L, Val}, none,
               pipe_into(L, {e_var, L, Val}, Call1)},
-    {{e_valve, L, {e_switch, L, Subject1, [ErrArm, ValArm]}}, N2 + 1};
+    {{e_valve, L, {e_switch, L, Subject1, [ErrArm, NothArm, ValArm]}}, N2 + 1};
 %% A valve can sit anywhere an expression can, so the walk is generic over
 %% tuples and lists rather than a copy of the grammar to keep in step.
 lower(T, N) when is_tuple(T) ->

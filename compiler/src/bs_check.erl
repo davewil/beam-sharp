@@ -116,12 +116,20 @@ check_dir(Sources, World, Expect) ->
     Foreigns = foreign_wrappers(Decls, Env),
     Ctx = #ctx{types = Env, callees = callees(Decls, Env, Imports),
                imports = Imports},
-    Tagged = lists:append([check_file(P, Fs, Ctx) || {P, Fs} <- PerFile]),
+    Tagged0 = lists:append([check_file(P, Fs, Ctx) || {P, Fs} <- PerFile]),
+    %% The prune notes ride the diagnostic channel out of the walk and are
+    %% taken off it here, before anything can try to print one. They are not
+    %% diagnostics: nothing is wrong, and the author is told nothing.
+    {Notes, Tagged} = lists:partition(
+                        fun({_, D}) -> element(1, D) =:= prune end, Tagged0),
+    Prunes = maps:from_list([{B, Dead} || {_, {prune, B, Dead}} <- Notes]),
+    Fns1 = prune_valves(Fns, Prunes),
+    PerFile1 = [{P, prune_valves(Fs, Prunes)} || {P, Fs} <- PerFile],
     case [D || {_, D} <- Tagged, element(1, D) =:= error] of
-        []     -> {ok, #{module => Module, functions => Fns, env => Env,
+        []     -> {ok, #{module => Module, functions => Fns1, env => Env,
                          %% Per-file functions, so the emitter can put a
                          %% file attribute in front of each file's (F15).
-                         files => PerFile,
+                         files => PerFile1,
                          behaviours => behaviours(Decls),
                          %% Imports resolve at check time; the emitter reads
                          %% this table rather than resolving again (41 §2).
@@ -1976,15 +1984,41 @@ type_of({e_switch, L, Subject, Arms}, S, C) ->
 %% discard (ticket 12 §2).
 type_of({e_valve, L, {e_switch, _, Subject, Arms}}, S, C) ->
     {SubjTy, D0} = type_of(Subject, S, C),
-    [{arm, _, ErrPat, _, _} | _] = Arms,
-    {ErrTy, _, _} = pattern_type(ErrPat, [], C#ctx.types),
-    case bs_types:is_none(bs_types:intersect(ErrTy, SubjTy)) of
+    %% EVERY ARM BUT THE LAST, not the first. The short-circuit set became a
+    %% pair on 2026-09-09 (F30), and reading it off the arms keeps the property
+    %% this clause has always had: the question the compiler answers is exactly
+    %% the question `bs_lower` wrote down. Deriving the set from a literal here
+    %% instead would put the same constant in two files and let them drift.
+    StopPats = [P || {arm, _, P, _, _} <- lists:droplast(Arms)],
+    StopTy = union_of([element(1, pattern_type(P, [], C#ctx.types))
+                       || P <- StopPats]),
+    case bs_types:is_none(bs_types:intersect(StopTy, SubjTy)) of
         true ->
             {reported(),
              D0 ++ [{error, L, C#ctx.fname, {valve_on_infallible, SubjTy}}]};
         false ->
             {Ty, D1} = switch_over(L, SubjTy, Arms, S, C, generated),
-            {Ty, D0 ++ D1}
+            %% A STOP ARM NO VALUE CAN REACH IS DROPPED BEFORE EMISSION (F30).
+            %% `bs_lower` writes both stop arms over every valve because it
+            %% runs before the checker and has no types to ask; over
+            %% `int | (:error, atom)` the `:nothing` arm is dead, and over
+            %% `int | :nothing` the error arm is. Emitted anyway, `erlc` is
+            %% happy and **Dialyzer is not** — "the pattern 'nothing' can
+            %% never match the type pos_integer()" — and `spec-check.sh`
+            %% treats any warning as a defect in the emitted code.
+            %%
+            %% This is the same predicate `arms/9` applies to the arm's TYPE,
+            %% and it must stay the same one: there the test is an empty
+            %% `Domain`, which for these arms is this meet (the first arm sees
+            %% `Residual = SubjTy`, and `:nothing` is disjoint from the error
+            %% tuple, so the second sees it too). One rule, two consumers.
+            %%
+            %% IT IS NOT THE CHECK-TIME SIDE TABLE TICKET 49 REFUSED. That
+            %% table keyed the short-circuit SET on the stage's declared
+            %% parameter type, which is shape B. The set here is still the
+            %% constant pair; what the checker hands on is which arms it
+            %% proved dead, the way it already hands on `foreigns`.
+            {Ty, D0 ++ D1 ++ prune_note(Arms, SubjTy, C)}
     end;
 %% `ValidateAs<T>(x)` is a codegen obligation, not a call (F18). `<T>` is a
 %% compile-time argument driving generation, monomorphic at every use, with
@@ -2307,8 +2341,72 @@ arms([{arm, AL, P, Guard, Body} | Rest], Residual, Declared, S, C, N, Tys, Diags
                             [{V, at_path(Domain, Path)}
                              || {V, Path} <- maps:to_list(Binds)])),
     {BodyTy, D2} = type_of(Body, Scope, C),
+    %% A GENERATED ARM NO VALUE REACHES CONTRIBUTES NO TYPE (F30). `bs_lower`
+    %% writes three arms over every valve, so the `:nothing` arm is dead over a
+    %% subject that carries no `:nothing` and the error arm is dead over one
+    %% that cannot fail. Appending a dead arm's body type would widen the
+    %% synthesised type by a member no value can take: `Res = int | (:error,
+    %% atom)` would become `int | (:error, atom) | :nothing` and every valve
+    %% program in the corpus would stop compiling against its own signature.
+    %%
+    %% Gated on `generated` and not applied to authored arms, because an
+    %% author's dead arm is already reported as `vacuous_arm` and narrowing the
+    %% type under them would be a second, silent answer to a fault they have
+    %% been told about. The body is still typed either way, so its own
+    %% diagnostics are unaffected — this drops the arm's contribution, not its
+    %% check.
+    Tys1 = case Origin =:= generated andalso bs_types:is_none(Domain) of
+               true  -> Tys;
+               false -> Tys ++ [BodyTy]
+           end,
     arms(Rest, bs_types:subtract(Residual, Certain), Declared, S, C, N + 1,
-         Tys ++ [BodyTy], Diags ++ D1 ++ guard_diags(Guard, C) ++ D2, Origin).
+         Tys1, Diags ++ D1 ++ guard_diags(Guard, C) ++ D2, Origin).
+
+%%% ---------------------------------------------------------------------------
+%%% Pruning the valve's dead stop arms (F30)
+%%% ---------------------------------------------------------------------------
+
+%% Which of the two generated stop arms no value of this subject can reach.
+%% Keyed by the ERROR ARM'S BINDER, which `bs_lower` makes unique per stage
+%% across the module — a line number would collide, since `a |?> F(b |?> G())`
+%% puts two valves on one line (F30.8).
+prune_note(Arms = [ErrArm | _], SubjTy, C) ->
+    Stop = lists:droplast(Arms),
+    Dead = [I || {I, {arm, _, P, _, _}} <- lists:enumerate(Stop),
+                 bs_types:is_none(
+                   bs_types:intersect(
+                     element(1, pattern_type(P, [], C#ctx.types)), SubjTy))],
+    case {Dead, binder(ErrArm)} of
+        {[], _}          -> [];
+        {_, undefined}   -> [];
+        {_, B}           -> [{prune, B, Dead}]
+    end.
+
+binder({arm, _, {p_tuple, _, [{p_atom, _, error}, {p_var, _, V}]}, _, _}) -> V;
+binder(_) -> undefined.
+
+%% A generic walk, for the same reason `bs_lower`'s is generic: a valve sits
+%% anywhere an expression can, and a copy of the grammar here is a second
+%% thing to keep in step. `bs_emit` is untouched by this and reads the tree it
+%% is handed, which is F30.9's control.
+prune_valves(T, Prunes) when map_size(Prunes) =:= 0 -> T;
+prune_valves({e_valve, L, {e_switch, SL, Subj, Arms}}, Prunes) ->
+    Arms1 = case binder(hd(Arms)) of
+                undefined -> Arms;
+                B ->
+                    Dead = maps:get(B, Prunes, []),
+                    Stop = lists:droplast(Arms),
+                    Val  = lists:last(Arms),
+                    [A || {I, A} <- lists:enumerate(Stop),
+                          not lists:member(I, Dead)] ++ [Val]
+            end,
+    {e_valve, L, {e_switch, SL, prune_valves(Subj, Prunes),
+                  prune_valves(Arms1, Prunes)}};
+prune_valves(T, Prunes) when is_tuple(T) ->
+    list_to_tuple(prune_valves(tuple_to_list(T), Prunes));
+prune_valves([H | T], Prunes) ->
+    [prune_valves(H, Prunes) | prune_valves(T, Prunes)];
+prune_valves(X, _) -> X.
 
 op_type('+') -> bs_types:int();
 op_type('-') -> bs_types:int();

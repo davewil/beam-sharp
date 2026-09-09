@@ -1,11 +1,12 @@
 # F30 — The valve stops on a fixed pair, and `:nothing` is the half it is missing
 
-**Status**      **not started** — spec written 2026-08-30 ·
-                [ENG-279](https://linear.app/davewil/issue/ENG-279). **Reaffirmed by David
-                2026-09-09**: build it, knowing the price below. `ready-for-agent` was
-                deliberately **off** because two of ticket 49's own statements moved under
-                measurement while this was written and one of them changed the price he
-                accepted; the read it was waiting for has happened, so it comes on
+**Status**      **done 2026-09-09** — 10 scenarios in `valve_tests.erl`, 723 in the suite,
+                and `compiler/bin/check-valve.sh` seen red on all five named defects ·
+                [ENG-279](https://linear.app/davewil/issue/ENG-279). Spec written 2026-08-30
+                and held until **David reaffirmed it 2026-09-09** knowing the corrected
+                price: `ready-for-agent` was deliberately **off** because two of ticket 49's
+                own statements moved under measurement while this was written and one of
+                them changed what he had accepted
 **Implements**  [ticket 49](../../wayfinder/issues/49-what-the-valve-keys-on.md)
                 ([ENG-231](https://linear.app/davewil/issue/ENG-231)), resolved
                 2026-08-28 — the valve keys on the fixed pair `(:error, _) | :nothing`.
@@ -156,9 +157,11 @@ See below. `:nothing`-as-value is skipped, and the assertion records that this i
 **F30.8 — nested valves still number correctly.** `a |?> F(b |?> G())` — F14 synthesises two names
 per stage and the counter must stay monotonic with a third arm in play.
 
-**F30.9 — `bs_emit` is untouched.** No signature reaches `bs_lower`; the emitted forms for F30.2's
-program are identical before and after. Asserted because it is the claim that distinguishes this
-shape from the one that was refused.
+**F30.9 — `bs_emit` is untouched.** No signature reaches `bs_lower`, and `bs_emit.erl` has a zero
+diff. Asserted because it is the claim that distinguishes this shape from the one that was refused.
+**Both halves hold, and the second one only because the checker prunes the arms it proves dead
+before emission** — measured below, after a first build that emitted them unconditionally and was
+refused by Dialyzer.
 
 ## The gate
 
@@ -228,6 +231,78 @@ in front of him.
 15 §1's argument one step further out. It needs the reachability question answered first — every
 declaration, or only a valve subject? — which is why 49 did not decide it and why this file does
 not either.
+
+## What the delta list did not say, found in the build
+
+The delta above says `bs_lower` emits three arms and stops there. **`bs_lower` runs before the
+checker and has no types to ask**, so both stop arms are written over *every* valve — including
+one whose subject cannot be `:nothing`, and one whose subject cannot fail. That single fact has
+two consequences, and the delta list has neither.
+
+**1. A dead arm would have widened every valve in the corpus.** `bs_check:arms/9` appended each
+arm's body type unconditionally, so `Res = int | (:error, atom)` would have become `int | (:error,
+atom) | :nothing` and every valve program in the corpus would have stopped compiling against its
+own signature. F30.2 is what saw it.
+
+The rule is: **a `generated` arm no value reaches contributes no type.** It is gated on
+`generated` and deliberately not applied to authored arms, where a dead arm is already reported as
+`vacuous_arm` — narrowing the type underneath an author who has been told about the fault would be
+a second, silent answer to it. The body is still typed either way, so this drops the arm's
+contribution and not its check.
+
+**2. The same arm must not be EMITTED either, and Dialyzer is what said so.** The first build
+emitted both stop arms unconditionally and measured the cost as size: one extra clause, 1336 →
+1348 bytes per valve, with `beam_ssa_type` declining to eliminate it. That framing lasted until
+the clean run reached stage 35:
+
+```
+pipeline.bs:49:25: The pattern 'nothing' can never match the type pos_integer()
+```
+
+`spec-check.sh` treats any Dialyzer warning as a defect in the emitted code, so this was never a
+12-byte trade-off to accept — it was a defect, in the corpus's own `examples/Pipeline`.
+
+**The fix is the predicate that already existed, given its second consumer.** The checker knows
+the subject's type at the valve, so it records which stop arms it proved dead and drops them from
+the tree before `check_dir` returns it — the same tree `bs_emit:forms/1` is handed. It is the same
+test `arms/9` applies to the arm's *type*, and the comment at each site says so, because two
+copies of one rule are two rules waiting to drift.
+
+* **Keyed on the error arm's binder, never on the line.** `bs_lower` makes `bs@eN` unique per
+  stage across the module, and F30.8 puts two valves on one line.
+* **It prunes in both directions.** Over `int | :nothing` the dead arm is the *error* one, and it
+  goes too. Stage 35 only Dialyzes `compiler/examples`, where no valve subject carries `:nothing`
+  yet — so that half is not yet load-bearing there, and it is built now rather than the day an
+  option chain enters the corpus.
+* **`bs_emit.erl` has a zero diff**, which is F30.9's real control, and it still holds.
+
+**This is not the check-time side table ticket 49 refused.** That table keyed the short-circuit
+*set* on the stage's declared parameter type, which is shape B, and it is refused for the reason
+49 measured. The set here is still the constant pair; what the checker hands on is which arms it
+*proved dead* — the mechanism `foreigns` already uses, in the same returned map, for the same
+reason.
+
+**F30.9 holds as written, measured.** The error chain's abstract forms are byte-identical before
+and after the feature, and the only `.beam` chunk that differs is `CInf`, which carries the output
+path rather than the program:
+
+| | pre-F30 | emitted unconditionally | after the prune |
+|---|---|---|---|
+| abstract forms | 2 case clauses | 3 | **2, byte-identical to pre-F30** |
+| `.beam` | 1336 bytes | 1348 | **1336** |
+
+`the_dead_stop_arm_is_not_emitted_test` asserts it in both directions — the error chain emits no
+`nothing`, and the option chain emits one and drops the error arm — because the absence alone
+would also pass if the arm were never generated at all, which is the feature not existing. The
+test was seen red with the prune disabled and green with it restored.
+
+**3. The document this feature owed is `LANGUAGE.md` §8, not §5.** Ticket 49 §4 and this file both
+said §5; the valve is in **§8 Pipelines**, and the document has been renumbered since 49 was
+written. The onward claim — *"§5 feeds `PACKET.md`, so `build-packet.py` must be re-run in the
+same commit"* — is wrong for a second reason: the packet carries §2, §3 and §5, and the word
+*valve* appears in it **zero** times. `build-packet.py` was re-run and produced no diff, which is
+the evidence rather than an assumption. `TOUR.md` chapter 12 was the document that actually
+needed changing, and it said the valve lowers to a *two-armed* switch.
 
 ## Out of scope
 

@@ -580,6 +580,18 @@ jobs:
         working-directory: compiler
         run: ./bin/check-collapse.sh
 
+      # F30 / ENG-279. Four of the gate's five defects pass the headline: a
+      # build that keys the short-circuit on the stage's declared parameter
+      # type compiles every positive scenario and fails on V6 alone, which is
+      # ticket 49's shape B arriving by the back door.
+      - name: The valve gate proves it can fail
+        working-directory: compiler
+        run: ./bin/check-valve.sh --self-test
+
+      - name: 'The valve stops on the fixed pair, and a narrowing stage does not widen it'
+        working-directory: compiler
+        run: ./bin/check-valve.sh
+
       # ENG-276. The test suite navigates by scenario identifier — `%% F25.4 —
       # a record in the RESIDUAL has no writable spelling` — and three features
       # cited sixteen of them from tests while defining none in the feature

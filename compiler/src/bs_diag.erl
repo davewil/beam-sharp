@@ -667,13 +667,18 @@ message(#{tag := switch_inexhaustive, file := P, line := L, column := C, functio
     {"~s:~p:~p: error: this switch in ~s is not exhaustive~n"
      "  no arm matches:~n~s",
      [P, L, C, Fn, arms_prose(Arms, D)]};
-%% A valve over a value with no `(:error, _)` member generates an arm that can
-%% never match, but the author wrote no arms; they wrote the wrong operator,
-%% so the diagnostic names the right one (F14 §4).
+%% A valve over a value with neither member of the short-circuit pair generates
+%% arms that can never match, but the author wrote no arms; they wrote the wrong
+%% operator, so the diagnostic names the right one (F14 §4).
+%%
+%% IT NAMES BOTH MEMBERS BECAUSE IT LOOKED FOR BOTH (F30, 2026-09-09). Naming
+%% `(:error, _)` alone told an author their type had no error member while the
+%% compiler had asked a wider question, and a type carrying `:nothing` and no
+%% error member is now accepted rather than refused.
 message(#{tag := valve_on_infallible, file := P, line := L, column := C, function := Fn,
           subject := Ty}) ->
     {"~s:~p:~p: error: this |?> in ~s is over a value that cannot fail~n"
-     "  ~s has no (:error, _) member, so the valve would never stop.~n"
+     "  ~s has no (:error, _) or :nothing member, so the valve would never stop.~n"
      "  Write |> instead.~n",
      [P, L, C, Fn, Ty]};
 %% Arm, not clause: a construct with no clauses in it cannot be told which

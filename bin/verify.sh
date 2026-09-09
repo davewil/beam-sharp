@@ -300,6 +300,9 @@ run_stages \
   "A declared failure channel survives normalisation" \
     "cd compiler && ./bin/check-collapse.sh --self-test && ./bin/check-collapse.sh" \
 \
+  "The valve stops on the fixed pair, and a narrowing stage does not widen it" \
+    "cd compiler && ./bin/check-valve.sh --self-test && ./bin/check-valve.sh" \
+\
   "A field assignment is checked, at both spellings" \
     "cd compiler && ./bin/check-field-values.sh --self-test && ./bin/check-field-values.sh" \
 \

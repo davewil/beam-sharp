@@ -960,9 +960,16 @@ $ bsc --src-root examples examples/Pipeline Place -1
 
 If `Validate` yields the error, neither later stage runs and `Place` returns it unchanged.
 
+**The valve stops on a fixed pair, `(:error, _)` and `:nothing`.** The second member is
+absence, and a chain of lookups that may find nothing is the shape the operator was borrowed
+for: `Fetch(id) |?> For()` over `option<T>` stops on `:nothing` and returns it unchanged. The
+set is fixed at those two and is not open to a type of your own — a short-circuit on any other
+member would need the stage's declared parameter type to decide where the flow stops, and a
+narrowing stage would then make an infallible subject appear fallible.
+
 The detail that makes the valve worth having is in `Charge`'s signature: **the stage is
-declared over the narrowed type**, `int`, not `Res`. `|?>` lowers to the two-armed `switch`
-from chapter 8, so the error member has already been subtracted by the arm above, and the
+declared over the narrowed type**, `int`, not `Res`. `|?>` lowers to the three-armed `switch`
+from chapter 8, so both members have already been subtracted by the arms above, and the
 residual is what reaches the signature. Writing `Res` there would claim a case the function
 can never be handed.
 
@@ -970,7 +977,7 @@ can never be handed.
 piped with `|>` and matches the error itself — which is also the only way to turn one error
 into another.
 
-<!-- ticket 17 §1, ticket 17 §4, ticket 31, F14 -->
+<!-- ticket 17 §1, ticket 17 §4, ticket 31, ticket 49, F14, F30 -->
 
 ---
 

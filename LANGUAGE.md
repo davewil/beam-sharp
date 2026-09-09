@@ -1290,8 +1290,8 @@ Names are **qualified** — `List.Sum`, not `xs.Sum(0)`. Method-call syntax woul
 resolution of an unqualified name, which the language has deliberately closed off. The pipe is what
 survived that argument rather than a second spelling beside it.
 
-`|?>` is the **valve**: it stops on the first `(:error, _)`, runs no further stage, and returns
-that error unchanged.
+`|?>` is the **valve**: it stops on the first `(:error, _)` or `:nothing`, runs no further stage,
+and returns that value unchanged.
 
 ```csharp
 type Res = int | (:error, atom)
@@ -1310,8 +1310,35 @@ Charge(v) -> v * 2
 `Charge` is declared over `int` and **not** over `Res`, which is the payoff rather than an
 oversight: the valve has already subtracted the error member, so what reaches a stage is the
 narrowed type, and naming the whole union there would claim a case the function can never be
-handed. A `|?>` over a type with **no** `(:error, _)` member is an error rather than a dead branch —
-the compiler says to write `|>` instead.
+handed. A `|?>` over a type carrying **neither** member is an error rather than a dead
+branch — the compiler says to write `|>` instead.
+
+The second member is why the operator exists at all. `:nothing` is absence, and a chain of lookups
+that may find nothing is the shape the valve was borrowed for:
+
+```csharp
+module Absent
+
+type Maybe = int | :nothing
+
+public Maybe Load(int id)
+Load(id) -> Fetch(id) |?> Double()
+
+private Maybe Fetch(int id)
+Fetch(0) -> :nothing
+Fetch(n) -> n
+
+private Maybe Double(int v)
+Double(v) -> v * 2
+```
+
+`Load(4)` is `8` and `Load(0)` is `:nothing`, with `Double` never entered. `Double` is declared over
+`int`: the stage sees the subject with **both** members subtracted, so absence never reaches it.
+
+The set is fixed at those two and is not open to a type of your own. A short-circuit on any other
+member would need the stage's declared parameter type to decide where the flow stops, and a
+narrowing stage would then make an infallible subject appear fallible — so `binary |?> Decode()`,
+where `Decode` takes a `string`, stays an error.
 
 The escape hatch is the operator's **absence**. Write `|>` and match `(:error, _)` in your own
 clause when a stage wants to inspect the failure; that is also the only way to turn one error into
