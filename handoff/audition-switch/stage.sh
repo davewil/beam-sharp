@@ -58,7 +58,12 @@ HERE_P="$(cd "$HERE" && pwd -P)"
 # missing a clause is a weak worker, several missing the SAME clause is a hole
 # in the specification. Grok bills to a different plan, so it restores the
 # fourth seat without waiting three days.
-KEYS=(codex grok copilot-sonnet5 copilot-haiku45 free-deepseek)
+# THIS LIST AND `manifest.json`'s TASK KEYS ARE ONE CONTRACT, AND NOTHING CHECKS
+# IT. A key here with no task is a sandbox nobody runs — harmless. A task there
+# with no key here is a worker started in an EMPTY DIRECTORY: no `PACKET.md`, no
+# `cases/`, and a submission scored against the full answer key. The failure
+# looks like a weak model.
+KEYS=(codex codex-sol codex-terra codex-luna grok copilot-sonnet5 copilot-haiku45 free-deepseek)
 
 # Are the answers reachable from anywhere under a staged tree? Factored out so
 # --self-test can point it at a tree with a deliberate leak; testing it by

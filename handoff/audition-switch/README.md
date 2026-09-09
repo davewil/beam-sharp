@@ -213,10 +213,38 @@ Not pinned, and worth knowing: Codex reported `reasoning effort: high`. Ringer
 treats effort as part of model identity when the harness sets it explicitly and
 records nothing when it does not, so these rows will read `(effort unrecorded)`.
 
-## The candidates, and why these four
+## The candidates, and why these eight
+
+The first five were chosen to span **billing lanes**, because the question was
+cost-effectiveness. Three more joined on 2026-09-10 to span **capability tiers**,
+because round 3 answered the cost question and raised a better one.
+
+### Why a mid-tier lane exists at all
+
+Round 3's two passes were `gpt-6-astra` and `grok-4.6` — each lab's frontier
+model. **A specification that only a frontier model can implement has not been
+shown to transfer.** This repository's stated goal is a package a stranger *or a
+fleet* develops against, and a fleet is not made of frontier models: the
+orchestrator seat reads results and writes specs, and the bulk typing runs on
+plan-billed and cheaper lanes. So the interesting question is not whether the best
+model in the world can read §5. It is where the specification stops being
+implementable.
+
+`gpt-5.6-sol`, `gpt-5.6-terra` and `gpt-5.6-luna` are one rung down from `astra`
+in the same harness, on the same plan, reading a byte-identical spec — the tasks
+are copies of the `codex` task with `key` and `model` changed and nothing else,
+because a bakeoff whose competitors were handed different prompts measures the
+prompts. Three of them rather than one, because a single mid-tier failure is a
+weak model and three failing on the same case is a hole in the packet — the same
+argument that made this a multi-model audition in the first place.
+
+**A pass from any of them is worth more than round 3's two**, because it says the
+specification survives a reader who is not the best available.
+
+### The lanes
 
 Chosen to span billing lanes rather than capability tiers, because the question
-is cost-effectiveness:
+was cost-effectiveness:
 
 | key | model | lane | round 1 (2026-08-22) |
 |---|---|---|---|
@@ -225,10 +253,19 @@ is cost-effectiveness:
 | `copilot-sonnet5` | `github-copilot/claude-sonnet-5` | Copilot subscription | **7/8 visible, 7/7 held-out** — at 1/8 grok's tokens |
 | `copilot-haiku45` | `github-copilot/claude-haiku-4.5` | Copilot subscription | **7/8 visible, 3/7 held-out** |
 | `free-deepseek` | `opencode/deepseek-v4-flash-free` | free | **no measurement** — opencode's free tier errored server-side |
+| `codex-sol` | `gpt-5.6-sol` | ChatGPT plan | added 2026-09-10 |
+| `codex-terra` | `gpt-5.6-terra` | ChatGPT plan | added 2026-09-10 |
+| `codex-luna` | `gpt-5.6-luna` | ChatGPT plan | added 2026-09-10 |
 
-Four of the five cost nothing per token beyond subscriptions already held. The
-last is the exploration slot: an untested free model on a task with a strong
-executed check, which is where a cheap experiment belongs.
+Seven of the eight cost nothing per token beyond subscriptions already held. The
+odd one out is the exploration slot: an untested free model on a task with a
+strong executed check, which is where a cheap experiment belongs — and which has
+now returned `no measurement` twice, server-side, without the model running.
+
+**`free-deepseek`'s zeroes are not a model result.** Round 1 and round 3 both
+ended in a provider error before any work happened, and `opencode models` does not
+list the slug. Read it as a dead route, and do not let the scoreboard's 0% stand
+in for a judgement about DeepSeek.
 
 **`grok` joined on 2026-08-22** because `codex` could not bill (finding 5) and a
 lane that cannot bill is not a weak candidate — it is no measurement at all. Its
