@@ -53,73 +53,104 @@ domain map.
 
 ## Round 1 — asked 2026-09-09
 
-**Sharpened before it was answered, same day.** The first framing showed the type declarations and
-a function whose body was `-> :rows`. David: *"the Rows example is weak … what if the return type
-is something more complex than an atom and m and t are accessed in the clause?"* He is right — a
-body that never touches the binding never pays for the members being indiscriminable, so the
-question had no teeth. The programs below use the binding, and what they turn up is not the
-weaker fault the first framing showed.
+**Rewritten twice before it was answered, both times by David, both times because the program was
+not one anybody would write.** First framing: the type declarations plus a body returning an atom —
+*"the Rows example is weak … what if the return type is something more complex and m and t are
+accessed?"* Second: a `Head` returning the binding — *"what would an actual piece of real production
+code be trying to achieve?"* Both fair. A hand-written union of two map types is a shape nobody
+writes. The program below is how an author actually arrives here.
 
-**Q1. This compiles today. Should it?**
+### How you get here without ever writing a map union
 
-```csharp
-type Rows = list<map<string, int>> | list<map<string, binary>>   // compiles today
-type Slot = map<string, int> | map<string, binary>               // REFUSED today
-```
-
-`Rows` is `Slot` inside a list. Measured at `ea7f896`, a body that uses the binding is boxed in —
-every route out is refused, and the last one is refused by the compiler's own advice:
+A generic row alias, instantiated twice, unioned for one handler. This is ordinary code:
 
 ```csharp
-public map<string, int> Head(Rows b)
-Head([m, ..t]) -> m
+module Ingest
+
+type Batch<T> = list<map<string, T>>          // a batch of rows, keys are field names
+type Payload  = Batch<int> | Batch<binary>    // numeric samples, or text ones
+
+public atom Route(Payload p)
+Route([])            -> :empty
+Route([row, ..rest]) -> Forward(row)
+
+private atom Forward(map<string, int> row)
+Forward(row) -> :forwarded
 ```
-> `error: Head returns a value its signature does not declare`
-> `  not covered by the declared return type:`
+
+**The declaration is accepted.** The refusal arrives later, at the call site, and names a different
+function:
+
+> `Ingest.bs:8:25: error: Route hands Forward an argument it does not accept`
+> `  argument 1 is not covered by Forward's declared type:`
 > `    map<string, binary>`
-> `  the signature its clauses justify:`
-> `    public map<string, int> | map<string, binary> Head(Rows b)`
 
-Sound, and the repair is printed. **Paste that repair:**
+Widening `Forward` to the honest type is the refused declaration — that type is `Cell` below. And
+`Head`-shaped variants get there via F25 instead, which **prints `map<string, int> | map<string,
+binary>` as the signature to paste and then refuses that exact line.**
+
+### The same alias, one level down, is stopped at the declaration
 
 ```csharp
-public map<string, int> | map<string, binary> Head(Rows b)
-Head([m, ..t]) -> m
+type Cell<T> = map<string, T>
+type Any     = Cell<int> | Cell<binary>
 ```
 > `error: no clause head can tell `map<string, int>` from `map<string, binary>``
-> `  in Head`
+> `  in Any`
+> `  … it lifts when a pattern form for these members ships.`
 
-**The compiler prints a signature and then refuses that exact signature.** Passing the binding on
-instead of returning it lands in the same place — `Kind([m, ..t]) -> Use(m)` over
-`Use(map<string, int> m)` is refused with *"argument 1 is not covered: `map<string, binary>`"*, and
-widening `Use`'s parameter to the honest union is the refused declaration again.
+**`Payload` is `Any` inside a list.** One is refused where the author declared it, with the reason;
+the other is admitted and refused later, somewhere else, about something else.
 
-So nothing unsound gets through: no `map<string, binary>` reaches a `map<string, int>` position.
-What is wrong is that the author is admitted to a state with no legal exit, one container level
-past the declaration that would have told them. Answer **refuse it** or **leave it**.
+### What the language actually wants, and it compiles clean today
 
-**Prior art, surveyed 2026-09-09 before this was answered** —
-[research 70](../research/70-discriminability-prior-art.md). David asked for it while the round was
-open. **Nobody else is asked this question**, so *"what does everyone else do"* is not available as
-a tiebreak: Elm and Gleam are nominal and cannot write the union at all (and ticket 09 §5 refused
-that escape here, because nominal identity is a lie across the Erlang boundary); TypeScript forms
-unions exactly as B# does and its answer is *leave it* — narrowing simply does not happen — but it
-pairs that with a type predicate whose body is never checked, which B# has refused; Elixir's
-algebra is the same family and ships **redundancy only**, so nothing there ever has to decide;
-CDuce's patterns type-test at arbitrary depth, so the members are discriminable in the theory B#
-borrowed from. The constraint is the **BEAM's O(1) guard**, chosen by 09, not set theory's.
+```csharp
+type Payload = (:nums, Batch<int>) | (:text, Batch<binary>)
+
+public atom Route(Payload p)
+Route((:nums, rows)) -> Numeric(rows)
+Route((:text, rows)) -> Textual(rows)
+```
+> `[api] atom Route((:nums, list<map<string, int>>) | (:text, list<map<string, binary>>))`
+
+Tag the two instantiations and everything works — each arm dispatches, each stage is declared over
+its own row type. **This is the repair under either answer.** Nothing about it is a workaround: it
+is what a discriminated union looks like when the members are not self-discriminating, and 09 §5's
+last bullet already says so — *"two cases with the same payload need a tag, and the leading atom in
+a tuple already is one."*
+
+### Q1. Where should the author be told?
+
+Both answers agree the program is wrong and agree on the repair. They differ on **when it is
+reported**, and nothing else:
+
+* **Refuse it** — at the `Payload` declaration, in the author's own file, naming the two members
+  and the reason. Same message `Cell` already gets.
+* **Leave it** — at the first call site that types a row, naming another function's parameter; or,
+  for a returning variant, as an F25 repair the compiler refuses to accept.
+
+**Nothing unsound is at stake either way.** No `map<string, binary>` reaches a `map<string, int>`
+position under either answer. This is a diagnostics-quality question wearing a type-system costume,
+which is worth saying plainly because the ticket's first two framings both implied otherwise.
 
 **What the compiler gains if it is refused.** `discriminable/4` recurses into container elements
 and bottoms out at *"the elements are discriminable"* rather than at *"the elements have
-patterns"*, so `list<int> | list<binary>` stays legal — 09 §4's own accepted example. The
-recursion needs the same `mu` guard F36 added to `head_parts/2`. It decides more programs illegal,
-so it owes a blast-radius measurement over `compiler/examples` before it lands. The refusal costs
-nothing permanent: `Slot`'s own diagnostic says it *"lifts when a pattern form for these members
-ships"*, so both lift together the day ticket 48's map pattern lands.
+patterns"*, so `list<int> | list<binary>` stays legal — 09 §4's own accepted example. The recursion
+needs the same `mu` guard F36 added to `head_parts/2`. It decides more programs illegal, so it owes
+a blast-radius measurement over `compiler/examples` first. The refusal costs nothing permanent:
+`Cell`'s own diagnostic says it *"lifts when a pattern form for these members ships"*, so both
+refusals lift together the day ticket 48's map pattern lands
+([ENG-323](https://linear.app/davewil/issue/ENG-323)).
 
-**If it is left**, `LANGUAGE.md` §7 and `CONTEXT.md`'s **Discriminable** entry are rewritten to
-*reaches*, F36's known-limit note becomes the permanent record, and the box above is the language's
-documented behaviour rather than a defect.
+**Prior art, surveyed 2026-09-09** — [research 70](../research/70-discriminability-prior-art.md).
+**Nobody else is asked this question**, so *"what does everyone else do"* is not a tiebreak: Elm and
+Gleam are nominal and cannot write the union at all, and ticket 09 §5 refused that escape here
+because nominal identity is a lie across the Erlang boundary; TypeScript forms unions exactly as B#
+does and answers *leave it* — narrowing simply does not happen — but pairs it with a type predicate
+whose body is never checked, which B# has refused; Elixir's algebra is the same family and ships
+**redundancy only**, so nothing there ever has to decide; CDuce's patterns type-test at arbitrary
+depth, so the members are discriminable in the theory B# borrowed from. The constraint is the
+**BEAM's O(1) guard**, chosen by 09, not set theory's.
 
 <!-- The same shape as the F19 finding: before trusting a refusal, run the form it RECOMMENDS.
      Here the recommended form is refused by a different check in the same compiler. -->
