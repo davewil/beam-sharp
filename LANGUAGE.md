@@ -864,9 +864,15 @@ it cannot branch. Move the switch into the body.*
      diagnostic and no other. ENG-248: `unbound_variable`, `arg_not_accepted` and `switch_in_guard`
      were emitted by the compiler and named nowhere in this file, so a clean-room reader could not
      have known they existed. The audition report that found the first two counted six diagnostics
-     and there are seven — `switch_in_guard` is asserted as a bare atom in `switch_tests.erl`,
+     and there were seven — `switch_in_guard` is asserted as a bare atom in `switch_tests.erl`,
      where a survey looking for `{tag, ...}` payloads does not see it. `check-switch-diagnostics.sh`
-     re-reads that suite on every run rather than trusting a list here. -->
+     re-reads that suite on every run rather than trusting a list here.
+
+     THE COUNT IS NOT WRITTEN DOWN HERE, AND THAT IS THE POINT. It was seven on 2026-08-27 and nine
+     on 2026-08-28, when `vacuous_arm` and `unsatisfiable_arm_guard` arrived with the valve work in
+     `c7c99be`. The number seven then survived in this comment, in the audition README and in
+     ENG-248 for eleven days, because each was re-read rather than re-measured — the same failure as
+     the miscount above, one rediscovery later. Ask the gate; it has been right throughout. -->
 
 ---
 

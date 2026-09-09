@@ -231,8 +231,8 @@ program, now derivable from the packet rather than contradicted by it.
 
 Twelve cases, none staged, every expectation recorded by `oracle.sh` rather than
 typed. Each is derivable from the packet — the third column names the sentence
-that decides it — and each is structurally unlike anything in `cases/`, because
-a held-out case that rhymes with a visible one tests nothing new.
+that decides it. `h01`–`h07` are structurally unlike anything in `cases/`,
+because a held-out case that rhymes with a visible one tests nothing new.
 
 `h08`–`h12` were added on 2026-09-09 with the vocabulary. Their visible partners
 `c09`–`c13` are §5's own worked examples, so the held-out five deliberately are
