@@ -147,35 +147,65 @@ import TypeScript's unsoundness**, because the case TS needs an unchecked predic
 B# routes through a generated, checked one. What it does mean is that under *leave it*, the
 boundary construct is a second place the author can reach this union and get no help.
 
+### The printed-repair contradiction is NOT this ticket's, measured 2026-09-09
+
+Put in front of David as a separate fact, because it changes what Q1 is asking. **No container, no
+generic alias, no union declared anywhere:**
+
+```csharp
+public map<string, int> Pick(int n)
+Pick(1) -> Ints()          // private map<string, int> Ints()
+Pick(n) -> Bins()          // private map<string, binary> Bins()
+```
+> `error: Pick returns a value its signature does not declare`
+> `  not covered by the declared return type:`
+> `    map<string, binary>`
+> `  the signature its clauses justify:`
+> `    public map<string, int> | map<string, binary> Pick(int n)`
+
+That printed signature is refused by the declaration checker. **F25 recommends a form the compiler
+rejects, today, at `ea7f896`, with ticket 70 not involved at all.** It is the F19 shape a third
+time — *before trusting a refusal, run the form it recommends* — and it is a defect in its own
+right, owed its own Linear issue rather than this ticket's number.
+
+It is recorded here because **it is repaired under every answer to Q1**, and because both of this
+round's earlier framings leaned on it as though it were evidence for refusing the declaration. It
+is not. It is evidence that one diagnostic is wrong.
+
 ### Q1. Where should the author be told?
 
-Both answers agree the program is wrong and agree on the repair. They differ on **when it is
-reported**, and nothing else:
+**Correction to this round's own earlier wording.** It said *"both answers agree the program is
+wrong"*. Under *leave it* the **declaration is not wrong** — `Payload` names a real set of values,
+and every one of them can be built, passed and returned. What is wrong is expecting to dispatch on
+it, and what is broken is the advice the compiler gives when you try. That distinction is what the
+third option below turns on.
 
-* **Refuse it** — at the `Payload` declaration, in the author's own file, naming the two members
-  and the reason. Same message `Cell` already gets.
-* **Leave it** — at the first call site that types a row, naming another function's parameter; or,
-  for a returning variant, as an F25 repair the compiler refuses to accept; or not at all, if the
-  value only ever crosses the boundary through `ValidateAs<T>` and is passed on.
+**Option A — leave it, and stop the compiler contradicting itself.** The criterion stays
+*reachability*, which is what 68's header settled and what `discriminable/4` implements. No checker
+change, and nothing that compiles today stops compiling. Two diagnostic sites are repaired instead:
 
-**If the answer is *leave it*, one thing must go on the record with it:** that TypeScript's
-predicate hatch is deliberately **not** imported, and why it is not needed — `ValidateAs<T>` is the
-checked analogue and B# has it already. Without that sentence a later session reads *"we followed
-TypeScript here"* and reaches for the rest of it, which is exactly how ticket 49's `§5` reference
-outlived the renumbering it named.
+* **F25 runs the declaration check before it prints.** Where the signature the clauses justify
+  would itself be refused, the diagnostic says *that*, and names the repair that does work —
+  tagging — instead of printing a line the compiler will reject.
+* **`ValidateAs<T>` refuses a target whose members it cannot report having distinguished.** It
+  already refuses `Any` through the declaration check; the same predicate applied to the generated
+  validator's target type makes the boundary consistent with itself. Two sites to wire, not one —
+  `--api` is a second declaration pass ([ENG-320](https://linear.app/davewil/issue/ENG-320)'s
+  sentence, for the fourth time).
 
-**Nothing unsound is at stake either way.** No `map<string, binary>` reaches a `map<string, int>`
-position under either answer. This is a diagnostics-quality question wearing a type-system costume,
-which is worth saying plainly because the ticket's first two framings both implied otherwise.
+**Option B — leave it, prose only.** As above without the two repairs: §7 and `CONTEXT.md` are
+rewritten to reachability and the contradictions stay, documented. Cheapest, and the one that gets
+re-opened.
 
-**What the compiler gains if it is refused.** `discriminable/4` recurses into container elements
-and bottoms out at *"the elements are discriminable"* rather than at *"the elements have
-patterns"*, so `list<int> | list<binary>` stays legal — 09 §4's own accepted example. The recursion
-needs the same `mu` guard F36 added to `head_parts/2`. It decides more programs illegal, so it owes
-a blast-radius measurement over `compiler/examples` first. The refusal costs nothing permanent:
-`Cell`'s own diagnostic says it *"lifts when a pattern form for these members ships"*, so both
-refusals lift together the day ticket 48's map pattern lands
-([ENG-323](https://linear.app/davewil/issue/ENG-323)).
+**Option C — refuse it at the declaration.** `discriminable/4` recurses into container elements,
+bottoming out at *"the elements are discriminable"* so `list<int> | list<binary>` stays legal, with
+F36's `mu` guard on the recursion. **This is the option that re-decides 68.** Its header settled
+*"reachability by a clause head"* on 2026-09-06 and F36 shipped the next day; taking C means
+reading David's *"a clause head can decide it"* as overruling the record's own word, on a case 68's
+worked examples never exercised. Owes a blast-radius run over `compiler/examples` first.
+
+Under **A** and **B** the first stop stays the call site. Under **C** it moves to the declaration.
+Under **A** and **C** the compiler stops recommending a form it refuses; under **B** it does not.
 
 **Prior art, surveyed 2026-09-09** — [research 70](../research/70-discriminability-prior-art.md).
 **Nobody else is asked this question**, so *"what does everyone else do"* is not a tiebreak: Elm and
@@ -184,7 +214,9 @@ because nominal identity is a lie across the Erlang boundary; TypeScript forms u
 does and answers *leave it* — narrowing simply does not happen — but pairs it with a type predicate
 whose body is never checked, which B# has refused; Elixir's algebra is the same family and ships
 **redundancy only**, so nothing there ever has to decide; CDuce's patterns type-test at arbitrary
-depth, so the members are discriminable in the theory B# borrowed from. The constraint is the
+depth, so the members are discriminable in the theory B# borrowed from — **carried from research
+04's reading of the CDuce manual, not run here**, and it describes CDuce's pattern *forms* rather
+than what its checker does with an unmatchable union. The constraint is the
 **BEAM's O(1) guard**, chosen by 09, not set theory's.
 
 <!-- The same shape as the F19 finding: before trusting a refusal, run the form it RECOMMENDS.
