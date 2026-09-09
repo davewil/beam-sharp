@@ -1149,7 +1149,7 @@ one `function_clause` belongs to.
 
 ---
 
-## 15. The boundary, and the one construct that crosses it
+## 15. The boundary, and the two constructs that cross it
 
 **The job:** accept a list of sensor readings from a client you do not control.
 
@@ -1205,7 +1205,59 @@ This is also where a catch-all belongs. Chapter 2 refused `_` over a closed doma
 the opposite case, and `Verdict`'s second arm is the unbounded top the rule was carved out
 for.
 
-<!-- ticket 11 §2, ticket 15 §2, ticket 18, ticket 27 §8, F18 -->
+### The other obligation: a string into a named set
+
+The second thing that crosses the boundary is smaller and much more common — a string that is
+supposed to name one of a handful of things. A log level, a mode, a status.
+
+`examples/Levels/levels.bs`:
+
+```
+module Levels
+
+type Level = :debug | :info | :warn | :error
+
+public option<Level> Parse(string s)
+
+Parse(s) -> ParseAtom<Level>(s)
+
+public Level OrElse(string s, Level fallback)
+
+OrElse(s, fallback) -> Parse(s) switch {
+    :nothing => fallback,
+    level    => level
+}
+```
+
+```
+$ bsc --src-root examples examples/Levels Parse "\"warn\""
+:warn
+$ bsc --src-root examples examples/Levels Parse "\"nope\""
+:nothing
+$ bsc --src-root examples examples/Levels OrElse "\"nope\"" :info
+:info
+```
+
+`ParseAtom<T>` is a codegen obligation like `ValidateAs<T>`, and takes the **other** shape one
+can have: it generates no function at all. The compiler enumerates `T`'s members and emits the
+whole body inline at the site — one arm per member, each returning that member as a literal,
+and a catch-all answering `:nothing`.
+
+**Which means it never touches the atom table.** That is the point of it. Erlang's safe
+spelling has to ask the table whether an atom already exists, because it does not know which
+atoms were meant to be permitted; here the type argument *is* the permitted set, so the
+question never arises and a string built at run time cannot grow the table through this path.
+
+`T` must therefore be a **finite** atom union. `ParseAtom<atom>(s)` has no member list to
+enumerate and is refused, and so is `ParseAtom<:debug | int>(s)` — its atom part is finite, but
+the declared type would promise an `int` the parse can never return.
+
+**The return is `option<Level>`, not `Level`,** and the compiler insists: a string naming no
+member has to be answerable, so `:nothing` is in the result whether the signature admits it or
+not. Write the narrow one and the correction offers the wider one back. `OrElse` is what
+reading that costs — a switch, because nothing was thrown.
+
+<!-- ticket 11 §2, ticket 15 §2, ticket 18, ticket 27 §8, F18; ticket 10 §4 and §5, F39 -->
 
 ---
 
@@ -1388,8 +1440,8 @@ The language's **name** is also open. `beam-sharp` is a working title.
 
 ## Appendix: the construct index
 
-**The corpus gate names 53 capabilities and fails by name when one has no example to look
-at.** All 53 are below, in the gate's own wording, so the two lists can be diffed by machine
+**The corpus gate names 54 capabilities and fails by name when one has no example to look
+at.** All 54 are below, in the gate's own wording, so the two lists can be diffed by machine
 — `compiler/bin/check-tour.sh` does exactly that, and this table is red the day the compiler
 grows a capability the tour has not met.
 
@@ -1439,6 +1491,7 @@ grows a capability the tour has not met.
 | a deliberate crash | `examples/Escalate/escalate.bs` | 14 |
 | a codegen obligation instantiated | `examples/Intake/intake.bs` | 15 |
 | ValidationError as a declared type | `examples/Intake/intake.bs` | 15 |
+| a string parsed into a named set | `examples/Levels/levels.bs` | 15 |
 | a binary pattern | `examples/Frame/frame.bs` | 10 |
 | a byte-or-wider segment width | `examples/Frame/frame.bs` | 10 |
 | a sub-byte segment width | `examples/Frame/frame.bs` | 10 |

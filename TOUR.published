@@ -24,8 +24,21 @@
 # evidence here that is not self-reported.
 
 url       https://claude.ai/code/artifact/40f71cf4-d5d3-4b71-882c-ad73f630a03c
-sha256    f3eb26dfd8a7296cb3fa1a916b63276c75bf88cd9b5bca7b06458f785c333cbc
-verified  2026-09-08 (for ENG-322's vocabulary) — `CONTEXT.md` retired "prelude" on 2026-08-25 and
+sha256    29f8d1385370e1a2c165de38501ede46057eab35c6c8efd410939bd8f73df58c
+verified  2026-09-09 (for F39's `ParseAtom<T>`) — chapter 15 taught one construct crossing the
+          boundary and there are now two, so its heading was wrong as well as its content: the
+          chapter gained `examples/Levels/levels.bs`, three transcripts and the argument for why
+          a type-directed parse never touches the atom table. The appendix gained
+          `a string parsed into a named set` — and its own prose said the gate names **53**
+          capabilities where it now reads **54**, the count that rots every time a row is added
+          because part 2 checks that each capability APPEARS and never reads the number beside
+          it. That is the third time this line has needed correcting and the second time a
+          feature has had to notice it unaided. Read back in full before republishing and the
+          live page still carried the singular heading, the missing chapter and the stale 53, so
+          the stale state was confirmed rather than assumed, and the read showed a plain render
+          of TOUR.md with nothing saved into it independently.
+
+          2026-09-08 (for ENG-322's vocabulary) — `CONTEXT.md` retired "prelude" on 2026-08-25 and
           the tour still used it in three places: chapter 9's *"Two aliases come from the
           prelude"* and *"Lowercase is the prelude's namespace"*, and chapter 18's *"a prelude
           `is_integer`"*. The "How to read this" link also pointed at `PRELUDE.md`, which this

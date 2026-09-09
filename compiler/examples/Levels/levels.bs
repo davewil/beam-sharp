@@ -1,0 +1,60 @@
+// levels.bs -- a string from outside becomes a member of a named set, or
+// nothing (F39, ticket 10 §4).
+//
+//     bsc --src-root examples examples/Levels Parse "\"warn\""
+//         -> :warn
+//     bsc --src-root examples examples/Levels Parse "\"nope\""
+//         -> :nothing
+//     bsc --src-root examples examples/Levels OrElse "\"nope\"" :info
+//         -> :info
+//
+// THE PROPERTY WORTH LOOKING AT is that this never touches the atom table.
+// `ParseAtom<T>` is a CODEGEN OBLIGATION, like `ValidateAs<T>` next door in
+// `examples/Intake`: the compiler reads the type argument, enumerates T's
+// members, and emits one match arm per member returning that member as a
+// LITERAL --
+//
+//     case S of
+//         <<"debug">> -> debug;
+//         ...
+//         _           -> nothing
+//     end
+//
+// -- so no `binary_to_existing_atom` is called and a string built at run time
+// cannot grow the atom table through this path. Erlang's own safe spelling has
+// to ask the table, because it does not know the permitted set; this does,
+// because the type argument IS the permitted set.
+//
+// The second effect is the one ticket 10 did not anticipate. Because the
+// members are emitted in VALUE position, they are interned by construction --
+// a union whose members appear only in a type has no such guarantee.
+//
+// AND THE RESIDUAL IS ORDINARY DATA. A string naming no member is `:nothing`,
+// which is why the return is `option<Level>` and not `Level`: the compiler
+// refuses the narrower signature and offers the wider one. `OrElse` below is
+// what reading it looks like -- a switch, not a rescue, because nothing was
+// thrown.
+module Levels
+
+// A finite atom union. `ParseAtom<T>` requires exactly this: a cofinite `T`
+// such as `atom` has no member list to enumerate and is an error at the call,
+// and so is a union carrying anything that is not an atom -- `:debug | int`
+// would promise an `int` the parse could never return.
+type Level = :debug | :info | :warn | :error
+
+// `option<T>` is the prelude's name for `T | :nothing` (ticket 10 §5). It
+// creates no type -- `option<Level>` and `Level | :nothing` are the same set --
+// so this signature is the honest one written the readable way.
+public option<Level> Parse(string s)
+
+Parse(s) -> ParseAtom<Level>(s)
+
+// Handling the residual is branching, because the failure is a value. There is
+// no crash to catch and no error payload to inspect: the parse either names a
+// member or does not, and a caller that has a default says so here.
+public Level OrElse(string s, Level fallback)
+
+OrElse(s, fallback) -> Parse(s) switch {
+    :nothing => fallback,
+    level    => level
+}

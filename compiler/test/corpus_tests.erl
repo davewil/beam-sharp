@@ -179,6 +179,18 @@ demonstrated_surface() ->
      %% produce it, so there is no near-miss for it to drift into.
      {"a codegen obligation instantiated",       "ValidateAs<"},
      {"ValidationError as a declared type",      "ValidationError>"},
+     %% F39. A SECOND obligation, and a row of its own rather than a widening
+     %% of the one above: "a type argument can be handed to a codegen
+     %% obligation" is satisfied forever by `ValidateAs<` alone, so the corpus
+     %% could drop every `ParseAtom` and the roster would not notice. What is
+     %% worth being able to look at here is the OTHER shape an obligation
+     %% takes — one that generates no function at all, emitting its whole body
+     %% inline at the site.
+     %%
+     %% Anchored the same way as `ValidateAs<` and safe for the same reason:
+     %% ticket 28 made a compiler-known name followed by `<` unambiguous in the
+     %% grammar, so nothing else in the language can produce the sequence.
+     {"a string parsed into a named set",        "ParseAtom<"},
      %% F13 / ticket 30. FIVE rows, because they are five sentences about the
      %% language and no one of them stands in for another. A corpus could open a
      %% binary pattern and never size a segment by a field, or never write a
