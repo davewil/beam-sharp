@@ -119,6 +119,34 @@ is what a discriminated union looks like when the members are not self-discrimin
 last bullet already says so — *"two cases with the same payload need a tag, and the leading atom in
 a tuple already is one."*
 
+### The boundary construct compiles, does the work, and throws the answer away
+
+Measured 2026-09-09 at `ea7f896`, while David was weighing the TypeScript-shaped answer. TS needs
+an escape hatch — a type predicate, `pet is Fish` — because its narrowing is a closed catalogue of
+syntactic forms and you cannot add a discriminant to a type you do not own. **B# already has the
+sound version of that hatch**: `ValidateAs<T>` (F18) does the same job at the boundary, and the
+compiler *generates* the traversal, so the witness cannot be a lie.
+
+It does not rescue this union:
+
+```csharp
+public result<Payload, ValidationError> Decode(term t)
+Decode(t) -> ValidateAs<Payload>(t)          // COMPILES
+```
+
+The generated validator walks the term, decides at run time which member arrived — and hands back a
+`Payload`, **a type with nowhere to record the answer.** It knows, and the knowledge is discarded,
+because the union carries no tag. The author pays O(n) and is returned to the same box.
+
+`ValidateAs<Any>` — the same thing one container level down — is **refused**, consistently with
+`Any`'s declaration. `ValidateAs<(:nums, Batch<int>) | (:text, Batch<binary>)>` compiles and hands
+back a value that dispatches.
+
+So the escape hatch is not the deciding factor either way: **the TypeScript-shaped answer does not
+import TypeScript's unsoundness**, because the case TS needs an unchecked predicate for is the case
+B# routes through a generated, checked one. What it does mean is that under *leave it*, the
+boundary construct is a second place the author can reach this union and get no help.
+
 ### Q1. Where should the author be told?
 
 Both answers agree the program is wrong and agree on the repair. They differ on **when it is
@@ -127,7 +155,14 @@ reported**, and nothing else:
 * **Refuse it** — at the `Payload` declaration, in the author's own file, naming the two members
   and the reason. Same message `Cell` already gets.
 * **Leave it** — at the first call site that types a row, naming another function's parameter; or,
-  for a returning variant, as an F25 repair the compiler refuses to accept.
+  for a returning variant, as an F25 repair the compiler refuses to accept; or not at all, if the
+  value only ever crosses the boundary through `ValidateAs<T>` and is passed on.
+
+**If the answer is *leave it*, one thing must go on the record with it:** that TypeScript's
+predicate hatch is deliberately **not** imported, and why it is not needed — `ValidateAs<T>` is the
+checked analogue and B# has it already. Without that sentence a later session reads *"we followed
+TypeScript here"* and reaches for the rest of it, which is exactly how ticket 49's `§5` reference
+outlived the renumbering it named.
 
 **Nothing unsound is at stake either way.** No `map<string, binary>` reaches a `map<string, int>`
 position under either answer. This is a diagnostics-quality question wearing a type-system costume,
