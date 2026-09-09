@@ -1,10 +1,11 @@
 # F30 — The valve stops on a fixed pair, and `:nothing` is the half it is missing
 
 **Status**      **not started** — spec written 2026-08-30 ·
-                [ENG-279](https://linear.app/davewil/issue/ENG-279). `ready-for-agent` is
-                deliberately **off**: two of ticket 49's own statements moved under
-                measurement while this was written, and one of them changes the price
-                David accepted. He reads it before anyone builds it
+                [ENG-279](https://linear.app/davewil/issue/ENG-279). **Reaffirmed by David
+                2026-09-09**: build it, knowing the price below. `ready-for-agent` was
+                deliberately **off** because two of ticket 49's own statements moved under
+                measurement while this was written and one of them changed the price he
+                accepted; the read it was waiting for has happened, so it comes on
 **Implements**  [ticket 49](../../wayfinder/issues/49-what-the-valve-keys-on.md)
                 ([ENG-231](https://linear.app/davewil/issue/ENG-231)), resolved
                 2026-08-28 — the valve keys on the fixed pair `(:error, _) | :nothing`.
@@ -204,6 +205,24 @@ skip** for this shape. That is a materially different price from the one on the 
 recorded here before the build rather than discovered after it. The decision may still be right —
 the shape is rare, `:nothing`-as-value is arguably a naming mistake, and the alternative costs a
 refusal nobody has designed — but it is David's to reaffirm knowing this, not the build's to assume.
+
+### Reaffirmed 2026-09-09, on the diagnostics rather than on the summary
+
+Asked of David as the two programs, with both refusals re-measured that day at `e661b30` and
+reproducing verbatim — not quoted from 2026-08-30:
+
+```csharp
+type Maybe = int | :nothing              // :nothing is ABSENCE — the feature
+Go(n) -> Pick(n) |?> Double()            // refused today, compiles after F30
+
+type T = :no | :nothing | :yes           // :nothing is a VALUE — the price
+Go(n) -> Pick(n) |?> Name()              // refused today, compiles after F30, silently
+```
+
+They are the same shape to the compiler, because 49 decided the valve keys on the **atom** and not
+on intent, so nothing in the type distinguishes absence from a domain member spelled `:nothing`.
+**Answer: yes, build it.** The exposure above is accepted a second time, with the corrected price
+in front of him.
 
 **The deferred remedy, unchanged:** refuse `:nothing`-as-value where a valve can reach it, which is
 15 §1's argument one step further out. It needs the reachability question answered first — every

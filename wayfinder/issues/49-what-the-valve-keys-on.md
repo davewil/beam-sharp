@@ -309,6 +309,12 @@ type Answer = :yes | :no | :nothing    // :nothing is a VALUE here, not absence
 Ask(q) |?> Record()                    // stops anyway, with no diagnostic
 ```
 
+<!-- corrected 2026-08-30 by F30's spec, reaffirmed by David 2026-09-09: this describes the state
+     AFTER F30, not the state now. Today the program above is refused loudly — "this |?> in Go is
+     over a value that cannot fail". So F30 does not leave a gap where a gap was; it replaces a
+     working diagnostic with a silent skip. Both refusals re-measured 2026-09-09 at e661b30, and
+     David reaffirmed the decision with the corrected price in front of him. -->
+
 Shape A had no analogue of this: `(:error, _)` is a tuple with a tag nobody writes by accident,
 where `:nothing` is a bare atom in the ordinary namespace. **The deferred remedy**, if this ever
 bites: refuse `:nothing`-as-value where a valve can reach it — 15 §1's argument applied one step
