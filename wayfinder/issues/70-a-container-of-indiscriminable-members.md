@@ -98,6 +98,17 @@ So nothing unsound gets through: no `map<string, binary>` reaches a `map<string,
 What is wrong is that the author is admitted to a state with no legal exit, one container level
 past the declaration that would have told them. Answer **refuse it** or **leave it**.
 
+**Prior art, surveyed 2026-09-09 before this was answered** —
+[research 70](../research/70-discriminability-prior-art.md). David asked for it while the round was
+open. **Nobody else is asked this question**, so *"what does everyone else do"* is not available as
+a tiebreak: Elm and Gleam are nominal and cannot write the union at all (and ticket 09 §5 refused
+that escape here, because nominal identity is a lie across the Erlang boundary); TypeScript forms
+unions exactly as B# does and its answer is *leave it* — narrowing simply does not happen — but it
+pairs that with a type predicate whose body is never checked, which B# has refused; Elixir's
+algebra is the same family and ships **redundancy only**, so nothing there ever has to decide;
+CDuce's patterns type-test at arbitrary depth, so the members are discriminable in the theory B#
+borrowed from. The constraint is the **BEAM's O(1) guard**, chosen by 09, not set theory's.
+
 **What the compiler gains if it is refused.** `discriminable/4` recurses into container elements
 and bottoms out at *"the elements are discriminable"* rather than at *"the elements have
 patterns"*, so `list<int> | list<binary>` stays legal — 09 §4's own accepted example. The
