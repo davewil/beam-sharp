@@ -1,7 +1,8 @@
 # 71 — A worked example narrower than the rule it illustrates
 
 Type: spec shape
-Status: open — raised 2026-09-10 by the round 3 clean-room audition
+Status: open — [ENG-348](https://linear.app/davewil/issue/ENG-348). Raised 2026-09-10 by the
+round 3 clean-room audition
 Blocked by: —
 
 ## Why this is raised now
