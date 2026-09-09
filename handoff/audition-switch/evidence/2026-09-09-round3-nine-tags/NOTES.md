@@ -27,8 +27,17 @@ coached on the visible set alone.
 | `free-deepseek` | `opencode/deepseek-v4-flash-free` | no deliverable | — | no deliverable | — |
 
 `free-deepseek` was the exploration slot and produced no `switchcheck` at all,
-exiting in four seconds. Its log is kept; it is a lane that cannot attempt this
-task rather than one that attempted it badly.
+exiting in four seconds.
+
+**Corrected 2026-09-10: this said it was "a lane that cannot attempt this task".**
+**That was wrong, and it was a guess dressed as a finding.** Read during Ringer's
+identity procedure, the log shows both attempts returning
+`UnknownError: Unexpected server error` (refs `err_0ac952b7`, `err_76fc00fc`), and
+`opencode models` does not list `opencode/deepseek-v4-flash-free` at all. **The
+model never ran.** Its 0% is a provider or routing failure and says nothing
+whatever about DeepSeek's ability to do this task — which is why the slug is
+deliberately left unregistered in Ringer's identity registry rather than given a
+lineage nobody has seen answer.
 
 Elapsed: codex 714s, grok 2153s, copilot-sonnet5 850s, copilot-haiku45 1419s.
 
