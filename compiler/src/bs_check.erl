@@ -40,6 +40,9 @@
 %% rather than a remote call, and which operations exist under them, to
 %% generate exactly the functions the checker admitted (ticket 67).
 -export([reserved_qualifiers/0, reserved_table/0]).
+%% The emitter builds `ParseAtom<T>`'s arms from the same member list the
+%% checker admitted `T` on, so the two cannot disagree about what `T` holds.
+-export([parse_atom_members/1, built_obligations/0]).
 
 %% `vis` stays last: `bs_emit` reads this record positionally through
 %% `element/2`, so every earlier field keeps its index. The default is
@@ -896,6 +899,11 @@ stratum_two() ->
 %% rather than in the lexer, because here the three cases can be told apart:
 %% built, decided-and-unbuilt, and not an obligation at all.
 codegen_obligations() -> ['ValidateAs', 'ParseAtom', 'ToExistingAtom'].
+
+%% Which of them this compiler generates code for. The diagnostic for an
+%% unbuilt name reads this rather than carrying its own sentence, so shipping
+%% the next one cannot leave the message claiming otherwise.
+built_obligations() -> ['ValidateAs', 'ParseAtom'].
 
 %%% ---------------------------------------------------------------------------
 %%% Reserved qualifiers (ticket 67, F32)
@@ -2023,6 +2031,35 @@ type_of({e_inst, L, 'ValidateAs', TypeArgs, Args}, S, C) ->
                      {obligation_arity, 'ValidateAs', length(TypeArgs),
                       length(Args)}}]}
     end;
+%% `ParseAtom<T>(s)` is the second codegen obligation (ticket 10 §4, F39).
+%% `T` names a finite set of atoms; the compiler generates a match from each
+%% member's printed name to that member, so the type argument is read at
+%% compile time exactly as `ValidateAs`'s is and nothing survives into the
+%% algebra.
+%%
+%% The result is `T | :nothing`. A string naming no member has to be
+%% answerable, and ticket 08 settled that shape for `as T` already, so this
+%% adds no new one.
+type_of({e_inst, L, 'ParseAtom', TypeArgs, Args}, S, C) ->
+    {ATys, D0} = type_of_all(Args, S, C),
+    case {TypeArgs, Args} of
+        {[TypeExpr], [_]} ->
+            %% `resolve/2` raises for an unknown, cyclic or recursive type and
+            %% all three carry their own diagnostic, as at the sibling.
+            Ty = resolve(TypeExpr, C#ctx.types),
+            case parse_atom_members(Ty) of
+                error ->
+                    {reported(),
+                     D0 ++ [{error, L, C#ctx.fname, {parse_atom_not_finite, Ty}}]};
+                {ok, _} ->
+                    parse_atom_arg(L, Ty, ATys, D0, C)
+            end;
+        _ ->
+            {reported(),
+             D0 ++ [{error, L, C#ctx.fname,
+                     {obligation_arity, 'ParseAtom', length(TypeArgs),
+                      length(Args)}}]}
+    end;
 %% Any other instantiation is refused, and the two cases are told apart: a
 %% name in the closed set is a feature not yet built, a name outside it was
 %% never going to work (ticket 28).
@@ -2131,6 +2168,41 @@ validate_collapses(Ty, Env) ->
 %% `Success` while the rule was the failure channel's; ticket 68 Q1(a) made it
 %% every member, and the predicate itself never changed.
 absorbed(Member, Others) -> bs_types:is_subtype(Member, Others).
+
+%%% ---------------------------------------------------------------------------
+%%% `ParseAtom<T>` (ticket 10 §4, F39)
+%%% ---------------------------------------------------------------------------
+
+%% `T` must be a finite atom union and NOTHING ELSE. The whole type is asked,
+%% not just its atom part: `:a | int` has a perfectly finite atom part, and
+%% reading only that would generate a parse for `:a`, drop the `int` half in
+%% silence, and leave the declared type promising a value the parse can never
+%% produce.
+%%
+%% A cofinite `T` fails here too, which is ticket 10 §4 in as many words —
+%% there is no member list to enumerate, so there is nothing to generate. The
+%% shape match also excludes a recursive type (`mu`) and `term`, whose tuple
+%% and map parts are `top` rather than empty.
+parse_atom_members(#{atoms := {finite, As}, ints := [], tuples := [],
+                     lists := [], maps := [], bins := []}) when As =/= [] ->
+    {ok, lists:usort(As)};
+parse_atom_members(_) ->
+    error.
+
+%% The argument is matched as a binary, so a value that is not one could only
+%% ever answer `:nothing` — a residual that would read as "no member has that
+%% name" when the truth is "that was never a name". `string` and `binary` both
+%% pass; `term` does not, and the author writes the clause head that gets a
+%% binary out of it (ticket 11 §2).
+%%
+%% An argument already carrying a diagnostic arrives as `none`, and `none` is
+%% a subtype of everything, so this reports nothing a second time.
+parse_atom_arg(L, Ty, [ATy], D0, C) ->
+    case bs_types:is_subtype(ATy, bs_types:binary_top()) of
+        true  -> {bs_types:union(Ty, bs_types:atom_lit(nothing)), D0};
+        false -> {reported(),
+                  D0 ++ [{error, L, C#ctx.fname, {parse_atom_arg, ATy}}]}
+    end.
 
 type_of_all(Es, S, C) ->
     {Tys, Ds} = lists:unzip([type_of(E, S, C) || E <- Es]),

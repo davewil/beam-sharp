@@ -1601,9 +1601,51 @@ is spelled the way you would reach that place: `".Value"` for a field, `"[0]"` f
 
 The bracket is admitted after **exactly three** compiler-known names — `ValidateAs<T>`,
 `ParseAtom<T>` and `ToExistingAtom` — and after nothing else, which is what keeps `<` a comparison
-everywhere in the language. Of the three, only `ValidateAs<T>` is built; the other two are refused
-by name.
-<!-- decided by tickets 11 §2, 15 §2, 27 §8 and 28; built as F18 -->
+everywhere in the language. Two of the three are built; `ToExistingAtom` is refused by name.
+<!-- decided by tickets 11 §2, 15 §2, 27 §8 and 28; built as F18 and F39 -->
+
+### `ParseAtom<T>` — a string to a member of a named set
+
+The second obligation reads a **finite atom union** and generates a match from each member's
+printed name to that member. A string naming no member is `:nothing`, so the result is
+`T | :nothing`:
+
+```csharp
+type Outcome = :ok | :error
+type Parsed = :ok | :error | :nothing
+
+public Parsed Parse(string s)
+
+Parse(s) -> ParseAtom<Outcome>(s)
+```
+
+**shipped** — `Parse("ok")` is `:ok`, `Parse("nope")` is `:nothing`.
+
+**It never touches the atom table**, which is the whole reason it exists rather than a
+general string-to-atom function. The generated match returns compile-time-known literals:
+
+```erlang
+case S of
+    <<"ok">>    -> ok;
+    <<"error">> -> error;
+    _           -> nothing
+end
+```
+
+So a runtime-built string cannot grow the atom table through this path, and — the second
+effect, and the one the ticket did not anticipate — `T`'s members are forced into value
+position, which interns them by construction. A union whose members appear only in a type is
+not otherwise guaranteed to be in the emitted module's atom chunk at all.
+
+**A cofinite `T` is an error at the call**, and so is any `T` that is not exclusively atoms.
+There is no finite member list to enumerate, so there is nothing to generate — the refusal is
+about generation rather than about taste. `ParseAtom<atom>(s)` and `ParseAtom<:a | int>(s)` are
+both refused; the second is the one worth stating, since its atom part *is* finite and only the
+whole type tells you the parse could never produce the `int` half.
+
+`ToExistingAtom` is the remaining name, and it is **owed rather than merely unbuilt**: it asks
+the atom table by construction, so it returns bare `atom` and cannot make the promise above.
+<!-- decided by ticket 10 §4; built as F39 -->
 
 **Validating against `term` is an error.** `result<term, ValidationError>` normalises straight back
 to `term`, so the failure channel does not survive and no caller could write the failure clause.

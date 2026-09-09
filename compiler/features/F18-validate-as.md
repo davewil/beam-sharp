@@ -290,7 +290,8 @@ produces it.
   reachable — see the table above. Building a check for a node the algebra does not have would be
   a test asserting on nothing.
 - **`ParseAtom<T>` and `ToExistingAtom`.** The bracket now admits them and the checker refuses them
-  by name. `ParseAtom<T>` is decided (10 §4) and simply unbuilt — a feature, not a ticket.
+  by name. ~~`ParseAtom<T>` is decided (10 §4) and simply unbuilt — a feature, not a ticket.~~
+  **Built 2026-09-09 by F39**; only `ToExistingAtom` is still refused.
   `ToExistingAtom` is **owed**: `STANDARD-ENVIRONMENT.md` records that 10 §5 spelled it `atom | :nothing` and 15
   §1 later made exactly that shape an error, with two known-good answers and neither chosen. It must
   not be implemented from the prelude file, so it is not implemented here.

@@ -293,12 +293,22 @@ built(Path, {Sev, Line, Fn, {map_pattern_deferred, Site, Ty}}) ->
     (at(Sev, Path, Line, Fn))#{tag => map_pattern_deferred,
                                site => Site,
                                type => bs_types:to_string(Ty)};
+built(Path, {Sev, Line, Fn, {parse_atom_not_finite, Ty}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => parse_atom_not_finite,
+                               type => bs_types:to_string(Ty)};
+built(Path, {Sev, Line, Fn, {parse_atom_arg, Ty}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => parse_atom_arg,
+                               type => bs_types:to_string(Ty)};
 built(Path, {Sev, Line, Fn, {obligation_arity, Name, Types, Args}}) ->
     (at(Sev, Path, Line, Fn))#{tag => obligation_arity,
                                obligation => Name,
                                type_args => Types, args => Args};
+%% The list of built names is read from the checker rather than written here.
+%% This sentence named `ValidateAs` alone for three weeks after it stopped
+%% being the only one, which is what a hardcoded roster does.
 built(Path, {Sev, Line, Fn, {obligation_unbuilt, Name}}) ->
-    (at(Sev, Path, Line, Fn))#{tag => obligation_unbuilt, obligation => Name};
+    (at(Sev, Path, Line, Fn))#{tag => obligation_unbuilt, obligation => Name,
+                               built => bs_check:built_obligations()};
 built(Path, {Sev, Line, Fn, {not_an_obligation, Name}}) ->
     (at(Sev, Path, Line, Fn))#{tag => not_an_obligation, name => Name,
                                obligations => ['ValidateAs', 'ParseAtom',
@@ -981,12 +991,35 @@ message(#{tag := obligation_arity, file := P, line := L, column := C, function :
 %% rather than the lexer: one is "wait for us", the other "that was never
 %% going to work".
 message(#{tag := obligation_unbuilt, file := P, line := L, column := C, function := Fn,
-          obligation := Name}) ->
+          obligation := Name, built := Built}) ->
     {"~s:~p:~p: error: ~s uses ~s, which is decided and not built yet~n"
      "  the instantiation bracket admits it — ticket 28 fixed the set of~n"
      "  names it may follow — but this compiler generates nothing for it.~n"
-     "  ValidateAs<T> is the one that is built.~n",
-     [P, L, C, Fn, Name]};
+     "  Built today: ~s.~n",
+     [P, L, C, Fn, Name,
+      lists:join(", ", [atom_to_list(N) || N <- Built])]};
+%% `ParseAtom<T>` reads `T`'s members to generate the parse, so a type with no
+%% enumerable member list is refused at the call (ticket 10 §4). The message
+%% names the whole type rather than its atom part, because the mixed case —
+%% `:a | int`, whose atom part IS finite — is the one an author will not see.
+message(#{tag := parse_atom_not_finite, file := P, line := L, column := C, function := Fn,
+          type := Ty}) ->
+    {"~s:~p:~p: error: ~s parses into ~s, which is not a finite set of atoms~n"
+     "  ParseAtom<T> generates one match arm per member of T, so T must be~n"
+     "  atoms and nothing else, and there must be finitely many of them.~n"
+     "  `atom` is every atom there could be, and a union carrying anything~n"
+     "  besides atoms would promise a value the parse can never return.~n",
+     [P, L, C, Fn, Ty]};
+%% The argument is matched as a binary. A value of another kind could only
+%% answer `:nothing`, which would read as "no member has that name" when the
+%% truth is that the thing handed over was never a name.
+message(#{tag := parse_atom_arg, file := P, line := L, column := C, function := Fn,
+          type := Ty}) ->
+    {"~s:~p:~p: error: ~s hands ParseAtom a ~s, and it parses a string~n"
+     "  the generated match is over the members' printed names, so the~n"
+     "  argument must be a `string` or a `binary`.~n"
+     "  A `term` from a boundary is matched into one first.~n",
+     [P, L, C, Fn, Ty]};
 message(#{tag := not_an_obligation, file := P, line := L, column := C, function := Fn,
           name := Name, obligations := Names}) ->
     {"~s:~p:~p: error: ~s writes ~s<...>, and ~s is not a codegen obligation~n"

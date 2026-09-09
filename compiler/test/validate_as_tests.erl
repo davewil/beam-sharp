@@ -365,18 +365,14 @@ a_name_outside_the_closed_set_is_refused_test() ->
           "Go(t) -> Encode<int>(t)\n",
     ?assertMatch([{error, _, 'Go', {not_an_obligation, 'Encode'}}], errors(Src)).
 
-%% THE OTHER TWO MEMBERS OF THE SET ARE A DIFFERENT SENTENCE. `ParseAtom<T>` is
-%% decided (10 §4) and simply unbuilt; telling that apart from "never going to
+%% THE REMAINING MEMBER OF THE SET IS A DIFFERENT SENTENCE. `ToExistingAtom`
+%% is decided in name and unbuilt; telling that apart from "never going to
 %% work" is the whole reason the set is enforced in the checker.
-a_decided_but_unbuilt_obligation_says_so_test() ->
-    Src = "module VaParse\n"
-          "type Colour = :red | :green\n"
-          "public Colour Go(term t)\n"
-          "Go(t) -> ParseAtom<Colour>(t)\n",
-    ?assertMatch([{error, _, 'Go', {obligation_unbuilt, 'ParseAtom'}}],
-                 errors(Src)).
-
-to_existing_atom_is_also_unbuilt_test() ->
+%%
+%% `ParseAtom<T>` was the other half of this test until F39 built it — its
+%% behaviour is `parse_atom_tests` now, and what remains here is the sentence
+%% about a name the compiler knows and does not generate.
+to_existing_atom_is_decided_but_unbuilt_test() ->
     Src = "module VaExisting\n"
           "public atom Go(term t)\n"
           "Go(t) -> ToExistingAtom<atom>(t)\n",

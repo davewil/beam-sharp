@@ -197,6 +197,16 @@ ABSENT='out of scope|deliberately \*\*out\*\*|deliberately out|not implemented|u
 # builtin   — the name resolves, but NOT as the prelude entry the row describes,
 #             so the probe answers a different question than the row asks
 #
+# `ParseAtom<T>` WAS RECORDED AS `type` UNTIL 2026-09-09, which is the mistake
+# this legend warns about two paragraphs up, sitting in the entry list all
+# along. It was invisible because the two answers coincided: an obligation
+# never resolves as a parameter type, the row said **decided**, and "does not
+# resolve" is what a decided row wants. F39 built it, the row became **built**,
+# and only then did the wrong question give the wrong answer. The `codegen`
+# form the legend already described was never wired into `probe_entry`; it is
+# now, and it is `resolves_as_call` — the same probe the `qualified` entries
+# take, since both are reached in expression position.
+#
 # `bool` WAS the `builtin` case until 2026-09-03. Its row read "**decided** — and
 # **built as a builtin instead**": the PRELUDE ALIAS `type bool = true | false`
 # was never added and `bool` resolved because the compiler had it as a builtin,
@@ -214,7 +224,7 @@ foreign_error|type|foreign_error
 ValidationError|type|ValidationError
 string|type|string
 bool|type|bool
-ParseAtom<T>|type|ParseAtom<int>
+ParseAtom<T>|codegen|ParseAtom<bool>("true")
 map<K, V>|type|map<atom, term>
 List.Sum|qualified|List.Sum([1, 2])
 Term.Compare|qualified|Term.Compare(1, 2)
@@ -296,6 +306,7 @@ probe_entry() {
     case "$1" in
         type)      resolves_as_type "$2" ;;
         qualified) resolves_as_call "$2" ;;
+        codegen)   resolves_as_call "$2" ;;
         *)         return 1 ;;
     esac
 }
@@ -311,8 +322,19 @@ check_prelude() {
         # evaluate one — a row given any other form was counted as unrecognised
         # vocabulary or silently dropped. F32 added the first `qualified` rows and
         # would have been reported as unbuilt forever.
+        #
+        # AND IT HAPPENED AGAIN ON 2026-09-09, a third time, with `codegen`: the
+        # legend described the form, `probe_entry` did not implement it, and this
+        # list did not admit it — so the first row to use one was dropped BEFORE
+        # `listed`, and `prelude entries probed: 10 of 10` read like a full sweep
+        # while the new row went unexamined.
+        #
+        # The lasting fault is that the form vocabulary lives in THREE places
+        # which must agree: this list, `probe_entry`, and the legend. A form
+        # missing from any one of them fails silently, in a different way each
+        # time.
         case "$form" in
-            type|qualified) ;;
+            type|qualified|codegen) ;;
             *) continue ;;
         esac
         listed=$((listed + 1))
@@ -607,7 +629,14 @@ if [ "${1:-}" = "--self-test" ]; then
     # entry with no row is red in its own right (ENG-320, control 8), that
     # deletion would have reddened this mutation for a reason that is not the
     # mutation, and a control that can pass for the wrong reason is not one.
-    sed 's/| `ParseAtom<T>` \(.*\)\*\*decided\*\*/| `ParseAtom<T>` \1**built**/' \
+    #
+    # THE SUBJECT WAS `ParseAtom<T>` UNTIL 2026-09-09, and F39 built it — so
+    # the mutation stopped being a lie and the control stopped controlling
+    # anything. `Map.Get` replaces it: decided by 48 Q8, refused by the
+    # compiler today (ENG-324), and reached in expression position, so the
+    # mutation is false in exactly the way this control exists to catch.
+    # A control whose subject ships must move to one that has not.
+    sed 's/| `Map.Get` \(.*\)\*\*decided\*\*/| `Map.Get` \1**built**/' \
         "$CTL/STANDARD-ENVIRONMENT.md" > "$CTL/PRELUDE.mut.md"
     out="$(check_prelude "$CTL/PRELUDE.mut.md" 2>&1)"; rc=$?
     if [ "$rc" -eq 0 ]; then

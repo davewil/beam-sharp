@@ -795,6 +795,28 @@ expr({e_inst, L, 'ValidateAs', [TypeExpr], [Arg]}, C) ->
     {_Roots, Table} = maps:get(validators, C),
     {call, L, {atom, L, root_name(maps:get(Ty, Table))}, [expr(Arg, C)]};
 
+%% `ParseAtom<T>(s)` is emitted INLINE rather than as a generated function
+%% (ticket 10 §4, F39): the whole body is one `case` over the members'
+%% printed names, so there is nothing to share between two sites and no
+%% per-type worklist to build the way `ValidateAs` needs one.
+%%
+%% Every arm returns an atom LITERAL, which is what keeps the promise the
+%% feature exists for: no `binary_to_existing_atom`, no call that could
+%% consult the atom table, and — because the literals are in value position —
+%% the members are interned by construction.
+%%
+%% The name matched is the atom's PRINTED name, so `:'Sw.Invoice'` matches
+%% `<<"Sw.Invoice">>`; the quotes are source spelling and never bytes. Those
+%% bytes are already UTF-8 and are emitted raw, as `e_str` does, since
+%% re-encoding would double-encode every non-ASCII character.
+expr({e_inst, L, 'ParseAtom', [TypeExpr], [Arg]}, C) ->
+    Ty = bs_check:resolve(TypeExpr, maps:get(env, C)),
+    {ok, Members} = bs_check:parse_atom_members(Ty),
+    Arms = [{clause, L, [atom_name_pattern(L, A)], [], [{atom, L, A}]}
+            || A <- Members]
+           ++ [{clause, L, [{var, L, '_'}], [], [{atom, L, nothing}]}],
+    {'case', L, expr(Arg, C), Arms};
+
 %% A qualified call is a remote call; the module atom is already the full
 %% dotted path, so no name is built here (ticket 40 §1). A reserved qualifier
 %% such as `List` names no module: the call is a local one to a function
@@ -1327,6 +1349,13 @@ acc_form(Q, Fn, Arity, Head, Seed, Step) ->
       [{clause, ?A, [{nil, ?A}, AV], [], [AV]},
        {clause, ?A, [{cons, ?A, HV, TV}, AV], [],
         [{call, ?A, {atom, ?A, Walk}, [TV, Step(HV, AV)]}]}]}].
+
+%% A binary pattern matching an atom's printed name, for `ParseAtom<T>`'s
+%% arms. `atom_to_binary/2` gives the name without source quoting, which is
+%% the string an author would actually be parsing.
+atom_name_pattern(L, A) ->
+    Bytes = binary_to_list(atom_to_binary(A, utf8)),
+    {bin, L, [{bin_element, L, {string, L, Bytes}, default, default}]}.
 
 root_name(Name)   -> list_to_atom(atom_to_list(Name) ++ "@r").
 walker_name(Name) -> list_to_atom(atom_to_list(Name) ++ "@e").
