@@ -217,7 +217,7 @@ paste-back does not name. When a map pattern ships and the indiscriminability re
 line prints again with no edit here.
 
 **An absorbed declared type is dropped, not refused.** For the first row the correct line exists:
-`public map<string, term> Pick(int n)`, which compiles. `declared_member/3` now drops the declared
+`public map<string, term> Pick(int n)`, which compiles. `signature_line/3` now drops the declared
 half whenever the residual contains it (`bs_types:is_subtype/2`), which is F38's rule for the
 bottom without F38's premise. The algebra cannot spell `map<string, term>` less `map<string, int>`,
 so that residual is `map<string, term>`, and it contains what was declared. Where only one member
@@ -330,6 +330,35 @@ F25 has always withheld and never explained), `{absorbed_member, M, By}`, or
 are deliberately not the descriptor's key names: a function or tuple tag in `bs_check` that
 matches a key `bs_diag` prints can reorder the term channel's output (ENG-349).
 
+**Corrected after review.** The `/code-review` spec axis ran the build against programs the
+proposals did not list, and three printed a reason that was false. Each is fixed and has a test:
+
+- `public int Go(term r)` returning `r` said *"which is a compiler defect"*. Its residual prints
+  `tuple` and `map`, which have no surface form, so the line resolves to nothing; so does a
+  recursive type from another module, printed by a name that does not cross the boundary.
+  `unknown_builtin` and `unknown_type` from `resolve/2` are now `unspellable` (F25.22, F25.23).
+- `int | :'a b'` declared said the residual had no spelling. `type_source/1` wrote the declared
+  atom bare, as `:a b`; it now quotes by the printer's rule (F25.24).
+- A record beside `:oops` printed *"this residual has no spelling"* on the `:oops` diagnostic too,
+  because the correction is worked out once for the function. The sentence now reads *"what the
+  clauses return has no spelling as a type yet."* — a change to the approved wording, made because
+  the approved wording was false for that program.
+
+It also found R3 firing on a `none` return, *"this replaces `none`, which `:oops` contains"*, which
+is true of every type. R3 now leaves the bottom alone.
+
+**Left for David.** Three differences from what was put, none of them a false sentence:
+
+- The term's shapes. The proposal sketched `replaces := none | "map<string, int>"` and
+  `Why` one of `syntax`, `absorbed`, `{internal, …}`; the build carries `replaces := #{declared,
+  within}`, because the sentence needs both types, and the `Why` names above.
+- Two sentences he has not read: `declared_form`'s and the absorbed member's. The second names the
+  member as the algebra resolves it, `map<string, int>`, where the author may have written an alias.
+- R5 shows the refused pair only. With `int` declared and both maps in the residual, the shape is
+  `(:tag1, map<string, int>) | (:tag2, map<string, binary>)`, and `int` is not in it: the advice
+  says to tag the members, not what the whole return type becomes. The pair also prints resolved,
+  so aliases the author wrote for the maps do not appear.
+
 ## The scenarios
 
 `corrected_signature_tests.erl` opens its sections with these identifiers, and this is what each
@@ -353,12 +382,15 @@ directly, because that is where the claim lives.
 | F25.13 | both maps in the **residual**, under a declared `int` | two diagnostics, both withheld with the pair named: pairing residual members only against the declared type would miss it |
 | F25.14 | the term, read off the CLI's term channel | `corrected := none` and `indiscriminable := #{member, beside}`; an ordinary mismatch carries `indiscriminable := none` |
 | F25.15 | `map<string, int>` declared, returning a `map<string, term>` | `public map<string, term> Pick(int n)` — the absorbed declared half is dropped — and pasting it compiles clean |
-| F25.16 | `list<map<string, int>>` declared, returning a `list<map<string, binary>>` | no signature line and no refusal: the line would be a syntax error, and the union is legal; the residual `[map<string, binary>, ..]` still prints, and since R2 so does *"no signature is offered: this residual has no spelling as a type yet."* |
+| F25.16 | `list<map<string, int>>` declared, returning a `list<map<string, binary>>` | no signature line and no refusal: the line would be a syntax error, and the union is legal; the residual `[map<string, binary>, ..]` still prints, and since R2 so does *"no signature is offered: what the clauses return has no spelling as a type yet."* |
 | F25.17 | the R5 shape as a declaration, each clause returning inside its tag | compiles clean: the advice is right only if following it compiles |
 | F25.18 | `map<string, int> \| :none` declared, returning a `map<string, term>` | R2: withheld, naming `map<string, int>` and what absorbs it; the term carries `withheld := #{member, absorbed_by}` |
 | F25.19 | an inline map `{ Id: int }` as the declared return | R2: *"the declared signature is written in a form this line does not reproduce"* |
-| F25.20 | the descriptor for a failure the paste-back does not name | R2: `withheld := #{class, reason}`, and the prose says *"(badmatch in bs_check:as_pasted/2), which is a compiler defect"*. Asserted on the descriptor because no program reaches it: a known input would be a named reason |
+| F25.20 | a failure the paste-back does not name | R2: `as_pasted/2` answers `{withhold, {crashed, Class, Reason}}`, and the prose says *"(badmatch in bs_check:as_pasted/2), which is a compiler defect"*. No program is known to reach it, so the producer half is fault injection (environments `type_env/1` never builds, through a test-only export) and the consumer half is the descriptor |
 | F25.21 | `type Counts = map<string, int>` declared, returning a `map<string, term>` | R3: *"this replaces `Counts`"* — named as the author wrote it |
+| F25.22 | `public int Go(term r)` returning `r` | the residual prints `tuple` and `map`, which have no surface form: unspellable, **not** a compiler defect |
+| F25.23 | a residual that is another module's recursive `Tree` | printed by the name its author gave it, which does not cross a module boundary: unspellable, not a defect; declared in the module itself, the line prints |
+| F25.24 | `int \| :'a b'` declared, returning `:oops` | `public int \| :'a b' \| :oops Go(int n)` — the declared atom quoted — and it compiles pasted |
 
 **F25.3 was measured before it was designed.** Two offending clauses produce two diagnostics; if
 each carried its own correction the compiler would print two contradictory pasteable lines, and
@@ -411,5 +443,7 @@ The review round added probe 10 and two stubs, and changed probe 6's and probe 9
 
 - **absorbed-silent** — the compiler at `a25d048`: the right line, with `map<string, int>` dropped
   without a word. Probe 9 (R3).
+- **record-silent** — the record residual withheld with no reason. Probe 10's second branch;
+  added when the `/code-review` standards axis showed that branch had never been seen to fire.
 - **silent-withhold** — also `a25d048`: the list residual withheld with no reason. Probe 10 (R2),
   which also requires the record case to say why wherever probe 3 finds its line withheld.

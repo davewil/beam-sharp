@@ -112,9 +112,13 @@ it.
 > less `map<string, int>`, so a `map<string, int>` return against a
 > `map<string, term>` body has the residual `map<string, term>`, which contains
 > what was declared. The line read `map<string, int> | map<string, term>` and
-> F36 refused it when pasted. `declared_member/3` now drops the declared half
+> F36 refused it when pasted. `signature_line/3` now drops the declared half
 > whenever the residual contains it, and the line is pasted back through the
 > declaration check before it is printed. See F25's ENG-346 amendment.
+>
+> The `Grow(term r)` line quoted just below was not pasteable either: `tuple`
+> and `map` are printer spellings with no surface form, so it does not resolve.
+> Since ENG-346 no line is offered for it, and the diagnostic says why.
 
 `none` is the exception, and the only one. Its complement is everything, so the
 residual is the whole of `term` and the line read:

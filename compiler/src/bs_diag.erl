@@ -575,11 +575,53 @@ withheld({crashed, Class, Reason}) ->
 withheld(Why) when is_atom(Why) ->
     Why.
 
+%% What follows the residual in `return_not_declared`. `bs_check:
+%% corrected_signature/4` sets at most one of `indiscriminable`, `withheld`
+%% and `replaces`, so the first three clauses never compete; the last two read
+%% `corrected` alone.
+%%
+%% REFUSED. Its second line is the declaration check's own header, so the
+%% author meets the same words here and at the refusal they would get by
+%% widening the signature by hand. The repair is 09 §5's: two members a head
+%% cannot tell apart need a tag, and the leading atom of a tuple is one (ticket
+%% 70). The shape is shown with placeholder atoms (R5) and is a type, not a
+%% signature: the clauses must change too, and §2 has the compiler write heads,
+%% never bodies, so it sits under no "paste this" heading.
+correction_text(#{indiscriminable := #{member := M, beside := B}}) ->
+    {"  widening the signature to cover it would be refused:~n"
+     "    no clause head can tell `~s` from `~s`~n"
+     "  tag the members so a clause head can, with atoms of your choosing:~n"
+     "    (:tag1, ~s) | (:tag2, ~s)~n"
+     "  and return each value inside its tag.~n", [M, B, M, B]};
+%% WITHHELD (R2). A line that disappears with no word reads as the compiler
+%% having nothing to offer, which the author cannot tell from a defect.
+correction_text(#{withheld := Why}) when Why =/= none ->
+    withheld_reason(Why);
+%% REPLACES (R3). The line drops the declared type because the new one
+%% contains it, and the likelier mistake is the clause that returned the wider
+%% value, so the sentence says where to look if the drop was not meant.
+correction_text(#{corrected := Line, replaces := #{declared := D, within := New}}) ->
+    {"  the signature its clauses justify:~n"
+     "    ~s~n"
+     "  this replaces `~s`, which `~s` contains.~n"
+     "  If `~s` is what you meant, fix the clause, not the signature.~n",
+     [Line, D, New, D]};
+correction_text(#{corrected := none}) ->
+    {"", []};
+correction_text(#{corrected := Line}) ->
+    {"  the signature its clauses justify:~n"
+     "    ~s~n", [Line]}.
+
 %% The sentence for each `withheld` reason (R2). The last is the one no program
 %% is known to reach: `bs_check:as_pasted/2` caught something it does not name,
 %% which is a fault in the compiler and is reported as one rather than hidden.
+%%
+%% `unspellable` speaks of what the clauses return, not of "this residual":
+%% the correction is worked out once for the function, so the part without a
+%% spelling may belong to a different clause than the diagnostic it is printed
+%% on (ENG-346 review, a record beside `:oops`).
 withheld_reason(unspellable) ->
-    {"  no signature is offered: this residual has no spelling as a type yet.~n", []};
+    {"  no signature is offered: what the clauses return has no spelling as a type yet.~n", []};
 withheld_reason(declared_form) ->
     {"  no signature is offered: the declared signature is written in a form~n"
      "  this line does not reproduce.~n", []};
@@ -869,69 +911,15 @@ message(#{tag := field_absent, file := P, line := L, column := C, function := Fn
      [P, L, C, Fn, Field, Field, Member]};
 %% Without this, the emitted `-spec` would claim what the body does not
 %% deliver (ticket 33 site 4, 18). The residual answers what is not covered
-%% and the signature answers what to write, so the signature is added, never
-%% substituted (F25, ticket 23 §8). The `none` clause comes first: the
-%% residual has no writable spelling, such as a record or `binary \ string`.
-%%
-%% ENG-346's three clauses come before both, and the order among them does not
-%% matter: `bs_check:corrected_signature/4` sets at most one of their keys.
-%%
-%% REFUSED. Its second line is the declaration check's own header, so the
-%% author meets the same words here and at the refusal they would get by
-%% widening the signature by hand. The repair is 09 §5's: two members a head
-%% cannot tell apart need a tag, and the leading atom of a tuple is one (ticket
-%% 70). The shape is shown with placeholder atoms (R5) and is a type, not a
-%% signature: the clauses must change too, and §2 has the compiler write heads,
-%% never bodies, so it sits under no "paste this" heading.
+%% and `correction_text/1` answers what to write, added beside the residual
+%% and never substituted for it (F25, ticket 23 §8).
 message(#{tag := return_not_declared, file := P, line := L, column := C, function := Fn,
-          undeclared := Undeclared,
-          indiscriminable := #{member := M, beside := B}}) ->
-    {"~s:~p:~p: error: ~s returns a value its signature does not declare~n"
-     "  not covered by the declared return type:~n"
-     "    ~s~n"
-     "  widening the signature to cover it would be refused:~n"
-     "    no clause head can tell `~s` from `~s`~n"
-     "  tag the members so a clause head can, with atoms of your choosing:~n"
-     "    (:tag1, ~s) | (:tag2, ~s)~n"
-     "  and return each value inside its tag.~n",
-     [P, L, C, Fn, Undeclared, M, B, M, B]};
-%% WITHHELD (R2). A line that disappears with no word reads as the compiler
-%% having nothing to offer, which the author cannot tell from a defect.
-message(#{tag := return_not_declared, file := P, line := L, column := C, function := Fn,
-          undeclared := Undeclared, withheld := Why}) when Why =/= none ->
-    {Fmt, Args} = withheld_reason(Why),
+          undeclared := Undeclared} = D) ->
+    {Fmt, Args} = correction_text(D),
     {"~s:~p:~p: error: ~s returns a value its signature does not declare~n"
      "  not covered by the declared return type:~n"
      "    ~s~n" ++ Fmt,
      [P, L, C, Fn, Undeclared | Args]};
-%% REPLACES (R3). The line drops the declared type because the new one
-%% contains it, and the likelier mistake is the clause that returned the wider
-%% value, so the sentence says where to look if the drop was not meant.
-message(#{tag := return_not_declared, file := P, line := L, column := C, function := Fn,
-          undeclared := Undeclared, corrected := Corrected,
-          replaces := #{declared := D, within := New}}) ->
-    {"~s:~p:~p: error: ~s returns a value its signature does not declare~n"
-     "  not covered by the declared return type:~n"
-     "    ~s~n"
-     "  the signature its clauses justify:~n"
-     "    ~s~n"
-     "  this replaces `~s`, which `~s` contains.~n"
-     "  If `~s` is what you meant, fix the clause, not the signature.~n",
-     [P, L, C, Fn, Undeclared, Corrected, D, New, D]};
-message(#{tag := return_not_declared, file := P, line := L, column := C, function := Fn,
-          undeclared := Undeclared, corrected := none}) ->
-    {"~s:~p:~p: error: ~s returns a value its signature does not declare~n"
-     "  not covered by the declared return type:~n"
-     "    ~s~n",
-     [P, L, C, Fn, Undeclared]};
-message(#{tag := return_not_declared, file := P, line := L, column := C, function := Fn,
-          undeclared := Undeclared, corrected := Corrected}) ->
-    {"~s:~p:~p: error: ~s returns a value its signature does not declare~n"
-     "  not covered by the declared return type:~n"
-     "    ~s~n"
-     "  the signature its clauses justify:~n"
-     "    ~s~n",
-     [P, L, C, Fn, Undeclared, Corrected]};
 %% A destructuring bind is allowed exactly when this residual is empty, so it
 %% is provably irrefutable (ticket 33 site 5, 34).
 message(#{tag := bind_may_fail, file := P, line := L, column := C, function := Fn,

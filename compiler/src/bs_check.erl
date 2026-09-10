@@ -44,6 +44,13 @@
 %% checker admitted `T` on, so the two cannot disagree about what `T` holds.
 -export([parse_atom_members/1, built_obligations/0]).
 
+%% F25.20's fault injection: the compiler-defect branch of `as_pasted/2` has no
+%% program known to reach it, so the test hands it an environment `type_env/1`
+%% never builds. Test builds only.
+-ifdef(TEST).
+-export([as_pasted/2]).
+-endif.
+
 %% `vis` stays last: `bs_emit` reads this record positionally through
 %% `element/2`, so every earlier field keeps its index. The default is
 %% `private`, matching the language's (ticket 40 §3).
@@ -1349,16 +1356,23 @@ corrected_signature(F, Declared, Union, Env) ->
 %%       both members and shows them tagged.
 %%   `[map<string, binary>, ..]` and `(2, map<string, binary>)` — pattern
 %%       spellings `writable/1` does not catch, so the parser refuses the line.
-%%       The declared half is the author's own text, so a line that does not
-%%       parse is taken to be the residual's spelling.
-%%   a written member absorbed by another, which `declared_member/2` prevents
+%%       The declared half is rendered by `type_source/1`, which quotes what
+%%       needs quoting, so a line that does not parse is taken to be the
+%%       residual's spelling.
+%%   `tuple`, `map`, or another module's `Tree` — printer spellings that parse
+%%       and do not resolve here: `tuple` and `map` have no surface form, and a
+%%       type's name does not cross a module boundary. Also the residual's
+%%       spelling, found by `resolve/2` rather than the parser.
+%%   a written member absorbed by another, which `signature_line/3` prevents
 %%       where the whole declared type is absorbed and cannot where only one
 %%       member of a declared union is.
 %%
 %% ANYTHING ELSE RAISED IS A COMPILER DEFECT, AND IS SAID TO BE ONE. Crashing
 %% would take the author's whole diagnostic with it for a fault in one line of
 %% advice, and answering nothing hid the fault. So the line is withheld and the
-%% class and reason travel to `bs_diag`, which names the defect (R2). `Env` is
+%% class and reason travel to `bs_diag`, which names the defect (R2). No
+%% program is known to reach it; `corrected_signature_tests` F25.20 reaches it
+%% by handing this function an environment `type_env/1` never builds. `Env` is
 %% the module's `type_env/1`, so an alias or a record the author named
 %% resolves as it does in their file.
 as_pasted(Line, Env) ->
@@ -1375,6 +1389,10 @@ as_pasted(Line, Env) ->
                     {refused, A, B};
                 error:{absorbed_member, _, _, _, M, By} ->
                     {withhold, {absorbed_member, M, By}};
+                error:{unknown_type, _} ->
+                    {withhold, unspellable};
+                error:{unknown_builtin, _} ->
+                    {withhold, unspellable};
                 Class:Reason ->
                     {withhold, {crashed, Class, reason_name(Reason)}}
             end
@@ -1391,12 +1409,11 @@ pasted_signature(Line) ->
             none
     end.
 
-%% The name of what went wrong, not the term: a reason can carry anything, and
-%% the descriptor is printed with `~0p` for a consumer to parse back.
-reason_name(R) when is_atom(R)                                   -> R;
-reason_name(R) when is_tuple(R), tuple_size(R) > 0,
-                    is_atom(element(1, R))                       -> element(1, R);
-reason_name(_)                                                   -> unnamed.
+%% The name of what went wrong, not the whole term: a reason tuple can carry a
+%% type or a source fragment, and the descriptor is printed with `~0p` for a
+%% consumer to parse back. OTP's error reasons are an atom or a tuple led by one.
+reason_name(R) when is_tuple(R), tuple_size(R) > 0 -> element(1, R);
+reason_name(R)                                     -> R.
 
 %% A signature that cannot be rendered as source is withheld, never guessed: a
 %% line that looks pasteable and is not is worse than no line (ticket 23 §2).
@@ -1424,7 +1441,8 @@ signature_line(#fn{name = Name, ret = Ret, params = Params, vis = Vis},
                                           declared_member(Absorbed, RetSrc),
                                           Rendered, " ", atom_to_list(Name),
                                           "(", Ps, ")"]),
-                    {Line, replaced(Absorbed, RetSrc, Rendered)}
+                    Replaced = Absorbed andalso not bs_types:is_none(Declared),
+                    {Line, replaced(Replaced, RetSrc, Rendered)}
             end
     end.
 
@@ -1444,7 +1462,9 @@ declared_member(true, _RetSrc) -> "";
 declared_member(false, RetSrc) -> RetSrc ++ " | ".
 
 %% R3: a dropped declared type is reported by the name the author wrote, which
-%% is F25's naming rule applied to the sentence as well as to the line.
+%% is F25's naming rule applied to the sentence as well as to the line. Not for
+%% the bottom: every type contains `none`, so "this replaces `none`, which
+%% `term` contains" is true of any line and tells the author nothing.
 replaced(true, RetSrc, Rendered) -> {RetSrc, Rendered};
 replaced(false, _RetSrc, _Rendered) -> none.
 
@@ -1485,7 +1505,10 @@ param_source({param, T, Name}) ->
 %%
 %% An unrecognised form answers `none` and the whole line is dropped, so a
 %% type construct added later cannot leak a half-rendered signature.
-type_source({t_atom, A})        -> ":" ++ atom_to_list(A);
+%% Quoted where the bare sigil cannot spell it, by the printer's own rule:
+%% `:'a b'` written bare as `:a b` made the whole line a syntax error, and the
+%% paste-back then blamed the residual (ENG-346 review).
+type_source({t_atom, A})        -> bs_types:atom_str(A);
 type_source({t_builtin, B})     -> atom_to_list(B);
 type_source({t_ref, N})         -> atom_to_list(N);
 type_source({t_tuple, Cs})      -> bracket("(", Cs, ", ", ")");

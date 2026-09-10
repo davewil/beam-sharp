@@ -228,9 +228,7 @@ a_none_behind_an_alias_is_still_the_bottom_test() ->
           "public Never Reject(term r)\n"
           "Reject(r) -> r\n",
     [{error, _, 'Reject', {return_not_declared, _, Corrected}} | _] = errors(Src),
-    %% Since ENG-346's R3 the correction also says which declared type it
-    %% drops, by the name the author wrote: `Never`, not its expansion.
-    ?assertEqual({replacing, "public term Reject(term r)", "Never", "term"}, Corrected).
+    ?assertEqual("public term Reject(term r)", Corrected).
 
 %% A raising clause may stand beside one that returns — but not under a `none`
 %% return, because the returning clause is exactly the value the type refuses.

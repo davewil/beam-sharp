@@ -47,7 +47,7 @@ TAG='tag the members so a clause head can, with atoms of your choosing:'
 SHAPE='(:tag1, map<string, int>) | (:tag2, map<string, binary>)'
 # David's review round (ENG-346 R2, R3): a withheld line says why, and a line
 # that replaces the declared type says so.
-UNSPELLABLE='no signature is offered: this residual has no spelling as a type yet.'
+UNSPELLABLE='no signature is offered: what the clauses return has no spelling as a type yet.'
 REPLACES='this replaces `map<string, int>`, which `map<string, term>` contains.'
 
 # ---------------------------------------------------------------------------
@@ -283,7 +283,7 @@ judge() {
 # ---------------------------------------------------------------------------
 # --self-test — build the defects this gate names and require a red on each.
 #
-# A gate that has never been seen to fail is not believed. Twelve stubs, each
+# A gate that has never been seen to fail is not believed. Thirteen stubs, each
 # wrong in a different way, plus the decided behaviour and a run that never
 # compiled. Every stub must also PASS the probes it does not break: a probe
 # that fires on everything is worthless.
@@ -320,7 +320,7 @@ if [ "${1:-}" = "--self-test" ]; then
   good_p10="m.bs:4:1: error: Pick returns a value its signature does not declare
   not covered by the declared return type:
     [map<string, binary>, ..]
-  no signature is offered: this residual has no spelling as a type yet."
+  no signature is offered: what the clauses return has no spelling as a type yet."
 
   seed_eng346() {
     printf '%s\n' "$good_p6" > "$1/P6.out"
@@ -351,7 +351,7 @@ m.bs:4: error: Go returns a value its signature does not declare
   good_p3="m.bs:5: error: Make returns a value its signature does not declare
   not covered by the declared return type:
     { Kind: :'M4.Invoice' }
-  no signature is offered: this residual has no spelling as a type yet."
+  no signature is offered: what the clauses return has no spelling as a type yet."
 
   # ENG-328. `none` is writable, so a body that RETURNS is an ordinary mismatch
   # - and the correction must be `term` alone, not `none | term`.
@@ -607,6 +607,17 @@ map<string, int> | map<string, binary> Pick(int)" > "$CTL/onesite/P7A.out"
     [map<string, binary>, ..]" > "$CTL/silentwithhold/P10.out"
   expect silentwithhold 10
 
+  # --- RECORD-WITHHELD-SILENTLY ------------------------------------------
+  #
+  # Probe 10's second half: the record residual withheld with no reason, the
+  # compiler before R2. Without this stub that branch is never seen to fire,
+  # because every other stub's P3 carries the reason or is empty.
+  seed_all "$CTL/recordsilent"
+  printf '%s\n' "m.bs:5: error: Make returns a value its signature does not declare
+  not covered by the declared return type:
+    { Kind: :'M4.Invoice' }" > "$CTL/recordsilent/P3.out"
+  expect recordsilent 10
+
   # --- GOOD --------------------------------------------------------------
   seed_all "$CTL/good"
   good="$(judge "$CTL/good" || true)"
@@ -642,15 +653,15 @@ map<string, int> | map<string, binary> Pick(int)" > "$CTL/onesite/P7A.out"
   done
 
   if [ "$fail" -eq 0 ]; then
-    echo "self-test: caught twelve defects on different probes — the silent case,"
+    echo "self-test: caught thirteen defects on different probes — the silent case,"
     echo "           the per-clause correction that prints two contradictory lines,"
     echo "           the mint tag in a pasteable signature, the absorbed member a"
     echo "           writable bottom introduces, a line the declaration check"
     echo "           refuses, that line withheld with no reason, a refusal missing"
     echo "           at --api and one missing at a compile, a correction withheld"
     echo "           with no cause, a declared map absorbed by its residual, that"
-    echo "           map dropped without a word, and an unspellable residual"
-    echo "           withheld without a word —"
+    echo "           map dropped without a word, and an unspellable residual and"
+    echo "           a record residual each withheld without a word —"
     echo "           passed each stub's other probes, passed the decided"
     echo "           behaviour, and refused a run that never compiled. the gate"
     echo "           discriminates and does not pass vacuously"

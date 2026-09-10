@@ -23,7 +23,7 @@
 
 -define(HEADING, "the signature its clauses justify:").
 %% ENG-346 R2: a line that is withheld says why.
--define(UNSPELLABLE, "no signature is offered: this residual has no spelling as a type yet.").
+-define(UNSPELLABLE, "no signature is offered: what the clauses return has no spelling as a type yet.").
 
 %% Two things this helper got wrong the first time, both of which made every
 %% assertion below fail for the same uninformative reason — no output at all.
@@ -73,8 +73,9 @@ a_none_return_is_corrected_without_an_absorbed_member_test() ->
     ?assert(string:find(Out, ?HEADING) =/= nomatch),
     ?assert(string:find(Out, "public term Reject(term r)") =/= nomatch),
     ?assertEqual(nomatch, string:find(Out, "none |")),
-    %% ENG-346 R3: the line replaces the declared type, so it says so.
-    ?assert(string:find(Out, "this replaces `none`, which `term` contains.") =/= nomatch).
+    %% ENG-346 R3 does not fire for the bottom: every type contains `none`, so
+    %% "this replaces `none`" would be true of any line and say nothing.
+    ?assertEqual(nomatch, string:find(Out, "this replaces")).
 
 %%% ---------------------------------------------------------------------------
 %%% 3 — the correction is a property of the FUNCTION
@@ -180,14 +181,17 @@ the_term_carries_the_corrected_signature_test() ->
 
 %% F25.9 — and `none` when there is nothing writable to say, rather than the key
 %% going missing. A consumer matching on the key must not have to distinguish
-%% "absent" from "refused".
-the_term_says_none_when_the_signature_is_refused_test() ->
-    D = bs_diag:descriptor("m.bs", {error, 3, 'Make',
-                                    {return_not_declared,
-                                     bs_types:atom_lit(oops),
-                                     {withhold, unspellable}}}),
+%% "absent" from "refused". Read off the CLI's term channel for F25.4's record
+%% residual, which is withheld in practice; since ENG-346's R2 the term also
+%% carries why.
+the_term_says_none_when_no_signature_is_offered_test() ->
+    Src = "module M27\n"
+          "record Order   { Id: int, Total: int }\n"
+          "record Invoice { Id: int, Total: int }\n"
+          "public Order Make(int n)\n"
+          "Make(n) -> Invoice{ Id = n, Total = 0 }\n",
     ?assertMatch(#{tag := return_not_declared, corrected := none,
-                   withheld := unspellable}, D).
+                   withheld := unspellable}, term_of("M27", Src)).
 
 %%% ---------------------------------------------------------------------------
 %%% 10 — a correction the declaration check refuses (ENG-346)
@@ -413,11 +417,19 @@ an_unreproducible_declared_form_says_why_it_is_withheld_test() ->
     ?assert(string:find(Out, "no signature is offered: the declared signature is "
                              "written in a form") =/= nomatch).
 
-%% F25.20 — R2, a failure the paste-back does not name. No program reaches it:
-%% a known input would be a named reason. So it is asserted where the claim
-%% lives, the descriptor and its prose: the term carries the class and reason,
-%% and the prose calls it a compiler defect instead of saying nothing.
+%% F25.20 — R2, a failure the paste-back does not name. No program is known to
+%% reach it: the review found two that did (F25.22, F25.23), and each is now a
+%% named reason. So both halves are asserted below the CLI. The producer half
+%% is fault injection: `as_pasted/2` is handed environments `type_env/1` never
+%% builds, one whose entry resolves to nothing it can read (an atom reason)
+%% and one that is not a map (a tuple reason). The consumer half is the
+%% descriptor and its prose: the term carries the class and reason, and the
+%% prose calls it a compiler defect instead of saying nothing.
 an_unnamed_paste_back_failure_is_reported_as_a_defect_test() ->
+    ?assertEqual({withhold, {crashed, error, function_clause}},
+                 bs_check:as_pasted("public Foo F(int n)", #{'Foo' => not_a_type})),
+    ?assertEqual({withhold, {crashed, error, badmap}},
+                 bs_check:as_pasted("public Foo F(int n)", not_an_env)),
     D = bs_diag:descriptor("m.bs", {error, 3, 'Pick',
                                     {return_not_declared,
                                      bs_types:atom_lit(oops),
@@ -439,6 +451,61 @@ the_replaced_type_is_named_as_the_author_wrote_it_test() ->
     ?assert(string:find(Out, "public map<string, term> Pick(int n)") =/= nomatch),
     ?assert(string:find(Out, "this replaces `Counts`, which `map<string, term>` "
                              "contains.") =/= nomatch).
+
+%%% ---------------------------------------------------------------------------
+%%% 12 — the review of R2, R3 and R5 (ENG-346, 2026-09-10)
+%%%
+%%% The /code-review spec axis ran the build against programs the proposals did
+%%% not list, and three printed a reason that was false.
+%%% ---------------------------------------------------------------------------
+
+%% F25.22 — a `term` body under `int`. The residual prints as
+%% `atom | tuple | list<term> | map | binary`, and `tuple` and `map` are
+%% printer spellings with no surface form, so the line resolves to nothing.
+%% That was reported as a compiler defect; it is the unspellable case. (F38's
+%% own example, `Grow(term r)`, is this program.)
+a_residual_with_no_surface_form_is_unspellable_not_a_defect_test() ->
+    Out = cli("M28", "module M28\npublic int Go(term r)\nGo(r) -> r\n"),
+    ?assertEqual(nomatch, string:find(Out, ?HEADING)),
+    ?assertEqual(nomatch, string:find(Out, "compiler defect")),
+    ?assert(string:find(Out, ?UNSPELLABLE) =/= nomatch).
+
+%% F25.23 — a recursive type from another module. It prints by the name its
+%% author gave it, `Tree`, and a type's name does not cross a module boundary,
+%% so the line does not resolve in `M30`. Unspellable here, not a defect. The
+%% same type declared in the module itself prints a line (the control).
+a_residual_named_in_another_module_is_unspellable_not_a_defect_test() ->
+    Root = bs_test_support:fixture_root(),
+    _ = bs_test_support:place(Root, "M29.bs",
+                              "module M29\n"
+                              "type Tree = :leaf | (:node, Tree, Tree)\n"
+                              "public Tree Leaf()\n"
+                              "Leaf() -> :leaf\n"),
+    Grow = bs_test_support:place(Root, "M30.bs",
+                                 "module M30\n"
+                                 "using M29\n"
+                                 "public int Get(int n)\n"
+                                 "Get(n) -> Leaf()\n"),
+    Out = run_cli("--src-root " ++ Root ++ " -o " ++ Root ++ " "
+                  ++ filename:dirname(Grow)),
+    ?assertEqual(nomatch, string:find(Out, "compiler defect")),
+    ?assert(string:find(Out, ?UNSPELLABLE) =/= nomatch),
+    Local = cli("M31", "module M31\n"
+                       "type Tree = :leaf | (:node, Tree, Tree)\n"
+                       "public int Get(int n)\n"
+                       "Get(n) -> Leaf()\n"
+                       "private Tree Leaf()\n"
+                       "Leaf() -> :leaf\n"),
+    ?assert(string:find(Local, "public int | :leaf | (:node, Tree, Tree) Get(int n)") =/= nomatch).
+
+%% F25.24 — a declared atom that needs quoting. `type_source/1` wrote
+%% `:'a b'` as `:a b`, the line was a syntax error, and the paste-back blamed
+%% the residual. It is quoted now, so the line prints, and it compiles pasted.
+a_declared_atom_that_needs_quoting_is_written_quoted_test() ->
+    Line = "public int | :'a b' | :oops Go(int n)",
+    Out = cli("M32", "module M32\npublic int | :'a b' Go(int n)\nGo(n) -> :oops\n"),
+    ?assert(string:find(Out, Line) =/= nomatch),
+    ?assertEqual("rc:0\n", compile("M33", "module M33\n" ++ Line ++ "\nGo(n) -> :oops\n")).
 
 %% One diagnostic, so one line on stdout. Parsing it back is what proves it is
 %% a term (F16).
