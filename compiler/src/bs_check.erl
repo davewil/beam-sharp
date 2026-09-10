@@ -44,11 +44,12 @@
 %% checker admitted `T` on, so the two cannot disagree about what `T` holds.
 -export([parse_atom_members/1, built_obligations/0]).
 
-%% F25.20's fault injection: the compiler-defect branch of `as_pasted/2` has no
-%% program known to reach it, so the test hands it an environment `type_env/1`
-%% never builds. Test builds only.
+%% Fault injection for two branches no program is known to reach: F25.20's
+%% compiler-defect branch of `as_pasted/2`, handed an environment `type_env/1`
+%% never builds, and F25.27's fallback in `declared_text/2`, handed a form the
+%% grammar does not have. Test builds only.
 -ifdef(TEST).
--export([as_pasted/2]).
+-export([as_pasted/2, declared_text/2]).
 -endif.
 
 %% `vis` stays last: `bs_emit` reads this record positionally through
@@ -1338,20 +1339,48 @@ attach_correction(D, _C) ->
 %% Round 3 (David, 2026-09-11: "all") every return mismatch leads with the
 %% clause — "If `ViewCounts` is what you meant, fix the clause, not the
 %% signature." The signature states intent and the compiler holds the clauses
-%% to it; widening is the alternative, not the headline.
+%% to it; the widened line is offered after that.
 corrected_signature(F = #fn{ret = Ret}, Declared, Union, Env) ->
-    {declared_text(Ret, Declared), advice(F, Declared, Union, Env)}.
+    {declared_text(Ret, Declared), correction_of(F, Declared, Union, Env)}.
 
-%% The declared return as the author wrote it. Where `type_source/1` cannot
-%% write it back (an inline map), it is named as the algebra prints it: the
-%% sentence is prose, never pasted, so a spelling that is not source is fine.
+%% The declared return as the author wrote it, for the lead. An inline map is
+%% the one declared form `type_source/1` will not write (F25's Out of scope, a
+%% rule about the pasteable line); in a sentence it is written back with its
+%% fields in the author's order, since the algebra's printer sorts them. A form
+%% neither can write is named as the algebra prints it: prose, never pasted.
 declared_text(Ret, Declared) ->
-    case type_source(Ret) of
+    case written(Ret) of
         none -> bs_types:to_string(Declared);
         Src  -> Src
     end.
 
-advice(F, Declared, Union, Env) ->
+written({t_map, Fields}) ->
+    joined("{ ", [field_written(F) || F <- Fields], ", ", " }");
+%% Through the composite forms too, since `{ … } | :not_found` is the common
+%% shape of a lookup, and `type_source/1` answers `none` for the whole union
+%% the moment one member is an inline map.
+written({t_union, Ms}) ->
+    joined("", [written(M) || M <- Ms], " | ", "");
+written({t_tuple, Cs}) ->
+    joined("(", [written(C) || C <- Cs], ", ", ")");
+written({t_generic, N, As}) ->
+    joined(atom_to_list(N) ++ "<", [written(A) || A <- As], ", ", ">");
+written(T) ->
+    type_source(T).
+
+joined(Open, Parts, Sep, Close) ->
+    case lists:member(none, Parts) of
+        true  -> none;
+        false -> lists:flatten([Open, lists:join(Sep, Parts), Close])
+    end.
+
+field_written({field, Name, T}) ->
+    case written(T) of
+        none -> none;
+        S    -> lists:flatten([root(Name), ": ", S])
+    end.
+
+correction_of(F, Declared, Union, Env) ->
     case signature_line(F, Declared, Union) of
         {withhold, _} = Withheld -> Withheld;
         {Line, Replaced} ->

@@ -31,12 +31,14 @@
 lead(Declared) ->
     "If `" ++ Declared ++ "` is what you meant, fix the clause, not the signature.".
 
-%% The lead comes before anything else the correction says.
+%% The lead comes before anything else the correction says: the widened line,
+%% the refused widening, or the reason a line is withheld.
 leads(Out, Declared) ->
-    case {string:str(Out, lead(Declared)), string:str(Out, "the signature its clauses justify:")} of
-        {0, _} -> false;
-        {_, 0} -> true;
-        {L, H} -> L < H
+    Rest = [P || M <- [?HEADING, "Widening the signature", "no signature is offered"],
+                 P <- [string:str(Out, M)], P > 0],
+    case string:str(Out, lead(Declared)) of
+        0 -> false;
+        L -> Rest =:= [] orelse L < lists:min(Rest)
     end.
 
 %% Two things this helper got wrong the first time, both of which made every
@@ -235,7 +237,7 @@ the_term_says_none_when_no_signature_is_offered_test() ->
 %%% pasted: an absorbed member, and a syntax error.
 %%% ---------------------------------------------------------------------------
 
--define(REFUSED, "Widening the signature to cover both would be refused:").
+-define(REFUSED, "Widening the signature to cover what the clauses return would be refused:").
 -define(TELL, "no clause head can tell `map<string, int>` from `map<string, binary>`").
 -define(TAG, "so if both are meant, tag them, with atoms of your choosing:").
 -define(SHAPE, "(:tag1, map<string, int>) | (:tag2, map<string, binary>)").
@@ -442,13 +444,34 @@ a_partly_absorbed_declared_union_says_why_it_is_withheld_test() ->
 %% answers `none` for an inline map, so F25 has always withheld this line
 %% (its Out of scope), and until R2 it said nothing.
 an_unreproducible_declared_form_says_why_it_is_withheld_test() ->
-    Out = cli("M25", "module M25\npublic { Id: int } Make(int n)\nMake(n) -> :oops\n"),
+    Src = "module M25\n"
+          "public { Id: int, Email: binary } FindUser(int id)\n"
+          "FindUser(id) -> :not_found\n",
+    Out = cli("M25", Src),
     ?assertEqual(nomatch, string:find(Out, ?HEADING)),
     ?assert(string:find(Out, "no signature is offered: the declared signature is "
                              "written in a form") =/= nomatch),
-    %% `type_source/1` cannot write an inline map, so the lead names the type
-    %% as the algebra prints it; it is prose here, not a line to paste.
-    ?assert(leads(Out, "{ Id: int }")).
+    %% The lead writes the inline type's fields in the author's order. The
+    %% algebra's printer sorts them, `{ Email: binary, Id: int }`, which is a
+    %% type the author did not write (the Round 3 review).
+    ?assert(leads(Out, "{ Id: int, Email: binary }")),
+    %% Nested, and inside a union — `{ … } | :gone` is the common shape of a
+    %% lookup, and the printer would have reordered both.
+    Nested = cli("M34", "module M34\n"
+                        "public { Id: int, Meta: { Tag: int } } Find(int id)\n"
+                        "Find(id) -> :not_found\n"),
+    ?assert(leads(Nested, "{ Id: int, Meta: { Tag: int } }")),
+    Either = cli("M35", "module M35\n"
+                        "public { Id: int, Email: binary } | :gone Find(int id)\n"
+                        "Find(id) -> :not_found\n"),
+    ?assert(leads(Either, "{ Id: int, Email: binary } | :gone")).
+
+%% F25.27 — the lead's fallback for a declared form nothing can write back.
+%% No signature reaches it today (an inline refinement is a syntax error), so it
+%% is fault injection through the test-only export: a form the grammar may gain
+%% later is named as the algebra prints it, whole, rather than dropped.
+a_declared_form_nothing_can_write_is_named_as_printed_test() ->
+    ?assertEqual("int", bs_check:declared_text({t_not_a_form}, bs_types:int())).
 
 %% F25.20 — R2, a failure the paste-back does not name. No program is known to
 %% reach it: the review found two that did (F25.22, F25.23), and each is now a
@@ -466,7 +489,7 @@ an_unnamed_paste_back_failure_is_reported_as_a_defect_test() ->
     D = bs_diag:descriptor("m.bs", {error, 3, 'Pick',
                                     {return_not_declared,
                                      bs_types:atom_lit(oops),
-                                     {"atom", {withhold, {crashed, error, badmatch}}}}}),
+                                     {"int", {withhold, {crashed, error, badmatch}}}}}),
     ?assertMatch(#{corrected := none,
                    withheld := #{class := error, reason := badmatch}}, D),
     Prose = unicode:characters_to_list(bs_diag:format(D#{line => 3, column => 1})),
@@ -582,7 +605,7 @@ a_checkout_leads_with_the_clause_before_the_refused_widening_test() ->
        "  not covered by the declared return type:\n"
        "    map<string, binary>\n"
        "  If `map<string, int>` is what you meant, fix the clause, not the signature.\n"
-       "  Widening the signature to cover both would be refused:\n"
+       "  Widening the signature to cover what the clauses return would be refused:\n"
        "    no clause head can tell `map<string, int>` from `map<string, binary>`\n"
        "  so if both are meant, tag them, with atoms of your choosing:\n"
        "    (:tag1, map<string, int>) | (:tag2, map<string, binary>)\n"

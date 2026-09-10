@@ -592,7 +592,7 @@ withheld(Why) when is_atom(Why) ->
 %% signature: the clauses must change too, and §2 has the compiler write heads,
 %% never bodies, so it sits under no "paste this" heading.
 correction_text(#{indiscriminable := #{member := M, beside := B}}) ->
-    {"  Widening the signature to cover both would be refused:~n"
+    {"  Widening the signature to cover what the clauses return would be refused:~n"
      "    no clause head can tell `~s` from `~s`~n"
      "  so if both are meant, tag them, with atoms of your choosing:~n"
      "    (:tag1, ~s) | (:tag2, ~s)~n"
@@ -919,11 +919,10 @@ message(#{tag := field_absent, file := P, line := L, column := C, function := Fn
 %% and never substituted for it (F25, ticket 23 §8).
 %%
 %% EVERY ONE LEADS WITH THE CLAUSE (ENG-346 Round 3, David: "all"). The
-%% signature states intent and the compiler holds the clauses to it, which is
-%% B#'s lead feature for inputs, applied here to outputs. Widening is offered
-%% after it as the alternative. Written in realistic code the clause was the
-%% likelier fix in four of six cases (`wayfinder/prototypes/f25-corrected-
-%% signature-in-real-code.md`).
+%% signature states intent and the compiler holds the clauses to it, as
+%% exhaustiveness does for the inputs. The widened line is offered after it.
+%% Written as realistic code, the clause was the likelier fix in four of six
+%% cases (`wayfinder/prototypes/f25-corrected-signature-in-real-code.md`).
 message(#{tag := return_not_declared, file := P, line := L, column := C, function := Fn,
           undeclared := Undeclared, declared := Declared} = D) ->
     {Fmt, Args} = correction_text(D),

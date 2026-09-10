@@ -41,12 +41,13 @@ HEADING='the signature its clauses justify:'
 # check would refuse it. The second is the declaration check's own header
 # (`bs_diag`'s `indiscriminable_union`), so the advice and the refusal read the
 # same words.
-REFUSED='Widening the signature to cover both would be refused:'
+REFUSED='Widening the signature to cover what the clauses return would be refused:'
 TELL='no clause head can tell `map<string, int>` from `map<string, binary>`'
 TAG='so if both are meant, tag them, with atoms of your choosing:'
 # ENG-346 Round 3 (David, 2026-09-11: "all"): every return mismatch leads with
 # the clause, naming the declared type as the author wrote it.
 LEAD1='If `int` is what you meant, fix the clause, not the signature.'
+LEAD10='If `list<map<string, int>>` is what you meant, fix the clause, not the signature.'
 SHAPE='(:tag1, map<string, int>) | (:tag2, map<string, binary>)'
 # David's review round (ENG-346 R2, R3): a withheld line says why, and a line
 # that replaces the declared type says so.
@@ -94,7 +95,7 @@ judge() {
     sed 's/^/           /' <<<"$p1"
   fi
   # ... and since ENG-346 Round 3 the clause comes first: the signature states
-  # intent, and the widened line is the alternative, not the headline.
+  # intent, and the widened line is offered after it.
   local lead_at head_at
   lead_at="$(grep -nF "$LEAD1" <<<"$p1" | head -1 | cut -d: -f1)"
   head_at="$(grep -nF "$HEADING" <<<"$p1" | head -1 | cut -d: -f1)"
@@ -285,6 +286,16 @@ judge() {
     echo "probe 10: a line was withheld with no word about why."
     sed 's/^/           /' <<<"$p10"
   fi
+  # ... and a withheld line leads with the clause too (Round 3), before its
+  # reason. Probe 1 cannot see this: a withheld message has no heading.
+  local lead10_at why10_at
+  lead10_at="$(grep -nF "$LEAD10" <<<"$p10" | head -1 | cut -d: -f1)"
+  why10_at="$(grep -nF "$UNSPELLABLE" <<<"$p10" | head -1 | cut -d: -f1)"
+  if [ -n "$why10_at" ] && { [ -z "$lead10_at" ] || [ "$lead10_at" -gt "$why10_at" ]; }; then
+    echo "probe 10: the withheld line does not lead with the clause."
+    echo "          expected, before the reason: $LEAD10"
+    sed 's/^/           /' <<<"$p10"
+  fi
   # The record case, where it is withheld. Where probe 3 finds a line printed
   # instead, that is probe 3's defect and not this one.
   if ! grep -qF "$HEADING" <<<"$p3" && ! grep -qF "$UNSPELLABLE" <<<"$p3"; then
@@ -296,7 +307,7 @@ judge() {
 # ---------------------------------------------------------------------------
 # --self-test — build the defects this gate names and require a red on each.
 #
-# A gate that has never been seen to fail is not believed. Fifteen stubs, each
+# A gate that has never been seen to fail is not believed. Sixteen stubs, each
 # wrong in a different way, plus the decided behaviour and a run that never
 # compiled. Every stub must also PASS the probes it does not break: a probe
 # that fires on everything is worthless.
@@ -312,7 +323,7 @@ if [ "${1:-}" = "--self-test" ]; then
   not covered by the declared return type:
     map<string, binary>
   If \`map<string, int>\` is what you meant, fix the clause, not the signature.
-  Widening the signature to cover both would be refused:
+  Widening the signature to cover what the clauses return would be refused:
     no clause head can tell \`map<string, int>\` from \`map<string, binary>\`
   so if both are meant, tag them, with atoms of your choosing:
     (:tag1, map<string, int>) | (:tag2, map<string, binary>)
@@ -641,7 +652,7 @@ map<string, int> | map<string, binary> Pick(int)" > "$CTL/onesite/P7A.out"
 
   # --- NO-LEAD -----------------------------------------------------------
   #
-  # The compiler at bc4740b: the right line, offered as the headline, with no
+  # The compiler at bc4740b: the right line, offered first, with no
   # word that the clause may be what is wrong (ENG-346 Round 3).
   seed_all "$CTL/nolead"
   printf '%s\n' "m.bs:3: error: Answer returns a value its signature does not declare
@@ -654,7 +665,7 @@ map<string, int> | map<string, binary> Pick(int)" > "$CTL/onesite/P7A.out"
   # --- LEAD-LAST ---------------------------------------------------------
   #
   # The sentence present but after the line, which is R3's order at bc4740b.
-  # The lead is the point, so its position is part of the claim.
+  # Probe 1 checks where the lead is, not only that it is there.
   seed_all "$CTL/leadlast"
   printf '%s\n' "m.bs:3: error: Answer returns a value its signature does not declare
   not covered by the declared return type:
@@ -663,6 +674,18 @@ map<string, int> | map<string, binary> Pick(int)" > "$CTL/onesite/P7A.out"
     public int | :oops Answer(int n)
   If \`int\` is what you meant, fix the clause, not the signature." > "$CTL/leadlast/P1.out"
   expect leadlast 1
+
+  # --- WITHHELD-LEAD-LAST ------------------------------------------------
+  #
+  # A withheld line whose lead comes after its reason. Probe 1 reads only the
+  # plain case, so without this probe 10's lead check is never seen to fire.
+  seed_all "$CTL/withheldleadlast"
+  printf '%s\n' "m.bs:4:1: error: Pick returns a value its signature does not declare
+  not covered by the declared return type:
+    [map<string, binary>, ..]
+  no signature is offered: what the clauses return has no spelling as a type yet.
+  If \`list<map<string, int>>\` is what you meant, fix the clause, not the signature." > "$CTL/withheldleadlast/P10.out"
+  expect withheldleadlast 10
 
   # --- GOOD --------------------------------------------------------------
   seed_all "$CTL/good"
@@ -699,7 +722,7 @@ map<string, int> | map<string, binary> Pick(int)" > "$CTL/onesite/P7A.out"
   done
 
   if [ "$fail" -eq 0 ]; then
-    echo "self-test: caught fifteen defects on different probes — the silent case,"
+    echo "self-test: caught sixteen defects on different probes — the silent case,"
     echo "           the per-clause correction that prints two contradictory lines,"
     echo "           the mint tag in a pasteable signature, the absorbed member a"
     echo "           writable bottom introduces, a line the declaration check"
@@ -708,7 +731,8 @@ map<string, int> | map<string, binary> Pick(int)" > "$CTL/onesite/P7A.out"
     echo "           with no cause, a declared map absorbed by its residual, that"
     echo "           map dropped without a word, and an unspellable residual and"
     echo "           a record residual each withheld without a word, and a line that"
-    echo "           does not lead with the clause or leads with it last —"
+    echo "           does not lead with the clause or leads with it last, plain or"
+    echo "           withheld —"
     echo "           passed each stub's other probes, passed the decided"
     echo "           behaviour, and refused a run that never compiled. the gate"
     echo "           discriminates and does not pass vacuously"

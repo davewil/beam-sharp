@@ -228,12 +228,14 @@ drops the declared type, it says so (R3).
 **Writability is still asked first.** A record residual renders with `{`, which could parse as an
 inline map type, so `writable/1` refuses it before the parser sees it.
 
-**The term.** The descriptor gains three keys, each present on every `return_not_declared` and
-`none` when it has nothing to say, for F25.9's reason: a consumer never tells "absent" from
-"refused". Adding keys is the additive-only change ticket 23 §4 chose maps for.
+**The term.** The descriptor gains four keys, each present on every `return_not_declared`, and
+the three below `declared` are `none` when they have nothing to say, for F25.9's reason: a
+consumer never tells "absent" from "refused". Adding keys is the additive-only change ticket 23 §4
+chose maps for.
 
 | key | when it is not `none` |
 |---|---|
+| `declared` | always: the declared return as the author wrote it, which every message leads with since Round 3 |
 | `indiscriminable` | the widened line is refused: `#{member, beside}`, named as `indiscriminable_union`'s fields are. `corrected` is `none` |
 | `withheld` | no line is offered: `unspellable`, `declared_form`, `#{member, absorbed_by}`, or `#{class, reason}` for a failure the paste-back does not name. `corrected` is `none` |
 | `replaces` | the line drops the declared type: `#{declared, within}`, the first as the author wrote it. `corrected` is the line |
@@ -448,16 +450,22 @@ Round 2 proposed, and R3's replacing case already ends with the same sentence, s
 you meant, fix the clause, not the signature."*, where `D` is the declared return as the author
 wrote it: `ViewCounts`, `Counts`, `map<string, int> | :none`. The widened line follows as
 *"Otherwise, the signature its clauses justify:"*; the refused case reads as Round 2 proposed; a
-withheld line keeps its reason after the lead; R3's sentence moved to the top. Where
-`type_source/1` cannot write the declared return (an inline map), the lead names it as the
-algebra prints it, `{ Email: binary, Id: int }`, with the fields in the algebra's order, not the
-author's. That spelling is prose in a sentence, never pasted, so it is not refused.
+withheld line keeps its reason after the lead; R3's sentence moved to the top. An inline map,
+the one declared form `type_source/1` will not write for a pasteable line, is written back for the
+lead with its fields in the author's order: `{ Id: int, Email: binary }`, also nested, in a union
+and as a generic argument. The algebra's printer would sort the fields, which is a type the author
+did not write. A form nothing can write back is named as the printer spells it; no signature
+reaches that today (F25.27).
 
-The term gains `declared`, always present. The heading's words survive inside the new phrase, so
-the gates that grep for it and the contractual `corrected` key did not move. `raise_tests`'
-alias case now reads the CLI instead of the internal tuple, whose shape changed. The realistic
-programs in `f25-corrected-signature-in-real-code.md` print this form now; two of them are pinned
-whole as F25.25 and F25.26.
+**Two differences from what was put, from the review of the build.** The term gains `declared`,
+always present, where Round 3 said the term would not move: the prose is a function of the term
+(F16), so the lead's text had to be in it. `corrected` and the heading's words did not move. And
+the refused case says *"Widening the signature to cover what the clauses return would be
+refused:"* where Round 2 said *"to cover both"*: with `int` declared and two maps returned, "both"
+named the maps, not what the lead had just named. `raise_tests`' alias case now reads the CLI
+instead of the internal tuple, whose shape changed. The realistic programs in
+`f25-corrected-signature-in-real-code.md` print this form now; two of them are pinned whole as
+F25.25 and F25.26.
 
 ## The scenarios
 
@@ -476,7 +484,7 @@ directly, because that is where the claim lives.
 | F25.7 | `bs_diag:contractual()` | `return_not_declared` is a member |
 | F25.8 | the descriptor for a mismatch | the term carries `corrected := "public int \| :oops Answer(int n)"` under its own key |
 | F25.9 | the descriptor when no signature can be written | `corrected := none` — the key is present and says nothing, rather than being absent |
-| F25.10 | ENG-346's program: `Pick` declared `map<string, int>`, returning a `map<string, binary>` | no signature line; `widening the signature to cover it would be refused:`, the pair, and `tag the members instead` all printed, beside the residual |
+| F25.10 | ENG-346's program: `Pick` declared `map<string, int>`, returning a `map<string, binary>` | no signature line; the lead, *"Widening the signature to cover what the clauses return would be refused:"*, the pair, and the tag shape all printed, beside the residual |
 | F25.11 | the line F25.10 withholds, pasted | refused with `no clause head can tell …` by a compile **and** by `--api` |
 | F25.12 | `map<string, int>` declared, returning `:oops` | `public map<string, int> \| :oops Pick(int n)` still printed — `is_map` splits the two — and pasting it compiles clean |
 | F25.13 | both maps in the **residual**, under a declared `int` | two diagnostics, both withheld with the pair named: pairing residual members only against the declared type would miss it |
@@ -493,6 +501,7 @@ directly, because that is where the claim lives.
 | F25.24 | `int \| :'a b'` declared, returning `:oops` | `public int \| :'a b' \| :oops Go(int n)` — the declared atom quoted — and it compiles pasted |
 | F25.25 | a payment handler declaring `atom`, whose decline clause returns `(:declined, int)` | Round 3, the whole message: the lead, then *"Otherwise, the signature its clauses justify:"* and the widened line. Widening is the right fix here, so the line must survive the lead |
 | F25.26 | the checkout page, where a guest's quantities are still text | Round 3, the whole message: the lead, then the refused widening and the tag shape as the case for both being meant |
+| F25.27 | `declared_text/2` handed a form the grammar does not have | named as the algebra prints it, whole. Fault injection through the test-only export: no signature reaches it |
 
 **F25.3 was measured before it was designed.** Two offending clauses produce two diagnostics; if
 each carried its own correction the compiler would print two contradictory pasteable lines, and
@@ -549,7 +558,9 @@ The review round added probe 10 and two stubs, and changed probe 6's and probe 9
   added when the `/code-review` standards axis showed that branch had never been seen to fire.
 - **no-lead** — the compiler at `bc4740b`: the widened line as the headline, with no word that the
   clause may be what is wrong. Probe 1 (Round 3).
-- **lead-last** — the lead present but after the line, R3's order at `bc4740b`. Probe 1: the
-  lead's position is part of the claim.
+- **lead-last** — the lead present but after the line, R3's order at `bc4740b`. Probe 1 checks
+  where the lead is, not only that it is there.
+- **withheld-lead-last** — a withheld line whose lead follows its reason. Probe 10: probe 1 reads
+  only the plain case, and a withheld message has no heading to order against.
 - **silent-withhold** — also `a25d048`: the list residual withheld with no reason. Probe 10 (R2),
   which also requires the record case to say why wherever probe 3 finds its line withheld.
