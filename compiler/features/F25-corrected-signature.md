@@ -393,6 +393,57 @@ most of what the R5 item above was about. It touches ticket 70's decision (*"the
 the two members"*): 70 put the objection in the advice, and this changes what the advice leads
 with, not what is refused.
 
+**Answered:** *"Probably, isn't that what B#'s lead feature is, guiding towards having complete
+clause coverage?"* The nuance, given in reply: exhaustiveness is about the inputs, and this
+diagnostic is about the outputs. What the two share is the stance that the signature states intent
+and the compiler holds the clauses to it. F25 inverted that for outputs, and 23 §8 accepted it as
+a risk.
+
+### Round 3 — David, 2026-09-11: every return mismatch, or the refused case only
+
+The answer's reason reaches past the refused case, so the gating question is its scope: does
+**every** `return_not_declared` lead with the clause, with the widened line kept as the
+alternative? A case where widening is the right fix, so the line must survive:
+
+```csharp
+module Payments
+
+record Charge { OrderId: int, AmountCents: int }
+
+// Take payment for an order. The author declared the happy path only, then
+// wrote the clause for a declined card and forgot to widen the signature.
+public atom TakePayment(Charge c, bool card_ok)
+
+TakePayment(c, true)  -> :paid
+TakePayment(c, false) -> (:declined, c.OrderId)
+```
+
+Today, at `bc4740b`:
+
+```
+Payments.bs:10:1: error: TakePayment returns a value its signature does not declare
+  not covered by the declared return type:
+    (:declined, int)
+  the signature its clauses justify:
+    public atom | (:declined, int) TakePayment(Charge c, bool card_ok)
+```
+
+Proposed, not built:
+
+```
+Payments.bs:10:1: error: TakePayment returns a value its signature does not declare
+  not covered by the declared return type:
+    (:declined, int)
+  If `atom` is what you meant, fix the clause, not the signature.
+  Otherwise, the signature its clauses justify:
+    public atom | (:declined, int) TakePayment(Charge c, bool card_ok)
+```
+
+Compiler delta: every correction carries the declared return's source text, and the sentence
+leads each `correction_text/1` clause. The heading keeps its words, so the term and the gates'
+markers do not move. `TOUR.md`'s quoted `Unwrap` output gains the line. The refused case reads as
+Round 2 proposed, and R3's replacing case already ends with the same sentence, so it moves up.
+
 ## The scenarios
 
 `corrected_signature_tests.erl` opens its sections with these identifiers, and this is what each
