@@ -359,6 +359,40 @@ is true of every type. R3 now leaves the bottom alone.
   says to tag the members, not what the whole return type becomes. The pair also prints resolved,
   so aliases the author wrote for the maps do not appear.
 
+### Round 2 — David, 2026-09-11: the same cases in real code
+
+David could not read the rounds above: every example was a minimal repro. The cases are rewritten
+as web, session and database code in
+[`f25-corrected-signature-in-real-code.md`](../../wayfinder/prototypes/f25-corrected-signature-in-real-code.md),
+compiled at `bc4740b`. Writing them found [ENG-351](https://linear.app/davewil/issue/ENG-351), a
+compiler crash on any foreign `map<K, V>` return.
+
+They also show something the repros hid: in four of the six, the realistic fix is the **clause**.
+For the checkout, the guest's quantities are still text and must become numbers. The refused-union
+advice offers only tagging, which is the wrong repair there. **Asked, one question, and the three
+items above follow from its answer:** should the refused case lead with R3's sentence? Proposed,
+not built:
+
+```
+Checkout.bs:12:1: error: CartQuantities returns a value its signature does not declare
+  not covered by the declared return type:
+    map<string, binary>
+  If `map<string, int>` is what you meant, fix the clause, not the signature.
+  Widening the signature to cover both would be refused:
+    no clause head can tell `map<string, int>` from `map<string, binary>`
+  so if both are meant, tag them, with atoms of your choosing:
+    (:tag1, map<string, int>) | (:tag2, map<string, binary>)
+  and return each value inside its tag.
+```
+
+Compiler delta: the refused correction carries the declared return's source text (`{refused, A, B,
+RetSrc}`), since the sentence names the type as the author wrote it (`ViewCounts`, not
+`map<string, int>`); one `correction_text/1` clause. If the answer is yes, the absorbed-member
+case (program 4) takes the same sentence, and the tag shape stops being the only advice, which is
+most of what the R5 item above was about. It touches ticket 70's decision (*"the repair is to tag
+the two members"*): 70 put the objection in the advice, and this changes what the advice leads
+with, not what is refused.
+
 ## The scenarios
 
 `corrected_signature_tests.erl` opens its sections with these identifiers, and this is what each
