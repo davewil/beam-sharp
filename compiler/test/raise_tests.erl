@@ -28,7 +28,8 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
--import(bs_test_support, [build_and_load/2, check_only/1, errors/1]).
+-import(bs_test_support, [build_and_load/2, check_only/1, errors/1,
+                          with_src/3, run_cli/1]).
 
 %%% ---------------------------------------------------------------------------
 %%% Fixtures
@@ -227,8 +228,13 @@ a_none_behind_an_alias_is_still_the_bottom_test() ->
           "type Never = none\n"
           "public Never Reject(term r)\n"
           "Reject(r) -> r\n",
-    [{error, _, 'Reject', {return_not_declared, _, Corrected}} | _] = errors(Src),
-    ?assertEqual("public term Reject(term r)", Corrected).
+    %% Read at the CLI, where the author reads it: the line, and no `Never |`.
+    Out = with_src("Rejecting.bs", Src,
+                   fun(Path, Root) ->
+                           run_cli("--src-root " ++ Root ++ " " ++ filename:dirname(Path))
+                   end),
+    ?assert(string:find(Out, "    public term Reject(term r)\n") =/= nomatch),
+    ?assertEqual(nomatch, string:find(Out, "Never |")).
 
 %% A raising clause may stand beside one that returns — but not under a `none`
 %% return, because the returning clause is exactly the value the type refuses.

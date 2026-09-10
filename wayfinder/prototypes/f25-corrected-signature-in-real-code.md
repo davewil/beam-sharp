@@ -3,7 +3,10 @@
 Every example ENG-346 put to David was a minimal repro: `Pick(1) -> Ints()`, `Go(r) -> r`,
 `Grow(term r)`. He could not see what the diagnostic would look like in an application
 (2026-09-11), so these are the same cases as web, session and database code. Each was compiled
-with `bsc` at `bc4740b`, and the output below is what it printed, paths trimmed.
+with `bsc`, and the output below is what it printed, paths trimmed. The outputs are the compiler
+after F25's Round 3 (David: *"all"*), where every return mismatch leads with *"If `D` is what you
+meant, fix the clause, not the signature."* The notes under each were written against `bc4740b`,
+before that line existed. That is why several of them point at the missing sentence.
 
 **Writing them found a compiler crash.** The first drafts took the session cart and the database
 row from foreign calls (`using :analytics_db { map<string, term> latest_row(binary site) }`), and
@@ -34,9 +37,10 @@ CartQuantities(false, session_cart, form_fields) -> form_fields
 Checkout.bs:12:1: error: CartQuantities returns a value its signature does not declare
   not covered by the declared return type:
     map<string, binary>
-  widening the signature to cover it would be refused:
+  If `map<string, int>` is what you meant, fix the clause, not the signature.
+  Widening the signature to cover both would be refused:
     no clause head can tell `map<string, int>` from `map<string, binary>`
-  tag the members so a clause head can, with atoms of your choosing:
+  so if both are meant, tag them, with atoms of your choosing:
     (:tag1, map<string, int>) | (:tag2, map<string, binary>)
   and return each value inside its tag.
 ```
@@ -63,9 +67,10 @@ CartQuantities(false, session_cart, form_fields) -> form_fields
 CheckoutResult.bs:9:1: error: CartQuantities returns a value its signature does not declare
   not covered by the declared return type:
     map<string, binary>
-  widening the signature to cover it would be refused:
+  If `result<map<string, int>, atom>` is what you meant, fix the clause, not the signature.
+  Widening the signature to cover both would be refused:
     no clause head can tell `map<string, int>` from `map<string, binary>`
-  tag the members so a clause head can, with atoms of your choosing:
+  so if both are meant, tag them, with atoms of your choosing:
     (:tag1, map<string, int>) | (:tag2, map<string, binary>)
   and return each value inside its tag.
 ```
@@ -92,10 +97,10 @@ PageViews(row) -> row
 Analytics.bs:11:1: error: PageViews returns a value its signature does not declare
   not covered by the declared return type:
     map<string, term>
-  the signature its clauses justify:
+  If `ViewCounts` is what you meant, fix the clause, not the signature.
+  Otherwise, the signature its clauses justify:
     public map<string, term> PageViews(map<string, term> row)
   this replaces `ViewCounts`, which `map<string, term>` contains.
-  If `ViewCounts` is what you meant, fix the clause, not the signature.
 ```
 
 R3's last sentence is the right advice here. The offered line is legal and compiles, and pasting
@@ -120,6 +125,7 @@ PageViews([row, ..rest]) -> row
 AnalyticsMissing.bs:10:1: error: PageViews returns a value its signature does not declare
   not covered by the declared return type:
     map<string, term>
+  If `ViewCounts | :not_found` is what you meant, fix the clause, not the signature.
   no signature is offered: widening it would leave `map<string, int>` absorbed by
   `:not_found | map<string, term>`, and a declared type may not hold an absorbed member.
 ```
@@ -145,6 +151,7 @@ FindUser([user, ..rest]) -> user
 Accounts.bs:8:1: error: FindUser returns a value its signature does not declare
   not covered by the declared return type:
     :not_found
+  If `{ Email: binary, Id: int }` is what you meant, fix the clause, not the signature.
   no signature is offered: the declared signature is written in a form
   this line does not reproduce.
 ```
@@ -169,6 +176,7 @@ Handle(other)  -> 405
 OrdersApi.bs:9:1: error: Handle returns a value its signature does not declare
   not covered by the declared return type:
     405
+  If `atom` is what you meant, fix the clause, not the signature.
   no signature is offered: what the clauses return has no spelling as a type yet.
 ```
 

@@ -24,7 +24,15 @@
 # evidence here that is not self-reported.
 
 url       https://claude.ai/code/artifact/40f71cf4-d5d3-4b71-882c-ad73f630a03c
-sha256    07565a047da6c8dd1272daefca9f9e20dbec54a012a0d1c8676403c598fdc570
+sha256    71ad70abe787a9441ad5bd1f434f6daa333df759cac3b2de37a30c4353eca776
+verified  2026-09-11 (for ENG-346 Round 3, every return mismatch leads with the clause) —
+          chapter 14's quoted `Unwrap` message gained *"If `int` is what you meant, fix the
+          clause, not the signature."* and its heading became *"Otherwise, the signature its
+          clauses justify:"*, taken from the compiler at this commit with `raise e` replaced
+          by `e`. No capability row changed. Part 4 was red against the old stamp before the
+          republish (version 19), and the live page was read back afterwards and shows the
+          new lines, so it was confirmed stale rather than assumed.
+
 verified  2026-09-09 (for F30's fixed short-circuit pair) — chapter 12 said the valve lowers
           to the **two-armed** switch and stops on the error member alone. Both became false the
           same day: `bs_lower` writes three arms, and `|?>` now stops on `(:error, _)` or

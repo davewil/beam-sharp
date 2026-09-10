@@ -1139,7 +1139,8 @@ the compiler says so:
     error: Unwrap returns a value its signature does not declare
       not covered by the declared return type:
         atom
-      the signature its clauses justify:
+      If `int` is what you meant, fix the clause, not the signature.
+      Otherwise, the signature its clauses justify:
         public int | atom Unwrap(Fetched f)
 
 Escalating from the `result` channel to a crash needs no `?`, no `unwrap` primitive and no new

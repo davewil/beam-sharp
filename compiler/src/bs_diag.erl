@@ -249,10 +249,14 @@ built(Path, {Sev, Line, Fn, {field_absent, Form, Field, Residual}}) ->
 %%   withheld         why no line is offered (R2)
 %%   replaces         the declared type the line drops, as the author wrote
 %%                    it, and the type that contains it (R3)
-built(Path, {Sev, Line, Fn, {return_not_declared, Residual, Corrected}}) ->
+%%
+%% And `declared`, always present: the declared return as the author wrote it,
+%% which every message leads with since Round 3 (ENG-346).
+built(Path, {Sev, Line, Fn, {return_not_declared, Residual, {Declared, Corrected}}}) ->
     maps:merge((at(Sev, Path, Line, Fn))#{tag => return_not_declared,
                                           residual => residual(Residual),
-                                          undeclared => bs_types:to_pattern(Residual)},
+                                          undeclared => bs_types:to_pattern(Residual),
+                                          declared => Declared},
                correction(Corrected));
 built(Path, {Sev, Line, Fn, {bind_may_fail, Residual}}) ->
     (at(Sev, Path, Line, Fn))#{tag => bind_may_fail,
@@ -588,9 +592,9 @@ withheld(Why) when is_atom(Why) ->
 %% signature: the clauses must change too, and §2 has the compiler write heads,
 %% never bodies, so it sits under no "paste this" heading.
 correction_text(#{indiscriminable := #{member := M, beside := B}}) ->
-    {"  widening the signature to cover it would be refused:~n"
+    {"  Widening the signature to cover both would be refused:~n"
      "    no clause head can tell `~s` from `~s`~n"
-     "  tag the members so a clause head can, with atoms of your choosing:~n"
+     "  so if both are meant, tag them, with atoms of your choosing:~n"
      "    (:tag1, ~s) | (:tag2, ~s)~n"
      "  and return each value inside its tag.~n", [M, B, M, B]};
 %% WITHHELD (R2). A line that disappears with no word reads as the compiler
@@ -598,18 +602,18 @@ correction_text(#{indiscriminable := #{member := M, beside := B}}) ->
 correction_text(#{withheld := Why}) when Why =/= none ->
     withheld_reason(Why);
 %% REPLACES (R3). The line drops the declared type because the new one
-%% contains it, and the likelier mistake is the clause that returned the wider
-%% value, so the sentence says where to look if the drop was not meant.
+%% contains it. The sentence that says where to look if the drop was not meant
+%% is the lead every message now opens with, so this says only what the line
+%% does.
 correction_text(#{corrected := Line, replaces := #{declared := D, within := New}}) ->
-    {"  the signature its clauses justify:~n"
+    {"  Otherwise, the signature its clauses justify:~n"
      "    ~s~n"
-     "  this replaces `~s`, which `~s` contains.~n"
-     "  If `~s` is what you meant, fix the clause, not the signature.~n",
-     [Line, D, New, D]};
+     "  this replaces `~s`, which `~s` contains.~n",
+     [Line, D, New]};
 correction_text(#{corrected := none}) ->
     {"", []};
 correction_text(#{corrected := Line}) ->
-    {"  the signature its clauses justify:~n"
+    {"  Otherwise, the signature its clauses justify:~n"
      "    ~s~n", [Line]}.
 
 %% The sentence for each `withheld` reason (R2). The last is the one no program
@@ -913,13 +917,21 @@ message(#{tag := field_absent, file := P, line := L, column := C, function := Fn
 %% deliver (ticket 33 site 4, 18). The residual answers what is not covered
 %% and `correction_text/1` answers what to write, added beside the residual
 %% and never substituted for it (F25, ticket 23 §8).
+%%
+%% EVERY ONE LEADS WITH THE CLAUSE (ENG-346 Round 3, David: "all"). The
+%% signature states intent and the compiler holds the clauses to it, which is
+%% B#'s lead feature for inputs, applied here to outputs. Widening is offered
+%% after it as the alternative. Written in realistic code the clause was the
+%% likelier fix in four of six cases (`wayfinder/prototypes/f25-corrected-
+%% signature-in-real-code.md`).
 message(#{tag := return_not_declared, file := P, line := L, column := C, function := Fn,
-          undeclared := Undeclared} = D) ->
+          undeclared := Undeclared, declared := Declared} = D) ->
     {Fmt, Args} = correction_text(D),
     {"~s:~p:~p: error: ~s returns a value its signature does not declare~n"
      "  not covered by the declared return type:~n"
-     "    ~s~n" ++ Fmt,
-     [P, L, C, Fn, Undeclared | Args]};
+     "    ~s~n"
+     "  If `~s` is what you meant, fix the clause, not the signature.~n" ++ Fmt,
+     [P, L, C, Fn, Undeclared, Declared | Args]};
 %% A destructuring bind is allowed exactly when this residual is empty, so it
 %% is provably irrefutable (ticket 33 site 5, 34).
 message(#{tag := bind_may_fail, file := P, line := L, column := C, function := Fn,

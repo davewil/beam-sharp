@@ -444,6 +444,21 @@ leads each `correction_text/1` clause. The heading keeps its words, so the term 
 markers do not move. `TOUR.md`'s quoted `Unwrap` output gains the line. The refused case reads as
 Round 2 proposed, and R3's replacing case already ends with the same sentence, so it moves up.
 
+**Answered: *"all"*. Built as proposed.** Every `return_not_declared` opens with *"If `D` is what
+you meant, fix the clause, not the signature."*, where `D` is the declared return as the author
+wrote it: `ViewCounts`, `Counts`, `map<string, int> | :none`. The widened line follows as
+*"Otherwise, the signature its clauses justify:"*; the refused case reads as Round 2 proposed; a
+withheld line keeps its reason after the lead; R3's sentence moved to the top. Where
+`type_source/1` cannot write the declared return (an inline map), the lead names it as the
+algebra prints it, `{ Email: binary, Id: int }`, with the fields in the algebra's order, not the
+author's. That spelling is prose in a sentence, never pasted, so it is not refused.
+
+The term gains `declared`, always present. The heading's words survive inside the new phrase, so
+the gates that grep for it and the contractual `corrected` key did not move. `raise_tests`'
+alias case now reads the CLI instead of the internal tuple, whose shape changed. The realistic
+programs in `f25-corrected-signature-in-real-code.md` print this form now; two of them are pinned
+whole as F25.25 and F25.26.
+
 ## The scenarios
 
 `corrected_signature_tests.erl` opens its sections with these identifiers, and this is what each
@@ -476,6 +491,8 @@ directly, because that is where the claim lives.
 | F25.22 | `public int Go(term r)` returning `r` | the residual prints `tuple` and `map`, which have no surface form: unspellable, **not** a compiler defect |
 | F25.23 | a residual that is another module's recursive `Tree` | printed by the name its author gave it, which does not cross a module boundary: unspellable, not a defect; declared in the module itself, the line prints |
 | F25.24 | `int \| :'a b'` declared, returning `:oops` | `public int \| :'a b' \| :oops Go(int n)` — the declared atom quoted — and it compiles pasted |
+| F25.25 | a payment handler declaring `atom`, whose decline clause returns `(:declined, int)` | Round 3, the whole message: the lead, then *"Otherwise, the signature its clauses justify:"* and the widened line. Widening is the right fix here, so the line must survive the lead |
+| F25.26 | the checkout page, where a guest's quantities are still text | Round 3, the whole message: the lead, then the refused widening and the tag shape as the case for both being meant |
 
 **F25.3 was measured before it was designed.** Two offending clauses produce two diagnostics; if
 each carried its own correction the compiler would print two contradictory pasteable lines, and
@@ -530,5 +547,9 @@ The review round added probe 10 and two stubs, and changed probe 6's and probe 9
   without a word. Probe 9 (R3).
 - **record-silent** — the record residual withheld with no reason. Probe 10's second branch;
   added when the `/code-review` standards axis showed that branch had never been seen to fire.
+- **no-lead** — the compiler at `bc4740b`: the widened line as the headline, with no word that the
+  clause may be what is wrong. Probe 1 (Round 3).
+- **lead-last** — the lead present but after the line, R3's order at `bc4740b`. Probe 1: the
+  lead's position is part of the claim.
 - **silent-withhold** — also `a25d048`: the list residual withheld with no reason. Probe 10 (R2),
   which also requires the record case to say why wherever probe 3 finds its line withheld.

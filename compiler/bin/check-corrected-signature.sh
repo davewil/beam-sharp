@@ -41,9 +41,12 @@ HEADING='the signature its clauses justify:'
 # check would refuse it. The second is the declaration check's own header
 # (`bs_diag`'s `indiscriminable_union`), so the advice and the refusal read the
 # same words.
-REFUSED='widening the signature to cover it would be refused:'
+REFUSED='Widening the signature to cover both would be refused:'
 TELL='no clause head can tell `map<string, int>` from `map<string, binary>`'
-TAG='tag the members so a clause head can, with atoms of your choosing:'
+TAG='so if both are meant, tag them, with atoms of your choosing:'
+# ENG-346 Round 3 (David, 2026-09-11: "all"): every return mismatch leads with
+# the clause, naming the declared type as the author wrote it.
+LEAD1='If `int` is what you meant, fix the clause, not the signature.'
 SHAPE='(:tag1, map<string, int>) | (:tag2, map<string, binary>)'
 # David's review round (ENG-346 R2, R3): a withheld line says why, and a line
 # that replaces the declared type says so.
@@ -88,6 +91,16 @@ judge() {
     echo "probe 1: the corrected signature is not the line to paste."
     echo "         expected: public int | :oops Answer(int n)"
     echo "         got:"
+    sed 's/^/           /' <<<"$p1"
+  fi
+  # ... and since ENG-346 Round 3 the clause comes first: the signature states
+  # intent, and the widened line is the alternative, not the headline.
+  local lead_at head_at
+  lead_at="$(grep -nF "$LEAD1" <<<"$p1" | head -1 | cut -d: -f1)"
+  head_at="$(grep -nF "$HEADING" <<<"$p1" | head -1 | cut -d: -f1)"
+  if [ -z "$lead_at" ] || { [ -n "$head_at" ] && [ "$lead_at" -gt "$head_at" ]; }; then
+    echo "probe 1: the diagnostic does not lead with the clause."
+    echo "         expected, before the signature: $LEAD1"
     sed 's/^/           /' <<<"$p1"
   fi
 
@@ -283,7 +296,7 @@ judge() {
 # ---------------------------------------------------------------------------
 # --self-test — build the defects this gate names and require a red on each.
 #
-# A gate that has never been seen to fail is not believed. Thirteen stubs, each
+# A gate that has never been seen to fail is not believed. Fifteen stubs, each
 # wrong in a different way, plus the decided behaviour and a run that never
 # compiled. Every stub must also PASS the probes it does not break: a probe
 # that fires on everything is worthless.
@@ -298,9 +311,10 @@ if [ "${1:-}" = "--self-test" ]; then
   good_p6="m.bs:5:1: error: Pick returns a value its signature does not declare
   not covered by the declared return type:
     map<string, binary>
-  widening the signature to cover it would be refused:
+  If \`map<string, int>\` is what you meant, fix the clause, not the signature.
+  Widening the signature to cover both would be refused:
     no clause head can tell \`map<string, int>\` from \`map<string, binary>\`
-  tag the members so a clause head can, with atoms of your choosing:
+  so if both are meant, tag them, with atoms of your choosing:
     (:tag1, map<string, int>) | (:tag2, map<string, binary>)
   and return each value inside its tag."
   good_p7="m.bs:3:47: error: no clause head can tell \`map<string, int>\` from \`map<string, binary>\`
@@ -308,18 +322,20 @@ if [ "${1:-}" = "--self-test" ]; then
   good_p8="m.bs:3:1: error: Pick returns a value its signature does not declare
   not covered by the declared return type:
     :oops
-  the signature its clauses justify:
+  If \`map<string, int>\` is what you meant, fix the clause, not the signature.
+  Otherwise, the signature its clauses justify:
     public map<string, int> | :oops Pick(int n)"
   good_p9="m.bs:4:1: error: Pick returns a value its signature does not declare
   not covered by the declared return type:
     map<string, term>
-  the signature its clauses justify:
+  If \`map<string, int>\` is what you meant, fix the clause, not the signature.
+  Otherwise, the signature its clauses justify:
     public map<string, term> Pick(int n)
-  this replaces \`map<string, int>\`, which \`map<string, term>\` contains.
-  If \`map<string, int>\` is what you meant, fix the clause, not the signature."
+  this replaces \`map<string, int>\`, which \`map<string, term>\` contains."
   good_p10="m.bs:4:1: error: Pick returns a value its signature does not declare
   not covered by the declared return type:
     [map<string, binary>, ..]
+  If \`list<map<string, int>>\` is what you meant, fix the clause, not the signature.
   no signature is offered: what the clauses return has no spelling as a type yet."
 
   seed_eng346() {
@@ -334,23 +350,27 @@ if [ "${1:-}" = "--self-test" ]; then
   good_p1="m.bs:3: error: Answer returns a value its signature does not declare
   not covered by the declared return type:
     :oops
-  the signature its clauses justify:
+  If \`int\` is what you meant, fix the clause, not the signature.
+  Otherwise, the signature its clauses justify:
     public int | :oops Answer(int n)"
 
   good_p2="m.bs:3: error: Go returns a value its signature does not declare
   not covered by the declared return type:
     :zero
-  the signature its clauses justify:
+  If \`int\` is what you meant, fix the clause, not the signature.
+  Otherwise, the signature its clauses justify:
     public int | :zero | (:error, string) Go(int n)
 m.bs:4: error: Go returns a value its signature does not declare
   not covered by the declared return type:
     (:error, string)
-  the signature its clauses justify:
+  If \`int\` is what you meant, fix the clause, not the signature.
+  Otherwise, the signature its clauses justify:
     public int | :zero | (:error, string) Go(int n)"
 
   good_p3="m.bs:5: error: Make returns a value its signature does not declare
   not covered by the declared return type:
     { Kind: :'M4.Invoice' }
+  If \`Order\` is what you meant, fix the clause, not the signature.
   no signature is offered: what the clauses return has no spelling as a type yet."
 
   # ENG-328. `none` is writable, so a body that RETURNS is an ordinary mismatch
@@ -358,7 +378,8 @@ m.bs:4: error: Go returns a value its signature does not declare
   good_p5="m.bs:3: error: Reject returns a value its signature does not declare
   not covered by the declared return type:
     term
-  the signature its clauses justify:
+  If \`none\` is what you meant, fix the clause, not the signature.
+  Otherwise, the signature its clauses justify:
     public term Reject(term r)"
 
   # --- SILENT ------------------------------------------------------------
@@ -618,6 +639,31 @@ map<string, int> | map<string, binary> Pick(int)" > "$CTL/onesite/P7A.out"
     { Kind: :'M4.Invoice' }" > "$CTL/recordsilent/P3.out"
   expect recordsilent 10
 
+  # --- NO-LEAD -----------------------------------------------------------
+  #
+  # The compiler at bc4740b: the right line, offered as the headline, with no
+  # word that the clause may be what is wrong (ENG-346 Round 3).
+  seed_all "$CTL/nolead"
+  printf '%s\n' "m.bs:3: error: Answer returns a value its signature does not declare
+  not covered by the declared return type:
+    :oops
+  the signature its clauses justify:
+    public int | :oops Answer(int n)" > "$CTL/nolead/P1.out"
+  expect nolead 1
+
+  # --- LEAD-LAST ---------------------------------------------------------
+  #
+  # The sentence present but after the line, which is R3's order at bc4740b.
+  # The lead is the point, so its position is part of the claim.
+  seed_all "$CTL/leadlast"
+  printf '%s\n' "m.bs:3: error: Answer returns a value its signature does not declare
+  not covered by the declared return type:
+    :oops
+  the signature its clauses justify:
+    public int | :oops Answer(int n)
+  If \`int\` is what you meant, fix the clause, not the signature." > "$CTL/leadlast/P1.out"
+  expect leadlast 1
+
   # --- GOOD --------------------------------------------------------------
   seed_all "$CTL/good"
   good="$(judge "$CTL/good" || true)"
@@ -653,7 +699,7 @@ map<string, int> | map<string, binary> Pick(int)" > "$CTL/onesite/P7A.out"
   done
 
   if [ "$fail" -eq 0 ]; then
-    echo "self-test: caught thirteen defects on different probes — the silent case,"
+    echo "self-test: caught fifteen defects on different probes — the silent case,"
     echo "           the per-clause correction that prints two contradictory lines,"
     echo "           the mint tag in a pasteable signature, the absorbed member a"
     echo "           writable bottom introduces, a line the declaration check"
@@ -661,7 +707,8 @@ map<string, int> | map<string, binary> Pick(int)" > "$CTL/onesite/P7A.out"
     echo "           at --api and one missing at a compile, a correction withheld"
     echo "           with no cause, a declared map absorbed by its residual, that"
     echo "           map dropped without a word, and an unspellable residual and"
-    echo "           a record residual each withheld without a word —"
+    echo "           a record residual each withheld without a word, and a line that"
+    echo "           does not lead with the clause or leads with it last —"
     echo "           passed each stub's other probes, passed the decided"
     echo "           behaviour, and refused a run that never compiled. the gate"
     echo "           discriminates and does not pass vacuously"

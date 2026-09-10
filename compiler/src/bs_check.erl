@@ -1333,7 +1333,25 @@ attach_correction(D, _C) ->
 %% R2, R3 and R5 are David's review round on ENG-346 (F25's amendment): a line
 %% never disappears without a word, and never replaces the declared type
 %% without saying so.
-corrected_signature(F, Declared, Union, Env) ->
+%%
+%% Each travels with the declared return as the author wrote it, because since
+%% Round 3 (David, 2026-09-11: "all") every return mismatch leads with the
+%% clause — "If `ViewCounts` is what you meant, fix the clause, not the
+%% signature." The signature states intent and the compiler holds the clauses
+%% to it; widening is the alternative, not the headline.
+corrected_signature(F = #fn{ret = Ret}, Declared, Union, Env) ->
+    {declared_text(Ret, Declared), advice(F, Declared, Union, Env)}.
+
+%% The declared return as the author wrote it. Where `type_source/1` cannot
+%% write it back (an inline map), it is named as the algebra prints it: the
+%% sentence is prose, never pasted, so a spelling that is not source is fine.
+declared_text(Ret, Declared) ->
+    case type_source(Ret) of
+        none -> bs_types:to_string(Declared);
+        Src  -> Src
+    end.
+
+advice(F, Declared, Union, Env) ->
     case signature_line(F, Declared, Union) of
         {withhold, _} = Withheld -> Withheld;
         {Line, Replaced} ->

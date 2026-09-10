@@ -25,6 +25,20 @@
 %% ENG-346 R2: a line that is withheld says why.
 -define(UNSPELLABLE, "no signature is offered: what the clauses return has no spelling as a type yet.").
 
+%% ENG-346 Round 3 (David: "all"): every return mismatch leads with the clause,
+%% naming the declared type as the author wrote it. The signature states intent
+%% and the compiler holds the clauses to it; widening is the alternative.
+lead(Declared) ->
+    "If `" ++ Declared ++ "` is what you meant, fix the clause, not the signature.".
+
+%% The lead comes before anything else the correction says.
+leads(Out, Declared) ->
+    case {string:str(Out, lead(Declared)), string:str(Out, "the signature its clauses justify:")} of
+        {0, _} -> false;
+        {_, 0} -> true;
+        {L, H} -> L < H
+    end.
+
 %% Two things this helper got wrong the first time, both of which made every
 %% assertion below fail for the same uninformative reason — no output at all.
 %% `place/3`'s second argument is the FILE NAME, so it needs the `.bs` extension
@@ -49,7 +63,10 @@ a_return_mismatch_carries_the_signature_to_paste_test() ->
     Src = "module M1\npublic int Answer(int n)\nAnswer(n) -> :oops\n",
     Out = cli("M1", Src),
     ?assert(string:find(Out, ?HEADING) =/= nomatch),
-    ?assert(string:find(Out, "public int | :oops Answer(int n)") =/= nomatch).
+    ?assert(string:find(Out, "public int | :oops Answer(int n)") =/= nomatch),
+    %% Round 3: the clause first, the widened line as the alternative.
+    ?assert(leads(Out, "int")),
+    ?assert(string:find(Out, "Otherwise, the signature its clauses justify:") =/= nomatch).
 
 %% F25.2 — today's message is not replaced. The residual answers "what is not
 %% covered" and the new line answers "what to write"; they are different
@@ -75,7 +92,10 @@ a_none_return_is_corrected_without_an_absorbed_member_test() ->
     ?assertEqual(nomatch, string:find(Out, "none |")),
     %% ENG-346 R3 does not fire for the bottom: every type contains `none`, so
     %% "this replaces `none`" would be true of any line and say nothing.
-    ?assertEqual(nomatch, string:find(Out, "this replaces")).
+    ?assertEqual(nomatch, string:find(Out, "this replaces")),
+    %% Round 3: for the bottom the lead is the likelier fix, not a vacuous one —
+    %% a function declared never to return has a clause that returns.
+    ?assert(leads(Out, "none")).
 
 %%% ---------------------------------------------------------------------------
 %%% 3 — the correction is a property of the FUNCTION
@@ -123,7 +143,9 @@ a_record_in_the_residual_prints_no_signature_test() ->
     ?assert(string:find(Out, "Kind: :'M4.Invoice'") =/= nomatch),
     ?assertEqual(nomatch, string:find(Out, ?HEADING)),
     %% ENG-346 R2: withheld, and it says why.
-    ?assert(string:find(Out, ?UNSPELLABLE) =/= nomatch).
+    ?assert(string:find(Out, ?UNSPELLABLE) =/= nomatch),
+    %% Round 3: a withheld line still leads with the clause.
+    ?assert(leads(Out, "Order")).
 
 %% F25.5 — the mirror, and it is why the declared half is read from the SOURCE
 %% AST rather than from the algebra. Here the record is the DECLARED type and the
@@ -172,10 +194,7 @@ return_not_declared_is_contractual_test() ->
 %% canonical and the prose a pure function of it, so a corrected signature that
 %% existed only in the prose would be the wrong way round.
 the_term_carries_the_corrected_signature_test() ->
-    D = bs_diag:descriptor("m.bs", {error, 3, 'Answer',
-                                    {return_not_declared,
-                                     bs_types:atom_lit(oops),
-                                     "public int | :oops Answer(int n)"}}),
+    D = term_of("M9", "module M9\npublic int Answer(int n)\nAnswer(n) -> :oops\n"),
     ?assertMatch(#{tag := return_not_declared,
                    corrected := "public int | :oops Answer(int n)"}, D).
 
@@ -216,9 +235,9 @@ the_term_says_none_when_no_signature_is_offered_test() ->
 %%% pasted: an absorbed member, and a syntax error.
 %%% ---------------------------------------------------------------------------
 
--define(REFUSED, "widening the signature to cover it would be refused:").
+-define(REFUSED, "Widening the signature to cover both would be refused:").
 -define(TELL, "no clause head can tell `map<string, int>` from `map<string, binary>`").
--define(TAG, "tag the members so a clause head can, with atoms of your choosing:").
+-define(TAG, "so if both are meant, tag them, with atoms of your choosing:").
 -define(SHAPE, "(:tag1, map<string, int>) | (:tag2, map<string, binary>)").
 
 %% The ticket's program, with the declared return type as the variable, and
@@ -259,7 +278,11 @@ a_correction_the_declaration_check_refuses_is_not_printed_test() ->
     ?assert(string:find(Out, ?REFUSED) =/= nomatch),
     ?assert(string:find(Out, ?TELL) =/= nomatch),
     ?assert(string:find(Out, ?TAG) =/= nomatch),
-    ?assert(string:find(Out, ?SHAPE) =/= nomatch).
+    ?assert(string:find(Out, ?SHAPE) =/= nomatch),
+    %% Round 2, answered in Round 3: the clause first, since the likelier
+    %% mistake in a real checkout is the guest's quantities still being text.
+    ?assert(leads(Out, "map<string, int>")),
+    ?assert(string:str(Out, lead("map<string, int>")) < string:str(Out, ?REFUSED)).
 
 %% F25.11 — the premise, at BOTH declaration sites. The line F25.10 withholds
 %% is refused by a compile and by `--api`, which reaches the declaration check
@@ -295,6 +318,7 @@ two_maps_in_the_residual_are_refused_together_test() ->
     Out = cli("M15", pick_src("M15", "int")),
     ?assertEqual(2, count_occurrences(Out, ?REFUSED)),
     ?assertEqual(2, count_occurrences(Out, ?TELL)),
+    ?assertEqual(2, count_occurrences(Out, lead("int"))),
     ?assertEqual(nomatch, string:find(Out, ?HEADING)).
 
 %% F25.14 — the term carries the pair under its own key, and `corrected` stays
@@ -307,11 +331,13 @@ the_term_names_the_pair_that_refused_the_correction_test() ->
     ?assertMatch(#{tag := return_not_declared, corrected := none,
                    indiscriminable := #{member := "map<string, int>",
                                         beside := "map<string, binary>"},
-                   withheld := none, replaces := none},
+                   withheld := none, replaces := none,
+                   declared := "map<string, int>"},
                  Refused),
     Printed = term_of("M17", "module M17\npublic int Answer(int n)\nAnswer(n) -> :oops\n"),
     ?assertMatch(#{corrected := "public int | :oops Answer(int n)",
-                   indiscriminable := none, withheld := none, replaces := none},
+                   indiscriminable := none, withheld := none, replaces := none,
+                   declared := "int"},
                  Printed).
 
 %% F25.15 — a residual that ABSORBS the declared type. The algebra cannot
@@ -337,7 +363,9 @@ a_residual_that_absorbs_the_declared_type_replaces_it_test() ->
     ?assertMatch(#{corrected := Line,
                    replaces := #{declared := "map<string, int>",
                                  within := "map<string, term>"}},
-                 term_of("M21", pick_src("M21", "map<string, int>", "map<string, term>"))).
+                 term_of("M21", pick_src("M21", "map<string, int>", "map<string, term>"))),
+    %% Round 3 moves R3's closing sentence to the top.
+    ?assert(leads(Out, "map<string, int>")).
 
 %% F25.16 — the line is parsed before it is printed. A non-empty list residual
 %% prints as `[map<string, binary>, ..]`, which is pattern syntax, so the line
@@ -360,7 +388,8 @@ an_unparseable_correction_is_not_printed_test() ->
     ?assertEqual(nomatch, string:find(Out, ?HEADING)),
     ?assertEqual(nomatch, string:find(Out, ?REFUSED)),
     %% ENG-346 R2: withheld, and it says why.
-    ?assert(string:find(Out, ?UNSPELLABLE) =/= nomatch).
+    ?assert(string:find(Out, ?UNSPELLABLE) =/= nomatch),
+    ?assert(leads(Out, "list<map<string, int>>")).
 
 %%% ---------------------------------------------------------------------------
 %%% 11 — David's review round (ENG-346, 2026-09-10): R2, R3, R5
@@ -404,6 +433,7 @@ a_partly_absorbed_declared_union_says_why_it_is_withheld_test() ->
     ?assertEqual(nomatch, string:find(Out, ?HEADING)),
     ?assert(string:find(Out, "no signature is offered: widening it would leave "
                              "`map<string, int>` absorbed by") =/= nomatch),
+    ?assert(leads(Out, "map<string, int> | :none")),
     ?assertMatch(#{corrected := none,
                    withheld := #{member := "map<string, int>", absorbed_by := _}},
                  term_of("M24", re:replace(Src, "M23", "M24", [{return, list}]))).
@@ -415,7 +445,10 @@ an_unreproducible_declared_form_says_why_it_is_withheld_test() ->
     Out = cli("M25", "module M25\npublic { Id: int } Make(int n)\nMake(n) -> :oops\n"),
     ?assertEqual(nomatch, string:find(Out, ?HEADING)),
     ?assert(string:find(Out, "no signature is offered: the declared signature is "
-                             "written in a form") =/= nomatch).
+                             "written in a form") =/= nomatch),
+    %% `type_source/1` cannot write an inline map, so the lead names the type
+    %% as the algebra prints it; it is prose here, not a line to paste.
+    ?assert(leads(Out, "{ Id: int }")).
 
 %% F25.20 — R2, a failure the paste-back does not name. No program is known to
 %% reach it: the review found two that did (F25.22, F25.23), and each is now a
@@ -433,7 +466,7 @@ an_unnamed_paste_back_failure_is_reported_as_a_defect_test() ->
     D = bs_diag:descriptor("m.bs", {error, 3, 'Pick',
                                     {return_not_declared,
                                      bs_types:atom_lit(oops),
-                                     {withhold, {crashed, error, badmatch}}}}),
+                                     {"atom", {withhold, {crashed, error, badmatch}}}}}),
     ?assertMatch(#{corrected := none,
                    withheld := #{class := error, reason := badmatch}}, D),
     Prose = unicode:characters_to_list(bs_diag:format(D#{line => 3, column => 1})),
@@ -450,7 +483,8 @@ the_replaced_type_is_named_as_the_author_wrote_it_test() ->
     Out = cli("M26", Src),
     ?assert(string:find(Out, "public map<string, term> Pick(int n)") =/= nomatch),
     ?assert(string:find(Out, "this replaces `Counts`, which `map<string, term>` "
-                             "contains.") =/= nomatch).
+                             "contains.") =/= nomatch),
+    ?assert(leads(Out, "Counts")).
 
 %%% ---------------------------------------------------------------------------
 %%% 12 — the review of R2, R3 and R5 (ENG-346, 2026-09-10)
@@ -506,6 +540,61 @@ a_declared_atom_that_needs_quoting_is_written_quoted_test() ->
     Out = cli("M32", "module M32\npublic int | :'a b' Go(int n)\nGo(n) -> :oops\n"),
     ?assert(string:find(Out, Line) =/= nomatch),
     ?assertEqual("rc:0\n", compile("M33", "module M33\n" ++ Line ++ "\nGo(n) -> :oops\n")).
+
+%%% ---------------------------------------------------------------------------
+%%% 13 — Round 3, whole messages for programs someone would write
+%%%
+%%% David, 2026-09-11: "all" — every return mismatch leads with the clause. The
+%%% two programs are from `wayfinder/prototypes/f25-corrected-signature-in-
+%%% real-code.md` and F25's Round 3, and each message is asserted whole, since
+%%% it is what the author reads: one where widening is the right fix, so the
+%%% line must survive below the lead, and one where widening is refused.
+%%% ---------------------------------------------------------------------------
+
+%% F25.25 — a payment handler that declared the happy path only.
+a_payment_handler_leads_with_the_clause_and_keeps_the_line_test() ->
+    Src = "module Payments\n"
+          "record Charge { OrderId: int, AmountCents: int }\n"
+          "public atom TakePayment(Charge c, bool card_ok)\n"
+          "TakePayment(c, true)  -> :paid\n"
+          "TakePayment(c, false) -> (:declined, c.OrderId)\n",
+    ?assertEqual(
+       "error: TakePayment returns a value its signature does not declare\n"
+       "  not covered by the declared return type:\n"
+       "    (:declined, int)\n"
+       "  If `atom` is what you meant, fix the clause, not the signature.\n"
+       "  Otherwise, the signature its clauses justify:\n"
+       "    public atom | (:declined, int) TakePayment(Charge c, bool card_ok)\n",
+       message_body(cli("Payments", Src))).
+
+%% F25.26 — the checkout page from ENG-346, where the guest's quantities are
+%% still text. The clause is the likelier fix; tagging is for when both
+%% representations are meant.
+a_checkout_leads_with_the_clause_before_the_refused_widening_test() ->
+    Src = "module Checkout\n"
+          "public map<string, int> CartQuantities(bool signed_in,\n"
+          "                                       map<string, int> session_cart,\n"
+          "                                       map<string, binary> form_fields)\n"
+          "CartQuantities(true, session_cart, form_fields)  -> session_cart\n"
+          "CartQuantities(false, session_cart, form_fields) -> form_fields\n",
+    ?assertEqual(
+       "error: CartQuantities returns a value its signature does not declare\n"
+       "  not covered by the declared return type:\n"
+       "    map<string, binary>\n"
+       "  If `map<string, int>` is what you meant, fix the clause, not the signature.\n"
+       "  Widening the signature to cover both would be refused:\n"
+       "    no clause head can tell `map<string, int>` from `map<string, binary>`\n"
+       "  so if both are meant, tag them, with atoms of your choosing:\n"
+       "    (:tag1, map<string, int>) | (:tag2, map<string, binary>)\n"
+       "  and return each value inside its tag.\n",
+       message_body(cli("Checkout", Src))).
+
+%% The diagnostic from its `error:`, without the path and position before it
+%% or the `rc:` line `run_cli/1` appends.
+message_body(Out) ->
+    Start = string:str(Out, "error: "),
+    Body = string:substr(Out, Start),
+    string:substr(Body, 1, string:str(Body, "rc:") - 1).
 
 %% One diagnostic, so one line on stdout. Parsing it back is what proves it is
 %% a term (F16).
