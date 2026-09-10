@@ -107,6 +107,15 @@ public int | atom | tuple | list<term> | map | binary Grow(term r)
 — never `int | term`. The complement reconstitutes the top without ever naming
 it.
 
+> **Corrected 2026-09-10 (ENG-346).** `none` is not the only exception. The
+> algebra's complement is not always exact: it cannot spell `map<string, term>`
+> less `map<string, int>`, so a `map<string, int>` return against a
+> `map<string, term>` body has the residual `map<string, term>`, which contains
+> what was declared. The line read `map<string, int> | map<string, term>` and
+> F36 refused it when pasted. `declared_member/3` now drops the declared half
+> whenever the residual contains it, and the line is pasted back through the
+> declaration check before it is printed. See F25's ENG-346 amendment.
+
 `none` is the exception, and the only one. Its complement is everything, so the
 residual is the whole of `term` and the line read:
 

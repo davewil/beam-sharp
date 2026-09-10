@@ -198,22 +198,42 @@ the_term_says_none_when_the_signature_is_refused_test() ->
 %%% fix that withholds any line with a map in it fails there. F25.13 puts both
 %%% maps in the RESIDUAL under a declared `int`, so a fix that only pairs each
 %%% residual member against the declared type prints the refused line there.
+%%%
+%%% F25.15 and F25.16 came from the /code-review spec axis on the first fix,
+%%% which asked the one refusal ticket 70 named instead of the declaration check
+%%% the ticket asked for. Each is a printed line the compiler refused when
+%%% pasted: an absorbed member, and a syntax error.
 %%% ---------------------------------------------------------------------------
 
 -define(REFUSED, "widening the signature to cover it would be refused:").
 -define(TELL, "no clause head can tell `map<string, int>` from `map<string, binary>`").
 -define(TAG, "tag the members instead").
 
-%% The ticket's program, with the declared return type as the variable.
-pick_src(Mod, Declared) ->
-    "module " ++ Mod ++ "\n"
-    "public " ++ Declared ++ " Pick(int n)\n"
+%% The ticket's program, with the declared return type as the variable, and
+%% the type of the second clause's value as a second one.
+pick_src(Mod, Declared) -> pick_src(Mod, Declared, "map<string, binary>").
+
+pick_src(Mod, Declared, Rest) ->
+    pick_program(Mod, "public " ++ Declared ++ " Pick(int n)", Rest).
+
+pick_program(Mod, Signature, Rest) ->
+    "module " ++ Mod ++ "\n" ++
+    Signature ++ "\n"
     "Pick(1) -> Ints()\n"
-    "Pick(n) -> Bins()\n"
+    "Pick(n) -> Rest()\n"
     "private map<string, int> Ints()\n"
     "Ints() -> Ints()\n"
-    "private map<string, binary> Bins()\n"
-    "Bins() -> Bins()\n".
+    "private " ++ Rest ++ " Rest()\n"
+    "Rest() -> Rest()\n".
+
+%% A compile with `-o`, so a clean one writes no `.beam` into the working
+%% directory. A clean compile prints nothing, so the answer is `"rc:0\n"`.
+compile(Name, Src) ->
+    with_src(Name ++ ".bs", Src,
+             fun(Path, Root) ->
+                     run_cli("--src-root " ++ Root ++ " -o " ++ Root ++ " "
+                             ++ filename:dirname(Path))
+             end).
 
 %% F25.10 — the ticket's program. The residual still prints, the refused line
 %% does not, and the diagnostic says why and what to do instead. Asserted as an
@@ -231,8 +251,8 @@ a_correction_the_declaration_check_refuses_is_not_printed_test() ->
 %% F25.11 — the premise, at BOTH declaration sites. The line F25.10 withholds
 %% is refused by a compile and by `--api`, which reaches the declaration check
 %% through `exports_of/1` and never through `check/2`. When a map pattern ships
-%% and the refusal lifts, this goes red, and so does F25.10: the correction
-%% reads the same predicate the refusal does, so the line prints again.
+%% and the refusal lifts, this goes red, and so does F25.10: the correction is
+%% pasted back through the same declaration check, so the line prints again.
 the_withheld_line_is_refused_at_both_declaration_sites_test() ->
     Src = pick_src("M12", "map<string, int> | map<string, binary>"),
     with_src("M12.bs", Src,
@@ -252,12 +272,7 @@ a_union_a_guard_can_split_is_still_corrected_test() ->
     Out = cli("M13", "module M13\npublic map<string, int> Pick(int n)\nPick(n) -> :oops\n"),
     ?assert(string:find(Out, Line) =/= nomatch),
     ?assertEqual(nomatch, string:find(Out, ?REFUSED)),
-    Pasted = with_src("M14.bs", "module M14\n" ++ Line ++ "\nPick(n) -> :oops\n",
-                      fun(Path, Root) ->
-                              run_cli("--src-root " ++ Root ++ " -o " ++ Root ++ " "
-                                      ++ filename:dirname(Path))
-                      end),
-    ?assertEqual("rc:0\n", Pasted).
+    ?assertEqual("rc:0\n", compile("M14", "module M14\n" ++ Line ++ "\nPick(n) -> :oops\n")).
 
 %% F25.13 — both maps in the residual. `int` splits from each map by a guard,
 %% so pairing residual members against the declared type alone finds nothing
@@ -284,6 +299,42 @@ the_term_names_the_pair_that_refused_the_correction_test() ->
     ?assertMatch(#{corrected := "public int | :oops Answer(int n)",
                    indiscriminable := none},
                  Printed).
+
+%% F25.15 — a residual that ABSORBS the declared type. The algebra cannot
+%% spell `map<string, term>` less `map<string, int>`, so the residual is
+%% `map<string, term>`, which contains the declared type, and the line used to
+%% read `map<string, int> | map<string, term>`: refused at the next compile as
+%% an absorbed member. F38 dropped the declared half for the bottom alone,
+%% arguing a residual is a complement and cannot absorb what was declared; this
+%% is the case that argument missed. The line is the residual alone, and it
+%% compiles when pasted.
+a_residual_that_absorbs_the_declared_type_replaces_it_test() ->
+    Line = "public map<string, term> Pick(int n)",
+    Out = cli("M18", pick_src("M18", "map<string, int>", "map<string, term>")),
+    ?assert(string:find(Out, Line) =/= nomatch),
+    ?assertEqual(nomatch, string:find(Out, "map<string, int> |")),
+    ?assertEqual("rc:0\n", compile("M19", pick_program("M19", Line, "map<string, term>"))).
+
+%% F25.16 — the line is parsed before it is printed. A non-empty list residual
+%% prints as `[map<string, binary>, ..]`, which is pattern syntax, so the line
+%% would be a syntax error when pasted and none is printed. The union itself is
+%% legal (ticket 70: one container level in), so nothing is refused either.
+%% The residual is asserted present, so the absence is not a run that printed
+%% nothing.
+an_unparseable_correction_is_not_printed_test() ->
+    Src = "module M20\n"
+          "public list<map<string, int>> Pick(int n)\n"
+          "Pick(1) -> Ints()\n"
+          "Pick(n) -> Bins()\n"
+          "private list<map<string, int>> Ints()\n"
+          "Ints() -> Ints()\n"
+          "private list<map<string, binary>> Bins()\n"
+          "Bins() -> Bins()\n",
+    Out = cli("M20", Src),
+    ?assert(string:find(Out, "not covered by the declared return type:\n"
+                             "    [map<string, binary>, ..]") =/= nomatch),
+    ?assertEqual(nomatch, string:find(Out, ?HEADING)),
+    ?assertEqual(nomatch, string:find(Out, ?REFUSED)).
 
 %% One diagnostic, so one line on stdout. Parsing it back is what proves it is
 %% a term (F16).

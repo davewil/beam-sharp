@@ -54,7 +54,7 @@ TAG='tag the members instead'
 # ---------------------------------------------------------------------------
 judge() {
   local dir="$1"
-  local p1 p2 p3 p4 p5 p6 p6c p6a p8
+  local p1 p2 p3 p4 p5 p6 p7c p7a p8 p9
 
   p1="$(cat "$dir/P1.out")"
   p2="$(cat "$dir/P2.out")"
@@ -62,9 +62,10 @@ judge() {
   p4="$(cat "$dir/P4.out")"
   p5="$(cat "$dir/P5.out")"
   p6="$(cat "$dir/P6.out")"
-  p6c="$(cat "$dir/P6C.out")"
-  p6a="$(cat "$dir/P6A.out")"
+  p7c="$(cat "$dir/P7C.out")"
+  p7a="$(cat "$dir/P7A.out")"
   p8="$(cat "$dir/P8.out")"
+  p9="$(cat "$dir/P9.out")"
 
   # PROBE 1 — the line exists, and it is a whole signature.
   #
@@ -122,7 +123,7 @@ judge() {
   # after the heading. Checking the whole output instead would forbid the
   # correct behaviour, and the self-test's GOOD stub is what caught that.
   local minted
-  minted="$(grep -A1 -F "$HEADING" <<<"$p1$p2$p3$p4$p8" | grep -F 'Kind:' || true)"
+  minted="$(grep -A1 -F "$HEADING" <<<"$p1$p2$p3$p4$p8$p9" | grep -F 'Kind:' || true)"
   if [ -n "$minted" ]; then
     echo "probe 3: a mint tag reached a pasteable signature."
     sed 's/^/           /' <<<"$minted"
@@ -148,8 +149,8 @@ judge() {
   # Ticket 68 refuses `none | term` at a declaration, so a correction that
   # printed it would be a program this compiler rejects, offered as the fix —
   # ticket 23 §2's failure mode reached through a TYPE rather than through the
-  # mint tag probe 3 covers, which is why it is its own probe. Why the bottom
-  # is the only declared type that gets here: F38 §F38.3.
+  # mint tag probe 3 covers, which is why it is its own probe. The bottom is
+  # not the only declared type a residual can absorb: probe 9 is another.
   if ! grep -qF "$HEADING" <<<"$p5"; then
     echo 'probe 5: no corrected signature for a return mismatch under `none`.'
     echo '         `none` is writable since ENG-328, so this is an ordinary'
@@ -173,7 +174,8 @@ judge() {
   # was told to paste `map<string, int> | map<string, binary>`, and the
   # declaration check refuses that line. Ticket 70 put the objection in the
   # advice, so the advice must say the line would be refused, name the pair,
-  # and name the repair. The absence is guarded by the presence beside it.
+  # and name the repair. The first branch fails a run that printed nothing, so
+  # the heading's absence is only read over a real diagnostic.
   if ! grep -qF 'returns a value its signature does not declare' <<<"$p6"; then
     echo "probe 6: the two-map program reported no return mismatch at all."
     echo "         the refusal is meant to drop ONE line, not the diagnostic."
@@ -195,16 +197,16 @@ judge() {
   # through `exports_of/1` and not `check/2`. When a map pattern ships the
   # refusal lifts, this fires, and probe 6's absence stops being right: the
   # line should print again.
-  if ! grep -qF "$TELL" <<<"$p6c"; then
+  if ! grep -qF "$TELL" <<<"$p7c"; then
     echo "probe 7: a compile accepts the line probe 6 withholds."
     echo "         the refusal the advice predicts is gone, so the advice is wrong."
-    sed 's/^/           /' <<<"$p6c"
+    sed 's/^/           /' <<<"$p7c"
   fi
-  if ! grep -qF "$TELL" <<<"$p6a"; then
+  if ! grep -qF "$TELL" <<<"$p7a"; then
     echo "probe 7: \`bsc --api\` accepts the line probe 6 withholds."
-    echo "         --api is a second declaration pass; a refusal wired to one site"
-    echo "         answers the other as a fact."
-    sed 's/^/           /' <<<"$p6a"
+    echo "         --api is a second declaration pass, through exports_of/1; a"
+    echo "         refusal missing there prints the refused union as the API."
+    sed 's/^/           /' <<<"$p7a"
   fi
 
   # PROBE 8 — the over-refusal control. A map beside an atom is split by a
@@ -215,36 +217,35 @@ judge() {
     echo "         it is a refusal with no cause."
     sed 's/^/           /' <<<"$p8"
   fi
-}
 
-# The ENG-346 outputs as the decided behaviour prints them, written into a stub
-# directory so each stub below breaks only what it names.
-good_p6="m.bs:5:1: error: Pick returns a value its signature does not declare
-  not covered by the declared return type:
-    map<string, binary>
-  widening the signature to cover it would be refused:
-    no clause head can tell \`map<string, int>\` from \`map<string, binary>\`
-  tag the members instead: return each in a tuple led by its own atom,
-  and declare the union of those tuples."
-good_p6r="m.bs:3:47: error: no clause head can tell \`map<string, int>\` from \`map<string, binary>\`
-  in Pick"
-good_p8="m.bs:3:1: error: Pick returns a value its signature does not declare
-  not covered by the declared return type:
-    :oops
-  the signature its clauses justify:
-    public map<string, int> | :oops Pick(int n)"
-
-seed_eng346() {
-  printf '%s\n' "$good_p6"  > "$1/P6.out"
-  printf '%s\n' "$good_p6r" > "$1/P6C.out"
-  printf '%s\n' "$good_p6r" > "$1/P6A.out"
-  printf '%s\n' "$good_p8"  > "$1/P8.out"
+  # PROBE 9 — a residual that ABSORBS the declared type (ENG-346 review).
+  #
+  #   public map<string, int> Pick(int n)    returning a map<string, term>
+  #
+  # The algebra cannot spell `map<string, term>` less `map<string, int>`, so the
+  # residual is `map<string, term>` and contains the declared type. The line
+  # read `map<string, int> | map<string, term>`, which ticket 68 refuses as an
+  # absorbed member. The correction is the residual alone, as probe 5's is.
+  if ! grep -qF "$HEADING" <<<"$p9"; then
+    echo "probe 9: no corrected signature when the residual absorbs the declared type."
+    echo "         the residual alone is a line that compiles, so it is owed."
+    sed 's/^/           /' <<<"$p9"
+  elif grep -qF 'map<string, int> |' <<<"$p9"; then
+    echo "probe 9: the corrected signature offers an ABSORBED member."
+    echo "         \`map<string, int>\` is absorbed by \`map<string, term>\`, and ticket"
+    echo "         68 refuses that at a declaration."
+    sed 's/^/           /' <<<"$p9"
+  elif ! grep -qF 'public map<string, term> Pick(int n)' <<<"$p9"; then
+    echo "probe 9: the corrected signature is not the line to paste."
+    echo "         expected: public map<string, term> Pick(int n)"
+    sed 's/^/           /' <<<"$p9"
+  fi
 }
 
 # ---------------------------------------------------------------------------
 # --self-test — build the defects this gate names and require a red on each.
 #
-# A gate that has never been seen to fail is not believed. Four stubs, each
+# A gate that has never been seen to fail is not believed. Ten stubs, each
 # wrong in a different way, plus the decided behaviour and a run that never
 # compiled. Every stub must also PASS the probes it does not break: a probe
 # that fires on everything is worthless.
@@ -253,6 +254,36 @@ if [ "${1:-}" = "--self-test" ]; then
   CTL="$(mktemp -d)"
   trap 'rm -rf "$CTL"' EXIT
   fail=0
+
+  # The ENG-346 outputs as the decided behaviour prints them, written into
+  # every stub directory so each stub breaks only what it names.
+  good_p6="m.bs:5:1: error: Pick returns a value its signature does not declare
+  not covered by the declared return type:
+    map<string, binary>
+  widening the signature to cover it would be refused:
+    no clause head can tell \`map<string, int>\` from \`map<string, binary>\`
+  tag the members instead: return each in a tuple led by its own atom,
+  and declare the union of those tuples."
+  good_p7="m.bs:3:47: error: no clause head can tell \`map<string, int>\` from \`map<string, binary>\`
+  in Pick"
+  good_p8="m.bs:3:1: error: Pick returns a value its signature does not declare
+  not covered by the declared return type:
+    :oops
+  the signature its clauses justify:
+    public map<string, int> | :oops Pick(int n)"
+  good_p9="m.bs:4:1: error: Pick returns a value its signature does not declare
+  not covered by the declared return type:
+    map<string, term>
+  the signature its clauses justify:
+    public map<string, term> Pick(int n)"
+
+  seed_eng346() {
+    printf '%s\n' "$good_p6" > "$1/P6.out"
+    printf '%s\n' "$good_p7" > "$1/P7C.out"
+    printf '%s\n' "$good_p7" > "$1/P7A.out"
+    printf '%s\n' "$good_p8" > "$1/P8.out"
+    printf '%s\n' "$good_p9" > "$1/P9.out"
+  }
 
   good_p1="m.bs:3: error: Answer returns a value its signature does not declare
   not covered by the declared return type:
@@ -304,7 +335,7 @@ m.bs:4: error: Go returns a value its signature does not declare
   silent="$(judge "$CTL/silent" || true)"
   grep -q '^probe 1:' <<<"$silent" || { echo "SELF-TEST FAILED: probe 1 missed the silent stub — the reported defect"; fail=1; }
   grep -q '^probe 3:' <<<"$silent" || { echo "SELF-TEST FAILED: probe 3 missed the silent stub — no function-wide line either"; fail=1; }
-  for n in 2 4 6 7 8; do
+  for n in 2 4 6 7 8 9; do
     if grep -q "^probe $n:" <<<"$silent"; then
       echo "SELF-TEST FAILED: probe $n fired on the silent stub, which it should pass."
       echo "                  a probe that fires on everything proves nothing."
@@ -341,7 +372,7 @@ m.bs:4: error: Go returns a value its signature does not declare
     echo "                  lines for one function, neither of them sufficient."
     fail=1
   }
-  for n in 1 2 4 6 7 8; do
+  for n in 1 2 4 6 7 8 9; do
     if grep -q "^probe $n:" <<<"$perclause"; then
       echo "SELF-TEST FAILED: probe $n fired on the per-clause stub, which it should pass."
       fail=1
@@ -371,7 +402,7 @@ m.bs:4: error: Go returns a value its signature does not declare
     echo "                  mode ticket 23 §2 exists to prevent."
     fail=1
   }
-  for n in 1 2 4 6 7 8; do
+  for n in 1 2 4 6 7 8 9; do
     if grep -q "^probe $n:" <<<"$overreach"; then
       echo "SELF-TEST FAILED: probe $n fired on the overreach stub, which it should pass."
       fail=1
@@ -403,7 +434,7 @@ m.bs:4: error: Go returns a value its signature does not declare
     echo '                  compiler would be offering a program it rejects.'
     fail=1
   }
-  for n in 1 2 3 4 6 7 8; do
+  for n in 1 2 3 4 6 7 8 9; do
     if grep -q "^probe $n:" <<<"$absorbed"; then
       echo "SELF-TEST FAILED: probe $n fired on the absorbed stub, which it should pass."
       fail=1
@@ -430,7 +461,7 @@ m.bs:4: error: Go returns a value its signature does not declare
       echo "SELF-TEST FAILED: probe $2 missed the $1 stub."
       fail=1
     }
-    for n in 1 2 3 4 5 6 7 8; do
+    for n in 1 2 3 4 5 6 7 8 9; do
       [ "$n" = "$2" ] && continue
       if grep -q "^probe $n:" <<<"$out"; then
         echo "SELF-TEST FAILED: probe $n fired on the $1 stub, which it should pass."
@@ -467,9 +498,18 @@ m.bs:4: error: Go returns a value its signature does not declare
   # A compile refuses the withheld line and `--api` answers it as a fact:
   # ENG-320's two-sites defect, reached through the line this advice predicts.
   seed_all "$CTL/onesite"
-  printf '%s\n' "module P6P
-map<string, int> | map<string, binary> Pick(int)" > "$CTL/onesite/P6A.out"
+  printf '%s\n' "module P7
+map<string, int> | map<string, binary> Pick(int)" > "$CTL/onesite/P7A.out"
   expect onesite 7
+
+  # --- COMPILE-ACCEPTS ---------------------------------------------------
+  #
+  # The mirror: `--api` refuses the withheld line and a compile accepts it.
+  # Probe 7 reads the two sites in two branches, and without this stub the
+  # compile branch is never seen to fire on its own.
+  seed_all "$CTL/compileaccepts"
+  : > "$CTL/compileaccepts/P7C.out"
+  expect compileaccepts 7
 
   # --- OVER-REFUSAL ------------------------------------------------------
   #
@@ -484,6 +524,19 @@ map<string, int> | map<string, binary> Pick(int)" > "$CTL/onesite/P6A.out"
   tag the members instead: return each in a tuple led by its own atom,
   and declare the union of those tuples." > "$CTL/overrefusal/P8.out"
   expect overrefusal 8
+
+  # --- ABSORBED-MAP ------------------------------------------------------
+  #
+  # The compiler at f3e1eee, which asked only whether the widened union could
+  # be told apart. `map<string, int> | map<string, term>` can be: it normalises
+  # to one member. Written out, it is an absorbed member.
+  seed_all "$CTL/absorbedmap"
+  printf '%s\n' "m.bs:4:1: error: Pick returns a value its signature does not declare
+  not covered by the declared return type:
+    map<string, term>
+  the signature its clauses justify:
+    public map<string, int> | map<string, term> Pick(int n)" > "$CTL/absorbedmap/P9.out"
+  expect absorbedmap 9
 
   # --- GOOD --------------------------------------------------------------
   seed_all "$CTL/good"
@@ -504,12 +557,13 @@ map<string, int> | map<string, binary> Pick(int)" > "$CTL/onesite/P6A.out"
   : > "$CTL/broken/P3.out"
   : > "$CTL/broken/P5.out"
   : > "$CTL/broken/P6.out"
-  : > "$CTL/broken/P6C.out"
-  : > "$CTL/broken/P6A.out"
+  : > "$CTL/broken/P7C.out"
+  : > "$CTL/broken/P7A.out"
   : > "$CTL/broken/P8.out"
+  : > "$CTL/broken/P9.out"
   printf '%s\n' "m.bs:1: error: syntax error before: 'module'" > "$CTL/broken/P4.out"
   broken="$(judge "$CTL/broken" || true)"
-  for n in 1 2 3 4 5 6 7 8; do
+  for n in 1 2 3 4 5 6 7 8 9; do
     grep -q "^probe $n:" <<<"$broken" || {
       echo "SELF-TEST FAILED: probe $n went green over a run that never compiled."
       echo "                  an absent diagnostic is not a passing measurement."
@@ -518,13 +572,14 @@ map<string, int> | map<string, binary> Pick(int)" > "$CTL/onesite/P6A.out"
   done
 
   if [ "$fail" -eq 0 ]; then
-    echo "self-test: caught eight defects on different probes — the silent case, the"
+    echo "self-test: caught ten defects on different probes — the silent case, the"
     echo "           per-clause correction that prints two contradictory lines, the"
     echo "           mint tag in a pasteable signature, the absorbed member a"
     echo "           writable bottom introduces, a line the declaration check"
-    echo "           refuses, that line withheld with no reason, a refusal at one"
-    echo "           declaration site only, and a correction withheld with no"
-    echo "           cause — passed each stub's other probes, passed the decided"
+    echo "           refuses, that line withheld with no reason, a refusal missing"
+    echo "           at --api and one missing at a compile, a correction withheld"
+    echo "           with no cause, and a declared map absorbed by its residual —"
+    echo "           passed each stub's other probes, passed the decided"
     echo "           behaviour, and refused a run that never compiled. the gate"
     echo "           discriminates and does not pass vacuously"
     exit 0
@@ -544,8 +599,8 @@ WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
 mkdir -p "$WORK/src/P1" "$WORK/src/P2" "$WORK/src/P3" "$WORK/src/P4" \
-         "$WORK/src/P5" "$WORK/src/P6" "$WORK/src/P6P" "$WORK/src/P8" \
-         "$WORK/out"
+         "$WORK/src/P5" "$WORK/src/P6" "$WORK/src/P7" "$WORK/src/P8" \
+         "$WORK/src/P9" "$WORK/out"
 
 cat > "$WORK/src/P1/p1.bs" <<'BS'
 module P1
@@ -601,8 +656,8 @@ Bins() -> Bins()
 BS
 
 # The line P6 withholds, pasted. Probe 7 reads it through both declaration sites.
-cat > "$WORK/src/P6P/p6p.bs" <<'BS'
-module P6P
+cat > "$WORK/src/P7/p7.bs" <<'BS'
+module P7
 public map<string, int> | map<string, binary> Pick(int n)
 Pick(1) -> Ints()
 Pick(n) -> Bins()
@@ -619,17 +674,30 @@ public map<string, int> Pick(int n)
 Pick(n) -> :oops
 BS
 
-for p in P1 P2 P3 P4 P5 P6 P8; do
+# A residual that absorbs the declared type: the algebra's `map<string, term>`
+# less `map<string, int>` is `map<string, term>`.
+cat > "$WORK/src/P9/p9.bs" <<'BS'
+module P9
+public map<string, int> Pick(int n)
+Pick(1) -> Ints()
+Pick(n) -> Terms()
+private map<string, int> Ints()
+Ints() -> Ints()
+private map<string, term> Terms()
+Terms() -> Terms()
+BS
+
+for p in P1 P2 P3 P4 P5 P6 P8 P9; do
   "$BSC" --src-root "$WORK/src" -o "$WORK/out" "$WORK/src/$p" \
       > "$WORK/$p.out" 2>&1 || true
 done
-"$BSC" --src-root "$WORK/src" -o "$WORK/out" "$WORK/src/P6P" \
-    > "$WORK/P6C.out" 2>&1 || true
-"$BSC" --src-root "$WORK/src" --api "$WORK/src/P6P" \
-    > "$WORK/P6A.out" 2>&1 || true
+"$BSC" --src-root "$WORK/src" -o "$WORK/out" "$WORK/src/P7" \
+    > "$WORK/P7C.out" 2>&1 || true
+"$BSC" --src-root "$WORK/src" --api "$WORK/src/P7" \
+    > "$WORK/P7A.out" 2>&1 || true
 
 # The gate reads the diagnostic text only; the path prefix varies per run.
-for o in P1 P2 P3 P4 P5 P6 P6C P6A P8; do
+for o in P1 P2 P3 P4 P5 P6 P7C P7A P8 P9; do
   sed -i.bak "s#$WORK/src/[^/]*/##g" "$WORK/$o.out" && rm -f "$WORK/$o.out.bak"
 done
 
@@ -644,12 +712,13 @@ if [ -n "$violations" ]; then
   exit 1
 fi
 
-echo "corrected signature: 8 probes — the line is present and pasteable, the"
+echo "corrected signature: 9 probes — the line is present and pasteable, the"
 echo "                     residual survives beside it, two clauses share one"
 echo "                     function-wide correction, no mint tag reaches a"
 echo "                     signature, a clean module stays silent, a"
 echo '                     `none` return is corrected without an absorbed member,'
 echo "                     a line the declaration check refuses is withheld with"
 echo "                     the repair named, that refusal holds at both"
-echo "                     declaration sites, and a union a guard splits is"
-echo "                     still corrected"
+echo "                     declaration sites, a union a guard splits is still"
+echo "                     corrected, and a declared map its residual absorbs is"
+echo "                     corrected without the absorbed member"

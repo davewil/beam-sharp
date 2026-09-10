@@ -176,11 +176,11 @@ the advice, so the advice has to agree with the refusal.
 
 ### What changed
 
-The corrected line is the declared type widened by the residual. Before it is printed,
-`corrected_signature/3` asks `untellable/1` of `bs_types:union([Declared, Residual])`. That is the
-normalised widened type, which is what the declaration check pairs. Where two of its constituents
-are ones no clause head can tell apart, the diagnostic prints the pair and the repair instead of
-the line:
+**The line is pasted back before it is printed.** `as_pasted/2` lexes and parses the line as a
+declaration, resolves its return type in the module's type environment, and hands it to
+`collapse_decl/2`, the declaration check both `check/2` and `exports_of/1` run. A line that
+passes is printed. A line refused because no clause head can tell two members apart gets the pair
+and the repair instead:
 
 ```
 error: Pick returns a value its signature does not declare
@@ -199,42 +199,59 @@ one."* It was compiled before this section was written: `Pick` returning `(:ints
 `(:bins, …)` under `(:ints, map<string, int>) | (:bins, map<string, binary>)` compiles clean, a
 `Kind` dispatching on the two tags passes the exhaustiveness check, and `--api` answers both.
 
-**One predicate, not two.** `untellable/1` is the declaration check's pairwise test, factored out
-so that `indiscriminable_members/4` raises from it and the correction reads it. The refusal's own
-header says it *"lifts when a pattern form for these members ships"*. When it does, the correction
-prints the line again with no edit here. A second copy of the test would let the advice and the
-refusal disagree again the first time either moved.
+**Why the check itself and not one of its refusals.** The first fix (`f3e1eee`) asked only the
+pairwise test ticket 70 named, and argued that absorption could not reach the line. The
+`/code-review` spec axis found two more kinds of printed line the compiler refused when pasted:
 
-**The refusal is asked before writability.** A residual that is both unwritable (a record) and
-untellable gets the pair and the repair, not silence, because the union would be refused whatever
-its spelling.
+| program | printed | pasted |
+|---|---|---|
+| `map<string, int>` declared, returning a `map<string, term>` | `map<string, int> \| map<string, term>` | `map<string, int>` is absorbed by `map<string, term>` |
+| `list<map<string, int>>` declared, returning a `list<map<string, binary>>` | `list<map<string, int>> \| [map<string, binary>, ..]` | `syntax error before: '['` |
+| `(int, map<string, int>)` declared, returning `(2, …)` | `(int, map<string, int>) \| (2, map<string, binary>)` | `syntax error before: 2` |
+
+Asking refusals one at a time missed both, so the line now goes through the check and the parser
+it would meet when pasted. Anything that refuses it other than indiscriminability is `none`, so
+the line is withheld as F25.4 withholds a record, including for refusals not listed here. When a
+map pattern ships and the indiscriminability refusal lifts, the line prints again with no edit
+here.
+
+**An absorbed declared type is dropped, not refused.** For the first row the correct line exists:
+`public map<string, term> Pick(int n)`, which compiles. `declared_member/3` now drops the declared
+half whenever the residual contains it (`bs_types:is_subtype/2`), which is F38's rule for the
+bottom without F38's premise. The algebra cannot spell `map<string, term>` less `map<string, int>`,
+so that residual is `map<string, term>`, and it contains what was declared. Where only one member
+of a declared union is absorbed, the declared half is the author's text and cannot be split, and
+the paste-back withholds the line.
+
+**Writability is still asked first.** A record residual renders with `{`, which could parse as an
+inline map type, so `writable/1` refuses it before the parser sees it.
 
 **The term.** `corrected` stays `none`, since there is nothing to paste, and the descriptor gains
 `indiscriminable`: `#{member, beside}` named as `indiscriminable_union`'s fields are, or `none`.
 The key is present on every `return_not_declared` for F25.9's reason, so a consumer never tells
 "absent" from "refused". Adding a key is the additive-only change ticket 23 §4 chose maps for.
 
-**Only indiscriminability is asked.** Absorption cannot reach the widened line. A residual is the
-complement of the declared type, so it cannot contain a declared member, and the bottom, the one
-declared type whose complement is everything, is dropped by `declared_member/2` (F38 §F38.3).
-
 **Two sites.** `bsc --api` prints no corrected signature: it answers what signatures declare and
 never checks a body (`bs_api.erl`'s header). So there is no second printer to wire. The two
 declaration sites appear where the claim is checked: F25.11 and the gate's probe 7 require the
 withheld line to be refused by a compile **and** by `--api`, which reaches the declaration check
-through `exports_of/1` and not `check/2`.
+through `exports_of/1` and not `check/2`. The paste-back runs `collapse_decl/2`, which is what
+both sites run.
 
 ### Not built
 
 - **A tagged signature to paste.** The repair is named, not printed. Printing it would mean
   inventing the tag atoms, and pasting it would still leave every clause body returning an
   untagged value. §2 has the compiler synthesise heads and never bodies.
-- **Pasting every printed correction back.** The gate now pastes one withheld line through both
-  sites. Doing the same for every line the gate sees printed would catch any future declaration
-  refusal the printer does not ask about, which is F19's defect in general and not only this
-  instance of it. It needs a pasted source and a `--self-test` stub per probe. Recorded so the
-  option is not lost, and not built because this ticket names one refusal and the argument above
-  shows it is the only one that reaches the line today.
+- **A spelling for the last two rows.** The Lst and Pair lines are withheld, where a correct line
+  exists: `list<map<string, binary>>` covers a non-empty list, and `(int, map<string, binary>)`
+  covers `(2, …)`. Printing them needs the printer to widen a pattern spelling to a type
+  spelling, which is a decision about `bs_types:to_string/1`, not this ticket. Filed as
+  [ENG-350](https://linear.app/davewil/issue/ENG-350).
+- **The rest of the declaration check.** `as_pasted/2` runs the parser, `resolve/2` on the return
+  type and `collapse_decl/2`. It does not run `type_env/1`'s refusals, which are about declarations
+  other than a signature, or `private_callback/1`, which a pasted line cannot change because it
+  keeps the original's visibility.
 
 ## The scenarios
 
@@ -258,6 +275,8 @@ directly, because that is where the claim lives.
 | F25.12 | `map<string, int>` declared, returning `:oops` | `public map<string, int> \| :oops Pick(int n)` still printed — `is_map` splits the two — and pasting it compiles clean |
 | F25.13 | both maps in the **residual**, under a declared `int` | two diagnostics, both withheld with the pair named: pairing residual members only against the declared type would miss it |
 | F25.14 | the term, read off the CLI's term channel | `corrected := none` and `indiscriminable := #{member, beside}`; an ordinary mismatch carries `indiscriminable := none` |
+| F25.15 | `map<string, int>` declared, returning a `map<string, term>` | `public map<string, term> Pick(int n)` — the absorbed declared half is dropped — and pasting it compiles clean |
+| F25.16 | `list<map<string, int>>` declared, returning a `list<map<string, binary>>` | no signature line and no refusal: the line would be a syntax error, and the union is legal; the residual `[map<string, binary>, ..]` still prints |
 
 **F25.3 was measured before it was designed.** Two offending clauses produce two diagnostics; if
 each carried its own correction the compiler would print two contradictory pasteable lines, and
@@ -292,12 +311,16 @@ and requires the gate to go red on three of them and green on the correct form:
 - **broken** — nothing compiled. Every probe asserting an absence must fire, or the gate is
   measuring a run that never happened.
 
-ENG-346 added probes 6 to 8 and four stubs, each of which must fire its own probe and no other:
+ENG-346 added probes 6 to 9 and six stubs, each of which must fire its own probe and no other:
 
 - **refused-anyway** — the compiler at `5a40668`, printing the line the declaration check
   refuses. Probe 6.
 - **withheld** — the line dropped as F25.4 drops an unwritable one, with no reason and no repair.
   Probe 6: an author told nothing assumes an unwritable residual and pastes the union by hand.
 - **one-site** — a compile refuses the withheld line and `--api` answers it. Probe 7.
+- **compile-accepts** — the mirror: `--api` refuses and a compile accepts. Probe 7 reads the two
+  sites in two branches, and without this stub the compile branch is never seen to fire alone.
 - **over-refusal** — every correction with a map in it withheld. Probe 8, the control, is the
   only probe that catches it.
+- **absorbed-map** — the compiler at `f3e1eee`, printing `map<string, int> | map<string, term>`.
+  Probe 9.

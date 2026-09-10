@@ -786,27 +786,18 @@ failure_channel(_)                                 -> none.
 indiscriminable_members(Ms, _Env, _L, _Path) when length(Ms) < 2 -> ok;
 indiscriminable_members(Ms, Env, L, Path) ->
     Normalised = bs_types:union([resolve(M, Env) || M <- Ms]),
-    case untellable(Normalised) of
-        ok     -> ok;
-        {A, B} -> erlang:error({indiscriminable_union, L, Path, A, B})
+    pairwise(bs_types:constituents(Normalised), L, Path).
+
+pairwise([], _L, _Path) -> ok;
+pairwise([R | Rs], L, Path) ->
+    lists:foreach(fun(O) -> discriminable(R, O, L, Path) end, Rs),
+    pairwise(Rs, L, Path).
+
+discriminable(A, B, L, Path) ->
+    case reaches(A) orelse reaches(B) orelse disjoint_buckets(A, B) of
+        true  -> ok;
+        false -> erlang:error({indiscriminable_union, L, Path, A, B})
     end.
-
-%% The first pair of a normalised type's constituents that no clause head can
-%% tell apart, or `ok`. It is the ONE predicate for this refusal and for F25's
-%% corrected signature (ENG-346), which asks it of the union it is about to
-%% print. So the advice cannot recommend a union this check refuses, and when a
-%% pattern form ships and the refusal lifts, the advice lifts with it.
-untellable(T) -> first_pair(bs_types:constituents(T)).
-
-first_pair([]) -> ok;
-first_pair([R | Rs]) ->
-    case [O || O <- Rs, not discriminable(R, O)] of
-        [O | _] -> {R, O};
-        []      -> first_pair(Rs)
-    end.
-
-discriminable(A, B) ->
-    reaches(A) orelse reaches(B) orelse disjoint_buckets(A, B).
 
 %% A member a clause head can name. `pattern` is a structural head or a
 %% guarded binder; `guard` is a bare binder, which names nothing on its own
@@ -1284,7 +1275,7 @@ check_fn(F = #fn{name = Name, line = Line, params = Params, ret = Ret}, Ctx0) ->
                     [_ | _] = Ds -> {bs_types:none(), Ds};
                     []           -> walk(Clauses, Declared, Declared, Ctx, [], 1)
                 end,
-            Diags = with_corrected_signature(F, Ctx#ctx.ret, Diags0),
+            Diags = with_corrected_signature(F, Ctx#ctx.ret, Env, Diags0),
             Final =
                 case bs_types:is_none(Residual) of
                     true  -> Diags;
@@ -1312,10 +1303,10 @@ check_fn(F = #fn{name = Name, line = Line, params = Params, ret = Ret}, Ctx0) ->
 %%% unioned first and the one answer is attached to all of them.
 %%% ---------------------------------------------------------------------------
 
-with_corrected_signature(F, Declared, Diags) ->
+with_corrected_signature(F, Declared, Env, Diags) ->
     case [R || {error, _, _, {return_not_declared, R}} <- Diags] of
         []  -> Diags;
-        Rs  -> C = corrected_signature(F, Declared, bs_types:union(Rs)),
+        Rs  -> C = corrected_signature(F, Declared, bs_types:union(Rs), Env),
                [attach_correction(D, C) || D <- Diags]
     end.
 
@@ -1324,23 +1315,42 @@ attach_correction({error, L, N, {return_not_declared, R}}, C) ->
 attach_correction(D, _C) ->
     D.
 
-%% THE LINE IS ASKED THE DECLARATION CHECK BEFORE IT IS PRINTED (ENG-346).
-%% `map<string, int>` widened by a `map<string, binary>` residual is a union no
-%% clause head can take apart, and pasting it was refused at the next compile.
-%% Ticket 70 keeps that union legal one container level in and puts the
-%% objection in the advice, so the answer here is the pair and not a line:
-%% `bs_diag` names both members and the repair, tagging them. The question is
-%% asked of the NORMALISED widened type, the same one the declaration check
-%% pairs, because the residual can hold both members of the pair (F25.13).
+corrected_signature(F, Declared, Union, Env) ->
+    case signature_line(F, Declared, Union) of
+        none -> none;
+        Line -> as_pasted(Line, Env)
+    end.
+
+%% THE LINE IS PASTED BACK BEFORE IT IS PRINTED (ENG-346). It is lexed, parsed
+%% as a declaration, resolved, and handed to `collapse_decl/2`, which is the
+%% declaration check both `check/2` and `exports_of/1` run. Three kinds of line
+%% were printed and then refused when pasted, and asking the check itself is
+%% what covers all three rather than one refusal at a time:
 %%
-%% Only indiscriminability is asked. Absorption cannot reach this line: a
-%% residual is the complement of the declared type, so it cannot contain a
-%% declared member, and the bottom, whose complement is everything, is dropped
-%% by `declared_member/2` (F38 §F38.3).
-corrected_signature(F, Declared, Union) ->
-    case untellable(bs_types:union([Declared, Union])) of
-        {A, B} -> {refused, A, B};
-        ok     -> signature_line(F, Declared, Union)
+%%   `map<string, int> | map<string, binary>` — no clause head can tell the two
+%%       apart. Ticket 70 keeps that union legal one container level in and puts
+%%       the objection in the advice, so the answer is the pair: `bs_diag` names
+%%       both members and the repair, tagging them.
+%%   `[map<string, binary>, ..]` and `(2, map<string, binary>)` — pattern
+%%       spellings `writable/1` does not catch, and syntax errors in a type.
+%%   a written member absorbed by another, which `declared_member/3` prevents
+%%       where the whole declared type is absorbed and cannot where only one
+%%       member of a declared union is.
+%%
+%% Every failure but the first is `none`: a line that looks pasteable and is not
+%% is worse than no line (ticket 23 §2), and that includes a failure this list
+%% does not name. `Env` is the module's `type_env/1`, so an alias or a record
+%% the author named resolves as it does in their file.
+as_pasted(Line, Env) ->
+    try
+        {ok, Toks, _} = bs_lexer:string(Line ++ "\n"),
+        {ok, [{signature, _, _, Ret, _, _} = Sig]} = bs_parser:parse(Toks),
+        _ = resolve(Ret, Env),
+        collapse_decl(Sig, Env),
+        Line
+    catch
+        error:{indiscriminable_union, _, _, A, B} -> {refused, A, B};
+        _:_                                      -> none
     end.
 
 %% A signature that cannot be rendered as pasteable source is `none`, never a
@@ -1351,7 +1361,7 @@ corrected_signature(F, Declared, Union) ->
 %% channel prints the `heads` map with `~0p`, whose key order is atom-creation
 %% order. A `pasteable/3` here created that atom before `bs_diag` created
 %% `kind`, and `--batch` stopped printing the same bytes as a standalone run
-%% (measured 2026-09-10, `cli_tests`).
+%% (measured 2026-09-10, `cli_tests`; ENG-349).
 signature_line(#fn{name = Name, ret = Ret, params = Params, vis = Vis},
                Declared, Union) ->
     Rendered = bs_types:to_string(Union),
@@ -1362,20 +1372,26 @@ signature_line(#fn{name = Name, ret = Ret, params = Params, vis = Vis},
                 {none, _} -> none;
                 {_, none} -> none;
                 {RetSrc, Ps} ->
-                    lists:flatten([vis_source(Vis), declared_member(Declared, RetSrc),
+                    lists:flatten([vis_source(Vis),
+                                   declared_member(Declared, Union, RetSrc),
                                    Rendered, " ", atom_to_list(Name), "(", Ps, ")"])
             end
     end.
 
 %% The declared return is written back as a union member to keep the author's
 %% own alias name, which is why this is a concatenation and not a
-%% `bs_types:union/2`. The bottom is the one type that must not be: `none | X`
-%% is `X`, and ticket 68 refuses the absorbed member — so emitting it would
-%% offer a program this compiler rejects. Tested on the RESOLVED type, so an
-%% alias for the bottom is caught too. Why no other type reaches this:
-%% `compiler/features/F38-writable-bottom.md` §F38.3.
-declared_member(Declared, RetSrc) ->
-    case bs_types:is_none(Declared) of
+%% `bs_types:union/2`. It is dropped when the residual contains it: `D | X` is
+%% `X` then, and ticket 68 refuses the absorbed member, so writing it would
+%% offer a program this compiler rejects. Tested on the RESOLVED types, so an
+%% alias is caught too.
+%%
+%% F38 wrote this for the bottom alone, arguing a residual is the complement
+%% of the declared type and so cannot contain it. The algebra's complement is
+%% not always exact: it cannot spell `map<string, term>` less
+%% `map<string, int>`, so that residual is `map<string, term>` and contains the
+%% declared `map<string, int>` (ENG-346, F25.15).
+declared_member(Declared, Union, RetSrc) ->
+    case bs_types:is_subtype(Declared, Union) of
         true  -> "";
         false -> RetSrc ++ " | "
     end.
