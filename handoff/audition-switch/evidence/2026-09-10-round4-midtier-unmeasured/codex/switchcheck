@@ -1,0 +1,693 @@
+#!/usr/bin/env python3
+"""A clean-room switch checker implementing the language in PACKET.md."""
+import re
+import sys
+
+
+# A type is a union of cells. Products carry a union at each coordinate.
+EMPTY = ()
+ANY = (("any",),)
+INT = (("int", float("-inf"), float("inf")),)
+
+
+def union(*sets):
+    out = []
+    for s in sets:
+        for cell in s:
+            if cell not in out:
+                out.append(cell)
+    return tuple(out)
+
+
+def scalar(kind, values=None):
+    return (("scalar", kind, values is not None,
+             frozenset(values or ())),)
+
+
+BOOL = scalar("bool", (True, False))
+ATOM = scalar("atom")
+STRING = scalar("string")
+
+
+def product(kind, parts):
+    return ((kind, tuple(parts)),) if all(parts) else EMPTY
+
+
+def meet(a, b):
+    return union(*(meet_cell(x, y) for x in a for y in b))
+
+
+def minus(a, b):
+    for y in b:
+        a = union(*(minus_cell(x, y) for x in a))
+    return a
+
+
+def scalar_op(a, b, difference=False):
+    _, kind, af, av = a
+    _, _, bf, bv = b
+    if difference:
+        bf = not bf
+    if af and bf:
+        finite, values = True, av & bv
+    elif af:
+        finite, values = True, av - bv
+    elif bf:
+        finite, values = True, bv - av
+    else:
+        finite, values = False, av | bv
+    return (("scalar", kind, finite, values),) if values or not finite else EMPTY
+
+
+def unfold(cell):
+    return (("nil",), ("cons", (cell[1], (cell,))))
+
+
+def meet_cell(a, b):
+    if a == b:
+        return (a,)
+    if a[0] == "except":
+        return minus(meet(a[1], (b,)), a[2])
+    if b[0] == "except":
+        return meet_cell(b, a)
+    if a[0] == "any":
+        return (b,)
+    if b[0] == "any":
+        return (a,)
+    if a[0] == "list":
+        if b[0] == "list":
+            element = meet(a[1], b[1])
+            return (("list", element),) if element else (("nil",),)
+        if b[0] in ("nil", "cons"):
+            return meet(unfold(a), (b,))
+    if b[0] == "list":
+        return meet_cell(b, a) if a[0] in ("nil", "cons") else EMPTY
+    if a[0] != b[0]:
+        return EMPTY
+    if a[0] == "int":
+        lo, hi = max(a[1], b[1]), min(a[2], b[2])
+        return (("int", lo, hi),) if lo <= hi else EMPTY
+    if a[0] == "scalar":
+        return scalar_op(a, b) if a[1] == b[1] else EMPTY
+    if a[0] in ("tuple", "cons", "record"):
+        if a[0] == "record" and a[2] != b[2]:
+            return EMPTY
+        if len(a[1]) != len(b[1]):
+            return EMPTY
+        result = product(a[0], [meet(x, y) for x, y in zip(a[1], b[1])])
+        return tuple((c[0], c[1], a[2]) for c in result) if a[0] == "record" else result
+    return EMPTY
+
+
+def minus_cell(a, b):
+    if a == b or b[0] == "any":
+        return EMPTY
+    if b[0] == "except":
+        return union(minus((a,), b[1]), meet((a,), b[2]))
+    if a[0] == "except":
+        base = minus(a[1], (b,))
+        if len(base) == 1 and base[0][0] == "except" and base[0][1] == a[1]:
+            return (("except", a[1], union(a[2], base[0][2])),)
+        return minus(base, a[2])
+    if a[0] == "any":
+        return (("except", (a,), (b,)),)
+    if not meet_cell(a, b):
+        return (a,)
+    if a[0] == "list":
+        if b[0] == "list":
+            if not minus(a[1], b[1]):
+                return EMPTY
+            return (("except", (a,), (b,)),)
+        return minus(unfold(a), (b,))
+    if b[0] == "list":
+        return minus((a,), unfold(b))
+    if a[0] == "int":
+        result = []
+        if a[1] < b[1]:
+            result.append(("int", a[1], min(a[2], b[1] - 1)))
+        if a[2] > b[2]:
+            result.append(("int", max(a[1], b[2] + 1), a[2]))
+        return tuple(result)
+    if a[0] == "scalar":
+        return scalar_op(a, b, True)
+    if a[0] in ("tuple", "cons", "record"):
+        result = EMPTY
+        prefix = []
+        for i, (x, y) in enumerate(zip(a[1], b[1])):
+            piece = product(a[0], prefix + [minus(x, y)] + list(a[1][i + 1:]))
+            if a[0] == "record":
+                piece = tuple((c[0], c[1], a[2]) for c in piece)
+            result = union(result, piece)
+            prefix.append(meet(x, y))
+        return result
+    return EMPTY
+
+
+TOKEN = re.compile(r'\s+|//[^\n]*|/\*[\s\S]*?\*/|"(?:\\.|[^"\\])*"|'
+                   r':[A-Za-z_]\w*|\d+|[A-Za-z_]\w*|=>|->|>=|<=|==|!=|\.\.|.')
+
+
+class Parser:
+    def __init__(self, source):
+        self.tokens = [t for t in TOKEN.findall(source)
+                       if not t.isspace() and not t.startswith(("//", "/*"))]
+        self.tokens.append("<eof>")
+        self.i = 0
+        self.aliases = {}
+        self.records = {}
+        self.signatures = {}
+        self.clauses = []
+
+    def peek(self):
+        return self.tokens[self.i]
+
+    def take(self):
+        t = self.peek()
+        self.i += 1
+        return t
+
+    def accept(self, t):
+        if self.peek() == t:
+            self.take()
+            return True
+        return False
+
+    def expect(self, t):
+        if not self.accept(t):
+            raise ValueError("Expected " + t + ", got " + self.peek())
+
+    def sequence(self, close, reader):
+        items = []
+        while not self.accept(close):
+            items.append(reader())
+            if not self.accept(","):
+                self.expect(close)
+                break
+        return items
+
+    def type_expr(self):
+        parts = [self.type_atom()]
+        while self.accept("|"):
+            parts.append(self.type_atom())
+        return ("union", parts)
+
+    def type_atom(self):
+        if self.accept("("):
+            return ("tuple_type", self.sequence(")", self.type_expr))
+        token = self.take()
+        literal = self.literal(token)
+        if literal:
+            return literal
+        args = []
+        if self.accept("<"):
+            args = self.sequence(">", self.type_expr)
+        return ("type", token, args)
+
+    @staticmethod
+    def literal(token):
+        if token.startswith(":") and len(token) > 1:
+            return ("lit", "atom", token[1:])
+        if token in ("true", "false"):
+            return ("lit", "bool", token == "true")
+        if token.isdigit():
+            return ("lit", "int", int(token))
+        if token.startswith('"'):
+            import json
+            return ("lit", "string", json.loads(token))
+        return None
+
+    def pattern(self, minimum=0):
+        token = self.take()
+        if token == "(":
+            parts = self.sequence(")", self.pattern)
+            left = parts[0] if len(parts) == 1 else ("tuple", parts)
+        elif token == "[":
+            parts, rest = [], None
+            while not self.accept("]"):
+                if self.accept(".."):
+                    rest = ("wild",) if self.peek() in (",", "]") else ("var", self.take())
+                else:
+                    parts.append(self.pattern())
+                if not self.accept(","):
+                    self.expect("]")
+                    break
+            left = ("list", parts, rest)
+        elif token == "{":
+            fields = {}
+            while not self.accept("}"):
+                name = self.take()
+                self.expect(":")
+                fields[name] = self.pattern()
+                if not self.accept(","):
+                    self.expect("}")
+                    break
+            left = ("record", fields)
+        elif token == "==":
+            left = ("pin", self.take())
+        elif token in ("<", "<=", ">", ">="):
+            sign = -1 if self.accept("-") else 1
+            left = ("rel", token, sign * int(self.take()))
+        elif token == "-":
+            left = ("lit", "int", -int(self.take()))
+        elif token == "_":
+            left = ("wild",)
+        else:
+            left = self.literal(token) or ("var", token)
+        precedence = {"or": 1, "and": 2}
+        while precedence.get(self.peek(), 0) > minimum:
+            op = self.take()
+            left = ("p" + op, left, self.pattern(precedence[op]))
+        return left
+
+    def expr(self, minimum=0):
+        token = self.take()
+        if token == "(":
+            parts = self.sequence(")", self.expr)
+            left = parts[0] if len(parts) == 1 else ("tuple", parts)
+        elif token == "[":
+            left = ("list_expr", self.sequence("]", self.expr))
+        elif token == "-":
+            left = ("neg", self.expr(6))
+        else:
+            left = self.literal(token) or ("var", token)
+        precedence = {"or": 1, "and": 2, "==": 3, "!=": 3,
+                      "<": 3, ">": 3, "<=": 3, ">=": 3,
+                      "+": 4, "-": 4, "*": 5, "/": 5, "%": 5}
+        while True:
+            if self.peek() == "(" and 8 > minimum:
+                self.take()
+                left = ("call", left, self.sequence(")", self.expr))
+            elif self.peek() == "." and 8 > minimum:
+                self.take()
+                left = ("field", left, self.take())
+            elif self.peek() == "switch" and 7 > minimum:
+                self.take()
+                self.expect("{")
+                arms = []
+                while not self.accept("}"):
+                    p = self.pattern()
+                    guard = self.expr() if self.accept("when") else None
+                    self.expect("=>")
+                    arms.append((p, guard, self.expr()))
+                    if not self.accept(","):
+                        self.expect("}")
+                        break
+                left = ("switch", left, arms)
+            elif precedence.get(self.peek(), 0) > minimum:
+                op = self.take()
+                left = ("bin", op, left, self.expr(precedence[op]))
+            else:
+                break
+        return left
+
+    def parse(self):
+        while self.peek() != "<eof>":
+            if self.accept("module"):
+                self.take()
+            elif self.accept("type"):
+                name = self.take()
+                self.expect("=")
+                self.aliases[name] = self.type_expr()
+            elif self.accept("record"):
+                name = self.take()
+                self.expect("{")
+                fields = {}
+                while not self.accept("}"):
+                    field = self.take()
+                    self.expect(":")
+                    fields[field] = self.type_expr()
+                    self.accept(",")
+                    self.accept(";")
+                self.records[name] = fields
+            elif self.peek() in ("public", "private", "internal"):
+                self.take()
+                ret = self.type_expr()
+                name = self.take()
+                self.expect("(")
+                def parameter():
+                    typ = self.type_expr()
+                    self.take()
+                    return typ
+                params = self.sequence(")", parameter)
+                self.signatures[name] = (ret, params)
+            elif self.accept(";"):
+                pass
+            else:
+                name = self.take()
+                self.expect("(")
+                params = self.sequence(")", self.pattern)
+                guard = self.expr() if self.accept("when") else None
+                self.expect("->")
+                self.clauses.append((name, params, guard, self.expr()))
+        return self
+
+
+def literal_type(node):
+    return (("int", node[2], node[2]),) if node[1] == "int" else scalar(node[1], (node[2],))
+
+
+def relation(op, value):
+    lo, hi = float("-inf"), float("inf")
+    if op == "<":
+        hi = value - 1
+    elif op == "<=":
+        hi = value
+    elif op == ">":
+        lo = value + 1
+    elif op == ">=":
+        lo = value
+    elif op == "==":
+        lo = hi = value
+    elif op == "!=":
+        return minus(INT, (("int", value, value),))
+    return (("int", lo, hi),)
+
+
+def coordinate(space, path):
+    if not path:
+        return space
+    out = EMPTY
+    for cell in space:
+        if cell[0] == "any":
+            out = union(out, ANY)
+        elif cell[0] == "except":
+            out = union(out, coordinate(cell[1], path))
+        elif cell[0] == "list":
+            out = union(out, coordinate(unfold(cell), path))
+        elif cell[0] in ("tuple", "cons", "record") and path[0] < len(cell[1]):
+            out = union(out, coordinate(cell[1][path[0]], path[1:]))
+    return out
+
+
+def restrict(space, path, constraint):
+    if not path:
+        return meet(space, constraint)
+    out = EMPTY
+    for cell in space:
+        if cell[0] == "list":
+            out = union(out, restrict(unfold(cell), path, constraint))
+        elif cell[0] in ("tuple", "cons", "record") and path[0] < len(cell[1]):
+            parts = list(cell[1])
+            parts[path[0]] = restrict(parts[path[0]], path[1:], constraint)
+            result = product(cell[0], parts)
+            if cell[0] == "record":
+                result = tuple((c[0], c[1], cell[2]) for c in result)
+            out = union(out, result)
+    return out
+
+
+class Checker:
+    def __init__(self, program):
+        self.program = program
+        self.tags = set()
+        self.signatures = {name: (self.typ(ret), [self.typ(p) for p in params])
+                           for name, (ret, params) in program.signatures.items()}
+
+    def bind_pattern(self, pattern, scope):
+        kind = pattern[0]
+        if kind == "var":
+            if pattern[1] in scope:
+                self.tags.add("rebinding")
+            scope.add(pattern[1])
+        elif kind == "pin":
+            if pattern[1] not in scope:
+                self.tags.add("unbound_variable")
+        elif kind in ("tuple", "cons"):
+            for part in pattern[1]:
+                self.bind_pattern(part, scope)
+        elif kind == "record":
+            for part in pattern[1].values():
+                self.bind_pattern(part, scope)
+        elif kind == "list":
+            for part in pattern[1]:
+                self.bind_pattern(part, scope)
+            if pattern[2] is not None:
+                self.bind_pattern(pattern[2], scope)
+        elif kind in ("pand", "por"):
+            self.bind_pattern(pattern[1], scope)
+            self.bind_pattern(pattern[2], scope)
+
+    def resolve_names(self, expr, scope):
+        if expr is None:
+            return
+        kind = expr[0]
+        if kind == "var":
+            if expr[1] not in scope:
+                self.tags.add("unbound_variable")
+        elif kind in ("tuple", "list_expr"):
+            for part in expr[1]:
+                self.resolve_names(part, scope)
+        elif kind in ("neg", "field"):
+            self.resolve_names(expr[1], scope)
+        elif kind == "bin":
+            self.resolve_names(expr[2], scope)
+            self.resolve_names(expr[3], scope)
+        elif kind == "call":
+            # A named callee is a function reference, not a local variable.
+            if expr[1][0] != "var":
+                self.resolve_names(expr[1], scope)
+            for arg in expr[2]:
+                self.resolve_names(arg, scope)
+        elif kind == "switch":
+            self.resolve_names(expr[1], scope)
+            for pattern, guard, body in expr[2]:
+                local = set(scope)
+                self.bind_pattern(pattern, local)
+                self.resolve_names(guard, local)
+                self.resolve_names(body, local)
+
+    def typ(self, node, seen=frozenset()):
+        kind = node[0]
+        if kind == "union":
+            return union(*(self.typ(n, seen) for n in node[1]))
+        if kind == "lit":
+            return literal_type(node)
+        if kind == "tuple_type":
+            return product("tuple", [self.typ(n, seen) for n in node[1]])
+        name, args = node[1:]
+        if name in self.program.aliases and name not in seen:
+            return self.typ(self.program.aliases[name], seen | {name})
+        if name in self.program.records and name not in seen:
+            fields = self.program.records[name]
+            parts = tuple(self.typ(t, seen | {name}) for t in fields.values())
+            return (("record", parts, tuple(fields)),)
+        if name == "list" and args:
+            return (("list", self.typ(args[0], seen)),)
+        if name == "option" and args:
+            return union(self.typ(args[0], seen), scalar("atom", ("nothing",)))
+        return {"int": INT, "atom": ATOM, "bool": BOOL, "string": STRING,
+                "term": ANY}.get(name, ANY)
+
+    def pattern(self, p, subject, env, paths, path=()):
+        kind = p[0]
+        if kind in ("var", "wild"):
+            if kind == "var":
+                if p[1] in env:
+                    self.tags.add("rebinding")
+                env[p[1]] = subject
+                paths[p[1]] = path
+            return subject, subject
+        if kind == "pin":
+            if p[1] not in env:
+                self.tags.add("unbound_variable")
+            return meet(subject, env.get(p[1], ANY)), EMPTY
+        if kind == "lit":
+            result = meet(subject, literal_type(p))
+            return result, result
+        if kind == "rel":
+            result = meet(subject, relation(p[1], p[2]))
+            return result, result
+        if kind in ("pand", "por"):
+            a, ac = self.pattern(p[1], subject, env, paths, path)
+            b, bc = self.pattern(p[2], subject, env, paths, path)
+            op = meet if kind == "pand" else union
+            return op(a, b), op(ac, bc)
+        if kind == "list":
+            tail = p[2] or ("empty_list",)
+            for head in reversed(p[1]):
+                tail = ("cons", [head, tail])
+            return self.pattern(tail, subject, env, paths, path)
+        if kind == "empty_list":
+            result = meet(subject, (("nil",),))
+            return result, result
+        if kind in ("tuple", "cons", "record"):
+            if kind == "record":
+                record = next((c for c in subject if c[0] == "record"), None)
+                if record:
+                    names = record[2]
+                    parts = [p[1].get(n, ("wild",)) for n in names]
+                    shape = (("record", tuple(ANY for _ in names), names),)
+                else:
+                    names = tuple(p[1])
+                    parts = list(p[1].values())
+                    shape = (("record", tuple(ANY for _ in names), names),)
+            else:
+                parts = p[1]
+                shape = product(kind, [ANY] * len(parts))
+            valid = meet(subject, shape)
+            possible, certain = [], []
+            for i, part in enumerate(parts):
+                a, b = self.pattern(part, coordinate(valid, (i,)), env, paths, path + (i,))
+                possible.append(a)
+                certain.append(b)
+            a, b = product(kind, possible), product(kind, certain)
+            if kind == "record":
+                a = tuple((c[0], c[1], names) for c in a)
+                b = tuple((c[0], c[1], names) for c in b)
+            return meet(valid, a), meet(valid, b)
+        return subject, EMPTY
+
+    def subject_paths(self, expr, path=()):
+        if expr[0] == "var":
+            return {expr[1]: path}
+        if expr[0] == "tuple":
+            result = {}
+            for i, part in enumerate(expr[1]):
+                result.update(self.subject_paths(part, path + (i,)))
+            return result
+        return {}
+
+    def guard_space(self, expr, space, paths):
+        if expr is None:
+            return space
+        if expr[0] == "lit" and expr[1] == "bool":
+            return space if expr[2] else EMPTY
+        if expr[0] == "var" and expr[1] in paths:
+            return restrict(space, paths[expr[1]], scalar("bool", (True,)))
+        if expr[0] != "bin":
+            return None
+        op, lhs, rhs = expr[1:]
+        if op in ("and", "or"):
+            a = self.guard_space(lhs, space, paths)
+            b = self.guard_space(rhs, space, paths)
+            if a is None or b is None:
+                return None
+            return meet(a, b) if op == "and" else union(a, b)
+        if lhs[0] in ("lit", "neg") and rhs[0] == "var":
+            lhs, rhs = rhs, lhs
+            op = {"<": ">", "<=": ">=", ">": "<", ">=": "<="}.get(op, op)
+        if rhs[0] == "neg" and rhs[1][0] == "lit" and rhs[1][1] == "int":
+            rhs = ("lit", "int", -rhs[1][2])
+        if lhs[0] != "var" or lhs[1] not in paths or rhs[0] != "lit":
+            return None
+        if op not in ("<", "<=", ">", ">=", "==", "!="):
+            return None
+        if rhs[1] == "int":
+            constraint = relation(op, rhs[2])
+        elif op in ("==", "!="):
+            constraint = literal_type(rhs)
+            if op == "!=":
+                constraint = minus(ANY, constraint)
+        else:
+            return None
+        return restrict(space, paths[lhs[1]], constraint)
+
+    def infer(self, expr, env, in_guard=False):
+        kind = expr[0]
+        if kind == "lit":
+            return literal_type(expr)
+        if kind == "var":
+            if expr[1] not in env:
+                self.tags.add("unbound_variable")
+            return env.get(expr[1], EMPTY)
+        if kind == "tuple":
+            return product("tuple", [self.infer(n, env, in_guard) for n in expr[1]])
+        if kind == "list_expr":
+            parts = [self.infer(n, env, in_guard) for n in expr[1]]
+            result = (("nil",),)
+            for part in reversed(parts):
+                result = product("cons", [part, result])
+            return result
+        if kind == "neg":
+            value = self.infer(expr[1], env, in_guard)
+            return tuple(("int", -c[2], -c[1]) for c in value if c[0] == "int")
+        if kind == "bin":
+            a = self.infer(expr[2], env, in_guard)
+            b = self.infer(expr[3], env, in_guard)
+            if expr[1] in ("and", "or", "<", "<=", ">", ">=", "==", "!="):
+                return BOOL
+            if not a or not b:
+                return EMPTY
+            return STRING if expr[1] == "+" and not minus(a, STRING) else INT
+        if kind == "field":
+            subject = self.infer(expr[1], env, in_guard)
+            return union(*(c[1][c[2].index(expr[2])] for c in subject
+                           if c[0] == "record" and expr[2] in c[2]))
+        if kind == "call":
+            args = [self.infer(n, env, in_guard) for n in expr[2]]
+            name = expr[1][1] if expr[1][0] == "var" else ""
+            sig = self.signatures.get(name)
+            if sig:
+                if any(minus(a, t) for a, t in zip(args, sig[1])):
+                    self.tags.add("arg_not_accepted")
+                return sig[0]
+            return ANY
+        if kind == "switch":
+            if in_guard:
+                self.tags.add("switch_in_guard")
+            subject = self.infer(expr[1], env, in_guard)
+            residual, returns = subject, EMPTY
+            for p, guard, body in expr[2]:
+                local = dict(env)
+                paths = self.subject_paths(expr[1])
+                possible, certain = self.pattern(p, subject, local, paths)
+                if guard:
+                    self.infer(guard, local, True)
+                guarded = self.guard_space(guard, possible, paths)
+                if not possible:
+                    self.tags.add("vacuous_arm")
+                elif guarded is not None and not guarded:
+                    self.tags.add("unsatisfiable_arm_guard")
+                elif not meet(residual, possible if guarded is None else guarded):
+                    self.tags.add("unreachable_arm")
+                admitted = possible if guarded is None else guarded
+                for name, path in paths.items():
+                    local[name] = coordinate(admitted, path)
+                value = self.infer(body, local, in_guard)
+                if admitted:
+                    returns = union(returns, value)
+                credit = EMPTY if guarded is None else meet(certain, guarded)
+                residual = minus(residual, credit)
+            if residual:
+                self.tags.add("switch_inexhaustive")
+            return returns
+        return EMPTY
+
+    def check(self):
+        # Resolve names before assigning types or computing switch residuals.
+        # Failed bindings must not generate downstream semantic diagnostics.
+        for _, params, guard, body in self.program.clauses:
+            scope = set()
+            for param in params:
+                self.bind_pattern(param, scope)
+            self.resolve_names(guard, scope)
+            self.resolve_names(body, scope)
+        if self.tags:
+            return self.tags
+
+        for name, params, guard, body in self.program.clauses:
+            ret, args = self.signatures.get(name, (ANY, [ANY] * len(params)))
+            env, paths = {}, {}
+            subject = product("tuple", args)
+            possible, _ = self.pattern(("tuple", params), subject, env, paths)
+            if guard:
+                self.infer(guard, env, True)
+                narrowed = self.guard_space(guard, possible, paths)
+                if narrowed is not None:
+                    for var, path in paths.items():
+                        env[var] = coordinate(narrowed, path)
+            value = self.infer(body, env)
+            if minus(value, ret):
+                self.tags.add("return_not_declared")
+        return self.tags
+
+
+def main():
+    with open(sys.argv[1], encoding="utf-8") as source:
+        program = Parser(source.read()).parse()
+    for tag in sorted(Checker(program).check()):
+        print(tag)
+
+
+if __name__ == "__main__":
+    main()

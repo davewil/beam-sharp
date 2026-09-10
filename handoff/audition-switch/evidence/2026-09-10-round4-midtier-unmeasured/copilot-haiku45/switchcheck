@@ -1,0 +1,742 @@
+#!/usr/bin/env python3
+"""
+Switch exhaustiveness checker for .bs language.
+"""
+import sys
+import re
+from typing import List, Dict, Set, Tuple, Optional
+from dataclasses import dataclass, field
+
+@dataclass
+class Type:
+    name: str
+    variants: List[str] = field(default_factory=list)
+    
+    def is_closed(self) -> bool:
+        return len(self.variants) > 0
+
+@dataclass
+class FunctionDef:
+    name: str
+    param_type: str
+    return_type: str
+    param_names: List[str] = field(default_factory=list)
+    clauses: List[Tuple[str, Optional[str]]] = field(default_factory=list)
+
+@dataclass  
+class SwitchArm:
+    pattern: str
+    guard: Optional[str]
+    body: str
+    index: int
+    subject: Optional[str] = None  # The switch subject (what's being switched on)
+
+class Parser:
+    def __init__(self, content: str):
+        self.content = content
+        self.lines = content.split('\n')
+        self.types: Dict[str, Type] = {}
+        self.functions: Dict[str, FunctionDef] = {}
+        self.switches: Dict[str, List[SwitchArm]] = {}
+        self.parse()
+    
+    def parse(self):
+        i = 0
+        while i < len(self.lines):
+            line = self.lines[i].strip()
+            
+            if not line or line.startswith('module'):
+                i += 1
+                continue
+            
+            if line.startswith('type '):
+                self.parse_type_def(line)
+                i += 1
+            elif line.startswith('public '):
+                i = self.parse_function(i)
+            else:
+                i += 1
+    
+    def parse_type_def(self, line: str):
+        match = re.match(r'type\s+(\w+)\s*=\s*(.*)', line)
+        if match:
+            name = match.group(1)
+            variants_str = match.group(2)
+            variants = [v.strip() for v in variants_str.split('|')]
+            self.types[name] = Type(name, variants)
+    
+    def parse_function(self, line_idx: int) -> int:
+        sig_line = self.lines[line_idx].strip()
+        match = re.match(r'public\s+(\S+)\s+(\w+)\s*\((.*)\)', sig_line)
+        if not match:
+            return line_idx + 1
+        
+        return_type = match.group(1)
+        func_name = match.group(2)
+        params_str = match.group(3)
+        
+        param_types = []
+        param_names = []
+        
+        if ',' in params_str:
+            parts = params_str.split(',')
+            for part in parts:
+                parts2 = part.strip().split()
+                if len(parts2) >= 2:
+                    param_types.append(parts2[0])
+                    param_names.append(parts2[1])
+        else:
+            parts = params_str.strip().split()
+            if len(parts) >= 2:
+                param_types.append(parts[0])
+                param_names.append(parts[1])
+        
+        if len(param_types) == 1:
+            param_type = param_types[0]
+        else:
+            param_type = f"({','.join(param_types)})"
+        
+        func_def = FunctionDef(func_name, param_type, return_type, param_names)
+        self.functions[func_name] = func_def
+        
+        idx = line_idx + 1
+        while idx < len(self.lines):
+            line = self.lines[idx].strip()
+            if not line:
+                idx += 1
+                continue
+            
+            if line.startswith(func_name + '('):
+                idx = self.parse_clause_and_switch(func_name, idx, func_def)
+            else:
+                break
+        
+        return idx
+    
+    def parse_clause_and_switch(self, func_name: str, line_idx: int, func_def: FunctionDef) -> int:
+        clause_line = self.lines[line_idx].strip()
+        match = re.match(r'(\w+)\((.*?)\)\s*(?:when\s+(.+?))?\s*->', clause_line)
+        if not match:
+            return line_idx + 1
+        
+        pattern = match.group(2)
+        guard = match.group(3).strip() if match.group(3) else None
+        
+        func_def.clauses.append((pattern, guard))
+        
+        # Check if there's a switch in the clause BODY (after ->), not in the guard
+        arrow_pos = clause_line.find('->')
+        if arrow_pos != -1:
+            body_part = clause_line[arrow_pos + 2:].strip()
+            if 'switch' in body_part:
+                # Switch is on the same line as the clause
+                return self.parse_switch(func_name, line_idx)
+        
+        # Look for a switch in the next few lines (the clause body might be multi-line)
+        idx = line_idx + 1
+        while idx < len(self.lines):
+            line_content = self.lines[idx].strip()
+            
+            # If we hit another clause or public function, stop
+            if line_content.startswith(func_name + '(') or line_content.startswith('public '):
+                return idx
+            
+            # If we find a switch, parse it
+            if 'switch' in line_content:
+                return self.parse_switch(func_name, idx)
+            
+            idx += 1
+        
+        # No switch found, return where we ended
+        return idx
+    
+    def parse_switch(self, func_name: str, start_idx: int) -> int:
+        switch_text = ""
+        idx = start_idx
+        
+        while idx < len(self.lines):
+            switch_text += self.lines[idx] + " "
+            if '}' in self.lines[idx]:
+                idx += 1
+                break
+            idx += 1
+        
+        # Extract the subject: "subject switch { ... }"
+        subject_match = re.search(r'(\w+)\s+switch\s*\{', switch_text)
+        subject = subject_match.group(1) if subject_match else None
+        
+        arms_match = re.search(r'switch\s*\{(.*)\}', switch_text, re.DOTALL)
+        if not arms_match:
+            return idx
+        
+        arms_text = arms_match.group(1)
+        arms = self.split_switch_arms(arms_text)
+        
+        if func_name not in self.switches:
+            self.switches[func_name] = []
+        
+        for i, arm_text in enumerate(arms):
+            arm_text = arm_text.strip()
+            if not arm_text:
+                continue
+            
+            arm_match = re.match(r'(.*?)\s*(?:when\s+(.+?))?\s*=>\s*(.*)', arm_text)
+            if arm_match:
+                pattern = arm_match.group(1).strip()
+                guard = arm_match.group(2).strip() if arm_match.group(2) else None
+                body = arm_match.group(3).strip()
+                
+                switch_arm = SwitchArm(pattern, guard, body, i, subject)
+                self.switches[func_name].append(switch_arm)
+        
+        return idx
+    
+    def split_switch_arms(self, text: str) -> List[str]:
+        arms = []
+        current = ""
+        depth = 0
+        
+        for char in text:
+            if char in '({[':
+                depth += 1
+            elif char in ')}]':
+                depth -= 1
+            elif char == ',' and depth == 0:
+                arms.append(current)
+                current = ""
+                continue
+            
+            current += char
+        
+        if current:
+            arms.append(current)
+        
+        return arms
+
+class Checker:
+    def __init__(self, parser: Parser):
+        self.parser = parser
+        self.diagnostics: List[str] = []
+    
+    def check(self):
+        # First, check for switch in guards for all functions
+        for func_name, func_def in self.parser.functions.items():
+            self.check_switch_in_guard(func_name, func_def)
+        
+        # Then check switch statements
+        for func_name, arms in self.parser.switches.items():
+            func_def = self.parser.functions.get(func_name)
+            if not func_def:
+                continue
+            
+            # Check in specific order
+            self.check_vacuous_arms(func_name, arms, func_def)
+            self.check_unreachable_arms(func_name, arms, func_def)
+            self.check_unsatisfiable_guards(func_name, arms)
+            self.check_rebinding(func_name, arms, func_def)
+            self.check_unbound_variables(func_name, arms, func_def)
+            self.check_arg_not_accepted(func_name, arms, func_def)
+            self.check_return_types(func_name, arms, func_def)
+            self.check_exhaustiveness(func_name, arms, func_def)
+    
+    def check_switch_in_guard(self, func_name: str, func_def: FunctionDef):
+        for pattern, guard in func_def.clauses:
+            if guard and 'switch' in guard:
+                self.diagnostics.append('switch_in_guard')
+    
+    def check_vacuous_arms(self, func_name: str, arms: List[SwitchArm], func_def: FunctionDef):
+        """Check for arms that don't match the subject type"""
+        param_type = func_def.param_type
+        type_def = self.parser.types.get(param_type)
+        
+        if not type_def:
+            return
+        
+        for arm in arms:
+            pattern = arm.pattern.strip()
+            
+            if pattern == '_':
+                continue
+            
+            # Check if pattern could match a variant of the type
+            is_valid = False
+            for variant in type_def.variants:
+                if self.pattern_could_match_variant(pattern, variant):
+                    is_valid = True
+                    break
+            
+            if not is_valid:
+                self.diagnostics.append('vacuous_arm')
+    
+    def check_unreachable_arms(self, func_name: str, arms: List[SwitchArm], func_def: FunctionDef):
+        """Check for arms covered by earlier arms"""
+        for i in range(1, len(arms)):
+            current = arms[i]
+            current_pattern = current.pattern.strip()
+            
+            covered_by_earlier = False
+            for j in range(i):
+                earlier = arms[j]
+                earlier_pattern = earlier.pattern.strip()
+                
+                # If earlier arm has unsatisfiable guard, it covers nothing
+                if earlier.guard and not self.is_guard_satisfiable(earlier.guard):
+                    continue
+                
+                if self.pattern_covers(earlier_pattern, current_pattern):
+                    covered_by_earlier = True
+                    break
+            
+            if covered_by_earlier:
+                self.diagnostics.append('unreachable_arm')
+    
+    def check_unsatisfiable_guards(self, func_name: str, arms: List[SwitchArm]):
+        """Check for guards that can never be satisfied"""
+        for arm in arms:
+            if arm.guard:
+                if not self.is_guard_satisfiable(arm.guard):
+                    self.diagnostics.append('unsatisfiable_arm_guard')
+    
+    def check_rebinding(self, func_name: str, arms: List[SwitchArm], func_def: FunctionDef):
+        """Check for rebinding of clause parameters in arm patterns"""
+        for arm in arms:
+            # Get bare names in pattern
+            pattern_names = self.extract_bare_names_from_pattern(arm.pattern)
+            
+            for name in pattern_names:
+                if name in func_def.param_names:
+                    self.diagnostics.append('rebinding')
+    
+    def check_unbound_variables(self, func_name: str, arms: List[SwitchArm], func_def: FunctionDef):
+        """Check for unbound variables in arm bodies"""
+        for arm in arms:
+            # Skip vacuous arms
+            if self.is_arm_vacuous(arm, func_def):
+                continue
+            
+            # Bound variables: parameter names + arm pattern bindings
+            bound = set(func_def.param_names)
+            bound.update(self.extract_bound_vars(arm.pattern))
+            
+            # Used variables in body
+            used = self.extract_vars_used_in_body(arm.body)
+            
+            for var in used:
+                if var not in bound:
+                    self.diagnostics.append('unbound_variable')
+    
+    def check_arg_not_accepted(self, func_name: str, arms: List[SwitchArm], func_def: FunctionDef):
+        """Check if function calls receive correct types"""
+        for arm in arms:
+            # Skip vacuous arms
+            if self.is_arm_vacuous(arm, func_def):
+                continue
+            
+            body = arm.body.strip()
+            
+            # Find function calls
+            calls = re.findall(r'(\w+)\s*\(([^)]*)\)', body)
+            for called_name, args_str in calls:
+                called_func = self.parser.functions.get(called_name)
+                if not called_func:
+                    continue
+                
+                # Get first argument
+                if not args_str:
+                    continue
+                
+                arg = args_str.split(',')[0].strip()
+                
+                # Infer argument type
+                arg_type = self.infer_type(arg, arm, func_def)
+                
+                # Check compatibility
+                if not self.types_compatible(arg_type, called_func.param_type):
+                    self.diagnostics.append('arg_not_accepted')
+    
+    def check_return_types(self, func_name: str, arms: List[SwitchArm], func_def: FunctionDef):
+        """Check if return values match declared type"""
+        for arm in arms:
+            # Skip vacuous arms
+            if self.is_arm_vacuous(arm, func_def):
+                continue
+            
+            body = arm.body.strip()
+            
+            if not self.value_matches_type(body, func_def.return_type, func_def, arm):
+                self.diagnostics.append('return_not_declared')
+    
+    def check_exhaustiveness(self, func_name: str, arms: List[SwitchArm], func_def: FunctionDef):
+        """Check if switch covers all cases"""
+        param_type = func_def.param_type
+        type_def = self.parser.types.get(param_type)
+        
+        has_catchall = any(a.pattern.strip() == '_' for a in arms)
+        
+        if type_def and type_def.is_closed():
+            # Count covered variants
+            covered = set()
+            for arm in arms:
+                # Skip catch-all for coverage counting on closed types
+                if arm.pattern.strip() == '_':
+                    continue
+                    
+                for variant in type_def.variants:
+                    if self.arm_covers_variant(arm, variant):
+                        covered.add(variant)
+            
+            if len(covered) < len(type_def.variants):
+                self.diagnostics.append('switch_inexhaustive')
+        else:
+            # Open type - need catch-all or exhaustive patterns
+            if not has_catchall and param_type.startswith('('):
+                # Tuple type - check exhaustiveness
+                if not self.is_tuple_exhaustive(arms, param_type):
+                    self.diagnostics.append('switch_inexhaustive')
+    
+    # Helper methods
+    
+    def is_arm_vacuous(self, arm: SwitchArm, func_def: FunctionDef) -> bool:
+        """Check if this arm's pattern is vacuous for the subject type"""
+        param_type = func_def.param_type
+        type_def = self.parser.types.get(param_type)
+        
+        if not type_def:
+            return False
+        
+        pattern = arm.pattern.strip()
+        if pattern == '_':
+            return False
+        
+        for variant in type_def.variants:
+            if self.pattern_could_match_variant(pattern, variant):
+                return False
+        
+        return True
+    
+    def extract_bare_names_from_pattern(self, pattern: str) -> Set[str]:
+        """Extract bare identifiers from a pattern (excludes == patterns)"""
+        # Remove == patterns
+        pattern_no_eq = re.sub(r'==\s*\w+', '', pattern)
+        # Remove atoms (anything starting with :)
+        pattern_no_atoms = re.sub(r':\w+', '', pattern_no_eq)
+        
+        # Extract identifiers
+        names = set()
+        tokens = re.findall(r'\b[a-z_]\w*\b', pattern_no_atoms)
+        
+        for token in tokens:
+            if token and token not in ['_', 'and', 'or', 'when']:
+                names.add(token)
+        
+        return names
+    
+    def extract_bound_vars(self, pattern: str) -> Set[str]:
+        """Extract variables bound by this pattern"""
+        # This includes bare names, not == patterns or atoms
+        bound = set()
+        
+        # Remove == patterns
+        pattern_no_eq = re.sub(r'==\s*\w+', '', pattern)
+        # Remove atoms (anything starting with :)
+        pattern_no_atoms = re.sub(r':\w+', '', pattern_no_eq)
+        
+        tokens = re.findall(r'\b[a-z_]\w*\b', pattern_no_atoms)
+        
+        for token in tokens:
+            if token and token not in ['_', 'and', 'or', 'when']:
+                bound.add(token)
+        
+        return bound
+    
+    def extract_vars_used_in_body(self, body: str) -> Set[str]:
+        """Extract variables used in a function body"""
+        used = set()
+        
+        # Find identifiers that are NOT:
+        # - preceded by : (atoms)
+        # - function names (followed by ()
+        # - keywords
+        
+        # Use negative lookbehind to exclude atoms and negative lookahead to exclude function calls
+        tokens = re.findall(r'(?<!:)\b([a-z_]\w*)(?!\s*\()\b', body)
+        
+        for token in tokens:
+            if token in ['switch', 'when', 'and', 'or', 'true', 'false']:
+                continue
+            used.add(token)
+        
+        return used
+    
+    def pattern_could_match_variant(self, pattern: str, variant: str) -> bool:
+        """Can pattern match this specific variant?"""
+        pattern = pattern.strip()
+        
+        if pattern == '_':
+            return True
+        
+        if pattern == variant:
+            return True
+        
+        # Tuple patterns can match tuple variants
+        if '(' in pattern and '(' in variant:
+            return True
+        
+        return False
+    
+    def pattern_covers(self, p1: str, p2: str) -> bool:
+        """Does pattern p1 cover pattern p2? (For unreachability checking)"""
+        p1 = p1.strip()
+        p2 = p2.strip()
+        
+        # Catch-all covers everything
+        if p1 == '_':
+            return True
+        
+        # Exact match
+        if p1 == p2:
+            return True
+        
+        return False
+    
+    def is_guard_satisfiable(self, guard: str) -> bool:
+        """Can this guard be satisfied?"""
+        parts = guard.split(' and ')
+        
+        if len(parts) < 2:
+            return True
+        
+        # Check for contradictions
+        for i in range(len(parts)):
+            for j in range(i + 1, len(parts)):
+                if self.are_contradictory(parts[i].strip(), parts[j].strip()):
+                    return False
+        
+        return True
+    
+    def are_contradictory(self, c1: str, c2: str) -> bool:
+        """Do these conditions contradict each other?"""
+        # Try matching as relational expressions: var op value
+        m1 = re.match(r'(\w+)\s*(>=|>|<=|<|==|!=)\s*(-?\d+)', c1)
+        m2 = re.match(r'(\w+)\s*(>=|>|<=|<|==|!=)\s*(-?\d+)', c2)
+        
+        if not m1 or not m2:
+            return False
+        
+        var1, op1, val1 = m1.group(1), m1.group(2), int(m1.group(3))
+        var2, op2, val2 = m2.group(1), m2.group(2), int(m2.group(3))
+        
+        if var1 != var2:
+            return False
+        
+        # Check for contradictions
+        # x > a and x < b where a >= b
+        if op1 == '>' and op2 == '<' and val1 >= val2:
+            return True
+        if op1 == '<' and op2 == '>' and val2 >= val1:
+            return True
+        
+        # x >= a and x < b where a >= b
+        if op1 == '>=' and op2 == '<' and val1 > val2:
+            return True
+        if op1 == '<' and op2 == '>=' and val2 > val1:
+            return True
+        
+        # x > a and x <= b where a >= b
+        if op1 == '>' and op2 == '<=' and val1 > val2:
+            return True
+        if op1 == '<=' and op2 == '>' and val2 > val1:
+            return True
+        
+        # x >= a and x <= b where a > b
+        if op1 == '>=' and op2 == '<=' and val1 > val2:
+            return True
+        if op1 == '<=' and op2 == '>=' and val2 > val1:
+            return True
+        
+        # x > a and x <= a
+        if op1 == '>' and op2 == '<=' and val1 == val2:
+            return True
+        if op1 == '<=' and op2 == '>' and val1 == val2:
+            return True
+        
+        # x >= a and x < a
+        if op1 == '>=' and op2 == '<' and val1 == val2:
+            return True
+        if op1 == '<' and op2 == '>=' and val1 == val2:
+            return True
+        
+        return False
+    
+    def infer_type(self, arg: str, arm: SwitchArm, context_func: FunctionDef) -> str:
+        """Infer the type of an argument expression"""
+        arg = arg.strip()
+        
+        # If it's a parameter
+        if arg in context_func.param_names:
+            return context_func.param_type
+        
+        # If it's a literal
+        if arg.startswith(':'):
+            return 'atom'
+        if arg.isdigit() or (arg.startswith('-') and arg[1:].isdigit()):
+            return 'int'
+        if arg in ['true', 'false']:
+            return 'bool'
+        
+        # If it's a function call
+        if '(' in arg:
+            func_name = arg.split('(')[0]
+            func = self.parser.functions.get(func_name)
+            if func:
+                return func.return_type
+        
+        # If it's a variable bound by the pattern, its type is the subject type
+        if arg in self.extract_bound_vars(arm.pattern):
+            # The type of the bound variable is the type of the switch subject
+            if arm.subject and arm.subject in context_func.param_names:
+                return context_func.param_type
+            return 'term'
+        
+        return 'term'
+    
+    def types_compatible(self, actual: str, expected: str) -> bool:
+        """Is actual compatible with expected?"""
+        if expected == 'term':
+            return True
+        
+        return actual == expected
+    
+    def value_matches_type(self, value: str, type_name: str, func_def: FunctionDef, arm: SwitchArm) -> bool:
+        """Does this value match the declared type?"""
+        value = value.strip()
+        
+        if type_name == 'atom':
+            if value.startswith(':'):
+                return True
+            # Function call returning atom
+            if '(' in value:
+                func_name = value.split('(')[0]
+                func = self.parser.functions.get(func_name)
+                if func and func.return_type == 'atom':
+                    return True
+            return False
+        
+        elif type_name == 'int':
+            if value.isdigit() or (value.startswith('-') and value[1:].isdigit()):
+                return True
+            # Function call returning int
+            if '(' in value:
+                func_name = value.split('(')[0]
+                func = self.parser.functions.get(func_name)
+                if func and func.return_type == 'int':
+                    return True
+            # Variable - could be int
+            if value in self.extract_bound_vars(arm.pattern):
+                return True
+            return False
+        
+        elif type_name == 'bool':
+            return value in ['true', 'false']
+        
+        elif type_name == 'term':
+            return True
+        
+        return True
+    
+    def arm_covers_variant(self, arm: SwitchArm, variant: str) -> bool:
+        """Does this arm cover the variant?"""
+        pattern = arm.pattern.strip()
+        
+        if pattern == '_':
+            return True
+        
+        if pattern == variant:
+            return True
+        
+        return False
+    
+    def is_tuple_exhaustive(self, arms: List[SwitchArm], tuple_type: str) -> bool:
+        """Is this tuple switch exhaustive?"""
+        # Parse tuple type like "(bool, bool, bool)"
+        inner = tuple_type.strip('()').split(',')
+        element_types = [t.strip() for t in inner]
+        
+        # For bool tuples, enumerate all cases
+        if all(t == 'bool' for t in element_types):
+            total_cases = 2 ** len(element_types)
+            
+            # Generate all possible bool tuples
+            all_cases = self.generate_bool_tuples(len(element_types))
+            
+            covered_cases = set()
+            for arm in arms:
+                pattern = arm.pattern.strip()
+                if pattern == '_':
+                    return True
+                
+                # Find all cases this pattern covers
+                for case in all_cases:
+                    if self.tuple_pattern_matches(pattern, case):
+                        covered_cases.add(case)
+            
+            return len(covered_cases) == total_cases
+        
+        return False
+    
+    def generate_bool_tuples(self, n: int) -> List[Tuple[bool, ...]]:
+        """Generate all possible bool tuples of length n"""
+        if n == 0:
+            return [()]
+        
+        sub = self.generate_bool_tuples(n - 1)
+        result = []
+        for s in sub:
+            result.append(s + (True,))
+            result.append(s + (False,))
+        
+        return result
+    
+    def tuple_pattern_matches(self, pattern: str, case: Tuple[bool, ...]) -> bool:
+        """Does this pattern match this specific bool tuple?"""
+        pattern = pattern.strip()
+        pattern = pattern.strip('()')
+        
+        parts = [p.strip() for p in pattern.split(',')]
+        
+        if len(parts) != len(case):
+            return False
+        
+        for i, part in enumerate(parts):
+            if part == '_':
+                continue
+            
+            # Check if part matches case[i]
+            case_str = 'true' if case[i] else 'false'
+            if part != case_str:
+                return False
+        
+        return True
+
+def main():
+    if len(sys.argv) < 2:
+        sys.exit(1)
+    
+    filepath = sys.argv[1]
+    
+    try:
+        with open(filepath, 'r') as f:
+            content = f.read()
+    except:
+        sys.exit(1)
+    
+    parser = Parser(content)
+    checker = Checker(parser)
+    checker.check()
+    
+    # Output sorted unique diagnostics
+    for diag in sorted(set(checker.diagnostics)):
+        print(diag)
+
+if __name__ == '__main__':
+    main()

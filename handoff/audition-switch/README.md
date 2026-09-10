@@ -99,6 +99,15 @@ and `h11` asks it of an atom against a primitive `int`. Full numbers, the
 revealed failures and the provenance:
 [`evidence/2026-09-09-round3-nine-tags/`](evidence/2026-09-09-round3-nine-tags/NOTES.md).
 
+**Round 4 (2026-09-10) reproduced it and measured the variance.** `astra` and
+`grok-4.6` returned the identical 12/13 and 11/12 on attempt 1 and 25/25 after.
+Both copilot lanes *improved* on an unchanged instrument — sonnet 10/12 → 11/12
+held-out, haiku 7/12 → 9/12 — so run-to-run variance is real and worth two
+held-out cases, and no single round is a model's record. **`h11` was missed again**,
+and `h04` failed for sonnet in both rounds by two different wrong answers, which is
+a case the packet does not decide rather than a model that guessed.
+[`evidence/2026-09-10-round4-midtier-unmeasured/`](evidence/2026-09-10-round4-midtier-unmeasured/NOTES.md).
+
 **The packet changed on 2026-08-27, and the scores below predate it.** §5 is
 longer by seven examples, and `build-packet.py` now strips every HTML comment
 except the `check:` blocks. Both are improvements to what a worker receives and
@@ -240,6 +249,16 @@ argument that made this a multi-model audition in the first place.
 
 **A pass from any of them is worth more than round 3's two**, because it says the
 specification survives a reader who is not the best available.
+
+**Run the codex lanes in separate rounds, and never behind `astra`.** Round 4 put
+all four in one run against one ChatGPT plan: `astra` went first, ran 647 seconds,
+and all three mid-tier lanes then died on `You've hit your usage limit` — two of
+them in under ten seconds, having read nothing. A capability question was asked in
+a way that made a billing answer inevitable, and the round produced **no
+measurement** for the thing it was run to measure. `astra` has answered its
+question twice; it does not need to be in the round that asks the mid-tier one.
+[Round 4's notes](evidence/2026-09-10-round4-midtier-unmeasured/NOTES.md) carry
+the detail.
 
 ### The lanes
 

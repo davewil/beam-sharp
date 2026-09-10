@@ -1,0 +1,1394 @@
+#!/usr/bin/env python3
+"""
+switchcheck: exhaustiveness / switch well-formedness checker for the
+'.bs' language described in PACKET.md.
+
+Reads a single .bs file and prints one lowercase diagnostic tag per line.
+A well-formed file prints nothing.
+"""
+import sys
+import re
+
+TAGS = set()
+
+
+def emit(tag):
+    TAGS.add(tag)
+
+
+# ---------------------------------------------------------------------------
+# Tokenizer
+# ---------------------------------------------------------------------------
+
+TOKEN_RE = re.compile(r"""
+    (?P<ws>\s+)
+  | (?P<comment>//[^\n]*)
+  | (?P<arrow>->)
+  | (?P<fatarrow>=>)
+  | (?P<dotdot>\.\.)
+  | (?P<atom>:[A-Za-z_][A-Za-z0-9_]*)
+  | (?P<ge>>=)
+  | (?P<le><=)
+  | (?P<ne>!=)
+  | (?P<eq>==)
+  | (?P<num>-?[0-9]+)
+  | (?P<ident>[A-Za-z_][A-Za-z0-9_]*)
+  | (?P<punct>[(){}\[\],.<>|=])
+""", re.VERBOSE)
+
+KEYWORDS = {"module", "type", "record", "public", "when", "and", "or",
+            "switch", "true", "false"}
+
+
+def tokenize(src):
+    toks = []
+    pos = 0
+    n = len(src)
+    while pos < n:
+        m = TOKEN_RE.match(src, pos)
+        if not m:
+            pos += 1
+            continue
+        pos = m.end()
+        kind = m.lastgroup
+        text = m.group()
+        if kind in ("ws", "comment"):
+            continue
+        toks.append((kind, text))
+    toks.append(("eof", ""))
+    return toks
+
+
+# ---------------------------------------------------------------------------
+# Parser
+# ---------------------------------------------------------------------------
+
+class Parser:
+    def __init__(self, toks):
+        self.toks = toks
+        self.i = 0
+
+    def peek(self, k=0):
+        return self.toks[self.i + k]
+
+    def kind(self, k=0):
+        return self.peek(k)[0]
+
+    def text(self, k=0):
+        return self.peek(k)[1]
+
+    def at_eof(self):
+        return self.kind() == "eof"
+
+    def advance(self):
+        t = self.peek()
+        self.i += 1
+        return t
+
+    def expect_text(self, text):
+        if self.text() != text:
+            raise SyntaxError(f"expected {text!r} got {self.text()!r} at {self.i}")
+        return self.advance()
+
+    def is_text(self, text):
+        return self.text() == text
+
+    # -- top level ----------------------------------------------------
+
+    def parse_program(self):
+        types = {}
+        records = {}
+        functions = {}
+        order = []
+        while not self.at_eof():
+            if self.is_text("module"):
+                self.advance()
+                self.advance()  # name
+                continue
+            if self.is_text("type"):
+                name, variants = self.parse_type_decl()
+                types[name] = variants
+                continue
+            if self.is_text("record"):
+                name, fields = self.parse_record_decl()
+                records[name] = fields
+                continue
+            if self.is_text("public"):
+                fn = self.parse_function()
+                if fn.name in functions:
+                    functions[fn.name].clauses.extend(fn.clauses)
+                else:
+                    functions[fn.name] = fn
+                    order.append(fn.name)
+                continue
+            # unknown token at top level; skip it defensively
+            self.advance()
+        return types, records, functions, order
+
+    def parse_type_decl(self):
+        self.expect_text("type")
+        name = self.advance()[1]
+        self.expect_text("=")
+        variants = [self.parse_type_variant()]
+        while self.is_text("|"):
+            self.advance()
+            variants.append(self.parse_type_variant())
+        return name, variants
+
+    def parse_type_variant(self):
+        if self.kind() == "atom":
+            return ("atomlit", self.advance()[1])
+        if self.is_text("("):
+            self.advance()
+            parts = []
+            if not self.is_text(")"):
+                parts.append(self.parse_type_expr())
+                while self.is_text(","):
+                    self.advance()
+                    parts.append(self.parse_type_expr())
+            self.expect_text(")")
+            return ("tuple", parts)
+        # bare type name used as variant (rare)
+        return self.parse_type_expr()
+
+    def parse_type_expr(self):
+        if self.kind() == "atom":
+            return ("atomlit", self.advance()[1])
+        if self.is_text("("):
+            self.advance()
+            parts = []
+            if not self.is_text(")"):
+                parts.append(self.parse_type_expr())
+                while self.is_text(","):
+                    self.advance()
+                    parts.append(self.parse_type_expr())
+            self.expect_text(")")
+            return ("tuple", parts)
+        name = self.advance()[1]
+        if self.is_text("<"):
+            self.advance()
+            inner = self.parse_type_expr()
+            self.expect_text(">")
+            return ("list", inner) if name == "list" else ("generic", name, inner)
+        return ("ref", name)
+
+    def parse_record_decl(self):
+        self.expect_text("record")
+        name = self.advance()[1]
+        self.expect_text("{")
+        fields = {}
+        while not self.is_text("}"):
+            fname = self.advance()[1]
+            self.expect_text(":")
+            ftype = self.parse_type_expr()
+            fields[fname] = ftype
+            if self.is_text(","):
+                self.advance()
+        self.expect_text("}")
+        return name, fields
+
+    def parse_function(self):
+        self.expect_text("public")
+        rettype = self.parse_type_expr()
+        name = self.advance()[1]
+        self.expect_text("(")
+        params = []
+        if not self.is_text(")"):
+            params.append(self.parse_param())
+            while self.is_text(","):
+                self.advance()
+                params.append(self.parse_param())
+        self.expect_text(")")
+        fn = Function(name, rettype, params)
+        # parse clauses that belong to this function (same name)
+        while self.is_text(name) and self.kind() == "ident":
+            clause = self.parse_clause(name)
+            fn.clauses.append(clause)
+        return fn
+
+    def parse_param(self):
+        ptype = self.parse_type_expr()
+        pname = self.advance()[1]
+        return (ptype, pname)
+
+    def parse_clause(self, name):
+        self.expect_text(name)
+        self.expect_text("(")
+        pats = []
+        if not self.is_text(")"):
+            pats.append(self.parse_pattern())
+            while self.is_text(","):
+                self.advance()
+                pats.append(self.parse_pattern())
+        self.expect_text(")")
+        guard = None
+        if self.is_text("when"):
+            self.advance()
+            guard = self.parse_guard_expr()
+        self.expect_text("->")
+        body = self.parse_expr()
+        return Clause(pats, guard, body)
+
+    # -- patterns -------------------------------------------------------
+
+    def parse_pattern(self):
+        if self.is_text("_"):
+            self.advance()
+            return ("wildcard",)
+        if self.is_text("=="):
+            self.advance()
+            n = self.advance()[1]
+            return ("eqname", n)
+        if self.kind() == "atom":
+            return ("atomlit", self.advance()[1])
+        if self.text() in (">=", "<=", ">", "<"):
+            return self.parse_relational_pattern()
+        if self.kind() == "num":
+            return ("intlit", int(self.advance()[1]))
+        if self.is_text("true"):
+            self.advance()
+            return ("boollit", True)
+        if self.is_text("false"):
+            self.advance()
+            return ("boollit", False)
+        if self.is_text("("):
+            self.advance()
+            subs = []
+            if not self.is_text(")"):
+                subs.append(self.parse_pattern())
+                while self.is_text(","):
+                    self.advance()
+                    subs.append(self.parse_pattern())
+            self.expect_text(")")
+            return ("tuple", subs)
+        if self.is_text("["):
+            self.advance()
+            prefix = []
+            rest = None
+            has_rest = False
+            if not self.is_text("]"):
+                while True:
+                    if self.is_text(".."):
+                        self.advance()
+                        has_rest = True
+                        if self.kind() == "ident":
+                            rest = self.advance()[1]
+                        break
+                    prefix.append(self.parse_pattern())
+                    if self.is_text(","):
+                        self.advance()
+                        continue
+                    break
+            self.expect_text("]")
+            return ("list", prefix, has_rest, rest)
+        if self.kind() == "ident":
+            return ("name", self.advance()[1])
+        raise SyntaxError(f"unexpected pattern token {self.peek()}")
+
+    def parse_relational_pattern(self):
+        parts = []
+        while self.text() in (">=", "<=", ">", "<"):
+            op = self.advance()[1]
+            val = int(self.advance()[1])
+            parts.append((op, val))
+            if self.is_text("and"):
+                self.advance()
+                continue
+            break
+        return ("relational", parts)
+
+    # -- guards -----------------------------------------------------------
+    # Guard grammar (subset): comparisons joined by 'and'/'or', calls,
+    # nested switch (illegal -> flagged), literals, names.
+
+    def parse_guard_expr(self):
+        return self.parse_guard_or()
+
+    def parse_guard_or(self):
+        left = self.parse_guard_and()
+        while self.is_text("or"):
+            self.advance()
+            right = self.parse_guard_and()
+            left = ("or", left, right)
+        return left
+
+    def parse_guard_and(self):
+        left = self.parse_guard_atom()
+        while self.is_text("and"):
+            self.advance()
+            right = self.parse_guard_atom()
+            left = ("and", left, right)
+        return left
+
+    def parse_guard_atom(self):
+        if self.is_text("("):
+            self.advance()
+            e = self.parse_guard_or()
+            self.expect_text(")")
+            return e
+        # leading relational operator against the bound var (rare in guards)
+        if self.text() in (">=", "<=", ">", "<", "=="):
+            op = self.advance()[1]
+            rhs = self.parse_guard_operand()
+            return ("cmpimplicit", op, rhs)
+        # primary operand, possibly followed by comparator
+        left = self.parse_guard_primary()
+        if self.text() in (">=", "<=", ">", "<", "==", "!="):
+            op = self.advance()[1]
+            right = self.parse_guard_operand()
+            return ("cmp", op, left, right)
+        return ("truthy", left)
+
+    def parse_guard_operand(self):
+        if self.kind() == "num":
+            return ("intlit", int(self.advance()[1]))
+        if self.is_text("true"):
+            self.advance()
+            return ("boollit", True)
+        if self.is_text("false"):
+            self.advance()
+            return ("boollit", False)
+        if self.kind() == "atom":
+            return ("atomlit", self.advance()[1])
+        if self.kind() == "ident":
+            return ("name", self.advance()[1])
+        raise SyntaxError(f"unexpected guard operand {self.peek()}")
+
+    def parse_guard_primary(self):
+        if self.is_text("switch"):
+            # a switch used inside a guard - illegal; consume it fully
+            self.consume_switch_block()
+            return ("switch",)
+        if self.kind() == "ident":
+            name = self.advance()[1]
+            if self.is_text("("):
+                self.advance()
+                args = []
+                if not self.is_text(")"):
+                    args.append(self.parse_expr())
+                    while self.is_text(","):
+                        self.advance()
+                        args.append(self.parse_expr())
+                self.expect_text(")")
+                if self.is_text("switch"):
+                    self.consume_switch_suffix()
+                    return ("switch",)
+                return ("call", name, args)
+            if self.is_text("switch"):
+                self.consume_switch_suffix()
+                return ("switch",)
+            return ("name", name)
+        return self.parse_guard_operand()
+
+    def consume_switch_suffix(self):
+        self.expect_text("switch")
+        self.consume_switch_body()
+
+    def consume_switch_block(self):
+        self.expect_text("switch")
+        self.consume_switch_body()
+
+    def consume_switch_body(self):
+        self.expect_text("{")
+        depth = 1
+        while depth > 0:
+            t = self.advance()
+            if t[1] == "{":
+                depth += 1
+            elif t[1] == "}":
+                depth -= 1
+
+    # -- expressions (bodies) --------------------------------------------
+
+    def parse_expr(self):
+        # primary
+        e = self.parse_primary()
+        if self.text() in (">=", "<=", ">", "<", "==", "!="):
+            op = self.advance()[1]
+            right = self.parse_primary()
+            e = ("boolcmp", op, e, right)
+        if self.is_text("switch"):
+            self.advance()
+            arms = self.parse_switch_arms()
+            e = ("switch", e, arms)
+        return e
+
+    def parse_primary(self):
+        if self.kind() == "num":
+            return ("intlit", int(self.advance()[1]))
+        if self.is_text("true"):
+            self.advance()
+            return ("boollit", True)
+        if self.is_text("false"):
+            self.advance()
+            return ("boollit", False)
+        if self.kind() == "atom":
+            return ("atomlit", self.advance()[1])
+        if self.is_text("("):
+            self.advance()
+            parts = [self.parse_expr()]
+            while self.is_text(","):
+                self.advance()
+                parts.append(self.parse_expr())
+            self.expect_text(")")
+            if len(parts) == 1:
+                return parts[0]
+            return ("tupleexpr", parts)
+        if self.kind() == "ident":
+            name = self.advance()[1]
+            if self.is_text("("):
+                self.advance()
+                args = []
+                if not self.is_text(")"):
+                    args.append(self.parse_expr())
+                    while self.is_text(","):
+                        self.advance()
+                        args.append(self.parse_expr())
+                self.expect_text(")")
+                return ("call", name, args)
+            if self.is_text("."):
+                # field access, e.g. o.Status - treat as opaque atom-ish
+                self.advance()
+                field = self.advance()[1]
+                return ("field", name, field)
+            return ("name", name)
+        # fallback: relational used as an expression body (rare)
+        if self.text() in (">=", "<=", ">", "<"):
+            op = self.advance()[1]
+            val = int(self.advance()[1])
+            return ("cmpexpr", op, val)
+        raise SyntaxError(f"unexpected expr token {self.peek()}")
+
+    def parse_switch_arms(self):
+        self.expect_text("{")
+        arms = []
+        while not self.is_text("}"):
+            pat = self.parse_pattern()
+            guard = None
+            if self.is_text("when"):
+                self.advance()
+                guard = self.parse_guard_expr()
+            self.expect_text("=>")
+            body = self.parse_expr()
+            arms.append(Clause([pat], guard, body))
+            if self.is_text(","):
+                self.advance()
+        self.expect_text("}")
+        return arms
+
+
+class Function:
+    def __init__(self, name, rettype, params):
+        self.name = name
+        self.rettype = rettype
+        self.params = params  # list of (type, name)
+        self.clauses = []
+
+
+class Clause:
+    def __init__(self, pats, guard, body):
+        self.pats = pats
+        self.guard = guard
+        self.body = body
+
+
+# ---------------------------------------------------------------------------
+# Type resolution
+# ---------------------------------------------------------------------------
+
+class SumType:
+    def __init__(self, variants):
+        # variants: list of ("atomlit", tag) or ("tuple", [type_exprs])
+        self.variants = variants
+        self.atom_tags = set()
+        self.payload = {}  # tag -> list of type exprs
+        for v in variants:
+            if v[0] == "atomlit":
+                self.atom_tags.add(v[1])
+            elif v[0] == "tuple":
+                parts = v[1]
+                if parts and parts[0][0] == "atomlit":
+                    tag = parts[0][1]
+                    self.payload[tag] = parts[1:]
+                else:
+                    # anonymous tuple variant without atom tag: ignore (rare)
+                    pass
+
+    def is_pure_atoms(self):
+        return len(self.payload) == 0
+
+
+# ---------------------------------------------------------------------------
+# Domains (for exhaustiveness)
+# ---------------------------------------------------------------------------
+
+NEG_INF = float("-inf")
+POS_INF = float("inf")
+
+
+class IntDomain:
+    def __init__(self, intervals=None):
+        self.intervals = intervals if intervals is not None else [(NEG_INF, POS_INF)]
+
+    def is_empty(self):
+        return len(self.intervals) == 0
+
+    def subtract(self, lo, hi):
+        new = []
+        for (a, b) in self.intervals:
+            if hi < a or lo > b:
+                new.append((a, b))
+                continue
+            if lo > a:
+                new.append((a, lo - 1))
+            if hi < b:
+                new.append((hi + 1, b))
+        self.intervals = new
+
+    def intersects(self, lo, hi):
+        for (a, b) in self.intervals:
+            if not (hi < a or lo > b):
+                return True
+        return False
+
+    def example(self):
+        if not self.intervals:
+            return None
+        a, b = self.intervals[0]
+        if a == NEG_INF and b == POS_INF:
+            return ("full",)
+        if a == NEG_INF:
+            return ("le", b)
+        if b == POS_INF:
+            return ("ge", a)
+        return ("range", a, b)
+
+
+def interval_from_relational(parts):
+    """parts: list of (op, val) joined by 'and' -> single interval intersection."""
+    lo, hi = NEG_INF, POS_INF
+    for op, val in parts:
+        if op == ">=":
+            lo = max(lo, val)
+        elif op == ">":
+            lo = max(lo, val + 1)
+        elif op == "<=":
+            hi = min(hi, val)
+        elif op == "<":
+            hi = min(hi, val - 1)
+    return lo, hi
+
+
+def guard_truth_intervals(guard):
+    """Evaluate a readable int guard to a list of (lo,hi) intervals representing
+    the set of values (of the single free int variable) satisfying it.
+    Returns None if guard is not readable (as an int predicate)."""
+    if guard is None:
+        return [(NEG_INF, POS_INF)]
+    tag = guard[0]
+    if tag == "cmp":
+        _, op, left, right = guard
+        if left[0] != "name" or right[0] != "intlit":
+            return None
+        val = right[1]
+        if op == ">=":
+            return [(val, POS_INF)]
+        if op == ">":
+            return [(val + 1, POS_INF)]
+        if op == "<=":
+            return [(NEG_INF, val)]
+        if op == "<":
+            return [(NEG_INF, val - 1)]
+        if op == "==":
+            return [(val, val)]
+        if op == "!=":
+            return [(NEG_INF, val - 1), (val + 1, POS_INF)]
+        return None
+    if tag == "and":
+        _, a, b = guard
+        ia = guard_truth_intervals(a)
+        ib = guard_truth_intervals(b)
+        if ia is None or ib is None:
+            return None
+        out = []
+        for (a1, b1) in ia:
+            for (a2, b2) in ib:
+                lo = max(a1, a2)
+                hi = min(b1, b2)
+                if lo <= hi:
+                    out.append((lo, hi))
+        return merge_intervals(out)
+    if tag == "or":
+        _, a, b = guard
+        ia = guard_truth_intervals(a)
+        ib = guard_truth_intervals(b)
+        if ia is None or ib is None:
+            return None
+        return merge_intervals(ia + ib)
+    return None
+
+
+def merge_intervals(intervals):
+    if not intervals:
+        return []
+    ivs = sorted(intervals)
+    out = [ivs[0]]
+    for a, b in ivs[1:]:
+        la, lb = out[-1]
+        if a <= lb + 1:
+            out[-1] = (la, max(lb, b))
+        else:
+            out.append((a, b))
+    return out
+
+
+def guard_contains_switch(guard):
+    if guard is None:
+        return False
+    if guard[0] == "switch":
+        return True
+    if guard[0] == "truthy":
+        return guard_contains_switch(guard[1])
+    if guard[0] in ("and", "or"):
+        return guard_contains_switch(guard[1]) or guard_contains_switch(guard[2])
+    return False
+
+
+def guard_free_name(pat):
+    """Given the pattern (bare name) that a guard refines, return its name."""
+    if pat[0] == "name":
+        return pat[1]
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Main analysis
+# ---------------------------------------------------------------------------
+
+class Analyzer:
+    def __init__(self, types, records, functions):
+        self.types = types  # name -> SumType
+        self.records = records
+        self.functions = functions
+
+    def base_kind(self, texpr):
+        """Classify a resolved type expression into a coarse kind string."""
+        if texpr[0] == "ref":
+            name = texpr[1]
+            if name in self.types:
+                st = self.types[name]
+                return "sum"
+            if name in self.records:
+                return "record"
+            if name == "int":
+                return "int"
+            if name == "bool":
+                return "bool"
+            if name in ("atom",):
+                return "atom"
+            if name in ("term",):
+                return "term"
+            if name in ("string",):
+                return "string"
+            return "unknown"
+        if texpr[0] == "tuple":
+            return "tuple"
+        if texpr[0] == "list":
+            return "list"
+        return "unknown"
+
+    def sum_of(self, texpr):
+        if texpr[0] == "ref" and texpr[1] in self.types:
+            return self.types[texpr[1]]
+        return None
+
+    def tuple_parts(self, texpr):
+        if texpr[0] == "tuple":
+            return texpr[1]
+        return None
+
+    # ---- pattern type-shape checks (vacuous) ---------------------------
+
+    def pattern_kind(self, pat):
+        return pat[0]
+
+    def is_binding_only(self, pat):
+        return pat[0] in ("name", "wildcard", "eqname")
+
+    def pattern_vacuous(self, pat, texpr):
+        """Return True if pat cannot possibly be a member of texpr's type."""
+        kind = self.base_kind(texpr)
+        if self.is_binding_only(pat):
+            return False
+        if kind == "term":
+            return False
+        if kind == "unknown" or kind == "record" or kind == "string":
+            return False
+        if kind == "sum":
+            st = self.sum_of(texpr)
+            if pat[0] == "atomlit":
+                tag = pat[1]
+                return tag not in st.atom_tags and tag not in st.payload
+            if pat[0] == "tuple":
+                # must correspond to a payload tag as (:tag, ...)
+                subs = pat[1]
+                if not subs or subs[0][0] != "atomlit":
+                    return True
+                tag = subs[0][1]
+                if tag not in st.payload:
+                    return True
+                expected_arity = len(st.payload[tag])
+                got_arity = len(subs) - 1
+                return expected_arity != got_arity
+            # relational/intlit/boollit/list patterns against a sum type: not a member
+            return True
+        if kind == "atom":
+            if pat[0] == "atomlit":
+                return False
+            return True
+        if kind == "bool":
+            if pat[0] == "boollit":
+                return False
+            return True
+        if kind == "int":
+            if pat[0] in ("intlit", "relational"):
+                return False
+            return True
+        if kind == "tuple":
+            if pat[0] != "tuple":
+                return True
+            parts = self.tuple_parts(texpr)
+            if parts is None or len(parts) != len(pat[1]):
+                return True
+            for sp, st_ in zip(pat[1], parts):
+                if self.pattern_vacuous(sp, st_):
+                    return True
+            return False
+        if kind == "list":
+            if pat[0] != "list":
+                return True
+            return False
+        return False
+
+    # ---- domain-based exhaustiveness for supported subject shapes ------
+
+    def make_domain(self, texpr):
+        kind = self.base_kind(texpr)
+        if kind == "bool":
+            return ("bool", {True, False})
+        if kind == "int":
+            return ("int", IntDomain())
+        if kind == "sum":
+            st = self.sum_of(texpr)
+            if st.is_pure_atoms():
+                return ("atomset", set(st.atom_tags))
+            # sum with payload: track remaining per tag
+            remaining = {}
+            for tag in st.atom_tags:
+                remaining[tag] = ("unit", True)  # present/absent
+            for tag, ptypes in st.payload.items():
+                if len(ptypes) == 1:
+                    remaining[tag] = ("payload1", self.make_domain(ptypes[0]))
+                else:
+                    remaining[tag] = ("present", True)
+            return ("sumpayload", remaining, st)
+        if kind == "tuple":
+            parts = self.tuple_parts(texpr)
+            comps = [self.make_domain(p) for p in parts]
+            # only support enumeration if all comps are bool/atomset (finite)
+            if all(c[0] in ("bool", "atomset") for c in comps):
+                return ("ftuple", self.enumerate_domain(comps))
+            return ["open", [False]]
+        return ["open", [False]]
+
+    def enumerate_domain(self, comps):
+        def values(c):
+            if c[0] == "bool":
+                return list(c[1])
+            if c[0] == "atomset":
+                return list(c[1])
+            return []
+        import itertools
+        vals = [values(c) for c in comps]
+        return set(itertools.product(*vals))
+
+    def domain_is_empty(self, dom):
+        k = dom[0]
+        if k == "bool":
+            return len(dom[1]) == 0
+        if k == "atomset":
+            return len(dom[1]) == 0
+        if k == "int":
+            return dom[1].is_empty()
+        if k == "ftuple":
+            return len(dom[1]) == 0
+        if k == "sumpayload":
+            remaining = dom[1]
+            for tag, v in remaining.items():
+                if v[0] == "unit" and v[1]:
+                    return False
+                if v[0] == "present" and v[1]:
+                    return False
+                if v[0] == "payload1" and not self.domain_is_empty(v[1]):
+                    return False
+            return True
+        if k == "open":
+            return dom[1][0]  # closed once a full wildcard/name match occurred
+        return False
+
+    def domain_supported(self, dom):
+        return True
+
+    # Determine the "matched set" of a pattern (+ optional guard) against a
+    # domain, without yet subtracting. Returns (readable: bool, matched_repr)
+    # matched_repr is domain-shaped description of what this arm covers.
+
+    def pattern_match_and_subtract(self, dom, pat, guard):
+        """Attempt to subtract pat(+guard)'s matched values from dom in place.
+        Returns (matched_any: bool or None-if-unknown, guard_unreadable: bool,
+                 guard_unsat: bool)"""
+        k = dom[0]
+        if self.is_binding_only(pat):
+            if pat[0] == "eqname":
+                # credits nothing towards coverage
+                return (False, False, False)
+            # bare name or wildcard: may carry a guard (only meaningful for int)
+            if guard is not None:
+                truth = guard_truth_intervals(guard)
+                if truth is None:
+                    return (None, True, False)
+                if not truth:
+                    return (False, False, True)
+                if k == "int":
+                    before_empty = dom[1].is_empty()
+                    matched = dom[1].intersects(*self._span(truth))
+                    for lo, hi in truth:
+                        dom[1].subtract(lo, hi)
+                    return (matched, False, False)
+                # guard on non-int bare name: unsupported, treat unreadable-ish
+                return (None, True, False)
+            # no guard: full match, clears domain
+            was_nonempty = not self.domain_is_empty(dom)
+            self._clear_domain(dom)
+            return (was_nonempty, False, False)
+        if k == "int":
+            if pat[0] == "intlit":
+                v = pat[1]
+                matched = dom[1].intersects(v, v)
+                dom[1].subtract(v, v)
+                return (matched, False, False)
+            if pat[0] == "relational":
+                lo, hi = interval_from_relational(pat[1])
+                matched = dom[1].intersects(lo, hi)
+                dom[1].subtract(lo, hi)
+                return (matched, False, False)
+            return (None, True, False)
+        if k == "bool":
+            if pat[0] == "boollit":
+                v = pat[1]
+                matched = v in dom[1]
+                dom[1].discard(v)
+                return (matched, False, False)
+            return (None, True, False)
+        if k == "atomset":
+            if pat[0] == "atomlit":
+                v = pat[1]
+                matched = v in dom[1]
+                dom[1].discard(v)
+                return (matched, False, False)
+            return (None, True, False)
+        if k == "ftuple":
+            if pat[0] == "tuple":
+                matched_set = self._tuple_pattern_matches(dom[1], pat[1])
+                matched = len(matched_set) > 0
+                dom[1].difference_update(matched_set)
+                return (matched, False, False)
+            return (None, True, False)
+        if k == "sumpayload":
+            remaining, st = dom[1], dom[2]
+            if pat[0] == "atomlit":
+                tag = pat[1]
+                if tag in remaining and remaining[tag][0] == "unit":
+                    matched = remaining[tag][1]
+                    remaining[tag] = ("unit", False)
+                    return (matched, False, False)
+                return (False, False, False)
+            if pat[0] == "tuple" and pat[1] and pat[1][0][0] == "atomlit":
+                tag = pat[1][0][1]
+                subpat = pat[1][1] if len(pat[1]) > 1 else None
+                if tag not in remaining:
+                    return (False, False, False)
+                entry = remaining[tag]
+                if entry[0] == "present":
+                    matched = entry[1]
+                    remaining[tag] = ("present", False)
+                    return (matched, False, False)
+                if entry[0] == "payload1":
+                    subdom = entry[1]
+                    if subpat is None:
+                        return (False, False, False)
+                    return self.pattern_match_and_subtract(subdom, subpat, guard)
+                return (False, False, False)
+            return (None, True, False)
+        return (None, True, False)
+
+    def _span(self, intervals):
+        lo = min(a for a, b in intervals)
+        hi = max(b for a, b in intervals)
+        return lo, hi
+
+    def _clear_domain(self, dom):
+        k = dom[0]
+        if k == "bool":
+            dom[1].clear() if isinstance(dom[1], set) else None
+            dom = ("bool", set())
+        if k == "int":
+            dom[1].intervals = []
+        if k == "atomset":
+            dom[1].clear()
+        if k == "ftuple":
+            dom[1].clear()
+        if k == "sumpayload":
+            remaining = dom[1]
+            for tag in list(remaining.keys()):
+                v = remaining[tag]
+                if v[0] in ("unit", "present"):
+                    remaining[tag] = (v[0], False)
+                elif v[0] == "payload1":
+                    self._clear_domain(v[1])
+        if k == "open":
+            dom[1][0] = True
+
+    def _tuple_pattern_matches(self, universe, subpats):
+        out = set()
+        for tup in universe:
+            ok = True
+            for val, sp in zip(tup, subpats):
+                if self.is_binding_only(sp):
+                    continue
+                if sp[0] == "boollit" and val == sp[1]:
+                    continue
+                if sp[0] == "atomlit" and val == sp[1]:
+                    continue
+                ok = False
+                break
+            if ok:
+                out.add(tup)
+        return out
+
+    # ---- expression type inference (best-effort) -----------------------
+
+    def infer_expr_type(self, expr, scope):
+        if expr is None:
+            return None
+        tag = expr[0]
+        if tag == "atomlit":
+            return ("atomexpr", expr[1])
+        if tag == "intlit":
+            return ("ref", "int")
+        if tag == "boollit":
+            return ("ref", "bool")
+        if tag == "boolcmp":
+            return ("ref", "bool")
+        if tag == "name":
+            return scope.get(expr[1])
+        if tag == "call":
+            fn = self.functions.get(expr[1])
+            if fn is None:
+                return None
+            return fn.rettype
+        if tag == "field":
+            base = scope.get(expr[1])
+            if base is not None and base[0] == "ref" and base[1] in self.records:
+                return self.records[base[1]].get(expr[2])
+            return None
+        if tag == "tupleexpr":
+            parts = []
+            for sub in expr[1]:
+                st = self.infer_expr_type(sub, scope)
+                if st is None:
+                    return None
+                if st[0] == "atomexpr":
+                    return None
+                parts.append(st)
+            return ("tuple", parts)
+        return None
+
+    def type_accepts(self, decl_type, value_type):
+        """Return True/False/None(unknown) for whether decl_type accepts a
+        value of value_type."""
+        if value_type is None:
+            return None
+        kind = self.base_kind(decl_type)
+        if kind == "term":
+            return True
+        if value_type[0] == "atomexpr":
+            tag = value_type[1]
+            if kind == "atom":
+                return True
+            if kind == "sum":
+                st = self.sum_of(decl_type)
+                return tag in st.atom_tags
+            return False
+        if value_type[0] == "ref":
+            vname = value_type[1]
+            if decl_type[0] == "ref":
+                dname = decl_type[1]
+                if dname == vname:
+                    return True
+                # both builtins mismatched, or one is sum type
+                if dname in ("int", "bool", "atom", "term", "string") or \
+                   vname in ("int", "bool", "atom", "term", "string"):
+                    return dname == vname
+                return None
+            return None
+        return None
+
+    def type_name_for_message(self, texpr):
+        if texpr[0] == "ref":
+            return texpr[1]
+        if texpr[0] == "atomexpr":
+            return texpr[1]
+        return "?"
+
+    # ---- collecting used names in an expression / guard -----------------
+
+    def names_used(self, expr):
+        out = set()
+        if expr is None:
+            return out
+
+        def walk(e):
+            if e is None:
+                return
+            if e[0] == "name":
+                out.add(e[1])
+            elif e[0] == "call":
+                for a in e[2]:
+                    walk(a)
+            elif e[0] == "tupleexpr":
+                for a in e[1]:
+                    walk(a)
+            elif e[0] == "field":
+                out.add(e[1])
+            elif e[0] == "boolcmp":
+                walk(e[2])
+                walk(e[3])
+            elif e[0] == "switch":
+                walk(e[1])
+                for arm in e[2]:
+                    # arm bodies have their own scope; still walk guard/body
+                    # but exclude names bound by arm pattern (approx: skip)
+                    walk(arm.guard) if False else None
+                    walk(arm.body)
+            elif e[0] in ("and", "or"):
+                walk(e[1])
+                walk(e[2])
+            elif e[0] == "cmp":
+                walk(e[2])
+                walk(e[3])
+            elif e[0] == "truthy":
+                walk(e[1])
+        walk(expr)
+        return out
+
+    def pattern_bound_names(self, pat):
+        out = []
+
+        def walk(p):
+            if p[0] == "name":
+                out.append(p[1])
+            elif p[0] == "tuple":
+                for sp in p[1]:
+                    walk(sp)
+            elif p[0] == "list":
+                prefix, has_rest, restname = p[1], p[2], p[3]
+                for sp in prefix:
+                    walk(sp)
+                if restname:
+                    out.append(restname)
+        walk(pat)
+        return out
+
+    def pattern_bound_types(self, pat, texpr):
+        """Return dict name->type for names bound in pat, given subject type texpr."""
+        out = {}
+        kind = self.base_kind(texpr)
+
+        def walk(p, t):
+            if p[0] == "name":
+                out[p[1]] = t
+            elif p[0] == "tuple" and t is not None:
+                parts = None
+                k = self.base_kind(t)
+                if k == "tuple":
+                    parts = self.tuple_parts(t)
+                elif k == "sum":
+                    st = self.sum_of(t)
+                    if p[1] and p[1][0][0] == "atomlit":
+                        tag = p[1][0][1]
+                        parts = [("atomlit_tag",)] + list(st.payload.get(tag, []))
+                if parts:
+                    for sp, st_ in zip(p[1], parts):
+                        if st_ == ("atomlit_tag",):
+                            continue
+                        walk(sp, st_)
+            elif p[0] == "list":
+                pass
+        walk(pat, texpr)
+        return out
+
+    # ---- guard name usage (for unbound check) ---------------------------
+
+    def guard_names_used(self, guard):
+        out = set()
+
+        def walk(g):
+            if g is None:
+                return
+            if g[0] == "name":
+                out.add(g[1])
+            elif g[0] == "cmp":
+                walk(g[2])
+                walk(g[3])
+            elif g[0] == "cmpimplicit":
+                walk(g[1])
+            elif g[0] in ("and", "or"):
+                walk(g[1])
+                walk(g[2])
+            elif g[0] == "truthy":
+                walk(g[1])
+            elif g[0] == "call":
+                for a in g[2]:
+                    walk(a)
+        walk(guard)
+        return out
+
+    def guard_calls(self, guard):
+        out = []
+
+        def walk(g):
+            if g is None:
+                return
+            if g[0] == "call":
+                out.append(g)
+                for a in g[2]:
+                    walk(a)
+            elif g[0] in ("and", "or"):
+                walk(g[1])
+                walk(g[2])
+            elif g[0] == "truthy":
+                walk(g[1])
+            elif g[0] == "cmp":
+                walk(g[2])
+                walk(g[3])
+        walk(guard)
+        return out
+
+    def body_calls(self, expr):
+        out = []
+
+        def walk(e):
+            if e is None:
+                return
+            if e[0] == "call":
+                out.append(e)
+                for a in e[2]:
+                    walk(a)
+            elif e[0] == "tupleexpr":
+                for a in e[1]:
+                    walk(a)
+            elif e[0] == "switch":
+                walk(e[1])
+                for arm in e[2]:
+                    walk(arm.body)
+        walk(expr)
+        return out
+
+    # ---- main per-function analysis --------------------------------------
+
+    def check_arg_not_accepted(self, callexpr, scope):
+        fname = callexpr[1]
+        fn = self.functions.get(fname)
+        if fn is None:
+            return
+        args = callexpr[2]
+        for (ptype, pname), argexpr in zip(fn.params, args):
+            vtype = self.infer_expr_type(argexpr, scope)
+            accepted = self.type_accepts(ptype, vtype)
+            if accepted is False:
+                emit("arg_not_accepted")
+
+    def check_return(self, rettype, body, scope):
+        # only checks simple literal/call bodies; nested switch handled
+        # per-arm elsewhere.
+        if body[0] == "switch":
+            return
+        vtype = self.infer_expr_type(body, scope)
+        accepted = self.type_accepts(rettype, vtype)
+        if accepted is False:
+            emit("return_not_declared")
+
+    def analyze_arm_list(self, subject_type, arms, outer_scope, rettype,
+                          check_return_types=True):
+        """arms: list of Clause with .pats (len 1 wrapping the arm/clause
+        pattern for this subject), .guard, .body"""
+        dom = self.make_domain(subject_type) if subject_type is not None else ("open", None)
+        supported = self.domain_supported(dom)
+        # `term` is unboundedly heterogeneous (any shape, any depth) -- the
+        # checker cannot enumerate or compute a residual against it at all,
+        # so exhaustiveness (and reachability, which relies on the same
+        # domain machinery) is simply not attempted for a term-typed
+        # subject. This differs from `atom`, whose domain is flat and the
+        # checker still tracks (open, but closable only via a wildcard).
+        if subject_type is not None and self.base_kind(subject_type) == "term":
+            supported = False
+        idx = 0
+        for clause in arms:
+            idx += 1
+            pat = clause.pats[0]
+            guard = clause.guard
+
+            if guard_contains_switch(guard):
+                emit("switch_in_guard")
+                guard = ("unreadable",)  # credits nothing; not judged for unsat
+
+            # rebinding check: names newly introduced by this pattern that
+            # already exist in outer scope, or duplicated within the pattern.
+            bound_names = self.pattern_bound_names(pat)
+            seen = set()
+            rebinding_found = False
+            for n in bound_names:
+                if n in outer_scope or n in seen:
+                    rebinding_found = True
+                seen.add(n)
+            if rebinding_found:
+                emit("rebinding")
+
+            local_types = self.pattern_bound_types(pat, subject_type) if subject_type else {}
+            scope = dict(outer_scope)
+            scope.update(local_types)
+
+            # unbound variable check in body + guard (best effort names)
+            used = self.names_used(clause.body) | self.guard_names_used(guard)
+            bound_here = set(bound_names) | set(outer_scope.keys())
+            for n in used:
+                if n not in bound_here and n not in self.functions:
+                    emit("unbound_variable")
+
+            # vacuous arm check (structural)
+            vacuous = False
+            if subject_type is not None and not self.is_binding_only(pat):
+                if self.pattern_vacuous(pat, subject_type):
+                    vacuous = True
+                    emit("vacuous_arm")
+
+            unsat = False
+            if not vacuous and guard is not None:
+                truth = guard_truth_intervals(guard)
+                if truth is not None and len(truth) == 0:
+                    unsat = True
+                    emit("unsatisfiable_arm_guard")
+
+            if not vacuous and not unsat and supported:
+                matched, unreadable, _ = self.pattern_match_and_subtract(dom, pat, guard)
+                if matched is False:
+                    emit("unreachable_arm")
+
+            # arg_not_accepted checks (guard calls + body calls)
+            if guard is not None:
+                for c in self.guard_calls(guard):
+                    self.check_arg_not_accepted(c, scope)
+            for c in self.body_calls(clause.body):
+                self.check_arg_not_accepted(c, scope)
+
+            # return type check
+            if check_return_types and rettype is not None:
+                if clause.body[0] == "switch":
+                    # recurse into nested switch arms with same rettype
+                    inner_subject = clause.body[1]
+                    inner_type = self.infer_expr_type(inner_subject, scope)
+                    self.analyze_arm_list(inner_type, clause.body[2], scope,
+                                          rettype, check_return_types=True)
+                else:
+                    self.check_return(rettype, clause.body, scope)
+
+        if supported and not self.domain_is_empty(dom):
+            emit("switch_inexhaustive")
+
+    def analyze_function(self, fn):
+        outer_scope = {pname: ptype for (ptype, pname) in fn.params}
+        clauses = fn.clauses
+        if len(clauses) == 0:
+            return
+        if len(clauses) > 1:
+            # multi-clause head: virtual switch over tuple of params (or
+            # single param type if exactly one param)
+            if len(fn.params) == 1:
+                subject_type = fn.params[0][0]
+            elif len(fn.params) > 1:
+                subject_type = ("tuple", [p[0] for p in fn.params])
+            else:
+                subject_type = None
+
+            virt_arms = []
+            for cl in clauses:
+                if len(fn.params) == 1:
+                    pat = cl.pats[0]
+                else:
+                    pat = ("tuple", cl.pats)
+                virt_arms.append(Clause([pat], cl.guard, cl.body))
+            self.analyze_arm_list(subject_type, virt_arms, {}, fn.rettype)
+        else:
+            cl = clauses[0]
+            # bind clause's own pattern names (typically bare names == params)
+            scope = dict(outer_scope)
+            for (ptype, pname), pat in zip(fn.params, cl.pats):
+                for n in self.pattern_bound_names(pat):
+                    scope[n] = ptype
+            body = cl.body
+            if cl.guard is not None and guard_contains_switch(cl.guard):
+                emit("switch_in_guard")
+            if body[0] == "switch":
+                subject_expr = body[1]
+                subject_type = self.infer_expr_type(subject_expr, scope)
+                self.analyze_arm_list(subject_type, body[2], scope, fn.rettype)
+            else:
+                for c in self.body_calls(body):
+                    self.check_arg_not_accepted(c, scope)
+                self.check_return(fn.rettype, body, scope)
+
+
+def main():
+    if len(sys.argv) != 2:
+        sys.exit(1)
+    path = sys.argv[1]
+    with open(path, "r") as f:
+        src = f.read()
+    try:
+        toks = tokenize(src)
+        p = Parser(toks)
+        types_raw, records, functions, order = p.parse_program()
+    except Exception:
+        # Parsing failed entirely; say nothing rather than guess.
+        return
+
+    types = {}
+    for name, variants in types_raw.items():
+        types[name] = SumType(variants)
+
+    analyzer = Analyzer(types, records, functions)
+    for name in order:
+        fn = functions[name]
+        try:
+            analyzer.analyze_function(fn)
+        except Exception:
+            # Be conservative: never guess on internal errors.
+            continue
+
+    for tag in TAGS:
+        print(tag)
+
+
+if __name__ == "__main__":
+    main()
