@@ -550,8 +550,9 @@ language.
 11. **The spec fix was verified, and the prediction was exact.** `§5`'s
     illustration was replaced with a **gated fence** using a fresh name, and the
     rule was stated beside the example rather than seventy lines away in §2.
-    `check-language.sh` went from 37 blocks to **38, 37 ok** — the example is
-    now compiled on every CI run and cannot rot again in the way it did.
+    `check-language.sh` went from 37 blocks to **38, 37 ok** (on 2026-08-22;
+    `LANGUAGE.md` has grown since) — the example is now compiled on every CI
+    run and cannot rot again in the way it did.
 
     `copilot-sonnet5` was re-run against the regenerated packet. It had failed
     exactly one case before, so the prediction was falsifiable and stated in
@@ -579,7 +580,14 @@ language.
   is *"which examples contradict rules stated elsewhere"*, and the mechanism that
   let this one survive is knowable — it sat in **loose prose rather than a
   fence**, where `check-language.sh` cannot reach. Every ungated code fragment in
-  `LANGUAGE.md` is a candidate. 46 of its 84 fences are bare and ungated.
+  `LANGUAGE.md` is a candidate: code in prose, the `illustrative` fences the
+  gate skips, and the `erlang` and `elixir` fences it never reads. Bare fences
+  hold compiler output, commands, a diagram and an HTML-comment example, not
+  B# source; the gate checks a bare fence only as the expected output an
+  `expect-after` directive names. *(Corrected 2026-09-10: this read "46 of its
+  84 fences are bare and ungated", which counted fence lines, so every closing
+  fence counted as a bare one. When it was written the file had 43 fences, 4
+  of them bare.)*
 - ~~**`unbound_variable` and `arg_not_accepted`** remain genuinely
   unspecified.~~ **Closed 2026-08-27 (ENG-248)**, along with `switch_in_guard`,
   which this list did not know about. All three are stated in §5 with a compiled
