@@ -1,0 +1,967 @@
+#!/usr/bin/env python3
+"""Small clean-room checker for the switch language described in PACKET.md."""
+
+import re
+import sys
+from itertools import product
+
+
+TAGS = {
+    "switch_inexhaustive",
+    "unreachable_arm",
+    "vacuous_arm",
+    "unsatisfiable_arm_guard",
+    "rebinding",
+    "unbound_variable",
+    "return_not_declared",
+    "arg_not_accepted",
+    "switch_in_guard",
+}
+
+
+def split_top(text, separator=","):
+    """Split on a single-character separator outside (), [] and {}."""
+    parts, start, depth = [], 0, 0
+    pairs = {"(": ")", "[": "]", "{": "}"}
+    opens = set(pairs)
+    for i, ch in enumerate(text):
+        if ch in opens:
+            depth += 1
+        elif ch in pairs.values():
+            depth -= 1
+        elif ch == separator and depth == 0:
+            parts.append(text[start:i].strip())
+            start = i + 1
+    parts.append(text[start:].strip())
+    return parts
+
+
+def find_top(text, token):
+    depth = 0
+    pairs = {"(": ")", "[": "]", "{": "}"}
+    for i, ch in enumerate(text):
+        if ch in pairs:
+            depth += 1
+        elif ch in pairs.values():
+            depth -= 1
+        elif depth == 0 and text.startswith(token, i):
+            return i
+    return -1
+
+
+def strip_outer(text, left, right):
+    text = text.strip()
+    if not (text.startswith(left) and text.endswith(right)):
+        return None
+    depth = 0
+    pairs = {"(": ")", "[": "]", "{": "}"}
+    for i, ch in enumerate(text):
+        if ch in pairs:
+            depth += 1
+        elif ch in pairs.values():
+            depth -= 1
+            if depth == 0 and i != len(text) - 1:
+                return None
+    return text[1:-1]
+
+
+def typ(kind, **kwargs):
+    value = {"kind": kind}
+    value.update(kwargs)
+    return value
+
+
+ANY = typ("any")
+INT = typ("int")
+BOOL = typ("bool")
+ATOM = typ("atom")
+STRING = typ("string")
+TERM = typ("term")
+
+
+def parse_type(text, aliases):
+    text = text.strip()
+    pieces = split_union(text)
+    if len(pieces) > 1:
+        return typ("union", options=[parse_type(p, aliases) for p in pieces])
+    inside = strip_outer(text, "(", ")")
+    if inside is not None and "," in inside:
+        return typ("tuple", items=[parse_type(p, aliases) for p in split_top(inside)])
+    if text.startswith("list<") and text.endswith(">"):
+        return typ("list", item=parse_type(text[5:-1], aliases))
+    if text in aliases:
+        return aliases[text]
+    if text in {"int", "bool", "atom", "string", "term"}:
+        return {"int": INT, "bool": BOOL, "atom": ATOM,
+                "string": STRING, "term": TERM}[text]
+    return ANY
+
+
+def parse_record_definition(line, aliases):
+    match = re.match(r"^record\s+([A-Za-z_][A-Za-z0-9_]*)\s*\{(.*)\}\s*$", line.strip())
+    if not match:
+        return None
+    name, fields_text = match.groups()
+    fields = {}
+    for item in split_top(fields_text):
+        found = re.match(r"^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+)$", item.strip())
+        if found:
+            field, field_type = found.groups()
+            fields[field] = parse_type(field_type, aliases)
+    return name, typ("record", name=name, fields=fields)
+
+
+def split_union(text):
+    pieces, start, depth = [], 0, 0
+    for i, ch in enumerate(text):
+        if ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth -= 1
+        elif ch == "|" and depth == 0:
+            pieces.append(text[start:i].strip())
+            start = i + 1
+    pieces.append(text[start:].strip())
+    return pieces
+
+
+def parse_atom_literal(text):
+    text = text.strip()
+    if re.fullmatch(r":?[A-Za-z_][A-Za-z0-9_]*", text):
+        if text.startswith(":"):
+            return ("atom", text[1:])
+        if text in {"true", "false"}:
+            return ("bool", text == "true")
+    if re.fullmatch(r"-?[0-9]+", text):
+        return ("int", int(text))
+    if len(text) >= 2 and text[0] == '"' and text[-1] == '"':
+        return ("string", text[1:-1])
+    return None
+
+
+def parse_pattern(text):
+    text = text.strip()
+    if text == "_":
+        return {"kind": "wild"}
+    if text.startswith("=="):
+        name = text[2:].strip()
+        if re.fullmatch(r"[a-z_][A-Za-z0-9_]*", name):
+            return {"kind": "eq", "name": name}
+        return {"kind": "unknown"}
+    m = re.match(r"^(<=|>=|!=|<|>)\s*(.*)$", text, re.S)
+    if m:
+        lit = parse_atom_literal(m.group(2).strip())
+        return {"kind": "rel", "op": m.group(1), "value": lit} if lit else {"kind": "unknown"}
+    inside = strip_outer(text, "(", ")")
+    if inside is not None and ("," in inside or not inside.strip()):
+        return {"kind": "tuple", "items": [parse_pattern(p) for p in split_top(inside)] if inside.strip() else []}
+    inside = strip_outer(text, "[", "]")
+    if inside is not None:
+        parts = split_top(inside) if inside.strip() else []
+        rest = None
+        rest_present = False
+        if parts and parts[-1].startswith(".."):
+            rest_present = True
+            rest = parts.pop()[2:].strip() or None
+        return {"kind": "list", "items": [parse_pattern(p) for p in parts], "rest": rest, "rest_present": rest_present}
+    inside = strip_outer(text, "{", "}")
+    if inside is not None:
+        fields = {}
+        for part in split_top(inside):
+            if ":" in part:
+                key, value = part.split(":", 1)
+                fields[key.strip()] = parse_pattern(value)
+        return {"kind": "record", "fields": fields}
+    lit = parse_atom_literal(text)
+    if lit:
+        return {"kind": "lit", "value": lit}
+    if re.fullmatch(r"[a-z_][A-Za-z0-9_]*", text):
+        return {"kind": "name", "name": text}
+    return {"kind": "unknown"}
+
+
+def split_guard(text, marker="when"):
+    index = find_top(text, marker)
+    if index < 0:
+        return text.strip(), None
+    return text[:index].strip(), text[index + len(marker):].strip()
+
+
+def parse_signature(line, aliases):
+    match = re.match(r"^public\s+(.+?)\s+([A-Z][A-Za-z0-9_]*)\s*\((.*)\)\s*$", line.strip())
+    if not match:
+        return None
+    return_type, name, arg_text = match.groups()
+    args = []
+    for item in split_top(arg_text):
+        if not item:
+            continue
+        # Types are followed by a lower-case parameter name.
+        found = re.match(r"^(.+?)\s+([a-z_][A-Za-z0-9_]*)$", item.strip())
+        if found:
+            args.append((found.group(2), parse_type(found.group(1), aliases)))
+        else:
+            args.append(("", parse_type(item, aliases)))
+    return {"name": name, "return": parse_type(return_type, aliases), "args": args}
+
+
+def parse_call_head(line):
+    """Return (name, patterns, guard, rhs) for a clause, or None."""
+    arrow = find_top(line, "->")
+    if arrow < 0:
+        return None
+    left, rhs = line[:arrow].strip(), line[arrow + 2:].strip()
+    match = re.match(r"^([A-Z][A-Za-z0-9_]*)\s*\((.*)\)$", split_guard(left)[0], re.S)
+    if not match:
+        return None
+    name, args_text = match.groups()
+    head, guard = split_guard(left)
+    args_text = re.match(r"^([A-Z][A-Za-z0-9_]*)\s*\((.*)\)$", head, re.S).group(2)
+    return name, [parse_pattern(p) for p in split_top(args_text)], guard, rhs
+
+
+def parse_arm(text):
+    arrow = find_top(text, "=>")
+    if arrow < 0:
+        return None
+    left, body = text[:arrow].strip(), text[arrow + 2:].strip()
+    pattern_text, guard = split_guard(left)
+    return {"pattern": parse_pattern(pattern_text), "guard": guard, "body": body}
+
+
+def extract_switches(expr):
+    """Extract top-level-ish switch expressions from an expression string."""
+    found = []
+    pos = 0
+    while True:
+        match = re.search(r"\bswitch\s*\{", expr[pos:])
+        if not match:
+            break
+        switch_at = pos + match.start()
+        brace = pos + match.end() - 1
+        depth = 1
+        i = brace + 1
+        while i < len(expr) and depth:
+            if expr[i] == "{":
+                depth += 1
+            elif expr[i] == "}":
+                depth -= 1
+            i += 1
+        if depth:
+            break
+        subject_start = switch_at
+        while subject_start > 0 and expr[subject_start - 1] not in ";=\n":
+            subject_start -= 1
+        subject = expr[subject_start:switch_at].strip()
+        arm_text = expr[brace + 1:i - 1]
+        arms = [parse_arm(p) for p in split_top(arm_text)]
+        found.append({"subject": subject, "arms": [a for a in arms if a], "start": switch_at})
+        pos = i
+    return found
+
+
+def names_in_pattern(pattern):
+    result = []
+    kind = pattern.get("kind")
+    if kind == "name":
+        result.append(pattern["name"])
+    elif kind in {"tuple", "list"}:
+        for item in pattern.get("items", []):
+            result.extend(names_in_pattern(item))
+        if kind == "list" and pattern.get("rest"):
+            result.append(pattern["rest"])
+    elif kind == "record":
+        for item in pattern.get("fields", {}).values():
+            result.extend(names_in_pattern(item))
+    return result
+
+
+def literal_type(value):
+    if not value:
+        return ANY
+    return {"int": INT, "bool": BOOL, "atom": ATOM, "string": STRING}.get(value[0], ANY)
+
+
+def type_accepts_pattern(type_, pattern):
+    kind = pattern.get("kind")
+    if kind in {"wild", "name", "eq"}:
+        return True
+    if kind == "unknown":
+        return True
+    if type_.get("kind") == "union":
+        return any(type_accepts_pattern(option, pattern) for option in type_["options"])
+    tk = type_.get("kind")
+    if kind == "lit":
+        if tk == "enum":
+            return pattern["value"][0] == "atom" and pattern["value"][1] in type_.get("values", [])
+        return tk == pattern["value"][0] or tk in {"atom", "any", "term"}
+    if kind == "rel":
+        return tk in {"int", "any", "term"} and pattern.get("value", (None,))[0] == "int"
+    if kind == "tuple":
+        if tk in {"any", "term"}:
+            return True
+        return tk == "tuple" and len(type_.get("items", [])) == len(pattern["items"]) and all(
+            type_accepts_pattern(child_type, child_pattern)
+            for child_type, child_pattern in zip(type_["items"], pattern["items"])
+        )
+    if kind == "list":
+        if tk in {"any", "term"}:
+            return True
+        return tk == "list" and all(type_accepts_pattern(type_["item"], child) for child in pattern.get("items", []))
+    if kind == "record":
+        if tk in {"any", "term"}:
+            return True
+        return tk == "record" and all(
+            field in type_.get("fields", {}) and
+            type_accepts_pattern(type_["fields"][field], child)
+            for field, child in pattern.get("fields", {}).items()
+        )
+    return True
+
+
+def finite_values(type_, limit=2000):
+    """Enumerate only domains that are genuinely closed and small."""
+    kind = type_.get("kind")
+    if kind == "bool":
+        return [("bool", False), ("bool", True)]
+    if kind == "enum":
+        return [("atom", x) for x in type_["values"]]
+    if kind == "union":
+        values = []
+        for option in type_.get("options", []):
+            child = finite_values(option, limit)
+            if child is None:
+                return None
+            values.extend(child)
+            if len(values) > limit:
+                return None
+        return values
+    if kind == "tuple":
+        children = [finite_values(x, limit) for x in type_["items"]]
+        if any(x is None for x in children):
+            return None
+        count = 1
+        for child in children:
+            count *= len(child)
+        if count > limit:
+            return None
+        return [("tuple", values) for values in product(*children)]
+    return None
+
+
+def pattern_matches(value, pattern):
+    kind = pattern.get("kind")
+    # `== name` is a runtime equality constraint.  It may be reachable, but
+    # the checker has no compile-time value to subtract from the residual.
+    if kind == "eq":
+        return False
+    if kind in {"wild", "name"}:
+        return True
+    if kind == "lit":
+        return value == pattern["value"]
+    if kind == "rel":
+        if value[0] != "int" or not pattern.get("value") or pattern["value"][0] != "int":
+            return False
+        left, right, op = value[1], pattern["value"][1], pattern["op"]
+        return {"<": left < right, "<=": left <= right, ">": left > right,
+                ">=": left >= right, "!=": left != right}[op]
+    if kind == "tuple" and value[0] == "tuple" and len(value[1]) == len(pattern["items"]):
+        return all(pattern_matches(v, p) for v, p in zip(value[1], pattern["items"]))
+    if kind == "list" and value[0] == "list":
+        items = pattern.get("items", [])
+        if len(value[1]) < len(items):
+            return False
+        if not pattern.get("rest_present") and len(value[1]) != len(items):
+            return False
+        return all(pattern_matches(v, p) for v, p in zip(value[1], items))
+    if kind == "record" and value[0] == "record":
+        fields = dict(value[1])
+        return all(field in fields and pattern_matches(fields[field], p) for field, p in pattern.get("fields", {}).items())
+    return False
+
+
+def interval_intersection(a, b):
+    if a is None or b is None:
+        return None
+    result = []
+    for lo1, hi1 in a:
+        for lo2, hi2 in b:
+            lo = max_bound(lo1, lo2)
+            hi = min_bound(hi1, hi2)
+            if lo is None or hi is None or lo <= hi:
+                result.append((lo, hi))
+    return merge_intervals(result)
+
+
+def max_bound(a, b):
+    if a is None:
+        return b
+    if b is None:
+        return a
+    return max(a, b)
+
+
+def min_bound(a, b):
+    if a is None:
+        return b
+    if b is None:
+        return a
+    return min(a, b)
+
+
+def merge_intervals(intervals):
+    intervals = sorted(intervals, key=lambda x: -10**30 if x[0] is None else x[0])
+    result = []
+    for lo, hi in intervals:
+        if not result:
+            result.append((lo, hi))
+            continue
+        plo, phi = result[-1]
+        adjacent = phi is None or lo is None or (phi + 1 >= lo)
+        if adjacent:
+            result[-1] = (plo, None if phi is None or hi is None else max(phi, hi))
+        else:
+            result.append((lo, hi))
+    return result
+
+
+ALL_INTERVAL = [(None, None)]
+
+
+def pattern_intervals(pattern):
+    kind = pattern.get("kind")
+    if kind in {"wild", "name"}:
+        return ALL_INTERVAL
+    if kind == "eq":
+        return []  # known value is not compile-time certain
+    if kind == "lit" and pattern["value"][0] == "int":
+        n = pattern["value"][1]
+        return [(n, n)]
+    if kind == "rel" and pattern.get("value") and pattern["value"][0] == "int":
+        n, op = pattern["value"][1], pattern["op"]
+        if op == "<": return [(None, n - 1)]
+        if op == "<=": return [(None, n)]
+        if op == ">": return [(n + 1, None)]
+        if op == ">=": return [(n, None)]
+        if op == "!=": return [(None, n - 1), (n + 1, None)]
+    return []
+
+
+def guard_intervals(guard):
+    """Return (readable, intervals), or (False, None) for an opaque guard."""
+    if not guard:
+        return True, ALL_INTERVAL
+    guard = guard.strip()
+    ors = split_boolean(guard, "or")
+    all_parts = []
+    for alternative in ors:
+        pieces = split_boolean(alternative, "and")
+        current = ALL_INTERVAL
+        var = None
+        for piece in pieces:
+            m = re.fullmatch(r"([a-z_][A-Za-z0-9_]*)\s*(<=|>=|!=|==|<|>)\s*(-?[0-9]+)", piece.strip())
+            if not m:
+                return False, None
+            this_var, op, raw = m.groups()
+            if var is None:
+                var = this_var
+            elif var != this_var:
+                return False, None
+            n = int(raw)
+            if op == "<": part = [(None, n - 1)]
+            elif op == "<=": part = [(None, n)]
+            elif op == ">": part = [(n + 1, None)]
+            elif op == ">=": part = [(n, None)]
+            elif op == "==": part = [(n, n)]
+            else: part = [(None, n - 1), (n + 1, None)]
+            current = interval_intersection(current, part)
+        all_parts.extend(current or [])
+    return True, merge_intervals(all_parts)
+
+
+def split_boolean(text, word):
+    # Guards use word operators and the supplied grammar has no parentheses requirement.
+    parts, start, depth = [], 0, 0
+    token = " " + word + " "
+    i = 0
+    while i <= len(text) - len(token):
+        ch = text[i]
+        if ch in "([{": depth += 1
+        elif ch in ")]}": depth -= 1
+        if depth == 0 and text.startswith(token, i):
+            parts.append(text[start:i].strip())
+            start = i + len(token)
+            i = start
+        else:
+            i += 1
+    parts.append(text[start:].strip())
+    return parts
+
+
+def intervals_cover_all(intervals):
+    if not intervals:
+        return False
+    merged = merge_intervals(intervals)
+    return merged[0][0] is None and merged[-1][1] is None
+
+
+def list_domain(type_, arms, limit=2000):
+    """Build a finite abstraction for a closed-element list.
+
+    Lengths through the longest written prefix are represented exactly; one
+    extra length stands for every longer list.  That is sufficient to decide
+    prefix/rest coverage without pretending an unbounded list is finite.
+    """
+    if type_.get("kind") != "list":
+        return None
+    item_values = finite_values(type_.get("item", ANY), limit)
+    if item_values is None:
+        return None
+    max_prefix = max((len(a["pattern"].get("items", [])) for a in arms), default=0)
+    values = []
+    count = 0
+    for length in range(max_prefix + 2):
+        count += len(item_values) ** length
+        if count > limit:
+            return None
+        for items in product(item_values, repeat=length):
+            values.append(("list", items))
+    return values
+
+
+def coverage(type_, pattern, guard, finite_override=None):
+    """Return (possible, certain coverage kind, coverage)."""
+    if not type_accepts_pattern(type_, pattern):
+        return False, "none", None
+    readable, guard_set = guard_intervals(guard)
+    finite = finite_override if finite_override is not None else finite_values(type_)
+    if finite is not None:
+        if pattern.get("kind") == "eq":
+            return True, "uncertain", None
+        if not readable:
+            return True, "unknown", set()
+        values = {v for v in finite if pattern_matches(v, pattern)}
+        # Readable integer guards only apply to integer values in finite domains.
+        if guard and guard_set is not None:
+            values = {v for v in values if v[0] != "int" or any((lo is None or v[1] >= lo) and (hi is None or v[1] <= hi) for lo, hi in guard_set)}
+        return bool(values), "finite", values
+    if type_.get("kind") == "union":
+        possible = False
+        pieces = []
+        for option in type_["options"]:
+            p, k, c = coverage(option, pattern, guard)
+            possible |= p
+            pieces.append((k, c))
+        if all(k == "interval" for k, _ in pieces):
+            return possible, "interval", merge_intervals([x for _, c in pieces for x in (c or [])])
+        if all(k == "full" for k, _ in pieces):
+            return possible, "full", True
+        return possible, "unknown", None
+    if type_.get("kind") == "int":
+        if not readable:
+            return True, "unknown", None
+        result = interval_intersection(pattern_intervals(pattern), guard_set)
+        return True, "interval", result or []
+    if type_.get("kind") in {"atom", "string", "term", "any"}:
+        if not readable:
+            return True, "unknown", None
+        if pattern.get("kind") in {"wild", "name"} and not guard:
+            return True, "full", True
+        return True, "partial", None
+    if type_.get("kind") == "tuple":
+        if pattern.get("kind") in {"wild", "name"} and not guard:
+            return True, "full", True
+        return True, "unknown", None
+    if type_.get("kind") == "list":
+        if pattern.get("kind") in {"wild", "name"} and not guard:
+            return True, "full", True
+        return True, "unknown", None
+    return True, "unknown", None
+
+
+def type_equal_or_accepts(expected, actual):
+    ek, ak = expected.get("kind"), actual.get("kind")
+    # An expression whose type could not be inferred is not evidence of a
+    # mismatch.  Diagnostics are reserved for a known incompatible type.
+    if ak == "any":
+        return True
+    if ek in {"any", "term"}:
+        return True
+    if ek == "union":
+        return any(type_equal_or_accepts(option, actual) for option in expected["options"])
+    if ek == ak:
+        if ek == "tuple":
+            return len(expected["items"]) == len(actual.get("items", [])) and all(type_equal_or_accepts(e, a) for e, a in zip(expected["items"], actual["items"]))
+        if ek == "list":
+            return type_equal_or_accepts(expected["item"], actual["item"])
+        if ek == "enum":
+            return set(actual.get("values", [])) <= set(expected.get("values", []))
+        return True
+    if ek == "atom" and ak == "enum":
+        return True
+    return False
+
+
+def infer_expr_type(expr, bindings, functions):
+    expr = expr.strip().rstrip(",")
+    # A switch's result is the union of its arm result types.
+    switches = extract_switches(expr)
+    if switches:
+        arm_types = [infer_expr_type(a["body"], bindings, functions) for a in switches[0]["arms"]]
+        arm_types = [t for t in arm_types if t is not None]
+        if not arm_types:
+            return ANY
+        if all(t.get("kind") == arm_types[0].get("kind") for t in arm_types):
+            return arm_types[0]
+        return typ("union", options=arm_types)
+    lit = parse_atom_literal(expr)
+    if lit:
+        if lit[0] == "atom":
+            # Preserve a literal atom's value so enum contracts can be
+            # checked without making every atom expression look like the
+            # entire open atom type.
+            return typ("enum", values=[lit[1]])
+        return literal_type(lit)
+    if expr in bindings:
+        return bindings[expr]
+    field = re.fullmatch(r"([a-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)", expr)
+    if field and field.group(1) in bindings:
+        owner_type = bindings[field.group(1)]
+        if owner_type.get("kind") == "record":
+            return owner_type.get("fields", {}).get(field.group(2), ANY)
+    if expr in {"true", "false"}:
+        return BOOL
+    if re.fullmatch(r"-?[0-9]+(?:\s*[+\-*/]\s*-?[0-9]+)*", expr):
+        return INT
+    if re.search(r"\s(==|!=|<=|>=|<|>)\s", expr):
+        return BOOL
+    call = re.match(r"^([A-Z][A-Za-z0-9_]*)\s*\((.*)\)$", expr, re.S)
+    if call and call.group(1) in functions:
+        return functions[call.group(1)]["return"]
+    return ANY
+
+
+def variables_in_expr(expr):
+    # Capitalized identifiers are function names; colon atoms, keywords and
+    # quoted strings are excluded.  Removing strings matters because their
+    # contents are not variable references in this language.
+    expr = re.sub(r'"(?:\\.|[^"\\])*"', "", expr)
+    candidates = re.findall(r"(?<![:A-Za-z0-9_])[a-z_][A-Za-z0-9_]*", expr)
+    return {x for x in candidates if x not in {"when", "and", "or", "true", "false", "switch", "_"}}
+
+
+def subject_type(subject, signature, bindings):
+    subject = subject.strip()
+    if subject in bindings:
+        return bindings[subject]
+    field = re.fullmatch(r"([a-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)", subject)
+    if field and field.group(1) in bindings:
+        owner_type = bindings[field.group(1)]
+        if owner_type.get("kind") == "record":
+            return owner_type.get("fields", {}).get(field.group(2), ANY)
+    inside = strip_outer(subject, "(", ")")
+    if inside is not None and "," in inside:
+        types = []
+        for item in split_top(inside):
+            types.append(bindings.get(item.strip(), ANY))
+        return typ("tuple", items=types)
+    # Expressions such as n + 1 are integers; unknown expressions remain open.
+    if re.search(r"[+*/-]", subject) or re.search(r"\s(<=|>=|<|>)\s", subject):
+        return INT
+    return ANY
+
+
+def analyse_switch(switch, signature, bindings, functions, diagnostics):
+    stype = subject_type(switch["subject"], signature, bindings)
+    finite_override = list_domain(stype, switch["arms"])
+    for var in variables_in_expr(switch["subject"]):
+        if var not in bindings:
+            diagnostics.add("unbound_variable")
+    prior = None
+    prior_kind = None
+    prior_cov = None
+    for arm in switch["arms"]:
+        pattern = arm["pattern"]
+        guard = arm["guard"]
+        if "switch" in (guard or ""):
+            diagnostics.add("switch_in_guard")
+        arm_names = names_in_pattern(pattern)
+        if any(name in bindings for name in arm_names) or len(arm_names) != len(set(arm_names)):
+            diagnostics.add("rebinding")
+        possible, kind, cov = coverage(stype, pattern, guard, finite_override)
+        if not possible:
+            diagnostics.add("vacuous_arm")
+        readable, guard_cov = guard_intervals(guard)
+        if possible and guard and readable and guard_cov == []:
+            diagnostics.add("unsatisfiable_arm_guard")
+        if possible and prior is not None and is_subset(kind, cov, prior_kind, prior_cov):
+            diagnostics.add("unreachable_arm")
+        if possible:
+            prior_kind, prior_cov = union_coverage(prior_kind, prior_cov, kind, cov)
+            prior = True
+        # Bindings are arm-local and are available only in this arm's body.
+        arm_bindings = dict(bindings)
+        for name in arm_names:
+            arm_bindings[name] = infer_bound_type(stype, pattern, name)
+        if "switch" not in (guard or ""):
+            for var in variables_in_expr(guard or ""):
+                if var not in arm_bindings:
+                    diagnostics.add("unbound_variable")
+            check_calls(guard or "", arm_bindings, functions, diagnostics)
+        nested_switches = extract_switches(arm["body"])
+        if not nested_switches:
+            for var in variables_in_expr(arm["body"]):
+                if var not in arm_bindings:
+                    diagnostics.add("unbound_variable")
+            check_calls_and_return(arm["body"], arm_bindings, signature, functions, diagnostics)
+        for nested in nested_switches:
+            analyse_switch(nested, signature, arm_bindings, functions, diagnostics)
+    # Determine whether the proven coverage is enough for this subject.
+    if coverage_complete(stype, prior_kind, prior_cov, finite_override) is False:
+        diagnostics.add("switch_inexhaustive")
+
+
+def analyse_clause_heads(clauses, signature, functions, diagnostics):
+    """Apply the same coverage model to a function's multi-clause heads."""
+    if not clauses:
+        return
+    arg_types = [t for _, t in signature["args"]]
+    if len(arg_types) == 1:
+        subject = arg_types[0]
+    else:
+        subject = typ("tuple", items=arg_types)
+    finite_override = list_domain(subject, [
+        {"pattern": c[1][0]} for c in clauses if c[1]
+    ]) if len(arg_types) == 1 else None
+    prior_kind = None
+    prior_cov = None
+    for _, patterns, guard, _ in clauses:
+        pattern = patterns[0] if len(arg_types) == 1 else {"kind": "tuple", "items": patterns}
+        possible, kind, cov = coverage(subject, pattern, guard, finite_override)
+        if not possible:
+            diagnostics.add("vacuous_arm")
+        readable, guard_cov = guard_intervals(guard)
+        if possible and guard and readable and guard_cov == []:
+            diagnostics.add("unsatisfiable_arm_guard")
+        if possible and prior_kind is not None and is_subset(kind, cov, prior_kind, prior_cov):
+            diagnostics.add("unreachable_arm")
+        if possible:
+            prior_kind, prior_cov = union_coverage(prior_kind, prior_cov, kind, cov)
+    if coverage_complete(subject, prior_kind, prior_cov, finite_override) is False:
+        diagnostics.add("switch_inexhaustive")
+
+
+def is_subset(kind, cov, prior_kind, prior_cov):
+    if kind == "finite" and prior_kind == "finite":
+        return set(cov or set()) <= set(prior_cov or set())
+    if kind == "interval" and prior_kind == "interval":
+        return intervals_difference_empty(cov or [], prior_cov or [])
+    return kind == "full" and prior_kind == "full"
+
+
+def intervals_difference_empty(left, right):
+    remaining = list(left)
+    for rlo, rhi in right:
+        next_remaining = []
+        for lo, hi in remaining:
+            if rhi is not None and lo is not None and rhi < lo:
+                next_remaining.append((lo, hi)); continue
+            if hi is not None and rlo is not None and rlo > hi:
+                next_remaining.append((lo, hi)); continue
+            if lo is None or (rlo is not None and rlo > lo):
+                next_remaining.append((lo, None if rlo is None else rlo - 1))
+            if hi is None or (rhi is not None and rhi < hi):
+                next_remaining.append((None if rhi is None else rhi + 1, hi))
+        remaining = merge_intervals([x for x in next_remaining if x[0] is None or x[1] is None or x[0] <= x[1]])
+    return not remaining
+
+
+def union_coverage(old_kind, old_cov, kind, cov):
+    if old_kind is None:
+        return kind, cov
+    if kind == "uncertain":
+        return old_kind, old_cov
+    if old_kind == "uncertain":
+        return kind, cov
+    # A wildcard (or equivalent interval) proves the whole domain even when an
+    # earlier guarded arm was opaque.  Do not let the unknown prefix erase that
+    # proof.
+    if kind == "interval" and intervals_cover_all(cov or []):
+        return "interval", cov
+    if old_kind == kind == "finite":
+        return "finite", set(old_cov or set()) | set(cov or set())
+    if old_kind == kind == "interval":
+        return "interval", merge_intervals((old_cov or []) + (cov or []))
+    if old_kind == "full" or kind == "full":
+        return "full", True
+    return "unknown", None
+
+
+def coverage_complete(type_, kind, cov, finite_override=None):
+    values = finite_override if finite_override is not None else finite_values(type_)
+    if values is not None:
+        return kind == "finite" and set(cov or set()) == set(values)
+    if type_.get("kind") == "int":
+        return kind == "interval" and intervals_cover_all(cov or [])
+    if type_.get("kind") == "union":
+        return True if kind == "full" else None
+    # Open domains (atom, term, string, and unknown types), and structured
+    # domains whose children are not finitely enumerable, are deliberately
+    # three-valued here: lack of a proof is not proof of a missing case.
+    if type_.get("kind") in {"atom", "string"}:
+        return True if kind == "full" else False
+    if type_.get("kind") in {"term", "any"}:
+        return True if kind == "full" else None
+    return True if kind == "full" else None
+
+
+def infer_bound_type(subject_type_, pattern, name):
+    if subject_type_.get("kind") == "union":
+        for option in subject_type_.get("options", []):
+            inferred = infer_bound_type(option, pattern, name)
+            if inferred.get("kind") != "any":
+                return inferred
+        return ANY
+    if pattern.get("kind") == "name":
+        return subject_type_
+    if pattern.get("kind") == "tuple" and subject_type_.get("kind") == "tuple":
+        for sub, t in zip(pattern["items"], subject_type_["items"]):
+            if name in names_in_pattern(sub):
+                return infer_bound_type(t, sub, name)
+    if pattern.get("kind") == "list" and subject_type_.get("kind") == "list":
+        for sub in pattern["items"]:
+            if name in names_in_pattern(sub):
+                return infer_bound_type(subject_type_["item"], sub, name)
+        if pattern.get("rest") == name:
+            return subject_type_
+    if pattern.get("kind") == "record" and subject_type_.get("kind") == "record":
+        for field, sub in pattern.get("fields", {}).items():
+            if name in names_in_pattern(sub):
+                return infer_bound_type(subject_type_.get("fields", {}).get(field, ANY), sub, name)
+    return ANY
+
+
+def check_calls_and_return(expr, bindings, signature, functions, diagnostics):
+    check_calls(expr, bindings, functions, diagnostics)
+    result = infer_expr_type(expr, bindings, functions)
+    if not type_equal_or_accepts(signature["return"], result):
+        diagnostics.add("return_not_declared")
+
+
+def check_calls(expr, bindings, functions, diagnostics):
+    # Check every capitalized call in the expression, including calls nested
+    # in guards/body text.
+    for match in re.finditer(r"\b([A-Z][A-Za-z0-9_]*)\s*\(([^()]*)\)", expr):
+        name, args_text = match.groups()
+        if name not in functions:
+            continue
+        actuals = [infer_expr_type(x, bindings, functions) for x in split_top(args_text)]
+        expected = [t for _, t in functions[name]["args"]]
+        for actual, want in zip(actuals, expected):
+            if not type_equal_or_accepts(want, actual):
+                diagnostics.add("arg_not_accepted")
+
+
+def main(path):
+    try:
+        with open(path, encoding="utf-8") as handle:
+            lines = handle.read().splitlines()
+    except OSError:
+        return
+    aliases = {}
+    # First pass: aliases and signatures, so all calls have a declared contract.
+    for raw in lines:
+        record = parse_record_definition(raw.strip(), aliases)
+        if record:
+            aliases[record[0]] = record[1]
+    for raw in lines:
+        line = raw.strip()
+        m = re.match(r"^type\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$", line)
+        if m:
+            name, definition = m.groups()
+            pieces = split_union(definition)
+            if all(re.fullmatch(r":[A-Za-z_][A-Za-z0-9_]*", p.strip()) for p in pieces):
+                aliases[name] = typ("enum", values=[p.strip()[1:] for p in pieces])
+            else:
+                aliases[name] = parse_type(definition, aliases)
+    functions = {}
+    for raw in lines:
+        sig = parse_signature(raw.strip(), aliases)
+        if sig:
+            functions[sig["name"]] = sig
+    diagnostics = set()
+    i = 0
+    while i < len(lines):
+        raw = lines[i]
+        sig = parse_signature(raw.strip(), aliases)
+        if not sig:
+            i += 1
+            continue
+        # A signature is followed by one or more clauses until the next signature.
+        j = i + 1
+        clauses = []
+        while j < len(lines):
+            if parse_signature(lines[j].strip(), aliases):
+                break
+            line = lines[j].strip()
+            if line:
+                clause = parse_call_head(line)
+                if clause and clause[0] == sig["name"]:
+                    # Switch arms commonly continue over several lines.  Join the
+                    # complete clause before parsing its RHS, otherwise the opening
+                    # line looks like an unterminated switch expression.
+                    combined = line
+                    brace_depth = combined.count("{") - combined.count("}")
+                    k = j + 1
+                    while brace_depth > 0 and k < len(lines):
+                        combined += " " + lines[k].strip()
+                        brace_depth += lines[k].count("{") - lines[k].count("}")
+                        k += 1
+                    clauses.append(parse_call_head(combined))
+                    j = k - 1
+            j += 1
+        analyse_clause_heads(clauses, sig, functions, diagnostics)
+        for name, patterns, guard, rhs in clauses:
+            # Clause-head names are introduced here and receive the declared
+            # type of their corresponding signature argument.  The spelling of
+            # a clause parameter may differ from the signature's documentation
+            # name (and is not itself a rebinding).
+            bound = {}
+            for index, pattern in enumerate(patterns):
+                declared = sig["args"][index][1] if index < len(sig["args"]) else ANY
+                for pname in names_in_pattern(pattern):
+                    bound[pname] = infer_bound_type(declared, pattern, pname)
+            # Names in the signature are the names being introduced by the
+            # corresponding clause head; repeating those names is normal.  Only
+            # duplicates within the head itself are rebindings.
+            seen = set()
+            for pattern in patterns:
+                for pname in names_in_pattern(pattern):
+                    if pname in seen:
+                        diagnostics.add("rebinding")
+                    seen.add(pname)
+                    # The signature already gives a clause parameter its type.
+                    # Preserve it when the head repeats that parameter name;
+                    # fresh destructured names get the best available inference.
+                    if pname not in bound:
+                        bound[pname] = infer_bound_type(ANY, pattern, pname)
+            if "switch" in (guard or ""):
+                diagnostics.add("switch_in_guard")
+            if "switch" not in (guard or ""):
+                for var in variables_in_expr(guard or ""):
+                    if var not in bound:
+                        diagnostics.add("unbound_variable")
+                check_calls(guard or "", bound, functions, diagnostics)
+            for switch in extract_switches(rhs):
+                analyse_switch(switch, sig, bound, functions, diagnostics)
+            # Clause bodies without a switch still have return/call checks.
+            if not extract_switches(rhs):
+                check_calls_and_return(rhs, bound, sig, functions, diagnostics)
+        i = j
+    for tag in sorted(diagnostics & TAGS):
+        print(tag)
+
+
+if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        main(sys.argv[1])

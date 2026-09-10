@@ -1,0 +1,696 @@
+#!/usr/bin/env python3
+"""A compact, specification-directed checker for the audition language subset."""
+
+from __future__ import annotations
+
+import itertools
+import re
+import sys
+from dataclasses import dataclass
+from pathlib import Path
+
+
+INF = None
+IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+@dataclass(frozen=True)
+class Type:
+    name: str
+    values: frozenset[str] | None = None
+    parts: tuple["Type", ...] = ()
+
+    @property
+    def finite(self) -> bool:
+        return self.values is not None or (self.name == "tuple" and all(p.finite for p in self.parts))
+
+
+def top_level_split(text: str, separator: str) -> list[str]:
+    """Split only outside tuple/list/brace nesting."""
+    pieces, start, depth = [], 0, 0
+    pairs = {"(": 1, "[": 1, "{": 1, ")": -1, "]": -1, "}": -1}
+    index = 0
+    while index < len(text):
+        depth += pairs.get(text[index], 0)
+        if depth == 0 and text.startswith(separator, index):
+            pieces.append(text[start:index].strip())
+            index += len(separator)
+            start = index
+            continue
+        index += 1
+    pieces.append(text[start:].strip())
+    return [piece for piece in pieces if piece]
+
+
+def outer_parens(text: str) -> bool:
+    return text.startswith("(") and text.endswith(")") and len(top_level_split(text[1:-1], ",")) >= 1
+
+
+def find_matching_brace(text: str, opening: int) -> int:
+    depth = 0
+    for index in range(opening, len(text)):
+        if text[index] == "{":
+            depth += 1
+        elif text[index] == "}":
+            depth -= 1
+            if depth == 0:
+                return index
+    return len(text)
+
+
+def parse_type(text: str, aliases: dict[str, Type]) -> Type:
+    text = text.strip()
+    if text.startswith("(") and text.endswith(")"):
+        return Type("tuple", parts=tuple(parse_type(part, aliases) for part in top_level_split(text[1:-1], ",")))
+    if text.startswith("list<") and text.endswith(">"):
+        return Type("list", parts=(parse_type(text[5:-1], aliases),))
+    if text.startswith(":"):
+        return Type("atom", frozenset({text}))
+    if text == "bool":
+        return Type("bool", frozenset({"true", "false"}))
+    if text in {"atom", "term", "int"}:
+        return Type(text)
+    return aliases.get(text, Type(text))
+
+
+def parse_aliases(source: str) -> dict[str, Type]:
+    aliases: dict[str, Type] = {}
+    for name, rhs in re.findall(r"^\s*type\s+(\w+)\s*=\s*(.+?)\s*$", source, re.MULTILINE):
+        alternatives = top_level_split(rhs, "|")
+        atoms = re.findall(r":[A-Za-z_][A-Za-z0-9_]*", rhs)
+        if atoms and all(piece.strip().startswith(":") for piece in alternatives):
+            aliases[name] = Type(name, frozenset(atoms))
+        elif len(alternatives) > 1:
+            aliases[name] = Type("union", parts=tuple(parse_type(part, aliases) for part in alternatives))
+    return aliases
+
+
+def parse_signatures(source: str, aliases: dict[str, Type]) -> dict[str, tuple[Type, list[Type]]]:
+    signatures: dict[str, tuple[Type, list[Type]]] = {}
+    for line in source.splitlines():
+        match = re.match(r"^\s*public\s+(.+?)\s+(\w+)\(", line)
+        if not match:
+            continue
+        return_name, function = match.group(1), match.group(2)
+        opening = line.find("(", match.start(2))
+        closing = find_matching_brace(line.replace("(", "{").replace(")", "}"), opening)
+        raw_params = line[opening + 1:closing]
+        params = []
+        for item in top_level_split(raw_params, ","):
+            depth, split_at = 0, -1
+            for index, char in enumerate(item):
+                depth += 1 if char == "(" else -1 if char == ")" else 0
+                if char.isspace() and depth == 0:
+                    split_at = index
+            if split_at >= 0:
+                params.append(parse_type(item[:split_at], aliases))
+        signatures[function] = (parse_type(return_name, aliases), params)
+    return signatures
+
+
+def finite_values(subject: Type) -> set[object] | None:
+    if subject.values is not None:
+        return set(subject.values)
+    if subject.name == "tuple" and subject.finite:
+        value_sets = [finite_values(part) for part in subject.parts]
+        if all(value_set is not None for value_set in value_sets):
+            return set(itertools.product(*(value_sets or [])))
+    return None
+
+
+def binding_names(pattern: str) -> list[str]:
+    pattern = pattern.strip()
+    if pattern.startswith("==") or pattern == "_" or pattern.startswith((">", "<")):
+        return []
+    if pattern.startswith("(") and pattern.endswith(")"):
+        return [name for part in top_level_split(pattern[1:-1], ",") for name in binding_names(part)]
+    if pattern.startswith("[") and pattern.endswith("]"):
+        names: list[str] = []
+        for part in top_level_split(pattern[1:-1], ","):
+            names.extend([] if part == ".." else ([part[2:]] if part.startswith("..") else binding_names(part)))
+        return names
+    if IDENT.fullmatch(pattern) and pattern not in {"true", "false"}:
+        return [pattern]
+    return []
+
+
+def pattern_matches(pattern: str, value: object) -> bool:
+    pattern = pattern.strip()
+    if pattern == "_" or pattern.startswith("==") or (IDENT.fullmatch(pattern) and pattern not in {"true", "false"}):
+        return True
+    if pattern in {"true", "false"} or pattern.startswith(":"):
+        return value == pattern
+    if re.fullmatch(r"-?\d+", pattern):
+        return value == int(pattern)
+    if pattern.startswith("(") and pattern.endswith(")") and isinstance(value, tuple):
+        members = top_level_split(pattern[1:-1], ",")
+        return len(members) == len(value) and all(pattern_matches(member, item) for member, item in zip(members, value))
+    return False
+
+
+def pattern_has_value_match(pattern: str) -> bool:
+    """Whether a pattern relies on ``== name`` rather than a known value.
+
+    A runtime equality test can constrain an arm at execution time, but it
+    cannot remove a case from the checker's certain residual.
+    """
+    pattern = pattern.strip()
+    if pattern.startswith("=="):
+        return True
+    if pattern.startswith("(") and pattern.endswith(")"):
+        return any(pattern_has_value_match(part) for part in top_level_split(pattern[1:-1], ","))
+    if pattern.startswith("[") and pattern.endswith("]"):
+        return any(
+            not part.startswith("..") and pattern_has_value_match(part)
+            for part in top_level_split(pattern[1:-1], ",")
+        )
+    return False
+
+
+def equality_names(pattern: str) -> list[str]:
+    """Return names read by equality patterns, including nested patterns."""
+    pattern = pattern.strip()
+    if pattern.startswith("=="):
+        name = pattern[2:].strip()
+        return [name] if IDENT.fullmatch(name) else []
+    if pattern.startswith("(") and pattern.endswith(")"):
+        return [name for part in top_level_split(pattern[1:-1], ",") for name in equality_names(part)]
+    if pattern.startswith("[") and pattern.endswith("]"):
+        return [
+            name
+            for part in top_level_split(pattern[1:-1], ",")
+            if not part.startswith("..")
+            for name in equality_names(part)
+        ]
+    return []
+
+
+def list_pattern_matches(pattern: str, value: tuple[object, ...]) -> bool:
+    pattern = pattern.strip()
+    if not (pattern.startswith("[") and pattern.endswith("]")):
+        return pattern_matches(pattern, value)
+    parts = top_level_split(pattern[1:-1], ",")
+    rest_at = next((index for index, part in enumerate(parts) if part.startswith("..")), None)
+    prefix = parts if rest_at is None else parts[:rest_at]
+    if len(value) < len(prefix) or (rest_at is None and len(value) != len(prefix)):
+        return False
+    return all(pattern_matches(item, member) for item, member in zip(prefix, value))
+
+
+def list_samples(subject: Type, arms: list[tuple[str, str]]) -> set[tuple[object, ...]] | None:
+    if subject.name != "list" or not subject.parts:
+        return None
+    elements = finite_values(subject.parts[0])
+    if elements is None:
+        return None
+    longest = 0
+    for raw_pattern, _ in arms:
+        pattern, _ = arm_pattern_and_guard(raw_pattern)
+        if pattern.startswith("[") and pattern.endswith("]"):
+            longest = max(longest, sum(not part.startswith("..") for part in top_level_split(pattern[1:-1], ",")))
+    return {tuple(value) for length in range(longest + 2) for value in itertools.product(elements, repeat=length)}
+
+
+def pattern_can_match_type(pattern: str, subject: Type) -> bool:
+    pattern = pattern.strip()
+    if pattern == "_" or (IDENT.fullmatch(pattern) and pattern not in {"true", "false"}) or pattern.startswith("=="):
+        return True
+    if pattern.startswith(":"):
+        return (
+            subject.name == "term"
+            or (subject.name == "atom" and subject.values is None)
+            or (subject.values is not None and pattern in subject.values)
+        )
+    if pattern in {"true", "false"}:
+        return (
+            subject.name == "term"
+            or (subject.name == "bool" and subject.values is None)
+            or (subject.values is not None and pattern in subject.values)
+        )
+    if re.fullmatch(r"-?\d+", pattern) or re.match(r"^(>=|<=|>|<)\s*-?\d+$", pattern):
+        return subject.name in {"int", "term"}
+    if pattern.startswith("(") and pattern.endswith(")") and subject.name == "tuple":
+        members = top_level_split(pattern[1:-1], ",")
+        return len(members) == len(subject.parts) and all(pattern_can_match_type(member, part) for member, part in zip(members, subject.parts))
+    if pattern.startswith("[") and pattern.endswith("]"):
+        if subject.name not in {"list", "term"}:
+            return False
+        if subject.name == "term" or not subject.parts:
+            return True
+        return all(
+            part.startswith("..") or pattern_can_match_type(part, subject.parts[0])
+            for part in top_level_split(pattern[1:-1], ",")
+        )
+    return False
+
+
+def pattern_covers_type(pattern: str, subject: Type) -> bool:
+    pattern = pattern.strip()
+    if pattern == "_" or (IDENT.fullmatch(pattern) and pattern not in {"true", "false"}):
+        return True
+    if pattern.startswith("=="):
+        return False
+    if pattern.startswith(":") or pattern in {"true", "false"}:
+        return subject.values == frozenset({pattern})
+    if pattern.startswith("(") and pattern.endswith(")") and subject.name == "tuple":
+        members = top_level_split(pattern[1:-1], ",")
+        return len(members) == len(subject.parts) and all(pattern_covers_type(member, part) for member, part in zip(members, subject.parts))
+    return False
+
+
+def arm_pattern_and_guard(raw: str) -> tuple[str, str | None]:
+    parts = re.split(r"\s+when\s+", raw.strip(), maxsplit=1)
+    return parts[0].strip(), parts[1].strip() if len(parts) == 2 else None
+
+
+def interval_intersection(left: list[tuple[int | None, int | None]], right: list[tuple[int | None, int | None]]) -> list[tuple[int | None, int | None]]:
+    result = []
+    for lo1, hi1 in left:
+        for lo2, hi2 in right:
+            lo = lo2 if lo1 is None else lo1 if lo2 is None else max(lo1, lo2)
+            hi = hi2 if hi1 is None else hi1 if hi2 is None else min(hi1, hi2)
+            if (lo is None or hi is None or lo <= hi):
+                result.append((lo, hi))
+    return merge_intervals(result)
+
+
+def merge_intervals(intervals: list[tuple[int | None, int | None]]) -> list[tuple[int | None, int | None]]:
+    if not intervals:
+        return []
+    def key(item: tuple[int | None, int | None]) -> tuple[int, int]:
+        return (0 if item[0] is None else 1, item[0] or 0)
+    ordered = sorted(intervals, key=key)
+    merged = [ordered[0]]
+    for lo, hi in ordered[1:]:
+        old_lo, old_hi = merged[-1]
+        overlaps = old_hi is None or lo is None or lo <= old_hi + 1
+        if overlaps:
+            merged[-1] = (old_lo, None if old_hi is None or hi is None else max(old_hi, hi))
+        else:
+            merged.append((lo, hi))
+    return merged
+
+
+def interval_subtract(base: list[tuple[int | None, int | None]], taken: list[tuple[int | None, int | None]]) -> list[tuple[int | None, int | None]]:
+    result = base
+    for take_lo, take_hi in merge_intervals(taken):
+        next_result = []
+        for lo, hi in result:
+            before = take_lo is not None and (lo is None or lo < take_lo)
+            after = take_hi is not None and (hi is None or hi > take_hi)
+            if before:
+                next_result.append((lo, take_lo - 1))
+            if after:
+                next_result.append((take_hi + 1, hi))
+            if not before and not after and not (take_lo is None and take_hi is None):
+                # The taken range misses this base range altogether.
+                if (hi is not None and take_lo is not None and hi < take_lo) or (lo is not None and take_hi is not None and lo > take_hi):
+                    next_result.append((lo, hi))
+        result = next_result
+    return merge_intervals(result)
+
+
+def interval_for_comparison(operator: str, number: int) -> list[tuple[int | None, int | None]]:
+    return {
+        ">": [(number + 1, None)], ">=": [(number, None)],
+        "<": [(None, number - 1)], "<=": [(None, number)],
+        "==": [(number, number)], "!=": [(None, number - 1), (number + 1, None)],
+    }[operator]
+
+
+def guard_intervals(guard: str | None) -> list[tuple[int | None, int | None]] | None:
+    if not guard:
+        return [(None, None)]
+    or_parts = re.split(r"\s+or\s+", guard)
+    alternatives: list[tuple[int | None, int | None]] = []
+    for alternative in or_parts:
+        current = [(None, None)]
+        for condition in re.split(r"\s+and\s+", alternative):
+            match = re.fullmatch(r"\s*\w+\s*(>=|<=|==|!=|>|<)\s*(-?\d+)\s*", condition)
+            if not match:
+                return None
+            current = interval_intersection(current, interval_for_comparison(match.group(1), int(match.group(2))))
+        alternatives.extend(current)
+    return merge_intervals(alternatives)
+
+
+def bindings_for_value(pattern: str, value: object) -> dict[str, object]:
+    """Give a finite-domain guard the values introduced by its arm pattern."""
+    pattern = pattern.strip()
+    if IDENT.fullmatch(pattern) and pattern not in {"true", "false", "_"}:
+        return {pattern: value}
+    if pattern.startswith("(") and pattern.endswith(")") and isinstance(value, tuple):
+        result: dict[str, object] = {}
+        for part, member in zip(top_level_split(pattern[1:-1], ","), value):
+            result.update(bindings_for_value(part, member))
+        return result
+    if pattern.startswith("[") and pattern.endswith("]") and isinstance(value, tuple):
+        result: dict[str, object] = {}
+        for index, part in enumerate(top_level_split(pattern[1:-1], ",")):
+            if part.startswith(".."):
+                if len(part) > 2:
+                    result[part[2:]] = value[index:]
+                break
+            if index < len(value):
+                result.update(bindings_for_value(part, value[index]))
+        return result
+    return {}
+
+
+def guard_matches_finite_value(guard: str, names: dict[str, object]) -> bool | None:
+    """Evaluate only the documented variable-to-literal guard subset.
+
+    ``None`` means the guard is valid but opaque to this checker, so it must
+    not count as certain coverage.
+    """
+    def literal(text: str) -> object | None:
+        text = text.strip()
+        if re.fullmatch(r"-?\d+", text):
+            return int(text)
+        if text in {"true", "false"} or re.fullmatch(r":[A-Za-z_][A-Za-z0-9_]*", text):
+            return text
+        return None
+
+    alternatives: list[bool] = []
+    for alternative in re.split(r"\s+or\s+", guard):
+        terms: list[bool] = []
+        for condition in re.split(r"\s+and\s+", alternative):
+            match = re.fullmatch(r"\s*(\w+)\s*(>=|<=|==|!=|>|<)\s*(.*?)\s*", condition)
+            if not match or match.group(1) not in names:
+                return None
+            right = literal(match.group(3))
+            if right is None:
+                return None
+            left, operator = names[match.group(1)], match.group(2)
+            if operator in {">", ">=", "<", "<="}:
+                if type(left) is not int or type(right) is not int:
+                    return None
+            terms.append({
+                "==": left == right, "!=": left != right,
+                ">": left > right, ">=": left >= right,
+                "<": left < right, "<=": left <= right,
+            }[operator])
+        alternatives.append(all(terms))
+    return any(alternatives)
+
+
+def arm_intervals(pattern: str, guard: str | None) -> list[tuple[int | None, int | None]] | None:
+    relation_parts = re.split(r"\s+and\s+", pattern)
+    relations = [re.fullmatch(r"(>=|<=|>|<)\s*(-?\d+)", part) for part in relation_parts]
+    if all(relations):
+        pattern_range = [(None, None)]
+        for relation in relations:
+            assert relation is not None
+            pattern_range = interval_intersection(pattern_range, interval_for_comparison(relation.group(1), int(relation.group(2))))
+    elif pattern == "_" or IDENT.fullmatch(pattern):
+        pattern_range = [(None, None)]
+    elif pattern.startswith("=="):
+        # A name's runtime value is not a statically certain interval.
+        return None
+    elif re.fullmatch(r"-?\d+", pattern):
+        pattern_range = [(int(pattern), int(pattern))]
+    else:
+        return []
+    refined = guard_intervals(guard)
+    return None if refined is None else interval_intersection(pattern_range, refined)
+
+
+def expression_type(expression: str, names: dict[str, Type], signatures: dict[str, tuple[Type, list[Type]]]) -> Type:
+    expression = expression.strip()
+    if expression.startswith("(") and expression.endswith(")") and "," in expression:
+        return Type("tuple", parts=tuple(expression_type(part, names, signatures) for part in top_level_split(expression[1:-1], ",")))
+    if expression in names:
+        return names[expression]
+    if expression.startswith(":"):
+        atom = re.match(r":[A-Za-z_][A-Za-z0-9_]*", expression)
+        return Type("atom", frozenset({atom.group(0)})) if atom else Type("atom")
+    if expression in {"true", "false"}:
+        return Type("bool", frozenset({expression}))
+    if re.match(r"^-?\d+($|\s|[+*/-])", expression):
+        return Type("int")
+    call = re.match(r"^(\w+)\s*\(", expression)
+    if call and call.group(1) in signatures:
+        return signatures[call.group(1)][0]
+    return Type("term")
+
+
+def accepts(declared: Type, actual: Type) -> bool:
+    if declared.name == "term":
+        return True
+    if declared.name == "atom":
+        return actual.name == "atom" or actual.values is not None
+    if declared.name == actual.name:
+        return True
+    if declared.name == "union":
+        return any(accepts(option, actual) for option in declared.parts)
+    if declared.name == "tuple" and actual.name == "tuple" and len(declared.parts) == len(actual.parts):
+        return all(accepts(wanted, got) for wanted, got in zip(declared.parts, actual.parts))
+    return declared.values is not None and actual.values is not None and actual.values <= declared.values
+
+
+def typed_bindings(pattern: str, subject: Type) -> dict[str, Type]:
+    """Assign names the member type exposed by the pattern that binds them."""
+    pattern = pattern.strip()
+    if subject.name == "union":
+        compatible = [branch for branch in subject.parts if pattern_can_match_type(pattern, branch)]
+        subject = compatible[0] if len(compatible) == 1 else Type("term")
+    if IDENT.fullmatch(pattern) and pattern not in {"true", "false", "_"}:
+        return {pattern: subject}
+    if pattern.startswith("(") and pattern.endswith(")") and subject.name == "tuple":
+        result: dict[str, Type] = {}
+        for member, kind in zip(top_level_split(pattern[1:-1], ","), subject.parts):
+            result.update(typed_bindings(member, kind))
+        return result
+    if pattern.startswith("[") and pattern.endswith("]") and subject.name == "list" and subject.parts:
+        result: dict[str, Type] = {}
+        for member in top_level_split(pattern[1:-1], ","):
+            if member.startswith(".."):
+                if len(member) > 2:
+                    result[member[2:]] = subject
+            else:
+                result.update(typed_bindings(member, subject.parts[0]))
+        return result
+    return {}
+
+
+def calls_have_bad_argument(body: str, names: dict[str, Type], signatures: dict[str, tuple[Type, list[Type]]]) -> bool:
+    for function, arguments in re.findall(r"\b(\w+)\s*\(([^()]*)\)", body):
+        if function not in signatures:
+            continue
+        _, wanted = signatures[function]
+        for actual, declared in zip(top_level_split(arguments, ","), wanted):
+            if not accepts(declared, expression_type(actual, names, signatures)):
+                return True
+    return False
+
+
+def check_switch(subject: Type, arms: list[tuple[str, str]], outer_names: dict[str, Type], signatures: dict[str, tuple[Type, list[Type]]], declared_return: Type) -> set[str]:
+    tags: set[str] = set()
+    has_blocking_arm_error = False
+    finite = finite_values(subject)
+    list_domain = list_samples(subject, arms)
+    if list_domain is not None:
+        finite = list_domain
+    covered_finite: set[object] = set()
+    remaining_intervals = [(None, None)] if subject.name == "int" else []
+    covered_intervals: list[tuple[int | None, int | None]] = []
+    union_int_coverage: dict[int, list[tuple[int | None, int | None]]] = {}
+    guaranteed_list_lengths: set[int] = set()
+    guaranteed_list_tail_from: int | None = None
+
+    for raw_pattern, body in arms:
+        arm_blocking_error = False
+        pattern, guard = arm_pattern_and_guard(raw_pattern)
+        bindings = binding_names(pattern)
+        seen = set(outer_names)
+        if any(name in seen or name in bindings[:index] for index, name in enumerate(bindings)):
+            tags.add("rebinding")
+        if any(name not in outer_names and name not in bindings for name in equality_names(pattern)):
+            tags.add("unbound_variable")
+            arm_blocking_error = True
+        arm_names = dict(outer_names)
+        for name in bindings:
+            arm_names[name] = subject
+        arm_names.update(typed_bindings(pattern, subject))
+
+        if guard and "switch" in guard:
+            tags.add("switch_in_guard")
+
+        if subject.name == "union":
+            possible = {
+                index for index, branch in enumerate(subject.parts)
+                if pattern_can_match_type(pattern, branch)
+                and not (guard and guard_intervals(guard) is not None and branch.name != "int")
+            }
+            matches = set() if guard else {index for index, branch in enumerate(subject.parts) if pattern_covers_type(pattern, branch)}
+            for index, branch in enumerate(subject.parts):
+                if branch.name == "int":
+                    intervals = arm_intervals(pattern, guard)
+                    if intervals is not None:
+                        union_int_coverage[index] = merge_intervals(union_int_coverage.get(index, []) + intervals)
+            if not possible:
+                tags.add("vacuous_arm")
+                arm_blocking_error = True
+            elif possible <= covered_finite:
+                tags.add("unreachable_arm")
+            covered_finite |= matches
+        elif finite is not None:
+            matcher = list_pattern_matches if subject.name == "list" else pattern_matches
+            possible_matches = {value for value in finite if matcher(pattern, value)}
+            guard_results = {
+                value: guard_matches_finite_value(guard, bindings_for_value(pattern, value))
+                for value in possible_matches
+            } if guard else {value: True for value in possible_matches}
+            matches = {
+                value for value, result in guard_results.items()
+                if result is True and not pattern_has_value_match(pattern)
+            }
+            potential_matches = {value for value, result in guard_results.items() if result is not False}
+            if not possible_matches:
+                tags.add("vacuous_arm")
+                arm_blocking_error = True
+            elif potential_matches and potential_matches <= covered_finite:
+                tags.add("unreachable_arm")
+            if guard and possible_matches and all(result is False for result in guard_results.values()):
+                tags.add("unsatisfiable_arm_guard")
+                arm_blocking_error = True
+                matches = set()
+            covered_finite |= matches
+        elif subject.name == "int":
+            intervals = arm_intervals(pattern, guard)
+            if intervals == [] and not (guard and guard_intervals(guard) == []):
+                tags.add("vacuous_arm")
+                arm_blocking_error = True
+            if guard and guard_intervals(guard) == []:
+                tags.add("unsatisfiable_arm_guard")
+                arm_blocking_error = True
+            elif intervals is not None:
+                if not interval_subtract(intervals, covered_intervals):
+                    tags.add("unreachable_arm")
+                covered_intervals = merge_intervals(covered_intervals + intervals)
+        elif subject.name == "list":
+            # With an open element type, list length is still a closed shape.
+            # A prefix removes a length only if every element position is known
+            # to accept the complete element type.
+            if not pattern_can_match_type(pattern, subject):
+                tags.add("vacuous_arm")
+                arm_blocking_error = True
+            elif not guard and not pattern_has_value_match(pattern) and pattern.startswith("[") and pattern.endswith("]"):
+                parts = top_level_split(pattern[1:-1], ",")
+                rest_at = next((index for index, part in enumerate(parts) if part.startswith("..")), None)
+                prefix = parts if rest_at is None else parts[:rest_at]
+                if all(pattern_covers_type(part, subject.parts[0]) for part in prefix):
+                    if rest_at is None:
+                        guaranteed_list_lengths.add(len(prefix))
+                    else:
+                        start = len(prefix)
+                        guaranteed_list_tail_from = start if guaranteed_list_tail_from is None else min(guaranteed_list_tail_from, start)
+            elif pattern == "_" or (IDENT.fullmatch(pattern) and not guard):
+                guaranteed_list_tail_from = 0
+        else:
+            # In an open domain, only an unguarded wildcard or fresh name proves coverage.
+            all_values = (pattern == "_" or IDENT.fullmatch(pattern)) and not guard
+            if all_values and getattr(check_switch, "open_covered", False):
+                tags.add("unreachable_arm")
+            if all_values:
+                setattr(check_switch, "open_covered", True)
+
+        allowed = set(arm_names)
+        words = re.findall(r"(?<!:)\b[A-Za-z_][A-Za-z0-9_]*\b", body)
+        call_names = {name for name, _ in re.findall(r"\b(\w+)\s*\(([^()]*)\)", body)}
+        keywords = {"true", "false", "switch", "when", "and", "or"}
+        if any(word not in allowed and word not in call_names and word not in keywords for word in words):
+            tags.add("unbound_variable")
+            arm_blocking_error = True
+        has_blocking_arm_error |= arm_blocking_error
+        if not arm_blocking_error and not accepts(declared_return, expression_type(body, arm_names, signatures)):
+            tags.add("return_not_declared")
+        if not arm_blocking_error and calls_have_bad_argument(body, arm_names, signatures):
+            tags.add("arg_not_accepted")
+
+    if not has_blocking_arm_error and subject.name == "union":
+        complete = all(
+            index in covered_finite
+            or (branch.name == "int" and not interval_subtract([(None, None)], union_int_coverage.get(index, [])))
+            for index, branch in enumerate(subject.parts)
+        )
+        if not complete:
+            tags.add("switch_inexhaustive")
+    elif not has_blocking_arm_error and finite is not None and covered_finite != finite:
+        tags.add("switch_inexhaustive")
+    elif not has_blocking_arm_error and subject.name == "int" and interval_subtract([(None, None)], covered_intervals):
+        tags.add("switch_inexhaustive")
+    elif not has_blocking_arm_error and finite is None and subject.name == "list":
+        complete = (
+            guaranteed_list_tail_from is not None
+            and all(length in guaranteed_list_lengths for length in range(guaranteed_list_tail_from))
+        )
+        if not complete:
+            tags.add("switch_inexhaustive")
+    elif not has_blocking_arm_error and finite is None and subject.name not in {"int", "union"}:
+        # Attribute reset avoids cross-switch state while preserving the simple open coverage rule above.
+        if not getattr(check_switch, "open_covered", False):
+            tags.add("switch_inexhaustive")
+    if hasattr(check_switch, "open_covered"):
+        delattr(check_switch, "open_covered")
+    return tags
+
+
+def find_switches(source: str) -> list[tuple[str, str, str, str | None]]:
+    """Return (function, head parameters, subject expression, arm block)."""
+    found = []
+    head = re.compile(r"(?m)^\s*(\w+)\(([^\n]*)\)\s*(?:when\s+.*?\s*)?->\s*(.*?)\s+switch\s*\{")
+    for match in head.finditer(source):
+        opening = source.find("{", match.start(), match.end())
+        closing = find_matching_brace(source, opening)
+        found.append((match.group(1), match.group(2), match.group(3), source[opening + 1:closing]))
+    return found
+
+
+def check(source: str) -> set[str]:
+    aliases = parse_aliases(source)
+    signatures = parse_signatures(source, aliases)
+    tags: set[str] = set()
+    # A clause head is a pattern too: repeated bare names introduce twice.
+    for match in re.finditer(r"(?m)^\s*(\w+)\(([^\n]*)\)\s*(?:when\s+.*?\s*)?->", source):
+        bindings = [name for part in top_level_split(match.group(2), ",") for name in binding_names(part)]
+        if any(name in bindings[:index] for index, name in enumerate(bindings)):
+            tags.add("rebinding")
+    for function, raw_head, subject_expression, block in find_switches(source):
+        if function not in signatures:
+            continue
+        declared_return, parameter_types = signatures[function]
+        parameter_names = [part.strip().split()[-1] for part in top_level_split(raw_head, ",") if part.strip()]
+        names = {name: kind for name, kind in zip(parameter_names, parameter_types)}
+        subject_expression = subject_expression.strip()
+        if subject_expression.startswith("(") and subject_expression.endswith(")"):
+            subject = Type("tuple", parts=tuple(expression_type(part, names, signatures) for part in top_level_split(subject_expression[1:-1], ",")))
+        else:
+            subject = expression_type(subject_expression, names, signatures)
+        arms = []
+        for arm in top_level_split(block, ","):
+            pieces = top_level_split(arm, "=>")
+            if len(pieces) == 2:
+                arms.append((pieces[0], pieces[1]))
+        tags |= check_switch(subject, arms, names, signatures, declared_return)
+    # Guards occur in clause heads too, including functions without a switch body.
+    for guard in re.findall(r"\bwhen\s+(.*?)\s*->", source, re.DOTALL):
+        if "switch" in guard:
+            tags.add("switch_in_guard")
+    return tags
+
+
+def main(argv: list[str]) -> int:
+    if len(argv) != 2:
+        return 0
+    try:
+        source = Path(argv[1]).read_text()
+    except OSError:
+        return 0
+    for tag in sorted(check(source)):
+        print(tag)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv))

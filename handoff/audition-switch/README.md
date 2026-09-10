@@ -250,6 +250,14 @@ argument that made this a multi-model audition in the first place.
 **A pass from any of them is worth more than round 3's two**, because it says the
 specification survives a reader who is not the best available.
 
+**`gpt-5.6-sol` passed on 2026-09-10 — 13/13 visible, 12/12 held-out.** A model one
+rung below the frontier read §2, §3 and §5 and agreed with the reference compiler
+on every case and every one of the nine diagnostics. **The specification does not
+require a frontier reader**, which is the claim the handoff actually needs. It took
+3592s against `astra`'s 647s for the same work: the same answer, more turns to
+reach it. `terra` finished 11/12 held-out and `luna` 9/12.
+[Round 5's notes](evidence/2026-09-10-round5-midtier-passes/NOTES.md).
+
 **Run the codex lanes in separate rounds, and never behind `astra`.** Round 4 put
 all four in one run against one ChatGPT plan: `astra` went first, ran 647 seconds,
 and all three mid-tier lanes then died on `You've hit your usage limit` — two of

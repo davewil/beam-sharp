@@ -81,6 +81,42 @@ failing engines produced.
 
 `h11-vacuous-arm` is `:small` against `int`, where nothing in the file enumerates the subject.
 
+## Round 5, 2026-09-10 — a reader that reached the rule and still got it wrong
+
+`h11` has now failed in **three consecutive rounds across four models**, and the
+newest failure is a different mistake from the first three:
+
+| round | model | answer on `h11` |
+|---|---|---|
+| 3 | Claude Sonnet 5 | `clean` |
+| 3 | Claude Haiku 4.5 | `clean` |
+| 4 | Claude Haiku 4.5 | `clean` |
+| **5** | **`gpt-5.6-terra`** | **`unreachable_arm vacuous_arm`** |
+
+The first three never reached the rule over a primitive subject at all. **`terra`
+reached it** — it found the vacuous arm — **and could not tell the three dead-arm
+diagnostics apart**, emitting a sibling rule's tag beside the right one. It was the
+only held-out case `terra` missed, on a run where it otherwise scored 11/12.
+
+**This adds a second axis to the question below.** §5 gives `unreachable_arm`,
+`vacuous_arm` and `unsatisfiable_arm_guard` one worked example each and states in
+prose that they are three different mistakes with three different repairs. A
+capable reader still emitted two of them for one arm. So the deficiency may not be
+that the examples are too few or too narrow, but that **three sibling rules are
+each demonstrated alone and never against each other** — a reader is given three
+positive instances and no contrast, and has to infer the boundaries.
+
+That is a different repair from adding a primitive-subject example, and the two
+may not both be needed. It is recorded here rather than acted on because this
+ticket is the one that decides it.
+
+**A cut worth knowing about.** A paragraph explaining the three dead-arm rules was
+drafted for `PACKET.md`'s brief on 2026-09-09 and deliberately removed, on the
+grounds that §5 already draws the distinction and coaching in the brief makes
+rounds non-comparable. That decision stands, and `terra`'s answer is the evidence
+it was cut against — a round that restores it would measure the coaching rather
+than the specification.
+
 ## The question
 
 **Does a diagnostic owe a worked example per type-shape it can fire over, or one per rule?**
