@@ -786,18 +786,27 @@ failure_channel(_)                                 -> none.
 indiscriminable_members(Ms, _Env, _L, _Path) when length(Ms) < 2 -> ok;
 indiscriminable_members(Ms, Env, L, Path) ->
     Normalised = bs_types:union([resolve(M, Env) || M <- Ms]),
-    pairwise(bs_types:constituents(Normalised), L, Path).
-
-pairwise([], _L, _Path) -> ok;
-pairwise([R | Rs], L, Path) ->
-    lists:foreach(fun(O) -> discriminable(R, O, L, Path) end, Rs),
-    pairwise(Rs, L, Path).
-
-discriminable(A, B, L, Path) ->
-    case reaches(A) orelse reaches(B) orelse disjoint_buckets(A, B) of
-        true  -> ok;
-        false -> erlang:error({indiscriminable_union, L, Path, A, B})
+    case untellable(Normalised) of
+        ok     -> ok;
+        {A, B} -> erlang:error({indiscriminable_union, L, Path, A, B})
     end.
+
+%% The first pair of a normalised type's constituents that no clause head can
+%% tell apart, or `ok`. It is the ONE predicate for this refusal and for F25's
+%% corrected signature (ENG-346), which asks it of the union it is about to
+%% print. So the advice cannot recommend a union this check refuses, and when a
+%% pattern form ships and the refusal lifts, the advice lifts with it.
+untellable(T) -> first_pair(bs_types:constituents(T)).
+
+first_pair([]) -> ok;
+first_pair([R | Rs]) ->
+    case [O || O <- Rs, not discriminable(R, O)] of
+        [O | _] -> {R, O};
+        []      -> first_pair(Rs)
+    end.
+
+discriminable(A, B) ->
+    reaches(A) orelse reaches(B) orelse disjoint_buckets(A, B).
 
 %% A member a clause head can name. `pattern` is a structural head or a
 %% guarded binder; `guard` is a bare binder, which names nothing on its own
@@ -1315,11 +1324,36 @@ attach_correction({error, L, N, {return_not_declared, R}}, C) ->
 attach_correction(D, _C) ->
     D.
 
+%% THE LINE IS ASKED THE DECLARATION CHECK BEFORE IT IS PRINTED (ENG-346).
+%% `map<string, int>` widened by a `map<string, binary>` residual is a union no
+%% clause head can take apart, and pasting it was refused at the next compile.
+%% Ticket 70 keeps that union legal one container level in and puts the
+%% objection in the advice, so the answer here is the pair and not a line:
+%% `bs_diag` names both members and the repair, tagging them. The question is
+%% asked of the NORMALISED widened type, the same one the declaration check
+%% pairs, because the residual can hold both members of the pair (F25.13).
+%%
+%% Only indiscriminability is asked. Absorption cannot reach this line: a
+%% residual is the complement of the declared type, so it cannot contain a
+%% declared member, and the bottom, whose complement is everything, is dropped
+%% by `declared_member/2` (F38 §F38.3).
+corrected_signature(F, Declared, Union) ->
+    case untellable(bs_types:union([Declared, Union])) of
+        {A, B} -> {refused, A, B};
+        ok     -> signature_line(F, Declared, Union)
+    end.
+
 %% A signature that cannot be rendered as pasteable source is `none`, never a
 %% guess: a line that looks pasteable and is not is worse than no
 %% line (ticket 23 §2).
-corrected_signature(#fn{name = Name, ret = Ret, params = Params, vis = Vis},
-                    Declared, Union) ->
+%%
+%% NOT NAMED `pasteable`. A function name is an atom, and `bs_diag`'s term
+%% channel prints the `heads` map with `~0p`, whose key order is atom-creation
+%% order. A `pasteable/3` here created that atom before `bs_diag` created
+%% `kind`, and `--batch` stopped printing the same bytes as a standalone run
+%% (measured 2026-09-10, `cli_tests`).
+signature_line(#fn{name = Name, ret = Ret, params = Params, vis = Vis},
+               Declared, Union) ->
     Rendered = bs_types:to_string(Union),
     case writable(Rendered) of
         false -> none;

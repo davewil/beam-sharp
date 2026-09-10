@@ -37,6 +37,13 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BSC="$HERE/_build/default/bin/bsc"
 
 HEADING='the signature its clauses justify:'
+# ENG-346. The three markers of a correction withheld because the declaration
+# check would refuse it. The second is the declaration check's own header
+# (`bs_diag`'s `indiscriminable_union`), so the advice and the refusal read the
+# same words.
+REFUSED='widening the signature to cover it would be refused:'
+TELL='no clause head can tell `map<string, int>` from `map<string, binary>`'
+TAG='tag the members instead'
 
 # ---------------------------------------------------------------------------
 # judge — the whole of the gate's opinion, in one place.
@@ -47,13 +54,17 @@ HEADING='the signature its clauses justify:'
 # ---------------------------------------------------------------------------
 judge() {
   local dir="$1"
-  local p1 p2 p3 p4 p5
+  local p1 p2 p3 p4 p5 p6 p6c p6a p8
 
   p1="$(cat "$dir/P1.out")"
   p2="$(cat "$dir/P2.out")"
   p3="$(cat "$dir/P3.out")"
   p4="$(cat "$dir/P4.out")"
   p5="$(cat "$dir/P5.out")"
+  p6="$(cat "$dir/P6.out")"
+  p6c="$(cat "$dir/P6C.out")"
+  p6a="$(cat "$dir/P6A.out")"
+  p8="$(cat "$dir/P8.out")"
 
   # PROBE 1 — the line exists, and it is a whole signature.
   #
@@ -111,7 +122,7 @@ judge() {
   # after the heading. Checking the whole output instead would forbid the
   # correct behaviour, and the self-test's GOOD stub is what caught that.
   local minted
-  minted="$(grep -A1 -F "$HEADING" <<<"$p1$p2$p3$p4" | grep -F 'Kind:' || true)"
+  minted="$(grep -A1 -F "$HEADING" <<<"$p1$p2$p3$p4$p8" | grep -F 'Kind:' || true)"
   if [ -n "$minted" ]; then
     echo "probe 3: a mint tag reached a pasteable signature."
     sed 's/^/           /' <<<"$minted"
@@ -154,6 +165,80 @@ judge() {
     echo "         got:"
     sed 's/^/           /' <<<"$p5"
   fi
+
+  # PROBE 6 — a correction the DECLARATION CHECK refuses is not printed (ENG-346).
+  #
+  #   public map<string, int> Pick(int n)    returning a map<string, binary>
+  #
+  # was told to paste `map<string, int> | map<string, binary>`, and the
+  # declaration check refuses that line. Ticket 70 put the objection in the
+  # advice, so the advice must say the line would be refused, name the pair,
+  # and name the repair. The absence is guarded by the presence beside it.
+  if ! grep -qF 'returns a value its signature does not declare' <<<"$p6"; then
+    echo "probe 6: the two-map program reported no return mismatch at all."
+    echo "         the refusal is meant to drop ONE line, not the diagnostic."
+  elif grep -qF "$HEADING" <<<"$p6"; then
+    echo "probe 6: a corrected signature the declaration check refuses was printed."
+    echo "         pasting it gets \`no clause head can tell ...\`, which is the"
+    echo "         compiler recommending a form it rejects."
+    sed 's/^/           /' <<<"$p6"
+  elif ! grep -qF "$REFUSED" <<<"$p6" || ! grep -qF "$TELL" <<<"$p6" \
+       || ! grep -qF "$TAG" <<<"$p6"; then
+    echo "probe 6: the line is withheld but the diagnostic does not say why or what"
+    echo "         to write instead. an author told nothing assumes an unwritable"
+    echo "         residual and pastes the refused union by hand."
+    sed 's/^/           /' <<<"$p6"
+  fi
+
+  # PROBE 7 — the premise, at BOTH declaration sites. The line probe 6 withholds
+  # must still be refused, by a compile and by `--api`, which reaches the check
+  # through `exports_of/1` and not `check/2`. When a map pattern ships the
+  # refusal lifts, this fires, and probe 6's absence stops being right: the
+  # line should print again.
+  if ! grep -qF "$TELL" <<<"$p6c"; then
+    echo "probe 7: a compile accepts the line probe 6 withholds."
+    echo "         the refusal the advice predicts is gone, so the advice is wrong."
+    sed 's/^/           /' <<<"$p6c"
+  fi
+  if ! grep -qF "$TELL" <<<"$p6a"; then
+    echo "probe 7: \`bsc --api\` accepts the line probe 6 withholds."
+    echo "         --api is a second declaration pass; a refusal wired to one site"
+    echo "         answers the other as a fact."
+    sed 's/^/           /' <<<"$p6a"
+  fi
+
+  # PROBE 8 — the over-refusal control. A map beside an atom is split by a
+  # guard, so its correction compiles and must still be printed.
+  if ! grep -qF 'public map<string, int> | :oops Pick(int n)' <<<"$p8"; then
+    echo "probe 8: the correction for \`map<string, int> | :oops\` was not printed."
+    echo "         a guard splits those members, so the line compiles. withholding"
+    echo "         it is a refusal with no cause."
+    sed 's/^/           /' <<<"$p8"
+  fi
+}
+
+# The ENG-346 outputs as the decided behaviour prints them, written into a stub
+# directory so each stub below breaks only what it names.
+good_p6="m.bs:5:1: error: Pick returns a value its signature does not declare
+  not covered by the declared return type:
+    map<string, binary>
+  widening the signature to cover it would be refused:
+    no clause head can tell \`map<string, int>\` from \`map<string, binary>\`
+  tag the members instead: return each in a tuple led by its own atom,
+  and declare the union of those tuples."
+good_p6r="m.bs:3:47: error: no clause head can tell \`map<string, int>\` from \`map<string, binary>\`
+  in Pick"
+good_p8="m.bs:3:1: error: Pick returns a value its signature does not declare
+  not covered by the declared return type:
+    :oops
+  the signature its clauses justify:
+    public map<string, int> | :oops Pick(int n)"
+
+seed_eng346() {
+  printf '%s\n' "$good_p6"  > "$1/P6.out"
+  printf '%s\n' "$good_p6r" > "$1/P6C.out"
+  printf '%s\n' "$good_p6r" > "$1/P6A.out"
+  printf '%s\n' "$good_p8"  > "$1/P8.out"
 }
 
 # ---------------------------------------------------------------------------
@@ -215,10 +300,11 @@ m.bs:4: error: Go returns a value its signature does not declare
   printf '%s\n' "$good_p3" > "$CTL/silent/P3.out"
   printf '%s\n' "$good_p5" > "$CTL/silent/P5.out"
   : > "$CTL/silent/P4.out"
+  seed_eng346 "$CTL/silent"
   silent="$(judge "$CTL/silent" || true)"
   grep -q '^probe 1:' <<<"$silent" || { echo "SELF-TEST FAILED: probe 1 missed the silent stub — the reported defect"; fail=1; }
   grep -q '^probe 3:' <<<"$silent" || { echo "SELF-TEST FAILED: probe 3 missed the silent stub — no function-wide line either"; fail=1; }
-  for n in 2 4; do
+  for n in 2 4 6 7 8; do
     if grep -q "^probe $n:" <<<"$silent"; then
       echo "SELF-TEST FAILED: probe $n fired on the silent stub, which it should pass."
       echo "                  a probe that fires on everything proves nothing."
@@ -247,6 +333,7 @@ m.bs:4: error: Go returns a value its signature does not declare
   printf '%s\n' "$good_p3" > "$CTL/perclause/P3.out"
   printf '%s\n' "$good_p5" > "$CTL/perclause/P5.out"
   : > "$CTL/perclause/P4.out"
+  seed_eng346 "$CTL/perclause"
   perclause="$(judge "$CTL/perclause" || true)"
   grep -q '^probe 3:' <<<"$perclause" || {
     echo "SELF-TEST FAILED: probe 3 accepted a per-clause correction. this is the"
@@ -254,7 +341,7 @@ m.bs:4: error: Go returns a value its signature does not declare
     echo "                  lines for one function, neither of them sufficient."
     fail=1
   }
-  for n in 1 2 4; do
+  for n in 1 2 4 6 7 8; do
     if grep -q "^probe $n:" <<<"$perclause"; then
       echo "SELF-TEST FAILED: probe $n fired on the per-clause stub, which it should pass."
       fail=1
@@ -276,6 +363,7 @@ m.bs:4: error: Go returns a value its signature does not declare
     public { Kind: :'M4.Order', Id: int, Total: int } | { Kind: :'M4.Invoice', Id: int, Total: int } Make(int n)" > "$CTL/overreach/P3.out"
   printf '%s\n' "$good_p5" > "$CTL/overreach/P5.out"
   : > "$CTL/overreach/P4.out"
+  seed_eng346 "$CTL/overreach"
   overreach="$(judge "$CTL/overreach" || true)"
   grep -q '^probe 3:' <<<"$overreach" || {
     echo "SELF-TEST FAILED: probe 3 accepted a mint tag in a pasteable signature."
@@ -283,7 +371,7 @@ m.bs:4: error: Go returns a value its signature does not declare
     echo "                  mode ticket 23 §2 exists to prevent."
     fail=1
   }
-  for n in 1 2 4; do
+  for n in 1 2 4 6 7 8; do
     if grep -q "^probe $n:" <<<"$overreach"; then
       echo "SELF-TEST FAILED: probe $n fired on the overreach stub, which it should pass."
       fail=1
@@ -302,6 +390,7 @@ m.bs:4: error: Go returns a value its signature does not declare
   printf '%s\n' "$good_p2" > "$CTL/absorbed/P2.out"
   printf '%s\n' "$good_p3" > "$CTL/absorbed/P3.out"
   : > "$CTL/absorbed/P4.out"
+  seed_eng346 "$CTL/absorbed"
   printf '%s\n' "m.bs:3: error: Reject returns a value its signature does not declare
   not covered by the declared return type:
     term
@@ -314,20 +403,90 @@ m.bs:4: error: Go returns a value its signature does not declare
     echo '                  compiler would be offering a program it rejects.'
     fail=1
   }
-  for n in 1 2 3 4; do
+  for n in 1 2 3 4 6 7 8; do
     if grep -q "^probe $n:" <<<"$absorbed"; then
       echo "SELF-TEST FAILED: probe $n fired on the absorbed stub, which it should pass."
       fail=1
     fi
   done
 
+  # The ENG-346 stubs start from the decided behaviour and break one output
+  # each, so a stub that fires any probe but its own is a probe firing on
+  # everything.
+  seed_all() {
+    mkdir -p "$1"
+    printf '%s\n' "$good_p1" > "$1/P1.out"
+    printf '%s\n' "$good_p2" > "$1/P2.out"
+    printf '%s\n' "$good_p3" > "$1/P3.out"
+    printf '%s\n' "$good_p5" > "$1/P5.out"
+    : > "$1/P4.out"
+    seed_eng346 "$1"
+  }
+  # expect STUB PROBE — the stub must fire PROBE and no other.
+  expect() {
+    local out
+    out="$(judge "$CTL/$1" || true)"
+    grep -q "^probe $2:" <<<"$out" || {
+      echo "SELF-TEST FAILED: probe $2 missed the $1 stub."
+      fail=1
+    }
+    for n in 1 2 3 4 5 6 7 8; do
+      [ "$n" = "$2" ] && continue
+      if grep -q "^probe $n:" <<<"$out"; then
+        echo "SELF-TEST FAILED: probe $n fired on the $1 stub, which it should pass."
+        fail=1
+      fi
+    done
+  }
+
+  # --- REFUSED-ANYWAY ----------------------------------------------------
+  #
+  # THE STUB PROBE 6 EXISTS FOR: the compiler as it stood at 5a40668. Every
+  # line is well-formed, and the line offered for pasting is one the
+  # declaration check refuses.
+  seed_all "$CTL/refusedanyway"
+  printf '%s\n' "m.bs:5:1: error: Pick returns a value its signature does not declare
+  not covered by the declared return type:
+    map<string, binary>
+  the signature its clauses justify:
+    public map<string, int> | map<string, binary> Pick(int n)" > "$CTL/refusedanyway/P6.out"
+  expect refusedanyway 6
+
+  # --- WITHHELD-SILENTLY -------------------------------------------------
+  #
+  # The plausible half-fix: the line is dropped as F25.4 drops an unwritable
+  # one, and nothing says the union would be refused or what to do instead.
+  seed_all "$CTL/withheld"
+  printf '%s\n' "m.bs:5:1: error: Pick returns a value its signature does not declare
+  not covered by the declared return type:
+    map<string, binary>" > "$CTL/withheld/P6.out"
+  expect withheld 6
+
+  # --- ONE-SITE ----------------------------------------------------------
+  #
+  # A compile refuses the withheld line and `--api` answers it as a fact:
+  # ENG-320's two-sites defect, reached through the line this advice predicts.
+  seed_all "$CTL/onesite"
+  printf '%s\n' "module P6P
+map<string, int> | map<string, binary> Pick(int)" > "$CTL/onesite/P6A.out"
+  expect onesite 7
+
+  # --- OVER-REFUSAL ------------------------------------------------------
+  #
+  # A fix that withholds every correction with a map in it. Probes 1 to 7 all
+  # pass it; only the control catches it.
+  seed_all "$CTL/overrefusal"
+  printf '%s\n' "m.bs:3:1: error: Pick returns a value its signature does not declare
+  not covered by the declared return type:
+    :oops
+  widening the signature to cover it would be refused:
+    no clause head can tell \`map<string, int>\` from \`:oops\`
+  tag the members instead: return each in a tuple led by its own atom,
+  and declare the union of those tuples." > "$CTL/overrefusal/P8.out"
+  expect overrefusal 8
+
   # --- GOOD --------------------------------------------------------------
-  mkdir -p "$CTL/good"
-  printf '%s\n' "$good_p1" > "$CTL/good/P1.out"
-  printf '%s\n' "$good_p2" > "$CTL/good/P2.out"
-  printf '%s\n' "$good_p3" > "$CTL/good/P3.out"
-  printf '%s\n' "$good_p5" > "$CTL/good/P5.out"
-  : > "$CTL/good/P4.out"
+  seed_all "$CTL/good"
   good="$(judge "$CTL/good" || true)"
   if [ -n "$good" ]; then
     echo "SELF-TEST FAILED: the gate rejected the decided behaviour:"
@@ -344,9 +503,13 @@ m.bs:4: error: Go returns a value its signature does not declare
   : > "$CTL/broken/P2.out"
   : > "$CTL/broken/P3.out"
   : > "$CTL/broken/P5.out"
+  : > "$CTL/broken/P6.out"
+  : > "$CTL/broken/P6C.out"
+  : > "$CTL/broken/P6A.out"
+  : > "$CTL/broken/P8.out"
   printf '%s\n' "m.bs:1: error: syntax error before: 'module'" > "$CTL/broken/P4.out"
   broken="$(judge "$CTL/broken" || true)"
-  for n in 1 2 3 4 5; do
+  for n in 1 2 3 4 5 6 7 8; do
     grep -q "^probe $n:" <<<"$broken" || {
       echo "SELF-TEST FAILED: probe $n went green over a run that never compiled."
       echo "                  an absent diagnostic is not a passing measurement."
@@ -355,12 +518,15 @@ m.bs:4: error: Go returns a value its signature does not declare
   done
 
   if [ "$fail" -eq 0 ]; then
-    echo "self-test: caught four defects on different probes — the silent case, the"
+    echo "self-test: caught eight defects on different probes — the silent case, the"
     echo "           per-clause correction that prints two contradictory lines, the"
-    echo "           mint tag in a pasteable signature, and the absorbed member a"
-    echo "           writable bottom introduces — passed each stub's other"
-    echo "           probes, passed the decided behaviour, and refused a run that"
-    echo "           never compiled. the gate discriminates and does not pass vacuously"
+    echo "           mint tag in a pasteable signature, the absorbed member a"
+    echo "           writable bottom introduces, a line the declaration check"
+    echo "           refuses, that line withheld with no reason, a refusal at one"
+    echo "           declaration site only, and a correction withheld with no"
+    echo "           cause — passed each stub's other probes, passed the decided"
+    echo "           behaviour, and refused a run that never compiled. the gate"
+    echo "           discriminates and does not pass vacuously"
     exit 0
   fi
   exit 1
@@ -378,7 +544,8 @@ WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
 mkdir -p "$WORK/src/P1" "$WORK/src/P2" "$WORK/src/P3" "$WORK/src/P4" \
-         "$WORK/src/P5" "$WORK/out"
+         "$WORK/src/P5" "$WORK/src/P6" "$WORK/src/P6P" "$WORK/src/P8" \
+         "$WORK/out"
 
 cat > "$WORK/src/P1/p1.bs" <<'BS'
 module P1
@@ -420,11 +587,50 @@ public none Reject(term r)
 Reject(r) -> r
 BS
 
-for p in P1 P2 P3 P4 P5; do
+# ENG-346. The program the defect was measured on: no union declared anywhere,
+# and the only union in sight is the one the correction would write.
+cat > "$WORK/src/P6/p6.bs" <<'BS'
+module P6
+public map<string, int> Pick(int n)
+Pick(1) -> Ints()
+Pick(n) -> Bins()
+private map<string, int> Ints()
+Ints() -> Ints()
+private map<string, binary> Bins()
+Bins() -> Bins()
+BS
+
+# The line P6 withholds, pasted. Probe 7 reads it through both declaration sites.
+cat > "$WORK/src/P6P/p6p.bs" <<'BS'
+module P6P
+public map<string, int> | map<string, binary> Pick(int n)
+Pick(1) -> Ints()
+Pick(n) -> Bins()
+private map<string, int> Ints()
+Ints() -> Ints()
+private map<string, binary> Bins()
+Bins() -> Bins()
+BS
+
+# The over-refusal control: a map beside an atom, split by `is_map`.
+cat > "$WORK/src/P8/p8.bs" <<'BS'
+module P8
+public map<string, int> Pick(int n)
+Pick(n) -> :oops
+BS
+
+for p in P1 P2 P3 P4 P5 P6 P8; do
   "$BSC" --src-root "$WORK/src" -o "$WORK/out" "$WORK/src/$p" \
       > "$WORK/$p.out" 2>&1 || true
-  # The gate reads the diagnostic text only; the path prefix varies per run.
-  sed -i.bak "s#$WORK/src/$p/##g" "$WORK/$p.out" && rm -f "$WORK/$p.out.bak"
+done
+"$BSC" --src-root "$WORK/src" -o "$WORK/out" "$WORK/src/P6P" \
+    > "$WORK/P6C.out" 2>&1 || true
+"$BSC" --src-root "$WORK/src" --api "$WORK/src/P6P" \
+    > "$WORK/P6A.out" 2>&1 || true
+
+# The gate reads the diagnostic text only; the path prefix varies per run.
+for o in P1 P2 P3 P4 P5 P6 P6C P6A P8; do
+  sed -i.bak "s#$WORK/src/[^/]*/##g" "$WORK/$o.out" && rm -f "$WORK/$o.out.bak"
 done
 
 violations="$(judge "$WORK" || true)"
@@ -438,8 +644,12 @@ if [ -n "$violations" ]; then
   exit 1
 fi
 
-echo "corrected signature: 5 probes — the line is present and pasteable, the"
+echo "corrected signature: 8 probes — the line is present and pasteable, the"
 echo "                     residual survives beside it, two clauses share one"
 echo "                     function-wide correction, no mint tag reaches a"
-echo "                     signature, a clean module stays silent, and a"
-echo '                     `none` return is corrected without an absorbed member'
+echo "                     signature, a clean module stays silent, a"
+echo '                     `none` return is corrected without an absorbed member,'
+echo "                     a line the declaration check refuses is withheld with"
+echo "                     the repair named, that refusal holds at both"
+echo "                     declaration sites, and a union a guard splits is"
+echo "                     still corrected"

@@ -240,11 +240,23 @@ built(Path, {Sev, Line, Fn, {field_absent, Form, Field, Residual}}) ->
                                member => bs_types:to_pattern(Residual)};
 %% `corrected` is `none` when there is nothing writable to offer, never
 %% absent, so a consumer never has to tell "refused" from "missing" (F25).
+%% `indiscriminable` follows the same rule: the pair of members that made the
+%% declaration check refuse the widened signature, or `none` (ENG-346). Its
+%% fields are named as `indiscriminable_union`'s are, since it predicts that
+%% refusal.
+built(Path, {Sev, Line, Fn, {return_not_declared, Residual, {refused, A, B}}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => return_not_declared,
+                               residual => residual(Residual),
+                               undeclared => bs_types:to_pattern(Residual),
+                               corrected => none,
+                               indiscriminable => #{member => bs_types:to_string(A),
+                                                    beside => bs_types:to_string(B)}};
 built(Path, {Sev, Line, Fn, {return_not_declared, Residual, Corrected}}) ->
     (at(Sev, Path, Line, Fn))#{tag => return_not_declared,
                                residual => residual(Residual),
                                undeclared => bs_types:to_pattern(Residual),
-                               corrected => Corrected};
+                               corrected => Corrected,
+                               indiscriminable => none};
 built(Path, {Sev, Line, Fn, {bind_may_fail, Residual}}) ->
     (at(Sev, Path, Line, Fn))#{tag => bind_may_fail,
                                residual => residual(Residual),
@@ -825,6 +837,23 @@ message(#{tag := field_absent, file := P, line := L, column := C, function := Fn
 %% and the signature answers what to write, so the signature is added, never
 %% substituted (F25, ticket 23 §8). The `none` clause comes first: the
 %% residual has no writable spelling, such as a record or `binary \ string`.
+%%
+%% The refused clause comes before both. Its second line is the declaration
+%% check's own header, so the author meets the same words here and at the
+%% refusal they would get by widening the signature by hand. The repair is 09
+%% §5's: two members a head cannot tell apart need a tag, and the leading atom
+%% of a tuple is one (ticket 70, ENG-346).
+message(#{tag := return_not_declared, file := P, line := L, column := C, function := Fn,
+          undeclared := Undeclared,
+          indiscriminable := #{member := M, beside := B}}) ->
+    {"~s:~p:~p: error: ~s returns a value its signature does not declare~n"
+     "  not covered by the declared return type:~n"
+     "    ~s~n"
+     "  widening the signature to cover it would be refused:~n"
+     "    no clause head can tell `~s` from `~s`~n"
+     "  tag the members instead: return each in a tuple led by its own atom,~n"
+     "  and declare the union of those tuples.~n",
+     [P, L, C, Fn, Undeclared, M, B]};
 message(#{tag := return_not_declared, file := P, line := L, column := C, function := Fn,
           undeclared := Undeclared, corrected := none}) ->
     {"~s:~p:~p: error: ~s returns a value its signature does not declare~n"

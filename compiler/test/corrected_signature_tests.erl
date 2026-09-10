@@ -183,6 +183,122 @@ the_term_says_none_when_the_signature_is_refused_test() ->
     ?assertMatch(#{tag := return_not_declared, corrected := none}, D).
 
 %%% ---------------------------------------------------------------------------
+%%% 10 — a correction the declaration check refuses (ENG-346)
+%%%
+%%% Measured 2026-09-09: `Pick` declared `map<string, int>` and returning a
+%%% `map<string, binary>` was told to paste
+%%% `public map<string, int> | map<string, binary> Pick(int n)`, and pasting it
+%%% got `no clause head can tell ...` from the declaration check, at a compile
+%%% and at `--api`. Ticket 70 kept that union LEGAL-in-a-container and refused
+%%% at the top, and put the objection in the advice — so the advice has to agree
+%%% with the refusal, and it names the repair 09 §5 anticipated: tag the members.
+%%%
+%%% F25.12 and F25.13 are the tests that shaped the fix. F25.12 is the
+%%% over-refusal control: `map<string, int> | :oops` is split by a guard, so a
+%%% fix that withholds any line with a map in it fails there. F25.13 puts both
+%%% maps in the RESIDUAL under a declared `int`, so a fix that only pairs each
+%%% residual member against the declared type prints the refused line there.
+%%% ---------------------------------------------------------------------------
+
+-define(REFUSED, "widening the signature to cover it would be refused:").
+-define(TELL, "no clause head can tell `map<string, int>` from `map<string, binary>`").
+-define(TAG, "tag the members instead").
+
+%% The ticket's program, with the declared return type as the variable.
+pick_src(Mod, Declared) ->
+    "module " ++ Mod ++ "\n"
+    "public " ++ Declared ++ " Pick(int n)\n"
+    "Pick(1) -> Ints()\n"
+    "Pick(n) -> Bins()\n"
+    "private map<string, int> Ints()\n"
+    "Ints() -> Ints()\n"
+    "private map<string, binary> Bins()\n"
+    "Bins() -> Bins()\n".
+
+%% F25.10 — the ticket's program. The residual still prints, the refused line
+%% does not, and the diagnostic says why and what to do instead. Asserted as an
+%% absence beside three presences, so a run that printed nothing fails.
+a_correction_the_declaration_check_refuses_is_not_printed_test() ->
+    Out = cli("M11", pick_src("M11", "map<string, int>")),
+    ?assert(string:find(Out, "not covered by the declared return type:\n"
+                             "    map<string, binary>") =/= nomatch),
+    ?assertEqual(nomatch, string:find(Out, ?HEADING)),
+    ?assertEqual(nomatch, string:find(Out, "map<string, int> | map<string, binary> Pick")),
+    ?assert(string:find(Out, ?REFUSED) =/= nomatch),
+    ?assert(string:find(Out, ?TELL) =/= nomatch),
+    ?assert(string:find(Out, ?TAG) =/= nomatch).
+
+%% F25.11 — the premise, at BOTH declaration sites. The line F25.10 withholds
+%% is refused by a compile and by `--api`, which reaches the declaration check
+%% through `exports_of/1` and never through `check/2`. When a map pattern ships
+%% and the refusal lifts, this goes red, and so does F25.10: the correction
+%% reads the same predicate the refusal does, so the line prints again.
+the_withheld_line_is_refused_at_both_declaration_sites_test() ->
+    Src = pick_src("M12", "map<string, int> | map<string, binary>"),
+    with_src("M12.bs", Src,
+             fun(Path, Root) ->
+                     Dir = filename:dirname(Path),
+                     Compile = run_cli("--src-root " ++ Root ++ " -o " ++ Root ++ " " ++ Dir),
+                     Api = run_cli("--src-root " ++ Root ++ " --api " ++ Dir),
+                     ?assert(string:find(Compile, ?TELL) =/= nomatch),
+                     ?assert(string:find(Api, ?TELL) =/= nomatch)
+             end).
+
+%% F25.12 — the over-refusal control. A map beside an atom is told apart by
+%% `is_map`, so the line prints — and pasting it compiles clean, which is the
+%% claim the line makes.
+a_union_a_guard_can_split_is_still_corrected_test() ->
+    Line = "public map<string, int> | :oops Pick(int n)",
+    Out = cli("M13", "module M13\npublic map<string, int> Pick(int n)\nPick(n) -> :oops\n"),
+    ?assert(string:find(Out, Line) =/= nomatch),
+    ?assertEqual(nomatch, string:find(Out, ?REFUSED)),
+    Pasted = with_src("M14.bs", "module M14\n" ++ Line ++ "\nPick(n) -> :oops\n",
+                      fun(Path, Root) ->
+                              run_cli("--src-root " ++ Root ++ " -o " ++ Root ++ " "
+                                      ++ filename:dirname(Path))
+                      end),
+    ?assertEqual("rc:0\n", Pasted).
+
+%% F25.13 — both maps in the residual. `int` splits from each map by a guard,
+%% so pairing residual members against the declared type alone finds nothing
+%% and prints `int | map<string, int> | map<string, binary>`, which is refused.
+%% Two offending clauses, so two diagnostics, and neither carries the line.
+two_maps_in_the_residual_are_refused_together_test() ->
+    Out = cli("M15", pick_src("M15", "int")),
+    ?assertEqual(2, count_occurrences(Out, ?REFUSED)),
+    ?assertEqual(2, count_occurrences(Out, ?TELL)),
+    ?assertEqual(nomatch, string:find(Out, ?HEADING)).
+
+%% F25.14 — the term carries the pair under its own key, and `corrected` stays
+%% `none`, because there is nothing to paste. The key is present on every
+%% `return_not_declared`, as `none` when nothing refused the line (F25.9's rule:
+%% a consumer never tells "absent" from "refused"). Read off the CLI's term
+%% channel, since F16 makes the term canonical and the prose a function of it.
+the_term_names_the_pair_that_refused_the_correction_test() ->
+    Refused = term_of("M16", pick_src("M16", "map<string, int>")),
+    ?assertMatch(#{tag := return_not_declared, corrected := none,
+                   indiscriminable := #{member := "map<string, int>",
+                                        beside := "map<string, binary>"}},
+                 Refused),
+    Printed = term_of("M17", "module M17\npublic int Answer(int n)\nAnswer(n) -> :oops\n"),
+    ?assertMatch(#{corrected := "public int | :oops Answer(int n)",
+                   indiscriminable := none},
+                 Printed).
+
+%% One diagnostic, so one line on stdout. Parsing it back is what proves it is
+%% a term (F16).
+term_of(Name, Src) ->
+    with_src(Name ++ ".bs", Src,
+             fun(Path, Root) ->
+                     {_, Stdout, _} = bs_test_support:run_cli_split_result(
+                                        "--diagnostics term --src-root " ++ Root
+                                        ++ " " ++ filename:dirname(Path)),
+                     {ok, Tokens, _} = erl_scan:string(Stdout ++ "."),
+                     {ok, Term} = erl_parse:parse_term(Tokens),
+                     Term
+             end).
+
+%%% ---------------------------------------------------------------------------
 
 count_occurrences(Hay, Needle) ->
     count_occurrences(Hay, Needle, 0).
