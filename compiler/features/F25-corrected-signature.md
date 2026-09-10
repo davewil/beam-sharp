@@ -253,6 +253,63 @@ both sites run.
   other than a signature, or `private_callback/1`, which a pasted line cannot change because it
   keeps the original's visibility.
 
+### Review round — David, 2026-09-10
+
+Six calls this amendment made without asking were put to David after it landed. Answered:
+**R1** (list and literal residuals withheld until ENG-350) accepted for now; **R4** (the
+`indiscriminable` key on a frozen tag) and **R6** (reading "two sites" as the withheld line refused
+at both) were questions about what the frozen set enforces and what R6 gives up, answered in the
+conversation. Open, with the proposal each would build — **none of this output is built**:
+
+**R2 — a paste-back that fails for a reason it does not name.** Today `as_pasted/2` answers `none`
+for anything but indiscriminability, so the line disappears with no word. A crash and silence were
+both rejected. Proposed: the line is withheld and the diagnostic says why, and an unexpected
+failure is named as a compiler defect.
+
+```
+error: Pick returns a value its signature does not declare
+  not covered by the declared return type:
+    [map<string, binary>, ..]
+  no signature is offered: this residual has no spelling as a type yet.
+```
+```
+  no signature is offered: checking it failed inside the compiler
+  (badmatch in bs_check:as_pasted/2), which is a compiler defect.
+```
+
+Compiler delta: `as_pasted/2` answers `{withheld, Why}` with `Why` one of `syntax`, `absorbed`,
+`{internal, Class, Reason}`; the term gains `withheld := none | Why`; one `message/1` clause per
+`Why`. F25.4's record residual would get the same sentence, since it is withheld silently too.
+
+**R3 — the absorbed declared type.** No line that keeps `map<string, int>` is legal: ticket 68
+refuses `map<string, int> | map<string, term>`. So the choice is this line or no line, and what the
+line does wrong is replace the declared type without saying so, when the likelier mistake is the
+clause. Proposed:
+
+```
+  the signature its clauses justify:
+    public map<string, term> Pick(int n)
+  this replaces `map<string, int>`, which `map<string, term>` contains.
+  If `map<string, int>` is what you meant, fix the clause, not the signature.
+```
+
+Compiler delta: `signature_line/3` reports whether it dropped the declared half; the term gains
+`replaces := none | "map<string, int>"`; one `message/1` clause.
+
+**R5 — the tag advice shows the shape.** Proposed:
+
+```
+  widening the signature to cover it would be refused:
+    no clause head can tell `map<string, int>` from `map<string, binary>`
+  tag the members so a clause head can, with atoms of your choosing:
+    (:tag1, map<string, int>) | (:tag2, map<string, binary>)
+  and return each value inside its tag.
+```
+
+It is a type, not a signature, and sits under no "paste this" heading: the clauses must change as
+well, and §2 has the compiler write heads, never bodies. Compiler delta: the `message/1` clause
+only; the term already carries both members.
+
 ## The scenarios
 
 `corrected_signature_tests.erl` opens its sections with these identifiers, and this is what each
