@@ -188,8 +188,9 @@ error: Pick returns a value its signature does not declare
     map<string, binary>
   widening the signature to cover it would be refused:
     no clause head can tell `map<string, int>` from `map<string, binary>`
-  tag the members instead: return each in a tuple led by its own atom,
-  and declare the union of those tuples.
+  tag the members so a clause head can, with atoms of your choosing:
+    (:tag1, map<string, int>) | (:tag2, map<string, binary>)
+  and return each value inside its tag.
 ```
 
 The second line of the new text is the declaration check's own header, so the author reads the
@@ -210,10 +211,10 @@ pairwise test ticket 70 named, and argued that absorption could not reach the li
 | `(int, map<string, int>)` declared, returning `(2, …)` | `(int, map<string, int>) \| (2, map<string, binary>)` | `syntax error before: 2` |
 
 Asking refusals one at a time missed both, so the line now goes through the check and the parser
-it would meet when pasted. Anything that refuses it other than indiscriminability is `none`, so
-the line is withheld as F25.4 withholds a record, including for refusals not listed here. When a
-map pattern ships and the indiscriminability refusal lifts, the line prints again with no edit
-here.
+it would meet when pasted. Anything that refuses it other than indiscriminability withholds the
+line, and since the review round (R2 below) the diagnostic says why, including for a failure the
+paste-back does not name. When a map pattern ships and the indiscriminability refusal lifts, the
+line prints again with no edit here.
 
 **An absorbed declared type is dropped, not refused.** For the first row the correct line exists:
 `public map<string, term> Pick(int n)`, which compiles. `declared_member/3` now drops the declared
@@ -221,15 +222,21 @@ half whenever the residual contains it (`bs_types:is_subtype/2`), which is F38's
 bottom without F38's premise. The algebra cannot spell `map<string, term>` less `map<string, int>`,
 so that residual is `map<string, term>`, and it contains what was declared. Where only one member
 of a declared union is absorbed, the declared half is the author's text and cannot be split, and
-the paste-back withholds the line.
+the paste-back withholds the line, naming the member and what absorbs it (F25.18). Where the line
+drops the declared type, it says so (R3).
 
 **Writability is still asked first.** A record residual renders with `{`, which could parse as an
 inline map type, so `writable/1` refuses it before the parser sees it.
 
-**The term.** `corrected` stays `none`, since there is nothing to paste, and the descriptor gains
-`indiscriminable`: `#{member, beside}` named as `indiscriminable_union`'s fields are, or `none`.
-The key is present on every `return_not_declared` for F25.9's reason, so a consumer never tells
-"absent" from "refused". Adding a key is the additive-only change ticket 23 §4 chose maps for.
+**The term.** The descriptor gains three keys, each present on every `return_not_declared` and
+`none` when it has nothing to say, for F25.9's reason: a consumer never tells "absent" from
+"refused". Adding keys is the additive-only change ticket 23 §4 chose maps for.
+
+| key | when it is not `none` |
+|---|---|
+| `indiscriminable` | the widened line is refused: `#{member, beside}`, named as `indiscriminable_union`'s fields are. `corrected` is `none` |
+| `withheld` | no line is offered: `unspellable`, `declared_form`, `#{member, absorbed_by}`, or `#{class, reason}` for a failure the paste-back does not name. `corrected` is `none` |
+| `replaces` | the line drops the declared type: `#{declared, within}`, the first as the author wrote it. `corrected` is the line |
 
 **Two sites.** `bsc --api` prints no corrected signature: it answers what signatures declare and
 never checks a body (`bs_api.erl`'s header). So there is no second printer to wire. The two
@@ -259,12 +266,14 @@ Six calls this amendment made without asking were put to David after it landed. 
 **R1** (list and literal residuals withheld until ENG-350) accepted for now; **R4** (the
 `indiscriminable` key on a frozen tag) and **R6** (reading "two sites" as the withheld line refused
 at both) were questions about what the frozen set enforces and what R6 gives up, answered in the
-conversation. Open, with the proposal each would build — **none of this output is built**:
+conversation. R2, R3 and R5 were put with the output below and the compiler delta each would
+need; David answered *"all 3"*, and **all three are built as proposed** (the section's closing
+paragraph gives the names the build used). The proposals are kept as they were put.
 
-**R2 — a paste-back that fails for a reason it does not name.** Today `as_pasted/2` answers `none`
-for anything but indiscriminability, so the line disappears with no word. A crash and silence were
-both rejected. Proposed: the line is withheld and the diagnostic says why, and an unexpected
-failure is named as a compiler defect.
+**R2 — a paste-back that fails for a reason it does not name.** Before R2, `as_pasted/2` answered
+`none` for anything but indiscriminability, so the line disappeared with no word. A crash and
+silence were both rejected. Proposed: the line is withheld and the diagnostic says why, and an
+unexpected failure is named as a compiler defect.
 
 ```
 error: Pick returns a value its signature does not declare
@@ -310,6 +319,17 @@ It is a type, not a signature, and sits under no "paste this" heading: the claus
 well, and §2 has the compiler write heads, never bodies. Compiler delta: the `message/1` clause
 only; the term already carries both members.
 
+**As built.** The deltas' names changed once they were written. `bs_check:corrected_signature/4`
+answers the line, `{replacing, Line, D, New}`, `{refused, A, B}` or `{withhold, Why}`, and
+`bs_diag:correction/1` spreads that across `corrected`, `indiscriminable`, `withheld` and
+`replaces` (the table under *The term*). `Why` is `unspellable` (a record, `binary \ string`, or a
+line the parser refuses), `declared_form` (an inline map or other unrendered declared form, which
+F25 has always withheld and never explained), `{absorbed_member, M, By}`, or
+`{crashed, Class, Reason}`. `replaces` carries the type it drops as the author wrote it, so
+`type Counts = map<string, int>` reads *"this replaces `Counts`"* (F25.21). The internal tuple tags
+are deliberately not the descriptor's key names: a function or tuple tag in `bs_check` that
+matches a key `bs_diag` prints can reorder the term channel's output (ENG-349).
+
 ## The scenarios
 
 `corrected_signature_tests.erl` opens its sections with these identifiers, and this is what each
@@ -321,7 +341,7 @@ directly, because that is where the claim lives.
 | F25.1 | `Answer(n) -> :oops` under `public int Answer(int n)` | the output carries `public int \| :oops Answer(int n)` — a **whole signature**, not a type fragment |
 | F25.2 | the same program, looking for the older message | `not covered by the declared return type:` still stands beside it |
 | F25.3 | two offending clauses, `:zero` and `(:error, string)` | **two** diagnostics, and the **same** line on both: `public int \| :zero \| (:error, string) Go(int n)` |
-| F25.4 | a record in the **residual** — `Make` declared `Order`, returning `Invoice` | no signature line at all; the ordinary message and the residual's `Kind: :'M4.Invoice'` both survive |
+| F25.4 | a record in the **residual** — `Make` declared `Order`, returning `Invoice` | no signature line at all; the ordinary message and the residual's `Kind: :'M4.Invoice'` both survive, and since ENG-346's R2 the diagnostic says why no line is offered |
 | F25.5 | the mirror — a record as the **declared** type, returning `:oops` | `public Order \| :oops Make(int n)`, and no `Kind:` anywhere |
 | F25.6 | a private `Helper` beside a public `Entry` | `int \| :oops Helper(int n)` — and **not** `public …` |
 | F25.7 | `bs_diag:contractual()` | `return_not_declared` is a member |
@@ -333,7 +353,12 @@ directly, because that is where the claim lives.
 | F25.13 | both maps in the **residual**, under a declared `int` | two diagnostics, both withheld with the pair named: pairing residual members only against the declared type would miss it |
 | F25.14 | the term, read off the CLI's term channel | `corrected := none` and `indiscriminable := #{member, beside}`; an ordinary mismatch carries `indiscriminable := none` |
 | F25.15 | `map<string, int>` declared, returning a `map<string, term>` | `public map<string, term> Pick(int n)` — the absorbed declared half is dropped — and pasting it compiles clean |
-| F25.16 | `list<map<string, int>>` declared, returning a `list<map<string, binary>>` | no signature line and no refusal: the line would be a syntax error, and the union is legal; the residual `[map<string, binary>, ..]` still prints |
+| F25.16 | `list<map<string, int>>` declared, returning a `list<map<string, binary>>` | no signature line and no refusal: the line would be a syntax error, and the union is legal; the residual `[map<string, binary>, ..]` still prints, and since R2 so does *"no signature is offered: this residual has no spelling as a type yet."* |
+| F25.17 | the R5 shape as a declaration, each clause returning inside its tag | compiles clean: the advice is right only if following it compiles |
+| F25.18 | `map<string, int> \| :none` declared, returning a `map<string, term>` | R2: withheld, naming `map<string, int>` and what absorbs it; the term carries `withheld := #{member, absorbed_by}` |
+| F25.19 | an inline map `{ Id: int }` as the declared return | R2: *"the declared signature is written in a form this line does not reproduce"* |
+| F25.20 | the descriptor for a failure the paste-back does not name | R2: `withheld := #{class, reason}`, and the prose says *"(badmatch in bs_check:as_pasted/2), which is a compiler defect"*. Asserted on the descriptor because no program reaches it: a known input would be a named reason |
+| F25.21 | `type Counts = map<string, int>` declared, returning a `map<string, term>` | R3: *"this replaces `Counts`"* — named as the author wrote it |
 
 **F25.3 was measured before it was designed.** Two offending clauses produce two diagnostics; if
 each carried its own correction the compiler would print two contradictory pasteable lines, and
@@ -381,3 +406,10 @@ ENG-346 added probes 6 to 9 and six stubs, each of which must fire its own probe
   only probe that catches it.
 - **absorbed-map** — the compiler at `f3e1eee`, printing `map<string, int> | map<string, term>`.
   Probe 9.
+
+The review round added probe 10 and two stubs, and changed probe 6's and probe 9's markers:
+
+- **absorbed-silent** — the compiler at `a25d048`: the right line, with `map<string, int>` dropped
+  without a word. Probe 9 (R3).
+- **silent-withhold** — also `a25d048`: the list residual withheld with no reason. Probe 10 (R2),
+  which also requires the record case to say why wherever probe 3 finds its line withheld.

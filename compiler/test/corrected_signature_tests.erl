@@ -22,6 +22,8 @@
 %%% ---------------------------------------------------------------------------
 
 -define(HEADING, "the signature its clauses justify:").
+%% ENG-346 R2: a line that is withheld says why.
+-define(UNSPELLABLE, "no signature is offered: this residual has no spelling as a type yet.").
 
 %% Two things this helper got wrong the first time, both of which made every
 %% assertion below fail for the same uninformative reason — no output at all.
@@ -70,7 +72,9 @@ a_none_return_is_corrected_without_an_absorbed_member_test() ->
     Out = cli("M10", Src),
     ?assert(string:find(Out, ?HEADING) =/= nomatch),
     ?assert(string:find(Out, "public term Reject(term r)") =/= nomatch),
-    ?assertEqual(nomatch, string:find(Out, "none |")).
+    ?assertEqual(nomatch, string:find(Out, "none |")),
+    %% ENG-346 R3: the line replaces the declared type, so it says so.
+    ?assert(string:find(Out, "this replaces `none`, which `term` contains.") =/= nomatch).
 
 %%% ---------------------------------------------------------------------------
 %%% 3 — the correction is a property of the FUNCTION
@@ -116,7 +120,9 @@ a_record_in_the_residual_prints_no_signature_test() ->
     Out = cli("M4", Src),
     ?assert(string:find(Out, "returns a value its signature does not declare") =/= nomatch),
     ?assert(string:find(Out, "Kind: :'M4.Invoice'") =/= nomatch),
-    ?assertEqual(nomatch, string:find(Out, ?HEADING)).
+    ?assertEqual(nomatch, string:find(Out, ?HEADING)),
+    %% ENG-346 R2: withheld, and it says why.
+    ?assert(string:find(Out, ?UNSPELLABLE) =/= nomatch).
 
 %% F25.5 — the mirror, and it is why the declared half is read from the SOURCE
 %% AST rather than from the algebra. Here the record is the DECLARED type and the
@@ -179,8 +185,9 @@ the_term_says_none_when_the_signature_is_refused_test() ->
     D = bs_diag:descriptor("m.bs", {error, 3, 'Make',
                                     {return_not_declared,
                                      bs_types:atom_lit(oops),
-                                     none}}),
-    ?assertMatch(#{tag := return_not_declared, corrected := none}, D).
+                                     {withhold, unspellable}}}),
+    ?assertMatch(#{tag := return_not_declared, corrected := none,
+                   withheld := unspellable}, D).
 
 %%% ---------------------------------------------------------------------------
 %%% 10 — a correction the declaration check refuses (ENG-346)
@@ -207,7 +214,8 @@ the_term_says_none_when_the_signature_is_refused_test() ->
 
 -define(REFUSED, "widening the signature to cover it would be refused:").
 -define(TELL, "no clause head can tell `map<string, int>` from `map<string, binary>`").
--define(TAG, "tag the members instead").
+-define(TAG, "tag the members so a clause head can, with atoms of your choosing:").
+-define(SHAPE, "(:tag1, map<string, int>) | (:tag2, map<string, binary>)").
 
 %% The ticket's program, with the declared return type as the variable, and
 %% the type of the second clause's value as a second one.
@@ -246,7 +254,8 @@ a_correction_the_declaration_check_refuses_is_not_printed_test() ->
     ?assertEqual(nomatch, string:find(Out, "map<string, int> | map<string, binary> Pick")),
     ?assert(string:find(Out, ?REFUSED) =/= nomatch),
     ?assert(string:find(Out, ?TELL) =/= nomatch),
-    ?assert(string:find(Out, ?TAG) =/= nomatch).
+    ?assert(string:find(Out, ?TAG) =/= nomatch),
+    ?assert(string:find(Out, ?SHAPE) =/= nomatch).
 
 %% F25.11 — the premise, at BOTH declaration sites. The line F25.10 withholds
 %% is refused by a compile and by `--api`, which reaches the declaration check
@@ -293,11 +302,12 @@ the_term_names_the_pair_that_refused_the_correction_test() ->
     Refused = term_of("M16", pick_src("M16", "map<string, int>")),
     ?assertMatch(#{tag := return_not_declared, corrected := none,
                    indiscriminable := #{member := "map<string, int>",
-                                        beside := "map<string, binary>"}},
+                                        beside := "map<string, binary>"},
+                   withheld := none, replaces := none},
                  Refused),
     Printed = term_of("M17", "module M17\npublic int Answer(int n)\nAnswer(n) -> :oops\n"),
     ?assertMatch(#{corrected := "public int | :oops Answer(int n)",
-                   indiscriminable := none},
+                   indiscriminable := none, withheld := none, replaces := none},
                  Printed).
 
 %% F25.15 — a residual that ABSORBS the declared type. The algebra cannot
@@ -313,7 +323,17 @@ a_residual_that_absorbs_the_declared_type_replaces_it_test() ->
     Out = cli("M18", pick_src("M18", "map<string, int>", "map<string, term>")),
     ?assert(string:find(Out, Line) =/= nomatch),
     ?assertEqual(nomatch, string:find(Out, "map<string, int> |")),
-    ?assertEqual("rc:0\n", compile("M19", pick_program("M19", Line, "map<string, term>"))).
+    ?assertEqual("rc:0\n", compile("M19", pick_program("M19", Line, "map<string, term>"))),
+    %% ENG-346 R3: it says the declared type is replaced, and where the fix is
+    %% if that was not meant.
+    ?assert(string:find(Out, "this replaces `map<string, int>`, which "
+                             "`map<string, term>` contains.") =/= nomatch),
+    ?assert(string:find(Out, "If `map<string, int>` is what you meant, fix the "
+                             "clause, not the signature.") =/= nomatch),
+    ?assertMatch(#{corrected := Line,
+                   replaces := #{declared := "map<string, int>",
+                                 within := "map<string, term>"}},
+                 term_of("M21", pick_src("M21", "map<string, int>", "map<string, term>"))).
 
 %% F25.16 — the line is parsed before it is printed. A non-empty list residual
 %% prints as `[map<string, binary>, ..]`, which is pattern syntax, so the line
@@ -334,7 +354,91 @@ an_unparseable_correction_is_not_printed_test() ->
     ?assert(string:find(Out, "not covered by the declared return type:\n"
                              "    [map<string, binary>, ..]") =/= nomatch),
     ?assertEqual(nomatch, string:find(Out, ?HEADING)),
-    ?assertEqual(nomatch, string:find(Out, ?REFUSED)).
+    ?assertEqual(nomatch, string:find(Out, ?REFUSED)),
+    %% ENG-346 R2: withheld, and it says why.
+    ?assert(string:find(Out, ?UNSPELLABLE) =/= nomatch).
+
+%%% ---------------------------------------------------------------------------
+%%% 11 — David's review round (ENG-346, 2026-09-10): R2, R3, R5
+%%%
+%%% R2: a withheld line says why, and a failure the paste-back does not name is
+%%% reported as a compiler defect rather than hidden. R3: a line that replaces
+%%% the declared type says so, naming it as the author wrote it. R5: the tag
+%%% advice shows the tagged shape. Each proposal was put to David with its
+%%% output before it was built (F25's review round).
+%%% ---------------------------------------------------------------------------
+
+%% F25.17 — the shape R5 prints, with its placeholder atoms, is a declaration
+%% the compiler accepts once each clause returns its value inside its tag. The
+%% advice is only right if following it compiles.
+the_tag_shape_the_advice_shows_compiles_test() ->
+    Src = "module M22\n"
+          "public " ?SHAPE " Pick(int n)\n"
+          "Pick(1) -> (:tag1, Ints())\n"
+          "Pick(n) -> (:tag2, Rest())\n"
+          "private map<string, int> Ints()\n"
+          "Ints() -> Ints()\n"
+          "private map<string, binary> Rest()\n"
+          "Rest() -> Rest()\n",
+    ?assertEqual("rc:0\n", compile("M22", Src)).
+
+%% F25.18 — R2, one member of a declared union absorbed. `:none` keeps the
+%% declared half in the line, and `map<string, int>` inside it is absorbed by
+%% the `map<string, term>` residual. The author's text cannot be split, so the
+%% line is withheld, and the diagnostic names the member and what absorbs it.
+a_partly_absorbed_declared_union_says_why_it_is_withheld_test() ->
+    Src = "module M23\n"
+          "public map<string, int> | :none Pick(int n)\n"
+          "Pick(0) -> :none\n"
+          "Pick(1) -> Ints()\n"
+          "Pick(n) -> Rest()\n"
+          "private map<string, int> Ints()\n"
+          "Ints() -> Ints()\n"
+          "private map<string, term> Rest()\n"
+          "Rest() -> Rest()\n",
+    Out = cli("M23", Src),
+    ?assertEqual(nomatch, string:find(Out, ?HEADING)),
+    ?assert(string:find(Out, "no signature is offered: widening it would leave "
+                             "`map<string, int>` absorbed by") =/= nomatch),
+    ?assertMatch(#{corrected := none,
+                   withheld := #{member := "map<string, int>", absorbed_by := _}},
+                 term_of("M24", re:replace(Src, "M23", "M24", [{return, list}]))).
+
+%% F25.19 — R2, a declared return the line cannot reproduce. `type_source/1`
+%% answers `none` for an inline map, so F25 has always withheld this line
+%% (its Out of scope), and until R2 it said nothing.
+an_unreproducible_declared_form_says_why_it_is_withheld_test() ->
+    Out = cli("M25", "module M25\npublic { Id: int } Make(int n)\nMake(n) -> :oops\n"),
+    ?assertEqual(nomatch, string:find(Out, ?HEADING)),
+    ?assert(string:find(Out, "no signature is offered: the declared signature is "
+                             "written in a form") =/= nomatch).
+
+%% F25.20 — R2, a failure the paste-back does not name. No program reaches it:
+%% a known input would be a named reason. So it is asserted where the claim
+%% lives, the descriptor and its prose: the term carries the class and reason,
+%% and the prose calls it a compiler defect instead of saying nothing.
+an_unnamed_paste_back_failure_is_reported_as_a_defect_test() ->
+    D = bs_diag:descriptor("m.bs", {error, 3, 'Pick',
+                                    {return_not_declared,
+                                     bs_types:atom_lit(oops),
+                                     {withhold, {crashed, error, badmatch}}}}),
+    ?assertMatch(#{corrected := none,
+                   withheld := #{class := error, reason := badmatch}}, D),
+    Prose = unicode:characters_to_list(bs_diag:format(D#{line => 3, column => 1})),
+    ?assert(string:find(Prose, "(badmatch in bs_check:as_pasted/2), which is a "
+                               "compiler defect.") =/= nomatch).
+
+%% F25.21 — R3 keeps F25's naming rule in the sentence: the declared type is
+%% named as the author wrote it, `Counts`, not as the algebra expands it.
+the_replaced_type_is_named_as_the_author_wrote_it_test() ->
+    Src = "module M26\n"
+          "type Counts = map<string, int>\n" ++
+          tl(lists:dropwhile(fun(C) -> C =/= $\n end,
+                             pick_src("M26", "Counts", "map<string, term>"))),
+    Out = cli("M26", Src),
+    ?assert(string:find(Out, "public map<string, term> Pick(int n)") =/= nomatch),
+    ?assert(string:find(Out, "this replaces `Counts`, which `map<string, term>` "
+                             "contains.") =/= nomatch).
 
 %% One diagnostic, so one line on stdout. Parsing it back is what proves it is
 %% a term (F16).

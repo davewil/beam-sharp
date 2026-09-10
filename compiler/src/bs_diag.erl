@@ -240,23 +240,20 @@ built(Path, {Sev, Line, Fn, {field_absent, Form, Field, Residual}}) ->
                                member => bs_types:to_pattern(Residual)};
 %% `corrected` is `none` when there is nothing writable to offer, never
 %% absent, so a consumer never has to tell "refused" from "missing" (F25).
-%% `indiscriminable` follows the same rule: the pair of members that made the
-%% declaration check refuse the widened signature, or `none` (ENG-346). Its
-%% fields are named as `indiscriminable_union`'s are, since it predicts that
-%% refusal.
-built(Path, {Sev, Line, Fn, {return_not_declared, Residual, {refused, A, B}}}) ->
-    (at(Sev, Path, Line, Fn))#{tag => return_not_declared,
-                               residual => residual(Residual),
-                               undeclared => bs_types:to_pattern(Residual),
-                               corrected => none,
-                               indiscriminable => #{member => bs_types:to_string(A),
-                                                    beside => bs_types:to_string(B)}};
+%% The three keys ENG-346 added follow the same rule, each `none` when it has
+%% nothing to say:
+%%
+%%   indiscriminable  the pair that made the declaration check refuse the
+%%                    widened signature, named as `indiscriminable_union`'s
+%%                    fields are, since it predicts that refusal
+%%   withheld         why no line is offered (R2)
+%%   replaces         the declared type the line drops, as the author wrote
+%%                    it, and the type that contains it (R3)
 built(Path, {Sev, Line, Fn, {return_not_declared, Residual, Corrected}}) ->
-    (at(Sev, Path, Line, Fn))#{tag => return_not_declared,
-                               residual => residual(Residual),
-                               undeclared => bs_types:to_pattern(Residual),
-                               corrected => Corrected,
-                               indiscriminable => none};
+    maps:merge((at(Sev, Path, Line, Fn))#{tag => return_not_declared,
+                                          residual => residual(Residual),
+                                          undeclared => bs_types:to_pattern(Residual)},
+               correction(Corrected));
 built(Path, {Sev, Line, Fn, {bind_may_fail, Residual}}) ->
     (at(Sev, Path, Line, Fn))#{tag => bind_may_fail,
                                residual => residual(Residual),
@@ -555,6 +552,44 @@ built(Path, {Sev, _Line, _Fn, _} = D) when Sev =:= error; Sev =:= warning ->
 built(_Path, _Other) ->
     unhandled.
 
+%% `return_not_declared`'s correction, as `bs_check:corrected_signature/4`
+%% hands it over, spread across the four keys that describe it.
+correction(Line) when is_list(Line) ->
+    corrections(#{corrected => Line});
+correction({replacing, Line, Src, New}) ->
+    corrections(#{corrected => Line, replaces => #{declared => Src, within => New}});
+correction({refused, A, B}) ->
+    corrections(#{indiscriminable => #{member => bs_types:to_string(A),
+                                       beside => bs_types:to_string(B)}});
+correction({withhold, Why}) ->
+    corrections(#{withheld => withheld(Why)}).
+
+corrections(Set) ->
+    maps:merge(#{corrected => none, indiscriminable => none,
+                 withheld => none, replaces => none}, Set).
+
+withheld({absorbed_member, M, By}) ->
+    #{member => bs_types:to_string(M), absorbed_by => bs_types:to_string(By)};
+withheld({crashed, Class, Reason}) ->
+    #{class => Class, reason => Reason};
+withheld(Why) when is_atom(Why) ->
+    Why.
+
+%% The sentence for each `withheld` reason (R2). The last is the one no program
+%% is known to reach: `bs_check:as_pasted/2` caught something it does not name,
+%% which is a fault in the compiler and is reported as one rather than hidden.
+withheld_reason(unspellable) ->
+    {"  no signature is offered: this residual has no spelling as a type yet.~n", []};
+withheld_reason(declared_form) ->
+    {"  no signature is offered: the declared signature is written in a form~n"
+     "  this line does not reproduce.~n", []};
+withheld_reason(#{member := M, absorbed_by := By}) ->
+    {"  no signature is offered: widening it would leave `~s` absorbed by~n"
+     "  `~s`, and a declared type may not hold an absorbed member.~n", [M, By]};
+withheld_reason(#{reason := Reason}) ->
+    {"  no signature is offered: checking it failed inside the compiler~n"
+     "  (~p in bs_check:as_pasted/2), which is a compiler defect.~n", [Reason]}.
+
 %%% ---------------------------------------------------------------------------
 %%% `not` in prefix position
 %%%
@@ -838,11 +873,16 @@ message(#{tag := field_absent, file := P, line := L, column := C, function := Fn
 %% substituted (F25, ticket 23 §8). The `none` clause comes first: the
 %% residual has no writable spelling, such as a record or `binary \ string`.
 %%
-%% The refused clause comes before both. Its second line is the declaration
-%% check's own header, so the author meets the same words here and at the
-%% refusal they would get by widening the signature by hand. The repair is 09
-%% §5's: two members a head cannot tell apart need a tag, and the leading atom
-%% of a tuple is one (ticket 70, ENG-346).
+%% ENG-346's three clauses come before both, and the order among them does not
+%% matter: `bs_check:corrected_signature/4` sets at most one of their keys.
+%%
+%% REFUSED. Its second line is the declaration check's own header, so the
+%% author meets the same words here and at the refusal they would get by
+%% widening the signature by hand. The repair is 09 §5's: two members a head
+%% cannot tell apart need a tag, and the leading atom of a tuple is one (ticket
+%% 70). The shape is shown with placeholder atoms (R5) and is a type, not a
+%% signature: the clauses must change too, and §2 has the compiler write heads,
+%% never bodies, so it sits under no "paste this" heading.
 message(#{tag := return_not_declared, file := P, line := L, column := C, function := Fn,
           undeclared := Undeclared,
           indiscriminable := #{member := M, beside := B}}) ->
@@ -851,9 +891,33 @@ message(#{tag := return_not_declared, file := P, line := L, column := C, functio
      "    ~s~n"
      "  widening the signature to cover it would be refused:~n"
      "    no clause head can tell `~s` from `~s`~n"
-     "  tag the members instead: return each in a tuple led by its own atom,~n"
-     "  and declare the union of those tuples.~n",
-     [P, L, C, Fn, Undeclared, M, B]};
+     "  tag the members so a clause head can, with atoms of your choosing:~n"
+     "    (:tag1, ~s) | (:tag2, ~s)~n"
+     "  and return each value inside its tag.~n",
+     [P, L, C, Fn, Undeclared, M, B, M, B]};
+%% WITHHELD (R2). A line that disappears with no word reads as the compiler
+%% having nothing to offer, which the author cannot tell from a defect.
+message(#{tag := return_not_declared, file := P, line := L, column := C, function := Fn,
+          undeclared := Undeclared, withheld := Why}) when Why =/= none ->
+    {Fmt, Args} = withheld_reason(Why),
+    {"~s:~p:~p: error: ~s returns a value its signature does not declare~n"
+     "  not covered by the declared return type:~n"
+     "    ~s~n" ++ Fmt,
+     [P, L, C, Fn, Undeclared | Args]};
+%% REPLACES (R3). The line drops the declared type because the new one
+%% contains it, and the likelier mistake is the clause that returned the wider
+%% value, so the sentence says where to look if the drop was not meant.
+message(#{tag := return_not_declared, file := P, line := L, column := C, function := Fn,
+          undeclared := Undeclared, corrected := Corrected,
+          replaces := #{declared := D, within := New}}) ->
+    {"~s:~p:~p: error: ~s returns a value its signature does not declare~n"
+     "  not covered by the declared return type:~n"
+     "    ~s~n"
+     "  the signature its clauses justify:~n"
+     "    ~s~n"
+     "  this replaces `~s`, which `~s` contains.~n"
+     "  If `~s` is what you meant, fix the clause, not the signature.~n",
+     [P, L, C, Fn, Undeclared, Corrected, D, New, D]};
 message(#{tag := return_not_declared, file := P, line := L, column := C, function := Fn,
           undeclared := Undeclared, corrected := none}) ->
     {"~s:~p:~p: error: ~s returns a value its signature does not declare~n"

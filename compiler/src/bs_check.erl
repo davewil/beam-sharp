@@ -1315,10 +1315,26 @@ attach_correction({error, L, N, {return_not_declared, R}}, C) ->
 attach_correction(D, _C) ->
     D.
 
+%% What `bs_diag` is handed, one of four:
+%%
+%%   Line                       the signature to paste
+%%   {replacing, Line, D, New}  the same, where it drops the declared `D`
+%%                              because `New` contains it (R3)
+%%   {refused, A, B}            no clause head can tell `A` from `B`
+%%   {withhold, Why}            no line, and `Why` says why (R2)
+%%
+%% R2, R3 and R5 are David's review round on ENG-346 (F25's amendment): a line
+%% never disappears without a word, and never replaces the declared type
+%% without saying so.
 corrected_signature(F, Declared, Union, Env) ->
     case signature_line(F, Declared, Union) of
-        none -> none;
-        Line -> as_pasted(Line, Env)
+        {withhold, _} = Withheld -> Withheld;
+        {Line, Replaced} ->
+            case {as_pasted(Line, Env), Replaced} of
+                {ok, none}       -> Line;
+                {ok, {Src, New}} -> {replacing, Line, Src, New};
+                {Refusal, _}     -> Refusal
+            end
     end.
 
 %% THE LINE IS PASTED BACK BEFORE IT IS PRINTED (ENG-346). It is lexed, parsed
@@ -1330,32 +1346,63 @@ corrected_signature(F, Declared, Union, Env) ->
 %%   `map<string, int> | map<string, binary>` — no clause head can tell the two
 %%       apart. Ticket 70 keeps that union legal one container level in and puts
 %%       the objection in the advice, so the answer is the pair: `bs_diag` names
-%%       both members and the repair, tagging them.
+%%       both members and shows them tagged.
 %%   `[map<string, binary>, ..]` and `(2, map<string, binary>)` — pattern
-%%       spellings `writable/1` does not catch, and syntax errors in a type.
-%%   a written member absorbed by another, which `declared_member/3` prevents
+%%       spellings `writable/1` does not catch, so the parser refuses the line.
+%%       The declared half is the author's own text, so a line that does not
+%%       parse is taken to be the residual's spelling.
+%%   a written member absorbed by another, which `declared_member/2` prevents
 %%       where the whole declared type is absorbed and cannot where only one
 %%       member of a declared union is.
 %%
-%% Every failure but the first is `none`: a line that looks pasteable and is not
-%% is worse than no line (ticket 23 §2), and that includes a failure this list
-%% does not name. `Env` is the module's `type_env/1`, so an alias or a record
-%% the author named resolves as it does in their file.
+%% ANYTHING ELSE RAISED IS A COMPILER DEFECT, AND IS SAID TO BE ONE. Crashing
+%% would take the author's whole diagnostic with it for a fault in one line of
+%% advice, and answering nothing hid the fault. So the line is withheld and the
+%% class and reason travel to `bs_diag`, which names the defect (R2). `Env` is
+%% the module's `type_env/1`, so an alias or a record the author named
+%% resolves as it does in their file.
 as_pasted(Line, Env) ->
-    try
-        {ok, Toks, _} = bs_lexer:string(Line ++ "\n"),
-        {ok, [{signature, _, _, Ret, _, _} = Sig]} = bs_parser:parse(Toks),
-        _ = resolve(Ret, Env),
-        collapse_decl(Sig, Env),
-        Line
-    catch
-        error:{indiscriminable_union, _, _, A, B} -> {refused, A, B};
-        _:_                                      -> none
+    case pasted_signature(Line) of
+        none ->
+            {withhold, unspellable};
+        {signature, _, _, Ret, _, _} = Sig ->
+            try
+                _ = resolve(Ret, Env),
+                collapse_decl(Sig, Env),
+                ok
+            catch
+                error:{indiscriminable_union, _, _, A, B} ->
+                    {refused, A, B};
+                error:{absorbed_member, _, _, _, M, By} ->
+                    {withhold, {absorbed_member, M, By}};
+                Class:Reason ->
+                    {withhold, {crashed, Class, reason_name(Reason)}}
+            end
     end.
 
-%% A signature that cannot be rendered as pasteable source is `none`, never a
-%% guess: a line that looks pasteable and is not is worse than no
-%% line (ticket 23 §2).
+pasted_signature(Line) ->
+    case bs_lexer:string(Line ++ "\n") of
+        {ok, Toks, _} ->
+            case bs_parser:parse(Toks) of
+                {ok, [{signature, _, _, _, _, _} = Sig]} -> Sig;
+                _                                        -> none
+            end;
+        _ ->
+            none
+    end.
+
+%% The name of what went wrong, not the term: a reason can carry anything, and
+%% the descriptor is printed with `~0p` for a consumer to parse back.
+reason_name(R) when is_atom(R)                                   -> R;
+reason_name(R) when is_tuple(R), tuple_size(R) > 0,
+                    is_atom(element(1, R))                       -> element(1, R);
+reason_name(_)                                                   -> unnamed.
+
+%% A signature that cannot be rendered as source is withheld, never guessed: a
+%% line that looks pasteable and is not is worse than no line (ticket 23 §2).
+%% Two reasons are known here. The residual has no writable spelling (a
+%% record's mint tag, `binary \ string`), or the declared signature uses a form
+%% `type_source/1` does not render (an inline map, F25's Out of scope).
 %%
 %% NOT NAMED `pasteable`. A function name is an atom, and `bs_diag`'s term
 %% channel prints the `heads` map with `~0p`, whose key order is atom-creation
@@ -1366,15 +1413,18 @@ signature_line(#fn{name = Name, ret = Ret, params = Params, vis = Vis},
                Declared, Union) ->
     Rendered = bs_types:to_string(Union),
     case writable(Rendered) of
-        false -> none;
+        false -> {withhold, unspellable};
         true  ->
             case {type_source(Ret), params_source(Params)} of
-                {none, _} -> none;
-                {_, none} -> none;
+                {none, _} -> {withhold, declared_form};
+                {_, none} -> {withhold, declared_form};
                 {RetSrc, Ps} ->
-                    lists:flatten([vis_source(Vis),
-                                   declared_member(Declared, Union, RetSrc),
-                                   Rendered, " ", atom_to_list(Name), "(", Ps, ")"])
+                    Absorbed = bs_types:is_subtype(Declared, Union),
+                    Line = lists:flatten([vis_source(Vis),
+                                          declared_member(Absorbed, RetSrc),
+                                          Rendered, " ", atom_to_list(Name),
+                                          "(", Ps, ")"]),
+                    {Line, replaced(Absorbed, RetSrc, Rendered)}
             end
     end.
 
@@ -1390,11 +1440,13 @@ signature_line(#fn{name = Name, ret = Ret, params = Params, vis = Vis},
 %% not always exact: it cannot spell `map<string, term>` less
 %% `map<string, int>`, so that residual is `map<string, term>` and contains the
 %% declared `map<string, int>` (ENG-346, F25.15).
-declared_member(Declared, Union, RetSrc) ->
-    case bs_types:is_subtype(Declared, Union) of
-        true  -> "";
-        false -> RetSrc ++ " | "
-    end.
+declared_member(true, _RetSrc) -> "";
+declared_member(false, RetSrc) -> RetSrc ++ " | ".
+
+%% R3: a dropped declared type is reported by the name the author wrote, which
+%% is F25's naming rule applied to the sentence as well as to the line.
+replaced(true, RetSrc, Rendered) -> {RetSrc, Rendered};
+replaced(false, _RetSrc, _Rendered) -> none.
 
 %% A rendered type is pasteable unless it contains a spelling B# source cannot
 %% write. The test is on the rendered string because that is what gets
