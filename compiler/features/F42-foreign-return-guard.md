@@ -106,9 +106,11 @@ presence and value are one test.
 
 **Total over F40's admissible set and loud outside it.** A recursive type, a `list` or `map`
 narrower than `term`, or a `string` cannot reach the emitter, because F40 refused the declaration.
-Each raises in `type_test/3` rather than emitting a guard that would pass the wrong values —
-the fault the memory *a new type kind crashes every fun that enumerates kinds* names, taken the
-loud way round on purpose.
+Each raises in `type_test/3` rather than emitting a guard that would pass the wrong values. A
+function that enumerates the type's kinds has two ways to meet one it does not know: a
+comprehension filters it out silently and a clause crashes on it. ENG-351 and ENG-355 were the
+crash; this file takes the crash over the silence on purpose, because a guard emitted from a
+kind it did not understand is a guard that passes what it should refuse.
 
 **A call in guard position is not guarded.** `guard/2` emits under an `in_guard` flag, and the
 `e_foreign_call` clause emits the bare call under it: a `case` is not a guard expression, and F41
@@ -130,9 +132,9 @@ exception, and whether the guard's refusal crashes or arrives through the channe
 nestings the emitter writes. Both nestings are one line. Ticket 74 asks it with
 `result<binary, foreign_error>` over `file:read_file/1`, the program §11 measured on 2026-08-22.
 
-No test pins the unguarded arm. A test asserting today's behaviour there would certify the
-missing check as intended (the memory *a runtime crash test may certify a missing check*, read
-in the other direction).
+No test pins the unguarded arm. A test asserting today's behaviour there would record the
+missing check as intended behaviour, and the next reader would find a green test where there
+is an open question.
 
 ## Scenarios
 
