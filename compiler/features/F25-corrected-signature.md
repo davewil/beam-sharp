@@ -587,6 +587,107 @@ program shows it misleading. **Left for David:** `LANGUAGE.md` §5 (lines 821-82
 message offers the wider signature *"so the fix can be to the declaration rather than to the
 body"*, which Round 3 reversed. `PACKET.md` is cut from that text, so the edit waits for him.
 
+**Answered:** *"The readability should be a named type, the lexer, complier etc, should handle the
+hidden tag if required."* So the placeholder atoms in the proposal above are out: the author
+should not write `(:tag1, …)`. The answer can be read two ways, and each is a program below.
+
+### Round 5 — David, 2026-09-11: records, or a tag the compiler inserts
+
+**Reading 1: records, which the language accepts today.** Ticket 26 made `record` sugar for a
+minted tag, on David's DDD argument: the name enters the term as data, and it is never written.
+Program 2, finished that way, compiles clean at `ed0f246`, and the consumer dispatches on the
+members by name:
+
+```csharp
+module CheckoutRecords
+
+// A signed-in shopper's cart, from the session: already numeric.
+record SessionCart { Items: map<string, int> }
+// A guest's cart, from the posted form: every value still text.
+record GuestCart { Fields: map<string, binary> }
+
+type Cart = SessionCart | GuestCart
+
+// Reading the session can fail: it may have expired.
+public result<Cart, atom> CartQuantities(bool signed_in,
+                                         result<map<string, int>, atom> session_cart,
+                                         map<string, binary> form_fields)
+
+CartQuantities(true, (:error, why), form_fields)  -> (:error, why)
+CartQuantities(true, counts, form_fields)         -> SessionCart{ Items = counts }
+CartQuantities(false, session_cart, form_fields)  -> GuestCart{ Fields = form_fields }
+
+// A consumer dispatches on the named members; no tag is written anywhere.
+public atom Source(Cart c)
+
+Source(SessionCart s) -> :session
+Source(GuestCart g)   -> :form
+```
+
+A record is a map, not a tuple, so the webhook receiver that Round 4 could not help compiles
+this way too (`WebhooksRecords`, measured: `(atom, term) | Payload` with two records). The cost
+is two declarations, a field name each, and `SessionCart{ Items = counts }` where the author had
+`counts`.
+
+Compiler delta under reading 1: F25's refused case prints the declarations with placeholder
+names, `record Name1 { Value: map<string, int> }`, `record Name2 { Value: map<string, binary> }`,
+`type Name = Name1 | Name2`, and the rewritten return, `result<Name, atom>`. They are pasted back
+through a `type_env/1` built over the generated declarations and a module head, merged with the
+author's, so a placeholder that collides with a name in the author's module is caught before it
+prints. This departs from the survey: rustc and Gleam name a constructor of a type that already
+exists, and none of them writes a declaration for the author.
+
+**Reading 2: the compiler inserts the tag when the members need one.** The author writes the
+plain named union and returns the values bare:
+
+```csharp
+module CheckoutAutoTag
+
+type Cart = map<string, int> | map<string, binary>
+
+public result<Cart, atom> CartQuantities(bool signed_in,
+                                         result<map<string, int>, atom> session_cart,
+                                         map<string, binary> form_fields)
+
+CartQuantities(true, (:error, why), form_fields)  -> (:error, why)
+CartQuantities(true, counts, form_fields)         -> counts
+CartQuantities(false, session_cart, form_fields)  -> form_fields
+```
+
+Refused today, at the `type` line:
+
+```
+CheckoutAutoTag.bs:5:1: error: no clause head can tell `map<string, int>` from `map<string, binary>`
+  in Cart
+  both members survive normalisation, so neither is absorbed - but
+  no pattern reaches either one and no guard separates them, so a
+  value of this type can be passed and returned and never matched.
+  This is a limit of the pattern grammar, not of the types: it
+  lifts when a pattern form for these members ships.
+```
+
+Compiler delta under reading 2, which is a language change and so a ticket, not an F25 build:
+
+- A named union's members gain a runtime tag the author never writes.
+- The tag is chosen at each return site from the static type of the returned expression. For
+  example, `counts` is `map<string, int>`, so it gets the first member's tag.
+- A match on `Cart` dispatches on that tag.
+
+It reopens three decisions:
+
+- Ticket 09 §5 refused nominal unions because a raw Erlang caller can hand over an untagged map.
+- Ticket 26 put the name in the term only where the author asks for a record.
+- Ticket 70 decided that the author does the tagging.
+
+**Asked, one question: is the advice reading 1 or reading 2?** If 2, the ticket is raised and
+claimed, and F25's refused case keeps today's advice until it is decided. If there is no answer,
+reading 1 is the default, because it is the one the language accepts. The alias item (program 4
+names `ViewCounts`) is built after this answer, since the refused layout it sits in depends on it.
+
+Measured, not explained: a declared `map<atom, term> | Payload` over the two records compiles
+clean (`ParamsRecords`). A record is a map with atom keys, so the absorption check was expected to
+refuse it. Noted for whoever next reads the map algebra.
+
 ## The scenarios
 
 `corrected_signature_tests.erl` opens its sections with these identifiers, and this is what each
