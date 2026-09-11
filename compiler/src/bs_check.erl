@@ -503,6 +503,9 @@ refinement_at(Ty) ->
         false -> top
     end.
 
+%% A recursive type counts as walked whatever it holds, wherever it sits: only
+%% a walk ever decides one, and it is not unfolded here (F36's hazard).
+walked_refinement(#{mu := _}) -> true;
 walked_refinement(#{tuples := top}) -> false;
 walked_refinement(Ty = #{tuples := Ps, maps := Ms}) ->
     lists:any(fun walked_refinement/1, lists:append(Ps))
@@ -520,8 +523,8 @@ walked_refinement(Ty = #{tuples := Ps, maps := Ms}) ->
                                  end, Members)
                 end).
 
-%% A recursive type under the walk counts as walked whatever it holds: only a
-%% walk ever decides one, and `opaque_refinement/1` has no clause for `mu`.
+%% Under a list or a map, anything refined is walked; `opaque_refinement/1`
+%% has no clause for `mu`, so a recursive type is answered before it.
 refined_under_walk(#{mu := _}) -> true;
 refined_under_walk(Ty)         -> opaque_refinement(Ty).
 

@@ -360,6 +360,21 @@ a_string_beside_a_recursive_list_is_refused_without_an_edit_test() ->
     ?assert(found("grow returns `(string, list<Tree>)`, whose `string`", R)),
     ?assertNot(offers_an_edit(R)).
 
+%% The same beside a recursive tuple member, where no list routes the walk
+%% through the guard above: the position walk met the `mu` directly and had no
+%% clause for it, a crash the check before this change did not have.
+a_string_beside_a_recursive_member_is_refused_without_an_edit_test() ->
+    {Rc, R} = refused("Tup", "module Tup\n"
+                             "type Tree = :leaf | (Tree, Tree)\n"
+                             "using :trees {\n"
+                             "    (string, Tree) grow(int n)\n"
+                             "}\n"
+                             "public int N()\n"
+                             "N() -> 1\n"),
+    ?assertEqual(1, Rc),
+    ?assert(found("grow returns `(string, Tree)`, whose `string`", R)),
+    ?assertNot(offers_an_edit(R)).
+
 %% `map<term, term>` is the domain map one guard decides in O(1) — `is_map`,
 %% and F33's `Kind` exclusion is `is_map_key` — so it is admissible under the
 %% whole of 18 §2, not only the `string` slice this compiler builds. It crashed
