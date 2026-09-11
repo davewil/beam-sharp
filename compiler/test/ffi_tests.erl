@@ -37,16 +37,23 @@ a_foreign_call_runs_test() ->
 a_foreign_block_is_not_a_stub_test() ->
     ?assertMatch({ok, _, []}, check_only(interop_src())).
 
-%% It emits an ordinary BEAM remote call.
+%% It emits an ordinary BEAM remote call. Found by walking the whole form
+%% rather than the top of the clause body, because the call sits inside the
+%% boundary guard's `case` since F42 and what is asserted is the call, not
+%% where the emitter put it.
 a_foreign_call_is_a_remote_call_test() ->
     {ok, _} = compile(interop_src()),
     {ok, {_, [{abstract_code, {_, Forms}}]}} =
         beam_lib:chunks(?OUT ++ "/Interop.beam", [abstract_code]),
-    Remotes = [{M, F} || {function, _, _, _, Cs} <- Forms,
-                         {clause, _, _, _, Body} <- Cs,
-                         {call, _, {remote, _, {atom, _, M}, {atom, _, F}}, _} <- Body],
+    Remotes = remotes(Forms),
     ?assert(lists:member({lists, sum}, Remotes)),
     ?assert(lists:member({lists, reverse}, Remotes)).
+
+remotes({call, _, {remote, _, {atom, _, M}, {atom, _, F}}, As}) ->
+    [{M, F} | remotes(As)];
+remotes(T) when is_tuple(T) -> remotes(tuple_to_list(T));
+remotes(L) when is_list(L)  -> lists:append([remotes(E) || E <- L]);
+remotes(_)                  -> [].
 
 %%% ---------------------------------------------------------------------------
 %%% No statement terminator

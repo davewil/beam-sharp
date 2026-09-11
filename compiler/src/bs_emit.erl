@@ -658,8 +658,14 @@ used_vars({e_list, _, Items, Rest}, Acc) ->
     lists:foldl(fun used_vars/2, R, Items);
 used_vars(_, Acc)                    -> Acc.
 
+%% A guard is emitted under a flag, because a foreign call in guard position
+%% must stay a bare BIF call: a `case` is not a guard expression, and F41
+%% keeps `:erlang.byte_size(b) > 2` legal there. Nothing escapes a guard
+%% unchecked — the comparison consumes the value — so the return guard has
+%% nothing to do in one (ticket 18 §1: a guard only where the body's own
+%% operations would not object).
 guard(none, _Ctx)          -> [];
-guard({guard, Expr}, Ctx)  -> [[expr(Expr, Ctx)]].
+guard({guard, Expr}, Ctx)  -> [[expr(Expr, Ctx#{in_guard => true})]].
 
 %%% ---------------------------------------------------------------------------
 %%% Patterns
@@ -863,16 +869,28 @@ expr({e_proj, L, V, Field}, _C) ->
 %% clause knowing about either.
 expr({e_raise, L, Reason}, C) ->
     {call, L, {remote, L, {atom, L, erlang}, {atom, L, error}}, [expr(Reason, C)]};
-%% A foreign call is an ordinary remote call, wrapped in a `try` only when its
-%% declaration named a failure channel (F19). The boundary guard LANGUAGE.md
-%% §10 describes over the eight violation channels is not emitted here yet
-%% (ticket 18).
+%% A foreign call is an ordinary remote call, wrapped in a `try` when its
+%% declaration named a failure channel (F19), and otherwise in the boundary
+%% guard its declared return type spells (F42, ticket 18 §2). A call the
+%% checker has no declaration for — the emitter's own synthesised guard tests
+%% arrive here as `e_foreign_call` nodes — is the bare call.
+%%
+%% THE CHANNELLED CALL IS NOT GUARDED, and that is a question left open
+%% rather than an answer taken quietly: `foreign_error` is three exception
+%% classes, a wrong-typed value is not an exception, and what a failed guard
+%% becomes under a declared `result<T, foreign_error>` is ticket 74's. Until
+%% it is decided the wrapped call returns what it always did.
 expr({e_foreign_call, L, Mod, Fn, As}, C) ->
     Call = {call, L, {remote, L, {atom, L, Mod}, {atom, L, Fn}},
             [expr(A, C) || A <- As]},
-    case maps:is_key({Mod, Fn, length(As)}, maps:get(foreigns, C, #{})) of
-        false -> Call;
-        true  -> foreign_wrapper(L, Call)
+    case maps:find({Mod, Fn, length(As)}, maps:get(foreigns, C, #{})) of
+        error                    -> Call;
+        {ok, #{wrapped := true}} -> foreign_wrapper(L, Call);
+        {ok, #{ret := Ty}} ->
+            case maps:get(in_guard, C, false) of
+                true  -> Call;
+                false -> return_guard(L, Call, Ty)
+            end
     end;
 expr({e_list, L, Items, Rest}, C) ->
     lists:foldr(fun(E, Acc) -> {cons, L, expr(E, C), Acc} end,
@@ -931,6 +949,168 @@ foreign_wrapper(L, Call) ->
      []}.
 
 wrapper_var(Prefix, N) -> list_to_atom(Prefix ++ integer_to_list(N)).
+
+%%% ---------------------------------------------------------------------------
+%%% The boundary guard on a foreign return (F42, ticket 18 §2)
+%%%
+%%% A foreign declaration may promise only what one BEAM guard decides in O(1)
+%%% "so the compiler checks it" (18 §2). F40 refuses at the declaration every
+%%% type a walk would be needed for; this emits the check for everything it
+%%% lets through. The call becomes
+%%%
+%%%     case erlang:float(X) of
+%%%         Bs@rv0 when erlang:is_integer(Bs@rv0) -> Bs@rv0
+%%%     end
+%%%
+%%% and a value the guard refuses raises `{case_clause, Value}` — the BEAM's
+%%% own report for an arm-less `case`, which is why no failure arm is written,
+%%% for the same reason a switch emits none and a clause head's guard raises
+%%% `function_clause` (18 §1 rule C: "a wrong term from outside will crash —
+%%% not always at the call site, but never silently").
+%%%
+%%% THE GUARD IS THE TYPE, PART BY PART. Every alternative of the disjunction
+%%% is one kind test plus what that kind's part still owes: an atom part is an
+%%% equality per member or `is_atom` minus the excluded ones; an integer part
+%%% is `is_integer` plus its bounds, the comparisons F37 emits at an exported
+%%% parameter; a tuple product is arity plus one test per component, on
+%%% `element/2`; a list spine is `is_list` and a `tl` chain as long as its
+%%% prefix; a fixed field set is `is_map` plus one `map_get` value test per
+%%% field and NO `map_size` (26 §1: the exact-set test is emitted only where a
+%%% codegen obligation consumes the record, and a wrapper returns the value —
+%%% ticket 72's withdrawal); a domain map over `term` is `is_map`; a binary is
+%%% `is_binary`. `term` gets no `case` at all, because a guard that cannot
+%%% fail is a `case` for nothing.
+%%%
+%%% TOTAL OVER F40'S ADMISSIBLE SET AND LOUD OUTSIDE IT. A recursive type, a
+%%% list or map narrower than `term`, or a `string` cannot reach here — F40
+%%% refused the declaration — so each raises rather than emitting a guard that
+%%% would pass the wrong values (`a new type kind crashes every fun that
+%%% enumerates kinds`, and a comprehension filtering silently is the worse
+%%% failure).
+%%%
+%%% Built as abstract format rather than surface nodes, because it sits inside
+%%% a `case` the surface cannot spell, and the variable it binds is numbered
+%%% per module from the wrapper's counter: a `case` with one clause exports
+%%% its pattern's variables, so a second `case` binding the same name would
+%%% MATCH rather than bind (F19 §3, the same hazard one construct over).
+%%% ---------------------------------------------------------------------------
+
+return_guard(L, Call, Ty) ->
+    case bs_types:is_subtype(bs_types:term(), Ty) of
+        true  -> Call;
+        false ->
+            N = next_foreign_wrapper(),
+            V = {var, L, wrapper_var("bs@rv", N)},
+            {'case', L, Call, [{clause, L, [V], [[type_test(V, Ty, L)]], [V]}]}
+    end.
+
+%% One guard expression deciding whether `V` inhabits `Ty`: the disjunction of
+%% the parts, each alternative a conjunction. An uninhabited type admits
+%% nothing, and says so as `false` rather than as an empty guard.
+type_test(_V, #{mu := _} = Ty, _L) ->
+    erlang:error({foreign_return_guard, recursive, bs_types:rec_name(Ty)});
+type_test(_V, #{recvar := _} = Ty, _L) ->
+    erlang:error({foreign_return_guard, recursive, bs_types:rec_name(Ty)});
+type_test(V, #{atoms := As, ints := Is, tuples := Ts, lists := Ls,
+               maps := Ms, bins := Bs}, L) ->
+    any_of(atom_tests(V, As, L) ++ int_tests(V, Is, L) ++ tuple_tests(V, Ts, L)
+           ++ list_tests(V, Ls, L) ++ map_tests(V, Ms, L) ++ bin_tests(V, Bs, L),
+           L).
+
+atom_tests(_V, {finite, []}, _L) -> [];
+atom_tests(V, {finite, As}, L)   -> [same(V, {atom, L, A}, L) || A <- As];
+atom_tests(V, {cofinite, Xs}, L) ->
+    [all_of([bif(is_atom, [V], L) | [differs(V, {atom, L, X}, L) || X <- Xs]], L)].
+
+int_tests(_V, [], _L) -> [];
+int_tests(V, Rs, L)   -> [all_of([bif(is_integer, [V], L) | int_bounds(V, R, L)], L) || R <- Rs].
+
+int_bounds(V, {Lo, Hi}, L) ->
+    [{op, L, '>=', V, {integer, L, Lo}} || Lo =/= neg_inf] ++
+    [{op, L, '=<', V, {integer, L, Hi}} || Hi =/= pos_inf].
+
+tuple_tests(V, top, L)      -> [bif(is_tuple, [V], L)];
+tuple_tests(_V, [], _L)     -> [];
+tuple_tests(V, Products, L) ->
+    [all_of([bif(is_tuple, [V], L),
+             same(bif(tuple_size, [V], L), {integer, L, length(Ms)}, L)
+             | [type_test(bif(element, [{integer, L, I}, V], L), T, L)
+                || {I, T} <- lists:zip(lists:seq(1, length(Ms)), Ms),
+                   not is_term(T)]], L)
+     || Ms <- Products].
+
+%% A spine is a known prefix and a tail. `is_list` first, then each prefix
+%% position is reached by `tl`, asserted non-empty and tested; a closed tail
+%% must be `[]` after the prefix and an open one owes nothing more, since
+%% `is_list` already refused a non-list and the tail's element type is `term`
+%% wherever F40 let the declaration through.
+list_tests(_V, [], _L)  -> [];
+list_tests(V, Spines, L) -> [spine_test(V, S, L) || S <- Spines].
+
+spine_test(V, {[], closed}, L)     -> same(V, {nil, L}, L);
+spine_test(V, {[], {open, _}}, L)  -> bif(is_list, [V], L);
+spine_test(V, {Prefix, Rest}, L)   ->
+    {Tests, Cur} =
+        lists:foldl(
+          fun(T, {Acc, C}) ->
+                  Here = [differs(C, {nil, L}, L)]
+                      ++ [type_test(bif(hd, [C], L), T, L) || not is_term(T)],
+                  {Acc ++ Here, bif(tl, [C], L)}
+          end, {[bif(is_list, [V], L)], V}, Prefix),
+    all_of(Tests ++ [same(Cur, {nil, L}, L) || Rest =:= closed], L).
+
+map_tests(V, top, L)      -> [bif(is_map, [V], L)];
+map_tests(_V, [], _L)     -> [];
+map_tests(V, Members, L)  -> [member_test(V, M, L) || M <- Members].
+
+%% A domain map over `term` is one `is_map`; narrower than that is a walk,
+%% and F40 refused it at the declaration.
+member_test(V, {dom, K, Val}, L) ->
+    case is_term(K) andalso is_term(Val) of
+        true  -> bif(is_map, [V], L);
+        false -> erlang:error({foreign_return_guard, domain_map})
+    end;
+%% A fixed field set: presence and value per field (18 §1), never the count.
+%% A field declared `term` owes presence only, asked with `is_map_key`; any
+%% narrower field's `map_get` raises on absence, which in a guard is `false`.
+member_test(V, {_Kind, Fields}, L) ->
+    all_of([bif(is_map, [V], L)
+            | [case is_term(T) of
+                   true  -> bif(is_map_key, [{atom, L, K}, V], L);
+                   false -> type_test(bif(map_get, [{atom, L, K}, V], L), T, L)
+               end || {K, T} <- lists:sort(maps:to_list(Fields))]], L).
+
+%% `binary` is both halves of the part; `string` alone is a refinement one
+%% guard cannot decide, and F40 refused it.
+bin_tests(_V, [], _L) -> [];
+bin_tests(V, Bs, L) ->
+    case lists:sort(Bs) of
+        [other, utf8] -> [bif(is_binary, [V], L)];
+        _             -> erlang:error({foreign_return_guard, string})
+    end.
+
+%% A component or field the declaration leaves at `term` owes no test — for a
+%% tuple component none at all, for a map field only presence.
+is_term(#{mu := _})     -> false;
+is_term(#{recvar := _}) -> false;
+is_term(any)            -> true;
+is_term(none)           -> false;
+is_term(T)              -> bs_types:is_subtype(bs_types:term(), T).
+
+%% Every test is a call to a guard BIF, spelled remote so it is legal in a
+%% guard and cannot be shadowed by a local function of the same name.
+bif(F, Args, L) -> {call, L, {remote, L, {atom, L, erlang}, {atom, L, F}}, Args}.
+
+same(A, B, L)    -> {op, L, '=:=', A, B}.
+differs(A, B, L) -> {op, L, '=/=', A, B}.
+
+any_of([], L)       -> {atom, L, false};
+any_of([E], _L)     -> E;
+any_of([E | Es], L) -> {op, L, 'orelse', E, any_of(Es, L)}.
+
+all_of([], L)       -> {atom, L, true};
+all_of([E], _L)     -> E;
+all_of([E | Es], L) -> {op, L, 'andalso', E, all_of(Es, L)}.
 
 %% An arm is desugared and relationally lowered exactly as a clause head is,
 %% because it is the head's pattern grammar one level down (F7, F22). An arm

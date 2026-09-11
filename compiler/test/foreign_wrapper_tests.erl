@@ -108,7 +108,10 @@ wraps_only_where_the_channel_is_declared_test() ->
     {ok, {_, [{abstract_code, {_, Forms}}]}} =
         beam_lib:chunks(?OUT ++ "/Fw.beam", [abstract_code]),
     ?assertEqual([{'try'}], shapes('Parse', Forms)),
-    ?assertEqual([{call}], shapes('Size', Forms)).
+    %% `{'case'}` and not `{call}` since F42: an unchannelled call is the
+    %% subject of the boundary guard's `case`, and the shape that must NOT
+    %% appear here is the `try`.
+    ?assertEqual([{'case'}], shapes('Size', Forms)).
 
 %% The outermost node of a function's single-clause body, as a one-element tag.
 shapes(Name, Forms) ->
@@ -224,10 +227,11 @@ a_payload_other_than_foreign_error_is_an_ordinary_union_test() ->
     {ok, {_, [{abstract_code, {_, Forms}}]}} =
         beam_lib:chunks(?OUT ++ "/Fw6.beam", [abstract_code]),
     %% No wrapper: `atom` names no exception class, so there is nothing to catch
-    %% ON THE AUTHOR'S BEHALF. Asserted as the positive shape `{call}` rather than
-    %% as the absence of a `try`, because an absence goes green over a module that
-    %% never compiled.
-    ?assertEqual([{call}], shapes('Parse', Forms)).
+    %% ON THE AUTHOR'S BEHALF. Asserted as the positive shape rather than as the
+    %% absence of a `try`, because an absence goes green over a module that
+    %% never compiled. The shape is the boundary guard's `case` (F42), which is
+    %% what ticket 56 said was owed against this trade.
+    ?assertEqual([{'case'}], shapes('Parse', Forms)).
 
 %% ...AND THE AUTHOR IS NOT STOPPED AT THE DECLARATION. This was
 %% `the_refusal_reaches_the_author_as_prose_test`, which asserted that the refusal
@@ -362,8 +366,10 @@ a_value_returned_declaration_gets_no_wrapper_test() ->
     {ok, _} = compile(value_returned_src()),
     {ok, {_, [{abstract_code, {_, Forms}}]}} =
         beam_lib:chunks(?OUT ++ "/Fv.beam", [abstract_code]),
-    ?assertEqual([{call}], shapes('Slurp', Forms)),
-    ?assertEqual([{call}], shapes('Ex', Forms)),
+    %% The two value-returned declarations get the boundary guard's `case`
+    %% (F42) and no `try`; only the channelled one gets the `try`.
+    ?assertEqual([{'case'}], shapes('Slurp', Forms)),
+    ?assertEqual([{'case'}], shapes('Ex', Forms)),
     ?assertEqual([{'try'}], shapes('Parse', Forms)).
 
 %% BOTH CHANNELS AT ONCE, which had no form at all before this ticket: a call

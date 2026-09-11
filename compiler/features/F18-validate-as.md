@@ -298,6 +298,8 @@ produces it.
 - **The emitted boundary guard and the foreign wrapper** (18 §3, LANGUAGE.md §10's "Owed"). This
   feature builds the *explicit* half of the boundary — the call an author writes. The implicit half
   is a different decision about where the compiler inserts checks nobody wrote.
+  <!-- the wrapper is F19 (2026-08-18); the guard on a foreign return is F42 (2026-09-11) -->
+
 - **`ValidateAs<State>` inside a generated `code_change/3`** (18 §5). It reuses this mechanism and
   needs the state channel first.
 - **`ValidationError` as a record.** 15 §2 flags it as a candidate *if* 26 lands a record form for

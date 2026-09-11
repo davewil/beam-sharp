@@ -1882,8 +1882,8 @@ The validator wants the `Kind` a B# record carries, so this is the route for a t
 itself. A row a foreign producer wrote is declared by its fields — `{ Id: int, Total: int }` is
 admissible as a return, and its guard is `is_map` plus one value test per field — and that is also
 what the refusal of a named record recommends. **shipped** — F40, ENG-354. One diagnostic covers
-the rule; the edit line varies by what was found. What the guard itself checks at run time is §10's
-and is owed (§11 *Owed*, ENG-357).
+the rule; the edit line varies by what was found. What the guard itself checks at run time is §10's,
+and it is emitted — **shipped**, F42, below.
 
 ### Declaring the failure channel is what emits the wrapper
 
@@ -1921,15 +1921,43 @@ All three exception classes are caught — `error`, `throw` and a locally raised
 *signal* from another process is a different mechanism sharing a keyword and is not catchable at
 all, so no supervision decision can be swallowed by a wrapper.
 
-**Owed:** the boundary guard of §10 is *not* emitted yet — nothing checks that the value coming back
-actually inhabits the type you declared, so a foreign term that breaks your types is still not
-caught at the boundary. That is what remains of the gap between §10's guarantee and what runs today.
+### The value coming back is checked against the type you declared
 
-It is owed in **both** directions, and the second one is measured. Declaring
+A foreign declaration may promise only what one guard decides, and the compiler emits that guard
+at every call whose declaration names no failure channel. The type *is* the guard: `int` is
+`is_integer`, `:up | :down` is one equality per member, `(:ok, int)` is the arity and one test per
+component, and a fixed field set `{ Method: binary, Path: binary }` is `is_map` plus one value test
+per field and **no** size test — extra keys pass, which is what a request map from another library
+carries. A value the guard refuses crashes the way an unmatched `switch` does, with the BEAM's own
+`case_clause` and the value in it:
+
+```csharp
+module Guard
+
+using :erlang {
+    int float(int x)
+}
+
+public int Widen(int x)
+
+Widen(x) -> :erlang.float(x)
+```
+
+**shipped** — F42. `bsc Guard.bs Widen 3` prints `crashed: case_clause 3.0` and exits 1. Until
+2026-09-11 it printed `3.0`: a float from a function declared `int`, the outcome §10's guarantee
+exists to rule out, at every foreign declaration. A `term` return gets no guard at all, since nothing
+it says can be false.
+
+**Owed:** the guard on a call whose declaration names the channel. Declaring
 `result<binary, foreign_error>` over `file:read_file/1` compiles and runs, and hands back
 `(:ok, <<...>>)` — a value inhabiting neither arm of the type its author declared — because the
 wrapper catches a throw that never comes and nothing inspects the value that does. A wrong channel
-is now a wrong declaration like any other, and the boundary guard is what will catch it.
+is a wrong declaration like any other. What the guard does on that call is an open question:
+`foreign_error` is three exception classes, and a wrong-typed value is not an exception, so whether
+the refusal crashes or arrives through the channel is not yet decided, and the guard is built once
+it is.
+<!-- the open question is ticket 74, wayfinder/issues/74-a-failed-guard-under-a-declared-channel.md -->
+<!-- the unchannelled guard is F42, ENG-357 -->
 
 ## 12. Being called from Erlang and Elixir
 
@@ -2255,7 +2283,7 @@ the parser accepts back exactly what the printer emits. **shipped**
 | a module is a **directory**, `index.bs`, and the two path checks | **shipped** — F15 |
 | `public` / `private` on every signature | **shipped** — F12 |
 | `ValidateAs<T>` — the generated deep validator, and its pathed error | **shipped** — F18 |
-| foreign calls (`using :lists {...}`) | **shipped**, without the boundary guard |
+| foreign calls (`using :lists {...}`) | **shipped**, with the boundary guard on every return that declares no channel — F42; a channelled return is not guarded yet, pending a decision |
 | the foreign `try` wrapper and `foreign_error`, from the declared return type | **shipped** — F19 |
 | the diagnostic as a term (`--diagnostics term`) | **shipped** — F16 |
 | the query mode (`--api`) | **shipped** — F17 |

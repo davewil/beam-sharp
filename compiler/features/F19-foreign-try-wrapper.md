@@ -235,6 +235,10 @@ and after the wrapper, because the wrapper is *how* that type becomes true.
 - **The boundary guard.** §11's **Owed** paragraph has two halves and this is the other one — an
   emitted check that a foreign value inhabits its declared type. That is ticket 18's, over all eight
   channels, and it is `ValidateAs<T>`'s traversal rather than four lines of `try`.
+  **Built 2026-09-11 by [F42](F42-foreign-return-guard.md)** for every return that declares no
+  channel — and it is one guard, not a traversal, because F40 had already refused every type a
+  traversal would need. What the guard does on a call this file wraps is
+  [ticket 74](../../wayfinder/issues/74-a-failed-guard-under-a-declared-channel.md).
 - **Remote failure.** `monitor` + `receive` already handles a callee crash, with a *better* reason
   than `try` gets ([`15c`](../../wayfinder/prototypes/15c_surviving_a_callee_crash.erl), case 3 vs
   case 2). Nothing here is for a crash in another process, and 15d cases 5–7 measured that an exit

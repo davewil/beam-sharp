@@ -692,12 +692,19 @@ positionless(_)               -> false.
 %%% reached through a `type` alias.
 %%% ---------------------------------------------------------------------------
 
+%% Every foreign signature, keyed the way `e_foreign_call` carries it, with
+%% two things the emitter needs and never decides: whether the declaration
+%% named the failure channel (F19), and the resolved return type the boundary
+%% guard is built from (F42, ticket 18 §2). One table rather than two because
+%% the two are exclusive at the emission site — a channelled call gets the
+%% `try` and a plain one gets the guard — and a call that is in neither is a
+%% call the checker never saw declared.
 foreign_wrappers(Decls, Env) ->
     maps:from_list(
-      [{{Mod, N, length(Ps)}, wrapped}
+      [{{Mod, N, length(Ps)}, #{wrapped => wraps(Ty, Env), ret => Ty}}
        || {foreign, _, Mod, Sigs} <- Decls,
           {foreign_sig, _L, N, R, Ps} <- Sigs,
-          wraps(resolve(R, Env), Env)]).
+          Ty <- [resolve(R, Env)]]).
 
 %% The trigger is the payload `foreign_error`, not the tag `:error` (ticket
 %% 56). Most of OTP returns `{error, Reason}` as an ordinary value and never

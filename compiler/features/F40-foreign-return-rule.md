@@ -186,6 +186,8 @@ rule's wording now, and the four that asserted *no edit* under a walk assert the
 - `ffi_tests.erl`'s fixture declares `list<term>`.
 - The §11 *Owed* paragraph and §13's "shipped, without the boundary guard" row
   are unchanged: the guard that checks the claim this rule narrows is ENG-357.
+  <!-- built 2026-09-11 as F42; the paragraph now owes only the channelled arm (ticket 74) -->
+
 
 ## Done when
 

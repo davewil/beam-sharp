@@ -191,6 +191,9 @@ modules compiled, `examples/Foreign` among them, negative controls still firing.
 ## Out of scope
 
 - **The boundary guard.** See Residual. Ticket 18, and it is what is owed against the trade above.
+  **Built 2026-09-11 by [F42](F42-foreign-return-guard.md) for the unchannelled direction**
+  (`result<int, atom>` over a thrower is now guarded); the channelled direction — the fifth row
+  above — is [ticket 74](../../wayfinder/issues/74-a-failed-guard-under-a-declared-channel.md).
 - **Widening `foreign_error`.** Ticket 56 explicitly did not ask for it, and a `(:value, T)` member
   would have let the declaration type-check while still telling the author the error arrives by a
   channel it does not.
