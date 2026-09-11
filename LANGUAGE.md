@@ -472,7 +472,7 @@ The check looks inside the declared type, so a `string` anywhere in a foreign re
 a list element, a tuple member, a `map<K, V>`'s key or value. A database driver that returns a row
 keyed by column name:
 
-<!-- diagnoses: opaque_ret_at_boundary -->
+<!-- diagnoses: foreign_ret_beyond_one_guard -->
 ```csharp
 module Analytics
 
@@ -485,10 +485,12 @@ public map<string, term> LatestRow(binary site)
 LatestRow(site) -> :analytics_db.latest_row(site)
 ```
 
-— *`:analytics_db.latest_row` returns `map<string, term>`, whose `string` a guard cannot decide*.
-Here the message offers no edit. `binary` in place of the `string` needs every key inspected too,
-which §11's rule refuses, and that rule's route, `term` and then `ValidateAs`, is refused for a
-`map<K, V>` today. What crosses is the map no guard has to look inside:
+— *`:analytics_db.latest_row` returns `map<string, term>`, which one guard cannot decide*. The
+map is what is named, before the `string` inside it: `binary` in place of the `string` would need
+every key inspected too, and §11's rule refuses any `map<K, V>` narrower than `map<term, term>`.
+The edit is the route — *declare it `map<term, term>`, then `ValidateAs<map<string, term>>` where
+it is used* — and that route's own site says what it is missing today (the walk over a
+`map<K, V>`'s keys, ENG-356). What crosses is the map no guard has to look inside:
 
 ```csharp
 module Analytics
@@ -502,10 +504,10 @@ public map<term, term> LatestRow(binary site)
 LatestRow(site) -> :analytics_db.latest_row(site)
 ```
 
-A `string` one guard reaches — a tuple member, a record field — gets the edit: *write `binary` where
-it says `string`*. **shipped** — ENG-351. The `string` check is the only part of §11's rule that is
-built: a foreign `list<int>` or `map<binary, int>` is accepted today and nothing checks it.
-<!-- tracked by ENG-354 -->
+A `string` one guard reaches — a tuple member, an alias — gets the edit: *write `binary` where it
+says `string`*. **shipped** — ENG-351; and since ENG-354 (F40) the `string` check is one slice of
+the whole of §11's rule, under one diagnostic: a foreign `list<int>` or `map<binary, int>` is
+refused the same way.
 
 
 ### Arithmetic on `int`
@@ -1760,8 +1762,11 @@ and nothing is renamed:
 
 ```csharp
 using :lists {
-    int       sum(list<int> xs)
-    list<int> reverse(list<int> xs)
+    int sum(list<int> xs)
+}
+
+using :ets {
+    list<term> lookup(atom tab, term key)
 }
 
 using :erlang {
@@ -1774,6 +1779,8 @@ Total(xs) -> :lists.sum(xs)
 ```
 
 **shipped** — `bsc examples/Interop/interop.bs Total "[1, 2, 3, 4]"` prints `10`.
+<!-- until F40 this block declared `list<int> reverse(list<int> xs)`, which the rule three bullets
+     down refuses, and which `List.Reverse` does natively anyway (ENG-351 grill, Q6) -->
 
 The declaration **attaches types to the name Erlang already has**. It does not introduce a B# name,
 which is why the language needs no snake_case ⇄ PascalCase mapping anywhere — and why the parts of
@@ -1797,7 +1804,60 @@ casing convention:
   exported as `MACRO-`-prefixed functions and are not callable from another language, so
   `use GenServer` cannot cross. **decided** — quoted atoms are not lexed yet.
 - A foreign declaration may promise only what one BEAM guard decides in O(1). `list<Order>` is an
-  error at the declaration; it crosses as `list<term>` plus `ValidateAs<T>`. **decided**
+  error at the declaration; it crosses as `list<term>` plus `ValidateAs<T>`. **shipped** — F40,
+  below.
+
+### A foreign return may promise only what one guard decides
+
+A **parameter** may be as narrow as you like: the value handed out is already established by the
+signature that produced it. A **return** arrives from code this compiler never checked, and the
+declared type is a claim about it. The claim may be anything one BEAM guard decides in O(1) — an
+`int`, an `atom`, a `binary`, a tuple of those, a union of those, `list<term>`, `map<term, term>`,
+an inline map type `{ Method: binary, Path: binary }` (one `map_get` test per field) — and nothing
+a walk would be needed for: a `list<T>` or `map<K, V>` narrower than `term`, a `string`, a
+recursive type, or a named record, whose `Kind` is a key this compiler mints and Erlang never
+writes. The rule's own example, a table of orders:
+<!-- ticket 18 §2's, verbatim but for the syntax it was written in -->
+
+<!-- diagnoses: foreign_ret_beyond_one_guard -->
+```csharp
+module Orders
+
+record Order { Id: int, Total: int }
+
+using :ets {
+    list<Order> lookup(atom tab, term key)
+}
+
+public list<Order> Find(int id)
+
+Find(id) -> :ets.lookup(:orders, id)
+```
+
+— *`:ets.lookup` returns `list<Order>`, which one guard cannot decide; every element of this list
+would need inspecting. Declare it `list<term>`, then `ValidateAs<list<Order>>` where it is used.*
+The crossing is one visible line, and its type forces the failure arm:
+
+```csharp
+module Orders
+
+record Order { Id: int, Total: int }
+
+using :ets {
+    list<term> lookup(atom tab, term key)
+}
+
+public result<list<Order>, ValidationError> Find(int id)
+
+Find(id) -> ValidateAs<list<Order>>(:ets.lookup(:orders, id))
+```
+
+The validator wants the `Kind` a B# record carries, so this is the route for a table B# filled
+itself. A row a foreign producer wrote is declared by its fields — `{ Id: int, Total: int }` is
+admissible as a return, and its guard is `is_map` plus one value test per field — and that is also
+what the refusal of a named record recommends. **shipped** — F40, ENG-354. One diagnostic covers
+the rule; the edit line varies by what was found. What the guard itself checks at run time is §10's
+and is owed (§11 *Owed*, ENG-357).
 
 ### Declaring the failure channel is what emits the wrapper
 

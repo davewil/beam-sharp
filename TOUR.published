@@ -24,8 +24,18 @@
 # evidence here that is not self-reported.
 
 url       https://claude.ai/code/artifact/40f71cf4-d5d3-4b71-882c-ad73f630a03c
-sha256    71ad70abe787a9441ad5bd1f434f6daa333df759cac3b2de37a30c4353eca776
-verified  2026-09-11 (for ENG-346 Round 3, every return mismatch leads with the clause) —
+sha256    d62c3128adf2f61e6f3b223f2c608296cefc6b68950f4236597c9b64120a424d
+verified  2026-09-11 (for F40, a foreign return may promise only what one guard decides) —
+          chapter 13's quoted `interop.bs` declared `list<int> reverse(list<int> xs)`, which the
+          rule refuses and which `List.Reverse` does natively anyway; the block now declares
+          `list<term> lookup(atom tab, term key)` on `:ets`, verbatim from the rewritten file, and
+          gained one paragraph on the parameter/return asymmetry. No capability row changed. Part 4
+          was red against the old stamp before the republish (version 20), and the live page was
+          read back in full first and still carried `reverse`, so it was confirmed stale rather than
+          assumed, and the read showed a plain render of TOUR.md with nothing saved into it
+          independently.
+
+          2026-09-11 (for ENG-346 Round 3, every return mismatch leads with the clause) —
           chapter 14's quoted `Unwrap` message gained *"If `int` is what you meant, fix the
           clause, not the signature."* and its heading became *"Otherwise, the signature its
           clauses justify:"*, taken from the compiler at this commit with `raise e` replaced

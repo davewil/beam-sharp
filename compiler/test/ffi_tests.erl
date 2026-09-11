@@ -17,11 +17,14 @@ interop_src() ->
     "module Interop\n"
     "using :lists {\n"
     "    int sum(list<int> xs)\n"
-    "    list<int> reverse(list<int> xs)\n"
+    %% `list<term>`, not `list<int>`: a foreign return may promise only what
+    %% one guard decides, and every element being an `int` is not that
+    %% (ticket 18 §2, built by ENG-354). The parameter side is not checked.
+    "    list<term> reverse(list<term> xs)\n"
     "}\n"
     "public int Total(list<int> xs)\n"
     "Total(xs) -> :lists.sum(xs)\n"
-    "public list<int> Backwards(list<int> xs)\n"
+    "public list<term> Backwards(list<term> xs)\n"
     "Backwards(xs) -> :lists.reverse(xs)\n".
 
 a_foreign_call_runs_test() ->

@@ -997,12 +997,19 @@ using :erlang {
 
 using :lists {
     int sum(list<int> xs)
-    list<int> reverse(list<int> xs)
+}
+
+using :ets {
+    list<term> lookup(atom tab, term key)
 }
 
 public int Total(list<int> xs)
 Total(xs) -> :lists.sum(xs)
 ```
+
+A parameter may be as narrow as you like; a **return** may promise only what one guard decides in
+O(1), so `:ets.lookup` is declared `list<term>` and its rows are established where they are used.
+`list<Order>` there is refused at the declaration.
 
 ```
 $ bsc --src-root examples examples/Interop Total '[1, 2, 3]'

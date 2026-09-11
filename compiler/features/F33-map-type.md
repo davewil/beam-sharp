@@ -220,3 +220,13 @@ name and `map<term, term>` compiles. Two more things on the same path:
 The fix does not decide whether `map<binary, int>` is admissible. It is accepted
 today, as `list<int>` is, because only the `string` slice of 18 §2 is built;
 nothing asserts it either way. ENG-354 is the rest of that rule.
+
+**Overtaken the same day by F40 (ENG-354).** `map<binary, int>` is refused as a
+foreign return, `map<term, term>` stays admissible, and the open question above
+— what a refused domain map should recommend — is answered by the rule's own
+route: *declare it `map<term, term>`, then `ValidateAs<map<binary, int>>` where
+it is used*, with the `ValidateAs` site saying for itself that the key walk is
+unbuilt (ENG-356). The walk in `opaque_refinement/1` this section describes is
+gone; `bs_check:beyond_one_guard/1` walks the positions one guard reaches and
+stops at the first thing a walk would be needed for, under one tag,
+`foreign_ret_beyond_one_guard`.

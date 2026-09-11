@@ -164,6 +164,9 @@ author writes `result<int, foreign_error>` and adds a mapping step if they want 
 A declared `(:error, E)` member whose payload is not `foreign_error` is therefore an **error at the
 declaration**, beside `opaque_ret_at_boundary` and for the same reason ticket 09 §4 and 15 §1 give:
 the diagnostic lands where the fix is, and it is an error rather than a warning.
+<!-- 2026-09-11: `opaque_ret_at_boundary` is `foreign_ret_beyond_one_guard` since F40, and that
+     refusal now runs BEFORE this file's wrapper pass, so `foreign_wrappers/2` never sees a
+     return it cannot take the members of (ENG-355). -->
 
 **This refuses a shape Erlang writes constantly, and that is a gap rather than a decision** — see
 Out of scope. Refusing loudly is the reversible direction; emitting no wrapper silently would ship
@@ -298,7 +301,8 @@ the first shape looks like a hole and the second looks like a bug, and neither i
 assert, so they now pin that the shape compiles clean and that neither retired phrase is
 printed. The reasoning below is why they are still two tests and not one.)*
 `{foreign_error_channel, Line, Mod, Fun, Payload}` is pinned as a term, which is where this repo
-asserts a declaration refusal — `opaque_ret_at_boundary` is pinned the same way. But a term with no
+asserts a declaration refusal — `opaque_ret_at_boundary` (F40's `foreign_ret_beyond_one_guard` since
+2026-09-11) is pinned the same way. But a term with no
 `descriptor/2` clause falls through `bs_diag` to `unhandled`, is re-raised, and reaches the author as
 an **escript stack trace with every test still green**. That is F16's exact failure shape, one
 namespace along, so the prose is asserted separately through the CLI: the sentence is there, and

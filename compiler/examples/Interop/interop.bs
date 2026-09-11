@@ -17,8 +17,19 @@ using :erlang {
 }
 
 using :lists {
+    // A PARAMETER may be as narrow as you like: the list handed OUT is already
+    // established by the signature that produced it, and nothing arrives.
     int sum(list<int> xs)
-    list<int> reverse(list<int> xs)
+}
+
+using :ets {
+    // A RETURN may promise only what one guard decides in O(1) — ticket 18 §2,
+    // and this is its own example. `list<term>` is `is_list`. `list<Order>`
+    // would need every element inspected, so it is refused at the declaration;
+    // the rows are established where they are used, with `ValidateAs<T>`.
+    // Until F40 this file declared `list<int> reverse(list<int> xs)`, which the
+    // rule refuses too, and which `List.Reverse` does natively anyway.
+    list<term> lookup(atom tab, term key)
 }
 
 public int Now()
@@ -29,6 +40,6 @@ public int Total(list<int> xs)
 
 Total(xs) -> :lists.sum(xs)
 
-public list<int> Backwards(list<int> xs)
+public list<term> Rows(atom tab, term key)
 
-Backwards(xs) -> :lists.reverse(xs)
+Rows(tab, key) -> :ets.lookup(tab, key)

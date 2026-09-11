@@ -239,7 +239,9 @@ binary_is_admissible_as_a_foreign_return_test() ->
 
 %% F9.11. Ticket 18 §2's admissible foreign return set is "what one BEAM guard
 %% decides in O(1)", and `valid_utf8` reads every byte of a value the sender
-%% sizes — ticket 11's sentence at a second site.
+%% sizes — ticket 11's sentence at a second site. Since ENG-354 this is one
+%% slice of the whole rule, under the rule's own tag (F40); the `string`
+%% reason and its `binary` edit are what this slice keeps.
 string_is_not_admissible_as_a_foreign_return_test() ->
     {Rc, R} = refused("Fs", "module Fs\n"
                             "using :file {\n"
@@ -248,12 +250,15 @@ string_is_not_admissible_as_a_foreign_return_test() ->
                             "public string Text()\n"
                             "Text() -> \"x\"\n"),
     ?assertEqual(1, Rc),
-    ?assert(found("read_file returns `string`, which a guard cannot decide", R)).
+    ?assert(found("read_file returns `string`, which one guard cannot decide", R)),
+    ?assert(found("`string` is `binary` refined by valid UTF-8", R)).
 
 %% Deeper is the same error — 18 §2 says "anything deeper is a compile error at
 %% the declaration", and a bracket is exactly where an unbounded check hides.
-%% No edit is offered: `binary` under the bracket needs every element inspected
-%% too, which is the rest of 18 §2 (ENG-354).
+%% The bracket is what is named: a `list<string>` fails as a LIST whose
+%% element is narrower than `term`, before the `string` inside it is reached,
+%% and the edit is the `term` route rather than `binary` under the bracket,
+%% which needs every element inspected too (ENG-354).
 a_string_nested_in_a_foreign_return_is_refused_test() ->
     {Rc, R} = refused("Fl", "module Fl\n"
                             "using :file {\n"
@@ -262,7 +267,8 @@ a_string_nested_in_a_foreign_return_is_refused_test() ->
                             "public int N()\n"
                             "N() -> 1\n"),
     ?assertEqual(1, Rc),
-    ?assert(found("read_lines returns `list<string>`, whose `string`", R)),
+    ?assert(found("read_lines returns `list<string>`, which one guard cannot decide", R)),
+    ?assert(found("declare it `list<term>`, then `ValidateAs<list<string>>`", R)),
     ?assertNot(offers_an_edit(R)).
 
 %% ENG-351. A `map<K, V>` is the third place a `string` hides in a foreign
@@ -276,7 +282,8 @@ a_string_keyed_foreign_map_is_refused_by_name_test() ->
                                    "public int N()\n"
                                    "N() -> 1\n"),
     ?assertEqual(1, Rc),
-    ?assert(found("latest_row returns `map<string, term>`, whose `string`", R)),
+    ?assert(found("latest_row returns `map<string, term>`, which one guard cannot decide", R)),
+    ?assert(found("declare it `map<term, term>`, then `ValidateAs<map<string, term>>`", R)),
     ?assertNot(offers_an_edit(R)),
     ?assertNot(found("exception", R)).
 
@@ -290,7 +297,8 @@ a_string_valued_foreign_map_is_refused_by_name_test() ->
                                   "public int N()\n"
                                   "N() -> 1\n"),
     ?assertEqual(1, Rc),
-    ?assert(found("flash returns `map<binary, string>`, whose `string`", R)).
+    ?assert(found("flash returns `map<binary, string>`, which one guard cannot decide", R)),
+    ?assert(found("every key and value of this map would need inspecting", R)).
 
 %% The shape ENG-351 named beside the map: the map is inside a tuple, and the
 %% walk it needs is still the map's.
@@ -302,7 +310,8 @@ a_string_keyed_map_inside_a_result_is_refused_test() ->
                               "public int N()\n"
                               "N() -> 1\n"),
     ?assertEqual(1, Rc),
-    ?assert(found("cart returns `result<map<string, int>, atom>`,", R)),
+    ?assert(found("cart returns `result<map<string, int>, atom>`, which one guard cannot decide", R)),
+    ?assert(found("declare the part a guard cannot decide as `term`", R)),
     ?assertNot(offers_an_edit(R)).
 
 %% A tuple member is a fixed position one guard reaches, so `binary` there is
@@ -315,7 +324,7 @@ a_string_in_a_tuple_member_keeps_the_edit_test() ->
                                "public int N()\n"
                                "N() -> 1\n"),
     ?assertEqual(1, Rc),
-    ?assert(found("name returns `result<string, atom>`, whose `string`", R)),
+    ?assert(found("name returns `result<string, atom>`, which one guard cannot decide", R)),
     ?assert(found("write `binary` where it says `string`", R)).
 
 %% An alias of `string` is the whole return by another name, and it had the
@@ -329,11 +338,14 @@ an_aliased_string_keeps_the_edit_test() ->
                                "public int N()\n"
                                "N() -> 1\n"),
     ?assertEqual(1, Rc),
-    ?assert(found("who returns `Name`, whose `string`", R)),
+    ?assert(found("who returns `Name`, which one guard cannot decide", R)),
     ?assert(found("write `binary` where it says `string`", R)).
 
-%% A record field is a fixed position too: the edit names the field's `string`.
-a_string_record_field_keeps_the_edit_test() ->
+%% A record field is a fixed position too — but a named record is refused
+%% before its fields are read, with its own sentence (ENG-354, grill Q8):
+%% Erlang cannot produce the `Kind` this compiler mints. The edit is the
+%% inline field form, and the `string` in it is refused on the next compile.
+a_string_record_field_is_refused_as_a_record_first_test() ->
     {Rc, R} = refused("Acct", "module Acct\n"
                               "record Account { Id: int, Owner: string }\n"
                               "using :accounts_db {\n"
@@ -342,13 +354,15 @@ a_string_record_field_keeps_the_edit_test() ->
                               "public int N()\n"
                               "N() -> 1\n"),
     ?assertEqual(1, Rc),
-    ?assert(found("fetch returns `Account`, whose `string`", R)),
-    ?assert(found("write `binary` where it says `string`", R)).
+    ?assert(found("fetch returns `Account`, which one guard cannot decide", R)),
+    ?assert(found("`Account` is a record, and Erlang cannot produce its `Kind`", R)),
+    ?assert(found("write its fields instead, `{ Id: int, Owner: string }`", R)),
+    ?assertNot(offers_an_edit(R)).
 
-%% A recursive type under a list is decided only by a walk, so no edit is
-%% offered even for the `string` beside it — and the position is asked of the
-%% `mu` without unfolding it, which `opaque_refinement/1` cannot do.
-a_string_beside_a_recursive_list_is_refused_without_an_edit_test() ->
+%% A recursive type under a list is decided only by a walk, so the list is
+%% what is named, before the `string` beside it — and the `mu` is refused
+%% without being unfolded (F36's hazard).
+a_string_beside_a_recursive_list_is_refused_as_a_list_test() ->
     {Rc, R} = refused("Mix", "module Mix\n"
                              "type Tree = :leaf | (Tree, Tree)\n"
                              "using :trees {\n"
@@ -357,13 +371,14 @@ a_string_beside_a_recursive_list_is_refused_without_an_edit_test() ->
                              "public int N()\n"
                              "N() -> 1\n"),
     ?assertEqual(1, Rc),
-    ?assert(found("grow returns `(string, list<Tree>)`, whose `string`", R)),
+    ?assert(found("grow returns `(string, list<Tree>)`, which one guard cannot decide", R)),
+    ?assert(found("every element of this list would need inspecting", R)),
     ?assertNot(offers_an_edit(R)).
 
-%% The same beside a recursive tuple member, where no list routes the walk
-%% through the guard above: the position walk met the `mu` directly and had no
-%% clause for it, a crash the check before this change did not have.
-a_string_beside_a_recursive_member_is_refused_without_an_edit_test() ->
+%% The same beside a recursive tuple member, where no list routes the walk:
+%% the `mu` is met directly and named as recursive, a crash before ENG-351
+%% and a `string` message until ENG-354.
+a_string_beside_a_recursive_member_is_refused_as_recursive_test() ->
     {Rc, R} = refused("Tup", "module Tup\n"
                              "type Tree = :leaf | (Tree, Tree)\n"
                              "using :trees {\n"
@@ -372,13 +387,14 @@ a_string_beside_a_recursive_member_is_refused_without_an_edit_test() ->
                              "public int N()\n"
                              "N() -> 1\n"),
     ?assertEqual(1, Rc),
-    ?assert(found("grow returns `(string, Tree)`, whose `string`", R)),
+    ?assert(found("grow returns `(string, Tree)`, which one guard cannot decide", R)),
+    ?assert(found("`Tree` is recursive", R)),
     ?assertNot(offers_an_edit(R)).
 
 %% `map<term, term>` is the domain map one guard decides in O(1) — `is_map`,
 %% and F33's `Kind` exclusion is `is_map_key` — so it is admissible under the
-%% whole of 18 §2, not only the `string` slice this compiler builds. It crashed
-%% the check before ENG-351 like every other domain map.
+%% whole of 18 §2, which ENG-354 built. It crashed the check before ENG-351
+%% like every other domain map.
 a_term_keyed_foreign_map_is_admissible_test() ->
     M = build_and_load(views_src(), 'Views'),
     ?assertEqual(#{<<"home">> => 3, <<"about">> => 1}, M:'Counts'()).

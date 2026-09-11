@@ -108,6 +108,12 @@ check_dir(Sources, World, Expect) ->
     %% the same env every other declaration refusal uses, before any later
     %% diagnostic can describe the collapsed type (F31, ticket 15 §1).
     collapse_refused(Decls, Env),
+    %% A foreign return that one guard cannot decide is refused here too,
+    %% before `foreign_wrappers/2` asks `error_members/1` what the type's
+    %% members are: a recursive type has none to give and crashed there
+    %% (ENG-355), and the refusal is the answer to that declaration (18 §2,
+    %% F40).
+    foreign_rets_decidable(Decls, Env),
     Module = module_name(Decls),
     %% The reserved-name refusal runs before the path check, so `module List`
     %% gets the same answer in any directory rather than a path-mismatch
@@ -119,8 +125,9 @@ check_dir(Sources, World, Expect) ->
     PerFile = [{P, collect(D)} || {P, D} <- Sources],
     Fns = lists:append([F || {_, F} <- PerFile]),
     Imports = import_env(Decls, Module, World),
-    %% A foreign declaration belongs to the directory's declaration pass, the
-    %% stage `admissible_foreign_ret/5` refuses at (F19).
+    %% A foreign declaration belongs to the directory's declaration pass,
+    %% which `foreign_rets_decidable/2` above has already refused the
+    %% undecidable of (F19, F40); every return reaching here has members.
     Foreigns = foreign_wrappers(Decls, Env),
     Ctx = #ctx{types = Env, callees = callees(Decls, Env, Imports),
                imports = Imports},
@@ -313,8 +320,11 @@ exports_of(Decls) ->
     %% refusals a compile does, a collapsed failure channel included, or it
     %% would print `atom Go(int)` for a function declared over
     %% `option<atom>` (F31). For `bsc:build/4` this cannot fire: the module
-    %% was already checked clean.
+    %% was already checked clean. The foreign-return refusal is the same
+    %% kind of declaration refusal, and without it here `--api` printed an
+    %% API for a module a compile refuses (F40).
     collapse_refused(Decls, Env),
+    foreign_rets_decidable(Decls, Env),
     maps:from_list([{{N, length(Ps)}, at_loc(L, fun() -> sig(Ps, R, Env) end)}
                     || {signature, L, N, R, Ps, V} <- Decls, V =:= public]).
 
@@ -467,93 +477,160 @@ collect(Decls) ->
 callees(Decls, Env, Imports) ->
     Local = [{{N, length(Ps)}, at_loc(SL, fun() -> sig(Ps, R, Env) end)}
              || {signature, SL, N, R, Ps, _} <- Decls],
-    Foreign = [begin
-                   admissible_foreign_ret(L, Mod, N, R, Env),
-                   {{f, Mod, N, length(Ps)},
-                    at_loc(L, fun() -> sig(Ps, R, Env) end)}
-               end
+    Foreign = [{{f, Mod, N, length(Ps)},
+                at_loc(L, fun() -> sig(Ps, R, Env) end)}
                || {foreign, _, Mod, Sigs} <- Decls,
                   {foreign_sig, L, N, R, Ps} <- Sigs],
     maps:merge(maps:get(qual, Imports, #{}),
                maps:from_list(Local ++ Foreign)).
 
-%% A foreign return type must be decidable by one BEAM guard in O(1), so
-%% `string`, which needs an O(n) UTF-8 check, is refused in return
-%% position (ticket 18 §2, ticket 20 §5, F9). Parameters are not checked: a
-%% value handed out to Erlang is already known to be a string. `binary` is
-%% admissible because `byte_size/1` and `bit_size/1` are O(1) guard
-%% BIFs (ticket 20 §3).
-admissible_foreign_ret(Line, Mod, Fun, Ret, Env) ->
+%%% ---------------------------------------------------------------------------
+%%% A foreign return may promise only what one guard decides (ticket 18 §2, F40)
+%%%
+%%% A parameter is a value handed OUT, already established by the signature
+%%% that produced it, so parameters are not checked. A return arrives from
+%%% code this compiler never saw, and the declared type is a claim about it
+%%% that a guard on the wrapper will check (ENG-357). The claim may therefore
+%%% be anything one BEAM guard decides in O(1): the whole value, a tuple
+%%% member, a fixed field of an inline map -- and nothing a walk would be
+%%% needed for. What a walk would be needed for, in the order it is named:
+%%%
+%%%   recursive  a `mu`, wherever it sits: only a walk decides one, and it is
+%%%              not unfolded here (F36's hazard)
+%%%   list       a list part whose element type is narrower than `term`;
+%%%              `list<term>` is `is_list` and passes
+%%%   map        a domain member whose key or value is narrower than `term`;
+%%%              `map<term, term>` is `is_map` and passes (F33)
+%%%   record     a fixed-field member carrying `Kind`, which this compiler
+%%%              mints and Erlang never writes, so no guard on a foreign value
+%%%              finds it (ENG-351 grill, Q8). An inline map type has no `Kind`
+%%%              and its fields are each one `map_get` test, so it passes
+%%%   string     a refined binary part; `valid_utf8` reads every byte
+%%%              (ticket 20 §5, F9.11 -- the slice built first)
+%%%
+%%% The structural offenders are looked for before a `string`, so that
+%%% `(string, list<Tree>)` is refused as a list and the edit is the `term`
+%%% route rather than `binary` under a bracket that needs a walk anyway.
+%%% ---------------------------------------------------------------------------
+
+foreign_rets_decidable(Decls, Env) ->
+    _ = [foreign_ret_decidable(L, Mod, N, R, Env)
+         || {foreign, _, Mod, Sigs} <- Decls,
+            {foreign_sig, L, N, R, _Ps} <- Sigs],
+    ok.
+
+foreign_ret_decidable(Line, Mod, Fun, Ret, Env) ->
     Ty = resolve(Ret, Env),
-    case opaque_refinement(Ty) of
-        true  -> erlang:error({opaque_ret_at_boundary, Line, Mod, Fun,
-                               declared_text(Ret, Ty), refinement_at(Ty)});
-        false -> ok
+    case beyond_one_guard(Ty) of
+        none ->
+            ok;
+        {Why, Name, Fields, At} ->
+            erlang:error({foreign_ret_beyond_one_guard, Line, Mod, Fun,
+                          declared_text(Ret, Ty), Why, Name, Fields, At})
     end.
 
-%% Where the refinement sits decides whether `binary` in its place is an edit
-%% to offer (ENG-351). `top` is a position one guard reaches — the whole
-%% value, a tuple member, a record field — so `binary` there is admissible
-%% under the whole of 18 §2. `walked` is a list element or a map's key or
-%% value, where `binary` needs every element inspected too, which 18 §2
-%% refuses once it is built (ENG-354). Asked only of a type already refused.
-refinement_at(Ty) ->
-    case walked_refinement(Ty) of
-        true  -> walked;
-        false -> top
+%% `none`, or `{Why, Name, Fields, At}`: what was found, the type's name where
+%% it has one (a record, a recursive type), the record's fields as the inline
+%% form the refusal recommends, and whether it is the `whole` return or
+%% `inside` a position one guard reaches -- which is what chooses the edit.
+beyond_one_guard(Ty) ->
+    case offender(Ty, structural, whole) of
+        none  -> offender(Ty, string, whole);
+        Found -> Found
     end.
 
-%% A recursive type counts as walked whatever it holds, wherever it sits: only
-%% a walk ever decides one, and it is not unfolded here (F36's hazard).
-walked_refinement(#{mu := _}) -> true;
-walked_refinement(#{tuples := top}) -> false;
-walked_refinement(Ty = #{tuples := Ps, maps := Ms}) ->
-    lists:any(fun walked_refinement/1, lists:append(Ps))
-        orelse (bs_types:has_lists(Ty)
-                andalso refined_under_walk(bs_types:list_elem(Ty)))
-        orelse (case Ms of
-                    top     -> false;
-                    Members -> lists:any(
-                                 fun({dom, K, V}) ->
-                                         refined_under_walk(K)
-                                             orelse refined_under_walk(V);
-                                    ({_, Fs}) ->
-                                     lists:any(fun walked_refinement/1,
-                                               maps:values(Fs))
-                                 end, Members)
-                end).
+offender(#{mu := _} = Ty, structural, At) ->
+    {recursive, bs_types:rec_name(Ty), none, At};
+offender(#{recvar := _} = Ty, structural, At) ->
+    {recursive, bs_types:rec_name(Ty), none, At};
+offender(#{mu := _}, string, _At) ->
+    none;
+offender(#{recvar := _}, string, _At) ->
+    none;
+offender(Ty = #{tuples := Ts, maps := Ms, bins := Bs}, Pass, At) ->
+    first([fun() -> list_offender(Ty, Pass, only(Ty, lists, At)) end,
+           fun() -> map_offender(Ms, Pass, only(Ty, maps, At)) end,
+           fun() -> tuple_offender(Ts, Pass) end,
+           fun() -> bin_offender(Bs, Pass, only(Ty, bins, At)) end]).
 
-%% Under a list or a map, anything refined is walked; `opaque_refinement/1`
-%% has no clause for `mu`, so a recursive type is answered before it.
-refined_under_walk(#{mu := _}) -> true;
-refined_under_walk(Ty)         -> opaque_refinement(Ty).
+%% `whole` only where the declared type IS that part: `result<list<Order>, atom>`
+%% resolves to a union whose list member sits in the top-level list part, and
+%% "declare it `list<term>`" would be an edit to the wrong type. Then the
+%% offender is `inside` the union, and the edit names the part.
+only(_Ty, _Part, inside) ->
+    inside;
+only(Ty, Part, whole) ->
+    Alone = (bs_types:none())#{Part => maps:get(Part, Ty)},
+    case bs_types:is_subtype(Ty, Alone) of
+        true  -> whole;
+        false -> inside
+    end.
+
+first([])       -> none;
+first([F | Fs]) ->
+    case F() of
+        none  -> first(Fs);
+        Found -> Found
+    end.
+
+%% The list part is a union of spines, so ask for the element type; `[]`
+%% alone has none, and `=:= []` decides it.
+list_offender(Ty, structural, At) ->
+    case bs_types:has_lists(Ty) of
+        false -> none;
+        true  ->
+            Elem = bs_types:list_elem(Ty),
+            case bs_types:is_none(Elem)
+                orelse bs_types:is_subtype(bs_types:term(), Elem) of
+                true  -> none;
+                false -> {list, none, none, At}
+            end
+    end;
+list_offender(_Ty, string, _At) ->
+    none.
+
+map_offender(top, _Pass, _At) ->
+    none;
+map_offender(Members, Pass, At) ->
+    first([fun() -> map_member_offender(M, Pass, At) end || M <- Members]).
+
+map_member_offender({dom, K, V}, structural, At) ->
+    Term = bs_types:term(),
+    case bs_types:is_subtype(Term, K) andalso bs_types:is_subtype(Term, V) of
+        true  -> none;
+        false -> {map, none, none, At}
+    end;
+map_member_offender({dom, _K, _V}, string, _At) ->
+    none;
+map_member_offender({_Kind, Fs}, Pass, At) ->
+    case maps:find('Kind', Fs) of
+        {ok, #{atoms := {finite, [Tag]}}} when Pass =:= structural ->
+            {record, record_short_name(Tag),
+             bs_types:to_string(bs_types:map_closed(maps:remove('Kind', Fs))),
+             At};
+        {ok, _} ->
+            none;
+        error ->
+            first([fun() -> offender(F, Pass, inside) end
+                   || F <- maps:values(Fs)])
+    end.
+
+%% A record's `Kind` is the qualified name (`'Shop.Order'`); the author wrote
+%% the last segment.
+record_short_name(Tag) ->
+    list_to_atom(lists:last(string:split(atom_to_list(Tag), ".", all))).
+
+tuple_offender(top, _Pass) ->
+    none;
+tuple_offender(Products, Pass) ->
+    first([fun() -> offender(M, Pass, inside) end || M <- lists:append(Products)]).
 
 %% A proper non-empty subset of the binary part is a refinement of it, and
-%% `string` is the only one today. Recursive, because anything deeper is a
-%% compile error at the declaration too (ticket 18 §2): `list<string>` hides
-%% the same unbounded check one bracket down.
-opaque_refinement(#{bins := Bs}) when Bs =/= [], Bs =/= [other, utf8] -> true;
-opaque_refinement(#{tuples := top}) -> false;
-opaque_refinement(Ty = #{tuples := Ps, maps := Ms}) ->
-    lists:any(fun opaque_refinement/1, lists:append(Ps))
-        %% The list part is a union of spines, so ask for the element type;
-        %% `has_lists/1` guards the recursion, since `list_elem/1` of a type
-        %% with no list is `none()`, whose element is `none()` again (F20).
-        orelse (bs_types:has_lists(Ty)
-                andalso opaque_refinement(bs_types:list_elem(Ty)))
-        orelse (case Ms of
-                    top     -> false;
-                    Members -> lists:any(
-                                 %% A domain map's keys are values too, so
-                                 %% `map<string, V>` hides the check (F33).
-                                 fun({dom, K, V}) ->
-                                         opaque_refinement(K)
-                                             orelse opaque_refinement(V);
-                                    ({_, Fs}) ->
-                                     lists:any(fun opaque_refinement/1,
-                                               maps:values(Fs))
-                                 end, Members)
-                end).
+%% `string` is the only one today (F9).
+bin_offender(Bs, string, At) when Bs =/= [], Bs =/= [other, utf8] ->
+    {string, none, none, At};
+bin_offender(_Bs, _Pass, _At) ->
+    none.
 
 sig(Params, Ret, Env) ->
     {[resolve(T, Env) || {param, T, _} <- Params], resolve(Ret, Env)}.

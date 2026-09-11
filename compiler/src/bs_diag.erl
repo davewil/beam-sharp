@@ -413,12 +413,15 @@ built(Path, {pattern_field_unknown, Line, Record, Field, Declared}) ->
       line => Line, record => Record, field => Field, declared => Declared};
 built(Path, {unknown_builtin, B}) ->
     #{tag => unknown_builtin, severity => error, file => Path, type => B};
-%% The message names the replacement where there is one, because the reason is
-%% not obvious from the rule (F9.11). `at` says whether there is (ENG-351).
-built(Path, {opaque_ret_at_boundary, Line, Mod, Fun, Type, At}) ->
-    #{tag => opaque_ret_at_boundary, severity => error, file => Path,
+%% One tag for the whole of ticket 18 §2 (F40): `why` is what one guard
+%% cannot decide -- `list`, `map`, `record`, `recursive` or `string` -- and
+%% `at` whether it is the `whole` return or `inside` a position a guard
+%% reaches, which between them choose the edit. `name` and `fields` are set
+%% for a record and a recursive type, so the message can say which.
+built(Path, {foreign_ret_beyond_one_guard, Line, Mod, Fun, Type, Why, Name, Fields, At}) ->
+    #{tag => foreign_ret_beyond_one_guard, severity => error, file => Path,
       line => Line, module => bs_types:atom_str(Mod), function => Fun,
-      type => Type, at => At};
+      type => Type, why => Why, name => Name, fields => Fields, at => At};
 built(Path, {unknown_generic, N}) ->
     #{tag => unknown_generic, severity => error, file => Path, type => N};
 %% A bracket the compiler knows at the wrong arity is a different mistake from
@@ -1255,16 +1258,11 @@ message(#{tag := unknown_builtin, type := B} = D) ->
      "  this slice has `int`, `atom`, `term`, `none`, `bool`, `binary`,~n"
      "  `string` and `list<T>`.~n",
      placed_args(D) ++ [B]};
-message(#{tag := opaque_ret_at_boundary, file := P, line := L, column := C, module := Mod,
-          function := Fun, type := Type, at := At}) ->
-    {"~s:~p:~p: error: ~s.~s returns `~s`, " ++ opaque_what(Type) ++
-         " a guard cannot decide~n"
-     "  `string` is `binary` refined by valid UTF-8, and checking that~n"
-     "  reads every byte of a value the sender sizes.~n" ++
-     opaque_edit(Type, At) ++
-     "  Establishing the refinement is the UTF-8 entry check, which this~n"
-     "  compiler does not have yet.~n",
-     [P, L, C, Mod, Fun, Type]};
+message(#{tag := foreign_ret_beyond_one_guard, module := Mod, function := Fun,
+          type := Type, why := Why, name := Name, fields := Fields, at := At} = D) ->
+    {placed(D) ++ "error: ~s.~s returns `~s`, which one guard cannot decide~n~s~s",
+     placed_args(D) ++ [Mod, Fun, Type, beyond_why(Why, Name),
+                        beyond_edit(Why, At, Type, Name, Fields)]};
 message(#{tag := unknown_generic, file := P, type := N}) ->
     {"~s: error: no type named ~s takes a type argument~n"
      "  the standard environment has `list<T>`, `option<T>` and `result<T, E>`;~n"
@@ -1672,12 +1670,52 @@ field_set_verb(update)       -> "updates".
 %% under a list or a map, `binary` needs the walk too, which 18 §2 refuses, and
 %% its own route, `term` then `ValidateAs`, is refused for a domain map
 %% (ENG-351, ENG-354).
-opaque_what("string") -> "which";
-opaque_what(_)        -> "whose `string`".
+%% Why one guard cannot decide it, by what was found (F40). Plain strings,
+%% rendered through `~s`, so an author's type name cannot reach the format.
+beyond_why(list, _) ->
+    "  a foreign return may promise only what one guard checks in O(1), and\n"
+    "  every element of this list would need inspecting.\n";
+beyond_why(map, _) ->
+    "  a foreign return may promise only what one guard checks in O(1), and\n"
+    "  every key and value of this map would need inspecting.\n";
+beyond_why(recursive, Name) ->
+    "  a foreign return may promise only what one guard checks in O(1), and\n"
+    "  `" ++ atom_to_list(Name) ++ "` is recursive: only a walk decides one.\n";
+beyond_why(record, Name) ->
+    "  `" ++ atom_to_list(Name) ++ "` is a record, and Erlang cannot produce its "
+    "`Kind`: the key is\n"
+    "  minted by this compiler, so no value from outside carries it.\n";
+beyond_why(string, _) ->
+    "  `string` is `binary` refined by valid UTF-8, and checking that reads\n"
+    "  every byte of a value the sender sizes. Establishing it is the\n"
+    "  entry check, which this compiler does not have yet.\n".
 
-opaque_edit(_, walked)      -> "";
-opaque_edit("string", top) -> "  declare it `binary`.~n";
-opaque_edit(_, top)         -> "  write `binary` where it says `string`.~n".
+%% The edit. A `string` one guard reaches has a replacement, `binary`; a
+%% record has its inline field form, which a guard decides and which its
+%% own `ValidateAs` would not accept from outside, since the validator wants
+%% the `Kind` too; everything else has the route 18 §2 decided -- `term` for
+%% the part a guard cannot decide, then `ValidateAs<T>` where it is used.
+%% Where the whole return is the offender the message can spell the
+%% replacement; inside a tuple or a field it names the part.
+beyond_edit(string, _At, "string", _Name, _Fields) ->
+    "  declare it `binary`.\n";
+beyond_edit(string, _At, _Type, _Name, _Fields) ->
+    "  write `binary` where it says `string`.\n";
+beyond_edit(record, whole, _Type, _Name, Fields) ->
+    "  write its fields instead, `" ++ Fields ++ "`, which a guard decides.\n";
+beyond_edit(record, inside, _Type, Name, Fields) ->
+    "  write its fields where it says `" ++ atom_to_list(Name) ++ "`, `" ++
+        Fields ++ "`, which a guard decides.\n";
+beyond_edit(Why, whole, Type, _Name, _Fields) ->
+    "  declare it `" ++ term_form(Why) ++ "`, then `ValidateAs<" ++ Type ++
+        ">` where it is used.\n";
+beyond_edit(_Why, inside, Type, _Name, _Fields) ->
+    "  declare the part a guard cannot decide as `term` (`list<term>`,\n"
+    "  `map<term, term>`), then `ValidateAs<" ++ Type ++ ">` where it is used.\n".
+
+term_form(list)      -> "list<term>";
+term_form(map)       -> "map<term, term>";
+term_form(recursive) -> "term".
 
 field_list(_Label, [])    -> "";
 field_list(Label, Fields) ->

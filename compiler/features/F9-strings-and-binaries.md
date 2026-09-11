@@ -184,6 +184,10 @@ using :file {
 Exit 1 at the `using` line. Ticket 18 §2: a foreign return type may mention only what a guard
 decides in O(1), and `valid_utf8` is not. The message says what to write instead — `binary` — and
 that this is the entry check's job.
+<!-- 2026-09-11: this was the only slice of 18 §2 built until F40, which refuses a list, a map, a
+     record and a recursive type the same way under one tag, `foreign_ret_beyond_one_guard`;
+     `opaque_ret_at_boundary` retired into it. The `binary` edit and the entry-check sentence are
+     what this scenario keeps. ->
 
 **This is the placement rule executing on the one member of the opaque tier**, and it is derived,
 not decided here. 20 §5's bar reads *"barred from clause heads and foreign declarations"*; the
