@@ -1,0 +1,5 @@
+// G02 — a qualified call to a sibling B# module in a guard.
+module G02Qcall
+public atom Check(int u)
+Check(u) when Helper.IsAdmin(u) == :yes -> :admin
+Check(_)                                -> :ordinary

@@ -294,6 +294,9 @@ run_stages \
   "No \`not\` and no \`!\`, both taught, and \`not\` is still a name" \
     "cd compiler && ./bin/check-negation.sh --self-test && ./bin/check-negation.sh" \
 \
+  "A call in a guard is refused in B#'s voice, never in Erlang's" \
+    "cd compiler && ./bin/check-guard-calls.sh --self-test && ./bin/check-guard-calls.sh" \
+\
   "Recursive types resolve, and the two that cannot still refuse" \
     "cd compiler && ./bin/check-recursive-types.sh --self-test && ./bin/check-recursive-types.sh" \
 \

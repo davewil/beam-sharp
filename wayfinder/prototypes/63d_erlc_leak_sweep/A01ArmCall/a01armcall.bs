@@ -1,0 +1,10 @@
+// A01 — a local call in a SWITCH-ARM guard.
+module A01ArmCall
+public atom IsAdmin(int u)
+IsAdmin(1) -> :yes
+IsAdmin(_) -> :no
+public atom Check(int u)
+Check(u) -> u switch {
+    n when IsAdmin(n) == :yes => :admin,
+    _                         => :ordinary
+}

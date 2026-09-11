@@ -1,0 +1,6 @@
+// G07 — a field projection in a guard.
+module G07Proj
+record Order { Id: int, Total: int }
+public atom Check(Order o)
+Check(o) when o.Total > 5 -> :big
+Check(_)                  -> :small

@@ -1,0 +1,8 @@
+// G06 — a pipe in a guard (lowers to a local call before the checker).
+module G06Pipe
+public atom IsAdmin(int u)
+IsAdmin(1) -> :yes
+IsAdmin(_) -> :no
+public atom Check(int u)
+Check(u) when (u |> IsAdmin()) == :yes -> :admin
+Check(_)                               -> :ordinary

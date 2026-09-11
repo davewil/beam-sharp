@@ -141,13 +141,14 @@ a_guard_on_an_arm_leaves_the_gap_it_should_test() ->
 %% vacuously, and the arm stops being checked with nothing to notice.
 %%
 %% So the assertion is on an error the wrong build OMITS.
+%%
+%% The unreadable guard is `m % 2 == 0` — legal on the BEAM, credited nothing.
+%% It was `Big(m)` until F41 refused a call in a guard (ENG-256).
 an_untranslatable_arm_guard_credits_nothing_test() ->
     Src = "module Opaque\n"
-          "public bool Big(int n)\n"
-          "Big(n) -> n > 100\n"
           "public atom Check(int n)\n"
           "Check(n) -> n switch {\n"
-          "    m when Big(m) => :big\n"
+          "    m when m % 2 == 0 => :big\n"
           "}\n",
     [{error, _, 'Check', {switch_inexhaustive, Residual, _}}] = errors(Src),
     ?assertEqual("int", bs_types:to_pattern(Residual)).
@@ -163,13 +164,11 @@ an_untranslatable_arm_guard_credits_nothing_test() ->
 %% caught by a passing test — only by asserting the error the wrong build omits.
 an_arm_body_under_an_unreadable_guard_is_still_checked_test() ->
     Src = "module Quiet\n"
-          "public bool Big(int n)\n"
-          "Big(n) -> n > 100\n"
           "public atom Tag(atom a)\n"
           "Tag(a) -> :seen\n"
           "public atom Check(int n)\n"
           "Check(n) -> n switch {\n"
-          "    m when Big(m) => Tag(m),\n"
+          "    m when m % 2 == 0 => Tag(m),\n"
           "    _             => :small\n"
           "}\n",
     ?assertMatch([{error, _, 'Check', {arg_not_accepted, 'Tag', 1, _, _}}],

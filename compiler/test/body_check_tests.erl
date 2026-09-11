@@ -150,13 +150,16 @@ without_the_earlier_clause_the_same_body_is_an_error_test() ->
 %% makes `Certain` none, and a body typed against none does not fail loudly: it
 %% silently stops checking, because every containment over none passes. So this
 %% asserts an error that the WRONG build omits.
+%%
+%% The untranslatable guard is `n % 2 == 0`: legal on the BEAM and credited
+%% nothing by the checker. It was a user function call until F41, which refuses
+%% that at the guard — the program this test held was never one the BEAM would
+%% have compiled.
 an_untranslatable_guard_leaves_the_body_typed_test() ->
     Src = "module Guarded\n"
-          "public atom Weird(int n)\n"
-          "Weird(n) -> :yes\n"
           "public atom Classify(int n)\n"
-          "Classify(n) when Weird(n) -> n.Total\n"
-          "Classify(n)               -> :other\n",
+          "Classify(n) when n % 2 == 0 -> n.Total\n"
+          "Classify(n)                 -> :other\n",
     ?assertMatch([{error, _, 'Classify', {field_absent, projection, 'Total', _}}],
                  errors(Src)).
 
@@ -303,7 +306,9 @@ an_unbound_name_in_a_guard_is_caught_by_bsc_test() ->
     ?assertMatch([{error, _, 'F', {unbound_variable, x}}], errors(Src)).
 
 %% ...and a guard calling a user function still names only its ARGUMENTS, so the
-%% callee is not mistaken for an unbound variable.
+%% callee is not mistaken for an unbound variable. Since F41 the call itself is
+%% refused — a guard cannot call a function — so the assertion is that the ONE
+%% error is that refusal, and `Weird` is not reported as an unbound name beside it.
 a_guard_calling_a_function_is_not_an_unbound_name_test() ->
     Src = "module M\n"
           "public atom Weird(int n)\n"
@@ -311,7 +316,7 @@ a_guard_calling_a_function_is_not_an_unbound_name_test() ->
           "public atom F(int n)\n"
           "F(n) when Weird(n) -> :yes\n"
           "F(n)               -> :no\n",
-    ?assertMatch({ok, _, _}, check_only(Src)).
+    ?assertMatch([{error, _, 'F', {call_in_guard, 'Weird'}}], errors(Src)).
 
 %% Everything else on the left of `=` is a parse error naming what belongs
 %% there, rather than an obscure failure further down.

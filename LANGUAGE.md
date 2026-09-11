@@ -222,6 +222,31 @@ Classify(n) when n >= 100            -> :high
 That is exhaustive over `int`, with no catch-all, because the checker carries real integer
 intervals.
 
+**A guard cannot call your functions.** The BEAM admits only its own guard functions in a guard,
+never a user-defined one, and this language inherits that rather than hiding it. A call to one of
+your own functions, to a sibling module, or to a foreign function that is not one of the BEAM's
+guard functions is refused at the guard, in this language's words and naming the callee as you
+wrote it. A foreign call to a guard function, `:erlang.byte_size(b) > 2`, is legal. The repair is a
+switch on the call's answer in the body, where it is typed and checked for exhaustiveness.
+**shipped** — F41
+<!-- decided by ticket 63 Q4, which left the restriction inherited; F41 owns the voice -->
+
+<!-- diagnoses: call_in_guard -->
+```csharp
+module Access
+
+public atom IsAdmin(int u)
+IsAdmin(1) -> :yes
+IsAdmin(_) -> :no
+
+public atom Check(int u)
+Check(u) when IsAdmin(u) == :yes -> :admin
+Check(_)                         -> :ordinary
+```
+
+— *`Check` calls `IsAdmin` in a guard; a guard asks a question about the values a clause already
+matched, it cannot call a function. Move the call into the body and switch on its answer.*
+
 **One spelling, in every position** — guard, pattern and refinement predicate. There is no `&&` and
 no `||`; they were removed rather than kept as synonyms. This language puts patterns in the
 *parameter* position, so a pattern and a guard sit on the same line in every non-trivial function.
@@ -878,7 +903,7 @@ Tag(a) -> :seen
 
 public atom Check(int n)
 Check(n) -> n switch {
-    m when Big(m) => Tag(m),
+    m when m > 100 => Tag(m),
     _             => :small
 }
 ```

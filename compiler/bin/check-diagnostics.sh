@@ -53,6 +53,10 @@
 #              verbatim (it read `erlc: ...` while erlc was a subprocess; since
 #              ENG-314 the same OTP `compile` module runs in-process). Wrapping
 #              it would be claiming authorship of a message we did not write.
+#              It is the LAST RESORT, not a channel: a program that reaches it
+#              cleared `bs_check` and was refused by Erlang anyway, and that is
+#              a defect in the checker (ENG-256, F41 — a call in a guard was
+#              the first found; `check-guard-calls.sh` holds the class).
 #   bs_repl.erl  the REPL's own echo. It renders messages the compiler already
 #              produced; it does not produce any.
 #

@@ -191,6 +191,12 @@ built(Path, {Sev, Line, Fn, switch_in_guard}) ->
     (at(Sev, Path, Line, Fn))#{tag => switch_in_guard};
 built(Path, {Sev, Line, Fn, raise_in_guard}) ->
     (at(Sev, Path, Line, Fn))#{tag => raise_in_guard};
+%% F41 (ENG-256). `callee` is the spelling the author wrote, as it is for
+%% `unknown_callee` — never Erlang's `'F'/N`, which is what reached them before.
+built(Path, {Sev, Line, Fn, {call_in_guard, Callee}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => call_in_guard, callee => Callee};
+built(Path, {Sev, Line, Fn, {foreign_call_in_guard, Callee}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => foreign_call_in_guard, callee => Callee};
 built(Path, {Sev, Line, Fn, {unreachable_clause, N}}) ->
     (at(Sev, Path, Line, Fn))#{tag => unreachable_clause, clause_number => N};
 %% `vacuous_clause` carries the domain rather than the offending pattern: the
@@ -867,6 +873,28 @@ message(#{tag := raise_in_guard, file := P, line := L, column := C, function := 
      "  a guard chooses which clause runs; it cannot crash. Move~n"
      "  the raise into the body of the clause it should fail.~n",
      [P, L, C, Fn]};
+%% The fourth thing a guard cannot do (F41, ENG-256). Erlang admits only its
+%% guard BIFs in a guard, never a user function, and B# inherits that (ticket
+%% 63 Q4). The repair names the body and a switch because that is the shape the
+%% author's guard was reaching for: `when IsAdmin(u) == :yes` is a branch on an
+%% answer, and a switch on `IsAdmin(u)` in the body is that branch, typed and
+%% checked for exhaustiveness. Nothing here promises a named-guard form.
+message(#{tag := call_in_guard, file := P, line := L, column := C, function := Fn,
+          callee := Callee}) ->
+    {"~s:~p:~p: error: ~s calls ~s in a guard~n"
+     "  a guard asks a question about the values a clause already~n"
+     "  matched; it cannot call a function. Move the call into the~n"
+     "  body and switch on its answer.~n",
+     [P, L, C, Fn, Callee]};
+%% The foreign case says why THIS call and not `:erlang.byte_size`: the set is
+%% the BEAM's, and the author may well know it.
+message(#{tag := foreign_call_in_guard, file := P, line := L, column := C,
+          function := Fn, callee := Callee}) ->
+    {"~s:~p:~p: error: ~s calls ~s in a guard~n"
+     "  only the BEAM's own guard functions may run in a guard, and~n"
+     "  `~s` is not one of them. Move the call into the~n"
+     "  body and switch on its answer.~n",
+     [P, L, C, Fn, Callee, Callee]};
 message(#{tag := unreachable_clause, file := P, line := L, column := C, function := Fn,
           clause_number := N}) ->
     {"~s:~p:~p: warning: clause ~p of ~s is unreachable~n"

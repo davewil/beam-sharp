@@ -1,0 +1,5 @@
+// G12 — tuple and list construction in a guard.
+module G12TupleList
+public atom Check(int u)
+Check(u) when (u, [u]) == (1, [1]) -> :one
+Check(_)                           -> :other

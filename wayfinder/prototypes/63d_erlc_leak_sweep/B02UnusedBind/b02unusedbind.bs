@@ -1,0 +1,6 @@
+// B02 — a bound name never read (unused_var warning).
+module B02UnusedBind
+public int Check(int u)
+Check(u) ->
+    var y = u
+    1

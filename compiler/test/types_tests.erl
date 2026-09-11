@@ -48,10 +48,12 @@ conjunction_in_a_guard_is_credited_test() ->
 %% Ticket 08: a condition the checker cannot translate credits nothing. That must
 %% make the function *inexhaustive*, never accidentally exhaustive — an
 %% uncreditable guard may not be read as full coverage.
+%% The uncreditable guard is `n % 2 == 0`, which the BEAM admits and the checker
+%% cannot read. It was `Weird(n)` until F41 refused a call in a guard.
 uncreditable_guard_credits_nothing_test() ->
     Src = "module M\n"
           "public int F(int n)\n"
-          "F(n) when Weird(n) -> n\n",
+          "F(n) when n % 2 == 0 -> n\n",
     {error, Diags} = check_only(Src),
     ?assertMatch([{error, _, 'F', {inexhaustive, _, _}}], Diags).
 

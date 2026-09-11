@@ -1,0 +1,6 @@
+// B04 — a parameter re-bound in the body.
+module B04Rebind
+public int Check(int u)
+Check(u) ->
+    var u = 1
+    u

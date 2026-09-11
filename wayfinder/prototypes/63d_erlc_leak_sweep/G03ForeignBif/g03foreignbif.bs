@@ -1,0 +1,8 @@
+// G03 — a foreign call in a guard whose target IS a BEAM guard BIF.
+module G03ForeignBif
+using :erlang {
+    int byte_size(binary b)
+}
+public atom Check(binary b)
+Check(b) when :erlang.byte_size(b) > 2 -> :long
+Check(_)                               -> :short

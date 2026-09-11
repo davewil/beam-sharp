@@ -1,0 +1,6 @@
+// G08 — a record update in a guard.
+module G08With
+record Order { Id: int, Total: int }
+public atom Check(Order o)
+Check(o) when (o with { Total = 1 }) == o -> :same
+Check(_)                                  -> :other

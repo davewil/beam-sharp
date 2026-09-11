@@ -262,6 +262,11 @@ angle_brackets_did_not_reach_value_position_test() ->
 
 %% Ticket 08's own example, which ticket 28 §3 ran through four patched grammar
 %% variants. Run here against the real one, now that the real one has brackets.
+%%
+%% The example calls `Total(x)` in its guard, which the BEAM never admitted and
+%% F41 now refuses at the checker. The assertion is on THAT refusal: it proves
+%% the guard parsed (a parse failure is a different shape entirely) without
+%% pretending the program was ever legal.
 a_guard_with_comparisons_still_parses_test() ->
     Src = "module G\n"
           "public int Total(int x)\n"
@@ -269,7 +274,7 @@ a_guard_with_comparisons_still_parses_test() ->
           "public atom Cmp((int, int) p)\n"
           "Cmp((x, y)) when x < y and Total(x) > 0 -> :yes\n"
           "Cmp(p)                                 -> :no\n",
-    ?assertMatch({ok, _, _}, check_only(Src)).
+    ?assertMatch([{error, _, 'Cmp', {call_in_guard, 'Total'}}], errors(Src)).
 
 %% F6.10 — the expansion is already ground, so ticket 13 §6 has nothing to widen
 %% and the spec is exact. This is also why 27 §6's finding (a polymorphic -spec

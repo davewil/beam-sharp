@@ -1,0 +1,9 @@
+// G05 — a valve in a guard. `result<int, atom>` is `int | (:error, atom)`, so
+// `Half` returns the int itself; the first draft returned `(:ok, u)` and failed
+// its own return check, which measured nothing.
+module G05Valve
+public result<int, atom> Half(int u)
+Half(u) -> u
+public atom Check(int u)
+Check(u) when (u |?> Half()) == 1 -> :one
+Check(_)                          -> :other

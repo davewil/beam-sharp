@@ -7,6 +7,6 @@ Tag(a) -> :seen
 
 public atom Check(int n)
 Check(n) -> n switch {
-    m when Big(m) => Tag(m),
+    m when m > 100 => Tag(m),
     _             => :small
 }

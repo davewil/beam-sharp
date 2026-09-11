@@ -1,0 +1,8 @@
+// B01 — a name bound inside one switch arm and read after it (unsafe_var).
+// An arm is a single expression, so no binding can appear in one; the probe
+// asks whether a bare `=` inside an arm can introduce a name.
+module B01ArmBind
+public int Check(int u)
+Check(u) ->
+    var r = u switch { 1 => (y = 2), _ => 3 }
+    r

@@ -1,0 +1,5 @@
+// G14 — THE CONTROL: a comparison guard. Must compile and run.
+module G14Control
+public atom Check(int u)
+Check(u) when u == 1 -> :admin
+Check(_)             -> :ordinary

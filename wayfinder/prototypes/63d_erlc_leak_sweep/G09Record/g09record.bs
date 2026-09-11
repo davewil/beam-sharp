@@ -1,0 +1,6 @@
+// G09 — a record construction in a guard.
+module G09Record
+record Order { Id: int, Total: int }
+public atom Check(Order o)
+Check(o) when Order{ Id = 1, Total = 1 } == o -> :unit
+Check(_)                                      -> :other

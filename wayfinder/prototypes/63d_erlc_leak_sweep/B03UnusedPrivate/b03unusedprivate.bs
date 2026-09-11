@@ -1,0 +1,6 @@
+// B03 — a private function nobody calls (unused_function warning).
+module B03UnusedPrivate
+private int Helper(int n)
+Helper(n) -> n + 1
+public int Check(int u)
+Check(u) -> u

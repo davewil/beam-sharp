@@ -1,0 +1,5 @@
+// G10 — an instantiation-bracket call in a guard.
+module G10Inst
+public atom Check(term t)
+Check(t) when ValidateAs<int>(t) == (:ok, 1) -> :one
+Check(_)                                     -> :other

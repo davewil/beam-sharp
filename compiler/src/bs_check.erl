@@ -2255,11 +2255,51 @@ literal_diags(_, _) -> [].
 %%   `raise`  the same, and for the same reason — `erlang:error/1` is not a
 %%            guard BIF, and a guard chooses which clause runs rather than
 %%            crashing (ticket 12 §5).
+%%   a call   the same again, and the fourth (F41, ENG-256). Erlang admits
+%%            only its guard BIFs in a guard, never a user function, and
+%%            ticket 63 Q4 left that inherited; until F41 the author learned it
+%%            from the Erlang compiler's own report — `'IsAdmin'/1 is illegal
+%%            in guard`, and for `ValidateAs<T>` the emitter's mangled name.
+%%            63d measured the class as every call form the grammar admits: a
+%%            local call, a qualified one, the instantiation bracket, a pipe
+%%            (a local call by the time it is here), and a foreign call whose
+%%            target is not a guard BIF. A foreign call whose target IS one
+%%            (`:erlang.byte_size`) is legal by the same inheritance, and
+%%            `erl_internal:guard_bif/2` is the set, asked rather than copied.
 guard_diags(none, _Ctx) -> [];
 guard_diags({guard, Expr}, C) ->
     [{error, L, C#ctx.fname, wildcard_as_value} || L <- nodes_of(e_wild, Expr)]
         ++ [{error, L, C#ctx.fname, switch_in_guard} || L <- nodes_of(e_switch, Expr)]
-        ++ [{error, L, C#ctx.fname, raise_in_guard} || L <- nodes_of(e_raise, Expr)].
+        ++ [{error, L, C#ctx.fname, raise_in_guard} || L <- nodes_of(e_raise, Expr)]
+        ++ [{error, L, C#ctx.fname, R}
+            || Call <- subtrees_of([e_call, e_qcall, e_inst, e_foreign_call,
+                                    e_switch, e_raise], Expr),
+               {L, R} <- guard_call(Call)].
+
+%% The callee is spelled as the author wrote it — the same spelling
+%% `unknown_callee` and `private_function` use — never as Erlang's `'F'/N`.
+%% A qualified call names the module as written, before import resolution,
+%% because the author is being shown their own line.
+%%
+%% `e_switch` and `e_raise` are in the walk's stop set and refused by nobody
+%% here: a call inside a switch the guard was already refused for is not a
+%% second mistake (the valve lowers to exactly that — a switch whose arm calls
+%% the stage — and reported two errors for one guard until this stop).
+guard_call({e_switch, _, _, _}) -> [];
+guard_call({e_raise, _, _}) -> [];
+guard_call({e_call, L, Name, _Args}) ->
+    [{L, {call_in_guard, Name}}];
+guard_call({e_inst, L, Name, _TypeArgs, _Args}) ->
+    [{L, {call_in_guard, Name}}];
+guard_call({e_qcall, L, Mod, Fun, _Args}) ->
+    [{L, {call_in_guard, qualified_name(Mod, Fun)}}];
+guard_call({e_foreign_call, L, erlang, Fun, Args}) ->
+    case erl_internal:guard_bif(Fun, length(Args)) of
+        true  -> [];
+        false -> [{L, {foreign_call_in_guard, foreign_name(erlang, Fun)}}]
+    end;
+guard_call({e_foreign_call, L, Mod, Fun, _Args}) ->
+    [{L, {foreign_call_in_guard, foreign_name(Mod, Fun)}}].
 
 %% Generic over the tuple/list shape rather than over the grammar, because a
 %% guard shares the whole expression grammar and enumerating it once per node
@@ -2270,11 +2310,17 @@ guard_diags({guard, Expr}, C) ->
 %% a second mistake. `e_wild` is a leaf, so stopping costs it nothing.
 %%
 %% Every node carries its line second, which is what makes one walk serve all
-%% three; a node shape that broke that would have to be matched on its own.
-nodes_of(Tag, T) when is_tuple(T), element(1, T) =:= Tag -> [element(2, T)];
-nodes_of(Tag, T) when is_tuple(T) -> nodes_of(Tag, tuple_to_list(T));
-nodes_of(Tag, L) when is_list(L)  -> lists:append([nodes_of(Tag, E) || E <- L]);
-nodes_of(_Tag, _)                 -> [].
+%% of them; a node shape that broke that would have to be matched on its own.
+nodes_of(Tag, T) -> [element(2, N) || N <- subtrees_of([Tag], T)].
+
+subtrees_of(Tags, T) when is_tuple(T), tuple_size(T) > 0 ->
+    case lists:member(element(1, T), Tags) of
+        true  -> [T];
+        false -> subtrees_of(Tags, tuple_to_list(T))
+    end;
+subtrees_of(Tags, L) when is_list(L) ->
+    lists:append([subtrees_of(Tags, E) || E <- L]);
+subtrees_of(_Tags, _) -> [].
 
 %% Site 4, the clause return: a body's type must be contained in the declared
 %% return type. Every function is emitted with a `-spec` (ticket 13), so an

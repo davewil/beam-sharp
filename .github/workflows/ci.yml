@@ -541,6 +541,23 @@ jobs:
         working-directory: compiler
         run: ./bin/check-negation.sh
 
+      # F41 / ENG-256. A user function call in a guard reached the author as
+      # the Erlang compiler's own report — `'IsAdmin'/1 is illegal in guard`
+      # under a `compile:` prefix — in no term, with no tag, and for
+      # `ValidateAs<T>` naming the emitter's mangled internal function. 63d
+      # measured six call forms that leak and two foreign-call forms that must
+      # keep compiling, so the gate probes all eight; its `half` stub is the
+      # refusal wired at the clause head that misses the switch arm, which is
+      # a different walk in `bs_check`, and its `bif_refused` stub is the fix
+      # that refuses `:erlang.byte_size` along with everything else.
+      - name: The guard-call gate proves it can fail
+        working-directory: compiler
+        run: ./bin/check-guard-calls.sh --self-test
+
+      - name: "A call in a guard is refused in B#'s voice, never in Erlang's"
+        working-directory: compiler
+        run: ./bin/check-guard-calls.sh
+
       # F28 / ticket 09, ENG-260. A STOPWATCH, not a rejection test: the
       # characteristic failure of recursive types produces no output at all,
       # because the checker walks a regular tree forever. F6 measured that shape

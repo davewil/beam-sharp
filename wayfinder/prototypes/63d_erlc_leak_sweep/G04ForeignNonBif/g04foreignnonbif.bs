@@ -1,0 +1,8 @@
+// G04 — a foreign call in a guard whose target is NOT a guard BIF.
+module G04ForeignNonBif
+using :string {
+    int length(binary s)
+}
+public atom Check(binary s)
+Check(s) when :string.length(s) > 2 -> :long
+Check(_)                            -> :short

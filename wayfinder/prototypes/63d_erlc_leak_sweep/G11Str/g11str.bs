@@ -1,0 +1,5 @@
+// G11 — a string literal in a guard.
+module G11Str
+public atom Check(binary s)
+Check(s) when s == "abc" -> :abc
+Check(_)                 -> :other

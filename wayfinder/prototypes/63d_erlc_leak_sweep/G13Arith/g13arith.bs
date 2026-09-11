@@ -1,0 +1,5 @@
+// G13 — division and remainder in a guard.
+module G13Arith
+public atom Check(int u)
+Check(u) when u / 2 == 1 and u % 2 == 0 -> :two
+Check(_)                                -> :other

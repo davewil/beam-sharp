@@ -1,0 +1,4 @@
+module G02Qcall.Helper
+public atom IsAdmin(int u)
+IsAdmin(1) -> :yes
+IsAdmin(_) -> :no

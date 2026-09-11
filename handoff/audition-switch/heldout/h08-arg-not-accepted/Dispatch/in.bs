@@ -7,6 +7,6 @@ Label(b) -> :labelled
 
 public atom Report(int c)
 Report(c) -> c switch {
-    d when Hot(d) => Label(d),
+    d when d > 30 => Label(d),
     _             => :cold
 }
