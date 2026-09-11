@@ -1355,19 +1355,24 @@ list_children(Ty) ->
 map_children(top) -> [];
 map_children(Members) ->
     lists:append([case Case of
-                      %% Fields are walked in sorted order, as `map_case/3`
+                      %% A domain's walk calls the key's validator and then
+                      %% the value's, so both are children (F43).
+                      {one, none, {dom, K, V}} -> [T || T <- [K, V], checked(T)];
+                      %% Fields are walked in sorted order, as `map_case/4`
                       %% walks them, because the worklist order numbers the
                       %% generated functions and must be deterministic.
                       {one, Fixed, {_, Fs}} -> [maps:get(K, Fs)
                                                 || K <- lists:sort(maps:keys(Fs)),
                                                    K =/= Fixed,
                                                    checked(maps:get(K, Fs))];
-                      {alts, Ms}            -> [member_ty(M) || M <- Ms]
+                      {alts, Ms}            -> [member_ty(M) || M <- Ms];
+                      {any, Ms}             -> [member_ty(M) || M <- Ms]
                   end || Case <- map_cases(Members)]).
 
 map_key({Kind, Fs})     -> {Kind, lists:sort(maps:keys(Fs))}.
 member_ty({closed, Fs}) -> bs_types:map_closed(Fs);
-member_ty({open, Fs})   -> bs_types:map_open(Fs).
+member_ty({open, Fs})   -> bs_types:map_open(Fs);
+member_ty({dom, K, V})  -> bs_types:map_dom(K, V).
 
 %%% --- deciding where the descent is unambiguous -----------------------------
 %%%
@@ -1391,12 +1396,41 @@ arity_case(Ps) ->
         {I, Tagged} -> [{one, I, P} || {_A, P} <- Tagged]
     end.
 
+%% A domain member is a 3-tuple and never reaches `map_key/1` or
+%% `shape_case/1`, which read a field set: it is partitioned out first (F43).
+%%
+%% Where a domain sits beside named-field members the descent is decided by
+%% `Kind`. A record carries one and the domain excludes it (ticket 48 Q3), so
+%% the two are disjoint and the record keeps its own clause and its own blame.
+%% A brace map WITHOUT `Kind` and a domain can both hold one value —
+%% `{ X: string } | map<atom, int>` both admit `#{}` — so a pattern-first walk
+%% would match the brace shape and refuse at `.X` a value the domain accepts.
+%% Those become one `{any, …}` case: every candidate is tried and the blame
+%% stays at this node, F18's rule for a choice nothing structural makes.
 map_cases(Members) ->
+    {Doms, Named} = lists:partition(fun({dom, _, _}) -> true; (_) -> false end,
+                                    Members),
     %% Closed members first: a closed member's `map_size/1` guard cannot match
     %% a wider map, while an open member has no guard and would shadow a
     %% closed one listed after it.
-    Ordered = [M || M = {closed, _} <- Members] ++ [M || M = {open, _} <- Members],
+    Ordered = [M || M = {closed, _} <- Named] ++ [M || M = {open, _} <- Named],
+    {Records, Bare} = lists:partition(fun({_, Fs}) -> maps:is_key('Kind', Fs) end,
+                                      Ordered),
+    case {Doms, Bare} of
+        {[], _}  -> named_cases(Ordered);
+        {_, []}  -> named_cases(Records) ++ dom_cases(Doms);
+        {_, _}   -> named_cases(Records) ++ [{any, Bare ++ Doms}]
+    end.
+
+named_cases(Ordered) ->
     lists:append([shape_case(G) || {_, G} <- group_by(fun map_key/1, Ordered)]).
+
+%% Two domains that survived absorption overlap on `#{}` at least, so nothing
+%% structural chooses between them either. Unreachable from the surface —
+%% `indiscriminable_union` refuses such a type at its declaration (F29) —
+%% and kept so a third route to it is alternatives, not a crash.
+dom_cases([D]) -> [{one, none, D}];
+dom_cases(Ds)  -> [{any, Ds}].
 
 shape_case([M]) -> [{one, none, M}];
 shape_case(Ms = [{_, Fs} | _]) ->
@@ -1436,7 +1470,10 @@ checked(Ty) -> not bs_types:is_subtype(bs_types:term(), Ty).
 validator_forms({Roots, Table}) ->
     Ordered = lists:sort(fun({_, A}, {_, B}) -> A =< B end, maps:to_list(Table)),
     lists:append([validator_form(Ty, Name, Table) || {Ty, Name} <- Ordered])
-    ++ [root_form(maps:get(Ty, Table)) || Ty <- Roots].
+    ++ [root_form(maps:get(Ty, Table)) || Ty <- Roots]
+    ++ [F || lists:any(fun({Ty, _}) -> dom_walk(bs_types:unfold(Ty)) =/= none end,
+                       Ordered),
+             F <- key_forms()].
 
 %% The root wrapper, the only function a call site names, converts the
 %% internal `{ok, V}` protocol into the untagged `T | (:error, E)` the language
@@ -1553,7 +1590,7 @@ validator_form(Ty, Name, Table) ->
               ++ [{clause, ?A, [{var, ?A, '_'}], [], [Err]}],
     Fn = {function, ?A, Name, 2,
           [{clause, ?A, [?VV, ?VP], [], [{'case', ?A, ?VV, Clauses}]}]},
-    [Fn | walker_form(Body, Name, Table, Err)].
+    [Fn | walker_form(Body, Name, Table, Err) ++ dom_walker_form(Body, Name, Table, Err)].
 
 %% The single site that builds a `ValidationError`; the path is carried
 %% reversed everywhere else so this is one `lists:reverse/1` per failure
@@ -1575,7 +1612,7 @@ ty_clauses(Ty, Name, Table, Err) ->
     ++ bin_clauses(lists:sort(Bs), Err)
     ++ tuple_clauses(Ts, Table, Err)
     ++ list_clauses(Ty, Name)
-    ++ map_clauses(Ms, Table, Err).
+    ++ map_clauses(Ms, Name, Table, Err).
 
 atom_clauses({finite, Atoms}) ->
     [{clause, ?A, [{atom, ?A, A}], [], [ok_expr()]} || A <- Atoms];
@@ -1716,12 +1753,171 @@ index_segment(IV) ->
                               {atom, ?A, integer_to_list}}, [IV]},
         {cons, ?A, {integer, ?A, $]}, {nil, ?A}}}}]}.
 
-map_clauses(top, _Table, _Err) ->
-    [{clause, ?A, [{var, ?A, '_'}], [[guard_call(is_map, [?VV])]], [ok_expr()]}];
-map_clauses(Members, Table, Err) ->
-    [map_case(C, Table, Err) || C <- map_cases(Members)].
+%%% --- the walk over a `map<K, V>`'s entries (F43) ----------------------------
+%%%
+%%% One entry at a time from an ORDERED iterator, key checked before value,
+%%% stopping at the first failure. Ordered costs O(n log n) where the list
+%%% walker is O(n), and buys a blame that can be stated: the first offending
+%%% entry in key order. Unordered, two runs over equal maps could blame
+%%% different entries.
+%%%
+%%% The path segment is the key in brackets, spelled as the key is written
+%%% in the language — `["views"]`, `[:views]`, `[7]` — and only those three
+%%% kinds are spelled. A tuple or a binary that is not text has no literal the
+%%% author could write at that place, and rendering an arbitrary term inside
+%%% generated code is ticket 16 §4's unwritten serialisation mapping (F18
+%%% recorded that a validator-only spelling would be a second rendering). So
+%%% an entry under an unspellable key is checked, and if it fails the blame
+%%% stops at the map with the map's type expected — the improper-tail rule.
+%%% The segment is computed before the checks and only READ on failure, so
+%%% an unspellable key under a well-formed entry passes.
 
-map_case({one, Fixed, {Kind, Fs}}, Table, _Err) ->
+dom_name(Name) -> list_to_atom(atom_to_list(Name) ++ "@d").
+
+%% The one domain a validator walks, or `none`. `map_cases/1` yields at most
+%% one `{one, none, {dom, …}}`: two domains become an `{any, …}` and each is
+%% walked by its own validator.
+dom_walk(#{maps := top}) -> none;
+dom_walk(#{maps := Ms}) ->
+    case [D || {one, none, D = {dom, _, _}} <- map_cases(Ms)] of
+        [{dom, K, V}] ->
+            case checked(K) orelse checked(V) of
+                true  -> {K, V};
+                false -> none
+            end;
+        [] -> none
+    end.
+
+dom_walk_call(Name) ->
+    EV = {var, ?A, 'Bs@de'},
+    Iter = {call, ?A, {remote, ?A, {atom, ?A, maps}, {atom, ?A, iterator}},
+            [?VV, {atom, ?A, ordered}]},
+    {'case', ?A, {call, ?A, {atom, ?A, dom_name(Name)}, [Iter, ?VP]},
+     [{clause, ?A, [{atom, ?A, ok}], [], [ok_expr()]},
+      {clause, ?A, [{tuple, ?A, [{atom, ?A, error}, EV]}], [],
+       [{tuple, ?A, [{atom, ?A, error}, EV]}]}]}.
+
+dom_walker_form(Body, Name, Table, Err) ->
+    case dom_walk(Body) of
+        none   -> [];
+        {K, V} -> [dom_walker(Name, K, V, Table, Err)]
+    end.
+
+dom_walker(Name, K, V, Table, Err) ->
+    W  = dom_name(Name),
+    IT = {var, ?A, 'Bs@it'},
+    KV = {var, ?A, 'Bs@k'},
+    EV = {var, ?A, 'Bs@v'},
+    NV = {var, ?A, 'Bs@n'},
+    SV = {var, ?A, 'Bs@s'},
+    Path = {cons, ?A, SV, ?VP},
+    Next = {call, ?A, {atom, ?A, W}, [NV, ?VP]},
+    VStep = case checked(V) of
+                true  -> dom_step(maps:get(V, Table), EV, Path, SV, Next, Err, 2);
+                false -> Next
+            end,
+    KStep = case checked(K) of
+                true  -> dom_step(maps:get(K, Table), KV, Path, SV, VStep, Err, 1);
+                false -> VStep
+            end,
+    ValPat = case checked(V) of
+                 true  -> EV;
+                 false -> {var, ?A, '_'}
+             end,
+    {function, ?A, W, 2,
+     [{clause, ?A, [IT, ?VP], [],
+       [{'case', ?A, {call, ?A, {remote, ?A, {atom, ?A, maps}, {atom, ?A, next}}, [IT]},
+         [{clause, ?A, [{atom, ?A, none}], [], [{atom, ?A, ok}]},
+          {clause, ?A, [{tuple, ?A, [KV, ValPat, NV]}], [],
+           [{match, ?A, SV, {call, ?A, {atom, ?A, key_name()}, [KV]}},
+            KStep]}]}]}]}.
+
+%% One half of an entry: on success continue, on failure hand the blame up
+%% unchanged — unless the key had no spelling, in which case the path that
+%% blame carries holds `none` and the map is blamed instead.
+dom_step(Validator, Value, Path, SV, Continue, Err, N) ->
+    EV = {var, ?A, list_to_atom("Bs@e" ++ integer_to_list(N))},
+    {'case', ?A, {call, ?A, {atom, ?A, Validator}, [Value, Path]},
+     [{clause, ?A, [{tuple, ?A, [{atom, ?A, ok}, {var, ?A, '_'}]}], [], [Continue]},
+      {clause, ?A, [{tuple, ?A, [{atom, ?A, error}, {var, ?A, '_'}]}],
+       [[{op, ?A, '=:=', SV, {atom, ?A, none}}]], [Err]},
+      {clause, ?A, [{tuple, ?A, [{atom, ?A, error}, EV]}], [],
+       [{tuple, ?A, [{atom, ?A, error}, EV]}]}]}.
+
+key_name()       -> 'bs@validate@key'.
+bare_name()      -> 'bs@validate@bare'.
+bare_rest_name() -> 'bs@validate@bare@rest'.
+
+%% `bs@validate@key/1`: the segment for a key, or `none`. An atom is bare
+%% after the sigil exactly when `bs_types:atom_str/1` would print it bare —
+%% a lowercase first letter and only letters, digits and `_` after it — and
+%% quoted otherwise, so `:'Z.Order'` reads here as it reads everywhere else.
+%% A binary is spelled only when it is text.
+key_forms() ->
+    KV = {var, ?A, 'Bs@k'},
+    AV = {var, ?A, 'Bs@a'},
+    LV = {var, ?A, 'Bs@l'},
+    C  = {var, ?A, 'Bs@c'},
+    R  = {var, ?A, 'Bs@r'},
+    Ch = fun(X) -> {integer, ?A, X} end,
+    Seg = fun(Parts) ->
+                  {call, ?A, {remote, ?A, {atom, ?A, erlang}, {atom, ?A, iolist_to_binary}},
+                   [lists:foldr(fun(P, Acc) -> {cons, ?A, P, Acc} end, {nil, ?A},
+                                [Ch($[) | Parts] ++ [Ch($])])]}
+          end,
+    Between = fun(Lo, Hi) -> [{op, ?A, '>=', C, Ch(Lo)}, {op, ?A, '=<', C, Ch(Hi)}] end,
+    [{function, ?A, key_name(), 1,
+      [{clause, ?A, [KV], [[guard_call(is_integer, [KV])]],
+        [Seg([{call, ?A, {remote, ?A, {atom, ?A, erlang}, {atom, ?A, integer_to_list}},
+               [KV]}])]},
+       {clause, ?A, [KV], [[guard_call(is_atom, [KV])]],
+        [{match, ?A, AV,
+          {call, ?A, {remote, ?A, {atom, ?A, erlang}, {atom, ?A, atom_to_list}}, [KV]}},
+         {'case', ?A, {call, ?A, {atom, ?A, bare_name()}, [AV]},
+          [{clause, ?A, [{atom, ?A, true}], [], [Seg([Ch($:), AV])]},
+           {clause, ?A, [{atom, ?A, false}], [], [Seg([Ch($:), Ch($'), AV, Ch($')])]}]}]},
+       {clause, ?A, [KV], [[guard_call(is_binary, [KV])]],
+        [{'case', ?A,
+          {call, ?A, {remote, ?A, {atom, ?A, unicode}, {atom, ?A, characters_to_list}},
+           [KV, {atom, ?A, utf8}]},
+          [{clause, ?A, [LV], [[guard_call(is_list, [LV])]], [Seg([Ch($"), KV, Ch($")])]},
+           {clause, ?A, [{var, ?A, '_'}], [], [{atom, ?A, none}]}]}]},
+       {clause, ?A, [{var, ?A, '_'}], [], [{atom, ?A, none}]}]},
+     %% `bs@validate@bare/1`: a lowercase first character, then the rest.
+     {function, ?A, bare_name(), 1,
+      [{clause, ?A, [{cons, ?A, C, R}], [Between($a, $z)],
+        [{call, ?A, {atom, ?A, bare_rest_name()}, [R]}]},
+       {clause, ?A, [{var, ?A, '_'}], [], [{atom, ?A, false}]}]},
+     {function, ?A, bare_rest_name(), 1,
+      [{clause, ?A, [{nil, ?A}], [], [{atom, ?A, true}]},
+       {clause, ?A, [{cons, ?A, C, R}],
+        [Between($a, $z), Between($A, $Z), Between($0, $9), [{op, ?A, '=:=', C, Ch($_)}]],
+        [{call, ?A, {atom, ?A, bare_rest_name()}, [R]}]},
+       {clause, ?A, [{var, ?A, '_'}], [], [{atom, ?A, false}]}]}].
+
+map_clauses(top, _Name, _Table, _Err) ->
+    [{clause, ?A, [{var, ?A, '_'}], [[guard_call(is_map, [?VV])]], [ok_expr()]}];
+map_clauses(Members, Name, Table, Err) ->
+    [map_case(C, Name, Table, Err) || C <- map_cases(Members)].
+
+%% A domain member: `is_map` and no `Kind` (ticket 48 Q3), then the walk over
+%% the entries where either half is narrower than `term`. `map<term, term>`
+%% is the guard alone, which is also what F42 emits for it at a foreign
+%% return (F43).
+map_case({one, none, {dom, K, V}}, Name, _Table, _Err) ->
+    Guard = [[guard_call(is_map, [?VV]),
+              {op, ?A, 'not', guard_call(is_map_key, [{atom, ?A, 'Kind'}, ?VV])}]],
+    Body = case checked(K) orelse checked(V) of
+               false -> ok_expr();
+               true  -> dom_walk_call(Name)
+           end,
+    {clause, ?A, [{var, ?A, '_'}], Guard, [Body]};
+%% Named-field members beside a domain, or two domains: any map may be in
+%% any of them, so each is tried (see `map_cases/1`).
+map_case({any, Ms}, _Name, Table, Err) ->
+    {clause, ?A, [{var, ?A, '_'}], [[guard_call(is_map, [?VV])]],
+     [alternatives([member_ty(M) || M <- Ms], Table, Err)]};
+map_case({one, Fixed, {Kind, Fs}}, _Name, Table, _Err) ->
     Pairs = [{K, maps:get(K, Fs)} || K <- lists:sort(maps:keys(Fs))],
     Slots = [map_slot(K, Fixed, T, I) || {I, {K, T}} <- indexed(Pairs)],
     Pat   = {map, ?A, [{map_field_exact, ?A, {atom, ?A, K}, V}
@@ -1731,7 +1927,7 @@ map_case({one, Fixed, {Kind, Fs}}, Table, _Err) ->
                 K =/= Fixed, checked(T)],
     {clause, ?A, [Pat], closed_guard(Kind, length(Pairs)),
      [chain(Steps, Table, 1)]};
-map_case({alts, Ms = [{Kind, Fs} | _]}, Table, Err) ->
+map_case({alts, Ms = [{Kind, Fs} | _]}, _Name, Table, Err) ->
     Keys = lists:sort(maps:keys(Fs)),
     Pat  = {map, ?A, [{map_field_exact, ?A, {atom, ?A, K}, {var, ?A, '_'}}
                       || K <- Keys]},

@@ -265,14 +265,15 @@ a_record_survives_beside_a_domain_test() ->
                  bs_types:to_string(bs_types:union(Rec, D))).
 
 %% `ValidateAs<T>` generates a deep validator by walking the members. A third
-%% kind is DROPPED by `map_cases/1`'s two comprehensions rather than crashing, so
-%% the generated validator would accept anything at all. Until the domain walk is
-%% built, this must be an explicit refusal.
-validate_as_over_a_domain_map_is_refused_test() ->
+%% kind was DROPPED by `map_cases/1`'s two comprehensions rather than crashing,
+%% so the generated validator accepted anything at all; F33 refused the target
+%% by name until the walk existed. F43 built the walk (`map_validate_tests`),
+%% so the target compiles, and this asserts the refusal stayed retired.
+validate_as_over_a_domain_map_compiles_test() ->
     Out = compile_set([caller("type Assigns = map<atom, term>\n\n"
-                              "public term Go(term t)\n"
+                              "public result<Assigns, ValidationError> Go(term t)\n"
                               "Go(t) -> ValidateAs<Assigns>(t)\n")]),
-    bad_rc(Out).
+    ok_rc(Out).
 
 %%% ---------------------------------------------------------------------------
 %%% Cell 7 — how it prints

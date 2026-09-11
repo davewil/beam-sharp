@@ -226,7 +226,7 @@ foreign return, `map<term, term>` stays admissible, and the open question above
 — what a refused domain map should recommend — is answered by the rule's own
 route: *declare it `map<term, term>`, then `ValidateAs<map<binary, int>>` where
 it is used*, with the `ValidateAs` site saying for itself that the key walk is
-unbuilt (ENG-356). The walk in `opaque_refinement/1` this section describes is
-gone; `bs_check:beyond_one_guard/1` walks the positions one guard reaches and
+unbuilt (ENG-356; **built as F43 the same day**). The walk in
+`opaque_refinement/1` this section describes is gone; `bs_check:beyond_one_guard/1` walks the positions one guard reaches and
 stops at the first thing a walk would be needed for, under one tag,
 `foreign_ret_beyond_one_guard`.

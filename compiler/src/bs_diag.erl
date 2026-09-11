@@ -305,9 +305,6 @@ built(Path, {Sev, Line, Fn, wildcard_as_value}) ->
 built(Path, {Sev, Line, Fn, {validate_collapses, Ty}}) ->
     (at(Sev, Path, Line, Fn))#{tag => validate_collapses,
                                type => bs_types:to_string(Ty)};
-built(Path, {Sev, Line, Fn, {validate_domain_map, Ty}}) ->
-    (at(Sev, Path, Line, Fn))#{tag => validate_domain_map,
-                               type => bs_types:to_string(Ty)};
 built(Path, {Sev, Line, Fn, {map_pattern_deferred, Site, Ty}}) ->
     (at(Sev, Path, Line, Fn))#{tag => map_pattern_deferred,
                                site => Site,
@@ -1141,20 +1138,6 @@ message(#{tag := map_pattern_deferred, file := P, line := L, column := C, functi
      "  Bind the whole map and read it, or declare a record if the keys~n"
      "  are known.~n",
      [P, L, C, Fn, Subject, Ty, Where]};
-%% Names the deferral, not a defect: the walk over an unbounded key set is
-%% unbuilt, and a generated validator would silently certify anything
-%% (ticket 48).
-message(#{tag := validate_domain_map, file := P, line := L, column := C, function := Fn,
-          type := Ty}) ->
-    {"~s:~p:~p: error: ~s validates against a map type whose keys are not~n"
-     "  a fixed list~n"
-     "  the type is: ~s~n"
-     "  `map<K, V>` ships as a type — it can be declared, passed, stored~n"
-     "  and returned — but the walk that would check an unbounded set of~n"
-     "  keys is not built, and a generated validator would accept every~n"
-     "  term it was handed. Validate against a record, or a `type` whose~n"
-     "  fields are written out.~n",
-     [P, L, C, Fn, Ty]};
 message(#{tag := obligation_arity, file := P, line := L, column := C, function := Fn,
           obligation := Name, type_args := Types, args := Args}) ->
     {"~s:~p:~p: error: ~s writes ~s with ~p type arguments and ~p values~n"

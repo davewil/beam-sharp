@@ -515,8 +515,7 @@ LatestRow(site) -> :analytics_db.latest_row(site)
 map is what is named, before the `string` inside it: `binary` in place of the `string` would need
 every key inspected too, and §11's rule refuses any `map<K, V>` narrower than `map<term, term>`.
 The edit is the route — *declare it `map<term, term>`, then `ValidateAs<map<string, term>>` where
-it is used* — and that route's own site says what it is missing today (the walk over a
-`map<K, V>`'s keys, ENG-356). What crosses is the map no guard has to look inside:
+it is used*. What crosses is the map no guard has to look inside:
 
 ```csharp
 module Analytics
@@ -529,6 +528,30 @@ public map<term, term> LatestRow(binary site)
 
 LatestRow(site) -> :analytics_db.latest_row(site)
 ```
+
+and the walk the guard may not do is the validator's, at the site that uses the value:
+
+```csharp
+module Analytics
+
+type ViewCounts = map<string, int>
+
+using :analytics_db {
+    map<term, term> latest_row(binary site)
+}
+
+public result<ViewCounts, ValidationError> PageViews(binary site)
+
+PageViews(site) -> ValidateAs<ViewCounts>(:analytics_db.latest_row(site))
+```
+
+**shipped** — F43. The validator walks the entries in key order and checks each key against
+`string` and each value against `int`, stopping at the first that fails. Handed a map holding
+`"views"` against `:many` it returns `(:error, (["["views"]"], "int"))`: the path names the entry
+by its key, spelled as the key is written, and the expected type is the value's. Handed `:views`
+against `3` it returns `(:error, (["[:views]"], "string"))` — the key itself was wrong. A key
+the language has no literal for — a tuple, a binary that is not text — is not spelled: the path
+stops at the map, `(:error, ([], "map<string, int>"))`, and the expected type is the map's.
 
 A `string` one guard reaches — a tuple member, an alias — gets the edit: *write `binary` where it
 says `string`*. **shipped** — ENG-351; and since ENG-354 (F40) the `string` check is one slice of
@@ -1636,7 +1659,8 @@ Read({ Status: s }) -> s
 Reading a value out therefore needs `Map.Get`, which is not built either — the qualifier `Map` is
 reserved for it. Until it lands this type is for values that pass **through** a program: a foreign
 struct handed to an Erlang or Elixir call, which today would be a `list<(atom, term)>` with no
-checking at all.
+checking at all. Coming **in**, it is checked: a map from outside crosses as `map<term, term>`
+and `ValidateAs<map<K, V>>` walks its entries (§4, §10) — **shipped**, F43.
 
 ### Polymorphic function signatures — next
 
@@ -1711,7 +1735,9 @@ so `<T>` never becomes a runtime value and no type variable survives into the al
 **`ValidationError` is a path into the term plus the type expected there** — a `(list<string>,
 string)` today, and a candidate to become a record if one is ever introduced for it. A path segment
 is spelled the way you would reach that place: `".Value"` for a field, `"[0]"` for a list element,
-`"(2)"` for a tuple component. An empty path means the term itself was wrong.
+`"(2)"` for a tuple component, `"[\"views\"]"` or `"[:views]"` or `"[7]"` for a map entry, by its
+key. An empty path means the term itself was wrong. A map entry whose key has no literal — a
+tuple, a binary that is not text — is not named: the blame stops at the map.
 
 The bracket is admitted after **exactly three** compiler-known names — `ValidateAs<T>`,
 `ParseAtom<T>` and `ToExistingAtom` — and after nothing else, which is what keeps `<` a comparison

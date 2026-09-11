@@ -2597,22 +2597,7 @@ type_of({e_inst, L, 'ValidateAs', TypeArgs, Args}, S, C) ->
             case validate_collapses(Ty, C#ctx.types) of
                 true  -> {reported(),
                           D0 ++ [{error, L, C#ctx.fname, {validate_collapses, Ty}}]};
-                false ->
-                    %% A domain-keyed map is refused as a `ValidateAs`
-                    %% target (ticket 48 Q2, ENG-323). `map_cases/1` in
-                    %% `bs_emit` builds its worklist from `{closed,_}` and
-                    %% `{open,_}` members only, so a domain member would be
-                    %% dropped rather than crash, and the generated validator
-                    %% would walk nothing and answer `ok` for a value of any
-                    %% shape.
-                    %% The walk is deferred with the pattern form: both need a
-                    %% decomposition over an unbounded key set.
-                    case bs_types:is_dom(Ty) of
-                        true  -> {reported(),
-                                  D0 ++ [{error, L, C#ctx.fname,
-                                          {validate_domain_map, Ty}}]};
-                        false -> {validate_result(Ty, C#ctx.types), D0}
-                    end
+                false -> {validate_result(Ty, C#ctx.types), D0}
             end;
         _ ->
             {reported(),
