@@ -467,6 +467,126 @@ instead of the internal tuple, whose shape changed. The realistic programs in
 `f25-corrected-signature-in-real-code.md` print this form now; two of them are pinned whole as
 F25.25 and F25.26.
 
+### Round 4 — David, 2026-09-11: the prior art, and a named type for the tag advice
+
+David asked for the open items above to be resolved from prior art where possible. The survey is
+[`f25-types-in-suggestions-prior-art.md`](../../wayfinder/research/f25-types-in-suggestions-prior-art.md):
+rustc, TypeScript and Gleam were run, and Elm and GHC were read from source and docs.
+
+**What the prior art settles.** *Whole type or fragment:* none of the four compilers prints part
+of a type where the whole type would go. The pair-only shape (program 2) has no counterpart in
+them. *Alias or expansion:* when the reason is structural, TypeScript and GHC keep the author's
+name where the declared type is quoted and give the structure separately. Elm prints the name with
+no reason, and Gleam and rustc print only the expansion. B# decided this for itself in ticket 09
+§1: *"The compiler still knows the alias even though the algebra does not, so diagnostics print
+the name."* So program 4's reason should name `ViewCounts` and add its expansion, which it does
+not today. The same fault is in the declaration check's own absorbed-member diagnostic, measured
+this round: a declared `(atom, term) | Name` is reported as `(:tag1, map<string, int>) | (:tag2,
+map<string, binary>)` is absorbed by `(atom, term)`, never as `Name`.
+
+**Where the survey's answer was wrong for B#.** The first reading of "print the whole type" was
+the widened return with the pair tagged inline. David, on seeing that shape in a probe: *"This is
+far from what I think looks like good language design - `public (atom, term) | (:tag1, map<string,
+int>) | (:tag2, map<string, binary>) Receive(atom kind, map<string, int> counts, map<string,
+binary> form)`"*. The survey answered how to print a type, not what a good repair looks like.
+Where rustc and Gleam suggest wrapping, they name a variant of a *declared, named* type (``try
+wrapping the expression in `CartResult::Text` ``). B#'s own idiom is the same: ticket 09 §2 gives
+the language no union syntax, only `type` naming one (`type Distance = (:meters, float) | (:feet,
+float)`). Ticket 70 decided that tagging is the repair; this round is about how the advice spells
+it.
+
+**Asked, one question: should the tag advice propose a named type?** Program 2, as an author
+would finish it after following the advice (compiles clean at `ed0f246`):
+
+```csharp
+module CheckoutNamed
+
+// The cart the checkout page can hold: a signed-in shopper's cart from the
+// session, already numeric, or a guest's cart from the posted form, still text.
+type Cart = (:priced, map<string, int>) | (:posted, map<string, binary>)
+
+// Reading the session can fail: it may have expired.
+public result<Cart, atom> CartQuantities(bool signed_in,
+                                         result<map<string, int>, atom> session_cart,
+                                         map<string, binary> form_fields)
+
+CartQuantities(true, (:error, why), form_fields)  -> (:error, why)
+CartQuantities(true, counts, form_fields)         -> (:priced, counts)
+CartQuantities(false, session_cart, form_fields)  -> (:posted, form_fields)
+```
+
+Today, for the unfinished program 2:
+
+```
+CheckoutResult.bs:9:1: error: CartQuantities returns a value its signature does not declare
+  not covered by the declared return type:
+    map<string, binary>
+  If `result<map<string, int>, atom>` is what you meant, fix the clause, not the signature.
+  Widening the signature to cover what the clauses return would be refused:
+    no clause head can tell `map<string, int>` from `map<string, binary>`
+  so if both are meant, tag them, with atoms of your choosing:
+    (:tag1, map<string, int>) | (:tag2, map<string, binary>)
+  and return each value inside its tag.
+```
+
+Proposed, not built:
+
+```
+CheckoutResult.bs:9:1: error: CartQuantities returns a value its signature does not declare
+  not covered by the declared return type:
+    map<string, binary>
+  If `result<map<string, int>, atom>` is what you meant, fix the clause, not the signature.
+  Widening the signature to cover what the clauses return would be refused:
+    no clause head can tell `map<string, int>` from `map<string, binary>`
+  so if both are meant, give them one type, each member tagged:
+    type Name = (:tag1, map<string, int>) | (:tag2, map<string, binary>)
+  declare the return as `result<Name, atom>`, return each value inside its tag,
+  and choose the name and the atoms.
+```
+
+`result<Name, atom>` is the whole return type, as the prior art requires, and it keeps the
+author's `result`. Pasted as printed, with the placeholders left in, it compiles clean
+(`CheckoutPlaceholder`, measured). Where no named type can help, it says so. In the webhook
+receiver below, `(atom, term)` absorbs any tagged pair, whatever it is called:
+
+```csharp
+public (atom, term) | map<string, int> Receive(atom kind, map<string, int> counts, map<string, binary> form)
+
+Receive(:ping, counts, form) -> counts
+Receive(:form, counts, form) -> form
+Receive(kind, counts, form)  -> (kind, counts)
+```
+
+Today it tells the author to tag the maps, which leads to a declaration the compiler refuses
+(measured). Proposed: *"A named type would be refused too: `(atom, term)` absorbs `Name`."* and
+no type is shown.
+
+Compiler delta:
+
+1. `bs_check:correction_of/4`, on `{refused, A, B}`: in the written return type from the pasted
+   line, the node that resolves to `A`, whether a union member or a generic's argument, becomes
+   `Name`, and the node that resolves to `B` is dropped. `type Name = …` and the rewritten
+   signature are pasted back together through `collapse_decl/2`, with `Name` in `Env`. If that is
+   refused, no type is shown and the refusal's reason is kept.
+2. `bs_diag`: `indiscriminable` gains `declaration` (`"type Name = …"`) and `returns`
+   (`"result<Name, atom>"`), or `none` and the reason. One `correction_text/1` clause changes, and
+   one is added for the reason.
+3. F25.26 and a new whole-message test for program 2. A gate probe, with an `inline` stub that
+   prints the tagged union inline.
+
+The alias question does not depend on this answer and is built either way: the absorbed-member
+reason and the refused pair name `ViewCounts` as written, and add `` `ViewCounts` is `map<string,
+int>` `` as a line after the reason. `A` and `B` are normalised constituents (ticket 09 §4), so a
+pair member no written member resolves to keeps the printer's spelling.
+
+**Accepted as built, on the repo's own ground rather than on prior art.** Ticket 23 §4 makes the
+payload a map, so it grows by adding keys: `declared`, `replaces := #{declared, within}` and the
+`withheld` names stand. *"Cover what the clauses return"* fixed a sentence that was false when the
+declared type was not half of the refused pair. The `declared_form` sentence stands until a
+program shows it misleading. **Left for David:** `LANGUAGE.md` §5 (lines 821-823) still says the
+message offers the wider signature *"so the fix can be to the declaration rather than to the
+body"*, which Round 3 reversed. `PACKET.md` is cut from that text, so the edit waits for him.
+
 ## The scenarios
 
 `corrected_signature_tests.erl` opens its sections with these identifiers, and this is what each
