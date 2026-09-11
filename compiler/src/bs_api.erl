@@ -13,8 +13,10 @@
 %%% that does not match its path are refused: each makes a declaration untrue,
 %%% and the module atom is part of the answer (ticket 41 §5).
 %%%
-%%% Nothing here truncates. `--api` is the full-fidelity channel, so ticket
-%%% 43's cap on printed residual cases does not apply to it.
+%%% Nothing here truncates. Nor does anything here carry a residual: the API
+%%% is the signatures, and the untruncated residual travels on `--diagnostics
+%%% term` (F16). Ticket 43 once named `--api` as that channel; corrected
+%%% 2026-09-11 (ENG-265).
 -module(bs_api).
 
 -export([answer/3]).

@@ -82,8 +82,9 @@ readable and more useful.
   both require it, and nothing measured here argues against it.
 - The prose stays terse. 23 §1 settled that, and a diagnostic that narrates its own theory is a
   design document leaking into a compiler.
-- `bsc --api` is where a consumer goes for the full term when the prose has summarised — already
-  decided in 23 §10, still unbuilt. This ticket must not accidentally re-decide it.
+- ~~`bsc --api`~~ `--diagnostics term` *(corrected 2026-09-11, ENG-265)* is where a consumer
+  goes for the full term when the prose has summarised — ~~already decided in 23 §10, still
+  unbuilt~~ F16. This ticket must not accidentally re-decide it.
 
 ## What this ticket owes
 
@@ -100,6 +101,19 @@ Everything below is measured by
 real `bsc` for what is printed today and works in `bs_types` directly for the shapes that are
 functions of the residual *term*. Three of the four owed items fell to measurement. One is a taste
 call, defaulted in §6 with the question left standing.
+
+**Corrected 2026-09-11 ([ENG-265](https://linear.app/davewil/issue/ENG-265)).** Four places in
+this answer name `bsc --api` as the channel that carries the residual the prose truncated. It never
+did: `--api` answers the declared signatures, and an inexhaustive function answers with its
+signature and no residual (`compiler/test/api_tests.erl`). The untruncated residual travels on
+`--diagnostics term` (F16), whose `heads.pasteable` carries every head — pinned by
+`compiler/test/diagnostic_term_tests.erl`. Each site is struck through and re-pointed in place; the
+cap's rationale is unchanged, only the named escape valve moves. **The REPL has no escape valve and
+is owed none** (David, 2026-09-11). Both flags are refused under `--repl`, but `ibs` never opens a
+prompt over a file that does not compile: the forty-clause program below prints the same three
+heads and `... (38 more)` through `ibs` as through `bsc` and exits, and `:reload` on a file that
+has stopped compiling prints the same. So "inside the REPL" is the same place as `bsc`, one
+`bsc --diagnostics term FILE` from the full residual.
 
 ### 0. Two of this ticket's own premises were wrong, and the corrections do the work
 
@@ -146,8 +160,9 @@ measurement rather than on the finiteness argument the ticket expected to have.
 Expected in the reframing and now stated so F2 can be built against it. Ticket 23 §4 freezes
 `inexhaustive` with residual and head as a contractual descriptor; §4 also makes payloads **maps**,
 so a *summary* key could be added later without breaking a matcher. It is not added now: a consumer
-that can see the whole residual has no use for a shorter description of it, and 23 §10's
-`bsc --api` is already the full-fidelity channel when the prose has truncated.
+that can see the whole residual has no use for a shorter description of it, and ~~23 §10's
+`bsc --api`~~ `--diagnostics term` *(corrected 2026-09-11, ENG-265)* is already the
+full-fidelity channel when the prose has truncated.
 
 ### 2. The prose shape is the exact form truncated — not a fifth spelling
 
@@ -274,7 +289,8 @@ intervals were informational. Over a **closed** one the enumeration *is* the che
 forty-one is a third of a percent of it.
 
 **Default taken: truncate anyway, both cases identically.** The term keeps all forty-one and
-`bsc --api` (23 §10) is where a consumer goes for them; a forty-four-line error message is not more
+~~`bsc --api` (23 §10)~~ `--diagnostics term` *(corrected 2026-09-11, ENG-265)* is where a
+consumer goes for them; a forty-four-line error message is not more
 actionable than a five-line one plus a query, and 23 §1 settled that *the term carries what to act
 on, so the prose owes only the fact*. Printing in full for closed residuals also reintroduces
 exactly the format switch §2 was chosen to avoid, keyed on something the reader cannot see.
@@ -371,8 +387,9 @@ either way** and this can flip later without a breaking change.
   **One thing is defaulted rather than settled, and it is flagged as David's.** Ticket 12 §2 makes a
   catch-all an *error* over a **closed** residual, so after F2 an octet with 40 scattered clauses has
   41 clauses to write and no `_` available — the enumeration *is* the checklist, and truncating hides
-  work. Default taken: **truncate anyway**, because the term keeps all 41, `bsc --api` (23 §10) is
-  the full-fidelity channel, and printing in full for closed residuals reintroduces exactly the
+  work. Default taken: **truncate anyway**, because the term keeps all 41, ~~`bsc --api` (23 §10)~~
+  `--diagnostics term` *(corrected 2026-09-11, ENG-265)* is the full-fidelity channel, and
+  printing in full for closed residuals reintroduces exactly the
   format switch this shape was chosen to avoid, keyed on something the reader cannot see. The delta
   if the other answer is wanted is one argument to `heads/2` — the checker already knows whether the
   residual is closed, because 12 §2 already tests it — and it changes nothing F2 builds, so **F2 is

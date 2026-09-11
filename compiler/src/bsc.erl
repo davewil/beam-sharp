@@ -134,6 +134,11 @@ dispatch(Args, Context) ->
     %% `--api` is refused in the REPL for the same reason: the query answers
     %% and exits, the prompt is a session, and neither may be silently
     %% dropped in favour of the other (F17).
+    %%
+    %% Neither refusal leaves ticket 43's three-case residual cap unmitigated
+    %% here: a file that does not compile never reaches the prompt, so the
+    %% full residual is the same `bsc --diagnostics term FILE` away that it
+    %% is everywhere (ticket 43, corrected 2026-09-11, ENG-265).
     case {Opts#opts.repl, Opts#opts.api} of
         {true, true} ->
             io:format(standard_error,
