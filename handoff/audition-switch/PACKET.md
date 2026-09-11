@@ -277,7 +277,8 @@ error: Classify is not exhaustive
 
 The error is the **missing clause**, not a complaint — the residual is computed exactly and printed
 as a head you can paste in. Where it is wide, the **printed** form stops after three cases and says
-how many it left; the residual itself is never summarised, and the full one is a query away.
+how many it left; the residual itself is never summarised, and `--diagnostics term` carries
+every head in `heads.pasteable`.
 **shipped**, and the truncation **decided**
 
 A **catch-all is legal only where the residual is open** — over a `term`, or any type with an
