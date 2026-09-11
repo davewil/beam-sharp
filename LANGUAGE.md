@@ -502,8 +502,11 @@ public map<term, term> LatestRow(binary site)
 LatestRow(site) -> :analytics_db.latest_row(site)
 ```
 
-**shipped** — ENG-351. The `string` check is the only part of §11's rule that is built: a foreign
-`list<int>` or `map<binary, int>` is accepted today and nothing checks it (ENG-354).
+A `string` one guard reaches — a tuple member, a record field — gets the edit: *write `binary` where
+it says `string`*. **shipped** — ENG-351. The `string` check is the only part of §11's rule that is
+built: a foreign `list<int>` or `map<binary, int>` is accepted today and nothing checks it.
+<!-- tracked by ENG-354 -->
+
 
 ### Arithmetic on `int`
 

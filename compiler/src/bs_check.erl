@@ -487,9 +487,43 @@ admissible_foreign_ret(Line, Mod, Fun, Ret, Env) ->
     Ty = resolve(Ret, Env),
     case opaque_refinement(Ty) of
         true  -> erlang:error({opaque_ret_at_boundary, Line, Mod, Fun,
-                               declared_text(Ret, Ty)});
+                               declared_text(Ret, Ty), refinement_at(Ty)});
         false -> ok
     end.
+
+%% Where the refinement sits decides whether `binary` in its place is an edit
+%% to offer (ENG-351). `top` is a position one guard reaches — the whole
+%% value, a tuple member, a record field — so `binary` there is admissible
+%% under the whole of 18 §2. `walked` is a list element or a map's key or
+%% value, where `binary` needs every element inspected too, which 18 §2
+%% refuses once it is built (ENG-354). Asked only of a type already refused.
+refinement_at(Ty) ->
+    case walked_refinement(Ty) of
+        true  -> walked;
+        false -> top
+    end.
+
+walked_refinement(#{tuples := top}) -> false;
+walked_refinement(Ty = #{tuples := Ps, maps := Ms}) ->
+    lists:any(fun walked_refinement/1, lists:append(Ps))
+        orelse (bs_types:has_lists(Ty)
+                andalso refined_under_walk(bs_types:list_elem(Ty)))
+        orelse (case Ms of
+                    top     -> false;
+                    Members -> lists:any(
+                                 fun({dom, K, V}) ->
+                                         refined_under_walk(K)
+                                             orelse refined_under_walk(V);
+                                    ({_, Fs}) ->
+                                     lists:any(fun walked_refinement/1,
+                                               maps:values(Fs))
+                                 end, Members)
+                end).
+
+%% A recursive type under the walk counts as walked whatever it holds: only a
+%% walk ever decides one, and `opaque_refinement/1` has no clause for `mu`.
+refined_under_walk(#{mu := _}) -> true;
+refined_under_walk(Ty)         -> opaque_refinement(Ty).
 
 %% A proper non-empty subset of the binary part is a refinement of it, and
 %% `string` is the only one today. Recursive, because anything deeper is a

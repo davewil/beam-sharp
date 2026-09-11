@@ -205,10 +205,14 @@ trace. It now asks the key and the value, so `map<string, term>` is refused by
 name and `map<term, term>` compiles. Two more things on the same path:
 
 - The refusal said "returns `string`" whatever was declared. It now names the
-  type as written, and where the `string` is nested it offers no edit: `binary`
-  in its place is refused by ticket 18 §2 once that is built, and 18 §2's own
-  route, `term` then `ValidateAs`, is `validate_domain_map` for a domain map.
-  What the nested case should recommend is open, recorded in ENG-354.
+  type as written, and offers "write `binary` where it says `string`" only
+  where one guard reaches the `string`: the whole value, a tuple member, a
+  record field, an alias. Under a list or a map it offers no edit, because
+  `binary` there needs the same walk, which ticket 18 §2 refuses once that is
+  built, and 18 §2's own route, `term` then `ValidateAs`, is refused by
+  `validate_domain_map` for a domain map. What that case should recommend is
+  open, recorded in ENG-354. The error term carries the position (`at`), so
+  the message never guesses it from the printed type.
 - `bsc` printed every map in record notation and crashed on the first non-atom
   key. A map with any other key has no spelling (ticket 48), so it prints in
   Erlang's, like any other value beam-sharp cannot spell.

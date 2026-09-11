@@ -413,12 +413,12 @@ built(Path, {pattern_field_unknown, Line, Record, Field, Declared}) ->
       line => Line, record => Record, field => Field, declared => Declared};
 built(Path, {unknown_builtin, B}) ->
     #{tag => unknown_builtin, severity => error, file => Path, type => B};
-%% The message names the replacement, because the fix is always the same edit
-%% and the reason is not obvious from the rule (F9.11).
-built(Path, {opaque_ret_at_boundary, Line, Mod, Fun, Type}) ->
+%% The message names the replacement where there is one, because the reason is
+%% not obvious from the rule (F9.11). `at` says whether there is (ENG-351).
+built(Path, {opaque_ret_at_boundary, Line, Mod, Fun, Type, At}) ->
     #{tag => opaque_ret_at_boundary, severity => error, file => Path,
       line => Line, module => bs_types:atom_str(Mod), function => Fun,
-      type => Type};
+      type => Type, at => At};
 built(Path, {unknown_generic, N}) ->
     #{tag => unknown_generic, severity => error, file => Path, type => N};
 %% A bracket the compiler knows at the wrong arity is a different mistake from
@@ -1256,24 +1256,14 @@ message(#{tag := unknown_builtin, type := B} = D) ->
      "  `string` and `list<T>`.~n",
      placed_args(D) ++ [B]};
 message(#{tag := opaque_ret_at_boundary, file := P, line := L, column := C, module := Mod,
-          function := Fun, type := "string"}) ->
-    {"~s:~p:~p: error: ~s.~s returns `string`, which a guard cannot decide~n"
+          function := Fun, type := Type, at := At}) ->
+    {"~s:~p:~p: error: ~s.~s returns `~s`, " ++ opaque_what(Type) ++
+         " a guard cannot decide~n"
      "  `string` is `binary` refined by valid UTF-8, and checking that~n"
-     "  reads every byte of a value the sender sizes.~n"
-     "  declare it `binary`. Establishing the refinement is the UTF-8~n"
-     "  entry check, which this compiler does not have yet.~n",
-     [P, L, C, Mod, Fun]};
-%% The `string` is inside the declared type — a list element, a tuple member,
-%% a map's key or value (ENG-351). No edit is offered: `binary` in its place
-%% needs every element inspected too, which 18 §2 refuses at the declaration,
-%% and its own route (`term`, then `ValidateAs`) is refused for a domain map.
-message(#{tag := opaque_ret_at_boundary, file := P, line := L, column := C, module := Mod,
-          function := Fun, type := Type}) ->
-    {"~s:~p:~p: error: ~s.~s returns `~s`, whose `string` a guard cannot decide~n"
-     "  `string` is `binary` refined by valid UTF-8, and checking that~n"
-     "  reads every byte of a value the sender sizes. Establishing the~n"
-     "  refinement is the UTF-8 entry check, which this compiler does not~n"
-     "  have yet.~n",
+     "  reads every byte of a value the sender sizes.~n" ++
+     opaque_edit(Type, At) ++
+     "  Establishing the refinement is the UTF-8 entry check, which this~n"
+     "  compiler does not have yet.~n",
      [P, L, C, Mod, Fun, Type]};
 message(#{tag := unknown_generic, file := P, type := N}) ->
     {"~s: error: no type named ~s takes a type argument~n"
@@ -1676,6 +1666,18 @@ caller_head_prose(_Fn, Heads) ->
 %% carries a `Missing` list (ticket 26 §2).
 field_set_verb(construction) -> "builds";
 field_set_verb(update)       -> "updates".
+
+%% A foreign return refused for a `string` (F9.11). The type is named as
+%% written, and the edit is offered only where one guard reaches the `string`;
+%% under a list or a map, `binary` needs the walk too, which 18 §2 refuses, and
+%% its own route, `term` then `ValidateAs`, is refused for a domain map
+%% (ENG-351, ENG-354).
+opaque_what("string") -> "which";
+opaque_what(_)        -> "whose `string`".
+
+opaque_edit(_, walked)      -> "";
+opaque_edit("string", top) -> "  declare it `binary`.~n";
+opaque_edit(_, top)         -> "  write `binary` where it says `string`.~n".
 
 field_list(_Label, [])    -> "";
 field_list(Label, Fields) ->

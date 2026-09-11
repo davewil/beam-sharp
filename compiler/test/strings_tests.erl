@@ -241,80 +241,152 @@ binary_is_admissible_as_a_foreign_return_test() ->
 %% decides in O(1)", and `valid_utf8` reads every byte of a value the sender
 %% sizes — ticket 11's sentence at a second site.
 string_is_not_admissible_as_a_foreign_return_test() ->
-    Src = "module Fs\n"
-          "using :file {\n"
-          "    string read_file(term path)\n"
-          "}\n"
-          "public string Text()\n"
-          "Text() -> \"x\"\n",
-    ?assertError({opaque_ret_at_boundary, _, file, read_file, "string"}, check_only(Src)).
+    {Rc, R} = refused("Fs", "module Fs\n"
+                            "using :file {\n"
+                            "    string read_file(term path)\n"
+                            "}\n"
+                            "public string Text()\n"
+                            "Text() -> \"x\"\n"),
+    ?assertEqual(1, Rc),
+    ?assert(found("read_file returns `string`, which a guard cannot decide", R)).
 
 %% Deeper is the same error — 18 §2 says "anything deeper is a compile error at
 %% the declaration", and a bracket is exactly where an unbounded check hides.
+%% No edit is offered: `binary` under the bracket needs every element inspected
+%% too, which is the rest of 18 §2 (ENG-354).
 a_string_nested_in_a_foreign_return_is_refused_test() ->
-    Src = "module Fl\n"
-          "using :file {\n"
-          "    list<string> read_lines(term path)\n"
-          "}\n"
-          "public int N()\n"
-          "N() -> 1\n",
-    ?assertError({opaque_ret_at_boundary, _, file, read_lines,
-                  "list<string>"}, check_only(Src)).
+    {Rc, R} = refused("Fl", "module Fl\n"
+                            "using :file {\n"
+                            "    list<string> read_lines(term path)\n"
+                            "}\n"
+                            "public int N()\n"
+                            "N() -> 1\n"),
+    ?assertEqual(1, Rc),
+    ?assert(found("read_lines returns `list<string>`, whose `string`", R)),
+    ?assertNot(offers_an_edit(R)).
 
 %% ENG-351. A `map<K, V>` is the third place a `string` hides in a foreign
 %% return, and until this the check crashed on it: `bsc` printed a stack trace
-%% for any foreign declaration returning a domain map, whatever its keys. Asserted
-%% at the CLI because the defect was what the author saw, not what the term was.
+%% for any foreign declaration returning a domain map, whatever its keys.
 a_string_keyed_foreign_map_is_refused_by_name_test() ->
-    with_src("Analytics.bs",
-             "module Analytics\n"
-             "using :analytics_db {\n"
-             "    map<string, term> latest_row(binary site)\n"
-             "}\n"
-             "public int N()\n"
-             "N() -> 1\n",
-             fun(Path, Out) ->
-                 {Rc, R} = bs_test_support:run_cli_result(
-                             "-o " ++ Out ++ " " ++ Path),
-                 ?assertEqual(1, Rc),
-                 ?assert(string:find(R, "latest_row returns `map<string, term>`,")
-                         =/= nomatch),
-                 ?assert(string:find(R, "entry check") =/= nomatch),
-                 ?assertEqual(nomatch, string:find(R, "exception"))
-             end).
+    {Rc, R} = refused("Analytics", "module Analytics\n"
+                                   "using :analytics_db {\n"
+                                   "    map<string, term> latest_row(binary site)\n"
+                                   "}\n"
+                                   "public int N()\n"
+                                   "N() -> 1\n"),
+    ?assertEqual(1, Rc),
+    ?assert(found("latest_row returns `map<string, term>`, whose `string`", R)),
+    ?assertNot(offers_an_edit(R)),
+    ?assertNot(found("exception", R)).
 
-%% The value side, so a fix that asks only the keys fails here. The message
-%% names the type as written: "returns `string`" was the only wording the
-%% check had, and it is false of a map.
+%% The value side, so a fix that asks only the keys fails here. "Returns
+%% `string`" was the only wording the check had, and it is false of a map.
 a_string_valued_foreign_map_is_refused_by_name_test() ->
-    with_src("Sessions.bs",
-             "module Sessions\n"
-             "using :session_store {\n"
-             "    map<binary, string> flash(binary sid)\n"
-             "}\n"
-             "public int N()\n"
-             "N() -> 1\n",
-             fun(Path, Out) ->
-                 {Rc, R} = bs_test_support:run_cli_result(
-                             "-o " ++ Out ++ " " ++ Path),
-                 ?assertEqual(1, Rc),
-                 ?assert(string:find(R, "flash returns `map<binary, string>`,")
-                         =/= nomatch)
-             end).
+    {Rc, R} = refused("Sessions", "module Sessions\n"
+                                  "using :session_store {\n"
+                                  "    map<binary, string> flash(binary sid)\n"
+                                  "}\n"
+                                  "public int N()\n"
+                                  "N() -> 1\n"),
+    ?assertEqual(1, Rc),
+    ?assert(found("flash returns `map<binary, string>`, whose `string`", R)).
+
+%% The shape ENG-351 named beside the map: the map is inside a tuple, and the
+%% walk it needs is still the map's.
+a_string_keyed_map_inside_a_result_is_refused_test() ->
+    {Rc, R} = refused("Cart", "module Cart\n"
+                              "using :session_store {\n"
+                              "    result<map<string, int>, atom> cart(binary sid)\n"
+                              "}\n"
+                              "public int N()\n"
+                              "N() -> 1\n"),
+    ?assertEqual(1, Rc),
+    ?assert(found("cart returns `result<map<string, int>, atom>`,", R)),
+    ?assertNot(offers_an_edit(R)).
+
+%% A tuple member is a fixed position one guard reaches, so `binary` there is
+%% admissible under the whole of 18 §2 and the edit is offered.
+a_string_in_a_tuple_member_keeps_the_edit_test() ->
+    {Rc, R} = refused("Users", "module Users\n"
+                               "using :users_db {\n"
+                               "    result<string, atom> name(int id)\n"
+                               "}\n"
+                               "public int N()\n"
+                               "N() -> 1\n"),
+    ?assertEqual(1, Rc),
+    ?assert(found("name returns `result<string, atom>`, whose `string`", R)),
+    ?assert(found("write `binary` where it says `string`", R)).
+
+%% An alias of `string` is the whole return by another name, and it had the
+%% edit before ENG-351 named the type as written.
+an_aliased_string_keeps_the_edit_test() ->
+    {Rc, R} = refused("Names", "module Names\n"
+                               "type Name = string\n"
+                               "using :users_db {\n"
+                               "    Name who(int id)\n"
+                               "}\n"
+                               "public int N()\n"
+                               "N() -> 1\n"),
+    ?assertEqual(1, Rc),
+    ?assert(found("who returns `Name`, whose `string`", R)),
+    ?assert(found("write `binary` where it says `string`", R)).
+
+%% A record field is a fixed position too: the edit names the field's `string`.
+a_string_record_field_keeps_the_edit_test() ->
+    {Rc, R} = refused("Acct", "module Acct\n"
+                              "record Account { Id: int, Owner: string }\n"
+                              "using :accounts_db {\n"
+                              "    Account fetch(int id)\n"
+                              "}\n"
+                              "public int N()\n"
+                              "N() -> 1\n"),
+    ?assertEqual(1, Rc),
+    ?assert(found("fetch returns `Account`, whose `string`", R)),
+    ?assert(found("write `binary` where it says `string`", R)).
+
+%% A recursive type under a list is decided only by a walk, so no edit is
+%% offered even for the `string` beside it — and the position is asked of the
+%% `mu` without unfolding it, which `opaque_refinement/1` cannot do.
+a_string_beside_a_recursive_list_is_refused_without_an_edit_test() ->
+    {Rc, R} = refused("Mix", "module Mix\n"
+                             "type Tree = :leaf | (Tree, Tree)\n"
+                             "using :trees {\n"
+                             "    (string, list<Tree>) grow(int n)\n"
+                             "}\n"
+                             "public int N()\n"
+                             "N() -> 1\n"),
+    ?assertEqual(1, Rc),
+    ?assert(found("grow returns `(string, list<Tree>)`, whose `string`", R)),
+    ?assertNot(offers_an_edit(R)).
 
 %% `map<term, term>` is the domain map one guard decides in O(1) — `is_map`,
 %% and F33's `Kind` exclusion is `is_map_key` — so it is admissible under the
 %% whole of 18 §2, not only the `string` slice this compiler builds. It crashed
 %% the check before ENG-351 like every other domain map.
 a_term_keyed_foreign_map_is_admissible_test() ->
-    M = build_and_load("module Views\n"
-                       "using :maps {\n"
-                       "    map<term, term> from_list(list<term> pairs)\n"
-                       "}\n"
-                       "public map<term, term> Counts()\n"
-                       "Counts() -> :maps.from_list([(\"home\", 3), (\"about\", 1)])\n",
-                       'Views'),
+    M = build_and_load(views_src(), 'Views'),
     ?assertEqual(#{<<"home">> => 3, <<"about">> => 1}, M:'Counts'()).
+
+views_src() ->
+    "module Views\n"
+    "using :maps {\n"
+    "    map<term, term> from_list(list<term> pairs)\n"
+    "}\n"
+    "public map<term, term> Counts()\n"
+    "Counts() -> :maps.from_list([(\"home\", 3), (\"about\", 1)])\n".
+
+%% What `bsc` prints for a program, and its exit status.
+refused(Mod, Src) ->
+    with_src(Mod ++ ".bs", Src,
+             fun(Path, Out) ->
+                 bs_test_support:run_cli_result("-o " ++ Out ++ " " ++ Path)
+             end).
+
+found(Text, R) -> string:find(R, Text) =/= nomatch.
+
+offers_an_edit(R) ->
+    found("declare it `binary`", R) orelse found("write `binary`", R).
 
 %% PARAMETER POSITION IS NOT BARRED, and the asymmetry is the rule rather than an
 %% oversight. A parameter is a value beam-sharp hands OUT, already established by
@@ -347,13 +419,7 @@ the_cli_prints_a_string_test() ->
 %% keys (ticket 48) — so the CLI prints it the way it prints any other value it
 %% cannot spell, in Erlang's notation, rather than crashing on the first key.
 the_cli_prints_a_binary_keyed_map_test() ->
-    with_src("Views.bs",
-             "module Views\n"
-             "using :maps {\n"
-             "    map<term, term> from_list(list<term> pairs)\n"
-             "}\n"
-             "public map<term, term> Counts()\n"
-             "Counts() -> :maps.from_list([(\"home\", 3), (\"about\", 1)])\n",
+    with_src("Views.bs", views_src(),
              fun(Path, Out) ->
                  {Rc, R} = bs_test_support:run_cli_result(
                              "-o " ++ Out ++ " " ++ Path ++ " Counts"),
