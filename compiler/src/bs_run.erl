@@ -318,12 +318,20 @@ format_value(L) when is_list(L) ->
     ["[", lists:join(", ", [format_value(E) || E <- L]), "]"];
 %% `Kind` first: it is the discriminator, so it is what a reader looks for to
 %% know which record they are holding. The rest sort, so output is stable.
+%% Bare braces name atom keys only (ticket 48), so a map with any other key has
+%% no beam-sharp spelling and prints in Erlang's, keys in order (ENG-351).
 format_value(M) when is_map(M) ->
     Keys = lists:sort(maps:keys(M)),
-    Ordered = case lists:member('Kind', Keys) of
-                  true  -> ['Kind' | lists:delete('Kind', Keys)];
-                  false -> Keys
-              end,
-    ["{", lists:join(", ", [[atom_to_list(K), " = ", format_value(maps:get(K, M))]
-                            || K <- Ordered]), "}"];
+    case lists:all(fun is_atom/1, Keys) of
+        true ->
+            Ordered = case lists:member('Kind', Keys) of
+                          true  -> ['Kind' | lists:delete('Kind', Keys)];
+                          false -> Keys
+                      end,
+            ["{", lists:join(", ", [[atom_to_list(K), " = ",
+                                     format_value(maps:get(K, M))]
+                                    || K <- Ordered]), "}"];
+        false ->
+            io_lib:format("~kp", [M])
+    end;
 format_value(Other) -> io_lib:format("~p", [Other]).

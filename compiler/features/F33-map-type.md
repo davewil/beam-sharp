@@ -195,3 +195,24 @@ paragraph warns about, arriving by the exact route it names.
 this type and the emitted `-spec` is precise. The paragraph above `map_parts/1`
 claims *"Nothing is widened to `map()`"* for the whole constructor, and the third
 kind keeps that promise rather than becoming its first exception.
+
+## Corrected 2026-09-11: a foreign `map<K, V>` return crashed the compiler (ENG-351)
+
+`opaque_refinement/1`, F9.11's check on a foreign return, walked map members with
+a `fun({_, Fs})`, and a fun has no filter to fall through: every foreign
+declaration returning a domain map, whatever its keys, stopped `bsc` with a stack
+trace. It now asks the key and the value, so `map<string, term>` is refused by
+name and `map<term, term>` compiles. Two more things on the same path:
+
+- The refusal said "returns `string`" whatever was declared. It now names the
+  type as written, and where the `string` is nested it offers no edit: `binary`
+  in its place is refused by ticket 18 §2 once that is built, and 18 §2's own
+  route, `term` then `ValidateAs`, is `validate_domain_map` for a domain map.
+  What the nested case should recommend is open, recorded in ENG-354.
+- `bsc` printed every map in record notation and crashed on the first non-atom
+  key. A map with any other key has no spelling (ticket 48), so it prints in
+  Erlang's, like any other value beam-sharp cannot spell.
+
+The fix does not decide whether `map<binary, int>` is admissible. It is accepted
+today, as `list<int>` is, because only the `string` slice of 18 §2 is built;
+nothing asserts it either way. ENG-354 is the rest of that rule.

@@ -247,7 +247,7 @@ string_is_not_admissible_as_a_foreign_return_test() ->
           "}\n"
           "public string Text()\n"
           "Text() -> \"x\"\n",
-    ?assertError({opaque_ret_at_boundary, _, file, read_file}, check_only(Src)).
+    ?assertError({opaque_ret_at_boundary, _, file, read_file, "string"}, check_only(Src)).
 
 %% Deeper is the same error — 18 §2 says "anything deeper is a compile error at
 %% the declaration", and a bracket is exactly where an unbounded check hides.
@@ -258,7 +258,63 @@ a_string_nested_in_a_foreign_return_is_refused_test() ->
           "}\n"
           "public int N()\n"
           "N() -> 1\n",
-    ?assertError({opaque_ret_at_boundary, _, file, read_lines}, check_only(Src)).
+    ?assertError({opaque_ret_at_boundary, _, file, read_lines,
+                  "list<string>"}, check_only(Src)).
+
+%% ENG-351. A `map<K, V>` is the third place a `string` hides in a foreign
+%% return, and until this the check crashed on it: `bsc` printed a stack trace
+%% for any foreign declaration returning a domain map, whatever its keys. Asserted
+%% at the CLI because the defect was what the author saw, not what the term was.
+a_string_keyed_foreign_map_is_refused_by_name_test() ->
+    with_src("Analytics.bs",
+             "module Analytics\n"
+             "using :analytics_db {\n"
+             "    map<string, term> latest_row(binary site)\n"
+             "}\n"
+             "public int N()\n"
+             "N() -> 1\n",
+             fun(Path, Out) ->
+                 {Rc, R} = bs_test_support:run_cli_result(
+                             "-o " ++ Out ++ " " ++ Path),
+                 ?assertEqual(1, Rc),
+                 ?assert(string:find(R, "latest_row returns `map<string, term>`,")
+                         =/= nomatch),
+                 ?assert(string:find(R, "entry check") =/= nomatch),
+                 ?assertEqual(nomatch, string:find(R, "exception"))
+             end).
+
+%% The value side, so a fix that asks only the keys fails here. The message
+%% names the type as written: "returns `string`" was the only wording the
+%% check had, and it is false of a map.
+a_string_valued_foreign_map_is_refused_by_name_test() ->
+    with_src("Sessions.bs",
+             "module Sessions\n"
+             "using :session_store {\n"
+             "    map<binary, string> flash(binary sid)\n"
+             "}\n"
+             "public int N()\n"
+             "N() -> 1\n",
+             fun(Path, Out) ->
+                 {Rc, R} = bs_test_support:run_cli_result(
+                             "-o " ++ Out ++ " " ++ Path),
+                 ?assertEqual(1, Rc),
+                 ?assert(string:find(R, "flash returns `map<binary, string>`,")
+                         =/= nomatch)
+             end).
+
+%% `map<term, term>` is the domain map one guard decides in O(1) — `is_map`,
+%% and F33's `Kind` exclusion is `is_map_key` — so it is admissible under the
+%% whole of 18 §2, not only the `string` slice this compiler builds. It crashed
+%% the check before ENG-351 like every other domain map.
+a_term_keyed_foreign_map_is_admissible_test() ->
+    M = build_and_load("module Views\n"
+                       "using :maps {\n"
+                       "    map<term, term> from_list(list<term> pairs)\n"
+                       "}\n"
+                       "public map<term, term> Counts()\n"
+                       "Counts() -> :maps.from_list([(\"home\", 3), (\"about\", 1)])\n",
+                       'Views'),
+    ?assertEqual(#{<<"home">> => 3, <<"about">> => 1}, M:'Counts'()).
 
 %% PARAMETER POSITION IS NOT BARRED, and the asymmetry is the rule rather than an
 %% oversight. A parameter is a value beam-sharp hands OUT, already established by
@@ -285,6 +341,24 @@ the_cli_prints_a_string_test() ->
                  {_, R} = bs_test_support:run_cli_result(
                             "-o " ++ Out ++ " " ++ Path ++ " Greet"),
                  ?assertEqual("\"hello\"\n", R)
+             end).
+
+%% A map with binary keys has no beam-sharp spelling — bare braces name atom
+%% keys (ticket 48) — so the CLI prints it the way it prints any other value it
+%% cannot spell, in Erlang's notation, rather than crashing on the first key.
+the_cli_prints_a_binary_keyed_map_test() ->
+    with_src("Views.bs",
+             "module Views\n"
+             "using :maps {\n"
+             "    map<term, term> from_list(list<term> pairs)\n"
+             "}\n"
+             "public map<term, term> Counts()\n"
+             "Counts() -> :maps.from_list([(\"home\", 3), (\"about\", 1)])\n",
+             fun(Path, Out) ->
+                 {Rc, R} = bs_test_support:run_cli_result(
+                             "-o " ++ Out ++ " " ++ Path ++ " Counts"),
+                 ?assertEqual(0, Rc),
+                 ?assertEqual("#{<<\"about\">> => 1,<<\"home\">> => 3}\n", R)
              end).
 
 %%% ---------------------------------------------------------------------------

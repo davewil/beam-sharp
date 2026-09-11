@@ -468,6 +468,43 @@ and says so with the fix in the message. `binary` is admissible there, because t
 built: any string **operation**, which waits on the module system. **Binary patterns** and string
 literals in **pattern** position shipped with F13 and are below.
 
+The check looks inside the declared type, so a `string` anywhere in a foreign return is refused:
+a list element, a tuple member, a `map<K, V>`'s key or value. A database driver that returns a row
+keyed by column name:
+
+<!-- diagnoses: opaque_ret_at_boundary -->
+```csharp
+module Analytics
+
+using :analytics_db {
+    map<string, term> latest_row(binary site)
+}
+
+public map<string, term> LatestRow(binary site)
+
+LatestRow(site) -> :analytics_db.latest_row(site)
+```
+
+— *`:analytics_db.latest_row` returns `map<string, term>`, whose `string` a guard cannot decide*.
+Here the message offers no edit. `binary` in place of the `string` needs every key inspected too,
+which §11's rule refuses, and that rule's route, `term` and then `ValidateAs`, is refused for a
+`map<K, V>` today. What crosses is the map no guard has to look inside:
+
+```csharp
+module Analytics
+
+using :analytics_db {
+    map<term, term> latest_row(binary site)
+}
+
+public map<term, term> LatestRow(binary site)
+
+LatestRow(site) -> :analytics_db.latest_row(site)
+```
+
+**shipped** — ENG-351. The `string` check is the only part of §11's rule that is built: a foreign
+`list<int>` or `map<binary, int>` is accepted today and nothing checks it (ENG-354).
+
 ### Arithmetic on `int`
 
 `+`, `-` and `*` are the operator table, and they are all of it. **shipped**

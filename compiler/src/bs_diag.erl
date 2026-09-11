@@ -415,9 +415,10 @@ built(Path, {unknown_builtin, B}) ->
     #{tag => unknown_builtin, severity => error, file => Path, type => B};
 %% The message names the replacement, because the fix is always the same edit
 %% and the reason is not obvious from the rule (F9.11).
-built(Path, {opaque_ret_at_boundary, Line, Mod, Fun}) ->
+built(Path, {opaque_ret_at_boundary, Line, Mod, Fun, Type}) ->
     #{tag => opaque_ret_at_boundary, severity => error, file => Path,
-      line => Line, module => bs_types:atom_str(Mod), function => Fun};
+      line => Line, module => bs_types:atom_str(Mod), function => Fun,
+      type => Type};
 built(Path, {unknown_generic, N}) ->
     #{tag => unknown_generic, severity => error, file => Path, type => N};
 %% A bracket the compiler knows at the wrong arity is a different mistake from
@@ -1255,13 +1256,25 @@ message(#{tag := unknown_builtin, type := B} = D) ->
      "  `string` and `list<T>`.~n",
      placed_args(D) ++ [B]};
 message(#{tag := opaque_ret_at_boundary, file := P, line := L, column := C, module := Mod,
-          function := Fun}) ->
+          function := Fun, type := "string"}) ->
     {"~s:~p:~p: error: ~s.~s returns `string`, which a guard cannot decide~n"
      "  `string` is `binary` refined by valid UTF-8, and checking that~n"
      "  reads every byte of a value the sender sizes.~n"
      "  declare it `binary`. Establishing the refinement is the UTF-8~n"
      "  entry check, which this compiler does not have yet.~n",
      [P, L, C, Mod, Fun]};
+%% The `string` is inside the declared type — a list element, a tuple member,
+%% a map's key or value (ENG-351). No edit is offered: `binary` in its place
+%% needs every element inspected too, which 18 §2 refuses at the declaration,
+%% and its own route (`term`, then `ValidateAs`) is refused for a domain map.
+message(#{tag := opaque_ret_at_boundary, file := P, line := L, column := C, module := Mod,
+          function := Fun, type := Type}) ->
+    {"~s:~p:~p: error: ~s.~s returns `~s`, whose `string` a guard cannot decide~n"
+     "  `string` is `binary` refined by valid UTF-8, and checking that~n"
+     "  reads every byte of a value the sender sizes. Establishing the~n"
+     "  refinement is the UTF-8 entry check, which this compiler does not~n"
+     "  have yet.~n",
+     [P, L, C, Mod, Fun, Type]};
 message(#{tag := unknown_generic, file := P, type := N}) ->
     {"~s: error: no type named ~s takes a type argument~n"
      "  the standard environment has `list<T>`, `option<T>` and `result<T, E>`;~n"

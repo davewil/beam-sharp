@@ -484,8 +484,10 @@ callees(Decls, Env, Imports) ->
 %% admissible because `byte_size/1` and `bit_size/1` are O(1) guard
 %% BIFs (ticket 20 §3).
 admissible_foreign_ret(Line, Mod, Fun, Ret, Env) ->
-    case opaque_refinement(resolve(Ret, Env)) of
-        true  -> erlang:error({opaque_ret_at_boundary, Line, Mod, Fun});
+    Ty = resolve(Ret, Env),
+    case opaque_refinement(Ty) of
+        true  -> erlang:error({opaque_ret_at_boundary, Line, Mod, Fun,
+                               declared_text(Ret, Ty)});
         false -> ok
     end.
 
@@ -505,7 +507,12 @@ opaque_refinement(Ty = #{tuples := Ps, maps := Ms}) ->
         orelse (case Ms of
                     top     -> false;
                     Members -> lists:any(
-                                 fun({_, Fs}) ->
+                                 %% A domain map's keys are values too, so
+                                 %% `map<string, V>` hides the check (F33).
+                                 fun({dom, K, V}) ->
+                                         opaque_refinement(K)
+                                             orelse opaque_refinement(V);
+                                    ({_, Fs}) ->
                                      lists:any(fun opaque_refinement/1,
                                                maps:values(Fs))
                                  end, Members)
