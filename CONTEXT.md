@@ -225,8 +225,10 @@ _Avoid_: struct, class, object, entity, POCO
 
 **Minted tag**:
 The discriminating field a `record` declaration adds, valued from the type's **qualified** name. It
-is data *in the term*, not identity *in the type* — a hand-written `type` carrying the same tag is
-the same type. It is what makes two records with otherwise identical fields distinct.
+is data *in the term*, not identity *in the type* — a hand-written `type` carrying the same tag
+**and the same field set** is the same type; the tag alone is not. It is what makes two records
+with otherwise identical fields distinct, and it may be written by hand anywhere the grammar admits
+an atom: the type prefix is the idiom, the written tag the hatch beneath it.
 _Avoid_: type name, nominal tag, class marker, discriminant, `__struct__`
 
 **Projection**:

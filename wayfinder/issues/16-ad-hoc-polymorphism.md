@@ -612,6 +612,45 @@ B can hand-spell a wider union — quoted atoms lex (`bs_lexer.xrl:161`), `kind_
 clause set lives in one aggregate's source. Filed separately; an implementer reading "no open
 extension" would not predict that the type side is reachable.
 
+## AMENDED 2026-09-11 — the seam measured (ENG-261), and the 2026-08-27 leading ground withdrawn (ticket 73)
+
+**The seam above was measured**, two modules at a time, at `a51da4a`
+([ENG-261](https://linear.app/davewil/issue/ENG-261)). Module A declares `record Circle` and
+`record Square`, `type Shape = Circle | Square`, and `Name(Shape s)` with a clause each. Module B,
+after `using Shapes`, hand-spells a type and hands it to `Shapes.Name`:
+
+| B writes | What happens |
+|---|---|
+| `type Round = { Kind: :'Shapes.Circle', Radius: int }` | compiles and runs; `--api` prints B's type byte-identical to A's export |
+| `type Bare = { Kind: :'Shapes.Circle' }` | refused: *Go hands Shapes.Name an argument it does not accept* |
+| `type Fake = { Kind: :'Shapes.Circle', Sides: int }` | refused, same diagnostic |
+| `type Wide = { Kind: :'Shapes.Circle', Radius: int } \| Triangle` | refused, same diagnostic, naming `{ Kind: :'Wide.Triangle' }` as the uncovered part |
+| `Go(Circle c)` with no local declaration | refused: *no type named Circle* |
+
+**So the asymmetry is real and narrower than the paragraph above says.** `26:229`'s "a hand-written
+`type` with the same tag *is* the same type" holds only with the **exact field set**: the type is
+spellable **by structure**, not by tag. And the clause set is closed **at the call**: the check that
+refuses `Wide` is the call-site argument-coverage check, not exhaustiveness and not the minted-tag
+refusal. B can write the type; B cannot hand it to A's function. That is the honest statement of
+the refusal, and it is what an implementer reading "no open extension" needs: refuse nothing at the
+declaration, refuse the widened argument where it meets the closed clause set.
+
+**Item 3 of 2026-08-27 is withdrawn as a ground.** *"A type name does not cross the module
+boundary"* was `bs_api.erl`'s description of `import_env/3` building no table of types — the
+compiler's behaviour, cited here as architectural. [Ticket 73](73-a-record-name-crosses-using.md)
+decided on 2026-09-11 that a record name **does** cross `using`, in both of 41's spellings
+(`Order o` after `using Orders`, and `Orders.Order o`), because with the hand-written tag legal in
+source ([ENG-307](https://linear.app/davewil/issue/ENG-307) item 3, David: Elixir's `__struct__`
+model) the hatch was the only way a consumer could name a producer's record. Once B can name
+`Orders.Doc`, item 3 says nothing. **The refusal does not move**: B naming A's union is exactly the
+`Wide` row above, and it is refused where it reaches `A.Which`. What leads the refusal now is the
+measurement — the clause set lives in one aggregate's source and every call that reaches it is
+checked against it — with 13 §3's consistency-unit ground beside it and the deferral trigger
+unchanged.
+
+**Line references, refreshed.** `kind_field_is_minted` is at `bs_check.erl:1116`; the quoted-atom
+lexeme at `bs_lexer.xrl:96`; the type-name sentence at `bs_api.erl:6`.
+
 ## Not decided here
 
 - The **spelling** of the universal-order escape function (§2) and of the JSON mapping's
@@ -703,4 +742,19 @@ extension" would not predict that the type side is reachable.
   loading is retained**; drop it and the deferral becomes a plain rejection. 27 survives intact,
   losing one leg of one sub-argument to the same miscitation and keeping it on a fact its prose never
   stated: knowing every module in the `using` closure is not knowing every instantiation.
+```
+
+```decisions-entry
+- **AMENDMENT 2026-09-11 to [16](issues/16-ad-hoc-polymorphism.md)** — the seam the 2026-08-27
+  amendment filed as ENG-261 is measured, and that amendment's leading ground is withdrawn. Two
+  modules probed at `a51da4a`: a consumer's hand-written `type` carrying the producer's minted tag
+  **and its exact field set** is the producer's type (compiles, runs, `--api` prints it identically);
+  tag alone or tag with other fields is not; and a union widened with a new case is refused **at the
+  call** by the argument-coverage check, never at the declaration. So the open-extension refusal
+  bites at the clause set, closed at every call that reaches it, and the type is spellable by
+  structure — narrower than "a hand-written type with the same tag is the same type" (`26:229`).
+  *"A type name does not cross the module boundary"* (`bs_api.erl:6`) was the compiler's behaviour
+  and not a decision; [ticket 73](issues/73-a-record-name-crosses-using.md) decided the same day
+  that a record name **does** cross `using` in both of 41's spellings, so it comes out. The refusal
+  stands on the measurement and on 13 §3; the deferral trigger is unchanged.
 ```
