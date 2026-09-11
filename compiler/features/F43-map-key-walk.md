@@ -107,14 +107,23 @@ element of it*.
 
 ## Three things the build found
 
-**A brace map beside a domain is ambiguous, and the F33 refusal had been hiding it.** F18's
-blame rule descends only where exactly one candidate can match. `{ X: string } | map<atom, int>`
-both admit `#{}`, and `#{X => 1}` is in the domain while matching the brace shape, so a
-pattern-first walk would have refused it at `.X` — a false refusal of a member of the type.
-Named-field members without `Kind` beside a domain therefore become one `{any, …}` case: every
-candidate is tried and the blame stays at the node with the whole type expected. A **record**
-carries `Kind` and the domain excludes it, so the two are disjoint and each keeps its own clause
-and its own blame — `Order | map<atom, term>` is the realistic mixed union, and it loses nothing.
+**A brace map beside a domain is not decided by shape, and the F33 refusal had been hiding
+it.** F18's blame rule descends only where exactly one candidate can match, and the emitter
+decides that structurally: a brace clause selects by key set. A domain admits every key set
+drawn from `K`, so the key set selects nothing — `#{X => 1}` fits the `{ X: string }` pattern and
+belongs to `map<atom, int>`, and a pattern-first walk would have refused it at `.X`, a false
+refusal of a member of the type. (The two *types* there are disjoint — a closed member requires
+its field, and `string ∩ int` is `none` — which is exactly why matching the shape proves
+nothing.) Named-field members without `Kind` beside a domain therefore become one `{any, …}`
+case: every candidate is tried and the blame stays at the node with the whole type expected. A
+**record** carries `Kind` and the domain excludes it, so the two are told apart by the pattern
+and each keeps its own clause and its own blame — `Order | map<atom, term>` is the realistic
+mixed union, and it loses nothing.
+
+**Recorded limitation.** The `{any, …}` case is taken even where the key *types* make the brace
+member and the domain disjoint — `{ X: int } | map<string, int>`, whose atom key is outside
+`string`. A compile-time check of the brace keys against `K` could restore exact blame there.
+Not done: no exemplar writes such a union, and blame at the node is honest, only coarser.
 
 **Two domains in one type never reach the emitter.** `map<string, int> | map<atom, atom>` is
 refused at its declaration as an `indiscriminable_union` (F29): no pattern reaches either member

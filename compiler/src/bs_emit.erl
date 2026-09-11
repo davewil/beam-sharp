@@ -1402,11 +1402,15 @@ arity_case(Ps) ->
 %% Where a domain sits beside named-field members the descent is decided by
 %% `Kind`. A record carries one and the domain excludes it (ticket 48 Q3), so
 %% the two are disjoint and the record keeps its own clause and its own blame.
-%% A brace map WITHOUT `Kind` and a domain can both hold one value —
-%% `{ X: string } | map<atom, int>` both admit `#{}` — so a pattern-first walk
-%% would match the brace shape and refuse at `.X` a value the domain accepts.
+%% A brace map WITHOUT `Kind` beside a domain is not decided by shape: the
+%% brace clause selects by key set, and a domain admits every key set drawn
+%% from `K`, so `#{X => 1}` fits the `{ X: string }` pattern while belonging
+%% to `map<atom, int>`, and a pattern-first walk would refuse it at `.X`.
 %% Those become one `{any, …}` case: every candidate is tried and the blame
-%% stays at this node, F18's rule for a choice nothing structural makes.
+%% stays at this node, F18's rule for a choice nothing structural makes. It
+%% is taken even where the key types make the two disjoint
+%% (`{ X: int } | map<string, int>`): a compile-time check of the brace keys
+%% against `K` could restore exact blame there, and is not done.
 map_cases(Members) ->
     {Doms, Named} = lists:partition(fun({dom, _, _}) -> true; (_) -> false end,
                                     Members),

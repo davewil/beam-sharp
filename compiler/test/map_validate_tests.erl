@@ -152,10 +152,12 @@ a_record_beside_a_domain_keeps_its_own_blame_test() ->
     Bare = #{'S' => bad},
     ?assertEqual(Bare, M:'Check'(Bare)).
 
-%% A brace map without `Kind` and a domain can both hold one value, so
-%% neither is descended into: every candidate is tried, and a value in either
-%% passes. Under a pattern-first walk `{ X = 1 }` would have matched the brace
-%% shape and been refused at `.X`, though it is a member of the domain.
+%% A brace clause selects by key set, and a domain admits every key set, so
+%% the shape decides nothing: `#{X => 1}` fits the `{ X: string }` pattern and
+%% is a member of `map<atom, int>`. Under a pattern-first walk it would have
+%% been refused at `.X`. So neither is descended into: every candidate is
+%% tried, a value in either passes, and a value in neither is blamed at the
+%% node with the whole type expected.
 a_bare_map_beside_a_domain_is_an_alternative_test() ->
     M = load("{ X: string } | map<atom, int>"),
     InDomain = #{'X' => 1},

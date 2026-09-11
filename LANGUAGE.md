@@ -2314,7 +2314,7 @@ the parser accepts back exactly what the printer emits. **shipped**
 | the diagnostic as a term (`--diagnostics term`) | **shipped** — F16 |
 | the query mode (`--api`) | **shipped** — F17 |
 | reserved qualifiers — `List.Sum` / `Length` / `Reverse` and `Term.Compare`, inlined at the site | **shipped** — F32 |
-| `Map.Get` and the `map<K, V>` type, under the reserved `Map` | not started — the name is reserved, the operations are not |
+| `Map.Get`, under the reserved `Map` | not started — the name is reserved, the operations are not. The `map<K, V>` type itself is **shipped** — F33 — and `ValidateAs` walks one — F43 |
 | `behaviour GenServer` — the attribute, callback names, and mandatory-callback presence | **shipped** — F10 |
 | behaviour contract checked as a **type** | not started — Dialyzer does it at the boundary today |
 
