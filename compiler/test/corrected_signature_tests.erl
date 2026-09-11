@@ -239,8 +239,17 @@ the_term_says_none_when_no_signature_is_offered_test() ->
 
 -define(REFUSED, "Widening the signature to cover what the clauses return would be refused:").
 -define(TELL, "no clause head can tell `map<string, int>` from `map<string, binary>`").
--define(TAG, "so if both are meant, tag them, with atoms of your choosing:").
--define(SHAPE, "(:tag1, map<string, int>) | (:tag2, map<string, binary>)").
+%% Round 5 (David, 2026-09-11: "1, records"): the repair is a named type whose
+%% members are records, so the compiler mints the tag and nobody writes one.
+-define(TAG, "so if both are meant, give each a record of its own and name the pair:").
+-define(RECORDS, "    record Name1 { Value: map<string, int> }\n"
+                 "    record Name2 { Value: map<string, binary> }\n"
+                 "    type Name = Name1 | Name2\n").
+-define(BUILD, "  build each value as its record, and choose the names.\n").
+
+%% The whole return type the advice declares, as the prior art requires
+%% (F25's Round 4): never a fragment of it.
+returns(Type) -> "  declare the return as `" ++ Type ++ "`,\n".
 
 %% The ticket's program, with the declared return type as the variable, and
 %% the type of the second clause's value as a second one.
@@ -280,7 +289,10 @@ a_correction_the_declaration_check_refuses_is_not_printed_test() ->
     ?assert(string:find(Out, ?REFUSED) =/= nomatch),
     ?assert(string:find(Out, ?TELL) =/= nomatch),
     ?assert(string:find(Out, ?TAG) =/= nomatch),
-    ?assert(string:find(Out, ?SHAPE) =/= nomatch),
+    ?assert(string:find(Out, ?RECORDS) =/= nomatch),
+    ?assert(string:find(Out, returns("Name") ++ ?BUILD) =/= nomatch),
+    %% Round 5: the author writes no tag.
+    ?assertEqual(nomatch, string:find(Out, "(:tag1")),
     %% Round 2, answered in Round 3: the clause first, since the likelier
     %% mistake in a real checkout is the guest's quantities still being text.
     ?assert(leads(Out, "map<string, int>")),
@@ -321,7 +333,10 @@ two_maps_in_the_residual_are_refused_together_test() ->
     ?assertEqual(2, count_occurrences(Out, ?REFUSED)),
     ?assertEqual(2, count_occurrences(Out, ?TELL)),
     ?assertEqual(2, count_occurrences(Out, lead("int"))),
-    ?assertEqual(nomatch, string:find(Out, ?HEADING)).
+    ?assertEqual(nomatch, string:find(Out, ?HEADING)),
+    %% The one program where the whole return differs from the pair: `int`
+    %% stays in it (Round 4's prior art, whole type or nothing).
+    ?assertEqual(2, count_occurrences(Out, returns("int | Name"))).
 
 %% F25.14 — the term carries the pair under its own key, and `corrected` stays
 %% `none`, because there is nothing to paste. The key is present on every
@@ -332,7 +347,14 @@ the_term_names_the_pair_that_refused_the_correction_test() ->
     Refused = term_of("M16", pick_src("M16", "map<string, int>")),
     ?assertMatch(#{tag := return_not_declared, corrected := none,
                    indiscriminable := #{member := "map<string, int>",
-                                        beside := "map<string, binary>"},
+                                        beside := "map<string, binary>",
+                                        expanded := [],
+                                        declarations :=
+                                            ["record Name1 { Value: map<string, int> }",
+                                             "record Name2 { Value: map<string, binary> }",
+                                             "type Name = Name1 | Name2"],
+                                        returns := "Name",
+                                        no_declarations := none},
                    withheld := none, replaces := none,
                    declared := "map<string, int>"},
                  Refused),
@@ -403,14 +425,18 @@ an_unparseable_correction_is_not_printed_test() ->
 %%% output before it was built (F25's review round).
 %%% ---------------------------------------------------------------------------
 
-%% F25.17 — the shape R5 prints, with its placeholder atoms, is a declaration
-%% the compiler accepts once each clause returns its value inside its tag. The
-%% advice is only right if following it compiles.
-the_tag_shape_the_advice_shows_compiles_test() ->
+%% F25.17 — the declarations the advice prints, with their placeholder names,
+%% compile as printed once each clause builds its value as its record. The
+%% advice is only right if following it compiles. (R5 showed a tagged tuple
+%% shape here until Round 5 replaced it with records.)
+the_record_advice_compiles_as_printed_test() ->
     Src = "module M22\n"
-          "public " ?SHAPE " Pick(int n)\n"
-          "Pick(1) -> (:tag1, Ints())\n"
-          "Pick(n) -> (:tag2, Rest())\n"
+          "record Name1 { Value: map<string, int> }\n"
+          "record Name2 { Value: map<string, binary> }\n"
+          "type Name = Name1 | Name2\n"
+          "public Name Pick(int n)\n"
+          "Pick(1) -> Name1{ Value = Ints() }\n"
+          "Pick(n) -> Name2{ Value = Rest() }\n"
           "private map<string, int> Ints()\n"
           "Ints() -> Ints()\n"
           "private map<string, binary> Rest()\n"
@@ -607,10 +633,151 @@ a_checkout_leads_with_the_clause_before_the_refused_widening_test() ->
        "  If `map<string, int>` is what you meant, fix the clause, not the signature.\n"
        "  Widening the signature to cover what the clauses return would be refused:\n"
        "    no clause head can tell `map<string, int>` from `map<string, binary>`\n"
-       "  so if both are meant, tag them, with atoms of your choosing:\n"
-       "    (:tag1, map<string, int>) | (:tag2, map<string, binary>)\n"
-       "  and return each value inside its tag.\n",
+       "  so if both are meant, give each a record of its own and name the pair:\n"
+       "    record Name1 { Value: map<string, int> }\n"
+       "    record Name2 { Value: map<string, binary> }\n"
+       "    type Name = Name1 | Name2\n"
+       "  declare the return as `Name`,\n"
+       "  build each value as its record, and choose the names.\n",
        message_body(cli("Checkout", Src))).
+
+%%% ---------------------------------------------------------------------------
+%%% 14 — Rounds 4 and 5 (ENG-346, 2026-09-11): records, and the name as written
+%%%
+%%% Round 4 surveyed how rustc, TypeScript, Gleam, Elm and GHC print a type in a
+%%% suggestion: the whole type, never a fragment, and the author's name where
+%%% the declared type is quoted, with the structure beside it when the reason
+%%% is structural (ticket 09 §1 had decided the name). Round 5, David: the
+%%% repair is a named type of records, whose tag the compiler mints.
+%%% ---------------------------------------------------------------------------
+
+%% F25.28 — the checkout whose session can expire. The pair sits inside the
+%% author's `result`, so the named type goes there too and `result` survives:
+%% `result<Name, atom>` is the whole return type.
+a_named_type_takes_the_pairs_place_inside_a_result_test() ->
+    Src = "module CheckoutResult\n"
+          "public result<map<string, int>, atom> CartQuantities(bool signed_in,\n"
+          "    result<map<string, int>, atom> session_cart,\n"
+          "    map<string, binary> form_fields)\n"
+          "CartQuantities(true, session_cart, form_fields)  -> session_cart\n"
+          "CartQuantities(false, session_cart, form_fields) -> form_fields\n",
+    ?assertEqual(
+       "error: CartQuantities returns a value its signature does not declare\n"
+       "  not covered by the declared return type:\n"
+       "    map<string, binary>\n"
+       "  If `result<map<string, int>, atom>` is what you meant, fix the clause, not the signature.\n"
+       "  Widening the signature to cover what the clauses return would be refused:\n"
+       "    no clause head can tell `map<string, int>` from `map<string, binary>`\n"
+       "  so if both are meant, give each a record of its own and name the pair:\n"
+       "    record Name1 { Value: map<string, int> }\n"
+       "    record Name2 { Value: map<string, binary> }\n"
+       "    type Name = Name1 | Name2\n"
+       "  declare the return as `result<Name, atom>`,\n"
+       "  build each value as its record, and choose the names.\n",
+       message_body(cli("CheckoutResult", Src))).
+
+%% F25.29 — the dashboard, where the declared member is an alias. The pair is
+%% named as the author wrote it, with the structure beside it (TypeScript and
+%% GHC), and the record's field is typed by the author's name too.
+a_refused_pair_names_the_alias_the_author_wrote_test() ->
+    Src = "module Dashboard\n"
+          "type ViewCounts = map<string, int>\n"
+          "public ViewCounts Views(bool staff, ViewCounts stored, map<string, binary> posted)\n"
+          "Views(true, stored, posted)  -> stored\n"
+          "Views(false, stored, posted) -> posted\n",
+    ?assertEqual(
+       "error: Views returns a value its signature does not declare\n"
+       "  not covered by the declared return type:\n"
+       "    map<string, binary>\n"
+       "  If `ViewCounts` is what you meant, fix the clause, not the signature.\n"
+       "  Widening the signature to cover what the clauses return would be refused:\n"
+       "    no clause head can tell `ViewCounts` from `map<string, binary>`\n"
+       "    (`ViewCounts` is `map<string, int>`)\n"
+       "  so if both are meant, give each a record of its own and name the pair:\n"
+       "    record Name1 { Value: ViewCounts }\n"
+       "    record Name2 { Value: map<string, binary> }\n"
+       "    type Name = Name1 | Name2\n"
+       "  declare the return as `Name`,\n"
+       "  build each value as its record, and choose the names.\n",
+       message_body(cli("Dashboard", Src))),
+    ?assertMatch(#{indiscriminable :=
+                       #{member := "ViewCounts",
+                         expanded := [#{name := "ViewCounts",
+                                        is := "map<string, int>"}]}},
+                 term_of("Dashboard2",
+                         re:replace(Src, "Dashboard", "Dashboard2", [{return, list}]))).
+
+%% F25.30 — the dashboard where the site may be unknown. The absorbed member
+%% is named as written, `ViewCounts`, and its structure is what makes the
+%% absorption true, so it is printed beside it.
+an_absorbed_member_is_named_as_the_author_wrote_it_test() ->
+    Src = "module AnalyticsMissing\n"
+          "type ViewCounts = map<string, int>\n"
+          "public ViewCounts | :not_found PageViews(list<map<string, term>> rows)\n"
+          "PageViews([])            -> :not_found\n"
+          "PageViews([row, ..rest]) -> row\n",
+    ?assertEqual(
+       "error: PageViews returns a value its signature does not declare\n"
+       "  not covered by the declared return type:\n"
+       "    map<string, term>\n"
+       "  If `ViewCounts | :not_found` is what you meant, fix the clause, not the signature.\n"
+       "  no signature is offered: widening it would leave `ViewCounts` absorbed by\n"
+       "  `:not_found | map<string, term>`, and a declared type may not hold an absorbed member.\n"
+       "  (`ViewCounts` is `map<string, int>`)\n",
+       message_body(cli("AnalyticsMissing", Src))).
+
+%% F25.31 — the pair inside a named type that is not generic. `Stock`'s body
+%% is resolved before this pass sees it, so there is no written member to put
+%% `Name` in place of, and a guessed rewrite would be a type nobody checked.
+%% The advice says what to do and why no declaration is shown.
+a_pair_inside_a_named_type_says_why_no_declaration_is_shown_test() ->
+    Src = "module Inventory\n"
+          "type Stock = map<string, int> | :not_found\n"
+          "public Stock StockLevels(bool cached, Stock stored, map<string, binary> csv_row)\n"
+          "StockLevels(true, stored, csv_row)  -> stored\n"
+          "StockLevels(false, stored, csv_row) -> csv_row\n",
+    ?assertEqual(
+       "error: StockLevels returns a value its signature does not declare\n"
+       "  not covered by the declared return type:\n"
+       "    map<string, binary>\n"
+       "  If `Stock` is what you meant, fix the clause, not the signature.\n"
+       "  Widening the signature to cover what the clauses return would be refused:\n"
+       "    no clause head can tell `map<string, int>` from `map<string, binary>`\n"
+       "  so if both are meant, give each a record of its own and name the pair.\n"
+       "  No declaration is shown: `map<string, int>` is inside `Stock`,\n"
+       "  and this line does not rewrite a named type.\n",
+       message_body(cli("Inventory", Src))).
+
+%% F25.32 — a placeholder the author's module already uses. `Name` is a
+%% person's name in an accounts module, so the advice's placeholders move
+%% aside rather than printing a second `Name` the compiler would refuse.
+a_placeholder_the_module_already_uses_moves_aside_test() ->
+    Src = "module People\n"
+          "record Name { First: binary, Last: binary }\n" ++
+          tl(lists:dropwhile(fun(C) -> C =/= $\n end,
+                             pick_src("People", "map<string, int>"))),
+    Out = cli("People", Src),
+    ?assert(string:find(Out, "    record NewName1 { Value: map<string, int> }\n"
+                             "    record NewName2 { Value: map<string, binary> }\n"
+                             "    type NewName = NewName1 | NewName2\n") =/= nomatch),
+    ?assert(string:find(Out, returns("NewName")) =/= nomatch).
+
+%% F25.33 — a declaration the check refuses, which no program is known to
+%% reach: the construction is meant to be accepted, so a refusal is a fault in
+%% the compiler and is named as one (R2's rule, applied to the declarations).
+%% Fault injection at the descriptor, as F25.20's consumer half is.
+a_refused_declaration_is_reported_as_a_defect_test() ->
+    D = bs_diag:descriptor("m.bs", {error, 3, 'Pick',
+                                    {return_not_declared,
+                                     bs_types:atom_lit(oops),
+                                     {"int", {refused,
+                                              {"map<string, int>", bs_types:int()},
+                                              {"map<string, binary>", bs_types:int()},
+                                              {no_records, {check_failed, absorbed_member}}}}}}),
+    ?assertMatch(#{indiscriminable := #{no_declarations := #{refused_by := absorbed_member}}}, D),
+    Prose = unicode:characters_to_list(bs_diag:format(D#{line => 3, column => 1})),
+    ?assert(string:find(Prose, "  No declaration is shown: the one this compiler would write was\n"
+                               "  refused (absorbed_member), which is a compiler defect.\n") =/= nomatch).
 
 %% The diagnostic from its `error:`, without the path and position before it
 %% or the `rc:` line `run_cli/1` appends.

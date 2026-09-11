@@ -43,12 +43,23 @@ HEADING='the signature its clauses justify:'
 # same words.
 REFUSED='Widening the signature to cover what the clauses return would be refused:'
 TELL='no clause head can tell `map<string, int>` from `map<string, binary>`'
-TAG='so if both are meant, tag them, with atoms of your choosing:'
+# ENG-346 Round 5 (David, 2026-09-11: "1, records"): the repair is a named type
+# whose members are records, so the compiler mints the tag and nobody writes one.
+TAG='so if both are meant, give each a record of its own and name the pair:'
+RECORD1='record Name1 { Value: map<string, int> }'
+UNION='type Name = Name1 | Name2'
 # ENG-346 Round 3 (David, 2026-09-11: "all"): every return mismatch leads with
 # the clause, naming the declared type as the author wrote it.
 LEAD1='If `int` is what you meant, fix the clause, not the signature.'
 LEAD10='If `list<map<string, int>>` is what you meant, fix the clause, not the signature.'
-SHAPE='(:tag1, map<string, int>) | (:tag2, map<string, binary>)'
+# Round 4's prior art: the whole return type, never a fragment of it, and the
+# author's `result` kept around the named type.
+RETURNS6='declare the return as `Name`,'
+RETURNS11='declare the return as `result<Name, atom>`,'
+# Round 4, ticket 09 §1: the name the author wrote, with its structure beside it.
+TELL12='no clause head can tell `ViewCounts` from `map<string, binary>`'
+ABSORBED13='widening it would leave `ViewCounts` absorbed by'
+EXPANDED='(`ViewCounts` is `map<string, int>`)'
 # David's review round (ENG-346 R2, R3): a withheld line says why, and a line
 # that replaces the declared type says so.
 UNSPELLABLE='no signature is offered: what the clauses return has no spelling as a type yet.'
@@ -63,7 +74,7 @@ REPLACES='this replaces `map<string, int>`, which `map<string, term>` contains.'
 # ---------------------------------------------------------------------------
 judge() {
   local dir="$1"
-  local p1 p2 p3 p4 p5 p6 p7c p7a p8 p9 p10
+  local p1 p2 p3 p4 p5 p6 p7c p7a p8 p9 p10 p11 p12 p13
 
   p1="$(cat "$dir/P1.out")"
   p2="$(cat "$dir/P2.out")"
@@ -76,6 +87,9 @@ judge() {
   p8="$(cat "$dir/P8.out")"
   p9="$(cat "$dir/P9.out")"
   p10="$(cat "$dir/P10.out")"
+  p11="$(cat "$dir/P11.out")"
+  p12="$(cat "$dir/P12.out")"
+  p13="$(cat "$dir/P13.out")"
 
   # PROBE 1 — the line exists, and it is a whole signature.
   #
@@ -204,11 +218,18 @@ judge() {
     echo "         pasting it gets \`no clause head can tell ...\`, which is the"
     echo "         compiler recommending a form it rejects."
     sed 's/^/           /' <<<"$p6"
-  elif ! grep -qF "$REFUSED" <<<"$p6" || ! grep -qF "$TELL" <<<"$p6" \
-       || ! grep -qF "$TAG" <<<"$p6" || ! grep -qF "$SHAPE" <<<"$p6"; then
-    echo "probe 6: the line is withheld but the diagnostic does not say why or what"
-    echo "         to write instead. an author told nothing assumes an unwritable"
-    echo "         residual and pastes the refused union by hand."
+  elif ! grep -qF "$REFUSED" <<<"$p6" || ! grep -qF "$TELL" <<<"$p6"; then
+    echo "probe 6: the line is withheld but the diagnostic does not say why."
+    echo "         an author told nothing assumes an unwritable residual and"
+    echo "         pastes the refused union by hand."
+    sed 's/^/           /' <<<"$p6"
+  elif ! grep -qF "$TAG" <<<"$p6" || ! grep -qF "$RECORD1" <<<"$p6" \
+       || ! grep -qF "$UNION" <<<"$p6" || ! grep -qF "$RETURNS6" <<<"$p6" \
+       || grep -qF '(:tag1' <<<"$p6"; then
+    # Round 5: the repair is records under a name, not tags the author writes.
+    echo "probe 6: the refused widening does not offer records under a named type."
+    echo "         David (Round 5): the readability is a named type, and the"
+    echo "         compiler handles the tag. a tuple tag is the author writing it."
     sed 's/^/           /' <<<"$p6"
   fi
 
@@ -302,6 +323,46 @@ judge() {
     echo "probe 10: the record residual's line was withheld with no word about why."
     sed 's/^/           /' <<<"$p3"
   fi
+
+  # PROBE 11 — the return the advice declares is the WHOLE type (ENG-346 Round 4).
+  #
+  #   public result<map<string, int>, atom> CartQuantities(...)   returning a map<string, binary>
+  #
+  # The pair sits inside the author's `result`. rustc, TypeScript, Gleam and Elm
+  # never print a fragment where the whole type goes (the Round 4 survey), so
+  # the advice declares `result<Name, atom>`: the named type in the pair's
+  # place, `result` and `(:error, atom)` kept.
+  if ! grep -qF "$REFUSED" <<<"$p11"; then
+    echo "probe 11: the checkout with a result return reported no refused widening."
+    sed 's/^/           /' <<<"$p11"
+  elif ! grep -qF "$RETURNS11" <<<"$p11" || grep -qF '(:tag1' <<<"$p11"; then
+    echo "probe 11: the advice does not declare the whole return with \`result\` kept."
+    echo "          expected: $RETURNS11"
+    echo "          a pair shown alone reads as the whole return type, and an"
+    echo "          expanded \`result\` loses the author's own type."
+    sed 's/^/           /' <<<"$p11"
+  fi
+
+  # PROBE 12 — the name the author wrote, with its structure beside it
+  # (ENG-346 Round 4; ticket 09 §1: "diagnostics print the name").
+  #
+  #   type ViewCounts = map<string, int>
+  #
+  # P12 is refused as indiscriminable and P13 is withheld for an absorbed
+  # member. Both reasons are structural, so both name `ViewCounts` and print
+  # what it is, as TypeScript and GHC do.
+  if ! grep -qF "$TELL12" <<<"$p12" || ! grep -qF "$EXPANDED" <<<"$p12"; then
+    echo "probe 12: the refused pair is not named as the author wrote it."
+    echo "          expected: $TELL12"
+    echo "          and:      $EXPANDED"
+    sed 's/^/           /' <<<"$p12"
+  fi
+  if ! grep -qF "$ABSORBED13" <<<"$p13" || ! grep -qF "$EXPANDED" <<<"$p13"; then
+    echo "probe 12: the absorbed member is not named as the author wrote it."
+    echo "          expected: $ABSORBED13"
+    echo "          and:      $EXPANDED"
+    sed 's/^/           /' <<<"$p13"
+  fi
 }
 
 # ---------------------------------------------------------------------------
@@ -325,9 +386,44 @@ if [ "${1:-}" = "--self-test" ]; then
   If \`map<string, int>\` is what you meant, fix the clause, not the signature.
   Widening the signature to cover what the clauses return would be refused:
     no clause head can tell \`map<string, int>\` from \`map<string, binary>\`
-  so if both are meant, tag them, with atoms of your choosing:
-    (:tag1, map<string, int>) | (:tag2, map<string, binary>)
-  and return each value inside its tag."
+  so if both are meant, give each a record of its own and name the pair:
+    record Name1 { Value: map<string, int> }
+    record Name2 { Value: map<string, binary> }
+    type Name = Name1 | Name2
+  declare the return as \`Name\`,
+  build each value as its record, and choose the names."
+  good_p11="m.bs:9:1: error: CartQuantities returns a value its signature does not declare
+  not covered by the declared return type:
+    map<string, binary>
+  If \`result<map<string, int>, atom>\` is what you meant, fix the clause, not the signature.
+  Widening the signature to cover what the clauses return would be refused:
+    no clause head can tell \`map<string, int>\` from \`map<string, binary>\`
+  so if both are meant, give each a record of its own and name the pair:
+    record Name1 { Value: map<string, int> }
+    record Name2 { Value: map<string, binary> }
+    type Name = Name1 | Name2
+  declare the return as \`result<Name, atom>\`,
+  build each value as its record, and choose the names."
+  good_p12="m.bs:5:1: error: Views returns a value its signature does not declare
+  not covered by the declared return type:
+    map<string, binary>
+  If \`ViewCounts\` is what you meant, fix the clause, not the signature.
+  Widening the signature to cover what the clauses return would be refused:
+    no clause head can tell \`ViewCounts\` from \`map<string, binary>\`
+    (\`ViewCounts\` is \`map<string, int>\`)
+  so if both are meant, give each a record of its own and name the pair:
+    record Name1 { Value: ViewCounts }
+    record Name2 { Value: map<string, binary> }
+    type Name = Name1 | Name2
+  declare the return as \`Name\`,
+  build each value as its record, and choose the names."
+  good_p13="m.bs:5:1: error: PageViews returns a value its signature does not declare
+  not covered by the declared return type:
+    map<string, term>
+  If \`ViewCounts | :not_found\` is what you meant, fix the clause, not the signature.
+  no signature is offered: widening it would leave \`ViewCounts\` absorbed by
+  \`:not_found | map<string, term>\`, and a declared type may not hold an absorbed member.
+  (\`ViewCounts\` is \`map<string, int>\`)"
   good_p7="m.bs:3:47: error: no clause head can tell \`map<string, int>\` from \`map<string, binary>\`
   in Pick"
   good_p8="m.bs:3:1: error: Pick returns a value its signature does not declare
@@ -356,6 +452,9 @@ if [ "${1:-}" = "--self-test" ]; then
     printf '%s\n' "$good_p8" > "$1/P8.out"
     printf '%s\n' "$good_p9" > "$1/P9.out"
     printf '%s\n' "$good_p10" > "$1/P10.out"
+    printf '%s\n' "$good_p11" > "$1/P11.out"
+    printf '%s\n' "$good_p12" > "$1/P12.out"
+    printf '%s\n' "$good_p13" > "$1/P13.out"
   }
 
   good_p1="m.bs:3: error: Answer returns a value its signature does not declare
@@ -414,7 +513,7 @@ m.bs:4: error: Go returns a value its signature does not declare
   silent="$(judge "$CTL/silent" || true)"
   grep -q '^probe 1:' <<<"$silent" || { echo "SELF-TEST FAILED: probe 1 missed the silent stub — the reported defect"; fail=1; }
   grep -q '^probe 3:' <<<"$silent" || { echo "SELF-TEST FAILED: probe 3 missed the silent stub — no function-wide line either"; fail=1; }
-  for n in 2 4 6 7 8 9 10; do
+  for n in 2 4 6 7 8 9 10 11 12; do
     if grep -q "^probe $n:" <<<"$silent"; then
       echo "SELF-TEST FAILED: probe $n fired on the silent stub, which it should pass."
       echo "                  a probe that fires on everything proves nothing."
@@ -451,7 +550,7 @@ m.bs:4: error: Go returns a value its signature does not declare
     echo "                  lines for one function, neither of them sufficient."
     fail=1
   }
-  for n in 1 2 4 6 7 8 9 10; do
+  for n in 1 2 4 6 7 8 9 10 11 12; do
     if grep -q "^probe $n:" <<<"$perclause"; then
       echo "SELF-TEST FAILED: probe $n fired on the per-clause stub, which it should pass."
       fail=1
@@ -481,7 +580,7 @@ m.bs:4: error: Go returns a value its signature does not declare
     echo "                  mode ticket 23 §2 exists to prevent."
     fail=1
   }
-  for n in 1 2 4 6 7 8 9 10; do
+  for n in 1 2 4 6 7 8 9 10 11 12; do
     if grep -q "^probe $n:" <<<"$overreach"; then
       echo "SELF-TEST FAILED: probe $n fired on the overreach stub, which it should pass."
       fail=1
@@ -513,7 +612,7 @@ m.bs:4: error: Go returns a value its signature does not declare
     echo '                  compiler would be offering a program it rejects.'
     fail=1
   }
-  for n in 1 2 3 4 6 7 8 9 10; do
+  for n in 1 2 3 4 6 7 8 9 10 11 12; do
     if grep -q "^probe $n:" <<<"$absorbed"; then
       echo "SELF-TEST FAILED: probe $n fired on the absorbed stub, which it should pass."
       fail=1
@@ -540,7 +639,7 @@ m.bs:4: error: Go returns a value its signature does not declare
       echo "SELF-TEST FAILED: probe $2 missed the $1 stub."
       fail=1
     }
-    for n in 1 2 3 4 5 6 7 8 9 10; do
+    for n in 1 2 3 4 5 6 7 8 9 10 11 12; do
       [ "$n" = "$2" ] && continue
       if grep -q "^probe $n:" <<<"$out"; then
         echo "SELF-TEST FAILED: probe $n fired on the $1 stub, which it should pass."
@@ -687,6 +786,76 @@ map<string, int> | map<string, binary> Pick(int)" > "$CTL/onesite/P7A.out"
   If \`list<map<string, int>>\` is what you meant, fix the clause, not the signature." > "$CTL/withheldleadlast/P10.out"
   expect withheldleadlast 10
 
+  # --- TAG-SHAPE ---------------------------------------------------------
+  #
+  # The compiler at 1144ca9: the refused widening is explained, and the repair
+  # is a tuple shape whose tags the author writes. Round 5 replaced it with
+  # records under a name. Probe 6's first branches pass it.
+  seed_all "$CTL/tagshape"
+  printf '%s\n' "m.bs:5:1: error: Pick returns a value its signature does not declare
+  not covered by the declared return type:
+    map<string, binary>
+  If \`map<string, int>\` is what you meant, fix the clause, not the signature.
+  Widening the signature to cover what the clauses return would be refused:
+    no clause head can tell \`map<string, int>\` from \`map<string, binary>\`
+  so if both are meant, tag them, with atoms of your choosing:
+    (:tag1, map<string, int>) | (:tag2, map<string, binary>)
+  and return each value inside its tag." > "$CTL/tagshape/P6.out"
+  expect tagshape 6
+
+  # --- PAIR-ONLY ---------------------------------------------------------
+  #
+  # Also the compiler at 1144ca9, on the checkout with a `result` return: the
+  # shape holds the pair alone, and `(:error, atom)` is not in it.
+  seed_all "$CTL/paironly"
+  printf '%s\n' "m.bs:9:1: error: CartQuantities returns a value its signature does not declare
+  not covered by the declared return type:
+    map<string, binary>
+  If \`result<map<string, int>, atom>\` is what you meant, fix the clause, not the signature.
+  Widening the signature to cover what the clauses return would be refused:
+    no clause head can tell \`map<string, int>\` from \`map<string, binary>\`
+  so if both are meant, tag them, with atoms of your choosing:
+    (:tag1, map<string, int>) | (:tag2, map<string, binary>)
+  and return each value inside its tag." > "$CTL/paironly/P11.out"
+  expect paironly 11
+
+  # --- RESULT-LOST -------------------------------------------------------
+  #
+  # The plausible half-fix: records under a name, and the whole return, but
+  # `result` expanded into its members where the author wrote it.
+  seed_all "$CTL/resultlost"
+  sed 's/declare the return as `result<Name, atom>`,/declare the return as `Name | (:error, atom)`,/' \
+      <<<"$good_p11" > "$CTL/resultlost/P11.out"
+  expect resultlost 11
+
+  # --- RESOLVED-NAME -----------------------------------------------------
+  #
+  # The compiler at 1144ca9 on the dashboard: the lead says `ViewCounts` and
+  # the reason below it names `map<string, int>`, one type under two names.
+  seed_all "$CTL/resolvedname"
+  sed -e 's/tell `ViewCounts` from/tell `map<string, int>` from/' \
+      -e '/(`ViewCounts` is `map<string, int>`)/d' \
+      <<<"$good_p12" > "$CTL/resolvedname/P12.out"
+  expect resolvedname 12
+
+  # --- NO-EXPANSION ------------------------------------------------------
+  #
+  # The name kept and its structure dropped, which is Elm's choice. The reason
+  # is structural (two maps), so the name alone does not explain it.
+  seed_all "$CTL/noexpansion"
+  sed '/(`ViewCounts` is `map<string, int>`)/d' <<<"$good_p12" > "$CTL/noexpansion/P12.out"
+  expect noexpansion 12
+
+  # --- RESOLVED-ABSORBED -------------------------------------------------
+  #
+  # The compiler at 1144ca9 on the dashboard whose site may be unknown: the
+  # absorbed member is named as the algebra resolves it.
+  seed_all "$CTL/resolvedabsorbed"
+  sed -e 's/leave `ViewCounts` absorbed/leave `map<string, int>` absorbed/' \
+      -e '/(`ViewCounts` is `map<string, int>`)/d' \
+      <<<"$good_p13" > "$CTL/resolvedabsorbed/P13.out"
+  expect resolvedabsorbed 12
+
   # --- GOOD --------------------------------------------------------------
   seed_all "$CTL/good"
   good="$(judge "$CTL/good" || true)"
@@ -711,9 +880,12 @@ map<string, int> | map<string, binary> Pick(int)" > "$CTL/onesite/P7A.out"
   : > "$CTL/broken/P8.out"
   : > "$CTL/broken/P9.out"
   : > "$CTL/broken/P10.out"
+  : > "$CTL/broken/P11.out"
+  : > "$CTL/broken/P12.out"
+  : > "$CTL/broken/P13.out"
   printf '%s\n' "m.bs:1: error: syntax error before: 'module'" > "$CTL/broken/P4.out"
   broken="$(judge "$CTL/broken" || true)"
-  for n in 1 2 3 4 5 6 7 8 9 10; do
+  for n in 1 2 3 4 5 6 7 8 9 10 11 12; do
     grep -q "^probe $n:" <<<"$broken" || {
       echo "SELF-TEST FAILED: probe $n went green over a run that never compiled."
       echo "                  an absent diagnostic is not a passing measurement."
@@ -722,7 +894,7 @@ map<string, int> | map<string, binary> Pick(int)" > "$CTL/onesite/P7A.out"
   done
 
   if [ "$fail" -eq 0 ]; then
-    echo "self-test: caught sixteen defects on different probes — the silent case,"
+    echo "self-test: caught twenty-two defects on different probes — the silent case,"
     echo "           the per-clause correction that prints two contradictory lines,"
     echo "           the mint tag in a pasteable signature, the absorbed member a"
     echo "           writable bottom introduces, a line the declaration check"
@@ -732,7 +904,9 @@ map<string, int> | map<string, binary> Pick(int)" > "$CTL/onesite/P7A.out"
     echo "           map dropped without a word, and an unspellable residual and"
     echo "           a record residual each withheld without a word, and a line that"
     echo "           does not lead with the clause or leads with it last, plain or"
-    echo "           withheld —"
+    echo "           withheld, a repair whose tags the author writes, a pair shown"
+    echo "           alone and a \`result\` expanded, and a declared name printed as"
+    echo "           its expansion, refused or absorbed, or without it —"
     echo "           passed each stub's other probes, passed the decided"
     echo "           behaviour, and refused a run that never compiled. the gate"
     echo "           discriminates and does not pass vacuously"
@@ -754,7 +928,8 @@ trap 'rm -rf "$WORK"' EXIT
 
 mkdir -p "$WORK/src/P1" "$WORK/src/P2" "$WORK/src/P3" "$WORK/src/P4" \
          "$WORK/src/P5" "$WORK/src/P6" "$WORK/src/P7" "$WORK/src/P8" \
-         "$WORK/src/P9" "$WORK/src/P10" "$WORK/out"
+         "$WORK/src/P9" "$WORK/src/P10" "$WORK/src/P11" "$WORK/src/P12" \
+         "$WORK/src/P13" "$WORK/out"
 
 cat > "$WORK/src/P1/p1.bs" <<'BS'
 module P1
@@ -854,7 +1029,36 @@ private list<map<string, binary>> Bins()
 Bins() -> Bins()
 BS
 
-for p in P1 P2 P3 P4 P5 P6 P8 P9 P10; do
+# Round 4: the checkout whose session can expire, so the pair sits inside the
+# author's `result`.
+cat > "$WORK/src/P11/p11.bs" <<'BS'
+module P11
+public result<map<string, int>, atom> CartQuantities(bool signed_in,
+    result<map<string, int>, atom> session_cart,
+    map<string, binary> form_fields)
+CartQuantities(true, session_cart, form_fields)  -> session_cart
+CartQuantities(false, session_cart, form_fields) -> form_fields
+BS
+
+# Round 4: the dashboard, whose declared member is an alias the pair names.
+cat > "$WORK/src/P12/p12.bs" <<'BS'
+module P12
+type ViewCounts = map<string, int>
+public ViewCounts Views(bool staff, ViewCounts stored, map<string, binary> posted)
+Views(true, stored, posted)  -> stored
+Views(false, stored, posted) -> posted
+BS
+
+# Round 4: the dashboard whose site may be unknown, where the alias is absorbed.
+cat > "$WORK/src/P13/p13.bs" <<'BS'
+module P13
+type ViewCounts = map<string, int>
+public ViewCounts | :not_found PageViews(list<map<string, term>> rows)
+PageViews([])            -> :not_found
+PageViews([row, ..rest]) -> row
+BS
+
+for p in P1 P2 P3 P4 P5 P6 P8 P9 P10 P11 P12 P13; do
   "$BSC" --src-root "$WORK/src" -o "$WORK/out" "$WORK/src/$p" \
       > "$WORK/$p.out" 2>&1 || true
 done
@@ -864,7 +1068,7 @@ done
     > "$WORK/P7A.out" 2>&1 || true
 
 # The gate reads the diagnostic text only; the path prefix varies per run.
-for o in P1 P2 P3 P4 P5 P6 P7C P7A P8 P9 P10; do
+for o in P1 P2 P3 P4 P5 P6 P7C P7A P8 P9 P10 P11 P12 P13; do
   sed -i.bak "s#$WORK/src/[^/]*/##g" "$WORK/$o.out" && rm -f "$WORK/$o.out.bak"
 done
 
@@ -879,13 +1083,15 @@ if [ -n "$violations" ]; then
   exit 1
 fi
 
-echo "corrected signature: 10 probes — the line is present and pasteable, the"
+echo "corrected signature: 12 probes — the line is present and pasteable, the"
 echo "                     residual survives beside it, two clauses share one"
 echo "                     function-wide correction, no mint tag reaches a"
 echo "                     signature, a clean module stays silent, a"
 echo '                     `none` return is corrected without an absorbed member,'
 echo "                     a line the declaration check refuses is withheld with"
-echo "                     the tagged shape named, that refusal holds at both"
+echo "                     records under a name offered, the whole return kept,"
+echo "                     the author's names printed with their structure, that"
+echo "                     refusal holds at both"
 echo "                     declaration sites, a union a guard splits is still"
 echo "                     corrected, a declared map its residual absorbs is"
 echo "                     replaced and says so, and a withheld line says why"

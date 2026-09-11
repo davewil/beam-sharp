@@ -236,8 +236,8 @@ chose maps for.
 | key | when it is not `none` |
 |---|---|
 | `declared` | always: the declared return as the author wrote it, which every message leads with since Round 3 |
-| `indiscriminable` | the widened line is refused: `#{member, beside}`, named as `indiscriminable_union`'s fields are. `corrected` is `none` |
-| `withheld` | no line is offered: `unspellable`, `declared_form`, `#{member, absorbed_by}`, or `#{class, reason}` for a failure the paste-back does not name. `corrected` is `none` |
+| `indiscriminable` | the widened line is refused: `#{member, beside}`, named as `indiscriminable_union`'s fields are and, since Round 4, as the author wrote them; `expanded`, a list of `#{name, is}` for each name that stands for a different spelling; and since Round 5 `declarations` (three lines) and `returns`, or `none` for both and `no_declarations := #{member, inside}` or `#{refused_by}`. `corrected` is `none` |
+| `withheld` | no line is offered: `unspellable`, `declared_form`, `#{member, absorbed_by, expanded}`, or `#{class, reason}` for a failure the paste-back does not name. `corrected` is `none` |
 | `replaces` | the line drops the declared type: `#{declared, within}`, the first as the author wrote it. `corrected` is the line |
 
 **Two sites.** `bsc --api` prints no corrected signature: it answers what signatures declare and
@@ -688,6 +688,42 @@ Measured, not explained: a declared `map<atom, term> | Payload` over the two rec
 clean (`ParamsRecords`). A record is a map with atom keys, so the absorption check was expected to
 refuse it. Noted for whoever next reads the map algebra.
 
+**Answered: *"1, records"*. Built.** Program 2 now reads:
+
+```
+CheckoutResult.bs:9:1: error: CartQuantities returns a value its signature does not declare
+  not covered by the declared return type:
+    map<string, binary>
+  If `result<map<string, int>, atom>` is what you meant, fix the clause, not the signature.
+  Widening the signature to cover what the clauses return would be refused:
+    no clause head can tell `map<string, int>` from `map<string, binary>`
+  so if both are meant, give each a record of its own and name the pair:
+    record Name1 { Value: map<string, int> }
+    record Name2 { Value: map<string, binary> }
+    type Name = Name1 | Name2
+  declare the return as `result<Name, atom>`,
+  build each value as its record, and choose the names.
+```
+
+The alias item was built with it. Program 4's reason names `ViewCounts` and then prints
+`` (`ViewCounts` is `map<string, int>`) ``. A refused pair with an alias does the same, and the
+record's field is typed `ViewCounts` (F25.29). What the build found beyond the proposal:
+
+- **The webhook receiver is helped now.** Records are maps, so `(atom, term)` does not absorb them.
+  The advice declares `(atom, term) | Name`, and the paste-back accepts it.
+- **A pair member inside a non-generic named type has no written place.** For example,
+  `type Stock = map<string, int> | :not_found` declared, with a CSV row returned. This pass sees
+  `Stock` only resolved, so a rewrite would be a type nobody wrote or checked. The advice says to
+  use records, names the holder, and shows no declaration (F25.31).
+- **The placeholders move aside when the module already uses one**, as `NewName`, `NewName1` and
+  `NewName2` (F25.32). A person's `record Name` is ordinary in an accounts module.
+- **The term's keys differ from Round 4's sketch.** `declarations` is a list of three lines, and
+  the expansion is `#{name, is}`, not `#{written, is}`: `bs_check` has a function `written/1`, and
+  an atom shared with a `bs_diag` key reorders `--batch` output (ENG-349).
+- **The pasted declarations are checked**, as the line is. They are parsed, entered into the
+  author's environment beside the signature that uses them, and handed to `collapse_decl/2`. No
+  program is known to make that refuse, so a refusal is reported as a compiler defect (F25.33).
+
 ## The scenarios
 
 `corrected_signature_tests.erl` opens its sections with these identifiers, and this is what each
@@ -705,14 +741,14 @@ directly, because that is where the claim lives.
 | F25.7 | `bs_diag:contractual()` | `return_not_declared` is a member |
 | F25.8 | the descriptor for a mismatch | the term carries `corrected := "public int \| :oops Answer(int n)"` under its own key |
 | F25.9 | the descriptor when no signature can be written | `corrected := none` — the key is present and says nothing, rather than being absent |
-| F25.10 | ENG-346's program: `Pick` declared `map<string, int>`, returning a `map<string, binary>` | no signature line; the lead, *"Widening the signature to cover what the clauses return would be refused:"*, the pair, and the tag shape all printed, beside the residual |
+| F25.10 | ENG-346's program: `Pick` declared `map<string, int>`, returning a `map<string, binary>` | no signature line; the lead, *"Widening the signature to cover what the clauses return would be refused:"*, the pair, and since Round 5 two records and `type Name = Name1 \| Name2` with the return `Name`, all printed beside the residual, and no `(:tag1` |
 | F25.11 | the line F25.10 withholds, pasted | refused with `no clause head can tell …` by a compile **and** by `--api` |
 | F25.12 | `map<string, int>` declared, returning `:oops` | `public map<string, int> \| :oops Pick(int n)` still printed — `is_map` splits the two — and pasting it compiles clean |
-| F25.13 | both maps in the **residual**, under a declared `int` | two diagnostics, both withheld with the pair named: pairing residual members only against the declared type would miss it |
-| F25.14 | the term, read off the CLI's term channel | `corrected := none` and `indiscriminable := #{member, beside}`; an ordinary mismatch carries `indiscriminable := none` |
+| F25.13 | both maps in the **residual**, under a declared `int` | two diagnostics, both withheld with the pair named: pairing residual members only against the declared type would miss it. Since Round 4, both declare the whole return, `int \| Name`: the one program where it differs from the pair |
+| F25.14 | the term, read off the CLI's term channel | `corrected := none` and `indiscriminable := #{member, beside, expanded, declarations, returns, no_declarations}`; an ordinary mismatch carries `indiscriminable := none` |
 | F25.15 | `map<string, int>` declared, returning a `map<string, term>` | `public map<string, term> Pick(int n)` — the absorbed declared half is dropped — and pasting it compiles clean |
 | F25.16 | `list<map<string, int>>` declared, returning a `list<map<string, binary>>` | no signature line and no refusal: the line would be a syntax error, and the union is legal; the residual `[map<string, binary>, ..]` still prints, and since R2 so does *"no signature is offered: what the clauses return has no spelling as a type yet."* |
-| F25.17 | the R5 shape as a declaration, each clause returning inside its tag | compiles clean: the advice is right only if following it compiles |
+| F25.17 | the Round 5 declarations as printed, placeholders and all, each clause building its record | compiles clean: the advice is right only if following it compiles (it held R5's tuple shape until Round 5) |
 | F25.18 | `map<string, int> \| :none` declared, returning a `map<string, term>` | R2: withheld, naming `map<string, int>` and what absorbs it; the term carries `withheld := #{member, absorbed_by}` |
 | F25.19 | an inline map `{ Id: int }` as the declared return | R2: *"the declared signature is written in a form this line does not reproduce"* |
 | F25.20 | a failure the paste-back does not name | R2: `as_pasted/2` answers `{withhold, {crashed, Class, Reason}}`, and the prose says *"(badmatch in bs_check:as_pasted/2), which is a compiler defect"*. No program is known to reach it, so the producer half is fault injection (environments `type_env/1` never builds, through a test-only export) and the consumer half is the descriptor |
@@ -721,8 +757,14 @@ directly, because that is where the claim lives.
 | F25.23 | a residual that is another module's recursive `Tree` | printed by the name its author gave it, which does not cross a module boundary: unspellable, not a defect; declared in the module itself, the line prints |
 | F25.24 | `int \| :'a b'` declared, returning `:oops` | `public int \| :'a b' \| :oops Go(int n)` — the declared atom quoted — and it compiles pasted |
 | F25.25 | a payment handler declaring `atom`, whose decline clause returns `(:declined, int)` | Round 3, the whole message: the lead, then *"Otherwise, the signature its clauses justify:"* and the widened line. Widening is the right fix here, so the line must survive the lead |
-| F25.26 | the checkout page, where a guest's quantities are still text | Round 3, the whole message: the lead, then the refused widening and the tag shape as the case for both being meant |
+| F25.26 | the checkout page, where a guest's quantities are still text | Round 3, the whole message: the lead, then the refused widening and, since Round 5, the records under a name as the case for both being meant |
 | F25.27 | `declared_text/2` handed a form the grammar does not have | named as the algebra prints it, whole. Fault injection through the test-only export: no signature reaches it |
+| F25.28 | the checkout whose session can expire, declared `result<map<string, int>, atom>` | Round 4 and 5, the whole message: the named type takes the pair's place inside the author's `result`, so the return is `result<Name, atom>` |
+| F25.29 | the dashboard, declared `ViewCounts`, a `map<string, int>` alias | Round 4: *"no clause head can tell `ViewCounts` from …"*, then `` (`ViewCounts` is `map<string, int>`) ``, and `record Name1 { Value: ViewCounts }`; the term carries `expanded := [#{name, is}]` |
+| F25.30 | the dashboard whose site may be unknown, `ViewCounts \| :not_found` | Round 4, the whole message: the absorbed member named `ViewCounts`, its structure beside it |
+| F25.31 | `type Stock = map<string, int> \| :not_found` declared, a CSV row returned | Round 5: the pair sits inside a named type this pass sees resolved; the advice names the holder and shows no declaration, rather than a rewrite nobody checked |
+| F25.32 | a module with its own `record Name` | the placeholders move aside to `NewName`, `NewName1`, `NewName2` |
+| F25.33 | a declaration the paste-back refuses | reported as a compiler defect: *"refused (absorbed_member), which is a compiler defect."* No program is known to reach it; fault injection at the descriptor |
 
 **F25.3 was measured before it was designed.** Two offending clauses produce two diagnostics; if
 each carried its own correction the compiler would print two contradictory pasteable lines, and
@@ -785,3 +827,17 @@ The review round added probe 10 and two stubs, and changed probe 6's and probe 9
   only the plain case, and a withheld message has no heading to order against.
 - **silent-withhold** — also `a25d048`: the list residual withheld with no reason. Probe 10 (R2),
   which also requires the record case to say why wherever probe 3 finds its line withheld.
+
+Rounds 4 and 5 added probes 11 and 12 and six stubs, and changed probe 6's markers to the records:
+
+- **tag-shape** — the compiler at `1144ca9`: the refused widening explained, and the repair a tuple
+  shape whose tags the author writes. Probe 6.
+- **pair-only** — also `1144ca9`, on the checkout with a `result` return: the pair shown alone,
+  `(:error, atom)` missing. Probe 11.
+- **result-lost** — records under a name and a whole return, with `result` expanded into
+  `Name | (:error, atom)`. Probe 11.
+- **resolved-name** — `1144ca9` on the dashboard: `map<string, int>` in the reason where the lead
+  says `ViewCounts`. Probe 12.
+- **no-expansion** — the name kept and its structure dropped, which is Elm's choice. Probe 12.
+- **resolved-absorbed** — `1144ca9` on the dashboard whose site may be unknown. Probe 12's
+  second branch.

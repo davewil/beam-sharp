@@ -9,7 +9,10 @@ Writing them in this form changed the diagnostic. In four of the six, the realis
 clause, and the message offered only a wider signature. David decided (F25's Round 3, *"all"*)
 that every return mismatch leads with *"If `D` is what you meant, fix the clause, not the
 signature."*, `D` being the declared return as the author wrote it, with any wider signature
-after it. The outputs below are that form.
+after it. Where the wider signature is refused, David decided (F25's Round 5, *"1, records"*) that
+the repair is two records under a named type. The compiler mints each record's tag, so the author
+never writes one, and the advice declares the whole return type using that name. The outputs
+below are that form, compiled after Round 5.
 
 **Writing them also found a compiler crash.** The first drafts took the session cart and the
 database row from foreign calls (`using :analytics_db { map<string, term> latest_row(binary site)
@@ -43,16 +46,19 @@ Checkout.bs:12:1: error: CartQuantities returns a value its signature does not d
   If `map<string, int>` is what you meant, fix the clause, not the signature.
   Widening the signature to cover what the clauses return would be refused:
     no clause head can tell `map<string, int>` from `map<string, binary>`
-  so if both are meant, tag them, with atoms of your choosing:
-    (:tag1, map<string, int>) | (:tag2, map<string, binary>)
-  and return each value inside its tag.
+  so if both are meant, give each a record of its own and name the pair:
+    record Name1 { Value: map<string, int> }
+    record Name2 { Value: map<string, binary> }
+    type Name = Name1 | Name2
+  declare the return as `Name`,
+  build each value as its record, and choose the names.
 ```
 
 The bug is that the guest's quantities are still text, and the first line after the residual
-says to fix that clause. Tagging comes second, for a program that really does mean both
+says to fix that clause. The records come second, for a program that really does mean both
 representations of a cart.
 
-## 2. Checkout, where the session can expire — the tag shape shows only the pair
+## 2. Checkout, where the session can expire — the name goes inside `result`
 
 ```csharp
 module CheckoutResult
@@ -73,14 +79,31 @@ CheckoutResult.bs:9:1: error: CartQuantities returns a value its signature does 
   If `result<map<string, int>, atom>` is what you meant, fix the clause, not the signature.
   Widening the signature to cover what the clauses return would be refused:
     no clause head can tell `map<string, int>` from `map<string, binary>`
-  so if both are meant, tag them, with atoms of your choosing:
-    (:tag1, map<string, int>) | (:tag2, map<string, binary>)
-  and return each value inside its tag.
+  so if both are meant, give each a record of its own and name the pair:
+    record Name1 { Value: map<string, int> }
+    record Name2 { Value: map<string, binary> }
+    type Name = Name1 | Name2
+  declare the return as `result<Name, atom>`,
+  build each value as its record, and choose the names.
 ```
 
-The declared type also carries `(:error, atom)`, the expired session, and the tag shape leaves it
-out: it shows the two members to tag, not what the whole return type becomes. Open for David
-(F25, *Left for David*).
+`result<Name, atom>` is the whole return type. The expired session's `(:error, atom)` is still in
+it, and so is the author's `result`. Until Round 4 the advice showed the pair alone. Finished by
+hand, with the names chosen, it compiles clean:
+
+```csharp
+record SessionCart { Items: map<string, int> }
+record GuestCart   { Fields: map<string, binary> }
+type Cart = SessionCart | GuestCart
+
+public result<Cart, atom> CartQuantities(bool signed_in,
+                                         result<map<string, int>, atom> session_cart,
+                                         map<string, binary> form_fields)
+
+CartQuantities(true, (:error, why), form_fields)  -> (:error, why)
+CartQuantities(true, counts, form_fields)         -> SessionCart{ Items = counts }
+CartQuantities(false, session_cart, form_fields)  -> GuestCart{ Fields = form_fields }
+```
 
 ## 3. Analytics — the line replaces the declared type (R3)
 
@@ -131,13 +154,15 @@ AnalyticsMissing.bs:10:1: error: PageViews returns a value its signature does no
   not covered by the declared return type:
     map<string, term>
   If `ViewCounts | :not_found` is what you meant, fix the clause, not the signature.
-  no signature is offered: widening it would leave `map<string, int>` absorbed by
+  no signature is offered: widening it would leave `ViewCounts` absorbed by
   `:not_found | map<string, term>`, and a declared type may not hold an absorbed member.
+  (`ViewCounts` is `map<string, int>`)
 ```
 
-The lead names the type as written. The reason below it still names the absorbed member as the
-algebra resolves it, `map<string, int>`, where the author wrote `ViewCounts`: one type, two names
-in one message. Open for David (F25, *Left for David*).
+The reason names the type as the author wrote it, as the lead does (ticket 09 §1). The absorption
+holds because of what `ViewCounts` is, so the last line says that, as TypeScript and GHC do
+(F25's Round 4). Until Round 4 the reason said `map<string, int>`, one type under two names in
+one message.
 
 ## 5. Accounts — a declared type written inline
 
@@ -196,3 +221,100 @@ The likelier fix is `:method_not_allowed`, and the lead now says so. The spellab
 In four of the six (1 to 4) the realistic fix is the clause. In 5 it is the signature. In 6
 either is plausible. Minimal repros hid that, because in a repro neither side is the right one,
 and it is what moved every message to lead with the clause.
+
+## Three more, from Rounds 4 and 5
+
+**7. Dashboard: a refused pair where the author wrote an alias.**
+
+```csharp
+module Dashboard
+
+type ViewCounts = map<string, int>
+
+// Page views per path. Signed-in staff see the stored counts; the public
+// widget posts its counts as a form, where every value is still text.
+public ViewCounts Views(bool staff, ViewCounts stored, map<string, binary> posted)
+
+Views(true, stored, posted)  -> stored
+Views(false, stored, posted) -> posted
+```
+
+```
+Dashboard.bs:10:1: error: Views returns a value its signature does not declare
+  not covered by the declared return type:
+    map<string, binary>
+  If `ViewCounts` is what you meant, fix the clause, not the signature.
+  Widening the signature to cover what the clauses return would be refused:
+    no clause head can tell `ViewCounts` from `map<string, binary>`
+    (`ViewCounts` is `map<string, int>`)
+  so if both are meant, give each a record of its own and name the pair:
+    record Name1 { Value: ViewCounts }
+    record Name2 { Value: map<string, binary> }
+    type Name = Name1 | Name2
+  declare the return as `Name`,
+  build each value as its record, and choose the names.
+```
+
+**8. Webhooks: a receiver that tagging with tuples could not help.**
+
+```csharp
+module Webhooks
+
+// A webhook receiver. Events for the bus come back as (name, payload); a
+// page-view ping comes back as its counts. The form post was meant to be
+// decoded into counts too, and is returned as it arrived.
+public (atom, term) | map<string, int> Receive(atom kind, map<string, int> counts, map<string, binary> form)
+
+Receive(:ping, counts, form) -> counts
+Receive(:form, counts, form) -> form
+Receive(kind, counts, form)  -> (kind, counts)
+```
+
+```
+Webhooks.bs:9:1: error: Receive returns a value its signature does not declare
+  not covered by the declared return type:
+    map<string, binary>
+  If `(atom, term) | map<string, int>` is what you meant, fix the clause, not the signature.
+  Widening the signature to cover what the clauses return would be refused:
+    no clause head can tell `map<string, int>` from `map<string, binary>`
+  so if both are meant, give each a record of its own and name the pair:
+    record Name1 { Value: map<string, int> }
+    record Name2 { Value: map<string, binary> }
+    type Name = Name1 | Name2
+  declare the return as `(atom, term) | Name`,
+  build each value as its record, and choose the names.
+```
+
+Before Round 5 the advice here was to tag the maps with tuples, and `(atom, term)` absorbs any
+tagged tuple, so following it was refused. A record is a map, and the advice compiles.
+
+**9. Inventory: the pair inside a named type.**
+
+```csharp
+module Inventory
+
+// Stock per SKU for a warehouse, or :not_found when the warehouse is unknown.
+type Stock = map<string, int> | :not_found
+
+// Stock comes from the cache, or from a supplier's CSV row, where every
+// value is still text.
+public Stock StockLevels(bool cached, Stock stored, map<string, binary> csv_row)
+
+StockLevels(true, stored, csv_row)  -> stored
+StockLevels(false, stored, csv_row) -> csv_row
+```
+
+```
+Inventory.bs:11:1: error: StockLevels returns a value its signature does not declare
+  not covered by the declared return type:
+    map<string, binary>
+  If `Stock` is what you meant, fix the clause, not the signature.
+  Widening the signature to cover what the clauses return would be refused:
+    no clause head can tell `map<string, int>` from `map<string, binary>`
+  so if both are meant, give each a record of its own and name the pair.
+  No declaration is shown: `map<string, int>` is inside `Stock`,
+  and this line does not rewrite a named type.
+```
+
+The map sits inside `Stock`, and the checker only sees `Stock`'s body resolved. It has no written
+position to put `Name` in, so it says so and shows no declaration it would have had to guess.

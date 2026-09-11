@@ -1328,7 +1328,11 @@ attach_correction(D, _C) ->
 %%   Line                       the signature to paste
 %%   {replacing, Line, D, New}  the same, where it drops the declared `D`
 %%                              because `New` contains it (R3)
-%%   {refused, A, B}            no clause head can tell `A` from `B`
+%%   {refused, {SA, A}, {SB, B}, Records}
+%%                              no clause head can tell `A` from `B`, which
+%%                              the author wrote as `SA` and `SB`; `Records`
+%%                              is the named type of records to use instead
+%%                              (Round 5), or why none is shown
 %%   {withhold, Why}            no line, and `Why` says why (R2)
 %%
 %% R2, R3 and R5 are David's review round on ENG-346 (F25's amendment): a line
@@ -1387,9 +1391,205 @@ correction_of(F, Declared, Union, Env) ->
             case {as_pasted(Line, Env), Replaced} of
                 {ok, none}       -> Line;
                 {ok, {Src, New}} -> {replacing, Line, Src, New};
-                {Refusal, _}     -> Refusal
+                {Refusal, _}     -> as_written(Refusal, F, Line, Env)
             end
     end.
+
+%%% ---------------------------------------------------------------------------
+%%% A refusal in the author's words (ENG-346, F25's Rounds 4 and 5)
+%%%
+%%% THE NAME THE AUTHOR WROTE. `A`, `B` and an absorbed `M` come back from the
+%%% declaration check resolved, so `ViewCounts` would print as
+%%% `map<string, int>`. Ticket 09 §1 decided that diagnostics print the name,
+%%% and where the reason is structural TypeScript and GHC print the structure
+%%% beside it (the Round 4 survey), so each is traced back to the member of the
+%%% pasted line that resolves to it and `bs_diag` prints both. `A` and `B` are
+%%% normalised constituents (09 §4), so one no written member resolves to keeps
+%%% the printer's spelling.
+%%%
+%%% RECORDS UNDER A NAME, NOT TAGS THE AUTHOR WRITES. Ticket 70's repair is to
+%%% tag the pair. David, Round 5: "The readability should be a named type" and
+%%% the compiler handles the tag, which is ticket 26's record, whose `Kind` is
+%%% minted and never written. So the advice is two records and a named union of
+%%% them, and the return type with that name in the pair's place: whole, since
+%%% none of the compilers surveyed prints part of a type where the whole goes.
+%%% ---------------------------------------------------------------------------
+
+as_written({refused, A, B}, F, Line, Env) ->
+    Ms = returned_members(Line),
+    {refused, {written_as(A, Ms, Env), A}, {written_as(B, Ms, Env), B},
+     records_for(F, Ms, A, B, Env)};
+as_written({withhold, {absorbed_member, M, By}}, _F, Line, Env) ->
+    {withhold, {absorbed_member, {written_as(M, returned_members(Line), Env), M}, By}};
+as_written(Refusal, _F, _Line, _Env) ->
+    Refusal.
+
+%% The members of the pasted line's return, as parsed from the text the
+%% author's declared type and the rendered residual were written into.
+returned_members(Line) ->
+    {signature, _, _, Ret, _, _} = pasted_signature(Line),
+    return_members(Ret).
+
+return_members({t_union, Ms}) -> Ms;
+return_members(T)             -> [T].
+
+written_as(T, Ms, Env) ->
+    case locate(T, Ms, Env) of
+        {top, _, W}    -> source_or_printed(W, T);
+        {arg, _, _, W} -> source_or_printed(W, T);
+        none           -> bs_types:to_string(T)
+    end.
+
+source_or_printed(W, T) ->
+    case type_source(W) of
+        none -> bs_types:to_string(T);
+        Src  -> Src
+    end.
+
+%% Where a resolved member sits in the written return: a member of the union
+%% itself, or the argument of a generic member that its body places as a
+%% union member, which is `result`'s `T` and `option`'s `T`. `list<T>` is not
+%% one: its argument is an element, and a name put there would change the type.
+locate(T, Ms, Env) ->
+    Indexed = lists:zip(lists:seq(1, length(Ms)), Ms),
+    case [{top, I, W} || {I, W} <- Indexed, same(resolve(W, Env), T)] of
+        [P | _] -> P;
+        []      -> case [{arg, I, K, A} || {I, W} <- Indexed,
+                                           {K, A} <- member_args(W, Env),
+                                           same(resolve(A, Env), T)] of
+                       [P | _] -> P;
+                       []      -> none
+                   end
+    end.
+
+member_args({t_generic, N, Args}, Env) ->
+    case maps:get(N, Env, undefined) of
+        {parametric, Ps, {t_union, Body}} when length(Ps) =:= length(Args) ->
+            [{K, A} || {K, P, A} <- lists:zip3(lists:seq(1, length(Ps)), Ps, Args),
+                       lists:member({t_ref, P}, Body)];
+        _ ->
+            []
+    end;
+member_args(_, _Env) ->
+    [].
+
+same(S, T) -> bs_types:is_subtype(S, T) andalso bs_types:is_subtype(T, S).
+
+%% The named union goes where the member written first stood, and the other
+%% member is dropped: `map<string, int> | map<string, binary>` becomes `Name`,
+%% and `result<map<string, int>, atom> | map<string, binary>` becomes
+%% `result<Name, atom>`, keeping the author's `result`. A pair member written
+%% inside a type this pass sees only resolved (a non-generic alias such as
+%% `type Stock = map<string, int> | :not_found`) has no written position, and
+%% a guessed rewrite would be a type nobody checked, so the advice says so.
+records_for(F, Ms, A, B, Env) ->
+    case {locate(A, Ms, Env), locate(B, Ms, Env)} of
+        {none, _} ->
+            {no_records, nested(A, Ms, Env)};
+        {_, none} ->
+            {no_records, nested(B, Ms, Env)};
+        %% Both inside generic members: one name cannot stand in two places.
+        {{arg, _, _, _}, {arg, J, _, _}} ->
+            {no_records, nested(B, [lists:nth(J, Ms)], Env)};
+        {PA, PB} ->
+            {First, Second, Place} = placed(PA, PB),
+            declared_records(F, First, Second, Place, Ms, Env)
+    end.
+
+%% Which of the two keeps a place: the one inside a generic, since only it
+%% can keep the generic, and otherwise the one the author wrote first.
+placed({top, I, WA}, {top, J, WB}) when I < J -> {WA, WB, {top, I, J}};
+placed({top, I, WA}, {top, J, WB})            -> {WB, WA, {top, J, I}};
+placed({arg, I, K, WA}, {top, J, WB})         -> {WA, WB, {arg, I, K, J}};
+placed({top, J, WB}, {arg, I, K, WA})         -> {WA, WB, {arg, I, K, J}}.
+
+nested(T, Ms, Env) ->
+    Holder = [W || W <- Ms, bs_types:is_subtype(T, resolve(W, Env))],
+    {nested, bs_types:to_string(T), holder_source(Holder)}.
+
+holder_source([W | _]) ->
+    case type_source(W) of
+        none -> "the declared type";
+        Src  -> Src
+    end;
+holder_source([]) ->
+    "the declared type".
+
+declared_records(F, First, Second, Place, Ms, Env) ->
+    {Union, R1, R2} = placeholders(Env),
+    Renamed = renamed(Place, Ms, {t_ref, list_to_atom(Union)}),
+    case [type_source(T) || T <- [First, Second, Renamed]] of
+        [S1, S2, Returns] when S1 =/= none, S2 =/= none, Returns =/= none ->
+            Decls = ["record " ++ R1 ++ " { Value: " ++ S1 ++ " }",
+                     "record " ++ R2 ++ " { Value: " ++ S2 ++ " }",
+                     "type " ++ Union ++ " = " ++ R1 ++ " | " ++ R2],
+            case declarations_pasted(Decls, line_of(F, Returns), Env) of
+                ok  -> {records, Decls, Returns};
+                Why -> {no_records, Why}
+            end;
+        _ ->
+            {no_records, {check_failed, unwritable}}
+    end.
+
+renamed({top, Keep, Drop}, Ms, Name) ->
+    written_union([case I of Keep -> Name; _ -> W end
+                   || {I, W} <- lists:zip(lists:seq(1, length(Ms)), Ms), I =/= Drop]);
+renamed({arg, Keep, K, Drop}, Ms, Name) ->
+    written_union([case I of Keep -> with_arg(W, K, Name); _ -> W end
+                   || {I, W} <- lists:zip(lists:seq(1, length(Ms)), Ms), I =/= Drop]).
+
+with_arg({t_generic, N, Args}, K, Name) ->
+    {t_generic, N, [case J of K -> Name; _ -> A end
+                    || {J, A} <- lists:zip(lists:seq(1, length(Args)), Args)]}.
+
+written_union([One]) -> One;
+written_union(Many)  -> {t_union, Many}.
+
+%% `Name`, `Name1` and `Name2`, unless the author's module already uses one of
+%% them: a person's `record Name` is ordinary in an accounts module, and a
+%% second `Name` pasted beside it is refused. Asked without creating an atom,
+%% since a name the module never used has no atom to be a key.
+placeholders(Env) -> placeholders("Name", Env).
+
+placeholders(Base, Env) ->
+    Names = [Base, Base ++ "1", Base ++ "2"],
+    case lists:any(fun(S) -> in_env(S, Env) end, Names) of
+        true  -> placeholders("New" ++ Base, Env);
+        false -> list_to_tuple(Names)
+    end.
+
+in_env(S, Env) ->
+    try maps:is_key(list_to_existing_atom(S), Env)
+    catch error:badarg -> false
+    end.
+
+%% THE DECLARATIONS ARE PASTED BACK BEFORE THEY ARE PRINTED, as the line is:
+%% parsed, entered into the author's environment, and handed to the declaration
+%% check with the signature that uses them. The construction is meant to be
+%% accepted, so a refusal here is a fault in this code and `bs_diag` says so.
+declarations_pasted(Decls, Signature, Env) ->
+    Src = lists:flatten([lists:join("\n", Decls ++ [Signature]), "\n"]),
+    try
+        {ok, Toks, _} = bs_lexer:string(Src),
+        {ok, [_, _, _, {signature, _, _, Ret, _, _}] = Parsed} = bs_parser:parse(Toks),
+        Env1 = with_declared(Env, [D || D <- Parsed, element(1, D) =/= signature]),
+        _ = resolve(Ret, Env1),
+        collapse_refused(Parsed, Env1),
+        ok
+    catch
+        _:Reason -> {check_failed, reason_name(Reason)}
+    end.
+
+%% The author's environment with the pasted declarations resolved into it, as
+%% `type_env/1` resolves a module's own. The records mint under the default
+%% module name: the tag is data, and only its distinctness is asked here.
+with_declared(Env, Decls) ->
+    Mod = module_name([]),
+    New = [{N, record_surface(Mod, L, N, Fs)} || {record_decl, L, N, Fs} <- Decls]
+          ++ [{N, Body} || {type_alias, _, N, [], Body} <- Decls],
+    Surface = maps:merge(Env, maps:from_list(New)),
+    lists:foldl(fun({N, T}, Acc) -> Acc#{N => bs_types:mu(N, resolve(T, Surface, [N]))} end,
+                Env, New).
 
 %% THE LINE IS PASTED BACK BEFORE IT IS PRINTED (ENG-346). It is lexed, parsed
 %% as a declaration, resolved, and handed to `collapse_decl/2`, which is the
@@ -1473,8 +1673,7 @@ reason_name(R)                                     -> R.
 %% order. A `pasteable/3` here created that atom before `bs_diag` created
 %% `kind`, and `--batch` stopped printing the same bytes as a standalone run
 %% (measured 2026-09-10, `cli_tests`; ENG-349).
-signature_line(#fn{name = Name, ret = Ret, params = Params, vis = Vis},
-               Declared, Union) ->
+signature_line(F = #fn{ret = Ret, params = Params}, Declared, Union) ->
     Rendered = bs_types:to_string(Union),
     case writable(Rendered) of
         false -> {withhold, unspellable};
@@ -1482,16 +1681,19 @@ signature_line(#fn{name = Name, ret = Ret, params = Params, vis = Vis},
             case {type_source(Ret), params_source(Params)} of
                 {none, _} -> {withhold, declared_form};
                 {_, none} -> {withhold, declared_form};
-                {RetSrc, Ps} ->
+                {RetSrc, _Ps} ->
                     Absorbed = bs_types:is_subtype(Declared, Union),
-                    Line = lists:flatten([vis_source(Vis),
-                                          declared_member(Absorbed, RetSrc),
-                                          Rendered, " ", atom_to_list(Name),
-                                          "(", Ps, ")"]),
+                    Line = line_of(F, declared_member(Absorbed, RetSrc) ++ Rendered),
                     Replaced = Absorbed andalso not bs_types:is_none(Declared),
                     {Line, replaced(Replaced, RetSrc, Rendered)}
             end
     end.
+
+%% A signature line for `F` returning the type written as `RetText`. Only
+%% called once `params_source/1` has answered for `F`'s parameters.
+line_of(#fn{name = Name, params = Params, vis = Vis}, RetText) ->
+    lists:flatten([vis_source(Vis), RetText, " ", atom_to_list(Name),
+                   "(", params_source(Params), ")"]).
 
 %% The declared return is written back as a union member to keep the author's
 %% own alias name, which is why this is a concatenation and not a

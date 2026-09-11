@@ -562,9 +562,11 @@ correction(Line) when is_list(Line) ->
     corrections(#{corrected => Line});
 correction({replacing, Line, Src, New}) ->
     corrections(#{corrected => Line, replaces => #{declared => Src, within => New}});
-correction({refused, A, B}) ->
-    corrections(#{indiscriminable => #{member => bs_types:to_string(A),
-                                       beside => bs_types:to_string(B)}});
+correction({refused, {SrcA, A}, {SrcB, B}, Records}) ->
+    corrections(#{indiscriminable =>
+                      maps:merge(#{member => SrcA, beside => SrcB,
+                                   expanded => expanded([{SrcA, A}, {SrcB, B}])},
+                                 records(Records))});
 correction({withhold, Why}) ->
     corrections(#{withheld => withheld(Why)}).
 
@@ -572,8 +574,26 @@ corrections(Set) ->
     maps:merge(#{corrected => none, indiscriminable => none,
                  withheld => none, replaces => none}, Set).
 
-withheld({absorbed_member, M, By}) ->
-    #{member => bs_types:to_string(M), absorbed_by => bs_types:to_string(By)};
+%% Round 5: the named type of records to use instead, or why none is shown.
+records({records, Decls, Returns}) ->
+    #{declarations => Decls, returns => Returns, no_declarations => none};
+records({no_records, {nested, Member, Holder}}) ->
+    #{declarations => none, returns => none,
+      no_declarations => #{member => Member, inside => Holder}};
+records({no_records, {check_failed, Reason}}) ->
+    #{declarations => none, returns => none,
+      no_declarations => #{refused_by => Reason}}.
+
+%% Round 4: a name the author wrote, beside the structure it stands for, where
+%% the two differ. Ticket 09 §1 prints the name; the reasons here are
+%% structural, so the structure is printed too, as TypeScript and GHC do.
+expanded(Pairs) ->
+    [#{name => Src, is => bs_types:to_string(T)}
+     || {Src, T} <- Pairs, Src =/= bs_types:to_string(T)].
+
+withheld({absorbed_member, {Src, M}, By}) ->
+    #{member => Src, absorbed_by => bs_types:to_string(By),
+      expanded => expanded([{Src, M}])};
 withheld({crashed, Class, Reason}) ->
     #{class => Class, reason => Reason};
 withheld(Why) when is_atom(Why) ->
@@ -586,17 +606,18 @@ withheld(Why) when is_atom(Why) ->
 %%
 %% REFUSED. Its second line is the declaration check's own header, so the
 %% author meets the same words here and at the refusal they would get by
-%% widening the signature by hand. The repair is 09 §5's: two members a head
-%% cannot tell apart need a tag, and the leading atom of a tuple is one (ticket
-%% 70). The shape is shown with placeholder atoms (R5) and is a type, not a
-%% signature: the clauses must change too, and §2 has the compiler write heads,
-%% never bodies, so it sits under no "paste this" heading.
-correction_text(#{indiscriminable := #{member := M, beside := B}}) ->
+%% widening the signature by hand. The repair is ticket 70's, two members a
+%% head cannot tell apart need a tag, spelled as David put it in F25's Round 5:
+%% a named type whose members are records, so the compiler mints the tag and
+%% the author never writes one (ticket 26). The declarations carry placeholder
+%% names and sit under no "paste this" heading: the clauses must change too,
+%% and §2 has the compiler write heads, never bodies.
+correction_text(#{indiscriminable := #{member := M, beside := B, expanded := E} = I}) ->
+    {Expansion, EArgs} = expansion_text("    ", E),
+    {Advice, AArgs} = records_text(I),
     {"  Widening the signature to cover what the clauses return would be refused:~n"
-     "    no clause head can tell `~s` from `~s`~n"
-     "  so if both are meant, tag them, with atoms of your choosing:~n"
-     "    (:tag1, ~s) | (:tag2, ~s)~n"
-     "  and return each value inside its tag.~n", [M, B, M, B]};
+     "    no clause head can tell `~s` from `~s`~n" ++ Expansion ++ Advice,
+     [M, B] ++ EArgs ++ AArgs};
 %% WITHHELD (R2). A line that disappears with no word reads as the compiler
 %% having nothing to offer, which the author cannot tell from a defect.
 correction_text(#{withheld := Why}) when Why =/= none ->
@@ -629,12 +650,40 @@ withheld_reason(unspellable) ->
 withheld_reason(declared_form) ->
     {"  no signature is offered: the declared signature is written in a form~n"
      "  this line does not reproduce.~n", []};
-withheld_reason(#{member := M, absorbed_by := By}) ->
+withheld_reason(#{member := M, absorbed_by := By, expanded := E}) ->
+    {Expansion, EArgs} = expansion_text("  ", E),
     {"  no signature is offered: widening it would leave `~s` absorbed by~n"
-     "  `~s`, and a declared type may not hold an absorbed member.~n", [M, By]};
+     "  `~s`, and a declared type may not hold an absorbed member.~n" ++ Expansion,
+     [M, By | EArgs]};
 withheld_reason(#{reason := Reason}) ->
     {"  no signature is offered: checking it failed inside the compiler~n"
      "  (~p in bs_check:as_pasted/2), which is a compiler defect.~n", [Reason]}.
+
+%% One line per name the author wrote that stands for a different spelling.
+expansion_text(Indent, Expanded) ->
+    {lists:flatten([Indent ++ "(`~s` is `~s`)~n" || _ <- Expanded]),
+     lists:append([[N, Is] || #{name := N, is := Is} <- Expanded])}.
+
+%% The named type of records (Round 5), whole, with the return it makes. Where
+%% none is shown, the sentence says why: a pair member inside a named type this
+%% line does not rewrite, or a declaration the check refused, which the
+%% construction is meant to rule out and so is a compiler defect.
+records_text(#{declarations := [D1, D2, D3], returns := Returns}) ->
+    {"  so if both are meant, give each a record of its own and name the pair:~n"
+     "    ~s~n"
+     "    ~s~n"
+     "    ~s~n"
+     "  declare the return as `~s`,~n"
+     "  build each value as its record, and choose the names.~n",
+     [D1, D2, D3, Returns]};
+records_text(#{no_declarations := #{member := M, inside := Holder}}) ->
+    {"  so if both are meant, give each a record of its own and name the pair.~n"
+     "  No declaration is shown: `~s` is inside `~s`,~n"
+     "  and this line does not rewrite a named type.~n", [M, Holder]};
+records_text(#{no_declarations := #{refused_by := Reason}}) ->
+    {"  so if both are meant, give each a record of its own and name the pair.~n"
+     "  No declaration is shown: the one this compiler would write was~n"
+     "  refused (~p), which is a compiler defect.~n", [Reason]}.
 
 %%% ---------------------------------------------------------------------------
 %%% `not` in prefix position
