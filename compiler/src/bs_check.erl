@@ -49,7 +49,7 @@
 %% never builds, and F25.27's fallback in `declared_text/2`, handed a form the
 %% grammar does not have. Test builds only.
 -ifdef(TEST).
--export([as_pasted/2, declared_text/2]).
+-export([as_pasted/2, declared_text/2, declarations_pasted/3, declared_records/6]).
 -endif.
 
 %% `vis` stays last: `bs_emit` reads this record positionally through
@@ -1404,8 +1404,8 @@ correction_of(F, Declared, Union, Env) ->
 %%% and where the reason is structural TypeScript and GHC print the structure
 %%% beside it (the Round 4 survey), so each is traced back to the member of the
 %%% pasted line that resolves to it and `bs_diag` prints both. `A` and `B` are
-%%% normalised constituents (09 §4), so one no written member resolves to keeps
-%%% the printer's spelling.
+%%% normalised constituents (09 §4), so a constituent that no written member
+%%% resolves to is printed as the algebra spells it.
 %%%
 %%% RECORDS UNDER A NAME, NOT TAGS THE AUTHOR WRITES. Ticket 70's repair is to
 %%% tag the pair. David, Round 5: "The readability should be a named type" and
@@ -1451,12 +1451,11 @@ source_or_printed(W, T) ->
 %% union member, which is `result`'s `T` and `option`'s `T`. `list<T>` is not
 %% one: its argument is an element, and a name put there would change the type.
 locate(T, Ms, Env) ->
-    Indexed = lists:zip(lists:seq(1, length(Ms)), Ms),
-    case [{top, I, W} || {I, W} <- Indexed, same(resolve(W, Env), T)] of
+    case [{top, I, W} || {I, W} <- lists:enumerate(Ms), equivalent(resolve(W, Env), T)] of
         [P | _] -> P;
-        []      -> case [{arg, I, K, A} || {I, W} <- Indexed,
+        []      -> case [{arg, I, K, A} || {I, W} <- lists:enumerate(Ms),
                                            {K, A} <- member_args(W, Env),
-                                           same(resolve(A, Env), T)] of
+                                           equivalent(resolve(A, Env), T)] of
                        [P | _] -> P;
                        []      -> none
                    end
@@ -1465,7 +1464,7 @@ locate(T, Ms, Env) ->
 member_args({t_generic, N, Args}, Env) ->
     case maps:get(N, Env, undefined) of
         {parametric, Ps, {t_union, Body}} when length(Ps) =:= length(Args) ->
-            [{K, A} || {K, P, A} <- lists:zip3(lists:seq(1, length(Ps)), Ps, Args),
+            [{K, A} || {K, {P, A}} <- lists:enumerate(lists:zip(Ps, Args)),
                        lists:member({t_ref, P}, Body)];
         _ ->
             []
@@ -1473,7 +1472,9 @@ member_args({t_generic, N, Args}, Env) ->
 member_args(_, _Env) ->
     [].
 
-same(S, T) -> bs_types:is_subtype(S, T) andalso bs_types:is_subtype(T, S).
+%% The same set of values, which is what "the member that resolves to `T`"
+%% asks: an alias and its expansion are two terms for one type.
+equivalent(S, T) -> bs_types:is_subtype(S, T) andalso bs_types:is_subtype(T, S).
 
 %% The named union goes where the member written first stood, and the other
 %% member is dropped: `map<string, int> | map<string, binary>` becomes `Name`,
@@ -1532,23 +1533,28 @@ declared_records(F, First, Second, Place, Ms, Env) ->
     end.
 
 renamed({top, Keep, Drop}, Ms, Name) ->
-    written_union([case I of Keep -> Name; _ -> W end
-                   || {I, W} <- lists:zip(lists:seq(1, length(Ms)), Ms), I =/= Drop]);
+    union_node([case I of Keep -> Name; _ -> W end
+                || {I, W} <- lists:enumerate(Ms), I =/= Drop]);
 renamed({arg, Keep, K, Drop}, Ms, Name) ->
-    written_union([case I of Keep -> with_arg(W, K, Name); _ -> W end
-                   || {I, W} <- lists:zip(lists:seq(1, length(Ms)), Ms), I =/= Drop]).
+    union_node([case I of Keep -> with_arg(W, K, Name); _ -> W end
+                || {I, W} <- lists:enumerate(Ms), I =/= Drop]).
 
 with_arg({t_generic, N, Args}, K, Name) ->
-    {t_generic, N, [case J of K -> Name; _ -> A end
-                    || {J, A} <- lists:zip(lists:seq(1, length(Args)), Args)]}.
+    {t_generic, N, [case J of K -> Name; _ -> A end || {J, A} <- lists:enumerate(Args)]}.
 
-written_union([One]) -> One;
-written_union(Many)  -> {t_union, Many}.
+union_node([One]) -> One;
+union_node(Many)  -> {t_union, Many}.
 
 %% `Name`, `Name1` and `Name2`, unless the author's module already uses one of
-%% them: a person's `record Name` is ordinary in an accounts module, and a
-%% second `Name` pasted beside it is refused. Asked without creating an atom,
+%% them: a person's `record Name` is ordinary in an accounts module. The
+%% compiler does not refuse a second declaration of a name today (ENG-352), so
+%% a clash pasted in would silently replace the author's type rather than be
+%% reported; moving aside is what prevents it. Asked without creating an atom,
 %% since a name the module never used has no atom to be a key.
+%%
+%% KNOWN LIMIT: the placeholders are chosen per function, so two functions in
+%% one module refused this way print the same ones. The advice says to choose
+%% the names; pasted verbatim, the two collide, silently, until ENG-352.
 placeholders(Env) -> placeholders("Name", Env).
 
 placeholders(Base, Env) ->
@@ -1571,8 +1577,9 @@ declarations_pasted(Decls, Signature, Env) ->
     Src = lists:flatten([lists:join("\n", Decls ++ [Signature]), "\n"]),
     try
         {ok, Toks, _} = bs_lexer:string(Src),
-        {ok, [_, _, _, {signature, _, _, Ret, _, _}] = Parsed} = bs_parser:parse(Toks),
-        Env1 = with_declared(Env, [D || D <- Parsed, element(1, D) =/= signature]),
+        {ok, Parsed} = bs_parser:parse(Toks),
+        {signature, _, _, Ret, _, _} = lists:last(Parsed),
+        Env1 = with_declared(Env, lists:droplast(Parsed)),
         _ = resolve(Ret, Env1),
         collapse_refused(Parsed, Env1),
         ok
@@ -1600,7 +1607,7 @@ with_declared(Env, Decls) ->
 %%   `map<string, int> | map<string, binary>` — no clause head can tell the two
 %%       apart. Ticket 70 keeps that union legal one container level in and puts
 %%       the objection in the advice, so the answer is the pair: `bs_diag` names
-%%       both members and shows them tagged.
+%%       both members, and `as_written/4` adds the records to use instead.
 %%   `[map<string, binary>, ..]` and `(2, map<string, binary>)` — pattern
 %%       spellings `writable/1` does not catch, so the parser refuses the line.
 %%       The declared half is rendered by `type_source/1`, which quotes what

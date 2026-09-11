@@ -716,7 +716,19 @@ record's field is typed `ViewCounts` (F25.29). What the build found beyond the p
   `Stock` only resolved, so a rewrite would be a type nobody wrote or checked. The advice says to
   use records, names the holder, and shows no declaration (F25.31).
 - **The placeholders move aside when the module already uses one**, as `NewName`, `NewName1` and
-  `NewName2` (F25.32). A person's `record Name` is ordinary in an accounts module.
+  `NewName2` (F25.32). A person's `record Name` is ordinary in an accounts module. Round 5 said a
+  clash would be *"caught before it prints"* by the paste-back. It cannot be: the compiler takes a
+  second declaration of a name in silence, and the later one wins
+  ([ENG-352](https://linear.app/davewil/issue/ENG-352), found by the review). Moving aside is
+  what prevents the clash.
+- **Known limit, from the review:** the placeholders are chosen per function, so two refused
+  functions in one module print the same ones. The advice says to choose the names. Pasted
+  verbatim, the two collide silently until ENG-352. Names derived from the function
+  (`CartQuantitiesName1`) would avoid that, at a cost to the readability David asked for. Left
+  for David.
+- **Not done here:** the declaration check's own absorbed-member message still prints the
+  expansion where the author wrote a name. That is
+  [ENG-353](https://linear.app/davewil/issue/ENG-353).
 - **The term's keys differ from Round 4's sketch.** `declarations` is a list of three lines, and
   the expansion is `#{name, is}`, not `#{written, is}`: `bs_check` has a function `written/1`, and
   an atom shared with a `bs_diag` key reorders `--batch` output (ENG-349).
@@ -748,7 +760,7 @@ directly, because that is where the claim lives.
 | F25.14 | the term, read off the CLI's term channel | `corrected := none` and `indiscriminable := #{member, beside, expanded, declarations, returns, no_declarations}`; an ordinary mismatch carries `indiscriminable := none` |
 | F25.15 | `map<string, int>` declared, returning a `map<string, term>` | `public map<string, term> Pick(int n)` — the absorbed declared half is dropped — and pasting it compiles clean |
 | F25.16 | `list<map<string, int>>` declared, returning a `list<map<string, binary>>` | no signature line and no refusal: the line would be a syntax error, and the union is legal; the residual `[map<string, binary>, ..]` still prints, and since R2 so does *"no signature is offered: what the clauses return has no spelling as a type yet."* |
-| F25.17 | the Round 5 declarations as printed, placeholders and all, each clause building its record | compiles clean: the advice is right only if following it compiles (it held R5's tuple shape until Round 5) |
+| F25.17 | the Round 5 declarations and return, taken from the term the compiler printed, each clause building its record | compiles clean: the advice is right only if following it compiles (it held R5's tuple shape until Round 5, and a hand-typed copy until the review) |
 | F25.18 | `map<string, int> \| :none` declared, returning a `map<string, term>` | R2: withheld, naming `map<string, int>` and what absorbs it; the term carries `withheld := #{member, absorbed_by}` |
 | F25.19 | an inline map `{ Id: int }` as the declared return | R2: *"the declared signature is written in a form this line does not reproduce"* |
 | F25.20 | a failure the paste-back does not name | R2: `as_pasted/2` answers `{withhold, {crashed, Class, Reason}}`, and the prose says *"(badmatch in bs_check:as_pasted/2), which is a compiler defect"*. No program is known to reach it, so the producer half is fault injection (environments `type_env/1` never builds, through a test-only export) and the consumer half is the descriptor |
@@ -762,9 +774,10 @@ directly, because that is where the claim lives.
 | F25.28 | the checkout whose session can expire, declared `result<map<string, int>, atom>` | Round 4 and 5, the whole message: the named type takes the pair's place inside the author's `result`, so the return is `result<Name, atom>` |
 | F25.29 | the dashboard, declared `ViewCounts`, a `map<string, int>` alias | Round 4: *"no clause head can tell `ViewCounts` from …"*, then `` (`ViewCounts` is `map<string, int>`) ``, and `record Name1 { Value: ViewCounts }`; the term carries `expanded := [#{name, is}]` |
 | F25.30 | the dashboard whose site may be unknown, `ViewCounts \| :not_found` | Round 4, the whole message: the absorbed member named `ViewCounts`, its structure beside it |
-| F25.31 | `type Stock = map<string, int> \| :not_found` declared, a CSV row returned | Round 5: the pair sits inside a named type this pass sees resolved; the advice names the holder and shows no declaration, rather than a rewrite nobody checked |
-| F25.32 | a module with its own `record Name` | the placeholders move aside to `NewName`, `NewName1`, `NewName2` |
-| F25.33 | a declaration the paste-back refuses | reported as a compiler defect: *"refused (absorbed_member), which is a compiler defect."* No program is known to reach it; fault injection at the descriptor |
+| F25.31 | `type Stock = map<string, int> \| :not_found` declared, a CSV row returned; and `type Posted = map<string, binary> \| :missing` with the parsed counts returned | Round 5: the pair sits inside a named type this pass sees resolved, first member or second; the advice names the holder and shows no declaration, rather than a rewrite nobody checked |
+| F25.32 | a module with its own `record Name`, and one that also has `NewName` | the placeholders move aside to `NewName`, `NewName1`, `NewName2`, and again to `NewNewName` |
+| F25.33 | a declaration the paste-back refuses, and a member the line cannot write | reported as a compiler defect: *"checking the one this compiler would write failed (absorbed_member), which is a compiler defect."* No program is known to reach either; fault injection through the test-only exports and at the descriptor |
+| F25.34 | the pair in the other order: the text map declared, the numeric one returned, bare and inside `result` | the name takes the place of the member written first, and inside `result` keeps it: `Name`, and `result<Name, atom>` |
 
 **F25.3 was measured before it was designed.** Two offending clauses produce two diagnostics; if
 each carried its own correction the compiler would print two contradictory pasteable lines, and
@@ -841,3 +854,11 @@ Rounds 4 and 5 added probes 11 and 12 and six stubs, and changed probe 6's marke
 - **no-expansion** — the name kept and its structure dropped, which is Elm's choice. Probe 12.
 - **resolved-absorbed** — `1144ca9` on the dashboard whose site may be unknown. Probe 12's
   second branch.
+
+The review added three stubs, so that each of probe 6's new conditions and probe 12's second
+branch is seen to fail alone:
+
+- **no-return** — the records and the named union, with no return type that uses them. Probe 6.
+- **tags-beside** — the records, and R5's tuple shape kept beside them. Probe 6.
+- **no-expansion-absorbed** — the absorbed member named as written, and what it is dropped.
+  Probe 12.

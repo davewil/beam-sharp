@@ -427,14 +427,15 @@ an_unparseable_correction_is_not_printed_test() ->
 
 %% F25.17 — the declarations the advice prints, with their placeholder names,
 %% compile as printed once each clause builds its value as its record. The
-%% advice is only right if following it compiles. (R5 showed a tagged tuple
-%% shape here until Round 5 replaced it with records.)
+%% advice is only right if following it compiles, so the declarations and the
+%% return are taken from what the compiler printed, not typed out here. (R5
+%% showed a tagged tuple shape here until Round 5 replaced it with records.)
 the_record_advice_compiles_as_printed_test() ->
-    Src = "module M22\n"
-          "record Name1 { Value: map<string, int> }\n"
-          "record Name2 { Value: map<string, binary> }\n"
-          "type Name = Name1 | Name2\n"
-          "public Name Pick(int n)\n"
+    #{indiscriminable := #{declarations := Decls, returns := Returns}} =
+        term_of("M22a", pick_src("M22a", "map<string, int>")),
+    Src = "module M22\n" ++
+          lists:append([D ++ "\n" || D <- Decls]) ++
+          "public " ++ Returns ++ " Pick(int n)\n"
           "Pick(1) -> Name1{ Value = Ints() }\n"
           "Pick(n) -> Name2{ Value = Rest() }\n"
           "private map<string, int> Ints()\n"
@@ -746,11 +747,45 @@ a_pair_inside_a_named_type_says_why_no_declaration_is_shown_test() ->
        "  so if both are meant, give each a record of its own and name the pair.\n"
        "  No declaration is shown: `map<string, int>` is inside `Stock`,\n"
        "  and this line does not rewrite a named type.\n",
-       message_body(cli("Inventory", Src))).
+       message_body(cli("Inventory", Src))),
+    %% The other member of the pair inside the named type: a form's fields as
+    %% posted, or :missing, where one clause returns the parsed counts.
+    Posted = cli("Submissions",
+                 "module Submissions\n"
+                 "type Posted = map<string, binary> | :missing\n"
+                 "public Posted Fields(bool parsed, Posted raw, map<string, int> counts)\n"
+                 "Fields(false, raw, counts) -> raw\n"
+                 "Fields(true, raw, counts)  -> counts\n"),
+    ?assert(string:find(Posted, "  No declaration is shown: `map<string, binary>` is inside "
+                                "`Posted`,\n") =/= nomatch).
+
+%% F25.34 — the pair in the other order: the declared map is the text one and
+%% the clause returns the numeric one. The name still takes the place of the
+%% member written first, and inside a `result` it still keeps the `result`.
+the_named_type_takes_the_place_written_first_test() ->
+    Echo = cli("FormEcho",
+               "module FormEcho\n"
+               "public map<string, binary> CartFields(bool signed_in,\n"
+               "    map<string, int> session_cart, map<string, binary> form_fields)\n"
+               "CartFields(false, session_cart, form_fields) -> form_fields\n"
+               "CartFields(true, session_cart, form_fields)  -> session_cart\n"),
+    ?assert(string:find(Echo, "    record Name1 { Value: map<string, binary> }\n"
+                              "    record Name2 { Value: map<string, int> }\n") =/= nomatch),
+    ?assert(string:find(Echo, returns("Name")) =/= nomatch),
+    Result = cli("FormResult",
+                 "module FormResult\n"
+                 "public result<map<string, binary>, atom> CartFields(bool signed_in,\n"
+                 "    map<string, int> session_cart, result<map<string, binary>, atom> form_fields)\n"
+                 "CartFields(false, session_cart, form_fields) -> form_fields\n"
+                 "CartFields(true, session_cart, form_fields)  -> session_cart\n"),
+    ?assert(string:find(Result, "    record Name1 { Value: map<string, binary> }\n"
+                                "    record Name2 { Value: map<string, int> }\n") =/= nomatch),
+    ?assert(string:find(Result, returns("result<Name, atom>")) =/= nomatch).
 
 %% F25.32 — a placeholder the author's module already uses. `Name` is a
 %% person's name in an accounts module, so the advice's placeholders move
-%% aside rather than printing a second `Name` the compiler would refuse.
+%% aside rather than printing a second `Name`, which the compiler would take
+%% in silence in place of the author's (ENG-352).
 a_placeholder_the_module_already_uses_moves_aside_test() ->
     Src = "module People\n"
           "record Name { First: binary, Last: binary }\n" ++
@@ -760,24 +795,42 @@ a_placeholder_the_module_already_uses_moves_aside_test() ->
     ?assert(string:find(Out, "    record NewName1 { Value: map<string, int> }\n"
                              "    record NewName2 { Value: map<string, binary> }\n"
                              "    type NewName = NewName1 | NewName2\n") =/= nomatch),
-    ?assert(string:find(Out, returns("NewName")) =/= nomatch).
+    ?assert(string:find(Out, returns("NewName")) =/= nomatch),
+    %% And again, when the module also uses the first way aside.
+    Twice = cli("People2", "module People2\n"
+                           "record Name { First: binary, Last: binary }\n"
+                           "type NewName = Name | :anonymous\n" ++
+                           tl(lists:dropwhile(fun(C) -> C =/= $\n end,
+                                              pick_src("People2", "map<string, int>")))),
+    ?assert(string:find(Twice, "    type NewNewName = NewNewName1 | NewNewName2\n") =/= nomatch).
 
 %% F25.33 — a declaration the check refuses, which no program is known to
 %% reach: the construction is meant to be accepted, so a refusal is a fault in
 %% the compiler and is named as one (R2's rule, applied to the declarations).
-%% Fault injection at the descriptor, as F25.20's consumer half is.
+%% Both halves are fault injection, as F25.20's are. The producer half hands
+%% the paste-back a record the declaration check refuses, and a member the
+%% line cannot write; the consumer half is the descriptor and its prose.
 a_refused_declaration_is_reported_as_a_defect_test() ->
+    ?assertEqual({check_failed, indiscriminable_union},
+                 bs_check:declarations_pasted(
+                   ["record Name1 { Value: map<string, int> | map<string, binary> }",
+                    "record Name2 { Value: int }",
+                    "type Name = Name1 | Name2"],
+                   "public Name Pick(int n)", #{})),
+    ?assertEqual({no_records, {check_failed, unwritable}},
+                 bs_check:declared_records(no_function, {t_map, []}, {t_builtin, int},
+                                           {top, 1, 2}, [{t_map, []}, {t_builtin, int}], #{})),
     D = bs_diag:descriptor("m.bs", {error, 3, 'Pick',
                                     {return_not_declared,
                                      bs_types:atom_lit(oops),
                                      {"int", {refused,
-                                              {"map<string, int>", bs_types:int()},
-                                              {"map<string, binary>", bs_types:int()},
+                                              {"int", bs_types:int()},
+                                              {"atom", bs_types:atom_top()},
                                               {no_records, {check_failed, absorbed_member}}}}}}),
     ?assertMatch(#{indiscriminable := #{no_declarations := #{refused_by := absorbed_member}}}, D),
     Prose = unicode:characters_to_list(bs_diag:format(D#{line => 3, column => 1})),
-    ?assert(string:find(Prose, "  No declaration is shown: the one this compiler would write was\n"
-                               "  refused (absorbed_member), which is a compiler defect.\n") =/= nomatch).
+    ?assert(string:find(Prose, "  No declaration is shown: checking the one this compiler would write\n"
+                               "  failed (absorbed_member), which is a compiler defect.\n") =/= nomatch).
 
 %% The diagnostic from its `error:`, without the path and position before it
 %% or the `rc:` line `run_cli/1` appends.

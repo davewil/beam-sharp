@@ -224,12 +224,19 @@ judge() {
     echo "         pastes the refused union by hand."
     sed 's/^/           /' <<<"$p6"
   elif ! grep -qF "$TAG" <<<"$p6" || ! grep -qF "$RECORD1" <<<"$p6" \
-       || ! grep -qF "$UNION" <<<"$p6" || ! grep -qF "$RETURNS6" <<<"$p6" \
-       || grep -qF '(:tag1' <<<"$p6"; then
+       || ! grep -qF "$UNION" <<<"$p6"; then
     # Round 5: the repair is records under a name, not tags the author writes.
     echo "probe 6: the refused widening does not offer records under a named type."
     echo "         David (Round 5): the readability is a named type, and the"
-    echo "         compiler handles the tag. a tuple tag is the author writing it."
+    echo "         compiler handles the tag."
+    sed 's/^/           /' <<<"$p6"
+  elif ! grep -qF "$RETURNS6" <<<"$p6"; then
+    echo "probe 6: the records are offered with no return type that uses them."
+    echo "         expected: $RETURNS6"
+    sed 's/^/           /' <<<"$p6"
+  elif grep -qF '(:tag1' <<<"$p6"; then
+    echo "probe 6: a tuple tag is still offered beside the records."
+    echo "         a tag in the advice is the author writing it."
     sed 's/^/           /' <<<"$p6"
   fi
 
@@ -335,7 +342,7 @@ judge() {
   if ! grep -qF "$REFUSED" <<<"$p11"; then
     echo "probe 11: the checkout with a result return reported no refused widening."
     sed 's/^/           /' <<<"$p11"
-  elif ! grep -qF "$RETURNS11" <<<"$p11" || grep -qF '(:tag1' <<<"$p11"; then
+  elif ! grep -qF "$RETURNS11" <<<"$p11"; then
     echo "probe 11: the advice does not declare the whole return with \`result\` kept."
     echo "          expected: $RETURNS11"
     echo "          a pair shown alone reads as the whole return type, and an"
@@ -803,6 +810,23 @@ map<string, int> | map<string, binary> Pick(int)" > "$CTL/onesite/P7A.out"
   and return each value inside its tag." > "$CTL/tagshape/P6.out"
   expect tagshape 6
 
+  # --- NO-RETURN ---------------------------------------------------------
+  #
+  # The records and the named union, and no return type that uses them: the
+  # author is left to work out where the name goes.
+  seed_all "$CTL/noreturn"
+  sed '/declare the return as/d' <<<"$good_p6" > "$CTL/noreturn/P6.out"
+  expect noreturn 6
+
+  # --- TAGS-BESIDE -------------------------------------------------------
+  #
+  # The records added and the tuple shape kept beside them: a half-done
+  # migration from R5's advice to Round 5's.
+  seed_all "$CTL/tagsbeside"
+  printf '%s\n%s\n' "$good_p6" "    (:tag1, map<string, int>) | (:tag2, map<string, binary>)" \
+      > "$CTL/tagsbeside/P6.out"
+  expect tagsbeside 6
+
   # --- PAIR-ONLY ---------------------------------------------------------
   #
   # Also the compiler at 1144ca9, on the checkout with a `result` return: the
@@ -856,6 +880,16 @@ map<string, int> | map<string, binary> Pick(int)" > "$CTL/onesite/P7A.out"
       <<<"$good_p13" > "$CTL/resolvedabsorbed/P13.out"
   expect resolvedabsorbed 12
 
+  # --- NO-EXPANSION, ABSORBED --------------------------------------------
+  #
+  # The absorbed member named as written, and what it is dropped. The
+  # absorption holds because of the structure, so the name alone does not
+  # explain it.
+  seed_all "$CTL/noexpansionabsorbed"
+  sed '/(`ViewCounts` is `map<string, int>`)/d' <<<"$good_p13" \
+      > "$CTL/noexpansionabsorbed/P13.out"
+  expect noexpansionabsorbed 12
+
   # --- GOOD --------------------------------------------------------------
   seed_all "$CTL/good"
   good="$(judge "$CTL/good" || true)"
@@ -894,7 +928,7 @@ map<string, int> | map<string, binary> Pick(int)" > "$CTL/onesite/P7A.out"
   done
 
   if [ "$fail" -eq 0 ]; then
-    echo "self-test: caught twenty-two defects on different probes — the silent case,"
+    echo "self-test: caught twenty-five defects on different probes — the silent case,"
     echo "           the per-clause correction that prints two contradictory lines,"
     echo "           the mint tag in a pasteable signature, the absorbed member a"
     echo "           writable bottom introduces, a line the declaration check"
@@ -904,9 +938,10 @@ map<string, int> | map<string, binary> Pick(int)" > "$CTL/onesite/P7A.out"
     echo "           map dropped without a word, and an unspellable residual and"
     echo "           a record residual each withheld without a word, and a line that"
     echo "           does not lead with the clause or leads with it last, plain or"
-    echo "           withheld, a repair whose tags the author writes, a pair shown"
-    echo "           alone and a \`result\` expanded, and a declared name printed as"
-    echo "           its expansion, refused or absorbed, or without it —"
+    echo "           withheld, a repair whose tags the author writes, records with"
+    echo "           no return or with tags beside them, a pair shown alone and a"
+    echo "           \`result\` expanded, and a declared name printed as its"
+    echo "           expansion or without it, refused or absorbed —"
     echo "           passed each stub's other probes, passed the decided"
     echo "           behaviour, and refused a run that never compiled. the gate"
     echo "           discriminates and does not pass vacuously"

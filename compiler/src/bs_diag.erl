@@ -668,22 +668,20 @@ expansion_text(Indent, Expanded) ->
 %% none is shown, the sentence says why: a pair member inside a named type this
 %% line does not rewrite, or a declaration the check refused, which the
 %% construction is meant to rule out and so is a compiler defect.
-records_text(#{declarations := [D1, D2, D3], returns := Returns}) ->
+records_text(#{declarations := Decls, returns := Returns}) when is_list(Decls) ->
     {"  so if both are meant, give each a record of its own and name the pair:~n"
-     "    ~s~n"
-     "    ~s~n"
-     "    ~s~n"
+     ++ lists:flatten(["    ~s~n" || _ <- Decls]) ++
      "  declare the return as `~s`,~n"
      "  build each value as its record, and choose the names.~n",
-     [D1, D2, D3, Returns]};
+     Decls ++ [Returns]};
 records_text(#{no_declarations := #{member := M, inside := Holder}}) ->
     {"  so if both are meant, give each a record of its own and name the pair.~n"
      "  No declaration is shown: `~s` is inside `~s`,~n"
      "  and this line does not rewrite a named type.~n", [M, Holder]};
 records_text(#{no_declarations := #{refused_by := Reason}}) ->
     {"  so if both are meant, give each a record of its own and name the pair.~n"
-     "  No declaration is shown: the one this compiler would write was~n"
-     "  refused (~p), which is a compiler defect.~n", [Reason]}.
+     "  No declaration is shown: checking the one this compiler would write~n"
+     "  failed (~p), which is a compiler defect.~n", [Reason]}.
 
 %%% ---------------------------------------------------------------------------
 %%% `not` in prefix position
