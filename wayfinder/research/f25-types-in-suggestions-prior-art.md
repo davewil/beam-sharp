@@ -47,14 +47,15 @@ synonyms in the Expected/Actual lines while its headline names the mismatching e
 alias name, never its expansion, with a structural hint only when the alias names a record. Gleam
 and rustc print the expansion (measured).
 
-**What the prior art shows for B#.** B#'s `(:tag1, map<string, int>) | (:tag2, map<string,
-binary>)` is part of a return type, printed on its own line in the slot where program 3 prints a
-whole signature. No compiler surveyed does that. What they do instead: print the whole resulting
+**What the prior art shows for B#.** At `ed0f246`, B#'s `(:tag1, map<string, int>) | (:tag2,
+map<string, binary>)` is part of a return type, printed on its own line in the slot where program
+3 prints a whole signature. No compiler surveyed does that. What they do instead: print the whole resulting
 type (TypeScript's codefixes), print the whole type with placeholders for the unchanged parts
 (rustc's `_`), or name the constructor and print no type (rustc's and Gleam's wrap hints). For
 program 4, the two compilers that show both never put the expansion in place of the author's name:
 the name stays where the declared type is quoted, and the structure comes in a separate headline
-clause or line. Which of these B# takes is David's decision.
+clause or line. Which of these B# takes is David's decision. (He took the named type, as records,
+in F25's Round 5; built at `f78b28b`.)
 
 ---
 
