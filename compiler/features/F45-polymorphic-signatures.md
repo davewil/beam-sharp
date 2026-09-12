@@ -91,20 +91,29 @@ containment: the call is accepted either way, but the arm's body must be contain
 to `FetchError` from the tuple's second component, and the declared return is rewritten with
 both. `Ids` solves the same signature to `int` two lines down.
 
-The four refusals, each read from `bsc` rather than written from memory:
+The four refusals, each as `bsc` printed it on 2026-09-12 at the final SHA (the programs are
+one-module scratch files; `Pick` is `public T Pick<T>(T a, T b) / Pick(a, _) -> a`):
 
 ```
 $ … public int Both(int n) / Both(n) -> Pick(n, :a)
-error: Both returns outside its signature …
-  int | :a Both(int n)
+Pick/Pick.bs:5:1: error: Both returns a value its signature does not declare
+  not covered by the declared return type:
+    :a
+  If `int` is what you meant, fix the clause, not the signature.
+  Otherwise, the signature its clauses justify:
+    public int | :a Both(int n)
 $ … public term Bad(int n) / Bad(n) -> Prepend(n, n)
-error: argument 2 of Prepend is not accepted …
-$ … public T Pick<T>(T a, T b) / Pick(1, _) -> 1
-error: Pick inspects a value whose type is the variable `T`
+Rows/Rows.bs:6:11: error: Bad hands Prepend an argument it does not accept
+  argument 2 is not covered by Prepend's declared type:
+    int
+  the clause to add here:
+    Bad(n) -> ...
+$ … public T Pick<T>(T a, T b) / Pick(1, _) -> 1 / Pick(_, b) -> b
+Bare/Bare.bs:3:1: error: Pick inspects a value whose type is the variable `T`
   the pattern in argument 1 tests a runtime shape, and `T` has no shape until a caller chooses one
   hint: a bare type variable admits one clause, so bind it — or take a union parameter instead of a type variable to dispatch on shape
-$ … public list<T> Empty<T>()
-error: Empty's type variable `T` appears in no parameter
+$ … public list<T> Empty<T>() / Empty() -> []
+Empty/Empty.bs:2:16: error: Empty's type variable `T` appears in no parameter
   instantiation is matching: a caller's arguments choose `T`, and a variable only in the return type has nothing to be matched against
   hint: write the type the function actually returns, or take a parameter whose type mentions `T`
 ```
@@ -203,7 +212,8 @@ tests' shape — has no `polys` and nothing is polymorphic there.
 `Map<T, U>` block stays `not-yet` at the arrow, which is ENG-365's; `TOUR.md` §9 shows
 `Prepend` from the corpus and the appendix gains the row; the *Decided but not built* table's
 row moves from the signature to the arrow; F6's table row is amended; `generics_tests.erl`'s
-header no longer says §(c) is a cut; the compiler README's table names `examples/Shop/Rows/`.
+header no longer says §(c) is a cut. The compiler README's *was called "out"* table is not
+touched: it lists the seven things the old README wrongly called out, and this was never one.
 
 ## Four things the build found
 
