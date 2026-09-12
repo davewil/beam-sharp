@@ -259,6 +259,7 @@ Twice(xs) -> List.Map(xs, Double)          // arity from the arrow `List.Map` ex
 Twice(xs) -> List.Map(xs, Double/1)        // arity written
 Pick()    -> Double                        // `fn(int) -> int Pick()` declares it: 1
 Later()   -> var f = Double                // nothing fixes it: refused
+             f(3)
 ```
 
 The bare spelling reads its arity at an obligation site with an expected type — call argument,
@@ -277,7 +278,11 @@ position is a value; `xs |> Sum()` is the spelling.
 ### What round 2 holds, once Q1 is answered
 
 - A lambda's parameters: patterns (a clause head — 33's site 5 irrefutability, `subtract` against
-  the domain, the residual as the refusal) or binders only; one clause or many.
+  the domain, the residual as the refusal) or binders only; one clause or many. **The grammar has
+  already answered the parsing half**: `'(' patterns ')' '=>' expr` measured **21 reduce/reduce**
+  conflicts, because a pattern list cannot share the parenthesis with the tuple expression. A
+  pattern-shaped lambda is parsed as an `expr_list` and lowered to patterns afterwards — Erlang's
+  own parser does exactly this for a `fun` head — or it takes the keyword.
 - What a lambda closes over, and 34's *bindings do not shadow* at its parameters.
 - Whether an arrow prints in a corrected signature (F25) and in `pattern_parts` (F29).
 - ENG-321's function-taking entries: whether the inliner substitutes a lambda's body or calls the
