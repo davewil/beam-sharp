@@ -186,14 +186,27 @@ module.exports = grammar({
       $.atom,
       $.generic_type,
       $.builtin_type,
+      $.qualified_type,
       $.type_identifier,
       seq('(', commaSep1($.type_expression), ')'),
       seq('{', commaSep1($.field_declaration), '}'),
     ),
 
     generic_type: $ => seq(
-      field('name', choice($.builtin_type, $.type_identifier)),
+      field('name', choice($.builtin_type, $.qualified_type, $.type_identifier)),
       '<', commaSep1($.type_expression), '>',
+    ),
+
+    // `Orders.Order`, `Shop.Orders.Order`, `Orders.Box<int>` — a producer's
+    // record or alias named through its module, in type position (ticket 73,
+    // F44). The same shape as `qualified_call` and it rides the same declared
+    // conflict on `module_path`: at `Shop.Orders.Order` the parser cannot know
+    // until the token after `Order` whether that segment is the type name or
+    // one more step of the path, so both readings are explored.
+    qualified_type: $ => seq(
+      field('module', $.module_path),
+      '.',
+      field('name', $.type_identifier),
     ),
 
     // Lowercase is the builtin/prelude namespace; PascalCase is a user type.

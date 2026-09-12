@@ -212,7 +212,7 @@ green. Nothing was asking a document whether it agreed with the compiler. Now
 |---|---|---|
 | records | F3, 2026-08-14 (ticket 26 resolved) | `examples/Shop` |
 | angle-bracket syntax | F6, 2026-08-14 (ticket 28 resolved) | `examples/Parcel` |
-| modules and imports | F11 and F15, 2026-08-17 | `examples/Shop/Reports/` |
+| modules and imports | F11 and F15, 2026-08-17; type names cross `using` since F44, 2026-09-12 | `examples/Shop/Reports/`, `examples/Shop/Billing/` |
 | FFI | F19 and F23 | `examples/Interop`, `examples/Foreign` |
 | OTP behaviours | F10, 2026-08-15 | `examples/Counter` |
 | refinements | F2, 2026-08-16 | `examples/Wire` |

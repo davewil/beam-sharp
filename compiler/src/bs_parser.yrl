@@ -204,6 +204,20 @@ type_prim -> '{' field_decls '}' : {t_map, '$2'}.
 type_prim -> lident '<' type_list '>' : {t_generic, value('$1'), '$3'}.
 type_prim -> uident '<' type_list '>' : {t_generic, value('$1'), '$3'}.
 
+%% `Orders.Order`, `Shop.Orders.Order`, `Orders.Box<int>` — a producer's record
+%% or alias named through the module that declares it, in ticket 41 §5's
+%% spelling for a function (ticket 73, F44). The node is the SAME `t_ref` the
+%% bare name produces, carrying the dotted atom: the type environment holds
+%% every reachable module's declarations under `'Mod.Name'`, so no walker over
+%% type nodes has a new kind to learn, and a qualified name prints back as it
+%% was written. Shares `modpath` with the qualified call, and for the same
+%% reason: left-recursive, so at `Shop.Orders.Order` with `<` or a binder
+%% ahead yecc shifts and the last segment is the type name. Measured conflict-
+%% free before and after with `yecc:file/2` `{report, true}` (0 and 0).
+type_prim -> modpath '.' uident : {t_ref, modatom('$1' ++ [value('$3')])}.
+type_prim -> modpath '.' uident '<' type_list '>' :
+    {t_generic, modatom('$1' ++ [value('$3')]), '$5'}.
+
 type_list -> type_expr               : ['$1'].
 type_list -> type_expr ',' type_list : ['$1' | '$3'].
 

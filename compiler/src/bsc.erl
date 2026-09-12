@@ -23,6 +23,7 @@
 %% The corpus gates and `bs_api` classify directories and parse files through
 %% these same functions rather than through copies of their own: a
 %% classification rule with two implementations has two answers (F15, F17).
+-export([type_world/2]).
 -export([module_dirs/1, dir_kind/1, expected_module/2, parse_path/1,
          module_dir_of/1]).
 %% `status/2` returns one invocation's exit status instead of halting, which
@@ -225,19 +226,68 @@ build([{Dir, Sources, Mod} | Rest], Opts, World, Acc) ->
     case check_and_emit(Dir, Sources, Opts, World) of
         {ok, Beam} ->
             Decls = decls(Sources),
-            World1 = World#{Mod => #{exports => bs_check:exports_of(Decls),
+            World1 = World#{Mod => #{exports => bs_check:exports_of(Decls, World),
                                      %% Carried BESIDE the exports, not
                                      %% subtracted from them, so a dependent's
                                      %% refusal can say `private` rather than
                                      %% `unknown` (F12).
                                      private => bs_check:private_of(Decls),
-                                     behaviours => [B || {behaviour, _, B} <- Decls]}},
+                                     behaviours => [B || {behaviour, _, B} <- Decls],
+                                     %% The module's `record` and `type`
+                                     %% names, resolved, for a dependent to
+                                     %% name in type position (ticket 73,
+                                     %% F44).
+                                     types => bs_check:types_of(Decls, Mod, World)}},
             build(Rest, Opts, World1, [{Dir, Beam} | Acc]);
         Error ->
             Error
     end.
 
 decls(Sources) -> lists:append([D || {_, D} <- Sources]).
+
+%% The type names every module reachable from `Dir` declares, keyed by
+%% module, for a declaration pass that builds nothing (`bsc --api`, F44).
+%% A dependent's signature may name a producer's record (ticket 73), and the
+%% query must resolve it the way a compile does — by reading the producer's
+%% declarations, in dependency order, so a producer that itself imports a
+%% name has that name in hand.
+%%
+%% Lenient throughout, because this is a query and not a build (23 §10): a
+%% `using` naming a module that exists nowhere is skipped, a cycle empties
+%% the world, and a dependency whose declarations do not resolve is left out
+%% so the subject is answered with what can be read. The subject itself is
+%% never in the world; `bs_api` resolves it against the result.
+type_world(Dir, Root) ->
+    Index = source_index([Dir], Root),
+    case parse_all([Dir]) of
+        {ok, Given} ->
+            Subjects = [M || {_, _, M} <- Given],
+            case close_over(Given, Index, Subjects) of
+                {ok, Units} ->
+                    case order(Units) of
+                        {ok, Ordered} -> types_world(Ordered, Subjects);
+                        {error, _}    -> #{}
+                    end;
+                {error, _} -> #{}
+            end;
+        {error, _} -> #{}
+    end.
+
+types_world(Ordered, Subjects) ->
+    lists:foldl(
+      fun({_, Sources, M}, World) ->
+              case lists:member(M, Subjects) of
+                  true  -> World;
+                  false ->
+                      Decls = decls(Sources),
+                      try World#{M => #{exports => #{}, private => #{},
+                                        behaviours => [],
+                                        types => bs_check:types_of(Decls, M, World)}}
+                      catch
+                          error:_ -> World
+                      end
+              end
+      end, #{}, Ordered).
 
 %% The given module directories, plus every module they reach through
 %% `using`. A dependency not named on the command line is found in the source

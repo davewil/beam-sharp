@@ -406,6 +406,28 @@ built(Path, {at, Loc, Reason}) ->
     end;
 built(Path, {unknown_type, N}) ->
     #{tag => unknown_type, severity => error, file => Path, type => N};
+%% The same refusal, told by `bs_check:hinted/2` which reachable modules
+%% declare the name (ticket 73, F44). The tag does not change: the defect is
+%% the same, the message knows more.
+built(Path, {unknown_type, N, Mods}) ->
+    #{tag => unknown_type, severity => error, file => Path, type => N,
+      suppliers => Mods};
+%% `Orders.Receipt` where `Orders` is reachable and declares no `Receipt`.
+built(Path, {unknown_type_in_module, Mod, N}) ->
+    #{tag => unknown_type_in_module, severity => error, file => Path,
+      module => Mod, type => N};
+%% `Orders.Order` where no `using` reaches `Orders`: the qualified call's
+%% refusal (41 §2), in type position.
+built(Path, {type_module_not_imported, Mod, N}) ->
+    #{tag => type_module_not_imported, severity => error, file => Path,
+      module => Mod, type => N};
+%% Two imports supply one type name and the use did not qualify it (ticket
+%% 73, 41 §2). `heads` carries the spellings that would, as `ambiguous_call`
+%% carries its callees.
+built(Path, {ambiguous_type, N, Mods}) ->
+    #{tag => ambiguous_type, severity => error, file => Path, type => N,
+      candidates => Mods,
+      heads => [lists:flatten(io_lib:format("~s.~s", [M, N])) || M <- Mods]};
 %% A type prefix in a pattern names something that is not a record (F22).
 built(Path, {not_a_record, Line, N}) ->
     #{tag => not_a_record, severity => error, file => Path, line => Line,
@@ -1244,10 +1266,36 @@ message(#{tag := unknown_behaviour, file := P, behaviour := B}) ->
      "  the compiler knows `GenServer`, `Supervisor`, `Application`,~n"
      "  `GenStatem` and `GenEvent`.~n",
      [P, B]};
+%% A reachable module declares the name: the fix is a `using` line or the
+%% qualified spelling, both named, rather than a declaration the author would
+%% be writing twice (ticket 73, F44).
+message(#{tag := unknown_type, type := N, suppliers := Mods} = D) ->
+    {placed(D) ++ "error: no type named ~s~n"
+     "  it is declared elsewhere; bring it in, or name where it lives:~n"
+     "~s",
+     placed_args(D) ++
+         [N, [io_lib:format("    `using ~s`, or write `~s.~s`~n", [M, M, N])
+              || M <- Mods]]};
 message(#{tag := unknown_type, type := N} = D) ->
     {placed(D) ++ "error: no type named ~s~n"
      "  declare it with `type ~s = ...` or `record ~s { ... }`.~n",
      placed_args(D) ++ [N, N, N]};
+message(#{tag := unknown_type_in_module, module := Mod, type := N} = D) ->
+    {placed(D) ++ "error: ~s declares no type named ~s~n"
+     "  a qualified type is spelled as the module that declares it spells~n"
+     "  it: a `record` or `type` line in ~s.~n",
+     placed_args(D) ++ [Mod, N, Mod]};
+message(#{tag := type_module_not_imported, module := Mod, type := N} = D) ->
+    {placed(D) ++ "error: ~s.~s names ~s, which is never imported~n"
+     "  add `using ~s` — a file's `using` lines are its dependency list,~n"
+     "  and a type that skips them makes that list wrong.~n",
+     placed_args(D) ++ [Mod, N, Mod, Mod]};
+message(#{tag := ambiguous_type, type := N, candidates := Mods} = D) ->
+    {placed(D) ++ "error: ~s is ambiguous — ~p imports declare it~n"
+     "  name one of these instead:~n"
+     "~s",
+     placed_args(D) ++
+         [N, length(Mods), [io_lib:format("    ~s.~s~n", [M, N]) || M <- Mods]]};
 %% The fix is named because the alternative always exists: a property pattern
 %% constrains fields without naming a type at all (F22).
 message(#{tag := not_a_record, file := P, line := L, column := C, type := N}) ->

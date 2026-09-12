@@ -555,16 +555,19 @@ a_residual_with_no_surface_form_is_unspellable_not_a_defect_test() ->
     ?assert(string:find(Out, ?UNSPELLABLE) =/= nomatch).
 
 %% F25.23 — a recursive type from another module. It prints by the name its
-%% author gave it, `Tree`, and a type's name does not cross a module boundary,
-%% so the line does not resolve in `M30`. Unspellable here, not a defect. The
-%% same type declared in the module itself prints a line (the control).
-a_residual_named_in_another_module_is_unspellable_not_a_defect_test() ->
+%% author gave it, `Tree`. Until F44 a type's name did not cross a module
+%% boundary, so the line could not resolve in `M30` and was withheld as
+%% unspellable, not a defect. Ticket 73 made `Tree` cross with `using M29`,
+%% so the line now prints exactly as it does when the type is declared in the
+%% module itself (the control), and it compiles pasted back — the promise the
+%% heading makes, kept across a module boundary.
+a_residual_named_in_another_module_spells_the_imported_name_test() ->
     Root = bs_test_support:fixture_root(),
-    _ = bs_test_support:place(Root, "M29.bs",
-                              "module M29\n"
-                              "type Tree = :leaf | (:node, Tree, Tree)\n"
-                              "public Tree Leaf()\n"
-                              "Leaf() -> :leaf\n"),
+    Tree = "module M29\n"
+           "type Tree = :leaf | (:node, Tree, Tree)\n"
+           "public Tree Leaf()\n"
+           "Leaf() -> :leaf\n",
+    _ = bs_test_support:place(Root, "M29.bs", Tree),
     Grow = bs_test_support:place(Root, "M30.bs",
                                  "module M30\n"
                                  "using M29\n"
@@ -573,7 +576,19 @@ a_residual_named_in_another_module_is_unspellable_not_a_defect_test() ->
     Out = run_cli("--src-root " ++ Root ++ " -o " ++ Root ++ " "
                   ++ filename:dirname(Grow)),
     ?assertEqual(nomatch, string:find(Out, "compiler defect")),
-    ?assert(string:find(Out, ?UNSPELLABLE) =/= nomatch),
+    ?assertEqual(nomatch, string:find(Out, ?UNSPELLABLE)),
+    Line = "public int | :leaf | (:node, Tree, Tree) Get(int n)",
+    ?assert(string:find(Out, Line) =/= nomatch),
+    Root2 = bs_test_support:fixture_root(),
+    _ = bs_test_support:place(Root2, "M29.bs", Tree),
+    Pasted = bs_test_support:place(Root2, "M30.bs",
+                                   "module M30\n"
+                                   "using M29\n"
+                                   ++ Line ++ "\n"
+                                   "Get(n) -> Leaf()\n"),
+    Again = run_cli("--src-root " ++ Root2 ++ " -o " ++ Root2 ++ " "
+                    ++ filename:dirname(Pasted)),
+    ?assert(string:find(Again, "rc:0") =/= nomatch),
     Local = cli("M31", "module M31\n"
                        "type Tree = :leaf | (:node, Tree, Tree)\n"
                        "public int Get(int n)\n"

@@ -157,6 +157,20 @@ imports*, so the bare name has one meaning rather than two. A qualified call to 
 `using` is an error too — a file's `using` lines are its dependency list, and a call that skipped
 them would make that list wrong. **shipped**
 
+**A producer's `record` and `type` names cross `using` the same two ways its functions do.**
+`using Orders` brings `Order` in unqualified, so `Due(Order o)` is a signature in the dependent;
+`Orders.Order o` is legal wherever the module is reachable, and `Shop.Orders.Order` after
+`using Shop` follows the namespace tier. The type is the producer's — the tag was minted where
+the record was declared, and a `type` alias crosses by the same mechanism because it introduces
+no new type — so the dependent's boundary guard refuses an `Invoice` handed to `Due` exactly as
+the producer's would. Resolution is *local, then imports*: a name two imports supply is refused
+at the use and the qualified spelling disambiguates, a local declaration wins over an import,
+and a qualified name whose module has no `using` line is refused in the words the qualified
+call is. An unknown type that some reachable module declares is refused naming the `using`
+that would supply it. `bsc --api` prints the resolved type, never the name. Executed as
+`compiler/examples/Shop/Billing/`, which the example gate runs. **shipped**
+<!-- decided by ticket 73; built by F44 -->
+
 A function name may carry **more than one arity** — the BEAM's own identity rule, unmodified — so
 `Fib/1` and `Fib/2` are two functions. Two signatures of the *same* arity are one function declared
 twice, and an error. **shipped**
@@ -997,7 +1011,13 @@ Area(Rect r)   -> r.W * r.H
 ```
 
 That is a protocol without a protocol construct. What it does **not** give you is *open* extension —
-another module cannot add `Triangle` without editing `Shape`.
+another module cannot add `Triangle` without editing `Shape`. It can **name** `Shape` after
+`using Shapes` and hand a `Shape` back to `Area` (§1, F44); what it cannot do is widen it —
+`type Wide = Shapes.Shape | Triangle` is legal to declare and is refused where it meets `Area`,
+whose clause set is closed at every call that reaches it.
+<!-- ticket 16, as amended 2026-09-11; measured by ENG-261 -->
+
+
 
 Construction names the type; the dot projects; `with` updates. **There are no local
 bindings** — see §1 — so each of these is a function, and that is what the language looks
@@ -2306,6 +2326,7 @@ the parser accepts back exactly what the printer emits. **shipped**
 | parametric types — `result<T, E>`, `option<T>`, `type Pair<T>`, nesting | **shipped** |
 | polymorphic function signatures (`Map<T, U>`) | not started — needs an arrow type |
 | modules, imports, `using` — both tiers, and arity overloading | **shipped** — F11 |
+| a producer's `record` and `type` names in a dependent's type position — `Order o` after `using Orders`, and `Orders.Order o` | **shipped** — F44 |
 | a module is a **directory**, `index.bs`, and the two path checks | **shipped** — F15 |
 | `public` / `private` on every signature | **shipped** — F12 |
 | `ValidateAs<T>` — the generated deep validator, and its pathed error | **shipped** — F18 |

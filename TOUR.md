@@ -894,7 +894,52 @@ against. There is no file that could go stale.
 
 Resolution happens at **check** time and emits a remote call; nothing is resolved at run time.
 
-<!-- ticket 13 §3, ticket 40, ticket 41, F11, F12, F15 -->
+### Naming another module's types
+
+A producer's `record` and `type` names cross `using` the same two ways its functions do.
+`examples/Shop/Billing/Billing.bs` names `Shop`'s `Order` and its `Doc` union without
+declaring either, and without spelling the minted tag by hand:
+
+```
+module Shop.Billing
+
+using Shop
+
+public int Due(Order o)
+Due(o) -> o.Total
+
+public int Owed(Shop.Order o)
+Owed(o) -> o.Total
+
+public atom Label(Doc d)
+Label(d) -> Shop.Which(d)
+```
+
+```
+$ bsc --src-root examples examples/Shop/Billing Due "{ Kind = :'Shop.Order', Id = 1, Total = 7 }"
+7
+$ bsc --src-root examples examples/Shop/Billing Owed "{ Kind = :'Shop.Order', Id = 1, Total = 7 }"
+7
+$ bsc --src-root examples examples/Shop/Billing Label "{ Kind = :'Shop.Invoice', Id = 2, Total = 9 }"
+:invoice
+```
+
+- **Unqualified**, through the module tier — `Order` after `using Shop`, exactly as `Sum` was.
+- **Qualified** — `Shop.Order`, legal wherever the module is reachable, and the spelling that
+  disambiguates when two imports supply one name.
+- **The type is the producer's.** The tag was minted where the record was declared, so `Due`
+  refuses an `Invoice` at the door exactly as a function inside `Shop` would. A `type` alias
+  crosses by the same mechanism: `Doc` is `Shop`'s union of its two records, and `Label` hands
+  one back to `Shop.Which`.
+
+Resolution is *local, then imports*, so a local `record Order` wins over an imported one. A
+name two imports supply is refused where it is used, naming both qualified spellings. And an
+unknown type that some reachable module declares is refused naming the `using` that would
+bring it in. What a dependent still cannot do is **widen** a producer's union and hand it
+back — `type Wide = Shape | Triangle` is legal to declare and refused where it meets
+`Shapes.Name`, whose clause set is closed at every call.
+
+<!-- ticket 13 §3, ticket 40, ticket 41, ticket 73, F11, F12, F15, F44 -->
 
 ---
 
@@ -1455,8 +1500,8 @@ The language's **name** is also open. `beam-sharp` is a working title.
 
 ## Appendix: the construct index
 
-**The corpus gate names 54 capabilities and fails by name when one has no example to look
-at.** All 54 are below, in the gate's own wording, so the two lists can be diffed by machine
+**The corpus gate names 55 capabilities and fails by name when one has no example to look
+at.** All 55 are below, in the gate's own wording, so the two lists can be diffed by machine
 — `compiler/bin/check-tour.sh` does exactly that, and this table is red the day the compiler
 grows a capability the tour has not met.
 
@@ -1497,6 +1542,7 @@ grows a capability the tour has not met.
 | a dotted module path | `examples/Shop/Collections/Ints/Ints.bs` | 11 |
 | a native module import | `examples/Shop/Reports/Totals.bs` | 11 |
 | a qualified call | `examples/Shop/Reports/Totals.bs` | 11 |
+| a qualified type name in a signature | `examples/Shop/Billing/Billing.bs` | 11 |
 | a pipe into a call | `examples/Pipeline/pipeline.bs` | 12 |
 | a valve into a call | `examples/Pipeline/pipeline.bs` | 12 |
 | a foreign module declaration | `examples/Interop/interop.bs` | 13 |

@@ -77,6 +77,13 @@ demonstrated_surface() ->
      %% construct.
      {"a native module import",                  "^using [A-Z]"},
      {"a qualified call",                        "[A-Z][A-Za-z]*\\.[A-Z][A-Za-z]*\\("},
+     %% F44 / ticket 73. A qualified name in TYPE position is a different
+     %% sentence from the qualified call one row up: that one reaches a
+     %% function, this one names a producer's record or alias as a parameter's
+     %% type. Anchored on the signature's visibility marker and the binder
+     %% after the name, so a qualified call in a body cannot satisfy it.
+     {"a qualified type name in a signature",
+      "^(public|private) .*\\([A-Z][A-Za-z]*\\.[A-Z][A-Za-z]* [a-z]"},
      {"a foreign module declaration",            "^using :"},
      {"a foreign call",                          ":[a-z]+\\.[a-z_]+\\("},
      %% F19 / ticket 15 §4. The wrapper itself has NO surface — that is its whole

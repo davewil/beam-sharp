@@ -1,11 +1,14 @@
 %%% bs_api — `bsc --api <Module>`: what operations a module offers, in
 %%% beam-sharp's own types, with nothing built (F17, ticket 23 §10).
 %%%
-%%% Two rules shape it. A signature's types resolve from the module's own
-%%% declarations with no dependency read (`bs_check:exports_of/1`), which is
-%%% what makes "no build" true. And a type NAME does not cross the module
-%%% boundary — only the resolved type reaches a dependent — so the answer
-%%% prints resolved types, never the author's private type names.
+%%% Two rules shape it. A signature's types resolve from declarations alone —
+%%% the module's own, and since ticket 73 (F44) those of the modules its
+%%% `using` lines reach, read in dependency order by `bsc:type_world/2` and
+%%% resolved by `bs_check:exports_of/2` — with nothing compiled, which is
+%%% what makes "no build" true. And the answer prints RESOLVED types, never
+%%% a type's name: a name is the author's spelling, a dependent may now
+%%% spell the same type as `Order`, `Orders.Order` or a hand-written map
+%%% with the tag, and the resolved form is the one every caller can rely on.
 %%%
 %%% The refusal line is "is every declaration true", not "does it compile".
 %%% An inexhaustive body still answers, because the API is what the signatures
@@ -68,7 +71,9 @@ module(Dir, Root) ->
     Decls = lists:append([D || {_, D} <- Sources]),
     Module = declared_module(Decls),
     ok = check_path(Dir, Root, Module, Decls, Sources),
-    Exports = resolved(Decls, Sources),
+    %% What the module's `using` lines reach, read and never built (F44).
+    World = bsc:type_world(Dir, Root),
+    Exports = resolved(Decls, Sources, World),
     publish(bs_diag:channel(), Dir, Module,
             [B || {behaviour, _, B} <- Decls],
             operations(Sources, Exports, Module)).
@@ -147,13 +152,16 @@ primary([])           -> "".
 %%% What the checker already computed
 %%% ---------------------------------------------------------------------------
 
-%% This module reports and never re-derives: `exports_of/1` resolves every
+%% This module reports and never re-derives: `exports_of/2` resolves every
 %% public signature, and this adds only what the export table cannot carry,
-%% the declaring file and line and the parameter names.
-resolved(Decls, Sources) ->
-    try bs_check:exports_of(Decls)
+%% the declaring file and line and the parameter names. A refusal goes
+%% through `hinted/2` as a compile's does, so an unknown type that a
+%% reachable module declares is refused in the same words here (F44).
+resolved(Decls, Sources, World) ->
+    try bs_check:exports_of(Decls, World)
     catch
-        error:Reason when is_tuple(Reason) -> fail(primary(Sources), Reason)
+        error:Reason when is_tuple(Reason) ->
+            fail(primary(Sources), bs_check:hinted(Reason, World))
     end.
 
 %% Sorted by name then arity, not source order: a module is a directory (F15),

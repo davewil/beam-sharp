@@ -1,0 +1,30 @@
+// F44 — a record name crosses `using`, in both of the spellings ticket 41 gave
+// functions (ticket 73). `Shop` declares `record Order`, `record Invoice` and
+// `type Doc = Order | Invoice`; this module names all three without declaring
+// any of them, and without spelling the minted tag by hand.
+//
+//   bsc --src-root examples examples/Shop/Billing Due "{ Kind = :'Shop.Order', Id = 1, Total = 7 }"
+//
+module Shop.Billing
+
+// Module tier (41 §2): `Shop` is a module, so its record and type names come in
+// UNQUALIFIED, exactly as its function names do. The type is Shop's — the tag
+// is `:'Shop.Order'`, minted where the record was declared — so an `Invoice`
+// handed to `Due` is refused at the boundary as it would be inside `Shop`.
+using Shop
+
+public int Due(Order o)
+Due(o) -> o.Total
+
+// The qualified spelling (41 §5) names the same type. It is what disambiguates
+// when two imports supply one name, and it is legal wherever the module is
+// reachable through a `using` line.
+public int Owed(Shop.Order o)
+Owed(o) -> o.Total
+
+// A `type` alias crosses by the same mechanism: `Doc` is Shop's union of its
+// two records. Naming it here is legal; what stays refused is widening it and
+// handing the wider type back to `Shop.Which`, whose clause set is closed at
+// every call that reaches it (ticket 16, ENG-261).
+public atom Label(Doc d)
+Label(d) -> Shop.Which(d)

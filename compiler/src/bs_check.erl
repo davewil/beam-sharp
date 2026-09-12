@@ -29,7 +29,7 @@
 %% What a checked module offers and withholds from its dependents. `bsc`
 %% builds a dependent's import environment from these, out of modules it has
 %% already checked in the same invocation (ticket 41 §3).
--export([exports_of/1, private_of/1]).
+-export([exports_of/1, exports_of/2, private_of/1, types_of/3, hinted/2]).
 %% The emitter resolves surface types and mints record tags through these,
 %% so the qualified-name rule has one site (ticket 26 §1).
 -export([resolve/2, qualified/2, record_fields/1]).
@@ -71,7 +71,8 @@ check(Decls) -> check(Decls, #{}).
 
 %% `World` maps a module atom to what checking it produced:
 %%   #{'Shop.Orders' => #{exports => #{{Name, Arity} => {Params, Ret}},
-%%                        behaviours => [atom()]}}
+%%                        behaviours => [atom()],
+%%                        types => #{Name => ResolvedType}}}     (F44)
 %% `bsc` threads it from modules checked in this invocation; nothing is read
 %% from disk, so nothing can go stale (ticket 41 §3).
 check(Decls, World) ->
@@ -99,11 +100,23 @@ check(Decls, World) ->
 check_dir(Sources, World) -> check_dir(Sources, World, undefined).
 
 check_dir(Sources, World, Expect) ->
+    %% A type name nobody declared may be one a reachable module declares,
+    %% and only the world knows: the refusal is rewritten on the way out to
+    %% name the `using` that would supply it (F44).
+    with_type_hints(World, fun() -> check_dir1(Sources, World, Expect) end).
+
+check_dir1(Sources, World, Expect) ->
     Decls = lists:append([D || {_, D} <- Sources]),
     one_module_per_directory(Sources, Expect),
     [no_function_in_index(P, D) || {P, D} <- Sources],
     compiler_known_redeclared(Decls),
-    Env = type_env(Decls),
+    %% The imports come before the type environment now, because a producer's
+    %% `record` and `type` names cross `using` (ticket 73, F44) and a local
+    %% declaration may name one: `type Wide = Orders.Doc | Triangle` resolves
+    %% against what `using Orders` brought in.
+    Self = module_name(Decls),
+    Imports = import_env(Decls, Self, World, strict),
+    Env = type_env(Decls, Imports, World),
     %% A declared type whose failure channel collapses is refused here, by
     %% the same env every other declaration refusal uses, before any later
     %% diagnostic can describe the collapsed type (F31, ticket 15 §1).
@@ -124,7 +137,6 @@ check_dir(Sources, World, Expect) ->
     private_callback(Decls),
     PerFile = [{P, collect(D)} || {P, D} <- Sources],
     Fns = lists:append([F || {_, F} <- PerFile]),
-    Imports = import_env(Decls, Module, World),
     %% A foreign declaration belongs to the directory's declaration pass,
     %% which `foreign_rets_decidable/2` above has already refused the
     %% undecidable of (F19, F40); every return reaching here has members.
@@ -314,8 +326,18 @@ private_callback(Decls) ->
 %% declares, keyed by name and arity. `private_of/1` carries the rest, so a
 %% qualified call to a private function is refused as private rather than
 %% reported as unknown (F12).
-exports_of(Decls) ->
-    Env = type_env(Decls),
+exports_of(Decls) -> exports_of(Decls, #{}).
+
+%% With a world: a signature may name a type a `using` line brought in
+%% (ticket 73, F44), so the declaration pass resolves against the same
+%% imported entries a compile does. Lenient about the imports themselves — a
+%% `using` naming a module the world does not hold is skipped, not refused —
+%% because `bsc --api` reads declarations and builds nothing (23 §10), and a
+%% dependency that exists nowhere is a compile's refusal, not a query's.
+exports_of(Decls, World) ->
+    Self = module_name(Decls),
+    Imports = import_env(Decls, Self, World, lenient),
+    Env = type_env(Decls, Imports, World),
     %% `bsc --api` runs the declaration pass on its own and must surface the
     %% refusals a compile does, a collapsed failure channel included, or it
     %% would print `atom Go(int)` for a function declared over
@@ -327,6 +349,122 @@ exports_of(Decls) ->
     foreign_rets_decidable(Decls, Env),
     maps:from_list([{{N, length(Ps)}, at_loc(L, fun() -> sig(Ps, R, Env) end)}
                     || {signature, L, N, R, Ps, V} <- Decls, V =:= public]).
+
+%% What a checked module offers its dependents in TYPE position: every
+%% `record`, `type` and refinement it declares, resolved, keyed by the bare
+%% name (ticket 73, F44). A dependent's environment holds each under
+%% `'Mod.Name'`, and under `Name` where a module-tier `using` brought it in.
+%%
+%% A ground entry is the resolved algebra map and crosses as it is: a tag was
+%% minted where the record was declared, so `Order` in the dependent IS
+%% `'Orders.Order'` and nothing about the type moves. A parametric entry is
+%% still a template, and its body may name the producer's other declarations
+%% by their bare names — `type Box<T> = (T, Meta)` — which mean nothing in a
+%% dependent that did not import them. Those references are rewritten to the
+%% qualified spelling, which every dependent's environment holds for every
+%% reachable module; the template's own parameters are left alone.
+types_of(Decls, Self, World) ->
+    Imports = import_env(Decls, Self, World, lenient),
+    Env = type_env(Decls, Imports, World),
+    Own = declared_type_names(Decls),
+    %% What the producer itself imported unqualified, so a template naming one
+    %% of THOSE is rewritten to its home module too.
+    Theirs = [{N, qualified(M, N)}
+              || {N, [M]} <- maps:to_list(maps:get(types, Imports))],
+    Rename = maps:from_list(Theirs ++ [{N, qualified(Self, N)} || N <- Own]),
+    maps:from_list([{N, crossing(maps:get(N, Env), Rename)} || N <- Own]).
+
+declared_type_names(Decls) ->
+    [N || {type_alias, _, N, _, _} <- Decls]
+        ++ [N || {type_refined, _, N, _, _} <- Decls]
+        ++ [N || {record_decl, _, N, _} <- Decls].
+
+crossing({parametric, Params, Body}, Rename) ->
+    {parametric, Params, qualify_refs(Body, maps:without(Params, Rename))};
+crossing(T, _Rename) ->
+    T.
+
+qualify_refs({t_ref, N} = T, Rename) ->
+    case maps:find(N, Rename) of
+        {ok, Q} -> {t_ref, Q};
+        error   -> T
+    end;
+qualify_refs({t_generic, N, Args}, Rename) ->
+    {t_generic, maps:get(N, Rename, N), [qualify_refs(A, Rename) || A <- Args]};
+qualify_refs({t_union, Ms}, Rename) ->
+    {t_union, [qualify_refs(M, Rename) || M <- Ms]};
+qualify_refs({t_tuple, Cs}, Rename) ->
+    {t_tuple, [qualify_refs(C, Rename) || C <- Cs]};
+qualify_refs({t_map, Fields}, Rename) ->
+    {t_map, [{field, F, qualify_refs(T, Rename)} || {field, F, T} <- Fields]};
+qualify_refs({t_refined, L, Base, Pred}, Rename) ->
+    {t_refined, L, qualify_refs(Base, Rename), Pred};
+qualify_refs(T, _Rename) ->
+    T.
+
+%%% ---------------------------------------------------------------------------
+%%% The unknown-type refusal, told what the world knows (F44)
+%%%
+%%% `resolve/3` raises `{unknown_type, N}` with nothing but the name: it holds
+%%% one module's environment and cannot say where else the name is declared.
+%%% The world can. On the way out of the directory check every raise is
+%%% passed through `hinted/2`, which rewrites the three shapes ticket 73 made
+%%% possible and leaves everything else exactly as raised:
+%%%
+%%%   a bare name some reachable module declares     -> names the `using`
+%%%   `Mod.Name` where Mod is reachable and has no Name -> "declares no type"
+%%%   `Mod.Name` where Mod is not reachable at all      -> "never imported",
+%%%                                                       the qualified call's
+%%%                                                       words (41 §2)
+%%%
+%%% Wrappers are walked, not stripped: `at_loc/2` has already attached the
+%%% declaration's position and `{in_file, …}` its file, and both survive.
+%%% ---------------------------------------------------------------------------
+
+with_type_hints(World, Fun) ->
+    try Fun()
+    catch
+        error:Reason:S when is_tuple(Reason) ->
+            erlang:raise(error, hinted(Reason, World), S)
+    end.
+
+hinted({at, Loc, R}, World)     -> {at, Loc, hinted(R, World)};
+hinted({in_file, P, R}, World)  -> {in_file, P, hinted(R, World)};
+hinted({unknown_type, N}, World) ->
+    case split_qualified(N) of
+        {Mod, Name} ->
+            case reachable(Mod, World) of
+                []      -> {type_module_not_imported, Mod, Name};
+                [Full]  -> {unknown_type_in_module, Full, Name};
+                [_ | _] -> {unknown_type, N}
+            end;
+        bare ->
+            case suppliers(N, World) of
+                []   -> {unknown_type, N};
+                Mods -> {unknown_type, N, Mods}
+            end
+    end;
+hinted(R, _World) -> R.
+
+%% `'Shop.Orders.Order'` -> `{'Shop.Orders', 'Order'}`; a bare name -> `bare`.
+split_qualified(N) ->
+    case string:split(atom_to_list(N), ".", trailing) of
+        [Mod, Name] -> {list_to_atom(Mod), list_to_atom(Name)};
+        _           -> bare
+    end.
+
+%% The modules a prefix could mean: itself, or a module whose full path ends
+%% in it (a namespace short, 41 §5). Nothing is imported here; the answer is
+%% for the message only.
+reachable(Mod, World) ->
+    Suffix = "." ++ atom_to_list(Mod),
+    lists:sort([M || M <- maps:keys(World),
+                     M =:= Mod orelse
+                         lists:suffix(Suffix, atom_to_list(M))]).
+
+suppliers(N, World) ->
+    lists:sort([M || {M, Entry} <- maps:to_list(World),
+                     maps:is_key(N, maps:get(types, Entry, #{}))]).
 
 %% The names a dependent may not call, carried so the refusal can say why.
 %% No signature: nothing outside the module may use one.
@@ -342,17 +480,27 @@ private_of(Decls) ->
 %%   mods : Short         -> Module      namespace tier — `using Shop`
 %%   qual : {q, Mod, Name, Arity} -> Sig  every reachable qualified callee
 %%
+%%   types: Name          -> [Module]    module tier   — a `record` or `type`
+%%                                       the import brought in unqualified
+%%                                       (ticket 73, F44); the environment
+%%                                       entries are built from this table by
+%%                                       `imported_types/2`
+%%
 %% Which table an import populates is decided by what the path resolves to,
 %% not by its spelling, so one grammar rule covers both tiers.
-import_env(Decls, Self, World) ->
+%%
+%% `strict` refuses a `using` the world cannot resolve; `lenient` skips it.
+%% A compile is strict (41 §1). The declaration pass behind `bsc --api` is
+%% lenient, because it builds nothing and reads only what is there (23 §10).
+import_env(Decls, Self, World, Mode) ->
     Imports = [{L, M} || {import, L, M} <- Decls],
     Known = maps:keys(World),
-    lists:foldl(fun({L, M}, Acc) -> add_import(L, M, Self, World, Known, Acc) end,
-                #{funs => #{}, mods => #{}, qual => qual_table(World),
+    lists:foldl(fun({L, M}, Acc) -> add_import(L, M, Self, World, Known, Mode, Acc) end,
+                #{funs => #{}, mods => #{}, types => #{}, qual => qual_table(World),
                   privates => private_table(World), imported => []},
                 Imports).
 
-add_import(L, M, Self, World, Known, Acc) ->
+add_import(L, M, Self, World, Known, Mode, Acc) ->
     case maps:is_key(M, World) of
         true  -> add_module_import(M, World, Acc);
         false ->
@@ -360,9 +508,10 @@ add_import(L, M, Self, World, Known, Acc) ->
             %% namespace: compile-time name resolution only, nothing
             %% emitted (ticket 41 §5). Self is excluded because a module
             %% inside the namespace it imports is not its own dependency.
-            case children(M, Known) -- [Self] of
-                []       -> erlang:error({unknown_module, M, L});
-                Children -> add_namespace_import(M, Children, Acc)
+            case {children(M, Known) -- [Self], Mode} of
+                {[], strict}  -> erlang:error({unknown_module, M, L});
+                {[], lenient} -> Acc;
+                {Children, _} -> add_namespace_import(M, Children, Acc)
             end
     end.
 
@@ -372,7 +521,8 @@ add_import(L, M, Self, World, Known, Acc) ->
 %% top-level module unable to reach one of its own exported names by any
 %% route (ENG-270).
 add_module_import(M, World, Acc) ->
-    Exports = maps:get(exports, maps:get(M, World)),
+    Entry = maps:get(M, World),
+    Exports = maps:get(exports, Entry),
     Funs0 = maps:get(funs, Acc),
     Funs = maps:fold(fun(K, _Sig, F) ->
                              %% A collision is recorded, not raised: it is an
@@ -380,7 +530,15 @@ add_module_import(M, World, Acc) ->
                              %% no error at all (ticket 41 §2).
                              maps:update_with(K, fun(Ms) -> [M | Ms] end, [M], F)
                      end, Funs0, Exports),
-    Acc#{funs := Funs, imported := [M | maps:get(imported, Acc)]}.
+    %% The same rule for the module's type names: recorded per source, and a
+    %% name two imports supply is refused where it is used, not here (F44).
+    %% `types` is absent from a world built by a caller that never checked
+    %% the module — `check/2`'s tests hand in exports alone — and absent
+    %% means the module offers no names, which is what those callers mean.
+    Types = maps:fold(fun(N, _T, T0) ->
+                              maps:update_with(N, fun(Ms) -> [M | Ms] end, [M], T0)
+                      end, maps:get(types, Acc), maps:get(types, Entry, #{})),
+    Acc#{funs := Funs, types := Types, imported := [M | maps:get(imported, Acc)]}.
 
 add_namespace_import(Prefix, Children, Acc) ->
     Mods0 = maps:get(mods, Acc),
@@ -673,6 +831,7 @@ at_loc(Loc, Fun) ->
 %% decide whether it carries its own position, and adding a name here is that
 %% decision taken deliberately.
 positionless(unknown_type)    -> true;
+positionless(ambiguous_type)  -> true;
 positionless(unknown_builtin) -> true;
 positionless(generic_arity)   -> true;
 positionless(needs_type_args) -> true;
@@ -949,7 +1108,13 @@ disjoint_buckets(A, B) ->
 %%% Resolving surface types into the algebra
 %%% ---------------------------------------------------------------------------
 
-type_env(Decls) ->
+%% The environment is built with imports in hand (ticket 73, F44): it gains, beneath the module's
+%% own declarations, every reachable module's type names under `'Mod.Name'`,
+%% the namespace tier's short spelling under `'Short.Name'`, and the names a
+%% module-tier `using` brought in under their bare spelling. Resolution order
+%% is 41 §2's — local, then imports — by merge order: a local declaration
+%% sits on top of an imported name and the bare name has one meaning.
+type_env(Decls, Imports, World) ->
     Mod = module_name(Decls),
     Aliases = [{N, alias(Params, T)} || {type_alias, _, N, Params, T} <- Decls],
     %% A refinement enters the environment as a surface node, as an alias
@@ -959,7 +1124,9 @@ type_env(Decls) ->
                || {type_refined, L, N, Base, Pred} <- Decls],
     Records = [{N, record_surface(Mod, L, N, Fs)}
                || {record_decl, L, N, Fs} <- Decls],
-    Env = maps:merge(prelude(), maps:from_list(Aliases ++ Refined ++ Records)),
+    Local = maps:from_list(Aliases ++ Refined ++ Records),
+    Imported = imported_types(Imports, World),
+    Env = maps:merge(maps:merge(prelude(), Imported), Local),
     %% The environment is heterogeneous: a ground entry is resolved once,
     %% here; a parametric one has free variables and stays a surface
     %% template, resolved per use site after substitution (F6).
@@ -977,6 +1144,11 @@ type_env(Decls) ->
              [{N, L} || {type_alias, L, N, _, _} <- Decls]
              ++ [{N, L} || {type_refined, L, N, _, _} <- Decls]
              ++ [{N, L} || {record_decl, L, N, _} <- Decls]),
+    %% The imported entries were resolved where they were declared and are
+    %% carried into the result as they are; only the standard environment's
+    %% and the module's own entries are resolved here, against an `Env` that
+    %% holds the imported ones so a local body may name them.
+    Own = lists:sort(maps:keys(prelude()) ++ maps:keys(Local)),
     lists:foldl(
       fun(N, Acc) ->
               case maps:get(N, Env) of
@@ -988,10 +1160,50 @@ type_env(Decls) ->
                                            bs_types:mu(N, resolve(T, Env, [N]))
                                        end)}
               end
-      end, #{}, lists:sort(maps:keys(Env))).
+      end, Imported, Own).
 
 alias([], Body)     -> Body;
 alias(Params, Body) -> {parametric, Params, Body}.
+
+%% The environment entries a module's imports supply (ticket 73, F44), from
+%% the import tables and the world's `types`:
+%%
+%%   'Mod.Name'   for every type of every reachable module — the qualified
+%%                spelling is legal wherever the module is (41 §5)
+%%   'Short.Name' for a namespace-tier import, `Short` standing for the
+%%                module under it; a short two namespaces hold is recorded
+%%                as ambiguous, refused at the use like the call form
+%%   Name         for a module-tier import; a name two imports supply is
+%%                recorded as ambiguous and refused at the use (41 §2)
+%%
+%% The full spelling wins over a short one for the same key, so a top-level
+%% module `Orders` is never hidden by `using Shop` reaching `Shop.Orders`.
+imported_types(no_imports, _World) ->
+    #{};
+imported_types(Imports, World) ->
+    Full = maps:fold(fun(M, Entry, Acc) ->
+                             maps:fold(fun(N, T, In) ->
+                                               In#{qualified(M, N) => T}
+                                       end, Acc, maps:get(types, Entry, #{}))
+                     end, #{}, World),
+    Short = maps:fold(fun(S, Ms, Acc) -> short_types(S, Ms, World, Acc) end,
+                      #{}, maps:get(mods, Imports)),
+    Bare = maps:map(fun(N, [M]) -> world_type(M, N, World);
+                       (_N, Ms) -> {ambiguous, lists:sort(Ms)}
+                    end, maps:get(types, Imports)),
+    maps:merge(maps:merge(Short, Full), Bare).
+
+short_types(S, [M], World, Acc) ->
+    maps:fold(fun(N, T, In) -> In#{qualified(S, N) => T} end, Acc,
+              maps:get(types, maps:get(M, World), #{}));
+short_types(S, Ms, World, Acc) ->
+    Names = lists:usort(lists:append([maps:keys(maps:get(types, maps:get(M, World), #{}))
+                                      || M <- Ms])),
+    lists:foldl(fun(N, In) -> In#{qualified(S, N) => {ambiguous, lists:sort(Ms)}} end,
+                Acc, Names).
+
+world_type(M, N, World) ->
+    maps:get(N, maps:get(types, maps:get(M, World))).
 
 %% The standard environment is held here, spelled in the language's own alias
 %% mechanism, because there is no import system for a file of it to arrive
@@ -1209,6 +1421,12 @@ resolve({t_ref, N}, Env, Seen) ->
                 undefined -> erlang:error({unknown_type, N});
                 {parametric, Params, _} ->
                     erlang:error({needs_type_args, N, length(Params)});
+                %% Two imports supply this name; the qualified spelling
+                %% disambiguates (ticket 73, 41 §2). Recorded at the import
+                %% and refused here, at the use, so an unused collision is
+                %% no error at all.
+                {ambiguous, Mods} ->
+                    erlang:error({ambiguous_type, N, Mods});
                 T when is_map(T) -> T;
                 Surface -> bs_types:mu(N, resolve(Surface, Env, [N | Seen]))
             end
@@ -1263,6 +1481,8 @@ resolve({t_generic, N, Args}, Env, Seen) ->
             end;
         {parametric, Params, _} ->
             erlang:error({generic_arity, N, length(Params), length(Args)});
+        {ambiguous, Mods} ->
+            erlang:error({ambiguous_type, N, Mods});
         _Ground ->
             erlang:error({not_parametric, N})
     end;
@@ -3325,7 +3545,17 @@ member_label(MTy) ->
 %% whose `Kind` carries two atoms, so it never matches the single-tag shape,
 %% and a name is recorded exactly when `Name x` is a pattern that matches it.
 record_names(Env) ->
-    maps:from_list(
+    %% An imported record is in the environment under its bare name and its
+    %% qualified one (F44); both mint the same tag, and the head offered is
+    %% the shorter spelling when the file has one, since that is what the
+    %% author wrote `using` to be able to write.
+    lists:foldl(
+      fun({Tag, Name}, Acc) ->
+              case maps:find(Tag, Acc) of
+                  {ok, Held} when length(Held) =< length(Name) -> Acc;
+                  _ -> Acc#{Tag => Name}
+              end
+      end, #{},
       [{Tag, atom_to_list(Name)}
        || Name <- maps:keys(Env),
           Tag <- [minted_tag(Name, Env)],
