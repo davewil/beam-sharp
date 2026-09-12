@@ -1,8 +1,10 @@
 # 37 — "Instantiation is matching, not solving": what is the algorithm?
 
 Type: grilling
-Status: **claimed 2026-09-12 — ordering round 1 open**, see
-[Round 1](#round-1--the-ordering-call-2026-09-12) — [ENG-204](https://linear.app/davewil/issue/ENG-204).
+Status: **resolved 2026-09-12** — [ENG-204](https://linear.app/davewil/issue/ENG-204). The
+**ordering** half answered in two rounds, six questions, all David's: §(c) is sequenced as the
+first feature inside [ticket 75](75-a-function-as-a-value.md)'s increment, see
+[Round 1](#round-1--the-ordering-call-2026-09-12) and [Round 2](#round-2--what-follows-from-the-two-answers-2026-09-12).
 The **algorithm** half resolved 2026-08-28: three steps, measured by
 [`37a`](../prototypes/37a_instantiation_by_matching.escript) over the real algebra; see
 [Answer](#answer-2026-08-28). Raised 2026-08-14 from building
@@ -528,6 +530,11 @@ algorithm on 2026-08-28, the ordering today. What remains is build work, and it 
 with the gist, ENG-295 is blocked by the new ticket's Linear issue and its description re-scoped,
 and the new ticket is raised in both places, unclaimed.
 
+**Answered 2026-09-12 (David): all four as recommended.** Ticket 75 is
+[`75-a-function-as-a-value.md`](75-a-function-as-a-value.md) / ENG-364, three forms, unclaimed.
+ENG-295 carries the `option<T>` finding and is blocked by ENG-364. 25e's reversers are
+`List.Reverse`, finding 9 amended. This ticket is resolved.
+
 ## Notes
 
 HITL. **Not urgent, and that is the finding rather than an excuse**: the two things §(c) buys are a
@@ -595,7 +602,17 @@ here. The map's instruction is to check every time, because the rule has already
   `error: Reverse/2 is declared more than once` forces two invented names that describe nothing
   except which clone they are — a language-level workaround compounding per element type. Neither
   shape needs an arrow, so the split survives: one first-order group §(c) alone would serve, a
-  higher-order library still waiting. **Whether that earns §(c) now is David's call and is
-  deliberately not answered.** Probe:
+  higher-order library still waiting. **The ordering half resolved 2026-09-12, and the corpus
+  moved a third time before it did**: ticket 67 made `List` compiler-known and ENG-321 inlined
+  `List.Reverse` on 2026-09-03, so the `Reverse` row is moot, the library motivation 27 §(c) was
+  bought for is gone, and the corpus is back to **one shape** at no cost. Two rounds, six
+  questions, all David's: **the arrow type, the lambda and a named function in value position are
+  one ticket of their own — [75](issues/75-a-function-as-a-value.md) — not 27 §(c), which decides
+  a signature variable and nothing about an arrow; and §(c) is sequenced as the first feature
+  inside that increment**, ENG-295 blocked by it, not deferred to a corpus count. The
+  `option<T>`-rejects-nothing finding is carried by ENG-295, stated in its F-file's *Out of scope*,
+  a ticket only if building §(c) meets a program where it matters. Two corrections to the cost
+  above: *"no grammar change"* is false — `signature` has no `type_params`, one production is
+  owed — and `>>` is a non-issue, there being no such token. Probe:
   [`37a`](prototypes/37a_instantiation_by_matching.escript), six measurements, each with a control.
 ```

@@ -457,7 +457,7 @@ The frontier as first measured:
 | Exemplar | Stops at | Construct |
 |---|---|---|
 | 25a | `create_order.bs` | `#{ … }` — an anonymous map literal → [ticket 48](48-a-map-type-in-the-prelude.md) |
-| 25b | `encode.bs` | `(acc, c) => …` — a lambda; decided at ticket 27 §(c), unbuilt |
+| 25b | `encode.bs` | `(acc, c) => …` — a lambda; undecided → [ticket 75](75-a-function-as-a-value.md). *(Filed here as "decided at 27 §(c)" until 2026-09-12; 27 §(c) decides a signature variable, not an arrow.)* |
 | 25c | `consume.bs` | `Frame { … } f` — destructure-and-bind; `p_alias` has no surface |
 
 **And 25c's wall had already moved without anyone noticing.** F13 shipped binary patterns on

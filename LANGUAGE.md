@@ -1699,10 +1699,15 @@ list<U> Map<T, U>(list<T> xs, fn(T) -> U f)
 Instantiation is matching, not constraint solving — which is what keeps the cost sane, and why the
 three bullets above are load-bearing rather than preferences.
 
-**Why this half is not built yet, plainly.** `Map` above needs `fn(T) -> U` in a signature and a
-lambda to pass to it, and the language has neither — there is no arrow in the type algebra. And
-matching a variable that sits **inside a union** (`int Unwrap<T>(option<T> o)` asks for
-`int | :nothing` against `T | :nothing`) is a question about subtraction that nothing has decided.
+**Why this half is not built yet, plainly.** Not for want of an algorithm: instantiation is
+decided — solve **least** per occurrence, **join** across occurrences, then contain — and a
+variable that sits **inside a union** (`int Unwrap<T>(option<T> o)` asks for `int | :nothing`
+against `T | :nothing`) takes the argument minus every other member's extent, which is exact. A
+signature alone, `result<list<T>, E> Prepend<T, E>(T row, result<list<T>, E> rest)`, needs no arrow.
+It is **sequenced**: `Map` above needs `fn(T) -> U` in a signature and a lambda to pass to it, and
+the language has neither — there is no arrow in the type algebra. A function as a value is its own
+open question, and the polymorphic signature is the first feature inside that increment.
+<!-- ticket 37: algorithm 2026-08-28, ordering 2026-09-12; the function value is ticket 75 -->
 The first half needed neither.
 
 **User code never writes a type argument.** Only three compiler-known names take an explicit one:
@@ -2324,7 +2329,7 @@ the parser accepts back exactly what the printer emits. **shipped**
 | the UTF-8 entry check (`binary` → `string`) | not started — the sixth codegen obligation |
 | pipe and valve | **shipped** — F14 |
 | parametric types — `result<T, E>`, `option<T>`, `type Pair<T>`, nesting | **shipped** |
-| polymorphic function signatures (`Map<T, U>`) | not started — needs an arrow type |
+| polymorphic function signatures (`Prepend<T, E>`, `Map<T, U>`) | not started — instantiation decided; sequenced as the first feature inside the function-as-a-value increment |
 | modules, imports, `using` — both tiers, and arity overloading | **shipped** — F11 |
 | a producer's `record` and `type` names in a dependent's type position — `Order o` after `using Orders`, and `Orders.Order o` | **shipped** — F44 |
 | a module is a **directory**, `index.bs`, and the two path checks | **shipped** — F15 |

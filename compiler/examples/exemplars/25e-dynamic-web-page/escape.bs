@@ -28,7 +28,7 @@ private list<binary> Walk(binary s, list<binary> acc)
 // The base case. `<<>>` does not parse — `bin_segments` in the grammar is
 // one-or-more, so the empty binary has no production. `<<"">>` is the spelling,
 // via the string-literal segment, and it works. A wart, not a wall.
-Walk(<<"">>, acc)           -> ReverseParts(acc, [])
+Walk(<<"">>, acc)           -> List.Reverse(acc)
 Walk(<<0x26:8, rest>>, acc) -> Walk(rest, ["&amp;", ..acc])
 Walk(<<0x3C:8, rest>>, acc) -> Walk(rest, ["&lt;", ..acc])
 Walk(<<0x3E:8, rest>>, acc) -> Walk(rest, ["&gt;", ..acc])
@@ -43,14 +43,10 @@ Walk(<<c:8, rest>>, acc)    -> Walk(rest, [:binary.encode_unsigned(c), ..acc])
 // A trailing partial byte. `_` over a binary is always legal (ticket 30) and
 // absorbs silently — so this clause is where malformed input goes, and the
 // compiler will never ask for it.
-Walk(_, acc)                -> ReverseParts(acc, [])
+Walk(_, acc)                -> List.Reverse(acc)
 
-// NOT `Reverse`. `rows.bs` needs the identical function over `list<Iodata>`,
-// a module is ONE beam, and two signatures of the same arity are one function
-// declared twice — so the two monomorphic copies COLLIDE and the compiler
-// refuses the module. Finding 8; the names are invented to get around it.
-private list<binary> ReverseParts(list<binary> xs, list<binary> acc)
-
-ReverseParts([], acc)          -> acc
-ReverseParts([x, ..rest], acc) -> ReverseParts(rest, [x, ..acc])
+// `List.Reverse` is compiler-known and inlined here over `list<binary>` — no
+// `using`, no shipped beam (ticket 67, built 2026-09-03). Until then this file
+// hand-wrote a `ReverseParts` that could not share a name with `rows.bs`'s
+// copy, a module being one beam. Finding 9 records what that cost.
 

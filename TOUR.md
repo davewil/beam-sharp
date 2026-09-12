@@ -651,10 +651,12 @@ $ bsc --src-root examples examples/Parcel Width '(3, 11)'
 anything — `Span<int>` simply *is* `(int, int)`. Lowercase is the standard environment's
 namespace, so a user's alias is PascalCase like every other user type.
 
-What is **not** built is a polymorphic *function* signature — `Map<T, U>` needs an arrow type
+What is **not** built is a polymorphic *function* signature. Its instantiation is decided —
+solve least per occurrence, join across occurrences, then contain — and it is sequenced as the
+first feature inside the function-as-a-value increment, because `Map<T, U>` needs an arrow type
 and the language does not have one yet.
 
-<!-- ticket 10 §5, ticket 15, ticket 26 §4, ticket 27, F6 -->
+<!-- ticket 10 §5, ticket 15, ticket 26 §4, ticket 27, F6; ticket 37 ordering 2026-09-12, ticket 75 -->
 
 ---
 
@@ -1458,7 +1460,7 @@ produce.
 | | |
 |---|---|
 | the UTF-8 entry check, `binary` → `string` | the one direction chapter 10 has no spelling for |
-| polymorphic function signatures — `Map<T, U>` | needs an arrow type |
+| polymorphic function signatures — `Map<T, U>` | sequenced first inside the function-as-a-value increment |
 | the behaviour contract checked as a type | Dialyzer does it at the boundary today |
 | the operations that take a **function value** — `List.Map`, `List.Filter`, `List.Fold` | they need the arrow type the row above is waiting for |
 | `Map.Get`, and the `map<K, V>` type beside it | the name `Map` is reserved; its operations are not built |

@@ -167,7 +167,7 @@ private list<binary> Walk(binary s, list<binary> acc)
 // The base case. `<<>>` does not parse — `bin_segments` in the grammar is
 // one-or-more, so the empty binary has no production. `<<"">>` is the spelling,
 // via the string-literal segment, and it works. A wart, not a wall.
-Walk(<<"">>, acc)           -> ReverseParts(acc, [])
+Walk(<<"">>, acc)           -> List.Reverse(acc)
 Walk(<<0x26:8, rest>>, acc) -> Walk(rest, ["&amp;", ..acc])
 Walk(<<0x3C:8, rest>>, acc) -> Walk(rest, ["&lt;", ..acc])
 Walk(<<0x3E:8, rest>>, acc) -> Walk(rest, ["&gt;", ..acc])
@@ -182,16 +182,12 @@ Walk(<<c:8, rest>>, acc)    -> Walk(rest, [:binary.encode_unsigned(c), ..acc])
 // A trailing partial byte. `_` over a binary is always legal (ticket 30) and
 // absorbs silently — so this clause is where malformed input goes, and the
 // compiler will never ask for it.
-Walk(_, acc)                -> ReverseParts(acc, [])
+Walk(_, acc)                -> List.Reverse(acc)
 
-// NOT `Reverse`. `rows.bs` needs the identical function over `list<Iodata>`,
-// a module is ONE beam, and two signatures of the same arity are one function
-// declared twice — so the two monomorphic copies COLLIDE and the compiler
-// refuses the module. Finding 8; the names are invented to get around it.
-private list<binary> ReverseParts(list<binary> xs, list<binary> acc)
-
-ReverseParts([], acc)          -> acc
-ReverseParts([x, ..rest], acc) -> ReverseParts(rest, [x, ..acc])
+// `List.Reverse` is compiler-known and inlined here over `list<binary>` — no
+// `using`, no shipped beam (ticket 67, built 2026-09-03). Until then this file
+// hand-wrote a `ReverseParts` that could not share a name with `rows.bs`'s
+// copy, a module being one beam. Finding 9 records what that cost.
 ```
 
 **This compiles and runs today** — §`escape.bs` is the only file of the five that does, once
@@ -223,7 +219,7 @@ The repeated section, and the arithmetic every shop page does.
 ```csharp
 private Iodata Rows(list<OrderRow> orders, list<Iodata> acc)
 
-Rows([], acc)          -> ReverseRows(acc, [])
+Rows([], acc)          -> List.Reverse(acc)
 Rows([o, ..rest], acc) -> Rows(rest, [Row(o), ..acc])
 
 private Iodata Row(OrderRow o)
@@ -263,15 +259,15 @@ Status(:placed)    -> "placed"
 Status(:shipped)   -> "shipped"
 Status(:cancelled) -> "cancelled"
 
-// The same six tokens as `escape.bs`'s `ReverseParts`, with one word of the
-// signature changed — and a name invented purely so the two can coexist.
-private list<Iodata> ReverseRows(list<Iodata> xs, list<Iodata> acc)
-
-ReverseRows([], acc)          -> acc
-ReverseRows([x, ..rest], acc) -> ReverseRows(rest, [x, ..acc])
+// `Rows` reverses its accumulator with `List.Reverse`, inlined here over
+// `list<Iodata>` — the same operation `escape.bs` uses over `list<binary>`,
+// with no name invented to keep the two apart (ticket 67, built 2026-09-03).
 ```
 
-**The two `Reverse`s collide, and the module system makes that an error rather than duplication.**
+*(Amended 2026-09-12: the paragraph below is the measurement as it stood on 2026-08-26, kept as
+the record. Both helpers are `List.Reverse` now — see finding 9.)*
+
+**The two `Reverse`s collided, and the module system made that an error rather than duplication.**
 `escape.bs` wants one over `list<binary>`, this file wants one over `list<Iodata>`. A module is a
 directory that compiles to one beam, so the compiler refuses outright:
 
@@ -544,6 +540,14 @@ two names, `ReverseParts` and `ReverseRows`, that describe nothing except which 
 duplication; here duplication is not available, so the cost is paid in the *namespace*, and it
 compounds with every further type the helper is needed at. → **ticket 37**, whose polymorphic
 signature is the whole of the fix.
+
+**Moot since 2026-09-03, amended 2026-09-12.** [Ticket 67](../issues/67-stdlib-shape-as-a-principle.md)
+made `List` an operation set the compiler knows, inlined per site with that site's ground element
+type, and ENG-321 built `List.Reverse/1` the same evening — so both helpers are `List.Reverse(acc)`
+and the collision cannot arise. The sections above now write it that way; the measurement stands
+as what the language cost on 2026-08-26. Ticket 37's ordering half was answered against the
+corrected count on 2026-09-12: one corpus shape, 25d's `Prepend`, and §(c) sequenced as the first
+feature inside [ticket 75](../issues/75-a-function-as-a-value.md)'s increment.
 
 ### 10. The page is 100% FFI at its boundary
 

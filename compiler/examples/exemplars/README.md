@@ -87,7 +87,7 @@ mode is the optimistic one: it once marked four built capabilities `out`, which 
 | **Interval refinements** — `type Octet = int where ...` | 25b, 25c | **in** — F2, 2026-08-16 | 20 §5 |
 | **String literals** | 25a, 25c | **in** — F9, 2026-08-15 | 20 |
 | **Map literals** — `#{ error = "invalid" }` | 25a | out — the wall 25a stops on | **48** |
-| **Lambdas** — `(acc, c) => …` | 25b | out — the wall 25b stops on; decided, unbuilt | 27 §(c) |
+| **Lambdas** — `(acc, c) => …` | 25b | out — the wall 25b stops on; **undecided**: `=>` is reserved, a function as a value is not designed. Filed under 27 §(c) until 2026-09-12, which decides a signature variable and not an arrow | **75** |
 | **Destructure-and-bind** — `Frame { Type = :method } f` | 25c | out — the wall 25c stops on; `p_alias` has no surface | unasked |
 | **List patterns** — `[h, ..t]` | 25a | **in**, and see below — `["orders", id]` is *refused*, not unbuilt | 08, 28 |
 | **Imports / multi-file modules** | all three | **in** — F11 and F15, 2026-08-17; the directory half too | 40, 41 |
@@ -177,7 +177,7 @@ the language:
 | `Frame { Type = :method } f` (25c) | ~~unasked~~ — **asked and answered 2026-08-22**. A pattern may name its type and take a trailing binder; the emitter's `p_alias` gets a surface at last. The `=` here is separate dialect drift and becomes `:` | **55**, 26 §2 |
 | `-> { … }` block bodies (25b, 25c) | a braced block expression, measured as buildable but **not free** | 22 |
 | `0xCE` (25c) | hex integer literals, never decided anywhere | unasked |
-| `(acc, c) => …` (25b) | lambda — the `=>` spelling is *decided*, just unbuilt | 27 §(c), F-later |
+| `(acc, c) => …` (25b) | lambda — the `=>` spelling is *reserved*; a function as a value is undecided | **75** |
 
 **So "one dialect everywhere" is not a claim this repo can make yet**, and the honest version is
 narrower: every spelling that has a decided target now uses it, and the seven above are visible

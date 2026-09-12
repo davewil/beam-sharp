@@ -24,8 +24,20 @@
 # evidence here that is not self-reported.
 
 url       https://claude.ai/code/artifact/40f71cf4-d5d3-4b71-882c-ad73f630a03c
-sha256    24a6cb2e3181cdfc6a8f536081e39464034c29758e89d0bccc49829d6b62a5d8
-verified  2026-09-12 (for F44, a record or type name crosses `using`) — chapter 11 gained a
+sha256    df9863b38ef3aeb5e0653c94d84b74ae6742178ce7019981f82a02f9488d1ecc
+verified  2026-09-12 (for ticket 37's ordering answer, ENG-204) — chapter 9 said a polymorphic
+          function signature "needs an arrow type"; the signature alone never did, its
+          instantiation was decided on 2026-08-28, and David sequenced it on 2026-09-12 as the
+          first feature inside the function-as-a-value increment (ticket 75). The chapter's
+          closing sentence and the "Decided but not built" row both now say so. No quoted corpus
+          line, transcript or capability row changed, so only part 4 went red. Part 4 was red
+          against the old stamp before the republish (version 21), and the live page was read
+          back in full first and still carried the old sentence at chapter 9 and the old row in
+          the table, so it was confirmed stale rather than assumed, and the read showed a plain
+          render of TOUR.md with nothing saved into it independently. Published as version 22
+          on the first attempt — no duplicate refusal this time.
+
+          2026-09-12 (for F44, a record or type name crosses `using`) — chapter 11 gained a
           section quoting `examples/Shop/Billing/Billing.bs`, the corpus module ticket 73's
           program became, with three replayed transcripts; the appendix gained `a qualified
           type name in a signature` and its own count moved from 54 to 55, the row added

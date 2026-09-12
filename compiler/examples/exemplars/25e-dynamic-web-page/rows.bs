@@ -9,7 +9,7 @@
 
 private Iodata Rows(list<OrderRow> orders, list<Iodata> acc)
 
-Rows([], acc)          -> ReverseRows(acc, [])
+Rows([], acc)          -> List.Reverse(acc)
 Rows([o, ..rest], acc) -> Rows(rest, [Row(o), ..acc])
 
 private Iodata Row(OrderRow o)
@@ -49,10 +49,7 @@ Status(:placed)    -> "placed"
 Status(:shipped)   -> "shipped"
 Status(:cancelled) -> "cancelled"
 
-// The same six tokens as `escape.bs`'s `ReverseParts`, with one word of the
-// signature changed — and a name invented purely so the two can coexist.
-private list<Iodata> ReverseRows(list<Iodata> xs, list<Iodata> acc)
-
-ReverseRows([], acc)          -> acc
-ReverseRows([x, ..rest], acc) -> ReverseRows(rest, [x, ..acc])
+// `Rows` reverses its accumulator with `List.Reverse`, inlined here over
+// `list<Iodata>` — the same operation `escape.bs` uses over `list<binary>`,
+// with no name invented to keep the two apart (ticket 67, built 2026-09-03).
 
