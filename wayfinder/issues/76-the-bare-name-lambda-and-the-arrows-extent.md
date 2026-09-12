@@ -1,11 +1,12 @@
 # 76 — Two calls the F46 build took: where `n => e` may be written, and what a polymorphic callee's extent is once a parameter is an arrow
 
 Type: grilling
-Status: claimed 2026-09-13 — [ENG-367](https://linear.app/davewil/issue/ENG-367). Raised 2026-09-12 by
+Status: resolved 2026-09-13 — [ENG-367](https://linear.app/davewil/issue/ENG-367). Raised 2026-09-12 by
 the F46 build ([ENG-365](https://linear.app/davewil/issue/ENG-365), landed `cd79a57`) as a decision
 to confirm or overrule; grilled the same evening. Round 1's two questions were answered after
 midnight and the ticket resolved at `272d35e`; reopened the same hour for round 2, because the
-rule round 1 recorded for Q2 refuses function composition.
+rule round 1 recorded for Q2 refuses function composition, and resolved again on Q3. The build
+is [ENG-368](https://linear.app/davewil/issue/ENG-368).
 Blocked by: —
 
 ## Why this is raised now
@@ -204,6 +205,9 @@ under the substitution. Round 1's delta had the re-check and the wrong choice.
 four programs do what their author meant, and it is 37's *least* rule at every position 37
 measured.
 
+**Answered 2026-09-13 (David):** Q3 — **yes**, the third rule: *"if it's the only one under which
+all four programs do what the author meant, why would I want something else?"*
+
 ## Decisions entry
 
 <!-- This ticket's entry. Read whole, here; the map (ENG-165) carries one line. -->
@@ -230,8 +234,17 @@ measured.
   extent no arrow argument could fail the only check the compiler ran — `Map(xs, Inc/1)` with `xs
   : list<string>` compiled at `cd79a57` and crashed `function_clause`. The owed step: after
   `instantiate/2` solves the variables, each argument is checked against its instantiated
-  parameter; how a domain occurrence enters the solution is round 2's Q3, open. 37's phrase *every variable at `term`* reads *every variable at its extent — `term`
-  in a covariant position, `none` under an arrow's domain*. **Unbuilt, both**: the guard tier and
-  the re-check are F46 amendments, the failing tests first (`Incs` and `Lens` refused; the seven
-  programs of Q1's table), and *ENG-367's "confirming costs nothing" was false*.
+  parameter. **A variable is solved by its variance in the declared return** (round 2, Q3): it
+  collects lower bounds from covariant occurrences and upper bounds from occurrences under an
+  arrow's domain, takes the join of the lower bounds where the return is covariant in it or does
+  not mention it and the meet of the upper bounds where the return is contravariant in it, and a
+  lower bound escaping an upper one is a refusal — the choice local type inference makes by the
+  result type's variance, and 37's *least* at every position 37 measured. The rule round 1 had
+  recorded, *least from the covariant occurrences*, gives `Compose<A, B, C>(fn(A) -> B, fn(B) ->
+  C)` an uncallable `fn(none) -> C`; the join the compiler does today gives `Pick<T>` over a
+  `list<int>` with a predicate on `int | :free` an `option<int | :free>`; the return-variance rule
+  gets both, and `Incs` and `Lens` refused. 37's phrase *every variable at `term`* reads *every
+  variable at its extent — `term` in a covariant position, `none` under an arrow's domain*.
+  **Unbuilt, both** — [ENG-368](https://linear.app/davewil/issue/ENG-368), F46 amended twice,
+  the failing tests first — and *ENG-367's "confirming costs nothing" was false*.
 ```

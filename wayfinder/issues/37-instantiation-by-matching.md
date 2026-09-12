@@ -623,6 +623,11 @@ here. The map's instruction is to check every time, because the rule has already
 > -> U`'s shape is `fn(none) -> term`, ticket 11's top arrow. With that extent the equivalence
 > above no longer makes the arguments' check redundant: `fn(none) -> term` admits every unary
 > arrow, so once the variables are solved each argument is checked against its instantiated
-> parameter; which solution a variable takes when a domain occurrence and a covariant one pull
-> two ways is ticket 76's round 2. `Map(xs, Inc/1)` with `xs : list<string>` compiled at
-> `cd79a57` and crashed; it is refused once that step is built.
+> parameter, and **a variable is solved by its variance in the declared return**: the join of
+> its lower bounds (covariant occurrences) where the return is covariant in it or silent, the
+> meet of its upper bounds (occurrences under a domain) where the return is contravariant in it —
+> *least* unchanged at every position this ticket measured, and the only rule under which
+> `Compose<A, B, C>` returns a callable arrow and `Pick<T>` over a `list<int>` with a wider
+> predicate returns `option<int>`. `Map(xs, Inc/1)` with `xs : list<string>` compiled at
+> `cd79a57` and crashed; it is refused once that step is built —
+> [ENG-368](https://linear.app/davewil/issue/ENG-368).

@@ -340,7 +340,15 @@ the conflict count, now four. `check-examples.sh` and `editor/bin/check-corpus.s
 - **The bare-name lambda as a general expression, and the variance-aware extent** — both
   taken here as the build found them and raised as ENG-367 for David's confirmation. The
   first narrows ticket 75 Q2 by one position; the second amends ticket 37's measured rule at
-  the one position it did not measure.
+  the one position it did not measure. **Ruled 2026-09-13, ticket 76
+  (`wayfinder/issues/76-the-bare-name-lambda-and-the-arrows-extent.md`): the first is
+  reversed** — `n => e` is an expression everywhere and the switch arm's guard is parsed at the
+  tier below the lambda, C#'s own resolution of the same collision, measured in yecc at the
+  four intended shifts — **and the second is confirmed and found unsound alone**: with the top
+  arrow as the extent no arrow argument can fail `call/6`'s check, so `Map(xs, Inc/1)` over a
+  `list<string>` compiles at `cd79a57` and crashes; arguments are re-checked under a solution
+  chosen by each variable's variance in the declared return. Both unbuilt —
+  [ENG-368](https://linear.app/davewil/issue/ENG-368), failing tests first.
 - **A typed-parameter lambda**, `(int n) => n * 2`, refused by ticket 75 Q5 and not built.
 - **A lambda with a body of bindings** — the switch arm's lookahead reason, verbatim; a
   private function is the spelling.
