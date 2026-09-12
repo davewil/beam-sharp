@@ -473,3 +473,12 @@ decided, and the guard, `ValidateAs<T>` and the spec were fixed by 11 and 18. Re
   are 70's container, legal and undispatchable. **Unbuilt** — the polymorphic signature (27 §(c),
   ENG-295) lands first inside this increment, then the arrow, ENG-365.
 ```
+
+> **Amended 2026-09-13, [ticket 76](76-the-bare-name-lambda-and-the-arrows-extent.md).** The
+> measured sentence above — *C#'s lambda collides with a switch arm's guard as an expression,
+> `x when (n > 3) => :high` becomes a syntax error* — undercounted what the shift reaches (every
+> guard ending in a name, F46's finding) and overpriced what it costs: C# has the same collision
+> and parses the arm's `when` clause at the tier below the lambda, and the same two-tier grammar
+> in yecc measured at the four intended shifts. So both spellings are general expressions as Q2
+> answered, no guard shape is a syntax error, and F46's narrowing of `n => e` to an argument is
+> reversed. Built by [ENG-368](https://linear.app/davewil/issue/ENG-368).
