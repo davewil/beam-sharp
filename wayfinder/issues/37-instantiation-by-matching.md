@@ -461,6 +461,73 @@ building it now instead: it is small, the algorithm is probed, and a feature tha
 variable keeps the arrow feature's diff about arrows. That case is real, and it is the one to
 choose if the second `Prepend` reads as *pleasant enough to want before anything needs it*.
 
+**Answered 2026-09-12 (David):** Q1 — own ticket. Q2 — sequenced inside the arrow increment.
+
+## Round 2 — what follows from the two answers (2026-09-12)
+
+Settled by round 1: the arrow type and the lambda are a ticket of their own; §(c) is the first
+F-file inside that increment and ENG-295 is blocked by it. The frontier is what those two open.
+Four things follow with no decision in them and are done on this round's close: `LANGUAGE.md`'s
+two stale sentences and its summary row; the exemplar README's *Lambdas* row and ticket 25's
+frontier row re-attributed from 27 §(c) to the new ticket; ENG-295 re-scoped to §(c) alone.
+
+❓ **Q3 — What does the new ticket cover?** Round 1 named *"the arrow type and the lambda"*. The
+same arrow part serves a third form that has no decision either — a **named function in value
+position**, which `LANGUAGE.md:1416` refuses today (*"`xs |> Sum` is a syntax error"*):
+
+```csharp
+public int Double(int n)
+Double(n) -> n * 2
+
+public list<int> Twice(list<int> xs)
+Twice(xs) -> List.Map(xs, Double)              // a name, not a lambda
+Twice(xs) -> List.Map(xs, (n) => n * 2)        // the lambda, same arrow type
+```
+
+`List.Fold`, `Map` and `Filter` themselves are ENG-321's waiting table entries, breadth rather
+than design, and land when the arrow does.
+
+➡️ **One ticket, three forms**: the arrow in the algebra (`fn(T) -> U` as a seventh `ty()` part),
+the lambda expression, and a named function as a value — because the type is the same and a
+ticket that decided two of the three would leave `List.Map(xs, Double)` undecided while
+`List.Map(xs, (n) => Double(n))` compiled. The table entries stay with ENG-321.
+
+---
+
+❓ **Q4 — The `option<T>`-rejects-nothing finding: a ticket now, or carried by ENG-295?** The
+Answer above recorded that `T`, `option<T>` and `result<T, E>` in parameter position have maximal
+extent `term` and refuse nothing, while `option<int>` and `result<list<T>, E>` do. It is the alias
+shape, not the algorithm. With §(c) now sequenced behind the new ticket, nothing can exercise it
+until §(c) builds.
+
+➡️ **Carried by ENG-295, no ticket now.** ENG-295's owed list gains the line, and its F-file must
+state it under *Out of scope* with the table from the Answer. If building §(c) shows a corpus
+program where it matters, that feature raises the ticket — *a feature that needs a decision raises
+a ticket rather than making one*.
+
+---
+
+❓ **Q5 — Rewrite 25e's two reversers to `List.Reverse` now, or when 25e's wall falls?** The
+write-up's finding 9 (*"The two `Reverse`s collide, and the module refuses them"*) is a recorded
+measurement that ticket 67 has since made moot, and the extracted `escape.bs` and `rows.bs` follow
+the write-up. 25e still stops at its module-name wall, so a rewrite cannot be checked by compiling
+the directory; it can be checked by `extract-exemplars.sh --check` and by compiling the two files'
+constructs in isolation.
+
+➡️ **Now.** Both call sites become `List.Reverse(acc)`, the two private helpers go, and finding 9
+keeps its text with one paragraph appended saying what 67 and ENG-321 did to it and when — the
+write-up is a record, so the finding is amended rather than deleted. `fib.bs` is untouched; its
+hand-written `Reverse` is the point of that example.
+
+---
+
+❓ **Q6 — Does ENG-204 close on this round?** Both halves of the ticket are answered: the
+algorithm on 2026-08-28, the ordering today. What remains is build work, and it has a home.
+
+➡️ **Yes.** Resolve: the Decisions entry gains the ordering answer, Linear ENG-204 goes to Done
+with the gist, ENG-295 is blocked by the new ticket's Linear issue and its description re-scoped,
+and the new ticket is raised in both places, unclaimed.
+
 ## Notes
 
 HITL. **Not urgent, and that is the finding rather than an excuse**: the two things §(c) buys are a
