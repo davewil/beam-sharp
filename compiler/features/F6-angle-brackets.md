@@ -29,7 +29,7 @@ untouched."** F6 takes the ticket's own cut.
 |---|---|---|
 | **(a)** | Parameterised type constructors — `list<int>`, `result<Delivery, ConsumeError>` | **built** |
 | **(b)** | Parametric aliases — `type option<T> = T \| :nothing` | **built** |
-| **(c)** | Polymorphic function signatures — `list<U> Map<T, U>(list<T>, fn(T) -> U)` | **not built** |
+| **(c)** | Polymorphic function signatures — `list<U> Map<T, U>(list<T>, fn(T) -> U)` | **not built** — *amended 2026-09-12: §(c) is the signature variable alone, `result<list<T>, E> Prepend<T, E>(T, result<list<T>, E>)`; the `fn(T) -> U` in this example is [ticket 75](../../wayfinder/issues/75-a-function-as-a-value.md), and §(c) is sequenced as the first feature inside that increment (ticket 37, ENG-295)* |
 
 (a) and (b) are **substitution with ground arguments**. `result<int, atom>` substitutes into
 `T | (:error, E)` and hands the algebra a union — 27 §(b)'s *"the variable is gone before the
@@ -331,7 +331,10 @@ error inside `result<int, atom>` with a grammar that was already correct — the
 - **Recursive types are refused by name.** Ticket 09 decided them; the algebra cannot hold one.
   The refusal is an improvement on a hang and is not an implementation.
 - **`>>` is pinned but not solved.** `list<list<int>>` parses and has a test. Ticket 28's owed item
-  stands: when binaries land and `>>` becomes a delimiter, that test is what trips.
+  stands: when binaries land and `>>` becomes a delimiter, that test is what trips. *(Amended
+  2026-09-12: it never tripped. F13 landed binaries with `<<` alone and there is no `>>` token —
+  `bs_lexer.xrl:131` says so — so `list<list<int>>` still parses and nothing is owed. Struck from
+  ENG-295 the same day.)*
 - **A type parameter shadows a type of the same name**, silently. `type Box<Order> = (Order, int)`
   binds `Order` as a variable inside the body even where a `record Order` is declared, and
   `type Pair<T, T>` is accepted with the last binding winning. Unreachable from anything in the
