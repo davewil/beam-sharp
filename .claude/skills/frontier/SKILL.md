@@ -110,7 +110,7 @@ Done when: one issue is chosen and the sentence naming the rule that chose it is
 ## 5. Claim and route
 
 Claim in both trackers before any work: Linear state `In Progress`, assignee `me`; for a map
-ticket, also `Status: claimed` in its repo file. Then route by kind:
+ticket, also `Status: claimed` in its repo file. Then name the route by kind:
 
 | Kind | Route |
 |---|---|
@@ -119,7 +119,17 @@ ticket, also `Status: claimed` in its repo file. Then route by kind:
 | `ready-for-human` | report it to David; do not start it |
 
 Report: a table of the top five with rule, priority, label and what each blocks; then the pick,
-the rule, and what it unblocks. Done when the claim is visible in both trackers.
+the rule, what it unblocks, and **the exact command David types next** — `/implement ENG-NNN`
+or `/wayfinder ENG-NNN`. Done when the claim is visible in both trackers and that line is the
+last thing in the report.
+
+**This skill ends at the report. It does not build, and it does not resolve.** Both routes
+are user-invoked skills (`disable-model-invocation: true` on each), so a session cannot follow
+the hop itself, and it must not substitute its own build for the one the route names: on
+2026-09-12 a session read the missing hop as "the skill does not exist", built ENG-295 under
+CLAUDE.md's rules alone, and skipped `/implement`'s `/code-review` step without knowing it had
+(David, 2026-09-12). A claim with no build behind it is what step 5 is for — the claim is
+visible in both trackers, and David decides whether to start the route now.
 
 ## Why this skill is user-invoked
 
