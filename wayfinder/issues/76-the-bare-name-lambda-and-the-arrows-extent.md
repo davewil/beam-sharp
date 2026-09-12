@@ -1,9 +1,10 @@
 # 76 — Two calls the F46 build took: where `n => e` may be written, and what a polymorphic callee's extent is once a parameter is an arrow
 
 Type: grilling
-Status: claimed 2026-09-12 — [ENG-367](https://linear.app/davewil/issue/ENG-367). Raised 2026-09-12 by
+Status: resolved 2026-09-13 — [ENG-367](https://linear.app/davewil/issue/ENG-367). Raised 2026-09-12 by
 the F46 build ([ENG-365](https://linear.app/davewil/issue/ENG-365), landed `cd79a57`) as a decision
-to confirm or overrule; grilled the same evening.
+to confirm or overrule; grilled the same evening, one round, two questions, both answered after
+midnight.
 Blocked by: —
 
 ## Why this is raised now
@@ -145,6 +146,38 @@ Assumed, not asked: the answers land here as this ticket's decisions entry, with
 and 5 versus the 4-count variant, are the build's; the singleton instantiation above stays an
 observation until a real program meets it.
 
+**Answered 2026-09-13 (David):** Q1 — **C#'s line.** Q2 — **yes**: the extent stays and the
+re-check is owed.
+
 ## Decisions entry
 
-<!-- Written when the round is answered. -->
+<!-- This ticket's entry. Read whole, here; the map (ENG-165) carries one line. -->
+
+```decisions-entry
+- [Two calls the F46 build took](issues/76-the-bare-name-lambda-and-the-arrows-extent.md) — **the
+  bare-name lambda `n => e` is an expression everywhere, and the switch arm's guard is parsed at
+  the tier below the lambda; a polymorphic callee's maximal extent is variance-aware, and every
+  argument is re-checked against its instantiated parameter once the variables are solved.**
+  Raised 2026-09-12 by the F46 build, which had shipped `n => e` as an argument only and the
+  extent of `fn(T) -> U` as `fn(none) -> term`, and resolved 2026-09-13 in one round. **Ticket 75
+  Q2 stands as answered** — both spellings, general expressions — and F46's narrowing is reversed:
+  the collision F46 found, every guard ending in a name reading as a lambda, is the collision C#
+  has, and C# resolves it in the guard (Roslyn parses a switch-expression arm's `when` clause at
+  `Precedence.Coalescing`, above `Lambda`). In yecc that is `expr` split into a top tier of the
+  three lambda productions over `expr_low`, the existing operand productions, with `guard_expr ->
+  expr_low` and `arg` deleted — **measured** at 5 shift/reduce against the landed 4, 0
+  reduce/reduce, the fifth being the `rule(` shift reported from a second LALR core, and a
+  one-line variant at exactly 4. It deletes three syntax errors — `x when (n > 3) => :high` and
+  `x when flag => 1`, which 75 accepted, and `Rule(:member) -> n => n - 100`, which F46 added —
+  and the accident by which `(1, n => n + 1)` parsed while `[n => n + 1]` did not. **The extent is
+  confirmed and was, alone, unsound**: ticket 37's *containment fails exactly when an argument
+  escapes its maximal extent* was proved over covariant positions, and with the top arrow as the
+  extent no arrow argument could fail the only check the compiler ran — `Map(xs, Inc/1)` with `xs
+  : list<string>` compiled at `cd79a57` and crashed `function_clause`. The owed step: after
+  `instantiate/2` solves the variables, each argument is checked against its instantiated
+  parameter, an occurrence under an arrow's domain checking the least solution rather than
+  widening it. 37's phrase *every variable at `term`* reads *every variable at its extent — `term`
+  in a covariant position, `none` under an arrow's domain*. **Unbuilt, both**: the guard tier and
+  the re-check are F46 amendments, the failing tests first (`Incs` and `Lens` refused; the seven
+  programs of Q1's table), and *ENG-367's "confirming costs nothing" was false*.
+```

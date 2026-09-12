@@ -285,6 +285,13 @@ the pipe unmoved.
 > in a name — `x when x > m => 0`, F7's own test — as a lambda, a collision this round's table did
 > not reach. `(a, b) => e` is a general expression as answered. The decision above stands until
 > ENG-367 confirms or overrules the narrowing; this note is the cross-reference, not the ruling.
+>
+> **Ruled 2026-09-13, [ticket 76](76-the-bare-name-lambda-and-the-arrows-extent.md): Q2 stands as
+> answered and the narrowing is reversed.** C# has the same collision and resolves it in the
+> guard, parsed at the tier below the lambda; the same two-tier grammar in yecc measured at the
+> landed four intended shifts and makes `x when (n > 3) => :high`, accepted above as a syntax
+> error, a guard. The table's row *"`n => e`, an `expr`: +1 s/r"* undercounted what the shift
+> reaches, not what it costs.
 
 ## Round 2 — what a lambda is made of (2026-09-12)
 
