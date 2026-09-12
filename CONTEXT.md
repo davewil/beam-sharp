@@ -129,10 +129,29 @@ _Avoid_: throw, panic, crash, abort, fail
 
 **Pipe**:
 `|>`, the single chaining form. `x |> F(a)` rewrites to `F(x, a)`; the name is always **qualified**,
-so nothing is resolved by the type of `x`. The right operand is a **call**, never a bare name — a
-function value is not a form this language has, so `x |> F` is a syntax error. There is no dot-call
-and no comprehension syntax.
+so nothing is resolved by the type of `x`. The right operand is a **call**, never a bare name — the
+pipe rewrites a call, so `x |> F` is a syntax error and `x |> F()` is the spelling. There is no
+dot-call and no comprehension syntax.
 _Avoid_: chain, fluent call, method call, forward operator
+
+**Arrow**:
+The type of a function value, `fn(A, B) -> C`: one type per parameter and a codomain. One arrow
+per arity; the domain is contravariant and the codomain covariant, and the codomain runs as far as
+the type expression does, so a union of arrows is spelled through a named arrow. A clause head can
+ask an arrow's arity and nothing else about it.
+_Avoid_: function type, delegate, Func, closure type, fun type
+
+**Lambda**:
+An anonymous function of one clause, `(a, b) => e` or `n => e`: its parameters are patterns that
+must be irrefutable against the expected arrow's domain, its body is one expression, and it
+captures every name in scope. Its type is the arrow the site expects; a site that expects none
+refuses it.
+_Avoid_: closure, anonymous function, arrow function, fun, block
+
+**Name in value position**:
+A function's name where an expression is expected, `List.Map(xs, Double)`: the function itself,
+its arity read from the expected arrow, or written, `Double/1`, where nothing fixes it.
+_Avoid_: method group, function reference, function pointer, captured function
 
 **Valve**:
 `|?>`, the pipe that stops the flow. Where its left operand is `(:error, _)` or `:nothing` the

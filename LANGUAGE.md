@@ -1414,7 +1414,11 @@ Sum([x, ..rest], acc) -> Sum(rest, acc + x)
 ```
 
 The right operand is a **call**, never a bare name: `xs |> Sum` is a *syntax* error rather than a
-type error, because a function value is not a thing this language has.
+type error, because the pipe rewrites a call and `xs |> Sum()` is the spelling. A function's name
+as a value belongs in argument position, `List.Map(xs, Sum)`, and that form is decided and not yet
+built. <!-- ticket 75, 2026-09-12 -->
+
+
 
 Names are **qualified** — `List.Sum`, not `xs.Sum(0)`. Method-call syntax would need type-directed
 resolution of an unqualified name, which the language has deliberately closed off. The pipe is what
@@ -1705,9 +1709,11 @@ variable that sits **inside a union** (`int Unwrap<T>(option<T> o)` asks for `in
 against `T | :nothing`) takes the argument minus every other member's extent, which is exact. A
 signature alone, `result<list<T>, E> Prepend<T, E>(T row, result<list<T>, E> rest)`, needs no arrow.
 It is **sequenced**: `Map` above needs `fn(T) -> U` in a signature and a lambda to pass to it, and
-the language has neither — there is no arrow in the type algebra. A function as a value is its own
-open question, and the polymorphic signature is the first feature inside that increment.
-<!-- ticket 37: algorithm 2026-08-28, ordering 2026-09-12; the function value is ticket 75 -->
+the language has neither — there is no arrow in the type algebra. A function as a value is decided
+and not yet built — the arrow `fn(T) -> U` is a type, a lambda is `(n) => n * 2`, and a name in
+value position is that function — and the polymorphic signature is the first feature inside that
+increment.
+<!-- ticket 37: algorithm 2026-08-28, ordering 2026-09-12; ticket 75 resolved 2026-09-12, ENG-365 builds it -->
 The first half needed neither.
 
 **User code never writes a type argument.** Only three compiler-known names take an explicit one:

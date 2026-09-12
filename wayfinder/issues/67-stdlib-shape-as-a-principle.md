@@ -272,9 +272,12 @@ measurement.
 - **`LANGUAGE.md:1384`** — `List.Map(x)` | *a B# module* — is the wrong row and becomes *a reserved
   qualifier*. `LANGUAGE.md:1178` stands.
 - **The function-taking operations wait on the lambda.** `List.Map`, `List.Filter`, `List.Fold` can
-  only be spelled once `=>` exists (27 §(c), ENG-295). But under (b) a lambda is only ever an
+  only be spelled once `=>` exists (27 §(c), ENG-295). ~~But under (b) a lambda is only ever an
   argument to an inlined operation, so it never has to be a *value* at run time — `xs |> Sum` stays
-  a syntax error (`LANGUAGE.md:1098`) and *no function values* survives intact. Which operations
+  a syntax error (`LANGUAGE.md:1098`) and *no function values* survives intact.~~ **Overruled
+  2026-09-12 by [ticket 75](75-a-function-as-a-value.md)**: a function is a value, the arrow is a
+  type, and the walkers take the fun as an argument. `xs |> Sum` stays a syntax error on the
+  pipe's own ground, a rewrite of a call. The rest of this bullet stands. Which operations
   exist at all is breadth — the map's boundary — and not this ticket's.
 - **F11's own example goes red** the day `List` is reserved: `Totals.bs` and `LANGUAGE.md:139` write
   `List.Length` meaning `Shop.Collections.List`. Q6 decides what the compiler says there.

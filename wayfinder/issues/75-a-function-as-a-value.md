@@ -1,9 +1,11 @@
 # 75 — A function as a value: the arrow type, the lambda, and a name in value position
 
 Type: grilling
-Status: claimed 2026-09-12 — [ENG-364](https://linear.app/davewil/issue/ENG-364). Raised 2026-09-12 by
-[ticket 37](37-instantiation-by-matching.md)'s ordering round ([ENG-204](https://linear.app/davewil/issue/ENG-204));
-picked by `/frontier` the same day as the sole unblocked High issue.
+Status: resolved 2026-09-12 — [ENG-364](https://linear.app/davewil/issue/ENG-364). Raised 2026-09-12 by
+[ticket 37](37-instantiation-by-matching.md)'s ordering round ([ENG-204](https://linear.app/davewil/issue/ENG-204)),
+picked by `/frontier` the same day as the sole unblocked High issue, and resolved in two rounds
+that afternoon. The build is [ENG-365](https://linear.app/davewil/issue/ENG-365), sequenced
+behind [ENG-295](https://linear.app/davewil/issue/ENG-295).
 Blocked by: —
 
 ## Why this is raised now
@@ -406,4 +408,54 @@ or its name as `fun 'Double'/1`, and there is one `List.Map` per module as there
 `List.Sum`. (ii) is an optimisation `erlc` is free to make and this compiler does not, until an
 exemplar measures the difference.
 
-**Answered:** —
+**Answered 2026-09-12 (David): Q4 to Q7, all as recommended.** The frontier is empty: the arrow,
+the lambda, the name, the call through a name, the parameters, the codomain and the lowering are
+decided, and the guard, `ValidateAs<T>` and the spec were fixed by 11 and 18. Resolved.
+
+## Corrected on resolution
+
+- [Ticket 67](67-stdlib-shape-as-a-principle.md)'s *"no function values survives intact"* is
+  struck and marked overruled in place, that sentence and nothing else.
+- `CONTEXT.md`'s *Pipe* entry loses *"a function value is not a form this language has"*; the
+  pipe's rule stands on its own ground, a rewrite of a call. *Arrow*, *Lambda* and *Name in value
+  position* are added, terms only.
+- `LANGUAGE.md`'s pipe section gives the same corrected reason, and its *Polymorphic function
+  signatures — next* block now says the function value is decided and unbuilt rather than open.
+
+## Decisions entry
+
+<!-- This ticket's entry. Read whole, here; the map (ENG-165) carries one line. -->
+
+```decisions-entry
+- [A function as a value](issues/75-a-function-as-a-value.md) — **a function is a value: the arrow
+  `fn(T) -> U` is a type of the language, a lambda is an expression in C#'s spelling, and a name
+  in value position is that function.** Raised 2026-09-12 by ticket 37's ordering round and
+  resolved the same day in two rounds, seven questions, every recommendation taken. **The record
+  held both answers to the gating question**: ticket 67 had kept *"no function values"* nine days
+  earlier, in a list of what it did not reopen, reasoning about `List`'s shape; 67 is overruled on
+  that sentence and nothing else. The arrow is a **seventh part of the partition**, a union of
+  arrows with pairwise subtyping — domain contravariant, codomain covariant, 11's measured rule,
+  kept pairwise by 08's one arrow per arity — and an **all-or-nothing `subtract`**, the same
+  over-approximation the map domain takes. A lambda `(a, b) => e` is **one clause with one
+  expression for a body** (the switch arm's lookahead reason, verbatim); its **parameters are
+  patterns checked irrefutable against the expected arrow's domain**, 33 §5's rule for the
+  destructuring bind, the residual as the refusal; it closes over every name in scope and its
+  parameters bind under 34, no shadowing. **A lambda's signature is the arrow its site expects;
+  where nothing fixes it, it is refused**, and so is a bare name whose arity nothing fixes —
+  `Double` reads its arity from the expected type, `Double/1` is legal everywhere and required
+  where two arities meet no expectation. **Calling through a bound name, `rule(cents)`, is a call
+  form** — the fourth form the ticket had not listed. The codomain extends as far as it can, so
+  `fn(atom) -> int | :nothing` returns an option, and a named arrow is how a union of arrows is
+  grouped, because a parenthesised type is a 1-tuple. **The pipe does not move**: `xs |> Sum`
+  stays a syntax error, `xs |> Sum()` is the spelling. ENG-321's walkers take the fun as an
+  argument, one per module per operation; substituting a lambda's body is an optimisation the
+  compiler does not make. **Measured, not inferred** — yecc on eleven candidate productions: C#'s
+  lambda is conflict-free as an argument and collides with a switch arm's guard as an expression
+  (`x when (n > 3) => :high` becomes a syntax error, and no guard in the corpus or the spec is
+  written so); the pattern-shaped head is 21 reduce/reduce, so parameters parse as an expression
+  list and lower; `Double/1` and the keyword lambda are conflict-free everywhere. Fixed earlier and
+  unchanged: `ValidateAs<T>` refuses arrows and the top arrow `fn(none) -> term` is uncallable
+  (11); a clause head dispatches on an arrow's arity alone, so two arrows of one arity in a union
+  are 70's container, legal and undispatchable. **Unbuilt** — the polymorphic signature (27 §(c),
+  ENG-295) lands first inside this increment, then the arrow, ENG-365.
+```
