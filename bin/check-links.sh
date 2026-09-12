@@ -11,6 +11,11 @@
 # DIRECTORY. Nothing caught it, because every gate in this repo checks that the
 # compiler is right and none checks that the documents are.
 #
+# `handoff/` — the audition's README, packet, engine notes and per-round
+# evidence — is read here too, since 2026-09-12 (ENG-304). It is not the
+# package; it is the instrument that measures whether the package transfers,
+# and it had no gate of any kind for three weeks after its scripts were linted.
+#
 # A dead path is the sharpest kind of rot: it is not a matter of taste or of
 # emphasis, it is a lie the package tells a reader who cannot ask a question. The
 # whole point of the handoff is that there is nobody to ask.
@@ -45,9 +50,9 @@ REPO="${CHECK_LINKS_ROOT:-$SELF}"
 # ---------------------------------------------------------------------------
 # --self-test
 #
-# THREE CHECKS, THREE POSITIVE CONTROLS, each required to carry its own marker
-# — DEAD LINK, DEAD PATH, CITES — since any one red would satisfy a bare
-# non-zero exit.
+# THREE CHECKS, FOUR POSITIVE CONTROLS, each required to carry its own marker
+# — DEAD LINK, DEAD PATH, CITES, and DEAD LINK naming a file under `handoff/`
+# — since any one red would satisfy a bare non-zero exit.
 #
 # Check 2 is the one this gate was written for. A bare `examples/Foo/foo.bs` in
 # prose is not a link, so no renderer ever tries it, and 25 of them survived
@@ -113,6 +118,17 @@ if [ "${1:-}" = "--self-test" ]; then
     printf '\nThe conjunction was settled by ticket 44.\n' >> "$CTL/cites/LANGUAGE.md"
     expect "CITES" "$CTL/cites" "a ticket number in visible prose"
 
+    # CONTROL 4 — a dead link in the audition's own README. `handoff/` sat
+    # outside this gate for three weeks after its shell scripts were linted
+    # (ENG-304): the markdown beside them had no gate at all, and ENG-290 found
+    # four stale counts there. The marker names the file, because CONTROL 1's
+    # DEAD LINK on CONTEXT.md would otherwise satisfy a bare `DEAD LINK`.
+    fresh "$CTL/handoff"
+    printf '\nSee [the missing lane](evidence/no-such-round/NOTES.md).\n' \
+        >> "$CTL/handoff/handoff/audition-switch/README.md"
+    expect "DEAD LINK handoff/audition-switch/README.md" "$CTL/handoff" \
+        "a dead link in the audition README"
+
     # NEGATIVE CONTROL — the package as committed.
     fresh "$CTL/clean"
     if CHECK_LINKS_ROOT="$CTL/clean" "${BASH_SOURCE[0]}" > /dev/null 2>&1; then :; else
@@ -122,8 +138,9 @@ if [ "${1:-}" = "--self-test" ]; then
     fi
 
     if [ "$st_fail" -eq 0 ]; then
-        echo "self-test: reported the dead link, the dead path and the visible citation;"
-        echo "           accepted the committed package — the gate discriminates"
+        echo "self-test: reported the dead link, the dead path, the visible citation"
+        echo "           and the dead link under handoff/; accepted the committed"
+        echo "           package — the gate discriminates"
         exit 0
     fi
     exit 1
@@ -150,6 +167,13 @@ DOCS=(
     compiler/examples/exemplars/README.md
 )
 while IFS= read -r f; do DOCS+=("$f"); done < <(find compiler/features -name '*.md' | sort)
+# The audition package. Its shell scripts were linted from 2026-08-20; the
+# markdown beside them — the handoff README, the audition README, `PACKET.md`,
+# `ENGINES.md`, the evidence README and each round's notes — had no gate at all
+# until 2026-09-12 (ENG-304), and ENG-290 found four stale counts there. A find
+# rather than a list, so a new round's `NOTES.md` is gated the day it lands.
+# `PACKET.md` is generated: a dead link in it is fixed in `build-packet.py`.
+while IFS= read -r f; do DOCS+=("$f"); done < <(find handoff -name '*.md' | sort)
 # The corpus itself. Every example opens with the command that runs it, and a
 # command naming a path that moved is the same rot in a place a reader is even
 # more likely to type. `Totals.bs` was still advertising `examples/collections/`
