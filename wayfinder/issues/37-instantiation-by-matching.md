@@ -1,11 +1,12 @@
 # 37 — "Instantiation is matching, not solving": what is the algorithm?
 
 Type: grilling
-Status: **algorithm resolved 2026-08-28** — [ENG-204](https://linear.app/davewil/issue/ENG-204).
-Three steps, measured by [`37a`](../prototypes/37a_instantiation_by_matching.escript) over the
-real algebra; see [Answer](#answer-2026-08-28). **The ORDERING question is not the algorithm and
-stays open for David** — and the corpus moved under it again, see below. Raised 2026-08-14 from
-building [F6](../../compiler/features/F6-angle-brackets.md); re-measured 2026-08-26.
+Status: **claimed 2026-09-12 — ordering round 1 open**, see
+[Round 1](#round-1--the-ordering-call-2026-09-12) — [ENG-204](https://linear.app/davewil/issue/ENG-204).
+The **algorithm** half resolved 2026-08-28: three steps, measured by
+[`37a`](../prototypes/37a_instantiation_by_matching.escript) over the real algebra; see
+[Answer](#answer-2026-08-28). Raised 2026-08-14 from building
+[F6](../../compiler/features/F6-angle-brackets.md); re-measured 2026-08-26 and 2026-08-28.
 
 ## Question
 
@@ -347,6 +348,118 @@ language-level workaround and compounds per element type rather than per site.
 
 **Not answered here on purpose.** The re-measure left this to David and nothing measured this
 session takes it off him; the corpus moved the evidence and did not settle the call.
+
+## Round 1 — the ordering call (2026-09-12)
+
+Grilled at `b63b9fc`, fifteen days after the section above. **The evidence table above is wrong
+now, in one row and two premises, and the round corrects it before it asks anything.**
+
+### What moved, measured
+
+- **The `Reverse` row is moot.** [Ticket 67](67-stdlib-shape-as-a-principle.md) (resolved
+  2026-09-03) made `List` an operation set the compiler knows, inlined per site with that site's
+  ground element type, and [ENG-321](https://linear.app/davewil/issue/ENG-321) built it the same
+  evening: `{'List', 'Reverse', 1}` is in `bs_check.erl`'s reserved table (`:1284`) and
+  `bs_emit.erl` lowers it to an accumulator fun (`reserved_form`, `:1545`). So `escape.bs`'s
+  `ReverseParts` and `rows.bs`'s `ReverseRows` are `List.Reverse(acc)` today, and the
+  *"refused module, two invented names"* cost does not exist. Both files, and the 25e write-up they
+  are extracted from, are **stale against the language** — the failure mode `FRONTIER` was created
+  to catch, one layer up. `fib.bs` also hand-writes `Reverse`, and keeps it: the hand-written
+  accumulator is what that example teaches. Rewriting 25e is routine under 67 and is not a question
+  here.
+- **So the corpus is back to one shape.** `Prepend` in 25d `rows.bs:38`, written at one
+  instantiation, at no practical cost — a private helper that compiles monomorphic once 25d's
+  earlier walls fall. Nothing in the corpus fails, duplicates, or is refused for want of §(c).
+- **The library motivation is gone.** 27 §(c)'s stated purchase was *"the shared container
+  library"*. 67 chose inlining over a shipped `List.beam` precisely so that `Reverse<T>` and
+  `Length<T>` need no polymorphism machinery. What §(c) buys now is a user-written generic helper,
+  and the signature of every operation that takes a function — `list<U> Map<T, U>(list<T>, fn(T) -> U)`
+  is a polymorphic signature before it is anything else.
+- **"Grammar — nothing" is false.** `signature` (`bs_parser.yrl:235`, `:237`) has no
+  `type_params`; the nonterminal exists and is wired only into `type_decl` (`:177`). The 2026-09-04
+  brief measured `Reverse<T>(...)` as `syntax error before: '<'`. One production is owed.
+- **The `bs_check` sites moved.** `sig/3` is at `:793`, `resolve/2` at `:1388`, `arg_diags/7` at
+  `:3311` (the Answer's `:574`, `:878`, `:2114` are 28 Aug numbers). Same three edits.
+- **`>>` is a non-issue.** ENG-295 carries F6's *"`>>` is pinned but not solved"* as a second owed
+  item. There is no `>>` token (`bs_lexer.xrl:131`), F13 landed binaries with `<<` alone, and
+  `list<list<int>>` parses. Nothing to solve.
+- **The 4 Sep brief is not in the tree.** ENG-204's Linear comment cites
+  `artifacts/37-instantiation-by-matching-decision-brief.md`; it left with the 2026-09-05 cut
+  (history at `884bd58`). Its one surviving correction, the grammar production, is recorded above.
+- **`LANGUAGE.md:1685-1706` is stale in two sentences** — *"a question about subtraction that
+  nothing has decided"* (this ticket decided it 2026-08-28) and the summary table's *"needs an
+  arrow type"* (only `Map` does). Fixed after the round, not asked.
+
+### The questions
+
+❓ **Q1 — Does the arrow type and the lambda get its own ticket, or is it 27 §(c)?** Three
+documents file `=>` under 27 §(c): `LANGUAGE.md:1703` (*"needs `fn(T) -> U` in a signature and a
+lambda to pass to it"*), the exemplar README's waiting table (*"Lambdas — decided, unbuilt — 27
+§(c)"*), ticket 25 line 460 (*"decided at ticket 27 §(c)"*), and ENG-295 (*"`fn(T) -> U` … is part
+of §(c), not a separate debt"*). 27 §(c)'s text decides *"a variable quantified in a value-level
+signature, instantiated at each call site"* — and nothing else. This is what 25b's wall needs:
+
+```csharp
+public int Total(list<Order> os)
+Total(os) -> os |> List.Fold(0, (acc, o) => acc + o.Total)
+```
+
+It needs an **arrow part in `ty()`** (there are six parts and none is one), a **lambda expression
+form** (`=>` in expression position, today a `switch` arm only), a rule for **what a lambda's
+parameters may be** (a clause head, or only binders?), **closure emission** (an Erlang `fun`), and
+the `List.Fold`/`Map`/`Filter` table entries ENG-321 left waiting. None of that is in 27 §(c), and
+this ticket already reads it that way (*"blocked on something that is not §(c)"*). No ticket titled
+lambda, arrow, function type or closure exists in `wayfinder/issues/`.
+
+➡️ **Own ticket** — the arrow type and the lambda as one grilling ticket (75 is next), raised now
+and not claimed. ENG-295 is re-scoped to §(c) alone: the signature production, the three `bs_check`
+edits, the projection — with `fn(T) -> U` and `>>` struck from its text. The three documents get
+their attribution corrected to the new ticket. The alternative — reading 27 §(c) as covering the
+arrow — makes a decided-2026-08-13 line carry the largest unasked design question on the map, and
+answers Q2 by force (everything lands together).
+
+---
+
+❓ **Q2 — Does §(c) land alone, now, or inside the arrow increment?** Under Q1's recommended
+answer this is live; under the other it answers itself. The program pair, 25d today and 25d under
+§(c) — nothing else in the language changes:
+
+```csharp
+private result<list<OrderRow>, FetchError> Prepend(OrderRow row, result<list<OrderRow>, FetchError> rest)
+
+Prepend(row, (:error, e)) -> (:error, e)
+Prepend(row, rows)        -> [row, ..rows]
+```
+
+```csharp
+private result<list<T>, E> Prepend<T, E>(T row, result<list<T>, E> rest)
+
+Prepend(row, (:error, e)) -> (:error, e)
+Prepend(row, rows)        -> [row, ..rows]
+```
+
+**The delta, priced at today's tree:** one grammar production (`signature` gains
+`uident '<' type_params '>'` in both its forms); one `bs_types` export, a tuple-component
+projection; `sig/3` storing a template plus its variables instead of a resolved `ty()`;
+`resolve/2` binding the signature's own variables the way `type_env/1` binds an alias's;
+`arg_diags/7` solving and joining ahead of the `subtract` it already does. No new `ty()` part, no
+new diagnostic, no emitted-spec obligation. An F-file of its own, a test calling one function at
+two element types, a `LANGUAGE.md` block turning from `not-yet` to `shipped`.
+
+**The constraint that decides it:** nothing in the corpus needs the second program — `Prepend` at
+one instantiation is fine, and the one case that made §(c) *cost* something (`Reverse` twice in one
+module) is now `List.Reverse`. Built alone, §(c) moves no exemplar wall and gives an author a
+capability no exemplar asked for. Built inside the arrow increment, it is the first thing that
+increment needs — `Map<T, U>` cannot be declared without it — and the increment moves 25b.
+
+➡️ **Inside the arrow increment, as its own F-file landing first.** Resolve this ticket's
+ordering half with that answer: §(c) is not deferred to a corpus count (the brief's *"5th
+occurrence or 3rd shape"* trigger is miscounted now that `Reverse` is gone, and a count is the
+wrong instrument anyway), it is **sequenced** — ENG-295 blocked by the Q1 ticket, and unblocked
+the day that ticket resolves, whether or not the arrow itself is then built first. The case for
+building it now instead: it is small, the algorithm is probed, and a feature that only solves for a
+variable keeps the arrow feature's diff about arrows. That case is real, and it is the one to
+choose if the second `Prepend` reads as *pleasant enough to want before anything needs it*.
 
 ## Notes
 
