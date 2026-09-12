@@ -623,6 +623,6 @@ here. The map's instruction is to check every time, because the rule has already
 > -> U`'s shape is `fn(none) -> term`, ticket 11's top arrow. With that extent the equivalence
 > above no longer makes the arguments' check redundant: `fn(none) -> term` admits every unary
 > arrow, so once the variables are solved each argument is checked against its instantiated
-> parameter, and an occurrence under a domain checks the least solution rather than widening it.
-> `Map(xs, Inc/1)` with `xs : list<string>` compiled at `cd79a57` and crashed; it is refused once
-> that step is built.
+> parameter; which solution a variable takes when a domain occurrence and a covariant one pull
+> two ways is ticket 76's round 2. `Map(xs, Inc/1)` with `xs : list<string>` compiled at
+> `cd79a57` and crashed; it is refused once that step is built.

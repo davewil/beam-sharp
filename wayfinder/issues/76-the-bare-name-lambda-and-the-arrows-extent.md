@@ -1,10 +1,11 @@
 # 76 — Two calls the F46 build took: where `n => e` may be written, and what a polymorphic callee's extent is once a parameter is an arrow
 
 Type: grilling
-Status: resolved 2026-09-13 — [ENG-367](https://linear.app/davewil/issue/ENG-367). Raised 2026-09-12 by
+Status: claimed 2026-09-13 — [ENG-367](https://linear.app/davewil/issue/ENG-367). Raised 2026-09-12 by
 the F46 build ([ENG-365](https://linear.app/davewil/issue/ENG-365), landed `cd79a57`) as a decision
-to confirm or overrule; grilled the same evening, one round, two questions, both answered after
-midnight.
+to confirm or overrule; grilled the same evening. Round 1's two questions were answered after
+midnight and the ticket resolved at `272d35e`; reopened the same hour for round 2, because the
+rule round 1 recorded for Q2 refuses function composition.
 Blocked by: —
 
 ## Why this is raised now
@@ -134,10 +135,10 @@ amends one phrase: *every variable at `term`* becomes *every variable at its ext
 covariant position, `none` under an arrow's domain*. ENG-367's *"confirming costs nothing"* is
 corrected on the issue.
 
-➡️ **Confirm the extent; the re-check is owed as an F46 amendment, test first, before this ticket
-resolves.** Reverting to `fn(term) -> term` refuses every program that passes a polymorphic
-function on, `Map` included; the extent was never the check, the equivalence was, and it holds
-again once the arguments are looked at under the solution.
+➡️ **Confirm the extent; the re-check is owed as an F46 amendment, test first, under a build
+issue this ticket names when it resolves.** Reverting to `fn(term) -> term` refuses every program
+that passes a polymorphic function on, `Map` included; the extent was never the check, the
+equivalence was, and it holds again once the arguments are looked at under the solution.
 
 ---
 
@@ -148,6 +149,60 @@ observation until a real program meets it.
 
 **Answered 2026-09-13 (David):** Q1 — **C#'s line.** Q2 — **yes**: the extent stays and the
 re-check is owed.
+
+## Round 2 — what a domain occurrence does to the solution (2026-09-13)
+
+Round 1's Q2 said the choice of solution *follows from ticket 37's least rule* and recorded: an
+occurrence under an arrow's domain checks the least solution rather than widening it. That is
+false for a variable the arguments mention only under a domain. Three programs, and the shipped
+crash, under three rules:
+
+```csharp
+// 1 — composition: A occurs only under f's domain
+public fn(A) -> C Compose<A, B, C>(fn(A) -> B f, fn(B) -> C g)
+Compose(f, g) -> (a) => g(f(a))
+
+public int Marked(int cents)
+Marked(cents) -> var step = Compose(Inc/1, Double/1)
+                 step(cents)
+
+// 2 — a predicate declared wider than the list
+public option<T> Pick<T>(list<T> xs, fn(T) -> bool p)
+Pick([], _)       -> :nothing
+Pick([h, ..t], p) -> p(h) switch { true => h, false => Pick(t, p) }
+
+public bool Cheap(int | :free price)
+Cheap(:free) -> true
+Cheap(n)     -> n < 500
+
+public option<int> FirstCheap(list<int> prices)
+FirstCheap(prices) -> Pick(prices, Cheap/1)
+
+// 3 — the crash from round 1
+public list<int> Incs(list<string> xs)
+Incs(xs) -> Map(xs, Inc/1)
+```
+
+| rule | `Marked` | `FirstCheap` | `Incs` | `Map`'s own recursion |
+|---|---|---|---|---|
+| **join every occurrence, then re-check** — today's `solve` plus the owed check | `A = int`, `step(cents)` runs | `T = int \| :free`; `option<int \| :free>` refused against the declared `option<int>` | refused | ok |
+| **least from covariant occurrences, then check** — what round 1 recorded | `A` has no covariant occurrence: `A = none`, `step : fn(none) -> int`, `step(cents)` refused | `T = int`, ok | refused | ok |
+| **solve by the variable's variance in the declared return** — lower bounds from covariant occurrences, upper bounds from domain occurrences; the variable takes the join of its lower bounds where the return is covariant in it or does not mention it, and the meet of its upper bounds where the return is contravariant in it; then every argument is re-checked | `A` is contravariant in `fn(A) -> C`: `A = int`, runs | `T` is covariant in `option<T>`: `T = int`, and `int` is inside `int \| :free`, ok | `string` is not inside `int`, refused | ok |
+
+The third is the rule local type inference uses for the same problem (Pierce and Turner's
+*Local Type Inference*, the choice of the best solution by the result type's variance — to be
+checked against the paper before the F-file cites it). Ticket 37 chose *least* on the return
+type's evidence over templates whose return was always covariant in its variables; this is that
+choice extended to the first return that is not. Delta: `solve` keeps two bounds per variable
+instead of one union; `instantiate/2` picks the bound by the variable's polarity in the declared
+return, refuses when a lower bound escapes an upper one, and `call/6` re-checks the arguments
+under the substitution. Round 1's delta had the re-check and the wrong choice.
+
+❓ **Q3 — Which solution a variable takes when its occurrences pull two ways.**
+
+➡️ **The third rule, by the return's variance.** It is the only one of the three under which all
+four programs do what their author meant, and it is 37's *least* rule at every position 37
+measured.
 
 ## Decisions entry
 
@@ -175,8 +230,7 @@ re-check is owed.
   extent no arrow argument could fail the only check the compiler ran — `Map(xs, Inc/1)` with `xs
   : list<string>` compiled at `cd79a57` and crashed `function_clause`. The owed step: after
   `instantiate/2` solves the variables, each argument is checked against its instantiated
-  parameter, an occurrence under an arrow's domain checking the least solution rather than
-  widening it. 37's phrase *every variable at `term`* reads *every variable at its extent — `term`
+  parameter; how a domain occurrence enters the solution is round 2's Q3, open. 37's phrase *every variable at `term`* reads *every variable at its extent — `term`
   in a covariant position, `none` under an arrow's domain*. **Unbuilt, both**: the guard tier and
   the re-check are F46 amendments, the failing tests first (`Incs` and `Lens` refused; the seven
   programs of Q1's table), and *ENG-367's "confirming costs nothing" was false*.
