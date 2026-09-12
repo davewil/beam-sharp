@@ -279,6 +279,13 @@ position is a value; `xs |> Sum()` is the spelling.
 recommended**: the bare name where an expected type fixes the arity, `Double/1` where nothing does,
 the pipe unmoved.
 
+> **Built narrower than Q2, 2026-09-12 — F46, and the call is open at
+> [ENG-367](https://linear.app/davewil/issue/ENG-367).** The bare-name form `n => e` shipped as an
+> *argument* only, not a general `expr`: as an expression it reads every switch-arm guard ending
+> in a name — `x when x > m => 0`, F7's own test — as a lambda, a collision this round's table did
+> not reach. `(a, b) => e` is a general expression as answered. The decision above stands until
+> ENG-367 confirms or overrules the narrowing; this note is the cross-reference, not the ruling.
+
 ## Round 2 — what a lambda is made of (2026-09-12)
 
 Settled by round 1: the arrow is a type of the language, spelled `fn(T) -> U`; a lambda is an

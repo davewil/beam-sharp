@@ -1688,7 +1688,7 @@ struct handed to an Erlang or Elixir call, which today would be a `list<(atom, t
 checking at all. Coming **in**, it is checked: a map from outside crosses as `map<term, term>`
 and `ValidateAs<map<K, V>>` walks its entries (§4, §10) — **shipped**, F43.
 
-### Polymorphic function signatures — shipped; the arrow next
+### Polymorphic function signatures — shipped
 
 A variable declared after the function name, C#'s convention, and chosen by every call from its
 arguments. One `Prepend` serves every element type:

@@ -288,6 +288,26 @@ a_lambda_body_reading_an_unbound_name_is_refused_test() ->
     ?assertMatch([{error, _, 'Shift', {unbound_variable, by}}], errors(Src)).
 
 %%% ---------------------------------------------------------------------------
+%%% F46.12 — a guard is a question about matched values (F41): a call through
+%%% a bound name there is refused as the call it is, and a lambda there is
+%%% refused in the language's voice rather than by `erlc`
+%%% ---------------------------------------------------------------------------
+
+a_call_through_a_bound_name_in_a_guard_is_refused_test() ->
+    Src = "module Grd\n"
+          "public atom Check(fn(int) -> bool ok, int n)\n"
+          "Check(ok, n) when ok(n) -> :yes\n"
+          "Check(_, _)             -> :no\n",
+    ?assertMatch([{error, _, 'Check', {call_in_guard, ok}} | _], errors(Src)).
+
+a_lambda_in_a_guard_is_refused_test() ->
+    Src = "module Grd\n"
+          "public atom Check(int n)\n"
+          "Check(n) when (k) => k -> :yes\n"
+          "Check(_)                -> :no\n",
+    ?assertMatch([{error, _, 'Check', lambda_in_guard} | _], errors(Src)).
+
+%%% ---------------------------------------------------------------------------
 %%% F46.8 — the pipe does not move: `xs |> Sum` stays a syntax error, and a
 %%% call through a bound name is a call the pipe rewrites
 %%% ---------------------------------------------------------------------------

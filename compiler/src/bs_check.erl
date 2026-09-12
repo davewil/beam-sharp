@@ -2878,7 +2878,7 @@ guard_diags({guard, Expr}, C) ->
         ++ [{error, L, C#ctx.fname, raise_in_guard} || L <- nodes_of(e_raise, Expr)]
         ++ [{error, L, C#ctx.fname, R}
             || Call <- subtrees_of([e_call, e_qcall, e_inst, e_foreign_call,
-                                    e_switch, e_raise], Expr),
+                                    e_apply, e_lambda, e_switch, e_raise], Expr),
                {L, R} <- guard_call(Call)].
 
 %% The callee is spelled as the author wrote it — the same spelling

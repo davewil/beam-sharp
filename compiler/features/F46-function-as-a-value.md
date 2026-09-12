@@ -1,7 +1,7 @@
 # F46 — a function as a value
 
-**Status**      **done 2026-09-12** — 29 tests in `function_value_tests` and one roster pin in
-                `corpus_tests`; 889 in the suite, up from 859. No new gate: the ticket's program
+**Status**      **done 2026-09-12** — 31 tests in `function_value_tests` and one roster pin in
+                `corpus_tests`; 891 in the suite, up from 859. No new gate: the ticket's program
                 is `examples/Shop/Pricing/`, which `check-examples.sh` refused at the `fn(` in
                 its first signature before the build and compiles after it,
                 `editor/bin/check-corpus.sh` reported an ERROR node on the same token before
@@ -281,7 +281,7 @@ row closes and its spelling row is struck; `FRONTIER` re-measured 25b's wall pas
 to a bare PascalCase name in a tuple pattern. The compiler README's feature table gains the
 row.
 
-## Three things the build found
+## Four things the build found
 
 1. **A grammar measurement counts conflicts, not corpus shapes.** Ticket 75's table was
    right that `n => e` as an expression adds one shift/reduce, and wrong about what the shift
@@ -296,6 +296,12 @@ row.
    foreign-return walk and `ValidateAs<T>`'s arrow refusal both first fired on `result<int,
    foreign_error>`, because `foreign_error` holds a `term` and `term`'s fun part is `top`.
    The top promises nothing and passes; an explicit arrow is what is refused.
+4. **A guard refusal is wired in two places, and the second is a list of tags.** `guard_call/1`
+   gained clauses for the two new nodes and both were unreachable: the walk that hands it
+   subtrees names the node tags it stops at, and a clause for a tag not in that list is dead
+   code that compiles. The code review asked for the two guard tests the build had not
+   written, and both were red on the first run. Same class as F41's finding that a
+   pattern refusal must cover the switch arm too.
 
 ## What is asserted, and where
 
@@ -314,6 +320,7 @@ row.
 | F46.9 | a switch arm hands the clause's expected arrow to its lambda; the codomain absorbs a union |
 | F46.10 | `ValidateAs<fn(int) -> int>` is `validate_over_arrow`; a foreign return declared as an arrow is `foreign_ret_beyond_one_guard` with `why => arrow`; two same-arity arrows in a bare union are `indiscriminable_union`, two of different arity are not |
 | F46.11 | the corpus program runs through the CLI at two entry points |
+| F46.12 | a call through a bound name in a guard is `call_in_guard`; a lambda in a guard is `lambda_in_guard` |
 
 `corpus_tests.erl`: four roster rows and the lambda probe's negative pin. `binary_tests.erl`:
 the conflict count, now four. `check-examples.sh` and `editor/bin/check-corpus.sh`:
@@ -321,6 +328,15 @@ the conflict count, now four. `check-examples.sh` and `editor/bin/check-corpus.s
 
 ## Out of scope, and what is owed
 
+- **The corpus's `Rowed` and `Checked` are not respelled through `List.Map`.** ENG-365 asked
+  for it and the shapes refuse it: `Rowed` is a *fallible* traverse that stops at the first
+  error and threads it through `Prepend`, and `List.Map(rows, Build)` would return
+  `list<result<OrderRow, FetchError>>` with no short-circuit — a different function, and F45's
+  corpus program besides, which the tour quotes. `Checked` is one `ValidateAs<list<WireRow>>`
+  call with no traverse in it. The brief's third line was written before either shape was
+  looked at; the lambda spellings the corpus gained are `examples/Shop/Pricing/`'s `Owed`,
+  `Doubled` and `Large`. A short-circuiting traverse over a fun — a `List.TryMap`, or a fold
+  through `result` — is breadth under ticket 67 and not asked.
 - **The bare-name lambda as a general expression, and the variance-aware extent** — both
   taken here as the build found them and raised as ENG-367 for David's confirmation. The
   first narrows ticket 75 Q2 by one position; the second amends ticket 37's measured rule at
