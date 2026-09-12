@@ -1,9 +1,9 @@
 # 75 — A function as a value: the arrow type, the lambda, and a name in value position
 
 Type: grilling
-Status: open — [ENG-364](https://linear.app/davewil/issue/ENG-364). Raised 2026-09-12 by
-[ticket 37](37-instantiation-by-matching.md)'s ordering round ([ENG-204](https://linear.app/davewil/issue/ENG-204)),
-unclaimed.
+Status: claimed 2026-09-12 — [ENG-364](https://linear.app/davewil/issue/ENG-364). Raised 2026-09-12 by
+[ticket 37](37-instantiation-by-matching.md)'s ordering round ([ENG-204](https://linear.app/davewil/issue/ENG-204));
+picked by `/frontier` the same day as the sole unblocked High issue.
 Blocked by: —
 
 ## Why this is raised now
