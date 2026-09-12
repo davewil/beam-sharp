@@ -45,7 +45,9 @@ route to a producer's type.
 
 ## The program
 
-Ticket 73's, in `examples/Shop/Billing/Billing.bs` with `Shop` as the producer:
+Ticket 73's, run from scratch with `Orders` as the producer; the corpus carries the same shape
+as `examples/Shop/Billing/Billing.bs`, where the producer is `Shop` and the module is
+`Shop.Billing`:
 
 ```csharp
 module Billing
@@ -211,7 +213,7 @@ could add from what the build already knows, not from a search of the source tre
 | F44.2 | `type Doc = Order \| Invoice` crosses; the dependent's clause heads name `Order` and `Invoice`; a head short of one is refused as `Which(Invoice i)` |
 | F44.3 | `Box<T>` whose body names the producer's `Meta` crosses qualified and unqualified, and `m.Note` projects |
 | F44.4 | two imports supplying `Order` are refused at the use naming `Orders.Order` and `Archive.Order`; unused, no error; `Orders.Order` disambiguates |
-| F44.5 | a local `record Order` wins over the import, and the local's field set is what is checked |
+| F44.5 | a local `record Order` wins over the import: a value wearing the local's tag answers through it |
 | F44.6 | an unknown bare name a reachable module declares names `using Shop.Orders` and `Shop.Orders.Order`; a qualified name with no `using` says *never imported*; a qualified name the module lacks says *declares no type* |
 | F44.7 | `Shop.Orders.Order` after `using Shop.Orders`; `Orders.Order` after `using Shop` |
 | F44.8 | naming `Shapes.Shape` and handing it back compiles; `type Wide = Shapes.Shape \| Triangle` handed to `Shapes.Name` is refused at the call naming `Draw.Triangle` (ENG-261's measurement, ticket 16's refusal unmoved) |
