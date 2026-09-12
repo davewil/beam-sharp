@@ -16,13 +16,13 @@ Nonterminals
   bin_segments bin_segment bin_size
   guard guard_expr
   body binding
-  expr expr_list elist_items assign_fields assign_field
+  expr expr_list arg elist_items assign_fields assign_field
   switch_arms switch_arm modpath using_decl visibility call
   .
 
 Terminals
   'module' 'type' 'when' 'using' 'behaviour' 'record' 'with' 'switch' 'var'
-  'and' 'or' 'where' 'public' 'private' 'raise'
+  'and' 'or' 'where' 'public' 'private' 'raise' 'fn'
   uident lident atom_lit integer string_lit '_'
   '->' '=>' '==' '!=' '<=' '>=' '<<' '<' '>' '+' '-' '*' '/' '%'
   '=' '|' '|>' '|?>' ',' '(' ')' '[' ']' '{' '}' '..' '.' ':' '?'
@@ -43,6 +43,12 @@ Rootsymbol program.
 %% is no reading in which a raise should stop early: its operand is a reason,
 %% and a reason is whatever expression the author wrote (ticket 12 §5).
 Nonassoc  40 'raise'.
+%% A lambda's body runs as far right as it can, so `(n) => n * 2 |> F()` is
+%% one body and `(a) => (b) => a + b` nests to the right. Below every
+%% operator, above `raise`, so `(n) => raise n` is a lambda that raises
+%% (ticket 75 Q2, F46). The switch arm's `=>` shares the token and inherits
+%% the level; nothing in an arm's body was ever parsed against it.
+Right     45 '=>'.
 Nonassoc  50 '='.
 Left  100 'or'.
 Left  200 'and'.
@@ -203,6 +209,17 @@ type_prim -> '{' field_decls '}' : {t_map, '$2'}.
 %% parameters are known, not here (F6.6).
 type_prim -> lident '<' type_list '>' : {t_generic, value('$1'), '$3'}.
 type_prim -> uident '<' type_list '>' : {t_generic, value('$1'), '$3'}.
+
+%% `fn(int, atom) -> int`, the arrow (ticket 75, F46). The codomain is a
+%% `type_expr`, so it runs as far as the type expression does:
+%% `fn(atom) -> int | :nothing` returns an option, and a union OF arrows is
+%% spelled through a named arrow — a parenthesised type is a 1-tuple, and the
+%% type grammar gains no grouping bracket (ticket 75 Q6). That is one
+%% shift/reduce conflict, at the `|` after the codomain, resolved as the shift
+%% every example means; measured with `yecc:file/2` `{report, true}`, 0
+%% before.
+type_prim -> 'fn' '(' type_list ')' '->' type_expr : {t_fun, '$3', '$6'}.
+type_prim -> 'fn' '(' ')' '->' type_expr           : {t_fun, [], '$5'}.
 
 %% `Orders.Order`, `Shop.Orders.Order`, `Orders.Box<int>` — a producer's record
 %% or alias named through the module that declares it, in ticket 41 §5's
@@ -530,7 +547,61 @@ call -> modpath '.' uident '(' expr_list ')' :
 call -> modpath '.' uident '(' ')' :
     {e_qcall, line('$2'), modatom('$1'), value('$3'), []}.
 
+%% `rule(cents)` calls through a BOUND NAME: a lowercase name followed by `(`
+%% is the fourth call form (ticket 75, F46). It is a `call` so the pipe
+%% reaches it, `n |> rule()`. One shift/reduce conflict — `rule(` shifts into
+%% the call rather than reducing the variable — and the shift is the read
+%% every author means.
+%%
+%% `not (n > 100)` is this form's shape and must stay the taught refusal it
+%% was (ticket 63): `not` is not a keyword, so the parse used to fail here
+%% and `bs_diag` read the hint off the tokens. The action refuses it by name
+%% so the same hint is still raised.
+call -> lident '(' expr_list ')' : apply_or_not('$1', '$3').
+call -> lident '(' ')'           : apply_or_not('$1', []).
+
 expr -> call : '$1'.
+
+%% --- a function as a value (ticket 75, F46) ---------------------------------
+%% A lambda in C#'s spelling. The parameters are parsed as an `expr_list` and
+%% lowered to patterns by `to_param/1`, because `'(' patterns ')'` cannot
+%% share the parenthesis with the tuple expression (21 reduce/reduce,
+%% measured in ticket 75 round 1). The body is ONE expression, the switch
+%% arm's reason verbatim: arguments are comma-separated and a body has no
+%% terminator.
+%%
+%% THE PARENTHESISED FORM IS AN EXPRESSION; THE BARE-NAME FORM IS AN
+%% ARGUMENT. Ticket 75 Q2 took both as expressions and priced it at two
+%% collisions on a switch arm's guard, `x when (n > 3) => :high` and `x when
+%% flag => 1`, on the measurement that no guard in the corpus ends so. The
+%% second collision is wider than the round saw: it is every guard that ENDS
+%% in a name — `x when x > m => 0`, F7's own test — because `m =>` shifts into
+%% a lambda wherever `m` is an expression. So `n => e` lives in `arg` below,
+%% reachable only inside an argument list, where the same round measured it
+%% conflict-free and where every program in the record writes it:
+%% `List.Filter(n => n > 100)`. `(n) => e` stays a general expression, and
+%% `x when (n > 3) => :high` stays the syntax error the round accepted. Both
+%% resolved as shifts. Measured with `yecc:file/2` `{report, true}`: 0
+%% before, 4 after, all four named in this file (ENG-365).
+expr -> '(' expr_list ')' '=>' expr :
+    {e_lambda, line('$4'), [to_param(E) || E <- '$2'], '$5'}.
+expr -> '(' ')' '=>' expr :
+    {e_lambda, line('$3'), [], '$4'}.
+
+arg -> expr : '$1'.
+arg -> lident '=>' expr :
+    {e_lambda, line('$2'), [{p_var, line('$1'), value('$1')}], '$3'}.
+
+%% A name in value position: `Double` reads its arity from the arrow the site
+%% expects, `Double/1` writes it and is legal everywhere (ticket 75 Q3). The
+%% arity is `unknown` until `bs_check` fixes it, and the checker hands the
+%% emitter the answer keyed by this token's position. Shift/reduce conflicts
+%% at `Double(`, `Double{`, `Double<` and `Double/` all shift into the call,
+%% the construction, the instantiation and the written arity — the intended
+%% reads; `Double / n` is therefore a syntax error, and dividing a function
+%% was never a program.
+expr -> uident             : {e_fname, line('$1'), value('$1'), unknown}.
+expr -> uident '/' integer : {e_fname, line('$1'), value('$1'), value('$3')}.
 
 %% --- the pipe and the valve -------------------------------------------------
 %% The piped value becomes the first argument, and that rewrite is all a pipe
@@ -615,8 +686,9 @@ expr -> expr '>=' expr : {e_op, line('$2'), '>=', '$1', '$3'}.
 expr -> expr 'and' expr : {e_op, line('$2'), 'and', '$1', '$3'}.
 expr -> expr 'or'  expr : {e_op, line('$2'), 'or',  '$1', '$3'}.
 
-expr_list -> expr               : ['$1'].
-expr_list -> expr ',' expr_list : ['$1' | '$3'].
+%% An argument list holds expressions and the bare-name lambda (above).
+expr_list -> arg               : ['$1'].
+expr_list -> arg ',' expr_list : ['$1' | '$3'].
 
 Erlang code.
 
@@ -674,3 +746,35 @@ to_match_rest(_L, E = {e_var, _, _}) -> to_match(E);
 to_match_rest(L, _E) ->
     return_error(L, "a rest is `..` or `..name` -- `..[]` is retired, and a "
                     "closed list is written `[a, b]`").
+
+%% `not (n > 100)` has the shape of a call through a bound name and is the
+%% negation the language refuses to spell (ticket 63): refused here by name,
+%% with the token where `bs_diag` looks for it, so the hint it always raised
+%% is raised still. Every other name is the call it looks like.
+apply_or_not({lident, L, 'not'}, _Args) ->
+    return_error(L, "beam-sharp has no `not`");
+apply_or_not({lident, L, V}, Args) ->
+    {e_apply, L, V, Args}.
+
+%% A lambda's parameter is `to_match/1` with one clause added: a bare name
+%% INTRODUCES, which is what a parameter is for and what the bare `=` refuses
+%% on purpose (ticket 75 round 2, F46). The compounds recurse here so a name
+%% inside a tuple, `(acc, (_, n))`, introduces too.
+to_param({e_var, L, V})   -> {p_var, L, V};
+to_param({e_wild, L})     -> {p_wild, L};
+to_param({e_int, L, N})   -> {p_int, L, N};
+to_param({e_atom, L, A})  -> {p_atom, L, A};
+to_param({e_tuple, L, Es})-> {p_tuple, L, [to_param(E) || E <- Es]};
+to_param({e_nil, L})      -> {p_nil, L};
+to_param({e_list, L, Items, Rest}) ->
+    {p_list, L, [to_param(I) || I <- Items], to_param_rest(L, Rest)};
+to_param(E) ->
+    return_error(element(2, E),
+                 "a lambda's parameter is a pattern: a name, `_`, a literal, "
+                 "or a tuple or list of those").
+
+to_param_rest(_L, nil)               -> nil;
+to_param_rest(_L, {e_wild, WL})      -> {p_wild, WL};
+to_param_rest(_L, {e_var, VL, V})    -> {p_var, VL, V};
+to_param_rest(L, _E) ->
+    return_error(L, "a rest is `..` or `..name`").

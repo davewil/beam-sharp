@@ -39,7 +39,7 @@
 # A record moving forward means the front wall fell, never that the file is done.
 
 25a-http-api-server	create_order.bs	error: illegal characters "#"
-25b-websocket-handler	encode.bs	error: syntax error before: '=>'
+25b-websocket-handler	handle_info.bs	error: syntax error before: ','
 25c-event-queue-consumer	encode.bs	error: syntax error before: '<<'
 25d-database-querying	-	error: this directory holds `.bs` files and no `module` line
 25e-dynamic-web-page	index.bs	error: `module Shop.Page` does not match its directory

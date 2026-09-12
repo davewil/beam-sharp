@@ -1415,8 +1415,8 @@ Sum([x, ..rest], acc) -> Sum(rest, acc + x)
 
 The right operand is a **call**, never a bare name: `xs |> Sum` is a *syntax* error rather than a
 type error, because the pipe rewrites a call and `xs |> Sum()` is the spelling. A function's name
-as a value belongs in argument position, `List.Map(xs, Sum)`, and that form is decided and not yet
-built. <!-- ticket 75, 2026-09-12 -->
+as a value belongs in argument position, `List.Map(xs, Sum)` (§9), and a call through a bound name
+is a call the pipe rewrites too: `n |> rule()` is `rule(n)`. <!-- ticket 75, 2026-09-12; F46 -->
 
 
 
@@ -1565,7 +1565,9 @@ Before(a, b) -> Term.Compare(a, b)
 
 `Term.Compare` returns `:lt | :eq | :gt` — the universal-order escape, and an ordinary union a
 `switch` must cover. `List.Sum`, `List.Length` and `List.Reverse` are the operations the corpus
-writes; which others exist is breadth, deliberately out of scope.
+writes, and `List.Map`, `List.Filter` and `List.Fold` take a function value (§9), the fun as an
+argument to one walker per module per operation; which others exist is breadth, deliberately out
+of scope.
 
 **Three names are reserved: `List`, `Map` and `Term`.** `Map`'s operations are not built yet, and
 the name is taken anyway — reserving it later would mean taking it away from a program that had
@@ -1764,12 +1766,26 @@ public result<T, ValidationError> Check<T>(T x)
 Check(x) -> ValidateAs<T>(x)
 ```
 
-What is **not** built is the arrow. `Map` needs `fn(T) -> U` in a signature and a lambda to pass
-to it, and the language has neither yet:
+An arrow in a polymorphic signature is solved like any other position: `T` from the list, `U`
+from the lambda's own result. `Map` is written in user code, and a lambda handed to it is typed
+against the arrow with `T` already chosen:
 
-```csharp not-yet
-list<U> Map<T, U>(list<T> xs, fn(T) -> U f)
+```csharp
+module Mapping
+
+public list<U> Map<T, U>(list<T> xs, fn(T) -> U f)
+Map([], _)       -> []
+Map([h, ..t], f) -> [f(h), ..Map(t, f)]
+
+public list<int> Doubled(list<int> xs)
+Doubled(xs) -> Map(xs, (n) => n * 2)
+
+public list<atom> Tagged(list<int> xs)
+Tagged(xs) -> Map(xs, (n) => n switch { 0 => :zero, _ => :some })
 ```
+
+**shipped** — F46. `Doubled` instantiates `U` at `int` and `Tagged` at `:zero | :some`, each
+from what its lambda returns. <!-- ticket 75, F46 -->
 
 - **Declared**, C#'s `T` convention. Builtins are lowercase, so an implicit lowercase convention
   would be ambiguous.
@@ -1782,18 +1798,165 @@ list<U> Map<T, U>(list<T> xs, fn(T) -> U f)
 Instantiation is matching, not constraint solving — which is what keeps the cost sane, and why the
 three bullets above are load-bearing rather than preferences.
 
-**Why the arrow is not built yet, plainly.** Not for want of a decision: a function as a value
-is decided — the arrow `fn(T) -> U` is a type, a lambda is `(n) => n * 2`, and a name in value
-position is that function — and the polymorphic signature above was sequenced first inside that
-increment and has landed. What remains is a seventh part of the type algebra, the arrow itself,
-and the lambda's grammar.
-<!-- ticket 37: algorithm 2026-08-28, ordering 2026-09-12; F45 built the signature 2026-09-12; ticket 75 resolved 2026-09-12, ENG-365 builds the arrow -->
-The first half needed neither.
-
 **User code never writes a type argument.** Only three compiler-known names take an explicit one:
 `ValidateAs<T>`, `ParseAtom<T>`, `ToExistingAtom`. So `<` opens a bracket after one of those names
 and is comparison everywhere else — a lexer rule on a closed set, with no lookahead and no turbofish.
 <!-- decided by ticket 28, measured against four grammar variants; same ticket cleared `..` for list rest -->
+
+**decided**
+
+---
+
+### A function as a value — shipped
+
+**A function is a value.** The arrow `fn(T) -> U` is a type of the language, a lambda
+`(a, b) => e` is an expression in C#'s spelling, and a name in value position is that function.
+Three forms, one type. From `examples/Shop/Pricing/Pricing.bs`:
+
+```csharp
+module Pricing
+
+public fn(int) -> int Rule(atom tier)
+Rule(:standard) -> (cents) => cents
+Rule(:member)   -> (cents) => cents - 100
+Rule(:staff)    -> Free
+Rule(_)         -> (cents) => cents
+
+public int Charge(fn(int) -> int rule, int cents)
+Charge(rule, cents) -> rule(cents)
+
+private int Free(int cents)
+Free(_) -> 0
+
+public int Owed(list<(atom, int)> pairs)
+Owed(pairs) -> pairs |> List.Fold(0, (acc, (_, n)) => acc + n)
+
+public list<int> Doubled(list<int> xs)
+Doubled(xs) -> List.Map(xs, Double/1)
+
+public list<int> Large(list<int> xs)
+Large(xs) -> xs |> List.Filter(n => n > 100)
+
+private int Double(int n)
+Double(n) -> n * 2
+```
+
+```
+$ bsc --src-root examples examples/Shop/Pricing/Pricing.bs Charged :member 250
+150
+$ bsc --src-root examples examples/Shop/Pricing/Pricing.bs Owed "[(:a, 3), (:b, 4)]"
+7
+```
+
+**shipped** — F46. `Rule` returns an arrow three ways — a lambda, a lambda, a private function's
+name — and `Charge` calls whichever arrived, `rule(cents)`: a lowercase name followed by `(` is a
+call through a bound value. It compiles to `fun(Cents) -> Cents end`, `fun 'Free'/1` and
+`Rule(Cents)`, and the emitted `-spec` reads `fun((integer()) -> integer())`. The BEAM does the
+closure: a lambda captures every name in scope, `List.Map(xs, (n) => n + by)`.
+<!-- ticket 75, resolved 2026-09-12; F46 -->
+
+**The arrow is a seventh part of the type algebra**, a union of arrows. Containment is pairwise:
+the domain is contravariant and the codomain covariant, so `fn(term) -> int` is a `fn(int) -> int`
+and a function over `int` is not one over `term`. Subtraction is all-or-nothing: an arrow contained
+in the declared type leaves `none`, and one that is not is the residual whole — the same
+over-approximation the map domain takes, and the one place the residual is coarser than the set.
+One arrow per arity: a function type is `fn(A | B) -> C`, never two arrows of one arity, which a
+clause head could not tell apart (§7). Two of different arity it can, by `is_function/2`.
+
+**The codomain runs as far as the type expression does.** `fn(atom) -> int | :nothing` is an arrow
+returning `option<int>`; a union of arrows is spelled through a named arrow, `type Rule = fn(int)
+-> int` then `Rule | :nothing`, because a parenthesised type is a 1-tuple and the type grammar
+gains no grouping bracket.
+
+**A lambda is one clause with one expression for a body.** The switch arm's reason holds verbatim:
+arguments are comma-separated and a body has no terminator, so a lambda that needs a binding names
+a private function. Its parameters are **patterns**, checked irrefutable against the arrow's
+domain by the rule the destructuring bind follows (§5) — `(acc, (_, n))` takes the pair apart in
+the head, and a pattern the domain can refute is refused with the residual it leaves:
+
+<!-- diagnoses: lambda_param_refuted -->
+```csharp
+module Oks
+
+public int Oks(list<result<int, string>> rs)
+Oks(rs) -> rs |> List.Fold(0, (acc, (:ok, n)) => acc + n)
+```
+
+A lambda with two cases is `(x) => x switch { … }`. Its parameters bind under the no-shadowing
+rule: a parameter may not reuse a name already in scope.
+
+**The bare-name form, `n => e`, is an argument.** `List.Filter(n => n > 100)` writes it and
+`(n) => n > 100` means the same; outside an argument list the parenthesised form is the spelling,
+because as a general expression `n =>` would read a switch arm's guard ending in a name —
+`x when x > m => 0` — as a lambda. <!-- F46, measured against F7's own test; ticket 75 Q2 priced only `when flag =>` -->
+The parenthesised form collides only with a guard that is *itself* parenthesised, `x when (n > 3)
+=> :high`, which is a syntax error and is written `x when n > 3` instead.
+
+**A lambda's type is the arrow its site expects.** A call argument, a clause return, a switch arm
+under one, a tuple or list component and a record field all expect one; a binding expects nothing,
+so `var f = (n) => n * 2` is refused, and the message names the two ways out — hand the lambda to
+the site that expects it, or write a private function:
+
+<!-- diagnoses: lambda_without_expectation -->
+```csharp
+module Later
+
+public int Later(int n)
+Later(n) -> var twice = (k) => k * 2
+            twice(n)
+```
+
+**A name in value position reads its arity from the expected arrow**; `Double/1` is legal
+everywhere and required where nothing fixes it. A bare name beside two arities and no expectation
+is refused, naming both arities and the spelling that picks one:
+
+<!-- diagnoses: name_arity_unfixed -->
+```csharp
+module Two
+
+public int Double(int n)
+Double(n) -> n * 2
+
+public int Double(int n, int k)
+Double(n, k) -> n * k
+
+public int Later(int n)
+Later(n) -> var f = Double
+            f(n)
+```
+
+**A call through a bound name needs an arrow of that arity.** Anything else is refused where the
+call is written:
+
+<!-- diagnoses: not_callable -->
+```csharp
+module Bad
+
+public int Charge(int rule, int cents)
+Charge(rule, cents) -> rule(cents)
+```
+
+**The pipe does not move.** `xs |> Sum` stays a syntax error, because the pipe rewrites a *call*
+and a name in value position is a value; `xs |> Sum()` is the spelling, and so is `n |> rule()`
+through a bound name.
+
+**What was fixed before the arrow existed, and holds.** `ValidateAs<T>` refuses a `T` containing an
+arrow (§10): a fun's type is not recoverable at run time, so the traversal would have nothing to
+check.
+
+<!-- diagnoses: validate_over_arrow -->
+```csharp
+module Val
+
+public result<fn(int) -> int, ValidationError> Check(term x)
+Check(x) -> ValidateAs<fn(int) -> int>(x)
+```
+
+A foreign return may not promise an arrow either — `is_function/2` decides the arity and nothing
+about the types, so one guard cannot honour the declaration (§11). And a clause head dispatches
+on an arrow's arity alone, so two arrows of one arity in a bare union are refused as a union no
+clause head can take apart (§7).
+<!-- ticket 11, ticket 18 §2, ticket 70; F46 -->
 
 **decided**
 
@@ -2410,7 +2573,7 @@ the parser accepts back exactly what the printer emits. **shipped**
 | pipe and valve | **shipped** — F14 |
 | parametric types — `result<T, E>`, `option<T>`, `type Pair<T>`, nesting | **shipped** |
 | polymorphic function signatures — `Prepend<T, E>`, instantiated at the call by matching | **shipped** — F45 |
-| the arrow `fn(T) -> U`, the lambda, a name in value position — `Map<T, U>` | not started — decided; the next feature in the function-as-a-value increment, now that the signature has landed |
+| the arrow `fn(T) -> U`, the lambda, a name in value position — `Map<T, U>`, `List.Map`, `List.Filter`, `List.Fold` | **shipped** — F46 |
 <!-- ticket 75, ENG-365 -->
 | modules, imports, `using` — both tiers, and arity overloading | **shipped** — F11 |
 | a producer's `record` and `type` names in a dependent's type position — `Order o` after `using Orders`, and `Orders.Order o` | **shipped** — F44 |

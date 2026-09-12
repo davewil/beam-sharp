@@ -57,6 +57,13 @@ var                     : {token, {'var', TokenLoc}}.
 %% syntax error, the same consequence `and` and `or` carry below.
 raise                   : {token, {'raise', TokenLoc}}.
 
+%% `fn` opens an arrow type, `fn(int) -> int` (ticket 75, F46). A keyword
+%% rather than a lowercase type name because `fn(` in type position would
+%% otherwise read as a builtin applied to a tuple, and because the value side
+%% may one day want it too. It leaves the variable namespace: a parameter
+%% called `fn` is a syntax error, as one called `raise` is.
+fn                      : {token, {'fn', TokenLoc}}.
+
 %% `and`/`or` are the only conjunctions, in guards and in patterns alike; `&&`
 %% and `||` are not accepted, even as synonyms, and a parameter may not be
 %% named `and` or `or` (ticket 44, amending ticket 08). Erlang's `and` does not

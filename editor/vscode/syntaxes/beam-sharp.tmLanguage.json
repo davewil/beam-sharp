@@ -60,6 +60,11 @@
           "match": "\\b(raise)\\b"
         },
         {
+          "_comment": "`fn` opens an arrow type, `fn(int) -> int` (F46, ticket 75). A keyword, so it leaves the variable namespace as `raise` does; scoped as a type keyword because that is the only position it has.",
+          "name": "keyword.type.beam-sharp",
+          "match": "\\b(fn)\\b"
+        },
+        {
           "_comment": "`var` INTRODUCES a name (F8, ticket 45) and `where` carries a type's refinement predicate (F2, ticket 20 §5). `var` shipped with F8 and was never added here; the token gate says so by name, which is what it is for.",
           "name": "keyword.declaration.beam-sharp",
           "match": "\\b(module|type|record|using|behaviour|behavior|with|var|where|public|private)\\b"

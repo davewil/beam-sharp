@@ -29,6 +29,9 @@ const PREC = {
   // Lowest in the table, matching `bs_parser.yrl`: a raise takes the whole
   // expression to its right, so `raise (:bad, n + 1)` needs no bracket.
   raise: 40,
+  // F46 / ticket 75 — a lambda's body runs as far right as it can, below
+  // every operator and above `raise`, as in `bs_parser.yrl`.
+  lambda: 45,
   bind: 50,
   or: 100,
   and: 200,
@@ -74,6 +77,12 @@ module.exports = grammar({
     // function name starts is not decidable one token at a time; see the note on
     // `module_path`.
     [$.module_path],
+    // F46 — a PascalCase name in value position. `Double(` is a call,
+    // `Double{` a construction, `Double<` an instantiation and `Double/1` the
+    // written arity; the bare name is the function itself. `bs_parser.yrl`
+    // shifts on every one of those tokens, and GLR reads one token further to
+    // find out which it was.
+    [$.type_identifier, $.function_name],
   ],
 
   rules: {
@@ -188,9 +197,20 @@ module.exports = grammar({
       $.builtin_type,
       $.qualified_type,
       $.type_identifier,
+      $.arrow_type,
       seq('(', commaSep1($.type_expression), ')'),
       seq('{', commaSep1($.field_declaration), '}'),
     ),
+
+    // F46 / ticket 75 — the arrow, `fn(int, atom) -> int`. The codomain is a
+    // whole type expression, so `fn(atom) -> int | :nothing` returns an
+    // option and a union OF arrows is spelled through named arrows, exactly
+    // as the compiler reads it (Q6). `prec.right` is what makes the codomain
+    // absorb the `|` rather than close the arrow before it.
+    arrow_type: $ => prec.right(seq(
+      'fn', '(', optional(commaSep1($.type_expression)), ')',
+      '->', field('codomain', $.type_expression),
+    )),
 
     generic_type: $ => seq(
       field('name', choice($.builtin_type, $.qualified_type, $.type_identifier)),
@@ -415,11 +435,14 @@ module.exports = grammar({
       $.variable,
       $.wildcard,
       $.call,
+      $.apply,
       $.instantiation,
       $.foreign_call,
       $.qualified_call,
       $.string,
       $.tuple,
+      $.lambda,
+      $.function_value,
       $.record_construction,
       $.record_update,
       $.projection,
@@ -430,10 +453,48 @@ module.exports = grammar({
       $.raise_expression,
     ),
 
+    // F46 / ticket 75 — an ARGUMENT is an expression or the bare-name lambda
+    // `n => e`, which the compiler admits only here: as a general expression
+    // it would turn every switch-arm guard that ends in a name, `x when x > m
+    // => 0`, into a lambda. The parenthesised form is a general expression.
+    _argument: $ => choice($._expression, $.bare_lambda),
+
     call: $ => seq(
       field('function', $.function_name),
-      '(', optional(commaSep1($._expression)), ')',
+      '(', optional(commaSep1($._argument)), ')',
     ),
+
+    // `rule(cents)` — a call through a BOUND NAME, the fourth call form. A
+    // lowercase name followed by `(`; the compiler's `e_apply`. `prec(1)` for
+    // the reason `qualified_call` carries it: a clause body ending in a name
+    // may be followed by a signature whose return type opens with `(`, and
+    // the compiler shifts into the call there.
+    apply: $ => prec(1, seq(
+      field('function', $.variable),
+      '(', optional(commaSep1($._argument)), ')',
+    )),
+
+    // A lambda in C#'s spelling: patterns for parameters, one expression for
+    // a body. The parameter list shares its parenthesis with the tuple, which
+    // is the pattern/expression overlap declared at the top of this file one
+    // more time; GLR reads to the `=>` and keeps the reading that survives.
+    lambda: $ => prec.right(PREC.lambda, seq(
+      '(', optional(commaSep1($.pattern)), ')',
+      '=>', field('body', $._expression),
+    )),
+
+    bare_lambda: $ => prec.right(PREC.lambda, seq(
+      field('parameter', $.variable),
+      '=>', field('body', $._expression),
+    )),
+
+    // A name in value position: `Double` where the site fixes the arity,
+    // `Double/1` where the author writes it. Labelled as a function, not a
+    // type, which is the distinction this grammar exists to draw.
+    function_value: $ => prec.right(seq(
+      field('function', $.function_name),
+      optional(seq('/', field('arity', $.integer))),
+    )),
 
     // F18 — the instantiation bracket in EXPRESSION position, which is the half
     // ticket 28's rule is actually about: in type position nothing compares, so
@@ -448,7 +509,7 @@ module.exports = grammar({
     instantiation: $ => seq(
       field('obligation', $.type_identifier),
       '<', commaSep1($.type_expression), '>',
-      '(', optional(commaSep1($._expression)), ')',
+      '(', optional(commaSep1($._argument)), ')',
     ),
 
     // `:ets.lookup(t, k)` — an atom literal on the left, so no variable and no
@@ -457,7 +518,7 @@ module.exports = grammar({
       field('module', $.atom),
       '.',
       field('function', $.lident),
-      '(', optional(commaSep1($._expression)), ')',
+      '(', optional(commaSep1($._argument)), ')',
     ),
 
     // `List.Map(xs)` — a uident path on the left, which is the third and last of
@@ -467,7 +528,7 @@ module.exports = grammar({
       field('module', $.module_path),
       '.',
       field('function', $.uident),
-      '(', optional(commaSep1($._expression)), ')',
+      '(', optional(commaSep1($._argument)), ')',
     )),
 
     tuple: $ => seq('(', commaSep1($._expression), ')'),
@@ -559,7 +620,7 @@ module.exports = grammar({
     pipe_expression: $ => prec.left(PREC.pipe, seq(
       field('left', $._expression),
       field('operator', choice('|>', '|?>')),
-      field('right', choice($.call, $.instantiation, $.foreign_call,
+      field('right', choice($.call, $.apply, $.instantiation, $.foreign_call,
                             $.qualified_call)),
     )),
 

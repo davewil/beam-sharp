@@ -246,7 +246,52 @@ demonstrated_surface() ->
      %% breaking — which is the whole argument for giving it a row.
      {"a string literal as a segment",           "<<\"[^\"]*\","},
      %% Hex, which F13 owed and ticket 30's table did not name.
-     {"a hex integer literal",                   "0[xX][0-9a-fA-F]"}].
+     {"a hex integer literal",                   "0[xX][0-9a-fA-F]"},
+     %% F46 / ticket 75. FOUR rows, because a function as a value is four
+     %% sentences and the ticket counted them: the arrow as a type, the
+     %% lambda as an expression, a name as a value, and a call through a bound
+     %% name — the fourth form the ticket had not listed until round 1 found
+     %% it. A corpus could declare an arrow and never write a lambda, or hand
+     %% a name to `List.Map` and never call through a parameter.
+     %%
+     %% The arrow is anchored on a signature's marker so a lambda's `=>` in a
+     %% body cannot satisfy it; `fn(` is the keyword and nothing else in the
+     %% language produces it.
+     {"an arrow type in a signature",            "^(public|private) .*fn\\("},
+     %% The lambda is anchored on what PRECEDES it — a clause arrow, an
+     %% argument's comma or its opening bracket — and on the parameter list
+     %% being either a bare name or a balanced parenthesis closed right before
+     %% the `=>`, so a switch arm's tuple pattern, `(false, true, _) =>
+     %% :dead_letter`, which sits at the start of an indented line with spaces
+     %% before its arrow, cannot satisfy it. Pinned below.
+     {"a lambda handed to a site",
+      "(-> |, |\\()(\\([a-z_][a-z_, ()]*\\)|[a-z_]+) => "},
+     %% The written arity, `Double/1`: a slash after a PascalCase name is
+     %% this form and nothing else, since `/` divides values and a function
+     %% name is not one.
+     {"a name in value position with its arity written", "[A-Z][A-Za-z]*/[0-9]"},
+     %% A call through a bound name: a lowercase name followed by `(` as a
+     %% clause body. No other body form opens with a lowercase name and a
+     %% parenthesis — a projection is `n.Field`, a call is PascalCase.
+     {"a call through a bound name",             "-> [a-z][a-z_]*\\("}].
+
+%% The lambda probe must not be satisfied by a switch arm whose pattern is a
+%% tuple: the two are the same characters up to the `=>`, and only what comes
+%% before the parenthesis tells them apart (F46).
+the_lambda_probe_does_not_match_a_tuple_arm_test() ->
+    Re = "(-> |, |\\()(\\([a-z_][a-z_, ()]*\\)|[a-z_]+) => ",
+    ?assertEqual(nomatch,
+                 re:run("    (false, true, _)     => :dead_letter,", Re,
+                        [multiline, {capture, none}])),
+    ?assertEqual(match,
+                 re:run("Rule(:standard) -> (cents) => cents", Re,
+                        [multiline, {capture, none}])),
+    ?assertEqual(match,
+                 re:run("Owed(pairs) -> pairs |> List.Fold(0, (acc, (_, n)) => acc + n)", Re,
+                        [multiline, {capture, none}])),
+    ?assertEqual(match,
+                 re:run("Large(xs) -> xs |> List.Filter(n => n > 100)", Re,
+                        [multiline, {capture, none}])).
 
 every_shipped_surface_form_has_an_example_test() ->
     Dir = project_root() ++ "/examples",

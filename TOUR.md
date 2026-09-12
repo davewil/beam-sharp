@@ -684,10 +684,51 @@ and the call's type is the declared return with both substituted — which is wh
 declared over `list<int>`. A bare variable admits one clause, a binder: `row` is handed on and
 never inspected, so the signature tells a reviewer the whole story.
 
-What is **not** built is the arrow. `Map<T, U>` needs `fn(T) -> U` in a signature and a lambda to
-pass to it; both are decided and neither is built yet.
+**A function is a value.** The arrow `fn(T) -> U` is a type, a lambda `(a, b) => e` is an
+expression in C#'s spelling, and a name in value position is that function. From
+`examples/Shop/Pricing/Pricing.bs`:
 
-<!-- ticket 10 §5, ticket 15, ticket 26 §4, ticket 27, F6; ticket 37, F45 2026-09-12; ticket 75, ENG-365 -->
+```
+public fn(int) -> int Rule(atom tier)
+Rule(:standard) -> (cents) => cents
+Rule(:member)   -> (cents) => cents - 100
+Rule(:staff)    -> Free
+Rule(_)         -> (cents) => cents
+
+public int Charge(fn(int) -> int rule, int cents)
+Charge(rule, cents) -> rule(cents)
+
+private int Free(int cents)
+Free(_) -> 0
+
+public int Owed(list<(atom, int)> pairs)
+Owed(pairs) -> pairs |> List.Fold(0, (acc, (_, n)) => acc + n)
+
+public list<int> Doubled(list<int> xs)
+Doubled(xs) -> List.Map(xs, Double/1)
+
+public list<int> Large(list<int> xs)
+Large(xs) -> xs |> List.Filter(n => n > 100)
+```
+
+```
+$ bsc --src-root examples examples/Shop/Pricing/Pricing.bs Charged :member 250
+150
+$ bsc --src-root examples examples/Shop/Pricing/Pricing.bs Owed "[(:a, 3), (:b, 4)]"
+7
+```
+
+`Rule` returns an arrow three ways, and `Charge` calls whichever arrived: `rule(cents)` is a
+call through a bound name, the fourth form. A lambda's parameters are **patterns** — `(_, n)`
+takes the pair apart — checked irrefutable against the arrow's domain, and its type is the arrow
+its site expects, so `var f = (n) => n * 2` is refused: nothing there expects one. A bare name
+reads its arity from that same expectation, and `Double/1` writes it where nothing does. The
+pipe does not move: `xs |> Sum` is still a syntax error, and `n |> rule()` is a call.
+
+`Map<T, U>` is now written in user code, and `List.Map`, `List.Filter` and `List.Fold` take
+the fun as an argument, one walker per module per operation.
+
+<!-- ticket 10 §5, ticket 15, ticket 26 §4, ticket 27, F6; ticket 37, F45 2026-09-12; ticket 75, F46 2026-09-12 -->
 
 ---
 
@@ -1491,9 +1532,7 @@ produce.
 | | |
 |---|---|
 | the UTF-8 entry check, `binary` → `string` | the one direction chapter 10 has no spelling for |
-| the arrow `fn(T) -> U`, the lambda `(n) => …`, a name in value position — `Map<T, U>` | decided; the polymorphic signature it needed landed first (chapter 9) |
 | the behaviour contract checked as a type | Dialyzer does it at the boundary today |
-| the operations that take a **function value** — `List.Map`, `List.Filter`, `List.Fold` | they need the arrow type the row above is waiting for |
 | `Map.Get`, and the `map<K, V>` type beside it | the name `Map` is reserved; its operations are not built |
 | `float` | no decided literal syntax; `1..5` currently only lexes as a range |
 | `cond`, or whatever serves a long ladder of unrelated conditions | open |
@@ -1533,8 +1572,8 @@ The language's **name** is also open. `beam-sharp` is a working title.
 
 ## Appendix: the construct index
 
-**The corpus gate names 56 capabilities and fails by name when one has no example to look
-at.** All 56 are below, in the gate's own wording, so the two lists can be diffed by machine
+**The corpus gate names 60 capabilities and fails by name when one has no example to look
+at.** All 60 are below, in the gate's own wording, so the two lists can be diffed by machine
 — `compiler/bin/check-tour.sh` does exactly that, and this table is red the day the compiler
 grows a capability the tour has not met.
 
@@ -1577,6 +1616,10 @@ grows a capability the tour has not met.
 | a qualified call | `examples/Shop/Reports/Totals.bs` | 11 |
 | a qualified type name in a signature | `examples/Shop/Billing/Billing.bs` | 11 |
 | a polymorphic signature | `examples/Shop/Rows/Rows.bs` | 9 |
+| an arrow type in a signature | `examples/Shop/Pricing/Pricing.bs` | 9 |
+| a lambda handed to a site | `examples/Shop/Pricing/Pricing.bs` | 9 |
+| a name in value position with its arity written | `examples/Shop/Pricing/Pricing.bs` | 9 |
+| a call through a bound name | `examples/Shop/Pricing/Pricing.bs` | 9 |
 | a pipe into a call | `examples/Pipeline/pipeline.bs` | 12 |
 | a valve into a call | `examples/Pipeline/pipeline.bs` | 12 |
 | a foreign module declaration | `examples/Interop/interop.bs` | 13 |

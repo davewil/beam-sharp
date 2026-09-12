@@ -282,6 +282,28 @@ built(Path, {Sev, Line, Fn, {bind_may_fail, Residual}}) ->
     (at(Sev, Path, Line, Fn))#{tag => bind_may_fail,
                                residual => residual(Residual),
                                unmatched => bs_types:to_pattern(Residual)};
+%%% A function as a value (ticket 75, F46): the four refusals the ticket
+%%% owes, and the two fixed before the arrow existed.
+built(Path, {Sev, Line, Fn, lambda_without_expectation}) ->
+    (at(Sev, Path, Line, Fn))#{tag => lambda_without_expectation};
+built(Path, {Sev, Line, Fn, {name_arity_unfixed, Name, Arities}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => name_arity_unfixed,
+                               name => Name, declared => Arities};
+%% The residual as the destructuring bind prints it, position and all.
+built(Path, {Sev, Line, Fn, {lambda_param_refuted, Pos, Residual}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => lambda_param_refuted,
+                               argument => Pos,
+                               residual => residual(Residual),
+                               unmatched => bs_types:to_pattern(Residual)};
+built(Path, {Sev, Line, Fn, {not_callable, Var, Arity, Ty}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => not_callable,
+                               name => Var, arity => Arity,
+                               type => bs_types:to_string(Ty)};
+built(Path, {Sev, Line, Fn, {validate_over_arrow, Ty}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => validate_over_arrow,
+                               type => bs_types:to_string(Ty)};
+built(Path, {Sev, Line, Fn, lambda_in_guard}) ->
+    (at(Sev, Path, Line, Fn))#{tag => lambda_in_guard};
 built(Path, {Sev, Line, Fn, {private_function, Mod, Callee, Arity}}) ->
     (at(Sev, Path, Line, Fn))#{tag => private_function,
                                module => Mod, callee => Callee, arity => Arity};
@@ -1079,6 +1101,56 @@ message(#{tag := bind_may_fail, file := P, line := L, column := C, function := F
      "  a bind that can fail is a branch the exhaustiveness checker~n"
      "  never sees. Match it in a clause head instead.~n",
      [P, L, C, Fn, Unmatched]};
+%% A function as a value (ticket 75, F46). The lambda's message names the
+%% two ways out the ticket decided; the bare name's names the spelling that
+%% picks an arity.
+message(#{tag := lambda_without_expectation, file := P, line := L, column := C,
+          function := Fn}) ->
+    {"~s:~p:~p: error: a lambda in ~s has no arrow to take its type from~n"
+     "  a lambda's type is the arrow its site expects — a call argument, a~n"
+     "  clause return, a record field — and nothing here expects one.~n"
+     "  Hand it to the site that expects it, or write a private function.~n",
+     [P, L, C, Fn]};
+message(#{tag := name_arity_unfixed, file := P, line := L, column := C, function := Fn,
+          name := Name, declared := []}) ->
+    {"~s:~p:~p: error: ~s uses ~s as a value, which nothing declares~n"
+     "  every function has a signature. Write one, or fix the name.~n",
+     [P, L, C, Fn, Name]};
+message(#{tag := name_arity_unfixed, file := P, line := L, column := C, function := Fn,
+          name := Name, declared := Arities}) ->
+    {"~s:~p:~p: error: ~s uses ~s as a value, and nothing fixes which one~n"
+     "  ~s is declared at ~s. A bare name reads its arity from the arrow~n"
+     "  its site expects; where nothing does, write it: `~s/~p`.~n",
+     [P, L, C, Fn, Name, Name,
+      lists:join(", ", [[$/ | integer_to_list(A)] || A <- Arities]),
+      Name, hd(Arities)]};
+message(#{tag := lambda_param_refuted, file := P, line := L, column := C, function := Fn,
+          argument := Pos, unmatched := Unmatched}) ->
+    {"~s:~p:~p: error: a lambda in ~s can fail to match its parameter ~p~n"
+     "  the pattern does not match:~n"
+     "    ~s~n"
+     "  a lambda's parameter is one irrefutable pattern. Bind it, and~n"
+     "  switch on it in the body.~n",
+     [P, L, C, Fn, Pos, Unmatched]};
+message(#{tag := not_callable, file := P, line := L, column := C, function := Fn,
+          name := Var, arity := Arity, type := Type}) ->
+    {"~s:~p:~p: error: ~s calls ~s with ~p argument~s, and it is not a function of that arity~n"
+     "  ~s has the type:~n"
+     "    ~s~n"
+     "  only a value whose type is an arrow of this arity can be called.~n",
+     [P, L, C, Fn, Var, Arity, plural(Arity), Var, Type]};
+message(#{tag := validate_over_arrow, file := P, line := L, column := C, function := Fn,
+          type := Type}) ->
+    {"~s:~p:~p: error: ~s asks ValidateAs to check a function~n"
+     "  `~s` holds an arrow, and a function's type is not recoverable~n"
+     "  from the value at run time, so there is nothing to check.~n"
+     "  Take the function through a signature instead.~n",
+     [P, L, C, Fn, Type]};
+message(#{tag := lambda_in_guard, file := P, line := L, column := C, function := Fn}) ->
+    {"~s:~p:~p: error: ~s writes a lambda in a guard~n"
+     "  a guard asks a question about the values a clause already~n"
+     "  matched; it cannot build a function. Move it into the body.~n",
+     [P, L, C, Fn]};
 %% Reported as `unknown_callee` this would say the function does not exist,
 %% when it is one word away from callable; that is why `bs_check:exports_of/1`
 %% does not simply filter private functions out (F12, ticket 40 §3).
@@ -1787,7 +1859,10 @@ beyond_why(record, Name) ->
 beyond_why(string, _) ->
     "  `string` is `binary` refined by valid UTF-8, and checking that reads\n"
     "  every byte of a value the sender sizes. Establishing it is the\n"
-    "  entry check, which this compiler does not have yet.\n".
+    "  entry check, which this compiler does not have yet.\n";
+beyond_why(arrow, _) ->
+    "  a foreign return may promise only what one guard checks in O(1), and\n"
+    "  `is_function/2` decides an arity and nothing about the types.\n".
 
 %% The edit. A `string` one guard reaches has a replacement, `binary`; a
 %% record has its inline field form, which a guard decides and which its
@@ -1814,7 +1889,8 @@ beyond_edit(_Why, inside, Type, _Name, _Fields) ->
 
 term_form(list)      -> "list<term>";
 term_form(map)       -> "map<term, term>";
-term_form(recursive) -> "term".
+term_form(recursive) -> "term";
+term_form(arrow)     -> "term".
 
 field_list(_Label, [])    -> "";
 field_list(Label, Fields) ->

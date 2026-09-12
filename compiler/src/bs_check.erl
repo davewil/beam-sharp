@@ -161,8 +161,12 @@ check_dir1(Sources, World, Expect) ->
     %% taken off it here, before anything can try to print one. They are not
     %% diagnostics: nothing is wrong, and the author is told nothing.
     {Notes, Tagged} = lists:partition(
-                        fun({_, D}) -> element(1, D) =:= prune end, Tagged0),
+                        fun({_, D}) -> lists:member(element(1, D), [prune, fname]) end,
+                        Tagged0),
     Prunes = maps:from_list([{B, Dead} || {_, {prune, B, Dead}} <- Notes]),
+    %% A bare name's resolved arity, keyed by the token's position, which
+    %% is unique per token; the emitter writes `fun Name/Arity` from it (F46).
+    Fnames = maps:from_list([{Loc, Key} || {_, {fname, Loc, Key}} <- Notes]),
     Fns1 = prune_valves(Fns, Prunes),
     PerFile1 = [{P, prune_valves(Fs, Prunes)} || {P, Fs} <- PerFile],
     case [D || {_, D} <- Tagged, element(1, D) =:= error] of
@@ -186,7 +190,8 @@ check_dir1(Sources, World, Expect) ->
                          %% Which foreign calls owe a `try`, keyed by the
                          %% triple `e_foreign_call` carries: decided here,
                          %% looked up by the emitter (F19, ticket 15 §4).
-                         foreigns => Foreigns}, Tagged};
+                         foreigns => Foreigns,
+                         fnames => Fnames}, Tagged};
         _Fatal -> {error, Tagged}
     end.
 
@@ -361,7 +366,7 @@ exports_of(Decls, World) ->
     collapse_refused(Decls, Env),
     foreign_rets_decidable(Decls, Env),
     maps:from_list([{{N, length(Ps)},
-                     at_loc(L, fun() -> sig(Ps, R, erased_env(TV, Env)) end)}
+                     at_loc(L, fun() -> erased_sig(Ps, R, TV, Env) end)}
                     || {signature, L, N, R, Ps, V, TV} <- Decls, V =:= public]).
 
 %% The templates of a module's public polymorphic signatures, for a
@@ -678,7 +683,7 @@ callees(Decls, Env, Imports) ->
     %% `call/6` already does is the whole of the argument check, and only
     %% the return needs the solve (F45).
     Local = [{{N, length(Ps)},
-              at_loc(SL, fun() -> sig(Ps, R, erased_env(TV, Env)) end)}
+              at_loc(SL, fun() -> erased_sig(Ps, R, TV, Env) end)}
              || {signature, SL, N, R, Ps, _, TV} <- Decls],
     Foreign = [{{f, Mod, N, length(Ps)},
                 at_loc(L, fun() -> sig(Ps, R, Env) end)}
@@ -750,11 +755,20 @@ offender(#{mu := _}, string, _At) ->
     none;
 offender(#{recvar := _}, string, _At) ->
     none;
-offender(Ty = #{tuples := Ts, maps := Ms, bins := Bs}, Pass, At) ->
+offender(Ty = #{tuples := Ts, maps := Ms, bins := Bs, funs := Fs}, Pass, At) ->
     first([fun() -> list_offender(Ty, Pass, only(Ty, lists, At)) end,
            fun() -> map_offender(Ms, Pass, only(Ty, maps, At)) end,
            fun() -> tuple_offender(Ts, Pass) end,
-           fun() -> bin_offender(Bs, Pass, only(Ty, bins, At)) end]).
+           fun() -> bin_offender(Bs, Pass, only(Ty, bins, At)) end,
+           fun() -> fun_offender(Fs, Pass, only(Ty, funs, At)) end]).
+
+%% `is_function/2` decides an arity and nothing about the types, so no
+%% arrow is a promise one guard can honour (ticket 11, ticket 75). The top
+%% is `term`'s own fun part and passes as `term` does: it promises nothing.
+fun_offender([], _Pass, _At)       -> none;
+fun_offender(top, _Pass, _At)      -> none;
+fun_offender(_Fs, structural, At)  -> {arrow, none, none, At};
+fun_offender(_Fs, string, _At)     -> none.
 
 %% `whole` only where the declared type IS that part: `result<list<Order>, atom>`
 %% resolves to a union whose list member sits in the top-level list part, and
@@ -863,6 +877,52 @@ sig(Params, Ret, Env) ->
 erased_env(Vars, Env) ->
     maps:merge(Env, maps:from_list([{V, bs_types:term()} || V <- Vars])).
 
+%% The maximal extent is VARIANCE-AWARE once an arrow can hold a variable
+%% (F46). A variable under a domain is contravariant, so its extent there is
+%% the bottom: the largest arrow of `fn(T) -> U`'s shape is `fn(none) ->
+%% term`, and erasing `T` to `term` instead would refuse every argument —
+%% including `Map`'s own recursive `Map(t, f)`, whose `f` is `fn('T') -> 'U'`
+%% under the opaque binding. Every other position erases to `term` as
+%% before.
+erased_sig(Params, Ret, [], Env) ->
+    sig(Params, Ret, Env);
+erased_sig(Params, Ret, Vars, Env) ->
+    {[erase_ty(T, Vars, Env, pos, []) || {param, T, _} <- Params],
+     erase_ty(Ret, Vars, Env, pos, [])}.
+
+erase_ty(T, Vars, Env, Pol, Seen) ->
+    case vars_in(T, Vars) of
+        [] -> resolve(T, Env);
+        _  -> erase_ty1(T, Vars, Env, Pol, Seen)
+    end.
+
+erase_ty1({t_ref, _V}, _Vars, _Env, pos, _Seen) -> bs_types:term();
+erase_ty1({t_ref, _V}, _Vars, _Env, neg, _Seen) -> bs_types:none();
+erase_ty1({t_fun, Ds, C}, Vars, Env, Pol, Seen) ->
+    bs_types:fun_ty([erase_ty(D, Vars, Env, contra(Pol), Seen) || D <- Ds],
+                    erase_ty(C, Vars, Env, Pol, Seen));
+erase_ty1({t_union, Ms}, Vars, Env, Pol, Seen) ->
+    bs_types:union([erase_ty(M, Vars, Env, Pol, Seen) || M <- Ms]);
+erase_ty1({t_tuple, Cs}, Vars, Env, Pol, Seen) ->
+    bs_types:tuple([erase_ty(C, Vars, Env, Pol, Seen) || C <- Cs]);
+erase_ty1({t_generic, list, [A]}, Vars, Env, Pol, Seen) ->
+    bs_types:list(erase_ty(A, Vars, Env, Pol, Seen));
+erase_ty1({t_generic, N, Args} = T, Vars, Env, Pol, Seen) when N =/= map ->
+    case {maps:get(N, Env, undefined), lists:member({N, Args}, Seen)} of
+        {{parametric, Params, Body}, false} when length(Params) =:= length(Args) ->
+            Sub = maps:from_list(lists:zip(Params, Args)),
+            erase_ty(subst(Body, Sub), Vars, Env, Pol, [{N, Args} | Seen]);
+        _ ->
+            resolve(T, erased_env(Vars, Env))
+    end;
+%% A map field, a refinement, a domain map: resolved at the positive extent,
+%% as the template records these positions erased (`tpl1/5`).
+erase_ty1(T, Vars, Env, _Pol, _Seen) ->
+    resolve(T, erased_env(Vars, Env)).
+
+contra(pos) -> neg;
+contra(neg) -> pos.
+
 opaque_env(Vars, Env) ->
     maps:merge(Env, maps:from_list([{V, bs_types:atom_lit(V)} || V <- Vars])).
 
@@ -906,6 +966,13 @@ tpl1({t_tuple, Cs}, Vars, Env, Seen, Erased) ->
 tpl1({t_union, Ms}, Vars, Env, Seen, Erased) ->
     {Ms1, E1} = lists:mapfoldl(fun(M, E) -> tpl(M, Vars, Env, Seen, E) end, Erased, Ms),
     {{t_union, Ms1}, E1};
+%% An arrow's domain and codomain are positions a share is read from (F46):
+%% `fn(T) -> U` handed a lambda takes `T` from the lambda's domain and `U`
+%% from what it returns.
+tpl1({t_fun, Ds, C}, Vars, Env, Seen, Erased) ->
+    {Ds1, E1} = lists:mapfoldl(fun(D, E) -> tpl(D, Vars, Env, Seen, E) end, Erased, Ds),
+    {C1, E2} = tpl(C, Vars, Env, Seen, E1),
+    {{t_fun, Ds1, C1}, E2};
 tpl1({t_generic, N, Args} = T, Vars, Env, Seen, Erased) when N =/= map ->
     case {maps:get(N, Env, undefined), lists:member({N, Args}, Seen)} of
         {{parametric, Params, Body}, false} when length(Params) =:= length(Args) ->
@@ -928,6 +995,7 @@ vars_in({t_tuple, Cs}, Vars)      -> lists:append([vars_in(C, Vars) || C <- Cs])
 vars_in({t_generic, _, As}, Vars) -> lists:append([vars_in(A, Vars) || A <- As]);
 vars_in({t_map, Fields}, Vars)    -> lists:append([vars_in(T, Vars) || {_, T} <- Fields]);
 vars_in({t_refined, _, B, _}, Vars) -> vars_in(B, Vars);
+vars_in({t_fun, Ds, C}, Vars)     -> lists:append([vars_in(T, Vars) || T <- Ds ++ [C]]);
 vars_in(_, _)                     -> [].
 
 %% The return of a call through a polymorphic signature: solve least per
@@ -948,7 +1016,11 @@ extent(T) when is_map(T)         -> T;
 extent({t_ref, _})               -> bs_types:term();
 extent({t_generic, list, [A]})   -> bs_types:list(extent(A));
 extent({t_tuple, Cs})            -> bs_types:tuple([extent(C) || C <- Cs]);
-extent({t_union, Ms})            -> bs_types:union([extent(M) || M <- Ms]).
+extent({t_union, Ms})            -> bs_types:union([extent(M) || M <- Ms]);
+%% The largest arrow of this arity is `fn(none, …) -> term`: the domain is
+%% contravariant, so its extent is the bottom, not the top (ticket 11).
+extent({t_fun, Ds, _C})          -> bs_types:fun_ty([bs_types:none() || _ <- Ds],
+                                                    bs_types:term()).
 
 solve(T, _A, Acc) when is_map(T) -> Acc;
 solve({t_ref, V}, A, Acc) ->
@@ -969,13 +1041,31 @@ solve({t_union, Ms}, A, Acc) ->
     lists:foldl(fun({I, M}, S) ->
                         Others = bs_types:union([extent(O) || {J, O} <- Indexed, J =/= I]),
                         solve(M, bs_types:subtract(A, Others), S)
-                end, Acc, Indexed).
+                end, Acc, Indexed);
+%% Every arrow of the template's arity in the argument contributes: its
+%% domain to the domain positions and its codomain to the codomain, joined
+%% across arrows as across any repeated occurrence. The top has no arrows
+%% to read and solves nothing (F46).
+solve({t_fun, Ds, C}, A, Acc) ->
+    N = length(Ds),
+    Arrows = case bs_types:arrows(A) of
+                 top -> [];
+                 Fs  -> [F || {ADs, _} = F <- Fs, length(ADs) =:= N]
+             end,
+    lists:foldl(fun({ADs, AC}, S0) ->
+                        S1 = lists:foldl(fun({D, AD}, S) -> solve(D, AD, S) end,
+                                         S0, lists:zip(Ds, ADs)),
+                        solve(C, AC, S1)
+                end, Acc, Arrows).
 
 subst_tpl(T, _S) when is_map(T)       -> T;
 subst_tpl({t_ref, V}, S)              -> maps:get(V, S);
 subst_tpl({t_generic, list, [E]}, S)  -> bs_types:list(subst_tpl(E, S));
 subst_tpl({t_tuple, Cs}, S)           -> bs_types:tuple([subst_tpl(C, S) || C <- Cs]);
-subst_tpl({t_union, Ms}, S)           -> bs_types:union([subst_tpl(M, S) || M <- Ms]).
+subst_tpl({t_union, Ms}, S)           -> bs_types:union([subst_tpl(M, S) || M <- Ms]);
+subst_tpl({t_fun, Ds, C}, S)          -> bs_types:fun_ty([subst_tpl(D, S) || D <- Ds],
+                                                         subst_tpl(C, S)).
+
 
 %% Ticket 27 §2, the pattern half: a parameter whose declared type is a bare
 %% variable admits one clause, a binder. A literal, a tuple or a list there
@@ -1232,6 +1322,12 @@ scan_ty({t_map, Fields}, Env, L, Path, Seen) ->
                   end, Fields);
 scan_ty({t_refined, _, Base, _}, Env, L, Path, Seen) ->
     scan_ty(Base, Env, L, Path, Seen);
+%% An arrow's positions are positions: `fn(option<atom>) -> int` carries the
+%% same dead channel one level down (F46).
+scan_ty({t_fun, Ds, C}, Env, L, Path, Seen) ->
+    lists:foreach(fun({I, D}) -> scan_ty(D, Env, L, seg(Path, I), Seen) end,
+                  lists:zip(lists:seq(1, length(Ds)), Ds)),
+    scan_ty(C, Env, L, seg(Path, ret), Seen);
 %% A `t_ref` is NOT followed. The alias it names is checked at its own
 %% declaration, and following it would report one defect once per mention.
 scan_ty(_, _Env, _L, _Path, _Seen) ->
@@ -1499,6 +1595,7 @@ reserved_qualifiers() -> ['List', 'Map', 'Term'].
 %% escape; `Fold`, `Map` and `Filter` wait on the lambda (ENG-295).
 reserved_table() ->
     [{'List', 'Sum', 1}, {'List', 'Length', 1}, {'List', 'Reverse', 1},
+     {'List', 'Map', 2}, {'List', 'Filter', 2}, {'List', 'Fold', 3},
      {'Term', 'Compare', 2}].
 
 %% The signature an operation is checked against, at the site. `Reverse`
@@ -1511,6 +1608,24 @@ reserved_sig('List', 'Length', 1, _ATys) ->
 reserved_sig('List', 'Reverse', 1, [ATy]) ->
     {ok, {[bs_types:list(bs_types:term())],
           bs_types:list(bs_types:list_elem(ATy))}};
+%% The three function-taking operations (F46, ticket 75 Q7). The fun
+%% parameter is the arrow the site expects — a wider domain or a narrower
+%% codomain is contained in it — and the result is read off the fun the
+%% author handed over: `Map` returns a list of what it returns, `Filter` the
+%% list it was given, `Fold` the accumulator, seed joined with result.
+reserved_sig('List', 'Map', 2, [ATy, FTy]) ->
+    Elem = elem_expected(ATy),
+    {ok, {[bs_types:list(bs_types:term()), bs_types:fun_ty([Elem], bs_types:term())],
+          bs_types:list(codomain(FTy, 1))}};
+reserved_sig('List', 'Filter', 2, [ATy, _FTy]) ->
+    Elem = elem_expected(ATy),
+    {ok, {[bs_types:list(bs_types:term()), bs_types:fun_ty([Elem], bool())],
+          bs_types:list(Elem)}};
+reserved_sig('List', 'Fold', 3, [ATy, SeedTy, FTy]) ->
+    Elem = elem_expected(ATy),
+    Acc = bs_types:union(SeedTy, codomain(FTy, 2)),
+    {ok, {[bs_types:list(bs_types:term()), Acc, bs_types:fun_ty([Acc, Elem], Acc)],
+          Acc}};
 reserved_sig('Term', 'Compare', 2, _ATys) ->
     %% A three-atom union rather than `atom`, so a `switch` over it is
     %% exhaustive with three arms and a missing one leaves a named residual
@@ -1573,10 +1688,10 @@ record_fields({t_map, Fields}) -> [N || {field, N, _} <- Fields, N =/= 'Kind'].
 record_of(Name, Line, Env) ->
     case resolve({t_ref, Name}, Env) of
         #{maps := [{closed, Fs}], atoms := {finite, []}, ints := [],
-          tuples := [], lists := [], bins := []} ->
+          tuples := [], lists := [], bins := [], funs := []} ->
             case maps:find('Kind', Fs) of
                 {ok, #{atoms := {finite, [Tag]}, ints := [], tuples := [],
-                       lists := [], maps := [], bins := []}} ->
+                       lists := [], maps := [], bins := [], funs := []}} ->
                     %% `Kind` is dropped, so `Frame { Kind: ... }` is refused
                     %% as it is at construction: it is minted, never written.
                     {Tag, maps:keys(Fs) -- ['Kind']};
@@ -1705,6 +1820,12 @@ resolve({t_generic, N, Args}, Env, Seen) ->
     end;
 resolve({t_union, Ms}, Env, Seen) ->
     bs_types:union([resolve(M, Env, Seen) || M <- Ms]);
+%% `fn(A, B) -> C` is an arrow in the seventh part (ticket 75, F46). The
+%% domain and codomain are positions below a constructor, so a recursive
+%% alias through an arrow is contractive.
+resolve({t_fun, Ds, C}, Env, Seen) ->
+    bs_types:fun_ty([resolve(D, Env, ctor(Seen)) || D <- Ds],
+                    resolve(C, Env, ctor(Seen)));
 %% A refinement adds no node to the algebra: it is a subset of its base, so
 %% it resolves to an ordinary type and `is_subtype(Octet, int)` falls
 %% out (ticket 20 §5).
@@ -1791,6 +1912,7 @@ subst({t_ref, N} = T, Sub)         -> maps:get(N, Sub, T);
 subst({t_union, Ms}, Sub)          -> {t_union, [subst(M, Sub) || M <- Ms]};
 subst({t_tuple, Cs}, Sub)          -> {t_tuple, [subst(C, Sub) || C <- Cs]};
 subst({t_generic, N, Args}, Sub)   -> {t_generic, N, [subst(A, Sub) || A <- Args]};
+subst({t_fun, Ds, C}, Sub)         -> {t_fun, [subst(D, Sub) || D <- Ds], subst(C, Sub)};
 subst({t_map, Fields}, Sub) ->
     {t_map, [{field, N, subst(T, Sub)} || {field, N, T} <- Fields]};
 subst(T, _Sub)                     -> T.
@@ -1940,6 +2062,12 @@ written({t_tuple, Cs}) ->
     joined("(", [written(C) || C <- Cs], ", ", ")");
 written({t_generic, N, As}) ->
     joined(atom_to_list(N) ++ "<", [written(A) || A <- As], ", ", ">");
+written({t_fun, Ds, C}) ->
+    case {joined("fn(", [written(D) || D <- Ds], ", ", ") -> "), written(C)} of
+        {none, _} -> none;
+        {_, none} -> none;
+        {D, S}    -> D ++ S
+    end;
 written(T) ->
     type_source(T).
 
@@ -2348,6 +2476,13 @@ type_source({t_generic, N, As}) ->
         none -> none;
         S    -> atom_to_list(N) ++ S
     end;
+%% An arrow is written back as the author writes it (ticket 75 round 2).
+type_source({t_fun, Ds, C}) ->
+    case {join_source(Ds, ", "), type_source(C)} of
+        {none, _}    -> none;
+        {_, none}    -> none;
+        {DsS, CS}    -> "fn(" ++ DsS ++ ") -> " ++ CS
+    end;
 %% An inline structural map is refused rather than rendered. It is the one
 %% written form that can carry a `Kind:` field, and a signature is not where
 %% this feature wants to reason about whether the author's tag is theirs to
@@ -2472,6 +2607,15 @@ name_diags(Expr, Bound, Line, Name, Acc) ->
 rebinds({e_switch, _, Subject, Arms}, Bound, Name) ->
     rebinds(Subject, Bound, Name)
         ++ lists:append([arm_rebinds(A, Bound, Name) || A <- Arms]);
+%% A lambda's parameters bind under ticket 34: none may reuse a name in
+%% scope, and none may repeat another (F46). The body is then read with them
+%% bound.
+rebinds({e_lambda, Line, Params, Body}, Bound, Name) ->
+    Vars = lists:append([pattern_vars(P) || P <- Params]),
+    Dups = Vars -- lists:usort(Vars),
+    [{error, Line, Name, {rebinding, V}}
+     || V <- lists:usort(Vars ++ Dups), lists:member(V, Bound) orelse lists:member(V, Dups)]
+        ++ rebinds(Body, Bound ++ Vars, Name);
 rebinds(T, Bound, Name) when is_tuple(T) -> rebinds(tuple_to_list(T), Bound, Name);
 rebinds(L, Bound, Name) when is_list(L) ->
     lists:append([rebinds(E, Bound, Name) || E <- L]);
@@ -2571,6 +2715,12 @@ expr_vars({e_valve, _, Switch})        -> expr_vars(Switch);
 %% is accepted in silence, and the author learns of it from `erlc` or from a
 %% crash carrying the wrong term.
 expr_vars({e_raise, _, Reason})        -> expr_vars(Reason);
+%% A lambda's parameters are readable in its body and nowhere else, as an
+%% arm's pattern names are (F46); a call through a bound name reads it.
+expr_vars({e_lambda, _, Params, Body}) ->
+    Bound = lists:append([pattern_vars(P) || P <- Params]),
+    [V || V <- expr_vars(Body), not lists:member(V, Bound)];
+expr_vars({e_apply, _, V, As})         -> [V | lists:append([expr_vars(A) || A <- As])];
 expr_vars(_)                           -> [].
 
 arm_free_vars({arm, _, P, Guard, Body}) ->
@@ -2611,7 +2761,9 @@ clause_diags_1(C, Line, Patterns, Guard, Body, Domain, Bindings, Ctx0) ->
         [] ->
             Ctx = Ctx0#ctx{binds = Bindings},
             Scope = clause_scope(Patterns, Bindings, Domain),
-            {Ty, Diags} = type_of(Body, Scope, Ctx),
+            %% The body is typed against the declared return, so a lambda
+            %% written as a clause body has its arrow (F46).
+            {Ty, Diags} = expected(Body, Ctx#ctx.ret, Scope, Ctx),
             Diags ++ return_diags(Ty, Line, Ctx);
         Errors ->
             %% A clause whose names do not resolve is not typed. Every unbound
@@ -2742,6 +2894,13 @@ guard_call({e_switch, _, _, _}) -> [];
 guard_call({e_raise, _, _}) -> [];
 guard_call({e_call, L, Name, _Args}) ->
     [{L, {call_in_guard, Name}}];
+%% A call through a bound name is a call (F46); a lambda is a value the
+%% BEAM's guard grammar has no room for, and is refused in the same voice
+%% rather than by `erlc` against a file the author did not write (F41).
+guard_call({e_apply, L, Var, _Args}) ->
+    [{L, {call_in_guard, Var}}];
+guard_call({e_lambda, L, _, _}) ->
+    [{L, lambda_in_guard}];
 guard_call({e_inst, L, Name, _TypeArgs, _Args}) ->
     [{L, {call_in_guard, Name}}];
 guard_call({e_qcall, L, Mod, Fun, _Args}) ->
@@ -2907,8 +3066,11 @@ type_of({e_proj, L, V, Field}, S, C) ->
 %% field set, with each value contained in its declared type. Without this a
 %% body could build a map wearing an `Order` tag without `Order`'s fields (F3).
 type_of({e_record, L, Name, Fields}, S, C) ->
-    {Tys, D} = type_of_all([E || {_, E} <- Fields], S, C),
-    case maps:get(Name, C#ctx.types, undefined) of
+    RecTy = maps:get(Name, C#ctx.types, undefined),
+    %% A field's value is typed against the field's declared type, so a
+    %% lambda assigned to an arrow-typed field has its expectation (F46).
+    {Tys, D} = record_field_types(Fields, RecTy, S, C),
+    case RecTy of
         undefined ->
             {reported(), [{error, L, C#ctx.fname, {unknown_record, Name}} | D]};
         Ty ->
@@ -3044,10 +3206,18 @@ type_of({e_inst, L, 'ValidateAs', TypeArgs, Args}, S, C) ->
             %% the same mistake as an unknown `T` in a signature and reads the
             %% same way.
             Ty = resolve(TypeExpr, C#ctx.types),
-            case validate_collapses(Ty, C#ctx.types) of
-                true  -> {reported(),
-                          D0 ++ [{error, L, C#ctx.fname, {validate_collapses, Ty}}]};
-                false -> {validate_result(Ty, C#ctx.types), D0}
+            %% A fun's type is not recoverable at run time, so a `T`
+            %% holding an arrow has nothing a traversal could check
+            %% (ticket 11, F46).
+            case {has_arrow(Ty), validate_collapses(Ty, C#ctx.types)} of
+                {true, _} ->
+                    {reported(),
+                     D0 ++ [{error, L, C#ctx.fname, {validate_over_arrow, Ty}}]};
+                {_, true} ->
+                    {reported(),
+                     D0 ++ [{error, L, C#ctx.fname, {validate_collapses, Ty}}]};
+                _ ->
+                    {validate_result(Ty, C#ctx.types), D0}
             end;
         _ ->
             {reported(),
@@ -3100,6 +3270,52 @@ type_of({e_inst, L, Name, _TypeArgs, Args}, S, C) ->
     {reported(), D0 ++ [{error, L, C#ctx.fname, Reason}]};
 type_of({e_call, L, Name, Args}, S, C) ->
     call(L, unqualified_key(Name, length(Args), L, C), Name, Args, S, C);
+%% A lambda's type is the arrow its site expects (ticket 75 Q5). Reached
+%% through `type_of/3` it has no site: a binding, an operand, a subject.
+%% The message names the two ways out.
+type_of({e_lambda, L, _Params, _Body}, _S, C) ->
+    {reported(), [{error, L, C#ctx.fname, lambda_without_expectation}]};
+%% A name in value position with nothing to fix its arity: one declared
+%% arity serves, two are refused naming both and the `Double/1` spelling,
+%% none is an unknown name (ticket 75 Q3).
+type_of({e_fname, L, Name, unknown}, S, C) ->
+    case declared_arities(Name, C) of
+        [N]  -> fname_type(L, Name, N, S, C);
+        Many -> {reported(), [{error, L, C#ctx.fname, {name_arity_unfixed, Name, Many}}]}
+    end;
+type_of({e_fname, L, Name, Arity}, S, C) ->
+    fname_type(L, Name, Arity, S, C);
+%% A call through a bound name, `rule(cents)`: the name's type must be
+%% arrows of that arity and nothing else; each argument is contained in the
+%% meet of the domains, and the result is the join of the codomains
+%% (ticket 75, the fourth form). The top arrow is `fn(none) -> term`, so a
+%% `term` is never callable, which is ticket 11's rule falling out.
+type_of({e_apply, L, V, Args}, S, C) ->
+    Ty = maps:get(V, S, bs_types:term()),
+    N = length(Args),
+    Arrows = case bs_types:arrows(Ty) of
+                 top -> [];
+                 Fs  -> Fs
+             end,
+    Callable = Arrows =/= []
+        andalso lists:all(fun({Ds, _}) -> length(Ds) =:= N end, Arrows)
+        andalso bs_types:is_none(bs_types:subtract(Ty, bs_types:funs_of(Ty))),
+    case {bs_types:is_none(Ty), Callable} of
+        {true, _} ->
+            %% The name's own expression was already refused; one error.
+            {_, D} = type_of_all(Args, S, C),
+            {reported(), D};
+        {_, false} ->
+            {_, D} = type_of_all(Args, S, C),
+            {reported(), D ++ [{error, L, C#ctx.fname, {not_callable, V, N, Ty}}]};
+        {_, true} ->
+            Doms = [lists:foldl(fun bs_types:intersect/2, bs_types:term(),
+                                [lists:nth(I, Ds) || {Ds, _} <- Arrows])
+                    || I <- lists:seq(1, N)],
+            {ATys, D} = expected_all(Args, Doms, S, C),
+            Ret = bs_types:union([Cod || {_, Cod} <- Arrows]),
+            {Ret, arg_diags(L, V, Args, ATys, Doms, 1, C) ++ D}
+    end;
 %% A foreign call is checked as site 1 verbatim: a foreign declaration is a
 %% signature attached to the name Erlang already has (ticket 32).
 type_of({e_foreign_call, L, Mod, Fun, Args}, S, C) ->
@@ -3159,7 +3375,7 @@ reserved_call(L, Q, Fun, Args, S, C) ->
 %% other call's are, through `arg_diags/7`, and the residual it produces is
 %% the clause the caller must write.
 reserved_op(L, Q, Fun, Args, S, C) ->
-    {ATys, D} = type_of_all(Args, S, C),
+    {ATys, D} = reserved_args(Q, Fun, Args, S, C),
     case reserved_sig(Q, Fun, length(Args), ATys) of
         error ->
             {reported(),
@@ -3169,6 +3385,43 @@ reserved_op(L, Q, Fun, Args, S, C) ->
         {ok, {Ps, Ret}} ->
             {Ret, arg_diags(L, qualified_name(Q, Fun), Args, ATys, Ps, 1, C) ++ D}
     end.
+
+%% The function-taking operations type the list first and hand the fun the
+%% element type as its expectation (F46, ticket 75 Q7): `List.Map(xs, f)`
+%% expects `fn(Elem) -> term`, `List.Filter` expects `fn(Elem) -> bool`, and
+%% `List.Fold(xs, seed, f)` expects `fn(Acc, Elem) -> term` where `Acc` is
+%% found by iteration below. Every other operation types its arguments as
+%% any call does.
+reserved_args('List', Op, [Xs, F], S, C) when Op =:= 'Map'; Op =:= 'Filter' ->
+    {XTy, D1} = type_of(Xs, S, C),
+    Elem = elem_expected(XTy),
+    Cod = case Op of 'Map' -> bs_types:term(); 'Filter' -> bool() end,
+    {FTy, D2} = expected(F, bs_types:fun_ty([Elem], Cod), S, C),
+    {[XTy, FTy], D1 ++ D2};
+reserved_args('List', 'Fold', [Xs, Seed, F], S, C) ->
+    {XTy, D1} = type_of(Xs, S, C),
+    {STy, D2} = type_of(Seed, S, C),
+    {FTy, D3} = fold_fun(F, STy, elem_expected(XTy), S, C, 3),
+    {[XTy, STy, FTy], D1 ++ D2 ++ D3};
+reserved_args(_Q, _Fun, Args, S, C) ->
+    type_of_all(Args, S, C).
+
+%% The accumulator's type is the seed joined with what the fun returns, and
+%% the fun's own result depends on it: `List.Fold(0, (acc, n) => acc + n)`
+%% types `acc` as `0` and returns `int`, so the accumulator is `int` and the
+%% fun is typed again with it. The least fixpoint is reached in a step or
+%% two; a fun still growing after three is typed once more over `term`.
+fold_fun(F, _Acc, Elem, S, C, 0) ->
+    expected(F, bs_types:fun_ty([bs_types:term(), Elem], bs_types:term()), S, C);
+fold_fun(F, Acc, Elem, S, C, N) ->
+    {FTy, D} = expected(F, bs_types:fun_ty([Acc, Elem], bs_types:term()), S, C),
+    Acc1 = bs_types:union(Acc, codomain(FTy, 2)),
+    case bs_types:is_subtype(Acc1, Acc) of
+        true  -> {FTy, D};
+        false -> fold_fun(F, Acc1, Elem, S, C, N - 1)
+    end.
+
+bool() -> bs_types:union(bs_types:atom_lit(true), bs_types:atom_lit(false)).
 
 %% The type of an expression that has already produced a diagnostic. `none`
 %% is a subtype of everything, so every site above it passes vacuously and
@@ -3223,7 +3476,7 @@ absorbed(Member, Others) -> bs_types:is_subtype(Member, Others).
 %% shape match also excludes a recursive type (`mu`) and `term`, whose tuple
 %% and map parts are `top` rather than empty.
 parse_atom_members(#{atoms := {finite, As}, ints := [], tuples := [],
-                     lists := [], maps := [], bins := []}) when As =/= [] ->
+                     lists := [], maps := [], bins := [], funs := []}) when As =/= [] ->
     {ok, lists:usort(As)};
 parse_atom_members(_) ->
     error.
@@ -3247,15 +3500,212 @@ type_of_all(Es, S, C) ->
     {Tys, Ds} = lists:unzip([type_of(E, S, C) || E <- Es]),
     {Tys, lists:append(Ds)}.
 
+%%% ---------------------------------------------------------------------------
+%%% The expected type (F46, ticket 75)
+%%%
+%%% `type_of/3` synthesises. A lambda cannot be synthesised — ticket 04 made
+%%% signatures mandatory, and a lambda's signature is the arrow its site
+%%% expects — and a bare name reads its arity from the same place. So the
+%%% sites that DECLARE a type hand it down through this entry: a call
+%%% argument, a clause return, a switch arm under one of those, a block's
+%%% final expression, a tuple or list component, a record field. Everything
+%%% else falls through to `type_of/3`, and a lambda reached that way is
+%%% refused there. The expectation is an argument rather than a field of
+%%% `#ctx`, because every existing clause passes `C` down to its operands
+%%% and an expectation in it would leak into every subexpression.
+%%% ---------------------------------------------------------------------------
+
+expected(E = {e_lambda, _, _, _}, Ty, S, C) ->
+    lambda_against(E, Ty, S, C);
+expected({e_fname, L, Name, unknown}, Ty, S, C) ->
+    Arities = case bs_types:arrows(Ty) of
+                  top -> [];
+                  Fs  -> lists:usort([length(Ds) || {Ds, _} <- Fs])
+              end,
+    case Arities of
+        [N] -> fname_type(L, Name, N, S, C);
+        _   -> type_of({e_fname, L, Name, unknown}, S, C)
+    end;
+expected({e_switch, L, Subject, Arms}, Ty, S, C) ->
+    {SubjTy, D0} = type_of(Subject, S, C),
+    {T, D1} = switch_over(L, SubjTy, Arms, S, C, authored, Ty),
+    {T, D0 ++ D1};
+expected({e_block, _, Binds, Final}, Ty, S, C) ->
+    {S1, D1} = lists:foldl(fun(B, Acc) -> bind_step(B, Acc, C) end, {S, []}, Binds),
+    {T, D2} = expected(Final, Ty, S1, C),
+    {T, D1 ++ D2};
+expected({e_tuple, _, Es}, Ty, S, C) ->
+    N = length(Es),
+    {Tys, D} = expected_all(Es, [bs_types:tuple_comp(Ty, N, I) || I <- lists:seq(1, N)],
+                            S, C),
+    {bs_types:tuple(Tys), D};
+expected({e_list, _, Items, Rest}, Ty, S, C) ->
+    Elem = elem_expected(Ty),
+    {Tys, D1} = expected_all(Items, [Elem || _ <- Items], S, C),
+    {RestElem, D2} =
+        case Rest of
+            nil -> {bs_types:none(), []};
+            R   -> {RT, RD} = expected(R, Ty, S, C), {elem_of(RT), RD}
+        end,
+    {bs_types:cons(union_of(Tys ++ [RestElem])), D1 ++ D2};
+expected(E, _Ty, S, C) ->
+    type_of(E, S, C).
+
+expected_all(Es, Tys, S, C) ->
+    {Out, Ds} = lists:unzip([expected(E, T, S, C) || {E, T} <- lists:zip(Es, Tys)]),
+    {Out, lists:append(Ds)}.
+
+%% What an element of an expected list type is; a recursive type unfolds
+%% first, and a bare back-reference expects nothing in particular.
+elem_expected(Ty) ->
+    case bs_types:unfold(Ty) of
+        #{lists := _} = T -> bs_types:list_elem(T);
+        _                 -> bs_types:term()
+    end.
+
+%% A record field's value is typed against the field's declared type where
+%% the record is known and declares the field; anything else is synthesised
+%% and the field-set check reports it.
+record_field_types(Fields, RecTy, S, C) when is_map(RecTy) ->
+    case declared_fields(RecTy) of
+        unknown  -> type_of_all([E || {_, E} <- Fields], S, C);
+        Declared ->
+            expected_all([E || {_, E} <- Fields],
+                         [case lists:member(K, Declared) of
+                              true  -> field_type(RecTy, K);
+                              false -> bs_types:term()
+                          end || {K, _} <- Fields], S, C)
+    end;
+record_field_types(Fields, _RecTy, S, C) ->
+    type_of_all([E || {_, E} <- Fields], S, C).
+
+%% A lambda against the arrow its site expects (ticket 75 Q4, Q5). Its
+%% parameters are patterns checked IRREFUTABLE against the domain — ticket
+%% 33 §5's rule for the destructuring bind, `bind_step({dbind, …})`'s own
+%% check — and each binds at the path the pattern recorded. The body is
+%% typed against the codomain, so a lambda inside it has its expectation
+%% too, and the lambda's type is `fn(Domain) -> Body`: the site's containment
+%% then decides the codomain half, so a body outside it is reported by the
+%% site's own diagnostic, `arg_not_accepted` or `return_not_declared`.
+%%
+%% Where the expected type holds two arrows of this arity — ticket 70's
+%% container, legal and undispatchable — the first is taken; ticket 08 gives
+%% a function one arrow per arity, so a declared type has at most one.
+lambda_against({e_lambda, L, Params, Body}, Ty, S, C) ->
+    N = length(Params),
+    Candidates = case bs_types:arrows(Ty) of
+                     top -> [];
+                     Fs  -> [F || {Ds, _} = F <- Fs, length(Ds) =:= N]
+                 end,
+    case Candidates of
+        [] ->
+            {reported(), [{error, L, C#ctx.fname, lambda_without_expectation}]};
+        [{Ds, Cod} | _] ->
+            {Bound, D1} = lambda_params(Params, Ds, 1, L, C),
+            {BodyTy, D2} = expected(Body, Cod, maps:merge(S, Bound), C),
+            {bs_types:fun_ty(Ds, BodyTy), D1 ++ D2}
+    end.
+
+lambda_params([], [], _I, _L, _C) ->
+    {#{}, []};
+lambda_params([P | Ps], [D | Ds], I, L, C) ->
+    {PTy, PBinds, Exact} = pattern_type(P, [], C#ctx.types),
+    Residual = bs_types:subtract(D, PTy),
+    Diag = case {Exact, bs_types:is_none(Residual)} of
+               {true, true}  -> [];
+               {_, false}    -> [{error, L, C#ctx.fname,
+                                  {lambda_param_refuted, I, Residual}}];
+               %% An inexact pattern under-states its residual, so the
+               %% honest one is the whole domain, as in a bind.
+               {false, true} -> [{error, L, C#ctx.fname,
+                                  {lambda_param_refuted, I, D}}]
+           end,
+    Bound = maps:from_list([{V, at_path(D, Path)} || {V, Path} <- maps:to_list(PBinds)]),
+    {Rest, Diags} = lambda_params(Ps, Ds, I + 1, L, C),
+    {maps:merge(Bound, Rest), Diag ++ Diags}.
+
+%% A name in value position at a fixed arity is the function itself: its
+%% declared signature read as an arrow, keyed `{Name, Arity}` in the table
+%% every call already resolves through — local first, then imports (41 §2).
+%% The resolved key rides out on the diagnostic channel as a note, as the
+%% valve's prune notes do, so the emitter can write `fun Name/Arity` or
+%% `fun Mod:Name/Arity` without resolving a second time.
+fname_type(L, Name, Arity, _S, C) ->
+    Key = unqualified_key(Name, Arity, L, C),
+    case maps:get(Key, C#ctx.callees, undefined) of
+        undefined ->
+            case private_callee(Key, Arity, C) of
+                {yes, M} ->
+                    {reported(),
+                     [{error, L, C#ctx.fname, {private_function, M, Name, Arity}}]};
+                no ->
+                    unresolved(L, Key, Name, lists:seq(1, Arity), [], C)
+            end;
+        {Ps, Ret} ->
+            {bs_types:fun_ty(Ps, Ret), [{fname, L, Key}]}
+    end.
+
+%% Every arity declared for a name, local and imported.
+declared_arities(Name, C) ->
+    Local = [A || {N, A} <- maps:keys(C#ctx.callees), N =:= Name],
+    Imported = [A || {N, A} <- maps:keys(maps:get(funs, C#ctx.imports, #{})),
+                     N =:= Name],
+    lists:usort(Local ++ Imported).
+
+%% The join of every arity-N arrow's codomain in a type; `term` for the top,
+%% `none` where there is no such arrow, which is what a refused argument
+%% arrives as.
+codomain(Ty, N) ->
+    case bs_types:arrows(Ty) of
+        top -> bs_types:term();
+        Fs  -> bs_types:union([Cod || {Ds, Cod} <- Fs, length(Ds) =:= N])
+    end.
+
+%% Whether an expression needs an expectation to be typed at all: a lambda
+%% or a bare name, or a form that may hold one where the expectation would
+%% reach it. A polymorphic call types these LAST, with what the other
+%% arguments solved (F46).
+hungry({e_lambda, _, _, _})        -> true;
+hungry({e_fname, _, _, unknown})   -> true;
+hungry({e_switch, _, _, _})        -> true;
+hungry({e_block, _, _, _})         -> true;
+hungry({e_tuple, _, Es})           -> lists:any(fun hungry/1, Es);
+hungry({e_list, _, Items, Rest})   ->
+    lists:any(fun hungry/1, Items) orelse (Rest =/= nil andalso hungry(Rest));
+hungry(_)                          -> false.
+
+%% Does a type hold an arrow anywhere a validator would have to walk? The
+%% top fun part inside a `term` is not one: `term` is validated as anything,
+%% and an explicit arrow is what a fun's unrecoverable type refuses
+%% (ticket 11).
+has_arrow(Ty) -> has_arrow(Ty, []).
+
+has_arrow(#{mu := N} = T, Seen) ->
+    not lists:member(N, Seen) andalso has_arrow(bs_types:unfold(T), [N | Seen]);
+has_arrow(#{recvar := _}, _Seen) ->
+    false;
+has_arrow(T, Seen) ->
+    case bs_types:arrows(T) of
+        top -> false;
+        []  -> lists:any(fun(Comp) -> has_arrow(Comp, Seen) end, bs_types:components(T));
+        _   -> true
+    end.
+
 %% Shared by the switch an author wrote and the one the valve lowers to. The
 %% subject's type is passed in rather than synthesised here, because the
 %% valve has to interrogate it before deciding whether to walk the arms.
 switch_over(L, SubjTy, Arms, S, C, Origin) ->
+    switch_over(L, SubjTy, Arms, S, C, Origin, none).
+
+%% `Expect` is the type the switch's site expects of it, or `none`: each
+%% arm's body is typed against it, so a lambda in an arm under a clause
+%% returning an arrow has its expectation (F46).
+switch_over(L, SubjTy, Arms, S, C, Origin, Expect) ->
     %% `SubjTy` twice: the first is the running residual, which the fold
     %% spends; the second is the declared subject, carried unchanged so that
     %% arm 1 can still be asked the one question the residual can no longer
     %% answer, in `redundancy/4` (ENG-269).
-    {Tys, Residual, D1} = arms(Arms, SubjTy, SubjTy, S, C, 1, [], [], Origin),
+    {Tys, Residual, D1} = arms(Arms, SubjTy, SubjTy, S, C, 1, [], [], Origin, Expect),
     D2 = case bs_types:is_none(Residual) of
              true  -> [];
              %% The residual is the missing arm (ticket 04), and it is spelled
@@ -3286,9 +3736,10 @@ switch_over(L, SubjTy, Arms, S, C, Origin) ->
 %% than about what it contains. Both are advice to an author about a pattern
 %% they chose, and the valve's two arms were chosen by `bs_lower`. The body's
 %% and guard's diagnostics and the exhaustiveness of the whole run either way.
-arms([], Residual, _Declared, _S, _C, _N, Tys, Diags, _Origin) ->
+arms([], Residual, _Declared, _S, _C, _N, Tys, Diags, _Origin, _Expect) ->
     {Tys, Residual, Diags};
-arms([{arm, AL, P, Guard, Body} | Rest], Residual, Declared, S, C, N, Tys, Diags, Origin) ->
+arms([{arm, AL, P, Guard, Body} | Rest], Residual, Declared, S, C, N, Tys, Diags, Origin,
+     Expect) ->
     {PTy, Binds, Exact} = pattern_type(P, [], C#ctx.types),
     {Certain0, Possible} = apply_guard(PTy, Binds, Guard),
     %% An inexact pattern over-states what it matches, so it may bound Possible
@@ -3345,7 +3796,10 @@ arms([{arm, AL, P, Guard, Body} | Rest], Residual, Declared, S, C, N, Tys, Diags
     Scope = maps:merge(S, maps:from_list(
                             [{V, at_path(Domain, Path)}
                              || {V, Path} <- maps:to_list(Binds)])),
-    {BodyTy, D2} = type_of(Body, Scope, C),
+    {BodyTy, D2} = case Expect of
+                       none -> type_of(Body, Scope, C);
+                       _    -> expected(Body, Expect, Scope, C)
+                   end,
     %% A GENERATED ARM NO VALUE REACHES CONTRIBUTES NO TYPE (F30). `bs_lower`
     %% writes three arms over every valve, so the `:nothing` arm is dead over a
     %% subject that carries no `:nothing` and the error arm is dead over one
@@ -3365,7 +3819,7 @@ arms([{arm, AL, P, Guard, Body} | Rest], Residual, Declared, S, C, N, Tys, Diags
                false -> Tys ++ [BodyTy]
            end,
     arms(Rest, bs_types:subtract(Residual, Certain), Declared, S, C, N + 1,
-         Tys1, Diags ++ D1 ++ guard_diags(Guard, C) ++ D2, Origin).
+         Tys1, Diags ++ D1 ++ guard_diags(Guard, C) ++ D2, Origin, Expect).
 
 %%% ---------------------------------------------------------------------------
 %%% Pruning the valve's dead stop arms (F30)
@@ -3486,9 +3940,9 @@ has_rel(_)                       -> false.
 %% parameter type, so `Update(Order o)` called with an `Invoice` is
 %% rejected (ticket 26 §1).
 call(L, Key, Shown, Args, S, C) ->
-    {ATys, D} = type_of_all(Args, S, C),
     case maps:get(Key, C#ctx.callees, undefined) of
         undefined ->
+            {_ATys, D} = type_of_all(Args, S, C),
             case private_callee(Key, length(Args), C) of
                 {yes, M} ->
                     {reported(),
@@ -3496,16 +3950,45 @@ call(L, Key, Shown, Args, S, C) ->
                        {private_function, M, Shown, length(Args)}} | D]};
                 no -> unresolved(L, Key, Shown, Args, D, C)
             end;
-        {Ps, Ret} when length(Ps) =/= length(ATys) ->
+        {Ps, Ret} when length(Ps) =/= length(Args) ->
+            {_ATys, D} = type_of_all(Args, S, C),
             {Ret, [{error, L, C#ctx.fname,
-                    {arity_mismatch, Shown, length(ATys), length(Ps)}} | D]};
+                    {arity_mismatch, Shown, length(Args), length(Ps)}} | D]};
         {Ps, Ret} ->
-            Ret1 = case maps:get(Key, C#ctx.polys, undefined) of
-                       undefined -> Ret;
-                       Template  -> instantiate(Template, ATys)
-                   end,
-            {Ret1, arg_diags(L, Shown, Args, ATys, Ps, 1, C) ++ D}
+            %% Each argument is typed against its declared parameter, which
+            %% is what gives a lambda its arrow (F46). A polymorphic call
+            %% types the arguments that need no expectation first and hands
+            %% the rest the partial solution.
+            case maps:get(Key, C#ctx.polys, undefined) of
+                undefined ->
+                    {ATys, D} = expected_all(Args, Ps, S, C),
+                    {Ret, arg_diags(L, Shown, Args, ATys, Ps, 1, C) ++ D};
+                Template ->
+                    {ATys, D} = poly_args(Template, Args, S, C),
+                    {instantiate(Template, ATys),
+                     arg_diags(L, Shown, Args, ATys, Ps, 1, C) ++ D}
+            end
     end.
+
+%% Two passes over a polymorphic call's arguments (F46). The first types
+%% every argument that needs no expectation against the template at its
+%% extent and solves what it can; the second hands each lambda, bare name or
+%% form holding one the template position with that partial solution
+%% substituted, so `Map(xs, (n) => n * 2)` types the lambda against
+%% `fn(int) -> term` and `U` is then read from what the body returns.
+poly_args({poly, Vars, PsT, _RetT, Erased}, Args, S, C) ->
+    Indexed = lists:zip(lists:seq(1, length(Args)), lists:zip(Args, PsT)),
+    Extent = maps:from_list([{V, bs_types:term()} || V <- Vars]),
+    First = [{I, {PT, expected(A, subst_tpl(PT, Extent), S, C)}}
+             || {I, {A, PT}} <- Indexed, not hungry(A)],
+    Sol = lists:foldl(fun({_, {PT, {Ty, _}}}, Acc) -> solve(PT, Ty, Acc) end,
+                      maps:from_list([{V, bs_types:term()} || V <- Erased]), First),
+    Partial = maps:merge(Extent, Sol),
+    Second = [{I, {PT, expected(A, subst_tpl(PT, Partial), S, C)}}
+              || {I, {A, PT}} <- Indexed, hungry(A)],
+    Ordered = lists:keysort(1, First ++ Second),
+    {Tys, Ds} = lists:unzip([R || {_, {_, R}} <- Ordered]),
+    {Tys, lists:append(Ds)}.
 
 %% A call to a function that exists and is private is reported as private,
 %% and that is asked before the arity fork (F12): a private `F/2` beside a
@@ -3818,7 +4301,7 @@ minted_tag(Name, Env) ->
         Ty ->
             case field_type(Ty, 'Kind') of
                 #{atoms := {finite, [Tag]}, ints := [], tuples := [],
-                  lists := [], maps := [], bins := []} -> Tag;
+                  lists := [], maps := [], bins := [], funs := []} -> Tag;
                 _ -> undefined
             end
     catch

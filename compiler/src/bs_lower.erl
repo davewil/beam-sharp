@@ -44,7 +44,12 @@ pipe_into(L, Value, {e_foreign_call, _, Mod, Fun, Args}) ->
 %% pipe reaches it: the piped value joins the VALUE arguments and the type
 %% bracket takes nothing (F18, ticket 18 §7).
 pipe_into(L, Value, {e_inst, _, Name, TypeArgs, Args}) ->
-    {e_inst, L, Name, TypeArgs, [Value | Args]}.
+    {e_inst, L, Name, TypeArgs, [Value | Args]};
+%% A call through a bound name is a call, so the pipe rewrites it too:
+%% `n |> rule()` is `rule(n)` (ticket 75, F46). The bare name stays a syntax
+%% error, as it is for a function's name: the pipe rewrites a call.
+pipe_into(L, Value, {e_apply, _, Var, Args}) ->
+    {e_apply, L, Var, [Value | Args]}.
 
 %%% ---------------------------------------------------------------------------
 %%% The valve

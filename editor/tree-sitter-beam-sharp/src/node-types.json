@@ -1,5 +1,255 @@
 [
   {
+    "type": "apply",
+    "named": true,
+    "fields": {
+      "function": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "variable",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "apply",
+          "named": true
+        },
+        {
+          "type": "atom",
+          "named": true
+        },
+        {
+          "type": "bare_lambda",
+          "named": true
+        },
+        {
+          "type": "binary_expression",
+          "named": true
+        },
+        {
+          "type": "boolean",
+          "named": true
+        },
+        {
+          "type": "call",
+          "named": true
+        },
+        {
+          "type": "foreign_call",
+          "named": true
+        },
+        {
+          "type": "function_value",
+          "named": true
+        },
+        {
+          "type": "instantiation",
+          "named": true
+        },
+        {
+          "type": "integer",
+          "named": true
+        },
+        {
+          "type": "lambda",
+          "named": true
+        },
+        {
+          "type": "list",
+          "named": true
+        },
+        {
+          "type": "pipe_expression",
+          "named": true
+        },
+        {
+          "type": "projection",
+          "named": true
+        },
+        {
+          "type": "qualified_call",
+          "named": true
+        },
+        {
+          "type": "raise_expression",
+          "named": true
+        },
+        {
+          "type": "record_construction",
+          "named": true
+        },
+        {
+          "type": "record_update",
+          "named": true
+        },
+        {
+          "type": "string",
+          "named": true
+        },
+        {
+          "type": "switch_expression",
+          "named": true
+        },
+        {
+          "type": "tuple",
+          "named": true
+        },
+        {
+          "type": "variable",
+          "named": true
+        },
+        {
+          "type": "wildcard",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "arrow_type",
+    "named": true,
+    "fields": {
+      "codomain": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "type_expression",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "type_expression",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "bare_lambda",
+    "named": true,
+    "fields": {
+      "body": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "apply",
+            "named": true
+          },
+          {
+            "type": "atom",
+            "named": true
+          },
+          {
+            "type": "binary_expression",
+            "named": true
+          },
+          {
+            "type": "boolean",
+            "named": true
+          },
+          {
+            "type": "call",
+            "named": true
+          },
+          {
+            "type": "foreign_call",
+            "named": true
+          },
+          {
+            "type": "function_value",
+            "named": true
+          },
+          {
+            "type": "instantiation",
+            "named": true
+          },
+          {
+            "type": "integer",
+            "named": true
+          },
+          {
+            "type": "lambda",
+            "named": true
+          },
+          {
+            "type": "list",
+            "named": true
+          },
+          {
+            "type": "pipe_expression",
+            "named": true
+          },
+          {
+            "type": "projection",
+            "named": true
+          },
+          {
+            "type": "qualified_call",
+            "named": true
+          },
+          {
+            "type": "raise_expression",
+            "named": true
+          },
+          {
+            "type": "record_construction",
+            "named": true
+          },
+          {
+            "type": "record_update",
+            "named": true
+          },
+          {
+            "type": "string",
+            "named": true
+          },
+          {
+            "type": "switch_expression",
+            "named": true
+          },
+          {
+            "type": "tuple",
+            "named": true
+          },
+          {
+            "type": "variable",
+            "named": true
+          },
+          {
+            "type": "wildcard",
+            "named": true
+          }
+        ]
+      },
+      "parameter": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "variable",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
     "type": "behaviour_declaration",
     "named": true,
     "fields": {
@@ -24,6 +274,10 @@
         "required": true,
         "types": [
           {
+            "type": "apply",
+            "named": true
+          },
+          {
             "type": "atom",
             "named": true
           },
@@ -44,11 +298,19 @@
             "named": true
           },
           {
+            "type": "function_value",
+            "named": true
+          },
+          {
             "type": "instantiation",
             "named": true
           },
           {
             "type": "integer",
+            "named": true
+          },
+          {
+            "type": "lambda",
             "named": true
           },
           {
@@ -164,6 +426,10 @@
         "required": true,
         "types": [
           {
+            "type": "apply",
+            "named": true
+          },
+          {
             "type": "atom",
             "named": true
           },
@@ -184,11 +450,19 @@
             "named": true
           },
           {
+            "type": "function_value",
+            "named": true
+          },
+          {
             "type": "instantiation",
             "named": true
           },
           {
             "type": "integer",
+            "named": true
+          },
+          {
+            "type": "lambda",
             "named": true
           },
           {
@@ -356,6 +630,10 @@
         "required": true,
         "types": [
           {
+            "type": "apply",
+            "named": true
+          },
+          {
             "type": "atom",
             "named": true
           },
@@ -376,11 +654,19 @@
             "named": true
           },
           {
+            "type": "function_value",
+            "named": true
+          },
+          {
             "type": "instantiation",
             "named": true
           },
           {
             "type": "integer",
+            "named": true
+          },
+          {
+            "type": "lambda",
             "named": true
           },
           {
@@ -444,6 +730,10 @@
       "required": true,
       "types": [
         {
+          "type": "apply",
+          "named": true
+        },
+        {
           "type": "atom",
           "named": true
         },
@@ -468,11 +758,19 @@
           "named": true
         },
         {
+          "type": "function_value",
+          "named": true
+        },
+        {
           "type": "instantiation",
           "named": true
         },
         {
           "type": "integer",
+          "named": true
+        },
+        {
+          "type": "lambda",
           "named": true
         },
         {
@@ -566,7 +864,15 @@
       "required": false,
       "types": [
         {
+          "type": "apply",
+          "named": true
+        },
+        {
           "type": "atom",
+          "named": true
+        },
+        {
+          "type": "bare_lambda",
           "named": true
         },
         {
@@ -586,11 +892,19 @@
           "named": true
         },
         {
+          "type": "function_value",
+          "named": true
+        },
+        {
           "type": "instantiation",
           "named": true
         },
         {
           "type": "integer",
+          "named": true
+        },
+        {
+          "type": "lambda",
           "named": true
         },
         {
@@ -703,6 +1017,10 @@
         "required": true,
         "types": [
           {
+            "type": "apply",
+            "named": true
+          },
+          {
             "type": "atom",
             "named": true
           },
@@ -723,11 +1041,19 @@
             "named": true
           },
           {
+            "type": "function_value",
+            "named": true
+          },
+          {
             "type": "instantiation",
             "named": true
           },
           {
             "type": "integer",
+            "named": true
+          },
+          {
+            "type": "lambda",
             "named": true
           },
           {
@@ -879,7 +1205,15 @@
       "required": false,
       "types": [
         {
+          "type": "apply",
+          "named": true
+        },
+        {
           "type": "atom",
+          "named": true
+        },
+        {
+          "type": "bare_lambda",
           "named": true
         },
         {
@@ -899,11 +1233,19 @@
           "named": true
         },
         {
+          "type": "function_value",
+          "named": true
+        },
+        {
           "type": "instantiation",
           "named": true
         },
         {
           "type": "integer",
+          "named": true
+        },
+        {
+          "type": "lambda",
           "named": true
         },
         {
@@ -1035,6 +1377,32 @@
     }
   },
   {
+    "type": "function_value",
+    "named": true,
+    "fields": {
+      "arity": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "integer",
+            "named": true
+          }
+        ]
+      },
+      "function": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "function_name",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
     "type": "generic_type",
     "named": true,
     "fields": {
@@ -1077,6 +1445,10 @@
       "required": true,
       "types": [
         {
+          "type": "apply",
+          "named": true
+        },
+        {
           "type": "atom",
           "named": true
         },
@@ -1097,11 +1469,19 @@
           "named": true
         },
         {
+          "type": "function_value",
+          "named": true
+        },
+        {
           "type": "instantiation",
           "named": true
         },
         {
           "type": "integer",
+          "named": true
+        },
+        {
+          "type": "lambda",
           "named": true
         },
         {
@@ -1191,7 +1571,15 @@
       "required": true,
       "types": [
         {
+          "type": "apply",
+          "named": true
+        },
+        {
           "type": "atom",
+          "named": true
+        },
+        {
+          "type": "bare_lambda",
           "named": true
         },
         {
@@ -1211,11 +1599,19 @@
           "named": true
         },
         {
+          "type": "function_value",
+          "named": true
+        },
+        {
           "type": "instantiation",
           "named": true
         },
         {
           "type": "integer",
+          "named": true
+        },
+        {
+          "type": "lambda",
           "named": true
         },
         {
@@ -1274,6 +1670,116 @@
     }
   },
   {
+    "type": "lambda",
+    "named": true,
+    "fields": {
+      "body": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "apply",
+            "named": true
+          },
+          {
+            "type": "atom",
+            "named": true
+          },
+          {
+            "type": "binary_expression",
+            "named": true
+          },
+          {
+            "type": "boolean",
+            "named": true
+          },
+          {
+            "type": "call",
+            "named": true
+          },
+          {
+            "type": "foreign_call",
+            "named": true
+          },
+          {
+            "type": "function_value",
+            "named": true
+          },
+          {
+            "type": "instantiation",
+            "named": true
+          },
+          {
+            "type": "integer",
+            "named": true
+          },
+          {
+            "type": "lambda",
+            "named": true
+          },
+          {
+            "type": "list",
+            "named": true
+          },
+          {
+            "type": "pipe_expression",
+            "named": true
+          },
+          {
+            "type": "projection",
+            "named": true
+          },
+          {
+            "type": "qualified_call",
+            "named": true
+          },
+          {
+            "type": "raise_expression",
+            "named": true
+          },
+          {
+            "type": "record_construction",
+            "named": true
+          },
+          {
+            "type": "record_update",
+            "named": true
+          },
+          {
+            "type": "string",
+            "named": true
+          },
+          {
+            "type": "switch_expression",
+            "named": true
+          },
+          {
+            "type": "tuple",
+            "named": true
+          },
+          {
+            "type": "variable",
+            "named": true
+          },
+          {
+            "type": "wildcard",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "pattern",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "list",
     "named": true,
     "fields": {},
@@ -1281,6 +1787,10 @@
       "multiple": true,
       "required": false,
       "types": [
+        {
+          "type": "apply",
+          "named": true
+        },
         {
           "type": "atom",
           "named": true
@@ -1302,11 +1812,19 @@
           "named": true
         },
         {
+          "type": "function_value",
+          "named": true
+        },
+        {
           "type": "instantiation",
           "named": true
         },
         {
           "type": "integer",
+          "named": true
+        },
+        {
+          "type": "lambda",
           "named": true
         },
         {
@@ -1528,6 +2046,10 @@
         "required": true,
         "types": [
           {
+            "type": "apply",
+            "named": true
+          },
+          {
             "type": "atom",
             "named": true
           },
@@ -1548,11 +2070,19 @@
             "named": true
           },
           {
+            "type": "function_value",
+            "named": true
+          },
+          {
             "type": "instantiation",
             "named": true
           },
           {
             "type": "integer",
+            "named": true
+          },
+          {
+            "type": "lambda",
             "named": true
           },
           {
@@ -1623,6 +2153,10 @@
         "multiple": false,
         "required": true,
         "types": [
+          {
+            "type": "apply",
+            "named": true
+          },
           {
             "type": "call",
             "named": true
@@ -1699,7 +2233,15 @@
       "required": false,
       "types": [
         {
+          "type": "apply",
+          "named": true
+        },
+        {
           "type": "atom",
+          "named": true
+        },
+        {
+          "type": "bare_lambda",
           "named": true
         },
         {
@@ -1719,11 +2261,19 @@
           "named": true
         },
         {
+          "type": "function_value",
+          "named": true
+        },
+        {
           "type": "instantiation",
           "named": true
         },
         {
           "type": "integer",
+          "named": true
+        },
+        {
+          "type": "lambda",
           "named": true
         },
         {
@@ -1812,6 +2362,10 @@
         "required": true,
         "types": [
           {
+            "type": "apply",
+            "named": true
+          },
+          {
             "type": "atom",
             "named": true
           },
@@ -1832,11 +2386,19 @@
             "named": true
           },
           {
+            "type": "function_value",
+            "named": true
+          },
+          {
             "type": "instantiation",
             "named": true
           },
           {
             "type": "integer",
+            "named": true
+          },
+          {
+            "type": "lambda",
             "named": true
           },
           {
@@ -1988,6 +2550,10 @@
       "required": true,
       "types": [
         {
+          "type": "apply",
+          "named": true
+        },
+        {
           "type": "atom",
           "named": true
         },
@@ -2012,11 +2578,19 @@
           "named": true
         },
         {
+          "type": "function_value",
+          "named": true
+        },
+        {
           "type": "instantiation",
           "named": true
         },
         {
           "type": "integer",
+          "named": true
+        },
+        {
+          "type": "lambda",
           "named": true
         },
         {
@@ -2109,6 +2683,10 @@
       "required": true,
       "types": [
         {
+          "type": "apply",
+          "named": true
+        },
+        {
           "type": "atom",
           "named": true
         },
@@ -2129,11 +2707,19 @@
           "named": true
         },
         {
+          "type": "function_value",
+          "named": true
+        },
+        {
           "type": "instantiation",
           "named": true
         },
         {
           "type": "integer",
+          "named": true
+        },
+        {
+          "type": "lambda",
           "named": true
         },
         {
@@ -2309,6 +2895,10 @@
         "required": true,
         "types": [
           {
+            "type": "apply",
+            "named": true
+          },
+          {
             "type": "atom",
             "named": true
           },
@@ -2329,11 +2919,19 @@
             "named": true
           },
           {
+            "type": "function_value",
+            "named": true
+          },
+          {
             "type": "instantiation",
             "named": true
           },
           {
             "type": "integer",
+            "named": true
+          },
+          {
+            "type": "lambda",
             "named": true
           },
           {
@@ -2417,6 +3015,10 @@
         "required": true,
         "types": [
           {
+            "type": "apply",
+            "named": true
+          },
+          {
             "type": "atom",
             "named": true
           },
@@ -2437,11 +3039,19 @@
             "named": true
           },
           {
+            "type": "function_value",
+            "named": true
+          },
+          {
             "type": "instantiation",
             "named": true
           },
           {
             "type": "integer",
+            "named": true
+          },
+          {
+            "type": "lambda",
             "named": true
           },
           {
@@ -2515,6 +3125,10 @@
       "required": true,
       "types": [
         {
+          "type": "apply",
+          "named": true
+        },
+        {
           "type": "atom",
           "named": true
         },
@@ -2535,11 +3149,19 @@
           "named": true
         },
         {
+          "type": "function_value",
+          "named": true
+        },
+        {
           "type": "instantiation",
           "named": true
         },
         {
           "type": "integer",
+          "named": true
+        },
+        {
+          "type": "lambda",
           "named": true
         },
         {
@@ -2701,6 +3323,10 @@
       "multiple": true,
       "required": true,
       "types": [
+        {
+          "type": "arrow_type",
+          "named": true
+        },
         {
           "type": "atom",
           "named": true
@@ -2893,6 +3519,10 @@
   },
   {
     "type": "false",
+    "named": false
+  },
+  {
+    "type": "fn",
     "named": false
   },
   {

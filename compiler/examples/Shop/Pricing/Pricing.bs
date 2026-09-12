@@ -1,0 +1,48 @@
+// F46 — a function as a value (ticket 75): the arrow `fn(T) -> U` is a type,
+// a lambda `(a, b) => e` is an expression, a name in value position is that
+// function, and a bound name is called like any other.
+//
+//   bsc --src-root examples examples/Shop/Pricing/Pricing.bs Charged :member 250
+//   bsc --src-root examples examples/Shop/Pricing/Pricing.bs Owed "[(:a, 3), (:b, 4)]"
+//   bsc --src-root examples examples/Shop/Pricing/Pricing.bs Doubled "[1, 2, 3]"
+//
+// Three forms, one type: `Rule` returns an arrow as a lambda in two clauses
+// and as a private function's name in the third, and `Charge` calls whichever
+// arrived through the parameter it was bound to.
+module Shop.Pricing
+
+// An arrow in a signature's return position, and a lambda as a clause body.
+// A lambda has one clause and one expression for a body; its parameters are
+// patterns, irrefutable against the arrow's domain.
+public fn(int) -> int Rule(atom tier)
+Rule(:standard) -> (cents) => cents
+Rule(:member)   -> (cents) => cents - 100
+Rule(:staff)    -> Free
+Rule(_)         -> (cents) => cents
+
+// An arrow in parameter position, and a call through the bound name.
+public int Charge(fn(int) -> int rule, int cents)
+Charge(rule, cents) -> rule(cents)
+
+public int Charged(atom tier, int cents)
+Charged(tier, cents) -> Charge(Rule(tier), cents)
+
+// A name in value position: `Free` reads its arity from the arrow `Rule`
+// declares. Where nothing fixes it, `Free/1` is the spelling.
+private int Free(int cents)
+Free(_) -> 0
+
+// The function-taking operations under `List` take the fun as an argument,
+// one walker per module per operation, as `List.Sum` is emitted. A lambda's
+// parameter is a pattern: `(_, n)` takes the pair apart in the head.
+public int Owed(list<(atom, int)> pairs)
+Owed(pairs) -> pairs |> List.Fold(0, (acc, (_, n)) => acc + n)
+
+public list<int> Doubled(list<int> xs)
+Doubled(xs) -> List.Map(xs, Double/1)
+
+public list<int> Large(list<int> xs)
+Large(xs) -> xs |> List.Filter(n => n > 100)
+
+private int Double(int n)
+Double(n) -> n * 2

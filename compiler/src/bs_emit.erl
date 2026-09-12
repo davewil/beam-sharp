@@ -55,7 +55,10 @@ forms(Module = #{module := Mod, functions := Fns, env := Env}) ->
             remote_names => maps:get(remote_names, Module, #{}),
             %% Which foreign calls are owed a `try` is decided in `bs_check`,
             %% where the declaration is, and only looked up here.
-            foreigns => maps:get(foreigns, Module, #{})},
+            foreigns => maps:get(foreigns, Module, #{}),
+            %% A bare name's resolved arity, keyed by the token's position
+            %% (F46); decided by the checker, written as `fun Name/Arity` here.
+            fnames => maps:get(fnames, Module, #{})},
     %% A crash names the `.bs` file the function was written in. A module is a
     %% directory, so one `.beam` holds functions from several files, and a
     %% repeated `{attribute, _, file, {Name, Line}}` re-points every form after
@@ -427,7 +430,7 @@ fold_or([E | Rest], Line) -> {e_op, Line, 'or', E, fold_or(Rest, Line)}.
 is_int_only(TypeExpr, #{env := Env}) ->
     try bs_check:resolve(TypeExpr, Env) of
         #{ints := Is, atoms := {finite, []}, tuples := [], lists := [],
-          maps := [], bins := []} when Is =/= [] -> true;
+          maps := [], bins := [], funs := []} when Is =/= [] -> true;
         _ -> false
     catch _:_ -> false
     end.
@@ -454,10 +457,10 @@ int_test(Var, Line) ->
 record_tag(TypeExpr, #{env := Env}) ->
     try bs_check:resolve(TypeExpr, Env) of
         #{maps := [{closed, Fields}], atoms := {finite, []}, ints := [],
-          tuples := [], lists := [], bins := []} ->
+          tuples := [], lists := [], bins := [], funs := []} ->
             case maps:find('Kind', Fields) of
                 {ok, #{atoms := {finite, [Tag]}, ints := [], tuples := [],
-                       lists := [], maps := [], bins := []}} -> {ok, Tag};
+                       lists := [], maps := [], bins := [], funs := []}} -> {ok, Tag};
                 _ -> none
             end;
         _ -> none
@@ -657,6 +660,12 @@ used_vars({e_valve, _, Switch}, Acc) -> used_vars(Switch, Acc);
 %% `E` in the body, and `erlc` rejected the module with `variable 'E' is
 %% unbound` — a name the author never wrote, against a file they never wrote.
 used_vars({e_raise, _, Reason}, Acc) -> used_vars(Reason, Acc);
+%% A lambda's body reads the clause's names, so a parameter read only inside
+%% one must not be underscored in the head; its own parameters in the set are
+%% harmless, since a lambda may not rebind a name in scope (F46).
+used_vars({e_lambda, _, _, Body}, Acc) -> used_vars(Body, Acc);
+used_vars({e_apply, _, V, As}, Acc) ->
+    lists:foldl(fun used_vars/2, sets:add_element(V, Acc), As);
 used_vars({e_list, _, Items, Rest}, Acc) ->
     R = case Rest of nil -> Acc; _ -> used_vars(Rest, Acc) end,
     lists:foldl(fun used_vars/2, R, Items);
@@ -841,6 +850,29 @@ expr({e_qcall, L, Mod, Fn, As}, C) ->
 expr({e_op, L, Op, A, B}, C)  -> {op, L, erl_op(Op), expr(A, C), expr(B, C)};
 expr({e_nil, L}, _C)          -> {nil, L};
 
+%% A function as a value (ticket 75, F46). The BEAM does the closure: a
+%% lambda is one `fun` clause whose head is its parameters' patterns, an
+%% unread parameter underscored as a clause's would be; a name is `fun
+%% Name/Arity`, or the remote form for an imported one, at the arity the
+%% checker fixed and handed over keyed by the token's position; a call
+%% through a bound name is a call on the variable.
+expr({e_lambda, L, Params, Body}, C) ->
+    Used = used_vars(Body, sets:new([{version, 2}])),
+    {'fun', L, {clauses, [{clause, L, [pattern(P, Used) || P <- Params], [],
+                           [expr(Body, C)]}]}};
+expr({e_fname, L, Name, _}, C) ->
+    case maps:get(L, maps:get(fnames, C, #{})) of
+        {Name, Arity} ->
+            {'fun', L, {function, emitted_name(Name, Arity, maps:get(behaviours, C, [])),
+                        Arity}};
+        {q, Mod0, Name, Arity} ->
+            Mod = maps:get(Mod0, maps:get(qmods, C, #{}), Mod0),
+            RName = maps:get({Mod, Name, Arity}, maps:get(remote_names, C, #{}), Name),
+            {'fun', L, {function, {atom, L, Mod}, {atom, L, RName}, {integer, L, Arity}}}
+    end;
+expr({e_apply, L, V, As}, C) ->
+    {call, L, {var, L, var_name(V)}, [expr(A, C) || A <- As]};
+
 %% A record erases to a map carrying its minted `Kind` tag as ordinary data,
 %% which is what lets a clause head dispatch on a union of records
 %% (ticket 26 §1).
@@ -1015,6 +1047,11 @@ type_test(_V, #{mu := _} = Ty, _L) ->
     erlang:error({foreign_return_guard, recursive, bs_types:rec_name(Ty)});
 type_test(_V, #{recvar := _} = Ty, _L) ->
     erlang:error({foreign_return_guard, recursive, bs_types:rec_name(Ty)});
+%% An arrow cannot reach here: `is_function/2` decides an arity and nothing
+%% about the types, so F40 refuses the declaration (ticket 75). Loud rather
+%% than a comprehension that filters the part away in silence.
+type_test(_V, #{funs := Fs}, _L) when Fs =/= [] ->
+    erlang:error({foreign_return_guard, arrow});
 type_test(V, #{atoms := As, ints := Is, tuples := Ts, lists := Ls,
                maps := Ms, bins := Bs}, L) ->
     any_of(atom_tests(V, As, L) ++ int_tests(V, Is, L) ++ tuple_tests(V, Ts, L)
@@ -1209,9 +1246,16 @@ collect_mu(Ty, Acc) ->
     lists:foldl(fun collect_mu/2, Acc, bs_types:components(Ty)).
 
 parts(Ty = #{atoms := As, ints := Is, tuples := Ts, maps := Ms,
-             bins := Bs}) ->
+             bins := Bs, funs := Fs}) ->
     atom_parts(As) ++ [int_part(R) || R <- Is] ++ tuple_parts(Ts)
-        ++ list_parts(Ty) ++ map_parts(Ms) ++ bin_parts(Bs).
+        ++ list_parts(Ty) ++ map_parts(Ms) ++ bin_parts(Bs) ++ fun_parts(Fs).
+
+%% An arrow emits `fun((A) -> B)`, the form every function's own spec is
+%% already built from, now nested; the top emits `fun()` (F46, ticket 75).
+fun_parts(top) -> [{type, ?A, 'fun', []}];
+fun_parts(Fs)  ->
+    [{type, ?A, 'fun', [{type, ?A, product, [spec_type(D) || D <- Ds]}, spec_type(C)]}
+     || {Ds, C} <- Fs].
 
 %% `string`, `binary` and `binary \ string` all emit `binary()`: Erlang's type
 %% language has no UTF-8 refinement. The widening is confined to the spec; the
@@ -1556,6 +1600,31 @@ reserved_form({'List', 'Length', 1}) ->
 reserved_form({'List', 'Reverse', 1}) ->
     acc_form('List', 'Reverse', 1, 'Bs@h', {nil, ?A},
              fun(H, Acc) -> {cons, ?A, H, Acc} end);
+%% The three function-taking operations take the fun as an argument, one
+%% walker per module per operation (ticket 75 Q7, F46): nothing is
+%% substituted at the site. `Map` and `Filter` accumulate reversed and turn
+%% the list round at the end, so they stay tail-recursive as the others are;
+%% `Fold` is its own accumulator.
+reserved_form({'List', 'Map', 2}) ->
+    fun_form('List', 'Map', 'Bs@h', {nil, ?A},
+             fun(H, Acc, F) -> {cons, ?A, {call, ?A, F, [H]}, Acc} end, reversed);
+reserved_form({'List', 'Filter', 2}) ->
+    fun_form('List', 'Filter', 'Bs@h', {nil, ?A},
+             fun(H, Acc, F) ->
+                     {'case', ?A, {call, ?A, F, [H]},
+                      [{clause, ?A, [{atom, ?A, true}], [], [{cons, ?A, H, Acc}]},
+                       {clause, ?A, [{atom, ?A, false}], [], [Acc]}]}
+             end, reversed);
+reserved_form({'List', 'Fold', 3}) ->
+    Name = reserved_name('List', 'Fold', 3),
+    HV = {var, ?A, 'Bs@h'},
+    TV = {var, ?A, 'Bs@t'},
+    AV = {var, ?A, 'Bs@acc'},
+    FV = {var, ?A, 'Bs@f'},
+    [{function, ?A, Name, 3,
+      [{clause, ?A, [{nil, ?A}, AV, {var, ?A, '_Bs@f'}], [], [AV]},
+       {clause, ?A, [{cons, ?A, HV, TV}, AV, FV], [],
+        [{call, ?A, {atom, ?A, Name}, [TV, {call, ?A, FV, [AV, HV]}, FV]}]}]}];
 %% `Term.Compare` uses Erlang's own term order and answers with one of three
 %% atoms a `switch` must cover, `lt`, `gt` or `eq` (ticket 16).
 reserved_form({'Term', 'Compare', 2}) ->
@@ -1565,6 +1634,25 @@ reserved_form({'Term', 'Compare', 2}) ->
       [{clause, ?A, [A, B], [[{op, ?A, '<', A, B}]], [{atom, ?A, lt}]},
        {clause, ?A, [A, B], [[{op, ?A, '>', A, B}]], [{atom, ?A, gt}]},
        {clause, ?A, [{var, ?A, '_'}, {var, ?A, '_'}], [], [{atom, ?A, eq}]}]}].
+
+%% An arity-2 entry over a list and a fun, and an arity-3 walker carrying
+%% the fun; `Step` builds the new accumulator from the head, the old one and
+%% the fun, and the finished accumulator is reversed on the way out.
+fun_form(Q, Fn, Head, Seed, Step, reversed) ->
+    Name = reserved_name(Q, Fn, 2),
+    Walk = list_to_atom(atom_to_list(Name) ++ "@w"),
+    XV = {var, ?A, 'Bs@x'},
+    HV = {var, ?A, Head},
+    TV = {var, ?A, 'Bs@t'},
+    AV = {var, ?A, 'Bs@acc'},
+    FV = {var, ?A, 'Bs@f'},
+    [{function, ?A, Name, 2,
+      [{clause, ?A, [XV, FV], [], [{call, ?A, {atom, ?A, Walk}, [XV, FV, Seed]}]}]},
+     {function, ?A, Walk, 3,
+      [{clause, ?A, [{nil, ?A}, {var, ?A, '_Bs@f'}, AV], [],
+        [{call, ?A, {remote, ?A, {atom, ?A, lists}, {atom, ?A, reverse}}, [AV]}]},
+       {clause, ?A, [{cons, ?A, HV, TV}, FV, AV], [],
+        [{call, ?A, {atom, ?A, Walk}, [TV, FV, Step(HV, AV, FV)]}]}]}].
 
 %% An arity-1 entry that seeds the accumulator and an arity-2 walker; `Step`
 %% builds the new accumulator from the head and the old one.
@@ -1621,7 +1709,12 @@ ok_expr() -> {tuple, ?A, [{atom, ?A, ok}, ?VV]}.
 
 ty_clauses(Ty, Name, Table, Err) ->
     #{atoms := As, ints := Is, tuples := Ts, maps := Ms,
-      bins := Bs} = Ty,
+      bins := Bs, funs := Fs} = Ty,
+    %% `ValidateAs<T>` over a `T` holding an arrow is refused by the checker
+    %% (ticket 11, F46): a fun's type is not recoverable at run time. Loud
+    %% here so a slipped declaration cannot generate a validator that
+    %% accepts every function.
+    Fs =:= [] orelse erlang:error({validate_over_arrow, Ty}),
     atom_clauses(As)
     ++ int_clauses(Is)
     ++ bin_clauses(lists:sort(Bs), Err)

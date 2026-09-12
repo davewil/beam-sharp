@@ -32,6 +32,10 @@
 -export([tuple_comp/3]).
 -export([binary_top/0, string/0]).
 -export([map_closed/1, map_open/1, map_dom/2, is_dom/1]).
+%% The arrow (F46, ticket 75): `fun_ty/2` builds one, `arrows/1` reads the
+%% part, `funs_of/1` is the type restricted to it, so a caller can ask
+%% whether a value is arrows and nothing else by one subtraction.
+-export([fun_ty/2, arrows/1, funs_of/1]).
 -export([union/2, union/1, intersect/2, subtract/2]).
 -export([is_none/1, is_open/1, is_subtype/2, to_string/1, to_pattern/1,
          pattern_parts/1, atom_str/1]).
@@ -128,7 +132,26 @@
 %% can hold, which is why `CONTEXT.md` no longer claims they are refused.
 -type bin_part() :: [utf8 | other].
 
-%% A type is either a partition (the six-part map every operation computes
+%% A fun part: a union of ARROWS, each a domain (one type per parameter) and
+%% a codomain, or `top`, every function of every arity, which is what `term`
+%% contains (ticket 75, F46). Containment is pairwise — the domain
+%% contravariant and the codomain covariant, ticket 11's measured rule — and
+%% it stays pairwise because ticket 08 gives a function one arrow per arity,
+%% never an intersection of arrows. Subtraction is ALL-OR-NOTHING: an arrow
+%% contained in some arrow of the subtrahend leaves nothing, and one that is
+%% not is kept whole. That is the same over-approximation the map domain
+%% takes, and the one place a residual is coarser than the set; it errs
+%% towards too big, which reports a false inexhaustive rather than a false
+%% exhaustive (ticket 54's direction).
+%%
+%% The top arrow is `fn(none) -> term`: every function is contained in it,
+%% and nothing can be passed to it. A `term` narrowed by `is_function/1` is
+%% therefore holdable and returnable and never callable, which is why `top`
+%% here is a single marker rather than a list of arrows.
+-type arrow() :: {[ty()], ty()}.
+-type fun_part() :: top | [arrow()].
+
+%% A type is either a partition (the seven-part map every operation computes
 %% over) or a binder (F28, ticket 09). A binder names a type so its own body
 %% can refer back to it: `type Tree = :leaf | (:node, Tree, Tree)` is
 %% `mu('Tree', :leaf | (:node, recvar('Tree'), recvar('Tree')))`. Erlang has
@@ -141,7 +164,8 @@
 -type rec_ty() :: #{mu := atom(), body := ty()} | #{recvar := atom()}.
 
 -type ty() :: #{atoms := atom_part(), ints := int_part(), tuples := tuple_part(),
-                lists := list_part(), maps := map_part(), bins := bin_part()}
+                lists := list_part(), maps := map_part(), bins := bin_part(),
+                funs := fun_part()}
             | rec_ty().
 
 %%% ---------------------------------------------------------------------------
@@ -149,7 +173,7 @@
 %%% ---------------------------------------------------------------------------
 
 none() -> #{atoms => {finite, []}, ints => [], tuples => [], lists => [],
-            maps => [], bins => []}.
+            maps => [], bins => [], funs => []}.
 
 %%% ---------------------------------------------------------------------------
 %%% The binder (F28)
@@ -200,6 +224,11 @@ subst_rec(T, N, Sub) ->
                      top -> top;
                      Ms  -> [{K, maps:map(fun(_, C) -> subst_rec(C, N, Sub) end, F)}
                              || {K, F} <- Ms]
+                 end,
+       funs   => case maps:get(funs, T) of
+                     top -> top;
+                     Fs  -> [{[subst_rec(D, N, Sub) || D <- Ds], subst_rec(C, N, Sub)}
+                             || {Ds, C} <- Fs]
                  end}.
 
 %% Does `Name` occur free in `T`? Used only by `mu/2`, to decide whether a
@@ -233,14 +262,36 @@ components(T) ->
                                       {_, F}      -> maps:values(F)
                                   end || M <- Fs])
          end,
-    Ts ++ Ls ++ Ms.
+    Arrows = case maps:get(funs, T) of
+                 top -> [];
+                 As  -> lists:append([Ds ++ [C] || {Ds, C} <- As])
+             end,
+    Ts ++ Ls ++ Ms ++ Arrows.
 
 %% `term` in the surface language: the top of every part. Every part must be
 %% full, because a `term` missing one stops being the top type and every
 %% residual subtracted from it is then wrong in the quiet direction.
 term() ->
     #{atoms => {cofinite, []}, ints => [{neg_inf, pos_inf}], tuples => top,
-      lists => [{[], {open, any}}], maps => top, bins => [other, utf8]}.
+      lists => [{[], {open, any}}], maps => top, bins => [other, utf8],
+      funs => top}.
+
+%% `fn(A, B) -> C`: one arrow. A domain or codomain that is empty does not
+%% empty the arrow — `fn(none) -> term` is the top arrow, inhabited by every
+%% function, and `fn(int) -> none` is a function that never returns, which
+%% `raise` makes (ticket 12 §5).
+fun_ty(Doms, Cod) when is_list(Doms) -> (none())#{funs => [{Doms, Cod}]}.
+
+%% The fun part, unfolded first as every reader of a part is (F28).
+arrows(T) ->
+    case unfold(T) of
+        #{funs := Fs} -> Fs;
+        _             -> []
+    end.
+
+%% T restricted to its arrows, so `subtract(T, funs_of(T))` is what T holds
+%% that is not a function.
+funs_of(T) -> (none())#{funs => arrows(T)}.
 
 %% `binary`: the top of the part, both halves.
 binary_top() -> (none())#{bins => [other, utf8]}.
@@ -392,8 +443,10 @@ is_none(#{recvar := N}, Seen) ->
 %% knot builds one whose element is the assumption variable, which
 %% `sp_empty/1` cannot see through; emptiness is decided here, where the chain
 %% exists.
+%% An arrow is always inhabited, whatever its domain and codomain hold (see
+%% `fun_ty/2`), so the fun part must be absent outright.
 is_none(#{atoms := {finite, []}, ints := [], tuples := Ts, lists := Ls,
-          maps := Ms, bins := []}, Seen)
+          maps := Ms, bins := [], funs := []}, Seen)
   when Ts =/= top, Ms =/= top ->
     lists:all(fun(Cs) -> lists:any(fun(C) -> is_none(C, Seen) end, Cs) end, Ts)
         andalso lists:all(fun(S) -> sp_none(S, Seen) end, Ls)
@@ -429,12 +482,16 @@ is_subtype(A, B) -> is_none(subtract(A, B)).
 %%% unbounded top; a caller reading false as "must be enumerated" asks
 %%% `is_none/1` first, as `bs_check:closed_and_inhabited/1` does.
 is_open(#{atoms := As, ints := Is, tuples := Ts, lists := Ls, maps := Ms,
-          bins := Bs}) ->
+          bins := Bs, funs := Fs}) ->
     a_open(As) orelse lists:any(fun r_unbounded/1, Is) orelse t_open(Ts)
         orelse l_open(Ls) orelse m_open(Ms)
         %% Any non-empty binary part is unbounded: the sender chooses the
         %% length (ticket 11).
-        orelse Bs =/= [].
+        orelse Bs =/= []
+        %% Any non-empty fun part is unbounded: no pattern enumerates the
+        %% functions of a type, so a catch-all over one is the only clause
+        %% there is (ticket 75).
+        orelse Fs =/= [].
 
 %% A cofinite set is the top of an open atom universe and cannot be
 %% enumerated: a foreign sender chooses the inhabitants (ticket 10).
@@ -506,7 +563,8 @@ u_parts(A, B) ->
       %% Plain set union, so `string | binary` absorbs to `binary`: `string`
       %% is nested, not overlapping, so the indiscriminable-members error
       %% (ticket 09 §4) does not apply.
-      bins   => ordsets:union(maps:get(bins, A), maps:get(bins, B))}.
+      bins   => ordsets:union(maps:get(bins, A), maps:get(bins, B)),
+      funs   => f_union(maps:get(funs, A), maps:get(funs, B))}.
 
 %%% ---------------------------------------------------------------------------
 %%% The assumption set (F28): why intersection and subtraction return a BINDER
@@ -578,7 +636,8 @@ i_parts(A, B, As) ->
       tuples => t_intersect(maps:get(tuples, A), maps:get(tuples, B), As),
       lists  => l_intersect(maps:get(lists, A), maps:get(lists, B), As),
       maps   => m_intersect(maps:get(maps, A), maps:get(maps, B), As),
-      bins   => ordsets:intersection(maps:get(bins, A), maps:get(bins, B))}.
+      bins   => ordsets:intersection(maps:get(bins, A), maps:get(bins, B)),
+      funs   => f_intersect(maps:get(funs, A), maps:get(funs, B), As)}.
 
 %%% ---------------------------------------------------------------------------
 %%% Subtraction: computes the residual (ticket 04)
@@ -608,7 +667,57 @@ s_parts(A, B, As) ->
       maps   => m_subtract(maps:get(maps, A), maps:get(maps, B), As),
       %% Set difference, so `binary \ string` is `[other]`: the non-UTF-8
       %% binaries, exactly (see `b_str/1`).
-      bins   => ordsets:subtract(maps:get(bins, A), maps:get(bins, B))}.
+      bins   => ordsets:subtract(maps:get(bins, A), maps:get(bins, B)),
+      funs   => f_subtract(maps:get(funs, A), maps:get(funs, B), As)}.
+
+%%% ---------------------------------------------------------------------------
+%%% Fun part (F46, ticket 75)
+%%%
+%%% Arrows are kept as separate members, absorbed when one contains another
+%%% and never merged, as products are. Intersection is the one operation
+%%% without an exact answer in this shape: two arrows of one arity that
+%%% neither contains the other meet in a function over the JOIN of their
+%%% domains, which is not either arrow and not a member this part can spell.
+%%% It answers with the arrows each side contains of the other, which is
+%%% exact whenever one contains the other and empty otherwise. That
+%%% under-approximation is reachable only through a pattern's type, and no
+%%% pattern has a fun part, so nothing today asks the question.
+%%% ---------------------------------------------------------------------------
+
+%% Domain contravariant, codomain covariant, arity equal.
+f_sub({Ds1, C1}, {Ds2, C2}, As) when length(Ds1) =:= length(Ds2) ->
+    lists:all(fun({D1, D2}) -> is_none(subtract(D2, D1, As)) end,
+              lists:zip(Ds1, Ds2))
+        andalso is_none(subtract(C1, C2, As));
+f_sub(_, _, _) ->
+    false.
+
+f_union(top, _) -> top;
+f_union(_, top) -> top;
+f_union(A, B)   -> f_absorb(A ++ B).
+
+%% An arrow contained in one already kept is dropped, and one that contains
+%% an arrow already kept replaces it, so a union holds no redundant member.
+f_absorb(Fs) ->
+    lists:foldl(fun(F, Acc) ->
+                        case lists:any(fun(G) -> f_sub(F, G, []) end, Acc) of
+                            true  -> Acc;
+                            false -> [G || G <- Acc, not f_sub(G, F, [])] ++ [F]
+                        end
+                end, [], Fs).
+
+f_intersect(top, B, _As) -> B;
+f_intersect(A, top, _As) -> A;
+f_intersect(A, B, As) ->
+    f_absorb([X || X <- A, lists:any(fun(Y) -> f_sub(X, Y, As) end, B)]
+             ++ [Y || Y <- B, lists:any(fun(X) -> f_sub(Y, X, As) end, A)]).
+
+%% All-or-nothing: `top` minus anything is kept whole, too big rather than too
+%% small, as `t_subtract/3` keeps a `top` tuple part.
+f_subtract(_, top, _As)  -> [];
+f_subtract(top, _, _As)  -> top;
+f_subtract(A, B, As) ->
+    [X || X <- A, not lists:any(fun(Y) -> f_sub(X, Y, As) end, B)].
 
 %%% ---------------------------------------------------------------------------
 %%% Atom part
@@ -1307,9 +1416,19 @@ parts(#{mu := N, body := B}) ->
         true  -> parts(B)
     end;
 parts(#{recvar := N}) -> [rec_str(N)];
-parts(#{atoms := As, ints := Is, tuples := Ts, lists := Ls, maps := Ms, bins := Bs}) ->
+parts(#{atoms := As, ints := Is, tuples := Ts, lists := Ls, maps := Ms, bins := Bs,
+        funs := Fs}) ->
     a_str(As) ++ [i_str(R) || R <- Is] ++ ts_str(Ts) ++ l_str(Ls) ++ ms_str(Ms)
-        ++ b_str(Bs).
+        ++ b_str(Bs) ++ f_str(Fs).
+
+%% An arrow prints as the author writes it, `fn(int) -> int` (ticket 75). The
+%% top has no surface spelling — `fn(none) -> term` is what it means, and that
+%% is the word here rather than `fn`, which would read as a keyword alone.
+f_str(top) -> ["fn(none) -> term"];
+f_str(Fs)  -> [arrow_str(F) || F <- Fs].
+
+arrow_str({Ds, C}) ->
+    "fn(" ++ string:join([to_string(D) || D <- Ds], ", ") ++ ") -> " ++ to_string(C).
 
 %% Three of the four points have a surface spelling and the fourth does not.
 %%
@@ -1396,11 +1515,11 @@ pat_parts(#{mu := N, body := B}) ->
     end;
 pat_parts(#{recvar := N}) -> [rec_str(N)];
 pat_parts(T = #{atoms := As, ints := Is, tuples := Ts, lists := Ls, maps := Ms,
-                bins := Bs}) ->
+                bins := Bs, funs := Fs}) ->
     case is_subtype(term(), T) of
         true  -> ["term"];
         false -> a_str(As) ++ [i_str(R) || R <- Is] ++ ts_pat(Ts) ++ l_str(Ls)
-                     ++ ms_pat(Ms) ++ b_str(Bs)
+                     ++ ms_pat(Ms) ++ b_str(Bs) ++ f_str(Fs)
     end.
 
 ts_pat(top) -> ["tuple"];
@@ -1543,15 +1662,23 @@ head_reach(T) ->
 %% header explains why a non-empty list part can still be empty — and reading
 %% it as a general emptiness oracle would answer `tuple` for `{[none]}`.
 guard_buckets(#{mu := _} = T) -> guard_buckets(unfold(T));
-guard_buckets(#{recvar := _}) -> [atom, int, tuple, list, map, bin];
+guard_buckets(#{recvar := _}) -> [atom, int, tuple, list, map, bin, 'fun'];
 guard_buckets(#{atoms := As, ints := Is, tuples := Ts, lists := Ls,
-                maps := Ms, bins := Bs}) ->
+                maps := Ms, bins := Bs, funs := Fs}) ->
     [atom  || As =/= {finite, []}] ++
     [int   || Is =/= []] ++
     [tuple || Ts =/= []] ++
     [list  || Ls =/= []] ++
     [map   || Ms =/= []] ++
-    [bin   || Bs =/= []].
+    [bin   || Bs =/= []] ++
+    %% `is_function/2` decides an ARITY and nothing else about a function
+    %% (ticket 11: `fun_info` yields identity, never types), so the bucket
+    %% carries the arity: two arrows of one arity share it and are ticket
+    %% 70's container, two of different arity are told apart (ticket 75).
+    case Fs of
+        top -> ['fun'];
+        _   -> lists:usort([{'fun', length(Ds)} || {Ds, _} <- Fs])
+    end.
 
 %% THE NORMALISED TYPE'S OWN MEMBERS, which is what 09 §4 means by "check
 %% pairwise on the NORMALISED members" and is NOT the list of members an
@@ -1569,14 +1696,15 @@ guard_buckets(#{atoms := As, ints := Is, tuples := Ts, lists := Ls,
 constituents(#{mu := _} = T)     -> [T];
 constituents(#{recvar := _} = T) -> [T];
 constituents(#{atoms := As, ints := Is, tuples := Ts, lists := Ls,
-               maps := Ms, bins := Bs}) ->
+               maps := Ms, bins := Bs, funs := Fs}) ->
     N = none(),
     [N#{atoms => As} || As =/= {finite, []}]
         ++ [N#{ints => [R]} || R <- Is]
         ++ part_cs(Ts, fun(V) -> N#{tuples => V} end)
         ++ [N#{lists => [S]} || S <- Ls]
         ++ part_cs(Ms, fun(V) -> N#{maps => V} end)
-        ++ [N#{bins => Bs} || Bs =/= []].
+        ++ [N#{bins => Bs} || Bs =/= []]
+        ++ part_cs(Fs, fun(V) -> N#{funs => V} end).
 
 %% `top` is one constituent — every tuple, or every map — and is not a list to
 %% take apart.
@@ -1616,12 +1744,19 @@ hd_parts(#{mu := N} = T, Names, Pos, Seen) ->
     end;
 hd_parts(#{recvar := _}, _Names, _Pos, _Seen) -> [{binder, binder("x")}];
 hd_parts(T = #{atoms := As, ints := Is, tuples := Ts, lists := Ls, maps := Ms,
-               bins := Bs}, Names, Pos, Seen) ->
+               bins := Bs, funs := Fs}, Names, Pos, Seen) ->
     case is_subtype(term(), T) of
         true  -> [{binder, binder("x")}];
         false -> a_pat(As) ++ [i_pat(R, Pos) || R <- Is] ++ ts_hd(Ts, Names, Seen)
                      ++ l_pat(Ls, Names, Seen) ++ ms_hd(Ms, Names) ++ b_pat(Bs)
+                     ++ f_pat(Fs)
     end.
+
+%% An arrow has no pattern (ticket 75): a hand-written clause binds it, and
+%% the binder is what this channel offers, as it does for the open atom
+%% universe.
+f_pat([]) -> [];
+f_pat(_)  -> [{binder, binder("f")}].
 
 %% The text of each part, for the composite forms below: a tuple or a list
 %% spine renders its components and is itself a `shape` whatever they were.

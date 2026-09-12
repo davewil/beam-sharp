@@ -27,6 +27,10 @@ syn keyword bsKeyword     module type record using behaviour behavior with var w
 " scheme already reserves for the word that leaves a function without returning.
 syn keyword bsException   raise
 
+" `fn` opens an arrow type, `fn(int) -> int` (F46, ticket 75). A keyword, so
+" a parameter may not be called `fn`, as one may not be called `raise`.
+syn keyword bsType        fn
+
 syn keyword bsOperator    and or
 
 " The two keyword atoms. Highlighting these as constants rather than as
