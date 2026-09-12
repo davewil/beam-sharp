@@ -142,7 +142,7 @@ ask an arrow's arity and nothing else about it.
 _Avoid_: function type, delegate, Func, closure type, fun type
 
 **Lambda**:
-An anonymous function of one clause, `(a, b) => e` or `n => e`: its parameters are patterns that
+A function of one clause with no name, `(a, b) => e` or `n => e`: its parameters are patterns that
 must be irrefutable against the expected arrow's domain, its body is one expression, and it
 captures every name in scope. Its type is the arrow the site expects; a site that expects none
 refuses it.

@@ -272,7 +272,8 @@ measurement.
 - **`LANGUAGE.md:1384`** — `List.Map(x)` | *a B# module* — is the wrong row and becomes *a reserved
   qualifier*. `LANGUAGE.md:1178` stands.
 - **The function-taking operations wait on the lambda.** `List.Map`, `List.Filter`, `List.Fold` can
-  only be spelled once `=>` exists (27 §(c), ENG-295). ~~But under (b) a lambda is only ever an
+  only be spelled once `=>` exists (~~27 §(c), ENG-295~~ — re-attributed 2026-09-12 to
+  [ticket 75](75-a-function-as-a-value.md), ENG-365). ~~But under (b) a lambda is only ever an
   argument to an inlined operation, so it never has to be a *value* at run time — `xs |> Sum` stays
   a syntax error (`LANGUAGE.md:1098`) and *no function values* survives intact.~~ **Overruled
   2026-09-12 by [ticket 75](75-a-function-as-a-value.md)**: a function is a value, the arrow is a
