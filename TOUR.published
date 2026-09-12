@@ -24,8 +24,20 @@
 # evidence here that is not self-reported.
 
 url       https://claude.ai/code/artifact/40f71cf4-d5d3-4b71-882c-ad73f630a03c
-sha256    df9863b38ef3aeb5e0653c94d84b74ae6742178ce7019981f82a02f9488d1ecc
-verified  2026-09-12 (for ticket 37's ordering answer, ENG-204) — chapter 9 said a polymorphic
+sha256    9ceacffb2d01a5283cf47dac91b3aa0852eb86ba75f06ea601af320f50074f75
+verified  2026-09-12 (for F45, a polymorphic function signature, ENG-295) — chapter 9 said a
+          polymorphic function signature was not built; it now quotes `examples/Shop/Rows/Rows.bs`,
+          the corpus module 25d's `Prepend` became, with two replayed transcripts, and the closing
+          sentence names the arrow as what is left. The "Decided but not built" row moved from the
+          signature to the arrow. The appendix gained `a polymorphic signature` and its own count
+          moved from 55 to 56, the row added because part 2 of the gate goes red on the roster row
+          before the tour has met it. Part 4 was red against the old stamp before the republish
+          (version 22), and the live page was read back in full first and still carried the old
+          closing sentence at chapter 9 and the old row in the table, so it was confirmed stale
+          rather than assumed, and the read showed a plain render of TOUR.md with nothing saved
+          into it independently.
+
+          2026-09-12 (for ticket 37's ordering answer, ENG-204) — chapter 9 said a polymorphic
           function signature "needs an arrow type"; the signature alone never did, its
           instantiation was decided on 2026-08-28, and David sequenced it on 2026-09-12 as the
           first feature inside the function-as-a-value increment (ticket 75). The chapter's

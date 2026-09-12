@@ -220,10 +220,16 @@ module.exports = grammar({
     // optional in the language — an unmarked signature is private. It was
     // already optional before the amendment, for a different reason, which is
     // why nothing in this file had to change.
+    // F45 / ticket 27 §(c): a polymorphic signature declares its variables
+    // after the name, `Prepend<T, E>(T row, ...)`. The list is the one a
+    // parametric alias already binds, so the two spellings of a bracket after a PascalCase name — a generic
+    // type applied, a signature's declaration list — are told apart by
+    // position alone, as in `bs_parser.yrl`.
     signature: $ => seq(
       optional(field('visibility', $.visibility)),
       field('return', $.type_expression),
       field('name', $.function_name),
+      optional(seq('<', commaSep1($.type_parameter), '>')),
       '(', optional(commaSep1($.parameter)), ')',
     ),
 

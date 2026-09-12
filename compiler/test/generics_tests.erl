@@ -11,11 +11,11 @@
 %%% F6 — angle brackets and parametric types
 %%%
 %%% Ticket 27 §(a) and §(b) only. §(c) — polymorphic function SIGNATURES — is
-%%% not built, and the ticket's own "the costs are asymmetric and they do not
-%%% chain" is why that is a cut rather than a shortfall. Everything below is
-%%% substitution with ground arguments: the variable is gone before `bs_types`
-%%% sees anything, so no test here reaches into the algebra for a new node,
-%%% because there isn't one.
+%%% F45's, `poly_signature_tests.erl` (built 2026-09-12; until then the
+%%% ticket's own "the costs are asymmetric and they do not chain" was why the
+%%% cut stopped here). Everything below is substitution with ground arguments:
+%%% the variable is gone before `bs_types` sees anything, so no test here
+%%% reaches into the algebra for a new node, because there isn't one.
 %%% ---------------------------------------------------------------------------
 
 parcel_src() ->

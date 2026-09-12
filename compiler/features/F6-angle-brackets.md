@@ -29,7 +29,7 @@ untouched."** F6 takes the ticket's own cut.
 |---|---|---|
 | **(a)** | Parameterised type constructors — `list<int>`, `result<Delivery, ConsumeError>` | **built** |
 | **(b)** | Parametric aliases — `type option<T> = T \| :nothing` | **built** |
-| **(c)** | Polymorphic function signatures — `list<U> Map<T, U>(list<T>, fn(T) -> U)` | **not built** — *amended 2026-09-12: §(c) is the signature variable alone, `result<list<T>, E> Prepend<T, E>(T, result<list<T>, E>)`; the `fn(T) -> U` in this example is [ticket 75](../../wayfinder/issues/75-a-function-as-a-value.md), and §(c) is sequenced as the first feature inside that increment (ticket 37, ENG-295)* |
+| **(c)** | Polymorphic function signatures — `list<U> Map<T, U>(list<T>, fn(T) -> U)` | ~~**not built**~~ **built — [F45](F45-polymorphic-signatures.md), 2026-09-12**, for the signature variable alone, `result<list<T>, E> Prepend<T, E>(T, result<list<T>, E>)`; the `fn(T) -> U` in this example is [ticket 75](../../wayfinder/issues/75-a-function-as-a-value.md)'s arrow, [ENG-365](https://linear.app/davewil/issue/ENG-365), which F45 unblocks. *(Amended 2026-09-12 in the morning to say §(c) was sequenced first inside that increment, ticket 37, ENG-295; built that afternoon.)* |
 
 (a) and (b) are **substitution with ground arguments**. `result<int, atom>` substitutes into
 `T | (:error, E)` and hands the algebra a union — 27 §(b)'s *"the variable is gone before the

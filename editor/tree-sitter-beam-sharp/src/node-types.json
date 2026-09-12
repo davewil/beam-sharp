@@ -2248,6 +2248,10 @@
         {
           "type": "parameter",
           "named": true
+        },
+        {
+          "type": "type_parameter",
+          "named": true
         }
       ]
     }

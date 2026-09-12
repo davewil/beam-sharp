@@ -227,6 +227,9 @@ build([{Dir, Sources, Mod} | Rest], Opts, World, Acc) ->
         {ok, Beam} ->
             Decls = decls(Sources),
             World1 = World#{Mod => #{exports => bs_check:exports_of(Decls, World),
+                                     %% The polymorphic templates a
+                                     %% dependent solves against (F45).
+                                     polys => bs_check:polys_of(Decls, World),
                                      %% Carried BESIDE the exports, not
                                      %% subtracted from them, so a dependent's
                                      %% refusal can say `private` rather than

@@ -26,6 +26,10 @@
 %% element type, whether any list, `[]` or a cons is admitted) rather than
 %% reading the shape (F20).
 -export([list_elem/1, has_lists/1, has_nil/1, has_cons/1, spine/2]).
+%% The tuple counterpart of `list_elem/1`: what component I of every
+%% arity-N tuple in T can hold, for a signature variable in that position
+%% to be solved from (F45, ticket 37).
+-export([tuple_comp/3]).
 -export([binary_top/0, string/0]).
 -export([map_closed/1, map_open/1, map_dom/2, is_dom/1]).
 -export([union/2, union/1, intersect/2, subtract/2]).
@@ -311,6 +315,17 @@ l_elem(Ss) ->
     case Prefix ++ Tails of
         [] -> none();
         Xs -> union(Xs)
+    end.
+
+%% Component I of every arity-N product in T, unioned; `top` admits every
+%% tuple, so every component is `term`. Unfolded first, as every reader of
+%% a part is (F28).
+tuple_comp(T, N, I) ->
+    case unfold(T) of
+        #{tuples := top} -> term();
+        #{tuples := Rows} ->
+            union([lists:nth(I, Cs) || Cs <- Rows, is_list(Cs), length(Cs) =:= N]);
+        _ -> none()
     end.
 
 tuple(Components) when is_list(Components) ->

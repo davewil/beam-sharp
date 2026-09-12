@@ -176,15 +176,37 @@ operations(Sources, Exports, Module) ->
           %% `=:= public`, not `=/= private`: an unmarked signature carries
           %% `none` and is private (F12), so the inverted test would publish
           %% every unmarked function.
-          {signature, _, _, _, _, public} = Sig <- Decls]).
+          {signature, _, _, _, _, public, _} = Sig <- Decls]).
 
-operation(File, {signature, Line, Name, _Ret, Params, public}, Exports, Module) ->
+operation(File, {signature, Line, Name, Ret, Params, public, TVars}, Exports, Module) ->
     {ParamTypes, Result} = maps:get({Name, length(Params)}, Exports),
-    #{tag => operation, module => Module, name => Name,
-      arity => length(Params), file => File, line => Line,
-      params => [#{name => PName, type => type_string(T)}
-                 || {{param, _, PName}, T} <- lists:zip(Params, ParamTypes)],
-      result => type_string(Result)}.
+    Op = #{tag => operation, module => Module, name => Name,
+           arity => length(Params), file => File, line => Line,
+           params => [#{name => PName, type => type_string(T)}
+                      || {{param, _, PName}, T} <- lists:zip(Params, ParamTypes)],
+           result => type_string(Result)},
+    case TVars of
+        [] -> Op;
+        _  -> written(Op, TVars, Ret, Params, ParamTypes, Result)
+    end.
+
+%% A polymorphic signature has no ground resolution to publish: its resolved
+%% form is the extent, `term Pick(term, term)`, which is true of the function
+%% and says nothing a caller can rely on. So it is published as WRITTEN —
+%% the declaration a call instantiates — with its variables listed beside it
+%% (F45). A written form the source printer cannot render falls back to the
+%% resolved one for that position alone.
+written(Op, TVars, Ret, Params, ParamTypes, Result) ->
+    Op#{type_variables => TVars,
+        params => [#{name => PName, type => source_or(T, R)}
+                   || {{param, T, PName}, R} <- lists:zip(Params, ParamTypes)],
+        result => source_or(Ret, Result)}.
+
+source_or(Surface, Resolved) ->
+    case bs_check:type_source(Surface) of
+        none -> type_string(Resolved);
+        S    -> lists:flatten(S)
+    end.
 
 %% The exact top type prints as `term` on every channel; that rule lives in
 %% `bs_types:to_string/1`, not here (ticket 61).
@@ -206,9 +228,10 @@ publish(prose, _Dir, Module, Behaviours, Ops) ->
     %% (F12), and no parameter names, because a caller supplies a value, not a
     %% name. The names travel in the term, which is the full-fidelity
     %% form (F16).
-    [io:format("~s ~s(~s)~n",
-               [Result, Name, lists:join(", ", [T || #{type := T} <- Ps])])
-     || #{name := Name, params := Ps, result := Result} <- Ops],
+    [io:format("~s ~s~s(~s)~n",
+               [Result, Name, variables(Op),
+                lists:join(", ", [T || #{type := T} <- Ps])])
+     || #{name := Name, params := Ps, result := Result} = Op <- Ops],
     nothing_public(Module, Ops);
 publish(term, Dir, Module, Behaviours, Ops) ->
     %% One map per line under `~0p`, so a consumer splits on newlines rather
@@ -217,6 +240,12 @@ publish(term, Dir, Module, Behaviours, Ops) ->
                           behaviours => Behaviours, operations => length(Ops)}]),
     [io:format("~0p~n", [Op]) || Op <- Ops],
     nothing_public(Module, Ops).
+
+%% `<T, E>` after the name, as the author wrote it (F45); nothing for a
+%% ground signature, so every line before F45 prints as it did.
+variables(#{type_variables := Vs}) ->
+    "<" ++ lists:join(", ", [atom_to_list(V) || V <- Vs]) ++ ">";
+variables(_) -> "".
 
 %% Zero operations is an answer, so exit 0 — unlike `bsc`'s `{ambiguous, []}`
 %% at exit 2, where the user asked to run something. The teaching sentence goes

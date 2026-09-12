@@ -1,0 +1,43 @@
+// F45 — a polymorphic signature: one `Prepend` for every row type (ticket 27
+// §(c), instantiation by ticket 37).
+//
+//   bsc --src-root examples examples/Shop/Rows/Rows.bs Rowed "[(1, :placed), (2, :shipped)]"
+//   bsc --src-root examples examples/Shop/Rows/Rows.bs Ids "[(1, :placed), (2, :lost)]"
+//
+// `Prepend` is declared once, over a type variable, and is called at two
+// element types in this one module: `OrderRow` from `Rowed` and `int` from
+// `Ids`. Before F45 the second caller needed a second copy of the function
+// under an invented name, and the module refused the copy under the first
+// (ticket 37's `Reverse` finding).
+module Shop.Rows
+
+record OrderRow { Id: int, Status: atom }
+type FetchError = (:unknown_status, atom)
+
+// The traverse 25d found: map a fallible conversion over a list and stop at
+// the first error. `Prepend` threads the short-circuit.
+public result<list<OrderRow>, FetchError> Rowed(list<(int, atom)> rows)
+Rowed([])          -> []
+Rowed([w, ..rest]) -> Build(w) switch {
+    (:error, e) => (:error, e),
+    row         => Prepend(row, Rowed(rest))
+}
+
+// The same `Prepend`, at `int`. The call site chooses `T`; nothing in the
+// signature names an element type, so nothing is written twice.
+public result<list<int>, FetchError> Ids(list<(int, atom)> rows)
+Ids([])                -> []
+Ids([(id, _), ..rest]) -> Prepend(id, Ids(rest))
+
+private result<OrderRow, FetchError> Build((int, atom) w)
+Build((id, :placed))  -> OrderRow{ Id = id, Status = :placed }
+Build((id, :shipped)) -> OrderRow{ Id = id, Status = :shipped }
+Build((_, s))         -> (:error, (:unknown_status, s))
+
+// The variables are declared after the name, C#'s convention (ticket 27 §1).
+// `T` is bare in the first parameter and inside `list<T>` in the second, so
+// a call solves it from both positions and joins them (ticket 37). `row` is
+// bound and never inspected: a bare variable admits one clause (27 §2).
+private result<list<T>, E> Prepend<T, E>(T row, result<list<T>, E> rest)
+Prepend(row, (:error, e)) -> (:error, e)
+Prepend(row, rows)        -> [row, ..rows]

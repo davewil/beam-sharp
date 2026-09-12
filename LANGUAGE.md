@@ -1592,9 +1592,9 @@ resolution other languages take here is exactly what is being refused. **shipped
 
 ## 9. Generics
 
-Real parametric polymorphism, in its smallest working form. **Two halves, and only the first is
-built**, and the split is the generics design's own: *"the costs are asymmetric and they do not
-chain."*
+Real parametric polymorphism, in its smallest working form. **Two halves, both built as far as a
+signature goes**; the split is the generics design's own — *"the costs are asymmetric and they do
+not chain"* — and what the second half still waits for is the arrow type, not the variable.
 
 ### Parametric types — shipped
 
@@ -1686,7 +1686,86 @@ struct handed to an Erlang or Elixir call, which today would be a `list<(atom, t
 checking at all. Coming **in**, it is checked: a map from outside crosses as `map<term, term>`
 and `ValidateAs<map<K, V>>` walks its entries (§4, §10) — **shipped**, F43.
 
-### Polymorphic function signatures — next
+### Polymorphic function signatures — shipped; the arrow next
+
+A variable declared after the function name, C#'s convention, and chosen by every call from its
+arguments. One `Prepend` serves every element type:
+
+```csharp
+module Rows
+
+type FetchError = (:unknown_status, atom)
+
+public result<list<atom>, FetchError> Names(list<(int, atom)> rows)
+Names([])               -> []
+Names([(_, s), ..rest]) -> Prepend(s, Names(rest))
+
+public result<list<int>, FetchError> Ids(list<(int, atom)> rows)
+Ids([])                -> []
+Ids([(id, _), ..rest]) -> Prepend(id, Ids(rest))
+
+private result<list<T>, E> Prepend<T, E>(T row, result<list<T>, E> rest)
+Prepend(row, (:error, e)) -> (:error, e)
+Prepend(row, rows)        -> [row, ..rows]
+```
+
+**shipped** — F45. `Names` calls `Prepend` at `atom` and `Ids` at `int`, and each caller's body
+checks against the return type **instantiated** — `list<int> | (:error, FetchError)` for `Ids` —
+which is what lets `Ids` be declared as it is. `examples/Shop/Rows/` is the same program with a
+record as the first element type. **Instantiation is matching, not solving**: each argument is
+matched against its parameter's shape — a bare variable takes the whole argument, `list<T>` takes
+the element, a tuple component takes the component, and inside a union a member takes what the
+other members could not — a variable met twice takes the union of its occurrences, and the
+argument is then contained in the parameter exactly as any argument is. `T Pick<T>(T a, T b)`
+handed an `int` and an atom returns `int | :a`; `option<T> First<T>(option<T> o)` handed exactly
+`:nothing` returns exactly `:nothing`, because the solution is the **least** one, and least is
+what keeps the return type worth having.
+
+The declaration is checked once, with its variables **opaque**, and holds for every
+instantiation: `Prepend` short of its `(:error, e)` clause is inexhaustive at the declaration,
+and a body that returns `5` where `T` was promised is refused there. The emitted `-spec` erases
+the variables to `any()`. `--api` prints a polymorphic signature as written, `T Pick<T>(T, T)`,
+because its resolved form says nothing a caller can rely on.
+
+Two rules a declaration is held to, each decided before the feature was built. A bare type
+variable admits exactly one clause — bind it. A pattern there tests a shape the variable does
+not have until a caller chooses one, and the signature `T Pick<T>(T, T)` would stop telling a
+reviewer which argument comes back:
+
+<!-- diagnoses: pattern_on_type_variable -->
+```csharp
+module Pick
+
+public T Pick<T>(T a, T b)
+Pick(1, _) -> 1
+Pick(_, b) -> b
+```
+
+And every variable appears in at least one parameter, or no call could recover it — which is the
+condition under which *matching, not solving* is a true sentence. `list<T> Empty<T>()` is
+refused; write the type the function returns:
+
+<!-- diagnoses: unrecoverable_type_variable -->
+```csharp
+module Empty
+
+public list<T> Empty<T>()
+Empty() -> []
+```
+
+A codegen obligation is the same rule from the other side: `ValidateAs<T>` inside a polymorphic
+function asks for a traversal of a type nobody has chosen yet, and is refused (§15):
+
+<!-- diagnoses: obligation_over_type_variable -->
+```csharp
+module Obl
+
+public result<T, ValidationError> Check<T>(T x)
+Check(x) -> ValidateAs<T>(x)
+```
+
+What is **not** built is the arrow. `Map` needs `fn(T) -> U` in a signature and a lambda to pass
+to it, and the language has neither yet:
 
 ```csharp not-yet
 list<U> Map<T, U>(list<T> xs, fn(T) -> U f)
@@ -1703,17 +1782,12 @@ list<U> Map<T, U>(list<T> xs, fn(T) -> U f)
 Instantiation is matching, not constraint solving — which is what keeps the cost sane, and why the
 three bullets above are load-bearing rather than preferences.
 
-**Why this half is not built yet, plainly.** Not for want of an algorithm: instantiation is
-decided — solve **least** per occurrence, **join** across occurrences, then contain — and a
-variable that sits **inside a union** (`int Unwrap<T>(option<T> o)` asks for `int | :nothing`
-against `T | :nothing`) takes the argument minus every other member's extent, which is exact. A
-signature alone, `result<list<T>, E> Prepend<T, E>(T row, result<list<T>, E> rest)`, needs no arrow.
-It is **sequenced**: `Map` above needs `fn(T) -> U` in a signature and a lambda to pass to it, and
-the language has neither — there is no arrow in the type algebra. A function as a value is decided
-and not yet built — the arrow `fn(T) -> U` is a type, a lambda is `(n) => n * 2`, and a name in
-value position is that function — and the polymorphic signature is the first feature inside that
-increment.
-<!-- ticket 37: algorithm 2026-08-28, ordering 2026-09-12; ticket 75 resolved 2026-09-12, ENG-365 builds it -->
+**Why the arrow is not built yet, plainly.** Not for want of a decision: a function as a value
+is decided — the arrow `fn(T) -> U` is a type, a lambda is `(n) => n * 2`, and a name in value
+position is that function — and the polymorphic signature above was sequenced first inside that
+increment and has landed. What remains is a seventh part of the type algebra, the arrow itself,
+and the lambda's grammar.
+<!-- ticket 37: algorithm 2026-08-28, ordering 2026-09-12; F45 built the signature 2026-09-12; ticket 75 resolved 2026-09-12, ENG-365 builds the arrow -->
 The first half needed neither.
 
 **User code never writes a type argument.** Only three compiler-known names take an explicit one:
@@ -2335,7 +2409,9 @@ the parser accepts back exactly what the printer emits. **shipped**
 | the UTF-8 entry check (`binary` → `string`) | not started — the sixth codegen obligation |
 | pipe and valve | **shipped** — F14 |
 | parametric types — `result<T, E>`, `option<T>`, `type Pair<T>`, nesting | **shipped** |
-| polymorphic function signatures (`Prepend<T, E>`, `Map<T, U>`) | not started — instantiation decided; sequenced as the first feature inside the function-as-a-value increment |
+| polymorphic function signatures — `Prepend<T, E>`, instantiated at the call by matching | **shipped** — F45 |
+| the arrow `fn(T) -> U`, the lambda, a name in value position — `Map<T, U>` | not started — decided; the next feature in the function-as-a-value increment, now that the signature has landed |
+<!-- ticket 75, ENG-365 -->
 | modules, imports, `using` — both tiers, and arity overloading | **shipped** — F11 |
 | a producer's `record` and `type` names in a dependent's type position — `Order o` after `using Orders`, and `Orders.Order o` | **shipped** — F44 |
 | a module is a **directory**, `index.bs`, and the two path checks | **shipped** — F15 |

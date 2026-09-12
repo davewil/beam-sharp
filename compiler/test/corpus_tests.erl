@@ -84,6 +84,14 @@ demonstrated_surface() ->
      %% after the name, so a qualified call in a body cannot satisfy it.
      {"a qualified type name in a signature",
       "^(public|private) .*\\([A-Z][A-Za-z]*\\.[A-Z][A-Za-z]* [a-z]"},
+     %% F45 / ticket 27 §(c). A variable list after the FUNCTION name, which is
+     %% a different sentence from the parametric alias four rows up: that one
+     %% binds a variable an alias substitutes away, this one binds a variable a
+     %% call instantiates. Anchored on the `(` that follows the closing `>`, so
+     %% a generic type applied in parameter position — `Box<Order> b` — cannot
+     %% satisfy it, and on the uppercase name so `list<T>` cannot either.
+     {"a polymorphic signature",
+      "^(public|private) .* [A-Z][A-Za-z]*<[A-Z][A-Za-z, ]*>\\("},
      {"a foreign module declaration",            "^using :"},
      {"a foreign call",                          ":[a-z]+\\.[a-z_]+\\("},
      %% F19 / ticket 15 §4. The wrapper itself has NO surface — that is its whole

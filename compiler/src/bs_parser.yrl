@@ -233,9 +233,21 @@ type_list -> type_expr ',' type_list : ['$1' | '$3'].
 %% which Q7 weighed as the hardest place in a C-family declaration to scan and
 %% took anyway, rather than ship the asymmetry.
 signature -> type_expr uident '(' params ')' :
-    {signature, line('$2'), value('$2'), '$1', '$4', none}.
+    {signature, line('$2'), value('$2'), '$1', '$4', none, []}.
 signature -> visibility type_expr uident '(' params ')' :
-    {signature, line('$3'), value('$3'), '$2', '$5', '$1'}.
+    {signature, line('$3'), value('$3'), '$2', '$5', '$1', []}.
+
+%% A polymorphic signature declares its variables after the name, C#'s
+%% convention: `result<list<T>, E> Prepend<T, E>(T row, result<list<T>, E>
+%% rest)` (ticket 27 §1, §(c); F45). The list is `type_params`, the same
+%% nonterminal a parametric alias binds, so a variable is a `uident` like any
+%% user type name and this list alone tells the two apart. Nothing else can
+%% follow `type_expr uident` but `(` or this `<`, so the production adds no
+%% conflict: yecc measured 0 before and 0 after (ENG-295).
+signature -> type_expr uident '<' type_params '>' '(' params ')' :
+    {signature, line('$2'), value('$2'), '$1', '$7', none, '$4'}.
+signature -> visibility type_expr uident '<' type_params '>' '(' params ')' :
+    {signature, line('$3'), value('$3'), '$2', '$8', '$1', '$5'}.
 
 visibility -> 'public'  : public.
 visibility -> 'private' : private.

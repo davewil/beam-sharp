@@ -651,12 +651,43 @@ $ bsc --src-root examples examples/Parcel Width '(3, 11)'
 anything — `Span<int>` simply *is* `(int, int)`. Lowercase is the standard environment's
 namespace, so a user's alias is PascalCase like every other user type.
 
-What is **not** built is a polymorphic *function* signature. Its instantiation is decided —
-solve least per occurrence, join across occurrences, then contain — and it is sequenced as the
-first feature inside the function-as-a-value increment, because `Map<T, U>` needs an arrow type
-and the language does not have one yet.
+A *function* can carry a variable too, declared after its name and chosen by every call from
+the arguments. From `examples/Shop/Rows/Rows.bs`, one `Prepend` serving a record and an `int`:
 
-<!-- ticket 10 §5, ticket 15, ticket 26 §4, ticket 27, F6; ticket 37 ordering 2026-09-12, ticket 75 -->
+```
+public result<list<OrderRow>, FetchError> Rowed(list<(int, atom)> rows)
+Rowed([])          -> []
+Rowed([w, ..rest]) -> Build(w) switch {
+    (:error, e) => (:error, e),
+    row         => Prepend(row, Rowed(rest))
+}
+
+public result<list<int>, FetchError> Ids(list<(int, atom)> rows)
+Ids([])                -> []
+Ids([(id, _), ..rest]) -> Prepend(id, Ids(rest))
+
+private result<list<T>, E> Prepend<T, E>(T row, result<list<T>, E> rest)
+Prepend(row, (:error, e)) -> (:error, e)
+Prepend(row, rows)        -> [row, ..rows]
+```
+
+```
+$ bsc --src-root examples examples/Shop/Rows/Rows.bs Ids "[(1, :placed), (2, :lost)]"
+[1, 2]
+$ bsc --src-root examples examples/Shop/Rows/Rows.bs Rowed "[(1, :placed), (2, :lost)]"
+(:error, (:unknown_status, :lost))
+```
+
+**Instantiation is matching, not solving.** `Prepend(id, Ids(rest))` matches `int` against `T`
+and `list<int> | (:error, FetchError)` against `list<T> | (:error, E)`, reads `T` and `E` off,
+and the call's type is the declared return with both substituted — which is what lets `Ids` be
+declared over `list<int>`. A bare variable admits one clause, a binder: `row` is handed on and
+never inspected, so the signature tells a reviewer the whole story.
+
+What is **not** built is the arrow. `Map<T, U>` needs `fn(T) -> U` in a signature and a lambda to
+pass to it; both are decided and neither is built yet.
+
+<!-- ticket 10 §5, ticket 15, ticket 26 §4, ticket 27, F6; ticket 37, F45 2026-09-12; ticket 75, ENG-365 -->
 
 ---
 
@@ -1460,7 +1491,7 @@ produce.
 | | |
 |---|---|
 | the UTF-8 entry check, `binary` → `string` | the one direction chapter 10 has no spelling for |
-| polymorphic function signatures — `Map<T, U>` | sequenced first inside the function-as-a-value increment |
+| the arrow `fn(T) -> U`, the lambda `(n) => …`, a name in value position — `Map<T, U>` | decided; the polymorphic signature it needed landed first (chapter 9) |
 | the behaviour contract checked as a type | Dialyzer does it at the boundary today |
 | the operations that take a **function value** — `List.Map`, `List.Filter`, `List.Fold` | they need the arrow type the row above is waiting for |
 | `Map.Get`, and the `map<K, V>` type beside it | the name `Map` is reserved; its operations are not built |
@@ -1502,8 +1533,8 @@ The language's **name** is also open. `beam-sharp` is a working title.
 
 ## Appendix: the construct index
 
-**The corpus gate names 55 capabilities and fails by name when one has no example to look
-at.** All 55 are below, in the gate's own wording, so the two lists can be diffed by machine
+**The corpus gate names 56 capabilities and fails by name when one has no example to look
+at.** All 56 are below, in the gate's own wording, so the two lists can be diffed by machine
 — `compiler/bin/check-tour.sh` does exactly that, and this table is red the day the compiler
 grows a capability the tour has not met.
 
@@ -1545,6 +1576,7 @@ grows a capability the tour has not met.
 | a native module import | `examples/Shop/Reports/Totals.bs` | 11 |
 | a qualified call | `examples/Shop/Reports/Totals.bs` | 11 |
 | a qualified type name in a signature | `examples/Shop/Billing/Billing.bs` | 11 |
+| a polymorphic signature | `examples/Shop/Rows/Rows.bs` | 9 |
 | a pipe into a call | `examples/Pipeline/pipeline.bs` | 12 |
 | a valve into a call | `examples/Pipeline/pipeline.bs` | 12 |
 | a foreign module declaration | `examples/Interop/interop.bs` | 13 |

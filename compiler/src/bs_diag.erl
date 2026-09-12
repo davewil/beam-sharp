@@ -155,6 +155,20 @@ built(Path, {Sev, Line, Fn, relational_in_bind}) ->
     (at(Sev, Path, Line, Fn))#{tag => relational_in_bind};
 built(Path, {Sev, Line, Fn, no_clauses}) ->
     (at(Sev, Path, Line, Fn))#{tag => no_clauses};
+%% Ticket 27 §2: a parameter declared over a bare type variable admits one
+%% clause, a binder (F45).
+built(Path, {Sev, Line, Fn, {pattern_on_type_variable, Var, Pos}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => pattern_on_type_variable,
+                               type_variable => Var, argument => Pos};
+%% Ticket 28 §6: a variable only in the return cannot be recovered from a
+%% call (F45).
+built(Path, {Sev, Line, Fn, {unrecoverable_type_variable, Var}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => unrecoverable_type_variable,
+                               type_variable => Var};
+%% Ticket 27: a codegen obligation's type argument is ground (F45).
+built(Path, {Sev, Line, Fn, {obligation_over_type_variable, Name, Var}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => obligation_over_type_variable,
+                               obligation => Name, type_variable => Var};
 %% The operator is carried because the two division operators spell the same
 %% mistake differently, and the fix differs with it (F26, ticket 38).
 built(Path, {Sev, Line, Fn, {divide_by_zero, Op}}) ->
@@ -816,6 +830,32 @@ message(#{tag := relational_in_bind, file := P, line := L, column := C, function
      [P, L, C, Fn]};
 message(#{tag := no_clauses, file := P, line := L, column := C, function := Fn}) ->
     {"~s:~p:~p: error: ~s has a signature but no clauses~n", [P, L, C, Fn]};
+%% The wording is ticket 27 §2's own, which wrote it for a guard; a pattern
+%% tests a shape the same way. The two ways out are the ticket's too.
+message(#{tag := pattern_on_type_variable, file := P, line := L, column := C,
+          function := Fn, type_variable := V, argument := I}) ->
+    {"~s:~p:~p: error: ~s inspects a value whose type is the variable `~s`~n"
+     "  the pattern in argument ~p tests a runtime shape, and `~s` has no shape"
+     " until a caller chooses one~n"
+     "  hint: a bare type variable admits one clause, so bind it — or take a"
+     " union parameter instead of a type variable to dispatch on shape~n",
+     [P, L, C, Fn, V, I, V]};
+message(#{tag := unrecoverable_type_variable, file := P, line := L, column := C,
+          function := Fn, type_variable := V}) ->
+    {"~s:~p:~p: error: ~s's type variable `~s` appears in no parameter~n"
+     "  instantiation is matching: a caller's arguments choose `~s`, and a variable"
+     " only in the return type has nothing to be matched against~n"
+     "  hint: write the type the function actually returns, or take a parameter"
+     " whose type mentions `~s`~n",
+     [P, L, C, Fn, V, V, V]};
+message(#{tag := obligation_over_type_variable, file := P, line := L, column := C,
+          function := Fn, obligation := Name, type_variable := V}) ->
+    {"~s:~p:~p: error: ~s asks ~s to be generated over the type variable `~s`~n"
+     "  a codegen obligation is a traversal of one concrete type, and `~s` is not"
+     " one until a caller chooses it~n"
+     "  hint: take the value already validated — a parameter of type `~s` was"
+     " checked by its caller — or name the concrete type to validate into~n",
+     [P, L, C, Fn, Name, V, V, V]};
 %% Only a divisor proved to be zero is refused, and the message says so,
 %% because a reader's next question is whether every call site needs a
 %% non-zero proof. It does not (ticket 23 §2).

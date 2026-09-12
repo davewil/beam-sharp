@@ -30,6 +30,9 @@
 %% builds a dependent's import environment from these, out of modules it has
 %% already checked in the same invocation (ticket 41 §3).
 -export([exports_of/1, exports_of/2, private_of/1, types_of/3, hinted/2]).
+%% The polymorphic half of a module's exports, and the erased environment
+%% the emitter publishes a polymorphic signature under (F45).
+-export([polys_of/2, erased_env/2, type_source/1]).
 %% The emitter resolves surface types and mints record tags through these,
 %% so the qualified-name rule has one site (ticket 26 §1).
 -export([resolve/2, qualified/2, record_fields/1]).
@@ -55,12 +58,21 @@
 %% `vis` stays last: `bs_emit` reads this record positionally through
 %% `element/2`, so every earlier field keeps its index. The default is
 %% `private`, matching the language's (ticket 40 §3).
--record(fn, {name, line, ret, params, clauses = [], vis = private}).
+%% `tvars` is last on purpose: `bs_emit` reads this record by element
+%% position (`element(5, F)` is `params`), so a field added anywhere else
+%% would silently shift every read (F45).
+-record(fn, {name, line, ret, params, clauses = [], vis = private, tvars = []}).
 
 %% One clause's checking context. `types` is the only field `resolve/2`
 %% reads, because the emitter calls `resolve/2` with that map directly.
 -record(ctx, {types = #{}, callees = #{}, ret, fname, arity = 0, binds = #{},
-              imports = #{}}).
+              imports = #{},
+              %% Polymorphic callees, keyed as `callees` is: the template a
+              %% call solves for its return (F45, ticket 37).
+              polys = #{},
+              %% The function being checked's own type variables, so a
+              %% codegen obligation can refuse to be generated over one.
+              tvars = []}).
 
 %%% ---------------------------------------------------------------------------
 %%% Entry point
@@ -142,6 +154,7 @@ check_dir1(Sources, World, Expect) ->
     %% undecidable of (F19, F40); every return reaching here has members.
     Foreigns = foreign_wrappers(Decls, Env),
     Ctx = #ctx{types = Env, callees = callees(Decls, Env, Imports),
+               polys = polys(Decls, Env, Imports),
                imports = Imports},
     Tagged0 = lists:append([check_file(P, Fs, Ctx) || {P, Fs} <- PerFile]),
     %% The prune notes ride the diagnostic channel out of the walk and are
@@ -213,7 +226,7 @@ one_module_per_directory(Sources, _Expect) ->
 no_function_in_index(Path, Decls) when is_list(Path) ->
     case filename:basename(Path) of
         "index.bs" ->
-            case [{N, L} || {signature, L, N, _, _, _} <- Decls] of
+            case [{N, L} || {signature, L, N, _, _, _, _} <- Decls] of
                 %% Wrapped with the path because this raise site knows its
                 %% file; `resolve_error/2` unwraps and re-dispatches.
                 [{N, L} | _] ->
@@ -265,7 +278,7 @@ reserved_module_name(Module, Sources) ->
 %% file (ticket 35 §3). Presence only: Dialyzer already checks callback
 %% types at the boundary against OTP's own `-callback` declarations.
 behaviours(Decls) ->
-    Defined = [{N, length(Ps)} || {signature, _, N, _, Ps, _} <- Decls],
+    Defined = [{N, length(Ps)} || {signature, _, N, _, Ps, _, _} <- Decls],
     [begin
          case bs_otp:missing(N, Defined) of
              []      -> ok;
@@ -289,7 +302,7 @@ module_name(Decls) ->
 %% would otherwise merge two same-arity signatures into one function and
 %% report the later clauses as unreachable.
 name_redeclared(Decls) ->
-    Sigs = [{{N, length(Ps)}, L} || {signature, L, N, _, Ps, _} <- Decls],
+    Sigs = [{{N, length(Ps)}, L} || {signature, L, N, _, Ps, _, _} <- Decls],
     Grouped = lists:foldl(fun({K, L}, Acc) ->
                                   maps:update_with(K, fun(Ls) -> [L | Ls] end, [L], Acc)
                           end, #{}, Sigs),
@@ -314,7 +327,7 @@ name_redeclared(Decls) ->
 %% behaviour this module declares.
 private_callback(Decls) ->
     Behaviours = [B || {behaviour, _, B} <- Decls],
-    Private = [{N, length(Ps), L} || {signature, L, N, _, Ps, V} <- Decls, V =/= public],
+    Private = [{N, length(Ps), L} || {signature, L, N, _, Ps, V, _} <- Decls, V =/= public],
     case [{N, A, L, Otp} || {N, A, L} <- Private,
                             Otp <- [bs_otp:callback_name(N, A, Behaviours)],
                             Otp =/= none] of
@@ -347,8 +360,22 @@ exports_of(Decls, World) ->
     %% API for a module a compile refuses (F40).
     collapse_refused(Decls, Env),
     foreign_rets_decidable(Decls, Env),
-    maps:from_list([{{N, length(Ps)}, at_loc(L, fun() -> sig(Ps, R, Env) end)}
-                    || {signature, L, N, R, Ps, V} <- Decls, V =:= public]).
+    maps:from_list([{{N, length(Ps)},
+                     at_loc(L, fun() -> sig(Ps, R, erased_env(TV, Env)) end)}
+                    || {signature, L, N, R, Ps, V, TV} <- Decls, V =:= public]).
+
+%% The templates of a module's public polymorphic signatures, for a
+%% dependent to instantiate at its own call sites (F45). Built beside
+%% `exports_of/2`, under the same environment, so the two cannot disagree
+%% about what a name resolves to.
+polys_of(Decls, World) ->
+    Self = module_name(Decls),
+    Imports = import_env(Decls, Self, World, lenient),
+    Env = type_env(Decls, Imports, World),
+    maps:from_list([{{N, length(Ps)},
+                     at_loc(L, fun() -> template(TV, Ps, R, Env) end)}
+                    || {signature, L, N, R, Ps, V, TV} <- Decls,
+                       V =:= public, TV =/= []]).
 
 %% What a checked module offers its dependents in TYPE position: every
 %% `record`, `type` and refinement it declares, resolved, keyed by the bare
@@ -469,7 +496,7 @@ suppliers(N, World) ->
 %% The names a dependent may not call, carried so the refusal can say why.
 %% No signature: nothing outside the module may use one.
 private_of(Decls) ->
-    maps:from_keys([{N, length(Ps)} || {signature, _, N, _, Ps, V} <- Decls,
+    maps:from_keys([{N, length(Ps)} || {signature, _, N, _, Ps, V, _} <- Decls,
                                        V =/= public],
                    true).
 
@@ -497,6 +524,7 @@ import_env(Decls, Self, World, Mode) ->
     Known = maps:keys(World),
     lists:foldl(fun({L, M}, Acc) -> add_import(L, M, Self, World, Known, Mode, Acc) end,
                 #{funs => #{}, mods => #{}, types => #{}, qual => qual_table(World),
+                  polys => poly_table(World),
                   privates => private_table(World), imported => []},
                 Imports).
 
@@ -558,6 +586,17 @@ qual_table(World) ->
                                 end, Acc, Ex)
               end, #{}, World).
 
+%% The same keyspace for the polymorphic templates, so `call/6` looks a
+%% template up by the key it already resolved (F45). `polys` is absent from
+%% a world built by a caller that never checked the module — the tests hand
+%% in `exports` alone — and absent means nothing is polymorphic there.
+poly_table(World) ->
+    maps:fold(fun(M, Entry, Acc) ->
+                      maps:fold(fun({N, A}, Tpl, In) ->
+                                        In#{{q, M, N, A} => Tpl}
+                                end, Acc, maps:get(polys, Entry, #{}))
+              end, #{}, World).
+
 %% The same keyspace for the names a dependent may not call, kept apart from
 %% `qual_table/1` so that everything in that table is callable and nothing
 %% in this one is (F12).
@@ -584,7 +623,7 @@ resolved_funs(Imports, Local) ->
 %% The `{Name, Arity}` keys this module declares; a bare name resolves to
 %% these before any import (ticket 41 §2).
 local_keys(Decls) ->
-    [{N, length(Ps)} || {signature, _, N, _, Ps, _} <- Decls].
+    [{N, length(Ps)} || {signature, _, N, _, Ps, _, _} <- Decls].
 
 resolved_mods(Imports) ->
     maps:fold(fun(K, [M], Acc) -> Acc#{K => M};
@@ -616,8 +655,8 @@ strip_prefix(Prefix, Child) ->
 collect(Decls) ->
     %% A foreign declaration is a signature that will never have clauses, so
     %% it is not collected here or it would report `no_clauses`.
-    Sigs = [#fn{name = N, line = L, ret = R, params = P, vis = V}
-            || {signature, L, N, R, P, V} <- Decls],
+    Sigs = [#fn{name = N, line = L, ret = R, params = P, vis = V, tvars = TV}
+            || {signature, L, N, R, P, V, TV} <- Decls],
     %% Clauses are matched by name and arity (ticket 40 §2); keyed by name
     %% alone, `Length/1` would collect `Length/2`'s clauses too.
     [F#fn{clauses = [C || C = {clause, _, Name, Ps, _, _} <- Decls,
@@ -633,8 +672,14 @@ collect(Decls) ->
 %% permitted (ticket 40 §2) and a name-only map would keep whichever arity
 %% was written last.
 callees(Decls, Env, Imports) ->
-    Local = [{{N, length(Ps)}, at_loc(SL, fun() -> sig(Ps, R, Env) end)}
-             || {signature, SL, N, R, Ps, _} <- Decls],
+    %% A polymorphic signature enters this table at its MAXIMAL EXTENT, every
+    %% variable at `term`: ticket 37 measured (M4, H2) that an argument is
+    %% refused exactly when it escapes that extent, so the containment
+    %% `call/6` already does is the whole of the argument check, and only
+    %% the return needs the solve (F45).
+    Local = [{{N, length(Ps)},
+              at_loc(SL, fun() -> sig(Ps, R, erased_env(TV, Env)) end)}
+             || {signature, SL, N, R, Ps, _, TV} <- Decls],
     Foreign = [{{f, Mod, N, length(Ps)},
                 at_loc(L, fun() -> sig(Ps, R, Env) end)}
                || {foreign, _, Mod, Sigs} <- Decls,
@@ -793,6 +838,177 @@ bin_offender(_Bs, _Pass, _At) ->
 sig(Params, Ret, Env) ->
     {[resolve(T, Env) || {param, T, _} <- Params], resolve(Ret, Env)}.
 
+%%% ---------------------------------------------------------------------------
+%%% Polymorphic signatures (F45; ticket 27 §(c), the algorithm of ticket 37)
+%%%
+%%% A signature's variables are bound in the environment two ways, and the
+%%% two are for two different readers.
+%%%
+%%% ERASED, every variable at `term`: what a CALLER sees before the solve and
+%%% what the emitter publishes. Containment against the extent is exact for
+%%% accept/refuse (37 H2), and the emitted `-spec` reads `any()`, which 27b
+%%% measured as inert.
+%%%
+%%% OPAQUE, each variable a singleton atom nobody can produce: what the
+%%% DECLARATION is checked against. Ticket 27 §2 makes a variable opaque in
+%%% heads and guards so the signature stays a promise; the body half of that
+%%% promise is that `T Id<T>(T x)` cannot return `5`. With no variable node in
+%%% the algebra (37's cost) an atom the source cannot spell bare is the
+%%% smallest thing that is contained in nothing but itself: `[row, ..rows]`
+%%% over `list<'T'>` checks, `5` over `'T'` is refused, and `list<'T'>` is
+%%% still `[] | ['T', ..]`, so exhaustiveness is decided once for every
+%%% instantiation.
+%%% ---------------------------------------------------------------------------
+
+erased_env(Vars, Env) ->
+    maps:merge(Env, maps:from_list([{V, bs_types:term()} || V <- Vars])).
+
+opaque_env(Vars, Env) ->
+    maps:merge(Env, maps:from_list([{V, bs_types:atom_lit(V)} || V <- Vars])).
+
+%% The polymorphic callees, local and imported, keyed as `callees/3` keys.
+polys(Decls, Env, Imports) ->
+    Local = [{{N, length(Ps)}, at_loc(SL, fun() -> template(TV, Ps, R, Env) end)}
+             || {signature, SL, N, R, Ps, _, TV} <- Decls, TV =/= []],
+    maps:merge(maps:get(polys, Imports, #{}), maps:from_list(Local)).
+
+%% A template is the declared types with every GROUND part resolved and only
+%% the variables left standing, so a dependent can solve against it without
+%% the producer's aliases (F44's rule: a name resolves where it was declared).
+%% What survives is closed: a resolved map, `{t_ref, V}`, `list<_>`, a tuple,
+%% a union — the four positions ticket 37's algorithm reads a share from.
+%%
+%% A variable anywhere else — under a map field, a refinement, or a
+%% parametric alias unfolding onto itself — is ERASED to its extent, and the
+%% variable is recorded so the call solves it to `term` rather than to the
+%% other occurrences alone: a value could reach the body through the erased
+%% position, and a return narrower than `term` there would be a lie.
+template(Vars, Params, Ret, Env) ->
+    {PsT, E1} = lists:mapfoldl(fun({param, T, _}, E) -> tpl(T, Vars, Env, [], E) end,
+                               [], Params),
+    {RetT, E2} = tpl(Ret, Vars, Env, [], E1),
+    {poly, Vars, PsT, RetT, lists:usort(E2)}.
+
+tpl(T, Vars, Env, Seen, Erased) ->
+    case mentions(T, Vars) of
+        false -> {resolve(T, Env), Erased};
+        true  -> tpl1(T, Vars, Env, Seen, Erased)
+    end.
+
+tpl1({t_ref, V}, _Vars, _Env, _Seen, Erased) ->
+    {{t_ref, V}, Erased};
+tpl1({t_generic, list, [A]}, Vars, Env, Seen, Erased) ->
+    {A1, E1} = tpl(A, Vars, Env, Seen, Erased),
+    {{t_generic, list, [A1]}, E1};
+tpl1({t_tuple, Cs}, Vars, Env, Seen, Erased) ->
+    {Cs1, E1} = lists:mapfoldl(fun(C, E) -> tpl(C, Vars, Env, Seen, E) end, Erased, Cs),
+    {{t_tuple, Cs1}, E1};
+tpl1({t_union, Ms}, Vars, Env, Seen, Erased) ->
+    {Ms1, E1} = lists:mapfoldl(fun(M, E) -> tpl(M, Vars, Env, Seen, E) end, Erased, Ms),
+    {{t_union, Ms1}, E1};
+tpl1({t_generic, N, Args} = T, Vars, Env, Seen, Erased) when N =/= map ->
+    case {maps:get(N, Env, undefined), lists:member({N, Args}, Seen)} of
+        {{parametric, Params, Body}, false} when length(Params) =:= length(Args) ->
+            Sub = maps:from_list(lists:zip(Params, Args)),
+            tpl(subst(Body, Sub), Vars, Env, [{N, Args} | Seen], Erased);
+        _ -> erase(T, Vars, Env, Erased)
+    end;
+tpl1(T, Vars, Env, _Seen, Erased) ->
+    erase(T, Vars, Env, Erased).
+
+erase(T, Vars, Env, Erased) ->
+    {resolve(T, erased_env(Vars, Env)), vars_in(T, Vars) ++ Erased}.
+
+mentions(T, Vars) -> vars_in(T, Vars) =/= [].
+
+vars_in({t_ref, N}, Vars) ->
+    case lists:member(N, Vars) of true -> [N]; false -> [] end;
+vars_in({t_union, Ms}, Vars)      -> lists:append([vars_in(M, Vars) || M <- Ms]);
+vars_in({t_tuple, Cs}, Vars)      -> lists:append([vars_in(C, Vars) || C <- Cs]);
+vars_in({t_generic, _, As}, Vars) -> lists:append([vars_in(A, Vars) || A <- As]);
+vars_in({t_map, Fields}, Vars)    -> lists:append([vars_in(T, Vars) || {_, T} <- Fields]);
+vars_in({t_refined, _, B, _}, Vars) -> vars_in(B, Vars);
+vars_in(_, _)                     -> [].
+
+%% The return of a call through a polymorphic signature: solve least per
+%% occurrence, join across occurrences, substitute (ticket 37). The solve is
+%% total, so it runs whether or not the arguments were accepted; an argument
+%% outside the extent was refused by `arg_diags/7` with its own residual.
+instantiate({poly, Vars, PsT, RetT, Erased}, ATys) ->
+    Acc0 = maps:from_list([{V, bs_types:term()} || V <- Erased]),
+    Acc  = lists:foldl(fun({P, A}, S) -> solve(P, A, S) end, Acc0, lists:zip(PsT, ATys)),
+    %% A variable no argument position mentions has no least solution to
+    %% speak of and stays at its extent.
+    S = maps:merge(maps:from_list([{V, bs_types:term()} || V <- Vars]), Acc),
+    subst_tpl(RetT, S).
+
+%% A template with every variable at `term`: how much of an argument a union
+%% member could possibly claim.
+extent(T) when is_map(T)         -> T;
+extent({t_ref, _})               -> bs_types:term();
+extent({t_generic, list, [A]})   -> bs_types:list(extent(A));
+extent({t_tuple, Cs})            -> bs_types:tuple([extent(C) || C <- Cs]);
+extent({t_union, Ms})            -> bs_types:union([extent(M) || M <- Ms]).
+
+solve(T, _A, Acc) when is_map(T) -> Acc;
+solve({t_ref, V}, A, Acc) ->
+    maps:update_with(V, fun(S) -> bs_types:union(A, S) end, A, Acc);
+solve({t_generic, list, [E]}, A, Acc) ->
+    solve(E, bs_types:list_elem(bs_types:unfold(A)), Acc);
+solve({t_tuple, Cs}, A, Acc) ->
+    N = length(Cs),
+    {_, Out} = lists:foldl(fun(C, {I, S}) ->
+                                   {I + 1, solve(C, bs_types:tuple_comp(A, N, I), S)}
+                           end, {1, Acc}, Cs),
+    Out;
+solve({t_union, Ms}, A, Acc) ->
+    %% A member's share is the argument minus every OTHER member's extent —
+    %% the one step where the answer is a choice, and ticket 37 chose
+    %% least, on the return type's evidence (M2).
+    Indexed = lists:zip(lists:seq(1, length(Ms)), Ms),
+    lists:foldl(fun({I, M}, S) ->
+                        Others = bs_types:union([extent(O) || {J, O} <- Indexed, J =/= I]),
+                        solve(M, bs_types:subtract(A, Others), S)
+                end, Acc, Indexed).
+
+subst_tpl(T, _S) when is_map(T)       -> T;
+subst_tpl({t_ref, V}, S)              -> maps:get(V, S);
+subst_tpl({t_generic, list, [E]}, S)  -> bs_types:list(subst_tpl(E, S));
+subst_tpl({t_tuple, Cs}, S)           -> bs_types:tuple([subst_tpl(C, S) || C <- Cs]);
+subst_tpl({t_union, Ms}, S)           -> bs_types:union([subst_tpl(M, S) || M <- Ms]).
+
+%% Ticket 27 §2, the pattern half: a parameter whose declared type is a bare
+%% variable admits one clause, a binder. A literal, a tuple or a list there
+%% tests a shape the variable does not have until a caller chooses one.
+%% Refused at the declaration, before the walk, as a domain-map pattern is
+%% (ticket 48 Q2): the walk would otherwise report the clause as vacuous
+%% against the opaque atom, a true sentence about the compiler and a false
+%% one about the language.
+%% Ticket 28 §6, the rule 27 implied: every variable must appear in at least
+%% one parameter position, or "instantiation is matching" is false at the
+%% first return-only variable. `list<T> Empty<T>()` is refused; the author
+%% writes the monomorphic type, and `[]` and `:nothing` mean the case barely
+%% arises.
+recoverable_diags(#fn{tvars = []}) -> [];
+recoverable_diags(#fn{name = Name, line = L, params = Params, tvars = Vars}) ->
+    InParams = lists:append([vars_in(T, Vars) || {param, T, _} <- Params]),
+    [{error, L, Name, {unrecoverable_type_variable, V}}
+     || V <- Vars, not lists:member(V, InParams)].
+
+opacity_diags(_Clauses, _Params, [], _Name) -> [];
+opacity_diags(Clauses, Params, Vars, Name) ->
+    Bare = [{I, V} || {I, {param, {t_ref, V}, _}}
+                          <- lists:zip(lists:seq(1, length(Params)), Params),
+                      lists:member(V, Vars)],
+    [{error, L, Name, {pattern_on_type_variable, V, I}}
+     || {clause, L, _, Ps, _, _} <- Clauses,
+        {I, V} <- Bare,
+        not binds_only(lists:nth(I, Ps))].
+
+binds_only({p_var, _, _}) -> true;
+binds_only({p_wild, _})   -> true;
+binds_only(_)             -> false.
+
 %% A RESOLVE-TIME CONDITION GETS THE POSITION OF THE DECLARATION IT WAS FOUND
 %% IN, AND NOT ITS OWN.
 %%
@@ -933,7 +1149,8 @@ collapse_refused(Decls, Env) ->
 %% Each seeds the path with what an author would call the position: a
 %% signature's own name for its return, `Fn.arg` for a parameter, `Rec.Field`
 %% for a record field.
-collapse_decl({signature, L, N, Ret, Params, _}, Env) ->
+collapse_decl({signature, L, N, Ret, Params, _, TV}, Env0) ->
+    Env = opaque_env(TV, Env0),
     collapse_ty(Ret, Env, L, root(N)),
     lists:foreach(fun({param, T, P}) -> collapse_ty(T, Env, L, seg(root(N), P))
                   end, Params);
@@ -1603,19 +1820,25 @@ builtin(B)    -> erlang:error({unknown_builtin, B}).
 %%% ---------------------------------------------------------------------------
 
 check_fn(F = #fn{name = Name, line = Line, params = Params, ret = Ret}, Ctx0) ->
-    Env = Ctx0#ctx.types,
+    %% The declaration is checked with its variables OPAQUE (F45, 27 §2);
+    %% the environment the body sees carries them too, so a body naming `T`
+    %% is not told to look for a `using` that would supply it.
+    Env = opaque_env(F#fn.tvars, Ctx0#ctx.types),
     %% The argument list is treated as a product, so exhaustiveness across all
     %% parameters is one subtraction rather than one per column. This is the
     %% cross-clause part of ticket 04: a clause need not be redundant in any
     %% single column to be redundant overall.
     Declared = bs_types:tuple([resolve(T, Env) || {param, T, _} <- Params]),
-    Ctx = Ctx0#ctx{ret = resolve(Ret, Env), fname = Name, arity = length(Params)},
+    Ctx = Ctx0#ctx{types = Env, ret = resolve(Ret, Env), fname = Name,
+                   arity = length(Params), tvars = F#fn.tvars},
     case F#fn.clauses of
         [] ->
             {F, [{error, Line, Name, no_clauses}]};
         Clauses ->
             {Residual, Diags0} =
-                case map_pattern_diags(Clauses, Params, Env, Name) of
+                case map_pattern_diags(Clauses, Params, Env, Name)
+                     ++ recoverable_diags(F)
+                     ++ opacity_diags(Clauses, Params, F#fn.tvars, Name) of
                     %% A clause that destructures a domain-map parameter is
                     %% refused before the walk, not left to fall out of the
                     %% meet (ticket 48 Q2). `#{Status => 1}` is a member of
@@ -1775,7 +1998,7 @@ as_written(Refusal, _F, _Line, _Env) ->
 %% The members of the pasted line's return, as parsed from the text the
 %% author's declared type and the rendered residual were written into.
 returned_members(Line) ->
-    {signature, _, _, Ret, _, _} = pasted_signature(Line),
+    {signature, _, _, Ret, _, _, _} = pasted_signature(Line),
     return_members(Ret).
 
 return_members({t_union, Ms}) -> Ms;
@@ -1926,7 +2149,7 @@ declarations_pasted(Decls, Signature, Env) ->
     try
         {ok, Toks, _} = bs_lexer:string(Src),
         {ok, Parsed} = bs_parser:parse(Toks),
-        {signature, _, _, Ret, _, _} = lists:last(Parsed),
+        {signature, _, _, Ret, _, _, _} = lists:last(Parsed),
         Env1 = with_declared(Env, lists:droplast(Parsed)),
         _ = resolve(Ret, Env1),
         collapse_refused(Parsed, Env1),
@@ -1981,7 +2204,7 @@ as_pasted(Line, Env) ->
     case pasted_signature(Line) of
         none ->
             {withhold, unspellable};
-        {signature, _, _, Ret, _, _} = Sig ->
+        {signature, _, _, Ret, _, _, _} = Sig ->
             try
                 _ = resolve(Ret, Env),
                 collapse_decl(Sig, Env),
@@ -2004,7 +2227,7 @@ pasted_signature(Line) ->
     case bs_lexer:string(Line ++ "\n") of
         {ok, Toks, _} ->
             case bs_parser:parse(Toks) of
-                {ok, [{signature, _, _, _, _, _} = Sig]} -> Sig;
+                {ok, [{signature, _, _, _, _, _, _} = Sig]} -> Sig;
                 _                                        -> none
             end;
         _ ->
@@ -2046,9 +2269,12 @@ signature_line(F = #fn{ret = Ret, params = Params}, Declared, Union) ->
 
 %% A signature line for `F` returning the type written as `RetText`. Only
 %% called once `params_source/1` has answered for `F`'s parameters.
-line_of(#fn{name = Name, params = Params, vis = Vis}, RetText) ->
+line_of(#fn{name = Name, params = Params, vis = Vis, tvars = TV}, RetText) ->
     lists:flatten([vis_source(Vis), RetText, " ", atom_to_list(Name),
-                   "(", params_source(Params), ")"]).
+                   vars_source(TV), "(", params_source(Params), ")"]).
+
+vars_source([]) -> "";
+vars_source(Vs) -> "<" ++ lists:join(", ", [atom_to_list(V) || V <- Vs]) ++ ">".
 
 %% The declared return is written back as a union member to keep the author's
 %% own alias name, which is why this is a concatenation and not a
@@ -2807,8 +3033,12 @@ type_of({e_valve, L, {e_switch, _, Subject, Arms}}, S, C) ->
 %% `term` (ticket 11 §2), but nothing forbids validating something narrower.
 type_of({e_inst, L, 'ValidateAs', TypeArgs, Args}, S, C) ->
     {_, D0} = type_of_all(Args, S, C),
-    case {TypeArgs, Args} of
-        {[TypeExpr], [_]} ->
+    case {TypeArgs, Args, over_variable(TypeArgs, C)} of
+        {_, _, [V | _]} ->
+            {reported(),
+             D0 ++ [{error, L, C#ctx.fname,
+                     {obligation_over_type_variable, 'ValidateAs', V}}]};
+        {[TypeExpr], [_], []} ->
             %% `resolve/2` raises for an unknown, cyclic or recursive type, and
             %% all three already have their diagnostics. An unknown `T` here is
             %% the same mistake as an unknown `T` in a signature and reads the
@@ -2836,8 +3066,12 @@ type_of({e_inst, L, 'ValidateAs', TypeArgs, Args}, S, C) ->
 %% adds no new one.
 type_of({e_inst, L, 'ParseAtom', TypeArgs, Args}, S, C) ->
     {ATys, D0} = type_of_all(Args, S, C),
-    case {TypeArgs, Args} of
-        {[TypeExpr], [_]} ->
+    case {TypeArgs, Args, over_variable(TypeArgs, C)} of
+        {_, _, [V | _]} ->
+            {reported(),
+             D0 ++ [{error, L, C#ctx.fname,
+                     {obligation_over_type_variable, 'ParseAtom', V}}]};
+        {[TypeExpr], [_], []} ->
             %% `resolve/2` raises for an unknown, cyclic or recursive type and
             %% all three carry their own diagnostic, as at the sibling.
             Ty = resolve(TypeExpr, C#ctx.types),
@@ -2888,6 +3122,17 @@ type_of({e_qcall, L, Mod0, Fun, Args}, S, C) ->
     end;
 type_of(_, _S, _C) ->
     {bs_types:term(), []}.
+
+%% A codegen obligation's type argument must be GROUND: the compiler generates
+%% a traversal for one concrete type, and a signature variable is not one
+%% until a caller chooses it (ticket 27, `ValidateAs<TSource>` "is an error
+%% rather than a generic call"; F45). Refused here, before `resolve/2` would
+%% read the opaque binding and the emitter's validator table would then
+%% crash on a name the erased environment does not hold. The type argument
+%% was already resolved by neither path when this fires, so nothing is
+%% reported twice.
+over_variable(TypeArgs, C) ->
+    lists:append([vars_in(T, C#ctx.tvars) || T <- TypeArgs]).
 
 %% A call through a reserved qualifier that an imported namespace also
 %% supplies is refused at the call site, not at the import (ticket 67 clause
@@ -3255,7 +3500,11 @@ call(L, Key, Shown, Args, S, C) ->
             {Ret, [{error, L, C#ctx.fname,
                     {arity_mismatch, Shown, length(ATys), length(Ps)}} | D]};
         {Ps, Ret} ->
-            {Ret, arg_diags(L, Shown, Args, ATys, Ps, 1, C) ++ D}
+            Ret1 = case maps:get(Key, C#ctx.polys, undefined) of
+                       undefined -> Ret;
+                       Template  -> instantiate(Template, ATys)
+                   end,
+            {Ret1, arg_diags(L, Shown, Args, ATys, Ps, 1, C) ++ D}
     end.
 
 %% A call to a function that exists and is private is reported as private,

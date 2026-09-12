@@ -120,7 +120,11 @@ is_public(F) -> element(7, F) =:= public.       % #fn.vis
 %%% heads; this is the one structural move the language rests on (ticket 01).
 %%% ---------------------------------------------------------------------------
 
-function(F, Ctx) ->
+function(F, Ctx0) ->
+    %% Every declared type this function's clauses resolve — the boundary
+    %% guard's kind and range tests, the record tag — resolves under the
+    %% erased binding (F45).
+    Ctx = Ctx0#{env => fn_env(F, maps:get(env, Ctx0))},
     Name = name(F, maps:get(behaviours, Ctx, [])),
     Arity = arity(F),
     Params = element(5, F),                     % #fn.params
@@ -1149,9 +1153,10 @@ erl_op(Op)   -> Op.                              % + - * < > >=
 %%% Specs
 %%% ---------------------------------------------------------------------------
 
-spec_attr(F, Env, Behaviours) ->
+spec_attr(F, Env0, Behaviours) ->
     Params = element(5, F),
     Ret = element(4, F),
+    Env = fn_env(F, Env0),
     ArgTypes = [spec_type(bs_check_resolve(T, Env)) || {param, T, _} <- Params],
     RetType = spec_type(bs_check_resolve(Ret, Env)),
     {attribute, ?A, spec,
@@ -1161,6 +1166,12 @@ spec_attr(F, Env, Behaviours) ->
 %% Types are resolved by the checker's resolver only; a second one here would
 %% be a second place for the record tag rule to drift (ticket 26 §1).
 bs_check_resolve(T, Env) -> bs_check:resolve(T, Env).
+
+%% A polymorphic signature is published with its variables ERASED to `term`
+%% — `any()` in the spec, which ticket 27 §6 measured as inert — and the
+%% binding is the checker's, not a second rule here (F45). `tvars` is the
+%% last field of `#fn`, `element(8, F)`.
+fn_env(F, Env) -> bs_check:erased_env(element(8, F), Env).
 
 %% A recursive type is emitted as a reference to a named `-type`, not inlined
 %% (F28). Both `mu` and `recvar` become `Name()`; the body is declared once by
@@ -1180,8 +1191,8 @@ spec_type(Ty) ->
 %% type to a form.
 rec_type_attrs(Fns, Env) ->
     Tys = lists:append(
-            [[bs_check_resolve(T, Env) || {param, T, _} <- element(5, F)]
-             ++ [bs_check_resolve(element(4, F), Env)] || F <- Fns]),
+            [[bs_check_resolve(T, fn_env(F, Env)) || {param, T, _} <- element(5, F)]
+             ++ [bs_check_resolve(element(4, F), fn_env(F, Env))] || F <- Fns]),
     Binders = lists:foldl(fun collect_mu/2, #{}, Tys),
     [{attribute, ?A, type, {N, spec_type(Body), []}}
      || {N, Body} <- lists:sort(maps:to_list(Binders))].
