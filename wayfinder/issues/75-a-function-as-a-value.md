@@ -273,18 +273,137 @@ required where nothing does.** C#'s rule with the BEAM's escape, and the refusal
 `xs |> Sum` stays a syntax error, because 17's pipe is a rewrite of a *call* and a name in value
 position is a value; `xs |> Sum()` is the spelling.
 
+**Answered 2026-09-12 (David):** Q1 — **a value.** Q2 — **C#'s spelling.** Q3 — **as
+recommended**: the bare name where an expected type fixes the arity, `Double/1` where nothing does,
+the pipe unmoved.
+
+## Round 2 — what a lambda is made of (2026-09-12)
+
+Settled by round 1: the arrow is a type of the language, spelled `fn(T) -> U`; a lambda is an
+`expr` in C#'s spelling; a name is a value. Four things follow with no decision in them and are
+recorded here rather than asked:
+
+- **A lambda's body is one expression, not a body.** The switch arm's reason holds verbatim
+  (`bs_parser.yrl:569`): arguments are comma-separated and a body has no terminator, so
+  `(o) => var t = o.Total, t * 2` cannot be told from two arguments with one token of lookahead.
+  A lambda that needs a binding names a private function.
+- **A lambda closes over every name in scope, and its parameters bind under 34.** *Bindings do
+  not shadow*, so a parameter may not reuse an enclosing name; the scope pass F4 built walks into
+  the lambda as it walks into a `switch` arm. The BEAM does the capture.
+- **The `-spec` form is `fun((A) -> B)`** — the form `bs_emit.erl:1159` already builds for every
+  function's own spec, now nested. Under 18 it is the same tier as the rest of the declared
+  signature: documentation to Dialyzer, enforced by `bs_check`.
+- **The printer spells an arrow as the author does**, `fn(int) -> int`, in a corrected signature
+  (F25) and wherever `pattern_parts` (F29) prints a type; an arrow has no pattern, so
+  `pattern_parts` never prints one in head position.
+
+The parsing half of a pattern-shaped parameter was measured in round 1: `'(' patterns ')'` cannot
+share the parenthesis with the tuple expression (21 reduce/reduce), so parameters are parsed as
+an `expr_list` and lowered — the `to_match/1` lowering the bare `=` already uses
+(`bs_parser.yrl:633`), with one added clause, because `to_match` refuses a bare variable on
+purpose (*"a bare `=` matches rather than introduces"*) and a lambda parameter introduces.
+
+### The questions
+
+❓ **Q4 — A lambda's parameters: binders, or patterns?** Four programs, one domain each:
+
+```csharp
+public int Sum(list<(atom, int)> pairs)
+Sum(pairs) -> pairs |> List.Fold(0, (acc, (_, n)) => acc + n)                       // (b) a pattern
+Sum(pairs) -> pairs |> List.Fold(0, (acc, p) => acc + p switch { (_, n) => n })     // (a) binders only
+
+public int Oks(list<result<int, string>> rs)
+Oks(rs) -> rs |> List.Fold(0, (acc, n) => acc + n)                    // refused either way: `int` ≤ `int | (:error, string)` fails
+Oks(rs) -> rs |> List.Fold(0, (acc, (:ok, n)) => acc + n)            // (b): refused — residual `(:error, string)`, the clause you must write
+```
+
+Under (b) a parameter is a pattern checked **irrefutable** against the arrow's domain: `subtract`
+of the domain by the pattern's type is `none`, or the residual is the refusal — the rule
+[33](33-body-check-site.md) §5 wrote for the destructuring bind and F5/F8 built
+(`bind_step({dbind, …})`, `bs_check.erl:3200`). One clause, no guard: a lambda with two cases is
+`(x) => x switch { … }`, which already exists. Cost of (b) over (a): the `to_param` lowering
+clause above, and `type_of({e_lambda, …})` calling the bind's own check per parameter instead of
+binding a name. Cost of (a): every destructuring lambda carries a `switch` whose single arm is the
+pattern (b) would have written in the head.
+
+➡️ **(b), patterns, one clause, irrefutable.** The machinery exists to the line, the refusal is
+the residual the language already prints, and it is the same rule a `var` binding follows — a
+lambda parameter is a binding site and nothing else. Multi-clause lambdas stay out: 08's *one
+arrow per arity* applies to a fun as it does to a function, and the `switch` is the dispatch.
+
+---
+
+❓ **Q5 — A lambda with no expected type.** C# admits `(int n) => n * 2` where nothing fixes the
+parameter's type. Under Q3 the bare name is refused there; the lambda has the same hole:
+
+```csharp
+Later(xs) -> var twice = (n) => n * 2           // nothing fixes `n`'s type
+             List.Map(xs, twice)
+
+Later(xs) -> var twice = (int n) => n * 2       // C#'s typed parameter
+             List.Map(xs, twice)
+
+Later(xs) -> List.Map(xs, Twice)                // a private function, signed as everything is
+```
+
+The typed form is a new production, `'(' params ')' '=>' expr`, whose prefix `( lident` is also
+an expression's; the parenthesised-parameter half of that is not measured and the round does not
+guess at it. [04](04-crossclause-exhaustiveness.md) made signatures mandatory; a lambda's signature is
+the arrow expected at its site, and a site with no expectation is a lambda with no signature.
+
+➡️ **Refused, and the diagnostic names the two ways out**: hand the lambda to the site that
+expects it, or write a private function. No typed-parameter form. This is Q3's rule applied to
+the lambda — a value whose type nothing fixes is refused at a binding — and one rule for both is
+what makes `var f = Double` and `var f = (n) => …` read the same refusal.
+
+---
+
+❓ **Q6 — The arrow's codomain and a union.** Measured: with the codomain a `type_expr`,
+`fn(int) -> int | :nothing` carries one shift/reduce that shifts, so the union is the result. The
+alternative measured conflict-free — codomain a `type_prim` — turns out to be unusable, because in
+type position a parenthesised single type is a **1-tuple** (`bs_parser.yrl:192`, unlike the
+pattern and expression positions, which collapse it), so `fn(int) -> (int | :nothing)` would
+return a one-element tuple. There is no grouping parenthesis in the type grammar.
+
+```csharp
+type Lookup = fn(atom) -> int | :nothing        // an arrow returning option<int>
+type Handler = fn(Event) -> Event | :skip       // an arrow returning either
+
+type Rule = fn(int) -> int
+type Maybe = Rule | :nothing                    // an arrow or nothing: the alias is the grouping
+```
+
+➡️ **The codomain extends as far as it can; the alias groups.** The shift is the reading every
+example above means, the union-of-arrows case is spelled through a named arrow, and the type
+grammar gains no parenthesis.
+
+---
+
+❓ **Q7 — How ENG-321's inliner takes a fun.** Today a reserved operation is one walker per module
+per operation, shared by every site (`reserved_form`, `bs_emit.erl:1536`), with no type in it.
+`List.Map(xs, (n) => n * 2)` can lower two ways:
+
+```erlang
+%% (i) the fun is an argument; one walker per module
+'Twice'(Xs) -> 'List.Map/2'(Xs, fun(N) -> N * 2 end).
+'List.Map/2'([], _F)      -> [];
+'List.Map/2'([H | T], F)  -> [F(H) | 'List.Map/2'(T, F)].
+
+%% (ii) the body is substituted; one walker per site
+'Twice'(Xs) -> 'List.Map@7'(Xs).
+'List.Map@7'([])      -> [];
+'List.Map@7'([H | T]) -> [H * 2 | 'List.Map@7'(T)].
+```
+
+(ii) is [17](17-pipeline-and-comprehension.md) §2's precision argument at its strongest and it
+cannot be the only lowering: `List.Map(xs, f)` where `f` is a parameter of arrow type has no body
+to substitute, so (i) must exist regardless. Under (i) the walker's success typing is parametric
+(`fun((A) -> B), [A] -> [B]`) and the enclosing function's declared `-spec` is what the boundary
+publishes either way; the fun costs one allocation per call.
+
+➡️ **(i), one lowering.** The walker takes the fun, every site emits its lambda as an Erlang fun
+or its name as `fun 'Double'/1`, and there is one `List.Map` per module as there is one
+`List.Sum`. (ii) is an optimisation `erlc` is free to make and this compiler does not, until an
+exemplar measures the difference.
+
 **Answered:** —
-
-### What round 2 holds, once Q1 is answered
-
-- A lambda's parameters: patterns (a clause head — 33's site 5 irrefutability, `subtract` against
-  the domain, the residual as the refusal) or binders only; one clause or many. **The grammar has
-  already answered the parsing half**: `'(' patterns ')' '=>' expr` measured **21 reduce/reduce**
-  conflicts, because a pattern list cannot share the parenthesis with the tuple expression. A
-  pattern-shaped lambda is parsed as an `expr_list` and lowered to patterns afterwards — Erlang's
-  own parser does exactly this for a `fun` head — or it takes the keyword.
-- What a lambda closes over, and 34's *bindings do not shadow* at its parameters.
-- Whether an arrow prints in a corrected signature (F25) and in `pattern_parts` (F29).
-- ENG-321's function-taking entries: whether the inliner substitutes a lambda's body or calls the
-  fun, which is 17 §2's precision rule meeting a value it cannot see through.
-- The `-spec` shape for a signature holding an arrow, and 18's boundary tier for it.
