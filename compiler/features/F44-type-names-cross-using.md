@@ -227,7 +227,8 @@ row. `check-examples.sh` and `editor/bin/check-corpus.sh`: `examples/Shop/Billin
   head is a syntax error: the typed binder is `uident lident`, and a record pattern's prefix
   is a bare `uident`. The bare imported name works in both, which is what the ticket's
   program uses. The delta is two productions and no checker change, since `record_tag/2`
-  already resolves a dotted `t_ref`. Not decided against; not built here.
+  already resolves a dotted `t_ref`. Not decided against; not built here —
+  [ENG-363](https://linear.app/davewil/issue/ENG-363).
 - **A hint for the hatch spelling in type position** — ticket 73, *Not decided here*.
 - **Construction through the raw key** waits on a map literal, as the ticket says.
 - **`--api` over a dependency that refuses its own declarations** answers about the subject
