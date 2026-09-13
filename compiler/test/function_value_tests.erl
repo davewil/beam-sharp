@@ -300,12 +300,190 @@ a_call_through_a_bound_name_in_a_guard_is_refused_test() ->
           "Check(_, _)             -> :no\n",
     ?assertMatch([{error, _, 'Check', {call_in_guard, ok}} | _], errors(Src)).
 
+%% Bracketed, because a guard is parsed at the tier below the lambda (ticket
+%% 76): `when (k) => k` is a syntax error at the `=>`, and the lambda reaches
+%% the checker only inside a parenthesis, where it is an expression again.
 a_lambda_in_a_guard_is_refused_test() ->
     Src = "module Grd\n"
           "public atom Check(int n)\n"
-          "Check(n) when (k) => k -> :yes\n"
-          "Check(_)                -> :no\n",
+          "Check(n) when ((k) => k) -> :yes\n"
+          "Check(_)                  -> :no\n",
     ?assertMatch([{error, _, 'Check', lambda_in_guard} | _], errors(Src)).
+
+%%% ---------------------------------------------------------------------------
+%%% F46.13 — a polymorphic call re-checks its arguments under the solution,
+%%% and a variable is solved by its variance in the declared return (ticket 76
+%%% Q2 and Q3). The extent of `fn(T) -> U` is `fn(none) -> term`, which every
+%%% unary arrow satisfies, so without the re-check these compiled and crashed.
+%%% ---------------------------------------------------------------------------
+
+inc_src() ->
+    "public int Inc(int n)\n"
+    "Inc(n) -> n + 1\n".
+
+map_decl_src() ->
+    "public list<U> Map<T, U>(list<T> xs, fn(T) -> U f)\n"
+    "Map([], _)       -> []\n"
+    "Map([h, ..t], f) -> [f(h), ..Map(t, f)]\n".
+
+%% `T` is at least `string` from the list and at most `int` from `Inc`'s
+%% domain: the arguments disagree, and `Incs '["a"]'` would crash.
+a_function_narrower_than_the_list_is_refused_test() ->
+    Src = "module Incs\n" ++ map_decl_src() ++ inc_src() ++
+          "public list<int> Incs(list<string> xs)\n"
+          "Incs(xs) -> Map(xs, Inc/1)\n",
+    ?assertMatch([{error, _, 'Incs',
+                   {instantiation_conflict, 'Map', 'T', 1, _, 2, _}}], errors(Src)).
+
+%% The other way round: the list is `int` and the function takes `string`.
+%% The join the compiler did before solved `T` to `int | string`.
+a_function_over_another_type_is_refused_test() ->
+    Src = "module Lens\n" ++ map_decl_src() ++
+          "public int Len(string s)\n"
+          "Len(_) -> 0\n"
+          "public list<int> Lens(list<int> xs)\n"
+          "Lens(xs) -> Map(xs, Len/1)\n",
+    ?assertEqual([instantiation_conflict], tags(Src)).
+
+%% A variable read from both a plain argument and an arrow's codomain, and
+%% bounded by the arrow's domain. Before the re-check this was refused only
+%% at the return, where the offered `int | string` compiled and crashed.
+twice_src() ->
+    "public T Twice<T>(T x, fn(T) -> T f)\n"
+    "Twice(x, f) -> f(f(x))\n".
+
+a_value_outside_the_functions_domain_is_refused_test() ->
+    Src = "module Tw\n" ++ twice_src() ++ inc_src() ++
+          "public int Bad()\n"
+          "Bad() -> Twice(\"a\", Inc/1)\n",
+    ?assertEqual([instantiation_conflict], tags(Src)),
+    Good = "module Tw\n" ++ twice_src() ++ inc_src() ++
+           "public int Good()\n"
+           "Good() -> Twice(3, Inc/1)\n",
+    M = build_and_load(Good, 'Tw'),
+    ?assertEqual(5, M:'Good'()).
+
+%% `A` occurs only under `f`'s domain and the return is contravariant in it,
+%% so it takes the meet of its upper bounds: `step` is `fn(int) -> int`, not
+%% the uncallable `fn(none) -> int` a least-from-covariant rule gives.
+composition_solves_a_contravariant_variable_test() ->
+    Src = "module Comp\n"
+          "public fn(A) -> C Compose<A, B, C>(fn(A) -> B f, fn(B) -> C g)\n"
+          "Compose(f, g) -> (a) => g(f(a))\n" ++ inc_src() ++
+          "public int Double(int n)\n"
+          "Double(n) -> n * 2\n"
+          "public int Marked(int cents)\n"
+          "Marked(cents) -> var step = Compose(Inc/1, Double/1)\n"
+          "                 step(cents)\n",
+    ?assertEqual([], errors(Src)),
+    M = build_and_load(Src, 'Comp'),
+    ?assertEqual(8, M:'Marked'(3)).
+
+%% `T` is covariant in `option<T>`, so it takes the join of its lower bounds,
+%% `int` from the list, and the wider predicate is accepted beneath it. The
+%% join of every occurrence returned `option<int | :free>` and was refused.
+a_wider_predicate_keeps_the_lists_type_test() ->
+    Src = "module Cheap\n"
+          "public option<T> Pick<T>(list<T> xs, fn(T) -> bool p)\n"
+          "Pick([], _)       -> :nothing\n"
+          "Pick([h, ..t], p) -> p(h) switch { true => h, false => Pick(t, p) }\n"
+          "public bool Cheap(int | :free price)\n"
+          "Cheap(:free) -> true\n"
+          "Cheap(n)     -> n < 500\n"
+          "public option<int> FirstCheap(list<int> prices)\n"
+          "FirstCheap(prices) -> Pick(prices, Cheap/1)\n",
+    ?assertEqual([], errors(Src)),
+    M = build_and_load(Src, 'Cheap'),
+    ?assertEqual(100, M:'FirstCheap'([600, 100])),
+    ?assertEqual(nothing, M:'FirstCheap'([600])).
+
+%% Ticket 76 leaves a variable the return mentions in both positions
+%% unruled; what is asserted here is only that such a call is accepted when
+%% its arguments agree and refused when they do not.
+a_variable_in_both_positions_of_the_return_test() ->
+    Decl = "public fn(T) -> T Same<T>(fn(T) -> T f)\n"
+           "Same(f) -> f\n",
+    Src = "module Both\n" ++ Decl ++ inc_src() ++
+          "public int Run(int n)\n"
+          "Run(n) -> var g = Same(Inc/1)\n"
+          "          g(n)\n",
+    ?assertEqual([], errors(Src)),
+    M = build_and_load(Src, 'Both'),
+    ?assertEqual(4, M:'Run'(3)).
+
+%%% ---------------------------------------------------------------------------
+%%% F46.14 — the bare-name lambda `n => e` is an expression everywhere, and a
+%%% switch arm's guard is parsed at the tier below the lambda (ticket 76 Q1,
+%%% C#'s line): the seven programs of round 1's table
+%%% ---------------------------------------------------------------------------
+
+a_bare_lambda_is_a_clause_body_test() ->
+    Src = "module Bare\n"
+          "public fn(int) -> int Rule(atom tier)\n"
+          "Rule(:member) -> n => n - 100\n"
+          "Rule(_)       -> n => n\n",
+    M = build_and_load(Src, 'Bare'),
+    ?assertEqual(150, (M:'Rule'(member))(250)).
+
+a_bare_lambda_is_a_list_element_test() ->
+    Src = "module Fns\n"
+          "public list<fn(int) -> int> Fns()\n"
+          "Fns() -> [n => n + 1]\n",
+    M = build_and_load(Src, 'Fns'),
+    [F] = M:'Fns'(),
+    ?assertEqual(4, F(3)).
+
+a_bare_lambda_is_a_tuple_component_test() ->
+    Src = "module Pair\n"
+          "public (int, fn(int) -> int) Pair()\n"
+          "Pair() -> (1, n => n + 1)\n",
+    M = build_and_load(Src, 'Pair'),
+    {1, F} = M:'Pair'(),
+    ?assertEqual(4, F(3)).
+
+a_bare_lambda_is_still_an_argument_test() ->
+    Src = "module Large\n"
+          "public list<int> Large(list<int> xs)\n"
+          "Large(xs) -> xs |> List.Filter(n => n > 100)\n",
+    M = build_and_load(Src, 'Large'),
+    ?assertEqual([150], M:'Large'([50, 150])).
+
+%% The two guard shapes ticket 75 accepted as syntax errors: a guard that is
+%% itself parenthesised, and one that is a bare name.
+a_parenthesised_guard_before_an_arm_test() ->
+    Src = "module Grade\n"
+          "public atom Grade(int n)\n"
+          "Grade(n) -> n switch { x when (n > 3) => :high, _ => :low }\n",
+    M = build_and_load(Src, 'Grade'),
+    ?assertEqual(high, M:'Grade'(5)),
+    ?assertEqual(low, M:'Grade'(2)).
+
+a_bare_name_guard_before_an_arm_test() ->
+    Src = "module Flag\n"
+          "public int Flag(int n, bool flag)\n"
+          "Flag(n, flag) -> n switch { x when flag => 1, _ => 0 }\n",
+    M = build_and_load(Src, 'Flag'),
+    ?assertEqual(1, M:'Flag'(3, true)),
+    ?assertEqual(0, M:'Flag'(3, false)).
+
+%% The collision F46 found, which the guard's tier must keep resolved: a
+%% guard ending in a name is not a lambda.
+a_guard_ending_in_a_name_is_not_a_lambda_test() ->
+    Src = "module Cmp\n"
+          "public int Cmp(int n, int m)\n"
+          "Cmp(n, m) -> n switch { x when x > m => 0, x => 1 }\n",
+    M = build_and_load(Src, 'Cmp'),
+    ?assertEqual(0, M:'Cmp'(5, 3)),
+    ?assertEqual(1, M:'Cmp'(2, 3)).
+
+%% A binding expects no arrow, so the bare form there is the checker's
+%% refusal and not the parser's.
+a_bare_lambda_in_a_binding_reaches_the_checker_test() ->
+    Src = "module Later\n"
+          "public int Later(int n)\n"
+          "Later(n) -> var twice = k => k * 2\n"
+          "            twice(n)\n",
+    ?assertMatch([{error, _, 'Later', lambda_without_expectation}], errors(Src)).
 
 %%% ---------------------------------------------------------------------------
 %%% F46.8 — the pipe does not move: `xs |> Sum` stays a syntax error, and a

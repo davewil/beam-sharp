@@ -998,17 +998,108 @@ vars_in({t_refined, _, B, _}, Vars) -> vars_in(B, Vars);
 vars_in({t_fun, Ds, C}, Vars)     -> lists:append([vars_in(T, Vars) || T <- Ds ++ [C]]);
 vars_in(_, _)                     -> [].
 
-%% The return of a call through a polymorphic signature: solve least per
-%% occurrence, join across occurrences, substitute (ticket 37). The solve is
-%% total, so it runs whether or not the arguments were accepted; an argument
-%% outside the extent was refused by `arg_diags/7` with its own residual.
-instantiate({poly, Vars, PsT, RetT, Erased}, ATys) ->
-    Acc0 = maps:from_list([{V, bs_types:term()} || V <- Erased]),
-    Acc  = lists:foldl(fun({P, A}, S) -> solve(P, A, S) end, Acc0, lists:zip(PsT, ATys)),
-    %% A variable no argument position mentions has no least solution to
-    %% speak of and stays at its extent.
-    S = maps:merge(maps:from_list([{V, bs_types:term()} || V <- Vars]), Acc),
-    subst_tpl(RetT, S).
+%% The solution of a call through a polymorphic signature (ticket 37, as
+%% amended by ticket 76). Every argument contributes BOUNDS: an occurrence
+%% of a variable in a covariant position gives a lower bound, an occurrence
+%% under an arrow's domain an upper one, each tagged with the argument it
+%% came from. A variable is then solved by its VARIANCE IN THE DECLARED
+%% RETURN (76 Q3): the join of its lower bounds where the return is covariant
+%% in it or does not mention it — 37's least solution — and the meet of its
+%% upper bounds where the return is contravariant in it, so
+%% `Compose<A, B, C>(fn(A) -> B, fn(B) -> C)` returns `fn(int) -> int` and not
+%% the uncallable `fn(none) -> int`. That is Pierce and Turner's minimal
+%% substitution (*Local Type Inference*, TOPLAS 22(1), 2000, §3 and §5.7): a
+%% variable the result type is constant or covariant in takes its lower
+%% bound, one it is contravariant in its upper bound. Taken as the paper
+%% takes it where a set is empty — the join of no lower bounds is `none`, and
+%% a covariant variable nothing supplies is the result of a function that
+%% cannot return one; the meet of no upper bounds is `term`. A lower bound
+%% escaping an upper one is a conflict: no instantiation accepts every
+%% argument, and `Map(xs, Inc/1)` over a `list<string>` would crash.
+%%
+%% A variable the return mentions in BOTH positions, a returned `fn(T) -> T`,
+%% is a case 76 does not rule on. It takes the join of its lower bounds, as
+%% 37 did, and is flagged here rather than decided: the paper's invariant
+%% case takes a bound only when the two coincide and otherwise finds no
+%% substitution, which B# would spell as a refusal. The re-check in `call/6`
+%% keeps the call sound whichever it takes, and a program whose meaning
+%% depends on the choice raises a ticket.
+%%
+%% An ERASED variable (`template/4`) is `term` whatever its bounds say: a
+%% value could reach the body through the erased position.
+%%
+%% The PARTIAL solution `poly_args/4` hands a lambda as its expectation is
+%% not a result type and follows no variance: it is what the arguments typed
+%% so far know, the lower bounds first, so `(a) => a + 1` is typed over the
+%% `int` a sibling argument supplies rather than over `term`. The final
+%% solution re-checks the lambda like every other argument.
+%%
+%% The solve is total, so it runs whether or not the arguments were
+%% accepted; an argument outside the extent was refused by `arg_diags/7`.
+solution(Template, ATys) ->
+    solution(Template, ATys, final).
+
+solution({poly, Vars, PsT, RetT, Erased}, ATys, Mode) ->
+    Indexed = lists:zip(lists:seq(1, length(ATys)), lists:zip(PsT, ATys)),
+    Bounds = lists:foldl(fun({I, {P, A}}, Acc) -> solve(P, A, pos, I, Acc) end,
+                         #{}, Indexed),
+    Pols = polarity(RetT, pos, #{}),
+    Sub = maps:from_list(
+            [{V, case {lists:member(V, Erased), Mode} of
+                     {true, _}       -> bs_types:term();
+                     {false, final}  -> pick(maps:get(V, Pols, absent),
+                                             maps:get(V, Bounds, {[], []}));
+                     {false, partial} -> known(maps:get(V, Bounds, {[], []}))
+                 end} || V <- Vars]),
+    Conflicts = [{V, Conflict}
+                 || V <- Vars, not lists:member(V, Erased),
+                    Conflict <- [escape(maps:get(V, Bounds, {[], []}))],
+                    Conflict =/= none],
+    {Sub, Conflicts}.
+
+%% The minimal substitution, by where the return holds the variable.
+pick(neg, {_Lo, Up})    -> meet(Up);
+%% Unruled by 76: see `solution/3`.
+pick(both, {[], Up})    -> meet(Up);
+pick(both, {Lo, _Up})   -> join(Lo);
+pick(_Covariant, {Lo, _Up}) -> join(Lo).
+
+%% What the arguments typed so far know, for an expectation only.
+known({[], []}) -> bs_types:term();
+known({[], Up})  -> meet(Up);
+known({Lo, _})   -> join(Lo).
+
+%% The join of no bounds is `none` and the meet of none is `term`.
+join(Bounds) -> bs_types:union([T || {_, T} <- Bounds]).
+
+meet(Bounds) -> lists:foldl(fun({_, U}, Acc) -> bs_types:intersect(Acc, U) end,
+                            bs_types:term(), Bounds).
+
+%% The first upper bound the lower bounds escape, and the lower bound that
+%% escapes it, so the refusal can name both arguments.
+escape({Lo, Up}) when Lo =/= [], Up =/= [] ->
+    Joined = join(Lo),
+    case [{UI, U} || {UI, U} <- Up, not bs_types:is_subtype(Joined, U)] of
+        [] -> none;
+        [{UI, U} | _] ->
+            [{LI, L} | _] = [B || {_, L0} = B <- Lo, not bs_types:is_subtype(L0, U)],
+            {LI, L, UI, U}
+    end;
+escape(_) -> none.
+
+%% Where each variable sits in a template: `pos`, `neg`, or `both`. A
+%% variable the template does not mention is absent from the map.
+polarity(T, _Pol, Acc) when is_map(T) -> Acc;
+polarity({t_ref, V}, Pol, Acc) ->
+    maps:update_with(V, fun(P) when P =:= Pol -> P; (_) -> both end, Pol, Acc);
+polarity({t_generic, list, [E]}, Pol, Acc) -> polarity(E, Pol, Acc);
+polarity({t_tuple, Cs}, Pol, Acc) ->
+    lists:foldl(fun(C, A) -> polarity(C, Pol, A) end, Acc, Cs);
+polarity({t_union, Ms}, Pol, Acc) ->
+    lists:foldl(fun(M, A) -> polarity(M, Pol, A) end, Acc, Ms);
+polarity({t_fun, Ds, C}, Pol, Acc) ->
+    Acc1 = lists:foldl(fun(D, A) -> polarity(D, contra(Pol), A) end, Acc, Ds),
+    polarity(C, Pol, Acc1).
 
 %% A template with every variable at `term`: how much of an argument a union
 %% member could possibly claim.
@@ -1022,40 +1113,47 @@ extent({t_union, Ms})            -> bs_types:union([extent(M) || M <- Ms]);
 extent({t_fun, Ds, _C})          -> bs_types:fun_ty([bs_types:none() || _ <- Ds],
                                                     bs_types:term()).
 
-solve(T, _A, Acc) when is_map(T) -> Acc;
-solve({t_ref, V}, A, Acc) ->
-    maps:update_with(V, fun(S) -> bs_types:union(A, S) end, A, Acc);
-solve({t_generic, list, [E]}, A, Acc) ->
-    solve(E, bs_types:list_elem(bs_types:unfold(A)), Acc);
-solve({t_tuple, Cs}, A, Acc) ->
+%% Bounds accumulate as `#{V => {Lower, Upper}}`, each a list of `{Arg, Ty}`.
+solve(T, _A, _Pol, _I, Acc) when is_map(T) -> Acc;
+solve({t_ref, V}, A, Pol, I, Acc) ->
+    {Lo, Up} = maps:get(V, Acc, {[], []}),
+    Acc#{V => case Pol of
+                  pos -> {Lo ++ [{I, A}], Up};
+                  neg -> {Lo, Up ++ [{I, A}]}
+              end};
+solve({t_generic, list, [E]}, A, Pol, I, Acc) ->
+    solve(E, bs_types:list_elem(bs_types:unfold(A)), Pol, I, Acc);
+solve({t_tuple, Cs}, A, Pol, I, Acc) ->
     N = length(Cs),
-    {_, Out} = lists:foldl(fun(C, {I, S}) ->
-                                   {I + 1, solve(C, bs_types:tuple_comp(A, N, I), S)}
+    {_, Out} = lists:foldl(fun(C, {J, S}) ->
+                                   {J + 1, solve(C, bs_types:tuple_comp(A, N, J), Pol, I, S)}
                            end, {1, Acc}, Cs),
     Out;
-solve({t_union, Ms}, A, Acc) ->
+solve({t_union, Ms}, A, Pol, I, Acc) ->
     %% A member's share is the argument minus every OTHER member's extent —
     %% the one step where the answer is a choice, and ticket 37 chose
     %% least, on the return type's evidence (M2).
     Indexed = lists:zip(lists:seq(1, length(Ms)), Ms),
-    lists:foldl(fun({I, M}, S) ->
-                        Others = bs_types:union([extent(O) || {J, O} <- Indexed, J =/= I]),
-                        solve(M, bs_types:subtract(A, Others), S)
+    lists:foldl(fun({J, M}, S) ->
+                        Others = bs_types:union([extent(O) || {K, O} <- Indexed, K =/= J]),
+                        solve(M, bs_types:subtract(A, Others), Pol, I, S)
                 end, Acc, Indexed);
 %% Every arrow of the template's arity in the argument contributes: its
-%% domain to the domain positions and its codomain to the codomain, joined
-%% across arrows as across any repeated occurrence. The top has no arrows
-%% to read and solves nothing (F46).
-solve({t_fun, Ds, C}, A, Acc) ->
+%% domain to the domain positions, at the opposite polarity, and its
+%% codomain to the codomain. An upper bound from each of two arrows is met,
+%% because a value that is either function must accept the variable (F46,
+%% ticket 76). The top has no arrows to read and bounds nothing.
+solve({t_fun, Ds, C}, A, Pol, I, Acc) ->
     N = length(Ds),
     Arrows = case bs_types:arrows(A) of
                  top -> [];
                  Fs  -> [F || {ADs, _} = F <- Fs, length(ADs) =:= N]
              end,
     lists:foldl(fun({ADs, AC}, S0) ->
-                        S1 = lists:foldl(fun({D, AD}, S) -> solve(D, AD, S) end,
-                                         S0, lists:zip(Ds, ADs)),
-                        solve(C, AC, S1)
+                        S1 = lists:foldl(fun({D, AD}, S) ->
+                                                 solve(D, AD, contra(Pol), I, S)
+                                         end, S0, lists:zip(Ds, ADs)),
+                        solve(C, AC, Pol, I, S1)
                 end, Acc, Arrows).
 
 subst_tpl(T, _S) when is_map(T)       -> T;
@@ -3963,10 +4061,21 @@ call(L, Key, Shown, Args, S, C) ->
                 undefined ->
                     {ATys, D} = expected_all(Args, Ps, S, C),
                     {Ret, arg_diags(L, Shown, Args, ATys, Ps, 1, C) ++ D};
-                Template ->
+                Template = {poly, _, PsT, RetT, _} ->
                     {ATys, D} = poly_args(Template, Args, S, C),
-                    {instantiate(Template, ATys),
-                     arg_diags(L, Shown, Args, ATys, Ps, 1, C) ++ D}
+                    {Sub, Conflicts} = solution(Template, ATys),
+                    case Conflicts of
+                        [] ->
+                            Inst = [subst_tpl(PT, Sub) || PT <- PsT],
+                            {subst_tpl(RetT, Sub),
+                             poly_arg_diags(L, Shown, Args, ATys, Ps, Inst, C) ++ D};
+                        _ ->
+                            {reported(),
+                             arg_diags(L, Shown, Args, ATys, Ps, 1, C) ++
+                             [{error, L, C#ctx.fname,
+                               {instantiation_conflict, Shown, V, LI, Lo, UI, Up}}
+                              || {V, {LI, Lo, UI, Up}} <- Conflicts] ++ D}
+                    end
             end
     end.
 
@@ -3976,14 +4085,19 @@ call(L, Key, Shown, Args, S, C) ->
 %% form holding one the template position with that partial solution
 %% substituted, so `Map(xs, (n) => n * 2)` types the lambda against
 %% `fn(int) -> term` and `U` is then read from what the body returns.
-poly_args({poly, Vars, PsT, _RetT, Erased}, Args, S, C) ->
+poly_args({poly, Vars, PsT, RetT, Erased}, Args, S, C) ->
     Indexed = lists:zip(lists:seq(1, length(Args)), lists:zip(Args, PsT)),
     Extent = maps:from_list([{V, bs_types:term()} || V <- Vars]),
     First = [{I, {PT, expected(A, subst_tpl(PT, Extent), S, C)}}
              || {I, {A, PT}} <- Indexed, not hungry(A)],
-    Sol = lists:foldl(fun({_, {PT, {Ty, _}}}, Acc) -> solve(PT, Ty, Acc) end,
-                      maps:from_list([{V, bs_types:term()} || V <- Erased]), First),
-    Partial = maps:merge(Extent, Sol),
+    %% The partial solution is chosen by the rule the whole call is, over
+    %% the arguments typed so far; a variable none of them bounds is `term`.
+    %% A hungry argument's position is `none` for now, which bounds nothing.
+    Known = maps:from_list([{I, Ty} || {I, {_, {Ty, _}}} <- First]),
+    {Partial, _} = solution({poly, Vars, PsT, RetT, Erased},
+                            [maps:get(I, Known, bs_types:none())
+                             || I <- lists:seq(1, length(Args))],
+                            partial),
     Second = [{I, {PT, expected(A, subst_tpl(PT, Partial), S, C)}}
               || {I, {A, PT}} <- Indexed, hungry(A)],
     Ordered = lists:keysort(1, First ++ Second),
@@ -4041,18 +4155,31 @@ other_arities({q, M, N, _}, Callees) ->
 
 arg_diags(_L, _Callee, [], [], [], _I, _C) -> [];
 arg_diags(L, Callee, [A | As], [T | Ts], [P | Ps], I, C) ->
-    Rest = arg_diags(L, Callee, As, Ts, Ps, I + 1, C),
-    case bs_types:subtract(T, P) of
-        R ->
-            case bs_types:is_none(R) of
-                true  -> Rest;
-                %% The residual is the clause the caller must
-                %% write (ticket 04). It proposes an edit to the function
-                %% being checked and never to the callee (ticket 18 §4).
-                false -> [{error, L, C#ctx.fname,
-                           {arg_not_accepted, Callee, I, R, head_hint(A, C)}} | Rest]
-            end
+    arg_diag(L, Callee, A, T, P, I, C) ++ arg_diags(L, Callee, As, Ts, Ps, I + 1, C).
+
+arg_diag(L, Callee, A, T, P, I, C) ->
+    R = bs_types:subtract(T, P),
+    case bs_types:is_none(R) of
+        true  -> [];
+        %% The residual is the clause the caller must
+        %% write (ticket 04). It proposes an edit to the function
+        %% being checked and never to the callee (ticket 18 §4).
+        false -> [{error, L, C#ctx.fname,
+                   {arg_not_accepted, Callee, I, R, head_hint(A, C)}}]
     end.
+
+%% A polymorphic call's arguments are checked twice (ticket 76 Q2): against
+%% the extent, which is what gives an argument outside the declaration its
+%% residual, and then, where that passed, against the parameter the solution
+%% instantiates. The second is the check ticket 37's proof let the compiler
+%% skip, and it stopped being redundant when an arrow's domain made the
+%% extent of `fn(T) -> U` the top arrow. One diagnostic per argument.
+poly_arg_diags(L, Callee, Args, ATys, Ps, Inst, C) ->
+    Rows = lists:zip3(lists:seq(1, length(Args)), Args, lists:zip3(ATys, Ps, Inst)),
+    lists:append([case arg_diag(L, Callee, A, T, P, I, C) of
+                      []   -> arg_diag(L, Callee, A, T, Q, I, C);
+                      Diag -> Diag
+                  end || {I, A, {T, P, Q}} <- Rows]).
 
 %% A head can only be synthesised when the argument is a whole parameter; an
 %% arbitrary expression has no position in the caller's head to put a pattern

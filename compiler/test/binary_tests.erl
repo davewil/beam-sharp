@@ -300,15 +300,18 @@ a_nested_generic_and_a_binary_pattern_coexist_test() ->
 %% held zero until F46, when ticket 75 decided a function is a value and
 %% priced four: the `|` after an arrow's codomain, `rule(`, `Double(` and
 %% `Double{`, each resolved as the shift every author means and each named
-%% in `bs_parser.yrl`. A conflict is the one thing yecc reports as a warning
-%% while still emitting a parser that looks like it works, so the count is
-%% pinned rather than eyeballed from a quiet build: a fifth is a red here,
-%% and it owes a sentence in the grammar before it owes anything else.
-the_grammar_has_exactly_its_four_named_conflicts_test() ->
+%% in `bs_parser.yrl`. Ticket 76 split `expr` into the lambda tier over
+%% `expr_low` and counted a fifth, which is `rule(` reported again from a
+%% second LALR state — the same token, the same shift, one decision counted
+%% twice. A conflict is the one thing yecc reports as a warning while still
+%% emitting a parser that looks like it works, so the count is pinned rather
+%% than eyeballed from a quiet build: a sixth is a red here, and it owes a
+%% sentence in the grammar before it owes anything else.
+the_grammar_has_exactly_its_named_conflicts_test() ->
     Yrl = filename:join(bs_test_support:project_root(), "src/bs_parser.yrl"),
     Out = filename:join(bs_test_support:run_root(), "conflict_check"),
     ok = filelib:ensure_dir(Out ++ "/x"),
-    ?assertMatch({ok, _, [{_, [{_, yecc, {conflicts, 4, 0}}]}]},
+    ?assertMatch({ok, _, [{_, [{_, yecc, {conflicts, 5, 0}}]}]},
                  yecc:file(Yrl, [{parserfile, Out ++ ".erl"}, {return, true}])).
 
 %%% ---------------------------------------------------------------------------

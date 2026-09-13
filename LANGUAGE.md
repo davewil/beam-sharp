@@ -1787,6 +1787,30 @@ Tagged(xs) -> Map(xs, (n) => n switch { 0 => :zero, _ => :some })
 **shipped** — F46. `Doubled` instantiates `U` at `int` and `Tagged` at `:zero | :some`, each
 from what its lambda returns. <!-- ticket 75, F46 -->
 
+**Every argument is checked against the parameter the call instantiates.** A variable takes a
+lower bound from each position that hands it a value — `T` from the list — and an upper bound from
+each position under an arrow's domain, where a function must accept it. Where the declared return
+holds the variable as a value, or not at all, it is the join of what the arguments supply; where the
+return holds it under a domain, as `Compose` returns `fn(A) -> C`, it is the meet of what they
+accept. When a value an argument supplies is not one another argument's function takes, the call is
+refused, naming both arguments:
+
+<!-- diagnoses: instantiation_conflict -->
+```csharp
+module Incs
+
+public list<U> Map<T, U>(list<T> xs, fn(T) -> U f)
+Map([], _)       -> []
+Map([h, ..t], f) -> [f(h), ..Map(t, f)]
+
+public int Inc(int n)
+Inc(n) -> n + 1
+
+public list<int> Incs(list<string> xs)
+Incs(xs) -> Map(xs, Inc/1)
+```
+<!-- ticket 76 Q2 and Q3, ENG-368 -->
+
 - **Declared**, C#'s `T` convention. Builtins are lowercase, so an implicit lowercase convention
   would be ambiguous.
 - **Unbounded.** No constraints, no `where T : ...`.
@@ -1885,12 +1909,26 @@ Oks(rs) -> rs |> List.Fold(0, (acc, (:ok, n)) => acc + n)
 A lambda with two cases is `(x) => x switch { … }`. Its parameters bind under the no-shadowing
 rule: a parameter may not reuse a name already in scope.
 
-**The bare-name form, `n => e`, is an argument.** `List.Filter(n => n > 100)` writes it and
-`(n) => n > 100` means the same; outside an argument list the parenthesised form is the spelling,
-because as a general expression `n =>` would read a switch arm's guard ending in a name —
-`x when x > m => 0` — as a lambda. <!-- F46, measured against F7's own test; ticket 75 Q2 priced only `when flag =>` -->
-The parenthesised form collides only with a guard that is *itself* parenthesised, `x when (n > 3)
-=> :high`, which is a syntax error and is written `x when n > 3` instead.
+**Both spellings are expressions.** `n => e` and `(n) => e` mean the same wherever an arrow is
+expected — a clause body, a switch arm, a list or tuple component, an argument. A switch arm's guard
+is read at the tier below a lambda, as C# reads a `when` clause, so the `=>` after a guard always
+closes the guard: `x when x > m => :above` compares `x` with `m`, and `x when (x == m) => :at` is a
+parenthesised guard. A lambda inside a guard needs a bracket of its own, and is then refused.
+<!-- ticket 76, resolved 2026-09-13, reversing F46's argument-only form; ENG-368 -->
+
+```csharp
+module Bare
+
+public fn(int) -> int Rule(atom tier)
+Rule(:member) -> n => n - 100
+Rule(_)       -> n => n
+
+public list<fn(int) -> int> Steps()
+Steps() -> [n => n + 1, n => n * 2]
+
+public atom Grade(int n, int m)
+Grade(n, m) -> n switch { x when x > m => :above, x when (x == m) => :at, _ => :below }
+```
 
 **A lambda's type is the arrow its site expects.** A call argument, a clause return, a switch arm
 under one, a tuple or list component and a record field all expect one; a binding expects nothing,

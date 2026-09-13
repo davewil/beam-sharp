@@ -16,7 +16,7 @@ Nonterminals
   bin_segments bin_segment bin_size
   guard guard_expr
   body binding
-  expr expr_list arg elist_items assign_fields assign_field
+  expr expr_low expr_list elist_items assign_fields assign_field
   switch_arms switch_arm modpath using_decl visibility call
   .
 
@@ -43,12 +43,6 @@ Rootsymbol program.
 %% is no reading in which a raise should stop early: its operand is a reason,
 %% and a reason is whatever expression the author wrote (ticket 12 §5).
 Nonassoc  40 'raise'.
-%% A lambda's body runs as far right as it can, so `(n) => n * 2 |> F()` is
-%% one body and `(a) => (b) => a + b` nests to the right. Below every
-%% operator, above `raise`, so `(n) => raise n` is a lambda that raises
-%% (ticket 75 Q2, F46). The switch arm's `=>` shares the token and inherits
-%% the level; nothing in an arm's body was ever parsed against it.
-Right     45 '=>'.
 Nonassoc  50 '='.
 Left  100 'or'.
 Left  200 'and'.
@@ -174,7 +168,7 @@ type_decl -> 'type' uident '=' type_expr 'where' refinement :
 %% The predicate is an ordinary expression, read back by the same
 %% `alternatives/1` a guard goes through, so a refinement and a guard cannot
 %% disagree about what `value >= 0` means (F2.5).
-refinement -> expr : '$1'.
+refinement -> expr_low : '$1'.
 
 %% A parametric alias binds its variables here and substitutes them at the
 %% use, so `Pair<int>` resolves to the tuple before `bs_types` sees it. A
@@ -326,7 +320,7 @@ binding -> 'var' pattern '=' expr : bind(line('$3'), '$2', '$4').
 
 %% The bare form is a match only: its left is an expression, narrowed by
 %% `to_match/1`, which rejects anything that would introduce a name.
-binding -> expr '=' expr : {dbind, line('$2'), to_match('$1'), '$3'}.
+binding -> expr_low '=' expr : {dbind, line('$2'), to_match('$1'), '$3'}.
 
 patterns -> '$empty'     : [].
 patterns -> pattern_list : '$1'.
@@ -485,20 +479,22 @@ plist_items -> '..' '[' plist_items ']' :
 guard -> '$empty'            : none.
 guard -> 'when' guard_expr   : {guard, '$2'}.
 
-guard_expr -> expr : '$1'.
+%% Below the lambda, so the `=>` after a guard closes the guard rather than
+%% opening a lambda over its last name (ticket 76; the lambda block below).
+guard_expr -> expr_low : '$1'.
 
 %% --- expressions ------------------------------------------------------------
-expr -> integer  : {e_int, line('$1'), value('$1')}.
+expr_low -> integer  : {e_int, line('$1'), value('$1')}.
 
 %% Unary minus lowers to `0 - e` rather than a node of its own, so nothing
 %% downstream of the parser learns a new shape.
-expr -> '-' expr : {e_op, line('$1'), '-', {e_int, line('$1'), 0}, '$2'}.
-expr -> atom_lit : {e_atom, line('$1'), value('$1')}.
-expr -> string_lit : {e_str, line('$1'), value('$1')}.
-expr -> lident   : {e_var, line('$1'), value('$1')}.
+expr_low -> '-' expr_low : {e_op, line('$1'), '-', {e_int, line('$1'), 0}, '$2'}.
+expr_low -> atom_lit : {e_atom, line('$1'), value('$1')}.
+expr_low -> string_lit : {e_str, line('$1'), value('$1')}.
+expr_low -> lident   : {e_var, line('$1'), value('$1')}.
 %% `_` is an expression only so that `(a, _) = pair` parses, the left of a
 %% bare `=` being an expression. Used as a value it is rejected by `bs_check`.
-expr -> '_'      : {e_wild, line('$1')}.
+expr_low -> '_'      : {e_wild, line('$1')}.
 
 %% A deliberate crash. It is an expression rather than a statement because a
 %% body is one expression (ticket 34), so a clause that only crashes needs no
@@ -506,7 +502,7 @@ expr -> '_'      : {e_wild, line('$1')}.
 %% is expected, including a switch arm beside arms that return (ticket 12 §5).
 %% The operand is an ordinary expression and is checked as one; nothing here
 %% restricts it to a literal.
-expr -> 'raise' expr : {e_raise, line('$1'), '$2'}.
+expr_low -> 'raise' expr_low : {e_raise, line('$1'), '$2'}.
 
 %% --- calls ------------------------------------------------------------------
 %% The call forms are a nonterminal of their own because a pipe's right
@@ -560,7 +556,7 @@ call -> modpath '.' uident '(' ')' :
 call -> lident '(' expr_list ')' : apply_or_not('$1', '$3').
 call -> lident '(' ')'           : apply_or_not('$1', []).
 
-expr -> call : '$1'.
+expr_low -> call : '$1'.
 
 %% --- a function as a value (ticket 75, F46) ---------------------------------
 %% A lambda in C#'s spelling. The parameters are parsed as an `expr_list` and
@@ -570,27 +566,35 @@ expr -> call : '$1'.
 %% arm's reason verbatim: arguments are comma-separated and a body has no
 %% terminator.
 %%
-%% THE PARENTHESISED FORM IS AN EXPRESSION; THE BARE-NAME FORM IS AN
-%% ARGUMENT. Ticket 75 Q2 took both as expressions and priced it at two
-%% collisions on a switch arm's guard, `x when (n > 3) => :high` and `x when
-%% flag => 1`, on the measurement that no guard in the corpus ends so. The
-%% second collision is wider than the round saw: it is every guard that ENDS
-%% in a name — `x when x > m => 0`, F7's own test — because `m =>` shifts into
-%% a lambda wherever `m` is an expression. So `n => e` lives in `arg` below,
-%% reachable only inside an argument list, where the same round measured it
-%% conflict-free and where every program in the record writes it:
-%% `List.Filter(n => n > 100)`. `(n) => e` stays a general expression, and
-%% `x when (n > 3) => :high` stays the syntax error the round accepted. Both
-%% resolved as shifts. Measured with `yecc:file/2` `{report, true}`: 0
-%% before, 4 after, all four named in this file (ENG-365).
+%% BOTH SPELLINGS ARE EXPRESSIONS, AND THE LAMBDA IS THE TOP TIER. `expr`
+%% holds the three lambda productions and `expr_low`, which holds every
+%% other expression form; a lambda's body is an `expr`, so it runs as far
+%% right as it can and `(a) => (b) => a + b` nests to the right, with no
+%% precedence entry for `=>`. A switch arm's guard is an `expr_low`, which is
+%% what keeps `x when x > m => 0` (F7's test) from reading `m => 0` as a
+%% lambda: the guard cannot hold one, so the `=>` closes it. That is C#'s own
+%% resolution of the same collision — Roslyn parses a switch-expression
+%% arm's `when` clause at `Precedence.Coalescing`, above `Lambda` — and it is
+%% why `x when (n > 3) => :high`, `x when flag => 1`, `Rule(:member) -> n =>
+%% n - 100` and `[n => n + 1]` all parse (ticket 76 Q1, reversing F46's
+%% argument-only form). A lambda inside a guard needs a parenthesis, where
+%% the operand is an `expr` again and the checker refuses it by name.
+%%
+%% The operands that stay below the lambda are C#'s: a guard, `raise`'s
+%% operand, a refinement and the left of a bare `=`; `raise (n) => n` needs
+%% the bracket. Measured with `yecc:file/2` `{report, true}`: 4 before, 5
+%% after, the fifth being `rule(` reported from a second LALR state with the
+%% same shift. A one-line variant, `expr -> expr_low '=>' expr`, counts 4 and
+%% refuses `1 + n => n` as a malformed lambda parameter pointing at `1 + n`,
+%% where this grammar says `syntax error before: '=>'`; ticket 76 measured
+%% both and the build took this one.
 expr -> '(' expr_list ')' '=>' expr :
     {e_lambda, line('$4'), [to_param(E) || E <- '$2'], '$5'}.
 expr -> '(' ')' '=>' expr :
     {e_lambda, line('$3'), [], '$4'}.
-
-arg -> expr : '$1'.
-arg -> lident '=>' expr :
+expr -> lident '=>' expr :
     {e_lambda, line('$2'), [{p_var, line('$1'), value('$1')}], '$3'}.
+expr -> expr_low : '$1'.
 
 %% A name in value position: `Double` reads its arity from the arrow the site
 %% expects, `Double/1` writes it and is legal everywhere (ticket 75 Q3). The
@@ -600,26 +604,26 @@ arg -> lident '=>' expr :
 %% the construction, the instantiation and the written arity — the intended
 %% reads; `Double / n` is therefore a syntax error, and dividing a function
 %% was never a program.
-expr -> uident             : {e_fname, line('$1'), value('$1'), unknown}.
-expr -> uident '/' integer : {e_fname, line('$1'), value('$1'), value('$3')}.
+expr_low -> uident             : {e_fname, line('$1'), value('$1'), unknown}.
+expr_low -> uident '/' integer : {e_fname, line('$1'), value('$1'), value('$3')}.
 
 %% --- the pipe and the valve -------------------------------------------------
 %% The piped value becomes the first argument, and that rewrite is all a pipe
 %% is: `bs_lower:pipe_into/3` emits the call node here, so the checker and
 %% the emitter see `F(x, a)` and nothing else (ticket 17 §1).
-expr -> expr '|>' call : bs_lower:pipe_into(line('$2'), '$1', '$3').
+expr_low -> expr_low '|>' call : bs_lower:pipe_into(line('$2'), '$1', '$3').
 
 %% The valve branches, so it cannot be a rewrite here; `bs_lower:valves/1`
 %% turns it into a two-armed `switch` after the parse, because that needs two
 %% synthesised names per stage unique across the file and a yecc action
 %% cannot carry a counter (ticket 17 §4).
-expr -> expr '|?>' call : {e_valve, line('$2'), '$1', '$3'}.
+expr_low -> expr_low '|?>' call : {e_valve, line('$2'), '$1', '$3'}.
 
 %% `x |> F` with no argument list is refused by the grammar, not by a named
 %% production: two `expr '|>' modpath` productions would buy a better message
 %% and cost 2 shift/reduce conflicts against a grammar that holds 0.
 
-expr -> '(' expr_list ')' :
+expr_low -> '(' expr_list ')' :
     case '$2' of
         [Single] -> Single;
         Many     -> {e_tuple, line('$1'), Many}
@@ -628,7 +632,7 @@ expr -> '(' expr_list ')' :
 %% --- records in expression position -----------------------------------------
 %% Construction names the type and assigns with `=`; `:` matches in a pattern
 %% and declares in the type (ticket 26 §2).
-expr -> uident '{' assign_fields '}' :
+expr_low -> uident '{' assign_fields '}' :
     {e_record, line('$1'), value('$1'), '$3'}.
 
 assign_fields -> assign_field                   : ['$1'].
@@ -638,13 +642,13 @@ assign_field -> uident '=' expr : {value('$1'), '$3'}.
 
 %% `with` updates a record without changing its field set; there is no spread,
 %% so `{ ...o, X = 1 }` is a syntax error (ticket 26 §2).
-expr -> expr 'with' '{' assign_fields '}' :
+expr_low -> expr_low 'with' '{' assign_fields '}' :
     {e_with, line('$2'), '$1', '$4'}.
 
 %% The dot projects and is never a call: a lowercase receiver is a value and
 %% a PascalCase one is a module, so a field `Total` and a function `Total`
 %% coexist, told apart by syntax before types exist (ticket 17).
-expr -> lident '.' uident : {e_proj, line('$2'), value('$1'), value('$3')}.
+expr_low -> lident '.' uident : {e_proj, line('$2'), value('$1'), value('$3')}.
 
 %% --- switch -----------------------------------------------------------------
 %% A switch arm uses the clause head's own `pattern` nonterminal, so the
@@ -652,7 +656,7 @@ expr -> lident '.' uident : {e_proj, line('$2'), value('$1'), value('$3')}.
 %% added (ticket 17 §6). An arm's body is a single `expr`, not a `body`: arms
 %% are comma-separated and a body has no terminator, so `p => x = 1, x + 2`
 %% could not be told from two arms with one token of lookahead.
-expr -> expr 'switch' '{' switch_arms '}' :
+expr_low -> expr_low 'switch' '{' switch_arms '}' :
     {e_switch, line('$2'), '$1', '$4'}.
 
 switch_arms -> switch_arm                 : ['$1'].
@@ -663,8 +667,8 @@ switch_arms -> switch_arm ',' switch_arms : ['$1' | '$3'].
 switch_arm -> pattern guard '=>' expr :
     {arm, line('$3'), '$1', '$2', '$4'}.
 
-expr -> '[' ']'          : {e_nil, line('$1')}.
-expr -> '[' elist_items ']' :
+expr_low -> '[' ']'          : {e_nil, line('$1')}.
+expr_low -> '[' elist_items ']' :
     begin {Items, Rest} = '$2', {e_list, line('$1'), Items, Rest} end.
 
 elist_items -> expr                 : {['$1'], nil}.
@@ -672,23 +676,24 @@ elist_items -> '..' expr            : {[], '$2'}.
 elist_items -> expr ',' elist_items :
     begin {Items, Rest} = '$3', {['$1' | Items], Rest} end.
 
-expr -> expr '+'  expr : {e_op, line('$2'), '+',  '$1', '$3'}.
-expr -> expr '-'  expr : {e_op, line('$2'), '-',  '$1', '$3'}.
-expr -> expr '*'  expr : {e_op, line('$2'), '*',  '$1', '$3'}.
-expr -> expr '/'  expr : {e_op, line('$2'), '/',  '$1', '$3'}.
-expr -> expr '%'  expr : {e_op, line('$2'), '%',  '$1', '$3'}.
-expr -> expr '==' expr : {e_op, line('$2'), '==', '$1', '$3'}.
-expr -> expr '!=' expr : {e_op, line('$2'), '!=', '$1', '$3'}.
-expr -> expr '<'  expr : {e_op, line('$2'), '<',  '$1', '$3'}.
-expr -> expr '>'  expr : {e_op, line('$2'), '>',  '$1', '$3'}.
-expr -> expr '<=' expr : {e_op, line('$2'), '<=', '$1', '$3'}.
-expr -> expr '>=' expr : {e_op, line('$2'), '>=', '$1', '$3'}.
-expr -> expr 'and' expr : {e_op, line('$2'), 'and', '$1', '$3'}.
-expr -> expr 'or'  expr : {e_op, line('$2'), 'or',  '$1', '$3'}.
+expr_low -> expr_low '+'  expr_low : {e_op, line('$2'), '+',  '$1', '$3'}.
+expr_low -> expr_low '-'  expr_low : {e_op, line('$2'), '-',  '$1', '$3'}.
+expr_low -> expr_low '*'  expr_low : {e_op, line('$2'), '*',  '$1', '$3'}.
+expr_low -> expr_low '/'  expr_low : {e_op, line('$2'), '/',  '$1', '$3'}.
+expr_low -> expr_low '%'  expr_low : {e_op, line('$2'), '%',  '$1', '$3'}.
+expr_low -> expr_low '==' expr_low : {e_op, line('$2'), '==', '$1', '$3'}.
+expr_low -> expr_low '!=' expr_low : {e_op, line('$2'), '!=', '$1', '$3'}.
+expr_low -> expr_low '<'  expr_low : {e_op, line('$2'), '<',  '$1', '$3'}.
+expr_low -> expr_low '>'  expr_low : {e_op, line('$2'), '>',  '$1', '$3'}.
+expr_low -> expr_low '<=' expr_low : {e_op, line('$2'), '<=', '$1', '$3'}.
+expr_low -> expr_low '>=' expr_low : {e_op, line('$2'), '>=', '$1', '$3'}.
+expr_low -> expr_low 'and' expr_low : {e_op, line('$2'), 'and', '$1', '$3'}.
+expr_low -> expr_low 'or'  expr_low : {e_op, line('$2'), 'or',  '$1', '$3'}.
 
-%% An argument list holds expressions and the bare-name lambda (above).
-expr_list -> arg               : ['$1'].
-expr_list -> arg ',' expr_list : ['$1' | '$3'].
+%% An argument list, a tuple and a lambda's parameters hold expressions of
+%% the top tier, so a lambda is an argument in both spellings.
+expr_list -> expr               : ['$1'].
+expr_list -> expr ',' expr_list : ['$1' | '$3'].
 
 Erlang code.
 

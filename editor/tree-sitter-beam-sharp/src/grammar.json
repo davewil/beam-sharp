@@ -1024,7 +1024,7 @@
         },
         {
           "type": "SYMBOL",
-          "name": "_expression"
+          "name": "_guard_expression"
         }
       ]
     },
@@ -1765,19 +1765,99 @@
         {
           "type": "SYMBOL",
           "name": "raise_expression"
-        }
-      ]
-    },
-    "_argument": {
-      "type": "CHOICE",
-      "members": [
-        {
-          "type": "SYMBOL",
-          "name": "_expression"
         },
         {
           "type": "SYMBOL",
           "name": "bare_lambda"
+        }
+      ]
+    },
+    "_guard_expression": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "integer"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "atom"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "boolean"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "variable"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "wildcard"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "call"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "apply"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "instantiation"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "foreign_call"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "qualified_call"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "string"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "tuple"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "function_value"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "record_construction"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "record_update"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "projection"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "list"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "binary_expression"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "pipe_expression"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "switch_expression"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "raise_expression"
         }
       ]
     },
@@ -1804,7 +1884,7 @@
               "members": [
                 {
                   "type": "SYMBOL",
-                  "name": "_argument"
+                  "name": "_expression"
                 },
                 {
                   "type": "REPEAT",
@@ -1817,7 +1897,7 @@
                       },
                       {
                         "type": "SYMBOL",
-                        "name": "_argument"
+                        "name": "_expression"
                       }
                     ]
                   }
@@ -1861,7 +1941,7 @@
                 "members": [
                   {
                     "type": "SYMBOL",
-                    "name": "_argument"
+                    "name": "_expression"
                   },
                   {
                     "type": "REPEAT",
@@ -1874,7 +1954,7 @@
                         },
                         {
                           "type": "SYMBOL",
-                          "name": "_argument"
+                          "name": "_expression"
                         }
                       ]
                     }
@@ -1956,32 +2036,36 @@
       }
     },
     "bare_lambda": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "FIELD",
+          "name": "parameter",
+          "content": {
+            "type": "SYMBOL",
+            "name": "variable"
+          }
+        },
+        {
+          "type": "STRING",
+          "value": "=>"
+        },
+        {
+          "type": "FIELD",
+          "name": "body",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_lambda_body"
+          }
+        }
+      ]
+    },
+    "_lambda_body": {
       "type": "PREC_RIGHT",
       "value": 45,
       "content": {
-        "type": "SEQ",
-        "members": [
-          {
-            "type": "FIELD",
-            "name": "parameter",
-            "content": {
-              "type": "SYMBOL",
-              "name": "variable"
-            }
-          },
-          {
-            "type": "STRING",
-            "value": "=>"
-          },
-          {
-            "type": "FIELD",
-            "name": "body",
-            "content": {
-              "type": "SYMBOL",
-              "name": "_expression"
-            }
-          }
-        ]
+        "type": "SYMBOL",
+        "name": "_expression"
       }
     },
     "function_value": {
@@ -2082,7 +2166,7 @@
               "members": [
                 {
                   "type": "SYMBOL",
-                  "name": "_argument"
+                  "name": "_expression"
                 },
                 {
                   "type": "REPEAT",
@@ -2095,7 +2179,7 @@
                       },
                       {
                         "type": "SYMBOL",
-                        "name": "_argument"
+                        "name": "_expression"
                       }
                     ]
                   }
@@ -2148,7 +2232,7 @@
               "members": [
                 {
                   "type": "SYMBOL",
-                  "name": "_argument"
+                  "name": "_expression"
                 },
                 {
                   "type": "REPEAT",
@@ -2161,7 +2245,7 @@
                       },
                       {
                         "type": "SYMBOL",
-                        "name": "_argument"
+                        "name": "_expression"
                       }
                     ]
                   }
@@ -2217,7 +2301,7 @@
                 "members": [
                   {
                     "type": "SYMBOL",
-                    "name": "_argument"
+                    "name": "_expression"
                   },
                   {
                     "type": "REPEAT",
@@ -2230,7 +2314,7 @@
                         },
                         {
                           "type": "SYMBOL",
-                          "name": "_argument"
+                          "name": "_expression"
                         }
                       ]
                     }
@@ -3062,6 +3146,14 @@
     [
       "type_identifier",
       "function_name"
+    ],
+    [
+      "_guard_expression",
+      "bare_lambda"
+    ],
+    [
+      "_expression",
+      "bare_lambda"
     ]
   ],
   "precedences": [],

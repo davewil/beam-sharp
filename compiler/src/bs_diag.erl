@@ -299,6 +299,16 @@ built(Path, {Sev, Line, Fn, {not_callable, Var, Arity, Ty}}) ->
     (at(Sev, Path, Line, Fn))#{tag => not_callable,
                                name => Var, arity => Arity,
                                type => bs_types:to_string(Ty)};
+%% Both bounds and the argument each came from (ticket 76 Q3): the fix is at
+%% one of the two arguments, and only the author knows which.
+built(Path, {Sev, Line, Fn, {instantiation_conflict, Callee, Var, LowPos, Low,
+                             UpPos, Up}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => instantiation_conflict,
+                               callee => Callee, type_variable => Var,
+                               lower_argument => LowPos,
+                               lower => bs_types:to_string(Low),
+                               upper_argument => UpPos,
+                               upper => bs_types:to_string(Up)};
 built(Path, {Sev, Line, Fn, {validate_over_arrow, Ty}}) ->
     (at(Sev, Path, Line, Fn))#{tag => validate_over_arrow,
                                type => bs_types:to_string(Ty)};
@@ -1139,6 +1149,17 @@ message(#{tag := not_callable, file := P, line := L, column := C, function := Fn
      "    ~s~n"
      "  only a value whose type is an arrow of this arity can be called.~n",
      [P, L, C, Fn, Var, Arity, plural(Arity), Var, Type]};
+message(#{tag := instantiation_conflict, file := P, line := L, column := C, function := Fn,
+          callee := Callee, type_variable := Var, lower_argument := LowPos,
+          lower := Low, upper_argument := UpPos, upper := Up}) ->
+    {"~s:~p:~p: error: ~s calls ~s with arguments that disagree about ~s~n"
+     "  argument ~p supplies ~s as:~n"
+     "    ~s~n"
+     "  argument ~p accepts ~s only as:~n"
+     "    ~s~n"
+     "  no ~s satisfies both, so a value from one would reach a function~n"
+     "  that does not take it.~n",
+     [P, L, C, Fn, Callee, Var, LowPos, Var, Low, UpPos, Var, Up, Var]};
 message(#{tag := validate_over_arrow, file := P, line := L, column := C, function := Fn,
           type := Type}) ->
     {"~s:~p:~p: error: ~s asks ValidateAs to check a function~n"

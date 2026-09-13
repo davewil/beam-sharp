@@ -83,6 +83,12 @@ module.exports = grammar({
     // shifts on every one of those tokens, and GLR reads one token further to
     // find out which it was.
     [$.type_identifier, $.function_name],
+    // Ticket 76 — a name followed by `=>` is a bare lambda's parameter or the
+    // last operand of a guard, and which one is decided by whether an arm's
+    // `=>` follows; `bs_parser.yrl` settles it by parsing a guard below the
+    // lambda, and GLR settles it by keeping the reading that survives.
+    [$._guard_expression, $.bare_lambda],
+    [$._expression, $.bare_lambda],
   ],
 
   rules: {
@@ -270,7 +276,12 @@ module.exports = grammar({
       field('body', $.body),
     ),
 
-    guard: $ => seq('when', $._expression),
+    // Ticket 76 — a guard is parsed at the tier below the lambda, as
+    // `bs_parser.yrl`'s `guard_expr -> expr_low` is: `x when flag => 1` closes
+    // the guard at the `=>` rather than reading `flag => 1` as a lambda. A
+    // guard's operands are still whole expressions, and a lambda there keeps
+    // its low precedence, so `x when x > m => 0` reduces the comparison first.
+    guard: $ => seq('when', $._guard_expression),
 
     // A body is zero or more bindings followed by one expression (ticket 34).
     body: $ => prec.right(seq(repeat($.binding), $._expression)),
@@ -451,17 +462,38 @@ module.exports = grammar({
       $.pipe_expression,
       $.switch_expression,
       $.raise_expression,
+      // F46 / ticket 76 — both spellings of a lambda are expressions.
+      $.bare_lambda,
     ),
 
-    // F46 / ticket 75 — an ARGUMENT is an expression or the bare-name lambda
-    // `n => e`, which the compiler admits only here: as a general expression
-    // it would turn every switch-arm guard that ends in a name, `x when x > m
-    // => 0`, into a lambda. The parenthesised form is a general expression.
-    _argument: $ => choice($._expression, $.bare_lambda),
+    // Every expression form but the two lambdas (ticket 76).
+    _guard_expression: $ => choice(
+      $.integer,
+      $.atom,
+      $.boolean,
+      $.variable,
+      $.wildcard,
+      $.call,
+      $.apply,
+      $.instantiation,
+      $.foreign_call,
+      $.qualified_call,
+      $.string,
+      $.tuple,
+      $.function_value,
+      $.record_construction,
+      $.record_update,
+      $.projection,
+      $.list,
+      $.binary_expression,
+      $.pipe_expression,
+      $.switch_expression,
+      $.raise_expression,
+    ),
 
     call: $ => seq(
       field('function', $.function_name),
-      '(', optional(commaSep1($._argument)), ')',
+      '(', optional(commaSep1($._expression)), ')',
     ),
 
     // `rule(cents)` — a call through a BOUND NAME, the fourth call form. A
@@ -471,7 +503,7 @@ module.exports = grammar({
     // the compiler shifts into the call there.
     apply: $ => prec(1, seq(
       field('function', $.variable),
-      '(', optional(commaSep1($._argument)), ')',
+      '(', optional(commaSep1($._expression)), ')',
     )),
 
     // A lambda in C#'s spelling: patterns for parameters, one expression for
@@ -483,10 +515,18 @@ module.exports = grammar({
       '=>', field('body', $._expression),
     )),
 
-    bare_lambda: $ => prec.right(PREC.lambda, seq(
+    // The precedence sits on the BODY alone, so it still runs as far right as
+    // it can, and not on the parameter: at a name with `=>` ahead, a
+    // precedence on the whole rule would settle the parse as a lambda before
+    // the parser knew whether it was inside a guard. Left open, it is the
+    // `[$._expression, $.bare_lambda]` conflict declared above, and GLR keeps
+    // the reading that finds its arm's `=>` (ticket 76).
+    bare_lambda: $ => seq(
       field('parameter', $.variable),
-      '=>', field('body', $._expression),
-    )),
+      '=>', field('body', $._lambda_body),
+    ),
+
+    _lambda_body: $ => prec.right(PREC.lambda, $._expression),
 
     // A name in value position: `Double` where the site fixes the arity,
     // `Double/1` where the author writes it. Labelled as a function, not a
@@ -509,7 +549,7 @@ module.exports = grammar({
     instantiation: $ => seq(
       field('obligation', $.type_identifier),
       '<', commaSep1($.type_expression), '>',
-      '(', optional(commaSep1($._argument)), ')',
+      '(', optional(commaSep1($._expression)), ')',
     ),
 
     // `:ets.lookup(t, k)` — an atom literal on the left, so no variable and no
@@ -518,7 +558,7 @@ module.exports = grammar({
       field('module', $.atom),
       '.',
       field('function', $.lident),
-      '(', optional(commaSep1($._argument)), ')',
+      '(', optional(commaSep1($._expression)), ')',
     ),
 
     // `List.Map(xs)` — a uident path on the left, which is the third and last of
@@ -528,7 +568,7 @@ module.exports = grammar({
       field('module', $.module_path),
       '.',
       field('function', $.uident),
-      '(', optional(commaSep1($._argument)), ')',
+      '(', optional(commaSep1($._expression)), ')',
     )),
 
     tuple: $ => seq('(', commaSep1($._expression), ')'),
