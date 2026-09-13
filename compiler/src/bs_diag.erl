@@ -1297,7 +1297,7 @@ message(#{tag := validate_collapses, file := P, line := L, column := C, function
 message(#{tag := validate_indiscriminable, file := P, line := L, column := C,
           function := Fn, type := Ty, member := M, beside := B}) ->
     {"~s:~p:~p: error: ~s validates into a union whose members no clause head can tell apart~n"
-     "  no clause head can tell `~s` from `~s`~n"
+     "  the members are `~s` and `~s`~n"
      "  the type is: ~s~n"
      "  The validator works out which member arrived, then returns a type~n"
      "  with nowhere to keep the answer: a caller can pass the value on but~n"

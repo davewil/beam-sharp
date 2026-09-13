@@ -597,10 +597,8 @@ jobs:
         working-directory: compiler
         run: ./bin/check-collapse.sh
 
-      # F18 / ENG-347. The `reachability` stub is the plausible fix: the
-      # declaration predicate reused at the obligation site refuses the pair
-      # written inside the bracket and lets the ticket's own program through,
-      # because a list pattern reaches both members without separating them.
+      # F18 / ENG-347. The `reachability` stub is the declaration predicate
+      # reused at the obligation site, which lets the ticket's program through.
       - name: The validate-target gate proves it can fail
         working-directory: compiler
         run: ./bin/check-validate-target.sh --self-test

@@ -94,11 +94,13 @@ probe() {
   emit V5 'type Pair = (int, int) | (atom, atom)' 'result<Pair, ValidationError>' 'Pair'
   emit V6 '' 'term' 'list<int> | list<atom>'
   emit V7 '' 'term' '(int, int) | (int, atom)'
-  (cd "$dir" && for v in $REFUSE; do "$BSC" "$v" > "$v.out" 2>&1 || true; done)
-  (cd "$dir" && "$BSC" V4 Decode '(:nums, [])' > V4.out 2>&1 || true)
-  (cd "$dir" && "$BSC" V5 Decode '(1, 2)'      > V5.out 2>&1 || true)
-  (cd "$dir" && "$BSC" V6 Decode '[:a]'        > V6.out 2>&1 || true)
-  (cd "$dir" && "$BSC" V7 Decode '(1, :a)'     > V7.out 2>&1 || true)
+  # Each accept is handed the value it must return: a valid term validates to
+  # itself.
+  (cd "$dir" &&
+     for v in $REFUSE; do "$BSC" "$v" > "$v.out" 2>&1 || true; done &&
+     for v in $ACCEPT; do
+       "$BSC" "$v" Decode "$(expected_value "$v")" > "$v.out" 2>&1 || true
+     done)
 }
 
 # ---------------------------------------------------------------------------

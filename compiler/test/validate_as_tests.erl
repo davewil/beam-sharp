@@ -679,3 +679,36 @@ a_guard_on_the_first_element_tells_two_lists_apart_test() ->
     ?assertEqual([1, 2], M:'Decode'([1, 2])),
     ?assertEqual([a], M:'Decode'([a])),
     ?assertEqual([], M:'Decode'([])).
+
+%% A recursive element is not taken apart; `Tree` holds no integer, so the
+%% guard `is_integer` on the first element still tells the lists apart.
+a_recursive_element_beside_a_guardable_one_is_accepted_test() ->
+    Src = "module VaTreeList\n"
+          "type Tree = :leaf | (:node, Tree, Tree)\n"
+          "public term Decode(term t)\n"
+          "Decode(t) -> ValidateAs<list<Tree> | list<int>>(t)\n",
+    M = build_and_load(Src, 'VaTreeList'),
+    ?assertEqual([{node, leaf, leaf}], M:'Decode'([{node, leaf, leaf}])),
+    ?assertEqual([7], M:'Decode'([7])).
+
+%% Two records whose field names differ are told apart by a field one has and
+%% the other cannot.
+records_with_different_fields_are_accepted_test() ->
+    Src = "module VaShapes\n"
+          "record Point { X: int }\n"
+          "record Label { Text: string }\n"
+          "public term Decode(term t)\n"
+          "Decode(t) -> ValidateAs<Point | Label>(t)\n",
+    M = build_and_load(Src, 'VaShapes'),
+    P = #{'Kind' => 'VaShapes.Point', 'X' => 1},
+    L = #{'Kind' => 'VaShapes.Label', 'Text' => <<"hi">>},
+    ?assertEqual(P, M:'Decode'(P)),
+    ?assertEqual(L, M:'Decode'(L)).
+
+%% A target that collapses AND holds an inseparable pair reports the collapse
+%% alone: the pair is asked only of a target that survived the earlier checks.
+a_collapsing_target_reports_only_the_collapse_test() ->
+    Src = "module VaBoth\n"
+          "public term Decode(term t)\n"
+          "Decode(t) -> ValidateAs<result<map<string, int> | map<string, binary>, ValidationError>>(t)\n",
+    ?assertMatch([{error, _, 'Decode', {validate_collapses, _}}], errors(Src)).

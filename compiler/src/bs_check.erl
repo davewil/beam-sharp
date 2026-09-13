@@ -3297,20 +3297,24 @@ type_of({e_inst, L, 'ValidateAs', TypeArgs, Args}, S, C) ->
             %% A fun's type is not recoverable at run time, so a `T`
             %% holding an arrow has nothing a traversal could check
             %% (ticket 11, F46).
-            case {has_arrow(Ty), validate_collapses(Ty, C#ctx.types),
-                  untold_members(Ty)} of
-                {true, _, _} ->
+            %% The member pair is asked last, so a target refused for an
+            %% arrow or for collapsing reports that and nothing else.
+            case {has_arrow(Ty), validate_collapses(Ty, C#ctx.types)} of
+                {true, _} ->
                     {reported(),
                      D0 ++ [{error, L, C#ctx.fname, {validate_over_arrow, Ty}}]};
-                {_, true, _} ->
+                {_, true} ->
                     {reported(),
                      D0 ++ [{error, L, C#ctx.fname, {validate_collapses, Ty}}]};
-                {_, _, {A, B}} ->
-                    {reported(),
-                     D0 ++ [{error, L, C#ctx.fname,
-                             {validate_indiscriminable, Ty, A, B}}]};
                 _ ->
-                    {validate_result(Ty, C#ctx.types), D0}
+                    case inseparable_pair(Ty) of
+                        {A, B} ->
+                            {reported(),
+                             D0 ++ [{error, L, C#ctx.fname,
+                                     {validate_indiscriminable, Ty, A, B}}]};
+                        none ->
+                            {validate_result(Ty, C#ctx.types), D0}
+                    end
             end;
         _ ->
             {reported(),
@@ -3557,24 +3561,20 @@ absorbed(Member, Others) -> bs_types:is_subtype(Member, Others).
 %% The first pair of `ValidateAs<T>`'s normalised members no clause head can
 %% tell apart, or `none` (ENG-347, ticket 70).
 %%
-%% THIS IS NOT THE DECLARATION CHECK, AND IT MUST NOT BECOME IT. `pairwise/3`
-%% asks whether a pattern REACHES a member, which ticket 68 settled as the rule
-%% for what may be declared; ticket 70 kept `list<map<string, int>> |
-%% list<map<string, binary>>` legal under it. A validator over that type decides
-%% which member arrived and returns a type that cannot say, so here the
-%% question is whether a head SEPARATES the two — `bs_types:separable/2`, which
-%% descends through the container a pattern reaches both members by. Reusing
-%% `pairwise/3` refuses only a pair written inside the bracket, where no
-%% declaration pass looks, and lets the ticket's own program through.
-untold_members(Ty) ->
-    first_untold(bs_types:constituents(Ty)).
+%% The declaration check's `pairwise/3` is the wrong question here. It asks
+%% whether a pattern reaches each member, and ticket 70 keeps a type legal on
+%% that answer that a validator cannot usefully return; `bs_types:separable/2`
+%% says why. Reusing `pairwise/3` would refuse only a pair written inside the
+%% bracket and let the ticket's own program through.
+inseparable_pair(Ty) ->
+    first_inseparable(bs_types:constituents(Ty)).
 
-first_untold([]) ->
+first_inseparable([]) ->
     none;
-first_untold([A | Rest]) ->
+first_inseparable([A | Rest]) ->
     case [B || B <- Rest, not bs_types:separable(A, B)] of
         [B | _] -> {A, B};
-        []      -> first_untold(Rest)
+        []      -> first_inseparable(Rest)
     end.
 
 %%% ---------------------------------------------------------------------------
