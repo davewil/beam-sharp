@@ -120,6 +120,22 @@ runs cannot see the first.
 One mistake voids both at once. If `HEAD` moves after the clone — an amend, a rebase — the two
 runs measured a commit that no longer exists. Commit first, then clone, then run twice.
 
+**Tests are Erlang and gates are shell.** The eunit modules under `compiler/test/` test the
+compiler at its boundary: source text in, a callable `.beam` out. A gate is a bash script under
+`bin/`, `compiler/bin/` or `editor/bin/`, and it checks what that suite cannot reach: the Markdown
+documents, the CI workflow, the pinned toolchain, the editor grammars, Dialyzer's verdict on the
+emitted specs, and `bsc` run as its own process. Every gate reports one exit status, so
+`--self-test` and `bin/check-gates-wired.sh` treat all of them the same way.
+`compiler/bin/spec-check.sh` is a gate because a wrong `-spec` is a defect Dialyzer names and the
+unit suite cannot see. `compiler/bin/check-tour.sh` tests at the CLI: a `$ bsc` line in `TOUR.md`
+claims what that command prints, so the gate hands every transcript's arguments to one
+`bsc --batch` run and compares each output with the pasted text byte for byte. The cost of shell is recorded in `bin/check-shell.sh`, whose header lists gate bugs that
+reported success while broken. It runs shellcheck over the gates at severity `info`, because
+SC2086, the unquoted-expansion check, is an `info` finding that a `warning` threshold would never
+report.
+<!-- ENG-316, point 3 of ENG-313. The test-suite boundary was ruled in 85d872d, when a gate over
+     the design map went in bin/ because "map.md size is not a concern of the test suite". -->
+
 The test stage has no retry. Local verification and CI both invoke `rebar3 eunit`, under EUnit's
 five-second per-test timeout, so a red is believed on its first showing. Each EUnit VM owns a
 separate fixture root under `compiler/_build/test/bsc_eunit/`; source fixtures are separate again
