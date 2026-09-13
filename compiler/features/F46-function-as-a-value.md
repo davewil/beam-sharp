@@ -13,7 +13,8 @@
                 suite, and `examples/Shop/Discounts/`: `n => e` is an expression everywhere and
                 a guard is parsed below the lambda; a polymorphic call's arguments are
                 re-checked under a solution chosen by each variable's variance in the declared
-                return. See *Amended by ticket 76* below
+                return. See *Amended by ticket 76* below. `./bin/verify.sh` green **twice from
+                a clean clone** at `2be9edc`, 40 stages each
 **Implements**  [ticket 75](../../wayfinder/issues/75-a-function-as-a-value.md), resolved
                 2026-09-12 in two rounds: the arrow `fn(T) -> U` as a type of the language,
                 the lambda `(a, b) => e` in C#'s spelling, a name in value position, and a call
