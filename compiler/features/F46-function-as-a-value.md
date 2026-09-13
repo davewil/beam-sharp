@@ -334,7 +334,8 @@ polarity in the declared return and takes the join of its lower bounds where the
 covariant in it or does not mention it, and the meet of its upper bounds where it is contravariant.
 That is Pierce and Turner's minimal substitution (*Local Type Inference*, TOPLAS 22(1), 2000, §3
 and §5.7, read from the paper for this amendment), taken as the paper takes it where a set is
-empty: no lower bounds join to `none`, no upper bounds meet at `term`. An erased variable is `term`.
+empty: §3.3 writes the empty constraint set as the trivial `Bot <: X <: Top` for every variable,
+so no lower bounds join to `none` and no upper bounds meet at `term`, B#'s bottom and top. An erased variable is `term`.
 Each lower bound is compared with each upper bound on its own, so the refusal names the value an
 argument supplies rather than a union it is part of.
 Where the join of the lower bounds is not inside an upper bound, the call is refused:
