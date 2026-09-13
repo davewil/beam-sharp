@@ -351,6 +351,14 @@ built(Path, {Sev, Line, Fn, wildcard_as_value}) ->
 built(Path, {Sev, Line, Fn, {validate_collapses, Ty}}) ->
     (at(Sev, Path, Line, Fn))#{tag => validate_collapses,
                                type => bs_types:to_string(Ty)};
+%% A target two of whose members no clause head can tell apart (ENG-347,
+%% ticket 70). The pair is the first the check found, named as the normalised
+%% members an author would write a clause for.
+built(Path, {Sev, Line, Fn, {validate_indiscriminable, Ty, A, B}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => validate_indiscriminable,
+                               type => bs_types:to_string(Ty),
+                               member => bs_types:to_string(A),
+                               beside => bs_types:to_string(B)};
 built(Path, {Sev, Line, Fn, {map_pattern_deferred, Site, Ty}}) ->
     (at(Sev, Path, Line, Fn))#{tag => map_pattern_deferred,
                                site => Site,
@@ -1284,6 +1292,18 @@ message(#{tag := validate_collapses, file := P, line := L, column := C, function
      "  write the failure clause. Validate against the type you actually~n"
      "  expect.~n",
      [P, L, C, Fn, Ty]};
+%% The declaration is legal (ticket 70); the objection is to validating into
+%% it, so the repair is a different target rather than a different type.
+message(#{tag := validate_indiscriminable, file := P, line := L, column := C,
+          function := Fn, type := Ty, member := M, beside := B}) ->
+    {"~s:~p:~p: error: ~s validates into a union whose members no clause head can tell apart~n"
+     "  no clause head can tell `~s` from `~s`~n"
+     "  the type is: ~s~n"
+     "  The validator works out which member arrived, then returns a type~n"
+     "  with nowhere to keep the answer: a caller can pass the value on but~n"
+     "  never dispatch on it. Tag the members - `(:a, ...) | (:b, ...)` -~n"
+     "  and validate against that.~n",
+     [P, L, C, Fn, M, B, Ty]};
 %% Says the compiler is not ready, not that the pattern is wrong:
 %% `{ Status: s }` is a member of `map<atom, term>`, so "matches no value"
 %% would be false.

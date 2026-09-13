@@ -2038,6 +2038,14 @@ so `<T>` never becomes a runtime value and no type variable survives into the al
 **ground**: a codegen obligation cannot be generated for a type nobody has chosen yet, which is why
 `ValidateAs<TSource>` inside a polymorphic function is an error rather than a generic call.
 
+**`T`'s members must be ones a clause head can tell apart.** The validator works out which member of
+`T` a term belongs to and returns a `T`, so where no head can separate two members the answer is
+lost. `ValidateAs<list<map<string, int>> | list<map<string, binary>>>` is an error even though that
+type is legal to declare: a list pattern reaches both members and nothing at the element separates
+them. Tag the members, `(:nums, list<map<string, int>>) | (:text, list<map<string, binary>>)`, and
+validate against that. `list<int> | list<atom>` is accepted, because a guard on the first element
+tells the two apart.
+
 **`ValidationError` is a path into the term plus the type expected there** — a `(list<string>,
 string)` today, and a candidate to become a record if one is ever introduced for it. A path segment
 is spelled the way you would reach that place: `".Value"` for a field, `"[0]"` for a list element,

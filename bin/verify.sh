@@ -303,6 +303,9 @@ run_stages \
   "A declared failure channel survives normalisation" \
     "cd compiler && ./bin/check-collapse.sh --self-test && ./bin/check-collapse.sh" \
 \
+  "\`ValidateAs<T>\` refuses a target no clause head can take apart" \
+    "cd compiler && ./bin/check-validate-target.sh --self-test && ./bin/check-validate-target.sh" \
+\
   "The valve stops on the fixed pair, and a narrowing stage does not widen it" \
     "cd compiler && ./bin/check-valve.sh --self-test && ./bin/check-valve.sh" \
 \

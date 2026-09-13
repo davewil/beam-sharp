@@ -3297,13 +3297,18 @@ type_of({e_inst, L, 'ValidateAs', TypeArgs, Args}, S, C) ->
             %% A fun's type is not recoverable at run time, so a `T`
             %% holding an arrow has nothing a traversal could check
             %% (ticket 11, F46).
-            case {has_arrow(Ty), validate_collapses(Ty, C#ctx.types)} of
-                {true, _} ->
+            case {has_arrow(Ty), validate_collapses(Ty, C#ctx.types),
+                  untold_members(Ty)} of
+                {true, _, _} ->
                     {reported(),
                      D0 ++ [{error, L, C#ctx.fname, {validate_over_arrow, Ty}}]};
-                {_, true} ->
+                {_, true, _} ->
                     {reported(),
                      D0 ++ [{error, L, C#ctx.fname, {validate_collapses, Ty}}]};
+                {_, _, {A, B}} ->
+                    {reported(),
+                     D0 ++ [{error, L, C#ctx.fname,
+                             {validate_indiscriminable, Ty, A, B}}]};
                 _ ->
                     {validate_result(Ty, C#ctx.types), D0}
             end;
@@ -3548,6 +3553,29 @@ validate_collapses(Ty, Env) ->
 %% `Success` while the rule was the failure channel's; ticket 68 Q1(a) made it
 %% every member, and the predicate itself never changed.
 absorbed(Member, Others) -> bs_types:is_subtype(Member, Others).
+
+%% The first pair of `ValidateAs<T>`'s normalised members no clause head can
+%% tell apart, or `none` (ENG-347, ticket 70).
+%%
+%% THIS IS NOT THE DECLARATION CHECK, AND IT MUST NOT BECOME IT. `pairwise/3`
+%% asks whether a pattern REACHES a member, which ticket 68 settled as the rule
+%% for what may be declared; ticket 70 kept `list<map<string, int>> |
+%% list<map<string, binary>>` legal under it. A validator over that type decides
+%% which member arrived and returns a type that cannot say, so here the
+%% question is whether a head SEPARATES the two — `bs_types:separable/2`, which
+%% descends through the container a pattern reaches both members by. Reusing
+%% `pairwise/3` refuses only a pair written inside the bracket, where no
+%% declaration pass looks, and lets the ticket's own program through.
+untold_members(Ty) ->
+    first_untold(bs_types:constituents(Ty)).
+
+first_untold([]) ->
+    none;
+first_untold([A | Rest]) ->
+    case [B || B <- Rest, not bs_types:separable(A, B)] of
+        [B | _] -> {A, B};
+        []      -> first_untold(Rest)
+    end.
 
 %%% ---------------------------------------------------------------------------
 %%% `ParseAtom<T>` (ticket 10 §4, F39)

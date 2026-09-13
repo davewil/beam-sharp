@@ -597,6 +597,18 @@ jobs:
         working-directory: compiler
         run: ./bin/check-collapse.sh
 
+      # F18 / ENG-347. The `reachability` stub is the plausible fix: the
+      # declaration predicate reused at the obligation site refuses the pair
+      # written inside the bracket and lets the ticket's own program through,
+      # because a list pattern reaches both members without separating them.
+      - name: The validate-target gate proves it can fail
+        working-directory: compiler
+        run: ./bin/check-validate-target.sh --self-test
+
+      - name: '`ValidateAs<T>` refuses a target no clause head can take apart'
+        working-directory: compiler
+        run: ./bin/check-validate-target.sh
+
       # F30 / ENG-279. Four of the gate's five defects pass the headline: a
       # build that keys the short-circuit on the stage's declared parameter
       # type compiles every positive scenario and fails on V6 alone, which is

@@ -45,6 +45,10 @@
 %% The matchability oracle (ticket 68 Q8(b), Q9(b)). It shares the structured
 %% intermediate below with the printer above rather than reading its text.
 -export([head_reach/1, guard_buckets/1, constituents/1]).
+%% The stronger question `ValidateAs<T>` asks of a pair of constituents: not
+%% whether a head reaches each one, but whether a head tells them apart
+%% (ENG-347, ticket 70).
+-export([separable/2]).
 %% `mu/2` names a type so its own body can refer back to it; `recvar/1` is
 %% that back-reference; `unfold/1` is the only way to look inside one, and
 %% every operation here calls it before touching a part (F28).
@@ -1710,6 +1714,100 @@ constituents(#{atoms := As, ints := Is, tuples := Ts, lists := Ls,
 %% take apart.
 part_cs(top, Mk) -> [Mk(top)];
 part_cs(Ps, Mk)  -> [Mk([P]) || P <- Ps].
+
+%% CAN A CLAUSE HEAD TELL CONSTITUENT A FROM CONSTITUENT B? (ENG-347, ticket 70)
+%%
+%% STRONGER THAN `head_reach/1`, and asked only at `ValidateAs<T>`'s obligation
+%% site. A pattern that reaches one member can reach its neighbour as well:
+%% `[x, ..]` reaches both `[map<string, int>, ..]` and
+%% `[map<string, binary>, ..]` and tells them apart nowhere. So where two
+%% constituents share a guard bucket, the question descends into what a head
+%% would read there — a tuple slot, a list position every value has, a map key
+%% — and is asked again of the types found. One position that separates is
+%% enough, because a head can guard on that position alone.
+%%
+%% IT UNDER-REFUSES AND NEVER OVER-REFUSES. A pair it does not model answers
+%% `true`: a recursive binder, and a named-field map beside a domain.
+%%
+%% PRECONDITION: both arguments come from `constituents/1`, so each has one
+%% inhabited part, as `guard_buckets/1` requires.
+separable(#{mu := _}, _)     -> true;
+separable(_, #{mu := _})     -> true;
+separable(#{recvar := _}, _) -> true;
+separable(_, #{recvar := _}) -> true;
+separable(A, B) ->
+    Bs = guard_buckets(B),
+    case [X || X <- guard_buckets(A), lists:member(X, Bs)] of
+        []           -> true;
+        [Shared | _] -> same_bucket(Shared, A, B)
+    end.
+
+%% Two atom sets, or two integer ranges, are told apart by a literal or a
+%% relational pattern exactly when no value is in both.
+same_bucket(atom, A, B) ->
+    is_none(intersect(A, B));
+same_bucket(int, A, B) ->
+    is_none(intersect(A, B));
+same_bucket(tuple, #{tuples := [P]}, #{tuples := [Q]}) ->
+    length(P) =/= length(Q)
+        orelse lists:any(fun({X, Y}) -> parts_separable(X, Y) end,
+                         lists:zip(P, Q));
+same_bucket(list, #{lists := [S]}, #{lists := [R]}) ->
+    spines_separable(closed_rest(S), closed_rest(R));
+same_bucket(map, #{maps := [M]}, #{maps := [N]}) ->
+    maps_separable(M, N);
+%% A string is told from a binary only by reading every byte, two arrows of
+%% one arity only by calling them (ticket 75), and a `top` part holds its
+%% neighbour whole.
+same_bucket(_, _, _) ->
+    false.
+
+%% `{P, {open, none}}` admits nothing past its prefix, which is `closed`.
+closed_rest({P, {open, none}}) -> {P, closed};
+closed_rest(S)                 -> S.
+
+%% A length no value of the other spine has is a pattern of its own; after
+%% that, only a position every value of BOTH spines has can be guarded on.
+spines_separable({P, _} = S, {Q, _} = R) ->
+    N = min(length(P), length(Q)),
+    lengths_disjoint(S, R)
+        orelse lists:any(fun({X, Y}) -> parts_separable(X, Y) end,
+                         lists:zip(lists:sublist(P, N), lists:sublist(Q, N))).
+
+lengths_disjoint({P, closed}, {Q, closed})          -> length(P) =/= length(Q);
+lengths_disjoint({P, closed}, {Q, {open, _}})       -> length(P) < length(Q);
+lengths_disjoint({_, {open, _}} = S, {_, closed} = R) -> lengths_disjoint(R, S);
+lengths_disjoint(_, _)                              -> false.
+
+%% Two domains both hold `#{}`. A named-field map beside a domain is told apart
+%% by `Kind` when it carries one, since a domain excludes it (ticket 48 Q3);
+%% without one the pair is not modelled, and answers `true`.
+maps_separable({dom, _, _}, {dom, _, _}) ->
+    false;
+maps_separable({dom, _, _}, _) ->
+    true;
+maps_separable(_, {dom, _, _}) ->
+    true;
+maps_separable({KA, FA}, {KB, FB}) ->
+    lacks(FA, KB, FB) orelse lacks(FB, KA, FA)
+        orelse lists:any(fun(K) -> parts_separable(maps:get(K, FA),
+                                                   maps:get(K, FB))
+                         end,
+                         [K || K <- maps:keys(FA), maps:is_key(K, FB)]).
+
+%% Every value of one member carries a key no value of a CLOSED neighbour can,
+%% so `{ K: _ }` tells them apart. An open neighbour may carry any key.
+lacks(Fs, closed, Other) ->
+    lists:any(fun(K) -> not maps:is_key(K, Other) end, maps:keys(Fs));
+lacks(_, open, _) ->
+    false.
+
+%% Two positions are told apart when every constituent of one is told apart
+%% from every constituent of the other.
+parts_separable(X, Y) ->
+    Ys = constituents(Y),
+    lists:all(fun(A) -> lists:all(fun(B) -> separable(A, B) end, Ys) end,
+              constituents(X)).
 
 %% The top is a binder, not `term`: `Fn(term)` binds a variable named `term`,
 %% which is not what the word was chosen to mean. The top keeps its word on the

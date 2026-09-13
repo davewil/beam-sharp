@@ -517,7 +517,10 @@ prose_cases() ->
       "type ValidationError = int\n"
       "public int Go(int n)\n"
       "Go(n) -> n\n",
-      "compiler-known type and cannot be redeclared"}].
+      "compiler-known type and cannot be redeclared"},
+     {validate_indiscriminable,
+      payload_src("Batch<int> | Batch<binary>"),
+      "whose members no clause head can tell apart"}].
 
 every_new_diagnostic_reaches_the_author_as_prose_test_() ->
     [{atom_to_list(Tag), fun() -> assert_prose(Tag, Src, Fragment) end}
@@ -583,3 +586,96 @@ a_switch_reads_the_result_test() ->
     M = build_and_load(Src, 'VaConsume'),
     ?assertEqual(<<"yes">>, M:'Describe'(4)),
     ?assertEqual(<<"no">>, M:'Describe'(four)).
+
+%%% ---------------------------------------------------------------------------
+%%% F18.22 — a target no clause head can take apart (ENG-347, ticket 70)
+%%%
+%%% Ticket 70 keeps `list<map<string, int>> | list<map<string, binary>>` legal
+%%% to DECLARE. What it refuses is validating into it: the validator works out
+%%% which member arrived, and the type it returns has nowhere to keep the
+%%% answer. The refusal is the obligation site's; the declaration check is
+%%% unchanged, which the second test holds.
+%%% ---------------------------------------------------------------------------
+
+payload_src(Payload) ->
+    "module VaPayload\n"
+    "type Batch<T> = list<map<string, T>>\n"
+    "type Payload = " ++ Payload ++ "\n"
+    "public result<Payload, ValidationError> Decode(term t)\n"
+    "Decode(t) -> ValidateAs<Payload>(t)\n".
+
+%% The ticket's own program. A list pattern reaches both members, so the
+%% declaration check accepts them; nothing at the element tells them apart.
+validating_into_an_untagged_payload_is_refused_test() ->
+    ?assertMatch([{error, _, 'Decode', {validate_indiscriminable, _, _, _}}],
+                 errors(payload_src("Batch<int> | Batch<binary>"))).
+
+the_untagged_payload_is_still_legal_to_declare_test() ->
+    Src = "module VaPayloadDecl\n"
+          "type Batch<T> = list<map<string, T>>\n"
+          "type Payload = Batch<int> | Batch<binary>\n"
+          "public Payload Pass(Payload p)\n"
+          "Pass(p) -> p\n",
+    M = build_and_load(Src, 'VaPayloadDecl'),
+    ?assertEqual([], M:'Pass'([])).
+
+%% The author reads the two members the head cannot separate, and the repair.
+the_refusal_names_both_members_and_the_repair_test() ->
+    ?assert(filelib:is_regular(bs_test_support:escript())),
+    bs_test_support:with_src(
+      "in.bs", payload_src("Batch<int> | Batch<binary>"),
+      fun(Path, Root) ->
+              Out = bs_test_support:run_cli(
+                      "-o " ++ Root ++ "/out " ++ filename:dirname(Path)),
+              ?assertNotEqual(nomatch, string:find(Out, "rc:1")),
+              ?assertNotEqual(nomatch, string:find(Out, "`[map<string, int>, ..]`")),
+              ?assertNotEqual(nomatch, string:find(Out, "`[map<string, binary>, ..]`")),
+              ?assertNotEqual(nomatch, string:find(Out, "Tag the members"))
+      end).
+
+%% Tagging is that repair, and what comes back dispatches on the tag.
+a_tagged_payload_validates_test() ->
+    M = build_and_load(payload_src("(:nums, Batch<int>) | (:text, Batch<binary>)"),
+                       'VaPayload'),
+    Nums = {nums, [#{<<"a">> => 1}]},
+    Text = {text, [#{<<"a">> => <<"b">>}]},
+    ?assertEqual(Nums, M:'Decode'(Nums)),
+    ?assertEqual(Text, M:'Decode'(Text)),
+    ?assertMatch({error, _}, M:'Decode'({nums, [#{<<"a">> => <<"b">>}]})).
+
+%% Written inside the bracket, `Any`'s own pair reaches no declaration pass.
+an_undeclared_target_is_refused_test() ->
+    Src = "module VaInlinePair\n"
+          "public term Decode(term t)\n"
+          "Decode(t) -> ValidateAs<map<string, int> | map<string, binary>>(t)\n",
+    ?assertMatch([{error, _, 'Decode', {validate_indiscriminable, _, _, _}}],
+                 errors(Src)).
+
+%% A tuple slot is a container too: `int` in both first slots, the pair in the
+%% second.
+a_pair_in_a_tuple_slot_is_refused_test() ->
+    Src = "module VaSlotPair\n"
+          "public term Decode(term t)\n"
+          "Decode(t) -> ValidateAs<(int, map<string, int>) | (int, map<string, binary>)>(t)\n",
+    ?assertMatch([{error, _, 'Decode', {validate_indiscriminable, _, _, _}}],
+                 errors(Src)).
+
+%% `(x, y) when is_atom(y)` takes these apart, at the second slot.
+a_guard_on_one_slot_tells_the_members_apart_test() ->
+    Src = "module VaSlotGuard\n"
+          "public term Decode(term t)\n"
+          "Decode(t) -> ValidateAs<(int, int) | (int, atom)>(t)\n",
+    M = build_and_load(Src, 'VaSlotGuard'),
+    ?assertEqual({1, 2}, M:'Decode'({1, 2})),
+    ?assertEqual({1, a}, M:'Decode'({1, a})).
+
+%% `[x, ..] when is_integer(x)` takes these apart. `[]` belongs to both, so
+%% there is no member to report for it.
+a_guard_on_the_first_element_tells_two_lists_apart_test() ->
+    Src = "module VaListGuard\n"
+          "public term Decode(term t)\n"
+          "Decode(t) -> ValidateAs<list<int> | list<atom>>(t)\n",
+    M = build_and_load(Src, 'VaListGuard'),
+    ?assertEqual([1, 2], M:'Decode'([1, 2])),
+    ?assertEqual([a], M:'Decode'([a])),
+    ?assertEqual([], M:'Decode'([])).

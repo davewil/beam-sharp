@@ -16,6 +16,16 @@
 **Depends on**  F6 (the type-argument bracket, in *type* position), F3 (records, which is what a
                 deep validator mostly walks), F9 (`string` as a refinement of `binary`), F7/F14
                 (`switch` and the valve, which is how a caller consumes the `result`)
+**Amended**     2026-09-13, [ENG-347](https://linear.app/davewil/issue/ENG-347): `ValidateAs<T>` refuses
+                a target two of whose members no clause head can tell apart (F18.22), which is the
+                diagnostic [ticket 70](../../wayfinder/issues/70-a-container-of-indiscriminable-members.md)
+                owed. The question is `bs_types:separable/2`, not the declaration check's reachability,
+                so `list<map<string, int>> | list<map<string, binary>>` stays legal to declare and is
+                refused as a target: a list pattern reaches both members and separates them nowhere.
+                It under-refuses where it does not model a pair (a recursive type, a named-field map
+                beside a domain). **One site**: `bsc --api` reads no function body, and already printed
+                an API for a module whose body `ValidateAs<term>` refuses (measured 2026-09-13). Gate:
+                `compiler/bin/check-validate-target.sh`
 
 ## Why this one now
 
@@ -272,6 +282,7 @@ produces it.
 | F18.21 | a union of records with identical field names | run it | the minted `Kind` discriminates, so blame is exact | 0 |
 | F18.17 | `ValidateAs<Reading>` over `(:ok, int) \| (:error, atom)`, handed `(:ok, :nope)` | run it | `["(2)"]` / `int` — the unique-candidate descent | 0 |
 | F18.18 | a union with two products of the same arity | run it | blame at the node, with the whole union as the expectation | 0 |
+| F18.22 | `ValidateAs<Payload>` over `list<map<string, int>> \| list<map<string, binary>>`; the same pair written inside the bracket; the pair in a tuple slot | `bsc` | error: validates into a union whose members no clause head can tell apart, naming the pair and telling the author to tag the members (ticket 70). `(int, int) \| (int, atom)` and `list<int> \| list<atom>` still run, each told apart by a guard on one position | 1 |
 | F18.19 | the emitted module | `bin/spec-check.sh` | Dialyzer accepts every spec, generated functions included | 0 |
 | F18.20 | `LANGUAGE.md` §10 | `bin/check-language.sh` | the `ValidateAs` block compiles as **shipped** rather than `not-yet` | 0 |
 
