@@ -121,8 +121,8 @@ One mistake voids both at once. If `HEAD` moves after the clone — an amend, a 
 runs measured a commit that no longer exists. Commit first, then clone, then run twice.
 
 **Tests are Erlang and gates are shell.** The eunit modules under `compiler/test/` test the
-compiler at its boundary: source text in, a callable `.beam` out. A gate is a bash script, most of
-them under `bin/` and `compiler/bin/`, and it checks something other than a compiled module: the
+compiler at its boundary: source text in, a callable `.beam` out. Every gate is a bash script in
+`bin/`, `compiler/bin/` or `editor/bin/`, and it checks something other than a compiled module: the
 Markdown documents, the CI workflow, the pinned toolchain, the editor grammars. Commit `85d872d`
 drew that line, putting a check on the design map in `bin/` because "map.md size is not a concern
 of the test suite". `compiler/bin/spec-check.sh` is a gate because a wrong `-spec` is a defect
