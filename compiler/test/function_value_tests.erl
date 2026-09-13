@@ -343,7 +343,8 @@ a_function_over_another_type_is_refused_test() ->
           "Len(_) -> 0\n"
           "public list<int> Lens(list<int> xs)\n"
           "Lens(xs) -> Map(xs, Len/1)\n",
-    ?assertEqual([instantiation_conflict], tags(Src)).
+    ?assertMatch([{error, _, 'Lens',
+                   {instantiation_conflict, 'Map', 'T', 1, _, 2, _}}], errors(Src)).
 
 %% A variable read from both a plain argument and an arrow's codomain, and
 %% bounded by the arrow's domain. Before the re-check this was refused only
@@ -362,6 +363,43 @@ a_value_outside_the_functions_domain_is_refused_test() ->
            "Good() -> Twice(3, Inc/1)\n",
     M = build_and_load(Good, 'Tw'),
     ?assertEqual(5, M:'Good'()).
+
+%% A literal beside a lambda. The first argument supplies the singleton `3`,
+%% and a lambda typed over that singleton alone returns `int`, which escapes
+%% it; typed again over what the arguments now supply, `3 | int`, it agrees
+%% with itself. Both compiled before ticket 76 and must still.
+a_literal_beside_a_lambda_is_accepted_test() ->
+    Src = "module Lit\n" ++ twice_src() ++
+          "public int Run()\n"
+          "Run() -> Twice(3, (n) => n + 1)\n",
+    ?assertEqual([], errors(Src)),
+    M = build_and_load(Src, 'Lit'),
+    ?assertEqual(5, M:'Run'()).
+
+a_user_written_fold_from_a_literal_seed_is_accepted_test() ->
+    Src = "module Folds\n"
+          "public U Fold<T, U>(U init, list<T> xs, fn(U, T) -> U f)\n"
+          "Fold(acc, [], _)       -> acc\n"
+          "Fold(acc, [h, ..t], f) -> Fold(f(acc, h), t, f)\n"
+          "public int Sum(list<int> xs)\n"
+          "Sum(xs) -> Fold(0, xs, (acc, n) => acc + n)\n",
+    ?assertEqual([], errors(Src)),
+    M = build_and_load(Src, 'Folds'),
+    ?assertEqual(6, M:'Sum'([1, 2, 3])).
+
+%% Two arguments that both need an expectation: a switch at a bare `T` and a
+%% lambda at `fn(T) -> T`. Neither is typed before the other, so the lambda
+%% must not be typed over the nothing a not-yet-typed argument supplies.
+two_arguments_that_need_an_expectation_are_typed_together_test() ->
+    Src = "module Keep\n"
+          "public T Keep<T>(T x, fn(T) -> T f)\n"
+          "Keep(x, f) -> f(x)\n"
+          "public int Run(int n)\n"
+          "Run(n) -> Keep(n switch { 0 => 1, _ => n }, (k) => k + 1)\n",
+    ?assertEqual([], errors(Src)),
+    M = build_and_load(Src, 'Keep'),
+    ?assertEqual(2, M:'Run'(0)),
+    ?assertEqual(8, M:'Run'(7)).
 
 %% `A` occurs only under `f`'s domain and the return is contravariant in it,
 %% so it takes the meet of its upper bounds: `step` is `fn(int) -> int`, not
@@ -399,7 +437,8 @@ a_wider_predicate_keeps_the_lists_type_test() ->
 
 %% Ticket 76 leaves a variable the return mentions in both positions
 %% unruled; what is asserted here is only that such a call is accepted when
-%% its arguments agree and refused when they do not.
+%% its arguments agree and refused when they do not, which every candidate
+%% rule gives, and not which bound it takes.
 a_variable_in_both_positions_of_the_return_test() ->
     Decl = "public fn(T) -> T Same<T>(fn(T) -> T f)\n"
            "Same(f) -> f\n",
@@ -409,7 +448,32 @@ a_variable_in_both_positions_of_the_return_test() ->
           "          g(n)\n",
     ?assertEqual([], errors(Src)),
     M = build_and_load(Src, 'Both'),
-    ?assertEqual(4, M:'Run'(3)).
+    ?assertEqual(4, M:'Run'(3)),
+    Disagree = "module Both\n" ++ Decl ++
+               "public int Len(string s)\n"
+               "Len(_) -> 0\n"
+               "public int Run(string s)\n"
+               "Run(s) -> var g = Same(Len/1)\n"
+               "          g(s)\n",
+    ?assertNotEqual([], errors(Disagree)).
+
+%% One argument can supply a variable and bound it: `Len/1` returns `int`
+%% and takes `string`, handed where the two must be one `T`. The message
+%% says so rather than claiming two arguments disagree.
+an_argument_that_disagrees_with_itself_is_named_once_test() ->
+    Src = "module Self\n"
+          "public fn(T) -> T Same<T>(fn(T) -> T f)\n"
+          "Same(f) -> f\n"
+          "public int Len(string s)\n"
+          "Len(_) -> 0\n"
+          "public int Run(string s)\n"
+          "Run(s) -> var g = Same(Len/1)\n"
+          "          g(s)\n",
+    {Root, Main} = in_dir([{"Self.bs", Src}]),
+    Out = run_cli("--src-root " ++ Root ++ " -o " ++ Root ++ "/out " ++ Main),
+    bad_rc(Out),
+    has(Out, "Run calls Same with an argument that disagrees with itself about T"),
+    has(Out, "argument 1 supplies T as:").
 
 %%% ---------------------------------------------------------------------------
 %%% F46.14 — the bare-name lambda `n => e` is an expression everywhere, and a

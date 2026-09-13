@@ -1018,56 +1018,48 @@ vars_in(_, _)                     -> [].
 %% argument, and `Map(xs, Inc/1)` over a `list<string>` would crash.
 %%
 %% A variable the return mentions in BOTH positions, a returned `fn(T) -> T`,
-%% is a case 76 does not rule on. It takes the join of its lower bounds, as
-%% 37 did, and is flagged here rather than decided: the paper's invariant
-%% case takes a bound only when the two coincide and otherwise finds no
-%% substitution, which B# would spell as a refusal. The re-check in `call/6`
-%% keeps the call sound whichever it takes, and a program whose meaning
-%% depends on the choice raises a ticket.
+%% is a case 76 does not rule on, so the build does not rule on it either: it
+%% joins every occurrence, lower and upper, which is the answer the compiler
+%% gave before ticket 76, and a lower bound escaping an upper one is refused
+%% as anywhere else. The paper's invariant case takes a bound only when the
+%% two coincide; a program whose meaning depends on the difference raises a
+%% ticket.
 %%
 %% An ERASED variable (`template/4`) is `term` whatever its bounds say: a
 %% value could reach the body through the erased position.
 %%
-%% The PARTIAL solution `poly_args/4` hands a lambda as its expectation is
-%% not a result type and follows no variance: it is what the arguments typed
-%% so far know, the lower bounds first, so `(a) => a + 1` is typed over the
-%% `int` a sibling argument supplies rather than over `term`. The final
-%% solution re-checks the lambda like every other argument.
-%%
 %% The solve is total, so it runs whether or not the arguments were
 %% accepted; an argument outside the extent was refused by `arg_diags/7`.
-solution(Template, ATys) ->
-    solution(Template, ATys, final).
-
-solution({poly, Vars, PsT, RetT, Erased}, ATys, Mode) ->
-    Indexed = lists:zip(lists:seq(1, length(ATys)), lists:zip(PsT, ATys)),
-    Bounds = lists:foldl(fun({I, {P, A}}, Acc) -> solve(P, A, pos, I, Acc) end,
-                         #{}, Indexed),
+solution({poly, Vars, PsT, RetT, Erased}, ATys) ->
+    Bounds = bounds(PsT, lists:zip(lists:seq(1, length(ATys)), ATys)),
     Pols = polarity(RetT, pos, #{}),
     Sub = maps:from_list(
-            [{V, case {lists:member(V, Erased), Mode} of
-                     {true, _}       -> bs_types:term();
-                     {false, final}  -> pick(maps:get(V, Pols, absent),
-                                             maps:get(V, Bounds, {[], []}));
-                     {false, partial} -> known(maps:get(V, Bounds, {[], []}))
+            [{V, case lists:member(V, Erased) of
+                     true  -> bs_types:term();
+                     false -> pick(maps:get(V, Pols, absent), bounds_of(V, Bounds))
                  end} || V <- Vars]),
     Conflicts = [{V, Conflict}
                  || V <- Vars, not lists:member(V, Erased),
-                    Conflict <- [escape(maps:get(V, Bounds, {[], []}))],
+                    Conflict <- [escape(bounds_of(V, Bounds))],
                     Conflict =/= none],
     {Sub, Conflicts}.
 
+%% The bounds the typed arguments put on each variable, from `{Arg, Ty}` rows.
+bounds(PsT, Typed) ->
+    lists:foldl(fun({I, Ty}, Acc) -> solve(lists:nth(I, PsT), Ty, pos, I, Acc) end,
+                #{}, Typed).
+
+bounds_of(V, Bounds) -> maps:get(V, Bounds, {[], []}).
+
 %% The minimal substitution, by where the return holds the variable.
-pick(neg, {_Lo, Up})    -> meet(Up);
-%% Unruled by 76: see `solution/3`.
-pick(both, {[], Up})    -> meet(Up);
-pick(both, {Lo, _Up})   -> join(Lo);
+pick(neg, {_Lo, Up})        -> meet(Up);
+%% Unruled by 76: see `solution/2`.
+pick(both, {Lo, Up})        -> join(Lo ++ Up);
 pick(_Covariant, {Lo, _Up}) -> join(Lo).
 
-%% What the arguments typed so far know, for an expectation only.
-known({[], []}) -> bs_types:term();
-known({[], Up})  -> meet(Up);
-known({Lo, _})   -> join(Lo).
+%% What the arguments typed so far know, for an expectation only (`retype/8`).
+known({[], Up}) -> meet(Up);
+known({Lo, _})  -> join(Lo).
 
 %% The join of no bounds is `none` and the meet of none is `term`.
 join(Bounds) -> bs_types:union([T || {_, T} <- Bounds]).
@@ -1075,17 +1067,15 @@ join(Bounds) -> bs_types:union([T || {_, T} <- Bounds]).
 meet(Bounds) -> lists:foldl(fun({_, U}, Acc) -> bs_types:intersect(Acc, U) end,
                             bs_types:term(), Bounds).
 
-%% The first upper bound the lower bounds escape, and the lower bound that
-%% escapes it, so the refusal can name both arguments.
-escape({Lo, Up}) when Lo =/= [], Up =/= [] ->
-    Joined = join(Lo),
-    case [{UI, U} || {UI, U} <- Up, not bs_types:is_subtype(Joined, U)] of
-        [] -> none;
-        [{UI, U} | _] ->
-            [{LI, L} | _] = [B || {_, L0} = B <- Lo, not bs_types:is_subtype(L0, U)],
-            {LI, L, UI, U}
-    end;
-escape(_) -> none.
+%% A lower bound outside an upper one, with the argument each came from, so
+%% the refusal can name both. Asked of each lower bound on its own rather than
+%% of their join: the refusal names the value, not the union it is part of.
+escape({Lo, Up}) ->
+    case [{LI, L, UI, U} || {UI, U} <- Up, {LI, L} <- Lo,
+                            not bs_types:is_subtype(L, U)] of
+        []          -> none;
+        [First | _] -> First
+    end.
 
 %% Where each variable sits in a template: `pos`, `neg`, or `both`. A
 %% variable the template does not mention is absent from the map.
@@ -4079,30 +4069,51 @@ call(L, Key, Shown, Args, S, C) ->
             end
     end.
 
-%% Two passes over a polymorphic call's arguments (F46). The first types
-%% every argument that needs no expectation against the template at its
-%% extent and solves what it can; the second hands each lambda, bare name or
-%% form holding one the template position with that partial solution
-%% substituted, so `Map(xs, (n) => n * 2)` types the lambda against
-%% `fn(int) -> term` and `U` is then read from what the body returns.
-poly_args({poly, Vars, PsT, RetT, Erased}, Args, S, C) ->
+%% A polymorphic call's arguments, typed in rounds (F46, ticket 76). Every
+%% argument that needs no expectation is typed first, against the template at
+%% its extent. Each lambda, bare name or form holding one is then handed its
+%% template position with the partial solution substituted, so
+%% `Map(xs, (n) => n * 2)` types the lambda against `fn(int) -> term` and `U`
+%% is read from what the body returns.
+poly_args({poly, Vars, PsT, _RetT, Erased}, Args, S, C) ->
     Indexed = lists:zip(lists:seq(1, length(Args)), lists:zip(Args, PsT)),
     Extent = maps:from_list([{V, bs_types:term()} || V <- Vars]),
-    First = [{I, {PT, expected(A, subst_tpl(PT, Extent), S, C)}}
-             || {I, {A, PT}} <- Indexed, not hungry(A)],
-    %% The partial solution is chosen by the rule the whole call is, over
-    %% the arguments typed so far; a variable none of them bounds is `term`.
-    %% A hungry argument's position is `none` for now, which bounds nothing.
-    Known = maps:from_list([{I, Ty} || {I, {_, {Ty, _}}} <- First]),
-    {Partial, _} = solution({poly, Vars, PsT, RetT, Erased},
-                            [maps:get(I, Known, bs_types:none())
-                             || I <- lists:seq(1, length(Args))],
-                            partial),
-    Second = [{I, {PT, expected(A, subst_tpl(PT, Partial), S, C)}}
-              || {I, {A, PT}} <- Indexed, hungry(A)],
-    Ordered = lists:keysort(1, First ++ Second),
-    {Tys, Ds} = lists:unzip([R || {_, {_, R}} <- Ordered]),
+    Fixed = maps:from_list([{I, expected(A, subst_tpl(PT, Extent), S, C)}
+                            || {I, {A, PT}} <- Indexed, not hungry(A)]),
+    Hungry = [{I, A, PT} || {I, {A, PT}} <- Indexed, hungry(A)],
+    Typed = retype(Hungry, Fixed, #{}, none, {Vars, PsT, Erased}, S, C, 1),
+    {Tys, Ds} = lists:unzip([maps:get(I, Typed) || I <- lists:seq(1, length(Args))]),
     {Tys, lists:append(Ds)}.
+
+%% The partial solution is not a result type and follows no variance: it is
+%% what every argument typed so far supplies, the lower bounds first, and a
+%% variable nothing bounds is `term`. It is recomputed after each round, and
+%% the hungry arguments are typed again while it moves: a lambda typed over
+%% the `3` a literal supplies returns `int`, which widens the variable, so it
+%% is typed once more over `int`, where it agrees with itself — the least
+%% fixpoint `fold_fun/6` reaches for `List.Fold`. Without the second round
+%% `Twice(3, (n) => n + 1)` would refuse its own lambda. A position still
+%% moving after three rounds is typed at the extent. Only the last round's
+%% diagnostics are kept.
+retype(Hungry, Fixed, Prev, LastExpect, T = {Vars, PsT, Erased}, S, C, Round) ->
+    Typed = maps:merge(Fixed, Prev),
+    Bounds = bounds(PsT, [{I, Ty} || {I, {Ty, _}} <- maps:to_list(Typed)]),
+    Partial = maps:from_list([{V, case lists:member(V, Erased) of
+                                      true  -> bs_types:term();
+                                      false -> known(bounds_of(V, Bounds))
+                                  end} || V <- Vars]),
+    Expect = [{I, A, subst_tpl(PT, Partial)} || {I, A, PT} <- Hungry],
+    if
+        Expect =:= LastExpect ->
+            Typed;
+        Round > 3 ->
+            Extent = maps:from_list([{V, bs_types:term()} || V <- Vars]),
+            maps:merge(Fixed, maps:from_list([{I, expected(A, subst_tpl(PT, Extent), S, C)}
+                                              || {I, A, PT} <- Hungry]));
+        true ->
+            Next = maps:from_list([{I, expected(A, Ty, S, C)} || {I, A, Ty} <- Expect]),
+            retype(Hungry, Fixed, Next, Expect, T, S, C, Round + 1)
+    end.
 
 %% A call to a function that exists and is private is reported as private,
 %% and that is asked before the arity fork (F12): a private `F/2` beside a

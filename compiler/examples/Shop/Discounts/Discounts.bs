@@ -1,0 +1,13 @@
+module Shop.Discounts
+
+public fn(int) -> int Rule(atom tier, int floor)
+Rule(:member, floor) -> cents => cents switch { c when c > floor => c - 100, c => c }
+Rule(:staff, _)      -> (_) => 0
+Rule(_, _)           -> cents => cents
+
+public int Charged(atom tier, int floor, int cents)
+Charged(tier, floor, cents) -> var rule = Rule(tier, floor)
+                               rule(cents)
+
+public list<fn(int) -> int> Steps()
+Steps() -> [cents => cents - 50, cents => cents * 9 / 10]

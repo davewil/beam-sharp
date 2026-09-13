@@ -66,13 +66,13 @@ module.exports = grammar({
   // narrower than the twelve conflicts suggest, and it lives entirely in the
   // two forms that nest (a tuple's contents and a list's).
   conflicts: $ => [
-    [$.pattern, $._expression],
+    [$.pattern, $._expression_low],
     [$.list_pattern, $.list],
     // F20 — the rest MARKER may bind (`..t`) or be anonymous (`..` / `.._`),
     // and the expression side still spreads an arbitrary expression, so `[.._]`
     // is a pattern rest or an expression rest depending on where it sits. Same
     // pattern/expression overlap as the pair above, one level down.
-    [$.rest_pattern, $._expression],
+    [$.rest_pattern, $._expression_low],
     // F15 — `Shop.Collections.List.Sum(…)`. Where the module path stops and the
     // function name starts is not decidable one token at a time; see the note on
     // `module_path`.
@@ -83,12 +83,6 @@ module.exports = grammar({
     // shifts on every one of those tokens, and GLR reads one token further to
     // find out which it was.
     [$.type_identifier, $.function_name],
-    // Ticket 76 — a name followed by `=>` is a bare lambda's parameter or the
-    // last operand of a guard, and which one is decided by whether an arm's
-    // `=>` follows; `bs_parser.yrl` settles it by parsing a guard below the
-    // lambda, and GLR settles it by keeping the reading that survives.
-    [$._guard_expression, $.bare_lambda],
-    [$._expression, $.bare_lambda],
   ],
 
   rules: {
@@ -277,11 +271,9 @@ module.exports = grammar({
     ),
 
     // Ticket 76 — a guard is parsed at the tier below the lambda, as
-    // `bs_parser.yrl`'s `guard_expr -> expr_low` is: `x when flag => 1` closes
-    // the guard at the `=>` rather than reading `flag => 1` as a lambda. A
-    // guard's operands are still whole expressions, and a lambda there keeps
-    // its low precedence, so `x when x > m => 0` reduces the comparison first.
-    guard: $ => seq('when', $._guard_expression),
+    // `bs_parser.yrl`'s `guard_expr -> expr_low` is, so the `=>` after it
+    // closes the guard.
+    guard: $ => seq('when', $._expression_low),
 
     // A body is zero or more bindings followed by one expression (ticket 34).
     body: $ => prec.right(seq(repeat($.binding), $._expression)),
@@ -439,35 +431,19 @@ module.exports = grammar({
     ),
 
     // --- expressions ---------------------------------------------------------
+    // Ticket 76 — two tiers, as `bs_parser.yrl` has them: `_expression` is
+    // the two lambdas over `_expression_low`, which is every other form. A
+    // guard, both operands of an operator, a pipe's left side, a switch's
+    // subject, the receiver of `with` and `raise`'s reason are the lower tier,
+    // so a lambda is never an operand without a bracket — `1 + n => n` is an
+    // ERROR here as it is a syntax error there.
     _expression: $ => choice(
-      $.integer,
-      $.atom,
-      $.boolean,
-      $.variable,
-      $.wildcard,
-      $.call,
-      $.apply,
-      $.instantiation,
-      $.foreign_call,
-      $.qualified_call,
-      $.string,
-      $.tuple,
+      $._expression_low,
       $.lambda,
-      $.function_value,
-      $.record_construction,
-      $.record_update,
-      $.projection,
-      $.list,
-      $.binary_expression,
-      $.pipe_expression,
-      $.switch_expression,
-      $.raise_expression,
-      // F46 / ticket 76 — both spellings of a lambda are expressions.
       $.bare_lambda,
     ),
 
-    // Every expression form but the two lambdas (ticket 76).
-    _guard_expression: $ => choice(
+    _expression_low: $ => choice(
       $.integer,
       $.atom,
       $.boolean,
@@ -515,12 +491,10 @@ module.exports = grammar({
       '=>', field('body', $._expression),
     )),
 
-    // The precedence sits on the BODY alone, so it still runs as far right as
-    // it can, and not on the parameter: at a name with `=>` ahead, a
-    // precedence on the whole rule would settle the parse as a lambda before
-    // the parser knew whether it was inside a guard. Left open, it is the
-    // `[$._expression, $.bare_lambda]` conflict declared above, and GLR keeps
-    // the reading that finds its arm's `=>` (ticket 76).
+    // The precedence sits on the body, so it runs as far right as it can. No
+    // conflict is declared for the parameter: a guard and an operator's
+    // operands are `_expression_low`, which holds no lambda, so a name before
+    // `=>` there is never read as one (ticket 76).
     bare_lambda: $ => seq(
       field('parameter', $.variable),
       '=>', field('body', $._lambda_body),
@@ -580,7 +554,7 @@ module.exports = grammar({
 
     // Width-preserving update (ticket 26 §2). Not spread — §2 refused it.
     record_update: $ => prec.left(PREC.with, seq(
-      $._expression,
+      $._expression_low,
       'with',
       '{', commaSep1($.field_assignment), '}',
     )),
@@ -615,7 +589,7 @@ module.exports = grammar({
     // parser's lowest precedence buys there.
     raise_expression: $ => prec.right(PREC.raise, seq(
       'raise',
-      field('reason', $._expression),
+      field('reason', $._expression_low),
     )),
 
     rest_expression: $ => seq('..', $._expression),
@@ -639,9 +613,9 @@ module.exports = grammar({
       ];
       return choice(...table.map(([p, op, _assoc]) =>
         prec.left(p, seq(
-          field('left', $._expression),
+          field('left', $._expression_low),
           field('operator', op),
-          field('right', $._expression),
+          field('right', $._expression_low),
         )),
       ));
     },
@@ -658,7 +632,7 @@ module.exports = grammar({
     // `prec.left` and 350 mirror the yecc table verbatim: looser than
     // arithmetic, so `a + b |> F()` is `(a + b) |> F()`; tighter than comparison.
     pipe_expression: $ => prec.left(PREC.pipe, seq(
-      field('left', $._expression),
+      field('left', $._expression_low),
       field('operator', choice('|>', '|?>')),
       field('right', choice($.call, $.apply, $.instantiation, $.foreign_call,
                             $.qualified_call)),
@@ -668,7 +642,7 @@ module.exports = grammar({
     // The clause head's pattern grammar in expression position, so `pattern`
     // below is the same nonterminal a clause head uses rather than a copy.
     switch_expression: $ => prec.left(PREC.switch, seq(
-      field('subject', $._expression),
+      field('subject', $._expression_low),
       'switch',
       '{', commaSep1($.switch_arm), '}',
     )),

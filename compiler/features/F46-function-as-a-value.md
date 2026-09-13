@@ -9,10 +9,11 @@
                 Five `diagnoses:` blocks and two must-compile blocks in `LANGUAGE.md` §9 seen
                 red on the tree first. `./bin/verify.sh` green **twice from a clean clone**
 **Amended**     **2026-09-13, twice, by [ticket 76](../../wayfinder/issues/76-the-bare-name-lambda-and-the-arrows-extent.md)**
-                ([ENG-368](https://linear.app/davewil/issue/ENG-368)) — 14 tests more, 905 in the
-                suite: `n => e` is an expression everywhere and a guard is parsed below the lambda;
-                a polymorphic call's arguments are re-checked under a solution chosen by each
-                variable's variance in the declared return. See *Amended by ticket 76* below
+                ([ENG-368](https://linear.app/davewil/issue/ENG-368)) — 18 tests more, 909 in the
+                suite, and `examples/Shop/Discounts/`: `n => e` is an expression everywhere and
+                a guard is parsed below the lambda; a polymorphic call's arguments are
+                re-checked under a solution chosen by each variable's variance in the declared
+                return. See *Amended by ticket 76* below
 **Implements**  [ticket 75](../../wayfinder/issues/75-a-function-as-a-value.md), resolved
                 2026-09-12 in two rounds: the arrow `fn(T) -> U` as a type of the language,
                 the lambda `(a, b) => e` in C#'s spelling, a name in value position, and a call
@@ -293,8 +294,11 @@ row.
 
 ## Amended by ticket 76 (ENG-368, 2026-09-13)
 
-Ticket 76 ruled on the two calls this build took. Both amendments were built test first: F46.14's
-four red programs and F46.13's four were seen failing on the tree before either change.
+Ticket 76 ruled on the two calls this build took. Both amendments were built test first: four of
+F46.14's eight tests and four of F46.13's first six were red on the tree before either change, and
+the rest hold what the ticket said must not move. The two `LANGUAGE.md` blocks the amendment adds
+were run through `check-language.sh` against the compiler at `ec1046f`, where the `Bare` block was
+BROKEN and the `diagnoses: instantiation_conflict` block published nothing, and are ok after.
 
 **The guard is parsed below the lambda.** `expr` holds the three lambda productions — `(a, b) =>
 e`, `() => e`, and `n => e` — over `expr_low`, which holds every production `expr` held before.
@@ -308,12 +312,18 @@ with `{report, true}`: **4 before, 5 after**, the fifth `rule(` shifted from a s
 and says the same for `raise (k) => k`, where `raise ((k) => k)` parses. A lambda in a guard needs
 a bracket of its own and is then refused as `lambda_in_guard`, so F46.12's program gained one.
 
-The editor grammar follows: `bare_lambda` joins `_expression`, a guard takes `_guard_expression`
-(every form but the two lambdas), the lambda's precedence moves onto its body, and two GLR
-conflicts are declared, `[$._guard_expression, $.bare_lambda]` and `[$._expression,
-$.bare_lambda]`. With the precedence on the whole rule instead, `tree-sitter generate` passed and
-`x when x > m => :above` parsed as an ERROR: the static resolution chose the lambda before the
-parser could know it was inside a guard. `check-corpus.sh` reads 22 of 22.
+The editor grammar has the same two tiers: `_expression` is the two lambdas over
+`_expression_low`, and a guard, both operands of an operator, a pipe's left side, a switch's subject,
+`with`'s receiver and `raise`'s reason take the lower tier, so `1 + n => n` is an ERROR node where
+`bsc` says `syntax error before: '=>'`. The two pattern/expression conflicts move to
+`_expression_low`, and no conflict is declared for the lambda. Two attempts were wrong on the way,
+and neither was visible to `check-corpus.sh`: a precedence on the whole `bare_lambda` rule generated
+cleanly and parsed `x when x > m => :above` as an ERROR, because a rule's precedence settles the
+conflict before GLR can keep the reading that survives; and a guard-only lower tier left the
+operands of an operator at the top, which accepted `1 + n => n`. The corpus now carries the forms:
+`examples/Shop/Discounts/` returns `cents => …` from a clause, lists two bare lambdas, and guards
+an arm with `c when c > floor =>`, so `check-examples.sh` compiles them and `check-corpus.sh` parses
+them — 23 of 23.
 
 **Arguments are re-checked under a solution chosen by the return's variance.** `solve/5` records,
 per variable, lower bounds from covariant occurrences and upper bounds from occurrences under an
@@ -324,6 +334,8 @@ covariant in it or does not mention it, and the meet of its upper bounds where i
 That is Pierce and Turner's minimal substitution (*Local Type Inference*, TOPLAS 22(1), 2000, §3
 and §5.7, read from the paper for this amendment), taken as the paper takes it where a set is
 empty: no lower bounds join to `none`, no upper bounds meet at `term`. An erased variable is `term`.
+Each lower bound is compared with each upper bound on its own, so the refusal names the value an
+argument supplies rather than a union it is part of.
 Where the join of the lower bounds is not inside an upper bound, the call is refused:
 
 ```
@@ -337,21 +349,36 @@ Incs/Incs.bs:11:13: error: Incs calls Map with arguments that disagree about T
   that does not take it.
 ```
 
-On the term channel it is `instantiation_conflict` with `callee`, `type_variable`,
+Where one argument supplies the variable and bounds it — `Same(Len/1)`, whose result is not a
+value its parameter takes — the message says `an argument that disagrees with itself` and names it
+once. On the term channel it is `instantiation_conflict` with `callee`, `type_variable`,
 `lower_argument`, `lower`, `upper_argument` and `upper`. It hands the author nothing to paste, so
 it is not in `contractual()`. A refused call's result is `none`, so no `return_not_declared`
 follows it. Otherwise each argument is checked against the extent first, which keeps every existing
 residual as it was, and an argument that passes is checked again against the parameter the solution
-instantiates: one diagnostic per argument. `poly_args/4`'s second pass hands a lambda what the
-first pass knows — the lower bounds, else the upper, else `term` — because that is an expectation
-and not a result type.
+instantiates: one diagnostic per argument.
 
-**What the build chose, and did not decide.** A variable the declared return holds in *both*
-positions, `fn(T) -> T Same<T>(fn(T) -> T f)`, is the case ticket 76 left silent. It takes the join
-of its lower bounds, as ticket 37 did; F46.13 asserts only that a call whose arguments agree is
-accepted, which every candidate rule gives. The paper's invariant case differs — it takes a bound
-only when the two coincide and otherwise finds no substitution — and a program whose meaning
-depends on the difference raises a ticket.
+**The arguments that need an expectation are typed in rounds.** `poly_args/4` types every other
+argument against the extent, then hands each lambda, bare name or form holding one its position
+under a PARTIAL solution — what every argument typed so far supplies, the lower bounds first,
+`term` where nothing does — and `retype/8` types them again while that solution moves, at most
+three rounds, then at the extent. It is not a result type and follows no variance. The rounds are
+the code review's finding: typed once, over the singleton a literal supplies,
+`Twice(3, (n) => n + 1)` handed its lambda `fn(3) -> …`, whose `int` result then escaped that `3`,
+and a user-written `Fold(0, xs, (acc, n) => acc + n)` was refused the same way. Both compiled and
+ran at `ec1046f` (probed on that commit's `bsc`) and do again; typed a second time over `int` the
+lambda agrees with itself. It is the least fixpoint `fold_fun/6` already reaches for `List.Fold`.
+The first version also bounded a variable at `none` from an argument not yet typed, so a lambda
+beside a `switch` at a bare `T` was typed over nothing.
+
+**What the build did not decide.** A variable the declared return holds in *both* positions,
+`fn(T) -> T Same<T>(fn(T) -> T f)`, is the case ticket 76 left silent. It joins every occurrence,
+lower and upper — the answer the compiler gave before ticket 76 — and a lower bound escaping an
+upper one is refused as anywhere else. F46.13 asserts only that a call whose arguments agree is
+accepted and one whose arguments disagree is refused, which every candidate rule gives. The paper's
+invariant case differs — it takes a bound only when the two coincide and otherwise finds no
+substitution — and a program whose meaning depends on the difference raises a ticket. None has met
+it yet.
 
 ## Four things the build found
 
@@ -396,11 +423,12 @@ depends on the difference raises a ticket.
 | F46.10 | `ValidateAs<fn(int) -> int>` is `validate_over_arrow`; a foreign return declared as an arrow is `foreign_ret_beyond_one_guard` with `why => arrow`; two same-arity arrows in a bare union are `indiscriminable_union`, two of different arity are not |
 | F46.11 | the corpus program runs through the CLI at two entry points |
 | F46.12 | a call through a bound name in a guard is `call_in_guard`; a lambda in a guard, bracketed, is `lambda_in_guard` |
-| F46.13 | `Map(xs, Inc/1)` over `list<string>` and `Map(xs, Len/1)` over `list<int>` are `instantiation_conflict` naming arguments 1 and 2; `Twice("a", Inc/1)` is refused and `Twice(3, Inc/1)` returns 5; `Compose(Inc/1, Double/1)` runs, its `A` the meet of its upper bounds; `Pick(prices, Cheap/1)` with `Cheap` over `int \| :free` returns `option<int>`; a variable in both positions of the return is accepted when its arguments agree |
+| F46.13 | `Map(xs, Inc/1)` over `list<string>` and `Map(xs, Len/1)` over `list<int>` are `instantiation_conflict` naming arguments 1 and 2; `Twice("a", Inc/1)` is refused and `Twice(3, Inc/1)` returns 5; `Compose(Inc/1, Double/1)` runs, its `A` the meet of its upper bounds; `Pick(prices, Cheap/1)` with `Cheap` over `int \| :free` returns `option<int>`; a variable in both positions of the return is accepted when its arguments agree and refused when they do not, and `Same(Len/1)` prints the one-argument message; `Twice(3, (n) => n + 1)` returns 5, a user-written `Fold` from a literal seed sums, and a `switch` beside a lambda at a bare `T` runs |
 | F46.14 | ticket 76 round 1's programs: `n => e` as a clause body, a list element, a tuple component and an argument run; `x when (n > 3) =>`, `x when flag =>` and `x when x > m =>` guard their arms; `var twice = k => k * 2` reaches the checker as `lambda_without_expectation` |
 
 `corpus_tests.erl`: four roster rows and the lambda probe's negative pin. `binary_tests.erl`:
 the conflict count, now five. `check-examples.sh` and `editor/bin/check-corpus.sh`:
+`examples/Shop/Discounts/`. `check-examples.sh` and `editor/bin/check-corpus.sh`:
 `examples/Shop/Pricing/`. `check-language.sh`: §9's blocks, five of them `diagnoses:`.
 
 ## Out of scope, and what is owed
@@ -414,10 +442,11 @@ the conflict count, now five. `check-examples.sh` and `editor/bin/check-corpus.s
   looked at; the lambda spellings the corpus gained are `examples/Shop/Pricing/`'s `Owed`,
   `Doubled` and `Large`. A short-circuiting traverse over a fun — a `List.TryMap`, or a fold
   through `result` — is breadth under ticket 67 and not asked.
-- **The bare-name lambda as a general expression, and the variance-aware extent** — both
-  taken here as the build found them and raised as ENG-367 for David's confirmation. The
-  first narrows ticket 75 Q2 by one position; the second amends ticket 37's measured rule at
-  the one position it did not measure. **Ruled 2026-09-13, ticket 76
+- ~~**The bare-name lambda as a general expression, and the variance-aware extent**~~ — no
+  longer owed: ruled by ticket 76 and built under *Amended by ticket 76* above. Kept as it was
+  written: both taken here as the build found them and raised as ENG-367 for David's
+  confirmation. The first narrows ticket 75 Q2 by one position; the second amends ticket 37's
+  measured rule at the one position it did not measure. **Ruled 2026-09-13, ticket 76
   (`wayfinder/issues/76-the-bare-name-lambda-and-the-arrows-extent.md`): the first is
   reversed** — `n => e` is an expression everywhere and the switch arm's guard is parsed at the
   tier below the lambda, C#'s own resolution of the same collision, measured in yecc at the

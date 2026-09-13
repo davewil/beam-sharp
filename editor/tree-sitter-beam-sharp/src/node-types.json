@@ -286,10 +286,6 @@
             "named": true
           },
           {
-            "type": "bare_lambda",
-            "named": true
-          },
-          {
             "type": "binary_expression",
             "named": true
           },
@@ -315,10 +311,6 @@
           },
           {
             "type": "integer",
-            "named": true
-          },
-          {
-            "type": "lambda",
             "named": true
           },
           {
@@ -442,10 +434,6 @@
             "named": true
           },
           {
-            "type": "bare_lambda",
-            "named": true
-          },
-          {
             "type": "binary_expression",
             "named": true
           },
@@ -471,10 +459,6 @@
           },
           {
             "type": "integer",
-            "named": true
-          },
-          {
-            "type": "lambda",
             "named": true
           },
           {
@@ -2082,10 +2066,6 @@
             "named": true
           },
           {
-            "type": "bare_lambda",
-            "named": true
-          },
-          {
             "type": "binary_expression",
             "named": true
           },
@@ -2111,10 +2091,6 @@
           },
           {
             "type": "integer",
-            "named": true
-          },
-          {
-            "type": "lambda",
             "named": true
           },
           {
@@ -2402,10 +2378,6 @@
             "named": true
           },
           {
-            "type": "bare_lambda",
-            "named": true
-          },
-          {
             "type": "binary_expression",
             "named": true
           },
@@ -2431,10 +2403,6 @@
           },
           {
             "type": "integer",
-            "named": true
-          },
-          {
-            "type": "lambda",
             "named": true
           },
           {
@@ -2594,10 +2562,6 @@
           "named": true
         },
         {
-          "type": "bare_lambda",
-          "named": true
-        },
-        {
           "type": "binary_expression",
           "named": true
         },
@@ -2627,10 +2591,6 @@
         },
         {
           "type": "integer",
-          "named": true
-        },
-        {
-          "type": "lambda",
           "named": true
         },
         {
@@ -3071,10 +3031,6 @@
             "named": true
           },
           {
-            "type": "bare_lambda",
-            "named": true
-          },
-          {
             "type": "binary_expression",
             "named": true
           },
@@ -3100,10 +3056,6 @@
           },
           {
             "type": "integer",
-            "named": true
-          },
-          {
-            "type": "lambda",
             "named": true
           },
           {

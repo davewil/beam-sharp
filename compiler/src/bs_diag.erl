@@ -1149,6 +1149,19 @@ message(#{tag := not_callable, file := P, line := L, column := C, function := Fn
      "    ~s~n"
      "  only a value whose type is an arrow of this arity can be called.~n",
      [P, L, C, Fn, Var, Arity, plural(Arity), Var, Type]};
+%% One argument can be both sides: a function whose result is not a value its
+%% own parameter takes, handed where the two must agree.
+message(#{tag := instantiation_conflict, file := P, line := L, column := C, function := Fn,
+          callee := Callee, type_variable := Var, lower_argument := Pos,
+          lower := Low, upper_argument := Pos, upper := Up}) ->
+    {"~s:~p:~p: error: ~s calls ~s with an argument that disagrees with itself about ~s~n"
+     "  argument ~p supplies ~s as:~n"
+     "    ~s~n"
+     "  and accepts ~s only as:~n"
+     "    ~s~n"
+     "  no ~s satisfies both, so a value it produces would reach a function~n"
+     "  that does not take it.~n",
+     [P, L, C, Fn, Callee, Var, Pos, Var, Low, Var, Up, Var]};
 message(#{tag := instantiation_conflict, file := P, line := L, column := C, function := Fn,
           callee := Callee, type_variable := Var, lower_argument := LowPos,
           lower := Low, upper_argument := UpPos, upper := Up}) ->
