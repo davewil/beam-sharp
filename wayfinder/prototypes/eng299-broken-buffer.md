@@ -210,6 +210,9 @@ its own terms; what changed is that the loss belongs to B#'s grammar, not to tre
 ENG-370 stay as filed — `bs_parser.yrl` recovery, with keeping `Reverse` as its bar — or should the
 structure source be reopened before ENG-370 starts?
 
+**Answer, David 2026-09-14: reopen it — try the column-0 rule in tree-sitter first.** The decision
+above no longer stands; ENG-299 is open again and ENG-370 waits on it.
+
 ## Per case
 
 | file | break | exact tree | symbols | lost (exact) | enclosing fn | bsc first diagnostic | bsc diagnostics |

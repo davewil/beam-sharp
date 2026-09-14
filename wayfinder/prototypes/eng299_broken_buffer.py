@@ -61,8 +61,11 @@ BREAKS = ["mid_identifier", "unclosed_brace", "half_head", "dangling_arrow",
 # --- tree-sitter -------------------------------------------------------------
 
 def ts_parse(path):
-    r = subprocess.run(["tree-sitter", "parse", "-x", str(path)], cwd=GRAMMAR,
-                       capture_output=True, text=True)
+    try:
+        r = subprocess.run(["tree-sitter", "parse", "-x", str(path)], cwd=GRAMMAR,
+                           capture_output=True, text=True, timeout=30)
+    except subprocess.TimeoutExpired:
+        sys.exit(f"tree-sitter did not finish parsing {path} in 30s")
     out = r.stdout
     end = out.rfind("</source_file>")
     if end < 0:
