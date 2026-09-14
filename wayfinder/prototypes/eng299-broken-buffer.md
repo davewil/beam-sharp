@@ -140,6 +140,8 @@ answer A. No → answer B.
 
 ## Decision — David, 2026-09-14
 
+**Superseded the same day by Round 3's answer, below.** Kept for the record of how the answer moved.
+
 **Q1: No.** Answer B. The LSP's structure comes from the compiler's parser, and `bs_parser.yrl` gains
 error recovery as its own feature:
 [ENG-370](https://linear.app/davewil/issue/ENG-370), which blocks the server,
@@ -281,6 +283,35 @@ What the split relies on, by construction of the rule rather than by measurement
 `bsc` on save for diagnostics. In the Fib buffer, `Reverse` stays in the outline while `Series(n` is
 half typed. The compiler does not change, ENG-370 is cancelled, and ENG-305's server does the split.
 Is that the answer?
+
+**Answer, David 2026-09-14: yes.**
+
+## Decision — David, 2026-09-14 (final)
+
+**The LSP's outline comes from tree-sitter over a buffer split at column-0 lines; diagnostics come
+from `bsc` on save.** The compiler does not change. Parser error recovery,
+[ENG-370](https://linear.app/davewil/issue/ENG-370), is cancelled.
+
+What [ENG-305](https://linear.app/davewil/issue/ENG-305)'s server owes, as measured here:
+
+- Cut the buffer before every line whose first character is a letter, `_`, `:`, `(` or `[`; parse
+  each piece with the shipped grammar; shift each piece's nodes by its offset. `ts_nodes` in
+  `eng299_broken_buffer.py` is the measured form.
+- Read declarations from the `name` field of `signature` and `clause` nodes, and the first
+  `function_name` inside an ERROR node.
+- Hold the measured bar: on the five breaks over the 23 corpus files, 86 recovered, 2 flagged,
+  0 silent, `half_head` 23 of 23.
+
+**Known limits, accepted with the answer.** A declaration not starting at column 0 is not a recovery
+boundary. A continuation line starting at column 0 with one of those characters would split a
+declaration; the corpus has none and the compiler does not forbid one.
+
+**Deferred: `public` and `private` accepted as a variable by the tree-sitter grammar** (finding 4).
+With the buffer split, a clause left at `->` no longer reaches the next signature, so the outline is
+unaffected; only highlighting while typing is. No issue filed. Fixing it: the `reserved` block shown
+under *Follow-up* above — measured to parse all 23 clean files and to take the unsplit
+`dangling_arrow` row to 0 silent — added to `editor/tree-sitter-beam-sharp/grammar.js`, with
+`editor/bin/check-corpus.sh` still green.
 
 ## Per case
 
