@@ -465,13 +465,29 @@ check_features() {
 # C. No document calls unbuilt a feature the corpus demonstrates.
 # ---------------------------------------------------------------------------
 check_subjects() {
-    local root="$1" compiled=0 bad=0 scanned=0
+    local root="$1" compiled=0 bad=0 scanned=0 present=0
     local subject example alias out hits
+    # `CHECK_STATUS_EXAMPLES` is the self-test's seam, the way `CHECK_STATUS_DIR`
+    # is for the documents: a tree laid out like `compiler/`, from which the
+    # example directories are resolved. Nothing else sets it.
+    local exroot="${CHECK_STATUS_EXAMPLES:-$HERE/compiler}"
     while IFS='|' read -r subject example alias; do
         [ -n "$subject" ] || continue
-        [ -d "$HERE/compiler/$example" ] || continue
+        # A NAMED DIRECTORY THAT IS NOT THERE IS RED, NOT SKIPPED. This line
+        # read `[ -d ... ] || continue` until 2026-09-14 (ENG-325), so a
+        # subject whose directory had gone was neither probed nor reported,
+        # and the count below could not show it — the ENG-320 silence, one
+        # check along. It is drift between the list and the tree, which is a
+        # different thing from the not-compiled skip two lines down.
+        if [ ! -d "$exroot/$example" ]; then
+            printf 'subject "%s" names `compiler/%s`, which is not on disk.\n' "$subject" "$example"
+            printf '    ^ the subject list has drifted from the tree; fix subjects() or restore it.\n'
+            bad=$((bad + 1))
+            continue
+        fi
+        present=$((present + 1))
         out="$(mktemp -d)"
-        if ! ( cd "$HERE/compiler" && "$BSC" --src-root examples -o "$out" "$example" ) >/dev/null 2>&1; then
+        if ! ( cd "$exroot" && "$BSC" --src-root examples -o "$out" "$example" ) >/dev/null 2>&1; then
             rm -rf "$out"
             continue        # not built; a document calling it unbuilt is right
         fi
@@ -500,7 +516,10 @@ check_subjects() {
             fi
         done < <(shipping_docs)
     done < <(subjects)
-    printf 'subjects demonstrated by a compiling example: %d\n' "$compiled"
+    # N of M, M being the subjects whose directory exists: the not-compiled skip
+    # above stays legible as the gap between the two, and a subject with no
+    # directory is red on its own line rather than absent from both numbers.
+    printf 'subjects demonstrated by a compiling example: %d of %d\n' "$compiled" "$present"
     printf 'document scans performed: %d\n' "$scanned"
     if [ "$compiled" -lt 5 ] || [ "$scanned" -lt 20 ]; then
         echo "check-status-claims: this check enumerated almost nothing, which is how it"
@@ -821,9 +840,54 @@ if [ "${1:-}" = "--self-test" ]; then
         echo "$out"
         fail=1
     fi
-    if ! printf '%s' "$out" | grep -q 'subjects demonstrated by a compiling example'; then
-        echo "SELF-TEST FAILED: a run did not report how many subjects it probed, so a run"
-        echo "                  that enumerated nothing looks identical to a clean one."
+    if ! printf '%s' "$out" | grep -qE 'subjects demonstrated by a compiling example: [0-9]+ of [0-9]+'; then
+        echo "SELF-TEST FAILED: a run did not report how many subjects it probed against how"
+        echo "                  many it could have, so a run that skipped one looks identical"
+        echo "                  to a full one (ENG-325)."
+        fail=1
+    fi
+
+    # --- control 9: a subject whose example directory is not on disk --------
+    # ENG-325, the ENG-320 silence one check along. `check_subjects` read
+    # `[ -d "$HERE/compiler/$example" ] || continue`, so a subject naming a
+    # directory that is not there was neither probed nor reported, and the
+    # count beside it carried no list length to show the gap. All eight
+    # directories `subjects()` names are on disk today, which is exactly why
+    # the control has to build the absence: `map<K, V>` sat latent in the
+    # prelude list for nine days in the same shape before it wasn't.
+    #
+    # The examples tree is copied and ONE named directory removed, then the
+    # walk is pointed at the copy. Not a synthetic subject list: the rule is
+    # about the list the gate really walks meeting a tree that has drifted.
+    rm -rf "$CTL/ex"
+    mkdir -p "$CTL/ex"
+    cp -R "$HERE/compiler/examples" "$CTL/ex/examples"
+    rm -rf "$CTL/ex/examples/Queue"
+    if [ -d "$CTL/ex/examples/Queue" ]; then
+        echo "SELF-TEST FAILED: control 9 did not remove the example directory, so it is"
+        echo "                  not measuring a subject whose directory is gone."
+        fail=1
+    fi
+    out="$(CHECK_STATUS_EXAMPLES="$CTL/ex" check_subjects "$CTL/clean" 2>&1)"; rc=$?
+    if [ "$rc" -eq 0 ]; then
+        echo "SELF-TEST FAILED: a subject's example directory was DELETED and the gate still"
+        echo "                  passed. The subject was skipped in silence and the count"
+        echo "                  printed what a full walk prints — ENG-320, one check along."
+        fail=1
+    fi
+    if ! printf '%s' "$out" | grep -q 'switch' || ! printf '%s' "$out" | grep -q 'examples/Queue'; then
+        echo "SELF-TEST FAILED: the subject with no directory was not named with its path,"
+        echo "                  so a red run does not say which list entry drifted."
+        fail=1
+    fi
+    # The copy with nothing removed must be green, or the control above is
+    # measuring the copy rather than the deletion.
+    cp -R "$HERE/compiler/examples/Queue" "$CTL/ex/examples/Queue"
+    out="$(CHECK_STATUS_EXAMPLES="$CTL/ex" check_subjects "$CTL/clean" 2>&1)"; rc=$?
+    if [ "$rc" -ne 0 ]; then
+        echo "SELF-TEST FAILED: the complete examples copy reddens, so control 9 cannot"
+        echo "                  tell a deleted directory from a relocated tree."
+        echo "$out"
         fail=1
     fi
 
@@ -886,7 +950,8 @@ if [ "${1:-}" = "--self-test" ]; then
         echo "self-test: caught a promised type bsc refuses, an entry the list names with"
         echo "           no row in the table, an unindexed feature file, a split feature"
         echo "           table, a brand-new sentence calling a built feature out of scope,"
-        echo "           a deleted shipping document, and a resolved ticket called open —"
+        echo "           a subject whose example directory is gone, a deleted shipping"
+        echo "           document, and a resolved ticket called open —"
         echo "           and reported its own enumeration counts in every case."
         exit 0
     fi
