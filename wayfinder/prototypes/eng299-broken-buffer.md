@@ -155,6 +155,61 @@ typed, so no issue is filed. What fixing it would need: the grammar refuses both
 untried), measured by this script's `dangling_arrow` row reaching zero silent at the exact level,
 with `editor/bin/check-corpus.sh` still green.
 
+## Follow-up — reserving the lexer's keywords, 2026-09-14
+
+Asked by David after the decision: *"I thought one of tree-sitter's key strengths was error
+recovery?"* It is, and the results above show it recovering. The question was whether its losses
+come from tree-sitter or from this grammar, since finding 4 showed the grammar does not reserve
+`public` and `private`, and most `half_head` losses swallowed a signature starting with one of them.
+
+**Probe.** A copy of the grammar in scratch, renamed so its compiled library cannot replace the
+shipped one, with every keyword `bs_lexer.xrl` tokenises reserved:
+
+```js
+reserved: {
+  global: $ => ['module', 'type', 'when', 'using', 'behaviour', 'behavior',
+                'public', 'private', 'record', 'with', 'switch', 'var',
+                'raise', 'fn', 'and', 'or', 'where', 'true', 'false'],
+},
+```
+
+All 23 clean corpus files still parse with no ERROR node. Rerun with
+`ENG299_GRAMMAR=<grammar dir> python3 wayfinder/prototypes/eng299_broken_buffer.py`.
+
+| break | recovered | flagged | silent | change from the shipped grammar |
+|---|---|---|---|---|
+| mid_identifier | 11 | 2 | 0 | none |
+| unclosed_brace | 6 | 0 | 0 | none |
+| half_head | 0 | 23 | 0 | **none: identical losses in all 23, `Reverse` still lost in Fib** |
+| dangling_arrow | 14 | 9 | 0 | exact level: silent 13 → 0, recovered 0 → 14 |
+| no_signature | 23 | 0 | 0 | none |
+| **all** | **54** | **34** | **0** | the exact level now matches the symbol level |
+
+bsc's column is unchanged, as it should be: the compiler was not touched.
+
+**What this shows.**
+
+1. **Finding 4's fix works and costs nothing on the corpus.** Reserving the keywords removes every
+   silent tree.
+2. **The `half_head` loss is not about keywords.** With `private` reserved, `Series(n` still takes
+   the second `Series` clause and all of `Reverse` into one ERROR node. A clause head has no closing
+   token until `)`, B# declarations have no terminator, and `bs_lexer.xrl` discards whitespace
+   (`{WS}+ : skip_token`), so nothing in the grammar says where the half-typed head ended. tree-sitter's
+   recovery is generic: it does not know that `private` must start a declaration.
+3. **This corrects Q1's framing.** Answer B was offered as the way to keep `Reverse`. Nothing
+   measured shows that it would: a recovering `bs_parser.yrl` meets the same missing boundary. What
+   keeps `Reverse` in either parser is a recovery rule that uses something the grammar does not
+   carry, such as a declaration starting at column 0. All 332 top-level declarations in the 23
+   corpus files do start there, and nothing in the lexer or parser requires it. Whether either
+   parser can recover on that rule is unmeasured.
+
+## Round 2 — the question for David
+
+**Q2.** Q1 asked whether losing `Reverse` is acceptable, and the answer was No. That answer stands on
+its own terms; what changed is that the loss belongs to B#'s grammar, not to tree-sitter. Should
+ENG-370 stay as filed — `bs_parser.yrl` recovery, with keeping `Reverse` as its bar — or should the
+structure source be reopened before ENG-370 starts?
+
 ## Per case
 
 | file | break | exact tree | symbols | lost (exact) | enclosing fn | bsc first diagnostic | bsc diagnostics |

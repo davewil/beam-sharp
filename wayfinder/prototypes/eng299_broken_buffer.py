@@ -34,6 +34,7 @@ Each tree-sitter result is classified against the unbroken file's tree:
 Usage (from anywhere; bsc must be built with `rebar3 escriptize`):
     python3 wayfinder/prototypes/eng299_broken_buffer.py
 """
+import os
 import re
 import shutil
 import subprocess
@@ -44,7 +45,10 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 EXAMPLES = REPO / "compiler" / "examples"
-GRAMMAR = REPO / "editor" / "tree-sitter-beam-sharp"
+# ENG299_GRAMMAR points the measurement at a variant grammar directory, e.g. a
+# copy with reserved words, without editing the shipped one.
+GRAMMAR = Path(os.environ.get("ENG299_GRAMMAR",
+                              REPO / "editor" / "tree-sitter-beam-sharp"))
 BSC = REPO / "compiler" / "_build" / "default" / "bin" / "bsc"
 
 DECLS = {"module_declaration", "type_alias", "record_declaration",
