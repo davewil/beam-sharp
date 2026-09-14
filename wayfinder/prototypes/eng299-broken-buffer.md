@@ -138,6 +138,23 @@ own front end, which every gate and the audition read.
 comes back when the head is closed. Is that acceptable for the outline and go-to-definition? Yes →
 answer A. No → answer B.
 
+## Decision — David, 2026-09-14
+
+**Q1: No.** Answer B. The LSP's structure comes from the compiler's parser, and `bs_parser.yrl` gains
+error recovery as its own feature:
+[ENG-370](https://linear.app/davewil/issue/ENG-370), which blocks the server,
+[ENG-305](https://linear.app/davewil/issue/ENG-305). Because tree-sitter's loss was the thing judged
+unacceptable, the bar is higher than tree-sitter's: on all 23 `half_head` breaks, every declaration
+after the broken clause must survive. ENG-370 also carries the two things nothing has measured yet:
+whether yecc offers a recovery mechanism, and which `bsc` output carries the recovered declarations.
+
+**Deferred: finding 4, `public` and `private` accepted as a variable by the tree-sitter grammar.**
+Under answer B it no longer feeds the server, and affects only highlighting while a clause is being
+typed, so no issue is filed. What fixing it would need: the grammar refuses both words wherever
+`bs_lexer.xrl` tokenises them as keywords (tree-sitter 0.25's reserved-word rules are the candidate,
+untried), measured by this script's `dangling_arrow` row reaching zero silent at the exact level,
+with `editor/bin/check-corpus.sh` still green.
+
 ## Per case
 
 | file | break | exact tree | symbols | lost (exact) | enclosing fn | bsc first diagnostic | bsc diagnostics |
