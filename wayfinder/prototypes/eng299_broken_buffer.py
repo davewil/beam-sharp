@@ -50,6 +50,11 @@ EXAMPLES = REPO / "compiler" / "examples"
 GRAMMAR = Path(os.environ.get("ENG299_GRAMMAR",
                               REPO / "editor" / "tree-sitter-beam-sharp"))
 BSC = REPO / "compiler" / "_build" / "default" / "bin" / "bsc"
+# ENG299_CHUNKED=1 applies the column-0 rule outside the grammar: a broken
+# buffer is split before every line whose first character can start a
+# declaration, each piece is parsed on its own, and the declarations are merged.
+CHUNKED = os.environ.get("ENG299_CHUNKED") == "1"
+DECL_LINE = re.compile(rb"^[A-Za-z_:(\[]", re.M)
 
 DECLS = {"module_declaration", "type_alias", "record_declaration",
          "behaviour_declaration", "foreign_declaration", "import_declaration",
@@ -111,6 +116,32 @@ def top_level(root, src):
             nodes.append({"kind": el.tag, "start": s, "end": e,
                           "text": src[s:e], "name": name_of(el), "el": el})
     return nodes, starts
+
+
+def ts_nodes(src, path, scratch):
+    """-> (has_error, top-level nodes) for the bytes `src`, already written at
+    `path`. Chunked, each piece is written under `scratch` and parsed alone."""
+    if not CHUNKED:
+        err, root = ts_parse(path)
+        return err, top_level(root, src)[0]
+    cuts = [m.start() for m in DECL_LINE.finditer(src)]
+    if not cuts or cuts[0] != 0:
+        cuts = [0] + cuts
+    cuts.append(len(src))
+    scratch.mkdir(parents=True, exist_ok=True)
+    has_error, nodes = False, []
+    for i in range(len(cuts) - 1):
+        s, e = cuts[i], cuts[i + 1]
+        piece = src[s:e]
+        p = scratch / f"piece{i}.bs"
+        p.write_bytes(piece)
+        err, root = ts_parse(p)
+        has_error = has_error or err
+        for n in top_level(root, piece)[0]:
+            n["start"] += s
+            n["end"] += s
+            nodes.append(n)
+    return has_error, nodes
 
 
 # --- breaks ------------------------------------------------------------------
@@ -279,6 +310,13 @@ def main():
         if err:
             sys.exit(f"the clean corpus file {rel} does not parse")
         nodes, starts = top_level(root, src)
+        if CHUNKED:
+            c_err, c_nodes = ts_nodes(src, f, work / f"clean-chunks-{len(cases)}")
+            want = [(n["kind"], n["text"], n["start"]) for n in nodes if n["kind"] in DECLS]
+            got = [(n["kind"], n["text"], n["start"]) for n in c_nodes if n["kind"] in DECLS]
+            if c_err or want != got:
+                sys.exit(f"chunking changes the clean parse of {rel}: error node {c_err}, "
+                         f"{len(want)} declarations whole, {len(got)} chunked")
         cid = f"clean-{len(cases)}"
         cases[cid] = {"root": clean_root, "moddir": clean_root / rel.parent}
         rows.append({"file": str(rel), "break": "clean", "cid": cid})
@@ -292,8 +330,7 @@ def main():
             root_dir = work / cid
             shutil.copytree(EXAMPLES, root_dir, ignore=ignore)
             (root_dir / rel).write_bytes(broken)
-            b_err, b_root = ts_parse(root_dir / rel)
-            b_nodes, _ = top_level(b_root, broken)
+            b_err, b_nodes = ts_nodes(broken, root_dir / rel, work / f"{cid}-chunks")
             verdict, lost, sym_verdict, sym_lost, kept, enclosing = classify(
                 nodes, b_nodes, b_err, cursor, len(src) - len(broken),
                 touched, name, broken)
@@ -349,6 +386,7 @@ def main():
               f"{len(r['lost'])} of {r['kept']}: {lost} | {enc} | {diag} | {count} |")
 
     print()
+    print(f"tree-sitter grammar: {GRAMMAR.name}; split at column-0 lines: {CHUNKED}")
     print(f"corpus: {len(files)} files; bsc on the clean corpus: "
           f"{len(files) - len(clean_bad)} compile")
     for f, d in clean_bad:

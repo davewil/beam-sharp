@@ -213,7 +213,78 @@ structure source be reopened before ENG-370 starts?
 **Answer, David 2026-09-14: reopen it — try the column-0 rule in tree-sitter first.** The decision
 above no longer stands; ENG-299 is open again and ENG-370 waits on it.
 
+## The column-0 rule in tree-sitter, 2026-09-14
+
+### Inside the grammar: four variants, no effect on a half-typed head
+
+Each variant is a scratch copy of the grammar with an external scanner that emits a
+`_declaration_start` token where the next character is at column 0 and can start a declaration (a
+letter, `_`, `:`, `(`, `[`), allowed before every declaration. All four parse the 23 clean files
+with no ERROR node.
+
+| variant | half_head recovered | all breaks (exact) recovered / flagged / silent |
+|---|---|---|
+| zero-width token, optional | 0 of 23 | 40 / 35 / 13 — the shipped grammar's numbers |
+| zero-width token, optional, keywords reserved | 0 of 23 | 54 / 34 / 0 — the reserved grammar's numbers |
+| token owning the line break before it, optional, keywords reserved | 0 of 23 | 54 / 34 / 0 |
+| token owning the line break before it, **required**, keywords reserved | 0 of 23 | 44 / 44 / 0 — `unclosed_brace` and `dangling_arrow` worse |
+
+Why, measured with `tree-sitter parse -d` on the half-typed Fib buffer:
+
+1. The scanner is consulted only where the token is valid. After `Series(n` the parser expects `,`
+   or `)`, so the next line's `Series` is lexed internally, and the error is detected on that token
+   (`detect_error lookahead:uident`, row 17 col 8). The column-0 position is already behind it.
+2. Recovery then skips tokens one at a time. The scanner is called 30 times after the error, every
+   time mid-line just after a skipped token, and never at a line end before a column-0 line, so it
+   never returns the token. All six `_declaration_start` tokens in the log precede the error.
+3. A zero-width token could not have helped anyway. `ts_parser__lex` in tree-sitter 0.25.10 drops an
+   empty external token when
+   `error_mode || !ts_stack_has_advanced_since_error(self->stack, version) || token_is_extra`.
+
+### Outside the grammar: split the buffer, then parse
+
+`ENG299_CHUNKED=1` applies the same rule where tree-sitter's recovery cannot overrule it: the buffer
+is cut before every line whose first character can start a declaration, each piece is parsed on its
+own, and the declarations are merged at their offsets. Control: each of the 23 unbroken files, parsed
+this way, yields exactly the whole-file declarations at the same offsets, with no ERROR node.
+
+| break | recovered | flagged | silent | n/a |
+|---|---|---|---|---|
+| mid_identifier | 11 | 2 | 0 | 10 |
+| unclosed_brace | 6 | 0 | 0 | 17 |
+| half_head | **23** | 0 | 0 | 0 |
+| dangling_arrow | 23 | 0 | 0 | 0 |
+| no_signature | 23 | 0 | 0 | 0 |
+| **all** | **86** | **2** | **0** | 27 |
+
+The exact and symbol levels agree, and the table is the same on the shipped grammar and the
+reserved-keywords copy: a clause left at `->` no longer reaches the next line's `public`, because
+that line starts a new piece. The two flagged cases (`Interop`, `Shop`, both `mid_identifier`) lose
+no declaration; the node at the cursor is the ERROR node rather than the clause.
+
+In the Fib buffer, `Series(n` is a piece of its own and parses to an ERROR node naming `Series`;
+the second `Series` clause and all of `Reverse` are pieces that parse cleanly. `Reverse` stays in
+the outline.
+
+What the split relies on, by construction of the rule rather than by measurement:
+
+- **A declaration that does not start at column 0 is not a boundary.** It joins the piece before it.
+  In a clean buffer that piece still parses; in a broken one the loss reaches it as it does today.
+  All 332 top-level declarations in the corpus start at column 0, and the compiler requires none to.
+- **A continuation line at column 0 that starts with a letter, `_`, `:`, `(` or `[` would cut a
+  declaration in two.** None exists in the corpus — the clean control would have failed — and
+  nothing in the compiler forbids one.
+
+## Round 3 — the question for David
+
+**Q3.** The LSP takes its outline from tree-sitter over a buffer split at column-0 lines, and runs
+`bsc` on save for diagnostics. In the Fib buffer, `Reverse` stays in the outline while `Series(n` is
+half typed. The compiler does not change, ENG-370 is cancelled, and ENG-305's server does the split.
+Is that the answer?
+
 ## Per case
+
+The table below is the first run's: the shipped grammar, unsplit.
 
 | file | break | exact tree | symbols | lost (exact) | enclosing fn | bsc first diagnostic | bsc diagnostics |
 |---|---|---|---|---|---|---|---|
