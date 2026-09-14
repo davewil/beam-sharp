@@ -480,7 +480,10 @@ check_subjects() {
         # check along. It is drift between the list and the tree, which is a
         # different thing from the not-compiled skip two lines down.
         if [ ! -d "$exroot/$example" ]; then
-            printf 'subject "%s" names `compiler/%s`, which is not on disk.\n' "$subject" "$example"
+            # The path printed is the one tested, not a spelling of it: under
+            # the self-test's seam the two differ, and a message naming a tree
+            # the gate never looked at is the wrong tree to go and debug.
+            printf 'subject "%s" names `%s`, which is not on disk.\n' "$subject" "$exroot/$example"
             printf '    ^ the subject list has drifted from the tree; fix subjects() or restore it.\n'
             bad=$((bad + 1))
             continue
