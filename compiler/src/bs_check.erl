@@ -1667,9 +1667,13 @@ stratum_one() ->
 
 %% Compiler-known entries (`stratum_two/0`): types a user could not have written.
 %% `ValidationError` is `ValidateAs<T>`'s payload, a path into the term plus
-%% the type expected there, spelled as a tuple (ticket 15 §2); the segment
-%% spelling (`".Total"`, `"[2]"`, `"(1)"`) is F18's. PascalCase because a
-%% signature names it.
+%% the type expected there (ticket 15 §2); the segment spelling (`".Total"`,
+%% `"[2]"`, `"(1)"`) is F18's. It is a record (ticket 79, F49): the entry is
+%% the map a `record` declaration desugars to, so `record_of/3` and
+%% `bs_emit:record_tag/2` read its tag out of the resolved type like any
+%% other. The tag is bare, since a compiler-known type has no module, and
+%% `qualified/2` always writes a dot, so no user record can mint it.
+%% PascalCase because a signature names it.
 %%
 %% It is not made unshadowable by merge order: `type_env/1` merges user
 %% declarations over the standard environment, so a user's
@@ -1679,8 +1683,9 @@ stratum_one() ->
 %% (`compiler_known_redeclared/1`), so the diagnostic lands where the fix is.
 stratum_two() ->
     #{'ValidationError' =>
-          {t_tuple, [{t_generic, list, [{t_builtin, string}]},
-                     {t_builtin, string}]}}.
+          {t_map, [{field, 'Kind', {t_atom, 'ValidationError'}},
+                   {field, 'Path', {t_generic, list, [{t_builtin, string}]}},
+                   {field, 'Expected', {t_builtin, string}}]}}.
 
 %% `<` opens an instantiation bracket after one of these three names and is
 %% a comparison everywhere else; the set is closed (ticket 28). Enforced here

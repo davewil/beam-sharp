@@ -126,7 +126,7 @@ module. Two `ValidateAs<Order>` calls in one module share one generated function
 
 ### The generated shape
 
-Every generated validator is `(X, P) -> {ok, X} | {error, {Path, Expected}}`, where `P` is the path
+Every generated validator is `(X, P) -> {ok, X} | {error, ValidationError}`, where `P` is the path
 accumulated so far, **reversed**, and reversed back exactly once at the single site that builds an
 error. The body is one `case` over `X` whose clauses come straight off the algebra's parts — which
 is the point: `bs_types` already holds a type as *a DNF partitioned by constructor*, and the BEAM
@@ -146,8 +146,12 @@ introduced"*. That is the whole of what is decided. Two spellings follow from no
 **recorded here as this feature's assumptions**, in the shape F16 used for `--diagnostics term`:
 
 ```csharp
-type ValidationError = (list<string>, string)
+record ValidationError { Path: list<string>, Expected: string }   // compiler-known, tagged :'ValidationError'
 ```
+
+This feature shipped the carrier as the tuple `(list<string>, string)`; ticket 79 made it the
+record above and [F49](F49-validation-error-record.md) built it on 2026-09-15. The two assumptions
+are about the content, and the carrier did not change them.
 
 **(a) The path is a list of `string`, each segment spelled the way the author would reach that
 place.** A record field is `".Total"`, a list element is `"[2]"`, a tuple component is `"(1)"`.
@@ -267,11 +271,11 @@ produces it.
 | id | input | command | expected | exit |
 |---|---|---|---|---|
 | F18.1 | `Decode(t) -> ValidateAs<int>(t)` | `bsc examples/Wire Decode 7` | `7` — the success arm returns the value, not a wrapper | 0 |
-| F18.2 | the same | `bsc examples/Wire Decode :seven` | `(:error, ([], "int"))` — empty path, the term itself was wrong | 0 |
+| F18.2 | the same | `bsc examples/Wire Decode :seven` | `(:error, {Kind = :'ValidationError', Expected = "int", Path = []})` — empty path, the term itself was wrong | 0 |
 | F18.3 | `ValidateAs<list<int>>` | `bsc … "[1, 2, 3]"` | the list, unchanged | 0 |
-| F18.4 | the same | `bsc … "[1, :two, 3]"` | `(:error, (["[1]"], "int"))` — the element index is in the path | 0 |
+| F18.4 | the same | `bsc … "[1, :two, 3]"` | a `ValidationError` with `Path = ["[1]"]`, `Expected = "int"` — the element index is in the path | 0 |
 | F18.5 | `ValidateAs<Order>` over a record | a well-formed map | the record | 0 |
-| F18.6 | the same, one field of the wrong type | the map | `(:error, ([".Total"], "int"))` | 0 |
+| F18.6 | the same, one field of the wrong type | the map | a `ValidationError` with `Path = [".Total"]`, `Expected = "int"` | 0 |
 | F18.7 | a record whose field is `list<Line>` | a line with a bad field | the path composes — `[".Lines", "[1]", ".Price"]` | 0 |
 | F18.8 | a closed record with an **extra** key | the map | rejected — a declared map type is closed (26 §4), so `map_size` is part of the check | 0 |
 | F18.9 | `ValidateAs<term>` | `bsc` | error: the failure channel does not survive normalisation (15 §1) | 1 |
@@ -316,8 +320,9 @@ produces it.
 
 - **`ValidateAs<State>` inside a generated `code_change/3`** (18 §5). It reuses this mechanism and
   needs the state channel first.
-- **`ValidationError` as a record.** 15 §2 flags it as a candidate *if* 26 lands a record form for
-  it. It has not; the tuple is what is decided today.
+- ~~**`ValidationError` as a record.** 15 §2 flags it as a candidate *if* 26 lands a record form for
+  it. It has not; the tuple is what is decided today.~~ **Decided by ticket 79 and built by
+  [F49](F49-validation-error-record.md), 2026-09-15.**
 - **`found`, Gleam's third field.** Reasoned above: it needs 16 §4's serialisation mapping.
 
 ## Done when

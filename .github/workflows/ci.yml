@@ -607,6 +607,17 @@ jobs:
         working-directory: compiler
         run: ./bin/check-validate-target.sh
 
+      # F49 / ENG-379. The checker sees neither defect: a validator still
+      # emitting the tuple, or a construction minting the tag from its module,
+      # compiles every probe and fails only when it runs.
+      - name: The validation-error record gate proves it can fail
+        working-directory: compiler
+        run: ./bin/check-validation-error-record.sh --self-test
+
+      - name: '`ValidationError` is a record, in the value the program runs with'
+        working-directory: compiler
+        run: ./bin/check-validation-error-record.sh
+
       # F30 / ENG-279. Four of the gate's five defects pass the headline: a
       # build that keys the short-circuit on the stage's declared parameter
       # type compiles every positive scenario and fails on V6 alone, which is

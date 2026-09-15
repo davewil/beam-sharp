@@ -22,7 +22,7 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
--import(bs_test_support, [build_and_load/2]).
+-import(bs_test_support, [build_and_load/2, validation_error/2]).
 
 %%% ---------------------------------------------------------------------------
 %%% Fixture — one target type per test, validated from a `term`
@@ -54,7 +54,7 @@ an_empty_map_passes_test() ->
 
 something_that_is_not_a_map_blames_the_term_itself_test() ->
     M = load("map<string, int>"),
-    ?assertEqual({error, {[], <<"map<string, int>">>}}, M:'Check'([{a, 1}])).
+    ?assertEqual(validation_error([], <<"map<string, int>">>), M:'Check'([{a, 1}])).
 
 %%% ---------------------------------------------------------------------------
 %%% F43.2 — blame: the entry is named by its key, and the expected type says
@@ -63,28 +63,28 @@ something_that_is_not_a_map_blames_the_term_itself_test() ->
 
 a_bad_value_is_blamed_at_its_key_with_the_value_type_expected_test() ->
     M = load("map<string, int>"),
-    ?assertEqual({error, {[<<"[\"views\"]">>], <<"int">>}},
+    ?assertEqual(validation_error([<<"[\"views\"]">>], <<"int">>),
                  M:'Check'(#{<<"views">> => many})).
 
 a_bad_key_is_blamed_at_itself_with_the_key_type_expected_test() ->
     M = load("map<string, int>"),
-    ?assertEqual({error, {[<<"[:views]">>], <<"string">>}},
+    ?assertEqual(validation_error([<<"[:views]">>], <<"string">>),
                  M:'Check'(#{views => 3})).
 
 %% Deterministic, and statable: the first offending entry in key order.
 the_first_offending_entry_in_key_order_is_blamed_test() ->
     M = load("map<string, int>"),
-    ?assertEqual({error, {[<<"[\"b\"]">>], <<"int">>}},
+    ?assertEqual(validation_error([<<"[\"b\"]">>], <<"int">>),
                  M:'Check'(#{<<"c">> => x, <<"a">> => 1, <<"b">> => y})).
 
 the_path_composes_through_a_map_test() ->
     M = load("map<string, list<int>>"),
-    ?assertEqual({error, {[<<"[\"xs\"]">>, <<"[1]">>], <<"int">>}},
+    ?assertEqual(validation_error([<<"[\"xs\"]">>, <<"[1]">>], <<"int">>),
                  M:'Check'(#{<<"xs">> => [1, two, 3]})).
 
 a_map_inside_a_record_composes_the_other_way_test() ->
     M = load("Site", "record Site { Name: string, Counts: map<string, int> }\n"),
-    ?assertEqual({error, {[<<".Counts">>, <<"[\"views\"]">>], <<"int">>}},
+    ?assertEqual(validation_error([<<".Counts">>, <<"[\"views\"]">>], <<"int">>),
                  M:'Check'(#{'Kind' => 'VaMap.Site', 'Name' => <<"a">>,
                              'Counts' => #{<<"views">> => many}})).
 
@@ -94,15 +94,15 @@ a_map_inside_a_record_composes_the_other_way_test() ->
 
 an_int_key_is_spelled_as_digits_test() ->
     M = load("map<int, atom>"),
-    ?assertEqual({error, {[<<"[7]">>], <<"atom">>}}, M:'Check'(#{7 => <<"no">>})).
+    ?assertEqual(validation_error([<<"[7]">>], <<"atom">>), M:'Check'(#{7 => <<"no">>})).
 
 an_atom_key_the_sigil_can_spell_is_bare_test() ->
     M = load("map<atom, int>"),
-    ?assertEqual({error, {[<<"[:views]">>], <<"int">>}}, M:'Check'(#{views => x})).
+    ?assertEqual(validation_error([<<"[:views]">>], <<"int">>), M:'Check'(#{views => x})).
 
 an_atom_key_the_sigil_cannot_spell_is_quoted_test() ->
     M = load("map<atom, int>"),
-    ?assertEqual({error, {[<<"[:'Z.Order']">>], <<"int">>}},
+    ?assertEqual(validation_error([<<"[:'Z.Order']">>], <<"int">>),
                  M:'Check'(#{'Z.Order' => x})).
 
 %% A tuple has a spelling as a value, not as a key the author can write in a
@@ -110,8 +110,8 @@ an_atom_key_the_sigil_cannot_spell_is_quoted_test() ->
 %% the map is blamed, with the map's type expected.
 a_key_the_language_cannot_spell_blames_the_map_test() ->
     M = load("map<string, int>"),
-    ?assertEqual({error, {[], <<"map<string, int>">>}}, M:'Check'(#{{1, 2} => x})),
-    ?assertEqual({error, {[], <<"map<string, int>">>}}, M:'Check'(#{<<255>> => 1})).
+    ?assertEqual(validation_error([], <<"map<string, int>">>), M:'Check'(#{{1, 2} => x})),
+    ?assertEqual(validation_error([], <<"map<string, int>">>), M:'Check'(#{<<255>> => 1})).
 
 %%% ---------------------------------------------------------------------------
 %%% F43.4 — `Kind` is excluded (ticket 48 Q3), and `map<term, term>` is one test
@@ -119,7 +119,7 @@ a_key_the_language_cannot_spell_blames_the_map_test() ->
 
 a_record_is_not_a_domain_map_test() ->
     M = load("map<atom, term>"),
-    ?assertEqual({error, {[], <<"map<atom, term>">>}},
+    ?assertEqual(validation_error([], <<"map<atom, term>">>),
                  M:'Check'(#{'Kind' => 'Z.Order', 'S' => 1})).
 
 %% The segment is computed before an entry is checked and read only when a
@@ -129,14 +129,14 @@ an_unspellable_key_under_a_well_formed_entry_passes_test() ->
     M = load("map<term, int>"),
     In = #{{1, 2} => 3, <<255>> => 4},
     ?assertEqual(In, M:'Check'(In)),
-    ?assertEqual({error, {[], <<"map<term, int>">>}}, M:'Check'(#{{1, 2} => bad})).
+    ?assertEqual(validation_error([], <<"map<term, int>">>), M:'Check'(#{{1, 2} => bad})).
 
 a_map_over_term_needs_only_to_be_a_map_without_a_kind_test() ->
     M = load("map<term, term>"),
     In = #{{1, 2} => [x], <<255>> => self()},
     ?assertEqual(In, M:'Check'(In)),
-    ?assertEqual({error, {[], <<"map<term, term>">>}}, M:'Check'(#{'Kind' => x})),
-    ?assertEqual({error, {[], <<"map<term, term>">>}}, M:'Check'(7)).
+    ?assertEqual(validation_error([], <<"map<term, term>">>), M:'Check'(#{'Kind' => x})),
+    ?assertEqual(validation_error([], <<"map<term, term>">>), M:'Check'(7)).
 
 %%% ---------------------------------------------------------------------------
 %%% F43.5 — a domain member beside the other map kinds (F18's blame rule:
@@ -147,7 +147,7 @@ a_map_over_term_needs_only_to_be_a_map_without_a_kind_test() ->
 %% and each keeps its own blame.
 a_record_beside_a_domain_keeps_its_own_blame_test() ->
     M = load("Order | map<atom, term>", "record Order { S: int }\n"),
-    ?assertEqual({error, {[<<".S">>], <<"int">>}},
+    ?assertEqual(validation_error([<<".S">>], <<"int">>),
                  M:'Check'(#{'Kind' => 'VaMap.Order', 'S' => bad})),
     Bare = #{'S' => bad},
     ?assertEqual(Bare, M:'Check'(Bare)).
@@ -164,7 +164,7 @@ a_bare_map_beside_a_domain_is_an_alternative_test() ->
     InBrace  = #{'X' => <<"s">>},
     ?assertEqual(InDomain, M:'Check'(InDomain)),
     ?assertEqual(InBrace, M:'Check'(InBrace)),
-    ?assertEqual({error, {[], <<"{ X: string } | map<atom, int>">>}},
+    ?assertEqual(validation_error([], <<"{ X: string } | map<atom, int>">>),
                  M:'Check'(#{'X' => 1.5})).
 
 %% Two domains in one type — `map<string, int> | map<atom, atom>` — never reach
@@ -188,5 +188,5 @@ analytics_src() ->
 the_foreign_map_route_is_whole_test() ->
     M = build_and_load(analytics_src(), 'Analytics'),
     ?assertEqual(#{<<"views">> => 3}, M:'PageViews'([{<<"views">>, 3}])),
-    ?assertEqual({error, {[<<"[\"views\"]">>], <<"int">>}},
+    ?assertEqual(validation_error([<<"[\"views\"]">>], <<"int">>),
                  M:'PageViews'([{<<"views">>, many}])).

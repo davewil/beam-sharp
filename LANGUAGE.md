@@ -562,11 +562,12 @@ PageViews(site) -> ValidateAs<ViewCounts>(:analytics_db.latest_row(site))
 
 **shipped** — F43. The validator walks the entries in key order and checks each key against
 `string` and each value against `int`, stopping at the first that fails. Handed a map holding
-`"views"` against `:many` it returns `(:error, (["["views"]"], "int"))`: the path names the entry
-by its key, spelled as the key is written, and the expected type is the value's. Handed `:views`
-against `3` it returns `(:error, (["[:views]"], "string"))` — the key itself was wrong. A key
-the language has no literal for — a tuple, a binary that is not text — is not spelled: the path
-stops at the map, `(:error, ([], "map<string, int>"))`, and the expected type is the map's.
+`"views"` against `:many` it returns a `ValidationError` whose `Path` is `["["views"]"]` and whose
+`Expected` is `"int"`: the path names the entry by its key, spelled as the key is written, and the
+expected type is the value's. Handed `:views` against `3`, the `Path` is `["[:views]"]` and the
+`Expected` is `"string"` — the key itself was wrong. A key the language has no literal for — a
+tuple, a binary that is not text — is not spelled: the path stops at the map, `Path` is `[]`, and
+the `Expected` is the map's, `"map<string, int>"`.
 
 A `string` one guard reaches — a tuple member, an alias — gets the edit: *write `binary` where it
 says `string`*. **shipped** — ENG-351; and since ENG-354 (F40) the `string` check is one slice of
@@ -1654,7 +1655,8 @@ Size((:node, l, r)) -> 1 + Size(l) + Size(r)
 refused as unreachable. Delete either clause and the residual names the shape that is missing rather
 than unfolding forever. The emitted `-spec` is a recursive Erlang `-type`, not `any()`, and
 `ValidateAs<Tree>` generates a validator that calls itself: handed `(:node, :leaf, 7)` it returns
-`(:error, (["(3)"], "Tree"))` — the position inside the tree and the type expected there.
+`(:error, {Kind = :'ValidationError', Expected = "Tree", Path = ["(3)"]})` — the position inside
+the tree and the type expected there.
 
 A definition whose recursion passes through nothing but unions and aliases describes no value at
 all, and no amount of implementation will change that. A union is a **Boolean connective, not a
@@ -2046,8 +2048,8 @@ Decode(t) -> ValidateAs<list<Reading>>(t)
 ```
 
 **shipped** — `examples/Intake` runs it. Handed a list holding one reading whose `Value` is
-`:warm`, `Decode` returns `(:error, (["[0]", ".Value"], "int"))`; handed a well-formed one it
-returns the list unchanged.
+`:warm`, `Decode` returns `(:error, {Kind = :'ValidationError', Expected = "int", Path = ["[0]",
+".Value"]})`; handed a well-formed one it returns the list unchanged.
 
 `ValidateAs<T>` is a **codegen obligation, not a call**. The compiler reads the type argument,
 generates a traversal for that one concrete type, and lowers the call site to a local call of it —
@@ -2063,8 +2065,9 @@ them. Tag the members, `(:nums, list<map<string, int>>) | (:text, list<map<strin
 validate against that. `list<int> | list<atom>` is accepted, because a guard on the first element
 tells the two apart.
 
-**`ValidationError` is a path into the term plus the type expected there** — a `(list<string>,
-string)` today, and a candidate to become a record if one is ever introduced for it. A path segment
+**`ValidationError` is a path into the term plus the type expected there** — the compiler-known
+record `{ Path: list<string>, Expected: string }`, tagged `:'ValidationError'` with no module, so a
+handler takes it apart as any record: `Rejected(ValidationError { Path: p })`, or `e.Path`. A path segment
 is spelled the way you would reach that place: `".Value"` for a field, `"[0]"` for a list element,
 `"(2)"` for a tuple component, `"[\"views\"]"` or `"[:views]"` or `"[7]"` for a map entry, by its
 key. An empty path means the term itself was wrong. A map entry whose key has no literal — a

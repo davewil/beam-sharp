@@ -91,6 +91,30 @@ the_imported_type_is_the_producers_type_not_its_field_set_test() ->
     %% The guard is F42's: the wrong tag fails the head, not a body.
     has(Out, "function_clause").
 
+%% F49.8 — a record imported through `using` and CONSTRUCTED in the consumer
+%% carries the producer's tag. Construction minted from the consuming module
+%% until F49, so `Order { … }` inside `Billing` was `'Billing.Order'`: a value
+%% the type's own guard refuses, here at `Due`'s head.
+built_src() ->
+    "module Billing\n"
+    "using Orders\n"
+    "public int Due(Order o)\n"
+    "Due(o) -> o.Total\n"
+    "public Order Make(int id)\n"
+    "Make(id) -> Order { Id = id, Total = 5 }\n"
+    "public int Built(int id)\n"
+    "Built(id) -> Due(Make(id))\n".
+
+a_constructed_imported_record_carries_the_producers_tag_test() ->
+    Out = run([{"Billing.bs", built_src()}, orders_mod()], "Make 1"),
+    ok_rc(Out),
+    ?assertEqual("{Kind = :'Orders.Order', Id = 1, Total = 5}", value(Out)).
+
+a_constructed_imported_record_passes_the_producers_guard_test() ->
+    Out = run([{"Billing.bs", built_src()}, orders_mod()], "Built 1"),
+    ok_rc(Out),
+    ?assertEqual("5", value(Out)).
+
 %%% ---------------------------------------------------------------------------
 %%% F44.2 — a `type` alias crosses by the same mechanism, and its members
 %%% dispatch by name in the consumer's clause heads

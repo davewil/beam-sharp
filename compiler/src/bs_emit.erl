@@ -875,9 +875,16 @@ expr({e_apply, L, V, As}, C) ->
 
 %% A record erases to a map carrying its minted `Kind` tag as ordinary data,
 %% which is what lets a clause head dispatch on a union of records
-%% (ticket 26 §1).
+%% (ticket 26 §1). The tag is read from the resolved type, as `desugar/2`
+%% reads it for a pattern, so a compiler-known record (`ValidationError`,
+%% F49) carries its own tag rather than one minted from this module. Unlike
+%% the pattern site this does not refuse: the checker admits the construction
+%% syntax over an untagged map alias, and that keeps the tag it always minted.
 expr({e_record, L, Name, Fields}, C = #{module := Mod}) ->
-    Tag = bs_check:qualified(Mod, Name),
+    Tag = case record_tag({t_ref, Name}, C) of
+              {ok, T} -> T;
+              none    -> bs_check:qualified(Mod, Name)
+          end,
     {map, L,
      [{map_field_assoc, L, {atom, L, 'Kind'}, {atom, L, Tag}}
       | [{map_field_assoc, L, {atom, L, K}, expr(E, C)} || {K, E} <- Fields]]};
@@ -1697,13 +1704,18 @@ validator_form(Ty, Name, Table) ->
 
 %% The single site that builds a `ValidationError`; the path is carried
 %% reversed everywhere else so this is one `lists:reverse/1` per failure
-%% rather than an append per step.
+%% rather than an append per step. The value is the record `stratum_two/0`
+%% declares (F49), so its keys and tag must match that entry: a clause head
+%% naming `ValidationError` is guarded on this tag.
 error_expr(Ty) ->
     {tuple, ?A,
      [{atom, ?A, error},
-      {tuple, ?A, [{call, ?A, {remote, ?A, {atom, ?A, lists}, {atom, ?A, reverse}},
-                    [?VP]},
-                   bin_str(bs_types:to_string(Ty))]}]}.
+      {map, ?A,
+       [{map_field_assoc, ?A, {atom, ?A, 'Kind'}, {atom, ?A, 'ValidationError'}},
+        {map_field_assoc, ?A, {atom, ?A, 'Path'},
+         {call, ?A, {remote, ?A, {atom, ?A, lists}, {atom, ?A, reverse}}, [?VP]}},
+        {map_field_assoc, ?A, {atom, ?A, 'Expected'},
+         bin_str(bs_types:to_string(Ty))}]}]}.
 
 ok_expr() -> {tuple, ?A, [{atom, ?A, ok}, ?VV]}.
 

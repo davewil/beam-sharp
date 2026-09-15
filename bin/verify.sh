@@ -306,6 +306,9 @@ run_stages \
   "\`ValidateAs<T>\` refuses a target no clause head can take apart" \
     "cd compiler && ./bin/check-validate-target.sh --self-test && ./bin/check-validate-target.sh" \
 \
+  "\`ValidationError\` is a record, in the value the program runs with" \
+    "cd compiler && ./bin/check-validation-error-record.sh --self-test && ./bin/check-validation-error-record.sh" \
+\
   "The valve stops on the fixed pair, and a narrowing stage does not widen it" \
     "cd compiler && ./bin/check-valve.sh --self-test && ./bin/check-valve.sh" \
 \

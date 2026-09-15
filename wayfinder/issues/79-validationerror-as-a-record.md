@@ -205,6 +205,11 @@ holds a module and a dot (F), a compiler-known type has no module to carry, and 
 qualifier (ticket 67) names operations, which a type is not. The content is 15 §2's, unchanged;
 only the carrier moved, and it moved the day the wire (77) made the tuple cost something.
 
+*Corrected 2026-09-15 on building it (F49, ENG-379):* the atom decided here is `'ValidationError'`,
+and B# source and `bsc` output spell it `:'ValidationError'`. The unquoted `:ValidationError` in
+this ticket does not lex — the bare atom sigil takes a lowercase name — and was written, not
+measured. The wire form, `"Kind":"ValidationError"`, is unchanged.
+
 What a program can now write, and what it gets:
 
 - `Rejected(ValidationError { Path: p })` and `ValidationError e` in a clause head; `e.Path` and

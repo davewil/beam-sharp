@@ -15,7 +15,8 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
--import(bs_test_support, [build_and_load/2, errors/1, check_only/1]).
+-import(bs_test_support, [build_and_load/2, errors/1, check_only/1,
+                          validation_error/2]).
 
 %%% ---------------------------------------------------------------------------
 %%% F18.1, F18.2 — the simplest type there is
@@ -36,7 +37,7 @@ a_valid_term_comes_back_unwrapped_test() ->
 %% as one rather than as a missing value.
 a_failing_term_names_an_empty_path_and_the_expected_type_test() ->
     M = build_and_load(int_src(), 'VaInt'),
-    ?assertEqual({error, {[], <<"int">>}}, M:'Number'(seven)).
+    ?assertEqual(validation_error([], <<"int">>), M:'Number'(seven)).
 
 %%% ---------------------------------------------------------------------------
 %%% F18.3, F18.4 — a list, and the index in the path
@@ -59,18 +60,18 @@ an_empty_list_passes_test() ->
 %% ordinal for a reader.
 a_bad_element_names_its_index_test() ->
     M = build_and_load(list_src(), 'VaList'),
-    ?assertEqual({error, {[<<"[1]">>], <<"int">>}}, M:'Numbers'([1, two, 3])).
+    ?assertEqual(validation_error([<<"[1]">>], <<"int">>), M:'Numbers'([1, two, 3])).
 
 %% `is_list/1` IS TRUE OF AN IMPROPER LIST, so a validator written as a guard
 %% would have accepted `[1|2]` as a `list<int>`. The blame is the list, not an
 %% element of it: no element was wrong.
 an_improper_list_is_rejected_test() ->
     M = build_and_load(list_src(), 'VaList'),
-    ?assertEqual({error, {[], <<"list<int>">>}}, M:'Numbers'([1 | 2])).
+    ?assertEqual(validation_error([], <<"list<int>">>), M:'Numbers'([1 | 2])).
 
 a_non_list_is_rejected_test() ->
     M = build_and_load(list_src(), 'VaList'),
-    ?assertEqual({error, {[], <<"list<int>">>}}, M:'Numbers'(42)).
+    ?assertEqual(validation_error([], <<"list<int>">>), M:'Numbers'(42)).
 
 %%% ---------------------------------------------------------------------------
 %%% F18.5 – F18.8 — records, which is what a deep validator mostly walks
@@ -93,7 +94,7 @@ a_well_formed_record_passes_test() ->
 
 a_field_of_the_wrong_type_names_the_field_test() ->
     M = build_and_load(order_src(), 'VaOrder'),
-    ?assertEqual({error, {[<<".Id">>], <<"int">>}},
+    ?assertEqual(validation_error([<<".Id">>], <<"int">>),
                  M:'Decode'(order(one, []))).
 
 %% F18.7 — THE PATH COMPOSES, and this is the test the whole path design exists
@@ -101,7 +102,7 @@ a_field_of_the_wrong_type_names_the_field_test() ->
 a_nested_failure_composes_the_whole_path_test() ->
     M = build_and_load(order_src(), 'VaOrder'),
     Bad = order(1, [line(<<"axle">>, 500), line(<<"hub">>, free)]),
-    ?assertEqual({error, {[<<".Lines">>, <<"[1]">>, <<".Price">>], <<"int">>}},
+    ?assertEqual(validation_error([<<".Lines">>, <<"[1]">>, <<".Price">>], <<"int">>),
                  M:'Decode'(Bad)).
 
 %% TICKET 26 §4 — a declared map type is CLOSED. A wider map is a different type,
@@ -112,22 +113,22 @@ an_extra_key_is_rejected_test() ->
     Wide = (order(1, []))#{'Note' => <<"hi">>},
     %% The expectation names the whole record type, because the wider map is not
     %% a wrong FIELD — it is a different type.
-    ?assertEqual({error, {[], <<"{ Kind: :'VaOrder.Order', Id: int, "
+    ?assertEqual(validation_error([], <<"{ Kind: :'VaOrder.Order', Id: int, "
                                 "Lines: list<{ Kind: :'VaOrder.Line', "
-                                "Price: int, Sku: string }> }">>}},
+                                "Price: int, Sku: string }> }">>),
                  M:'Decode'(Wide)).
 
 a_missing_key_is_rejected_test() ->
     M = build_and_load(order_src(), 'VaOrder'),
-    ?assertMatch({error, {[], _}}, M:'Decode'(#{'Kind' => 'VaOrder.Order',
-                                                'Id' => 1})).
+    ?assertMatch({error, #{'Kind' := 'ValidationError', 'Path' := []}},
+                 M:'Decode'(#{'Kind' => 'VaOrder.Order', 'Id' => 1})).
 
 %% The minted tag is ordinary data in the term (26 §1), so it validates like any
 %% other field — and a map wearing the wrong tag is not this record.
 a_wrong_tag_is_rejected_test() ->
     M = build_and_load(order_src(), 'VaOrder'),
     Wrong = (order(1, []))#{'Kind' => 'VaOrder.Line'},
-    ?assertEqual({error, {[<<".Kind">>], <<":'VaOrder.Order'">>}},
+    ?assertEqual(validation_error([<<".Kind">>], <<":'VaOrder.Order'">>),
                  M:'Decode'(Wrong)).
 
 %%% ---------------------------------------------------------------------------
@@ -151,7 +152,7 @@ a_utf8_binary_is_a_string_test() ->
 %% outside, which is the only place the question is interesting.
 a_non_utf8_binary_is_not_a_string_test() ->
     M = build_and_load(string_src(), 'VaStr'),
-    ?assertEqual({error, {[], <<"string">>}}, M:'Text'(<<255, 254>>)).
+    ?assertEqual(validation_error([], <<"string">>), M:'Text'(<<255, 254>>)).
 
 %% The refinement is a SUBSET, so the base accepts what the refinement refuses.
 a_non_utf8_binary_is_still_a_binary_test() ->
@@ -177,7 +178,7 @@ either_member_of_the_union_passes_test() ->
 %% unambiguous and the blame is exact: component 2, expected `int`.
 a_union_discriminated_by_a_tag_blames_the_component_test() ->
     M = build_and_load(reading_src(), 'VaReading'),
-    ?assertEqual({error, {[<<"(2)">>], <<"int">>}}, M:'Read'({ok, nope})).
+    ?assertEqual(validation_error([<<"(2)">>], <<"int">>), M:'Read'({ok, nope})).
 
 pair_src() ->
     "module VaPair\n"
@@ -198,7 +199,7 @@ both_members_of_an_ambiguous_union_pass_test() ->
 %% honest if what it reports is the whole union rather than one candidate's type.
 an_ambiguous_union_blames_the_node_not_a_candidate_test() ->
     M = build_and_load(pair_src(), 'VaPair'),
-    ?assertEqual({error, {[], <<"(int, int) | (atom, atom)">>}},
+    ?assertEqual(validation_error([], <<"(int, int) | (atom, atom)">>),
                  M:'Both'({1, b})).
 
 %% A UNION OF RECORDS IS THE TAGGED CASE ONE CONSTRUCTOR OVER, and the two here
@@ -224,12 +225,13 @@ each_record_in_a_union_passes_test() ->
 the_minted_tag_discriminates_a_record_union_test() ->
     M = build_and_load(doc_src(), 'VaDoc'),
     Bad = #{'Kind' => 'VaDoc.Order', 'Id' => 1, 'Total' => unpaid},
-    ?assertEqual({error, {[<<".Total">>], <<"int">>}}, M:'Decode'(Bad)).
+    ?assertEqual(validation_error([<<".Total">>], <<"int">>), M:'Decode'(Bad)).
 
 a_tag_belonging_to_neither_is_rejected_test() ->
     M = build_and_load(doc_src(), 'VaDoc'),
     Bad = #{'Kind' => 'Other.Thing', 'Id' => 1, 'Total' => 5},
-    ?assertMatch({error, {[], _}}, M:'Decode'(Bad)).
+    ?assertMatch({error, #{'Kind' := 'ValidationError', 'Path' := []}},
+                 M:'Decode'(Bad)).
 
 %%% ---------------------------------------------------------------------------
 %%% Ticket 61 — the path descends into a tuple component, and the expectation
@@ -253,7 +255,7 @@ wire_src() ->
 %% expected type — `(["[1]", "(2)"], "string")`, not a stop at the row.
 a_bad_tuple_component_names_row_and_component_test() ->
     M = build_and_load(wire_src(), 'VaWire'),
-    ?assertEqual({error, {[<<"[1]">>, <<"(2)">>], <<"string">>}},
+    ?assertEqual(validation_error([<<"[1]">>, <<"(2)">>], <<"string">>),
                  M:'Rows'([{1, <<"ada">>, x}, {2, bad, y}])).
 
 a_clean_tuple_rowset_passes_test() ->
@@ -268,7 +270,7 @@ a_list_element_expectation_prints_once_test() ->
           "public result<list<P>, ValidationError> Go(term t)\n"
           "Go(t) -> ValidateAs<list<P>>(t)\n",
     M = build_and_load(Src, 'VaPairList'),
-    ?assertEqual({error, {[<<"[0]">>], <<"(int, int)">>}}, M:'Go'([x])).
+    ?assertEqual(validation_error([<<"[0]">>], <<"(int, int)">>), M:'Go'([x])).
 
 %% `term` is not an alias that erased by diagnostic time — it is the name of
 %% the top, and printing its six-way decomposition is strictly worse.
@@ -278,7 +280,7 @@ term_prints_as_term_in_an_expectation_test() ->
           "public result<Tagged, ValidationError> Go(term t)\n"
           "Go(t) -> ValidateAs<Tagged>(t)\n",
     M = build_and_load(Src, 'VaTermField'),
-    ?assertEqual({error, {[], <<"(:ok, term)">>}}, M:'Go'(42)).
+    ?assertEqual(validation_error([], <<"(:ok, term)">>), M:'Go'(42)).
 
 %%% ---------------------------------------------------------------------------
 %%% The type is the ALGEBRA's, not the surface's
@@ -568,7 +570,7 @@ the_pipe_reaches_the_bracket_test() ->
           "Go(t) -> t |> ValidateAs<list<int>>()\n",
     M = build_and_load(Src, 'VaPipe'),
     ?assertEqual([1, 2], M:'Go'([1, 2])),
-    ?assertEqual({error, {[<<"[0]">>], <<"int">>}}, M:'Go'([x])).
+    ?assertEqual(validation_error([<<"[0]">>], <<"int">>), M:'Go'([x])).
 
 %%% ---------------------------------------------------------------------------
 %%% Consuming the result the way an author would

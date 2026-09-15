@@ -13,7 +13,12 @@
          escript/0, built/0, run_command_result/1, run_cli/1, run_cli_result/1,
          run_cli_split_result/1, run_cli_with_stdin_file_result/2, with_src/3,
          run_root/0, fixture_root/0, place/3,
-         showcase_src/0, shop_src/0, an_order/0, count/2]).
+         showcase_src/0, shop_src/0, an_order/0, count/2, validation_error/2]).
+
+%% The failure a generated `ValidateAs<T>` returns: `(:error, ValidationError)`,
+%% the record F49 made of it.
+validation_error(Path, Expected) ->
+    {error, #{'Kind' => 'ValidationError', 'Path' => Path, 'Expected' => Expected}}.
 
 -define(OUT, run_root()).
 

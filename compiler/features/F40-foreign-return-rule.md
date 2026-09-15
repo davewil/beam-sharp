@@ -136,7 +136,8 @@ those:
   *write `binary` where it says `string`* inside one;
 - a record gets its inline field form — and **not** `ValidateAs<Order>`, which
   was measured to refuse a map without `Kind` at run time
-  (`(:error, ([], "{ Kind: :'Va2.Order', Id: int, Total: int }"))`), so
+  (`(:error, ([], "{ Kind: :'Va2.Order', Id: int, Total: int }"))`, the tuple F18 returned
+  until F49 made the reason a record), so
   recommending it would be the refusal handing back the defect it refuses;
 - everything else gets 18 §2's route: *declare it `list<term>`* /
   *`map<term, term>`* / *`term`* where the whole return is the offender, and

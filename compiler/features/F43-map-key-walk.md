@@ -18,7 +18,7 @@
                 is the key in brackets, spelled as the language writes it** — `["views"]`,
                 `[:views]`, `[7]` — and a key with no literal is not spelled at all. See
                 *The segment* below for why that second half is a rule and not a gap
-**Depends on**  F18 (the validator, its internal `{ok, V} | {error, {Path, Expected}}`
+**Depends on**  F18 (the validator, its internal `{ok, V} | {error, ValidationError}`
                 protocol, and the blame rule); F33 (the `{dom, K, V}` member); F40 and F42,
                 which together are why a foreign `map<string, int>` return now has exactly
                 one route and this is it
@@ -63,12 +63,16 @@ The same one, after. Read through the CLI with `:maps.from_list` standing in for
 $ bsc Analytics.bs PageViews '[("views", 3)]'
 #{<<"views">> => 3}
 $ bsc Analytics.bs PageViews '[("views", :many)]'
-(:error, (["["views"]"], "int"))
+(:error, {Kind = :'ValidationError', Expected = "int", Path = ["["views"]"]})
 $ bsc Analytics.bs PageViews '[(:views, 3)]'
-(:error, (["[:views]"], "string"))
+(:error, {Kind = :'ValidationError', Expected = "string", Path = ["[:views]"]})
 $ bsc Analytics.bs PageViews '[((1, 2), 3)]'
-(:error, ([], "map<string, int>"))
+(:error, {Kind = :'ValidationError', Expected = "map<string, int>", Path = []})
 ```
+
+The three failures printed the reason as the tuple `(list<string>, string)` when this was written;
+they were re-measured on 2026-09-15 after F49 made it a record, through the module directory
+(`bsc Analytics PageViews …`), which is the invocation `bsc` takes now.
 
 The well-formed map prints in Erlang's spelling because a map with a non-atom key has no
 beam-sharp one (ticket 48, ENG-351). The first payload is what `bsc` prints, quotes unescaped;

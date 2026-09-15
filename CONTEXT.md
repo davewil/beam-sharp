@@ -330,7 +330,7 @@ _Avoid_: cast, coercion, decoder, parser, validator
 
 **ValidationError**:
 `ValidateAs<T>`'s reason: a compiler-known record, `Path` into the offending term plus the
-`Expected` type there, tagged `:ValidationError`.
+`Expected` type there, tagged `:'ValidationError'` with no module.
 _Avoid_: DecodeError, error message, failure
 
 **Foreign wrapper**:

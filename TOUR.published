@@ -24,7 +24,15 @@
 # evidence here that is not self-reported.
 
 url       https://claude.ai/code/artifact/40f71cf4-d5d3-4b71-882c-ad73f630a03c
-sha256    0b82564beee7dc1cca6c82b2e8bf3b11575bf534a371ca7ef239630ea746033c
+sha256    0d48ea47b2e39f02fe8eb9a937e5f7cd9eeaed7ddeb73dcbd5a0f2a05d15716b
+verified  2026-09-15 (for F49, `ValidationError` as a record, ENG-379) — chapter 15's third Intake
+          transcript printed `(:error, (["[0]", ".Value"], "int"))` and its prose read the payload
+          as that tuple; both now show the record, `{Kind = :'ValidationError', Expected = "int",
+          Path = ["[0]", ".Value"]}`, the transcript replayed by part 3 against the rebuilt `bsc`.
+          Part 4 was red against the old stamp, and the live page (version 24) was read back in full
+          first and still carried the tuple at both places, so it was confirmed stale rather than
+          assumed, and the read showed a plain render of TOUR.md with nothing saved into it
+          independently. Published as version 25 on the first attempt.
 verified  2026-09-12 (for F46, a function as a value, ENG-365) — chapter 9 said the arrow was not
           built; it now quotes `examples/Shop/Pricing/Pricing.bs`, the corpus module ticket 75's
           program became, with two replayed transcripts and the sentence that the bare-name lambda

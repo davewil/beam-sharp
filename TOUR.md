@@ -1317,7 +1317,7 @@ $ bsc --src-root examples examples/Intake Decode "[]"
 $ bsc --src-root examples examples/Intake Decode "[{ Kind = :'Intake.Reading', Sensor = \"t1\", Value = 21 }]"
 [{Kind = :'Intake.Reading', Sensor = "t1", Value = 21}]
 $ bsc --src-root examples examples/Intake Decode "[{ Kind = :'Intake.Reading', Sensor = \"t1\", Value = :warm }]"
-(:error, (["[0]", ".Value"], "int"))
+(:error, {Kind = :'ValidationError', Expected = "int", Path = ["[0]", ".Value"]})
 $ bsc --src-root examples examples/Intake Verdict 7
 :rejected
 ```
@@ -1329,9 +1329,10 @@ function in the emitted `.beam`, no dispatch on a type at run time, and no type 
 anywhere — which is why this is not a generic call even though the language now has real
 generics.
 
-**And the failure is a value, not a crash.** The error carries a **path into the term** plus
-the type expected there — `(["[0]", ".Value"], "int")` reads as *element 0, field `Value`,
-wanted an int*. That payload is not politeness: a bare `T | :error` would **collapse** for the
+**And the failure is a value, not a crash.** The error is a `ValidationError`, a record carrying
+a **path into the term** plus the type expected there — `Path = ["[0]", ".Value"]` and
+`Expected = "int"` read as *element 0, field `Value`, wanted an int*, and a handler takes it apart
+as any record, `ValidationError { Path: p }`. That payload is not politeness: a bare `T | :error` would **collapse** for the
 very types a deep validator is generated over, because an atom is absorbed by the atom top.
 The tagged member survives, and it is what lets `Verdict` be written at all.
 
