@@ -116,6 +116,21 @@ a_refinement_after_a_record_of_one_name_is_refused_test() ->
     has(Out, "Ports.bs:3:1: error: Port is declared twice"),
     has(Out, "line 2").
 
+%% The reverse order of the first test. Before the check a RECORD won
+%% whichever was written first (records are the right operand of the `++`
+%% the environment was built from), so source order was not even the rule
+%% being silently applied; now the later line is the second declaration.
+a_record_after_an_alias_of_one_name_is_refused_test() ->
+    Out = compile_set([{"Names.bs",
+                        "module Names\n"
+                        "type Name = int\n"
+                        "record Name { First: int, Last: int }\n"
+                        "public Name Make()\n"
+                        "Make() -> Name { First = 1, Last = 2 }\n"}]),
+    bad_rc(Out),
+    has(Out, "Names.bs:3:1: error: Name is declared twice"),
+    has(Out, "line 2").
+
 %% Three declarations report ONE error, at the second: the third is the same
 %% defect again, and a second message would send the author to fix the same
 %% name twice.
@@ -141,8 +156,9 @@ the_api_query_refuses_it_too_test() ->
     ?assertEqual("", Out),
     ?assertNotEqual(nomatch, string:find(Err, "Name is declared twice")).
 
-%% The term carries both positions as data (F16), so an editor can mark the
-%% first declaration as well as the one the error sits on.
+%% The term carries both positions as data (F16), each with both halves
+%% (F35), so an editor can mark the first declaration as well as the one the
+%% error sits on.
 the_term_carries_both_lines_test() ->
     {Root, Main} = in_dir([{"AccountsDup.bs", accounts_src()}]),
     {Rc, Out, _Err} = run_cli_split_result("--diagnostics term --src-root " ++
@@ -150,7 +166,7 @@ the_term_carries_both_lines_test() ->
     ?assertEqual(1, Rc),
     [Desc] = [D || D = #{tag := type_redeclared} <- terms(Out)],
     ?assertMatch(#{severity := error, line := 8, column := 1,
-                   type := 'Name', first_line := 4}, Desc).
+                   type := 'Name', first_line := 4, first_column := 1}, Desc).
 
 %% The namespace is TYPE names. A function may share a name with a type
 %% (ticket 40 keeps functions in their own namespace), and the same type name

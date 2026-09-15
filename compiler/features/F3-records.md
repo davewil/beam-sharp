@@ -295,9 +295,9 @@ a clean run proves nothing unless a wrong spec would fail it.
 
 ### F3.13 — a type name is declared once, whatever spells it
 
-**Added 2026-09-15 by [ENG-352](https://linear.app/davewil/issue/ENG-352), a year-old finding
-of this feature's own build** (the *third thing no feature owns* in the features README) **built
-a month later.** `record`, `type` and a refinement all declare a type name, and F3.2 makes a
+**Added 2026-09-15 by [ENG-352](https://linear.app/davewil/issue/ENG-352): a finding of this
+feature's own build, written into the features README on 2026-08-15** (the *third thing no
+feature owns*) **and built a month later.** `record`, `type` and a refinement all declare a type name, and F3.2 makes a
 record the same type as the hand-written `type` with its tag — so the three spellings share one
 namespace, and a module holds each name once.
 
@@ -320,8 +320,8 @@ rightmost duplicate: a record beat an alias of the same name whichever was writt
 between two of a kind the later one won. The losing fields vanished, and the function declared
 over the name was refused for a return type its author never wrote — the program above produced
 two `return_not_declared` errors against the surviving `Name` and no word about the collision.
-The term is `{type_redeclared, Name, Line, FirstLine}`, into the path `bsc:resolve_error/2`
-already catches, so `bsc --api` refuses the module too (it runs the declaration pass on its own,
+The term is `{type_redeclared, Name, Line, First}`, both positions with both halves (F35), into
+the path `bsc:resolve_error/2` already catches, so `bsc --api` refuses the module too (it runs the declaration pass on its own,
 F17) rather than answering about a module that cannot be built.
 
 Not a redeclaration: a function sharing a name with a type (ticket 40 keeps the two namespaces

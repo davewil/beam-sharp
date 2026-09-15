@@ -573,11 +573,12 @@ built(Path, {name_redeclared, Name, Arity, Line}) ->
     #{tag => name_redeclared, severity => error, file => Path, line => Line,
       name => Name, arity => Arity};
 %% A type name declared twice, in any of its three spellings; the error sits
-%% on the second declaration and carries the first's line, so an editor can
-%% mark both (ENG-352). `first_line` is bare because only `line` is placed.
+%% on the second declaration and carries the first's position, both halves
+%% (F35), so an editor can mark both (ENG-352). They are split here because
+%% `place/1` splits only `line`.
 built(Path, {type_redeclared, Name, Line, First}) ->
     #{tag => type_redeclared, severity => error, file => Path, line => Line,
-      type => Name, first_line => line_of(First)};
+      type => Name, first_line => line_of(First), first_column => column_of(First)};
 %% The candidates print qualified because a qualified call is legal whatever
 %% is in scope, so the message is pasteable source (ticket 41 §2, 23).
 built(Path, {ambiguous_call, Name, Arity, Mods, Line}) ->
@@ -807,6 +808,10 @@ not_in_prefix_position([], _Line)        -> false.
 %% anything that predates F35 or reports without a column. Both answer this.
 line_of({Line, _Column}) -> Line;
 line_of(Line)            -> Line.
+
+%% Only a declaration's position is asked for its column, and every
+%% declaration carries one (F35); a bare line here is a crash, not a guess.
+column_of({_Line, Column}) -> Column.
 
 is_operand({'(', _})         -> true;
 is_operand({lident, _, _})   -> true;
