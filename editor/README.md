@@ -138,6 +138,9 @@ Worth knowing before it is scheduled, because most of it is compiler work rather
 4. **Diagnostics are prose on stderr**, and this is *literally ticket 23's open question* — whether
    the residual gets a machine-readable form as well as a human one. An LSP is the second consumer
    that makes the answer obviously yes; the first was an agent.
+   <!-- Answered and built: the term (F16, `--diagnostics term`, 2026-08-18) and its JSON
+        encoding (F47, `--diagnostics json`, 2026-09-15, ENG-298). Items 1 and 2 are F35
+        (2026-09-05); item 3 stands. -->
 
 One thing is already right: ticket 13's standing obligation that the frontend never depends on
 in-process compiler state means a server can shell out to `bsc` per save. No daemon, no incremental
