@@ -1,9 +1,9 @@
 # F50 — `ToJson<T>`, a value on the wire
 
-**Status**      **done 2026-09-15** · [ENG-375](https://linear.app/davewil/issue/ENG-375) — 16 tests in
-                `to_json_tests` and one in `api_tests`, 970 in the suite, up from 953; new gate
+**Status**      **done 2026-09-15** · [ENG-375](https://linear.app/davewil/issue/ENG-375) — 18 tests in
+                `to_json_tests` and one in `api_tests`, 972 in the suite, up from 953; new gate
                 `check-to-json.sh`, seen red on the tree before the build, with four stubs in its
-                `--self-test`
+                `--self-test`; `verify.sh` 43/43 twice from a clean clone (266 s, 257 s)
 **Implements**  [ticket 77](../../wayfinder/issues/77-what-goes-on-the-wire.md): the wire form is the
                 platform's, and `ToJson<T>` refuses at the declaration what the platform refuses at
                 run time, naming the member. It **decides nothing**
