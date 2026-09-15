@@ -1,8 +1,9 @@
 # 81 — How is an `int` converted to a `float`: C#'s cast, or an entry under a reserved qualifier?
 
 Type: grilling
-Status: open — [ENG-380](https://linear.app/davewil/issue/ENG-380). Raised 2026-09-15 on resolving
-[ticket 80](80-does-an-int-flow-where-a-float-is-expected.md), at David's request, the same turn
+Status: resolved 2026-09-15 — [ENG-380](https://linear.app/davewil/issue/ENG-380). Raised 2026-09-15 on resolving
+[ticket 80](80-does-an-int-flow-where-a-float-is-expected.md), at David's request, the same turn;
+one question, one round, answered seven minutes later
 Blocked by: —
 
 ## Why this is raised now
@@ -104,9 +105,77 @@ table row and a document row and leaving the reverse direction to be asked as a 
 Under the first, round 2 asks what `(int) f` does. Under the second, round 2 asks whether
 `Int.Of(f)` exists and which of `trunc` and `round` it is, or whether both are spelled.
 
+**A1 — the entry, and the member is `FromInt`** (David, 2026-09-15 19:37 and 19:38: *"I think I'm
+leaning towards `Float.Of` even if a C# developer would expect a cast"*, then *"`Float.FromInt`
+then"*, on the point that C#'s own convention for *make an X from a Y* is `X.FromY`).
+
+## The answer
+
+`Float.FromInt(n)`: a compiler-known entry under the reserved qualifier `Float`, `int -> float`,
+inlined at the site as `erlang:float(X)`, no beam shipped, the way `List.Sum` is built. Not a
+cast.
+
+```csharp
+public float Mean(list<int> samples)
+
+Mean([]) -> 0.0
+Mean(xs) -> Float.FromInt(List.Sum(xs)) / Float.FromInt(List.Length(xs))
+
+public atom Check(list<int> xs)
+
+Check(xs) -> Verdict(Float.FromInt(List.Length(xs)))
+```
+
+Two things decided the shape, and one the name:
+
+- **A cast is a family, and the family lies.** C#'s `(float) n` is the same syntax as `(int) 3.7`,
+  which truncates, and `(byte) 300`, which wraps. A developer who saw `(float)` in B# would assume
+  `(int)` and be owed either a silent truncation or a refusal that surprises more than the missing
+  cast did. An entry promises nothing about the reverse direction; the reverse gets its own name
+  with its own meaning, which is what the BEAM has (`trunc/1` and `round/1` are both real).
+- **The entry costs a table row; the cast costs the parser's worst parenthesis.** One row in
+  `reserved_table/0`, one in `STANDARD-ENVIRONMENT.md`, no grammar, no yecc report, no editor
+  work.
+- **The name is C#'s convention, so the C# developer's expectation is met in the member**:
+  `TimeSpan.FromSeconds`, `Task.FromResult`, `Color.FromArgb`. `Float.Of` reads as Java or
+  Kotlin. The reverse direction, when it is asked, is `Int.FromFloat` by the same convention, and
+  that name is where truncate-or-round gets decided.
+
+### What follows
+
+- [ENG-378](https://linear.app/davewil/issue/ENG-378), the float build, ships the entry with the
+  type: `Float` joins `reserved_qualifiers/0`, `{'Float', 'FromInt', 1}` joins `reserved_table/0`
+  with the signature `int -> float`, the emitter inlines `erlang:float/1`, and a user module named
+  `Float` is refused at the call site by the rule that refuses one named `List`. Its example
+  program is rewritten to the entry.
+- `STANDARD-ENVIRONMENT.md` gains the row now, **decided** and unbuilt, so `check-status-claims.sh`
+  has a status to read; `CONTEXT.md`'s *reserved qualifier* entry names `Float`.
+- The reverse direction is logged below with what it needs, and is asked when a program needs it.
+
+## Decisions entry
+
+<!-- This ticket's entry. Read whole, here; the map (ENG-165) carries one line. -->
+
+```decisions-entry
+- [How is an `int` converted to a `float`?](issues/81-how-is-an-int-converted-to-a-float.md) —
+  **`Float.FromInt(n)`: a compiler-known entry under the reserved qualifier `Float`, `int -> float`,
+  inlined as `erlang:float/1`; not a cast.** Raised and resolved 2026-09-15 in one round on one
+  question, the spelling ticket 80's no-flow rule made necessary — and necessary at all only because
+  38's `/` on two `int`s is `div`, so a mean over a `list<int>` converts an operand as C# does. The
+  cast was refused because C#'s cast is a family whose other members truncate and wrap, so `(float)`
+  would promise an `(int)` the BEAM cannot honour in one meaning, and because it would land in the
+  grammar's most crowded parenthesis; the entry is one table row. The member follows C#'s
+  `X.FromY` convention (`TimeSpan.FromSeconds`), which is where the C# developer's expectation is
+  met instead. The reverse, `Int.FromFloat`, is named and not decided: truncate or round is asked
+  when a program needs it. Ships with [ENG-378](https://linear.app/davewil/issue/ENG-378).
+```
+
 ## Not decided here
 
-- The reverse direction, `int` from a `float`: truncate, round, or refuse. Gated on the answer.
+- The reverse direction, `Int.FromFloat(f)` by the same convention: truncate (`trunc/1`), round
+  (`round/1`), or two members. Deferred until a program in the corpus needs one; what it needs is
+  the same row and the same inlining as `Float.FromInt`, plus the choice of BIF, which is the
+  whole question.
 - `Float.Parse`, `Float.ToString` and the rest of a `Float` qualifier's breadth. Breadth is out
   of scope by 67's rule; this ticket adds one row.
 - Whether a `float` literal may be written where a `float` is expected from an `int` literal

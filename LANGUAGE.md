@@ -483,11 +483,11 @@ of them is a union like any other, which is why `Verdict` above needs no special
 | `list<T>` | `[]` and `[h, ..t]` partition it, and a longer prefix narrows it: the cons cell decomposes, so length falls out without the type carrying one | **shipped** |
 | `term` | the top type — everything | **shipped** |
 | `none` | the bottom type — `raise` has it, and every exhaustive function's residual is it. First-class: writable in a signature, so a function that never returns can be declared. Not to be confused with `:nothing`, which is a value, nor with C#'s `void`, which returns — see §7 | **shipped** |
-| `float` | the BEAM's float, an eighth part of the lattice beside `int` and not inside it; the literal is C#'s, `0.0`; `/` lowers by its operand types. An `int` never stands where a `float` is expected: `0` against a declared `float` is refused, and so is a mixed pair at an operator; the conversion is written | **decided** — 2026-09-15, not yet built |
+| `float` | the BEAM's float, an eighth part of the lattice beside `int` and not inside it; the literal is C#'s, `0.0`; `/` lowers by its operand types. An `int` never stands where a `float` is expected: `0` against a declared `float` is refused, and so is a mixed pair at an operator; the conversion is written, `Float.FromInt(n)`, an entry under a reserved qualifier and not a cast | **decided** — 2026-09-15, not yet built |
 | `binary` | the top, and it stays the top — sizes are not in the type language | **shipped** |
 | `string` | `binary` refined by valid UTF-8; a literal is one by construction | **shipped** |
 | records | see §6 | **decided** |
-<!-- float: decided by ticket 69, wayfinder/issues/69-does-the-language-have-float.md; the no-flow rule by ticket 80; the conversion's spelling is ticket 81, open; the build is ENG-378 -->
+<!-- float: decided by ticket 69, wayfinder/issues/69-does-the-language-have-float.md; the no-flow rule by ticket 80; the conversion's spelling, Float.FromInt, by ticket 81; the build is ENG-378 -->
 
 **Unions are exact.** Nothing widens: `<<_:32>> | <<_:64>>` stays two members rather than
 collapsing into a range admitting 96 bits. This is the property the whole guarantee rests on — a

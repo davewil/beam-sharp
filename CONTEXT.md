@@ -306,7 +306,7 @@ reserved qualifier. The compiler draws inferences from it and inlines it where i
 _Avoid_: stratum 2, intrinsic, primitive, magic function
 
 **Reserved qualifier**:
-A name a user cannot declare a module under — `Map`, `List`, `Term` — because it prefixes
+A name a user cannot declare a module under — `Map`, `List`, `Term`, `Float` — because it prefixes
 compiler-known operations (`Map.Get`, `List.Sum`, `Term.Compare`). A user's own module may still
 end in the word; a call that could mean either is refused at the call site.
 _Avoid_: reserved module, stdlib module, namespace, prelude module
