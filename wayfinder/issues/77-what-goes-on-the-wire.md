@@ -1,7 +1,7 @@
 # 77 — What goes on the wire: is ticket 16 §4's serialisation mapping the platform's, with the compiler refusing what the platform refuses?
 
 Type: grilling
-Status: open — [ENG-372](https://linear.app/davewil/issue/ENG-372). Raised 2026-09-15 to unblock
+Status: claimed — [ENG-372](https://linear.app/davewil/issue/ENG-372). Raised 2026-09-15 to unblock
 [ENG-298](https://linear.app/davewil/issue/ENG-298), the diagnostic term's JSON encoding, and
 through it [ENG-305](https://linear.app/davewil/issue/ENG-305), the LSP server
 Blocked by: —
