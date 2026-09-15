@@ -121,6 +121,20 @@ Under the first, ENG-378 builds with no further question, and a mixed pair at an
 refused naming `:erlang.float`. Under the second, round 2 asks where the sites stop, and ENG-378
 grows the expected-type channel from checker to emitter before its `/` can lower.
 
+**Prior art, surveyed 2026-09-15** — [research 80](../research/80-int-to-float-prior-art.md),
+asked by David while this round was open. **Every language that types the BEAM takes the first
+reading, and the two that take the second run on a VM with a conversion instruction.** Gleam
+refuses `[] -> 0` under `-> Float` at the type and has no shared operator (`+.` beside `+`);
+Elixir 1.20's checker infers `m([])` as `integer()` from its first clause and refuses it against a
+`float` guard two calls away; Erlang keeps the values apart under `=:=` and Dialyzer passes the
+`0` out of a `float()` spec silently, because success typing does not ask. C# converts (§10.2.3)
+and the value that arrives is a `Double`. F# 6 added `int32 → double` at known-type sites only,
+operators left strict, warning off by default — a narrower version of C#'s rule, adopted after
+fifteen years without it, and the shape round 2 would reach under the second reading. **Found on
+the way, and not asked here**: on OTP 27+ a `0.0` head matches `+0.0` alone; `erlc` warns, Elixir
+warns, Gleam lowers its `0.0` pattern to `+0.0` without a word, C# matches `-0.0` too. B#'s
+`Verdict(0.0)` owes a lowering; recorded on ENG-378.
+
 ## Not decided here
 
 - Where an `int`-to-`float` conversion lives in the standard environment. `:erlang.float` through
