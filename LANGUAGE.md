@@ -2645,6 +2645,7 @@ the parser accepts back exactly what the printer emits. **shipped**
 | foreign calls (`using :lists {...}`) | **shipped**, with the boundary guard on every return that declares no channel — F42; a channelled return is not guarded yet, pending a decision |
 | the foreign `try` wrapper and `foreign_error`, from the declared return type | **shipped** — F19 |
 | the diagnostic as a term (`--diagnostics term`) | **shipped** — F16 |
+| the diagnostic on the wire (`--diagnostics json`) | **shipped** — F47 |
 | the query mode (`--api`) | **shipped** — F17 |
 | reserved qualifiers — `List.Sum` / `Length` / `Reverse` and `Term.Compare`, inlined at the site | **shipped** — F32 |
 | `Map.Get`, under the reserved `Map` | not started — the name is reserved, the operations are not. The `map<K, V>` type itself is **shipped** — F33 — and `ValidateAs` walks one — F43 |

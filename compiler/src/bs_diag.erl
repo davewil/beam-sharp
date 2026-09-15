@@ -22,7 +22,7 @@
 %%% breaking a matcher: evolution is additive only (ticket 23 §4).
 -module(bs_diag).
 
--export([descriptor/2, format/1, message/1, emit/2]).
+-export([descriptor/2, format/1, message/1, emit/2, json/1]).
 -export([channel/0, set_channel/1, contractual/0]).
 
 %% Three or fewer cases print in full, so the truncated form is the exact form
@@ -34,7 +34,9 @@
 %%%
 %%% Under `--diagnostics term` the prose goes to stderr exactly as before and
 %%% the descriptor goes to stdout, so a consumer redirects rather than parses
-%%% (F16; ticket 23 §1 names no flag).
+%%% (F16; ticket 23 §1 names no flag). Under `--diagnostics json` the same
+%%% descriptor goes to stdout as JSON, one object per line, for a consumer
+%%% that is not a BEAM process (F47; ticket 23 §5).
 %%%
 %%% The flag is refused in the REPL rather than downgraded: `ibs` prints
 %%% values on stdout, so stdout could not carry descriptors alone, and a flag
@@ -47,11 +49,11 @@
 %%% `prose`; the CLI is a fresh process per run, so nothing leaks between.
 %%% ---------------------------------------------------------------------------
 
-%% Only `prose` and `term` exist, and the guard asserts that internal
+%% Only `prose`, `term` and `json` exist, and the guard asserts that internal
 %% invariant rather than validating input: `parse_args` halts on any other
-%% value, so a third one here means the CLI grew a way to produce it and this
+%% value, so a fourth one here means the CLI grew a way to produce it and this
 %% should stop rather than guess.
-set_channel(Chan) when Chan =:= prose; Chan =:= term ->
+set_channel(Chan) when Chan =:= prose; Chan =:= term; Chan =:= json ->
     put(bs_diag_channel, Chan).
 
 channel() ->
@@ -83,10 +85,52 @@ contractual() ->
 emit(Chan, Desc) ->
     case Chan of
         term -> io:format("~0p~n", [Desc]);
+        %% `put_chars` rather than `~s`: the JSON is UTF-8 bytes in a binary,
+        %% and `~s` would read each byte as a latin-1 character and encode it
+        %% again on the way out.
+        json -> io:put_chars([iolist_to_binary(json(Desc)), $\n]);
         _    -> ok
     end,
     {Fmt, Args} = message(Desc),
     io:format(standard_error, Fmt, Args).
+
+%%% ---------------------------------------------------------------------------
+%%% The wire form
+%%%
+%%% The JSON is the platform's encoding of the term (ticket 77): `json:encode`
+%%% of the descriptor with its charlists as binaries, and nothing else. No
+%%% diagnostics-only spelling of any value, which is what kept this out of
+%%% F16 and F17 until the mapping was written (ticket 23 §5).
+%%%
+%%% THE LIST RULE. An Erlang string is a list of integers, and the term has
+%%% no other list of integers: every list a descriptor carries is a list of
+%%% strings, a list of atoms, or a list of those. So a non-empty list whose
+%%% elements are all integers is a string, and any other list is an array.
+%%% `[]` is an array — `arms => []` and `behaviours => []` exist, an empty
+%%% string does not (F47).
+%%% ---------------------------------------------------------------------------
+
+%% `unclassified` is the lost path: `bsc:publish/2` reports a shape this module
+%% does not know rather than printing a stack trace, and its `detail` is the
+%% raw diagnostic, tuples and all. The platform refuses a tuple, so on this
+%% channel `detail` goes out as its printed text — exactly what the prose
+%% prints after the path — and the lost path stays a diagnostic here too.
+json(#{tag := unclassified, detail := D} = Desc) ->
+    json:encode(wire(Desc#{detail := lists:flatten(io_lib:format("~0p", [D]))}));
+json(Desc) ->
+    json:encode(wire(Desc)).
+
+wire(M) when is_map(M) ->
+    maps:map(fun(_, V) -> wire(V) end, M);
+wire([]) ->
+    [];
+wire(L) when is_list(L) ->
+    case lists:all(fun erlang:is_integer/1, L) of
+        true  -> unicode:characters_to_binary(L);
+        false -> [wire(X) || X <- L]
+    end;
+wire(X) ->
+    X.
 
 %% The published pure function: prose is this, applied to the term.
 format(Desc) ->

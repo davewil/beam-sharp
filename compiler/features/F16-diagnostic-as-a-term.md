@@ -146,6 +146,10 @@ list — the lesson from `demonstrated_surface()` being read as a grammar invent
   serialisation mapping, which the map lists as **owed and unwritten**, and OTP's `json` refuses
   tuples outright. Inventing a diagnostics-only spelling would leave beam-sharp with two renderings
   of `(:ok, 5)`.
+  <!-- Shipped 2026-09-15 as F47, once ticket 77 wrote the mapping: the wire form is the
+       platform's, and `bs_diag:json/1` is `json:encode` of this term with its charlists as
+       binaries. The "refuses tuples" ground above was already false by then — F29 made every
+       residual and head a string on 2026-08-27 (ticket 77, finding 1). -->
 - **23 §10, `bsc --api`.** The next feature, and cheaper once this lands.
 - **23 §3's `defended`**, per above; and **23 §6's `error_info` on generated code**, which lands in
   emitted code rather than in the compiler and owes a size number first.

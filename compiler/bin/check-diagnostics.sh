@@ -35,6 +35,15 @@
 #      clause copied from a neighbour written before F35 renders `~s:~p:` and
 #      prints half a position, while the term beside it still carries the
 #      column and every test still passes.
+#   5. THE JSON CHANNEL ROUND-TRIPS THE TERM (F47, ticket 23 §5). The built
+#      `bsc` publishes the term for every module in `bin/fixtures/residual`,
+#      the tree's own `bs_diag.erl` encodes each one, and `json:decode` of
+#      the result must equal the term normalised by a function written HERE,
+#      not borrowed from `bs_diag` — a gate that asked the encoder to check
+#      the encoder would agree with any encoder. This is the one check that
+#      runs code rather than reading it, because the defect it names cannot
+#      be read: an encoder that drops a key, or leaves a string as an array of
+#      integers, compiles and prints something JSON-shaped.
 #
 # WHAT IS DELIBERATELY ALLOWED, AND WHY
 # These write to stderr and are NOT diagnostics. Every one of them is about the
@@ -81,8 +90,9 @@ SRC="${CHECK_DIAGNOSTICS_SRC:-src}"
 # ---------------------------------------------------------------------------
 # --self-test
 #
-# FOUR CONTROLS, because this gate makes four separate claims and the one it
-# exists for is the one a lazy control would skip.
+# SIX CONTROLS, because this gate makes five separate claims (two of them in
+# two spellings) and the one it exists for is the one a lazy control would
+# skip.
 #
 # THAT ONE IS THE STRAY. F16 moved 56 `io:format` calls into `bs_diag`, and the
 # drift reopens SILENTLY: the next person to add a diagnostic writes the
@@ -176,6 +186,22 @@ if [ "${1:-}" = "--self-test" ]; then
     expect "bsc.erl no longer reports through bs_diag" "$CTL/undelegated" \
         "a call site that stopped delegating"
 
+    # CONTROL 6 — an encoder that drops a key (F47). The JSON it prints is
+    # well formed and every other check is green; only the round trip sees
+    # it. The `sed` must land, or the control tests nothing but itself, so
+    # its landing is asserted before the expectation is.
+    fresh "$CTL/dropped"
+    sed -i.bak 's/json:encode(wire(Desc))/json:encode(wire(maps:remove(tag, Desc)))/' \
+        "$CTL/dropped/bs_diag.erl"
+    rm -f "$CTL/dropped/bs_diag.erl.bak"
+    if ! grep -q 'maps:remove(tag, Desc)' "$CTL/dropped/bs_diag.erl"; then
+        echo "SELF-TEST FAILED: control 6 could not build its defect — the encoder"
+        echo "                  is no longer spelled \`json:encode(wire(Desc))\`"
+        st_fail=1
+    fi
+    expect "the JSON channel does not round-trip the term" "$CTL/dropped" \
+        "an encoder that drops a key"
+
     # NEGATIVE CONTROL — the sources as committed.
     fresh "$CTL/clean"
     if CHECK_DIAGNOSTICS_SRC="$CTL/clean" "$SELF_SH" > /dev/null 2>&1; then :; else
@@ -186,8 +212,9 @@ if [ "${1:-}" = "--self-test" ]; then
 
     if [ "$st_fail" -eq 0 ]; then
         echo "self-test: reported the stray diagnostic, the unrenderable tag, the"
-        echo "           orphaned message and the broken delegation; accepted the"
-        echo "           committed sources — the gate discriminates"
+        echo "           orphaned message, the broken delegation and the encoder"
+        echo "           that drops a key; accepted the committed sources — the"
+        echo "           gate discriminates"
         exit 0
     fi
     exit 1
@@ -277,6 +304,119 @@ if [ -n "$halved" ]; then
     fail=1
 else
     say "    ok — every rendered position names both halves"
+fi
+
+# --- 5. The JSON channel round-trips the term (F47) --------------------------
+#
+# The term comes from the BUILT escript, which is the compiler as it stands;
+# the encoder comes from `$SRC/bs_diag.erl`, which is the tree under test (or
+# a control's copy of it). `bs_diag` compiles alone — no include, and `json/1`
+# reaches nothing outside stdlib — so one `erlc` is the whole build. One boot
+# of `bsc` for every fixture, through `--batch`, rather than one each.
+#
+# The Erlang runs from the scratch directory and never from `compiler/`:
+# `C.beam` there shadows stdlib's `c` module and the VM dies during boot.
+
+say "==> the JSON channel round-trips the term"
+BSC="$SELF/_build/default/bin/bsc"
+FIXTURES="$SELF/bin/fixtures/residual"
+if [ ! -x "$BSC" ]; then
+    say "ERROR: no built bsc at $BSC — run rebar3 escriptize."
+    say "  The round trip needs the term the compiler publishes, and grading"
+    say "  nothing is not a pass."
+    fail=1
+else
+    WORK="$(mktemp -d)"
+    if ! erlc -o "$WORK" "$SRC/bs_diag.erl" > "$WORK/erlc.log" 2>&1; then
+        say "ERROR: $SRC/bs_diag.erl does not compile:"
+        cat "$WORK/erlc.log"
+        fail=1
+    else
+        : > "$WORK/manifest"
+        for dir in "$FIXTURES"/*/; do
+            mod="${dir%/}"
+            id="$(basename "$mod")"
+            printf 'entry %s
+arg --diagnostics
+arg term
+arg --src-root
+arg %s
+arg -o
+arg %s
+arg %s
+end
+
+' \
+                "$id" "$FIXTURES" "$WORK/out-$id" "$mod" >> "$WORK/manifest"
+        done
+        "$BSC" --batch "$WORK/manifest" "$WORK/results" > /dev/null 2>&1 || true
+        cat "$WORK"/results/*.stdout > "$WORK/terms" 2>/dev/null || true
+
+        cat > "$WORK/roundtrip.erl" <<'ERL'
+-module(roundtrip).
+-export([main/0]).
+
+main() ->
+    {ok, B} = file:read_file("terms"),
+    Lines = [L || L <- string:split(string:trim(binary_to_list(B)), "\n", all),
+                  L =/= ""],
+    case Lines of
+        [] -> io:format("no terms: the fixtures published no diagnostic~n"), halt(2);
+        _  -> ok
+    end,
+    Bad = lists:filtermap(fun check/1, Lines),
+    case Bad of
+        [] ->
+            io:format("~p terms round-trip~n", [length(Lines)]),
+            halt(0);
+        _ ->
+            [io:format("MISMATCH~n  term: ~ts~n  json: ~ts~n", [L, J])
+             || {L, J} <- Bad],
+            halt(1)
+    end.
+
+check(L) ->
+    {ok, Toks, _} = erl_scan:string(L ++ "."),
+    {ok, Term} = erl_parse:parse_term(Toks),
+    Json = iolist_to_binary(bs_diag:json(Term)),
+    case json:decode(Json) =:= wire(Term) of
+        true  -> false;
+        false -> {true, {L, Json}}
+    end.
+
+%% The gate's own normaliser: ticket 77's mapping and F47's list rule, as a
+%% consumer would write them. Not bs_diag's.
+wire(M) when is_map(M) ->
+    maps:from_list([{wire(K), wire(V)} || {K, V} <- maps:to_list(M)]);
+wire([]) ->
+    [];
+wire(L) when is_list(L) ->
+    case lists:all(fun erlang:is_integer/1, L) of
+        true  -> unicode:characters_to_binary(L);
+        false -> [wire(X) || X <- L]
+    end;
+wire(A) when A =:= true; A =:= false; A =:= null ->
+    A;
+wire(A) when is_atom(A) ->
+    atom_to_binary(A, utf8);
+wire(X) ->
+    X.
+ERL
+        if (cd "$WORK" && erlc roundtrip.erl > erlc2.log 2>&1 \
+                && erl -noshell -pa "$WORK" -eval 'roundtrip:main()' > run.log 2>&1); then
+            say "    ok — $(head -1 "$WORK/run.log")"
+        else
+            say "ERROR: the JSON channel does not round-trip the term:"
+            cat "$WORK/erlc2.log" "$WORK/run.log" 2>/dev/null | sed 's/^/      /'
+            say ""
+            say "  The wire form is the platform's (ticket 77): json:encode of the"
+            say "  term with its charlists as binaries, every key kept. A key the"
+            say "  encoder drops, or a string it leaves as integers, is a term the"
+            say "  consumer never received."
+            fail=1
+        fi
+    fi
+    rm -rf "$WORK"
 fi
 
 say ""

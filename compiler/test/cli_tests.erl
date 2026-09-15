@@ -407,6 +407,8 @@ batch_runs_every_entry_in_one_vm_and_attributes_each() ->
          {"bad",    undefined, ["--src-root", Root, "-o", Out(2), Bad]},
          {"term",   undefined, ["--diagnostics", "term", "--src-root", Root,
                                 "-o", Out(3), Bad]},
+         {"json",   undefined, ["--diagnostics", "json", "--src-root", Root,
+                                "-o", Out(10), Bad]},
          {"run",    undefined, ["--src-root", Root, "-o", Out(4), Fib, "10"]},
          {"rerun",  undefined, ["--src-root", Root2, "-o", Out(5), Fib2, "10"]},
          {"rel",    Root,      ["-o", Out(6), "Bad/bad.bs"]},
@@ -449,6 +451,13 @@ batch_runs_every_entry_in_one_vm_and_attributes_each() ->
     ?assertNotEqual(nomatch, string:find(TermOut, "tag => inexhaustive")),
     ?assertEqual(nomatch, string:find(TermErr, "tag =>")),
     ?assertEqual(TermOut ++ TermErr, read_result(Results, "term", "output")),
+    %% F47.9 — the third channel, the same way: the JSON on stdout, the prose
+    %% on stderr, and both in the merged stream in that order.
+    JsonOut = read_result(Results, "json", "stdout"),
+    JsonErr = read_result(Results, "json", "stderr"),
+    ?assertNotEqual(nomatch, string:find(JsonOut, "\"tag\":\"inexhaustive\"")),
+    ?assertEqual(nomatch, string:find(JsonErr, "\"tag\"")),
+    ?assertEqual(JsonOut ++ JsonErr, read_result(Results, "json", "output")),
     ?assertEqual("55\n", read_result(Results, "run", "stdout")),
     ?assertEqual("100\n", read_result(Results, "rerun", "stdout")),
     %% Read back as bytes, so the expectation is the UTF-8 encoding of `é`.

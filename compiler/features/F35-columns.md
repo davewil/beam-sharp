@@ -4,6 +4,12 @@
                 633. One gate extended, none added: `check-diagnostics.sh`
                 already owned the shape of a diagnostic's header, so the
                 column belongs to the check that was there
+**Amended**     **2026-09-15, by F47**: `bs_api`'s operation map was not a
+                descriptor and never passed `place/1`, so from this feature's
+                landing until F47 it carried `line => {16, 19}` — the pair
+                whole, no `column`. Nothing matched the key and every `~0p`
+                reader tolerated it; `json:encode` refused the tuple. Split
+                now, both halves pinned in `api_tests`
 **Implements**  [ENG-297](https://linear.app/davewil/issue/ENG-297), the first
                 of `ENG-205`'s LSP prerequisites and the only one that needed
                 no decision. Its source is `editor/README.md`'s *"what an LSP

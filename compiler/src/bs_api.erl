@@ -178,10 +178,17 @@ operations(Sources, Exports, Module) ->
           %% every unmarked function.
           {signature, _, _, _, _, public, _} = Sig <- Decls]).
 
-operation(File, {signature, Line, Name, Ret, Params, public, TVars}, Exports, Module) ->
+%% A POSITION IS BOTH HALVES (F35). The parser hands the signature a
+%% `{Line, Column}` pair, and it is split into two keys here as `bs_diag`
+%% splits every descriptor's. It was not, from F35 until F47: the pair went
+%% out whole under `line`, which every `~0p` reader tolerated and the JSON
+%% channel was the first to refuse — `json:encode` has no rendering for a
+%% tuple, and that refusal is what found the regression.
+operation(File, {signature, {Line, Column}, Name, Ret, Params, public, TVars},
+          Exports, Module) ->
     {ParamTypes, Result} = maps:get({Name, length(Params)}, Exports),
     Op = #{tag => operation, module => Module, name => Name,
-           arity => length(Params), file => File, line => Line,
+           arity => length(Params), file => File, line => Line, column => Column,
            params => [#{name => PName, type => type_string(T)}
                       || {{param, _, PName}, T} <- lists:zip(Params, ParamTypes)],
            result => type_string(Result)},
@@ -239,6 +246,13 @@ publish(term, Dir, Module, Behaviours, Ops) ->
     io:format("~0p~n", [#{tag => module, module => Module, path => Dir,
                           behaviours => Behaviours, operations => length(Ops)}]),
     [io:format("~0p~n", [Op]) || Op <- Ops],
+    nothing_public(Module, Ops);
+publish(json, Dir, Module, Behaviours, Ops) ->
+    %% The same maps, one object per line, in the wire form `bs_diag` owns
+    %% (F47): the encoding is the channel's, not this module's.
+    [io:put_chars([iolist_to_binary(bs_diag:json(M)), $\n])
+     || M <- [#{tag => module, module => Module, path => Dir,
+                behaviours => Behaviours, operations => length(Ops)} | Ops]],
     nothing_public(Module, Ops).
 
 %% `<T, E>` after the name, as the author wrote it (F45); nothing for a

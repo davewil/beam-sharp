@@ -85,7 +85,7 @@ status(Args, Context) ->
 exit_with(Status) when is_integer(Status) -> throw({bsc_exit, Status}).
 
 usage() ->
-    io:format("usage: bsc [-o DIR] [-v] [--src-root DIR] [--diagnostics term]~n"
+    io:format("usage: bsc [-o DIR] [-v] [--src-root DIR] [--diagnostics term|json]~n"
               "           [--api] PATH [FUNCTION] [ARG...]~n"
               "       bsc --batch MANIFEST RESULTS~n"
               "  PATH is a module, which is a DIRECTORY — naming one of its~n"
@@ -119,16 +119,18 @@ dispatch(Args, Context) ->
         _ -> ok
     end,
     %% The channel is set HERE and nowhere else, so a library caller and every
-    %% in-process test gets `prose` (F16). `--diagnostics term` is refused in
-    %% the REPL rather than ignored: the prompt prints values on stdout, so
-    %% the flag's contract that stdout carries descriptors cannot hold, and a
-    %% flag accepted and not honoured costs it its credibility everywhere.
+    %% in-process test gets `prose` (F16). `--diagnostics term` and `json` are
+    %% refused in the REPL rather than ignored: the prompt prints values on
+    %% stdout, so the flag's contract that stdout carries descriptors cannot
+    %% hold, and a flag accepted and not honoured costs it its credibility
+    %% everywhere.
     case {Opts#opts.repl, Opts#opts.diagnostics} of
-        {true, term} ->
+        {true, Chan} when Chan =/= prose ->
             io:format(standard_error,
-                      "bsc: --diagnostics term is not available in the REPL~n"
+                      "bsc: --diagnostics ~s is not available in the REPL~n"
                       "  the prompt prints values on stdout, so a descriptor~n"
-                      "  there would be indistinguishable from a result.~n", []),
+                      "  there would be indistinguishable from a result.~n",
+                      [Chan]),
             exit_with(2);
         _ -> ok
     end,
@@ -543,8 +545,12 @@ parse_args(["--src-root", Dir | Rest], O, Fs) ->
     parse_args(Rest, O#opts{src_root = Dir}, Fs);
 %% `--diagnostics` splits by STREAM: prose stays on stderr, the term goes to
 %% stdout, and a consumer redirects rather than parses (F16, ticket 23 §1).
+%% `json` is the same term on the same stream, in the platform's encoding,
+%% for a consumer that is not a BEAM process (F47, ticket 23 §5).
 parse_args(["--diagnostics", "term" | Rest], O, Fs) ->
     parse_args(Rest, O#opts{diagnostics = term}, Fs);
+parse_args(["--diagnostics", "json" | Rest], O, Fs) ->
+    parse_args(Rest, O#opts{diagnostics = json}, Fs);
 parse_args(["--diagnostics", "prose" | Rest], O, Fs) ->
     parse_args(Rest, O#opts{diagnostics = prose}, Fs);
 %% `--api` takes no argument of its own: the module it answers about is the
@@ -561,7 +567,8 @@ parse_args(["--batch" | _], _O, _Fs) ->
     exit_with(2);
 parse_args(["--diagnostics", Other | _], _O, _Fs) ->
     io:format(standard_error,
-              "bsc: --diagnostics takes `prose` or `term`, not ~s~n", [Other]),
+              "bsc: --diagnostics takes `prose`, `term` or `json`, not ~s~n",
+              [Other]),
     exit_with(2);
 parse_args([A | Rest], O, Fs) ->
     case is_path_arg(A) of

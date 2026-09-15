@@ -47,7 +47,7 @@ $ bsc examples/Readings Classify "(:ok, 7)"
 :positive
 ```
 
-`bsc [--src-root DIR] [--diagnostics term] PATH [FUNCTION] [ARG...]`, where **`PATH` is a module — which is a
+`bsc [--src-root DIR] [--diagnostics term|json] PATH [FUNCTION] [ARG...]`, where **`PATH` is a module — which is a
 directory** (ticket 13 §3). Naming one of its files works too and means the same thing, since a
 file names the module it belongs to.
 
@@ -108,6 +108,18 @@ fallback: the prompt prints values on stdout, so the flag's own contract could n
 **The term is full fidelity and the prose is not.** The prose stops at three cases and prints
 `... (2 more)`, which is ticket 43's cap; the term carries every one of them. That is deliberate
 and is why the residual travels as its parts.
+
+`--diagnostics json` publishes the same term as JSON, one object per line, for a consumer that is
+not a BEAM process (F47, ticket 23 §5). The encoding is the platform's — `json:encode` of the term
+with its strings as strings — and nothing is spelled differently for this channel, which is the
+mapping ticket 77 wrote and why the encoding waited for it:
+
+```
+$ bsc --diagnostics json Rank 2>/dev/null
+{"function":"Rank","line":3,"tag":"inexhaustive","file":"Rank/Rank.bs","column":12,"severity":"error","heads":{"kind":"products","products":[[[":amber"]]],"pasteable":["Rank(:amber) -> ..."]},"residual":"(:amber)"}
+```
+
+The `--api` answer travels on it too, and the REPL refuses it for the reason it refuses `term`.
 
 Arguments and results are in **beam-sharp** notation, and the parser accepts back exactly what the
 printer emits: `:positive`, `(:ok, 7)`, `[1, 2]`, `{Kind = :'Shop.Order', Id = 1, Total = 0}`.

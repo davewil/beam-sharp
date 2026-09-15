@@ -155,7 +155,7 @@ operations, each tagged so a consumer dispatches rather than counts:
 #{tag => module,module => 'Counter',path => "examples/Counter",
   behaviours => ['GenServer'],operations => 3}
 #{tag => operation,module => 'Counter',name => 'Init',arity => 1,
-  file => "examples/Counter/counter.bs",line => 15,
+  file => "examples/Counter/counter.bs",line => 16,column => 19,
   params => [#{name => seed,type => "int"}],result => "(:ok, int)"}
 ```
 
@@ -217,6 +217,10 @@ cannot see a framing error, and framing is the whole of what a machine channel p
 - **23 §5's JSON encoding**, still blocked on ticket 16 §4's serialisation mapping. This feature
   makes it look closer than it is: an API listing is the most JSON-shaped thing the compiler has
   produced, and the reason not to is unchanged.
+  <!-- Shipped 2026-09-15 as F47: `bsc --diagnostics json --api …` answers with the same maps
+       as JSON. Building it found that this feature's operation map had carried the lexer's
+       `{Line, Column}` pair whole under `line` since F35 (2026-09-05) — the example above
+       showed an integer, the term did not — and it is split into `line` and `column` now. -->
 - **`defended` (23 §3)**, which does not exist, and **23 §7's stub marker**, which is ticket 22's
   spelling question and deferred. `--api` reports only what the compiler knows, per §12.
 - **Type and record declarations of a module you are about to depend on.** The same fact that
