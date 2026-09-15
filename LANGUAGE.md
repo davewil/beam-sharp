@@ -1841,8 +1841,8 @@ Incs(xs) -> Map(xs, Inc/1)
 Instantiation is matching, not constraint solving — which is what keeps the cost sane, and why the
 three bullets above are load-bearing rather than preferences.
 
-**User code never writes a type argument.** Only three compiler-known names take an explicit one:
-`ValidateAs<T>`, `ParseAtom<T>`, `ToExistingAtom`. So `<` opens a bracket after one of those names
+**User code never writes a type argument.** Only four compiler-known names take an explicit one:
+`ValidateAs<T>`, `ParseAtom<T>`, `ToJson<T>`, `ToExistingAtom`. So `<` opens a bracket after one of those names
 and is comparison everywhere else — a lexer rule on a closed set, with no lookahead and no turbofish.
 <!-- decided by ticket 28, measured against four grammar variants; same ticket cleared `..` for list rest -->
 
@@ -2073,10 +2073,11 @@ is spelled the way you would reach that place: `".Value"` for a field, `"[0]"` f
 key. An empty path means the term itself was wrong. A map entry whose key has no literal — a
 tuple, a binary that is not text — is not named: the blame stops at the map.
 
-The bracket is admitted after **exactly three** compiler-known names — `ValidateAs<T>`,
-`ParseAtom<T>` and `ToExistingAtom` — and after nothing else, which is what keeps `<` a comparison
-everywhere in the language. Two of the three are built; `ToExistingAtom` is refused by name.
-<!-- decided by tickets 11 §2, 15 §2, 27 §8 and 28; built as F18 and F39 -->
+The bracket is admitted after **exactly four** compiler-known names — `ValidateAs<T>`,
+`ParseAtom<T>`, `ToJson<T>` and `ToExistingAtom` — and after nothing else, which is what keeps `<`
+a comparison everywhere in the language. Three of the four are built; `ToExistingAtom` is refused
+by name.
+<!-- decided by tickets 11 §2, 15 §2, 27 §8 and 28, with `ToJson` by 16 §4; built as F18, F39 and F50 -->
 
 ### `ParseAtom<T>` — a string to a member of a named set
 
@@ -2120,6 +2121,75 @@ whole type tells you the parse could never produce the `int` half.
 `ToExistingAtom` is the remaining name, and it is **owed rather than merely unbuilt**: it asks
 the atom table by construction, so it returns bare `atom` and cannot make the promise above.
 <!-- decided by ticket 10 §4; built as F39 -->
+
+### `ToJson<T>` — a value on the wire
+
+The third obligation puts a value of `T` on the wire as JSON and returns the text as a `string`:
+
+```csharp
+module Orders
+
+record Order  { Id: int, Total: int }
+record Parcel { Id: int, Note: option<int> }
+
+public string OrderBody(Order o)
+OrderBody(o) -> ToJson<Order>(o)
+
+public string ParcelBody(Parcel p)
+ParcelBody(p) -> ToJson<Parcel>(p)
+```
+
+**shipped** — `OrderBody` on `{ Kind = :'Orders.Order', Id = 1, Total = 5 }` returns an object
+carrying `"Kind":"Orders.Order"`, `"Id":1` and `"Total":5`; `ParcelBody` with no note carries
+`"Note":"nothing"` beside its own two. The keys are those, and the order they come out in is the
+platform's, not this document's — see below.
+
+**The wire form is the platform's**: OTP's `json:encode` of the value as it is erased, and nothing
+the language adds. So each row below is a fact about the platform:
+
+| B# | on the wire |
+|---|---|
+| `int` | a number |
+| `string` | a string |
+| an atom | a string of its name — `:ok` is `"ok"` — except `:null`, `:true` and `:false`, which are JSON's `null`, `true` and `false` |
+| a record | an object: `Kind` carrying the tag, and each field under its declared name |
+| `option<T>` at `:nothing` | `"nothing"`, with the key present |
+| `list<T>` | an array |
+| `map<K, V>` | an object, each key written as a string: `#{1 => 2}` is `{"1":2}` |
+
+The order of an object's keys is not part of the form. The platform writes them in the order the
+VM first met their names, so two programs can put the same record out in two orders; a consumer
+reads JSON by key.
+
+**A member with no wire form is refused at compile time, and named.** A tuple at any depth, a
+function, `binary` and `term` have none. `binary` is refused whole, because the platform refuses a
+binary *value* that is not UTF-8 and no type narrower than `binary` says which ones those are;
+`string` is UTF-8 by refinement and goes on the wire as itself. The one an author meets first is
+`result`, whose failure member is a tuple:
+
+<!-- diagnoses: unencodable_member -->
+```csharp
+module Outcomes
+
+record Order { Id: int, Total: int }
+
+public string Outcome(result<Order, ValidationError> r)
+Outcome(r) -> ToJson<result<Order, ValidationError>>(r)
+```
+
+— *`(:error, ValidationError)` is a tuple, and JSON has no encoding for one. Take the result apart
+in a switch and encode what each arm holds; `ValidationError` itself is a record and encodes.*
+
+The walk is over the type as it resolves, so a tuple behind an alias is found as surely as one
+written out, and the message names the path to it — `in [_].Slot` for the `Slot` field of a list's
+element.
+
+**A value that is not a `T` is not published.** The encoder is generated code, so it guards what
+it is handed: the value is checked against `T` first, exactly as `ValidateAs<T>` would check it,
+and one that fails crashes instead of going out. That is what keeps an undeclared field off the
+wire, since a public `Order` parameter is guarded on its tag alone and an extra key would
+otherwise reach the body.
+<!-- decided by ticket 77, with 16 §4, 18 §1(c) and 26 §4; built as F50 -->
 
 **Validating against `term` is an error.** `result<term, ValidationError>` normalises straight back
 to `term`, so the failure channel does not survive and no caller could write the failure clause.

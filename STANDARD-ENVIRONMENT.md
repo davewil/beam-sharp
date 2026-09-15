@@ -108,9 +108,9 @@ has been withdrawn.
 | `ValidateAs<T>` | codegen: validates a foreign term against `T`, returns `result<T, ValidationError>` | unqualified | **built** — F18 | 11, amended by 15 |
 | `ValidationError` | the reason: a path into the term plus the type expected there, the compiler-known record `{ Path: list<string>, Expected: string }`, tagged `:'ValidationError'` with no module | unqualified | **built** — F18; a record since F49 ([ENG-379](https://linear.app/davewil/issue/ENG-379)). The spelling of a path segment is F18's recorded assumption, not a decision. **Compiler-known** because its tag is minted by no module, which a `record` declaration cannot write, and **protected** because an obligation returns it | 15 §2, 79 |
 | `ParseAtom<T>` | codegen: parses to a **finite atom union**; a cofinite `T` is an error | unqualified | **built** — F39. The argument is a `string` or a `binary`; a `term` is refused, since the match is over the members' printed names and a value of another kind could only answer `:nothing` | 10 §4 |
+| `ToJson<T>` | codegen: a value of `T` as the platform's JSON, returned as a `string`; a member with no wire form — a tuple, an arrow, `binary`, `term` — is refused at the declaration, naming it | unqualified | **built** — F50 ([ENG-375](https://linear.app/davewil/issue/ENG-375)). The value is checked against `T` before it is encoded, as ticket 18 §1(c) owes generated code. *This row replaces `a serialisation encoder` — **decided** — removed 2026-09-15 when F50 built it: two rows for one entry is how a status goes unread, which ticket 48's row did for nine days* | 16 §4, 77 |
 | `ToExistingAtom` | the genuine interop escape — a peer node's reply, a dynamically named atom | unqualified | **owed** — must be respelled | 10 §5, 15 §1 |
 | `string` | `binary` refined by valid UTF-8 | unqualified | **built** — F9 as a *type*; F18 generates the membership check **inside `ValidateAs<T>`** and nowhere else, so a term from outside can now establish the property that only a literal could before | 20 |
-| a serialisation encoder | the fifth codegen obligation, generated against a type | unqualified | **decided** | 16 §4 |
 | OTP message shapes | `Down`, `Exit`, `Timeout` | unqualified | **decided** | 14 §6 |
 
 **`ToExistingAtom` is owed, not merely unbuilt.** Ticket 10 §5 wrote it as `atom | :nothing`, and
@@ -188,7 +188,7 @@ this"*.
 **So what is actually left?** The inventory above, read honestly, is:
 
 - **type names** — `option`, `result`, `list`, `bool`, `string`, and now `map`;
-- **codegen obligations** — `ValidateAs<T>`, `ParseAtom<T>`, the serialisation encoder,
+- **codegen obligations** — `ValidateAs<T>`, `ParseAtom<T>`, the serialisation encoder `ToJson<T>`,
   `ToExistingAtom`, plus the types they return;
 - **`raise`** — and it is the *only* function anywhere in this file;
 - one **unnamed gap**: `<`'s "named prelude escape" for the BEAM's universal term order.
@@ -282,7 +282,7 @@ Sorting the actual inventory against both axes:
 |---|---|---|
 | `int`, `bool`, `string`, `atom`, `term` | yes | yes — builtin |
 | `list<T>`, `option<T>`, `result<T, E>`, `map<K, V>` | yes | yes |
-| `ValidateAs<T>`, `ParseAtom<T>`, the encoder | yes | yes — codegen obligations |
+| `ValidateAs<T>`, `ParseAtom<T>`, `ToJson<T>` | yes | yes — codegen obligations |
 | `Map.Get`, `List.Map` | yes | **no** — qualified, and *inlined* (17 §2) |
 | `raise` | yes | **grammar — a keyword, not a name** (67) |
 | the 47 terminals below | yes | **grammar — not names at all** |

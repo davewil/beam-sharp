@@ -139,6 +139,12 @@ check_dir1(Sources, World, Expect) ->
     %% (ENG-355), and the refusal is the answer to that declaration (18 §2,
     %% F40).
     foreign_rets_decidable(Decls, Env),
+    %% `ToJson<T>` is met in a clause body, but whether `T` has a wire form is
+    %% a fact about `T` alone, so it is refused here, where `exports_of/2`
+    %% refuses it too: `--api` never types a body, and a refusal met only
+    %% while typing one printed a signature for a module a compile refuses
+    %% (F50, ticket 77).
+    to_json_refused(Decls, Env),
     Module = module_name(Decls),
     %% The reserved-name refusal runs before the path check, so `module List`
     %% gets the same answer in any directory rather than a path-mismatch
@@ -365,6 +371,10 @@ exports_of(Decls, World) ->
     %% API for a module a compile refuses (F40).
     collapse_refused(Decls, Env),
     foreign_rets_decidable(Decls, Env),
+    %% `ToJson<T>`'s refusal is met in a clause body, which this pass never
+    %% types; it is raised by a pass over the bodies for exactly this caller
+    %% (F50).
+    to_json_refused(Decls, Env),
     maps:from_list([{{N, length(Ps)},
                      at_loc(L, fun() -> erased_sig(Ps, R, TV, Env) end)}
                     || {signature, L, N, R, Ps, V, TV} <- Decls, V =:= public]).
@@ -1687,16 +1697,17 @@ stratum_two() ->
                    {field, 'Path', {t_generic, list, [{t_builtin, string}]}},
                    {field, 'Expected', {t_builtin, string}}]}}.
 
-%% `<` opens an instantiation bracket after one of these three names and is
-%% a comparison everywhere else; the set is closed (ticket 28). Enforced here
-%% rather than in the lexer, because here the three cases can be told apart:
-%% built, decided-and-unbuilt, and not an obligation at all.
-codegen_obligations() -> ['ValidateAs', 'ParseAtom', 'ToExistingAtom'].
+%% `<` opens an instantiation bracket after one of these names and is a
+%% comparison everywhere else; the set is closed (ticket 28), and `ToJson`
+%% joined it by decree (16 §4, §8; built as F50). Enforced here rather than in
+%% the lexer, because here the three cases can be told apart: built,
+%% decided-and-unbuilt, and not an obligation at all.
+codegen_obligations() -> ['ValidateAs', 'ParseAtom', 'ToExistingAtom', 'ToJson'].
 
 %% Which of them this compiler generates code for. The diagnostic for an
 %% unbuilt name reads this rather than carrying its own sentence, so shipping
 %% the next one cannot leave the message claiming otherwise.
-built_obligations() -> ['ValidateAs', 'ParseAtom'].
+built_obligations() -> ['ValidateAs', 'ParseAtom', 'ToJson'].
 
 %%% ---------------------------------------------------------------------------
 %%% Reserved qualifiers (ticket 67, F32)
@@ -3391,6 +3402,31 @@ type_of({e_inst, L, 'ParseAtom', TypeArgs, Args}, S, C) ->
                      {obligation_arity, 'ParseAtom', length(TypeArgs),
                       length(Args)}}]}
     end;
+%% `ToJson<T>(v)` is the third codegen obligation built (ticket 77, F50): the
+%% platform's encoder over a value of `T`, returning `string`. Whether `T` has
+%% a wire form was refused before any body was typed (`to_json_refused/2`),
+%% so what is left here is the obligation's own two rules: `T` is ground
+%% (27 §8), and the value handed over is a `T`, held to the containment a
+%% call's argument is, so `ToJson<Order>(n)` names the argument at compile
+%% time rather than crashing in the generated guard.
+type_of({e_inst, L, 'ToJson', TypeArgs, Args}, S, C) ->
+    case {TypeArgs, Args, over_variable(TypeArgs, C)} of
+        {_, _, [V | _]} ->
+            {_, D0} = type_of_all(Args, S, C),
+            {reported(),
+             D0 ++ [{error, L, C#ctx.fname,
+                     {obligation_over_type_variable, 'ToJson', V}}]};
+        {[TypeExpr], [_], []} ->
+            Ty = resolve(TypeExpr, C#ctx.types),
+            {ATys, D0} = expected_all(Args, [Ty], S, C),
+            {bs_types:string(), arg_diags(L, 'ToJson', Args, ATys, [Ty], 1, C) ++ D0};
+        _ ->
+            {_, D0} = type_of_all(Args, S, C),
+            {reported(),
+             D0 ++ [{error, L, C#ctx.fname,
+                     {obligation_arity, 'ToJson', length(TypeArgs),
+                      length(Args)}}]}
+    end;
 %% Any other instantiation is refused, and the two cases are told apart: a
 %% name in the closed set is a feature not yet built, a name outside it was
 %% never going to work (ticket 28).
@@ -3646,6 +3682,136 @@ parse_atom_arg(L, Ty, [ATy], D0, C) ->
         true  -> {bs_types:union(Ty, bs_types:atom_lit(nothing)), D0};
         false -> {reported(),
                   D0 ++ [{error, L, C#ctx.fname, {parse_atom_arg, ATy}}]}
+    end.
+
+%%% ---------------------------------------------------------------------------
+%%% `ToJson<T>` (ticket 77, F50)
+%%%
+%%% The wire form is the platform's: `json:encode` of the erased term. So the
+%%% obligation's check is a walk over `T` refusing, at compile time, what the
+%%% platform refuses at run time: a tuple at any depth, an arrow, `binary`
+%%% whole (the platform refuses a VALUE with an invalid byte, and the type is
+%%% the only refusal that keeps the promise), and `term`, which holds all three.
+%%%
+%%% THE WALK IS OVER THE RESOLVED TYPE, NOT THE TYPE AS WRITTEN.
+%%% `result<T, E>` hides its `(:error, E)` behind a parametric alias, and a
+%%% plain alias hides a tuple as well; resolving first is what finds them, and
+%%% it is why this reads `bs_types` parts rather than the `t_*` nodes
+%%% `collapse_decl/2` scans.
+%%%
+%%% IT RUNS OVER CLAUSE BODIES FROM THE DECLARATION PASS, where an obligation's
+%%% other refusals are met while typing. This one is a fact about `T` alone,
+%%% and `bsc --api` types no body, so a refusal met only in `type_of/3` would
+%%% let the query print a signature for a module a compile refuses.
+%%% `check_dir1/3` and `exports_of/2` both call it.
+%%% ---------------------------------------------------------------------------
+
+to_json_refused(Decls, Env) ->
+    TVars = maps:from_list([{{N, length(Ps)}, TV}
+                            || {signature, _, N, _, Ps, _, TV} <- Decls]),
+    lists:foreach(
+      fun({clause, _, Fn, Ps, _, _} = Clause) ->
+              Vars = maps:get({Fn, length(Ps)}, TVars, []),
+              lists:foreach(
+                fun({e_inst, L, 'ToJson', [TE], _}) ->
+                        to_json_site(L, Fn, TE, Vars, Env)
+                end, to_json_nodes(Clause));
+         (_) ->
+              ok
+      end, Decls).
+
+%% A generic term walk, for `bs_emit:inst_nodes/1`'s reason: an obligation may
+%% sit anywhere an expression may, and a per-node walk goes stale when a node is
+%% added. It is a second copy of that walk rather than a shared one because the
+%% dependency runs `bs_emit` -> `bs_check` and never back: the emitter calls in
+%% here, and this module cannot call out.
+to_json_nodes(T) when is_tuple(T) ->
+    Here = case T of
+               {e_inst, _, 'ToJson', [_], _} -> [T];
+               _                             -> []
+           end,
+    Here ++ to_json_nodes(tuple_to_list(T));
+to_json_nodes(L) when is_list(L) -> lists:append([to_json_nodes(E) || E <- L]);
+to_json_nodes(_)                 -> [].
+
+%% A `T` naming a type variable is `type_of/3`'s refusal and a `T` that does not
+%% resolve is `resolve/2`'s, so this pass says nothing about either and each
+%% keeps the diagnostic it already has. The catch is broad on purpose: every
+%% condition `resolve/2` raises — unknown, cyclic, recursive — is reported where
+%% it is met, and skipping here adds nothing to it and takes nothing away.
+to_json_site(L, Fn, TE, Vars, Env) ->
+    Resolved = case vars_in(TE, Vars) of
+                   [] -> try {ok, resolve(TE, Env)} catch error:_ -> skip end;
+                   _  -> skip
+               end,
+    case Resolved of
+        {ok, Ty} ->
+            case unencodable(Ty) of
+                none ->
+                    ok;
+                {Segs, Member, Kind} ->
+                    erlang:error({unencodable_member, L, Fn, Ty, Segs, Member, Kind})
+            end;
+        skip ->
+            ok
+    end.
+
+%% The first member with no wire form, as `{Segments, Member, Kind}`, or `none`.
+%% A segment reads the way an author reaches the place: `.Field` for a record's
+%% field, `[_]` for a list's element or a map's value, `[key]` for a map's key.
+%% The member is the constituent found there, so a `result` names
+%% `(:error, E)` rather than the whole union.
+unencodable(Ty) -> unencodable(Ty, [], []).
+
+unencodable(#{mu := N} = T, Segs, Seen) ->
+    case lists:member(N, Seen) of
+        true  -> none;
+        false -> unencodable(bs_types:unfold(T), Segs, [N | Seen])
+    end;
+unencodable(#{recvar := _}, _Segs, _Seen) ->
+    none;
+unencodable(T, Segs, Seen) ->
+    #{tuples := Ts, funs := Fs, bins := Bs, maps := Ms} = T,
+    At = lists:reverse(Segs),
+    case bs_types:is_subtype(bs_types:term(), T) orelse Ms =:= top of
+        true -> {At, T, term};
+        false when Ts =/= [] -> {At, holding(tuples, T), tuple};
+        false when Fs =/= [] -> {At, holding(funs, T), arrow};
+        false ->
+            case lists:member(other, Bs) of
+                true  -> {At, holding(bins, T), binary};
+                false -> first_unencodable(inner_positions(T), Segs, Seen)
+            end
+    end.
+
+%% The first constituent carrying this part, which is the member an author has to
+%% change. `constituents/1` partitions `T` by part, so a part the caller has just
+%% found non-empty has at least one constituent and `hd/1` is total.
+holding(Part, T) ->
+    hd([C || C <- bs_types:constituents(T), maps:get(Part, C) =/= []]).
+
+%% Where the walk descends: a list's element, then each map member's fields in
+%% sorted order, a domain's key before its value. A member kind this does not
+%% name CRASHES rather than being filtered out, which is what a new type kind
+%% already owes every function that enumerates kinds (ENG-351, ENG-355): a
+%% comprehension that filtered would answer `none` — encodable — for a shape
+%% nobody had considered.
+inner_positions(#{maps := Ms} = T) ->
+    Elem = bs_types:list_elem(T),
+    [{"[_]", Elem} || not bs_types:is_none(Elem)]
+    ++ lists:append(
+         [case M of
+              {dom, K, V} -> [{"[key]", K}, {"[_]", V}];
+              {_, Fields} -> [{"." ++ atom_to_list(F), maps:get(F, Fields)}
+                              || F <- lists:sort(maps:keys(Fields))]
+          end || M <- Ms]).
+
+first_unencodable([], _Segs, _Seen) ->
+    none;
+first_unencodable([{Seg, Ty} | Rest], Segs, Seen) ->
+    case unencodable(Ty, [Seg | Segs], Seen) of
+        none  -> first_unencodable(Rest, Segs, Seen);
+        Found -> Found
     end.
 
 type_of_all(Es, S, C) ->

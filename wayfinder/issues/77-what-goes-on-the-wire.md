@@ -275,7 +275,7 @@ further decision.
 | `int` | a number |
 | `string` | a string; UTF-8 by refinement, so nothing in it is refused |
 | an atom | a string of its name: `:ok` is `"ok"`, `:nothing` is `"nothing"`. Except `:null`, `:true` and `:false`, which are the JSON literals `null`, `true` and `false`, the same three OTP's `json` reads back as atoms (10 §2) |
-| a record | an object: `Kind` carrying the minted tag, then the declared field names as written, PascalCase (26 §1; C#'s `System.Text.Json` is the precedent) |
+| a record | an object: `Kind` carrying the minted tag, and the declared field names as written, PascalCase (26 §1; C#'s `System.Text.Json` is the precedent). *"Then" was the wrong word, corrected 2026-09-15 when F50 built this: the platform writes an object's keys in the order the VM first met their names, so `Kind` is not first by rule — measured on OTP 28.5, `#{'Kind' => …, 'Id' => 1}` written `Kind` first although `'Id'` sorts before it, which is ENG-349's effect on another channel. The row names the object's MEMBERS; their order is the platform's, and under "the wire form is the platform's" that is the answer rather than a defect* |
 | `option<T>` holding `:nothing` | `"nothing"`, under the atom row; the key is present |
 | `list<T>` | an array |
 | `map<K, V>` | an object with each key stringified: `#{1 => 2}` is `{"1":2}` |
@@ -320,7 +320,7 @@ further decision.
   was never the tuple rule; and 16 §4's *"decode is already built"* is false for a record and for
   any atom-typed field, because `json:decode` returns binary keys and a binary tag that
   `ValidateAs<T>` refuses. The two refusals are 25a's friction 0 restated: the 422 body and the
-  `result` are what a handler most wants on the wire, and both are tuples. **Unbuilt** —
+  `result` are what a handler most wants on the wire, and both are tuples. **Built 2026-09-15 as F50** —
   [ENG-375](https://linear.app/davewil/issue/ENG-375); ENG-298 unblocked as mechanical work;
   the decode direction is [78](issues/78-the-decode-direction.md) and `ValidationError` as a
   record is [79](issues/79-validationerror-as-a-record.md).

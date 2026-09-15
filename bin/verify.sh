@@ -309,6 +309,9 @@ run_stages \
   "\`ValidationError\` is a record, in the value the program runs with" \
     "cd compiler && ./bin/check-validation-error-record.sh --self-test && ./bin/check-validation-error-record.sh" \
 \
+  "\`ToJson<T>\` puts a value on the wire and refuses what has no wire form" \
+    "cd compiler && ./bin/check-to-json.sh --self-test && ./bin/check-to-json.sh" \
+\
   "The valve stops on the fixed pair, and a narrowing stage does not widen it" \
     "cd compiler && ./bin/check-valve.sh --self-test && ./bin/check-valve.sh" \
 \

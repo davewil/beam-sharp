@@ -618,6 +618,20 @@ jobs:
         working-directory: compiler
         run: ./bin/check-validation-error-record.sh
 
+      # F50 / ENG-375. Four stubs. Three are defects that COMPILE ticket 77's
+      # program: a walk over the members as written misses a tuple behind an
+      # alias, a refusal wired into a compile and not `--api` prints a signature
+      # for a module the compile refuses, and a site that encodes without the
+      # guard 18 §1(c) owes publishes a field no type declares. The fourth is a
+      # compiler that refuses everything, so an absence is never read as a pass.
+      - name: The to-json gate proves it can fail
+        working-directory: compiler
+        run: ./bin/check-to-json.sh --self-test
+
+      - name: '`ToJson<T>` puts a value on the wire and refuses what has no wire form'
+        working-directory: compiler
+        run: ./bin/check-to-json.sh
+
       # F30 / ENG-279. Four of the gate's five defects pass the headline: a
       # build that keys the short-circuit on the stage's declared parameter
       # type compiles every positive scenario and fails on V6 alone, which is

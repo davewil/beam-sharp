@@ -447,6 +447,19 @@ built(Path, {Sev, Line, Fn, {parse_atom_not_finite, Ty}}) ->
 built(Path, {Sev, Line, Fn, {parse_atom_arg, Ty}}) ->
     (at(Sev, Path, Line, Fn))#{tag => parse_atom_arg,
                                type => bs_types:to_string(Ty)};
+%% `ToJson<T>` over a `T` holding a member the platform's encoder refuses
+%% (ticket 77, F50). Raised by the pass over clause bodies rather than returned
+%% from the walk, so `--api` meets it too; the pass knows the clause, so the
+%% descriptor names the function like a returned one. The path is a LIST of
+%% segments, empty at the top: an empty string would go out on the JSON
+%% channel as `[]`, which is an array.
+built(Path, {unencodable_member, Line, Fn, Ty, Segs, Member, Kind}) ->
+    (at(error, Path, Line, Fn))#{tag => unencodable_member,
+                                 obligation => 'ToJson',
+                                 type => bs_types:to_string(Ty),
+                                 path => Segs,
+                                 member => bs_types:to_string(Member),
+                                 kind => Kind};
 built(Path, {Sev, Line, Fn, {obligation_arity, Name, Types, Args}}) ->
     (at(Sev, Path, Line, Fn))#{tag => obligation_arity,
                                obligation => Name,
@@ -928,6 +941,30 @@ placed(_)                         -> "~s: ".
 
 placed_args(#{file := P, line := L, column := C}) -> [P, L, C];
 placed_args(#{file := P})                         -> [P].
+
+%% `ToJson<T>`'s refusal, in three pieces (F50). A member at the top of `T`
+%% has no path to name.
+unencodable_at([])   -> "";
+unencodable_at(Segs) -> "in " ++ lists:append(Segs) ++ ", ".
+
+unencodable_member(M, tuple)  -> "`" ++ M ++ "` is a tuple, and JSON has no encoding for one";
+unencodable_member(M, arrow)  -> "`" ++ M ++ "` is a function, which has no value outside this VM";
+unencodable_member(M, binary) -> "`" ++ M ++ "` is a `binary`, which may hold bytes that are not UTF-8";
+unencodable_member(M, term)   -> "`" ++ M ++ "` may hold a tuple or a function, and JSON encodes neither".
+
+%% A `result` is the tuple an author meets first, so the tuple's repair names it.
+unencodable_repair(tuple) ->
+    "Encode what the tuple holds instead: take a `result` apart in a switch\n"
+    "  arm and encode the value each arm has, or declare a record where the\n"
+    "  tuple is.";
+unencodable_repair(arrow) ->
+    "Leave the function out of the value you put on the wire.";
+unencodable_repair(binary) ->
+    "Declare it `string`, which is UTF-8 by refinement and goes on the wire\n"
+    "  as itself.";
+unencodable_repair(term) ->
+    "Validate the term into a declared type first, with ValidateAs<T>, and\n"
+    "  encode that type.".
 
 message(#{tag := inexhaustive, file := P, line := L, column := C, function := Fn,
           heads := Heads}) ->
@@ -1456,6 +1493,16 @@ message(#{tag := parse_atom_arg, file := P, line := L, column := C, function := 
      "  argument must be a `string` or a `binary`.~n"
      "  A `term` from a boundary is matched into one first.~n",
      [P, L, C, Fn, Ty]};
+%% The member and the path to it, then the repair that kind of member has.
+%% The term carries the path as segments, so it is joined only here (F50).
+message(#{tag := unencodable_member, function := Fn, type := Ty, path := Segs,
+          member := M, kind := Kind} = D) ->
+    {placed(D) ++ "error: ~s calls ToJson over a type with no wire form~n"
+     "  ~s~s~n"
+     "  the type is: ~s~n"
+     "  ~s~n",
+     placed_args(D) ++ [Fn, unencodable_at(Segs), unencodable_member(M, Kind), Ty,
+                        unencodable_repair(Kind)]};
 message(#{tag := not_an_obligation, file := P, line := L, column := C, function := Fn,
           name := Name, obligations := Names}) ->
     {"~s:~p:~p: error: ~s writes ~s<...>, and ~s is not a codegen obligation~n"

@@ -113,4 +113,5 @@ never read as a pass.
 ## Out of scope
 
 - **`found`**, Gleam's third field — fog on the map (ticket 79, *What follows*).
-- **`ToJson<T>`** — [ENG-375](https://linear.app/davewil/issue/ENG-375).
+- **`ToJson<T>`** — [ENG-375](https://linear.app/davewil/issue/ENG-375), built as [F50](F50-to-json.md)
+  on 2026-09-15.

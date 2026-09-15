@@ -225,6 +225,7 @@ ValidationError|type|ValidationError
 string|type|string
 bool|type|bool
 ParseAtom<T>|codegen|ParseAtom<bool>("true")
+ToJson<T>|codegen|ToJson<int>(1)
 map<K, V>|type|map<atom, term>
 List.Sum|qualified|List.Sum([1, 2])
 Term.Compare|qualified|Term.Compare(1, 2)

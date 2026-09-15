@@ -254,6 +254,27 @@ a_signature_naming_an_unknown_type_is_refused_test() ->
     ?assertEqual("", Out),
     ?assertNotEqual(nomatch, string:find(Err, "no type named Nowhere")).
 
+%%% --- F50.11 — a `ToJson<T>` refusal refuses the query too ------------------
+
+to_json_refused_src() ->
+    "module TjApi\n"
+    "record Order { Id: int, Total: int }\n"
+    "public string Outcome(result<Order, ValidationError> r)\n"
+    "Outcome(r) -> ToJson<result<Order, ValidationError>>(r)\n".
+
+%% The refusal is met in a clause body, which the declaration pass never types.
+%% It is raised by a pass over the bodies that a compile and `--api` both run,
+%% so the query cannot print `string Outcome(...)` for a module a compile
+%% refuses — the gap ENG-371 records for two older refusals.
+a_to_json_refusal_refuses_the_query_test() ->
+    Root = root(),
+    Path = place(Root, "in.bs", to_json_refused_src()),
+    {Rc, Out, Err} = run("--src-root " ++ Root ++ " --api " ++ Path),
+    ?assertEqual(1, Rc),
+    ?assertEqual("", Out),
+    ?assertNotEqual(nomatch,
+                    string:find(Err, "calls ToJson over a type with no wire form")).
+
 %%% --- F17.11 — it answers about a module; it does not run one ----------------
 
 the_query_does_not_run_the_module_test() ->

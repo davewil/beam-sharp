@@ -142,7 +142,8 @@ only as wide as the paths through that exit, and the query mode had its own.
 
 ## Out of scope
 
-- **`ToJson<T>`**, the obligation over a B# value — [ENG-375](https://linear.app/davewil/issue/ENG-375).
+- **`ToJson<T>`**, the obligation over a B# value — [ENG-375](https://linear.app/davewil/issue/ENG-375),
+  built as [F50](F50-to-json.md) on 2026-09-15.
 - **The decode direction** — [ticket 78](../../wayfinder/issues/78-the-decode-direction.md),
   [ENG-373](https://linear.app/davewil/issue/ENG-373).
 - **A schema.** The keys and their shapes are ticket 23 §4's, unchanged: payloads are maps and

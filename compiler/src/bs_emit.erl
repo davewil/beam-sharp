@@ -75,7 +75,9 @@ forms(Module = #{module := Mod, functions := Fns, env := Env}) ->
                      || {Path, Fs} <- Files])
     %% Generated code goes last and carries no `file` attribute: it belongs to
     %% no `.bs`, and pointing it at one would misattribute the next crash.
-    %% The validators cannot crash anyway, since every branch returns a value.
+    %% The validators cannot crash, since every branch returns a value. The
+    %% encoder `ToJson<T>` generates does, on a value its validator refused,
+    %% and the stack still names the B# function that called it (F50).
     ++ validator_forms(Validators)
     ++ reserved_forms(Fns).
 
@@ -811,7 +813,7 @@ expr({e_call, L, F, As}, C)   ->
 %% time and nothing of it survives (F18, ticket 27 §8).
 expr({e_inst, L, 'ValidateAs', [TypeExpr], [Arg]}, C) ->
     Ty = bs_check:resolve(TypeExpr, maps:get(env, C)),
-    {_Roots, Table} = maps:get(validators, C),
+    {_Roots, _Jsons, Table} = maps:get(validators, C),
     {call, L, {atom, L, root_name(maps:get(Ty, Table))}, [expr(Arg, C)]};
 
 %% `ParseAtom<T>(s)` is emitted INLINE rather than as a generated function
@@ -835,6 +837,16 @@ expr({e_inst, L, 'ParseAtom', [TypeExpr], [Arg]}, C) ->
             || A <- Members]
            ++ [{clause, L, [{var, L, '_'}], [], [{atom, L, nothing}]}],
     {'case', L, expr(Arg, C), Arms};
+
+%% `ToJson<T>(v)` is a bare local call to the encoder generated for `T`
+%% (ticket 77, F50): the validator a `ValidateAs<T>` would use, as the guard
+%% ticket 18 §1(c) owes a site where generated code consumes a value, then
+%% the platform's encoder. One function per distinct `T`, shared as the
+%% validators are, rather than the guard written out at every site.
+expr({e_inst, L, 'ToJson', [TypeExpr], [Arg]}, C) ->
+    Ty = bs_check:resolve(TypeExpr, maps:get(env, C)),
+    {_Roots, _Jsons, Table} = maps:get(validators, C),
+    {call, L, {atom, L, json_name(maps:get(Ty, Table))}, [expr(Arg, C)]};
 
 %% A qualified call is a remote call; the module atom is already the full
 %% dotted path, so no name is built here (ticket 40 §1). A reserved qualifier
@@ -1364,16 +1376,27 @@ tuple_part(Components) ->
 %% Every distinct type any `ValidateAs<T>` in the module needs a validator for,
 %% sub-types included, keyed by resolved type so two spellings of one type
 %% share one generated function.
+%%
+%% `ToJson<T>` needs one too, as its guard: generated code consuming a value
+%% is guarded unconditionally (ticket 18 §1(c)), and 26 §4 puts the exact
+%% field-set test at exactly this site, because the encoder would otherwise
+%% publish a field no type declares. Its roots are kept apart so the untagged
+%% `T | (:error, E)` wrapper is generated only for a type a `ValidateAs`
+%% returns; the validators themselves are shared.
 validator_table(Fns, Env) ->
+    Nodes = inst_nodes(Fns),
     Roots = lists:usort([bs_check:resolve(TE, Env)
-                         || {e_inst, _, 'ValidateAs', [TE], [_]} <- inst_nodes(Fns)]),
-    {Roots, close_over(Roots, #{})}.
+                         || {e_inst, _, 'ValidateAs', [TE], [_]} <- Nodes]),
+    Jsons = lists:usort([bs_check:resolve(TE, Env)
+                         || {e_inst, _, 'ToJson', [TE], [_]} <- Nodes]),
+    {Roots, Jsons, close_over(Roots ++ Jsons, #{})}.
 
-%% A generic term walk, since a `ValidateAs` may sit anywhere an expression
+%% A generic term walk, since an obligation may sit anywhere an expression
 %% may and a per-node walk would go stale when a node is added.
 inst_nodes(T) when is_tuple(T) ->
     Here = case T of
                {e_inst, _, 'ValidateAs', [_], [_]} -> [T];
+               {e_inst, _, 'ToJson', [_], [_]}     -> [T];
                _                                   -> []
            end,
     Here ++ inst_nodes(tuple_to_list(T));
@@ -1533,10 +1556,11 @@ tag_of(_) -> none.
 %% the call site (ticket 15 §1).
 checked(Ty) -> not bs_types:is_subtype(bs_types:term(), Ty).
 
-validator_forms({Roots, Table}) ->
+validator_forms({Roots, Jsons, Table}) ->
     Ordered = lists:sort(fun({_, A}, {_, B}) -> A =< B end, maps:to_list(Table)),
     lists:append([validator_form(Ty, Name, Table) || {Ty, Name} <- Ordered])
     ++ [root_form(maps:get(Ty, Table)) || Ty <- Roots]
+    ++ [json_form(maps:get(Ty, Table)) || Ty <- Jsons]
     ++ [F || lists:any(fun({Ty, _}) -> dom_walk(bs_types:unfold(Ty)) =/= none end,
                        Ordered),
              F <- key_forms()].
@@ -1555,6 +1579,25 @@ root_form(Name) ->
          [{clause, ?A, [{tuple, ?A, [{atom, ?A, ok}, VV]}], [], [VV]},
           {clause, ?A, [{tuple, ?A, [{atom, ?A, error}, EV]}], [],
            [{tuple, ?A, [{atom, ?A, error}, EV]}]}]}]}]}.
+
+%% The encoder `ToJson<T>` names (F50). The internal validator decides whether
+%% the value inhabits `T` — every member, a closed map's exact field set, a
+%% `string`'s UTF-8 — and only a value that does is handed to `json:encode`.
+%% One that does not crashes carrying the `ValidationError` the validator
+%% built, rather than going out on the wire: a wrong term from outside will
+%% crash, but never silently (18 §1 rule C).
+json_form(Name) ->
+    XV = {var, ?A, 'Bs@x'},
+    EV = {var, ?A, 'Bs@er'},
+    Encode = {call, ?A, {atom, ?A, iolist_to_binary},
+              [{call, ?A, {remote, ?A, {atom, ?A, json}, {atom, ?A, encode}}, [XV]}]},
+    Crash = {call, ?A, {remote, ?A, {atom, ?A, erlang}, {atom, ?A, error}},
+             [{tuple, ?A, [{atom, ?A, to_json}, EV]}]},
+    {function, ?A, json_name(Name), 1,
+     [{clause, ?A, [XV], [],
+       [{'case', ?A, {call, ?A, {atom, ?A, Name}, [XV, {nil, ?A}]},
+         [{clause, ?A, [{tuple, ?A, [{atom, ?A, ok}, {var, ?A, '_'}]}], [], [Encode]},
+          {clause, ?A, [{tuple, ?A, [{atom, ?A, error}, EV]}], [], [Crash]}]}]}]}.
 
 %%% ---------------------------------------------------------------------------
 %%% The reserved qualifiers' operations, generated
@@ -1685,6 +1728,7 @@ atom_name_pattern(L, A) ->
     {bin, L, [{bin_element, L, {string, L, Bytes}, default, default}]}.
 
 root_name(Name)   -> list_to_atom(atom_to_list(Name) ++ "@r").
+json_name(Name)   -> list_to_atom(atom_to_list(Name) ++ "@j").
 walker_name(Name) -> list_to_atom(atom_to_list(Name) ++ "@e").
 
 %% The error names the binder and the clauses are generated from its

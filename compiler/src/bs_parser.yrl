@@ -520,7 +520,8 @@ call -> uident '(' ')'           : {e_call, line('$1'), value('$1'), []}.
 %% is not an expression in this grammar, so none can be the left operand of
 %% `expr '<' expr` and this production adds no conflict; `Foo < 3` is a syntax
 %% error before and after it. `bs_check` refuses by name any function outside
-%% the closed set `ValidateAs`, `ParseAtom`, `ToExistingAtom` (ticket 28, F18).
+%% the closed set `ValidateAs`, `ParseAtom`, `ToJson`, `ToExistingAtom` (ticket 28,
+%% F18; `ToJson` by ticket 16 §4, F50).
 %% The empty argument list is needed by `x |> ValidateAs<list<Order>>()`
 %% (ticket 18 §7).
 call -> uident '<' type_list '>' '(' expr_list ')' :
