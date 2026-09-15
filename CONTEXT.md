@@ -323,8 +323,8 @@ recoverable at runtime.
 _Avoid_: cast, coercion, decoder, parser, validator
 
 **ValidationError**:
-`ValidateAs<T>`'s reason: a path into the offending term plus the type expected there. A tuple
-today; a record candidate if one is ever introduced.
+`ValidateAs<T>`'s reason: a compiler-known record, `Path` into the offending term plus the
+`Expected` type there, tagged `:ValidationError`.
 _Avoid_: DecodeError, error message, failure
 
 **Foreign wrapper**:

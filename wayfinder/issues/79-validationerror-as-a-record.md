@@ -1,7 +1,7 @@
 # 79 — `ValidationError` as a record, so the 422 body can go on the wire
 
 Type: grilling
-Status: claimed 2026-09-15 — [ENG-374](https://linear.app/davewil/issue/ENG-374). Raised 2026-09-15 on resolving
+Status: resolved 2026-09-15 — [ENG-374](https://linear.app/davewil/issue/ENG-374). Raised 2026-09-15 on resolving
 [ticket 77](77-what-goes-on-the-wire.md)
 Blocked by: —
 
@@ -194,3 +194,62 @@ placeholder awaiting 26, and 26 landed a month ago. The costs are one test file,
 prose and the F-file. Under yes, the tag's spelling follows as above, and the feature is raised
 at resolution. Under no, the tuple stays the decision, 25a's friction 0 stays the language's
 answer, and every handler writes program C's `Rejection` record and arm.
+
+**A1 — yes** (David, 2026-09-15 18:27). Resolved on the one question, one round.
+
+## The answer
+
+`ValidationError` is the compiler-known record `{ Path: list<string>, Expected: string }`. Its
+tag is bare, `:ValidationError`, as the program on show carried it: a user-minted tag always
+holds a module and a dot (F), a compiler-known type has no module to carry, and a reserved
+qualifier (ticket 67) names operations, which a type is not. The content is 15 §2's, unchanged;
+only the carrier moved, and it moved the day the wire (77) made the tuple cost something.
+
+What a program can now write, and what it gets:
+
+- `Rejected(ValidationError { Path: p })` and `ValidationError e` in a clause head; `e.Path` and
+  `e.Expected` in a body. Program A and program B compile.
+- The validator emits `{Kind = :ValidationError, Expected = "int", Path = [".Total"]}` where it
+  emitted `(:error, ([".Total"], "int"))`'s inner tuple; the `:error` wrapper is unchanged, so
+  `result<T, ValidationError>` and every `(:error, e)` arm in the corpus stand as written.
+- Under `ToJson<T>` (ENG-375), the 422 body is
+  `{"Kind":"ValidationError","Path":[".Total"],"Expected":"int"}`, measurement D. 25a's
+  friction 0 closes when that feature lands.
+- A hand-built `{ Kind: :ValidationError, Path: [], Expected: "int" }` *is* the type, 26 §1's
+  own test; construction `ValidationError { Path = [], Expected = "int" }` mints the same tag.
+
+### What follows
+
+- **The feature** is [ENG-379](https://linear.app/davewil/issue/ENG-379), F49: the three sites
+  under *The compiler delta*, the failing test first — program A compiled and run against a bad
+  term, printing the record — and the priced surfaces in *What the change costs*.
+- **ENG-375** loses its `ToJson<ValidationError>` refusal example; the row is 77's, and 77's
+  entry names *today's* `ValidationError` deliberately.
+- **`found`**, Gleam's third field, stays fog on the map: cheap now, still a decision.
+- **`CONTEXT.md`**'s entry drops *"a tuple today; a record candidate"* in this commit.
+
+## Decisions entry
+
+<!-- This ticket's entry. Read whole, here; the map (ENG-165) carries one line. -->
+
+```decisions-entry
+- [`ValidationError` as a record](issues/79-validationerror-as-a-record.md) — **`ValidationError`
+  is the compiler-known record `{ Path: list<string>, Expected: string }`, tagged bare
+  `:ValidationError`, so a handler destructures it as any record and the 422 body goes on the
+  wire.** Raised and resolved 2026-09-15 in one round on one question, the day
+  [ticket 77](issues/77-what-goes-on-the-wire.md) made the tuple cost something: a tuple has no
+  wire form, and prototype 25a's friction 0 was exactly that refusal landing on a handler's own
+  error reason. The content is [15](issues/15-error-model.md) §2's, unchanged; the carrier was
+  a placeholder awaiting [26](issues/26-data-modelling.md)'s record form, which landed
+  2026-08-14 and sat unclaimed for a month. Measured under today's compiler before asking: the
+  record pattern is refused as *not a record*, the projection as *may not carry Path*, and the
+  tuple arm with a hand-written `Rejection` compiles and runs; `json:encode` takes the erased
+  map and refuses the tuple; `--api` prints the structure, never the name, so no printer changes;
+  `qualified/2` always joins with a dot, so a bare tag cannot collide with any record a `.bs`
+  file declares. The delta is three sites and not the pattern site, because `record_of/3` and
+  `bs_emit:record_tag/2` read `Kind` out of the resolved type rather than re-minting it: the
+  stratum-two entry gains `Kind`, `error_expr/1` emits the map, and construction stops minting
+  from the module. Cost: one test file, five renderings in `LANGUAGE.md`, the F-file. The
+  corpus and the audition packet are untouched. Unbuilt —
+  [ENG-379](https://linear.app/davewil/issue/ENG-379), F49; `found` stays fog.
+```
