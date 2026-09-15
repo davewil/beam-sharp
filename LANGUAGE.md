@@ -2688,8 +2688,12 @@ the parser accepts back exactly what the printer emits. **shipped**
   <!-- tracked by ENG-281 --> <!-- built by F32, F33, F34 and F38; ENG-324 remains -->
 - **`cond`**, or whatever serves a long ladder of unrelated conditions. <!-- tracked by ENG-282 -->
 - **Laziness** and `stream<T>` — deferred, not refused. <!-- tracked by ENG-283 -->
-- **Bootstrapping** — how much of B# is written in B#. The front end likely stays Erlang, as
-  Elixir's did; the OTP layer is the valuable target. <!-- tracked by ENG-284 -->
+- **Bootstrapping** — ~~how much of B# is written in B#. The front end likely stays Erlang, as
+  Elixir's did; the OTP layer is the valuable target.~~ **Decided 2026-09-15**: the front end
+  stays Erlang and no parser in B# is owed; the AST is a B# value, obtained through the FFI and
+  established with `ValidateAs<Expr>` at the boundary, so formatters, rewriters and analyzers are
+  written in B# over it. Unbuilt — F48. The OTP layer remains the valuable target.
+  <!-- decided by ticket 80; tracked by ENG-376 -->
 
 ---
 
