@@ -1,7 +1,7 @@
 # 77 — What goes on the wire: is ticket 16 §4's serialisation mapping the platform's, with the compiler refusing what the platform refuses?
 
 Type: grilling
-Status: claimed — [ENG-372](https://linear.app/davewil/issue/ENG-372). Raised 2026-09-15 to unblock
+Status: resolved 2026-09-15 — [ENG-372](https://linear.app/davewil/issue/ENG-372). Raised 2026-09-15 to unblock
 [ENG-298](https://linear.app/davewil/issue/ENG-298), the diagnostic term's JSON encoding, and
 through it [ENG-305](https://linear.app/davewil/issue/ENG-305), the LSP server
 Blocked by: —
@@ -247,3 +247,81 @@ refuses at runtime?
 Under yes, every row is written from the measurement table and ENG-298 is unblocked as
 mechanical work. Under no, round 2 asks the rows you refused, one at a time, starting with the
 tag on the wire.
+
+**A1 — yes** (David, 2026-09-15 11:48). Resolved on the one question, one round.
+
+## The answer
+
+The wire form is the platform's: `json:encode` of the erased term, and `ToJson<T>` refuses at the
+declaration what the platform would refuse at runtime, naming the member. Three things the round
+named go with the yes, taken knowingly:
+
+- `Kind` is on the wire in every record body.
+- An `option<T>` holding `:nothing` goes out as the string `"nothing"` under the atom row, with the
+  key present. That closes [ticket 26](26-data-modelling.md) §4's `null`-or-omit question.
+- `binary` is refused whole. The platform refuses a *value* with an invalid byte; the type is the
+  only compile-time refusal that keeps the promise, so `ToJson<T>` refuses a superset of what the
+  platform refuses. `string` is UTF-8 by refinement and is what goes on the wire.
+
+### The published mapping
+
+Every row reads off the measurement table above. The three atoms the platform spells as JSON
+literals were measured after the answer (`json:encode(null)` is `null`, `true` is `true`, `false`
+is `false`, OTP 28.5); under "the mapping is the platform's" they are a fact of the platform, not a
+further decision.
+
+| B# | on the wire |
+|---|---|
+| `int` | a number |
+| `string` | a string; UTF-8 by refinement, so nothing in it is refused |
+| an atom | a string of its name: `:ok` is `"ok"`, `:nothing` is `"nothing"`. Except `:null`, `:true` and `:false`, which are the JSON literals `null`, `true` and `false`, the same three OTP's `json` reads back as atoms (10 §2) |
+| a record | an object: `Kind` carrying the minted tag, then the declared field names as written, PascalCase (26 §1; C#'s `System.Text.Json` is the precedent) |
+| `option<T>` holding `:nothing` | `"nothing"`, under the atom row; the key is present |
+| `list<T>` | an array |
+| `map<K, V>` | an object with each key stringified: `#{1 => 2}` is `{"1":2}` |
+| `float` | inherits [ticket 69](69-does-the-language-have-float.md), open |
+| a tuple at any depth, so `(:error, E)`, every `result<T, E>` and today's `ValidationError` | refused at the declaration, naming the member and the path to it |
+| an arrow | refused, as `ValidateAs<T>` refuses it |
+| `binary` | refused whole, as above |
+| `term` | refused: it contains the tuples. F18 (b)'s `found` stays absent for the reason F18 gave |
+
+### What follows
+
+- [ENG-298](https://linear.app/davewil/issue/ENG-298) is unblocked, and mechanical: `bs_diag`
+  converts the term's charlists to binaries and calls the platform; `bsc --diagnostics json`
+  publishes it; `check-diagnostics.sh` gains a round-trip control.
+- Building `ToJson<T>` is [ENG-375](https://linear.app/davewil/issue/ENG-375), a feature; the
+  compiler delta is the section above, unchanged.
+- The decode direction (finding 2) is [ticket 78](78-the-decode-direction.md),
+  [ENG-373](https://linear.app/davewil/issue/ENG-373).
+- `ValidationError` as a record, 25a's repair, is [ticket 79](79-validationerror-as-a-record.md),
+  [ENG-374](https://linear.app/davewil/issue/ENG-374).
+- The exact-set test's placement (26 §4) lands at the `ToJson<T>` site unchanged.
+
+## Decisions entry
+
+<!-- This ticket's entry. Read whole, here; the map (ENG-165) carries one line. -->
+
+```decisions-entry
+- [What goes on the wire](issues/77-what-goes-on-the-wire.md) — **the wire form is the platform's:
+  `json:encode` of the erased term, and `ToJson<T>` refuses at the declaration what the platform
+  refuses at runtime, naming the member.** Raised and resolved 2026-09-15 in one round on one
+  question; it writes the mapping [ticket 16](issues/16-ad-hoc-polymorphism.md) §4 decreed and
+  left unwritten, on which 23 §5, 26 §4, F18 (b), F25 §5 and the LSP chain had all taken a
+  dependency. Every row reads off a measurement: an atom is its name (`:null`, `:true` and
+  `:false` the JSON literals), a record an object carrying `Kind` and its field names as written,
+  an `option<T>` at `:nothing` the string `"nothing"` with the key present — which closes 26 §4's
+  `null`-or-omit question — a list an array, a `map<K, V>` an object with the key stringified, and
+  `float` inherits 69. Refused at the declaration: a tuple at any depth (so `(:error, E)`,
+  `result<T, E>` and today's `ValidationError`), an arrow, `term`, and `binary` whole — a superset
+  of the platform's per-value refusal, the only type-level one that keeps the promise. **Two
+  corrections on the record**: 23 §5's *"tuples are what these diagnostics are made of"* is false
+  since F29 (the term carries charlists, and `json:encode` on it succeeds), so ENG-298's blocker
+  was never the tuple rule; and 16 §4's *"decode is already built"* is false for a record and for
+  any atom-typed field, because `json:decode` returns binary keys and a binary tag that
+  `ValidateAs<T>` refuses. The two refusals are 25a's friction 0 restated: the 422 body and the
+  `result` are what a handler most wants on the wire, and both are tuples. **Unbuilt** —
+  [ENG-375](https://linear.app/davewil/issue/ENG-375); ENG-298 unblocked as mechanical work;
+  the decode direction is [78](issues/78-the-decode-direction.md) and `ValidationError` as a
+  record is [79](issues/79-validationerror-as-a-record.md).
+```

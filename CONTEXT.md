@@ -336,6 +336,17 @@ _Avoid_: FFI shim, catch block, rescue, guard
 A generated check that a runtime-built value is one of `T`'s atoms.
 _Avoid_: to_atom, intern, atom cast
 
+**ToJson&lt;T&gt;**:
+A generated encoder from a value of `T` to its wire form, refusing at compile time any member of
+`T` the platform's encoder would refuse at runtime, and naming it. Returns `string`.
+_Avoid_: serialiser, stringify, encoder function, protocol, derive
+
+**Wire form**:
+The platform's JSON encoding of a value's erasure: an atom is a string of its name, a record an
+object carrying its `Kind` and its field names as written, a list an array, a `map<K, V>` an
+object with the key stringified. A tuple, an arrow, `term` and `binary` have none.
+_Avoid_: JSON representation, serialisation format, DTO, view model
+
 **Boundary guard**:
 A guard the compiler emits on an exported function's parameter, testing that the term supplied
 inhabits the declared type. Emitted only where the function's own body would not already reject a
