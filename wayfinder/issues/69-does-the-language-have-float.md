@@ -1,7 +1,8 @@
 # 69 — Does the language have `float`?
 
 Type: grilling
-Status: open — raised 2026-09-07, [ENG-333](https://linear.app/davewil/issue/ENG-333)
+Status: resolved 2026-09-15 — [ENG-333](https://linear.app/davewil/issue/ENG-333). Raised
+2026-09-07 by David while ENG-330 was in flight; one question, one round
 Blocked by: —
 
 ## Why this is raised now
@@ -87,5 +88,64 @@ where that was silently unsound; nothing announces it anywhere else.
 **What makes this a real fork rather than an obvious yes:** B# targets the BEAM, where floats are
 a genuine term type, and the language's own tickets already write in them. Against that, the whole
 type system is subtraction from a top that does not include them, and adding a seventh part
-touches every function that takes a `ty()` apart. A "no" is a defensible answer that costs a
+touches every function that takes a `ty()` apart. (Seven was the count on 2026-09-07; F46 added
+`funs` on 2026-09-13, so the part is the eighth.) A "no" is a defensible answer that costs a
 sentence; it has simply never been said.
+
+**A1 — yes** (David, 2026-09-15 18:18). Resolved on the one question, one round.
+
+## The answer
+
+`float` is a type in B#: the BEAM's float, an eighth part of `ty()` beside `ints`, so `term` once
+again contains everything that can arrive. Three things go with the yes, taken knowingly:
+
+- **The literal is C#'s.** The program David said yes to writes `0.0`; the lexer reads digits, a
+  dot, digits and an optional exponent, and `1..5` stays a range.
+- **`/` lowers by its operand types.** `div` on two `int`s ([38](38-division-and-modulo.md)), the
+  BEAM's `/` on two `float`s — the door 38 §4 held open closes on its own terms. The emitter needs
+  the operand types at the site and does not receive them today; that is the feature's work, not a
+  decision.
+- **Discriminable by `is_float/1`**, so `int | float` satisfies ticket 09 §4 and a clause head can
+  tell the two apart.
+
+**What the yes does not settle, and is asked next**: whether an `int` flows where a `float` is
+expected — `Mean([]) -> 0` under `public float Mean`, and a caller whose head is `Verdict(0.0)`.
+That is [ticket 80](80-does-an-int-flow-where-a-float-is-expected.md),
+[ENG-377](https://linear.app/davewil/issue/ENG-377), raised with this answer and blocking the
+build. Mixed arithmetic, `int | float` in a head, refinements over a float and what `-spec`
+publishes follow it.
+
+**What the yes corrects on the record**:
+
+- [Ticket 77](77-what-goes-on-the-wire.md)'s `float` row read *inherits 69, open*. Measured on
+  resolution: `json:encode(1.5)` is `1.5`, `0.0` is `0.0`, `1.0e20` is `1.0e20` (OTP 28.5,
+  2026-09-15) — a number. The row is rewritten.
+- `LANGUAGE.md` §4's `float` row: **open** → **decided**. `TOUR.md`'s *decided but not built*
+  row was already in the right table and is untouched.
+- Ticket 20's `Meters` and `Feet` over `float where value >= 0`, ticket 25's `timestamptz`
+  seconds and ticket 58 / F24's float reaching an `int` are all now written in a type that exists.
+  None is reopened.
+
+### What follows
+
+- Building it is [ENG-378](https://linear.app/davewil/issue/ENG-378), a feature; the compiler
+  delta is Round 1's *if the answer is yes* paragraph, with the part count corrected to eight.
+- [Ticket 80](80-does-an-int-flow-where-a-float-is-expected.md) / ENG-377 blocks ENG-378.
+
+## Decisions entry
+
+<!-- This ticket's entry. Read whole, here; the map (ENG-165) carries one line. -->
+
+```decisions-entry
+- [Does the language have `float`?](issues/69-does-the-language-have-float.md) — **yes: `float`
+  is a type, the BEAM's float as an eighth part of the lattice beside `int`, written as C# writes
+  it.** Raised 2026-09-07 by David while ENG-330 was in flight, resolved 2026-09-15 in one round
+  on one question. Measured before asking: `float` was neither a type nor a literal, `term` did
+  not contain it, and a float flowed through a catch-all anyway, unnameable. Taken with the yes:
+  the literal is C#'s (`0.0`, and `1..5` stays a range); `/` lowers by its operand types, `div`
+  on two `int`s and the BEAM's `/` on two `float`s, closing the door 38 §4 held open; `is_float/1`
+  makes it discriminable. Not settled by it, asked next: whether an `int` flows where a `float`
+  is expected — [80](issues/80-does-an-int-flow-where-a-float-is-expected.md), which blocks the
+  build. Ticket 77's `float` row, *inherits 69*, is measured: a number. **Unbuilt** —
+  [ENG-378](https://linear.app/davewil/issue/ENG-378).
+```

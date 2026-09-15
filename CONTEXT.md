@@ -179,6 +179,11 @@ by construction, checked at compile time; a binary built or received at runtime 
 through the generated entry check. Distinct from a bare `binary`, which is bytes.
 _Avoid_: text, char list, String, utf8 binary
 
+**float**:
+The BEAM's float, an eighth part of the type lattice, beside `int` and not inside it: `0` and
+`0.0` are two values, and a clause head tells them apart. Written as C# writes it, `0.0`.
+_Avoid_: double, real, number, numeric
+
 **Failure channel**:
 The member of a declared union that reports the operation did not produce a value — `:nothing` or
 `(:error, E)`. Umbrella term covering both, so it includes the absence channel; where the two are

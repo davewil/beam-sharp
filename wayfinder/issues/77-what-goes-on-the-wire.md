@@ -279,7 +279,7 @@ further decision.
 | `option<T>` holding `:nothing` | `"nothing"`, under the atom row; the key is present |
 | `list<T>` | an array |
 | `map<K, V>` | an object with each key stringified: `#{1 => 2}` is `{"1":2}` |
-| `float` | inherits [ticket 69](69-does-the-language-have-float.md), open |
+| `float` | a number: `json:encode(1.5)` is `1.5`, `0.0` is `0.0`, `1.0e20` is `1.0e20` (OTP 28.5, measured 2026-09-15 when [ticket 69](69-does-the-language-have-float.md) resolved **yes**; until then this row read *inherits 69, open*) |
 | a tuple at any depth, so `(:error, E)`, every `result<T, E>` and today's `ValidationError` | refused at the declaration, naming the member and the path to it |
 | an arrow | refused, as `ValidateAs<T>` refuses it |
 | `binary` | refused whole, as above |
