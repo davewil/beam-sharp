@@ -293,6 +293,41 @@ not yet parse.
 corrupts a real emitted `.abstr` in exactly one respect and requires Dialyzer to catch it, because
 a clean run proves nothing unless a wrong spec would fail it.
 
+### F3.13 — a type name is declared once, whatever spells it
+
+**Added 2026-09-15 by [ENG-352](https://linear.app/davewil/issue/ENG-352), a year-old finding
+of this feature's own build** (the *third thing no feature owns* in the features README) **built
+a month later.** `record`, `type` and a refinement all declare a type name, and F3.2 makes a
+record the same type as the hand-written `type` with its tag — so the three spellings share one
+namespace, and a module holds each name once.
+
+```csharp
+module AccountsDup
+
+record Name { First: binary, Last: binary }
+
+record Name1 { Value: map<string, int> }
+record Name2 { Value: map<string, binary> }
+type Name = Name1 | Name2
+```
+
+Refused at the **second** declaration, naming the first: `AccountsDup.bs:8:1: error: Name is
+declared twice — first at line 4`. Three declarations report one error, at the second. Two
+records, two aliases, or a refinement against either are the same refusal.
+
+Before the check, `type_env/3` built the environment with `maps:from_list/1`, which keeps the
+rightmost duplicate: a record beat an alias of the same name whichever was written first, and
+between two of a kind the later one won. The losing fields vanished, and the function declared
+over the name was refused for a return type its author never wrote — the program above produced
+two `return_not_declared` errors against the surviving `Name` and no word about the collision.
+The term is `{type_redeclared, Name, Line, FirstLine}`, into the path `bsc:resolve_error/2`
+already catches, so `bsc --api` refuses the module too (it runs the declaration pass on its own,
+F17) rather than answering about a module that cannot be built.
+
+Not a redeclaration: a function sharing a name with a type (ticket 40 keeps the two namespaces
+apart), and the same type name in two modules (ticket 26 §1 qualifies the tag). Both are pinned by
+tests beside the refusals, in `type_redeclared_tests.erl`.
+
 ## Out of scope
 
 - **The body check site itself** — §2. F3 needs it, F2 needs it, and neither should grow it as a

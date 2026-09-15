@@ -998,6 +998,22 @@ structural — a hand-written `type` with the same tag *is* the same type — bu
 `Order` and `Invoice` over identical fields are two types, so `Update(Order o)` will not take an
 `Invoice`.
 
+Because a record and a `type` are two spellings of one declaration, they share one namespace with
+each other and with refinements, and **a module declares each type name once**. A second
+declaration is refused where it stands, naming the first; nothing silently replaces anything:
+
+<!-- diagnoses: type_redeclared -->
+```csharp
+record Name { First: binary, Last: binary }
+
+record Name1 { Value: map<string, int> }
+record Name2 { Value: map<string, binary> }
+type Name = Name1 | Name2
+```
+
+The same name in two modules is two types — `Sales.Order` and `Billing.Order` — and a function
+may share its name with a type; neither is a redeclaration.
+
 **Records exist for dispatch.** The tag is in the term, so a union of records is dispatched by an
 ordinary clause head and checked exhaustive:
 

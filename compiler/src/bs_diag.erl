@@ -572,6 +572,12 @@ built(Path, {relational_pattern_nested, Line}) ->
 built(Path, {name_redeclared, Name, Arity, Line}) ->
     #{tag => name_redeclared, severity => error, file => Path, line => Line,
       name => Name, arity => Arity};
+%% A type name declared twice, in any of its three spellings; the error sits
+%% on the second declaration and carries the first's line, so an editor can
+%% mark both (ENG-352). `first_line` is bare because only `line` is placed.
+built(Path, {type_redeclared, Name, Line, First}) ->
+    #{tag => type_redeclared, severity => error, file => Path, line => Line,
+      type => Name, first_line => line_of(First)};
 %% The candidates print qualified because a qualified call is legal whatever
 %% is in scope, so the message is pasteable source (ticket 41 §2, 23).
 built(Path, {ambiguous_call, Name, Arity, Mods, Line}) ->
@@ -1635,6 +1641,15 @@ message(#{tag := name_redeclared, file := P, line := L, column := C, name := Nam
      "  be two functions — but two signatures of the SAME arity are one~n"
      "  function declared twice, and its clauses would merge silently.~n",
      [P, L, C, Name, Arity, Name, Arity, Name, Arity + 1]};
+message(#{tag := type_redeclared, file := P, line := L, column := C, type := Name,
+          first_line := First}) ->
+    {"~s:~p:~p: error: ~s is declared twice — first at line ~p~n"
+     "  `record`, `type` and a refinement all declare a TYPE NAME, and a~n"
+     "  record is an alias for a tagged map, so the three spellings share~n"
+     "  one namespace. A second declaration would silently replace the~n"
+     "  first, and every function declared over ~s would then be checked~n"
+     "  against a type you did not write. Rename one, or remove one.~n",
+     [P, L, C, Name, First, Name]};
 message(#{tag := ambiguous_call, file := P, line := L, column := C, name := Name,
           arity := Arity, candidates := Mods}) ->
     {"~s:~p:~p: error: ~s/~p is ambiguous — ~p imports declare it~n"

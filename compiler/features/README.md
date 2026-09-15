@@ -637,6 +637,14 @@ One new `resolve_error/2` clause carries the message. This is a **sibling of, no
 *"a type parameter shadows a type of the same name"*: that one is inside a single declaration, this
 one is across two.
 
+**BUILT 2026-09-15 as [F3.13](F3-records.md#f313--a-type-name-is-declared-once-whatever-spells-it)
+([ENG-352](https://linear.app/davewil/issue/ENG-352)), a month after it was written down.** As
+specified, with one addition: the term is `{type_redeclared, Name, Line, FirstLine}`, so the error
+at the second declaration names the first. Refinements are the third spelling and are checked with
+the other two. The check sits inside `type_env/3` itself, which is what makes `bsc --api` refuse
+the module as well — the declaration pass has four callers and the environment is the one thing
+they share.
+
 **F6 took ticket 27's own cut, and the ticket wrote it before the feature did.** Generics is three
 questions wearing one coat; F6 built parameterised constructors and parametric aliases — both
 **substitution with ground arguments** — and left polymorphic function *signatures*, which are

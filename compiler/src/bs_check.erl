@@ -1517,6 +1517,24 @@ disjoint_buckets(A, B) ->
 %% sits on top of an imported name and the bare name has one meaning.
 type_env(Decls, Imports, World) ->
     Mod = module_name(Decls),
+    %% Every form that declares a type name, with where it did (F35). Built
+    %% once here and read twice: first to refuse a name declared twice, then
+    %% as the position each entry resolves under.
+    Locs = [{N, L} || {type_alias, L, N, _, _} <- Decls]
+        ++ [{N, L} || {type_refined, L, N, _, _} <- Decls]
+        ++ [{N, L} || {record_decl, L, N, _} <- Decls],
+    %% A TYPE NAME IS DECLARED ONCE PER MODULE, WHATEVER SPELLS IT (ENG-352;
+    %% the features README's F3 finding). `maps:from_list/1` below keeps the
+    %% RIGHTMOST duplicate, so until 2026-09-15 a record beat an alias of the
+    %% same name whichever was written first, the losing declaration's fields
+    %% vanished, and the function declared over the name was checked against
+    %% a type its author never wrote. `record Order` against `type Order` is
+    %% ONE error, not a second kind: ticket 26 §1 makes a record an alias for
+    %% a tagged map and F3.2 asserts the two spellings are the same type, so
+    %% there is one namespace for them to collide in. Refused at the second
+    %% declaration, naming the first, the way `name_redeclared/1` refuses a
+    %% second signature.
+    type_redeclared(Locs),
     Aliases = [{N, alias(Params, T)} || {type_alias, _, N, Params, T} <- Decls],
     %% A refinement enters the environment as a surface node, as an alias
     %% body does, so it inherits `resolve/3`'s cycle guard: `type A = A where
@@ -1541,10 +1559,7 @@ type_env(Decls, Imports, World) ->
     %% from, so `type Wrong<T> = (T, U)` names its own line rather than the
     %% file (F35). The standard environment's entries have no declaration and resolve
     %% under `undefined`, which `at_loc/2` passes through untouched.
-    Locs = maps:from_list(
-             [{N, L} || {type_alias, L, N, _, _} <- Decls]
-             ++ [{N, L} || {type_refined, L, N, _, _} <- Decls]
-             ++ [{N, L} || {record_decl, L, N, _} <- Decls]),
+    LocOf = maps:from_list(Locs),
     %% The imported entries were resolved where they were declared and are
     %% carried into the result as they are; only the standard environment's
     %% and the module's own entries are resolved here, against an `Env` that
@@ -1555,7 +1570,7 @@ type_env(Decls, Imports, World) ->
               case maps:get(N, Env) of
                   {parametric, _, _} = P -> Acc#{N => P};
                   T ->
-                      Loc = maps:get(N, Locs, undefined),
+                      Loc = maps:get(N, LocOf, undefined),
                       Acc#{N => at_loc(Loc,
                                        fun() ->
                                            bs_types:mu(N, resolve(T, Env, [N]))
@@ -1565,6 +1580,22 @@ type_env(Decls, Imports, World) ->
 
 alias([], Body)     -> Body;
 alias(Params, Body) -> {parametric, Params, Body}.
+
+%% Walk the declarations in source order and stop at the first name already
+%% seen: the error sits on the SECOND declaration and carries the first's
+%% position, so both lines are named and the earlier one is not reported as
+%% the later one's consequence. Three declarations report one error — the
+%% third is the same defect again.
+type_redeclared(Locs) ->
+    type_redeclared(lists:keysort(2, Locs), #{}).
+
+type_redeclared([], _Seen) ->
+    ok;
+type_redeclared([{N, L} | Rest], Seen) ->
+    case Seen of
+        #{N := First} -> erlang:error({type_redeclared, N, L, First});
+        _             -> type_redeclared(Rest, Seen#{N => L})
+    end.
 
 %% The environment entries a module's imports supply (ticket 73, F44), from
 %% the import tables and the world's `types`:
