@@ -219,7 +219,7 @@ the_answer_is_a_term_one_map_per_line_test() ->
     %% A position is both halves, as two keys (F35). From F35 to F47 this map
     %% carried the lexer's `{16, 19}` whole under `line`, and nothing here
     %% matched the key, so nothing noticed until the JSON channel refused the
-    %% tuple. Both halves pinned, so the regression cannot come back quietly.
+    %% tuple. Both halves pinned.
     ?assertMatch(#{line := 16, column := 19}, Init).
 
 %%% --- F17.9 — zero operations is an answer, not an error ---------------------

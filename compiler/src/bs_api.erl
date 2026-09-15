@@ -249,8 +249,9 @@ publish(term, Dir, Module, Behaviours, Ops) ->
     nothing_public(Module, Ops);
 publish(json, Dir, Module, Behaviours, Ops) ->
     %% The same maps, one object per line, in the wire form `bs_diag` owns
-    %% (F47): the encoding is the channel's, not this module's.
-    [io:put_chars([iolist_to_binary(bs_diag:json(M)), $\n])
+    %% (F47): the encoding and the framing are the channel's, not this
+    %% module's.
+    [bs_diag:put_json(M)
      || M <- [#{tag => module, module => Module, path => Dir,
                 behaviours => Behaviours, operations => length(Ops)} | Ops]],
     nothing_public(Module, Ops).

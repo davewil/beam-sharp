@@ -1,0 +1,13 @@
+module Bare
+
+// `name_arity_unfixed`: a bare name between two arities, and `declared` is
+// again a list of integers that is not text (F47.12).
+public int Double(int n)
+Double(n) -> n * 2
+
+public int Double(int n, int k)
+Double(n, k) -> n * k
+
+public int Later(int n)
+Later(n) -> var f = Double
+            f(n)

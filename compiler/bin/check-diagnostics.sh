@@ -36,8 +36,11 @@
 #      prints half a position, while the term beside it still carries the
 #      column and every test still passes.
 #   5. THE JSON CHANNEL ROUND-TRIPS THE TERM (F47, ticket 23 §5). The built
-#      `bsc` publishes the term for every module in `bin/fixtures/residual`,
-#      the tree's own `bs_diag.erl` encodes each one, and `json:decode` of
+#      `bsc` publishes the term for every module in `bin/fixtures/residual`
+#      and `bin/fixtures/wire` — the second holds the two programs whose
+#      descriptor carries a list of integers that is NOT text, which the
+#      first cut sent as control characters — the tree's own `bs_diag.erl`
+#      encodes each one, and `json:decode` of
 #      the result must equal the term normalised by a function written HERE,
 #      not borrowed from `bs_diag` — a gate that asked the encoder to check
 #      the encoder would agree with any encoder. This is the one check that
@@ -90,9 +93,9 @@ SRC="${CHECK_DIAGNOSTICS_SRC:-src}"
 # ---------------------------------------------------------------------------
 # --self-test
 #
-# SIX CONTROLS, because this gate makes five separate claims (two of them in
-# two spellings) and the one it exists for is the one a lazy control would
-# skip.
+# EIGHT CONTROLS, because this gate makes five separate claims (two of them
+# in two spellings, and the round trip with three ways to fail it) and the
+# one it exists for is the one a lazy control would skip.
 #
 # THAT ONE IS THE STRAY. F16 moved 56 `io:format` calls into `bs_diag`, and the
 # drift reopens SILENTLY: the next person to add a diagnostic writes the
@@ -191,14 +194,45 @@ if [ "${1:-}" = "--self-test" ]; then
     # it. The `sed` must land, or the control tests nothing but itself, so
     # its landing is asserted before the expectation is.
     fresh "$CTL/dropped"
-    sed -i.bak 's/json:encode(wire(Desc))/json:encode(wire(maps:remove(tag, Desc)))/' \
+    sed -i.bak 's/json:encode(wire(Tag, tag, Desc))/json:encode(wire(Tag, tag, maps:remove(tag, Desc)))/' \
         "$CTL/dropped/bs_diag.erl"
     rm -f "$CTL/dropped/bs_diag.erl.bak"
     if ! grep -q 'maps:remove(tag, Desc)' "$CTL/dropped/bs_diag.erl"; then
         echo "SELF-TEST FAILED: control 6 could not build its defect — the encoder"
-        echo "                  is no longer spelled \`json:encode(wire(Desc))\`"
+        echo "                  is no longer spelled \`json:encode(wire(Tag, tag, Desc))\`"
         st_fail=1
     fi
+
+    # CONTROL 7 — the roster forgotten: an encoder that sends every integer
+    # list as text. This is the first cut's defect exactly, and the residual
+    # fixtures alone cannot see it; the `wire` fixtures are why it is red.
+    fresh "$CTL/textual"
+    sed -i.bak 's/^integer_list(name_arity_unfixed, declared) -> true;$/integer_list(name_arity_unfixed, declared) -> false;/; s/^integer_list(arity_not_declared, declared) -> true;$/integer_list(arity_not_declared, declared) -> false;/' \
+        "$CTL/textual/bs_diag.erl"
+    rm -f "$CTL/textual/bs_diag.erl.bak"
+    if grep -q 'declared) -> true;' "$CTL/textual/bs_diag.erl"; then
+        echo "SELF-TEST FAILED: control 7 could not build its defect — the roster"
+        echo "                  is no longer spelled \`integer_list(TAG, declared) -> true;\`"
+        st_fail=1
+    fi
+    expect "the JSON channel does not round-trip the term" "$CTL/textual" \
+        "an encoder that sends the declared arities as text"
+
+    # CONTROL 8 — a string left as integers: the conversion that is the whole
+    # of this feature's compiler delta, removed. `json:encode` on the raw
+    # term succeeds and emits an integer array for every charlist, which is
+    # exactly what the platform did before F47 and what check 5 must refuse.
+    fresh "$CTL/unconverted"
+    sed -i.bak 's/^                true  -> unicode:characters_to_binary(L);$/                true  -> L;/' \
+        "$CTL/unconverted/bs_diag.erl"
+    rm -f "$CTL/unconverted/bs_diag.erl.bak"
+    if grep -q 'unicode:characters_to_binary(L)' "$CTL/unconverted/bs_diag.erl"; then
+        echo "SELF-TEST FAILED: control 8 could not build its defect — the conversion"
+        echo "                  is no longer spelled \`true  -> unicode:characters_to_binary(L);\`"
+        st_fail=1
+    fi
+    expect "the JSON channel does not round-trip the term" "$CTL/unconverted" \
+        "an encoder that leaves a string as integers"
     expect "the JSON channel does not round-trip the term" "$CTL/dropped" \
         "an encoder that drops a key"
 
@@ -212,8 +246,9 @@ if [ "${1:-}" = "--self-test" ]; then
 
     if [ "$st_fail" -eq 0 ]; then
         echo "self-test: reported the stray diagnostic, the unrenderable tag, the"
-        echo "           orphaned message, the broken delegation and the encoder"
-        echo "           that drops a key; accepted the committed sources — the"
+        echo "           orphaned message, the broken delegation, and the encoder"
+        echo "           that drops a key, sends arities as text, or leaves a"
+        echo "           string as integers; accepted the committed sources — the"
         echo "           gate discriminates"
         exit 0
     fi
@@ -319,7 +354,6 @@ fi
 
 say "==> the JSON channel round-trips the term"
 BSC="$SELF/_build/default/bin/bsc"
-FIXTURES="$SELF/bin/fixtures/residual"
 if [ ! -x "$BSC" ]; then
     say "ERROR: no built bsc at $BSC — run rebar3 escriptize."
     say "  The round trip needs the term the compiler publishes, and grading"
@@ -327,27 +361,20 @@ if [ ! -x "$BSC" ]; then
     fail=1
 else
     WORK="$(mktemp -d)"
+    trap 'rm -rf "$WORK"' EXIT
     if ! erlc -o "$WORK" "$SRC/bs_diag.erl" > "$WORK/erlc.log" 2>&1; then
         say "ERROR: $SRC/bs_diag.erl does not compile:"
         cat "$WORK/erlc.log"
         fail=1
     else
         : > "$WORK/manifest"
-        for dir in "$FIXTURES"/*/; do
-            mod="${dir%/}"
-            id="$(basename "$mod")"
-            printf 'entry %s
-arg --diagnostics
-arg term
-arg --src-root
-arg %s
-arg -o
-arg %s
-arg %s
-end
-
-' \
-                "$id" "$FIXTURES" "$WORK/out-$id" "$mod" >> "$WORK/manifest"
+        for FIXTURES in "$SELF/bin/fixtures/residual" "$SELF/bin/fixtures/wire"; do
+            for dir in "$FIXTURES"/*/; do
+                mod="${dir%/}"
+                id="$(basename "$mod")"
+                printf 'entry %s\narg --diagnostics\narg term\narg --src-root\narg %s\narg -o\narg %s\narg %s\nend\n\n' \
+                    "$id" "$FIXTURES" "$WORK/out-$id" "$mod" >> "$WORK/manifest"
+            done
         done
         "$BSC" --batch "$WORK/manifest" "$WORK/results" > /dev/null 2>&1 || true
         cat "$WORK"/results/*.stdout > "$WORK/terms" 2>/dev/null || true
@@ -379,27 +406,33 @@ check(L) ->
     {ok, Toks, _} = erl_scan:string(L ++ "."),
     {ok, Term} = erl_parse:parse_term(Toks),
     Json = iolist_to_binary(bs_diag:json(Term)),
-    case json:decode(Json) =:= wire(Term) of
+    Tag = maps:get(tag, Term, undefined),
+    case json:decode(Json) =:= wire(Tag, tag, Term) of
         true  -> false;
         false -> {true, {L, Json}}
     end.
 
 %% The gate's own normaliser: ticket 77's mapping and F47's list rule, as a
-%% consumer would write them. Not bs_diag's.
-wire(M) when is_map(M) ->
-    maps:from_list([{wire(K), wire(V)} || {K, V} <- maps:to_list(M)]);
-wire([]) ->
+%% consumer would write them. Not bs_diag's — except for the one fact the
+%% term does not carry, which a consumer has to be told: `declared` under
+%% the two arity tags is a list of integers, not text. That fact is stated
+%% here by hand, and control 7 is the encoder forgetting it.
+wire(Tag, _Key, M) when is_map(M) ->
+    maps:from_list([{wire(Tag, K, K), wire(Tag, K, V)} || {K, V} <- maps:to_list(M)]);
+wire(_Tag, _Key, []) ->
     [];
-wire(L) when is_list(L) ->
+wire(Tag, Key, L) when is_list(L) ->
     case lists:all(fun erlang:is_integer/1, L) of
+        true when Tag =:= name_arity_unfixed, Key =:= declared -> L;
+        true when Tag =:= arity_not_declared, Key =:= declared -> L;
         true  -> unicode:characters_to_binary(L);
-        false -> [wire(X) || X <- L]
+        false -> [wire(Tag, Key, X) || X <- L]
     end;
-wire(A) when A =:= true; A =:= false; A =:= null ->
+wire(_Tag, _Key, A) when A =:= true; A =:= false; A =:= null ->
     A;
-wire(A) when is_atom(A) ->
+wire(_Tag, _Key, A) when is_atom(A) ->
     atom_to_binary(A, utf8);
-wire(X) ->
+wire(_Tag, _Key, X) ->
     X.
 ERL
         if (cd "$WORK" && erlc roundtrip.erl > erlc2.log 2>&1 \

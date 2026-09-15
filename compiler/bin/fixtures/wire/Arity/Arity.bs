@@ -1,0 +1,13 @@
+module Arity
+
+// `arity_not_declared`: `declared` carries the arities the name is declared
+// at, a list of integers that is NOT text. The wire gate exists to see it go
+// out as an array (F47.12).
+public int Add(int a, int b)
+Add(a, b) -> a + b
+
+public int Add(int a, int b, int c)
+Add(a, b, c) -> a + b + c
+
+public int Call()
+Call() -> Add(1)

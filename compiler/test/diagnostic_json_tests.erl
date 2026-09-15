@@ -50,22 +50,28 @@ objects(S) -> [json:decode(list_to_binary(L)) || L <- lines(S)].
 %% encoder. Ticket 77's mapping, value by value: an atom is a string of its
 %% name (`true`, `false` and `null` the JSON literals, which `json:decode`
 %% hands back as atoms), a string is a string, a map's keys are strings, a
-%% list is an array. The one rule of the encoder's own is F47's list rule: a
-%% non-empty list of integers is a string, and `[]` is an array.
-wire(M) when is_map(M) ->
-    maps:from_list([{wire(K), wire(V)} || {K, V} <- maps:to_list(M)]);
-wire([]) ->
+%% list is an array. Two things are the encoder's own and a consumer has to
+%% be told: `[]` is an array, and `declared` under the two arity tags is a
+%% list of integers rather than text — the one fact the term does not carry,
+%% stated here by hand and pinned as bytes in F47.12 below.
+wire(Desc) -> wire(maps:get(tag, Desc, undefined), tag, Desc).
+
+wire(Tag, _Key, M) when is_map(M) ->
+    maps:from_list([{wire(Tag, K, K), wire(Tag, K, V)} || {K, V} <- maps:to_list(M)]);
+wire(_Tag, _Key, []) ->
     [];
-wire(L) when is_list(L) ->
+wire(Tag, Key, L) when is_list(L) ->
     case lists:all(fun erlang:is_integer/1, L) of
+        true when Tag =:= name_arity_unfixed, Key =:= declared -> L;
+        true when Tag =:= arity_not_declared, Key =:= declared -> L;
         true  -> unicode:characters_to_binary(L);
-        false -> [wire(X) || X <- L]
+        false -> [wire(Tag, Key, X) || X <- L]
     end;
-wire(A) when A =:= true; A =:= false; A =:= null ->
+wire(_Tag, _Key, A) when A =:= true; A =:= false; A =:= null ->
     A;
-wire(A) when is_atom(A) ->
+wire(_Tag, _Key, A) when is_atom(A) ->
     atom_to_binary(A, utf8);
-wire(X) ->
+wire(_Tag, _Key, X) ->
     X.
 
 inexhaustive_src() ->
@@ -243,15 +249,74 @@ an_unclassified_detail_is_printed_text_test() ->
     ?assert(is_binary(Detail)),
     ?assertEqual(<<"{error,3,\"F\",{no_such_shape,[1,2]}}">>, Detail).
 
-%% The list rule's one ambiguity, pinned: `[]` is an array, because the term
-%% carries empty lists (`arms => []`, `behaviours => []`) and never an empty
-%% string.
+%%% --- F47.12, F47.13 — a list of integers that is not text ------------------
+
+%% The first cut sent `declared => [2, 3]` as `"\u0002\u0003"`: two control
+%% characters where the term has two arities, and the residual fixtures never
+%% reach the tag. Pinned as BYTES rather than through `wire/3`, so the schema
+%% fact is asserted once by hand and the normaliser cannot agree with the
+%% encoder by construction.
+the_declared_arities_are_an_array_on_the_wire_test() ->
+    guarded(fun() ->
+        Src = "module Arity\n"
+              "public int Add(int a, int b)\n"
+              "Add(a, b) -> a + b\n"
+              "public int Add(int a, int b, int c)\n"
+              "Add(a, b, c) -> a + b + c\n"
+              "public int Call()\n"
+              "Call() -> Add(1)\n",
+        with_src("in.bs", Src, fun(Path, Root) ->
+            Args = "--src-root " ++ Root ++ " " ++ Path,
+            Out = out("--diagnostics json " ++ Args),
+            ?assertNotEqual(nomatch, string:find(Out, "\"declared\":[2,3]")),
+            [Object] = objects(Out),
+            ?assertMatch(#{<<"tag">> := <<"arity_not_declared">>,
+                           <<"got">> := 1, <<"declared">> := [2, 3]}, Object),
+            [Term] = terms(out("--diagnostics term " ++ Args)),
+            ?assertEqual(wire(Term), Object)
+        end)
+    end).
+
+the_bare_name_arities_are_an_array_on_the_wire_test() ->
+    guarded(fun() ->
+        Src = "module Bare\n"
+              "public int Double(int n)\n"
+              "Double(n) -> n * 2\n"
+              "public int Double(int n, int k)\n"
+              "Double(n, k) -> n * k\n"
+              "public int Later(int n)\n"
+              "Later(n) -> var f = Double\n"
+              "            f(n)\n",
+        with_src("in.bs", Src, fun(Path, Root) ->
+            Out = out("--diagnostics json --src-root " ++ Root ++ " " ++ Path),
+            ?assertNotEqual(nomatch, string:find(Out, "\"declared\":[1,2]")),
+            [Object] = objects(Out),
+            ?assertMatch(#{<<"tag">> := <<"name_arity_unfixed">>,
+                           <<"name">> := <<"Double">>,
+                           <<"declared">> := [1, 2]}, Object)
+        end)
+    end).
+
+%% A list of integers under a tag and key the roster does not name, and that
+%% no reader could take for text, crashes naming both — a new payload cannot
+%% ship looking as if it had an encoding, as a tag cannot ship without a
+%% message clause (F16.7). Direct, because no descriptor produces one today.
+an_unrostered_integer_list_crashes_rather_than_encoding_test() ->
+    Desc = #{tag => some_new_tag, severity => error, file => "x.bs",
+             line => 1, column => 1, function => 'F', widths => [8, 16]},
+    ?assertError({json_list_unrostered, some_new_tag, widths, [8, 16]},
+                 bs_diag:json(Desc)).
+
+%% The list rule's other fixed point, pinned: `[]` is an array, because the
+%% term carries empty lists (`arms => []`, `behaviours => []`) and never an
+%% empty string. At the boundary: a module with no behaviour answers
+%% `behaviours => []` under `--api`.
 an_empty_list_is_an_array_test() ->
-    Desc = #{tag => switch_inexhaustive, severity => error, file => "x.bs",
-             line => 1, column => 1, function => 'F',
-             residual => "binary \\ string", arms => [],
-             description => ["binary \\ string"]},
-    Object = json:decode(iolist_to_binary(bs_diag:json(Desc))),
-    ?assertMatch(#{<<"arms">> := [], <<"description">> := [<<"binary \\ string">>]},
-                 Object),
-    ?assertEqual(wire(Desc), Object).
+    guarded(fun() ->
+        Aliasing = project_root() ++ "/examples/Aliasing",
+        {0, Out, _} = bs_test_support:run_cli_split_result(
+                        "--diagnostics json --api " ++ Aliasing),
+        ?assertNotEqual(nomatch, string:find(Out, "\"behaviours\":[]")),
+        [Module | _] = objects(Out),
+        ?assertMatch(#{<<"tag">> := <<"module">>, <<"behaviours">> := []}, Module)
+    end).

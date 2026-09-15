@@ -22,7 +22,7 @@
 %%% breaking a matcher: evolution is additive only (ticket 23 §4).
 -module(bs_diag).
 
--export([descriptor/2, format/1, message/1, emit/2, json/1]).
+-export([descriptor/2, format/1, message/1, emit/2, json/1, put_json/1]).
 -export([channel/0, set_channel/1, contractual/0]).
 
 %% Three or fewer cases print in full, so the truncated form is the exact form
@@ -85,14 +85,18 @@ contractual() ->
 emit(Chan, Desc) ->
     case Chan of
         term -> io:format("~0p~n", [Desc]);
-        %% `put_chars` rather than `~s`: the JSON is UTF-8 bytes in a binary,
-        %% and `~s` would read each byte as a latin-1 character and encode it
-        %% again on the way out.
-        json -> io:put_chars([iolist_to_binary(json(Desc)), $\n]);
+        json -> put_json(Desc);
         _    -> ok
     end,
     {Fmt, Args} = message(Desc),
     io:format(standard_error, Fmt, Args).
+
+%% One object, one line, on stdout: the framing is the channel's, so the
+%% `--api` answer writes through here too rather than spelling it again.
+%% `put_chars` rather than `~s`: the JSON is UTF-8 in binaries, and `~s`
+%% would read each byte as a latin-1 character and encode it again.
+put_json(Map) ->
+    io:put_chars([json(Map), $\n]).
 
 %%% ---------------------------------------------------------------------------
 %%% The wire form
@@ -102,12 +106,23 @@ emit(Chan, Desc) ->
 %%% diagnostics-only spelling of any value, which is what kept this out of
 %%% F16 and F17 until the mapping was written (ticket 23 §5).
 %%%
-%%% THE LIST RULE. An Erlang string is a list of integers, and the term has
-%%% no other list of integers: every list a descriptor carries is a list of
-%%% strings, a list of atoms, or a list of those. So a non-empty list whose
-%%% elements are all integers is a string, and any other list is an array.
-%%% `[]` is an array — `arms => []` and `behaviours => []` exist, an empty
-%%% string does not (F47).
+%%% THE LIST RULE, AND THE ONE FACT THE TERM DOES NOT CARRY. An Erlang
+%%% string is a list of integers, so a list of integers in the term is text or
+%%% an array by the schema alone, and the term does not say which. Two
+%%% payloads carry a list of integers that is not text — `declared` under
+%%% `name_arity_unfixed` and under `arity_not_declared`, the arities a name is
+%%% declared at — and `integer_list/2` names them, beside the descriptors that
+%%% build them. (The same key holds a type string under F25's tags, so the
+%%% fact is per tag AND key.) The rule: `[]` is an array; a non-empty list of
+%%% integers is an array where the roster names it, text where it is
+%%% printable, and otherwise a crash naming the tag and key — a new
+%%% integer-list payload cannot ship looking as if it had an encoding, as a
+%%% tag cannot ship without a message clause (F16.7). Any other list is an
+%%% array of its members (F47).
+%%%
+%%% The first cut said every non-empty integer list is text and claimed the
+%%% term carried no other; the review probe found `"declared":"\u0002\u0003"`
+%%% on the wire. The roster is what that cost.
 %%% ---------------------------------------------------------------------------
 
 %% `unclassified` is the lost path: `bsc:publish/2` reports a shape this module
@@ -116,21 +131,40 @@ emit(Chan, Desc) ->
 %% channel `detail` goes out as its printed text — exactly what the prose
 %% prints after the path — and the lost path stays a diagnostic here too.
 json(#{tag := unclassified, detail := D} = Desc) ->
-    json:encode(wire(Desc#{detail := lists:flatten(io_lib:format("~0p", [D]))}));
+    encode(Desc#{detail := lists:flatten(io_lib:format("~0p", [D]))});
 json(Desc) ->
-    json:encode(wire(Desc)).
+    encode(Desc).
 
-wire(M) when is_map(M) ->
-    maps:map(fun(_, V) -> wire(V) end, M);
-wire([]) ->
+encode(Desc) ->
+    Tag = maps:get(tag, Desc, undefined),
+    json:encode(wire(Tag, tag, Desc)).
+
+%% The payloads whose list of integers is a list of integers.
+integer_list(name_arity_unfixed, declared) -> true;
+integer_list(arity_not_declared, declared) -> true;
+integer_list(_Tag, _Key)                   -> false.
+
+wire(Tag, _Key, M) when is_map(M) ->
+    maps:map(fun(K, V) -> wire(Tag, K, V) end, M);
+wire(_Tag, _Key, []) ->
     [];
-wire(L) when is_list(L) ->
+wire(Tag, Key, L) when is_list(L) ->
     case lists:all(fun erlang:is_integer/1, L) of
-        true  -> unicode:characters_to_binary(L);
-        false -> [wire(X) || X <- L]
+        true  -> integers(Tag, Key, L);
+        false -> [wire(Tag, Key, X) || X <- L]
     end;
-wire(X) ->
+wire(_Tag, _Key, X) ->
     X.
+
+integers(Tag, Key, L) ->
+    case integer_list(Tag, Key) of
+        true  -> L;
+        false ->
+            case io_lib:printable_unicode_list(L) of
+                true  -> unicode:characters_to_binary(L);
+                false -> error({json_list_unrostered, Tag, Key, L})
+            end
+    end.
 
 %% The published pure function: prose is this, applied to the term.
 format(Desc) ->
