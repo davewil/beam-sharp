@@ -1,7 +1,7 @@
 # 80 — Bootstrapping: which layer of B# is written in B#
 
 Type: grilling
-Status: claimed 2026-09-15 — [ENG-284](https://linear.app/davewil/issue/ENG-284). Named by David
+Status: resolved 2026-09-15 — [ENG-284](https://linear.app/davewil/issue/ENG-284). Named by David
 2026-08-13 as the map's *Bootstrapping* patch; raised into Linear 2026-08-31 by the §19-as-queue
 rule; claimed 2026-09-15 on David's reading of a post by José Valim
 Blocked by: —
@@ -188,3 +188,59 @@ parser in B# owed?
 Under yes, the compiler delta above becomes a feature file, the parser in B# becomes an exemplar
 candidate, and the ticket resolves with (c) ordered ahead of (a). Under no, round 2 asks the
 parser in B# as the sole route and what it costs, starting with the third grammar.
+
+**A1 — yes** (David, 2026-09-15): *"Self hosted parser is not required correct? I think for now
+yes to q1 is there way forward."* Resolved on the one question, one round.
+
+## The answer
+
+Axis (a) is the AST as a B# value, obtained from the Erlang front end through the FFI and
+established with `ValidateAs<Expr>` at the boundary. A parser in B# is **not required**. The
+checker, lowering and emit stay Erlang, as ticket 13 already allowed and as Elixir's have.
+
+Three things go with the yes, taken knowingly:
+
+- **The declared B# type is the contract, and the Erlang side conforms to it.** The converter is
+  written against the `-type` F28 emits for the declaration, not the other way round. When the
+  grammar gains a node kind, the type gains a member first, and every walker in B# is refused
+  until it carries the clause.
+- **Names are atoms and string literals are binaries** in the AST, because §11 refuses `string` in
+  a foreign return and an identifier is bounded. A walker that wants a `string` establishes it
+  where it looks.
+- **The formatter is not this ticket's.** It waits on binary construction in expression position,
+  the wall 25e stops on, and gets a ticket when the AST module exists and something wants to
+  print it. An analyzer and a rewriter compile today.
+
+### What follows
+
+- **[F48](../../compiler/features/F48-ast-as-a-value.md), [ENG-376](https://linear.app/davewil/issue/ENG-376)** — the feature: `bs_front`, the syntax module shipped as an example, the analyzer
+  example, and the gate that the converter validates every example under `ValidateAs<Decl>`.
+  Failing test and gate first.
+- **Ordering.** Axis (c), the OTP layer in B#, is still the valuable target and stays ahead of
+  F48 in the queue; F10 shipped the callback emission and (c) has no ticket of its own yet.
+  Neither blocks the other.
+- **A parser in B#** is an exemplar candidate for [ticket 25](25-exemplar-programs.md)'s set,
+  the hardest one there, and nothing depends on it.
+- **`LANGUAGE.md` §19's Bootstrapping bullet** now records the decision instead of a guess.
+
+## Decisions entry
+
+<!-- This ticket's entry. Read whole, here; the map (ENG-165) carries one line. -->
+
+```decisions-entry
+- [Bootstrapping: which layer of B# is written in B#](issues/80-bootstrapping-which-layer.md) —
+  **the AST is a B# value, obtained from the Erlang front end through the FFI and established
+  with `ValidateAs<Expr>` at the boundary; a parser in B# is not required, and the checker,
+  lowering and emit stay Erlang.** Raised 2026-08-13 as the map's Bootstrapping patch, claimed
+  and resolved 2026-09-15 in one round on one question, prompted by José Valim's *"you will
+  eventually want the parser (or a parser) written in the language, so you and the community can
+  build formatters, AST rewriters, perhaps some static analyzers, but that's it"*. What made
+  Elixir's parser "in the language" was never its host: `Code.string_to_quoted/1` returns
+  ordinary data and the formatter is written over it. For B# that is the thesis on its own
+  syntax: an AST walker is a multi-clause function over a recursive union, and a new node kind
+  refuses every tool naming the clause it owes. Measured: 47 node kinds in `bs_parser.yrl`; an
+  analyzer and a rewriter compile today, a formatter waits on binary construction (25e's wall);
+  F28.9 already built the recursive validator, correcting F18's stale note. Axis (b) was ticket
+  32; axis (c), the OTP layer over `:gen_server`, remains the valuable target and stays ahead.
+  Unbuilt — [F48](../compiler/features/F48-ast-as-a-value.md), ENG-376.
+```
