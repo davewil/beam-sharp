@@ -1,9 +1,9 @@
 # 80 — Does an `int` flow where a `float` is expected?
 
 Type: grilling
-Status: open — [ENG-377](https://linear.app/davewil/issue/ENG-377). Raised 2026-09-15 on resolving
+Status: resolved 2026-09-15 — [ENG-377](https://linear.app/davewil/issue/ENG-377). Raised 2026-09-15 on resolving
 [ticket 69](69-does-the-language-have-float.md), whose Round 1 named this as the first question
-gated behind its answer
+gated behind its answer; one question, one round, answered the same evening
 Blocked by: —
 
 ## Why this is raised now
@@ -134,6 +134,67 @@ fifteen years without it, and the shape round 2 would reach under the second rea
 the way, and not asked here**: on OTP 27+ a `0.0` head matches `+0.0` alone; `erlc` warns, Elixir
 warns, Gleam lowers its `0.0` pattern to `+0.0` without a word, C# matches `-0.0` too. B#'s
 `Verdict(0.0)` owes a lowering; recorded on ENG-378.
+
+**A1 — the BEAM's reading** (David, 2026-09-15 19:31, after the survey and a recommendation asked
+for and given: *"the least surprise to a C# developer but also considering B# is a BEAM
+language"*). Resolved on the one question, one round.
+
+## The answer
+
+`int` and `float` are two parts of the lattice and nothing flows between them. `0` against a
+declared `float` is refused by `return_not_declared`, whose advice names `0.0`; a `float` beside
+an `int` at an operator is refused, naming the conversion; a `float` parameter reached by an
+`int` from outside goes the way F24 sends an atom. The emitted program is the written program:
+no conversion is written by the compiler at a site the author cannot see.
+
+Why this and not C#'s conversion, recorded because the recommendation was asked for:
+
+- **B# had already made the call for `==`.** `==` means `=:=` ([16](16-ad-hoc-polymorphism.md) §5), so
+  `0 == 0.0` is false in B# today and true in C#. Converting at a call site while refusing to
+  compare would be the one place an `int` both is and is not a `float`.
+- **A coercion is not inclusion.** Every other type claim in B# is set inclusion over BEAM terms,
+  and [09](09-union-representation.md) §5 refused nominal identity for that reason. The emitter has
+  no per-expression type channel; every missed site is the silent `:some` in the program above.
+- **C# gets the conversion cheaply and B# would not.** The CLR has `conv.r8` and a static type on
+  every expression; F# needed an RFC, an off-by-default warning and a rule that stops at
+  operators to add a narrower version (research 80).
+- **Every BEAM-typed language answers this way.** Gleam and Elixir's type system both refuse; a
+  B# function specced `float()` that always returns a float is Dialyzer-clean and Gleam-callable.
+
+**What it costs, and where that goes.** A C# developer types `Mean([]) -> 0` once, and the
+refusal's advice says `0.0`. The lasting cost is the conversion's spelling — today
+`:erlang.float(n)` through a `using` declaration — and that is [ticket 81](81-how-is-an-int-converted-to-a-float.md),
+[ENG-380](https://linear.app/davewil/issue/ENG-380), raised with this answer at David's request.
+The conversion is needed at all because of [38](38-division-and-modulo.md), not this ticket:
+`/` on two `int`s is `div`, so a mean over a `list<int>` converts an operand exactly as C# does.
+
+### What follows
+
+- [ENG-378](https://linear.app/davewil/issue/ENG-378), the feature, is unblocked. Its delta is
+  ticket 69's *if the answer is yes* paragraph; nothing in it changes under this answer, and the
+  operator table's mixed-pair refusal is the one addition.
+- The float zero in a head (`0.0` matches `+0.0` alone on OTP 27+; research 80) is owed on
+  ENG-378 as a lowering, and becomes a ticket only if it is not one.
+- `LANGUAGE.md` §4's `float` row says the flow is refused; `CONTEXT.md`'s entry says it.
+
+## Decisions entry
+
+<!-- This ticket's entry. Read whole, here; the map (ENG-165) carries one line. -->
+
+```decisions-entry
+- [Does an `int` flow where a `float` is expected?](issues/80-does-an-int-flow-where-a-float-is-expected.md)
+  — **no: the BEAM's reading. `int` and `float` are two parts and nothing flows between them; the
+  emitted program is the written program.** Raised and resolved 2026-09-15 in one round on one
+  question, the first gated behind 69's yes. `0` against a declared `float` is refused by
+  `return_not_declared` with `0.0` as its advice; a `float` beside an `int` at an operator is
+  refused naming the conversion. Chosen over C#'s implicit conversion because `==` already means
+  `=:=` (16), so `0 == 0.0` is false and a converting call site would contradict it; because a
+  coercion is not set inclusion and the emitter has no per-expression type channel to write one
+  safely; and because every language that types the BEAM refuses (Gleam, Elixir 1.20) while the
+  two that convert run on a VM with a conversion instruction (research 80, measured). The cost is
+  the conversion's spelling, [81](issues/81-how-is-an-int-converted-to-a-float.md); the need for
+  one at all is 38's operand-typed `/`. Unblocks [ENG-378](https://linear.app/davewil/issue/ENG-378).
+```
 
 ## Not decided here
 

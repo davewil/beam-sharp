@@ -181,7 +181,8 @@ _Avoid_: text, char list, String, utf8 binary
 
 **float**:
 The BEAM's float, an eighth part of the type lattice, beside `int` and not inside it: `0` and
-`0.0` are two values, and a clause head tells them apart. Written as C# writes it, `0.0`.
+`0.0` are two values, and a clause head tells them apart. An `int` never stands where a `float` is
+expected; the conversion is written. Written as C# writes it, `0.0`.
 _Avoid_: double, real, number, numeric
 
 **Failure channel**:
