@@ -163,10 +163,7 @@ a_mixed_pair_at_an_operator_is_refused_test() ->
           "Mean([]) -> 0.0\n"
           "Mean(xs) -> Float.FromInt(List.Sum(xs)) / List.Length(xs)\n",
     [D | _] = errors(Src),
-    ?assertMatch({mixed_operands, '/', _, _}, element(4, D)),
-    {mixed_operands, '/', L, R} = element(4, D),
-    ?assertEqual("float", bs_types:to_string(L)),
-    ?assertEqual("int", bs_types:to_string(R)).
+    ?assertEqual({mixed_operands, '/', float, int, none}, element(4, D)).
 
 %% Every arithmetic and ordering operator, both ways round.
 every_operator_refuses_the_mixed_pair_test() ->
@@ -175,7 +172,7 @@ every_operator_refuses_the_mixed_pair_test() ->
                "public term Go(int n, float f)\n\n"
                "Go(n, f) -> " ++ Left ++ " " ++ Op ++ " " ++ Right ++ "\n",
          [D | _] = errors(Src),
-         ?assertMatch({mixed_operands, _, _, _}, element(4, D))
+         ?assertMatch({mixed_operands, _, _, _, _}, element(4, D))
      end || Op <- ["+", "-", "*", "/", "<", "<=", ">", ">=", "==", "!="],
             {Left, Right} <- [{"n", "f"}, {"f", "n"}, {"f", "1"}, {"1.5", "n"}]].
 
@@ -228,7 +225,7 @@ an_already_refused_operand_reports_once_test() ->
           "Go(f) -> f + nope\n",
     Ds = errors(Src),
     ?assertEqual(1, length(Ds)),
-    ?assertNotMatch({mixed_operands, _, _, _}, element(4, hd(Ds))).
+    ?assertNotMatch({mixed_operands, _, _, _, _}, element(4, hd(Ds))).
 
 %% Comparison across the two parts is refused as arithmetic is: `==` means
 %% `=:=` (16), so `0 == 0.0` would be a comparison that is always false.
@@ -238,7 +235,7 @@ a_float_compared_with_an_int_literal_in_a_guard_is_refused_test() ->
           "Sign(x) when x < 0 -> :negative\n"
           "Sign(_)            -> :other\n",
     [D | _] = errors(Src),
-    ?assertMatch({mixed_operands, '<', _, _}, element(4, D)).
+    ?assertEqual({mixed_operands, '<', float, int, "0.0"}, element(4, D)).
 
 %% A float guard against a float literal compiles and selects. It credits
 %% nothing to exhaustiveness — the algebra carries no float intervals — so a

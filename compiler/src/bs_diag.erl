@@ -188,23 +188,6 @@ at(Sev, Path, Line, Fn) ->
 article("int") -> "an";
 article(_)     -> "a".
 
-%% The PART an operand lies in, since the sentence is about the two parts and
-%% not about the operand's exact set: `2` is "an `int`" here.
-part_word(Ty) ->
-    case bs_types:is_subtype(Ty, bs_types:int()) of
-        true  -> "int";
-        false -> "float"
-    end.
-
-%% The `int` side of a mixed pair as a float literal, where that side is one
-%% integer: `2` becomes `2.0`. Anything wider has no literal to offer, and
-%% the message names the conversion alone.
-int_literal_as_float(Left, Right) ->
-    case [N || #{ints := [{N, N}]} <- [Left, Right], is_integer(N)] of
-        [N] -> integer_to_list(N) ++ ".0";
-        _   -> none
-    end.
-
 %% A POSITION IS SPLIT HERE AND NOWHERE ELSE.
 %%
 %% The lexer writes `TokenLoc`, so a position arrives from the parser as
@@ -271,15 +254,15 @@ built(Path, {Sev, Line, Fn, {obligation_over_type_variable, Name, Var}}) ->
 %% mistake differently, and the fix differs with it (F26, ticket 38).
 built(Path, {Sev, Line, Fn, {divide_by_zero, Op}}) ->
     (at(Sev, Path, Line, Fn))#{tag => divide_by_zero, op => Op};
-%% A `float` beside an `int` at an operator (ticket 80, F51). The two operand
-%% types travel as text; `literal` is the float spelling of the `int` side
-%% where that side is one literal, since writing `2.0` for `2` is the fix
-%% there and the conversion is the fix everywhere else.
-built(Path, {Sev, Line, Fn, {mixed_operands, Op, Left, Right}}) ->
+%% A `float` beside an `int` at an operator (ticket 80, F51). The checker
+%% decided which part each side lies in and whether the `int` side is one
+%% literal; both travel as decided. `literal` is that literal's float
+%% spelling or `none`, and the prose offers it where it has one.
+built(Path, {Sev, Line, Fn, {mixed_operands, Op, Left, Right, Literal}}) ->
     (at(Sev, Path, Line, Fn))#{tag => mixed_operands, op => Op,
-                               left => part_word(Left),
-                               right => part_word(Right),
-                               literal => int_literal_as_float(Left, Right)};
+                               left => atom_to_list(Left),
+                               right => atom_to_list(Right),
+                               literal => Literal};
 built(Path, {Sev, Line, Fn, {switch_inexhaustive, Residual, Names}}) ->
     Base = (at(Sev, Path, Line, Fn))#{tag => switch_inexhaustive,
                                       residual => residual(Residual)},

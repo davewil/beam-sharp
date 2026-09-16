@@ -264,9 +264,9 @@ guard_one(Pat, {param, TypeExpr, _}, Accept, I, Line, Ctx, Public) ->
                     {Pat1, [tag_test(Var, Tag, Line)]}
             end;
         none when Public ->
-            case is_float_only(TypeExpr, Ctx) of
-                true  -> float_guard(Pat, I, Line);
-                false -> int_guard(Pat, TypeExpr, Accept, I, Line, Ctx)
+            case kind_only(TypeExpr, Ctx) of
+                float -> float_guard(Pat, I, Line);
+                _     -> int_guard(Pat, TypeExpr, Accept, I, Line, Ctx)
             end;
         none ->
             {Pat, []}
@@ -290,16 +290,6 @@ pins_float({p_and, _, A, B})     -> pins_float(A) orelse pins_float(B);
 pins_float({p_or, _, A, B})      -> pins_float(A) andalso pins_float(B);
 pins_float(_)                    -> false.
 
-%% Float-only, as `is_int_only/2` is int-only: the float part inhabited and
-%% every other part empty.
-is_float_only(TypeExpr, #{env := Env}) ->
-    try bs_check:resolve(TypeExpr, Env) of
-        #{floats := Fl, atoms := {finite, []}, ints := [], tuples := [],
-          lists := [], maps := [], bins := [], funs := []}
-          when Fl =/= {finite, []} -> true;
-        _ -> false
-    catch _:_ -> false
-    end.
 
 %% What each parameter position accepts, or `term` for every position if the
 %% checker cannot say. The fallback is the WIDEST answer, not the narrowest:
@@ -466,12 +456,20 @@ fold_or([E | Rest], Line) -> {e_op, Line, 'or', E, fold_or(Rest, Line)}.
 %% integer one is inhabited. `Octet` and `int` are the same shape with
 %% different ranges (ticket 20 §5); `int | :none` is not int-only, because its
 %% atom part is a second admissible kind, and gets no guard (ticket 18).
-is_int_only(TypeExpr, #{env := Env}) ->
+is_int_only(TypeExpr, Ctx) -> kind_only(TypeExpr, Ctx) =:= int.
+
+%% Which of the two numeric parts a declared type is ALONE in — `int`,
+%% `float`, or `none` when another part is inhabited or the type does not
+%% resolve. One reader for both kind guards (F51).
+kind_only(TypeExpr, #{env := Env}) ->
     try bs_check:resolve(TypeExpr, Env) of
         #{ints := Is, atoms := {finite, []}, floats := {finite, []}, tuples := [],
-          lists := [], maps := [], bins := [], funs := []} when Is =/= [] -> true;
-        _ -> false
-    catch _:_ -> false
+          lists := [], maps := [], bins := [], funs := []} when Is =/= [] -> int;
+        #{floats := Fl, atoms := {finite, []}, ints := [], tuples := [],
+          lists := [], maps := [], bins := [], funs := []}
+          when Fl =/= {finite, []} -> float;
+        _ -> none
+    catch _:_ -> none
     end.
 
 %% No guard is emitted where the head already objects: `Only(1)` does not
@@ -726,15 +724,21 @@ guard({guard, Expr}, Ctx)  -> [[expr(Expr, Ctx#{in_guard => true})]].
 %%% Patterns
 %%% ---------------------------------------------------------------------------
 
-pattern({p_int, L, N}, _U)     -> {integer, L, N};
-%% A float head is the literal, except at zero: on OTP 27+ a bare `0.0`
-%% matches `+0.0` alone and `erl_lint` warns (`match_float_zero`), so the
-%% zero is written with its sign, Gleam's spelling, which means the same
-%% thing and draws no warning (F51; research 80, measured 2026-09-15).
-pattern({p_float, L, F}, _U) when F == 0.0 ->
+%% A float literal where it is MATCHED — a head, a guard's `=:=`, a
+%% validator's clause — is written with its sign at zero and bare elsewhere.
+%% `erl_lint` warns `match_float_zero` on a bare `0.0` in a pattern and in an
+%% `=:=` guard alike (measured on OTP 28.5), and the signed form means the
+%% same thing: `+0.0` alone, or `-0.0` alone, which is what the platform
+%% matches on OTP 27+ (F51; research 80). One spelling, so no site can drift
+%% back to the bare form.
+float_form(L, F) when F == 0.0 ->
     <<Sign:1, _:63>> = <<F/float>>,
     {op, L, case Sign of 0 -> '+'; 1 -> '-' end, {float, L, 0.0}};
-pattern({p_float, L, F}, _U)   -> {float, L, F};
+float_form(L, F) ->
+    {float, L, F}.
+
+pattern({p_int, L, N}, _U)     -> {integer, L, N};
+pattern({p_float, L, F}, _U)   -> float_form(L, F);
 pattern({p_atom, L, A}, _U)    -> {atom, L, A};
 pattern({p_wild, L}, _U)       -> {var, L, '_'};
 pattern({p_tuple, L, Ps}, U)   -> {tuple, L, [pattern(P, U) || P <- Ps]};
@@ -1140,11 +1144,14 @@ type_test(V, #{atoms := As, ints := Is, floats := Fl, tuples := Ts, lists := Ls,
            L).
 
 %% A float part is tested as the atom part is: an equality per literal, or
-%% `is_float` minus the exclusions (F51).
+%% `is_float` minus the exclusions (F51). No declaration spells a float
+%% literal as a type today, so only the cofinite top reaches here from a
+%% foreign return; the literal clauses are total over the part rather than
+%% a crash waiting for the first one.
 float_tests(_V, {finite, []}, _L) -> [];
-float_tests(V, {finite, Fs}, L)   -> [same(V, {float, L, F}, L) || F <- Fs];
+float_tests(V, {finite, Fs}, L)   -> [same(V, float_form(L, F), L) || F <- Fs];
 float_tests(V, {cofinite, Xs}, L) ->
-    [all_of([bif(is_float, [V], L) | [differs(V, {float, L, X}, L) || X <- Xs]], L)].
+    [all_of([bif(is_float, [V], L) | [differs(V, float_form(L, X), L) || X <- Xs]], L)].
 
 atom_tests(_V, {finite, []}, _L) -> [];
 atom_tests(V, {finite, As}, L)   -> [same(V, {atom, L, A}, L) || A <- As];
@@ -1883,15 +1890,16 @@ atom_clauses({cofinite, Excluded}) ->
 
 int_clauses(Ranges) -> [int_clause(R) || R <- Ranges].
 
-%% The float part validates as the atom part does: a literal is matched with
-%% `=:=`, spelled as a guard rather than a pattern so that `0.0` needs no
-%% signed form; the top is `is_float/1` minus the exclusions (F51).
+%% The float part validates as the atom part does: a literal is one `=:=`
+%% per member, written through `float_form/2` so a zero carries its sign;
+%% the top is `is_float/1` minus the exclusions (F51). As with
+%% `float_tests/3`, only the top is reachable from a declared type today.
 float_clauses({finite, Fs}) ->
-    [{clause, ?A, [{var, ?A, '_'}], [[{op, ?A, '=:=', ?VV, {float, ?A, F}}]], [ok_expr()]}
+    [{clause, ?A, [{var, ?A, '_'}], [[{op, ?A, '=:=', ?VV, float_form(?A, F)}]], [ok_expr()]}
      || F <- Fs];
 float_clauses({cofinite, Excluded}) ->
     Tests = [guard_call(is_float, [?VV])
-             | [{op, ?A, '=/=', ?VV, {float, ?A, E}} || E <- Excluded]],
+             | [{op, ?A, '=/=', ?VV, float_form(?A, E)} || E <- Excluded]],
     [{clause, ?A, [{var, ?A, '_'}], [Tests], [ok_expr()]}].
 
 int_clause({Lo, Hi}) ->

@@ -2949,7 +2949,7 @@ mixed_guard_diags({guard, Expr}, Scope, Ctx) ->
 
 %% The refusal, and the `/` sites the emitter lowers by — a float division in
 %% a guard is still a float division.
-keep_from_guard({error, _, _, {mixed_operands, _, _, _}}) -> true;
+keep_from_guard({error, _, _, {mixed_operands, _, _, _, _}}) -> true;
 keep_from_guard({fdiv, _, _})                             -> true;
 keep_from_guard(_)                                        -> false.
 
@@ -4264,12 +4264,23 @@ op_result(Op, ATy, BTy, L, C) ->
         {float, float} when Op =:= '+'; Op =:= '-'; Op =:= '*' ->
             {bs_types:float_top(), []};
         {int, float} when Op =/= 'and', Op =/= 'or' ->
-            {reported(), [{error, L, C#ctx.fname, {mixed_operands, Op, ATy, BTy}}]};
+            {reported(), [mixed(Op, int, float, ATy, L, C)]};
         {float, int} when Op =/= 'and', Op =/= 'or' ->
-            {reported(), [{error, L, C#ctx.fname, {mixed_operands, Op, ATy, BTy}}]};
+            {reported(), [mixed(Op, float, int, BTy, L, C)]};
         _ ->
             {op_type(Op), []}
     end.
+
+%% The refusal carries what the checker decided — which part each side lies
+%% in — and, where the `int` side is one literal, that literal's float
+%% spelling, since writing `2.0` for `2` is the fix there. `bs_diag` renders
+%% the term and decides nothing.
+mixed(Op, Left, Right, IntTy, L, C) ->
+    Literal = case IntTy of
+                  #{ints := [{N, N}]} when is_integer(N) -> integer_to_list(N) ++ ".0";
+                  _                                       -> none
+              end,
+    {error, L, C#ctx.fname, {mixed_operands, Op, Left, Right, Literal}}.
 
 %% Which of the two numeric parts an inhabited type lies wholly inside, or
 %% `neither`.
