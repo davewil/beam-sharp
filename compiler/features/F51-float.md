@@ -1,7 +1,7 @@
 # F51 — `float`, the eighth part
 
-**Status**      **done 2026-09-16** · [ENG-378](https://linear.app/davewil/issue/ENG-378) — 35 tests
-                in `float_tests`, 1007 in the suite, up from 972; new gate `check-float.sh`,
+**Status**      **done 2026-09-16** · [ENG-378](https://linear.app/davewil/issue/ENG-378) — 36 tests
+                in `float_tests`, 1008 in the suite, up from 972; new gate `check-float.sh`,
                 seen red on the tree before the build, with four stubs in its `--self-test`;
                 `examples/Stats/stats.bs` and two roster rows; the clean-pair evidence is the
                 dated line at the end of this file
@@ -62,7 +62,7 @@ line was written.
    Yecc: 5 shift/reduce, 0 reduce/reduce, before and after.
 4. **`bs_check`** — `builtin(float)`; a float literal's type and pattern type; `op_result/5`,
    which types an operator by its operands' parts: two ints as before, two floats as `float`
-   for `+ - * /` and as `float_remainder`, a refusal, for `%` (finding 5), an inhabited `int`
+   for `+ - * /` and as `float_remainder`, a refusal, for `%` (finding 6), an inhabited `int`
    beside an inhabited `float` as `mixed_operands` carrying the part each side lies in and the
    `int` literal's float spelling where it has one, anything else as `op_type/1` always
    answered; `mixed_guard_diags/3`, the same question asked of a guard (finding 3), with the
@@ -90,7 +90,7 @@ line was written.
    frozen term already prints. `float_remainder` names `%` over two floats.
    `unknown_builtin`'s list names `float`.
 
-## Five findings, none of them in the ticket
+## Six findings, none of them in the ticket
 
 1. **The atom part's set operations cannot be borrowed.** `ordsets` and `lists:usort/1`
    compare with `==`, under which `0.0` and `-0.0` are one element; a clause head matches
@@ -119,7 +119,13 @@ line was written.
    both see the bare form. A lowering detail, as the issue allowed; no ticket raised. The
    same spelling serves the validator's `=:=` and the foreign-return test, through one
    `float_form/2`, because `erl_lint` warns on the bare zero in a guard as in a pattern.
-5. **`%` over two floats, found by the spec review.** The first cut typed it `int` and let
+5. **The switch arm, found by the advisor's review.** The mixed-pair reading was wired where
+   a clause's body is typed, which a switch arm never reaches: `m when m < 0 => :negative`
+   over a `float` subject compiled with a dead-guard warning and, with ENG-330's `is_integer`
+   conjoined onto the arm, `Kind(-1.5)` answered `:other`. The arm walker now asks the same
+   question against the arm's pre-guard scope and withholds the same warning — the memory
+   note *a pattern refusal must cover the switch arm too*, made concrete once more.
+6. **`%` over two floats, found by the spec review.** The first cut typed it `int` and let
    `rem` crash at run time. Ticket 38 decided the remainder over ints and nothing decided it
    over floats, so `x % 2.0` is refused as `float_remainder` and the question is
    [ENG-385](https://linear.app/davewil/issue/ENG-385), with `math:fmod/2` as the platform's
@@ -139,7 +145,7 @@ line was written.
 | F51.7 | a public `float` parameter; a float at an `int` parameter; a pinned head; the spec; a foreign `float` return, true and lying | `function_clause` for `1` and `one`; still `function_clause`; no test added; `float()`; `3.0` and `{case_clause, 3}` |
 | F51.8 | `ValidateAs<float>`, `ValidateAs<list<float>>`, `ToJson<float>` | the record naming `float` at `[]` and `["[1]"]`; `1.5` and `1.0e20` |
 | F51.9 | `x / 0.0`; `x / y` | `divide_by_zero`; compiles |
-| F51.10 | `0.0` as a switch arm | selects, with a catch-all |
+| F51.10 | `0.0` as a switch arm; `m < 0` and `m < 0.0` as arm guards over a float | selects, with a catch-all; `mixed_operands` alone, and selects |
 | F51.11 | `check-float.sh` | six probes; four stubs — `float_div`, `no_refusal`, `hollow_top`, `bare_zero` — each seen red, the correct form green |
 
 ## The gate
@@ -161,6 +167,11 @@ asks the lexer directly.
 - **The seven `Kind` readers.** Each of the seven sites that reads a record's discriminator
   gained `floats := {finite, []}` in its map pattern, as each gained `funs := []` for F46; one
   helper in `bs_types` would gather them, and the next part will want it (standards review).
+- **A relational pattern over a `float` parameter.** `Sign(>= 0)` under `public atom
+  Sign(float x)` is a vacuous clause with a warning, not a refusal: the pattern-position
+  cousin of the mixed pair, unreached by this feature.
+- **The gate's `BAD` stub** carries the refusal's first three lines and not the `0.0` advice
+  line added in review; the judge matches the first line, so the stub still discriminates.
 - **`mixed_guard_diags/3`'s catch.** It catches everything the typer raises over a guard, not
   only the qualified call the comment names; every such raise is a form `guard_diags/2`
   already refuses, but the net is wider than its reason.

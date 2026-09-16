@@ -491,6 +491,31 @@ a_provably_zero_float_divisor_is_refused_test() ->
            "Go(x, y) -> x / y\n",
     ?assertMatch({ok, _}, compile(Fine)).
 
+%% The same refusal one construct down: an arm's guard is typed against the
+%% arm's pre-guard scope, so `m < 0` over a float subject is refused, alone,
+%% and `m < 0.0` selects. Before this the arm compiled with a warning and
+%% `Kind(-1.5)` answered `:other`, the silent wrong answer ticket 80 exists
+%% to prevent (found by the advisor's review).
+a_mixed_pair_in_a_switch_arm_guard_is_refused_test() ->
+    Src = "module Sw\n\n"
+          "public atom Kind(float x)\n\n"
+          "Kind(x) -> x switch {\n"
+          "    m when m < 0 => :negative,\n"
+          "    _            => :other\n"
+          "}\n",
+    {error, All} = bs_test_support:check_only(Src),
+    ?assertEqual([{mixed_operands, '<', float, int, "0.0"}],
+                 [element(4, D) || D <- All]),
+    Fine = "module Sw\n\n"
+           "public atom Kind(float x)\n\n"
+           "Kind(x) -> x switch {\n"
+           "    m when m < 0.0 => :negative,\n"
+           "    _              => :other\n"
+           "}\n",
+    M = build_and_load(Fine, 'Sw'),
+    ?assertEqual(negative, M:'Kind'(-1.5)),
+    ?assertEqual(other, M:'Kind'(1.5)).
+
 %%% --- F51.10 — a switch arm ----------------------------------------------------
 
 %% A float literal arm, and the same catch-all obligation a clause set has.

@@ -4175,6 +4175,22 @@ arms([{arm, AL, P, Guard, Body} | Rest], Residual, Declared, S, C, N, Tys, Diags
     Scope = maps:merge(S, maps:from_list(
                             [{V, at_path(Domain, Path)}
                              || {V, Path} <- maps:to_list(Binds)])),
+    %% The arm's guard is typed against what reaches it BEFORE it narrows
+    %% anything, as a clause's is (F51): read as an int comparison, `m < 0`
+    %% over a `float` subject narrows `m` to nothing and the mixed pair
+    %% would vanish, and the emitted `is_integer` test would then make the
+    %% arm one that never matches. The dead-guard warning that reading
+    %% produced is withheld beside the error, whose advice it contradicts.
+    GuardDomain = bs_types:intersect(Residual, PTy),
+    GuardScope = maps:merge(S, maps:from_list(
+                                 [{V, at_path(GuardDomain, Path)}
+                                  || {V, Path} <- maps:to_list(Binds)])),
+    D1g = mixed_guard_diags(Guard, GuardScope, C),
+    D1b = case lists:any(fun mixed_pair/1, D1g) of
+              true  -> [D || D <- D1,
+                             D =/= {warning, AL, C#ctx.fname, {unsatisfiable_arm_guard, N}}];
+              false -> D1
+          end,
     {BodyTy, D2} = case Expect of
                        none -> type_of(Body, Scope, C);
                        _    -> expected(Body, Expect, Scope, C)
@@ -4198,7 +4214,7 @@ arms([{arm, AL, P, Guard, Body} | Rest], Residual, Declared, S, C, N, Tys, Diags
                false -> Tys ++ [BodyTy]
            end,
     arms(Rest, bs_types:subtract(Residual, Certain), Declared, S, C, N + 1,
-         Tys1, Diags ++ D1 ++ guard_diags(Guard, C) ++ D2, Origin, Expect).
+         Tys1, Diags ++ D1b ++ D1g ++ guard_diags(Guard, C) ++ D2, Origin, Expect).
 
 %%% ---------------------------------------------------------------------------
 %%% Pruning the valve's dead stop arms (F30)
