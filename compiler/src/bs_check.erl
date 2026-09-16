@@ -167,12 +167,16 @@ check_dir1(Sources, World, Expect) ->
     %% taken off it here, before anything can try to print one. They are not
     %% diagnostics: nothing is wrong, and the author is told nothing.
     {Notes, Tagged} = lists:partition(
-                        fun({_, D}) -> lists:member(element(1, D), [prune, fname]) end,
+                        fun({_, D}) -> lists:member(element(1, D), [prune, fname, fdiv]) end,
                         Tagged0),
     Prunes = maps:from_list([{B, Dead} || {_, {prune, B, Dead}} <- Notes]),
     %% A bare name's resolved arity, keyed by the token's position, which
     %% is unique per token; the emitter writes `fun Name/Arity` from it (F46).
     Fnames = maps:from_list([{Loc, Key} || {_, {fname, Loc, Key}} <- Notes]),
+    %% The `/` sites whose operands are both floats, keyed by the operator's
+    %% position; the emitter lowers those to the BEAM's `/` and every other
+    %% `/` to `div` (F51, ticket 69; 38 §4's door).
+    Fdivs = maps:from_list([{Loc, float} || {_, {fdiv, Loc, float}} <- Notes]),
     Fns1 = prune_valves(Fns, Prunes),
     PerFile1 = [{P, prune_valves(Fs, Prunes)} || {P, Fs} <- PerFile],
     case [D || {_, D} <- Tagged, element(1, D) =:= error] of
@@ -197,7 +201,8 @@ check_dir1(Sources, World, Expect) ->
                          %% triple `e_foreign_call` carries: decided here,
                          %% looked up by the emitter (F19, ticket 15 §4).
                          foreigns => Foreigns,
-                         fnames => Fnames}, Tagged};
+                         fnames => Fnames,
+                         fdivs => Fdivs}, Tagged};
         _Fatal -> {error, Tagged}
     end.
 
@@ -1721,7 +1726,10 @@ built_obligations() -> ['ValidateAs', 'ParseAtom', 'ToJson'].
 %% `Map` is reserved with no operations under it yet: `map<K, V>` resolves
 %% as a type (F33) and `Map.Get` is ENG-324. Reserving the name first is
 %% what stops a user module called `Map` being taken away later (ticket 48).
-reserved_qualifiers() -> ['List', 'Map', 'Term'].
+%% `Float` holds the one conversion ticket 81 decided, `Float.FromInt`; the
+%% reverse, `Int.FromFloat`, is named there and not decided, so `Int` is not
+%% reserved until a program needs it (F51).
+reserved_qualifiers() -> ['List', 'Map', 'Term', 'Float'].
 
 %% The lowering table's keys, `{Qualifier, Name, Arity}`. Keyed by arity
 %% because the BEAM's identity rule is, and because `List.Sum(xs, 0)` must be
@@ -1731,13 +1739,18 @@ reserved_qualifiers() -> ['List', 'Map', 'Term'].
 reserved_table() ->
     [{'List', 'Sum', 1}, {'List', 'Length', 1}, {'List', 'Reverse', 1},
      {'List', 'Map', 2}, {'List', 'Filter', 2}, {'List', 'Fold', 3},
-     {'Term', 'Compare', 2}].
+     {'Term', 'Compare', 2}, {'Float', 'FromInt', 1}].
 
 %% The signature an operation is checked against, at the site. `Reverse`
 %% returns the list it was handed, so its result is inlined with that site's
 %% element type; the others are monomorphic.
 reserved_sig('List', 'Sum', 1, _ATys) ->
     {ok, {[bs_types:list(bs_types:int())], bs_types:int()}};
+%% `int -> float`, and nothing wider: a `float` argument is refused, since a
+%% conversion that accepted its own result would hide the deferred reverse
+%% direction (ticket 81, F51).
+reserved_sig('Float', 'FromInt', 1, _ATys) ->
+    {ok, {[bs_types:int()], bs_types:float_top()}};
 reserved_sig('List', 'Length', 1, _ATys) ->
     {ok, {[bs_types:list(bs_types:term())], bs_types:int()}};
 reserved_sig('List', 'Reverse', 1, [ATy]) ->
@@ -1823,10 +1836,12 @@ record_fields({t_map, Fields}) -> [N || {field, N, _} <- Fields, N =/= 'Kind'].
 record_of(Name, Line, Env) ->
     case resolve({t_ref, Name}, Env) of
         #{maps := [{closed, Fs}], atoms := {finite, []}, ints := [],
-          tuples := [], lists := [], bins := [], funs := []} ->
+          floats := {finite, []}, tuples := [], lists := [], bins := [],
+          funs := []} ->
             case maps:find('Kind', Fs) of
-                {ok, #{atoms := {finite, [Tag]}, ints := [], tuples := [],
-                       lists := [], maps := [], bins := [], funs := []}} ->
+                {ok, #{atoms := {finite, [Tag]}, ints := [], floats := {finite, []},
+                       tuples := [], lists := [], maps := [], bins := [],
+                       funs := []}} ->
                     %% `Kind` is dropped, so `Frame { Kind: ... }` is refused
                     %% as it is at construction: it is minted, never written.
                     {Tag, maps:keys(Fs) -- ['Kind']};
@@ -2055,6 +2070,8 @@ subst(T, _Sub)                     -> T.
 %% Builtins are lowercase — ticket 27 forced that, since a lowercase-implicit
 %% type-variable convention would then be ambiguous.
 builtin(int)  -> bs_types:int();
+%% The BEAM's float, a part beside `int` and not inside it (F51, ticket 69).
+builtin(float) -> bs_types:float_top();
 builtin(atom) -> bs_types:atom_top();
 builtin(term) -> bs_types:term();
 %% The bottom, beside the top it mirrors (ticket 12 §4). It is first-class
@@ -2827,6 +2844,7 @@ expr_vars({e_inst, _, _, _, As})       -> lists:append([expr_vars(A) || A <- As]
 expr_vars({e_foreign_call, _, _, _, As}) -> lists:append([expr_vars(A) || A <- As]);
 expr_vars({e_qcall, _, _, _, As})        -> lists:append([expr_vars(A) || A <- As]);
 expr_vars({e_op, _, _, A, B})          -> expr_vars(A) ++ expr_vars(B);
+expr_vars({e_neg, _, E})               -> expr_vars(E);
 expr_vars({e_record, _, _, Fs})        -> lists:append([expr_vars(E) || {_, E} <- Fs]);
 expr_vars({e_with, _, Base, Fs})       ->
     expr_vars(Base) ++ lists:append([expr_vars(E) || {_, E} <- Fs]);
@@ -2880,32 +2898,60 @@ arm_free_vars({arm, _, P, Guard, Body}) ->
 %%% (see field_delta/2).
 %%% ---------------------------------------------------------------------------
 
-clause_diags(C = {clause, Line, _, Patterns, Guard, Body}, Domain, Bindings, Ctx0) ->
+clause_diags(C = {clause, Line, _, Patterns, Guard, Body}, Domain, GuardDomain,
+             Bindings, Ctx0) ->
     case segment_diags(Patterns, Ctx0#ctx.fname) of
         %% A malformed segment is reported alone: the bindings a broken
         %% pattern produces are wrong, so every type error downstream of it
         %% would be about the compiler's guess rather than the author's
         %% program.
         [_ | _] = SegErrors -> SegErrors;
-        [] -> clause_diags_1(C, Line, Patterns, Guard, Body, Domain, Bindings, Ctx0)
+        [] -> clause_diags_1(C, Line, Patterns, Guard, Body, Domain, GuardDomain,
+                             Bindings, Ctx0)
     end.
 
-clause_diags_1(C, Line, Patterns, Guard, Body, Domain, Bindings, Ctx0) ->
+clause_diags_1(C, Line, Patterns, Guard, Body, Domain, GuardDomain, Bindings, Ctx0) ->
     guard_diags(Guard, Ctx0) ++
     case scope_diags(C) of
         [] ->
             Ctx = Ctx0#ctx{binds = Bindings},
             Scope = clause_scope(Patterns, Bindings, Domain),
+            GuardScope = clause_scope(Patterns, Bindings, GuardDomain),
             %% The body is typed against the declared return, so a lambda
             %% written as a clause body has its arrow (F46).
             {Ty, Diags} = expected(Body, Ctx#ctx.ret, Scope, Ctx),
-            Diags ++ return_diags(Ty, Line, Ctx);
+            mixed_guard_diags(Guard, GuardScope, Ctx) ++ Diags
+                ++ return_diags(Ty, Line, Ctx);
         Errors ->
             %% A clause whose names do not resolve is not typed. Every unbound
             %% name would answer `term`, which fails most containments, so the
             %% author would meet a pile of type errors about a typo.
             Errors
     end.
+
+%% A guard is read for what it credits (`alternatives/1`) and never typed, so
+%% the mixed-pair refusal has to be asked of it here, where the scope is
+%% (F51, ticket 80). Only that refusal is kept: a guard the reader cannot
+%% translate credits nothing and is not an error. It matters at the emitter:
+%% ENG-330 conjoins `is_integer/1` onto `x < 0`, so a `float` guarded against
+%% an `int` literal would be a clause that never matches, silently.
+mixed_guard_diags(none, _Scope, _Ctx) -> [];
+mixed_guard_diags({guard, Expr}, Scope, Ctx) ->
+    %% A call in a guard is refused by `guard_diags/2` above, and typing one
+    %% can raise on its way to that refusal — a qualified call to a module
+    %% the guard may not reach, for one. The raise is not this reader's to
+    %% report, so it answers nothing rather than a crash.
+    try type_of(Expr, Scope, Ctx) of
+        {_, Diags} -> [D || D <- Diags, keep_from_guard(D)]
+    catch
+        _:_ -> []
+    end.
+
+%% The refusal, and the `/` sites the emitter lowers by — a float division in
+%% a guard is still a float division.
+keep_from_guard({error, _, _, {mixed_operands, _, _, _}}) -> true;
+keep_from_guard({fdiv, _, _})                             -> true;
+keep_from_guard(_)                                        -> false.
 
 %%% --- Binary patterns: four known-shape refusals (F13) ----------------------
 %%%
@@ -3136,6 +3182,17 @@ union_of(Ts) -> bs_types:union(Ts).
 %% pass after it, because an argument's type is only known by synthesising it
 %% and a nested call is the ordinary case.
 type_of({e_int, _, N}, _S, _C)  -> {bs_types:range(N, N), []};
+type_of({e_float, _, F}, _S, _C) -> {bs_types:float_lit(F), []};
+%% Unary minus keeps its operand's part: an `int` stays an `int`, a `float` a
+%% `float`. It is its own node rather than `0 - e` because `0 - f` is a mixed
+%% pair under ticket 80 (F51). An operand in neither part answers `int`, as
+%% `op_type/1` always did for an operand the checker does not read.
+type_of({e_neg, _, E}, S, C) ->
+    {Ty, D} = type_of(E, S, C),
+    case in_part(Ty, float) of
+        true  -> {bs_types:float_top(), D};
+        false -> {bs_types:int(), D}
+    end;
 type_of({e_atom, _, A}, _S, _C) -> {bs_types:atom_lit(A), []};
 %% A string literal is a `string` by construction, not a `binary`: the lexer
 %% has already established the UTF-8 property over the bytes, and nothing
@@ -3169,9 +3226,10 @@ type_of({e_tuple, _, Es}, S, C) ->
 %% `int`, not `range(3,3)`, because exact interval arithmetic is not
 %% built (ticket 16 §2, F2).
 type_of({e_op, L, Op, A, B}, S, C) ->
-    {_, D1} = type_of(A, S, C),
+    {ATy, D1} = type_of(A, S, C),
     {BTy, D2} = type_of(B, S, C),
-    {op_type(Op), D1 ++ D2 ++ divisor_diags(Op, BTy, L, C)};
+    {Ty, D3} = op_result(Op, ATy, BTy, L, C),
+    {Ty, D1 ++ D2 ++ D3 ++ divisor_diags(Op, BTy, L, C)};
 type_of({e_nil, _}, _S, _C) -> {bs_types:nil(), []};
 type_of({e_list, _, Items, Rest}, S, C) ->
     {Tys, D1} = type_of_all(Items, S, C),
@@ -3663,8 +3721,9 @@ first_inseparable([A | Rest]) ->
 %% there is no member list to enumerate, so there is nothing to generate. The
 %% shape match also excludes a recursive type (`mu`) and `term`, whose tuple
 %% and map parts are `top` rather than empty.
-parse_atom_members(#{atoms := {finite, As}, ints := [], tuples := [],
-                     lists := [], maps := [], bins := [], funs := []}) when As =/= [] ->
+parse_atom_members(#{atoms := {finite, As}, ints := [], floats := {finite, []},
+                     tuples := [], lists := [], maps := [], bins := [],
+                     funs := []}) when As =/= [] ->
     {ok, lists:usort(As)};
 parse_atom_members(_) ->
     error.
@@ -4185,6 +4244,49 @@ prune_valves([H | T], Prunes) ->
     [prune_valves(H, Prunes) | prune_valves(T, Prunes)];
 prune_valves(X, _) -> X.
 
+%% An operator's result, read off its operands' PARTS (F51, tickets 69 and
+%% 80). Two `int`s give `int`; two `float`s give `float`, and `/` there is the
+%% BEAM's own division, which the emitter learns from the `fdiv` note this
+%% returns beside the type — the checker decides the lowering per site,
+%% because the emitter has no types of its own (38 §4). An `int` beside a
+%% `float` is refused: nothing converts between the two parts, and the BEAM
+%% would promote silently (80). An operand in neither part — a `term`, a
+%% union, an operand already refused and so `none` — answers what
+%% `op_type/1` always answered, so nothing that compiled yesterday moves.
+%%
+%% BOTH OPERANDS MUST BE INHABITED for the refusal: `none` is inside every
+%% part, and an already-refused operand would otherwise cascade a second
+%% error onto the first.
+op_result(Op, ATy, BTy, L, C) ->
+    case {part_of(ATy), part_of(BTy)} of
+        {float, float} when Op =:= '/' ->
+            {bs_types:float_top(), [{fdiv, L, float}]};
+        {float, float} when Op =:= '+'; Op =:= '-'; Op =:= '*' ->
+            {bs_types:float_top(), []};
+        {int, float} when Op =/= 'and', Op =/= 'or' ->
+            {reported(), [{error, L, C#ctx.fname, {mixed_operands, Op, ATy, BTy}}]};
+        {float, int} when Op =/= 'and', Op =/= 'or' ->
+            {reported(), [{error, L, C#ctx.fname, {mixed_operands, Op, ATy, BTy}}]};
+        _ ->
+            {op_type(Op), []}
+    end.
+
+%% Which of the two numeric parts an inhabited type lies wholly inside, or
+%% `neither`.
+part_of(Ty) ->
+    case bs_types:is_none(Ty) of
+        true  -> neither;
+        false ->
+            case {in_part(Ty, int), in_part(Ty, float)} of
+                {true, _} -> int;
+                {_, true} -> float;
+                _         -> neither
+            end
+    end.
+
+in_part(Ty, int)   -> bs_types:is_subtype(Ty, bs_types:int());
+in_part(Ty, float) -> bs_types:is_subtype(Ty, bs_types:float_top()).
+
 op_type('+') -> bs_types:int();
 op_type('-') -> bs_types:int();
 op_type('*') -> bs_types:int();
@@ -4197,12 +4299,15 @@ op_type(_)   -> bs_types:union(bs_types:atom_lit(true), bs_types:atom_lit(false)
 %% A divisor the checker can prove is zero is refused; a divisor needs no
 %% proof it is non-zero, so `Mean(total, count) -> total / count` compiles and
 %% a zero at run time crashes (F26, ticket 38 §2, ticket 12). The test is
-%% `is_subtype(Divisor, range(0,0))`, subtype rather than equality so that a
+%% `is_subtype(Divisor, zero)`, subtype rather than equality so that a
 %% divisor narrowed to nothing but zero by a refinement or a pinned head is
 %% caught too, and `int` can never fire. `erlc` constant-folds only when both
 %% operands are literals, so `variable(X) -> X div 0` warns nowhere there.
+%% The zero is either part's: `0`, `0.0` and `-0.0` (F51).
 divisor_diags(Op, BTy, L, C) when Op =:= '/'; Op =:= '%' ->
-    case bs_types:is_subtype(BTy, bs_types:range(0, 0)) of
+    Zero = bs_types:union([bs_types:range(0, 0),
+                           bs_types:float_lit(0.0), bs_types:float_lit(-0.0)]),
+    case not bs_types:is_none(BTy) andalso bs_types:is_subtype(BTy, Zero) of
         true  -> [{error, L, C#ctx.fname, {divide_by_zero, Op}}];
         false -> []
     end;
@@ -4668,8 +4773,9 @@ minted_tag(Name, Env) ->
     try resolve({t_ref, Name}, Env) of
         Ty ->
             case field_type(Ty, 'Kind') of
-                #{atoms := {finite, [Tag]}, ints := [], tuples := [],
-                  lists := [], maps := [], bins := [], funs := []} -> Tag;
+                #{atoms := {finite, [Tag]}, ints := [], floats := {finite, []},
+                  tuples := [], lists := [], maps := [], bins := [],
+                  funs := []} -> Tag;
                 _ -> undefined
             end
     catch
@@ -4767,7 +4873,11 @@ walk([C = {clause, CLine, Name, _, _, _} | Rest], Residual, Declared, Ctx, Diags
     %% `Certain` `none`, and every containment over `none` passes, so the check
     %% would silently stop checking.
     Domain = bs_types:intersect(Residual, Possible),
-    Diags3 = clause_diags(C, Domain, Bindings, Ctx) ++ Diags2,
+    %% The guard itself is typed against what reaches it, BEFORE it narrows
+    %% anything: read as an `int` comparison, `x < 0` over a `float` narrows
+    %% `x` to nothing, and the mixed pair would vanish with it (F51).
+    GuardDomain = bs_types:intersect(Residual, Base),
+    Diags3 = clause_diags(C, Domain, GuardDomain, Bindings, Ctx) ++ Diags2,
     walk(Rest, bs_types:subtract(Residual, Certain), Declared, Ctx, Diags3, N + 1).
 
 %% A clause or arm that adds nothing is classified by the first of three
@@ -4911,6 +5021,8 @@ pattern_row(Patterns, Env) ->
 %% Bindings, Exact}; `Exact` is whether the type is exactly what the pattern
 %% matches rather than an upper bound (see clause_type/2).
 pattern_type({p_int, _, N}, _Path, _Env)  -> {bs_types:range(N, N), #{}, true};
+%% A float literal matches one value under `=:=`, so it is exact (F51).
+pattern_type({p_float, _, F}, _Path, _Env) -> {bs_types:float_lit(F), #{}, true};
 pattern_type({p_atom, _, A}, _Path, _Env) -> {bs_types:atom_lit(A), #{}, true};
 pattern_type({p_wild, _}, _Path, _Env)    -> {bs_types:term(), #{}, true};
 pattern_type({p_var, _, V}, Path, _Env)   -> {bs_types:term(), #{V => Path}, true};

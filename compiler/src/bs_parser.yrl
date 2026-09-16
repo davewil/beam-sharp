@@ -23,7 +23,7 @@ Nonterminals
 Terminals
   'module' 'type' 'when' 'using' 'behaviour' 'record' 'with' 'switch' 'var'
   'and' 'or' 'where' 'public' 'private' 'raise' 'fn'
-  uident lident atom_lit integer string_lit '_'
+  uident lident atom_lit integer float string_lit '_'
   '->' '=>' '==' '!=' '<=' '>=' '<<' '<' '>' '+' '-' '*' '/' '%'
   '=' '|' '|>' '|?>' ',' '(' ')' '[' ']' '{' '}' '..' '.' ':' '?'
   .
@@ -333,6 +333,10 @@ pattern -> integer             : {p_int, line('$1'), value('$1')}.
 %% A pattern takes a negative literal and not a general negation, because a
 %% pattern is a value and `-x` is a computation.
 pattern -> '-' integer         : {p_int, line('$1'), -value('$2')}.
+%% A float literal in a head matches one value under `=:=` (F51, ticket 69);
+%% `-0.0` is a literal of its own, the platform's negative zero.
+pattern -> float               : {p_float, line('$1'), value('$1')}.
+pattern -> '-' float           : {p_float, line('$1'), -value('$2')}.
 pattern -> atom_lit            : {p_atom, line('$1'), value('$1')}.
 pattern -> lident              : {p_var, line('$1'), value('$1')}.
 pattern -> '_'                 : {p_wild, line('$1')}.
@@ -485,10 +489,13 @@ guard_expr -> expr_low : '$1'.
 
 %% --- expressions ------------------------------------------------------------
 expr_low -> integer  : {e_int, line('$1'), value('$1')}.
+expr_low -> float    : {e_float, line('$1'), value('$1')}.
 
-%% Unary minus lowers to `0 - e` rather than a node of its own, so nothing
-%% downstream of the parser learns a new shape.
-expr_low -> '-' expr_low : {e_op, line('$1'), '-', {e_int, line('$1'), 0}, '$2'}.
+%% Unary minus is a node of its own, `e_neg`, since F51: it used to lower to
+%% `0 - e`, and under ticket 80 that is an `int` beside a `float` when `e` is
+%% one, refused. A negated float LITERAL folds to the literal, so `-0.0` is
+%% the platform's negative zero and not `0 - 0.0`, which is `0.0`.
+expr_low -> '-' expr_low : negate(line('$1'), '$2').
 expr_low -> atom_lit : {e_atom, line('$1'), value('$1')}.
 expr_low -> string_lit : {e_str, line('$1'), value('$1')}.
 expr_low -> lident   : {e_var, line('$1'), value('$1')}.
@@ -722,6 +729,7 @@ bind(L, Pat, E)             -> {dbind, L, Pat, E}.
 %% `var` form escapes that.
 to_match({e_wild, L})     -> {p_wild, L};
 to_match({e_int, L, N})   -> {p_int, L, N};
+to_match({e_float, L, F}) -> {p_float, L, F};
 to_match({e_atom, L, A})  -> {p_atom, L, A};
 %% There is no `e_str` clause: a string literal on the left of a bare `=`
 %% falls to the error below.
@@ -769,6 +777,7 @@ apply_or_not({lident, L, V}, Args) ->
 to_param({e_var, L, V})   -> {p_var, L, V};
 to_param({e_wild, L})     -> {p_wild, L};
 to_param({e_int, L, N})   -> {p_int, L, N};
+to_param({e_float, L, F}) -> {p_float, L, F};
 to_param({e_atom, L, A})  -> {p_atom, L, A};
 to_param({e_tuple, L, Es})-> {p_tuple, L, [to_param(E) || E <- Es]};
 to_param({e_nil, L})      -> {p_nil, L};
@@ -778,6 +787,11 @@ to_param(E) ->
     return_error(element(2, E),
                  "a lambda's parameter is a pattern: a name, `_`, a literal, "
                  "or a tuple or list of those").
+
+%% A negated float literal is the literal; anything else is the BEAM's unary
+%% minus, typed by its operand (F51).
+negate(_L, {e_float, FL, F}) -> {e_float, FL, -F};
+negate(L, E)                 -> {e_neg, L, E}.
 
 to_param_rest(_L, nil)               -> nil;
 to_param_rest(_L, {e_wild, WL})      -> {p_wild, WL};

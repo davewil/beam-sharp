@@ -1,7 +1,8 @@
 %%% beam-sharp's type algebra.
 %%%
 %%% A type is a disjunctive normal form partitioned by constructor: atoms,
-%%% integers, tuples, lists, maps and binaries. Constructors never interact, so
+%%% integers, floats, tuples, lists, maps, binaries and functions.
+%%% Constructors never interact, so
 %%% union, intersection and subtraction are componentwise except inside a
 %%% product (a tuple, a map's fields, a list's spine). A recursive type is a
 %%% binder over such a partition (F28).
@@ -21,6 +22,9 @@
 -module(bs_types).
 
 -export([none/0, term/0, atom_lit/1, atom_top/0, int/0, range/2, tuple/1]).
+%% The float part (F51, ticket 69): the BEAM's float beside `int`, never
+%% inside it. `float_lit/1` is one literal, `float_top/0` every float.
+-export([float_lit/1, float_top/0]).
 -export([nil/0, cons/1, list/1]).
 %% The list part is a union of spines, so callers ask for what they want (the
 %% element type, whether any list, `[]` or a cons is admitted) rather than
@@ -58,6 +62,14 @@
 
 %% An atom part: every atom in the list, or every atom except those.
 -type atom_part() :: {finite, [atom()]} | {cofinite, [atom()]}.
+
+%% A float part: every float in the list, or every float except those — the
+%% atom part's shape, and the same operations (F51, ticket 69). A literal in
+%% a head is a singleton under `=:=`, so `0.0` and `-0.0` are two values and
+%% `float \ 0.0` still holds the second; there are no intervals here, so a
+%% float guard credits nothing and a clause set over `float` closes with a
+%% catch-all, as one over `atom` does (ticket 80, "not decided here").
+-type float_part() :: {finite, [float()]} | {cofinite, [float()]}.
 
 %% An integer part: sorted, disjoint, non-adjacent inclusive ranges.
 -type bound() :: integer() | neg_inf | pos_inf.
@@ -155,7 +167,7 @@
 -type arrow() :: {[ty()], ty()}.
 -type fun_part() :: top | [arrow()].
 
-%% A type is either a partition (the seven-part map every operation computes
+%% A type is either a partition (the eight-part map every operation computes
 %% over) or a binder (F28, ticket 09). A binder names a type so its own body
 %% can refer back to it: `type Tree = :leaf | (:node, Tree, Tree)` is
 %% `mu('Tree', :leaf | (:node, recvar('Tree'), recvar('Tree')))`. Erlang has
@@ -167,17 +179,17 @@
 %% rather than by comparison.
 -type rec_ty() :: #{mu := atom(), body := ty()} | #{recvar := atom()}.
 
--type ty() :: #{atoms := atom_part(), ints := int_part(), tuples := tuple_part(),
-                lists := list_part(), maps := map_part(), bins := bin_part(),
-                funs := fun_part()}
+-type ty() :: #{atoms := atom_part(), ints := int_part(), floats := float_part(),
+                tuples := tuple_part(), lists := list_part(), maps := map_part(),
+                bins := bin_part(), funs := fun_part()}
             | rec_ty().
 
 %%% ---------------------------------------------------------------------------
 %%% Constructors
 %%% ---------------------------------------------------------------------------
 
-none() -> #{atoms => {finite, []}, ints => [], tuples => [], lists => [],
-            maps => [], bins => [], funs => []}.
+none() -> #{atoms => {finite, []}, ints => [], floats => {finite, []},
+            tuples => [], lists => [], maps => [], bins => [], funs => []}.
 
 %%% ---------------------------------------------------------------------------
 %%% The binder (F28)
@@ -276,9 +288,15 @@ components(T) ->
 %% full, because a `term` missing one stops being the top type and every
 %% residual subtracted from it is then wrong in the quiet direction.
 term() ->
-    #{atoms => {cofinite, []}, ints => [{neg_inf, pos_inf}], tuples => top,
-      lists => [{[], {open, any}}], maps => top, bins => [other, utf8],
-      funs => top}.
+    #{atoms => {cofinite, []}, ints => [{neg_inf, pos_inf}], floats => {cofinite, []},
+      tuples => top, lists => [{[], {open, any}}], maps => top,
+      bins => [other, utf8], funs => top}.
+
+%% `float`: every float, the top of the part (F51).
+float_top() -> (none())#{floats => {cofinite, []}}.
+
+%% One float literal, the set a head `Verdict(0.0)` matches under `=:=`.
+float_lit(F) when is_float(F) -> (none())#{floats => {finite, [F]}}.
 
 %% `fn(A, B) -> C`: one arrow. A domain or codomain that is empty does not
 %% empty the arrow — `fn(none) -> term` is the top arrow, inhabited by every
@@ -449,8 +467,8 @@ is_none(#{recvar := N}, Seen) ->
 %% exists.
 %% An arrow is always inhabited, whatever its domain and codomain hold (see
 %% `fun_ty/2`), so the fun part must be absent outright.
-is_none(#{atoms := {finite, []}, ints := [], tuples := Ts, lists := Ls,
-          maps := Ms, bins := [], funs := []}, Seen)
+is_none(#{atoms := {finite, []}, ints := [], floats := {finite, []}, tuples := Ts,
+          lists := Ls, maps := Ms, bins := [], funs := []}, Seen)
   when Ts =/= top, Ms =/= top ->
     lists:all(fun(Cs) -> lists:any(fun(C) -> is_none(C, Seen) end, Cs) end, Ts)
         andalso lists:all(fun(S) -> sp_none(S, Seen) end, Ls)
@@ -481,14 +499,17 @@ is_subtype(A, B) -> is_none(subtract(A, B)).
 %%% compiler could, in principle, hand the author the list of cases it wants
 %%% written.
 %%%
-%%% The six-key pattern is deliberate: a map pattern is partial, so a forgotten
-%%% component would still match. `none()` answers false, since it has no
-%%% unbounded top; a caller reading false as "must be enumerated" asks
+%%% The eight-key pattern is deliberate: a map pattern is partial, so a
+%%% forgotten component would still match. `none()` answers false, since it
+%%% has no unbounded top; a caller reading false as "must be enumerated" asks
 %%% `is_none/1` first, as `bs_check:closed_and_inhabited/1` does.
-is_open(#{atoms := As, ints := Is, tuples := Ts, lists := Ls, maps := Ms,
-          bins := Bs, funs := Fs}) ->
+is_open(#{atoms := As, ints := Is, floats := Fl, tuples := Ts, lists := Ls,
+          maps := Ms, bins := Bs, funs := Fs}) ->
     a_open(As) orelse lists:any(fun r_unbounded/1, Is) orelse t_open(Ts)
         orelse l_open(Ls) orelse m_open(Ms)
+        %% A cofinite float set is the top of the part, unenumerable for the
+        %% reason the atom top is (F51).
+        orelse a_open(Fl)
         %% Any non-empty binary part is unbounded: the sender chooses the
         %% length (ticket 11).
         orelse Bs =/= []
@@ -558,6 +579,7 @@ open_for(_Op, T, _Other) -> T.
 u_parts(A, B) ->
     #{atoms  => a_union(maps:get(atoms, A), maps:get(atoms, B)),
       ints   => i_union(maps:get(ints, A), maps:get(ints, B)),
+      floats => fl_union(maps:get(floats, A), maps:get(floats, B)),
       %% Products are kept as separate members: a member contained in another
       %% is absorbed, but two overlapping products are BOTH kept, since
       %% merging them is the widening ticket 20 refused.
@@ -637,6 +659,7 @@ intersect(A, B, As) ->
 i_parts(A, B, As) ->
     #{atoms  => a_intersect(maps:get(atoms, A), maps:get(atoms, B)),
       ints   => i_intersect(maps:get(ints, A), maps:get(ints, B)),
+      floats => fl_intersect(maps:get(floats, A), maps:get(floats, B)),
       tuples => t_intersect(maps:get(tuples, A), maps:get(tuples, B), As),
       lists  => l_intersect(maps:get(lists, A), maps:get(lists, B), As),
       maps   => m_intersect(maps:get(maps, A), maps:get(maps, B), As),
@@ -666,6 +689,7 @@ subtract(A, B, As) ->
 s_parts(A, B, As) ->
     #{atoms  => a_subtract(maps:get(atoms, A), maps:get(atoms, B)),
       ints   => i_subtract(maps:get(ints, A), maps:get(ints, B)),
+      floats => fl_subtract(maps:get(floats, A), maps:get(floats, B)),
       tuples => t_subtract(maps:get(tuples, A), maps:get(tuples, B), As),
       lists  => l_subtract(maps:get(lists, A), maps:get(lists, B), As),
       maps   => m_subtract(maps:get(maps, A), maps:get(maps, B), As),
@@ -722,6 +746,40 @@ f_subtract(_, top, _As)  -> [];
 f_subtract(top, _, _As)  -> top;
 f_subtract(A, B, As) ->
     [X || X <- A, not lists:any(fun(Y) -> f_sub(X, Y, As) end, B)].
+
+%%% ---------------------------------------------------------------------------
+%%% Float part (F51, ticket 69): the atom part's shape, with its own set
+%%% operations. `ordsets` and `usort` compare with `==`, under which `0.0` and
+%%% `-0.0` are one element; a clause head matches with `=:=`, under which they
+%%% are two (OTP 27+). Reusing the atom part's functions would prove
+%%% `Which(-0.0)` unreachable beside `Which(0.0)`. Membership here is exact.
+%%% ---------------------------------------------------------------------------
+
+fl_union({finite, X},   {finite, Y})   -> {finite, fl_set(X ++ Y)};
+fl_union({cofinite, X}, {cofinite, Y}) -> {cofinite, fl_meet(X, Y)};
+fl_union({finite, X},   {cofinite, Y}) -> {cofinite, fl_minus(Y, X)};
+fl_union(C = {cofinite, _}, F = {finite, _}) -> fl_union(F, C).
+
+fl_intersect({finite, X},   {finite, Y})   -> {finite, fl_meet(X, Y)};
+fl_intersect({cofinite, X}, {cofinite, Y}) -> {cofinite, fl_set(X ++ Y)};
+fl_intersect({finite, X},   {cofinite, Y}) -> {finite, fl_minus(X, Y)};
+fl_intersect(C = {cofinite, _}, F = {finite, _}) -> fl_intersect(F, C).
+
+fl_subtract(A, {finite, X})   -> fl_intersect(A, {cofinite, fl_set(X)});
+fl_subtract(A, {cofinite, X}) -> fl_intersect(A, {finite, fl_set(X)}).
+
+%% Sorted and deduplicated under `=:=`. `lists:sort/1` puts `-0.0` and `0.0`
+%% beside each other, being equal under `=<`, and the walk keeps both.
+fl_set(L) -> fl_dedup(lists:sort(L)).
+
+fl_dedup([A, B | T]) when A =:= B -> fl_dedup([B | T]);
+fl_dedup([A | T])                 -> [A | fl_dedup(T)];
+fl_dedup([])                      -> [].
+
+fl_member(F, L) -> lists:any(fun(G) -> G =:= F end, L).
+
+fl_meet(X, Y)  -> [F || F <- fl_set(X), fl_member(F, Y)].
+fl_minus(X, Y) -> [F || F <- fl_set(X), not fl_member(F, Y)].
 
 %%% ---------------------------------------------------------------------------
 %%% Atom part
@@ -1083,8 +1141,8 @@ discriminator({dom, _, _}) ->
     none;
 discriminator({_Kind, Fields}) ->
     case maps:find('Kind', Fields) of
-        {ok, #{atoms := {finite, [Tag]}, ints := [], tuples := [],
-               lists := [], maps := []}} -> Tag;
+        {ok, #{atoms := {finite, [Tag]}, ints := [], floats := {finite, []},
+               tuples := [], lists := [], maps := []}} -> Tag;
         _ -> none
     end.
 
@@ -1420,10 +1478,21 @@ parts(#{mu := N, body := B}) ->
         true  -> parts(B)
     end;
 parts(#{recvar := N}) -> [rec_str(N)];
-parts(#{atoms := As, ints := Is, tuples := Ts, lists := Ls, maps := Ms, bins := Bs,
-        funs := Fs}) ->
-    a_str(As) ++ [i_str(R) || R <- Is] ++ ts_str(Ts) ++ l_str(Ls) ++ ms_str(Ms)
-        ++ b_str(Bs) ++ f_str(Fs).
+parts(#{atoms := As, ints := Is, floats := Fl, tuples := Ts, lists := Ls, maps := Ms,
+        bins := Bs, funs := Fs}) ->
+    a_str(As) ++ [i_str(R) || R <- Is] ++ fl_str(Fl) ++ ts_str(Ts) ++ l_str(Ls)
+        ++ ms_str(Ms) ++ b_str(Bs) ++ f_str(Fs).
+
+%% A float part prints as the atom part does: the literals, the word, or the
+%% word minus the literals. A literal prints in the shortest form that reads
+%% back as the same float, which the lexer accepts in every spelling
+%% `float_to_list/2` produces (`1.5`, `1.0e20`, `2.5e-3`).
+fl_str({finite, []})   -> [];
+fl_str({finite, L})    -> [float_str(F) || F <- L];
+fl_str({cofinite, []}) -> ["float"];
+fl_str({cofinite, L})  -> ["float \\ (" ++ string:join([float_str(F) || F <- L], " | ") ++ ")"].
+
+float_str(F) -> float_to_list(F, [short]).
 
 %% An arrow prints as the author writes it, `fn(int) -> int` (ticket 75). The
 %% top has no surface spelling — `fn(none) -> term` is what it means, and that
@@ -1518,12 +1587,12 @@ pat_parts(#{mu := N, body := B}) ->
         true  -> pat_parts(B)
     end;
 pat_parts(#{recvar := N}) -> [rec_str(N)];
-pat_parts(T = #{atoms := As, ints := Is, tuples := Ts, lists := Ls, maps := Ms,
-                bins := Bs, funs := Fs}) ->
+pat_parts(T = #{atoms := As, ints := Is, floats := Fl, tuples := Ts, lists := Ls,
+                maps := Ms, bins := Bs, funs := Fs}) ->
     case is_subtype(term(), T) of
         true  -> ["term"];
-        false -> a_str(As) ++ [i_str(R) || R <- Is] ++ ts_pat(Ts) ++ l_str(Ls)
-                     ++ ms_pat(Ms) ++ b_str(Bs) ++ f_str(Fs)
+        false -> a_str(As) ++ [i_str(R) || R <- Is] ++ fl_str(Fl) ++ ts_pat(Ts)
+                     ++ l_str(Ls) ++ ms_pat(Ms) ++ b_str(Bs) ++ f_str(Fs)
     end.
 
 ts_pat(top) -> ["tuple"];
@@ -1666,11 +1735,15 @@ head_reach(T) ->
 %% header explains why a non-empty list part can still be empty — and reading
 %% it as a general emptiness oracle would answer `tuple` for `{[none]}`.
 guard_buckets(#{mu := _} = T) -> guard_buckets(unfold(T));
-guard_buckets(#{recvar := _}) -> [atom, int, tuple, list, map, bin, 'fun'];
-guard_buckets(#{atoms := As, ints := Is, tuples := Ts, lists := Ls,
+guard_buckets(#{recvar := _}) -> [atom, int, float, tuple, list, map, bin, 'fun'];
+guard_buckets(#{atoms := As, ints := Is, floats := Fl, tuples := Ts, lists := Ls,
                 maps := Ms, bins := Bs, funs := Fs}) ->
     [atom  || As =/= {finite, []}] ++
     [int   || Is =/= []] ++
+    %% `is_float/1`, disjoint from `is_integer/1`: the two never both hold, so
+    %% `int | float` is decided by a guard however little pattern either has
+    %% (F51, ticket 69).
+    [float || Fl =/= {finite, []}] ++
     [tuple || Ts =/= []] ++
     [list  || Ls =/= []] ++
     [map   || Ms =/= []] ++
@@ -1699,11 +1772,12 @@ guard_buckets(#{atoms := As, ints := Is, tuples := Ts, lists := Ls,
 %% unfolds it once and finds the shapes the author writes clauses for.
 constituents(#{mu := _} = T)     -> [T];
 constituents(#{recvar := _} = T) -> [T];
-constituents(#{atoms := As, ints := Is, tuples := Ts, lists := Ls,
+constituents(#{atoms := As, ints := Is, floats := Fl, tuples := Ts, lists := Ls,
                maps := Ms, bins := Bs, funs := Fs}) ->
     N = none(),
     [N#{atoms => As} || As =/= {finite, []}]
         ++ [N#{ints => [R]} || R <- Is]
+        ++ [N#{floats => Fl} || Fl =/= {finite, []}]
         ++ part_cs(Ts, fun(V) -> N#{tuples => V} end)
         ++ [N#{lists => [S]} || S <- Ls]
         ++ part_cs(Ms, fun(V) -> N#{maps => V} end)
@@ -1748,6 +1822,8 @@ separable(A, B) ->
 same_bucket(atom, A, B) ->
     is_none(intersect(A, B));
 same_bucket(int, A, B) ->
+    is_none(intersect(A, B));
+same_bucket(float, A, B) ->
     is_none(intersect(A, B));
 same_bucket(tuple, #{tuples := [P]}, #{tuples := [Q]}) ->
     length(P) =/= length(Q)
@@ -1841,14 +1917,21 @@ hd_parts(#{mu := N} = T, Names, Pos, Seen) ->
         false -> hd_parts(unfold(T), Names, Pos, [N | Seen])
     end;
 hd_parts(#{recvar := _}, _Names, _Pos, _Seen) -> [{binder, binder("x")}];
-hd_parts(T = #{atoms := As, ints := Is, tuples := Ts, lists := Ls, maps := Ms,
-               bins := Bs, funs := Fs}, Names, Pos, Seen) ->
+hd_parts(T = #{atoms := As, ints := Is, floats := Fl, tuples := Ts, lists := Ls,
+               maps := Ms, bins := Bs, funs := Fs}, Names, Pos, Seen) ->
     case is_subtype(term(), T) of
         true  -> [{binder, binder("x")}];
-        false -> a_pat(As) ++ [i_pat(R, Pos) || R <- Is] ++ ts_hd(Ts, Names, Seen)
-                     ++ l_pat(Ls, Names, Seen) ++ ms_hd(Ms, Names) ++ b_pat(Bs)
-                     ++ f_pat(Fs)
+        false -> a_pat(As) ++ [i_pat(R, Pos) || R <- Is] ++ fl_pat(Fl)
+                     ++ ts_hd(Ts, Names, Seen) ++ l_pat(Ls, Names, Seen)
+                     ++ ms_hd(Ms, Names) ++ b_pat(Bs) ++ f_pat(Fs)
     end.
+
+%% A float literal is a pattern at every depth; the whole part is a binder;
+%% the part minus some literals has no head, as `atom \ :ok` has none (F51).
+fl_pat({finite, []})   -> [];
+fl_pat({finite, L})    -> [{shape, float_str(F)} || F <- L];
+fl_pat({cofinite, []}) -> [{binder, binder("f")}];
+fl_pat({cofinite, _})  -> [].
 
 %% An arrow has no pattern (ticket 75): a hand-written clause binds it, and
 %% the binder is what this channel offers, as it does for the open atom
@@ -1972,8 +2055,8 @@ m_hd({dom, K, V}, _Names) ->
      binder("m") ++ ": map<" ++ to_string(K) ++ ", " ++ to_string(V) ++ ">"};
 m_hd({_Kind, Fields}, Names) ->
     case maps:find('Kind', Fields) of
-        {ok, #{atoms := {finite, [Tag]}, ints := [], tuples := [],
-               lists := [], maps := [], bins := []}} ->
+        {ok, #{atoms := {finite, [Tag]}, ints := [], floats := {finite, []},
+               tuples := [], lists := [], maps := [], bins := []}} ->
             case maps:find(Tag, Names) of
                 {ok, Src} -> {shape, Src ++ " " ++ binder(initial(Src))};
                 error     -> {shape, "{ Kind: " ++ atom_str(Tag) ++ " }"}
@@ -2073,8 +2156,8 @@ m_pat({_Kind, Fields}) ->
         %% in `is_none/1`: the map pattern is partial, so without it a `Kind`
         %% field typed `:'Shop.Order' | string` would print as a bare tag and
         %% the synthesised head would silently drop the string half.
-        {ok, #{atoms := {finite, [Tag]}, ints := [], tuples := [],
-               lists := [], maps := [], bins := []}} ->
+        {ok, #{atoms := {finite, [Tag]}, ints := [], floats := {finite, []},
+               tuples := [], lists := [], maps := [], bins := []}} ->
             "{ Kind: " ++ atom_str(Tag) ++ " }";
         _ ->
             %% No discriminator to name, so every field is bound and ignored.

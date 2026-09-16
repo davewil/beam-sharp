@@ -500,6 +500,19 @@ jobs:
         working-directory: compiler
         run: ./bin/check-division.sh
 
+      # Tickets 69, 80 and 81 (F51). `float` is a part beside `int` and nothing
+      # flows between them; `/` lowers by its operand types. The self-test
+      # builds the emitter that lowers every `/` to the BEAM's `/`, the checker
+      # that lets a mixed pair through, the `term` whose float part is empty,
+      # and the bare `0.0` head that draws erlc's warning.
+      - name: The float gate proves it can fail
+        working-directory: compiler
+        run: ./bin/check-float.sh --self-test
+
+      - name: '`float` is a part beside `int`, nothing flows between them, and `/` lowers by its operands'
+        working-directory: compiler
+        run: ./bin/check-float.sh
+
       # Ticket 67. `List` is an operation set the compiler knows, not a module
       # it ships — and 67's (b) is INDISTINGUISHABLE from its (a) in anything a
       # program prints. `List.Sum([2,2,2])` is 6 either way. So this gate reads

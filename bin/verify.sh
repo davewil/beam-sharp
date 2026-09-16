@@ -288,6 +288,9 @@ run_stages \
   "\`/\` lowers to div, and only a provable zero is refused" \
     "cd compiler && ./bin/check-division.sh --self-test && ./bin/check-division.sh" \
 \
+  "\`float\` is a part beside \`int\`, nothing flows between them, and \`/\` lowers by its operands" \
+    "cd compiler && ./bin/check-float.sh --self-test && ./bin/check-float.sh" \
+\
   "\`List\`, \`Term\` and \`Map\` are reserved qualifiers, inlined at the site" \
     "cd compiler && ./bin/check-reserved-qualifiers.sh --self-test && ./bin/check-reserved-qualifiers.sh" \
 \

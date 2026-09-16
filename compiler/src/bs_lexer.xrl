@@ -108,6 +108,12 @@ false                   : {token, {atom_lit, TokenLoc, false}}.
 %% ahead of `{D}+` with no ordering dependency (F13).
 0[xX]{H}+               : {token, {integer, TokenLoc,
                                    list_to_integer(lists:nthtail(2, TokenChars), 16)}}.
+%% A float is C#'s spelling: digits, a dot, digits, an optional exponent
+%% (ticket 69, F51). The digit AFTER the dot is required, so `1..5` stays an
+%% integer, the rest marker and an integer — `1.` alone is never a float —
+%% and the dot that ends a qualified name never follows a digit. Longest-match
+%% puts `1.5` ahead of `{D}+`. `1e5` is not a float here: no dot, no float.
+{D}+\.{D}+([eE][+-]?{D}+)? : {token, {float, TokenLoc, list_to_float(TokenChars)}}.
 {D}+                    : {token, {integer, TokenLoc, list_to_integer(TokenChars)}}.
 
 _                       : {token, {'_', TokenLoc}}.

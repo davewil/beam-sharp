@@ -58,7 +58,12 @@ forms(Module = #{module := Mod, functions := Fns, env := Env}) ->
             foreigns => maps:get(foreigns, Module, #{}),
             %% A bare name's resolved arity, keyed by the token's position
             %% (F46); decided by the checker, written as `fun Name/Arity` here.
-            fnames => maps:get(fnames, Module, #{})},
+            fnames => maps:get(fnames, Module, #{}),
+            %% The `/` sites between two floats, keyed by the operator's
+            %% position; decided by the checker, which has the operand types
+            %% this module never sees, and lowered here to the BEAM's `/`
+            %% (F51, ticket 69; 38 §4).
+            fdivs => maps:get(fdivs, Module, #{})},
     %% A crash names the `.bs` file the function was written in. A module is a
     %% directory, so one `.beam` holds functions from several files, and a
     %% repeated `{attribute, _, file, {Name, Line}}` re-points every form after
@@ -259,9 +264,41 @@ guard_one(Pat, {param, TypeExpr, _}, Accept, I, Line, Ctx, Public) ->
                     {Pat1, [tag_test(Var, Tag, Line)]}
             end;
         none when Public ->
-            int_guard(Pat, TypeExpr, Accept, I, Line, Ctx);
+            case is_float_only(TypeExpr, Ctx) of
+                true  -> float_guard(Pat, I, Line);
+                false -> int_guard(Pat, TypeExpr, Accept, I, Line, Ctx)
+            end;
         none ->
             {Pat, []}
+    end.
+
+%% A public `float` parameter is tested with `is_float/1`, so an `int` from
+%% outside goes the way F24 sends an atom (ticket 80, F51). No range half:
+%% the part carries no intervals. A float literal in the head pins the kind
+%% as an integer literal does.
+float_guard(Pat, I, Line) ->
+    case pins_float(Pat) of
+        true  -> {Pat, []};
+        false ->
+            {Var, Pat1} = ensure_var(Pat, I, Line),
+            {Pat1, [{e_foreign_call, Line, erlang, is_float, [{e_var, Line, Var}]}]}
+    end.
+
+pins_float({p_float, _, _})      -> true;
+pins_float({p_alias, _, _, P})   -> pins_float(P);
+pins_float({p_and, _, A, B})     -> pins_float(A) orelse pins_float(B);
+pins_float({p_or, _, A, B})      -> pins_float(A) andalso pins_float(B);
+pins_float(_)                    -> false.
+
+%% Float-only, as `is_int_only/2` is int-only: the float part inhabited and
+%% every other part empty.
+is_float_only(TypeExpr, #{env := Env}) ->
+    try bs_check:resolve(TypeExpr, Env) of
+        #{floats := Fl, atoms := {finite, []}, ints := [], tuples := [],
+          lists := [], maps := [], bins := [], funs := []}
+          when Fl =/= {finite, []} -> true;
+        _ -> false
+    catch _:_ -> false
     end.
 
 %% What each parameter position accepts, or `term` for every position if the
@@ -431,8 +468,8 @@ fold_or([E | Rest], Line) -> {e_op, Line, 'or', E, fold_or(Rest, Line)}.
 %% atom part is a second admissible kind, and gets no guard (ticket 18).
 is_int_only(TypeExpr, #{env := Env}) ->
     try bs_check:resolve(TypeExpr, Env) of
-        #{ints := Is, atoms := {finite, []}, tuples := [], lists := [],
-          maps := [], bins := [], funs := []} when Is =/= [] -> true;
+        #{ints := Is, atoms := {finite, []}, floats := {finite, []}, tuples := [],
+          lists := [], maps := [], bins := [], funs := []} when Is =/= [] -> true;
         _ -> false
     catch _:_ -> false
     end.
@@ -459,10 +496,12 @@ int_test(Var, Line) ->
 record_tag(TypeExpr, #{env := Env}) ->
     try bs_check:resolve(TypeExpr, Env) of
         #{maps := [{closed, Fields}], atoms := {finite, []}, ints := [],
-          tuples := [], lists := [], bins := [], funs := []} ->
+          floats := {finite, []}, tuples := [], lists := [], bins := [],
+          funs := []} ->
             case maps:find('Kind', Fields) of
-                {ok, #{atoms := {finite, [Tag]}, ints := [], tuples := [],
-                       lists := [], maps := [], bins := [], funs := []}} -> {ok, Tag};
+                {ok, #{atoms := {finite, [Tag]}, ints := [], floats := {finite, []},
+                       tuples := [], lists := [], maps := [], bins := [],
+                       funs := []}} -> {ok, Tag};
                 _ -> none
             end;
         _ -> none
@@ -634,6 +673,7 @@ used_vars({e_call, _, _, As}, Acc)   -> lists:foldl(fun used_vars/2, Acc, As);
 %% arguments are types (F18).
 used_vars({e_inst, _, _, _, As}, Acc) -> lists:foldl(fun used_vars/2, Acc, As);
 used_vars({e_op, _, _, A, B}, Acc)   -> used_vars(B, used_vars(A, Acc));
+used_vars({e_neg, _, E}, Acc)        -> used_vars(E, Acc);
 used_vars({e_nil, _}, Acc)           -> Acc;
 used_vars({e_proj, _, V, _}, Acc)    -> sets:add_element(V, Acc);
 used_vars({e_block, _, Binds, Final}, Acc) ->
@@ -687,6 +727,14 @@ guard({guard, Expr}, Ctx)  -> [[expr(Expr, Ctx#{in_guard => true})]].
 %%% ---------------------------------------------------------------------------
 
 pattern({p_int, L, N}, _U)     -> {integer, L, N};
+%% A float head is the literal, except at zero: on OTP 27+ a bare `0.0`
+%% matches `+0.0` alone and `erl_lint` warns (`match_float_zero`), so the
+%% zero is written with its sign, Gleam's spelling, which means the same
+%% thing and draws no warning (F51; research 80, measured 2026-09-15).
+pattern({p_float, L, F}, _U) when F == 0.0 ->
+    <<Sign:1, _:63>> = <<F/float>>,
+    {op, L, case Sign of 0 -> '+'; 1 -> '-' end, {float, L, 0.0}};
+pattern({p_float, L, F}, _U)   -> {float, L, F};
 pattern({p_atom, L, A}, _U)    -> {atom, L, A};
 pattern({p_wild, L}, _U)       -> {var, L, '_'};
 pattern({p_tuple, L, Ps}, U)   -> {tuple, L, [pattern(P, U) || P <- Ps]};
@@ -855,11 +903,24 @@ expr({e_inst, L, 'ToJson', [TypeExpr], [Arg]}, C) ->
 %% `bs_check:reserved_call/6` has already refused a shadowing collision.
 expr({e_qcall, L, Mod, Fn, As}, C) ->
     case lists:member(Mod, bs_check:reserved_qualifiers()) of
-        true  -> {call, L, {atom, L, reserved_name(Mod, Fn, length(As))},
-                  [expr(A, C) || A <- As]};
+        true ->
+            case inlined_bif({Mod, Fn, length(As)}) of
+                %% One BIF at the site, no generated function: `Float.FromInt(n)`
+                %% is `erlang:float(N)` (ticket 81, F51).
+                {BifMod, Bif} ->
+                    {call, L, {remote, L, {atom, L, BifMod}, {atom, L, Bif}},
+                     [expr(A, C) || A <- As]};
+                none ->
+                    {call, L, {atom, L, reserved_name(Mod, Fn, length(As))},
+                     [expr(A, C) || A <- As]}
+            end;
         false -> remote(L, Mod, Fn, As, C)
     end;
-expr({e_op, L, Op, A, B}, C)  -> {op, L, erl_op(Op), expr(A, C), expr(B, C)};
+expr({e_op, L, Op, A, B}, C)  -> {op, L, erl_op(Op, L, C), expr(A, C), expr(B, C)};
+expr({e_float, L, F}, _C)     -> {float, L, F};
+%% The BEAM's own unary minus, so `-x` over a float is `-0.0` at zero, which
+%% `0 - X` is not (F51).
+expr({e_neg, L, E}, C)        -> {op, L, '-', expr(E, C)};
 expr({e_nil, L}, _C)          -> {nil, L};
 
 %% A function as a value (ticket 75, F46). The BEAM does the closure: a
@@ -1071,11 +1132,19 @@ type_test(_V, #{recvar := _} = Ty, _L) ->
 %% than a comprehension that filters the part away in silence.
 type_test(_V, #{funs := Fs}, _L) when Fs =/= [] ->
     erlang:error({foreign_return_guard, arrow});
-type_test(V, #{atoms := As, ints := Is, tuples := Ts, lists := Ls,
+type_test(V, #{atoms := As, ints := Is, floats := Fl, tuples := Ts, lists := Ls,
                maps := Ms, bins := Bs}, L) ->
-    any_of(atom_tests(V, As, L) ++ int_tests(V, Is, L) ++ tuple_tests(V, Ts, L)
-           ++ list_tests(V, Ls, L) ++ map_tests(V, Ms, L) ++ bin_tests(V, Bs, L),
+    any_of(atom_tests(V, As, L) ++ int_tests(V, Is, L) ++ float_tests(V, Fl, L)
+           ++ tuple_tests(V, Ts, L) ++ list_tests(V, Ls, L) ++ map_tests(V, Ms, L)
+           ++ bin_tests(V, Bs, L),
            L).
+
+%% A float part is tested as the atom part is: an equality per literal, or
+%% `is_float` minus the exclusions (F51).
+float_tests(_V, {finite, []}, _L) -> [];
+float_tests(V, {finite, Fs}, L)   -> [same(V, {float, L, F}, L) || F <- Fs];
+float_tests(V, {cofinite, Xs}, L) ->
+    [all_of([bif(is_float, [V], L) | [differs(V, {float, L, X}, L) || X <- Xs]], L)].
 
 atom_tests(_V, {finite, []}, _L) -> [];
 atom_tests(V, {finite, As}, L)   -> [same(V, {atom, L, A}, L) || A <- As];
@@ -1200,10 +1269,22 @@ erl_op('and') -> 'andalso';
 erl_op('or')  -> 'orelse';
 %% `/` is integer division and lowers to `div`, never Erlang's float `/`,
 %% which the catch-all would otherwise pass through; `%` is `rem`, whose sign
-%% follows the dividend (F26, ticket 38).
+%% follows the dividend (F26, ticket 38). The one exception is decided by the
+%% checker and read below: a `/` between two floats (F51).
 erl_op('/')  -> 'div';
 erl_op('%')  -> 'rem';
 erl_op(Op)   -> Op.                              % + - * < > >=
+
+%% `/` at a site the checker marked as two floats is the BEAM's `/`; every
+%% other `/`, and every `/` the checker did not see, is `div`. A missing mark
+%% therefore errs towards `div`, which is loud on a float (`badarith`) rather
+%% than a float where the signature promised an `int` (38 §4).
+erl_op('/', L, C) ->
+    case maps:is_key(L, maps:get(fdivs, C, #{})) of
+        true  -> '/';
+        false -> 'div'
+    end;
+erl_op(Op, _L, _C) -> erl_op(Op).
 
 %%% ---------------------------------------------------------------------------
 %%% Specs
@@ -1264,10 +1345,15 @@ collect_mu(#{recvar := _}, Acc) -> Acc;
 collect_mu(Ty, Acc) ->
     lists:foldl(fun collect_mu/2, Acc, bs_types:components(Ty)).
 
-parts(Ty = #{atoms := As, ints := Is, tuples := Ts, maps := Ms,
+parts(Ty = #{atoms := As, ints := Is, floats := Fl, tuples := Ts, maps := Ms,
              bins := Bs, funs := Fs}) ->
-    atom_parts(As) ++ [int_part(R) || R <- Is] ++ tuple_parts(Ts)
+    atom_parts(As) ++ [int_part(R) || R <- Is] ++ float_parts(Fl) ++ tuple_parts(Ts)
         ++ list_parts(Ty) ++ map_parts(Ms) ++ bin_parts(Bs) ++ fun_parts(Fs).
+
+%% Any inhabited float part emits `float()`: Erlang's type language has no
+%% float literal, so a literal set widens as a cofinite atom set does (F51).
+float_parts({finite, []}) -> [];
+float_parts(_)            -> [{type, ?A, float, []}].
 
 %% An arrow emits `fun((A) -> B)`, the form every function's own spec is
 %% already built from, now nested; the top emits `fun()` (F46, ticket 75).
@@ -1617,8 +1703,15 @@ json_form(Name) ->
 reserved_forms(Fns) ->
     Used = lists:usort([{M, F, length(As)}
                         || {e_qcall, _, M, F, As} <- qcall_nodes(Fns),
-                           lists:member(M, bs_check:reserved_qualifiers())]),
+                           lists:member(M, bs_check:reserved_qualifiers()),
+                           inlined_bif({M, F, length(As)}) =:= none]),
     lists:append([reserved_form(K) || K <- Used]).
+
+%% An entry that is one BIF at the site generates no function: `expr/2`
+%% writes the remote call where the qualified call stood (ticket 81, F51).
+%% Only the lowering is named here; the signature is the checker's.
+inlined_bif({'Float', 'FromInt', 1}) -> {erlang, float};
+inlined_bif(_)                       -> none.
 
 qcall_nodes(T) when is_tuple(T) ->
     Here = case T of
@@ -1764,7 +1857,7 @@ error_expr(Ty) ->
 ok_expr() -> {tuple, ?A, [{atom, ?A, ok}, ?VV]}.
 
 ty_clauses(Ty, Name, Table, Err) ->
-    #{atoms := As, ints := Is, tuples := Ts, maps := Ms,
+    #{atoms := As, ints := Is, floats := Fl, tuples := Ts, maps := Ms,
       bins := Bs, funs := Fs} = Ty,
     %% `ValidateAs<T>` over a `T` holding an arrow is refused by the checker
     %% (ticket 11, F46): a fun's type is not recoverable at run time. Loud
@@ -1773,6 +1866,7 @@ ty_clauses(Ty, Name, Table, Err) ->
     Fs =:= [] orelse erlang:error({validate_over_arrow, Ty}),
     atom_clauses(As)
     ++ int_clauses(Is)
+    ++ float_clauses(Fl)
     ++ bin_clauses(lists:sort(Bs), Err)
     ++ tuple_clauses(Ts, Table, Err)
     ++ list_clauses(Ty, Name)
@@ -1788,6 +1882,17 @@ atom_clauses({cofinite, Excluded}) ->
     [{clause, ?A, [{var, ?A, '_'}], [Tests], [ok_expr()]}].
 
 int_clauses(Ranges) -> [int_clause(R) || R <- Ranges].
+
+%% The float part validates as the atom part does: a literal is matched with
+%% `=:=`, spelled as a guard rather than a pattern so that `0.0` needs no
+%% signed form; the top is `is_float/1` minus the exclusions (F51).
+float_clauses({finite, Fs}) ->
+    [{clause, ?A, [{var, ?A, '_'}], [[{op, ?A, '=:=', ?VV, {float, ?A, F}}]], [ok_expr()]}
+     || F <- Fs];
+float_clauses({cofinite, Excluded}) ->
+    Tests = [guard_call(is_float, [?VV])
+             | [{op, ?A, '=/=', ?VV, {float, ?A, E}} || E <- Excluded]],
+    [{clause, ?A, [{var, ?A, '_'}], [Tests], [ok_expr()]}].
 
 int_clause({Lo, Hi}) ->
     Tests = [guard_call(is_integer, [?VV])]

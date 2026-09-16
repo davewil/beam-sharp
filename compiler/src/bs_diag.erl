@@ -185,6 +185,26 @@ format(Desc) ->
 at(Sev, Path, Line, Fn) ->
     #{severity => Sev, file => Path, line => Line, function => Fn}.
 
+article("int") -> "an";
+article(_)     -> "a".
+
+%% The PART an operand lies in, since the sentence is about the two parts and
+%% not about the operand's exact set: `2` is "an `int`" here.
+part_word(Ty) ->
+    case bs_types:is_subtype(Ty, bs_types:int()) of
+        true  -> "int";
+        false -> "float"
+    end.
+
+%% The `int` side of a mixed pair as a float literal, where that side is one
+%% integer: `2` becomes `2.0`. Anything wider has no literal to offer, and
+%% the message names the conversion alone.
+int_literal_as_float(Left, Right) ->
+    case [N || #{ints := [{N, N}]} <- [Left, Right], is_integer(N)] of
+        [N] -> integer_to_list(N) ++ ".0";
+        _   -> none
+    end.
+
 %% A POSITION IS SPLIT HERE AND NOWHERE ELSE.
 %%
 %% The lexer writes `TokenLoc`, so a position arrives from the parser as
@@ -251,6 +271,15 @@ built(Path, {Sev, Line, Fn, {obligation_over_type_variable, Name, Var}}) ->
 %% mistake differently, and the fix differs with it (F26, ticket 38).
 built(Path, {Sev, Line, Fn, {divide_by_zero, Op}}) ->
     (at(Sev, Path, Line, Fn))#{tag => divide_by_zero, op => Op};
+%% A `float` beside an `int` at an operator (ticket 80, F51). The two operand
+%% types travel as text; `literal` is the float spelling of the `int` side
+%% where that side is one literal, since writing `2.0` for `2` is the fix
+%% there and the conversion is the fix everywhere else.
+built(Path, {Sev, Line, Fn, {mixed_operands, Op, Left, Right}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => mixed_operands, op => Op,
+                               left => part_word(Left),
+                               right => part_word(Right),
+                               literal => int_literal_as_float(Left, Right)};
 built(Path, {Sev, Line, Fn, {switch_inexhaustive, Residual, Names}}) ->
     Base = (at(Sev, Path, Line, Fn))#{tag => switch_inexhaustive,
                                       residual => residual(Residual)},
@@ -1025,6 +1054,16 @@ message(#{tag := obligation_over_type_variable, file := P, line := L, column := 
 %% Only a divisor proved to be zero is refused, and the message says so,
 %% because a reader's next question is whether every call site needs a
 %% non-zero proof. It does not (ticket 23 §2).
+message(#{tag := mixed_operands, file := P, line := L, column := C, function := Fn,
+          op := Op, left := Left, right := Right, literal := Lit}) ->
+    {"~s:~p:~p: error: `~s` in ~s has ~s `~s` on its left and ~s `~s` on its right~n"
+     "  nothing converts between the two: write the conversion, `Float.FromInt(n)`,~n"
+     "  on the `int` side~s~n",
+     [P, L, C, Op, Fn, article(Left), Left, article(Right), Right,
+      case Lit of
+          none -> "";
+          Text -> ", or write `" ++ Text ++ "` to make the literal a float"
+      end]};
 message(#{tag := divide_by_zero, file := P, line := L, column := C, function := Fn,
           op := Op}) ->
     {"~s:~p:~p: error: the right-hand side of `~s` in ~s is always zero~n"
@@ -1616,7 +1655,7 @@ message(#{tag := pattern_field_unknown, file := P, line := L, column := C, recor
       field_list("", [D || D <- Declared, D =/= 'Kind'])]};
 message(#{tag := unknown_builtin, type := B} = D) ->
     {placed(D) ++ "error: ~s is not a builtin type~n"
-     "  this slice has `int`, `atom`, `term`, `none`, `bool`, `binary`,~n"
+     "  this slice has `int`, `float`, `atom`, `term`, `none`, `bool`, `binary`,~n"
      "  `string` and `list<T>`.~n",
      placed_args(D) ++ [B]};
 message(#{tag := foreign_ret_beyond_one_guard, module := Mod, function := Fun,
