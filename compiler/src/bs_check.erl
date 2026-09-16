@@ -2949,9 +2949,11 @@ mixed_guard_diags({guard, Expr}, Scope, Ctx) ->
 
 %% The refusal, and the `/` sites the emitter lowers by — a float division in
 %% a guard is still a float division.
-keep_from_guard({error, _, _, {mixed_operands, _, _, _, _}}) -> true;
-keep_from_guard({fdiv, _, _})                             -> true;
-keep_from_guard(_)                                        -> false.
+keep_from_guard({fdiv, _, _}) -> true;
+keep_from_guard(D)            -> mixed_pair(D).
+
+mixed_pair({error, _, _, {mixed_operands, _, _, _, _}}) -> true;
+mixed_pair(_)                                           -> false.
 
 %%% --- Binary patterns: four known-shape refusals (F13) ----------------------
 %%%
@@ -4263,6 +4265,11 @@ op_result(Op, ATy, BTy, L, C) ->
             {bs_types:float_top(), [{fdiv, L, float}]};
         {float, float} when Op =:= '+'; Op =:= '-'; Op =:= '*' ->
             {bs_types:float_top(), []};
+        %% `%` is the remainder over two ints (38); over two floats nothing
+        %% is decided, and `rem` would crash at run time, so it is refused
+        %% rather than typed `int` (F51, found in review).
+        {float, float} when Op =:= '%' ->
+            {reported(), [{error, L, C#ctx.fname, float_remainder}]};
         {int, float} when Op =/= 'and', Op =/= 'or' ->
             {reported(), [mixed(Op, int, float, ATy, L, C)]};
         {float, int} when Op =/= 'and', Op =/= 'or' ->
@@ -4888,7 +4895,17 @@ walk([C = {clause, CLine, Name, _, _, _} | Rest], Residual, Declared, Ctx, Diags
     %% anything: read as an `int` comparison, `x < 0` over a `float` narrows
     %% `x` to nothing, and the mixed pair would vanish with it (F51).
     GuardDomain = bs_types:intersect(Residual, Base),
-    Diags3 = clause_diags(C, Domain, GuardDomain, Bindings, Ctx) ++ Diags2,
+    ClauseDiags = clause_diags(C, Domain, GuardDomain, Bindings, Ctx),
+    %% A guard refused as a mixed pair was read as an `int` comparison and
+    %% narrowed the clause to nothing; the dead-guard warning that reading
+    %% produces would advise widening a guard the error says to rewrite, so
+    %% the error stands alone (F51).
+    Diags2b = case lists:any(fun mixed_pair/1, ClauseDiags) of
+                  true  -> [D || D <- Diags2,
+                                 D =/= {warning, CLine, Name, {unsatisfiable_guard, N}}];
+                  false -> Diags2
+              end,
+    Diags3 = ClauseDiags ++ Diags2b,
     walk(Rest, bs_types:subtract(Residual, Certain), Declared, Ctx, Diags3, N + 1).
 
 %% A clause or arm that adds nothing is classified by the first of three

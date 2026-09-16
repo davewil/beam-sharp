@@ -153,7 +153,28 @@ an_int_returned_where_a_float_is_declared_is_refused_test() ->
     [D | _] = errors(Src),
     ?assertMatch({return_not_declared, _, _}, element(4, D)),
     {return_not_declared, Residual, _} = element(4, D),
-    ?assertEqual("0", bs_types:to_string(Residual)).
+    ?assertEqual("0", bs_types:to_string(Residual)),
+    %% Ticket 80: the advice names `0.0`.
+    bs_test_support:with_src(
+      "Bad.bs", Src,
+      fun(Path, _Root) ->
+              Out = run_cli(Path),
+              ?assertNotEqual(nomatch, string:find(Out, "`0` is an `int`; the float is `0.0`"))
+      end).
+
+%% `%` over two floats is refused: 38 decided the remainder over ints, nothing
+%% decided it over floats, and `rem` on a float is `badarith` at run time.
+%% Found by the spec review; the first cut typed it `int` and let it crash.
+a_remainder_over_two_floats_is_refused_test() ->
+    Src = "module Rem\n\n"
+          "public int Mod(float x)\n\n"
+          "Mod(x) -> x % 2.0\n",
+    [D | _] = errors(Src),
+    ?assertEqual(float_remainder, element(4, D)),
+    Ints = "module Rem\n\n"
+           "public int Mod(int x)\n\n"
+           "Mod(x) -> x % 2\n",
+    ?assertMatch({ok, _}, compile(Ints)).
 
 %% A `float` beside an `int` at an operator is refused, naming the conversion.
 %% One `Float.FromInt` dropped from the ticket's program is the case.
@@ -235,7 +256,12 @@ a_float_compared_with_an_int_literal_in_a_guard_is_refused_test() ->
           "Sign(x) when x < 0 -> :negative\n"
           "Sign(_)            -> :other\n",
     [D | _] = errors(Src),
-    ?assertEqual({mixed_operands, '<', float, int, "0.0"}, element(4, D)).
+    ?assertEqual({mixed_operands, '<', float, int, "0.0"}, element(4, D)),
+    %% Alone: the int reading of the guard narrows `x` to nothing, and the
+    %% dead-guard warning that would follow advises widening a guard the
+    %% error says to rewrite, so it is not reported beside it.
+    {error, All} = bs_test_support:check_only(Src),
+    ?assertEqual(1, length(All)).
 
 %% A float guard against a float literal compiles and selects. It credits
 %% nothing to exhaustiveness — the algebra carries no float intervals — so a

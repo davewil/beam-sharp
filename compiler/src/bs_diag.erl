@@ -188,6 +188,22 @@ at(Sev, Path, Line, Fn) ->
 article("int") -> "an";
 article(_)     -> "a".
 
+%% `Mean([]) -> 0` under `public float Mean` names the fix, `0.0`, as ticket
+%% 80's answer promised: an `int` literal returned where `float` alone is
+%% declared. Read off the descriptor's two printed types, which is all the
+%% frozen `return_not_declared` term carries (23 §4).
+float_spelling(Undeclared, "float") ->
+    case int_text(Undeclared) of
+        true  -> "  `" ++ Undeclared ++ "` is an `int`; the float is `"
+                     ++ Undeclared ++ ".0`.~n";
+        false -> ""
+    end;
+float_spelling(_, _) -> "".
+
+int_text([$- | Ds]) -> int_text(Ds);
+int_text([_ | _] = Ds) -> lists:all(fun(C) -> C >= $0 andalso C =< $9 end, Ds);
+int_text(_) -> false.
+
 %% A POSITION IS SPLIT HERE AND NOWHERE ELSE.
 %%
 %% The lexer writes `TokenLoc`, so a position arrives from the parser as
@@ -258,6 +274,8 @@ built(Path, {Sev, Line, Fn, {divide_by_zero, Op}}) ->
 %% decided which part each side lies in and whether the `int` side is one
 %% literal; both travel as decided. `literal` is that literal's float
 %% spelling or `none`, and the prose offers it where it has one.
+built(Path, {Sev, Line, Fn, float_remainder}) ->
+    (at(Sev, Path, Line, Fn))#{tag => float_remainder};
 built(Path, {Sev, Line, Fn, {mixed_operands, Op, Left, Right, Literal}}) ->
     (at(Sev, Path, Line, Fn))#{tag => mixed_operands, op => Op,
                                left => atom_to_list(Left),
@@ -1037,6 +1055,11 @@ message(#{tag := obligation_over_type_variable, file := P, line := L, column := 
 %% Only a divisor proved to be zero is refused, and the message says so,
 %% because a reader's next question is whether every call site needs a
 %% non-zero proof. It does not (ticket 23 §2).
+message(#{tag := float_remainder, file := P, line := L, column := C, function := Fn}) ->
+    {"~s:~p:~p: error: `%` in ~s has a `float` on both sides~n"
+     "  `%` is the remainder over two `int`s; over two floats it has no meaning~n"
+     "  the language has decided, and the platform's `rem` would crash.~n",
+     [P, L, C, Fn]};
 message(#{tag := mixed_operands, file := P, line := L, column := C, function := Fn,
           op := Op, left := Left, right := Right, literal := Lit}) ->
     {"~s:~p:~p: error: `~s` in ~s has ~s `~s` on its left and ~s `~s` on its right~n"
@@ -1255,7 +1278,8 @@ message(#{tag := return_not_declared, file := P, line := L, column := C, functio
     {"~s:~p:~p: error: ~s returns a value its signature does not declare~n"
      "  not covered by the declared return type:~n"
      "    ~s~n"
-     "  If `~s` is what you meant, fix the clause, not the signature.~n" ++ Fmt,
+     "  If `~s` is what you meant, fix the clause, not the signature.~n"
+     ++ float_spelling(Undeclared, Declared) ++ Fmt,
      [P, L, C, Fn, Undeclared, Declared | Args]};
 %% A destructuring bind is allowed exactly when this residual is empty, so it
 %% is provably irrefutable (ticket 33 site 5, 34).
