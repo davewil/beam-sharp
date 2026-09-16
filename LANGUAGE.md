@@ -490,8 +490,8 @@ of them is a union like any other, which is why `Verdict` above needs no special
 <!-- float: decided by ticket 69, wayfinder/issues/69-does-the-language-have-float.md; the no-flow rule by ticket 80; the conversion's spelling, Float.FromInt, by ticket 81; built by F51, ENG-378 -->
 
 **`float` is beside `int`, not above it.** A mean over a list of readings converts each operand
-on purpose, because `/` over two `int`s truncates (below, ticket 38) and the compiler writes no
-conversion of its own:
+on purpose, because `/` over two `int`s truncates (below) and the compiler writes no conversion
+of its own:
 
 <!-- see compiler/examples/Stats/stats.bs -->
 ```csharp
@@ -529,10 +529,11 @@ Mean(xs) -> Float.FromInt(List.Sum(xs)) / List.Length(xs)
 — *`/` in Mean has a `float` on its left and an `int` on its right — nothing converts between the
 two: write the conversion, `Float.FromInt(n)`, on the `int` side*. The same refusal meets a mixed
 pair at every arithmetic and comparison operator, in a guard as in a body, since `==` is the
-BEAM's exact equality (ticket 16) and `0 == 0.0` would be a comparison that is always false. Where the `int` side is a
-literal the message also offers its float spelling, `2.0` for `2`. `Float.FromInt` takes an
-`int` and nothing wider; the reverse direction, `Int.FromFloat`, is named by ticket 81 and not
+BEAM's exact equality and `0 == 0.0` would be a comparison that is always false. Where the `int`
+side is a literal the message also offers its float spelling, `2.0` for `2`. `Float.FromInt`
+takes an `int` and nothing wider; the reverse direction, `Int.FromFloat`, is named and not
 decided.
+<!-- the equality rule is ticket 16 §5; the reverse direction is ticket 81's deferral -->
 
 At the boundary a public `float` parameter is tested with `is_float`, so an `int` from outside
 goes the way an atom goes (§10); a foreign declaration returning `float` is guarded the same
