@@ -39,6 +39,7 @@
 (atom) @string.special.symbol
 
 (integer) @number
+(float) @number
 
 ; --- types -------------------------------------------------------------------
 (builtin_type) @type.builtin

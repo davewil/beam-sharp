@@ -234,6 +234,53 @@ constructs. The comparison family is `== != < > <= >=`; arithmetic is `+ - *`.
 
 <!-- ticket 08, ticket 20, ticket 44, F2 -->
 
+### The other number: `float`
+
+`int` is a bignum and `/` over two of them truncates, which is what a C# developer expects and
+what a mean over a list of readings does not want. `examples/Stats/stats.bs` converts on
+purpose:
+
+```
+public float Mean(list<int> samples)
+
+Mean([]) -> 0.0
+Mean(xs) -> Float.FromInt(List.Sum(xs)) / Float.FromInt(List.Length(xs))
+```
+
+```
+$ bsc --src-root examples examples/Stats Mean '[2, 4]'
+3.0
+```
+
+`float` is a part of the type **beside** `int`, never above it: `0` is refused where a `float`
+is declared, a `float` beside an `int` at an operator is refused naming the conversion, and the
+compiler writes no conversion of its own. `Float.FromInt(n)` is the author's — an entry under
+a reserved qualifier, written at the site as the BEAM's `float/1`, and not a cast, because C#'s
+cast is a family whose other members truncate and wrap. Between two floats `/` is the BEAM's own
+division; between two ints it stays `div`.
+
+A float literal in a head is one value under `=:=`, so `0.0` matches neither `0` nor, on
+OTP 27+, `-0.0`, and the rest of the part has no head to paste — a dispatch over `float` closes
+with a catch-all, as one over `atom` does:
+
+```
+public atom Verdict(float mean)
+
+Verdict(0.0) -> :empty
+Verdict(_)   -> :some
+```
+
+```
+$ bsc --src-root examples examples/Stats Check '[]'
+:empty
+```
+
+A float guard compares as the BEAM compares and credits nothing to exhaustiveness — the
+algebra carries no float intervals — so `Sign(x) when x < 0.0` needs the catch-all beneath it
+that `Fib(n) when n > 1` above does not.
+
+<!-- tickets 69, 80, 81, F51 -->
+
 ---
 
 ## 4. Refinements, and patterns that are relations
@@ -1535,7 +1582,6 @@ produce.
 | the UTF-8 entry check, `binary` → `string` | the one direction chapter 10 has no spelling for |
 | the behaviour contract checked as a type | Dialyzer does it at the boundary today |
 | `Map.Get`, and the `map<K, V>` type beside it | the name `Map` is reserved; its operations are not built |
-| `float` | no decided literal syntax; `1..5` currently only lexes as a range |
 | `cond`, or whatever serves a long ladder of unrelated conditions | open |
 
 The language's **name** is also open. `beam-sharp` is a working title.
@@ -1573,8 +1619,8 @@ The language's **name** is also open. `beam-sharp` is a working title.
 
 ## Appendix: the construct index
 
-**The corpus gate names 60 capabilities and fails by name when one has no example to look
-at.** All 60 are below, in the gate's own wording, so the two lists can be diffed by machine
+**The corpus gate names 62 capabilities and fails by name when one has no example to look
+at.** All 62 are below, in the gate's own wording, so the two lists can be diffed by machine
 — `compiler/bin/check-tour.sh` does exactly that, and this table is red the day the compiler
 grows a capability the tour has not met.
 
@@ -1588,6 +1634,8 @@ grows a capability the tour has not met.
 | a private function | `examples/Fib/fib.bs` | 5 |
 | a guard | `examples/Math/math.bs` | 3 |
 | a conjunction in a guard | `examples/Math/math.bs` | 3 |
+| a float literal | `examples/Stats/stats.bs` | 3 |
+| a conversion into a float | `examples/Stats/stats.bs` | 3 |
 | a refined type declaration | `examples/Wire/wire.bs` | 4 |
 | an interval pattern | `examples/Wire/wire.bs` | 4 |
 | a combined interval pattern | `examples/Wire/wire.bs` | 4 |
@@ -1655,6 +1703,7 @@ that it does not name:
 | the wildcard `_` | `examples/Math/math.bs` | 7 |
 | tuple type and tuple pattern | `examples/Readings/readings.bs` | 1 |
 | `int`, `atom`, `term` | `examples/Intake/intake.bs` | 15 |
+| `float`, and `/` as the BEAM's division over two of them | `examples/Stats/stats.bs` | 3 |
 | `list<T>` | `examples/Fib/fib.bs` | 5 |
 | `and`, `or`, `== != < > <= >=`, `+ - *` | `examples/Math/math.bs` | 3 |
 

@@ -103,7 +103,7 @@ has been withdrawn.
 | `bool` | `builtin(bool)` — the two-atom union `true \| false` | unqualified | **shipped** — a builtin like `int` and `string`; ticket 10 corrected 2026-09-03 to say so (67) | 10 |
 | `List.Sum` | the collection library — `List.Length`, `List.Reverse` beside it, **inlined at the site under the reserved `List`**, no beam shipped | **qualified** | **built** — F32. Which operations exist is breadth, out of scope; these three are the ones the corpus writes, and `Fold`/`Map`/`Filter` take the fun as an argument since F46 ([ENG-365](https://linear.app/davewil/issue/ENG-365), 2026-09-12) | 67, 17 §2, 75 |
 | `Term.Compare` | 16's universal-order escape, `(term, term) -> :lt \| :eq \| :gt`, under the reserved `Term` | **qualified** | **built** — F32 | 67, 16 |
-| `Float.FromInt` | the `int` to `float` conversion under the reserved `Float`, `int -> float`, inlined at the site as `erlang:float/1`; not a cast. C#'s `X.FromY` convention (`TimeSpan.FromSeconds`) is the name's source | **qualified** | **decided** 2026-09-15 (81), unbuilt — ships with [ENG-378](https://linear.app/davewil/issue/ENG-378), the float build. The reverse, `Int.FromFloat`, is named and not decided (81) | 81, 80, 69 |
+| `Float.FromInt` | the `int` to `float` conversion under the reserved `Float`, `int -> float`, written at the site as `erlang:float/1`; not a cast. C#'s `X.FromY` convention (`TimeSpan.FromSeconds`) is the name's source | **qualified** | **built** — F51 ([ENG-378](https://linear.app/davewil/issue/ENG-378), 2026-09-16), with the `float` type beside it. A `float` argument is refused: the signature is `int -> float`, and the reverse, `Int.FromFloat`, is named and not decided (81) | 81, 80, 69 |
 | `Map.Get` | the map operation under the reserved `Map`, alongside the `map<K, V>` type | **qualified** | **decided** 2026-08-25 (48), unbuilt — [ENG-324](https://linear.app/davewil/issue/ENG-324). The NAME is reserved as of F32 and the TYPE ships as of F33; the operations under it are not built, so `Map.Get` is refused today by the same table that answers `List.Sum`. 48 Q8 wants **two, assertive preferred**, and the assertive half has no spelling (`!` was settled out of B# identifiers) and no mechanism (`raise` is [ENG-293](https://linear.app/davewil/issue/ENG-293)) | 48, 67 |
 | `ValidateAs<T>` | codegen: validates a foreign term against `T`, returns `result<T, ValidationError>` | unqualified | **built** — F18 | 11, amended by 15 |
 | `ValidationError` | the reason: a path into the term plus the type expected there, the compiler-known record `{ Path: list<string>, Expected: string }`, tagged `:'ValidationError'` with no module | unqualified | **built** — F18; a record since F49 ([ENG-379](https://linear.app/davewil/issue/ENG-379)). The spelling of a path segment is F18's recorded assumption, not a decision. **Compiler-known** because its tag is minted by no module, which a `record` declaration cannot write, and **protected** because an obligation returns it | 15 §2, 79 |
@@ -280,7 +280,7 @@ Sorting the actual inventory against both axes:
 
 | Entry | ships out of the box | reachable unqualified |
 |---|---|---|
-| `int`, `bool`, `string`, `atom`, `term` | yes | yes — builtin |
+| `int`, `float`, `bool`, `string`, `atom`, `term` | yes | yes — builtin |
 | `list<T>`, `option<T>`, `result<T, E>`, `map<K, V>` | yes | yes |
 | `ValidateAs<T>`, `ParseAtom<T>`, `ToJson<T>` | yes | yes — codegen obligations |
 | `Map.Get`, `List.Map` | yes | **no** — qualified, and *inlined* (17 §2) |

@@ -172,7 +172,10 @@ The conversion is needed at all because of [38](38-division-and-modulo.md), not 
 
 - [ENG-378](https://linear.app/davewil/issue/ENG-378), the feature, is unblocked. Its delta is
   ticket 69's *if the answer is yes* paragraph; nothing in it changes under this answer, and the
-  operator table's mixed-pair refusal is the one addition.
+  operator table's mixed-pair refusal is the one addition. **Built 2026-09-16** as
+  [F51](../../compiler/features/F51-float.md): the refusal is `mixed_operands`, it reaches a
+  guard as well as a body, and the float zero in a head lowers to `+0.0` — a lowering detail,
+  so no ticket was raised.
 - The float zero in a head (`0.0` matches `+0.0` alone on OTP 27+; research 80) is owed on
   ENG-378 as a lowering, and becomes a ticket only if it is not one.
 - `LANGUAGE.md` §4's `float` row says the flow is refused; `CONTEXT.md`'s entry says it.

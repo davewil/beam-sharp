@@ -229,6 +229,7 @@ ToJson<T>|codegen|ToJson<int>(1)
 map<K, V>|type|map<atom, term>
 List.Sum|qualified|List.Sum([1, 2])
 Term.Compare|qualified|Term.Compare(1, 2)
+Float.FromInt|qualified|Float.FromInt(n)
 Map.Get|qualified|Map.Get([1], 1)
 EOF
 }

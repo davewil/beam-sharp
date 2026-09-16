@@ -130,6 +130,8 @@ publishes follow it.
 
 - Building it is [ENG-378](https://linear.app/davewil/issue/ENG-378), a feature; the compiler
   delta is Round 1's *if the answer is yes* paragraph, with the part count corrected to eight.
+  **Built 2026-09-16** as [F51](../../compiler/features/F51-float.md); `Mean([2, 4])` prints
+  `3.0`, and the decisions entry's *Unbuilt* is now history.
 - [Ticket 80](80-does-an-int-flow-where-a-float-is-expected.md) / ENG-377 blocks ENG-378.
 
 ## Decisions entry

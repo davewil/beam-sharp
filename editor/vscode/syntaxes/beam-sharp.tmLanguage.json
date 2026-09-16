@@ -94,8 +94,16 @@
     },
 
     "number": {
-      "name": "constant.numeric.integer.beam-sharp",
-      "match": "\\b[0-9]+\\b"
+      "patterns": [
+        {
+          "name": "constant.numeric.float.beam-sharp",
+          "match": "\\b[0-9]+\\.[0-9]+([eE][+-]?[0-9]+)?\\b"
+        },
+        {
+          "name": "constant.numeric.integer.beam-sharp",
+          "match": "\\b[0-9]+\\b"
+        }
+      ]
     },
 
     "field": {

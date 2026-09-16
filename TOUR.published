@@ -24,7 +24,20 @@
 # evidence here that is not self-reported.
 
 url       https://claude.ai/code/artifact/40f71cf4-d5d3-4b71-882c-ad73f630a03c
-sha256    0d48ea47b2e39f02fe8eb9a937e5f7cd9eeaed7ddeb73dcbd5a0f2a05d15716b
+sha256    dbb93b861b5ef5fa22a0e782fd50929dcca176ae032273cd1dac2242e675fb02
+verified  2026-09-16 (for F51, `float`, ENG-378) — chapter 3 gained a section, *The other number:
+          `float`*, quoting `examples/Stats/stats.bs` with two replayed transcripts (`Mean '[2, 4]'`
+          is `3.0`, `Check '[]'` is `:empty`) and the sentence that a float guard credits nothing.
+          The "Decided but not built" table lost its `float` row, which said *no decided literal
+          syntax* — the literal has been C#'s since ticket 69 resolved and is built now. The appendix
+          gained two rows, `a float literal` and `a conversion into a float`, and its own count moved
+          from 60 to 62, the rows added because part 2 of the gate goes red on the roster rows before
+          the tour has met them; the unnamed-forms table gained `float`. Parts 1 to 3 were green and
+          part 4 was red against the old stamp before the republish (version 25), and the live page
+          was read back in full first and still ended chapter 3 at the conjunction paragraph, carried
+          the `float` row in the table and said 60, so it was confirmed stale rather than assumed, and
+          the read showed a plain render of TOUR.md with nothing saved into it independently.
+          Published as version 26 on the first attempt.
 verified  2026-09-15 (for F49, `ValidationError` as a record, ENG-379) — chapter 15's third Intake
           transcript printed `(:error, (["[0]", ".Value"], "int"))` and its prose read the payload
           as that tuple; both now show the record, `{Kind = :'ValidationError', Expected = "int",

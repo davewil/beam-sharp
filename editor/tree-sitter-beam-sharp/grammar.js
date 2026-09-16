@@ -301,6 +301,7 @@ module.exports = grammar({
     // --- patterns ------------------------------------------------------------
     pattern: $ => choice(
       $.integer,
+      $.float,
       // F9 added the `string` TOKEN and never added it here, so a string
       // literal in a clause head — `Method("GET") -> :get`, which is F9's own
       // worked example — did not parse. It was invisible until the binary rule
@@ -445,6 +446,7 @@ module.exports = grammar({
 
     _expression_low: $ => choice(
       $.integer,
+      $.float,
       $.atom,
       $.boolean,
       $.variable,
@@ -686,6 +688,11 @@ module.exports = grammar({
     // it there for the same reason, that a lexer bent for one construct is a
     // worse thing to own than the gap.
     integer: _ => token(choice(/0[xX][0-9a-fA-F]+/, /[0-9]+/)),
+
+    // F51 (ticket 69): C#'s spelling, digits, a dot, digits, an optional
+    // exponent. The digit after the dot is required for the reason the lexer
+    // gives: `1..5` is an integer, a rest marker and an integer.
+    float: _ => token(/[0-9]+\.[0-9]+([eE][+-]?[0-9]+)?/),
 
     // F9 shipped strings on 2026-08-15 and this rule never followed, so
     // `check-corpus.sh` has rejected `label.bs` ever since — the grammar

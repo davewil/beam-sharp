@@ -247,6 +247,13 @@ demonstrated_surface() ->
      {"a string literal as a segment",           "<<\"[^\"]*\","},
      %% Hex, which F13 owed and ticket 30's table did not name.
      {"a hex integer literal",                   "0[xX][0-9a-fA-F]"},
+     %% F51 / ticket 69. A float literal is digits, a dot, digits; anchored on
+     %% the dot between digits, which no other form has — a rest marker is two
+     %% dots and a qualified name has letters on both sides.
+     {"a float literal",                         "[0-9]\\.[0-9]"},
+     %% Ticket 81. The conversion is written by the author, never by the
+     %% compiler, so the corpus owes a site that writes it.
+     {"a conversion into a float",               "Float\\.FromInt\\("},
      %% F46 / ticket 75. FOUR rows, because a function as a value is four
      %% sentences and the ticket counted them: the arrow as a type, the
      %% lambda as an expression, a name as a value, and a call through a bound

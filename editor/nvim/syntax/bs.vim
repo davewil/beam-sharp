@@ -57,6 +57,8 @@ syn match bsVariable  "\<[a-z][a-zA-Z0-9_]*\>"
 syn match bsType      "\<\%(list\|option\|result\)\>\ze\s*<"
 
 syn match bsNumber    "\<\d\+\>"
+" F51: a float is digits, a dot, digits and an optional exponent.
+syn match bsNumber    "\<\d\+\.\d\+\%([eE][+-]\=\d\+\)\=\>"
 
 " Exactly `_`. An identifier cannot start with an underscore -- the lexer has no
 " rule for one -- so `_foo` does not lex at all and is not matched here.

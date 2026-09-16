@@ -1,0 +1,35 @@
+// `float` is a part of the type beside `int`, never inside it (ticket 69), and
+// nothing flows between the two (ticket 80): `Mean([]) -> 0` under this
+// signature is refused, and so is `List.Sum(xs) / List.Length(xs)`, which
+// ticket 38 made truncating division over two ints. The conversion is written
+// where the author wants it, `Float.FromInt(n)` (ticket 81), and `/` between
+// two floats is the BEAM's own division.
+module Stats
+
+public float Mean(list<int> samples)
+
+Mean([]) -> 0.0
+Mean(xs) -> Float.FromInt(List.Sum(xs)) / Float.FromInt(List.Length(xs))
+
+// A float literal in a head is one value under `=:=`: `0.0` and not `0`, and
+// on OTP 27+ not `-0.0` either. The rest of the part has no head to paste, as
+// `atom \ :ok` has none, so the second clause is the catch-all a float
+// dispatch always ends with.
+public atom Verdict(float mean)
+
+Verdict(0.0) -> :empty
+Verdict(_)   -> :some
+
+// The value that reaches `Verdict` is the float `Mean` wrote, never an `int`
+// the compiler converted, so `Check([])` is `:empty`.
+public atom Check(list<int> xs)
+
+Check(xs) -> Verdict(Mean(xs))
+
+// A float guard compares as the BEAM compares and credits nothing to
+// exhaustiveness: the part carries no intervals, so a clause set over
+// `float` closes with a catch-all, as one over `atom` does.
+public atom Sign(float x)
+
+Sign(x) when x < 0.0 -> :negative
+Sign(_)              -> :nonnegative

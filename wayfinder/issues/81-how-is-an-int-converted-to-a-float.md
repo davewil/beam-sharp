@@ -147,7 +147,8 @@ Two things decided the shape, and one the name:
   type: `Float` joins `reserved_qualifiers/0`, `{'Float', 'FromInt', 1}` joins `reserved_table/0`
   with the signature `int -> float`, the emitter inlines `erlang:float/1`, and a user module named
   `Float` is refused at the call site by the rule that refuses one named `List`. Its example
-  program is rewritten to the entry.
+  program is rewritten to the entry. **Built 2026-09-16** as
+  [F51](../../compiler/features/F51-float.md), as written here.
 - `STANDARD-ENVIRONMENT.md` gains the row now, **decided** and unbuilt, so `check-status-claims.sh`
   has a status to read; `CONTEXT.md`'s *reserved qualifier* entry names `Float`.
 - The reverse direction is logged below with what it needs, and is asked when a program needs it.
