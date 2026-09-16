@@ -185,3 +185,12 @@ asks the lexer directly.
   mechanism the issue lists.
 - **`-x` where `x` is not `int` or `float`.** Typed `int`, as `0 - x` always was; a `term`
   operand at an operator was unchecked before this feature and is unchecked after it.
+
+## The clean pair
+
+**2026-09-16, at `beac239`.** `./bin/verify.sh` twice from a fresh `git clone` of the branch,
+each half its own command, run plainly with the pinned OTP 28.5 first on `PATH`: 44 of 44
+stages, 272 s, then 44 of 44, 282 s. An earlier pair at `a70ee71` stopped at stage 2 —
+`check-links.sh` naming three ticket citations in `LANGUAGE.md`'s new prose — and the review
+fixes after it moved the SHA twice more, so the pair above is the one that describes what
+landed. This paragraph is a docs-only commit on the verified SHA, as F50's was.
