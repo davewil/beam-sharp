@@ -421,6 +421,23 @@ teach you to write. A `Verdict` is `:pass | :fail`, so `(:pass, n)` is a two-tup
 people try on an `option<T>`, which is `T | :nothing` and **untagged**. The type is the half you
 do not have when you make it, so the message is the half that hands it over.
 
+The subject's type does not have to be one the file declares. A built-in type has members too,
+and a pattern outside them is the same dead arm:
+
+```csharp
+public atom Route(string method)
+
+Route(method) -> method switch {
+    :get   => :read,
+    "POST" => :write,
+    _      => :reject
+}
+```
+
+— *arm 1 of this switch in `Route` matches no value; the subject's type is `string`, and this
+arm's pattern is not a member of it.* An HTTP method arrives as a string. `:get` is how a router
+written against atoms spells it.
+
 **And an arm can be dead because of its guard rather than its pattern.** Then the pattern is a
 perfectly good member of the subject's type and the guard admits nothing, which is
 `unsatisfiable_arm_guard` — a third repair, and a message that deliberately does *not* name the
@@ -439,6 +456,12 @@ Grade(n) -> n switch {
 subject's type, it is the guard that admits nothing.* A guard the compiler **cannot read** — one
 comparing two variables, say — is not this, and is never reported: an arm is judged on its pattern
 alone there, rather than the compiler announcing its own ignorance as your mistake.
+
+An arm is reported for at most one of these three. The compiler asks, in order: is the pattern a
+member of the subject's type; does the guard admit any value; does an earlier arm already match
+everything this one matches. The first *no* is the diagnostic. An arm whose pattern is outside the
+subject's type matches nothing, so every arm before it covers it trivially; it is `vacuous_arm`,
+and not also `unreachable_arm`.
 
 **A name in an arm pattern is introduced, never matched against.** An arm whose pattern is a bare
 name already in scope is `rebinding` — the rule §2 states for clause heads, reaching arms

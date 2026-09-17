@@ -1,7 +1,7 @@
 # 71 — A worked example narrower than the rule it illustrates
 
 Type: spec shape
-Status: claimed — [ENG-348](https://linear.app/davewil/issue/ENG-348). Raised 2026-09-10 by the
+Status: resolved 2026-09-17 — [ENG-348](https://linear.app/davewil/issue/ENG-348). Raised 2026-09-10 by the
 round 3 clean-room audition
 Blocked by: —
 
@@ -264,6 +264,31 @@ contrast example would also carry the `erlc` leak filed as
 [ENG-386](https://linear.app/davewil/issue/ENG-386): this program, and §5's `Which` example
 today, print `erlc`'s *"this clause cannot match"* warning beside B#'s.
 
+**A1 — yes. A2 — yes** (David, 2026-09-17 09:37). Resolved in one round on two questions.
+
+## The answer
+
+**A diagnostic owes one worked example per rule, plus one over a subject the file does not
+declare whenever the rule asks a question of the subject's type.** Across every `diagnoses:`
+fence in `LANGUAGE.md` on 2026-09-17, that condition reaches `vacuous_arm` only, so the general
+answer cost one fence.
+
+**And where sibling diagnostics can both describe one arm, the text states which one is
+reported.** For the three dead-arm diagnostics that is the order `redundancy/4` already asks
+in: membership, then guard, then coverage; the first failure is the only tag.
+
+Landed in `LANGUAGE.md` §5 in the resolving commit, and `PACKET.md` regenerated from it:
+
+- after the `Score` paragraph, the `Route(string method)` example, a second
+  `<!-- diagnoses: vacuous_arm -->` fence, graded by `check-language.sh`;
+- after the `unsatisfiable_arm_guard` paragraph, the order in one paragraph.
+
+*Tightened on landing:* the round's last sentence said "an arm that matches no value is covered
+by every arm before it, so it is `vacuous_arm`". An arm whose guard admits nothing also matches
+no value, and it is `unsatisfiable_arm_guard`. The landed sentence names the pattern case: "an
+arm whose pattern is outside the subject's type matches nothing, so every arm before it covers it
+trivially; it is `vacuous_arm`, and not also `unreachable_arm`."
+
 ## What follows the answers, and is not asked in this round
 
 - **The audition's comparability.** Changing §5 changes the packet, so a round 6 on `h11` is
@@ -274,4 +299,21 @@ today, print `erlc`'s *"this clause cannot match"* warning beside B#'s.
 
 ## Decisions entry
 
-<!-- filled when answered -->
+<!-- This ticket's entry. Read whole, here; the map (ENG-165) carries one line. -->
+
+```decisions-entry
+- [A worked example narrower than the rule it illustrates](issues/71-a-worked-example-narrower-than-its-rule.md)
+  — **A diagnostic owes one worked example per rule, plus one over a subject the file does not
+  declare when the rule asks about the subject's type; and where sibling diagnostics could both
+  describe one arm, the text says which is reported.** Raised 2026-09-10 by the round 3
+  clean-room audition, resolved 2026-09-17 in one round on two questions. `h11-vacuous-arm`
+  (`:small` against `int`) failed in rounds 3, 4 and 5. The kept checkers showed two gaps:
+  Haiku 4.5 skipped vacuity unless the file enumerates the subject, naming §5's `Score` example
+  as its model; `gpt-5.6-terra` tagged a vacuous `int` arm `unreachable_arm` as well, because an
+  empty arm is trivially covered and §5 never said an arm gets one tag. The compiler already
+  asks membership, guard, coverage in that order (`redundancy/4`); no compiler delta. §5 gained
+  `Route(string method)` with `:get` as a second `vacuous_arm` fence — `string`, not `int`, so the
+  held-out case keeps a subject no §5 example uses — and one paragraph stating the order.
+  `PACKET.md` regenerated; rounds after this one are not comparable to 3–5 on `h11`, which is the
+  point. Found while probing: the `erlc` warning beside `unreachable_arm`, ENG-386.
+```
