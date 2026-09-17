@@ -1001,8 +1001,10 @@ Verdict(b) -> b switch {
 ```
 
 — *`Verdict` returns a value its signature does not declare; not covered by the declared return
-type: `0`.* Where the clauses justify a wider signature, the message also offers the one they
-support, so the fix can be to the declaration rather than to the body.
+type: `0`. If `atom` is what you meant, fix the clause, not the signature.* The message leads with
+the clause, because a mismatch is usually a clause that is wrong. Where what the clauses return
+has a spelling, it then offers the wider signature they justify as the alternative. `0` has
+none, so here it says that no signature is offered.
 
 **An arm's body is checked against what it calls.** A value that reaches an arm still has to
 satisfy the functions that arm hands it to; if it does not, that is `arg_not_accepted`, reported

@@ -586,7 +586,9 @@ payload a map, so it grows by adding keys: `declared`, `replaces := #{declared, 
 declared type was not half of the refused pair. The `declared_form` sentence stands until a
 program shows it misleading. **Left for David:** `LANGUAGE.md` §5 (lines 821-823) still says the
 message offers the wider signature *"so the fix can be to the declaration rather than to the
-body"*, which Round 3 reversed. `PACKET.md` is cut from that text, so the edit waits for him.
+body"*, which Round 3 reversed. `PACKET.md` is cut from that text, so the edit waits for him. *Done
+2026-09-17 at David's direction: §5 now says the message leads with the clause, and
+`PACKET.md` was regenerated (ENG-346).*
 
 **Answered:** *"The readability should be a named type, the lexer, complier etc, should handle the
 hidden tag if required."* So the placeholder atoms in the proposal above are out: the author
