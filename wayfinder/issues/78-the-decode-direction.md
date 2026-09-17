@@ -39,7 +39,8 @@ close the decree without leaving this half owed.
   `ParseAtom<T>` is the check that a runtime-built value is one of `T`'s atoms, and the atoms a
   type names exist in the table by construction.
 - **67** — an obligation is a compiler-known entry, inlined at its site.
-- **69 is open** — `float`. A JSON number with a fraction decodes to one; this ticket inherits 69.
+- **69** — `float`, resolved 2026-09-15 and built as F51 (ENG-378). A JSON number with a fraction
+  decodes to one; `ValidateAs<float>` is F51's.
 
 ## The program
 

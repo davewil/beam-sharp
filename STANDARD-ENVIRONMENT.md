@@ -109,20 +109,17 @@ has been withdrawn.
 | `ValidationError` | the reason: a path into the term plus the type expected there, the compiler-known record `{ Path: list<string>, Expected: string }`, tagged `:'ValidationError'` with no module | unqualified | **built** — F18; a record since F49 ([ENG-379](https://linear.app/davewil/issue/ENG-379)). The spelling of a path segment is F18's recorded assumption, not a decision. **Compiler-known** because its tag is minted by no module, which a `record` declaration cannot write, and **protected** because an obligation returns it | 15 §2, 79 |
 | `ParseAtom<T>` | codegen: parses to a **finite atom union**; a cofinite `T` is an error | unqualified | **built** — F39. The argument is a `string` or a `binary`; a `term` is refused, since the match is over the members' printed names and a value of another kind could only answer `:nothing` | 10 §4 |
 | `ToJson<T>` | codegen: a value of `T` as the platform's JSON, returned as a `string`; a member with no wire form — a tuple, an arrow, `binary`, `term` — is refused at the declaration, naming it | unqualified | **built** — F50 ([ENG-375](https://linear.app/davewil/issue/ENG-375)). The value is checked against `T` before it is encoded, as ticket 18 §1(c) owes generated code. *This row replaces `a serialisation encoder` — **decided** — removed 2026-09-15 when F50 built it: two rows for one entry is how a status goes unread, which ticket 48's row did for nine days* | 16 §4, 77 |
-| `ToExistingAtom` | the genuine interop escape — a peer node's reply, a dynamically named atom | unqualified | **owed** — must be respelled | 10 §5, 15 §1 |
+| `ToExistingAtom` | the genuine interop escape — a peer node's reply, a dynamically named atom | unqualified | **decided** 2026-09-03 (67), unbuilt — returns `result<atom, string>`; [ENG-294](https://linear.app/davewil/issue/ENG-294) | 10 §5, 15 §1, 67 |
 | `string` | `binary` refined by valid UTF-8 | unqualified | **built** — F9 as a *type*; F18 generates the membership check **inside `ValidateAs<T>`** and nowhere else, so a term from outside can now establish the property that only a literal could before | 20 |
 | OTP message shapes | `Down`, `Exit`, `Timeout` | unqualified | **decided** | 14 §6 |
 
-**`ToExistingAtom` is owed, not merely unbuilt.** Ticket 10 §5 wrote it as `atom | :nothing`, and
-ticket 15 §1 later made exactly that shape **an error at the declaration** — a singleton absorbed
-into a cofinite top, so the failure channel collapses and `atom | :nothing` *is* `atom`. Two
-known-good answers exist (a tagged failure member, or a success type narrower than the atom top)
-and neither has been chosen. **Do not implement it from this file.**
-
-**And that refusal is now the compiler's, not only the ticket's** (F31 / ENG-272, 2026-08-28).
-`type M = atom | :nothing` is rejected at the declaration, in the same spelling this entry is
-written in — so `ToExistingAtom` cannot be implemented as written even by accident. The choice
-between the two known-good answers is still open, and is still not this file's to make.
+**`ToExistingAtom` returns `result<atom, string>`** (ticket 67, 2026-09-03). Ticket 10 §5 wrote it
+as `atom | :nothing`, and ticket 15 §1 later made exactly that shape **an error at the declaration**
+— a singleton absorbed into a cofinite top, so the failure channel collapses and `atom | :nothing`
+*is* `atom`. That refusal is the compiler's as well (F31 / ENG-272, 2026-08-28). Of the two
+known-good answers, a success type narrower than `atom` does not exist, so 67 chose the tagged
+failure. The build is [ENG-294](https://linear.app/davewil/issue/ENG-294); until it lands the name
+is refused.
 
 **One hard rule stratum 2 has and stratum 1 does not**: ticket 27 §8 — *a codegen obligation
 requires a ground type argument*. So `ValidateAs<TSource>` inside a polymorphic function is

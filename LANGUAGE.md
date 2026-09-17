@@ -2201,9 +2201,10 @@ about generation rather than about taste. `ParseAtom<atom>(s)` and `ParseAtom<:a
 both refused; the second is the one worth stating, since its atom part *is* finite and only the
 whole type tells you the parse could never produce the `int` half.
 
-`ToExistingAtom` is the remaining name, and it is **owed rather than merely unbuilt**: it asks
-the atom table by construction, so it returns bare `atom` and cannot make the promise above.
-<!-- decided by ticket 10 §4; built as F39 -->
+`ToExistingAtom` is the remaining name, **decided and unbuilt**: it returns `result<atom, string>`.
+It asks the atom table rather than a finite member list, so it cannot make the promise above, and
+`atom | :nothing` would collapse to `atom`, so its failure is a tagged member instead.
+<!-- decided by ticket 10 §4; built as F39. ToExistingAtom's return decided by ticket 67 -->
 
 ### `ToJson<T>` — a value on the wire
 

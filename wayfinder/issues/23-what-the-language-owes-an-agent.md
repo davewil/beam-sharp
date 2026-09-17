@@ -3,6 +3,8 @@
 Type: grilling
 Status: resolved 2026-08-13. **Build state measured 2026-08-23** — six of twelve sections were
 built when it was measured, and **§8b shipped the same day as F25**, making it seven.
+Since then: **§7 was overturned** by ticket 22 the same day, and **§5 was built** as F47 on
+2026-09-15 ([ENG-298](https://linear.app/davewil/issue/ENG-298)). §3 and §6 are the buildable sections left.
 Blocked by: 11 — resolved
 
 ## BUILD STATE — measured 2026-08-23 at `da58c74`

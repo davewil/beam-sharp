@@ -14,7 +14,8 @@
                 closed 2026-08-13
 **Unblocks**    nothing. It is the only item on 23 that was buildable without another ticket first:
                 §3 and §6 are unbuilt, §5 waits on ticket 16 §4, §7 waits on ticket 22's spelling,
-                and §8a/§9 are unreachable because beam-sharp has no generator
+                and §8a/§9 are unreachable because beam-sharp has no generator. *Since then: §7 was
+                overturned by ticket 22 the same day, and §5 was built as F47 on 2026-09-15*
 **Depends on**  F16 (the diagnostic as a term, and `contractual/0`), F5 (site 4, the clause return
                 check that raises `return_not_declared`), F12 (`#fn.vis`, so the synthesised line
                 carries `public` exactly when the source does)
