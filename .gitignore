@@ -21,6 +21,9 @@ erl_crash.dump
 # compiler build artefacts
 compiler/_build/
 
+# `gleam` build artefacts, same reasoning as compiler/_build/ above
+aoc/bench/gleam/build/
+
 # `rebar3` run from the WRONG DIRECTORY writes an empty `[].` lock file wherever
 # it was invoked, and `git add -A` then commits it. It happened twice in one
 # session — once at the repo root, once in the tree-sitter grammar directory —
