@@ -151,7 +151,7 @@ accumulator this exemplar would reach for first — same wall.
 
 ### Probe 5 — does the "sixth gen_server" shape at least compile?
 
-Five files under `async-probes/bsc-probes/05-gen_server-batch-coordinator/Shop/Batch/`: a
+Five files under `async-probes/bsc-probes/05-gen_server-batch-compiles/Shop/Batch/`: a
 `[module: GenServer]` aggregate whose `Init` spawns one worker per input (state a
 `list<(term, string)>`, not a map — dodging probe 4's wall the way 25d's `opts.bs` dodged it with a
 proplist) and whose `HandleInfo` removes a pid from the pending list when it hears from it.
