@@ -1,7 +1,7 @@
 # 74 — What does a failed boundary guard become under a declared `result<T, foreign_error>` channel?
 
 Type: grilling
-Status: open — [ENG-362](https://linear.app/davewil/issue/ENG-362). Raised 2026-09-11 by the F42
+Status: claimed — [ENG-362](https://linear.app/davewil/issue/ENG-362). Raised 2026-09-11 by the F42
 build ([ENG-357](https://linear.app/davewil/issue/ENG-357))
 Blocked by: —
 
