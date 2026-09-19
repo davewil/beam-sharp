@@ -187,6 +187,49 @@ Two things the survey did settle:
   rejected narrowing on measured grounds: `gen_server:call` to a dead process raises
   `exit({noproc, …})` *in the caller's own process*, so *"an error-only wrapper would fail to
   catch the commonest foreign failure on the platform"*. The catch stays wide.
+### Tier 1, surveyed second — and it reaches `erpc`'s rule independently
+
+The first survey went to the BEAM, Elm and the decoder libraries and skipped **C#**, which the
+borrow heuristic ranks *first* (12 §5: *"A tier-2 borrow — Elixir's — not an invention and not
+C#'s `throw`"*). C#'s analogue is P/Invoke return marshalling: a declared managed return type is a
+claim about a value the runtime did not produce.
+
+**What .NET checks: the declaration, never the value.** Blittable returns — every integer width,
+`IntPtr`, `Single`, `Double` — *"don't require conversion"* and get no check at all.
+`MarshalDirectiveException` is a refused *directive*, not a refused value, and the one
+return-specific rule is also declaration-level: *"Platform invoke doesn't support nonblittable
+structures as return types"* — a closed admissible set at the return position, which is F40's
+shape, not F42's. `LibraryImport`'s source generator moves that same refusal to **compile time**
+(`SYSLIB1051`, `SYSLIB1052`, which name *"the return value of method"*), and still emits no value
+test. **So tier 1 supports F40 and offers nothing for F42.**
+
+**But on the question this ticket asks, tier 1 answers, and it answers as `erpc` does.** Measured
+by reflection on the SDK installed here, `9.0.306`:
+
+```
+SEHException               SEHException -> ExternalException -> SystemException -> Exception
+COMException               COMException -> ExternalException -> SystemException -> Exception
+MarshalDirectiveException  MarshalDirectiveException -> SystemException -> Exception
+
+catch (ExternalException) catches SEHException?               True
+catch (ExternalException) catches MarshalDirectiveException?  False
+```
+
+Everything coming *out of* native code sits under `ExternalException`. The marshaller's own
+complaint sits outside that subtree, so **the catch that takes the callee's failures does not take
+the mechanism's own.** `erpc` reaches the same rule by the reason's shape, .NET by subtyping: two
+platforms, two mechanisms, one rule.
+
+**In B# the wrapper is that catch.** So the rule reads directly onto the arms: the channel arm puts
+the refusal inside it, the tagged arm puts it inside it wearing a label, and only the crash arm
+keeps it out. **The answer is a borrow after all** — tier 1 and tier 2 agreeing — rather than the
+invention the first survey made it look like.
+
+One structural note worth keeping: **C# never puts both shapes in one declared type.** `PreserveSig`
+is not one signature with a switch but two different ones — the declared return is either the
+channel entirely (an `int` HRESULT the author inspects) or the success member alone
+(`void` / `[out, retval]`). That is why C# never has the collision this ticket is about.
+
 - **Elm refuses the question rather than answering it.** A channelled port declaration is refused
   at the declaration outright, and the one admissible type with an absence member throws rather
   than delivering the absence — but the throw lands on the JavaScript supplier's side where Elm
