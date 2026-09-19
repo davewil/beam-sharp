@@ -1001,9 +1001,10 @@ expr({e_raise, L, Reason}, C) ->
 %% so the refusal must not enter the channel. The catch's own
 %% `(:error, (Class, Reason))` inhabits the declared type and passes the
 %% guard, which is why a real failure still travels the channel unchanged.
-%% Nesting them the other way would make the two indistinguishable — the
-%% shape OTP froze in `rpc` and replaced with `erpc`, and the one .NET avoids
-%% by keeping `MarshalDirectiveException` outside `ExternalException`.
+%% Nesting them the other way makes the two indistinguishable. OTP reached the
+%% same rule in `erpc`, which separates its own failure from the callee's by
+%% the reason's shape, and .NET in keeping `MarshalDirectiveException` outside
+%% `ExternalException`.
 expr({e_foreign_call, L, Mod, Fn, As}, C) ->
     Call = {call, L, {remote, L, {atom, L, Mod}, {atom, L, Fn}},
             [expr(A, C) || A <- As]},

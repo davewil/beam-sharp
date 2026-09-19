@@ -284,8 +284,9 @@ a_real_exception_still_arrives_through_the_channel_test() ->
 %% asserted rather than the shape of the emitted forms. `file:read_file/1`
 %% returns `(:ok, binary)`, which inhabits neither `binary` nor
 %% `(:error, foreign_error)` — the declaration is wrong, and before this
-%% feature it printed the value and exited 0. The file read is this test's own
-%% source, so the program has something real to open on any machine.
+%% feature it printed the value and exited 0. The path handed to `Slurp` is the
+%% `Reader.bs` this test just placed, so the program has a real file to open on
+%% any machine.
 the_cli_reports_the_crash_on_a_channelled_return_test() ->
     Src = "module Reader\n"
           "using :file {\n"

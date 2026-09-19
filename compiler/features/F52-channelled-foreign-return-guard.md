@@ -1,9 +1,11 @@
 # F52 — the boundary guard on a channelled foreign return
 
 **Status**      **done 2026-09-19** — 3 tests in `foreign_guard_tests` (F52.1–F52.3); three
-                abstract-code assertions in `foreign_wrapper_tests` moved off the bare `try`
-                shape they read the wrapper from, and now pin the *order* rather than the
-                presence; 1011 in the suite, up from 1008. No new gate: no gate reads a
+                abstract-code assertions in `foreign_wrapper_tests` expected the wrapper's
+                `try` as the body's outermost node and now expect the guard's `case`, with a
+                header note that the read no longer separates a channelled call from an
+                unchannelled one and which behavioural tests do; 1011 in the suite, up from
+                1008. No new gate: no gate reads a
                 program's runtime output, the same limit F42 recorded, so the crash is
                 asserted at the loaded module and through the CLI and `check-language.sh`
                 compiles the `Reader` block §11 gained. `./bin/verify.sh` green **twice from
@@ -99,8 +101,8 @@ $ bsc examples/Foreign Parse '<<"41">>'
 41
 ```
 
-F52.2 pins this at the loaded module — it was green *before* the implementation and had to stay
-green after, which is what makes it a regression test rather than a restatement.
+F52.2 pins this at the loaded module. It was green before the implementation and had to stay green
+after, so it guards the channel against the guard rather than asserting the new behaviour.
 
 ## Notes
 
@@ -113,5 +115,6 @@ F42 recorded, so the behavioural check is F52.3 through the CLI.
 module named `Json`, dated 2026-08-21 and matched by `.gitignore`'s `compiler/*.beam` — sat in
 `compiler/` and shadowed stdlib's `json` on macOS's case-insensitive filesystem, so
 `json:encode/1` was undefined and 11 `diagnostic_json_tests` failed on a clean tree at master.
-Invisible to git and to Linux CI. It is the second sighting of this shape; the first is `C.beam`
-shadowing stdlib's `c` when `erl` is run from `compiler/`. Filed as [ENG-391](https://linear.app/davewil/issue/ENG-391).
+Invisible to git and to Linux CI. The same shape has bitten once before — `C.beam` shadowing
+stdlib's `c` when `erl` is run from `compiler/` — which is why it is filed rather than noted:
+[ENG-391](https://linear.app/davewil/issue/ENG-391).
