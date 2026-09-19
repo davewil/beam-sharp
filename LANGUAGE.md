@@ -2464,15 +2464,41 @@ Widen(x) -> :erlang.float(x)
 exists to rule out, at every foreign declaration. A `term` return gets no guard at all, since nothing
 it says can be false.
 
-**Owed:** the guard on a call whose declaration names the channel. Declaring
-`result<binary, foreign_error>` over `file:read_file/1` compiles and runs, and hands back
-`(:ok, <<...>>)` — a value inhabiting neither arm of the type its author declared — because the
-wrapper catches a throw that never comes and nothing inspects the value that does. A wrong channel
-is a wrong declaration like any other. What the guard does on that call is an open question:
-`foreign_error` is three exception classes, and a wrong-typed value is not an exception, so whether
-the refusal crashes or arrives through the channel is not yet decided, and the guard is built once
-it is.
-<!-- the open question is ticket 74, wayfinder/issues/74-a-failed-guard-under-a-declared-channel.md -->
+### Declaring a channel does not exempt the value from the check
+
+The same guard runs where the declaration names a failure channel, and a refused value crashes
+there too. `file:read_file/1` never raises — it returns `(:ok, binary)` or `(:error, atom)` — so
+declaring it `result<binary, foreign_error>` is a wrong declaration like any other:
+
+```csharp
+module Reader
+
+using :file {
+    result<binary, foreign_error> read_file(binary path)
+}
+
+public result<binary, foreign_error> Slurp(binary path)
+
+Slurp(path) -> :file.read_file(path)
+```
+
+**shipped** — F52. `bsc Reader.bs Slurp '<<"/etc/hosts">>'` prints
+`crashed: case_clause (:ok, "...")` and exits 1. Until 2026-09-19 it printed the tuple and exited
+0, because the wrapper caught a throw that never came and nothing inspected the value that did.
+
+**The channel still carries what it was declared for.** The guard wraps the wrapper rather than
+sitting inside it, so a real exception is caught, becomes `(:error, (Class, Reason))`, and passes
+the guard — that tuple inhabits the declared type. `examples/Foreign`'s `Parse` is unchanged:
+`bsc examples/Foreign Parse '<<"abc">>'` still prints `(:error, (:error, :badarg))`.
+
+**The order is the decision.** A channel is declared for the *callee's* exceptions; a wrong-shaped
+return is not one of them. Putting the refusal into the channel would make it indistinguishable
+from a failure the callee actually raised — `Parse`'s own `Diagnose` would answer `:not_a_number`
+for a value nothing threw. Both of this language's borrow sources keep a mechanism's own failure
+out of the catch its callee's failures travel through: OTP's `erpc` separates them by the reason's
+shape, and .NET by exception subtyping, where `catch (ExternalException)` takes a native `SEHException`
+and not the marshaller's own `MarshalDirectiveException`.
+<!-- the channelled guard is F52, ticket 74 / ENG-362, built as ENG-390 -->
 <!-- the unchannelled guard is F42, ENG-357 -->
 
 ## 12. Being called from Erlang and Elixir

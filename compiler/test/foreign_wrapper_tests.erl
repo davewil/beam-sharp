@@ -12,6 +12,14 @@
 %%% one call has a `try` and its neighbour does not is what makes the asymmetry
 %%% visible in one place. `ffi_tests:a_foreign_call_is_a_remote_call_test` set
 %%% that precedent for the same reason.
+%%%
+%%% SINCE TICKET 74 (ENG-362, 2026-09-19) THEY ALSO PIN THE ORDER. A channelled
+%%% call is guarded too, and the guard wraps the wrapper — outermost `case`,
+%%% `try` inside it — so the refusal never enters the channel. The nesting is
+%%% the whole of that decision and it has no observable value of its own: both
+%%% orders compile and both return the same thing on success, so only the
+%%% emitted shape distinguishes them here. What the two orders DO to a wrong
+%%% value is asserted behaviourally in `foreign_guard_tests` (F52).
 
 -module(foreign_wrapper_tests).
 
@@ -107,11 +115,30 @@ wraps_only_where_the_channel_is_declared_test() ->
     {ok, _} = compile(wrapped_src()),
     {ok, {_, [{abstract_code, {_, Forms}}]}} =
         beam_lib:chunks(?OUT ++ "/Fw.beam", [abstract_code]),
-    ?assertEqual([{'try'}], shapes('Parse', Forms)),
+    %% Since ticket 74 the channelled call is guarded too, and the ORDER is the
+    %% decision: the guard's `case` is outermost and the wrapper's `try` sits
+    %% inside it, so a value the guard refuses is not caught by the wrapper.
+    ?assertEqual([{'case'}], shapes('Parse', Forms)),
+    ?assert(has('try', 'Parse', Forms)),
     %% `{'case'}` and not `{call}` since F42: an unchannelled call is the
     %% subject of the boundary guard's `case`, and the shape that must NOT
     %% appear here is the `try`.
-    ?assertEqual([{'case'}], shapes('Size', Forms)).
+    ?assertEqual([{'case'}], shapes('Size', Forms)),
+    ?assertNot(has('try', 'Size', Forms)).
+
+%% Does this function's body contain a node with this tag, at any depth? Read
+%% beside `shapes/2`, it distinguishes "no wrapper" from "a wrapper nested
+%% inside the guard", which the outermost tag alone cannot.
+has(Tag, Name, Forms) ->
+    Bodies = [Node || {function, _, N, _, Clauses} <- Forms, N =:= Name,
+                      {clause, _, _, _, [Node]} <- Clauses],
+    count(Tag, Bodies) > 0.
+
+count(Tag, T) when is_tuple(T), element(1, T) =:= Tag ->
+    1 + count(Tag, tuple_to_list(T));
+count(Tag, T) when is_tuple(T) -> count(Tag, tuple_to_list(T));
+count(Tag, L) when is_list(L)  -> lists:sum([count(Tag, E) || E <- L]);
+count(_, _)                    -> 0.
 
 %% The outermost node of a function's single-clause body, as a one-element tag.
 shapes(Name, Forms) ->
@@ -369,8 +396,12 @@ a_value_returned_declaration_gets_no_wrapper_test() ->
     %% The two value-returned declarations get the boundary guard's `case`
     %% (F42) and no `try`; only the channelled one gets the `try`.
     ?assertEqual([{'case'}], shapes('Slurp', Forms)),
+    ?assertNot(has('try', 'Slurp', Forms)),
     ?assertEqual([{'case'}], shapes('Ex', Forms)),
-    ?assertEqual([{'try'}], shapes('Parse', Forms)).
+    ?assertNot(has('try', 'Ex', Forms)),
+    %% The channelled one keeps its `try`, now inside the guard (ticket 74).
+    ?assertEqual([{'case'}], shapes('Parse', Forms)),
+    ?assert(has('try', 'Parse', Forms)).
 
 %% BOTH CHANNELS AT ONCE, which had no form at all before this ticket: a call
 %% that returns `{error, Reason}` as a value AND can throw. The algebra keeps the
@@ -387,4 +418,5 @@ both_channels_in_one_declaration_test() ->
     {ok, _} = compile(Src),
     {ok, {_, [{abstract_code, {_, Forms}}]}} =
         beam_lib:chunks(?OUT ++ "/Fvb.beam", [abstract_code]),
-    ?assertEqual([{'try'}], shapes('Go', Forms)).
+    ?assertEqual([{'case'}], shapes('Go', Forms)),
+    ?assert(has('try', 'Go', Forms)).

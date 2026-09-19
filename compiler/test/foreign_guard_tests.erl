@@ -16,10 +16,14 @@
 %%% value beyond every value passing, and the sibling assertion that a `term`
 %%% declaration emits no `case` at all is what makes that visible.
 %%%
-%%% What is NOT asserted, deliberately: a foreign return declared
-%%% `result<T, foreign_error>` is not guarded by this feature. What a failed
-%%% guard becomes under a declared channel is ticket 74's question, and a test
-%%% pinning the unguarded arm would certify the missing check as intended.
+%%% THE CHANNELLED RETURN IS GUARDED TOO, since ticket 74 (ENG-362, resolved
+%%% 2026-09-19): a refused value crashes whether or not the declaration names
+%%% a failure channel, because the channel was declared for the callee's
+%%% exceptions and a wrong-shaped return is not one. The guard wraps the F19
+%%% wrapper, so the refusal never enters the channel; the F52 tests at the
+%%% foot of this file are that arm. Until 74 was answered this header recorded
+%%% the unguarded arm as deliberately unasserted, because a test pinning it
+%%% would have certified the missing check as intended.
 
 -module(foreign_guard_tests).
 
@@ -244,3 +248,55 @@ a_throw_inside_the_call_is_still_that_throw_test() ->
     M = build_and_load(Src, 'Sz'),
     ?assertEqual(3, M:'Size'(<<"abc">>)),
     ?assertError(badarg, M:'Size'(not_a_binary)).
+
+
+%%% ---------------------------------------------------------------------------
+%%% F52.1 – F52.3 — the channelled return (ticket 74, ENG-362 / ENG-390)
+%%%
+%%% `result<T, foreign_error>` names a channel, so F19 wraps the call in a
+%%% `try`. Ticket 74 decided the guard wraps that wrapper rather than sitting
+%%% inside it: the callee's exceptions travel the channel, the guard's own
+%%% refusal does not. Both tiers of the borrow heuristic keep a mechanism's
+%%% failure out of the catch its callee's failures travel through — OTP's
+%%% `erpc` by the reason's shape, .NET by subtyping — and here the wrapper is
+%%% that catch.
+%%% ---------------------------------------------------------------------------
+
+%% F52.1. THE ARM ENG-357 LEFT UNBUILT. `hd/1` declared `result<int,
+%% foreign_error>` returns whatever the list holds; an int inhabits the
+%% declared type and a float inhabits neither member, so it crashes exactly as
+%% it does with no channel declared.
+a_channelled_declaration_refuses_a_value_outside_its_type_test() ->
+    First = first("result<int, foreign_error>"),
+    ?assertEqual(3, First(3)),
+    ?assertError({case_clause, 3.0}, First(3.0)).
+
+%% F52.2. AND THE CHANNEL STILL CARRIES WHAT IT WAS DECLARED FOR. `hd([])`
+%% raises `badarg`, the wrapper catches it, and `(:error, (:error, :badarg))`
+%% is in the declared type — so the guard passes it through. This is the
+%% assertion that would fail if the guard were placed inside the `try`, or if
+%% it ate the channel.
+a_real_exception_still_arrives_through_the_channel_test() ->
+    M = build_and_load(src("result<int, foreign_error>"), 'Fg'),
+    ?assertEqual({error, {error, badarg}}, M:'First'([])).
+
+%% F52.3. Ticket 74's own program through the CLI, so what the author sees is
+%% asserted rather than the shape of the emitted forms. `file:read_file/1`
+%% returns `(:ok, binary)`, which inhabits neither `binary` nor
+%% `(:error, foreign_error)` — the declaration is wrong, and before this
+%% feature it printed the value and exited 0. The file read is this test's own
+%% source, so the program has something real to open on any machine.
+the_cli_reports_the_crash_on_a_channelled_return_test() ->
+    Src = "module Reader\n"
+          "using :file {\n"
+          "    result<binary, foreign_error> read_file(binary path)\n"
+          "}\n"
+          "public result<binary, foreign_error> Slurp(binary path)\n"
+          "Slurp(path) -> :file.read_file(path)\n",
+    R = with_src("Reader.bs", Src,
+                 fun(Path, Out) ->
+                     run_cli("-o " ++ Out ++ " " ++ Path ++
+                             " Slurp '<<\"" ++ Path ++ "\">>'")
+                 end),
+    ?assertNotEqual(nomatch, string:find(R, "crashed: case_clause (:ok,")),
+    ?assertNotEqual(nomatch, string:find(R, "rc:1")).

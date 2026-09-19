@@ -995,17 +995,22 @@ expr({e_raise, L, Reason}, C) ->
 %% checker has no declaration for — the emitter's own synthesised guard tests
 %% arrive here as `e_foreign_call` nodes — is the bare call.
 %%
-%% THE CHANNELLED CALL IS NOT GUARDED, and that is a question left open
-%% rather than an answer taken quietly: `foreign_error` is three exception
-%% classes, a wrong-typed value is not an exception, and what a failed guard
-%% becomes under a declared `result<T, foreign_error>` is ticket 74's. Until
-%% it is decided the wrapped call returns what it always did.
+%% THE CHANNELLED CALL IS GUARDED TOO, and the ORDER is ticket 74's answer
+%% (resolved 2026-09-19): the guard wraps the wrapper. A channel is declared
+%% for the CALLEE's exceptions, and a wrong-shaped return is not one of them,
+%% so the refusal must not enter the channel. The catch's own
+%% `(:error, (Class, Reason))` inhabits the declared type and passes the
+%% guard, which is why a real failure still travels the channel unchanged.
+%% Nesting them the other way would make the two indistinguishable — the
+%% shape OTP froze in `rpc` and replaced with `erpc`, and the one .NET avoids
+%% by keeping `MarshalDirectiveException` outside `ExternalException`.
 expr({e_foreign_call, L, Mod, Fn, As}, C) ->
     Call = {call, L, {remote, L, {atom, L, Mod}, {atom, L, Fn}},
             [expr(A, C) || A <- As]},
     case maps:find({Mod, Fn, length(As)}, maps:get(foreigns, C, #{})) of
         error                    -> Call;
-        {ok, #{wrapped := true}} -> foreign_wrapper(L, Call);
+        {ok, #{wrapped := true, ret := Ty}} ->
+            return_guard(L, foreign_wrapper(L, Call), Ty);
         {ok, #{ret := Ty}} ->
             case maps:get(in_guard, C, false) of
                 true  -> Call;
