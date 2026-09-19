@@ -84,6 +84,52 @@ So the language's escape hatch works and the language does not.
   values a clause already matched"*. A spelling that looks like `is_float(a)` therefore has to be
   a form the grammar knows, not a call the checker whitelists, or it reopens that rule.
 
+## The shape already exists, and stops at records
+
+David, 2026-09-19, on reading the three candidates: *"I would have thought `Post(float a)` — the
+signature's own shape in the pattern position — would be the most obvious answer."* The evidence
+is stronger than obviousness. LANGUAGE.md, on records: *"the tag is in the term, so a union of
+records is dispatched by an ordinary clause head and checked exhaustive"*. Measured side by side
+at `d0e9d7b`:
+
+```csharp
+type Shape = Circle | Rect
+
+public float Area(Shape s)
+
+Area(Circle c) -> 3.14159 * c.Radius * c.Radius
+Area(Rect r)   -> r.W * r.H
+```
+
+Compiles, proves exhaustive with **no catch-all**, and runs: `Area` of a `Circle` at radius `2.0`
+is `12.56636`, of a `Rect` at `3.0 × 4.0` is `12.0`.
+
+```csharp
+public Side Post(int | float amount)
+
+Post(int a)   -> :debit
+Post(float a) -> :credit
+```
+
+> error: syntax error before: a
+
+The same shape over a union whose members are parts rather than records. So the surface the
+invariant asks for is already in the language, already credited by the exhaustiveness checker, and
+stops exactly where the member has no minted tag.
+
+### Why this beats both guard spellings, on the language's own terms
+
+A pattern is credited for exhaustiveness; a guard is not. LANGUAGE.md states it for this very
+part: *"A float guard compares as the BEAM compares and credits nothing to exhaustiveness … so a
+dispatch over `float` closes with a catch-all."* So even a B# that let a guard call `is_float`
+would leave `Post` unable to close its clause set without a catch-all, and the catch-all is what
+hides the next missing part. The type-prefix pattern closes it, which is what
+[ticket 08](08-head-and-guard-syntax.md) meant by *"pushes conditions into patterns where the
+checker credits them"*.
+
+That makes this a question about **extending a decided form to a second kind of member**, rather
+than about choosing among three unrelated spellings.
+
 ## Q1 — What spells "this clause takes the `float` part"?
 
 Not asked yet: [83](83-a-union-operand-at-an-operator.md) is the round in flight, and this ticket
@@ -91,6 +137,21 @@ is independent of its answer rather than gated by it. Under a *no* to 83,
 `public int Owed(int | float amount)` is refused on its return type and the honest rewrite is
 still one clause per part; under a *yes*, every operator over the union needs the parts split
 first. Both need this.
+
+If the answer is the type prefix, three things follow and none is settled by picking it:
+
+1. **How far does the form reach?** The natural rule is that `T x` is a pattern wherever the
+   [09](09-union-representation.md) §4 criterion says the member is separable — which is machinery
+   the checker already computes to judge a union legal. That rule refuses `list<int> a` for the
+   reason `Slot` is refused, and refusing it in the *same words* is the point.
+2. **The grammar must be measured, not assumed.** `type_prim lident` in pattern position is a
+   different token class from the `uident` every [`55f`](../prototypes/55f_yecc_conflicts.sh)
+   variant measured, so 55's three zeros say nothing here. yecc resolves a shift/reduce conflict
+   silently, so a quiet build is not the measurement.
+3. **A pattern form owes the switch arm too.** A head-only answer leaves `x switch { int a => … }`
+   a syntax error, and an arm is classified in a different function from a clause head — the trap
+   F51 hit, where a refusal wired at the clause site missed the arm and a dead arm shipped as a
+   warning.
 
 <!-- Raised 2026-09-19, not yet asked. -->
 
