@@ -1264,9 +1264,12 @@ positionless(_)               -> false.
 %% two things the emitter needs and never decides: whether the declaration
 %% named the failure channel (F19), and the resolved return type the boundary
 %% guard is built from (F42, ticket 18 §2). One table rather than two because
-%% the two are exclusive at the emission site — a channelled call gets the
-%% `try` and a plain one gets the guard — and a call that is in neither is a
-%% call the checker never saw declared.
+%% both fields are wanted at the same site: since ticket 74 (F52) a channelled
+%% call gets the `try` AND the guard, the guard outside the wrapper, so `ret`
+%% is read whether or not `wrapped` is true. A call in neither is one the
+%% checker never saw declared. Until 2026-09-19 this read "the two are
+%% exclusive at the emission site", which was true while the channelled arm
+%% was unbuilt.
 foreign_wrappers(Decls, Env) ->
     maps:from_list(
       [{{Mod, N, length(Ps)}, #{wrapped => wraps(Ty, Env), ret => Ty}}

@@ -273,9 +273,11 @@ a_channelled_declaration_refuses_a_value_outside_its_type_test() ->
 
 %% F52.2. AND THE CHANNEL STILL CARRIES WHAT IT WAS DECLARED FOR. `hd([])`
 %% raises `badarg`, the wrapper catches it, and `(:error, (:error, :badarg))`
-%% is in the declared type — so the guard passes it through. This is the
-%% assertion that would fail if the guard were placed inside the `try`, or if
-%% it ate the channel.
+%% is in the declared type — so the guard passes it through rather than
+%% refusing it. This does NOT discriminate the nesting: under the other order
+%% the raise happens before the guard and is caught just the same. It is the
+%% assertion that fails if the guard eats the channel, which is what guards
+%% F19 against F52. The order is F52.1's and F52.3's.
 a_real_exception_still_arrives_through_the_channel_test() ->
     M = build_and_load(src("result<int, foreign_error>"), 'Fg'),
     ?assertEqual({error, {error, badarg}}, M:'First'([])).

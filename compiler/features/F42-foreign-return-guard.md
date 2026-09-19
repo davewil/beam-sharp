@@ -125,6 +125,11 @@ counter, and two guarded calls in one clause plus one nested in another's argume
 
 ## The channelled arm is not built, and that is a raised question
 
+> **Superseded 2026-09-19.** Ticket 74 answered it — the refusal crashes, channel or no channel,
+> and the guard wraps the wrapper — and [F52](F52-channelled-foreign-return-guard.md) built it.
+> The section below is what was true while the question was open, and the *Out of scope* bullet
+> and *Done when* list that follow it are F42's own, unchanged.
+
 A foreign return declared `result<T, foreign_error>` still gets the `try` and no guard. ENG-357
 named this as its one open question, and CLAUDE.md's rule is that a feature raises a ticket
 rather than deciding: `foreign_error` is three exception classes, a wrong-typed value is not an
@@ -174,7 +179,8 @@ way to learn that the two guards share a vocabulary and not code.
 
 ## Out of scope
 
-- **The channelled arm.** Ticket 74, above.
+- **The channelled arm.** Ticket 74, above — answered 2026-09-19 and built as
+  [F52](F52-channelled-foreign-return-guard.md).
 - **A named crash reason.** `{case_clause, Value}` names the value and the line and not the
   foreign function. A reason such as `{foreign_return, {Mod, Fun, Arity}, Value}` would be a
   spelling decision; if the crash reads badly in practice that is a ticket, not this file.
