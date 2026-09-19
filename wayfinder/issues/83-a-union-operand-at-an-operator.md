@@ -78,6 +78,38 @@ Post(a) when a < 0 -> :credit
 
 So the rule exists and the union is the hole in it.
 
+### The spelling that rule advises already works on the union
+
+Writing the literal as a float is what the refusal above tells the author to do. Over an
+`int | float` subject it compiles today, and the two emitted guards stand side by side:
+
+```erlang
+%% written `a < 0`   — the int literal
+'Post'(A) when is_integer(A) andalso A < 0 -> credit;
+'Post'(_) -> debit.
+
+%% written `a < 0.0` — the float literal
+'Post'(A) when A < 0.0 -> credit;
+'Post'(_) -> debit.
+```
+
+No kind test is conjoined for the float literal, and the answers are the ones the program means:
+`Post(-250)` and `Post(-2.50)` are both `:credit`. So the form a **yes** would have to refuse is
+the form that behaves correctly at the guard right now.
+
+It is not a safe form either, which is why this is one question and not two. The same literal in
+the body face still lies:
+
+```csharp
+public int Owed(int | float amount)
+
+Owed(a) when a < 0.0 -> a * 100
+Owed(_)              -> 0
+```
+
+`Owed(-2.50)` returns `-250.0` from a function declared `int`. The guard lets the float in — as it
+should — and the body types as `int` anyway.
+
 ## The program that is wrong under every answer
 
 The same union operand in a body, under a declared `int` return. No guard is involved:
@@ -124,8 +156,9 @@ the parts rather than `int`, so that `Pence` is refused for its return type inst
 
 Under **yes**, the refusal cannot advise `0.0` the way the existing one does. Ticket 80's no-flow
 rule is symmetric: an `int | float` operand beside a float literal has its `int` part beside a
-float, so `a < 0.0` would be refused for the same reason. The author must dispatch the parts
-first — and **there is no native spelling for that today**. Measured at `44ca20c`:
+float, so `a < 0.0` is refused for the same reason — and that is the spelling shown above to
+compile and answer correctly at the guard today. The author must dispatch the parts first — and
+**there is no native spelling for that today**. Measured at `44ca20c`:
 
 | Attempt | Result |
 | -- | -- |
