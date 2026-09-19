@@ -9,7 +9,7 @@
                 program's runtime output, the same limit F42 recorded, so the crash is
                 asserted at the loaded module and through the CLI and `check-language.sh`
                 compiles the `Reader` block §11 gained. `./bin/verify.sh` green **twice from
-                a clean clone**
+                a clean clone** at `f2d2077`, 44/44 both times, 290s and 269s
 **Implements**  [ticket 74](../../wayfinder/issues/74-a-failed-guard-under-a-declared-channel.md)
                 / [ENG-362](https://linear.app/davewil/issue/ENG-362), resolved 2026-09-19;
                 the arm [F42](F42-foreign-return-guard.md) shipped unbuilt and
@@ -118,3 +118,17 @@ module named `Json`, dated 2026-08-21 and matched by `.gitignore`'s `compiler/*.
 Invisible to git and to Linux CI. The same shape has bitten once before — `C.beam` shadowing
 stdlib's `c` when `erl` is run from `compiler/` — which is why it is filed rather than noted:
 [ENG-391](https://linear.app/davewil/issue/ENG-391).
+
+## Evidence
+
+- `./bin/verify.sh` at `f2d2077`, a fresh clone, run twice in sequence: 44/44 and 44/44, exit 0
+  both times, 290s and 269s. Sequential rather than parallel, because two clean clones started
+  together race on the per-user tree-sitter grammar cache.
+- Reviewed on both axes before that pair. **Standards** found the header paragraph justifying an
+  abstract-code read with *"the nesting has no observable value of its own"* — false, since F52.1
+  refuses exactly the value the other order produces — and four `?assertNot` lines that would have
+  passed vacuously on a multi-expression body. The helper behind them was removed rather than
+  repaired. **Spec** confirmed all five of ENG-390's acceptance items, read the nesting from
+  `bs_emit` rather than from the commit message, and found three statements this change had
+  falsified: `bs_check`'s *"the two are exclusive at the emission site"*, F42's open question in
+  three places, and F52.2's own comment claiming a discrimination it does not make.
