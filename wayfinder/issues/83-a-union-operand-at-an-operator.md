@@ -157,24 +157,63 @@ the parts rather than `int`, so that `Pence` is refused for its return type inst
 Under **yes**, the refusal cannot advise `0.0` the way the existing one does. Ticket 80's no-flow
 rule is symmetric: an `int | float` operand beside a float literal has its `int` part beside a
 float, so `a < 0.0` is refused for the same reason — and that is the spelling shown above to
-compile and answer correctly at the guard today. The author must dispatch the parts first — and
-**there is no native spelling for that today**. Measured at `44ca20c`:
+compile and answer correctly at the guard today. The author must dispatch the parts instead.
+
+**That is the BEAM's own idiom, and B# refuses it.** In Elixir the rule is two clauses:
+
+```elixir
+def post(x) when is_integer(x), do: :debit
+def post(x) when is_float(x), do: :credit
+```
+
+The same shape in B#, measured at `44ca20c`:
+
+```csharp
+Post(a) when is_integer(a) -> :debit
+Post(a) when is_float(a)   -> :credit
+```
+
+> error: Post uses is_integer, which nothing binds
+> error: Post calls is_integer in a guard
+>   a guard asks a question about the values a clause already
+>   matched; it cannot call a function. Move the call into the
+>   body and switch on its answer.
+> error: Post is not exhaustive
+>   no clause matches:
+>     Post(n) -> ...
+>     Post(f) -> ...
+
+The advice is the finding: there is nothing in the body to move it to. `switch` switches on
+values, and no expression asks which part a number lies in. The other spellings an author would
+reach for:
 
 | Attempt | Result |
 | -- | -- |
 | `Post(float a) -> ...` | `syntax error before: a` |
-| `Post(a) when Type.IsFloat(a)` | refused: *"a guard … cannot call a function"* |
+| `Post(a) when a is float` — C#'s own type test, and TypeScript's predicate form | `syntax error before: is` |
 | `Post(Amount a)` after `type Amount = int \| float` | refused: *"Amount is not a record, so it cannot name a pattern"* |
 | `using :erlang { bool is_float(term x) }`, then `when :erlang.is_float(a)` | **compiles, and is correct** |
 
-The one route that works declares a BEAM guard BIF through the FFI. Ticket 69 recorded
-*"Discriminable by `is_float/1`, so `int | float` satisfies ticket 09 §4 and a clause head can tell
-the two apart"* — true of the algebra, and the surface has no spelling for it. So a **yes** costs a
-follow-up ticket for that spelling, and until it lands the only way to write `Ledger` is the FFI
-escape hatch.
+The one route that works declares a BEAM guard BIF through the FFI.
 
-Under **no**, `Ledger` needs no spelling, and the missing discrimination form stays a matter for
-whenever a program wants the two parts handled differently.
+**This is a ticket of its own, not a cost of the yes.** Under **no**, `Pence` is refused on its
+return type, and the honest rewrite is still one clause per part — so any program that treats the
+parts differently needs the spelling under either answer. What the answer here changes is only
+whether `Ledger`, which treats them the *same*, also needs it.
+
+Three things bear on that ticket and none of them decides it:
+
+- [Ticket 08](08-head-and-guard-syntax.md) listed *"narrow in the head with a type pattern
+  instead — simplest semantics, and pushes conditions into patterns where the checker credits
+  them"* among four alternatives, all of them about `dynamic`, which
+  [ticket 11](11-type-system-shape.md) then removed from the language.
+- [Ticket 55](55-destructure-and-bind.md) gave that shape a grammar — `Frame f`, the signature's
+  own `type_prim lident` — but decided it for **records**, whose tag is what the pattern matches.
+  `int` and `float` mint no tag, so 55's mechanism does not reach them.
+- [Ticket 69](69-does-the-language-have-float.md) recorded *"Discriminable by `is_float/1`, so
+  `int | float` satisfies ticket 09 §4 and a clause head can tell the two apart"*. That is the
+  algebra's discriminability criterion, which the checker uses to judge a union legal; it reads as
+  a claim about the surface, and the surface has no such form.
 
 <!-- Round 1, asked 2026-09-19. -->
 
