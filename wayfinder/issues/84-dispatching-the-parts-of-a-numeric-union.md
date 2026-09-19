@@ -1,9 +1,9 @@
 # 84 — How does a clause head dispatch the parts of a numeric union?
 
 Type: grilling
-Status: open — [ENG-393](https://linear.app/davewil/issue/ENG-393). Raised 2026-09-19 by David
-while [83](83-a-union-operand-at-an-operator.md) was in its first round; Q1 answered the same
-day (the type prefix), Q2 open and blocking F53's grammar
+Status: resolved 2026-09-19 — [ENG-393](https://linear.app/davewil/issue/ENG-393). Raised 2026-09-19
+by David while [83](83-a-union-operand-at-an-operator.md) was in its first round; two questions,
+two rounds, both answered the same day
 Blocked by: —
 
 ## The invariant this starts from
@@ -203,9 +203,79 @@ leave every other union to its existing patterns.
 
 <!-- Round 2, asked 2026-09-19. -->
 
+## The answer
 
-<!-- Raised 2026-09-19, not yet asked. -->
+**Q1 — the type prefix.** `Post(float a)`, the signature's own shape in pattern position,
+[55](55-destructure-and-bind.md)'s form extended from a record to a part.
+
+**Q2 — any member the criterion separates.** David, 2026-09-19. So (a) compiles and (b) is
+refused, and the rule is the one the checker already computes rather than a new list of types.
+
+### Which half of the criterion, and why it matters
+
+LANGUAGE.md asks the criterion in two halves — *is there a pattern that **reaches** this member*,
+and failing that, *is there a guard that **separates** it* — and says of union legality:
+**"Reaching is the criterion, and deciding is not."**
+
+**For the pattern, deciding is the criterion.** `T x` has to emit one test that answers "is this
+value in `T`", so it needs the separating half, not the reaching half. The two come apart on a
+union that is perfectly legal:
+
+```csharp
+type Xs = list<int> | list<binary>
+```
+
+Legal, because `[x, ..rest]` reaches the member and `is_integer` on the binding decides it. But
+`Count(list<int> ns)` is **refused**, because no single test decides it — `is_list` is true of
+both members. That is the shape `map<K, V>` is refused for today: declarable, passable,
+returnable, and not matchable.
+
+So the rule reads: **`T x` is a pattern wherever one test decides membership in `T`** — a guard
+BIF for a part (`is_float`, `is_atom`, `is_binary`), the minted tag for a record, which is why 55
+already works. The refusal for everything else is `map<K, V>`'s, in `map<K, V>`'s words, and
+**temporary by construction** in the same way: the day a pattern form reaches inside a list, the
+member becomes decidable and the refusal lifts on its own terms.
+
+## Not decided here
+
+- **Whether a refinement may wear the prefix.** `Meters m` where
+  `type Meters = int where value >= 0` is decided by one test —
+  `is_integer(M) andalso M >= 0` — so the rule above admits it, and
+  [46](46-refined-parameter-at-the-boundary.md) already emits exactly that guard at a boundary.
+  Admitting it would make refinements dispatchable in a head, which is a widening nobody asked
+  for. F53 raises a ticket rather than deciding it.
+- **`term x`**, which separates nothing, every value being a term. Whether that is a legal no-op
+  or a refused vacuity is the same call, unasked.
 
 ## Decisions entry
 
-<!-- Written on resolution. -->
+<!-- This ticket's entry. Read whole, here; the map (ENG-165) carries one line. -->
+
+```decisions-entry
+- [How does a clause head dispatch the parts of a numeric union?](issues/84-dispatching-the-parts-of-a-numeric-union.md)
+  — **the type prefix, `Post(float a)`, legal wherever one test decides membership in the type
+  named.** Raised 2026-09-19 by David from the invariant *"`public Side Post(int | float amount)`
+  must be declarable; if the current clause heads can't express that then a mechanism is needed"*,
+  and resolved the same day in two rounds. The form is not new: it is
+  [55](issues/55-destructure-and-bind.md)'s `Frame f` extended from a record to a part, and
+  LANGUAGE.md already documents that *"a union of records is dispatched by an ordinary clause head
+  and checked exhaustive"* — measured, `Area(Circle c)` / `Area(Rect r)` closes with no catch-all
+  while `Post(int a)` / `Post(float a)` is a syntax error. **A pattern is credited for
+  exhaustiveness and a guard is not**, which is what decides it against both guard spellings: a
+  dispatch over `float` closes with a catch-all today, and the catch-all is what hides the next
+  missing part. The reach is [09](issues/09-union-representation.md) §4's criterion, and
+  **specifically its separating half** — `T x` emits one test, so *deciding* is the criterion
+  where for union legality *reaching* is, and the two come apart on `list<int> | list<binary>`,
+  a legal union whose members no single test decides. That refusal is `map<K, V>`'s, in its
+  words, and temporary by construction in the same way. Measured before asking: the BEAM's own
+  `is_integer`/`is_float` idiom is refused three ways over (unbound name, function call in a
+  guard, and then inexhaustive), C#'s and TypeScript's `a is float` and the signature's own
+  `float a` are both syntax errors, and only a `:erlang.is_float` declared through the FFI works —
+  so the escape hatch outran the language. 55's three zero-conflict variants do **not** carry
+  over, every one of them beginning with a `uident` where this begins with a type primitive.
+  Corrects [69](issues/69-does-the-language-have-float.md)'s *"a clause head can tell the two
+  apart"*: true of the algebra, and there was no surface form. Unbuilt —
+  [F53](https://linear.app/davewil/issue/ENG-394), which ships this with
+  [83](issues/83-a-union-operand-at-an-operator.md)'s refusal and not after it. Refinements and
+  `term` in prefix position are named and not decided.
+```
