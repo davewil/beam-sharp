@@ -667,6 +667,33 @@ entailed by the cited rules but **not measured** (§8.2); whether a native acces
 catchable as an `SEHException` on .NET 10 (§8.3); and whether `LibraryImport`'s generated output
 contains any value-level test on the return (§8.5). Each says what would settle it.
 
+### §8 closing item: the generated `.g.cs`, measured
+
+The section's one open item — whether `LibraryImport`'s generated code contains a return-value
+test beyond marshalling — was the only finding that could change its verdict. It is now measured
+rather than entailed. Built with `EmitCompilerGeneratedFiles` on SDK `9.0.306`, generator
+`Microsoft.Interop.LibraryImportGenerator 9.0.12.47515`, against two declarations:
+
+**A blittable return gets no stub at all.** For `[LibraryImport("libc", EntryPoint = "abs")]
+internal static partial int Abs(int v)` the generator emits only:
+
+```csharp
+[global::System.Runtime.InteropServices.DllImportAttribute("libc", EntryPoint = "abs", ExactSpelling = true)]
+internal static extern partial int Abs(int v);
+```
+
+No body, no conversion, no test. The declared `int` is a claim about a value nothing inspects.
+
+**A non-blittable return gets marshalling and nothing else.** For a UTF-8 `string` return the
+generated body is setup, call, convert, free — the whole of the return handling being:
+
+```csharp
+__retVal = global::System.Runtime.InteropServices.Marshalling.Utf8StringMarshaller.ConvertToManaged(__retVal_native);
+```
+
+There is no verdict anywhere in the stub: nothing can fail the value, so nothing needs a class.
+**§8's verdict stands as measured** — tier 1 generates a converter, never a checker.
+
 ## What none of them answers
 
 **The configuration itself is unprecedented.** No surveyed system generates an implicit runtime check
