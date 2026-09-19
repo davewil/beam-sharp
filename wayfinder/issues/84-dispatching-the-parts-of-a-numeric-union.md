@@ -274,8 +274,12 @@ member becomes decidable and the refusal lifts on its own terms.
   so the escape hatch outran the language. 55's three zero-conflict variants do **not** carry
   over, every one of them beginning with a `uident` where this begins with a type primitive.
   Corrects [69](issues/69-does-the-language-have-float.md)'s *"a clause head can tell the two
-  apart"*: true of the algebra, and there was no surface form. Unbuilt —
-  [F53](https://linear.app/davewil/issue/ENG-394), which ships this with
-  [83](issues/83-a-union-operand-at-an-operator.md)'s refusal and not after it. Refinements and
-  `term` in prefix position are named and not decided.
+  apart"*: true of the algebra, and there was no surface form. Built as
+  [F53](https://linear.app/davewil/issue/ENG-394) on 2026-09-19, with
+  [83](issues/83-a-union-operand-at-an-operator.md)'s refusal and not after it, at zero yecc
+  conflicts added over a measured baseline of 5. Refinements and `term` in prefix position are
+  named and not decided, and are now
+  [85](issues/85-which-names-may-wear-the-type-prefix.md) — where the build's own finding
+  sharpened the first: a refinement is a NAMED type and type names are PascalCase, so it cannot
+  reach the lowercase part prefix at all, and the question is which names may wear it.
 ```

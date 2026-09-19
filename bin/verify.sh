@@ -291,6 +291,9 @@ run_stages \
   "\`float\` is a part beside \`int\`, nothing flows between them, and \`/\` lowers by its operands" \
     "cd compiler && ./bin/check-float.sh --self-test && ./bin/check-float.sh" \
 \
+  "A numeric union at an operator is refused, and its advice is a program that compiles" \
+    "cd compiler && ./bin/check-advice-compiles.sh --self-test && ./bin/check-advice-compiles.sh" \
+\
   "\`List\`, \`Term\` and \`Map\` are reserved qualifiers, inlined at the site" \
     "cd compiler && ./bin/check-reserved-qualifiers.sh --self-test && ./bin/check-reserved-qualifiers.sh" \
 \

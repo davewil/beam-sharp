@@ -281,6 +281,47 @@ that `Fib(n) when n > 1` above does not.
 
 <!-- tickets 69, 80, 81, F51 -->
 
+### Taking a numeric union apart
+
+An amount off the wire is an `int` where JSON gave a whole number and a `float` where it gave
+a fractional one, so a posting rule takes `int | float` and the two rules above meet. The
+parameter is a union whose parts are all numeric, and at an operator **that is the mixed pair
+wherever one part would be**: `amount * 100` is refused for the reason `1 * 2.0` is.
+
+A clause head takes the parts apart by naming one, which is the record prefix of chapter 6 —
+`Which(Invoice i)` — one member kind over. From `examples/Ledger/ledger.bs`:
+
+```
+public Side Post(int | float amount)
+
+Post(int a)   when a < 0   -> :credit
+Post(int a)                -> :debit
+Post(float f) when f < 0.0 -> :credit
+Post(float f)              -> :debit
+```
+
+```
+$ bsc --src-root examples examples/Ledger Post -2.50
+:credit
+```
+
+**It is a pattern, not a guard, and that is the whole argument for it.** A pattern is credited
+for exhaustiveness, so those four clauses close over `int | float` with no catch-all — and the
+day a third part joins the parameter the function stops compiling instead of posting the new
+one as a debit. The BEAM's own idiom, `when is_integer(x)`, could not do that: a guard credits
+nothing, so the clause set would need the `_` that hides the next missing part.
+
+Inside the `float` clause the binding *is* a `float`, which is what makes `f < 0.0` legal
+there. Written against the undispatched parameter it is refused — the `int` part of the union
+would stand beside a float literal, and nothing flows between the parts in either direction.
+
+The prefix reaches any type **one test decides**, which is why `Quantity(atom a)` beside
+`Quantity(int n)` works and `Count(list<int> ns)` does not: `is_list` is true of every list
+whatever it holds. That refusal is the one `map<K, V>` carries, and it is temporary in the
+same way — the day a pattern form reaches inside a list, the member becomes decidable.
+
+<!-- tickets 83, 84, F53 -->
+
 ---
 
 ## 4. Refinements, and patterns that are relations
@@ -1671,6 +1712,7 @@ grows a capability the tour has not met.
 | a call through a bound name | `examples/Shop/Pricing/Pricing.bs` | 9 |
 | a pipe into a call | `examples/Pipeline/pipeline.bs` | 12 |
 | a valve into a call | `examples/Pipeline/pipeline.bs` | 12 |
+| a type prefix over a part | `examples/Ledger/ledger.bs` | 3 |
 | a foreign module declaration | `examples/Interop/interop.bs` | 13 |
 | a foreign call | `examples/Interop/interop.bs` | 13 |
 | a foreign declaration whose THROW is turned into a value | `examples/Foreign/foreign.bs` | 14 |

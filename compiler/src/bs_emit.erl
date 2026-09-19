@@ -525,6 +525,21 @@ desugar({p_rec, L, Name, Fields}, Ctx) ->
           end,
     {p_map, L, [{'Kind', {p_atom, L, Tag}}
                 | [{K, desugar(P, Ctx)} || {K, P} <- Fields]]};
+%% The type prefix over a part resolves to the ONE BEAM test that decides it
+%% and carries nothing else (F53, ticket 84). It is resolved here, beside the
+%% record tag, because this is where `Ctx`'s env is in scope, and through
+%% `bs_types:part_test/1` because the checker refused the pattern by the same
+%% reader — a second opinion here would be a form the checker admitted and the
+%% emitter tested wrongly, or the reverse.
+%%
+%% `check/2` has already run, so `{no, _}` is unreachable from a compiled
+%% program; it raises rather than emitting a test that admits the wrong
+%% values, which is the failure a silent fallback would ship.
+desugar({p_type, L, TypeExpr, V}, #{env := Env} = _Ctx) ->
+    case bs_types:part_test(bs_check:resolve(TypeExpr, Env)) of
+        {ok, Bif} -> {p_test, L, Bif, V};
+        {no, Why} -> erlang:error({type_prefix_undecidable, L, TypeExpr, Why})
+    end;
 desugar({p_bind, L, V, P}, Ctx)        -> {p_alias, L, V, desugar(P, Ctx)};
 desugar({p_tuple, L, Ps}, Ctx)         -> {p_tuple, L, [desugar(P, Ctx) || P <- Ps]};
 desugar({p_map, L, Fs}, Ctx)           -> {p_map, L, [{K, desugar(P, Ctx)} || {K, P} <- Fs]};
@@ -567,10 +582,26 @@ tag_test(Var, Tag, Line) ->
 %%% constrains a single value twice. Only the top of each argument is walked:
 %%% the checker refuses a relational pattern anywhere else
 %%% (`argument_position/2`), so nesting never reaches emission.
+%% THE TYPE PREFIX LOWERS THROUGH THE SAME SLOT (F53, ticket 84). `Post(float
+%% f)` becomes `'Post'(F) when is_float(F)`, which is a variable plus a guard
+%% exactly as a relational pattern is — the BEAM has no pattern that asks a
+%% value's kind, so a pattern that asks one is a guard wherever it appears.
+%%
+%% It is stripped HERE and not in `pattern/2` for the reason the header above
+%% gives for `p_rel`: `ensure_var/3`, `constrains_kind/1`, `pins_float/1` and
+%% `skips/2` all run after this line, and every one of them would meet a shape
+%% it has no clause for. By the time they run the pattern is a `p_var` and the
+%% test is in the guard list, so not one of them needs to know the form exists.
+%%
+%% NO KIND TEST IS CONJOINED, unlike a relational pattern's: `is_float/1` IS
+%% the kind test. `with_kind/4` exists because an ordering comparison proves
+%% ordering and not kind (ENG-330); this proves kind and nothing else.
 strip_rels(Patterns, IntOnly) ->
     {Ps, Tests, _N} =
         lists:foldl(
-          fun({P, Known}, {Acc, Ts, N}) ->
+          fun({{p_test, L, Bif, V}, _Known}, {Acc, Ts, N}) ->
+                  {Acc ++ [{p_var, L, V}], Ts ++ [part_expr(Bif, V, L)], N};
+             ({P, Known}, {Acc, Ts, N}) ->
                   case is_rel(P) of
                       false -> {Acc ++ [P], Ts, N};
                       true  ->
@@ -582,6 +613,13 @@ strip_rels(Patterns, IntOnly) ->
                   end
           end, {[], [], 1}, lists:zip(Patterns, IntOnly)),
     {Ps, Tests}.
+
+%% Built as a surface node, like `int_test/2` and `tag_test/3` beside it, so
+%% `used_vars/2` and `expr/2` handle it by their existing paths. Every BIF
+%% `bs_types:part_test/1` can answer is a guard BIF and is legal in a guard as
+%% a remote call.
+part_expr(Bif, Var, Line) ->
+    {e_foreign_call, Line, erlang, Bif, [{e_var, Line, Var}]}.
 
 %% The kind test leads the whole relational subtree rather than each comparison
 %% in it, because every leaf of one is an ordering against an integer literal

@@ -289,5 +289,5 @@ over a union operand compiles under it, in either literal spelling, so
   *"a clause head can tell the two apart"* is the algebra's discriminability criterion and not a
   surface form, and ENG-387's *"with `0.0` as the advice"* is false under this answer. A numeric
   union with a non-numeric part — `int | float | :none` — was scoped out of the question and
-  keeps today's behaviour. Unbuilt — F53.
+  keeps today's behaviour. Built as F53 on 2026-09-19 ([ENG-394](https://linear.app/davewil/issue/ENG-394)).
 ```

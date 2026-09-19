@@ -2039,6 +2039,36 @@
     }
   },
   {
+    "type": "part_binder_pattern",
+    "named": true,
+    "fields": {
+      "binder": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "variable",
+            "named": true
+          }
+        ]
+      },
+      "type": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "builtin_type",
+            "named": true
+          },
+          {
+            "type": "generic_type",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
     "type": "pattern",
     "named": true,
     "fields": {},
@@ -2072,6 +2102,10 @@
         },
         {
           "type": "match_pattern",
+          "named": true
+        },
+        {
+          "type": "part_binder_pattern",
           "named": true
         },
         {

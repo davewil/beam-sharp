@@ -535,6 +535,75 @@ takes an `int` and nothing wider; the reverse direction, `Int.FromFloat`, is nam
 decided.
 <!-- the equality rule is ticket 16 §5; the reverse direction is ticket 81's deferral -->
 
+**A union whose parts are all numeric is that same mixed pair, wherever one part would be.** An
+amount off the wire is an `int` where JSON gave a whole number and a `float` where it gave a
+fractional one, so `int | float` is a parameter an author really writes — and every operator
+over it is refused, body and guard alike:
+
+<!-- diagnoses: numeric_union_operand -->
+```csharp
+module Pence
+
+public int Owed(int | float amount)
+
+Owed(a) -> a * 100
+```
+
+— *`*` in Owed has `int | float` on its left … dispatch the parts in the head, and write the
+operator in each clause, where the part is known*. The advice is the only one available: the
+literal spelling the message above offers — `a < 0.0` — is refused here too, because the `int`
+part of the union would then stand beside a float, and the no-flow rule is symmetric. **shipped**
+— F53.
+<!-- decided by ticket 83, which scoped the question to a union whose parts are ALL numeric:
+     `int | float | :none` keeps the older behaviour and is named, not missed -->
+
+**A clause head takes the parts apart by naming one.** It is §6's record prefix — `Which(Invoice
+i)` — one member kind over, and it is a *pattern*, so the checker credits it for exhaustiveness
+and the clause set closes with no catch-all:
+
+```csharp
+module Ledger
+
+type Side = :debit | :credit
+
+public Side Post(int | float amount)
+
+Post(int a)   when a < 0   -> :credit
+Post(int a)                -> :debit
+Post(float f) when f < 0.0 -> :credit
+Post(float f)              -> :debit
+```
+
+Inside the `float` clause the binding *is* a `float`, which is what makes `f < 0.0` legal there.
+The BEAM's own idiom, `when is_integer(x)`, is not the same thing and could not replace it: a
+guard credits nothing to exhaustiveness, so a dispatch written that way would need the `_` that
+hides the next missing part — and a guard cannot call a function in this language anyway (§5).
+
+**The prefix reaches any type one test decides**, which is §4's discriminability criterion read
+at its *separating* half rather than its reaching one. `atom | int` is taken apart by
+`Quantity(atom a)` beside `Quantity(int n)`; `list<int> | list<binary>` is not, although it is a
+perfectly legal union:
+
+<!-- diagnoses: type_prefix_undecidable -->
+```csharp
+module Counts
+
+type Xs = list<int> | list<binary>
+
+public int Count(Xs xs)
+
+Count(list<int> ns)    -> 1
+Count(list<binary> bs) -> 0
+```
+
+— *`is_list` is true of more values than `list<int>` holds, so one test does not decide it*. That
+is the refusal `map<K, V>` carries below, and it is temporary in the same way: the day a pattern
+form reaches inside a list the member becomes decidable and the refusal lifts on its own terms.
+`term` is refused too, for the opposite reason — it spans every part, so there is no part to
+name. **shipped** — F53.
+<!-- decided by ticket 84; whether a NAMED type may wear the prefix — a refinement, or an alias
+     to a part — is raised and not decided -->
+
 At the boundary a public `float` parameter is tested with `is_float`, so an `int` from outside
 goes the way an atom goes (§10); a foreign declaration returning `float` is guarded the same
 way; the published spec says `float()`.

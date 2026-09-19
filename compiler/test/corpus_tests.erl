@@ -92,6 +92,15 @@ demonstrated_surface() ->
      %% satisfy it, and on the uppercase name so `list<T>` cannot either.
      {"a polymorphic signature",
       "^(public|private) .* [A-Z][A-Za-z]*<[A-Z][A-Za-z, ]*>\\("},
+     %% F53 / ticket 84. The type prefix over a PART, which is a different
+     %% sentence from the record prefix: that one matches a minted tag, this
+     %% one a BEAM test, and only this one dispatches `int | float`. Anchored
+     %% on a clause head's own shape — the function name hard against its
+     %% bracket, at column 1 — because the identical glyphs in a SIGNATURE are
+     %% an ordinary parameter, and `public atom Verdict(float mean)` has been
+     %% in the corpus since F51. Pinned below.
+     {"a type prefix over a part",
+      "^[A-Z][A-Za-z]*\\((int|float|atom|binary) [a-z]"},
      {"a foreign module declaration",            "^using :"},
      {"a foreign call",                          ":[a-z]+\\.[a-z_]+\\("},
      %% F19 / ticket 15 §4. The wrapper itself has NO surface — that is its whole
@@ -372,6 +381,27 @@ the_interval_probe_does_not_match_a_guard_test() ->
     %% `int`, so it has to be probeable too.
     ?assertEqual(match,
                  re:run("Classify(<= -1) -> :negative", Re,
+                        [multiline, {capture, none}])).
+
+%% The fifth delicate probe, added with F53 and for the reason the four above
+%% exist: `float f` is the SAME GLYPHS in a clause head and in a signature's
+%% parameter list, and the signature spelling has been in the corpus since F51.
+%% A probe that could not tell them apart would report the dispatch
+%% demonstrated while the corpus held nothing but parameters — and the whole
+%% argument for the form is that a PATTERN is credited for exhaustiveness
+%% where a parameter is merely declared.
+the_part_prefix_probe_does_not_match_a_signature_test() ->
+    Re = "^[A-Z][A-Za-z]*\\((int|float|atom|binary) [a-z]",
+    ?assertEqual(nomatch,
+                 re:run("public atom Verdict(float mean)", Re,
+                        [multiline, {capture, none}])),
+    %% Nor the unmarked form, whose return type is a bare name: the space
+    %% before the bracket is what tells a signature from a head.
+    ?assertEqual(nomatch,
+                 re:run("Side Post(int | float amount)", Re,
+                        [multiline, {capture, none}])),
+    ?assertEqual(match,
+                 re:run("Post(float f) -> :debit", Re,
                         [multiline, {capture, none}])).
 
 the_match_probe_does_not_match_a_comparison_test() ->

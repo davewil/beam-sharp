@@ -513,6 +513,22 @@ jobs:
         working-directory: compiler
         run: ./bin/check-float.sh
 
+      # Tickets 83 and 84. A union whose parts are all numeric is the mixed pair
+      # at an operator, and the only advice that refusal can give is "dispatch
+      # the parts" — a form that did not parse until F53 shipped it alongside.
+      # So this gate compiles the refused program, reads the clause heads out of
+      # the diagnostic, PASTES THEM BACK and compiles that. F19 shipped a
+      # refusal whose recommended workaround carried the exact lie the refusal
+      # existed to prevent, and no unit test saw it: a test asserts the WORDS of
+      # the advice, and words that read well are what the defect looks like.
+      - name: The advice gate proves it can fail
+        working-directory: compiler
+        run: ./bin/check-advice-compiles.sh --self-test
+
+      - name: A numeric union at an operator is refused, and its advice compiles
+        working-directory: compiler
+        run: ./bin/check-advice-compiles.sh
+
       # Ticket 67. `List` is an operation set the compiler knows, not a module
       # it ships — and 67's (b) is INDISTINGUISHABLE from its (a) in anything a
       # program prints. `List.Sum([2,2,2])` is 6 either way. So this gate reads

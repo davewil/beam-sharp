@@ -1,0 +1,67 @@
+// An amount off the wire is an `int` where JSON gave a whole number and a
+// `float` where it gave a fractional one (ticket 77), so a posting rule takes
+// both parts. Two decisions meet in this file, and they shipped together
+// because neither is usable alone (tickets 83 and 84, F53).
+//
+// The first: a union whose parts are all numeric is the MIXED PAIR wherever
+// one part would be. `amount * 100` over `int | float` is refused for the
+// reason `1 * 2.0` is — nothing converts between the parts (ticket 80) — and
+// before F53 it compiled, typed as `int`, and returned `-250.0` from a
+// function declared `int`.
+//
+// The second: a clause head DISPATCHES the parts with the type prefix, which
+// is ticket 55's `Frame f` one member kind over. It is a pattern and not a
+// guard, so the checker credits it for exhaustiveness: the four clauses below
+// close over `int | float` with no catch-all, and the day a third part is
+// added to the parameter this function stops compiling rather than posting
+// the new one as a debit.
+module Ledger
+
+type Side = :debit | :credit
+
+public Side Post(int | float amount)
+
+Post(int a)   when a < 0   -> :credit
+Post(int a)                -> :debit
+Post(float f) when f < 0.0 -> :credit
+Post(float f)              -> :debit
+
+// The guard is written against the part, which is what makes it legal: inside
+// the `float` clause the binding is a `float`, so `f < 0.0` compares a float
+// with a float. The same line over the undispatched parameter is refused —
+// `a < 0.0` puts the `int` part of the union beside a float literal, and
+// ticket 80's rule is symmetric.
+//
+// That refusal is the cost ticket 83 names out loud: `a < 0.0` over the union
+// compiles on the BEAM and answers correctly for both parts, and it goes,
+// because the parts are dispatched first or not at all.
+
+// Pence, once the part is known. This is the function whose old answer was the
+// defect: written `Pence(a) -> a * 100` under a declared `int` return, it
+// compiled and `Pence(-2.50)` returned `-250.0`, which is what §10's guarantee
+// exists to rule out.
+//
+// The return is the union too, and it has to be: ticket 81 gave the language
+// `Float.FromInt` and no conversion in the other direction, so the float part
+// stays a float all the way out. Each clause returns its own part, and the
+// declared return is the union of the two — which is the same shape as the
+// parameter, arrived at for the same reason.
+public int | float Pence(int | float amount)
+
+Pence(int a)   -> a * 100
+Pence(float f) -> f * 100.0
+
+// The prefix reaches any type ONE test decides, which is ticket 09 §4's
+// criterion read at its separating half. `atom` and `int` are two parts and
+// `is_atom` tells them apart, so a wire field that arrived as either is taken
+// apart the same way.
+public int Quantity(atom | int field)
+
+Quantity(atom a)  -> 0
+Quantity(int n)         -> n
+
+// What the form does NOT reach, and the refusal says why: no single test
+// decides `list<int>` against `list<binary>`, because `is_list` is true of
+// both. That is the shape `map<K, V>` is refused for, and it is temporary by
+// construction — the day a pattern form reaches inside a list, the member
+// becomes decidable and the refusal lifts on its own terms.

@@ -73,6 +73,15 @@ module.exports = grammar({
     // is a pattern rest or an expression rest depending on where it sits. Same
     // pattern/expression overlap as the pair above, one level down.
     [$.rest_pattern, $._expression_low],
+    // F53 / ticket 84 — `float a` in a clause head. A lowercase name is a
+    // BUILTIN TYPE at the head of a part prefix and a VARIABLE everywhere
+    // else, and the two are told apart by the token after it: another name
+    // (the binder) or a `<` (a generic's bracket, against a comparison). The
+    // generator offered a precedence on one of the two instead, which would
+    // settle the question before GLR ever reached that token — the resolution
+    // that parsed a guard's last name as a lambda while the generator and the
+    // corpus both stayed green.
+    [$.builtin_type, $.variable],
     // F15 — `Shop.Collections.List.Sum(…)`. Where the module path stops and the
     // function name starts is not decidable one token at a time; see the note on
     // `module_path`.
@@ -316,6 +325,7 @@ module.exports = grammar({
       $.tuple_pattern,
       $.record_pattern,
       $.typed_binder_pattern,
+      $.part_binder_pattern,
       $.list_pattern,
       $.match_pattern,
       $.relational_pattern,
@@ -370,6 +380,28 @@ module.exports = grammar({
     // what the rule above keys on.
     typed_binder_pattern: $ => seq(
       field('type', $.type_identifier),
+      field('binder', $.variable),
+    ),
+
+    // F53 / ticket 84 — THE SAME PREFIX OVER A PART. `Post(float a)`, the
+    // signature's own shape in pattern position, one member kind away from
+    // `Circle c` above. A rule of its own because the type is a `lident` here
+    // and a `uident` there, and the two resolve differently: a record's prefix
+    // names a minted tag, a part's names a BEAM test.
+    //
+    // `list<int> ns` PARSES AND IS THEN REFUSED BY THE COMPILER, in
+    // `map<K, V>`'s words, so the generic spelling belongs in the grammar too:
+    // an editor that highlighted it as a syntax error would be disagreeing
+    // with the diagnostic the author is reading.
+    //
+    // The conflict is DECLARED rather than resolved with a `prec`. `float a`
+    // and the variable `float` followed by the variable `a` share their first
+    // token, which is the pattern/expression overlap this file already carries
+    // two entries for — and a `prec` on the rule settles it at generate time,
+    // before GLR ever sees the second token, which is how a guard's last name
+    // was parsed as a lambda with both the generator and the corpus green.
+    part_binder_pattern: $ => seq(
+      field('type', choice($.builtin_type, $.generic_type)),
       field('binder', $.variable),
     ),
 

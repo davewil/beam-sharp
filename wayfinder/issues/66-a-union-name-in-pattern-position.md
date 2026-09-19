@@ -115,3 +115,31 @@ detail load-bearing — appearing in a diagnostic rather than in source.
 The corpus writing the minted tag by hand in pattern position is
 [ENG-307](https://linear.app/davewil/issue/ENG-307). That is a cleanup against a decision already
 taken; this ticket is a decision not yet taken.
+
+## What F53 changed, 2026-09-19
+
+**Item 2 above is now the live framing, and half of it is answered.** F53
+([ENG-394](https://linear.app/davewil/issue/ENG-394)) shipped
+[ticket 84](84-dispatching-the-parts-of-a-numeric-union.md)'s type prefix over a **part** —
+`Post(float a)` — so "any named type in pattern position" is no longer the generalisation of one
+special case but of two: ticket 55's record, and now the part. The rule the part carries is that
+one BEAM test must decide the type named, which is why `list<int>` is refused and `atom` is not.
+
+It does **not** answer this ticket. The part prefix is lowercase-only, so no `uident` reaches it
+and every exemplar above behaves exactly as it did at `6728799` — with one textual exception:
+**exemplar 3's diagnostic gained a line**, naming the spelling that now exists, so the quoted
+output above is the pre-F53 wording. Today:
+
+```
+error: C is not a record, so it cannot name a pattern
+  only a `record` declaration mints the tag a type prefix matches on.
+  a part is named by the part: `Post(int n)` beside `Post(float f)`,
+  one clause each.
+  to constrain fields without naming a type, write `{ Field: ... }`.
+```
+
+The same generalisation is asked from the other side by
+[ticket 85](85-which-names-may-wear-the-type-prefix.md)
+([ENG-395](https://linear.app/davewil/issue/ENG-395)), which covers an alias to a part union and
+a refinement and explicitly does not re-ask the record union here. If either is answered as a
+rule about names, the other is inside it and the two resolve together.

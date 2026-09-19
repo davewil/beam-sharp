@@ -1155,6 +1155,10 @@
         },
         {
           "type": "SYMBOL",
+          "name": "part_binder_pattern"
+        },
+        {
+          "type": "SYMBOL",
           "name": "list_pattern"
         },
         {
@@ -1376,6 +1380,36 @@
           "content": {
             "type": "SYMBOL",
             "name": "type_identifier"
+          }
+        },
+        {
+          "type": "FIELD",
+          "name": "binder",
+          "content": {
+            "type": "SYMBOL",
+            "name": "variable"
+          }
+        }
+      ]
+    },
+    "part_binder_pattern": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "FIELD",
+          "name": "type",
+          "content": {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "SYMBOL",
+                "name": "builtin_type"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "generic_type"
+              }
+            ]
           }
         },
         {
@@ -3074,6 +3108,10 @@
     [
       "rest_pattern",
       "_expression_low"
+    ],
+    [
+      "builtin_type",
+      "variable"
     ],
     [
       "module_path"

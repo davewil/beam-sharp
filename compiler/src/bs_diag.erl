@@ -467,6 +467,20 @@ built(Path, {Sev, Line, Fn, {validate_indiscriminable, Ty, A, B}}) ->
                                type => bs_types:to_string(Ty),
                                member => bs_types:to_string(A),
                                beside => bs_types:to_string(B)};
+%% A union whose parts are all numeric, at an operator (F53, ticket 83). The
+%% side is carried because the sentence names it, and the type because the
+%% advice is built from its parts.
+built(Path, {Sev, Line, Fn, {numeric_union_operand, Op, Side, Ty}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => numeric_union_operand,
+                               op => Op,
+                               side => Side,
+                               type => bs_types:to_string(Ty)};
+%% A type prefix naming a type no single test decides (F53, ticket 84). `Why`
+%% is the checker's, and each value has a sentence that is TRUE of the type in
+%% front of it: "no single test decides `term`" would not be.
+built(Path, {type_prefix_undecidable, Line, Ty, Why}) ->
+    #{tag => type_prefix_undecidable, severity => error, file => Path,
+      line => Line, type => Ty, reason => Why};
 built(Path, {Sev, Line, Fn, {map_pattern_deferred, Site, Ty}}) ->
     (at(Sev, Path, Line, Fn))#{tag => map_pattern_deferred,
                                site => Site,
@@ -1479,6 +1493,53 @@ message(#{tag := validate_indiscriminable, file := P, line := L, column := C,
 %% Says the compiler is not ready, not that the pattern is wrong:
 %% `{ Status: s }` is a member of `map<atom, term>`, so "matches no value"
 %% would be false.
+%% THE ADVICE IS THE FEATURE. `mixed_operands` next door offers the int
+%% literal's float spelling — "write `0.0`" — and over a union that spelling is
+%% refused too, by the symmetry of ticket 80's no-flow rule. So this message
+%% names ticket 84's dispatch and nothing else, and prints the two heads in
+%% the syntax the author writes them in, which `check-advice-compiles.sh`
+%% pastes back and compiles.
+%%
+%% The parts are `int` and `float` by construction: the refusal fires only
+%% where both are present and nothing else is (`numeric_union/1`).
+message(#{tag := numeric_union_operand, file := P, line := L, column := C,
+          function := Fn, op := Op, side := Side, type := Ty}) ->
+    {"~s:~p:~p: error: `~s` in ~s has `~s` on its ~s~n"
+     "  a union whose parts are all numeric is the mixed pair wherever one~n"
+     "  part would be: nothing converts between `int` and `float`, so `~s`~n"
+     "  has no one meaning over both.~n"
+     "  Dispatch the parts in the head, and write the operator in each~n"
+     "  clause, where the part is known:~n"
+     "    ~s(int n)   -> ...~n"
+     "    ~s(float f) -> ...~n",
+     [P, L, C, Op, Fn, Ty, Side, Op, Fn, Fn]};
+%% Says which test is true of more values than the type holds, rather than
+%% claiming in general that none decides it — `term` is decided by every test
+%% and `list<int>` by none, and one sentence for both would be false of one.
+message(#{tag := type_prefix_undecidable, file := P, line := L, column := C,
+          type := Ty, reason := Why}) ->
+    %% The reason is a FORMAT FRAGMENT concatenated into the format string,
+    %% not an argument: `~s` takes bytes, and a sentence carrying an em dash
+    %% is a `badarg` there. `float_spelling/2` above is built the same way.
+    Because =
+        case Why of
+            {narrower, Bif} ->
+                "  `" ++ atom_to_list(Bif) ++ "` is true of more values than `" ++ Ty
+                    ++ "` holds,~n  so one test does not decide it. Matching one is"
+                    " not built,~n  the refusal `map<K, V>` carries for the same"
+                    " reason.~n";
+            several_parts ->
+                "  `" ++ Ty ++ "` spans more than one part and a prefix tests one:~n"
+                "  name a part, in a clause of its own.~n";
+            empty ->
+                "  `" ++ Ty ++ "` holds no value, so no pattern can match it.~n"
+        end,
+    {"~s:~p:~p: error: `~s` cannot name a pattern~n"
+     ++ Because ++
+     "  A type prefix names a record, whose minted tag the pattern matches,~n"
+     "  or a part the platform tests whole: `int`, `float`, `atom`,~n"
+     "  `binary`, `bool`. Bind the value and read it otherwise.~n",
+     [P, L, C, Ty]};
 message(#{tag := map_pattern_deferred, file := P, line := L, column := C, function := Fn,
           site := Site, type := Ty}) ->
     %% The same refusal, not the same sentence: an arm's subject is not a
@@ -1646,9 +1707,15 @@ message(#{tag := ambiguous_type, type := N, candidates := Mods} = D) ->
          [N, length(Mods), [io_lib:format("    ~s.~s~n", [M, N]) || M <- Mods]]};
 %% The fix is named because the alternative always exists: a property pattern
 %% constrains fields without naming a type at all (F22).
+%% THE SECOND SENTENCE IS F53'S. An uppercase prefix still needs a minted tag,
+%% and since ticket 84 a LOWERCASE one names a part instead — so an author who
+%% wrote `Amount a` over `type Amount = int | float` is told the form exists
+%% and how to spell it, rather than only that this is not it.
 message(#{tag := not_a_record, file := P, line := L, column := C, type := N}) ->
     {"~s:~p:~p: error: ~s is not a record, so it cannot name a pattern~n"
      "  only a `record` declaration mints the tag a type prefix matches on.~n"
+     "  a part is named by the part: `Post(int n)` beside `Post(float f)`,~n"
+     "  one clause each.~n"
      "  to constrain fields without naming a type, write `{ Field: ... }`.~n",
      [P, L, C, N]};
 %% Shaped on `field_set_mismatch`'s "not declared by Order" sentence, the

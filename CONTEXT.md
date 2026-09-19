@@ -256,6 +256,16 @@ with otherwise identical fields distinct, and it may be written by hand anywhere
 an atom: the type prefix is the idiom, the written tag the hatch beneath it.
 _Avoid_: type name, nominal tag, class marker, discriminant, `__struct__`
 
+**Type prefix**:
+A type written in front of a binder in pattern position — `Order o`, `Post(float a)` — the
+signature's own shape moved into a clause head. It names one of two things and matches by a
+different mechanism for each: a **record**, whose minted tag the pattern tests, or a **part**,
+which one BEAM test decides (`int`, `float`, `atom`, `binary`, `bool`). A type no single test
+decides cannot wear it — `list<int>` against `list<binary>` is `is_list` against itself. It is a
+*pattern*, so a clause set using it is credited for exhaustiveness, which is the whole reason it
+exists rather than a guard.
+_Avoid_: type pattern, type test, cast, type annotation, designation
+
 **Projection**:
 `o.Field`, reading a field from a record value. The receiver's case decides what a dot means —
 lowercase is a value and projects, PascalCase is a module and qualifies. Legal over a union where

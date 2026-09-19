@@ -445,6 +445,36 @@ pattern -> uident '{' pat_fields '}' lident :
 pattern -> uident lident :
     {p_bind, line('$1'), value('$2'), {p_rec, line('$1'), value('$1'), []}}.
 
+%% `Post(float a)` — the same prefix over a PART rather than a record (ticket
+%% 84, F53). A record pattern matches a minted tag; `int` and `float` mint
+%% none, so this cannot go through `p_rec` and carries the written type
+%% instead. `bs_check` decides whether the type named is one a single test
+%% decides, and refuses `list<int> ns` in `map<K, V>`'s words when it is not;
+%% the grammar takes the shape and judges nothing, so that refusal can say
+%% "not built" rather than "syntax error".
+%%
+%% A type primitive is a `lident` to the lexer — the language has no keyword
+%% for one — so this one production is every part's spelling. It is NOT
+%% `type_prim`: that reaches `uident` too, and `uident lident` above is the
+%% record path, which would make the two productions ambiguous.
+%%
+%% Measured at ZERO conflicts added, over a baseline of 5 shift/reduce, by
+%% `wayfinder/prototypes/84a_type_prefix_yecc.sh` with `yecc:file/2` and
+%% `{report, true}` — both this production and the generic one below. 55f's
+%% three zeros do not carry over: every variant there began with a `uident`,
+%% and 55f's "baseline zero" comment is itself stale, the bare-name lambda
+%% having moved it to 5 (ticket 76, F46).
+pattern -> lident lident :
+    {p_type, line('$1'), {t_builtin, value('$1')}, value('$2')}.
+
+%% The generic spelling parses and is then refused by the checker, which is the
+%% point: ticket 84 decided `Count(list<int> ns)` is refused in the words
+%% `map<K, V>` is refused in — declarable, passable, returnable, not matchable,
+%% and temporary by construction. A grammar that stopped it would answer
+%% "syntax error before: ns", which says none of that.
+pattern -> lident '<' type_list '>' lident :
+    {p_type, line('$1'), {t_generic, value('$1'), '$3'}, value('$5')}.
+
 %% The binder over a bare property pattern: naming the type and binding the
 %% value are independent, as in C#.
 pattern -> '{' pat_fields '}' lident :

@@ -53,6 +53,10 @@
 %% whether a head reaches each one, but whether a head tells them apart
 %% (ENG-347, ticket 70).
 -export([separable/2]).
+%% Which single BEAM test decides membership in a type, if one does: the reach
+%% of the type-prefix pattern, read by the checker's refusal and the emitter's
+%% guard alike so they cannot disagree (F53, ticket 84 Q2).
+-export([part_test/1]).
 %% `mu/2` names a type so its own body can refer back to it; `recvar/1` is
 %% that back-reference; `unfold/1` is the only way to look inside one, and
 %% every operation here calls it before touching a part (F28).
@@ -1756,6 +1760,99 @@ guard_buckets(#{atoms := As, ints := Is, floats := Fl, tuples := Ts, lists := Ls
         top -> ['fun'];
         _   -> lists:usort([{'fun', length(Ds)} || {Ds, _} <- Fs])
     end.
+
+%%% ---------------------------------------------------------------------------
+%%% The one test that decides a type — the type prefix's reach (F53, ticket 84)
+%%% ---------------------------------------------------------------------------
+%%%
+%%% `T x` in pattern position emits ONE test asking "is this value in `T`", so
+%%% the criterion for the form is the SEPARATING half of ticket 09 §4, not the
+%%% reaching half. LANGUAGE.md states the difference for union legality —
+%%% "reaching is the criterion, and deciding is not" — and the two come apart
+%%% on `list<int> | list<binary>`: a legal union, because `[x, ..rest]` reaches
+%%% a member and `is_integer` on the binding decides it, and NOT a prefix,
+%%% because `is_list` alone is true of both.
+%%%
+%%% So the answer is a BEAM guard BIF or nothing. The type must be the WHOLE of
+%%% one part: `int` narrowed to `>= 0` is decided by two tests, not one, and
+%%% whether a refinement may wear the prefix is ticket 84's open question
+%%% rather than this function's to answer. `bool` is the one finite atom set
+%%% with a BIF of its own, and it would be a LIE to refuse it saying no single
+%%% test decides it.
+%%%
+%%% AN UNRECOGNISED SHAPE ANSWERS `none`, which refuses the prefix. That is the
+%%% safe direction for this reader and the reason it is a `case` over shapes
+%%% rather than a comprehension over parts: a new type kind added to the
+%%% algebra makes the form unavailable over it until someone says what test
+%%% decides it, instead of emitting a test that admits the wrong values.
+
+%% `{ok, Bif}` where one BEAM guard BIF decides membership in `T` exactly, and
+%% otherwise `{no, Why}` — `several_parts`, `narrower` or `empty`. Both the
+%% refusal in `bs_check` and the test `bs_emit` conjoins read this, so the two
+%% cannot disagree about which types the form reaches.
+%%
+%% THE REASON IS RETURNED BECAUSE THE REFUSAL MUST BE TRUE OF THE TYPE IN
+%% FRONT OF IT. "No single test decides `list<int>`" is true and "no single
+%% test decides `term`" is false, so one sentence for every refusal would
+%% have the compiler stating something false about half of them.
+%% A recursive type is unfolded once and asked again, so the answer is about
+%% the parts it actually has rather than about the binder: `type Tree = :leaf
+%% | (:node, Tree, Tree)` spans atoms and tuples, and `several_parts` is the
+%% true thing to say about it. One unfold is enough — the parts of a
+%% contractive type are visible at its top (F28, ticket 09 §3).
+part_test(#{mu := _} = T) -> part_test(unfold(T));
+%% A bare back-reference is not a type on its own; it can only be met inside
+%% a binder that this function has already unfolded.
+part_test(#{recvar := _}) -> {no, several_parts};
+part_test(#{} = T) ->
+    case inhabited_parts(T) of
+        [{atoms, {cofinite, []}}]          -> {ok, is_atom};
+        %% `bool`, the one finite set the platform tests whole.
+        [{atoms, {finite, [false, true]}}] -> {ok, is_boolean};
+        [{ints, [{neg_inf, pos_inf}]}]     -> {ok, is_integer};
+        [{floats, {cofinite, []}}]         -> {ok, is_float};
+        %% `string` is `binary` refined by valid UTF-8 (ticket 20 §4), so it
+        %% is `[utf8]` here and `is_binary` OVER-approximates it: the platform
+        %% has no `is_string`, so it is `narrower` like every other refinement.
+        [{bins, [other, utf8]}]            -> {ok, is_binary};
+        [{lists, [{[], {open, any}}]}]     -> {ok, is_list};
+        [{maps, top}]                      -> {ok, is_map};
+        [{tuples, top}]                    -> {ok, is_tuple};
+        [{funs, top}]                      -> {ok, is_function};
+        []                                 -> {no, empty};
+        %% ONE part, and not the whole of it: a refinement, a literal set, a
+        %% container with a type inside it. The part's own test is carried, so
+        %% the refusal can say WHICH test is true of more values than the type
+        %% holds — `is_list` for `list<int>`, `is_integer` for a refined `int`
+        %% — rather than asserting in general that no test decides it.
+        [{Part, _}]                        -> {no, {narrower, part_bif(Part)}};
+        [_ | _]                            -> {no, several_parts}
+    end;
+part_test(_) -> {no, several_parts}.
+
+part_bif(atoms)  -> is_atom;
+part_bif(ints)   -> is_integer;
+part_bif(floats) -> is_float;
+part_bif(bins)   -> is_binary;
+part_bif(lists)  -> is_list;
+part_bif(maps)   -> is_map;
+part_bif(tuples) -> is_tuple;
+part_bif(funs)   -> is_function.
+
+%% The parts that are not empty, as `{Key, Value}`. More than one means the
+%% type is a union across parts — `int | float` itself — which no single test
+%% decides; none at all means `none`, which admits nothing and is not a
+%% pattern either.
+inhabited_parts(#{atoms := As, ints := Is, floats := Fl, tuples := Ts,
+                  lists := Ls, maps := Ms, bins := Bs, funs := Fs}) ->
+    [{atoms, As}  || As =/= {finite, []}] ++
+    [{ints, Is}   || Is =/= []] ++
+    [{floats, Fl} || Fl =/= {finite, []}] ++
+    [{tuples, Ts} || Ts =/= []] ++
+    [{lists, Ls}  || Ls =/= []] ++
+    [{maps, Ms}   || Ms =/= []] ++
+    [{bins, Bs}   || Bs =/= []] ++
+    [{funs, Fs}   || Fs =/= []].
 
 %% THE NORMALISED TYPE'S OWN MEMBERS, which is what 09 §4 means by "check
 %% pairwise on the NORMALISED members" and is NOT the list of members an

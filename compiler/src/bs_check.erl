@@ -2806,6 +2806,12 @@ pattern_vars({p_rec, _, _, Fs})        -> lists:append([pattern_vars(P) || {_, P
 %% would make the sub-pattern's names unreadable in the body with no
 %% diagnostic.
 pattern_vars({p_bind, _, V, P})        -> [V | pattern_vars(P)];
+%% The type prefix over a part introduces its trailing name, as the record
+%% prefix does through `p_bind` above (F53). The type names nothing: `float`
+%% is a type here and not a binder, which is the whole difference between
+%% `Post(float a)` and `Post(float)`, the second of which is two names and a
+%% syntax error.
+pattern_vars({p_type, _, _, V})        -> [V];
 pattern_vars({p_list, _, Items, Rest}) ->
     lists:append([pattern_vars(P) || P <- Items])
         ++ case Rest of nil -> []; R -> pattern_vars(R) end;
@@ -2956,6 +2962,13 @@ keep_from_guard({fdiv, _, _}) -> true;
 keep_from_guard(D)            -> mixed_pair(D).
 
 mixed_pair({error, _, _, {mixed_operands, _, _, _, _}}) -> true;
+%% THE SECOND TAG, AND THE SITE THAT DECIDES WHETHER IT IS SEEN. A numeric
+%% union at an operator is the mixed pair (ticket 83), and a refusal missing
+%% from this list is reported in a body and DROPPED in a guard — so
+%% `Owed(a) -> a * 100` would refuse while `Post(a) when a < 0` compiled and
+%% went on posting a £2.50 refund as a debit, which is the defect 83 opened
+%% on, surviving its own fix.
+mixed_pair({error, _, _, {numeric_union_operand, _, _, _}}) -> true;
 mixed_pair(_)                                           -> false.
 
 %%% --- Binary patterns: four known-shape refusals (F13) ----------------------
@@ -4294,8 +4307,61 @@ op_result(Op, ATy, BTy, L, C) ->
         {float, int} when Op =/= 'and', Op =/= 'or' ->
             {reported(), [mixed(Op, float, int, BTy, L, C)]};
         _ ->
-            {op_type(Op), []}
+            union_result(Op, ATy, BTy, L, C)
     end.
+
+%% A UNION WHOSE PARTS ARE ALL NUMERIC IS THE MIXED PAIR WHEREVER ONE PART
+%% WOULD BE (ticket 83). `part_of/1` answers `neither` for it, so it fell to
+%% `op_type/1` above and every operator over it answered `int`: `public int
+%% Owed(int | float amount)` with `Owed(a) -> a * 100` compiled, published
+%% `int Owed(int | float)` through `--api`, and returned `-250.0` — the outcome
+%% §10's guarantee exists to rule out. The guard face is the same fallthrough
+%% one line over, where `a < 0` emitted `is_integer(A) andalso A < 0` and
+%% dropped the float half of a ledger's amount.
+%%
+%% THE OPERATOR SET IS INHERITED, not named again: everything except `and` and
+%% `or`, the same guard the `{int, float}` clauses above carry. A second list
+%% here would be a second thing to keep in step.
+%%
+%% BOTH OPERANDS MUST BE INHABITED, for the reason the clauses above are: an
+%% operand already refused is `none`, and refusing again would stack a second
+%% error on the first.
+%%
+%% SCOPED TO A UNION WHOSE PARTS ARE ALL NUMERIC, which is the question ticket
+%% 83 asked and the whole of what it answered. `int | float | :none` keeps
+%% today's fallthrough and today's defect with it — seen, not missed, and
+%% named in 83's `Not decided here`.
+union_result(Op, ATy, BTy, L, C) when Op =/= 'and', Op =/= 'or' ->
+    Inhabited = fun(T) -> not bs_types:is_none(T) end,
+    case {numeric_union(ATy) andalso Inhabited(BTy),
+          numeric_union(BTy) andalso Inhabited(ATy)} of
+        {true, _} -> {reported(), [union_operand(Op, left, ATy, L, C)]};
+        {_, true} -> {reported(), [union_operand(Op, right, BTy, L, C)]};
+        _         -> {op_type(Op), []}
+    end;
+union_result(Op, _ATy, _BTy, _L, _C) ->
+    {op_type(Op), []}.
+
+%% Inhabited, inside the two numeric parts together, and inside neither of
+%% them alone — which is exactly "every part is numeric and both are present".
+%% Asked of the type rather than of its spelling, so an alias to `int | float`
+%% and a refinement of one are the same question.
+numeric_union(Ty) ->
+    Numeric = bs_types:union(bs_types:int(), bs_types:float_top()),
+    not bs_types:is_none(Ty)
+        andalso bs_types:is_subtype(Ty, Numeric)
+        andalso not bs_types:is_subtype(Ty, bs_types:int())
+        andalso not bs_types:is_subtype(Ty, bs_types:float_top()).
+
+%% The refusal carries the side the union is on and the union itself, and
+%% `bs_diag` decides the words. It does NOT carry a literal spelling: `mixed/6`
+%% above offers `2.0` for `2` because there one side IS one literal, and over a
+%% union that advice is refused too, by the symmetry of ticket 80's no-flow
+%% rule — the `int` part of the union would then stand beside a float. The only
+%% correct advice is to dispatch the parts (ticket 84), which is why this
+%% refusal and that pattern are one feature.
+union_operand(Op, Side, Ty, L, C) ->
+    {error, L, C#ctx.fname, {numeric_union_operand, Op, Side, Ty}}.
 
 %% The refusal carries what the checker decided — which part each side lies
 %% in — and, where the `int` side is one literal, that literal's float
@@ -5142,6 +5208,28 @@ pattern_type({p_rec, Line, Name, Fields}, Path, Env) ->
     {bs_types:map_open(Named#{'Kind' => bs_types:atom_lit(Tag)}),
      lists:foldl(fun maps:merge/2, #{}, [B || {_, {_, B, _}} <- Triples]),
      lists:all(fun({_, {_, _, E}}) -> E end, Triples)};
+%% The type prefix over a PART: `Post(float a)` (F53, ticket 84). It is ticket
+%% 55's `Frame f` one member kind over, and the pattern's type is simply the
+%% type named — so the residual subtracts the whole part, the clause set closes
+%% with no catch-all, and the binding is narrowed for the guard and the body.
+%% Exact, because the test decides membership rather than bounding it: that is
+%% the whole criterion, and `bs_types:part_test/1` is where it is asked.
+%%
+%% REFUSED BY RAISING, HERE, AND THAT IS THE WIRING. An arm is classified in
+%% `arms/10` and a head in `walk/6`, and F51 shipped a dead arm by refusing at
+%% one of them — a vacuous arm is only a warning, so the program compiled with
+%% the dead arm in it. Both call THIS function for their pattern's type, so a
+%% refusal raised here reaches both by construction rather than by a second
+%% call site somebody has to remember. It is also `not_a_record`'s own
+%% mechanism, which is the same refusal about the same form one member kind
+%% away.
+pattern_type({p_type, Line, TypeExpr, V}, Path, Env) ->
+    Ty = resolve(TypeExpr, Env),
+    case bs_types:part_test(Ty) of
+        {ok, _Bif} -> {Ty, #{V => Path}, true};
+        {no, Why}  -> erlang:error({type_prefix_undecidable, Line,
+                                    bs_types:to_string(Ty), Why})
+    end;
 %% A trailing binder takes the same path as the pattern it wraps (F22, ticket
 %% 55): it names the position already being described, which is what lets a
 %% guard refine through it and a body read `f.Channel` at the declared type

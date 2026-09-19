@@ -24,7 +24,18 @@
 # evidence here that is not self-reported.
 
 url       https://claude.ai/code/artifact/40f71cf4-d5d3-4b71-882c-ad73f630a03c
-sha256    dbb93b861b5ef5fa22a0e782fd50929dcca176ae032273cd1dac2242e675fb02
+sha256    5c5e15102594c374d6ba043141496b467325563e6ad9e5b0dc6c4085e433c044
+verified  2026-09-19 (for F53, the numeric-union dispatch, ENG-394) — chapter 3 gained a section,
+          *Taking a numeric union apart*, quoting `examples/Ledger/ledger.bs` with one replayed
+          transcript (`Post -2.50` is `:credit`, the row that answered `:debit` before this
+          feature). The appendix gained one row, `a type prefix over a part`, added because part 2
+          of the gate goes red on the roster row before the tour has met it — it named it as
+          NOT IN TOUR on the first run after `corpus_tests` gained the row, which is that check
+          working. Parts 1 to 3 were green and part 4 red against the old stamp before the
+          republish (version 26), and the live page was read back in full first: it still ended
+          chapter 3 at the float guard paragraph with no numeric-union section, so it was
+          confirmed stale rather than assumed, and the read showed a plain render of TOUR.md with
+          nothing saved into it independently. Published as version 27 on the first attempt.
 verified  2026-09-16 (for F51, `float`, ENG-378) — chapter 3 gained a section, *The other number:
           `float`*, quoting `examples/Stats/stats.bs` with two replayed transcripts (`Mean '[2, 4]'`
           is `3.0`, `Check '[]'` is `:empty`) and the sentence that a float guard credits nothing.
