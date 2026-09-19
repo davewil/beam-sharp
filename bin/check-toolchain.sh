@@ -528,6 +528,82 @@ findings() {
   printf '%s\n' "$1" | grep -v '^count ' | grep -v '^$' || true
 }
 
+# A .beam IN A SOURCE DIRECTORY CAN SHADOW A RUNTIME MODULE, AND macOS DECIDES
+# WHETHER IT DOES.
+#
+# `bsc Foo.bs` with no `-o` writes `Foo.beam` into the working directory —
+# `run/3` and `repl/2` redirect the default to a temp dir, `compile_only/2`
+# does not. Do that with the working directory inside the repository and the
+# artefact joins the code path of the next `rebar3` or `erl` run, because both
+# put `.` first.
+#
+# ON A CASE-SENSITIVE FILESYSTEM THAT IS HARMLESS. On macOS it is not: the VM
+# asking for `json` is served `Json.beam`, which announces itself as module
+# `'Json'` and fails to load, and stdlib's `json` is then unreachable. Measured
+# 2026-09-19 — a `Json.beam` dated 2026-08-21 sat in `compiler/` and failed 11
+# `diagnostic_json_tests` on a clean tree, while CI stayed green on Linux the
+# whole time. `C.beam` over stdlib's `c` is the same shape and already made one
+# gate lie, which is why `installed_version` probes from a scratch directory.
+#
+# THE RULE IS NAME-ONLY, AND DELIBERATELY SO. A file that is not a loadable
+# beam breaks the load just as thoroughly as one that is, so nothing here opens
+# the file; and the check must fire on the name alone or it could not be driven
+# over a fixture.
+#
+# BOTH INPUTS ARE PARAMETERS. The real run derives the module list from the
+# runtime; --self-test passes a fabricated one, for the reason the unpinned
+# controls give above — a control that asked this machine's OTP would report
+# whatever it happens to ship.
+shadowing_beams() {
+  local dirs="$1" modules="$2" dir f stem low n=0 used=0 readable=0
+
+  # The module list is walked once, not once per file: the runtime offers over
+  # a thousand of them and the naive nesting spawns a subprocess per pair.
+  n="$(printf '%s\n' "$modules" | grep -c '[^[:space:]]' || true)"
+  for dir in $dirs; do
+    [ -d "$dir" ] && readable=1
+  done
+  # A module list nothing could be compared against is not a list compared.
+  [ "$readable" -eq 1 ] && used="$n"
+
+  if [ "$n" -gt 0 ] && [ "$readable" -eq 1 ]; then
+    for dir in $dirs; do
+      [ -d "$dir" ] || continue
+      for f in "$dir"/*.beam; do
+        [ -e "$f" ] || continue
+        stem="${f##*/}"; stem="${stem%.beam}"
+        low="$(printf '%s' "$stem" | tr '[:upper:]' '[:lower:]')"
+        # Same spelling is the ordinary case — `foo.beam` IS module `foo` and
+        # stands in front of nothing it is not. Only a difference in case makes
+        # one file answer to two names.
+        [ "$low" = "$stem" ] && continue
+        printf '%s\n' "$modules" | grep -qx -- "$low" || continue
+        printf '%s: `%s.beam` is served when the VM asks for `%s`, so that module cannot load\n' \
+          "$dir" "$stem" "$low"
+      done
+    done
+  fi
+
+  printf 'count %d %d\n' "$n" "$used"
+}
+
+# The modules a stray artefact could stand in front of: everything the runtime
+# can load. Derived rather than listed, because a closed table would turn every
+# module it forgot into a free pass — the hole this file names three times.
+# Probed from a scratch directory for the reason above: a stray beam in the
+# working directory is exactly what this is looking for, and it must not be
+# what breaks the probe that looks.
+runtime_modules() {
+  local scratch out
+  scratch="$(mktemp -d "$ROOT/.toolchain-probe.XXXXXX")" || return 1
+  out="$(cd "$scratch" && erl -noshell -eval '
+      N = fun(M) when is_atom(M) -> atom_to_list(M); (M) -> M end,
+      [io:format("~s~n", [N(M)]) || {M, _, _} <- code:all_available()],
+      halt().' 2>/dev/null)" || { rm -rf "$scratch"; return 1; }
+  rm -rf "$scratch"
+  printf '%s\n' "$out"
+}
+
 # ---------------------------------------------------------------------------
 # --self-test
 #
@@ -832,6 +908,65 @@ YML
     fail=1
   fi
 
+  # THE STRAY ARTEFACT, four controls, driven over a fixture directory and a
+  # fabricated module list. The real module list comes from the runtime, and a
+  # control that asked this machine's OTP would report whatever it ships —
+  # the same accident the unpinned controls above are written around.
+  mkdir -p "$CTL/beams"
+  : > "$CTL/beams/Widget.beam"    # no `widget` module: harmless
+  : > "$CTL/beams/plain.beam"     # same spelling: IS module `plain`, shadows nothing
+  MODS="$(printf 'json\nlists\nc\n')"
+
+  # SHADOW is the defect. `Json.beam` answers to `json` on a case-insensitive
+  # filesystem, and the file is empty on purpose: a file that is not a loadable
+  # beam breaks the load exactly as thoroughly as one that is, and the rule must
+  # be the name alone or it could not be driven here at all.
+  : > "$CTL/beams/Json.beam"
+  # Captured rather than piped: `grep -q` closes the pipe on its first match,
+  # and under `pipefail` the SIGPIPE that gives the producer would read as the
+  # check having failed — which is a control that fires on a working gate.
+  sb_out="$(shadowing_beams "$CTL/beams" "$MODS")"
+  if ! printf '%s\n' "$sb_out" | grep -q 'Json.beam'; then
+    echo "SELF-TEST FAILED: a \`Json.beam\` beside a live \`json\` module was not"
+    echo "                  reported. That is the artefact that failed 11 tests on a"
+    echo "                  clean tree on 2026-09-19 while CI stayed green."
+    fail=1
+  fi
+
+  # CLEAN is the discrimination half. Remove the one poisonous file and the two
+  # innocent ones must be left alone — a check that fired on every .beam would
+  # satisfy SHADOW perfectly and be worthless, since this repository's own
+  # probes leave dozens of them.
+  rm -f "$CTL/beams/Json.beam"
+  sb_out="$(shadowing_beams "$CTL/beams" "$MODS")"
+  if [ -n "$(printf '%s\n' "$sb_out" | grep -v '^count ' || true)" ]; then
+    echo "SELF-TEST FAILED: a .beam whose name collides with nothing was reported."
+    echo "                  \`Widget.beam\` names no module the runtime has and"
+    echo "                  \`plain.beam\` IS its own module; flagging either makes"
+    echo "                  the gate fire on ordinary build output."
+    fail=1
+  fi
+
+  # EMPTY LIST is the vacuity half. If the runtime probe fails and hands back
+  # nothing, "no collisions" is not a measurement — it is a check that ran over
+  # an empty list, and the count must say so.
+  : > "$CTL/beams/Json.beam"
+  sb_out="$(shadowing_beams "$CTL/beams" "")"
+  if [ "$(printf '%s\n' "$sb_out" | awk '/^count /{print $2}')" -ne 0 ]; then
+    echo "SELF-TEST FAILED: an empty module list did not report an empty enumeration,"
+    echo "                  so a failed runtime probe would read as a clean tree."
+    fail=1
+  fi
+
+  # UNREADABLE DIRECTORY is the same hole one step out: a wrong root must not
+  # count as having compared anything.
+  sb_out="$(shadowing_beams "$CTL/beams/nope" "$MODS")"
+  if [ "$(printf '%s\n' "$sb_out" | awk '/^count /{print $3}')" -ne 0 ]; then
+    echo "SELF-TEST FAILED: a directory that does not exist was counted as compared,"
+    echo "                  so a wrong root would clear every module in the list."
+    fail=1
+  fi
+
   if [ "$fail" -eq 0 ]; then
     echo "self-test: caught the version literal re-introduced beside the manifest, the"
     echo "           workflow that installs nothing at all, the tool outside the table,"
@@ -842,7 +977,10 @@ YML
     echo "           — and left the fixture that installs from the manifest,"
     echo "           names no version and pins everything, a tool that is present, and"
     echo "           a probe directory strictly inside the root, and a binary the"
-    echo "           manager owns reached both ways, alone"
+    echo "           manager owns reached both ways, alone — and caught the stray"
+    echo "           \`Json.beam\` standing in front of stdlib's \`json\`, the empty"
+    echo "           module list and the directory that does not exist, while leaving"
+    echo "           a .beam that collides with nothing and one that is its own module"
     exit 0
   fi
   exit 1
@@ -899,13 +1037,16 @@ $(count_violation "$r_out" 'the workflow runs-on: lines')"
     e_out="$(env_drift "$MANIFEST")"
     u_out="$(required_unpinned python3 mise perl shasum tar)"
     b_out="$(path_bypass "$MANIFEST")"
+    s_out="$(shadowing_beams "$ROOT $ROOT/compiler" "$(runtime_modules)")"
 
     problems="$(findings "$e_out")
 $(count_violation "$e_out" 'the manifest against this machine')
 $(findings "$u_out")
 $(count_violation "$u_out" 'the required tools that carry no version')
 $(findings "$b_out")
-$(count_violation "$b_out" 'the pinned tools against what PATH resolves')"
+$(count_violation "$b_out" 'the pinned tools against what PATH resolves')
+$(findings "$s_out")
+$(count_violation "$s_out" 'the runtime modules against stray artefacts')"
 
     if [ -n "$(printf '%s\n' "$problems" | grep -v '^$' || true)" ]; then
       printf '%s\n' "$problems" | grep -v '^$'
@@ -921,6 +1062,11 @@ $(count_violation "$b_out" 'the pinned tools against what PATH resolves')"
       echo
       echo "A missing python3 is NOT fixed by any of the above — it carries no version"
       echo "line, so \`mise install\` never sees it. Install your platform's python3."
+      echo
+      echo "A SHADOWED MODULE is not fixed by any of the above either. Delete the stray"
+      echo ".beam — it is build output, ignored by git, and nothing tracked depends on"
+      echo "it. \`bsc\` with no -o writes beside the source, so it arrives from compiling"
+      echo "a scratch module with the working directory inside the repository."
       rc=1
     else
       printf '%s\n' "$e_out" | grep '^count ' |
@@ -929,6 +1075,8 @@ $(count_violation "$b_out" 'the pinned tools against what PATH resolves')"
         awk '{printf "and the %d required tools that carry no version line are present\n", $2}'
       printf '%s\n' "$b_out" | grep '^count ' |
         awk '{printf "and all %d resolve on PATH to a binary mise owns\n", $3}'
+      printf '%s\n' "$s_out" | grep '^count ' |
+        awk '{printf "and no stray .beam stands in front of any of the %d loadable modules\n", $3}'
     fi
     ;;
 
