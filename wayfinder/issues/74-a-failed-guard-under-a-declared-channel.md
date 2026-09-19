@@ -1,7 +1,7 @@
 # 74 — What does a failed boundary guard become under a declared `result<T, foreign_error>` channel?
 
 Type: grilling
-Status: claimed — [ENG-362](https://linear.app/davewil/issue/ENG-362). Raised 2026-09-11 by the F42
+Status: **resolved 2026-09-19** — [ENG-362](https://linear.app/davewil/issue/ENG-362). Raised 2026-09-11 by the F42
 build ([ENG-357](https://linear.app/davewil/issue/ENG-357))
 Blocked by: —
 
@@ -260,3 +260,87 @@ different site, and 82 records its own reason for the crash it chose — *"there
 the surface language, so a crash is not recoverable inside B#"*. That reason is exactly what the
 channel arm here would make untrue at one site, so an answer to Q1 is worth reading beside 82
 rather than inside it.
+
+
+## Answer (David, 2026-09-19)
+
+**Crash.** The guard wraps the wrapper; a refused value never enters the channel.
+
+The channel was declared for the *callee's* exceptions, and a wrong-shaped return is not one. The
+deciding evidence is that both tiers of the borrow heuristic already keep a mechanism's own
+failure out of the channel its callee's failures travel through, by two different mechanisms:
+
+- **Tier 2, OTP** — `erpc` puts the callee's failure and its own in the same `error` class and
+  separates them by the reason's shape, `{erpc, _}` beside `{exception, _, _}`. Its predecessor
+  `rpc` is the untagged channel arm, and OTP's own `-moduledoc` calls that ambiguity
+  unrepairable: *"This behavior cannot be changed for compatibility reasons."*
+- **Tier 1, .NET** — separates them by subtyping. Measured on SDK `9.0.306`:
+  `catch (ExternalException)` takes `SEHException` (`True`) and not `MarshalDirectiveException`
+  (`False`). Everything out of native code is inside that subtree; the marshaller's own complaint
+  is outside it.
+
+**In B# the wrapper is that catch**, so only the crash arm satisfies the rule. The other two break
+it, and their cost was measured rather than argued: the channel arm makes `examples/Foreign`'s
+`Diagnose` answer `:not_a_number` for a value nothing threw, and the tagged arm answers `:parsed`
+unless `foreign_error` gains a fourth member — outcome 3 one site over.
+
+**What is *not* borrowed is the check itself.** No BEAM language generates a foreign-return check,
+and tier 1 generates a converter and never a checker — `LibraryImport`'s stub for a blittable
+return is a bare `[DllImport]`, and for a marshalled return it is one `ConvertToManaged` call with
+no verdict anywhere in it. F42 stays a deliberate divergence from both tiers, decided by 18 §2.
+Only the *placement of its failure* is a borrow.
+
+## The compiler delta
+
+One line in `bs_emit`'s `e_foreign_call` clause. The wrapped branch becomes
+
+```erlang
+{ok, #{wrapped := true, ret := Ty}} -> return_guard(L, foreign_wrapper(L, Call), Ty);
+```
+
+`bs_check` already puts `ret => Ty` on every foreign entry, wrapped or not, so nothing upstream
+changes. Measured under that patch: the wrong declaration crashes with
+`case_clause (:ok, <<...>>)`, and F19 is untouched — `Parse '<<"notanumber">>'` still answers
+`(:error, (:error, :badarg))` and `Parse '<<"41">>'` still answers `41`, because the catch's own
+`(:error, (Class, Reason))` is in the declared type and passes the guard.
+
+Owed with it: tests in `foreign_guard_tests` for the channelled shape, and the `LANGUAGE.md` §11
+demonstration, since §11 is where F42's `Guard` block lives.
+
+**The downstream question dissolves.** Which type the guard tests only existed under the channel
+arm; under the crash arm it is the whole declared type and there is nothing to choose.
+
+## Decisions entry
+
+<!-- This ticket's entry. Read whole, here; the map (ENG-165) carries one line. -->
+
+```decisions-entry
+- [A failed guard under a declared channel](issues/74-a-failed-guard-under-a-declared-channel.md)
+  — **A refused boundary guard crashes, whether or not the declaration names a failure channel:
+  the guard wraps the wrapper, and a wrong-shaped foreign return never enters the channel.**
+  Raised 2026-09-11 by the F42 build (ENG-357), which shipped the unchannelled guard and left the
+  channelled arm unbuilt because 18 did not answer this; resolved 2026-09-19 in one round.
+  **18 §1 rule C does not reach the case** — it guarantees *"outcome 1-or-2, never outcome 3"* and
+  a channelled value is visible either way — so the answer came from prior art, and both tiers
+  gave the same one by different mechanisms. **Tier 2**: OTP's `rpc` → `erpc` migration is this
+  fork decided on this platform, `erpc` separating its own failure from the callee's by the
+  reason's shape (`{erpc, _}` beside `{exception, _, _}`) while `rpc`'s untagged value form is
+  frozen as unrepairable. **Tier 1**: .NET separates them by subtyping — measured, SDK `9.0.306`,
+  `catch (ExternalException)` takes `SEHException` and not `MarshalDirectiveException`. In B# the
+  F19 wrapper *is* that catch, so the refusal must stay outside it. Both rejected arms were built
+  and measured: the channel arm makes `examples/Foreign`'s `Diagnose` answer `:not_a_number` for
+  a value nothing threw, and a tagged arm answers `:parsed` unless `foreign_error` gains a fourth
+  member — outcome 3 one site over, and a change to a stratum-2 type, its glossary entry and every
+  match over it. **The check itself is not a borrow**: no BEAM language generates a foreign-return
+  check (Gleam emits a bare forwarding call and tells you to hand-write the wrapper; LFE's
+  `defspec` reaches a `-spec` and stops), and tier 1 generates a converter and never a checker —
+  `LibraryImport`'s stub for a blittable return is a bare `[DllImport]`, measured in the generated
+  `.g.cs`. F42 stays a deliberate divergence from both tiers under 18 §2; only its failure's
+  placement is borrowed. Delta: one line in `bs_emit` — the wrapped branch becomes
+  `return_guard(L, foreign_wrapper(L, Call), Ty)`, with `ret` already on every foreign entry.
+  Survey: `research/74-foreign-guard-failure-prior-art.md`. Also settled on the way: the
+  narrow-catch escape is closed by 15's measurement that `gen_server:call` to a dead process
+  raises a catchable `exit({noproc, _})`, and C# never has this collision because `PreserveSig` is
+  two signatures rather than one — the declared return is the channel entirely or the success
+  member alone, never both.
+```
