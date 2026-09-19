@@ -179,4 +179,17 @@ an author who writes `Amount a` is told what to write instead.
 
 ## Verified
 
-Twice from a clean checkout at the final SHA — the dated line is added when that pair completes.
+**2026-09-19, `431a6c1`** — `./bin/verify.sh` twice from a clean clone of that commit, sequentially
+(two clean runs started together race on the per-user tree-sitter cache): **45/45 stages, 261s and
+257s**. The pair was run once, at the final SHA, after the tree stopped moving.
+
+Two stages went red on the way there and both were the gates working rather than the tree being
+wrong:
+
+- **Stage 19** read *"the defect ticket 83 opened on"* in this feature's README row as a claim
+  that ticket 83 is open — its probe is `[0-9]+ open`, which "83 opened" satisfies. The prose was
+  reworded rather than the gate widened; a second occurrence would make it a gate defect worth
+  fixing, and this is the first.
+- **Stage 40** found `type_prefix_tests` citing `F53.1`–`F53.5` before this document defined them,
+  which is exactly the drift that stage exists to catch: the scenarios table below was written
+  from the suite afterwards, so the identifiers now mean something.
