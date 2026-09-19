@@ -224,9 +224,18 @@ cannot see, so it names the form instead of a head it cannot guarantee.
 
 ## Verified
 
-**2026-09-19, `431a6c1`** — `./bin/verify.sh` twice from a clean clone of that commit, sequentially
-(two clean runs started together race on the per-user tree-sitter cache): **45/45 stages, 261s and
-257s**. The pair was run once, at the final SHA, after the tree stopped moving.
+**2026-09-19, `5fe7437`** — `./bin/verify.sh` twice from a clean clone of that commit,
+sequentially (two clean runs started together race on the per-user tree-sitter cache):
+**45/45 stages, 266s and 258s**.
+
+An earlier pair ran green at `431a6c1` (261s, 257s) and **does not count for what shipped**: the
+review found two defects after it, so the code moved and that pair measured a tree this feature
+no longer is. The rule is one pair, at the final SHA, after the tree stops moving — and the cost
+of breaking it is exactly this paragraph.
+
+Stage 11 also went red once under `verify.sh` on a tree that passed it standalone, which is
+[ENG-335](https://linear.app/davewil/issue/ENG-335) and not this feature; it passed on the next
+run and in both clean-clone runs.
 
 Two stages went red on the way there and both were the gates working rather than the tree being
 wrong:
