@@ -2,7 +2,8 @@
 
 Type: grilling
 Status: open — [ENG-393](https://linear.app/davewil/issue/ENG-393). Raised 2026-09-19 by David
-while [83](83-a-union-operand-at-an-operator.md) was in its first round
+while [83](83-a-union-operand-at-an-operator.md) was in its first round; Q1 answered the same
+day (the type prefix), Q2 open and blocking F53's grammar
 Blocked by: —
 
 ## The invariant this starts from
@@ -152,6 +153,56 @@ If the answer is the type prefix, three things follow and none is settled by pic
    a syntax error, and an arm is classified in a different function from a clause head — the trap
    F51 hit, where a refusal wired at the clause site missed the arm and a dead arm shipped as a
    warning.
+
+### Answered — the type prefix
+
+David, 2026-09-19: *"I would have thought `Post(float a)`, the signature's own shape in the pattern
+position, would be the most obvious answer"*, and then, resolving
+[83](83-a-union-operand-at-an-operator.md): *"So 83 yes mix pair, with the 84 answer."*
+
+```csharp
+public Side Post(int | float amount)
+
+Post(int a)   -> :debit
+Post(float a) -> :credit
+```
+
+So the form is [55](55-destructure-and-bind.md)'s type prefix, extended from a record to a part.
+Items 2 and 3 above are F53's obligations rather than open questions. Item 1 is not, and it is
+what this ticket still owes.
+
+## Q2 — How far does `T x` reach?
+
+The gating question left. Picking the type prefix does not say which types may wear it, and the
+answer changes which programs compile:
+
+```csharp
+// (a) a part that a BEAM guard separates
+public int Norm(atom | int x)
+
+Norm(atom a) -> 0
+Norm(int n)  -> n
+```
+
+```csharp
+// (b) a member that no guard reaches inside
+type Xs = list<int> | list<binary>
+
+public int Count(Xs xs)
+
+Count(list<int> ns)     -> List.Length(ns)
+Count(list<binary> bs)  -> 0
+```
+
+The natural rule is [09](09-union-representation.md) §4's discriminability criterion, which the
+checker already computes to judge a union legal: `T x` is a pattern wherever that criterion says
+the member is separable. Under it (a) compiles and (b) is refused — in the same words `map<K, V>`
+is refused today, *"can be declared, passed and returned and never matched on"*, since `is_list`
+is true of both members. The alternative is to scope the form to the parts of the lattice and
+leave every other union to its existing patterns.
+
+<!-- Round 2, asked 2026-09-19. -->
+
 
 <!-- Raised 2026-09-19, not yet asked. -->
 

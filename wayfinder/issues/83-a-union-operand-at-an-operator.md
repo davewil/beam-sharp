@@ -1,8 +1,9 @@
 # 83 — Is an `int | float` operand at an operator the mixed pair?
 
 Type: grilling
-Status: claimed — [ENG-392](https://linear.app/davewil/issue/ENG-392). Raised 2026-09-19 out of
-[ENG-387](https://linear.app/davewil/issue/ENG-387), the defect whose question this is
+Status: resolved 2026-09-19 — [ENG-392](https://linear.app/davewil/issue/ENG-392). Raised 2026-09-19
+out of [ENG-387](https://linear.app/davewil/issue/ENG-387), the defect whose question this is;
+one question, one round, answered the same morning
 Blocked by: —
 
 ## Why this is raised
@@ -217,6 +218,76 @@ Three things bear on that ticket and none of them decides it:
 
 <!-- Round 1, asked 2026-09-19. -->
 
+## The answer
+
+**Yes — it is the mixed pair.** David, 2026-09-19: *"So 83 yes mix pair, with the 84 answer."*
+
+`Ledger`'s guard and `Pence`'s `*` are both refused, and the author splits the parts first with
+[84](84-dispatching-the-parts-of-a-numeric-union.md)'s type-prefix pattern.
+
+### What this costs, stated plainly
+
+`a < 0.0` over an `int | float` subject **stops compiling**. It compiles today, emits no kind test,
+and answers correctly for both parts — and it is refused under this answer, because 80's no-flow
+rule is symmetric and the `int` part of the union is beside a float literal. The form that behaves
+correctly today is the form that goes away, and the two clauses replace it.
+
+Nothing shipped pays that cost: no `int | float` operand appears in `LANGUAGE.md`, `TOUR.md` or
+`compiler/examples/`, and the one suite case over the union,
+`float_tests.erl:int_or_float_is_discriminable_test`, dispatches on **literal heads**
+(`Kind(0)`, `Kind(0.0)`), which are patterns and never reach `op_result/5`.
+
+### The refusal and 84's pattern land together
+
+The refusal `mixed/6` prints offers the int literal's float spelling — *"write `0.0`"* — and under
+this answer that advice is refused too. The only correct advice is to dispatch the parts, which
+does not parse today. **A refusal whose advice does not compile is the defect it exists to
+prevent**, so this ships with 84's form and not before it: one feature, the coupling ticket 55
+recorded for the type prefix and the binder, in a second costume.
+
+### The emitter is untouched
+
+The ticket's *no* branch had a delta in `kind_tested/2`. The *yes* has none: no relational guard
+over a union operand compiles under it, in either literal spelling, so
+[ENG-330](https://linear.app/davewil/issue/ENG-330)'s conjunction never meets one.
+
+## Not decided here
+
+- **A numeric union with a non-numeric part.** Q1 was scoped to a union whose parts are all
+  numeric, and that is what was answered. `int | float | :none` keeps today's
+  `op_type(Op)` fallthrough and today's defect with it — the same hole, one member wider. Seen,
+  not missed.
+- **`term` at an operator**, which the same fallthrough covers and which nothing here moves.
+
 ## Decisions entry
 
-<!-- Written on resolution. -->
+<!-- This ticket's entry. Read whole, here; the map (ENG-165) carries one line. -->
+
+```decisions-entry
+- [Is an `int | float` operand at an operator the mixed pair?](issues/83-a-union-operand-at-an-operator.md)
+  — **yes: a union whose parts are all numeric is the mixed pair wherever one part would be, so
+  the operand is refused and the author splits the parts first.** Raised and resolved 2026-09-19
+  in one round on one question, out of [ENG-387](https://linear.app/davewil/issue/ENG-387), and
+  widened past that defect's framing by measurement: `op_result/5` answers what `op_type/1`
+  always answered for an operand in neither part, so the union escapes the refusal **and** the
+  result type at every operator, bodies included — `public int Owed(int | float amount)` with
+  `Owed(a) -> a * 100` compiles, publishes `int Owed(int | float)` through `--api`, and returns
+  `-250.0`, which is what §10's guarantee exists to rule out and what F42 closed at every
+  *foreign* declaration. The guard face is the same fallthrough: `a < 0` emits
+  `is_integer(A) andalso A < 0` and drops the float half, so a ledger rule posts a `-2.50` refund
+  as a debit. The delta is one `op_result/5` case, inheriting the operator set of the existing
+  `{int, float}` clause rather than naming a new one; the emitter is untouched, because no
+  relational guard over a union operand compiles under this answer. **The cost is a form that
+  works today**: `a < 0.0` over the union compiles, emits no kind test and answers correctly for
+  both parts, and is refused under the symmetry of [80](issues/80-does-an-int-flow-where-a-float-is-expected.md)'s
+  no-flow rule. Nothing shipped pays it — no `int | float` operand in `LANGUAGE.md`, `TOUR.md` or
+  the corpus, and `float_tests.erl`'s one case dispatches on literal heads, which never reach the
+  operator. **It ships with [84](issues/84-dispatching-the-parts-of-a-numeric-union.md)'s
+  type-prefix pattern and not before**, because the advice `mixed/6` prints is *"write `0.0`"*,
+  which this answer also refuses, and a refusal whose advice does not compile is the defect it
+  exists to prevent. Corrections on the record: [69](issues/69-does-the-language-have-float.md)'s
+  *"a clause head can tell the two apart"* is the algebra's discriminability criterion and not a
+  surface form, and ENG-387's *"with `0.0` as the advice"* is false under this answer. A numeric
+  union with a non-numeric part — `int | float | :none` — was scoped out of the question and
+  keeps today's behaviour. Unbuilt — F53.
+```
