@@ -1780,11 +1780,18 @@ guard_buckets(#{atoms := As, ints := Is, floats := Fl, tuples := Ts, lists := Ls
 %%% with a BIF of its own, and it would be a LIE to refuse it saying no single
 %%% test decides it.
 %%%
-%%% AN UNRECOGNISED SHAPE ANSWERS `none`, which refuses the prefix. That is the
-%%% safe direction for this reader and the reason it is a `case` over shapes
-%%% rather than a comprehension over parts: a new type kind added to the
-%%% algebra makes the form unavailable over it until someone says what test
-%%% decides it, instead of emitting a test that admits the wrong values.
+%%% AN UNRECOGNISED SHAPE REFUSES THE PREFIX, which is the safe direction: the
+%%% form becomes unavailable over a type until someone says what test decides
+%%% it, rather than a test being emitted that admits the wrong values.
+%%%
+%%% WHAT THIS DOES NOT DO IS NOTICE A NEW PART. `inhabited_parts/1` names the
+%%% eight keys, so a ninth added to the algebra is invisible here: a type in
+%%% that part alone would read as `{no, empty}` — "holds no value" — which is
+%%% the one answer below that could be FALSE of the type in front of it. The
+%%% refusal would still be a refusal, so nothing unsafe compiles, but the
+%%% sentence would lie. A new part therefore owes this function a line, and
+%%% `part_bif/1` beside it, which is the same obligation `type_test/3` in
+%%% `bs_emit` carries one module over.
 
 %% `{ok, Bif}` where one BEAM guard BIF decides membership in `T` exactly, and
 %% otherwise `{no, Why}` — `several_parts`, `narrower` or `empty`. Both the

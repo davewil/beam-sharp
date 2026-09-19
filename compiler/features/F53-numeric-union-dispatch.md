@@ -1,7 +1,7 @@
 # F53 — the numeric-union mixed pair, and the type prefix that takes it apart
 
-**Status**      **done 2026-09-19** · [ENG-394](https://linear.app/davewil/issue/ENG-394) — 17
-                tests in `type_prefix_tests`, 1045 in the suite, up from 1028; new gate
+**Status**      **done 2026-09-19** · [ENG-394](https://linear.app/davewil/issue/ENG-394) — 21
+                tests in `type_prefix_tests`, 1033 in the suite, up from 1011; new gate
                 `check-advice-compiles.sh`, seen red on the tree before the build, with three
                 fabricated advices in its `--self-test`; `examples/Ledger/ledger.bs`, one roster
                 row and the tour section it obliges; the clean-pair evidence is the dated line at
@@ -167,6 +167,50 @@ write, and the ticket it raises asks the sharper question the grammar now poses:
 the prefix, and which names. `not_a_record`'s message gained a line naming the part spelling, so
 an author who writes `Amount a` is told what to write instead.
 
+## What the review caught, and both were shipped defects
+
+**1. A nested prefix killed the compiler.** `Go((int n, a))` reached `bs_emit:pattern/2`, which
+has no clause for the lowered form, and `bsc` printed an Erlang stack trace instead of a
+diagnostic. `strip_rels/2` walks the top of each argument — exactly as the `p_rel` header beside
+it says of itself — and nothing refused the nested case, so the comment claiming every later pass
+was safe was true only at argument top.
+
+The refusal is F2's, one form over: whole argument or nothing. **The first fix was also wrong**,
+and is worth recording: it read the PATH, as `argument_position/2` does, and a path cannot tell
+the two legal tops apart from one level down — a clause-head parameter is `[I]` and so is a tuple
+element of a switch SUBJECT, whose own top is `[]`. The nested form inside an arm sailed through
+it and crashed exactly as before. `child_type/3` refuses structurally instead: a prefix may not be
+a child, which is what "whole argument" actually means, and every composite pattern already calls
+it.
+
+**2. The advice did not compile for a function of two parameters.** The heads were built from the
+function's NAME, so `public int Sum(int | float a, int b)` was advised to write `Sum(int n)`,
+which pastes back as *"Sum has a signature but no clauses"*. That is F19's defect in the refusal
+whose gate exists to catch it — and **the gate could not see it, because every probe it had took
+one parameter**.
+
+The heads are now built from the function's real parameter list, dispatching the position that
+carries the union and keeping the author's own names for the rest: `Total(count, int amount)`.
+Where no parameter carries it — the value came from a binding or a call — there is no honest head
+to write, and the message says where to dispatch rather than inventing one. The gate gained a
+second probe whose union is the **second** parameter, since a template that always dispatched the
+first would compile and still be the wrong fix.
+
+**The self-test had three rules nothing drove.** `A1`, `A6` and the new `A7` could not go red,
+because every stub carried the word `error` and the answers they judge were hardcoded. Six stubs
+now, one per rule, and the correct advice still green beside them — a gate agreeing only with
+itself is the failure mode this repo has already named.
+
+Smaller, all from the same review: the "inherited operator set" comment flattered a third copy of
+the same guard, and `every_operator_but_the_boolean_pair` now asserts the exclusion it is named
+for rather than only the five arithmetic operators; `part_test/1`'s header claimed a new type kind
+would make the form unavailable, when `inhabited_parts/1` names the eight keys and would simply
+not see a ninth, so the header now states that obligation instead of a safety it does not have;
+the undecidable refusal did not actually carry `map<K, V>`'s words, and now carries both of them,
+asserted; the glossary entry explained *why* the form exists, which `CLAUDE.md` reserves for the
+ticket; and `not_a_record`'s new line printed a clause shape for a function whose parameters it
+cannot see, so it names the form instead of a head it cannot guarantee.
+
 ## Scenarios
 
 | id | what | assertion |
@@ -174,7 +218,8 @@ an author who writes `Amount a` is told what to write instead.
 | F53.1 | ticket 83's table on the dispatched program — `Post(-250)`, `Post(-2.50)`, `Post(250)`, `Post(2.50)`, and zero in both spellings; and `f < 0.0` inside the `float` clause | `:credit`, `:credit`, `:debit`, `:debit`, `:debit`, `:debit`; no diagnostic, because the prefix narrowed the binding before the guard read it |
 | F53.2 | a part dropped from the clause set | `inexhaustive`, residual `(float)` — so the exhaustiveness above is credited to the pattern and not to something else |
 | F53.3 | `Norm(atom a)` / `Norm(int n)`; `Count(list<int> ns)`; `Far(Meters m)`; `Go(term t)`; `Post(Amount x)` | `0` and `7`; `{narrower, is_list}` naming `is_list` and *not built*; `not_a_record`, the form being unspellable; `several_parts`, and the message must NOT claim no test decides `term`; `not_a_record` whose message now names the part spelling |
-| F53.4 | the prefix in a switch arm, accepted and refused | `25000` and `0`; the same `{narrower, is_list}` refusal, reached without a second call site |
+| F53.4 | the prefix in a switch arm, accepted and refused; the prefix nested in a tuple, in a head and in an arm | `25000` and `0`; the same `{narrower, is_list}` refusal, reached without a second call site; `type_prefix_nested` at both sites, where the compiler used to die inside `bs_emit:pattern/2` |
+| F53.6 | the advice for a two-parameter function whose union is the SECOND parameter; and for a union with no parameter carrying it | `Total(count, int amount)` / `Total(count, float amount)`, which paste back and run; the sentence naming where the value enters, with no head invented |
 | F53.5 | `Owed(a) -> a * 100`; `Post(a) when a < 0`; `a < 0.0` over the union; the advice's text; `+ - * / %`; `int \| float \| :none`; a single `float` beside an int literal | `numeric_union_operand` in a body AND in a guard, and for the float-literal spelling too; advice naming `Owed(int`/`Owed(float` and never `0.0` or `Float.FromInt`; all five operators; unmoved, per ticket 83's scope; `mixed_operands` keeping its own `2.0` advice |
 
 ## Verified

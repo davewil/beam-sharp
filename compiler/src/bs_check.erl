@@ -65,7 +65,15 @@
 
 %% One clause's checking context. `types` is the only field `resolve/2`
 %% reads, because the emitter calls `resolve/2` with that map directly.
+%% `params` is the declared parameter list of the function being checked, as
+%% `{Name, ResolvedType}` — carried because a refusal may have to WRITE A HEAD
+%% for this function, and a head needs every position, not just the one the
+%% refusal is about. F53 shipped without it and printed `Sum(int n)` for a
+%% two-parameter `Sum`, which pastes back as "Sum has a signature but no
+%% clauses": advice that does not compile, the very defect its own gate exists
+%% to catch.
 -record(ctx, {types = #{}, callees = #{}, ret, fname, arity = 0, binds = #{},
+              params = [],
               imports = #{},
               %% Polymorphic callees, keyed as `callees` is: the template a
               %% call solves for its return (F45, ticket 37).
@@ -2107,7 +2115,8 @@ check_fn(F = #fn{name = Name, line = Line, params = Params, ret = Ret}, Ctx0) ->
     %% single column to be redundant overall.
     Declared = bs_types:tuple([resolve(T, Env) || {param, T, _} <- Params]),
     Ctx = Ctx0#ctx{types = Env, ret = resolve(Ret, Env), fname = Name,
-                   arity = length(Params), tvars = F#fn.tvars},
+                   arity = length(Params), tvars = F#fn.tvars,
+                   params = [{PName, resolve(T, Env)} || {param, T, PName} <- Params]},
     case F#fn.clauses of
         [] ->
             {F, [{error, Line, Name, no_clauses}]};
@@ -2968,7 +2977,7 @@ mixed_pair({error, _, _, {mixed_operands, _, _, _, _}}) -> true;
 %% `Owed(a) -> a * 100` would refuse while `Post(a) when a < 0` compiled and
 %% went on posting a £2.50 refund as a debit, which is the defect 83 opened
 %% on, surviving its own fix.
-mixed_pair({error, _, _, {numeric_union_operand, _, _, _}}) -> true;
+mixed_pair({error, _, _, {numeric_union_operand, _, _, _, _}}) -> true;
 mixed_pair(_)                                           -> false.
 
 %%% --- Binary patterns: four known-shape refusals (F13) ----------------------
@@ -4319,9 +4328,12 @@ op_result(Op, ATy, BTy, L, C) ->
 %% one line over, where `a < 0` emitted `is_integer(A) andalso A < 0` and
 %% dropped the float half of a ledger's amount.
 %%
-%% THE OPERATOR SET IS INHERITED, not named again: everything except `and` and
-%% `or`, the same guard the `{int, float}` clauses above carry. A second list
-%% here would be a second thing to keep in step.
+%% THE OPERATOR SET IS THE SAME SET: everything except `and` and `or`, spelled
+%% by the same guard the `{int, float}` clauses above carry. It is a third copy
+%% of that guard and therefore a third thing to keep in step — the brief asked
+%% for the set to be inherited rather than a new one invented, which it is, but
+%% "inherited" flattered the mechanism and `every_operator_but_the_boolean_pair`
+%% is what actually holds the three together.
 %%
 %% BOTH OPERANDS MUST BE INHABITED, for the reason the clauses above are: an
 %% operand already refused is `none`, and refusing again would stack a second
@@ -4360,8 +4372,36 @@ numeric_union(Ty) ->
 %% rule — the `int` part of the union would then stand beside a float. The only
 %% correct advice is to dispatch the parts (ticket 84), which is why this
 %% refusal and that pattern are one feature.
+%% THE HEADS ARE BUILT FROM THE FUNCTION'S OWN PARAMETERS, not from its name
+%% and a guess at its shape. A head is every position or it is not a head: the
+%% first cut printed `Fn(int n)` whatever the arity, so a two-parameter
+%% function was advised to write a clause the same compiler then refused for
+%% having the wrong arity — F19's defect, in the refusal whose gate exists to
+%% prevent exactly it.
+%%
+%% The dispatched position is the FIRST parameter whose declared type is this
+%% same numeric union; every other position keeps the name the author gave it,
+%% which is what makes the printed clause theirs rather than a template. Where
+%% no parameter carries the union — the value came from a binding, a call or a
+%% field — there is no honest head to write, and the term carries `none` so
+%% the message can say where to dispatch without inventing one.
 union_operand(Op, Side, Ty, L, C) ->
-    {error, L, C#ctx.fname, {numeric_union_operand, Op, Side, Ty}}.
+    {error, L, C#ctx.fname, {numeric_union_operand, Op, Side, Ty,
+                             advised_heads(C#ctx.params)}}.
+
+%% `{Before, Name, After}` — the parameter names each side of the one to
+%% dispatch, and its name — or `none`. `bs_diag` puts the type in front of
+%% `Name` and joins the rest, because which WORDS go round it is its business
+%% and not this module's (ticket 23 §1).
+advised_heads(Params) ->
+    Names = [N || {N, _} <- Params],
+    case [I || {I, {_, T}} <- lists:enumerate(Params), numeric_union(T)] of
+        [I | _] ->
+            {lists:sublist(Names, I - 1), lists:nth(I, Names),
+             lists:nthtail(I, Names)};
+        [] ->
+            none
+    end.
 
 %% The refusal carries what the checker decided — which part each side lies
 %% in — and, where the `int` side is one literal, that literal's float
@@ -5164,7 +5204,7 @@ pattern_type({p_or, _, A, B}, Path, Env) ->
     rel_combine(fun bs_types:union/2, A, B, Path, Env);
 pattern_type({p_tuple, _, Ps}, Path, Env) ->
     Indexed = lists:zip(Ps, lists:seq(1, length(Ps))),
-    Triples = [pattern_type(P, Path ++ [I], Env) || {P, I} <- Indexed],
+    Triples = [child_type(P, Path ++ [I], Env) || {P, I} <- Indexed],
     {bs_types:tuple([T || {T, _, _} <- Triples]),
      lists:foldl(fun maps:merge/2, #{}, [B || {_, B, _} <- Triples]),
      lists:all(fun({_, _, E}) -> E end, Triples)};
@@ -5179,7 +5219,7 @@ pattern_type({p_tuple, _, Ps}, Path, Env) ->
 %% path into `none_marker`, so a clause with both a record pattern and a guard
 %% would credit nothing and the function would report inexhaustive.
 pattern_type({p_map, _, Fields}, Path, Env) ->
-    Triples = [{K, pattern_type(P, Path ++ [{field, K}], Env)} || {K, P} <- Fields],
+    Triples = [{K, child_type(P, Path ++ [{field, K}], Env)} || {K, P} <- Fields],
     {bs_types:map_open(maps:from_list([{K, T} || {K, {T, _, _}} <- Triples])),
      lists:foldl(fun maps:merge/2, #{}, [B || {_, {_, B, _}} <- Triples]),
      lists:all(fun({_, {_, _, E}}) -> E end, Triples)};
@@ -5203,7 +5243,7 @@ pattern_type({p_rec, Line, Name, Fields}, Path, Env) ->
          true  -> ok;
          false -> erlang:error({pattern_field_unknown, Line, Name, K, Declared})
      end || {K, _} <- Fields],
-    Triples = [{K, pattern_type(P, Path ++ [{field, K}], Env)} || {K, P} <- Fields],
+    Triples = [{K, child_type(P, Path ++ [{field, K}], Env)} || {K, P} <- Fields],
     Named = maps:from_list([{K, T} || {K, {T, _, _}} <- Triples]),
     {bs_types:map_open(Named#{'Kind' => bs_types:atom_lit(Tag)}),
      lists:foldl(fun maps:merge/2, #{}, [B || {_, {_, B, _}} <- Triples]),
@@ -5223,6 +5263,22 @@ pattern_type({p_rec, Line, Name, Fields}, Path, Env) ->
 %% call site somebody has to remember. It is also `not_a_record`'s own
 %% mechanism, which is the same refusal about the same form one member kind
 %% away.
+%% WHOLE-ARGUMENT ONLY, as a relational pattern is and for the same reason.
+%% The form lowers to a variable plus a guard test, and `strip_rels/2` walks
+%% the top of each argument alone — so a nested one survives into `pattern/2`,
+%% which has no clause for it, and the compiler dies with an Erlang stack
+%% trace instead of saying anything. Refusing is the F2 precedent exactly: the
+%% grammar admits `Go((int n, a))` and the algebra would handle it, and
+%% shipping a capability nothing tests because a production happened to
+%% compose is how a language acquires behaviour nobody decided on.
+%%
+%% THE REFUSAL IS STRUCTURAL AND NOT POSITIONAL, which is where the first cut
+%% of it was wrong. `argument_position/2` reads the PATH, and a path cannot
+%% tell the two sites apart: a clause-head parameter is `[I]` and so is a
+%% tuple element of a switch SUBJECT, whose own top is `[]`. So the nested
+%% form inside an arm passed the check and crashed the emitter exactly as
+%% before. `child_type/3` below refuses a prefix wherever a composite pattern
+%% holds one, which is what "whole argument" actually means.
 pattern_type({p_type, Line, TypeExpr, V}, Path, Env) ->
     Ty = resolve(TypeExpr, Env),
     case bs_types:part_test(Ty) of
@@ -5267,7 +5323,7 @@ pattern_type({p_list, _, Items, Rest}, Path, Env) ->
     %% index: `opaque_step({elem})` is already true, so a guard over a list
     %% element credits nothing whichever position it names, and indexing
     %% would invite a refinement to leak between positions.
-    Triples = [pattern_type(P, Path ++ [{elem}], Env) || P <- Items],
+    Triples = [child_type(P, Path ++ [{elem}], Env) || P <- Items],
     Prefix = [T || {T, _, _} <- Triples],
     Openness = case Rest of nil -> closed; _ -> open end,
     Binds0 = lists:foldl(fun maps:merge/2, #{}, [B || {_, B, _} <- Triples]),
@@ -5328,6 +5384,24 @@ argument_position(_Line, [])                     -> ok;
 argument_position(_Line, [I]) when is_integer(I) -> ok;
 argument_position(Line, _Path) ->
     erlang:error({relational_pattern_nested, Line}).
+
+%% EVERY PATTERN A COMPOSITE HOLDS GOES THROUGH HERE, which is how the type
+%% prefix is kept to a whole argument (F53). A tuple element, a field's
+%% pattern, a list item and a list's rest are all children, and none of them
+%% may be a prefix: the form lowers to a guard over the argument's own
+%% variable, and a guard cannot be written about a position that only exists
+%% once the pattern has matched.
+%%
+%% It refuses HERE rather than by reading the path, because the path does not
+%% distinguish the two legal tops from an element one level down — a clause
+%% parameter is `[I]` and so is a tuple element of a switch subject. It is
+%% also the one function every composite clause below already calls, so the
+%% clause head and the switch arm are covered by construction, as the
+%% undecidable refusal is.
+child_type({p_type, Line, _TypeExpr, _V}, _Path, _Env) ->
+    erlang:error({type_prefix_nested, Line});
+child_type(P, Path, Env) ->
+    pattern_type(P, Path, Env).
 
 %% A list element's address is a real path, so the body check can read `rest`
 %% out of `Reverse([x, ..rest], acc)` as `list<int>` rather than `term` (F5).

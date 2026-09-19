@@ -593,6 +593,13 @@ tag_test(Var, Tag, Line) ->
 %% it has no clause for. By the time they run the pattern is a `p_var` and the
 %% test is in the guard list, so not one of them needs to know the form exists.
 %%
+%% ONLY THE TOP OF EACH ARGUMENT IS WALKED, exactly as the `p_rel` header says
+%% of itself, and the checker is what makes that safe: `type_prefix_position/2`
+%% refuses a prefix anywhere else, so a nested one never reaches emission.
+%% Before that refusal existed `Go((int n, a))` reached `pattern/2` and killed
+%% the compiler with an Erlang stack trace — the fault this pairing has to
+%% keep closed at both ends.
+%%
 %% NO KIND TEST IS CONJOINED, unlike a relational pattern's: `is_float/1` IS
 %% the kind test. `with_kind/4` exists because an ordering comparison proves
 %% ordering and not kind (ENG-330); this proves kind and nothing else.

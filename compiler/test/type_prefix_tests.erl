@@ -119,8 +119,15 @@ a_member_no_single_test_decides_is_refused_test() ->
     %% message asserting that NO test decides it would be false of `term` two
     %% tests down, which is why the reason travels with the refusal.
     ?assert(string:find(Prose, "is_list") =/= nomatch),
-    %% Said to be temporary, as `map<K, V>`'s is.
-    ?assert(string:find(Prose, "not built") =/= nomatch).
+    %% IN `map<K, V>`'S WORDS, which is what ticket 84 asked for and what the
+    %% first cut only gestured at: the refusal has to carry the same two
+    %% sentences LANGUAGE.md gives `Slot` — declarable, passable, returnable,
+    %% never matched on, and temporary by construction — or "the same words"
+    %% is a claim the comment makes and the compiler does not.
+    ?assert(string:find(Prose, "declared, passed and") =/= nomatch),
+    ?assert(string:find(Prose, "never matched on") =/= nomatch),
+    ?assert(string:find(Prose, "not built") =/= nomatch),
+    ?assert(string:find(Prose, "temporary by construction") =/= nomatch).
 
 %% A refinement is decided by one test — `is_integer(M) andalso M >= 0`, which
 %% ticket 46 already emits at a boundary — so the letter of ticket 84's rule
@@ -207,6 +214,33 @@ the_arm_refuses_what_the_head_refuses_test() ->
     ?assertMatch({type_prefix_undecidable, _, _, {narrower, is_list}},
                  refusal(Src)).
 
+%% WHOLE-ARGUMENT ONLY, and this went in after the review found the compiler
+%% DYING on the nested form: `strip_rels/2` walks the top of each argument, so
+%% a prefix inside a tuple survived into `bs_emit:pattern/2`, which has no
+%% clause for it, and `bsc` printed an Erlang stack trace instead of a
+%% diagnostic. The refusal is F2's, one form over — a relational pattern is
+%% whole-argument for the same reason.
+a_nested_type_prefix_is_refused_rather_than_crashing_test() ->
+    Src = "module Nest\n\n"
+          "public int Go((int | float, atom) pair)\n\n"
+          "Go((int n, a))   -> n\n"
+          "Go((float f, a)) -> 0\n",
+    D = refusal(Src),
+    ?assertMatch({type_prefix_nested, _}, D),
+    %% The message has to send the author somewhere, and there is no guard to
+    %% move this one into: the part is inside a value the head destructured.
+    ?assert(string:find(prose(D), "whole argument") =/= nomatch).
+
+%% The same at the arm, since the arm is the other site that takes the form.
+a_nested_type_prefix_in_an_arm_is_refused_too_test() ->
+    Src = "module NestArm\n\n"
+          "public int Go((int | float, atom) pair)\n\n"
+          "Go(p) -> p switch {\n"
+          "    (int n, a)   => n,\n"
+          "    (float f, a) => 0\n"
+          "}\n",
+    ?assertMatch({type_prefix_nested, _}, refusal(Src)).
+
 %%% --- F53.5 — ticket 83, the operator ----------------------------------------
 
 %% The body face. `public int Owed(int | float amount)` with `Owed(a) -> a *
@@ -261,8 +295,54 @@ the_advice_names_the_dispatch_and_not_the_literal_test() ->
     ?assert(string:find(Prose, "Owed(int") =/= nomatch),
     ?assert(string:find(Prose, "Owed(float") =/= nomatch).
 
-%% The operator set is INHERITED from the existing `{int, float}` clause —
-%% everything except `and`/`or` — rather than a new one named here.
+%%% --- F53.6 — the advice is a head, and a head is every position -------------
+
+%% THE ADVICE IS A HEAD OF THE RIGHT ARITY, WITH THE AUTHOR'S OWN NAMES. The
+%% first cut built it from the function name alone and printed `Sum(int n)`
+%% for a two-parameter `Sum`, which pastes back as *"Sum has a signature but
+%% no clauses"* — advice that does not compile, which is the defect this
+%% feature's own gate exists to catch, one message over. The gate could not
+%% see it either: its probe has one parameter.
+%%
+%% The dispatched position is the one that carries the union, and it is NOT
+%% the first parameter here, which is the case that a template would get
+%% wrong while still compiling.
+the_advice_writes_a_head_of_the_right_arity_test() ->
+    Src = "module Sum\n\n"
+          "public int Total(int count, int | float amount)\n\n"
+          "Total(c, a) -> c * a\n",
+    [D | _] = errors(Src),
+    Prose = prose(D),
+    ?assert(string:find(Prose, "Total(count, int amount)") =/= nomatch),
+    ?assert(string:find(Prose, "Total(count, float amount)") =/= nomatch).
+
+%% Where no parameter carries the union there is no head to write — the value
+%% came from a binding here — and the advice must say where to dispatch rather
+%% than invent one.
+the_advice_names_the_site_when_no_parameter_carries_the_union_test() ->
+    Src = "module Bound\n\n"
+          "public int Go(int | float x)\n\n"
+          "Go(int n)   -> n\n"
+          "Go(float f) -> Twice(f)\n\n"
+          "private int Twice(int | float y)\n\n"
+          "Twice(y) -> 2\n\n"
+          "public int Body(int n)\n\n"
+          "Body(n) -> var a = Pick(n)\n"
+          "           a * 100\n\n"
+          "private int | float Pick(int n)\n\n"
+          "Pick(0) -> 0\n"
+          "Pick(_) -> 1.5\n",
+    [D | _] = [X || X <- errors(Src),
+                    element(1, element(4, X)) =:= numeric_union_operand],
+    Prose = prose(D),
+    ?assert(string:find(Prose, "where the value enters the function") =/= nomatch),
+    %% And no fabricated head beside it.
+    ?assertEqual(nomatch, string:find(Prose, "-> ...")).
+
+%% The operator set is the same set as the existing `{int, float}` clause's —
+%% everything except `and`/`or`. The exclusion is asserted and not just
+%% written: it is a third copy of that guard, so this is what holds the three
+%% in step.
 every_operator_but_the_boolean_pair_refuses_test() ->
     Refused = fun(Op) ->
         Src = "module Ops\n\n"
@@ -274,7 +354,30 @@ every_operator_but_the_boolean_pair_refuses_test() ->
         end
     end,
     [?assertEqual({Op, numeric_union_operand}, {Op, Refused(Op)})
-     || Op <- ["+", "-", "*", "/", "%"]].
+     || Op <- ["+", "-", "*", "/", "%"]],
+    %% The comparisons too: `==` is the BEAM's exact equality, so `0 == 0.0`
+    %% would be a comparison that is always false.
+    Cmp = fun(Op) ->
+        Src = "module Cmps\n\n"
+              "public bool Go(int | float x)\n\n"
+              "Go(a) -> a " ++ Op ++ " 2\n",
+        case errors(Src) of
+            [D | _] -> element(1, element(4, D));
+            []      -> none
+        end
+    end,
+    [?assertEqual({Op, numeric_union_operand}, {Op, Cmp(Op)})
+     || Op <- ["<", ">", "<=", ">=", "==", "!="]],
+    %% AND THE PAIR THE SET EXCLUDES. `and` and `or` are not arithmetic and
+    %% never were the mixed pair; a clause that forgot the exclusion would
+    %% refuse a boolean operator over a union that cannot reach one anyway,
+    %% so the assertion is that the refusal does NOT fire — measured through
+    %% the tag, because the program is refused for its operand types instead.
+    Bool = "module Bools\n\n"
+           "public bool Go(int | float x, bool b)\n\n"
+           "Go(a, b) -> b and b\n",
+    ?assertEqual([], [D || D <- diags(Bool),
+                           element(1, element(4, D)) =:= numeric_union_operand]).
 
 %% SCOPE, ASSERTED. Ticket 83 scoped its question to a union whose parts are
 %% ALL numeric and said so: `int | float | :none` keeps today's `op_type/1`

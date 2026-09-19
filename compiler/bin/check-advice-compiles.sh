@@ -61,15 +61,40 @@ derive() {
   "$BSC" "$dir/Pence/Pence.bs" Owed 250 > "$dir/derived.out" 2>&1 || true
 }
 
+# THE SAME PASTE-BACK FOR A FUNCTION OF TWO PARAMETERS, and it is a second
+# probe rather than a second assertion because the defect it names is
+# invisible to the first. A head is every position or it is not a head: the
+# first cut of this refusal built its advice from the function NAME and
+# printed `Total(int n)` whatever the arity, so a two-parameter function was
+# told to write a clause the same compiler refuses for having one — F19's
+# shape, in the refusal whose gate this is. Every probe here had one
+# parameter, so the gate was green while the advice was unusable.
+#
+# The union is the SECOND parameter on purpose: a template that always
+# dispatches the first would still compile, and would still be the wrong fix.
+derive_pair() {
+  local advice="$1" dir="$2"
+  mkdir -p "$dir/Total"
+  {
+    echo "module Total"
+    echo
+    echo "public int Total(int count, int | float amount)"
+    echo
+    sed -n 's/^[[:space:]]*\(Total(.*)\)[[:space:]]*->[[:space:]]*\.\.\..*$/\1 -> count/p' "$advice"
+  } > "$dir/Total/Total.bs"
+  "$BSC" "$dir/Total/Total.bs" Total 7 250 > "$dir/pair.out" 2>&1 || true
+}
+
 # ---------------------------------------------------------------------------
 # judge — the whole of the gate's opinion, in one place.
 # ---------------------------------------------------------------------------
 judge() {
-  local dir="$1" advice derived heads table
+  local dir="$1" advice derived heads table pair
   advice="$(cat "$dir/advice.txt")"
   derived="$(cat "$dir/derived.out")"
   heads="$(cat "$dir/heads.count" 2>/dev/null || echo 0)"
   table="$(cat "$dir/table.out" 2>/dev/null || echo "")"
+  pair="$(cat "$dir/pair.out" 2>/dev/null || echo "")"
 
   case "$advice" in
     *"error"*) ;;
@@ -101,11 +126,16 @@ judge() {
   # that posted as a debit is the defect this whole feature exists to close.
   [ -z "$table" ] || [ "$table" = ":credit" ] || \
     echo "A6: Post(-2.50) gave '$table', wanted :credit — the float part is not reaching its clause"
+
+  # THE ARITY HALF. `7` is the `count` the derived bodies return, so a head of
+  # the wrong shape shows up here as a compile error rather than a value.
+  [ -z "$pair" ] || [ "$pair" = "7" ] || \
+    echo "A7: the advice for a two-parameter function did not compile (got '$pair', wanted 7)"
 }
 
 probe() {
   local dir="$1"
-  mkdir -p "$dir/Owed" "$dir/Ledger"
+  mkdir -p "$dir/Owed" "$dir/Ledger" "$dir/Two"
   cat > "$dir/Owed/Owed.bs" <<'EOF'
 module Owed
 
@@ -115,6 +145,17 @@ Owed(a) -> a * 100
 EOF
   "$BSC" "$dir/Owed/Owed.bs" Owed 250 > "$dir/advice.txt" 2>&1 || true
   derive "$dir/advice.txt" "$dir"
+
+  # The two-parameter refusal, whose advice is pasted back by `derive_pair`.
+  cat > "$dir/Two/Two.bs" <<'EOF'
+module Two
+
+public int Total(int count, int | float amount)
+
+Total(c, a) -> c * a
+EOF
+  "$BSC" "$dir/Two/Two.bs" Total 7 250 > "$dir/pair_advice.txt" 2>&1 || true
+  derive_pair "$dir/pair_advice.txt" "$dir"
 
   cat > "$dir/Ledger/Ledger.bs" <<'EOF'
 module Ledger
@@ -145,12 +186,19 @@ if [ "${1:-}" = "--self-test" ]; then
   W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
   fail=0
 
+  # A stub is an advice text plus the two things a probe measures that no
+  # advice text can produce: what the dispatched program ANSWERS, and what the
+  # two-parameter paste-back does. They are parameters rather than constants
+  # because a self-test that hardcoded them could never drive A1, A6 or A7,
+  # and three of this judge's seven rules would be checked by nothing — a gate
+  # agreeing only with itself.
   stub() {
-    local name="$1" advice="$2"
+    local name="$1" advice="$2" table="${3-:credit}" pair="${4-7}"
     mkdir -p "$W/$name"
     printf '%s\n' "$advice" > "$W/$name/advice.txt"
     derive "$W/$name/advice.txt" "$W/$name"
-    printf '%s' ":credit" > "$W/$name/table.out"
+    printf '%s' "$table" > "$W/$name/table.out"
+    printf '%s' "$pair" > "$W/$name/pair.out"
   }
 
   stub good 'Owed/Owed.bs:5:12: error: `*` in Owed has `int | float` on its left
@@ -178,7 +226,29 @@ if [ "${1:-}" = "--self-test" ]; then
     Owed(a) when a is int -> ...
     Owed(a) when a is float -> ...'
 
-  for bad in literal half plausible; do
+  # NOT REFUSED AT ALL. The compiler answered a value where it should have
+  # refused — the state of the tree before F53, and the one defect the other
+  # stubs cannot show, since each of them contains the word `error`.
+  stub unrefused '25000'
+
+  # THE DISPATCH COMPILES AND ANSWERS WRONG. This is ticket 83's own table
+  # row: the £2.50 refund posted as a debit, which every gate in the repo was
+  # green through until this feature. The advice here is the correct one, so
+  # only A6 can fire.
+  stub wrong_answer 'Owed/Owed.bs:5:12: error: `*` in Owed has `int | float` on its left
+  dispatch the parts:
+    Owed(int n)   -> ...
+    Owed(float f) -> ...' ':debit'
+
+  # THE ARITY DEFECT, which is what shipped: advice built from the function
+  # name alone, so the two-parameter paste-back does not compile.
+  stub wrong_arity 'Owed/Owed.bs:5:12: error: `*` in Owed has `int | float` on its left
+  dispatch the parts:
+    Owed(int n)   -> ...
+    Owed(float f) -> ...' ':credit' \
+'Total/Total.bs:3:12: error: Total has a signature but no clauses'
+
+  for bad in literal half plausible unrefused wrong_answer wrong_arity; do
     if [ -z "$(judge "$W/$bad")" ]; then
       echo "  x SELF-TEST: '$bad' produced no complaint - the gate cannot see it"; fail=1
     else
@@ -191,7 +261,7 @@ if [ "${1:-}" = "--self-test" ]; then
     echo "  ok green on the correct advice"
   fi
   [ "$fail" -eq 0 ] || { echo "self-test FAILED"; exit 1; }
-  echo "self-test passed: three defective advices seen, the dispatch accepted"
+  echo "self-test passed: six defective advices seen, the dispatch accepted"
   exit 0
 fi
 

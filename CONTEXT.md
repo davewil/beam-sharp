@@ -261,9 +261,9 @@ A type written in front of a binder in pattern position — `Order o`, `Post(flo
 signature's own shape moved into a clause head. It names one of two things and matches by a
 different mechanism for each: a **record**, whose minted tag the pattern tests, or a **part**,
 which one BEAM test decides (`int`, `float`, `atom`, `binary`, `bool`). A type no single test
-decides cannot wear it — `list<int>` against `list<binary>` is `is_list` against itself. It is a
-*pattern*, so a clause set using it is credited for exhaustiveness, which is the whole reason it
-exists rather than a guard.
+decides cannot wear it. It is a *pattern*, so a clause set using it is credited for
+exhaustiveness, and it goes where a whole argument goes: a clause-head parameter or a switch
+arm, never nested inside another pattern.
 _Avoid_: type pattern, type test, cast, type annotation, designation
 
 **Projection**:

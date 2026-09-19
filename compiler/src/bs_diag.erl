@@ -188,6 +188,34 @@ at(Sev, Path, Line, Fn) ->
 article("int") -> "an";
 article(_)     -> "a".
 
+%% THE ADVISED HEADS FOR A NUMERIC UNION AT AN OPERATOR (F53, tickets 83/84).
+%% `Where` is `{Before, Name, After}` from the checker — the parameter names
+%% each side of the one to dispatch — so a head is written with EVERY position
+%% and the author's own names: `Sum(int a, b)`, never `Sum(int n)` for a
+%% function of two parameters. `none` means no parameter carries the union, so
+%% there is no head to write and the caller says where to dispatch instead.
+union_heads(_Fn, none) -> [];
+union_heads(Fn, {Before, Name, After}) ->
+    [lists:flatten(io_lib:format("~s(~s)", [Fn, join_params(Before, Part, Name, After)]))
+     || Part <- ["int", "float"]].
+
+join_params(Before, Part, Name, After) ->
+    lists:join(", ", [atom_to_list(N) || N <- Before]
+                     ++ [Part ++ " " ++ atom_to_list(Name)]
+                     ++ [atom_to_list(N) || N <- After]).
+
+%% The advice, as a format fragment: the heads when there are heads, and the
+%% sentence that names the site when there are none. A fragment rather than an
+%% argument because a `~s` takes bytes and these lines carry none of the
+%% punctuation that would matter — see `float_spelling/2`.
+dispatch_advice([]) ->
+    "  Dispatch the parts where the value enters the function, and write~n"
+    "  the operator in the clause where the part is known.~n";
+dispatch_advice(Heads) ->
+    "  Dispatch the parts in the head, and write the operator in each~n"
+    "  clause, where the part is known:~n"
+        ++ lists:flatten([["    ", H, " -> ...~n"] || H <- Heads]).
+
 %% `Mean([]) -> 0` under `public float Mean` names the fix, `0.0`, as ticket
 %% 80's answer promised: an `int` literal returned where `float` alone is
 %% declared. Read off the descriptor's two printed types, which is all the
@@ -470,14 +498,20 @@ built(Path, {Sev, Line, Fn, {validate_indiscriminable, Ty, A, B}}) ->
 %% A union whose parts are all numeric, at an operator (F53, ticket 83). The
 %% side is carried because the sentence names it, and the type because the
 %% advice is built from its parts.
-built(Path, {Sev, Line, Fn, {numeric_union_operand, Op, Side, Ty}}) ->
+built(Path, {Sev, Line, Fn, {numeric_union_operand, Op, Side, Ty, Heads}}) ->
     (at(Sev, Path, Line, Fn))#{tag => numeric_union_operand,
                                op => Op,
                                side => Side,
-                               type => bs_types:to_string(Ty)};
+                               type => bs_types:to_string(Ty),
+                               heads => union_heads(Fn, Heads)};
 %% A type prefix naming a type no single test decides (F53, ticket 84). `Why`
 %% is the checker's, and each value has a sentence that is TRUE of the type in
 %% front of it: "no single test decides `term`" would not be.
+%% A type prefix nested inside another pattern (F53). Raised, like the
+%% relational pattern's, and it carries only the position: the form is refused
+%% for WHERE it is, whatever type it names.
+built(Path, {type_prefix_nested, Line}) ->
+    #{tag => type_prefix_nested, severity => error, file => Path, line => Line};
 built(Path, {type_prefix_undecidable, Line, Ty, Why}) ->
     #{tag => type_prefix_undecidable, severity => error, file => Path,
       line => Line, type => Ty, reason => Why};
@@ -1503,19 +1537,27 @@ message(#{tag := validate_indiscriminable, file := P, line := L, column := C,
 %% The parts are `int` and `float` by construction: the refusal fires only
 %% where both are present and nothing else is (`numeric_union/1`).
 message(#{tag := numeric_union_operand, file := P, line := L, column := C,
-          function := Fn, op := Op, side := Side, type := Ty}) ->
+          function := Fn, op := Op, side := Side, type := Ty} = D) ->
+    %% The advised heads are a format FRAGMENT, built by `union_heads/2` from
+    %% the function's real parameter list — every position, with the author's
+    %% own names — so what is printed is a clause they can paste. Where no
+    %% parameter carries the union there is no head to write and the fragment
+    %% says where to dispatch instead.
     {"~s:~p:~p: error: `~s` in ~s has `~s` on its ~s~n"
      "  a union whose parts are all numeric is the mixed pair wherever one~n"
      "  part would be: nothing converts between `int` and `float`, so `~s`~n"
      "  has no one meaning over both.~n"
-     "  Dispatch the parts in the head, and write the operator in each~n"
-     "  clause, where the part is known:~n"
-     "    ~s(int n)   -> ...~n"
-     "    ~s(float f) -> ...~n",
-     [P, L, C, Op, Fn, Ty, Side, Op, Fn, Fn]};
+     ++ dispatch_advice(maps:get(heads, D, [])),
+     [P, L, C, Op, Fn, Ty, Side, Op]};
 %% Says which test is true of more values than the type holds, rather than
 %% claiming in general that none decides it — `term` is decided by every test
 %% and `list<int>` by none, and one sentence for both would be false of one.
+message(#{tag := type_prefix_nested, file := P, line := L, column := C}) ->
+    {"~s:~p:~p: error: a type prefix goes where a whole argument goes~n"
+     "  `Post(float f)` is the shipped form, and a switch arm takes it too.~n"
+     "  Inside a tuple, a list or a record pattern it is not built yet —~n"
+     "  bind the position there and dispatch it in a clause of its own.~n",
+     [P, L, C]};
 message(#{tag := type_prefix_undecidable, file := P, line := L, column := C,
           type := Ty, reason := Why}) ->
     %% The reason is a FORMAT FRAGMENT concatenated into the format string,
@@ -1523,11 +1565,18 @@ message(#{tag := type_prefix_undecidable, file := P, line := L, column := C,
     %% is a `badarg` there. `float_spelling/2` above is built the same way.
     Because =
         case Why of
+            %% `map<K, V>`'s refusal, in `map<K, V>`'s words — including the
+            %% sentence that makes it temporary. LANGUAGE.md: "`Slot` can be
+            %% declared, passed and returned and never matched on", and "this
+            %% refusal is temporary by construction, and says so".
             {narrower, Bif} ->
                 "  `" ++ atom_to_list(Bif) ++ "` is true of more values than `" ++ Ty
-                    ++ "` holds,~n  so one test does not decide it. Matching one is"
-                    " not built,~n  the refusal `map<K, V>` carries for the same"
-                    " reason.~n";
+                    ++ "` holds,~n  so one test does not decide it: it can be"
+                    " declared, passed and~n  returned, and never matched on."
+                    " Matching one is not built.~n"
+                    "  The refusal is temporary by construction — the day a pattern"
+                    " form~n  reaches inside, the type becomes decidable and it"
+                    " lifts.~n";
             several_parts ->
                 "  `" ++ Ty ++ "` spans more than one part and a prefix tests one:~n"
                 "  name a part, in a clause of its own.~n";
@@ -1714,8 +1763,12 @@ message(#{tag := ambiguous_type, type := N, candidates := Mods} = D) ->
 message(#{tag := not_a_record, file := P, line := L, column := C, type := N}) ->
     {"~s:~p:~p: error: ~s is not a record, so it cannot name a pattern~n"
      "  only a `record` declaration mints the tag a type prefix matches on.~n"
-     "  a part is named by the part: `Post(int n)` beside `Post(float f)`,~n"
-     "  one clause each.~n"
+     %% Named as a FORM and not as a head: this refusal does not know the
+     %% function's parameters, so a printed clause would be advice it cannot
+     %% guarantee compiles — which is the fault `check-advice-compiles.sh`
+     %% exists to catch one message over.
+     "  a part is named by the part itself, lowercase — one clause taking~n"
+     "  `int` beside one taking `float`.~n"
      "  to constrain fields without naming a type, write `{ Field: ... }`.~n",
      [P, L, C, N]};
 %% Shaped on `field_set_mismatch`'s "not declared by Order" sentence, the
