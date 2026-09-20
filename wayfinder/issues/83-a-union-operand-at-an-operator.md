@@ -253,6 +253,13 @@ over a union operand compiles under it, in either literal spelling, so
 
 ## Not decided here
 
+- **Whether a numeric LITERAL is an exception to this answer**, asked 2026-09-20 as
+  [86](86-a-numeric-literal-beside-a-union.md)
+  ([ENG-396](https://linear.app/davewil/issue/ENG-396)) once F53 had shipped and the
+  replacement's cost in a real program could be weighed. This ticket named that cost — *"the form
+  that behaves correctly today is the form that goes away"* — and took it; 86 asks whether the
+  one door it closes should be reopened for a literal alone. Nothing here is reopened by the
+  asking: the union operand is the mixed pair either way.
 - **A numeric union with a non-numeric part.** Q1 was scoped to a union whose parts are all
   numeric, and that is what was answered. `int | float | :none` keeps today's
   `op_type(Op)` fallthrough and today's defect with it — the same hole, one member wider. Seen,

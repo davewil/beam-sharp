@@ -14,7 +14,12 @@
                 (the type prefix over a record, which this extends to a part), F2 (the relational
                 pattern whose lowering slot the new pattern shares), F24 (the boundary kind test,
                 whose `is_float` is the same BIF one site over)
-**Leaves**      whether a NAMED type may wear the prefix — a refinement (`Meters m`) or an alias
+**Leaves**      whether a numeric LITERAL beside the union is an exception to 83's refusal —
+                `basket >= 50` instead of one clause per part — raised 2026-09-20 as
+                [ticket 86](../../wayfinder/issues/86-a-numeric-literal-beside-a-union.md) /
+                [ENG-396](https://linear.app/davewil/issue/ENG-396) once this feature had shipped
+                and the cost of the replacement could be weighed in a program;
+                whether a NAMED type may wear the prefix — a refinement (`Meters m`) or an alias
                 to a part (`Amount a`) — raised as
                 [ticket 85](../../wayfinder/issues/85-which-names-may-wear-the-type-prefix.md) /
                 [ENG-395](https://linear.app/davewil/issue/ENG-395) and not decided; `term x`, refused
