@@ -132,7 +132,7 @@
     "operator": {
       "patterns": [
         {
-          "_comment": "Two arrows, two jobs: `->` is a clause, `=>` is a switch arm. Scoped apart so a theme can keep them apart.",
+          "_comment": "Two arrows, two jobs: `->` is a clause, `=>` is a switch arm. They share ONE scope, so a theme CANNOT keep them apart -- this line claimed the opposite until 2026-09-20, when check-syntect.sh read the scope back off a coloured file and said otherwise. Splitting them is a change to every projection at once and nobody has asked for it.",
           "name": "keyword.operator.arrow.beam-sharp",
           "match": "->|=>"
         },

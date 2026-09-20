@@ -358,4 +358,7 @@ run_stages \
   "The editor grammar parses every example" \
     "./editor/bin/check-corpus.sh --self-test && ./editor/bin/check-corpus.sh"\
 \
+  "Syntect colours every construct the way editor/vscode/ records" \
+    "./editor/bin/check-syntect.sh --self-test && ./editor/bin/check-syntect.sh"\
+\
 

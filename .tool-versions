@@ -7,11 +7,13 @@
 # The names are mise's. `tree-sitter` here is the CLI, which npm calls
 # `tree-sitter-cli`; both publish the same version number.
 #
-# Required and deliberately unpinned: mise itself, python3, perl, shasum and
-# tar. None of them decides what gets built (python3 copies sections of
+# Required and deliberately unpinned: mise itself, python3, perl, shasum, tar
+# and cargo. None of them decides what gets built (python3 copies sections of
 # LANGUAGE.md verbatim; perl runs a five-token alarm; shasum and tar handle an
-# archive this repository also created), so a version line would assert a
-# requirement nobody has measured. `bin/check-toolchain.sh --env` checks each
+# archive this repository also created; cargo builds a scope dumper whose one
+# dependency is pinned by editor/syntect/scope-dump/Cargo.lock, which the gate
+# enforces with --locked), so a version line would assert a requirement nobody
+# has measured. `bin/check-toolchain.sh --env` checks each
 # is present, and that the four below resolve to binaries mise owns — an
 # unmanaged copy holding the pinned number passes every version comparison
 # while the build runs on a toolchain nothing here installed.

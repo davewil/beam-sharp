@@ -1,0 +1,169 @@
+%YAML 1.2
+---
+# Beam# for Syntect, which is the highlighter Codex runs.
+#
+# THIS IS A PROJECTION, NOT A DIALECT. Every rule below is
+# `editor/vscode/syntaxes/beam-sharp.tmLanguage.json`'s, in that file's order
+# and under that file's scope names, and `editor/bin/check-syntect.sh` runs the
+# real syntect over `compiler/examples/` to say so. Where the TextMate grammar
+# guesses -- a type and a function are the same token class, and an angle
+# bracket is a comparison and a generic -- this guesses identically. It is a
+# fourth copy of part of `compiler/src/bs_lexer.xrl`, which stays the source of
+# truth; `editor/README.md` explains why the copies are unavoidable and why only
+# the drift is.
+#
+# ORDER IS SIGNIFICANT and it is the same rule Sublime, TextMate and vim all
+# resolve by: the match beginning earliest wins, and among matches at one
+# position the rule listed FIRST does. So the atom rule precedes the `:`
+# operator, the pipe and the valve precede the character class that would eat
+# their first character, and the comment rule precedes everything -- a `//` line
+# may contain any token at all.
+name: "Beam#"
+
+# All three spellings a fence or a filename may use. `bs` is the extension the
+# compiler and `editor/nvim/ftdetect/bs.vim` already use; `bsharp` and
+# `beam-sharp` are here because syntect resolves a fenced-code identifier
+# through `find_syntax_by_token`, which falls through to this list.
+file_extensions:
+  - bs
+  - bsharp
+  - beam-sharp
+
+scope: source.beam-sharp
+
+contexts:
+  # One flat context. The language has no construct that changes lexical state:
+  # there is no block comment, no string interpolation and no here-doc, so
+  # nothing below ever pushes.
+  main:
+    # A `//` line may contain any token at all, so nothing may be matched
+    # inside one.
+    - match: '//.*$'
+      scope: comment.line.double-slash.beam-sharp
+
+    # A quoted atom, for what the bare sigil cannot spell. A record's minted tag
+    # is the case in point: `:'Shop.Order'`. Before the bare rule.
+    - match: ":'[^']*'"
+      scope: constant.other.symbol.quoted.beam-sharp
+
+    # The lexer's rule exactly: `:` then a lowercase start, with NO space
+    # allowed. That is what makes `Id:int` colour `:int` as an atom while
+    # `Id: int` does not -- the one-character trap `bs_parser.yrl` catches by
+    # name.
+    - match: ':[a-z][a-zA-Z0-9_]*'
+      scope: constant.other.symbol.beam-sharp
+
+    # `switch` is the only branching construct (ticket 17 §6); `when` introduces
+    # a guard on a clause or on a switch arm.
+    - match: '\b(switch|when)\b'
+      scope: keyword.control.beam-sharp
+
+    # `raise` deliberately crashes and is the only spelling that produces one
+    # (ticket 12 §5). Scoped apart so a theme can colour the word that leaves
+    # without returning differently from the one that branches.
+    - match: '\b(raise)\b'
+      scope: keyword.control.exception.beam-sharp
+
+    # `fn` opens an arrow type, `fn(int) -> int` (F46, ticket 75).
+    - match: '\b(fn)\b'
+      scope: keyword.type.beam-sharp
+
+    - match: '\b(module|type|record|using|behaviour|behavior|with|var|where|public|private)\b'
+      scope: keyword.declaration.beam-sharp
+
+    # The one conjunction, in every position -- guard, pattern combinator and
+    # refinement predicate (ticket 44, amending ticket 08). There is no `&&` and
+    # no `||`.
+    - match: '\b(and|or)\b'
+      scope: keyword.operator.logical.beam-sharp
+
+    # The two keyword atoms, bare rather than sigilled. Colouring them as
+    # constants is the whole point: as identifiers they would be VARIABLES, and
+    # a variable in pattern position matches everything.
+    - match: '\b(true|false)\b'
+      scope: constant.language.beam-sharp
+
+    - match: '\b(int|atom|term|bool)\b'
+      scope: support.type.beam-sharp
+
+    # Only where a bracket follows. Written without one these three are an
+    # error (`needs_type_args`), so requiring the `<` is more accurate than a
+    # bare word list -- and it leaves `result` free to be an ordinary variable
+    # name, which it very plausibly is.
+    - match: '\b(list|option|result)\b(?=\s*<)'
+      scope: support.type.beam-sharp
+
+    # Float before integer: both begin at the same character and the first rule
+    # listed takes the position.
+    - match: '\b[0-9]+\.[0-9]+([eE][+-]?[0-9]+)?\b'
+      scope: constant.numeric.float.beam-sharp
+
+    - match: '\b[0-9]+\b'
+      scope: constant.numeric.integer.beam-sharp
+
+    # A PascalCase name before `:` is a field -- in a record declaration, in an
+    # anonymous map type, or in a property pattern. All three are `uident ':'`
+    # in the grammar.
+    - match: '\b[A-Z][a-zA-Z0-9_]*\b(?=\s*:)'
+      scope: variable.other.property.beam-sharp
+
+    # HEURISTIC, and the one place this grammar is guessing. A type and a
+    # function are the SAME token class (`uident`) -- only the compiler's symbol
+    # table can tell `Order` from `Describe`. A `(` after the name is the best a
+    # regex has, and it gets record construction wrong. Semantic tokens over an
+    # LSP would fix this properly.
+    #
+    # The marker below is what `check-syntect.sh --self-test` deletes to build a
+    # grammar in which every token still has a rule and `Classify` is no longer
+    # a function. Move the rule and move the marker with it.
+    # <<function-name>>
+    - match: '\b[A-Z][a-zA-Z0-9_]*\b(?=\s*\()'
+      scope: entity.name.function.beam-sharp
+
+    - match: '\b[A-Z][a-zA-Z0-9_]*\b'
+      scope: entity.name.type.beam-sharp
+
+    # Exactly `_`. An identifier cannot START with an underscore in this
+    # language -- the lexer has no rule for one -- so `_foo` does not lex at all
+    # and is deliberately not matched here.
+    - match: '(?<![a-zA-Z0-9_])_(?![a-zA-Z0-9_])'
+      scope: variable.language.wildcard.beam-sharp
+
+    # Two arrows, two jobs: `->` is a clause, `=>` is a switch arm. They share
+    # ONE scope, so a theme cannot colour them differently -- the TextMate file
+    # said "scoped apart so a theme can keep them apart" until 2026-09-20, and
+    # `check-syntect.sh` reads the scope back and says otherwise. Splitting them
+    # is a change to both projections at once and nobody has asked for it.
+    - match: '->|=>'
+      scope: keyword.operator.arrow.beam-sharp
+
+    # The rest marker in `[h, ..t]`.
+    - match: '\.\.'
+      scope: keyword.operator.rest.beam-sharp
+
+    # The pipe and the valve (ticket 17 §1 and §4, F14). BEFORE the catch-all
+    # class below, which matches a bare `|` and would otherwise eat the first
+    # character of both.
+    - match: '\|\?>|\|>'
+      scope: keyword.operator.pipe.beam-sharp
+
+    # A binary pattern's opening bracket (ticket 30, F13). BEFORE the comparison
+    # rule, which would otherwise take `<` and leave a stray second one. There
+    # is deliberately NO `>>` rule here or in the lexer: `list<list<int>>`
+    # closes two generics, and the compiler's grammar closes a binary pattern on
+    # two separate `>` for exactly that reason.
+    - match: '<<'
+      scope: keyword.operator.binary.beam-sharp
+
+    - match: '==|!=|<=|>='
+      scope: keyword.operator.comparison.beam-sharp
+
+    # `<` and `>` are BOTH a comparison and a generic bracket, and nothing in a
+    # regex can tell them apart -- see `editor/README.md`. Ticket 28 settled the
+    # rule positionally and F6.9 pins it; only the Tree-sitter grammar can act
+    # on it.
+    - match: '[<>+\-*/%=|?]'
+      scope: keyword.operator.beam-sharp
+
+    - match: '\b[a-z][a-zA-Z0-9_]*\b'
+      scope: variable.other.beam-sharp

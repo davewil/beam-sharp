@@ -1,0 +1,61 @@
+[package]
+name = "scope-dump"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# THE ONLY THING THIS BINARY DOES IS RUN SYNTECT AND PRINT WHAT IT SAW.
+#
+# No matching, no classification, no expectations. The obligations live in
+# `editor/bin/check-syntect.sh`, against the scope names
+# `editor/vscode/syntaxes/beam-sharp.tmLanguage.json` already records. A fixture
+# that decided for itself which scope was right would be a second grammar
+# wearing a test's clothes, and it would agree with whatever it was written
+# beside.
+
+[dependencies]
+# `default-features = false` because the default set pulls in themes, HTML
+# rendering and plist parsing, none of which a scope dump needs. `yaml-load` is
+# what reads a `.sublime-syntax`; `default-syntaxes` brings syntect's OWN bundled
+# set, so the Beam# grammar is resolved out of a populated `SyntaxSet` rather
+# than out of one holding nothing else -- which is the only shape in which "`bs`
+# resolves to Beam#" means anything at all.
+#
+# It is NOT Codex's set. Codex loads two-face's, which is bat's and is larger,
+# and whether anything in there already claims `bs` is unmeasured here.
+syntect = { version = "5.3.0", default-features = false, features = [
+    "parsing",
+    "yaml-load",
+    "default-syntaxes",
+] }
+
+[features]
+# Syntect takes its regexes from one of two engines and the choice is the
+# consumer's, not ours. `fancy-regex` is pure Rust and is the default here
+# because it needs no C toolchain in CI; `onig` is Oniguruma, which is what
+# Sublime itself uses. It matters because two-face DROPS some syntax
+# definitions when the fancy feature is selected -- the engine does not support
+# everything Oniguruma does -- so a grammar that needs onig would reach only
+# half the builds downstream.
+#
+# Measured under both on 2026-09-20: 4,319 records, byte-identical.
+#
+#   CARGO_TARGET_DIR=/tmp/t-fancy cargo build --locked
+#   CARGO_TARGET_DIR=/tmp/t-onig  cargo build --locked --no-default-features --features onig
+#   ...run each over compiler/examples and diff the two dumps.
+#
+# SEPARATE TARGET DIRECTORIES, and that is not tidiness. Building both into one
+# leaves the same path holding whichever variant was linked last, and cargo
+# reports "Finished" in a tenth of a second when it swaps the hardlink back --
+# so the obvious version of this comparison diffs one binary against itself and
+# passes for the wrong reason. The two binaries differ by ~5MB, which is the
+# cheap way to confirm you have both.
+default = ["fancy"]
+fancy = ["syntect/regex-fancy"]
+onig = ["syntect/regex-onig"]
+
+[profile.dev]
+# The gate builds this once per clean clone and then runs it over sixty small
+# files. Debug info is the bulk of that build and nothing here is ever stepped
+# through in a debugger.
+debug = false

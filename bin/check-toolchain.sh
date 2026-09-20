@@ -58,11 +58,14 @@
 #      provenance: an unmanaged copy holding the pinned number satisfies all of
 #      them while the build runs on a toolchain nothing here installed.
 #   5. `--env` also checks that every tool this repository requires but does NOT
-#      pin is present. There is exactly one: `python3`, which
-#      `compiler/bin/check-switch-diagnostics.sh` shells to. Checks 1-4 are all
+#      pin is present. There are two: `python3`, which
+#      `compiler/bin/check-switch-diagnostics.sh` shells to, and `cargo`, which
+#      `editor/bin/check-syntect.sh` shells to. Checks 1-4 are all
 #      about versions and therefore cannot see it at all — an unpinned tool has
 #      no version to compare, so it was invisible to every gate here until
 #      2026-08-28 and absent from the manifest, the workflow and the README.
+#      `cargo` joined it on 2026-09-20; the block above `required_unpinned`
+#      says why neither is pinned.
 #
 # THE COUNT IS PART OF THE CLAIM, AND THAT IS DELIBERATE.
 # Both halves of this gate are greps, and a grep that finds nothing is
@@ -483,6 +486,15 @@ EOF
 # true here: both scripts import only `io`, `os`, `re` and `sys`, and what they
 # write is sections of `LANGUAGE.md` copied verbatim, so every python3 produces
 # the same bytes. A version line would assert a requirement nobody has measured.
+#
+# `cargo` JOINED THIS LIST ON 2026-09-20 (ENG-262) AND FOR THE SAME REASON.
+# `editor/bin/check-syntect.sh` runs syntect over the corpus, because syntect is
+# the highlighter Codex links and there is no other way to ask a highlighter
+# what colour it produced. But cargo does not decide what gets built: the
+# committed `editor/syntect/scope-dump/Cargo.lock` does, and the gate passes
+# `--locked` so it must. The scopes that gate asserts are a claim about a pinned
+# syntect, not about a Rust release — which is precisely the test the paragraph
+# above sets, and cargo fails it the same way python3 does.
 #
 # The tool names are parameters for the same reason every other function's inputs
 # are: --self-test drives THIS code over a name that cannot exist, rather than a
@@ -1035,7 +1047,7 @@ $(count_violation "$r_out" 'the workflow runs-on: lines')"
 
   --env)
     e_out="$(env_drift "$MANIFEST")"
-    u_out="$(required_unpinned python3 mise perl shasum tar)"
+    u_out="$(required_unpinned python3 mise perl shasum tar cargo)"
     b_out="$(path_bypass "$MANIFEST")"
     s_out="$(shadowing_beams "$ROOT $ROOT/compiler" "$(runtime_modules)")"
 

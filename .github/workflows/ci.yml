@@ -865,16 +865,31 @@ jobs:
       #
       # `check-corpus.sh`'s second control found a hole rather than confirming
       # one: an empty corpus reported that every example parsed. See the commit.
+      # `check-syntect.sh` arrived with ENG-262 and is the first gate in
+      # `editor/` that can fail on a rule that EXISTS. The two above ask whether
+      # a token has a rule and say themselves that they cannot ask whether it is
+      # right; this one runs syntect — the highlighter Codex links — over the
+      # corpus and reads the scopes back. It needs `cargo`, and nothing here
+      # installs one: `ubuntu-24.04` ships Cargo 1.98.1 (checked against
+      # `actions/runner-images`, `images/ubuntu/Ubuntu2404-Readme.md`, on
+      # 2026-09-20), and `check-toolchain.sh --env` has already failed the job
+      # if it is absent by the time this block runs. Which version arrives does
+      # not decide the answer — `editor/syntect/scope-dump/Cargo.lock` does, and
+      # the gate passes `--locked`.
       - name: The editor gates prove they can fail
         run: |
           ./editor/bin/check-tokens.sh --self-test
           ./editor/bin/check-corpus.sh --self-test
+          ./editor/bin/check-syntect.sh --self-test
 
       - name: The editor grammars know every shipped keyword
         run: ./editor/bin/check-tokens.sh
 
       - name: The editor grammar parses every example
         run: ./editor/bin/check-corpus.sh
+
+      - name: Syntect colours every construct the way editor/vscode/ records
+        run: ./editor/bin/check-syntect.sh
 
       # The exemplars are generated from ticket 25's write-ups, which are
       # canonical; this fails if the committed copies have drifted.

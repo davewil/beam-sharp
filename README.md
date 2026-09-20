@@ -62,11 +62,14 @@ that same file through `jdx/mise-action` and repeats none of the four strings;
 copied back beside the manifest, because that is a second source of truth with nothing reconciling
 it against the first.
 
-**Two further tools are required and deliberately carry no version line: `python3` and `mise`.**
-`compiler/bin/check-switch-diagnostics.sh` shells to it to rebuild the audition packet and check
-that the committed `PACKET.md` still matches `LANGUAGE.md`, so it is a hard dependency of a gate
-that runs in CI. Any python3 will do — the scripts import nothing outside the standard library —
-and `.tool-versions` records why it is not pinned.
+**Three further tools are required and deliberately carry no version line: `python3`, `cargo` and
+`mise`.** `compiler/bin/check-switch-diagnostics.sh` shells to python3 to rebuild the audition
+packet and check that the committed `PACKET.md` still matches `LANGUAGE.md`, so it is a hard
+dependency of a gate that runs in CI. Any python3 will do — the scripts import nothing outside the
+standard library. `editor/bin/check-syntect.sh` shells to cargo to run syntect, the highlighter
+Codex links, over the example corpus; what decides that gate's answer is
+`editor/syntect/scope-dump/Cargo.lock`, which the gate enforces with `--locked`, rather than the
+Rust release that reads it. `.tool-versions` records why neither is pinned.
 
 `./bin/check-toolchain.sh --env` names exactly which tool is at the wrong version, missing, or
 resolving to a copy mise does not own — before anything compiles.
@@ -88,7 +91,7 @@ the same reason.
 ## Verifying
 
 `./bin/verify.sh` is the whole suite: every gate, its `--self-test` first, the escript, the test
-suite, Dialyzer over the emitted specs, and the two editor grammars. It stops at the first red
+suite, Dialyzer over the emitted specs, and the four editor grammars. It stops at the first red
 stage and names it. It works from any directory, and it gives each run a fresh `SPEC_CHECK_DIR`,
 because the PLT that makes a second run fast is also what stops it being an independent one.
 
@@ -179,7 +182,7 @@ documents above are written to stand without it, and
 bin/                  repo-wide gates, and verify.sh                 (not shipped)
 compiler/             bsc: the compiler, its tests, its gates, its corpus
 compiler/features/    what has been built, feature by feature
-editor/               tree-sitter and Neovim/VS Code grammars        (not shipped)
+editor/               tree-sitter, Neovim, VS Code and Syntect grammars  (not shipped)
 handoff/              the clean-room audition packet                 (not shipped)
 wayfinder/            the design record                              (not shipped)
 ```
