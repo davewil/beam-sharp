@@ -1995,9 +1995,11 @@ Incs(xs) -> Map(xs, Inc/1)
 Instantiation is matching, not constraint solving — which is what keeps the cost sane, and why the
 three bullets above are load-bearing rather than preferences.
 
-**User code never writes a type argument.** Only four compiler-known names take an explicit one:
-`ValidateAs<T>`, `ParseAtom<T>`, `ToJson<T>`, `ToExistingAtom`. So `<` opens a bracket after one of those names
-and is comparison everywhere else — a lexer rule on a closed set, with no lookahead and no turbofish.
+**User code never writes a type argument.** Only three compiler-known names take an explicit one:
+`ValidateAs<T>`, `ParseAtom<T>`, `ToJson<T>`. The fourth name in the closed set, `ToExistingAtom`, is
+written bare, since its result is fixed, and its bracket is refused. So `<` opens a bracket after one
+of those four names and is comparison everywhere else — a lexer rule on a closed set, with no
+lookahead and no turbofish.
 <!-- decided by ticket 28, measured against four grammar variants; same ticket cleared `..` for list rest -->
 
 **decided**
