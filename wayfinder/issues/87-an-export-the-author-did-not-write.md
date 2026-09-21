@@ -1,10 +1,11 @@
 # 87 — May an emitted module export a function the author did not write?
 
 Type: grilling
-Status: claimed — [ENG-398](https://linear.app/davewil/issue/ENG-398). Raised 2026-09-21 out of
+Status: resolved 2026-09-21 — [ENG-398](https://linear.app/davewil/issue/ENG-398). Raised 2026-09-21 out of
 [ENG-397](https://linear.app/davewil/issue/ENG-397), which the F54 build
 ([F54](../../compiler/features/F54-to-existing-atom.md), [ENG-294](https://linear.app/davewil/issue/ENG-294))
-filed on finding ticket 10 §6.2's obligation decided and undischarged
+filed on finding ticket 10 §6.2's obligation decided and undischarged; one question, one round,
+answered the same day
 Blocked by: —
 
 ## Why this is raised
@@ -142,6 +143,22 @@ bump, since the mechanism's correctness is not the compiler's to promise.
 
 <!-- Round 1, asked 2026-09-21. -->
 
+### Answer — 2026-09-21
+
+**Yes.** David, on being shown the export list: *"Yes"*. The one clarification asked first was
+which name in the example was the function the author did not write, so the decision was taken
+on the emitted Erlang above with `'bs@type_atoms'/0` identified, not on the prose.
+
+What is decided: every emitted module exports `'bs@type_atoms'/0`, a literal list of the atoms
+named in its type positions after expansion, sorted, empty when there are none. The `bs@` prefix
+is the compiler's, unspellable from B#, callable from Erlang and Elixir. LANGUAGE.md §12's rule
+about the author's names stands as written and gains the sentence about the compiler's own.
+The `-on_load` form is refused, on `code:atomic_load`'s `on_load_not_allowed` and on resting on
+what the optimizer does not fold.
+
+The build is [ENG-397](https://linear.app/davewil/issue/ENG-397), now unblocked, with the delta
+and the test named above.
+
 ## Not decided here
 
 - **A third mechanism that is neither.** None was found: the loader interns atoms only from
@@ -155,3 +172,30 @@ bump, since the mechanism's correctness is not the compiler's to promise.
   not a third answer to this question, and nothing measured here argues for it.
 - **An atom named only by a type of a module that is never loaded.** No mechanism reaches it;
   the obligation is per module and was always so.
+
+## Decisions entry
+
+<!-- This ticket's entry. Read whole, here; the map (ENG-165) carries one line. -->
+
+```decisions-entry
+- [May an emitted module export a function the author did not write?](issues/87-an-export-the-author-did-not-write.md)
+  — **yes: every emitted module exports `'bs@type_atoms'/0`, a literal list of the atoms its
+  type positions name, and that is how ticket 10 §6.2's obligation is discharged.** Raised and
+  resolved 2026-09-21 in one round on one question, out of
+  [ENG-397](https://linear.app/davewil/issue/ENG-397), which the F54 build filed on finding the
+  obligation decided since 2026-08-12 and undischarged, [13](issues/13-compilation-target-decision.md)
+  having given it a home on the Abstract Format path and named no form. Measured before asking,
+  and the inspector was the first finding: ENG-397 and [10](issues/10-atoms-in-a-csharp-skin.md)
+  both read `beam_lib`'s atom chunk, which reports *absent* under every mechanism including the
+  two that work, because a literal's atoms live in the literal chunk and are interned at load;
+  the honest oracle is F54's `in_fresh_vm/3`. Seven mechanisms in a fresh VM on OTP 29: only an
+  exported function and an `-on_load` that touches the list through `erlang:phash2` resolve, the
+  second only because `phash2` is a call the optimizer does not fold (`length` is folded and the
+  atoms vanish), and `code:atomic_load` refuses the `-on_load` form with `on_load_not_allowed`,
+  so every B# module would be one a release cannot upgrade atomically. The `bs@` prefix is
+  already the compiler's, unspellable from B#; LANGUAGE.md §12's *"exported PascalCase, exactly
+  as written"* stays true of the author's names and gains a sentence for the compiler's. Whether
+  `bs@` is a reserved export prefix is handed to [65](issues/65-reserved-names-policy.md).
+  Unbuilt — ENG-397, whose delta is one export and one form beside `rec_type_attrs/2`'s type
+  walk, and whose fresh-VM test is ready in its text.
+```
