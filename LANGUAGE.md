@@ -2229,9 +2229,10 @@ tuple, a binary that is not text — is not named: the blame stops at the map.
 
 The bracket is admitted after **exactly four** compiler-known names — `ValidateAs<T>`,
 `ParseAtom<T>`, `ToJson<T>` and `ToExistingAtom` — and after nothing else, which is what keeps `<`
-a comparison everywhere in the language. Three of the four are built; `ToExistingAtom` is refused
-by name.
-<!-- decided by tickets 11 §2, 15 §2, 27 §8 and 28, with `ToJson` by 16 §4; built as F18, F39 and F50 -->
+a comparison everywhere in the language. All four are built. `ToExistingAtom` takes no type
+argument, so what is written in its bracket is refused; the name stays in the closed set so that
+`<` after it is never read as a comparison.
+<!-- decided by tickets 11 §2, 15 §2, 27 §8 and 28, with `ToJson` by 16 §4; built as F18, F39, F50 and F54 -->
 
 ### `ParseAtom<T>` — a string to a member of a named set
 
@@ -2272,10 +2273,59 @@ about generation rather than about taste. `ParseAtom<atom>(s)` and `ParseAtom<:a
 both refused; the second is the one worth stating, since its atom part *is* finite and only the
 whole type tells you the parse could never produce the `int` half.
 
-`ToExistingAtom` is the remaining name, **decided and unbuilt**: it returns `result<atom, string>`.
-It asks the atom table rather than a finite member list, so it cannot make the promise above, and
-`atom | :nothing` would collapse to `atom`, so its failure is a tagged member instead.
-<!-- decided by ticket 10 §4; built as F39. ToExistingAtom's return decided by ticket 67 -->
+<!-- decided by ticket 10 §4; built as F39 -->
+
+### `ToExistingAtom` — a string to an atom the VM already has
+
+The fourth obligation is the interop escape: a name you could not write in advance — a peer
+node's reply, a handler a request names — resolved against the atom table. It is written bare,
+because its result is fixed and there is no `T` to choose:
+
+```csharp
+public result<atom, string> Resolve(string name)
+
+Resolve(name) -> ToExistingAtom(name)
+
+public atom Handler(string name)
+
+Handler(name) -> Resolve(name) switch {
+    (:error, _) => :unknown,
+    handler     => handler
+}
+```
+
+**shipped** — `Resolve("ok")` is `:ok`; `Resolve("zzz_never_seen")` is `(:error, "zzz_never_seen")`,
+and the table is one atom no larger for having been asked.
+
+**It cannot make `ParseAtom<T>`'s promise**, and the signature says so. It does not know the
+permitted set, so it has to ask the table, and an atom the table does not have is a failure that
+must carry *which* name: `atom | :nothing` would collapse to `atom` — the singleton is absorbed
+into the cofinite top — and there would be no failure member to match. So the result is
+`result<atom, string>`, the reason being the name that resolved to nothing, and a signature
+promising bare `atom` is refused with the wider one offered back.
+
+**The argument is a `string`.** The failure's reason is the name as a `string`, and a `binary`
+that is not valid UTF-8 is not one; the platform agrees, since the lookup on such a binary fails
+the same way a missing name does. A `term` from a boundary is matched into a string first, and a
+wire binary becomes one through `ValidateAs<string>`.
+
+**Its bracket is refused.** The name is in the closed set, so `<` after it opens a bracket rather
+than reading as a comparison — and the bracket then has nothing legal to hold:
+
+<!-- diagnoses: obligation_arity -->
+```csharp
+public result<atom, string> Resolve(string name)
+
+Resolve(name) -> ToExistingAtom<atom>(name)
+```
+
+**One thing it cannot yet promise.** An atom appearing only in a type — a union member no clause
+head or expression of the module spells — is absent from the emitted module's atom table, so a
+fresh VM that loads the module does not have it, and `ToExistingAtom` answers `(:error, name)`
+for a member the declared type says is legal. The compiler is owed the putting of every
+type-position atom in the chunk; that is decided and unbuilt, and the two mechanisms that would
+do it each change the emitted module's surface, so it is a question before it is a build.
+<!-- decided by tickets 10 §4, 15 §1 and 67; built as F54. The chunk obligation is 10 §6.2, unbuilt -->
 
 ### `ToJson<T>` — a value on the wire
 

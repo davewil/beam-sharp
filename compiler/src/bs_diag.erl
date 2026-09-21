@@ -525,6 +525,9 @@ built(Path, {Sev, Line, Fn, {parse_atom_not_finite, Ty}}) ->
 built(Path, {Sev, Line, Fn, {parse_atom_arg, Ty}}) ->
     (at(Sev, Path, Line, Fn))#{tag => parse_atom_arg,
                                type => bs_types:to_string(Ty)};
+built(Path, {Sev, Line, Fn, {to_existing_atom_arg, Ty}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => to_existing_atom_arg,
+                               type => bs_types:to_string(Ty)};
 %% `ToJson<T>` over a `T` holding a member the platform's encoder refuses
 %% (ticket 77, F50). Raised by the pass over clause bodies rather than returned
 %% from the walk, so `--api` meets it too; the pass knows the clause, so the
@@ -548,10 +551,12 @@ built(Path, {Sev, Line, Fn, {obligation_arity, Name, Types, Args}}) ->
 built(Path, {Sev, Line, Fn, {obligation_unbuilt, Name}}) ->
     (at(Sev, Path, Line, Fn))#{tag => obligation_unbuilt, obligation => Name,
                                built => bs_check:built_obligations()};
+%% The closed set is read from the checker, as the built list above is. This
+%% roster was written by hand and named three names for six days after F50
+%% made it four (found by F54).
 built(Path, {Sev, Line, Fn, {not_an_obligation, Name}}) ->
     (at(Sev, Path, Line, Fn))#{tag => not_an_obligation, name => Name,
-                               obligations => ['ValidateAs', 'ParseAtom',
-                                               'ToExistingAtom']};
+                               obligations => bs_check:codegen_obligations()};
 
 %%% ---------------------------------------------------------------------------
 %%% The fatal ones — lexing and reading, before there is a function to name
@@ -701,6 +706,12 @@ built(Path, {non_regular_recursion, N}) ->
 built(Path, {compiler_known_type, Name, Line}) ->
     #{tag => compiler_known_type, severity => error, file => Path, line => Line,
       type => Name};
+%% The same rule for a function: `ToExistingAtom` is read as a compiler-known
+%% call before any user function is looked up, so declaring one under that
+%% name would be shadowed in silence (F54).
+built(Path, {compiler_known_function, Name, Line}) ->
+    #{tag => compiler_known_function, severity => error, file => Path, line => Line,
+      function => Name};
 built(Path, {kind_field_is_minted, Line, Name}) ->
     #{tag => kind_field_is_minted, severity => error, file => Path, line => Line,
       record => Name};
@@ -1608,6 +1619,19 @@ message(#{tag := map_pattern_deferred, file := P, line := L, column := C, functi
      "  Bind the whole map and read it, or declare a record if the keys~n"
      "  are known.~n",
      [P, L, C, Fn, Subject, Ty, Where]};
+%% `ToExistingAtom` takes no type argument — its result is fixed — so the
+%% sentence that ends "Write `Name<T>(x)`" would, for that name, advise the
+%% form the same compiler just refused: F19's shape, which
+%% `check-advice-compiles.sh` exists for. It gets its own sentence (F54).
+message(#{tag := obligation_arity, file := P, line := L, column := C, function := Fn,
+          obligation := 'ToExistingAtom', type_args := Types, args := Args}) ->
+    {"~s:~p:~p: error: ~s writes ToExistingAtom with ~p type arguments and ~p values~n"
+     "  ToExistingAtom is a codegen obligation, not a function, and it takes~n"
+     "  no type argument and one value: its result is always~n"
+     "  `result<atom, string>`, so there is no type to choose. The~n"
+     "  parentheses hold the string to look up.~n"
+     "  Write `ToExistingAtom(s)`.~n",
+     [P, L, C, Fn, Types, Args]};
 message(#{tag := obligation_arity, file := P, line := L, column := C, function := Fn,
           obligation := Name, type_args := Types, args := Args}) ->
     {"~s:~p:~p: error: ~s writes ~s with ~p type arguments and ~p values~n"
@@ -1649,6 +1673,19 @@ message(#{tag := parse_atom_arg, file := P, line := L, column := C, function := 
      "  argument must be a `string` or a `binary`.~n"
      "  A `term` from a boundary is matched into one first.~n",
      [P, L, C, Fn, Ty]};
+%% The argument flows into the result here — the failure carries the name
+%% as a `string` — so a `binary` is refused as well as a `term`, and the
+%% sentence names the way from each to a `string` (F54).
+message(#{tag := to_existing_atom_arg, file := P, line := L, column := C, function := Fn,
+          type := Ty}) ->
+    {"~s:~p:~p: error: ~s hands ToExistingAtom a ~s, and it looks up a string~n"
+     "  the failure is `(:error, name)` with the name as a `string`, so the~n"
+     "  argument must be one: a `binary` that is not valid UTF-8 has no~n"
+     "  such name to hand back, and the lookup would fail the same way a~n"
+     "  missing atom does. A `term` from a boundary is matched into a~n"
+     "  string first; a wire `binary` becomes one through~n"
+     "  `ValidateAs<string>`.~n",
+     [P, L, C, Fn, Ty]};
 %% The member and the path to it, then the repair that kind of member has.
 %% The term carries the path as segments, so it is joined only here (F50).
 message(#{tag := unencodable_member, function := Fn, type := Ty, path := Segs,
@@ -1673,6 +1710,14 @@ message(#{tag := compiler_known_type, file := P, line := L, column := C, type :=
      "  ordinary aliases you could have written, and compiler-known entries,~n"
      "  names the compiler owns because it is the only thing that builds a~n"
      "  value of them. ~s is compiler-known. Pick another name.~n",
+     [P, L, C, Name, Name]};
+message(#{tag := compiler_known_function, file := P, line := L, column := C,
+          function := Name}) ->
+    {"~s:~p:~p: error: ~s is a compiler-known function and cannot be declared~n"
+     "  a call to ~s is read by the compiler before any function of this~n"
+     "  module is looked up — it is a codegen obligation, written bare — so~n"
+     "  a function declared under that name could never be called.~n"
+     "  Pick another name.~n",
      [P, L, C, Name, Name]};
 
 %%% --- the fatal ones --------------------------------------------------------

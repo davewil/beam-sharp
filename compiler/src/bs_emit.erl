@@ -895,6 +895,25 @@ expr({e_tuple, L, Es}, C)     -> {tuple, L, [expr(E, C) || E <- Es]};
 %% have. An unqualified call may be a remote one, and which it is was decided
 %% at check time; the emitter only reads the table `bs_check` built (F11,
 %% ticket 41 §2).
+%% `ToExistingAtom(s)` is the platform's safe lookup with its `badarg` caught
+%% and turned into the declared failure member, `(:error, name)` (ticket 10
+%% §4, ticket 67; F54). Emitted inline, as `ParseAtom<T>` is: the whole body
+%% is one lookup and there is nothing to share between two sites.
+%%
+%% The argument is bound ONCE, and the `try` encloses only the BIF. Wrapping
+%% the argument's own evaluation would report a crash computing the name as
+%% "no atom has that name", and evaluating it twice — once for the lookup
+%% and once for the reason — would run its side effects twice. The variable
+%% takes the foreign wrapper's counter so it cannot collide with a second
+%% site in the same function.
+expr({e_call, L, 'ToExistingAtom', [Arg]}, C) ->
+    Name = {var, L, wrapper_var("bs@ea", next_foreign_wrapper())},
+    Lookup = {call, L, {remote, L, {atom, L, erlang}, {atom, L, binary_to_existing_atom}},
+              [Name, {atom, L, utf8}]},
+    Caught = {clause, L, [{tuple, L, [{atom, L, error}, {atom, L, badarg}, {var, L, '_'}]}],
+              [], [{tuple, L, [{atom, L, error}, Name]}]},
+    {'case', L, expr(Arg, C),
+     [{clause, L, [Name], [], [{'try', L, [Lookup], [], [Caught], []}]}]};
 expr({e_call, L, F, As}, C)   ->
     Arity = length(As),
     case maps:get({F, Arity}, maps:get(imports, C, #{}), undefined) of

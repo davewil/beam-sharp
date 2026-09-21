@@ -1,0 +1,60 @@
+// names.bs -- a name off the wire becomes the atom the VM already has for it,
+// or comes back as the reason it has none (F54, ticket 10 §4, ticket 67).
+//
+//     bsc --src-root examples examples/Names Resolve "\"init\""
+//         -> :init
+//     bsc --src-root examples examples/Names Resolve "\"zzz_no_such_name\""
+//         -> (:error, "zzz_no_such_name")
+//     bsc --src-root examples examples/Names Registered "\"init\""
+//         -> :true
+//     bsc --src-root examples examples/Names Registered "\"zzz_no_such_name\""
+//         -> :false
+//
+// THIS IS THE INTEROP ESCAPE, and the reason it exists beside `ParseAtom<T>`
+// next door in `examples/Levels`. That one knows the permitted set -- the type
+// argument IS the set -- so it never asks the atom table. Here nobody knows
+// the set: a peer node's reply, a registered process a client names, a
+// handler picked at run time. The only honest question is whether the VM
+// already has an atom of that name, and Erlang's safe spelling of that
+// question is the long one, `binary_to_existing_atom`, with its `badarg`
+// caught. This lowers to exactly that call and nothing else:
+//
+//     try binary_to_existing_atom(Name, utf8)
+//     catch error:badarg -> {error, Name}
+//     end
+//
+// So a string built at run time cannot grow the atom table through this path
+// either. What it CAN do is fail, and the failure has to carry which name --
+// which is why the result is `result<atom, string>` and not `option<atom>`.
+// `atom | :nothing` would collapse to `atom`, because the singleton is
+// absorbed into the atom top, and there would be no failure member left to
+// match (ticket 15 §1). The tagged member survives.
+module Names
+
+using :erlang {
+    // `whereis/1` answers a pid or `:undefined`. A pid has no type here, so
+    // `term` is the honest declaration: the switch below matches it.
+    term whereis(atom name)
+}
+
+// Written bare. There is no `<T>` because there is no type to choose: the
+// result is fixed. The name stays in the closed set that takes a bracket, so
+// `ToExistingAtom<atom>(name)` is refused as the construct's wrong shape
+// rather than read as a comparison.
+public result<atom, string> Resolve(string name)
+
+Resolve(name) -> ToExistingAtom(name)
+
+// A client asks after a process by name. A name the VM has never seen cannot
+// be registered under, so the lookup is only made for a name that resolves --
+// and asking did not mint it. The failure is a value, so handling it is an
+// arm and not a rescue.
+public bool Registered(string name)
+
+Registered(name) -> Resolve(name) switch {
+    (:error, _) => false,
+    a           => :erlang.whereis(a) switch {
+        :undefined => false,
+        _          => true
+    }
+}

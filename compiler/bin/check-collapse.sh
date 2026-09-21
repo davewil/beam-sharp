@@ -7,8 +7,9 @@
 # so out loud — "ticket 15 §1's collapse, met at an instantiation rather than at
 # a declaration" — and that sentence was the whole gap. Ticket 49 accepted the
 # valve's shape-C exposure ON THE GROUNDS that this refusal exists, and
-# `STANDARD-ENVIRONMENT.md:108` records `ToExistingAtom` as owed for the same reason. Two
-# documents leaned on a check the compiler did not have.
+# `STANDARD-ENVIRONMENT.md` recorded `ToExistingAtom` as owed for the same reason
+# (respelled `result<atom, string>` by ticket 67 and built as F54, 2026-09-21).
+# Two documents leaned on a check the compiler did not have.
 #
 # WHY ELEVEN SHAPES AND NOT ONE. 15 §1 names its own wrong implementation:
 # "stated as absorption by an atom top it would cover only `option<atom>` and an
@@ -20,7 +21,8 @@
 #
 # S9 is the third control and it defeats a different wrong implementation: one
 # keyed on the SPELLING `option<...>`. A hand-written `type M = atom | :nothing`
-# is the same type, and it is the spelling `ToExistingAtom` is written in.
+# is the same type, and it is the spelling `ToExistingAtom` was written in
+# before ticket 67 respelled it.
 #
 # WHY THE ACCEPTS ASSERT A SIGNATURE AND NOT AN ABSENCE. This repo has shipped a
 # check that asserted a message was missing against a run that never compiled.
@@ -116,7 +118,8 @@ probe() {
 #                 This is the wrong fix ticket 15 §1 NAMES, and it is the reason
 #                 S4 and S8 are in the roster at all
 #   spelling      keyed on `option<...>`/`result<...>`: S9, the hand-written
-#                 alias, walks through - and that is `ToExistingAtom`'s spelling
+#                 alias, walks through - and that was `ToExistingAtom`'s spelling
+#                 until ticket 67
 #   cry_wolf      every union with two members is refused, S1/S2/S6/S10/S11 too
 # ---------------------------------------------------------------------------
 if [ "${1:-}" = "--self-test" ]; then

@@ -1371,7 +1371,7 @@ one `function_clause` belongs to.
 
 ---
 
-## 15. The boundary, and the two constructs that cross it
+## 15. The boundary, and the constructs that cross it
 
 **The job:** accept a list of sensor readings from a client you do not control.
 
@@ -1480,7 +1480,70 @@ member has to be answerable, so `:nothing` is in the result whether the signatur
 not. Write the narrow one and the correction offers the wider one back. `OrElse` is what
 reading that costs — a switch, because nothing was thrown.
 
-<!-- ticket 11 §2, ticket 15 §2, ticket 18, ticket 27 §8, F18; ticket 10 §4 and §5, F39 -->
+### The interop escape: a name into the atom the VM already has
+
+Sometimes nobody knows the set. A peer node replies with a status word; a client asks after a
+process by the name it was registered under; a request names a handler picked at run time.
+`ParseAtom<T>` cannot help, because there is no `T` to hand it — and that is the whole reason
+the language keeps a second spelling.
+
+`examples/Names/names.bs`:
+
+```
+module Names
+
+using :erlang {
+    term whereis(atom name)
+}
+
+public result<atom, string> Resolve(string name)
+
+Resolve(name) -> ToExistingAtom(name)
+
+public bool Registered(string name)
+
+Registered(name) -> Resolve(name) switch {
+    (:error, _) => false,
+    a           => :erlang.whereis(a) switch {
+        :undefined => false,
+        _          => true
+    }
+}
+```
+
+```
+$ bsc --src-root examples examples/Names Resolve "\"init\""
+:init
+$ bsc --src-root examples examples/Names Resolve "\"zzz_no_such_name\""
+(:error, "zzz_no_such_name")
+$ bsc --src-root examples examples/Names Registered "\"init\""
+:true
+$ bsc --src-root examples examples/Names Registered "\"zzz_no_such_name\""
+:false
+```
+
+`ToExistingAtom` is the fourth codegen obligation and the one written **bare**: its result is
+fixed, so there is no type to choose and no bracket to write. It lowers to Erlang's safe
+spelling of the question — `binary_to_existing_atom`, the long name, with its `badarg` caught —
+and to nothing else, so a string built at run time still cannot grow the atom table through it.
+
+**What it cannot promise is the answer.** It does not know the permitted set, so it has to
+ask, and an atom the table does not have is a failure that must carry *which* name. That is why
+the result is `result<atom, string>` and not `option<atom>`: `atom | :nothing` would collapse
+to `atom`, the singleton absorbed into the atom top, and there would be no failure member left
+to match. `Registered` reads it as `Verdict` read its `ValidationError` — an arm, not a rescue.
+
+**The argument is a `string`, not a `binary`.** The name comes back as the reason, and a binary
+that is not valid UTF-8 is not a `string`; the platform agrees, since the lookup on such a
+binary fails the way a missing name does. A wire binary becomes a `string` through
+`ValidateAs<string>` first.
+
+One thing it cannot yet see: an atom that appears *only* in a type — a union member no clause
+or expression of the module spells — is not in the emitted module's atom chunk, so a fresh VM
+answers `(:error, name)` for a member the type declares. Ticket 10 §6.2 decided the compiler must
+put it there; that is decided and unbuilt, and it is the row this section adds to chapter 18.
+
+<!-- ticket 11 §2, ticket 15 §2, ticket 18, ticket 27 §8, F18; ticket 10 §4 and §5, F39; ticket 67, F54 -->
 
 ---
 
@@ -1624,6 +1687,7 @@ produce.
 | the behaviour contract checked as a type | Dialyzer does it at the boundary today |
 | `Map.Get`, and the `map<K, V>` type beside it | the name `Map` is reserved; its operations are not built |
 | `cond`, or whatever serves a long ladder of unrelated conditions | open |
+| every type-position atom in the emitted module's atom chunk | ticket 10 §6.2; an atom only a type names is absent, so `ToExistingAtom` refuses it in a fresh VM — the mechanism is a decision, ENG-397 |
 
 The language's **name** is also open. `beam-sharp` is a working title.
 
@@ -1660,8 +1724,8 @@ The language's **name** is also open. `beam-sharp` is a working title.
 
 ## Appendix: the construct index
 
-**The corpus gate names 62 capabilities and fails by name when one has no example to look
-at.** All 62 are below, in the gate's own wording, so the two lists can be diffed by machine
+**The corpus gate names 64 capabilities and fails by name when one has no example to look
+at.** All 64 are below, in the gate's own wording, so the two lists can be diffed by machine
 — `compiler/bin/check-tour.sh` does exactly that, and this table is red the day the compiler
 grows a capability the tour has not met.
 
@@ -1721,6 +1785,7 @@ grows a capability the tour has not met.
 | a codegen obligation instantiated | `examples/Intake/intake.bs` | 15 |
 | ValidationError as a declared type | `examples/Intake/intake.bs` | 15 |
 | a string parsed into a named set | `examples/Levels/levels.bs` | 15 |
+| a string resolved to an atom the VM has | `examples/Names/names.bs` | 15 |
 | a binary pattern | `examples/Frame/frame.bs` | 10 |
 | a byte-or-wider segment width | `examples/Frame/frame.bs` | 10 |
 | a sub-byte segment width | `examples/Frame/frame.bs` | 10 |

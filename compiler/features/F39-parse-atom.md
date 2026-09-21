@@ -12,8 +12,10 @@
                 measured at
                 [`prototypes/10d_parseatom_lowering.erl`](../../wayfinder/prototypes/10d_parseatom_lowering.erl)
 **Closes**      [ENG-294](https://linear.app/davewil/issue/ENG-294) **in part
-                only** — its `ToExistingAtom` half is *owed*, not unbuilt, and
-                is untouched here
+                only** — its `ToExistingAtom` half was untouched here. *Corrected
+                2026-09-21: that half was already decided, not owed — ticket 67
+                chose `result<atom, string>` on 2026-09-03, six days before this
+                feature shipped — and is built as F54.*
 **Decides**     one thing ticket 10 §4 did not settle: **what the argument may
                 be**. See §F39.7 — it is a refusal, and it is the only place
                 this feature chose rather than implemented
@@ -234,12 +236,15 @@ gate is red and names it — and the count reads `11 of 11` where it read `10 of
 
 ## Still owed
 
-* **`ToExistingAtom`.** Owed, not unbuilt: ticket 10 §5 wrote it `atom |
+* ~~**`ToExistingAtom`.** Owed, not unbuilt: ticket 10 §5 wrote it `atom |
   :nothing`, and ticket 15 §1 later made that shape an error at the declaration
   — the singleton is absorbed into the cofinite top, so `atom | :nothing` *is*
   `atom` and the failure channel does not survive. Two known-good answers exist
   and neither has been chosen, so it needs a ticket and not an implementation.
-  [ENG-294](https://linear.app/davewil/issue/ENG-294) stays open for it.
+  [ENG-294](https://linear.app/davewil/issue/ENG-294) stays open for it.~~
+  **Corrected 2026-09-21:** the ticket had already been taken — 67 chose
+  `result<atom, string>` on 2026-09-03 — and this bullet was written six days
+  later without grepping for it. Built as [F54](F54-to-existing-atom.md).
 * **`option<T>` in the printed result.** Ticket 10 §5 names `T | :nothing` as
   `option<T>`, and the corrected signature prints the union longhand. Cosmetic,
   and it belongs to whatever decides alias printing generally rather than to

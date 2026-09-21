@@ -215,6 +215,14 @@ demonstrated_surface() ->
      %% ticket 28 made a compiler-known name followed by `<` unambiguous in the
      %% grammar, so nothing else in the language can produce the sequence.
      {"a string parsed into a named set",        "ParseAtom<"},
+     %% F54. The fourth obligation and the one written BARE, so it cannot be
+     %% anchored on a name followed by `<` as its siblings are: what makes
+     %% `ToExistingAtom(` safe is that the name is compiler-known and a user
+     %% may not declare a function under it (`compiler_known_function`), so
+     %% nothing else in the language can produce the sequence either. Its own
+     %% row because its sentence is its own: the interop escape that ASKS
+     %% the atom table, where `ParseAtom<T>` is the parse that never does.
+     {"a string resolved to an atom the VM has", "ToExistingAtom\\("},
      %% F13 / ticket 30. FIVE rows, because they are five sentences about the
      %% language and no one of them stands in for another. A corpus could open a
      %% binary pattern and never size a segment by a field, or never write a

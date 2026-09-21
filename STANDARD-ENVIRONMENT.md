@@ -109,7 +109,7 @@ has been withdrawn.
 | `ValidationError` | the reason: a path into the term plus the type expected there, the compiler-known record `{ Path: list<string>, Expected: string }`, tagged `:'ValidationError'` with no module | unqualified | **built** — F18; a record since F49 ([ENG-379](https://linear.app/davewil/issue/ENG-379)). The spelling of a path segment is F18's recorded assumption, not a decision. **Compiler-known** because its tag is minted by no module, which a `record` declaration cannot write, and **protected** because an obligation returns it | 15 §2, 79 |
 | `ParseAtom<T>` | codegen: parses to a **finite atom union**; a cofinite `T` is an error | unqualified | **built** — F39. The argument is a `string` or a `binary`; a `term` is refused, since the match is over the members' printed names and a value of another kind could only answer `:nothing` | 10 §4 |
 | `ToJson<T>` | codegen: a value of `T` as the platform's JSON, returned as a `string`; a member with no wire form — a tuple, an arrow, `binary`, `term` — is refused at the declaration, naming it | unqualified | **built** — F50 ([ENG-375](https://linear.app/davewil/issue/ENG-375)). The value is checked against `T` before it is encoded, as ticket 18 §1(c) owes generated code. *This row replaces `a serialisation encoder` — **decided** — removed 2026-09-15 when F50 built it: two rows for one entry is how a status goes unread, which ticket 48's row did for nine days* | 16 §4, 77 |
-| `ToExistingAtom` | the genuine interop escape — a peer node's reply, a dynamically named atom | unqualified | **decided** 2026-09-03 (67), unbuilt — returns `result<atom, string>`; [ENG-294](https://linear.app/davewil/issue/ENG-294) | 10 §5, 15 §1, 67 |
+| `ToExistingAtom` | the genuine interop escape — a peer node's reply, a dynamically named atom; asks the atom table and returns `result<atom, string>`, the failure carrying the name | unqualified | **built** — F54 ([ENG-294](https://linear.app/davewil/issue/ENG-294), 2026-09-21). Written bare, `ToExistingAtom(name)`, with no type argument: its result is fixed. The argument is a `string`; a `binary` is refused, since the failure's reason is the name as a `string` and invalid UTF-8 would fail as `badarg` indistinguishably | 10 §4, 15 §1, 67 |
 | `string` | `binary` refined by valid UTF-8 | unqualified | **built** — F9 as a *type*; F18 generates the membership check **inside `ValidateAs<T>`** and nowhere else, so a term from outside can now establish the property that only a literal could before | 20 |
 | OTP message shapes | `Down`, `Exit`, `Timeout` | unqualified | **decided** | 14 §6 |
 
@@ -118,8 +118,10 @@ as `atom | :nothing`, and ticket 15 §1 later made exactly that shape **an error
 — a singleton absorbed into a cofinite top, so the failure channel collapses and `atom | :nothing`
 *is* `atom`. That refusal is the compiler's as well (F31 / ENG-272, 2026-08-28). Of the two
 known-good answers, a success type narrower than `atom` does not exist, so 67 chose the tagged
-failure. The build is [ENG-294](https://linear.app/davewil/issue/ENG-294); until it lands the name
-is refused.
+failure. Built as F54 ([ENG-294](https://linear.app/davewil/issue/ENG-294), 2026-09-21): written
+bare, `ToExistingAtom(name)`, lowered to the platform's `binary_to_existing_atom` with its `badarg`
+caught. What it cannot yet promise is a member that appears only in a type — ticket 10 §6.2's
+chunk obligation is decided and unbuilt, [ENG-397](https://linear.app/davewil/issue/ENG-397).
 
 **One hard rule stratum 2 has and stratum 1 does not**: ticket 27 §8 — *a codegen obligation
 requires a ground type argument*. So `ValidateAs<TSource>` inside a polymorphic function is
@@ -415,7 +417,10 @@ record of what was asked. The answers, in the order of the items:
    reason to open it. What is actually in the way now is ticket 65's reserved-names policy
    (ENG-255), which decides whether `List` may be the module's name at all.
 5. **The name of the universal-order escape** (see `<` above).
-6. **`ToExistingAtom`'s respelling** — owed, two known-good answers, neither chosen.
+6. ~~**`ToExistingAtom`'s respelling** — owed, two known-good answers, neither chosen.~~ **Chosen
+   2026-09-03 by ticket 67** (`result<atom, string>`) and **built 2026-09-21 as F54**; this line
+   outlived the decision by eighteen days, which is this file's own failure mode again. What is
+   left of it is ticket 10 §6.2's chunk obligation, [ENG-397](https://linear.app/davewil/issue/ENG-397).
 7. **Whether `hd`, `tl`, `length`, `elem` exist at all.** No decision was found for or against.
    Stated as absent evidence rather than as a "no".
 

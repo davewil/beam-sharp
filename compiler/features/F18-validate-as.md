@@ -309,10 +309,12 @@ produces it.
   a test asserting on nothing.
 - **`ParseAtom<T>` and `ToExistingAtom`.** The bracket now admits them and the checker refuses them
   by name. ~~`ParseAtom<T>` is decided (10 §4) and simply unbuilt — a feature, not a ticket.~~
-  **Built 2026-09-09 by F39**; only `ToExistingAtom` is still refused.
+  **Built 2026-09-09 by F39**; ~~only `ToExistingAtom` is still refused.
   `ToExistingAtom` is **owed**: `STANDARD-ENVIRONMENT.md` records that 10 §5 spelled it `atom | :nothing` and 15
   §1 later made exactly that shape an error, with two known-good answers and neither chosen. It must
-  not be implemented from the prelude file, so it is not implemented here.
+  not be implemented from the prelude file, so it is not implemented here.~~ **Corrected 2026-09-21:**
+  ticket 67 chose `result<atom, string>` on 2026-09-03, and **F54 built it** on 2026-09-21, written
+  bare. The closed set is built through.
 - **The emitted boundary guard and the foreign wrapper** (18 §3, LANGUAGE.md §10's "Owed"). This
   feature builds the *explicit* half of the boundary — the call an author writes. The implicit half
   is a different decision about where the compiler inserts checks nobody wrote.

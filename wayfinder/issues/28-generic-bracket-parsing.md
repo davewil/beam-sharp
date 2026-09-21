@@ -170,6 +170,11 @@ forced them to carry a **ground type argument**.
 
 So: **user code never writes a type argument; `ValidateAs`, `ParseAtom` and `ToExistingAtom` always
 do.** Those are stratum 2 (14 §6): compiler-known, and closed.
+<!-- Corrected 2026-09-21 (F54): `ToExistingAtom` never had a type argument to write — its result is
+     fixed at `result<atom, string>` (67) — so it is written bare, `ToExistingAtom(name)`, as tickets 10 §4,
+     18 and 67's own programs spell it. The name stays in the closed set, so `<` after it is still a
+     bracket and never a comparison; the bracket is then refused as the construct's wrong shape. -->
+
 
 ## 2. The rule — the bracket belongs to a token class, not to a lookahead
 
@@ -313,7 +318,9 @@ availability rides on the float rule above.
   20 §5 had ruled it out on safety grounds and then narrowed that refusal to a placement rule.
 - **[Ticket 15](15-error-model.md)'s owed `ToExistingAtom` respelling is now also a grammar item.**
   Whatever it is respelled to, the name stays in the closed lexer set — so a respelling that
-  *renames* it must update the lexer, not only the prelude signature.
+  *renames* it must update the lexer, not only the prelude signature. *(Respelled by
+  [67](67-stdlib-shape-as-a-principle.md) on 2026-09-03 without renaming; built as F54 on
+  2026-09-21 with the name still in the set.)*
 - **[Ticket 25](25-exemplar-programs.md) gains a settled surface.** All six exemplars can now be
   written without inventing a bracket rule or a rest spelling. That was the reason to take this
   ticket before writing them.

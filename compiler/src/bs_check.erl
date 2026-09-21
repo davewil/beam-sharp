@@ -45,7 +45,7 @@
 -export([reserved_qualifiers/0, reserved_table/0]).
 %% The emitter builds `ParseAtom<T>`'s arms from the same member list the
 %% checker admitted `T` on, so the two cannot disagree about what `T` holds.
--export([parse_atom_members/1, built_obligations/0]).
+-export([parse_atom_members/1, built_obligations/0, codegen_obligations/0]).
 
 %% Fault injection for two branches no program is known to reach: F25.20's
 %% compiler-defect branch of `as_pasted/2`, handed an environment `type_env/1`
@@ -130,6 +130,7 @@ check_dir1(Sources, World, Expect) ->
     one_module_per_directory(Sources, Expect),
     [no_function_in_index(P, D) || {P, D} <- Sources],
     compiler_known_redeclared(Decls),
+    compiler_known_function(Decls),
     %% The imports come before the type environment now, because a producer's
     %% `record` and `type` names cross `using` (ticket 73, F44) and a local
     %% declaration may name one: `type Wide = Orders.Doc | Triangle` resolves
@@ -388,6 +389,9 @@ exports_of(Decls, World) ->
     %% types; it is raised by a pass over the bodies for exactly this caller
     %% (F50).
     to_json_refused(Decls, Env),
+    %% A function declared under a compiler-known call name is a fact about
+    %% the declarations alone, and `--api` would print it as an export (F54).
+    compiler_known_function(Decls),
     maps:from_list([{{N, length(Ps)},
                      at_loc(L, fun() -> erased_sig(Ps, R, TV, Env) end)}
                     || {signature, L, N, R, Ps, V, TV} <- Decls, V =:= public]).
@@ -1723,7 +1727,7 @@ codegen_obligations() -> ['ValidateAs', 'ParseAtom', 'ToExistingAtom', 'ToJson']
 %% Which of them this compiler generates code for. The diagnostic for an
 %% unbuilt name reads this rather than carrying its own sentence, so shipping
 %% the next one cannot leave the message claiming otherwise.
-built_obligations() -> ['ValidateAs', 'ParseAtom', 'ToJson'].
+built_obligations() -> ['ValidateAs', 'ParseAtom', 'ToExistingAtom', 'ToJson'].
 
 %%% ---------------------------------------------------------------------------
 %%% Reserved qualifiers (ticket 67, F32)
@@ -3512,6 +3516,15 @@ type_of({e_inst, L, 'ToJson', TypeArgs, Args}, S, C) ->
                      {obligation_arity, 'ToJson', length(TypeArgs),
                       length(Args)}}]}
     end;
+%% `ToExistingAtom(s)` is the fourth codegen obligation (ticket 10 §4, 67;
+%% F54), and the one written BARE: its result is `result<atom, string>`
+%% whatever is handed over, so there is no `T` to choose and no bracket to
+%% write. The name stays in ticket 28's closed set — `<` after it opens a
+%% bracket rather than reading as a comparison — and what that bracket
+%% holds is then refused as the construct's wrong shape, the same rule that
+%% refuses `ValidateAs<int, atom>(t)`.
+type_of({e_inst, L, 'ToExistingAtom', TypeArgs, Args}, S, C) ->
+    to_existing_atom(L, TypeArgs, Args, S, C);
 %% Any other instantiation is refused, and the two cases are told apart: a
 %% name in the closed set is a feature not yet built, a name outside it was
 %% never going to work (ticket 28).
@@ -3522,6 +3535,10 @@ type_of({e_inst, L, Name, _TypeArgs, Args}, S, C) ->
                  false -> {not_an_obligation, Name}
              end,
     {reported(), D0 ++ [{error, L, C#ctx.fname, Reason}]};
+%% Read before any user function is looked up, which is why a user may not
+%% declare one under this name (`compiler_known_function/1`).
+type_of({e_call, L, 'ToExistingAtom', Args}, S, C) ->
+    to_existing_atom(L, [], Args, S, C);
 type_of({e_call, L, Name, Args}, S, C) ->
     call(L, unqualified_key(Name, length(Args), L, C), Name, Args, S, C);
 %% A lambda's type is the arrow its site expects (ticket 75 Q5). Reached
@@ -3768,6 +3785,67 @@ parse_atom_arg(L, Ty, [ATy], D0, C) ->
         true  -> {bs_types:union(Ty, bs_types:atom_lit(nothing)), D0};
         false -> {reported(),
                   D0 ++ [{error, L, C#ctx.fname, {parse_atom_arg, ATy}}]}
+    end.
+
+%%% ---------------------------------------------------------------------------
+%%% `ToExistingAtom` (ticket 10 §4, ticket 67; F54)
+%%% ---------------------------------------------------------------------------
+
+%% No type argument and one value. The result is fixed — `result<atom,
+%% string>`, ticket 67's respelling of 10 §4's `atom | :nothing`, which 15 §1
+%% made an error at the declaration because the singleton is absorbed into
+%% the cofinite top and the failure could not be matched. So the tagged
+%% member is in the result whether the signature admits it or not, and a
+%% signature promising bare `atom` meets `return_not_declared` with the
+%% wider one offered back, exactly as `ParseAtom<T>`'s `:nothing` does.
+%%
+%% THE ARGUMENT IS A `string`, NOT A `binary`, and this is where the sibling's
+%% rule does not carry over. `ParseAtom<T>` admits a `binary` because the
+%% argument goes nowhere: it is matched and dropped. Here it flows INTO the
+%% result — the failure carries the name as a `string` — and a `binary` that
+%% is not valid UTF-8 is not one. The BIF agrees: `binary_to_existing_atom`
+%% on such a binary is `badarg`, the same failure a missing name raises, so
+%% admitting `binary` would make two failures one and hand the author
+%% "(:error, name)" for a value that was never a name. A `term` is refused
+%% for the same reason `ParseAtom` refuses it (F39.7).
+%%
+%% An argument already carrying a diagnostic arrives as `none`, which is a
+%% subtype of everything, so nothing is reported a second time.
+to_existing_atom(L, [], [Arg], S, C) ->
+    {[ATy], D0} = type_of_all([Arg], S, C),
+    case bs_types:is_subtype(ATy, bs_types:string()) of
+        true  -> {existing_atom_result(), D0};
+        false -> {reported(),
+                  D0 ++ [{error, L, C#ctx.fname, {to_existing_atom_arg, ATy}}]}
+    end;
+to_existing_atom(L, TypeArgs, Args, S, C) ->
+    {_, D0} = type_of_all(Args, S, C),
+    {reported(),
+     D0 ++ [{error, L, C#ctx.fname,
+             {obligation_arity, 'ToExistingAtom', length(TypeArgs), length(Args)}}]}.
+
+%% `result<atom, string>` as the algebra holds it: `atom | (:error, string)`.
+existing_atom_result() ->
+    bs_types:union(bs_types:atom_top(),
+                   bs_types:tuple([bs_types:atom_lit(error), bs_types:string()])).
+
+%% A user may not declare a function under the name a bare compiler-known
+%% call is read by. `type_of/3` meets `ToExistingAtom(s)` before any callee
+%% is looked up, so a user's `ToExistingAtom/1` would be shadowed in silence
+%% — the rule is `compiler_known_redeclared/1`'s, for a function. Every
+%% form that introduces the name is checked, the signature and a clause
+%% without one alike, because the hazard is the name being taken.
+%%
+%% TWO SITES: `check_dir1/3` and `exports_of/2` both call this, because
+%% `bsc --api` runs the declaration pass on its own and would print
+%% `atom ToExistingAtom(string)` for a module a compile refuses (F31, F40,
+%% F50; ENG-371 for the two older refusals that still have the gap).
+compiler_known_function(Decls) ->
+    Declared = [{N, L} || {signature, L, N, _, _, _, _} <- Decls]
+            ++ [{N, L} || {clause, L, N, _, _, _} <- Decls],
+    case [{N, L} || {N, L} <- Declared, N =:= 'ToExistingAtom'] of
+        []           -> ok;
+        [{N, L} | _] -> erlang:error({compiler_known_function, N, L})
     end.
 
 %%% ---------------------------------------------------------------------------

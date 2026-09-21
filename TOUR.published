@@ -24,7 +24,22 @@
 # evidence here that is not self-reported.
 
 url       https://claude.ai/code/artifact/40f71cf4-d5d3-4b71-882c-ad73f630a03c
-sha256    5c5e15102594c374d6ba043141496b467325563e6ad9e5b0dc6c4085e433c044
+sha256    994da82140aaa306d541a5d4c92cac2e242161f6a8d83ef4a0c69fa25d3f26b6
+verified  2026-09-21 (for F54, `ToExistingAtom`, ENG-294) — chapter 15 gained a section, *The
+          interop escape: a name into the atom the VM already has*, quoting
+          `examples/Names/names.bs` with four replayed transcripts (`Resolve "init"` is `:init`,
+          `Resolve "zzz_no_such_name"` is `(:error, "zzz_no_such_name")`, and `Registered` over
+          each), and its heading lost the count — *the two constructs that cross it* was wrong
+          since F50 made it three. The "Decided but not built" table gained the atom-chunk row
+          (ticket 10 §6.2, ENG-397), which this feature is the first construct able to expose.
+          The appendix gained `a string resolved to an atom the VM has`, and its own count was
+          already stale by one: it said 62 where the gate reads 64 after this row, so it moved to
+          64 — the fourth time this line has needed correcting and the third time a feature has
+          had to notice it unaided. Parts 1 to 3 were green and part 4 red against the old stamp
+          before the republish (version 27), and the live page was read back first: it still
+          carried the two-constructs heading, said 62, and had no `examples/Names` anywhere, so it
+          was confirmed stale rather than assumed, and the read showed a plain render of TOUR.md
+          with nothing saved into it independently. Published as version 28 on the first attempt.
 verified  2026-09-19 (for F53, the numeric-union dispatch, ENG-394) — chapter 3 gained a section,
           *Taking a numeric union apart*, quoting `examples/Ledger/ledger.bs` with one replayed
           transcript (`Post -2.50` is `:credit`, the row that answered `:debit` before this

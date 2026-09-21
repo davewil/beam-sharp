@@ -25,7 +25,9 @@ Ticket 15 §1 is the sharpest kind of unbuilt decision: it is not merely absent,
 it is **cited as present**. Ticket 49 weighed three shapes for the valve and
 accepted shape C's exposure because 15 §1 was understood to refuse the case that
 makes it dangerous. `STANDARD-ENVIRONMENT.md:108` records `ToExistingAtom` as **owed** for the
-same reason. Two documents lean on a refusal the compiler does not have.
+same reason *(respelled `result<atom, string>` by ticket 67 on 2026-09-03 and built as F54 on
+2026-09-21; the sentence stands as this feature found it)*. Two documents lean on a refusal the
+compiler does not have.
 
 F18 built the predicate at the `ValidateAs<T>` obligation site and nowhere else.
 `bs_diag.erl:280` says so in as many words — *"Ticket 15 §1's collapse, met at an

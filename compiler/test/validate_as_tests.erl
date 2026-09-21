@@ -367,19 +367,12 @@ a_name_outside_the_closed_set_is_refused_test() ->
           "Go(t) -> Encode<int>(t)\n",
     ?assertMatch([{error, _, 'Go', {not_an_obligation, 'Encode'}}], errors(Src)).
 
-%% THE REMAINING MEMBER OF THE SET IS A DIFFERENT SENTENCE. `ToExistingAtom`
-%% is decided in name and unbuilt; telling that apart from "never going to
-%% work" is the whole reason the set is enforced in the checker.
-%%
-%% `ParseAtom<T>` was the other half of this test until F39 built it — its
-%% behaviour is `parse_atom_tests` now, and what remains here is the sentence
-%% about a name the compiler knows and does not generate.
-to_existing_atom_is_decided_but_unbuilt_test() ->
-    Src = "module VaExisting\n"
-          "public atom Go(term t)\n"
-          "Go(t) -> ToExistingAtom<atom>(t)\n",
-    ?assertMatch([{error, _, 'Go', {obligation_unbuilt, 'ToExistingAtom'}}],
-                 errors(Src)).
+%% THE OTHER SENTENCE — a name the compiler knows and does not generate —
+%% has nothing left to say it about. `ParseAtom<T>` was refused here as
+%% `obligation_unbuilt` until F39 built it and `ToExistingAtom` until F54 did;
+%% the closed set is built through, and the clause that tells "wait for us"
+%% from "never going to work" is dead until a fifth obligation is decided.
+%% Their behaviour is `parse_atom_tests` and `to_existing_atom_tests`.
 
 %% One type argument and one value. A codegen obligation is not a function, so
 %% "wrong arity" is about the shape of the construct rather than about a
@@ -504,11 +497,6 @@ prose_cases() ->
       "public result<int, ValidationError> Go(term t)\n"
       "Go(t) -> ValidateAs<int, atom>(t)\n",
       "codegen obligation, not a function"},
-     {obligation_unbuilt,
-      "module VaProseUnbuilt\n"
-      "public atom Go(term t)\n"
-      "Go(t) -> ToExistingAtom<atom>(t)\n",
-      "decided and not built yet"},
      {not_an_obligation,
       "module VaProseNotOne\n"
       "public int Go(term t)\n"
