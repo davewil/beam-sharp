@@ -1,6 +1,6 @@
 # F55 — every type-position atom in the chunk
 
-**Status**      **built 2026-09-21; the clean pair is owed** — 4 tests in
+**Status**      **done 2026-09-21** — 4 tests in
                 `to_existing_atom_tests` (23 there now, up from 19), one in
                 `repl_tests`, one in `cli_tests`; the first was the test F54
                 wrote, saw red, and withdrew, and it was red again on this tree
@@ -9,8 +9,8 @@
                 module holds only the author's functions were re-pointed. No
                 new gate: the property is visible only to a VM that never
                 compiled the module, which no `check-*.sh` spawns and the suite
-                does. This line becomes **done** in the commit that appends the
-                `./bin/verify.sh` pair to the end of this file, and not before
+                does. `./bin/verify.sh` green **twice from a clean clone** of
+                `35dccac`, the evidence dated at the end of this file
 **Implements**  [ticket 10](../../wayfinder/issues/10-atoms-in-a-csharp-skin.md)
                 §6.2, the obligation, landed on
                 [ticket 13](../../wayfinder/issues/13-compilation-target-decision.md)
@@ -181,6 +181,22 @@ the one compiler-added form).
 the tree, and LANGUAGE.md §10 no longer says *"One thing it cannot yet
 promise"*. Both hold.
 
-## Verified — 2026-09-21
+## Verified — 2026-09-21, at `35dccac`
 
-*(the clean-pair evidence is appended at the SHA that ships this file)*
+`./bin/verify.sh && ./bin/verify.sh` from one fresh `git clone` checked out at
+`35dccac`, the two runs sequential, on the Omarchy box with `/usr/bin/core_perl`
+on the mise path (Arch keeps Perl's `shasum` there, off the default path, and
+`check-tour.sh` part 4 cannot run without it — a machine gap closed in the
+machine's mise config, not in the repository):
+
+```
+run 1   All 46 stages passed (elapsed: 688s)
+run 2   All 46 stages passed (elapsed: 666s)
+```
+
+Stage 11, the tour gate, passed on both (28 s, 29 s). The full eunit suite in
+the working tree before the commit: 1056 passed, 0 failed — after one run in
+which `the_diagnostics_gate_passes_test` timed out at eunit's 5-second default
+while two document gates ran beside it, and passed alone in 3.4 s. The pair
+measures `35dccac` and nothing after it; the commit carrying this section adds
+only the text you are reading and the two status lines it turns to done.
