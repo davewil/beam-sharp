@@ -262,3 +262,25 @@ four, and this is the sentence that would have kept saying so.
   touches the term surface for nothing.
 * **A module name that shadows an OTP module** on a case-insensitive disk —
   ticket 65's policy, not this feature's.
+
+## Verified — 2026-09-21, at `06ec9d0`
+
+`./bin/verify.sh && ./bin/verify.sh` from one fresh `git clone` of `06ec9d0`,
+the two runs sequential because two clean runs started together race on the
+per-user tree-sitter grammar cache:
+
+```
+run 1   All 46 stages passed (elapsed: 296s)
+run 2   All 46 stages passed (elapsed: 288s)
+```
+
+Stage 11, the tour gate that has raced red on a fresh clone before, passed on
+both. The `/code-review` that ran beside the pair found no hard standards
+violation and no spec defect; its four judgement calls are recorded here so
+they are not lost: this section, which the Status line promised before it
+existed; `compiler_known_function/1` naming its one name rather than reading a
+registry, kept because a registry of one is speculative; the comment style,
+inherited from the sibling files; and `in_fresh_vm/3` concatenating a name into
+a shell string, safe for the static literals it is handed. The pair measures
+`06ec9d0` and nothing after it; the commit carrying this section adds only the
+text you are reading.
