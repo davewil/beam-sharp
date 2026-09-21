@@ -29,8 +29,9 @@ exports_line(Mod) ->
                                         || {F, A} <- Fns])]
     end.
 
+%% The banner lists what the author wrote; `bs_run` owns that definition.
 exports(Mod) ->
-    try [{F, A} || {F, A} <- Mod:module_info(exports), F =/= module_info]
+    try bs_run:authors_exports(Mod)
     catch _:_ -> [] end.
 
 %% Every function the module DEFINES, private ones included (F12).

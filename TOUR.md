@@ -1538,12 +1538,15 @@ that is not valid UTF-8 is not a `string`; the platform agrees, since the lookup
 binary fails the way a missing name does. A wire binary becomes a `string` through
 `ValidateAs<string>` first.
 
-One thing it cannot yet see: an atom that appears *only* in a type — a union member no clause
-or expression of the module spells — is not in the emitted module's atom chunk, so a fresh VM
-answers `(:error, name)` for a member the type declares. Ticket 10 §6.2 decided the compiler must
-put it there; that is decided and unbuilt, and it is the row this section adds to chapter 18.
+A member the type names is a name the VM has. An atom that appears *only* in a type — a union
+member no clause or expression of the module spells — would be absent from a module loaded by a
+VM that never compiled it, since types are erased, and `ToExistingAtom` would then refuse a member
+the type declares. So every emitted module exports one function the author did not write,
+`'bs@type_atoms'/0`, a literal of the atoms its type positions name; loading the module interns
+them. It is the compiler's: `bs@` cannot be spelled in B#, and neither the REPL's banner nor `bsc`
+offers it.
 
-<!-- ticket 11 §2, ticket 15 §2, ticket 18, ticket 27 §8, F18; ticket 10 §4 and §5, F39; ticket 67, F54 -->
+<!-- ticket 11 §2, ticket 15 §2, ticket 18, ticket 27 §8, F18; ticket 10 §4 and §5, F39; ticket 67, F54; ticket 10 §6.2, ticket 87, F55 -->
 
 ---
 
@@ -1687,7 +1690,6 @@ produce.
 | the behaviour contract checked as a type | Dialyzer does it at the boundary today |
 | `Map.Get`, and the `map<K, V>` type beside it | the name `Map` is reserved; its operations are not built |
 | `cond`, or whatever serves a long ladder of unrelated conditions | open |
-| every type-position atom in the emitted module's atom chunk | ticket 10 §6.2; an atom only a type names is absent, so `ToExistingAtom` refuses it in a fresh VM — the mechanism is a decision, ENG-397 |
 
 The language's **name** is also open. `beam-sharp` is a working title.
 

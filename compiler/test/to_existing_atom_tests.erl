@@ -12,10 +12,12 @@
 %%% lexes `:widget` — so in-process, `ToExistingAtom("widget")` succeeds because
 %%% the COMPILER minted the atom, whatever the emitted module carries. The
 %%% question this feature turns on is what a fresh VM finds after loading the
-%%% `.beam`, so that test spawns one. It asks about an atom in value position.
+%%% `.beam`, so those tests spawn one. One asks about an atom in value position.
 %%% An atom that appears ONLY in a type is ticket 10 §6.2's obligation, decided
-%%% and unbuilt; this feature is the first construct that can tell, and the
-%%% measurement of what would discharge it is in F54 and on the issue it raised.
+%%% as ticket 87 and built as F55: the emitter exports `'bs@type_atoms'/0` on
+%%% every module, and the two tests beside it are the ones that see it. Never
+%%% `beam_lib`'s atom chunk: a literal's atoms live in the literal chunk and are
+%%% interned at load, so that inspector reports "absent" for a module that works.
 %%%
 %%% THE REFUSALS CANNOT LIVE IN `examples/`, for the reason F39 gave: every
 %%% example must compile, and a rule whose whole content is a rejection has
@@ -73,8 +75,11 @@ the_reason_is_the_name_handed_over_test() ->
 
 widget_src() ->
     "module Widget\n"
+    "type Mode = :zzz_type_only_mode | :zzz_other_mode\n"
     "public atom Tag()\n"
     "Tag() -> :zzz_widget_tag\n"
+    "public list<Mode> Modes()\n"
+    "Modes() -> []\n"
     "public result<atom, string> Resolve(string name)\n"
     "Resolve(name) -> ToExistingAtom(name)\n".
 
@@ -107,6 +112,74 @@ a_value_position_atom_resolves_in_a_vm_that_did_not_compile_it_test() ->
     ?assertEqual("zzz_widget_tag", in_fresh_vm(Dir, M, "zzz_widget_tag")),
     ?assertEqual("{error,<<\"zzz_widget_absent\">>}",
                  in_fresh_vm(Dir, M, "zzz_widget_absent")).
+
+%% Ticket 10 §6.2: an atom appearing ONLY in a type is absent from the chunk
+%% unless the compiler puts it there, and then ToExistingAtom("zzz_type_only_mode")
+%% refuses a value the declared type says is legal. `Mode`'s members appear in
+%% no pattern and no expression of `Widget`; this test was red until the
+%% emitter discharged the obligation (ticket 87, ENG-397), and it is the first
+%% construct in the language that can tell. Never `beam_lib`: the atoms live in
+%% the literal chunk and are interned at load, so only a fresh VM can see them.
+a_type_only_atom_resolves_in_a_vm_that_did_not_compile_it_test() ->
+    M = build_and_load(widget_src(), 'Widget'),
+    Dir = bs_test_support:fixture_root(),
+    {ok, _} = file:copy(code:which(M), filename:join(Dir, "Widget.beam")),
+    ?assertEqual("zzz_type_only_mode", in_fresh_vm(Dir, M, "zzz_type_only_mode")),
+    ?assertEqual("zzz_other_mode", in_fresh_vm(Dir, M, "zzz_other_mode")).
+
+%% The discharge is one exported function on EVERY module, `'bs@type_atoms'/0`,
+%% returning the sorted atoms its type positions name — an empty list where
+%% there are none, so the surface is one shape (ticket 87). `Widget`'s three:
+%% `Mode`'s two members, and `error` from `result<atom, string>`'s failure
+%% tuple. `atom` itself is the cofinite top and names nothing.
+every_module_exports_the_atoms_its_types_name_test() ->
+    W = build_and_load(widget_src(), 'Widget'),
+    ?assertEqual([error, zzz_other_mode, zzz_type_only_mode], W:'bs@type_atoms'()),
+    P = build_and_load("module Plain\n"
+                       "public int Inc(int n)\n"
+                       "Inc(n) -> n + 1\n", 'Plain'),
+    ?assertEqual([], P:'bs@type_atoms'()).
+
+%% A declared type no signature names still counts, and so does every atom a
+%% type names in KEY position: a record's field names and its minted `Kind`
+%% are atoms the type spells. A parametric alias is walked with its variables
+%% erased to `term`, as a polymorphic signature is, so its own literals are
+%% collected without applying it (the review of F55 found both walks missing).
+a_declared_but_unused_type_still_counts_keys_included_test() ->
+    D = build_and_load("module Decl\n"
+                       "record Point { X: int }\n"
+                       "type Tagged<T> = :zzz_tagged | T\n"
+                       "public int Inc(int n)\n"
+                       "Inc(n) -> n + 1\n", 'Decl'),
+    ?assertEqual(['Decl.Point', 'Kind', 'X', zzz_tagged], D:'bs@type_atoms'()).
+
+%% A type that came in through `using` is a type position of THIS module, and
+%% this module is the one a fresh VM may load alone: `Kinds.beam` is not on the
+%% spawned VM's path, only `Uses.beam` is, and both members resolve. Neither
+%% name is spelled as a value anywhere in `Uses`.
+an_imported_types_atoms_reach_the_importing_modules_chunk_test() ->
+    Root = bs_test_support:fixture_root(),
+    Main = bs_test_support:place(
+             Root, "uses.bs",
+             "module Uses\n"
+             "using Kinds\n"
+             "public list<Mode> Known()\n"
+             "Known() -> []\n"
+             "public result<atom, string> Resolve(string name)\n"
+             "Resolve(name) -> ToExistingAtom(name)\n"),
+    _Dep = bs_test_support:place(
+             Root, "kinds.bs",
+             "module Kinds\n"
+             "type Mode = :zzz_kind_fast | :zzz_kind_slow\n"
+             "public Mode First()\n"
+             "First() -> :zzz_kind_fast\n"),
+    Out = Root ++ "/out",
+    {0, ""} = bs_test_support:run_cli_result(
+                "--src-root " ++ Root ++ " -o " ++ Out ++ " " ++ Main),
+    Alone = bs_test_support:fixture_root(),
+    {ok, _} = file:copy(Out ++ "/Uses.beam", filename:join(Alone, "Uses.beam")),
+    ?assertEqual("zzz_kind_slow", in_fresh_vm(Alone, 'Uses', "zzz_kind_slow")),
+    ?assertEqual("zzz_kind_fast", in_fresh_vm(Alone, 'Uses', "zzz_kind_fast")).
 
 %%% ---------------------------------------------------------------------------
 %%% F54.4 — the declared return must admit the failure member

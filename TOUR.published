@@ -24,7 +24,18 @@
 # evidence here that is not self-reported.
 
 url       https://claude.ai/code/artifact/40f71cf4-d5d3-4b71-882c-ad73f630a03c
-sha256    994da82140aaa306d541a5d4c92cac2e242161f6a8d83ef4a0c69fa25d3f26b6
+sha256    99c4a7c0d52f08282d90a74affe303d7edd69a538dbb827e3074fdd6ee511d79
+verified  2026-09-21 (for F55, every type-position atom in the chunk, ENG-397) — chapter 15's
+          closing paragraph said `ToExistingAtom` could not yet see an atom that appears only in a
+          type, and the "Decided but not built" table carried the atom-chunk row F54 added that
+          morning; both were true for two hours. The paragraph now says every emitted module
+          exports `'bs@type_atoms'/0`, the literal of the atoms its type positions name, and the
+          row is gone. No quoted corpus line or transcript changed and no capability row was
+          added, since the feature adds no surface a `.bs` file can spell, so the appendix's 64
+          stands and only part 4 went red. The live page (version 28) was read back first and
+          still carried both the paragraph and the row, so it was confirmed stale rather than
+          assumed, and the read showed a plain render of TOUR.md with nothing saved into it
+          independently. Published as version 29 on the first attempt.
 verified  2026-09-21 (for F54, `ToExistingAtom`, ENG-294) — chapter 15 gained a section, *The
           interop escape: a name into the atom the VM already has*, quoting
           `examples/Names/names.bs` with four replayed transcripts (`Resolve "init"` is `:init`,

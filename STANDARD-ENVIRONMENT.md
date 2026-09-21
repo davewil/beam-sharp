@@ -120,8 +120,10 @@ as `atom | :nothing`, and ticket 15 §1 later made exactly that shape **an error
 known-good answers, a success type narrower than `atom` does not exist, so 67 chose the tagged
 failure. Built as F54 ([ENG-294](https://linear.app/davewil/issue/ENG-294), 2026-09-21): written
 bare, `ToExistingAtom(name)`, lowered to the platform's `binary_to_existing_atom` with its `badarg`
-caught. What it cannot yet promise is a member that appears only in a type — ticket 10 §6.2's
-chunk obligation is decided and unbuilt, [ENG-397](https://linear.app/davewil/issue/ENG-397).
+caught. A member that appears only in a type is a name the VM has: ticket 10 §6.2's chunk
+obligation, decided as ticket 87 and built as F55 on 2026-09-21
+([ENG-397](https://linear.app/davewil/issue/ENG-397)), puts every type-position atom into an
+exported `'bs@type_atoms'/0` on every module.
 
 **One hard rule stratum 2 has and stratum 1 does not**: ticket 27 §8 — *a codegen obligation
 requires a ground type argument*. So `ValidateAs<TSource>` inside a polymorphic function is
@@ -419,8 +421,9 @@ record of what was asked. The answers, in the order of the items:
 5. **The name of the universal-order escape** (see `<` above).
 6. ~~**`ToExistingAtom`'s respelling** — owed, two known-good answers, neither chosen.~~ **Chosen
    2026-09-03 by ticket 67** (`result<atom, string>`) and **built 2026-09-21 as F54**; this line
-   outlived the decision by eighteen days, which is this file's own failure mode again. What is
-   left of it is ticket 10 §6.2's chunk obligation, [ENG-397](https://linear.app/davewil/issue/ENG-397).
+   outlived the decision by eighteen days, which is this file's own failure mode again. What was
+   left of it, ticket 10 §6.2's chunk obligation, was decided as ticket 87 and built as F55 the
+   same day it was found, 2026-09-21 ([ENG-397](https://linear.app/davewil/issue/ENG-397)).
 7. **Whether `hd`, `tl`, `length`, `elem` exist at all.** No decision was found for or against.
    Stated as absent evidence rather than as a "no".
 

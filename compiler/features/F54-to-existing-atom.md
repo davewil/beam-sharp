@@ -21,7 +21,8 @@
                 than implemented
 **Raises**      [ENG-397](https://linear.app/davewil/issue/ENG-397) — ticket 10
                 §6.2's atom-chunk obligation, decided and unbuilt, which this is
-                the first construct that can expose. See §F54.3
+                the first construct that can expose. See §F54.3. **Decided the
+                same day as ticket 87 and built as F55**
 **Depends on**  F18, which established that a codegen obligation is not a call;
                 F39, whose inline lowering this follows; F25, whose corrected
                 signature offers the failure member back; F31, whose refusal of
@@ -252,10 +253,17 @@ four, and this is the sentence that would have kept saying so.
 
 ## Still owed
 
-* **Every type-position atom in the chunk** — ticket 10 §6.2, decided and
+* ~~**Every type-position atom in the chunk** — ticket 10 §6.2, decided and
   unbuilt: [ENG-397](https://linear.app/davewil/issue/ENG-397), with the two
   mechanisms that would discharge it and why each is a decision. The fresh-VM
-  test is in that issue's text, ready to put back.
+  test is in that issue's text, ready to put back.~~ **Built 2026-09-21 as
+  [F55](F55-type-atoms-in-the-chunk.md)**, after ticket 87 chose the exported
+  function. That build also found the table in §F54.3 was read through the
+  wrong inspector: `beam_lib`'s atom chunk holds neither atom under *any*
+  mechanism, the two that work included, because a literal's atoms are
+  interned at load from the literal chunk. The rows are true; the column
+  heading "in the chunk?" was the wrong question, and only a fresh VM answers
+  the right one.
 * **`obligation_unbuilt` is dead.** All four names in the closed set are built,
   so the branch that tells "wait for us" from "never going to work" is
   unreachable until a fifth obligation is decided. The clause stays; deleting it

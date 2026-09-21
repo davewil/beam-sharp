@@ -193,6 +193,19 @@ check_dir1(Sources, World, Expect) ->
                          %% Per-file functions, so the emitter can put a
                          %% file attribute in front of each file's (F15).
                          files => PerFile1,
+                         %% Every type this module declares, resolved, so
+                         %% the emitter can put every atom they name into
+                         %% the chunk even where no signature names the type
+                         %% (ticket 87, ENG-397). A parametric alias is
+                         %% resolved under the OPAQUE binding, each variable
+                         %% a singleton atom spelled as the variable: erased
+                         %% to `term` its literals would be absorbed into
+                         %% the top, and `:fast | T` would name nothing. The
+                         %% variables' atoms travel beside so the emitter can
+                         %% leave them out of the chunk.
+                         declared_types => declared_types(Decls, Env),
+                         type_vars => lists:usort(lists:append(
+                             [Ps || {type_alias, _, _, Ps, _} <- Decls])),
                          behaviours => behaviours(Decls),
                          %% Imports resolve at check time; the emitter reads
                          %% this table rather than resolving again (41 §2).
@@ -432,6 +445,13 @@ types_of(Decls, Self, World) ->
               || {N, [M]} <- maps:to_list(maps:get(types, Imports))],
     Rename = maps:from_list(Theirs ++ [{N, qualified(Self, N)} || N <- Own]),
     maps:from_list([{N, crossing(maps:get(N, Env), Rename)} || N <- Own]).
+
+%% Every declared type as a resolved type: an alias body under its variables
+%% bound opaque, a refinement and a record by name.
+declared_types(Decls, Env) ->
+    [resolve(Body, opaque_env(Params, Env)) || {type_alias, _, _, Params, Body} <- Decls]
+        ++ [resolve({t_ref, N}, Env) || {type_refined, _, N, _, _} <- Decls]
+        ++ [resolve({t_ref, N}, Env) || {record_decl, _, N, _} <- Decls].
 
 declared_type_names(Decls) ->
     [N || {type_alias, _, N, _, _} <- Decls]

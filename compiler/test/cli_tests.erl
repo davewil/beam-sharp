@@ -105,6 +105,27 @@ a_previous_runs_fixture_cannot_enter_this_runs_source_index_test() ->
         ok = file:del_dir_r(PoisonRoot)
     end.
 
+%% `'bs@type_atoms'/0` is on every emitted module (ticket 87) and is the
+%% compiler's, not the author's: naming it at the command line finds no such
+%% function, the same as naming `module_info` would. Before the runner hid it,
+%% this printed the atom list and exited 0.
+the_compilers_export_cannot_be_run_test() ->
+    case bs_test_support:built() of
+        false -> ok;
+        true  ->
+            with_src("modes.bs",
+                     "module Modes\n"
+                     "type Mode = :zzz_cli_mode_a | :zzz_cli_mode_b\n"
+                     "public list<Mode> Known()\n"
+                     "Known() -> []\n",
+                     fun(Path, Out) ->
+                             {Rc, Output} = bs_test_support:run_cli_result(
+                                              "-o " ++ Out ++ " " ++ Path ++ " bs@type_atoms"),
+                             ?assertNotEqual(0, Rc),
+                             ?assertEqual(nomatch, string:find(Output, "zzz_cli_mode_a"))
+                     end)
+    end.
+
 %%% ---------------------------------------------------------------------------
 %%% Running a program — `bsc fib.bs 5`
 %%%

@@ -52,7 +52,7 @@ unmarked_src() ->
 %% The default itself: no marker, no export.
 an_unmarked_signature_is_not_exported_test() ->
     M = build_and_load(unmarked_src(), 'Unmarked'),
-    Exports = [{F, A} || {F, A} <- M:module_info(exports), F =/= module_info],
+    Exports = authors_exports(M),
     ?assertEqual([{'Twice', 1}], Exports).
 
 %% ...and it compiles and runs, which is the half that would break if `none`
@@ -105,7 +105,7 @@ a_module_that_exports_nothing_says_so_test() ->
 %% The whole mechanism, and it is the export list and nothing else.
 a_private_function_is_not_exported_test() ->
     M = build_and_load(fib_src(), 'Vis'),
-    Exports = [{F, A} || {F, A} <- M:module_info(exports), F =/= module_info],
+    Exports = authors_exports(M),
     ?assertEqual([{'Fib', 1}], Exports).
 
 %% ...and it is still THERE. A private function is compiled, specced, and named
@@ -134,7 +134,7 @@ two_arities_of_one_name_may_differ_in_visibility_test() ->
           "Length([], acc)          -> acc\n"
           "Length([x, ..rest], acc) -> Length(rest, acc + 1)\n",
     M = build_and_load(Src, 'Pair'),
-    Exports = [{F, A} || {F, A} <- M:module_info(exports), F =/= module_info],
+    Exports = authors_exports(M),
     ?assertEqual([{'Length', 1}], Exports),
     ?assertEqual(3, M:'Length'([7, 8, 9])).
 
@@ -277,3 +277,9 @@ said(Out, What)   -> ?assertNotEqual(nomatch, string:find(Out, What)).
 silent(Out, What) -> ?assertEqual(nomatch, string:find(Out, What)).
 
 built() -> bs_test_support:built().
+
+%% What the author exported: the runner's own definition, which drops the
+%% VM's `module_info` and the compiler's `bs@…` (F55, ticket 87). Visibility is
+%% a rule about the AUTHOR's functions, and the test reads them through the
+%% same function `bsc` does rather than restating the rule.
+authors_exports(M) -> bs_run:authors_exports(M).

@@ -23,8 +23,14 @@ four_clauses_become_four_clause_heads_test() ->
     {ok, _} = compile(showcase_src()),
     {ok, {_, [{abstract_code, {_, Forms}}]}} =
         beam_lib:chunks(?OUT ++ "/Readings.beam", [abstract_code]),
+    %% Exactly two function forms: the author's, and the compiler's
+    %% `'bs@type_atoms'/0` that F55 puts on every module. Asserted as a set so
+    %% a stray generated helper still fails here, as it did when this matched
+    %% a one-element list.
+    ?assertEqual([{'Classify', 1}, {'bs@type_atoms', 0}],
+                 lists:sort([{N, A} || {function, _, N, A, _} <- Forms])),
     [{function, _, 'Classify', 1, Clauses}] =
-        [F || F = {function, _, _, _, _} <- Forms],
+        [F || F = {function, _, 'Classify', 1, _} <- Forms],
     ?assertEqual(4, length(Clauses)).
 
 %% Ticket 13: a -spec is emitted for every function whose type is known.

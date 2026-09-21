@@ -2321,13 +2321,16 @@ public result<atom, string> Resolve(string name)
 Resolve(name) -> ToExistingAtom<atom>(name)
 ```
 
-**One thing it cannot yet promise.** An atom appearing only in a type — a union member no clause
-head or expression of the module spells — is absent from the emitted module's atom table, so a
-fresh VM that loads the module does not have it, and `ToExistingAtom` answers `(:error, name)`
-for a member the declared type says is legal. The compiler is owed the putting of every
-type-position atom in the chunk; that is decided and unbuilt, and the two mechanisms that would
-do it each change the emitted module's surface, so it is a question before it is a build.
-<!-- decided by tickets 10 §4, 15 §1 and 67; built as F54. The chunk obligation is 10 §6.2, unbuilt -->
+**A member the type names is a name the VM has.** An atom appearing only in a type — a union
+member no clause head or expression of the module spells — would be absent from the loaded
+module, since the language's types are erased, and `ToExistingAtom` would answer `(:error, name)`
+for a member the declared type says is legal. So every emitted module carries one function the
+author did not write, `'bs@type_atoms'/0`, returning the atoms its type positions name as a
+literal; loading the module interns them, and a VM that never compiled the module still resolves
+them. It is the compiler's, not the author's: `bs@` is not spellable in this language, the REPL's
+banner and the runner do not offer it, and it is called only by someone reading the module from
+Erlang, where it says which atoms the module's types name.
+<!-- decided by tickets 10 §4, 15 §1 and 67; built as F54. The chunk obligation is 10 §6.2, decided as ticket 87, built as F55 -->
 
 ### `ToJson<T>` — a value on the wire
 
@@ -2655,7 +2658,13 @@ apply(:Shop, :New, [1])    # the way in
 No module naming scheme changes this — the blocker is the *function* name, and prefixing the module
 does not reach it.
 
-<!-- ticket 62 holds the open decision on the casing; ENG-252 -->
+**The compiler's own exports wear `bs@`, and are not for calling.** Every emitted module also
+exports `'bs@type_atoms'/0` (chapter 10, `ToExistingAtom`). The prefix is the compiler's: `@` is
+not in this language's identifier grammar, so no author's function can be named that way and no
+B# program can call one, and Erlang tooling that reads the export list sees the author's
+PascalCase names beside it.
+
+<!-- ticket 62 holds the open decision on the casing; ENG-252. The bs@ exports are ticket 87, ENG-398 -->
 
 ### What each type erases to
 

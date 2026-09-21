@@ -291,6 +291,15 @@ the_banner_lists_the_exports_test() ->
             silent(Out, "Half/1")
     end.
 
+%% The compiler's own export, `'bs@type_atoms'/0` (ticket 87), is on every
+%% module and is not a function the author wrote, so the banner does not offer
+%% it — the same line that hides `module_info`.
+the_banner_hides_the_compilers_export_test() ->
+    case built() of
+        false -> ok;
+        true  -> silent(repl([]), "bs@")
+    end.
+
 %%% --- F12 -------------------------------------------------------------------
 
 %% "no such function" and "you may not call it" are different sentences, and

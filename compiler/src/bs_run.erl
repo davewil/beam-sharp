@@ -8,7 +8,7 @@
 %%% `:positive`, not `positive` — because the reader is reading beam-sharp.
 -module(bs_run).
 
--export([run/3, format_value/1, parse_arg/1, read_arg/1, read_arg/2,
+-export([run/3, authors_exports/1, format_value/1, parse_arg/1, read_arg/1, read_arg/2,
          split_top_level/1]).
 
 %%% ---------------------------------------------------------------------------
@@ -25,7 +25,7 @@ run(Dir, Mod, Argv) ->
     end.
 
 resolve_and_call(Mod, Argv) ->
-    Exports = [{F, A} || {F, A} <- Mod:module_info(exports), F =/= module_info],
+    Exports = authors_exports(Mod),
     case resolve(Mod, Exports, Argv) of
         {error, _} = E -> E;
         {Fn, RawArgs} ->
@@ -335,3 +335,11 @@ format_value(M) when is_map(M) ->
             io_lib:format("~kp", [M])
     end;
 format_value(Other) -> io_lib:format("~p", [Other]).
+
+%% The export list minus what the author did not write: `module_info` is the
+%% VM's, and `bs@…` is the compiler's — `'bs@type_atoms'/0` on every module
+%% (F55, ticket 87). The one definition; the REPL banner and the visibility
+%% tests read this rather than restating it.
+authors_exports(Mod) ->
+    [{F, A} || {F, A} <- Mod:module_info(exports),
+               F =/= module_info, not lists:prefix("bs@", atom_to_list(F))].

@@ -206,8 +206,14 @@ an_interval_pattern_lowers_to_a_variable_and_a_guard_test() ->
     {ok, _} = compile(frame_src()),
     {ok, {_, [{abstract_code, {_, Forms}}]}} =
         beam_lib:chunks(?OUT ++ "/Frame2.beam", [abstract_code]),
+    %% Exactly two function forms: the author's, and the compiler's
+    %% `'bs@type_atoms'/0` that F55 puts on every module. Asserted as a set so
+    %% a stray generated helper still fails here, as it did when this matched
+    %% a one-element list.
+    ?assertEqual([{'Classify', 1}, {'bs@type_atoms', 0}],
+                 lists:sort([{N, A} || {function, _, N, A, _} <- Forms])),
     [{function, _, 'Classify', 1, Clauses}] =
-        [F || F = {function, _, _, _, _} <- Forms],
+        [F || F = {function, _, 'Classify', 1, _} <- Forms],
     Span = lists:nth(6, Clauses),
     %% AMENDED BY F24 (ticket 58), 2026-08-23. The span's own lowering is
     %% unchanged and is still asserted in full below — but it no longer sits

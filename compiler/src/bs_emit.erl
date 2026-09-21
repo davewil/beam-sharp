@@ -71,11 +71,16 @@ forms(Module = #{module := Mod, functions := Fns, env := Env}) ->
     %% supplies its line, so the numbers are exact (F15, ticket 13 §3).
     Files = maps:get(files, Module, [{undefined, Fns}]),
     [{attribute, ?A, module, Mod},
-     {attribute, ?A, export, [{name(F, Behaviours), A} || {F, A} <- Exports]}]
+     %% The author's exports, and then the compiler's one: `'bs@type_atoms'/0`
+     %% is on every module (ticket 87, ENG-397).
+     {attribute, ?A, export, [{name(F, Behaviours), A} || {F, A} <- Exports]
+                             ++ [{type_atoms_name(), 0}]}]
     ++ [{attribute, ?A, behaviour, bs_otp:behaviour_name(B)} || B <- Behaviours]
     %% Recursive `-type` declarations precede the specs that refer to them, so
     %% a reader meets the definition first; Erlang does not care (F28).
     ++ rec_type_attrs(Fns, Env)
+    ++ [type_atoms_form(Fns, Env, maps:get(declared_types, Module, []),
+                        maps:get(type_vars, Module, []))]
     ++ lists:append([file_group(Path, Fs, Env, Behaviours, Ctx)
                      || {Path, Fs} <- Files])
     %% Generated code goes last and carries no `file` attribute: it belongs to
@@ -1404,12 +1409,80 @@ spec_type(Ty) ->
 %% collected in a separate pass so `spec_type/1` stays a pure function from a
 %% type to a form.
 rec_type_attrs(Fns, Env) ->
-    Tys = lists:append(
-            [[bs_check_resolve(T, fn_env(F, Env)) || {param, T, _} <- element(5, F)]
-             ++ [bs_check_resolve(element(4, F), fn_env(F, Env))] || F <- Fns]),
-    Binders = lists:foldl(fun collect_mu/2, #{}, Tys),
+    Binders = lists:foldl(fun collect_mu/2, #{}, signature_types(Fns, Env)),
     [{attribute, ?A, type, {N, spec_type(Body), []}}
      || {N, Body} <- lists:sort(maps:to_list(Binders))].
+
+%%% ---------------------------------------------------------------------------
+%%% Every type-position atom into the chunk (ticket 10 §6.2; ticket 87, ENG-397)
+%%%
+%%% The language's types are erased, so an atom a type names and no clause head
+%%% or expression spells would reach no chunk of the emitted module, and
+%%% `ToExistingAtom` in a VM that only loaded the module would refuse a member
+%%% the declared type says is legal. The discharge is one exported function,
+%%% `'bs@type_atoms'/0`, returning the sorted set as a literal: an exported body
+%%% is always emitted, and a literal's atoms are interned when the module loads.
+%%% Not an attribute (a blob, decoded only on request), not an unexported
+%%% function (removed as unreachable), not `-on_load` (refused by
+%%% `code:atomic_load`, and kept only while the optimizer declines to fold the
+%%% touching call) — ticket 87 measured each in a fresh VM. `beam_lib`'s atom
+%%% chunk cannot see any of this; only a fresh VM can, and F54's suite does.
+%%%
+%%% The set is what a fresh VM may be handed: every parameter and return of
+%%% every function, resolved so an imported or named type is expanded, plus
+%%% every monomorphic type the module declares. Emitted on every module, an
+%%% empty list included, so the surface is one shape. The name wears `bs@`,
+%%% which the source's identifier grammar cannot spell, so it collides with
+%%% nothing an author writes; the runner and the REPL hide it.
+%%% ---------------------------------------------------------------------------
+
+type_atoms_name() -> 'bs@type_atoms'.
+
+%% Every parameter and return of every function, resolved under the
+%% function's erased environment: the one walk both the `-type` attributes
+%% and `'bs@type_atoms'/0` read, so what counts as a signature type is
+%% decided once.
+signature_types(Fns, Env) ->
+    lists:append(
+      [begin
+           E = fn_env(F, Env),
+           [bs_check_resolve(T, E) || {param, T, _} <- element(5, F)]
+               ++ [bs_check_resolve(element(4, F), E)]
+       end || F <- Fns]).
+
+%% `Declared` is every type the module declares, a parametric alias resolved
+%% under the checker's opaque binding — each variable a singleton atom spelled
+%% as the variable — so `Vars` are the atoms that stand for variables and are
+%% not the module's to intern.
+type_atoms_form(Fns, Env, Declared, Vars) ->
+    Tys = signature_types(Fns, Env) ++ Declared,
+    {Atoms, _Seen} = lists:foldl(fun collect_atoms/2, {[], #{}}, Tys),
+    {function, ?A, type_atoms_name(), 0,
+     [{clause, ?A, [], [], [atom_list(lists:usort(Atoms) -- Vars)]}]}.
+
+%% The same walk as `collect_mu/2`, collecting the atoms a type names instead
+%% of binders; a binder's body is walked once and a `recvar` ends the walk.
+%% Three places name an atom: a finite atom part, a cofinite part's
+%% exclusions, and a map member's KEYS — a record's field names and its
+%% minted `Kind` — which `components/1` does not yield, since it returns the
+%% types a type holds and a key is not one.
+collect_atoms(#{mu := N, body := B}, {Acc, Seen}) ->
+    case maps:is_key(N, Seen) of
+        true  -> {Acc, Seen};
+        false -> collect_atoms(B, {Acc, Seen#{N => true}})
+    end;
+collect_atoms(#{recvar := _}, State) -> State;
+collect_atoms(Ty = #{atoms := Part, maps := Ms}, {Acc, Seen}) ->
+    {_, Named} = Part,
+    Keys = case Ms of
+               top -> [];
+               _   -> lists:append([maps:keys(F) || {K, F} <- Ms, K =/= dom])
+           end,
+    lists:foldl(fun collect_atoms/2, {Named ++ Keys ++ Acc, Seen},
+                bs_types:components(Ty)).
+
+atom_list([])       -> {nil, ?A};
+atom_list([A | As]) -> {cons, ?A, {atom, ?A, A}, atom_list(As)}.
 
 %% A binder already collected is not walked again, and a `recvar` collects
 %% nothing; that is what terminates the walk.
