@@ -1,0 +1,18 @@
+=== run 1 ===
+             answer              min ms    med ms      rel
+Erlang       {14,6734}           25.625    26.321    1.20x
+Elixir       {14,6734}           26.249    26.840    1.23x
+Gleam        {14,6734}           25.512    25.829    1.19x
+beam-sharp   {14,6734}           21.354    21.556    1.00x
+=== run 2 ===
+             answer              min ms    med ms      rel
+Erlang       {14,6734}           25.583    25.987    1.19x
+Elixir       {14,6734}           26.128    26.796    1.22x
+Gleam        {14,6734}           25.561    25.897    1.19x
+beam-sharp   {14,6734}           21.440    21.650    1.00x
+=== run 3 ===
+             answer              min ms    med ms      rel
+Erlang       {14,6734}           25.697    25.933    1.20x
+Elixir       {14,6734}           26.102    26.434    1.22x
+Gleam        {14,6734}           25.525    25.702    1.19x
+beam-sharp   {14,6734}           21.402    21.623    1.00x

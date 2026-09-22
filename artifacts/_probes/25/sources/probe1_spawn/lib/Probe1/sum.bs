@@ -1,0 +1,2 @@
+public int Sum(list<int>)
+Sum(xs) -> 0

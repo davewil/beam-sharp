@@ -1,0 +1,3 @@
+public (:noreply, State) HandleCast(term, State)
+HandleCast(:tick, state) -> (:noreply, State { Pending = state.Pending, Done = state.Done + 1 })
+HandleCast(_, state) -> (:noreply, state)

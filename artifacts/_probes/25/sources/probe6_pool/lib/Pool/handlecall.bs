@@ -1,0 +1,3 @@
+public (:reply, int, State) HandleCall(term, term from, State state)
+HandleCall(:status, from, state) -> (:reply, state.Done, state)
+HandleCall(_, from, state) -> raise :unrecognised_request

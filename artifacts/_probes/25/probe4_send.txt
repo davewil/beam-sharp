@@ -1,0 +1,7 @@
+
+### PROBE 4: send operator '!' ###
+probe4_send/lib/Probe4/tell.bs:2:27: error: beam-sharp has no `!`
+  negation is not an operator here. A guard and a refinement are built
+  from comparisons, and every comparison has an opposite you can write
+  directly: `<=` for `not >`, `>=` for `not <`, `!=` for `not ==`,
+  `==` for `not !=`. Which case a clause takes is the head's job.

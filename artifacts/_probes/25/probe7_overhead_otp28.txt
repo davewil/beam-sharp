@@ -1,0 +1,5 @@
+OTP release: 28
+bare spawn x1000: memory delta=2657312 bytes, per-process avg=2624.0 bytes (process_info memory), avg heap_size=233.0 words
+gen_server x1000: memory delta=2720864 bytes, per-process avg=2760.0 bytes (process_info memory), avg heap_size=233.0 words
+fan-out N=1000: collected=1000 results, wall=9806 us (9.81 us/task), processes_used delta while running unmeasured (workers exit fast); post-collect delta=52880 bytes
+fan-out N=10000: collected=10000 results, wall=124862 us (12.49 us/task), processes_used delta while running unmeasured (workers exit fast); post-collect delta=1985992 bytes

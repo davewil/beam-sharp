@@ -1,0 +1,5 @@
+### PROBE 2: bare 'spawn' keyword/expression ###
+probe2_spawn/lib/Probe2/index.bs:1:12: error: pid is not a builtin type
+  this slice has `int`, `float`, `atom`, `term`, `none`, `bool`, `binary`,
+  `string` and `list<T>`.
+

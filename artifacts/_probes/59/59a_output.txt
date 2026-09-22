@@ -1,0 +1,31 @@
+
+PROTOTYPE 59a -- boundary guard scope asymmetry, cost on a PRIVATE function, OTP 28
+===================================================================================
+erts               : 16.4
+compiler           : 9.0.6
+compile options    : [{outdir,"/tmp/59a_variants"},
+                      deterministic,return_errors]
+
+1. Code size on disk
+====================
+module               file       Code       AtU8       ImpT   instrs
+int_g                 552         83         54         28        8
+int_u                 524         67         54         28        5
+kind_g                528         70         54         28        6
+kind_u                524         67         54         28        5
+nf_a                  520         67         52         28        5
+nf_b                  520         67         52         28        5
+rec_g                 580         87         79         40        9
+rec_u                 556         73         68         40        6
+
+pair                                             .beam file     Code chunk
+noise floor (nf_a vs nf_b)                     +0 (0.0%) +0 (0.0%) +0 instrs
+TAG test on private (rec_priv_g - rec_priv_u)  +24 (4.3%) +14 (19.2%) +3 instrs
+KIND+RANGE test on private (int_priv_g - int_p +28 (5.3%) +16 (23.9%) +3 instrs
+KIND ALONE, plain int, cf. 18a's +3-5B (kindon +4 (0.8%) +3 (4.5%) +1 instrs
+
+Interpretation:
+  TAG test row       = what NARROWING (exported-only tag test) would SAVE per
+                       private record parameter.
+  KIND+RANGE test row = what WIDENING (unconditional int test) would COST per
+                        private refined-int parameter.

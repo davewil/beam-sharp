@@ -1,0 +1,3 @@
+### PROBE 5: Monitor builtin ###
+probe5_monitor/lib/Probe5/watch.bs:2:18: error: Watch calls Monitor/1, which nothing declares
+  every function has a signature. Write one, or fix the name.

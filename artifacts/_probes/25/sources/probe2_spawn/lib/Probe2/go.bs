@@ -1,0 +1,2 @@
+public pid Go(int id)
+Go(id) -> spawn(() => id * 2)

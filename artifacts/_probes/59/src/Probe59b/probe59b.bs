@@ -1,0 +1,16 @@
+module Probe59b
+
+record Order { Id: string, Total: int }
+
+type T = Order | int
+
+// PRIVATE — receives an Order and trusts its tag (current bsc: gets the tag test).
+int Inner(Order o)
+Inner(o) -> o.Total
+
+// EXPORTED — parameter is a UNION, so record_tag/2 finds no single closed record and
+// boundary_guards emits NOTHING on n itself. The only test on n is whatever the clause's
+// own pattern proves.
+public int Bump(T n)
+Bump({ Total: t }) -> Inner(n)
+Bump(n)             -> 0

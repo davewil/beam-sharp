@@ -1,0 +1,3 @@
+### PROBE 8: is 'spawn' callable as an ordinary (undeclared) function name? ###
+probe8_spawn_call/lib/Probe8/go.bs:2:1: error: Go uses spawn, which nothing binds
+  a name comes from a clause head or a binding above it.

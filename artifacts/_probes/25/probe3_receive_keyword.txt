@@ -1,0 +1,2 @@
+### PROBE 3: bare 'receive' expression ###
+probe3_receive/lib/Probe3/wait.bs:3:5: error: syntax error before: '('

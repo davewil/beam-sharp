@@ -1,0 +1,2 @@
+### PROBE 6b: same, with mandatory catch-alls added ###
+exit: 0

@@ -1,0 +1,2 @@
+public void Tell(pid target, int n)
+Tell(target, n) -> target ! (:reply, n)

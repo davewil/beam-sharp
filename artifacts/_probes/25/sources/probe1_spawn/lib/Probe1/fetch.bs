@@ -1,0 +1,2 @@
+public int Fetch(int id)
+Fetch(id) -> id * 2
