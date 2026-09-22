@@ -299,3 +299,138 @@ All under `artifacts/_probes/52/`:
 | `07-gleam-external-citation.txt` | Gleam `@external` parser + AST source, confirming module+function only, no application field, no cross-check |
 | `08-elixir-application-citation.txt` | `Application.ensure_loaded/1` source — a runtime wrapper, not a compile-time check |
 | `09-otp-appsrc-citation.txt` | OTP's own `.app.src` `applications` key (`ssh.app.src:57`, and this repo's own `bsc.app.src:5`) — the producer-side precedent for declaring dependency-by-application-name |
+
+## Independent verification
+
+Adversarial re-derivation, done from scratch in `/tmp/verify52-scratch/`
+(a fresh `git clone`-equivalent copy of `compiler/`, never the brief's own
+saved scratch tree). Every command below was re-run by the verifier, not
+read off the probes.
+
+**Tracked tree, checked myself.** `git status` / `git diff` at the repo
+root and scoped to `compiler/` are both clean (`nothing to commit, working
+tree clean`). The claim that no compiler experiment touched the tracked
+tree holds.
+
+**Baseline failure, reproduced with a fresh example.** Built `bsc` from a
+brand-new copy of `compiler/` (OTP 28.5 from `/opt/otp28-src/bin`, rebar3
+from `/usr/local/bin/rebar3`, `HTTPS_PROXY= HTTP_PROXY= rebar3
+escriptize`). Wrote a `.bs` module the brief never saved
+(`MyDemo/mydemo.bs`, `using :'Elixir.String' { binary reverse(binary s) }`,
+a `Backwards/1` wrapper) and ran it three ways: compiles clean with
+`ERL_LIBS` unset (exit 0), crashes `error:undef` at the call site when run
+with `ERL_LIBS` unset, and succeeds (`"dlrow olleh"`) once `ERL_LIBS` points
+at the real Elixir 1.19.5 install. All three match the brief's §3 claim
+exactly, and along the way I hit a genuine, independent parser error
+(`integer is not a builtin type`) on a first draft, which is itself
+evidence the compiler was actually run and not stubbed.
+
+**Prototype diffs, applied to a second fresh scratch copy.** `patch
+src/bs_parser.yrl|bs_check.erl|bs_diag.erl < 04{a,b,c}-*.diff` applied
+cleanly against an independently-copied tree, then `rebar3 escriptize`
+built without errors. Wrote a third, new `.bs` module
+(`MyDemo3/mydemo3.bs`, `[external: elixir, app: elixir]`) and got the
+exact diagnostic text the brief quotes, byte for byte, both failing
+(`ERL_LIBS` unset) and passing (`ERL_LIBS` set). I then went one step
+further than the brief did and declared a **deliberately bogus** app name
+(`app: totally_bogus_app_name`) with `ERL_LIBS` still pointed at the real
+Elixir install — it still refused, correctly, which the saved probes never
+tested and which rules out the check being a rigged pass-through.
+
+**"0 new parser conflicts," checked by direct count, not narrative.** Ran
+`yecc:file/2` with `{report, true}` on the unmodified grammar first: `src/
+bs_parser.yrl: Warning: conflicts: 5 shift/reduce, 0 reduce/reduce`. Ran it
+again after applying `04a` to the same file: identical `5 shift/reduce, 0
+reduce/reduce`. The claim holds under direct measurement, not just
+`rebar3`'s summary line.
+
+**Cost measurement, re-run three times.** `code:where_is_file("elixir.app")`
+over 10,000 in-process calls, three separate VM invocations: 17.1, 16.4,
+22.6 µs/call. Same order of magnitude as the brief's 14.3–16.2 µs/call —
+real and roughly reproducible, not a fabricated or cherry-picked figure,
+though run-to-run variance (the 22.6 µs outlier) is wider than the brief's
+narrow range suggests, and this is a wall-clock, shared-VM measurement, so
+"µs/call" should be read as "order of magnitude," not a precise constant.
+**One real inconsistency found**: §4's recommendation text calls this
+"single-digit microseconds," but the brief's own measured figure (14.3–16.2
+µs, and my own re-runs, 16–23 µs) is double-digit microseconds. Minor, and
+it doesn't change the conclusion (compile time is still dominated by
+~0.5s of escript VM boot by four orders of magnitude either way), but it's
+a real overstatement in the brief's own words against its own data, worth
+fixing before this ships as a decision input.
+
+**Gleam citations, checked against the actual clone at
+`/tmp/lang-src/gleam`.** `parse_external_attribute` starts at
+`parse.rs:4816` exactly as cited, and its body (quoted verbatim in the
+brief) matches character-for-character: three arguments (target, module
+string, function string), no fourth slot. `external_erlang` /
+`external_javascript` are `Option<(EcoString, EcoString, SrcSpan)>` in
+`ast.rs`, confirming the "2-tuple, no app field" claim — but at lines
+887–888 and 1162–1163 in my clone, a few lines off the brief's cited
+887–889 / 1160–1164. The content is exact; the line numbers are close but
+not pixel-perfect (my clone's HEAD is a `v1.19.0` tag dated the same day as
+this session, so a small amount of upstream drift between the original
+agent's clone and mine is the likely explanation, not fabrication — but I
+can't rule out the original citation simply being imprecise by a line or
+two). I also independently grepped for any cross-check between
+`external_erlang`/`external_javascript` and dependency/package/manifest
+concepts across `compiler-core/src` and found none, confirming "Gleam's
+`@external` never carries an application name and is never cross-checked
+against `gleam.toml`."
+
+**Elixir and OTP citations, checked against the real, precompiled-for-
+OTP-28 Elixir install and the real OTP 28 source tree.**
+`application.ex`'s `ensure_loaded/1` matches the brief's quote verbatim at
+the cited location; `ensure_all_started/2` starts at line 922 in my copy
+vs. the brief's "918 on" — again close, not exact, immaterial to the
+substance. `ssh.app.src:57` and this repo's own `bsc.app.src:5` both match
+the brief's quotes verbatim, at the exact cited line numbers.
+
+**Network-block / substitution claims, reproduced live.** `curl` to
+`https://builds.hex.pm/installs/hex.csv` fails with a 403 at the proxy's
+CONNECT tunnel; `https://api.github.com/...` returns HTTP 403; a direct
+`github.com` release-asset URL (the same Elixir 1.19.5-for-OTP-28 zip)
+returns HTTP 200. This is the exact pattern the brief describes and used
+to justify substituting Elixir's own stdlib for Req — a real, externally-
+verifiable environment constraint, not a convenient excuse invented after
+the fact. `dpkg -l` confirms apt's `elixir` is 1.14.0 / `erlang-base` 25.3,
+and running it under the OTP-28 `erl` reproduces the exact `beam_load.c`
+`bs_add` incompatibility errors saved in `03c`, word for word.
+
+**One nuance, not an error.** The brief says `bs_check.erl` "never mentions
+`application`... anywhere." A literal grep turns up one hit — but it is
+`resolve/3`'s comment about *type* application ("siblings of this
+application, not steps below it"), unrelated to OTP applications or
+dependency provenance. The substantive claim (no dependency-provenance
+mechanism exists in the checker) is correct; the phrasing is a hair
+looser than a literal grep supports.
+
+### Verdict: SOUND WITH CAVEATS
+
+Every load-bearing claim in the brief reproduced independently, from
+scratch, using fresh test cases the brief never saved: the tracked tree is
+genuinely untouched, the baseline `error:undef` failure is real, the
+prototype diffs apply cleanly to an independent scratch copy and produce
+the exact claimed diagnostic (and correctly *refuse* on a bogus app name I
+invented myself, which is stronger evidence than anything the saved probes
+show), the "0 new parser conflicts" claim holds under a direct yecc
+recount, the cost figure is real and in the right order of magnitude, the
+Gleam/Elixir/OTP source citations are substantively accurate with only
+minor line-number drift, and the hex.pm/GitHub-API network-block story is
+independently reproducible right now, live. No fabrication, no circularity
+(the brief does not cite its own prior claims as evidence), and no
+citation that says something the cited source doesn't actually say.
+
+The caveats keeping this off a plain SOUND: (1) the "single-digit
+microseconds" line in §4 misstates the brief's own double-digit-microsecond
+measurement — small, but it's a real internal inconsistency a reviewer
+should not have to catch; (2) the cost figure has more run-to-run variance
+than the brief's tight 14.3–16.2 µs range implies (my three re-runs: 16.4,
+17.1, 22.6 µs) — the conclusion it supports (negligible against VM boot
+time) still holds by a wide margin, but the precision of the stated range
+is slightly oversold; (3) a few citation line numbers (Gleam's `ast.rs`,
+Elixir's `ensure_all_started/2`) are off by 1–4 lines against my clone,
+plausibly from upstream drift rather than error, but not independently
+confirmable either way. None of these caveats touch the brief's actual
+recommendation (Option A, scoped to (a) and (c), (b) left open) or its
+central technical claims about what the prototype does and costs.
