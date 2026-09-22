@@ -239,3 +239,139 @@ All under `artifacts/_probes/25/`:
 `compiler/` at `/tmp/ticket25-scratch/compiler` (tracked tree never touched); escript at
 `/tmp/ticket25-scratch/compiler/_build/default/bin/bsc`. No exemplar file was added under
 `wayfinder/prototypes/`.
+
+## Independent verification
+
+Adversarial re-check, done separately from the session that wrote this brief. Own scratch tree at
+`/tmp/verify25-scratch/`, own `bsc` build (`compiler/` copied fresh from the tracked tree,
+`export PATH=/opt/otp28-src/bin:$PATH`, `HTTPS_PROXY= HTTP_PROXY= /usr/local/bin/rebar3
+escriptize` via `/usr/local/bin/rebar3` — confirmed independently that the apt/system `rebar3`
+does fail under OTP 28 here, `beam_load.c ... op i_bif2: ssjbd: import 20 not a BIF`, and that
+`/usr/local/bin/rebar3` builds clean). Nothing in `wayfinder/issues/`, the brief, or any
+`Status:` line was touched.
+
+**1. Every saved probe transcript reproduced byte-for-byte from the saved `.bs`/`.erl` source**,
+against my own fresh `bsc` binary: probe1 (baseline, exit 0), probe2 (`pid is not a builtin
+type`), probe3 (`syntax error before: '('`), probe4 (`beam-sharp has no !`), probe5 (`Watch
+calls Monitor/1, which nothing declares`), probe6 (GenServer shell, exit 0), probe8 (`Go uses
+spawn, which nothing binds`). No discrepancy in any error text, file, line or exit code.
+
+**2. Five fresh probes of my own, never seen by the original session, testing the same five
+primitives with different phrasing, to rule out cherry-picking a specific spelling that happens
+to fail for an unrelated reason:**
+   - `pid` as a **parameter** type (not a return type) → same `pid is not a builtin type` error.
+   - `receive ... end` (Erlang's own closing keyword, on the chance the parser wants that form
+     instead of the saved `{ }` form) → different message (`syntax error before: '->'`) but still
+     a syntax error — `receive` has no working spelling I could find.
+   - `spawn(NamedFunction, arg)` in place of `spawn(lambda)`, to rule out the lambda as the actual
+     cause → same "which nothing binds" unbound-name error.
+   - `!` between two plain `int`s, nothing to do with `pid`, to rule out the error being about the
+     operand type rather than the operator → same `beam-sharp has no !`.
+   - lowercase `monitor(...)` in place of `Monitor(...)` → same "which nothing binds" error.
+
+   All five independently confirm the headline claim in a form the original probes did not use.
+   Combined with `grep -n "receive\|spawn\|monitor" compiler/src/bs_parser.yrl` (independently
+   re-run here: two hits, both inside comments, exactly as claimed) and `grep -i
+   "down\|exit\|timeout" compiler/src/bs_otp.erl` (zero hits, also confirmed), I did not find a
+   spelling of any of the five primitives that works. **No circularity found here**: these are not
+   contrived failures dressed up as language-surface gaps — `pid`, `receive`, `spawn`, `!`, and
+   `Monitor` fail for the exact structural reasons stated (absent type, absent grammar production,
+   retired operator, undeclared name), not for some unrelated reason (e.g. a type error, an arity
+   mismatch, a missing import) that would have failed regardless of ticket 14's status.
+
+**3. `probe6`'s "one thing that compiles" claim reproduced**, exit 0, from the saved source
+unmodified. Cross-checked against `compiler/features/F10-otp-callbacks.md` (`Status: done
+2026-08-15`) and `LANGUAGE.md` §13, which independently marks `behaviour` presence-checking
+"partly shipped" and marks `pid`/no-`async`/`receive`-as-filter "decided" with no "shipped"
+tag — the brief's reading of both documents is accurate, not selective quotation.
+
+**4. The overhead measurement (§4) reproduced almost exactly for the memory numbers, and did
+*not* reproduce closely for the raw throughput numbers — worth flagging as a caveat, not a
+refutation.** Re-running the saved `probe7_overhead.erl` verbatim in my own OTP 28.5 gave
+`bare=2624.0 bytes / gs=2760.0 bytes` (identical to the brief, to one decimal place) and fan-out
+timings of 8.92/13.91 µs-per-task (close to the brief's 9.81/12.49). But a **freshly written**
+script of my own (`/tmp/verify25-scratch/my_overhead_check.erl`, different structure, different
+N, `erlang:memory(total)` instead of `processes_used`) reproduced the memory delta exactly
+(`136.0` bytes, `5.18%`, stable across N=500 and N=2000) but got a **materially different**,
+consistently lower, fan-out throughput: 2.6–3.6 µs/task across five repeated runs at N=2,000 and
+N=20,000, vs. the brief's 8.92–13.91 µs/task. Tracing it down: the saved script's timing window
+(`T0 = monotonic_time(...)`, then `Before = erlang:memory(processes_used)`, *then* the spawn
+loop) includes a call to `erlang:memory(processes_used)` — which walks allocator state — inside
+the timed region, and runs the fan-out immediately after a prior test that spawned and stopped
+1,000 `gen_server`s in the same VM, which a fresh VM does not carry. **This means the raw
+fan-out µs/task figures in §4 are a measurement-methodology artifact, not a stable BEAM constant**,
+and should not be read as precise — they're roughly 2–4x inflated versus a clean measurement. This
+does not, however, undermine the brief's actual argument in §4: the "Reading it" paragraph leans
+on the **memory delta** (which reproduced essentially exactly, independently, twice) and on the
+qualitative point that both numbers are irrelevant next to "the compiler cannot emit `spawn` for a
+bare process at all today" — a point the throughput imprecision doesn't touch. Still, the brief
+states the throughput table as if it were a stable measurement ("roughly linear, mild scheduler
+overhead at 10x") without flagging that it is sequence-dependent, which a reader could over-read.
+
+**5. Cross-referenced every substantive characterization of tickets 14/15/25 and `LANGUAGE.md`
+against the source files directly** (not through the brief): ticket 14's six numbered answers
+(§1–§7 read in full), confirming (a) `Pid[τ]` is declined and `pid` stays untyped, (b) §2 drops
+`async`/`Task` outright, (c) §5 makes `receive` a filter and states removing it was considered and
+rejected, (d) §6 names `Down`/`Exit`/`Timeout` as an intended compiler-known stratum but the ticket
+text never gives them a signature or declares them anywhere buildable, and, most importantly,
+(e) the word `spawn` appears in ticket 14 only in the **question** and in one aside in §5 — never
+in a numbered answer with a call shape — and `!`/send-token spelling is **never mentioned at all**
+in ticket 14's resolution text. This is exactly the "decided model, undecided spelling" gap the
+brief's §1 closing paragraph claims, independently confirmed by reading the ticket rather than
+trusting the brief's summary. Ticket 15's `Unwrap<T,E>` (lines 310–312), the "no `try` in the
+surface" decision (line 375), and prototype `15c`'s case-3 finding (`monitor`+`receive` survives a
+callee crash with no `try` anywhere) all check out verbatim against
+`wayfinder/prototypes/15c_surviving_a_callee_crash.erl`. Ticket 25's own closing note (line
+645–648 of `wayfinder/issues/25-exemplar-programs.md`) does say the async exemplar "tests and
+invents nothing" — the brief's sharpest move is directly contradicting that closing note with
+ticket 14's actual resolution text, and that contradiction holds up: ticket 25's own general rule
+("most valuable written after the ticket it exercises has a candidate answer, so it tests
+something rather than inventing it") is in tension with its own closing note here, and the brief
+is right to surface it rather than defer to the closing note's framing.
+
+**6. Headline claim re-tested end-to-end, independently**: yes — every one of `pid`, `receive`,
+`spawn`, `!`, `Monitor` fails against a `bsc` I built myself, from a `compiler/` copy I made
+myself, using probes I wrote myself as well as the saved ones. I did not find a working spelling
+for any of them, and the two `grep`-based negative claims (parser grammar, `bs_otp.erl` type
+names) reproduced as stated.
+
+**7. On the recommendation (§5)**: the reasoning follows from the evidence presented — Candidate B
+is ruled out by David's own explicit framing in the ticket (quoted accurately), Candidate C's
+"lower marginal value" argument is consistent with what 25c's write-up actually found (its
+mailbox/back-pressure finding, independently located at the cited line), and the case for
+Candidate A does not overstate what compiles. One gap: the brief frames "essentially nothing about
+it compiles" as a clean, low-cost finding without weighing the countervailing concern that CLAUDE.md's
+own session-progress metric ("an exemplar program that did not compile and run yesterday does
+today") is not advanced by writing a `.bs` file that fails at its first construct — though this is
+softened by the fact, independently confirmed here, that **no prior exemplar (25a–25e) was fully
+`bsc`-compiled either**: each pairs an honest, partly-uncompilable `.bs` source with a hand-written
+Erlang lowering that actually runs, per ticket 25's own requirement #2, and Candidate A proposes
+exactly that same established shape. So the gap is real but minor: worth a sentence acknowledging
+it explicitly, not a reason to prefer a different candidate. The brief's other genuinely load-bearing
+recommendation — that the spawn/send/Monitor spelling gap should probably be its own ticket before
+or alongside the exemplar — is correctly left as "David's call" rather than smuggled in as a
+foregone conclusion, which is the right call under CLAUDE.md's decision-boundary rules.
+
+### Verdict: **SOUND WITH CAVEATS**
+
+Every compile-or-fail claim in the brief reproduced independently, from source, on a freshly built
+`bsc`, including under probe designs the original session never tried. No circularity was found:
+none of the failures trace to an incidental error (typo, unrelated type mismatch, wrong arity)
+that would have occurred regardless of ticket 14's status — each traces to the exact structural
+gap claimed (no `pid` type, no `receive` grammar production, `!` retired, no compiler-known
+`spawn`/`Monitor` bindings). The grep-based negative claims about the parser and `bs_otp.erl`
+reproduced exactly. The ticket-text characterizations (14, 15, 25, `LANGUAGE.md` §13) check out
+against the primary sources, not just the brief's paraphrase, including the brief's sharpest and
+most checkable claim — that ticket 25's "tests and invents nothing" closing note is contradicted
+by ticket 14's own resolution text never committing to a spelling.
+
+The caveats: (a) the §4 fan-out **throughput** numbers (µs/task) are a measurement-order artifact
+— roughly 2–4x inflated versus a clean, freshly-ordered measurement — though the **memory-delta**
+number the recommendation actually leans on reproduced almost exactly twice, independently; (b)
+the brief does not explicitly weigh that Candidate A, if written, will not itself produce a
+`bsc`-compiling exemplar (though neither did any prior one, so this is a pre-existing pattern, not
+a defect specific to this recommendation). Neither caveat changes which candidate the evidence
+favors or the brief's central finding. A human reading this brief to decide what to do next can
+trust its compile/fail claims and its ticket citations as stated; should treat the raw fan-out
+µs/task figures in §4 as indicative-only, not precise; and should read §5's recommendation as
+sound on its own terms.
