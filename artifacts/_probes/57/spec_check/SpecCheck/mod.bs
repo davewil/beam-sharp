@@ -1,0 +1,7 @@
+module SpecCheck
+
+type Delta = int where value >= -100 and value <= 100
+
+Delta Clamp(Delta)
+
+Clamp(n) -> n

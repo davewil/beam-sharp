@@ -1,0 +1,6 @@
+module Repro4
+
+public atom Sign(int n)
+
+Sign(n) when n >= -5 -> :ge
+Sign(n) when n < -5  -> :lt

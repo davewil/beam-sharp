@@ -1,0 +1,6 @@
+module Repro3
+
+public atom Sign(int n)
+
+Sign(n) when n >= -5 -> :small
+Sign(n)               -> :other

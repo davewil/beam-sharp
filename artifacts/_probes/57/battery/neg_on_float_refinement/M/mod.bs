@@ -1,0 +1,6 @@
+module M
+
+type T = float where value >= -5.0
+
+public atom Take(T n)
+Take(n) -> :ok

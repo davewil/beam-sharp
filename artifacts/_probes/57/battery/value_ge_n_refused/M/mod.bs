@@ -1,0 +1,5 @@
+module M
+
+public atom Take(int n, int value)
+Take(n, value) when value >= n -> :ok
+Take(n, value)                 -> :no

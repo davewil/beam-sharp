@@ -1,0 +1,37 @@
+--- /home/user/beam-sharp/compiler/src/bs_check.erl	2026-09-22 23:03:15.665315743 +0000
++++ /tmp/ticket57-scratch/compiler-optB/src/bs_check.erl	2026-09-22 23:15:04.568245367 +0000
+@@ -5567,8 +5567,16 @@
+         Constraint  -> [[Constraint]]
+     end.
+ 
+-comparison({e_op, _, Op, {e_var, _, V}, {e_int, _, K}}) -> int_cmp(Op, V, K);
+-comparison({e_op, _, Op, {e_int, _, K}, {e_var, _, V}}) -> int_cmp(flip(Op), V, K);
++comparison({e_op, _, Op, {e_var, _, V}, R}) when Op =:= '>'; Op =:= '>='; Op =:= '<'; Op =:= '<='; Op =:= '=='; Op =:= '!=' ->
++    case int_const(R) of
++        {ok, K}   -> int_cmp(Op, V, K);
++        not_const -> unknown
++    end;
++comparison({e_op, _, Op, L, {e_var, _, V}}) when Op =:= '>'; Op =:= '>='; Op =:= '<'; Op =:= '<='; Op =:= '=='; Op =:= '!=' ->
++    case int_const(L) of
++        {ok, K}   -> int_cmp(flip(Op), V, K);
++        not_const -> unknown
++    end;
+ comparison({e_op, _, '==', {e_var, _, V}, {e_atom, _, A}}) ->
+     {V, {include, bs_types:atom_lit(A)}};
+ comparison({e_op, _, '!=', {e_var, _, V}, {e_atom, _, A}}) ->
+@@ -5576,6 +5584,15 @@
+ comparison(_) ->
+     unknown.
+ 
++%% A literal integer, or a bare unary minus over one -- the constant shapes
++%% ticket 57 asks the checker to read. Deliberately narrow: it does not
++%% recurse into `+`/`-` over two literals, so `2 + 3` and `1 - 2 + 3` stay
++%% unread (see the option-B writeup in the ticket-57 brief for why the
++%% boundary is drawn here rather than further out).
++int_const({e_int, _, K})             -> {ok, K};
++int_const({e_neg, _, {e_int, _, K}}) -> {ok, -K};
++int_const(_)                         -> not_const.
++
+ int_cmp('>',  V, K) -> {V, {include, bs_types:range(K + 1, pos_inf)}};
+ int_cmp('>=', V, K) -> {V, {include, bs_types:range(K, pos_inf)}};
+ int_cmp('<',  V, K) -> {V, {include, bs_types:range(neg_inf, K - 1)}};

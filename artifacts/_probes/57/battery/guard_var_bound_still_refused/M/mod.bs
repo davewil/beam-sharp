@@ -1,0 +1,5 @@
+module M
+
+public atom Cmp(int n, int m)
+Cmp(n, m) when n >= m -> :ge
+Cmp(n, m) when n < m  -> :lt

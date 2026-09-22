@@ -1,0 +1,6 @@
+module M
+
+type T = int where value >= 1 or value <= -1
+
+public atom Take(T n)
+Take(n) -> :ok
