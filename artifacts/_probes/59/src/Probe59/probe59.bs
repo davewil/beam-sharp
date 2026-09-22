@@ -1,0 +1,20 @@
+module Probe59
+
+record Order { Id: string, Total: int }
+
+type Octet = int where value >= 0 and value <= 255
+
+// PRIVATE function taking a record parameter — does it get the tag test?
+int InnerRecord(Order o)
+InnerRecord(o) -> o.Total
+
+// PRIVATE function taking a refined-int parameter — does it get the kind test?
+int InnerOctet(Octet n)
+InnerOctet(n) -> n
+
+// EXPORTED wrappers, so the module compiles standalone and both privates are reachable.
+public int OuterRecord(Order o)
+OuterRecord(o) -> InnerRecord(o)
+
+public int OuterOctet(Octet n)
+OuterOctet(n) -> InnerOctet(n)
