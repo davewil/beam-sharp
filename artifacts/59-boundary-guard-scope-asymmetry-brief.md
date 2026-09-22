@@ -320,3 +320,167 @@ All under `artifacts/_probes/59/`:
 
 No tracked file under `compiler/` was modified. All builds and probes ran against copies in
 `/tmp/ticket59-scratch/compiler` and `/tmp/59a*`.
+
+## Independent verification
+
+Performed by an adversarial verifier with no access to the reasoning above, working entirely in
+`/tmp/verify59-scratch/`, rebuilding `bsc` from scratch and writing its own probe programs rather
+than re-running the ones under `artifacts/_probes/59/`. No tracked file was touched other than
+this section.
+
+### What was re-run
+
+- **Code citation (§1).** Read `compiler/src/bs_emit.erl` directly. `guard_one/7` (lines 262–278)
+  and `int_guard/6` (lines 327–343) are exactly as quoted. Grepped every occurrence of `Public` in
+  the file: it is bound once (`is_public(F)`, line 150) and tested exactly once, at line 271
+  (`none when Public ->`); the `{ok, Tag} ->` branch at line 264 never mentions it. The brief's
+  claim that the tag branch "simply never asks" is confirmed by exhaustive grep, not sampling.
+- **Fresh build.** Copied `compiler/` to `/tmp/verify59-scratch/compiler`, built with OTP 28.5 at
+  `/opt/otp28-src/bin`, `/usr/local/bin/rebar3 escriptize` with `HTTPS_PROXY=`/`HTTP_PROXY=`
+  cleared. Built clean; `_build/default/bin/bsc` produced.
+- **Baseline asymmetry, own module.** Wrote `MyProbe59/myprobe59.bs` from scratch (different
+  names: `Parcel`/`Weight`/`Zone`, `Grade` in place of `Order`/`Total`, `Octet`) with the same
+  private-record / private-refined-int / public-wrapper shape. Compiled clean, read the raw
+  `.abstr`: `WeighPrivate` (private, record) carries `map_get('Kind',P) =:= 'MyProbe59.Parcel'`;
+  `GradePrivate` (private, refined int) carries an empty guard list, `[]`; `WeighPublic` carries
+  the same tag test; `GradePublic` carries `is_integer andalso >=1 andalso =<5`. This is the
+  brief's Table 1, reproduced on an independently-written program — confirmed, not assumed.
+- **Cost (§2).** Reran `59a_asymmetry_cost.erl` unmodified in a fresh directory: output is
+  byte-identical to `59a_output.txt` (+14 B tag test, +16 B kind+range, +3 B kind-alone,
+  deterministic compile). As a second, independent measurement method, diffed the real
+  `Code` chunk of `myout/MyProbe59.beam` (current bsc, tag test present) against
+  `myout-narrow/MyProbe59.beam` (narrowed bsc, tag test absent on the private function) — same
+  module, only the private tag guard differs: **12 bytes**, not 14. Close, same order of
+  magnitude, and the 2-byte gap is explained by methodology (a real multi-function module's atom
+  table vs. 59a's isolated single-function synthetic modules built to 18a/26a's exact discipline)
+  rather than by anything wrong with either number. Neither measurement was tuned to match the
+  other; they were run independently and then compared.
+
+### The crux, reproduced independently
+
+Wrote `MyForge/myforge.bs` from scratch — different names throughout (`Ticket`/`Code`/`Amount`,
+`Payload = Ticket | int`, `Redeem`/`Process`), same shape as the brief's `Probe59b`: a private
+`Redeem(Ticket t)`, and a public `Process(Payload p)` dispatched with a presence-only pattern,
+`Process({ Amount: a } p) -> Redeem(p)` / `Process(p) -> -1`. Compiled clean under current `bsc`;
+read the `.abstr` and confirmed `Process`'s own clause carries **no guard at all** (`record_tag/2`
+refuses the union, `kind_only/2` also answers `none` since the union has a `maps` part).
+
+Applied `59c_narrow_patch.diff` to a **second, independently-cloned** scratch copy
+(`/tmp/verify59-scratch/compiler-narrow`) with plain `patch`, not by hand-editing — it applied
+cleanly against the untouched file and the resulting diff against the original is character-for-
+character what the brief's `.diff` claims. Rebuilt. Confirmed in the rebuilt `.abstr` that
+`Redeem/1`'s guard list is now `[]`.
+
+Ran the forged call, `apply('MyForge','Process',[#{'Amount' => 42}])`, against both builds:
+
+| build | `Redeem`'s guard | result |
+|---|---|---|
+| current bsc (unmodified) | tag test present | `crashed: error:function_clause` — safe |
+| narrowed bsc (patched) | absent (private) | `returned 42` — silent wrong answer |
+
+**This reproduces the brief's central claim on an independently-authored variant.** It is also
+the strongest possible answer to the adversarial question this task posed — *was the pattern
+chosen so that "silent 42" was inevitable regardless of guard scope?* — because the same program,
+against the same forged term, is **safe under the current build and unsafe only under the
+narrowed build**. If the pattern could not possibly test the tag regardless of scope, both builds
+would behave identically; they do not. The demonstration is genuinely scope-dependent, not a
+foregone conclusion baked into the probe's construction.
+
+### A finding the brief did not test, worth adding
+
+To press harder on representativeness, a **third** module, `MyForge2/myforge2.bs`, was written:
+identical to `MyForge` except the dispatching clause uses the corpus's *canonical, gate-enforced*
+idiom instead of a presence-only pattern — `Process(Ticket t) -> Redeem(t)` in place of
+`Process({ Amount: a } p) -> Redeem(p)`. Reading its `.abstr` shows why this matters: `Ticket t`
+desugars to a `p_rec`, which (per `bs_emit.erl` lines 520–530) *mints the `Kind` field into the
+erased pattern itself* — `Process`'s clause head becomes `#{'Kind' := 'MyForge2.Ticket'} = T`, an
+exact match, in the pattern, independent of any separate boundary-guard mechanism. Run against
+both builds (current and narrowed), the forged `#{'Amount' => 42}` term is refused by the clause
+head itself in **both**, falling through to the catch-all and returning `-1` — no asymmetry, no
+narrowing effect, because there is no gap for the narrow patch to open.
+
+This means the hole the brief demonstrates is real but **narrower than "any exported function
+with a union parameter is at risk"**: it is specifically the presence-only property-pattern idiom
+(`{ Field: x }`, omitting `Kind`) applied to select a union's record member, as opposed to the
+type-name idiom (`Order o` / `Ticket t`) that `compiler/bin/check-record-idiom.sh` and ticket 55
+teach as canonical for discriminating a union of records. Checked
+`compiler/examples/Shop/shop.bs` directly: its `Band({ Total: t })` (cited by the brief as "the
+same idiom") is written over a **plain, non-union** `Order` parameter — confirmed by reading the
+file (`public atom Band(Order o)`, line 61) — so it is not itself an instance of the vulnerable
+shape, exactly as the brief says ("there over a non-union `Order`, where it is harmless"). No
+example in the shipped corpus combines a record with an unrelated scalar type in one union
+(`Ledger.bs` has `atom | int`, `Wire.bs`/others have result-shaped tuples-with-atoms unions;
+`shop.bs`'s only record union, `Doc = Order | Invoice`, unions two records and is dispatched
+exclusively by the canonical, gate-taught pattern). So the exact vulnerable *program* is not
+attested in the shipped corpus today — but its two ingredients are each independently ordinary and
+separately taught (`Band`'s presence-only style; unions of arbitrary types elsewhere), and nothing
+detects their combination: `check-record-idiom.sh` only refuses a hand-spelled `{ Kind: :'…' }`
+literal, not an ordinary field-only pattern, so a maintenance change that widens an existing
+`Order`-typed parameter to `Order | int` while leaving an existing `{ Total: t }`-style clause
+untouched — the least surprising edit imaginable — reproduces this silently, with no gate firing.
+This is worth stating plainly because the brief's own §3 gestures at "partial evidence" as the
+structural cause but does not contrast it against the canonical pattern to show the canonical
+pattern is unaffected; doing so here makes the boundary of the claim precise rather than leaving
+"union parameter" looking like a sufficient condition on its own.
+
+### Structural explanation, checked against source
+
+Confirmed by reading, not inference: `record_tag/2` (`bs_emit.erl` 499–512) pattern-matches the
+resolved type against `#{maps := [{closed, Fields}], ints := [], ...}` — a union with an `int`
+member has a non-empty `ints` part and fails this match unconditionally; `kind_only/2` (469–478)
+symmetrically requires every other part empty, so a union with a `maps` part also fails it. Both
+paths in `guard_one/7` are structurally blocked for a union parameter, exactly as claimed, and
+this was traced in the actual resolved-type shapes, not asserted from the header comments alone.
+`pattern_type/3`'s `{p_map, ...}` clause (`bs_check.erl` 5309–5323) is commented, in the checker's
+own source, as deliberately "open": crediting exactly the named fields and nothing else, by
+design (F22, ticket 55) — this is not a checker bug, and the type-level narrowing it performs
+*is* sound (confirmed: `MyForge` type-checks and compiles with no warning, because intersecting
+the union domain `Ticket | int` with the pattern's open type correctly eliminates `int`, which
+cannot structurally satisfy `{Amount: _}` — the checker's own proof that only `Ticket`-shaped
+values reach that clause is valid). The gap is not in the type system; it is that the *erasure* of
+an open pattern carries no `Kind` test into the emitted Erlang code, so a value that was never
+actually produced through that (sound) static proof — a forged term from outside `bsc` entirely —
+can satisfy the erased pattern's structural shape without being what it claims. That is precisely
+what a boundary guard exists to catch, and precisely the guard `record_tag/2` fails to install
+once the declared parameter type is a union. Also confirmed: F24 §6 / ENG-330
+(`compiler/features/F24-boundary-kind.md` 173–212) is a real, already-resolved instance of the
+identical shape one channel over (`type T = int | atom`, a private `Tag` reached through a public
+`Bump` whose own guard a *comparison* `n >= 0` defeats), closed by emitting a guard at the
+narrowing site (`apply_guard/3`) rather than at either function's boundary — and grepping
+`apply_guard` across the compiler shows it exists only in `bs_check.erl`'s type-checking path,
+with no emission counterpart for map/record patterns, confirming the brief's claim that "no
+equivalent exists for the record channel" rather than merely asserting it.
+
+### Verdict: SOUND WITH CAVEATS
+
+The crux claim — a forged record reaching a private callee through a union-typed exported
+function's presence-only pattern is safe under the current unconditional tag test and silently
+wrong under the scratch-narrowed variant — **reproduced independently**, on a variant built from
+different names and a different field shape, in a build produced from a second, independent
+`patch` application rather than a copy of the brief's own binary. The demonstration is genuinely
+guard-scope-dependent (both builds were run against the identical forged term; only the narrowed
+one fails), which directly answers this task's central adversarial concern: the "silent 42" is a
+real consequence of narrowing, not an artifact of a probe constructed so that no guard scope could
+have saved it. The code-level citations (`guard_one/7`, `int_guard/6`, `record_tag/2`,
+`kind_only/2`, the single `Public` test site) all check out exactly as quoted, by line number. The
+cost figures reproduce exactly via the brief's own script and approximately (12 vs. 14 bytes,
+same order of magnitude) via an independent direct measurement on real compiler output. The
+structural explanation is grounded in source comments and mechanisms that predate this ticket
+(F22/ticket 55's "open pattern" design, F24 §6/ENG-330's narrowing-site precedent for the int
+channel), not invented for this brief.
+
+The caveat, found by pushing past what the brief itself constructed: the hole is real but
+narrower than a first reading suggests. It requires the union-dispatching clause to use a
+presence-only pattern rather than the corpus's own canonical, gate-enforced record-name pattern,
+which this verification found (via a third, independently-built variant, `MyForge2`) to be immune
+under the identical narrowed build, because `p_rec` desugaring mints the `Kind` test into the
+erased clause head itself rather than relying on a separate boundary guard. The brief's
+recommendation (Option C, document the asymmetry as intentional on the partial-evidence ground,
+and raise the union-typed-private-helper gap as its own ticket) is unaffected by this caveat —
+if anything it is reinforced, since it shows the risk is concentrated in one specific, identifiable
+idiom rather than diffuse across every union-typed boundary, which is exactly the kind of
+precision a follow-up ticket about the presence-only idiom specifically (rather than unions
+generally) could use. No circularity was found: the byte-cost script's guard bodies were checked
+against real bsc-emitted output rather than invented, the patch was applied fresh rather than
+reused, and every claim resolved in this section was re-derived rather than trusted from the
+brief's prose.
