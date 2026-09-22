@@ -1,0 +1,156 @@
+=== spin_isolated (Erlang, run/1 only exported) : spin/4, wrap/1, hit/1, run/1 ===
+module: spin_isolated
+
+--- spin/4 (entry 7) ---
+  {line,3}
+  {label,6}
+  {func_info,{atom,spin_isolated},{atom,spin},4}
+  {label,7}
+  {test,is_eq_exact,{f,8},[{x,2},{integer,0}]}
+  {test_heap,3,4}
+  {put_tuple2,{x,0},{list,[{x,0},{x,3}]}}
+  return
+  {label,8}
+  {allocate,3,4}
+  {init_yregs,{list,[{y,0}]}}
+  {move,{x,3},{y,1}}
+  {move,{x,2},{y,2}}
+  {line,4}
+  {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,{0,99}}},{integer,1}],{x,0}}
+  {call,1,{spin_isolated,wrap,1}}
+  {line,5}
+  {gc_bif,'-',{f,0},1,[{y,2},{integer,1}],{y,2}}
+  {move,{x,0},{y,0}}
+  {call,1,{spin_isolated,hit,1}}
+  {gc_bif,'+',
+          {f,0},
+          1,
+          [{tr,{y,1},{t_integer,{0,'+inf'}}},{tr,{x,0},{t_integer,{0,1}}}],
+          {x,3}}
+  {move,{integer,1},{x,1}}
+  {move,{y,2},{x,2}}
+  {move,{y,0},{x,0}}
+  {call_last,4,{spin_isolated,spin,4},3}
+module: spin_isolated
+
+--- wrap/1 (entry 2) ---
+  {label,1}
+  {line,1}
+  {func_info,{atom,spin_isolated},{atom,wrap},1}
+  {label,2}
+  {gc_bif,'rem',
+          {f,0},
+          1,
+          [{tr,{x,0},{t_integer,{1,'+inf'}}},{integer,100}],
+          {x,0}}
+  {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,{0,99}}},{integer,100}],{x,0}}
+  {gc_bif,'rem',
+          {f,0},
+          1,
+          [{tr,{x,0},{t_integer,{100,199}}},{integer,100}],
+          {x,0}}
+  return
+module: spin_isolated
+
+--- hit/1 (entry 4) ---
+  {line,2}
+  {label,3}
+  {func_info,{atom,spin_isolated},{atom,hit},1}
+  {label,4}
+  {test,is_eq_exact,{f,5},[{tr,{x,0},{t_integer,{0,99}}},{integer,0}]}
+  {move,{integer,1},{x,0}}
+  return
+  {label,5}
+  {move,{integer,0},{x,0}}
+  return
+module: spin_isolated
+
+--- run/1 (entry 10) ---
+  {line,6}
+  {label,9}
+  {func_info,{atom,spin_isolated},{atom,run},1}
+  {label,10}
+  {move,{x,0},{x,2}}
+  {move,{integer,1},{x,1}}
+  {move,{integer,0},{x,3}}
+  {move,{integer,50},{x,0}}
+  {call_only,4,{spin_isolated,spin,4}}
+
+=== Day01Isolated (beam-sharp) : Spin/4, Wrap/1, Hit/1, Run/1 ===
+module: 'Day01Isolated'
+
+--- 'Spin'/4 (entry 9) ---
+  {line,3}
+  {label,8}
+  {func_info,{atom,'Day01Isolated'},{atom,'Spin'},4}
+  {label,9}
+  {test,is_eq_exact,{f,10},[{tr,{x,2},{t_integer,any}},{integer,0}]}
+  {test_heap,3,4}
+  {put_tuple2,{x,0},{list,[{x,0},{x,3}]}}
+  return
+  {label,10}
+  {allocate,3,4}
+  {init_yregs,{list,[{y,0}]}}
+  {move,{x,3},{y,1}}
+  {move,{x,2},{y,2}}
+  {line,4}
+  {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,{0,99}}},{integer,1}],{x,0}}
+  {call,1,{'Day01Isolated','Wrap',1}}
+  {line,5}
+  {gc_bif,'-',{f,0},1,[{tr,{y,2},{t_integer,any}},{integer,1}],{y,2}}
+  {move,{x,0},{y,0}}
+  {call,1,{'Day01Isolated','Hit',1}}
+  {gc_bif,'+',
+          {f,0},
+          1,
+          [{tr,{y,1},{t_integer,{0,'+inf'}}},{tr,{x,0},{t_integer,{0,1}}}],
+          {x,3}}
+  {move,{integer,1},{x,1}}
+  {move,{y,2},{x,2}}
+  {move,{y,0},{x,0}}
+  {call_last,4,{'Day01Isolated','Spin',4},3}
+module: 'Day01Isolated'
+
+--- 'Wrap'/1 (entry 4) ---
+  {line,1}
+  {label,3}
+  {func_info,{atom,'Day01Isolated'},{atom,'Wrap'},1}
+  {label,4}
+  {gc_bif,'rem',
+          {f,0},
+          1,
+          [{tr,{x,0},{t_integer,{1,'+inf'}}},{integer,100}],
+          {x,0}}
+  {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,{0,99}}},{integer,100}],{x,0}}
+  {gc_bif,'rem',
+          {f,0},
+          1,
+          [{tr,{x,0},{t_integer,{100,199}}},{integer,100}],
+          {x,0}}
+  return
+module: 'Day01Isolated'
+
+--- 'Hit'/1 (entry 6) ---
+  {line,2}
+  {label,5}
+  {func_info,{atom,'Day01Isolated'},{atom,'Hit'},1}
+  {label,6}
+  {test,is_eq_exact,{f,7},[{tr,{x,0},{t_integer,{0,99}}},{integer,0}]}
+  {move,{integer,1},{x,0}}
+  return
+  {label,7}
+  {move,{integer,0},{x,0}}
+  return
+module: 'Day01Isolated'
+
+--- 'Run'/1 (entry 12) ---
+  {line,6}
+  {label,11}
+  {func_info,{atom,'Day01Isolated'},{atom,'Run'},1}
+  {label,12}
+  {test,is_integer,{f,11},[{x,0}]}
+  {move,{x,0},{x,2}}
+  {move,{integer,1},{x,1}}
+  {move,{integer,0},{x,3}}
+  {move,{integer,50},{x,0}}
+  {call_only,4,{'Day01Isolated','Spin',4}}

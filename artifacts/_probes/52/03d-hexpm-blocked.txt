@@ -1,0 +1,26 @@
+`mix deps.get` for Req 0.7.3, tried once through the proxy per instructions,
+not retried. mix.exs:
+
+defmodule Reqprobe.MixProject do
+  use Mix.Project
+  def project do
+    [app: :reqprobe, version: "0.1.0", elixir: "~> 1.19", deps: deps()]
+  end
+  def deps do
+    [{:req, "~> 0.7.3"}]
+  end
+end
+
+Output:
+** (Mix) httpc request failed with: {:could_not_establish_ssl_tunnel, {~c"HTTP/1.1", 403, ~c"Forbidden"}}
+Could not install Hex because Mix could not download metadata at https://builds.hex.pm/installs/hex.csv.
+
+Verdict: hex.pm is blocked (403) by the org's proxy policy, same class of
+block as the GitHub API (api.github.com refused with an explicit
+'access to this repository is not enabled for this session' message).
+Direct github.com release-asset downloads DO work (used for Elixir
+1.19.5-otp-28, see 00-README), consistent with the environment note.
+Substituted per instructions: the demonstration below uses Elixir's own
+stdlib application (':elixir', real, genuinely present, not Req) as the
+'foreign dependency that may or may not be on ERL_LIBS.'
+

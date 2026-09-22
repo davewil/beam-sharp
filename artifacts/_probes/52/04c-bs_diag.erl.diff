@@ -1,0 +1,27 @@
+--- compiler/src/bs_diag.erl	2026-09-22 23:03:15.665315743 +0000
++++ /tmp/ticket52-scratch/compiler/src/bs_diag.erl	2026-09-22 23:15:46.764244401 +0000
+@@ -675,6 +675,10 @@
+     #{tag => foreign_ret_beyond_one_guard, severity => error, file => Path,
+       line => Line, module => bs_types:atom_str(Mod), function => Fun,
+       type => Type, why => Why, name => Name, fields => Fields, at => At};
++%% PROTOTYPE (ticket 52 scratch): a declared `app:` is not on the code path.
++built(Path, {foreign_app_not_on_code_path, Line, Mod, App}) ->
++    #{tag => foreign_app_not_on_code_path, severity => error, file => Path,
++      line => Line, module => bs_types:atom_str(Mod), app => App};
+ built(Path, {unknown_generic, N}) ->
+     #{tag => unknown_generic, severity => error, file => Path, type => N};
+ %% A bracket the compiler knows at the wrong arity is a different mistake from
+@@ -1835,6 +1839,13 @@
+     {placed(D) ++ "error: ~s.~s returns `~s`, which one guard cannot decide~n~s~s",
+      placed_args(D) ++ [Mod, Fun, Type, beyond_why(Why, Name),
+                         beyond_edit(Why, At, Type, Name, Fields)]};
++%% PROTOTYPE (ticket 52 scratch): a declared `app:` is not on the code path.
++message(#{tag := foreign_app_not_on_code_path, module := Mod, app := App} = D) ->
++    {placed(D) ++ "error: ~s names application `~s`, which is not on the "
++     "code path~n"
++     "  bsc found no `~s.app` -- point ERL_LIBS (or --lib) at wherever "
++     "`~s` was built~n",
++     placed_args(D) ++ [Mod, App, App, App]};
+ message(#{tag := unknown_generic, file := P, type := N}) ->
+     {"~s: error: no type named ~s takes a type argument~n"
+      "  the standard environment has `list<T>`, `option<T>` and `result<T, E>`;~n"

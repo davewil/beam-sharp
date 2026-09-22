@@ -1,0 +1,34 @@
+OTP's own precedent for declaring "depends on application X by name" --
+already exists on this VM, just never reachable from the calling module's
+own source.
+
+/opt/otp28-src/lib/ssh/src/ssh.app.src:57 (real OTP 28 source, extracted
+before the build finished):
+
+  {applications, [kernel, stdlib, crypto, public_key]},
+
+The full stanza (lines 10-57) is an ordinary Erlang term: {application, ssh,
+[{description, ...}, {vsn, "%VSN%"}, {modules, [...]}, ...,
+{applications, [kernel, stdlib, crypto, public_key]}]}. `ssh` cannot start
+until `crypto` and `public_key` are already running -- this is how the BEAM
+release/boot machinery (application:ensure_all_started, a .rel file, a
+release handler) orders application startup.
+
+This repo's own bsc.app.src (compiler/src/bsc.app.src:5) carries the exact
+same key:
+
+  {applications, [kernel, stdlib, compiler, syntax_tools]},
+
+So "an application declares which other applications it needs, by atom
+name, in a file the tooling reads" is not a new idea for the BEAM -- it is
+the standard shape every OTP application already carries, on the PRODUCER
+side. What is missing, and what ticket 52 is actually asking about, is the
+CONSUMER side: nothing analogous exists at the call site inside a module
+that merely CALLS into a foreign application without being that
+application's own release descriptor. A `.bs` file's `using` block is
+exactly that consumer position, and no BEAM-native construct fills it
+today -- `.app`/`.app.src`'s `applications` key is the closest available
+precedent for the SHAPE (an atom naming another application), not a
+mechanism ticket 52 could reuse directly, because a `.bs` module usually has
+no `.app.src` of its own to add the key to (that file belongs to the
+enclosing OTP application, one per release, not one per `.bs` module).

@@ -1,0 +1,14 @@
+=== Forged-call probe: apply('Probe59b','Bump',[#{'Total' => 42}]) ===
+A hand-built term simulating a foreign (non-bsc) caller: no 'Kind' key, no 'Id' key,
+only 'Total'. Bump's own parameter type is 'Order | int' (a union), so
+bs_emit:record_tag/2 refuses it (not a single closed record) and boundary_guards/5
+emits NOTHING on Bump's own parameter. Bump's clause pattern '{ Total: t } n' is a
+PRESENCE-only map pattern (#{'Total' := _} = N) that does not test 'Kind' either.
+The only thing standing between this forged term and Inner's body is Inner's own
+guard -- which is exactly ticket 26 SS1's argument.
+
+--- CURRENT bsc (tag test unconditional, incl. on private Inner) ---
+apply(Bump, [#{'Total' => 42}]) => crashed: error:function_clause  <-- SAFE, tag test on private Inner caught it
+
+--- SCRATCH-PATCHED bsc (tag test narrowed to exported-only, matching 18 SS4's int scope) ---
+apply(Bump, [#{'Total' => 42}]) => returned 42  <-- SILENT UNSOUNDNESS: ticket 06 outcome 3, live

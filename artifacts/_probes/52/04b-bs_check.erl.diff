@@ -1,0 +1,82 @@
+--- compiler/src/bs_check.erl	2026-09-22 23:03:15.665315743 +0000
++++ /tmp/ticket52-scratch/compiler/src/bs_check.erl	2026-09-22 23:15:30.768244768 +0000
+@@ -148,6 +148,11 @@
+     %% (ENG-355), and the refusal is the answer to that declaration (18 §2,
+     %% F40).
+     foreign_rets_decidable(Decls, Env),
++    %% PROTOTYPE (ticket 52 scratch) -- an `[external: …, app: …]`-tagged
++    %% `using` block names an OTP/Elixir application; refuse here if it is
++    %% not on the code path, turning the run-time `error:undef` the ticket
++    %% describes into a compile diagnostic.
++    foreign_apps_reachable(Decls),
+     %% `ToJson<T>` is met in a clause body, but whether `T` has a wire form is
+     %% a fact about `T` alone, so it is refused here, where `exports_of/2`
+     %% refuses it too: `--api` never types a body, and a refusal met only
+@@ -734,7 +739,7 @@
+              || {signature, SL, N, R, Ps, _, TV} <- Decls],
+     Foreign = [{{f, Mod, N, length(Ps)},
+                 at_loc(L, fun() -> sig(Ps, R, Env) end)}
+-               || {foreign, _, Mod, Sigs} <- Decls,
++               || {foreign, _, _Attrs, Mod, Sigs} <- Decls,
+                   {foreign_sig, L, N, R, Ps} <- Sigs],
+     maps:merge(maps:get(qual, Imports, #{}),
+                maps:from_list(Local ++ Foreign)).
+@@ -770,10 +775,39 @@
+ 
+ foreign_rets_decidable(Decls, Env) ->
+     _ = [foreign_ret_decidable(L, Mod, N, R, Env)
+-         || {foreign, _, Mod, Sigs} <- Decls,
++         || {foreign, _, _Attrs, Mod, Sigs} <- Decls,
+             {foreign_sig, L, N, R, _Ps} <- Sigs],
+     ok.
+ 
++%% PROTOTYPE (ticket 52 scratch) -- dependency provenance.
++%%
++%% An `[external: …, app: …]`-tagged `using` block names the OTP/Elixir
++%% *application* the foreign module belongs to. `app` is checked here with
++%% `code:where_is_file/1`: does the application's `.app` file resolve on the
++%% code path right now? This is exactly "is it loadable", never "is it
++%% loaded" or "is it the right version" -- no process is started and no
++%% module is loaded, so a declaration with no `app` attribute (`none`, or an
++%% attribute list with no `app` key) is untouched and costs nothing.
++foreign_apps_reachable(Decls) ->
++    _ = [foreign_app_reachable(L, Attrs, Mod)
++         || {foreign, L, Attrs, Mod, _Sigs} <- Decls,
++            Attrs =/= none],
++    ok.
++
++foreign_app_reachable(Line, Attrs, Mod) ->
++    case lists:keyfind(app, 1, Attrs) of
++        false ->
++            ok;
++        {app, App} ->
++            AppFile = atom_to_list(App) ++ ".app",
++            case code:where_is_file(AppFile) of
++                non_existing ->
++                    erlang:error({foreign_app_not_on_code_path, Line, Mod, App});
++                _Path ->
++                    ok
++            end
++    end.
++
+ foreign_ret_decidable(Line, Mod, Fun, Ret, Env) ->
+     Ty = resolve(Ret, Env),
+     case beyond_one_guard(Ty) of
+@@ -1305,7 +1339,7 @@
+ foreign_wrappers(Decls, Env) ->
+     maps:from_list(
+       [{{Mod, N, length(Ps)}, #{wrapped => wraps(Ty, Env), ret => Ty}}
+-       || {foreign, _, Mod, Sigs} <- Decls,
++       || {foreign, _, _Attrs, Mod, Sigs} <- Decls,
+           {foreign_sig, _L, N, R, Ps} <- Sigs,
+           Ty <- [resolve(R, Env)]]).
+ 
+@@ -1382,7 +1416,7 @@
+     collapse_ty(Ret, Env, L, root(N)),
+     lists:foreach(fun({param, T, P}) -> collapse_ty(T, Env, L, seg(root(N), P))
+                   end, Params);
+-collapse_decl({foreign, _, _Mod, Sigs}, Env) ->
++collapse_decl({foreign, _, _Attrs, _Mod, Sigs}, Env) ->
+     lists:foreach(
+       fun({foreign_sig, L, N, Ret, Ps}) ->
+               collapse_ty(Ret, Env, L, root(N)),

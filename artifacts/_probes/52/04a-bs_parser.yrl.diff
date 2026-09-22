@@ -1,0 +1,31 @@
+--- compiler/src/bs_parser.yrl	2026-09-22 23:03:15.668261598 +0000
++++ /tmp/ticket52-scratch/compiler/src/bs_parser.yrl	2026-09-22 23:15:14.824245133 +0000
+@@ -8,6 +8,7 @@
+ Nonterminals
+   program decls decl
+   module_decl type_decl signature clause foreign_decl foreign_sigs foreign_sig
++  foreign_attrs foreign_attr
+   behaviour_decl record_decl field_decls field_decl
+   type_expr type_union_members type_prim type_list type_params
+   params param_list param
+@@ -118,7 +119,19 @@
+ %% site is `:ets.lookup(t, k)`. The declaration attaches types to the name
+ %% Erlang already has; nothing is renamed and no case mapping exists.
+ foreign_decl -> 'using' atom_lit '{' foreign_sigs '}' :
+-    {foreign, line('$1'), value('$2'), '$4'}.
++    {foreign, line('$1'), none, value('$2'), '$4'}.
++
++%% PROTOTYPE (ticket 52 scratch only) -- an optional attribute list ahead of
++%% `using`, carrying dependency provenance: `[external: elixir, app: req]`.
++%% Not the shipped grammar. Reuses the attribute-target bracket syntax the
++%% ticket sketched; parses to a proplist the checker reads for `app`.
++foreign_decl -> '[' foreign_attrs ']' 'using' atom_lit '{' foreign_sigs '}' :
++    {foreign, line('$4'), '$2', value('$5'), '$7'}.
++
++foreign_attrs -> foreign_attr                  : ['$1'].
++foreign_attrs -> foreign_attr ',' foreign_attrs : ['$1' | '$3'].
++
++foreign_attr -> lident ':' lident : {value('$1'), value('$3')}.
+ 
+ foreign_sigs -> foreign_sig              : ['$1'].
+ foreign_sigs -> foreign_sig foreign_sigs : ['$1' | '$2'].

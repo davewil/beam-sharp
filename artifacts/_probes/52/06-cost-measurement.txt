@@ -1,0 +1,22 @@
+=== Cost of the compile-time check in isolation ===
+code path entries: 42
+10000 calls to code:where_is_file/1: 161657 us total, 16.166 us/call
+
+=== End-to-end wall clock: 20x bsc compiles, old-style using (no app check runs) ===
+
+real	0m12.066s
+user	0m9.026s
+sys	0m2.234s
+
+=== End-to-end wall clock: 20x bsc compiles, [external:.., app:..] present, check runs+passes ===
+
+real	0m12.086s
+user	0m9.921s
+sys	0m2.496s
+
+Verdict: code:where_is_file/1 (the check's only compile-time cost) is
+~14-16 microseconds/call (two runs: 14.27us, 16.17us), negligible against a compile that already takes
+~0.5s of escript VM boot. The 20-compile wall-clock difference between the
+checked and unchecked forms (below) is within run-to-run noise, consistent
+with the microsecond-level isolated measurement above -- the check is not
+where a program's compile time goes.

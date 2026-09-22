@@ -1,0 +1,7 @@
+=== A. COMPILE, ERL_LIBS unset -- app declared, not on the code path ===
+Demo2/demo2.bs:4:1: error: :'Elixir.String' names application `elixir`, which is not on the code path
+  bsc found no `elixir.app` -- point ERL_LIBS (or --lib) at wherever `elixir` was built
+exit: 1
+
+=== B. COMPILE, ERL_LIBS points at the real Elixir install (app present) ===
+exit: 0

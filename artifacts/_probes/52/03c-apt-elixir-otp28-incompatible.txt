@@ -1,0 +1,36 @@
+dpkg -l: elixir 1.14.0.dfsg-2, erlang-base 25.3.2.8+dfsg-1ubuntu4.6
+
+Running apt's elixir under our OTP-28-built erl:
+=ERROR REPORT==== 22-Sep-2026::23:17:57.854404 ===
+beam/beam_load.c(596): Error loading function 'Elixir.Kernel':alias_defmodule/3: op bs_add p x i u x:
+  please re-compile this module with an Erlang/OTP 28 compiler or update your Erlang/OTP version
+
+
+=ERROR REPORT==== 22-Sep-2026::23:17:57.855034 ===
+beam/beam_load.c(596): Error loading function 'Elixir.Macro.Env':fetch_alias/2: op bs_add p x i u x:
+  please re-compile this module with an Erlang/OTP 28 compiler or update your Erlang/OTP version
+
+
+=ERROR REPORT==== 22-Sep-2026::23:17:57.855844 ===
+beam/beam_load.c(596): Error loading function 'Elixir.System':'assert_no_null_byte!'/2: op bs_add p x x u x:
+  please re-compile this module with an Erlang/OTP 28 compiler or update your Erlang/OTP version
+
+
+=ERROR REPORT==== 22-Sep-2026::23:17:57.857651 ===
+beam/beam_load.c(596): Error loading function 'Elixir.String.Tokenizer':'-validate/2-fun-2-'/2: op bs_add p x x u x:
+  please re-compile this module with an Erlang/OTP 28 compiler or update your Erlang/OTP version
+
+
+=ERROR REPORT==== 22-Sep-2026::23:17:57.865215 ===
+beam/beam_load.c(596): Error loading function 'Elixir.Logger':'__do_log__'/4: op bs_add p x i u x:
+  please re-compile this module with an Erlang/OTP 28 compiler or update your Erlang/OTP version
+
+
+Runtime terminating during boot ({undef,[{'Elixir.Kernel.CLI',main,[["--version"]],[]},{init,start_it,1,[]},{init,start_em,1,[]},{init,do_boot,3,[]}]})
+
+Crash dump is being written to: erl_crash.dump...done
+
+Verdict: apt's Elixir 1.14 beams were compiled for an older OTP and will not
+LOAD under OTP 28 (beam_load.c refuses the old 'bs_add' instruction
+encoding). This is why 1.19.5-for-otp-28 was fetched instead (see 00-README).
+

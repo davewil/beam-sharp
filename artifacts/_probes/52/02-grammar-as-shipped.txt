@@ -1,0 +1,28 @@
+What the SHIPPED grammar actually does with `using`/foreign today
+(compiler/src/bs_parser.yrl:116-135, tracked tree, read 2026-09-22):
+
+foreign_decl -> 'using' atom_lit '{' foreign_sigs '}' :
+    {foreign, line('$1'), value('$2'), '$4'}.
+...
+using_decl -> 'using' modpath : {import, line('$1'), modatom('$2')}.
+
+No `[external: ...]` attribute exists anywhere in the grammar. Ticket 32's
+answer (2026-08-14) DID spec one — `[external: erlang, "ets"] module Ets {
+... }`, a separate name-binding `module` block — but ticket 41 §1
+(2026-08-15/16) simplified the construct: `using` was generalised to cover
+both the foreign form and the native cross-module form, told apart by the
+token class after `using` (atom_lit = foreign, uident path = native). The
+`[external: ...]` attribute and the `module Ets { ... }` binding block were
+dropped in that simplification and never rebuilt. The CURRENT foreign-FFI
+surface is exactly `using :'Elixir.Req' { ... }` as ticket 52 itself writes
+it — no attribute of any kind. This matters for ticket 52: candidate
+`[external: elixir, app: req] using :'Elixir.Req' { ... }` is not "add a
+field to an existing attribute", it is "reintroduce attribute syntax to this
+construct for the first time since ticket 41 removed it."
+
+bs_check.erl never mentions "application", "ERL_LIBS", "code:lib_dir",
+"code:where_is_file" or "app" anywhere in the tracked tree (grepped
+2026-09-22) except inside bsc.app.src's own OTP application descriptor and
+bs_repl/bs_run's use of code:ensure_loaded/2 to load bsc's OWN compiled
+output for `--run`. Nothing today checks presence of a foreign module's
+owning application, at compile time or otherwise.

@@ -1,0 +1,12 @@
+== bsc built with OTP 28 ==
+
+--- COMPILE, unset ERL_LIBS (promises nothing, compiles clean) ---
+exit: 0
+
+--- RUN, unset ERL_LIBS (the machine described in the ticket) ---
+crashed: error:undef
+exit: 1
+
+--- RUN, ERL_LIBS pointing at a real, present Elixir install (/opt/elixir-1.19.5) ---
+"REQ"
+exit: 0

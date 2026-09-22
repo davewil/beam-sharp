@@ -1,0 +1,43 @@
+Elixir's Application.ensure_loaded/1 and ensure_all_started/2 -- what they
+actually are. Read from real source, /opt/elixir-1.19.5/lib/elixir/lib/application.ex
+(the precompiled-for-OTP-28 release fetched directly from GitHub, since apt's
+1.14 does not load under OTP 28 -- see 03c).
+
+application.ex:887-901:
+
+  @doc """
+  Ensures the given `app` is loaded.
+
+  Same as `load/1` but returns `:ok` if the application was already
+  loaded.
+  """
+  @doc since: "1.10.0"
+  @spec ensure_loaded(app) :: :ok | {:error, term}
+  def ensure_loaded(app) when is_atom(app) do
+    case :application.load(app) do
+      :ok -> :ok
+      {:error, {:already_loaded, ^app}} -> :ok
+      {:error, _} = error -> error
+    end
+  end
+
+This is a THIN RUNTIME WRAPPER over Erlang's own :application.load/1 --
+nothing new, nothing Elixir-specific, and nothing the Elixir COMPILER calls
+on your behalf. It is a function you call, at run time, in your own code,
+and it returns an ordinary :ok | {:error, term} value -- there is no static
+check anywhere that a module reference in Elixir source names an
+application that will actually be present. `ensure_all_started/2` (same
+file, line 918 on) is the multi-app supervision-tree-aware version and is
+the one 51a's req.bs already calls (`Application.ensure_all_started(:req)`)
+-- again a RUNTIME call, not a compile-time property of the source.
+
+Consistent with ticket 32's own prior finding, reread here: "Elixir declares
+nothing at all -- :lists.keyfind(k, l, d) is an ordinary call because module
+names are atoms and nothing is checked." Elixir has no static "using"/import
+declaration of any kind, so it has nothing comparable to what ticket 52
+proposes to build -- its ecosystem answer to "will this application be
+present" is entirely runtime (Application.ensure_loaded/ensure_all_started,
+called explicitly, usually from a supervision tree's start/2) plus the
+separate, non-source, mix.exs deps list mix uses to fetch/compile. Neither
+half is a compile-time, in-source check of the kind ticket 52 is asking
+about.

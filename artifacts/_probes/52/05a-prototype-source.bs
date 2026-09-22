@@ -1,0 +1,9 @@
+module Demo2
+
+[external: elixir, app: elixir]
+using :'Elixir.String' {
+    binary upcase(binary s)
+}
+
+public binary Shout(binary s)
+Shout(s) -> :'Elixir.String'.upcase(s)

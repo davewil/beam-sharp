@@ -1,0 +1,12 @@
+=== run 1 ===
+                       answer              min ms    med ms      rel
+normal (tr present)    {14,6734}           21.685    22.626    1.00x
+no_type_opt (tr gone)  {14,6734}           26.186    26.633    1.21x
+=== run 2 ===
+                       answer              min ms    med ms      rel
+normal (tr present)    {14,6734}           21.606    21.776    1.00x
+no_type_opt (tr gone)  {14,6734}           26.218    26.875    1.21x
+=== run 3 ===
+                       answer              min ms    med ms      rel
+normal (tr present)    {14,6734}           21.655    21.866    1.00x
+no_type_opt (tr gone)  {14,6734}           26.424    27.747    1.22x

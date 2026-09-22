@@ -1,0 +1,50 @@
+Gleam's @external attribute -- does it ever carry the owning Erlang
+APPLICATION, or only the module? Read from real source, /tmp/lang-src/gleam.
+
+1. compiler-core/src/parse.rs:4816-4843, parse_external_attribute:
+
+    fn parse_external_attribute(...) -> Result<u32, ParseError> {
+        let (_, target, _) = self.expect_name(IncorrectNamePosition::Target)?;
+        let target = match target.as_str() {
+            "erlang" => Target::Erlang,
+            "javascript" => Target::JavaScript,
+            _ => return parse_error(ParseErrorType::UnknownTarget, ...),
+        };
+        let _ = self.expect_one(&Token::Comma)?;
+        let (_, module, _) = self.expect_string()?;
+        let _ = self.expect_one(&Token::Comma)?;
+        let (_, function, _) = self.expect_string()?;
+        ...
+        attributes.set_external_for(target, Some((module, function, SrcSpan {..})));
+        Ok(end)
+    }
+
+   Exactly three arguments are parsed: target ("erlang"/"javascript"), a
+   module string, a function string. No fourth slot, no package/app name.
+
+2. compiler-core/src/ast.rs:887-889 and :1160-1164, the AST fields this
+   feeds:
+
+    pub external_erlang: Option<(EcoString, EcoString, SrcSpan)>,
+    pub external_javascript: Option<(EcoString, EcoString, SrcSpan)>,
+
+   A 2-tuple (module, function) plus a source span. There is no third
+   component anywhere in the type -- confirmed at both the parser and the
+   AST, not merely inferred from the grammar.
+
+3. No cross-check exists either: grepped compiler-core/src for any
+   correlation between an @external module name and a declared gleam.toml
+   dependency (patterns tried: "external.*application",
+   "application.*external", "check.*external.*module") -- zero hits.
+   `@external(erlang, "Elixir.Req", "new")` and `@external(erlang, "lists",
+   "reverse")` are equally unchecked; Gleam trusts the string.
+
+VERDICT: Gleam's closest analog to this ticket's candidate syntax never
+names the Erlang application, only the module. This is not an omission this
+ticket's design would be filling a documented gap in -- Gleam simply never
+tried to solve dependency provenance at the @external declaration; its
+provenance mechanism (such as it is) lives entirely in gleam.toml's
+dependency list, which is the "separate manifest" shape ticket 51 already
+measured and rejected for beam-sharp. So Gleam is prior art for the
+ATTRIBUTE SYNTAX (ticket 32 already established this) and is NOT prior art
+for solving THIS ticket's actual question -- it has the identical gap.

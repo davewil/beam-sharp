@@ -1,0 +1,14 @@
+--- /home/user/beam-sharp/compiler/src/bs_emit.erl	2026-09-22 23:03:15.668261598 +0000
++++ /tmp/ticket59-scratch/compiler/src/bs_emit.erl	2026-09-22 23:17:44.532241705 +0000
+@@ -261,6 +261,11 @@
+ %% candidate for both.
+ guard_one(Pat, {param, TypeExpr, _}, Accept, I, Line, Ctx, Public) ->
+     case record_tag(TypeExpr, Ctx) of
++        %% TICKET-59 SCRATCH PATCH: narrow the tag test to exported-only, to match the int
++        %% kind test's scope (18 SS4). This is the "narrow" option from ticket 59, built for
++        %% measurement only -- never for the tracked tree.
++        {ok, _Tag} when not Public ->
++            {Pat, []};
+         {ok, Tag} ->
+             case constrains_kind(Pat) of
+                 true  -> {Pat, []};

@@ -12,5 +12,5 @@ Inner(o) -> o.Total
 // boundary_guards emits NOTHING on n itself. The only test on n is whatever the clause's
 // own pattern proves.
 public int Bump(T n)
-Bump({ Total: t }) -> Inner(n)
-Bump(n)             -> 0
+Bump({ Total: t } n) -> Inner(n)
+Bump(n)               -> 0
