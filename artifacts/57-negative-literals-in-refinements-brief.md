@@ -260,3 +260,209 @@ Everything below is under `artifacts/_probes/57/`:
 Full `eunit` logs (not copied into the repo — regenerable from the README's commands) were
 inspected at `/tmp/ticket57-scratch/{baseline,optA,optB}-eunit.log` during this session; the
 three pre-existing/unrelated failures are quoted verbatim in §3 above.
+
+## Independent verification
+
+Adversarial re-derivation, done separately from the authoring session, in `/tmp/verify57-scratch/`
+(never touching `/tmp/ticket57-scratch/`, the tracked tree, or this brief's own probes until this
+section). OTP 28.5 at `/opt/otp28-src/bin`, rebar3 at `/usr/local/bin/rebar3`,
+`HTTPS_PROXY= HTTP_PROXY= rebar3 escriptize`. Every claim below was re-run from a fresh `cp -r`
+of `compiler/`, not from the authoring session's copies, and every `.bs` file was typed fresh
+rather than copied from `artifacts/_probes/57/`.
+
+### The F51-staleness claim — CONFIRMED, exactly
+
+Read `compiler/src/bs_parser.yrl` directly: `negate/2` exists at lines 823-824 exactly as quoted
+(`negate(_L, {e_float, FL, F}) -> {e_float, FL, -F}; negate(L, E) -> {e_neg, L, E}.`), reached from
+`expr_low -> '-' expr_low : negate(line('$1'), '$2').` at line 528, and there genuinely is no
+`{e_int, ...}` clause. `git log --oneline -- compiler/src/bs_parser.yrl` and `git show 6fcaee8 --
+compiler/src/bs_parser.yrl` confirm `negate/2` and its float clause were introduced in commit
+`6fcaee8`, dated 2026-09-16, the F51 commit (`ENG-378 / F51: \`float\` — the eighth part...`),
+which also matches F51's own finding #2 in `compiler/features/F51-float.md` ("Unary minus was
+`0 - e`... `-x` is `e_neg` now... A negated float literal folds to the literal"). Before that
+commit, `expr_low -> '-' expr_low` produced `{e_op, line('$1'), '-', {e_int, line('$1'), 0}, '$2'}`
+— exactly the shape the ticket describes as current. The ticket's diagnosis (the `0 - e` desugar)
+is genuinely stale, and F51 genuinely already added the float-only fold the brief says it did.
+`comparison/1` in `bs_check.erl` was independently confirmed at lines 5570-5571, matching only a
+bare `{e_int,_,K}`, no `{e_neg,...}` case. Both citations check out exactly, down to the line
+numbers.
+
+### Baseline repro — CONFIRMED with fresh files, fresh build
+
+Built `bsc` from a clean `cp -r compiler` (not `git clone`, but diffed against the tracked tree
+and identical — `git status` on `compiler/` was clean throughout). With my own `mod.bs` files
+(none copied from `_probes/57/`): `type T = int where value >= -5` is refused, `opaque_refinement`
+(confirmed as the internal tag via `bs_diag.erl:741-742`), exit 1. A pattern form,
+`Classify(<= -1) -> :neg`, compiles and runs correctly (`Classify -3` → `:neg`, `Classify 0` →
+`:zero`, `Classify 5` → `:pos`), exit 0. Matches the brief's repro1/repro2 exactly, independently.
+
+### Option A and Option B patches — CONFIRMED, byte-for-byte
+
+Applied both patches by hand to fresh scratch copies (the saved `.patch` files themselves didn't
+apply cleanly with any `-pN` here, because their `+++` paths have a different directory depth than
+`---`; this is a `patch`-strip-level friction in the artifact, not a content problem — the diff
+text is correct). `diff -u` between the tracked source and each hand-applied result reproduces the
+saved patches line for line, including line numbers (`@@ -818,9 +818,10 @@` for A,
+`@@ -5567,8 +5567,16 @@` / `@@ -5576,6 +5584,15 @@` for B). Line-count check: A is 5 changed lines,
+B is 21 — both exactly as claimed. Both rebuilt cleanly with `rebar3 escriptize`.
+
+- Option A fixes `type T = int where value >= -5` (exit 0) and preserves the pattern form.
+- Option B fixes the same refinement (exit 0) and preserves the pattern form.
+- `value >= n` (a variable, my own adversarial file, not in the battery) stays refused as
+  `opaque_refinement` under baseline, A, and B alike — neither patch starts folding a
+  non-constant comparand. Confirmed.
+- `value >= 2 + 3` stays refused under all three, confirmed.
+- Elm and Gleam and Erlang citations (below) hold up.
+
+### A genuine gap in the brief's "identical under both options" claim — found by an adversarial case not in the battery
+
+Neither the original battery nor the repro set tries a **double negation**. I tested
+`type T = int where value >= - -5` (my own file) against baseline, A, and B:
+
+- Baseline: refused (`opaque_refinement`), as expected.
+- **Option A: compiles (exit 0).** `negate/2`'s result re-enters `negate/2` because the grammar
+  rule `expr_low -> '-' expr_low : negate(line('$1'), '$2')` recurses through the reduction: the
+  inner `-5` folds to `{e_int, -5}` first, and the outer `-` then folds `{e_int, -5}` to
+  `{e_int, 5}`, i.e. Option A folds arbitrarily deep nested negations of a literal, not just one.
+- **Option B: still refused.** `int_const/1` has exactly one `{e_neg, _, {e_int, _, K}}` clause,
+  which does not match a *doubly*-nested `{e_neg, _, {e_neg, _, {e_int, _, K}}}}`, so it falls to
+  `not_const`.
+
+This means Options A and B are **not** behaviorally identical on every input — the brief's §3
+framing ("Both options draw the exact same line: a bare integer literal, optionally negated once,
+is a constant") is true of the ten battery cases tested but false in general: Option A's line is
+"negated any number of times", Option B's is "negated at most once". This is a real, previously
+undocumented divergence, though a narrow one (nobody writes `- -5` in a refinement), and it does
+not change the recommendation — if anything it is a further point in Option A's favor, since its
+recursive fold is arithmetically correct (`- -5` really is `5`) and comes for free, whereas Option
+B would need a second `int_const` clause to match it. Flag this as a caveat on the "identical
+results" framing, not on the recommendation itself.
+
+### The lambda-parameter "freebie" claim — the outcome holds, but the brief's own justification for it is wrong
+
+The brief's §5 closing note says extending `negate/2` makes a lambda parameter like `-5` work
+"since `to_param({e_int, L, N}) -> {p_int, L, N}` already accepts a negative `N` today via the
+pattern grammar's `int_lit -> '-' integer`". I tested this directly with `(-5) => :hit` as a
+lambda parameter (correct C# lambda spelling per `bs_parser.yrl`'s `expr -> '(' expr_list ')'
+'=>' expr`; lambda parameters are parsed as `expr_list` and lowered by `to_param/1`, not by the
+`pattern` nonterminal at all):
+
+- **On baseline, this is refused today** — `error: a lambda's parameter is a pattern: a name, _,
+  a literal, or a tuple or list of those` — because `to_param/1` has no `{e_neg, ...}` clause and
+  a lambda parameter never goes through the `pattern` grammar's `'-' integer` production (that
+  production only fires for the `pattern` nonterminal used in clause heads/match arms — a
+  genuinely separate code path from `to_param(Expr)`, which processes `expr_list`). So the
+  brief's stated mechanism for why baseline "already accepts" this is incorrect; baseline does
+  not accept it.
+- **Under Option A**, the specific `to_param` refusal disappears — the parameter parses cleanly to
+  `{p_int, ..., -5}}` (since `-5` now folds to `{e_int, ..., -5}` at parse time before `to_param`
+  ever sees it), and the compiler instead reports a downstream, unrelated diagnostic ("a lambda in
+  Classify has no arrow to take its type from"), confirming the parameter itself is now accepted.
+
+So the brief's **bottom-line prediction** (Option A makes this case work "for free") is
+empirically correct, independently confirmed — but its **stated reasoning** for why the baseline
+case already worked is wrong, and should be corrected if this brief is used as a reference: the
+"freebie" is real, but it is a freebie *created by Option A*, not one baseline already had.
+
+### yecc conflict count — CONFIRMED independently
+
+Ran `yecc:file/1` directly (not through `rebar3`) against both the untouched
+`compiler-baseline/src/bs_parser.yrl` and the hand-applied `compiler-optA/src/bs_parser.yrl`:
+both report `Warning: conflicts: 5 shift/reduce, 0 reduce/reduce`, identical. (Note:
+`yecc:file/2` with a `{report, true}` option, as one might guess from the brief's mention of
+`--self-test`-style reporting, actually raises `badarg` on OTP 28.5 — the correct option is the
+undocumented-in-name-only `verbose`; this is an artifact of `yecc`'s option list, not a finding
+about the ticket. Once corrected, the counts match on both sides.) `rebar3 escriptize`'s own
+compile-time warning line for Option A reads identically: `5 shift/reduce, 0 reduce/reduce`. The
+"0 new conflicts" claim holds.
+
+### The guard-exhaustiveness "second bug" — CONFIRMED with an independently written example
+
+Wrote my own guard-split module (not copied from `repro4`, different clause bodies, but
+necessarily the same *shape* since it is testing the same defect):
+
+```csharp
+public atom Sign(int n)
+
+Sign(n) when n >= -5 -> :small
+Sign(n) when n < -5  -> :other
+```
+
+- Baseline: refused, `Sign is not exhaustive` (confirmed as the `inexhaustive` tag via
+  `bs_diag.erl:1058-1060`), exit 1, despite the two guards genuinely partitioning all of `int`.
+- Option A: compiles, exit 0.
+- Option B: compiles, exit 0.
+
+This is real, not a misreading of some other diagnostic — the message and internal tag are
+unambiguous, and the same split with `>=`/`<` swapped for non-boundary, unambiguously-total
+conditions still fails identically on baseline. It is a legitimate second, independently
+discoverable instance of the same root cause (`comparison/1`'s literal-only match), reachable
+through the guard path rather than the refinement path, exactly as claimed.
+
+### eunit suite — CONFIRMED, numbers match exactly, and the "pre-existing" explanation checks out
+
+Ran the full suite on both a fresh baseline scratch copy and the Option A scratch copy:
+`Failed: 3. Skipped: 0. Passed: 1053.` on both, and the same three named failures on both
+(`every_aoc_program_still_compiles_test`, `batch_runs_every_entry_in_one_vm_and_attributes_each`,
+`a_path_is_utf8_on_the_wire_test`). Went further than the brief and ran
+`rebar3 eunit --module=cli_tests,diagnostic_json_tests` directly on the untouched **tracked**
+tree at `/home/user/beam-sharp/compiler` (`git status` clean before and after — this is read-only;
+only `_build/` artifacts are produced): `Failed: 2. Skipped: 0. Passed: 33.`, the same two tests
+(`batch_runs_every_entry_in_one_vm_and_attributes_each`, `a_path_is_utf8_on_the_wire_test`). This
+independently confirms those two are pre-existing on the real tree, not scratch-copy artifacts,
+exactly as the brief claims.
+
+### End-to-end `Delta` spec — CONFIRMED
+
+My own module, `type Delta = int where value >= -100 and value <= 100` with
+`public Delta Clamp(Delta value)` / `Clamp(value) -> value`: refused on baseline (same
+`opaque_refinement`), compiles under Option A, and the emitted `.abstr` carries
+`{attribute,0,spec,{{'Clamp',1},[{type,0,range,[{integer,0,-100},{integer,0,100}]}]},
+[{type,0,range,[{integer,0,-100},{integer,0,100}]}]}` — i.e. `-100..100 -> -100..100`, matching
+the brief's claimed emitted spec exactly.
+
+### Cross-language citations — spot-checked, all accurate
+
+- `erl_parse.yrl:301` — `pat_expr -> prefix_op pat_expr : ?mkop1('$1', '$2').` — exact line,
+  exact text.
+- `v3_core.erl:2638-2641` — the two `pattern({op,...}, St) -> pattern(erl_eval:partial_eval(Op),
+  St)` clauses are at lines 2638 and 2640-2641 in the actual OTP 28.5 source at
+  `/opt/otp28-src/lib/compiler/src/v3_core.erl`; substance matches exactly.
+- `erl_eval.erl:2204-2223` — `partial_eval/1` at line 2204, `ev_expr/1` clauses from 2214;
+  `ev_expr({op,_,Op,L,R}) -> erlang:Op(ev_expr(L), ev_expr(R))` has no clause for `{var,...}`, so a
+  variable operand throws, caught by `partial_eval`'s `catch`, falling through to the unevaluated
+  `Expr` — confirms the brief's "silently declines... the moment it meets a variable" claim exactly.
+- Gleam `lexer.rs` — `fn lex_number` is at line 1038 (brief cites 1038-1050) and swallows a
+  leading `-` into `is_negative` at parse time; the `check_for_minus` / `eat_single_char(Token::
+  Minus)` disambiguation the brief describes is present, close to the cited lines. Substance and
+  line numbers both check out.
+- Elm `Pattern.hs`'s `termHelp` (lines 33-73 as cited) has no `-`-prefixed alternative among its
+  `oneOf` branches — confirmed by reading the function directly; the only path to a negative
+  number would be through `Number.number`, which the brief correctly notes doesn't consume a
+  leading `-` in this position.
+
+### Overall verdict: **SOUND, WITH CAVEATS**
+
+Every measured, checkable claim in the brief reproduced independently, from a fresh scratch
+build, with files I wrote myself rather than the saved probes: the F51-staleness diagnosis, the
+exact `negate/2` and `comparison/1` line numbers, both patches' exact diffs and line counts, the
+"0 new conflicts" claim, the guard-exhaustiveness second bug, the eunit numbers and the
+pre-existing-failure explanation (confirmed on the tracked tree, not just the scratch copy), the
+end-to-end `Delta` spec, and every cross-language citation. No circularity was found: the brief's
+measurements do not depend on trusting its own prior claims, and its patches, when reapplied by
+hand from the same diff text, produce the same tracked-source-relative changes.
+
+Two caveats, neither of which threatens the recommendation:
+
+1. **Option A and Option B are not fully equivalent**, contrary to the brief's "identical results"
+   framing — a double-negated literal (`- -5`) folds under Option A (recursively, arithmetically
+   correctly) but not under Option B (`int_const/1` only unwraps one `e_neg`). This is a real gap
+   in the battery's coverage, not a correctness defect in either patch, and it strengthens rather
+   than weakens the case for Option A.
+2. **The brief's justification for the lambda-parameter "freebie" is factually wrong** even
+   though its conclusion is right: baseline does not "already accept" a negative literal lambda
+   parameter today (it is refused by `to_param/1`'s catch-all); Option A is what makes it work, by
+   removing the `e_neg` wrapper before `to_param/1` ever runs. The freebie is real; the brief just
+   misattributes when it starts existing.
+
+Recommendation (Option A) stands on independently re-derived evidence.
