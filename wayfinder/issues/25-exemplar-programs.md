@@ -646,3 +646,40 @@ orthogonal to how opinionated the language is about domains.
 invents nothing — the cleanest condition in the set — and it is the only remaining shape with **no
 long-lived server and no wire format**, which all five written so far have had. It should not be
 written as a sixth `gen_server`.
+
+---
+
+## RESULTS — sixth exemplar, an LLM evaluation client, 2026-09-24
+
+[`25f-llm-evaluation-client.md`](../prototypes/25f-llm-evaluation-client.md),
+[`25f_replay.erl`](../prototypes/25f_replay.erl),
+[`25f_surface_probe.sh`](../prototypes/25f_surface_probe.sh). Modelled on ReqLLM's `evaluate/4`
+against TypeSafe's Jev, read from `agentjido/req_llm` at `5a0735d`. **It takes a seventh slot, not
+*async processing*:** it makes one request and gets one reply. ReqLLM's streaming path is the async
+workload and is still unwritten.
+
+**The first exemplar the compiler builds and runs.** The module has one error, a checker gap: the
+tail of a `string` after a string-literal prefix is typed `binary`. Declared `binary`, it compiles,
+and the replay drives it with the wire bodies ReqLLM's own tests serve. It sends the body ReqLLM
+sends, key for key, and routes the answers.
+
+**The cost is JSON with a schema the program does not own.** No B# construct can name a lowercase
+key: a record field is PascalCase, `ToJson` adds `Kind`, a map pattern takes no string key, a brace
+field set is keyed by atom. `ToJson` over the record an author writes first **compiles and sends
+the wrong body**. The working spelling is `:maps.from_list` and `:maps.find`, and reading one reply
+object is 101 of the module's 206 non-blank lines. This is a second program for ticket 78
+(ENG-373), and the first where the schema is someone else's.
+
+**A defect, found on the way: [ENG-402](https://linear.app/davewil/issue/ENG-402).** This ticket's
+§2 question, how often a closed residual is closed on purpose, cannot be measured on a union of
+records. The compiler admits `_` over ticket 12's own `OrderPlaced | OrderShipped | OrderCancelled`
+example whenever the records carry an `int` field, and refuses it only when every field is finite.
+
+For the three questions this ticket holds:
+
+| Question | 25f's answer |
+|---|---|
+| Ticket 12: closed residuals closed deliberately | two (`Queue`, `Page`), three members named in each, and the compiler would have accepted `_` in both (ENG-402) |
+| Ticket 17 job 1: a ladder of unrelated conditions | none. Six tuple switches of width two or three, all forwarding errors. They want a multi-binding `with`, not `cond` |
+| Ticket 22: an opinionated grammar against a gateway | a closed `Provider` union reads well at two providers, and adding a third makes the compiler name both sites. The `Envelope` residual prints 28 heads, none of them the one to paste — 25c's scaling finding again |
+

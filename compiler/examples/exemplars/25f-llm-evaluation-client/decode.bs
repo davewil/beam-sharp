@@ -1,0 +1,142 @@
+// EXTRACTED — do not edit here.
+// Source: wayfinder/prototypes/25f-llm-evaluation-client.md, section `decode.bs`
+// Regenerate: compiler/bin/extract-exemplars.sh
+//
+// This file is OUT OF THE WALKING SKELETON SLICE and does not parse today.
+// It is a target for the compiler, not a passing example. The write-up it
+// came from carries the friction list explaining what is wrong with it and
+// why that is the point.
+
+// Reading a JSON object is one `:maps.find` per key and one validation per
+// value, because B# has no spelling for a lowercase string key.
+private result<Evaluation, EvalError> Decode(map<string, term> doc)
+
+Decode(doc) -> (Text("model", doc), Obj("answers", doc), Obj("usage", doc)) switch {
+    ((:error, e), _, _) => (:error, e),
+    (_, (:error, e), _) => (:error, e),
+    (_, _, (:error, e)) => (:error, e),
+    (model, answers, usage) => Assemble(model, answers, usage)
+}
+
+private result<Evaluation, EvalError> Assemble(string model, map<string, term> answers, map<string, term> usage)
+
+Assemble(model, answers, usage) -> (Answers(:maps.to_list(answers)), Tokens(usage)) switch {
+    ((:error, e), _) => (:error, e),
+    (_, (:error, e)) => (:error, e),
+    (named, u)       => Evaluation { Model = model, Answers = named, Usage = u }
+}
+
+private result<Usage, EvalError> Tokens(map<string, term> usage)
+
+Tokens(usage) -> (Int("input_tokens", usage), Int("output_tokens", usage)) switch {
+    ((:error, e), _) => (:error, e),
+    (_, (:error, e)) => (:error, e),
+    (i, o)           => Usage { InputTokens = i, OutputTokens = o }
+}
+
+private result<list<(string, Answer)>, EvalError> Answers(list<term> pairs)
+
+Answers([]) -> []
+Answers([pair, ..rest]) -> (Named(pair), Answers(rest)) switch {
+    ((:error, e), _) => (:error, e),
+    (_, (:error, e)) => (:error, e),
+    (one, more)      => [one, ..more]
+}
+
+private result<(string, Answer), EvalError> Named(term pair)
+
+Named(pair) -> ValidateAs<(string, map<string, term>)>(pair) switch {
+    (:error, _)    => (:error, (:malformed, "an answer is not an object")),
+    (name, answer) => One(answer) |?> Tag(name)
+}
+
+private (string, Answer) Tag(Answer a, string name)
+
+Tag(a, name) -> (name, a)
+
+// The wire's `type` names the answer. `noul` is the boolean.
+private result<Answer, EvalError> One(map<string, term> a)
+
+One(a) -> Text("type", a) switch {
+    "choice"    => ChosenFrom(a),
+    "score"     => ScoredFrom(a),
+    "noul"      => LikelyFrom(a),
+    (:error, e) => (:error, e),
+    other       => (:error, (:malformed, other))
+}
+
+private result<Answer, EvalError> ChosenFrom(map<string, term> a)
+
+ChosenFrom(a) -> (Text("choice", a), Number("confidence", a)) switch {
+    ((:error, e), _) => (:error, e),
+    (_, (:error, e)) => (:error, e),
+    (c, p)           => Chosen { Choice = c, Confidence = p }
+}
+
+private result<Answer, EvalError> ScoredFrom(map<string, term> a)
+
+ScoredFrom(a) -> (Number("score", a), Number("confidence", a)) switch {
+    ((:error, e), _) => (:error, e),
+    (_, (:error, e)) => (:error, e),
+    (s, p)           => Scored { Score = s, Confidence = p }
+}
+
+private result<Answer, EvalError> LikelyFrom(map<string, term> a)
+
+LikelyFrom(a) -> Number("noul", a) switch {
+    (:error, e) => (:error, e),
+    p           => Likely { Probability = p }
+}
+
+// One getter per value type: `ValidateAs<T>` inside `Get<T>` is refused,
+// because an obligation cannot be generated for a type nobody has chosen.
+private result<map<string, term>, EvalError> Obj(string key, map<string, term> m)
+
+Obj(key, m) -> :maps.find(key, m) switch {
+    :error   => (:error, (:malformed, key)),
+    (:ok, v) => Object(v)
+}
+
+private result<map<string, term>, EvalError> Object(term t)
+
+Object(t) -> ValidateAs<map<string, term>>(t) switch {
+    (:error, _) => (:error, (:malformed, "expected an object")),
+    m           => m
+}
+
+private result<string, EvalError> Text(string key, map<string, term> m)
+
+Text(key, m) -> :maps.find(key, m) switch {
+    :error   => (:error, (:malformed, key)),
+    (:ok, v) => ValidateAs<string>(v) switch {
+        (:error, _) => (:error, (:malformed, key)),
+        s           => s
+    }
+}
+
+private result<int, EvalError> Int(string key, map<string, term> m)
+
+Int(key, m) -> :maps.find(key, m) switch {
+    :error   => (:error, (:malformed, key)),
+    (:ok, v) => ValidateAs<int>(v) switch {
+        (:error, _) => (:error, (:malformed, key)),
+        n           => n
+    }
+}
+
+// JSON writes 1.0 as 1, so a probability arrives as either part.
+private result<float, EvalError> Number(string key, map<string, term> m)
+
+Number(key, m) -> :maps.find(key, m) switch {
+    :error   => (:error, (:malformed, key)),
+    (:ok, v) => ValidateAs<int | float>(v) switch {
+        (:error, _) => (:error, (:malformed, key)),
+        n           => Widen(n)
+    }
+}
+
+private float Widen(int | float n)
+
+Widen(int i)   -> Float.FromInt(i)
+Widen(float f) -> f
+

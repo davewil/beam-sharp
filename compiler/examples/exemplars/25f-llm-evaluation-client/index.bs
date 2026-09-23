@@ -1,0 +1,58 @@
+// EXTRACTED — do not edit here.
+// Source: wayfinder/prototypes/25f-llm-evaluation-client.md, section `index.bs`
+// Regenerate: compiler/bin/extract-exemplars.sh
+//
+// This file is OUT OF THE WALKING SKELETON SLICE and does not parse today.
+// It is a target for the compiler, not a passing example. The write-up it
+// came from carries the friction list explaining what is wrong with it and
+// why that is the point.
+
+module Support.Triage
+
+// Which service answers. ReqLLM reaches Jev two ways: TypeSafe's own
+// System One endpoint, and OpenRouter's Decisions API.
+type Provider = :typesafe | :openrouter
+
+record Model { Provider: Provider, Id: string }
+
+// The three things a Jev model can be asked. ReqLLM passes a map keyed by
+// `type`; here the kind is the record's tag.
+record Choice { Instructions: string, Criteria: list<(string, string)> }
+record Score  { Instructions: string, Criteria: list<string> }
+record YesNo  { Instructions: string }
+type Question = Choice | Score | YesNo
+
+record Chosen { Choice: string, Confidence: float }
+record Scored { Score: float, Confidence: float }
+record Likely { Probability: float }
+type Answer = Chosen | Scored | Likely
+
+record Usage      { InputTokens: int, OutputTokens: int }
+record Evaluation { Model: string, Answers: list<(string, Answer)>, Usage: Usage }
+
+// The transport is handed in, as ReqLLM's tests hand Req a plug.
+record HttpRequest { Url: string, Token: string, Body: binary }
+type HttpResponse = (int, binary)
+type Send = fn(HttpRequest) -> HttpResponse
+
+type EvalError = (:unknown_model, string) | (:status, int) | (:malformed, string)
+
+// What `json:decode/1` can hand back. `term` is the honest answer and is
+// refused: it absorbs the failure channel.
+type Json = map<term, term> | list<term> | binary | int | float | atom
+
+using :json {
+    term encode(term value)
+    result<Json, foreign_error> decode(binary text)
+}
+
+using :erlang {
+    binary iolist_to_binary(term data)
+}
+
+using :maps {
+    map<term, term> from_list(list<(binary, term)> pairs)
+    list<term> to_list(map<term, term> m)
+    (:ok, term) | :error find(binary key, map<term, term> m)
+}
+

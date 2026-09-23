@@ -43,3 +43,4 @@
 25c-event-queue-consumer	encode.bs	error: syntax error before: '<<'
 25d-database-querying	-	error: this directory holds `.bs` files and no `module` line
 25e-dynamic-web-page	index.bs	error: `module Shop.Page` does not match its directory
+25f-llm-evaluation-client	index.bs	error: `module Support.Triage` does not match its directory

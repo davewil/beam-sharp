@@ -1,0 +1,43 @@
+// EXTRACTED — do not edit here.
+// Source: wayfinder/prototypes/25f-llm-evaluation-client.md, section `route.bs`
+// Regenerate: compiler/bin/extract-exemplars.sh
+//
+// This file is OUT OF THE WALKING SKELETON SLICE and does not parse today.
+// It is a target for the compiler, not a passing example. The write-up it
+// came from carries the friction list explaining what is wrong with it and
+// why that is the point.
+
+type Department = :billing | :support
+
+record Route { Queue: Department, Page: bool }
+
+public Route Decide(Evaluation e)
+
+Decide(e) -> Route { Queue = Queue(Lookup("department", e.Answers)),
+                     Page  = Page(Lookup("urgent", e.Answers)) }
+
+private option<Answer> Lookup(string name, list<(string, Answer)> answers)
+
+Lookup(name, [])                    -> :nothing
+Lookup(name, [(== name, a), .._])   -> a
+Lookup(name, [_, ..rest])           -> Lookup(name, rest)
+
+// A department the model invents goes to support rather than crashing.
+private Department Queue(option<Answer> a)
+
+Queue(Chosen c) -> ParseAtom<Department>(c.Choice) switch {
+    :nothing => :support,
+    d        => d
+}
+Queue(Scored s) -> :support
+Queue(Likely l) -> :support
+Queue(:nothing) -> :support
+
+private bool Page(option<Answer> a)
+
+Page(Likely l) when l.Probability >= 0.8 -> true
+Page(Likely l) -> false
+Page(Chosen c) -> false
+Page(Scored s) -> false
+Page(:nothing) -> false
+

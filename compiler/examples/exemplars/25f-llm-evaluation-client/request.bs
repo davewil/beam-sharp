@@ -1,0 +1,45 @@
+// EXTRACTED — do not edit here.
+// Source: wayfinder/prototypes/25f-llm-evaluation-client.md, section `request.bs`
+// Regenerate: compiler/bin/extract-exemplars.sh
+//
+// This file is OUT OF THE WALKING SKELETON SLICE and does not parse today.
+// It is a target for the compiler, not a passing example. The write-up it
+// came from carries the friction list explaining what is wrong with it and
+// why that is the point.
+
+private string Url(Provider p)
+
+Url(:typesafe)   -> "https://api.typesafe.ai/v1/systemone"
+Url(:openrouter) -> "https://openrouter.ai/api/alpha/decisions"
+
+public binary Body(Model m, Json state, list<(string, Question)> questions)
+
+Body(m, state, qs) -> :erlang.iolist_to_binary(:json.encode(Envelope(m, state, qs)))
+
+// OpenRouter takes routing preferences; zero data retention is the one a
+// support desk asks for.
+private map<term, term> Envelope(Model m, Json state, list<(string, Question)> qs)
+
+Envelope(Model { Provider: :typesafe } m, state, qs) ->
+    :maps.from_list([("model", m.Id), ("state", state), ("questions", Wire(qs))])
+Envelope(Model { Provider: :openrouter } m, state, qs) ->
+    :maps.from_list([("model", m.Id), ("state", state), ("questions", Wire(qs)),
+                     ("provider", :maps.from_list([("zdr", true)]))])
+
+private map<term, term> Wire(list<(string, Question)> qs)
+
+Wire(qs) -> :maps.from_list(List.Map(qs, ((name, q)) => (name, WireQuestion(q))))
+
+// A yes/no question goes out as `noul`. ReqLLM's codec renames it on the way
+// out and back; here the rename is one clause each way.
+private map<term, term> WireQuestion(Question q)
+
+WireQuestion(Choice c) ->
+    :maps.from_list([("type", "choice"), ("instructions", c.Instructions),
+                     ("criteria", :maps.from_list(c.Criteria))])
+WireQuestion(Score s) ->
+    :maps.from_list([("type", "score"), ("instructions", s.Instructions),
+                     ("criteria", s.Criteria)])
+WireQuestion(YesNo y) ->
+    :maps.from_list([("type", "noul"), ("instructions", y.Instructions)])
+

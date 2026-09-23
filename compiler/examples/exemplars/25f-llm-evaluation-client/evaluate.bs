@@ -1,0 +1,30 @@
+// EXTRACTED — do not edit here.
+// Source: wayfinder/prototypes/25f-llm-evaluation-client.md, section `evaluate.bs`
+// Regenerate: compiler/bin/extract-exemplars.sh
+//
+// This file is OUT OF THE WALKING SKELETON SLICE and does not parse today.
+// It is a target for the compiler, not a passing example. The write-up it
+// came from carries the friction list explaining what is wrong with it and
+// why that is the point.
+
+public result<Evaluation, EvalError> Evaluate(Send send, string token, string spec, Json state, list<(string, Question)> questions)
+
+Evaluate(send, token, spec, state, qs) -> ParseSpec(spec) |?> Call(send, token, state, qs)
+
+private result<Evaluation, EvalError> Call(Model m, Send send, string token, Json state, list<(string, Question)> qs)
+
+Call(m, send, token, state, qs) ->
+    send(HttpRequest { Url = Url(m.Provider), Token = token, Body = Body(m, state, qs) }) |> Read()
+
+public result<Evaluation, EvalError> Read(HttpResponse r)
+
+Read((status, body)) when status >= 200 and status <= 299 -> Parse(body)
+Read((status, _))                                       -> (:error, (:status, status))
+
+private result<Evaluation, EvalError> Parse(binary body)
+
+Parse(body) -> :json.decode(body) switch {
+    (:error, _) => (:error, (:malformed, "the body is not JSON")),
+    doc         => Object(doc) |?> Decode()
+}
+
