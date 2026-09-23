@@ -149,3 +149,70 @@ Recommended: **yes.** A BEAM program reading its own records back mostly uses
 a webhook, an LLM provider. A decode answer that cannot read one leaves the common case on
 `:maps.find`.
 
+**Answered 2026-09-24 (David): yes.** Ticket 78's answer must decode a schema the program does not
+own. The choice between `ValidateAs<T>` and `FromJson<T>` waits on where a wire name lives.
+
+## Round 2 — 2026-09-24: does a wire name live in a type, or on the record?
+
+Asked alone: whether a record may arrive without `Kind`, whether `ToJson` writes the names back,
+and `ValidateAs` against `FromJson` all depend on it.
+
+**Measured first** (a scratch module per probe, `bsc` at `17ffead`). The brace field-set type
+ticket 48 found shipped already does most of it, with atom keys:
+
+| Probe | Result |
+|---|---|
+| `type UsageWire = { InputTokens: int, OutputTokens: int }`, destructured `Tokens({ InputTokens: i, OutputTokens: o })`, handed a map with an extra key | matches; extra keys pass, as a pattern is partial |
+| `ValidateAs<UsageWire>` on the same map | `(:error, … Path = [])`: the validator's field set is **exact** (26 §4), so the extra key is refused |
+| `ValidateAs<UsageWire>` with no extra key | accepted, returned unchanged |
+| `ToJson<UsageWire>` | `{"InputTokens":100,"OutputTokens":20}`: no `Kind`, since the type has none |
+| `type UsageWire = { "input_tokens": int }` | syntax error before `"input_tokens"` |
+
+So the field-set type has no tag and already crosses both directions; what it lacks is a key that
+is the wire's string.
+
+**The program, if the wire name lives in a type:**
+
+```csharp
+type UsageWire = { "input_tokens": int, "output_tokens": int }
+type ReplyWire = { "model": string, "answers": map<string, map<string, term>>, "usage": UsageWire }
+
+record Usage { InputTokens: int, OutputTokens: int }
+
+private result<ReplyWire, ValidationError> Read(term doc)
+Read(doc) -> ValidateAs<ReplyWire>(doc)
+
+private Usage Tokens(UsageWire u)
+Tokens({ "input_tokens": i, "output_tokens": o }) -> Usage { InputTokens = i, OutputTokens = o }
+```
+
+The wire type is structural: no `Kind`, no minted tag, keys exactly as the other side writes them.
+The domain record stays as 26 and 77 made it, and a clause head moves one to the other.
+Compiler delta: the field-set grammar takes a string literal as a key (`bs_parser.yrl`, the type
+and the pattern rule); `bs_types` map members keyed by a binary beside an atom; the printer writes
+it back quoted; `ValidateAs` and `ToJson` walk it unchanged, since both read the key from the type.
+
+**The program, if the wire name lives on the record:**
+
+```csharp
+record Usage { InputTokens: int <wire name "input_tokens">, OutputTokens: int <wire name "output_tokens"> }
+
+private result<Usage, ValidationError> Read(term doc)
+Read(doc) -> ValidateAs<Usage>(doc)
+```
+
+(`<wire name …>` is a placeholder; no spelling is proposed.) One declaration, no copying. But the
+record now has two names per field, it must be allowed to arrive without `Kind`, and `ToJson<Usage>`
+must decide whether it writes `"InputTokens"` (77's row) or `"input_tokens"`. Compiler delta: a
+field annotation in the grammar; the validator matches the wire key and supplies the minted
+`Kind`; the encoder chooses a key per field; 77's record row is amended.
+
+**Q2. Does a field's wire name live in a structural type whose keys are the wire's strings, or on
+the record?**
+
+Recommended: **a type.** It is one grammar addition to a construct that already carries no tag
+and already crosses both directions, and it leaves `Kind` and 77's record row alone. The copy into
+the domain record is one clause head per object, which is the language's own idiom for taking a
+term apart. The record route makes three decisions (field annotation, `Kind`-less arrival, which
+name `ToJson` writes) in order to avoid that clause.
+
