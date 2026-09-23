@@ -1,25 +1,11 @@
 %%% bs_api — `bsc --api <Module>`: what operations a module offers, in
-%%% beam-sharp's own types, with nothing built (F17, ticket 23 §10).
+%%% beam-sharp's own types, with nothing built.
 %%%
-%%% Two rules shape it. A signature's types resolve from declarations alone —
-%%% the module's own, and since ticket 73 (F44) those of the modules its
-%%% `using` lines reach, read in dependency order by `bsc:type_world/2` and
-%%% resolved by `bs_check:exports_of/2` — with nothing compiled, which is
-%%% what makes "no build" true. And the answer prints RESOLVED types, never
-%%% a type's name: a name is the author's spelling, a dependent may now
-%%% spell the same type as `Order`, `Orders.Order` or a hand-written map
-%%% with the tag, and the resolved form is the one every caller can rely on.
-%%%
-%%% The refusal line is "is every declaration true", not "does it compile".
-%%% An inexhaustive body still answers, because the API is what the signatures
-%%% declare. An unknown type, a file that will not parse, and a `module` line
-%%% that does not match its path are refused: each makes a declaration untrue,
-%%% and the module atom is part of the answer (ticket 41 §5).
-%%%
-%%% Nothing here truncates. Nor does anything here carry a residual: the API
-%%% is the signatures, and the untruncated residual travels on `--diagnostics
-%%% term` (F16). Ticket 43 once named `--api` as that channel; corrected
-%%% 2026-09-11 (ENG-265).
+%%% Types resolve from declarations alone (`bsc:type_world/2`, then
+%%% `bs_check:exports_of/2`); nothing is compiled. The answer prints resolved
+%%% types, never a type's name. A module is refused when a declaration is
+%%% untrue, not when a body is inexhaustive.
+%%% Rationale: compiler/features/F17-compiler-query-mode.md.
 -module(bs_api).
 
 -export([answer/3]).
@@ -31,7 +17,7 @@
 %%% CLI mode, so every test for this feature drives the built escript.
 %%% ---------------------------------------------------------------------------
 
-%% A namespace named on the command line arrives with EMPTY paths, because
+%% A namespace named on the command line arrives with empty paths, because
 %% `bsc:is_path_arg/1` counts a directory as a path only if it is a module. It
 %% gets the precise refusal rather than the general one below.
 answer([], [A | _], _Root) ->
@@ -52,15 +38,15 @@ answer([], [], _Root) ->
               "      bsc --src-root examples --api examples/Shop/Reports~n", []),
     bsc:exit_with(2);
 answer(Paths, [], Root) ->
-    %% A path that does not exist is refused HERE. A `.bs` suffix makes an
+    %% A path that does not exist is refused here. A `.bs` suffix makes an
     %% argument a path whether or not the file exists, and `module_dir_of/1`
-    %% would then answer about its directory, which may be a real module
-    %% nobody named.
+    %% would then answer about its directory, which may be a real module nobody
+    %% named.
     case [P || P <- Paths, not filelib:is_file(P)] of
         [Missing | _] -> refuse_not_a_module(Missing);
         [] ->
             %% Naming a file names its module, and `bsc:module_dir_of/1` is
-            %% that rule's one implementation (F15).
+            %% that rule's one implementation.
             Dirs = lists:usort([bsc:module_dir_of(P) || P <- Paths]),
             lists:foreach(fun(D) -> module(D, Root) end, Dirs),
             bsc:exit_with(0)
@@ -71,7 +57,7 @@ module(Dir, Root) ->
     Decls = lists:append([D || {_, D} <- Sources]),
     Module = declared_module(Decls),
     ok = check_path(Dir, Root, Module, Decls, Sources),
-    %% What the module's `using` lines reach, read and never built (F44).
+    %% What the module's `using` lines reach, read and never built.
     World = bsc:type_world(Dir, Root),
     Exports = resolved(Decls, Sources, World),
     publish(bs_diag:channel(), Dir, Module,
@@ -110,8 +96,8 @@ declared_module(Decls) ->
 %%% The `module` line must match the path, and `--api` checks it
 %%%
 %%% The answer names the module atom a caller writes on a `using` line. The
-%%% compiler refuses a declaration that does not match its path, so reporting
-%%% one here would hand back a name that never resolves (ticket 41 §5). This
+%%% compiler refuses a declaration that does not match its path, so
+%%% reporting one here would hand back a name that never resolves. This
 %%% check is the one thing in this mode that `--src-root` governs.
 %%% ---------------------------------------------------------------------------
 
@@ -130,11 +116,11 @@ expected(Dir, Root, Sources) ->
         error:Reason when is_tuple(Reason) -> fail(primary(Sources), Reason)
     end.
 
-%% The fallback is a POSITION, not a line. A file with no `module` line has
+%% The fallback is a position, not a line. A file with no `module` line has
 %% nothing to point at, so the diagnostic is attributed to the top of it —
-%% and since F35 the top of a file is `{1, 1}`, because every descriptor that
-%% names a line names a column beside it and `message/1` has no catch-all to
-%% fall through to when one is missing.
+%% the top of a file is `{1, 1}`, because every descriptor that names a line
+%% names a column beside it and `message/1` has no catch-all to fall
+%% through to when one is missing.
 module_line(Decls) ->
     case [L || {module, L, _} <- Decls] of
         [L | _] -> L;
@@ -153,10 +139,10 @@ primary([])           -> "".
 %%% ---------------------------------------------------------------------------
 
 %% This module reports and never re-derives: `exports_of/2` resolves every
-%% public signature, and this adds only what the export table cannot carry,
-%% the declaring file and line and the parameter names. A refusal goes
-%% through `hinted/2` as a compile's does, so an unknown type that a
-%% reachable module declares is refused in the same words here (F44).
+%% public signature, and this adds only what the export table cannot
+%% carry, the declaring file and line and the parameter names. A refusal
+%% goes through `hinted/2` as a compile's does, so an unknown type that a
+%% reachable module declares is refused in the same words here.
 resolved(Decls, Sources, World) ->
     try bs_check:exports_of(Decls, World)
     catch
@@ -164,7 +150,7 @@ resolved(Decls, Sources, World) ->
             fail(primary(Sources), bs_check:hinted(Reason, World))
     end.
 
-%% Sorted by name then arity, not source order: a module is a directory (F15),
+%% Sorted by name then arity, not source order: a module is a directory,
 %% so source order is an artefact of how the author split the files.
 operations(Sources, Exports, Module) ->
     lists:sort(
@@ -174,16 +160,14 @@ operations(Sources, Exports, Module) ->
       [operation(File, Sig, Exports, Module)
        || {File, Decls} <- Sources,
           %% `=:= public`, not `=/= private`: an unmarked signature carries
-          %% `none` and is private (F12), so the inverted test would publish
-          %% every unmarked function.
+          %% `none` and is private, so the inverted test would publish every
+          %% unmarked function.
           {signature, _, _, _, _, public, _} = Sig <- Decls]).
 
-%% A POSITION IS BOTH HALVES (F35). The parser hands the signature a
+%% A position is both halves. The parser hands the signature a
 %% `{Line, Column}` pair, and it is split into two keys here as `bs_diag`
-%% splits every descriptor's. It was not, from F35 until F47: the pair went
-%% out whole under `line`, which every `~0p` reader tolerated and the JSON
-%% channel was the first to refuse — `json:encode` has no rendering for a
-%% tuple, and that refusal is what found the regression.
+%% splits every descriptor's. `json:encode` has no rendering for a tuple,
+%% so the pair must not go out whole under `line`.
 operation(File, {signature, {Line, Column}, Name, Ret, Params, public, TVars},
           Exports, Module) ->
     {ParamTypes, Result} = maps:get({Name, length(Params)}, Exports),
@@ -199,10 +183,11 @@ operation(File, {signature, {Line, Column}, Name, Ret, Params, public, TVars},
 
 %% A polymorphic signature has no ground resolution to publish: its resolved
 %% form is the extent, `term Pick(term, term)`, which is true of the function
-%% and says nothing a caller can rely on. So it is published as WRITTEN —
-%% the declaration a call instantiates — with its variables listed beside it
-%% (F45). A written form the source printer cannot render falls back to the
-%% resolved one for that position alone.
+%% and says nothing a caller can rely on. So it is published as written — the
+%% declaration a call instantiates — with its variables listed beside it. A
+%% written form the source printer cannot render falls back to the resolved one
+%% for that position alone.
+%% Rationale: compiler/features/F45-polymorphic-signatures.md.
 written(Op, TVars, Ret, Params, ParamTypes, Result) ->
     Op#{type_variables => TVars,
         params => [#{name => PName, type => source_or(T, R)}
@@ -216,25 +201,22 @@ source_or(Surface, Resolved) ->
     end.
 
 %% The exact top type prints as `term` on every channel; that rule lives in
-%% `bs_types:to_string/1`, not here (ticket 61).
+%% `bs_types:to_string/1`, not here.
 type_string(T) -> bs_types:to_string(T).
 
 %%% ---------------------------------------------------------------------------
 %%% Publishing
 %%%
-%%% The answer goes on the encoding `--diagnostics` selected, read from
-%%% `bs_diag:channel()` rather than a second flag (F16), and it is printed
-%%% once: a diagnostic goes to both streams because a human and a tool may
-%%% both be watching, but a query has one consumer.
+%%% The encoding is `bs_diag:channel()`, set by `--diagnostics`. The answer
+%%% is printed once, on stdout.
 %%% ---------------------------------------------------------------------------
 
 publish(prose, _Dir, Module, Behaviours, Ops) ->
     io:format("module ~s~n", [Module]),
     [io:format("behaviour ~s~n", [B]) || B <- Behaviours],
-    %% No `public` marker, because every line here is public by construction
-    %% (F12), and no parameter names, because a caller supplies a value, not a
-    %% name. The names travel in the term, which is the full-fidelity
-    %% form (F16).
+    %% No `public` marker, because every line here is public by construction,
+    %% and no parameter names, because a caller supplies a value, not a name.
+    %% The names travel in the term, which is the full-fidelity form.
     [io:format("~s ~s~s(~s)~n",
                [Result, Name, variables(Op),
                 lists:join(", ", [T || #{type := T} <- Ps])])
@@ -242,30 +224,28 @@ publish(prose, _Dir, Module, Behaviours, Ops) ->
     nothing_public(Module, Ops);
 publish(term, Dir, Module, Behaviours, Ops) ->
     %% One map per line under `~0p`, so a consumer splits on newlines rather
-    %% than matching brackets (F16).
+    %% than matching brackets.
     io:format("~0p~n", [#{tag => module, module => Module, path => Dir,
                           behaviours => Behaviours, operations => length(Ops)}]),
     [io:format("~0p~n", [Op]) || Op <- Ops],
     nothing_public(Module, Ops);
 publish(json, Dir, Module, Behaviours, Ops) ->
-    %% The same maps, one object per line, in the wire form `bs_diag` owns
-    %% (F47): the encoding and the framing are the channel's, not this
+    %% The same maps, one object per line, in the wire form `bs_diag`
+    %% owns: the encoding and the framing are the channel's, not this
     %% module's.
     [bs_diag:put_json(M)
      || M <- [#{tag => module, module => Module, path => Dir,
                 behaviours => Behaviours, operations => length(Ops)} | Ops]],
     nothing_public(Module, Ops).
 
-%% `<T, E>` after the name, as the author wrote it (F45); nothing for a
-%% ground signature, so every line before F45 prints as it did.
+%% `<T, E>` after the name, as the author wrote it; nothing for a ground
+%% signature.
 variables(#{type_variables := Vs}) ->
     "<" ++ lists:join(", ", [atom_to_list(V) || V <- Vs]) ++ ">";
 variables(_) -> "".
 
-%% Zero operations is an answer, so exit 0 — unlike `bsc`'s `{ambiguous, []}`
-%% at exit 2, where the user asked to run something. The teaching sentence goes
-%% to stderr in both channels so stdout stays parseable; private is the default
-%% (F12), so an unmarked module is the first thing a newcomer meets.
+%% Zero operations is an answer: exit 0, with the explanation on stderr so
+%% stdout stays parseable.
 nothing_public(_Module, [_ | _]) -> ok;
 nothing_public(Module, []) ->
     io:format(standard_error,

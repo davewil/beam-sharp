@@ -1,128 +1,77 @@
-%%% The checker: the declaration pass, name scope, exhaustiveness and the
-%%% body check, over the parsed declarations of one module.
-%%%
-%%% Exhaustiveness is a subtraction (ticket 04):
-%%%
-%%%   residual := the declared input type
-%%%   for each clause: residual := residual \ (what that clause matches)
-%%%   exhaustive iff residual is empty
-%%%
-%%% A signature is mandatory because the residual starts from the declared
-%%% input type; without one there is nothing to subtract from (ticket 04).
-%%% A guard the checker can translate into a type operation narrows what its
-%%% clause subtracts; one it cannot translate credits nothing, so the clause
-%%% subtracts only what its pattern alone matches (tickets 08, 20).
-%%%
-%%% In file order: the directory-shaped module and its declaration refusals;
-%%% imports and the callee tables; surface types resolved into `bs_types`'
-%%% algebra, with the standard environment and the reserved qualifiers; the corrected
-%%% signature; scope; the body check at the five sites where a type is
-%%% declared; patterns as types; guards as type operations. `bs_emit` reads
-%%% the resolver and the tables from here rather than keeping copies.
+%%% The checker: declarations, scope, exhaustiveness and clause bodies.
+%%% Exhaustiveness subtracts each clause's matched type from the declared
+%%% input; a signature is required to supply that input. Translatable guards
+%%% narrow the subtraction; other guards leave only the pattern's contribution.
+%%% `bs_emit` shares this module's resolver and tables.
 
 -module(bs_check).
 
 -export([check/1, check/2]).
-%% `check_dir/3` is the one implementation of the declaration pass; `check/2`
-%% is its single-source case (F15).
+%% `check/2` is the single-source case of the `check_dir/3` declaration pass.
 -export([check_dir/2, check_dir/3]).
-%% What a checked module offers and withholds from its dependents. `bsc`
-%% builds a dependent's import environment from these, out of modules it has
-%% already checked in the same invocation (ticket 41 §3).
+%% `bsc` builds imports from modules already checked in this invocation.
 -export([exports_of/1, exports_of/2, private_of/1, types_of/3, hinted/2]).
-%% The polymorphic half of a module's exports, and the erased environment
-%% the emitter publishes a polymorphic signature under (F45).
+%% The emitter publishes polymorphic signatures under the erased environment.
 -export([polys_of/2, erased_env/2, type_source/1]).
-%% The emitter resolves surface types and mints record tags through these,
-%% so the qualified-name rule has one site (ticket 26 §1).
+%% The emitter shares type resolution and qualified record tags here.
 -export([resolve/2, qualified/2, record_fields/1]).
-%% The emitter subtracts what a clause head already proves from the declared
-%% refinement, so the boundary guard carries only the rest (F37, ticket 46 §2).
+%% The emitter subtracts clause-head guarantees from the declared refinement so
+%% boundary guards check only the remainder.
 -export([clause_accepts/2]).
-%% The emitter asks which qualifiers are reserved, to emit a local form
-%% rather than a remote call, and which operations exist under them, to
-%% generate exactly the functions the checker admitted (ticket 67).
+%% The emitter uses these tables to lower reserved calls locally and emit only
+%% operations admitted by the checker.
 -export([reserved_qualifiers/0, reserved_table/0]).
-%% The emitter builds `ParseAtom<T>`'s arms from the same member list the
-%% checker admitted `T` on, so the two cannot disagree about what `T` holds.
+%% The emitter builds `ParseAtom<T>` arms from the admitted member list.
 -export([parse_atom_members/1, built_obligations/0, codegen_obligations/0]).
 
-%% Fault injection for two branches no program is known to reach: F25.20's
-%% compiler-defect branch of `as_pasted/2`, handed an environment `type_env/1`
-%% never builds, and F25.27's fallback in `declared_text/2`, handed a form the
-%% grammar does not have. Test builds only.
+%% Fault injection reaches otherwise unreachable branches in `as_pasted/2` and
+%% `declared_text/2`.
 -ifdef(TEST).
 -export([as_pasted/2, declared_text/2, declarations_pasted/3, declared_records/6]).
 -endif.
 
-%% `vis` stays last: `bs_emit` reads this record positionally through
-%% `element/2`, so every earlier field keeps its index. The default is
-%% `private`, matching the language's (ticket 40 §3).
-%% `tvars` is last on purpose: `bs_emit` reads this record by element
-%% position (`element(5, F)` is `params`), so a field added anywhere else
-%% would silently shift every read (F45).
+%% Keep record field positions stable: `bs_emit` reads them with `element/2`
+%% (`element(5, F)` is `params`). Append fields after `tvars`.
 -record(fn, {name, line, ret, params, clauses = [], vis = private, tvars = []}).
 
-%% One clause's checking context. `types` is the only field `resolve/2`
-%% reads, because the emitter calls `resolve/2` with that map directly.
-%% `params` is the declared parameter list of the function being checked, as
-%% `{Name, ResolvedType}` — carried because a refusal may have to WRITE A HEAD
-%% for this function, and a head needs every position, not just the one the
-%% refusal is about. F53 shipped without it and printed `Sum(int n)` for a
-%% two-parameter `Sum`, which pastes back as "Sum has a signature but no
-%% clauses": advice that does not compile, the very defect its own gate exists
-%% to catch.
+%% `resolve/2` reads only `types`; the emitter passes that map directly.
+%% `params` holds every `{Name, ResolvedType}` so diagnostics can suggest
+%% complete clause heads.
 -record(ctx, {types = #{}, callees = #{}, ret, fname, arity = 0, binds = #{},
               params = [],
               imports = #{},
-              %% Polymorphic callees, keyed as `callees` is: the template a
-              %% call solves for its return (F45, ticket 37).
+              %% Polymorphic return templates use the same keys as `callees`.
               polys = #{},
-              %% The function being checked's own type variables, so a
-              %% codegen obligation can refuse to be generated over one.
+              %% Own type variables prevent codegen obligations over unresolved
+              %% types.
               tvars = []}).
 
-%%% ---------------------------------------------------------------------------
 %%% Entry point
-%%% ---------------------------------------------------------------------------
 
 %% Returns {ok, Module, [Diagnostic]} | {error, [Diagnostic]}.
 check(Decls) -> check(Decls, #{}).
 
-%% `World` maps a module atom to what checking it produced:
-%%   #{'Shop.Orders' => #{exports => #{{Name, Arity} => {Params, Ret}},
-%%                        behaviours => [atom()],
-%%                        types => #{Name => ResolvedType}}}     (F44)
-%% `bsc` threads it from modules checked in this invocation; nothing is read
-%% from disk, so nothing can go stale (ticket 41 §3).
+%% `World` maps module atoms to checked exports, behaviours and resolved types.
+%% `bsc` supplies modules checked in this invocation; nothing is read from
+%% disk.
 check(Decls, World) ->
     case check_dir([{undefined, Decls}], World, undefined) of
         {ok, Module, Tagged} -> {ok, Module, [D || {_, D} <- Tagged]};
         {error, Tagged}      -> {error, [D || {_, D} <- Tagged]}
     end.
 
-%%% ---------------------------------------------------------------------------
-%%% Checking an aggregate: several files, one module (F15)
-%%%
-%%% The directory is the unit of compilation (ticket 13 §3). The declaration
-%%% pass runs over the whole directory as one scope, and the function pass
-%%% runs per file, so every diagnostic arrives beside the path it belongs to.
-%%% A lookup by function name could not do that: a diagnostic carries a name
-%%% and no arity, a name may carry two arities (ticket 40 §2), and one
-%%% function per file puts them in two files.
-%%%
-%%% `Expect` is the module atom the directory path implies, or `undefined`
-%%% for callers with no path (`check/2`, the REPL, `compile_string/2`). The
-%%% path arithmetic lives in `bsc`, where `--src-root` is parsed; only the
-%%% comparison and the refusal live here (ticket 41 §5).
-%%% ---------------------------------------------------------------------------
+%%% Checking a directory
+%%% The declaration pass covers the whole directory; functions are checked per
+%%% file to preserve diagnostic paths. A name alone cannot identify a file
+%%% because different arities may live in different files. `Expect` is the
+%%% module atom computed by `bsc` from the directory path, or `undefined` for
+%%% callers without a path.
+%%% Rationale: compiler/features/F15-module-is-a-directory.md.
 
 check_dir(Sources, World) -> check_dir(Sources, World, undefined).
 
 check_dir(Sources, World, Expect) ->
-    %% A type name nobody declared may be one a reachable module declares,
-    %% and only the world knows: the refusal is rewritten on the way out to
-    %% name the `using` that would supply it (F44).
+    %% Unknown-type errors can suggest a `using` from the reachable world.
     with_type_hints(World, fun() -> check_dir1(Sources, World, Expect) end).
 
 check_dir1(Sources, World, Expect) ->
@@ -131,107 +80,80 @@ check_dir1(Sources, World, Expect) ->
     [no_function_in_index(P, D) || {P, D} <- Sources],
     compiler_known_redeclared(Decls),
     compiler_known_function(Decls),
-    %% The imports come before the type environment now, because a producer's
-    %% `record` and `type` names cross `using` (ticket 73, F44) and a local
-    %% declaration may name one: `type Wide = Orders.Doc | Triangle` resolves
-    %% against what `using Orders` brought in.
+    %% Imports must precede the type environment: local declarations may refer
+    %% to imported records and aliases.
     Self = module_name(Decls),
     Imports = import_env(Decls, Self, World, strict),
     Env = type_env(Decls, Imports, World),
-    %% A declared type whose failure channel collapses is refused here, by
-    %% the same env every other declaration refusal uses, before any later
-    %% diagnostic can describe the collapsed type (F31, ticket 15 §1).
+    %% Refuse collapsed failure channels before later diagnostics can describe
+    %% the collapsed type.
     collapse_refused(Decls, Env),
-    %% A foreign return that one guard cannot decide is refused here too,
-    %% before `foreign_wrappers/2` asks `error_members/1` what the type's
-    %% members are: a recursive type has none to give and crashed there
-    %% (ENG-355), and the refusal is the answer to that declaration (18 §2,
-    %% F40).
+    %% Refuse undecidable foreign returns before `foreign_wrappers/2` calls
+    %% `error_members/1`, which requires non-recursive members.
     foreign_rets_decidable(Decls, Env),
-    %% `ToJson<T>` is met in a clause body, but whether `T` has a wire form is
-    %% a fact about `T` alone, so it is refused here, where `exports_of/2`
-    %% refuses it too: `--api` never types a body, and a refusal met only
-    %% while typing one printed a signature for a module a compile refuses
-    %% (F50, ticket 77).
+    %% Check `ToJson<T>` wire forms here and in `exports_of/2` so `--api`,
+    %% which does not type bodies, agrees with compilation.
     to_json_refused(Decls, Env),
     Module = module_name(Decls),
-    %% The reserved-name refusal runs before the path check, so `module List`
-    %% gets the same answer in any directory rather than a path-mismatch
-    %% refusal that looks like a reserved-name one (ticket 67 clause 2).
+    %% Reserved-name checks precede path checks so the reserved-name diagnostic
+    %% is independent of the directory.
     reserved_module_name(Module, Sources),
     module_matches_path(Module, Sources, Expect),
     name_redeclared(Decls),
     private_callback(Decls),
     PerFile = [{P, collect(D)} || {P, D} <- Sources],
     Fns = lists:append([F || {_, F} <- PerFile]),
-    %% A foreign declaration belongs to the directory's declaration pass,
-    %% which `foreign_rets_decidable/2` above has already refused the
-    %% undecidable of (F19, F40); every return reaching here has members.
     Foreigns = foreign_wrappers(Decls, Env),
     Ctx = #ctx{types = Env, callees = callees(Decls, Env, Imports),
                polys = polys(Decls, Env, Imports),
                imports = Imports},
     Tagged0 = lists:append([check_file(P, Fs, Ctx) || {P, Fs} <- PerFile]),
-    %% The prune notes ride the diagnostic channel out of the walk and are
-    %% taken off it here, before anything can try to print one. They are not
-    %% diagnostics: nothing is wrong, and the author is told nothing.
+    %% Internal notes travel through the diagnostic channel; remove them before
+    %% printing diagnostics.
     {Notes, Tagged} = lists:partition(
                         fun({_, D}) -> lists:member(element(1, D), [prune, fname, fdiv]) end,
                         Tagged0),
     Prunes = maps:from_list([{B, Dead} || {_, {prune, B, Dead}} <- Notes]),
-    %% A bare name's resolved arity, keyed by the token's position, which
-    %% is unique per token; the emitter writes `fun Name/Arity` from it (F46).
+    %% Token positions uniquely key bare names' resolved arities; the emitter
+    %% uses them for `fun Name/Arity`.
     Fnames = maps:from_list([{Loc, Key} || {_, {fname, Loc, Key}} <- Notes]),
-    %% The `/` sites whose operands are both floats, keyed by the operator's
-    %% position; the emitter lowers those to the BEAM's `/` and every other
-    %% `/` to `div` (F51, ticket 69; 38 §4's door).
+    %% The emitter lowers these float-operand sites to BEAM `/`; other `/`
+    %% sites lower to `div`. Keys are operator positions.
     Fdivs = maps:from_list([{Loc, float} || {_, {fdiv, Loc, float}} <- Notes]),
     Fns1 = prune_valves(Fns, Prunes),
     PerFile1 = [{P, prune_valves(Fs, Prunes)} || {P, Fs} <- PerFile],
     case [D || {_, D} <- Tagged, element(1, D) =:= error] of
         []     -> {ok, #{module => Module, functions => Fns1, env => Env,
-                         %% Per-file functions, so the emitter can put a
-                         %% file attribute in front of each file's (F15).
+                         %% The emitter places file attributes before each
+                         %% file's functions.
                          files => PerFile1,
-                         %% Every type this module declares, resolved, so
-                         %% the emitter can put every atom they name into
-                         %% the chunk even where no signature names the type
-                         %% (ticket 87, ENG-397). A parametric alias is
-                         %% resolved under the OPAQUE binding, each variable
-                         %% a singleton atom spelled as the variable: erased
-                         %% to `term` its literals would be absorbed into
-                         %% the top, and `:fast | T` would name nothing. The
-                         %% variables' atoms travel beside so the emitter can
-                         %% leave them out of the chunk.
+                         %% The emitter retains atoms from all declared types
+                         %% in the chunk. Opaque alias variables preserve
+                         %% literals that `term` would absorb; `type_vars` lets
+                         %% the emitter exclude the variables' own atoms.
                          declared_types => declared_types(Decls, Env),
                          type_vars => lists:usort(lists:append(
                              [Ps || {type_alias, _, _, Ps, _} <- Decls])),
                          behaviours => behaviours(Decls),
-                         %% Imports resolve at check time; the emitter reads
-                         %% this table rather than resolving again (41 §2).
+                         %% The emitter consumes imports resolved at check
+                         %% time.
                          imports => resolved_funs(Imports, local_keys(Decls)),
-                         %% A short name resolves to its full module here,
-                         %% and the emitter writes that full atom into the
-                         %% remote call, never the short spelling.
+                         %% The emitter writes full module atoms for short
+                         %% names.
                          qmods => resolved_mods(Imports),
-                         %% Whether a remote `HandleCall/3` lowers to
-                         %% `handle_call/3` depends on the callee's declared
-                         %% behaviours, so the emitter is told per
-                         %% callee (F10).
+                         %% Remote callback names depend on each callee's
+                         %% declared behaviours.
                          remote_names => remote_names(World),
-                         %% Which foreign calls owe a `try`, keyed by the
-                         %% triple `e_foreign_call` carries: decided here,
-                         %% looked up by the emitter (F19, ticket 15 §4).
+                         %% The emitter uses the `e_foreign_call` triple to
+                         %% find calls requiring `try`.
                          foreigns => Foreigns,
                          fnames => Fnames,
                          fdivs => Fdivs}, Tagged};
         _Fatal -> {error, Tagged}
     end.
 
-%% One file's functions, with anything raised out of them tagged with that
-%% file, so a raised condition is reported against the file it came from and
-%% not the module's first file. Not wrapped when there is no path:
-%% `check/2`'s callers get the bare tuple.
+%% Raised function errors retain their source file. Pathless `check/2` callers
+%% receive bare tuples.
 check_file(undefined, Fns, Ctx) ->
     [{undefined, D} || F <- Fns, {_, Ds} <- [check_fn(F, Ctx)], D <- Ds];
 check_file(Path, Fns, Ctx) ->
@@ -241,13 +163,9 @@ check_file(Path, Fns, Ctx) ->
             erlang:error({in_file, Path, Reason})
     end.
 
-%%% ---------------------------------------------------------------------------
-%%% The refusals a directory-shaped module adds (F15)
-%%% ---------------------------------------------------------------------------
+%%% Directory declarations
 
-%% One directory is one module: two files declaring different modules is an
-%% error. A file with no `module` line inherits the directory's, which is
-%% the common case under one function per file (ticket 41 §4).
+%% Files without a module declaration inherit the directory's module.
 one_module_per_directory(_Sources, undefined) -> ok;
 one_module_per_directory(Sources, _Expect) ->
     Declared = [{P, N, L} || {P, D} <- Sources, {module, L, N} <- D],
@@ -258,15 +176,13 @@ one_module_per_directory(Sources, _Expect) ->
         _   -> erlang:error({module_disagreement, lists:sort(Declared)})
     end.
 
-%% `index.bs` holds everything except functions, as an error rather than a
-%% convention; a `foreign` declaration is a function signature and is caught
-%% too (ticket 41 §4).
+%% `index.bs` excludes functions, including foreign signatures.
 no_function_in_index(Path, Decls) when is_list(Path) ->
     case filename:basename(Path) of
         "index.bs" ->
             case [{N, L} || {signature, L, N, _, _, _, _} <- Decls] of
-                %% Wrapped with the path because this raise site knows its
-                %% file; `resolve_error/2` unwraps and re-dispatches.
+                %% `resolve_error/2` unwraps this file attribution and
+                %% re-dispatches.
                 [{N, L} | _] ->
                     erlang:error({in_file, Path, {function_in_index, N, L}});
                 []           -> ok
@@ -275,33 +191,25 @@ no_function_in_index(Path, Decls) when is_list(Path) ->
     end;
 no_function_in_index(_Path, _Decls) -> ok.
 
-%% A file's `module` declaration must match its directory path (ticket 41
-%% §5). `Expect` arrives computed, since the path arithmetic is a CLI concern.
+%% `bsc` computes `Expect` from the directory path.
 module_matches_path(_Module, _Sources, undefined) -> ok;
 module_matches_path(Module, _Sources, Module) -> ok;
 module_matches_path(Module, Sources, Expect) ->
-    %% The fallback is a POSITION, not a line: a file with no `module` line
-    %% has nothing to point at, so this is attributed to the top of it, and
-    %% since F35 the top of a file is `{1, 1}`. A bare integer here reaches
-    %% `bs_diag` as a descriptor with a line and no column, and `message/1`
-    %% has no catch-all — it crashes rather than printing half a position.
+    %% The fallback must be `{1, 1}`: `bs_diag` requires both line and column
+    %% when the file has no module declaration.
     Line = case [L || {_, D} <- Sources, {module, L, N} <- D, N =:= Module] of
                [L | _] -> L;
                []      -> {1, 1}
            end,
     erlang:error({module_path_mismatch, Module, Expect, Line}).
 
-%% A reserved qualifier is not a module name, for the reason a compiler-known
-%% type may not be redeclared: the name would mean two things (ticket 67
-%% clause 2). Only the whole name is compared, so `Shop.Collections.List`
-%% stays legal; the path segment is not burned (67 Q6).
+%% Only whole module names are reserved; a path segment such as `List` in
+%% `Shop.Collections.List` is legal.
 reserved_module_name(Module, Sources) ->
     case lists:member(Module, reserved_qualifiers()) of
         false -> ok;
         true  ->
-            %% `{1, 1}` for the same reason as `module_matches_path/3`
-            %% above: the fallback is a position, and the top of a file is
-            %% both halves of one.
+            %% The fallback must include both line and column for `bs_diag`.
             Line = case [L || {_, D} <- Sources, {module, L, N} <- D,
                               N =:= Module] of
                        [L | _] -> L;
@@ -310,11 +218,8 @@ reserved_module_name(Module, Sources) ->
             erlang:error({reserved_module_name, Module, Line})
     end.
 
-%% The behaviours this module implements, each checked for completeness: a
-%% missing callback is an error at the declaration, not an attribute quietly
-%% dropped or an undefined-callback report from `erlc` against the emitted
-%% file (ticket 35 §3). Presence only: Dialyzer already checks callback
-%% types at the boundary against OTP's own `-callback` declarations.
+%% Missing callbacks are declaration errors. Only presence is checked here;
+%% Dialyzer checks types against OTP's `-callback` declarations.
 behaviours(Decls) ->
     Defined = [{N, length(Ps)} || {signature, _, N, _, Ps, _, _} <- Decls],
     [begin
@@ -331,14 +236,11 @@ module_name(Decls) ->
         []      -> 'Main'
     end.
 
-%%% ---------------------------------------------------------------------------
-%%% The module system (F11)
-%%% ---------------------------------------------------------------------------
+%%% The module system
 
-%% A name may carry more than one arity (ticket 40 §2), so the duplicate is
-%% {Name, Arity}, never Name. It fires before the exhaustiveness walk, which
-%% would otherwise merge two same-arity signatures into one function and
-%% report the later clauses as unreachable.
+%% Duplicates are keyed by name and arity to allow overloading. Check before
+%% exhaustiveness can merge duplicate signatures and report unreachable
+%% clauses.
 name_redeclared(Decls) ->
     Sigs = [{{N, length(Ps)}, L} || {signature, L, N, _, Ps, _, _} <- Decls],
     Grouped = lists:foldl(fun({K, L}, Acc) ->
@@ -349,20 +251,13 @@ name_redeclared(Decls) ->
         [{N, A, L} | _]     -> erlang:error({name_redeclared, N, A, L})
     end.
 
-%%% ---------------------------------------------------------------------------
-%%% Visibility: `public` and `private` (F12)
-%%% ---------------------------------------------------------------------------
+%%% Visibility
 
-%% An unmarked signature is private (ticket 40 §3). The parser yields `none`
-%% for it, and every reader here tests `=:= public` rather than `=/=
-%% private`, so `none` can never be mis-sorted as exported. `private` stays
-%% legal and says what the absence already says.
+%% The parser marks unannotated signatures `none`. Only `public` is exported;
+%% testing for absence of `private` would export unannotated signatures.
 
-%% A private callback is an error: `-behaviour` has no runtime effect and
-%% only exports matter, so `gen_server` calling a private `HandleCall/3`
-%% would fail at run time (tickets 06, 40 §3). Contract-scoped as F10's
-%% table is: a row fires only for a name and arity that is a callback of a
-%% behaviour this module declares.
+%% OTP calls require exports; `-behaviour` has no runtime effect. Require
+%% public visibility only for callbacks of this module's declared behaviours.
 private_callback(Decls) ->
     Behaviours = [B || {behaviour, _, B} <- Decls],
     Private = [{N, length(Ps), L} || {signature, L, N, _, Ps, V, _} <- Decls, V =/= public],
@@ -373,46 +268,31 @@ private_callback(Decls) ->
         [{N, A, L, Otp} | _]  -> erlang:error({private_callback, N, A, Otp, L})
     end.
 
-%% What a checked module offers its dependents: every public function it
-%% declares, keyed by name and arity. `private_of/1` carries the rest, so a
-%% qualified call to a private function is refused as private rather than
-%% reported as unknown (F12).
+%% `private_of/1` distinguishes private callees from unknown names in
+%% cross-module diagnostics.
 exports_of(Decls) -> exports_of(Decls, #{}).
 
-%% With a world: a signature may name a type a `using` line brought in
-%% (ticket 73, F44), so the declaration pass resolves against the same
-%% imported entries a compile does. Lenient about the imports themselves — a
-%% `using` naming a module the world does not hold is skipped, not refused —
-%% because `bsc --api` reads declarations and builds nothing (23 §10), and a
-%% dependency that exists nowhere is a compile's refusal, not a query's.
+%% Resolve imported types as compilation does, but skip unknown imports: `bsc
+%% --api` reads available declarations without building dependencies.
 exports_of(Decls, World) ->
     Self = module_name(Decls),
     Imports = import_env(Decls, Self, World, lenient),
     Env = type_env(Decls, Imports, World),
-    %% `bsc --api` runs the declaration pass on its own and must surface the
-    %% refusals a compile does, a collapsed failure channel included, or it
-    %% would print `atom Go(int)` for a function declared over
-    %% `option<atom>` (F31). For `bsc:build/4` this cannot fire: the module
-    %% was already checked clean. The foreign-return refusal is the same
-    %% kind of declaration refusal, and without it here `--api` printed an
-    %% API for a module a compile refuses (F40).
+    %% `--api` runs this pass independently and must report the same
+    %% declaration refusals as compilation, including collapsed channels and
+    %% foreign returns.
     collapse_refused(Decls, Env),
     foreign_rets_decidable(Decls, Env),
-    %% `ToJson<T>`'s refusal is met in a clause body, which this pass never
-    %% types; it is raised by a pass over the bodies for exactly this caller
-    %% (F50).
+    %% Scan bodies for `ToJson<T>` refusals even though this pass does not
+    %% check body types.
     to_json_refused(Decls, Env),
-    %% A function declared under a compiler-known call name is a fact about
-    %% the declarations alone, and `--api` would print it as an export (F54).
     compiler_known_function(Decls),
     maps:from_list([{{N, length(Ps)},
                      at_loc(L, fun() -> erased_sig(Ps, R, TV, Env) end)}
                     || {signature, L, N, R, Ps, V, TV} <- Decls, V =:= public]).
 
-%% The templates of a module's public polymorphic signatures, for a
-%% dependent to instantiate at its own call sites (F45). Built beside
-%% `exports_of/2`, under the same environment, so the two cannot disagree
-%% about what a name resolves to.
+%% Build public polymorphic templates under the same environment as
+%% `exports_of/2`, so dependents resolve names consistently.
 polys_of(Decls, World) ->
     Self = module_name(Decls),
     Imports = import_env(Decls, Self, World, lenient),
@@ -422,32 +302,22 @@ polys_of(Decls, World) ->
                     || {signature, L, N, R, Ps, V, TV} <- Decls,
                        V =:= public, TV =/= []]).
 
-%% What a checked module offers its dependents in TYPE position: every
-%% `record`, `type` and refinement it declares, resolved, keyed by the bare
-%% name (ticket 73, F44). A dependent's environment holds each under
-%% `'Mod.Name'`, and under `Name` where a module-tier `using` brought it in.
-%%
-%% A ground entry is the resolved algebra map and crosses as it is: a tag was
-%% minted where the record was declared, so `Order` in the dependent IS
-%% `'Orders.Order'` and nothing about the type moves. A parametric entry is
-%% still a template, and its body may name the producer's other declarations
-%% by their bare names — `type Box<T> = (T, Meta)` — which mean nothing in a
-%% dependent that did not import them. Those references are rewritten to the
-%% qualified spelling, which every dependent's environment holds for every
-%% reachable module; the template's own parameters are left alone.
+%% Dependents receive every declared type under its qualified name and, with a
+%% module-tier import, its bare name. Ground types retain producer tags.
+%% Qualify references in parametric templates to the producer's declarations
+%% and imports; leave template parameters untouched.
+%% Rationale: compiler/features/F44-type-names-cross-using.md.
 types_of(Decls, Self, World) ->
     Imports = import_env(Decls, Self, World, lenient),
     Env = type_env(Decls, Imports, World),
     Own = declared_type_names(Decls),
-    %% What the producer itself imported unqualified, so a template naming one
-    %% of THOSE is rewritten to its home module too.
+    %% Qualify references to the producer's unqualified imports too.
     Theirs = [{N, qualified(M, N)}
               || {N, [M]} <- maps:to_list(maps:get(types, Imports))],
     Rename = maps:from_list(Theirs ++ [{N, qualified(Self, N)} || N <- Own]),
     maps:from_list([{N, crossing(maps:get(N, Env), Rename)} || N <- Own]).
 
-%% Every declared type as a resolved type: an alias body under its variables
-%% bound opaque, a refinement and a record by name.
+%% Opaque alias variables preserve literals for the emitted atom chunk.
 declared_types(Decls, Env) ->
     [resolve(Body, opaque_env(Params, Env)) || {type_alias, _, _, Params, Body} <- Decls]
         ++ [resolve({t_ref, N}, Env) || {type_refined, _, N, _, _} <- Decls]
@@ -481,24 +351,10 @@ qualify_refs({t_refined, L, Base, Pred}, Rename) ->
 qualify_refs(T, _Rename) ->
     T.
 
-%%% ---------------------------------------------------------------------------
-%%% The unknown-type refusal, told what the world knows (F44)
-%%%
-%%% `resolve/3` raises `{unknown_type, N}` with nothing but the name: it holds
-%%% one module's environment and cannot say where else the name is declared.
-%%% The world can. On the way out of the directory check every raise is
-%%% passed through `hinted/2`, which rewrites the three shapes ticket 73 made
-%%% possible and leaves everything else exactly as raised:
-%%%
-%%%   a bare name some reachable module declares     -> names the `using`
-%%%   `Mod.Name` where Mod is reachable and has no Name -> "declares no type"
-%%%   `Mod.Name` where Mod is not reachable at all      -> "never imported",
-%%%                                                       the qualified call's
-%%%                                                       words (41 §2)
-%%%
-%%% Wrappers are walked, not stripped: `at_loc/2` has already attached the
-%%% declaration's position and `{in_file, …}` its file, and both survive.
-%%% ---------------------------------------------------------------------------
+%%% Unknown-type hints
+%%% `resolve/3` knows only the current environment; `hinted/2` uses the world
+%%% to distinguish missing imports, missing types and unreachable modules.
+%%% Preserve position and file wrappers when rewriting errors.
 
 with_type_hints(World, Fun) ->
     try Fun()
@@ -525,16 +381,14 @@ hinted({unknown_type, N}, World) ->
     end;
 hinted(R, _World) -> R.
 
-%% `'Shop.Orders.Order'` -> `{'Shop.Orders', 'Order'}`; a bare name -> `bare`.
 split_qualified(N) ->
     case string:split(atom_to_list(N), ".", trailing) of
         [Mod, Name] -> {list_to_atom(Mod), list_to_atom(Name)};
         _           -> bare
     end.
 
-%% The modules a prefix could mean: itself, or a module whose full path ends
-%% in it (a namespace short, 41 §5). Nothing is imported here; the answer is
-%% for the message only.
+%% Exact and suffix module matches are diagnostic suggestions only; this lookup
+%% imports nothing.
 reachable(Mod, World) ->
     Suffix = "." ++ atom_to_list(Mod),
     lists:sort([M || M <- maps:keys(World),
@@ -545,32 +399,18 @@ suppliers(N, World) ->
     lists:sort([M || {M, Entry} <- maps:to_list(World),
                      maps:is_key(N, maps:get(types, Entry, #{}))]).
 
-%% The names a dependent may not call, carried so the refusal can say why.
-%% No signature: nothing outside the module may use one.
 private_of(Decls) ->
     maps:from_keys([{N, length(Ps)} || {signature, _, N, _, Ps, V, _} <- Decls,
                                        V =/= public],
                    true).
 
-%% The import tables, from this module's `using` lines and the modules
-%% already checked in this invocation (ticket 41 §5):
-%%
-%%   funs : {Name, Arity} -> Module      module tier   — `using Shop.Orders`
-%%   mods : Short         -> Module      namespace tier — `using Shop`
-%%   qual : {q, Mod, Name, Arity} -> Sig  every reachable qualified callee
-%%
-%%   types: Name          -> [Module]    module tier   — a `record` or `type`
-%%                                       the import brought in unqualified
-%%                                       (ticket 73, F44); the environment
-%%                                       entries are built from this table by
-%%                                       `imported_types/2`
-%%
-%% Which table an import populates is decided by what the path resolves to,
-%% not by its spelling, so one grammar rule covers both tiers.
-%%
-%% `strict` refuses a `using` the world cannot resolve; `lenient` skips it.
-%% A compile is strict (41 §1). The declaration pass behind `bsc --api` is
-%% lenient, because it builds nothing and reads only what is there (23 §10).
+%% Import tables use modules checked in this invocation:
+%%   funs: {Name, Arity} -> [Module], module-tier imports
+%%   mods: Short -> [Module], namespace-tier imports
+%%   qual: {q, Mod, Name, Arity} -> Sig, reachable qualified callees
+%%   types: Name -> [Module], consumed by `imported_types/2`
+%% The resolved path determines the import tier, not its spelling. Compilation
+%% refuses unknown imports; `--api` skips them.
 import_env(Decls, Self, World, Mode) ->
     Imports = [{L, M} || {import, L, M} <- Decls],
     Known = maps:keys(World),
@@ -584,10 +424,8 @@ add_import(L, M, Self, World, Known, Mode, Acc) ->
     case maps:is_key(M, World) of
         true  -> add_module_import(M, World, Acc);
         false ->
-            %% A path that is not a module but is a prefix of modules is a
-            %% namespace: compile-time name resolution only, nothing
-            %% emitted (ticket 41 §5). Self is excluded because a module
-            %% inside the namespace it imports is not its own dependency.
+            %% Namespaces emit nothing. Exclude `Self`: importing its namespace
+            %% must not make a module its own dependency.
             case {children(M, Known) -- [Self], Mode} of
                 {[], strict}  -> erlang:error({unknown_module, M, L});
                 {[], lenient} -> Acc;
@@ -595,26 +433,17 @@ add_import(L, M, Self, World, Known, Mode, Acc) ->
             end
     end.
 
-%% An import that brings in a name the module also declares is accepted: the
-%% local wins at the call site (`unqualified_key/4`), so the bare name never
-%% has two meanings (ticket 47 Q2). Refusing it at the `using` line left a
-%% top-level module unable to reach one of its own exported names by any
-%% route (ENG-270).
+%% Local names take precedence over imports at `unqualified_key/4`.
 add_module_import(M, World, Acc) ->
     Entry = maps:get(M, World),
     Exports = maps:get(exports, Entry),
     Funs0 = maps:get(funs, Acc),
     Funs = maps:fold(fun(K, _Sig, F) ->
-                             %% A collision is recorded, not raised: it is an
-                             %% error at the call site, so an unused one is
-                             %% no error at all (ticket 41 §2).
+                             %% Collisions are errors only at use sites.
                              maps:update_with(K, fun(Ms) -> [M | Ms] end, [M], F)
                      end, Funs0, Exports),
-    %% The same rule for the module's type names: recorded per source, and a
-    %% name two imports supply is refused where it is used, not here (F44).
-    %% `types` is absent from a world built by a caller that never checked
-    %% the module — `check/2`'s tests hand in exports alone — and absent
-    %% means the module offers no names, which is what those callers mean.
+    %% Type collisions are also refused at use sites. A missing `types` entry
+    %% means the module offers no types.
     Types = maps:fold(fun(N, _T, T0) ->
                               maps:update_with(N, fun(Ms) -> [M | Ms] end, [M], T0)
                       end, maps:get(types, Acc), maps:get(types, Entry, #{})),
@@ -629,8 +458,7 @@ add_namespace_import(Prefix, Children, Acc) ->
                        end, Mods0, Children),
     Acc#{mods := Mods, imported := Children ++ maps:get(imported, Acc)}.
 
-%% Every module reachable by a qualified call, keyed so `call/6` can look one
-%% up without a second code path.
+%% Qualified keys match those resolved by `call/6`.
 qual_table(World) ->
     maps:fold(fun(M, #{exports := Ex}, Acc) ->
                       maps:fold(fun({N, A}, Sig, In) ->
@@ -638,10 +466,8 @@ qual_table(World) ->
                                 end, Acc, Ex)
               end, #{}, World).
 
-%% The same keyspace for the polymorphic templates, so `call/6` looks a
-%% template up by the key it already resolved (F45). `polys` is absent from
-%% a world built by a caller that never checked the module — the tests hand
-%% in `exports` alone — and absent means nothing is polymorphic there.
+%% Polymorphic templates use the same keys as `call/6`. A missing `polys` entry
+%% means no polymorphic exports.
 poly_table(World) ->
     maps:fold(fun(M, Entry, Acc) ->
                       maps:fold(fun({N, A}, Tpl, In) ->
@@ -649,20 +475,16 @@ poly_table(World) ->
                                 end, Acc, maps:get(polys, Entry, #{}))
               end, #{}, World).
 
-%% The same keyspace for the names a dependent may not call, kept apart from
-%% `qual_table/1` so that everything in that table is callable and nothing
-%% in this one is (F12).
+%% Keep private names separate from callable entries in `qual_table/1`, using
+%% the same keys.
 private_table(World) ->
     maps:fold(fun(M, Entry, Acc) ->
                       maps:fold(fun({N, A}, _, In) -> In#{{q, M, N, A} => true} end,
                                 Acc, maps:get(private, Entry, #{}))
               end, #{}, World).
 
-%% Only names with exactly one source reach the emitter; an ambiguous one is
-%% an error at its call site. A name the module declares itself is dropped,
-%% because `unqualified_key/4` answers a bare call with the local (ticket 41
-%% §2); if this table still carried the import, the emitter would write a
-%% remote call for a name the checker typed against the local.
+%% Only unambiguous imports reach the emitter. Drop locally declared names so
+%% the emitter agrees with `unqualified_key/4`'s local precedence.
 resolved_funs(Imports, Local) ->
     maps:fold(fun(K, [M], Acc) ->
                       case lists:member(K, Local) of
@@ -672,8 +494,6 @@ resolved_funs(Imports, Local) ->
                  (_, _, Acc) -> Acc
               end, #{}, maps:get(funs, Imports, #{})).
 
-%% The `{Name, Arity}` keys this module declares; a bare name resolves to
-%% these before any import (ticket 41 §2).
 local_keys(Decls) ->
     [{N, length(Ps)} || {signature, _, N, _, Ps, _, _} <- Decls].
 
@@ -700,35 +520,23 @@ strip_prefix(Prefix, Child) ->
     P = atom_to_list(Prefix) ++ ".",
     list_to_atom(lists:nthtail(length(P), atom_to_list(Child))).
 
-%%% ---------------------------------------------------------------------------
-%%% Gathering signatures and their clauses
-%%% ---------------------------------------------------------------------------
+%%% Signatures and clauses
 
 collect(Decls) ->
-    %% A foreign declaration is a signature that will never have clauses, so
-    %% it is not collected here or it would report `no_clauses`.
+    %% Exclude foreign signatures: they have no clauses to check.
     Sigs = [#fn{name = N, line = L, ret = R, params = P, vis = V, tvars = TV}
             || {signature, L, N, R, P, V, TV} <- Decls],
-    %% Clauses are matched by name and arity (ticket 40 §2); keyed by name
-    %% alone, `Length/1` would collect `Length/2`'s clauses too.
     [F#fn{clauses = [C || C = {clause, _, Name, Ps, _, _} <- Decls,
                           Name =:= F#fn.name,
                           length(Ps) =:= length(F#fn.params)]}
      || F <- Sigs].
 
-%% The callee environment (ticket 33 §6). Foreign declarations are included
-%% although `collect/1` excludes them: a foreign signature declares its
-%% callee like any other (ticket 32). Local names key on `{Name, Arity}` and
-%% foreign ones on `{f, Module, Function, Arity}`, the pair `e_foreign_call`
-%% carries. The arity is in the key because overloading is
-%% permitted (ticket 40 §2) and a name-only map would keep whichever arity
-%% was written last.
+%% Foreign signatures are callees even though `collect/1` excludes them. Local
+%% keys are `{Name, Arity}`; foreign keys match `e_foreign_call` as `{f,
+%% Module, Function, Arity}`. Arity distinguishes overloads.
 callees(Decls, Env, Imports) ->
-    %% A polymorphic signature enters this table at its MAXIMAL EXTENT, every
-    %% variable at `term`: ticket 37 measured (M4, H2) that an argument is
-    %% refused exactly when it escapes that extent, so the containment
-    %% `call/6` already does is the whole of the argument check, and only
-    %% the return needs the solve (F45).
+    %% Polymorphic argument checks use the maximal extent; only the return
+    %% requires solving type variables.
     Local = [{{N, length(Ps)},
               at_loc(SL, fun() -> erased_sig(Ps, R, TV, Env) end)}
              || {signature, SL, N, R, Ps, _, TV} <- Decls],
@@ -739,34 +547,16 @@ callees(Decls, Env, Imports) ->
     maps:merge(maps:get(qual, Imports, #{}),
                maps:from_list(Local ++ Foreign)).
 
-%%% ---------------------------------------------------------------------------
-%%% A foreign return may promise only what one guard decides (ticket 18 §2, F40)
-%%%
-%%% A parameter is a value handed OUT, already established by the signature
-%%% that produced it, so parameters are not checked. A return arrives from
-%%% code this compiler never saw, and the declared type is a claim about it
-%%% that a guard on the wrapper will check (ENG-357). The claim may therefore
-%%% be anything one BEAM guard decides in O(1): the whole value, a tuple
-%%% member, a fixed field of an inline map -- and nothing a walk would be
-%%% needed for. What a walk would be needed for, in the order it is named:
-%%%
-%%%   recursive  a `mu`, wherever it sits: only a walk decides one, and it is
-%%%              not unfolded here (F36's hazard)
-%%%   list       a list part whose element type is narrower than `term`;
-%%%              `list<term>` is `is_list` and passes
-%%%   map        a domain member whose key or value is narrower than `term`;
-%%%              `map<term, term>` is `is_map` and passes (F33)
-%%%   record     a fixed-field member carrying `Kind`, which this compiler
-%%%              mints and Erlang never writes, so no guard on a foreign value
-%%%              finds it (ENG-351 grill, Q8). An inline map type has no `Kind`
-%%%              and its fields are each one `map_get` test, so it passes
-%%%   string     a refined binary part; `valid_utf8` reads every byte
-%%%              (ticket 20 §5, F9.11 -- the slice built first)
-%%%
-%%% The structural offenders are looked for before a `string`, so that
-%%% `(string, list<Tree>)` is refused as a list and the edit is the `term`
-%%% route rather than `binary` under a bracket that needs a walk anyway.
-%%% ---------------------------------------------------------------------------
+%%% Foreign returns
+%%% A foreign return must be decidable by one O(1) BEAM guard. Parameters are
+%%% established by their producers and are not checked by this pass. Recursive
+%%% types are not unfolded. Refined list elements, map domains and UTF-8
+%%% strings require walks; `list<term>` and `map<term, term>` do not. Named
+%%% records require a compiler-minted `Kind` absent from Erlang values; inline
+%%% map fields can be checked with `map_get`. Check structural offenders before
+%%% strings so suggestions address the required walk rather than only replacing
+%%% `string` with `binary`.
+%%% Rationale: compiler/features/F40-foreign-return-rule.md.
 
 foreign_rets_decidable(Decls, Env) ->
     _ = [foreign_ret_decidable(L, Mod, N, R, Env)
@@ -784,10 +574,8 @@ foreign_ret_decidable(Line, Mod, Fun, Ret, Env) ->
                           declared_text(Ret, Ty), Why, Name, Fields, At})
     end.
 
-%% `none`, or `{Why, Name, Fields, At}`: what was found, the type's name where
-%% it has one (a record, a recursive type), the record's fields as the inline
-%% form the refusal recommends, and whether it is the `whole` return or
-%% `inside` a position one guard reaches -- which is what chooses the edit.
+%% Returns `none` or `{Why, Name, Fields, At}`. `Fields` supplies the suggested
+%% inline record form; `At` selects a whole-return or nested edit.
 beyond_one_guard(Ty) ->
     case offender(Ty, structural, whole) of
         none  -> offender(Ty, string, whole);
@@ -809,18 +597,15 @@ offender(Ty = #{tuples := Ts, maps := Ms, bins := Bs, funs := Fs}, Pass, At) ->
            fun() -> bin_offender(Bs, Pass, only(Ty, bins, At)) end,
            fun() -> fun_offender(Fs, Pass, only(Ty, funs, At)) end]).
 
-%% `is_function/2` decides an arity and nothing about the types, so no
-%% arrow is a promise one guard can honour (ticket 11, ticket 75). The top
-%% is `term`'s own fun part and passes as `term` does: it promises nothing.
+%% `is_function/2` checks arity, not argument or return types. Only the
+%% unrestricted fun part of `term` is guard-decidable.
 fun_offender([], _Pass, _At)       -> none;
 fun_offender(top, _Pass, _At)      -> none;
 fun_offender(_Fs, structural, At)  -> {arrow, none, none, At};
 fun_offender(_Fs, string, _At)     -> none.
 
-%% `whole` only where the declared type IS that part: `result<list<Order>, atom>`
-%% resolves to a union whose list member sits in the top-level list part, and
-%% "declare it `list<term>`" would be an edit to the wrong type. Then the
-%% offender is `inside` the union, and the edit names the part.
+%% A part inside a union is `inside`, even at the top level; suggesting a
+%% whole-type replacement there would discard the union's other members.
 only(_Ty, _Part, inside) ->
     inside;
 only(Ty, Part, whole) ->
@@ -837,8 +622,8 @@ first([F | Fs]) ->
         Found -> Found
     end.
 
-%% The list part is a union of spines, so ask for the element type; `[]`
-%% alone has none, and `=:= []` decides it.
+%% List spines require element-type inspection, except `[]`, which has no
+%% elements and is decided by exact equality.
 list_offender(Ty, structural, At) ->
     case bs_types:has_lists(Ty) of
         false -> none;
@@ -879,8 +664,7 @@ map_member_offender({_Kind, Fs}, Pass, At) ->
                    || F <- maps:values(Fs)])
     end.
 
-%% A record's `Kind` is the qualified name (`'Shop.Order'`); the author wrote
-%% the last segment.
+%% Record `Kind` holds a qualified name; diagnostics use its last segment.
 record_short_name(Tag) ->
     list_to_atom(lists:last(string:split(atom_to_list(Tag), ".", all))).
 
@@ -889,8 +673,7 @@ tuple_offender(top, _Pass) ->
 tuple_offender(Products, Pass) ->
     first([fun() -> offender(M, Pass, inside) end || M <- lists:append(Products)]).
 
-%% A proper non-empty subset of the binary part is a refinement of it, and
-%% `string` is the only one today (F9).
+%% `string` is the only proper non-empty refinement of the binary part.
 bin_offender(Bs, string, At) when Bs =/= [], Bs =/= [other, utf8] ->
     {string, none, none, At};
 bin_offender(_Bs, _Pass, _At) ->
@@ -899,38 +682,19 @@ bin_offender(_Bs, _Pass, _At) ->
 sig(Params, Ret, Env) ->
     {[resolve(T, Env) || {param, T, _} <- Params], resolve(Ret, Env)}.
 
-%%% ---------------------------------------------------------------------------
-%%% Polymorphic signatures (F45; ticket 27 §(c), the algorithm of ticket 37)
-%%%
-%%% A signature's variables are bound in the environment two ways, and the
-%%% two are for two different readers.
-%%%
-%%% ERASED, every variable at `term`: what a CALLER sees before the solve and
-%%% what the emitter publishes. Containment against the extent is exact for
-%%% accept/refuse (37 H2), and the emitted `-spec` reads `any()`, which 27b
-%%% measured as inert.
-%%%
-%%% OPAQUE, each variable a singleton atom nobody can produce: what the
-%%% DECLARATION is checked against. Ticket 27 §2 makes a variable opaque in
-%%% heads and guards so the signature stays a promise; the body half of that
-%%% promise is that `T Id<T>(T x)` cannot return `5`. With no variable node in
-%%% the algebra (37's cost) an atom the source cannot spell bare is the
-%%% smallest thing that is contained in nothing but itself: `[row, ..rows]`
-%%% over `list<'T'>` checks, `5` over `'T'` is refused, and `list<'T'>` is
-%%% still `[] | ['T', ..]`, so exhaustiveness is decided once for every
-%%% instantiation.
-%%% ---------------------------------------------------------------------------
+%%% Polymorphic signatures
+%%% Erased variables give callers the maximal extent and emit `any()` specs.
+%%% Declarations instead bind variables to opaque singleton atoms the source
+%%% cannot spell bare. This prevents assumptions about an instantiation's shape
+%%% and checks exhaustiveness once for every instantiation.
+%%% Rationale: compiler/features/F45-polymorphic-signatures.md.
 
 erased_env(Vars, Env) ->
     maps:merge(Env, maps:from_list([{V, bs_types:term()} || V <- Vars])).
 
-%% The maximal extent is VARIANCE-AWARE once an arrow can hold a variable
-%% (F46). A variable under a domain is contravariant, so its extent there is
-%% the bottom: the largest arrow of `fn(T) -> U`'s shape is `fn(none) ->
-%% term`, and erasing `T` to `term` instead would refuse every argument —
-%% including `Map`'s own recursive `Map(t, f)`, whose `f` is `fn('T') -> 'U'`
-%% under the opaque binding. Every other position erases to `term` as
-%% before.
+%% Erasure respects variance: arrow domains reverse polarity, so `fn(T) -> U`
+%% has maximal extent `fn(none) -> term`. Using `term` for its domain would
+%% reject valid function arguments.
 erased_sig(Params, Ret, [], Env) ->
     sig(Params, Ret, Env);
 erased_sig(Params, Ret, Vars, Env) ->
@@ -962,8 +726,8 @@ erase_ty1({t_generic, N, Args} = T, Vars, Env, Pol, Seen) when N =/= map ->
         _ ->
             resolve(T, erased_env(Vars, Env))
     end;
-%% A map field, a refinement, a domain map: resolved at the positive extent,
-%% as the template records these positions erased (`tpl1/5`).
+%% Map fields, refinements and domain maps use the positive extent; `tpl1/5`
+%% records these positions as erased.
 erase_ty1(T, Vars, Env, _Pol, _Seen) ->
     resolve(T, erased_env(Vars, Env)).
 
@@ -973,23 +737,17 @@ contra(neg) -> pos.
 opaque_env(Vars, Env) ->
     maps:merge(Env, maps:from_list([{V, bs_types:atom_lit(V)} || V <- Vars])).
 
-%% The polymorphic callees, local and imported, keyed as `callees/3` keys.
+%% Keys match `callees/3` for local and imported polymorphic callees.
 polys(Decls, Env, Imports) ->
     Local = [{{N, length(Ps)}, at_loc(SL, fun() -> template(TV, Ps, R, Env) end)}
              || {signature, SL, N, R, Ps, _, TV} <- Decls, TV =/= []],
     maps:merge(maps:get(polys, Imports, #{}), maps:from_list(Local)).
 
-%% A template is the declared types with every GROUND part resolved and only
-%% the variables left standing, so a dependent can solve against it without
-%% the producer's aliases (F44's rule: a name resolves where it was declared).
-%% What survives is closed: a resolved map, `{t_ref, V}`, `list<_>`, a tuple,
-%% a union — the four positions ticket 37's algorithm reads a share from.
-%%
-%% A variable anywhere else — under a map field, a refinement, or a
-%% parametric alias unfolding onto itself — is ERASED to its extent, and the
-%% variable is recorded so the call solves it to `term` rather than to the
-%% other occurrences alone: a value could reach the body through the erased
-%% position, and a return narrower than `term` there would be a lie.
+%% Ground parts resolve at the declaration, so consumers need no producer
+%% aliases. Variables survive in lists, tuples, unions and arrows. Other
+%% positions erase to their extent and force the variable to `term`: values can
+%% reach the body through those positions.
+%% Rationale: compiler/features/F45-polymorphic-signatures.md.
 template(Vars, Params, Ret, Env) ->
     {PsT, E1} = lists:mapfoldl(fun({param, T, _}, E) -> tpl(T, Vars, Env, [], E) end,
                                [], Params),
@@ -1013,9 +771,6 @@ tpl1({t_tuple, Cs}, Vars, Env, Seen, Erased) ->
 tpl1({t_union, Ms}, Vars, Env, Seen, Erased) ->
     {Ms1, E1} = lists:mapfoldl(fun(M, E) -> tpl(M, Vars, Env, Seen, E) end, Erased, Ms),
     {{t_union, Ms1}, E1};
-%% An arrow's domain and codomain are positions a share is read from (F46):
-%% `fn(T) -> U` handed a lambda takes `T` from the lambda's domain and `U`
-%% from what it returns.
 tpl1({t_fun, Ds, C}, Vars, Env, Seen, Erased) ->
     {Ds1, E1} = lists:mapfoldl(fun(D, E) -> tpl(D, Vars, Env, Seen, E) end, Erased, Ds),
     {C1, E2} = tpl(C, Vars, Env, Seen, E1),
@@ -1045,38 +800,14 @@ vars_in({t_refined, _, B, _}, Vars) -> vars_in(B, Vars);
 vars_in({t_fun, Ds, C}, Vars)     -> lists:append([vars_in(T, Vars) || T <- Ds ++ [C]]);
 vars_in(_, _)                     -> [].
 
-%% The solution of a call through a polymorphic signature (ticket 37, as
-%% amended by ticket 76). Every argument contributes BOUNDS: an occurrence
-%% of a variable in a covariant position gives a lower bound, an occurrence
-%% under an arrow's domain an upper one, each tagged with the argument it
-%% came from. A variable is then solved by its VARIANCE IN THE DECLARED
-%% RETURN (76 Q3): the join of its lower bounds where the return is covariant
-%% in it or does not mention it — 37's least solution — and the meet of its
-%% upper bounds where the return is contravariant in it, so
-%% `Compose<A, B, C>(fn(A) -> B, fn(B) -> C)` returns `fn(int) -> int` and not
-%% the uncallable `fn(none) -> int`. That is Pierce and Turner's minimal
-%% substitution (*Local Type Inference*, TOPLAS 22(1), 2000, §3 and §5.7): a
-%% variable the result type is constant or covariant in takes its lower
-%% bound, one it is contravariant in its upper bound. Taken as the paper
-%% takes it where a set is empty — the join of no lower bounds is `none`, and
-%% a covariant variable nothing supplies is the result of a function that
-%% cannot return one; the meet of no upper bounds is `term`. A lower bound
-%% escaping an upper one is a conflict: no instantiation accepts every
-%% argument, and `Map(xs, Inc/1)` over a `list<string>` would crash.
-%%
-%% A variable the return mentions in BOTH positions, a returned `fn(T) -> T`,
-%% is a case 76 does not rule on, so the build does not rule on it either: it
-%% joins every occurrence, lower and upper, which is the answer the compiler
-%% gave before ticket 76, and a lower bound escaping an upper one is refused
-%% as anywhere else. The paper's invariant case takes a bound only when the
-%% two coincide; a program whose meaning depends on the difference raises a
-%% ticket.
-%%
-%% An ERASED variable (`template/4`) is `term` whatever its bounds say: a
-%% value could reach the body through the erased position.
-%%
-%% The solve is total, so it runs whether or not the arguments were
-%% accepted; an argument outside the extent was refused by `arg_diags/7`.
+%% Argument occurrences supply lower bounds covariantly and upper bounds
+%% contravariantly, tagged with their argument index for diagnostics. Return
+%% variance selects the solution: join lower bounds for positive or absent
+%% variables, meet upper bounds for negative ones, join both for mixed. A lower
+%% bound outside an upper bound is a conflict. Erased variables stay `term`
+%% regardless of bounds. Solving is total even for arguments rejected by
+%% `arg_diags/7`.
+%% Rationale: compiler/features/F46-function-as-a-value.md.
 solution({poly, Vars, PsT, RetT, Erased}, ATys) ->
     Bounds = bounds(PsT, lists:zip(lists:seq(1, length(ATys)), ATys)),
     Pols = polarity(RetT, pos, #{}),
@@ -1091,20 +822,17 @@ solution({poly, Vars, PsT, RetT, Erased}, ATys) ->
                     Conflict =/= none],
     {Sub, Conflicts}.
 
-%% The bounds the typed arguments put on each variable, from `{Arg, Ty}` rows.
 bounds(PsT, Typed) ->
     lists:foldl(fun({I, Ty}, Acc) -> solve(lists:nth(I, PsT), Ty, pos, I, Acc) end,
                 #{}, Typed).
 
 bounds_of(V, Bounds) -> maps:get(V, Bounds, {[], []}).
 
-%% The minimal substitution, by where the return holds the variable.
 pick(neg, {_Lo, Up})        -> meet(Up);
-%% Unruled by 76: see `solution/2`.
 pick(both, {Lo, Up})        -> join(Lo ++ Up);
 pick(_Covariant, {Lo, _Up}) -> join(Lo).
 
-%% What the arguments typed so far know, for an expectation only (`retype/8`).
+%% Partial argument bounds supply expectations only (`retype/8`).
 known({[], Up}) -> meet(Up);
 known({Lo, _})  -> join(Lo).
 
@@ -1114,9 +842,8 @@ join(Bounds) -> bs_types:union([T || {_, T} <- Bounds]).
 meet(Bounds) -> lists:foldl(fun({_, U}, Acc) -> bs_types:intersect(Acc, U) end,
                             bs_types:term(), Bounds).
 
-%% A lower bound outside an upper one, with the argument each came from, so
-%% the refusal can name both. Asked of each lower bound on its own rather than
-%% of their join: the refusal names the value, not the union it is part of.
+%% Check lower bounds separately so diagnostics name the contributing arguments
+%% and the offending value, not their union.
 escape({Lo, Up}) ->
     case [{LI, L, UI, U} || {UI, U} <- Up, {LI, L} <- Lo,
                             not bs_types:is_subtype(L, U)] of
@@ -1124,8 +851,7 @@ escape({Lo, Up}) ->
         [First | _] -> First
     end.
 
-%% Where each variable sits in a template: `pos`, `neg`, or `both`. A
-%% variable the template does not mention is absent from the map.
+%% Unmentioned variables are absent from the polarity map.
 polarity(T, _Pol, Acc) when is_map(T) -> Acc;
 polarity({t_ref, V}, Pol, Acc) ->
     maps:update_with(V, fun(P) when P =:= Pol -> P; (_) -> both end, Pol, Acc);
@@ -1138,15 +864,13 @@ polarity({t_fun, Ds, C}, Pol, Acc) ->
     Acc1 = lists:foldl(fun(D, A) -> polarity(D, contra(Pol), A) end, Acc, Ds),
     polarity(C, Pol, Acc1).
 
-%% A template with every variable at `term`: how much of an argument a union
-%% member could possibly claim.
+%% Maximal argument share a union member can claim.
 extent(T) when is_map(T)         -> T;
 extent({t_ref, _})               -> bs_types:term();
 extent({t_generic, list, [A]})   -> bs_types:list(extent(A));
 extent({t_tuple, Cs})            -> bs_types:tuple([extent(C) || C <- Cs]);
 extent({t_union, Ms})            -> bs_types:union([extent(M) || M <- Ms]);
-%% The largest arrow of this arity is `fn(none, …) -> term`: the domain is
-%% contravariant, so its extent is the bottom, not the top (ticket 11).
+%% The largest arrow is `fn(none, ...) -> term`: domains are contravariant.
 extent({t_fun, Ds, _C})          -> bs_types:fun_ty([bs_types:none() || _ <- Ds],
                                                     bs_types:term()).
 
@@ -1167,19 +891,15 @@ solve({t_tuple, Cs}, A, Pol, I, Acc) ->
                            end, {1, Acc}, Cs),
     Out;
 solve({t_union, Ms}, A, Pol, I, Acc) ->
-    %% A member's share is the argument minus every OTHER member's extent —
-    %% the one step where the answer is a choice, and ticket 37 chose
-    %% least, on the return type's evidence (M2).
+    %% A member gets the argument minus every other member's extent.
     Indexed = lists:zip(lists:seq(1, length(Ms)), Ms),
     lists:foldl(fun({J, M}, S) ->
                         Others = bs_types:union([extent(O) || {K, O} <- Indexed, K =/= J]),
                         solve(M, bs_types:subtract(A, Others), Pol, I, S)
                 end, Acc, Indexed);
-%% Every arrow of the template's arity in the argument contributes: its
-%% domain to the domain positions, at the opposite polarity, and its
-%% codomain to the codomain. An upper bound from each of two arrows is met,
-%% because a value that is either function must accept the variable (F46,
-%% ticket 76). The top has no arrows to read and bounds nothing.
+%% Every matching-arity arrow contributes bounds; domains flip polarity. Upper
+%% bounds meet because either function must accept the variable. The top
+%% contributes no bounds.
 solve({t_fun, Ds, C}, A, Pol, I, Acc) ->
     N = length(Ds),
     Arrows = case bs_types:arrows(A) of
@@ -1202,18 +922,9 @@ subst_tpl({t_fun, Ds, C}, S)          -> bs_types:fun_ty([subst_tpl(D, S) || D <
                                                          subst_tpl(C, S)).
 
 
-%% Ticket 27 §2, the pattern half: a parameter whose declared type is a bare
-%% variable admits one clause, a binder. A literal, a tuple or a list there
-%% tests a shape the variable does not have until a caller chooses one.
-%% Refused at the declaration, before the walk, as a domain-map pattern is
-%% (ticket 48 Q2): the walk would otherwise report the clause as vacuous
-%% against the opaque atom, a true sentence about the compiler and a false
-%% one about the language.
-%% Ticket 28 §6, the rule 27 implied: every variable must appear in at least
-%% one parameter position, or "instantiation is matching" is false at the
-%% first return-only variable. `list<T> Empty<T>()` is refused; the author
-%% writes the monomorphic type, and `[]` and `:nothing` mean the case barely
-%% arises.
+%% Every type variable must occur in a parameter for call-site inference. A
+%% bare type-variable parameter permits only a binder or wildcard. Reject shape
+%% tests before the walk can misreport opaque atoms as vacuous.
 recoverable_diags(#fn{tvars = []}) -> [];
 recoverable_diags(#fn{name = Name, line = L, params = Params, tvars = Vars}) ->
     InParams = lists:append([vars_in(T, Vars) || {param, T, _} <- Params]),
@@ -1234,27 +945,9 @@ binds_only({p_var, _, _}) -> true;
 binds_only({p_wild, _})   -> true;
 binds_only(_)             -> false.
 
-%% A RESOLVE-TIME CONDITION GETS THE POSITION OF THE DECLARATION IT WAS FOUND
-%% IN, AND NOT ITS OWN.
-%%
-%% `resolve/3` is handed a type expression, and the grammar attaches no
-%% position to one: `type_prim -> uident : {t_ref, value('$1')}` drops the
-%% token's location, as does every other type production. So the six
-%% conditions raised from below it carry nothing an editor can place, and
-%% before F35 they reached the author as `file: error: ...` with no position
-%% at all (ENG-297).
-%%
-%% The position is attached HERE, by the nearest enclosing node that has one,
-%% rather than threaded through `resolve/3` — that would mean a position on
-%% every type node and a change to every consumer of one, which is a larger
-%% increment than this and belongs with the type grammar rather than beside
-%% it. The honest limit: an editor underlines the DECLARATION that names the
-%% missing type, not the name itself.
-%%
-%% A condition that already carries a position is re-raised untouched, so
-%% `kind_field_is_minted` and its neighbours keep the position they mint.
-%% A caller with no position to give asks for none: the standard
-%% environment's entries are not declared anywhere in the file being checked.
+%% Type expressions have no source position. Positionless resolve errors use
+%% the nearest enclosing declaration; positioned errors keep their own. Prelude
+%% entries have no declaration and pass `undefined`.
 at_loc(undefined, Fun) ->
     Fun();
 at_loc(Loc, Fun) ->
@@ -1267,10 +960,7 @@ at_loc(Loc, Fun) ->
             end
     end.
 
-%% The closed set from `editor/README.md`'s prerequisite 2. It is written out
-%% rather than derived because a new resolve-time condition should have to
-%% decide whether it carries its own position, and adding a name here is that
-%% decision taken deliberately.
+%% Explicit opt-in for errors that need an enclosing declaration's position.
 positionless(unknown_type)    -> true;
 positionless(ambiguous_type)  -> true;
 positionless(unknown_builtin) -> true;
@@ -1280,28 +970,13 @@ positionless(not_parametric)  -> true;
 positionless(cyclic_type)     -> true;
 positionless(_)               -> false.
 
-%%% ---------------------------------------------------------------------------
-%%% The foreign `try` wrapper, decided at the declaration (F19, ticket 15 §4)
-%%%
-%%% Declaring a foreign function's return type with `foreign_error` as an
-%%% error payload makes the compiler emit the wrapper; there is no `try` in
-%%% the surface. The trigger is the resolved type, not the spelling: a user
-%%% alias naming that union behaves identically to
-%%% `result<T, foreign_error>` (ticket 09 §4). Every position in a foreign
-%%% signature is a single type and never an inline `a | b`, so the union is
-%%% reached through a `type` alias.
-%%% ---------------------------------------------------------------------------
+%%% --- Foreign wrappers ---
 
-%% Every foreign signature, keyed the way `e_foreign_call` carries it, with
-%% two things the emitter needs and never decides: whether the declaration
-%% named the failure channel (F19), and the resolved return type the boundary
-%% guard is built from (F42, ticket 18 §2). One table rather than two because
-%% both fields are wanted at the same site: since ticket 74 (F52) a channelled
-%% call gets the `try` AND the guard, the guard outside the wrapper, so `ret`
-%% is read whether or not `wrapped` is true. A call in neither is one the
-%% checker never saw declared. Until 2026-09-19 this read "the two are
-%% exclusive at the emission site", which was true while the channelled arm
-%% was unbuilt.
+%% Entries use `e_foreign_call` keys. The emitter reads both the wrapper flag
+%% and resolved return type; the boundary guard sits outside the wrapper.
+%% Aliases trigger wrapping by resolved type, not spelling.
+%% Rationale: compiler/features/F19-foreign-try-wrapper.md,
+%% compiler/features/F52-channelled-foreign-return-guard.md.
 foreign_wrappers(Decls, Env) ->
     maps:from_list(
       [{{Mod, N, length(Ps)}, #{wrapped => wraps(Ty, Env), ret => Ty}}
@@ -1309,74 +984,35 @@ foreign_wrappers(Decls, Env) ->
           {foreign_sig, _L, N, R, Ps} <- Sigs,
           Ty <- [resolve(R, Env)]]).
 
-%% The trigger is the payload `foreign_error`, not the tag `:error` (ticket
-%% 56). Most of OTP returns `{error, Reason}` as an ordinary value and never
-%% throws, and the compiler cannot know which foreign functions throw, so
-%% the author declares the channel by naming the type the wrapper produces.
-%% `(:error, atom)` and `(:error, foreign_error)` stay separate products, so
-%% a function that returns an error value and can throw declares both.
-%%
-%% Equality, not containment: `result<int, term>` gets no wrapper although
-%% `foreign_error` is a subtype of `term`. A mis-declared channel is
-%% therefore not refused; catching one is the boundary guard's job (ticket
-%% 18, LANGUAGE.md §11).
+%% The payload must equal `foreign_error` exactly; containment is insufficient.
+%% `result<int, term>` gets no wrapper. The boundary guard catches bad returns.
+%% OTP error tuples can be ordinary values, so throwing functions that also
+%% return errors must declare both payloads separately.
 wraps(Ret, Env) ->
     Fe = maps:get(foreign_error, Env),
     lists:any(fun(P) -> same_type(P, Fe) end, error_members(Ret)).
 
-%% `term` contains every tuple, so its tuple part is `top` and no member can
-%% be named: a foreign function declared `term` promises nothing and gets no
-%% wrapper (ticket 11).
+%% `term` has tuple part `top`, with no named payload to trigger wrapping.
 error_members(#{tuples := top}) -> [];
 error_members(#{tuples := Products}) ->
     Err = bs_types:atom_lit(error),
     [Payload || [Tag, Payload] <- Products, same_type(Tag, Err)].
 
-%% The algebra publishes containment, and mutual containment is equality in
-%% it.
 same_type(A, B) -> bs_types:is_subtype(A, B) andalso bs_types:is_subtype(B, A).
 
-%%% ---------------------------------------------------------------------------
-%%% The failure channel must survive normalisation, checked at the
-%%% declaration (F31, ticket 15 §1)
+%%% --- Union declaration checks ---
 %%%
-%%% A declared type is refused when a member of it is not IN it, so the
-%%% diagnostic lands where the fix is. Ticket 68 settled two rules here, and
-%%% they are two rather than one because their repairs differ in kind:
-%%%
-%%%   ABSORPTION - any member `M` where `M ⊆ union(others)`. F31 asked this of
-%%%                the failure channel alone, `:nothing` and `(:error, E)`;
-%%%                68 Q1(a) generalises it to every member. The predicate
-%%%                (`absorbed/2`) is untouched — what went is the filter.
-%%%   INDISCRIMINABILITY - a union no clause head can take apart. This is
-%%%                ticket 09 §4, and its criterion is 68 Q2(a)'s "a clause
-%%%                head, pattern or guard", NOT 09 §4's own "a BEAM guard",
-%%%                which refuses `list<int> | list<binary>` that the same
-%%%                section lists as accepted.
-%%%
-%%% THE ORDER IS THE RULE, NOT AN OPTIMISATION. Absorption raises first, so
-%%% indiscriminability only ever sees members that survived normalisation.
-%%% That is 09 §4's own "normalise first, then check pairwise", and it is what
-%%% keeps `:ok | atom` — the section's named false positive — out of the
-%%% second rule's reach.
-%%%
-%%% It is a pass over `Decls` rather than a clause in `resolve/3` because no
-%%% type expression node carries a line; lines live on the declaration. That
-%%% is also why a PATH is threaded (68 Q5(b)): a record with two absorbing
-%%% fields is ordinary, and its two diagnostics land on one line, so the
-%%% position has to arrive some other way or not at all.
-%%% ---------------------------------------------------------------------------
+%%% Absorption must raise before indiscriminability: only surviving members
+%%% reach the pairwise check, so `:ok | atom` fails absorption alone.
+%%% Declarations supply lines; paths distinguish nested positions on one line.
+%%% Rationale: compiler/features/F36-an-absorbed-member.md.
+
 
 collapse_refused(Decls, Env) ->
     lists:foreach(fun(D) -> collapse_decl(D, Env) end, Decls).
 
-%% The five declaration forms that carry a type an author wrote. A
-%% parametric alias is skipped: its body has free variables, and nothing can
-%% be normalised until it is instantiated.
-%%
-%% Each seeds the path with what an author would call the position: a
-%% signature's own name for its return, `Fn.arg` for a parameter, `Rec.Field`
-%% for a record field.
+%% Parametric aliases wait for instantiation before normalisation. Paths start
+%% at the return name, `Fn.arg` or `Rec.Field`.
 collapse_decl({signature, L, N, Ret, Params, _, TV}, Env0) ->
     Env = opaque_env(TV, Env0),
     collapse_ty(Ret, Env, L, root(N)),
@@ -1399,19 +1035,15 @@ collapse_decl({record_decl, L, N, Fields}, Env) ->
                   end, Fields);
 collapse_decl(_, _Env) -> ok.
 
-%% A path is dotted text, built as the scan descends and rendered by
-%% `bs_diag` exactly as it arrives. `Job.Tag` names a record's field;
-%% `Route.x.1` names the first element of a tuple parameter.
+%% `bs_diag` renders these dotted paths unchanged; tuple ordinals are 1-based.
 root(N) when is_atom(N) -> atom_to_list(N);
 root(N) when is_list(N) -> N;
 root(N)                 -> lists:flatten(io_lib:format("~p", [N])).
 
 seg(Path, S) -> Path ++ "." ++ root(S).
 
-%% A type this pass cannot resolve is not its error to report: `callees/3`
-%% and `check_fn/2` resolve the same expressions next and raise
-%% `unknown_type` and its neighbours with their own wording. Only this pass's
-%% own refusals are re-raised, with their stacks intact.
+%% Resolution errors belong to the later `callees/3` and `check_fn/2` passes.
+%% Only this pass's own refusals propagate, with their stacks intact.
 collapse_ty(T, Env, L, Path) ->
     try scan_ty(T, Env, L, Path, [])
     catch
@@ -1423,17 +1055,14 @@ collapse_ty(T, Env, L, Path) ->
             ok
     end.
 
-%% `Seen` is the cycle guard, and it is not optional: without it a
-%% contractive alias expands forever. A recursive alias is handled by
-%% `resolve/3`; here it only has to terminate.
+%% `Seen` stops contractive aliases expanding forever; `resolve/3` handles
+%% their recursive meaning.
 scan_ty({t_union, Ms}, Env, L, Path, Seen) ->
     collapse_members(Ms, Env, L, Path),
     indiscriminable_members(Ms, Env, L, Path),
     lists:foreach(fun(M) -> scan_ty(M, Env, L, Path, Seen) end, Ms);
-%% An instantiation is expanded here rather than left to `resolve/3`,
-%% because `bs_types:union/1` erases the member boundary and the members are
-%% what has to be examined. Arguments resolve in the caller's chain, then
-%% `subst/2` puts them into the template.
+%% Expand before `bs_types:union/1` erases member boundaries. Arguments resolve
+%% in the caller's chain before substitution.
 scan_ty({t_generic, N, Args}, Env, L, Path, Seen) ->
     lists:foreach(fun(A) -> scan_ty(A, Env, L, Path, Seen) end, Args),
     case maps:get(N, Env, undefined) of
@@ -1449,9 +1078,6 @@ scan_ty({t_generic, N, Args}, Env, L, Path, Seen) ->
         _ ->
             ok
     end;
-%% Nested positions, because a failure channel is equally dead one level down:
-%% `(option<atom>, int)` normalises to `(atom, int)`. A tuple element is named
-%% by its ordinal, which is what an author counts.
 scan_ty({t_tuple, Cs}, Env, L, Path, Seen) ->
     lists:foreach(fun({I, C}) -> scan_ty(C, Env, L, seg(Path, I), Seen) end,
                   lists:zip(lists:seq(1, length(Cs)), Cs));
@@ -1460,14 +1086,11 @@ scan_ty({t_map, Fields}, Env, L, Path, Seen) ->
                   end, Fields);
 scan_ty({t_refined, _, Base, _}, Env, L, Path, Seen) ->
     scan_ty(Base, Env, L, Path, Seen);
-%% An arrow's positions are positions: `fn(option<atom>) -> int` carries the
-%% same dead channel one level down (F46).
 scan_ty({t_fun, Ds, C}, Env, L, Path, Seen) ->
     lists:foreach(fun({I, D}) -> scan_ty(D, Env, L, seg(Path, I), Seen) end,
                   lists:zip(lists:seq(1, length(Ds)), Ds)),
     scan_ty(C, Env, L, seg(Path, ret), Seen);
-%% A `t_ref` is NOT followed. The alias it names is checked at its own
-%% declaration, and following it would report one defect once per mention.
+%% Do not follow `t_ref`: its declaration owns the diagnostic.
 scan_ty(_, _Env, _L, _Path, _Seen) ->
     ok.
 
@@ -1475,14 +1098,8 @@ collapse_members(Ms, _Env, _L, _Path) when length(Ms) < 2 -> ok;
 collapse_members(Ms, Env, L, Path) ->
     each_member(Ms, [resolve(M, Env) || M <- Ms], [], L, Path).
 
-%% One member at a time against the union of all the others, which is what
-%% `T | F ≡ T` asks. `Before` accumulates reversed, which is harmless because
-%% union is commutative.
-%%
-%% EVERY MEMBER IS ASKED, NOT ONLY A FAILURE CHANNEL (68 Q1(a)). The surface
-%% member still selects the HINT, because "no caller can write the failure
-%% clause" is a sharper sentence than the general one and its repair is
-%% specific — but it no longer decides whether the question is asked at all.
+%% Check every member. The surface shape selects only the diagnostic hint.
+%% Reversing `Before` is safe because union is commutative.
 each_member([], [], _Before, _L, _Path) ->
     ok;
 each_member([M | Ms], [R | Rs], Before, L, Path) ->
@@ -1494,40 +1111,18 @@ each_member([M | Ms], [R | Rs], Before, L, Path) ->
     end,
     each_member(Ms, Rs, [R | Before], L, Path).
 
-%% The standard environment's two failure members: `option<T>` is `T | :nothing` and
-%% `result<T, E>` is `T | (:error, E)`. Matched on the surface node, which
-%% `subst/2` leaves untouched, since substitution only replaces a `t_ref`.
-%% This now names a HINT VARIANT rather than gating the rule (68 Q3).
+%% Substitution preserves these surface shapes for failure-channel hints.
 failure_channel({t_atom, nothing})                 -> nothing;
 failure_channel({t_tuple, [{t_atom, error}, _]})   -> error;
 failure_channel(_)                                 -> none.
 
-%%% ---------------------------------------------------------------------------
-%%% Ticket 09 §4, built: a union no clause head can take apart
+%%% --- Union discriminability ---
 %%%
-%%% PAIRWISE ON NORMALISED MEMBERS, which is 09 §4's own rule and does NOT come
-%%% free from absorption having raised first. Absorption proves no written
-%%% member is contained by the others; it does not make a written member
-%%% atomic. `type C = A | B` over two unions writes two members and normalises
-%%% to however many the algebra keeps, so the pairs have to come from the
-%%% normalised type — `bs_types:constituents/1` — and not from what was
-%%% written. Pairing the written members is wrong in BOTH directions, and
-%%% F36.7 holds a witness for each.
-%%%
-%%% Two constituents are discriminable when EITHER has a pattern that reaches
-%%% it, or when the BEAM's guard vocabulary puts them in different buckets.
-%%% `bs_types:head_reach/1` answers the first from the same structured parts
-%%% the residual printer renders, so the volatile half of this rule moves when
-%%% the pattern grammar moves and cannot be left behind by an edit to a table
-%%% (68 Q8(b), Q9(b)).
-%%%
-%%% KNOWN LIMIT, and it under-refuses rather than over-refuses: "reaches" is
-%%% asked of the constituent, not of the pair, so a pattern that reaches both
-%%% members without separating them still counts —
-%%% `list<map<string,int>> | list<map<string,binary>>` is accepted today. The
-%%% criterion 68 decided is reachability; "separates" is a stronger question
-%%% that changes what is legal, so it is a ticket rather than a build call.
-%%% ---------------------------------------------------------------------------
+%%% Pair normalised constituents, not written members: aliases may be unions.
+%%% Either constituent's pattern reach or disjoint BEAM guard buckets suffice.
+%%% `bs_types:head_reach/1` must track the pattern grammar. Reachability does
+%%% not prove separation: a pattern reaching both counts.
+
 
 indiscriminable_members(Ms, _Env, _L, _Path) when length(Ms) < 2 -> ok;
 indiscriminable_members(Ms, Env, L, Path) ->
@@ -1545,50 +1140,29 @@ discriminable(A, B, L, Path) ->
         false -> erlang:error({indiscriminable_union, L, Path, A, B})
     end.
 
-%% A member a clause head can name. `pattern` is a structural head or a
-%% guarded binder; `guard` is a bare binder, which names nothing on its own
-%% and is left to the bucket test below; `none` is a typed binder, which is
-%% not a pattern at all.
+%% `pattern` reaches a member. A bare binder (`guard`) needs the bucket test; a
+%% typed binder (`none`) is not a pattern.
 reaches(T) -> bs_types:head_reach(T) =:= pattern.
 
 disjoint_buckets(A, B) ->
     Bs = bs_types:guard_buckets(B),
     [] =:= [X || X <- bs_types:guard_buckets(A), lists:member(X, Bs)].
 
-%%% ---------------------------------------------------------------------------
-%%% Resolving surface types into the algebra
-%%% ---------------------------------------------------------------------------
+%%% --- Resolving surface types ---
 
-%% The environment is built with imports in hand (ticket 73, F44): it gains, beneath the module's
-%% own declarations, every reachable module's type names under `'Mod.Name'`,
-%% the namespace tier's short spelling under `'Short.Name'`, and the names a
-%% module-tier `using` brought in under their bare spelling. Resolution order
-%% is 41 §2's — local, then imports — by merge order: a local declaration
-%% sits on top of an imported name and the bare name has one meaning.
+%% Local declarations shadow imported names.
+%% Rationale: compiler/features/F44-type-names-cross-using.md.
 type_env(Decls, Imports, World) ->
     Mod = module_name(Decls),
-    %% Every form that declares a type name, with where it did (F35). Built
-    %% once here and read twice: first to refuse a name declared twice, then
-    %% as the position each entry resolves under.
+    %% Shared positions for duplicate checks and entry resolution.
     Locs = [{N, L} || {type_alias, L, N, _, _} <- Decls]
         ++ [{N, L} || {type_refined, L, N, _, _} <- Decls]
         ++ [{N, L} || {record_decl, L, N, _} <- Decls],
-    %% A TYPE NAME IS DECLARED ONCE PER MODULE, WHATEVER SPELLS IT (ENG-352;
-    %% the features README's F3 finding). `maps:from_list/1` below keeps the
-    %% RIGHTMOST duplicate, so until 2026-09-15 a record beat an alias of the
-    %% same name whichever was written first, the losing declaration's fields
-    %% vanished, and the function declared over the name was checked against
-    %% a type its author never wrote. `record Order` against `type Order` is
-    %% ONE error, not a second kind: ticket 26 §1 makes a record an alias for
-    %% a tagged map and F3.2 asserts the two spellings are the same type, so
-    %% there is one namespace for them to collide in. Refused at the second
-    %% declaration, naming the first, the way `name_redeclared/1` refuses a
-    %% second signature.
+    %% All type declarations share one namespace. Reject duplicates before
+    %% `maps:from_list/1` silently keeps the rightmost entry.
     type_redeclared(Locs),
     Aliases = [{N, alias(Params, T)} || {type_alias, _, N, Params, T} <- Decls],
-    %% A refinement enters the environment as a surface node, as an alias
-    %% body does, so it inherits `resolve/3`'s cycle guard: `type A = A where
-    %% value > 0` is refused by name rather than spinning (ticket 20 §5).
+    %% Keep refinements as surface nodes to inherit `resolve/3`'s cycle guard.
     Refined = [{N, {t_refined, L, Base, Pred}}
                || {type_refined, L, N, Base, Pred} <- Decls],
     Records = [{N, record_surface(Mod, L, N, Fs)}
@@ -1596,24 +1170,14 @@ type_env(Decls, Imports, World) ->
     Local = maps:from_list(Aliases ++ Refined ++ Records),
     Imported = imported_types(Imports, World),
     Env = maps:merge(maps:merge(prelude(), Imported), Local),
-    %% The environment is heterogeneous: a ground entry is resolved once,
-    %% here; a parametric one has free variables and stays a surface
-    %% template, resolved per use site after substitution (F6).
-    %%
-    %% Each entry is resolved under its own name, so a name that reaches back
-    %% to itself ties at the top of the entry (F28). The keys are sorted
-    %% because a non-contractive cycle is reported by whichever entry is
-    %% reached first and `maps:map/2` has no defined order: sorting makes the
-    %% reported name a property of the program rather than of a hash.
-    %% Each entry resolves under the position of the DECLARATION it came
-    %% from, so `type Wrong<T> = (T, U)` names its own line rather than the
-    %% file (F35). The standard environment's entries have no declaration and resolve
-    %% under `undefined`, which `at_loc/2` passes through untouched.
+    %% Ground entries resolve once; parametric templates wait for substitution.
+    %% Resolve under each entry's name to tie recursive references at its root.
+    %% Sort keys for deterministic cycle errors; map traversal order is
+    %% undefined. Use declaration positions; prelude entries pass `undefined`
+    %% to `at_loc/2`.
     LocOf = maps:from_list(Locs),
-    %% The imported entries were resolved where they were declared and are
-    %% carried into the result as they are; only the standard environment's
-    %% and the module's own entries are resolved here, against an `Env` that
-    %% holds the imported ones so a local body may name them.
+    %% Imports retain their declaration-site resolution. Local and prelude
+    %% entries resolve against an environment containing those imports.
     Own = lists:sort(maps:keys(prelude()) ++ maps:keys(Local)),
     lists:foldl(
       fun(N, Acc) ->
@@ -1631,11 +1195,8 @@ type_env(Decls, Imports, World) ->
 alias([], Body)     -> Body;
 alias(Params, Body) -> {parametric, Params, Body}.
 
-%% Walk the declarations in source order and stop at the first name already
-%% seen: the error sits on the SECOND declaration and carries the first's
-%% position, so both lines are named and the earlier one is not reported as
-%% the later one's consequence. Three declarations report one error — the
-%% third is the same defect again.
+%% Source order is deliberate: report the first duplicate at its second
+%% declaration, carrying the first position, and stop.
 type_redeclared(Locs) ->
     type_redeclared(lists:keysort(2, Locs), #{}).
 
@@ -1647,19 +1208,9 @@ type_redeclared([{N, L} | Rest], Seen) ->
         _             -> type_redeclared(Rest, Seen#{N => L})
     end.
 
-%% The environment entries a module's imports supply (ticket 73, F44), from
-%% the import tables and the world's `types`:
-%%
-%%   'Mod.Name'   for every type of every reachable module — the qualified
-%%                spelling is legal wherever the module is (41 §5)
-%%   'Short.Name' for a namespace-tier import, `Short` standing for the
-%%                module under it; a short two namespaces hold is recorded
-%%                as ambiguous, refused at the use like the call form
-%%   Name         for a module-tier import; a name two imports supply is
-%%                recorded as ambiguous and refused at the use (41 §2)
-%%
-%% The full spelling wins over a short one for the same key, so a top-level
-%% module `Orders` is never hidden by `using Shop` reaching `Shop.Orders`.
+%% Reachable modules supply `Mod.Name`; namespace imports supply `Short.Name`;
+%% module imports supply bare names. Ambiguities are refused at use sites. Full
+%% names win over short names, so `Orders` is not hidden by `Shop.Orders`.
 imported_types(no_imports, _World) ->
     #{};
 imported_types(Imports, World) ->
@@ -1687,103 +1238,62 @@ short_types(S, Ms, World, Acc) ->
 world_type(M, N, World) ->
     maps:get(N, maps:get(types, maps:get(M, World))).
 
-%% The standard environment is held here, spelled in the language's own alias
-%% mechanism, because there is no import system for a file of it to arrive
-%% through (ticket 10 §5, LANGUAGE.md §7). It is two maps, following
-%% `STANDARD-ENVIRONMENT.md`'s two kinds: declared entries, what a user could
-%% have written, and compiler-known entries, what only the compiler
-%% constructs. Nothing here lets a user add to it.
+%% The prelude combines ordinary aliases and compiler-known types.
 prelude() -> maps:merge(stratum_one(), stratum_two()).
 
-%% Declared entries (`stratum_one/0`): ordinary aliases a user could have
-%% written (tickets 10 §5, 15 §2). Lowercase because the standard environment
-%% owns that namespace as `list` does; a user's parametric alias is PascalCase,
-%% so the two cannot collide.
+%% Lowercase prelude aliases cannot collide with PascalCase user aliases.
 stratum_one() ->
     #{option => {parametric, ['T'],
                  {t_union, [{t_ref, 'T'}, {t_atom, nothing}]}},
       result => {parametric, ['T', 'E'],
                  {t_union, [{t_ref, 'T'},
                             {t_tuple, [{t_atom, error}, {t_ref, 'E'}]}]}},
-      %% The class a foreign wrapper catches (F19, ticket 15 §5). Only the
-      %% generated wrapper produces one of these values, but naming the type
-      %% is ordinary: the declaration is how an author asks for the wrapper.
-      %% The three members are discriminable by tag, so the collapse check
-      %% never fires on them.
+      %% Exception classes are distinct by tag, so collapse checks accept them.
       foreign_error =>
           {t_union, [{t_tuple, [{t_atom, error}, {t_builtin, term}]},
                      {t_tuple, [{t_atom, throw}, {t_builtin, term}]},
                      {t_tuple, [{t_atom, exit},  {t_builtin, term}]}]}}.
 
-%% Compiler-known entries (`stratum_two/0`): types a user could not have written.
-%% `ValidationError` is `ValidateAs<T>`'s payload, a path into the term plus
-%% the type expected there (ticket 15 §2); the segment spelling (`".Total"`,
-%% `"[2]"`, `"(1)"`) is F18's. It is a record (ticket 79, F49): the entry is
-%% the map a `record` declaration desugars to, so `record_of/3` and
-%% `bs_emit:record_tag/2` read its tag out of the resolved type like any
-%% other. The tag is bare, since a compiler-known type has no module, and
-%% `qualified/2` always writes a dot, so no user record can mint it.
-%% PascalCase because a signature names it.
-%%
-%% It is not made unshadowable by merge order: `type_env/1` merges user
-%% declarations over the standard environment, so a user's
-%% `type ValidationError = int` would silently take effect. The rule that a
-%% user may not add to this kind is enforced as a refusal at the declaration
-%% instead
-%% (`compiler_known_redeclared/1`), so the diagnostic lands where the fix is.
+%% `ValidationError` is the validator's record payload: path and expected type.
+%% `record_of/3` and `bs_emit:record_tag/2` read its tag from this map layout.
+%% Its bare tag cannot collide with user record tags, which contain a dot.
+%% `compiler_known_redeclared/1` prevents shadowing; merge order does not.
+%% Rationale: compiler/features/F49-validation-error-record.md.
 stratum_two() ->
     #{'ValidationError' =>
           {t_map, [{field, 'Kind', {t_atom, 'ValidationError'}},
                    {field, 'Path', {t_generic, list, [{t_builtin, string}]}},
                    {field, 'Expected', {t_builtin, string}}]}}.
 
-%% `<` opens an instantiation bracket after one of these names and is a
-%% comparison everywhere else; the set is closed (ticket 28), and `ToJson`
-%% joined it by decree (16 §4, §8; built as F50). Enforced here rather than in
-%% the lexer, because here the three cases can be told apart: built,
-%% decided-and-unbuilt, and not an obligation at all.
+%% The closed set of names after which `<` opens a type bracket rather than
+%% a comparison. Checked here rather than in the lexer, because here a
+%% built name, a decided-but-unbuilt name and a non-obligation differ.
+%% Rationale: compiler/features/F6-angle-brackets.md.
 codegen_obligations() -> ['ValidateAs', 'ParseAtom', 'ToExistingAtom', 'ToJson'].
 
-%% Which of them this compiler generates code for. The diagnostic for an
-%% unbuilt name reads this rather than carrying its own sentence, so shipping
-%% the next one cannot leave the message claiming otherwise.
+%% The names this compiler generates code for. The unbuilt-obligation
+%% diagnostic reads this list rather than carrying its own sentence, so it
+%% cannot go stale when the next name is built.
 built_obligations() -> ['ValidateAs', 'ParseAtom', 'ToExistingAtom', 'ToJson'].
 
-%%% ---------------------------------------------------------------------------
-%%% Reserved qualifiers (ticket 67, F32)
+%%% --- Reserved qualifiers ---
 %%%
-%%% A codegen obligation and a reserved-qualifier operation are the same kind
-%%% of entry, compiler-known and existing only as a rule in this file. An
-%%% obligation is named unqualified and an operation under a qualifier, and
-%%% nothing unqualified is a function, so the two lists cannot merge.
-%%% ---------------------------------------------------------------------------
+%%% Obligations are unqualified; operations require a qualifier.
+%%% Rationale: compiler/features/F32-reserved-qualifiers.md.
 
-%% `Map` is reserved with no operations under it yet: `map<K, V>` resolves
-%% as a type (F33) and `Map.Get` is ENG-324. Reserving the name first is
-%% what stops a user module called `Map` being taken away later (ticket 48).
-%% `Float` holds the one conversion ticket 81 decided, `Float.FromInt`; the
-%% reverse, `Int.FromFloat`, is named there and not decided, so `Int` is not
-%% reserved until a program needs it (F51).
+%% `Map` is reserved even without operations.
 reserved_qualifiers() -> ['List', 'Map', 'Term', 'Float'].
 
-%% The lowering table's keys, `{Qualifier, Name, Arity}`. Keyed by arity
-%% because the BEAM's identity rule is, and because `List.Sum(xs, 0)` must be
-%% refused rather than have its second argument silently ignored. These four
-%% are the operations the corpus writes plus ticket 16's universal-order
-%% escape; `Fold`, `Map` and `Filter` wait on the lambda (ENG-295).
+%% Lowering keys include arity, matching BEAM identity and preventing extra
+%% arguments from being silently ignored.
 reserved_table() ->
     [{'List', 'Sum', 1}, {'List', 'Length', 1}, {'List', 'Reverse', 1},
      {'List', 'Map', 2}, {'List', 'Filter', 2}, {'List', 'Fold', 3},
      {'Term', 'Compare', 2}, {'Float', 'FromInt', 1}].
 
-%% The signature an operation is checked against, at the site. `Reverse`
-%% returns the list it was handed, so its result is inlined with that site's
-%% element type; the others are monomorphic.
+%% `Reverse` preserves the call site's element type.
 reserved_sig('List', 'Sum', 1, _ATys) ->
     {ok, {[bs_types:list(bs_types:int())], bs_types:int()}};
-%% `int -> float`, and nothing wider: a `float` argument is refused, since a
-%% conversion that accepted its own result would hide the deferred reverse
-%% direction (ticket 81, F51).
 reserved_sig('Float', 'FromInt', 1, _ATys) ->
     {ok, {[bs_types:int()], bs_types:float_top()}};
 reserved_sig('List', 'Length', 1, _ATys) ->
@@ -1791,11 +1301,8 @@ reserved_sig('List', 'Length', 1, _ATys) ->
 reserved_sig('List', 'Reverse', 1, [ATy]) ->
     {ok, {[bs_types:list(bs_types:term())],
           bs_types:list(bs_types:list_elem(ATy))}};
-%% The three function-taking operations (F46, ticket 75 Q7). The fun
-%% parameter is the arrow the site expects — a wider domain or a narrower
-%% codomain is contained in it — and the result is read off the fun the
-%% author handed over: `Map` returns a list of what it returns, `Filter` the
-%% list it was given, `Fold` the accumulator, seed joined with result.
+%% Function arguments accept wider domains and narrower codomains. `Fold` joins
+%% the seed and callback result for its accumulator type.
 reserved_sig('List', 'Map', 2, [ATy, FTy]) ->
     Elem = elem_expected(ATy),
     {ok, {[bs_types:list(bs_types:term()), bs_types:fun_ty([Elem], bs_types:term())],
@@ -1810,9 +1317,7 @@ reserved_sig('List', 'Fold', 3, [ATy, SeedTy, FTy]) ->
     {ok, {[bs_types:list(bs_types:term()), Acc, bs_types:fun_ty([Acc, Elem], Acc)],
           Acc}};
 reserved_sig('Term', 'Compare', 2, _ATys) ->
-    %% A three-atom union rather than `atom`, so a `switch` over it is
-    %% exhaustive with three arms and a missing one leaves a named residual
-    %% (tickets 16, 67).
+    %% Three singleton atoms enable exhaustive switches and named residuals.
     {ok, {[bs_types:term(), bs_types:term()], order_type()}};
 reserved_sig(_Q, _Fun, _Arity, _ATys) -> error.
 
@@ -1821,14 +1326,11 @@ order_type() ->
                     bs_types:atom_lit(eq),
                     bs_types:atom_lit(gt)]).
 
-%% The arities this qualifier has for this name. Empty means the name is
-%% unknown; non-empty means the wrong arity of a real operation, which
-%% `unresolved/6` reports as a different sentence.
+%% `unresolved/6` distinguishes an unknown name from a wrong arity.
 reserved_arities(Q, Fun) ->
     [A || {Q1, F1, A} <- reserved_table(), Q1 =:= Q, F1 =:= Fun].
 
-%% A user may not redeclare a compiler-known entry. Every form that introduces a
-%% type name is checked, because the hazard is the name being taken.
+%% Every type-declaration form must reject compiler-known names.
 compiler_known_redeclared(Decls) ->
     Known = maps:keys(stratum_two()),
     Declared = [{N, L} || {type_alias,   L, N, _, _} <- Decls]
@@ -1839,35 +1341,26 @@ compiler_known_redeclared(Decls) ->
         [{N, L} | _]   -> erlang:error({compiler_known_type, N, L})
     end.
 
-%% A record is a map type carrying a minted tag (ticket 26 §1); there is no
-%% record node in the algebra, so the declaration desugars to the anonymous
-%% map type a user could have written (F3).
+%% Records desugar to tagged maps; the algebra has no record node.
 record_surface(Mod, Line, Name, Fields) ->
-    %% A declared `Kind` field is refused at the declaration, since the mint
-    %% would otherwise silently overwrite it.
+    %% Reject author `Kind` fields before minting overwrites them.
     case [F || F = {field, 'Kind', _} <- Fields] of
         [] -> ok;
         _  -> erlang:error({kind_field_is_minted, Line, Name})
     end,
     {t_map, [{field, 'Kind', {t_atom, qualified(Mod, Name)}} | Fields]}.
 
-%% The single minting point. The tag mints from the qualified name, so
-%% `Shop.Orders.Order` and `Billing.Invoices.Order` never unify (ticket 26
-%% §1).
+%% Mint tags from qualified names so records in different modules stay distinct.
 qualified(Mod, Name) ->
     list_to_atom(atom_to_list(Mod) ++ "." ++ atom_to_list(Name)).
 
-%% The declared field order, for the emitter. `Kind` is dropped: it is minted,
-%% never assigned.
+%% Preserve declared field order for the emitter; minted `Kind` is not assigned.
 record_fields({t_map, Fields}) -> [N || {field, N, _} <- Fields, N =/= 'Kind'].
 
-%% The minted tag and the declared field names of a record named in a
-%% pattern (F22, ticket 55). The tag is read back out of the resolved type
-%% rather than re-minted, so patterns cannot disagree with `qualified/2`.
-%% Only a single closed map member carrying a singleton `Kind` is a record;
-%% a union, an untagged map or an alias to `int` gets `not_a_record`. An
-%% unknown prefix raises `resolve/2`'s `{unknown_type, Name}`. Mirrors
-%% `bs_emit:record_tag/2`.
+%% The record tag comes from the resolved type, matching `qualified/2` and
+%% `bs_emit:record_tag/2`. Only one closed map with a singleton `Kind` is a
+%% record.
+%% Rationale: compiler/features/F22-record-pattern-and-binder.md.
 record_of(Name, Line, Env) ->
     case resolve({t_ref, Name}, Env) of
         #{maps := [{closed, Fs}], atoms := {finite, []}, ints := [],
@@ -1877,42 +1370,26 @@ record_of(Name, Line, Env) ->
                 {ok, #{atoms := {finite, [Tag]}, ints := [], floats := {finite, []},
                        tuples := [], lists := [], maps := [], bins := [],
                        funs := []}} ->
-                    %% `Kind` is dropped, so `Frame { Kind: ... }` is refused
-                    %% as it is at construction: it is minted, never written.
+                    %% `Kind` is compiler-minted and cannot be written in a
+                    %% record pattern.
                     {Tag, maps:keys(Fs) -- ['Kind']};
                 _ -> erlang:error({not_a_record, Line, Name})
             end;
         _ -> erlang:error({not_a_record, Line, Name})
     end.
 
-%% An already-resolved type passes through, so the emitter can hand this
-%% either a surface type or one the environment has already reduced.
-%%
-%% `Seen` is the chain of alias names this resolution has entered; without
-%% it a cyclic alias hangs rather than errors. The chain also records
-%% constructor crossings, which tells the two refusals apart: recursion must
-%% pass through a type constructor (ticket 09 §3). A definition that does is
-%% contractive and denotes a regular tree; one that does not is meaningless:
-%%
-%%   type X = X | int                         not contractive: permanent error
-%%   type Tree = :leaf | (:node, Tree, Tree)  contractive: a type
-%%
-%% `'$ctor'` is pushed when the walk descends through a constructor, and
-%% `revisit/2` asks whether one lies between the head of the chain and the
-%% name met again. A union is a Boolean connective and does not count; nor
-%% does a refinement, which is a subset of its base. `$` keeps the marker out
-%% of the PascalCase type-name grammar.
+%% The emitter may pass surface types or already-resolved types. `Seen` tracks
+%% aliases and constructor crossings: recursion must cross a constructor;
+%% unions and refinements do not count. `$` keeps `'$ctor'` out of the
+%% type-name grammar.
+%% Rationale: compiler/features/F28-recursive-types.md.
 resolve(T, Env) -> resolve(T, Env, []).
 
 resolve(T, _Env, _Seen) when is_map(T) -> T;
 resolve({t_atom, A}, _Env, _Seen)    -> bs_types:atom_lit(A);
-%% A lowercase name is a builtin or a declared entry. `option` alone is a
-%% known type written without its bracket, not an unknown one, and only the
-%% type environment knows what the standard environment holds, so the check is
-%% here rather than in `builtin/1`. A ground declared entry such as `foreign_error`
-%% resolves like any other alias, in both forms: still a surface tuple while
-%% `type_env/1` is resolving, and a reduced map afterwards (F19). It owes
-%% the same cycle guard as `{t_ref, N}`.
+%% Lowercase declared entries may be surface types during `type_env/1` or
+%% resolved maps afterwards. They need the same cycle guard as aliases. The
+%% environment distinguishes missing type arguments from unknown types.
 resolve({t_builtin, B}, Env, Seen) ->
     case maps:get(B, Env, undefined) of
         {parametric, Params, _} ->
@@ -1925,11 +1402,8 @@ resolve({t_builtin, B}, Env, Seen) ->
                 new  -> bs_types:mu(B, resolve(Surface, Env, [B | Seen]))
             end
     end;
-%% A revisit of a contractive alias is a back-reference, and the resolution
-%% that entered the name wraps its result in the matching `mu` (F28);
-%% `revisit/2` still refuses the non-contractive case. `bs_types:mu/2` drops
-%% the binder when the body never mentions it, so a non-recursive alias
-%% resolves as before.
+%% A contractive revisit returns a back-reference to the entering `mu`.
+%% `bs_types:mu/2` drops unused binders.
 resolve({t_ref, N}, Env, Seen) ->
     case revisit(N, Seen) of
         knot -> bs_types:recvar(N);
@@ -1938,10 +1412,8 @@ resolve({t_ref, N}, Env, Seen) ->
                 undefined -> erlang:error({unknown_type, N});
                 {parametric, Params, _} ->
                     erlang:error({needs_type_args, N, length(Params)});
-                %% Two imports supply this name; the qualified spelling
-                %% disambiguates (ticket 73, 41 §2). Recorded at the import
-                %% and refused here, at the use, so an unused collision is
-                %% no error at all.
+                %% Import collisions are refused at use, so unused collisions
+                %% are valid. Qualified names disambiguate.
                 {ambiguous, Mods} ->
                     erlang:error({ambiguous_type, N, Mods});
                 T when is_map(T) -> T;
@@ -1950,42 +1422,31 @@ resolve({t_ref, N}, Env, Seen) ->
     end;
 resolve({t_tuple, Cs}, Env, Seen) ->
     bs_types:tuple([resolve(C, Env, ctor(Seen)) || C <- Cs]);
-%% A declared map type is closed: it fixes its domain (ticket 26 §4), and a
-%% wider record is simply a different type (§5).
+%% Declared maps are closed: extra fields make a different type.
 resolve({t_map, Fields}, Env, Seen) ->
     bs_types:map_closed(
       maps:from_list([{N, resolve(T, Env, ctor(Seen))} || {field, N, T} <- Fields]));
-%% `list<T>` is algebra-primitive — the list part is a pair of flags, not an
-%% alias body — so it is the one bracket that cannot be written as a declared
-%% entry and is resolved here.
+%% Lists are algebra primitives, not expressible as alias bodies.
 resolve({t_generic, list, [T]}, Env, Seen) ->
     bs_types:list(resolve(T, Env, ctor(Seen)));
 resolve({t_generic, list, Args}, _Env, _Seen) ->
     erlang:error({generic_arity, list, 1, length(Args)});
-%% `map<K, V>` is algebra-primitive for `list<T>`'s reason: a domain member
-%% is a pair of types, not an alias body, so no alias could express
-%% it (ticket 48, F33). The `Kind` exclusion lives in the member's own
-%% meaning (`bs_types:map_dom/2`), not here.
+%% Domain maps are algebra primitives. `bs_types:map_dom/2` owns the `Kind`
+%% exclusion.
 resolve({t_generic, map, [K, V]}, Env, Seen) ->
     bs_types:map_dom(resolve(K, Env, ctor(Seen)), resolve(V, Env, ctor(Seen)));
 resolve({t_generic, map, Args}, _Env, _Seen) ->
     erlang:error({generic_arity, map, 2, length(Args)});
-%% An instantiation substitutes the ground arguments into the alias body and
-%% resolves that (ticket 27 §(b)); the variable is gone before `bs_types`
-%% sees anything, so `option<int>` and `int | :nothing` are the same
-%% type (F6).
-%%
-%% A parametric alias knots on the instantiation, not on the name (F28):
-%% `T<int>` meeting `T<int>` is a cycle and ties, while `T<int>` meeting
-%% `T<list<int>>` is not. A name that recurs under different arguments is
-%% not a regular tree and is refused by name rather than expanded, because
-%% expanding is the hang.
+%% Substitution removes type variables before the algebra sees the body.
+%% Recursion keys on the resolved instantiation, not just the alias name.
+%% Recurrence with different arguments is non-regular and must be refused to
+%% avoid unbounded expansion.
 resolve({t_generic, N, Args}, Env, Seen) ->
     case maps:get(N, Env, undefined) of
         undefined -> erlang:error({unknown_generic, N});
         {parametric, Params, Body} when length(Params) =:= length(Args) ->
-            %% Arguments are resolved in the CALLER's chain, not the callee's:
-            %% they are siblings of this application, not steps below it.
+            %% Resolve arguments in the caller's chain: they are siblings of
+            %% this application, not descendants.
             RArgs = [resolve(A, Env, Seen) || A <- Args],
             Key = {N, RArgs},
             case revisit(Key, Seen) of
@@ -2005,64 +1466,45 @@ resolve({t_generic, N, Args}, Env, Seen) ->
     end;
 resolve({t_union, Ms}, Env, Seen) ->
     bs_types:union([resolve(M, Env, Seen) || M <- Ms]);
-%% `fn(A, B) -> C` is an arrow in the seventh part (ticket 75, F46). The
-%% domain and codomain are positions below a constructor, so a recursive
-%% alias through an arrow is contractive.
+%% Both arrow domains and codomains count as constructor crossings.
 resolve({t_fun, Ds, C}, Env, Seen) ->
     bs_types:fun_ty([resolve(D, Env, ctor(Seen)) || D <- Ds],
                     resolve(C, Env, ctor(Seen)));
-%% A refinement adds no node to the algebra: it is a subset of its base, so
-%% it resolves to an ordinary type and `is_subtype(Octet, int)` falls
-%% out (ticket 20 §5).
+%% A refinement is a subset of its base, not a constructor crossing.
 resolve({t_refined, Line, Base, Pred}, Env, Seen) ->
     refine(resolve(Base, Env, Seen), Pred, Line).
 
-%% The refinement and the guard go through one translator, `alternatives/1`,
-%% so a parameter declared `Octet` and a clause guarded `when n > 128` cannot
-%% disagree about what `>= 0 and <= 255` means (F2). `value` is bound to the
-%% empty path, the whole type, which is the address a switch arm's guard
-%% refines too.
-%%
-%% An untranslatable predicate is an error, not a widening. A guard the
-%% checker cannot read credits nothing, which is sound; a refinement it
-%% cannot read would resolve to its bare base and silently admit the opaque
-%% tier ticket 20 §5 bars, and this surface has no other site to check it.
+%% Refinements and guards share `alternatives/1`; `value` names the whole type
+%% at the empty path. Unreadable refinements must error: resolving to the base
+%% would silently widen the declared type.
 refine(Base, Pred, Line) ->
     case alternatives(Pred) of
         unknown -> erlang:error({opaque_refinement, Line});
         Alts ->
             Results = [refine_all(Base, #{value => []}, A) || A <- Alts],
             case lists:member(none_marker, Results) of
-                %% `none_marker` means the predicate named something other
-                %% than `value`: unreadable, so refused rather than guessed.
+                %% `none_marker` means a name other than `value` was read.
                 true  -> erlang:error({opaque_refinement, Line});
                 false ->
                     Refined = bs_types:union(Results),
                     case bs_types:is_none(Refined) of
-                        %% An empty refinement is a typo: a signature over
-                        %% it declares a function nothing can call.
+                        %% An empty parameter refinement would make a function
+                        %% uncallable.
                         true  -> erlang:error({empty_refinement, Line});
                         false -> Refined
                     end
             end
     end.
 
-%% Descending through a constructor. One marker per descent, not per component:
-%% the question is whether the recursion passed through a shape, and a tuple's
-%% three fields are three siblings below ONE crossing.
+%% One marker per descent; constructor components are siblings.
 ctor(Seen) -> ['$ctor' | Seen].
 
-%% A contractive revisit is a knot the caller ties off with a binder; a
-%% non-contractive one is an error, because `type X = X | int` describes no
-%% set of values (F28). `Key` is an atom for a ground alias and
-%% `{Name, ResolvedArgs}` for a parametric one.
+%% The caller binds a contractive revisit; other cycles are errors. Keys are
+%% alias atoms or `{Name, ResolvedArgs}` instantiations.
 revisit(Key, Seen) ->
     case lists:member(Key, Seen) of
         false -> new;
         true  ->
-            %% Everything entered since this key was, most recent first. A
-            %% marker in there means the recursion crossed a constructor and
-            %% the definition is contractive.
             Since = lists:takewhile(fun(E) -> E =/= Key end, Seen),
             case lists:member('$ctor', Since) of
                 true  -> knot;
@@ -2073,25 +1515,18 @@ revisit(Key, Seen) ->
 key_name({N, _}) -> N;
 key_name(N)      -> N.
 
-%% One binder name per instantiation. `T<int>` and `T<string>` are two types
-%% and get two names; the hash is over the resolved arguments, so the same
-%% instantiation always lands on the same name and ties to itself.
+%% Hash resolved arguments so repeated instantiations use the same binder.
 gen_name({N, RArgs}) ->
     list_to_atom(atom_to_list(N) ++ "$" ++ integer_to_list(erlang:phash2(RArgs))).
 
-%% The same name already open at DIFFERENT arguments: the expansion is not a
-%% regular tree, so no binder can hold it and unfolding would not terminate.
-%% Refused rather than expanded, because expanding is the hang.
 non_regular_check(N, RArgs, Seen) ->
     case [K || {M, A} = K <- Seen, M =:= N, A =/= RArgs] of
         []      -> ok;
         [_ | _] -> erlang:error({non_regular_recursion, N})
     end.
 
-%% Substitution is over the surface type, and what it substitutes in is an
-%% already-resolved algebra type, which `resolve/3`'s first clause then passes
-%% straight through. So a parameter is replaced exactly once and never
-%% re-walked.
+%% Substituted arguments are resolved maps; `resolve/3` passes them through
+%% without re-walking them.
 subst(T, _Sub) when is_map(T)      -> T;
 subst({t_ref, N} = T, Sub)         -> maps:get(N, Sub, T);
 subst({t_union, Ms}, Sub)          -> {t_union, [subst(M, Sub) || M <- Ms]};
@@ -2102,41 +1537,24 @@ subst({t_map, Fields}, Sub) ->
     {t_map, [{field, N, subst(T, Sub)} || {field, N, T} <- Fields]};
 subst(T, _Sub)                     -> T.
 
-%% Builtins are lowercase — ticket 27 forced that, since a lowercase-implicit
-%% type-variable convention would then be ambiguous.
 builtin(int)  -> bs_types:int();
-%% The BEAM's float, a part beside `int` and not inside it (F51, ticket 69).
+%% BEAM floats are disjoint from integers.
 builtin(float) -> bs_types:float_top();
 builtin(atom) -> bs_types:atom_top();
 builtin(term) -> bs_types:term();
-%% The bottom, beside the top it mirrors (ticket 12 §4). It is first-class
-%% rather than checker-internal because `bs_types:to_string/1` already
-%% prints `none` into a residual: a type an agent READS in a diagnostic and
-%% cannot WRITE in a signature is a gratuitous asymmetry, and `term` is
-%% writable. What it buys is 12 §5's `Partial` benefit — a declarable
-%% never-returning function, so a crash site can be named and greppable
-%% instead of a literal `raise` at every point of failure.
 builtin(none) -> bs_types:none();
 builtin(bool) -> bs_types:union(bs_types:atom_lit(true), bs_types:atom_lit(false));
-%% `string` is `binary` refined by valid UTF-8, so it resolves to a subset
-%% and `string <: binary` falls out of the algebra (ticket 20 §4).
+%% `string` is the valid UTF-8 subset of `binary`.
 builtin(binary) -> bs_types:binary_top();
 builtin(string) -> bs_types:string();
 builtin(B)    -> erlang:error({unknown_builtin, B}).
 
-%%% ---------------------------------------------------------------------------
 %%% Checking one function
-%%% ---------------------------------------------------------------------------
 
 check_fn(F = #fn{name = Name, line = Line, params = Params, ret = Ret}, Ctx0) ->
-    %% The declaration is checked with its variables OPAQUE (F45, 27 §2);
-    %% the environment the body sees carries them too, so a body naming `T`
-    %% is not told to look for a `using` that would supply it.
+    %% Type variables stay opaque in the declaration and body environment.
     Env = opaque_env(F#fn.tvars, Ctx0#ctx.types),
-    %% The argument list is treated as a product, so exhaustiveness across all
-    %% parameters is one subtraction rather than one per column. This is the
-    %% cross-clause part of ticket 04: a clause need not be redundant in any
-    %% single column to be redundant overall.
+    %% Exhaustiveness uses the parameter product: redundancy can span columns.
     Declared = bs_types:tuple([resolve(T, Env) || {param, T, _} <- Params]),
     Ctx = Ctx0#ctx{types = Env, ret = resolve(Ret, Env), fname = Name,
                    arity = length(Params), tvars = F#fn.tvars,
@@ -2149,18 +1567,9 @@ check_fn(F = #fn{name = Name, line = Line, params = Params, ret = Ret}, Ctx0) ->
                 case map_pattern_diags(Clauses, Params, Env, Name)
                      ++ recoverable_diags(F)
                      ++ opacity_diags(Clauses, Params, F#fn.tvars, Name) of
-                    %% A clause that destructures a domain-map parameter is
-                    %% refused before the walk, not left to fall out of the
-                    %% meet (ticket 48 Q2). `#{Status => 1}` is a member of
-                    %% `map<atom, term>`, so "this clause's pattern is not a
-                    %% member of it" would be a false sentence about the
-                    %% language rather than a true one about the compiler, and
-                    %% every downstream number would be computed from a
-                    %% pattern the compiler cannot honour. The residual is
-                    %% emptied so this is one error and not two: handing back
-                    %% `Declared` would add an inexhaustive report that is a
-                    %% consequence of the first error, and the author would fix
-                    %% the wrong one.
+                    %% Reject unsupported domain-map destructuring before the
+                    %% walk. Empty the residual to suppress a consequential
+                    %% inexhaustive error.
                     [_ | _] = Ds -> {bs_types:none(), Ds};
                     []           -> walk(Clauses, Declared, Declared, Ctx, [], 1)
                 end,
@@ -2168,9 +1577,8 @@ check_fn(F = #fn{name = Name, line = Line, params = Params, ret = Ret}, Ctx0) ->
             Final =
                 case bs_types:is_none(Residual) of
                     true  -> Diags;
-                    %% The residual is carried as a type, not a string: it is
-                    %% the missing case, so the caller formats it as a clause
-                    %% head rather than as a type expression (ticket 04).
+                    %% Keep the residual as a type so the caller can print a
+                    %% clause head.
                     false -> Diags ++ [{error, Line, Name,
                                        {inexhaustive, Residual,
                                         record_names(Env)}}]
@@ -2178,19 +1586,10 @@ check_fn(F = #fn{name = Name, line = Line, params = Params, ret = Ret}, Ctx0) ->
             {F, Final}
     end.
 
-%%% ---------------------------------------------------------------------------
-%%% The corrected signature (F25, ticket 23 §8)
-%%%
-%%% When a clause returns outside its signature, the diagnostic carries a
-%%% corrected signature the author can paste. The compiler synthesises heads
-%%% and never bodies, and a signature is a head (ticket 23 §2).
-%%%
-%%% The correction is a property of the function, not of the clause that
-%%% tripped it. Two offending clauses corrected separately print two
-%%% contradictory lines, `int | :zero` and `int | (:error, string)`, and
-%%% pasting either leaves the other clause wrong; so every residual is
-%%% unioned first and the one answer is attached to all of them.
-%%% ---------------------------------------------------------------------------
+%%% Corrected signatures
+%%% Union all clauses' return residuals before attaching one correction
+%%% throughout the function. Synthesis is limited to heads, never bodies.
+%%% Rationale: compiler/features/F25-corrected-signature.md.
 
 with_corrected_signature(F, Declared, Env, Diags) ->
     case [R || {error, _, _, {return_not_declared, R}} <- Diags] of
@@ -2208,31 +1607,22 @@ attach_correction(D, _C) ->
 %%
 %%   Line                       the signature to paste
 %%   {replacing, Line, D, New}  the same, where it drops the declared `D`
-%%                              because `New` contains it (R3)
+%%                              because `New` contains it
 %%   {refused, {SA, A}, {SB, B}, Records}
 %%                              no clause head can tell `A` from `B`, which
 %%                              the author wrote as `SA` and `SB`; `Records`
-%%                              is the named type of records to use instead
-%%                              (Round 5), or why none is shown
-%%   {withhold, Why}            no line, and `Why` says why (R2)
+%%                              is the named type of records to use instead,
+%%                              or why none is shown
+%%   {withhold, Why}            no line, and `Why` says why
 %%
-%% R2, R3 and R5 are David's review round on ENG-346 (F25's amendment): a line
-%% never disappears without a word, and never replaces the declared type
-%% without saying so.
-%%
-%% Each travels with the declared return as the author wrote it, because since
-%% Round 3 (David, 2026-09-11: "all") every return mismatch leads with the
-%% clause — "If `ViewCounts` is what you meant, fix the clause, not the
-%% signature." The signature states intent and the compiler holds the clauses
-%% to it; the widened line is offered after that.
+%% A line never disappears without a reason and never replaces the declared
+%% type silently. Each travels with the declared return as written, because
+%% every return mismatch leads with the clause: the signature states intent.
 corrected_signature(F = #fn{ret = Ret}, Declared, Union, Env) ->
     {declared_text(Ret, Declared), correction_of(F, Declared, Union, Env)}.
 
-%% The declared return as the author wrote it, for the lead. An inline map is
-%% the one declared form `type_source/1` will not write (F25's Out of scope, a
-%% rule about the pasteable line); in a sentence it is written back with its
-%% fields in the author's order, since the algebra's printer sorts them. A form
-%% neither can write is named as the algebra prints it: prose, never pasted.
+%% Prose preserves written names and inline-map field order; algebra text is a
+%% fallback, never source to paste.
 declared_text(Ret, Declared) ->
     case written(Ret) of
         none -> bs_types:to_string(Declared);
@@ -2241,9 +1631,7 @@ declared_text(Ret, Declared) ->
 
 written({t_map, Fields}) ->
     joined("{ ", [field_written(F) || F <- Fields], ", ", " }");
-%% Through the composite forms too, since `{ … } | :not_found` is the common
-%% shape of a lookup, and `type_source/1` answers `none` for the whole union
-%% the moment one member is an inline map.
+%% Preserve inline maps inside composites too; `type_source/1` refuses them.
 written({t_union, Ms}) ->
     joined("", [written(M) || M <- Ms], " | ", "");
 written({t_tuple, Cs}) ->
@@ -2282,25 +1670,10 @@ correction_of(F, Declared, Union, Env) ->
             end
     end.
 
-%%% ---------------------------------------------------------------------------
-%%% A refusal in the author's words (ENG-346, F25's Rounds 4 and 5)
-%%%
-%%% THE NAME THE AUTHOR WROTE. `A`, `B` and an absorbed `M` come back from the
-%%% declaration check resolved, so `ViewCounts` would print as
-%%% `map<string, int>`. Ticket 09 §1 decided that diagnostics print the name,
-%%% and where the reason is structural TypeScript and GHC print the structure
-%%% beside it (the Round 4 survey), so each is traced back to the member of the
-%%% pasted line that resolves to it and `bs_diag` prints both. `A` and `B` are
-%%% normalised constituents (09 §4), so a constituent that no written member
-%%% resolves to is printed as the algebra spells it.
-%%%
-%%% RECORDS UNDER A NAME, NOT TAGS THE AUTHOR WRITES. Ticket 70's repair is to
-%%% tag the pair. David, Round 5: "The readability should be a named type" and
-%%% the compiler handles the tag, which is ticket 26's record, whose `Kind` is
-%%% minted and never written. So the advice is two records and a named union of
-%%% them, and the return type with that name in the pair's place: whole, since
-%%% none of the compilers surveyed prints part of a type where the whole goes.
-%%% ---------------------------------------------------------------------------
+%%% Refusals in the author's words
+%%% Pair resolved members with written names, falling back to algebra text for
+%%% unnamed constituents. Repair advice uses two named records and a named
+%%% union; `Kind` remains compiler-minted.
 
 as_written({refused, A, B}, F, Line, Env) ->
     Ms = returned_members(Line),
@@ -2311,8 +1684,6 @@ as_written({withhold, {absorbed_member, M, By}}, _F, Line, Env) ->
 as_written(Refusal, _F, _Line, _Env) ->
     Refusal.
 
-%% The members of the pasted line's return, as parsed from the text the
-%% author's declared type and the rendered residual were written into.
 returned_members(Line) ->
     {signature, _, _, Ret, _, _, _} = pasted_signature(Line),
     return_members(Ret).
@@ -2333,10 +1704,8 @@ source_or_printed(W, T) ->
         Src  -> Src
     end.
 
-%% Where a resolved member sits in the written return: a member of the union
-%% itself, or the argument of a generic member that its body places as a
-%% union member, which is `result`'s `T` and `option`'s `T`. `list<T>` is not
-%% one: its argument is an element, and a name put there would change the type.
+%% Only top-level members and generic arguments placed directly in a union have
+%% replaceable positions. A list element is not a union member.
 locate(T, Ms, Env) ->
     case [{top, I, W} || {I, W} <- lists:enumerate(Ms), equivalent(resolve(W, Env), T)] of
         [P | _] -> P;
@@ -2359,24 +1728,18 @@ member_args({t_generic, N, Args}, Env) ->
 member_args(_, _Env) ->
     [].
 
-%% The same set of values, which is what "the member that resolves to `T`"
-%% asks: an alias and its expansion are two terms for one type.
+%% Aliases and expansions are equivalent by value set, not term identity.
 equivalent(S, T) -> bs_types:is_subtype(S, T) andalso bs_types:is_subtype(T, S).
 
-%% The named union goes where the member written first stood, and the other
-%% member is dropped: `map<string, int> | map<string, binary>` becomes `Name`,
-%% and `result<map<string, int>, atom> | map<string, binary>` becomes
-%% `result<Name, atom>`, keeping the author's `result`. A pair member written
-%% inside a type this pass sees only resolved (a non-generic alias such as
-%% `type Stock = map<string, int> | :not_found`) has no written position, and
-%% a guessed rewrite would be a type nobody checked, so the advice says so.
+%% Record advice requires written positions for both members; members hidden
+%% inside resolved aliases cannot be safely rewritten.
 records_for(F, Ms, A, B, Env) ->
     case {locate(A, Ms, Env), locate(B, Ms, Env)} of
         {none, _} ->
             {no_records, nested(A, Ms, Env)};
         {_, none} ->
             {no_records, nested(B, Ms, Env)};
-        %% Both inside generic members: one name cannot stand in two places.
+        %% Two generic arguments cannot share one replacement position.
         {{arg, _, _, _}, {arg, J, _, _}} ->
             {no_records, nested(B, [lists:nth(J, Ms)], Env)};
         {PA, PB} ->
@@ -2384,8 +1747,8 @@ records_for(F, Ms, A, B, Env) ->
             declared_records(F, First, Second, Place, Ms, Env)
     end.
 
-%% Which of the two keeps a place: the one inside a generic, since only it
-%% can keep the generic, and otherwise the one the author wrote first.
+%% Keep the generic position to preserve its wrapper; otherwise keep the first
+%% written member.
 placed({top, I, WA}, {top, J, WB}) when I < J -> {WA, WB, {top, I, J}};
 placed({top, I, WA}, {top, J, WB})            -> {WB, WA, {top, J, I}};
 placed({arg, I, K, WA}, {top, J, WB})         -> {WA, WB, {arg, I, K, J}};
@@ -2432,16 +1795,10 @@ with_arg({t_generic, N, Args}, K, Name) ->
 union_node([One]) -> One;
 union_node(Many)  -> {t_union, Many}.
 
-%% `Name`, `Name1` and `Name2`, unless the author's module already uses one of
-%% them: a person's `record Name` is ordinary in an accounts module. The
-%% compiler does not refuse a second declaration of a name today (ENG-352), so
-%% a clash pasted in would silently replace the author's type rather than be
-%% reported; moving aside is what prevents it. Asked without creating an atom,
-%% since a name the module never used has no atom to be a key.
-%%
-%% KNOWN LIMIT: the placeholders are chosen per function, so two functions in
-%% one module refused this way print the same ones. The advice says to choose
-%% the names; pasted verbatim, the two collide, silently, until ENG-352.
+%% Placeholder names must avoid the module's existing types. Check without
+%% creating atoms: unused names have no environment keys. Names are chosen per
+%% function and may collide across suggestions; authors must choose distinct
+%% names when combining them.
 placeholders(Env) -> placeholders("Name", Env).
 
 placeholders(Base, Env) ->
@@ -2456,10 +1813,8 @@ in_env(S, Env) ->
     catch error:badarg -> false
     end.
 
-%% THE DECLARATIONS ARE PASTED BACK BEFORE THEY ARE PRINTED, as the line is:
-%% parsed, entered into the author's environment, and handed to the declaration
-%% check with the signature that uses them. The construction is meant to be
-%% accepted, so a refusal here is a fault in this code and `bs_diag` says so.
+%% Before printing, parse and declaration-check the suggested records and
+%% signature in the author's environment. Refusal is a compiler defect.
 declarations_pasted(Decls, Signature, Env) ->
     Src = lists:flatten([lists:join("\n", Decls ++ [Signature]), "\n"]),
     try
@@ -2474,9 +1829,8 @@ declarations_pasted(Decls, Signature, Env) ->
         _:Reason -> {check_failed, reason_name(Reason)}
     end.
 
-%% The author's environment with the pasted declarations resolved into it, as
-%% `type_env/1` resolves a module's own. The records mint under the default
-%% module name: the tag is data, and only its distinctness is asked here.
+%% Suggested records mint under the default module name; this check needs only
+%% distinct tags. Resolve declarations as `type_env/1` does.
 with_declared(Env, Decls) ->
     Mod = module_name([]),
     New = [{N, record_surface(Mod, L, N, Fs)} || {record_decl, L, N, Fs} <- Decls]
@@ -2485,37 +1839,11 @@ with_declared(Env, Decls) ->
     lists:foldl(fun({N, T}, Acc) -> Acc#{N => bs_types:mu(N, resolve(T, Surface, [N]))} end,
                 Env, New).
 
-%% THE LINE IS PASTED BACK BEFORE IT IS PRINTED (ENG-346). It is lexed, parsed
-%% as a declaration, resolved, and handed to `collapse_decl/2`, which is the
-%% declaration check both `check/2` and `exports_of/1` run. Three kinds of line
-%% were printed and then refused when pasted, and asking the check itself is
-%% what covers all three rather than one refusal at a time:
-%%
-%%   `map<string, int> | map<string, binary>` — no clause head can tell the two
-%%       apart. Ticket 70 keeps that union legal one container level in and puts
-%%       the objection in the advice, so the answer is the pair: `bs_diag` names
-%%       both members, and `as_written/4` adds the records to use instead.
-%%   `[map<string, binary>, ..]` and `(2, map<string, binary>)` — pattern
-%%       spellings `writable/1` does not catch, so the parser refuses the line.
-%%       The declared half is rendered by `type_source/1`, which quotes what
-%%       needs quoting, so a line that does not parse is taken to be the
-%%       residual's spelling.
-%%   `tuple`, `map`, or another module's `Tree` — printer spellings that parse
-%%       and do not resolve here: `tuple` and `map` have no surface form, and a
-%%       type's name does not cross a module boundary. Also the residual's
-%%       spelling, found by `resolve/2` rather than the parser.
-%%   a written member absorbed by another, which `signature_line/3` prevents
-%%       where the whole declared type is absorbed and cannot where only one
-%%       member of a declared union is.
-%%
-%% ANYTHING ELSE RAISED IS A COMPILER DEFECT, AND IS SAID TO BE ONE. Crashing
-%% would take the author's whole diagnostic with it for a fault in one line of
-%% advice, and answering nothing hid the fault. So the line is withheld and the
-%% class and reason travel to `bs_diag`, which names the defect (R2). No
-%% program is known to reach it; `corrected_signature_tests` F25.20 reaches it
-%% by handing this function an environment `type_env/1` never builds. `Env` is
-%% the module's `type_env/1`, so an alias or a record the author named
-%% resolves as it does in their file.
+%% Before printing, parse and resolve the signature in the module's type
+%% environment, then run the declaration check shared by `check/2` and
+%% `exports_of/1`. This catches unwritable types, indistinguishable members and
+%% absorbed members. Unexpected failures withhold only the suggestion and carry
+%% their class and reason to `bs_diag` as compiler defects.
 as_pasted(Line, Env) ->
     case pasted_signature(Line) of
         none ->
@@ -2550,23 +1878,15 @@ pasted_signature(Line) ->
             none
     end.
 
-%% The name of what went wrong, not the whole term: a reason tuple can carry a
-%% type or a source fragment, and the descriptor is printed with `~0p` for a
-%% consumer to parse back. OTP's error reasons are an atom or a tuple led by one.
+%% OTP error reasons are atoms or atom-led tuples. Keep only the reason name:
+%% the `~0p` descriptor must not carry types or source fragments.
 reason_name(R) when is_tuple(R), tuple_size(R) > 0 -> element(1, R);
 reason_name(R)                                     -> R.
 
-%% A signature that cannot be rendered as source is withheld, never guessed: a
-%% line that looks pasteable and is not is worse than no line (ticket 23 §2).
-%% Two reasons are known here. The residual has no writable spelling (a
-%% record's mint tag, `binary \ string`), or the declared signature uses a form
-%% `type_source/1` does not render (an inline map, F25's Out of scope).
-%%
-%% NOT NAMED `pasteable`. A function name is an atom, and `bs_diag`'s term
-%% channel prints the `heads` map with `~0p`, whose key order is atom-creation
-%% order. A `pasteable/3` here created that atom before `bs_diag` created
-%% `kind`, and `--batch` stopped printing the same bytes as a standalone run
-%% (measured 2026-09-10, `cli_tests`; ENG-349).
+%% Withhold signatures containing unwritable residuals or declared forms. Keep
+%% this function's name: naming it `pasteable` creates that atom before
+%% `bs_diag` creates `kind`, changing `~0p` map-key order between batch and
+%% standalone runs.
 signature_line(F = #fn{ret = Ret, params = Params}, Declared, Union) ->
     Rendered = bs_types:to_string(Union),
     case writable(Rendered) of
@@ -2583,8 +1903,7 @@ signature_line(F = #fn{ret = Ret, params = Params}, Declared, Union) ->
             end
     end.
 
-%% A signature line for `F` returning the type written as `RetText`. Only
-%% called once `params_source/1` has answered for `F`'s parameters.
+%% Requires parameters accepted by `params_source/1`.
 line_of(#fn{name = Name, params = Params, vis = Vis, tvars = TV}, RetText) ->
     lists:flatten([vis_source(Vis), RetText, " ", atom_to_list(Name),
                    vars_source(TV), "(", params_source(Params), ")"]).
@@ -2592,41 +1911,24 @@ line_of(#fn{name = Name, params = Params, vis = Vis, tvars = TV}, RetText) ->
 vars_source([]) -> "";
 vars_source(Vs) -> "<" ++ lists:join(", ", [atom_to_list(V) || V <- Vs]) ++ ">".
 
-%% The declared return is written back as a union member to keep the author's
-%% own alias name, which is why this is a concatenation and not a
-%% `bs_types:union/2`. It is dropped when the residual contains it: `D | X` is
-%% `X` then, and ticket 68 refuses the absorbed member, so writing it would
-%% offer a program this compiler rejects. Tested on the RESOLVED types, so an
-%% alias is caught too.
-%%
-%% F38 wrote this for the bottom alone, arguing a residual is the complement
-%% of the declared type and so cannot contain it. The algebra's complement is
-%% not always exact: it cannot spell `map<string, term>` less
-%% `map<string, int>`, so that residual is `map<string, term>` and contains the
-%% declared `map<string, int>` (ENG-346, F25.15).
+%% Concatenate source to preserve the declared alias name. Omit it when the
+%% resolved residual contains it, since absorbed members are refused.
+%% Subtraction can overapproximate: a domain-map residual may still contain the
+%% declared type.
 declared_member(true, _RetSrc) -> "";
 declared_member(false, RetSrc) -> RetSrc ++ " | ".
 
-%% R3: a dropped declared type is reported by the name the author wrote, which
-%% is F25's naming rule applied to the sentence as well as to the line. Not for
-%% the bottom: every type contains `none`, so "this replaces `none`, which
-%% `term` contains" is true of any line and tells the author nothing.
+%% Report a replaced type by its written name. Exclude `none`: every type
+%% contains it.
 replaced(true, RetSrc, Rendered) -> {RetSrc, Rendered};
 replaced(false, _RetSrc, _Rendered) -> none.
 
-%% A rendered type is pasteable unless it contains a spelling B# source cannot
-%% write. The test is on the rendered string because that is what gets
-%% printed. `bs_types`' printer produces each unwritable spelling in exactly
-%% one place: `{` from `m_str/1`, the record field set carrying the minted
-%% tag (ticket 26 §1), and `\` from `b_str([other])`. Both survive nesting
-%% inside a tuple or a list, because nesting renders through the same
-%% printers.
+%% Check rendered text: `bs_types` prints unwritable record field sets with
+%% braces and binary complements with backslashes, even inside composites.
 writable(S) ->
     string:find(S, "{") =:= nomatch andalso string:find(S, "\\") =:= nomatch.
 
-%% `public` is written only where the original signature carried it; an
-%% unmarked signature is private (F12), and a pasted line that silently
-%% exported a private function would be a worse defect than the one fixed.
+%% Preserve the original visibility in the suggested signature.
 vis_source(public) -> "public ";
 vis_source(_)      -> "".
 
@@ -2643,17 +1945,9 @@ param_source({param, T, Name}) ->
         S    -> S ++ " " ++ atom_to_list(Name)
     end.
 
-%% The declared half of the correction is rendered from the type AST, what
-%% the author wrote, not from the algebra. A function declared to return the
-%% record `Order` renders through `bs_types:to_string/1` as
-%% `{ Kind: :'Shop.Order', … }` and through the AST as `Order`, and only the
-%% latter makes `Order | :oops` expressible.
-%%
-%% An unrecognised form answers `none` and the whole line is dropped, so a
-%% type construct added later cannot leak a half-rendered signature.
-%% Quoted where the bare sigil cannot spell it, by the printer's own rule:
-%% `:'a b'` written bare as `:a b` made the whole line a syntax error, and the
-%% paste-back then blamed the residual (ENG-346 review).
+%% Render declarations from the AST to preserve writable record names; algebra
+%% text exposes minted tags. Unknown forms withhold the whole line. Atom
+%% quoting follows the type printer's source-spelling rules.
 type_source({t_atom, A})        -> bs_types:atom_str(A);
 type_source({t_builtin, B})     -> atom_to_list(B);
 type_source({t_ref, N})         -> atom_to_list(N);
@@ -2664,17 +1958,14 @@ type_source({t_generic, N, As}) ->
         none -> none;
         S    -> atom_to_list(N) ++ S
     end;
-%% An arrow is written back as the author writes it (ticket 75 round 2).
 type_source({t_fun, Ds, C}) ->
     case {join_source(Ds, ", "), type_source(C)} of
         {none, _}    -> none;
         {_, none}    -> none;
         {DsS, CS}    -> "fn(" ++ DsS ++ ") -> " ++ CS
     end;
-%% An inline structural map is refused rather than rendered. It is the one
-%% written form that can carry a `Kind:` field, and a signature is not where
-%% this feature wants to reason about whether the author's tag is theirs to
-%% paste. A record named in a signature arrives as `t_ref` and is unaffected.
+%% Inline maps may carry `Kind` fields and are not rendered as suggestions.
+%% Named records arrive as `t_ref` and remain writable.
 type_source({t_map, _Fields})   -> none;
 type_source(_)                  -> none.
 
@@ -2691,41 +1982,21 @@ bracket(Open, Ts, Sep, Close) ->
         S    -> Open ++ S ++ Close
     end.
 
-%%% ---------------------------------------------------------------------------
-%%% Scope: bindings and the names a body may read (ticket 34)
-%%%
-%%% Every name a body reads must be bound, and the checker reports it rather
-%%% than letting `erlc` report it against the emitted `.abstr`, a file the
-%%% author did not write. These are name questions, decidable syntactically;
-%%% nothing here asks what type an expression has, so the body stays
-%%% untyped (ticket 33).
-%%%
-%%% Bindings do not shadow. A name means one thing in a clause, so rebinding
-%%% is an error rather than a new scope: a second `x =` reads as an
-%%% assignment in a language with no mutation to assign with (ticket 08).
-%%% ---------------------------------------------------------------------------
+%%% Scope
+%%% Report unbound names against source, before `erlc` sees emitted forms.
+%%% Bindings cannot shadow. These checks are syntactic, not type inference.
+%%% Rationale: compiler/features/F8-bind-and-match.md.
 
 scope_diags({clause, Line, Name, Patterns, Guard, Body}) ->
     {Bound, HeadDiags} = head_scope(Patterns, Line, Name),
     HeadDiags ++
-    %% A guard is read in the scope of the clause head alone; bindings come
-    %% after it. An unbound name in a guard is a `bsc` error like any
-    %% other (F4), not an `erlc` error against the emitted file.
+    %% Guards see only clause-head bindings.
     guard_scope(Guard, Bound, Line, Name) ++ check_scope(Body, Bound, Name, Line, []).
 
-%% A bare name repeated in a clause head is an error: a bare name introduces,
-%% and `== name` is how a pattern asks for a match (ticket 45, F8.10).
-%% Accepting `F(acc, acc)` as a plain double binding would be a soundness
-%% hole: `pattern_type/3` reads the second `acc` as a fresh variable covering
-%% the whole domain, while the emitted Erlang repeats `_Acc` and so makes it
-%% an equality test, and `F(1, 2)` crashed with `function_clause` on a
-%% function proved total. `pattern_row/2` merges binding maps with
-%% `maps:merge/2`, which keeps the rightmost duplicate silently, so the
-%% refusal lives here rather than there.
-%%
-%% A head is one simultaneous match, so `== acc` may name a parameter to its
-%% left or its right. That is what the emitted Erlang does, and a
-%% left-to-right rule the target lacks would be one more rule to teach.
+%% Repeated bare head names must be refused: the checker treats variables as
+%% covering the domain, but Erlang repeats impose equality. Duplicates must be
+%% caught before `pattern_row/2` silently merges their bindings. Heads match
+%% simultaneously, so `== name` may refer left or right.
 head_scope(Patterns, Line, Name) ->
     {Bound, Dups} =
         lists:foldl(
@@ -2736,8 +2007,7 @@ head_scope(Patterns, Line, Name) ->
                   end
           end, {[], []},
           lists:append([pattern_vars(P) || P <- Patterns])),
-    %% `== acc` reads a name rather than introducing one, so it must resolve,
-    %% and in a head the only scope is the head itself.
+    %% Head match references must resolve within the head itself.
     Refs = lists:append([pattern_matched_vars(P) || P <- Patterns]),
     Unbound = [{error, Line, Name, {unbound_variable, V}}
                || V <- lists:usort(Refs), not lists:member(V, Bound)],
@@ -2751,20 +2021,15 @@ check_scope({e_block, _, Binds, Final}, Bound0, Name, Line, Acc0) ->
         lists:foldl(
           fun({bind, L, V, E}, {B, A}) ->
                   bind_names(E, [V], B, L, Name, A);
-             %% A destructuring bind names everything its pattern names, and
-             %% every one of them obeys the same no-shadowing rule.
              ({dbind, L, P, E}, {B, A}) ->
                   bind_names(E, pattern_vars(P), B, L, Name, A)
           end, {Bound0, Acc0}, Binds),
-    %% The final expression carries no line of its own, since the parser keeps
-    %% one per binding and one per clause, so an unbound name in it is reported
-    %% against the clause, which is the smallest span that is certainly right.
+    %% The parser gives the final expression no line; use the clause's line.
     name_diags(Final, Bound, Line, Name, Acc);
 check_scope(Final, Bound, Name, Line, Acc) ->
     name_diags(Final, Bound, Line, Name, Acc).
 
-%% One binding: its right-hand side is read in the scope BEFORE it, and the
-%% names it introduces may not already be bound.
+%% Read the right-hand side before introducing names; bindings cannot shadow.
 bind_names(Expr, Vars, Bound, Line, Name, Acc) ->
     Acc1 = name_diags(Expr, Bound, Line, Name, Acc),
     lists:foldl(
@@ -2775,29 +2040,18 @@ bind_names(Expr, Vars, Bound, Line, Name, Acc) ->
               end
       end, {Bound, Acc1}, Vars).
 
-%% An expression may neither read an unbound name nor rebind a bound one.
-%% The two are checked together because they are asked at the same points
-%% against the same running scope; a switch arm is the one thing besides a
-%% binding that introduces a name mid-expression (F7).
 name_diags(Expr, Bound, Line, Name, Acc) ->
     [{error, Line, Name, {unbound_variable, V}}
      || V <- lists:usort(expr_vars(Expr)), not lists:member(V, Bound)]
         ++ rebinds(Expr, Bound, Name) ++ Acc.
 
-%% A switch arm may not rebind a name already in scope (ticket 34). In Erlang
-%% a `case` arm pattern naming an already-bound variable is an equality test
-%% against the existing value, not a binding, so accepting it would emit a
-%% silently different program from the one that reads like a fresh binding.
-%%
-%% Generic below the switch case: a switch can sit anywhere an expression
-%% can, and enumerating the grammar again to find one node would be another
-%% copy of the same walk.
+%% Reject switch-arm rebinding: Erlang treats an already-bound pattern variable
+%% as an equality test. Traverse generically below special cases because
+%% switches can occur anywhere in an expression.
 rebinds({e_switch, _, Subject, Arms}, Bound, Name) ->
     rebinds(Subject, Bound, Name)
         ++ lists:append([arm_rebinds(A, Bound, Name) || A <- Arms]);
-%% A lambda's parameters bind under ticket 34: none may reuse a name in
-%% scope, and none may repeat another (F46). The body is then read with them
-%% bound.
+%% Lambda parameters cannot shadow outer bindings or repeat each other.
 rebinds({e_lambda, Line, Params, Body}, Bound, Name) ->
     Vars = lists:append([pattern_vars(P) || P <- Params]),
     Dups = Vars -- lists:usort(Vars),
@@ -2814,9 +2068,7 @@ arm_rebinds({arm, Line, P, Guard, Body}, Bound, Name) ->
     Inner = Bound ++ Vars,
     [{error, Line, Name, {rebinding, V}}
      || V <- lists:usort(Vars), lists:member(V, Bound)]
-    %% `== name` in an arm must name something in scope: it matches a bound
-    %% value rather than introducing one, so an unknown name is the mirror of
-    %% the rebinding error and is reported here, not by `erlc` (F8, F4).
+    %% Arm match references must resolve before emission to Erlang.
         ++ [{error, Line, Name, {unbound_variable, V}}
             || V <- lists:usort(pattern_matched_vars(P)),
                not lists:member(V, Bound ++ Vars)]
@@ -2824,39 +2076,24 @@ arm_rebinds({arm, Line, P, Guard, Body}, Bound, Name) ->
         ++ case Guard of none -> []; {guard, G} -> rebinds(G, Inner, Name) end.
 
 pattern_vars({p_var, _, V})            -> [V];
-%% A segment binder is an ordinary name (F13). `seg_wild` and the literal
-%% forms introduce nothing, and a segment's size is a name being read rather
-%% than bound, so it belongs to `pattern_matched_vars/1` and not here.
+%% Segment sizes read names; only segment binders introduce them.
 pattern_vars({p_bin, _, Segs})         ->
     [V || {seg_bind, _, V, _} <- Segs];
 pattern_vars({p_tuple, _, Ps})         -> lists:append([pattern_vars(P) || P <- Ps]);
 pattern_vars({p_map, _, Fs})           -> lists:append([pattern_vars(P) || {_, P} <- Fs]);
-%% A type-prefixed record pattern carries the same field list a property
-%% pattern does; the type name binds nothing (F22).
+%% Record type names bind nothing; their field patterns bind normally.
 pattern_vars({p_rec, _, _, Fs})        -> lists:append([pattern_vars(P) || {_, P} <- Fs]);
-%% A binder introduces its name and the pattern under it still binds:
-%% `Frame { Payload: p } f` introduces both (F22). Answering `[V]` alone
-%% would make the sub-pattern's names unreadable in the body with no
-%% diagnostic.
+%% A trailing binder and its nested pattern both introduce names.
 pattern_vars({p_bind, _, V, P})        -> [V | pattern_vars(P)];
-%% The type prefix over a part introduces its trailing name, as the record
-%% prefix does through `p_bind` above (F53). The type names nothing: `float`
-%% is a type here and not a binder, which is the whole difference between
-%% `Post(float a)` and `Post(float)`, the second of which is two names and a
-%% syntax error.
+%% A type prefix binds only its trailing name.
 pattern_vars({p_type, _, _, V})        -> [V];
 pattern_vars({p_list, _, Items, Rest}) ->
     lists:append([pattern_vars(P) || P <- Items])
         ++ case Rest of nil -> []; R -> pattern_vars(R) end;
-%% `p_eqvar` is deliberately absent: `== acc` matches the value `acc` holds
-%% and introduces nothing, which is the distinction the token exists to
-%% mark (ticket 45).
+%% `p_eqvar` is deliberately absent: it reads a value without binding.
 pattern_vars(_)                        -> [].
 
-%% Every name a pattern reads, which today is exactly `== name`. Separate from
-%% `pattern_vars/1` because the two answer opposite questions about the same
-%% tree, and a pattern may do both: `F(k, { Kind: == k })` binds `k` and
-%% reads it.
+%% A pattern can both bind and read names; keep these walks separate.
 pattern_matched_vars({p_eqvar, _, V})          -> [V];
 pattern_matched_vars({p_tuple, _, Ps})         ->
     lists:append([pattern_matched_vars(P) || P <- Ps]);
@@ -2864,24 +2101,18 @@ pattern_matched_vars({p_map, _, Fs})           ->
     lists:append([pattern_matched_vars(P) || {_, P} <- Fs]);
 pattern_matched_vars({p_rec, _, _, Fs})        ->
     lists:append([pattern_matched_vars(P) || {_, P} <- Fs]);
-%% The binder introduces, so it reads nothing itself, but the pattern under
-%% it may: `Frame { Kind: == k } f` must still report reading `k`.
 pattern_matched_vars({p_bind, _, _, P})        -> pattern_matched_vars(P);
 pattern_matched_vars({p_list, _, Items, Rest}) ->
     lists:append([pattern_matched_vars(P) || P <- Items])
         ++ case Rest of nil -> []; R -> pattern_matched_vars(R) end;
 pattern_matched_vars(_)                        -> [].
 
-%% Every variable an expression reads. Not shared with the emitter's
-%% `used_vars/2`, which answers a different question, whether to underscore
-%% a name it is about to emit, and would drag a lowering concern into the
-%% checker to save ten lines.
+%% Reads free variables; the emitter's `used_vars/2` decides underscoring.
 expr_vars({e_var, _, V})               -> [V];
 expr_vars({e_proj, _, V, _})           -> [V];
 expr_vars({e_tuple, _, Es})            -> lists:append([expr_vars(E) || E <- Es]);
 expr_vars({e_call, _, _, As})          -> lists:append([expr_vars(A) || A <- As]);
-%% The type arguments of an instantiation hold no variables, so only the
-%% value arguments are walked (F18).
+%% Type arguments contain no value variables.
 expr_vars({e_inst, _, _, _, As})       -> lists:append([expr_vars(A) || A <- As]);
 expr_vars({e_foreign_call, _, _, _, As}) -> lists:append([expr_vars(A) || A <- As]);
 expr_vars({e_qcall, _, _, _, As})        -> lists:append([expr_vars(A) || A <- As]);
@@ -2895,23 +2126,12 @@ expr_vars({e_list, _, Items, Rest})    ->
         ++ case Rest of nil -> []; R -> expr_vars(R) end;
 expr_vars({e_block, _, Binds, Final})  ->
     lists:append([expr_vars(element(4, B)) || B <- Binds]) ++ expr_vars(Final);
-%% An arm's pattern names are readable in that arm and nowhere else, so the
-%% subtraction is per arm, not per switch. Either mistake is silent: subtract
-%% nothing and a name the arm bound is reported unbound; subtract the whole
-%% switch's names and a typo in one arm is covered by a sibling arm that
-%% binds the same name.
+%% Subtract pattern bindings per arm; sibling arms do not share scope.
 expr_vars({e_switch, _, Subject, Arms}) ->
     expr_vars(Subject) ++ lists:append([arm_free_vars(A) || A <- Arms]);
-%% A valve is walked as the switch it lowers to (F14). This walk enumerates
-%% the grammar and falls through to `[]`, so without this clause a misspelled
-%% name inside a valve stage would be accepted in silence.
 expr_vars({e_valve, _, Switch})        -> expr_vars(Switch);
-%% Same reason again: without this clause a misspelled name in a raised reason
-%% is accepted in silence, and the author learns of it from `erlc` or from a
-%% crash carrying the wrong term.
 expr_vars({e_raise, _, Reason})        -> expr_vars(Reason);
-%% A lambda's parameters are readable in its body and nowhere else, as an
-%% arm's pattern names are (F46); a call through a bound name reads it.
+%% Lambda parameters are local to the body; applying a bound name reads it.
 expr_vars({e_lambda, _, Params, Body}) ->
     Bound = lists:append([pattern_vars(P) || P <- Params]),
     [V || V <- expr_vars(Body), not lists:member(V, Bound)];
@@ -2923,30 +2143,18 @@ arm_free_vars({arm, _, P, Guard, Body}) ->
     Read = case Guard of none -> []; {guard, G} -> expr_vars(G) end ++ expr_vars(Body),
     [V || V <- Read, not lists:member(V, Bound)].
 
-%%% ---------------------------------------------------------------------------
-%%% The body check (ticket 33, F5)
+%%% --- The body check ---
 %%%
-%%% Two halves. Synthesis: every expression gets a type, and nothing in it is
-%%% inferred, because every non-structural form reads a type some declaration
-%%% already wrote down (ticket 04's mandatory signature). Obligation:
-%%% containment is checked at exactly the five sites where a type was
-%%% declared: call argument, construction, projection, clause return and
-%%% destructuring bind. `e_op`, `e_tuple`, `e_list` and `e_block` declare
-%%% nothing, so they synthesise and never check.
-%%%
-%%% Four of the five hand back a residual the printer renders as a clause
-%%% head. Construction is the exception: two closed maps over different key
-%%% sets are simply disjoint, so its residual is field names instead
-%%% (see field_delta/2).
-%%% ---------------------------------------------------------------------------
+%%% Containment sites: call argument, construction, projection, clause return
+%%% and destructuring bind. Structural expressions synthesise types.
+%%% Construction reports field names: closed maps with different keys are
+%%% disjoint. Other sites report residuals rendered as clause heads.
+%%% Rationale: compiler/features/F5-body-check-site.md.
 
 clause_diags(C = {clause, Line, _, Patterns, Guard, Body}, Domain, GuardDomain,
              Bindings, Ctx0) ->
     case segment_diags(Patterns, Ctx0#ctx.fname) of
-        %% A malformed segment is reported alone: the bindings a broken
-        %% pattern produces are wrong, so every type error downstream of it
-        %% would be about the compiler's guess rather than the author's
-        %% program.
+        %% Broken segment bindings make downstream type diagnostics invalid.
         [_ | _] = SegErrors -> SegErrors;
         [] -> clause_diags_1(C, Line, Patterns, Guard, Body, Domain, GuardDomain,
                              Bindings, Ctx0)
@@ -2959,65 +2167,46 @@ clause_diags_1(C, Line, Patterns, Guard, Body, Domain, GuardDomain, Bindings, Ct
             Ctx = Ctx0#ctx{binds = Bindings},
             Scope = clause_scope(Patterns, Bindings, Domain),
             GuardScope = clause_scope(Patterns, Bindings, GuardDomain),
-            %% The body is typed against the declared return, so a lambda
-            %% written as a clause body has its arrow (F46).
+            %% The declared return supplies a body lambda's expected arrow.
             {Ty, Diags} = expected(Body, Ctx#ctx.ret, Scope, Ctx),
             mixed_guard_diags(Guard, GuardScope, Ctx) ++ Diags
                 ++ return_diags(Ty, Line, Ctx);
         Errors ->
-            %% A clause whose names do not resolve is not typed. Every unbound
-            %% name would answer `term`, which fails most containments, so the
-            %% author would meet a pile of type errors about a typo.
+            %% Unbound names yield `term`; skip typing to avoid cascading
+            %% errors.
             Errors
     end.
 
-%% A guard is read for what it credits (`alternatives/1`) and never typed, so
-%% the mixed-pair refusal has to be asked of it here, where the scope is
-%% (F51, ticket 80). Only that refusal is kept: a guard the reader cannot
-%% translate credits nothing and is not an error. It matters at the emitter:
-%% ENG-330 conjoins `is_integer/1` onto `x < 0`, so a `float` guarded against
-%% an `int` literal would be a clause that never matches, silently.
+%% Guard refinement credits only readable guards. This check retains numeric
+%% refusals: the emitter adds integer tests to integer comparisons, so a float
+%% compared against an int literal would silently never match.
 mixed_guard_diags(none, _Scope, _Ctx) -> [];
 mixed_guard_diags({guard, Expr}, Scope, Ctx) ->
-    %% A call in a guard is refused by `guard_diags/2` above, and typing one
-    %% can raise on its way to that refusal — a qualified call to a module
-    %% the guard may not reach, for one. The raise is not this reader's to
-    %% report, so it answers nothing rather than a crash.
+    %% `guard_diags/2` owns illegal-call errors. Typing such calls can raise,
+    %% including on inaccessible qualified modules; suppress those raises.
     try type_of(Expr, Scope, Ctx) of
         {_, Diags} -> [D || D <- Diags, keep_from_guard(D)]
     catch
         _:_ -> []
     end.
 
-%% The refusal, and the `/` sites the emitter lowers by — a float division in
-%% a guard is still a float division.
+%% Preserve float-division sites for the emitter, including inside guards.
 keep_from_guard({fdiv, _, _}) -> true;
 keep_from_guard(D)            -> mixed_pair(D).
 
 mixed_pair({error, _, _, {mixed_operands, _, _, _, _}}) -> true;
-%% THE SECOND TAG, AND THE SITE THAT DECIDES WHETHER IT IS SEEN. A numeric
-%% union at an operator is the mixed pair (ticket 83), and a refusal missing
-%% from this list is reported in a body and DROPPED in a guard — so
-%% `Owed(a) -> a * 100` would refuse while `Post(a) when a < 0` compiled and
-%% went on posting a £2.50 refund as a debit, which is the defect 83 opened
-%% on, surviving its own fix.
+%% Numeric-union refusals must survive guard filtering too.
 mixed_pair({error, _, _, {numeric_union_operand, _, _, _, _}}) -> true;
 mixed_pair(_)                                           -> false.
 
-%%% --- Binary patterns: four known-shape refusals (F13) ----------------------
+%%% --- Binary patterns ---
 %%%
-%%% A malformed binary segment is a diagnostic naming the mistake and the fix,
-%%% as the record's `Id:int` and `Notes?: int` productions are, not a parse
-%%% error naming a token. The least obvious of the four: a size naming
-%%% something not bound earlier in the same pattern is legal Erlang and simply
-%%% never matches, so left to the emitter it would be a silent match failure
-%%% at run time against a file the author did not write (F4).
+%%% A size must name an earlier binding in the same pattern; an unbound size
+%%% can compile in Erlang yet silently never match.
 
 segment_diags(Patterns, Name) ->
     lists:append([bin_diags(P, Name) || P <- Patterns]).
 
-%% Structural, because a binary pattern can sit inside a tuple or a record
-%% field the same as any other pattern, and a fault there is the same fault.
 bin_diags({p_bin, _, Segs}, Name)         -> seg_list_diags(Segs, Name);
 bin_diags({p_tuple, _, Ps}, Name)         -> segment_diags(Ps, Name);
 bin_diags({p_map, _, Fs}, Name)           -> segment_diags([P || {_, P} <- Fs], Name);
@@ -3040,9 +2229,7 @@ seg_binds(_)                   -> [].
 seg_diags(Seg, All, Bound, Name) ->
     size_diags(Seg, All, Bound, Name) ++ literal_diags(Seg, Name).
 
-%% An unsized segment is the remainder, so it can only be last (F13 §2).
-%% Anywhere else it would consume everything and starve the segments after
-%% it, which Erlang also refuses, with a message about its own syntax.
+%% Erlang requires an unsized remainder segment to be last.
 size_diags(Seg, All, Bound, Name) when element(1, Seg) =:= seg_bind;
                                        element(1, Seg) =:= seg_wild ->
     Line = element(2, Seg),
@@ -3062,9 +2249,6 @@ size_diags(Seg, All, Bound, Name) when element(1, Seg) =:= seg_bind;
     end;
 size_diags(_, _, _, _) -> [].
 
-%% A literal segment must fit its width. The diagnostic carries both numbers,
-%% because the author's mistake is usually the width and not the value:
-%% `0xCE:4` is a typo in the 4, not in the 0xCE.
 literal_diags({seg_int, Line, K, N}, Name) when is_integer(N), N > 0 ->
     Max = (1 bsl N) - 1,
     case K >= 0 andalso K =< Max of
@@ -3075,34 +2259,10 @@ literal_diags({seg_int, Line, _K, N}, Name) ->
     [{error, Line, Name, {segment_width_not_positive, N, Line}}];
 literal_diags(_, _) -> [].
 
-%% A guard is not typed, but `_` as a value and a `switch` in a guard are
-%% refused here, syntactically. A guard shares the whole expression grammar,
-%% so both parse; left alone, `_` reaches `bs_emit:expr/2` as a crash and the
-%% switch reaches the author as `illegal guard expression` from `erlc`
-%% against a file they did not write (F5, F7, F4.7).
-%% Three refusals, one walk. `raise` is the third node this guard has had to
-%% refuse, and the note that used to sit on `wildcards/1` said a third copy of
-%% the walk was the wrong answer before there was one — so the walk is named
-%% once and the three callers differ only in the node they look for.
-%%
-%% Why each is refused rather than left to the BEAM:
-%%   `_`      reaches `bs_emit:expr/2` as a crash (F5).
-%%   `switch` reaches the author as `illegal guard expression` from `erlc`
-%%            against a file they did not write (F7).
-%%   `raise`  the same, and for the same reason — `erlang:error/1` is not a
-%%            guard BIF, and a guard chooses which clause runs rather than
-%%            crashing (ticket 12 §5).
-%%   a call   the same again, and the fourth (F41, ENG-256). Erlang admits
-%%            only its guard BIFs in a guard, never a user function, and
-%%            ticket 63 Q4 left that inherited; until F41 the author learned it
-%%            from the Erlang compiler's own report — `'IsAdmin'/1 is illegal
-%%            in guard`, and for `ValidateAs<T>` the emitter's mangled name.
-%%            63d measured the class as every call form the grammar admits: a
-%%            local call, a qualified one, the instantiation bracket, a pipe
-%%            (a local call by the time it is here), and a foreign call whose
-%%            target is not a guard BIF. A foreign call whose target IS one
-%%            (`:erlang.byte_size`) is legal by the same inheritance, and
-%%            `erl_internal:guard_bif/2` is the set, asked rather than copied.
+%% Guards share the expression grammar, so reject forms before emission: `_`
+%% crashes `bs_emit:expr/2`; switches and raises are illegal Erlang guards.
+%% Calls are legal only to guard BIFs, as defined by erl_internal:guard_bif/2.
+%% Rationale: compiler/features/F41-call-in-guard.md.
 guard_diags(none, _Ctx) -> [];
 guard_diags({guard, Expr}, C) ->
     [{error, L, C#ctx.fname, wildcard_as_value} || L <- nodes_of(e_wild, Expr)]
@@ -3113,22 +2273,13 @@ guard_diags({guard, Expr}, C) ->
                                     e_apply, e_lambda, e_switch, e_raise], Expr),
                {L, R} <- guard_call(Call)].
 
-%% The callee is spelled as the author wrote it — the same spelling
-%% `unknown_callee` and `private_function` use — never as Erlang's `'F'/N`.
-%% A qualified call names the module as written, before import resolution,
-%% because the author is being shown their own line.
-%%
-%% `e_switch` and `e_raise` are in the walk's stop set and refused by nobody
-%% here: a call inside a switch the guard was already refused for is not a
-%% second mistake (the valve lowers to exactly that — a switch whose arm calls
-%% the stage — and reported two errors for one guard until this stop).
+%% Diagnostics preserve authored callee spelling, before import resolution.
+%% Stop at switches and raises: their own errors cover nested calls.
 guard_call({e_switch, _, _, _}) -> [];
 guard_call({e_raise, _, _}) -> [];
 guard_call({e_call, L, Name, _Args}) ->
     [{L, {call_in_guard, Name}}];
-%% A call through a bound name is a call (F46); a lambda is a value the
-%% BEAM's guard grammar has no room for, and is refused in the same voice
-%% rather than by `erlc` against a file the author did not write (F41).
+%% BEAM guards admit neither lambdas nor calls through bound names.
 guard_call({e_apply, L, Var, _Args}) ->
     [{L, {call_in_guard, Var}}];
 guard_call({e_lambda, L, _, _}) ->
@@ -3145,16 +2296,8 @@ guard_call({e_foreign_call, L, erlang, Fun, Args}) ->
 guard_call({e_foreign_call, L, Mod, Fun, _Args}) ->
     [{L, {foreign_call_in_guard, foreign_name(Mod, Fun)}}].
 
-%% Generic over the tuple/list shape rather than over the grammar, because a
-%% guard shares the whole expression grammar and enumerating it once per node
-%% kind would be a copy of the same walk each time.
-%%
-%% It STOPS at a match rather than descending through it: one error per guard
-%% is what the author needs, and a switch nested inside a refused switch is not
-%% a second mistake. `e_wild` is a leaf, so stopping costs it nothing.
-%%
-%% Every node carries its line second, which is what makes one walk serve all
-%% of them; a node shape that broke that would have to be matched on its own.
+%% Stop at matched nodes to avoid duplicate errors for nested refused forms.
+%% All expression nodes carry their source line in the second tuple element.
 nodes_of(Tag, T) -> [element(2, N) || N <- subtrees_of([Tag], T)].
 
 subtrees_of(Tags, T) when is_tuple(T), tuple_size(T) > 0 ->
@@ -3166,10 +2309,7 @@ subtrees_of(Tags, L) when is_list(L) ->
     lists:append([subtrees_of(Tags, E) || E <- L]);
 subtrees_of(_Tags, _) -> [].
 
-%% Site 4, the clause return: a body's type must be contained in the declared
-%% return type. Every function is emitted with a `-spec` (ticket 13), so an
-%% unchecked return would publish an unverified claim, the fault ticket 18
-%% measured in Gleam's handling of `@external`.
+%% Every emitted function has a -spec; the body must satisfy its return type.
 return_diags(Ty, Line, #ctx{ret = Ret, fname = Name}) ->
     case bs_types:subtract(Ty, Ret) of
         R ->
@@ -3179,27 +2319,22 @@ return_diags(Ty, Line, #ctx{ret = Ret, fname = Name}) ->
             end
     end.
 
-%% A body variable's type is read off the clause's refined domain at the path
-%% the pattern recorded, never off the pattern itself, which answers `term`
-%% for a bare variable and would fail every call site in the corpus.
+%% Read variable types from the refined domain at the recorded pattern path; a
+%% bare variable's pattern type is only `term`.
 clause_scope(Patterns, Bindings, Domain) ->
     Named = lists:append([pattern_vars(P) || P <- Patterns]),
     maps:from_list([{V, var_type(V, Bindings, Domain)} || V <- Named]).
 
 var_type(V, Bindings, Domain) ->
     case maps:get(V, Bindings, undefined) of
-        %% A variable nested inside a list item is named but not addressable.
-        %% `term` is the truthful answer and it is an over-approximation, so it
-        %% is sound and merely imprecise.
+        %% Unaddressable list-item bindings use the safe overestimate `term`.
         undefined -> bs_types:term();
         no_path   -> bs_types:term();
         Path      -> at_path(Domain, Path)
     end.
 
-%% The read-only twin of refine_at/3. It unions across the alternatives at
-%% each step rather than indexing one, because the domain's tuple part is a
-%% list of products and its map part a list of members; an earlier clause
-%% narrowing to a union is the ordinary case.
+%% Union alternatives at each path step: tuple domains contain products, and
+%% map domains contain members.
 at_path(Ty, []) -> Ty;
 at_path(#{tuples := top}, [I | _]) when is_integer(I) -> bs_types:term();
 at_path(#{tuples := Products}, [I | Rest]) when is_integer(I) ->
@@ -3207,37 +2342,28 @@ at_path(#{tuples := Products}, [I | Rest]) when is_integer(I) ->
 at_path(#{maps := top}, [{field, _} | _]) -> bs_types:term();
 at_path(#{maps := Members}, [{field, K} | Rest]) ->
     at_path(union_of([maps:get(K, Fs) || {_, Fs} <- Members, maps:is_key(K, Fs)]), Rest);
-%% A binary segment carries its own type rather than addressing one (F13).
-%% The declared type at this position is `binary`, which has no components,
-%% so the width the pattern wrote is the answer and `Ty` is discarded; that is
-%% sound because a segment's value is not a part of the binary's type in any
-%% sense the algebra knows.
+%% Binary types have no addressable components; the pattern's segment width
+%% supplies the type instead.
 at_path(_Ty, [{seg, SegTy} | Rest]) ->
     at_path(SegTy, Rest);
 at_path(Ty, [{elem} | Rest]) ->
     at_path(elem_of(Ty), Rest);
-%% The tail of a non-empty list is a list over the same elements, the empty
-%% list included, since `[x, ..t]` says nothing about how long the tail is.
+%% A non-empty list's tail may be empty, with the same element type.
 at_path(Ty, [{tail} | Rest]) ->
     at_path(bs_types:list(elem_of(Ty)), Rest).
 
-%% What a list holds, whatever spines it is made of (F20).
 elem_of(Ty) -> bs_types:list_elem(Ty).
 
 union_of([]) -> bs_types:none();
 union_of(Ts) -> bs_types:union(Ts).
 
-%%% --- synthesis, and the checks that hang off it ----------------------------
+%%% --- Synthesis and containment ---
 
-%% Returns {Type, Diags}. Checking happens during synthesis rather than in a
-%% pass after it, because an argument's type is only known by synthesising it
-%% and a nested call is the ordinary case.
+%% Nested calls are checked during synthesis, when argument types are known.
 type_of({e_int, _, N}, _S, _C)  -> {bs_types:range(N, N), []};
 type_of({e_float, _, F}, _S, _C) -> {bs_types:float_lit(F), []};
-%% Unary minus keeps its operand's part: an `int` stays an `int`, a `float` a
-%% `float`. It is its own node rather than `0 - e` because `0 - f` is a mixed
-%% pair under ticket 80 (F51). An operand in neither part answers `int`, as
-%% `op_type/1` always did for an operand the checker does not read.
+%% Unary minus preserves int/float kind; rewriting it as `0 - e` would
+%% introduce mixed operands for floats. Other operand types yield `int`.
 type_of({e_neg, _, E}, S, C) ->
     {Ty, D} = type_of(E, S, C),
     case in_part(Ty, float) of
@@ -3245,37 +2371,22 @@ type_of({e_neg, _, E}, S, C) ->
         false -> {bs_types:int(), D}
     end;
 type_of({e_atom, _, A}, _S, _C) -> {bs_types:atom_lit(A), []};
-%% A string literal is a `string` by construction, not a `binary`: the lexer
-%% has already established the UTF-8 property over the bytes, and nothing
-%% downstream re-checks it (ticket 20 §4).
+%% The lexer guarantees UTF-8 for string literals; downstream passes trust it.
 type_of({e_str, _, _}, _S, _C) -> {bs_types:string(), []};
 type_of({e_var, _, V}, S, _C)   -> {maps:get(V, S, bs_types:term()), []};
-%% `_` is an expression only so that `(a, _) = pair` parses. Used as a value
-%% it is rejected here, so the author does not meet `variable '_' is unbound`
-%% from `erlc` against a file they did not write.
+%% `_` parses as an expression for destructuring, but erlc forbids it as a
+%% value.
 type_of({e_wild, L}, _S, C) ->
     {reported(), [{error, L, C#ctx.fname, wildcard_as_value}]};
-%% A raise has type `none`, the bottom: no value inhabits it, so it is a
-%% subtype of every type and a raising clause satisfies whatever return the
-%% signature declares (ticket 12 §4, §5). Nothing special-cases the return
-%% check to allow this — `is_subtype/2` is `is_none(subtract(A, B))` and
-%% subtracting anything from the empty set leaves it empty, so the containment
-%% simply holds. The consequence worth naming: a raising clause contributes
-%% NOTHING to the type the clauses justify, so F25 never asks the author to
-%% widen a signature to admit a crash.
-%%
-%% This returns the same type as `reported()` and means something different.
-%% There the bottom suppresses a cascade after an error; here it is the honest
-%% type of an expression that does not return, so the call is written out.
+%% A raise cannot return, so bottom satisfies any declared return and adds
+%% nothing to the justified return type. Unlike reported(), it is not an error.
 type_of({e_raise, _, Reason}, S, C) ->
     {_, D} = type_of(Reason, S, C),
     {bs_types:none(), D};
 type_of({e_tuple, _, Es}, S, C) ->
     {Tys, D} = type_of_all(Es, S, C),
     {bs_types:tuple(Tys), D};
-%% `e_op` declares nothing, so it synthesises and never checks; `1 + 2` is
-%% `int`, not `range(3,3)`, because exact interval arithmetic is not
-%% built (ticket 16 §2, F2).
+%% Arithmetic synthesises numeric types, not exact result intervals.
 type_of({e_op, L, Op, A, B}, S, C) ->
     {ATy, D1} = type_of(A, S, C),
     {BTy, D2} = type_of(B, S, C),
@@ -3294,9 +2405,8 @@ type_of({e_block, _, Binds, Final}, S, C) ->
     {S1, D1} = lists:foldl(fun(B, Acc) -> bind_step(B, Acc, C) end, {S, []}, Binds),
     {T, D2} = type_of(Final, S1, C),
     {T, D1 ++ D2};
-%% Site 3, projection: legal exactly where every member of the receiver's
-%% type carries the field, and the residual is the member that lacks it, the
-%% tag to discriminate on (F3.8).
+%% Projection requires the field in every member; the residual names those
+%% without.
 type_of({e_proj, L, V, Field}, S, C) ->
     Recv = maps:get(V, S, bs_types:term()),
     Lacking = lacking(Recv, Field),
@@ -3306,13 +2416,10 @@ type_of({e_proj, L, V, Field}, S, C) ->
                   [{error, L, C#ctx.fname,
                     {field_absent, projection, Field, Lacking}}]}
     end;
-%% Site 2, construction: a record literal must carry exactly the declared
-%% field set, with each value contained in its declared type. Without this a
-%% body could build a map wearing an `Order` tag without `Order`'s fields (F3).
+%% Construction requires exactly the declared fields and their declared types.
 type_of({e_record, L, Name, Fields}, S, C) ->
     RecTy = maps:get(Name, C#ctx.types, undefined),
-    %% A field's value is typed against the field's declared type, so a
-    %% lambda assigned to an arrow-typed field has its expectation (F46).
+    %% Declared field types supply expectations for lambda values.
     {Tys, D} = record_field_types(Fields, RecTy, S, C),
     case RecTy of
         undefined ->
@@ -3323,11 +2430,8 @@ type_of({e_record, L, Name, Fields}, S, C) ->
                 Declared ->
                     Keys = [K || {K, _} <- Fields],
                     case field_delta(Keys, Declared) of
-                        %% Names first, and the value half runs only when they
-                        %% agree. An undeclared key has no declared type, so
-                        %% checking its value would report on the compiler's
-                        %% guess rather than the author's program, as with a
-                        %% malformed segment in `clause_diags`.
+                        %% Check names first: undeclared keys have no type
+                        %% against which to check their values.
                         {[], []} ->
                             {Ty, field_value_diags(Keys, Tys, Ty, Name, L, C) ++ D};
                         {Missing, Extra} ->
@@ -3337,21 +2441,9 @@ type_of({e_record, L, Name, Fields}, S, C) ->
                     end
             end
     end;
-%% `with` is site 2 again, not a sixth site (ticket 36). The result has the
-%% base's type, because width preservation is a fact about names (ticket 26
-%% §2); each updated value is checked against the field's declared type, so
-%% `Total: int` governs `o with { Total = … }` as it governs
-%% `Order{ Total = … }`. The updated keys must be a subset of the declared
-%% ones, so `with` can never report a missing field; without the name half,
-%% `o with { Nope = 1 }` compiled clean and raised `{badkey,'Nope'}`.
-%%
-%% The subject itself is checked too (ENG-249). One closed record takes the
-%% branch above. Anything else is asked site 3's question: the subject minus
-%% an open map carrying the field is the member that may lack it, and a
-%% non-empty residual refuses. An `int`, a `term`, a list of pairs and a
-%% union one member short all fall to that subtraction; a union whose every
-%% member carries the field is legal and is value-checked per member. Before
-%% this, `n with { Total = 1 }` on an `int` raised `{badmap, N}` at run time.
+%% Updates preserve the base type and check values against declared fields.
+%% Every base member must carry each updated key; unions are checked per
+%% member.
 type_of({e_with, L, Base, Fields}, S, C) ->
     {T, D1} = type_of(Base, S, C),
     {Tys, D2} = type_of_all([E || {_, E} <- Fields], S, C),
@@ -3370,32 +2462,19 @@ type_of({e_with, L, Base, Fields}, S, C) ->
                 with_subject(T, Keys, Tys, L, C)
         end,
     {Ty, D1 ++ D2 ++ D3};
-%% A switch is checked as `walk/5` over one column (ticket 17 §6): a clause
-%% row's domain is a product of declared parameter types and a switch's is a
-%% single synthesised type, with the same `pattern_type/3`, `apply_guard/3`,
-%% `Certain`/`Possible` split and residual. A switch declares nothing, so it
-%% opens no sixth site; it synthesises the union of its arms (F7).
+%% A switch uses the clause walk over one synthesised column, sharing pattern
+%% and guard refinement, certainty and residuals. Its type unions arm results.
 type_of({e_switch, L, Subject, Arms}, S, C) ->
     {SubjTy, D0} = type_of(Subject, S, C),
     {Ty, D1} = switch_over(L, SubjTy, Arms, S, C, authored),
     {Ty, D0 ++ D1};
-%% A valve is checked as the two-armed switch `bs_lower` turned it into, so
-%% the value arm's variable already has the residual after `(:error, E)` is
-%% removed (F14, ticket 17 §4). This clause exists because that switch is
-%% generated, not authored. A valve over a value that cannot fail is an error
-%% naming `|>` as the fix, rather than `unreachable arm 1`, a remark about
-%% code the author never wrote (F14 §4); reachability is asked of the error
-%% arm's own pattern, so the question is the one `bs_lower` wrote down. And
-%% the arm walk runs as `generated`, because the value arm is a catch-all by
-%% construction and the rule against catch-alls is about what an author may
-%% discard (ticket 12 §2).
+%% Check the switch generated by bs_lower. An infallible subject gets a valve
+%% diagnostic; the generated value catch-all is exempt from authored-arm rules.
+%% Rationale: compiler/features/F30-valve-short-circuit-set.md.
 type_of({e_valve, L, {e_switch, _, Subject, Arms}}, S, C) ->
     {SubjTy, D0} = type_of(Subject, S, C),
-    %% EVERY ARM BUT THE LAST, not the first. The short-circuit set became a
-    %% pair on 2026-09-09 (F30), and reading it off the arms keeps the property
-    %% this clause has always had: the question the compiler answers is exactly
-    %% the question `bs_lower` wrote down. Deriving the set from a literal here
-    %% instead would put the same constant in two files and let them drift.
+    %% All but the last arm define the stop set; derive it from bs_lower's
+    %% patterns so lowering and checking cannot disagree.
     StopPats = [P || {arm, _, P, _, _} <- lists:droplast(Arms)],
     StopTy = union_of([element(1, pattern_type(P, [], C#ctx.types))
                        || P <- StopPats]),
@@ -3405,38 +2484,17 @@ type_of({e_valve, L, {e_switch, _, Subject, Arms}}, S, C) ->
              D0 ++ [{error, L, C#ctx.fname, {valve_on_infallible, SubjTy}}]};
         false ->
             {Ty, D1} = switch_over(L, SubjTy, Arms, S, C, generated),
-            %% A STOP ARM NO VALUE CAN REACH IS DROPPED BEFORE EMISSION (F30).
-            %% `bs_lower` writes both stop arms over every valve because it
-            %% runs before the checker and has no types to ask; over
-            %% `int | (:error, atom)` the `:nothing` arm is dead, and over
-            %% `int | :nothing` the error arm is. Emitted anyway, `erlc` is
-            %% happy and **Dialyzer is not** — "the pattern 'nothing' can
-            %% never match the type pos_integer()" — and `spec-check.sh`
-            %% treats any warning as a defect in the emitted code.
-            %%
-            %% This is the same predicate `arms/9` applies to the arm's TYPE,
-            %% and it must stay the same one: there the test is an empty
-            %% `Domain`, which for these arms is this meet (the first arm sees
-            %% `Residual = SubjTy`, and `:nothing` is disjoint from the error
-            %% tuple, so the second sees it too). One rule, two consumers.
-            %%
-            %% IT IS NOT THE CHECK-TIME SIDE TABLE TICKET 49 REFUSED. That
-            %% table keyed the short-circuit SET on the stage's declared
-            %% parameter type, which is shape B. The set here is still the
-            %% constant pair; what the checker hands on is which arms it
-            %% proved dead, the way it already hands on `foreigns`.
+            %% bs_lower runs before typing and emits both stop arms. Prune
+            %% unreachable arms before emission to avoid Dialyzer warnings.
+            %% Keep the emptiness predicate identical to `arms/10`: disjoint
+            %% stop patterns make each arm's domain its intersection with
+            %% SubjTy. The note records dead arms; the stop set remains fixed.
             {Ty, D0 ++ D1 ++ prune_note(Arms, SubjTy, C)}
     end;
-%% `ValidateAs<T>(x)` is a codegen obligation, not a call (F18). `<T>` is a
-%% compile-time argument driving generation, monomorphic at every use, with
-%% no type variable surviving into the runtime or the algebra (ticket 27 §8),
-%% so there is no callee to look up and the type synthesised here is one the
-%% compiler computed rather than one anybody declared.
-%%
-%% The argument is synthesised and its type discarded: a nested call inside
-%% it must still be checked (`ValidateAs<int>(F(x))`), and there is no rule
-%% to check the argument's type against. The value arrives as a
-%% `term` (ticket 11 §2), but nothing forbids validating something narrower.
+%% ValidateAs generates code for a concrete compile-time type; no runtime type
+%% variable or callee survives. Check nested argument expressions even though
+%% validation accepts any input type.
+%% Rationale: compiler/features/F18-validate-as.md.
 type_of({e_inst, L, 'ValidateAs', TypeArgs, Args}, S, C) ->
     {_, D0} = type_of_all(Args, S, C),
     case {TypeArgs, Args, over_variable(TypeArgs, C)} of
@@ -3445,16 +2503,12 @@ type_of({e_inst, L, 'ValidateAs', TypeArgs, Args}, S, C) ->
              D0 ++ [{error, L, C#ctx.fname,
                      {obligation_over_type_variable, 'ValidateAs', V}}]};
         {[TypeExpr], [_], []} ->
-            %% `resolve/2` raises for an unknown, cyclic or recursive type, and
-            %% all three already have their diagnostics. An unknown `T` here is
-            %% the same mistake as an unknown `T` in a signature and reads the
-            %% same way.
+            %% resolve/2 owns diagnostics for unknown, cyclic or recursive
+            %% types.
             Ty = resolve(TypeExpr, C#ctx.types),
-            %% A fun's type is not recoverable at run time, so a `T`
-            %% holding an arrow has nothing a traversal could check
-            %% (ticket 11, F46).
-            %% The member pair is asked last, so a target refused for an
-            %% arrow or for collapsing reports that and nothing else.
+            %% Fun types cannot be recovered at runtime for validation. Check
+            %% member separability last so arrows and collapse each produce
+            %% only their own diagnostic.
             case {has_arrow(Ty), validate_collapses(Ty, C#ctx.types)} of
                 {true, _} ->
                     {reported(),
@@ -3478,15 +2532,9 @@ type_of({e_inst, L, 'ValidateAs', TypeArgs, Args}, S, C) ->
                      {obligation_arity, 'ValidateAs', length(TypeArgs),
                       length(Args)}}]}
     end;
-%% `ParseAtom<T>(s)` is the second codegen obligation (ticket 10 §4, F39).
-%% `T` names a finite set of atoms; the compiler generates a match from each
-%% member's printed name to that member, so the type argument is read at
-%% compile time exactly as `ValidateAs`'s is and nothing survives into the
-%% algebra.
-%%
-%% The result is `T | :nothing`. A string naming no member has to be
-%% answerable, and ticket 08 settled that shape for `as T` already, so this
-%% adds no new one.
+%% ParseAtom generates matches from printed names to a finite set of atoms. Its
+%% result is T | :nothing for strings naming no member.
+%% Rationale: compiler/features/F39-parse-atom.md.
 type_of({e_inst, L, 'ParseAtom', TypeArgs, Args}, S, C) ->
     {ATys, D0} = type_of_all(Args, S, C),
     case {TypeArgs, Args, over_variable(TypeArgs, C)} of
@@ -3495,8 +2543,6 @@ type_of({e_inst, L, 'ParseAtom', TypeArgs, Args}, S, C) ->
              D0 ++ [{error, L, C#ctx.fname,
                      {obligation_over_type_variable, 'ParseAtom', V}}]};
         {[TypeExpr], [_], []} ->
-            %% `resolve/2` raises for an unknown, cyclic or recursive type and
-            %% all three carry their own diagnostic, as at the sibling.
             Ty = resolve(TypeExpr, C#ctx.types),
             case parse_atom_members(Ty) of
                 error ->
@@ -3511,13 +2557,8 @@ type_of({e_inst, L, 'ParseAtom', TypeArgs, Args}, S, C) ->
                      {obligation_arity, 'ParseAtom', length(TypeArgs),
                       length(Args)}}]}
     end;
-%% `ToJson<T>(v)` is the third codegen obligation built (ticket 77, F50): the
-%% platform's encoder over a value of `T`, returning `string`. Whether `T` has
-%% a wire form was refused before any body was typed (`to_json_refused/2`),
-%% so what is left here is the obligation's own two rules: `T` is ground
-%% (27 §8), and the value handed over is a `T`, held to the containment a
-%% call's argument is, so `ToJson<Order>(n)` names the argument at compile
-%% time rather than crashing in the generated guard.
+%% to_json_refused/2 checks wire forms before body typing. Here T must be
+%% ground and the argument must be contained in T, as for an ordinary call.
 type_of({e_inst, L, 'ToJson', TypeArgs, Args}, S, C) ->
     case {TypeArgs, Args, over_variable(TypeArgs, C)} of
         {_, _, [V | _]} ->
@@ -3536,18 +2577,10 @@ type_of({e_inst, L, 'ToJson', TypeArgs, Args}, S, C) ->
                      {obligation_arity, 'ToJson', length(TypeArgs),
                       length(Args)}}]}
     end;
-%% `ToExistingAtom(s)` is the fourth codegen obligation (ticket 10 §4, 67;
-%% F54), and the one written BARE: its result is `result<atom, string>`
-%% whatever is handed over, so there is no `T` to choose and no bracket to
-%% write. The name stays in ticket 28's closed set — `<` after it opens a
-%% bracket rather than reading as a comparison — and what that bracket
-%% holds is then refused as the construct's wrong shape, the same rule that
-%% refuses `ValidateAs<int, atom>(t)`.
+%% ToExistingAtom takes no type argument, but remains in the parser's closed
+%% bracket-name set so an instantiation gets an arity diagnostic.
 type_of({e_inst, L, 'ToExistingAtom', TypeArgs, Args}, S, C) ->
     to_existing_atom(L, TypeArgs, Args, S, C);
-%% Any other instantiation is refused, and the two cases are told apart: a
-%% name in the closed set is a feature not yet built, a name outside it was
-%% never going to work (ticket 28).
 type_of({e_inst, L, Name, _TypeArgs, Args}, S, C) ->
     {_, D0} = type_of_all(Args, S, C),
     Reason = case lists:member(Name, codegen_obligations()) of
@@ -3555,20 +2588,15 @@ type_of({e_inst, L, Name, _TypeArgs, Args}, S, C) ->
                  false -> {not_an_obligation, Name}
              end,
     {reported(), D0 ++ [{error, L, C#ctx.fname, Reason}]};
-%% Read before any user function is looked up, which is why a user may not
-%% declare one under this name (`compiler_known_function/1`).
+%% Must precede user-function lookup; compiler_known_function/1 reserves this
+%% name against user declarations.
 type_of({e_call, L, 'ToExistingAtom', Args}, S, C) ->
     to_existing_atom(L, [], Args, S, C);
 type_of({e_call, L, Name, Args}, S, C) ->
     call(L, unqualified_key(Name, length(Args), L, C), Name, Args, S, C);
-%% A lambda's type is the arrow its site expects (ticket 75 Q5). Reached
-%% through `type_of/3` it has no site: a binding, an operand, a subject.
-%% The message names the two ways out.
+%% A lambda requires an expected arrow; type_of/3 has no expectation.
 type_of({e_lambda, L, _Params, _Body}, _S, C) ->
     {reported(), [{error, L, C#ctx.fname, lambda_without_expectation}]};
-%% A name in value position with nothing to fix its arity: one declared
-%% arity serves, two are refused naming both and the `Double/1` spelling,
-%% none is an unknown name (ticket 75 Q3).
 type_of({e_fname, L, Name, unknown}, S, C) ->
     case declared_arities(Name, C) of
         [N]  -> fname_type(L, Name, N, S, C);
@@ -3576,11 +2604,9 @@ type_of({e_fname, L, Name, unknown}, S, C) ->
     end;
 type_of({e_fname, L, Name, Arity}, S, C) ->
     fname_type(L, Name, Arity, S, C);
-%% A call through a bound name, `rule(cents)`: the name's type must be
-%% arrows of that arity and nothing else; each argument is contained in the
-%% meet of the domains, and the result is the join of the codomains
-%% (ticket 75, the fourth form). The top arrow is `fn(none) -> term`, so a
-%% `term` is never callable, which is ticket 11's rule falling out.
+%% Callable types contain only arrows of the requested arity. Arguments must
+%% fit the meet of domains; results join codomains. `term` is not callable.
+%% Rationale: compiler/features/F46-function-as-a-value.md.
 type_of({e_apply, L, V, Args}, S, C) ->
     Ty = maps:get(V, S, bs_types:term()),
     N = length(Args),
@@ -3593,7 +2619,7 @@ type_of({e_apply, L, V, Args}, S, C) ->
         andalso bs_types:is_none(bs_types:subtract(Ty, bs_types:funs_of(Ty))),
     case {bs_types:is_none(Ty), Callable} of
         {true, _} ->
-            %% The name's own expression was already refused; one error.
+            %% Suppress a second error for an already-refused expression.
             {_, D} = type_of_all(Args, S, C),
             {reported(), D};
         {_, false} ->
@@ -3607,19 +2633,11 @@ type_of({e_apply, L, V, Args}, S, C) ->
             Ret = bs_types:union([Cod || {_, Cod} <- Arrows]),
             {Ret, arg_diags(L, V, Args, ATys, Doms, 1, C) ++ D}
     end;
-%% A foreign call is checked as site 1 verbatim: a foreign declaration is a
-%% signature attached to the name Erlang already has (ticket 32).
 type_of({e_foreign_call, L, Mod, Fun, Args}, S, C) ->
     call(L, {f, Mod, Fun, length(Args)}, foreign_name(Mod, Fun), Args, S, C);
-%% A qualified call resolves its module through the namespace table first, so
-%% `using Shop` + `Orders.Sum(o)` and `using Shop.Orders` +
-%% `Shop.Orders.Sum(o)` reach the same callee by different
-%% spellings (ticket 41 §1).
 type_of({e_qcall, L, Mod0, Fun, Args}, S, C) ->
-    %% The reserved fork comes before `qualified_module/3`, whose job is to
-    %% resolve a name through the import tables, and a reserved qualifier is
-    %% in none of them by construction. Falling through produced "List is
-    %% called but never imported", advice no author can act on (ticket 67).
+    %% Handle reserved qualifiers before import resolution: they have no
+    %% entries in the import tables.
     case lists:member(Mod0, reserved_qualifiers()) of
         true  -> reserved_call(L, Mod0, Fun, Args, S, C);
         false ->
@@ -3630,41 +2648,23 @@ type_of({e_qcall, L, Mod0, Fun, Args}, S, C) ->
 type_of(_, _S, _C) ->
     {bs_types:term(), []}.
 
-%% A codegen obligation's type argument must be GROUND: the compiler generates
-%% a traversal for one concrete type, and a signature variable is not one
-%% until a caller chooses it (ticket 27, `ValidateAs<TSource>` "is an error
-%% rather than a generic call"; F45). Refused here, before `resolve/2` would
-%% read the opaque binding and the emitter's validator table would then
-%% crash on a name the erased environment does not hold. The type argument
-%% was already resolved by neither path when this fires, so nothing is
-%% reported twice.
+%% Codegen type arguments must be ground before resolve/2: signature variables
+%% erase to names absent from the emitter's validator environment.
 over_variable(TypeArgs, C) ->
     lists:append([vars_in(T, C#ctx.tvars) || T <- TypeArgs]).
 
-%% A call through a reserved qualifier that an imported namespace also
-%% supplies is refused at the call site, not at the import (ticket 67 clause
-%% 3, ticket 47). The import stands; what a file may not do is short-qualify
-%% to the reserved word and expect either meaning to win silently.
-%%
-%% Only the namespace tier can shadow, and that falls out of the tables:
-%% `add_namespace_import/3` populates `mods` and nothing else does, so
-%% `using Shop.List` followed by an unqualified `Sum(…)` is untouched, and so
-%% is any fully qualified call.
+%% Namespace imports may shadow reserved qualifiers. Reject only ambiguous
+%% short-qualified calls; imports, unqualified and fully qualified calls stand.
 reserved_call(L, Q, Fun, Args, S, C) ->
     case maps:get(Q, maps:get(mods, C#ctx.imports, #{}), []) of
         [] -> reserved_op(L, Q, Fun, Args, S, C);
         Claimants ->
-            %% The arguments are still walked: a diagnostic about the qualifier
-            %% is no reason to withhold the ones about what was passed to it.
             {_ATys, D} = type_of_all(Args, S, C),
             {reported(),
              D ++ [{error, L, C#ctx.fname,
                     {reserved_qualifier_shadowed, Q, Fun, lists:sort(Claimants)}}]}
     end.
 
-%% A reserved operation's arguments are checked by exactly the rule every
-%% other call's are, through `arg_diags/7`, and the residual it produces is
-%% the clause the caller must write.
 reserved_op(L, Q, Fun, Args, S, C) ->
     {ATys, D} = reserved_args(Q, Fun, Args, S, C),
     case reserved_sig(Q, Fun, length(Args), ATys) of
@@ -3677,12 +2677,8 @@ reserved_op(L, Q, Fun, Args, S, C) ->
             {Ret, arg_diags(L, qualified_name(Q, Fun), Args, ATys, Ps, 1, C) ++ D}
     end.
 
-%% The function-taking operations type the list first and hand the fun the
-%% element type as its expectation (F46, ticket 75 Q7): `List.Map(xs, f)`
-%% expects `fn(Elem) -> term`, `List.Filter` expects `fn(Elem) -> bool`, and
-%% `List.Fold(xs, seed, f)` expects `fn(Acc, Elem) -> term` where `Acc` is
-%% found by iteration below. Every other operation types its arguments as
-%% any call does.
+%% Type the list before the callback to supply its element-type expectation.
+%% Fold also needs an accumulator expectation computed by iteration.
 reserved_args('List', Op, [Xs, F], S, C) when Op =:= 'Map'; Op =:= 'Filter' ->
     {XTy, D1} = type_of(Xs, S, C),
     Elem = elem_expected(XTy),
@@ -3697,11 +2693,8 @@ reserved_args('List', 'Fold', [Xs, Seed, F], S, C) ->
 reserved_args(_Q, _Fun, Args, S, C) ->
     type_of_all(Args, S, C).
 
-%% The accumulator's type is the seed joined with what the fun returns, and
-%% the fun's own result depends on it: `List.Fold(0, (acc, n) => acc + n)`
-%% types `acc` as `0` and returns `int`, so the accumulator is `int` and the
-%% fun is typed again with it. The least fixpoint is reached in a step or
-%% two; a fun still growing after three is typed once more over `term`.
+%% Join the seed with callback results until the accumulator stabilises. After
+%% three growing iterations, type the callback once more over `term`.
 fold_fun(F, _Acc, Elem, S, C, 0) ->
     expected(F, bs_types:fun_ty([bs_types:term(), Elem], bs_types:term()), S, C);
 fold_fun(F, Acc, Elem, S, C, N) ->
@@ -3714,52 +2707,29 @@ fold_fun(F, Acc, Elem, S, C, N) ->
 
 bool() -> bs_types:union(bs_types:atom_lit(true), bs_types:atom_lit(false)).
 
-%% The type of an expression that has already produced a diagnostic. `none`
-%% is a subtype of everything, so every site above it passes vacuously and
-%% the author gets one error rather than a cascade; a failed projection would
-%% otherwise also fail the clause's return check and name a type nobody
-%% wrote.
+%% Bottom after a diagnostic satisfies enclosing containment checks,
+%% suppressing cascading errors.
 reported() -> bs_types:none().
 
-%% `ValidateAs<T>` returns `result<T, ValidationError>`, not
-%% `T | :error` (F18, ticket 15 §2). Built from the standard environment's own entry
-%% rather than from a literal written here, so the two cannot drift.
+%% Build result<T, ValidationError> from the standard environment's entry so
+%% the validator's failure type cannot drift from its declaration.
 validate_result(Ty, Env) ->
     bs_types:union(Ty, validate_error(Env)).
 
-%% The failure member `ValidateAs<T>` adds, on its own, so the obligation
-%% site can hand it to the shared predicate `absorbed/2` (F31).
 validate_error(Env) ->
     bs_types:tuple([bs_types:atom_lit(error),
                     maps:get('ValidationError', Env)]).
 
-%% An instantiation is rejected when `T | <failure member> ≡ T`, stated as
-%% the equation rather than as a case list so that it covers every collapsing
-%% type with one criterion (ticket 15 §1). Measured in this algebra:
-%% `atom | (:error, ValidationError)` does not collapse, the tagged member
-%% survives, and `term` is the only instantiation that does, because only the
-%% top absorbs a tuple. `term` is also vacuous on its own terms: the validator
-%% could never fail, so the caller would have no failure clause to write.
+%% Reject targets that absorb the validator's tagged failure member.
 validate_collapses(Ty, Env) ->
     absorbed(validate_error(Env), Ty).
 
-%% `T | F ≡ T` holds exactly when `F ⊆ T`: a union is always a supertype of
-%% its members, so the other direction cannot fail (ticket 15 §1). This is
-%% the one implementation of that equation; `validate_collapses/2` and the
-%% declaration check (F31) both ask it here so the two cannot drift.
-%% `T | M ≡ T`, F31's one-line normal form. The names said `Failure` and
-%% `Success` while the rule was the failure channel's; ticket 68 Q1(a) made it
-%% every member, and the predicate itself never changed.
+%% T | M equals T exactly when M is a subtype of T. Validation and declaration
+%% checks share this predicate to keep their collapse rules aligned.
 absorbed(Member, Others) -> bs_types:is_subtype(Member, Others).
 
-%% The first pair of `ValidateAs<T>`'s normalised members no clause head can
-%% tell apart, or `none` (ENG-347, ticket 70).
-%%
-%% The declaration check's `pairwise/3` is the wrong question here. It asks
-%% whether a pattern reaches each member, and ticket 70 keeps a type legal on
-%% that answer that a validator cannot usefully return; `bs_types:separable/2`
-%% says why. Reusing `pairwise/3` would refuse only a pair written inside the
-%% bracket and let the ticket's own program through.
+%% Validator members must be separable by clause heads. Declaration checking
+%% asks only whether patterns reach members, which does not ensure separation.
 inseparable_pair(Ty) ->
     first_inseparable(bs_types:constituents(Ty)).
 
@@ -3771,20 +2741,11 @@ first_inseparable([A | Rest]) ->
         []      -> first_inseparable(Rest)
     end.
 
-%%% ---------------------------------------------------------------------------
-%%% `ParseAtom<T>` (ticket 10 §4, F39)
-%%% ---------------------------------------------------------------------------
+%%% --- ParseAtom<T> ---
 
-%% `T` must be a finite atom union and NOTHING ELSE. The whole type is asked,
-%% not just its atom part: `:a | int` has a perfectly finite atom part, and
-%% reading only that would generate a parse for `:a`, drop the `int` half in
-%% silence, and leave the declared type promising a value the parse can never
-%% produce.
-%%
-%% A cofinite `T` fails here too, which is ticket 10 §4 in as many words —
-%% there is no member list to enumerate, so there is nothing to generate. The
-%% shape match also excludes a recursive type (`mu`) and `term`, whose tuple
-%% and map parts are `top` rather than empty.
+%% Require a nonempty finite atom union with no other type parts. Checking only
+%% atoms would silently discard other members; cofinite sets cannot be
+%% enumerated for code generation.
 parse_atom_members(#{atoms := {finite, As}, ints := [], floats := {finite, []},
                      tuples := [], lists := [], maps := [], bins := [],
                      funs := []}) when As =/= [] ->
@@ -3792,14 +2753,8 @@ parse_atom_members(#{atoms := {finite, As}, ints := [], floats := {finite, []},
 parse_atom_members(_) ->
     error.
 
-%% The argument is matched as a binary, so a value that is not one could only
-%% ever answer `:nothing` — a residual that would read as "no member has that
-%% name" when the truth is "that was never a name". `string` and `binary` both
-%% pass; `term` does not, and the author writes the clause head that gets a
-%% binary out of it (ticket 11 §2).
-%%
-%% An argument already carrying a diagnostic arrives as `none`, and `none` is
-%% a subtype of everything, so this reports nothing a second time.
+%% Binary input distinguishes an unknown name from a value that is not a name.
+%% `none` suppresses duplicate diagnostics for an already-refused argument.
 parse_atom_arg(L, Ty, [ATy], D0, C) ->
     case bs_types:is_subtype(ATy, bs_types:binary_top()) of
         true  -> {bs_types:union(Ty, bs_types:atom_lit(nothing)), D0};
@@ -3807,30 +2762,13 @@ parse_atom_arg(L, Ty, [ATy], D0, C) ->
                   D0 ++ [{error, L, C#ctx.fname, {parse_atom_arg, ATy}}]}
     end.
 
-%%% ---------------------------------------------------------------------------
-%%% `ToExistingAtom` (ticket 10 §4, ticket 67; F54)
-%%% ---------------------------------------------------------------------------
+%%% --- `ToExistingAtom` ---
 
-%% No type argument and one value. The result is fixed — `result<atom,
-%% string>`, ticket 67's respelling of 10 §4's `atom | :nothing`, which 15 §1
-%% made an error at the declaration because the singleton is absorbed into
-%% the cofinite top and the failure could not be matched. So the tagged
-%% member is in the result whether the signature admits it or not, and a
-%% signature promising bare `atom` meets `return_not_declared` with the
-%% wider one offered back, exactly as `ParseAtom<T>`'s `:nothing` does.
-%%
-%% THE ARGUMENT IS A `string`, NOT A `binary`, and this is where the sibling's
-%% rule does not carry over. `ParseAtom<T>` admits a `binary` because the
-%% argument goes nowhere: it is matched and dropped. Here it flows INTO the
-%% result — the failure carries the name as a `string` — and a `binary` that
-%% is not valid UTF-8 is not one. The BIF agrees: `binary_to_existing_atom`
-%% on such a binary is `badarg`, the same failure a missing name raises, so
-%% admitting `binary` would make two failures one and hand the author
-%% "(:error, name)" for a value that was never a name. A `term` is refused
-%% for the same reason `ParseAtom` refuses it (F39.7).
-%%
-%% An argument already carrying a diagnostic arrives as `none`, which is a
-%% subtype of everything, so nothing is reported a second time.
+%% The result includes the tagged failure even if the signature omits it. Input
+%% must be `string`: failure returns the name as a string, and
+%% `binary_to_existing_atom` raises `badarg` for both invalid UTF-8 and missing
+%% names. `none` suppresses duplicate argument diagnostics.
+%% Rationale: compiler/features/F54-to-existing-atom.md.
 to_existing_atom(L, [], [Arg], S, C) ->
     {[ATy], D0} = type_of_all([Arg], S, C),
     case bs_types:is_subtype(ATy, bs_types:string()) of
@@ -3844,22 +2782,13 @@ to_existing_atom(L, TypeArgs, Args, S, C) ->
      D0 ++ [{error, L, C#ctx.fname,
              {obligation_arity, 'ToExistingAtom', length(TypeArgs), length(Args)}}]}.
 
-%% `result<atom, string>` as the algebra holds it: `atom | (:error, string)`.
 existing_atom_result() ->
     bs_types:union(bs_types:atom_top(),
                    bs_types:tuple([bs_types:atom_lit(error), bs_types:string()])).
 
-%% A user may not declare a function under the name a bare compiler-known
-%% call is read by. `type_of/3` meets `ToExistingAtom(s)` before any callee
-%% is looked up, so a user's `ToExistingAtom/1` would be shadowed in silence
-%% — the rule is `compiler_known_redeclared/1`'s, for a function. Every
-%% form that introduces the name is checked, the signature and a clause
-%% without one alike, because the hazard is the name being taken.
-%%
-%% TWO SITES: `check_dir1/3` and `exports_of/2` both call this, because
-%% `bsc --api` runs the declaration pass on its own and would print
-%% `atom ToExistingAtom(string)` for a module a compile refuses (F31, F40,
-%% F50; ENG-371 for the two older refusals that still have the gap).
+%% `type_of/3` intercepts this name before callee lookup, so signatures and
+%% clauses must both reject redeclarations. `check_dir1/3` and `exports_of/2`
+%% must both call this to keep compilation and `bsc --api` consistent.
 compiler_known_function(Decls) ->
     Declared = [{N, L} || {signature, L, N, _, _, _, _} <- Decls]
             ++ [{N, L} || {clause, L, N, _, _, _} <- Decls],
@@ -3868,27 +2797,13 @@ compiler_known_function(Decls) ->
         [{N, L} | _] -> erlang:error({compiler_known_function, N, L})
     end.
 
-%%% ---------------------------------------------------------------------------
-%%% `ToJson<T>` (ticket 77, F50)
+%%% --- `ToJson<T>` ---
 %%%
-%%% The wire form is the platform's: `json:encode` of the erased term. So the
-%%% obligation's check is a walk over `T` refusing, at compile time, what the
-%%% platform refuses at run time: a tuple at any depth, an arrow, `binary`
-%%% whole (the platform refuses a VALUE with an invalid byte, and the type is
-%%% the only refusal that keeps the promise), and `term`, which holds all three.
-%%%
-%%% THE WALK IS OVER THE RESOLVED TYPE, NOT THE TYPE AS WRITTEN.
-%%% `result<T, E>` hides its `(:error, E)` behind a parametric alias, and a
-%%% plain alias hides a tuple as well; resolving first is what finds them, and
-%%% it is why this reads `bs_types` parts rather than the `t_*` nodes
-%%% `collapse_decl/2` scans.
-%%%
-%%% IT RUNS OVER CLAUSE BODIES FROM THE DECLARATION PASS, where an obligation's
-%%% other refusals are met while typing. This one is a fact about `T` alone,
-%%% and `bsc --api` types no body, so a refusal met only in `type_of/3` would
-%%% let the query print a signature for a module a compile refuses.
-%%% `check_dir1/3` and `exports_of/2` both call it.
-%%% ---------------------------------------------------------------------------
+%%% `json:encode` rejects tuples, arrows and invalid UTF-8 binaries. Walk the
+%%% resolved type to find these behind aliases; `term` admits them too. Check
+%%% clause bodies in the declaration pass: `bsc --api` skips typing bodies.
+%%% Both `check_dir1/3` and `exports_of/2` must run this check.
+%%% Rationale: compiler/features/F50-to-json.md.
 
 to_json_refused(Decls, Env) ->
     TVars = maps:from_list([{{N, length(Ps)}, TV}
@@ -3904,11 +2819,9 @@ to_json_refused(Decls, Env) ->
               ok
       end, Decls).
 
-%% A generic term walk, for `bs_emit:inst_nodes/1`'s reason: an obligation may
-%% sit anywhere an expression may, and a per-node walk goes stale when a node is
-%% added. It is a second copy of that walk rather than a shared one because the
-%% dependency runs `bs_emit` -> `bs_check` and never back: the emitter calls in
-%% here, and this module cannot call out.
+%% Walk arbitrary expression positions without duplicating the node grammar.
+%% The dependency is `bs_emit` -> `bs_check`; this cannot call the emitter's
+%% equivalent walk.
 to_json_nodes(T) when is_tuple(T) ->
     Here = case T of
                {e_inst, _, 'ToJson', [_], _} -> [T];
@@ -3918,11 +2831,8 @@ to_json_nodes(T) when is_tuple(T) ->
 to_json_nodes(L) when is_list(L) -> lists:append([to_json_nodes(E) || E <- L]);
 to_json_nodes(_)                 -> [].
 
-%% A `T` naming a type variable is `type_of/3`'s refusal and a `T` that does not
-%% resolve is `resolve/2`'s, so this pass says nothing about either and each
-%% keeps the diagnostic it already has. The catch is broad on purpose: every
-%% condition `resolve/2` raises — unknown, cyclic, recursive — is reported where
-%% it is met, and skipping here adds nothing to it and takes nothing away.
+%% `type_of/3` diagnoses type variables; `resolve/2` diagnoses resolution
+%% failures. Catch all resolution errors here to avoid duplicate reports.
 to_json_site(L, Fn, TE, Vars, Env) ->
     Resolved = case vars_in(TE, Vars) of
                    [] -> try {ok, resolve(TE, Env)} catch error:_ -> skip end;
@@ -3940,11 +2850,9 @@ to_json_site(L, Fn, TE, Vars, Env) ->
             ok
     end.
 
-%% The first member with no wire form, as `{Segments, Member, Kind}`, or `none`.
-%% A segment reads the way an author reaches the place: `.Field` for a record's
-%% field, `[_]` for a list's element or a map's value, `[key]` for a map's key.
-%% The member is the constituent found there, so a `result` names
-%% `(:error, E)` rather than the whole union.
+%% Return `{Segments, Member, Kind}` or `none`. Segments use `.Field`, `[_]`
+%% for elements/values and `[key]` for keys. Member is the failing constituent,
+%% not the whole union.
 unencodable(Ty) -> unencodable(Ty, [], []).
 
 unencodable(#{mu := N} = T, Segs, Seen) ->
@@ -3968,18 +2876,14 @@ unencodable(T, Segs, Seen) ->
             end
     end.
 
-%% The first constituent carrying this part, which is the member an author has to
-%% change. `constituents/1` partitions `T` by part, so a part the caller has just
-%% found non-empty has at least one constituent and `hd/1` is total.
+%% The caller found this part non-empty; its constituent exists, so `hd/1` is
+%% total.
 holding(Part, T) ->
     hd([C || C <- bs_types:constituents(T), maps:get(Part, C) =/= []]).
 
-%% Where the walk descends: a list's element, then each map member's fields in
-%% sorted order, a domain's key before its value. A member kind this does not
-%% name CRASHES rather than being filtered out, which is what a new type kind
-%% already owes every function that enumerates kinds (ENG-351, ENG-355): a
-%% comprehension that filtered would answer `none` — encodable — for a shape
-%% nobody had considered.
+%% Visit list elements first; sort map fields and visit domain keys before
+%% values. Unknown member kinds must fail rather than silently count as
+%% encodable.
 inner_positions(#{maps := Ms} = T) ->
     Elem = bs_types:list_elem(T),
     [{"[_]", Elem} || not bs_types:is_none(Elem)]
@@ -4002,20 +2906,12 @@ type_of_all(Es, S, C) ->
     {Tys, Ds} = lists:unzip([type_of(E, S, C) || E <- Es]),
     {Tys, lists:append(Ds)}.
 
-%%% ---------------------------------------------------------------------------
-%%% The expected type (F46, ticket 75)
+%%% --- The expected type ---
 %%%
-%%% `type_of/3` synthesises. A lambda cannot be synthesised — ticket 04 made
-%%% signatures mandatory, and a lambda's signature is the arrow its site
-%%% expects — and a bare name reads its arity from the same place. So the
-%%% sites that DECLARE a type hand it down through this entry: a call
-%%% argument, a clause return, a switch arm under one of those, a block's
-%%% final expression, a tuple or list component, a record field. Everything
-%%% else falls through to `type_of/3`, and a lambda reached that way is
-%%% refused there. The expectation is an argument rather than a field of
-%%% `#ctx`, because every existing clause passes `C` down to its operands
-%%% and an expectation in it would leak into every subexpression.
-%%% ---------------------------------------------------------------------------
+%%% Lambdas need an expected arrow; bare names use its arity. Declared types
+%%% flow through result positions and components, not arbitrary operands. Keep
+%%% the expectation outside `#ctx`, which every operand inherits.
+%%% Rationale: compiler/features/F46-function-as-a-value.md.
 
 expected(E = {e_lambda, _, _, _}, Ty, S, C) ->
     lambda_against(E, Ty, S, C);
@@ -4057,17 +2953,15 @@ expected_all(Es, Tys, S, C) ->
     {Out, Ds} = lists:unzip([expected(E, T, S, C) || {E, T} <- lists:zip(Es, Tys)]),
     {Out, lists:append(Ds)}.
 
-%% What an element of an expected list type is; a recursive type unfolds
-%% first, and a bare back-reference expects nothing in particular.
+%% Unfold recursive lists; a bare back-reference imposes no expectation.
 elem_expected(Ty) ->
     case bs_types:unfold(Ty) of
         #{lists := _} = T -> bs_types:list_elem(T);
         _                 -> bs_types:term()
     end.
 
-%% A record field's value is typed against the field's declared type where
-%% the record is known and declares the field; anything else is synthesised
-%% and the field-set check reports it.
+%% Unknown records and fields use synthesis; the field-set check diagnoses them
+%% separately.
 record_field_types(Fields, RecTy, S, C) when is_map(RecTy) ->
     case declared_fields(RecTy) of
         unknown  -> type_of_all([E || {_, E} <- Fields], S, C);
@@ -4081,18 +2975,9 @@ record_field_types(Fields, RecTy, S, C) when is_map(RecTy) ->
 record_field_types(Fields, _RecTy, S, C) ->
     type_of_all([E || {_, E} <- Fields], S, C).
 
-%% A lambda against the arrow its site expects (ticket 75 Q4, Q5). Its
-%% parameters are patterns checked IRREFUTABLE against the domain — ticket
-%% 33 §5's rule for the destructuring bind, `bind_step({dbind, …})`'s own
-%% check — and each binds at the path the pattern recorded. The body is
-%% typed against the codomain, so a lambda inside it has its expectation
-%% too, and the lambda's type is `fn(Domain) -> Body`: the site's containment
-%% then decides the codomain half, so a body outside it is reported by the
-%% site's own diagnostic, `arg_not_accepted` or `return_not_declared`.
-%%
-%% Where the expected type holds two arrows of this arity — ticket 70's
-%% container, legal and undispatchable — the first is taken; ticket 08 gives
-%% a function one arrow per arity, so a declared type has at most one.
+%% Parameters must be irrefutable over the domain. Type the body against the
+%% codomain, but retain its actual type for the site's containment check. Take
+%% the first arrow of matching arity; declared functions have only one.
 lambda_against({e_lambda, L, Params, Body}, Ty, S, C) ->
     N = length(Params),
     Candidates = case bs_types:arrows(Ty) of
@@ -4117,8 +3002,8 @@ lambda_params([P | Ps], [D | Ds], I, L, C) ->
                {true, true}  -> [];
                {_, false}    -> [{error, L, C#ctx.fname,
                                   {lambda_param_refuted, I, Residual}}];
-               %% An inexact pattern under-states its residual, so the
-               %% honest one is the whole domain, as in a bind.
+               %% Inexact patterns understate the residual; use the whole
+               %% domain.
                {false, true} -> [{error, L, C#ctx.fname,
                                   {lambda_param_refuted, I, D}}]
            end,
@@ -4126,12 +3011,8 @@ lambda_params([P | Ps], [D | Ds], I, L, C) ->
     {Rest, Diags} = lambda_params(Ps, Ds, I + 1, L, C),
     {maps:merge(Bound, Rest), Diag ++ Diags}.
 
-%% A name in value position at a fixed arity is the function itself: its
-%% declared signature read as an arrow, keyed `{Name, Arity}` in the table
-%% every call already resolves through — local first, then imports (41 §2).
-%% The resolved key rides out on the diagnostic channel as a note, as the
-%% valve's prune notes do, so the emitter can write `fun Name/Arity` or
-%% `fun Mod:Name/Arity` without resolving a second time.
+%% Resolve local names before imports. Pass the resolved key as a diagnostic
+%% note so the emitter can emit the function reference without resolving again.
 fname_type(L, Name, Arity, _S, C) ->
     Key = unqualified_key(Name, Arity, L, C),
     case maps:get(Key, C#ctx.callees, undefined) of
@@ -4147,26 +3028,20 @@ fname_type(L, Name, Arity, _S, C) ->
             {bs_types:fun_ty(Ps, Ret), [{fname, L, Key}]}
     end.
 
-%% Every arity declared for a name, local and imported.
 declared_arities(Name, C) ->
     Local = [A || {N, A} <- maps:keys(C#ctx.callees), N =:= Name],
     Imported = [A || {N, A} <- maps:keys(maps:get(funs, C#ctx.imports, #{})),
                      N =:= Name],
     lists:usort(Local ++ Imported).
 
-%% The join of every arity-N arrow's codomain in a type; `term` for the top,
-%% `none` where there is no such arrow, which is what a refused argument
-%% arrives as.
 codomain(Ty, N) ->
     case bs_types:arrows(Ty) of
         top -> bs_types:term();
         Fs  -> bs_types:union([Cod || {Ds, Cod} <- Fs, length(Ds) =:= N])
     end.
 
-%% Whether an expression needs an expectation to be typed at all: a lambda
-%% or a bare name, or a form that may hold one where the expectation would
-%% reach it. A polymorphic call types these LAST, with what the other
-%% arguments solved (F46).
+%% Polymorphic calls type expressions needing expectations after other
+%% arguments, using their partial solution.
 hungry({e_lambda, _, _, _})        -> true;
 hungry({e_fname, _, _, unknown})   -> true;
 hungry({e_switch, _, _, _})        -> true;
@@ -4176,10 +3051,8 @@ hungry({e_list, _, Items, Rest})   ->
     lists:any(fun hungry/1, Items) orelse (Rest =/= nil andalso hungry(Rest));
 hungry(_)                          -> false.
 
-%% Does a type hold an arrow anywhere a validator would have to walk? The
-%% top fun part inside a `term` is not one: `term` is validated as anything,
-%% and an explicit arrow is what a fun's unrecoverable type refuses
-%% (ticket 11).
+%% Validators accept `term` without checking its top fun part. Explicit arrows
+%% require a function type that cannot be recovered at run time.
 has_arrow(Ty) -> has_arrow(Ty, []).
 
 has_arrow(#{mu := N} = T, Seen) ->
@@ -4193,79 +3066,43 @@ has_arrow(T, Seen) ->
         _   -> true
     end.
 
-%% Shared by the switch an author wrote and the one the valve lowers to. The
-%% subject's type is passed in rather than synthesised here, because the
-%% valve has to interrogate it before deciding whether to walk the arms.
+%% The valve must inspect the subject type before deciding to walk the arms.
 switch_over(L, SubjTy, Arms, S, C, Origin) ->
     switch_over(L, SubjTy, Arms, S, C, Origin, none).
 
-%% `Expect` is the type the switch's site expects of it, or `none`: each
-%% arm's body is typed against it, so a lambda in an arm under a clause
-%% returning an arrow has its expectation (F46).
+%% Pass the site's expectation to arm bodies so nested lambdas can be typed.
 switch_over(L, SubjTy, Arms, S, C, Origin, Expect) ->
-    %% `SubjTy` twice: the first is the running residual, which the fold
-    %% spends; the second is the declared subject, carried unchanged so that
-    %% arm 1 can still be asked the one question the residual can no longer
-    %% answer, in `redundancy/4` (ENG-269).
+    %% Keep the declared subject alongside the shrinking residual so
+    %% `redundancy/4` can distinguish vacuous patterns from shadowed arms.
     {Tys, Residual, D1} = arms(Arms, SubjTy, SubjTy, S, C, 1, [], [], Origin, Expect),
     D2 = case bs_types:is_none(Residual) of
              true  -> [];
-             %% The residual is the missing arm (ticket 04), and it is spelled
-             %% by the HEAD channel — `record_names/1` for the same reason the
-             %% head site passes it, so a record member prints `Invoice i`.
-             %%
-             %% THIS READ "it needs no new printer: `to_pattern/1` already
-             %% renders a tuple as `(a, b, c)` and a record union as its
-             %% discriminator" UNTIL 2026-09-06 (ENG-312). True when F7
-             %% shipped, and false from F22, which gave a record a spelling in
-             %% pattern position; F29 taught the head channel that spelling and
-             %% the switch was never routed through it. `to_pattern/1` renders
-             %% the WHOLE residual, so it can neither split the members nor
-             %% name a record — it printed the erasure detail
-             %% `{ Kind: :'M.Invoice' }`, which `check-record-idiom.sh` refuses
-             %% in the corpus.
+             %% Render missing arms through the head channel with record names,
+             %% so records use source patterns rather than erased map shapes.
              false -> [{error, L, C#ctx.fname,
                         {switch_inexhaustive, Residual,
                          record_names(C#ctx.types)}}]
          end,
     {union_of(Tys), D1 ++ D2}.
 
-%% One arm at a time against a running residual, `walk/5`'s shape: redundancy
-%% is relative, arm i against the arms before it, so it is judged against
-%% what is left rather than against the subject.
-%%
-%% `Origin` gates the two diagnostics that are remarks about an arm rather
-%% than about what it contains. Both are advice to an author about a pattern
-%% they chose, and the valve's two arms were chosen by `bs_lower`. The body's
-%% and guard's diagnostics and the exhaustiveness of the whole run either way.
+%% Check redundancy against the running residual. Pattern advice applies only
+%% to authored arms; body, guard and exhaustiveness checks apply to both.
 arms([], Residual, _Declared, _S, _C, _N, Tys, Diags, _Origin, _Expect) ->
     {Tys, Residual, Diags};
 arms([{arm, AL, P, Guard, Body} | Rest], Residual, Declared, S, C, N, Tys, Diags, Origin,
      Expect) ->
     {PTy, Binds, Exact} = pattern_type(P, [], C#ctx.types),
     {Certain0, Possible} = apply_guard(PTy, Binds, Guard),
-    %% An inexact pattern over-states what it matches, so it may bound Possible
-    %% and must credit nothing to Certain, as in `clause_type/2`: crediting an
-    %% over-estimate is what makes a compiler claim coverage it does not have.
+    %% Inexact patterns may bound Possible but cannot establish Certain.
     Certain = case Exact of true -> Certain0; false -> bs_types:none() end,
     D1 = case Origin of
              generated -> [];
              authored ->
-                 %% An arm that adds nothing is reported by which of three
-                 %% faults it has: an earlier arm already covers it, its
-                 %% pattern is not a member of the subject's type at all, or
-                 %% its guard admits no value (ENG-269). Only the first is
-                 %% "matched by an earlier arm"; before the split the first
-                 %% arm of a switch was reported that way, naming an arm that
-                 %% does not exist. `redundancy/4` is `walk/6`'s, reused, and
-                 %% `PTy` is the pattern's own type before `apply_guard`
-                 %% reduced it, which is what tells the first two apart.
+                 %% Preserve the pre-guard pattern type to distinguish
+                 %% shadowing, a vacuous pattern and an unsatisfiable guard.
                  case map_arm_deferred(P, Declared) of
-                     %% A deferred map pattern is an error ahead of
-                     %% `redundancy/4`, not a vacuous-arm warning: the arm is
-                     %% vacuous only because this compiler cannot honour the
-                     %% pattern, and a warning let the switch compile with a
-                     %% dead arm and answer from `_` instead.
+                     %% Reject unsupported map patterns before redundancy: a
+                     %% warning would allow a dead arm to compile.
                      true ->
                          [{error, AL, C#ctx.fname,
                            {map_pattern_deferred, arm, Declared}}];
@@ -4280,30 +3117,20 @@ arms([{arm, AL, P, Guard, Body} | Rest], Residual, Declared, S, C, N, Tys, Diags
                      live       -> []
                  end
                  end
-                 %% A `_` arm over `Disposition` is the same defect as a `_`
-                 %% clause over it: an arm is the clause head's pattern grammar
-                 %% one level down, so a rule about what a head may discard is
-                 %% a rule about what an arm may discard (ticket 12 §2, F7).
+                 %% Arms obey the same catch-all restrictions as clause heads.
                  ++ catch_all_diags({clause, AL, C#ctx.fname, [P], Guard, ignored},
                                     Residual, AL, C#ctx.fname,
                                     record_names(C#ctx.types))
          end,
-    %% The body is typed against `Possible`, never `Certain` (F5.7). `Certain`
-    %% is `none` under an untranslatable guard, and every containment over
-    %% `none` passes, so the arm would silently stop being checked.
+    %% Type bodies against Possible: Certain is empty for untranslatable guards
+    %% and would make every containment check pass.
     Domain = bs_types:intersect(Residual, Possible),
-    %% An arm variable's type is read off the refined domain at the path the
-    %% pattern recorded, exactly as a clause's is; the paths start at `[]`
-    %% here because a switch has one subject where a clause head has a product.
+    %% Paths start at `[]`: a switch has one subject, not a parameter product.
     Scope = maps:merge(S, maps:from_list(
                             [{V, at_path(Domain, Path)}
                              || {V, Path} <- maps:to_list(Binds)])),
-    %% The arm's guard is typed against what reaches it BEFORE it narrows
-    %% anything, as a clause's is (F51): read as an int comparison, `m < 0`
-    %% over a `float` subject narrows `m` to nothing and the mixed pair
-    %% would vanish, and the emitted `is_integer` test would then make the
-    %% arm one that never matches. The dead-guard warning that reading
-    %% produced is withheld beside the error, whose advice it contradicts.
+    %% Check guards before narrowing can erase mixed numeric operands. Suppress
+    %% the contradictory dead-guard warning beside a mixed-pair error.
     GuardDomain = bs_types:intersect(Residual, PTy),
     GuardScope = maps:merge(S, maps:from_list(
                                  [{V, at_path(GuardDomain, Path)}
@@ -4318,20 +3145,9 @@ arms([{arm, AL, P, Guard, Body} | Rest], Residual, Declared, S, C, N, Tys, Diags
                        none -> type_of(Body, Scope, C);
                        _    -> expected(Body, Expect, Scope, C)
                    end,
-    %% A GENERATED ARM NO VALUE REACHES CONTRIBUTES NO TYPE (F30). `bs_lower`
-    %% writes three arms over every valve, so the `:nothing` arm is dead over a
-    %% subject that carries no `:nothing` and the error arm is dead over one
-    %% that cannot fail. Appending a dead arm's body type would widen the
-    %% synthesised type by a member no value can take: `Res = int | (:error,
-    %% atom)` would become `int | (:error, atom) | :nothing` and every valve
-    %% program in the corpus would stop compiling against its own signature.
-    %%
-    %% Gated on `generated` and not applied to authored arms, because an
-    %% author's dead arm is already reported as `vacuous_arm` and narrowing the
-    %% type under them would be a second, silent answer to a fault they have
-    %% been told about. The body is still typed either way, so its own
-    %% diagnostics are unaffected — this drops the arm's contribution, not its
-    %% check.
+    %% Unreachable generated arms contribute no type; otherwise stop arms widen
+    %% the valve with impossible values. Authored arms retain their type. Check
+    %% every body regardless of whether its type contributes.
     Tys1 = case Origin =:= generated andalso bs_types:is_none(Domain) of
                true  -> Tys;
                false -> Tys ++ [BodyTy]
@@ -4339,14 +3155,11 @@ arms([{arm, AL, P, Guard, Body} | Rest], Residual, Declared, S, C, N, Tys, Diags
     arms(Rest, bs_types:subtract(Residual, Certain), Declared, S, C, N + 1,
          Tys1, Diags ++ D1b ++ D1g ++ guard_diags(Guard, C) ++ D2, Origin, Expect).
 
-%%% ---------------------------------------------------------------------------
-%%% Pruning the valve's dead stop arms (F30)
-%%% ---------------------------------------------------------------------------
+%%% --- Pruning the valve's dead stop arms ---
 
-%% Which of the two generated stop arms no value of this subject can reach.
-%% Keyed by the ERROR ARM'S BINDER, which `bs_lower` makes unique per stage
-%% across the module — a line number would collide, since `a |?> F(b |?> G())`
-%% puts two valves on one line (F30.8).
+%% Key dead stop arms by the error binder, unique per stage across the module
+%% in `bs_lower`. Line numbers collide for nested valves on one line.
+%% Rationale: compiler/features/F30-valve-short-circuit-set.md.
 prune_note(Arms = [ErrArm | _], SubjTy, C) ->
     Stop = lists:droplast(Arms),
     Dead = [I || {I, {arm, _, P, _, _}} <- lists:enumerate(Stop),
@@ -4362,10 +3175,8 @@ prune_note(Arms = [ErrArm | _], SubjTy, C) ->
 binder({arm, _, {p_tuple, _, [{p_atom, _, error}, {p_var, _, V}]}, _, _}) -> V;
 binder(_) -> undefined.
 
-%% A generic walk, for the same reason `bs_lower`'s is generic: a valve sits
-%% anywhere an expression can, and a copy of the grammar here is a second
-%% thing to keep in step. `bs_emit` is untouched by this and reads the tree it
-%% is handed, which is F30.9's control.
+%% Valves can occur in any expression position. Prune the tree before `bs_emit`
+%% consumes it; the emitter needs no type information.
 prune_valves(T, Prunes) when map_size(Prunes) =:= 0 -> T;
 prune_valves({e_valve, L, {e_switch, SL, Subj, Arms}}, Prunes) ->
     Arms1 = case binder(hd(Arms)) of
@@ -4385,28 +3196,16 @@ prune_valves([H | T], Prunes) ->
     [prune_valves(H, Prunes) | prune_valves(T, Prunes)];
 prune_valves(X, _) -> X.
 
-%% An operator's result, read off its operands' PARTS (F51, tickets 69 and
-%% 80). Two `int`s give `int`; two `float`s give `float`, and `/` there is the
-%% BEAM's own division, which the emitter learns from the `fdiv` note this
-%% returns beside the type — the checker decides the lowering per site,
-%% because the emitter has no types of its own (38 §4). An `int` beside a
-%% `float` is refused: nothing converts between the two parts, and the BEAM
-%% would promote silently (80). An operand in neither part — a `term`, a
-%% union, an operand already refused and so `none` — answers what
-%% `op_type/1` always answered, so nothing that compiled yesterday moves.
-%%
-%% BOTH OPERANDS MUST BE INHABITED for the refusal: `none` is inside every
-%% part, and an already-refused operand would otherwise cascade a second
-%% error onto the first.
+%% The emitter has no types; the `fdiv` note selects BEAM float division.
+%% Reject mixed numeric parts instead of BEAM's implicit promotion. Both
+%% operands must be inhabited to avoid cascading errors from `none`.
 op_result(Op, ATy, BTy, L, C) ->
     case {part_of(ATy), part_of(BTy)} of
         {float, float} when Op =:= '/' ->
             {bs_types:float_top(), [{fdiv, L, float}]};
         {float, float} when Op =:= '+'; Op =:= '-'; Op =:= '*' ->
             {bs_types:float_top(), []};
-        %% `%` is the remainder over two ints (38); over two floats nothing
-        %% is decided, and `rem` would crash at run time, so it is refused
-        %% rather than typed `int` (F51, found in review).
+        %% BEAM `rem` requires integers; float remainder would crash.
         {float, float} when Op =:= '%' ->
             {reported(), [{error, L, C#ctx.fname, float_remainder}]};
         {int, float} when Op =/= 'and', Op =/= 'or' ->
@@ -4417,30 +3216,10 @@ op_result(Op, ATy, BTy, L, C) ->
             union_result(Op, ATy, BTy, L, C)
     end.
 
-%% A UNION WHOSE PARTS ARE ALL NUMERIC IS THE MIXED PAIR WHEREVER ONE PART
-%% WOULD BE (ticket 83). `part_of/1` answers `neither` for it, so it fell to
-%% `op_type/1` above and every operator over it answered `int`: `public int
-%% Owed(int | float amount)` with `Owed(a) -> a * 100` compiled, published
-%% `int Owed(int | float)` through `--api`, and returned `-250.0` — the outcome
-%% §10's guarantee exists to rule out. The guard face is the same fallthrough
-%% one line over, where `a < 0` emitted `is_integer(A) andalso A < 0` and
-%% dropped the float half of a ledger's amount.
-%%
-%% THE OPERATOR SET IS THE SAME SET: everything except `and` and `or`, spelled
-%% by the same guard the `{int, float}` clauses above carry. It is a third copy
-%% of that guard and therefore a third thing to keep in step — the brief asked
-%% for the set to be inherited rather than a new one invented, which it is, but
-%% "inherited" flattered the mechanism and `every_operator_but_the_boolean_pair`
-%% is what actually holds the three together.
-%%
-%% BOTH OPERANDS MUST BE INHABITED, for the reason the clauses above are: an
-%% operand already refused is `none`, and refusing again would stack a second
-%% error on the first.
-%%
-%% SCOPED TO A UNION WHOSE PARTS ARE ALL NUMERIC, which is the question ticket
-%% 83 asked and the whole of what it answered. `int | float | :none` keeps
-%% today's fallthrough and today's defect with it — seen, not missed, and
-%% named in 83's `Not decided here`.
+%% Keep this operator set aligned with both mixed-part clauses above: every
+%% operator except `and` and `or`. Both operands must be inhabited. Only wholly
+%% numeric unions qualify; unions with other parts fall through.
+%% Rationale: compiler/features/F53-numeric-union-dispatch.md.
 union_result(Op, ATy, BTy, L, C) when Op =/= 'and', Op =/= 'or' ->
     Inhabited = fun(T) -> not bs_types:is_none(T) end,
     case {numeric_union(ATy) andalso Inhabited(BTy),
@@ -4452,10 +3231,7 @@ union_result(Op, ATy, BTy, L, C) when Op =/= 'and', Op =/= 'or' ->
 union_result(Op, _ATy, _BTy, _L, _C) ->
     {op_type(Op), []}.
 
-%% Inhabited, inside the two numeric parts together, and inside neither of
-%% them alone — which is exactly "every part is numeric and both are present".
-%% Asked of the type rather than of its spelling, so an alias to `int | float`
-%% and a refinement of one are the same question.
+%% Inspect resolved types so aliases and refinements receive the same check.
 numeric_union(Ty) ->
     Numeric = bs_types:union(bs_types:int(), bs_types:float_top()),
     not bs_types:is_none(Ty)
@@ -4463,34 +3239,15 @@ numeric_union(Ty) ->
         andalso not bs_types:is_subtype(Ty, bs_types:int())
         andalso not bs_types:is_subtype(Ty, bs_types:float_top()).
 
-%% The refusal carries the side the union is on and the union itself, and
-%% `bs_diag` decides the words. It does NOT carry a literal spelling: `mixed/6`
-%% above offers `2.0` for `2` because there one side IS one literal, and over a
-%% union that advice is refused too, by the symmetry of ticket 80's no-flow
-%% rule — the `int` part of the union would then stand beside a float. The only
-%% correct advice is to dispatch the parts (ticket 84), which is why this
-%% refusal and that pattern are one feature.
-%% THE HEADS ARE BUILT FROM THE FUNCTION'S OWN PARAMETERS, not from its name
-%% and a guess at its shape. A head is every position or it is not a head: the
-%% first cut printed `Fn(int n)` whatever the arity, so a two-parameter
-%% function was advised to write a clause the same compiler then refused for
-%% having the wrong arity — F19's defect, in the refusal whose gate exists to
-%% prevent exactly it.
-%%
-%% The dispatched position is the FIRST parameter whose declared type is this
-%% same numeric union; every other position keeps the name the author gave it,
-%% which is what makes the printed clause theirs rather than a template. Where
-%% no parameter carries the union — the value came from a binding, a call or a
-%% field — there is no honest head to write, and the term carries `none` so
-%% the message can say where to dispatch without inventing one.
+%% Dispatch advice must preserve the function's full parameter list and names.
+%% Use the first numeric-union parameter, or `none` if none exists. A literal
+%% conversion hint cannot separate a union's numeric parts.
 union_operand(Op, Side, Ty, L, C) ->
     {error, L, C#ctx.fname, {numeric_union_operand, Op, Side, Ty,
                              advised_heads(C#ctx.params)}}.
 
-%% `{Before, Name, After}` — the parameter names each side of the one to
-%% dispatch, and its name — or `none`. `bs_diag` puts the type in front of
-%% `Name` and joins the rest, because which WORDS go round it is its business
-%% and not this module's (ticket 23 §1).
+%% `bs_diag` renders `{Before, Name, After}` as a typed parameter amid the
+%% remaining names; `none` means no parameter can supply a head hint.
 advised_heads(Params) ->
     Names = [N || {N, _} <- Params],
     case [I || {I, {_, T}} <- lists:enumerate(Params), numeric_union(T)] of
@@ -4501,10 +3258,8 @@ advised_heads(Params) ->
             none
     end.
 
-%% The refusal carries what the checker decided — which part each side lies
-%% in — and, where the `int` side is one literal, that literal's float
-%% spelling, since writing `2.0` for `2` is the fix there. `bs_diag` renders
-%% the term and decides nothing.
+%% The checker chooses the numeric parts and any literal conversion; `bs_diag`
+%% only renders them.
 mixed(Op, Left, Right, IntTy, L, C) ->
     Literal = case IntTy of
                   #{ints := [{N, N}]} when is_integer(N) -> integer_to_list(N) ++ ".0";
@@ -4512,8 +3267,6 @@ mixed(Op, Left, Right, IntTy, L, C) ->
               end,
     {error, L, C#ctx.fname, {mixed_operands, Op, Left, Right, Literal}}.
 
-%% Which of the two numeric parts an inhabited type lies wholly inside, or
-%% `neither`.
 part_of(Ty) ->
     case bs_types:is_none(Ty) of
         true  -> neither;
@@ -4531,20 +3284,14 @@ in_part(Ty, float) -> bs_types:is_subtype(Ty, bs_types:float_top()).
 op_type('+') -> bs_types:int();
 op_type('-') -> bs_types:int();
 op_type('*') -> bs_types:int();
-%% `7 / 2` is `int`, not an exact interval, for the same reason
-%% `1 + 2` is (F26, ticket 38).
+%% Arithmetic returns `int`, not an exact interval.
 op_type('/') -> bs_types:int();
 op_type('%') -> bs_types:int();
 op_type(_)   -> bs_types:union(bs_types:atom_lit(true), bs_types:atom_lit(false)).
 
-%% A divisor the checker can prove is zero is refused; a divisor needs no
-%% proof it is non-zero, so `Mean(total, count) -> total / count` compiles and
-%% a zero at run time crashes (F26, ticket 38 §2, ticket 12). The test is
-%% `is_subtype(Divisor, zero)`, subtype rather than equality so that a
-%% divisor narrowed to nothing but zero by a refinement or a pinned head is
-%% caught too, and `int` can never fire. `erlc` constant-folds only when both
-%% operands are literals, so `variable(X) -> X div 0` warns nowhere there.
-%% The zero is either part's: `0`, `0.0` and `-0.0` (F51).
+%% Reject provably zero divisors, including refinements and signed float zero.
+%% Unknown divisors remain legal and may crash at run time. `erlc` folds only
+%% literal pairs, so it does not diagnose `X div 0`.
 divisor_diags(Op, BTy, L, C) when Op =:= '/'; Op =:= '%' ->
     Zero = bs_types:union([bs_types:range(0, 0),
                            bs_types:float_lit(0.0), bs_types:float_lit(-0.0)]),
@@ -4554,19 +3301,14 @@ divisor_diags(Op, BTy, L, C) when Op =:= '/'; Op =:= '%' ->
     end;
 divisor_diags(_, _, _, _) -> [].
 
-%% A binding declares no type, so it is synthesis only; there is no site here.
+%% Bindings declare no expected type; their values require synthesis.
 bind_step({bind, _, V, E}, {S, D}, C) ->
     {T, D1} = type_of(E, S, C),
     {S#{V => T}, D ++ D1};
-%% Site 5, the destructuring bind: it must be provably irrefutable, which
-%% holds exactly when the residual is empty (tickets 33, 34).
+%% Destructuring binds must be provably irrefutable.
 bind_step({dbind, L, P, E}, {S, D}, C) ->
-    %% A relational pattern is refused in a bind. `var >= 4 = n` parses,
-    %% since a bind takes a pattern and a relational is one, but it binds
-    %% nothing and is the refutable construct par excellence. Refused here
-    %% rather than left to the residual check because the degenerate
-    %% irrefutable case, `var >= 0 = n` over an `Octet`, would pass that check
-    %% and reach the emitter, which has no guard to hang the test on.
+    %% Reject relational binds even when irrefutable: the emitter has no guard
+    %% position for their test.
     RelDiags = case has_rel(P) of
                    true  -> [{error, L, C#ctx.fname, relational_in_bind}];
                    false -> []
@@ -4577,17 +3319,13 @@ bind_step({dbind, L, P, E}, {S, D}, C) ->
     D2 = case {Exact, bs_types:is_none(Residual)} of
              {true, true}  -> [];
              {_, false}    -> [{error, L, C#ctx.fname, {bind_may_fail, Residual}}];
-             %% An inexact pattern over-states what it matches, so its residual
-             %% under-states what is left. The bind is refutable and the honest
-             %% residual is the whole right-hand side.
+             %% Inexact patterns understate the residual; use the whole RHS.
              {false, true} -> [{error, L, C#ctx.fname, {bind_may_fail, T}}]
          end,
     Bound = maps:from_list([{V, at_path(T, Path)} || {V, Path} <- maps:to_list(PBinds)]),
     {maps:merge(S, Bound), D ++ D1 ++ D2 ++ RelDiags}.
 
-%% Whether a pattern carries a relational anywhere. Structural on purpose: the
-%% combinators are not, so `>= 4 and <= 7` has to be walked through rather than
-%% matched at the top.
+%% Relational patterns can be nested in combinators and structural patterns.
 has_rel({p_rel, _, _, _})        -> true;
 has_rel({p_and, _, A, B})        -> has_rel(A) orelse has_rel(B);
 has_rel({p_or,  _, A, B})        -> has_rel(A) orelse has_rel(B);
@@ -4600,9 +3338,6 @@ has_rel({p_list, _, Items, Rest}) ->
         orelse (Rest =/= nil andalso has_rel(Rest));
 has_rel(_)                       -> false.
 
-%% Site 1, the call argument: each argument must be contained in the declared
-%% parameter type, so `Update(Order o)` called with an `Invoice` is
-%% rejected (ticket 26 §1).
 call(L, Key, Shown, Args, S, C) ->
     case maps:get(Key, C#ctx.callees, undefined) of
         undefined ->
@@ -4619,10 +3354,6 @@ call(L, Key, Shown, Args, S, C) ->
             {Ret, [{error, L, C#ctx.fname,
                     {arity_mismatch, Shown, length(Args), length(Ps)}} | D]};
         {Ps, Ret} ->
-            %% Each argument is typed against its declared parameter, which
-            %% is what gives a lambda its arrow (F46). A polymorphic call
-            %% types the arguments that need no expectation first and hands
-            %% the rest the partial solution.
             case maps:get(Key, C#ctx.polys, undefined) of
                 undefined ->
                     {ATys, D} = expected_all(Args, Ps, S, C),
@@ -4645,12 +3376,8 @@ call(L, Key, Shown, Args, S, C) ->
             end
     end.
 
-%% A polymorphic call's arguments, typed in rounds (F46, ticket 76). Every
-%% argument that needs no expectation is typed first, against the template at
-%% its extent. Each lambda, bare name or form holding one is then handed its
-%% template position with the partial solution substituted, so
-%% `Map(xs, (n) => n * 2)` types the lambda against `fn(int) -> term` and `U`
-%% is read from what the body returns.
+%% Type arguments needing no expectation first, at the template's extent. Use
+%% their partial solution for lambdas, bare names and containing forms.
 poly_args({poly, Vars, PsT, _RetT, Erased}, Args, S, C) ->
     Indexed = lists:zip(lists:seq(1, length(Args)), lists:zip(Args, PsT)),
     Extent = maps:from_list([{V, bs_types:term()} || V <- Vars]),
@@ -4661,16 +3388,9 @@ poly_args({poly, Vars, PsT, _RetT, Erased}, Args, S, C) ->
     {Tys, Ds} = lists:unzip([maps:get(I, Typed) || I <- lists:seq(1, length(Args))]),
     {Tys, lists:append(Ds)}.
 
-%% The partial solution is not a result type and follows no variance: it is
-%% what every argument typed so far supplies, the lower bounds first, and a
-%% variable nothing bounds is `term`. It is recomputed after each round, and
-%% the hungry arguments are typed again while it moves: a lambda typed over
-%% the `3` a literal supplies returns `int`, which widens the variable, so it
-%% is typed once more over `int`, where it agrees with itself — the least
-%% fixpoint `fold_fun/6` reaches for `List.Fold`. Without the second round
-%% `Twice(3, (n) => n + 1)` would refuse its own lambda. A position still
-%% moving after three rounds is typed at the extent. Only the last round's
-%% diagnostics are kept.
+%% Partial solutions prefer lower bounds regardless of variance; unbounded
+%% variables use `term`. Retype dependent arguments as expectations widen.
+%% After three changing rounds, use the extent. Keep only final diagnostics.
 retype(Hungry, Fixed, Prev, LastExpect, T = {Vars, PsT, Erased}, S, C, Round) ->
     Typed = maps:merge(Fixed, Prev),
     Bounds = bounds(PsT, [{I, Ty} || {I, {Ty, _}} <- maps:to_list(Typed)]),
@@ -4691,13 +3411,9 @@ retype(Hungry, Fixed, Prev, LastExpect, T = {Vars, PsT, Erased}, S, C, Round) ->
             retype(Hungry, Fixed, Next, Expect, T, S, C, Round + 1)
     end.
 
-%% A call to a function that exists and is private is reported as private,
-%% and that is asked before the arity fork (F12): a private `F/2` beside a
-%% public `F/1` would otherwise read as an arity mistake, sending the author
-%% to change the call rather than the marker. A qualified call arrives keyed
-%% `{q, M, N, A}`; an unqualified one never resolves at all, since a private
-%% name cannot populate the import table, so the imported modules are asked
-%% in turn.
+%% Check privacy before arity so a private F/2 beside a public F/1 is not
+%% reported as an arity error. Private names cannot enter the import table;
+%% search imported modules for unresolved unqualified calls.
 private_callee({q, M, N, A}, _Arity, C) ->
     case maps:is_key({q, M, N, A}, maps:get(privates, C#ctx.imports, #{})) of
         true  -> {yes, M};
@@ -4712,11 +3428,7 @@ private_callee({N, A}, _Arity, C) ->
     end;
 private_callee(_Key, _Arity, _C) -> no.
 
-%% A callee is unknown only when its name is unknown; when other arities of
-%% the name exist, the diagnostic names them. Overloading is
-%% permitted (ticket 40 §2), so `F/2` where only `F/1` exists is strictly an
-%% unknown function, but reporting it that way throws away the fact that the
-%% author plainly meant the `F` sitting right there (ticket 04).
+%% Report available arities when the name exists at another arity.
 unresolved(L, Key, Shown, Args, D, C) ->
     case other_arities(Key, C#ctx.callees) of
         []    -> {reported(),
@@ -4731,8 +3443,6 @@ unresolved(L, Key, Shown, Args, D, C) ->
                      lists:sort(Many)}} | D]}
     end.
 
-%% Every arity declared for the callee the key names, whichever of the three
-%% keyspaces it lives in: local, foreign, or another module's.
 other_arities({N, _}, Callees) ->
     lists:sort([A || {Nm, A} <- maps:keys(Callees), Nm =:= N]);
 other_arities({f, M, N, _}, Callees) ->
@@ -4748,19 +3458,14 @@ arg_diag(L, Callee, A, T, P, I, C) ->
     R = bs_types:subtract(T, P),
     case bs_types:is_none(R) of
         true  -> [];
-        %% The residual is the clause the caller must
-        %% write (ticket 04). It proposes an edit to the function
-        %% being checked and never to the callee (ticket 18 §4).
+        %% The residual proposes a clause in the caller, never the callee.
         false -> [{error, L, C#ctx.fname,
                    {arg_not_accepted, Callee, I, R, head_hint(A, C)}}]
     end.
 
-%% A polymorphic call's arguments are checked twice (ticket 76 Q2): against
-%% the extent, which is what gives an argument outside the declaration its
-%% residual, and then, where that passed, against the parameter the solution
-%% instantiates. The second is the check ticket 37's proof let the compiler
-%% skip, and it stopped being redundant when an arrow's domain made the
-%% extent of `fn(T) -> U` the top arrow. One diagnostic per argument.
+%% Check the extent first, then the instantiated parameter: an arrow's extent
+%% can be the top arrow and miss an instantiation mismatch. Report at most one
+%% diagnostic per argument.
 poly_arg_diags(L, Callee, Args, ATys, Ps, Inst, C) ->
     Rows = lists:zip3(lists:seq(1, length(Args)), Args, lists:zip3(ATys, Ps, Inst)),
     lists:append([case arg_diag(L, Callee, A, T, P, I, C) of
@@ -4768,11 +3473,8 @@ poly_arg_diags(L, Callee, Args, ATys, Ps, Inst, C) ->
                       Diag -> Diag
                   end || {I, A, {T, P, Q}} <- Rows]).
 
-%% A head can only be synthesised when the argument is a whole parameter; an
-%% arbitrary expression has no position in the caller's head to put a pattern
-%% in. The record-name map rides along in the hint rather than as a sixth
-%% element of the diagnostic, because `caller_head` is a paste site and needs
-%% what every paste site needs (F29).
+%% Only whole-parameter arguments have a caller-head position to refine. Carry
+%% record names in the hint so `caller_head` can render source patterns.
 head_hint({e_var, _, V}, #ctx{binds = B, arity = N, types = Env}) ->
     case maps:get(V, B, undefined) of
         [I] when is_integer(I) -> {I, N, record_names(Env)};
@@ -4783,13 +3485,7 @@ head_hint(_, _) -> none.
 foreign_name(Mod, Fun) ->
     list_to_atom(":" ++ atom_to_list(Mod) ++ "." ++ atom_to_list(Fun)).
 
-%% An unqualified name resolves local first, then imports (ticket 41 §2). A
-%% local wins outright: one of the two candidates is the author's own
-%% declaration in the file they are reading, and a language whose local
-%% definitions can be captured by a later import is the surprising one. A
-%% local-versus-import clash used to be refused at the `using` line; that
-%% check was deleted (ticket 47 Q2), so the clash reaches here and the local
-%% answers it. Only two imports are ever ambiguous.
+%% Locals take precedence over imports; only competing imports are ambiguous.
 unqualified_key(Name, Arity, L, C) ->
     Key = {Name, Arity},
     case maps:is_key(Key, C#ctx.callees) of
@@ -4798,18 +3494,14 @@ unqualified_key(Name, Arity, L, C) ->
             case maps:get(Key, maps:get(funs, C#ctx.imports, #{}), []) of
                 []    -> Key;          %% unknown: `call/6` reports it
                 [M]   -> {q, M, Name, Arity};
-                %% Two imports with equal claim are an error, never a silent
-                %% winner, and the candidates are printed qualified so the
-                %% error hands over the fix (ticket 41 §2 requirement 1).
+                %% Qualify ambiguous candidates so the diagnostic offers a fix.
                 Many  -> erlang:error({ambiguous_call, Name, Arity,
                                        lists:sort(Many), L})
             end
     end.
 
-%% A qualified call names either a module or a namespace-relative short name,
-%% and either way the module must appear in a `using` line: a file's `using`
-%% lines are its dependency list, and a qualified call that skipped the list
-%% would make that list a lie (ticket 41 §1, ticket 23 §11).
+%% Qualified calls still require a `using` entry: those entries declare the
+%% file's dependencies.
 qualified_module(Mod, L, C) ->
     Mods = maps:get(mods, C#ctx.imports, #{}),
     case maps:get(Mod, Mods, []) of
@@ -4827,18 +3519,14 @@ require_imported(Mod, L, C) ->
 qualified_name(Mod, Fun) ->
     list_to_atom(atom_to_list(Mod) ++ "." ++ atom_to_list(Fun)).
 
-%% Site 2's residual is field names, not a type (ticket 33 §4). `Order{Id} \
-%% Order` is `{ Kind: :'Shop.Order' }`: correct, and worthless, because it
-%% names the type being built rather than the field forgotten.
+%% Field-set residuals use names; type subtraction only identifies the record.
 field_delta(Supplied, Declared) ->
     {lists:sort(Declared -- Supplied), lists:sort(Supplied -- Declared)}.
 
-%% The declared field set, read off the resolved type rather than the surface
-%% one `record_fields/1` reads for the emitter. `Kind` is minted, never
-%% assigned. A recursive record is unfolded before its parts are read, and
-%% that clause comes first (F28): the catch-all answers `unknown`, which for a
-%% recursive record would be a silent degrade, since its fields are known one
-%% unfolding down. Unfolding terminates because a `mu` body is a partition.
+%% Read resolved fields; the emitter's `record_fields/1` reads surface types.
+%% `Kind` is generated, never assigned. Unfold recursive records before the
+%% catch-all or their known fields become `unknown`. A `mu` body is a
+%% partition, so unfolding terminates.
 declared_fields(#{mu := _} = T) -> declared_fields(bs_types:unfold(T));
 declared_fields(#{maps := [{closed, Fs}]}) -> maps:keys(Fs) -- ['Kind'];
 declared_fields(_)                         -> unknown.
@@ -4848,37 +3536,19 @@ field_type(#{maps := top}, _Field) -> bs_types:term();
 field_type(#{maps := Members}, Field) ->
     union_of([maps:get(Field, Fs) || {_, Fs} <- Members, maps:is_key(Field, Fs)]).
 
-%% Site 2's value half: one containment per field against the type the record
-%% declaration wrote down, serving construction and `with` alike (ticket 36).
-%% The residual is precise here, unlike the name half's: `:oops \ int` is
-%% `:oops`, the value to remove, beside a field name already known because it
-%% is the key assigned. A value whose own synthesis already failed is
-%% `reported()`, which is `none()`, and `none \ T` is empty, so no cascading
-%% second complaint can arise.
+%% Construction and `with` check each value against its declared field type.
+%% `reported()` is `none()`, so subtraction suppresses cascading errors.
+%% Rationale: compiler/features/F21-field-value-obligations.md.
 field_value_diags(Keys, Tys, RecTy, Name, L, C) ->
     [{error, L, C#ctx.fname, {field_value_not_accepted, Name, K, R}}
      || {K, VTy} <- lists:zip(Keys, Tys),
         R <- [bs_types:subtract(VTy, field_type(RecTy, K))],
         not bs_types:is_none(R)].
 
-%% A `with` subject that is not one closed record must carry every updated
-%% key in every member (ENG-249). Site 3's relation is asked per field:
-%% `subject \ { K: term, .. }` is the part of the subject that may lack `K`,
-%% handed back as the member to discriminate on. Per field rather than once
-%% over all the keys, because on a union the residual is precise per field
-%% (`Note` lacks `Total` and carries `Id`), and one subtraction over both
-%% would name a member without saying which field it lacks.
-%%
-%% A base whose own synthesis already failed is `reported()`, which is
-%% `none()`, and `none \ T` is empty, so it is stopped at the door rather
-%% than passed into the value half against a type with no members. A refused
-%% subject synthesises `reported()` too: `int with { … }` used to type as
-%% `int`, so the `int` return type was satisfied and nothing else looked.
-%%
-%% Three verdicts per key, not two. `d with { Nope = 1 }` over
-%% `Order | Invoice` is not a subject that may lack `Nope`; no member has it,
-%% so it is the name defect, `not declared by Order`, reported per member as
-%% the single-record path reports it (ticket 36).
+%% Every member of a `with` subject must carry every updated key. Check keys
+%% separately so each residual identifies the members lacking that field. A key
+%% absent from all named records is an undeclared-name error per member. Failed
+%% synthesis skips value checks; a refused subject returns `reported()`.
 with_subject(T, Keys, Tys, L, C) ->
     case bs_types:is_none(T) of
         true ->
@@ -4898,13 +3568,8 @@ with_subject(T, Keys, Tys, L, C) ->
             end
     end.
 
-%% One verdict per key. `carried`: every member has the key, so the value
-%% half runs. `invented`: no member has it and every member is a named closed
-%% record, so this is a name nobody declared rather than a member to
-%% discriminate on; the record test keeps an `int` or a `term` out, since
-%% neither has a declaration to be "not declared by". `absent`: some member
-%% lacks it, or the subject is not a record at all, and the residual is what
-%% lacks it.
+%% `invented` requires only named closed records, none carrying the key. Other
+%% subjects lacking the key return the lacking residual as `absent`.
 subject_verdict(T, K) ->
     Lacking = lacking(T, K),
     case bs_types:is_none(Lacking) of
@@ -4918,10 +3583,7 @@ subject_verdict(T, K) ->
             end
     end.
 
-%% A subject that is nothing but closed records, each wearing one tag. The
-%% `false` arm is a classification, not a pass: it sends a key to the
-%% `absent` refusal, so an unforeseen shape is refused with its residual
-%% rather than accepted.
+%% Unrecognised shapes return false so missing keys are refused as `absent`.
 all_named_records(#{mu := _} = T) ->
     all_named_records(bs_types:unfold(T));
 all_named_records(#{maps := Members} = T) when is_list(Members), Members =/= [] ->
@@ -4931,9 +3593,8 @@ all_named_records(#{maps := Members} = T) when is_list(Members), Members =/= [] 
 all_named_records(_) ->
     false.
 
-%% Nothing invented, nothing to say, and the members are not asked for, since
-%% the subject may be an `int` or a `term` with no member list at all; the
-%% first build lacked this clause and crashed on `term`.
+%% With no invented keys, do not read members: the subject may be `term` or
+%% `int`, with no member list.
 invented_diags(_T, [], _L, _C) ->
     [];
 invented_diags(T, Ks, L, C) ->
@@ -4941,60 +3602,39 @@ invented_diags(T, Ks, L, C) ->
       {field_set_mismatch, record_name(M), update, [], lists:sort(Ks)}}
      || M <- member_types(members_of(T))].
 
-%% Site 3's relation, shared by projection and update (F21): the part of `Ty`
-%% that may not carry `Field`. Empty when every member carries it; otherwise
-%% the member to discriminate on.
+%% Shared by projection and update: the residual may lack `Field`.
 lacking(Ty, Field) ->
     bs_types:subtract(Ty, bs_types:map_open(#{Field => bs_types:term()})).
 
-%% Each member of a `with` subject is value-checked against its own
-%% declaration: a value one record's `Total` accepts and another's rejects
-%% would build the second record in breach of its own type, and the subject
-%% may be either at run time. Reached only when every member carries every
-%% key and the subject is not one closed named record: a union of records, or
-%% a single member `declared_fields/1` does not read, such as the open map a
-%% record pattern on a `term` parameter narrows to (F22).
+%% Check values against every member's declaration: the runtime subject may be
+%% any member. Reached only when every member carries every updated key. Open
+%% maps narrowed by record patterns also use this path.
 member_value_diags(T, Keys, Tys, L, C) ->
     lists:append(
       [field_value_diags(Keys, Tys, MTy, member_label(MTy), L, C)
        || MTy <- member_types(members_of(T))]).
 
-%% No catch-all. `maps := top` cannot reach here, since
-%% `term \ { K: term, .. }` is never empty, and any other shape is a change in
-%% `bs_types` this clause should refuse to guess about.
+%% No catch-all: `maps := top` cannot pass the key-presence check. Other shapes
+%% require an explicit contract with `bs_types`.
 members_of(#{mu := _} = T)                          -> members_of(bs_types:unfold(T));
 members_of(#{maps := Members}) when is_list(Members) -> Members.
 
-%% One member of a union of maps, as a type of its own, so `record_name/1` and
-%% `field_type/2` can be asked of it. `Openness` is `closed | open`, not the
-%% minted `'Kind'` field, which lives inside `Fs`.
+%% `Openness` is `closed | open`; the minted `Kind` field lives inside `Fs`.
 member_types(Members) ->
     [(bs_types:none())#{maps => [{Openness, Fs}]} || {Openness, Fs} <- Members].
 
-%% The name the value diagnostic prints. A member wearing one tag is named by
-%% it, as every other site names a record. A member without one, a map with
-%% no `Kind`, is named by its printed shape rather than dropped: a verdict
-%% with an odd name beats a value that goes unchecked for want of one.
+%% Untagged members use their printed shape so value errors remain reportable.
 member_label(MTy) ->
     case record_name(MTy) of
         unknown -> lists:flatten(bs_types:to_pattern(MTy));
         Name    -> Name
     end.
 
-%% The record names a head hint may use, keyed by minted tag, built from the
-%% environment this site actually has (F29.4). The head printer wants
-%% `Order o` where `{ Kind: :'M.Order' }` is what it holds, and the segment
-%% after the last dot is a name whether or not it is in scope; deriving one
-%% from the tag could suggest a head naming a type the file cannot see. A tag
-%% missing from the map keeps the discriminator (ticket 26 §1). An alias
-%% drops out on its own: `type Doc = Order | Invoice` resolves to a union
-%% whose `Kind` carries two atoms, so it never matches the single-tag shape,
-%% and a name is recorded exactly when `Name x` is a pattern that matches it.
+%% Head hints use only names resolvable in this environment, keyed by tag.
+%% Deriving a name from a tag could suggest a type outside the file's scope.
+%% Missing names retain the discriminator; multi-tag aliases are excluded.
 record_names(Env) ->
-    %% An imported record is in the environment under its bare name and its
-    %% qualified one (F44); both mint the same tag, and the head offered is
-    %% the shorter spelling when the file has one, since that is what the
-    %% author wrote `using` to be able to write.
+    %% Bare and qualified imports share a tag. Prefer the shortest visible name.
     lists:foldl(
       fun({Tag, Name}, Acc) ->
               case maps:find(Tag, Acc) of
@@ -5007,9 +3647,8 @@ record_names(Env) ->
           Tag <- [minted_tag(Name, Env)],
           Tag =/= undefined]).
 
-%% Resolution is attempted rather than assumed: an environment entry may be
-%% parametric, cyclic or unknown, and every one of those raises out of
-%% `resolve/2`. A name that cannot be resolved simply is not offered as a head.
+%% Parametric, cyclic or unknown entries may raise during resolution.
+%% Unresolvable names cannot be offered as heads.
 minted_tag(Name, Env) ->
     try resolve({t_ref, Name}, Env) of
         Ty ->
@@ -5023,12 +3662,9 @@ minted_tag(Name, Env) ->
         _:_ -> undefined
     end.
 
-%% The record's declared name, read back off the minted tag: the tag is
-%% minted from the qualified name, so the declared name is the segment after
-%% the last dot (ticket 26 §1). `with` has only the base's type and needs a
-%% name for the same diagnostic construction gets from the surface. A union
-%% of records has no single name and answers `unknown`, as
-%% `declared_fields/1` does.
+%% Minted tags end in the record's declared name after the last dot. `with`
+%% needs this name for diagnostics because it has only the base type. Multiple
+%% tags have no single record name.
 record_name(Ty) ->
     case field_type(Ty, 'Kind') of
         #{atoms := {finite, [Tag]}} ->
@@ -5037,10 +3673,9 @@ record_name(Ty) ->
             unknown
     end.
 
-%% A clause that destructures a parameter whose type is a domain map gets one
-%% diagnostic (ticket 48 Q2). Paired by position rather than by scanning the
-%% clause for any map pattern: a clause may destructure a record in column 1
-%% while column 2 is a `map<K, V>` it only binds, and that program ships.
+%% Pair domain-map parameters with patterns by position: destructuring a record
+%% in another position must not trigger this refusal.
+%% Rationale: compiler/features/F33-map-type.md.
 map_pattern_diags(Clauses, Params, Env, Name) ->
     Doms = [I || {I, {param, T, _}} <- lists:enumerate(Params),
                  bs_types:is_dom(resolve(T, Env))],
@@ -5051,23 +3686,14 @@ map_pattern_diags(Clauses, Params, Env, Name) ->
         destructures_map(lists:nth(I, Patterns)),
         {param, ParamT, _} <- [lists:nth(I, Params)]].
 
-%% Whether a pattern takes a map apart. `{ Status: s }` is a `p_map` directly
-%% and `{ Status: s } whole` is one under a `p_bind`, since naming the type
-%% and binding the value are independent (ticket 55). `Order o`, a `p_rec`
-%% under a `p_bind`, is deliberately not here: a record carries a minted
-%% `Kind`, so "not a member of it" is a true sentence about a record against
-%% a `map<K, V>` (ticket 48 Q3). This refusal exists to stop the compiler
-%% stating a falsehood, so it must not fire where the ordinary message is
-%% true.
+%% Record patterns are deliberately excluded: their minted `Kind` makes
+%% ordinary non-membership diagnostics valid against a domain map.
 destructures_map({p_map, _, _})       -> true;
 destructures_map({p_bind, _, _, Ptn}) -> destructures_map(Ptn);
 destructures_map(_)                   -> false.
 
-%% A switch arm that destructures a domain-map subject is refused too, at its
-%% own site (ticket 48 Q2): an arm is classified in the arm walk, which the
-%% clause-head check never reaches, and a vacuous arm is only a warning, so
-%% `a switch { { Status: s } => s, _ => 0 }` over a `map<K, V>` compiled with
-%% exit 0 and emitted a beam whose first arm is dead.
+%% Switch arms need this refusal too; clause-head checks do not reach them, and
+%% a vacuous-arm warning alone still permits compilation.
 map_arm_deferred(P, Subject) ->
     bs_types:is_dom(Subject) andalso destructures_map(P).
 
@@ -5075,24 +3701,12 @@ walk([], Residual, _Declared, _Ctx, Diags, _N) ->
     {Residual, lists:reverse(Diags)};
 walk([C = {clause, CLine, Name, _, _, _} | Rest], Residual, Declared, Ctx, Diags, N) ->
     Env = Ctx#ctx.types,
-    %% Two bounds, and conflating them is a soundness bug. `Certain` is what
-    %% the clause is guaranteed to match and is the only thing that may be
-    %% subtracted from the residual; an over-estimate there makes the compiler
-    %% claim coverage it does not have. `Possible` is what the clause could
-    %% match and is what redundancy is judged against; an under-estimate there
-    %% would call a live clause dead. They differ exactly when a guard is not
-    %% translatable to a type operation.
+    %% Only `Certain` may be subtracted for coverage. Redundancy uses
+    %% `Possible`. An untranslatable guard separates these lower and upper
+    %% bounds.
     {Certain, Possible, Bindings, Base} = clause_type(C, Env),
-    %% Redundancy is relative, clause i against the clauses before it, so it
-    %% is checked against the running residual rather than the declared
-    %% type (ticket 04). A clause that adds nothing is reported by which of
-    %% three faults it has: an earlier clause already covers it, its pattern
-    %% is not a member of the declared input at all, or its guard admits no
-    %% value (ENG-259). Only the first is "matched by an earlier clause";
-    %% before the split a sole clause was reported that way, naming a clause
-    %% that does not exist. `Declared` is threaded because the residual is the
-    %% declared type by the time clause 1 is judged and cannot tell the faults
-    %% apart.
+    %% Redundancy uses the running residual. Keep `Declared` separately to
+    %% distinguish out-of-domain patterns from shadowing and impossible guards.
     Diags1 =
         case redundancy(Base, Possible, Residual, Declared) of
             vacuous    -> [{warning, CLine, Name, {vacuous_clause, N, Declared}} | Diags];
@@ -5100,29 +3714,16 @@ walk([C = {clause, CLine, Name, _, _, _} | Rest], Residual, Declared, Ctx, Diags
             shadowed   -> [{warning, CLine, Name, {unreachable_clause, N}} | Diags];
             live       -> Diags
         end,
-    %% A catch-all is legal only over an open residual (ticket 12 §2). Once
-    %% `type Octet = int where value >= 0 and value <= 255` exists, a wire
-    %% dispatch naming four frame types has 252 unnamed octets left and the
-    %% compiler knows their names; `_` there makes the function unfalsifiable
-    %% when a fifth frame type is added, and the residual is the checklist of
-    %% what to write. Refinements and the span pattern land together (F2) so
-    %% that a refinement never turns a working program into a rejected one
-    %% with nothing to answer the compiler in.
     Diags2 = catch_all_diags(C, Residual, CLine, Name, record_names(Env)) ++ Diags1,
-    %% The body is checked against the running residual intersected with
-    %% `Possible`, never `Certain` (ticket 33): an untranslatable guard makes
-    %% `Certain` `none`, and every containment over `none` passes, so the check
-    %% would silently stop checking.
+    %% Body checks use `Possible`: an unread guard makes `Certain` empty, which
+    %% would make every containment check pass.
     Domain = bs_types:intersect(Residual, Possible),
-    %% The guard itself is typed against what reaches it, BEFORE it narrows
-    %% anything: read as an `int` comparison, `x < 0` over a `float` narrows
-    %% `x` to nothing, and the mixed pair would vanish with it (F51).
+    %% Type the guard before narrowing, or an int comparison over a float could
+    %% erase the mixed pair that needs a diagnostic.
     GuardDomain = bs_types:intersect(Residual, Base),
     ClauseDiags = clause_diags(C, Domain, GuardDomain, Bindings, Ctx),
-    %% A guard refused as a mixed pair was read as an `int` comparison and
-    %% narrowed the clause to nothing; the dead-guard warning that reading
-    %% produces would advise widening a guard the error says to rewrite, so
-    %% the error stands alone (F51).
+    %% A mixed-pair error suppresses the dead-guard warning produced by integer
+    %% narrowing: widening that guard is not the required correction.
     Diags2b = case lists:any(fun mixed_pair/1, ClauseDiags) of
                   true  -> [D || D <- Diags2,
                                  D =/= {warning, CLine, Name, {unsatisfiable_guard, N}}];
@@ -5131,20 +3732,10 @@ walk([C = {clause, CLine, Name, _, _, _} | Rest], Residual, Declared, Ctx, Diags
     Diags3 = ClauseDiags ++ Diags2b,
     walk(Rest, bs_types:subtract(Residual, Certain), Declared, Ctx, Diags3, N + 1).
 
-%% A clause or arm that adds nothing is classified by the first of three
-%% faults it has, in this order, so the order is reviewable in one
-%% place (ENG-259, ENG-269). The question a switch arm asks is the question
-%% a clause head asks; only the arguments differ, a product of parameters
-%% against the subject alone.
-%%
-%% `Base` is the pattern's own type before the guard reduces it. Asking the
-%% second question with `Possible` would defeat the split: an unsatisfiable
-%% guard collapses `Possible` to `none`, indistinguishable from a pattern
-%% that was never in the domain.
-%%
-%% A guard the checker cannot read is not a fault and never reaches
-%% `dead_guard`: `apply_guard/3` answers `{none(), Ty}` for one, so
-%% `GuardAdmits` stays true and the clause is judged on its pattern alone.
+%% Diagnostic precedence is deliberate: out-of-domain pattern, impossible
+%% guard, then shadowing. `Base` must precede guard narrowing to distinguish
+%% the first two. Clause heads and switch arms share this classification.
+%% Unread guards retain `Possible` and are not classified as impossible.
 redundancy(Base, Possible, Residual, Declared) ->
     InDomain    = not bs_types:is_none(bs_types:intersect(Base, Declared)),
     GuardAdmits = not bs_types:is_none(bs_types:intersect(Possible, Declared)),
@@ -5156,15 +3747,9 @@ redundancy(Base, Possible, Residual, Declared) ->
         true            -> live
     end.
 
-%% A catch-all is a clause of only `_` patterns with no guard, and it is an
-%% error over a closed, inhabited residual: "`_` here is an error: name the
-%% case" (ticket 12 §2). `_` and not a bare name, because `_` discards the
-%% value while a binder keeps it, and projecting a field off a binder is site
-%% 3, refused until the value is discriminated; extending the rule to binders
-%% would also make every single-clause function over a record an error. A
-%% guard means the clause says something about the values, so it is not a
-%% catch-all whether or not the checker can read the guard. Measured before
-%% landing: the compiling corpus had zero all-wildcard clauses.
+%% Only unguarded all-wildcard clauses are catch-alls; binders retain values
+%% and guards constrain them even when untranslatable. A catch-all is refused
+%% over a closed, inhabited residual.
 catch_all_diags({clause, _, _, Patterns, none, _}, Residual, Line, Name, Names) ->
     case all_wild(Patterns) andalso closed_and_inhabited(Residual) of
         true  -> [{error, Line, Name, {catch_all_over_closed, Residual, Names}}];
@@ -5179,74 +3764,33 @@ all_wild(Patterns) -> lists:all(fun({p_wild, _}) -> true; (_) -> false end, Patt
 closed_and_inhabited(Residual) ->
     not bs_types:is_none(Residual) andalso not bs_types:is_open(Residual).
 
-%%% ---------------------------------------------------------------------------
-%%% What a clause matches
-%%% ---------------------------------------------------------------------------
+%%% --- What a clause matches ---
 
-%% Returns {Certain, Possible, Bindings, Base}; see walk/5 for why both
-%% bounds are needed. The bindings come back out because the body check reads
-%% each variable's type off the domain at the path recorded here, rather than
-%% off its pattern: a bare `p_var` is `term`, and typing a body from its
-%% patterns fails every call site in the corpus (ticket 33 §5).
+%% Bindings record paths so body checks read variable types from the domain,
+%% not the pattern: a bare variable's pattern type is only `term`.
 clause_type({clause, _, _, Patterns, Guard, _}, Env) ->
     {Components, Bindings, Exact} = pattern_row(Patterns, Env),
     Base = bs_types:tuple(Components),
     {Certain, Possible} = apply_guard(Base, Bindings, Guard),
-    %% `Base` is the pattern's type before the guard touched it, which
-    %% `redundancy/4` needs (ENG-259). It is the pattern alone, so `Exact`,
-    %% a statement about what may be credited, does not affect it.
+    %% `redundancy/4` needs the unguarded `Base`, independent of exactness.
     case Exact of
         true  -> {Certain, Possible, Bindings, Base};
-        %% An inexact pattern over-states what it matches (`[0, ..t]` is not
-        %% every non-empty list), so it may bound Possible but must credit
-        %% nothing to Certain, as with an untranslatable guard: crediting an
-        %% over-estimate is what makes a compiler claim coverage it lacks.
+        %% Inexact patterns bound `Possible` but cannot credit `Certain`.
         false -> {bs_types:none(), Possible, Bindings, Base}
     end.
 
-%% The per-parameter upper bound on what a clause head matches, one type per
-%% position, for the boundary guard to subtract the declared refinement from
-%% (F37, ticket 46 §2).
-%%
-%% POSSIBLE, NOT CERTAIN. `Certain` is what the clause DEFINITELY matches, and
-%% it is deliberately `none` wherever a guard cannot be read (ticket 08) or a
-%% pattern over-states itself — crediting an over-estimate is what makes a
-%% compiler claim coverage it lacks. An emitter that subtracted the declared
-%% type from `none` would find nothing to emit and the clause would silently
-%% lose its boundary guard, which is the one direction a boundary must never
-%% fail in. `Possible` is an upper bound, so subtracting from it emits at worst
-%% a redundant comparison.
-%%
-%% MEASURED 2026-09-08, BECAUSE THE PARAGRAPH ABOVE IS NOT WHY THE BOUNDARY
-%% HOLDS. Swapping `Possible` for `Certain` here leaves all of
-%% `boundary_range_tests` and all six probes of `check-boundary-range.sh`
-%% green. `apply_guard/3` answers `{Ty, Ty}` or `{Refined, Refined}` where it
-%% can read the guard and `{none, Ty}` where it cannot, so `Certain` is either
-%% `none` or IDENTICAL to `Possible` — never something narrower in between —
-%% and `positions/2` below answers `term` for an uninhabited type. The
-%% unreadable clause comes out over-guarded, not unguarded.
-%%
-%% So `Possible` is the honest bound to name and `positions/2`'s treatment of
-%% an uninhabited type is what actually carries the safety. Both are stated
-%% because either alone reads as a reason and only the pair is one.
+%% Boundary guards subtract declared refinements from per-parameter upper
+%% bounds. Use `Possible`; `positions/2` must widen empty products to `term` so
+%% an uninhabited type cannot suppress required boundary comparisons.
+%% Rationale: compiler/features/F37-boundary-range.md.
 clause_accepts({clause, _, _, Patterns, _, _} = Clause, Env) ->
     {_Certain, Possible, _Bindings, _Base} = clause_type(Clause, Env),
     positions(Possible, length(Patterns)).
 
-%% `clause_type/2` builds one product over the parameter positions, but
-%% `apply_guard/3` unions the alternatives of an `or` guard and may hand back
-%% several. Reading each position as the union across products drops the
-%% CORRELATION between positions — `(n, m)` where one alternative constrains
-%% `n` and another `m` — which widens each position and so can only add a
-%% comparison, never remove one. Any shape that is not a product list at all
-%% answers `term` for every position, the widest answer there is.
-%% NO PRODUCT OF THE RIGHT ARITY MEANS `term` AT EVERY POSITION, WHICH IS THE
-%% WIDEST ANSWER AND NOT THE NARROWEST. An uninhabited type reaches here — a
-%% clause whose guard could not be read is `none` — and answering it with its
-%% own empty integer part would tell the emitter that nothing escapes the
-%% declared type and so nothing is owed. That is a boundary guard deleted by
-%% arithmetic. `term` says instead that the clause might match anything, and
-%% the emitter writes every bound the refinement has.
+%% Unioning each position across products loses correlation but only widens
+%% acceptance, so it can add boundary comparisons, never remove them. No
+%% product of the right arity must yield `term` at every position so the
+%% emitter retains every required bound.
 positions(Ty, N) ->
     Products = try
                    #{tuples := Ps} = bs_types:unfold(Ty),
@@ -5267,35 +3811,22 @@ pattern_row(Patterns, Env) ->
     Exact = lists:all(fun({_, _, E}) -> E end, Triples),
     {Tys, lists:foldl(fun maps:merge/2, #{}, Binds), Exact}.
 
-%% A pattern yields the set of values it matches, plus where each variable
-%% sits, so a guard can refine that position afterwards. Returns {Type,
-%% Bindings, Exact}; `Exact` is whether the type is exactly what the pattern
-%% matches rather than an upper bound (see clause_type/2).
+%% Returns {Type, Bindings, Exact}. Bindings locate variables for refinement;
+%% `Exact` distinguishes the matched set from an upper bound.
 pattern_type({p_int, _, N}, _Path, _Env)  -> {bs_types:range(N, N), #{}, true};
-%% A float literal matches one value under `=:=`, so it is exact (F51).
+%% A float literal matches one value under `=:=`, so it is exact.
 pattern_type({p_float, _, F}, _Path, _Env) -> {bs_types:float_lit(F), #{}, true};
 pattern_type({p_atom, _, A}, _Path, _Env) -> {bs_types:atom_lit(A), #{}, true};
 pattern_type({p_wild, _}, _Path, _Env)    -> {bs_types:term(), #{}, true};
 pattern_type({p_var, _, V}, Path, _Env)   -> {bs_types:term(), #{V => Path}, true};
-%% A matched name is inexact and credits nothing to `Certain` (F8.6). `== acc`
-%% is a value test whose value the compiler does not know, so it is an upper
-%% bound on what the clause matches, as `[0, ..t]` is; crediting `Certain`
-%% would claim coverage the clause does not have, and the wrong build gets
-%% quieter, not louder. It binds nothing, which is the distinction the token
-%% marks, and answers `term()` because `walk/5` intersects `Possible` with the
-%% residual from the declared domain, so a body reads the declared type at
-%% this position anyway (F8.7).
+%% A matched name has an unknown value, so it credits no `Certain` coverage.
+%% Its `term` upper bound is intersected with the residual for body checking.
 pattern_type({p_eqvar, _, _V}, _Path, _Env) -> {bs_types:term(), #{}, false};
-%% A relational pattern is exact: `>= 4` matches precisely the integers from 4
-%% up, a set the algebra holds, so it credits `Certain` in full and can close
-%% a residual (ticket 42). It binds nothing; a clause needing the number
-%% writes `Classify(n) when n >= 4` as it always could.
+%% Relational patterns represent exact integer intervals and credit coverage.
 pattern_type({p_rel, Line, Op, K}, Path, _Env) ->
     argument_position(Line, Path),
     {rel_type(Op, K), #{}, true};
-%% `and` is intersection and `or` is union (F2). Both sides carry the same
-%% path, because a combinator constrains one value twice rather than
-%% describing two positions.
+%% Both operands use the same path: they constrain one value twice.
 pattern_type({p_and, _, A, B}, Path, Env) ->
     rel_combine(fun bs_types:intersect/2, A, B, Path, Env);
 pattern_type({p_or, _, A, B}, Path, Env) ->
@@ -5306,37 +3837,21 @@ pattern_type({p_tuple, _, Ps}, Path, Env) ->
     {bs_types:tuple([T || {T, _, _} <- Triples]),
      lists:foldl(fun maps:merge/2, #{}, [B || {_, B, _} <- Triples]),
      lists:all(fun({_, _, E}) -> E end, Triples)};
-%% A property pattern is open: it constrains the fields it names and nothing
-%% else, which lets `Which({ Kind: :'Shop.Order' })` cover a whole record in
-%% one clause. It is exact, matching precisely the maps whose named fields lie
-%% in those types, so it credits `Certain` in full. The corpus writes that
-%% clause as `Which(Order o)` (ticket 55), which `p_rec` below resolves to the
-%% same open map with the tag minted rather than written.
-%%
-%% Field paths are real rather than `no_path`: `refine_all/3` turns an unknown
-%% path into `none_marker`, so a clause with both a record pattern and a guard
-%% would credit nothing and the function would report inexhaustive.
+%% Property patterns constrain only named fields. Exactness follows their
+%% children. Real field paths let guards refine them; `no_path` would erase
+%% coverage for guarded record patterns.
 pattern_type({p_map, _, Fields}, Path, Env) ->
     Triples = [{K, child_type(P, Path ++ [{field, K}], Env)} || {K, P} <- Fields],
     {bs_types:map_open(maps:from_list([{K, T} || {K, {T, _, _}} <- Triples])),
      lists:foldl(fun maps:merge/2, #{}, [B || {_, {_, B, _}} <- Triples]),
      lists:all(fun({_, {_, _, E}}) -> E end, Triples)};
-%% A record pattern that names its type is the property pattern with one
-%% field filled in by the compiler (F22, ticket 55). `Frame { Type: :method }`
-%% produces exactly the `map_open` that `{ Kind: :'Wire.Frame', Type:
-%% :method }` produces, so it subtracts exactly as much. Subtracting too
-%% little is loud, a covered union reports inexhaustive; subtracting too much
-%% is silent, the compiler proves a program exhaustive and the BEAM crashes
-%% it (ticket 54), so `check-record-pattern.sh` asserts the two spellings
-%% agree. The tag comes from `record_of/3`, which resolves through
-%% `resolve/2` and so through the single minting point.
+%% Named record patterns must match the same open map as an explicit `Kind`
+%% pattern. `record_of/3` resolves through the shared tag-minting point.
+%% Rationale: compiler/features/F22-record-pattern-and-binder.md.
 pattern_type({p_rec, Line, Name, Fields}, Path, Env) ->
     {Tag, Declared} = record_of(Name, Line, Env),
-    %% A field the record does not declare is refused before the fields are
-    %% typed, so a typo reports as a typo. Otherwise the pattern would
-    %% intersect to `none`, the clause would match nothing, and the function
-    %% would report inexhaustive, a true statement that says nothing about
-    %% the mistake made.
+    %% Reject undeclared fields before typing them so typos report directly,
+    %% rather than collapsing the pattern and reporting non-exhaustiveness.
     [case lists:member(K, Declared) of
          true  -> ok;
          false -> erlang:error({pattern_field_unknown, Line, Name, K, Declared})
@@ -5346,37 +3861,11 @@ pattern_type({p_rec, Line, Name, Fields}, Path, Env) ->
     {bs_types:map_open(Named#{'Kind' => bs_types:atom_lit(Tag)}),
      lists:foldl(fun maps:merge/2, #{}, [B || {_, {_, B, _}} <- Triples]),
      lists:all(fun({_, {_, _, E}}) -> E end, Triples)};
-%% The type prefix over a PART: `Post(float a)` (F53, ticket 84). It is ticket
-%% 55's `Frame f` one member kind over, and the pattern's type is simply the
-%% type named — so the residual subtracts the whole part, the clause set closes
-%% with no catch-all, and the binding is narrowed for the guard and the body.
-%% Exact, because the test decides membership rather than bounding it: that is
-%% the whole criterion, and `bs_types:part_test/1` is where it is asked.
-%%
-%% REFUSED BY RAISING, HERE, AND THAT IS THE WIRING. An arm is classified in
-%% `arms/10` and a head in `walk/6`, and F51 shipped a dead arm by refusing at
-%% one of them — a vacuous arm is only a warning, so the program compiled with
-%% the dead arm in it. Both call THIS function for their pattern's type, so a
-%% refusal raised here reaches both by construction rather than by a second
-%% call site somebody has to remember. It is also `not_a_record`'s own
-%% mechanism, which is the same refusal about the same form one member kind
-%% away.
-%% WHOLE-ARGUMENT ONLY, as a relational pattern is and for the same reason.
-%% The form lowers to a variable plus a guard test, and `strip_rels/2` walks
-%% the top of each argument alone — so a nested one survives into `pattern/2`,
-%% which has no clause for it, and the compiler dies with an Erlang stack
-%% trace instead of saying anything. Refusing is the F2 precedent exactly: the
-%% grammar admits `Go((int n, a))` and the algebra would handle it, and
-%% shipping a capability nothing tests because a production happened to
-%% compose is how a language acquires behaviour nobody decided on.
-%%
-%% THE REFUSAL IS STRUCTURAL AND NOT POSITIONAL, which is where the first cut
-%% of it was wrong. `argument_position/2` reads the PATH, and a path cannot
-%% tell the two sites apart: a clause-head parameter is `[I]` and so is a
-%% tuple element of a switch SUBJECT, whose own top is `[]`. So the nested
-%% form inside an arm passed the check and crashed the emitter exactly as
-%% before. `child_type/3` below refuses a prefix wherever a composite pattern
-%% holds one, which is what "whole argument" actually means.
+%% A type prefix is exact only when `part_test/1` decides membership. Raise
+%% refusal here so both clause heads and switch arms reject it. The emitter
+%% lowers only whole-argument prefixes to variables plus guards; `child_type/3`
+%% must reject nested prefixes structurally, not by path.
+%% Rationale: compiler/features/F53-numeric-union-dispatch.md.
 pattern_type({p_type, Line, TypeExpr, V}, Path, Env) ->
     Ty = resolve(TypeExpr, Env),
     case bs_types:part_test(Ty) of
@@ -5384,43 +3873,26 @@ pattern_type({p_type, Line, TypeExpr, V}, Path, Env) ->
         {no, Why}  -> erlang:error({type_prefix_undecidable, Line,
                                     bs_types:to_string(Ty), Why})
     end;
-%% A trailing binder takes the same path as the pattern it wraps (F22, ticket
-%% 55): it names the position already being described, which is what lets a
-%% guard refine through it and a body read `f.Channel` at the declared type
-%% rather than `term`. It contributes nothing to exactness; `Frame f` is exact
-%% where `Frame { … }` is and `<<t:8, r>> f` is inexact where the binary is.
+%% A trailing binder shares the wrapped pattern's path and exactness, so guards
+%% and bodies read the same position.
 pattern_type({p_bind, _, V, P}, Path, Env) ->
     {T, B, E} = pattern_type(P, Path, Env),
     {T, B#{V => Path}, E};
-%% A binary pattern is `binary` and nothing narrower, held
-%% inexactly (F13, ticket 30). A binary gets no structure in the type
-%% language; the only new fact a segment produces lives in the integer part.
-%% `<<t:8, rest>>` matches only the binaries long enough to hold it, and a
-%% binary can always be truncated, so it is an upper bound and credits
-%% nothing to `Certain`. Hence a `_` clause beside it is always required and
-%% always legal, never `catch_all_over_closed`, because a binary's residual
-%% has an unbounded top in it. That catch-all also swallows every wire value
-%% the author forgot: the pattern does shape, a function head does value.
+%% Binary patterns have no structure in the type algebra. Their `binary` upper
+%% bound credits no coverage: truncated binaries may not match. A catch-all
+%% remains required and legal over the open binary residual.
 pattern_type({p_bin, _, Segs}, _Path, _Env) ->
     {bs_types:binary_top(), seg_bindings(Segs), false};
-%% A string literal pattern is `string` held inexactly (ticket 30 §4): the
-%% algebra has no singletons in its binary part, and the lexer has already
-%% proved the literal valid UTF-8. So a set of string literals is never
-%% exhaustive on its own, and a catch-all beside them is required and legal.
+%% String literals are lexer-validated UTF-8 but have no binary singleton type.
+%% Literal-only matches need a catch-all over the open residual.
 pattern_type({p_str, _, _Bytes}, _Path, _Env) -> {bs_types:string(), #{}, false};
 pattern_type({p_nil, _}, _Path, _Env) -> {bs_types:nil(), #{}, true};
-%% A list pattern is a product and is subtracted as one (F20, ticket 54).
-%% Each written position contributes its own type, as `p_tuple` does, and
-%% `Rest = nil` means the pattern is closed. Crediting `cons(term())` for any
-%% prefix proved `[]` beside `[a, b, ..]` exhaustive and crashed on `[7]`.
-%% Exactness is per position: `[a, b, ..]` is exact because both positions
-%% are irrefutable, and `[0, ..]` is not, because the literal makes it an
-%% upper bound.
+%% List patterns preserve each prefix position and the open or closed tail.
+%% Exactness follows the children; widening the prefix to any non-empty list
+%% would falsely prove short lists covered.
 pattern_type({p_list, _, Items, Rest}, Path, Env) ->
-    %% The element path is `{elem}` for every position rather than one per
-    %% index: `opaque_step({elem})` is already true, so a guard over a list
-    %% element credits nothing whichever position it names, and indexing
-    %% would invite a refinement to leak between positions.
+    %% Every element uses opaque `{elem}`: guards credit no refinement through
+    %% list positions, preventing constraints from leaking between them.
     Triples = [child_type(P, Path ++ [{elem}], Env) || P <- Items],
     Prefix = [T || {T, _, _} <- Triples],
     Openness = case Rest of nil -> closed; _ -> open end,
@@ -5432,28 +3904,20 @@ pattern_type({p_list, _, Items, Rest}, Path, Env) ->
     Exact = lists:all(fun({_, _, E}) -> E end, Triples),
     {bs_types:spine(Prefix, Openness), Binds, Exact}.
 
-%%% --- What a binary segment binds (F13) -------------------------------------
+%%% --- Binary segment bindings ---
 
-%% A segment's width refines the value it binds: `t:8` binds an integer known
-%% to be 0..255, and the interval algebra computes the residual from
-%% there (ticket 30, F2). The address is `{seg, Type}` rather than an index
-%% into the domain, because a binary has no components to read at the far
-%% end; the width is knowledge the pattern carries, so the path step carries
-%% it too.
-%% Unsigned, big-endian, the BEAM's own default for a segment with no
-%% qualifiers, so `range(0, 2^N - 1)` is what the emitted match produces.
+%% Segment paths carry the width-derived type: binaries have no addressable
+%% components in the algebra. BEAM defaults to unsigned, big-endian segments,
+%% so a width of N binds an integer in 0..2^N - 1.
+%% Rationale: compiler/features/F13-binary-patterns.md.
 seg_bindings(Segs) ->
     maps:from_list([{V, [{seg, seg_type(Size)}]} || {seg_bind, _, V, Size} <- Segs]).
 
 seg_type({width, N}) when is_integer(N), N > 0 -> bs_types:range(0, (1 bsl N) - 1);
-%% A width the checker refuses anyway (`segment_width_not_positive`). Answering
-%% `int` keeps this total so the diagnostic below is what the author meets,
-%% rather than a function_clause from inside the checker.
+%% Invalid widths return `int` so `segment_width_not_positive` can report
+%% instead of an internal `function_clause`.
 seg_type({width, _})    -> bs_types:int();
-%% Sized by an earlier binding, or the remainder: a `binary` either way, with
-%% the length erased. The dependent step is refused deliberately, as every
-%% language in the survey refuses it; Gleam permits the segment and erases at
-%% the binding, which is exactly this (ticket 30 §1).
+%% Dependent-sized segments and remainders erase length to `binary`.
 seg_type({sized_by, _}) -> bs_types:binary_top();
 seg_type(rest)          -> bs_types:binary_top().
 
@@ -5462,80 +3926,50 @@ rel_combine(Op, A, B, Path, Env) ->
     {TB, BB, EB} = pattern_type(B, Path, Env),
     {Op(TA, TB), maps:merge(BA, BB), EA andalso EB}.
 
-%% The four relational operators, and they agree with `int_cmp/3` below by
-%% construction: the same four intervals, because a relational pattern and
-%% the guard it replaces have to mean the same thing. `==` is absent, since
-%% in a pattern it means "the value this name holds" (ticket 45).
+%% Intervals must agree with `int_cmp/3`: relational patterns and guards have
+%% the same meaning. Pattern `==` instead matches a bound value.
 rel_type('>=', K) -> bs_types:range(K, pos_inf);
 rel_type('>',  K) -> bs_types:range(K + 1, pos_inf);
 rel_type('<=', K) -> bs_types:range(neg_inf, K);
 rel_type('<',  K) -> bs_types:range(neg_inf, K - 1).
 
-%% A relational pattern is legal only as a whole clause-head parameter or a
-%% whole switch subject, never nested (F2). The grammar admits one inside a
-%% field or a tuple and the algebra would handle it, but shipping a capability
-%% nothing tests because a production happened to compose is how a language
-%% acquires behaviour nobody decided on; no exemplar needs it (ticket 42). A
-%% clause-head parameter is `[I]` and a switch subject is `[]`; anything
-%% longer, or carrying a field or list step, is inside something.
+%% Relational patterns allow only a whole head parameter or switch subject.
+%% Head paths are `[I]`; switch subject paths are `[]`.
+%% Rationale: compiler/features/F2-interval-refinements.md.
 argument_position(_Line, [])                     -> ok;
 argument_position(_Line, [I]) when is_integer(I) -> ok;
 argument_position(Line, _Path) ->
     erlang:error({relational_pattern_nested, Line}).
 
-%% EVERY PATTERN A COMPOSITE HOLDS GOES THROUGH HERE, which is how the type
-%% prefix is kept to a whole argument (F53). A tuple element, a field's
-%% pattern, a list item and a list's rest are all children, and none of them
-%% may be a prefix: the form lowers to a guard over the argument's own
-%% variable, and a guard cannot be written about a position that only exists
-%% once the pattern has matched.
-%%
-%% It refuses HERE rather than by reading the path, because the path does not
-%% distinguish the two legal tops from an element one level down — a clause
-%% parameter is `[I]` and so is a tuple element of a switch subject. It is
-%% also the one function every composite clause below already calls, so the
-%% clause head and the switch arm are covered by construction, as the
-%% undecidable refusal is.
+%% Composite children must pass here to reject nested type prefixes before
+%% emission, for both heads and arms. Paths alone cannot distinguish a head
+%% parameter from a tuple element of a switch subject: both can be `[I]`.
 child_type({p_type, Line, _TypeExpr, _V}, _Path, _Env) ->
     erlang:error({type_prefix_nested, Line});
 child_type(P, Path, Env) ->
     pattern_type(P, Path, Env).
 
-%% A list element's address is a real path, so the body check can read `rest`
-%% out of `Reverse([x, ..rest], acc)` as `list<int>` rather than `term` (F5).
-%% A guard over one is still not refinable: `refine_all/3` rejects any path
-%% carrying a list step, because the list part of the algebra supports
-%% reading a component and not refining one.
+%% List paths let bodies read component types, but guards cannot refine them:
+%% the list algebra supports component reads, not component refinement.
 binding({p_var, _, V}, Path) -> #{V => Path};
 binding(_, _)                -> #{}.
 
-%% A path step a guard cannot refine through, as opposed to one a body cannot
-%% read; `at_path/2` reads every step here. A guard over a segment binding,
-%% `Decode(<<… len:7, …>>) when len < 126`, credits nothing, which costs
-%% nothing in practice because a binary pattern is already inexact (F13).
-%% Refining it would mean addressing a position inside a binary, structure
-%% the type language does not have (ticket 30).
+%% `at_path/2` can read these steps; guards cannot refine them. Binary segments
+%% have no addressable structure in the type algebra.
 opaque_step({elem})    -> true;
 opaque_step({tail})    -> true;
 opaque_step({seg, _})  -> true;
 opaque_step(_)         -> false.
 
-%%% ---------------------------------------------------------------------------
-%%% Guards as type operations
-%%% ---------------------------------------------------------------------------
+%%% --- Guards as type operations ---
 
 apply_guard(Ty, _Bindings, none) ->
-    %% No guard: the pattern alone decides, so both bounds coincide.
     {Ty, Ty};
 apply_guard(Ty, Bindings, {guard, Expr}) ->
-    %% A guard is normalised to alternatives (`or`), each a conjunction (`and`)
-    %% of per-variable constraints. Alternatives union; conjunctions intersect.
+    %% Alternatives union; each conjunction intersects per-variable constraints.
     case alternatives(Expr) of
         unknown ->
-            %% A guard the checker cannot read credits nothing: the clause
-            %% contributes nothing to the residual, not its whole pattern,
-            %% because such a guard might always fail (ticket 08). Getting
-            %% this backwards let `F(n) when Weird(n)` report as exhaustive.
+            %% An unread guard may always fail, so it credits no coverage.
             {bs_types:none(), Ty};
         Alts ->
             Results = [refine_all(Ty, Bindings, A) || A <- Alts],
@@ -5545,8 +3979,7 @@ apply_guard(Ty, Bindings, {guard, Expr}) ->
             end
     end.
 
-%% [] means "no constraint"; unknown means "not translatable". The operator
-%% atoms are `and` and `or`, the spelling the AST carries (ticket 44, F2).
+%% An empty constraint list means unconstrained; `unknown` is untranslatable.
 alternatives({e_op, _, 'or', L, R}) ->
     case {alternatives(L), alternatives(R)} of
         {unknown, _} -> unknown;
@@ -5557,8 +3990,6 @@ alternatives({e_op, _, 'and', L, R}) ->
     case {alternatives(L), alternatives(R)} of
         {unknown, _} -> unknown;
         {_, unknown} -> unknown;
-        %% A conjunction of two alternative-sets is their pairwise
-        %% concatenation.
         {As, Bs}     -> [A ++ B || A <- As, B <- Bs]
     end;
 alternatives(Cmp) ->
@@ -5595,18 +4026,12 @@ refine_all(Ty, Bindings, Constraints) ->
       fun(_, none_marker) -> none_marker;
          ({V, C}, Acc) ->
               case maps:get(V, Bindings, undefined) of
-                  %% A guard naming something no pattern bound, or bound
-                  %% somewhere the algebra cannot address (a list element),
-                  %% cannot be credited. Returning Acc unchanged would credit
-                  %% the clause with its whole pattern despite an unread guard,
-                  %% which is the soundness bug the `Certain`/`Possible` split
-                  %% exists to prevent.
+                  %% Unbound or unaddressable variables prevent coverage
+                  %% credit. Returning `Acc` would incorrectly credit an unread
+                  %% guard.
                   undefined -> none_marker;
                   no_path   -> none_marker;
                   Path      ->
-                      %% A path through an opaque step is unrefinable, as
-                      %% `no_path` was: `refine_at/3` cannot address one, so
-                      %% readable paths change nothing a guard credits (F5).
                       case lists:any(fun opaque_step/1, Path) of
                           true  -> none_marker;
                           false -> refine_at(Acc, Path, C)
@@ -5615,16 +4040,11 @@ refine_all(Ty, Bindings, Constraints) ->
          (unknown, Acc) -> Acc
       end, Ty, Constraints).
 
-%% An empty path refines the whole value, which is what a switch arm does: a
-%% clause-head path always begins with a parameter index, so
-%% `n switch { m when m > 0 => … }` is the only thing that asks for this, and
-%% without the clause it left the checker through a `function_clause`.
+%% An empty path refines a switch subject; head paths start with an index.
 refine_at(Ty, [], C) ->
     apply_constraint(Ty, C);
-%% Descend into a record field. The map part of a pattern's type is always a
-%% list of members, since `top` only arises from `term`, which no pattern
-%% produces at this position; the `top` clause is unreachable and is written
-%% so that a future `top` under-credits instead of silently over-crediting.
+%% Patterns supply a map member list here. Unexpected `top` must under-credit
+%% coverage rather than silently over-credit it.
 refine_at(Ty = #{maps := top}, [{field, _} | _], _C) ->
     Ty#{maps := []};
 refine_at(Ty = #{maps := Members}, [{field, K} | Rest], C) ->
@@ -5639,7 +4059,6 @@ refine_at(Ty = #{maps := Members}, [{field, K} | Rest], C) ->
          end || {Kind, Fields} <- Members, maps:is_key(K, Fields)],
     Ty#{maps := [M || M = {_, Fs} <- Refined,
                       not lists:any(fun bs_types:is_none/1, maps:values(Fs))]};
-%% Replace the component at a path with its intersection (or difference).
 refine_at(Ty, [I | Rest], C) ->
     #{tuples := Products} = Ty,
     Refined =

@@ -2,9 +2,9 @@
 %%%
 %%%     bsc --batch MANIFEST RESULTS
 %%%
-%%% Every entry of a manifest runs in this one VM, and each gets exactly the
-%%% files a `bsc` process of its own would have written. A VM boot is a fixed
-%%% cost per invocation, and no invocation needs a VM of its own (ENG-314).
+%%% Every entry runs in this one VM and gets exactly the files a `bsc` process
+%%% of its own would have written. A VM boot is a fixed cost no invocation
+%%% needs to pay.
 %%%
 %%% The manifest is line-framed, one argument per line:
 %%%
@@ -23,14 +23,14 @@
 %%%
 %%% A malformed manifest runs nothing: the whole file is read before the
 %%% first entry runs, and a line the reader cannot place fails the batch with
-%%% its number and exit status 2, leaving no result files at all. So a missing
+%%% its number and exit status 2, leaving no result files. A missing
 %%% `<id>.status` is the one shape a partial run can have.
 %%%
 %%% Between entries the VM is restored by hand: the working directory, the
-%%% code path, and every module an entry loaded. The last one matters most,
-%%% because `code:ensure_loaded/1` is a no-op for a module already present, so
-%%% a stale module would run an earlier entry's code rather than fail. The
-%%% process dictionary needs no restoring: each entry runs in its own process.
+%%% code path, and every module an entry loaded. The last matters most:
+%%% `code:ensure_loaded/1` is a no-op for a module already present, so a stale
+%%% module would run an earlier entry's code rather than fail. The process
+%%% dictionary needs no restoring: each entry runs in its own process.
 -module(bs_batch).
 
 -export([run/2]).
@@ -151,14 +151,13 @@ valid_id(Id) ->
 %%% Running an entry
 %%% ---------------------------------------------------------------------------
 
-%% Failing to enter an entry's `cwd` is that entry's problem: it is recorded
-%% as status 127 with the reason on its stderr, and the batch goes on.
-%% Failing to restore the VM afterwards is every later entry's problem, since
-%% they would run from the wrong directory, a stale code path or another
-%% entry's module and write wrong files rather than none. So that stops the
-%% batch: `run/2` says why and exits 2, and the entries after it have no
-%% files. The entry's own run needs neither: `bs_capture:run/2` turns a crash
-%% into an outcome.
+%% Failing to enter an entry's `cwd` is that entry's problem: recorded as
+%% status 127 with the reason on its stderr, and the batch goes on. Failing to
+%% restore the VM afterwards is every later entry's problem — they would run
+%% from the wrong directory, a stale code path or another entry's module and
+%% write wrong files rather than none — so that stops the batch: `run/2` says
+%% why and exits 2, and the entries after it have no files. The entry's own run
+%% needs neither: `bs_capture:run/2` turns a crash into an outcome.
 run_entries([], _ResultsDir) -> ok;
 run_entries([E | Rest], ResultsDir) ->
     case run_entry(E, ResultsDir) of

@@ -1,58 +1,26 @@
-%%% bs_diag — the diagnostic as a term, and prose as a pure function of it.
+%%% Diagnostics are terms; only this module formats and prints their prose.
+%%% `message/1` supplies both `emit/2` and `format/1` with format/argument
+%%% pairs. Reprinting finished text through `~s` fails above codepoint 255.
 %%%
-%%% `descriptor/2` builds the term and `message/1` owns every format string;
-%%% prose is derived from the term, never written beside it. Nothing else in
-%%% the compiler may print a diagnostic: `bin/check-diagnostics.sh` refuses a
-%%% direct `io:format` at a report site, because such a site would pass every
-%%% test while its output silently left the term channel (F16, ticket 23 §1).
-%%%
-%%% `message/1` returns `{Fmt, Args}` rather than finished text because some
-%%% format strings carry an em dash: re-rendering finished text through `~s`
-%%% is a `badarg` above codepoint 255, and `~ts` is a different encoding path
-%%% from the one the tests were measured on. So `emit/2` prints the pair as
-%%% it is, and `format/1`, the published pure function, is defined in terms
-%%% of `message/1` rather than beside it.
-%%%
-%%% The descriptor is full fidelity and the prose is lossy: `residual` and
-%%% `heads` carry every case, and `message/1` caps at ?RESIDUAL_CASES on the
-%%% way out. So the residual travels as parts, never as finished text, since
-%%% prose cannot be a pure function of an already-truncated term (ticket 43).
-%%%
-%%% Payloads are maps, not tuples, so a payload can gain a key without
-%%% breaking a matcher: evolution is additive only (ticket 23 §4).
+%%% `residual` and `heads` retain every case; only prose is capped. Map
+%%% payloads evolve additively to preserve existing matchers.
+%%% Rationale: compiler/features/F16-diagnostic-as-a-term.md.
 -module(bs_diag).
 
 -export([descriptor/2, format/1, message/1, emit/2, json/1, put_json/1]).
 -export([channel/0, set_channel/1, contractual/0]).
 
-%% Three or fewer cases print in full, so the truncated form is the exact form
-%% at the threshold and there is no second shape to switch into (ticket 43).
+%% Up to ?RESIDUAL_CASES cases print in full.
 -define(RESIDUAL_CASES, 3).
 
-%%% ---------------------------------------------------------------------------
-%%% The channel
+%%% --- The channel ---
 %%%
-%%% Under `--diagnostics term` the prose goes to stderr exactly as before and
-%%% the descriptor goes to stdout, so a consumer redirects rather than parses
-%%% (F16; ticket 23 §1 names no flag). Under `--diagnostics json` the same
-%%% descriptor goes to stdout as JSON, one object per line, for a consumer
-%%% that is not a BEAM process (F47; ticket 23 §5).
-%%%
-%%% The flag is refused in the REPL rather than downgraded: `ibs` prints
-%%% values on stdout, so stdout could not carry descriptors alone, and a flag
-%%% accepted and ignored is a flag nobody can trust the next time.
-%%%
-%%% The channel lives in the process dictionary because the report sites
-%%% (`parse_string/2`, `parse_path/1`, `load_unit/1` in `bsc`) have no
-%%% `#opts{}` in scope. `set_channel/1` is called from the CLI's `dispatch/2`
-%%% and nowhere else, so a library caller and every in-process test get
-%%% `prose`; the CLI is a fresh process per run, so nothing leaks between.
-%%% ---------------------------------------------------------------------------
+%%% Term and JSON channels write one descriptor per stdout line; prose uses
+%%% stderr. The REPL refuses these channels because stdout also holds values.
+%%% Report sites have no options record, so the channel is process-local. CLI
+%%% dispatch sets it in a fresh process; library callers default to prose.
 
-%% Only `prose`, `term` and `json` exist, and the guard asserts that internal
-%% invariant rather than validating input: `parse_args` halts on any other
-%% value, so a fourth one here means the CLI grew a way to produce it and this
-%% should stop rather than guess.
+%% CLI argument parsing validates the channel before it reaches this guard.
 set_channel(Chan) when Chan =:= prose; Chan =:= term; Chan =:= json ->
     put(bs_diag_channel, Chan).
 
@@ -62,26 +30,15 @@ channel() ->
         Chan      -> Chan
     end.
 
-%% The tags whose payload shape is frozen: those that hand the author
-%% something to write (ticket 23 §4; the membership test is §2's). A syntax
-%% error does not, so it is structured and renderable but carries no shape
-%% promise. `defended` is named contractual by §4 and is absent because no
-%% feature has built it. `return_not_declared` qualifies since F25 gave it a
-%% signature to paste.
+%% Tags offering source to write have frozen payload shapes.
 contractual() ->
     [inexhaustive, catch_all_over_closed, switch_inexhaustive,
      arg_not_accepted, unreachable_clause, unreachable_arm,
      return_not_declared].
 
-%%% ---------------------------------------------------------------------------
-%%% Publishing
-%%% ---------------------------------------------------------------------------
+%%% --- Publishing ---
 
-%% The prose goes where it always went; the term goes to stdout only when
-%% asked for, so the default prints nothing new. One descriptor per line, and
-%% `~0p` is what makes that true: plain `~p` wraps each descriptor across
-%% lines with nothing between one and the next, so a consumer would have to
-%% match brackets. Under `~0p` the newline is the frame (ticket 23).
+%% `~0p` prevents wrapping: each newline frames one descriptor on stdout.
 emit(Chan, Desc) ->
     case Chan of
         term -> io:format("~0p~n", [Desc]);
@@ -91,45 +48,22 @@ emit(Chan, Desc) ->
     {Fmt, Args} = message(Desc),
     io:format(standard_error, Fmt, Args).
 
-%% One object, one line, on stdout: the framing is the channel's, so the
-%% `--api` answer writes through here too rather than spelling it again.
-%% `put_chars` rather than `~s`: the JSON is UTF-8 in binaries, and `~s`
-%% would read each byte as a latin-1 character and encode it again.
+%% Diagnostics and `--api` share one-object-per-line framing. `put_chars`
+%% preserves UTF-8 binaries; `~s` would re-encode their bytes.
 put_json(Map) ->
     io:put_chars([json(Map), $\n]).
 
-%%% ---------------------------------------------------------------------------
-%%% The wire form
+%%% --- The wire form ---
 %%%
-%%% The JSON is the platform's encoding of the term (ticket 77): `json:encode`
-%%% of the descriptor with its charlists as binaries, and nothing else. No
-%%% diagnostics-only spelling of any value, which is what kept this out of
-%%% F16 and F17 until the mapping was written (ticket 23 §5).
-%%%
-%%% THE LIST RULE, AND THE ONE FACT THE TERM DOES NOT CARRY. An Erlang
-%%% string is a list of integers, so a list of integers in the term is text or
-%%% an array by the schema alone, and the term does not say which. Two
-%%% payloads carry a list of integers that is not text — `declared` under
-%%% `name_arity_unfixed` and under `arity_not_declared`, the arities a name is
-%%% declared at — and `integer_list/2` names them, beside the descriptors that
-%%% build them. (The same key holds a type string under F25's tags, so the
-%%% fact is per tag AND key.) The rule: `[]` is an array; a non-empty list of
-%%% integers is an array where the roster names it, text where it is
-%%% printable, and otherwise a crash naming the tag and key — a new
-%%% integer-list payload cannot ship looking as if it had an encoding, as a
-%%% tag cannot ship without a message clause (F16.7). Any other list is an
-%%% array of its members (F47).
-%%%
-%%% The first cut said every non-empty integer list is text and claimed the
-%%% term carried no other; the review probe found `"declared":"\u0002\u0003"`
-%%% on the wire. The roster is what that cost.
-%%% ---------------------------------------------------------------------------
+%%% JSON uses the platform encoder with text charlists converted to binaries.
+%%% Integer lists need classification by tag and key: `declared` holds arities
+%%% for two tags, but type text for others. `integer_list/2` owns this roster.
+%%% Empty lists are arrays. Other integer lists must be printable text or raise
+%%% an error naming the tag and key. Other lists encode as arrays.
+%%% Rationale: compiler/features/F47-diagnostic-json.md.
 
-%% `unclassified` is the lost path: `bsc:publish/2` reports a shape this module
-%% does not know rather than printing a stack trace, and its `detail` is the
-%% raw diagnostic, tuples and all. The platform refuses a tuple, so on this
-%% channel `detail` goes out as its printed text — exactly what the prose
-%% prints after the path — and the lost path stays a diagnostic here too.
+%% `unclassified` carries raw diagnostics, including tuples JSON cannot encode.
+%% Its `detail` is printed text on this channel.
 json(#{tag := unclassified, detail := D} = Desc) ->
     encode(Desc#{detail := lists:flatten(io_lib:format("~0p", [D]))});
 json(Desc) ->
@@ -139,7 +73,6 @@ encode(Desc) ->
     Tag = maps:get(tag, Desc, undefined),
     json:encode(wire(Tag, tag, Desc)).
 
-%% The payloads whose list of integers is a list of integers.
 integer_list(name_arity_unfixed, declared) -> true;
 integer_list(arity_not_declared, declared) -> true;
 integer_list(_Tag, _Key)                   -> false.
@@ -166,34 +99,22 @@ integers(Tag, Key, L) ->
             end
     end.
 
-%% The published pure function: prose is this, applied to the term.
 format(Desc) ->
     {Fmt, Args} = message(Desc),
     io_lib:format(Fmt, Args).
 
-%%% ---------------------------------------------------------------------------
-%%% descriptor/2 — the returned diagnostics (what `bsc:report/2` publishes)
-%%%
-%%% This heading carries no clause count: no gate reads one, so it drifts as
-%%% tags are added (ENG-269).
-%%% ---------------------------------------------------------------------------
+%%% --- Returned diagnostics ---
 
-%% Every returned diagnostic carries these four keys. Severity travels as data
-%% rather than being implied by the tag, because `unreachable_clause` and
-%% `unreachable_arm` are warnings amid errors, and a consumer should not
-%% re-derive what the compiler already decided.
+%% Severity is explicit data; consumers must not infer it from the tag.
 at(Sev, Path, Line, Fn) ->
     #{severity => Sev, file => Path, line => Line, function => Fn}.
 
 article("int") -> "an";
 article(_)     -> "a".
 
-%% THE ADVISED HEADS FOR A NUMERIC UNION AT AN OPERATOR (F53, tickets 83/84).
-%% `Where` is `{Before, Name, After}` from the checker — the parameter names
-%% each side of the one to dispatch — so a head is written with EVERY position
-%% and the author's own names: `Sum(int a, b)`, never `Sum(int n)` for a
-%% function of two parameters. `none` means no parameter carries the union, so
-%% there is no head to write and the caller says where to dispatch instead.
+%% Checker-supplied positions preserve all parameters and their source names.
+%% `none` means no parameter carries the union, so no head can be offered.
+%% Rationale: compiler/features/F53-numeric-union-dispatch.md.
 union_heads(_Fn, none) -> [];
 union_heads(Fn, {Before, Name, After}) ->
     [lists:flatten(io_lib:format("~s(~s)", [Fn, join_params(Before, Part, Name, After)]))
@@ -204,10 +125,6 @@ join_params(Before, Part, Name, After) ->
                      ++ [Part ++ " " ++ atom_to_list(Name)]
                      ++ [atom_to_list(N) || N <- After]).
 
-%% The advice, as a format fragment: the heads when there are heads, and the
-%% sentence that names the site when there are none. A fragment rather than an
-%% argument because a `~s` takes bytes and these lines carry none of the
-%% punctuation that would matter — see `float_spelling/2`.
 dispatch_advice([]) ->
     "  Dispatch the parts where the value enters the function, and write~n"
     "  the operator in the clause where the part is known.~n";
@@ -216,10 +133,7 @@ dispatch_advice(Heads) ->
     "  clause, where the part is known:~n"
         ++ lists:flatten([["    ", H, " -> ...~n"] || H <- Heads]).
 
-%% `Mean([]) -> 0` under `public float Mean` names the fix, `0.0`, as ticket
-%% 80's answer promised: an `int` literal returned where `float` alone is
-%% declared. Read off the descriptor's two printed types, which is all the
-%% frozen `return_not_declared` term carries (23 §4).
+%% The frozen descriptor carries printed types, so literal advice reads them.
 float_spelling(Undeclared, "float") ->
     case int_text(Undeclared) of
         true  -> "  `" ++ Undeclared ++ "` is an `int`; the float is `"
@@ -232,23 +146,14 @@ int_text([$- | Ds]) -> int_text(Ds);
 int_text([_ | _] = Ds) -> lists:all(fun(C) -> C >= $0 andalso C =< $9 end, Ds);
 int_text(_) -> false.
 
-%% A POSITION IS SPLIT HERE AND NOWHERE ELSE.
-%%
-%% The lexer writes `TokenLoc`, so a position arrives from the parser as
-%% `{Line, Column}` and every one of the 84 clauses below passes it through
-%% under the key `line` without knowing that. This is the single place it
-%% becomes two keys, which is why a new clause cannot forget to do it (F35).
-%%
-%% The column is a NEW key rather than a tuple in the old one. Ticket 23 §4
-%% makes payload evolution additive only, and the suite matches `#{line := 3}`
-%% in map patterns throughout: a tuple here would break every one of them and
-%% would be the first payload change to do so.
+%% Split parser positions here; builders pass them through under `line`. Keep
+%% `line` an integer and add `column` to preserve payload compatibility.
+%% Rationale: compiler/features/F35-columns.md.
 descriptor(Path, D) ->
     place(built(Path, D)).
 
-%% `unhandled` is not a descriptor and must survive: the caller re-raises on
-%% it. A descriptor whose line is already bare passes through by the last
-%% clause, which is what the two internal `built/2` calls rely on.
+%% The caller re-raises `unhandled`; it must pass through unchanged. Internal
+%% `built/2` calls also rely on bare lines passing through.
 place(unhandled) ->
     unhandled;
 place(#{line := {Line, Column}} = Desc) ->
@@ -264,8 +169,6 @@ built(Path, {Sev, Line, Fn, {catch_all_over_closed, Residual, Names}}) ->
     (at(Sev, Path, Line, Fn))#{tag => catch_all_over_closed,
                                residual => residual(Residual),
                                heads => heads(Fn, Residual, Names)};
-%%% Each way a binary segment can be wrong gets its own tag, so the message
-%%% can name the fix for that shape (F13).
 built(Path, {Sev, Line, Fn, {unsized_segment_not_last, _Size, _L}}) ->
     (at(Sev, Path, Line, Fn))#{tag => unsized_segment_not_last};
 built(Path, {Sev, Line, Fn, {segment_width_not_positive, N, _L}}) ->
@@ -280,28 +183,21 @@ built(Path, {Sev, Line, Fn, relational_in_bind}) ->
     (at(Sev, Path, Line, Fn))#{tag => relational_in_bind};
 built(Path, {Sev, Line, Fn, no_clauses}) ->
     (at(Sev, Path, Line, Fn))#{tag => no_clauses};
-%% Ticket 27 §2: a parameter declared over a bare type variable admits one
-%% clause, a binder (F45).
+%% A bare type-variable parameter admits only one binder clause.
 built(Path, {Sev, Line, Fn, {pattern_on_type_variable, Var, Pos}}) ->
     (at(Sev, Path, Line, Fn))#{tag => pattern_on_type_variable,
                                type_variable => Var, argument => Pos};
-%% Ticket 28 §6: a variable only in the return cannot be recovered from a
-%% call (F45).
+%% A type variable appearing only in the return cannot be inferred at a call.
 built(Path, {Sev, Line, Fn, {unrecoverable_type_variable, Var}}) ->
     (at(Sev, Path, Line, Fn))#{tag => unrecoverable_type_variable,
                                type_variable => Var};
-%% Ticket 27: a codegen obligation's type argument is ground (F45).
+%% Codegen obligations require ground type arguments.
 built(Path, {Sev, Line, Fn, {obligation_over_type_variable, Name, Var}}) ->
     (at(Sev, Path, Line, Fn))#{tag => obligation_over_type_variable,
                                obligation => Name, type_variable => Var};
-%% The operator is carried because the two division operators spell the same
-%% mistake differently, and the fix differs with it (F26, ticket 38).
 built(Path, {Sev, Line, Fn, {divide_by_zero, Op}}) ->
     (at(Sev, Path, Line, Fn))#{tag => divide_by_zero, op => Op};
-%% A `float` beside an `int` at an operator (ticket 80, F51). The checker
-%% decided which part each side lies in and whether the `int` side is one
-%% literal; both travel as decided. `literal` is that literal's float
-%% spelling or `none`, and the prose offers it where it has one.
+%% `literal` is the checker's float spelling of an integer literal, or `none`.
 built(Path, {Sev, Line, Fn, float_remainder}) ->
     (at(Sev, Path, Line, Fn))#{tag => float_remainder};
 built(Path, {Sev, Line, Fn, {mixed_operands, Op, Left, Right, Literal}}) ->
@@ -312,10 +208,7 @@ built(Path, {Sev, Line, Fn, {mixed_operands, Op, Left, Right, Literal}}) ->
 built(Path, {Sev, Line, Fn, {switch_inexhaustive, Residual, Names}}) ->
     Base = (at(Sev, Path, Line, Fn))#{tag => switch_inexhaustive,
                                       residual => residual(Residual)},
-    %% `arms` is a LIST, like the head channel's `pasteable`, and for the same
-    %% reason: `arm` was one string holding the whole residual, so a two-member
-    %% residual arrived as `:nothing | { Kind: ... }` — a `|` no arm grammar
-    %% accepts. The split is the fix, not a presentation choice (ENG-312).
+    %% Each arm needs a separate string: union syntax is not an arm pattern.
     case arms(Residual, Names) of
         [] -> Base#{arms => [],
                     description => [lists:flatten(bs_types:to_pattern(Residual))]};
@@ -326,12 +219,7 @@ built(Path, {Sev, Line, Fn, {valve_on_infallible, Ty}}) ->
                                subject => bs_types:to_pattern(Ty)};
 built(Path, {Sev, Line, Fn, {unreachable_arm, N}}) ->
     (at(Sev, Path, Line, Fn))#{tag => unreachable_arm, arm_number => N};
-%% The arm twins of `vacuous_clause` and `unsatisfiable_guard` below. They are
-%% tags of their own rather than one tag per fault shared across both sites,
-%% because a consumer matches on the tag and then reads the keys: one tag
-%% carrying `clause_number` at one site and `arm_number` at the other would
-%% leave the key set undetermined by the tag (ENG-269 proposed reusing
-%% `unsatisfiable_guard`; this is the one departure from it).
+%% Arm and clause tags stay distinct so each tag determines its payload keys.
 built(Path, {Sev, Line, Fn, {vacuous_arm, N, Domain}}) ->
     (at(Sev, Path, Line, Fn))#{tag => vacuous_arm, arm_number => N,
                                domain => residual(Domain)};
@@ -341,18 +229,14 @@ built(Path, {Sev, Line, Fn, switch_in_guard}) ->
     (at(Sev, Path, Line, Fn))#{tag => switch_in_guard};
 built(Path, {Sev, Line, Fn, raise_in_guard}) ->
     (at(Sev, Path, Line, Fn))#{tag => raise_in_guard};
-%% F41 (ENG-256). `callee` is the spelling the author wrote, as it is for
-%% `unknown_callee` — never Erlang's `'F'/N`, which is what reached them before.
+%% `callee` keeps the author's spelling, not Erlang's name/arity notation.
 built(Path, {Sev, Line, Fn, {call_in_guard, Callee}}) ->
     (at(Sev, Path, Line, Fn))#{tag => call_in_guard, callee => Callee};
 built(Path, {Sev, Line, Fn, {foreign_call_in_guard, Callee}}) ->
     (at(Sev, Path, Line, Fn))#{tag => foreign_call_in_guard, callee => Callee};
 built(Path, {Sev, Line, Fn, {unreachable_clause, N}}) ->
     (at(Sev, Path, Line, Fn))#{tag => unreachable_clause, clause_number => N};
-%% `vacuous_clause` carries the domain rather than the offending pattern: the
-%% author wrote the pattern, so the type it is not a member of is the half
-%% they lack. It goes through `residual/1` so the term keeps the parts and
-%% the prose stays a pure function of it (ENG-259, F16).
+%% Preserve domain parts in the term; only prose may truncate them.
 built(Path, {Sev, Line, Fn, {vacuous_clause, N, Domain}}) ->
     (at(Sev, Path, Line, Fn))#{tag => vacuous_clause, clause_number => N,
                                domain => residual(Domain)};
@@ -377,37 +261,23 @@ built(Path, {Sev, Line, Fn, {field_set_mismatch, Record, Form, Missing, Extra}})
                                form => Form,
                                missing => Missing,
                                extra => Extra};
-%% The residual is a type, so the exhaustiveness printer renders it and this
-%% is a new tag rather than a new shape of diagnostic (ticket 36).
 built(Path, {Sev, Line, Fn, {field_value_not_accepted, Record, Field, Residual}}) ->
     (at(Sev, Path, Line, Fn))#{tag => field_value_not_accepted,
                                record => Record,
                                field => Field,
                                residual => residual(Residual),
                                rejected => bs_types:to_pattern(Residual)};
-%% The verb is read from the form: a dot projects a field from a value and
-%% `with` updates one on it, while the residual and the fix are the same for
-%% both, the member that lacks the field (ENG-249).
 built(Path, {Sev, Line, Fn, {field_absent, Form, Field, Residual}}) ->
     (at(Sev, Path, Line, Fn))#{tag => field_absent,
                                form => Form,
                                field => Field,
                                residual => residual(Residual),
                                member => bs_types:to_pattern(Residual)};
-%% `corrected` is `none` when there is nothing writable to offer, never
-%% absent, so a consumer never has to tell "refused" from "missing" (F25).
-%% The three keys ENG-346 added follow the same rule, each `none` when it has
-%% nothing to say:
-%%
-%%   indiscriminable  the pair that made the declaration check refuse the
-%%                    widened signature, named as `indiscriminable_union`'s
-%%                    fields are, since it predicts that refusal
-%%   withheld         why no line is offered (R2)
-%%   replaces         the declared type the line drops, as the author wrote
-%%                    it, and the type that contains it (R3)
-%%
-%% And `declared`, always present: the declared return as the author wrote it,
-%% which every message leads with since Round 3 (ENG-346).
+%% `corrected`, `indiscriminable`, `withheld` and `replaces` are always
+%% present; unused values are `none`. `indiscriminable` names the refused
+%% widening pair, `withheld` explains missing advice, and `replaces` names the
+%% absorbed type. `declared` keeps the author's return-type spelling.
+%% Rationale: compiler/features/F25-corrected-signature.md.
 built(Path, {Sev, Line, Fn, {return_not_declared, Residual, {Declared, Corrected}}}) ->
     maps:merge((at(Sev, Path, Line, Fn))#{tag => return_not_declared,
                                           residual => residual(Residual),
@@ -418,14 +288,12 @@ built(Path, {Sev, Line, Fn, {bind_may_fail, Residual}}) ->
     (at(Sev, Path, Line, Fn))#{tag => bind_may_fail,
                                residual => residual(Residual),
                                unmatched => bs_types:to_pattern(Residual)};
-%%% A function as a value (ticket 75, F46): the four refusals the ticket
-%%% owes, and the two fixed before the arrow existed.
+%%% --- Function values ---
 built(Path, {Sev, Line, Fn, lambda_without_expectation}) ->
     (at(Sev, Path, Line, Fn))#{tag => lambda_without_expectation};
 built(Path, {Sev, Line, Fn, {name_arity_unfixed, Name, Arities}}) ->
     (at(Sev, Path, Line, Fn))#{tag => name_arity_unfixed,
                                name => Name, declared => Arities};
-%% The residual as the destructuring bind prints it, position and all.
 built(Path, {Sev, Line, Fn, {lambda_param_refuted, Pos, Residual}}) ->
     (at(Sev, Path, Line, Fn))#{tag => lambda_param_refuted,
                                argument => Pos,
@@ -435,8 +303,6 @@ built(Path, {Sev, Line, Fn, {not_callable, Var, Arity, Ty}}) ->
     (at(Sev, Path, Line, Fn))#{tag => not_callable,
                                name => Var, arity => Arity,
                                type => bs_types:to_string(Ty)};
-%% Both bounds and the argument each came from (ticket 76 Q3): the fix is at
-%% one of the two arguments, and only the author knows which.
 built(Path, {Sev, Line, Fn, {instantiation_conflict, Callee, Var, LowPos, Low,
                              UpPos, Up}}) ->
     (at(Sev, Path, Line, Fn))#{tag => instantiation_conflict,
@@ -462,9 +328,7 @@ built(Path, {Sev, Line, Fn, {arity_mismatch, Callee, Got, Want}}) ->
 built(Path, {Sev, Line, Fn, {arity_not_declared, Callee, Got, Have}}) ->
     (at(Sev, Path, Line, Fn))#{tag => arity_not_declared,
                                callee => Callee, got => Got, declared => Have};
-%%% The two call-site refusals for a reserved qualifier. The shadow one is
-%%% `ambiguous_module` with a compiler-known claimant on one side, so it is
-%%% shaped like it: both candidates named, the full path offered (ticket 67).
+%%% Reserved-qualifier shadowing uses `ambiguous_module`'s candidate shape.
 built(Path, {Sev, Line, Fn, {reserved_qualifier_shadowed, Q, Op, Mods}}) ->
     (at(Sev, Path, Line, Fn))#{tag => reserved_qualifier_shadowed,
                                qualifier => Q, operation => Op,
@@ -479,37 +343,25 @@ built(Path, {Sev, Line, Fn, {unknown_record, Name}}) ->
 built(Path, {Sev, Line, Fn, wildcard_as_value}) ->
     (at(Sev, Path, Line, Fn))#{tag => wildcard_as_value};
 
-%%% --- The codegen-obligation refusals (F18) ---------------------------------
+%%% --- Codegen-obligation refusals ---
 
-%% The collapse met at an instantiation rather than at a declaration. The
-%% descriptor carries the type, not the sentence, so a consumer can see which
-%% instantiation was asked for (ticket 15 §1).
 built(Path, {Sev, Line, Fn, {validate_collapses, Ty}}) ->
     (at(Sev, Path, Line, Fn))#{tag => validate_collapses,
                                type => bs_types:to_string(Ty)};
-%% A target two of whose members no clause head can tell apart (ENG-347,
-%% ticket 70). The pair is the first the check found, named as the normalised
-%% members an author would write a clause for.
+%% Report the first inseparable pair as normalised members.
 built(Path, {Sev, Line, Fn, {validate_indiscriminable, Ty, A, B}}) ->
     (at(Sev, Path, Line, Fn))#{tag => validate_indiscriminable,
                                type => bs_types:to_string(Ty),
                                member => bs_types:to_string(A),
                                beside => bs_types:to_string(B)};
-%% A union whose parts are all numeric, at an operator (F53, ticket 83). The
-%% side is carried because the sentence names it, and the type because the
-%% advice is built from its parts.
 built(Path, {Sev, Line, Fn, {numeric_union_operand, Op, Side, Ty, Heads}}) ->
     (at(Sev, Path, Line, Fn))#{tag => numeric_union_operand,
                                op => Op,
                                side => Side,
                                type => bs_types:to_string(Ty),
                                heads => union_heads(Fn, Heads)};
-%% A type prefix naming a type no single test decides (F53, ticket 84). `Why`
-%% is the checker's, and each value has a sentence that is TRUE of the type in
-%% front of it: "no single test decides `term`" would not be.
-%% A type prefix nested inside another pattern (F53). Raised, like the
-%% relational pattern's, and it carries only the position: the form is refused
-%% for WHERE it is, whatever type it names.
+%% Nested prefixes are refused by position regardless of their type.
+%% Undecidable prefixes carry the checker's reason for type-specific advice.
 built(Path, {type_prefix_nested, Line}) ->
     #{tag => type_prefix_nested, severity => error, file => Path, line => Line};
 built(Path, {type_prefix_undecidable, Line, Ty, Why}) ->
@@ -528,12 +380,8 @@ built(Path, {Sev, Line, Fn, {parse_atom_arg, Ty}}) ->
 built(Path, {Sev, Line, Fn, {to_existing_atom_arg, Ty}}) ->
     (at(Sev, Path, Line, Fn))#{tag => to_existing_atom_arg,
                                type => bs_types:to_string(Ty)};
-%% `ToJson<T>` over a `T` holding a member the platform's encoder refuses
-%% (ticket 77, F50). Raised by the pass over clause bodies rather than returned
-%% from the walk, so `--api` meets it too; the pass knows the clause, so the
-%% descriptor names the function like a returned one. The path is a LIST of
-%% segments, empty at the top: an empty string would go out on the JSON
-%% channel as `[]`, which is an array.
+%% The clause-body pass raises this for `--api` as well as compilation. `path`
+%% is a list of segments; an empty list means the top level.
 built(Path, {unencodable_member, Line, Fn, Ty, Segs, Member, Kind}) ->
     (at(error, Path, Line, Fn))#{tag => unencodable_member,
                                  obligation => 'ToJson',
@@ -545,42 +393,26 @@ built(Path, {Sev, Line, Fn, {obligation_arity, Name, Types, Args}}) ->
     (at(Sev, Path, Line, Fn))#{tag => obligation_arity,
                                obligation => Name,
                                type_args => Types, args => Args};
-%% The list of built names is read from the checker rather than written here.
-%% This sentence named `ValidateAs` alone for three weeks after it stopped
-%% being the only one, which is what a hardcoded roster does.
+%% The checker owns the roster of built obligations.
 built(Path, {Sev, Line, Fn, {obligation_unbuilt, Name}}) ->
     (at(Sev, Path, Line, Fn))#{tag => obligation_unbuilt, obligation => Name,
                                built => bs_check:built_obligations()};
-%% The closed set is read from the checker, as the built list above is. This
-%% roster was written by hand and named three names for six days after F50
-%% made it four (found by F54).
 built(Path, {Sev, Line, Fn, {not_an_obligation, Name}}) ->
     (at(Sev, Path, Line, Fn))#{tag => not_an_obligation, name => Name,
                                obligations => bs_check:codegen_obligations()};
 
-%%% ---------------------------------------------------------------------------
-%%% The fatal ones — lexing and reading, before there is a function to name
-%%% ---------------------------------------------------------------------------
+%%% --- Lexing and parsing failures ---
 
-%% beam-sharp has no statement terminator and both audiences type one from
-%% habit, so this most likely error gets a sharper message than leex's tuple.
 built(Path, {lex, {Line, _Mod, {illegal, ";"}}}) ->
     #{tag => stray_semicolon, severity => error, file => Path, line => Line};
-%% Negation has no spelling: the guard fragment is closed under complement,
-%% so a `not` would compile into the spelling the author could have written,
-%% and the refusal teaches that instead (ticket 63; `bin/check-negation.sh`
-%% is the gate). `!` is an illegal character, so it fails here in the lexer,
-%% a stage before `not` does. `!=` is a token of its own and never arrives
-%% as an illegal character.
+%% `!` fails in the lexer; `!=` is a separate token and must not match here.
 built(Path, {lex, {Line, _Mod, {illegal, [$! | _]}}}) ->
     #{tag => no_negation, severity => error, file => Path, line => Line,
       spelling => "!"};
 built(Path, {lex, {Line, Mod, Reason}}) ->
     #{tag => lex_error, severity => error, file => Path, line => Line,
       detail => lists:flatten(Mod:format_error(Reason))};
-%% `not` is a legal identifier and must not become a keyword (reserving names
-%% is ticket 65's open question), so the hint is raised here, at the parse
-%% failure, where it cannot reach a program that parses.
+%% `not` remains a legal identifier. Offer the hint only after parsing fails.
 built(Path, {parse, {Line, Mod, Reason}, Tokens}) ->
     case not_in_prefix_position(Tokens, Line) of
         true ->
@@ -592,41 +424,29 @@ built(Path, {parse, {Line, Mod, Reason}, Tokens}) ->
 built(Path, {parse, {Line, Mod, Reason}}) ->
     #{tag => parse_error, severity => error, file => Path, line => Line,
       detail => lists:flatten(Mod:format_error(Reason))};
-%% Most often an unmatched shell glob rather than a real directory, so the
-%% message says what was looked for instead of only naming the path (F15).
 built(Path, no_sources_here) ->
     #{tag => no_sources_here, severity => error, file => Path};
 
-%%% ---------------------------------------------------------------------------
-%%% The raised conditions (what `bsc:resolve_error/2` catches)
+%%% --- Raised conditions ---
 %%%
-%%% These are found while resolving types, below the level that carries a
-%%% line and a function name, and reach the author through the `try` in
-%%% `check_and_emit/4`. A raised condition gets a descriptor exactly like a
-%%% returned one; there is no second channel (F16.4).
-%%% ---------------------------------------------------------------------------
+%%% Type-resolution failures reach `check_and_emit/4` without a function name.
+%%% They use the same descriptor channel as returned diagnostics.
 
-%% A raise site that knows its file says so; the inner tuple keeps the shape
-%% ticket 41 specified.
+%% A file supplied at the raise site overrides the caller's path.
 built(_Path, {in_file, Path, Reason}) ->
     built(Path, Reason);
 
 built(Path, {behaviour_not_satisfied, Line, Behaviour, Missing}) ->
     #{tag => behaviour_not_satisfied, severity => error, file => Path,
       line => Line, behaviour => Behaviour, missing => Missing};
-%% `-behaviour` has no runtime effect and only exports matter, so a private
-%% callback would break the contract at run time and silently (ticket 06).
+%% `-behaviour` has no runtime effect; OTP callbacks must be exported.
 built(Path, {private_callback, N, A, Otp, Line}) ->
     #{tag => private_callback, severity => error, file => Path, line => Line,
       name => N, arity => A, otp_name => Otp};
 built(Path, {unknown_behaviour, B}) ->
     #{tag => unknown_behaviour, severity => error, file => Path, behaviour => B};
-%% `{at, Loc, Reason}` is a position wrapped around a condition raised from
-%% below the level that holds one (`bs_check:at_loc/2`). It is unwrapped here
-%% rather than given its own tag, so the inner condition keeps the tag, the
-%% payload and the prose it already had and gains only the position — and
-%% `place/1` splits that into `line` and `column` on the way out, exactly as
-%% it does for every other diagnostic.
+%% `bs_check:at_loc/2` adds a position without changing the condition's tag.
+%% `place/1` splits it into line and column after building the descriptor.
 built(Path, {at, Loc, Reason}) ->
     case built(Path, Reason) of
         unhandled -> unhandled;
@@ -634,51 +454,37 @@ built(Path, {at, Loc, Reason}) ->
     end;
 built(Path, {unknown_type, N}) ->
     #{tag => unknown_type, severity => error, file => Path, type => N};
-%% The same refusal, told by `bs_check:hinted/2` which reachable modules
-%% declare the name (ticket 73, F44). The tag does not change: the defect is
-%% the same, the message knows more.
+%% `bs_check:hinted/2` supplies reachable modules without changing the tag.
 built(Path, {unknown_type, N, Mods}) ->
     #{tag => unknown_type, severity => error, file => Path, type => N,
       suppliers => Mods};
-%% `Orders.Receipt` where `Orders` is reachable and declares no `Receipt`.
 built(Path, {unknown_type_in_module, Mod, N}) ->
     #{tag => unknown_type_in_module, severity => error, file => Path,
       module => Mod, type => N};
-%% `Orders.Order` where no `using` reaches `Orders`: the qualified call's
-%% refusal (41 §2), in type position.
 built(Path, {type_module_not_imported, Mod, N}) ->
     #{tag => type_module_not_imported, severity => error, file => Path,
       module => Mod, type => N};
-%% Two imports supply one type name and the use did not qualify it (ticket
-%% 73, 41 §2). `heads` carries the spellings that would, as `ambiguous_call`
-%% carries its callees.
 built(Path, {ambiguous_type, N, Mods}) ->
     #{tag => ambiguous_type, severity => error, file => Path, type => N,
       candidates => Mods,
       heads => [lists:flatten(io_lib:format("~s.~s", [M, N])) || M <- Mods]};
-%% A type prefix in a pattern names something that is not a record (F22).
 built(Path, {not_a_record, Line, N}) ->
     #{tag => not_a_record, severity => error, file => Path, line => Line,
       type => N};
-%% A field named beside a type prefix that the record has not got (F22).
 built(Path, {pattern_field_unknown, Line, Record, Field, Declared}) ->
     #{tag => pattern_field_unknown, severity => error, file => Path,
       line => Line, record => Record, field => Field, declared => Declared};
 built(Path, {unknown_builtin, B}) ->
     #{tag => unknown_builtin, severity => error, file => Path, type => B};
-%% One tag for the whole of ticket 18 §2 (F40): `why` is what one guard
-%% cannot decide -- `list`, `map`, `record`, `recursive` or `string` -- and
-%% `at` whether it is the `whole` return or `inside` a position a guard
-%% reaches, which between them choose the edit. `name` and `fields` are set
-%% for a record and a recursive type, so the message can say which.
+%% `why` names the shape one guard cannot decide; `at` distinguishes the whole
+%% return from a nested position. Records and recursive types also carry `name`
+%% and `fields` for advice.
 built(Path, {foreign_ret_beyond_one_guard, Line, Mod, Fun, Type, Why, Name, Fields, At}) ->
     #{tag => foreign_ret_beyond_one_guard, severity => error, file => Path,
       line => Line, module => bs_types:atom_str(Mod), function => Fun,
       type => Type, why => Why, name => Name, fields => Fields, at => At};
 built(Path, {unknown_generic, N}) ->
     #{tag => unknown_generic, severity => error, file => Path, type => N};
-%% A bracket the compiler knows at the wrong arity is a different mistake from
-%% a bracket it does not know, and the fix is a different edit (F6.6).
 built(Path, {generic_arity, N, Want, Got}) ->
     #{tag => generic_arity, severity => error, file => Path, type => N,
       want => Want, got => Got};
@@ -687,80 +493,55 @@ built(Path, {needs_type_args, N, Want}) ->
       want => Want};
 built(Path, {not_parametric, N}) ->
     #{tag => not_parametric, severity => error, file => Path, type => N};
-%% A type defined in terms of itself with no constructor between describes no
-%% set of values, and no implementation could give it one (F6.8, ticket 09
-%% §3). Recursion through a constructor is well formed and has had a binder
-%% since F28, so there is no "unbuilt" refusal beside this one any more.
+%% Recursive types require a constructor between references to themselves.
 built(Path, {cyclic_type, N}) ->
     #{tag => cyclic_type, severity => error, file => Path, type => N};
-%% A parametric alias that recurs under different arguments, such as
-%% `type T<X> = (X, list<T<list<X>>>)`, is not a regular tree: unfolding it
-%% never repeats, so no finite binder holds it. Refused by name because the
-%% alternative is expanding forever (F28).
+%% Recursion under changing type arguments cannot use a finite binder.
 built(Path, {non_regular_recursion, N}) ->
     #{tag => non_regular_recursion, severity => error, file => Path, type => N};
-%% A compiler-known entry of the standard environment may not be redeclared.
-%% Refused at the declaration rather than resolved by shadowing, because the
-%% alternative is a type error elsewhere with nothing pointing at the cause
-%% (F18, ticket 27 §8, `STANDARD-ENVIRONMENT.md`).
+%% Compiler-known types cannot be redeclared or shadowed.
 built(Path, {compiler_known_type, Name, Line}) ->
     #{tag => compiler_known_type, severity => error, file => Path, line => Line,
       type => Name};
-%% The same rule for a function: `ToExistingAtom` is read as a compiler-known
-%% call before any user function is looked up, so declaring one under that
-%% name would be shadowed in silence (F54).
+%% Compiler-known calls resolve before user functions; redeclarations would be
+%% unreachable.
 built(Path, {compiler_known_function, Name, Line}) ->
     #{tag => compiler_known_function, severity => error, file => Path, line => Line,
       function => Name};
 built(Path, {kind_field_is_minted, Line, Name}) ->
     #{tag => kind_field_is_minted, severity => error, file => Path, line => Line,
       record => Name};
-%% The absorption refused at the declaration. The descriptor carries the
-%% channel as well as the two types, because the hint differs by channel and a
-%% consumer should not parse the sentence to learn which (F31, ticket 15 §1).
-%%
-%% ONE TAG, THREE HINTS (68 Q3). The failure channel is a SPECIALISATION of
-%% "a member you wrote is not in the type", not a separate rule, so it varies
-%% the hint rather than the tag. `where` carries the path, because the line
-%% cannot tell two absorbing fields of one record apart (68 Q5(b)).
+%% Channel changes the absorption hint, not the tag. `where` distinguishes
+%% absorbing fields sharing a source line.
 built(Path, {absorbed_member, Line, Where, Channel, Member, Absorber}) ->
     #{tag => absorbed_member, severity => error, file => Path,
       line => Line, channel => Channel, where => Where,
       member => bs_types:to_string(Member),
       absorbed_by => bs_types:to_string(Absorber)};
-%% Ticket 09 §4's refusal, and the only one in the compiler that is TEMPORARY
-%% BY CONSTRUCTION: it ends when the pattern grammar grows, so the message
-%% names the grammar as its reason rather than blaming the type.
+%% Indiscriminability is a limit of the pattern grammar, not the type.
 built(Path, {indiscriminable_union, Line, Where, A, B}) ->
     #{tag => indiscriminable_union, severity => error, file => Path,
       line => Line, where => Where,
       member => bs_types:to_string(A),
       beside => bs_types:to_string(B)};
-%% The two refinement tiers are told apart by what the predicate says (F2,
-%% ticket 20 §5).
 built(Path, {opaque_refinement, Line}) ->
     #{tag => opaque_refinement, severity => error, file => Path, line => Line};
 built(Path, {empty_refinement, Line}) ->
     #{tag => empty_refinement, severity => error, file => Path, line => Line};
-%% A relational pattern ships in the parameter position only, and a bare
-%% "syntax error" would make that chosen omission look like an oversight (F2).
+%% Relational patterns are restricted to parameter position.
 built(Path, {relational_pattern_nested, Line}) ->
     #{tag => relational_pattern_nested, severity => error, file => Path,
       line => Line};
-%% Two signatures of the same arity are one function declared twice, and its
-%% clauses would otherwise merge silently (ticket 40 §2).
+%% Duplicate signatures of the same arity would silently merge clauses.
 built(Path, {name_redeclared, Name, Arity, Line}) ->
     #{tag => name_redeclared, severity => error, file => Path, line => Line,
       name => Name, arity => Arity};
-%% A type name declared twice, in any of its three spellings; the error sits
-%% on the second declaration and carries the first's position, both halves
-%% (F35), so an editor can mark both (ENG-352). They are split here because
-%% `place/1` splits only `line`.
+%% Split the first declaration's position here; `place/1` splits only `line`.
+%% Both positions must survive so editors can mark both declarations.
 built(Path, {type_redeclared, Name, Line, First}) ->
     #{tag => type_redeclared, severity => error, file => Path, line => Line,
       type => Name, first_line => line_of(First), first_column => column_of(First)};
-%% The candidates print qualified because a qualified call is legal whatever
-%% is in scope, so the message is pasteable source (ticket 41 §2, 23).
+%% Qualified candidates must be writable source.
 built(Path, {ambiguous_call, Name, Arity, Mods, Line}) ->
     #{tag => ambiguous_call, severity => error, file => Path, line => Line,
       name => Name, arity => Arity, candidates => Mods,
@@ -769,65 +550,51 @@ built(Path, {ambiguous_call, Name, Arity, Mods, Line}) ->
 built(Path, {unknown_module, Mod, Line}) ->
     #{tag => unknown_module, severity => error, file => Path, line => Line,
       module => Mod};
-%% A file's `using` lines are its dependency list, so a call that skips them
-%% is refused (ticket 41 §1, 23 §11).
+%% A file's `using` declarations define its dependencies.
 built(Path, {module_not_imported, Mod, Line}) ->
     #{tag => module_not_imported, severity => error, file => Path, line => Line,
       module => Mod};
 built(Path, {ambiguous_module, Short, Mods, Line}) ->
     #{tag => ambiguous_module, severity => error, file => Path, line => Line,
       module => Short, candidates => Mods};
-%%% The declaration refusal for a reserved qualifier. Raised, so it carries its
-%%% own line, like `module_path_mismatch`: there is no function to attribute
-%%% it to, only a directory and a `module` line (ticket 67).
 built(Path, {reserved_module_name, Module, Line}) ->
     #{tag => reserved_module_name, severity => error, file => Path, line => Line,
       module => Module};
-%% Two modules importing each other are refused by name rather than resolved
-%% by following the cycle, which is a loop; F6's cyclic-alias guard is the
-%% precedent, and it shipped after a hang (ticket 41).
 built(_Path, {import_cycle, Cycle}) ->
     #{tag => import_cycle, severity => error, cycle => Cycle};
-%% `index.bs` holds everything except functions (ticket 41 §4).
+%% `index.bs` cannot contain functions.
 built(Path, {function_in_index, Name, Line}) ->
     #{tag => function_in_index, severity => error, file => Path, line => Line,
       function => Name};
-%% A module's declared name must match its directory: `erlc`'s module-atom
-%% and filename rule, lifted from the artefact to the source tree (ticket 41
-%% §5, 13).
+%% Module names must match directories, mirroring erlc's module/filename rule.
 built(Path, {module_path_mismatch, Declared, Expected, Line}) ->
     #{tag => module_path_mismatch, severity => error, file => Path, line => Line,
       declared => Declared, expected => Expected};
-%% One directory is one module (ticket 13 §3).
+%% One directory is one module.
 built(_Path, {module_disagreement, Declared}) ->
     #{tag => module_disagreement, severity => error,
       count => length(lists:usort([M || {_, M, _} <- Declared])),
       declarations => Declared};
 built(_Path, {no_module_declaration, Paths}) ->
     #{tag => no_module_declaration, severity => error, files => Paths};
-%% The build tool's whole job is to name the source root, so a root that does
-%% not contain the module is a usage error (ticket 41 §3).
+%% A source root that does not contain the module is a usage error.
 built(_Path, {src_root_mismatch, Dir, Root}) ->
     #{tag => src_root_mismatch, severity => error, directory => Dir,
       root => Root};
 built(_Path, {src_root_is_the_module, Dir}) ->
     #{tag => src_root_is_the_module, severity => error, directory => Dir};
 
-%%% ---------------------------------------------------------------------------
-%%% The remainder
+%%% --- Unrecognised diagnostics ---
 %%%
-%%% A raised tuple with no clause here comes back as `unhandled`, and the
-%%% caller re-raises it rather than swallowing it, so the author sees a stack
-%%% trace rather than nothing.
-%%% ---------------------------------------------------------------------------
+%%% The caller re-raises `unhandled` so unknown raised conditions remain
+%%% visible.
 
 built(Path, {Sev, _Line, _Fn, _} = D) when Sev =:= error; Sev =:= warning ->
     #{tag => unclassified, severity => Sev, file => Path, detail => D};
 built(_Path, _Other) ->
     unhandled.
 
-%% `return_not_declared`'s correction, as `bs_check:corrected_signature/4`
-%% hands it over, spread across the four keys that describe it.
+%% Accept the correction shapes supplied by `bs_check:corrected_signature/4`.
 correction(Line) when is_list(Line) ->
     corrections(#{corrected => Line});
 correction({replacing, Line, Src, New}) ->
@@ -844,7 +611,6 @@ corrections(Set) ->
     maps:merge(#{corrected => none, indiscriminable => none,
                  withheld => none, replaces => none}, Set).
 
-%% Round 5: the named type of records to use instead, or why none is shown.
 records({records, Decls, Returns}) ->
     #{declarations => Decls, returns => Returns, no_declarations => none};
 records({no_records, {nested, Member, Holder}}) ->
@@ -854,9 +620,6 @@ records({no_records, {check_failed, Reason}}) ->
     #{declarations => none, returns => none,
       no_declarations => #{refused_by => Reason}}.
 
-%% Round 4: a name the author wrote, beside the structure it stands for, where
-%% the two differ. Ticket 09 §1 prints the name; the reasons here are
-%% structural, so the structure is printed too, as TypeScript and GHC do.
 expanded(Pairs) ->
     [#{name => Src, is => bs_types:to_string(T)}
      || {Src, T} <- Pairs, Src =/= bs_types:to_string(T)].
@@ -869,33 +632,19 @@ withheld({crashed, Class, Reason}) ->
 withheld(Why) when is_atom(Why) ->
     Why.
 
-%% What follows the residual in `return_not_declared`. `bs_check:
-%% corrected_signature/4` sets at most one of `indiscriminable`, `withheld`
-%% and `replaces`, so the first three clauses never compete; the last two read
-%% `corrected` alone.
-%%
-%% REFUSED. Its second line is the declaration check's own header, so the
-%% author meets the same words here and at the refusal they would get by
-%% widening the signature by hand. The repair is ticket 70's, two members a
-%% head cannot tell apart need a tag, spelled as David put it in F25's Round 5:
-%% a named type whose members are records, so the compiler mints the tag and
-%% the author never writes one (ticket 26). The declarations carry placeholder
-%% names and sit under no "paste this" heading: the clauses must change too,
-%% and §2 has the compiler write heads, never bodies.
+%% `bs_check:corrected_signature/4` sets at most one of `indiscriminable`,
+%% `withheld` and `replaces`, so the first three clauses never compete. The
+%% final clauses read `corrected` alone. Record advice uses placeholder names,
+%% not pasteable declarations: clauses must change too. The compiler mints
+%% record tags; authors do not write them.
 correction_text(#{indiscriminable := #{member := M, beside := B, expanded := E} = I}) ->
     {Expansion, EArgs} = expansion_text("    ", E),
     {Advice, AArgs} = records_text(I),
     {"  Widening the signature to cover what the clauses return would be refused:~n"
      "    no clause head can tell `~s` from `~s`~n" ++ Expansion ++ Advice,
      [M, B] ++ EArgs ++ AArgs};
-%% WITHHELD (R2). A line that disappears with no word reads as the compiler
-%% having nothing to offer, which the author cannot tell from a defect.
 correction_text(#{withheld := Why}) when Why =/= none ->
     withheld_reason(Why);
-%% REPLACES (R3). The line drops the declared type because the new one
-%% contains it. The sentence that says where to look if the drop was not meant
-%% is the lead every message now opens with, so this says only what the line
-%% does.
 correction_text(#{corrected := Line, replaces := #{declared := D, within := New}}) ->
     {"  Otherwise, the signature its clauses justify:~n"
      "    ~s~n"
@@ -907,14 +656,9 @@ correction_text(#{corrected := Line}) ->
     {"  Otherwise, the signature its clauses justify:~n"
      "    ~s~n", [Line]}.
 
-%% The sentence for each `withheld` reason (R2). The last is the one no program
-%% is known to reach: `bs_check:as_pasted/2` caught something it does not name,
-%% which is a fault in the compiler and is reported as one rather than hidden.
-%%
-%% `unspellable` speaks of what the clauses return, not of "this residual":
-%% the correction is worked out once for the function, so the part without a
-%% spelling may belong to a different clause than the diagnostic it is printed
-%% on (ENG-346 review, a record beside `:oops`).
+%% Corrections cover the whole function: an unspellable return may come from
+%% another clause than the one carrying this diagnostic. Unexpected
+%% `bs_check:as_pasted/2` failures are reported as compiler defects.
 withheld_reason(unspellable) ->
     {"  no signature is offered: what the clauses return has no spelling as a type yet.~n", []};
 withheld_reason(declared_form) ->
@@ -934,10 +678,9 @@ expansion_text(Indent, Expanded) ->
     {lists:flatten([Indent ++ "(`~s` is `~s`)~n" || _ <- Expanded]),
      lists:append([[N, Is] || #{name := N, is := Is} <- Expanded])}.
 
-%% The named type of records (Round 5), whole, with the return it makes. Where
-%% none is shown, the sentence says why: a pair member inside a named type this
-%% line does not rewrite, or a declaration the check refused, which the
-%% construction is meant to rule out and so is a compiler defect.
+%% The named type of records, whole, with the return it makes. Where none is
+%% shown, the sentence says why: a pair member inside a named type this line
+%% does not rewrite, or a declaration the check refused — a compiler defect.
 records_text(#{declarations := Decls, returns := Returns}) when is_list(Decls) ->
     {"  so if both are meant, give each a record of its own and name the pair:~n"
      ++ lists:flatten(["    ~s~n" || _ <- Decls]) ++
@@ -956,41 +699,32 @@ records_text(#{no_declarations := #{refused_by := Reason}}) ->
 %%% ---------------------------------------------------------------------------
 %%% `not` in prefix position
 %%%
-%%% The hint is keyed on a shape, not on the token yecc reported, because the
-%%% two positions it covers fail at different tokens (ticket 63):
+%%% Keyed on shape, not on yecc's token: the two positions it covers fail at
+%%% different tokens — `(` after `not (n > 100)`, `>` after `not (value >
+%%% 100)`.
 %%%
-%%%     when not (n > 100)            syntax error before: '('
-%%%     int where not (value > 100)   syntax error before: '>'
-%%%
-%%% It cannot fire on a valid program: it runs only after the parse has
-%%% failed, and `not` followed by an operand cannot parse anyway, because
-%%% applying a variable would need an arrow and the language has no lambda
-%%% (F6). A bare `not` used as a variable, followed by an operator, a comma or
-%%% a bracket, is untouched. If lambdas ever arrive, `not (` becomes
-%%% parseable and this rule needs revisiting.
+%%% Runs only after a parse failure; `not` followed by an operand cannot parse
+%%% because the language has no lambda. A bare `not` used as a variable is
+%%% untouched. If lambdas arrive, this rule needs revisiting.
 %%% ---------------------------------------------------------------------------
 
-%% THE COMPARISON IS ON THE LINE ALONE, AND MUST STAY THAT WAY.
-%%
-%% Since F35 a position is `{Line, Column}`, and these two are different
-%% positions: `L` is where `not` sits and `Line` is where yecc stopped, which
-%% is the token AFTER it. Comparing whole locations therefore matches
-%% nothing — measured, and the failure is silent in the worst way: the taught
-%% `not` diagnostic degrades to a plain `syntax error before: '('`, which is
-%% the message ticket 63 exists to replace.
+%% The comparison is on the line alone and must stay that way. A position is
+%% `{Line, Column}`: `L` is where `not` sits, `Line` is where yecc stopped (the
+%% token after it). Comparing whole locations matches nothing — silently, so
+%% the diagnostic degrades to a plain syntax error.
 not_in_prefix_position([{lident, L, 'not'}, Next | Rest], Line) ->
     (line_of(L) =:= line_of(Line) andalso is_operand(Next))
         orelse not_in_prefix_position([Next | Rest], Line);
 not_in_prefix_position([_ | Rest], Line) -> not_in_prefix_position(Rest, Line);
 not_in_prefix_position([], _Line)        -> false.
 
-%% A location is a `{Line, Column}` pair from the lexer and a bare line from
-%% anything that predates F35 or reports without a column. Both answer this.
+%% A location is a `{Line, Column}` pair from the lexer, or a bare line from
+%% anything that reports without a column. Both are real inputs here.
 line_of({Line, _Column}) -> Line;
 line_of(Line)            -> Line.
 
-%% Only a declaration's position is asked for its column, and every
-%% declaration carries one (F35); a bare line here is a crash, not a guess.
+%% Only a declaration's position is asked for its column, and every declaration
+%% carries one. A bare line here is a crash, not a guess.
 column_of({_Line, Column}) -> Column.
 
 is_operand({'(', _})         -> true;
@@ -1001,38 +735,36 @@ is_operand({atom_lit, _, _}) -> true;
 is_operand(_)                -> false.
 
 %%% ---------------------------------------------------------------------------
-%%% message/1 — the single owner of every format string
+%%% message/1 — owner of every format string
 %%%
-%%% Every format string lives here and nowhere else, so prose changes in one
-%%% place. The tests, the gates and the shipping documents replay these
-%%% strings, and a change to one is a change to what they assert. This is a
-%%% weaker promise than `contractual/0` above, which freezes the payload
-%%% *shape* of seven tags (ticket 23 §4); no clause's prose is frozen by that
-%%% list, and not every string here is replayed by something.
+%%% Every format string lives here and nowhere else. The gate
+%%% `bin/check-diagnostics.sh` reads the literal headers most clauses write;
+%%% the six resolve-time conditions below are the deliberate exception, whose
+%%% position is optional. `contractual/0` freezes the payload shape of seven
+%%% tags; no clause's prose is frozen by that list, and not every string here
+%%% is replayed by something.
 %%% ---------------------------------------------------------------------------
 
-%% A CONDITION WHOSE POSITION IS OPTIONAL BUILDS ITS HEADER RATHER THAN
-%% WRITING IT.
+%% A condition whose position is optional builds its header rather than writing
+%% a literal. The six resolve-time conditions are found below the level that
+%% holds a position and are given one by `bs_check:at_loc/2` when the
+%% declaration they were found in has one. Both shapes are real: the positioned
+%% header carries three slots (file, line, column), the bare one carries one
+%% (file).
 %%
-%% The six resolve-time conditions are found below the level that holds a
-%% position and are given one by `bs_check:at_loc/2` when the declaration
-%% they were found in has one. That is most of the time and not all of it, so
-%% both shapes are real and the header is a function of which arrived:
-%% `~s:~p:~p: ` with a position, `~s: ` without.
-%%
-%% Every OTHER diagnostic carries a position always and writes its header as
-%% a literal, which is what `bin/check-diagnostics.sh` reads. These six are
-%% the deliberate exception, and they are the only ones: a clause that writes
-%% `~s:~p: ` literally is the gate's defect, because it drops a column the
-%% term beside it carries.
+%% Every other diagnostic carries a position always and writes its header as a
+%% literal, which is what the gate reads. These six are the only exception: a
+%% clause that writes the positioned header literally is a gate defect, because
+%% it drops a column the term beside it carries.
 placed(#{line := _, column := _}) -> "~s:~p:~p: ";
 placed(_)                         -> "~s: ".
 
 placed_args(#{file := P, line := L, column := C}) -> [P, L, C];
 placed_args(#{file := P})                         -> [P].
 
-%% `ToJson<T>`'s refusal, in three pieces (F50). A member at the top of `T`
-%% has no path to name.
+%% `ToJson<T>`'s refusal, in three pieces. A member at the top of `T` has no
+%% path to name.
+%% Rationale: compiler/features/F50-to-json.md.
 unencodable_at([])   -> "";
 unencodable_at(Segs) -> "in " ++ lists:append(Segs) ++ ", ".
 
@@ -1060,11 +792,9 @@ message(#{tag := inexhaustive, file := P, line := L, column := C, function := Fn
     {"~s:~p:~p: error: ~s is not exhaustive~n"
      "  no clause matches:~n~s",
      [P, L, C, Fn, heads_prose(Fn, Heads)]};
-%% A catch-all is legal only over an open residual, and this message has to
-%% carry a conditionally legal `_` to a reader from C# or TypeScript who has
-%% never met one. So it says why the residual is closed and hands back the
-%% cases: the residual is the missing case, so what makes the error
-%% legitimate is what answers it (ticket 12 §2, 04).
+%% A catch-all is legal only over an open residual. The message carries a
+%% conditionally legal `_` for a reader from C# or TypeScript: the residual is
+%% the missing case, so what makes the error legitimate is what answers it.
 message(#{tag := catch_all_over_closed, file := P, line := L, column := C, function := Fn,
           heads := Heads}) ->
     {"~s:~p:~p: error: ~s discards cases the compiler can name~n"
@@ -1075,7 +805,8 @@ message(#{tag := catch_all_over_closed, file := P, line := L, column := C, funct
      "  sender chooses the inhabitants and there is nothing to enumerate.~n",
      [P, L, C, Fn, heads_prose(Fn, Heads)]};
 %% The construct is a head's, so the message says where to put it rather than
-%% only that it is wrong (F2).
+%% only that it is wrong.
+%% Rationale: compiler/features/F2-interval-refinements.md.
 message(#{tag := relational_in_bind, file := P, line := L, column := C, function := Fn}) ->
     {"~s:~p:~p: error: ~s binds a relational pattern~n"
      "  `>= 4` names a span of values and introduces no name, so there~n"
@@ -1085,8 +816,8 @@ message(#{tag := relational_in_bind, file := P, line := L, column := C, function
      [P, L, C, Fn]};
 message(#{tag := no_clauses, file := P, line := L, column := C, function := Fn}) ->
     {"~s:~p:~p: error: ~s has a signature but no clauses~n", [P, L, C, Fn]};
-%% The wording is ticket 27 §2's own, which wrote it for a guard; a pattern
-%% tests a shape the same way. The two ways out are the ticket's too.
+%% The wording fits a pattern the same way it fits a guard: both test a shape a
+%% type variable has none. The two ways out are the same.
 message(#{tag := pattern_on_type_variable, file := P, line := L, column := C,
           function := Fn, type_variable := V, argument := I}) ->
     {"~s:~p:~p: error: ~s inspects a value whose type is the variable `~s`~n"
@@ -1111,9 +842,8 @@ message(#{tag := obligation_over_type_variable, file := P, line := L, column := 
      "  hint: take the value already validated — a parameter of type `~s` was"
      " checked by its caller — or name the concrete type to validate into~n",
      [P, L, C, Fn, Name, V, V, V]};
-%% Only a divisor proved to be zero is refused, and the message says so,
-%% because a reader's next question is whether every call site needs a
-%% non-zero proof. It does not (ticket 23 §2).
+%% Only a divisor proved to be zero is refused, so the message says so: a
+%% divisor that might be zero compiles and crashes at run time.
 message(#{tag := float_remainder, file := P, line := L, column := C, function := Fn}) ->
     {"~s:~p:~p: error: `%` in ~s has a `float` on both sides~n"
      "  `%` is the remainder over two `int`s; over two floats it has no meaning~n"
@@ -1137,39 +867,36 @@ message(#{tag := divide_by_zero, file := P, line := L, column := C, function := 
      "  prove is zero is refused, and this is one.~n",
      [P, L, C, Op, Fn, Op]};
 %% Not routed through `heads_prose/2`: that prints `Fn(:cancelled) -> ...`,
-%% and a switch has no function name and its arrow is `=>` (ticket 17 §6).
-%% That much was always right, and it is only about the WRAPPER — the pattern
-%% inside it is the head channel's, via `arms/2`. Until 2026-09-06 the whole
-%% arm was `to_pattern/1`'s, which is what ENG-312 named.
+%% and a switch has no function name and its arrow is `=>`. The pattern inside
+%% the wrapper is the head channel's, via `arms/2`.
 message(#{tag := switch_inexhaustive, file := P, line := L, column := C, function := Fn,
           arms := Arms} = D) ->
     {"~s:~p:~p: error: this switch in ~s is not exhaustive~n"
      "  no arm matches:~n~s",
      [P, L, C, Fn, arms_prose(Arms, D)]};
 %% A valve over a value with neither member of the short-circuit pair generates
-%% arms that can never match, but the author wrote no arms; they wrote the wrong
-%% operator, so the diagnostic names the right one (F14 §4).
+%% arms that can never match, but the author wrote no arms; they wrote the
+%% wrong operator, so the diagnostic names the right one.
 %%
-%% IT NAMES BOTH MEMBERS BECAUSE IT LOOKED FOR BOTH (F30, 2026-09-09). Naming
-%% `(:error, _)` alone told an author their type had no error member while the
-%% compiler had asked a wider question, and a type carrying `:nothing` and no
-%% error member is now accepted rather than refused.
+%% It names both members because it looked for both. Naming `(:error, _)` alone
+%% would tell an author their type had no error member while the compiler asked
+%% a wider question.
+%% Rationale: compiler/features/F30-valve-short-circuit-set.md.
 message(#{tag := valve_on_infallible, file := P, line := L, column := C, function := Fn,
           subject := Ty}) ->
     {"~s:~p:~p: error: this |?> in ~s is over a value that cannot fail~n"
      "  ~s has no (:error, _) or :nothing member, so the valve would never stop.~n"
      "  Write |> instead.~n",
      [P, L, C, Fn, Ty]};
-%% Arm, not clause: a construct with no clauses in it cannot be told which
-%% clause is dead.
+%% Arm, not clause: a construct with no clauses cannot be told which clause is
+%% dead.
 message(#{tag := unreachable_arm, file := P, line := L, column := C, function := Fn,
           arm_number := N}) ->
     {"~s:~p:~p: warning: arm ~p of this switch in ~s is unreachable~n"
      "  every value it matches is matched by an earlier arm.~n",
      [P, L, C, N, Fn]};
-%% "Arm" is not the only word that changes from the clause pair: an arm has a
-%% third repair, because the subject is right there and may itself be the
-%% mistake (ENG-269).
+%% An arm has a third repair, because the subject is right there and may itself
+%% be the mistake.
 message(#{tag := vacuous_arm, file := P, line := L, column := C, function := Fn,
           arm_number := N, domain := Dom}) ->
     {"~s:~p:~p: warning: arm ~p of this switch in ~s matches no value~n"
@@ -1177,8 +904,8 @@ message(#{tag := vacuous_arm, file := P, line := L, column := C, function := Fn,
      "  member of it — so no value reaching this switch can take~n"
      "  this arm.~n",
      [P, L, C, N, Fn, Dom]};
-%% This one must not name the type: the pattern is a good member of it, and
-%% the guard is what admits nothing.
+%% Must not name the type: the pattern is a good member of it, and the guard is
+%% what admits nothing.
 message(#{tag := unsatisfiable_arm_guard, file := P, line := L, column := C, function := Fn,
           arm_number := N}) ->
     {"~s:~p:~p: warning: arm ~p of this switch in ~s has an unsatisfiable guard~n"
@@ -1186,28 +913,26 @@ message(#{tag := unsatisfiable_arm_guard, file := P, line := L, column := C, fun
      "  guard that admits nothing. Widen the guard, or delete the arm.~n",
      [P, L, C, N, Fn]};
 %% A guard shares the whole expression grammar, so a switch parses inside one
-%% and is refused here rather than in the grammar (F7).
+%% and is refused here rather than in the grammar.
+%% Rationale: compiler/features/F7-switch.md.
 message(#{tag := switch_in_guard, file := P, line := L, column := C, function := Fn}) ->
     {"~s:~p:~p: error: ~s has a switch in a guard~n"
      "  a guard asks a question about the values a clause already~n"
      "  matched; it cannot branch. Move the switch into the body.~n",
      [P, L, C, Fn]};
-%% Same reason as the switch above: a guard shares the whole expression grammar,
-%% so a raise parses inside one and is refused here rather than in the grammar.
-%% The repair names the body because that is where a crash belongs — the guard
-%% chooses a clause, and a clause that should crash is a clause whose body is
-%% the raise (ticket 12 §5).
+%% Same reason as the switch above: a guard shares the whole expression
+%% grammar, so a raise parses inside one and is refused here rather than in the
+%% grammar. The repair names the body because that is where a crash belongs.
 message(#{tag := raise_in_guard, file := P, line := L, column := C, function := Fn}) ->
     {"~s:~p:~p: error: ~s raises in a guard~n"
      "  a guard chooses which clause runs; it cannot crash. Move~n"
      "  the raise into the body of the clause it should fail.~n",
      [P, L, C, Fn]};
-%% The fourth thing a guard cannot do (F41, ENG-256). Erlang admits only its
-%% guard BIFs in a guard, never a user function, and B# inherits that (ticket
-%% 63 Q4). The repair names the body and a switch because that is the shape the
-%% author's guard was reaching for: `when IsAdmin(u) == :yes` is a branch on an
-%% answer, and a switch on `IsAdmin(u)` in the body is that branch, typed and
-%% checked for exhaustiveness. Nothing here promises a named-guard form.
+%% A guard may run only the BEAM's guard BIFs, never a user function; B#
+%% inherits that from Erlang. The repair names the body and a switch because
+%% that is the shape the author's guard was reaching for. Nothing here promises
+%% a named-guard form.
+%% Rationale: compiler/features/F41-call-in-guard.md.
 message(#{tag := call_in_guard, file := P, line := L, column := C, function := Fn,
           callee := Callee}) ->
     {"~s:~p:~p: error: ~s calls ~s in a guard~n"
@@ -1215,8 +940,8 @@ message(#{tag := call_in_guard, file := P, line := L, column := C, function := F
      "  matched; it cannot call a function. Move the call into the~n"
      "  body and switch on its answer.~n",
      [P, L, C, Fn, Callee]};
-%% The foreign case says why THIS call and not `:erlang.byte_size`: the set is
-%% the BEAM's, and the author may well know it.
+%% The foreign case says why this call and not `:erlang.byte_size`: the set is
+%% the BEAM's, and the author may know it.
 message(#{tag := foreign_call_in_guard, file := P, line := L, column := C,
           function := Fn, callee := Callee}) ->
     {"~s:~p:~p: error: ~s calls ~s in a guard~n"
@@ -1229,27 +954,25 @@ message(#{tag := unreachable_clause, file := P, line := L, column := C, function
     {"~s:~p:~p: warning: clause ~p of ~s is unreachable~n"
      "  every value it matches is matched by an earlier clause.~n",
      [P, L, C, N, Fn]};
-%% Neither of the next two has an earlier clause covering it, so neither may
-%% borrow `unreachable_clause`'s wording. This one names the type, because
-%% the pattern is not a member of it and that is what the author got wrong:
-%% `option<T>` is `T | :nothing`, untagged, so a `(:some, x)` brought from
-%% C#, Rust or F# matches nothing at all (ENG-259).
+%% Names the type, because the pattern is not a member of it: `option<T>` is `T
+%% | :nothing`, untagged, so a `(:some, x)` brought from C#, Rust or F# matches
+%% nothing.
 message(#{tag := vacuous_clause, file := P, line := L, column := C, function := Fn,
           clause_number := N, domain := Dom}) ->
     {"~s:~p:~p: warning: clause ~p of ~s matches no value of its input~n"
      "  the declared input is ~s, and this clause's pattern is not~n"
      "  a member of it — so no call can reach this clause.~n",
      [P, L, C, N, Fn, Dom]};
-%% This one must not name the type: the pattern is a good member of it, and
-%% the guard is what admits nothing.
+%% Must not name the type: the pattern is a good member of it, and the guard is
+%% what admits nothing.
 message(#{tag := unsatisfiable_guard, file := P, line := L, column := C, function := Fn,
           clause_number := N}) ->
     {"~s:~p:~p: warning: clause ~p of ~s has a guard no value satisfies~n"
      "  the pattern is a member of the input; it is the guard that~n"
      "  admits nothing. Widen the guard, or delete the clause.~n",
      [P, L, C, N, Fn]};
-%% Both of the next two would otherwise reach the author as an `erlc` error
-%% against the emitted `.abstr`, a file they did not write (ticket 34).
+%% Would otherwise reach the author as an `erlc` error against the emitted
+%% `.abstr`, a file they did not write.
 message(#{tag := rebinding, file := P, line := L, column := C, function := Fn, name := V}) ->
     {"~s:~p:~p: error: ~s binds ~s twice~n"
      "  a name means one thing in a clause. There is no mutation to~n"
@@ -1257,7 +980,8 @@ message(#{tag := rebinding, file := P, line := L, column := C, function := Fn, n
      [P, L, C, Fn, V]};
 %% The same offence as `rebinding` and a different fix, hence a different tag:
 %% in a body you rename, in a head you almost always meant the same value
-%% again, spelled `== x` (F8.10, ticket 45).
+%% again, spelled `== x`.
+%% Rationale: compiler/features/F8-bind-and-match.md.
 message(#{tag := repeated_in_head, file := P, line := L, column := C, function := Fn,
           name := V}) ->
     {"~s:~p:~p: error: ~s binds ~s twice in one head~n"
@@ -1270,9 +994,8 @@ message(#{tag := unbound_variable, file := P, line := L, column := C, function :
     {"~s:~p:~p: error: ~s uses ~s, which nothing binds~n"
      "  a name comes from a clause head or a binding above it.~n",
      [P, L, C, Fn, V]};
-%% The residual is the clause the caller must write: the fix proposed is an
-%% edit to the function being checked, never to the callee (ticket 33 site
-%% 1; 18 §4's function-local rule).
+%% The residual is the clause the caller must write: the fix is an edit to the
+%% function being checked, never to the callee.
 message(#{tag := arg_not_accepted, file := P, line := L, column := C, function := Fn,
           callee := Callee, position := Pos, rejected := Rejected,
           caller_head := Head}) ->
@@ -1282,10 +1005,7 @@ message(#{tag := arg_not_accepted, file := P, line := L, column := C, function :
      [P, L, C, Fn, Callee, Pos, Callee, Rejected, caller_head_prose(Fn, Head)]};
 %% Answered in field names, because `Order{Id} \ Order` would name the type
 %% being built rather than the field forgotten. The verb is read from the
-%% form: "builds an Order with the wrong fields" is false of a `with` that
-%% invented a name, while the `Extra` sentence already fits both and
-%% `field_list/2` renders an empty `Missing` as nothing (ticket 33 site 2,
-%% 36, 23).
+%% form; `field_list/2` renders an empty `Missing` as nothing.
 message(#{tag := field_set_mismatch, file := P, line := L, column := C, function := Fn,
           record := Record, form := Form, missing := Missing, extra := Extra}) ->
     {"~s:~p:~p: error: ~s ~s an ~s with the wrong fields~n~s~s",
@@ -1301,7 +1021,8 @@ message(#{tag := field_value_not_accepted, file := P, line := L, column := C, fu
      "    ~s~n",
      [P, L, C, Fn, Field, Record, Field, Rejected]};
 %% The residual is the member that lacks the field, which is the tag to
-%% discriminate on (ticket 33 site 3, F3.8).
+%% discriminate on.
+%% Rationale: compiler/features/F3-records.md.
 message(#{tag := field_absent, file := P, line := L, column := C, function := Fn,
           form := projection, field := Field, member := Member}) ->
     {"~s:~p:~p: error: ~s projects ~s from a value that may not carry it~n"
@@ -1311,8 +1032,7 @@ message(#{tag := field_absent, file := P, line := L, column := C, function := Fn
      [P, L, C, Fn, Field, Field, Member]};
 %% The member handed back is either one arm of a union or the whole subject,
 %% and the fix differs: the first is discriminated on, the second has no tag
-%% and needs a record where an int is. So the line names both edits
-%% (ENG-249, ticket 23 §4).
+%% and needs a record. The line names both edits.
 message(#{tag := field_absent, file := P, line := L, column := C, function := Fn,
           form := update, field := Field, member := Member}) ->
     {"~s:~p:~p: error: ~s updates ~s on a value that may not carry it~n"
@@ -1321,16 +1041,14 @@ message(#{tag := field_absent, file := P, line := L, column := C, function := Fn
      "  `with` updates a record: give it one, or discriminate on the tag~n"
      "  first, in a clause head.~n",
      [P, L, C, Fn, Field, Field, Member]};
-%% Without this, the emitted `-spec` would claim what the body does not
-%% deliver (ticket 33 site 4, 18). The residual answers what is not covered
-%% and `correction_text/1` answers what to write, added beside the residual
-%% and never substituted for it (F25, ticket 23 §8).
+%% Without this the emitted `-spec` would claim what the body does not deliver.
+%% The residual answers what is not covered and `correction_text/1` answers
+%% what to write, added beside the residual and never substituted for it.
 %%
-%% EVERY ONE LEADS WITH THE CLAUSE (ENG-346 Round 3, David: "all"). The
-%% signature states intent and the compiler holds the clauses to it, as
-%% exhaustiveness does for the inputs. The widened line is offered after it.
-%% Written as realistic code, the clause was the likelier fix in four of six
-%% cases (`wayfinder/prototypes/f25-corrected-signature-in-real-code.md`).
+%% Every one leads with the clause: the signature states intent and the
+%% compiler holds the clauses to it, as exhaustiveness does for the inputs. The
+%% widened line is offered after it.
+%% Rationale: compiler/features/F25-corrected-signature.md.
 message(#{tag := return_not_declared, file := P, line := L, column := C, function := Fn,
           undeclared := Undeclared, declared := Declared} = D) ->
     {Fmt, Args} = correction_text(D),
@@ -1341,7 +1059,7 @@ message(#{tag := return_not_declared, file := P, line := L, column := C, functio
      ++ float_spelling(Undeclared, Declared) ++ Fmt,
      [P, L, C, Fn, Undeclared, Declared | Args]};
 %% A destructuring bind is allowed exactly when this residual is empty, so it
-%% is provably irrefutable (ticket 33 site 5, 34).
+%% is provably irrefutable.
 message(#{tag := bind_may_fail, file := P, line := L, column := C, function := Fn,
           unmatched := Unmatched}) ->
     {"~s:~p:~p: error: this bind in ~s can fail~n"
@@ -1350,9 +1068,9 @@ message(#{tag := bind_may_fail, file := P, line := L, column := C, function := F
      "  a bind that can fail is a branch the exhaustiveness checker~n"
      "  never sees. Match it in a clause head instead.~n",
      [P, L, C, Fn, Unmatched]};
-%% A function as a value (ticket 75, F46). The lambda's message names the
-%% two ways out the ticket decided; the bare name's names the spelling that
-%% picks an arity.
+%% A function as a value. The lambda's message names the two ways out; the bare
+%% name's names the spelling that picks an arity.
+%% Rationale: compiler/features/F46-function-as-a-value.md.
 message(#{tag := lambda_without_expectation, file := P, line := L, column := C,
           function := Fn}) ->
     {"~s:~p:~p: error: a lambda in ~s has no arrow to take its type from~n"
@@ -1425,8 +1143,9 @@ message(#{tag := lambda_in_guard, file := P, line := L, column := C, function :=
      "  matched; it cannot build a function. Move it into the body.~n",
      [P, L, C, Fn]};
 %% Reported as `unknown_callee` this would say the function does not exist,
-%% when it is one word away from callable; that is why `bs_check:exports_of/1`
-%% does not simply filter private functions out (F12, ticket 40 §3).
+%% when it is one word away from callable; that is why
+%% `bs_check:exports_of/1` does not simply filter private functions out.
+%% Rationale: compiler/features/F12-public-and-private.md.
 message(#{tag := private_function, file := P, line := L, column := C, function := Fn,
           module := Mod, callee := Callee, arity := Arity}) ->
     {"~s:~p:~p: error: ~s calls ~s/~p, which ~s declares `private`~n"
@@ -1443,8 +1162,8 @@ message(#{tag := arity_mismatch, file := P, line := L, column := C, function := 
     {"~s:~p:~p: error: ~s calls ~s with ~p arguments, and it takes ~p~n",
      [P, L, C, Fn, Callee, Got, Want]};
 %% Arity overloading is permitted, so this is not "wrong number of arguments"
-%% but a function not declared, beside ones that are. Naming the arities that
-%% do exist keeps it a fix rather than a verdict (ticket 40 §2).
+%% but a function not declared beside ones that are. Naming the arities that do
+%% exist keeps it a fix rather than a verdict.
 message(#{tag := arity_not_declared, file := P, line := L, column := C, function := Fn,
           callee := Callee, got := Got, declared := Have}) ->
     {"~s:~p:~p: error: ~s calls ~s/~p, which nothing declares~n"
@@ -1453,9 +1172,9 @@ message(#{tag := arity_not_declared, file := P, line := L, column := C, function
      [P, L, C, Fn, Callee, Got, Callee,
       lists:join(", ", [[$/ | integer_to_list(A)] || A <- Have]),
       Callee, Got]};
-%% The three reserved-qualifier refusals (ticket 67). The first names the
-%% spellings that are still legal, because only the bare name is taken and an
-%% author just refused needs to know `Shop.Collections.List` remains open.
+%% Names the spellings still legal, because only the whole module name is taken
+%% and an author just refused needs to know `Shop.Collections.List` remains
+%% open.
 message(#{tag := reserved_module_name, file := P, line := L, column := C, module := Mod}) ->
     {"~s:~p:~p: error: `~s` is a reserved qualifier, so no module may be called it~n"
      "  `~s.` names operations the compiler knows and inlines at the site;~n"
@@ -1463,8 +1182,8 @@ message(#{tag := reserved_module_name, file := P, line := L, column := C, module
      "  taken only as a WHOLE module name — `Shop.~s` is still legal, and~n"
      "  so is any other path with `~s` as a segment.~n",
      [P, L, C, Mod, Mod, Mod, Mod]};
-%% The second is `ambiguous_module`'s shape with a compiler-known claimant:
-%% both meanings named, the full path handed over as the fix.
+%% `ambiguous_module`'s shape with a compiler-known claimant: both meanings
+%% named, the full path handed over as the fix.
 message(#{tag := reserved_qualifier_shadowed, file := P, line := L, column := C,
           function := Fn, qualifier := Q, operation := Op,
           candidates := Mods}) ->
@@ -1477,9 +1196,9 @@ message(#{tag := reserved_qualifier_shadowed, file := P, line := L, column := C,
      [P, L, C, Fn, Q, Op, Q, Q,
       [io_lib:format("    ~s.~s(...)~n", [M, Op]) || M <- Mods],
       Q, Op]};
-%% The third stops an unknown operation falling through to
-%% `module_not_imported`, whose "add `using List`" is the one fix that can
-%% never work for a reserved qualifier.
+%% Stops an unknown operation falling through to `module_not_imported`, whose
+%% "add `using List`" is the one fix that can never work for a reserved
+%% qualifier.
 message(#{tag := unknown_reserved_operation, file := P, line := L, column := C,
           function := Fn, qualifier := Q, operation := Op, got := Got,
           declared := []}) ->
@@ -1500,16 +1219,17 @@ message(#{tag := unknown_record, file := P, line := L, column := C, function := 
           record := Name}) ->
     {"~s:~p:~p: error: ~s builds an ~s, which no record or type declares~n",
      [P, L, C, Fn, Name]};
-%% `_` is an expression only so that `(a, _) = pair` parses (F5), so its use
-%% as a value is caught here rather than by `erlc` against a file the author
-%% did not write (F4.7).
+%% `_` is an expression only so that `(a, _) = pair` parses, so its use as a
+%% value is caught here rather than by `erlc` against a file the author did not
+%% write.
+%% Rationale: compiler/features/F5-body-check-site.md.
 message(#{tag := wildcard_as_value, file := P, line := L, column := C, function := Fn}) ->
     {"~s:~p:~p: error: ~s uses `_` as a value~n"
      "  `_` is a pattern. It may stand on the left of `=` or in a~n"
      "  clause head; it names nothing to read back.~n",
      [P, L, C, Fn]};
 
-%%% --- the codegen-obligation refusals (F18) ---------------------------------
+%%% --- the codegen-obligation refusals ---------------------------------------
 
 %% The message says why rather than only what, because the rule is not
 %% obvious and the fix is to want something else entirely.
@@ -1523,8 +1243,8 @@ message(#{tag := validate_collapses, file := P, line := L, column := C, function
      "  write the failure clause. Validate against the type you actually~n"
      "  expect.~n",
      [P, L, C, Fn, Ty]};
-%% The declaration is legal (ticket 70); the objection is to validating into
-%% it, so the repair is a different target rather than a different type.
+%% The declaration is legal; the objection is to validating into it, so the
+%% repair is a different target rather than a different type.
 message(#{tag := validate_indiscriminable, file := P, line := L, column := C,
           function := Fn, type := Ty, member := M, beside := B}) ->
     {"~s:~p:~p: error: ~s validates into a union whose members no clause head can tell apart~n"
@@ -1538,18 +1258,19 @@ message(#{tag := validate_indiscriminable, file := P, line := L, column := C,
 %% Says the compiler is not ready, not that the pattern is wrong:
 %% `{ Status: s }` is a member of `map<atom, term>`, so "matches no value"
 %% would be false.
-%% THE ADVICE IS THE FEATURE. `mixed_operands` next door offers the int
+%%
+%% The advice is the feature. `mixed_operands` next door offers the int
 %% literal's float spelling — "write `0.0`" — and over a union that spelling is
-%% refused too, by the symmetry of ticket 80's no-flow rule. So this message
-%% names ticket 84's dispatch and nothing else, and prints the two heads in
-%% the syntax the author writes them in, which `check-advice-compiles.sh`
-%% pastes back and compiles.
+%% refused too, by the no-flow rule. So this message names dispatch and nothing
+%% else, and prints the two heads in the syntax the author writes them in,
+%% which `check-advice-compiles.sh` pastes back and compiles.
 %%
 %% The parts are `int` and `float` by construction: the refusal fires only
 %% where both are present and nothing else is (`numeric_union/1`).
+%% Rationale: compiler/features/F53-numeric-union-dispatch.md.
 message(#{tag := numeric_union_operand, file := P, line := L, column := C,
           function := Fn, op := Op, side := Side, type := Ty} = D) ->
-    %% The advised heads are a format FRAGMENT, built by `union_heads/2` from
+    %% The advised heads are a format fragment, built by `union_heads/2` from
     %% the function's real parameter list — every position, with the author's
     %% own names — so what is printed is a clause they can paste. Where no
     %% parameter carries the union there is no head to write and the fragment
@@ -1571,15 +1292,13 @@ message(#{tag := type_prefix_nested, file := P, line := L, column := C}) ->
      [P, L, C]};
 message(#{tag := type_prefix_undecidable, file := P, line := L, column := C,
           type := Ty, reason := Why}) ->
-    %% The reason is a FORMAT FRAGMENT concatenated into the format string,
+    %% The reason is a format fragment concatenated into the format string,
     %% not an argument: `~s` takes bytes, and a sentence carrying an em dash
     %% is a `badarg` there. `float_spelling/2` above is built the same way.
     Because =
         case Why of
-            %% `map<K, V>`'s refusal, in `map<K, V>`'s words — including the
-            %% sentence that makes it temporary. LANGUAGE.md: "`Slot` can be
-            %% declared, passed and returned and never matched on", and "this
-            %% refusal is temporary by construction, and says so".
+            %% `map<K, V>`'s refusal, including the sentence that makes it
+            %% temporary: it lifts when a pattern form for it ships.
             {narrower, Bif} ->
                 "  `" ++ atom_to_list(Bif) ++ "` is true of more values than `" ++ Ty
                     ++ "` holds,~n  so one test does not decide it: it can be"
@@ -1620,9 +1339,10 @@ message(#{tag := map_pattern_deferred, file := P, line := L, column := C, functi
      "  are known.~n",
      [P, L, C, Fn, Subject, Ty, Where]};
 %% `ToExistingAtom` takes no type argument — its result is fixed — so the
-%% sentence that ends "Write `Name<T>(x)`" would, for that name, advise the
-%% form the same compiler just refused: F19's shape, which
-%% `check-advice-compiles.sh` exists for. It gets its own sentence (F54).
+%% sentence that ends "Write `Name<T>(x)`" would advise the form the compiler
+%% just refused. It gets its own sentence, which `check-advice-compiles.sh`
+%% exists to catch.
+%% Rationale: compiler/features/F54-to-existing-atom.md.
 message(#{tag := obligation_arity, file := P, line := L, column := C, function := Fn,
           obligation := 'ToExistingAtom', type_args := Types, args := Args}) ->
     {"~s:~p:~p: error: ~s writes ToExistingAtom with ~p type arguments and ~p values~n"
@@ -1652,9 +1372,10 @@ message(#{tag := obligation_unbuilt, file := P, line := L, column := C, function
      [P, L, C, Fn, Name,
       lists:join(", ", [atom_to_list(N) || N <- Built])]};
 %% `ParseAtom<T>` reads `T`'s members to generate the parse, so a type with no
-%% enumerable member list is refused at the call (ticket 10 §4). The message
-%% names the whole type rather than its atom part, because the mixed case —
-%% `:a | int`, whose atom part IS finite — is the one an author will not see.
+%% enumerable member list is refused at the call. The message names the whole
+%% type rather than its atom part, because the mixed case — `:a | int`, whose
+%% atom part is finite — is the one an author will not see.
+%% Rationale: compiler/features/F39-parse-atom.md.
 message(#{tag := parse_atom_not_finite, file := P, line := L, column := C, function := Fn,
           type := Ty}) ->
     {"~s:~p:~p: error: ~s parses into ~s, which is not a finite set of atoms~n"
@@ -1673,9 +1394,9 @@ message(#{tag := parse_atom_arg, file := P, line := L, column := C, function := 
      "  argument must be a `string` or a `binary`.~n"
      "  A `term` from a boundary is matched into one first.~n",
      [P, L, C, Fn, Ty]};
-%% The argument flows into the result here — the failure carries the name
-%% as a `string` — so a `binary` is refused as well as a `term`, and the
-%% sentence names the way from each to a `string` (F54).
+%% The argument flows into the result here — the failure carries the name as a
+%% `string` — so a `binary` is refused as well as a `term`, and the sentence
+%% names the way from each to a `string`.
 message(#{tag := to_existing_atom_arg, file := P, line := L, column := C, function := Fn,
           type := Ty}) ->
     {"~s:~p:~p: error: ~s hands ToExistingAtom a ~s, and it looks up a string~n"
@@ -1687,7 +1408,7 @@ message(#{tag := to_existing_atom_arg, file := P, line := L, column := C, functi
      "  `ValidateAs<string>`.~n",
      [P, L, C, Fn, Ty]};
 %% The member and the path to it, then the repair that kind of member has.
-%% The term carries the path as segments, so it is joined only here (F50).
+%% The term carries the path as segments, so it is joined only here.
 message(#{tag := unencodable_member, function := Fn, type := Ty, path := Segs,
           member := M, kind := Kind} = D) ->
     {placed(D) ++ "error: ~s calls ToJson over a type with no wire form~n"
@@ -1731,7 +1452,8 @@ message(#{tag := lex_error, file := P, line := L, column := C, detail := D}) ->
 message(#{tag := parse_error, file := P, line := L, column := C, detail := D}) ->
     {"~s:~p:~p: error: ~s~n", [P, L, C, D]};
 %% The refusal names what to write instead: every comparison the guard
-%% fragment admits has an opposite already in the language (ticket 63).
+%% fragment admits has an opposite already in the language.
+%% Rationale: compiler/features/F27-no-negation.md.
 message(#{tag := no_negation, file := P, line := L, column := C, spelling := S}) ->
     {"~s:~p:~p: error: beam-sharp has no `~s`~n"
      "  negation is not an operator here. A guard and a refinement are built~n"
@@ -1771,7 +1493,8 @@ message(#{tag := unknown_behaviour, file := P, behaviour := B}) ->
      [P, B]};
 %% A reachable module declares the name: the fix is a `using` line or the
 %% qualified spelling, both named, rather than a declaration the author would
-%% be writing twice (ticket 73, F44).
+%% be writing twice.
+%% Rationale: compiler/features/F44-type-names-cross-using.md.
 message(#{tag := unknown_type, type := N, suppliers := Mods} = D) ->
     {placed(D) ++ "error: no type named ~s~n"
      "  it is declared elsewhere; bring it in, or name where it lives:~n"
@@ -1800,25 +1523,24 @@ message(#{tag := ambiguous_type, type := N, candidates := Mods} = D) ->
      placed_args(D) ++
          [N, length(Mods), [io_lib:format("    ~s.~s~n", [M, N]) || M <- Mods]]};
 %% The fix is named because the alternative always exists: a property pattern
-%% constrains fields without naming a type at all (F22).
-%% THE SECOND SENTENCE IS F53'S. An uppercase prefix still needs a minted tag,
-%% and since ticket 84 a LOWERCASE one names a part instead — so an author who
-%% wrote `Amount a` over `type Amount = int | float` is told the form exists
-%% and how to spell it, rather than only that this is not it.
+%% constrains fields without naming a type at all. An uppercase prefix still
+%% needs a minted tag, and a lowercase one names a part instead, so an author
+%% over `type Amount = int | float` is told the form exists and how to spell
+%% it.
+%% Rationale: compiler/features/F22-record-pattern-and-binder.md.
 message(#{tag := not_a_record, file := P, line := L, column := C, type := N}) ->
     {"~s:~p:~p: error: ~s is not a record, so it cannot name a pattern~n"
      "  only a `record` declaration mints the tag a type prefix matches on.~n"
-     %% Named as a FORM and not as a head: this refusal does not know the
+     %% Named as a form and not as a head: this refusal does not know the
      %% function's parameters, so a printed clause would be advice it cannot
-     %% guarantee compiles — which is the fault `check-advice-compiles.sh`
-     %% exists to catch one message over.
+     %% guarantee compiles. `check-advice-compiles.sh` catches that fault in
+     %% the messages that do print a clause.
      "  a part is named by the part itself, lowercase — one clause taking~n"
      "  `int` beside one taking `float`.~n"
      "  to constrain fields without naming a type, write `{ Field: ... }`.~n",
      [P, L, C, N]};
-%% Shaped on `field_set_mismatch`'s "not declared by Order" sentence, the
-%% same mistake at a different site, and it hands back the field list (F22,
-%% ticket 23).
+%% Shaped on `field_set_mismatch`'s "not declared by Order" sentence, the same
+%% mistake at a different site, and it hands back the field list.
 message(#{tag := pattern_field_unknown, file := P, line := L, column := C, record := R,
           field := F, declared := Declared}) ->
     {"~s:~p:~p: error: ~s is not declared by ~s~n"
@@ -1860,7 +1582,8 @@ message(#{tag := cyclic_type, type := N} = D) ->
      "  tuple, a list, or a record field), or drop it.~n",
      placed_args(D) ++ [N]};
 %% The recursion is through a constructor, so `cyclic_type` does not apply;
-%% what fails is regularity, and the message names the repair as well (F28).
+%% what fails is regularity, and the message names the repair as well.
+%% Rationale: compiler/features/F28-recursive-types.md.
 message(#{tag := non_regular_recursion, file := P, type := N}) ->
     {"~s: error: ~s recurs at a different type argument each time~n"
      "  the recursion passes through a constructor, so the definition is~n"
@@ -1870,11 +1593,11 @@ message(#{tag := non_regular_recursion, file := P, type := N}) ->
      "  Recur at the SAME argument (`~s<X>` inside `~s<X>`), or give the~n"
      "  inner position a concrete type.~n",
      [P, N, N, N]};
-%% THREE MESSAGES, BECAUSE THE HINT IS NOT ONE HINT. "tag it" repairs an
+%% Three messages, because the hint is not one hint. "tag it" repairs an
 %% absorbed `:nothing`, is nonsense about an absorbed `(:error, E)` which is
-%% already tagged, and is nonsense again about `binary | string`, which is not
-%% a failure channel at all (F31 wrote the first; ticket 68 Q3 added the
-%% third and made all three one tag).
+%% already tagged, and is nonsense again about `binary | string`, which is
+%% not a failure channel at all.
+%% Rationale: compiler/features/F31-collapse-at-the-declaration.md.
 message(#{tag := absorbed_member, file := P, line := L, column := C,
           where := W, channel := nothing, member := M, absorbed_by := A}) ->
     {"~s:~p:~p: error: `~s` is absorbed by `~s`~n"
@@ -1895,12 +1618,12 @@ message(#{tag := absorbed_member, file := P, line := L, column := C,
      "  repairs nothing: narrow the success type until it cannot hold an~n"
      "  `(:error, ...)` of its own.~n",
      [P, L, C, M, A, W, A]};
-%% THE GENERAL CASE, AND THE REPAIR IS A FORK ON PURPOSE. `binary | string`
+%% The general case, and the repair is a fork on purpose. `binary | string`
 %% normalises to `binary`, so the mechanical repair is to delete the member —
 %% and that is almost certainly not what the author meant, since someone who
 %% writes `binary | string` wanted either-or. The compiler knows the type and
-%% cannot know the intent, so it states the type as FACT and offers both
-%% repairs rather than guessing (68 Q3).
+%% cannot know the intent, so it states the type as fact and offers both
+%% repairs rather than guessing.
 message(#{tag := absorbed_member, file := P, line := L, column := C,
           where := W, channel := none, member := M, absorbed_by := A}) ->
     {"~s:~p:~p: error: `~s` is absorbed by `~s`~n"
@@ -1910,9 +1633,9 @@ message(#{tag := absorbed_member, file := P, line := L, column := C,
      "  Delete the absorbed member, or narrow the one absorbing it -~n"
      "  which of those you meant is not something the compiler can tell.~n",
      [P, L, C, M, A, W, M, A, A]};
-%% THE REFUSAL THAT EXPIRES. It names the pattern grammar rather than the
-%% type, because the members are fine: nothing can reach them YET. When a map
-%% pattern form ships this stops firing with no edit here (68 Q2(a)).
+%% The refusal that expires. It names the pattern grammar rather than the type,
+%% because the members are fine: nothing can reach them yet. When a map pattern
+%% form ships this stops firing with no edit here.
 message(#{tag := indiscriminable_union, file := P, line := L, column := C,
           where := W, member := M, beside := B}) ->
     {"~s:~p:~p: error: no clause head can tell `~s` from `~s`~n"
@@ -1948,7 +1671,8 @@ message(#{tag := relational_pattern_nested, file := P, line := L, column := C}) 
      "  pattern, a tuple or a list it is not built yet — write the~n"
      "  comparison as a guard there: `when o.Total > 100`.~n",
      [P, L, C]};
-%%% The binary segment refusals (F13).
+%%% --- the binary segment refusals ---
+%% Rationale: compiler/features/F13-binary-patterns.md.
 message(#{tag := unsized_segment_not_last, file := P, line := L, column := C}) ->
     {"~s:~p:~p: error: a segment with no width is the REMAINDER~n"
      "  so it can only come last — anything after it would never~n"
@@ -2068,11 +1792,12 @@ message(#{tag := src_root_is_the_module, directory := Dir}) ->
      "  its name from. Name the root one level up.~n",
      [Dir]};
 
-%%% --- the remainder ---------------------------------------------------------
+%%% --- the remainder ---
 %%%
-%%% No catch-all beyond this one, which only the `unclassified` tag reaches.
-%%% A tag with no clause here crashes rather than rendering generic prose, so
-%%% a new diagnostic cannot ship looking as if it had a message (F16.7).
+%%% No catch-all beyond this one, which only the `unclassified` tag reaches. A
+%%% tag with no clause here crashes rather than rendering generic prose, so a
+%%% new diagnostic cannot ship looking as if it had a message.
+%%% Rationale: compiler/features/F16-diagnostic-as-a-term.md.
 
 message(#{tag := unclassified, file := P, detail := D}) ->
     {"~s: ~p~n", [P, D]}.
@@ -2083,13 +1808,13 @@ message(#{tag := unclassified, file := P, detail := D}) ->
 %%% The compiler synthesises the head, never the body: a head is derived from
 %%% the residual and cannot be wrong, while a body is a guess, and one bad
 %%% suggestion poisons every good one. Lowering a set to a pattern plus guard
-%%% is a real compilation step, so it lives here and consumers never each
-%%% invert it differently (ticket 23 §2).
+%%% is a real compilation step, so it lives here and consumers never invert it
+%%% differently.
 %%%
 %%% The term carries every head and the prose carries three: the descriptor
 %%% holds the residual's parts, per argument, per product, never finished
 %%% text, because prose cannot be a pure function of a term truncated before
-%%% it arrived (ticket 43).
+%%% it arrived.
 %%% ---------------------------------------------------------------------------
 
 %% The residual's tuple part is the argument list, so each product is a clause
@@ -2106,8 +1831,8 @@ heads(Fn, Residual, Names) ->
             %% invites a consumer to render an empty suggestion. The split is
             %% per product, because a residual can be part spellable and part
             %% not, and reporting only the heads would show clauses that do
-            %% not cover the residual; the rest travels in `description`
-            %% (F29.9).
+            %% not cover the residual; the rest travels in `description`.
+            %% Rationale: compiler/features/F29-residual-prints-a-pattern.md.
             {Lines, Unspellable} =
                 lists:foldl(fun(P, {Ls, Us}) ->
                                     case pasteable(Fn, P, Names) of
@@ -2125,16 +1850,16 @@ with_description(Base, [])  -> Base;
 with_description(Base, Ds)  -> Base#{description => Ds}.
 
 %% One product as a description, untruncated like everything else the term
-%% carries; the cap lives in the prose (ticket 43).
+%% carries; the cap lives in the prose.
 product_str(P) ->
     lists:flatten(["(", lists:join(", ", [join(parts(C), infinity) || C <- P]), ")"]).
 
 %% One head per line. A residual argument is a union and a clause head is
 %% not: `Classify(<= 199 | 300..399)` is a syntax error, so the parts are
 %% expanded across the arguments and each combination is its own head, which
-%% is why the count can exceed the product count and the cap counts lines
-%% (F29.2). `name_binders/1` runs on the assembled line, because two binders
-%% spelled the same in one head is `repeated_in_head` and no part can see its
+%% is why the count can exceed the product count and the cap counts lines.
+%% `name_binders/1` runs on the assembled line, because two binders spelled
+%% the same in one head is `repeated_in_head` and no part can see its
 %% siblings; the arrow is appended after naming, because a hoisted `when`
 %% goes before the arrow.
 pasteable(Fn, Product, Names) ->
@@ -2143,16 +1868,14 @@ pasteable(Fn, Product, Names) ->
                    ++ " -> ...")
      || Combo <- bs_types:head_combos(Product, Names)].
 
-%% ONE ARM PER RESIDUAL MEMBER, SPELLED AS A HEAD SPELLS IT (ENG-312).
+%% One arm per residual member, spelled as a head spells it.
 %%
 %% `head_combos/2` is the head channel's own expansion, called with a
-%% ONE-ELEMENT argument list because a switch subject is one value where a
+%% one-element argument list because a switch subject is one value where a
 %% function's residual is a product over its parameters. That single call is
-%% the whole fix, and it is deliberate that it is a call rather than a second
-%% printer: a residual in argument position and a residual under a switch are
-%% the same question asked twice, and F7's separate `to_pattern/1` rendering
-%% is precisely what let the two drift for the fifteen days between F22 and
-%% this. One minting point for the spelling, so there is nothing to drift.
+%% deliberate rather than a second printer: a residual in argument position
+%% and a residual under a switch are the same question, and a separate
+%% rendering would let the two drift.
 %%
 %% The empty list is not "no cases" but "no case a pattern can spell" — a
 %% cofinite atom set or `binary \\ string` — and the caller carries it as
@@ -2174,14 +1897,13 @@ arms_prose(Arms, _D) ->
 heads_prose(_Fn, #{kind := residual_only, parts := Parts}) ->
     io_lib:format("    ~s~n", [join(Parts, ?RESIDUAL_CASES)]);
 %% The prose is a prefix of the term channel by construction: both come from
-%% the one `pasteable` list, and the cap is the only difference (F29.10).
+%% the one `pasteable` list, and the cap is the only difference.
 heads_prose(_Fn, H = #{kind := products, pasteable := Lines}) ->
     [cap([io_lib:format("    ~s~n", [L]) || L <- Lines]), unspellable_prose(H)];
 heads_prose(_Fn, H = #{kind := products}) ->
     unspellable_prose(H).
 
-%% Capped like the heads: the cap applies to whatever is being enumerated,
-%% and uncapped this printed forty-one products on one line (ticket 43).
+%% Capped like the heads: the cap applies to whatever is being enumerated.
 unspellable_prose(#{description := Ds}) ->
     [io_lib:format("  and no pattern spells:~n", []),
      cap([io_lib:format("    ~s~n", [D]) || D <- Ds])];
@@ -2214,12 +1936,11 @@ residual(Ty) -> join(parts(Ty), infinity).
 
 %% The caller's head with the rejected values in the position that rejected
 %% them: one head per line, through the head printer rather than the
-%% description printer, because this is a paste site and a description such
-%% as `F(int <= 5, _)` does not parse (F29). `none` when the argument is not
-%% a whole parameter, since an expression has no head position to put a
-%% pattern in, and `none` again when no part of the residual has a pattern:
-%% where the residual is not expressible the term says so and offers nothing
-%% (ticket 23 §2).
+%% description printer, because this is a paste site and a description such as
+%% `F(int <= 5, _)` does not parse. `none` when the argument is not a whole
+%% parameter, since an expression has no head position to put a pattern in,
+%% and `none` again when no part of the residual has a pattern: where the
+%% residual is not expressible the term says so and offers nothing.
 caller_head(_Fn, none, _Residual) -> none;
 caller_head(Fn, {Pos, Arity, Names}, Residual) ->
     case bs_types:head_parts(Residual, Names) of
@@ -2242,17 +1963,17 @@ caller_head_prose(_Fn, Heads) ->
      cap([io_lib:format("    ~s~n", [H]) || H <- Heads])].
 
 %% Construction supplies a field set and `with` updates one, so `update` never
-%% carries a `Missing` list (ticket 26 §2).
+%% carries a `Missing` list.
 field_set_verb(construction) -> "builds";
 field_set_verb(update)       -> "updates".
 
-%% A foreign return refused for a `string` (F9.11). The type is named as
-%% written, and the edit is offered only where one guard reaches the `string`;
-%% under a list or a map, `binary` needs the walk too, which 18 §2 refuses, and
-%% its own route, `term` then `ValidateAs`, is refused for a domain map
-%% (ENG-351, ENG-354).
-%% Why one guard cannot decide it, by what was found (F40). Plain strings,
-%% rendered through `~s`, so an author's type name cannot reach the format.
+%% A foreign return refused for a `string`. The type is named as written, and
+%% the edit is offered only where one guard reaches the `string`; under a list
+%% or a map, `binary` needs the walk too, which is refused, and its own route,
+%% `term` then `ValidateAs`, is refused for a domain map. Why one guard cannot
+%% decide it, by what was found. Plain strings, rendered through `~s`, so an
+%% author's type name cannot reach the format.
+%% Rationale: compiler/features/F40-foreign-return-rule.md.
 beyond_why(list, _) ->
     "  a foreign return may promise only what one guard checks in O(1), and\n"
     "  every element of this list would need inspecting.\n";
@@ -2275,12 +1996,12 @@ beyond_why(arrow, _) ->
     "  `is_function/2` decides an arity and nothing about the types.\n".
 
 %% The edit. A `string` one guard reaches has a replacement, `binary`; a
-%% record has its inline field form, which a guard decides and which its
-%% own `ValidateAs` would not accept from outside, since the validator wants
-%% the `Kind` too; everything else has the route 18 §2 decided -- `term` for
-%% the part a guard cannot decide, then `ValidateAs<T>` where it is used.
-%% Where the whole return is the offender the message can spell the
-%% replacement; inside a tuple or a field it names the part.
+%% record has its inline field form, which a guard decides and which its own
+%% `ValidateAs` would not accept from outside, since the validator wants the
+%% `Kind` too; everything else has the route decided — `term` for the part a
+%% guard cannot decide, then `ValidateAs<T>` where it is used. Where the whole
+%% return is the offender the message can spell the replacement; inside a
+%% tuple or a field it names the part.
 beyond_edit(string, _At, "string", _Name, _Fields) ->
     "  declare it `binary`.\n";
 beyond_edit(string, _At, _Type, _Name, _Fields) ->

@@ -9,10 +9,9 @@ run_merged(Command) ->
     {Status, Output, _OsPid} = run_merged_with_pid(Command),
     {Status, Output}.
 
-%% The same run, also reporting the pid the program sees in `os:getpid()`: the
-%% shell, `env` and `escript` all exec, so no intermediate pid survives
-%% (ENG-318). The pid must be read before the port closes, because
-%% `port_info/2` on a closed port is `undefined`.
+%% Also reports the pid the program sees in `os:getpid()`: shell, `env` and
+%% `escript` all exec, so no intermediate pid survives. Read the pid before the
+%% port closes, because `port_info/2` on a closed port is `undefined`.
 run_merged_with_pid(Command) ->
     Port = open_port({spawn_executable, "/bin/sh"},
                      [binary, exit_status, stderr_to_stdout, use_stdio,

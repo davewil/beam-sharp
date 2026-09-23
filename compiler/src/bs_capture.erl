@@ -1,21 +1,19 @@
-%%% bs_capture — stdout and stderr, caught in-process, in the order they were
-%%% written. A batch entry gets the three things a gate reads from a
-%%% subprocess: stdout, stderr, and the two interleaved as `2>&1` would have
-%%% delivered them (ENG-314).
+%%% bs_capture — stdout and stderr, caught in-process, in write order. A batch
+%%% entry gets stdout, stderr, and the two interleaved as `2>&1` would have
+%%% delivered them.
 %%%
 %%% Erlang IO is a protocol: `io:format/2` sends an `io_request` to the
-%%% caller's group leader, `io:format(standard_error, …)` sends one to the
-%%% process registered under that name, and each waits for its reply. The
-%%% capture is three processes: two thin faces, one installed as group leader
-%%% and one registered as `standard_error`, each tagging requests with its
-%%% stream and forwarding to one server that keeps the buffers. One server
-%%% makes the merged order a guarantee: a write is not replied to until it is
+%%% caller's group leader, `io:format(standard_error, …)` to the process
+%%% registered under that name. The capture is three processes: two faces,
+%%% one as group leader and one registered as `standard_error`, each tagging
+%%% requests and forwarding to one server that keeps the buffers. One server
+%%% makes the merged order a guarantee: a write is not replied to until
 %%% buffered, so the next write cannot overtake it.
 %%%
 %%% The captured bytes are what the real device would have written: each
-%%% device's `encoding` option is read when the capture starts and applied to
-%%% every write, so a `~s` over UTF-8 bytes double-encodes here exactly as it
-%%% does when `bsc` runs alone.
+%%% device's `encoding` option is read at capture start and applied to every
+%%% write, so a `~s` over UTF-8 bytes double-encodes here as when `bsc` runs
+%%% alone.
 -module(bs_capture).
 
 -export([start/0, stop/1, run/2]).

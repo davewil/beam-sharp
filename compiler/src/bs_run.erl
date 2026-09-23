@@ -2,10 +2,8 @@
 %%%
 %%%     bsc fib.bs 5          =>  Fib(5) = 5
 %%%
-%%% The compiler owes its author a way to see a program run without a second
-%%% `erl -pa` invocation, so this is in scope where the ecosystem track is not
-%%% (ticket 23 §10). Results print in beam-sharp notation, not Erlang's —
-%%% `:positive`, not `positive` — because the reader is reading beam-sharp.
+%%% Results print in beam-sharp notation, not Erlang's — `:positive`, not
+%%% `positive` — because the reader is reading beam-sharp.
 -module(bs_run).
 
 -export([run/3, authors_exports/1, format_value/1, parse_arg/1, read_arg/1, read_arg/2,
@@ -49,9 +47,8 @@ read_args(Raw) ->
                 end, {ok, []}, Raw).
 
 %% Three ways to name the function, in order. The middle one is the rule that
-%% matters: under one function per file the file name IS the function name,
-%% so `bsc fib.bs 5` needs nothing else. The first and last exist because the
-%% examples predating that convention put several functions in one file.
+%% matters: under one function per file the file name is the function name, so
+%% `bsc fib.bs 5` needs nothing else.
 resolve(Mod, Exports, Argv) ->
     Names = [F || {F, _} <- Exports],
     case Argv of
@@ -69,13 +66,12 @@ resolve(Mod, Exports, Argv) ->
             resolve_without_name(Mod, Exports, Names, Argv)
     end.
 
-%% A private function is absent from the export list (ticket 40 §3), so naming
-%% one must say "private" rather than fall through to the file-name rule and
-%% then misread the function name as an argument. `module_info(functions)`
-%% lists every function the module defines, exported or not, so nothing is
-%% threaded down from the compiler (F12). One boundary: `erlc` deletes an
-%% unexported function nothing calls, so a dead private function is not in the
-%% beam and falls back to "no such function", which is true of it.
+%% A private function is absent from the export list, so naming one must say
+%% "private" rather than fall through to the file-name rule and misread the
+%% function name as an argument. `module_info(functions)` lists every function
+%% the module defines, so nothing is threaded from the compiler. `erlc` deletes
+%% an unexported uncalled function, so a dead private one falls to "no such
+%% function".
 private_names(Mod, Exports) ->
     Defined = [F || {F, _} <- Mod:module_info(functions), F =/= module_info],
     Defined -- [F || {F, _} <- Exports].
@@ -113,8 +109,8 @@ pascal(S) -> list_to_atom(S).
 
 %% `Env` holds the names the REPL has bound, threaded through every compound
 %% form so a bound name resolves at any depth — `Pay({Total = t})`, not only
-%% `Squared(t)`. A name the environment does not hold reads as before, so the
-%% CLI, which passes an empty environment, is unchanged.
+%% `Squared(t)`. Text the environment does not hold is parsed as a literal
+%% by `parse_bare/2`; the CLI passes an empty environment.
 parse_arg(S) -> parse_arg(S, #{}).
 
 parse_arg(S0, Env) ->
@@ -124,8 +120,8 @@ parse_arg(S0, Env) ->
         error   -> parse_bare(S, Env)
     end.
 
-%% A quoted atom, `:'Shop.Order'`: a record tag mints from a qualified name
-%% (ticket 26 §1), and the bare sigil cannot spell a dot.
+%% A quoted atom, `:'Shop.Order'`: a record tag mints from a qualified name,
+%% and the bare sigil cannot spell a dot.
 parse_bare([$:, $' | Rest], _Env) when Rest =/= [] ->
     case lists:last(Rest) of
         $' -> list_to_atom(lists:sublist(Rest, length(Rest) - 1));
@@ -146,9 +142,10 @@ parse_compound(S, Env) ->
         {$(, $)} -> list_to_tuple(parse_inner(S, Env));
         {$[, $]} -> parse_inner(S, Env);
         {${, $}} -> parse_braced(S, Env);
-        %% A beam-sharp string is a binary and prints as `"hello"`, so reading
-        %% that back must yield a binary, not Erlang's char list, or the value
-        %% changes type on a round trip (F9).
+%% A beam-sharp string is a binary and prints as `"hello"`, so reading it back
+%% must yield a binary, not Erlang's char list, or the value changes type on a
+%% round trip.
+%% Rationale: compiler/features/F9-strings-and-binaries.md.
         {$", $"} when length(S) >= 2 -> parse_string(S);
         _        -> parse_term(S)
     end.
@@ -166,7 +163,7 @@ parse_string(S) ->
         _ -> unreadable(S)
     end.
 
-%% A brace is a RECORD — `{Id = 1, Kind = :'Shop.Order'}` — and a tuple is
+%% A brace is a record — `{Id = 1, Kind = :'Shop.Order'}` — and a tuple is
 %% parenthesised, as in C#. Every part of a record has a top-level `=`; parts
 %% without one are refused rather than handed to the Erlang reader, because
 %% `{}` is taken in beam-sharp and `{1, 2}` is malformed record syntax, not a
@@ -246,10 +243,9 @@ parse_term(S) ->
     end.
 
 %% An argument the reader cannot read is refused with a sentence, never handed
-%% to the function as a binary: the silent form crashed with
-%% `{badmap, <<"Order{Id = 1}">>}`, the user's own text inside a map error.
-%% The two named cases are the two mistakes the surface invites: arguments are
-%% VALUES, so neither construction nor a nested call is available.
+%% to the function as a binary. The two named cases are the two mistakes the
+%% surface invites: arguments are values, so neither construction nor a nested
+%% call is available.
 unreadable(S) ->
     throw({unreadable, explain(S)}).
 
@@ -318,8 +314,8 @@ format_value(L) when is_list(L) ->
     ["[", lists:join(", ", [format_value(E) || E <- L]), "]"];
 %% `Kind` first: it is the discriminator, so it is what a reader looks for to
 %% know which record they are holding. The rest sort, so output is stable.
-%% Bare braces name atom keys only (ticket 48), so a map with any other key has
-%% no beam-sharp spelling and prints in Erlang's, keys in order (ENG-351).
+%% Bare braces name atom keys only, so a map with any other key has no
+%% beam-sharp spelling and prints in Erlang's, keys in order.
 format_value(M) when is_map(M) ->
     Keys = lists:sort(maps:keys(M)),
     case lists:all(fun is_atom/1, Keys) of
@@ -337,9 +333,10 @@ format_value(M) when is_map(M) ->
 format_value(Other) -> io_lib:format("~p", [Other]).
 
 %% The export list minus what the author did not write: `module_info` is the
-%% VM's, and `bs@…` is the compiler's — `'bs@type_atoms'/0` on every module
-%% (F55, ticket 87). The one definition; the REPL banner and the visibility
-%% tests read this rather than restating it.
+%% VM's, and `bs@…` is the compiler's (`'bs@type_atoms'/0` on every module).
+%% The one definition; the REPL banner and visibility tests read this rather
+%% than restating it.
+%% Rationale: compiler/features/F55-type-atoms-in-the-chunk.md.
 authors_exports(Mod) ->
     [{F, A} || {F, A} <- Mod:module_info(exports),
                F =/= module_info, not lists:prefix("bs@", atom_to_list(F))].
