@@ -358,3 +358,76 @@ a_size_must_name_an_earlier_binding_test() ->
           "Body(_) -> \"\"\n",
     ?assertMatch([{error, _, _, {segment_size_not_bound, size, _}}],
                  errors(Src)).
+
+%%% ---------------------------------------------------------------------------
+%%% F56 — a string pattern's tail after string-literal segments is a `string`
+%%%
+%%% A literal is whole UTF-8 characters, and UTF-8 resynchronises at every
+%%% character boundary, so what follows literal segments in a valid string is
+%%% itself valid. Exemplar 25f stopped on exactly this: `<<"typesafe:", id>>`
+%%% bound `id : binary` and a `string` field refused it. Every other segment
+%%% kind before the tail can split a character, so those keep `binary`.
+%%% ---------------------------------------------------------------------------
+
+f56_record(Pattern, Param) ->
+    "module Spec\n"
+    "record Model { Id: string }\n"
+    "public option<Model> Parse(" ++ Param ++ " spec)\n"
+    "Parse(" ++ Pattern ++ ") -> Model { Id = id }\n"
+    "Parse(_) -> :nothing\n".
+
+%% F56.1 — 25f's own shape: compiles, and the tail reaches a `string` field.
+a_tail_after_a_string_literal_is_a_string_test() ->
+    M = build_and_load(f56_record("<<\"typesafe:\", id>>", "string"), 'Spec'),
+    ?assertEqual(#{'Kind' => 'Spec.Model', 'Id' => <<"jev-latest">>},
+                 M:'Parse'(<<"typesafe:jev-latest">>)),
+    ?assertEqual(nothing, M:'Parse'(<<"anthropic:x">>)).
+
+%% F56.2 — several literal segments, one of them non-ASCII: still whole characters.
+a_tail_after_several_literals_is_a_string_test() ->
+    M = build_and_load(f56_record("<<\"h\xc3\xa9\", \":\", id>>", "string"), 'Spec'),
+    ?assertEqual(#{'Kind' => 'Spec.Model', 'Id' => <<"x", 16#c3, 16#a9>>},
+                 M:'Parse'(<<"h", 16#c3, 16#a9, ":x", 16#c3, 16#a9>>)).
+
+%% F56.3 — the subject decides: over a `binary` the tail is still a `binary`.
+a_tail_of_a_binary_subject_stays_binary_test() ->
+    ?assertMatch([{error, _, 'Parse', {field_value_not_accepted, 'Model', 'Id', _}}],
+                 errors(f56_record("<<\"typesafe:\", id>>", "binary"))).
+
+%% F56.4 — an integer segment before the tail can split a character.
+a_tail_after_an_integer_segment_stays_binary_test() ->
+    ?assertMatch([{error, _, 'Parse', {field_value_not_accepted, 'Model', 'Id', _}}],
+                 errors(f56_record("<<c:8, id>>", "string"))).
+
+%% F56.5 — so can a wildcard segment.
+a_tail_after_a_wildcard_segment_stays_binary_test() ->
+    ?assertMatch([{error, _, 'Parse', {field_value_not_accepted, 'Model', 'Id', _}}],
+                 errors(f56_record("<<_:8, id>>", "string"))).
+
+%% F56.6 — a literal AFTER an integer segment does not restore the boundary.
+a_literal_after_an_integer_segment_does_not_help_test() ->
+    ?assertMatch([{error, _, 'Parse', {field_value_not_accepted, 'Model', 'Id', _}}],
+                 errors(f56_record("<<c:8, \":\", id>>", "string"))).
+
+%% F56.7 — the same rule at a switch arm, which is classified at another site.
+a_switch_arm_tail_after_a_literal_is_a_string_test() ->
+    M = build_and_load("module SpecArm\n"
+                       "public string Id(string spec)\n"
+                       "Id(spec) -> spec switch {\n"
+                       "    <<\"typesafe:\", id>> => id,\n"
+                       "    other                => other\n"
+                       "}\n", 'SpecArm'),
+    ?assertEqual(<<"jev">>, M:'Id'(<<"typesafe:jev">>)).
+
+%% F56.8 — nested: the tail's subject is a tuple component typed `string`.
+a_nested_tail_reads_its_component_type_test() ->
+    M = build_and_load("module SpecPair\n"
+                       "public string Id((int, string) p)\n"
+                       "Id((n, <<\"a:\", id>>)) -> id\n"
+                       "Id((n, s))              -> s\n", 'SpecPair'),
+    ?assertEqual(<<"b">>, M:'Id'({1, <<"a:b">>})),
+    ?assertMatch([{error, _, 'Id', {return_not_declared, _, _}}],
+                 errors("module SpecPairB\n"
+                        "public string Id((int, binary) p)\n"
+                        "Id((n, <<\"a:\", id>>)) -> id\n"
+                        "Id((n, s))              -> \"\"\n")).

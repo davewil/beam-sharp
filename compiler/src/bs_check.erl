@@ -2346,6 +2346,16 @@ at_path(#{maps := Members}, [{field, K} | Rest]) ->
 %% supplies the type instead.
 at_path(_Ty, [{seg, SegTy} | Rest]) ->
     at_path(SegTy, Rest);
+%% F56: the tail after string literals is a `string` exactly when the subject's
+%% binary part is.
+at_path(Ty, [{str_tail} | Rest]) ->
+    Bin = bs_types:intersect(Ty, bs_types:binary_top()),
+    Tail = case not bs_types:is_none(Bin)
+                    andalso bs_types:is_subtype(Bin, bs_types:string()) of
+               true  -> bs_types:string();
+               false -> bs_types:binary_top()
+           end,
+    at_path(Tail, Rest);
 at_path(Ty, [{elem} | Rest]) ->
     at_path(elem_of(Ty), Rest);
 %% A non-empty list's tail may be empty, with the same element type.
@@ -3881,8 +3891,8 @@ pattern_type({p_bind, _, V, P}, Path, Env) ->
 %% Binary patterns have no structure in the type algebra. Their `binary` upper
 %% bound credits no coverage: truncated binaries may not match. A catch-all
 %% remains required and legal over the open binary residual.
-pattern_type({p_bin, _, Segs}, _Path, _Env) ->
-    {bs_types:binary_top(), seg_bindings(Segs), false};
+pattern_type({p_bin, _, Segs}, Path, _Env) ->
+    {bs_types:binary_top(), seg_bindings(Segs, Path), false};
 %% String literals are lexer-validated UTF-8 but have no binary singleton type.
 %% Literal-only matches need a catch-all over the open residual.
 pattern_type({p_str, _, _Bytes}, _Path, _Env) -> {bs_types:string(), #{}, false};
@@ -3910,8 +3920,22 @@ pattern_type({p_list, _, Items, Rest}, Path, Env) ->
 %% components in the algebra. BEAM defaults to unsigned, big-endian segments,
 %% so a width of N binds an integer in 0..2^N - 1.
 %% Rationale: compiler/features/F13-binary-patterns.md.
-seg_bindings(Segs) ->
-    maps:from_list([{V, [{seg, seg_type(Size)}]} || {seg_bind, _, V, Size} <- Segs]).
+%%
+%% F56: an unsized tail after string literals only is read from the subject at
+%% `Path`, because a literal is whole UTF-8 characters and the rest of a valid
+%% string is then valid too. Any other segment before it can split a character.
+seg_bindings(Segs, Path) -> seg_bindings(Segs, Path, true, #{}).
+
+seg_bindings([], _Path, _Literals, Acc) ->
+    Acc;
+seg_bindings([{seg_bind, _, V, rest} | Segs], Path, true, Acc) ->
+    seg_bindings(Segs, Path, false, Acc#{V => Path ++ [{str_tail}]});
+seg_bindings([{seg_bind, _, V, Size} | Segs], Path, _Literals, Acc) ->
+    seg_bindings(Segs, Path, false, Acc#{V => [{seg, seg_type(Size)}]});
+seg_bindings([{seg_str, _, _} | Segs], Path, Literals, Acc) ->
+    seg_bindings(Segs, Path, Literals, Acc);
+seg_bindings([_ | Segs], Path, _Literals, Acc) ->
+    seg_bindings(Segs, Path, false, Acc).
 
 seg_type({width, N}) when is_integer(N), N > 0 -> bs_types:range(0, (1 bsl N) - 1);
 %% Invalid widths return `int` so `segment_width_not_positive` can report
@@ -3959,6 +3983,7 @@ binding(_, _)                -> #{}.
 opaque_step({elem})    -> true;
 opaque_step({tail})    -> true;
 opaque_step({seg, _})  -> true;
+opaque_step({str_tail}) -> true;
 opaque_step(_)         -> false.
 
 %%% --- Guards as type operations ---

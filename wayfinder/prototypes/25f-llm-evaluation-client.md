@@ -29,9 +29,9 @@ written here.
 
 ## Result
 
-**It compiles and runs behind one wall.** Measured in a scratch copy rooted at `Support/Triage`
-so the path matches the declaration, the module stops on one error, reported once for each of the
-two prefix clauses in `spec.bs`:
+**It compiles as written and runs.** Measured in a scratch copy rooted at `Support/Triage` so the
+path matches the declaration. When the exemplar was written it stopped on one error, reported once
+for each of the two prefix clauses in `spec.bs`:
 
 ```
 spec.bs: error: ParseSpec assigns Id a value Model does not accept
@@ -39,7 +39,9 @@ spec.bs: error: ParseSpec assigns Id a value Model does not accept
     binary \ string
 ```
 
-Declare `Id: binary` and nothing else in the module is refused. It then builds to a `.beam` and
+F56 (2026-09-24, [ENG-403](https://linear.app/davewil/issue/ENG-403)) fixed that the same day: the
+tail after string-literal segments is now a `string`. With nothing else refused, the module builds
+to a `.beam` and
 [`25f_replay.erl`](25f_replay.erl) runs five cases through `Evaluate`:
 
 | Case | What comes back |
@@ -54,7 +56,8 @@ The request body `Body` writes is the one ReqLLM writes, key for key, including 
 for the yes/no question. The replay prints it, so a reader can compare it with
 `ReqLLM.Providers.TypeSafe.build_body/1`.
 
-So the verdict is different from 25a–25e's. The language can write this client today. The cost
+So the verdict is different from 25a–25e's. It is the first of ticket 25's exemplars that the
+compiler builds and runs unmodified. The language can write this client today. The cost
 is in *how*. 101 of the module's 206 non-blank lines are `decode.bs`, which reads one JSON
 object; the domain logic, `route.bs`, is 24. The friction list below accounts for that gap.
 
@@ -74,8 +77,8 @@ lib/support/triage/                ← compiles to ONE beam: Support.Triage
 
 Like 25e, this declares its `module`, and the extracted copy under
 `compiler/examples/exemplars/25f-llm-evaluation-client/` therefore stops on the directory check
-before the compiler reaches the program. `FRONTIER` records that wall; the probe measures the
-program's own wall in a correctly named directory.
+before the compiler reaches the program. `FRONTIER` records that wall; the probe compiles and runs
+the program in a correctly named directory.
 
 ---
 
@@ -156,10 +159,9 @@ ParseSpec(<<"openrouter:", id>>) -> Model { Provider = :openrouter, Id = id }
 ParseSpec(spec)                  -> (:error, (:unknown_model, spec))
 ```
 
-**This is the wall.** A string literal prefix in a binary pattern works: `ParseSpec` dispatches on
-`"typesafe:"` and `"openrouter:"` and binds the rest (F13). The rest is typed `binary`, though:
-the checker does not know that a valid UTF-8 string with a whole-character prefix removed is still
-valid UTF-8. `Model.Id` is declared `string`, so the construction is refused. See friction 1.
+**This was the wall.** A string literal prefix in a binary pattern works: `ParseSpec` dispatches
+on `"typesafe:"` and `"openrouter:"` and binds the rest (F13). Until F56 the rest was typed
+`binary`, and `Model.Id` is declared `string`, so the construction was refused. See friction 1.
 
 ---
 
@@ -450,20 +452,16 @@ the compiler's: see friction 6.
 Each item ends with what the compiler would need, as concrete work, or with the decision it waits
 on. None is decided here.
 
-### 1. A string's suffix after a literal prefix is `binary`, not `string`
+### 1. A string's suffix after a literal prefix was `binary`, not `string` — built as F56
 
-The wall. `ParseSpec(<<"typesafe:", id>>)` binds `id : binary` when the subject is a `string`.
-Removing a string literal prefix from valid UTF-8 leaves valid UTF-8, because a literal is whole
-characters. The checker does not use that fact.
+The wall, and gone the same day. `ParseSpec(<<"typesafe:", id>>)` bound `id : binary` when the
+subject is a `string`. Removing a string literal prefix from valid UTF-8 leaves valid UTF-8,
+because a literal is whole characters. The checker did not use that fact.
 
-- **Compiler delta:** in `bs_check`, when a binary pattern's subject is `string` and every segment
-  before an unsized tail is a string literal, type the tail `string`. One clause in the segment
-  binder; no new syntax. A sized integer segment before the tail (`<<c:8, rest>>`) still gives
+- **Built as F56** ([ENG-403](https://linear.app/davewil/issue/ENG-403)): an unsized tail whose
+  preceding segments are all string literals reads its type from the subject, `string` when the
+  subject is. A sized integer or `_` segment before the tail (`<<c:8, rest>>`) still gives
   `binary`, correctly: it can split a multi-byte character.
-- It is the only error in the module, so building it is the whole remaining distance from
-  "written" to "compiles and runs" for 25f.
-- Unasked. No ticket covers the refinement of a pattern's tail; ticket 30 settled string literals
-  in pattern position and said nothing about what the rest binds as.
 
 ### 2. B# cannot name a lowercase JSON key, either way
 

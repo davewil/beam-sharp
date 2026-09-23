@@ -658,9 +658,10 @@ against TypeSafe's Jev, read from `agentjido/req_llm` at `5a0735d`. **It takes a
 *async processing*:** it makes one request and gets one reply. ReqLLM's streaming path is the async
 workload and is still unwritten.
 
-**The first exemplar the compiler builds and runs.** The module has one error, a checker gap: the
-tail of a `string` after a string-literal prefix is typed `binary`. Declared `binary`, it compiles,
-and the replay drives it with the wire bodies ReqLLM's own tests serve. It sends the body ReqLLM
+**The first exemplar the compiler builds and runs.** As first written the module had one error, a
+checker gap: the tail of a `string` after a string-literal prefix was typed `binary`. F56
+([ENG-403](https://linear.app/davewil/issue/ENG-403)) closed it the same day, and the module now
+compiles unmodified; the replay drives it with the wire bodies ReqLLM's own tests serve. It sends the body ReqLLM
 sends, key for key, and routes the answers.
 
 **The cost is JSON with a schema the program does not own.** No B# construct can name a lowercase

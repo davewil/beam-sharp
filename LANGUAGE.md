@@ -819,6 +819,27 @@ Greet("hello") -> :hi
 Greet(s)       -> :other
 ```
 
+**A string literal may lead a binary pattern, and what follows it is still a `string`.** A literal
+is whole UTF-8 characters, and UTF-8 resynchronises at every character boundary, so the rest of a
+valid string after literal segments is valid too. The tail is typed `string` when the subject is a
+`string` and every segment before the tail is a string literal; an integer or `_` segment before it
+can split a character, and the tail is then a `binary`. **shipped** — F56.
+<!-- built by F56, from exemplar 25f's one wall; ticket 30 admitted the literal segment -->
+
+```csharp
+module Spec
+
+type Provider = :typesafe | :openrouter
+
+record Model { Provider: Provider, Id: string }
+
+public option<Model> Parse(string spec)
+
+Parse(<<"typesafe:", id>>)   -> Model { Provider = :typesafe, Id = id }
+Parse(<<"openrouter:", id>>) -> Model { Provider = :openrouter, Id = id }
+Parse(_)                     -> :nothing
+```
+
 **Atoms:** the universe is open, nothing declares an atom, `:foo` mints one by writing it.
 `true` and `false` are the only keyword atoms, `bool` is an ordinary alias, and **there is no
 truthiness**. **shipped**
@@ -2946,6 +2967,7 @@ the parser accepts back exactly what the printer emits. **shipped**
 | `switch`, including a tuple subject and a guard on an arm | **shipped** |
 | `string` and `binary` as values — the literal, the refinement, the boundary rule | **shipped** — F9 |
 | binary patterns `<<...>>`, string literals in pattern position, hex literals | **shipped** — F13 |
+| a `string` pattern's tail after string-literal segments is a `string` | **shipped** — F56 |
 | a spelling for a **sized binary type** | not coming — a width refines the value it binds, so no type form arises |
 | the UTF-8 entry check (`binary` → `string`) | not started — the sixth codegen obligation |
 | pipe and valve | **shipped** — F14 |

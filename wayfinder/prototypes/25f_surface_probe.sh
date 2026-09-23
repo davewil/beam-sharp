@@ -46,20 +46,13 @@ triage () {
 }
 
 echo "==================================================================="
-echo "1. THE WALL — the module's one error, and the run behind it."
+echo "1. THE EXEMPLAR AS WRITTEN — it compiles, and it runs."
 echo "==================================================================="
+echo "Until F56 (2026-09-24) this stopped on one error: the tail of a string"
+echo "after <<\"typesafe:\", id>> was typed binary. F56 made it a string."
 triage "$WORK/m1"
-echo "--- the exemplar as written ---"
-"$BSC" --src-root "$WORK/m1" "$WORK/m1/Support/Triage" 2>&1 | sed "s|$WORK/m1/Support/Triage/||" || true
-echo
-
-echo "CONTROL — Model.Id declared binary. The module compiles with no error,"
-echo "so the wall above is the only one."
-triage "$WORK/m2"
-sed -i.bak 's/Id: string }/Id: binary }/' "$WORK/m2/Support/Triage/index.bs"
-rm -f "$WORK/m2/Support/Triage/"*.bak
 mkdir -p "$WORK/ebin"
-"$BSC" -o "$WORK/ebin" --src-root "$WORK/m2" "$WORK/m2/Support/Triage" 2>&1 | sed "s|$WORK/m2/Support/Triage/||"
+"$BSC" -o "$WORK/ebin" --src-root "$WORK/m1" "$WORK/m1/Support/Triage" 2>&1 | sed "s|$WORK/m1/Support/Triage/||"
 echo "bsc status: ${PIPESTATUS[0]}"
 echo
 
@@ -152,8 +145,7 @@ echo "==================================================================="
 echo "7. A THIRD PROVIDER, AND A USER-DECLARED BEHAVIOUR."
 echo "==================================================================="
 triage "$WORK/m3"
-sed -i.bak -e 's/Id: string }/Id: binary }/' \
-    -e 's/type Provider = :typesafe | :openrouter/type Provider = :typesafe | :openrouter | :vercel/' \
+sed -i.bak -e 's/type Provider = :typesafe | :openrouter/type Provider = :typesafe | :openrouter | :vercel/' \
     "$WORK/m3/Support/Triage/index.bs"
 rm -f "$WORK/m3/Support/Triage/"*.bak
 echo "--- :vercel added to Provider ---"
