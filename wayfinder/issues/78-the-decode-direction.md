@@ -1,7 +1,7 @@
 # 78 — The decode direction: does `ValidateAs<T>` learn the wire form, or is there a `FromJson<T>`?
 
 Type: grilling
-Status: open — [ENG-373](https://linear.app/davewil/issue/ENG-373). Raised 2026-09-15 on resolving
+Status: claimed 2026-09-24 — [ENG-373](https://linear.app/davewil/issue/ENG-373). Raised 2026-09-15 on resolving
 [ticket 77](77-what-goes-on-the-wire.md), whose finding 2 is this ticket's premise
 Blocked by: —
 
@@ -109,3 +109,43 @@ gains a row.
 Which of the two programs above is the language's — `ValidateAs<T>` accepting the wire form beside
 the erasure and returning the erasure, or `FromJson<T>` as `ToJson<T>`'s inverse with
 `ValidateAs<T>` left a check on BEAM terms? The round is written when it is asked.
+
+## Round 1 — 2026-09-24: whose schema does the decode direction serve?
+
+Asked alone, because it gates the question above. Both programs in *The question* read back a
+record **this program wrote**: `Kind` on the wire, PascalCase keys. Exemplar 25f
+([`25f-llm-evaluation-client.md`](../prototypes/25f-llm-evaluation-client.md), friction 2) is the
+other case, and neither program reaches it. The reply comes from TypeSafe's API, as `json:decode`
+hands it over:
+
+```
+#{<<"model">> => <<"jev-1.13.0">>,
+  <<"answers">> => #{<<"urgent">> => #{<<"type">> => <<"noul">>, <<"noul">> => 0.93}},
+  <<"usage">> => #{<<"input_tokens">> => 100, <<"output_tokens">> => 20}}
+```
+
+No `Kind`, lowercase keys, snake_case. The program an author wants:
+
+```csharp
+record Usage { InputTokens: int, OutputTokens: int }
+record Reply { Model: string, Answers: map<string, map<string, term>>, Usage: Usage }
+
+private result<Reply, ValidationError> Read(term doc)
+Read(doc) -> ValidateAs<Reply>(doc)          // or FromJson<Reply>(text)
+```
+
+**Q1. Must ticket 78's answer make `Read` above decode that reply?**
+
+- **Yes:** 78 grows. Before choosing between `ValidateAs` and `FromJson`, it has to settle where a
+  field's wire name is written (`InputTokens` ↔ `"input_tokens"`) and whether a record may arrive
+  without `Kind`. Because 77 decided encode writes `Kind` and PascalCase, a yes also raises whether
+  `ToJson<Reply>` writes the same names back, so it touches 77's record row.
+- **No:** 78 stays as written: the program's own records coming back. 25f's `decode.bs` stays at
+  `:maps.find` plus one `ValidateAs` per value, 101 lines, until a separate ticket takes foreign
+  schemas.
+
+Recommended: **yes.** A BEAM program reading its own records back mostly uses
+`term_to_binary`, not JSON. JSON on the BEAM is overwhelmingly someone else's schema: an HTTP API,
+a webhook, an LLM provider. A decode answer that cannot read one leaves the common case on
+`:maps.find`.
+
