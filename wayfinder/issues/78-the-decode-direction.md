@@ -216,3 +216,78 @@ the domain record is one clause head per object, which is the language's own idi
 term apart. The record route makes three decisions (field annotation, `Kind`-less arrival, which
 name `ToJson` writes) in order to avoid that clause.
 
+**Answered 2026-09-24 (David): a type.** A field's wire name lives in a structural field-set type
+whose keys are the wire's strings, `{ "input_tokens": int }`; the domain record stays as 26 and 77
+made it, and a clause head copies one into the other. Records, `Kind` and 77's record row are not
+touched.
+
+## Round 3 — 2026-09-24: extra keys, and whether a record still comes back from JSON
+
+**Measured first** (`bsc` at `17ffead`):
+
+| Probe | Result |
+|---|---|
+| `type W = { InputTokens: int, .. }` | syntax error before `..`: no open field-set type can be written |
+| `ToJson<W>(w)` where `w` arrived through a public `W` parameter carrying an extra key | the parameter guard passed it (presence and value tests, no size test, §11); `ToJson` crashed with `to_json {… Expected = "{ InputTokens: int }", Path = []}` |
+
+So `ToJson` already refuses to publish an undeclared key at its own site, which is the reason
+26 §4 / 18 §1(c) gave for the exact-set test. And with string-keyed wire types, `json:decode`'s
+output validates as it stands: binary keys against binary keys, no conversion. The choice this
+ticket was raised on, `ValidateAs<T>` learning the wire form or a `FromJson<T>`, is then only about
+a **record** coming back.
+
+**Q3. May a wire type say it accepts keys it does not name?**
+
+OpenRouter's reply to the same request carries `id`, `provider` and `usage.cost`; TypeSafe's does
+not. Today `ValidateAs<ReplyWire>` refuses the OpenRouter reply outright.
+
+```csharp
+type UsageWire = { "input_tokens": int, "output_tokens": int, .. }
+type ReplyWire = { "model": string, "answers": map<string, map<string, term>>, "usage": UsageWire, .. }
+
+private result<ReplyWire, ValidationError> Read(term doc)
+Read(doc) -> ValidateAs<ReplyWire>(doc)
+```
+
+With a trailing `..`, the type is an open field set: `ValidateAs` checks the named keys and returns
+the value unchanged, extra keys included. Without it the type stays exact, as today. `ToJson` over
+an open type is refused at the declaration, since it would publish keys no type declares. The `..`
+is the list pattern's rest marker, meaning *and more* in the same way.
+
+Compiler delta: the field-set type rule takes a trailing `..` (`bs_parser.yrl`); `bs_types`
+already has `{open, Fields}` members, so the type needs only to be built as one; `ValidateAs`'s
+generated check drops its size test for an open member; `ToJson`'s declaration walk refuses an
+open member with `unencodable_member`.
+
+Recommended: **yes, with `..`, exact by default.** The type says what the value is, so
+`ValidateAs` stays a check and converts nothing. The alternative that needs no syntax, a validator
+that drops unnamed keys, makes `ValidateAs` rewrite the value, which this ticket's first program
+was already criticised for.
+
+**Q4. Does ticket 78 still owe reading a record back from JSON?**
+
+The case left is `examples/Intake`: a B# service reading a `Reading` that another B# service wrote
+with `ToJson<Reading>`, so `"Kind":"Intake.Reading"` and PascalCase keys are on the wire.
+
+If **yes**, the original question stands and is asked next: `ValidateAs<Reading>` accepting
+`<<"Kind">>` and a binary tag, or `FromJson<Reading>(text)`.
+
+If **no**, a record comes back like any other object, through a wire type and a clause head:
+
+```csharp
+type ReadingWire = { "Kind": string, "Sensor": string, "Value": int }
+
+private result<Reading, ValidationError> Decode(term body)
+Decode(body) -> ValidateAs<ReadingWire>(body) |?> Rebuild()
+
+private Reading Rebuild(ReadingWire w)
+Rebuild({ "Sensor": s, "Value": v }) -> Reading { Sensor = s, Value = v }
+```
+
+and the inverse of `ToJson<Reading>` is deferred, recorded with what it would need.
+
+Recommended: **no, deferred.** B# services talking to each other on the BEAM use distribution or
+`term_to_binary`, where the erasure crosses intact and `ValidateAs<Reading>` already works. JSON
+between two B# services is the rare case, and the wire type covers it at the cost shown. What the
+deferred inverse would need is recorded when this is answered.
+
