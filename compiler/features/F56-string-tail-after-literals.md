@@ -91,3 +91,9 @@ before and after, and are there so the rule cannot pass by typing every tail
 (`wayfinder/prototypes/25f_surface_probe.sh` §1), the eight scenarios pass,
 the LANGUAGE.md block compiles, and `./bin/verify.sh` is green twice from a
 clean clone.
+
+## Evidence — 2026-09-24
+
+`./bin/verify.sh` twice from a clean clone of `445eb8e`, one command per run:
+**All 46 stages passed**, 359 s and 355 s. The "Done when" conditions above
+are met; the status stays *in progress* until David calls it.
