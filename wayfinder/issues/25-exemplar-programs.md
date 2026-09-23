@@ -681,5 +681,5 @@ For the three questions this ticket holds:
 |---|---|
 | Ticket 12: closed residuals closed deliberately | two (`Queue`, `Page`), three members named in each, and the compiler would have accepted `_` in both (ENG-402) |
 | Ticket 17 job 1: a ladder of unrelated conditions | none. Six tuple switches of width two or three, all forwarding errors. They want a multi-binding `with`, not `cond` |
-| Ticket 22: an opinionated grammar against a gateway | a closed `Provider` union reads well at two providers, and adding a third makes the compiler name both sites. The `Envelope` residual prints 28 heads, none of them the one to paste — 25c's scaling finding again |
+| Ticket 22: an opinionated grammar against a gateway | a closed `Provider` union reads well at two providers, and adding a third makes the compiler name both sites. The `Envelope` residual prints 28 heads, none of them the one to paste: the renderer drops the narrowed `Provider` field, though the algebra holds it |
 

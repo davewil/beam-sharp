@@ -244,8 +244,9 @@ not `result<Model, EvalError>`, because `|?>` has already removed the failure (�
 ReqLLM's `with` chain in `evaluate/4`, one step shorter.
 
 `Read`'s status test is a guard, because a relational pattern goes only where a whole argument goes
-(§2); `(>= 200 and <= 299, body)` is not a pattern. The guard credits nothing, so the second
-clause has to catch every status.
+(§2); `(>= 200 and <= 299, body)` is not a pattern. The checker reads the guard: with the second
+clause deleted it reports `Read((n, b)) when n <= 199` and `Read((n, b)) when n >= 300` as the
+missing heads. The second clause is there because those two ranges are the error case.
 
 ---
 
@@ -582,14 +583,18 @@ request.bs: error: Envelope is not exhaustive
     ... (25 more)
 ```
 
-The missing clause is `Envelope(Model { Provider: :vercel } m, state, qs)`. The residual is split
-across the two parameters no clause discriminated on, so the head to paste is not among the three
-printed. 25c recorded that *"the residual does not scale as a diagnostic"*; this is the same
-failure, on a record field.
+The missing clause is `Envelope(Model { Provider: :vercel } m, state, qs)`, and adding exactly that
+clause makes the module compile, so the checker's residual is precise. What is wrong is how it is
+rendered. `--diagnostics term` carries all 28 heads in `heads.pasteable`, and none of them
+mentions `:vercel`: the residual string is `({ Kind: :'Support.Triage.Model' }, …)`, with the
+narrowed `Provider` field dropped, and the other two parameters are split by shape although every
+clause binds them as bare names. 25c recorded that *"the residual does not scale as a diagnostic"*;
+this is a related failure with a different cause.
 
-- **Compiler delta:** before printing, project the residual onto the parameters the clauses
-  actually discriminate. When every clause binds parameters 2 and 3 as bare names, those positions
-  print as names and the product collapses to one head.
+- **Compiler delta:** in the residual renderer, print a record member's narrowed field as a
+  property pattern (`Model { Provider: :vercel } m`) instead of the bare type prefix, and stop
+  splitting a parameter that every clause binds as a bare name. Both are in the head printer
+  (`pattern_parts` / `head_parts`), not the algebra.
 
 ### 8. Floats are not a problem
 
