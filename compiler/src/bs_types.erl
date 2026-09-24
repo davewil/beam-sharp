@@ -238,8 +238,9 @@ is_view(Name) -> maps:is_key(Name, views()).
 
 %% What each part of a view is declared as, in position order. A printer names
 %% only the parts a residual has narrowed below these. `bs_check:stratum_two/0`
-%% declares the same types as source; were they to disagree, a residual would
-%% name a part no clause narrowed, which F60.14 would see.
+%% declares the same types as source. A part declared narrower here than there
+%% would print in a residual no clause narrowed it in, which F60.14 sees; one
+%% declared wider would print nothing, and no test sees that direction.
 view_parts('Down') ->
     [{'Ref', opaque(reference)},
      {'Type', union(atom_lit(process), atom_lit(port))},
