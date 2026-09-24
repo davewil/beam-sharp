@@ -105,3 +105,10 @@ at the four sites that read them.
 The scenarios pass, the LANGUAGE.md block compiles, 25g compiles and runs as
 written (`wayfinder/prototypes/25g_surface_probe.sh` §1), and `./bin/verify.sh`
 is green twice from a clean clone.
+
+## Evidence — 2026-09-24
+
+`./bin/verify.sh` twice from a clean clone of `4e78c91` (F60 rebased onto
+`0207fdb`, another session's editor commit), one command per run: **All 46
+stages passed**, 289 s and 274 s. The status stays *in progress* until David
+calls it.
