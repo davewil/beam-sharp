@@ -84,9 +84,16 @@ a_brace_goes_where_an_open_type_is_expected_test() ->
     ?assertEqual(#{'Status' => 1, 'Body' => ok}, M:'Ok'(1)).
 
 %% F59.7 — a record's field set is exact; `..` in a record is refused at the parse.
-a_record_cannot_be_open_test() ->
-    {ok, Toks, _} = bs_lexer:string("module Open7\nrecord R { X: int, .. }\n"),
-    ?assertMatch({error, _}, bs_parser:parse(Toks)).
+a_record_cannot_be_open_test_() ->
+    {timeout, 60,
+     fun() ->
+         bs_test_support:with_src("open7.bs",
+             "module Open7\nrecord R { X: int, .. }\n",
+             fun(Path, _Out) ->
+                 {_, Output} = bs_test_support:run_cli_result(Path),
+                 ?assertNotEqual(nomatch, string:find(Output, "2:20: error: syntax error before: '..'"))
+             end)
+     end}.
 
 %% F59.8 — the type prints with its marker, in `--api` as it is written.
 the_api_prints_the_marker_test_() ->

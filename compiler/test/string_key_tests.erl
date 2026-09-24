@@ -83,12 +83,18 @@ a_string_key_is_not_an_atom_key_test() ->
 %% F58.8 — exhaustiveness reads a string key, and the residual prints it quoted.
 %% The field's value prints `_`, exactly as it does for a name key: the head
 %% printer keeps the key set and not the narrowed value.
-the_residual_prints_a_string_key_test() ->
-    [{error, _, 'Go', {inexhaustive, Residual, _}}] =
-        errors("module Wire8\n"
-               "public int Go({ \"ok\": bool } w)\n"
-               "Go({ \"ok\": true }) -> 1\n"),
-    ?assertEqual("({ \"ok\": _ })", bs_types:to_pattern(Residual)).
+the_residual_prints_a_string_key_test_() ->
+    {timeout, 60,
+     fun() ->
+         bs_test_support:with_src("wire8.bs",
+             "module Wire8\n"
+             "public int Go({ \"ok\": bool } w)\n"
+             "Go({ \"ok\": true }) -> 1\n",
+             fun(Path, _Out) ->
+                 {_, Output} = bs_test_support:run_cli_result(Path),
+                 ?assertNotEqual(nomatch, string:find(Output, "Go({ \"ok\": _ }) -> ..."))
+             end)
+     end}.
 
 %% F58.8b — `--api` prints a string key quoted, which is how it is written.
 the_api_prints_a_string_key_test_() ->
@@ -106,10 +112,16 @@ the_api_prints_a_string_key_test_() ->
 
 %% F58.9 — a record's fields stay PascalCase names; a string key is refused
 %% there, at the parse, naming where it belongs.
-a_record_refuses_a_string_field_test() ->
-    {ok, Toks, _} = bs_lexer:string("module Wire9\nrecord R { \"x\": int }\n"),
-    {error, {_, bs_parser, Msg}} = bs_parser:parse(Toks),
-    ?assertNotEqual(nomatch, string:find(lists:flatten(Msg), "belongs in a field set")).
+a_record_refuses_a_string_field_test_() ->
+    {timeout, 60,
+     fun() ->
+         bs_test_support:with_src("wire9.bs",
+             "module Wire9\nrecord R { \"x\": int }\n",
+             fun(Path, _Out) ->
+                 {_, Output} = bs_test_support:run_cli_result(Path),
+                 ?assertNotEqual(nomatch, string:find(Output, "belongs in a field set"))
+             end)
+     end}.
 
 %% F58.10 — so is a string key in a record construction.
 a_record_construction_refuses_a_string_key_test() ->
