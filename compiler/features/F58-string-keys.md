@@ -105,3 +105,15 @@ ENG-407.
 The scenarios pass, the LANGUAGE.md block compiles, the tree-sitter grammar
 parses a string key in a type, a pattern and a brace, and `./bin/verify.sh` is
 green twice from a clean clone.
+
+## Evidence — 2026-09-24
+
+Two failed first runs before the pair, both recorded. On `81c4dcd`, stage 40:
+the test cited `F58.8b` and this file defined only `F58.8`, fixed in
+`cdb9bf3`. On `cdb9bf3`'s first clone, stage 11's tour self-test went red and
+then passed standalone on the same tree, `--self-test` and gate both: ENG-335's
+known race on a fresh clone's first run, not a change here.
+
+`./bin/verify.sh` twice from a second clean clone of `cdb9bf3`, one command per
+run: **All 46 stages passed**, 312 s and 301 s. The status stays *in progress*
+until David calls it.
