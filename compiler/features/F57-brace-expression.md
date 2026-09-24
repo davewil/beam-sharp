@@ -84,3 +84,15 @@ the same set by symbol (state numbers differ).
 The scenarios pass, the LANGUAGE.md blocks compile, 25a's `FRONTIER` record
 moves past the map literal, the tree-sitter grammar parses the construct, and
 `./bin/verify.sh` is green twice from a clean clone.
+
+## Evidence — 2026-09-24
+
+The first clean-clone run, on `e03731d`, failed at stage 43: the frontier
+gate's self-test faked 25a's advance by rewriting the `#{ ... }` literal this
+feature removed, so its control stayed green. Fixed in `47b7ff4`, where the
+stub adds the `module` line 25a now stops on.
+
+`./bin/verify.sh` twice from a clean clone of `47b7ff4`, one command per run:
+**All 46 stages passed**, 323 s and 320 s. The atom-key half of ENG-408 is
+done by the conditions above; the status stays *in progress* until David
+calls it, and the string-key half waits on ENG-405.
