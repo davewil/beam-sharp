@@ -171,8 +171,10 @@ module.exports = grammar({
       '{', commaSep1($.field_declaration), '}',
     ),
 
+    // F58: a field-set key may be the wire's own string. The compiler refuses one
+    // in a `record`; the grammar parses both, so the refusal is highlighted in place.
     field_declaration: $ => seq(
-      field('name', $.uident),
+      field('name', choice($.uident, $.string)),
       ':',
       field('type', $.type_expression),
     ),
@@ -406,7 +408,7 @@ module.exports = grammar({
     ),
 
     field_pattern: $ => seq(
-      field('name', $.field_name),
+      field('name', choice($.field_name, $.string)),
       ':',
       field('pattern', $.pattern),
     ),
@@ -599,7 +601,7 @@ module.exports = grammar({
     )),
 
     field_assignment: $ => seq(
-      field('name', $.field_name),
+      field('name', choice($.field_name, $.string)),
       '=',
       field('value', $._expression),
     ),

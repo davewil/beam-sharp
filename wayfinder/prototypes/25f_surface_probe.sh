@@ -95,6 +95,15 @@ using :maps {
 public binary Go(string s)
 Go(s) -> :erlang.iolist_to_binary(:json.encode(:maps.from_list([("type", "noul"), ("instructions", s)])))' Go '"Is this urgent?"'
 
+echo "SINCE F58 (2026-09-24) — a string-keyed field set, ticket 78 Q2's answer:"
+echo "json:decode's output validates as it stands and a clause head reads it."
+probe "F58: a wire type with string keys" 'type UsageWire = { "input_tokens": int, "output_tokens": int }
+public int Total(term doc)
+Total(doc) -> ValidateAs<UsageWire>(doc) switch {
+    (:error, _)                                    => 0,
+    { "input_tokens": i, "output_tokens": o }      => i + o
+}' Total '#{<<"input_tokens">> => 100, <<"output_tokens">> => 20}'
+
 echo "==================================================================="
 echo "3. A TYPED GETTER IS REFUSED BOTH WAYS."
 echo "==================================================================="

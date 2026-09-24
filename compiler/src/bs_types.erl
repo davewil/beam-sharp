@@ -12,6 +12,7 @@
 -export([none/0, term/0, atom_lit/1, atom_top/0, int/0, range/2, tuple/1]).
 %% BEAM floats and integers occupy disjoint parts.
 -export([float_lit/1, float_top/0]).
+-export([key_str/1]).
 -export([nil/0, cons/1, list/1]).
 %% Callers query list properties through this API, not the spine shape.
 -export([list_elem/1, has_lists/1, has_nil/1, has_cons/1, spine/2]).
@@ -1160,7 +1161,7 @@ m_str({Kind, Fields}) ->
              true  -> ['Kind' | lists:sort(maps:keys(maps:remove('Kind', Fields)))];
              false -> lists:sort(maps:keys(Fields))
          end,
-    Printed = [atom_to_list(K) ++ ": " ++ to_string(maps:get(K, Fields)) || K <- Ks],
+    Printed = [key_str(K) ++ ": " ++ to_string(maps:get(K, Fields)) || K <- Ks],
     Tail = case Kind of open -> Printed ++ [".."]; closed -> Printed end,
     "{ " ++ string:join(Tail, ", ") ++ " }".
 
@@ -1529,7 +1530,7 @@ m_hd({_Kind, Fields}, Names) ->
             end;
         _ ->
             Ks = lists:sort(maps:keys(Fields)),
-            {shape, "{ " ++ string:join([atom_to_list(K) ++ ": _" || K <- Ks],
+            {shape, "{ " ++ string:join([key_str(K) ++ ": _" || K <- Ks],
                                         ", ") ++ " }"}
     end.
 
@@ -1605,7 +1606,7 @@ m_pat({_Kind, Fields}) ->
             "{ Kind: " ++ atom_str(Tag) ++ " }";
         _ ->
             Ks = lists:sort(maps:keys(Fields)),
-            "{ " ++ string:join([atom_to_list(K) ++ ": _" || K <- Ks], ", ") ++ " }"
+            "{ " ++ string:join([key_str(K) ++ ": _" || K <- Ks], ", ") ++ " }"
     end.
 
 a_str({finite, []})   -> [];
@@ -1636,3 +1637,12 @@ i_str({Lo, pos_inf})      -> "int >= " ++ integer_to_list(Lo);
 i_str({Lo, Hi})           -> integer_to_list(Lo) ++ ".." ++ integer_to_list(Hi).
 
 t_str(P) -> "(" ++ string:join([to_string(C) || C <- P], ", ") ++ ")".
+
+%% F58: a field key as it is written. A name prints bare; a string key prints
+%% as its literal, quoted, with `"` and `\` escaped as the lexer reads them.
+key_str(K) when is_atom(K) -> atom_to_list(K);
+key_str(K) when is_binary(K) ->
+    [$" | lists:flatmap(fun($") -> "\\\"";
+                           ($\\) -> "\\\\";
+                           (C) -> [C] end,
+                        unicode:characters_to_list(K))] ++ [$"].

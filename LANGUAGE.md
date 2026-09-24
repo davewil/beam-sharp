@@ -2449,6 +2449,33 @@ wire, since a public `Order` parameter is guarded on its tag alone and an extra 
 otherwise reach the body.
 <!-- decided by ticket 77, with 16 §4, 18 §1(c) and 26 §4; built as F50 -->
 
+### A key the wire writes
+
+**A field-set key may be a string literal**, so a type can say what someone else's JSON calls its
+fields. `{ "input_tokens": int }` is a map whose key is the binary `<<"input_tokens">>`, which is
+what `json:decode` produces, so the decoded term validates as it stands and nothing is converted.
+A string key and a name key are different keys: `{ "Status": int }` is not `{ Status: int }`. The
+same key reads in a pattern and builds in the brace expression, and `ToJson` writes it unchanged. A
+record's fields stay names; a string key belongs to a field set. **shipped** — F58.
+<!-- decided by ticket 78 Q2 and Q7; built by F58 -->
+
+```csharp
+module Usage
+
+type UsageWire = { "input_tokens": int, "output_tokens": int }
+
+record Usage { InputTokens: int, OutputTokens: int }
+
+public result<UsageWire, ValidationError> Read(term doc)
+Read(doc) -> ValidateAs<UsageWire>(doc)
+
+public Usage Tokens(UsageWire u)
+Tokens({ "input_tokens": i, "output_tokens": o }) -> Usage { InputTokens = i, OutputTokens = o }
+
+public UsageWire Echo(int i, int o)
+Echo(i, o) -> { "input_tokens" = i, "output_tokens" = o }
+```
+
 **Validating against `term` is an error.** `result<term, ValidationError>` normalises straight back
 to `term`, so the failure channel does not survive and no caller could write the failure clause.
 The rule is general — an instantiation whose union with its own failure member is the type it
@@ -2984,7 +3011,8 @@ the parser accepts back exactly what the printer emits. **shipped**
 | abstract-format emission with `-spec` and the failure arm | **shipped** |
 | `bsc` run mode and the `ibs` REPL | **shipped** |
 | records — declaration, construction, `with`, the dot, tag dispatch | **shipped** |
-| the brace expression `{ Key = value }`, a field set with no `Kind` | **shipped** — F57; the string-key form waits on ENG-405 |
+| the brace expression `{ Key = value }`, a field set with no `Kind` | **shipped** — F57, and with string keys F58 |
+| a string key in a field-set type, pattern and brace, `{ "input_tokens": int }` | **shipped** — F58 |
 | local bindings in a body, with rebinding and unbound names rejected | **shipped** |
 | destructuring binds (`(a, b) = pair`), where they cannot fail | **shipped** |
 | the boundary tag guard on an exported record parameter | **shipped** |

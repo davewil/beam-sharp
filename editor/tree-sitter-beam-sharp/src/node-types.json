@@ -1069,6 +1069,10 @@
           {
             "type": "field_name",
             "named": true
+          },
+          {
+            "type": "string",
+            "named": true
           }
         ]
       },
@@ -1189,6 +1193,10 @@
         "required": true,
         "types": [
           {
+            "type": "string",
+            "named": true
+          },
+          {
             "type": "uident",
             "named": true
           }
@@ -1231,6 +1239,10 @@
         "types": [
           {
             "type": "field_name",
+            "named": true
+          },
+          {
+            "type": "string",
             "named": true
           }
         ]

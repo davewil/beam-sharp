@@ -74,8 +74,7 @@ the same set by symbol (state numbers differ).
 
 ## Out of scope
 
-- String keys, `{ "model" = m.Id }`: ENG-405 first, then this rule takes a
-  string-literal key.
+- String keys, `{ "model" = m.Id }`: built by F58 (ENG-405) the same day.
 - A lambda as a field value has no expected arrow here, so it is refused as
   `lambda_without_expectation`, as in a binding.
 

@@ -2034,7 +2034,7 @@ term_form(arrow)     -> "term".
 field_list(_Label, [])    -> "";
 field_list(Label, Fields) ->
     io_lib:format("~s:~n    ~s~n",
-                  [Label, lists:join(", ", [atom_to_list(F) || F <- Fields])]).
+                  [Label, lists:join(", ", [bs_types:key_str(F) || F <- Fields])]).
 
 plural(1) -> "";
 plural(_) -> "s".

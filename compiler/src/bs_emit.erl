@@ -787,7 +787,7 @@ pattern({p_nil, L}, _U)        -> {nil, L};
 %% clause, which is the `function_clause` the failure arm exists to
 %% produce.
 pattern({p_map, L, Fields}, U) ->
-    {map, L, [{map_field_exact, L, {atom, L, K}, pattern(P, U)} || {K, P} <- Fields]};
+    {map, L, [{map_field_exact, L, key_lit(K, L), pattern(P, U)} || {K, P} <- Fields]};
 %% An alias's name goes through the `p_var` clause rather than being built
 %% here, so an unused binder underscores exactly as an unused parameter
 %% does; `Which(Method { Channel: 7 } f) -> :seven` must not warn on `F`.
@@ -1028,16 +1028,16 @@ expr({e_record, L, Name, Fields}, C = #{module := Mod}) ->
           end,
     {map, L,
      [{map_field_assoc, L, {atom, L, 'Kind'}, {atom, L, Tag}}
-      | [{map_field_assoc, L, {atom, L, K}, expr(E, C)} || {K, E} <- Fields]]};
+      | [{map_field_assoc, L, key_lit(K, L), expr(E, C)} || {K, E} <- Fields]]};
 
 %% F57: a brace with no type name is a plain map, with no `Kind`.
 expr({e_map, L, Fields}, C) ->
-    {map, L, [{map_field_assoc, L, {atom, L, K}, expr(E, C)} || {K, E} <- Fields]};
+    {map, L, [{map_field_assoc, L, key_lit(K, L), expr(E, C)} || {K, E} <- Fields]};
 
 %% Exact updates reject missing keys with `badkey`; fields and tag stay fixed.
 expr({e_with, L, Base, Fields}, C) ->
     {map, L, expr(Base, C),
-     [{map_field_exact, L, {atom, L, K}, expr(E, C)} || {K, E} <- Fields]};
+     [{map_field_exact, L, key_lit(K, L), expr(E, C)} || {K, E} <- Fields]};
 
 %% `map_get` is guard-safe, including for boundary tag tests.
 expr({e_proj, L, V, Field}, _C) ->
@@ -1199,8 +1199,8 @@ member_test(V, {dom, K, Val}, L) ->
 member_test(V, {_Kind, Fields}, L) ->
     all_of([bif(is_map, [V], L)
             | [case is_term(T) of
-                   true  -> bif(is_map_key, [{atom, L, K}, V], L);
-                   false -> type_test(bif(map_get, [{atom, L, K}, V], L), T, L)
+                   true  -> bif(is_map_key, [key_lit(K, L), V], L);
+                   false -> type_test(bif(map_get, [key_lit(K, L), V], L), T, L)
                end || {K, T} <- lists:sort(maps:to_list(Fields))]], L).
 
 %% A guard cannot decide UTF-8 validity; declarations reject `string`.
@@ -1219,6 +1219,17 @@ is_term(T)              -> bs_types:is_subtype(bs_types:term(), T).
 
 %% Remote guard BIF calls cannot be shadowed by local functions.
 bif(F, Args, L) -> {call, L, {remote, L, {atom, L, erlang}, {atom, L, F}}, Args}.
+
+%% F58: a field key is an atom for a name and a binary for a string key, and
+%% the abstract format spells the two differently.
+key_lit(K, L) when is_atom(K) -> {atom, L, K};
+key_lit(K, L) when is_binary(K) ->
+    {bin, L, [{bin_element, L, {string, L, binary_to_list(K)}, default, default}]}.
+
+%% A validation path names a field `.Name`, and a string key the way F43 names
+%% a map entry, `["key"]`.
+field_seg(K) when is_atom(K)   -> [$. | atom_to_list(K)];
+field_seg(K) when is_binary(K) -> [$[, $"] ++ binary_to_list(K) ++ [$", $]].
 
 same(A, B, L)    -> {op, L, '=:=', A, B}.
 differs(A, B, L) -> {op, L, '=/=', A, B}.
@@ -1382,15 +1393,22 @@ map_parts(Members) -> [map_part(M) || M <- Members].
 
 map_part({dom, K, V}) ->
     {type, ?A, map, [{type, ?A, map_field_assoc, [spec_type(K), spec_type(V)]}]};
+%% F58: Erlang's type language has no singleton binary, so string keys widen
+%% to one `binary() => any()` entry; the name keys stay exact.
 map_part({Kind, Fields}) ->
     Exact = [{type, ?A, map_field_exact, [{atom, ?A, K}, spec_type(V)]}
-             || {K, V} <- lists:sort(maps:to_list(Fields))],
+             || {K, V} <- lists:sort(maps:to_list(Fields)), is_atom(K)],
+    Strings = case lists:any(fun is_binary/1, maps:keys(Fields)) of
+                  true  -> [{type, ?A, map_field_assoc,
+                             [{type, ?A, binary, []}, {type, ?A, any, []}]}];
+                  false -> []
+              end,
     Rest = case Kind of
                closed -> [];
                open   -> [{type, ?A, map_field_assoc,
                            [{type, ?A, any, []}, {type, ?A, any, []}]}]
            end,
-    {type, ?A, map, Exact ++ Rest}.
+    {type, ?A, map, Exact ++ Strings ++ Rest}.
 
 tuple_parts(top) -> [{type, ?A, tuple, any}];
 tuple_parts(Ps)  -> [tuple_part(P) || P <- Ps].
@@ -2053,16 +2071,16 @@ map_case({any, Ms}, _Name, Table, Err) ->
 map_case({one, Fixed, {Kind, Fs}}, _Name, Table, _Err) ->
     Pairs = [{K, maps:get(K, Fs)} || K <- lists:sort(maps:keys(Fs))],
     Slots = [map_slot(K, Fixed, T, I) || {I, {K, T}} <- indexed(Pairs)],
-    Pat   = {map, ?A, [{map_field_exact, ?A, {atom, ?A, K}, V}
+    Pat   = {map, ?A, [{map_field_exact, ?A, key_lit(K, ?A), V}
                        || {{K, _}, V} <- lists:zip(Pairs, Slots)]},
-    Steps = [{T, V, bin_str([$. | atom_to_list(K)])}
+    Steps = [{T, V, bin_str(field_seg(K))}
              || {{K, T}, V} <- lists:zip(Pairs, Slots),
                 K =/= Fixed, checked(T)],
     {clause, ?A, [Pat], closed_guard(Kind, length(Pairs)),
      [chain(Steps, Table, 1)]};
 map_case({alts, Ms = [{Kind, Fs} | _]}, _Name, Table, Err) ->
     Keys = lists:sort(maps:keys(Fs)),
-    Pat  = {map, ?A, [{map_field_exact, ?A, {atom, ?A, K}, {var, ?A, '_'}}
+    Pat  = {map, ?A, [{map_field_exact, ?A, key_lit(K, ?A), {var, ?A, '_'}}
                       || K <- Keys]},
     {clause, ?A, [Pat], closed_guard(Kind, length(Keys)),
      [alternatives([member_ty(M) || M <- Ms], Table, Err)]}.

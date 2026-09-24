@@ -84,12 +84,16 @@ decl -> using_decl  : '$1'.
 %% name. The tag is an ordinary field, so a hand-written `type` with the same
 %% tag is the same type (ticket 26 §1).
 record_decl -> 'record' uident '{' field_decls '}' :
-    {record_decl, line('$1'), value('$2'), '$4'}.
+    record_fields(line('$1'), value('$2'), '$4').
 
 field_decls -> field_decl                 : ['$1'].
 field_decls -> field_decl ',' field_decls : ['$1' | '$3'].
 
 field_decl -> uident ':' type_expr : {field, value('$1'), '$3'}.
+
+%% F58 (ticket 78 Q2): a field-set key may be the wire's own string, held as a
+%% binary so it never meets a name key. `record_fields/3` refuses it in a record.
+field_decl -> string_lit ':' type_expr : {field, key('$1'), '$3'}.
 
 %% There are no optional fields: `Notes?: int` is refused by name, and the
 %% message says to write `Notes: option<int>` instead (ticket 26 §4, F6).
@@ -425,6 +429,7 @@ pat_fields -> pat_field                : ['$1'].
 pat_fields -> pat_field ',' pat_fields : ['$1' | '$3'].
 
 pat_field -> uident ':' pattern : {value('$1'), '$3'}.
+pat_field -> string_lit ':' pattern : {key('$1'), '$3'}.
 
 %% `Order { Id: id }` names the type and lets the compiler mint the tag, so an
 %% erasure detail need not be written by hand. `p_rec` carries the name, not a
@@ -681,6 +686,7 @@ assign_fields -> assign_field                   : ['$1'].
 assign_fields -> assign_field ',' assign_fields : ['$1' | '$3'].
 
 assign_field -> uident '=' expr : {value('$1'), '$3'}.
+assign_field -> string_lit '=' expr : {key('$1'), '$3'}.
 
 %% `with` updates a record without changing its field set; there is no spread,
 %% so `{ ...o, X = 1 }` is a syntax error (ticket 26 §2).
@@ -741,6 +747,22 @@ Erlang code.
 
 line(T) -> element(2, T).
 value(T) -> element(3, T).
+
+%% A string key is a binary; a name key stays an atom (F58).
+key(T) -> iolist_to_binary(value(T)).
+
+%% A record's fields are names. A string key describes someone else's wire and
+%% belongs to a field-set type (ticket 78 Q2), so it is refused here by name.
+record_fields(Line, Name, Fields) ->
+    case [K || {field, K, _} <- Fields, is_binary(K)] of
+        [] -> {record_decl, Line, Name, Fields};
+        [K | _] ->
+            return_error(Line,
+                         "a record's fields are names, so \"" ++ binary_to_list(K) ++
+                         "\" cannot be one of " ++ atom_to_list(Name) ++ "'s -- "
+                         "a string key belongs in a field set: `type W = { \"" ++
+                         binary_to_list(K) ++ "\": T }`")
+    end.
 
 %% A module path becomes its dotted atom here, so `bs_check:qualified/2` and
 %% the emit path see the module atom and learn no new shape (ticket 40 §1).

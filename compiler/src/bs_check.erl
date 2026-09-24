@@ -2914,9 +2914,13 @@ inner_positions(#{maps := Ms} = T) ->
     ++ lists:append(
          [case M of
               {dom, K, V} -> [{"[key]", K}, {"[_]", V}];
-              {_, Fields} -> [{"." ++ atom_to_list(F), maps:get(F, Fields)}
+              {_, Fields} -> [{field_path_seg(F), maps:get(F, Fields)}
                               || F <- lists:sort(maps:keys(Fields))]
           end || M <- Ms]).
+
+%% F58: `.Name` for a name key, `["key"]` for a string key, as the validator spells it.
+field_path_seg(F) when is_atom(F)   -> "." ++ atom_to_list(F);
+field_path_seg(F) when is_binary(F) -> "[" ++ bs_types:key_str(F) ++ "]".
 
 first_unencodable([], _Segs, _Seen) ->
     none;

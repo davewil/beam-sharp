@@ -482,6 +482,14 @@ the first report is a `400` from someone else's server.
 
 What works today is the pair list and `:maps.find`, and it costs the 101 lines above.
 
+> **2026-09-24: ticket 78 answered this, and two of its builds have landed.** A wire name lives in
+> a structural field-set type whose keys are the wire's strings, `{ "input_tokens": int }`
+> (F58, [ENG-405](https://linear.app/davewil/issue/ENG-405)), and the brace expression builds one,
+> `{ "type" = "noul", … }` (F57 and F58). `25f_surface_probe.sh` §2 now carries the F58 route beside
+> the refusals. `decode.bs` is not rewritten yet: OpenRouter's reply carries keys a field set does
+> not name, which needs the open marker `..` ([ENG-406](https://linear.app/davewil/issue/ENG-406)),
+> and the `"type"`-tagged answers need string-literal types ([ENG-407](https://linear.app/davewil/issue/ENG-407)).
+
 - **Waits on a decision.** Ticket 77 decided the encode direction is the platform's encoding of
   the erased record, `Kind` and PascalCase field names included. Ticket 78 (open, ENG-373) is the
   decode direction, and its program is a B# server reading its own records back. 25f is the case
