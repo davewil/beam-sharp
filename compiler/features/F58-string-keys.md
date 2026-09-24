@@ -76,7 +76,8 @@ it stands and comes back unchanged.
 | F58.5 | `{ "input_tokens" = i, … }` | the map |
 | F58.6 | the brace against `{ "model": string }`: right, wrong value, wrong key, repeated key | ok; `return_not_declared` ×2; `duplicate_field` |
 | F58.7 | `{ "Status" = n }` where `{ Status: int }` is expected | `arg_not_accepted` |
-| F58.8 | a missing case over `{ "ok": bool }` | residual `({ "ok": _ })`; `--api` prints `{ "ok": :false \| :true }` |
+| F58.8 | a missing case over `{ "ok": bool }` | residual `({ "ok": _ })` |
+| F58.8b | `bsc --api` on a parameter `{ "ok": bool }` | prints `{ "ok": :false \| :true }` |
 | F58.9 | `record R { "x": int }` | parse error naming the field set |
 | F58.10 | `R { "X" = n }` | `field_set_mismatch` |
 | F58.11 | keys `"content-type"` and `""` | run |
