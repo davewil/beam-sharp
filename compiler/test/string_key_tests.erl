@@ -127,8 +127,7 @@ any_string_is_a_key_test() ->
     ?assertEqual(3, M:'Go'(#{<<"content-type">> => 1, <<>> => 2})).
 
 %% F58.12 — a string-keyed field set is a dictionary where its keys and values
-%% fit, as a name-keyed one is. This crashed `bsc` until exemplar 25g found it:
-%% `fields_fit/5` turned every key into a type with `atom_lit/1`.
+%% fit, as a name-keyed one is.
 a_string_keyed_field_set_fits_a_dictionary_test() ->
     M = build_and_load("module Wire12\n"
                        "public map<term, term> State(string t)\n"
