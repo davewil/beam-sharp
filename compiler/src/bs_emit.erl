@@ -719,6 +719,8 @@ used_vars({e_block, _, Binds, Final}, Acc) ->
                 used_vars(Final, Acc), Binds);
 used_vars({e_record, _, _, Fs}, Acc) ->
     lists:foldl(fun({_, E}, A) -> used_vars(E, A) end, Acc, Fs);
+used_vars({e_map, _, Fs}, Acc) ->
+    lists:foldl(fun({_, E}, A) -> used_vars(E, A) end, Acc, Fs);
 used_vars({e_with, _, Base, Fs}, Acc) ->
     lists:foldl(fun({_, E}, A) -> used_vars(E, A) end, used_vars(Base, Acc), Fs);
 used_vars({e_foreign_call, _, _, _, As}, Acc) -> lists:foldl(fun used_vars/2, Acc, As);
@@ -1027,6 +1029,10 @@ expr({e_record, L, Name, Fields}, C = #{module := Mod}) ->
     {map, L,
      [{map_field_assoc, L, {atom, L, 'Kind'}, {atom, L, Tag}}
       | [{map_field_assoc, L, {atom, L, K}, expr(E, C)} || {K, E} <- Fields]]};
+
+%% F57: a brace with no type name is a plain map, with no `Kind`.
+expr({e_map, L, Fields}, C) ->
+    {map, L, [{map_field_assoc, L, {atom, L, K}, expr(E, C)} || {K, E} <- Fields]};
 
 %% Exact updates reject missing keys with `badkey`; fields and tag stay fixed.
 expr({e_with, L, Base, Fields}, C) ->

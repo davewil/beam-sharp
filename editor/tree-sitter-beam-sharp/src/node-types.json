@@ -71,6 +71,10 @@
           "named": true
         },
         {
+          "type": "map_construction",
+          "named": true
+        },
+        {
           "type": "pipe_expression",
           "named": true
         },
@@ -204,6 +208,10 @@
             "named": true
           },
           {
+            "type": "map_construction",
+            "named": true
+          },
+          {
             "type": "pipe_expression",
             "named": true
           },
@@ -327,6 +335,10 @@
           },
           {
             "type": "list",
+            "named": true
+          },
+          {
+            "type": "map_construction",
             "named": true
           },
           {
@@ -479,6 +491,10 @@
           },
           {
             "type": "list",
+            "named": true
+          },
+          {
+            "type": "map_construction",
             "named": true
           },
           {
@@ -694,6 +710,10 @@
             "named": true
           },
           {
+            "type": "map_construction",
+            "named": true
+          },
+          {
             "type": "pipe_expression",
             "named": true
           },
@@ -803,6 +823,10 @@
         },
         {
           "type": "list",
+          "named": true
+        },
+        {
+          "type": "map_construction",
           "named": true
         },
         {
@@ -941,6 +965,10 @@
         },
         {
           "type": "list",
+          "named": true
+        },
+        {
+          "type": "map_construction",
           "named": true
         },
         {
@@ -1098,6 +1126,10 @@
           },
           {
             "type": "list",
+            "named": true
+          },
+          {
+            "type": "map_construction",
             "named": true
           },
           {
@@ -1294,6 +1326,10 @@
         },
         {
           "type": "list",
+          "named": true
+        },
+        {
+          "type": "map_construction",
           "named": true
         },
         {
@@ -1533,6 +1569,10 @@
           "named": true
         },
         {
+          "type": "map_construction",
+          "named": true
+        },
+        {
           "type": "pipe_expression",
           "named": true
         },
@@ -1667,6 +1707,10 @@
           "named": true
         },
         {
+          "type": "map_construction",
+          "named": true
+        },
+        {
           "type": "pipe_expression",
           "named": true
         },
@@ -1775,6 +1819,10 @@
           },
           {
             "type": "list",
+            "named": true
+          },
+          {
+            "type": "map_construction",
             "named": true
           },
           {
@@ -1896,6 +1944,10 @@
           "named": true
         },
         {
+          "type": "map_construction",
+          "named": true
+        },
+        {
           "type": "pipe_expression",
           "named": true
         },
@@ -1960,6 +2012,21 @@
         },
         {
           "type": "rest_pattern",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "map_construction",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "field_assignment",
           "named": true
         }
       ]
@@ -2192,6 +2259,10 @@
             "named": true
           },
           {
+            "type": "map_construction",
+            "named": true
+          },
+          {
             "type": "pipe_expression",
             "named": true
           },
@@ -2387,6 +2458,10 @@
           "named": true
         },
         {
+          "type": "map_construction",
+          "named": true
+        },
+        {
           "type": "pipe_expression",
           "named": true
         },
@@ -2509,6 +2584,10 @@
           },
           {
             "type": "list",
+            "named": true
+          },
+          {
+            "type": "map_construction",
             "named": true
           },
           {
@@ -2704,6 +2783,10 @@
           "named": true
         },
         {
+          "type": "map_construction",
+          "named": true
+        },
+        {
           "type": "pipe_expression",
           "named": true
         },
@@ -2838,6 +2921,10 @@
         },
         {
           "type": "list",
+          "named": true
+        },
+        {
+          "type": "map_construction",
           "named": true
         },
         {
@@ -3061,6 +3148,10 @@
             "named": true
           },
           {
+            "type": "map_construction",
+            "named": true
+          },
+          {
             "type": "pipe_expression",
             "named": true
           },
@@ -3181,6 +3272,10 @@
             "named": true
           },
           {
+            "type": "map_construction",
+            "named": true
+          },
+          {
             "type": "pipe_expression",
             "named": true
           },
@@ -3296,6 +3391,10 @@
         },
         {
           "type": "list",
+          "named": true
+        },
+        {
+          "type": "map_construction",
           "named": true
         },
         {

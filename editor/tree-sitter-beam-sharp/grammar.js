@@ -492,6 +492,7 @@ module.exports = grammar({
       $.tuple,
       $.function_value,
       $.record_construction,
+      $.map_construction,
       $.record_update,
       $.projection,
       $.list,
@@ -585,6 +586,10 @@ module.exports = grammar({
       field('name', $.type_identifier),
       '{', commaSep1($.field_assignment), '}',
     ),
+
+    // F57 / ticket 78 Q7 — a brace with no type name builds a field set. The
+    // third brace level beside the type and the pattern (ticket 48).
+    map_construction: $ => seq('{', commaSep1($.field_assignment), '}'),
 
     // Width-preserving update (ticket 26 §2). Not spread — §2 refused it.
     record_update: $ => prec.left(PREC.with, seq(

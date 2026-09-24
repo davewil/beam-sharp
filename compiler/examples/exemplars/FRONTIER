@@ -38,7 +38,7 @@
 # these three on 2026-08-21 are written up in README.md under "Behind the wall".
 # A record moving forward means the front wall fell, never that the file is done.
 
-25a-http-api-server	create_order.bs	error: illegal characters "#"
+25a-http-api-server	-	error: this directory holds `.bs` files and no `module` line
 25b-websocket-handler	handle_info.bs	error: syntax error before: ','
 25c-event-queue-consumer	encode.bs	error: syntax error before: '<<'
 25d-database-querying	-	error: this directory holds `.bs` files and no `module` line

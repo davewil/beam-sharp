@@ -88,7 +88,7 @@ mode is the optimistic one: it once marked four built capabilities `out`, which 
 | **Pipe and valve** — `\|>`, `\|?>` | 25b, 25c | **in** — F14, 2026-08-18 | 17 |
 | **Interval refinements** — `type Octet = int where ...` | 25b, 25c | **in** — F2, 2026-08-16 | 20 §5 |
 | **String literals** | 25a, 25c | **in** — F9, 2026-08-15 | 20 |
-| **Map literals** — `#{ error = "invalid" }` | 25a | out — the wall 25a stops on | **48** |
+| **Map literals** — `{ Error = "invalid" }`, spelled with bare braces (ticket 48; `#` was never the language's) | 25a | **in** — F57, 2026-09-24. 25a's five files now parse, and its wall moved to the missing `module` line, item 2 below | 48, 78 Q7 |
 | **Lambdas** — `(acc, c) => …` | 25b | **in** — F46, 2026-09-12; ticket 75 decided a function is a value the same day. `List.Fold`, `List.Map` and `List.Filter` landed with it | 75 |
 | **Destructure-and-bind** — `Frame { Type = :method } f` | 25c | out — the wall 25c stops on; `p_alias` has no surface | unasked |
 | **List patterns** — `[h, ..t]` | 25a | **in**, and see below — `["orders", id]` is *refused*, not unbuilt | 08, 28 |
@@ -116,7 +116,8 @@ It is written down because a clean-room implementer reading only the front wall 
 under-estimate the file, and because two of the five are defects in the exemplar rather than gaps in
 the language:
 
-1. **The map literal** — `#{ … }`, in `create_order.bs` and `route.bs`. The front wall. → ticket 48.
+1. ~~**The map literal** — `#{ … }`, in `create_order.bs` and `route.bs`. The front wall. → ticket 48.~~
+   **Built as F57, 2026-09-24**, spelled `{ Error = "invalid" }`; the wall moved to item 2.
 2. **No `module` line.** These files use `index.bs` with no `module` declaration — the ticket 08/13
    convention. F11/F15 built the module system with an explicit `module Shop.Api` line
    (`examples/Pipeline/pipeline.bs:13`), and the `index.bs` convention went with it. **Dialect

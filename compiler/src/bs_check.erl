@@ -2119,6 +2119,7 @@ expr_vars({e_qcall, _, _, _, As})        -> lists:append([expr_vars(A) || A <- A
 expr_vars({e_op, _, _, A, B})          -> expr_vars(A) ++ expr_vars(B);
 expr_vars({e_neg, _, E})               -> expr_vars(E);
 expr_vars({e_record, _, _, Fs})        -> lists:append([expr_vars(E) || {_, E} <- Fs]);
+expr_vars({e_map, _, Fs})              -> lists:append([expr_vars(E) || {_, E} <- Fs]);
 expr_vars({e_with, _, Base, Fs})       ->
     expr_vars(Base) ++ lists:append([expr_vars(E) || {_, E} <- Fs]);
 expr_vars({e_list, _, Items, Rest})    ->
@@ -2425,6 +2426,19 @@ type_of({e_proj, L, V, Field}, S, C) ->
         false -> {reported(),
                   [{error, L, C#ctx.fname,
                     {field_absent, projection, Field, Lacking}}]}
+    end;
+%% F57: a brace with no type name builds an exact field set from its values'
+%% types; the check sites compare it against what the site expects, as they do
+%% any value. A repeated key is refused: an Erlang map literal keeps the last.
+%% Rationale: compiler/features/F57-brace-expression.md.
+type_of({e_map, L, Fields}, S, C) ->
+    Keys = [K || {K, _} <- Fields],
+    case Keys -- lists:usort(Keys) of
+        [Dup | _] ->
+            {reported(), [{error, L, C#ctx.fname, {duplicate_field, Dup}}]};
+        [] ->
+            {Tys, D} = type_of_all([E || {_, E} <- Fields], S, C),
+            {bs_types:map_closed(maps:from_list(lists:zip(Keys, Tys))), D}
     end;
 %% Construction requires exactly the declared fields and their declared types.
 type_of({e_record, L, Name, Fields}, S, C) ->

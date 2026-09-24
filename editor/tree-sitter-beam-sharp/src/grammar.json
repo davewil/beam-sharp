@@ -1795,6 +1795,10 @@
         },
         {
           "type": "SYMBOL",
+          "name": "map_construction"
+        },
+        {
+          "type": "SYMBOL",
           "name": "record_update"
         },
         {
@@ -2344,6 +2348,44 @@
             "name": "type_identifier"
           }
         },
+        {
+          "type": "STRING",
+          "value": "{"
+        },
+        {
+          "type": "SEQ",
+          "members": [
+            {
+              "type": "SYMBOL",
+              "name": "field_assignment"
+            },
+            {
+              "type": "REPEAT",
+              "content": {
+                "type": "SEQ",
+                "members": [
+                  {
+                    "type": "STRING",
+                    "value": ","
+                  },
+                  {
+                    "type": "SYMBOL",
+                    "name": "field_assignment"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "type": "STRING",
+          "value": "}"
+        }
+      ]
+    },
+    "map_construction": {
+      "type": "SEQ",
+      "members": [
         {
           "type": "STRING",
           "value": "{"

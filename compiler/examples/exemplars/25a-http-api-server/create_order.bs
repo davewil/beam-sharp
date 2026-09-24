@@ -10,7 +10,7 @@
 private Response CreateOrder(term)
 
 CreateOrder(body) -> ValidateAs<CreateOrder>(body) switch {
-                         (:error, e)  => (422, #{ error = "invalid", at = e }),
+                         (:error, e)  => (422, { Error = "invalid", At = e }),
                          cmd          => (201, Orders.Place(cmd))
                      }
 

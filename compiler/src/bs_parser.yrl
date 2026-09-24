@@ -673,6 +673,10 @@ expr_low -> '(' expr_list ')' :
 expr_low -> uident '{' assign_fields '}' :
     {e_record, line('$1'), value('$1'), '$3'}.
 
+%% F57 (ticket 78 Q7): a brace with no type name builds a field set, the third
+%% level beside the brace type and the brace pattern that ticket 48 found shipped.
+expr_low -> '{' assign_fields '}' : {e_map, line('$1'), '$2'}.
+
 assign_fields -> assign_field                   : ['$1'].
 assign_fields -> assign_field ',' assign_fields : ['$1' | '$3'].
 

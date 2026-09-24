@@ -1263,6 +1263,33 @@ Bump(n) -> n with { Total = 1 }
   `Order`'s fields. The compiler checks five sites in a body, and a construction is not one of
   them.
 
+**A brace with no type name in front builds a field set.** `{ Status = 200, Body = :ok }` is the
+map `#{'Status' => 200, 'Body' => ok}`, with no `Kind`, so it is never a record, even one with the
+same fields. Its type is the exact field set its values give, `{ Status: 200, Body: :ok }`, and it is
+checked wherever it is used against the type expected there, as any value is. The brace field set
+already had its type and its pattern; this is the expression. **shipped** — F57.
+<!-- decided by ticket 78 Q7, the level ticket 48 measured missing; built by F57 -->
+
+```csharp
+module Replies
+
+type Problem = { Error: string, At: { Line: int } }
+
+public Problem Invalid(int line)
+Invalid(line) -> { Error = "invalid", At = { Line = line } }
+
+public int Where(Problem p)
+Where({ At: { Line: l } }) -> l
+```
+
+A key written twice is refused. An Erlang map literal would keep the last value without a word:
+
+<!-- diagnoses: duplicate_field -->
+```csharp
+public { Status: int } Ok(int n)
+Ok(n) -> { Status = n, Status = 200 }
+```
+
 <!-- decided by ticket 55; the grammar-opinion question the record section used to leave open -->
 
 **A record pattern may name its type, and any pattern may take a trailing binder.** The name stands
@@ -2957,6 +2984,7 @@ the parser accepts back exactly what the printer emits. **shipped**
 | abstract-format emission with `-spec` and the failure arm | **shipped** |
 | `bsc` run mode and the `ibs` REPL | **shipped** |
 | records — declaration, construction, `with`, the dot, tag dispatch | **shipped** |
+| the brace expression `{ Key = value }`, a field set with no `Kind` | **shipped** — F57; the string-key form waits on ENG-405 |
 | local bindings in a body, with rebinding and unbound names rejected | **shipped** |
 | destructuring binds (`(a, b) = pair`), where they cannot fail | **shipped** |
 | the boundary tag guard on an exported record parameter | **shipped** |
@@ -3003,7 +3031,8 @@ the parser accepts back exactly what the printer emits. **shipped**
   implementer following it would have built the wrong parser.
   <!-- corrected 2026-08-26 by ENG-245; the exemplar side was fixed 2026-08-18 and this side was missed -->
 
-- **Map literals.** `#{ error = "invalid" }` appears in an exemplar and is specified nowhere.
+- ~~**Map literals.** `#{ error = "invalid" }` appears in an exemplar and is specified nowhere.~~
+  **CLOSED 2026-09-24 by F57**: the brace expression `{ Error = "invalid" }` (§6), and 25a is respelled.
 - **`float`** has no decided literal syntax, which matters because `1..5` only lexes as a range
   while the float rule demands digits either side of its dot.
 

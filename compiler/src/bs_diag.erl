@@ -338,6 +338,8 @@ built(Path, {Sev, Line, Fn,
     (at(Sev, Path, Line, Fn))#{tag => unknown_reserved_operation,
                                qualifier => Q, operation => Op,
                                got => Got, declared => Have};
+built(Path, {Sev, Line, Fn, {duplicate_field, Key}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => duplicate_field, field => Key};
 built(Path, {Sev, Line, Fn, {unknown_record, Name}}) ->
     (at(Sev, Path, Line, Fn))#{tag => unknown_record, record => Name};
 built(Path, {Sev, Line, Fn, wildcard_as_value}) ->
@@ -1215,6 +1217,12 @@ message(#{tag := unknown_reserved_operation, file := P, line := L, column := C,
      [P, L, C, Fn, Q, Op, Got, Q, Op,
       lists:join(" or ", [[integer_to_list(A), " argument",
                            case A of 1 -> ""; _ -> "s" end] || A <- Have])]};
+%% F57: a map literal would keep the last value; the brace expression refuses.
+message(#{tag := duplicate_field, file := P, line := L, column := C, function := Fn,
+          field := Key}) ->
+    {"~s:~p:~p: error: ~s writes the field ~s twice in one brace~n"
+     "  a field set holds each key once; delete one of the two.~n",
+     [P, L, C, Fn, Key]};
 message(#{tag := unknown_record, file := P, line := L, column := C, function := Fn,
           record := Name}) ->
     {"~s:~p:~p: error: ~s builds an ~s, which no record or type declares~n",

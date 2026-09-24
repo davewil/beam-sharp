@@ -69,7 +69,7 @@ Route(:get,    ["orders"],     _)     -> (200, Orders.All())
 Route(:get,    ["orders", id], _)     -> Fetch(id)
 Route(:post,   ["orders"],     body)  -> CreateOrder(body)
 Route(:delete, ["orders", id], _)     -> Delete(id)
-Route(_,       _,              _)     -> (404, #{ error = "no route" })
+Route(_,       _,              _)     -> (404, { Error = "no route" })
 ```
 
 This is the language at its best, and the lowering confirms it: five beam-sharp clauses become
@@ -112,7 +112,7 @@ only, and deep validation is an explicit `ValidateAs<T>` returning `result<T, Va
 private Response CreateOrder(term)
 
 CreateOrder(body) -> ValidateAs<CreateOrder>(body) switch {
-                         (:error, e)  => (422, #{ error = "invalid", at = e }),
+                         (:error, e)  => (422, { Error = "invalid", At = e }),
                          cmd          => (201, Orders.Place(cmd))
                      }
 ```
@@ -341,6 +341,13 @@ Six things, ordered by how much they should worry you.
    open verbatim: *"map literals versus record literals are unresolved… the language needs one
    story here, not two syntaxes."* A response body is a map far more often than it is a record,
    so this is not a corner. → fog, or ticket 26's leftover.
+
+   > **Answered 2026-09-24, and the code above is respelled.** Ticket 78 Q7 decided the brace
+   > expression, `{ Error = "invalid", At = e }`: record construction's `=` with no type name in
+   > front, keys PascalCase like any field, and no `#`, which ticket 48 found the language never
+   > had. Built as F57 ([ENG-408](https://linear.app/davewil/issue/ENG-408)). The lowercase keys
+   > the response wants on the wire are the string-key form, `{ "error" = "invalid" }`, which
+   > waits on [ENG-405](https://linear.app/davewil/issue/ENG-405).
 
 7. **`CreateOrder` is a record type and a function name in the same module, and nothing
    disambiguates them.** `route.bs` calls `CreateOrder(body)`; `index.bs` declares
