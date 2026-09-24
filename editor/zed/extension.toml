@@ -1,0 +1,18 @@
+id = "beam-sharp"
+name = "beam-sharp"
+version = "0.1.0"
+schema_version = 1
+authors = ["David Williams"]
+description = "Syntax highlighting for beam-sharp (.bs), from the Tree-sitter grammar in this repo. No language server yet."
+repository = "https://github.com/davewil/beam-sharp"
+
+# Zed clones `repository` at `rev` and compiles `<path>/src/parser.c` to wasm
+# itself, so it sees the grammar as COMMITTED at `rev` -- never the working
+# tree. A grammar.js change reaches Zed only once `rev` names a commit that
+# carries it; editor/README.md's Zed section says how to bump it. The key must
+# be `beam_sharp`: Zed links `tree_sitter_<key>`, and that is the symbol
+# parser.c defines. `path` is in Zed's manifest struct, not in its docs.
+[grammars.beam_sharp]
+repository = "https://github.com/davewil/beam-sharp"
+rev = "c0d528b3935c8389789f18607bb9b29bbadc5df3"
+path = "editor/tree-sitter-beam-sharp"

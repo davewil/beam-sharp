@@ -19,7 +19,21 @@
   "behaviour"
   "behavior"
   "with"
+  "public"
+  "private"
+  "var"
+  "where"
+  "fn"
 ] @keyword
+
+; Ticket 44 made the boolean connectives words and removed `&&` and `||`.
+[
+  "and"
+  "or"
+] @keyword.operator
+
+; `raise` deliberately crashes (ticket 12 §5).
+"raise" @keyword.exception
 
 ; `switch` is the only branching construct and `when` the only guard, so between
 ; them these two are the whole of the language's control flow.
@@ -64,6 +78,9 @@
 (parameter name: (lident) @variable.parameter)
 (wildcard) @variable.builtin
 
+; The subject of a refinement, `where value >= 0`: a name the language supplies.
+(refinement "value" @variable.builtin)
+
 ; A record construction names a type and builds a value, so it reads better as a
 ; constructor than as either one alone.
 (record_construction name: (type_identifier) @constructor)
@@ -73,8 +90,8 @@
   "->"
   "=>"
   ".."
-  "&&"
-  "||"
+  "|>"
+  "|?>"
   "=="
   "!="
   "<"
@@ -84,6 +101,8 @@
   "+"
   "-"
   "*"
+  "/"
+  "%"
   "="
   "|"
 ] @operator
@@ -98,3 +117,4 @@
 ; two wrongly. These two patterns come last, so inside a generic they win.
 (generic_type ["<" ">"] @punctuation.bracket)
 (type_alias ["<" ">"] @punctuation.bracket)
+(binary_pattern ["<<" ">"] @punctuation.bracket)

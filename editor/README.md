@@ -1,6 +1,6 @@
 # Editor support
 
-Four things live here, in ascending order of how much they know about the language:
+Five things live here, in ascending order of how much they know about the language:
 
 | | What it is | Knows | Gated by |
 |---|---|---|---|
@@ -8,9 +8,10 @@ Four things live here, in ascending order of how much they know about the langua
 | `vscode/` | a TextMate grammar | tokens | `bin/check-tokens.sh` |
 | `nvim/` | a vim `syntax` file | tokens | `bin/check-tokens.sh` |
 | `syntect/` | a Sublime syntax, for Codex | tokens | `bin/check-tokens.sh`, `bin/check-syntect.sh` |
+| `zed/` | a Zed extension over the Tree-sitter grammar | the grammar | `bin/check-corpus.sh` (its query) |
 
-**Tree-sitter is the destination.** The other three are the stopgap, and the section below on angle
-brackets is why they can only ever be a stopgap.
+**Tree-sitter is the destination**, and neovim and Zed both run it. The regex three are the
+stopgap, and the section below on angle brackets is why they can only ever be a stopgap.
 
 None of this is a language server. **Syntax highlighting is not LSP** — the protocol has no
 "highlight this file" request. Editors get highlighting from a *grammar*, and LSP adds *semantic
@@ -19,37 +20,69 @@ here is at the bottom of this file.
 
 ## Installing
 
-**neovim, Tree-sitter (recommended).** With `nvim-treesitter`, register the grammar as a local
-parser:
+Replace `~/dev/misc/beam-sharp` below with wherever your checkout lives. Each route was run on
+2026-09-24 against Neovim 0.12.5 with nvim-treesitter `main`, VSCode, and Zed 1.18; the one step
+not seen working end to end is marked.
+
+**Neovim.** `nvim/` is a plugin directory. With lazy.nvim (LazyVim included), add one spec, e.g.
+in `~/.config/nvim/lua/plugins/beam-sharp.lua`:
 
 ```lua
-require('nvim-treesitter.parsers').get_parser_configs().beam_sharp = {
-  install_info = {
-    url = '/path/to/beam-sharp/editor/tree-sitter-beam-sharp',
-    files = { 'src/parser.c' },
-    branch = 'master',
-  },
-  filetype = 'bs',
-}
-vim.filetype.add({ extension = { bs = 'bs' } })
-vim.treesitter.language.register('beam_sharp', 'bs')
+return { { dir = '~/dev/misc/beam-sharp/editor/nvim', lazy = false } }
 ```
 
-then `:TSInstall beam_sharp`. Copy `tree-sitter-beam-sharp/queries/highlights.scm` to
-`~/.config/nvim/queries/beam_sharp/highlights.scm`.
+Restart, then `:TSInstall beam_sharp` once. That needs the `tree-sitter` CLI (0.25 or later) on
+`PATH`, which nvim-treesitter `main` requires for every parser anyway. Before the install, and in
+any neovim without nvim-treesitter, `syntax/bs.vim` colours the buffer; after it, Tree-sitter
+does. Without a plugin manager, `set runtimepath^=~/dev/misc/beam-sharp/editor/nvim` does the
+same.
 
-**neovim, regex fallback.** Symlink or copy `nvim/syntax/bs.vim` and `nvim/ftdetect/bs.vim` into
-`~/.config/nvim/`. Nothing to build; works without the Tree-sitter toolchain.
+The plugin does three things, each for a reason measured on 0.12.5:
 
-**VSCode.** Symlink `vscode/` into `~/.vscode/extensions/beam-sharp` and restart. There is no build
-step and no `npm install` — a TextMate grammar is data.
+- `vim.filetype.add({ extension = { bs = 'bs' } })`, because **neovim ships `.bs` as
+  `brighterscript`**, and without this line a `.bs` buffer gets that filetype.
+- registers `beam_sharp` with nvim-treesitter from this checkout, `queries/` symlinked, so an
+  edit to `highlights.scm` shows on the next buffer with no reinstall. A `grammar.js` edit needs
+  `:TSInstall! beam_sharp`.
+- calls `vim.treesitter.start` on `FileType bs`, because nvim-treesitter `main` starts nothing
+  itself and LazyVim starts it only for parsers in a list it caches at startup.
+
+nvim-treesitter's old `master` branch used `get_parser_configs()` instead of the `TSUpdate`
+table; this plugin speaks only `main`.
+
+**VSCode.** Package and install once:
+
+```sh
+cd ~/dev/misc/beam-sharp/editor/vscode
+npx @vscode/vsce package --allow-missing-repository --skip-license -o beam-sharp.vsix
+code --install-extension beam-sharp.vsix
+```
+
+A TextMate grammar is data, so there is no build, but VSCode installs extensions from a `.vsix`;
+re-run both lines after editing the grammar.
+
+**Zed.** Extensions → *Install Dev Extension* (or `zed: install dev extension` from the command
+palette), and choose `editor/zed/`. No Rust is needed: the extension has no `Cargo.toml`, and Zed
+downloads the wasi-sdk it compiles the grammar with. Zed's own loader reading this directory is
+**the step not seen working** — the native folder picker would not take a path from the driving
+tool — so it rests on Zed's source. Everything under it was run: the grammar fetched from GitHub
+at the extension's `rev` and `path`, compiled to wasm, and `highlights.scm` compiled against it.
+
+`zed/languages/beam-sharp/highlights.scm` is a symlink to the one query file, not a copy: Zed
+maps `@keyword.conditional` to its theme's `keyword` by longest dotted prefix and skips `@spell`,
+so neovim's capture names serve both. **The grammar is pinned, the query is not.** Zed clones
+the repo at `rev` in `zed/extension.toml` and never reads the working tree, so a `grammar.js`
+change reaches Zed only when `rev` is moved to a pushed commit carrying it, then *Rebuild* on the
+extension's card. The query is read from disk and follows the checkout.
 
 **Codex.** Not yet, and the section *Codex, and the three hops it is behind* below says why. The
 grammar is here and checked; what is missing is a released binary that carries it.
 
 `src/parser.c` is committed deliberately, so neither neovim nor a packager needs the `tree-sitter`
-CLI to build the parser. Regenerate it with `tree-sitter generate` after any `grammar.js` edit;
-`bin/check-corpus.sh` does that for you and fails if you have not.
+CLI to *generate* the parser. Regenerate it with `tree-sitter generate` after any `grammar.js` edit;
+`bin/check-corpus.sh` does that for you and fails if you have not. It also compiles every query
+in `queries/` against the grammar, since neovim and Zed both refuse a whole query over one pattern
+naming a node the grammar lacks.
 
 ## The one thing only Tree-sitter gets right
 

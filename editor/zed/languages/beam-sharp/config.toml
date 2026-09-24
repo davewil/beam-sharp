@@ -1,0 +1,14 @@
+name = "beam-sharp"
+grammar = "beam_sharp"
+path_suffixes = ["bs"]
+line_comments = ["// "]
+tab_size = 4
+# Angle brackets are deliberately not auto-closed: `<` is a generic bracket in
+# type position and a comparison everywhere else (ticket 28), so closing it
+# would insert a `>` into the middle of `a < b and c > d`.
+brackets = [
+  { start = "{", end = "}", close = true, newline = true },
+  { start = "[", end = "]", close = true, newline = true },
+  { start = "(", end = ")", close = true, newline = true },
+  { start = "\"", end = "\"", close = true, newline = false, not_in = ["comment", "string"] },
+]

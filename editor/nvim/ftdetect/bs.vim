@@ -1,5 +1,6 @@
-" `.bs` is not claimed by any filetype shipped with vim or neovim, so this is an
-" unqualified association rather than a guess that might override something.
+" Neovim 0.12 ships `.bs` as `brighterscript`. `set filetype=` (not
+" `setfiletype`) overrides that; in neovim, `plugin/beam_sharp.lua` also claims
+" the extension through `vim.filetype.add`, which wins before this runs.
 autocmd BufRead,BufNewFile *.bs set filetype=bs
 
 " beam-sharp has no statement terminator and no block delimiters, so indentation

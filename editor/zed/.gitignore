@@ -1,0 +1,2 @@
+# Zed clones the grammar and builds its wasm INSIDE the extension directory.
+grammars/

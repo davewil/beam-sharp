@@ -1,0 +1,2 @@
+# `vsce package` output; editor/README.md's VSCode section builds it here.
+*.vsix

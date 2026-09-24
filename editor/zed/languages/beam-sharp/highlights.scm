@@ -1,0 +1,1 @@
+../../../tree-sitter-beam-sharp/queries/highlights.scm

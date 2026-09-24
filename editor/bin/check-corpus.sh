@@ -16,6 +16,13 @@
 # `[module: GenServer]`). Holding this grammar to them would be holding it to a
 # language the compiler does not implement.
 #
+# AND EVERY QUERY COMPILES AGAINST IT. Neovim and Zed both load
+# `queries/highlights.scm`, and both refuse the WHOLE file when one pattern names
+# a node the grammar lacks -- the buffer is then uncoloured, not partly coloured.
+# Ticket 44 removed `&&` and `||`; the grammar followed and the query did not, and
+# nothing here compiled the query, so Tree-sitter highlighting was dead in neovim
+# with this gate green. Measured 2026-09-24: "Invalid node type &&" at 76:4.
+#
 # Usage:  editor/bin/check-corpus.sh
 
 set -euo pipefail
@@ -26,6 +33,8 @@ GRAMMAR="$SELF/tree-sitter-beam-sharp"
 # `CHECK_CORPUS_DIR` exists for the self-test below and names the tree of `.bs`
 # files to parse. Nothing else sets it; unset, this is the real corpus.
 CORPUS="${CHECK_CORPUS_DIR:-$REPO/compiler/examples}"
+# `CHECK_QUERIES_DIR` likewise exists only for the self-test.
+QUERIES="${CHECK_QUERIES_DIR:-$GRAMMAR/queries}"
 
 # ---------------------------------------------------------------------------
 # --self-test
@@ -87,6 +96,17 @@ if [ "${1:-}" = "--self-test" ]; then
            st_fail=1 ;;
     esac
 
+    # CONTROL 3 — a query naming a token the grammar does not have: the `&&`
+    # ticket 44 removed, which is the defect this control was written after.
+    mkdir -p "$CTL/queries"
+    printf '(comment) @comment\n["&&"] @operator\n' > "$CTL/queries/highlights.scm"
+    case "$(CHECK_QUERIES_DIR="$CTL/queries" "${BASH_SOURCE[0]}" 2>&1 || true)" in
+        *"QUERY    "*highlights.scm*) ;;
+        *) echo "SELF-TEST FAILED: a query naming a node the grammar lacks was accepted,"
+           echo "                  and neovim and Zed would load none of it"
+           st_fail=1 ;;
+    esac
+
     # NEGATIVE CONTROL — the corpus as committed.
     if CHECK_CORPUS_DIR="$REPO/compiler/examples" "${BASH_SOURCE[0]}" >/dev/null 2>&1
     then :; else
@@ -96,7 +116,8 @@ if [ "${1:-}" = "--self-test" ]; then
     fi
 
     if [ "$st_fail" -eq 0 ]; then
-        echo "self-test: reported the unparseable file and refused the empty corpus;"
+        echo "self-test: reported the unparseable file, the uncompilable query and the"
+        echo "           empty corpus;"
         echo "           accepted the committed one — the gate discriminates"
         exit 0
     fi
@@ -158,10 +179,30 @@ if [ "$seen" -eq 0 ]; then
     fail=1
 fi
 
+# `tree-sitter query` compiles the query before it runs it, and needs a file to
+# run it on; any one will do, since what is under test is the compile.
+sample="$(find "$CORPUS" -path "$CORPUS/exemplars" -prune -o -name '*.bs' -print | sort | head -1)"
+queries=0
+for q in "$QUERIES"/*.scm; do
+    [ -e "$q" ] || continue
+    queries=$((queries + 1))
+    if [ -n "$sample" ] && err="$(tree-sitter query "$q" "$sample" 2>&1 >/dev/null)"; then
+        printf '  %-8s %s\n' "ok" "${q#"$REPO"/}"
+    else
+        printf '  %-8s %s\n' "QUERY" "${q#"$REPO"/}"
+        printf '%s\n' "$err" | grep -F 'Query error' | sed 's/^/           /' || true
+        fail=1
+    fi
+done
+if [ "$queries" -eq 0 ]; then
+    echo "  EMPTY    no .scm queries under $QUERIES"
+    fail=1
+fi
+
 echo
 if [ "$fail" -eq 0 ]; then
-    echo "$seen examples parse with no ERROR node"
+    echo "$seen examples parse with no ERROR node, and $queries queries compile"
 else
-    echo "the grammar rejects source the compiler accepts."
+    echo "the grammar rejects source the compiler accepts, or a query names what it lacks."
     exit 1
 fi
