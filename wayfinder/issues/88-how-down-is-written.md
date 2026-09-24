@@ -85,3 +85,63 @@ message instead of spelling the tuple, and the positional form still spells it: 
 one of them an atom the reader has to know (`:process`), with the arity mistake 14g found one
 missing `_` away. The cost is one new kind in the compiler, a named view of a tuple. It is also what
 `Exit` (`{'EXIT', Pid, Reason}`) and `Timeout` would reuse.
+
+**Answered 2026-09-24 (David): named parts.** `Down { Ref: r, Reason: why }` is a pattern over the
+BEAM's 5-tuple, a compiler-known named view of a tuple; `d.Reason` reads its element; users cannot
+construct one (ticket 15's stratum 2).
+
+## Round 2 — 2026-09-24: one type or two, and what the parts are typed as
+
+**Q2. Is a port's death the same `Down` as a process's, or its own type?**
+
+The BEAM sends one shape for both, `{'DOWN', Ref, process | port, Object, Info}`, with `Object` a
+pid, a port, or `{RegisteredName, Node}`. Gleam splits them: `ProcessDown(monitor, pid, reason)`
+and `PortDown(monitor, port, reason)`.
+
+One type, one name per tuple position (names are Q4's, not this round's):
+
+```csharp
+HandleInfo(Down { Ref: ref, Object: pid, Reason: reason }, s) -> Restart(pid, reason, s)
+```
+
+`Object` is `pid | port | (atom, atom)`, and a program that monitors only processes narrows it with
+a pattern, `Down { Type: :process, Object: pid }`, when it needs the pid. Compiler delta: one view,
+each name mapped to one position.
+
+Two types:
+
+```csharp
+HandleInfo(ProcessDown { Ref: ref, Pid: pid, Reason: reason }, s) -> Restart(pid, reason, s)
+```
+
+`ProcessDown` fixes the third element to `process` and `PortDown` to `port`; each names its object
+for what it is. Compiler delta: a view may fix a position to a literal, and two views share the
+`'DOWN'` tag, told apart by that literal, which the algebra already subtracts exactly.
+
+Recommended: **one `Down`.** Ports are rare in application code (a port monitor exists only since
+OTP 19), the one-name-per-position view is the simplest thing to build and to explain, and a
+process-only handler pays one pattern, `Type: :process`, only where it reads the object. A split
+doubles the names for a distinction most handlers never draw.
+
+**Q3. Are `pid` and `reference` builtin types?**
+
+The parts need types. LANGUAGE.md §13 and ticket 14 §1 already say *"a process identifier is a
+`pid`"*, and `bsc` answers `pid is not a builtin type` (25g friction 4), so every process in 25g is
+`term`.
+
+```csharp
+public (:noreply, State) HandleInfo(Message m, State s)
+HandleInfo(Down { Ref: ref, Reason: reason }, s) -> Crashed(ref, reason, s)
+
+private (:noreply, State) Crashed(reference ref, term reason, State s)
+```
+
+Compiler delta: `pid`, `reference` (and `port`, for `Object`) as builtin names in `bs_check`, each a
+new part of the type algebra decided by one guard (`is_pid/1`, `is_reference/1`, `is_port/1`), with
+`-spec`s `pid()`, `reference()`, `port()`. Ticket 14 §1 keeps `pid` **untyped** (no `Pid<T>`), and
+this does not change that.
+
+Recommended: **yes, all three.** The shipping document already promises `pid`, a `Down` whose parts
+are all `term` names nothing a reader can use, and each is one guard, the O(1) test ticket 11 asks
+of a type at the boundary.
+
