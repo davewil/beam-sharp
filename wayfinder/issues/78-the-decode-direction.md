@@ -520,3 +520,10 @@ Recommended: **yes.** It is the ticket's own second program with its scope set b
 inverse of `ToJson` for every type whose wire form is itself. `ValidateAs<T>` stays a check on BEAM
 terms, which answers the question this ticket was raised on.
 
+**Answered 2026-09-24 (David): Q10 yes.** `FromJson<T>(string)` is `json:decode` then
+`ValidateAs<T>`, returning `result<T, ValidationError>`; invalid text is `Path = []`,
+`Expected = "JSON"`; a `T` containing a record is refused, naming Q4's deferral. `ValidateAs<T>`
+stays a check on BEAM terms.
+
+The design tree has no open branch. The decisions entry is written once David confirms the whole.
+
