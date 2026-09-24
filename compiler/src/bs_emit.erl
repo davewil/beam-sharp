@@ -516,17 +516,18 @@ constrains_kind(_)                  -> false.
 %% drift from `bs_check:qualified/2`. The walk recurses, because a record
 %% pattern may sit inside a tuple: `(Frame { Type: :method } f, rest)`.
 %% Rationale: compiler/features/F22-record-pattern-and-binder.md.
-desugar({p_rec, L, Name, Fields}, Ctx) when Name =:= 'Down'; Name =:= 'Exit' ->
-    %% F60: a view is the tuple it names; the checker refused unknown parts.
-    {ok, Tuple} = bs_check:view_pattern(L, Name, Fields),
-    desugar(Tuple, Ctx);
 desugar({p_rec, L, Name, Fields}, Ctx) ->
-    Tag = case record_tag({t_ref, Name}, Ctx) of
-              {ok, T} -> T;
-              none    -> erlang:error({not_a_record, L, Name})
-          end,
-    {p_map, L, [{'Kind', {p_atom, L, Tag}}
-                | [{K, desugar(P, Ctx)} || {K, P} <- Fields]]};
+    case bs_check:view_pattern(L, Name, Fields) of
+        %% F60: a view is the tuple it names; the checker refused unknown parts.
+        {ok, Tuple} -> desugar(Tuple, Ctx);
+        none ->
+            Tag = case record_tag({t_ref, Name}, Ctx) of
+                      {ok, T} -> T;
+                      none    -> erlang:error({not_a_record, L, Name})
+                  end,
+            {p_map, L, [{'Kind', {p_atom, L, Tag}}
+                        | [{K, desugar(P, Ctx)} || {K, P} <- Fields]]}
+    end;
 %% The type prefix over a part resolves to the one BEAM test that decides it
 %% and carries nothing else. It is resolved here, beside the record tag,
 %% because this is where `Ctx`'s env is in scope, and through

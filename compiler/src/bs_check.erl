@@ -2491,54 +2491,20 @@ type_of({e_proj, L, V, Field}, S, C) ->
 %% Rationale: compiler/features/F57-brace-expression.md.
 type_of({e_map, L, Fields}, S, C) ->
     brace(L, Fields, fun(Es) -> type_of_all(Es, S, C) end, C);
-%% Construction requires exactly the declared fields and their declared types.
-type_of({e_record, L, Name, _Fields}, _S, C) when Name =:= 'Down'; Name =:= 'Exit' ->
-    {reported(), [{error, L, C#ctx.fname, {view_constructed, Name}}]};
 type_of({e_record, L, Name, Fields}, S, C) ->
-    RecTy = maps:get(Name, C#ctx.types, undefined),
-    %% Declared field types supply expectations for lambda values.
-    {Tys, D} = record_field_types(Fields, RecTy, S, C),
-    case RecTy of
-        undefined ->
-            {reported(), [{error, L, C#ctx.fname, {unknown_record, Name}} | D]};
-        Ty ->
-            case declared_fields(Ty) of
-                unknown -> {Ty, D};
-                Declared ->
-                    Keys = [K || {K, _} <- Fields],
-                    case field_delta(Keys, Declared) of
-                        %% Check names first: undeclared keys have no type
-                        %% against which to check their values.
-                        {[], []} ->
-                            {Ty, field_value_diags(Keys, Tys, Ty, Name, L, C) ++ D};
-                        {Missing, Extra} ->
-                            {Ty, [{error, L, C#ctx.fname,
-                                   {field_set_mismatch, Name, construction,
-                                    Missing, Extra}} | D]}
-                    end
-            end
+    case bs_types:is_view(Name) of
+        true  -> {reported(), [{error, L, C#ctx.fname, {view_constructed, Name}}]};
+        false -> record_construction(L, Name, Fields, S, C)
     end;
-%% Updates preserve the base type and check values against declared fields.
-%% Every base member must carry each updated key; unions are checked per
-%% member.
 type_of({e_with, L, Base, Fields}, S, C) ->
     {T, D1} = type_of(Base, S, C),
-    {Tys, D2} = type_of_all([E || {_, E} <- Fields], S, C),
-    Keys = [K || {K, _} <- Fields],
-    {Ty, D3} =
-        case {declared_fields(T), record_name(T)} of
-            {Declared, Name} when Declared =/= unknown, Name =/= unknown ->
-                case lists:sort(Keys -- Declared) of
-                    [] ->
-                        {T, field_value_diags(Keys, Tys, T, Name, L, C)};
-                    Extra ->
-                        {T, [{error, L, C#ctx.fname,
-                              {field_set_mismatch, Name, update, [], Extra}}]}
-                end;
-            _ ->
-                with_subject(T, Keys, Tys, L, C)
-        end,
-    {Ty, D1 ++ D2 ++ D3};
+    %% An update of a view builds a new one, which only the VM does.
+    case view_name(T) of
+        {ok, Name} ->
+            {reported(), D1 ++ [{error, L, C#ctx.fname, {view_constructed, Name}}]};
+        none ->
+            update(L, T, Fields, D1, S, C)
+    end;
 %% A switch uses the clause walk over one synthesised column, sharing pattern
 %% and guard refinement, certainty and residuals. Its type unions arm results.
 type_of({e_switch, L, Subject, Arms}, S, C) ->
@@ -2994,6 +2960,53 @@ first_unencodable([{Seg, Ty} | Rest], Segs, Seen) ->
 type_of_all(Es, S, C) ->
     {Tys, Ds} = lists:unzip([type_of(E, S, C) || E <- Es]),
     {Tys, lists:append(Ds)}.
+
+%% Construction requires exactly the declared fields and their declared types.
+record_construction(L, Name, Fields, S, C) ->
+    RecTy = maps:get(Name, C#ctx.types, undefined),
+    %% Declared field types supply expectations for lambda values.
+    {Tys, D} = record_field_types(Fields, RecTy, S, C),
+    case RecTy of
+        undefined ->
+            {reported(), [{error, L, C#ctx.fname, {unknown_record, Name}} | D]};
+        Ty ->
+            case declared_fields(Ty) of
+                unknown -> {Ty, D};
+                Declared ->
+                    Keys = [K || {K, _} <- Fields],
+                    case field_delta(Keys, Declared) of
+                        %% Check names first: undeclared keys have no type
+                        %% against which to check their values.
+                        {[], []} ->
+                            {Ty, field_value_diags(Keys, Tys, Ty, Name, L, C) ++ D};
+                        {Missing, Extra} ->
+                            {Ty, [{error, L, C#ctx.fname,
+                                   {field_set_mismatch, Name, construction,
+                                    Missing, Extra}} | D]}
+                    end
+            end
+    end.
+
+%% Updates preserve the base type and check values against declared fields.
+%% Every base member must carry each updated key; unions are checked per
+%% member.
+update(L, T, Fields, D1, S, C) ->
+    {Tys, D2} = type_of_all([E || {_, E} <- Fields], S, C),
+    Keys = [K || {K, _} <- Fields],
+    {Ty, D3} =
+        case {declared_fields(T), record_name(T)} of
+            {Declared, Name} when Declared =/= unknown, Name =/= unknown ->
+                case lists:sort(Keys -- Declared) of
+                    [] ->
+                        {T, field_value_diags(Keys, Tys, T, Name, L, C)};
+                    Extra ->
+                        {T, [{error, L, C#ctx.fname,
+                              {field_set_mismatch, Name, update, [], Extra}}]}
+                end;
+            _ ->
+                with_subject(T, Keys, Tys, L, C)
+        end,
+    {Ty, D1 ++ D2 ++ D3}.
 
 %%% --- The expected type ---
 %%%
@@ -4033,28 +4046,39 @@ record_projection(L, Recv, Field, C) ->
 
 %% F60: `d.Reason` on a view reads a tuple position. The receiver must be
 %% tuples only, each of them the same view, or it is not a view projection.
-view_projection(Recv0, Field) ->
-    Recv = case bs_types:is_rec(Recv0) of
-               true  -> bs_types:unfold(Recv0);
-               false -> Recv0
-           end,
-    case maps:get(tuples, Recv, []) of
+view_projection(Recv, Field) ->
+    case view_name(Recv) of
+        {ok, Name} ->
+            {_, Declared} = maps:get(Name, bs_types:views()),
+            case index_of(Field, Declared, 1) of
+                none -> none;
+                I    -> {ok, I + 1,
+                         bs_types:union([lists:nth(I + 1, P)
+                                         || P <- maps:get(tuples, unrec(Recv))])}
+            end;
+        none -> none
+    end.
+
+%% A type is a view when it is tuples only, each of them the same view.
+view_name(T0) ->
+    T = unrec(T0),
+    case maps:get(tuples, T, []) of
         Products when is_list(Products), Products =/= [] ->
             TuplesOnly = (bs_types:none())#{tuples => Products},
             Views = [bs_types:view_of_tuple(P) || P <- Products],
-            case {bs_types:is_subtype(Recv, TuplesOnly),
+            case {bs_types:is_subtype(T, TuplesOnly),
                   lists:usort([N || {ok, N, _} <- Views]),
                   lists:all(fun({ok, _, _}) -> true; (_) -> false end, Views)} of
-                {true, [Name], true} ->
-                    {_, Declared} = maps:get(Name, bs_types:views()),
-                    case index_of(Field, Declared, 1) of
-                        none -> none;
-                        I    -> {ok, I + 1,
-                                 bs_types:union([lists:nth(I + 1, P) || P <- Products])}
-                    end;
-                _ -> none
+                {true, [Name], true} -> {ok, Name};
+                _                    -> none
             end;
         _ -> none
+    end.
+
+unrec(T) ->
+    case bs_types:is_rec(T) of
+        true  -> bs_types:unfold(T);
+        false -> T
     end.
 
 index_of(_X, [], _I)      -> none;

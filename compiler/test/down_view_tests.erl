@@ -26,10 +26,9 @@ exit_of(ExitReason) ->
     process_flag(trap_exit, Old),
     M.
 
-%% F60.1 — `pid`, `reference` and `port` are types. A public parameter is
-%% guarded as ticket 18 §1 guards any, so an identity function passes its
-%% argument through, as one over `binary` does; `ValidateAs` decides each kind
-%% with its one guard.
+%% F60.1 — `pid`, `reference` and `port` are types. An identity function
+%% passes its argument through, as one over `binary` does; `ValidateAs` decides
+%% each kind with its one guard.
 opaque_types_are_types_test() ->
     M = build_and_load("module View1\n"
                        "public pid P(pid p)\n"
@@ -87,9 +86,8 @@ a_down_parameter_is_covered_by_views_test() ->
     ?assertMatch({ok, _, _}, check_only(Src("F(Down { Reason: why }) -> :crashed\n"))),
     ?assertEqual([inexhaustive], tags(Src(""))).
 
-%% F60.6 — the 14g mistake: a four-element DOWN clause against a `Down`
-%% parameter matches no value, and is reported as any such clause is, a
-%% `vacuous_clause` warning.
+%% F60.6 — a four-element DOWN clause against a `Down` parameter matches no
+%% value, and is reported as any such clause is, a `vacuous_clause` warning.
 a_misshaped_down_clause_is_reported_test() ->
     {ok, _, Warnings} = check_only("module View6\n"
                                    "public atom F(Down d)\n"
@@ -123,9 +121,10 @@ a_view_cannot_be_redeclared_test() ->
 
 %% F60.10 — a user cannot construct one: a view is only matched.
 a_view_cannot_be_constructed_test() ->
-    ?assertNotEqual([], errors("module View10\n"
-                               "public Down Make(reference r)\n"
-                               "Make(r) -> Down { Ref = r, Type = :process, Object = :x, Reason = :normal }\n")).
+    ?assertEqual([view_constructed],
+                 tags("module View10\n"
+                      "public Down Make(reference r)\n"
+                      "Make(r) -> Down { Ref = r, Type = :process, Object = :x, Reason = :normal }\n")).
 
 %% F60.11 — the residual names the view, in the diagnostic an author reads:
 %% only the parts narrowed below what the view declares.
@@ -161,14 +160,57 @@ a_bare_prefix_binds_the_view_test() ->
     ?assertEqual(other, M:'F'({'DOWN', x})),
     ?assertEqual(other, M:'F'({'DOWN', 1, 2, 3, 4, 5})).
 
-%% F60.14 — the printer's part table and the checker's type agree.
-the_view_tables_agree_test() ->
-    {ok, Info, _} = check_only("module View14\npublic int F(int n)\nF(n) -> n\n"),
-    Env = maps:get(env, Info),
-    [begin
-         [[_Tag | Parts]] = maps:get(tuples, bs_check:resolve({t_ref, Name}, Env)),
-         Declared = [T || {_, T} <- bs_types:view_parts(Name)],
-         ?assertEqual(length(Declared), length(Parts)),
-         [?assert(bs_types:is_subtype(A, B) andalso bs_types:is_subtype(B, A))
-          || {A, B} <- lists:zip(Parts, Declared)]
-     end || Name <- ['Down', 'Exit']].
+%% F60.14 — a residual names only the parts narrowed below what the view
+%% declares, which is where the printer's part types and the checker's must agree:
+%% a part they disagreed on would print although no clause narrowed it.
+a_residual_names_only_the_narrowed_part_test_() ->
+    {timeout, 60,
+     fun() ->
+         bs_test_support:with_src("view14.bs",
+             "module View14\n"
+             "public atom D(Down m)\n"
+             "D(Down { Reason: :normal }) -> :n\n"
+             "public atom E(Exit m)\n"
+             "E(Exit { Reason: :normal }) -> :e\n",
+             fun(Path, _Out) ->
+                 {_, Output} = bs_test_support:run_cli_result(Path),
+                 ?assertNotEqual(nomatch, string:find(Output, "D(Down { Reason: ")),
+                 ?assertNotEqual(nomatch, string:find(Output, "E(Exit { Reason: ")),
+                 [?assertEqual(nomatch, string:find(Output, Part))
+                  || Part <- ["Ref:", "Type:", "Object:", "Pid:"]]
+             end)
+     end}.
+
+%% F60.15 — `with` over a view builds a new one, so it is refused as a
+%% construction is.
+a_view_cannot_be_updated_test() ->
+    ?assertEqual([view_constructed],
+                 tags("module View15\n"
+                      "public Down Bump(Down d)\n"
+                      "Bump(d) -> d with { Reason = :x }\n")).
+
+%% F60.16 — a switch arm matches a view as a clause head does.
+a_switch_arm_matches_a_view_test() ->
+    M = build_and_load("module View16\n"
+                       "public atom K(Down | (:ok, int) m)\n"
+                       "K(m) -> m switch { Down { Reason: :normal } => :normal, "
+                       "Down d => :down, (:ok, _) => :ok }\n", 'View16'),
+    ?assertEqual(normal, M:'K'(down_of(normal))),
+    ?assertEqual(down, M:'K'(down_of(boom))),
+    ?assertEqual(ok, M:'K'({ok, 1})).
+
+%% F60.17 — an undeclared part is refused naming the parts the view has, the
+%% list under its heading with no stray line.
+an_unknown_part_lists_the_declared_ones_test_() ->
+    {timeout, 60,
+     fun() ->
+         bs_test_support:with_src("view17.bs",
+             "module View17\n"
+             "public term I(Down d)\n"
+             "I(Down { Info: i }) -> i\n",
+             fun(Path, _Out) ->
+                 {_, Output} = bs_test_support:run_cli_result(Path),
+                 ?assertNotEqual(nomatch,
+                                 string:find(Output, "  Down declares:\n    Ref, Type, Object, Reason\n"))
+             end)
+     end}.

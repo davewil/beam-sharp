@@ -22,7 +22,7 @@
 %% F60: a process, a reference and a port, opaque to the type language.
 -export([opaque/1]).
 %% F60: the compiler-known named views of the tuples OTP sends.
--export([views/0, view_of_tuple/1, view_parts/1]).
+-export([views/0, is_view/1, view_of_tuple/1, view_parts/1]).
 -export([map_closed/1, map_open/1, map_dom/2, is_dom/1]).
 -export([fun_ty/2, arrows/1, funs_of/1]).
 -export([union/2, union/1, intersect/2, subtract/2]).
@@ -224,18 +224,22 @@ string() -> (none())#{bins => [utf8]}.
 
 opaque(K) when K =:= pid; K =:= port; K =:= reference -> (none())#{opaques => [K]}.
 
-%%% --- Named views (F60, ticket 88) ---
+%%% --- Named views ---
 %%%
 %%% A view names the positions of a tuple the platform sends, after its tag.
 %%% The type is the ordinary tuple; the names are read by the pattern walk, the
 %%% projection and the printers. The table is the one source for all three.
+%%% Rationale: compiler/features/F60-down-and-exit.md.
 views() ->
     #{'Down' => {'DOWN', ['Ref', 'Type', 'Object', 'Reason']},
       'Exit' => {'EXIT', ['Pid', 'Reason']}}.
 
+is_view(Name) -> maps:is_key(Name, views()).
+
 %% What each part of a view is declared as, in position order. A printer names
 %% only the parts a residual has narrowed below these. `bs_check:stratum_two/0`
-%% declares the same types as source, and F60.13 checks the two agree.
+%% declares the same types as source; were they to disagree, a residual would
+%% name a part no clause narrowed, which F60.14 would see.
 view_parts('Down') ->
     [{'Ref', opaque(reference)},
      {'Type', union(atom_lit(process), atom_lit(port))},

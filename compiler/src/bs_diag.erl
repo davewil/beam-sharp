@@ -1568,10 +1568,10 @@ message(#{tag := not_a_record, file := P, line := L, column := C, type := N}) ->
 %% mistake at a different site, and it hands back the field list.
 message(#{tag := pattern_field_unknown, file := P, line := L, column := C, record := R,
           field := F, declared := Declared}) ->
-    {"~s:~p:~p: error: ~s is not declared by ~s~n"
-     "  ~s declares:~n~s",
-     [P, L, C, F, R, R,
-      field_list("", [D || D <- Declared, D =/= 'Kind'])]};
+    {"~s:~p:~p: error: ~s is not declared by ~s~n~s",
+     [P, L, C, F, R,
+      field_list(lists:flatten(io_lib:format("  ~s declares", [R])),
+                 [D || D <- Declared, D =/= 'Kind'])]};
 message(#{tag := unknown_builtin, type := B} = D) ->
     {placed(D) ++ "error: ~s is not a builtin type~n"
      "  this slice has `int`, `float`, `atom`, `term`, `none`, `bool`, `binary`,~n"

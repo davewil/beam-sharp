@@ -42,10 +42,14 @@ private (:noreply, State) Crashed(reference ref, term reason, State s)
 - `Down { Ref: r }` is a pattern for the tuple with `_` in the positions not
   named; parts may be named in any order, and an unknown part is refused as a
   record's unknown field is. A trailing binder works, `Down { Ref: r } d`, and
-  so does a bare prefix, `Down d`, which tests the whole shape.
+  so does a bare prefix, `Down d`, which tests the tag and the arity. The
+  checker stays sound over a user tuple of the same tag and arity: a part of
+  `Down | (:'DOWN', int, int, int, int)` reads as the union of both.
 - `d.Reason` on a value of a view type reads its position.
-- A view cannot be constructed (`view_constructed`) or redeclared
-  (`compiler_known_type`).
+- A view cannot be constructed or updated with `with` (`view_constructed`),
+  or redeclared (`compiler_known_type`). The tuple written out,
+  `(:'DOWN', r, :process, p, :normal)`, is not refused; whether it should be
+  is an open question, beside ticket 73's reading of a record's raw tag.
 - A residual over a view prints by name, in the diagnostic and the pasteable
   heads: `F(Down { Reason: n }) -> ...`, naming only the parts narrowed below
   what the view declares.
@@ -72,6 +76,11 @@ an error would be a new decision, and is not taken here.
   `is_port`, `is_reference` in the foreign-return guard and the validator;
   `pid()`, `port()`, `reference()` in specs.
 - `bs_diag`: `view_constructed`, `opaque`, and `unknown_builtin`'s list.
+- From the 2026-09-24 review: `with` over a view is `view_constructed`, where
+  it had said the view "has no Reason"; the unknown-part message lists the
+  declared parts under its heading without the stray `:` line a record's had
+  too; and `bs_types:is_view/1` replaces the names `Down` and `Exit` written
+  out in `bs_check` and `bs_emit`.
 
 The type algebra gained no view kind: a view is its tuple, and the names live
 at the four sites that read them.
@@ -89,11 +98,14 @@ at the four sites that read them.
 | F60.7 | `Down { Pidd: p }` | `pattern_field_unknown` |
 | F60.8 | `Exit { Pid: p, Reason: why }` on a real EXIT | the reason |
 | F60.9 | `type Down = int` | `compiler_known_type` |
-| F60.10 | constructing `Down { … }` | refused |
+| F60.10 | constructing `Down { … }` | `view_constructed` |
 | F60.11 | the residual over `Down`, as `bsc` prints it | `F(Down { Reason: … })`, no `'DOWN'` tuple |
 | F60.12 | `ToJson<pid>` | `unencodable_member`, `opaque` |
 | F60.13 | `F(Down d)` over `term`, on a real DOWN, `{'DOWN', x}` and a six-tuple | `:down`, `:other`, `:other` |
-| F60.14 | `bs_types:view_parts/1` against `stratum_two`'s types | equal, part by part |
+| F60.14 | the residual of `D(Down { Reason: :normal })` and of the same over `Exit`, as `bsc` prints it | names `Reason` only, no `Ref`, `Type`, `Object` or `Pid` |
+| F60.15 | `d with { Reason = :x }` over `Down d` | `view_constructed` |
+| F60.16 | a switch over `Down \| (:ok, int)` with a `Down { Reason: :normal }` arm and a `Down d` arm | `:normal`, `:down`, `:ok` |
+| F60.17 | `I(Down { Info: i })` | `Info is not declared by Down`, the four parts listed under `Down declares:` |
 
 ## Out of scope
 

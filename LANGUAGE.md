@@ -2957,6 +2957,14 @@ HandleInfo(Down { Reason: why }, s)     -> (:noreply, s with { Crashes = s.Crash
 HandleInfo(msg, s)                      -> (:noreply, s)
 ```
 
+A program cannot build one with `with` either, since an update builds a new value:
+
+<!-- diagnoses: view_constructed -->
+```csharp
+public Down Retag(Down d)
+Retag(d) -> d with { Reason = :normal }
+```
+
 There is no typed `Pid<T>` — a process identifier is a `pid`, and the message type belongs on the
 client API function's signature, where you were going to write it anyway.
 
