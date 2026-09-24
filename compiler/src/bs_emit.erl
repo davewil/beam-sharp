@@ -1581,13 +1581,27 @@ map_cases(Members) ->
     %% Closed members must precede open ones: an open pattern would shadow
     %% them, while the closed `map_size` guard rejects wider maps.
     Ordered = [M || M = {closed, _} <- Named] ++ [M || M = {open, _} <- Named],
+    %% A value can match an open member's shape and another member's at once,
+    %% so no clause order picks the right one: those are tried in turn.
+    Shared = [M || M <- Ordered, lists:any(fun(O) -> O =/= M andalso shared(M, O) end,
+                                           Ordered)],
+    Shaped = Ordered -- Shared,
     {Records, Bare} = lists:partition(fun({_, Fs}) -> maps:is_key('Kind', Fs) end,
-                                      Ordered),
-    case {Doms, Bare} of
-        {[], _}  -> named_cases(Ordered);
+                                      Shaped),
+    case {Doms, Bare ++ Shared} of
+        {[], []} -> named_cases(Shaped);
+        {[], _}  -> named_cases(Shaped) ++ [{any, Shared}];
         {_, []}  -> named_cases(Records) ++ dom_cases(Doms);
-        {_, _}   -> named_cases(Records) ++ [{any, Bare ++ Doms}]
+        {_, _}   -> named_cases(Records) ++ [{any, Bare ++ Shared ++ Doms}]
     end.
+
+%% Two members share a value when one is open and its keys all occur in the
+%% other's (both open: the union of their keys is such a value). A distinct
+%% atom field does not separate them here: these clauses match keys, not tags.
+shared({closed, _}, {closed, _}) -> false;
+shared({open, _}, {open, _})     -> true;
+shared({open, A}, {closed, B})   -> lists:all(fun(K) -> maps:is_key(K, B) end, maps:keys(A));
+shared({closed, A}, {open, B})   -> shared({open, B}, {closed, A}).
 
 named_cases(Ordered) ->
     lists:append([shape_case(G) || {_, G} <- group_by(fun map_key/1, Ordered)]).

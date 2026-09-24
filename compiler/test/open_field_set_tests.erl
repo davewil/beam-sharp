@@ -46,7 +46,7 @@ a_named_key_is_still_required_test() ->
         M:'Read'((openrouter())#{<<"model">> => 7}),
     ?assertEqual({[<<"[\"model\"]">>], <<"string">>}, {P2, E2}).
 
-%% F59.3 — without `..` a field set stays exact, as before.
+%% F59.3 — without `..` a field set stays exact.
 without_the_marker_it_stays_exact_test() ->
     M = build_and_load("module Open3\n"
                        "public result<{ \"model\": string }, ValidationError> Read(term t)\n"
@@ -111,3 +111,37 @@ a_declaration_path_spells_a_string_key_test() ->
                          "public int Go(W w)\n"
                          "Go(w) -> 1\n"),
     ?assertEqual("W[\"a\"]", Path).
+
+%% F59.10 — a value in the open member validates although its keys also fit
+%% an exact member's shape; a value in neither member is still refused.
+validation_tries_the_open_member_test() ->
+    M = build_and_load("module Open10\n"
+                       "type E = { \"a\": int, .. } | { \"a\": string, \"b\": int }\n"
+                       "public result<E, ValidationError> Read(term t)\n"
+                       "Read(t) -> ValidateAs<E>(t)\n"
+                       "type T = { \"a\": :x, .. } | { \"a\": :y, \"b\": int }\n"
+                       "public result<T, ValidationError> Tagged(term t)\n"
+                       "Tagged(t) -> ValidateAs<T>(t)\n", 'Open10'),
+    InOpen = #{<<"a">> => 1, <<"b">> => 1},
+    ?assertEqual(InOpen, M:'Read'(InOpen)),
+    ?assertEqual(#{<<"a">> => <<"s">>, <<"b">> => 2},
+                 M:'Read'(#{<<"a">> => <<"s">>, <<"b">> => 2})),
+    ?assertMatch({error, _}, M:'Read'(#{<<"a">> => <<"s">>, <<"b">> => <<"s">>})),
+    Tagged = #{<<"a">> => x, <<"b">> => <<"s">>},
+    ?assertEqual(Tagged, M:'Tagged'(Tagged)).
+
+%% F59.11 — the refusal names the open member, not the first map beside it.
+to_json_names_the_open_member_test_() ->
+    {timeout, 60,
+     fun() ->
+         bs_test_support:with_src("open11.bs",
+             "module Open11\n"
+             "type Inner = { \"k\": :x } | { \"n\": int, .. }\n"
+             "public string Body(Inner w)\n"
+             "Body(w) -> ToJson<Inner>(w)\n",
+             fun(Path, _Out) ->
+                 {_, Output} = bs_test_support:run_cli_result(Path),
+                 ?assertNotEqual(nomatch, string:find(Output, "`{ \"n\": int, .. }` is open")),
+                 ?assertEqual(nomatch, string:find(Output, "`{ \"k\": :x }` is open"))
+             end)
+     end}.

@@ -2953,7 +2953,7 @@ unencodable(T, Segs, Seen) ->
         true -> {At, T, term};
         false when Ts =/= [] -> {At, holding(tuples, T), tuple};
         false when Fs =/= [] -> {At, holding(funs, T), arrow};
-        false when Open      -> {At, holding(maps, T), open_map};
+        false when Open      -> {At, open_member(T), open_map};
         %% F60: a process, reference or port has no value outside this VM.
         false when Os =/= [] -> {At, holding(opaques, T), opaque};
         false ->
@@ -2967,6 +2967,11 @@ unencodable(T, Segs, Seen) ->
 %% total.
 holding(Part, T) ->
     hd([C || C <- bs_types:constituents(T), maps:get(Part, C) =/= []]).
+
+%% The open member itself, since an exact map beside it encodes.
+open_member(T) ->
+    hd([C || C = #{maps := Ms} <- bs_types:constituents(T), is_list(Ms),
+             lists:any(fun({open, _}) -> true; (_) -> false end, Ms)]).
 
 %% Visit list elements first; sort map fields and visit domain keys before
 %% values. Unknown member kinds must fail rather than silently count as

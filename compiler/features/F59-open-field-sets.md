@@ -39,12 +39,17 @@ back unchanged; `Tokens` gives 120.
 - `{ …, .. }` is an open member: the named keys are required with their types,
   others are admitted. Without `..` a field set stays exact.
 - `ValidateAs` checks the named keys and returns the value unchanged, extra
-  keys included. It converts nothing.
+  keys included. It converts nothing beyond the one conversion 26 §4 decided
+  and ticket 78 Q3 keeps: an absent key at an `option<T>` field is `:nothing`,
+  unbuilt ([ENG-409](https://linear.app/davewil/issue/ENG-409)).
+- A value in an open member validates although its keys also fit another
+  member's shape: those members are tried in turn, and one that fails blames
+  the union, `Path = []`, as an undiscriminated union does.
 - An exact field set is a subtype of the open one with the same keys; the
   reverse is refused (`arg_not_accepted`). The brace expression builds an exact
   set, so it goes where an open type is expected.
 - `ToJson` over a type holding an open member is refused, `unencodable_member`
-  with kind `open_map`, naming the path: it would publish keys no type
+  with kind `open_map`, naming the path and the open member: it would publish keys no type
   declares (26 §4, 18 §1(c)).
 - A record is always exact: `record R { X: int, .. }` does not parse.
 
@@ -59,9 +64,14 @@ back unchanged; `Tokens` gives 120.
   (to `bs_types:map_open/1`), `qualify_refs`, `vars_in`, `scan_ty`, `subst`,
   `written` and `type_source`; `unencodable/3` refuses an open member.
 - `bs_diag`: the `open_map` member text and repair.
-- Nothing in `bs_types` or `bs_emit`: open members existed for patterns, the
-  printer already wrote `..`, the generated validator already skipped the size
-  test for an open member, and the spec already added `any() => any()`.
+- Nothing in `bs_types`: open members existed for patterns, the printer
+  already wrote `..`, and the spec already added `any() => any()`.
+- `bs_emit`, from the 2026-09-24 review: `map_cases/1` gave each member its own
+  clause, exact before open, so a value whose keys fit an exact member's shape
+  committed to it and never reached the open one. A member that shares a value
+  with an open member now goes to the alternatives, which try each in turn.
+- `bs_check`, from the same review: the `open_map` refusal named the first map
+  in the union, which could be the exact one; it names the open member.
 - The F58 gap: `root/1` and `seg/2` now spell a string key `["a"]`, and
   `field_written/1` prints it quoted.
 
@@ -85,6 +95,8 @@ while the tuple and list forms compile. Filed as
 | F59.7 | `record R { X: int, .. }` | parse error |
 | F59.8 | `bsc --api` on an open parameter | prints `{ "model": string, .. }` |
 | F59.9 | an absorbed member under a string key | path `W["a"]` |
+| F59.10 | `ValidateAs` over `{ "a": int, .. } \| { "a": string, "b": int }` on `{"a": 1, "b": 1}`; over the `:x`/`:y` tagged pair | returned unchanged, both; a value in neither is refused |
+| F59.11 | `ToJson` over `{ "k": :x } \| { "n": int, .. }` | the refusal names `{ "n": int, .. }` |
 
 ## Out of scope
 
