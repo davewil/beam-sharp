@@ -219,3 +219,26 @@ Recommended: **yes, dropped, recorded as deferred with what carrying the mark to
 mis-shaped clause, and naming `Down` closes it on its own. The pairing check refuses correct library
 code, and making it correct turns it into the effect that 14 §6 argued it was not.
 
+**Answered 2026-09-24 (David): Q4 yes, Q5 yes, Q6 drop it.**
+
+- **Q4.** `Down { Ref: reference, Type: :process | :port, Object: pid | port | (atom, atom),
+  Reason: term }`.
+- **Q5.** `Exit { Pid: pid, Reason: term }` is built with `Down`, the same mechanism over
+  `{'EXIT', Pid, Reason}`. `Timeout` is the atom `:timeout` and leaves the compiler-known list.
+  Ticket 14 §6's *"and friends"* are not extended here.
+- **Q6.** The pairing check (*"calling `Monitor` in an aggregate that handles no `Down` is an
+  error"*) is **dropped**. A mis-shaped handler is still refused, since `Down` is a type; a missing
+  one goes unnoticed. **What the deferred check would need**: a mark on every function whose body
+  monitors and returns the reference, carried to its callers until a module handles `Down`, which
+  is a constraint propagating across calls, the thing 14 §6 said this check was not; and a rule for
+  a module that hands the reference on rather than handling it. The trigger to reopen: a program
+  that loses a `Down` because no handler was written.
+
+**What follows from Q1 without a question.** A bound `Down d` reads `d.Reason` with `element/2`; a
+residual prints `Down { … }`; the emitted `-spec` is `{'DOWN', reference(), process | port,
+pid() | port() | {atom(), atom()}, term()}`; `ToJson` refuses a `Down`, since it is a tuple (77);
+`ValidateAs<Down>` checks the tuple. The view is not a user-declarable construct: it exists for the
+compiler-known messages only.
+
+The design tree has no open branch. The decisions entry is written once David confirms the whole.
+
