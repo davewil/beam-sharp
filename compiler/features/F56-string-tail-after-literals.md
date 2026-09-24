@@ -1,6 +1,6 @@
 # F56 — a string pattern's tail after string-literal segments is a `string`
 
-**Status**      **in progress** — 8 tests in `binary_tests`, 1064 in the suite;
+**Status**      **done 2026-09-24** — 8 tests in `binary_tests`, 1064 in the suite;
                 `check-language.sh` gained a must-compile block, seen red on
                 the tree first
 **Implements**  [ticket 30](../../wayfinder/issues/30-binaries-as-a-parsing-grammar.md)'s
@@ -96,4 +96,5 @@ clean clone.
 
 `./bin/verify.sh` twice from a clean clone of `445eb8e`, one command per run:
 **All 46 stages passed**, 359 s and 355 s. The "Done when" conditions above
-are met; the status stays *in progress* until David calls it.
+are met. David called it done on 2026-09-24, after a spec review over
+`0e51c9a..01c4a56` found nothing missing or wrong.
