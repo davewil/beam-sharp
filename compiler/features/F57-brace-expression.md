@@ -47,8 +47,14 @@ map, no `Kind`.
   what they expect, so a wrong value, a missing key and an extra key are the
   existing `return_not_declared` / `arg_not_accepted` diagnostics.
 - It has no `Kind`, so it is never a record, even one with the same fields.
+  A brace that writes `Kind = :'M.Reply'` itself is that record: ticket 73
+  Q1 made the tag an ordinary key, legal wherever the grammar admits it and
+  refused by the compiler nowhere, as Elixir's `__struct__` is.
+- Each value takes the type its field has in the type the site expects, so a
+  lambda there has its arrow, as a record construction's value does.
 - A key written twice is refused, `duplicate_field`. An Erlang map literal
-  would keep the last value.
+  would keep the last value. No ticket decides this; it is carried as a
+  question with the review's other open calls.
 
 ## What it compiles to
 
@@ -71,12 +77,15 @@ the same set by symbol (state numbers differ).
 | F57.8 | `ToJson<{ Status: int }>({ Status = n })` | `{"Status":201}` |
 | F57.9 | nested, with a record inside, destructured by a clause head | runs |
 | F57.10 | in a switch arm inside a lambda | runs |
+| F57.11 | `{ F = (x) => x + n }` returned as `{ F: fn(int) -> int }`, and handed to a parameter of that type | runs; `5`, `8` |
 
 ## Out of scope
 
 - String keys, `{ "model" = m.Id }`: built by F58 (ENG-405) the same day.
-- A lambda as a field value has no expected arrow here, so it is refused as
-  `lambda_without_expectation`, as in a binding.
+- A mismatch prints its residual in pattern syntax, `{ Status: _ }`, so the
+  wrong field's value is not named, and no corrected signature is offered.
+  The printer elides every map value by design; spelling them is ENG-350's
+  printer decision, and the review's example is on that issue.
 
 ## Done when
 

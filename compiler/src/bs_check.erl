@@ -2490,14 +2490,7 @@ type_of({e_proj, L, V, Field}, S, C) ->
 %% any value. A repeated key is refused: an Erlang map literal keeps the last.
 %% Rationale: compiler/features/F57-brace-expression.md.
 type_of({e_map, L, Fields}, S, C) ->
-    Keys = [K || {K, _} <- Fields],
-    case Keys -- lists:usort(Keys) of
-        [Dup | _] ->
-            {reported(), [{error, L, C#ctx.fname, {duplicate_field, Dup}}]};
-        [] ->
-            {Tys, D} = type_of_all([E || {_, E} <- Fields], S, C),
-            {bs_types:map_closed(maps:from_list(lists:zip(Keys, Tys))), D}
-    end;
+    brace(L, Fields, fun(Es) -> type_of_all(Es, S, C) end, C);
 %% Construction requires exactly the declared fields and their declared types.
 type_of({e_record, L, Name, _Fields}, _S, C) when Name =:= 'Down'; Name =:= 'Exit' ->
     {reported(), [{error, L, C#ctx.fname, {view_constructed, Name}}]};
@@ -3028,6 +3021,13 @@ expected({e_block, _, Binds, Final}, Ty, S, C) ->
     {S1, D1} = lists:foldl(fun(B, Acc) -> bind_step(B, Acc, C) end, {S, []}, Binds),
     {T, D2} = expected(Final, Ty, S1, C),
     {T, D1 ++ D2};
+%% A brace's values take the field types the site expects, so a lambda there
+%% has its arrow, as record construction's values have theirs.
+expected({e_map, L, Fields}, Ty, S, C) ->
+    brace(L, Fields,
+          fun(Es) ->
+              expected_all(Es, [brace_field(Ty, K) || {K, _} <- Fields], S, C)
+          end, C);
 expected({e_tuple, _, Es}, Ty, S, C) ->
     N = length(Es),
     {Tys, D} = expected_all(Es, [bs_types:tuple_comp(Ty, N, I) || I <- lists:seq(1, N)],
@@ -3054,6 +3054,20 @@ elem_expected(Ty) ->
     case bs_types:unfold(Ty) of
         #{lists := _} = T -> bs_types:list_elem(T);
         _                 -> bs_types:term()
+    end.
+
+%% A bare back-reference imposes no expectation, as in `elem_expected/1`.
+brace_field(#{recvar := _}, _K) -> bs_types:term();
+brace_field(Ty, K)              -> field_type(Ty, K).
+
+brace(L, Fields, TypeValues, C) ->
+    Keys = [K || {K, _} <- Fields],
+    case Keys -- lists:usort(Keys) of
+        [Dup | _] ->
+            {reported(), [{error, L, C#ctx.fname, {duplicate_field, Dup}}]};
+        [] ->
+            {Tys, D} = TypeValues([E || {_, E} <- Fields]),
+            {bs_types:map_closed(maps:from_list(lists:zip(Keys, Tys))), D}
     end.
 
 %% Unknown records and fields use synthesis; the field-set check diagnoses them

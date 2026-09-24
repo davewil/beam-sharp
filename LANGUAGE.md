@@ -1283,6 +1283,18 @@ public int Where(Problem p)
 Where({ At: { Line: l } }) -> l
 ```
 
+A value takes the type its field has where the brace is used, so a lambda there has its arrow, as it
+does in a record construction:
+
+```csharp
+module Steps
+
+type Step = { Apply: fn(int) -> int }
+
+public Step AddN(int n)
+AddN(n) -> { Apply = (x) => x + n }
+```
+
 A key written twice is refused. An Erlang map literal would keep the last value without a word:
 
 <!-- diagnoses: duplicate_field -->

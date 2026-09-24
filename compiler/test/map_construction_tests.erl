@@ -102,3 +102,18 @@ in_an_arm_and_a_lambda_test() ->
                        "    k => { N = k }\n"
                        "})\n", 'Brace10'),
     ?assertEqual([#{'N' => 0}, #{'N' => 3}], M:'Wrap'([0, 3])).
+
+%% F57.11 — a lambda as a field value takes its arrow from the field the site
+%% expects, at a return and at an argument, as record construction's does.
+a_lambda_field_takes_the_expected_arrow_test() ->
+    M = build_and_load("module Brace11\n"
+                       "type Step = { F: fn(int) -> int }\n"
+                       "public Step Go(int n)\n"
+                       "Go(n) -> { F = (x) => x + n }\n"
+                       "private int Run(Step s, int x)\n"
+                       "Run({ F: f }, x) -> f(x)\n"
+                       "public int Twice(int x)\n"
+                       "Twice(x) -> Run({ F = (y) => y * 2 }, x)\n", 'Brace11'),
+    #{'F' := F} = M:'Go'(2),
+    ?assertEqual(5, F(3)),
+    ?assertEqual(8, M:'Twice'(4)).
