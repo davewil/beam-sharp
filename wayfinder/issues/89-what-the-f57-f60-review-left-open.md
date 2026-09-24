@@ -1,7 +1,7 @@
 # 89 — What the F57–F60 review left open
 
 Type: grilling
-Status: open — raised 2026-09-24 by the `/code-review` of F57–F60 (`0e51c9a..01c4a56`)
+Status: open — [ENG-417](https://linear.app/davewil/issue/ENG-417). Raised 2026-09-24 by the `/code-review` of F57–F60 (`0e51c9a..01c4a56`)
 Blocked by: —
 
 ## Why this is raised

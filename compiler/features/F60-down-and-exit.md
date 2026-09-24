@@ -49,7 +49,8 @@ private (:noreply, State) Crashed(reference ref, term reason, State s)
 - A view cannot be constructed or updated with `with` (`view_constructed`),
   or redeclared (`compiler_known_type`). The tuple written out,
   `(:'DOWN', r, :process, p, :normal)`, is not refused; whether it should be
-  is an open question, beside ticket 73's reading of a record's raw tag.
+  is [ticket 89](../../wayfinder/issues/89-what-the-f57-f60-review-left-open.md)
+  Q3, beside ticket 73's reading of a record's raw tag.
 - A residual over a view prints by name, in the diagnostic and the pasteable
   heads: `F(Down { Reason: n }) -> ...`, naming only the parts narrowed below
   what the view declares.
@@ -59,7 +60,9 @@ private (:noreply, State) Crashed(reference ref, term reason, State s)
 **A four-element `DOWN` clause** against a `Down` parameter, 14g's mistake,
 is reported as `vacuous_clause`, a **warning**, as every clause that matches no
 value of its input is. Ticket 14 §6 wrote *"a compile error"*; making this case
-an error would be a new decision, and is not taken here.
+an error would be a new decision, and is not taken here: it is
+[ticket 89](../../wayfinder/issues/89-what-the-f57-f60-review-left-open.md) Q2,
+beside Q1, whether `Exit`'s first part is `pid | port`.
 
 ## What changed
 
