@@ -11,7 +11,7 @@
 // monitored process, so the caller never blocks and any number can be in
 // flight; the answer arrives as `(:jev, tag, result)`. Returns the monitor
 // reference, which a crash comes back under.
-public term Ask(Send send, string token, string spec, term owner, term tag, Json state, list<(string, Question)> questions)
+public reference Ask(Send send, string token, string spec, pid owner, term tag, Json state, list<(string, Question)> questions)
 
 Ask(send, token, spec, owner, tag, state, qs) ->
     var (_, ref) = :erlang.spawn_monitor(() =>

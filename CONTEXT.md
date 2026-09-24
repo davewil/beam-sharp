@@ -16,6 +16,12 @@ The bottom type — the type with no values, and therefore a subtype of every ty
 type `none` does not return.
 _Avoid_: `never`, `no_return`, void, bottom
 
+**Named view**:
+A compiler-known name for a tuple the platform sends, whose positions after the tag have names:
+`Down { Ref, Type, Object, Reason }` over `{'DOWN', …}`. Matched by name in any order and read with
+the dot; never constructed by a program. Its type is the tuple.
+_Avoid_: record (a record is a tagged map), struct
+
 **Residual**:
 What remains of a function's declared input type after subtracting everything its clauses match.
 Empty means the function is exhaustive; non-empty names the case that has no clause.

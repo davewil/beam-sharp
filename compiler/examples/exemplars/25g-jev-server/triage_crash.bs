@@ -8,22 +8,22 @@
 // why that is the point.
 
 using :erlang {
-    term self()
+    pid self()
 }
 
-private term Self()
+private pid Self()
 
 Self() -> :erlang.self()
 
 // A request that crashed answers its caller with the reason.
-private (:noreply, State) Crashed(term ref, term reason, State s)
+private (:noreply, State) Crashed(reference ref, term reason, State s)
 
 Crashed(ref, reason, s) -> :maps.find(ref, s.Pending) switch {
     (:ok, from) => Answered(from, (:error, reason), ref, s),
     :error      => (:noreply, s)
 }
 
-private (:noreply, State) Answered(term from, Labels labels, term ref, State s)
+private (:noreply, State) Answered(term from, Labels labels, reference ref, State s)
 
 Answered(from, labels, ref, s) ->
     var _ = :gen_server.reply(from, labels)

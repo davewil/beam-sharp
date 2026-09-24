@@ -340,6 +340,8 @@ built(Path, {Sev, Line, Fn,
                                got => Got, declared => Have};
 built(Path, {Sev, Line, Fn, {duplicate_field, Key}}) ->
     (at(Sev, Path, Line, Fn))#{tag => duplicate_field, field => Key};
+built(Path, {Sev, Line, Fn, {view_constructed, Name}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => view_constructed, view => Name};
 built(Path, {Sev, Line, Fn, {unknown_record, Name}}) ->
     (at(Sev, Path, Line, Fn))#{tag => unknown_record, record => Name};
 built(Path, {Sev, Line, Fn, wildcard_as_value}) ->
@@ -774,7 +776,8 @@ unencodable_member(M, tuple)  -> "`" ++ M ++ "` is a tuple, and JSON has no enco
 unencodable_member(M, arrow)  -> "`" ++ M ++ "` is a function, which has no value outside this VM";
 unencodable_member(M, binary) -> "`" ++ M ++ "` is a `binary`, which may hold bytes that are not UTF-8";
 unencodable_member(M, term)   -> "`" ++ M ++ "` may hold a tuple or a function, and JSON encodes neither";
-unencodable_member(M, open_map) -> "`" ++ M ++ "` is open, so it holds keys no type declares".
+unencodable_member(M, open_map) -> "`" ++ M ++ "` is open, so it holds keys no type declares";
+unencodable_member(M, opaque)   -> "`" ++ M ++ "` names a process, reference or port, which has no value outside this VM".
 
 %% A `result` is the tuple an author meets first, so the tuple's repair names it.
 unencodable_repair(tuple) ->
@@ -786,6 +789,9 @@ unencodable_repair(arrow) ->
 unencodable_repair(binary) ->
     "Declare it `string`, which is UTF-8 by refinement and goes on the wire\n"
     "  as itself.";
+unencodable_repair(opaque) ->
+    "Leave it out of the value you put on the wire, or send what identifies\n"
+    "  it to the other side, such as a name.";
 unencodable_repair(open_map) ->
     "Encode an exact field set: drop the `..`, or copy the keys you mean to\n"
     "  send into a type that names them all.";
@@ -1227,6 +1233,13 @@ message(#{tag := duplicate_field, file := P, line := L, column := C, function :=
     {"~s:~p:~p: error: ~s writes the field ~s twice in one brace~n"
      "  a field set holds each key once; delete one of the two.~n",
      [P, L, C, Fn, Key]};
+%% F60: a view names a message OTP sends; a program matches it and never builds one.
+message(#{tag := view_constructed, file := P, line := L, column := C, function := Fn,
+          view := Name}) ->
+    {"~s:~p:~p: error: ~s builds a ~s, which only OTP sends~n"
+     "  a ~s is matched, never built: it names the parts of the message a~n"
+     "  monitor or a link delivers. Match it in a clause head.~n",
+     [P, L, C, Fn, Name, Name]};
 message(#{tag := unknown_record, file := P, line := L, column := C, function := Fn,
           record := Name}) ->
     {"~s:~p:~p: error: ~s builds an ~s, which no record or type declares~n",
@@ -1562,7 +1575,7 @@ message(#{tag := pattern_field_unknown, file := P, line := L, column := C, recor
 message(#{tag := unknown_builtin, type := B} = D) ->
     {placed(D) ++ "error: ~s is not a builtin type~n"
      "  this slice has `int`, `float`, `atom`, `term`, `none`, `bool`, `binary`,~n"
-     "  `string` and `list<T>`.~n",
+     "  `string`, `pid`, `reference`, `port` and `list<T>`.~n",
      placed_args(D) ++ [B]};
 message(#{tag := foreign_ret_beyond_one_guard, module := Mod, function := Fun,
           type := Type, why := Why, name := Name, fields := Fields, at := At} = D) ->

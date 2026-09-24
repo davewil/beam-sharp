@@ -15,7 +15,7 @@ module Jev
 using Support.Triage
 
 using :erlang {
-    (term, term) spawn_monitor(fn() -> term f)
-    term send(term to, term msg)
+    (pid, reference) spawn_monitor(fn() -> term f)
+    term send(pid to, term msg)
 }
 

@@ -56,7 +56,9 @@ forms(Module = #{module := Mod, functions := Fns, env := Env}) ->
             %% The `/` sites between two floats, keyed by the operator's
             %% position; decided by the checker, which has the operand types
             %% this module never sees, and lowered here to the BEAM's `/`.
-            fdivs => maps:get(fdivs, Module, #{})},
+            fdivs => maps:get(fdivs, Module, #{}),
+            %% F60: projections onto a view's tuple position.
+            vprojs => maps:get(vprojs, Module, #{})},
     %% A crash names the `.bs` file the function was written in. A module is a
     %% directory, so one `.beam` holds functions from several files, and a
     %% repeated `{attribute, _, file, {Name, Line}}` re-points every form
@@ -459,9 +461,9 @@ is_int_only(TypeExpr, Ctx) -> kind_only(TypeExpr, Ctx) =:= int.
 kind_only(TypeExpr, #{env := Env}) ->
     try bs_check:resolve(TypeExpr, Env) of
         #{ints := Is, atoms := {finite, []}, floats := {finite, []}, tuples := [],
-          lists := [], maps := [], bins := [], funs := []} when Is =/= [] -> int;
+          lists := [], maps := [], bins := [], opaques := [], funs := []} when Is =/= [] -> int;
         #{floats := Fl, atoms := {finite, []}, ints := [], tuples := [],
-          lists := [], maps := [], bins := [], funs := []}
+          lists := [], maps := [], bins := [], opaques := [], funs := []}
           when Fl =/= {finite, []} -> float;
         _ -> none
     catch _:_ -> none
@@ -490,11 +492,11 @@ record_tag(TypeExpr, #{env := Env}) ->
     try bs_check:resolve(TypeExpr, Env) of
         #{maps := [{closed, Fields}], atoms := {finite, []}, ints := [],
           floats := {finite, []}, tuples := [], lists := [], bins := [],
-          funs := []} ->
+          opaques := [], funs := []} ->
             case maps:find('Kind', Fields) of
                 {ok, #{atoms := {finite, [Tag]}, ints := [], floats := {finite, []},
                        tuples := [], lists := [], maps := [], bins := [],
-                       funs := []}} -> {ok, Tag};
+                       opaques := [], funs := []}} -> {ok, Tag};
                 _ -> none
             end;
         _ -> none
@@ -514,6 +516,10 @@ constrains_kind(_)                  -> false.
 %% drift from `bs_check:qualified/2`. The walk recurses, because a record
 %% pattern may sit inside a tuple: `(Frame { Type: :method } f, rest)`.
 %% Rationale: compiler/features/F22-record-pattern-and-binder.md.
+desugar({p_rec, L, Name, Fields}, Ctx) when Name =:= 'Down'; Name =:= 'Exit' ->
+    %% F60: a view is the tuple it names; the checker refused unknown parts.
+    {ok, Tuple} = bs_check:view_pattern(L, Name, Fields),
+    desugar(Tuple, Ctx);
 desugar({p_rec, L, Name, Fields}, Ctx) ->
     Tag = case record_tag({t_ref, Name}, Ctx) of
               {ok, T} -> T;
@@ -1040,9 +1046,16 @@ expr({e_with, L, Base, Fields}, C) ->
      [{map_field_exact, L, key_lit(K, L), expr(E, C)} || {K, E} <- Fields]};
 
 %% `map_get` is guard-safe, including for boundary tag tests.
-expr({e_proj, L, V, Field}, _C) ->
-    {call, L, {remote, L, {atom, L, erlang}, {atom, L, map_get}},
-     [{atom, L, Field}, {var, L, var_name(V)}]};
+expr({e_proj, L, V, Field}, C) ->
+    case maps:find(L, maps:get(vprojs, C, #{})) of
+        %% F60: the checker resolved this projection onto a view's position.
+        {ok, Pos} ->
+            {call, L, {remote, L, {atom, L, erlang}, {atom, L, element}},
+             [{integer, L, Pos}, {var, L, var_name(V)}]};
+        error ->
+            {call, L, {remote, L, {atom, L, erlang}, {atom, L, map_get}},
+             [{atom, L, Field}, {var, L, var_name(V)}]}
+    end;
 %% `raise` uses the BEAM error class, not its non-local-return throw class.
 expr({e_raise, L, Reason}, C) ->
     {call, L, {remote, L, {atom, L, erlang}, {atom, L, error}}, [expr(Reason, C)]};
@@ -1135,11 +1148,18 @@ type_test(_V, #{recvar := _} = Ty, _L) ->
 type_test(_V, #{funs := Fs}, _L) when Fs =/= [] ->
     erlang:error({foreign_return_guard, arrow});
 type_test(V, #{atoms := As, ints := Is, floats := Fl, tuples := Ts, lists := Ls,
-               maps := Ms, bins := Bs}, L) ->
+               maps := Ms, bins := Bs, opaques := Os}, L) ->
     any_of(atom_tests(V, As, L) ++ int_tests(V, Is, L) ++ float_tests(V, Fl, L)
            ++ tuple_tests(V, Ts, L) ++ list_tests(V, Ls, L) ++ map_tests(V, Ms, L)
-           ++ bin_tests(V, Bs, L),
+           ++ bin_tests(V, Bs, L) ++ opaque_tests(V, Os, L),
            L).
+
+%% F60: one guard per kind.
+opaque_tests(V, Os, L) -> [bif(opaque_bif(O), [V], L) || O <- Os].
+
+opaque_bif(pid)       -> is_pid;
+opaque_bif(port)      -> is_port;
+opaque_bif(reference) -> is_reference.
 
 float_tests(_V, {finite, []}, _L) -> [];
 float_tests(V, {finite, Fs}, L)   -> [same(V, float_form(L, F), L) || F <- Fs];
@@ -1370,9 +1390,10 @@ collect_mu(Ty, Acc) ->
     lists:foldl(fun collect_mu/2, Acc, bs_types:components(Ty)).
 
 parts(Ty = #{atoms := As, ints := Is, floats := Fl, tuples := Ts, maps := Ms,
-             bins := Bs, funs := Fs}) ->
+             bins := Bs, opaques := Os, funs := Fs}) ->
     atom_parts(As) ++ [int_part(R) || R <- Is] ++ float_parts(Fl) ++ tuple_parts(Ts)
-        ++ list_parts(Ty) ++ map_parts(Ms) ++ bin_parts(Bs) ++ fun_parts(Fs).
+        ++ list_parts(Ty) ++ map_parts(Ms) ++ bin_parts(Bs)
+        ++ [{type, ?A, O, []} || O <- Os] ++ fun_parts(Fs).
 
 %% Erlang types have no float literals; inhabited parts widen to `float()`.
 float_parts({finite, []}) -> [];
@@ -1781,7 +1802,7 @@ ok_expr() -> {tuple, ?A, [{atom, ?A, ok}, ?VV]}.
 
 ty_clauses(Ty, Name, Table, Err) ->
     #{atoms := As, ints := Is, floats := Fl, tuples := Ts, maps := Ms,
-      bins := Bs, funs := Fs} = Ty,
+      bins := Bs, opaques := Os, funs := Fs} = Ty,
     %% The checker rejects arrows: function types cannot be recovered at
     %% runtime. Reject any that reach emission rather than accept all funs.
     Fs =:= [] orelse erlang:error({validate_over_arrow, Ty}),
@@ -1789,6 +1810,8 @@ ty_clauses(Ty, Name, Table, Err) ->
     ++ int_clauses(Is)
     ++ float_clauses(Fl)
     ++ bin_clauses(lists:sort(Bs), Err)
+    ++ [{clause, ?A, [{var, ?A, '_'}], [[guard_call(opaque_bif(O), [?VV])]], [ok_expr()]}
+        || O <- Os]
     ++ tuple_clauses(Ts, Table, Err)
     ++ list_clauses(Ty, Name)
     ++ map_clauses(Ms, Name, Table, Err).

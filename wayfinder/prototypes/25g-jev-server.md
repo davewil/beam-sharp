@@ -23,20 +23,23 @@ supervision of a failed one.
 
 ## Result
 
-**It compiles and runs behind one wall.** Measured by `25g_surface_probe.sh` in directories
-matching each `module` line, with 25f's module built beside it:
+**It compiles as written and runs.** Measured by `25g_surface_probe.sh` in directories matching
+each `module` line, with 25f's module built beside it. It is the second of ticket 25's exemplars the
+compiler builds and runs unmodified.
 
-- **`Down` is not built.** Ticket 14 §6 decided the OTP message shapes are compiler-known types;
-  nothing builds them. `Triage`'s `HandleInfo` stops on `no type named Down`.
+It had two walls when it was first written, and both came down the same day:
 
-When this exemplar was first written there was a second wall behind it: a string-keyed brace handed
-to a type including `map<term, term>` crashed `bsc`, and the request state
-`{ "title" = issue.Title, "body" = issue.Body }` goes to 25f's `Json`. That was an F58 defect, fixed
-the same day (friction 6). Fixing it also exposed a mistake in this exemplar: `Triage` had named its
-own alias `Answer`, which hid 25f's `Answer` and refused `:maps.from_list(e.Answers)`; the alias is
-`Outcome` now.
+- **`Down` was not built.** Ticket 14 §6 had decided the OTP message shapes are compiler-known and
+  never said how `Down` is written. [Ticket 88](../issues/88-how-down-is-written.md) decided it,
+  `Down { Ref, Type, Object, Reason }`, a named view of the tuple, with `pid`, `reference` and
+  `port` as types; F60 built it.
+- **Behind it, a compiler crash**: a string-keyed brace handed to a type including
+  `map<term, term>` crashed `bsc`, and the request state `{ "title" = issue.Title, "body" =
+  issue.Body }` goes to 25f's `Json`. An F58 defect, fixed as F58.12 (friction 6). Fixing it also
+  exposed a mistake in this exemplar: `Triage` had named its own alias `Answer`, which hid 25f's
+  `Answer`; the alias is `Outcome` now.
 
-With `Down` spelled as the raw tuple and nothing else changed, [`25g_replay.erl`](25g_replay.erl)
+As written, [`25g_replay.erl`](25g_replay.erl)
 sends Jev's four README issues at once, plus one whose transport crashes:
 
 | Issue | Labels | Clause |
@@ -88,8 +91,8 @@ module Jev
 using Support.Triage
 
 using :erlang {
-    (term, term) spawn_monitor(fn() -> term f)
-    term send(term to, term msg)
+    (pid, reference) spawn_monitor(fn() -> term f)
+    term send(pid to, term msg)
 }
 ```
 
@@ -100,7 +103,7 @@ using :erlang {
 // monitored process, so the caller never blocks and any number can be in
 // flight; the answer arrives as `(:jev, tag, result)`. Returns the monitor
 // reference, which a crash comes back under.
-public term Ask(Send send, string token, string spec, term owner, term tag, Json state, list<(string, Question)> questions)
+public reference Ask(Send send, string token, string spec, pid owner, term tag, Json state, list<(string, Question)> questions)
 
 Ask(send, token, spec, owner, tag, state, qs) ->
     var (_, ref) = :erlang.spawn_monitor(() =>
@@ -191,8 +194,8 @@ HandleInfo(Down { Ref: ref, Reason: reason }, s) ->
     Crashed(ref, reason, s)
 ```
 
-**`Down` is the wall**, and the field names `Ref` and `Reason` are this exemplar's guess: ticket 14
-§6 made the type compiler-known and did not spell its fields.
+**`Down` was the wall.** Ticket 88 named its parts `Ref`, `Type`, `Object` and `Reason`, the
+exemplar's own guess for the two it uses; F60 built it.
 
 **The request state is a string-keyed brace**, `{ "title" = issue.Title, "body" = issue.Body }`,
 which is what the model reads. Passing it to 25f's `Json` crashed the compiler until the F58 fix
@@ -270,22 +273,22 @@ guarantee, reached the same way.
 
 ```csharp
 using :erlang {
-    term self()
+    pid self()
 }
 
-private term Self()
+private pid Self()
 
 Self() -> :erlang.self()
 
 // A request that crashed answers its caller with the reason.
-private (:noreply, State) Crashed(term ref, term reason, State s)
+private (:noreply, State) Crashed(reference ref, term reason, State s)
 
 Crashed(ref, reason, s) -> :maps.find(ref, s.Pending) switch {
     (:ok, from) => Answered(from, (:error, reason), ref, s),
     :error      => (:noreply, s)
 }
 
-private (:noreply, State) Answered(term from, Labels labels, term ref, State s)
+private (:noreply, State) Answered(term from, Labels labels, reference ref, State s)
 
 Answered(from, labels, ref, s) ->
     var _ = :gen_server.reply(from, labels)
@@ -314,15 +317,16 @@ answer)`), and a user who forgets the clause gets a server that ignores its answ
   a way for a library module to be the GenServer and call a user module by atom, which is
   `:erlang.apply` over a `term` today.
 
-### 2. `Down` is decided and unbuilt
+### 2. `Down` was decided and unbuilt — built as F60
 
 The front wall. Ticket 14 §6 put `Down`, `Exit` and `Timeout` in the compiler-known stratum and
-[`14g`](14g_handle_info_blind_spot.erl) showed why; nothing builds them. Behind the wall the
-exemplar spells the tuple, `(:'DOWN', term, :process, term, term)`, which works: quoted atoms lex.
-
-- **Compiler delta:** three compiler-known records in the stratum table (`bs_check`), each a tag
-  and a value builder, as F49 did for `ValidationError`, and a pattern that reads the BEAM tuple
-  into them. Unbuilt, and its field names are not decided.
+[`14g`](14g_handle_info_blind_spot.erl) showed why; nothing built them, and nothing said how `Down`
+is written. [Ticket 88](../issues/88-how-down-is-written.md) decided it the same day: a named view
+of the tuple, `Down { Ref: reference, Type: :process | :port, Object: pid | port | (atom, atom),
+Reason: term }`, with `Exit { Pid, Reason }` beside it and `Timeout` the atom `:timeout`. F60
+built both. A clause names the parts it needs; `d.Reason` reads a part of a bound one; a program
+never builds one. Ticket 88 also **dropped** 14 §6's pairing check, which would have refused `Jev`:
+it monitors, and its caller handles the `Down`.
 
 ### 3. A narrowed `HandleInfo` is admitted, and one stray message kills the server
 
@@ -336,14 +340,13 @@ should not, and the failure is the one 14g described.
 - **Waits on the behaviour type check** (LANGUAGE.md §13, *"not started"*), or a decision that a
   narrowed `HandleInfo` is the author's declared crash policy, which ticket 12 would read it as.
 
-### 4. `pid` is not a type
+### 4. `pid` was not a type — built as F60
 
-LANGUAGE.md §13 and ticket 14 §1 both say *"a process identifier is a `pid`"*. `bsc` answers
-`pid is not a builtin type`. The exemplar writes `term` for every process and reference.
-
-- **Compiler delta:** `pid` and `reference` as builtin names, `is_pid/1` and `is_reference/1` as
-  their guards and their `-spec`s. A shipping document says something the compiler does not do,
-  which is a status-claims matter as much as a feature.
+LANGUAGE.md §13 and ticket 14 §1 both said *"a process identifier is a `pid`"*, and `bsc` answered
+`pid is not a builtin type`, so the first version of this exemplar wrote `term` for every process
+and reference. Ticket 88 Q3 made `pid`, `reference` and `port` builtin types, and F60 built them as
+one new part of the type algebra, each kind decided by one guard. `Jev.Ask` now returns a
+`reference`, its owner is a `pid`, and `spawn_monitor` is declared `(pid, reference)`.
 
 ### 5. The ref-to-tag table is `map<term, term>` and three foreign calls
 
@@ -376,8 +379,8 @@ call `Ask` again from `HandleAnswer`; neither needs anything the table above doe
 ## What this says to the tickets
 
 - **Ticket 14 (processes).** `spawn_monitor` with a lambda does Task's job, and a crashed request
-  reaches its caller. Its three gaps are here: `Down` unbuilt, `pid` not a type, narrowing
-  admitted unchecked.
+  reaches its caller. Of the three gaps this exemplar found, `Down` and `pid` are built (ticket 88,
+  F60); narrowing admitted unchecked (friction 3) remains.
 - **Ticket 17 job 1 (ladders).** Jev's routing is four clauses with guards over a reply, none a
   ladder, and the fall-through is a clause, not an `else`.
 - **Ticket 22 (a gateway).** A library cannot add a callback. 25f met the closed-union cost; this is

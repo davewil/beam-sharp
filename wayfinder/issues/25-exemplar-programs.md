@@ -696,11 +696,11 @@ example; it does not call the Elixir package, and its transport is 25f's module.
 *async processing* slot**: each request in its own monitored process, many in flight, a crashed one
 answering its caller.
 
-**One wall, then it runs.** `Down` is decided (14 §6) and unbuilt. A second wall behind it, a
-string-keyed brace handed to `map<term, term>` crashing `bsc`, was an F58 defect and was fixed the
-same day. With `Down` spelled as its tuple and nothing else changed, Jev's four README issues sent
-at once each take the clause the README names, a crashed request answers `(:error, …)`, and the
-server survives.
+**It compiles and runs as written, the second exemplar to.** Both of its walls came down the day
+it was written: a string-keyed brace crashing `bsc` (an F58 defect, fixed), then `Down`, which
+ticket 88 decided as a named view of the tuple and F60 built with `pid`, `reference` and `port`.
+Jev's four README issues sent at once each take the clause the README names, a crashed request
+answers `(:error, …)`, and the server survives.
 
 **Jev's routing is spellable because of ticket 78.** Its four `handle_answer` clauses are four
 clause heads over a string-keyed open field set, `{ "kind": Chosen { Choice: "bug", Confidence: c },
@@ -708,7 +708,7 @@ clause heads over a string-keyed open field set, `{ "kind": Chosen { Choice: "bu
 
 **What it found:** no user-declared behaviour, so a library cannot own the callbacks (ticket 22's
 other half); a narrowed `HandleInfo` is admitted and one stray message kills the server (14 §4's
-unsound direction, unchecked); `pid` is not a type though LANGUAGE.md §13 says it is.
+unsound direction, unchecked, and still open); `pid` was not a type though LANGUAGE.md §13 said it was, now built.
 
 | Question | 25g's answer |
 |---|---|

@@ -14,7 +14,7 @@
 %% The emitter publishes polymorphic signatures under the erased environment.
 -export([polys_of/2, erased_env/2, type_source/1]).
 %% The emitter shares type resolution and qualified record tags here.
--export([resolve/2, qualified/2, record_fields/1]).
+-export([resolve/2, qualified/2, record_fields/1, view_pattern/3]).
 %% The emitter subtracts clause-head guarantees from the declared refinement so
 %% boundary guards check only the remainder.
 -export([clause_accepts/2]).
@@ -88,7 +88,7 @@ check_dir1(Sources, World, Expect) ->
     %% Internal notes travel through the diagnostic channel; remove them before
     %% printing diagnostics.
     {Notes, Tagged} = lists:partition(
-                        fun({_, D}) -> lists:member(element(1, D), [prune, fname, fdiv]) end,
+                        fun({_, D}) -> lists:member(element(1, D), [prune, fname, fdiv, vproj]) end,
                         Tagged0),
     Prunes = maps:from_list([{B, Dead} || {_, {prune, B, Dead}} <- Notes]),
     %% Token positions uniquely key bare names' resolved arities; the emitter
@@ -97,6 +97,8 @@ check_dir1(Sources, World, Expect) ->
     %% The emitter lowers these float-operand sites to BEAM `/`; other `/`
     %% sites lower to `div`. Keys are operator positions.
     Fdivs = maps:from_list([{Loc, float} || {_, {fdiv, Loc, float}} <- Notes]),
+    %% F60: projections the checker resolved onto a view's tuple position.
+    Vprojs = maps:from_list([{Loc, Pos} || {_, {vproj, Loc, Pos}} <- Notes]),
     Fns1 = prune_valves(Fns, Prunes),
     PerFile1 = [{P, prune_valves(Fs, Prunes)} || {P, Fs} <- PerFile],
     case [D || {_, D} <- Tagged, element(1, D) =:= error] of
@@ -126,7 +128,8 @@ check_dir1(Sources, World, Expect) ->
                          %% find calls requiring `try`.
                          foreigns => Foreigns,
                          fnames => Fnames,
-                         fdivs => Fdivs}, Tagged};
+                         fdivs => Fdivs,
+                         vprojs => Vprojs}, Tagged};
         _Fatal -> {error, Tagged}
     end.
 
@@ -1278,7 +1281,35 @@ stratum_two() ->
     #{'ValidationError' =>
           {t_map, [{field, 'Kind', {t_atom, 'ValidationError'}},
                    {field, 'Path', {t_generic, list, [{t_builtin, string}]}},
-                   {field, 'Expected', {t_builtin, string}}]}}.
+                   {field, 'Expected', {t_builtin, string}}]},
+      %% F60 (ticket 88): the tuples OTP sends, named by `bs_types:views/0`.
+      'Down' =>
+          {t_tuple, [{t_atom, 'DOWN'},
+                     {t_builtin, reference},
+                     {t_union, [{t_atom, process}, {t_atom, port}]},
+                     {t_union, [{t_builtin, pid}, {t_builtin, port},
+                                {t_tuple, [{t_builtin, atom}, {t_builtin, atom}]}]},
+                     {t_builtin, term}]},
+      'Exit' =>
+          {t_tuple, [{t_atom, 'EXIT'}, {t_builtin, pid}, {t_builtin, term}]}}.
+
+%% F60: a view pattern is the tuple it names, with `_` where a part is unnamed.
+%% A part the view does not have is refused as a record's unknown field is.
+view_pattern(Line, Name, Fields) ->
+    case maps:find(Name, bs_types:views()) of
+        error -> none;
+        {ok, {Tag, Declared}} ->
+            [case lists:member(K, Declared) of
+                 true  -> ok;
+                 false -> erlang:error({pattern_field_unknown, Line, Name, K, Declared})
+             end || {K, _} <- Fields],
+            {ok, {p_tuple, Line,
+                  [{p_atom, Line, Tag}
+                   | [case lists:keyfind(F, 1, Fields) of
+                          {F, P} -> P;
+                          false  -> {p_wild, Line}
+                      end || F <- Declared]]}}
+    end.
 
 %% The closed set of names after which `<` opens a type bracket rather than
 %% a comparison. Checked here rather than in the lexer, because here a
@@ -1380,11 +1411,11 @@ record_of(Name, Line, Env) ->
     case resolve({t_ref, Name}, Env) of
         #{maps := [{closed, Fs}], atoms := {finite, []}, ints := [],
           floats := {finite, []}, tuples := [], lists := [], bins := [],
-          funs := []} ->
+          opaques := [], funs := []} ->
             case maps:find('Kind', Fs) of
                 {ok, #{atoms := {finite, [Tag]}, ints := [], floats := {finite, []},
                        tuples := [], lists := [], maps := [], bins := [],
-                       funs := []}} ->
+                       opaques := [], funs := []}} ->
                     %% `Kind` is compiler-minted and cannot be written in a
                     %% record pattern.
                     {Tag, maps:keys(Fs) -- ['Kind']};
@@ -1568,6 +1599,11 @@ builtin(bool) -> bs_types:union(bs_types:atom_lit(true), bs_types:atom_lit(false
 %% `string` is the valid UTF-8 subset of `binary`.
 builtin(binary) -> bs_types:binary_top();
 builtin(string) -> bs_types:string();
+%% F60 (ticket 88 Q3): opaque, each decided by one guard; `pid` carries no
+%% message type (ticket 14 §1).
+builtin(pid)       -> bs_types:opaque(pid);
+builtin(reference) -> bs_types:opaque(reference);
+builtin(port)      -> bs_types:opaque(port);
 builtin(B)    -> erlang:error({unknown_builtin, B}).
 
 %%% Checking one function
@@ -2217,6 +2253,7 @@ mixed_guard_diags({guard, Expr}, Scope, Ctx) ->
 
 %% Preserve float-division sites for the emitter, including inside guards.
 keep_from_guard({fdiv, _, _}) -> true;
+keep_from_guard({vproj, _, _}) -> true;
 keep_from_guard(D)            -> mixed_pair(D).
 
 mixed_pair({error, _, _, {mixed_operands, _, _, _, _}}) -> true;
@@ -2444,12 +2481,9 @@ type_of({e_block, _, Binds, Final}, S, C) ->
 %% without.
 type_of({e_proj, L, V, Field}, S, C) ->
     Recv = maps:get(V, S, bs_types:term()),
-    Lacking = lacking(Recv, Field),
-    case bs_types:is_none(Lacking) of
-        true  -> {field_type(Recv, Field), []};
-        false -> {reported(),
-                  [{error, L, C#ctx.fname,
-                    {field_absent, projection, Field, Lacking}}]}
+    case view_projection(Recv, Field) of
+        {ok, Pos, Ty} -> {Ty, [{vproj, L, Pos}]};
+        none          -> record_projection(L, Recv, Field, C)
     end;
 %% F57: a brace with no type name builds an exact field set from its values'
 %% types; the check sites compare it against what the site expects, as they do
@@ -2465,6 +2499,8 @@ type_of({e_map, L, Fields}, S, C) ->
             {bs_types:map_closed(maps:from_list(lists:zip(Keys, Tys))), D}
     end;
 %% Construction requires exactly the declared fields and their declared types.
+type_of({e_record, L, Name, _Fields}, _S, C) when Name =:= 'Down'; Name =:= 'Exit' ->
+    {reported(), [{error, L, C#ctx.fname, {view_constructed, Name}}]};
 type_of({e_record, L, Name, Fields}, S, C) ->
     RecTy = maps:get(Name, C#ctx.types, undefined),
     %% Declared field types supply expectations for lambda values.
@@ -2796,7 +2832,7 @@ first_inseparable([A | Rest]) ->
 %% enumerated for code generation.
 parse_atom_members(#{atoms := {finite, As}, ints := [], floats := {finite, []},
                      tuples := [], lists := [], maps := [], bins := [],
-                     funs := []}) when As =/= [] ->
+                     opaques := [], funs := []}) when As =/= [] ->
     {ok, lists:usort(As)};
 parse_atom_members(_) ->
     error.
@@ -2909,7 +2945,7 @@ unencodable(#{mu := N} = T, Segs, Seen) ->
 unencodable(#{recvar := _}, _Segs, _Seen) ->
     none;
 unencodable(T, Segs, Seen) ->
-    #{tuples := Ts, funs := Fs, bins := Bs, maps := Ms} = T,
+    #{tuples := Ts, funs := Fs, bins := Bs, maps := Ms, opaques := Os} = T,
     At = lists:reverse(Segs),
     %% F59: an open member would publish keys no type declares.
     Open = is_list(Ms) andalso lists:any(fun({open, _}) -> true; (_) -> false end, Ms),
@@ -2918,6 +2954,8 @@ unencodable(T, Segs, Seen) ->
         false when Ts =/= [] -> {At, holding(tuples, T), tuple};
         false when Fs =/= [] -> {At, holding(funs, T), arrow};
         false when Open      -> {At, holding(maps, T), open_map};
+        %% F60: a process, reference or port has no value outside this VM.
+        false when Os =/= [] -> {At, holding(opaques, T), opaque};
         false ->
             case lists:member(other, Bs) of
                 true  -> {At, holding(bins, T), binary};
@@ -3708,7 +3746,7 @@ minted_tag(Name, Env) ->
             case field_type(Ty, 'Kind') of
                 #{atoms := {finite, [Tag]}, ints := [], floats := {finite, []},
                   tuples := [], lists := [], maps := [], bins := [],
-                  funs := []} -> Tag;
+                  opaques := [], funs := []} -> Tag;
                 _ -> undefined
             end
     catch
@@ -3901,19 +3939,11 @@ pattern_type({p_map, _, Fields}, Path, Env) ->
 %% Named record patterns must match the same open map as an explicit `Kind`
 %% pattern. `record_of/3` resolves through the shared tag-minting point.
 %% Rationale: compiler/features/F22-record-pattern-and-binder.md.
-pattern_type({p_rec, Line, Name, Fields}, Path, Env) ->
-    {Tag, Declared} = record_of(Name, Line, Env),
-    %% Reject undeclared fields before typing them so typos report directly,
-    %% rather than collapsing the pattern and reporting non-exhaustiveness.
-    [case lists:member(K, Declared) of
-         true  -> ok;
-         false -> erlang:error({pattern_field_unknown, Line, Name, K, Declared})
-     end || {K, _} <- Fields],
-    Triples = [{K, child_type(P, Path ++ [{field, K}], Env)} || {K, P} <- Fields],
-    Named = maps:from_list([{K, T} || {K, {T, _, _}} <- Triples]),
-    {bs_types:map_open(Named#{'Kind' => bs_types:atom_lit(Tag)}),
-     lists:foldl(fun maps:merge/2, #{}, [B || {_, {_, B, _}} <- Triples]),
-     lists:all(fun({_, {_, _, E}}) -> E end, Triples)};
+pattern_type({p_rec, Line, Name, Fields} = P, Path, Env) ->
+    case view_pattern(Line, Name, Fields) of
+        {ok, Tuple} -> pattern_type(Tuple, Path, Env);
+        none        -> record_pattern_type(P, Path, Env)
+    end;
 %% A type prefix is exact only when `part_test/1` decides membership. Raise
 %% refusal here so both clause heads and switch arms reject it. The emitter
 %% lowers only whole-argument prefixes to variables plus guards; `child_type/3`
@@ -3956,6 +3986,61 @@ pattern_type({p_list, _, Items, Rest}, Path, Env) ->
             end,
     Exact = lists:all(fun({_, _, E}) -> E end, Triples),
     {bs_types:spine(Prefix, Openness), Binds, Exact}.
+
+%% A named record pattern must match the same open map as an explicit `Kind`
+%% pattern. `record_of/3` resolves through the shared tag-minting point.
+record_pattern_type({p_rec, Line, Name, Fields}, Path, Env) ->
+    {Tag, Declared} = record_of(Name, Line, Env),
+    %% Reject undeclared fields before typing them so typos report directly,
+    %% rather than collapsing the pattern and reporting non-exhaustiveness.
+    [case lists:member(K, Declared) of
+         true  -> ok;
+         false -> erlang:error({pattern_field_unknown, Line, Name, K, Declared})
+     end || {K, _} <- Fields],
+    Triples = [{K, child_type(P, Path ++ [{field, K}], Env)} || {K, P} <- Fields],
+    Named = maps:from_list([{K, T} || {K, {T, _, _}} <- Triples]),
+    {bs_types:map_open(Named#{'Kind' => bs_types:atom_lit(Tag)}),
+     lists:foldl(fun maps:merge/2, #{}, [B || {_, {_, B, _}} <- Triples]),
+     lists:all(fun({_, {_, _, E}}) -> E end, Triples)}.
+
+record_projection(L, Recv, Field, C) ->
+    Lacking = lacking(Recv, Field),
+    case bs_types:is_none(Lacking) of
+        true  -> {field_type(Recv, Field), []};
+        false -> {reported(),
+                  [{error, L, C#ctx.fname,
+                    {field_absent, projection, Field, Lacking}}]}
+    end.
+
+%% F60: `d.Reason` on a view reads a tuple position. The receiver must be
+%% tuples only, each of them the same view, or it is not a view projection.
+view_projection(Recv0, Field) ->
+    Recv = case bs_types:is_rec(Recv0) of
+               true  -> bs_types:unfold(Recv0);
+               false -> Recv0
+           end,
+    case maps:get(tuples, Recv, []) of
+        Products when is_list(Products), Products =/= [] ->
+            TuplesOnly = (bs_types:none())#{tuples => Products},
+            Views = [bs_types:view_of_tuple(P) || P <- Products],
+            case {bs_types:is_subtype(Recv, TuplesOnly),
+                  lists:usort([N || {ok, N, _} <- Views]),
+                  lists:all(fun({ok, _, _}) -> true; (_) -> false end, Views)} of
+                {true, [Name], true} ->
+                    {_, Declared} = maps:get(Name, bs_types:views()),
+                    case index_of(Field, Declared, 1) of
+                        none -> none;
+                        I    -> {ok, I + 1,
+                                 bs_types:union([lists:nth(I + 1, P) || P <- Products])}
+                    end;
+                _ -> none
+            end;
+        _ -> none
+    end.
+
+index_of(_X, [], _I)      -> none;
+index_of(X, [X | _], I)   -> I;
+index_of(X, [_ | T], I)   -> index_of(X, T, I + 1).
 
 %%% --- Binary segment bindings ---
 

@@ -485,6 +485,7 @@ of them is a union like any other, which is why `Verdict` above needs no special
 | `none` | the bottom type — `raise` has it, and every exhaustive function's residual is it. First-class: writable in a signature, so a function that never returns can be declared. Not to be confused with `:nothing`, which is a value, nor with C#'s `void`, which returns — see §7 | **shipped** |
 | `float` | the BEAM's float, an eighth part of the lattice beside `int` and not inside it; the literal is C#'s, `0.0`; `/` lowers by its operand types. An `int` never stands where a `float` is expected: `0` against a declared `float` is refused, and so is a mixed pair at an operator; the conversion is written, `Float.FromInt(n)`, an entry under a reserved qualifier and not a cast | **shipped** — F51, 2026-09-16 |
 | `binary` | the top, and it stays the top — sizes are not in the type language | **shipped** |
+| `pid`, `reference`, `port` | a process, a reference, a port: opaque, each decided by one guard (`is_pid`, `is_reference`, `is_port`); `pid` carries no message type | **shipped** — F60 |
 | `string` | `binary` refined by valid UTF-8; a literal is one by construction | **shipped** |
 | records | see §6 | **decided** |
 <!-- float: decided by ticket 69, wayfinder/issues/69-does-the-language-have-float.md; the no-flow rule by ticket 80; the conversion's spelling, Float.FromInt, by ticket 81; built by F51, ENG-378 -->
@@ -2911,6 +2912,39 @@ enforces **presence**, so a missing mandatory callback is an error naming what t
 callback's spec against OTP's own `-callback` at the boundary, accepts the narrower signature this
 paragraph promises, and still reports a wrong one as `Invalid type specification`.
 
+**A monitored process's death is a `Down`, and a linked one's exit is an `Exit`.** Each is a named
+view of the tuple OTP sends, `{'DOWN', Ref, Type, Object, Reason}` and `{'EXIT', Pid, Reason}`: a
+clause names the parts it needs, in any order, so it cannot get the tuple's length wrong, and a bound
+one reads a part with the dot. A program never builds one. **shipped** — F60.
+<!-- decided by tickets 14 §6 and 88; built by F60 -->
+
+| View | Parts |
+|---|---|
+| `Down` | `Ref: reference`, `Type: :process \| :port`, `Object: pid \| port \| (atom, atom)`, `Reason: term` |
+| `Exit` | `Pid: pid`, `Reason: term` |
+
+```csharp
+module Pool
+
+behaviour GenServer
+
+record State { Workers: int, Crashes: int }
+
+public (:ok, State) Init(int n)
+Init(n) -> (:ok, State { Workers = n, Crashes = 0 })
+
+public (:reply, int, State) HandleCall(term req, term from, State s)
+HandleCall(req, from, s) -> (:reply, s.Crashes, s)
+
+public (:noreply, State) HandleCast(term msg, State s)
+HandleCast(msg, s) -> (:noreply, s)
+
+public (:noreply, State) HandleInfo(term msg, State s)
+HandleInfo(Down { Reason: :normal }, s) -> (:noreply, s with { Workers = s.Workers - 1 })
+HandleInfo(Down { Reason: why }, s)     -> (:noreply, s with { Crashes = s.Crashes + 1 })
+HandleInfo(msg, s)                      -> (:noreply, s)
+```
+
 There is no typed `Pid<T>` — a process identifier is a `pid`, and the message type belongs on the
 client API function's signature, where you were going to write it anyway.
 
@@ -3044,6 +3078,7 @@ the parser accepts back exactly what the printer emits. **shipped**
 | `bsc` run mode and the `ibs` REPL | **shipped** |
 | records — declaration, construction, `with`, the dot, tag dispatch | **shipped** |
 | the brace expression `{ Key = value }`, a field set with no `Kind` | **shipped** — F57, and with string keys F58 |
+| `pid`, `reference`, `port`; `Down` and `Exit` as named views of the tuples OTP sends | **shipped** — F60 |
 | a string key in a field-set type, pattern and brace, `{ "input_tokens": int }` | **shipped** — F58 |
 | an open field set, `{ "model": string, .. }` | **shipped** — F59 |
 | local bindings in a body, with rebinding and unbound names rejected | **shipped** |
