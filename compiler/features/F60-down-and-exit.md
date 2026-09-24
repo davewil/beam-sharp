@@ -127,3 +127,15 @@ is green twice from a clean clone.
 `0207fdb`, another session's editor commit), one command per run: **All 46
 stages passed**, 289 s and 274 s. The status stays *in progress* until David
 calls it.
+
+## Evidence — 2026-09-24, the review fixes
+
+The `/code-review` of `0e51c9a..01c4a56` found the defects this change fixes;
+its open decisions are [ticket 89](../../wayfinder/issues/89-what-the-f57-f60-review-left-open.md).
+`with` over a view is `view_constructed`, the unknown-part list has no stray line, and `bs_types:is_view/1` is the one source for view names (`f7345ed`, F60.14 to F60.17).
+
+`./bin/verify.sh` twice from a clean clone of `a6123f3`, one command per run:
+**All 46 stages passed**, 264 s and 270 s. A first clone passed run 1 (325 s)
+and failed run 2 at stage 11, whose gate and `--self-test` then passed alone
+in that clone: ENG-329's race, and this change touches no tour file. The
+status stays *in progress* until David calls it.

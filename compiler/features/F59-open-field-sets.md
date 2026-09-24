@@ -119,3 +119,15 @@ change touches the tour.
 `./bin/verify.sh` twice from a second clean clone of `c0d528b`, one command per
 run: **All 46 stages passed**, 327 s and 324 s. The status stays *in progress*
 until David calls it.
+
+## Evidence — 2026-09-24, the review fixes
+
+The `/code-review` of `0e51c9a..01c4a56` found the defects this change fixes;
+its open decisions are [ticket 89](../../wayfinder/issues/89-what-the-f57-f60-review-left-open.md).
+`ValidateAs` reaches the open member, and `open_map` names it (`baf421b`, F59.10, F59.11); F59.7 asserts at `bsc` (`91162c0`).
+
+`./bin/verify.sh` twice from a clean clone of `a6123f3`, one command per run:
+**All 46 stages passed**, 264 s and 270 s. A first clone passed run 1 (325 s)
+and failed run 2 at stage 11, whose gate and `--self-test` then passed alone
+in that clone: ENG-329's race, and this change touches no tour file. The
+status stays *in progress* until David calls it.

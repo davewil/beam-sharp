@@ -104,3 +104,15 @@ stub adds the `module` line 25a now stops on.
 **All 46 stages passed**, 323 s and 320 s. The atom-key half of ENG-408 is
 done by the conditions above; the status stays *in progress* until David
 calls it, and the string-key half waits on ENG-405.
+
+## Evidence — 2026-09-24, the review fixes
+
+The `/code-review` of `0e51c9a..01c4a56` found the defects this change fixes;
+its open decisions are [ticket 89](../../wayfinder/issues/89-what-the-f57-f60-review-left-open.md).
+A brace's values take the field types the site expects (`cabead1`, F57.11).
+
+`./bin/verify.sh` twice from a clean clone of `a6123f3`, one command per run:
+**All 46 stages passed**, 264 s and 270 s. A first clone passed run 1 (325 s)
+and failed run 2 at stage 11, whose gate and `--self-test` then passed alone
+in that clone: ENG-329's race, and this change touches no tour file. The
+status stays *in progress* until David calls it.

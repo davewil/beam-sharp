@@ -143,3 +143,15 @@ The push was refused: `bd26e76` (ENG-278, a comment-only rewrite of
 test comment trimmed to that commit's convention (`fe313f7`). `./bin/verify.sh`
 twice from a clean clone of `fe313f7`: **All 46 stages passed**, 338 s and
 322 s.
+
+## Evidence — 2026-09-24, the review fixes
+
+The `/code-review` of `0e51c9a..01c4a56` found the defects this change fixes;
+its open decisions are [ticket 89](../../wayfinder/issues/89-what-the-f57-f60-review-left-open.md).
+One spelling for a string key in validation paths, `field_absent` and at `bsc` (`0c3f5b9`, `e48e9ea`, F58.13 to F58.15); F58.8 and F58.9 assert at `bsc` (`91162c0`).
+
+`./bin/verify.sh` twice from a clean clone of `a6123f3`, one command per run:
+**All 46 stages passed**, 264 s and 270 s. A first clone passed run 1 (325 s)
+and failed run 2 at stage 11, whose gate and `--self-test` then passed alone
+in that clone: ENG-329's race, and this change touches no tour file. The
+status stays *in progress* until David calls it.
