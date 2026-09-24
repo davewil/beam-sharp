@@ -237,7 +237,8 @@ a_to_json_refusal_refuses_the_query_test() ->
 %%% query, in the compile's own words.
 
 %% Compiling first proves the marker is the compile's wording, not one only
-%% the query prints.
+%% the query prints. The root is two levels up, so the fixture's module name
+%% must be a single segment.
 refused_alike(Path, Marker) ->
     Root = filename:dirname(filename:dirname(Path)),
     {Rc1, Compiled} = bs_test_support:run_cli_result("-o " ++ Root ++ "/out --src-root "
@@ -321,6 +322,23 @@ an_unsatisfied_behaviour_refuses_the_query_test() ->
                         "public (:ok, int) Init(int seed)\n"
                         "Init(seed) -> (:ok, seed)\n"),
                   "behaviour GenServer is declared and not satisfied").
+
+%% A compile checks bodies before the behaviour, so a body error is not hidden
+%% by the missing callback; the query, which checks no bodies, still refuses.
+a_body_error_outranks_an_unsatisfied_behaviour_in_a_compile_test() ->
+    Root = root(),
+    Path = place(Root, "in.bs", "module Bx\n"
+                                "behaviour GenServer\n"
+                                "public (:ok, int) Init(int seed)\n"
+                                "Init(seed) -> (:ok, \"s\")\n"),
+    {1, Compiled} = bs_test_support:run_cli_result("-o " ++ Root ++ "/out --src-root "
+                                                   ++ Root ++ " " ++ Path),
+    ?assertNotEqual(nomatch, string:find(Compiled, "Init returns a value")),
+    ?assertEqual(nomatch, string:find(Compiled, "not satisfied")),
+    {Rc, Out, Err} = run("--src-root " ++ Root ++ " --api " ++ Path),
+    ?assertEqual(1, Rc),
+    ?assertEqual("", Out),
+    ?assertNotEqual(nomatch, string:find(Err, "not satisfied")).
 
 %%% F17.11 — a query does not run the module.
 
@@ -419,6 +437,15 @@ a_file_with_no_module_line_is_refused_test() ->
     ok = file:write_file(Root ++ "/Main/in.bs",
                          "public int Twice(int n)\nTwice(n) -> n * 2\n"),
     refused_alike(Root ++ "/Main/in.bs", "holds `.bs` files and no `module` line").
+
+%% In any other directory the missing line is still the refusal, not the path
+%% mismatch the default name would also produce.
+a_file_with_no_module_line_elsewhere_is_refused_test() ->
+    Root = root(),
+    ok = filelib:ensure_dir(Root ++ "/Elsewhere/x"),
+    ok = file:write_file(Root ++ "/Elsewhere/in.bs",
+                         "public int Twice(int n)\nTwice(n) -> n * 2\n"),
+    refused_alike(Root ++ "/Elsewhere/in.bs", "holds `.bs` files and no `module` line").
 
 %% These path checks raise; the CLI must render them instead of a stack trace.
 a_source_root_that_is_not_a_prefix_is_named_test() ->

@@ -86,7 +86,9 @@ What *is* refused is anything that makes a declaration untrue:
 it** (2026-09-24, ENG-371). Until then each pass kept its own list, and each new refusal had to be
 added to both by hand. Seven had reached only the compile's, so `--api` printed, for example,
 `int Combine(int, int)` twice for a module the compile refused as `Combine/2 is declared more than
-once`. A refusal added to `declared/4` reaches both passes.
+once`. A refusal added to `declared/4` reaches both passes. The one exception is the unsatisfied
+behaviour: a compile checks it after the bodies, so a body error is still what a half-written
+module reports first, and `--api`, which checks no bodies, checks it straight after the list.
 
 Each is reported through `bs_diag` with its existing descriptor and its existing prose. **No new
 diagnostic tag is minted by this feature**, which is why `bin/check-diagnostics.sh` needed no

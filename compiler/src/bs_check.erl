@@ -100,7 +100,8 @@ check_dir1(Sources, World, Expect) ->
     Fns1 = prune_valves(Fns, Prunes),
     PerFile1 = [{P, prune_valves(Fs, Prunes)} || {P, Fs} <- PerFile],
     case [D || {_, D} <- Tagged, element(1, D) =:= error] of
-        []     -> {ok, #{module => Module, functions => Fns1, env => Env,
+        []     -> behaviours_satisfied(Decls),
+                  {ok, #{module => Module, functions => Fns1, env => Env,
                          %% The emitter places file attributes before each
                          %% file's functions.
                          files => PerFile1,
@@ -199,13 +200,11 @@ reserved_module_name(Module, Sources) ->
 %% Dialyzer checks types against OTP's `-callback` declarations.
 behaviours_satisfied(Decls) ->
     Defined = [{N, length(Ps)} || {signature, _, N, _, Ps, _, _} <- Decls],
-    lists:foreach(fun({behaviour, L, N}) ->
-                          case bs_otp:missing(N, Defined) of
-                              []      -> ok;
-                              Missing -> erlang:error({behaviour_not_satisfied, L, N, Missing})
-                          end;
-                     (_) -> ok
-                  end, Decls).
+    [case bs_otp:missing(N, Defined) of
+         []      -> ok;
+         Missing -> erlang:error({behaviour_not_satisfied, L, N, Missing})
+     end || {behaviour, L, N} <- Decls],
+    ok.
 
 module_name(Decls) ->
     case [N || {module, _, N} <- Decls] of
@@ -249,6 +248,9 @@ private_callback(Decls) ->
 %%% A compile and `bsc --api` both refuse a module through `declared/4`, so a
 %%% refusal added here reaches both; one wired beside it reaches only one.
 %%% Order decides which diagnostic a module with several faults reports.
+%%% `behaviours_satisfied/1` is the one declaration check outside it: a compile
+%%% runs it after the bodies so their errors are not hidden, and `exports_of/3`,
+%%% which checks no bodies, runs it straight after this list.
 
 declared(Sources, World, Expect, Mode) ->
     Decls = lists:append([D || {_, D} <- Sources]),
@@ -275,14 +277,15 @@ declared(Sources, World, Expect, Mode) ->
     module_matches_path(Self, Sources, Expect),
     name_redeclared(Decls),
     private_callback(Decls),
-    behaviours_satisfied(Decls),
     {Imports, Env}.
 
 %% `private_of/1` distinguishes private callees from unknown names in
 %% cross-module diagnostics.
 exports_of(Decls) -> exports_of(Decls, #{}).
 
-%% Without sources or an expected module, the path and directory checks pass.
+%% `one_module_per_directory/2` passes an `undefined` expectation and
+%% `no_function_in_index/2` an `undefined` path, so a pathless caller skips
+%% both, and `module_matches_path/3` too.
 exports_of(Decls, World) -> exports_of([{undefined, Decls}], World, undefined).
 
 %% Resolve imported types as compilation does, but skip unknown imports: `bsc
@@ -290,6 +293,7 @@ exports_of(Decls, World) -> exports_of([{undefined, Decls}], World, undefined).
 exports_of(Sources, World, Expect) ->
     Decls = lists:append([D || {_, D} <- Sources]),
     {_, Env} = declared(Sources, World, Expect, lenient),
+    behaviours_satisfied(Decls),
     maps:from_list([{{N, length(Ps)},
                      at_loc(L, fun() -> erased_sig(Ps, R, TV, Env) end)}
                     || {signature, L, N, R, Ps, V, TV} <- Decls, V =:= public]).

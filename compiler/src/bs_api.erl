@@ -85,7 +85,8 @@ parse(File) ->
         {error, _}  -> bsc:exit_with(1)
     end.
 
-%% A module with no `module` line is `Main`, as in `bs_check:module_name/1`.
+%% `Main` when there is no `module` line, as in `bs_check:module_name/1`; the
+%% declaration pass refuses that module before an answer is published.
 declared_module(Decls) ->
     case [N || {module, _, N} <- Decls] of
         [N | _] -> N;
@@ -93,7 +94,7 @@ declared_module(Decls) ->
     end.
 
 %%% ---------------------------------------------------------------------------
-%%% The `module` line must match the path, and `--api` checks it
+%%% The module atom the path expects
 %%%
 %%% The answer names the module atom a caller writes on a `using` line. The
 %%% compiler refuses a declaration that does not match its path, so
