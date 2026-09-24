@@ -465,3 +465,58 @@ Recommended: **not refused.** The type is correct for BEAM-built maps and for en
 error names the field and the expected atom; Q5 gives the author the right spelling,
 `"type": "ping"`.
 
+**Answered 2026-09-24 (David): Q7 yes, Q8 yes, Q9 allowed.**
+
+- **Q7.** `{ key = value, … }` builds an exact field set, keys string literals or PascalCase names,
+  checked against the type its site expects. It is 25a's front wall too.
+- **Q8.** 26 §4's rule reaches wire types: an absent key at an `option<T>` field validates as
+  `:nothing`. JSON `null` stays `:null`; `option<string | :null>` accepts both.
+- **Q9.** An atom in a wire type is allowed. A decoded reply fails it at run time, naming the field
+  and the atom.
+
+## Round 6 — 2026-09-24: from text to a wire value
+
+Every answer so far starts from a decoded term. The step before it, text to term, is where 25f
+friction 5 sits: the author declares `json:decode` by hand, and because `result<term,
+foreign_error>` collapses (15 §1), the declaration has to list six members, one of them a bare
+`atom`:
+
+```csharp
+type Json = map<term, term> | list<term> | binary | int | float | atom
+
+using :json {
+    result<Json, foreign_error> decode(binary text)
+}
+
+private result<ReplyWire, EvalError> Parse(binary body)
+Parse(body) -> :json.decode(body) switch {
+    (:error, _) => (:error, (:malformed, "the body is not JSON")),
+    doc         => ValidateAs<ReplyWire>(doc) switch {
+        (:error, e) => (:error, (:malformed, e.Expected)),
+        reply       => reply
+    }
+}
+```
+
+**Q10. Is there a `FromJson<T>`, text in, a `T` out?**
+
+```csharp
+private result<ReplyWire, ValidationError> Parse(string body)
+Parse(body) -> FromJson<ReplyWire>(body)
+```
+
+`FromJson<T>(string)` is the platform's `json:decode` followed by `ValidateAs<T>`, returning
+`result<T, ValidationError>`. Text that is not JSON is a `ValidationError` with `Path = []` and
+`Expected = "JSON"`. `T` is any type `ToJson` accepts, **except one containing a record**, which is
+refused at the call naming Q4's deferral: a record's inverse is the part left undecided. It converts
+nothing `ValidateAs` does not.
+
+Compiler delta: `FromJson` joins the closed set of names that take a type argument (28's lexer
+rule, five names instead of four); `bs_check` resolves it beside `ToJson` (F50) and refuses a record
+with a new diagnostic; `bs_emit` inlines `json:decode` under a catch, then the `ValidateAs` walk;
+`STANDARD-ENVIRONMENT.md` gains a row. The hand-written `Json` union and its `using` block go.
+
+Recommended: **yes.** It is the ticket's own second program with its scope set by Q2 and Q4: the
+inverse of `ToJson` for every type whose wire form is itself. `ValidateAs<T>` stays a check on BEAM
+terms, which answers the question this ticket was raised on.
+
