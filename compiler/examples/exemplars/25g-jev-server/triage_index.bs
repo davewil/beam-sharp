@@ -1,0 +1,42 @@
+// EXTRACTED — do not edit here.
+// Source: wayfinder/prototypes/25g-jev-server.md, section `triage_index.bs`
+// Regenerate: compiler/bin/extract-exemplars.sh
+//
+// This file is OUT OF THE WALKING SKELETON SLICE and does not parse today.
+// It is a target for the compiler, not a passing example. The write-up it
+// came from carries the friction list explaining what is wrong with it and
+// why that is the point.
+
+module Triage
+
+behaviour GenServer
+
+using Jev
+using Support.Triage
+
+record Issue  { Title: string, Body: string }
+record Config { Send: Send, Token: string }
+
+// The pending requests, by monitor reference, so a crashed one can still be
+// answered. `map<term, term>` because `Map.Get` is not built.
+record State  { Send: Send, Token: string, Pending: map<term, term> }
+
+// The answers this server asks for, by the names it asked them under. Open,
+// because the model may answer more than it was asked and 25f's `Answers`
+// list is turned into a map before it arrives here.
+type TriageReply = { "kind": Chosen, "severity": Scored, "security": Likely, .. }
+
+type Answer  = result<Evaluation, EvalError>
+type Message = (:jev, term, Answer) | Down
+
+using :gen_server {
+    term reply(term from, term msg)
+}
+
+using :maps {
+    map<term, term> from_list(list<(string, Answer)> pairs)
+    map<term, term> put(term key, term value, map<term, term> m)
+    map<term, term> remove(term key, map<term, term> m)
+    (:ok, term) | :error find(term key, map<term, term> m)
+}
+

@@ -1,0 +1,21 @@
+// EXTRACTED — do not edit here.
+// Source: wayfinder/prototypes/25g-jev-server.md, section `jev_index.bs`
+// Regenerate: compiler/bin/extract-exemplars.sh
+//
+// This file is OUT OF THE WALKING SKELETON SLICE and does not parse today.
+// It is a target for the compiler, not a passing example. The write-up it
+// came from carries the friction list explaining what is wrong with it and
+// why that is the point.
+
+module Jev
+
+// Jev.Server's transport is 25f: `Evaluate` posts the questions and decodes
+// the reply. This module adds what Jev.Server adds on top: the request runs in
+// its own process, and its answer comes back as a message.
+using Support.Triage
+
+using :erlang {
+    (term, term) spawn_monitor(fn() -> term f)
+    term send(term to, term msg)
+}
+

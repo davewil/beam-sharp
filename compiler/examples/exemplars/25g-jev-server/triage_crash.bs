@@ -1,0 +1,31 @@
+// EXTRACTED — do not edit here.
+// Source: wayfinder/prototypes/25g-jev-server.md, section `triage_crash.bs`
+// Regenerate: compiler/bin/extract-exemplars.sh
+//
+// This file is OUT OF THE WALKING SKELETON SLICE and does not parse today.
+// It is a target for the compiler, not a passing example. The write-up it
+// came from carries the friction list explaining what is wrong with it and
+// why that is the point.
+
+using :erlang {
+    term self()
+}
+
+private term Self()
+
+Self() -> :erlang.self()
+
+// A request that crashed answers its caller with the reason.
+private (:noreply, State) Crashed(term ref, term reason, State s)
+
+Crashed(ref, reason, s) -> :maps.find(ref, s.Pending) switch {
+    (:ok, from) => Answered(from, (:error, reason), ref, s),
+    :error      => (:noreply, s)
+}
+
+private (:noreply, State) Answered(term from, Labels labels, term ref, State s)
+
+Answered(from, labels, ref, s) ->
+    var _ = :gen_server.reply(from, labels)
+    (:noreply, s with { Pending = :maps.remove(ref, s.Pending) })
+

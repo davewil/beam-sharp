@@ -1,0 +1,25 @@
+// EXTRACTED — do not edit here.
+// Source: wayfinder/prototypes/25g-jev-server.md, section `triage_questions.bs`
+// Regenerate: compiler/bin/extract-exemplars.sh
+//
+// This file is OUT OF THE WALKING SKELETON SLICE and does not parse today.
+// It is a target for the compiler, not a passing example. The write-up it
+// came from carries the friction list explaining what is wrong with it and
+// why that is the point.
+
+// Jev's README questions, the shorthand spelled out: a choice, a score, a
+// yes/no.
+private list<(string, Question)> Questions()
+
+Questions() -> [
+    ("kind", Choice { Instructions = "What kind of issue is this?",
+                      Criteria = [("bug", "Something is broken or behaves unexpectedly"),
+                                  ("feature", "Request for new behavior or an enhancement"),
+                                  ("question", "Asks how to do something or for help"),
+                                  ("other", "")] }),
+    ("severity", Score { Instructions = "How severe is this issue for users?",
+                         Criteria = ["Cosmetic", "Workaround exists",
+                                     "Blocks a common use case", "Data loss or crash"] }),
+    ("security", YesNo { Instructions = "Does this issue describe a security vulnerability?" })
+]
+

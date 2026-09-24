@@ -1,0 +1,37 @@
+// EXTRACTED — do not edit here.
+// Source: wayfinder/prototypes/25g-jev-server.md, section `triage_server.bs`
+// Regenerate: compiler/bin/extract-exemplars.sh
+//
+// This file is OUT OF THE WALKING SKELETON SLICE and does not parse today.
+// It is a target for the compiler, not a passing example. The write-up it
+// came from carries the friction list explaining what is wrong with it and
+// why that is the point.
+
+public (:ok, State) Init(Config c)
+
+Init(c) -> (:ok, State { Send = c.Send, Token = c.Token, Pending = :maps.from_list([]) })
+
+// Jev.Server's `{:reply, {from, issue, questions}, s}`, as a call.
+public (:noreply, State) HandleCall((:labels, Issue) req, term from, State s)
+
+HandleCall((:labels, issue), from, s) ->
+    var ref = Ask(s.Send, s.Token, "typesafe:jev-latest", Self(), from,
+                  { "title" = issue.Title, "body" = issue.Body }, Questions())
+    (:noreply, s with { Pending = :maps.put(ref, from, s.Pending) })
+
+public (:noreply, State) HandleCast(term msg, State s)
+
+HandleCast(msg, s) -> (:noreply, s)
+
+// The answer is a message. A crashed request is a `Down` for its reference,
+// and becomes `(:error, reason)` for the caller, as Jev.Server makes it.
+public (:noreply, State) HandleInfo(Message m, State s)
+
+HandleInfo((:jev, from, answer), s) ->
+    var _ = :gen_server.reply(from, HandleAnswer(answer))
+    (:noreply, s)
+HandleInfo(Down { Ref: ref, Reason: :normal }, s) ->
+    (:noreply, s with { Pending = :maps.remove(ref, s.Pending) })
+HandleInfo(Down { Ref: ref, Reason: reason }, s) ->
+    Crashed(ref, reason, s)
+

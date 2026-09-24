@@ -27,6 +27,7 @@ friction these files contain is deliberate and is explained where it came from:
 | `25d-database-querying/` | [`25d-database-querying.md`](../../../wayfinder/prototypes/25d-database-querying.md) | `25d_db_lowering.erl` — replays terms captured live from PostgreSQL 16 (`25d_live_capture.escript`) |
 | `25e-dynamic-web-page/` | [`25e-dynamic-web-page.md`](../../../wayfinder/prototypes/25e-dynamic-web-page.md) | `25e_page_lowering.erl` — renders the page and parses it back with `xmerl`, so an escaping leak is a red |
 | `25f-llm-evaluation-client/` | [`25f-llm-evaluation-client.md`](../../../wayfinder/prototypes/25f-llm-evaluation-client.md) | none: the module compiles as written (since F56), so `25f_surface_probe.sh` builds it with `bsc` and `25f_replay.erl` drives it with ReqLLM's own evaluation fixtures |
+| `25g-jev-server/` | [`25g-jev-server.md`](../../../wayfinder/prototypes/25g-jev-server.md) | none: `25g_surface_probe.sh` builds 25f's `Support.Triage`, `Jev` and `Triage` with `bsc` (sections carry a `jev_` / `triage_` prefix it drops), and `25g_replay.erl` drives the server with Jev's README issues |
 
 ## A divergence these files used to expose — CLOSED, and it was recorded backwards
 
@@ -76,6 +77,8 @@ mode is the optimistic one: it once marked four built capabilities `out`, which 
 | Capability | Blocks | Slice status | Ticket |
 |---|---|---|---|
 | **A string pattern's tail stays a `string`** — `<<"typesafe:", id>>` over a `string` binds `id : binary` (measured 2026-09-24, against 25f only) | 25f | **in** — F56, 2026-09-24, the same day it was measured. It was the only error in 25f's module | unasked; built from ticket 30 and 20 §4 |
+| **`Down`, `Exit`, `Timeout`** — the OTP message shapes as compiler-known types (measured 2026-09-24, against 25g only) | 25g | out — **25g's front wall**; decided, unbuilt, field names undecided | 14 §6 |
+| **A string-keyed brace where a dictionary is expected** — `{ "title" = t }` as `map<term, term>` | 25g | out — **crashes `bsc`**, `bs_types:fields_fit/5`; 25g's second wall. An F58 defect | ENG-405 |
 | **Recursive types** — `type Iodata = binary \| list<Iodata>` | 25e | out — **the wall 25e stops on**; decided (equirecursive, contractive) and unbuilt. The first wall in the set raised by the **checker** rather than the parser | **09** |
 | **Binary construction** — `<<c:8>>` in expression position | 25c, 25e | out — F13 built the consuming direction only and says so; **no decision behind it** | 20, 30, unasked |
 | **A binder on a relational pattern** — `Pence(<= 9) -> … p …` | 25e | out — the pattern tests or names, never both; same missing capability as 25c's `p_alias` | 42, 08 |

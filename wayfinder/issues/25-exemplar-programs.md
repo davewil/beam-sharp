@@ -684,3 +684,35 @@ For the three questions this ticket holds:
 | Ticket 17 job 1: a ladder of unrelated conditions | none. Six tuple switches of width two or three, all forwarding errors. They want a multi-binding `with`, not `cond` |
 | Ticket 22: an opinionated grammar against a gateway | a closed `Provider` union reads well at two providers, and adding a third makes the compiler name both sites. The `Envelope` residual prints 28 heads, none of them the one to paste: the renderer drops the narrowed `Provider` field, though the algebra holds it |
 
+---
+
+## RESULTS — seventh exemplar, a B# Jev.Server, 2026-09-24
+
+[`25g-jev-server.md`](../prototypes/25g-jev-server.md),
+[`25g_replay.erl`](../prototypes/25g_replay.erl),
+[`25g_surface_probe.sh`](../prototypes/25g_surface_probe.sh). A B# version of
+[Jev](https://github.com/dannote/jev)'s `Jev.Server` (Danila Poyarkov, 2026-09-22) and its README
+example; it does not call the Elixir package, and its transport is 25f's module. **It takes the
+*async processing* slot**: each request in its own monitored process, many in flight, a crashed one
+answering its caller.
+
+**Two walls, then it runs.** `Down` is decided (14 §6) and unbuilt; behind it a string-keyed brace
+handed to `map<term, term>` crashes `bsc` (an F58 defect). With both worked around, Jev's four
+README issues sent at once each take the clause the README names, a crashed request answers
+`(:error, …)`, and the server survives.
+
+**Jev's routing is spellable because of ticket 78.** Its four `handle_answer` clauses are four
+clause heads over a string-keyed open field set, `{ "kind": Chosen { Choice: "bug", Confidence: c },
+.. } when c > 0.85`, which F58 and F59 made writable the night before.
+
+**What it found:** no user-declared behaviour, so a library cannot own the callbacks (ticket 22's
+other half); a narrowed `HandleInfo` is admitted and one stray message kills the server (14 §4's
+unsound direction, unchecked); `pid` is not a type though LANGUAGE.md §13 says it is.
+
+| Question | 25g's answer |
+|---|---|
+| Ticket 12: closed residuals closed deliberately | none; `Route`'s fall-through is a catch-all over an open field set, legal and wanted |
+| Ticket 17 job 1: a ladder | none; four guarded clauses |
+| Ticket 22: a gateway | a library cannot add a callback to a process |
+| Ticket 14: processes | `spawn_monitor` with a lambda does Task's job; `Down`, `pid` and callback narrowing are its three gaps |
+

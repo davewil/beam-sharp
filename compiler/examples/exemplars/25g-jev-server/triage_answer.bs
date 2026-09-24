@@ -1,0 +1,41 @@
+// EXTRACTED — do not edit here.
+// Source: wayfinder/prototypes/25g-jev-server.md, section `triage_answer.bs`
+// Regenerate: compiler/bin/extract-exemplars.sh
+//
+// This file is OUT OF THE WALKING SKELETON SLICE and does not parse today.
+// It is a target for the compiler, not a passing example. The write-up it
+// came from carries the friction list explaining what is wrong with it and
+// why that is the point.
+
+type Labels = list<atom> | (:error, term)
+
+// Jev's own words: clause order is the routing, thresholds are guards.
+private Labels HandleAnswer(Answer a)
+
+HandleAnswer((:error, reason)) -> (:error, reason)
+HandleAnswer(e) -> ValidateAs<TriageReply>(:maps.from_list(e.Answers)) switch {
+    (:error, v) => (:error, v),
+    reply       => Route(reply)
+}
+
+private list<atom> Route(TriageReply r)
+
+Route({ "security": Likely { Probability: p } }) when p > 0.5
+    -> [:security]
+Route({ "kind": Chosen { Choice: "bug", Confidence: c }, "severity": Scored { Score: sev } })
+    when c > 0.85 and sev >= 2.0
+    -> [:bug, :'priority:high']
+Route({ "kind": Chosen { Choice: k, Confidence: c } }) when c > 0.6
+    -> [Label(k)]
+Route({ "kind": Chosen { Choice: k } })
+    -> [Label(k), :'needs-triage']
+
+type Kind = :bug | :feature | :question | :other
+
+private atom Label(string k)
+
+Label(k) -> ParseAtom<Kind>(k) switch {
+    :nothing => :other,
+    kind     => kind
+}
+
