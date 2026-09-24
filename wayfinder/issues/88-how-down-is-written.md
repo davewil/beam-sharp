@@ -207,16 +207,15 @@ HandleInfo(Down { Ref: ref, Reason: reason }, s) -> Crashed(ref, reason, s)
 ```
 
 `spawn_monitor` runs in `Jev`, but the monitor belongs to the calling process, `Triage`'s server,
-which is where the `Down` arrives. A module-local check refuses `Jev`, a library that is right.
+which is where the `Down` arrives. The check as decided refuses `Jev`, a library that is right.
+Keeping it and making it right would mean marking `Ask` as a monitoring function and carrying the
+mark to every caller until one handles `Down`, which is the propagating constraint 14 §6 said this
+was not. Without it, a missing handler goes unnoticed, and a mis-shaped one is still refused,
+because `Down` is a type.
 
-- **A.** The check runs on the module that makes the call, as decided, and `Jev` is refused.
-- **B.** The check follows the call: a function whose body monitors and returns the reference is
-  marked as monitoring, and the mark travels to its callers, so `Triage` is the module that owes the
-  handler. This is the propagating constraint 14 §6 said it was not.
-- **C.** The check is dropped. A missing handler goes unnoticed; a mis-shaped one is still refused,
-  because `Down` is a type.
+Is the pairing check dropped?
 
-Recommended: **C, dropped, recorded as deferred with what B would need.** The hole 14g found was a
+Recommended: **yes, dropped, recorded as deferred with what carrying the mark to callers would need.** The hole 14g found was a
 mis-shaped clause, and naming `Down` closes it on its own. The pairing check refuses correct library
 code, and making it correct turns it into the effect that 14 §6 argued it was not.
 
