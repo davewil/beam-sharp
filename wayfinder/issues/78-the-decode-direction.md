@@ -1,7 +1,7 @@
 # 78 — The decode direction: does `ValidateAs<T>` learn the wire form, or is there a `FromJson<T>`?
 
 Type: grilling
-Status: claimed 2026-09-24 — [ENG-373](https://linear.app/davewil/issue/ENG-373). Raised 2026-09-15 on resolving
+Status: resolved 2026-09-24 — [ENG-373](https://linear.app/davewil/issue/ENG-373). Raised 2026-09-15 on resolving
 [ticket 77](77-what-goes-on-the-wire.md), whose finding 2 is this ticket's premise
 Blocked by: —
 
@@ -525,5 +525,35 @@ terms, which answers the question this ticket was raised on.
 `Expected = "JSON"`; a `T` containing a record is refused, naming Q4's deferral. `ValidateAs<T>`
 stays a check on BEAM terms.
 
-The design tree has no open branch. The decisions entry is written once David confirms the whole.
+The design tree has no open branch. **Confirmed as a whole by David, 2026-09-24.**
+
+## Decisions entry
+
+<!-- This ticket's entry. Read whole, here; the map (ENG-165) carries one line. -->
+
+```decisions-entry
+- [The decode direction](issues/78-the-decode-direction.md) — **JSON a program does not own is
+  read through a structural wire type whose keys are the wire's strings, and `FromJson<T>` is
+  `json:decode` then `ValidateAs<T>`; `ValidateAs<T>` stays a check on BEAM terms.** Resolved
+  2026-09-24 in six rounds, ten questions, on exemplar 25f (an LLM evaluation client reading
+  TypeSafe's and OpenRouter's replies), which reframed the ticket: both programs it was raised with
+  read back a record the program wrote, and neither reaches a lowercase, `Kind`-less, snake_case
+  reply. Q1: foreign schemas are in scope. Q2: a field's wire name lives in a field-set type,
+  `{ "input_tokens": int }`, copied into the domain record by a clause head, so records, `Kind`
+  and 77's record row are untouched. Q3: a trailing `..` makes a wire type open; `ToJson` refuses
+  an open type. Q4: reading a B# record back from JSON is **deferred**, requirements and reopen
+  trigger recorded above. Q5: a string literal is a type, so a union tagged by `"type"` is covered
+  without `_`; `string` stays open. Q6: wire fields are read by clause heads; projection deferred,
+  requirements recorded. Q7: `{ key = value }` builds a field set, which is 25a's front wall too.
+  Q8: 26 §4's absent-key-to-`:nothing` rule, decided and unbuilt, reaches wire types, and JSON
+  `null` stays `:null`. Q9: atoms in a wire type are allowed. Q10: `FromJson<T>(string)`, refused
+  for a type containing a record. **One correction on the record**: this ticket's Q3 note said
+  `ValidateAs` converts nothing, and 26 §4 had already decided one conversion. Build issues:
+  string keys [ENG-405](https://linear.app/davewil/issue/ENG-405), open field sets
+  [ENG-406](https://linear.app/davewil/issue/ENG-406), string-literal types
+  [ENG-407](https://linear.app/davewil/issue/ENG-407), the brace expression
+  [ENG-408](https://linear.app/davewil/issue/ENG-408), 26 §4's absent key
+  [ENG-409](https://linear.app/davewil/issue/ENG-409), `FromJson<T>`
+  [ENG-410](https://linear.app/davewil/issue/ENG-410).
+```
 
