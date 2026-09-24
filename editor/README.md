@@ -61,6 +61,11 @@ code --install-extension beam-sharp.vsix
 A TextMate grammar is data, so there is no build, but VSCode installs extensions from a `.vsix`;
 re-run both lines after editing the grammar.
 
+**Then run *Developer: Reload Window*.** A `.bs` tab already open when the extension arrives stays
+in *Plain Text*, which is the language shown bottom right, and it is uncoloured however right
+the grammar is. Measured 2026-09-24: `triage_index.bs` open during the install showed no colour
+while `vscode-textmate` scoped the same file correctly.
+
 **Zed.** Extensions → *Install Dev Extension* (or `zed: install dev extension` from the command
 palette), and choose `editor/zed/`. No Rust is needed: the extension has no `Cargo.toml`, and Zed
 downloads the wasi-sdk it compiles the grammar with. Zed's own loader reading this directory is
