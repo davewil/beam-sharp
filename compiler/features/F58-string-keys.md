@@ -129,3 +129,9 @@ type including `map<term, term>` reached `fields_fit/5`, which called
 `./bin/verify.sh` twice from a clean clone of `edebcd7`, one command per run:
 **All 46 stages passed**, 364 s and 319 s. The status stays *in progress*
 until David calls it.
+
+The push was refused: `bd26e76` (ENG-278, a comment-only rewrite of
+`compiler/test`) had landed on `origin/master`. Rebased onto it, and F58.12's
+test comment trimmed to that commit's convention (`fe313f7`). `./bin/verify.sh`
+twice from a clean clone of `fe313f7`: **All 46 stages passed**, 338 s and
+322 s.
