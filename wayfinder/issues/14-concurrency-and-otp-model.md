@@ -313,6 +313,11 @@ still gets the special form at the call site.
 **OTP's system-message shapes join the second stratum**: `Down`, `Exit`, `Timeout` and friends are
 compiler-known types, not aliases that ship.
 
+> **Amended 2026-09-24 by [ticket 88](88-how-down-is-written.md).** `Down` and `Exit` are
+> compiler-known named views of their tuples, `Down { Ref, Type, Object, Reason }` and
+> `Exit { Pid, Reason }`. `Timeout` is the atom `:timeout`, not a type. The pairing check two
+> paragraphs below is **dropped**: it refuses a library that monitors on its caller's behalf.
+
 This exists to close a hole this ticket found, which nothing else in the design catches
 ([`14g`](../prototypes/14g_handle_info_blind_spot.erl)):
 

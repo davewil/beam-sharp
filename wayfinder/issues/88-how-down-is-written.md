@@ -1,7 +1,7 @@
 # 88 — How is `Down` written in a clause head, and what are its parts called?
 
 Type: grilling
-Status: claimed 2026-09-24 — [ENG-413](https://linear.app/davewil/issue/ENG-413). Raised by exemplar
+Status: resolved 2026-09-24 — [ENG-413](https://linear.app/davewil/issue/ENG-413). Raised by exemplar
 [25g](../prototypes/25g-jev-server.md), whose only wall this is
 Blocked by: —
 
@@ -240,5 +240,26 @@ pid() | port() | {atom(), atom()}, term()}`; `ToJson` refuses a `Down`, since it
 `ValidateAs<Down>` checks the tuple. The view is not a user-declarable construct: it exists for the
 compiler-known messages only.
 
-The design tree has no open branch. The decisions entry is written once David confirms the whole.
+The design tree has no open branch. **Confirmed as a whole by David, 2026-09-24.**
+
+## Decisions entry
+
+<!-- This ticket's entry. Read whole, here; the map (ENG-165) carries one line. -->
+
+```decisions-entry
+- [How `Down` is written](issues/88-how-down-is-written.md) — **`Down` is a compiler-known named view
+  of the BEAM's `{'DOWN', Ref, Type, Object, Info}` tuple: `Down { Ref: reference, Type: :process |
+  :port, Object: pid | port | (atom, atom), Reason: term }`, matched by name in any order and read
+  with `d.Reason`, never constructed by a user.** Resolved 2026-09-24 in three rounds, six questions,
+  raised by exemplar 25g, whose only wall it was. Ticket 14 §6 had made `Down` compiler-known so a
+  handler names the message instead of spelling the tuple (14g's four-element clause that never
+  fires) and said nothing of how it is written. Q1: named parts, a new compiler-known kind. Q2: one
+  `Down` for process and port monitors. Q3: `pid`, `reference` and `port` become builtin types,
+  one guard each; `pid` stays untyped (14 §1). Q4: the names, Erlang's except `Ref` for `MonitorRef`
+  and `Reason` for `Info`. Q5: `Exit { Pid, Reason }` is built with it; `Timeout` is the atom
+  `:timeout` and leaves the compiler-known list. **Two amendments to 14 §6 on the record**: `Timeout`
+  is not a type, and the pairing check (*"calling `Monitor` in an aggregate that handles no `Down` is
+  an error"*) is **dropped**, because it refuses correct library code (25g's `Jev` monitors and its
+  caller handles), with what the deferred check would need recorded above.
+```
 
