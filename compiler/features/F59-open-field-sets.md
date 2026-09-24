@@ -92,3 +92,15 @@ is left as it was and recorded here rather than changed under this feature.
 
 The scenarios pass, the LANGUAGE.md block compiles, the tree-sitter grammar
 parses the marker, and `./bin/verify.sh` is green twice from a clean clone.
+
+## Evidence — 2026-09-24
+
+The first clean clone of `c0d528b` passed run 1 (330 s) and failed run 2 at
+stage 11: the tour self-test rejected the committed document, then passed
+standalone in the same clone, `--self-test` and gate both. That is ENG-335's
+race, seen on run 1 during F58 the same day and on run 2 here; nothing in this
+change touches the tour.
+
+`./bin/verify.sh` twice from a second clean clone of `c0d528b`, one command per
+run: **All 46 stages passed**, 327 s and 324 s. The status stays *in progress*
+until David calls it.
