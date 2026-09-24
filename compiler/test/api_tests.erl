@@ -124,9 +124,12 @@ the_query_builds_nothing_test() ->
 
 %%% F17.6 — files in a module produce one aggregated answer.
 
+%% `index.bs` holds declarations only; the compile refuses a function there.
 index_src() ->
     "module Deep.Thing\n"
-    "type Signal = :up | :down\n"
+    "type Signal = :up | :down\n".
+
+flip_src() ->
     "public Signal Flip(Signal s)\n"
     "Flip(:up) -> :down\n"
     "Flip(:down) -> :up\n".
@@ -138,6 +141,7 @@ sibling_src() ->
 a_module_split_across_files_answers_once_test() ->
     Root = root(),
     place(Root, "index.bs", index_src()),
+    ok = file:write_file(Root ++ "/Deep/Thing/Flip.bs", flip_src()),
     ok = file:write_file(Root ++ "/Deep/Thing/Other.bs", sibling_src()),
     Dir = Root ++ "/Deep/Thing",
     {Rc, Out, _} = run("--src-root " ++ Root ++ " --api " ++ Dir),
@@ -150,7 +154,7 @@ a_module_split_across_files_answers_once_test() ->
     {0, Term, _} = run("--diagnostics term --src-root " ++ Root ++
                            " --api " ++ Dir),
     Files = [F || #{tag := operation, file := F} <- terms(Term)],
-    ?assertEqual([Dir ++ "/index.bs", Dir ++ "/Other.bs"], Files).
+    ?assertEqual([Dir ++ "/Flip.bs", Dir ++ "/Other.bs"], Files).
 
 %%% F17.7 — the query rejects a module whose directory disagrees with its name.
 
@@ -228,6 +232,95 @@ a_to_json_refusal_refuses_the_query_test() ->
     ?assertEqual("", Out),
     ?assertNotEqual(nomatch,
                     string:find(Err, "calls ToJson over a type with no wire form")).
+
+%%% F17.22–F17.28 — every declaration refusal a compile raises also refuses the
+%%% query, in the compile's own words.
+
+%% Compiling first proves the marker is the compile's wording, not one only
+%% the query prints.
+refused_alike(Path, Marker) ->
+    Root = filename:dirname(filename:dirname(Path)),
+    {Rc1, Compiled} = bs_test_support:run_cli_result("-o " ++ Root ++ "/out --src-root "
+                                                     ++ Root ++ " " ++ Path),
+    ?assertEqual(1, Rc1),
+    ?assertNotEqual(nomatch, string:find(Compiled, Marker)),
+    {Rc, Out, Err} = run("--src-root " ++ Root ++ " --api " ++ Path),
+    ?assertEqual(1, Rc),
+    ?assertEqual("", Out),
+    ?assertNotEqual(nomatch, string:find(Err, Marker)).
+
+%%% F17.22 — two signatures of one arity.
+
+a_name_declared_twice_refuses_the_query_test() ->
+    refused_alike(place(root(), "in.bs",
+                        "module Dup\n"
+                        "public int Combine(int n, int m)\n"
+                        "Combine(n, m) -> n + m\n"
+                        "public int Combine(int n, int m)\n"
+                        "Combine(n, m) -> n * m\n"),
+                  "Combine/2 is declared more than once").
+
+%%% F17.23 — an alias over a compiler-known type.
+
+a_redeclared_compiler_known_type_refuses_the_query_test() ->
+    refused_alike(place(root(), "in.bs",
+                        "module Known\n"
+                        "type ValidationError = int\n"
+                        "public ValidationError Go(int n)\n"
+                        "Go(n) -> n\n"),
+                  "ValidationError is a compiler-known type and cannot be redeclared").
+
+%%% F17.24 — a module named for a reserved qualifier.
+
+a_reserved_module_name_refuses_the_query_test() ->
+    refused_alike(place(root(), "in.bs",
+                        "module List\n"
+                        "public int Go(int n)\n"
+                        "Go(n) -> n\n"),
+                  "`List` is a reserved qualifier").
+
+%%% F17.25 — a behaviour's callback left private.
+
+a_private_callback_refuses_the_query_test() ->
+    refused_alike(place(root(), "in.bs",
+                        "module Quiet\n"
+                        "behaviour GenServer\n"
+                        "(:ok, int) Init(int seed)\n"
+                        "Init(seed) -> (:ok, seed)\n"
+                        "public (:reply, int, int) HandleCall(term r, term from, int s)\n"
+                        "HandleCall(r, from, s) -> (:reply, s, s)\n"
+                        "public (:noreply, int) HandleCast(term r, int s)\n"
+                        "HandleCast(r, s) -> (:noreply, s)\n"),
+                  "Init/1 is `private` and is a callback").
+
+%%% F17.26 — one directory declaring two modules.
+
+%% `place/3` files by module name, so the second file is written beside the
+%% first by hand.
+two_modules_in_one_directory_refuse_the_query_test() ->
+    Path = place(root(), "a.bs", "module Two\npublic int Go(int n)\nGo(n) -> n\n"),
+    ok = file:write_file(filename:join(filename:dirname(Path), "b.bs"),
+                         "module Other\npublic int Back(int n)\nBack(n) -> n\n"),
+    refused_alike(Path, "one directory is one module, and this one declares 2").
+
+%%% F17.27 — a function in `index.bs`.
+
+a_function_in_index_refuses_the_query_test() ->
+    refused_alike(place(root(), "index.bs",
+                        "module Idx\n"
+                        "public int Go(int n)\n"
+                        "Go(n) -> n\n"),
+                  "Go is a function, and index.bs holds no functions").
+
+%%% F17.28 — a behaviour missing a mandatory callback.
+
+an_unsatisfied_behaviour_refuses_the_query_test() ->
+    refused_alike(place(root(), "in.bs",
+                        "module Beh\n"
+                        "behaviour GenServer\n"
+                        "public (:ok, int) Init(int seed)\n"
+                        "Init(seed) -> (:ok, seed)\n"),
+                  "behaviour GenServer is declared and not satisfied").
 
 %%% F17.11 — a query does not run the module.
 
@@ -316,26 +409,16 @@ a_file_that_will_not_parse_has_no_api_test() ->
     ?assertEqual("", Out),
     ?assertNotEqual(nomatch, string:find(Err, "syntax error")).
 
-a_file_with_no_module_line_is_Main_test() ->
+%%% F17.17 — a module with no `module` line is refused.
+
+%% `Main` is the checker's default name, so the directory is named for it: the
+%% refusal is the missing line, not a path mismatch.
+a_file_with_no_module_line_is_refused_test() ->
     Root = root(),
     ok = filelib:ensure_dir(Root ++ "/Main/x"),
     ok = file:write_file(Root ++ "/Main/in.bs",
                          "public int Twice(int n)\nTwice(n) -> n * 2\n"),
-    {Rc, Out, _} = run("--src-root " ++ Root ++ " --api " ++ Root ++ "/Main"),
-    ?assertEqual(0, Rc),
-    ?assertEqual(["module Main", "int Twice(int)"], lines(Out)).
-
-%% No module declaration is available to locate this path mismatch.
-the_default_module_name_is_checked_against_the_path_too_test() ->
-    Root = root(),
-    ok = filelib:ensure_dir(Root ++ "/Elsewhere/x"),
-    ok = file:write_file(Root ++ "/Elsewhere/in.bs",
-                         "public int Twice(int n)\nTwice(n) -> n * 2\n"),
-    {Rc, Out, Err} = run("--src-root " ++ Root ++ " --api " ++ Root ++
-                             "/Elsewhere"),
-    ?assertEqual(1, Rc),
-    ?assertEqual("", Out),
-    ?assertNotEqual(nomatch, string:find(Err, "does not match its directory")).
+    refused_alike(Root ++ "/Main/in.bs", "holds `.bs` files and no `module` line").
 
 %% These path checks raise; the CLI must render them instead of a stack trace.
 a_source_root_that_is_not_a_prefix_is_named_test() ->

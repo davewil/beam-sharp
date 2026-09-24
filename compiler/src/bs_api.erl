@@ -56,10 +56,10 @@ module(Dir, Root) ->
     Sources = sources(Dir),
     Decls = lists:append([D || {_, D} <- Sources]),
     Module = declared_module(Decls),
-    ok = check_path(Dir, Root, Module, Decls, Sources),
+    Expect = expected(Dir, Root, Sources),
     %% What the module's `using` lines reach, read and never built.
     World = bsc:type_world(Dir, Root),
-    Exports = resolved(Decls, Sources, World),
+    Exports = resolved(Sources, World, Expect),
     publish(bs_diag:channel(), Dir, Module,
             [B || {behaviour, _, B} <- Decls],
             operations(Sources, Exports, Module)).
@@ -98,15 +98,9 @@ declared_module(Decls) ->
 %%% The answer names the module atom a caller writes on a `using` line. The
 %%% compiler refuses a declaration that does not match its path, so
 %%% reporting one here would hand back a name that never resolves. This
-%%% check is the one thing in this mode that `--src-root` governs.
+%%% module computes the expected atom, the one thing in this mode that
+%%% `--src-root` governs; the declaration pass compares it.
 %%% ---------------------------------------------------------------------------
-
-check_path(Dir, Root, Module, Decls, Sources) ->
-    case expected(Dir, Root, Sources) of
-        Module -> ok;
-        Expect -> fail(primary(Sources), {module_path_mismatch, Module, Expect,
-                                          module_line(Decls)})
-    end.
 
 expected(Dir, Root, Sources) ->
     try bsc:expected_module(Dir, Root)
@@ -114,17 +108,6 @@ expected(Dir, Root, Sources) ->
         %% Both raises from `expected_module/2` already have a descriptor in
         %% `bs_diag`; uncaught they would reach the author as a stack trace.
         error:Reason when is_tuple(Reason) -> fail(primary(Sources), Reason)
-    end.
-
-%% The fallback is a position, not a line. A file with no `module` line has
-%% nothing to point at, so the diagnostic is attributed to the top of it —
-%% the top of a file is `{1, 1}`, because every descriptor that names a line
-%% names a column beside it and `message/1` has no catch-all to fall
-%% through to when one is missing.
-module_line(Decls) ->
-    case [L || {module, L, _} <- Decls] of
-        [L | _] -> L;
-        []      -> {1, 1}
     end.
 
 %% A condition found over the whole directory is reported against the module's
@@ -138,13 +121,14 @@ primary([])           -> "".
 %%% What the checker already computed
 %%% ---------------------------------------------------------------------------
 
-%% This module reports and never re-derives: `exports_of/2` resolves every
-%% public signature, and this adds only what the export table cannot
-%% carry, the declaring file and line and the parameter names. A refusal
-%% goes through `hinted/2` as a compile's does, so an unknown type that a
-%% reachable module declares is refused in the same words here.
-resolved(Decls, Sources, World) ->
-    try bs_check:exports_of(Decls, World)
+%% This module reports and never re-derives: `exports_of/3` runs the
+%% compile's declaration refusals and resolves every public signature, and
+%% this adds only what the export table cannot carry, the declaring file and
+%% line and the parameter names. A refusal goes through `hinted/2` as a
+%% compile's does, so an unknown type that a reachable module declares is
+%% refused in the same words here.
+resolved(Sources, World, Expect) ->
+    try bs_check:exports_of(Sources, World, Expect)
     catch
         error:Reason when is_tuple(Reason) ->
             fail(primary(Sources), bs_check:hinted(Reason, World))

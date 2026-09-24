@@ -80,6 +80,13 @@ What *is* refused is anything that makes a declaration untrue:
 | a signature naming an unknown type | there is no type to report |
 | `module_path_mismatch` (41 §5) | the **module atom** is part of the answer, and this module cannot be built under the atom it declares — reporting it would hand back a `using` line that can never resolve |
 | a file that will not lex or parse | there are no declarations to read |
+| any other declaration refusal a compile raises — a name declared twice at one arity, a redeclared compiler-known type, a reserved module name, a private callback, an unsatisfied behaviour, two modules in one directory, no `module` line, a function in `index.bs` | the compile refuses the module on its declarations alone, so an answer would describe a module that cannot be built |
+
+**The declaration refusals are one list, `bs_check:declared/4`, and both a compile and `--api` run
+it** (2026-09-24, ENG-371). Until then each pass kept its own list, and each new refusal had to be
+added to both by hand. Seven had reached only the compile's, so `--api` printed, for example,
+`int Combine(int, int)` twice for a module the compile refused as `Combine/2 is declared more than
+once`. A refusal added to `declared/4` reaches both passes.
 
 Each is reported through `bs_diag` with its existing descriptor and its existing prose. **No new
 diagnostic tag is minted by this feature**, which is why `bin/check-diagnostics.sh` needed no
@@ -194,11 +201,18 @@ cannot see a framing error, and framing is the whole of what a machine channel p
 | F17.14 | a namespace | `bsc --api R/NS` | refused by name, listing the modules under it — a namespace declares no operations | 2 |
 | F17.15 | a path that does not exist | `bsc --api R/M/gone.bs` | refused. Its *directory* may be a module, so answering would answer about a module nobody named | 2 |
 | F17.16 | no module named at all | `bsc --api` | refused, with the two spellings that work | 2 |
-| F17.17 | a file with no `module` line | `bsc --src-root R --api R/Main` | `module Main` — the checker's own default, and the path check still applies to it | 0 |
+| F17.17 | a file with no `module` line | `bsc --src-root R --api R/Main` | refused as a compile refuses it: a directory of `.bs` files needs a `module` line (41 §5). Until ENG-371 this answered `module Main`, the checker's default | 1 |
 | F17.18 | a file that will not parse | `bsc --api …` | the parser's own diagnostic, and **no** answer | 1 |
 | F17.19 | a `--src-root` that is not an ancestor, or that *is* the module | `bsc --src-root … --api …` | named through `bs_diag`, rather than reaching the author as an escript stack trace | 1 |
 | F17.20 | any refusal, under the term channel | `bsc --diagnostics term --api …` | stdout carries the diagnostic descriptor and **no** `module` map: either the answer or the diagnostics, never both | 1 |
 | F17.21 | the REPL and the query together | `bsc --repl --api …` | refused. A query answers and exits; a prompt is a session over a module | 2 |
+| F17.22 | two public signatures of one name and arity | `bsc --api …` | refused with the compile's `Combine/2 is declared more than once`, and **no** answer | 1 |
+| F17.23 | `type ValidationError = int` | `bsc --api …` | refused with the compile's `ValidationError is a compiler-known type and cannot be redeclared` | 1 |
+| F17.24 | `module List` | `bsc --api …` | refused: `List` is a reserved qualifier | 1 |
+| F17.25 | a `GenServer` module whose `Init/1` is not `public` | `bsc --api …` | refused: `Init/1 is private and is a callback` | 1 |
+| F17.26 | one directory whose two files declare two modules | `bsc --api …` | refused: one directory is one module | 1 |
+| F17.27 | a function declared in `index.bs` | `bsc --api …` | refused: `index.bs` holds no functions | 1 |
+| F17.28 | `behaviour GenServer` with a mandatory callback missing | `bsc --api …` | refused: the behaviour is declared and not satisfied | 1 |
 
 ## Out of scope
 

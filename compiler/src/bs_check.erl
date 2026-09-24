@@ -10,7 +10,7 @@
 %% `check/2` is the single-source case of the `check_dir/3` declaration pass.
 -export([check_dir/2, check_dir/3]).
 %% `bsc` builds imports from modules already checked in this invocation.
--export([exports_of/1, exports_of/2, private_of/1, types_of/3, hinted/2]).
+-export([exports_of/1, exports_of/2, exports_of/3, private_of/1, types_of/3, hinted/2]).
 %% The emitter publishes polymorphic signatures under the erased environment.
 -export([polys_of/2, erased_env/2, type_source/1]).
 %% The emitter shares type resolution and qualified record tags here.
@@ -76,31 +76,8 @@ check_dir(Sources, World, Expect) ->
 
 check_dir1(Sources, World, Expect) ->
     Decls = lists:append([D || {_, D} <- Sources]),
-    one_module_per_directory(Sources, Expect),
-    [no_function_in_index(P, D) || {P, D} <- Sources],
-    compiler_known_redeclared(Decls),
-    compiler_known_function(Decls),
-    %% Imports must precede the type environment: local declarations may refer
-    %% to imported records and aliases.
-    Self = module_name(Decls),
-    Imports = import_env(Decls, Self, World, strict),
-    Env = type_env(Decls, Imports, World),
-    %% Refuse collapsed failure channels before later diagnostics can describe
-    %% the collapsed type.
-    collapse_refused(Decls, Env),
-    %% Refuse undecidable foreign returns before `foreign_wrappers/2` calls
-    %% `error_members/1`, which requires non-recursive members.
-    foreign_rets_decidable(Decls, Env),
-    %% Check `ToJson<T>` wire forms here and in `exports_of/2` so `--api`,
-    %% which does not type bodies, agrees with compilation.
-    to_json_refused(Decls, Env),
+    {Imports, Env} = declared(Sources, World, Expect, strict),
     Module = module_name(Decls),
-    %% Reserved-name checks precede path checks so the reserved-name diagnostic
-    %% is independent of the directory.
-    reserved_module_name(Module, Sources),
-    module_matches_path(Module, Sources, Expect),
-    name_redeclared(Decls),
-    private_callback(Decls),
     PerFile = [{P, collect(D)} || {P, D} <- Sources],
     Fns = lists:append([F || {_, F} <- PerFile]),
     Foreigns = foreign_wrappers(Decls, Env),
@@ -134,7 +111,7 @@ check_dir1(Sources, World, Expect) ->
                          declared_types => declared_types(Decls, Env),
                          type_vars => lists:usort(lists:append(
                              [Ps || {type_alias, _, _, Ps, _} <- Decls])),
-                         behaviours => behaviours(Decls),
+                         behaviours => [B || {behaviour, _, B} <- Decls],
                          %% The emitter consumes imports resolved at check
                          %% time.
                          imports => resolved_funs(Imports, local_keys(Decls)),
@@ -220,15 +197,15 @@ reserved_module_name(Module, Sources) ->
 
 %% Missing callbacks are declaration errors. Only presence is checked here;
 %% Dialyzer checks types against OTP's `-callback` declarations.
-behaviours(Decls) ->
+behaviours_satisfied(Decls) ->
     Defined = [{N, length(Ps)} || {signature, _, N, _, Ps, _, _} <- Decls],
-    [begin
-         case bs_otp:missing(N, Defined) of
-             []      -> ok;
-             Missing -> erlang:error({behaviour_not_satisfied, L, N, Missing})
-         end,
-         N
-     end || {behaviour, L, N} <- Decls].
+    lists:foreach(fun({behaviour, L, N}) ->
+                          case bs_otp:missing(N, Defined) of
+                              []      -> ok;
+                              Missing -> erlang:error({behaviour_not_satisfied, L, N, Missing})
+                          end;
+                     (_) -> ok
+                  end, Decls).
 
 module_name(Decls) ->
     case [N || {module, _, N} <- Decls] of
@@ -268,25 +245,51 @@ private_callback(Decls) ->
         [{N, A, L, Otp} | _]  -> erlang:error({private_callback, N, A, Otp, L})
     end.
 
+%%% The declaration pass
+%%% A compile and `bsc --api` both refuse a module through `declared/4`, so a
+%%% refusal added here reaches both; one wired beside it reaches only one.
+%%% Order decides which diagnostic a module with several faults reports.
+
+declared(Sources, World, Expect, Mode) ->
+    Decls = lists:append([D || {_, D} <- Sources]),
+    one_module_per_directory(Sources, Expect),
+    [no_function_in_index(P, D) || {P, D} <- Sources],
+    compiler_known_redeclared(Decls),
+    compiler_known_function(Decls),
+    %% Imports must precede the type environment: local declarations may refer
+    %% to imported records and aliases.
+    Self = module_name(Decls),
+    Imports = import_env(Decls, Self, World, Mode),
+    Env = type_env(Decls, Imports, World),
+    %% Refuse collapsed failure channels before later diagnostics can describe
+    %% the collapsed type.
+    collapse_refused(Decls, Env),
+    %% Refuse undecidable foreign returns before `foreign_wrappers/2` calls
+    %% `error_members/1`, which requires non-recursive members.
+    foreign_rets_decidable(Decls, Env),
+    %% Scan bodies for `ToJson<T>` refusals: `--api` does not type bodies.
+    to_json_refused(Decls, Env),
+    %% Reserved-name checks precede path checks so the reserved-name diagnostic
+    %% is independent of the directory.
+    reserved_module_name(Self, Sources),
+    module_matches_path(Self, Sources, Expect),
+    name_redeclared(Decls),
+    private_callback(Decls),
+    behaviours_satisfied(Decls),
+    {Imports, Env}.
+
 %% `private_of/1` distinguishes private callees from unknown names in
 %% cross-module diagnostics.
 exports_of(Decls) -> exports_of(Decls, #{}).
 
+%% Without sources or an expected module, the path and directory checks pass.
+exports_of(Decls, World) -> exports_of([{undefined, Decls}], World, undefined).
+
 %% Resolve imported types as compilation does, but skip unknown imports: `bsc
 %% --api` reads available declarations without building dependencies.
-exports_of(Decls, World) ->
-    Self = module_name(Decls),
-    Imports = import_env(Decls, Self, World, lenient),
-    Env = type_env(Decls, Imports, World),
-    %% `--api` runs this pass independently and must report the same
-    %% declaration refusals as compilation, including collapsed channels and
-    %% foreign returns.
-    collapse_refused(Decls, Env),
-    foreign_rets_decidable(Decls, Env),
-    %% Scan bodies for `ToJson<T>` refusals even though this pass does not
-    %% check body types.
-    to_json_refused(Decls, Env),
-    compiler_known_function(Decls),
+exports_of(Sources, World, Expect) ->
+    Decls = lists:append([D || {_, D} <- Sources]),
+    {_, Env} = declared(Sources, World, Expect, lenient),
     maps:from_list([{{N, length(Ps)},
                      at_loc(L, fun() -> erased_sig(Ps, R, TV, Env) end)}
                     || {signature, L, N, R, Ps, V, TV} <- Decls, V =:= public]).
@@ -2828,8 +2831,7 @@ existing_atom_result() ->
                    bs_types:tuple([bs_types:atom_lit(error), bs_types:string()])).
 
 %% `type_of/3` intercepts this name before callee lookup, so signatures and
-%% clauses must both reject redeclarations. `check_dir1/3` and `exports_of/2`
-%% must both call this to keep compilation and `bsc --api` consistent.
+%% clauses must both reject redeclarations.
 compiler_known_function(Decls) ->
     Declared = [{N, L} || {signature, L, N, _, _, _, _} <- Decls]
             ++ [{N, L} || {clause, L, N, _, _, _} <- Decls],
@@ -2843,7 +2845,6 @@ compiler_known_function(Decls) ->
 %%% `json:encode` rejects tuples, arrows and invalid UTF-8 binaries. Walk the
 %%% resolved type to find these behind aliases; `term` admits them too. Check
 %%% clause bodies in the declaration pass: `bsc --api` skips typing bodies.
-%%% Both `check_dir1/3` and `exports_of/2` must run this check.
 %%% Rationale: compiler/features/F50-to-json.md.
 
 to_json_refused(Decls, Env) ->
