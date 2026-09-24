@@ -68,6 +68,9 @@ back unchanged; `Tokens` gives 120.
 `vars_in/2`'s field-set clause matches `{_, T}`, a 2-tuple, where fields are
 `{field, N, T}`, so it has never found a type variable inside a field set. It
 is left as it was and recorded here rather than changed under this feature.
+Measured afterwards: `T Get<T>({ Value: T } m)` is refused as *"no type named T"*
+while the tuple and list forms compile. Filed as
+[ENG-411](https://linear.app/davewil/issue/ENG-411).
 
 ## Scenarios
 
