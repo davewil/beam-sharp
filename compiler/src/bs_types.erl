@@ -898,8 +898,15 @@ fields_fit(open, _Fields, _K, _V, _Asm) ->
 fields_fit(closed, Fields, K, V, Asm) ->
     not maps:is_key('Kind', Fields) andalso
         lists:all(fun({Name, T}) ->
-                          sub(atom_lit(Name), K, Asm) andalso sub(T, V, Asm)
+                          sub(key_type(Name), K, Asm) andalso sub(T, V, Asm)
                   end, maps:to_list(Fields)).
+
+%% F58: a name key is its atom; a string key is valid UTF-8 by the lexer, and
+%% the algebra has no singleton binary, so its type is `string`. Exact against
+%% every key type a dictionary can declare: `string`, `binary` and `term` hold
+%% it, and `atom` does not.
+key_type(K) when is_atom(K)   -> atom_lit(K);
+key_type(K) when is_binary(K) -> string().
 
 same_keys(A, B) -> lists:sort(maps:keys(A)) =:= lists:sort(maps:keys(B)).
 

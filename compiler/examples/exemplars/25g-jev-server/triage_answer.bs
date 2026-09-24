@@ -10,7 +10,7 @@
 type Labels = list<atom> | (:error, term)
 
 // Jev's own words: clause order is the routing, thresholds are guards.
-private Labels HandleAnswer(Answer a)
+private Labels HandleAnswer(Outcome a)
 
 HandleAnswer((:error, reason)) -> (:error, reason)
 HandleAnswer(e) -> ValidateAs<TriageReply>(:maps.from_list(e.Answers)) switch {

@@ -81,6 +81,7 @@ it stands and comes back unchanged.
 | F58.9 | `record R { "x": int }` | parse error naming the field set |
 | F58.10 | `R { "X" = n }` | `field_set_mismatch` |
 | F58.11 | keys `"content-type"` and `""` | run |
+| F58.12 | `{ "title" = t }` as `map<term, term>`; `{ "a" = n }` as `map<string, int>`; the same as `map<atom, int>` | runs; runs; `return_not_declared`. Crashed `bsc` until 25g found it |
 
 F58.8's residual prints the field's value as `_`. That is the head printer's
 existing behaviour for name keys too (`Go({ Ok: _ })`), measured beside it.

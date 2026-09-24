@@ -26,8 +26,10 @@ record State  { Send: Send, Token: string, Pending: map<term, term> }
 // list is turned into a map before it arrives here.
 type TriageReply = { "kind": Chosen, "severity": Scored, "security": Likely, .. }
 
-type Answer  = result<Evaluation, EvalError>
-type Message = (:jev, term, Answer) | Down
+// What a request comes back as. Not `Answer`: that is 25f's name for one
+// answer, `Chosen | Scored | Likely`, and a local name would hide it.
+type Outcome = result<Evaluation, EvalError>
+type Message = (:jev, term, Outcome) | Down
 
 using :gen_server {
     term reply(term from, term msg)

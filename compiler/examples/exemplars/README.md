@@ -78,7 +78,7 @@ mode is the optimistic one: it once marked four built capabilities `out`, which 
 |---|---|---|---|
 | **A string pattern's tail stays a `string`** — `<<"typesafe:", id>>` over a `string` binds `id : binary` (measured 2026-09-24, against 25f only) | 25f | **in** — F56, 2026-09-24, the same day it was measured. It was the only error in 25f's module | unasked; built from ticket 30 and 20 §4 |
 | **`Down`, `Exit`, `Timeout`** — the OTP message shapes as compiler-known types (measured 2026-09-24, against 25g only) | 25g | out — **25g's front wall**; decided, unbuilt, field names undecided | 14 §6 |
-| **A string-keyed brace where a dictionary is expected** — `{ "title" = t }` as `map<term, term>` | 25g | out — **crashes `bsc`**, `bs_types:fields_fit/5`; 25g's second wall. An F58 defect | ENG-405 |
+| **A string-keyed brace where a dictionary is expected** — `{ "title" = t }` as `map<term, term>` | 25g | **in** — fixed under F58 (F58.12) the same day it crashed `bsc`; it was 25g's second wall | ENG-405 |
 | **Recursive types** — `type Iodata = binary \| list<Iodata>` | 25e | out — **the wall 25e stops on**; decided (equirecursive, contractive) and unbuilt. The first wall in the set raised by the **checker** rather than the parser | **09** |
 | **Binary construction** — `<<c:8>>` in expression position | 25c, 25e | out — F13 built the consuming direction only and says so; **no decision behind it** | 20, 30, unasked |
 | **A binder on a relational pattern** — `Pence(<= 9) -> … p …` | 25e | out — the pattern tests or names, never both; same missing capability as 25c's `p_alias` | 42, 08 |

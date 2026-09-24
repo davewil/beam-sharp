@@ -696,10 +696,11 @@ example; it does not call the Elixir package, and its transport is 25f's module.
 *async processing* slot**: each request in its own monitored process, many in flight, a crashed one
 answering its caller.
 
-**Two walls, then it runs.** `Down` is decided (14 §6) and unbuilt; behind it a string-keyed brace
-handed to `map<term, term>` crashes `bsc` (an F58 defect). With both worked around, Jev's four
-README issues sent at once each take the clause the README names, a crashed request answers
-`(:error, …)`, and the server survives.
+**One wall, then it runs.** `Down` is decided (14 §6) and unbuilt. A second wall behind it, a
+string-keyed brace handed to `map<term, term>` crashing `bsc`, was an F58 defect and was fixed the
+same day. With `Down` spelled as its tuple and nothing else changed, Jev's four README issues sent
+at once each take the clause the README names, a crashed request answers `(:error, …)`, and the
+server survives.
 
 **Jev's routing is spellable because of ticket 78.** Its four `handle_answer` clauses are four
 clause heads over a string-keyed open field set, `{ "kind": Chosen { Choice: "bug", Confidence: c },

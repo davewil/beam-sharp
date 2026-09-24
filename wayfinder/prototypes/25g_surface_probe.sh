@@ -64,36 +64,21 @@ build "$WORK/a"
 echo
 
 echo "==================================================================="
-echo "2. BEHIND IT — Down spelled as the tuple: a compiler crash (friction 6)."
+echo "2. BEHIND IT — Down spelled as the tuple, and nothing else is refused."
 echo "==================================================================="
+echo "Until the F58 fix (2026-09-24) a string-keyed brace handed to 25f's Json"
+echo "crashed bsc here, in bs_types:fields_fit/5. Section 6 keeps the repro."
 tree "$WORK/b"
-sed -i.bak "s/^type Message = (:jev, term, Answer) | Down/type Down    = (:'DOWN', term, :process, term, term)\ntype Message = (:jev, term, Answer) | Down/" \
+sed -i.bak "s/^type Message = (:jev, term, Outcome) | Down/type Down    = (:'DOWN', term, :process, term, term)\ntype Message = (:jev, term, Outcome) | Down/" \
     "$WORK/b/Triage/index.bs"
 sed -i.bak -e "s/HandleInfo(Down { Ref: ref, Reason: :normal }, s)/HandleInfo((:'DOWN', ref, :process, _, :normal), s)/" \
            -e "s/HandleInfo(Down { Ref: ref, Reason: reason }, s)/HandleInfo((:'DOWN', ref, :process, _, reason), s)/" \
     "$WORK/b/Triage/server.bs"
 rm -f "$WORK"/b/Triage/*.bak
-echo "--- Triage"
-"$BSC" --src-root "$WORK/b" "$WORK/b/Triage" 2>&1 | head -2
-echo
-
-echo "CONTROL — and the state built with :maps.from_list: nothing is refused."
-cp -R "$WORK/b" "$WORK/c"
-sed -i.bak 's/{ "title" = issue.Title, "body" = issue.Body }/IssueState(issue)/' "$WORK/c/Triage/server.bs"
-rm -f "$WORK"/c/Triage/*.bak
-cat >> "$WORK/c/Triage/server.bs" <<'EOF'
-
-using :maps {
-    map<term, term> from_list(list<(string, term)> pairs)
-}
-
-private map<term, term> IssueState(Issue i)
-
-IssueState(i) -> :maps.from_list([("title", i.Title), ("body", i.Body)])
-EOF
 mkdir -p "$WORK/ebin"
 for m in Support/Triage Jev Triage; do
-    "$BSC" -o "$WORK/ebin" --src-root "$WORK/c" "$WORK/c/$m" 2>&1 | sed "s|$WORK/c/||"
+    echo "--- $m"
+    "$BSC" -o "$WORK/ebin" --src-root "$WORK/b" "$WORK/b/$m" 2>&1 | sed "s|$WORK/b/||" | head -4
 done
 echo
 
@@ -142,7 +127,7 @@ erl -noshell -pa "$WORK/ebin" -s stray main 2>&1 | grep -v '^=\|^\*\*\|^ \|^$'
 echo
 
 echo "==================================================================="
-echo "4. pid IS NOT A TYPE; 5. NO USER BEHAVIOUR; 6. THE F58 CRASH."
+echo "4. pid IS NOT A TYPE; 5. NO USER BEHAVIOUR; 6. THE F58 CRASH, FIXED."
 echo "==================================================================="
 probe "pid" 'public pid Me(pid p)
 Me(p) -> p'
@@ -151,7 +136,7 @@ Me(p) -> p'
 probe "behaviour Jev" 'behaviour Jev
 public int Go(int n)
 Go(n) -> n'
-probe "a string-keyed brace where map<term, term> is expected" 'public map<term, term> Go(string t)
+probe "since the F58 fix: a string-keyed brace where map<term, term> is expected" 'public map<term, term> Go(string t)
 Go(t) -> { "title" = t }' Go '"x"'
 probe "CONTROL: the same with a name key" 'public map<term, term> Go(string t)
 Go(t) -> { Title = t }' Go '"x"'

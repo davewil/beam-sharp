@@ -23,19 +23,21 @@ supervision of a failed one.
 
 ## Result
 
-**It compiles and runs behind two walls.** Measured by `25g_surface_probe.sh` in directories
+**It compiles and runs behind one wall.** Measured by `25g_surface_probe.sh` in directories
 matching each `module` line, with 25f's module built beside it:
 
-1. **`Down` is not built.** Ticket 14 §6 decided the OTP message shapes are compiler-known types;
-   nothing builds them. `Triage`'s `HandleInfo` stops on `no type named Down`.
-2. **Behind it, a compiler crash**, from F58 the night before: a string-keyed brace handed to a
-   type that includes `map<term, term>` crashes `bs_types:fields_fit/5` in `atom_lit(<<"title">>)`.
-   The request state `{ "title" = issue.Title, "body" = issue.Body }` goes to 25f's `Json`, which
-   includes `map<term, term>`. See friction 6.
+- **`Down` is not built.** Ticket 14 §6 decided the OTP message shapes are compiler-known types;
+  nothing builds them. `Triage`'s `HandleInfo` stops on `no type named Down`.
 
-With `Down` spelled as the raw tuple and the state built by `:maps.from_list`, nothing else is
-refused, and [`25g_replay.erl`](25g_replay.erl) sends Jev's four README issues at once, plus one
-whose transport crashes:
+When this exemplar was first written there was a second wall behind it: a string-keyed brace handed
+to a type including `map<term, term>` crashed `bsc`, and the request state
+`{ "title" = issue.Title, "body" = issue.Body }` goes to 25f's `Json`. That was an F58 defect, fixed
+the same day (friction 6). Fixing it also exposed a mistake in this exemplar: `Triage` had named its
+own alias `Answer`, which hid 25f's `Answer` and refused `:maps.from_list(e.Answers)`; the alias is
+`Outcome` now.
+
+With `Down` spelled as the raw tuple and nothing else changed, [`25g_replay.erl`](25g_replay.erl)
+sends Jev's four README issues at once, plus one whose transport crashes:
 
 | Issue | Labels | Clause |
 |---|---|---|
@@ -140,8 +142,10 @@ record State  { Send: Send, Token: string, Pending: map<term, term> }
 // list is turned into a map before it arrives here.
 type TriageReply = { "kind": Chosen, "severity": Scored, "security": Likely, .. }
 
-type Answer  = result<Evaluation, EvalError>
-type Message = (:jev, term, Answer) | Down
+// What a request comes back as. Not `Answer`: that is 25f's name for one
+// answer, `Chosen | Scored | Likely`, and a local name would hide it.
+type Outcome = result<Evaluation, EvalError>
+type Message = (:jev, term, Outcome) | Down
 
 using :gen_server {
     term reply(term from, term msg)
@@ -191,7 +195,8 @@ HandleInfo(Down { Ref: ref, Reason: reason }, s) ->
 §6 made the type compiler-known and did not spell its fields.
 
 **The request state is a string-keyed brace**, `{ "title" = issue.Title, "body" = issue.Body }`,
-which is what the model reads. Passing it to 25f's `Json` crashes the compiler (friction 6).
+which is what the model reads. Passing it to 25f's `Json` crashed the compiler until the F58 fix
+(friction 6).
 
 ---
 
@@ -221,7 +226,7 @@ Questions() -> [
 type Labels = list<atom> | (:error, term)
 
 // Jev's own words: clause order is the routing, thresholds are guards.
-private Labels HandleAnswer(Answer a)
+private Labels HandleAnswer(Outcome a)
 
 HandleAnswer((:error, reason)) -> (:error, reason)
 HandleAnswer(e) -> ValidateAs<TriageReply>(:maps.from_list(e.Answers)) switch {
@@ -321,7 +326,7 @@ exemplar spells the tuple, `(:'DOWN', term, :process, term, term)`, which works:
 
 ### 3. A narrowed `HandleInfo` is admitted, and one stray message kills the server
 
-`HandleInfo(Message m, State s)` with `Message = (:jev, term, Answer) | Down` compiles. Measured
+`HandleInfo(Message m, State s)` with `Message = (:jev, term, Outcome) | Down` compiles. Measured
 (`25g_surface_probe.sh` §3): a `GenServer` whose `HandleInfo` takes `(:jev, int)` handles its
 message, then dies with `function_clause` on one stray atom. `Jev.Server` logs an unexpected message
 and carries on. Ticket 14 §4 called narrowing a callback's argument the unsound direction, and
@@ -346,21 +351,21 @@ A crashed request has to answer its caller, so the server keeps its pending requ
 reference. `Map.Get` is unbuilt (ticket 48), so the table is `:maps.put`, `:maps.find` and
 `:maps.remove`, declared in a `using :maps` block. It is five lines, and it works.
 
-### 6. A compiler crash in F58
+### 6. A compiler crash in F58 — fixed the same day
 
 ```csharp
 public map<term, term> Go(string t)
 Go(t) -> { "title" = t }
 ```
 
-crashes `bsc`: `no function clause matching bs_types:atom_lit(<<"title">>)`, in `fields_fit/5`
-(`bs_types.erl:901`). The same program with `{ Title = t }` compiles. `fields_fit/5` asks whether a
-closed field set fits a dictionary type by turning each key into a type with `atom_lit/1`; a
-string key is a binary. F58's sweep for atom-only key handling looked for printers and abstract
-format and missed this one.
+crashed `bsc`: `no function clause matching bs_types:atom_lit(<<"title">>)`, in `fields_fit/5`
+(`bs_types.erl`), which turned each key into a type with `atom_lit/1` to ask whether a closed field
+set fits a dictionary. The same program with `{ Title = t }` compiled. F58's sweep for atom-only key
+handling covered printers and abstract format and missed this.
 
-- **Compiler delta:** in `fields_fit/5`, a binary key's type is `string()` (a string key is valid
-  UTF-8 by the lexer). A defect in F58, which is still in progress.
+- **Fixed under F58 (F58.12)**: a string key's type there is `string`, which is exact against
+  every key type a dictionary can declare. `{ "a" = n }` now fits `map<string, int>` and
+  `map<term, term>`, and is refused where `map<atom, int>` is expected.
 
 ### 7. What is not written
 

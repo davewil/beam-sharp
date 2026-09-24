@@ -2476,6 +2476,17 @@ public UsageWire Echo(int i, int o)
 Echo(i, o) -> { "input_tokens" = i, "output_tokens" = o }
 ```
 
+A string-keyed field set is a dictionary wherever its keys and values fit, as a name-keyed one is:
+`{ "a" = 1 }` goes where `map<string, int>` or `map<term, term>` is expected, and not where
+`map<atom, int>` is, since a string key is not an atom.
+
+```csharp
+module Counts
+
+public map<string, int> Counts(int n)
+Counts(n) -> { "a" = n, "b" = 2 }
+```
+
 **A trailing `..` makes a field set open**: it names the keys it needs and admits any others.
 Someone else's JSON grows keys you do not read, and an exact type would refuse the reply for them.
 `ValidateAs` checks the named keys and returns the value unchanged, extra keys included; an exact
