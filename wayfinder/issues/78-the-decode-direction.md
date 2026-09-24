@@ -291,3 +291,93 @@ Recommended: **no, deferred.** B# services talking to each other on the BEAM use
 between two B# services is the rare case, and the wire type covers it at the cost shown. What the
 deferred inverse would need is recorded when this is answered.
 
+**Answered 2026-09-24 (David): Q3 yes, Q4 no.**
+
+- **Q3.** A trailing `..` makes a wire type an open field set. `ValidateAs` checks the named keys
+  and returns the value unchanged; the type stays exact without it; `ToJson` refuses an open type
+  at the declaration. `ValidateAs` converts nothing.
+- **Q4.** Reading a B# record back from JSON is **deferred**. A record written by `ToJson` comes
+  back through a wire type and a clause head, as in the `ReadingWire` program above.
+
+**What the deferred inverse would need**, so it is not lost (the user's rule on deferred options):
+a walk that accepts the key `<<"Kind">>` with a binary equal to the minted tag's name, binary keys
+equal to the declared field names, and a binary at an atom-typed position equal to one of that
+type's atoms, returning the erasure; the exact-set test 26 §4 owes; and the choice this ticket was
+raised on, `ValidateAs<T>` learning it or a `FromJson<T>(string)`, which is where it would be
+decided. Its test is `examples/Intake` handed the output of `json:decode(ToJson<Reading>(r))`. The
+trigger to reopen: a B# program that exchanges records with another B# program over JSON rather
+than distribution.
+
+## Round 4 — 2026-09-24: telling wire shapes apart, and reading a field
+
+**Measured first** (atom keys standing in for string keys, which do not parse yet):
+`{ Type: string, Choice: string } | { Type: string, Noul: float }` validates and dispatches by key
+presence, `Go({ Choice: c })` / `Go({ Noul: p })`, exhaustive. That works because both members are
+**exact**. Q3 made wire types open, and an open member may carry another member's keys, so key
+presence stops identifying the member. A string in type position, `{ Type: "noul" }`, is a syntax
+error: ticket 30 admitted a string literal as a *pattern*, and the algebra has no string singleton
+type.
+
+**Q5. May a wire field be a string literal, so a union of wire types is told apart by its
+discriminator's value?**
+
+Anthropic's streaming events, the shape every LLM client reads:
+
+```csharp
+type Start = { "type": "content_block_start", "index": int, "content_block": map<string, term>, .. }
+type Delta = { "type": "content_block_delta", "index": int, "delta": map<string, term>, .. }
+type Stop  = { "type": "message_stop", .. }
+type Ping  = { "type": "ping", .. }
+type Event = Start | Delta | Stop | Ping
+
+private result<Event, ValidationError> Read(term doc)
+Read(doc) -> ValidateAs<Event>(doc)
+
+private atom Kind(Event e)
+Kind({ "type": "content_block_start" }) -> :start
+Kind({ "type": "content_block_delta" }) -> :delta
+Kind({ "type": "message_stop" })        -> :stop
+Kind({ "type": "ping" })                -> :ping
+```
+
+Under **yes**, this compiles and `Kind` is exhaustive with no `_`: a new event type in `Event`
+makes `Kind` fail to compile. `ValidateAs<Event>` refuses an event type the union does not name.
+Compiler delta: a string literal is a type; the `bins` part of `bs_types` gains finite sets of
+literal values beside `utf8` and `other`, as the atom part has finite and cofinite sets; a string
+literal pattern then subtracts its singleton, so a union of literal-tagged members closes;
+`ValidateAs` tests the value with `=:=`; `ToJson` writes it unchanged. `string` itself stays open,
+so ticket 30's *a `string`'s residual is always open* still holds.
+
+Under **no**, `Stop` and `Ping` are the same type, `{ "type": string, .. }`, so `Event` collapses
+and cannot be dispatched. The author validates one flat shape and branches by hand:
+
+```csharp
+type Event = { "type": string, .. }
+
+private atom Kind(Event e)
+Kind({ "type": t }) -> t switch {
+    "content_block_start" => :start,
+    "content_block_delta" => :delta,
+    "message_stop"        => :stop,
+    "ping"                => :ping,
+    _                     => :unknown
+}
+```
+
+with a second `ValidateAs` per branch for that event's own fields, and no exhaustiveness.
+
+Recommended: **yes.** A tagged union whose tag is a string is how JSON APIs model variants, and
+proving a dispatch over it exhaustive is what this language is for. Q3 is what makes it necessary.
+
+**Q6. Is a string-keyed field read only by a clause head, for now?**
+
+`o.Status` projects because a lowercase receiver followed by a PascalCase field is settled
+lexically (26 §3). A string key has no such spelling, and inventing one (`r."model"`, `r["model"]`)
+is a surface question of its own. Under **yes**, a wire field is read by destructuring, as Q2's
+`Tokens` does, and projection is deferred with its requirements recorded. Under **no**, this ticket
+also chooses a projection spelling.
+
+Recommended: **yes, clause heads only.** Q2's answer already routes every wire object through a
+clause head into a domain record, where projection works. A projection on the wire type would mostly
+serve code that skips that step.
+
