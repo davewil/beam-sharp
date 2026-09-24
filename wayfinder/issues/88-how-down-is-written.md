@@ -145,3 +145,78 @@ Recommended: **yes, all three.** The shipping document already promises `pid`, a
 are all `term` names nothing a reader can use, and each is one guard, the O(1) test ticket 11 asks
 of a type at the boundary.
 
+**Answered 2026-09-24 (David): Q2 one `Down`, Q3 yes.** One view names each of the tuple's four
+positions, for process and port monitors alike. `pid`, `reference` and `port` become builtin types,
+each decided by one guard (`is_pid/1`, `is_reference/1`, `is_port/1`); `pid` stays untyped (14 §1).
+
+## Round 3 — 2026-09-24: the names, the siblings, and the pairing check
+
+**Q4. What are the four parts called?**
+
+Positions 2 to 5 of `{'DOWN', MonitorRef, Type, Object, Info}`, in the names Erlang's own
+documentation gives them except the last:
+
+```csharp
+Down { Ref: reference, Type: :process | :port, Object: pid | port | (atom, atom), Reason: term }
+
+HandleInfo(Down { Ref: ref, Reason: :normal }, s) -> Forget(ref, s)
+HandleInfo(Down { Ref: ref, Type: :process, Object: pid, Reason: reason }, s) -> Restart(pid, reason, s)
+```
+
+`Ref`, not `MonitorRef`: the only reference a `Down` carries. `Type` and `Object` as Erlang writes
+them; `Kind` is not available, since it is the one field name a record's tag owns (26 §1). `Reason`,
+not `Info`: `Info` is always the exit reason, `'EXIT'` messages and `exit/2` call it `Reason`, and
+Gleam does too.
+
+Recommended: **`Ref`, `Type`, `Object`, `Reason`.**
+
+**Q5. Does this ticket also settle `Exit` and `Timeout`?**
+
+Ticket 14 §6 named three. They are not the same kind of thing:
+
+```csharp
+// `{'EXIT', Pid, Reason}`, delivered to a process that traps exits: a two-part view, like Down.
+HandleInfo(Exit { Pid: pid, Reason: reason }, s) -> Restart(pid, reason, s)
+
+// a gen_server timeout is the bare atom `timeout`: no parts, nothing to name.
+HandleInfo(:timeout, s) -> Idle(s)
+```
+
+Recommended: **yes for `Exit`, as `Exit { Pid, Reason }`, built with `Down` since it is the same
+mechanism; and `Timeout` is the atom `:timeout`, which needs no type and is dropped from the
+compiler-known list.** Ticket 14 §6's *"and friends"* is not extended here (`nodedown`, `'ETS-TRANSFER'`
+and the rest wait for a program that needs them).
+
+**Q6. Where must the `Down` handler be for a monitoring call?**
+
+Ticket 14 §6: *"calling `Monitor` in an aggregate that handles no `Down` is an error"*, the aggregate
+being the module. 25g breaks that rule as written, and correctly:
+
+```csharp
+module Jev                                   // the library: monitors, handles nothing
+
+public term Ask(Send send, string token, string spec, term owner, term tag, Json state, list<(string, Question)> qs)
+Ask(send, token, spec, owner, tag, state, qs) ->
+    var (_, ref) = :erlang.spawn_monitor(() => :erlang.send(owner, (:jev, tag, Evaluate(send, token, spec, state, qs))))
+    ref
+```
+
+```csharp
+module Triage                                // the caller: handles the Down
+HandleInfo(Down { Ref: ref, Reason: reason }, s) -> Crashed(ref, reason, s)
+```
+
+`spawn_monitor` runs in `Jev`, but the monitor belongs to the calling process, `Triage`'s server,
+which is where the `Down` arrives. A module-local check refuses `Jev`, a library that is right.
+
+- **A.** The check runs on the module that makes the call, as decided, and `Jev` is refused.
+- **B.** The check follows the call: a function whose body monitors and returns the reference is
+  marked as monitoring, and the mark travels to its callers, so `Triage` is the module that owes the
+  handler. This is the propagating constraint 14 §6 said it was not.
+- **C.** The check is dropped. A missing handler goes unnoticed; a mis-shaped one is still refused,
+  because `Down` is a type.
+
+Recommended: **C, dropped, recorded as deferred with what B would need.** The hole 14g found was a
+mis-shaped clause, and naming `Down` closes it on its own. The pairing check refuses correct library
+code, and making it correct turns it into the effect that 14 §6 argued it was not.
+
