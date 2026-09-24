@@ -193,10 +193,16 @@ if [ "${1:-}" = "--self-test" ]; then
   # it reaches further, while FRONTIER still names the old wall. A gate that
   # only asked "no worse than recorded" would be GREEN here, which is precisely
   # how the README came to mark four built capabilities `out`.
+  #
+  # The construct removed has to be 25a's CURRENT wall. Until F57 (2026-09-24)
+  # that was the `#{ ... }` map literal; F57 built the brace expression and 25a
+  # was respelled, which left this stub rewriting text that no longer existed
+  # and the control green. The wall is now the missing `module` line, so the
+  # stub supplies one: 25a then reaches the directory check, a later wall.
   fresh "$CTL/advanced"
-  sed -i.bak 's/#{ error = "invalid", at = e }/:invalid/' "$CTL/advanced/25a-http-api-server/create_order.bs"
-  sed -i.bak 's/#{ error = "no route" }/:no_route/'       "$CTL/advanced/25a-http-api-server/route.bs"
-  rm -f "$CTL/advanced"/25a-http-api-server/*.bak
+  { echo "module Shop.Api"; cat "$CTL/advanced/25a-http-api-server/index.bs"; } \
+    > "$CTL/advanced/index.bs.new"
+  mv "$CTL/advanced/index.bs.new" "$CTL/advanced/25a-http-api-server/index.bs"
   expect_red "an exemplar that got FURTHER than its record was not reported" \
     "25a-http-api-server: the wall moved" "$(run_gate "$CTL/advanced")"
 
