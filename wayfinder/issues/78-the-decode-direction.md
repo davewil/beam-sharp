@@ -295,7 +295,8 @@ deferred inverse would need is recorded when this is answered.
 
 - **Q3.** A trailing `..` makes a wire type an open field set. `ValidateAs` checks the named keys
   and returns the value unchanged; the type stays exact without it; `ToJson` refuses an open type
-  at the declaration. `ValidateAs` converts nothing.
+  at the declaration. `ValidateAs` converts nothing *(corrected in round 5: nothing beyond the
+  one conversion 26 §4 already decided, an absent key to `:nothing` for an `option<T>` field)*.
 - **Q4.** Reading a B# record back from JSON is **deferred**. A record written by `ToJson` comes
   back through a wire type and a clause head, as in the `ReadingWire` program above.
 
@@ -380,4 +381,88 @@ also chooses a projection spelling.
 Recommended: **yes, clause heads only.** Q2's answer already routes every wire object through a
 clause head into a domain record, where projection works. A projection on the wire type would mostly
 serve code that skips that step.
+
+**Answered 2026-09-24 (David): Q5 yes, Q6 yes.**
+
+- **Q5.** A string literal is a type. `{ "type": "ping", .. }` is a member a clause head can name,
+  a union of literal-tagged wire types can be covered without `_`, `ValidateAs` compares the value
+  with `=:=`, and `ToJson` writes it unchanged. `string` stays open.
+- **Q6.** A string-keyed field is read by a clause head. Projection on a wire type is **deferred**;
+  what it would need: a spelling for a string key after a value (`r."model"` and `r["model"]` are
+  the two on the table), a rule that it is legal only where every member carries the key (26 §3's
+  union rule), and a reason to want it, which would be code that reads a wire field without
+  copying the object into a record. Reopen on the first such program.
+
+## Round 5 — 2026-09-24: building a wire value, absent keys, and atoms in a wire type
+
+**Measured first** (`bsc` at `17ffead`, atom keys standing in):
+
+| Probe | Result |
+|---|---|
+| `ValidateAs<{ Id: option<string>, Model: string }>` on a map with no `Id` | refused, `Path = []` |
+| the same with a record, `record R { Id: option<string>, … }` | refused, `Path = []` |
+| `ValidateAs<{ Id: option<string>, … }>` with `Id => null` | refused, `Expected = ":nothing \| string", Path = [".Id"]` |
+
+26 §4 decided *"`ValidateAs<T>` maps an absent JSON key to `:nothing` for an `option<T>` field"*.
+That is **decided and unbuilt**. It is also a conversion, which the Q3 record above now says.
+
+**Q7. Is a wire value built with a brace expression?**
+
+25f's request body, today `:maps.from_list` over pairs, typed `map<term, term>`, so `ToJson` can
+say nothing about it:
+
+```csharp
+type QuestionWire = { "type": "choice" | "score" | "noul", "instructions": string, .. }
+type RequestWire  = { "model": string, "state": Json, "questions": map<string, QuestionWire> }
+
+private string Body(Model m, Json state, map<string, QuestionWire> qs)
+Body(m, state, qs) -> ToJson<RequestWire>({ "model" = m.Id, "state" = state, "questions" = qs })
+
+private QuestionWire Wire(YesNo y)
+Wire(y) -> { "type" = "noul", "instructions" = y.Instructions }
+```
+
+The expression is `{ key = value, … }`: record construction's `=` with no type name in front,
+keys being string literals or PascalCase names. It is checked against the type its site expects,
+as a record construction is, and it builds an exact field set. Ticket 48 measured this as the one
+missing level (type and pattern already take bare braces; `bs_parser.yrl`'s expression rule needs a
+record name), and it is 25a's front wall with atom keys, so both exemplars move on one change.
+(`QuestionWire`'s `..` makes it open; `ToJson<RequestWire>` would then refuse it by Q3. The request
+side uses exact types; the `..` above is shown only to be removed.)
+
+Compiler delta: `expr -> '{' assign_fields '}'` with a string-literal key form; an `e_map` node;
+a `type_of` clause beside `e_record`'s; an expression clause in `bs_emit`.
+
+Recommended: **yes**, for both key kinds at once, since 48 said construction reshapes exactly when
+keys become values, and Q2 made them values.
+
+**Q8. Does 26 §4's absent-key rule reach wire types, and is JSON `null` absent?**
+
+TypeSafe's reply has no `id`; OpenRouter's has `"id": "gen-jev-test"`. OpenAI's sends
+`"refusal": null`.
+
+```csharp
+type ReplyWire = { "id": option<string>, "model": string, "refusal": string | :null, .. }
+```
+
+Under the recommendation, `ValidateAs<ReplyWire>` on TypeSafe's reply returns `"id" => :nothing`,
+on OpenRouter's returns the string, and a `null` refusal stays `:null`, JSON's own value (10 §2).
+An author who wants `null` and absent to mean the same writes `option<string | :null>` and matches
+both. Compiler delta: build 26 §4's rule, for records and wire types alike: in the generated check,
+an absent key at an `option<T>` field inserts `:nothing` instead of failing.
+
+Recommended: **yes, 26 §4 reaches wire types; `null` is not absent.** 26 §4 is decided, and a wire
+type is where absent keys actually occur. Mapping `null` too would be a second conversion, and 10 §2
+already gave `null` its own value.
+
+**Q9. Is an atom other than `:null`, `:true` or `:false` in a wire type refused?**
+
+`json:decode` produces no other atom, and `ValidateAs` does not convert a binary to one, so
+`{ "type": :ping }` never validates a decoded reply. It fails at run time with `Expected` naming
+`:ping` at `["type"]`. But a string-keyed map built on the BEAM may hold any atom, and `ToJson`
+writes `:ping` as `"ping"`, so the type is legal for both of those.
+
+Recommended: **not refused.** The type is correct for BEAM-built maps and for encoding; the runtime
+error names the field and the expected atom; Q5 gives the author the right spelling,
+`"type": "ping"`.
 
