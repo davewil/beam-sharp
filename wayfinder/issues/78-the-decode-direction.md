@@ -412,7 +412,7 @@ That is **decided and unbuilt**. It is also a conversion, which the Q3 record ab
 say nothing about it:
 
 ```csharp
-type QuestionWire = { "type": "choice" | "score" | "noul", "instructions": string, .. }
+type QuestionWire = { "type": "choice" | "score" | "noul", "instructions": string }
 type RequestWire  = { "model": string, "state": Json, "questions": map<string, QuestionWire> }
 
 private string Body(Model m, Json state, map<string, QuestionWire> qs)
@@ -427,8 +427,7 @@ keys being string literals or PascalCase names. It is checked against the type i
 as a record construction is, and it builds an exact field set. Ticket 48 measured this as the one
 missing level (type and pattern already take bare braces; `bs_parser.yrl`'s expression rule needs a
 record name), and it is 25a's front wall with atom keys, so both exemplars move on one change.
-(`QuestionWire`'s `..` makes it open; `ToJson<RequestWire>` would then refuse it by Q3. The request
-side uses exact types; the `..` above is shown only to be removed.)
+The request side uses exact types, because `ToJson` refuses an open one (Q3).
 
 Compiler delta: `expr -> '{' assign_fields '}'` with a string-literal key form; an `e_map` node;
 a `type_of` clause beside `e_record`'s; an expression clause in `bs_emit`.
