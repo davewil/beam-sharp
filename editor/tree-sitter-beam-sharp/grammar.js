@@ -210,7 +210,8 @@ module.exports = grammar({
       $.type_identifier,
       $.arrow_type,
       seq('(', commaSep1($.type_expression), ')'),
-      seq('{', commaSep1($.field_declaration), '}'),
+      // F59 — a trailing `..` makes the field set open.
+      seq('{', commaSep1($.field_declaration), optional(seq(',', '..')), '}'),
     ),
 
     // F46 / ticket 75 — the arrow, `fn(int, atom) -> int`. The codomain is a

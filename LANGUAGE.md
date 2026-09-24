@@ -2476,6 +2476,27 @@ public UsageWire Echo(int i, int o)
 Echo(i, o) -> { "input_tokens" = i, "output_tokens" = o }
 ```
 
+**A trailing `..` makes a field set open**: it names the keys it needs and admits any others.
+Someone else's JSON grows keys you do not read, and an exact type would refuse the reply for them.
+`ValidateAs` checks the named keys and returns the value unchanged, extra keys included; an exact
+field set is a subtype of the open one with the same keys. Without `..` a field set stays exact.
+`ToJson` refuses an open type, since it would publish keys no type declares, and a record is always
+exact. **shipped** — F59.
+<!-- decided by ticket 78 Q3; built by F59 -->
+
+```csharp
+module Reply
+
+type UsageWire = { "input_tokens": int, "output_tokens": int, .. }
+type ReplyWire = { "model": string, "usage": UsageWire, .. }
+
+public result<ReplyWire, ValidationError> Read(term doc)
+Read(doc) -> ValidateAs<ReplyWire>(doc)
+
+public int Tokens(ReplyWire r)
+Tokens({ "usage": { "input_tokens": i, "output_tokens": o } }) -> i + o
+```
+
 **Validating against `term` is an error.** `result<term, ValidationError>` normalises straight back
 to `term`, so the failure channel does not survive and no caller could write the failure clause.
 The rule is general — an instantiation whose union with its own failure member is the type it
@@ -3013,6 +3034,7 @@ the parser accepts back exactly what the printer emits. **shipped**
 | records — declaration, construction, `with`, the dot, tag dispatch | **shipped** |
 | the brace expression `{ Key = value }`, a field set with no `Kind` | **shipped** — F57, and with string keys F58 |
 | a string key in a field-set type, pattern and brace, `{ "input_tokens": int }` | **shipped** — F58 |
+| an open field set, `{ "model": string, .. }` | **shipped** — F59 |
 | local bindings in a body, with rebinding and unbound names rejected | **shipped** |
 | destructuring binds (`(a, b) = pair`), where they cannot fail | **shipped** |
 | the boundary tag guard on an exported record parameter | **shipped** |

@@ -8,7 +8,7 @@
 Nonterminals
   program decls decl
   module_decl type_decl signature clause foreign_decl foreign_sigs foreign_sig
-  behaviour_decl record_decl field_decls field_decl
+  behaviour_decl record_decl field_decls field_decl open_field_decls
   type_expr type_union_members type_prim type_list type_params
   params param_list param
   patterns pattern_list pattern plist_items pat_fields pat_field
@@ -199,6 +199,16 @@ type_prim -> '(' type_list ')' : {t_tuple, '$2'}.
 %% :'Shop.Order', Id: int }` is the same type as the record whose tag mints
 %% to that atom (ticket 09, F3.2).
 type_prim -> '{' field_decls '}' : {t_map, '$2'}.
+%% F59 (ticket 78 Q3): a trailing `..` names the keys a field set needs and
+%% admits any others. A record's field set is exact, so `record_decl` never
+%% reaches this rule.
+type_prim -> '{' open_field_decls '}' : {t_map_open, '$2'}.
+
+%% Right-recursive and ending in `..`, sharing `field_decl ','` with
+%% `field_decls`: a list that had to be reduced before `, ..` could be seen
+%% cost a shift/reduce conflict on `,` that shifted past the marker.
+open_field_decls -> field_decl ',' '..'              : ['$1'].
+open_field_decls -> field_decl ',' open_field_decls  : ['$1' | '$3'].
 
 %% `list<int>`, `result<Delivery, ConsumeError>`, `Pair<int>`. In type
 %% position nothing compares, so `<` is a bracket with no lookahead; the value

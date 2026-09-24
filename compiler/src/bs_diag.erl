@@ -773,7 +773,8 @@ unencodable_at(Segs) -> "in " ++ lists:append(Segs) ++ ", ".
 unencodable_member(M, tuple)  -> "`" ++ M ++ "` is a tuple, and JSON has no encoding for one";
 unencodable_member(M, arrow)  -> "`" ++ M ++ "` is a function, which has no value outside this VM";
 unencodable_member(M, binary) -> "`" ++ M ++ "` is a `binary`, which may hold bytes that are not UTF-8";
-unencodable_member(M, term)   -> "`" ++ M ++ "` may hold a tuple or a function, and JSON encodes neither".
+unencodable_member(M, term)   -> "`" ++ M ++ "` may hold a tuple or a function, and JSON encodes neither";
+unencodable_member(M, open_map) -> "`" ++ M ++ "` is open, so it holds keys no type declares".
 
 %% A `result` is the tuple an author meets first, so the tuple's repair names it.
 unencodable_repair(tuple) ->
@@ -785,6 +786,9 @@ unencodable_repair(arrow) ->
 unencodable_repair(binary) ->
     "Declare it `string`, which is UTF-8 by refinement and goes on the wire\n"
     "  as itself.";
+unencodable_repair(open_map) ->
+    "Encode an exact field set: drop the `..`, or copy the keys you mean to\n"
+    "  send into a type that names them all.";
 unencodable_repair(term) ->
     "Validate the term into a declared type first, with ValidateAs<T>, and\n"
     "  encode that type.".

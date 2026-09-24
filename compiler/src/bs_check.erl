@@ -346,6 +346,8 @@ qualify_refs({t_tuple, Cs}, Rename) ->
     {t_tuple, [qualify_refs(C, Rename) || C <- Cs]};
 qualify_refs({t_map, Fields}, Rename) ->
     {t_map, [{field, F, qualify_refs(T, Rename)} || {field, F, T} <- Fields]};
+qualify_refs({t_map_open, Fields}, Rename) ->
+    {t_map_open, [{field, F, qualify_refs(T, Rename)} || {field, F, T} <- Fields]};
 qualify_refs({t_refined, L, Base, Pred}, Rename) ->
     {t_refined, L, qualify_refs(Base, Rename), Pred};
 qualify_refs(T, _Rename) ->
@@ -796,6 +798,7 @@ vars_in({t_union, Ms}, Vars)      -> lists:append([vars_in(M, Vars) || M <- Ms])
 vars_in({t_tuple, Cs}, Vars)      -> lists:append([vars_in(C, Vars) || C <- Cs]);
 vars_in({t_generic, _, As}, Vars) -> lists:append([vars_in(A, Vars) || A <- As]);
 vars_in({t_map, Fields}, Vars)    -> lists:append([vars_in(T, Vars) || {_, T} <- Fields]);
+vars_in({t_map_open, Fields}, Vars) -> vars_in({t_map, Fields}, Vars);
 vars_in({t_refined, _, B, _}, Vars) -> vars_in(B, Vars);
 vars_in({t_fun, Ds, C}, Vars)     -> lists:append([vars_in(T, Vars) || T <- Ds ++ [C]]);
 vars_in(_, _)                     -> [].
@@ -1038,8 +1041,11 @@ collapse_decl(_, _Env) -> ok.
 %% `bs_diag` renders these dotted paths unchanged; tuple ordinals are 1-based.
 root(N) when is_atom(N) -> atom_to_list(N);
 root(N) when is_list(N) -> N;
+%% F58: a string key reads `["a"]`, as a validation path spells it.
+root(N) when is_binary(N) -> "[" ++ bs_types:key_str(N) ++ "]";
 root(N)                 -> lists:flatten(io_lib:format("~p", [N])).
 
+seg(Path, S) when is_binary(S) -> Path ++ root(S);
 seg(Path, S) -> Path ++ "." ++ root(S).
 
 %% Resolution errors belong to the later `callees/3` and `check_fn/2` passes.
@@ -1081,6 +1087,8 @@ scan_ty({t_generic, N, Args}, Env, L, Path, Seen) ->
 scan_ty({t_tuple, Cs}, Env, L, Path, Seen) ->
     lists:foreach(fun({I, C}) -> scan_ty(C, Env, L, seg(Path, I), Seen) end,
                   lists:zip(lists:seq(1, length(Cs)), Cs));
+scan_ty({t_map_open, Fields}, Env, L, Path, Seen) ->
+    scan_ty({t_map, Fields}, Env, L, Path, Seen);
 scan_ty({t_map, Fields}, Env, L, Path, Seen) ->
     lists:foreach(fun({field, F, T}) -> scan_ty(T, Env, L, seg(Path, F), Seen)
                   end, Fields);
@@ -1426,6 +1434,10 @@ resolve({t_tuple, Cs}, Env, Seen) ->
 resolve({t_map, Fields}, Env, Seen) ->
     bs_types:map_closed(
       maps:from_list([{N, resolve(T, Env, ctor(Seen))} || {field, N, T} <- Fields]));
+%% F59: an open member admits keys it does not name.
+resolve({t_map_open, Fields}, Env, Seen) ->
+    bs_types:map_open(
+      maps:from_list([{N, resolve(T, Env, ctor(Seen))} || {field, N, T} <- Fields]));
 %% Lists are algebra primitives, not expressible as alias bodies.
 resolve({t_generic, list, [T]}, Env, Seen) ->
     bs_types:list(resolve(T, Env, ctor(Seen)));
@@ -1535,6 +1547,8 @@ subst({t_generic, N, Args}, Sub)   -> {t_generic, N, [subst(A, Sub) || A <- Args
 subst({t_fun, Ds, C}, Sub)         -> {t_fun, [subst(D, Sub) || D <- Ds], subst(C, Sub)};
 subst({t_map, Fields}, Sub) ->
     {t_map, [{field, N, subst(T, Sub)} || {field, N, T} <- Fields]};
+subst({t_map_open, Fields}, Sub) ->
+    {t_map_open, [{field, N, subst(T, Sub)} || {field, N, T} <- Fields]};
 subst(T, _Sub)                     -> T.
 
 builtin(int)  -> bs_types:int();
@@ -1631,6 +1645,8 @@ declared_text(Ret, Declared) ->
 
 written({t_map, Fields}) ->
     joined("{ ", [field_written(F) || F <- Fields], ", ", " }");
+written({t_map_open, Fields}) ->
+    joined("{ ", [field_written(F) || F <- Fields] ++ [".."], ", ", " }");
 %% Preserve inline maps inside composites too; `type_source/1` refuses them.
 written({t_union, Ms}) ->
     joined("", [written(M) || M <- Ms], " | ", "");
@@ -1656,7 +1672,7 @@ joined(Open, Parts, Sep, Close) ->
 field_written({field, Name, T}) ->
     case written(T) of
         none -> none;
-        S    -> lists:flatten([root(Name), ": ", S])
+        S    -> lists:flatten([bs_types:key_str(Name), ": ", S])
     end.
 
 correction_of(F, Declared, Union, Env) ->
@@ -1967,6 +1983,7 @@ type_source({t_fun, Ds, C}) ->
 %% Inline maps may carry `Kind` fields and are not rendered as suggestions.
 %% Named records arrive as `t_ref` and remain writable.
 type_source({t_map, _Fields})   -> none;
+type_source({t_map_open, _})    -> none;
 type_source(_)                  -> none.
 
 join_source(Ts, Sep) ->
@@ -2889,10 +2906,13 @@ unencodable(#{recvar := _}, _Segs, _Seen) ->
 unencodable(T, Segs, Seen) ->
     #{tuples := Ts, funs := Fs, bins := Bs, maps := Ms} = T,
     At = lists:reverse(Segs),
+    %% F59: an open member would publish keys no type declares.
+    Open = is_list(Ms) andalso lists:any(fun({open, _}) -> true; (_) -> false end, Ms),
     case bs_types:is_subtype(bs_types:term(), T) orelse Ms =:= top of
         true -> {At, T, term};
         false when Ts =/= [] -> {At, holding(tuples, T), tuple};
         false when Fs =/= [] -> {At, holding(funs, T), arrow};
+        false when Open      -> {At, holding(maps, T), open_map};
         false ->
             case lists:member(other, Bs) of
                 true  -> {At, holding(bins, T), binary};
