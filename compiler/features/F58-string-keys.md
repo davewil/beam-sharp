@@ -118,3 +118,14 @@ known race on a fresh clone's first run, not a change here.
 `./bin/verify.sh` twice from a second clean clone of `cdb9bf3`, one command per
 run: **All 46 stages passed**, 312 s and 301 s. The status stays *in progress*
 until David calls it.
+
+## Evidence — 2026-09-24, the F58.12 fix
+
+Exemplar 25g found a crash F58 shipped with: a string-keyed brace handed to a
+type including `map<term, term>` reached `fields_fit/5`, which called
+`atom_lit/1` on the key. Fixed in `edebcd7` (a string key's type there is
+`string`), test F58.12 and a LANGUAGE.md §10 block red first.
+
+`./bin/verify.sh` twice from a clean clone of `edebcd7`, one command per run:
+**All 46 stages passed**, 364 s and 319 s. The status stays *in progress*
+until David calls it.
