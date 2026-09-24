@@ -141,3 +141,51 @@ a_string_keyed_field_set_fits_a_dictionary_test() ->
                  tags("module Wire12b\n"
                       "public map<atom, int> Counts(int n)\n"
                       "Counts(n) -> { \"a\" = n }\n")).
+
+%% F58.13 — a validation path escapes a key's quote and backslash as the
+%% source writes them, the spelling a compile-time path uses.
+a_validation_path_escapes_the_key_test() ->
+    M = build_and_load("module Wire13\n"
+                       "public result<{ \"a\\\"b\": int }, ValidationError> Read(term t)\n"
+                       "Read(t) -> ValidateAs<{ \"a\\\"b\": int }>(t)\n", 'Wire13'),
+    {error, #{'Path' := Path}} = M:'Read'(#{<<"a\"b">> => x}),
+    ?assertEqual([<<"[\"a\\\"b\"]">>], Path).
+
+%% F58.14 — an update of a key no member carries names the key as written.
+an_absent_string_key_is_named_as_written_test_() ->
+    {timeout, 60,
+     fun() ->
+         bs_test_support:with_src("wire14.bs",
+             "module Wire14\n"
+             "type W = { \"a\": int } | { \"b\": int }\n"
+             "public W Bad(W w)\n"
+             "Bad(w) -> w with { \"c\" = 9 }\n",
+             fun(Path, _Out) ->
+                 {_, Output} = bs_test_support:run_cli_result(Path),
+                 ?assertNotEqual(nomatch, string:find(Output, "Bad updates \"c\" on a value")),
+                 ?assertNotEqual(nomatch, string:find(Output, "this member has no \"c\":"))
+             end)
+     end}.
+
+%% F58.15 — a string-keyed value prints in brace notation and reads back.
+a_string_keyed_value_round_trips_through_bsc_test_() ->
+    {timeout, 60,
+     fun() ->
+         bs_test_support:with_src("wire15.bs",
+             "module Wire15\n"
+             "type UsageWire = { \"input_tokens\": int, \"output_tokens\": int }\n"
+             "public UsageWire Make(int i, int o)\n"
+             "Make(i, o) -> { \"input_tokens\" = i, \"output_tokens\" = o }\n"
+             "public int Total(UsageWire u)\n"
+             "Total({ \"input_tokens\": i, \"output_tokens\": o }) -> i + o\n",
+             fun(Path, Out) ->
+                 {0, Made} = bs_test_support:run_cli_result(
+                               "-o " ++ Out ++ " " ++ Path ++ " Make 1 2"),
+                 ?assertEqual("{\"input_tokens\" = 1, \"output_tokens\" = 2}",
+                              hd(string:lexemes(Made, "\n"))),
+                 {0, Sum} = bs_test_support:run_cli_result(
+                              "-o " ++ Out ++ " " ++ Path ++
+                              " Total '{\"input_tokens\" = 100, \"output_tokens\" = 20}'"),
+                 ?assertEqual("120", hd(string:lexemes(Sum, "\n")))
+             end)
+     end}.

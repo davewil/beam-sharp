@@ -64,6 +64,11 @@ it stands and comes back unchanged.
   `--api`; `bs_diag` and `ToJson`'s refusal path use it too.
 - Specs: Erlang's type language has no singleton binary, so a member's string
   keys widen to one `binary() => any()` entry beside its exact name keys.
+- From the 2026-09-24 review: `field_seg/1` spells a key through
+  `key_str/1`, so a run-time path escapes `"` and `\` as a compile-time path
+  does; `bs_diag`'s `field_absent` messages quote the key; and `bs_run` prints
+  a string-keyed map in brace notation and reads one back, so a value `bsc`
+  prints can be handed to `bsc` as an argument.
 
 ## Scenarios
 
@@ -82,6 +87,9 @@ it stands and comes back unchanged.
 | F58.10 | `R { "X" = n }` | `field_set_mismatch` |
 | F58.11 | keys `"content-type"` and `""` | run |
 | F58.12 | `{ "title" = t }` as `map<term, term>`; `{ "a" = n }` as `map<string, int>`; the same as `map<atom, int>` | runs; runs; `return_not_declared`. Crashed `bsc` until 25g found it |
+| F58.13 | `ValidateAs<{ "a\"b": int }>` on a wrong value | `Path = ["[\"a\\\"b\"]"]`, escaped as the source writes it |
+| F58.14 | `w with { "c" = 9 }` where no member carries `"c"` | `field_absent`, naming `"c"` quoted |
+| F58.15 | `bsc` runs `Make 1 2`, then `Total` on the printed value | prints `{"input_tokens" = 1, "output_tokens" = 2}`; `120` |
 
 F58.8's residual prints the field's value as `_`. That is the head printer's
 existing behaviour for name keys too (`Go({ Ok: _ })`), measured beside it.

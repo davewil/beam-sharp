@@ -1041,7 +1041,7 @@ message(#{tag := field_absent, file := P, line := L, column := C, function := Fn
      "  this member has no ~s:~n"
      "    ~s~n"
      "  discriminate on the tag first, in a clause head.~n",
-     [P, L, C, Fn, Field, Field, Member]};
+     [P, L, C, Fn, bs_types:key_str(Field), bs_types:key_str(Field), Member]};
 %% The member handed back is either one arm of a union or the whole subject,
 %% and the fix differs: the first is discriminated on, the second has no tag
 %% and needs a record. The line names both edits.
@@ -1052,7 +1052,7 @@ message(#{tag := field_absent, file := P, line := L, column := C, function := Fn
      "    ~s~n"
      "  `with` updates a record: give it one, or discriminate on the tag~n"
      "  first, in a clause head.~n",
-     [P, L, C, Fn, Field, Field, Member]};
+     [P, L, C, Fn, bs_types:key_str(Field), bs_types:key_str(Field), Member]};
 %% Without this the emitted `-spec` would claim what the body does not deliver.
 %% The residual answers what is not covered and `correction_text/1` answers
 %% what to write, added beside the residual and never substituted for it.

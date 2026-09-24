@@ -1247,9 +1247,11 @@ key_lit(K, L) when is_binary(K) ->
     {bin, L, [{bin_element, L, {string, L, binary_to_list(K)}, default, default}]}.
 
 %% A validation path names a field `.Name`, and a string key the way F43 names
-%% a map entry, `["key"]`.
+%% a map entry, `["key"]`, spelled by `bs_types:key_str/1` as the checker's
+%% paths are. The path is a binary, so the text goes in as UTF-8 bytes.
 field_seg(K) when is_atom(K)   -> [$. | atom_to_list(K)];
-field_seg(K) when is_binary(K) -> [$[, $"] ++ binary_to_list(K) ++ [$", $]].
+field_seg(K) when is_binary(K) ->
+    "[" ++ binary_to_list(unicode:characters_to_binary(bs_types:key_str(K))) ++ "]".
 
 same(A, B, L)    -> {op, L, '=:=', A, B}.
 differs(A, B, L) -> {op, L, '=/=', A, B}.

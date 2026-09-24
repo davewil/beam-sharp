@@ -186,15 +186,35 @@ brace_advice(S) ->
                   "  a brace is a record: `{ Id = 1, Total = 500 }`~n"
                   "  a tuple is parenthesised: `(1, 2)`", [S]).
 
+%% A key is a name, an atom, or a string literal, a binary, as F58 writes it.
 field(P, Env) ->
-    case string:split(P, "=") of
-        [K, V] ->
-            case string:trim(K) of
-                ""   -> none;
-                Name -> {list_to_atom(Name), parse_arg(string:trim(V), Env)}
-            end;
-        _ -> none
+    case key_split(string:trim(P, leading)) of
+        {"", _}       -> none;
+        {[$" | _] = K, V} -> {parse_string(K), parse_arg(string:trim(V), Env)};
+        {K, V}        -> {list_to_atom(K), parse_arg(string:trim(V), Env)};
+        none          -> none
     end.
+
+%% Split at the first `=` outside a string literal, so a key may hold one.
+key_split([$" | _] = P) ->
+    case string_end(tl(P), [$"]) of
+        {Lit, Rest} ->
+            case string:trim(Rest, leading) of
+                [$= | V] -> {Lit, V};
+                _        -> none
+            end;
+        none -> none
+    end;
+key_split(P) ->
+    case string:split(P, "=") of
+        [K, V] -> {string:trim(K), V};
+        _      -> none
+    end.
+
+string_end([$\\, C | T], Acc) -> string_end(T, [C, $\\ | Acc]);
+string_end([$" | T], Acc)      -> {lists:reverse([$" | Acc]), T};
+string_end([C | T], Acc)       -> string_end(T, [C | Acc]);
+string_end([], _Acc)           -> none.
 
 parse_inner(S, Env) ->
     Inner = string:trim(lists:sublist(S, 2, length(S) - 2)),
@@ -314,23 +334,30 @@ format_value(L) when is_list(L) ->
     ["[", lists:join(", ", [format_value(E) || E <- L]), "]"];
 %% `Kind` first: it is the discriminator, so it is what a reader looks for to
 %% know which record they are holding. The rest sort, so output is stable.
-%% Bare braces name atom keys only, so a map with any other key has no
-%% beam-sharp spelling and prints in Erlang's, keys in order.
+%% A key is an atom or a UTF-8 string, as F58 writes one; a map with any other
+%% key has no beam-sharp spelling and prints in Erlang's, keys in order.
 format_value(M) when is_map(M) ->
     Keys = lists:sort(maps:keys(M)),
-    case lists:all(fun is_atom/1, Keys) of
+    case lists:all(fun spelled_key/1, Keys) of
         true ->
             Ordered = case lists:member('Kind', Keys) of
                           true  -> ['Kind' | lists:delete('Kind', Keys)];
                           false -> Keys
                       end,
-            ["{", lists:join(", ", [[atom_to_list(K), " = ",
+            ["{", lists:join(", ", [[key_text(K), " = ",
                                      format_value(maps:get(K, M))]
                                     || K <- Ordered]), "}"];
         false ->
             io_lib:format("~kp", [M])
     end;
 format_value(Other) -> io_lib:format("~p", [Other]).
+
+spelled_key(K) when is_atom(K)   -> true;
+spelled_key(K) when is_binary(K) -> is_list(unicode:characters_to_list(K));
+spelled_key(_)                   -> false.
+
+key_text(K) when is_atom(K) -> atom_to_list(K);
+key_text(K)                 -> bs_types:key_str(K).
 
 %% The export list minus what the author did not write: `module_info` is the
 %% VM's, and `bs@…` is the compiler's (`'bs@type_atoms'/0` on every module).
