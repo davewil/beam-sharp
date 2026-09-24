@@ -351,14 +351,17 @@ the_cli_prints_a_string_test() ->
                  ?assertEqual("\"hello\"\n", R)
              end).
 
-%% Binary keys have no B# value spelling, so the CLI uses Erlang notation.
+%% A UTF-8 binary key is a string key, so the CLI prints the brace notation
+%% the reader takes back; a key that is not UTF-8 keeps Erlang notation.
 the_cli_prints_a_binary_keyed_map_test() ->
     with_src("Views.bs", views_src(),
              fun(Path, Out) ->
                  {Rc, R} = bs_test_support:run_cli_result(
                              "-o " ++ Out ++ " " ++ Path ++ " Counts"),
                  ?assertEqual(0, Rc),
-                 ?assertEqual("#{<<\"about\">> => 1,<<\"home\">> => 3}\n", R)
+                 ?assertEqual("{\"about\" = 1, \"home\" = 3}\n", R),
+                 ?assertMatch("#{" ++ _,
+                              lists:flatten(bs_run:format_value(#{<<255>> => 1})))
              end).
 
 %%% Argument reader
