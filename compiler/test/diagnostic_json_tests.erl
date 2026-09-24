@@ -1,22 +1,11 @@
+%%% Scenarios: compiler/features/F47-diagnostic-json.md
 -module(diagnostic_json_tests).
 
 -include_lib("eunit/include/eunit.hrl").
 
 -import(bs_test_support, [with_src/3, project_root/0]).
 
-%%% ---------------------------------------------------------------------------
-%%% F47 — the diagnostic term on the wire: `--diagnostics json`
-%%%
-%%% Ticket 23 §5, under the mapping ticket 77 wrote: the wire form is the
-%%% platform's, `json:encode` of the term with its charlists as binaries.
-%%%
-%%% THE CENTRAL TEST IS `the_json_is_the_term_test`, F16.3's shape restated.
-%%% It runs the compiler once under `term` and once under `json`, decodes the
-%%% JSON with the platform's own `json:decode`, and requires the result to
-%%% equal the term normalised by `wire/1` BELOW — a normaliser written here,
-%%% as a consumer would write it, and not borrowed from `bs_diag`. A test that
-%%% asked the encoder to check the encoder would agree with any encoder.
-%%% ---------------------------------------------------------------------------
+%%% JSON diagnostics
 
 out(Args) ->
     {_, Stdout, _} = bs_test_support:run_cli_split_result(Args),
@@ -41,19 +30,11 @@ lines(S) -> [L || L <- string:split(string:trim(S), "\n", all), L =/= ""].
 
 terms(S) -> [parse_term(L) || L <- lines(S)].
 
-%% The framing contract, as naive as a consumer: one object per line, and the
-%% line is handed to the platform's decoder whole. The stdout is read as bytes
-%% by `run_cli_split_result`, so the binary here is the UTF-8 the compiler wrote.
+%% Stdout is read as bytes, so these binaries preserve the emitted UTF-8.
 objects(S) -> [json:decode(list_to_binary(L)) || L <- lines(S)].
 
-%% WHAT A CONSUMER EXPECTS THE TERM TO BECOME, written independently of the
-%% encoder. Ticket 77's mapping, value by value: an atom is a string of its
-%% name (`true`, `false` and `null` the JSON literals, which `json:decode`
-%% hands back as atoms), a string is a string, a map's keys are strings, a
-%% list is an array. Two things are the encoder's own and a consumer has to
-%% be told: `[]` is an array, and `declared` under the two arity tags is a
-%% list of integers rather than text — the one fact the term does not carry,
-%% stated here by hand and pinned as bytes in F47.12 below.
+%% Normalize independently of the encoder so it cannot validate itself.
+%% Empty lists and declared arities are arrays, not text.
 wire(Desc) -> wire(maps:get(tag, Desc, undefined), tag, Desc).
 
 wire(Tag, _Key, M) when is_map(M) ->
@@ -83,7 +64,7 @@ inexhaustive_src() ->
     "public int Two(Signal s, int n)\n"
     "Two(:red, n) when n > 0 -> n\n".
 
-%%% --- F47.1 — one object per line, and the strings are strings --------------
+%%% F47.1 — stdout carries one object per line with text as strings.
 
 the_json_is_published_on_stdout_test() ->
     guarded(fun() ->
@@ -99,14 +80,11 @@ the_json_is_published_on_stdout_test() ->
                            <<"heads">> := #{<<"pasteable">> :=
                                                 [<<"Rank(:amber) -> ...">>]}},
                          Rank),
-            %% The file is text on the wire, which is the whole of the
-            %% compiler delta: `json:encode` on the raw term emits this key
-            %% as an array of integers.
+            %% Raw charlists would encode as integer arrays.
             #{<<"file">> := File} = Rank,
             ?assert(is_binary(File)),
             ?assertEqual(<<"in.bs">>, filename:basename(File)),
-            %% A residual with several products: the arrays nest as the term's
-            %% lists do, and every leaf is a string.
+            %% Residual products nest as arrays; their leaves are text.
             ?assertMatch(#{<<"function">> := <<"Two">>,
                            <<"heads">> :=
                                #{<<"products">> :=
@@ -116,7 +94,7 @@ the_json_is_published_on_stdout_test() ->
         end)
     end).
 
-%%% --- F47.2 — the prose does not know a third channel exists ----------------
+%%% F47.2 — JSON leaves stderr prose unchanged.
 
 the_prose_is_unchanged_under_json_test() ->
     guarded(fun() ->
@@ -127,7 +105,7 @@ the_prose_is_unchanged_under_json_test() ->
         end)
     end).
 
-%%% --- F47.3 — the JSON is the term, computed ---------------------------------
+%%% F47.3 — decoded JSON equals the normalized diagnostic term.
 
 the_json_is_the_term_test() ->
     guarded(fun() ->
@@ -140,7 +118,7 @@ the_json_is_the_term_test() ->
         end)
     end).
 
-%%% --- F47.4 — the raise path and a warning travel here too ------------------
+%%% F47.4 — raised errors and warnings use JSON too.
 
 a_raised_condition_is_json_too_test() ->
     guarded(fun() ->
@@ -174,12 +152,10 @@ a_warning_is_json_and_still_compiles_test() ->
         end)
     end).
 
-%%% --- F47.5 — text goes out as UTF-8 -----------------------------------------
+%%% F47.5 — paths reach stdout as UTF-8.
 
-%% The file name is spelled as the CODEPOINT here, on both sides: `place/3`
-%% writes it under Erlang's unicode file-name mode, and the port encodes the
-%% argument the same way, so the escript sees the same name the file has. The
-%% expectation is spelled as BYTES, because stdout is read back as bytes.
+%% The filename uses codepoints for filesystem and port arguments.
+%% Expectations use UTF-8 bytes because stdout is read as bytes.
 a_path_is_utf8_on_the_wire_test() ->
     guarded(fun() ->
         with_src("caf\x{e9}.bs", inexhaustive_src(), fun(Path, Root) ->
@@ -191,7 +167,7 @@ a_path_is_utf8_on_the_wire_test() ->
         end)
     end).
 
-%%% --- F47.6, F47.7 — the refusals name the third value -----------------------
+%%% F47.6–F47.7 — channel refusals name the supported choices.
 
 the_json_channel_is_refused_in_the_repl_test() ->
     guarded(fun() ->
@@ -206,12 +182,11 @@ an_unknown_channel_is_refused_naming_all_three_test() ->
         {Rc, Out} = bs_test_support:run_cli_result("--diagnostics xml x.bs"),
         ?assertEqual(2, Rc),
         ?assertNotEqual(nomatch, string:find(Out, "`prose`, `term` or `json`")),
-        %% And the usage line names it, so a reader of `bsc` alone finds it.
         {2, Usage} = bs_test_support:run_cli_result(""),
         ?assertNotEqual(nomatch, string:find(Usage, "--diagnostics term|json"))
     end).
 
-%%% --- F47.8 — the query mode answers on this channel -------------------------
+%%% F47.8 — query mode returns JSON.
 
 the_api_answer_is_json_test() ->
     guarded(fun() ->
@@ -226,19 +201,15 @@ the_api_answer_is_json_test() ->
         ?assertEqual([{<<"HandleCall">>, 3}, {<<"HandleCast">>, 2}, {<<"Init">>, 1}],
                      [{N, A} || #{<<"tag">> := <<"operation">>,
                                   <<"name">> := N, <<"arity">> := A} <- Ops]),
-        %% And it is the term, computed, here as everywhere.
         {0, TermOut, _} = bs_test_support:run_cli_split_result(
                             "--diagnostics term --api " ++ Counter),
         ?assertEqual([wire(T) || T <- terms(TermOut)], [Module | Ops])
     end).
 
-%%% --- F47.10 — the lost path stays a diagnostic on every channel ------------
+%%% F47.10 — unclassified details remain printable diagnostics.
 
-%% `unclassified` is what `bsc:publish/2` reports for a shape `bs_diag` does
-%% not know, and its `detail` is the raw diagnostic, tuples and all. Driven
-%% through `bs_diag` directly because a program cannot reach the lost path on
-%% purpose; what this pins is that the channel prints a diagnostic there rather
-%% than the platform's `unsupported_type`.
+%% Exercise the descriptor directly: source cannot force this fallback path.
+%% Tuple details must print as text rather than crash the JSON encoder.
 an_unclassified_detail_is_printed_text_test() ->
     Desc = #{tag => unclassified, severity => error, file => "x.bs",
              detail => {error, 3, "F", {no_such_shape, [1, 2]}}},
@@ -249,13 +220,9 @@ an_unclassified_detail_is_printed_text_test() ->
     ?assert(is_binary(Detail)),
     ?assertEqual(<<"{error,3,\"F\",{no_such_shape,[1,2]}}">>, Detail).
 
-%%% --- F47.12, F47.13 — a list of integers that is not text ------------------
+%%% F47.12–F47.13 — integer payload lists encode as arrays or are refused.
 
-%% The first cut sent `declared => [2, 3]` as `"\u0002\u0003"`: two control
-%% characters where the term has two arities, and the residual fixtures never
-%% reach the tag. Pinned as BYTES rather than through `wire/3`, so the schema
-%% fact is asserted once by hand and the normaliser cannot agree with the
-%% encoder by construction.
+%% Assert bytes independently of `wire/3` so a shared schema mistake fails.
 the_declared_arities_are_an_array_on_the_wire_test() ->
     guarded(fun() ->
         Src = "module Arity\n"
@@ -297,20 +264,14 @@ the_bare_name_arities_are_an_array_on_the_wire_test() ->
         end)
     end).
 
-%% A list of integers under a tag and key the roster does not name, and that
-%% no reader could take for text, crashes naming both — a new payload cannot
-%% ship looking as if it had an encoding, as a tag cannot ship without a
-%% message clause (F16.7). Direct, because no descriptor produces one today.
+%% No descriptor produces this payload; inject it directly to test refusal.
 an_unrostered_integer_list_crashes_rather_than_encoding_test() ->
     Desc = #{tag => some_new_tag, severity => error, file => "x.bs",
              line => 1, column => 1, function => 'F', widths => [8, 16]},
     ?assertError({json_list_unrostered, some_new_tag, widths, [8, 16]},
                  bs_diag:json(Desc)).
 
-%% The list rule's other fixed point, pinned: `[]` is an array, because the
-%% term carries empty lists (`arms => []`, `behaviours => []`) and never an
-%% empty string. At the boundary: a module with no behaviour answers
-%% `behaviours => []` under `--api`.
+%% Empty lists represent arrays in diagnostic terms, never empty strings.
 an_empty_list_is_an_array_test() ->
     guarded(fun() ->
         Aliasing = project_root() ++ "/examples/Aliasing",

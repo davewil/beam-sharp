@@ -5,10 +5,9 @@
 -import(bs_test_support, [build_and_load/2, check_only/1]).
 
 %%% ---------------------------------------------------------------------------
-%%% Integer intervals — ticket 20's decision, exercised
+%%% Integer intervals
 %%% ---------------------------------------------------------------------------
 
-%% Exhaustive ONLY if the checker sees that `n <= 1` and `n > 1` partition int.
 guarded_integer_partition_is_exhaustive_test() ->
     Src = "module M\n"
           "public int Fib(int n)\n"
@@ -26,7 +25,6 @@ fib_actually_computes_test() ->
     ?assertEqual(1,  M:'Fib'(1)),
     ?assertEqual(55, M:'Fib'(10)).
 
-%% A hole in the middle of a partition must be found and named exactly.
 interval_hole_is_found_test() ->
     Src = "module M\n"
           "type Band = :low | :mid | :high\n"
@@ -45,11 +43,7 @@ conjunction_in_a_guard_is_credited_test() ->
           "Classify(n) when n >= 100           -> :high\n",
     ?assertMatch({ok, _, []}, check_only(Src)).
 
-%% Ticket 08: a condition the checker cannot translate credits nothing. That must
-%% make the function *inexhaustive*, never accidentally exhaustive — an
-%% uncreditable guard may not be read as full coverage.
-%% The uncreditable guard is `n % 2 == 0`, which the BEAM admits and the checker
-%% cannot read. It was `Weird(n)` until F41 refused a call in a guard.
+%% The remainder guard is legal on the BEAM but credits no coverage.
 uncreditable_guard_credits_nothing_test() ->
     Src = "module M\n"
           "public int F(int n)\n"
@@ -61,7 +55,6 @@ uncreditable_guard_credits_nothing_test() ->
 %%% The algebra's own laws — no boundary reaches these
 %%% ---------------------------------------------------------------------------
 
-%% The precise failures measured against erl_types in prototype 20c.
 interval_subtraction_is_exact_test() ->
     A = bs_types:range(1, 1000),
     B = bs_types:range(500, 2000),
@@ -74,8 +67,6 @@ interval_subtyping_is_not_symmetric_test() ->
     ?assert(bs_types:is_subtype(Gt5, Gt0)),
     ?assertNot(bs_types:is_subtype(Gt0, Gt5)).
 
-%% Ticket 20: the union does not widen. Two exact members stay two members, and
-%% subtracting both empties the residual.
 union_is_exact_test() ->
     A = bs_types:range(32, 32),
     B = bs_types:range(64, 64),
@@ -83,15 +74,12 @@ union_is_exact_test() ->
     ?assertNot(bs_types:is_subtype(bs_types:range(96, 96), U)),
     ?assert(bs_types:is_none(bs_types:subtract(bs_types:subtract(U, A), B))).
 
-%% Ticket 10: the atom universe is open, so `atom` is cofinite and the complement
-%% of a singleton has to be representable.
 cofinite_atoms_test() ->
     Rest = bs_types:subtract(bs_types:atom_top(), bs_types:atom_lit(ok)),
     ?assertNot(bs_types:is_none(Rest)),
     ?assert(bs_types:is_none(bs_types:intersect(Rest, bs_types:atom_lit(ok)))),
     ?assert(bs_types:is_subtype(bs_types:atom_lit(other), Rest)).
 
-%% Componentwise subtraction would be wrong; the product decomposition is not.
 tuple_subtraction_decomposes_test() ->
     Ok = bs_types:atom_lit(ok),
     Err = bs_types:atom_lit(error),
@@ -102,11 +90,7 @@ tuple_subtraction_decomposes_test() ->
     ?assert(bs_types:is_none(bs_types:subtract(R, bs_types:tuple([Err, bs_types:atom_top()])))).
 
 %%% ---------------------------------------------------------------------------
-%%% The map partition's own laws.
-%%%
-%%% Tested directly rather than at the boundary for the reason the header gives:
-%%% the algebra has no boundary to be reached through. These are the properties
-%%% ticket 20's exactness rests on, at the fifth constructor.
+%%% Map partition laws
 %%% ---------------------------------------------------------------------------
 
 rec(Tag, Fields) ->
@@ -114,15 +98,11 @@ rec(Tag, Fields) ->
 
 pat(Fields) -> bs_types:map_open(Fields).
 
-%% A closed record minus a pattern naming only its tag is EMPTY — this is what
-%% makes one clause cover a whole record.
 a_tag_pattern_covers_the_whole_record_test() ->
     Order = rec('Shop.Order', #{'Id' => bs_types:int()}),
     P = pat(#{'Kind' => bs_types:atom_lit('Shop.Order')}),
     ?assert(bs_types:is_none(bs_types:subtract(Order, P))).
 
-%% ...and leaves the OTHER record untouched, which is what makes the residual
-%% name the case you missed rather than an empty set.
 a_tag_pattern_leaves_the_other_record_test() ->
     Order = rec('Shop.Order', #{'Id' => bs_types:int()}),
     Invoice = rec('Shop.Invoice', #{'Id' => bs_types:int()}),
@@ -131,39 +111,27 @@ a_tag_pattern_leaves_the_other_record_test() ->
     ?assertEqual("{ Kind: :'Shop.Invoice' }",
                  bs_types:to_pattern(bs_types:subtract(Doc, P))).
 
-%% Union is exact — the two members do NOT collapse into one wider map. This is
-%% the property ticket 20 exists to guarantee, at the new partition.
 a_union_of_two_records_keeps_both_test() ->
     Order = rec('Shop.Order', #{'Id' => bs_types:int()}),
     Invoice = rec('Shop.Invoice', #{'Id' => bs_types:int()}),
     #{maps := Members} = bs_types:union(Order, Invoice),
     ?assertEqual(2, length(Members)).
 
-%% Two records over identical field sets with the same tag ARE one type, so the
-%% union absorbs to a single member. F3.2's algebra half.
 the_same_tag_absorbs_to_one_member_test() ->
     A = rec('Shop.Order', #{'Id' => bs_types:int()}),
     B = rec('Shop.Order', #{'Id' => bs_types:int()}),
     #{maps := Members} = bs_types:union(A, B),
     ?assertEqual(1, length(Members)).
 
-%% Different field sets are disjoint when both sides fix their domain, so
-%% subtracting one from the other removes nothing.
 different_field_sets_are_disjoint_test() ->
     A = rec('Shop.Order', #{'Id' => bs_types:int()}),
     B = rec('Shop.Order', #{'Id' => bs_types:int(), 'Total' => bs_types:int()}),
     ?assertEqual(A, bs_types:subtract(A, B)).
 
-%% A catch-all removes every map, because `term` contains the map top and
-%% `anything \ top` is empty. Without this, `_` would not close a record union.
 a_catch_all_covers_every_record_test() ->
     Order = rec('Shop.Order', #{'Id' => bs_types:int()}),
     ?assert(bs_types:is_none(bs_types:subtract(Order, bs_types:term()))).
 
-%% A guard over a record field still credits its clause. Written because the
-%% obvious implementation — treating a field as unaddressable, the way a list
-%% element is — makes `refine_all/3` credit NOTHING, so a record pattern plus a
-%% guard would report inexhaustive. Routed through the checker, not the algebra.
 a_guard_over_a_record_field_still_credits_the_clause_test() ->
     Src = "module Shop\n"
           "record Order { Id: int, Total: int }\n"
@@ -172,21 +140,8 @@ a_guard_over_a_record_field_still_credits_the_clause_test() ->
           "Band({ Total: t }) when t <= 0 -> :unpaid\n",
     ?assertMatch({ok, _, _}, check_only(Src)).
 
-
 %%% ---------------------------------------------------------------------------
-%%% Negation — `-1` and `-n`
-%%%
-%%% Absent until 2026-08-15, and absent by OVERSIGHT: a grep for "unary" across
-%%% LANGUAGE.md, every ticket, the fog and every feature file returned nothing.
-%%% C# has it and Erlang has it, so both tiers agreed and there was nothing to
-%%% decide — which is why it is a fix rather than a ticket, unlike division.
-%%%
-%%% Found by running AoC 2025 Day 1, where a direction had to be written
-%%% `0 - 1`. Negative numbers had always arrived fine as DATA — `bs_run`'s
-%%% reader handles `-68` — so the gap was only ever in source.
-%%%
-%%% It lowers to `0 - e` rather than gaining a node, so nothing downstream of
-%%% the parser learns a new shape.
+%%% Negation
 %%% ---------------------------------------------------------------------------
 
 a_negative_literal_is_an_expression_test() ->
@@ -204,14 +159,7 @@ a_variable_can_be_negated_test() ->
     ?assertEqual(-7, M:'Flip'(7)),
     ?assertEqual(7, M:'Flip'(-7)).
 
-%% THE REGRESSION THAT MATTERS. Adding a prefix `-` to an expression grammar
-%% that already has an infix `-` is exactly where a parser quietly changes
-%% meaning: `1 - 2 - 3` must stay left-associative and give -4, not re-associate
-%% to 1 - (2 - 3) and give 2.
-%%
-%% yecc reported zero conflicts for this change, and F6.9's rule is that the
-%% count is not the check — it resolves shift/reduce silently through the
-%% precedence table. So this asserts the VALUE.
+%% Conflict counts cannot prove associativity; the computed value does.
 binary_minus_survives_the_prefix_one_test() ->
     Src = "module NegB\n"
           "public int Chain()\n"
@@ -222,10 +170,6 @@ binary_minus_survives_the_prefix_one_test() ->
     ?assertEqual(-4, M:'Chain'()),
     ?assertEqual(12, M:'Mixed'()).
 
-%% In a PATTERN it is a literal, not a computation, and the interval algebra
-%% needs nothing new: `range(-1, -1)` is what `p_int` already produces. The
-%% function is exhaustive over `int` with no catch-all, which is what proves the
-%% negative literal took part in the subtraction rather than being ignored.
 a_negative_literal_dispatches_in_a_pattern_test() ->
     Src = "module NegP\n"
           "public atom Sign(int n)\n"
@@ -242,22 +186,14 @@ a_negative_literal_dispatches_in_a_pattern_test() ->
     ?assertEqual(positive,  M:'Sign'(3)).
 
 %%% ---------------------------------------------------------------------------
-%%% Ticket 61 — absorption over equal products, and how the top prints
+%%% Product absorption and top printing
 %%% ---------------------------------------------------------------------------
 
-%% `t_absorb` dropped a product only when a DISTINCT product contained it, so a
-%% union of a product with itself kept both copies — and the printed algebra
-%% then claimed `X | X`, which the checker itself knows is false. The map part
-%% learned this in `m_absorb` (dedup before absorption); this is the tuple part
-%% owing the same repair.
 a_union_of_a_product_with_itself_is_the_product_test() ->
     P = bs_types:tuple([bs_types:int(), bs_types:int()]),
     ?assertEqual("(int, int)", bs_types:to_string(bs_types:union(P, P))).
 
-%% The sharper edge of the same line: two structurally DIFFERENT spellings of
-%% the same product each absorb the other, and BOTH vanish — the union of two
-%% inhabited types reporting empty. A dedup-only fix (usort before absorbing)
-%% passes the test above and still fails this one.
+%% Structurally different products can contain each other; dedup is not enough.
 mutually_containing_products_keep_a_representative_test() ->
     IA = bs_types:tuple([bs_types:int(), bs_types:atom_top()]),
     AI = bs_types:tuple([bs_types:atom_top(), bs_types:int()]),
@@ -268,22 +204,12 @@ mutually_containing_products_keep_a_representative_test() ->
     ?assertNot(bs_types:is_none(U)),
     ?assert(bs_types:is_subtype(bs_types:tuple([X, bs_types:int()]), U)).
 
-%% The top prints as the word the language has for it. A PARTIAL residual is
-%% still enumerated — nothing short of the whole top takes this spelling.
 the_top_prints_as_term_test() ->
     ?assertEqual("term", bs_types:to_string(bs_types:term())).
 
 %%% ---------------------------------------------------------------------------
-%%% ENG-331 / ticket 68 Q7 — an inline union is writable where a type is written
+%%% Inline unions
 %%% ---------------------------------------------------------------------------
-
-%%% Ticket 09 §1 argues "naming is aliasing" by showing the two spellings as the
-%%% same thing, and the second one did not parse. `param`, `signature` and
-%%% `foreign_sig` each took a `type_prim`, and only `type_expr` reached
-%%% `type_union_members`, so `Handle(:ok | :error x)` was a syntax error at the
-%%% pipe while `Handle(R x)` was fine. Ticket 68 Q7 answered (b) — all three
-%%% positions take a `type_expr` — on the ground that the alternative is a rule
-%%% a reader has to learn for no reason.
 
 inline_union_parameter_is_exhaustive_test() ->
     Src = "module M\n"
@@ -292,9 +218,6 @@ inline_union_parameter_is_exhaustive_test() ->
           "Handle(:error) -> 0\n",
     ?assertMatch({ok, _, []}, check_only(Src)).
 
-%% Parsing is not the claim; MEANING the same is. A missing clause must produce
-%% the same residual whichever way the union reached the checker, or "naming is
-%% aliasing" is false in exactly the place 09 §1 asserts it.
 inline_union_and_its_alias_give_the_same_residual_test() ->
     Inline = "module M\n"
              "public int Handle(:ok | :error x)\n"
@@ -308,9 +231,6 @@ inline_union_and_its_alias_give_the_same_residual_test() ->
     ?assertEqual(bs_types:to_string(RAlias), bs_types:to_string(RInline)),
     ?assertEqual("(:error)", bs_types:to_string(RInline)).
 
-%% 09 §1's own illustration, in the tuple syntax the language actually has.
-%% The ticket's text spells it `{ :ok, string }`, which is the map syntax; that
-%% line is stale twice over and the correction is recorded on the ticket.
 inline_union_of_tuples_in_a_parameter_test() ->
     Src = "module M\n"
           "public int Handle((:ok, int) | (:error, int) r)\n"
@@ -332,7 +252,6 @@ inline_union_beside_an_ordinary_parameter_test() ->
           "Handle(:error, _) -> 0\n",
     ?assertMatch({ok, _, []}, check_only(Src)).
 
-%% Q7(b)'s return half. Q7(a) would have left this a syntax error.
 inline_union_in_a_return_position_test() ->
     Src = "module M\n"
           "public :ok | :error Pick(int n)\n"
@@ -340,8 +259,6 @@ inline_union_in_a_return_position_test() ->
           "Pick(n) when n <= 0 -> :error\n",
     ?assertMatch({ok, _, []}, check_only(Src)).
 
-%% The unmarked signature is private (F12), so the union sits between nothing
-%% and the function name — the position Q7 weighed as the hardest to scan.
 inline_union_return_without_a_visibility_marker_test() ->
     Src = "module M\n"
           "public int Total(int n)\n"
@@ -354,10 +271,8 @@ inline_union_return_without_a_visibility_marker_test() ->
           "Score(:error) -> 0\n",
     ?assertMatch({ok, _, []}, check_only(Src)).
 
-%% THE FOREIGN FUNCTION IS A REAL ONE AND SO IS ITS UNION. `check_only` never
-%% calls across the boundary, so a made-up contract here would go green while
-%% asserting a falsehood about OTP; `application:get_env/2` genuinely returns
-%% `{ok, Val} | undefined`, which is the shape being declared.
+%% check_only never calls OTP; this signature uses application:get_env/2
+%% to match a real foreign return contract.
 inline_union_in_a_foreign_signature_test() ->
     Src = "module M\n"
           "using :application {\n"
@@ -367,7 +282,6 @@ inline_union_in_a_foreign_signature_test() ->
           "Setting(a, p) -> :application.get_env(a, p)\n",
     ?assertMatch({ok, _, []}, check_only(Src)).
 
-%% The form does not merely check — it runs.
 inline_union_parameter_actually_runs_test() ->
     Src = "module InlineUnion\n"
           "public int Handle(:ok | :error x)\n"

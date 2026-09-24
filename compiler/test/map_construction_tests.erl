@@ -1,11 +1,9 @@
+%%% Scenarios: compiler/features/F57-brace-expression.md
 %%% F57 — the brace expression `{ Key = value }` builds a field set.
 %%%
-%%% Ticket 48 found bare braces at two of three levels: the type
-%%% `{ Status: int }` and the pattern `{ Status: s }` shipped, and the
-%%% expression needed a record name in front. Ticket 78 Q7 decided the third
-%%% level. The value has no `Kind`, so it is never a record; its type is the
-%%% exact field set its values give, and the ordinary check sites compare that
-%%% against what the site expects. The string-key form waits on ENG-405.
+%%% The value has no `Kind`, so it is never a record; its type is the exact
+%%% field set its values give, and the ordinary check sites compare that
+%%% against what the site expects.
 
 -module(map_construction_tests).
 

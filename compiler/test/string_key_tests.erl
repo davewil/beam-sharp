@@ -1,12 +1,12 @@
+%%% Scenarios: compiler/features/F58-string-keys.md
 %%% F58 — a field-set key may be a string literal: `{ "input_tokens": int }`.
 %%%
-%%% Ticket 78 Q2: a field's wire name lives in a structural type whose keys are
-%%% the wire's strings, so `json:decode`'s output validates as it stands. A
-%%% string key is a binary in the term and in the type; an atom key stays an
-%%% atom, and the two never meet. Records keep PascalCase fields: a string key
-%%% belongs to a field set, never to a record. The expression form
-%%% `{ "model" = m.Id }` (ENG-408's second half) lands here too, since the
-%%% expression takes whatever keys the type does.
+%%% A field's wire name lives in a structural type whose keys are the wire's
+%%% strings, so `json:decode`'s output validates as it stands. A string key is
+%%% a binary in the term and in the type; an atom key stays an atom, and the
+%%% two never meet. Records keep PascalCase fields: a string key belongs to a
+%%% field set, never to a record. The expression form `{ "model" = m.Id }` is
+%%% tested here too, since the expression takes whatever keys the type does.
 
 -module(string_key_tests).
 
@@ -29,7 +29,7 @@ usage_src() ->
     "public UsageWire Make(int i, int o)\n"
     "Make(i, o) -> { \"input_tokens\" = i, \"output_tokens\" = o }\n".
 
-%% F58.1 — ENG-405's own program: a clause head reads the wire keys.
+%% F58.1 — a clause head reads the wire keys.
 a_clause_head_reads_string_keys_test() ->
     M = build_and_load(usage_src(), 'Wire1'),
     ?assertEqual(#{'Kind' => 'Wire1.Usage', 'InputTokens' => 100, 'OutputTokens' => 20},
@@ -82,7 +82,7 @@ a_string_key_is_not_an_atom_key_test() ->
 
 %% F58.8 — exhaustiveness reads a string key, and the residual prints it quoted.
 %% The field's value prints `_`, exactly as it does for a name key: the head
-%% printer keeps the key set and not the narrowed value, which is older than F58.
+%% printer keeps the key set and not the narrowed value.
 the_residual_prints_a_string_key_test() ->
     [{error, _, 'Go', {inexhaustive, Residual, _}}] =
         errors("module Wire8\n"

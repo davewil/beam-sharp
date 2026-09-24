@@ -1,32 +1,13 @@
-%%% F43 — the key walk over `map<K, V>` (ticket 18 §2's route, ticket 48, ENG-356).
-%%%
-%%% Ticket 18 §2 sends a structured foreign return through `term` and then
-%%% `ValidateAs<T>`, and F40 refuses any `map<K, V>` narrower than
-%%% `map<term, term>` at a foreign declaration with exactly that route as the
-%%% edit. Until this feature the route was refused at its other end: F33
-%%% shipped the type and `ValidateAs` over it said the walk was unbuilt. This
-%%% is the walk.
-%%%
-%%% ASSERTED AT THE BOUNDARY: source text in, a loaded `.beam` called, and
-%%% what it returns compared. Nothing here pins a function in `bs_emit`; a
-%%% rearranged traversal must not turn this file red.
-%%%
-%%% The path segment for a map entry is the key in brackets, spelled as the
-%%% key is written in the language: `["views"]`, `[:views]`, `[7]`. A key the
-%%% language has no literal for is not spelled — the blame stops at the map,
-%%% with the map's type expected — because rendering an arbitrary term to a
-%%% string inside generated code is ticket 16 §4's unwritten mapping, and F18
-%%% recorded that a validator-only spelling would be a second rendering.
+%%% F43 — ValidateAs checks map keys and values.
 
+%%% Scenarios: compiler/features/F43-map-key-walk.md
 -module(map_validate_tests).
 
 -include_lib("eunit/include/eunit.hrl").
 
 -import(bs_test_support, [build_and_load/2, validation_error/2]).
 
-%%% ---------------------------------------------------------------------------
 %%% Fixture — one target type per test, validated from a `term`
-%%% ---------------------------------------------------------------------------
 
 src(Ty, Decls) ->
     "module VaMap\n"
@@ -38,16 +19,13 @@ src(Ty, Decls) ->
 load(Ty) -> load(Ty, "").
 load(Ty, Decls) -> build_and_load(src(Ty, Decls), 'VaMap').
 
-%%% ---------------------------------------------------------------------------
-%%% F43.1 — the route exists: a domain map validates
-%%% ---------------------------------------------------------------------------
+%%% F43.1 — valid maps pass and non-maps blame the root.
 
 a_well_formed_map_comes_back_unchanged_test() ->
     M = load("map<string, int>"),
     In = #{<<"views">> => 3, <<"clicks">> => 1},
     ?assertEqual(In, M:'Check'(In)).
 
-%% `#{}` inhabits every domain: the constraint is on entries that exist.
 an_empty_map_passes_test() ->
     M = load("map<string, int>"),
     ?assertEqual(#{}, M:'Check'(#{})).
@@ -56,10 +34,7 @@ something_that_is_not_a_map_blames_the_term_itself_test() ->
     M = load("map<string, int>"),
     ?assertEqual(validation_error([], <<"map<string, int>">>), M:'Check'([{a, 1}])).
 
-%%% ---------------------------------------------------------------------------
-%%% F43.2 — blame: the entry is named by its key, and the expected type says
-%%% which half of the entry was wrong
-%%% ---------------------------------------------------------------------------
+%%% F43.2 — blame names the key and the failing half of the entry.
 
 a_bad_value_is_blamed_at_its_key_with_the_value_type_expected_test() ->
     M = load("map<string, int>"),
@@ -71,7 +46,6 @@ a_bad_key_is_blamed_at_itself_with_the_key_type_expected_test() ->
     ?assertEqual(validation_error([<<"[:views]">>], <<"string">>),
                  M:'Check'(#{views => 3})).
 
-%% Deterministic, and statable: the first offending entry in key order.
 the_first_offending_entry_in_key_order_is_blamed_test() ->
     M = load("map<string, int>"),
     ?assertEqual(validation_error([<<"[\"b\"]">>], <<"int">>),
@@ -88,9 +62,7 @@ a_map_inside_a_record_composes_the_other_way_test() ->
                  M:'Check'(#{'Kind' => 'VaMap.Site', 'Name' => <<"a">>,
                              'Counts' => #{<<"views">> => many}})).
 
-%%% ---------------------------------------------------------------------------
-%%% F43.3 — how a key is spelled in the path
-%%% ---------------------------------------------------------------------------
+%%% F43.3 — paths use the language spelling of each key.
 
 an_int_key_is_spelled_as_digits_test() ->
     M = load("map<int, atom>"),
@@ -105,26 +77,20 @@ an_atom_key_the_sigil_cannot_spell_is_quoted_test() ->
     ?assertEqual(validation_error([<<"[:'Z.Order']">>], <<"int">>),
                  M:'Check'(#{'Z.Order' => x})).
 
-%% A tuple has a spelling as a value, not as a key the author can write in a
-%% path, and a binary that is not text has none at all. Neither is rendered:
-%% the map is blamed, with the map's type expected.
+%% Tuple and non-text binary keys have no path spelling, so blame stays here.
 a_key_the_language_cannot_spell_blames_the_map_test() ->
     M = load("map<string, int>"),
     ?assertEqual(validation_error([], <<"map<string, int>">>), M:'Check'(#{{1, 2} => x})),
     ?assertEqual(validation_error([], <<"map<string, int>">>), M:'Check'(#{<<255>> => 1})).
 
-%%% ---------------------------------------------------------------------------
-%%% F43.4 — `Kind` is excluded (ticket 48 Q3), and `map<term, term>` is one test
-%%% ---------------------------------------------------------------------------
+%%% F43.4 — Kind is excluded and map<term, term> checks only map shape.
 
 a_record_is_not_a_domain_map_test() ->
     M = load("map<atom, term>"),
     ?assertEqual(validation_error([], <<"map<atom, term>">>),
                  M:'Check'(#{'Kind' => 'Z.Order', 'S' => 1})).
 
-%% The segment is computed before an entry is checked and read only when a
-%% check fails. A walker that treated an unspellable key as a failure on
-%% sight would refuse this map, which is a member of the type.
+%% An unspellable key affects blame only; it does not invalidate a good entry.
 an_unspellable_key_under_a_well_formed_entry_passes_test() ->
     M = load("map<term, int>"),
     In = #{{1, 2} => 3, <<255>> => 4},
@@ -138,13 +104,9 @@ a_map_over_term_needs_only_to_be_a_map_without_a_kind_test() ->
     ?assertEqual(validation_error([], <<"map<term, term>">>), M:'Check'(#{'Kind' => x})),
     ?assertEqual(validation_error([], <<"map<term, term>">>), M:'Check'(7)).
 
-%%% ---------------------------------------------------------------------------
-%%% F43.5 — a domain member beside the other map kinds (F18's blame rule:
-%%% descend where exactly one candidate can match, blame here where more can)
-%%% ---------------------------------------------------------------------------
+%%% F43.5 — maps beside other map types retain the appropriate blame.
 
-%% A record carries `Kind` and the domain excludes it, so the two are disjoint
-%% and each keeps its own blame.
+%% Kind separates records from domain maps, allowing field-level blame.
 a_record_beside_a_domain_keeps_its_own_blame_test() ->
     M = load("Order | map<atom, term>", "record Order { S: int }\n"),
     ?assertEqual(validation_error([<<".S">>], <<"int">>),
@@ -152,12 +114,8 @@ a_record_beside_a_domain_keeps_its_own_blame_test() ->
     Bare = #{'S' => bad},
     ?assertEqual(Bare, M:'Check'(Bare)).
 
-%% A brace clause selects by key set, and a domain admits every key set, so
-%% the shape decides nothing: `#{X => 1}` fits the `{ X: string }` pattern and
-%% is a member of `map<atom, int>`. Under a pattern-first walk it would have
-%% been refused at `.X`. So neither is descended into: every candidate is
-%% tried, a value in either passes, and a value in neither is blamed at the
-%% node with the whole type expected.
+%% The key set fits both alternatives. Trying only the brace shape would
+%% reject the valid domain member; failure must blame the whole union.
 a_bare_map_beside_a_domain_is_an_alternative_test() ->
     M = load("{ X: string } | map<atom, int>"),
     InDomain = #{'X' => 1},
@@ -167,14 +125,7 @@ a_bare_map_beside_a_domain_is_an_alternative_test() ->
     ?assertEqual(validation_error([], <<"{ X: string } | map<atom, int>">>),
                  M:'Check'(#{'X' => 1.5})).
 
-%% Two domains in one type — `map<string, int> | map<atom, atom>` — never reach
-%% the validator: no pattern reaches either member and no guard separates
-%% them, so the declaration is refused as an indiscriminable union (F29).
-%% The emitter still treats the shape as alternatives rather than crashing.
-
-%%% ---------------------------------------------------------------------------
-%%% F43.6 — the ticket's program, through the CLI
-%%% ---------------------------------------------------------------------------
+%%% F43.6 — a foreign map passes through validation.
 
 analytics_src() ->
     "module Analytics\n"

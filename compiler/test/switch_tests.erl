@@ -1,3 +1,4 @@
+%%% Scenarios: compiler/features/F7-switch.md
 -module(switch_tests).
 
 -include_lib("eunit/include/eunit.hrl").
@@ -6,19 +7,9 @@
 
 -define(OUT, bs_test_support:run_root()).
 
-%%% ---------------------------------------------------------------------------
-%%% F7 — `switch`, ticket 17 §6
-%%%
-%%% The one structural move run backwards: ticket 01 moved C#'s pattern grammar
-%%% OUT of switch arms and into the parameter position, and this puts the same
-%%% grammar back into expression position. So most of what is asserted below is
-%%% that a switch inherits behaviour rather than acquiring it — the residual, the
-%%% redundancy warning, the Certain/Possible split and the guard translation are
-%%% all the clause head's, reached through a second door.
-%%% ---------------------------------------------------------------------------
+%%% F7 — switch expressions
 
-%% F7.1. `LANGUAGE.md` §5's own first block, which the reference called `not-yet`
-%% from the day it was written until this feature.
+%% F7.1 — a switch dispatches and runs.
 a_switch_dispatches_and_runs_test() ->
     Src = "module Traffic\n"
           "type Verdict = :new | :gone | :unknown\n"
@@ -33,8 +24,7 @@ a_switch_dispatches_and_runs_test() ->
     ?assertEqual(gone,    M:'Describe'(shipped)),
     ?assertEqual(unknown, M:'Describe'(frozen)).
 
-%% F7.2. The tuple subject, and the property that matters is the ABSENCE of a
-%% catch-all: a `_` would satisfy the compiler here, and nothing needs one.
+%% F7.2 — tuple arms are exhaustive without a catch-all.
 a_tuple_subject_is_exhaustive_without_a_catch_all_test() ->
     Src = "module Queue\n"
           "type Disposition = :ack | :dead_letter | :requeue\n"
@@ -53,33 +43,19 @@ a_tuple_subject_is_exhaustive_without_a_catch_all_test() ->
     ?assertEqual(requeue,     M:'Decide'(false, false, true)),
     ?assertEqual(requeue,     M:'Decide'(false, false, false)).
 
-%% THE DEFECT F7.2 FOUND, and it has nothing to do with `switch`.
-%%
-%% `LANGUAGE.md` §4 said `true` and `false` are the only keyword atoms and marked
-%% it **shipped**. The lexer had `:true` and `:false` and no bare rule, so a bare
-%% `true` in a pattern was an ordinary lowercase identifier — a VARIABLE, which
-%% matches everything. This program compiled on master and answered `:ack` for
-%% `false`, with nothing but an unreachable-clause warning to say so.
-%%
-%% Asserted at the CLAUSE HEAD, where the defect lived, rather than at the arm
-%% that found it.
 bare_true_and_false_are_atoms_not_variables_test() ->
     Src = "module Heads\n"
           "public atom Decide(bool ok)\n"
           "Decide(true)  -> :yes\n"
           "Decide(false) -> :no\n",
     {ok, _, Diags} = check_only(Src),
-    %% No unreachable-clause warning: the second clause is live, which is only
-    %% true if the first one matched an atom rather than binding a name.
+    %% Both clauses are live only if bare booleans match atoms.
     ?assertEqual([], Diags),
     M = build_and_load(Src, 'Heads'),
     ?assertEqual(yes, M:'Decide'(true)),
     ?assertEqual(no,  M:'Decide'(false)).
 
-%% F7.3. The residual IS the missing arm — ticket 04 at a third site — and it is
-%% printed as an arm rather than through `heads/2`, which would have said
-%% `Which(:cancelled) -> ...` for a construct with no clauses and a different
-%% arrow.
+%% F7.3 — the residual names the missing arm.
 an_inexhaustive_switch_names_the_missing_arm_test() ->
     Src = "module Missing\n"
           "type Event = :placed | :shipped | :cancelled\n"
@@ -91,22 +67,8 @@ an_inexhaustive_switch_names_the_missing_arm_test() ->
     [{error, _, 'Which', {switch_inexhaustive, Residual, _}}] = errors(Src),
     ?assertEqual(":cancelled", bs_types:to_pattern(Residual)).
 
-%% F7.4. An arm guard is credited to the exhaustiveness check, which is
-%% `math.bs` one level down — and it is the first thing ever to ask `refine_at/3`
-%% to refine a WHOLE value. A clause-head path always begins with a parameter
-%% index, so it is never empty; a switch subject is one value, so it always is.
-%% Without the empty-path clause this does not report, it crashes.
-%%
-%% THE LAST ARM WAS `_` UNTIL F2, and what changed it is ticket 12 §2 reaching
-%% further than that ticket's own examples suggested. 12 §2 illustrates a closed
-%% residual with a declared union of atoms; its operative definition is *contains
-%% an unbounded top*, and after the two guards the residual here is `0` — one
-%% integer, no top, closed. So `_` now discards a case the compiler can name, and
-%% naming it is both legal and better: the arm says what it covers, and a later
-%% edit to either guard cannot be silently absorbed.
-%%
-%% The test's point survives intact and sharpens. It exists to show the guards
-%% were credited, and `0 => :zero` only type-checks as exhaustive if they were.
+%% F7.4 — arm guards contribute to exhaustiveness.
+%% The explicit zero arm is exhaustive only when both guards count.
 a_guard_on_an_arm_is_credited_test() ->
     Src = "module Signs\n"
           "public atom Sign(int n)\n"
@@ -120,10 +82,7 @@ a_guard_on_an_arm_is_credited_test() ->
     ?assertEqual(negative, M:'Sign'(-3)),
     ?assertEqual(zero,     M:'Sign'(0)).
 
-%% ...and the control, aimed at the arm that does not cover. F6.1 cost a scenario
-%% by learning that a green control reads exactly like a passing one: delete the
-%% catch-all and the two intervals must leave `0` behind, which is only true if
-%% the guards were translated rather than ignored.
+%% Without the zero arm, translated guards must leave exactly zero.
 a_guard_on_an_arm_leaves_the_gap_it_should_test() ->
     Src = "module SignsControl\n"
           "public atom Sign(int n)\n"
@@ -134,16 +93,8 @@ a_guard_on_an_arm_leaves_the_gap_it_should_test() ->
     [{error, _, 'Sign', {switch_inexhaustive, Residual, _}}] = errors(Src),
     ?assertEqual("0", bs_types:to_pattern(Residual)).
 
-%% F7.5. F5.7's lesson at a second site, and the reason this test exists rather
-%% than a passing one: build the arm's domain from `Certain` instead of
-%% `Possible` and the compiler does not break, it goes QUIET. `Certain` is `none`
-%% under a guard the checker cannot read, every containment over `none` passes
-%% vacuously, and the arm stops being checked with nothing to notice.
-%%
-%% So the assertion is on an error the wrong build OMITS.
-%%
-%% The unreadable guard is `m % 2 == 0` — legal on the BEAM, credited nothing.
-%% It was `Big(m)` until F41 refused a call in a guard (ENG-256).
+%% F7.5 — an unreadable arm guard contributes no coverage.
+%% Remainder is legal on the BEAM but opaque to the coverage checker.
 an_untranslatable_arm_guard_credits_nothing_test() ->
     Src = "module Opaque\n"
           "public atom Check(int n)\n"
@@ -153,15 +104,8 @@ an_untranslatable_arm_guard_credits_nothing_test() ->
     [{error, _, 'Check', {switch_inexhaustive, Residual, _}}] = errors(Src),
     ?assertEqual("int", bs_types:to_pattern(Residual)).
 
-%% ...and this is the one that actually catches the mutation, which the test
-%% above does NOT: the residual is computed from `Certain` either way, so
-%% asserting it says nothing about the domain the body is typed against.
-%%
-%% Here the arm's body hands an `int` to a function declared over `atom`. Built
-%% with `Possible`, `m` is `int` and site 1 rejects it. Built with `Certain`,
-%% `m` is `none` under the unreadable guard, `subtract(none, atom)` is empty, and
-%% the call is accepted in silence. A check that fails by going quiet cannot be
-%% caught by a passing test — only by asserting the error the wrong build omits.
+%% Coverage alone cannot show whether the arm body is checked.
+%% The bad call must fail even when the guard contributes no coverage.
 an_arm_body_under_an_unreadable_guard_is_still_checked_test() ->
     Src = "module Quiet\n"
           "public atom Tag(atom a)\n"
@@ -174,18 +118,8 @@ an_arm_body_under_an_unreadable_guard_is_still_checked_test() ->
     ?assertMatch([{error, _, 'Check', {arg_not_accepted, 'Tag', 1, _, _}}],
                  errors(Src)).
 
-%% F7.6. Arm, not clause. The word is the whole of the message's usefulness.
-%%
-%% THE SUBJECT WAS A DECLARED UNION UNTIL F2, and it had to move to `atom` for a
-%% reason that is about a different rule entirely: ticket 12 §2 now makes a `_`
-%% over a CLOSED residual an error, so the old source reported two things and this
-%% test could no longer see the one it is about. `atom` is the cofinite top —
-%% ticket 10 made the atom universe open — so the catch-all is legal there, which
-%% is 12 §2's own second bullet: a foreign sender chooses the inhabitants and
-%% there is nothing to enumerate.
-%% AND THE CONTROL FOR ENG-269's three-way split at the end of this file: arm 2
-%% here IS covered by arm 1, so "matched by an earlier arm" is the true statement
-%% about it. The split must leave this one exactly where it is.
+%% F7.6 — a covered arm receives an arm warning.
+%% Open `atom` makes the catch-all legal, isolating the redundancy warning.
 a_redundant_arm_is_a_warning_about_an_arm_test() ->
     Src = "module Dead\n"
           "public atom Which(atom a)\n"
@@ -196,9 +130,7 @@ a_redundant_arm_is_a_warning_about_an_arm_test() ->
     {ok, _, Diags} = check_only(Src),
     ?assertMatch([{warning, _, 'Which', {unreachable_arm, 2}}], Diags).
 
-%% F7.7, the good half. An arm's pattern names are readable in that arm, and a
-%% build whose `expr_vars/1` answers `[]` for a switch also passes this — which
-%% is why the mirror below exists.
+%% F7.7 — an arm can read its own bindings.
 an_arm_binds_its_own_names_test() ->
     Src = "module Scope\n"
           "public term Ok(term e)\n"
@@ -210,9 +142,7 @@ an_arm_binds_its_own_names_test() ->
     ?assertEqual(42,   M:'Ok'({ok, 42})),
     ?assertEqual(none, M:'Ok'(other)).
 
-%% F7.7, the half that is unfalsifiable without the other. The subtraction is
-%% PER ARM: subtract the whole switch's names and a typo in one arm is covered by
-%% a sibling that happens to bind the same name.
+%% F7.7 — a sibling arm cannot supply an unbound name.
 an_unbound_name_in_an_arm_body_is_reported_test() ->
     Src = "module Scope\n"
           "public term Bad(term e)\n"
@@ -222,10 +152,8 @@ an_unbound_name_in_an_arm_body_is_reported_test() ->
           "}\n",
     ?assertMatch([{error, _, 'Bad', {unbound_variable, w}}], errors(Src)).
 
-%% F7.8. Stronger than ticket 34's rule applied evenly: in Erlang a `case` arm
-%% pattern naming an already-bound variable is not a binding, it is an EQUALITY
-%% TEST against the existing value. Accepting it would emit a silently different
-%% program from the one that reads like a fresh binding.
+%% F7.8 — an arm cannot rebind an in-scope name.
+%% Erlang treats an already-bound pattern variable as an equality test.
 an_arm_may_not_rebind_a_name_in_scope_test() ->
     Src = "module Rebind\n"
           "public atom Pick(int n, term e)\n"
@@ -235,10 +163,8 @@ an_arm_may_not_rebind_a_name_in_scope_test() ->
           "}\n",
     ?assertMatch([{error, _, 'Pick', {rebinding, n}}], errors(Src)).
 
-%% F7.9. A parameter read ONLY inside an arm body. If `used_vars/2` does not
-%% descend into arms, the head lowers to `_N` and the arm body emits `N` — which
-%% is a compile ERROR in the emitted Erlang, not a warning, so this test fails at
-%% `build_and_load/2` rather than on an assertion.
+%% F7.9 — parameters used only in arms retain their names.
+%% An underscored parameter makes the emitted arm fail to compile.
 a_parameter_read_only_inside_an_arm_is_not_underscored_test() ->
     Src = "module Underscore\n"
           "public int Report(int n, atom tag)\n"
@@ -250,9 +176,7 @@ a_parameter_read_only_inside_an_arm_is_not_underscored_test() ->
     ?assertEqual(42, M:'Report'(21, double)),
     ?assertEqual(21, M:'Report'(21, plain)).
 
-%% F7.10. A switch synthesises and declares nothing, so it opens no sixth site —
-%% ticket 33 enumerated five. What it does is make site 4 reachable from a place
-%% it could not be reached from before.
+%% F7.10 — switch returns must satisfy the function signature.
 a_switch_return_is_checked_against_the_signature_test() ->
     Src = "module Ret\n"
           "type Verdict = :new | :gone\n"
@@ -264,17 +188,9 @@ a_switch_return_is_checked_against_the_signature_test() ->
     [{error, _, 'Describe', {return_not_declared, Residual, _}}] = errors(Src),
     ?assertEqual(":missing", bs_types:to_pattern(Residual)).
 
-%% F7.11. The grammar already spends `{` on record declarations, anonymous map
-%% types, property patterns, record construction and `with`. Asserted by PARSE,
-%% not by conflict count — F6.9's note stands: yecc resolves shift/reduce
-%% silently through the precedence table, and every one of ticket 28a's four
-%% variants reported zero conflicts including the one that read the case wrong.
-%%
-%% The arms are BARE property patterns on purpose: an arm that opens with `{`
-%% directly after `switch {` is the nesting under test, and a type prefix
-%% (`Order o =>`) would move the brace behind an identifier and test something
-%% else. They match on a field rather than on the minted tag because the tag is
-%% not written by hand anywhere the corpus teaches from (ticket 55, ENG-307).
+%% F7.11 — property patterns, construction and switches nest.
+%% Bare property patterns put a brace directly after the switch brace;
+%% a type prefix would bypass that grammar case.
 braces_nest_three_ways_test() ->
     Src = "module Nesting\n"
           "record Order   { Id: int, Total: int }\n"
@@ -302,11 +218,8 @@ braces_nest_three_ways_test() ->
     ?assertEqual(4, maps:get('Id', M:'Normalise'(#{'Kind' => 'Nesting.Invoice',
                                                    'Id' => 4, 'Total' => 9}))).
 
-%% F7.12. F7's grammar opens this the way F5's opened `_`-as-a-value: a guard
-%% shares the whole expression grammar, so a switch parses inside one. Erlang's
-%% guards are a restricted sublanguage with no `case`, so left alone this arrives
-%% as `illegal guard expression` from `erlc`, against the `.abstr` the author did
-%% not write — which is F4.7's rule.
+%% F7.12 — switches are refused in guards.
+%% The expression grammar accepts them, but Erlang guards forbid `case`.
 a_switch_in_a_guard_is_refused_test() ->
     Src = "module GuardSwitch\n"
           "public atom F(atom x)\n"
@@ -314,14 +227,7 @@ a_switch_in_a_guard_is_refused_test() ->
           "F(x) -> :no\n",
     ?assertMatch([{error, _, 'F', switch_in_guard} | _], errors(Src)).
 
-%% F7.15. The first shape that puts F4 and F7 through the same clause, and
-%% ticket 17 §6's own stated reason for the construct: *"you can branch on an
-%% intermediate without inventing a parameter to dispatch on"* — 01b's friction.
-%%
-%% Four paths meet here and every one is new or changed by F7: `check_scope/5` →
-%% `name_diags/5` → `rebinds/3` in the scope pass, `bind_step/3` → `type_of/3`
-%% for the subject, and `binds/3` → `expr/2` in the emitter. Nothing else in this
-%% section crosses that seam, and `examples/queue.bs` has no bindings at all.
+%% F7.15 — a switch can dispatch on a local binding.
 a_binding_then_a_switch_on_the_bound_name_test() ->
     Src = "module Bound\n"
           "type Verdict = :large | :small\n"
@@ -338,9 +244,7 @@ a_binding_then_a_switch_on_the_bound_name_test() ->
     ?assertEqual(large, M:'Grade'(Order(500))),
     ?assertEqual(small, M:'Grade'(Order(50))).
 
-%% ...and F7.8's rule reached from the other side: there the name came from a
-%% clause head, here from a binding above the switch. Erlang would have turned
-%% this into an equality test against the bound value.
+%% Erlang would interpret the local name as an equality test.
 an_arm_may_not_rebind_a_name_a_binding_introduced_test() ->
     Src = "module Bound2\n"
           "public atom Grade(int t)\n"
@@ -352,14 +256,7 @@ an_arm_may_not_rebind_a_name_a_binding_introduced_test() ->
           "    }\n",
     ?assertMatch([{error, _, 'Grade', {rebinding, total}} | _], errors(Src)).
 
-%% A `switch` in tail position keeps the tail call. `bs_emit`'s header says the
-%% body is a flat list rather than a `begin` block precisely so the last
-%% expression stays in tail position, and F7 makes a switch the ordinary thing to
-%% put there — an OTP process loop branches on a message and recurses in one arm.
-%% Erlang's `case` preserves it; nothing asserted that until now.
-%%
-%% Asserted on the emitted bytecode, like `recursion_is_a_tail_call_test`: a
-%% `call` or `call_ext` op means a stack frame was built.
+%% Bytecode exposes stack growth: `call` and `call_ext` build frames.
 a_switch_in_tail_position_keeps_the_tail_call_test() ->
     Src = "module LoopS\n"
           "public int Down(int n, int acc)\n"
@@ -378,17 +275,8 @@ a_switch_in_tail_position_keeps_the_tail_call_test() ->
     M = build_and_load(Src, 'LoopS'),
     ?assertEqual(500500, M:'Down'(1000, 0)).
 
-%%% --- ENG-269: the arm half of ENG-259 ---------------------------------------
-%%%
-%%% `is_none(intersect(Possible, Residual))` is true of three different faults at
-%%% the arm site exactly as it is at the clause site, and until this split all
-%%% three printed "every value it matches is matched by an earlier arm" — a
-%%% sentence that names an arm which, in the first two tests below, does not
-%%% exist. `a_redundant_arm_is_a_warning_about_an_arm_test` above is the CONTROL:
-%%% its arm 2 really is covered by arm 1, so it must not move.
-%%%
-%%% The measurement that matters is the SOLE-ARM case: there is no earlier arm at
-%%% all, so the old message cannot be read as loosely true.
+%%% --- Arm diagnostics -------------------------------------------------------
+%%% A sole arm cannot be shadowed by an earlier arm.
 
 a_vacuous_arm_is_not_reported_as_shadowed_test() ->
     Src = "module VacS\n"
@@ -400,15 +288,11 @@ a_vacuous_arm_is_not_reported_as_shadowed_test() ->
     {error, Diags} = check_only(Src),
     ?assertEqual([{vacuous_arm, 1}],
                  [{T, N} || {warning, _, 'H', {T, N, _}} <- Diags]),
-    %% And the switch is still uncovered, because a vacuous arm covers nothing.
     ?assertMatch([{switch_inexhaustive, _, _}],
                  [P || {error, _, 'H', P = {switch_inexhaustive, _, _}} <- Diags]).
 
-%% The subject type is the half the author does not have: they wrote the pattern,
-%% so repeating it back says nothing, while the type it is not a member of ends
-%% the search. `:a | :b` UNPARENTHESISED, unlike `vacuous_clause`'s `(:a | :b)` —
-%% a clause head's domain is a product of its parameters and a switch subject is
-%% one value, and the rendering is the algebra's rather than this diagnostic's.
+%% A switch subject is one value; a clause domain is a parameter product.
+%% The subject therefore prints without the clause domain's parentheses.
 a_vacuous_arm_carries_the_domain_it_is_not_a_member_of_test() ->
     Src = "module VacD\n"
           "type K = :a | :b\n"
@@ -420,10 +304,8 @@ a_vacuous_arm_carries_the_domain_it_is_not_a_member_of_test() ->
     [Domain] = [D || {warning, _, 'H', {vacuous_arm, 1, D}} <- Diags],
     ?assertEqual(":a | :b", bs_types:to_string(Domain)).
 
-%% A vacuous arm standing in front of arms that DO cover the subject is the case
-%% that pins severity. This program compiles today, so the split must not turn it
-%% into a rejection — and the two covering arms must still count, or the fix has
-%% broken exhaustiveness while fixing prose.
+%% A vacuous arm in front of covering arms stays a warning, and the covering
+%% arms still count, so the switch compiles.
 a_vacuous_arm_does_not_make_a_covered_switch_inexhaustive_test() ->
     Src = "module VacC\n"
           "type K = :a | :b\n"
@@ -436,15 +318,7 @@ a_vacuous_arm_does_not_make_a_covered_switch_inexhaustive_test() ->
     {ok, _, Diags} = check_only(Src),
     ?assertMatch([{warning, _, 'H', {vacuous_arm, 1, _}}], Diags).
 
-%% The third fault. The pattern is a perfectly good member of `int`; it is the
-%% guard that admits nothing, so this cannot share `vacuous_arm`'s prose either —
-%% that message names a type the pattern is not in, and here the pattern IS in it.
-%%
-%% A SEPARATE TAG FROM THE CLAUSE SITE'S `unsatisfiable_guard`, and deliberately.
-%% F16 makes prose a pure function of the term, so a consumer matches on the tag
-%% and then reads the keys; one tag carrying `clause_number` here and `arm_number`
-%% there would leave the key set undetermined by the tag. `unreachable_clause` /
-%% `unreachable_arm` already settled this split in this module.
+%% The pattern belongs to `int`; only the guard makes the arm impossible.
 an_unsatisfiable_arm_guard_is_its_own_diagnostic_test() ->
     Src = "module GuardS\n"
           "public int Grade(int n)\n"
@@ -455,12 +329,7 @@ an_unsatisfiable_arm_guard_is_its_own_diagnostic_test() ->
     {ok, _, Diags} = check_only(Src),
     ?assertMatch([{warning, _, 'Grade', {unsatisfiable_arm_guard, 1}}], Diags).
 
-%% THE CONTROL THAT STOPS THE NEW TAG CRYING WOLF, and the arm copy of ENG-259's.
-%% `x > m` compares two variables, which `comparison/1` answers `unknown` for, and
-%% an untranslatable guard returns `Possible` UNREDUCED — precisely so the checker
-%% never claims an arm matches nothing merely because it could not read the guard.
-%% If `unsatisfiable_arm_guard` ever fires here it is reporting its own ignorance
-%% as the author's mistake.
+%% A comparison between variables is opaque, not unsatisfiable.
 an_untranslatable_arm_guard_is_not_called_unsatisfiable_test() ->
     Src = "module GuardU\n"
           "public int Cmp(int n, int m)\n"
@@ -471,24 +340,8 @@ an_untranslatable_arm_guard_is_not_called_unsatisfiable_test() ->
     {ok, _, Diags} = check_only(Src),
     ?assertEqual([], Diags).
 
-%% F7.13 / ENG-312. THE SWITCH RESIDUAL IS SPELLED BY THE HEAD CHANNEL.
-%%
-%% F7 printed the arm with `to_pattern/1`, and its own note said that needed no
-%% new printer because the residual "renders a record union as its
-%% discriminator". That was true when F7 shipped and stopped being true twice:
-%% F22 gave a record a spelling in pattern position, and F29 taught the head
-%% channel to use it. The switch was the one construct left rendering the
-%% erasure detail — and `check-record-idiom.sh` (ENG-307) refuses that very form
-%% in the corpus, so the compiler was handing an author an arm the corpus gate
-%% would reject.
-%%
-%% TWO MEMBERS ON PURPOSE, and this is what makes the test discriminating. The
-%% defect has two halves and a plausible fix closes only one:
-%%   * route everything through the record printer -> `:nothing` is mangled;
-%%   * special-case a single record        -> the union is never split, and
-%%     the arm stays `:nothing | Invoice i`, which is not a pattern.
-%% Only the head channel's own expansion produces both lines, which is the
-%% point: one minting point for the spelling, not a second table.
+%% F7.13 — residual members print as separate, writable arms.
+%% A record and an atom require both record spelling and union expansion.
 a_switch_residual_is_spelled_as_a_head_spells_it_test() ->
     Src = "module SwR\n"
           "record Order   { Id: int, Total: int }\n"
@@ -501,12 +354,8 @@ a_switch_residual_is_spelled_as_a_head_spells_it_test() ->
     [E = {error, _, 'Which', P}] = errors(Src),
     ?assertEqual(switch_inexhaustive, element(1, P)),
     Text = lists:flatten(bs_diag:format(bs_diag:descriptor("swr.bs", E))),
-    %% One arm per residual member, each pasteable as written.
     ?assertNotEqual(nomatch, string:find(Text, ":nothing => ...")),
     ?assertNotEqual(nomatch, string:find(Text, "Invoice i => ...")),
-    %% The hand-written minted tag never reaches an author again.
     ?assertEqual(nomatch, string:find(Text, "Kind: :'")),
-    %% And the members are separate arms, not one arm with a union in it: `|`
-    %% is not arm syntax, so a single line here is unpasteable however it is
-    %% spelled.
+    %% A union on one line is not valid arm syntax.
     ?assertEqual(nomatch, string:find(Text, "|")).

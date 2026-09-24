@@ -1,28 +1,7 @@
-%%% `raise` — the producing half of the error model (ticket 12 §5, ticket 15 §3).
-%%%
-%%% ASSERTED AT THE BOUNDARY: source text in, a loaded `.beam` called, and the
-%%% way the call FAILS compared. A deliberate crash has no return value to
-%%% inspect, so the observable is the exception the BEAM raises — its class and
-%%% its reason — which is exactly what ticket 12 §5 decided and nothing less.
-%%%
-%%% THE CLASS IS THE DECISION, NOT AN IMPLEMENTATION DETAIL. 12 §5 rejected
-%%% C#'s `throw` on semantics: the BEAM already uses `throw` for the CATCHABLE
-%%% non-local-return class, so a BEAM reader would read recoverable where the
-%%% language means fatal. `a_raise_produces_the_error_class_test` is that
-%%% sentence written as an assertion — it is the one test here that would still
-%%% matter if every other line of this file were deleted.
-%%%
-%%% The two refusals (`raise` in a guard, `raise` as a name) are asserted
-%%% through `check_only/1` rather than the CLI because both are decisions about
-%%% where the word may appear, and the diagnostic tag is the stable surface.
-%%%
-%%% The `none` refusals below are a THIRD category — a type rule, not a
-%%% placement rule — and they use the same helper for a different reason:
-%%% `return_not_declared` is the tag `body_check_tests` already asserts this way
-%%% (`body_check_tests.erl:31`), so the two files agree on what a return
-%%% mismatch looks like. The line an author actually READS for this rule is
-%%% asserted at the CLI, in `corrected_signature_tests`, because what is worth
-%%% pinning there is the pasteable signature and not the tag.
+%%% Scenarios: compiler/features/F34-raise.md
+%%% Scenarios: compiler/features/F38-writable-bottom.md
+%%% Refusals use diagnostics, CLI prose and parser messages; runtime tests
+%%% compare exception classes and reasons.
 
 -module(raise_tests).
 
@@ -35,11 +14,6 @@
 %%% Fixtures
 %%% ---------------------------------------------------------------------------
 
-%% Ticket 15 §3's own example, written at a ground instantiation because
-%% polymorphic signatures are not built (ENG-295). The shape is the point: a
-%% raised reason and a carried reason are the same kind of thing, so escalating
-%% from the `result` channel to a crash is an ordinary clause and needs no `?`,
-%% no `unwrap` primitive and no new construct.
 unwrap_src() ->
     "module Raising\n"
     "type Fetched = int | (:error, atom)\n"
@@ -51,10 +25,7 @@ unwrap_src() ->
 %%% The class and the reason
 %%% ---------------------------------------------------------------------------
 
-%% Runs `F` and reports which of the BEAM's three exception classes came out,
-%% because that is the distinction the feature was chosen on and `?assertError`
-%% alone cannot see it: a `throw` that carried the same reason would satisfy an
-%% assertion about the reason and violate the decision.
+%% Compare the class as well as the reason: a throw can carry the same term.
 classify(F) ->
     try F() of
         V -> {value, V}
@@ -62,25 +33,15 @@ classify(F) ->
         Class:Reason -> {Class, Reason}
     end.
 
-%% THE DECISION, IN ONE ASSERTION. `raise` produces the ERROR class — the one
-%% that kills processes and that `function_clause` belongs to — and not `throw`
-%% and not `exit` (12 §5, verified there against Elixir 1.19.5 in
-%% `prototypes/12b_raise_classes.exs`).
 a_raise_produces_the_error_class_test() ->
     M = build_and_load(unwrap_src(), 'Raising'),
     ?assertEqual({error, bad_key},
                  classify(fun () -> M:'Unwrap'({error, bad_key}) end)).
 
-%% The reason is data the function was handed, passed through untouched. `raise`
-%% takes any term (15 §3), so nothing wraps, tags or normalises it on the way
-%% out — a reason that arrived as an atom leaves as that atom.
 a_raise_carries_its_reason_unchanged_test() ->
     M = build_and_load(unwrap_src(), 'Raising'),
     ?assertError(bad_key, M:'Unwrap'({error, bad_key})).
 
-%% 15 §3 recommends an atom or a tagged tuple, so the tuple case is not an
-%% afterthought: it is half the recommended vocabulary, and it shares that
-%% vocabulary with `result`'s `E`.
 a_tagged_tuple_reason_arrives_whole_test() ->
     Src = "module Raising\n"
           "public int Reject(int code)\n"
@@ -89,33 +50,19 @@ a_tagged_tuple_reason_arrives_whole_test() ->
     ?assertError({bad_request, 400}, M:'Reject'(400)).
 
 %%% ---------------------------------------------------------------------------
-%%% The bottom type — `raise` type-checks wherever a value is declared
+%%% The bottom type
 %%% ---------------------------------------------------------------------------
 
-%% The other half of `unwrap_src`: the clause that returns still returns. Stated
-%% separately from the crash because a build that made every clause raise would
-%% pass the assertion above and be useless.
+%% The returning clause rules out an implementation that always raises.
 a_raising_clause_stands_beside_a_returning_one_test() ->
     M = build_and_load(unwrap_src(), 'Raising'),
     ?assertEqual(7, M:'Unwrap'(7)).
 
-%% `raise` has type `none`, which is a subtype of every type (12 §4), so a
-%% raising clause contributes NOTHING to the type its clauses justify. Without
-%% this, F25's corrected-signature check would read the crash as a returned
-%% value and demand the author widen `int` to admit it — the signature would be
-%% a lie in the one place the language promises it is not.
-%% Asserted as the EMPTY diagnostic list rather than as `{ok, _, _}`, because
-%% the corrected-signature report is a warning in some shapes: a check that
-%% only asked "did it compile" would pass while the compiler told the author to
-%% widen `int` to admit a crash.
+%% An empty diagnostic list also excludes a signature-widening warning.
 a_raising_clause_does_not_widen_the_declared_return_test() ->
     {ok, _, Diags} = check_only(unwrap_src()),
     ?assertEqual([], Diags).
 
-%% A `switch` arm may raise while its siblings return, which is the property
-%% ticket 12 §5 took from Gleam's `panic` (verified there on Gleam 1.18.1: it
-%% compiles in a `case` arm whose siblings return `String`). The arm's type is
-%% `none`, so the switch's type is the union of the OTHER arms alone.
 a_switch_arm_may_raise_beside_arms_that_return_test() ->
     Src = "module Raising\n"
           "public int Width(atom a)\n"
@@ -130,18 +77,9 @@ a_switch_arm_may_raise_beside_arms_that_return_test() ->
 
 %%% ---------------------------------------------------------------------------
 %%% How far the reason extends
-%%%
-%%% `raise` is the loosest thing in the operator table, so its operand runs to
-%%% the end of the expression. Both tests below are written so that the WRONG
-%%% parse is not a compile error but a different observable value — a program
-%%% that raises the wrong reason. Asserting that the grammar has no conflicts
-%%% would not have caught either: zero conflicts says the table is buildable,
-%%% not that it is the table that was wanted.
 %%% ---------------------------------------------------------------------------
 
-%% `raise n + 1` is `raise (n + 1)`. Were `raise` to bind tighter it would be
-%% `(raise n) + 1`, which raises `n` and never reaches the addition — so the
-%% reason tells the two parses apart.
+%% A tighter parse raises `n` before the addition; the reason distinguishes it.
 a_reason_extends_past_an_operator_test() ->
     Src = "module Raising\n"
           "public int Boom(int n)\n"
@@ -149,10 +87,7 @@ a_reason_extends_past_an_operator_test() ->
     M = build_and_load(Src, 'Raising'),
     ?assertError(6, M:'Boom'(5)).
 
-%% The same question against the tightest thing in the table. `raise a switch
-%% { … }` raises the switch's VALUE; the tighter parse, `(raise a) switch { … }`,
-%% would raise `a` itself and discard the arms. Both parse, so only the reason
-%% distinguishes them.
+%% A tighter parse raises `a` without evaluating the switch arms.
 a_reason_extends_over_a_switch_test() ->
     Src = "module Raising\n"
           "public int Pick(atom a)\n"
@@ -165,51 +100,25 @@ a_reason_extends_over_a_switch_test() ->
     ?assertError(other, M:'Pick'(other)).
 
 %%% ---------------------------------------------------------------------------
-%%% The bottom type has a SURFACE — `none` is writable in a signature
+%%% Writable bottom type
 %%% ---------------------------------------------------------------------------
 
-%% Ticket 12 §4 decided the bottom is spelled `none` and is FIRST-CLASS rather
-%% than checker-internal, and the reason it gave was an asymmetry rather than a
-%% use case: `bs_types:to_string/1` already prints `none` into a residual, so an
-%% agent READS the name in compiler output whether or not it can write it. A
-%% type readable in a diagnostic and unwritable in a signature is the gratuitous
-%% half, and `term` — the other end of the same lattice — is writable.
 reject_src() ->
     "module Rejecting\n"
     "public none Reject(term r)\n"
     "Reject(r) -> raise (:rejected, r)\n".
 
-%% 12 §5's `Partial` benefit, which is what the surface buys: a named, greppable,
-%% type-checked crash site obtained from the lattice rather than from a
-%% propagating constraint. Before this, every crash site had to be a literal
-%% `raise` at the point of failure, because the function that does nothing but
-%% crash could not be DECLARED.
-%%
-%% Asserted at this file's own boundary — a loaded `.beam` called, and the way
-%% the call fails compared — rather than through `check_only/1`. Type-checking
-%% clean is the weaker claim: it would hold for a build that accepted the
-%% declaration and emitted nothing callable. The `Partial` benefit is a crash
-%% site that RUNS, so the assertion is the crash.
+%% Calling the loaded function checks more than acceptance of its signature.
 a_none_return_may_be_declared_and_the_function_runs_test() ->
     M = build_and_load(reject_src(), 'Rejecting'),
     ?assertError({rejected, 7}, M:'Reject'(7)).
 
-%% ...and it declares cleanly, with no corrected-signature warning beside it.
-%% Separate from the run because F25's report is a WARNING in some shapes: a
-%% check that only asked "did it load and crash" would pass while the compiler
-%% told the author their `none` signature needed widening.
+%% A successful load and crash alone would not exclude a widening warning.
 a_none_return_declares_without_a_diagnostic_test() ->
     {ok, _, Diags} = check_only(reject_src()),
     ?assertEqual([], Diags).
 
-%% THE ASSERTION THAT PROVES `none` WAS NOT QUIETLY READ AS `term`, and the one
-%% test in this section that would still matter if the others were deleted.
-%% Every other assertion about `none` passes under a build that resolved it to
-%% the TOP: a raising body satisfies `term` too, the declaration parses either
-%% way, and `--api` prints the word either way. Only a body that RETURNS A VALUE
-%% separates the two readings — against `none` it must be refused, since no
-%% value inhabits the empty type, and against `term` it is the most ordinary
-%% program there is.
+%% A returned value distinguishes `none` from `term`; both admit a raise.
 a_none_return_refuses_a_returned_value_test() ->
     Src = "module Rejecting\n"
           "public none Reject(term r)\n"
@@ -217,18 +126,13 @@ a_none_return_refuses_a_returned_value_test() ->
     ?assertMatch([{error, _, 'Reject', {return_not_declared, _, _}} | _],
                  errors(Src)).
 
-%% THE CONTROL THAT SAYS THE FIX IS RIGHT BY CONSTRUCTION AND NOT BY LUCK.
-%% The corrected-signature repair keys on the RESOLVED declared type being
-%% empty, not on its source text reading `none`. An alias is what separates the
-%% two: a printer that matched the string would emit `public Never | term`,
-%% which ticket 68 refuses exactly as it refuses `none | term` — the same defect
-%% wearing the author's own name for the bottom.
+%% The alias checks that the correction uses the resolved type, not its name.
 a_none_behind_an_alias_is_still_the_bottom_test() ->
     Src = "module Rejecting\n"
           "type Never = none\n"
           "public Never Reject(term r)\n"
           "Reject(r) -> r\n",
-    %% Read at the CLI, where the author reads it: the line, and no `Never |`.
+    %% Read the suggested signature at the CLI, where the author reads it.
     Out = with_src("Rejecting.bs", Src,
                    fun(Path, Root) ->
                            run_cli("--src-root " ++ Root ++ " " ++ filename:dirname(Path))
@@ -236,11 +140,7 @@ a_none_behind_an_alias_is_still_the_bottom_test() ->
     ?assert(string:find(Out, "    public term Reject(term r)\n") =/= nomatch),
     ?assertEqual(nomatch, string:find(Out, "Never |")).
 
-%% A raising clause may stand beside one that returns — but not under a `none`
-%% return, because the returning clause is exactly the value the type refuses.
-%% Pinned because the obvious build checks the FIRST clause and stops: a
-%% function whose first clause raises would then compile with a second clause
-%% returning an int, and the declared "never returns" would be a lie.
+%% The first clause raises; checking only that clause would miss the return.
 a_returning_clause_beside_a_raising_one_is_still_refused_test() ->
     Src = "module Rejecting\n"
           "public none Reject(term r)\n"
@@ -253,10 +153,7 @@ a_returning_clause_beside_a_raising_one_is_still_refused_test() ->
 %%% Where the word may not appear
 %%% ---------------------------------------------------------------------------
 
-%% A guard shares the whole expression grammar, so `when raise :boom` parses.
-%% Left alone it reaches the author as `illegal guard expression` from `erlc`,
-%% against a file they did not write — the same fault `switch_in_guard` exists
-%% to prevent, and the same shape of refusal.
+%% The guard parses, so the compiler must reject it before erlc sees it.
 a_raise_in_a_guard_is_refused_test() ->
     Src = "module Raising\n"
           "public int F(int x)\n"
@@ -264,14 +161,7 @@ a_raise_in_a_guard_is_refused_test() ->
           "F(_)                  -> 0\n",
     ?assertMatch([{error, _, 'F', raise_in_guard} | _], errors(Src)).
 
-%% `raise` is a keyword, not a prelude function (12 §5 settled that half on
-%% read cost: a function would be lexically identical to a call, with its
-%% signature in a different file and no single token that finds every crash
-%% site). So it cannot also be a parameter name — the same consequence the
-%% lexer already records for `and` and `or` under ticket 44.
-%% The message is asserted, not just the failure: `{error, _}` alone would pass
-%% if the fixture failed to parse for some unrelated reason, and then the test
-%% would go on passing after the keyword was reverted.
+%% Matching the keyword in the message excludes an unrelated parse failure.
 a_raise_may_not_be_used_as_a_name_test() ->
     Src = "module Raising\n"
           "public int F(int raise)\n"
@@ -283,8 +173,6 @@ catch_parse(Src) ->
     {ok, Toks, _} = bs_lexer:string(Src),
     bs_parser:parse(Toks).
 
-%% The reason is an ordinary expression and is checked as one: `_` is not a
-%% value anywhere else in the language and gains no exemption by being raised.
 a_raised_reason_is_checked_like_any_expression_test() ->
     Src = "module Raising\n"
           "public int F(int x)\n"

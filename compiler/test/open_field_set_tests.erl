@@ -1,12 +1,12 @@
+%%% Scenarios: compiler/features/F59-open-field-sets.md
 %%% F59 — a trailing `..` makes a field-set type open.
 %%%
-%%% Ticket 78 Q3: OpenRouter's evaluate reply carries `id`, `provider` and
-%%% `usage.cost`, which TypeSafe's does not, and an exact field set refuses the
-%%% first. `{ "model": string, .. }` names the keys it needs and admits the
-%%% rest. `ValidateAs` checks the named keys and returns the value unchanged;
-%%% without `..` a field set stays exact; `ToJson` refuses an open type, since
-%%% it would publish keys no type declares (26 §4, 18 §1(c)). The algebra has
-%%% had open members since patterns needed them; this is their type spelling.
+%%% The fixture is OpenRouter's evaluate reply, which carries `id`, `provider`
+%%% and `usage.cost` beyond the keys a caller needs. `{ "model": string, .. }`
+%%% names the keys it needs and admits the rest. `ValidateAs` checks the named
+%%% keys and returns the value unchanged; without `..` a field set stays
+%%% exact; `ToJson` refuses an open type, since it would publish keys no type
+%%% declares.
 
 -module(open_field_set_tests).
 
@@ -102,7 +102,7 @@ the_api_prints_the_marker_test_() ->
              end)
      end}.
 
-%% F59.9 — F58's leftover: a declaration path through a string key is spelled
+%% F59.9 — a declaration path through a string key is spelled
 %% `W["a"]`, as a validation path is, not Erlang's `W.<<"a">>`.
 a_declaration_path_spells_a_string_key_test() ->
     {'EXIT', {{absorbed_member, _, Path, _, _, _}, _}} =

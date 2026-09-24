@@ -1,37 +1,14 @@
-%%% F31 / ENG-272 — a declared failure channel must survive normalisation.
-%%%
-%%% TICKET 15 §1 DECIDED THIS ON 2026-08-12 AND F18 BUILT IT AT ONE SITE. The
-%%% `ValidateAs<T>` obligation got the predicate; every ordinary declaration did
-%%% not, and `bs_diag.erl:280` recorded the gap in a comment rather than closing
-%%% it — "met at an instantiation rather than at a declaration".
-%%%
-%%% THE REFUSALS CANNOT LIVE IN `examples/`, which is why this file exists at
-%%% all: every example must compile, and a capability whose whole behaviour is a
-%%% rejection has nowhere else to be looked at.
-%%%
-%%% WHAT IS ASSERTED, AND WHY IT IS NOT ONE TEST. The check has two independent
-%%% axes and a test that fixed one of them would pass under a wrong
-%%% implementation of the other:
-%%%
-%%%   the SHAPE  - which types collapse. 15 §1 names its own wrong fix ("an
-%%%                implementer would write the cofinite check alone"), so
-%%%                `option<option<int>>` and `result<(atom, binary), binary>`
-%%%                are asserted beside `option<atom>`. Neither has an atom top.
-%%%   the SITE   - where a written type is checked. Five declaration forms carry
-%%%                one, and each was measured to collapse on master before this
-%%%                feature; a check wired to `signature` alone passes every
-%%%                shape test in this file.
+%%% Scenarios: compiler/features/F31-collapse-at-the-declaration.md
+%%% Scenarios: compiler/features/F28-recursive-types.md
+%%% F31 — a declared failure channel survives normalisation.
 -module(collapse_tests).
 
 -include_lib("eunit/include/eunit.hrl").
 
 -import(bs_test_support, [check_only/1, build_and_load/2]).
 
-%%% ---------------------------------------------------------------------------
 %%% Helpers
-%%% ---------------------------------------------------------------------------
 
-%% A module whose only interesting feature is the RETURN type of one function.
 ret(Mod, Ty) -> ret(Mod, Ty, "").
 
 ret(Mod, Ty, Extra) ->
@@ -40,55 +17,39 @@ ret(Mod, Ty, Extra) ->
         "public " ++ Ty ++ " Go(int id)\n"
         "Go(id) -> :nothing\n".
 
-%%% ---------------------------------------------------------------------------
-%%% F31.1 — THE SHAPE. Which types collapse, and which must not.
-%%% ---------------------------------------------------------------------------
+%%% F31.1 — collapsing types are refused; disjoint types compile.
 
-%% 15 §1's worked case. `:nothing` is a singleton absorbed by a cofinite top, so
-%% the declared type IS `atom` and no caller can write the failure clause.
 option_at_the_atom_top_is_refused_test() ->
     ?assertError({absorbed_member, _, _, nothing, _, _},
                  check_only(ret("S3", "option<atom>"))).
 
-%% CONTROL 1, and the reason the predicate is an equation rather than a case
-%% list. There is no atom top anywhere here: the outer `:nothing` is absorbed by
-%% the INNER union, which already contains one. An implementation that checks
-%% for a cofinite atom accepts this.
+%% The inner union absorbs the outer `:nothing` without an atom top.
 nested_option_is_refused_though_no_top_is_involved_test() ->
     ?assertError({absorbed_member, _, _, nothing, _, _},
                  check_only(ret("S4", "option<option<int>>"))).
 
-%% Ticket 64 / ENG-254's measured case, and this feature decides it by
-%% construction: the silent collapse becomes a loud refusal.
 option_at_term_is_refused_test() ->
     ?assertError({absorbed_member, _, _, nothing, _, _},
                  check_only(ret("S5", "option<term>"))).
 
-%% The same, through the OTHER channel. Only the top absorbs a tuple.
 result_at_term_is_refused_test() ->
     ?assertError({absorbed_member, _, _, error, _, _},
                  check_only(ret("S7", "result<term, binary>"))).
 
-%% CONTROL 2. The collision is a TUPLE SHAPE, not an atom: `(:error, binary)` is
-%% a subtype of `(atom, binary)` because `:error` is an atom. 15 §2 measured this
-%% one and it is the second case the cofinite check cannot see.
+%% The error tuple is a subtype of the success tuple without an atom top.
 result_whose_success_type_shadows_the_error_tuple_is_refused_test() ->
     ?assertError({absorbed_member, _, _, error, _, _},
                  check_only(ret("S8", "result<(atom, binary), binary>"))).
 
-%% CONTROL 3. Keyed on the TYPE, not on the spelling `option<...>`. Ticket 09 §4
-%% fixed that a name never enters the algebra, so this is the same type as S3 —
-%% and it is the spelling `ToExistingAtom` is written in (`STANDARD-ENVIRONMENT.md:108`).
+%% Absorption depends on the type, including aliases of the same shape.
 a_hand_written_alias_of_the_same_shape_is_refused_test() ->
     ?assertError({absorbed_member, _, _, nothing, _, _},
                  check_only(ret("S9", "M", "type M = atom | :nothing"))).
 
-%%% --- and the five that must keep compiling ----------------------------------
-%%%
-%%% ASSERTED AS A RUNNING PROGRAM, not as the absence of an error. A test that
-%%% only says "no exception" goes green against a module that failed to compile
-%%% for an unrelated reason, which is this repo's oldest recurring defect.
+%%% Disjoint controls
 
+%% Running the controls proves they compile; checking only for exceptions can
+%% miss returned errors.
 option_at_a_disjoint_type_still_compiles_test() ->
     M = build_and_load(ret("S1", "option<int>"), 'S1'),
     ?assertEqual(nothing, M:'Go'(1)).
@@ -98,15 +59,11 @@ option_at_bool_still_compiles_test() ->
     M = build_and_load(ret("S2", "option<bool>"), 'S2'),
     ?assertEqual(nothing, M:'Go'(1)).
 
-%% 15 §2's whole reason for giving failure a payload: the tagged member survives
-%% where a bare `:error` would not.
 result_with_a_tagged_failure_still_compiles_test() ->
     Src = "module S6\n\npublic result<int, binary> Go(int id)\nGo(id) -> 1\n",
     M = build_and_load(Src, 'S6'),
     ?assertEqual(1, M:'Go'(1)).
 
-%% Ticket 48's `Map.Fetch` shape, chosen BECAUSE it does not collapse. If this
-%% test ever goes red the map type has lost its only way in.
 the_map_fetch_shape_still_compiles_test() ->
     Src = "module S10\n\ntype F = (:ok, term) | :absent\n\n"
           "public F Go(int id)\nGo(id) -> :absent\n",
@@ -119,11 +76,7 @@ a_hand_written_tagged_union_still_compiles_test() ->
     M = build_and_load(Src, 'S11'),
     ?assertEqual(ok, M:'Go'(1)).
 
-%%% ---------------------------------------------------------------------------
-%%% F31.2 — THE SITE. Five declaration forms carry a written type, and each was
-%%% measured to accept a collapsing one on master. A check wired to the
-%%% signature alone passes every test above and none of these.
-%%% ---------------------------------------------------------------------------
+%%% F31.2 — every declaration site rejects collapsing types.
 
 a_collapsing_signature_PARAMETER_is_refused_test() ->
     Src = "module P1\n\npublic :ok Go(option<atom> x)\nGo(x) -> :ok\n",
@@ -134,16 +87,11 @@ a_collapsing_RECORD_FIELD_is_refused_test() ->
           "public :ok Go(int id)\nGo(id) -> :ok\n",
     ?assertError({absorbed_member, _, _, nothing, _, _}, check_only(Src)).
 
-%% The alias BODY, checked once where it is written rather than once per use —
-%% following a `t_ref` would report the same defect at every mention of it.
 a_collapsing_TYPE_ALIAS_body_is_refused_test() ->
     Src = "module P3\n\ntype M = atom | :nothing\n\n"
           "public :ok Go(int id)\nGo(id) -> :ok\n",
     ?assertError({absorbed_member, _, _, nothing, _, _}, check_only(Src)).
 
-%% The FOREIGN boundary, which is where this matters most: `ToExistingAtom` is a
-%% boundary function, and a collapsed failure channel on a foreign return is one
-%% a caller cannot test for at the one place the value is least trusted.
 a_collapsing_FOREIGN_return_is_refused_test() ->
     Src = "module P4\n\nusing :lists {\n    option<atom> last(list<atom> xs)\n}\n\n"
           "public :ok Go(int id)\nGo(id) -> :ok\n",
@@ -154,18 +102,12 @@ a_collapsing_FOREIGN_parameter_is_refused_test() ->
           "public :ok Go(int id)\nGo(id) -> :ok\n",
     ?assertError({absorbed_member, _, _, nothing, _, _}, check_only(Src)).
 
-%% NESTED, because the channel is equally dead one level down. Measured on
-%% master: `(option<atom>, int)` is reported by `--api` as `(atom, int)`.
 a_collapsing_TUPLE_COMPONENT_is_refused_test() ->
     Src = "module P6\n\npublic (option<atom>, int) Go(int id)\n"
           "Go(id) -> (:nothing, 1)\n",
     ?assertError({absorbed_member, _, _, nothing, _, _}, check_only(Src)).
 
-%% `bsc --api` resolves signatures through `exports_of/1`, which is a SECOND
-%% declaration pass and does not go through `check/2` at all. Measured while
-%% building this feature: the first draft refused at a compile and answered
-%% `atom Go(int)` to `--api` on the same file, which is the collapse being
-%% reported by one half of the compiler and printed as a fact by the other.
+%% The API query resolves declarations through a separate check path.
 the_api_query_path_refuses_it_too_test() ->
     {ok, _, Decls} = bs_parser_support_parse("module A1\n\n"
                                              "public option<atom> Go(int id)\n"
@@ -173,32 +115,14 @@ the_api_query_path_refuses_it_too_test() ->
     ?assertError({absorbed_member, _, _, nothing, _, _},
                  bs_check:exports_of(Decls)).
 
-%% The parse half of `check_only/1`, without the check - there is no helper for
-%% "parse and hand me the declarations" and this is the only test that needs one.
 bs_parser_support_parse(Src) ->
     {ok, Toks, _} = bs_lexer:string(Src),
     {ok, Decls} = bs_parser:parse(Toks),
     {ok, undefined, Decls}.
 
-%%% ---------------------------------------------------------------------------
-%%% F31.3 — termination, and it is a regression test for a defect this feature
-%%% shipped and then fixed.
-%%%
-%%% The first draft of the pass expanded a parametric alias without carrying
-%%% `resolve/3`'s `Seen` chain. On a contractive alias it recursed forever:
-%%% `generics_tests:a_contractive_alias_is_an_unbuilt_feature_test` did not go
-%%% red, it TIMED OUT, and eunit cancelled every module after it - a suite that
-%%% reported "Failed: 0" while running less than half of itself.
-%%% ---------------------------------------------------------------------------
+%%% F31.3 — the collapse check terminates on recursive aliases.
 
-%% F28 — THE TERMINATION CLAIM SURVIVES, THE REFUSAL DOES NOT.
-%%
-%% These two existed because the collapse pass expanded a parametric alias
-%% without carrying `resolve/3`'s chain and recursed forever, and what they
-%% really assert is that it TERMINATES. That is still worth asserting and is now
-%% a stronger claim, not a weaker one: before, the walk stopped because the type
-%% was refused before the pass could reach it, so the pass was never actually
-%% run over a recursive type. It is now, and it has to come back.
+%% F28 — contractive aliases terminate and resolve.
 a_contractive_alias_terminates_and_resolves_test() ->
     ?assertMatch({ok, _, _},
                  check_only("module E\ntype Tree<T> = (T, list<Tree<T>>)\n"
@@ -207,31 +131,21 @@ a_contractive_alias_terminates_and_resolves_test() ->
                  check_only("module E\ntype Nest = :leaf | list<Nest>\n"
                             "public atom F(Nest n)\nF(n) -> :ok\n")).
 
-%% The same shape with a FAILURE MEMBER in it, which is the one this pass walks
-%% into rather than past. `option<Tree<int>>` expands to a union whose success
-%% member is the recursive alias — so the collapse check now has to decide
-%% discriminability with a binder on one side, which is the case that could not
-%% arise while the type was refused.
+%% The failure member forces a comparison against the recursive alias.
 a_contractive_alias_under_a_failure_member_terminates_test() ->
     ?assertMatch({ok, _, _},
                  check_only("module E\ntype Tree<T> = (T, list<Tree<T>>)\n"
                             "public option<Tree<int>> F(int n)\nF(n) -> :nothing\n")).
 
-%%% ---------------------------------------------------------------------------
-%%% F31.4 — the line, and the sentence.
-%%% ---------------------------------------------------------------------------
+%%% F31.4 — the diagnostic names the declaration and explains the collapse.
 
-%% No type-expression node carries a line (`t_union`, `t_generic`, `param` and
-%% `field` all lack one), so the check cannot live in `resolve/3` and takes its
-%% line from the enclosing declaration tuple. This asserts it arrives.
+%% Type expressions lack positions; the line comes from the declaration.
 the_refusal_names_the_line_of_the_declaration_test() ->
     Src = "module L1\n\n// a comment\n\npublic option<atom> Go(int id)\n"
           "Go(id) -> :nothing\n",
     ?assertError({absorbed_member, {5, _}, _, nothing, _, _}, check_only(Src)).
 
-%% 15 §1 pins the sentence. The `tag it` hint is printed for the `:nothing`
-%% channel only — see F31's recorded assumption: an absorbed `(:error, E)` is
-%% ALREADY tagged, so that advice would name a form that does not fix it.
+%% The tagging hint applies only to an untagged failure member.
 the_message_says_the_channel_did_not_survive_normalisation_test() ->
     D = bs_diag:descriptor("x.bs", {absorbed_member, {5, 21}, "Go", nothing,
                                     bs_types:atom_lit(nothing),
@@ -250,19 +164,9 @@ the_error_channel_is_not_told_to_tag_what_is_already_tagged_test() ->
     ?assert(string:find(S, "does not survive normalisation") =/= nomatch),
     ?assertEqual(nomatch, string:find(S, "tag it")).
 
-%%% ---------------------------------------------------------------------------
-%%% F31.4 — the ValidateAs site keeps its own behaviour.
-%%%
-%%% 15 §1 now has ONE implementation, generalised to take the failure member as
-%%% an argument. The obligation site passes the member it was already
-%%% synthesising, and must still report under its own tag and its own sentence —
-%%% `check-diagnostics.sh` pins that text.
-%%% ---------------------------------------------------------------------------
+%%% F31.4 — ValidateAs reports its own obligation diagnostic.
 
-%% The DECLARATION here must not itself collapse, or this test would be measuring
-%% F31 and calling it F18 - `result<term, ValidationError>` is refused now, which
-%% is what the first draft of this test wrote. The obligation's own argument is
-%% the collapsing one.
+%% The declaration must not collapse: only the obligation argument does.
 the_obligation_site_still_reports_under_its_own_tag_test() ->
     Src = "module V1\n\npublic result<int, ValidationError> Go(term t)\n"
           "Go(t) -> ValidateAs<term>(t)\n",
@@ -271,21 +175,7 @@ the_obligation_site_still_reports_under_its_own_tag_test() ->
                          (_) -> false
                       end, Errs)).
 
-%%% ---------------------------------------------------------------------------
-%%% ENG-331 — the site F31 recorded as unreachable
-%%% ---------------------------------------------------------------------------
-
-%%% F31 recorded that "a bare union cannot be written in a signature at all" and
-%%% scoped its site list on exactly that: the hand-written case always arrived
-%%% through a `type_alias`, so there was "no bare union in a return position
-%%% scenario". Ticket 68 Q7 made the bare form writable, and the scenario F31
-%%% said did not exist now does.
-%%%
-%%% It is refused, and for free — the predicate is keyed on the RESOLVED type
-%%% rather than on the spelling that produced it, which is F31's own design note
-%%% earning its keep. Had it been wired to the `type_alias` production instead,
-%%% the grammar change would have opened a hole with the whole suite still
-%%% green, because until today no test could express the case.
+%%% Inline and aliased unions
 
 a_bare_inline_union_in_a_return_position_collapses_test() ->
     Src = "module B1\n\npublic atom | :nothing Go(int n)\n"
@@ -294,16 +184,7 @@ a_bare_inline_union_in_a_return_position_collapses_test() ->
     ?assertError({absorbed_member, {3, _}, _, nothing, _, _},
                  check_only(Src)).
 
-%% The same union through the alias, side by side, so the pair says what the
-%% claim is: one type, one rule, two spellings.
-%%
-%% WHAT DIFFERS IS THE LINE, AND IT SHOULD. The aliased form is refused at its
-%% `type` declaration (line 3) and the inline form at the signature (line 3 of
-%% its own source), because the alias body is a collapse site in its own right —
-%% F31 lists it as one. So the position tracks where the union was WRITTEN,
-%% which is what a reader needs, rather than where it was used. Asserting line 5
-%% here — the signature, by analogy with the inline case — is the plausible
-%% wrong expectation, and it is what the first draft of this test asserted.
+%% The line names the alias declaration, not the signature that uses it.
 the_aliased_spelling_of_the_same_union_collapses_identically_test() ->
     Src = "module B2\n\ntype M = atom | :nothing\n\npublic M Go(int n)\n"
           "Go(n) when n > 0  -> :yes\n"

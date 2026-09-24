@@ -1,10 +1,7 @@
-%%% End-to-end tests for the walking skeleton.
-%%%
-%%% Tested at the boundary — source text in, a callable `.beam` out — rather than
-%%% against the checker's internals, so a change to how the type algebra is
-%%% represented does not break the suite. The one exception is the algebra's own
-%%% laws, which have no boundary to be reached through.
+%%% Boundary helpers: source text in, callable beam code out.
 
+%%% Scenarios: compiler/features/F15-module-is-a-directory.md
+%%% Scenarios: compiler/features/F14-pipe-and-valve.md
 -module(bs_test_support).
 
 -include_lib("eunit/include/eunit.hrl").
@@ -15,46 +12,20 @@
          run_root/0, fixture_root/0, place/3,
          showcase_src/0, shop_src/0, an_order/0, count/2, validation_error/2]).
 
-%% The failure a generated `ValidateAs<T>` returns: `(:error, ValidationError)`,
-%% the record F49 made of it.
+%% The generated ValidateAs<T> failure contains a ValidationError record.
 validation_error(Path, Expected) ->
     {error, #{'Kind' => 'ValidationError', 'Path' => Path, 'Expected' => Expected}}.
 
 -define(OUT, run_root()).
 
-%%% ---------------------------------------------------------------------------
-%%% Helpers
-%%% ---------------------------------------------------------------------------
+%%% --- Helpers ---
 
-%%% F15 — A FIXTURE IS A DIRECTORY NOW, AND IT IS NAMED FOR ITS MODULE.
-%%%
-%%% Two separate rules force this, and conflating them makes the second one look
-%%% arbitrary.
-%%%
-%%% AGGREGATION forces "its own directory". `with_src/3` wrote every fixture into
-%%% one shared `/tmp/bsc_eunit/run`, which was harmless while one file was one
-%%% module and is nonsense now: twenty unrelated fixtures in one directory are one
-%%% module with twenty `module` lines. `modules_tests` had already learned exactly
-%%% this in F11 — "two tests sharing a directory would see each other's modules,
-%%% and the failure would be order-dependent, which is the worst kind to debug" —
-%%% and F15 makes it true for every fixture rather than only for the ones that
-%%% happened to be about modules.
-%%%
-%%% TICKET 41 §5's PATH CHECK forces "named for its module". Anything driving the
-%%% CLI is checked, so a fixture sitting in `run-4711/` and declaring
-%%% `module Readings` would fail on its path rather than on what the test is
-%%% about — a whole suite failing for a reason none of its tests mention.
-%%%
-%%% The name is read out of the source rather than passed in, so no call site has
-%%% to repeat what its own first line already says.
+%%% F15 — each fixture occupies a directory named for its module.
+%%% Files in one directory aggregate into one module; fixtures need isolation.
+%%% The CLI checks the module name against its path. Read it from the source.
 
-%% A root nobody else is writing into — INCLUDING A PREVIOUS RUN OR WORKTREE.
-%%
-%% The old fixed `/tmp/bsc_eunit` parent accumulated every fixture forever. One
-%% test then treated that parent as its source root and recursively indexed the
-%% whole history: measured at 5,355 roots, it crossed EUnit's five-second timeout.
-%% A path under this checkout's `_build/test` separates worktrees; pid plus the VM
-%% start timestamp separates overlapping and later runs in one checkout.
+%% The checkout path isolates worktrees; pid and VM start time isolate runs.
+%% Isolated roots keep recursive indexing within eunit's timeout.
 run_root() ->
     Run = "run-" ++ os:getpid() ++ "-" ++
           integer_to_list(erlang:system_info(start_time)),
@@ -68,9 +39,7 @@ fixture_root() ->
     ok = filelib:ensure_dir(D ++ "/x"),
     D.
 
-%% Write `Src` as `Name` under `Root`, in the directory its `module` line implies.
-%% A dotted module becomes nested directories, which is what 41 §5 means by a
-%% declaration matching its path — those callers pass `--src-root Root`.
+%% Dotted modules need nested directories to match --src-root path checks.
 place(Root, Name, Src) ->
     Dir = filename:join([Root | module_segments(Src)]),
     ok = filelib:ensure_dir(Dir ++ "/x"),
@@ -87,14 +56,12 @@ module_segments(Src) ->
 
 compile(Src) ->
     Path = place(fixture_root(), "in.bs", Src),
-    %% `bsc:file_to_dir/2` rather than a hand-built `{opts, ...}` tuple: the
-    %% suite should not know the shape of a private record, and did — adding a
-    %% field to it broke six tests that were otherwise unaffected.
+    %% The compiler entry point, without depending on its private opts record.
     Result = bsc:file_to_dir(Path, ?OUT),
     code:add_patha(?OUT),
     Result.
 
-%% Compile, load, and hand back the module so a test can call into it.
+%% Compile and load the module so tests can call its exported functions.
 build_and_load(Src, Mod) ->
     {ok, _} = compile(Src),
     code:purge(Mod),
@@ -104,12 +71,8 @@ build_and_load(Src, Mod) ->
 check_only(Src) ->
     {ok, Toks, _} = bs_lexer:string(Src),
     {ok, Decls} = bs_parser:parse(Toks),
-    %% F14. `bsc` runs this between parsing and checking, so a helper that skips
-    %% it is not testing the compiler — it is testing a compiler that does not
-    %% exist. The failure would be SILENT in the direction that matters: an
-    %% unlowered `e_valve` falls through `type_of/3`'s catch-all to `term()` with
-    %% no diagnostics, so every valve assertion about clean source would pass
-    %% while nothing was checked at all.
+    %% F14 — lower valves between parsing and checking, as bsc does.
+    %% Unlowered valves fall through to term without checking their contents.
     bs_check:check(bs_lower:valves(Decls)).
 
 showcase_src() ->
@@ -122,17 +85,8 @@ showcase_src() ->
     "Classify((:ok, n))            -> :negative\n"
     "Classify((:error, e))         -> :unknown\n".
 
-%% The escript, under whichever profile actually built it.
-%%
-%% This used to name `_build/default/bin/bsc` outright, which is where
-%% `rebar3 escriptize` puts it — but eunit runs under the TEST profile, so
-%% rebar.config's pre-eunit `escriptize` hook writes `_build/test/bin/bsc`
-%% instead and the hardcoded path never saw it. Checking the test profile
-%% first is what makes a plain `rebar3 eunit` green on a fresh clone;
-%% measured before the fix, the suite reported `Failed: 3. Passed: 205.`
-%%
-%% The default path stays as the fallback AND as the not-found value, so the
-%% failure message still names the artefact CI builds explicitly.
+%% The pre-eunit hook builds the escript under the test profile.
+%% Fall back to the default profile; if absent, name the artefact CI builds.
 escript() ->
     Default = project_root() ++ "/_build/default/bin/bsc",
     Candidates = [project_root() ++ "/_build/test/bin/bsc", Default],
@@ -141,18 +95,7 @@ escript() ->
         []          -> Default
     end.
 
-%% IS THE ESCRIPT THERE, AND SAY SO IF NOT.
-%%
-%% `repl_tests` and `visibility_tests` each had a private copy of this, written
-%% for the same reason and worded identically: "Twelve tests reporting `ok`
-%% while running nothing is the precise failure this file was written to end."
-%% Eight other modules guarded on `filelib:is_regular(escript())` directly and
-%% returned a bare `ok`, which is that same failure with nothing said — measured
-%% at 11 sites when `check-no-silent-skip.sh` was written.
-%%
-%% One copy, so the next module to need a guard inherits the announcement rather
-%% than the silence. A skip that prints is still a skip; what it is not is
-%% indistinguishable from a pass.
+%% Announce a missing escript so skipped tests are distinguishable from passes.
 built() ->
     case filelib:is_regular(escript()) of
         true  -> true;
@@ -168,10 +111,8 @@ run_cli(Args) ->
 run_command_result(Command) ->
     bs_process:run_merged(Command).
 
-%% The shell still parses the argument strings used throughout this boundary
-%% suite, but it no longer has to report its own status by echoing into stdout.
-%% `exec` replaces it with the escript, so the port's exit_status is the CLI's
-%% status and the captured data is only what the CLI wrote.
+%% The shell parses argument strings; exec replaces it with the escript.
+%% The port captures the CLI's exit status separately from its output.
 run_cli_result(Args) ->
     run_command_result(escript() ++ " " ++ Args).
 
@@ -216,7 +157,7 @@ shop_src() ->
 
 an_order() -> #{'Kind' => 'Shop.Order', 'Id' => 1, 'Total' => 0}.
 
-%% How many times does an atom appear anywhere in a nested term?
+%% Count atom occurrences throughout a nested term.
 count(Atom, Atom) -> 1;
 count(T, Atom) when is_tuple(T) -> count(tuple_to_list(T), Atom);
 count(L, Atom) when is_list(L) -> lists:sum([count(E, Atom) || E <- L]);

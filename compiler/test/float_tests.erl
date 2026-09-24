@@ -1,29 +1,11 @@
+%%% Scenarios: compiler/features/F51-float.md
 -module(float_tests).
 
 -include_lib("eunit/include/eunit.hrl").
 
 -import(bs_test_support, [compile/1, build_and_load/2, errors/1, run_cli/1]).
 
-%%% ---------------------------------------------------------------------------
-%%% F51 — `float`, the eighth part. Tickets 69, 80 and 81; ENG-378.
-%%%
-%%% THREE DECISIONS, EACH WITH THE PROGRAM THAT WOULD GO WRONG WITHOUT IT.
-%%%
-%%%   69  `float` is a type: the BEAM's float, a part of the lattice beside
-%%%       `int` and NOT inside it. `/` lowers by its operand types — `div` on
-%%%       two ints (38), the BEAM's `/` on two floats. The literal is C#'s.
-%%%   80  nothing flows between the two parts: `0` where a `float` is declared
-%%%       is refused, a `float` beside an `int` at an operator is refused, and
-%%%       the emitter writes no conversion anywhere.
-%%%   81  the conversion is written by the author as `Float.FromInt(n)`, a
-%%%       compiler-known entry under a reserved qualifier, inlined as
-%%%       `erlang:float/1`.
-%%%
-%%% THE VALUE ASSERTION IS THE EMISSION ASSERTION, as in `division_tests`: an
-%%% emitter that lowered every `/` to the BEAM's `/` once floats existed would
-%%% turn `-7 / 2` from `-3` into `-3.5`, and a test that asserts `-3` in a
-%%% module that also divides floats is the one that sees it.
-%%% ---------------------------------------------------------------------------
+%%% F51 — floats remain distinct from integers.
 
 stats() ->
     "module Stats\n\n"
@@ -38,36 +20,27 @@ stats() ->
     "public int Slash(int a, int b)\n\n"
     "Slash(a, b) -> a / b\n".
 
-%%% --- F51.1 — the ticket's program -------------------------------------------
+%%% F51.1 — integer samples produce a float mean.
 
-%% `bsc Stats.bs Mean '[2, 4]'` prints `3.0`. Refused four times over before
-%% this feature: `float` was not a builtin type, `0.0` did not lex, `Float` was
-%% not a reserved qualifier, and `/` lowered to `div` unconditionally.
 mean_of_ints_is_a_float_test() ->
     M = build_and_load(stats(), 'Stats'),
     ?assertEqual(3.0, M:'Mean'([2, 4])),
     ?assertEqual(0.0, M:'Mean'([])),
     ?assertEqual(2.5, M:'Mean'([2, 3])).
 
-%% `/` on two `int`s is still `div` in a module that also divides floats: the
-%% over-informed emitter that lowers every `/` to the BEAM's `/` answers -3.5.
+%% Both division kinds share a module; integer division must still truncate.
 int_division_still_truncates_beside_float_division_test() ->
     M = build_and_load(stats(), 'Stats'),
     ?assertEqual(-3, M:'Slash'(-7, 2)),
     ?assertEqual(3, M:'Slash'(7, 2)).
 
-%% `Verdict(Mean([]))` is `:empty`: the value that reaches the head is the
-%% float `0.0` the author wrote, not an `int` the compiler converted.
 verdict_of_the_empty_mean_is_empty_test() ->
     M = build_and_load(stats(), 'Stats'),
     ?assertEqual(empty, M:'Check'([])),
     ?assertEqual(some, M:'Check'([2, 4])).
 
-%%% --- F51.2 — the literal -------------------------------------------------------
+%%% F51.2 — float literals and unary minus retain their meaning.
 
-%% C#'s spelling: digits, a dot, digits, an optional exponent. The printed
-%% form of every float is a literal the lexer reads back, since a residual
-%% is pasted into source (ticket 23).
 float_literals_lex_in_every_spelling_test() ->
     Src = "module Lits\n\n"
           "public list<float> All()\n\n"
@@ -75,20 +48,14 @@ float_literals_lex_in_every_spelling_test() ->
     M = build_and_load(Src, 'Lits'),
     ?assertEqual([1.5, 0.0, 1.0e20, 2.5e-3, 1025.0], M:'All'()).
 
-%% `1..5` is two integers around a rest marker, never `1.` and `.5`: the float
-%% rule needs a digit on both sides of the dot, so the lexer stays where
-%% ticket 28 put it. Asked of the lexer directly, since no B# form puts a
-%% digit before `..` — the residual printer does, and that text is read back
-%% by a person, not the parser.
+%% Test the lexer directly: no source form accepts `1..5`, but residuals use it.
 one_dot_dot_five_is_not_a_float_test() ->
     {ok, Toks, _} = bs_lexer:string("1..5"),
     ?assertMatch([{integer, _, 1}, {'..', _}, {integer, _, 5}], Toks),
     {ok, Toks2, _} = bs_lexer:string("1.5"),
     ?assertMatch([{float, _, 1.5}], Toks2).
 
-%% A negative literal in a head and in a body, and unary minus on a float
-%% variable, which is the BEAM's own negation and not `0 - x`: under ticket 80
-%% `0 - x` is an `int` beside a `float`, refused.
+%% Lowering unary minus as `0 - x` would introduce a mixed numeric pair.
 negation_is_the_beams_test() ->
     Src = "module Neg\n\n"
           "public float Flip(float x)\n\n"
@@ -105,20 +72,17 @@ negation_is_the_beams_test() ->
     ?assertEqual(other, M:'Sign'(1.5)),
     ?assertEqual(-1.0, M:'MinusOne'()).
 
-%%% --- F51.3 — the float zero in a head ---------------------------------------
+%%% F51.3 — float heads distinguish signed zero without warnings.
 
-%% On OTP 27+ a `0.0` pattern matches `+0.0` alone and `erlc` warns on the
-%% bare literal. The head lowers to `+0.0`, Gleam's spelling, so the corpus
-%% gate sees no warning and the meaning is the one the platform has.
+%% OTP 27+ distinguishes signed zero; erlc warns on a bare `0.0` pattern.
+%% Emitting `+0.0` makes the positive-zero match explicit.
 the_float_zero_head_matches_positive_zero_alone_test() ->
     M = build_and_load(stats(), 'Stats'),
     ?assertEqual(empty, M:'Verdict'(0.0)),
     ?assertEqual(some, M:'Verdict'(-0.0)),
     ?assertEqual(some, M:'Verdict'(1.5)).
 
-%% The bare literal draws `match_float_zero` from `erlc`, and `bsc` reports
-%% the platform's warnings on its own stream, so a compile whose output holds
-%% the word is a compile that emitted the bare form.
+%% The CLI forwards erlc warnings, exposing a bare-zero pattern here.
 the_float_zero_head_draws_no_warning_test() ->
     bs_test_support:with_src(
       "Stats.bs", stats(),
@@ -129,7 +93,6 @@ the_float_zero_head_draws_no_warning_test() ->
               ?assertEqual(":empty\nrc:0\n", Out)
       end).
 
-%% A negative zero literal in a head is its own value under `=:=`.
 a_negative_zero_head_is_its_own_case_test() ->
     Src = "module Zeros\n\n"
           "public atom Which(float x)\n\n"
@@ -141,10 +104,8 @@ a_negative_zero_head_is_its_own_case_test() ->
     ?assertEqual(negative_zero, M:'Which'(-0.0)),
     ?assertEqual(other, M:'Which'(2.0)).
 
-%%% --- F51.4 — ticket 80: nothing flows ----------------------------------------
+%%% F51.4 — integers and floats require explicit conversion.
 
-%% `Mean([]) -> 0` under `public float Mean` is refused by the diagnostic the
-%% checker already had; the residual is the `0` the author wrote.
 an_int_returned_where_a_float_is_declared_is_refused_test() ->
     Src = "module Bad\n\n"
           "public float Mean(list<int> samples)\n\n"
@@ -154,7 +115,7 @@ an_int_returned_where_a_float_is_declared_is_refused_test() ->
     ?assertMatch({return_not_declared, _, _}, element(4, D)),
     {return_not_declared, Residual, _} = element(4, D),
     ?assertEqual("0", bs_types:to_string(Residual)),
-    %% Ticket 80: the advice names `0.0`.
+    %% The CLI must name the float literal as well as report the residual.
     bs_test_support:with_src(
       "Bad.bs", Src,
       fun(Path, _Root) ->
@@ -162,9 +123,7 @@ an_int_returned_where_a_float_is_declared_is_refused_test() ->
               ?assertNotEqual(nomatch, string:find(Out, "`0` is an `int`; the float is `0.0`"))
       end).
 
-%% `%` over two floats is refused: 38 decided the remainder over ints, nothing
-%% decided it over floats, and `rem` on a float is `badarith` at run time.
-%% Found by the spec review; the first cut typed it `int` and let it crash.
+%% BEAM remainder accepts integers; a float operand raises badarith.
 a_remainder_over_two_floats_is_refused_test() ->
     Src = "module Rem\n\n"
           "public int Mod(float x)\n\n"
@@ -176,8 +135,6 @@ a_remainder_over_two_floats_is_refused_test() ->
            "Mod(x) -> x % 2\n",
     ?assertMatch({ok, _}, compile(Ints)).
 
-%% A `float` beside an `int` at an operator is refused, naming the conversion.
-%% One `Float.FromInt` dropped from the ticket's program is the case.
 a_mixed_pair_at_an_operator_is_refused_test() ->
     Src = "module Mixed\n\n"
           "public float Mean(list<int> samples)\n\n"
@@ -186,7 +143,6 @@ a_mixed_pair_at_an_operator_is_refused_test() ->
     [D | _] = errors(Src),
     ?assertEqual({mixed_operands, '/', float, int, none}, element(4, D)).
 
-%% Every arithmetic and ordering operator, both ways round.
 every_operator_refuses_the_mixed_pair_test() ->
     [begin
          Src = "module Mixed\n\n"
@@ -197,9 +153,6 @@ every_operator_refuses_the_mixed_pair_test() ->
      end || Op <- ["+", "-", "*", "/", "<", "<=", ">", ">=", "==", "!="],
             {Left, Right} <- [{"n", "f"}, {"f", "n"}, {"f", "1"}, {"1.5", "n"}]].
 
-%% The prose names the conversion, and names the literal spelling where the
-%% `int` side is a literal, since `Mean(xs) / 1.0` was the smuggling ticket
-%% 81 refused.
 the_mixed_pair_message_names_the_conversion_test() ->
     Src = "module Mixed\n\n"
           "public float Half(float x, int n)\n\n"
@@ -221,9 +174,7 @@ the_mixed_pair_message_names_the_conversion_test() ->
               ?assertNotEqual(nomatch, string:find(Out, "write `2.0`"))
       end).
 
-%% CONTROL — the same operators over two floats, and over two ints, compile.
-%% A rule that refused every operator with a float in it passes the two
-%% tests above and is wrong.
+%% The refusal must distinguish mixed operands from valid same-kind pairs.
 two_floats_or_two_ints_at_an_operator_compile_test() ->
     Src = "module Fine\n\n"
           "public float Area(float w, float h)\n\n"
@@ -237,9 +188,7 @@ two_floats_or_two_ints_at_an_operator_compile_test() ->
     ?assertEqual(true, M:'Wider'(3.0, 2.0)),
     ?assertEqual(4, M:'Twice'(2)).
 
-%% An operand already refused is `none`, which is inside both parts; the
-%% mixed-pair rule needs both operands INHABITED or a second error cascades
-%% onto every already-refused operand.
+%% A refused operand has bottom type; it must not cause a mixed-pair error.
 an_already_refused_operand_reports_once_test() ->
     Src = "module Once\n\n"
           "public float Go(float f)\n\n"
@@ -248,8 +197,6 @@ an_already_refused_operand_reports_once_test() ->
     ?assertEqual(1, length(Ds)),
     ?assertNotMatch({mixed_operands, _, _, _, _}, element(4, hd(Ds))).
 
-%% Comparison across the two parts is refused as arithmetic is: `==` means
-%% `=:=` (16), so `0 == 0.0` would be a comparison that is always false.
 a_float_compared_with_an_int_literal_in_a_guard_is_refused_test() ->
     Src = "module Guarded\n\n"
           "public atom Sign(float x)\n\n"
@@ -257,15 +204,11 @@ a_float_compared_with_an_int_literal_in_a_guard_is_refused_test() ->
           "Sign(_)            -> :other\n",
     [D | _] = errors(Src),
     ?assertEqual({mixed_operands, '<', float, int, "0.0"}, element(4, D)),
-    %% Alone: the int reading of the guard narrows `x` to nothing, and the
-    %% dead-guard warning that would follow advises widening a guard the
-    %% error says to rewrite, so it is not reported beside it.
+    %% A dead-guard warning would give advice conflicting with the error.
     {error, All} = bs_test_support:check_only(Src),
     ?assertEqual(1, length(All)).
 
-%% A float guard against a float literal compiles and selects. It credits
-%% nothing to exhaustiveness — the algebra carries no float intervals — so a
-%% clause set over a float parameter closes with a catch-all, as over `atom`.
+%% Float guards select values but earn no interval coverage.
 a_float_guard_selects_but_credits_nothing_test() ->
     Src = "module Guarded\n\n"
           "public atom Sign(float x)\n\n"
@@ -281,10 +224,9 @@ a_float_guard_selects_but_credits_nothing_test() ->
     [D | _] = errors(Uncovered),
     ?assertEqual(inexhaustive, element(1, element(4, D))).
 
-%%% --- F51.5 — ticket 81: the entry under the reserved `Float` -----------------
+%%% F51.5 — Float.FromInt is an inlined, reserved operation.
 
-%% `Float.FromInt` is inlined: the beam's import table names no `Float`
-%% module, as F32's gate asserts for `List`.
+%% The import table distinguishes inlining from a call to a Float module.
 float_from_int_is_inlined_test() ->
     Root = bs_test_support:fixture_root(),
     Path = bs_test_support:place(Root, "Stats.bs", stats()),
@@ -295,9 +237,6 @@ float_from_int_is_inlined_test() ->
     ?assertEqual([], [I || {'Float', _, _} = I <- Imports]),
     ?assertNotEqual([], [I || {erlang, float, 1} = I <- Imports]).
 
-%% The signature is `int -> float`: a `float` argument is refused, since
-%% `Int.FromFloat` is deferred and a conversion that accepted its own result
-%% would hide the missing one.
 float_from_int_refuses_a_float_test() ->
     Src = "module Conv\n\n"
           "public float Twice(float x)\n\n"
@@ -305,7 +244,6 @@ float_from_int_refuses_a_float_test() ->
     [D | _] = errors(Src),
     ?assertEqual(arg_not_accepted, element(1, element(4, D))).
 
-%% The name the survey rejected is unknown under the qualifier, and says so.
 float_of_is_not_an_operation_test() ->
     Src = "module Conv\n\n"
           "public float Go(int n)\n\n"
@@ -313,24 +251,19 @@ float_of_is_not_an_operation_test() ->
     [D | _] = errors(Src),
     ?assertMatch({unknown_reserved_operation, 'Float', 'Of', 1, []}, element(4, D)).
 
-%% A user module named `Float` is refused as `module List` is (67 clause 2).
 a_module_named_float_is_refused_test() ->
     Root = bs_test_support:fixture_root(),
     Src = "module Float\n\n"
           "public int Go(int n)\n\n"
           "Go(n) -> n\n",
-    %% The reserved-name refusal runs before the path check (F32), so the
-    %% file's directory does not have to be called `Float`.
+    %% Reserved names are refused before path checks, regardless of directory.
     Path = bs_test_support:place(Root, "Float.bs", Src),
     Out = run_cli("--src-root " ++ Root ++ " " ++ Path ++ " Go 1"),
     ?assertNotEqual(nomatch, string:find(Out, "rc:1")),
     ?assertNotEqual(nomatch, string:find(Out, "reserved")).
 
-%%% --- F51.6 — the part in the algebra ---------------------------------------
+%%% F51.6 — floats compose with the other types.
 
-%% `term` contains the float again, so a float passes where `term` is declared
-%% and is refused where `float` is declared from `term`: the top holds every
-%% part, or every residual subtracted from it is wrong in the quiet direction.
 term_holds_the_float_test() ->
     Src = "module Top\n\n"
           "public term Id(float f)\n\n"
@@ -343,9 +276,6 @@ term_holds_the_float_test() ->
     [D | _] = errors(Down),
     ?assertMatch({return_not_declared, _, _}, element(4, D)).
 
-%% `int | float` is discriminable: a literal head or `is_float/1` tells the
-%% two apart, so the union is accepted as a parameter (09 §4) and a clause
-%% set over it is checked.
 int_or_float_is_discriminable_test() ->
     Src = "module Num\n\n"
           "type Num = int | float\n\n"
@@ -359,8 +289,6 @@ int_or_float_is_discriminable_test() ->
     ?assertEqual(other, M:'Kind'(1)),
     ?assertEqual(other, M:'Kind'(1.5)).
 
-%% A float literal alone leaves the rest of the part, which prints as the set
-%% it is and, like `atom \ :ok`, has no head to paste.
 a_float_literal_alone_is_not_exhaustive_test() ->
     Src = "module Only\n\n"
           "public atom Verdict(float mean)\n\n"
@@ -371,7 +299,6 @@ a_float_literal_alone_is_not_exhaustive_test() ->
     Residual = element(2, element(4, D)),
     ?assertEqual("(float \\ (0.0))", bs_types:to_string(Residual)).
 
-%% The type prints as its name on every channel a signature reaches.
 float_prints_as_float_test() ->
     bs_test_support:with_src(
       "Stats.bs", stats(),
@@ -380,8 +307,6 @@ float_prints_as_float_test() ->
               ?assertNotEqual(nomatch, string:find(Out, "float"))
       end).
 
-%% A `list<float>` and a tuple carrying a float: the part composes as every
-%% other part does.
 a_float_inside_a_list_and_a_tuple_test() ->
     Src = "module Nested\n\n"
           "public float First(list<float> xs)\n\n"
@@ -393,10 +318,8 @@ a_float_inside_a_list_and_a_tuple_test() ->
     ?assertEqual(1.5, M:'First'([1.5, 2.5])),
     ?assertEqual({1.5, 2}, M:'Pair'(1.5, 2)).
 
-%%% --- F51.7 — the boundary -------------------------------------------------------
+%%% F51.7 — public and foreign boundaries enforce float types.
 
-%% A public `float` parameter is guarded by `is_float/1`, so an `int` from
-%% outside goes the way F24 sends an atom: `function_clause`, never a value.
 a_public_float_parameter_is_guarded_test() ->
     Src = "module Bound\n\n"
           "public float Twice(float x)\n\n"
@@ -406,8 +329,6 @@ a_public_float_parameter_is_guarded_test() ->
     ?assertError(function_clause, M:'Twice'(1)),
     ?assertError(function_clause, M:'Twice'(one)).
 
-%% The other direction still holds: F24's `is_integer` refuses a float at an
-%% `int` parameter, which is where ticket 69 started.
 a_float_still_does_not_reach_an_int_parameter_test() ->
     Src = "module Bump\n\n"
           "public int Bump(int n)\n\n"
@@ -416,7 +337,6 @@ a_float_still_does_not_reach_an_int_parameter_test() ->
     ?assertEqual(2, M:'Bump'(1)),
     ?assertError(function_clause, M:'Bump'(1.5)).
 
-%% A float literal in the head pins the kind, so no test is added there.
 a_float_literal_head_needs_no_kind_test_test() ->
     Src = "module Pinned\n\n"
           "public atom Is(float x)\n\n"
@@ -427,7 +347,7 @@ a_float_literal_head_needs_no_kind_test_test() ->
     ?assertEqual(no, M:'Is'(2.5)),
     ?assertError(function_clause, M:'Is'(1)).
 
-%% The spec publishes `float()`, read back off the beam's abstract code.
+%% Read the published spec from the compiled beam's abstract code.
 the_spec_publishes_float_test() ->
     Root = bs_test_support:fixture_root(),
     Path = bs_test_support:place(Root, "Stats.bs", stats()),
@@ -437,9 +357,6 @@ the_spec_publishes_float_test() ->
     Specs = [S || {attribute, _, spec, {{'Mean', 1}, S}} <- Forms],
     ?assertMatch([[{type, _, 'fun', [_, {type, _, float, []}]}]], Specs).
 
-%% A foreign return declared `float` is guarded by `is_float/1`, one guard
-%% (18 §2): the truthful declaration passes and the lying one crashes at the
-%% call, never silently.
 a_foreign_float_return_is_guarded_test() ->
     Src = "module Ffi\n\n"
           "using :erlang {\n"
@@ -454,10 +371,8 @@ a_foreign_float_return_is_guarded_test() ->
     ?assertEqual(3.0, M:'Up'(3)),
     ?assertError({case_clause, 3}, M:'Lie'(3)).
 
-%%% --- F51.8 — the obligations ------------------------------------------------
+%%% F51.8 — validation and JSON support floats.
 
-%% `ValidateAs<float>` accepts a float and refuses an int, naming the type;
-%% `ToJson<float>` writes ticket 77's number.
 the_obligations_carry_the_part_test() ->
     Src = "module Obl\n\n"
           "public result<float, ValidationError> Check(term t)\n\n"
@@ -476,10 +391,8 @@ the_obligations_carry_the_part_test() ->
     ?assertEqual(<<"1.5">>, M:'Wire'(1.5)),
     ?assertEqual(<<"1.0e20">>, M:'Wire'(1.0e20)).
 
-%%% --- F51.9 — the divisor rule reaches the new part ---------------------------
+%%% F51.9 — only provably zero float divisors are refused.
 
-%% 38 §2 over floats: a divisor the compiler proves is zero is refused, and
-%% one that might be is not.
 a_provably_zero_float_divisor_is_refused_test() ->
     Src = "module Zero\n\n"
           "public float Go(float x)\n\n"
@@ -491,11 +404,6 @@ a_provably_zero_float_divisor_is_refused_test() ->
            "Go(x, y) -> x / y\n",
     ?assertMatch({ok, _}, compile(Fine)).
 
-%% The same refusal one construct down: an arm's guard is typed against the
-%% arm's pre-guard scope, so `m < 0` over a float subject is refused, alone,
-%% and `m < 0.0` selects. Before this the arm compiled with a warning and
-%% `Kind(-1.5)` answered `:other`, the silent wrong answer ticket 80 exists
-%% to prevent (found by the advisor's review).
 a_mixed_pair_in_a_switch_arm_guard_is_refused_test() ->
     Src = "module Sw\n\n"
           "public atom Kind(float x)\n\n"
@@ -516,9 +424,8 @@ a_mixed_pair_in_a_switch_arm_guard_is_refused_test() ->
     ?assertEqual(negative, M:'Kind'(-1.5)),
     ?assertEqual(other, M:'Kind'(1.5)).
 
-%%% --- F51.10 — a switch arm ----------------------------------------------------
+%%% F51.10 — float literal switch arms select values.
 
-%% A float literal arm, and the same catch-all obligation a clause set has.
 a_float_literal_in_a_switch_arm_test() ->
     Src = "module Sw\n\n"
           "public atom Kind(float x)\n\n"

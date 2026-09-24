@@ -1,12 +1,6 @@
-%%% F46 — a function as a value (ticket 75, ENG-365).
-%%%
-%%% The arrow `fn(T) -> U` is a type of the language, a lambda `(a, b) => e`
-%%% is an expression in C#'s spelling, a name in value position is that
-%%% function, and a call through a bound name is a call form. All four are
-%%% observable at the boundary: a program using them compiles and runs, or is
-%%% refused with the diagnostic the ticket owes. Nothing here reads the
-%%% checker's tables.
+%%% F46 — functions are values.
 
+%%% Scenarios: compiler/features/F46-function-as-a-value.md
 -module(function_value_tests).
 
 -include_lib("eunit/include/eunit.hrl").
@@ -21,7 +15,6 @@ has(Out, S)   -> ?assert(string:find(Out, S) =/= nomatch).
 ok_rc(Out)    -> has(Out, "rc:0").
 bad_rc(Out)   -> has(Out, "rc:1").
 
-%% The errors a source provokes, empty when it checks clean.
 errors(Src) ->
     Diags = case check_only(Src) of
                 {ok, _, Ds}  -> Ds;
@@ -40,8 +33,6 @@ in_dir(Files) ->
     Paths = [bs_test_support:place(Root, N, S) || {N, S} <- Files],
     {Root, hd(Paths)}.
 
-%% Ticket 75's program B: an arrow in a signature, lambdas and a name as
-%% clause bodies, a call through a bound name.
 pricing_src() ->
     "module Pricing\n"
     "public fn(int) -> int Rule(atom tier)\n"
@@ -56,8 +47,6 @@ pricing_src() ->
     "public int Sum(list<(atom, int)> pairs)\n"
     "Sum(pairs) -> pairs |> List.Fold(0, (acc, (_, n)) => acc + n)\n".
 
-%% Ticket 75's program A: the three traverses, a name bare and written with
-%% its arity, and the two spellings of a lambda.
 reports_src() ->
     "module Reports\n"
     "public int Double(int n)\n"
@@ -75,7 +64,6 @@ reports_src() ->
     "public int Total(list<int> xs)\n"
     "Total(xs) -> xs |> List.Fold(0, (acc, n) => acc + n)\n".
 
-%% `LANGUAGE.md` §9's `Map<T, U>`, the program the arrow was owed for.
 map_src() ->
     "module Mapping\n"
     "public list<U> Map<T, U>(list<T> xs, fn(T) -> U f)\n"
@@ -87,8 +75,7 @@ map_src() ->
     "Tagged(xs) -> Map(xs, (n) => n switch { 0 => :zero, _ => :some })\n".
 
 %%% ---------------------------------------------------------------------------
-%%% F46.1 — the ticket's program: an arrow declared, returned as a lambda and
-%%% as a name, bound to a parameter and called through it
+%%% F46.1 — lambdas and names return callable functions.
 %%% ---------------------------------------------------------------------------
 
 a_lambda_is_a_clause_body_and_a_name_is_too_test() ->
@@ -104,8 +91,7 @@ a_lambda_parameter_is_a_pattern_test() ->
     ?assertEqual(7, M:'Sum'([{a, 3}, {b, 4}])).
 
 %%% ---------------------------------------------------------------------------
-%%% F46.2 — a name in value position: bare where the site fixes the arity,
-%%% `Double/1` anywhere; both spellings of the lambda
+%%% F46.2 — names and lambdas supply arrows.
 %%% ---------------------------------------------------------------------------
 
 a_name_and_a_lambda_are_the_same_arrow_test() ->
@@ -118,8 +104,7 @@ a_name_and_a_lambda_are_the_same_arrow_test() ->
     ?assertEqual(10, M:'Total'([1, 2, 3, 4])).
 
 %%% ---------------------------------------------------------------------------
-%%% F46.3 — `Map<T, U>`: an arrow in a polymorphic signature, solved from a
-%%% lambda's own result at two types
+%%% F46.3 — a lambda result solves a polymorphic arrow.
 %%% ---------------------------------------------------------------------------
 
 a_polymorphic_arrow_is_solved_from_the_lambda_test() ->
@@ -127,8 +112,7 @@ a_polymorphic_arrow_is_solved_from_the_lambda_test() ->
     ?assertEqual([2, 4], M:'Doubled'([1, 2])),
     ?assertEqual([zero, some], M:'Tagged'([0, 5])).
 
-%% The control: declare `Tagged` narrower than the lambda's result and it is
-%% refused, so the green above is the solve of `U` and not `term`.
+%% The narrower return controls for solving U rather than defaulting to term.
 a_polymorphic_arrow_declared_narrower_is_refused_test() ->
     Src = "module Mapping\n"
           "public list<U> Map<T, U>(list<T> xs, fn(T) -> U f)\n"
@@ -139,10 +123,9 @@ a_polymorphic_arrow_declared_narrower_is_refused_test() ->
     ?assertEqual([return_not_declared], tags(Src)).
 
 %%% ---------------------------------------------------------------------------
-%%% F46.4 — the four refusals ticket 75 owes
+%%% F46.4 — missing expectations, ambiguous names and invalid calls fail.
 %%% ---------------------------------------------------------------------------
 
-%% A lambda where no arrow is expected: a binding fixes nothing.
 a_lambda_with_no_expected_arrow_is_refused_test() ->
     Src = "module Later\n"
           "public int Later(int n)\n"
@@ -150,7 +133,6 @@ a_lambda_with_no_expected_arrow_is_refused_test() ->
           "            twice(n)\n",
     ?assertMatch([{error, _, 'Later', lambda_without_expectation}], errors(Src)).
 
-%% A bare name whose arity nothing fixes, beside two arities.
 a_bare_name_between_two_arities_is_refused_test() ->
     Src = "module Two\n"
           "public int Double(int n)\n"
@@ -163,7 +145,7 @@ a_bare_name_between_two_arities_is_refused_test() ->
     ?assertMatch([{error, _, 'Later', {name_arity_unfixed, 'Double', [1, 2]}}],
                  errors(Src)).
 
-%% The control: one arity, and the bare name needs no expectation.
+%% One arity needs no expected arrow; multiple arities do.
 a_bare_name_with_one_arity_needs_no_expectation_test() ->
     Src = "module One\n"
           "public int Double(int n)\n"
@@ -175,15 +157,12 @@ a_bare_name_with_one_arity_needs_no_expectation_test() ->
     M = build_and_load(Src, 'One'),
     ?assertEqual(8, M:'Later'(4)).
 
-%% A lambda parameter refuted by the domain: the residual is the refusal, as
-%% the destructuring bind prints it.
 a_lambda_parameter_refuted_by_the_domain_is_refused_test() ->
     Src = "module Oks\n"
           "public int Oks(list<result<int, string>> rs)\n"
           "Oks(rs) -> rs |> List.Fold(0, (acc, (:ok, n)) => acc + n)\n",
     ?assertMatch([{error, _, 'Oks', {lambda_param_refuted, 2, _}}], errors(Src)).
 
-%% A call through a name whose type is not an arrow of that arity.
 a_call_through_a_non_arrow_is_refused_test() ->
     Src = "module Bad\n"
           "public int Charge(int rule, int cents)\n"
@@ -195,12 +174,10 @@ a_call_through_a_non_arrow_is_refused_test() ->
     ?assertMatch([{error, _, 'Charge', {not_callable, rule, 1, _}}], errors(Src2)).
 
 %%% ---------------------------------------------------------------------------
-%%% F46.5 — the arrow is contained like any type: domain contravariant,
-%%% codomain covariant, and a non-arrow is refused where one is declared
+%%% F46.5 — arrow domains are contravariant; codomains are covariant.
 %%% ---------------------------------------------------------------------------
 
-%% The must-refuse: a forgotten seventh part in the algebra's emptiness test
-%% would report an arrow-only type empty and let this through.
+%% An arrow-only type must not count as empty and admit this argument.
 an_int_where_an_arrow_is_declared_is_refused_test() ->
     Src = pricing_src() ++
           "public int Wrong()\n"
@@ -241,8 +218,7 @@ a_filter_predicate_must_return_bool_test() ->
                  errors(Src)).
 
 %%% ---------------------------------------------------------------------------
-%%% F46.6 — the corrected signature and `--api` spell an arrow as the author
-%%% does
+%%% F46.6 — corrected signatures and API output print arrows.
 %%% ---------------------------------------------------------------------------
 
 the_corrected_signature_prints_an_arrow_test() ->
@@ -264,8 +240,7 @@ api_prints_the_arrow_test() ->
     has(Out, "int Charge(fn(int) -> int, int)\n").
 
 %%% ---------------------------------------------------------------------------
-%%% F46.7 — scope: a lambda closes over the clause and its parameters bind
-%%% under ticket 34, no shadowing
+%%% F46.7 — lambdas capture clause scope without shadowing.
 %%% ---------------------------------------------------------------------------
 
 a_lambda_closes_over_the_clause_test() ->
@@ -288,9 +263,7 @@ a_lambda_body_reading_an_unbound_name_is_refused_test() ->
     ?assertMatch([{error, _, 'Shift', {unbound_variable, by}}], errors(Src)).
 
 %%% ---------------------------------------------------------------------------
-%%% F46.12 — a guard is a question about matched values (F41): a call through
-%%% a bound name there is refused as the call it is, and a lambda there is
-%%% refused in the language's voice rather than by `erlc`
+%%% F46.12 — bound calls and lambdas are refused in guards.
 %%% ---------------------------------------------------------------------------
 
 a_call_through_a_bound_name_in_a_guard_is_refused_test() ->
@@ -300,9 +273,7 @@ a_call_through_a_bound_name_in_a_guard_is_refused_test() ->
           "Check(_, _)             -> :no\n",
     ?assertMatch([{error, _, 'Check', {call_in_guard, ok}} | _], errors(Src)).
 
-%% Bracketed, because a guard is parsed at the tier below the lambda (ticket
-%% 76): `when (k) => k` is a syntax error at the `=>`, and the lambda reaches
-%% the checker only inside a parenthesis, where it is an expression again.
+%% Parentheses let the lambda reach the checker instead of failing to parse.
 a_lambda_in_a_guard_is_refused_test() ->
     Src = "module Grd\n"
           "public atom Check(int n)\n"
@@ -311,10 +282,7 @@ a_lambda_in_a_guard_is_refused_test() ->
     ?assertMatch([{error, _, 'Check', lambda_in_guard} | _], errors(Src)).
 
 %%% ---------------------------------------------------------------------------
-%%% F46.13 — a polymorphic call re-checks its arguments under the solution,
-%%% and a variable is solved by its variance in the declared return (ticket 76
-%%% Q2 and Q3). The extent of `fn(T) -> U` is `fn(none) -> term`, which every
-%%% unary arrow satisfies, so without the re-check these compiled and crashed.
+%%% F46.13 — polymorphic arguments agree under the inferred solution.
 %%% ---------------------------------------------------------------------------
 
 inc_src() ->
@@ -326,8 +294,7 @@ map_decl_src() ->
     "Map([], _)       -> []\n"
     "Map([h, ..t], f) -> [f(h), ..Map(t, f)]\n".
 
-%% `T` is at least `string` from the list and at most `int` from `Inc`'s
-%% domain: the arguments disagree, and `Incs '["a"]'` would crash.
+%% The list requires string while the function domain requires int.
 a_function_narrower_than_the_list_is_refused_test() ->
     Src = "module Incs\n" ++ map_decl_src() ++ inc_src() ++
           "public list<int> Incs(list<string> xs)\n"
@@ -335,8 +302,6 @@ a_function_narrower_than_the_list_is_refused_test() ->
     ?assertMatch([{error, _, 'Incs',
                    {instantiation_conflict, 'Map', 'T', 1, _, 2, _}}], errors(Src)).
 
-%% The other way round: the list is `int` and the function takes `string`.
-%% The join the compiler did before solved `T` to `int | string`.
 a_function_over_another_type_is_refused_test() ->
     Src = "module Lens\n" ++ map_decl_src() ++
           "public int Len(string s)\n"
@@ -346,9 +311,6 @@ a_function_over_another_type_is_refused_test() ->
     ?assertMatch([{error, _, 'Lens',
                    {instantiation_conflict, 'Map', 'T', 1, _, 2, _}}], errors(Src)).
 
-%% A variable read from both a plain argument and an arrow's codomain, and
-%% bounded by the arrow's domain. Before the re-check this was refused only
-%% at the return, where the offered `int | string` compiled and crashed.
 twice_src() ->
     "public T Twice<T>(T x, fn(T) -> T f)\n"
     "Twice(x, f) -> f(f(x))\n".
@@ -364,10 +326,7 @@ a_value_outside_the_functions_domain_is_refused_test() ->
     M = build_and_load(Good, 'Tw'),
     ?assertEqual(5, M:'Good'()).
 
-%% A literal beside a lambda. The first argument supplies the singleton `3`,
-%% and a lambda typed over that singleton alone returns `int`, which escapes
-%% it; typed again over what the arguments now supply, `3 | int`, it agrees
-%% with itself. Both compiled before ticket 76 and must still.
+%% The literal supplies a singleton; the lambda result widens it to int.
 a_literal_beside_a_lambda_is_accepted_test() ->
     Src = "module Lit\n" ++ twice_src() ++
           "public int Run()\n"
@@ -387,9 +346,7 @@ a_user_written_fold_from_a_literal_seed_is_accepted_test() ->
     M = build_and_load(Src, 'Folds'),
     ?assertEqual(6, M:'Sum'([1, 2, 3])).
 
-%% Two arguments that both need an expectation: a switch at a bare `T` and a
-%% lambda at `fn(T) -> T`. Neither is typed before the other, so the lambda
-%% must not be typed over the nothing a not-yet-typed argument supplies.
+%% Both arguments need an expectation; neither supplies a type on its own.
 two_arguments_that_need_an_expectation_are_typed_together_test() ->
     Src = "module Keep\n"
           "public T Keep<T>(T x, fn(T) -> T f)\n"
@@ -401,9 +358,7 @@ two_arguments_that_need_an_expectation_are_typed_together_test() ->
     ?assertEqual(2, M:'Run'(0)),
     ?assertEqual(8, M:'Run'(7)).
 
-%% `A` occurs only under `f`'s domain and the return is contravariant in it,
-%% so it takes the meet of its upper bounds: `step` is `fn(int) -> int`, not
-%% the uncallable `fn(none) -> int` a least-from-covariant rule gives.
+%% A must admit int so the composed function remains callable.
 composition_solves_a_contravariant_variable_test() ->
     Src = "module Comp\n"
           "public fn(A) -> C Compose<A, B, C>(fn(A) -> B f, fn(B) -> C g)\n"
@@ -417,9 +372,7 @@ composition_solves_a_contravariant_variable_test() ->
     M = build_and_load(Src, 'Comp'),
     ?assertEqual(8, M:'Marked'(3)).
 
-%% `T` is covariant in `option<T>`, so it takes the join of its lower bounds,
-%% `int` from the list, and the wider predicate is accepted beneath it. The
-%% join of every occurrence returned `option<int | :free>` and was refused.
+%% A wider predicate must not widen the list element type in the result.
 a_wider_predicate_keeps_the_lists_type_test() ->
     Src = "module Cheap\n"
           "public option<T> Pick<T>(list<T> xs, fn(T) -> bool p)\n"
@@ -435,10 +388,7 @@ a_wider_predicate_keeps_the_lists_type_test() ->
     ?assertEqual(100, M:'FirstCheap'([600, 100])),
     ?assertEqual(nothing, M:'FirstCheap'([600])).
 
-%% Ticket 76 leaves a variable the return mentions in both positions
-%% unruled; what is asserted here is only that such a call is accepted when
-%% its arguments agree and refused when they do not, which every candidate
-%% rule gives, and not which bound it takes.
+%% This checks agreement, without choosing which bound an invariant T takes.
 a_variable_in_both_positions_of_the_return_test() ->
     Decl = "public fn(T) -> T Same<T>(fn(T) -> T f)\n"
            "Same(f) -> f\n",
@@ -457,9 +407,7 @@ a_variable_in_both_positions_of_the_return_test() ->
                "          g(s)\n",
     ?assertNotEqual([], errors(Disagree)).
 
-%% One argument can supply a variable and bound it: `Len/1` returns `int`
-%% and takes `string`, handed where the two must be one `T`. The message
-%% says so rather than claiming two arguments disagree.
+%% One function supplies conflicting bounds for T through domain and return.
 an_argument_that_disagrees_with_itself_is_named_once_test() ->
     Src = "module Self\n"
           "public fn(T) -> T Same<T>(fn(T) -> T f)\n"
@@ -476,9 +424,7 @@ an_argument_that_disagrees_with_itself_is_named_once_test() ->
     has(Out, "argument 1 supplies T as:").
 
 %%% ---------------------------------------------------------------------------
-%%% F46.14 — the bare-name lambda `n => e` is an expression everywhere, and a
-%%% switch arm's guard is parsed at the tier below the lambda (ticket 76 Q1,
-%%% C#'s line): the seven programs of round 1's table
+%%% F46.14 — bare lambdas are expressions; guards delimit switch arms.
 %%% ---------------------------------------------------------------------------
 
 a_bare_lambda_is_a_clause_body_test() ->
@@ -512,8 +458,6 @@ a_bare_lambda_is_still_an_argument_test() ->
     M = build_and_load(Src, 'Large'),
     ?assertEqual([150], M:'Large'([50, 150])).
 
-%% The two guard shapes ticket 75 accepted as syntax errors: a guard that is
-%% itself parenthesised, and one that is a bare name.
 a_parenthesised_guard_before_an_arm_test() ->
     Src = "module Grade\n"
           "public atom Grade(int n)\n"
@@ -530,8 +474,6 @@ a_bare_name_guard_before_an_arm_test() ->
     ?assertEqual(1, M:'Flag'(3, true)),
     ?assertEqual(0, M:'Flag'(3, false)).
 
-%% The collision F46 found, which the guard's tier must keep resolved: a
-%% guard ending in a name is not a lambda.
 a_guard_ending_in_a_name_is_not_a_lambda_test() ->
     Src = "module Cmp\n"
           "public int Cmp(int n, int m)\n"
@@ -540,8 +482,7 @@ a_guard_ending_in_a_name_is_not_a_lambda_test() ->
     ?assertEqual(0, M:'Cmp'(5, 3)),
     ?assertEqual(1, M:'Cmp'(2, 3)).
 
-%% A binding expects no arrow, so the bare form there is the checker's
-%% refusal and not the parser's.
+%% The bare lambda must reach the checker, not fail in the parser.
 a_bare_lambda_in_a_binding_reaches_the_checker_test() ->
     Src = "module Later\n"
           "public int Later(int n)\n"
@@ -550,8 +491,7 @@ a_bare_lambda_in_a_binding_reaches_the_checker_test() ->
     ?assertMatch([{error, _, 'Later', lambda_without_expectation}], errors(Src)).
 
 %%% ---------------------------------------------------------------------------
-%%% F46.8 — the pipe does not move: `xs |> Sum` stays a syntax error, and a
-%%% call through a bound name is a call the pipe rewrites
+%%% F46.8 — pipes require calls and accept calls through bound names.
 %%% ---------------------------------------------------------------------------
 
 the_pipe_into_a_bare_name_is_still_a_syntax_error_test() ->
@@ -571,8 +511,7 @@ the_pipe_into_an_applied_name_is_a_call_test() ->
     ?assertEqual(5, M:'Apply'(fun(X) -> X + 1 end, 4)).
 
 %%% ---------------------------------------------------------------------------
-%%% F46.9 — a switch arm's body takes the clause's expected arrow; the
-%%% codomain runs as far as the type expression does
+%%% F46.9 — switch arms inherit arrows; codomains include unions.
 %%% ---------------------------------------------------------------------------
 
 a_switch_arm_hands_the_clause_expectation_to_its_lambda_test() ->
@@ -595,10 +534,7 @@ the_codomain_absorbs_a_union_test() ->
     ?assertEqual(nothing, (M:'Table'())(b)).
 
 %%% ---------------------------------------------------------------------------
-%%% F46.10 — what was fixed earlier and must hold: `ValidateAs<T>` refuses an
-%%% arrow (ticket 11), a foreign return may not promise one (ticket 18 §2),
-%%% two arrows of one arity in a bare union are indiscriminable (ticket 70)
-%%% and two of different arity are not
+%%% F46.10 — validation, foreign returns and unions constrain arrows.
 %%% ---------------------------------------------------------------------------
 
 validate_as_over_an_arrow_is_refused_test() ->
@@ -607,8 +543,7 @@ validate_as_over_an_arrow_is_refused_test() ->
           "Check(x) -> ValidateAs<fn(int) -> int>(x)\n",
     ?assertMatch([{error, _, 'Check', {validate_over_arrow, _}}], errors(Src)).
 
-%% A declaration refusal is raised, as F40's and F36's are, and the CLI turns
-%% it into the diagnostic; here it is observed as raised.
+%% Declaration refusals raise here; the CLI renders them as diagnostics.
 a_foreign_return_may_not_promise_an_arrow_test() ->
     Src = "module For\n"
           "using :m {\n"
@@ -619,9 +554,7 @@ a_foreign_return_may_not_promise_an_arrow_test() ->
     ?assertError({foreign_ret_beyond_one_guard, _, _, _, _, arrow, _, _, _},
                  check_only(Src)).
 
-%% Spelled through named arrows, because the codomain runs as far as the
-%% type expression does: `fn(int) -> int | fn(atom) -> int` is ONE arrow
-%% returning `int | fn(atom) -> int` (ticket 75 Q6).
+%% Named aliases form a union of arrows; an inline union extends the codomain.
 two_arrows_of_one_arity_are_indiscriminable_test() ->
     Src = "module Same\n"
           "type A = fn(int) -> int\n"
@@ -647,8 +580,7 @@ two_arrows_of_different_arity_are_discriminable_test() ->
     ?assertEqual([], errors(Src)).
 
 %%% ---------------------------------------------------------------------------
-%%% F46.11 — the corpus program compiles and runs through the CLI, so an edit
-%%% there cannot silently drop the arrow
+%%% F46.11 — the corpus program runs through the CLI.
 %%% ---------------------------------------------------------------------------
 
 the_corpus_program_runs_test() ->

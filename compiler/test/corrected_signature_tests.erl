@@ -1,38 +1,20 @@
+%%% Scenarios: compiler/features/F25-corrected-signature.md
 -module(corrected_signature_tests).
 
 -include_lib("eunit/include/eunit.hrl").
 
 -import(bs_test_support, [with_src/3, run_cli/1]).
 
-%%% ---------------------------------------------------------------------------
-%%% F25 — the return-mismatch diagnostic carries the signature to paste.
-%%%
-%%% Ticket 23 §8: "when a clause returns outside its signature, the diagnostic
-%%% carries the corrected signature to paste." §2's line is that the compiler
-%%% synthesises the head and never the body, and §4's membership test for the
-%%% contractual subset is the same question: does it hand the agent something to
-%%% write? Before this feature `return_not_declared` printed the uncovered
-%%% residual and stopped, which answers what is WRONG and not what to WRITE.
-%%%
-%%% THE THREE TESTS THAT SHAPED THE FEATURE ARE 3, 4 AND 5, NOT 1. Test 1 is the
-%%% happy path and a fix that only satisfies it is the plausible-but-wrong one:
-%%% it prints a line per offending clause (test 3 fails), and it prints a mint
-%%% tag for a record (test 4 fails) which is a line that LOOKS pasteable and is
-%%% not.
-%%% ---------------------------------------------------------------------------
+%%% Corrected signatures
 
 -define(HEADING, "the signature its clauses justify:").
-%% ENG-346 R2: a line that is withheld says why.
+
 -define(UNSPELLABLE, "no signature is offered: what the clauses return has no spelling as a type yet.").
 
-%% ENG-346 Round 3 (David: "all"): every return mismatch leads with the clause,
-%% naming the declared type as the author wrote it. The signature states intent
-%% and the compiler holds the clauses to it; widening is the alternative.
 lead(Declared) ->
     "If `" ++ Declared ++ "` is what you meant, fix the clause, not the signature.".
 
-%% The lead comes before anything else the correction says: the widened line,
-%% the refused widening, or the reason a line is withheld.
+%% The clause advice precedes widening, refusal, and withholding reasons.
 leads(Out, Declared) ->
     Rest = [P || M <- [?HEADING, "Widening the signature", "no signature is offered"],
                  P <- [string:str(Out, M)], P > 0],
@@ -41,73 +23,45 @@ leads(Out, Declared) ->
         L -> Rest =:= [] orelse L < lists:min(Rest)
     end.
 
-%% Two things this helper got wrong the first time, both of which made every
-%% assertion below fail for the same uninformative reason — no output at all.
-%% `place/3`'s second argument is the FILE NAME, so it needs the `.bs` extension
-%% or nothing is a source file; and it answers the file it wrote, while F15 made
-%% the DIRECTORY the unit of compilation, so what `bsc` is given is its dirname.
+%% Source discovery needs `.bs`; compilation takes the containing directory.
 cli(Name, Src) ->
     with_src(Name ++ ".bs", Src,
              fun(Path, Root) ->
                      run_cli("--src-root " ++ Root ++ " " ++ filename:dirname(Path))
              end).
 
-%%% ---------------------------------------------------------------------------
-%%% 1 — the baseline
-%%% ---------------------------------------------------------------------------
+%%% Baseline
 
-%% F25.1 — the line exists, and it is a whole signature rather than a type.
-%% Pasting it over the declared line is the entire point, so the assertion is on
-%% the line and not on the fragment: a fix that printed only `:oops | int` would
-%% pass a substring check on the type and still leave the agent to assemble a
-%% signature, which is the work §2 says the compiler owns.
+%% F25.1 — the correction is a whole signature, not a type fragment.
 a_return_mismatch_carries_the_signature_to_paste_test() ->
     Src = "module M1\npublic int Answer(int n)\nAnswer(n) -> :oops\n",
     Out = cli("M1", Src),
     ?assert(string:find(Out, ?HEADING) =/= nomatch),
     ?assert(string:find(Out, "public int | :oops Answer(int n)") =/= nomatch),
-    %% Round 3: the clause first, the widened line as the alternative.
     ?assert(leads(Out, "int")),
     ?assert(string:find(Out, "Otherwise, the signature its clauses justify:") =/= nomatch).
 
-%% F25.2 — today's message is not replaced. The residual answers "what is not
-%% covered" and the new line answers "what to write"; they are different
-%% questions and the first one is what ticket 04 made the product surface.
+%% F25.2 — the uncovered residual accompanies the correction.
 the_uncovered_residual_survives_beside_it_test() ->
     Src = "module M2\npublic int Answer(int n)\nAnswer(n) -> :oops\n",
     Out = cli("M2", Src),
     ?assert(string:find(Out, "not covered by the declared return type:") =/= nomatch).
 
-%% ENG-328 / ticket 12 §4. `public none | term Reject(term r)` is a program
-%% ticket 68 refuses, so printing it as the line to paste is ticket 23 §2's
-%% failure mode — a line that looks pasteable and is not. Why the bottom is the
-%% only declared type that reaches it: F38 §F38.3.
-%%
-%% Asserted at the CLI because that is where an author reads it, and as an
-%% ABSENCE beside a presence: the `none |` check alone would pass over a run
-%% that printed nothing at all.
+%% A presence check prevents the absence check passing on empty output.
 a_none_return_is_corrected_without_an_absorbed_member_test() ->
     Src = "module M10\npublic none Reject(term r)\nReject(r) -> r\n",
     Out = cli("M10", Src),
     ?assert(string:find(Out, ?HEADING) =/= nomatch),
     ?assert(string:find(Out, "public term Reject(term r)") =/= nomatch),
     ?assertEqual(nomatch, string:find(Out, "none |")),
-    %% ENG-346 R3 does not fire for the bottom: every type contains `none`, so
-    %% "this replaces `none`" would be true of any line and say nothing.
+    %% Every type contains `none`, so replacement advice would say nothing.
     ?assertEqual(nomatch, string:find(Out, "this replaces")),
-    %% Round 3: for the bottom the lead is the likelier fix, not a vacuous one —
-    %% a function declared never to return has a clause that returns.
+    %% A `none` return forbids returning at all, so clause advice still applies.
     ?assert(leads(Out, "none")).
 
-%%% ---------------------------------------------------------------------------
-%%% 3 — the correction is a property of the FUNCTION
-%%% ---------------------------------------------------------------------------
+%%% Function-wide corrections
 
-%% F25.3 — MEASURED FIRST: two offending clauses produce two diagnostics. If each
-%% carried its own correction the compiler would print two contradictory
-%% pasteable lines — `int | :zero` and `int | (:error, string)` — and pasting
-%% either leaves the other clause still wrong. One line, from the union of every
-%% residual, attached to both diagnostics.
+%% F25.3 — both diagnostics carry the same whole-function correction.
 two_offending_clauses_get_one_function_wide_signature_test() ->
     Src = "module M3\npublic int Go(int n)\n"
           "Go(0) -> :zero\n"
@@ -117,23 +71,10 @@ two_offending_clauses_get_one_function_wide_signature_test() ->
     ?assertEqual(2, count_occurrences(Out, ?HEADING)),
     ?assertEqual(2, count_occurrences(Out, Line)).
 
-%%% ---------------------------------------------------------------------------
-%%% 4 — the refusal, and it is the half a gate written after the code would miss
-%%% ---------------------------------------------------------------------------
+%%% Unwritable residuals
 
-%% F25.4 — a record in the RESIDUAL has no writable spelling. `bs_types` renders
-%% it as `{ Kind: :'M4.Invoice', Id: int, Total: int }`, which is a correct
-%% description of the set and a bad thing to paste: ticket 26 §1 mints that tag
-%% from the qualified module path, so pasting it hard-codes a mint instead of
-%% naming `Invoice`. No signature is printed, and the ordinary message stands.
-%%
-%% THE TAG IS EXPECTED IN THE OUTPUT AND FORBIDDEN IN THE SIGNATURE, and the
-%% first draft of this test asserted it was absent altogether — which forbids the
-%% correct behaviour. The residual prints `{ Kind: :'M4.Invoice' }` on purpose:
-%% ticket 04 made the residual the missing case and `to_pattern/1` renders the
-%% discriminator deliberately. What F25 refuses is the pasteable line, so that is
-%% what is asserted, and the residual is asserted PRESENT so the refusal is known
-%% to have dropped one line rather than the whole diagnostic.
+%% F25.4 — a record residual withholds the signature, not the diagnostic.
+%% The discriminator belongs in the residual, but not in a pasted signature.
 a_record_in_the_residual_prints_no_signature_test() ->
     Src = "module M4\n"
           "record Order   { Id: int, Total: int }\n"
@@ -144,17 +85,10 @@ a_record_in_the_residual_prints_no_signature_test() ->
     ?assert(string:find(Out, "returns a value its signature does not declare") =/= nomatch),
     ?assert(string:find(Out, "Kind: :'M4.Invoice'") =/= nomatch),
     ?assertEqual(nomatch, string:find(Out, ?HEADING)),
-    %% ENG-346 R2: withheld, and it says why.
     ?assert(string:find(Out, ?UNSPELLABLE) =/= nomatch),
-    %% Round 3: a withheld line still leads with the clause.
     ?assert(leads(Out, "Order")).
 
-%% F25.5 — the mirror, and it is why the declared half is read from the SOURCE
-%% AST rather than from the algebra. Here the record is the DECLARED type and the
-%% residual is an atom: through the algebra the declared half would render as its
-%% mint tag and this case would be refused too, which would be a refusal with no
-%% cause. From source it is `Order`, and `Order | :oops` is exactly what the
-%% author should paste.
+%% F25.5 — a declared record keeps its source name in the correction.
 a_declared_record_is_named_not_minted_test() ->
     Src = "module M5\n"
           "record Order { Id: int, Total: int }\n"
@@ -164,13 +98,9 @@ a_declared_record_is_named_not_minted_test() ->
     ?assert(string:find(Out, "public Order | :oops Make(int n)") =/= nomatch),
     ?assertEqual(nomatch, string:find(Out, "Kind:")).
 
-%%% ---------------------------------------------------------------------------
-%%% 6 — visibility
-%%% ---------------------------------------------------------------------------
+%%% Visibility
 
-%% F25.6 — F12 made an unmarked signature private, so `public` is written exactly
-%% where it is meant. A synthesised line that exported a private function would
-%% be a worse defect than the one it fixes.
+%% F25.6 — a corrected private signature stays private.
 a_private_function_is_not_exported_by_the_pasted_line_test() ->
     Src = "module M6\n"
           "public int Entry(int n)\n"
@@ -181,30 +111,19 @@ a_private_function_is_not_exported_by_the_pasted_line_test() ->
     ?assert(string:find(Out, "int | :oops Helper(int n)") =/= nomatch),
     ?assertEqual(nomatch, string:find(Out, "public int | :oops Helper")).
 
-%%% ---------------------------------------------------------------------------
-%%% 7 — the contractual subset
-%%% ---------------------------------------------------------------------------
+%%% Diagnostic terms
 
-%% F25.7 — ticket 23 §4's membership test is §2's: does it hand the agent
-%% something to write? It does now, so the tag joins the frozen subset. This is
-%% the assertion that would fail if the descriptor were changed without the
-%% promise being made.
+%% F25.7 — return mismatches belong to the contractual diagnostic subset.
 return_not_declared_is_contractual_test() ->
     ?assert(lists:member(return_not_declared, bs_diag:contractual())).
 
-%% F25.8 — the term channel carries it too, and as its own key. §1 makes the term
-%% canonical and the prose a pure function of it, so a corrected signature that
-%% existed only in the prose would be the wrong way round.
+%% F25.8 — the term carries the corrected signature under its own key.
 the_term_carries_the_corrected_signature_test() ->
     D = term_of("M9", "module M9\npublic int Answer(int n)\nAnswer(n) -> :oops\n"),
     ?assertMatch(#{tag := return_not_declared,
                    corrected := "public int | :oops Answer(int n)"}, D).
 
-%% F25.9 — and `none` when there is nothing writable to say, rather than the key
-%% going missing. A consumer matching on the key must not have to distinguish
-%% "absent" from "refused". Read off the CLI's term channel for F25.4's record
-%% residual, which is withheld in practice; since ENG-346's R2 the term also
-%% carries why.
+%% F25.9 — a withheld signature has an explicit `none` and a reason.
 the_term_says_none_when_no_signature_is_offered_test() ->
     Src = "module M27\n"
           "record Order   { Id: int, Total: int }\n"
@@ -214,45 +133,19 @@ the_term_says_none_when_no_signature_is_offered_test() ->
     ?assertMatch(#{tag := return_not_declared, corrected := none,
                    withheld := unspellable}, term_of("M27", Src)).
 
-%%% ---------------------------------------------------------------------------
-%%% 10 — a correction the declaration check refuses (ENG-346)
-%%%
-%%% Measured 2026-09-09: `Pick` declared `map<string, int>` and returning a
-%%% `map<string, binary>` was told to paste
-%%% `public map<string, int> | map<string, binary> Pick(int n)`, and pasting it
-%%% got `no clause head can tell ...` from the declaration check, at a compile
-%%% and at `--api`. Ticket 70 kept that union LEGAL-in-a-container and refused
-%%% at the top, and put the objection in the advice — so the advice has to agree
-%%% with the refusal, and it names the repair 09 §5 anticipated: tag the members.
-%%%
-%%% F25.12 and F25.13 are the tests that shaped the fix. F25.12 is the
-%%% over-refusal control: `map<string, int> | :oops` is split by a guard, so a
-%%% fix that withholds any line with a map in it fails there. F25.13 puts both
-%%% maps in the RESIDUAL under a declared `int`, so a fix that only pairs each
-%%% residual member against the declared type prints the refused line there.
-%%%
-%%% F25.15 and F25.16 came from the /code-review spec axis on the first fix,
-%%% which asked the one refusal ticket 70 named instead of the declaration check
-%%% the ticket asked for. Each is a printed line the compiler refused when
-%%% pasted: an absorbed member, and a syntax error.
-%%% ---------------------------------------------------------------------------
+%%% Corrections refused by the declaration check
 
 -define(REFUSED, "Widening the signature to cover what the clauses return would be refused:").
 -define(TELL, "no clause head can tell `map<string, int>` from `map<string, binary>`").
-%% Round 5 (David, 2026-09-11: "1, records"): the repair is a named type whose
-%% members are records, so the compiler mints the tag and nobody writes one.
+
 -define(TAG, "so if both are meant, give each a record of its own and name the pair:").
 -define(RECORDS, "    record Name1 { Value: map<string, int> }\n"
                  "    record Name2 { Value: map<string, binary> }\n"
                  "    type Name = Name1 | Name2\n").
 -define(BUILD, "  build each value as its record, and choose the names.\n").
 
-%% The whole return type the advice declares, as the prior art requires
-%% (F25's Round 4): never a fragment of it.
 returns(Type) -> "  declare the return as `" ++ Type ++ "`,\n".
 
-%% The ticket's program, with the declared return type as the variable, and
-%% the type of the second clause's value as a second one.
 pick_src(Mod, Declared) -> pick_src(Mod, Declared, "map<string, binary>").
 
 pick_src(Mod, Declared, Rest) ->
@@ -268,8 +161,8 @@ pick_program(Mod, Signature, Rest) ->
     "private " ++ Rest ++ " Rest()\n"
     "Rest() -> Rest()\n".
 
-%% A compile with `-o`, so a clean one writes no `.beam` into the working
-%% directory. A clean compile prints nothing, so the answer is `"rc:0\n"`.
+%% `-o` keeps emitted beams in the fixture directory.
+%% A clean compile emits only the CLI helper's exit marker.
 compile(Name, Src) ->
     with_src(Name ++ ".bs", Src,
              fun(Path, Root) ->
@@ -277,9 +170,8 @@ compile(Name, Src) ->
                              ++ filename:dirname(Path))
              end).
 
-%% F25.10 — the ticket's program. The residual still prints, the refused line
-%% does not, and the diagnostic says why and what to do instead. Asserted as an
-%% absence beside three presences, so a run that printed nothing fails.
+%% F25.10 — a refused correction gives a reason and repair beside the residual.
+%% Positive checks prevent the absence checks passing on empty output.
 a_correction_the_declaration_check_refuses_is_not_printed_test() ->
     Out = cli("M11", pick_src("M11", "map<string, int>")),
     ?assert(string:find(Out, "not covered by the declared return type:\n"
@@ -291,18 +183,13 @@ a_correction_the_declaration_check_refuses_is_not_printed_test() ->
     ?assert(string:find(Out, ?TAG) =/= nomatch),
     ?assert(string:find(Out, ?RECORDS) =/= nomatch),
     ?assert(string:find(Out, returns("Name") ++ ?BUILD) =/= nomatch),
-    %% Round 5: the author writes no tag.
+    %% Record repair needs no author-written tuple tag.
     ?assertEqual(nomatch, string:find(Out, "(:tag1")),
-    %% Round 2, answered in Round 3: the clause first, since the likelier
-    %% mistake in a real checkout is the guest's quantities still being text.
     ?assert(leads(Out, "map<string, int>")),
     ?assert(string:str(Out, lead("map<string, int>")) < string:str(Out, ?REFUSED)).
 
-%% F25.11 — the premise, at BOTH declaration sites. The line F25.10 withholds
-%% is refused by a compile and by `--api`, which reaches the declaration check
-%% through `exports_of/1` and never through `check/2`. When a map pattern ships
-%% and the refusal lifts, this goes red, and so does F25.10: the correction is
-%% pasted back through the same declaration check, so the line prints again.
+%% F25.11 — compile and `--api` both refuse the withheld declaration.
+%% The query path checks declarations without checking function body types.
 the_withheld_line_is_refused_at_both_declaration_sites_test() ->
     Src = pick_src("M12", "map<string, int> | map<string, binary>"),
     with_src("M12.bs", Src,
@@ -314,9 +201,7 @@ the_withheld_line_is_refused_at_both_declaration_sites_test() ->
                      ?assert(string:find(Api, ?TELL) =/= nomatch)
              end).
 
-%% F25.12 — the over-refusal control. A map beside an atom is told apart by
-%% `is_map`, so the line prints — and pasting it compiles clean, which is the
-%% claim the line makes.
+%% F25.12 — a map beside an atom remains correctable: `is_map` splits them.
 a_union_a_guard_can_split_is_still_corrected_test() ->
     Line = "public map<string, int> | :oops Pick(int n)",
     Out = cli("M13", "module M13\npublic map<string, int> Pick(int n)\nPick(n) -> :oops\n"),
@@ -324,25 +209,18 @@ a_union_a_guard_can_split_is_still_corrected_test() ->
     ?assertEqual(nomatch, string:find(Out, ?REFUSED)),
     ?assertEqual("rc:0\n", compile("M14", "module M14\n" ++ Line ++ "\nPick(n) -> :oops\n")).
 
-%% F25.13 — both maps in the residual. `int` splits from each map by a guard,
-%% so pairing residual members against the declared type alone finds nothing
-%% and prints `int | map<string, int> | map<string, binary>`, which is refused.
-%% Two offending clauses, so two diagnostics, and neither carries the line.
+%% F25.13 — two residual maps are refused even under a declared `int`.
+%% Comparing each map only with `int` misses the indistinguishable pair.
 two_maps_in_the_residual_are_refused_together_test() ->
     Out = cli("M15", pick_src("M15", "int")),
     ?assertEqual(2, count_occurrences(Out, ?REFUSED)),
     ?assertEqual(2, count_occurrences(Out, ?TELL)),
     ?assertEqual(2, count_occurrences(Out, lead("int"))),
     ?assertEqual(nomatch, string:find(Out, ?HEADING)),
-    %% The one program where the whole return differs from the pair: `int`
-    %% stays in it (Round 4's prior art, whole type or nothing).
+    %% The whole return includes `int`, which is outside the repaired pair.
     ?assertEqual(2, count_occurrences(Out, returns("int | Name"))).
 
-%% F25.14 — the term carries the pair under its own key, and `corrected` stays
-%% `none`, because there is nothing to paste. The key is present on every
-%% `return_not_declared`, as `none` when nothing refused the line (F25.9's rule:
-%% a consumer never tells "absent" from "refused"). Read off the CLI's term
-%% channel, since F16 makes the term canonical and the prose a function of it.
+%% F25.14 — the term names the refused pair and keeps `corrected` as `none`.
 the_term_names_the_pair_that_refused_the_correction_test() ->
     Refused = term_of("M16", pick_src("M16", "map<string, int>")),
     ?assertMatch(#{tag := return_not_declared, corrected := none,
@@ -364,22 +242,14 @@ the_term_names_the_pair_that_refused_the_correction_test() ->
                    declared := "int"},
                  Printed).
 
-%% F25.15 — a residual that ABSORBS the declared type. The algebra cannot
-%% spell `map<string, term>` less `map<string, int>`, so the residual is
-%% `map<string, term>`, which contains the declared type, and the line used to
-%% read `map<string, int> | map<string, term>`: refused at the next compile as
-%% an absorbed member. F38 dropped the declared half for the bottom alone,
-%% arguing a residual is a complement and cannot absorb what was declared; this
-%% is the case that argument missed. The line is the residual alone, and it
-%% compiles when pasted.
+%% F25.15 — a residual that absorbs the declared type replaces it.
+%% The algebra cannot express the difference between these two map types.
 a_residual_that_absorbs_the_declared_type_replaces_it_test() ->
     Line = "public map<string, term> Pick(int n)",
     Out = cli("M18", pick_src("M18", "map<string, int>", "map<string, term>")),
     ?assert(string:find(Out, Line) =/= nomatch),
     ?assertEqual(nomatch, string:find(Out, "map<string, int> |")),
     ?assertEqual("rc:0\n", compile("M19", pick_program("M19", Line, "map<string, term>"))),
-    %% ENG-346 R3: it says the declared type is replaced, and where the fix is
-    %% if that was not meant.
     ?assert(string:find(Out, "this replaces `map<string, int>`, which "
                              "`map<string, term>` contains.") =/= nomatch),
     ?assert(string:find(Out, "If `map<string, int>` is what you meant, fix the "
@@ -388,15 +258,11 @@ a_residual_that_absorbs_the_declared_type_replaces_it_test() ->
                    replaces := #{declared := "map<string, int>",
                                  within := "map<string, term>"}},
                  term_of("M21", pick_src("M21", "map<string, int>", "map<string, term>"))),
-    %% Round 3 moves R3's closing sentence to the top.
     ?assert(leads(Out, "map<string, int>")).
 
-%% F25.16 — the line is parsed before it is printed. A non-empty list residual
-%% prints as `[map<string, binary>, ..]`, which is pattern syntax, so the line
-%% would be a syntax error when pasted and none is printed. The union itself is
-%% legal (ticket 70: one container level in), so nothing is refused either.
-%% The residual is asserted present, so the absence is not a run that printed
-%% nothing.
+%% F25.16 — an unparseable correction is withheld despite a legal union.
+%% The non-empty list residual uses pattern syntax, not type syntax.
+%% Its presence rules out empty output as the cause of the missing signature.
 an_unparseable_correction_is_not_printed_test() ->
     Src = "module M20\n"
           "public list<map<string, int>> Pick(int n)\n"
@@ -411,25 +277,13 @@ an_unparseable_correction_is_not_printed_test() ->
                              "    [map<string, binary>, ..]") =/= nomatch),
     ?assertEqual(nomatch, string:find(Out, ?HEADING)),
     ?assertEqual(nomatch, string:find(Out, ?REFUSED)),
-    %% ENG-346 R2: withheld, and it says why.
     ?assert(string:find(Out, ?UNSPELLABLE) =/= nomatch),
     ?assert(leads(Out, "list<map<string, int>>")).
 
-%%% ---------------------------------------------------------------------------
-%%% 11 — David's review round (ENG-346, 2026-09-10): R2, R3, R5
-%%%
-%%% R2: a withheld line says why, and a failure the paste-back does not name is
-%%% reported as a compiler defect rather than hidden. R3: a line that replaces
-%%% the declared type says so, naming it as the author wrote it. R5: the tag
-%%% advice shows the tagged shape. Each proposal was put to David with its
-%%% output before it was built (F25's review round).
-%%% ---------------------------------------------------------------------------
+%%% Withholding reasons and repair advice
 
-%% F25.17 — the declarations the advice prints, with their placeholder names,
-%% compile as printed once each clause builds its value as its record. The
-%% advice is only right if following it compiles, so the declarations and the
-%% return are taken from what the compiler printed, not typed out here. (R5
-%% showed a tagged tuple shape here until Round 5 replaced it with records.)
+%% F25.17 — the printed record declarations and return type compile.
+%% The fixture uses the emitted advice so a hand-written copy cannot mask it.
 the_record_advice_compiles_as_printed_test() ->
     #{indiscriminable := #{declarations := Decls, returns := Returns}} =
         term_of("M22a", pick_src("M22a", "map<string, int>")),
@@ -444,10 +298,8 @@ the_record_advice_compiles_as_printed_test() ->
           "Rest() -> Rest()\n",
     ?assertEqual("rc:0\n", compile("M22", Src)).
 
-%% F25.18 — R2, one member of a declared union absorbed. `:none` keeps the
-%% declared half in the line, and `map<string, int>` inside it is absorbed by
-%% the `map<string, term>` residual. The author's text cannot be split, so the
-%% line is withheld, and the diagnostic names the member and what absorbs it.
+%% F25.18 — absorption inside a declared union withholds the correction.
+%% The atom keeps the union present; its source text cannot be split.
 a_partly_absorbed_declared_union_says_why_it_is_withheld_test() ->
     Src = "module M23\n"
           "public map<string, int> | :none Pick(int n)\n"
@@ -467,9 +319,7 @@ a_partly_absorbed_declared_union_says_why_it_is_withheld_test() ->
                    withheld := #{member := "map<string, int>", absorbed_by := _}},
                  term_of("M24", re:replace(Src, "M23", "M24", [{return, list}]))).
 
-%% F25.19 — R2, a declared return the line cannot reproduce. `type_source/1`
-%% answers `none` for an inline map, so F25 has always withheld this line
-%% (its Out of scope), and until R2 it said nothing.
+%% F25.19 — an inline map declaration has no reproducible signature.
 an_unreproducible_declared_form_says_why_it_is_withheld_test() ->
     Src = "module M25\n"
           "public { Id: int, Email: binary } FindUser(int id)\n"
@@ -478,12 +328,9 @@ an_unreproducible_declared_form_says_why_it_is_withheld_test() ->
     ?assertEqual(nomatch, string:find(Out, ?HEADING)),
     ?assert(string:find(Out, "no signature is offered: the declared signature is "
                              "written in a form") =/= nomatch),
-    %% The lead writes the inline type's fields in the author's order. The
-    %% algebra's printer sorts them, `{ Email: binary, Id: int }`, which is a
-    %% type the author did not write (the Round 3 review).
+    %% Source field order differs from the algebra printer's sorted order.
     ?assert(leads(Out, "{ Id: int, Email: binary }")),
-    %% Nested, and inside a union — `{ … } | :gone` is the common shape of a
-    %% lookup, and the printer would have reordered both.
+    %% Preserve source field order inside nested maps and unions too.
     Nested = cli("M34", "module M34\n"
                         "public { Id: int, Meta: { Tag: int } } Find(int id)\n"
                         "Find(id) -> :not_found\n"),
@@ -493,21 +340,14 @@ an_unreproducible_declared_form_says_why_it_is_withheld_test() ->
                         "Find(id) -> :not_found\n"),
     ?assert(leads(Either, "{ Id: int, Email: binary } | :gone")).
 
-%% F25.27 — the lead's fallback for a declared form nothing can write back.
-%% No signature reaches it today (an inline refinement is a syntax error), so it
-%% is fault injection through the test-only export: a form the grammar may gain
-%% later is named as the algebra prints it, whole, rather than dropped.
+%% F25.27 — an unwritable declared form falls back to the algebra spelling.
+%% Fault injection is needed because the grammar cannot produce this form.
 a_declared_form_nothing_can_write_is_named_as_printed_test() ->
     ?assertEqual("int", bs_check:declared_text({t_not_a_form}, bs_types:int())).
 
-%% F25.20 — R2, a failure the paste-back does not name. No program is known to
-%% reach it: the review found two that did (F25.22, F25.23), and each is now a
-%% named reason. So both halves are asserted below the CLI. The producer half
-%% is fault injection: `as_pasted/2` is handed environments `type_env/1` never
-%% builds, one whose entry resolves to nothing it can read (an atom reason)
-%% and one that is not a map (a tuple reason). The consumer half is the
-%% descriptor and its prose: the term carries the class and reason, and the
-%% prose calls it a compiler defect instead of saying nothing.
+%% F25.20 — an unnamed paste-back failure reports a compiler defect.
+%% No source program is known to reach it; invalid environments inject faults
+%% at the producer, and the descriptor exercises the consumer.
 an_unnamed_paste_back_failure_is_reported_as_a_defect_test() ->
     ?assertEqual({withhold, {crashed, error, function_clause}},
                  bs_check:as_pasted("public Foo F(int n)", #{'Foo' => not_a_type})),
@@ -523,8 +363,7 @@ an_unnamed_paste_back_failure_is_reported_as_a_defect_test() ->
     ?assert(string:find(Prose, "(badmatch in bs_check:as_pasted/2), which is a "
                                "compiler defect.") =/= nomatch).
 
-%% F25.21 — R3 keeps F25's naming rule in the sentence: the declared type is
-%% named as the author wrote it, `Counts`, not as the algebra expands it.
+%% F25.21 — replacement advice uses the declared alias as written.
 the_replaced_type_is_named_as_the_author_wrote_it_test() ->
     Src = "module M26\n"
           "type Counts = map<string, int>\n" ++
@@ -536,31 +375,18 @@ the_replaced_type_is_named_as_the_author_wrote_it_test() ->
                              "contains.") =/= nomatch),
     ?assert(leads(Out, "Counts")).
 
-%%% ---------------------------------------------------------------------------
-%%% 12 — the review of R2, R3 and R5 (ENG-346, 2026-09-10)
-%%%
-%%% The /code-review spec axis ran the build against programs the proposals did
-%%% not list, and three printed a reason that was false.
-%%% ---------------------------------------------------------------------------
+%%% Residual spellings
 
-%% F25.22 — a `term` body under `int`. The residual prints as
-%% `atom | tuple | list<term> | map | binary`, and `tuple` and `map` are
-%% printer spellings with no surface form, so the line resolves to nothing.
-%% That was reported as a compiler defect; it is the unspellable case. (F38's
-%% own example, `Grow(term r)`, is this program.)
+%% F25.22 — an unwritable residual is withheld without a compiler defect.
+%% The residual's `tuple` and `map` spellings have no source type form.
 a_residual_with_no_surface_form_is_unspellable_not_a_defect_test() ->
     Out = cli("M28", "module M28\npublic int Go(term r)\nGo(r) -> r\n"),
     ?assertEqual(nomatch, string:find(Out, ?HEADING)),
     ?assertEqual(nomatch, string:find(Out, "compiler defect")),
     ?assert(string:find(Out, ?UNSPELLABLE) =/= nomatch).
 
-%% F25.23 — a recursive type from another module. It prints by the name its
-%% author gave it, `Tree`. Until F44 a type's name did not cross a module
-%% boundary, so the line could not resolve in `M30` and was withheld as
-%% unspellable, not a defect. Ticket 73 made `Tree` cross with `using M29`,
-%% so the line now prints exactly as it does when the type is declared in the
-%% module itself (the control), and it compiles pasted back — the promise the
-%% heading makes, kept across a module boundary.
+%% F25.23 — an imported recursive name appears in a compilable correction.
+%% The local declaration is a control for the same name across `using`.
 a_residual_named_in_another_module_spells_the_imported_name_test() ->
     Root = bs_test_support:fixture_root(),
     Tree = "module M29\n"
@@ -597,26 +423,16 @@ a_residual_named_in_another_module_spells_the_imported_name_test() ->
                        "Leaf() -> :leaf\n"),
     ?assert(string:find(Local, "public int | :leaf | (:node, Tree, Tree) Get(int n)") =/= nomatch).
 
-%% F25.24 — a declared atom that needs quoting. `type_source/1` wrote
-%% `:'a b'` as `:a b`, the line was a syntax error, and the paste-back blamed
-%% the residual. It is quoted now, so the line prints, and it compiles pasted.
+%% F25.24 — a declared atom keeps the quotes needed to compile.
 a_declared_atom_that_needs_quoting_is_written_quoted_test() ->
     Line = "public int | :'a b' | :oops Go(int n)",
     Out = cli("M32", "module M32\npublic int | :'a b' Go(int n)\nGo(n) -> :oops\n"),
     ?assert(string:find(Out, Line) =/= nomatch),
     ?assertEqual("rc:0\n", compile("M33", "module M33\n" ++ Line ++ "\nGo(n) -> :oops\n")).
 
-%%% ---------------------------------------------------------------------------
-%%% 13 — Round 3, whole messages for programs someone would write
-%%%
-%%% David, 2026-09-11: "all" — every return mismatch leads with the clause. The
-%%% two programs are from `wayfinder/prototypes/f25-corrected-signature-in-
-%%% real-code.md` and F25's Round 3, and each message is asserted whole, since
-%%% it is what the author reads: one where widening is the right fix, so the
-%%% line must survive below the lead, and one where widening is refused.
-%%% ---------------------------------------------------------------------------
+%%% Whole diagnostic messages
 
-%% F25.25 — a payment handler that declared the happy path only.
+%% F25.25 — clause advice precedes the widened payment signature.
 a_payment_handler_leads_with_the_clause_and_keeps_the_line_test() ->
     Src = "module Payments\n"
           "record Charge { OrderId: int, AmountCents: int }\n"
@@ -632,9 +448,7 @@ a_payment_handler_leads_with_the_clause_and_keeps_the_line_test() ->
        "    public atom | (:declined, int) TakePayment(Charge c, bool card_ok)\n",
        message_body(cli("Payments", Src))).
 
-%% F25.26 — the checkout page from ENG-346, where the guest's quantities are
-%% still text. The clause is the likelier fix; tagging is for when both
-%% representations are meant.
+%% F25.26 — clause advice precedes refusal to widen numeric maps to text maps.
 a_checkout_leads_with_the_clause_before_the_refused_widening_test() ->
     Src = "module Checkout\n"
           "public map<string, int> CartQuantities(bool signed_in,\n"
@@ -657,19 +471,9 @@ a_checkout_leads_with_the_clause_before_the_refused_widening_test() ->
        "  build each value as its record, and choose the names.\n",
        message_body(cli("Checkout", Src))).
 
-%%% ---------------------------------------------------------------------------
-%%% 14 — Rounds 4 and 5 (ENG-346, 2026-09-11): records, and the name as written
-%%%
-%%% Round 4 surveyed how rustc, TypeScript, Gleam, Elm and GHC print a type in a
-%%% suggestion: the whole type, never a fragment, and the author's name where
-%%% the declared type is quoted, with the structure beside it when the reason
-%%% is structural (ticket 09 §1 had decided the name). Round 5, David: the
-%%% repair is a named type of records, whose tag the compiler mints.
-%%% ---------------------------------------------------------------------------
+%%% Record repairs and source names
 
-%% F25.28 — the checkout whose session can expire. The pair sits inside the
-%% author's `result`, so the named type goes there too and `result` survives:
-%% `result<Name, atom>` is the whole return type.
+%% F25.28 — the repair replaces the pair inside the declared `result`.
 a_named_type_takes_the_pairs_place_inside_a_result_test() ->
     Src = "module CheckoutResult\n"
           "public result<map<string, int>, atom> CartQuantities(bool signed_in,\n"
@@ -692,9 +496,7 @@ a_named_type_takes_the_pairs_place_inside_a_result_test() ->
        "  build each value as its record, and choose the names.\n",
        message_body(cli("CheckoutResult", Src))).
 
-%% F25.29 — the dashboard, where the declared member is an alias. The pair is
-%% named as the author wrote it, with the structure beside it (TypeScript and
-%% GHC), and the record's field is typed by the author's name too.
+%% F25.29 — refusal advice names the alias and shows its structure.
 a_refused_pair_names_the_alias_the_author_wrote_test() ->
     Src = "module Dashboard\n"
           "type ViewCounts = map<string, int>\n"
@@ -723,9 +525,7 @@ a_refused_pair_names_the_alias_the_author_wrote_test() ->
                  term_of("Dashboard2",
                          re:replace(Src, "Dashboard", "Dashboard2", [{return, list}]))).
 
-%% F25.30 — the dashboard where the site may be unknown. The absorbed member
-%% is named as written, `ViewCounts`, and its structure is what makes the
-%% absorption true, so it is printed beside it.
+%% F25.30 — absorption advice names the alias and shows its structure.
 an_absorbed_member_is_named_as_the_author_wrote_it_test() ->
     Src = "module AnalyticsMissing\n"
           "type ViewCounts = map<string, int>\n"
@@ -742,10 +542,8 @@ an_absorbed_member_is_named_as_the_author_wrote_it_test() ->
        "  (`ViewCounts` is `map<string, int>`)\n",
        message_body(cli("AnalyticsMissing", Src))).
 
-%% F25.31 — the pair inside a named type that is not generic. `Stock`'s body
-%% is resolved before this pass sees it, so there is no written member to put
-%% `Name` in place of, and a guessed rewrite would be a type nobody checked.
-%% The advice says what to do and why no declaration is shown.
+%% F25.31 — a pair inside a named type gets advice without a declaration.
+%% Resolution hides the written member, so a replacement cannot be checked.
 a_pair_inside_a_named_type_says_why_no_declaration_is_shown_test() ->
     Src = "module Inventory\n"
           "type Stock = map<string, int> | :not_found\n"
@@ -763,8 +561,7 @@ a_pair_inside_a_named_type_says_why_no_declaration_is_shown_test() ->
        "  No declaration is shown: `map<string, int>` is inside `Stock`,\n"
        "  and this line does not rewrite a named type.\n",
        message_body(cli("Inventory", Src))),
-    %% The other member of the pair inside the named type: a form's fields as
-    %% posted, or :missing, where one clause returns the parsed counts.
+    %% Reverse which member of the pair sits inside the named type.
     Posted = cli("Submissions",
                  "module Submissions\n"
                  "type Posted = map<string, binary> | :missing\n"
@@ -774,9 +571,7 @@ a_pair_inside_a_named_type_says_why_no_declaration_is_shown_test() ->
     ?assert(string:find(Posted, "  No declaration is shown: `map<string, binary>` is inside "
                                 "`Posted`,\n") =/= nomatch).
 
-%% F25.34 — the pair in the other order: the declared map is the text one and
-%% the clause returns the numeric one. The name still takes the place of the
-%% member written first, and inside a `result` it still keeps the `result`.
+%% F25.34 — reversing the pair still replaces the first written member.
 the_named_type_takes_the_place_written_first_test() ->
     Echo = cli("FormEcho",
                "module FormEcho\n"
@@ -797,10 +592,7 @@ the_named_type_takes_the_place_written_first_test() ->
                                 "    record Name2 { Value: map<string, int> }\n") =/= nomatch),
     ?assert(string:find(Result, returns("result<Name, atom>")) =/= nomatch).
 
-%% F25.32 — a placeholder the author's module already uses. `Name` is a
-%% person's name in an accounts module, so the advice's placeholders move
-%% aside rather than printing a second `Name`, which the compiler would take
-%% in silence in place of the author's (ENG-352).
+%% F25.32 — repair placeholders avoid names the module already uses.
 a_placeholder_the_module_already_uses_moves_aside_test() ->
     Src = "module People\n"
           "record Name { First: binary, Last: binary }\n" ++
@@ -811,7 +603,7 @@ a_placeholder_the_module_already_uses_moves_aside_test() ->
                              "    record NewName2 { Value: map<string, binary> }\n"
                              "    type NewName = NewName1 | NewName2\n") =/= nomatch),
     ?assert(string:find(Out, returns("NewName")) =/= nomatch),
-    %% And again, when the module also uses the first way aside.
+    %% Occupy the first fallback too, so one rename cannot pass this case.
     Twice = cli("People2", "module People2\n"
                            "record Name { First: binary, Last: binary }\n"
                            "type NewName = Name | :anonymous\n" ++
@@ -819,12 +611,9 @@ a_placeholder_the_module_already_uses_moves_aside_test() ->
                                               pick_src("People2", "map<string, int>")))),
     ?assert(string:find(Twice, "    type NewNewName = NewNewName1 | NewNewName2\n") =/= nomatch).
 
-%% F25.33 — a declaration the check refuses, which no program is known to
-%% reach: the construction is meant to be accepted, so a refusal is a fault in
-%% the compiler and is named as one (R2's rule, applied to the declarations).
-%% Both halves are fault injection, as F25.20's are. The producer half hands
-%% the paste-back a record the declaration check refuses, and a member the
-%% line cannot write; the consumer half is the descriptor and its prose.
+%% F25.33 — refused repair declarations report a compiler defect.
+%% No source program is known to reach these paths; both producer and
+%% descriptor faults are injected directly.
 a_refused_declaration_is_reported_as_a_defect_test() ->
     ?assertEqual({check_failed, indiscriminable_union},
                  bs_check:declarations_pasted(
@@ -847,15 +636,11 @@ a_refused_declaration_is_reported_as_a_defect_test() ->
     ?assert(string:find(Prose, "  No declaration is shown: checking the one this compiler would write\n"
                                "  failed (absorbed_member), which is a compiler defect.\n") =/= nomatch).
 
-%% The diagnostic from its `error:`, without the path and position before it
-%% or the `rc:` line `run_cli/1` appends.
 message_body(Out) ->
     Start = string:str(Out, "error: "),
     Body = string:substr(Out, Start),
     string:substr(Body, 1, string:str(Body, "rc:") - 1).
 
-%% One diagnostic, so one line on stdout. Parsing it back is what proves it is
-%% a term (F16).
 term_of(Name, Src) ->
     with_src(Name ++ ".bs", Src,
              fun(Path, Root) ->
@@ -866,8 +651,6 @@ term_of(Name, Src) ->
                      {ok, Term} = erl_parse:parse_term(Tokens),
                      Term
              end).
-
-%%% ---------------------------------------------------------------------------
 
 count_occurrences(Hay, Needle) ->
     count_occurrences(Hay, Needle, 0).

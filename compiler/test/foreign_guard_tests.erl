@@ -1,29 +1,6 @@
-%%% F42 — the boundary guard on a foreign return (ticket 18 §2, ENG-357).
-%%%
-%%% Ticket 18 §2 lets a foreign declaration promise only what one BEAM guard
-%%% decides in O(1) "so the compiler checks it". F40 built the refusal that
-%%% narrows the promise; this is the check that makes the promise true. A
-%%% foreign call whose declaration names no failure channel is wrapped in a
-%%% `case` whose single clause carries the guard the declared type spells, so
-%%% a value that does not inhabit the type raises `{case_clause, Value}` at
-%%% the call — ticket 18 §1 rule C: "a wrong term from outside will crash,
-%%% not always at the call site, but never silently".
-%%%
-%%% ASSERTED AT THE BOUNDARY: source text in, a loaded `.beam` called, and
-%%% what it returns or raises compared; or the CLI run and its printed output
-%%% read. Nothing here pins a function in `bs_emit`. One test reads the emitted
-%%% abstract code, for the same reason F19.9 does: "no guard" has no observable
-%%% value beyond every value passing, and the sibling assertion that a `term`
-%%% declaration emits no `case` at all is what makes that visible.
-%%%
-%%% THE CHANNELLED RETURN IS GUARDED TOO, since ticket 74 (ENG-362, resolved
-%%% 2026-09-19): a refused value crashes whether or not the declaration names
-%%% a failure channel, because the channel was declared for the callee's
-%%% exceptions and a wrong-shaped return is not one. The guard wraps the F19
-%%% wrapper, so the refusal never enters the channel; the F52 tests at the
-%%% foot of this file are that arm. Until 74 was answered this header recorded
-%%% the unguarded arm as deliberately unasserted, because a test pinning it
-%%% would have certified the missing check as intended.
+%%% Scenarios: compiler/features/F42-foreign-return-guard.md
+%%% Scenarios: compiler/features/F52-channelled-foreign-return-guard.md
+%%% F42 — foreign returns enforce their declared types.
 
 -module(foreign_guard_tests).
 
@@ -31,15 +8,9 @@
 
 -import(bs_test_support, [build_and_load/2, run_cli/1, with_src/3]).
 
-%%% ---------------------------------------------------------------------------
 %%% Fixture
-%%%
-%%% One foreign function, `erlang:hd/1`, declared with a different return type
-%%% per test. The caller hands it a one-element list, so the value that comes
-%%% back is the test's choice and the declaration is the only thing that
-%%% varies. The type declarations are the ones LANGUAGE.md §11 and the ENG-357
-%%% grill name as admissible: every one is decided by a fixed guard sequence.
-%%% ---------------------------------------------------------------------------
+%%% erlang:hd/1 lets each test choose the return value independently of the
+%%% declared return type.
 
 src(Ret) ->
     "module Fg\n"
@@ -58,21 +29,13 @@ first(Ret) ->
     M = build_and_load(src(Ret), 'Fg'),
     fun(V) -> M:'First'([V]) end.
 
-%%% ---------------------------------------------------------------------------
-%%% F42.1 — the program ENG-357 measured: `int float(int x)` printed `3.0`
-%%% ---------------------------------------------------------------------------
+%%% F42.1 — a float returned as int crashes.
 
-%% THE WHOLE FEATURE, IN ONE ASSERTION. On `f68d0cb` this printed `3.0` from a
-%% function declared `int`. The crash is the BEAM's own `case_clause`, which is
-%% what an arm-less `case` raises — the same reason a switch emits no failure
-%% arm and a clause head's guard raises `function_clause`.
 a_float_from_a_function_declared_int_crashes_test() ->
     First = first("int"),
     ?assertEqual(3, First(3)),
     ?assertError({case_clause, 3.0}, First(3.0)).
 
-%% The same program through the CLI, so what the author sees is what is
-%% asserted: the crash line and the exit status, not a value.
 the_cli_reports_the_crash_and_exits_one_test() ->
     Src = "module Guard\n"
           "using :erlang {\n"
@@ -87,18 +50,15 @@ the_cli_reports_the_crash_and_exits_one_test() ->
     ?assertNotEqual(nomatch, string:find(R, "crashed: case_clause 3.0")),
     ?assertNotEqual(nomatch, string:find(R, "rc:1")).
 
-%%% ---------------------------------------------------------------------------
-%%% F42.2 – F42.4 — the scalar kinds, and a refinement
-%%% ---------------------------------------------------------------------------
+%%% F42.2–F42.4 — scalar kinds and refinements guard returns.
 
-%% F42.2. `binary` is `is_binary/1`; an atom is not one.
+%% F42.2 — a binary declaration rejects an atom.
 a_binary_declaration_refuses_an_atom_test() ->
     First = first("binary"),
     ?assertEqual(<<"x">>, First(<<"x">>)),
     ?assertError({case_clause, nope}, First(nope)).
 
-%% F42.3. A finite atom union is an equality per member: `:up | :down` admits
-%% neither a third atom nor an integer.
+%% F42.3 — a finite atom union admits only its members.
 a_finite_atom_union_admits_only_its_members_test() ->
     First = first("Status"),
     ?assertEqual(up, First(up)),
@@ -106,8 +66,7 @@ a_finite_atom_union_admits_only_its_members_test() ->
     ?assertError({case_clause, sideways}, First(sideways)),
     ?assertError({case_clause, 1}, First(1)).
 
-%% F42.4. A refined int carries its bounds into the guard (F37 emits the same
-%% comparisons at an exported parameter): 256 is an integer and still refused.
+%% F42.4 — a refined int enforces its bounds and kind.
 a_refined_int_carries_its_bounds_test() ->
     First = first("Octet"),
     ?assertEqual(0, First(0)),
@@ -116,12 +75,9 @@ a_refined_int_carries_its_bounds_test() ->
     ?assertError({case_clause, -1}, First(-1)),
     ?assertError({case_clause, 7.0}, First(7.0)).
 
-%%% ---------------------------------------------------------------------------
-%%% F42.5 – F42.6 — a union across kinds, and a tuple union
-%%% ---------------------------------------------------------------------------
+%%% F42.5–F42.6 — unions guard each alternative.
 
-%% F42.5. `int | :undefined` is a disjunction of two kind tests, the shape
-%% ticket 18 §2 names for `erlang:whereis/1`.
+%% F42.5 — a union across kinds accepts either kind.
 a_union_across_kinds_is_a_disjunction_test() ->
     First = first("Maybe"),
     ?assertEqual(4, First(4)),
@@ -129,9 +85,7 @@ a_union_across_kinds_is_a_disjunction_test() ->
     ?assertError({case_clause, 1.5}, First(1.5)),
     ?assertError({case_clause, other}, First(other)).
 
-%% F42.6. A tuple member is arity plus one test per component; a union of
-%% tuples is a disjunction over the products. `(:ok, 1.5)` has the right tag
-%% and the wrong payload and is refused for it.
+%% F42.6 — tuple unions check arity and every component.
 a_tuple_union_tests_arity_and_every_component_test() ->
     First = first("Reply"),
     ?assertEqual({ok, 1}, First({ok, 1})),
@@ -141,16 +95,8 @@ a_tuple_union_tests_arity_and_every_component_test() ->
     ?assertError({case_clause, {error, <<"nope">>}}, First({error, <<"nope">>})),
     ?assertError({case_clause, ok}, First(ok)).
 
-%%% ---------------------------------------------------------------------------
-%%% F42.7 — a fixed field set emits ticket 26's boundary guard, never the
-%%% pattern guard
-%%% ---------------------------------------------------------------------------
+%%% F42.7 — a fixed field set admits extra keys and checks declared fields.
 
-%% `is_map` plus one value test per declared field, and NO `map_size` (26 §1:
-%% the exact-set test is emitted only where a codegen obligation consumes the
-%% record, and a foreign wrapper returns the value). So a cowboy request with a
-%% dozen keys beyond `Method` and `Path` passes, which is what ticket 72's
-%% withdrawal records; a missing field or a wrongly typed one is refused.
 a_fixed_field_set_admits_extra_keys_and_refuses_a_wrong_field_test() ->
     First = first("Request"),
     Req   = #{'Method' => <<"GET">>, 'Path' => <<"/">>},
@@ -163,12 +109,9 @@ a_fixed_field_set_admits_extra_keys_and_refuses_a_wrong_field_test() ->
                  First(#{'Method' => get, 'Path' => <<"/">>})),
     ?assertError({case_clause, []}, First([])).
 
-%%% ---------------------------------------------------------------------------
-%%% F42.8 – F42.9 — the two containers one guard decides
-%%% ---------------------------------------------------------------------------
+%%% F42.8–F42.9 — containers of term require only a container test.
 
-%% F42.8. `list<term>` is `is_list/1` and nothing per element — the element is
-%% `term`, so there is nothing to inspect, which is why F40 admits it.
+%% F42.8 — a list of term requires only a list test.
 a_list_of_term_is_one_list_test_test() ->
     First = first("list<term>"),
     ?assertEqual([], First([])),
@@ -176,20 +119,16 @@ a_list_of_term_is_one_list_test_test() ->
     ?assertError({case_clause, nope}, First(nope)),
     ?assertError({case_clause, {}}, First({})).
 
-%% F42.9. `map<term, term>` is `is_map/1` and nothing per key, for the same
-%% reason.
+%% F42.9 — a map of term requires only a map test.
 a_map_of_term_is_one_map_test_test() ->
     First = first("map<term, term>"),
     ?assertEqual(#{}, First(#{})),
     ?assertEqual(#{a => 1}, First(#{a => 1})),
     ?assertError({case_clause, []}, First([])).
 
-%%% ---------------------------------------------------------------------------
-%%% F42.10 — `term` promises nothing and is not guarded
-%%% ---------------------------------------------------------------------------
+%%% F42.10 — term emits no guard.
 
-%% Every value passes, and the emitted code carries no `case` around the call:
-%% a guard that cannot fail would be a `case` for nothing.
+%% Runtime values cannot distinguish no guard from a guard that always passes.
 a_term_declaration_emits_no_guard_test() ->
     First = first("term"),
     ?assertEqual(3.0, First(3.0)),
@@ -203,15 +142,10 @@ count_cases(T) when is_tuple(T) -> count_cases(tuple_to_list(T));
 count_cases(L) when is_list(L)  -> lists:sum([count_cases(E) || E <- L]);
 count_cases(_)                  -> 0.
 
-%%% ---------------------------------------------------------------------------
-%%% F42.11 — two guarded calls in one clause, and one nested in another
-%%% ---------------------------------------------------------------------------
+%%% F42.11 — sequential and nested guarded calls run independently.
 
-%% The `case` binds a synthesised variable, and a variable bound in a `case`
-%% with one clause is exported from it. A second `case` binding the same name
-%% would MATCH against the first's value rather than bind a fresh one, so the
-%% names are numbered per module, the way F19's wrapper variables are. Two
-%% guards in one body and one nested inside another's argument all run.
+%% A single-clause case exports its variable binding. Reusing that name in
+%% another case would match the first value instead of binding a fresh one.
 two_guarded_calls_in_one_clause_and_a_nested_one_run_test() ->
     Src = "module Twice\n"
           "using :erlang {\n"
@@ -231,13 +165,9 @@ two_guarded_calls_in_one_clause_and_a_nested_one_run_test() ->
     ?assertError({case_clause, 3.0}, M:'Ends'([2, 9, 3.0])),
     ?assertError({case_clause, 2.0}, M:'LastOf'([3, 9, 2.0])).
 
-%%% ---------------------------------------------------------------------------
-%%% F42.12 — the corpus is unchanged by the guard
-%%% ---------------------------------------------------------------------------
+%%% F42.12 — exceptions inside the callee propagate unchanged.
 
-%% `examples/Foreign`'s `Size` declares no channel and still dies with
-%% `badarg` on an atom: the guard sits AFTER the call, so a throw inside the
-%% call is the same throw it always was.
+%% The return guard runs after the call, so it cannot intercept callee errors.
 a_throw_inside_the_call_is_still_that_throw_test() ->
     Src = "module Sz\n"
           "using :erlang {\n"
@@ -249,46 +179,23 @@ a_throw_inside_the_call_is_still_that_throw_test() ->
     ?assertEqual(3, M:'Size'(<<"abc">>)),
     ?assertError(badarg, M:'Size'(not_a_binary)).
 
+%%% F52.1–F52.3 — return guards sit outside the exception channel.
 
-%%% ---------------------------------------------------------------------------
-%%% F52.1 – F52.3 — the channelled return (ticket 74, ENG-362 / ENG-390)
-%%%
-%%% `result<T, foreign_error>` names a channel, so F19 wraps the call in a
-%%% `try`. Ticket 74 decided the guard wraps that wrapper rather than sitting
-%%% inside it: the callee's exceptions travel the channel, the guard's own
-%%% refusal does not. Both tiers of the borrow heuristic keep a mechanism's
-%%% failure out of the catch its callee's failures travel through — OTP's
-%%% `erpc` by the reason's shape, .NET by subtyping — and here the wrapper is
-%%% that catch.
-%%% ---------------------------------------------------------------------------
-
-%% F52.1. THE ARM ENG-357 LEFT UNBUILT. `hd/1` declared `result<int,
-%% foreign_error>` returns whatever the list holds; an int inhabits the
-%% declared type and a float inhabits neither member, so it crashes exactly as
-%% it does with no channel declared.
+%% F52.1 — a channelled declaration rejects values outside its type.
 a_channelled_declaration_refuses_a_value_outside_its_type_test() ->
     First = first("result<int, foreign_error>"),
     ?assertEqual(3, First(3)),
     ?assertError({case_clause, 3.0}, First(3.0)).
 
-%% F52.2. AND THE CHANNEL STILL CARRIES WHAT IT WAS DECLARED FOR. `hd([])`
-%% raises `badarg`, the wrapper catches it, and `(:error, (:error, :badarg))`
-%% is in the declared type — so the guard passes it through rather than
-%% refusing it. This does NOT discriminate the nesting: under the other order
-%% the raise happens before the guard and is caught just the same. It is the
-%% assertion that fails if the guard eats the channel, which is what guards
-%% F19 against F52. The order is F52.1's and F52.3's.
+%% F52.2 — callee exceptions pass through the declared channel.
+%% This checks channel preservation; it does not distinguish wrapper order.
 a_real_exception_still_arrives_through_the_channel_test() ->
     M = build_and_load(src("result<int, foreign_error>"), 'Fg'),
     ?assertEqual({error, {error, badarg}}, M:'First'([])).
 
-%% F52.3. Ticket 74's own program through the CLI, so what the author sees is
-%% asserted rather than the shape of the emitted forms. `file:read_file/1`
-%% returns `(:ok, binary)`, which inhabits neither `binary` nor
-%% `(:error, foreign_error)` — the declaration is wrong, and before this
-%% feature it printed the value and exited 0. The path handed to `Slurp` is the
-%% `Reader.bs` this test just placed, so the program has a real file to open on
-%% any machine.
+%% F52.3 — the CLI reports an invalid channelled return as a crash.
+%% read_file returns an ok tuple, outside the declared type. Reader.bs is
+%% the input file too, so the call always has a real file to open.
 the_cli_reports_the_crash_on_a_channelled_return_test() ->
     Src = "module Reader\n"
           "using :file {\n"

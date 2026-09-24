@@ -1,16 +1,5 @@
-%%% F45 — polymorphic function signatures (ticket 27 §(c), the instantiation
-%%% algorithm of ticket 37, ENG-295).
-%%%
-%%% A variable declared after the function name — `T Pick<T>(T a, T b)` — is
-%%% solved at every call from the arguments: least per occurrence, joined
-%%% across occurrences, then the argument is contained as any argument is. The
-%%% return type is the declared one with the solution substituted, and that is
-%%% what every test here reads through the boundary: a caller declared to
-%%% return the instantiated type compiles, and a caller declared narrower is
-%%% refused with the corrected signature F25 already prints.
-%%%
-%%% Nothing inspects the checker's tables. The solve is observable only in what
-%%% the call returns, so the tests are callers.
+%%% F45 — calls instantiate polymorphic function signatures.
+%%% Scenarios: compiler/features/F45-polymorphic-signatures.md
 
 -module(poly_signature_tests).
 
@@ -29,9 +18,6 @@ bad_rc(Out)   -> has(Out, "rc:1").
 tags(Diags) -> [element(1, D) || {error, _, _, D} <- Diags, is_tuple(D)]
                ++ [D || {error, _, _, D} <- Diags, is_atom(D)].
 
-%% The errors a source provokes, empty when it checks clean: both outcomes
-%% of `check_only/1` are read, so a clean source is an assertion and not a
-%% badmatch.
 errors(Src) ->
     Diags = case check_only(Src) of
                 {ok, _, Ds}  -> Ds;
@@ -44,7 +30,6 @@ in_dir(Files) ->
     Paths = [bs_test_support:place(Root, N, S) || {N, S} <- Files],
     {Root, hd(Paths)}.
 
-%% `T Pick<T>(T, T)` beside a caller declared to return `Ret`.
 pick_src(Ret) ->
     "module Pick\n"
     "public T Pick<T>(T a, T b)\n"
@@ -52,7 +37,6 @@ pick_src(Ret) ->
     "public " ++ Ret ++ " Both(int n)\n"
     "Both(n) -> Pick(n, :a)\n".
 
-%% 25d's `Prepend`, at two element types in one module.
 rows_src() ->
     "module Rows\n"
     "type FetchError = (:unknown_status, atom)\n"
@@ -67,23 +51,15 @@ rows_src() ->
     "Prepend(row, rows)        -> [row, ..rows]\n".
 
 %%% ---------------------------------------------------------------------------
-%%% F45.1 — the ticket's program: one `Prepend`, two element types, and the
-%%% instantiated return is what makes each caller's body check
+%%% F45.1 — one `Prepend` serves two element types.
 %%% ---------------------------------------------------------------------------
 
-%% Both callers compile against `Prepend`'s declared return with `T` and `E`
-%% substituted — `list<int> | (:error, FetchError)` for `Ids`. Under the
-%% maximal extent alone the return would be `list<term> | (:error, term)`,
-%% which `Ids` may not return, so a green here is the solve and not the
-%% containment.
+%% A return widened to `list<term>` cannot satisfy these callers.
 one_prepend_serves_two_element_types_test() ->
     M = build_and_load(rows_src(), 'Rows'),
     ?assertEqual([1, 2], M:'Ids'([{1, placed}, {2, lost}])),
     ?assertEqual([placed, lost], M:'Names'([{1, placed}, {2, lost}])).
 
-%% The corpus carries the same shape as `examples/Shop/Rows/Rows.bs`, where the
-%% first element type is a record; `check-examples.sh` compiles it and this
-%% runs it, so a corpus edit cannot silently drop the polymorphic call.
 the_corpus_program_runs_at_both_types_test() ->
     Root = bs_test_support:project_root() ++ "/examples",
     File = Root ++ "/Shop/Rows/Rows.bs",
@@ -97,18 +73,14 @@ the_corpus_program_runs_at_both_types_test() ->
     has(Ids, "[1, 2]").
 
 %%% ---------------------------------------------------------------------------
-%%% F45.2 — a variable twice joins: `Pick<T>(T, T)` with an int and an atom
-%%% returns `int | :a` (ticket 37 M5)
+%%% F45.2 — repeated variables join the argument types.
 %%% ---------------------------------------------------------------------------
 
 a_variable_twice_joins_test() ->
     M = build_and_load(pick_src("int | :a"), 'Pick'),
     ?assertEqual(3, M:'Both'(3)).
 
-%% The control: declare the caller narrower than the join and the checker
-%% refuses it, with the join in the corrected signature. So the previous test
-%% is green because the return was instantiated, not because a bare `T`
-%% resolved to something everything is contained in.
+%% A narrower caller rules out accepting every return declaration.
 the_join_is_the_return_and_narrower_is_refused_test() ->
     Diags = errors(pick_src("int")),
     ?assert(lists:member(return_not_declared, tags(Diags))),
@@ -116,7 +88,6 @@ the_join_is_the_return_and_narrower_is_refused_test() ->
     bad_rc(Out),
     has(Out, "int | :a Both(int n)").
 
-%% Two arguments of one type collapse rather than widen (M5's control).
 the_join_collapses_when_the_arguments_agree_test() ->
     Src = "module Pick\n"
           "public T Pick<T>(T a, T b)\n"
@@ -126,8 +97,7 @@ the_join_collapses_when_the_arguments_agree_test() ->
     ?assertEqual([], errors(Src)).
 
 %%% ---------------------------------------------------------------------------
-%%% F45.3 — least, per occurrence: `option<T> First<T>(option<T>)` handed
-%%% exactly `:nothing` returns exactly `:nothing` (ticket 37 M2)
+%%% F45.3 — `First(:nothing)` returns exactly `:nothing`.
 %%% ---------------------------------------------------------------------------
 
 least_keeps_the_return_informative_test() ->
@@ -138,10 +108,7 @@ least_keeps_the_return_informative_test() ->
           "Empty() -> First(:nothing)\n",
     ?assertEqual([], errors(Src)).
 
-%% Under the greatest solution the return would be `term`, and `Empty` would
-%% be refused. The control is the same call declared over `int`, which is
-%% refused under either solution: it shows the previous test discriminates on
-%% the return and not on the checker accepting every declaration.
+%% Refusing `int` rules out accepting every declaration for the same call.
 least_control_a_wrong_declaration_is_still_refused_test() ->
     Src = "module First\n"
           "public option<T> First<T>(option<T> o)\n"
@@ -151,8 +118,7 @@ least_control_a_wrong_declaration_is_still_refused_test() ->
     ?assert(lists:member(return_not_declared, tags(errors(Src)))).
 
 %%% ---------------------------------------------------------------------------
-%%% F45.4 — containment fails exactly where an argument escapes the
-%%% parameter's maximal extent (ticket 37 M4, H2)
+%%% F45.4 — arguments outside the parameter extent are refused.
 %%% ---------------------------------------------------------------------------
 
 an_argument_outside_the_extent_is_refused_test() ->
@@ -165,8 +131,6 @@ an_argument_outside_the_extent_is_refused_test() ->
     Diags = errors(Src),
     ?assertMatch([{error, _, 'Bad', {arg_not_accepted, 'Prepend', 2, _, _}}], Diags).
 
-%% A bare `T` has extent `term` and rejects nothing (ticket 37 M6) — recorded
-%% by ENG-295 as a property of the shape, not a defect of the algorithm.
 a_bare_variable_rejects_nothing_test() ->
     Src = "module Pick\n"
           "public T Pick<T>(T a, T b)\n"
@@ -176,15 +140,12 @@ a_bare_variable_rejects_nothing_test() ->
     ?assertEqual([], errors(Src)).
 
 %%% ---------------------------------------------------------------------------
-%%% F45.5 — the signature is checked at its extent: exhaustiveness holds for
-%%% every instantiation, and a body returning outside the declared shape is
-%%% refused there, not at a caller
+%%% F45.5 — declarations are checked for every instantiation.
 %%% ---------------------------------------------------------------------------
 
 the_declaration_is_checked_for_every_instantiation_test() ->
-    %% Cover the list half with the ordinary pair and leave the error tuple
-    %% out: `result<list<T>, E>` is `list<T> | (:error, E)` whatever `T` is,
-    %% so the residual is `(:error, E)` for every instantiation.
+    %% Both list shapes are covered; the error tuple remains uncovered for
+    %% every instantiation.
     Src = "module Rows\n"
           "private result<list<T>, E> Prepend<T, E>(T row, result<list<T>, E> rest)\n"
           "Prepend(row, [])          -> [row]\n"
@@ -198,12 +159,9 @@ a_body_outside_the_declared_shape_is_refused_at_the_declaration_test() ->
     ?assert(lists:member(return_not_declared, tags(errors(Src)))).
 
 %%% ---------------------------------------------------------------------------
-%%% F45.6 — a bare variable admits one clause: bind it (ticket 27 §2)
+%%% F45.6 — a bare type variable admits only a binding pattern.
 %%% ---------------------------------------------------------------------------
 
-%% `Pick(1, _)` inspects a value whose type is `T`. Ticket 27 §2 refuses this
-%% at the declaration: the signature `T Pick<T>(T, T)` promises a reviewer that
-%% which argument comes back cannot depend on the type.
 a_pattern_on_a_bare_variable_is_refused_test() ->
     Src = "module Pick\n"
           "public T Pick<T>(T a, T b)\n"
@@ -212,8 +170,7 @@ a_pattern_on_a_bare_variable_is_refused_test() ->
     Diags = errors(Src),
     ?assertMatch([{error, _, 'Pick', {pattern_on_type_variable, 'T', 1}}], Diags).
 
-%% Structure AROUND a variable matches freely: `[]` / `[h, ..t]` over
-%% `list<T>` is the ordinary pair, exhaustive for every instantiation.
+%% List structure remains matchable even when the element type is unknown.
 structure_around_a_variable_matches_freely_test() ->
     Src = "module Heads\n"
           "public option<T> First<T>(list<T> xs)\n"
@@ -222,8 +179,7 @@ structure_around_a_variable_matches_freely_test() ->
     ?assertEqual([], errors(Src)).
 
 %%% ---------------------------------------------------------------------------
-%%% F45.10 — every variable appears in a parameter, or the call could not
-%%% recover it (ticket 28 §6)
+%%% F45.10 — every variable must appear in a parameter.
 %%% ---------------------------------------------------------------------------
 
 a_variable_only_in_the_return_is_refused_test() ->
@@ -233,8 +189,7 @@ a_variable_only_in_the_return_is_refused_test() ->
     ?assertMatch([{error, _, 'Empty', {unrecoverable_type_variable, 'T'}}],
                  errors(Src)).
 
-%% The control is the same variable reached through a parameter's structure:
-%% `list<T>` mentions `T`, so it is recoverable and the signature stands.
+%% A variable inside a parameter constructor is still recoverable.
 a_variable_under_a_constructor_is_recoverable_test() ->
     Src = "module Heads\n"
           "public list<T> Rest<T>(list<T> xs)\n"
@@ -243,12 +198,9 @@ a_variable_under_a_constructor_is_recoverable_test() ->
     ?assertEqual([], errors(Src)).
 
 %%% ---------------------------------------------------------------------------
-%%% F45.11 — a codegen obligation is not generated over a variable (ticket 27)
+%%% F45.11 — codegen obligations over type variables are refused.
 %%% ---------------------------------------------------------------------------
 
-%% Before this refusal the checker accepted the call under the opaque binding
-%% and the EMITTER crashed building the validator table — a compiler crash,
-%% not a diagnostic. Now it is refused where the obligation is written.
 validate_as_over_a_variable_is_refused_test() ->
     Src = "module Obl\n"
           "public result<T, ValidationError> Check<T>(T x)\n"
@@ -263,8 +215,7 @@ parse_atom_over_a_variable_is_refused_test() ->
     ?assertMatch([{error, _, 'Read', {obligation_over_type_variable, 'ParseAtom', 'T'}}],
                  errors(Src)).
 
-%% The control: a GROUND obligation inside a polymorphic function is the
-%% ordinary one, so the refusal is about the argument and not the function.
+%% A ground argument remains legal inside a polymorphic function.
 a_ground_obligation_inside_a_polymorphic_function_stands_test() ->
     Src = "module Obl\n"
           "public (T, result<int, ValidationError>) Both<T>(T x, term raw)\n"
@@ -272,12 +223,9 @@ a_ground_obligation_inside_a_polymorphic_function_stands_test() ->
     ?assertEqual([], errors(Src)).
 
 %%% ---------------------------------------------------------------------------
-%%% F45.7 — the API prints the signature as written, variables and all
+%%% F45.7 — the API prints the written polymorphic signature.
 %%% ---------------------------------------------------------------------------
 
-%% `--api` prints resolved types (F17). A polymorphic signature has no ground
-%% resolution to print — `term Pick(term, term)` would be a lie about what the
-%% function promises — so it prints the declaration the caller instantiates.
 api_prints_the_written_signature_test() ->
     {Root, Main} = in_dir([{"Pick.bs", pick_src("int | :a")}]),
     Out = run_cli("--src-root " ++ Root ++ " --api " ++ Main),
@@ -286,8 +234,7 @@ api_prints_the_written_signature_test() ->
     has(Out, ":a | int Both(int)\n").
 
 %%% ---------------------------------------------------------------------------
-%%% F45.8 — the solve crosses `using`: a dependent instantiates a producer's
-%%% polymorphic export at its own type
+%%% F45.8 — dependents instantiate imported signatures.
 %%% ---------------------------------------------------------------------------
 
 a_dependent_instantiates_an_imported_signature_test() ->
@@ -304,9 +251,7 @@ a_dependent_instantiates_an_imported_signature_test() ->
     ok_rc(Out),
     has(Out, "4\n").
 
-%% Declared narrower than the instantiation, the dependent is refused where
-%% a local caller would be — so the import table carried the template and
-%% not a ground extent.
+%% A narrower dependent checks that the import preserves the template.
 a_dependent_declared_narrower_is_refused_test() ->
     Lib = "module Lib\n"
           "public option<T> First<T>(list<T> xs)\n"
@@ -322,8 +267,7 @@ a_dependent_declared_narrower_is_refused_test() ->
     has(Out, "int | :nothing Head(list<int> xs)").
 
 %%% ---------------------------------------------------------------------------
-%%% F45.9 — the emitted spec is inert: variables erase to `any()` and the
-%%% module loads (ticket 27 §6)
+%%% F45.9 — emitted specs erase variables and the module loads.
 %%% ---------------------------------------------------------------------------
 
 the_emitted_spec_erases_the_variables_test() ->

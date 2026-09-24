@@ -1,23 +1,15 @@
-%%% F44 — a record or type name crosses `using` (ticket 73, ENG-361).
-%%%
-%%% Driven through the CLI for F11's reason: the subject is what happens across
-%%% two modules, and a checker handed one parsed file cannot ask the question.
-%%% Every test places each module in the directory its `module` line implies
-%%% under a root nobody else writes into, and compiles through `--src-root`.
-%%%
-%%% The rule under test is ticket 41's, applied to names in type position: a
-%%% module-tier import brings a producer's `record` and `type` names in
-%%% unqualified, the qualified spelling is legal wherever the module is
-%%% reachable, a collision is refused at the use and disambiguated by the
-%%% qualified spelling, and a local declaration wins over an import.
+%%% Imported types
+%%% The CLI resolves dependencies across modules. Fixtures follow module paths
+%%% under an isolated source root.
 
+%%% Scenarios: compiler/features/F44-type-names-cross-using.md
+%%% Scenarios: compiler/features/F49-validation-error-record.md
+%%% Scenarios: compiler/features/F17-compiler-query-mode.md
 -module(type_import_tests).
 
 -include_lib("eunit/include/eunit.hrl").
 
-%%% ---------------------------------------------------------------------------
-%%% Helpers, as `modules_tests` has them
-%%% ---------------------------------------------------------------------------
+%%% Helpers
 
 in_dir(Files) ->
     Root = bs_test_support:fixture_root(),
@@ -41,12 +33,9 @@ bad_rc(Out) -> ?assert(string:find(Out, "rc:1") =/= nomatch).
 has(Out, S) -> ?assert(string:find(Out, S) =/= nomatch).
 lacks(Out, S) -> ?assertEqual(nomatch, string:find(Out, S)).
 
-%% The value the program printed, without the `rc:` line `run_cli/1` appends.
 value(Out) -> string:trim(hd(string:split(Out, "\n"))).
 
-%% A producer with one record, one union of records, and a parametric alias
-%% whose body names one of its own records — the shape a consumer must see
-%% resolved rather than by the producer's private names.
+%% The alias body must resolve Meta in the producer's scope.
 orders_mod() ->
     {"Orders.bs",
      "module Orders\n"
@@ -60,9 +49,7 @@ orders_mod() ->
 
 an_order() -> "\"{ Kind = :'Orders.Order', Id = 1, Total = 7 }\"".
 
-%%% ---------------------------------------------------------------------------
-%%% F44.1 — the ticket's program: both of 41's spellings, in type position
-%%% ---------------------------------------------------------------------------
+%%% F44.1 — imported record names work unqualified and qualified.
 
 billing_src() ->
     "module Billing\n"
@@ -82,19 +69,15 @@ the_qualified_spelling_is_the_same_type_test() ->
     ok_rc(Out),
     ?assertEqual("7", value(Out)).
 
-%% The producer's own boundary guard still stands on the consumer's function:
-%% an `Invoice` wears a different tag, so `Due` refuses it at the door.
+%% Equal field sets do not make Invoice acceptable as Order.
 the_imported_type_is_the_producers_type_not_its_field_set_test() ->
     Out = run([{"Billing.bs", billing_src()}, orders_mod()],
               "Due \"{ Kind = :'Orders.Invoice', Id = 1, Total = 7 }\""),
     bad_rc(Out),
-    %% The guard is F42's: the wrong tag fails the head, not a body.
+    %% A wrong tag fails the boundary head, not the body.
     has(Out, "function_clause").
 
-%% F49.8 — a record imported through `using` and CONSTRUCTED in the consumer
-%% carries the producer's tag. Construction minted from the consuming module
-%% until F49, so `Order { … }` inside `Billing` was `'Billing.Order'`: a value
-%% the type's own guard refuses, here at `Due`'s head.
+%% F49.8 — construction in the consumer carries the producer's record tag.
 built_src() ->
     "module Billing\n"
     "using Orders\n"
@@ -115,10 +98,7 @@ a_constructed_imported_record_passes_the_producers_guard_test() ->
     ok_rc(Out),
     ?assertEqual("5", value(Out)).
 
-%%% ---------------------------------------------------------------------------
-%%% F44.2 — a `type` alias crosses by the same mechanism, and its members
-%%% dispatch by name in the consumer's clause heads
-%%% ---------------------------------------------------------------------------
+%%% F44.2 — imported union members name the consumer's clause heads.
 
 which_src() ->
     "module Billing\n"
@@ -132,8 +112,6 @@ a_union_alias_crosses_and_its_records_name_clause_heads_test() ->
     ok_rc(Out),
     ?assertEqual(":order", value(Out)).
 
-%% Exhaustiveness is checked against the imported union exactly as against a
-%% local one, and the missing head is named in the consumer's scope.
 an_imported_union_is_checked_exhaustive_test() ->
     Out = compile_set([{"Billing.bs",
                         "module Billing\n"
@@ -144,12 +122,8 @@ an_imported_union_is_checked_exhaustive_test() ->
     bad_rc(Out),
     has(Out, "Which(Invoice i)").
 
-%%% ---------------------------------------------------------------------------
-%%% F44.3 — a parametric alias crosses with its own names resolved
-%%% ---------------------------------------------------------------------------
+%%% F44.3 — imported parametric aliases resolve their own names.
 
-%% `Box<T>` names `Meta`, which is the producer's and not in the consumer's
-%% scope by that name unless imported. Both spellings must expand it.
 a_parametric_alias_crosses_with_its_body_resolved_test() ->
     Out = run([{"Billing.bs",
                 "module Billing\n"
@@ -172,9 +146,7 @@ a_parametric_alias_crosses_unqualified_too_test() ->
     ok_rc(Out),
     ?assertEqual("7", value(Out)).
 
-%%% ---------------------------------------------------------------------------
-%%% F44.4 — collisions inherit 41 §2: refused at the use, qualified to resolve
-%%% ---------------------------------------------------------------------------
+%%% F44.4 — collisions fail at use; qualified names disambiguate.
 
 archive_mod() ->
     {"Archive.bs",
@@ -194,7 +166,6 @@ an_unqualified_name_two_imports_supply_is_refused_at_the_use_test() ->
     has(Out, "Orders.Order"),
     has(Out, "Archive.Order").
 
-%% ...and an unused collision is no error at all, as for functions.
 two_imports_supplying_a_name_nobody_uses_is_not_an_error_test() ->
     Out = compile_set([{"Billing.bs",
                         "module Billing\n"
@@ -217,9 +188,7 @@ the_qualified_spelling_disambiguates_test() ->
     ok_rc(Out),
     ?assertEqual("7", value(Out)).
 
-%%% ---------------------------------------------------------------------------
-%%% F44.5 — a local declaration wins over an import (41 §2's resolution order)
-%%% ---------------------------------------------------------------------------
+%%% F44.5 — a local declaration wins over an import.
 
 a_local_type_wins_over_an_imported_one_test() ->
     Out = run([{"Billing.bs",
@@ -233,12 +202,9 @@ a_local_type_wins_over_an_imported_one_test() ->
     ok_rc(Out),
     ?assertEqual("9", value(Out)).
 
-%%% ---------------------------------------------------------------------------
-%%% F44.6 — the refusal names the `using` that would supply the name
-%%% ---------------------------------------------------------------------------
+%%% F44.6 — an unknown type names the import that supplies it.
 
-%% The namespace tier reaches `Shop.Orders` without bringing `Order` in
-%% unqualified, which is exactly the situation where the hint is worth having.
+%% A namespace import reaches Shop.Orders without importing Order unqualified.
 shop_orders_mod() ->
     {"Orders.bs",
      "module Shop.Orders\n"
@@ -256,8 +222,6 @@ an_unknown_type_names_the_import_that_would_supply_it_test() ->
     has(Out, "using Shop.Orders"),
     has(Out, "Orders.Order").
 
-%% A qualified name whose module was never imported is refused in the words
-%% the qualified CALL uses (41 §2): the `using` lines are the dependency list.
 a_qualified_type_from_a_module_never_imported_is_refused_test() ->
     Out = compile_set([{"Billing.bs",
                         "module Billing\n"
@@ -278,9 +242,7 @@ a_qualified_name_the_module_does_not_declare_says_so_test() ->
     bad_rc(Out),
     has(Out, "Orders declares no type named Receipt").
 
-%%% ---------------------------------------------------------------------------
-%%% F44.7 — the namespace tier and the full dotted path
-%%% ---------------------------------------------------------------------------
+%%% F44.7 — namespace imports permit short and full qualification.
 
 a_dotted_producer_is_named_by_its_full_path_test() ->
     Out = run([{"Billing.bs",
@@ -304,10 +266,7 @@ a_namespace_import_short_qualifies_its_types_test() ->
     ok_rc(Out),
     ?assertEqual("7", value(Out)).
 
-%%% ---------------------------------------------------------------------------
-%%% F44.8 — ticket 16's refusal does not move: naming the union is legal,
-%%% widening it and handing it back is refused at the call (ENG-261)
-%%% ---------------------------------------------------------------------------
+%%% F44.8 — an imported union is accepted; widening it fails at the call.
 
 shapes_mod() ->
     {"Shapes.bs",
@@ -343,10 +302,7 @@ a_widened_union_is_refused_where_it_meets_the_closed_clause_set_test() ->
     has(Out, "does not accept"),
     has(Out, "Draw.Triangle").
 
-%%% ---------------------------------------------------------------------------
-%%% F44.9 — `--api` is a second declaration pass (ENG-320), and it prints
-%%% the resolved type, never the producer's name, as F17 always has
-%%% ---------------------------------------------------------------------------
+%%% F44.9 — the API prints resolved imported types and rejects ambiguity.
 
 the_api_prints_the_resolved_type_for_an_imported_name_test() ->
     Out = api([{"Billing.bs", billing_src()}, orders_mod()]),
@@ -366,8 +322,7 @@ the_api_refuses_the_ambiguous_name_too_test() ->
     bad_rc(Out),
     has(Out, "Order is ambiguous").
 
-%% F17.12 still holds: a `using` naming a module that exists nowhere is not
-%% read, so the query answers about what it can see.
+%% F17.12 — the API answers without loading an unused dependency.
 the_api_still_answers_when_a_dependency_is_absent_test() ->
     Out = api([{"Dependent.bs",
                 "module Dependent\n"

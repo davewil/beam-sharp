@@ -7,19 +7,13 @@
 
 -define(OUT, bs_test_support:run_root()).
 
-%%% ---------------------------------------------------------------------------
 %%% Calling Erlang
-%%%
-%%% The module is an atom, so the call site is Elixir's and nothing is renamed.
-%%% ---------------------------------------------------------------------------
 
 interop_src() ->
     "module Interop\n"
     "using :lists {\n"
     "    int sum(list<int> xs)\n"
-    %% `list<term>`, not `list<int>`: a foreign return may promise only what
-    %% one guard decides, and every element being an `int` is not that
-    %% (ticket 18 §2, built by ENG-354). The parameter side is not checked.
+    %% A foreign return guard can check the list, but not every element.
     "    list<term> reverse(list<term> xs)\n"
     "}\n"
     "public int Total(list<int> xs)\n"
@@ -32,15 +26,11 @@ a_foreign_call_runs_test() ->
     ?assertEqual(10, M:'Total'([1, 2, 3, 4])),
     ?assertEqual([3, 2, 1], M:'Backwards'([1, 2, 3])).
 
-%% A `using` block is a declaration, not an unfinished function: it must not be
-%% reported as a signature with no clauses.
+%% A foreign declaration needs no local clauses.
 a_foreign_block_is_not_a_stub_test() ->
     ?assertMatch({ok, _, []}, check_only(interop_src())).
 
-%% It emits an ordinary BEAM remote call. Found by walking the whole form
-%% rather than the top of the clause body, because the call sits inside the
-%% boundary guard's `case` since F42 and what is asserted is the call, not
-%% where the emitter put it.
+%% Walk nested forms because the remote call sits inside a boundary guard.
 a_foreign_call_is_a_remote_call_test() ->
     {ok, _} = compile(interop_src()),
     {ok, {_, [{abstract_code, {_, Forms}}]}} =
@@ -55,12 +45,7 @@ remotes(T) when is_tuple(T) -> remotes(tuple_to_list(T));
 remotes(L) when is_list(L)  -> lists:append([remotes(E) || E <- L]);
 remotes(_)                  -> [].
 
-%%% ---------------------------------------------------------------------------
 %%% No statement terminator
-%%%
-%%% Both audiences type `;` from habit, so it is the likeliest error in the
-%%% language and owes the sharpest message.
-%%% ---------------------------------------------------------------------------
 
 no_semicolon_is_needed_test() ->
     Src = "module T\npublic int F(int n)\nF(n) when n > 0 -> n\nF(n) when n <= 0 -> 0\n",

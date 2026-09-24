@@ -1,3 +1,5 @@
+%%% Scenarios: compiler/features/F15-module-is-a-directory.md
+%%% Scenarios: compiler/features/F47-diagnostic-json.md
 -module(cli_tests).
 
 -include_lib("eunit/include/eunit.hrl").
@@ -7,55 +9,23 @@
 
 -define(OUT, bs_test_support:run_root()).
 
-%%% ---------------------------------------------------------------------------
-%%% The built escript
-%%%
-%%% `escript_emu_args` named a module that does not exist (`bsc_cli`), so the
-%%% README's documented quickstart died with `undefined function bsc_cli:main/1`
-%%% while every test above passed — because none of them executed the artefact
-%%% users are told to run. Found by a teammate building the OTP corpus, who had
-%%% to route around it.
-%%%
-%%% Two tests: one that reads the config and needs no build, so it fails wherever
-%%% it is run; one that executes the escript when it has been built.
-%%% ---------------------------------------------------------------------------
+%%% --- The built escript ---
 
 escript_entry_point_exists_test() ->
     {ok, Terms} = file:consult(project_root() ++ "/rebar.config"),
     Args = proplists:get_value(escript_emu_args, Terms),
     ?assertNotEqual(undefined, Args),
-    %% "%%! -escript main bsc\n" -> bsc
     [_, "-escript", "main", ModStr | _] = string:lexemes(Args, " \n"),
     Mod = list_to_atom(ModStr),
     ?assertMatch({module, Mod}, code:ensure_loaded(Mod)),
     ?assert(erlang:function_exported(Mod, main, 1)).
 
-%% THE SILENT SKIP THIS USED TO HAVE IS WHY IT NEVER RAN IN CI.
-%%
-%% It guarded itself with `is_regular/1` and returned `ok` when the escript was
-%% absent — and CI ran `rebar3 eunit` BEFORE `rebar3 escriptize`, so the artefact
-%% was always absent and this test passed without ever executing anything. A test
-%% written because the documented quickstart was broken had itself been green and
-%% empty since the day it was written.
-%%
-%% The workflow now builds the escript first, so the guard is removed rather than
-%% kept: a missing escript is a real failure with a message that says what to run.
-%% This repo's own rule, from the spec-check harness — a clean run proves nothing
-%% unless the broken case would fail it.
-%% The path comes from `escript/0` rather than being spelled again here. It was
-%% spelled again, at the DEFAULT profile, which was right while CI was the only
-%% thing that built it — but eunit runs under the TEST profile, so rebar.config's
-%% pre-eunit `escriptize` hook lands the artefact in `_build/test/bin` and this
-%% test was the last one still looking past it. The loud throw is kept: skipping
-%% silently is the failure the comment above is about.
+%% Eunit builds the escript under the test profile, not the default profile.
 built_escript_compiles_a_file_test() ->
     Escript = escript(),
     ?assert(filelib:is_regular(Escript)
             orelse throw({no_escript, Escript, "run `rebar3 escriptize` first"})),
-    %% F15 — through `place/3`, so the source sits in a directory named for the
-    %% module it declares. Written straight into a directory called `escript/`, it
-    %% now fails ticket 41 §5's path check rather than the thing this test is
-    %% about, which is that the built artefact runs at all.
+    %% F15 — the fixture directory matches its declared module.
     Root = bs_test_support:fixture_root(),
     Src = bs_test_support:place(Root, "in.bs", showcase_src()),
     Out = Root ++ "/out",
@@ -64,18 +34,15 @@ built_escript_compiles_a_file_test() ->
     ?assertEqual(0, Rc),
     ?assert(filelib:is_regular(Out ++ "/Readings.beam")).
 
-%% A failed child has two independent facts: what it printed and how it exited.
-%% Keep them separate at the process boundary rather than asking a shell echo
-%% embedded in the captured text to stand in for the exit status.
+%% An exit status is independent of text printed by the child.
 a_cli_failure_keeps_exit_status_and_output_separate_test() ->
     {Rc, Output} = bs_test_support:run_cli_result("--definitely-not-a-flag"),
     ?assertEqual(2, Rc),
     ?assertNotEqual(nomatch, string:find(Output, "usage:")),
+    %% A shell echo must not stand in for the child's exit status.
     ?assertEqual(nomatch, string:find(Output, "rc:")).
 
-%% The old fixed root made every previous run part of this run's source index.
-%% Put a duplicate dependency in that retired location and drive the real CLI:
-%% the current run must compile its own dependency without ever seeing it.
+%% A conflicting dependency outside the source root must not enter the index.
 a_previous_runs_fixture_cannot_enter_this_runs_source_index_test() ->
     Case = "eng229-isolation-" ++ os:getpid() ++ "-" ++
            integer_to_list(erlang:unique_integer([positive])),
@@ -91,6 +58,8 @@ a_previous_runs_fixture_cannot_enter_this_runs_source_index_test() ->
              "module Eng229Dep\n"
              "public int Value()\n"
              "Value() -> 1\n"),
+    %% /tmp/bsc_eunit is the retired shared parent for test runs.
+    %% A duplicate dependency there must stay outside this run's index.
     PoisonRoot = filename:join("/tmp/bsc_eunit", Case),
     _Poison = bs_test_support:place(
                 PoisonRoot, "poison.bs",
@@ -105,10 +74,7 @@ a_previous_runs_fixture_cannot_enter_this_runs_source_index_test() ->
         ok = file:del_dir_r(PoisonRoot)
     end.
 
-%% `'bs@type_atoms'/0` is on every emitted module (ticket 87) and is the
-%% compiler's, not the author's: naming it at the command line finds no such
-%% function, the same as naming `module_info` would. Before the runner hid it,
-%% this printed the atom list and exited 0.
+%% `bs@type_atoms` is a compiler export, not a runnable user function.
 the_compilers_export_cannot_be_run_test() ->
     case bs_test_support:built() of
         false -> ok;
@@ -126,12 +92,7 @@ the_compilers_export_cannot_be_run_test() ->
                      end)
     end.
 
-%%% ---------------------------------------------------------------------------
-%%% Running a program — `bsc fib.bs 5`
-%%%
-%%% Development is driven by runnable code (David, 2026-08-14), so these assert
-%%% on what the CLI prints, not on internals.
-%%% ---------------------------------------------------------------------------
+%%% --- Running a program ---
 
 fib_src() ->
     "module Fib\n"
@@ -139,9 +100,6 @@ fib_src() ->
     "Fib(n) when n <= 1 -> n\n"
     "Fib(n) when n > 1  -> Fib(n - 1) + Fib(n - 2)\n".
 
-
-%% The rule that makes `bsc fib.bs 5` need no function name: under one function
-%% per file, the file names the function.
 run_infers_the_function_from_the_file_name_test() ->
     case bs_test_support:built() of
         false -> ok;
@@ -162,8 +120,7 @@ run_computes_rather_than_parrots_test() ->
                 ?assertEqual("55", hd(string:lexemes(R, "\n")))
             end)
     end.
-%% Results print in beam-sharp notation, and the argument parser accepts back
-%% exactly what the printer emits — `(:ok, 7)`, not `{ok,7}`.
+
 run_round_trips_beam_sharp_notation_test() ->
     case bs_test_support:built() of
         false -> ok;
@@ -174,8 +131,6 @@ run_round_trips_beam_sharp_notation_test() ->
             end)
     end.
 
-%% A file with several functions cannot infer one, and says so rather than
-%% guessing.
 run_names_the_choice_when_it_cannot_infer_test() ->
     case bs_test_support:built() of
         false -> ok;
@@ -193,9 +148,7 @@ run_names_the_choice_when_it_cannot_infer_test() ->
             end)
     end.
 
-%% What `:reload` does, asserted where it can be: a piped stdin cannot edit a
-%% file mid-session, so this drives the same recompile-purge-load path the REPL
-%% command drives and checks the NEW source is what answers.
+%% Piped stdin cannot edit a file mid-session; drive the REPL reload path.
 reload_picks_up_a_changed_file_test() ->
     Out = ?OUT ++ "/reload",
     ok = filelib:ensure_dir(Out ++ "/x"),
@@ -213,20 +166,8 @@ reload_picks_up_a_changed_file_test() ->
     {module, 'Fib'} = code:ensure_loaded('Fib'),
     ?assertEqual(100, 'Fib':'Fib'(6)).
 
-%% ENG-318 — TWO `bsc` RUNS COULD SHARE A SCRATCH DIRECTORY. Without `-o`
-%% the scratch was `$TMPDIR/bsc-<N>` with `N = erlang:unique_integer([positive])`,
-%% unique within one VM and restarted by every VM: 12 distinct values from 30
-%% fresh VMs, measured 2026-09-03. Two concurrent runs shared `Fib.beam`, and a
-%% sequential clean pair went red at the tour gate when a fresh VM's counter
-%% landed on a directory a dead one had left populated.
-%%
-%% The name now carries the OS pid, which is unique among processes alive at
-%% the same time — exactly the set that can collide. This asserts it at the
-%% boundary: run the escript without `-o`, read the pid the port spawned, and
-%% require the path `-v` prints to sit under `bsc-<that pid>-`. Deterministic;
-%% a test that raced N runs and waited for a collision would be red only
-%% sometimes, which is not a red. `env` rather than a leading assignment, since
-%% `exec VAR=x prog` would try to run a file called `VAR=x`.
+%% The child PID checks isolation without racing concurrent runs.
+%% `env` is needed because `exec VAR=x prog` treats `VAR=x` as a program.
 a_scratch_directory_is_named_for_the_process_that_made_it_test() ->
     case bs_test_support:built() of
         false -> ok;
@@ -250,41 +191,25 @@ a_scratch_directory_is_named_for_the_process_that_made_it_test() ->
             end)
     end.
 
-%%% ---------------------------------------------------------------------------
-%%% The reader's diagnostics.
-%%%
-%%% Every case below is one David actually typed at the prompt on 2026-08-14.
-%%% The reader used to answer all of them with `expected a call, e.g. Fib(5)` or,
-%%% worse, by silently turning the text into a BINARY and letting it crash inside
-%%% the function — `{badmap, <<"Order{Id = 1}">>}`, which shows a person their own
-%%% source inside an error about a map. Ticket 23's rule is that the compiler
-%%% hands you the thing to write, and the prompt is where that matters most.
-%%% ---------------------------------------------------------------------------
+%%% --- The reader's diagnostics ---
 
-%% Construction is not available in an argument: arguments are values.
 an_unreadable_argument_says_what_it_could_not_read_test() ->
     {error, Msg} = bs_run:read_arg("Order{Id = 1, Total = 0}"),
     Flat = lists:flatten(Msg),
     ?assert(string:find(Flat, "Order{Id = 1, Total = 0}") =/= nomatch),
     ?assert(string:find(Flat, "record construction is not available") =/= nomatch).
 
-%% ...and neither is a nested call.
 a_call_in_an_argument_is_named_as_such_test() ->
     {error, Msg} = bs_run:read_arg("Pay(x)"),
     ?assert(string:find(lists:flatten(Msg), "arguments are values, not calls")
             =/= nomatch).
 
-%% The record value itself still reads, and reads back to what the printer emits.
 a_record_value_round_trips_through_the_reader_test() ->
     ?assertEqual({ok, an_order()},
                  bs_run:read_arg("{Kind = :'Shop.Order', Id = 1, Total = 0}")),
     ?assertEqual("{Kind = :'Shop.Order', Id = 1, Total = 0}",
                  lists:flatten(bs_run:format_value(an_order()))).
 
-%% A name the REPL has bound resolves at any DEPTH, not only as a whole
-%% argument. Without this the inner `t` fell through to the Erlang reader and
-%% came back as the atom `t`, failing arithmetic three frames later — the same
-%% silent-wrong-value shape as the binary fallback.
 a_bound_name_resolves_inside_a_literal_test() ->
     Env = #{"t" => 9},
     ?assertEqual({ok, 9}, bs_run:read_arg("t", Env)),
@@ -293,43 +218,23 @@ a_bound_name_resolves_inside_a_literal_test() ->
     ?assertEqual({ok, [1, 9]}, bs_run:read_arg("[1, t]", Env)),
     ?assertEqual({ok, {9, 2}}, bs_run:read_arg("(t, 2)", Env)).
 
-%% ...and an empty environment behaves exactly as before, which is what makes
-%% the change additive and leaves the CLI untouched.
 an_empty_environment_changes_nothing_test() ->
     ?assertEqual(bs_run:read_arg("[1, 2]"), bs_run:read_arg("[1, 2]", #{})),
     ?assertEqual({ok, {ok, 5}}, bs_run:read_arg("(:ok, 5)", #{"t" => 9})).
 
-%% SUPERSEDES `an_erlang_term_is_still_readable_test`, which asserted
-%% `read_arg("{ok,5}")` was an Erlang tuple and justified it as *"the fallback
-%% that was removed was the SILENT one, not this"*.
-%%
-%% It was silent too, about a different thing. `{}` is not a second spelling for
-%% a tuple in beam-sharp — it is **taken**, meaning a record or a map type — so
-%% `{1, 2}` was malformed record syntax being quietly reinterpreted, and then
-%% echoed back as `(1, 2)` because the printer prints beam-sharp. David found it
-%% at the prompt on 2026-08-15 and ruled: *"If () for tuples to match C# is
-%% doable that is preferable."*
-%%
-%% It is doable and was already done — `(int, int)`, `Swap((a, b))` and
-%% `(:ok, n)` all compile, run, and lower to `{tuple, L, …}` abstract-format
-%% terms. There was never a fight with the Erlang compiler to have, because
-%% ticket 13 emits terms rather than Erlang source text.
-%%
-%% The test is rewritten rather than deleted so the reversal is on the record.
+%% Braces denote records; Erlang tuple syntax must not be accepted as a tuple.
 a_brace_that_is_not_a_record_names_both_spellings_test() ->
     {error, Msg} = bs_run:read_arg("{ok,5}"),
     Flat = lists:flatten(Msg),
     ?assertNotEqual(nomatch, string:find(Flat, "(1, 2)")),
     ?assertNotEqual(nomatch, string:find(Flat, "Id = 1")),
-    %% The beam-sharp spelling of the same value reads, so the reader accepts
-    %% what `format_value/1` prints — which is the property that was broken.
+    %% The equivalent tuple in beam-sharp notation remains valid.
     ?assertEqual({ok, {ok, 5}}, bs_run:read_arg("(:ok, 5)")),
     ?assertEqual({ok, [1, 2]}, bs_run:read_arg("[1, 2]")),
-    %% A record still reads, which is what braces are FOR.
+    %% Braces remain valid for records.
     ?assertEqual({ok, #{'Id' => 1, 'Total' => 500}},
                  bs_run:read_arg("{Id = 1, Total = 500}")).
 
-%% The CLI reports it rather than crashing inside the function.
 the_cli_reports_an_unreadable_argument_test() ->
     case bs_test_support:built() of
         false -> ok;
@@ -342,32 +247,8 @@ the_cli_reports_an_unreadable_argument_test() ->
             end)
     end.
 
-%%% ---------------------------------------------------------------------------
-%%% ENG-314 — the batch form: many invocations, one VM.
-%%%
-%%% `check-language.sh` compiles fifty-odd fenced blocks and `check-tour.sh`
-%%% replays fifty-odd transcripts, each as its own `bsc` process, and their
-%%% self-tests run each gate fifteen times over — measured at 65% of the CI job
-%%% on 2026-09-02. `--batch MANIFEST RESULTS` runs every entry of the manifest in
-%%% one VM and writes what each would have written on its own: `<id>.stdout`,
-%%% `<id>.stderr`, `<id>.output` (both streams, in the order they were written,
-%%% which is what `2>&1` gives) and `<id>.status`.
-%%%
-%%% THE ORACLE IS THE STANDALONE RUN. Every entry below is also run as its own
-%%% process and the four files must equal what that process produced, byte for
-%%% byte. That is the whole contract: a gate that switches to the batch form
-%%% keeps reading exactly the text it read before.
-%%%
-%%% One entry FAILS and one SUCCEEDS in the same batch, per the issue. Two more
-%%% are the cases a single VM gets wrong where fifty processes could not:
-%%% `rerun` compiles a SECOND module called `Fib` from a different tree and
-%%% runs it, so a module left loaded by the entry before it would answer with
-%%% stale code; and `inject` hands over an argument carrying `; touch`, which
-%%% must reach the compiler as one argument and never a shell.
-%%% ---------------------------------------------------------------------------
+%%% --- Batch invocations ---
 
-%% The manifest is line-framed, one argument per `arg` line, so an argument
-%% boundary is a newline and never a quoting rule anything has to re-parse.
 manifest(Entries) ->
     lists:append(
       [["entry ", Id, "\n",
@@ -380,9 +261,8 @@ read_result(Dir, Id, Ext) ->
     {ok, Bin} = file:read_file(filename:join(Dir, Id ++ "." ++ Ext)),
     binary_to_list(Bin).
 
-%% The standalone run the batch is measured against: split streams from one
-%% process, the merged stream and the status from another. Arguments are
-%% single-quoted for the shell; none below carries a quote of its own.
+%% Separate runs capture split and merged streams for comparison.
+%% These arguments contain no single quotes, so shell quoting is sufficient.
 standalone(Args) ->
     Quoted = lists:flatten(lists:join(" ", ["'" ++ A ++ "'" || A <- Args])),
     {Rc, Out, Err} = bs_test_support:run_cli_split_result(Quoted),
@@ -397,9 +277,7 @@ inexhaustive_src() ->
     "Go(:red)   -> :stop\n"
     "Go(:amber) -> :wait\n".
 
-%% Spelled as the UTF-8 BYTES, because `place/3` writes a list of characters
-%% one byte each: a literal `é` here is codepoint 233 and would land in the file
-%% as latin1, which the compiler's UTF-8 check refuses before anything runs.
+%% `place/3` writes list elements as bytes; encode the accent as UTF-8.
 accented_src() ->
     "module Label\n"
     "public string Accented()\n"
@@ -414,8 +292,7 @@ batch_runs_every_entry_in_one_vm_and_attributes_each() ->
     Bad   = bs_test_support:place(Root, "bad.bs", inexhaustive_src()),
     Fib   = bs_test_support:place(Root, "fib.bs", fib_src()),
     Label = bs_test_support:place(Root, "label.bs", accented_src()),
-    %% A second tree with its own `module Fib`, answering 100 where the first
-    %% answers 55. Same module atom, different code: the stale-load control.
+    %% Reusing the module atom with different code detects stale loads.
     Root2 = bs_test_support:fixture_root(),
     Fib2  = bs_test_support:place(Root2, "fib.bs",
                                   "module Fib\npublic int Fib(int n)\n"
@@ -445,8 +322,6 @@ batch_runs_every_entry_in_one_vm_and_attributes_each() ->
     {Rc, BatchOutput} = bs_test_support:run_cli_result(
                           "--batch " ++ ManifestPath ++ " " ++ Results),
     ?assertEqual({0, ""}, {Rc, BatchOutput}),
-
-    %% Every entry against its own standalone run, all four files.
     Compare =
         fun(Id, Args) ->
                 Want = standalone(Args),
@@ -458,11 +333,7 @@ batch_runs_every_entry_in_one_vm_and_attributes_each() ->
                 ?assertEqual({Id, Want}, {Id, Got})
         end,
     [Compare(Id, Args) || {Id, undefined, Args} <- Entries, Id =/= "repl"],
-
-    %% And the facts the comparison alone would let a broken pair of runs
-    %% agree on: a success and a failure in one batch, the term on stdout with
-    %% the prose on stderr and both in the merged stream in that order, the
-    %% second `Fib` answering with its own code, and the injection inert.
+    %% These expectations also catch identical failures in both run modes.
     ?assertEqual("0", string:trim(read_result(Results, "good", "status"))),
     ?assertEqual("1", string:trim(read_result(Results, "bad", "status"))),
     ?assertNotEqual(nomatch, string:find(read_result(Results, "bad", "stderr"),
@@ -472,8 +343,7 @@ batch_runs_every_entry_in_one_vm_and_attributes_each() ->
     ?assertNotEqual(nomatch, string:find(TermOut, "tag => inexhaustive")),
     ?assertEqual(nomatch, string:find(TermErr, "tag =>")),
     ?assertEqual(TermOut ++ TermErr, read_result(Results, "term", "output")),
-    %% F47.9 — the third channel, the same way: the JSON on stdout, the prose
-    %% on stderr, and both in the merged stream in that order.
+    %% F47.9 — batch JSON matches standalone output on each stream.
     JsonOut = read_result(Results, "json", "stdout"),
     JsonErr = read_result(Results, "json", "stderr"),
     ?assertNotEqual(nomatch, string:find(JsonOut, "\"tag\":\"inexhaustive\"")),
@@ -481,32 +351,22 @@ batch_runs_every_entry_in_one_vm_and_attributes_each() ->
     ?assertEqual(JsonOut ++ JsonErr, read_result(Results, "json", "output")),
     ?assertEqual("55\n", read_result(Results, "run", "stdout")),
     ?assertEqual("100\n", read_result(Results, "rerun", "stdout")),
-    %% Read back as bytes, so the expectation is the UTF-8 encoding of `é`.
+    %% The result is read as bytes, so the expected accent is UTF-8.
     ?assertEqual("\"h\303\251llo\"\n", read_result(Results, "utf", "stdout")),
     ?assertEqual(":positive\n", read_result(Results, "space", "stdout")),
     ?assertEqual("2", string:trim(read_result(Results, "inject", "status"))),
     ?assertNot(filelib:is_file(Pwned)),
-
-    %% The relative path resolved against the entry's `cwd`, and the
-    %% diagnostic names it as the entry spelled it.
+    %% Resolve against the entry's cwd and retain its relative path in errors.
     ?assertEqual("1", string:trim(read_result(Results, "rel", "status"))),
-    %% The path and the line are what this asserts — that the entry's own
-    %% relative spelling reached the diagnostic. The column follows the line
-    %% since F35 and is not this test's claim, so it is not pinned here.
+    %% Match the entry's relative path and line without pinning the column.
     ?assertNotEqual(nomatch, string:find(read_result(Results, "rel", "stderr"),
                                          "Bad/bad.bs:3:")),
-
-    %% `--repl` is refused in an entry rather than ignored, for the reason
-    %% `--diagnostics term` is refused in the REPL: a flag accepted and not
-    %% honoured costs the flag its credibility everywhere else.
+    %% A batch entry must refuse --repl rather than silently ignore it.
     ?assertEqual("2", string:trim(read_result(Results, "repl", "status"))),
     ?assertNotEqual(nomatch, string:find(read_result(Results, "repl", "stderr"),
                                          "--repl is not available in a batch")).
 
-%% A manifest the reader cannot parse runs NOTHING and says which line. A batch
-%% that ran the entries it understood and skipped the rest would hand a gate a
-%% results directory with holes in it, and a gate reading `<id>.status` files
-%% would have to know to count them.
+%% A valid first entry must not run when a later entry is malformed.
 a_malformed_manifest_runs_nothing_and_names_the_line_test() ->
     Root = bs_test_support:fixture_root(),
     Good = bs_test_support:place(Root, "good.bs", showcase_src()),
@@ -521,8 +381,7 @@ a_malformed_manifest_runs_nothing_and_names_the_line_test() ->
     ?assertNotEqual(nomatch, string:find(Output, "bad.manifest:5")),
     ?assertEqual({error, enoent},
                  file:read_file(filename:join(Results, "one.status"))),
-    %% And the flag takes exactly its two arguments — combined with anything
-    %% else it is refused, not reinterpreted as a compile.
+    %% Extra flags must not turn the batch invocation into a compile.
     {Rc2, Output2} = bs_test_support:run_cli_result(
                        "-o " ++ Root ++ " --batch " ++ ManifestPath ++ " " ++ Results),
     ?assertEqual(2, Rc2),
@@ -530,20 +389,10 @@ a_malformed_manifest_runs_nothing_and_names_the_line_test() ->
     {Rc3, _} = bs_test_support:run_cli_result("--batch " ++ ManifestPath),
     ?assertEqual(2, Rc3).
 
-%% THE ERLC STEP MOVED IN-PROCESS WITH THIS FEATURE, AND THIS PINS WHAT IT
-%% PRINTS. `bsc` shelled out to `erlc +from_abstr` per module, and that boot
-%% was two thirds of a block's cost (measured 2026-09-03: 0.24s per block, of
-%% which the bare `bsc` VM was 0.08s). `compile:file/2` over the same `.abstr`
-%% is the same OTP code erlc calls, and ticket 13's obligation — the serialised
-%% forms plus external erlc always work — is still what `spec-check.sh`
-%% measures. What a reader could notice is the prose: the Erlang compiler's
-%% warning text reaches stderr under a prefix naming who said it. That prefix
-%% read `erlc: ` for a day after erlc stopped running (David, 2026-09-03:
-%% "keep the docs/warning text honest"); it names the `compile` module now,
-%% which is the thing that actually spoke.
+%% Compilation runs in-process, so the prefix names compile, never erlc.
 the_erlang_compilers_warning_reaches_stderr_under_an_honest_prefix_test() ->
     Root = bs_test_support:fixture_root(),
-    %% A private function nothing calls: the compiler deletes it and says so.
+    %% An unused private function triggers an Erlang compiler warning.
     Src = bs_test_support:place(Root, "half.bs",
                                 "module Half\n"
                                 "public int Whole(int n)\n"

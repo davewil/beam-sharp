@@ -1,3 +1,6 @@
+%%% Scenarios: compiler/features/F5-body-check-site.md
+%%% Scenarios: compiler/features/F21-field-value-obligations.md
+%%% Scenarios: compiler/features/F3-records.md
 -module(body_check_tests).
 
 -include_lib("eunit/include/eunit.hrl").
@@ -7,15 +10,7 @@
 
 -define(OUT, bs_test_support:run_root()).
 
-%%% ---------------------------------------------------------------------------
-%%% F5 — the body check site. Ticket 33.
-%%%
-%%% Five obligation sites, every one of them a place a type was already
-%%% declared. Three of the tests below assert scenarios F3 wrote down with their
-%%% ids RESERVED and could not run, because F3 had no body check to raise them
-%%% from: F3.3's call-site enforcement, F3.8's projection error, and F3.10.
-%%% ---------------------------------------------------------------------------
-
+%%% Body check sites
 
 docs_src() ->
     "module Shop\n"
@@ -24,8 +19,7 @@ docs_src() ->
     "public Order Update(Order o)\n"
     "Update(o) -> o with { Total = 0 }\n".
 
-%% F5.1 — site 4. Without it beam-sharp emits a `-spec` claiming what its own
-%% body does not deliver, which is the defect ticket 18 measured in Gleam.
+%% F5.1 — a body must produce its declared return type.
 a_body_must_produce_the_declared_return_type_test() ->
     Src = "module M\npublic int Answer(int n)\nAnswer(n) -> :oops\n",
     ?assertMatch([{error, _, 'Answer', {return_not_declared, _, _}}], errors(Src)).
@@ -34,9 +28,7 @@ a_body_producing_the_declared_type_compiles_test() ->
     Src = "module M\npublic atom Answer(int n)\nAnswer(n) -> :ok\n",
     ?assertMatch({ok, _, _}, check_only(Src)).
 
-%% F5.2 — site 1, and F3.3's deferred half: ticket 26 §1's requirement as David
-%% phrased it. F3 established aggregate identity in the algebra and had nowhere
-%% to enforce it.
+%% F5.2 — a call rejects the wrong record.
 a_call_rejects_the_wrong_record_test() ->
     Src = docs_src() ++
           "public Order Wrong(Invoice i)\n"
@@ -50,9 +42,7 @@ a_call_with_the_right_record_compiles_test() ->
           "Right(o) -> Update(o)\n",
     ?assertMatch({ok, _, _}, check_only(Src)).
 
-%% F5.3 — the residual IS the clause the caller must write, and it proposes an
-%% edit to the function being checked rather than to the callee: ticket 18 §4's
-%% function-local rule showing up in a diagnostic.
+%% F5.3 — the residual proposes a clause for the caller, not the callee.
 the_call_site_residual_is_the_callers_clause_head_test() ->
     case bs_test_support:built() of
         false -> ok;
@@ -62,21 +52,15 @@ the_call_site_residual_is_the_callers_clause_head_test() ->
                   "Wrong(i) -> Update(i)\n",
             with_src("callsite.bs", Src, fun(Path, Out) ->
                 R = run_cli("-o " ++ Out ++ " " ++ Path),
-                %% CORRECTED 2026-08-27. This asserted the discriminator
-                %% spelling, `Wrong({ Kind: :'Shop.Invoice' })`. `caller_head` is
-                %% a PASTE site and was reading the description printer; F29
-                %% routes it through the head channel, so it names the type the
-                %% way F22 says to write it. What the test is FOR is unchanged:
-                %% the head proposed is the caller's, never the callee's.
+                %% The proposed head uses record pattern syntax.
                 ?assert(string:find(R, "Wrong(Invoice i) -> ...") =/= nomatch),
-                %% Never a suggestion to widen the callee.
+                %% The diagnostic must not suggest widening the callee.
                 ?assertEqual(nomatch, string:find(R, "Update({")),
                 ?assertEqual(nomatch, string:find(R, "Update(Invoice"))
             end)
     end.
 
-%% F5.4 — site 2, and F3.10: the single largest hole F3 shipped with. A body
-%% could build a map wearing an `Order` tag without `Order`'s fields.
+%% F5.4 — construction supplies exactly the declared fields.
 construction_must_supply_every_declared_field_test() ->
     Src = "module Shop\n"
           "record Order { Id: int, Total: int }\n"
@@ -100,9 +84,7 @@ construction_with_the_exact_field_set_compiles_test() ->
           "Make(n) -> Order{ Id = n, Total = n }\n",
     ?assertMatch({ok, _, _}, check_only(Src)).
 
-%% F5.5 — site 3, and F3.8's deferred sentence. The residual IS the member that
-%% lacks the field, so the fix — discriminate on the tag first — is handed back
-%% rather than described.
+%% F5.5 — the residual names the member lacking the projected field.
 projecting_a_field_one_member_lacks_names_that_member_test() ->
     Src = "module Shop\n"
           "record Order { Id: int, Total: int }\n"
@@ -114,7 +96,7 @@ projecting_a_field_one_member_lacks_names_that_member_test() ->
     ?assertEqual("{ Kind: :'Shop.Note' }",
                  lists:flatten(bs_types:to_pattern(Residual))).
 
-%% F3.8's live half, unchanged: legal where every member carries the field.
+%% F3.8 — projection is legal when every member carries the field.
 projecting_a_field_every_member_carries_compiles_test() ->
     Src = "module Shop\n"
           "record Order   { Id: int, Total: int }\n"
@@ -124,10 +106,7 @@ projecting_a_field_every_member_carries_compiles_test() ->
           "Amount(d) -> d.Total\n",
     ?assertMatch({ok, _, _}, check_only(Src)).
 
-%% F5.6 — a body variable's type comes from the clause's REFINED DOMAIN, so an
-%% earlier clause narrows a later body with nothing written. Ticket 08's
-%% "narrowing is always written" falling out: the earlier clause head IS the
-%% narrowing.
+%% F5.6 — an earlier clause narrows a later body.
 narrow_src(Clauses) ->
     "module Narrow\n"
     "type Flag = :on | :off\n"
@@ -139,22 +118,14 @@ an_earlier_clause_narrows_a_later_body_test() ->
     ?assertMatch({ok, _, _},
                  check_only(narrow_src("Run(:off) -> :no\nRun(f) -> Only(f)\n"))).
 
-%% The control, and it is the load-bearing half: without the earlier clause the
-%% same body is an error, so the narrowing is the residual's contribution and
-%% not the pattern's.
+%% The earlier clause, not the variable pattern, supplies the narrowing.
 without_the_earlier_clause_the_same_body_is_an_error_test() ->
     ?assertMatch([{error, _, 'Run', {arg_not_accepted, 'Only', 1, _, _}} | _],
                  errors(narrow_src("Run(f) -> Only(f)\n"))).
 
-%% F5.7 — the domain is `Possible`, never `Certain`. An untranslatable guard
-%% makes `Certain` none, and a body typed against none does not fail loudly: it
-%% silently stops checking, because every containment over none passes. So this
-%% asserts an error that the WRONG build omits.
-%%
-%% The untranslatable guard is `n % 2 == 0`: legal on the BEAM and credited
-%% nothing by the checker. It was a user function call until F41, which refuses
-%% that at the guard — the program this test held was never one the BEAM would
-%% have compiled.
+%% F5.7 — an untranslatable guard leaves the body typed.
+%% The remainder guard is legal on the BEAM but earns no coverage credit.
+%% An empty body domain would make the invalid projection pass vacuously.
 an_untranslatable_guard_leaves_the_body_typed_test() ->
     Src = "module Guarded\n"
           "public atom Classify(int n)\n"
@@ -163,9 +134,7 @@ an_untranslatable_guard_leaves_the_body_typed_test() ->
     ?assertMatch([{error, _, 'Classify', {field_absent, projection, 'Total', _}}],
                  errors(Src)).
 
-%% F5.8 — ticket 32 dissolved the foreign case. `collect/1` excludes foreign
-%% declarations by design, which is right for clause checking and wrong for a
-%% callee environment, so this fails if the env is built from signatures alone.
+%% F5.8 — foreign callees receive the same argument checks.
 a_foreign_callee_is_checked_like_any_other_test() ->
     Src = "module Interop\n"
           "using :lists { int sum(list<int> xs) }\n"
@@ -180,8 +149,7 @@ a_foreign_call_with_the_declared_type_compiles_test() ->
           "Good(xs) -> :lists.sum(xs)\n",
     ?assertMatch({ok, _, _}, check_only(Src)).
 
-%% F5.9 — a binding declares no type, so it is synthesis only. `t : int` has to
-%% come from somewhere it did not before.
+%% F5.9 — a binding carries its inferred type into the body.
 a_binding_carries_its_type_into_the_rest_of_the_body_test() ->
     Src = "module Shop\n"
           "record Order { Id: int, Total: int }\n"
@@ -191,8 +159,7 @@ a_binding_carries_its_type_into_the_rest_of_the_body_test() ->
           "    t\n",
     ?assertMatch([{error, _, 'Wrong', {return_not_declared, _, _}}], errors(Src)).
 
-%% F5.10 — site 5, the destructuring bind ticket 34 deferred here rather than
-%% refusing. Provably irrefutable IFF the residual is empty.
+%% F5.10 — destructuring is accepted only when its residual is empty.
 a_destructuring_bind_that_cannot_fail_runs_test() ->
     Src = "module Pairs\n"
           "public int Sum((int, int) pair)\n"
@@ -212,20 +179,7 @@ a_destructuring_bind_that_can_fail_is_an_error_test() ->
     [{error, _, 'Sum', {bind_may_fail, Residual}}] = errors(Src),
     ?assertEqual(":nothing", lists:flatten(bs_types:to_pattern(Residual))).
 
-%%% `=` IS A MATCH, and this is the spec as David wrote it on 2026-08-15:
-%%%
-%%%     x = 1
-%%%     1 = x     // no error
-%%%     2 = x     // error
-%%%
-%%% It already behaved this way — the pair below is here because it is now a
-%%% STATED REQUIREMENT rather than a property that happened to fall out of F5,
-%%% and an unpinned requirement is one refactor away from being a coincidence.
-%%%
-%%% It works because a literal's inferred type is a SINGLETON: `x = 1` binds
-%%% `1..1`, so `1 = x` leaves an empty residual and `2 = x` leaves `1`. Widen
-%%% that type and both change — see the `Get()` case below, which is the same
-%%% program through a declared return.
+%%% Literal matches
 
 a_literal_match_that_cannot_fail_is_accepted_test() ->
     Src = "module SpecOk\n"
@@ -247,11 +201,7 @@ a_literal_match_that_cannot_succeed_is_an_error_test() ->
     [{error, _, 'F', {bind_may_fail, Residual}}] = errors(Src),
     ?assertEqual("1", lists:flatten(bs_types:to_pattern(Residual))).
 
-%% ...and the same match against a name whose type came from a DECLARED RETURN
-%% rather than a literal. `Get()` is declared `int`, so `y` is `int` and even the
-%% "correct" value is refused — the check is against the type, never against what
-%% the program would do at run time. This is the case that shows the singleton
-%% above is doing the work.
+%% Get returns int, so matching 2 can fail despite its literal return value.
 a_match_is_decided_by_the_type_not_the_value_test() ->
     Src = "module ViaCall\n"
           "public int Get()\n"
@@ -265,19 +215,14 @@ a_match_is_decided_by_the_type_not_the_value_test() ->
     ?assertEqual("int <= 1 | int >= 3",
                  lists:flatten(bs_types:to_pattern(Residual))).
 
-%% A plain `x = e` still produces ticket 34's node, so nothing downstream of the
-%% parser learns a new shape for the case that already worked.
 a_plain_binding_still_parses_as_a_name_test() ->
-    %% F8 — `var` changed how the LEFT of a binding is READ, not what a binding
-    %% IS. This still asserts the `{bind, …}` node ticket 34 shipped, which is the
-    %% claim that nothing downstream of the parser learned a new shape.
+    %% A name binding uses the bind node, not a destructuring node.
     {ok, Toks, _} = bs_lexer:string("module M\npublic int F(int a)\nF(a) ->\n    var t = 1\n    t\n"),
     {ok, Decls} = bs_parser:parse(Toks),
     ?assertMatch([{clause, _, 'F', _, _, {e_block, _, [{bind, _, t, _}], _}}],
                  [D || D = {clause, _, _, _, _, _} <- Decls]).
 
-%% F5.11 — `_` is an expression only so that `(a, _) = pair` parses. As a value
-%% it is rejected here, not by erlc against a file the author did not write.
+%% F5.11 — a wildcard is a pattern, not a value.
 a_wildcard_may_stand_on_the_left_of_a_bind_test() ->
     Src = "module Pairs\n"
           "public int First((int, int) pair)\n"
@@ -291,24 +236,15 @@ a_wildcard_used_as_a_value_is_an_error_test() ->
     Src = "module M\npublic int Bad(int n)\nBad(n) -> _\n",
     ?assertMatch([{error, _, 'Bad', wildcard_as_value}], errors(Src)).
 
-%% A guard is not typed — no site is a guard — but `_` in one is the same
-%% authoring mistake, and it is a hole F5's own grammar opened: before `_` was an
-%% expression this did not parse. Left alone it reached `bs_emit:expr/2` as a
-%% function-clause CRASH, which is worse than the erlc error F4.7 prevents.
 a_wildcard_in_a_guard_is_an_error_not_a_crash_test() ->
     Src = "module M\npublic atom F(int n)\nF(n) when _ > 1 -> :yes\nF(n) -> :no\n",
     ?assertMatch([{error, _, 'F', wildcard_as_value}], errors(Src)).
 
-%% The same gap for names, which predates F5 and was the one place F4's rule was
-%% false: `variable 'X' is unbound` from erlc, against a file nobody wrote.
 an_unbound_name_in_a_guard_is_caught_by_bsc_test() ->
     Src = "module M\npublic atom F(int n)\nF(n) when x > 1 -> :yes\nF(n) -> :no\n",
     ?assertMatch([{error, _, 'F', {unbound_variable, x}}], errors(Src)).
 
-%% ...and a guard calling a user function still names only its ARGUMENTS, so the
-%% callee is not mistaken for an unbound variable. Since F41 the call itself is
-%% refused — a guard cannot call a function — so the assertion is that the ONE
-%% error is that refusal, and `Weird` is not reported as an unbound name beside it.
+%% The call is illegal, but its callee is not an unbound variable.
 a_guard_calling_a_function_is_not_an_unbound_name_test() ->
     Src = "module M\n"
           "public atom Weird(int n)\n"
@@ -318,15 +254,12 @@ a_guard_calling_a_function_is_not_an_unbound_name_test() ->
           "F(n)               -> :no\n",
     ?assertMatch([{error, _, 'F', {call_in_guard, 'Weird'}}], errors(Src)).
 
-%% Everything else on the left of `=` is a parse error naming what belongs
-%% there, rather than an obscure failure further down.
 a_non_pattern_on_the_left_of_a_bind_is_rejected_test() ->
     {ok, Toks, _} = bs_lexer:string(
                       "module M\npublic int F(int a)\nF(a) ->\n    a + 1 = 2\n    a\n"),
     ?assertMatch({error, {_, _, _}}, bs_parser:parse(Toks)).
 
-%% F5.12 — same lookup as site 1. Without it the author meets
-%% `function 'Nope'/1 undefined` against an emitted file they never wrote.
+%% F5.12 — bsc rejects undeclared callees and wrong arities.
 a_call_to_an_undeclared_name_is_caught_by_bsc_test() ->
     Src = "module M\npublic int F(int n)\nF(n) -> Nope(n)\n",
     ?assertMatch([{error, _, 'F', {unknown_callee, 'Nope', 1}}], errors(Src)).
@@ -335,30 +268,9 @@ a_call_with_the_wrong_arity_is_caught_by_bsc_test() ->
     Src = "module M\npublic int F(int n)\nF(n) -> F(n, n)\n",
     ?assertMatch([{error, _, 'F', {arity_mismatch, 'F', 2, 1}}], errors(Src)).
 
-%% F5.13 — the corpus. F5 adds four new ways to be rejected, and the README's
-%% own rule is that a capability which closes a residual must not make
-%% previously-valid programs invalid. This is the gate that was run before any
-%% rejection test above was written.
-%% F15 — PER DIRECTORY, THROUGH THE CLI, AND WITH A SOURCE ROOT. Three changes
-%% and each closes something this gate could not see:
-%%
-%%   - per directory, because a directory is the module now and compiling one of
-%%     its files alone emits a beam missing the others;
-%%   - through the CLI rather than `bsc:file_to_dir/2`, because that entry point
-%%     has no source root and therefore SKIPS ticket 41 §5's path check — the
-%%     corpus is the one place that check most needs to run;
-%%   - and it used `file:list_dir/1`, which listed only the TOP level, so
-%%     `examples/collections/` — F11's only multi-module example — was outside
-%%     this gate entirely while CI's step recursed past it. The two disagreed and
-%%     nothing said so.
-%% A TIMEOUT FIXTURE, AND IT IS NOT A PERFORMANCE EXCUSE. This test shells out to
-%% the CLI once per module directory, which is ~3.8s warm against eunit's 5s
-%% DEFAULT — so on a cold checkout it does not fail, it reports `*timed out*`,
-%% and the run ends "cancelled" with a partial count that reads exactly like a
-%% regression somebody just introduced. Measured on a fresh worktree with no
-%% `_build`: the whole suite stopped at 67 of 332 for this reason alone. CI never
-%% sees it because the workflow builds the escript first, which is the same
-%% blind spot that let `cli_tests` never once execute in CI.
+%% F5.13 — the example corpus compiles.
+%% Compile whole module directories through the CLI to check source paths.
+%% One subprocess per directory needs more than eunit's default timeout.
 every_example_still_compiles_test_() ->
     {timeout, 120, fun every_example_still_compiles/0}.
 
@@ -369,9 +281,7 @@ every_example_still_compiles() ->
     ?assert(length(Dirs) >= 6),
     [?assertEqual({D, ok}, {D, compiles(Root, D)}) || D <- Dirs].
 
-%% `--src-root` is named here because the corpus holds dotted modules
-%% (`Shop.Reports`, `Shop.Collections.Ints`) and a dotted module is a nested
-%% directory. 41 §3: naming the source root is the caller's job.
+%% Dotted module names require a source root above their nested directories.
 compiles(Root, Dir) ->
     Out = bs_test_support:run_cli("--src-root " ++ Root ++ " -o " ++ ?OUT ++
                                       "/corpus " ++ Dir),
@@ -380,39 +290,14 @@ compiles(Root, Dir) ->
         _       -> ok
     end.
 
-%% ...AND `aoc/`, WHICH NO GATE REACHED UNTIL F8.
-%%
-%% At the time CI ran check-map, check-surface, eunit, check-language, spec-check
-%% and extract-exemplars. Not one of them compiled `aoc/`, so the only real programs
-%% anybody has written in this language — as opposed to the examples written to
-%% demonstrate it — were outside every gate.
-%%
-%% That is not theoretical. The README records the benchmark sitting broken on
-%% master after the `;` terminator was dropped, which made the walking skeleton's
-%% recorded numbers un-re-measurable. Same corpus, same cause: a dialect change
-%% nothing checked. F8 rewrites every binding in the repo, so it is the right
-%% feature to close it rather than to be the second victim.
-%%
-%% `examples/exemplars/` is deliberately NOT here: those are ticket 25's backlog
-%% and do not parse yet by design — they wait on binaries, the pipe and qualified
-%% names. Adding them would be a permanently red gate.
-%% F15 — AND NO `--src-root`, DELIBERATELY. Every aoc module is a single segment
-%% (`Day01`), so the default root — the module directory's own parent — is
-%% already the right answer, and this gate is where that default gets exercised
-%% rather than asserted. All three used to declare `module Day01` from a
-%% directory that did not match: two were `day01` against `Day01`, one was in
-%% `bench/`.
+%% Single-segment module names exercise the default source root.
 every_aoc_program_still_compiles_test() ->
     Aoc = filename:dirname(project_root()) ++ "/aoc",
     Dirs = bsc:module_dirs(Aoc),
     ?assert(length(Dirs) >= 3),
     [?assertEqual({D, ok}, {D, compiles_with_default_root(D)}) || D <- Dirs].
 
-%% ITS OWN OUTPUT DIRECTORY PER MODULE, because all three aoc modules are called
-%% `Day01` and would otherwise write one `.beam` three times over. Each still
-%% compiles, so the assertion passed either way — but "three modules built"
-%% and "one module built three times" are different claims and only one of them
-%% is what this gate means.
+%% Separate output directories keep the Day01 modules from overwriting.
 compiles_with_default_root(Dir) ->
     Out = bs_test_support:run_cli("-o " ++ ?OUT ++ "/corpus/" ++
                                       filename:basename(filename:dirname(Dir)) ++
@@ -422,9 +307,6 @@ compiles_with_default_root(Dir) ->
         _       -> ok
     end.
 
-%% A list element is bound at a REAL path now, because the body check has to
-%% read `rest` back out and answer `list<int>`. Answering `term` rejects this —
-%% a shipped example, with a checker working correctly on wrong information.
 a_list_tail_keeps_its_element_type_in_a_body_test() ->
     Src = "module L\n"
           "public list<int> Reverse(list<int> xs, list<int> acc)\n"
@@ -432,9 +314,7 @@ a_list_tail_keeps_its_element_type_in_a_body_test() ->
           "Reverse([x, ..rest], acc) -> Reverse(rest, [x, ..acc])\n",
     ?assertMatch({ok, _, _}, check_only(Src)).
 
-%% ...and the guard side is exactly as conservative as it was: a path through a
-%% list step is unrefinable, so this stays inexhaustive rather than silently
-%% becoming exhaustive on an address the algebra cannot narrow.
+%% List-element paths cannot be refined, even by complementary guards.
 a_guard_over_a_list_element_still_credits_nothing_test() ->
     Src = "module L\n"
           "public atom Sign(list<int> xs)\n"
@@ -443,17 +323,9 @@ a_guard_over_a_list_element_still_credits_nothing_test() ->
           "Sign([x, ..r]) when x <= 0 -> :nonpositive\n",
     ?assertMatch([{error, _, 'Sign', {inexhaustive, _, _}}], errors(Src)).
 
+%%% Field value obligations
 
-%%% ---------------------------------------------------------------------------
-%%% F21 / ticket 36 — SITE 2's VALUE HALF, at both spellings.
-%%%
-%%% F5 built site 2's NAME relation, which is what 33 §2's table wrote down, and
-%%% shipped the value half as a named hole. Ticket 36 closed it and closed it
-%%% without opening a sixth site: site 2 is FIELD ASSIGNMENT, of which
-%%% `Order{ … }` and `o with { … }` are two spellings meeting ONE declaration.
-%%% ---------------------------------------------------------------------------
-
-%% F21.1 — construction. The value half of the site F5 built the name half of.
+%% F21.1 — construction checks the value assigned to a field.
 construction_checks_the_value_assigned_to_a_field_test() ->
     Src = "module Shop\n"
           "record Order { Id: int, Total: int }\n"
@@ -463,9 +335,7 @@ construction_checks_the_value_assigned_to_a_field_test() ->
                    {field_value_not_accepted, 'Order', 'Id', _}}],
                  errors(Src)).
 
-%% F21.2 — `with`, which the ticket thought was a genuine sixth site. It is not:
-%% `Total: int` is written in the record declaration, and that is the same place
-%% that governs the construction above.
+%% F21.2 — updates check values against the same field declarations.
 with_checks_the_value_assigned_to_a_field_test() ->
     Src = "module Shop\n"
           "record Order { Id: int, Total: int }\n"
@@ -475,10 +345,7 @@ with_checks_the_value_assigned_to_a_field_test() ->
                    {field_value_not_accepted, 'Order', 'Total', _}}],
                  errors(Src)).
 
-%% F21.3 — THE RESIDUAL IS THE VALUE TO REMOVE, and this is where 33 §3's
-%% `useless` verdict does not reach. That verdict was about the NAME residual
-%% (`Order{Id} \ Order`, which names the type being built). `:oops \ int` is
-%% `:oops`, precise, beside a field name that is already known.
+%% F21.3 — the residual is the rejected value, not the record.
 the_rejected_value_is_handed_back_test() ->
     Src = "module Shop\n"
           "record Order { Id: int, Total: int }\n"
@@ -487,9 +354,7 @@ the_rejected_value_is_handed_back_test() ->
     [{error, _, _, {field_value_not_accepted, _, _, Residual}}] = errors(Src),
     ?assertEqual(":oops", bs_types:to_pattern(Residual)).
 
-%% F21.4 — the control that keeps the check honest. Every field assigned a value
-%% its declaration accepts, from each of the forms a body can produce one with:
-%% a literal, a parameter, a projection, a local binding and a call return.
+%% F21.4 — literals, parameters, projections, bindings and calls supply values.
 a_correctly_assigned_record_compiles_test() ->
     Src = "module Shop\n"
           "record Order { Id: int, Total: int }\n"
@@ -503,9 +368,7 @@ a_correctly_assigned_record_compiles_test() ->
           "    o with { Total = t }\n",
     ?assertMatch({ok, _, _}, check_only(Src)).
 
-%% F21.5 — a REFINED field type. F2 put intervals in the algebra, so a field
-%% declared `Octet` accepts `200` and rejects `300`, and the residual is the
-%% part that does not fit rather than the whole value.
+%% F21.5 — a refined field rejects a value outside its range.
 a_refined_field_rejects_a_value_outside_it_test() ->
     Src = "module Shop\n"
           "type Octet = int where value >= 0 and value <= 255\n"
@@ -516,11 +379,7 @@ a_refined_field_rejects_a_value_outside_it_test() ->
                    {field_value_not_accepted, 'Pixel', 'Level', _}}],
                  errors(Src)).
 
-%% F21.6 — ONE COMPLAINT, NOT TWO. A value whose own synthesis already failed
-%% arrives as `reported()`, which is `none()`, and `none \ T` is empty — so the
-%% cascading second error about the same expression cannot arise. Asserted
-%% rather than reasoned about, because it is the kind of thing that stays true
-%% by accident until someone changes `reported/0`.
+%% F21.6 — a failed expression produces no cascading field-value error.
 a_value_that_already_failed_is_not_reported_twice_test() ->
     Src = "module Shop\n"
           "record Order { Id: int, Total: int }\n"
@@ -533,11 +392,8 @@ a_value_that_already_failed_is_not_reported_twice_test() ->
                            element(1, element(4, D)) =:= field_value_not_accepted]),
     ?assertNotEqual([], Errors).
 
-%% F21.7 — the name half at `with`, reported at COMPILE time. Before F21 this
-%% compiled and raised `{badkey,'Nope'}` when it ran, so 26 §2 was being
-%% enforced by the BEAM. The relation differs from construction's by exactly
-%% what 26 §2 says — subset, not equality — so `with` can never report a field
-%% as missing, and the empty `Missing` list is that fact written down.
+%% F21.7 — updates reject undeclared fields.
+%% Updates need only a subset of fields, so the missing-field list is empty.
 with_may_not_invent_a_field_test() ->
     Src = "module Shop\n"
           "record Order { Id: int, Total: int }\n"
@@ -547,10 +403,8 @@ with_may_not_invent_a_field_test() ->
                    {field_set_mismatch, 'Order', update, [], ['Nope']}}],
                  errors(Src)).
 
-%% F21.8 — `with` reaches construction's diagnostic, and construction's VERB
-%% would lie about it. Nothing is missing from `o with { Nope = 1 }`; a name was
-%% invented. Asserted as prose at the CLI, because the wrong verb is a defect a
-%% reader sees and a term assertion cannot.
+%% F21.8 — the diagnostic describes an update, not a construction.
+%% CLI prose distinguishes the verbs; the diagnostic term cannot.
 the_with_diagnostic_does_not_say_builds_test() ->
     Src = "module Shop\n"
           "record Order { Id: int, Total: int }\n"
@@ -560,13 +414,10 @@ the_with_diagnostic_does_not_say_builds_test() ->
         R = run_cli("-o " ++ Out ++ " " ++ Path),
         ?assert(string:find(R, "updates an Order with the wrong fields") =/= nomatch),
         ?assertEqual(nomatch, string:find(R, "builds an Order")),
-        %% ...and it does not invent a missing field to go with the verb.
         ?assertEqual(nomatch, string:find(R, "missing, and must be supplied"))
     end).
 
-%% F21.9 — the value diagnostic reaches the author as prose too, naming the
-%% field twice on purpose: once as what was assigned, once as whose declared
-%% type did the rejecting.
+%% F21.9 — prose names both the assigned field and its rejecting declaration.
 the_value_diagnostic_reaches_the_author_as_prose_test() ->
     Src = "module Shop\n"
           "record Order { Id: int, Total: int }\n"
@@ -580,29 +431,9 @@ the_value_diagnostic_reaches_the_author_as_prose_test() ->
         ?assert(string:find(R, ":oops") =/= nomatch)
     end).
 
-%%% ---------------------------------------------------------------------------
-%%% F21 / ENG-249 — THE SUBJECT OF A `with`, 2026-09-03.
-%%%
-%%% F21 checked the fields a `with` names and never asked what was being
-%%% updated. The clause read `declared_fields/1` off the base's type, and when
-%%% the base was not a single closed record the answer was `unknown` and the
-%%% clause passed the base's type through untouched — so `n with { Total = 1 }`
-%%% on an `int` typed as `int`, the return check was content, and the BEAM
-%%% raised `{badmap, N}` at run time. Found by a probe written for ticket 48 to
-%%% check a claim its own survey had made: that `with` was already a map-update
-%%% form. It was, in the sense that nothing looked.
-%%%
-%%% The relation is site 3's, in `with`'s verb: the subject minus an open map
-%%% carrying the field is the member that may lack it, and a non-empty residual
-%%% is the refusal. One subtraction serves an int, a foreign map, a list of
-%%% pairs and a union with one member short — the same query the dot already
-%%% asks, which is why `field_absent` gained a `form` rather than a sibling.
-%%% ---------------------------------------------------------------------------
+%%% Update subjects
 
-%% F21.10 — an int is not a record. The case that settles it: not a design
-%% question, nonsense, and it compiled. ONE error, not two — the refused
-%% expression synthesises `reported()`, so the `int` return type is not asked
-%% to cover whatever an updated int would have been.
+%% F21.10 — updating an int fails without a cascading return-type error.
 with_on_an_int_is_refused_test() ->
     Src = "module Shop\n"
           "public int Bump(int n)\n"
@@ -610,10 +441,7 @@ with_on_an_int_is_refused_test() ->
     [{error, _, 'Bump', {field_absent, update, 'Total', Residual}}] = errors(Src),
     ?assertEqual("int", lists:flatten(bs_types:to_pattern(Residual))).
 
-%% F21.11 — a bare `term` is not known to be a record either. Ticket 48's
-%% survey read this acceptance as support for updating a foreign map; it was
-%% the subject going unchecked. A `term` may be a map without `Total`, or not a
-%% map at all, and the residual says so.
+%% F21.11 — term does not guarantee a map carrying the updated field.
 with_on_a_term_is_refused_test() ->
     Src = "module Shop\n"
           "public term Put(term m)\n"
@@ -621,8 +449,7 @@ with_on_a_term_is_refused_test() ->
     ?assertMatch([{error, _, 'Put', {field_absent, update, 'Total', _}}],
                  errors(Src)).
 
-%% F21.12 — the shape ticket 48 actually probed: a list of pairs, which is what
-%% a stage's local state was declared as for want of a map type.
+%% F21.12 — a list of pairs is not a record to update.
 with_on_a_list_of_pairs_is_refused_test() ->
     Src = "module Shop\n"
           "public list<(atom, term)> Put(list<(atom, term)> m)\n"
@@ -630,9 +457,7 @@ with_on_a_list_of_pairs_is_refused_test() ->
     ?assertMatch([{error, _, 'Put', {field_absent, update, 'Total', _}}],
                  errors(Src)).
 
-%% F21.13 — a union of records where one member lacks the field. The residual
-%% is that member, exactly as F3.8's projection hands it back, and the fix is
-%% the same: discriminate on the tag first.
+%% F21.13 — the residual names the union member lacking the updated field.
 with_on_a_union_member_lacking_the_field_is_refused_test() ->
     Src = "module Shop\n"
           "record Order { Id: int, Total: int }\n"
@@ -644,11 +469,7 @@ with_on_a_union_member_lacking_the_field_is_refused_test() ->
     ?assertEqual("{ Kind: :'Shop.Note' }",
                  lists:flatten(bs_types:to_pattern(Residual))).
 
-%% F21.14 — a union where EVERY member carries the field is a legal subject,
-%% and the value half then runs against each member's own declaration. It has
-%% to: the subject may be either record at run time, so a value one member's
-%% `Total` accepts and the other's rejects would build a record its own
-%% declaration refuses. Two members, two declarations, two verdicts.
+%% F21.14 — updates check values against every union member's declaration.
 with_on_a_union_every_member_carries_runs_the_value_half_per_member_test() ->
     Base = "module Shop\n"
            "record Order   { Id: int, Total: int }\n"
@@ -662,11 +483,8 @@ with_on_a_union_every_member_carries_runs_the_value_half_per_member_test() ->
                                    {field_value_not_accepted, R, 'Total', _}} <- Errors])),
     ?assertEqual(2, length(Errors)).
 
-%% F21.16 — an undeclared field on a union subject is the NAME defect, not the
-%% discriminator one. No member of `Doc` has `Nope`, so "discriminate on the
-%% tag first" would point at a clause that cannot exist; ticket 36's one site
-%% says this is `o with { Nope = 1 }` again, and it gets that diagnostic per
-%% member. Asserted that no `field_absent` appears beside them.
+%% F21.16 — a field absent from every member is an undeclared-field error.
+%% Discriminating on the tag cannot find a member carrying that field.
 with_on_a_union_undeclared_field_is_the_name_defect_test() ->
     Src = "module Shop\n"
           "record Order   { Id: int, Total: int }\n"
@@ -679,11 +497,8 @@ with_on_a_union_undeclared_field_is_the_name_defect_test() ->
                   {field_set_mismatch, 'Order',   update, [], ['Nope']}],
                  lists:sort([D || {error, _, 'Grow', D} <- Errors])).
 
-%% F21.15 — the control at the binder. A recursive record's fields are one
-%% unfolding down, and F28's own comment on `declared_fields/1` warns that the
-%% catch-all's `unknown` is a silent degrade there rather than an error. The
-%% subject check reads the type after the same unfolding, so a recursive record
-%% is still a record to `with`.
+%% F21.15 — a recursive record remains a valid update subject.
+%% Its fields are visible after unfolding the recursive type.
 with_on_a_recursive_record_compiles_test() ->
     Src = "module Shop\n"
           "record Node { Kids: list<Node> }\n"
