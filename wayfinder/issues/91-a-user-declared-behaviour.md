@@ -1,7 +1,7 @@
 # 91 — A user-declared behaviour: may a library name the callbacks a user module supplies?
 
 Type: grilling
-Status: open — [ENG-432](https://linear.app/davewil/issue/ENG-432). Raised 2026-09-25 by the exemplar review (ENG-191)
+Status: resolved 2026-09-25 — [ENG-432](https://linear.app/davewil/issue/ENG-432). Raised 2026-09-25 by the exemplar review (ENG-191); resolved the same day by David, three rounds
 Blocked by: —
 
 ## Why this is raised
@@ -158,3 +158,18 @@ a default writes it and asks the user to delegate to it.
   callback delegates to it. OTP's own optional callbacks stay F10's.
 
 **The frontier is empty.**
+
+## Decisions entry
+
+```decisions-entry
+- **A user-declared behaviour** — [ticket 91](issues/91-a-user-declared-behaviour.md), raised
+  2026-09-25 by the exemplar review (25f friction 7, 25g friction 1) and resolved the same day by
+  David in three rounds. **A module may declare a behaviour, and another satisfies it with its own
+  functions, checked as F10 checks OTP's**; the declaring module emits `-callback`. A behaviour and
+  a protocol ([ticket 99](issues/99-protocols-revisited.md)) share one shape, a named block of
+  signatures in `index.bs`. A behaviour's name is a type, the modules that satisfy it, and a
+  callback is called `Answering.HandleAnswer(m, …)`, never `m.HandleAnswer(…)`: *"`.` syntax suggests
+  oop style semantics, not FP semantics"* (David). A behaviour may be generic in the satisfying
+  module's types, fixed at the `behaviour` line (`behaviour Jev.Answering<Triage.State>`). There are
+  no optional callbacks.
+```
