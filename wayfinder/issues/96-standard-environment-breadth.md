@@ -125,6 +125,51 @@ it already has. Elixir's `Enum` exists because the `Enumerable` protocol dispatc
 and ticket 16 gave B# no protocols. Under no, an `Enum` qualifier takes a `list<T> | map<K, V>` and
 dispatches on the argument's shape.
 
+**Round 1 answered 2026-09-25 (David): Q2 yes, Q3 yes. Q1 and Q4 came back as questions.**
+
+- **Q2.** Operations take Elixir's names, PascalCased, as F46's `Map`, `Filter` and `Fold` did.
+- **Q3.** Ticket 48 Q8's two operations, assertive preferred, reach every operation that can find
+  nothing (`First`, `Last`, `At`, `Max`, `Min`, `Find`, `Map.Get`). One naming convention covers
+  every pair, and it is ENG-324's to choose.
+- **Q1**, David: *"I'm curious on why ticket 67 asked for no calls into OTP's lists."* It did not.
+  Ticket 67 weighed (a) a shipped B# `List.beam` against (b) compiler-generated code, and chose (b)
+  so no B# beam ships. A call into OTP's own `lists` was never an option there. The rule against it
+  is F32's reading of "inlined" (*"a remote call to the stdlib is still a remote call"*), and
+  `check-reserved-qualifiers.sh` P2 enforces that reading. Of 67's supporting grounds:
+  - *no beam ships* holds, because `lists` is on every node;
+  - 17 §2's precision (27a) is about Dialyzer's *inferred* types, while every B# function emits a
+    *declared* `-spec` from its signature, measured in the `.abstr`, so the call in the body does
+    not reach the caller;
+  - *no polymorphism machinery* and *no lambda* are moot since F45 and F46.
+- **Q4**, David: *"We should revisit protocols, losing Enum is a maintenance burden to double (for
+  now) function surface."* Protocols are ticket 99 (ENG-451). What this ticket can answer without them is Q5.
+
+## Round 2
+
+**Q1 stands as written above.**
+
+**Q5. Is there one `Enum` over the compiler's own collections, resolved by the argument's static
+type, with `List` and `Map` holding only what is specific to each?**
+
+```csharp
+public int Stock(map<string, int> counts)
+Stock(cs) -> Enum.Sum(Enum.Map(cs, (k, n) => n))      // maps:fold at compile time: cs is a map
+
+public int Total(list<Order> os)
+Total(os) -> Enum.Sum(Enum.Map(os, o => o.Total))     // lists:map: os is a list
+```
+
+Under yes, `Enum.Map` over a `list<T>` compiles to `lists:map` and over a `map<K, V>` to a map
+fold. The checker picks the row from the argument's type, so nothing is decided at run time and no
+protocol is needed: `list` and `map` are a closed set the compiler owns. `List` keeps `Seq`,
+`Concat`, `Zip`, `Flatten`; `Map` keeps `Put`, `Remove`, `Keys`, `Merge`. An argument whose type is
+`list<T> | map<K, V>` is refused, naming the two. A user's own type joins `Enum` only if ticket 99
+brings protocols back. Under no, each operation is written twice, `List.Map` and `Map.Map`, as the
+roster below has it.
+
+Compiler delta: the signature table's key gains the argument's kind, `{Enum, Map, 2, list}` and
+`{Enum, Map, 2, map}`, and the checker resolves the row after typing the first argument.
+
 ## What a yes makes cheap — the roster, for a later round
 
 This is not a round of questions. It is what the table would hold. It is drawn from the imports
