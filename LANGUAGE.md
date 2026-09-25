@@ -423,6 +423,29 @@ and the diagnostic names the discarded cases as a head to write instead.
      unbuilt — until 2026-08-24, when exemplar 25d's surface probe re-measured the rule and
      found it firing; the correction trail is on ticket 25 -->
 
+**A record closes on its tag, whatever its fields hold.** An `int` field does not make a record
+member open: its name is the case, and the compiler can print it. A tuple has no tag, so
+`(:ok, int)` stays open and `_` stays legal over it. **shipped**
+<!-- decided by ticket 101; built by ENG-402 -->
+
+<!-- diagnoses: catch_all_over_closed -->
+```csharp
+module Orders
+
+record OrderPlaced    { Id: int }
+record OrderShipped   { Id: int }
+record OrderCancelled { Id: int }
+type Event = OrderPlaced | OrderShipped | OrderCancelled
+
+public atom Handle(Event e)
+Handle(OrderPlaced p)  -> :placed
+Handle(OrderShipped s) -> :shipped
+Handle(_)              -> :other
+```
+
+— *the `_` would take an `OrderCancelled` silently; the compiler names it instead:
+`Handle(OrderCancelled o) -> ...`.*
+
 ---
 
 ## 4. Types

@@ -438,7 +438,11 @@ m_open(top) -> true;
 m_open(Ms)  -> lists:any(fun({open, _}) -> true;
                             %% Domain rules are treated as open residuals.
                             ({dom, _, _}) -> true;
-                            ({closed, Fs}) -> lists:any(fun is_open/1, maps:values(Fs))
+                            %% A record closes on its tag whatever its fields
+                            %% hold: the tag names the case (ticket 101).
+                            ({closed, Fs} = M) ->
+                                discriminator(M) =:= none andalso
+                                    lists:any(fun is_open/1, maps:values(Fs))
                          end, Ms).
 
 %%% --- Union: exact, never widening ---

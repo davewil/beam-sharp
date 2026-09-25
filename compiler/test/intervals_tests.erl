@@ -113,6 +113,67 @@ a_catch_all_arm_over_a_closed_residual_is_an_error_test() ->
           "}\n",
     ?assertMatch([{error, _, 'Which', {catch_all_over_closed, _, _}}], errors(Src)).
 
+%% ENG-402, ticket 101: a record member closes on its tag whatever its fields
+%% hold, so an `int` field leaves the residual as nameable as an atom field.
+events() ->
+    "module Orders\n"
+    "record OrderPlaced    { Id: int }\n"
+    "record OrderShipped   { Id: int }\n"
+    "record OrderCancelled { Id: int }\n"
+    "type Event = OrderPlaced | OrderShipped | OrderCancelled\n".
+
+a_catch_all_over_records_with_an_int_field_is_an_error_test() ->
+    Src = events() ++
+          "public atom Handle(Event e)\n"
+          "Handle(OrderPlaced p)  -> :placed\n"
+          "Handle(OrderShipped s) -> :shipped\n"
+          "Handle(_)              -> :other\n",
+    with_src("orders.bs", Src,
+             fun(Path, Out) ->
+                     Got = run_cli("-o " ++ Out ++ " " ++ Path),
+                     ?assert(string:find(Got, "Handle discards cases the compiler can name")
+                             =/= nomatch),
+                     ?assert(string:find(Got, "Handle(OrderCancelled o) -> ...") =/= nomatch),
+                     ?assert(string:find(Got, "rc:1") =/= nomatch)
+             end).
+
+a_catch_all_arm_over_records_with_an_int_field_is_an_error_test() ->
+    Src = events() ++
+          "public atom Handle(Event e)\n"
+          "Handle(e) -> e switch {\n"
+          "    OrderPlaced p  => :placed,\n"
+          "    OrderShipped s => :shipped,\n"
+          "    _              => :other\n"
+          "}\n",
+    ?assertMatch([{error, _, 'Handle', {catch_all_over_closed, _, _}}], errors(Src)).
+
+%% The open atom universe beside the records still admits `_`.
+a_catch_all_over_records_and_atom_is_legal_test() ->
+    Src = events() ++
+          "type Input = Event | atom\n"
+          "public atom Handle(Input e)\n"
+          "Handle(OrderPlaced p)  -> :placed\n"
+          "Handle(OrderShipped s) -> :shipped\n"
+          "Handle(_)              -> :other\n",
+    ?assertMatch({ok, _, _}, check_only(Src)).
+
+%% A tuple does not close on its first element: `(:ok, int)` stays open.
+a_catch_all_over_a_tuple_with_an_int_part_is_legal_test() ->
+    Src = "module Reading\n"
+          "type Reading = (:ok, int) | (:error, atom)\n"
+          "public atom Classify(Reading r)\n"
+          "Classify((:error, e)) -> :failed\n"
+          "Classify(_)           -> :read\n",
+    ?assertMatch({ok, _, _}, check_only(Src)).
+
+a_catch_all_over_a_tuple_of_literals_is_still_an_error_test() ->
+    Src = "module Pairs\n"
+          "type Pair = (:a, :x) | (:b, :y)\n"
+          "public atom Classify(Pair p)\n"
+          "Classify((:a, :x)) -> :first\n"
+          "Classify(_)       -> :second\n",
+    ?assertMatch([{error, _, 'Classify', {catch_all_over_closed, _, _}}], errors(Src)).
+
 %%% F2.3 — an interval pattern names a span.
 
 an_interval_pattern_discharges_a_closed_residual_test() ->
