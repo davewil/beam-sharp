@@ -104,3 +104,14 @@ LANGUAGE.md's status table and TOUR.md list as *not started* is built, and those
 Under yes, `String.FromBinary` is Q1's spelling of the same check, as a Q2 pair whose failure is the
 binary. `ValidateAs<string>` stays for a `term`. Under no, `ValidateAs<string>` is the one spelling,
 and a binary-to-string conversion reads as a validation.
+
+**Round 2 answered 2026-09-25 (David): Q3 yes, Q4 yes.**
+
+- **Q3.** There is no bare `Int.FromFloat`. `Int.Truncate`, `Int.Round`, `Int.Floor` and
+  `Int.Ceiling`, each `float -> int`, name the rounding where it is used. `Round` is the platform's
+  `round/1`, half away from zero, and the spec says so for the C# reader who expects half to even.
+- **Q4.** `String.FromBinary` is a Q2 pair, whose failure is the binary. It lowers to the UTF-8 check
+  `ValidateAs<string>` already generates, and `ValidateAs<string>` stays for a `term`.
+
+**The frontier is empty.** `Atom.FromString` is not asked, because `ParseAtom<T>` and
+`ToExistingAtom` own that direction. A number base is not asked, because no program here wants one.
