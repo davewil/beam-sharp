@@ -286,6 +286,27 @@ unbounded part. Where the compiler knows the remaining case names, `_` is an err
 the language's headline guarantee one character from being switched off invisibly. **shipped** —
 and the diagnostic names the discarded cases as a head to write instead.
 
+**A record closes on its tag, whatever its fields hold.** An `int` field does not make a record
+member open: its name is the case, and the compiler can print it. A tuple has no tag, so
+`(:ok, int)` stays open and `_` stays legal over it. **shipped**
+
+```csharp
+module Orders
+
+record OrderPlaced    { Id: int }
+record OrderShipped   { Id: int }
+record OrderCancelled { Id: int }
+type Event = OrderPlaced | OrderShipped | OrderCancelled
+
+public atom Handle(Event e)
+Handle(OrderPlaced p)  -> :placed
+Handle(OrderShipped s) -> :shipped
+Handle(_)              -> :other
+```
+
+— *the `_` would take an `OrderCancelled` silently; the compiler names it instead:
+`Handle(OrderCancelled o) -> ...`.*
+
 ---
 
 ---
