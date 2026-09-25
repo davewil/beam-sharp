@@ -150,3 +150,6 @@ question. Ticket 97's conversions are total functions over known types and need 
 
 What remains is the spelling of `protocol` and `implements`, decided beside ticket 91 (ENG-432) so
 that a protocol and a user-declared behaviour read alike.
+
+**The spelling is asked as ticket 91 round 2, Q2**, after David answered 91 Q1 yes on 2026-09-25:
+one declaration shape for a behaviour and a protocol.

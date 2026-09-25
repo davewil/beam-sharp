@@ -48,3 +48,56 @@ Compiler delta: a `behaviour Name { signatures }` declaration in `index.bs`; the
 presence check F10 runs reads it; the module emits `-callback` attributes so Erlang and Elixir
 users of it are checked by their own compilers. A call from the library to the user module is a
 call through a module value, which is the second question this raises and is not asked here.
+
+**Round 1 answered 2026-09-25 (David): Q1 yes.** A module may declare a behaviour, another satisfies
+it, and F10's presence check reads the user's entries as it reads OTP's. The declaring module emits
+`-callback` attributes. Asked beside ticket 99 (ENG-451), which made the protocol's spelling wait on
+this one.
+
+## Round 2
+
+**Q2. Do a behaviour and a protocol share one declaration shape: a named block of signatures, each
+satisfied by a line naming it?** (Ticket 99's last question too.)
+
+```csharp
+// module Jev (index.bs)
+behaviour Answering {
+    (:noreply, term) HandleAnswer(term tag, Evaluation answer, term state)
+}
+
+// module Shop.Geometry (index.bs)
+protocol Shape {
+    float Area(Self s)
+}
+
+// module Triage: satisfied by the module's own functions
+behaviour Jev.Answering
+HandleAnswer(:triage, answer, s) -> (:noreply, Route(answer, s))
+
+// module Shop.Geometry.Circle: satisfied by a block for the type
+record Circle { R: float }
+implements Shape for Circle {
+    Area(Circle c) -> 3.14159 * c.R * c.R
+}
+```
+
+Under yes, the declarations are as above. A behaviour's callbacks are the module's own functions,
+because a module satisfies it. A protocol's are in an `implements` block, because a type satisfies
+it and one module may implement two protocols with an operation name in common. `Self` names the
+implementing type. Both declarations live in `index.bs`, as `record` and `type` do (F15). Under no,
+each is spelled on its own.
+
+**Q3. How does a library call the module that satisfies its behaviour?**
+
+```csharp
+// module Jev
+public term Deliver(Answering m, term tag, Evaluation a, term s)
+Deliver(m, tag, a, s) -> Answering.HandleAnswer(m, tag, a, s)     // m:handle_answer(Tag, A, S)
+```
+
+Proposed: a behaviour's name is also a type, the modules that satisfy it, and its callbacks are
+called under the behaviour's name with the module first: `Answering.HandleAnswer(m, …)`. That is the
+shape of ticket 99's `Shape.Area(c)`, where the protocol's name qualifies and the dispatching value
+comes first, so there is one call form for both. It is not `m.HandleAnswer(…)`, because the dot
+projects a field and is never a call (LANGUAGE.md). A module value is its atom; a caller passes one
+as `Triage` in value position, checked at the call to satisfy `Answering`.
