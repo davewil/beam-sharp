@@ -2527,7 +2527,8 @@ sets alike, at every depth: a record field, a tuple component, a list element, a
 `null` is not absent. It stays `:null` and is refused at an `option<string>` field, so a field that
 takes both is `option<string | :null>`. An `atom` or `term` field is not an `option`, since
 `:nothing` is in it only by absorption, and an absent one is still refused. `ToJson` converts
-nothing: handed a value with an option key missing, it crashes as before. **shipped** — F61.
+nothing: handed a value with an option key missing, it crashes as before, blamed where the key is
+missing. **shipped** — F61.
 <!-- decided by ticket 26 §4 and ticket 78 Q8; built by F61 -->
 
 ```csharp

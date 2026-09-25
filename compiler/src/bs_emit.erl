@@ -1648,9 +1648,17 @@ checked(Ty) -> not bs_types:is_subtype(bs_types:term(), Ty).
 validator_forms({Roots, Jsons, Table}) ->
     Ordered = lists:sort(fun({_, A}, {_, B}) -> A =< B end, maps:to_list(Table)),
     Conv = converting(Table),
-    lists:append([validator_form(Ty, Name, Table, Conv) || {Ty, Name} <- Ordered])
+    %% A validator that can fill is emitted only where `ValidateAs` reaches
+    %% it; `ToJson` reaches its strict twin instead.
+    Filling = reach([R || R <- Roots, lists:member(R, Conv)], Conv, []),
+    {Strict, StrictTable} = strict_table(Jsons, Conv, Table),
+    lists:append([validator_form(Ty, Name, Table, Conv)
+                  || {Ty, Name} <- Ordered,
+                     not lists:member(Ty, Conv) orelse lists:member(Ty, Filling)])
+    ++ lists:append([validator_form(Ty, maps:get(Ty, StrictTable), StrictTable, [])
+                     || {Ty, _} <- Ordered, lists:member(Ty, Strict)])
     ++ [root_form(maps:get(Ty, Table)) || Ty <- Roots]
-    ++ [json_form(Ty, maps:get(Ty, Table), Conv) || Ty <- Jsons]
+    ++ [json_form(maps:get(Ty, Table), maps:get(Ty, StrictTable)) || Ty <- Jsons]
     ++ [F || lists:any(fun({Ty, _}) -> dom_walk(bs_types:unfold(Ty)) =/= none end,
                        Ordered),
              F <- key_forms()].
@@ -1670,33 +1678,43 @@ root_form(Name) ->
 
 %% Validate before JSON encoding, including exact field sets and UTF-8. Invalid
 %% values crash with `ValidationError` before reaching the wire.
-%% `ToJson` converts nothing: where the validator can fill an absent option
-%% key, only a value it hands back unchanged is encoded, and one it had to
-%% fill crashes as an absent key did before F61.
-%% Rationale: compiler/features/F61-absent-option-key.md.
-json_form(Ty, Name, Conv) ->
+json_form(Name, Validator) ->
     XV = {var, ?A, 'Bs@x'},
     EV = {var, ?A, 'Bs@er'},
     Encode = {call, ?A, {atom, ?A, iolist_to_binary},
               [{call, ?A, {remote, ?A, {atom, ?A, json}, {atom, ?A, encode}}, [XV]}]},
-    Crash = fun(E) -> {call, ?A, {remote, ?A, {atom, ?A, erlang}, {atom, ?A, error}},
-                       [{tuple, ?A, [{atom, ?A, to_json}, E]}]}
-            end,
-    Filled = case lists:member(Ty, Conv) of
-                 false -> [];
-                 true  -> [{clause, ?A, [{tuple, ?A, [{atom, ?A, ok}, {var, ?A, '_'}]}], [],
-                            [Crash(error_map(Ty, {nil, ?A}))]}]
-             end,
-    Same = case Filled of
-               [] -> {var, ?A, '_'};
-               _  -> XV
-           end,
+    Crash = {call, ?A, {remote, ?A, {atom, ?A, erlang}, {atom, ?A, error}},
+             [{tuple, ?A, [{atom, ?A, to_json}, EV]}]},
     {function, ?A, json_name(Name), 1,
      [{clause, ?A, [XV], [],
-       [{'case', ?A, {call, ?A, {atom, ?A, Name}, [XV, {nil, ?A}]},
-         [{clause, ?A, [{tuple, ?A, [{atom, ?A, ok}, Same]}], [], [Encode]}]
-         ++ Filled
-         ++ [{clause, ?A, [{tuple, ?A, [{atom, ?A, error}, EV]}], [], [Crash(EV)]}]}]}]}.
+       [{'case', ?A, {call, ?A, {atom, ?A, Validator}, [XV, {nil, ?A}]},
+         [{clause, ?A, [{tuple, ?A, [{atom, ?A, ok}, {var, ?A, '_'}]}], [], [Encode]},
+          {clause, ?A, [{tuple, ?A, [{atom, ?A, error}, EV]}], [], [Crash]}]}]}]}.
+
+%% `ToJson` converts nothing, so its guard must not fill an absent option key.
+%% A type that could fill gets a strict twin, emitted as validators were
+%% before F61: no attempts, nothing rebuilt, calling strict twins where its
+%% children could fill too and the shared validators where they cannot. So
+%% an absent key under `ToJson` is blamed where it is missing, as before.
+%% Rationale: compiler/features/F61-absent-option-key.md.
+strict_table(Jsons, Conv, Table) ->
+    Strict = reach([J || J <- Jsons, lists:member(J, Conv)], Conv, []),
+    {Strict, maps:map(fun(Ty, Name) ->
+                              case lists:member(Ty, Strict) of
+                                  true  -> strict_name(Name);
+                                  false -> Name
+                              end
+                      end, Table)}.
+
+reach([], _Conv, Seen) -> lists:reverse(Seen);
+reach([Ty | Rest], Conv, Seen) ->
+    case lists:member(Ty, Seen) of
+        true  -> reach(Rest, Conv, Seen);
+        false -> reach([C || C <- children(Ty), lists:member(C, Conv)] ++ Rest,
+                       Conv, [Ty | Seen])
+    end.
+
+strict_name(Name) -> list_to_atom(atom_to_list(Name) ++ "@s").
 
 %%% --- Reserved qualifier operations ---
 %%%
@@ -1815,7 +1833,8 @@ walker_name(Name) -> list_to_atom(atom_to_list(Name) ++ "@e").
 validator_form(Ty, Name, Table, Conv) ->
     Err = error_expr(Ty),
     Body = bs_types:unfold(Ty),
-    Fills = fillable_members(Body),
+    %% A strict twin is emitted with an empty `Conv`, so it gets no attempts.
+    Fills = [M || lists:member(Ty, Conv), M <- fillable_members(Body)],
     Clauses = ty_clauses(Body, Name, Table, Conv, Err)
               ++ [fill_clause(Name) || Fills =/= []]
               ++ [{clause, ?A, [{var, ?A, '_'}], [], [Err]}],
@@ -1828,17 +1847,19 @@ validator_form(Ty, Name, Table, Conv) ->
 %% Reverse the path once per failure. Keys and tag must match the
 %% `ValidationError` record in `stratum_two/0`; clause heads test that tag.
 error_expr(Ty) ->
-    {tuple, ?A, [{atom, ?A, error},
-                 error_map(Ty, {call, ?A, {remote, ?A, {atom, ?A, lists}, {atom, ?A, reverse}},
-                                [?VP]})]}.
-
-error_map(Ty, Path) ->
-    {map, ?A,
-     [{map_field_assoc, ?A, {atom, ?A, 'Kind'}, {atom, ?A, 'ValidationError'}},
-      {map_field_assoc, ?A, {atom, ?A, 'Path'}, Path},
-      {map_field_assoc, ?A, {atom, ?A, 'Expected'}, bin_str(bs_types:to_string(Ty))}]}.
+    {tuple, ?A,
+     [{atom, ?A, error},
+      {map, ?A,
+       [{map_field_assoc, ?A, {atom, ?A, 'Kind'}, {atom, ?A, 'ValidationError'}},
+        {map_field_assoc, ?A, {atom, ?A, 'Path'},
+         {call, ?A, {remote, ?A, {atom, ?A, lists}, {atom, ?A, reverse}}, [?VP]}},
+        {map_field_assoc, ?A, {atom, ?A, 'Expected'},
+         bin_str(bs_types:to_string(Ty))}]}]}.
 
 ok_expr() -> {tuple, ?A, [{atom, ?A, ok}, ?VV]}.
+
+%% `{ok, V} -> {ok, V}`: a child's value, returned as the child built it.
+pass_ok(V) -> {clause, ?A, [{tuple, ?A, [{atom, ?A, ok}, V]}], [], [{tuple, ?A, [{atom, ?A, ok}, V]}]}.
 
 %%% --- Absent option keys ---
 %%%
@@ -1881,7 +1902,7 @@ grow(Tys, Conv) ->
         New -> grow(Tys, Conv ++ New)
     end.
 
-fill_name(Name, I) -> list_to_atom(atom_to_list(Name) ++ "@o" ++ integer_to_list(I)).
+fill_name(Name, I) -> list_to_atom(atom_to_list(Name) ++ "@fill" ++ integer_to_list(I)).
 
 fill_clause(Name) ->
     {clause, ?A, [{var, ?A, '_'}], [[guard_call(is_map, [?VV])]],
@@ -1923,8 +1944,7 @@ fill_form({Kind, Fs}, I, Name) ->
     Exact = [{op, ?A, '=:=', guard_call(map_size, [MV]), {integer, ?A, maps:size(Fs)}}
              || Kind =:= closed],
     Retry = {'case', ?A, {call, ?A, {atom, ?A, Name}, [MV, ?VP]},
-             [{clause, ?A, [{tuple, ?A, [{atom, ?A, ok}, RV]}], [],
-               [{tuple, ?A, [{atom, ?A, ok}, RV]}]},
+             [pass_ok(RV),
               {clause, ?A, [{tuple, ?A, [{atom, ?A, error}, EV]}], [],
                [Next({'case', ?A, FV, [{clause, ?A, [{atom, ?A, none}], [], [EV]},
                                         {clause, ?A, [{var, ?A, '_'}], [], [FV]}]})]}]},
@@ -2043,9 +2063,7 @@ cons_clause(Name, Rebuilt) ->
     {Args, Done} = case Rebuilt of
                        false -> {[?VV, {integer, ?A, 0}, ?VP],
                                  {clause, ?A, [{atom, ?A, ok}], [], [ok_expr()]}};
-                       true  -> {[?VV, {integer, ?A, 0}, ?VP, {nil, ?A}],
-                                 {clause, ?A, [{tuple, ?A, [{atom, ?A, ok}, LV]}], [],
-                                  [{tuple, ?A, [{atom, ?A, ok}, LV]}]}}
+                       true  -> {[?VV, {integer, ?A, 0}, ?VP, {nil, ?A}], pass_ok(LV)}
                    end,
     {clause, ?A, [{cons, ?A, {var, ?A, '_'}, {var, ?A, '_'}}], [],
      [{'case', ?A,
@@ -2158,9 +2176,7 @@ dom_walk_call(Name, Rebuilt) ->
             [?VV, {atom, ?A, ordered}]},
     {Args, Done} = case Rebuilt of
                        false -> {[Iter, ?VP], {clause, ?A, [{atom, ?A, ok}], [], [ok_expr()]}};
-                       true  -> {[Iter, ?VP, {map, ?A, []}],
-                                 {clause, ?A, [{tuple, ?A, [{atom, ?A, ok}, MV]}], [],
-                                  [{tuple, ?A, [{atom, ?A, ok}, MV]}]}}
+                       true  -> {[Iter, ?VP, {map, ?A, []}], pass_ok(MV)}
                    end,
     {'case', ?A, {call, ?A, {atom, ?A, dom_name(Name)}, Args},
      [Done,
@@ -2362,8 +2378,7 @@ alternatives([], _Table, _Conv, Err) -> Err;
 alternatives([Ty | Rest], Table, Conv, Err) ->
     OV = {var, ?A, 'Bs@ao'},
     Ok = case lists:member(Ty, Conv) of
-             true  -> {clause, ?A, [{tuple, ?A, [{atom, ?A, ok}, OV]}], [],
-                       [{tuple, ?A, [{atom, ?A, ok}, OV]}]};
+             true  -> pass_ok(OV);
              false -> {clause, ?A, [{tuple, ?A, [{atom, ?A, ok}, {var, ?A, '_'}]}], [],
                        [ok_expr()]}
          end,

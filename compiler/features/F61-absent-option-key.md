@@ -1,6 +1,6 @@
 # F61 — `ValidateAs` reads an absent key at an `option<T>` field as `:nothing`
 
-**Status**      **in progress** — 18 tests in `absent_option_tests`, 1145 in
+**Status**      **in progress** — 19 tests in `absent_option_tests`, 1146 in
                 the suite; `check-absent-option.sh` seen red on master first
 **Implements**  [ticket 26](../../wayfinder/issues/26-data-modelling.md) §4's
                 boundary half, extended to wire types by
@@ -50,9 +50,11 @@ OpenRouter's keeps its string. A `null` refusal stays `:null`.
   to fill comes back as it was.
 - An exact field set still refuses a key it does not name. An absent key is
   filled first, so an unknown key beside it is still an unknown key.
-- `ToJson<T>` converts nothing. Its guard reuses the validators, so a value
-  that validates only because a key was filled crashes, `Path = []`, as an
-  absent key did before this feature.
+- `ToJson<T>` converts nothing. Its guard crashes on an absent option key as
+  it did before this feature, blamed where the key is missing.
+- A value refused after its absent keys were filled is blamed as the filled
+  value would be: `{ Model = 1 }` against `{ Id: option<string>, Model: string }`
+  is refused at `.Model`, where before it was refused at `[]`.
 
 ## What changed
 
@@ -71,15 +73,21 @@ OpenRouter's keeps its string. A `null` refusal stays `:null`.
   untagged field set with nothing shared. It caught every map and refused it,
   the same refusal as the validator's last clause, and it stood in front of
   the fill attempts.
-- `bs_emit`: `ToJson`'s guard encodes only a value the validator returns
-  unchanged.
+- `bs_emit`: `ToJson`'s guard calls a strict twin of each validator that
+  can fill (`bs@validate@N@s`): the validator as it was emitted before this
+  feature, calling strict twins where its children can fill and the shared
+  validators where they cannot. A validator that can fill is emitted only
+  where a `ValidateAs` reaches it, so a type `ToJson` alone names leaves no
+  unused function. Found by the `/code-review`: a first version detected a
+  fill after the fact and blamed the root, so `ToJson<list<R>>` lost the
+  `["[0]"]` it had before.
 
 Measured against master (`ad451c3`) by comparing the `.abstr` `bsc -o`
 writes: the 19 examples that compile singly are identical, and so are
 validators over a record union, a domain map, a tuple union and a list of
 records. Field-set validators differ only by the deleted `{any, []}` clause,
-with no line added. `ToJson` over a record with an `option` field gains the
-fill attempt and the unchanged-value check.
+with no line added. `ToJson` over a record with an `option` field emits
+master's forms, function for function, once the `@s` suffix is removed.
 
 ## Scenarios
 
@@ -92,7 +100,7 @@ fill attempt and the unchanged-value check.
 | F61.5 | an absent `atom` field; an absent required key; an exact set with an unknown key beside an absent option | each refused, `Path = []` |
 | F61.6 | the program above on TypeSafe's reply and OpenRouter's | `"id" => :nothing`, extras kept; the string kept |
 | F61.7 | a union of two exact members, each with an option key, on a value only the second one's fill admits | filled by the second member |
-| F61.8 | `ToJson<R>` handed an `R` with no `Id` | crashes `{to_json, ValidationError}`, `Path = []`, as before |
+| F61.8 | `ToJson<R>` handed an `R` with no `Id`; `ToJson<list<R>>` with one | crashes `{to_json, ValidationError}`, `Path = []`; `Path = ["[0]"]`, as before |
 
 ## Out of scope
 

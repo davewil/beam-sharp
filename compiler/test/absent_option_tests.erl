@@ -146,6 +146,15 @@ to_json_on_an_absent_option_still_crashes_test() ->
     ?assertError({to_json, #{'Kind' := 'ValidationError', 'Path' := []}},
                  M:'Body'(#{'Kind' => 'Json61.R', 'Model' => <<"m">>})).
 
+%% The blame is where the key is missing, as it was before F61, not the root.
+to_json_blames_an_absent_option_at_its_depth_test() ->
+    M = build_and_load("module Json61b\n" ++ rec() ++
+                       "public string Body(list<R> rs)\n"
+                       "Body(rs) -> ToJson<list<R>>(rs)\n", 'Json61b'),
+    ?assertError({to_json, #{'Path' := [<<"[0]">>],
+                             'Expected' := <<"{ Kind: :'Json61b.R', Id: :nothing | string, Model: string }">>}},
+                 M:'Body'([#{'Kind' => 'Json61b.R', 'Model' => <<"m">>}])).
+
 to_json_on_a_whole_value_encodes_nothing_as_before_test() ->
     M = build_and_load(to_json_src(), 'Json61'),
     ?assertEqual(#{<<"Kind">> => <<"Json61.R">>, <<"Id">> => <<"nothing">>,
