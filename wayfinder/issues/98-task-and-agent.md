@@ -1,7 +1,7 @@
 # 98 — `Task` and `Agent`: does ticket 14 §2's "no `Task`" reach Elixir's?
 
 Type: grilling
-Status: open — [ENG-450](https://linear.app/davewil/issue/ENG-450). Raised 2026-09-25 by David
+Status: resolved 2026-09-25 — [ENG-450](https://linear.app/davewil/issue/ENG-450). Raised and resolved 2026-09-25 by David, two rounds
 Blocked by: —
 
 ## Why this is raised
@@ -119,3 +119,19 @@ process holds. Under yes, `Task<T>` is a type, `Await` returns `T`, and `Longest
 
 **The frontier is empty.** `Task.Supervisor` and `async_nolink` are not asked, because no program here
 wants them.
+
+## Decisions entry
+
+```decisions-entry
+- **`Task` and `Agent`** — [ticket 98](issues/98-task-and-agent.md), raised and resolved 2026-09-25 by
+  David in two rounds, narrowing [ticket 14](issues/14-concurrency-and-otp-model.md) §2. **14 §2
+  declines C#'s `Task`, the thread-pool future whose `async` colours the call graph, and not
+  Elixir's**: *"no `async`, no `await"* stands with that reason stated, and Elixir's `Task` joins the
+  standard environment. `Task.Async` lowers to `erlang:spawn_monitor` over the lambda, `Await` is
+  a function the compiler writes, and a task is linked to its caller. `Task.Async` returns `Task<T>`
+  typed by the lambda, so `Await` returns `T`: both ends are this program's code and the monitor
+  reference correlates the reply, so 18 §2's `term` rule, which is about a sender the compiler
+  cannot see, does not reach it. It still reaches `GenServer.Call`. `Await` is ticket 96 Q3's pair.
+  `Agent<S>` is in, its loop generated and its funs B#-typed over `S`; 14 §3's objection was to a
+  foreign fun, and none is foreign here.
+```
