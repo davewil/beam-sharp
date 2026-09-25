@@ -65,7 +65,7 @@ the compiler writes. No beam ships.
 
 ```csharp
 public Agent<map<string, int>> Counts()
-Counts() -> Agent.Start(() => { })
+Counts() -> Agent.Start(() => Map.FromList([]))
 
 Bump(a, k) -> Agent.Update(a, m => Map.Update(m, k, 1, n => n + 1))
 Read(a, k) -> Agent.Get(a, m => Map.Find(m, k))
