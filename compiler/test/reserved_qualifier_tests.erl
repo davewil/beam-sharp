@@ -171,6 +171,37 @@ fold_and_map_keep_their_order_with_each_other_test() ->
               "Go 1"),
     ?assertEqual("-19", value(Out)).
 
+%% F62.5 — `List.FoldRight` is `lists:foldr/3`, from the tail, with Fold's
+%% (acc, x) callback. Consing keeps the order a left fold reverses.
+fold_right_starts_from_the_tail_test() ->
+    Out = run([caller("public list<int> Go(int n)\n"
+                      "Go(n) -> List.FoldRight([n, n + 1, n + 2], [], (acc, x) => [x, ..acc])\n")],
+              "Go 1"),
+    ?assertEqual("[1, 2, 3]", value(Out)).
+
+fold_right_keeps_the_accumulator_first_through_a_named_function_and_a_pipe_test() ->
+    Out = run([caller("public list<int> Go(int n)\n"
+                      "Go(n) -> [n, n + 1, n + 2] |> List.FoldRight([], Push)\n"
+                      "list<int> Push(list<int> acc, int x)\n"
+                      "Push(acc, x) -> [x, ..acc]\n")],
+              "Go 1"),
+    ?assertEqual("[1, 2, 3]", value(Out)).
+
+fold_right_is_a_call_into_otp_test() ->
+    {Root, Out} = compile_set_([caller(
+        "public int Go(list<int> xs)\n"
+        "Go(xs) -> List.FoldRight(xs, 0, (acc, x) => acc + x)\n")]),
+    ok_rc(Out),
+    ?assert(lists:member({lists, foldr, 3}, imports(Root, "P"))).
+
+%% The accumulator is typed as Fold's is: the seed joined with the callback's
+%% result, so a callback returning the wrong type is refused.
+fold_right_types_its_accumulator_test() ->
+    Out = compile_set([caller("public int Go(list<int> xs)\n"
+                              "Go(xs) -> List.FoldRight(xs, 0, (acc, x) => \"s\")\n")]),
+    bad_rc(Out),
+    ?assertEqual(nomatch, string:find(Out, "has no operation")).
+
 %% A pipe supplies the list as the first argument before the emitter reorders
 %% it, so the piped form must fold in the same order as the direct call.
 a_piped_fold_keeps_the_accumulator_first_test() ->

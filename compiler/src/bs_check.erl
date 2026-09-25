@@ -1344,6 +1344,7 @@ standard_table() ->
      {{'List', 'Map', 2},      {lists, map}},
      {{'List', 'Filter', 2},   {lists, filter}},
      {{'List', 'Fold', 3},     {lists, foldl}},
+     {{'List', 'FoldRight', 3}, {lists, foldr}},
      {{'Float', 'FromInt', 1}, {erlang, float}},
      {{'Term', 'Compare', 2},  generated}].
 
@@ -1375,7 +1376,7 @@ reserved_sig('List', 'Filter', 2, [ATy, _FTy]) ->
     Elem = elem_expected(ATy),
     {ok, {[bs_types:list(bs_types:term()), bs_types:fun_ty([Elem], bool())],
           bs_types:list(Elem)}};
-reserved_sig('List', 'Fold', 3, [ATy, SeedTy, FTy]) ->
+reserved_sig('List', Op, 3, [ATy, SeedTy, FTy]) when Op =:= 'Fold'; Op =:= 'FoldRight' ->
     Elem = elem_expected(ATy),
     Acc = bs_types:union(SeedTy, codomain(FTy, 2)),
     {ok, {[bs_types:list(bs_types:term()), Acc, bs_types:fun_ty([Acc, Elem], Acc)],
@@ -2746,7 +2747,7 @@ reserved_args('List', Op, [Xs, F], S, C) when Op =:= 'Map'; Op =:= 'Filter' ->
     Cod = case Op of 'Map' -> bs_types:term(); 'Filter' -> bool() end,
     {FTy, D2} = expected(F, bs_types:fun_ty([Elem], Cod), S, C),
     {[XTy, FTy], D1 ++ D2};
-reserved_args('List', 'Fold', [Xs, Seed, F], S, C) ->
+reserved_args('List', Op, [Xs, Seed, F], S, C) when Op =:= 'Fold'; Op =:= 'FoldRight' ->
     {XTy, D1} = type_of(Xs, S, C),
     {STy, D2} = type_of(Seed, S, C),
     {FTy, D3} = fold_fun(F, STy, elem_expected(XTy), S, C, 3),

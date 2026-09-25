@@ -1,6 +1,6 @@
 # F62 — A standard operation is a row over OTP's own function
 
-**Status**      **in progress** — 9 tests in `reserved_qualifier_tests` (36 there),
+**Status**      **in progress** — 13 tests in `reserved_qualifier_tests` (40 there),
                 `check-reserved-qualifiers.sh` P2 rewritten and seen red on master first,
                 nine red stubs and one green
 **Implements**  [ticket 96](../../wayfinder/issues/96-standard-environment-breadth.md) Q1,
@@ -33,7 +33,7 @@ Total(scores) -> List.Fold(scores, 0, (acc, s) => acc + s)
 ```
 
 `Top` compiles to `lists:reverse(lists:sort(Scores))`. `Total` compiles to
-`lists:foldl('bs@List@Fold@3@flip'(fun ...), 0, Scores)`. No `List.beam` ships,
+`lists:foldl('bs@List@flip'(fun ...), 0, Scores)`. No `List.beam` ships,
 and the program's import chunk names `lists` and nothing called `List`.
 
 ## The rule
@@ -58,6 +58,7 @@ and the program's import chunk names `lists` and nothing called `List`.
 | `List.Map/2` | `lists:map/2`, arguments swapped |
 | `List.Filter/2` | `lists:filter/2`, arguments swapped |
 | `List.Fold/3` | `lists:foldl/3`, arguments reversed, callback flipped |
+| `List.FoldRight/3` | `lists:foldr/3`, as `Fold` (new) |
 | `Float.FromInt/1` | `erlang:float/1` (F51, unchanged) |
 | `Term.Compare/2` | generated (F32, unchanged) |
 
@@ -70,7 +71,7 @@ Reordering only the arguments would call the author's lambda with its two parame
 swapped. For `(acc, x) => acc + x` over integers that goes unnoticed; for
 `(acc, x) => [x, ..acc]` it is wrong.
 
-The site wraps the callback: `lists:foldl('bs@List@Fold@3@flip'(F), Seed, Xs)`,
+The site wraps the callback: `lists:foldl('bs@List@flip'(F), Seed, Xs)`,
 where the generated `flip` returns `fun(E, Acc) -> F(Acc, E) end`. The helper is a
 function, not a `fun` written at the site, for two reasons:
 
@@ -79,6 +80,11 @@ function, not a `fun` written at the site, for two reasons:
 - **Nested folds cannot shadow.** A variable bound at the site would collide with the
   same name in an enclosing fold's callback, and erlc's shadowing warning would then
   surface against the author's `.bs`, as F32's `Bs@h` warning once did.
+
+`List.FoldRight` is the same row over `lists:foldr/3`, which calls its fun the same
+way, so it takes the same `(acc, x)` callback and shares the one `flip` helper. That
+order was chosen to match `Fold` (and Gleam's `fold_right`); Haskell's `foldr` takes
+`(x, acc)` instead, which is the one alternative anybody would argue for.
 
 The callback order is kept here, not decided. Changing it to Elixir's `(x, acc)`
 would be a ticket, and every exemplar that folds would move with it.
@@ -121,4 +127,5 @@ call sites, in the deleted `bs@List@*` walkers, and in one added `flip`.
 | F62.1 | `List.Sum([n, n, n])` compiled | the import chunk has `{lists, sum, 1}` and no `List` |
 | F62.2 | one program calling all seven `List` rows | the chunk has `lists:sum/reverse/sort/map/filter/foldl` and `erlang:length` |
 | F62.3 | `List.Sort([n, 1, n + 1, 0])` at `n = 5`; `List.Sort(xs)` returned as `list<int>`; `List.Sort(n)` | `[0, 1, 5, 6]`; compiles; a type error, not an import one |
+| F62.5 | `List.FoldRight` with `(acc, x) => [x, ..acc]`; piped with a named `Push`; its import chunk; a callback returning a string over an `int` seed | `[1, 2, 3]` twice; `{lists, foldr, 3}`; a type error |
 | F62.4 | `List.Fold` with `(acc, x) => [x, ..acc]`; with a named `Push(acc, x)`; after a `List.Map`; piped, `xs \|> List.Fold([], (acc, x) => [x, ..acc])` | `[3, 2, 1]`, `[3, 2, 1]`, `-19`, `[3, 2, 1]`: the accumulator is first |

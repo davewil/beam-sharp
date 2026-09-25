@@ -1729,19 +1729,22 @@ reserved_forms(Fns) ->
                            lists:member(M, bs_check:reserved_qualifiers())]),
     lists:append([reserved_form(K) || K <- Used,
                                       bs_check:standard_target(K) =:= generated])
-    ++ lists:append([fold_flip_form() || lists:member({'List', 'Fold', 3}, Used)]).
+    ++ lists:append([fold_flip_form()
+                     || lists:any(fun(K) -> lists:member(K, Used) end,
+                                  [{'List', 'Fold', 3}, {'List', 'FoldRight', 3}])]).
 
-%% B#'s argument order where OTP's differs. `lists:foldl` calls its fun as
-%% (elem, acc) and B#'s callback is (acc, elem), ticket 75's order, so the
-%% callback goes through a flip evaluated once at the site.
+%% B#'s argument order where OTP's differs. `lists:foldl` and `lists:foldr`
+%% call their fun as (elem, acc) and B#'s callback is (acc, elem), ticket 75's
+%% order, so the callback goes through a flip evaluated once at the site.
 otp_args({'List', Op, 2}, [Xs, F], _L) when Op =:= 'Map'; Op =:= 'Filter' ->
     [F, Xs];
-otp_args({'List', 'Fold', 3}, [Xs, Seed, F], L) ->
+otp_args({'List', Op, 3}, [Xs, Seed, F], L) when Op =:= 'Fold'; Op =:= 'FoldRight' ->
     [{call, L, {atom, L, fold_flip_name()}, [F]}, Seed, Xs];
 otp_args(_Key, Es, _L) ->
     Es.
 
-fold_flip_name() -> list_to_atom(atom_to_list(reserved_name('List', 'Fold', 3)) ++ "@flip").
+%% One helper serves both folds.
+fold_flip_name() -> 'bs@List@flip'.
 
 fold_flip_form() ->
     F = {var, ?A, 'Bs@f'},

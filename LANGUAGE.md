@@ -1806,8 +1806,8 @@ Before(a, b) -> Term.Compare(a, b)
 into the module that uses it. `List.Map`, `List.Filter` and `List.Fold` take a function value
 (§9), and `List.Fold`'s callback takes the accumulator first, `(acc, x)`, though `lists:foldl`
 calls its fun the other way round. Standard-library breadth is in scope, one row per
-operation; the rows built today are `Sum`, `Length`, `Reverse`, `Sort`, `Map`, `Filter` and
-`Fold` under `List`, `Term.Compare` and `Float.FromInt`.
+operation; the rows built today are `Sum`, `Length`, `Reverse`, `Sort`, `Map`, `Filter`, `Fold` and
+`FoldRight` under `List`, `Term.Compare` and `Float.FromInt`.
 
 **Three names are reserved: `List`, `Map` and `Term`.** `Map`'s operations are not built yet, and
 the name is taken anyway — reserving it later would mean taking it away from a program that had
@@ -3158,7 +3158,7 @@ the parser accepts back exactly what the printer emits. **shipped**
 | the diagnostic as a term (`--diagnostics term`) | **shipped** — F16 |
 | the diagnostic on the wire (`--diagnostics json`) | **shipped** — F47 |
 | the query mode (`--api`) | **shipped** — F17 |
-| reserved qualifiers — `List.Sum` / `Length` / `Reverse` / `Sort` / `Map` / `Filter` / `Fold` lowered to OTP's own function, and `Term.Compare` | **shipped** — F32, F62 |
+| reserved qualifiers — `List.Sum` / `Length` / `Reverse` / `Sort` / `Map` / `Filter` / `Fold` / `FoldRight` lowered to OTP's own function, and `Term.Compare` | **shipped** — F32, F62 |
 | `Map.Get`, under the reserved `Map` | not started — the name is reserved, the operations are not. The `map<K, V>` type itself is **shipped** — F33 — and `ValidateAs` walks one — F43 |
 | `behaviour GenServer` — the attribute, callback names, and mandatory-callback presence | **shipped** — F10 |
 | behaviour contract checked as a **type** | not started — Dialyzer does it at the boundary today |
