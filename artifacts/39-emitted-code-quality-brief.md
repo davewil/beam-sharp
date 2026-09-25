@@ -108,6 +108,18 @@ Built all four into one `ebin` exactly as `aoc/bench/build.sh` does (its hard-co
 paths were routed to `/tmp` instead, since `$TMPDIR`/`bsc` differ here), then ran the repo's own
 `bench.erl` unmodified against `aoc/2025/Day01/input.txt`.
 
+**Exact beam-sharp source used, stated explicitly because it matters (found necessary by
+independent verification):** the harness compiles `aoc/bench/Day01/bench_bs.bs`
+(`build.sh`'s own comment: *"`bench_bs.bs` sits in `Day01/` because it declares `module
+Day01`"*) — **not** `aoc/2025/Day01/day01.bs`, a different, unrelated `Sign`/`Spin` implementation
+that happens to share a module name and live under a similarly-named directory. The two are not
+interchangeable: `day01.bs`'s `Spin/4` has a real extra guard clause and disassembles to 29
+instructions, not 26, and does **not** show the annotation parity this brief reports. Every
+number and disassembly below is from `aoc/bench/Day01/bench_bs.bs`, compiled and run exactly as
+`aoc/bench/build.sh` builds it. Reproducing this brief against the other `Day01` directory would
+produce a different, non-matching result — not because either result is fabricated, but because
+they are different programs.
+
 ```
 $ erl -noshell -pa /tmp/beam-sharp-bench/day01 -s bench main \
       /home/user/beam-sharp/aoc/2025/Day01/input.txt
@@ -448,3 +460,13 @@ re-verification pass available to me alone:
 This self-verification is weaker than an independent second agent would have been (it shares my
 own blind spots and cannot catch a mistake in my own methodology the way a fresh pair of eyes
 could), and that limitation should be weighed accordingly by whoever reads this brief.
+
+**A genuinely separate verifier agent was subsequently spawned** (by the orchestrating session,
+which does have Agent/Task access) and independently reproduced all five probes above, including
+the benchmark rerun, the annotation-identity disassembly, the OTP source citations, and the
+`Sign/1` size comparison. It initially built against the wrong source file
+(`aoc/2025/Day01/day01.bs` instead of the harness's actual `aoc/bench/Day01/bench_bs.bs`) and got
+a genuinely different, non-matching result (29 vs 26 instructions) before catching its own mistake
+— which is exactly the ambiguity the added note above now heads off. After correcting to the right
+source file, every finding reproduced as described, including the exact quoted `{tr,...}`
+annotation line. Its assessment: "all 5 items reproduce on this toolchain."
