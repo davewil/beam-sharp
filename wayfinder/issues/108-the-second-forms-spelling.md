@@ -58,6 +58,46 @@ knowingly, once this answer exists.
 
 **Under no**, round 2 asks for the spelling itself.
 
+**A1 (David, 2026-09-25):** *"Yes, with a prefix or suffix, but Try is not something I'm happy
+with. Any thoughts?"* So: one affix convention for every pair, and not `Try`.
+
+## Round 2
+
+### Q2 — Is it a suffix that names what comes back: `OrNothing` for an `option`, `OrError` for a `result`?
+
+The precedents with 96 Q3's ordering (the plain name crashes) all use a suffix, and the suffix
+names the return: C#'s own LINQ has `First()` throwing and `FirstOrDefault()` returning a default
+(`SingleOrDefault`, `ElementAtOrDefault`); Kotlin has `first()` throwing and `firstOrNull()`,
+`toInt()` and `toIntOrNull()`. B# has no null and no default value: absence is `:nothing`
+(`option<T> = T | :nothing`) and a failed conversion is an error carrying the input (97). So the
+suffix is the word for what the caller gets instead:
+
+```csharp
+public result<Session, atom> Current(map<string, Session> sessions, string token)
+Current(ss, t) -> Map.GetOrNothing(ss, t) switch {
+    :nothing => (:error, :no_session),
+    s        => s
+}
+
+public result<int, string> Page(string raw)
+Page(r) -> Int.FromStringOrError(r)                  // "2x" is (:error, "2x")
+
+public option<Order> Newest(list<Order> os)
+Newest(os) -> List.MaxByOrNothing(os, o => o.PlacedAt)
+```
+
+**Under yes**: `Map.GetOrNothing`, `List.FirstOrNothing`, `LastOrNothing`, `AtOrNothing`,
+`MaxOrNothing`, `MinOrNothing`, `FindOrNothing`, `Process.WhereisOrNothing`, `System.EnvOrNothing`;
+`Int.FromStringOrError`, `Float.FromStringOrError`, `String.FromBinaryOrError`,
+`Task.AwaitOrError`. The name tells the reader the return type without looking it up, which a
+one-word prefix cannot. The cost is length (`FromStringOrError`), and two words where 96 Q3 said
+"one convention". It stays one rule: the suffix names the return. Ticket 94's `List.TryMap` no
+longer collides with anything.
+
+**Under no**, the single-word alternative is a prefix used for every pair whatever it returns,
+`Maybe` (`Map.MaybeGet`, `Int.MaybeFromString`, `Task.MaybeAwait`): shorter, one word, but it reads
+as `option` even where the return is a `result`.
+
 ## Decisions entry
 
 <!-- Written when the ticket resolves. -->
