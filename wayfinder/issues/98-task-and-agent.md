@@ -103,3 +103,19 @@ That rule is about a sender the compiler cannot see. Here both ends are this mod
 lambda is typed `fn() -> int`, and the reply is correlated by the monitor reference, which no other
 process holds. Under yes, `Task<T>` is a type, `Await` returns `T`, and `Longest` compiles. Under no,
 `Await` returns `term`, and every use is `ValidateAs<int>`.
+
+**Round 2 answered 2026-09-25 (David): Q2 yes, Q3 yes, Q4 yes.**
+
+- **Q2.** `Agent<S>` is in. The state `S` is fixed at `Start`, and `Get`, `Update` and `GetAndUpdate`
+  take B#-typed funs over `S`. The loop is generated, so no beam ships. Ticket 14 §3's objection was
+  to a *foreign* fun, and none is foreign here.
+- **Q3.** `Task.Await` is ticket 96 Q3's pair. The plain form crashes on a timeout or a crashed task,
+  and the other returns `(:error, :timeout) | (:error, (:down, reason))`. A task is linked to its
+  caller, as Elixir's is.
+- **Q4.** `Task.Async` returns `Task<T>`, typed by the lambda, and `Await` returns `T`. Both ends are
+  this program's code, and the reply is correlated by a monitor reference no other process holds, so
+  ticket 18 §2's `term` rule, which is about a sender the compiler cannot see, does not reach it. It
+  still reaches `GenServer.Call`. `Agent.Get` returns its fun's result type by the same reasoning.
+
+**The frontier is empty.** `Task.Supervisor` and `async_nolink` are not asked, because no program here
+wants them.
