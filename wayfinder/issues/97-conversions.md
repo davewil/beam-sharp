@@ -1,7 +1,7 @@
 # 97 — Conversions: one spelling for every `X` to `Y`, and what a failed one returns
 
 Type: grilling
-Status: open — [ENG-449](https://linear.app/davewil/issue/ENG-449). Raised 2026-09-25 by David
+Status: resolved 2026-09-25 — [ENG-449](https://linear.app/davewil/issue/ENG-449). Raised and resolved 2026-09-25 by David, two rounds
 Blocked by: —
 
 ## Why this is raised
@@ -115,3 +115,17 @@ and a binary-to-string conversion reads as a validation.
 
 **The frontier is empty.** `Atom.FromString` is not asked, because `ParseAtom<T>` and
 `ToExistingAtom` own that direction. A number base is not asked, because no program here wants one.
+
+## Decisions entry
+
+```decisions-entry
+- **Conversions** — [ticket 97](issues/97-conversions.md), raised and resolved 2026-09-25 by David in
+  two rounds. **Every conversion is `Target.FromSource`, under the type it produces** (ticket 81's
+  `Float.FromInt`): `String.FromInt`, `FromFloat`, `FromAtom`, `FromBinary`, `Int.FromString`,
+  `Float.FromString`. A conversion that can fail is ticket 96 Q3's pair: the plain form crashes, and
+  the other returns `result<Target, string>` carrying the unreadable input (`result<string, binary>`
+  for `FromBinary`), as `ToExistingAtom` does. There is no `Int.FromFloat`: `Int.Truncate`, `Round`,
+  `Floor` and `Ceiling` name the rounding, and `Round` is the platform's half away from zero.
+  `String.FromBinary` shares `ValidateAs<string>`'s UTF-8 check, which is built (the "not started"
+  rows are ENG-461).
+```
