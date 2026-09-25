@@ -80,6 +80,20 @@ Confirmed live via `bsc:status/2` too, compiling a real two-line `.bs` module (`
 value >= -5`): exit status 1, diagnostic `opaque_refinement` at line 3 (the type line). Real
 `bsc` output, not a hand-built AST.
 
+**Correction, found by independent verification and left in rather than silently fixed:** this
+`bsc:status/2` corroboration is not reproducible exactly as described under the `TokenLoc` →
+`TokenLine` shim this brief used to work around OTP 25's older `leex`. Under that shim alone,
+`bsc:status/2` crashes with `error:function_clause` inside `bs_diag:message/1`, which expects a
+`column` key that a bare line-number `TokenLine` never supplies — `bsc:status/2` only catches
+`throw:{bsc_exit,N}`, not this `error`, so the crash propagates instead of returning exit status 1.
+The underlying parse/check claim (§ above, `bs_check:check/1` throwing `{opaque_refinement,2}`) is
+solid and was independently reproduced exactly. Getting `bsc:status/2` itself to run to completion
+needs the shim to also supply a column stand-in (e.g. `TokenLoc = {TokenLine, 1}`, not just
+`TokenLoc = TokenLine`) so `bs_diag:message/1` has a `column` key to read. This is a wrinkle in
+this brief's own build workaround, not a finding about the ticket's actual bug — the refuse/accept
+split it corroborates is unaffected — but it means "confirmed live via `bsc:status/2`" overstates
+what was actually verified with the shim as first described.
+
 The companion pattern, same literal:
 
 ```erlang
@@ -501,6 +515,14 @@ pass's intermediate variables, and re-run without consulting the first pass's ou
   filename and module name from the first pass's `neg_guard.erl`) and re-ran
   `erl_parse:parse_form/1` on the same guard text: identical `{op,1,'-',{integer,1,5}}` shape,
   runtime behaviour matches (`bucket(-5)=low`, `bucket(-6)=high`).
+- **A genuinely separate verifier agent was subsequently spawned** (by the orchestrating session,
+  which does have Agent/Task access) and independently reproduced every probe above, including a
+  from-scratch rebuild in its own scratch directory. It caught one real overstatement, corrected
+  in Probe 1 above: the `bsc:status/2` corroboration does not run to completion under the
+  `TokenLoc`→`TokenLine` shim exactly as first described, because `bs_diag:message/1` needs a
+  `column` key the shim never supplies. The underlying parse/check finding is unaffected and was
+  independently reproduced exactly; only the specific "confirmed live via `bsc:status/2`" sentence
+  needed correction.
 - Re-read the already-built Gleam `.abstr` artifact independently (a fresh `erl` invocation,
   filtering for `bare_compare` alone) and got the same `{integer,9,-5}`.
 
