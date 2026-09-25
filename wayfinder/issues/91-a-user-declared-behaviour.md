@@ -147,3 +147,14 @@ Under yes, a satisfying module may leave `HandleTimeout` out, the declaring modu
 `Answering.Implements(m, :HandleTimeout)`, because a call to a missing function crashes. Under no,
 every declared callback is required, as F10 requires OTP's mandatory ones, and a library that wants
 a default writes it and asks the user to delegate to it.
+
+**Round 3 answered 2026-09-25 (David): Q4 yes, Q5 no.**
+
+- **Q4.** A behaviour's signatures may be generic in the satisfying module's own types,
+  `behaviour Answering<S>`, fixed at the `behaviour` line (`behaviour Jev.Answering<Triage.State>`),
+  and each callback is checked with them substituted.
+- **Q5.** No optional callbacks: every callback a user's behaviour declares is required, so a call
+  through the behaviour always lands. A library that wants a default writes it, and the user's
+  callback delegates to it. OTP's own optional callbacks stay F10's.
+
+**The frontier is empty.**

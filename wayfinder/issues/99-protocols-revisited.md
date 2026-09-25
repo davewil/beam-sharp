@@ -1,7 +1,7 @@
 # 99 — Protocols revisited: may a user's type join `Enum`?
 
 Type: grilling
-Status: open — [ENG-451](https://linear.app/davewil/issue/ENG-451). Raised 2026-09-25 by David
+Status: resolved 2026-09-25 — [ENG-451](https://linear.app/davewil/issue/ENG-451). Raised and resolved 2026-09-25 by David, three rounds and ticket 91 Q2
 Blocked by: —
 
 ## Why this is raised
@@ -157,3 +157,20 @@ one declaration shape for a behaviour and a protocol.
 **The spelling was answered 2026-09-25 as ticket 91 Q2 (David, yes):** `protocol Shape { float
 Area(Self s) }` in `index.bs`, satisfied by `implements Shape for Circle { … }` in the type's own
 module, and called as `Shape.Area(c)`, never `c.Area()`. The frontier is empty.
+
+## Decisions entry
+
+```decisions-entry
+- **Protocols revisited** — [ticket 99](issues/99-protocols-revisited.md), raised and resolved
+  2026-09-25 by David, amending [ticket 16](issues/16-ad-hoc-polymorphism.md). **A record's own
+  module may implement a protocol, and a call finds the implementation from the value's tag at run
+  time, so nothing is consolidated and ticket 13 §3 holds.** Of 16's two grounds, the first went
+  2026-08-14 (records carry a tag). The second stood only on 13 §3, which is a ground against
+  consolidation and not against protocols. An implementation lives in the type's own module and
+  nowhere else; a foreign struct or a tuple joins by being wrapped in a record. `Enumerable<T>` is
+  a type (`list`, `map`, every implementing record), open, so a clause head may not destructure it
+  and exhaustiveness never ranges over it; only such a parameter dispatches at run time. A user may
+  declare a protocol, `protocol Shape { float Area(Self s) }`, satisfied by `implements Shape for
+  Circle { … }` and called `Shape.Area(c)`, never `c.Area()` (ticket 91 Q2 and Q3: the dot would
+  suggest OOP semantics). The compiler ships `Enumerable` only.
+```
