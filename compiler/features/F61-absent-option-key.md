@@ -112,3 +112,12 @@ master's forms, function for function, once the `@s` suffix is removed.
 
 The scenarios pass, `check-absent-option.sh` is seen red on master and green
 after, and `./bin/verify.sh` is green twice from a clean clone.
+
+## Evidence — 2026-09-25
+
+`check-absent-option.sh` was red on `ad451c3` for V1 and V2, and printed
+the same two refusals the `silent` stub carries.
+
+`./bin/verify.sh` twice from a clean clone of `012446d`, one command per
+run: **All 47 stages passed**, 291 s and 299 s; stage 31 is this gate. The
+status stays *in progress* until David calls it.
