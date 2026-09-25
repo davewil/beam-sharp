@@ -157,6 +157,28 @@ a_catch_all_over_records_and_atom_is_legal_test() ->
           "Handle(_)              -> :other\n",
     ?assertMatch({ok, _, _}, check_only(Src)).
 
+%% So does an unbounded integer beside them.
+a_catch_all_over_records_and_int_is_legal_test() ->
+    Src = events() ++
+          "type Input = Event | int\n"
+          "public atom Handle(Input e)\n"
+          "Handle(OrderPlaced p)  -> :placed\n"
+          "Handle(OrderShipped s) -> :shipped\n"
+          "Handle(_)              -> :other\n",
+    ?assertMatch({ok, _, _}, check_only(Src)).
+
+%% Only a singleton atom is a tag: `:a | binary` names no case, and its binary
+%% part leaves the member open.
+a_catch_all_over_a_kind_with_a_binary_part_is_legal_test() ->
+    Src = "module KMix\n"
+          "type A = { Kind: :a | binary, Id: int }\n"
+          "type B = { Kind: :b, Id: int }\n"
+          "type Either = A | B\n"
+          "public atom Pick(Either e)\n"
+          "Pick({ Kind: :b, Id: i }) -> :b\n"
+          "Pick(_)                   -> :other\n",
+    ?assertMatch({ok, _, _}, check_only(Src)).
+
 %% A tuple does not close on its first element: `(:ok, int)` stays open.
 a_catch_all_over_a_tuple_with_an_int_part_is_legal_test() ->
     Src = "module Reading\n"

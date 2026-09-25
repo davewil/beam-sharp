@@ -919,13 +919,14 @@ m_absorb(Ms0) ->
                         rivals(M, Groups, Untagged, Ms))].
 
 %% Only singleton `Kind` tags form groups. All other members must be compared
-%% against every group.
+%% against every group. Every other part must be empty: `:a | binary` is no tag.
 discriminator({dom, _, _}) ->
     none;
 discriminator({_Kind, Fields}) ->
     case maps:find('Kind', Fields) of
         {ok, #{atoms := {finite, [Tag]}, ints := [], floats := {finite, []},
-               tuples := [], lists := [], maps := []}} -> Tag;
+               tuples := [], lists := [], maps := [], bins := [], opaques := [],
+               funs := []}} -> Tag;
         _ -> none
     end.
 
