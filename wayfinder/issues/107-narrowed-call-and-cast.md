@@ -96,6 +96,29 @@ checks the return and the other arguments), and ticket 14 §4 is amended in plac
 A yes opens one follow-up, asked only if yes is the answer: what a stray call does. The server
 crashing is the default above; the alternative is a compiler-emitted closing clause.
 
+## Prior art, measured 2026-09-25 (asked for by David before answering Q1)
+
+Both probes are kept: [`107a`](../prototypes/107a_elixir_genserver_strays.exs) (Elixir 1.20.4,
+OTP 29) and [`107b`](../prototypes/107b_gleam_actor_strays.gleam) (Gleam 1.18.1, `gleam_otp`
+1.3.0, `gleam_erlang` 1.3.0).
+
+| | Narrowed request handler | A stray call or message | Missing case in the handler |
+|---|---|---|---|
+| **Elixir** `GenServer` | allowed; nothing checks it | `handle_call(:bogus, …)` → `FunctionClauseError`, **server dies**. The `handle_info` that `use GenServer` injects **logs** *"received unexpected message in handle_info/2"* **and survives**; a `handle_info` the author narrows dies like `handle_call` | not detected (no warning from 1.20's type checker) |
+| **Gleam** `gleam/otp/actor` | the handler is typed over the `Subject`'s message type | never reaches the handler: the actor's selector puts `process.select_other(Unexpected)` under the user's, and the loop **logs** *"Actor discarding unexpected message"* **and continues**. Measured: raw `erlang:send(Pid, {"bogus", 1})`, actor alive, state intact | **refused at compile time**: `Inexhaustive patterns … Add(n:, reply:)` |
+| **B#** today | allowed (F10 checks names and presence) | `function_clause`, **server dies** (above) | **refused**, naming the clause (above) |
+
+What Gleam shows is that the two properties Q1 sets against each other are not in tension there:
+the handler is exhaustive over a closed type **and** the server survives a stray, because the
+filtering happens **before** the typed handler, in code the library writes, not in the user's
+clauses. Gleam pays for it with the typed channel, `Subject(msg)`, which carries a reference the
+selector matches on. Ticket 14 §1 declined that for B# (`Pid[τ]`, *"not expressible"* under
+ticket 09's structural types), which is why B#'s narrowing lives on the handler instead.
+
+A stray **call** to a Gleam actor is an `Unexpected` message too (read from `actor.gleam`, not
+measured): discarded, so its caller waits out its timeout rather than killing the actor. Elixir's
+default injected `handle_info` does the same for a stray info message.
+
 ## Decisions entry
 
 <!-- Written when the ticket resolves. -->
