@@ -29,27 +29,40 @@ nothing about the text.
 
 ## Round 1
 
-**Q1. Does every conversion follow `Target.FromSource`, a total one returning `Target` and a partial
-one returning `result<Target, string>` whose failure is the input it could not read, as
-`ToExistingAtom` does?**
+*Rewritten 2026-09-25 before it was asked. Ticket 96 Q3 (resolved) made every operation that can
+fail a pair, so the draft's single `result` shape no longer stood alone. The draft asked one
+question; it is two, and they are independent.*
+
+**Q1. Is every conversion spelled `Target.FromSource`, as ticket 81 spelled `Float.FromInt`?**
 
 ```csharp
 Money(cents) -> ["£", String.FromInt(cents / 100), ".", Pence(cents % 100)]
-
-public result<int, string> Quantity(string field)
-Quantity(f) -> Int.FromString(f)
+Quantity(f)  -> Int.FromString(f)
+Label(a)     -> String.FromAtom(a)
 ```
 
-Under yes: `String.FromInt` is `integer_to_binary/1`, typed `string` because its output is ASCII
-digits. `Int.FromString("12")` is `12`, and `Int.FromString("1x")` is `(:error, "1x")`, lowered to
-`binary_to_integer/1` with `badarg` caught, as F54 catches it. The same rule covers
-`Float.FromString`, `String.FromFloat` (`float_to_binary(F, [short])`), `String.FromAtom`
-(`atom_to_binary`, total) and `Atom.FromString` (`ParseAtom<T>` and `ToExistingAtom` already own
-that direction). Under no, each conversion's failure shape is decided on its own.
+Under yes, the set is `String.FromInt`, `String.FromFloat`, `String.FromAtom`, `Int.FromString`,
+`Float.FromString` and `Float.FromInt` (shipped). The conversion lives under the type it produces,
+so `String`'s rows are where a reader looks for "a string from X". Under no, C#'s instance spelling
+does not port (`n.ToString()` is the dot-as-call ticket 91 Q3 refused), so the alternative is
+`Int.ToString(n)` and `Int.Parse(s)`, under the source type.
 
-Compiler delta: rows in ticket 96's signature table, if 96 answers yes, or generated forms if it
-answers no. The partial ones share F54's `try`/`catch error:badarg` lowering.
+**Q2. Does ticket 96 Q3's pair reach a conversion that can fail, with the second form returning
+`result<Target, string>` whose failure is the input, not `option<Target>`?**
 
-What stays for round 2: `Int.FromFloat` is not a conversion that can fail but one that must choose
-a rounding. Whether it is one operation or `Float.Truncate`, `Round`, `Floor` and `Ceiling`, each
-`float -> int`, as Elixir and Erlang spell them, is asked after Q1.
+```csharp
+Quantity(f) -> Int.FromString(f)            // "1x" crashes, naming the text
+Safe(f)     -> Int.TryFromString(f)          // "1x" is (:error, "1x")
+```
+
+Under yes, the plain form crashes, and the other returns the text it could not read, as
+`ToExistingAtom` returns `result<atom, string>`. A parse's failure has a reason worth carrying,
+where a lookup's absence (`Map.Find`) has none. `Try` is ENG-324's placeholder. Under no, the second
+form is `option<int>`, and the failed input is the caller's to keep.
+
+Compiler delta, either way: rows in ENG-452's table. The failing forms share F54's lowering, the
+platform's `binary_to_integer/1` or `binary_to_float/1` with `badarg` caught.
+
+**Held for round 2, since it depends on Q1's spelling:** `Int.FromFloat` has to choose a rounding,
+not a failure. The choice is one operation, or `Float.Truncate`, `Round`, `Floor` and `Ceiling`,
+each `float -> int`, as Erlang and Elixir spell them.
