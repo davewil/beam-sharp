@@ -170,6 +170,38 @@ roster below has it.
 Compiler delta: the signature table's key gains the argument's kind, `{Enum, Map, 2, list}` and
 `{Enum, Map, 2, map}`, and the checker resolves the row after typing the first argument.
 
+**Round 2 answered 2026-09-25 (David): Q1 yes, Q5 yes.**
+
+- **Q1.** A standard operation may lower to the OTP function that already does it, one
+  signature-table row each. `check-reserved-qualifiers.sh` P2 keeps its job, which is catching
+  ticket 67's rejected (a): the compiler emitting a call into a module B# would have to ship
+  (`List`, `Map`, `String`, …). What changes is that a call into OTP's own modules (`lists`, `maps`,
+  `string`, `erlang`, `gen_server`), present on every node, is allowed. User code is not what P2
+  reads: a user's modules and their `using` calls are untouched. F32's six generated `List`
+  operations may move onto the table.
+- **Q5.** One `Enum` over the compiler's `list` and `map`, the row chosen by the argument's static
+  type. `List` and `Map` hold only what is specific to each. A user's type joins only through
+  ticket 99.
+
+## Round 3
+
+**Q6. Does every qualifier the standard environment adds take its name on the terms `List` and `Map`
+took it (ticket 67 Q6): a user module whose short name is `Enum`, `String`, `Int`, `Process`,
+`GenServer`, `Supervisor`, `Logger` or `System` is refused where it would be written as that word,
+and a dotted `Shop.String` is not?**
+
+```csharp
+module Shop.Text.String          // compiles: the path is not the reserved word
+
+// in a module with `using Shop.Text`
+Clean(s) -> String.Trim(s)       // the standard operation, never Shop.Text.String.Trim
+```
+
+Under yes, ticket 65's first question, which names are reserved, is answered by a rule: whatever the
+standard environment qualifies is reserved, and nothing else. What P3 to P6 of
+`check-reserved-qualifiers.sh` check for `List` extends to each new word. Under no, each new
+qualifier is argued in ticket 65 on its own.
+
 ## What a yes makes cheap — the roster, for a later round
 
 This is not a round of questions. It is what the table would hold. It is drawn from the imports
