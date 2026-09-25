@@ -109,3 +109,34 @@ on the tag as `Enumerable` is. It meets ticket 91 (ENG-432), a user-declared beh
 names what a *module* supplies, and a protocol names what a *type's* module supplies. Under no,
 `Enumerable` and any others are the compiler's, and a user's open extension is ticket 91's
 behaviour or nothing.
+
+**Round 2 answered 2026-09-25 (David): Q2 yes, Q3 yes.**
+
+- **Q2.** `Enumerable<T>` is a type: `list`, `map`, and every record whose module implements it. The
+  set is open, so a clause head may not destructure it and exhaustiveness never ranges over it.
+  Only the protocol's operations apply. A call whose argument type is known is emitted direct, and
+  only an `Enumerable<T>` parameter dispatches at run time.
+- **Q3.** A user may declare a protocol (`protocol Shape { float Area(Self s) }`), dispatched on the
+  tag as `Enumerable` is. Its spelling is decided beside ticket 91's user-declared behaviour, so
+  the two declarations read alike.
+
+## Round 3
+
+**Q4. May an implementation live anywhere but the type's own module?**
+
+```csharp
+// module Shop.Reports, not the module that declares Node
+implements Enumerable<int> for Shop.Tree.Node { … }      // refused under the round 1 rule
+```
+
+Round 1 put an implementation in the type's own module, which is what lets the tag find it. Under
+that rule, a type you did not write cannot join a protocol, including a foreign struct (ticket 50
+made one a `map<atom, term>`, which has no tag module) and a tuple. Proposed: **no, own module only**,
+and a type from elsewhere joins by being wrapped in a record of your own. Under yes, the tag no
+longer finds the implementation, so a table is needed, and ticket 13 §3's consolidation comes back.
+
+**Q5. Which protocols does the compiler ship beside `Enumerable`?**
+
+Proposed: **only `Enumerable`**, since it is the one a program here needs, and the others Elixir has
+(`String.Chars`, `Inspect`, `Collectable`) wait for a program that wants them, each as its own
+question. Ticket 97's conversions are total functions over known types and need no protocol.
