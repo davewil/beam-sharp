@@ -140,3 +140,13 @@ longer finds the implementation, so a table is needed, and ticket 13 §3's conso
 Proposed: **only `Enumerable`**, since it is the one a program here needs, and the others Elixir has
 (`String.Chars`, `Inspect`, `Collectable`) wait for a program that wants them, each as its own
 question. Ticket 97's conversions are total functions over known types and need no protocol.
+
+**Round 3 answered 2026-09-25 (David): Q4 no, Q5 yes.**
+
+- **Q4.** An implementation lives in the type's own module and nowhere else. A type from elsewhere,
+  a foreign struct or a tuple, joins by being wrapped in a record of the author's own.
+- **Q5.** The compiler ships `Enumerable` only. `String.Chars`, `Inspect` and `Collectable` wait for
+  a program that wants them, each as its own question.
+
+What remains is the spelling of `protocol` and `implements`, decided beside ticket 91 (ENG-432) so
+that a protocol and a user-declared behaviour read alike.

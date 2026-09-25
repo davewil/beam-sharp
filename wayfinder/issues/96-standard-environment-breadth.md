@@ -1,7 +1,7 @@
 # 96 — Standard environment breadth: may a qualified operation be OTP's own function?
 
 Type: grilling
-Status: open — [ENG-448](https://linear.app/davewil/issue/ENG-448). Raised 2026-09-25 by David
+Status: resolved 2026-09-25 — [ENG-448](https://linear.app/davewil/issue/ENG-448). Raised and resolved 2026-09-25 by David, three rounds
 Blocked by: —
 
 ## Why this is raised
@@ -230,3 +230,24 @@ Names and failure shapes are decided in the rounds after Q1.
 | `Logger` | `Info`, `Warning`, `Error` (`logger:info`, …) |
 | time | `System.Time(unit)` (`erlang:system_time`) |
 | `Task`, `Agent` | ticket 98 |
+
+## Decisions entry
+
+<!-- This ticket's entry. The whole entry is read here. -->
+
+```decisions-entry
+- **Standard environment breadth** — [ticket 96](issues/96-standard-environment-breadth.md), raised
+  and resolved 2026-09-25 by David in three rounds, amending ticket 00's scope and ticket 67's
+  lowering. **A standard operation is a compiler-known signature over the OTP function that already
+  does it**: `List.SortBy` is `lists:sort/2`, `String.Split` is `string:split/3`, `GenServer.Call`
+  is `gen_server:call/2`, one table row each, and no B# beam ships. Standard-library breadth is in
+  scope (David). Ticket 67 never weighed a call into OTP. The rule against one was F32's reading, and
+  17 §2's precision does not reach a caller, since every function emits a declared `-spec`.
+  `check-reserved-qualifiers.sh` P2 still refuses a call into a module B# would have to ship.
+  **Names are Elixir's, PascalCased** (F46's `Map`, `Filter`, `Fold`). **Every operation that can
+  find nothing comes as ticket 48 Q8's pair**, assertive preferred, under one convention ENG-324
+  names. **One `Enum` over the compiler's `list` and `map`**, the row chosen by the argument's
+  static type, with no protocol; `List` and `Map` hold what is specific to each; a user's type
+  joins through ticket 99. **Every qualifier the standard environment adds is reserved on ticket
+  67 Q6's terms**, which answers ticket 65's first question by rule.
+```
