@@ -17,6 +17,12 @@
                 `Map` is reserved here; the operations under it are not built,
                 and they land on the same table
 
+> **Superseded in part 2026-09-25 by [F62](F62-standard-signature-table.md)** (ticket 96
+> Q1, [ENG-452](https://linear.app/davewil/issue/ENG-452)). Clause 1's lowering changed:
+> the six `List` operations are now remote calls to `lists`/`erlang`, and only
+> `Term.Compare` is still generated. The gate's P2 now wants `lists` in the import chunk
+> and still refuses `List`. Clauses 2 and 3 are unchanged. The text below is F32 as built.
+
 ## What shipped
 
 Three clauses, and the first is the feature:

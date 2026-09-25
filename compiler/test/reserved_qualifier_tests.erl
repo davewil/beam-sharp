@@ -1,4 +1,5 @@
-%%% Scenarios: compiler/features/F32-reserved-qualifiers.md
+%%% Scenarios: compiler/features/F32-reserved-qualifiers.md,
+%%% compiler/features/F62-standard-signature-table.md
 %%% Cross-file resolution runs through the CLI.
 
 -module(reserved_qualifier_tests).
@@ -108,13 +109,67 @@ term_compare_with_all_three_arms_is_exhaustive_test() ->
 %%% ---------------------------------------------------------------------------
 %%% A clean compile and a remote-call control make absence meaningful.
 
-a_reserved_qualifier_call_emits_no_remote_call_test() ->
+%% F62.1 — ticket 96 Q1: the operation is OTP's own function, and the qualifier names
+%% no module. F32 asserted `lists` absent; 96 Q1 reversed that reading.
+a_reserved_qualifier_call_lowers_to_otp_not_to_a_list_module_test() ->
     {Root, Out} = compile_set_([caller("public int Go(int n)\n"
                                        "Go(n) -> List.Sum([n, n, n])\n")]),
     ok_rc(Out),
     Mods = called_modules(Root, "P"),
     ?assertNot(lists:member('List', Mods)),
-    ?assertNot(lists:member('lists', Mods)).
+    ?assert(lists:member({lists, sum, 1}, imports(Root, "P"))).
+
+%% F62.2 — one row per operation, each read off the artefact.
+every_list_row_is_a_call_into_otp_test() ->
+    {Root, Out} = compile_set_([caller(
+        "public int Go(list<int> xs)\n"
+        "Go(xs) -> List.Sum(List.Reverse(List.Sort(List.Map(List.Filter(xs, x => x > 0), x => x + 1))))\n"
+        "          + List.Length(xs) + List.Fold(xs, 0, (acc, x) => acc + x)\n")]),
+    ok_rc(Out),
+    Is = imports(Root, "P"),
+    [?assert(lists:member(MFA, Is))
+     || MFA <- [{lists, sum, 1}, {lists, reverse, 1}, {lists, sort, 1},
+                {lists, map, 2}, {lists, filter, 2}, {lists, foldl, 3},
+                {erlang, length, 1}]].
+
+%% F62.3 — `List.Sort`, the first row added on the table.
+list_sort_needs_no_using_test() ->
+    Out = run([caller("public list<int> Go(int n)\n"
+                      "Go(n) -> List.Sort([n, 1, n + 1, 0])\n")], "Go 5"),
+    ?assertEqual("[0, 1, 5, 6]", value(Out)).
+
+list_sort_keeps_its_element_type_test() ->
+    Out = compile_set([caller("public list<int> Go(list<int> xs)\n"
+                              "Go(xs) -> List.Sort(xs)\n")]),
+    ok_rc(Out).
+
+list_sort_of_the_wrong_argument_is_a_type_error_test() ->
+    Out = compile_set([caller("public list<int> Go(int n)\n"
+                              "Go(n) -> List.Sort(n)\n")]),
+    bad_rc(Out),
+    ?assertEqual(nomatch, string:find(Out, "never imported")).
+
+%% F62.4 — `lists:foldl` calls its fun as (elem, acc); B#'s is (acc, elem), which
+%% ticket 75 settled. An order-sensitive fold tells the two apart.
+fold_keeps_the_accumulator_first_through_a_lambda_test() ->
+    Out = run([caller("public list<int> Go(int n)\n"
+                      "Go(n) -> List.Fold([n, n + 1, n + 2], [], (acc, x) => [x, ..acc])\n")],
+              "Go 1"),
+    ?assertEqual("[3, 2, 1]", value(Out)).
+
+fold_keeps_the_accumulator_first_through_a_named_function_test() ->
+    Out = run([caller("public list<int> Go(int n)\n"
+                      "Go(n) -> List.Fold([n, n + 1, n + 2], [], Push)\n"
+                      "list<int> Push(list<int> acc, int x)\n"
+                      "Push(acc, x) -> [x, ..acc]\n")],
+              "Go 1"),
+    ?assertEqual("[3, 2, 1]", value(Out)).
+
+fold_and_map_keep_their_order_with_each_other_test() ->
+    Out = run([caller("public int Go(int n)\n"
+                      "Go(n) -> List.Fold(List.Map([n, n], x => x * 10), n, (acc, x) => acc - x)\n")],
+              "Go 1"),
+    ?assertEqual("-19", value(Out)).
 
 %% An ordinary call checks that the import chunk can reveal remote calls.
 an_ordinary_qualified_call_does_emit_a_remote_call_test() ->

@@ -1776,9 +1776,11 @@ recovers precise emitted types that a call to a generic function loses.
 ### Reserved qualifiers — `List`, `Term` and `Map`
 
 **A collection operation is a rule in the compiler, not a module that ships.** Every operation
-under a reserved qualifier is **inlined at the site that uses it**, with that site's ground element
-type. No `List.beam` is produced, a compiled program's only runtime dependency is the BEAM, and
-**no `using` line is ever written** for one:
+under a reserved qualifier is a compiler-known signature, typed at the site that uses it with that
+site's ground element type, over **the OTP function that already does it**: `List.Sum` is
+`lists:sum/1`, `List.Sort` is `lists:sort/1`. No `List.beam` is produced, a compiled program's only
+runtime dependency is the BEAM and its standard library, and **no `using` line is ever written**
+for one:
 
 ```csharp
 module Totals
@@ -1792,15 +1794,20 @@ Count(xs) -> xs |> List.Length()
 public list<int> Newest(list<int> xs)
 Newest(xs) -> List.Reverse(xs)
 
+public list<int> Ranked(list<int> xs)
+Ranked(xs) -> List.Sort(xs)
+
 public atom Before(int a, int b)
 Before(a, b) -> Term.Compare(a, b)
 ```
 
 `Term.Compare` returns `:lt | :eq | :gt` — the universal-order escape, and an ordinary union a
-`switch` must cover. `List.Sum`, `List.Length` and `List.Reverse` are the operations the corpus
-writes, and `List.Map`, `List.Filter` and `List.Fold` take a function value (§9), the fun as an
-argument to one walker per module per operation; which others exist is breadth, deliberately out
-of scope.
+`switch` must cover; no OTP function answers in those terms, so it is the one operation generated
+into the module that uses it. `List.Map`, `List.Filter` and `List.Fold` take a function value
+(§9), and `List.Fold`'s callback takes the accumulator first, `(acc, x)`, though `lists:foldl`
+calls its fun the other way round. Standard-library breadth is in scope, one row per
+operation; the rows built today are `Sum`, `Length`, `Reverse`, `Sort`, `Map`, `Filter` and
+`Fold` under `List`, `Term.Compare` and `Float.FromInt`.
 
 **Three names are reserved: `List`, `Map` and `Term`.** `Map`'s operations are not built yet, and
 the name is taken anyway — reserving it later would mean taking it away from a program that had
@@ -1819,7 +1826,7 @@ Counted(n) -> List.Length([n, n])   // error: `List` means two things here
 The import itself is fine; only the call is refused, and the diagnostic names both claimants and
 prints the module's full path as the fix. Nothing is burned and nothing is silent — the quiet
 resolution other languages take here is exactly what is being refused. **shipped**
-<!-- decided by ticket 67 (and 48 for `Map`); built by F32 -->
+<!-- decided by ticket 67 (and 48 for `Map`), lowered to OTP by ticket 96 Q1; built by F32 and F62 -->
 
 ---
 
@@ -3151,7 +3158,7 @@ the parser accepts back exactly what the printer emits. **shipped**
 | the diagnostic as a term (`--diagnostics term`) | **shipped** — F16 |
 | the diagnostic on the wire (`--diagnostics json`) | **shipped** — F47 |
 | the query mode (`--api`) | **shipped** — F17 |
-| reserved qualifiers — `List.Sum` / `Length` / `Reverse` and `Term.Compare`, inlined at the site | **shipped** — F32 |
+| reserved qualifiers — `List.Sum` / `Length` / `Reverse` / `Sort` / `Map` / `Filter` / `Fold` lowered to OTP's own function, and `Term.Compare` | **shipped** — F32, F62 |
 | `Map.Get`, under the reserved `Map` | not started — the name is reserved, the operations are not. The `map<K, V>` type itself is **shipped** — F33 — and `ValidateAs` walks one — F43 |
 | `behaviour GenServer` — the attribute, callback names, and mandatory-callback presence | **shipped** — F10 |
 | behaviour contract checked as a **type** | not started — Dialyzer does it at the boundary today |

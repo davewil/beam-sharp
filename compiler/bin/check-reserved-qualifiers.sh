@@ -3,11 +3,18 @@
 # `List` IS AN OPERATION SET THE COMPILER KNOWS, NOT A MODULE IT SHIPS.
 #
 # Ticket 67 chose (b) over (a), and the two are indistinguishable from anything a
-# program PRINTS. `List.Sum([2,2,2])` is `6` whether the operation was inlined at
-# the site or resolved through the module table to a shipped `List.beam`. That is
-# the whole reason this gate exists and the whole reason P2 reads the compiled
+# program PRINTS. `List.Sum([2,2,2])` is `6` whether the operation lowered at the
+# site or resolved through the module table to a shipped `List.beam`. That is the
+# whole reason this gate exists and the whole reason P2 reads the compiled
 # artefact's import chunk instead of its output: the eunit suite asserts the
 # values, and a value cannot tell the two designs apart.
+#
+# TICKET 96 Q1 MOVED WHERE THE OPERATION LOWERS, NOT WHAT IS REFUSED. A standard
+# operation is a row over the OTP function that already does it: `List.Sum` is
+# `lists:sum/1`. So P2 now wants `lists` in the import chunk and still refuses
+# every reserved qualifier there — `List`, `Map`, `Term`, `Float` name modules B#
+# would have to ship, and none does. F32 read 67 as forbidding the stdlib call;
+# 67 never weighed one, and that reading is what 96 Q1 overturned.
 #
 # THE OVER-INFORMED STUB IS THE POINT OF THE SELF-TEST. `shipped_module` below
 # gets P1 right — it prints `6` — and is 67's (a). A gate that only checked the
@@ -55,20 +62,19 @@ judge() {
     echo "P1: List.Sum([2,2,2]) gave '$p1', wanted 6 — the reserved qualifier does not resolve"
 
   ## THE EMISSION, AND THE ONLY PROBE THAT SEPARATES 67's (a) FROM ITS (b).
-  ## `p2` is every module the compiled beam calls remotely. An inlined operation
-  ## contributes none under its qualifier; a resolved one contributes exactly the
-  ## module it resolved to. `lists` is named as well as `List` because emitting a
-  ## call to Erlang's own `lists:sum/1` is the other way to be (a) — 67 says a
-  ## generated local recursive function, and a remote call to the stdlib is still
-  ## a remote call.
+  ## `p2` is every module the compiled beam calls remotely. A lowered operation
+  ## contributes OTP's own module (`lists`, 96 Q1); a resolved one contributes
+  ## exactly the module it resolved to, and every reserved qualifier is a module
+  ## B# would have to ship.
   case " $p2 " in
-    ## Red rather than silent: see the probe. An unreadable beam and a perfectly
-    ## inlined one both produce an empty import list.
+    ## Red rather than silent: see the probe. An unreadable beam and a beam
+    ## calling nothing both produce an empty import list.
     *" BEAM-UNREADABLE "*)
       echo "P2: called_modules could not read the beam, so this probe read nothing — and reading nothing is what a correct answer looks like here" ;;
-    *" List "*)  echo "P2: the beam calls out to 'List' — the operation was resolved, not inlined" ;;
-    *" lists "*) echo "P2: the beam calls out to 'lists' — 67 asks for a generated local form, not a stdlib call" ;;
-    *) ;;
+    *" List "*|*" Map "*|*" Term "*|*" Float "*)
+      echo "P2: the beam calls out to a reserved qualifier's module ('$p2') — B# ships no such module" ;;
+    *" lists "*) ;;
+    *) echo "P2: the beam does not call 'lists' ('$p2') — 96 Q1 lowers List.Sum to lists:sum/1, not to a generated local form" ;;
   esac
 
   case "$p3" in
@@ -179,10 +185,10 @@ called_modules() {
 }
 
 # ---------------------------------------------------------------------------
-# --self-test — six defects and one correct form.
+# --self-test — eight defects and one correct form.
 #
 # A check that fires on everything passes the red half and is worthless, so the
-# green half is not optional. Three of the six are CRY-WOLF stubs: they satisfy
+# green half is not optional. Three of the eight are CRY-WOLF stubs: they satisfy
 # a red probe by being too aggressive, which is the failure mode a gate written
 # only from the refusals cannot see.
 # ---------------------------------------------------------------------------
@@ -200,30 +206,33 @@ if [ "${1:-}" = "--self-test" ]; then
     printf '%s' "$8" > "$W/$1/P7.out"
   }
   #                 P1    P2                 P3          P4  P5         P6   P7
-  stub good         "6"   "erlang"           "$RESERVED" "1" "$COLLIDE" "6"  "$NOOP"
+  stub good         "6"   "erlang lists"     "$RESERVED" "1" "$COLLIDE" "6"  "$NOOP"
   ## 67's (a) WEARING (b)'s OUTPUT — the over-informed stub. Right answer,
   ## wrong design, and only P2 can see it.
-  stub shipped_module "6" "List erlang"      "$RESERVED" "1" "$COLLIDE" "6"  "$NOOP"
-  ## The other way to be (a): inline the name but emit a stdlib call.
-  stub stdlib_call    "6" "erlang lists"     "$RESERVED" "1" "$COLLIDE" "6"  "$NOOP"
+  stub shipped_module "6" "List erlang lists" "$RESERVED" "1" "$COLLIDE" "6"  "$NOOP"
+  ## The same shape under the qualifier that has no operations yet.
+  stub shipped_map    "6" "Map erlang lists"  "$RESERVED" "1" "$COLLIDE" "6"  "$NOOP"
+  ## F32's lowering, which 96 Q1 replaced: the right value from a generated
+  ## local walker, and no call into OTP.
+  stub generated_local "6" "erlang"           "$RESERVED" "1" "$COLLIDE" "6"  "$NOOP"
   ## Clause 2 absent — measured to be today's state, so this is the stub that
   ## proves the gate would have caught the eight days 48's reservation sat unbuilt.
-  stub no_reservation "6" "erlang"           "1"         "1" "$COLLIDE" "6"  "$NOOP"
+  stub no_reservation "6" "erlang lists"     "1"         "1" "$COLLIDE" "6"  "$NOOP"
   ## CRY-WOLF: burning the path segment, which is the option 67 Q6 declined.
-  stub over_reserved  "6" "erlang"           "$RESERVED" "error: \`List\` is a reserved qualifier" \
+  stub over_reserved  "6" "erlang lists"     "$RESERVED" "error: \`List\` is a reserved qualifier" \
                                                              "$COLLIDE" "6"  "$NOOP"
   ## Clause 3 absent — the namespace import silently wins, which is Elixir's
   ## clobber and the thing 67 refused.
-  stub no_collision   "6" "erlang"           "$RESERVED" "1" "6"        "6"  "$NOOP"
+  stub no_collision   "6" "erlang lists"     "$RESERVED" "1" "6"        "6"  "$NOOP"
   ## CRY-WOLF: the collision check fires on every short qualifier, removing the
   ## namespace tier from the language while satisfying P5.
-  stub collides_wide  "6" "erlang"           "$RESERVED" "1" "$COLLIDE" \
+  stub collides_wide  "6" "erlang lists"     "$RESERVED" "1" "$COLLIDE" \
                              "error: \`Ints\` is a reserved qualifier" "$NOOP"
   ## The unknown operation falls through to the import advice.
-  stub stale_advice   "6" "erlang"           "$RESERVED" "1" "$COLLIDE" "6" \
+  stub stale_advice   "6" "erlang lists"     "$RESERVED" "1" "$COLLIDE" "6" \
                              "error: List is called but never imported"
 
-  for bad in shipped_module stdlib_call no_reservation over_reserved \
+  for bad in shipped_module shipped_map generated_local no_reservation over_reserved \
              no_collision collides_wide stale_advice; do
     if [ -z "$(judge "$W/$bad")" ]; then
       echo "  x SELF-TEST: '$bad' produced no complaint - the gate cannot see it"; fail=1
@@ -237,7 +246,7 @@ if [ "${1:-}" = "--self-test" ]; then
     echo "  ok green on the correct form"
   fi
   [ "$fail" -eq 0 ] || { echo "self-test FAILED"; exit 1; }
-  echo "self-test passed: seven defects seen, correct form accepted"
+  echo "self-test passed: eight defects seen, correct form accepted"
   exit 0
 fi
 
@@ -246,4 +255,4 @@ W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 probe "$W"
 out="$(judge "$W")"
 if [ -n "$out" ]; then echo "$out"; exit 1; fi
-echo "  ok         List/Term/Map are reserved qualifiers, inlined at the site and refused when shadowed"
+echo "  ok         List/Term/Map/Float are reserved qualifiers, lowered to OTP at the site and refused when shadowed"

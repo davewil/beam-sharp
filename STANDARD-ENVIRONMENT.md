@@ -85,7 +85,9 @@ module system is decided.
 compiler-known prelude is inlined, user code is called, and precision follows the inlining*.
 Emitting a call to a generic prelude loses precision on **both** sides of the spec; inlining
 recovers `[integer()] -> [binary()]` exactly. That creates a two-tier emitted boundary the spec
-must state (→ 18).
+must state (→ 18). *Ticket 96 (2026-09-25) found that this precision does not reach a caller,
+since every function emits a declared `-spec`, and a standard operation now lowers to the OTP
+function that already does it (F62).*
 
 ---
 
@@ -101,7 +103,7 @@ has been withdrawn.
 | Entry | What it is | Reach | Status | Ticket |
 |---|---|---|---|---|
 | `bool` | `builtin(bool)` — the two-atom union `true \| false` | unqualified | **shipped** — a builtin like `int` and `string`; ticket 10 corrected 2026-09-03 to say so (67) | 10 |
-| `List.Sum` | the collection library — `List.Length`, `List.Reverse` beside it, **inlined at the site under the reserved `List`**, no beam shipped | **qualified** | **built** — F32. Which operations exist is breadth, out of scope; these three are the ones the corpus writes, and `Fold`/`Map`/`Filter` take the fun as an argument since F46 ([ENG-365](https://linear.app/davewil/issue/ENG-365), 2026-09-12) | 67, 17 §2, 75 |
+| `List.Sum` | the collection library — `List.Length`, `List.Reverse`, `List.Sort` beside it, **a compiler-known signature under the reserved `List` over OTP's own function** (`lists:sum/1`, `lists:sort/1`), no beam shipped | **qualified** | **built** — F32, lowered to OTP by F62 ([ENG-452](https://linear.app/davewil/issue/ENG-452), 2026-09-25). Breadth is in scope since 96, one row per operation; `Fold`/`Map`/`Filter` take the fun as an argument since F46 ([ENG-365](https://linear.app/davewil/issue/ENG-365), 2026-09-12) | 67, 17 §2, 75, 96 |
 | `Term.Compare` | 16's universal-order escape, `(term, term) -> :lt \| :eq \| :gt`, under the reserved `Term` | **qualified** | **built** — F32 | 67, 16 |
 | `Float.FromInt` | the `int` to `float` conversion under the reserved `Float`, `int -> float`, written at the site as `erlang:float/1`; not a cast. C#'s `X.FromY` convention (`TimeSpan.FromSeconds`) is the name's source | **qualified** | **built** — F51 ([ENG-378](https://linear.app/davewil/issue/ENG-378), 2026-09-16), with the `float` type beside it. A `float` argument is refused: the signature is `int -> float`, and the reverse, `Int.FromFloat`, is named and not decided (81) | 81, 80, 69 |
 | `Map.Get` | the map operation under the reserved `Map`, alongside the `map<K, V>` type | **qualified** | **decided** 2026-08-25 (48), unbuilt — [ENG-324](https://linear.app/davewil/issue/ENG-324). The NAME is reserved as of F32 and the TYPE ships as of F33; the operations under it are not built, so `Map.Get` is refused today by the same table that answers `List.Sum`. 48 Q8 wants **two, assertive preferred**, and the assertive half has no spelling (`!` was settled out of B# identifiers) and no mechanism (`raise` is [ENG-293](https://linear.app/davewil/issue/ENG-293)) | 48, 67 |
@@ -285,7 +287,7 @@ Sorting the actual inventory against both axes:
 | `int`, `float`, `bool`, `string`, `atom`, `term` | yes | yes — builtin |
 | `list<T>`, `option<T>`, `result<T, E>`, `map<K, V>` | yes | yes |
 | `ValidateAs<T>`, `ParseAtom<T>`, `ToJson<T>` | yes | yes — codegen obligations |
-| `Map.Get`, `List.Map` | yes | **no** — qualified, and *inlined* (17 §2) |
+| `Map.Get`, `List.Map` | yes | **no** — qualified, and lowered to OTP's own function (96) |
 | `raise` | yes | **grammar — a keyword, not a name** (67) |
 | the 47 terminals below | yes | **grammar — not names at all** |
 | a user's own module | no | — |
@@ -392,7 +394,7 @@ record of what was asked. The answers, in the order of the items:
 | 1 | **a `.bs` file could have said it** — declared entry versus compiler-known entry; the criterion `bs_check` applied since F1 |
 | 2 | **no** — a user's declaration is the user's, whatever the compiler generates for it; the kinds are about how a thing *ships* |
 | 3 | this file: two headings, two tables, the criterion under each |
-| 4 | **compiler-known, inlined at the site, under the reserved `List`** — no module holds it because no beam ships; ENG-321 |
+| 4 | **compiler-known, under the reserved `List`, lowered to OTP's own function** — no B# module holds it because no B# beam ships; ENG-321, ENG-452 |
 | 5 | **`Term.Compare(a, b)` → `:lt \| :eq \| :gt`**, under the reserved `Term` |
 | 6 | **`result<atom, string>`** — ENG-294 |
 | 7 | **no** — the pattern does three, `List.Length` the fourth |

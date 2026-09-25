@@ -18,9 +18,9 @@
 %% The emitter subtracts clause-head guarantees from the declared refinement so
 %% boundary guards check only the remainder.
 -export([clause_accepts/2]).
-%% The emitter uses these tables to lower reserved calls locally and emit only
+%% The emitter lowers each reserved call to its row's target and emits only
 %% operations admitted by the checker.
--export([reserved_qualifiers/0, reserved_table/0]).
+-export([reserved_qualifiers/0, reserved_table/0, standard_target/1]).
 %% The emitter builds `ParseAtom<T>` arms from the admitted member list.
 -export([parse_atom_members/1, built_obligations/0, codegen_obligations/0]).
 
@@ -1330,12 +1330,30 @@ built_obligations() -> ['ValidateAs', 'ParseAtom', 'ToExistingAtom', 'ToJson'].
 %% `Map` is reserved even without operations.
 reserved_qualifiers() -> ['List', 'Map', 'Term', 'Float'].
 
-%% Lowering keys include arity, matching BEAM identity and preventing extra
-%% arguments from being silently ignored.
-reserved_table() ->
-    [{'List', 'Sum', 1}, {'List', 'Length', 1}, {'List', 'Reverse', 1},
-     {'List', 'Map', 2}, {'List', 'Filter', 2}, {'List', 'Fold', 3},
-     {'Term', 'Compare', 2}, {'Float', 'FromInt', 1}].
+%% The standard environment's rows: `{Qualifier, Name, Arity}` and the OTP
+%% function that already does it, or `generated` where none answers in B#'s
+%% terms. The signature half of each row is `reserved_sig/4`. Keys include
+%% arity, matching BEAM identity and preventing extra arguments from being
+%% silently ignored.
+%% Rationale: compiler/features/F62-standard-signature-table.md.
+standard_table() ->
+    [{{'List', 'Sum', 1},      {lists, sum}},
+     {{'List', 'Length', 1},   {erlang, length}},
+     {{'List', 'Reverse', 1},  {lists, reverse}},
+     {{'List', 'Sort', 1},     {lists, sort}},
+     {{'List', 'Map', 2},      {lists, map}},
+     {{'List', 'Filter', 2},   {lists, filter}},
+     {{'List', 'Fold', 3},     {lists, foldl}},
+     {{'Float', 'FromInt', 1}, {erlang, float}},
+     {{'Term', 'Compare', 2},  generated}].
+
+reserved_table() -> [K || {K, _} <- standard_table()].
+
+standard_target(Key) ->
+    case lists:keyfind(Key, 1, standard_table()) of
+        {_, Target} -> Target;
+        false       -> generated
+    end.
 
 %% `Reverse` preserves the call site's element type.
 reserved_sig('List', 'Sum', 1, _ATys) ->
@@ -1344,7 +1362,7 @@ reserved_sig('Float', 'FromInt', 1, _ATys) ->
     {ok, {[bs_types:int()], bs_types:float_top()}};
 reserved_sig('List', 'Length', 1, _ATys) ->
     {ok, {[bs_types:list(bs_types:term())], bs_types:int()}};
-reserved_sig('List', 'Reverse', 1, [ATy]) ->
+reserved_sig('List', Op, 1, [ATy]) when Op =:= 'Reverse'; Op =:= 'Sort' ->
     {ok, {[bs_types:list(bs_types:term())],
           bs_types:list(bs_types:list_elem(ATy))}};
 %% Function arguments accept wider domains and narrower codomains. `Fold` joins

@@ -971,21 +971,22 @@ expr({e_inst, L, 'ToJson', [TypeExpr], [Arg]}, C) ->
 
 %% A qualified call is a remote call; the module atom is already the
 %% full dotted path, so no name is built here. A reserved qualifier such
-%% as `List` names no module: the call is a local one to a function
-%% generated into this module, so no `List.beam` ships.
+%% as `List` names no module: the call lowers to its row's OTP function
+%% (`List.Sum(xs)` is `lists:sum(Xs)`), or to a function generated into
+%% this module where the row has none, so no `List.beam` ships.
 %% `bs_check:reserved_call/6` has already refused a shadowing collision.
+%% Rationale: compiler/features/F62-standard-signature-table.md.
 expr({e_qcall, L, Mod, Fn, As}, C) ->
     case lists:member(Mod, bs_check:reserved_qualifiers()) of
         true ->
-            case inlined_bif({Mod, Fn, length(As)}) of
-                %% One BIF at the site, no generated function:
-                %% `Float.FromInt(n)` is `erlang:float(N)`.
-                {BifMod, Bif} ->
-                    {call, L, {remote, L, {atom, L, BifMod}, {atom, L, Bif}},
-                     [expr(A, C) || A <- As]};
-                none ->
-                    {call, L, {atom, L, reserved_name(Mod, Fn, length(As))},
-                     [expr(A, C) || A <- As]}
+            Key = {Mod, Fn, length(As)},
+            Es = [expr(A, C) || A <- As],
+            case bs_check:standard_target(Key) of
+                {TMod, TFn} ->
+                    {call, L, {remote, L, {atom, L, TMod}, {atom, L, TFn}},
+                     otp_args(Key, Es, L)};
+                generated ->
+                    {call, L, {atom, L, reserved_name(Mod, Fn, length(As))}, Es}
             end;
         false -> remote(L, Mod, Fn, As, C)
     end;
@@ -1718,20 +1719,38 @@ strict_name(Name) -> list_to_atom(atom_to_list(Name) ++ "@s").
 
 %%% --- Reserved qualifier operations ---
 %%%
-%%% Emit local functions; compiled programs need no companion `List.beam`.
-%%% Share one per {qualifier, name, arity}, independent of element type.
+%%% A row with an OTP target is a remote call at the site; a `generated` row
+%%% is a local function, one per {qualifier, name, arity}, independent of
+%%% element type. Compiled programs need no companion `List.beam`.
 
 reserved_forms(Fns) ->
     Used = lists:usort([{M, F, length(As)}
                         || {e_qcall, _, M, F, As} <- qcall_nodes(Fns),
-                           lists:member(M, bs_check:reserved_qualifiers()),
-                           inlined_bif({M, F, length(As)}) =:= none]),
-    lists:append([reserved_form(K) || K <- Used]).
+                           lists:member(M, bs_check:reserved_qualifiers())]),
+    lists:append([reserved_form(K) || K <- Used,
+                                      bs_check:standard_target(K) =:= generated])
+    ++ lists:append([fold_flip_form() || lists:member({'List', 'Fold', 3}, Used)]).
 
-%% BIF entries emit no helper; `expr/2` emits the remote call at the site.
-%% Signatures belong to the checker.
-inlined_bif({'Float', 'FromInt', 1}) -> {erlang, float};
-inlined_bif(_)                       -> none.
+%% B#'s argument order where OTP's differs. `lists:foldl` calls its fun as
+%% (elem, acc) and B#'s callback is (acc, elem), ticket 75's order, so the
+%% callback goes through a flip evaluated once at the site.
+otp_args({'List', Op, 2}, [Xs, F], _L) when Op =:= 'Map'; Op =:= 'Filter' ->
+    [F, Xs];
+otp_args({'List', 'Fold', 3}, [Xs, Seed, F], L) ->
+    [{call, L, {atom, L, fold_flip_name()}, [F]}, Seed, Xs];
+otp_args(_Key, Es, _L) ->
+    Es.
+
+fold_flip_name() -> list_to_atom(atom_to_list(reserved_name('List', 'Fold', 3)) ++ "@flip").
+
+fold_flip_form() ->
+    F = {var, ?A, 'Bs@f'},
+    E = {var, ?A, 'Bs@e'},
+    Acc = {var, ?A, 'Bs@acc'},
+    [{function, ?A, fold_flip_name(), 1,
+      [{clause, ?A, [F], [],
+        [{'fun', ?A, {clauses, [{clause, ?A, [E, Acc], [],
+                                 [{call, ?A, F, [Acc, E]}]}]}}]}]}].
 
 qcall_nodes(T) when is_tuple(T) ->
     Here = case T of
@@ -1747,40 +1766,6 @@ reserved_name(Q, Fn, Arity) ->
     list_to_atom("bs@" ++ atom_to_list(Q) ++ "@" ++ atom_to_list(Fn)
                  ++ "@" ++ integer_to_list(Arity)).
 
-%% Accumulator walkers keep generated list operations tail-recursive.
-reserved_form({'List', 'Sum', 1}) ->
-    acc_form('List', 'Sum', 1, 'Bs@h', {integer, ?A, 0},
-             fun(H, Acc) -> {op, ?A, '+', Acc, H} end);
-%% `Length` uses an underscore-prefixed head to avoid generated warnings
-%% against source the author cannot change.
-reserved_form({'List', 'Length', 1}) ->
-    acc_form('List', 'Length', 1, '_Bs@h', {integer, ?A, 0},
-             fun(_H, Acc) -> {op, ?A, '+', Acc, {integer, ?A, 1}} end);
-reserved_form({'List', 'Reverse', 1}) ->
-    acc_form('List', 'Reverse', 1, 'Bs@h', {nil, ?A},
-             fun(H, Acc) -> {cons, ?A, H, Acc} end);
-%% Function-taking operations share a walker and receive the fun at runtime.
-%% `Map` and `Filter` reverse their accumulators to preserve tail recursion.
-reserved_form({'List', 'Map', 2}) ->
-    fun_form('List', 'Map', 'Bs@h', {nil, ?A},
-             fun(H, Acc, F) -> {cons, ?A, {call, ?A, F, [H]}, Acc} end, reversed);
-reserved_form({'List', 'Filter', 2}) ->
-    fun_form('List', 'Filter', 'Bs@h', {nil, ?A},
-             fun(H, Acc, F) ->
-                     {'case', ?A, {call, ?A, F, [H]},
-                      [{clause, ?A, [{atom, ?A, true}], [], [{cons, ?A, H, Acc}]},
-                       {clause, ?A, [{atom, ?A, false}], [], [Acc]}]}
-             end, reversed);
-reserved_form({'List', 'Fold', 3}) ->
-    Name = reserved_name('List', 'Fold', 3),
-    HV = {var, ?A, 'Bs@h'},
-    TV = {var, ?A, 'Bs@t'},
-    AV = {var, ?A, 'Bs@acc'},
-    FV = {var, ?A, 'Bs@f'},
-    [{function, ?A, Name, 3,
-      [{clause, ?A, [{nil, ?A}, AV, {var, ?A, '_Bs@f'}], [], [AV]},
-       {clause, ?A, [{cons, ?A, HV, TV}, AV, FV], [],
-        [{call, ?A, {atom, ?A, Name}, [TV, {call, ?A, FV, [AV, HV]}, FV]}]}]}];
 reserved_form({'Term', 'Compare', 2}) ->
     A = {var, ?A, 'Bs@a'},
     B = {var, ?A, 'Bs@b'},
@@ -1788,36 +1773,6 @@ reserved_form({'Term', 'Compare', 2}) ->
       [{clause, ?A, [A, B], [[{op, ?A, '<', A, B}]], [{atom, ?A, lt}]},
        {clause, ?A, [A, B], [[{op, ?A, '>', A, B}]], [{atom, ?A, gt}]},
        {clause, ?A, [{var, ?A, '_'}, {var, ?A, '_'}], [], [{atom, ?A, eq}]}]}].
-
-fun_form(Q, Fn, Head, Seed, Step, reversed) ->
-    Name = reserved_name(Q, Fn, 2),
-    Walk = list_to_atom(atom_to_list(Name) ++ "@w"),
-    XV = {var, ?A, 'Bs@x'},
-    HV = {var, ?A, Head},
-    TV = {var, ?A, 'Bs@t'},
-    AV = {var, ?A, 'Bs@acc'},
-    FV = {var, ?A, 'Bs@f'},
-    [{function, ?A, Name, 2,
-      [{clause, ?A, [XV, FV], [], [{call, ?A, {atom, ?A, Walk}, [XV, FV, Seed]}]}]},
-     {function, ?A, Walk, 3,
-      [{clause, ?A, [{nil, ?A}, {var, ?A, '_Bs@f'}, AV], [],
-        [{call, ?A, {remote, ?A, {atom, ?A, lists}, {atom, ?A, reverse}}, [AV]}]},
-       {clause, ?A, [{cons, ?A, HV, TV}, FV, AV], [],
-        [{call, ?A, {atom, ?A, Walk}, [TV, FV, Step(HV, AV, FV)]}]}]}].
-
-acc_form(Q, Fn, Arity, Head, Seed, Step) ->
-    Name = reserved_name(Q, Fn, Arity),
-    Walk = list_to_atom(atom_to_list(Name) ++ "@w"),
-    XV = {var, ?A, 'Bs@x'},
-    HV = {var, ?A, Head},
-    TV = {var, ?A, 'Bs@t'},
-    AV = {var, ?A, 'Bs@acc'},
-    [{function, ?A, Name, 1,
-      [{clause, ?A, [XV], [], [{call, ?A, {atom, ?A, Walk}, [XV, Seed]}]}]},
-     {function, ?A, Walk, 2,
-      [{clause, ?A, [{nil, ?A}, AV], [], [AV]},
-       {clause, ?A, [{cons, ?A, HV, TV}, AV], [],
-        [{call, ?A, {atom, ?A, Walk}, [TV, Step(HV, AV)]}]}]}].
 
 %% `ParseAtom` matches the atom's name without source quoting.
 atom_name_pattern(L, A) ->
