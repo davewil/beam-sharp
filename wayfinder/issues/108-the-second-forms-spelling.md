@@ -1,8 +1,8 @@
 # 108 — How is the non-crashing form of a pair spelled? (`Map.Get` and every 96 Q3 pair)
 
 Type: grilling
-Status: claimed 2026-09-25 — [ENG-471](https://linear.app/davewil/issue/ENG-471). Raised 2026-09-25
-out of [ENG-324](https://linear.app/davewil/issue/ENG-324); round 1 below
+Status: resolved 2026-09-25 — [ENG-471](https://linear.app/davewil/issue/ENG-471). Raised 2026-09-25
+out of [ENG-324](https://linear.app/davewil/issue/ENG-324); three rounds
 Blocked by: —
 
 ## Why this is raised
@@ -147,6 +147,34 @@ flag; F62's rows gain the flag as part of their key; a `?` on a qualifier with n
 refused, naming the operation; tree-sitter gains the production; LANGUAGE.md's standard-environment
 section and `STANDARD-ENVIRONMENT.md` introduce the marker.
 
+**A3 (David, 2026-09-25):** *"Yes, Map.?Get"*.
+
+## The answer
+
+The non-crashing form of every 96 Q3 pair is the plain operation called with `?` after the
+qualifier's dot: `Map.?Get`, `List.?First`, `?Last`, `?At`, `?Max`, `?Min`, `?MaxBy`, `?Find`,
+`Int.?FromString`, `Float.?FromString`, `String.?FromBinary`, `Process.?Whereis`, `System.?Env`,
+`Task.?Await`. The plain name crashes (96 Q3); the marked call returns what each family already
+decided: `option<T>` for a lookup, `result<T, string>` carrying the input for a conversion (97),
+`Await`'s error pair (98). The `Try` placeholder in tickets 96, 97 and 98 reads as this marker.
+
 ## Decisions entry
 
-<!-- Written when the ticket resolves. -->
+<!-- This ticket's entry. Read whole, here; the map (ENG-165) carries one line. -->
+
+```decisions-entry
+- [How is the non-crashing form of a pair spelled?](issues/108-the-second-forms-spelling.md)
+  — **with a `?` marker after the qualifier's dot: `Map.Get` crashes on a missing key and
+  `Map.?Get` returns `:nothing`; the same marker on every ticket 96 Q3 pair.** Raised and resolved
+  2026-09-25 in three rounds, out of [ENG-324](https://linear.app/davewil/issue/ENG-324). Round 1:
+  one affix convention, but not C#'s `Try`. Round 2 proposed a suffix naming the return
+  (`OrNothing` / `OrError`, after C# LINQ's `FirstOrDefault` and Kotlin's `firstOrNull`); David
+  countered with `Map.?Get`. Measured before round 3: the lexer already emits `?` alone (for
+  ticket 26 §4's `Notes?:` refusal), and the two call productions leave `yecc` at 5 shift/reduce
+  before and after. `?` is syntax, not part of a name, so ticket
+  [50](issues/50-naming-a-foreign-struct.md)'s rule holds and the marker exists only on the
+  standard environment's reserved qualifiers; it echoes the valve `|?>`
+  ([31](issues/31-composable-middleware.md)). Return types unchanged: `option<T>` for a lookup,
+  97's `result<T, string>` for a conversion, 98's pair for `Await`. The resemblance to C#'s `?.`
+  is stated in the spec. Unbuilt — ENG-324 first, then the row tickets' pair rows.
+```

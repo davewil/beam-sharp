@@ -57,7 +57,8 @@ Safe(f)     -> Int.TryFromString(f)          // "1x" is (:error, "1x")
 
 Under yes, the plain form crashes, and the other returns the text it could not read, as
 `ToExistingAtom` returns `result<atom, string>`. A parse's failure has a reason worth carrying,
-where a lookup's absence (`Map.Find`) has none. `Try` is ENG-324's placeholder. Under no, the second
+where a lookup's absence (`Map.Find`) has none. `Try` is ENG-324's placeholder *(spelled 2026-09-25 by [ticket 108](108-the-second-forms-spelling.md):
+`Int.?FromString`)*. Under no, the second
 form is `option<int>`, and the failed input is the caller's to keep.
 
 Compiler delta, either way: rows in ENG-452's table. The failing forms share F54's lowering, the

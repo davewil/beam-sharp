@@ -86,6 +86,9 @@ Answer(t)    -> Task.Await(t, 5000)          // a timeout or a crash exits the c
 Answer2(t)   -> Task.TryAwait(t, 5000)       // (:error, :timeout) | (:error, (:down, reason))
 ```
 
+*`TryAwait` was ENG-324's placeholder; spelled 2026-09-25 by
+[ticket 108](108-the-second-forms-spelling.md) as `Task.?Await`.*
+
 Under yes, the plain form is Elixir's `Task.await`, and the other is `Task.yield` given a reason. A
 task is linked to its caller, as Elixir's `Task.async` is, so a crash propagates unless the caller
 traps exits. Under no, `Await` is the only form, and a caller who wants to survive a timeout writes

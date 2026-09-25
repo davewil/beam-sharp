@@ -110,7 +110,8 @@ Newest(os) -> List.TryMaxBy(os, o => o.PlacedAt)       // an empty list is :noth
 Under yes every such operation has both forms, one naming convention for the pair (the one ENG-324
 owes for `Map.Get`, decided once for all of them), and the assertive form is the plain name. Under
 no, each returns `option<T>` only and a caller who knows the list is non-empty matches `:nothing`
-anyway. The `Try` prefix above is a placeholder: the spelling is ENG-324's.
+anyway. The `Try` prefix above is a placeholder: the spelling is ENG-324's. *(Spelled 2026-09-25 by
+[ticket 108](108-the-second-forms-spelling.md): `List.?MaxBy`, a `?` after the qualifier's dot.)*
 
 **Q4. Is there no `Enum`: an operation over a map lives under `Map` and one over a list under
 `List`, and neither takes the other's argument?**
