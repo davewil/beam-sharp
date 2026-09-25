@@ -1,4 +1,4 @@
-# 80 — Bootstrapping: which layer of B# is written in B#
+# 100 — Bootstrapping: which layer of B# is written in B#
 
 Type: grilling
 Status: resolved 2026-09-15 — [ENG-284](https://linear.app/davewil/issue/ENG-284). Named by David
@@ -228,7 +228,7 @@ Three things go with the yes, taken knowingly:
 <!-- This ticket's entry. Read whole, here; the map (ENG-165) carries one line. -->
 
 ```decisions-entry
-- [Bootstrapping: which layer of B# is written in B#](issues/80-bootstrapping-which-layer.md) —
+- [Bootstrapping: which layer of B# is written in B#](issues/100-bootstrapping-which-layer.md) —
   **the AST is a B# value, obtained from the Erlang front end through the FFI and established
   with `ValidateAs<Expr>` at the boundary; a parser in B# is not required, and the checker,
   lowering and emit stay Erlang.** Raised 2026-08-13 as the map's Bootstrapping patch, claimed

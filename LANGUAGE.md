@@ -3205,7 +3205,7 @@ the parser accepts back exactly what the printer emits. **shipped**
   stays Erlang and no parser in B# is owed; the AST is a B# value, obtained through the FFI and
   established with `ValidateAs<Expr>` at the boundary, so formatters, rewriters and analyzers are
   written in B# over it. Unbuilt — F48. The OTP layer remains the valuable target.
-  <!-- decided by ticket 80; tracked by ENG-376 -->
+  <!-- decided by ticket 100; tracked by ENG-376 -->
 
 ---
 

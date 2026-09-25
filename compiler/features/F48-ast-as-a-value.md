@@ -1,7 +1,7 @@
 # F48 — the AST as a B# value: `bs_front` and the syntax module
 
 **Status**      not started · [ENG-376](https://linear.app/davewil/issue/ENG-376)
-**Implements**  [ticket 80](../../wayfinder/issues/80-bootstrapping-which-layer.md), resolved
+**Implements**  [ticket 100](../../wayfinder/issues/100-bootstrapping-which-layer.md), resolved
                 2026-09-15: the AST is a B# value obtained from the Erlang front end through the
                 FFI and established with `ValidateAs<Expr>` at the boundary; no parser in B# is
                 owed. Draws on [18 §2](../../wayfinder/issues/18-boundary-defence.md) for what a
@@ -15,7 +15,7 @@
 
 ## Why this one now
 
-Because ticket 80 resolved it as a feature and not a decision: every rule it needs was taken
+Because ticket 100 resolved it as a feature and not a decision: every rule it needs was taken
 before it was asked. The compiler README records Erlang as the host by choice; 18 §2 says a
 recursive union crosses as `term` and is established at a visible call; F28.9 built the
 validator that establishes it. What is missing is a producer on the Erlang side and a declaration
@@ -30,13 +30,23 @@ clause. No exemplar in ticket 25's set shows that as directly.
 
 - **`bs_front`**, an Erlang module: `parse_expr/1` and `parse_module/1` take a binary of source
   and return the parser's tree converted to the tuple shapes the B# declaration names. One clause
-  per yecc node kind, 47 today: 23 `e_*`, 15 `p_*`, 9 `t_*`, and the declaration records. Names
-  are atoms and string literals are binaries, because §11 refuses `string` in a foreign return.
+  per yecc node kind, 53 at `057fec6`: 26 `e_*`, 18 `p_*`, 9 `t_*`, plus the declaration tuples
+  (`bind`, `dbind`, `record_decl`). Names are atoms and string literals are binaries, because §11
+  refuses `string` in a foreign return.
+
+  *Refreshed 2026-09-25, when this file and its ticket reached master ten days after they were
+  written (on an unmerged branch; the ticket is 100, since master reused 80). The count written
+  then was 47 as 23/15/9; the fork point `3fb8bb7` actually held 23/16/8. Six kinds have arrived
+  since: `e_float`, `e_neg` and `p_float` (F51), `e_map` (F57's brace expression), `p_type`
+  (F53's type prefix) and `t_map_open` (F59's open field set). The gate below is what keeps this
+  number true, so it is no longer load-bearing here. Re-checked and unchanged: §11 still refuses
+  `string` in a foreign return, and `List.Map` and `List.Sum` are still rows (F62's table) —
+  ENG-453 may move the analyzer's calls to `Enum`.*
 - **`examples/Syntax/`**, a B# module declaring `Expr`, `Pattern`, `Type` and `Decl` as recursive
   unions, with `Read(binary)` declared over `term parse_module(binary)` and established by
   `ValidateAs<Decl>`. It ships as an example because the examples surface is the must-run one;
   whether a prelude carries it is F28's own `iodata` question and is not this feature's.
-- **An analyzer example** over the result, ticket 80's `ForeignCalls` or its module-level
+- **An analyzer example** over the result, ticket 100's `ForeignCalls` or its module-level
   equivalent, so the exhaustiveness argument is visible in the tree and refused by the gate when
   a clause is deleted.
 
@@ -71,7 +81,7 @@ tree beside them. Written before `bs_front`, red on the tree until it exists.
 - **A formatter.** AST in, text out, and binary construction in expression position is unbuilt
   with no decision behind it (the exemplars README row 25c and 25e stop on). It gets a ticket
   when something wants to print the tree.
-- **A parser in B#.** An exemplar candidate for ticket 25's set, never a compiler axis. Ticket 80
+- **A parser in B#.** An exemplar candidate for ticket 25's set, never a compiler axis. Ticket 100
   Q1 answered.
 - **`bsc --ast`.** The same term on F16's channel for a consumer that is not a B# program. Cheap
   once `bs_front` exists; its own row when asked for.

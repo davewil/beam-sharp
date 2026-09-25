@@ -305,7 +305,7 @@ produces it.
   `Tree = :leaf | (:node, Tree, Tree)` recurses forever at *compile* time rather than at run time.
   The generated code itself already terminates by construction, since it walks a finite term.
   *Superseded 2026-08-30: F28.9 built that validator, and `ValidateAs<Tree>` generates one that
-  calls itself. Noted in place 2026-09-15 by [ticket 80](../../wayfinder/issues/80-bootstrapping-which-layer.md),
+  calls itself. Noted in place 2026-09-15 by [ticket 100](../../wayfinder/issues/100-bootstrapping-which-layer.md),
   which had read this note as an open obligation.*
 - **Arrow types (11 §3) and non-ground `T` (27 §8).** Both refusals are decided and neither is
   reachable — see the table above. Building a check for a node the algebra does not have would be
