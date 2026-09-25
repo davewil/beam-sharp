@@ -220,9 +220,17 @@ Two different keys, for two different jobs, per OTP's own kernel docs
 
 This is the single cleanest BEAM-native precedent for sub-decision (a): **the platform itself keeps
 presence-and-order (name only, checked) and version provenance (name+version, advisory) in two
-separate keys, because they do two different jobs.** `crypto.app.src:26` has the same shape
-(`{applications, [kernel, stdlib]}`, no `runtime_dependencies` at all — advisory version info is
-opt-in per-application, not universal).
+separate keys, because they do two different jobs.**
+
+**Correction, found by independent verification (see §4) and left in rather than silently fixed:**
+this brief originally cited `crypto.app.src:26` as an application with `applications` but *no*
+`runtime_dependencies` key at all, to argue the advisory key is opt-in. That citation was wrong —
+re-read in full, `crypto.app.src` has both: line 26 is `{applications, [kernel, stdlib]}` and line
+28, three lines later in the same file, is `{runtime_dependencies, ["erts-9.0","stdlib-3.9",
+"kernel-5.3"]}`. The two-keys-for-two-jobs structure itself still holds (confirmed independently
+against `ssl.app.src:84-88` and now `crypto.app.src:26,28` both), but "opt-in per-application" is
+not established by `crypto.app.src` — every `.app.src` checked so far carries both keys. The
+opt-in claim is retracted; the two-keys claim stands on `ssl.app.src` alone.
 
 ### 3.4 Gleam — `gleam.toml` ranges/refs vs `manifest.toml` exact resolved locks, from real fixtures
 
@@ -468,6 +476,13 @@ rather than repeating.
 - Independent re-verification performed by the same session in a fresh scratch directory with
   different inputs, per §4, in the absence of a separate Agent/Task-spawn tool in this environment
   (flagged explicitly, not silently substituted).
+- **A genuinely separate verifier agent was subsequently spawned** (by the orchestrating session,
+  which does have Agent/Task access) and reproduced items 1, 2, 3, and 5 above exactly. It also
+  caught a real error in this brief's §3.3: the original text cited `crypto.app.src:26` as lacking
+  a `runtime_dependencies` key; the verifier read the full file and found one at line 28. Corrected
+  in §3.3 above rather than hidden — the two-keys-for-two-jobs structure still holds on
+  `ssl.app.src`, but the "opt-in per-application" claim built on `crypto.app.src`'s supposed
+  absence of the key is retracted.
 - Repo left clean: `git status --porcelain` returns nothing at `e67f269`, both before this file was
   written and confirmed again after an accidental dirty state (§4) was caught and reverted. No file
   under `wayfinder/issues/` was touched.
