@@ -202,6 +202,14 @@ standard environment qualifies is reserved, and nothing else. What P3 to P6 of
 `check-reserved-qualifiers.sh` check for `List` extends to each new word. Under no, each new
 qualifier is argued in ticket 65 on its own.
 
+**Round 3 answered 2026-09-25 (David): Q6 yes.** Every qualifier the standard environment adds is
+reserved on ticket 67 Q6's terms. A user module with that short name is refused where it would be
+written as the word; a dotted path holding it is not. This answers ticket 65's first question by
+rule: what the standard environment qualifies is reserved, and nothing else.
+
+**The frontier is empty.** What remains is ENG-324's naming of the assertive and optional pair,
+which Q3 made the convention for every such pair, and the build.
+
 ## What a yes makes cheap — the roster, for a later round
 
 This is not a round of questions. It is what the table would hold. It is drawn from the imports

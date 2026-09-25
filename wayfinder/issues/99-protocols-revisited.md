@@ -62,3 +62,50 @@ not name) and, at a call, a remote call whose module is read from the tag.
 What the answer leaves for later rounds: whether a user may declare a protocol of their own (it
 meets ticket 91's user-declared behaviour), and what a function taking "any `Enumerable`" is typed
 as, since the set of implementations is open and exhaustiveness cannot range over it.
+
+**Round 1 answered 2026-09-25 (David): Q1 yes.** A record's own module may implement a compiler-known
+protocol, and a call finds the implementation from the value's tag at run time. Nothing is
+consolidated, and 13 §3 holds.
+
+## Round 2
+
+**Q2. What is a parameter that takes "anything `Enumerable`"?**
+
+```csharp
+public int Total(Enumerable<int> xs)
+Total(xs) -> Enum.Sum(xs)
+
+// callers
+Total([1, 2, 3])         // a list
+Total(tree)              // a Shop.Tree.Node, which implements it
+```
+
+Proposed: a protocol's name is a type whose members are `list`, `map` (where the protocol covers
+them) and every record whose module implements it. The set is open, so a clause head may not
+destructure an `Enumerable<int>`, and exhaustiveness is never asked over it. Inside `Total`, the
+protocol's operations are the only thing it can do. Where the argument's type is known at the call
+(`Node`), the checker emits the direct call; only here, where it is not, is the dispatch read from
+the value (`is_list`, `is_map`, else the tag's module). Under no, a function takes one concrete
+collection type and the caller converts.
+
+**Q3. May a user declare a protocol of their own, or are protocols compiler-known only?**
+
+```csharp
+module Shop.Geometry
+
+protocol Shape {
+    float Area(Self s)
+}
+
+// module Shop.Geometry.Circle
+record Circle { R: float }
+implements Shape for Circle {
+    Area(Circle c) -> 3.14159 * c.R * c.R
+}
+```
+
+Under yes, `protocol` is a declaration, and its operations are called as `Shape.Area(c)`, dispatched
+on the tag as `Enumerable` is. It meets ticket 91 (ENG-432), a user-declared behaviour: a behaviour
+names what a *module* supplies, and a protocol names what a *type's* module supplies. Under no,
+`Enumerable` and any others are the compiler's, and a user's open extension is ticket 91's
+behaviour or nothing.
