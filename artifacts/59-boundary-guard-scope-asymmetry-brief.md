@@ -94,7 +94,12 @@ this ticket (`TokenLoc` → `{TokenLine, 1}` in `bs_lexer.xrl`, since OTP 25's `
 an OTP 27 map-formatting directive). Neither patch touches `bs_check.erl` or `bs_emit.erl`, the
 files this ticket is about; both are confirmed byte-identical to the real repo files by `md5sum`
 before every build (§5.2). `bs_run.erl`'s own patch never runs on any path this brief exercises
-(it is REPL value pretty-printing).
+(it is REPL value pretty-printing). **Gap in this recipe, found by independent verification**:
+`rebar.config`'s own `{xrl_opts,[{error_location,column}]}` also has to be neutralized in the
+scratch build, or `leex:file/2` (and a full `rebar3 escriptize`) throws `badarg` regardless of the
+`bs_lexer.xrl` patch — this is option-driven, not content-driven, so it reproduces even on a
+trivial grammar. Not a correction to any finding (`rebar.config` is neither `bs_check.erl` nor
+`bs_emit.erl`), but the build recipe as first written was incomplete without this step.
 
 ### 2.1 The record-tag probe (site 1)
 
@@ -207,10 +212,11 @@ exported wrapper's `Public` flag to consult in the first place.
 
 ### 2.4 The Dialyzer probe — a real precedent for "does export status change trust"
 
-`probe_trust.erl`: a private `inner_total/1` typed by `-spec` to accept an `order`-tagged map,
-called from an exported function with a **variable** holding an `invoice`-tagged map of the same
-shape (mirrors 26 §1's "no body ever checks which record a map claims to be" — `inner_total/1`'s
-body only projects `Total`, never inspects `Kind`):
+`probe_trust.erl`: a private `inner_total/1` with **no `-spec` naming the tag shape** (a bare or
+generic `map()`-typed signature — see correction below), called from an exported function with a
+**variable** holding an `invoice`-tagged map of the same shape (mirrors 26 §1's "no body ever
+checks which record a map claims to be" — `inner_total/1`'s body only projects `Total`, never
+inspects `Kind`):
 
 ```
 $ dialyzer probe_trust.beam
@@ -221,7 +227,15 @@ done (passed successfully)
 
 **No warning at all.** Dialyzer's success typing is inferred from `inner_total/1`'s *body*, which
 never tests the tag, so a differently-tagged map — passed through a variable, exported or not —
-is invisible to it. Sharper version, `probe_trust2.erl` (private) / `probe_trust3.erl` (same
+is invisible to it. **Correction, found by independent verification:** this brief's prose
+originally said `inner_total/1` was "typed by `-spec` to accept an `order`-tagged map." That is
+not what produces silence — the verifier confirmed that any *faithful* `-spec` naming the tag
+shape (with `:=` or `=>`) makes Dialyzer raise an `invalid_contract`/breaks-contract warning
+regardless of privacy; only a spec-free or generic `map()` signature passes silently, which is
+what `probe_trust.erl` actually has. The conclusion this probe supports — export status changes
+nothing about whether Dialyzer's *body-driven* inference catches a mismatch — still holds and is
+independently reconfirmed by the sharper, pattern-matched version below, which needs no `-spec` to
+make its point either way. Sharper version, `probe_trust2.erl` (private) / `probe_trust3.erl` (same
 function, now exported), both call `inner(#{'Kind' := order, ...})`-headed function with a
 **literal** map tagged `invoice`:
 
@@ -505,6 +519,16 @@ reproduced §2.1–§2.3 exactly, including the site-3 finding (`PrivateNarrow/1
 `is_integer` in its emitted head) — pasted in full in §2.3. Nothing in this brief rests on a
 hand-edited `.beam`; every disassembly shown came from a `bsc`-produced `.beam` file, and both
 builds' `Probe59.bs` source is quoted in full above rather than only its output.
+
+**A genuinely separate verifier agent was subsequently spawned** (by the orchestrating session,
+which does have Agent/Task access) and independently reproduced the central §2.3 finding with its
+own probe module and names, confirming `Clamp` (private, union-typed, guard-narrowed) carries
+`is_integer`+`is_ge` in its own head while its exported caller `Bound` carries no test at all. It
+also spot-checked the OTP and Gleam citations verbatim and found two real blemishes, both
+corrected above: the build recipe omitted a needed `rebar.config` change (§2 preamble), and §2.4's
+first Dialyzer probe's prose didn't match what actually produces silence (§2.4). Neither
+correction touches the headline finding, which the verifier calls "solid and independently
+reproduced."
 
 **Files used, all under this session's scratchpad, none under the repo**:
 `Probe59/probe59.bs` (the probe module), `cost/*.erl` (the six byte-cost comparison modules,
