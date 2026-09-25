@@ -1,8 +1,9 @@
 # 107 — May `HandleCall` and `HandleCast` narrow their request argument? Ticket 14 §1 against §4
 
 Type: grilling
-Status: claimed 2026-09-25 — [ENG-470](https://linear.app/davewil/issue/ENG-470). Raised 2026-09-25
-out of [ENG-437](https://linear.app/davewil/issue/ENG-437)'s stop line; round 1 below
+Status: resolved 2026-09-25 — [ENG-470](https://linear.app/davewil/issue/ENG-470). Raised 2026-09-25
+out of [ENG-437](https://linear.app/davewil/issue/ENG-437)'s stop line; one round, the follow-up
+answered with Q1
 Blocked by: —
 
 ## Why this is raised
@@ -119,6 +120,69 @@ A stray **call** to a Gleam actor is an `Unexpected` message too (read from `act
 measured): discarded, so its caller waits out its timeout rather than killing the actor. Elixir's
 default injected `handle_info` does the same for a stray info message.
 
+## Answers
+
+**A1 (David, 2026-09-25):** *"Yes, with Gleam's discard behaviour."* This answers Q1 (yes, narrowing
+is allowed on `HandleCall` and `HandleCast`) and the follow-up Q1 named in the same answer: a
+stray call or cast is discarded with a warning, as `gleam_otp`'s actor does, and the server lives.
+
+So:
+
+- `HandleCall` and `HandleCast` may declare their request argument as the module's own type, and
+  the checker proves the clauses cover it, exactly as the shipped Counter does today.
+- `HandleInfo`'s message argument stays `term`, as ticket 14 §4 has it: its messages come from
+  monitors, timers and any `!`.
+- The contract check ENG-437 builds still applies to everything else: every callback's return is
+  covariant in its contract, and every other argument is contravariant.
+- After the author's clauses of a narrowed `HandleCall` or `HandleCast`, the compiler emits one
+  closing clause that logs the stray message and returns `{noreply, State}`. A stray cast is
+  dropped; a stray call is never answered, so its caller waits out its own timeout (Gleam's
+  measured behaviour for a stray message, and what its source says happens to a stray call).
+  The closing clause is emitted code only: exhaustiveness is proved over the author's clauses and
+  never credits it.
+
+## The compiler delta
+
+- **ENG-437's containment check**: the request argument of `HandleCall/3` and `HandleCast/2` is
+  exempt from contravariance; `HandleInfo/2`'s is not. Returns and the remaining arguments are
+  checked as ENG-437 describes.
+- **`bs_emit`**: a module declaring `behaviour GenServer` whose `HandleCall` or `HandleCast` request
+  argument is narrower than `term` gets a final clause per callback, `handle_call(Msg, _From, S) ->
+  logger:warning(...), {noreply, S}` and `handle_cast(Msg, S) -> logger:warning(...), {noreply, S}`,
+  the warning naming the module and the message, as `gleam_otp`'s *"Actor discarding unexpected
+  message"* does. A callback whose argument is already `term` gets none, because its own clauses
+  must already cover `term`.
+- **Tests at the boundary**, reusing this ticket's probe: the shipped Counter answers
+  `gen_server:call(P, get)` with `5`; `gen_server:call(P, bogus, 1000)` exits the *caller* with
+  `timeout`; the server is still alive and `get` still answers `5`; a warning naming `bogus` is
+  logged. Adding `:reset` to `Request` without a clause is still refused naming
+  `HandleCall(:reset, x, n)`.
+- **Ticket 14 §4** carries a dated amendment pointing here. LANGUAGE.md §13's Counter text stays
+  true and gains a sentence on what a stray call does.
+
+## Not decided here
+
+- User-declared behaviours (ticket 91, ENG-460): whether their callbacks may narrow the same way.
+  ENG-460 reuses ENG-437's containment check, and this ticket only rules on OTP's `GenServer`.
+- `gen_statem` and other OTP behaviours, which are not yet compiler-known.
+
 ## Decisions entry
 
-<!-- Written when the ticket resolves. -->
+<!-- This ticket's entry. Read whole, here; the map (ENG-165) carries one line. -->
+
+```decisions-entry
+- [May `HandleCall` and `HandleCast` narrow their request argument?](issues/107-narrowed-call-and-cast.md)
+  — **yes, and a stray call or cast is discarded with a logged warning, as Gleam's actor does, so
+  the server lives; `HandleInfo` keeps `term`.** Raised and resolved 2026-09-25 in one round, out
+  of [ENG-437](https://linear.app/davewil/issue/ENG-437), settling ticket
+  [14](issues/14-concurrency-and-otp-model.md)'s §1 (*"the `Request` union `HandleCall` proves
+  exhaustive over"*) against its §4 (*"the argument position must be `term`"*) in §1's favour for
+  call and cast. Measured first: one `gen_server:call(P, bogus)` killed the shipped Counter;
+  Elixir 1.20 behaves the same and checks nothing; Gleam 1.18's `gleam_otp` actor proves the
+  handler exhaustive **and** survives, because its library filters strays before the typed
+  handler (`select_other(Unexpected)`, logged and discarded). B# does the same in emitted code:
+  one closing clause after the author's, logging and returning `{noreply, State}`, never credited
+  to exhaustiveness, so a stray call's caller times out. ENG-437's contract check keeps returns
+  covariant and every other argument contravariant. Probes 107a and 107b kept. Ticket 14 §4
+  amended in place. Unbuilt — ENG-437.
+```

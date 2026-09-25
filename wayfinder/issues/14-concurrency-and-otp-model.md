@@ -250,6 +250,14 @@ State);`. The argument position must be `term`, exactly as ticket 12's example a
 (:reply, int, Account) HandleCall(term, From, Account);
 ```
 
+> **AMENDED 2026-09-25 by [ticket 107](107-narrowed-call-and-cast.md)** (David). The paragraph
+> above held for `HandleInfo` and does not for `HandleCall` and `HandleCast`: their request
+> argument **may** be the module's own type, so §1's *"the `Request` union `HandleCall` proves
+> exhaustive over"* stands. A stray call or cast is discarded with a logged warning by a clause the
+> compiler emits after the author's, as Gleam's `gleam_otp` actor does, so the server lives and a
+> stray call's caller times out. `HandleInfo` keeps `term`. Returns stay covariant and every other
+> argument contravariant.
+
 **Why narrowing is the whole point.** OTP's real contract is six alternatives wide, with `Action`
 a further seven-way union (`src`, `stdlib-7.3/src/gen_server.erl`). If a callback carried that
 union, `(:noreply, s)` would always be available and always type-correct on an unrecognised
