@@ -98,6 +98,55 @@ longer collides with anything.
 `Maybe` (`Map.MaybeGet`, `Int.MaybeFromString`, `Task.MaybeAwait`): shorter, one word, but it reads
 as `option` even where the return is a `result`.
 
+**A2 (David, 2026-09-25):** *"Map.?Get?"*: a counter-proposal, a `?` marker on the call rather
+than a word.
+
+## Round 3
+
+### Q3 — Is the second form marked with `?` after the qualifier's dot: `Map.?Get`?
+
+Ticket [50](50-naming-a-foreign-struct.md) decided `?` never enters an identifier (it would swallow
+ticket 26 §4's `Notes?:` tripwire). Here it does not: `?` is a marker on the qualified call, and
+the name stays `Get`.
+
+Measured at `345bd8d`:
+
+- **Lexer: no change.** `?` is already its own token, lexed so the parser can refuse `Notes?: int`.
+  `bs_lexer:string("Map.?Get(m, k)")` gives `Map` `.` `?` `Get` `(` …, and `Notes?: int` still
+  lexes as `Notes` `?` `:` `int`.
+- **Parser: no new conflicts.** Adding `call -> modpath '.' '?' uident '(' expr_list ')'` and its
+  empty-argument twin to a copy of `bs_parser.yrl`: `yecc` reports 5 shift/reduce, 0 reduce/reduce
+  before and 5 and 0 after.
+
+```csharp
+Current(ss, t) -> Map.?Get(ss, t) switch {
+    :nothing => (:error, :no_session),
+    s        => s
+}
+
+Page(r)    -> Int.?FromString(r)                     // "2x" is (:error, "2x")
+Newest(os) -> List.?MaxBy(os, o => o.PlacedAt)
+Answer(t)  -> Task.?Await(t, 5000)                   // (:error, :timeout)
+```
+
+For it: one character for every pair whatever it returns; and `?` already means "the path that may
+not produce a value" in B#, in the valve `|?>` (ticket [31](31-composable-middleware.md)).
+
+What it costs, and what it is not:
+
+- **It is syntax, not a name**, so it exists only where the compiler supplies both forms: the
+  standard environment's reserved qualifiers. A user module cannot declare a `?` form, and
+  `Orders.?All()` is refused. F62's table keys the second form by the marker, not by a second name.
+- **A C# reader knows `a?.b`**, the null-conditional member access, which reads as the same two
+  characters reversed. `Map.?Get` is not that, and the spec says so where `?` is introduced.
+- **Tooling reads it as punctuation**: search for `?Get` rather than a name, and the tree-sitter
+  grammar and LSP completion owe the same production.
+
+Compiler delta under yes: the two productions above, emitting an `e_qcall` with the second-form
+flag; F62's rows gain the flag as part of their key; a `?` on a qualifier with no pair row is
+refused, naming the operation; tree-sitter gains the production; LANGUAGE.md's standard-environment
+section and `STANDARD-ENVIRONMENT.md` introduce the marker.
+
 ## Decisions entry
 
 <!-- Written when the ticket resolves. -->
