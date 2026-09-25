@@ -248,9 +248,13 @@ of Gleam:**
   evidence: an enforcement path that used a *different* error constructor might have been missed by
   grep, but a compiler that enforces something without ever surfacing an error type for the
   violation is a much larger claim on the source than "no error variant found."
-- No independent subagent was available to re-run this from scratch (see Verification, below) —
-  treat the Gleam finding as single-session and worth a second pair of eyes before it goes into
-  the ticket's decision.
+- No independent subagent was available *to this brief's own author* to re-run this from scratch
+  (see Verification, below) — but the orchestrating session subsequently spawned a genuinely
+  separate verifier, which independently re-read the source, re-ran the same three tests fresh,
+  and found an *additional* confirming path this brief missed: `erlang.rs:3610-3633`
+  (`function_export`) gates on the same `publicity.is_importable()` used by the type-checker, so
+  an `@internal` function is placed in the generated `.erl` module's `-export` list identically to
+  a `Public` one — there is no enforcement at codegen either. **CONFIRMED**, not merely asserted.
 
 **What this changes about the ticket's survey, regardless of the caveats above:** even taking
 `@internal` at face value, it is **package**-scoped, not subtree-scoped — Gleam has no unit between
@@ -456,10 +460,10 @@ pay for. Recorded as a real open question rather than folded into this ticket's 
 CLAUDE.md's gating-question rule says to ask the gating question (module-level restriction at all,
 yes/no) alone and let the granularity question follow.
 
-**On the Gleam evidence specifically**: do not cite "`@internal` restricts to same-package
-callers" as settled precedent without an independent re-check first (§2.3's caveats) — the
-session's own measurement, on the checked-out source, says otherwise for the one call shape
-tested, and this reverses the ticket's own framing of Gleam as the solved sibling case.
+**On the Gleam evidence specifically**: independently re-verified (see §2.3's update) — do not cite
+"`@internal` restricts to same-package callers" as settled precedent. The checked-out source, at
+both the type-checker and codegen layers, says otherwise for every call shape tested, and this
+reverses the ticket's own framing of Gleam as the solved sibling case.
 
 ## 6. Verification
 
