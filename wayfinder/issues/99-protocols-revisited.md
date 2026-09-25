@@ -153,3 +153,7 @@ that a protocol and a user-declared behaviour read alike.
 
 **The spelling is asked as ticket 91 round 2, Q2**, after David answered 91 Q1 yes on 2026-09-25:
 one declaration shape for a behaviour and a protocol.
+
+**The spelling was answered 2026-09-25 as ticket 91 Q2 (David, yes):** `protocol Shape { float
+Area(Self s) }` in `index.bs`, satisfied by `implements Shape for Circle { … }` in the type's own
+module, and called as `Shape.Area(c)`, never `c.Area()`. The frontier is empty.

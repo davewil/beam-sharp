@@ -101,3 +101,48 @@ shape of ticket 99's `Shape.Area(c)`, where the protocol's name qualifies and th
 comes first, so there is one call form for both. It is not `m.HandleAnswer(…)`, because the dot
 projects a field and is never a call (LANGUAGE.md). A module value is its atom; a caller passes one
 as `Triage` in value position, checked at the call to satisfy `Answering`.
+
+**Round 2 answered 2026-09-25 (David): Q2 yes, Q3 yes** — *"more explicitly . syntax suggests oop
+style semantics, not FP semantics."*
+
+- **Q2.** A behaviour and a protocol are both a named block of signatures in `index.bs`. A module
+  satisfies a behaviour with its own functions; a type satisfies a protocol with an `implements`
+  block. `Self` names the implementing type.
+- **Q3.** A behaviour's name is a type, the modules that satisfy it. A callback is called under the
+  behaviour's name with the module first, `Answering.HandleAnswer(m, …)`. A module in value position
+  is its atom, checked at the call to satisfy the behaviour. Never `m.HandleAnswer(…)`: the dot
+  would suggest OOP semantics where the language's are FP's, and the dot projects a field.
+
+## Round 3
+
+**Q4. May a behaviour's signatures be generic in the satisfying module's own types?**
+
+```csharp
+behaviour Answering<S> {
+    (:noreply, S) HandleAnswer(term tag, Evaluation answer, S state)
+}
+
+// module Triage
+behaviour Jev.Answering<Triage.State>
+HandleAnswer(:triage, answer, s) -> (:noreply, s with { Last = answer })
+```
+
+Under yes, `Triage`'s `HandleAnswer` is checked with `S` as `Triage.State`, so returning the wrong
+state is refused, as a GenServer's `State` is checked today through F10's contract. Under no, the
+library writes `term` for the user's state and the check stops at the tuple's shape. The type
+variable is ground at the `behaviour` line, as ticket 27 §8 requires of any obligation.
+
+**Q5. May a callback be optional?**
+
+```csharp
+behaviour Answering {
+    (:noreply, term) HandleAnswer(term tag, Evaluation answer, term state)
+    optional (:noreply, term) HandleTimeout(term tag, term state)
+}
+```
+
+Under yes, a satisfying module may leave `HandleTimeout` out, the declaring module emits
+`-optional_callbacks`, and a library calling it must first ask whether the module exports it,
+`Answering.Implements(m, :HandleTimeout)`, because a call to a missing function crashes. Under no,
+every declared callback is required, as F10 requires OTP's mandatory ones, and a library that wants
+a default writes it and asks the user to delegate to it.
