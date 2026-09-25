@@ -171,6 +171,14 @@ fold_and_map_keep_their_order_with_each_other_test() ->
               "Go 1"),
     ?assertEqual("-19", value(Out)).
 
+%% A pipe supplies the list as the first argument before the emitter reorders
+%% it, so the piped form must fold in the same order as the direct call.
+a_piped_fold_keeps_the_accumulator_first_test() ->
+    Out = run([caller("public list<int> Go(int n)\n"
+                      "Go(n) -> [n, n + 1, n + 2] |> List.Fold([], (acc, x) => [x, ..acc])\n")],
+              "Go 1"),
+    ?assertEqual("[3, 2, 1]", value(Out)).
+
 %% An ordinary call checks that the import chunk can reveal remote calls.
 an_ordinary_qualified_call_does_emit_a_remote_call_test() ->
     {Root, Out} = compile_set_([{"P.bs",

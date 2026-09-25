@@ -1,6 +1,6 @@
 # F62 — A standard operation is a row over OTP's own function
 
-**Status**      **in progress** — 8 tests in `reserved_qualifier_tests` (35 there),
+**Status**      **in progress** — 9 tests in `reserved_qualifier_tests` (36 there),
                 `check-reserved-qualifiers.sh` P2 rewritten and seen red on master first,
                 nine red stubs and one green
 **Implements**  [ticket 96](../../wayfinder/issues/96-standard-environment-breadth.md) Q1,
@@ -121,4 +121,4 @@ call sites, in the deleted `bs@List@*` walkers, and in one added `flip`.
 | F62.1 | `List.Sum([n, n, n])` compiled | the import chunk has `{lists, sum, 1}` and no `List` |
 | F62.2 | one program calling all seven `List` rows | the chunk has `lists:sum/reverse/sort/map/filter/foldl` and `erlang:length` |
 | F62.3 | `List.Sort([n, 1, n + 1, 0])` at `n = 5`; `List.Sort(xs)` returned as `list<int>`; `List.Sort(n)` | `[0, 1, 5, 6]`; compiles; a type error, not an import one |
-| F62.4 | `List.Fold` with `(acc, x) => [x, ..acc]`; with a named `Push(acc, x)`; after a `List.Map` | `[3, 2, 1]` each time, `-19` for the last: the accumulator is first |
+| F62.4 | `List.Fold` with `(acc, x) => [x, ..acc]`; with a named `Push(acc, x)`; after a `List.Map`; piped, `xs \|> List.Fold([], (acc, x) => [x, ..acc])` | `[3, 2, 1]`, `[3, 2, 1]`, `-19`, `[3, 2, 1]`: the accumulator is first |
