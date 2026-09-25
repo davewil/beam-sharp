@@ -1349,11 +1349,11 @@ standard_table() ->
 
 reserved_table() -> [K || {K, _} <- standard_table()].
 
+%% Only operations the checker admitted reach the emitter, so a missing row
+%% crashes here rather than as an unmatched `reserved_form/1`.
 standard_target(Key) ->
-    case lists:keyfind(Key, 1, standard_table()) of
-        {_, Target} -> Target;
-        false       -> generated
-    end.
+    {Key, Target} = lists:keyfind(Key, 1, standard_table()),
+    Target.
 
 %% `Reverse` preserves the call site's element type.
 reserved_sig('List', 'Sum', 1, _ATys) ->

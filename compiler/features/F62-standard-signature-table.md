@@ -1,7 +1,8 @@
 # F62 — A standard operation is a row over OTP's own function
 
 **Status**      **in progress** — 8 tests in `reserved_qualifier_tests` (35 there),
-                `check-reserved-qualifiers.sh` P2 rewritten and seen red on master first
+                `check-reserved-qualifiers.sh` P2 rewritten and seen red on master first,
+                nine red stubs and one green
 **Implements**  [ticket 96](../../wayfinder/issues/96-standard-environment-breadth.md) Q1,
                 resolved 2026-09-25. Decides nothing
 **Closes**      [ENG-452](https://linear.app/davewil/issue/ENG-452)
@@ -12,7 +13,12 @@
 **Leaves**      every other row: the `List` and `Map` breadth (ENG-454), `Enum`
                 (ENG-453), `String` (ENG-455), the OTP client calls (ENG-456),
                 `Logger`/`System` (ENG-457), the conversions (ENG-462), `Task`/`Agent`
-                (ENG-463). Each is one row here, so none of them needs a mechanism of its own
+                (ENG-463). Each is one row here, so none of them needs a mechanism of its own.
+                **The signature half is not yet declarative.** The ticket's row reads
+                "B# signature (polymorphic ones typed as F45 types a polymorphic call)";
+                here it is still `reserved_sig/4`'s hand-written clauses, one per row,
+                with `Map`/`Filter`/`Fold`'s expectation logic in `reserved_args/5`. The
+                next row that adds a polymorphic signature owes that move
 
 ## The program
 
@@ -82,9 +88,11 @@ would be a ticket, and every exemplar that folds would move with it.
 F32's P2 refused `lists` in the import chunk: it read ticket 67 as forbidding a stdlib
 call. Ticket 96 found that 67 never weighed one. P2 now has three arms:
 
-- **A reserved qualifier's module** (`List`, `Map`, `Term`, `Float`) is red, because
-  B# would have to ship it. The over-informed `shipped_module` stub stays red, and
-  `shipped_map` joins it.
+- **Any capitalised module** is red. The probe imports nothing and every OTP module is
+  lowercase, so a capitalised name there is one B# would have to ship: `List`, `Map`,
+  or a qualifier a later row adds, with no list of names in the gate to fall behind.
+  The over-informed `shipped_module` stub stays red, and `shipped_map` and
+  `shipped_enum` join it.
 - **No `lists`** is red: `generated_local` is F32's own lowering, the right value
   from the wrong design.
 - **`lists` present** is green.

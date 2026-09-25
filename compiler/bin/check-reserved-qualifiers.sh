@@ -12,8 +12,8 @@
 # TICKET 96 Q1 MOVED WHERE THE OPERATION LOWERS, NOT WHAT IS REFUSED. A standard
 # operation is a row over the OTP function that already does it: `List.Sum` is
 # `lists:sum/1`. So P2 now wants `lists` in the import chunk and still refuses
-# every reserved qualifier there — `List`, `Map`, `Term`, `Float` name modules B#
-# would have to ship, and none does. F32 read 67 as forbidding the stdlib call;
+# any capitalised module there — `List`, `Map`, or a qualifier added later, each
+# a module B# would have to ship, and none does. F32 read 67 as forbidding the stdlib call;
 # 67 never weighed one, and that reading is what 96 Q1 overturned.
 #
 # THE OVER-INFORMED STUB IS THE POINT OF THE SELF-TEST. `shipped_module` below
@@ -71,8 +71,12 @@ judge() {
     ## calling nothing both produce an empty import list.
     *" BEAM-UNREADABLE "*)
       echo "P2: called_modules could not read the beam, so this probe read nothing — and reading nothing is what a correct answer looks like here" ;;
-    *" List "*|*" Map "*|*" Term "*|*" Float "*)
-      echo "P2: the beam calls out to a reserved qualifier's module ('$p2') — B# ships no such module" ;;
+    ## The probe imports nothing, and every OTP module is lowercase, so any
+    ## capitalised module here is one B# would have to ship — `List` and `Map`
+    ## today, and every qualifier the standard environment adds (96) without
+    ## this arm being edited.
+    *" "[[:upper:]]*)
+      echo "P2: the beam calls out to a capitalised module ('$p2') — a reserved qualifier names no module B# ships" ;;
     *" lists "*) ;;
     *) echo "P2: the beam does not call 'lists' ('$p2') — 96 Q1 lowers List.Sum to lists:sum/1, not to a generated local form" ;;
   esac
@@ -185,10 +189,10 @@ called_modules() {
 }
 
 # ---------------------------------------------------------------------------
-# --self-test — eight defects and one correct form.
+# --self-test — nine defects and one correct form.
 #
 # A check that fires on everything passes the red half and is worthless, so the
-# green half is not optional. Three of the eight are CRY-WOLF stubs: they satisfy
+# green half is not optional. Three of the nine are CRY-WOLF stubs: they satisfy
 # a red probe by being too aggressive, which is the failure mode a gate written
 # only from the refusals cannot see.
 # ---------------------------------------------------------------------------
@@ -212,6 +216,8 @@ if [ "${1:-}" = "--self-test" ]; then
   stub shipped_module "6" "List erlang lists" "$RESERVED" "1" "$COLLIDE" "6"  "$NOOP"
   ## The same shape under the qualifier that has no operations yet.
   stub shipped_map    "6" "Map erlang lists"  "$RESERVED" "1" "$COLLIDE" "6"  "$NOOP"
+  ## A qualifier ticket 96 adds later, which a list of today's names would miss.
+  stub shipped_enum   "6" "Enum erlang lists" "$RESERVED" "1" "$COLLIDE" "6"  "$NOOP"
   ## F32's lowering, which 96 Q1 replaced: the right value from a generated
   ## local walker, and no call into OTP.
   stub generated_local "6" "erlang"           "$RESERVED" "1" "$COLLIDE" "6"  "$NOOP"
@@ -232,7 +238,7 @@ if [ "${1:-}" = "--self-test" ]; then
   stub stale_advice   "6" "erlang lists"     "$RESERVED" "1" "$COLLIDE" "6" \
                              "error: List is called but never imported"
 
-  for bad in shipped_module shipped_map generated_local no_reservation over_reserved \
+  for bad in shipped_module shipped_map shipped_enum generated_local no_reservation over_reserved \
              no_collision collides_wide stale_advice; do
     if [ -z "$(judge "$W/$bad")" ]; then
       echo "  x SELF-TEST: '$bad' produced no complaint - the gate cannot see it"; fail=1
@@ -246,7 +252,7 @@ if [ "${1:-}" = "--self-test" ]; then
     echo "  ok green on the correct form"
   fi
   [ "$fail" -eq 0 ] || { echo "self-test FAILED"; exit 1; }
-  echo "self-test passed: eight defects seen, correct form accepted"
+  echo "self-test passed: nine defects seen, correct form accepted"
   exit 0
 fi
 
