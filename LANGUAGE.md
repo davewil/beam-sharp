@@ -2521,6 +2521,27 @@ public int Tokens(ReplyWire r)
 Tokens({ "usage": { "input_tokens": i, "output_tokens": o } }) -> i + o
 ```
 
+**An absent key at an `option<T>` field is `:nothing`.** It is the one conversion `ValidateAs`
+makes: a record has no absent fields, so the boundary fills them. It applies to records and field
+sets alike, at every depth: a record field, a tuple component, a list element, a map value. JSON
+`null` is not absent. It stays `:null` and is refused at an `option<string>` field, so a field that
+takes both is `option<string | :null>`. An `atom` or `term` field is not an `option`, since
+`:nothing` is in it only by absorption, and an absent one is still refused. `ToJson` converts
+nothing: handed a value with an option key missing, it crashes as before. **shipped** — F61.
+<!-- decided by ticket 26 §4 and ticket 78 Q8; built by F61 -->
+
+```csharp
+module Replies
+
+type ReplyWire = { "id": option<string>, "model": string, "refusal": string | :null, .. }
+
+public result<ReplyWire, ValidationError> Read(term doc)
+Read(doc) -> ValidateAs<ReplyWire>(doc)
+```
+
+A reply with no `id` comes back with `"id" => :nothing`, one with an `id` keeps its string, and a
+`null` refusal stays `:null`.
+
 **Validating against `term` is an error.** `result<term, ValidationError>` normalises straight back
 to `term`, so the failure channel does not survive and no caller could write the failure clause.
 The rule is general — an instantiation whose union with its own failure member is the type it

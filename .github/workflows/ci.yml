@@ -636,6 +636,16 @@ jobs:
         working-directory: compiler
         run: ./bin/check-validate-target.sh
 
+      # F61 / ENG-409. The `top_only` stub fills where the validator starts and
+      # drops its children's fills; the `subtype_fill` stub fills an `atom` field.
+      - name: The absent-option gate proves it can fail
+        working-directory: compiler
+        run: ./bin/check-absent-option.sh --self-test
+
+      - name: '`ValidateAs<T>` reads an absent `option<T>` key as `:nothing`, at every depth'
+        working-directory: compiler
+        run: ./bin/check-absent-option.sh
+
       # F49 / ENG-379. The checker sees neither defect: a validator still
       # emitting the tuple, or a construction minting the tag from its module,
       # compiles every probe and fails only when it runs.

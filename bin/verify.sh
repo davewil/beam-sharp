@@ -312,6 +312,9 @@ run_stages \
   "\`ValidateAs<T>\` refuses a target no clause head can take apart" \
     "cd compiler && ./bin/check-validate-target.sh --self-test && ./bin/check-validate-target.sh" \
 \
+  "\`ValidateAs<T>\` reads an absent \`option<T>\` key as \`:nothing\`, at every depth" \
+    "cd compiler && ./bin/check-absent-option.sh --self-test && ./bin/check-absent-option.sh" \
+\
   "\`ValidationError\` is a record, in the value the program runs with" \
     "cd compiler && ./bin/check-validation-error-record.sh --self-test && ./bin/check-validation-error-record.sh" \
 \

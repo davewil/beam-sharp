@@ -41,7 +41,7 @@ back unchanged; `Tokens` gives 120.
 - `ValidateAs` checks the named keys and returns the value unchanged, extra
   keys included. It converts nothing beyond the one conversion 26 §4 decided
   and ticket 78 Q3 keeps: an absent key at an `option<T>` field is `:nothing`,
-  unbuilt ([ENG-409](https://linear.app/davewil/issue/ENG-409)).
+  built since as [F61](F61-absent-option-key.md).
 - A value in an open member validates although its keys also fit another
   member's shape: those members are tried in turn, and one that fails blames
   the union, `Path = []`, as an undiscriminated union does.

@@ -1593,7 +1593,9 @@ map_cases(Members) ->
                                       Shaped),
     case {Doms, Bare ++ Shared} of
         {[], []} -> named_cases(Shaped);
-        {[], _}  -> named_cases(Shaped) ++ [{any, Shared}];
+        %% With nothing shared, an `{any, []}` clause would catch every map
+        %% and refuse it, ahead of the absent-key attempts (F61).
+        {[], _}  -> named_cases(Shaped) ++ [{any, Shared} || Shared =/= []];
         {_, []}  -> named_cases(Records) ++ dom_cases(Doms);
         {_, _}   -> named_cases(Records) ++ [{any, Bare ++ Shared ++ Doms}]
     end.
@@ -1645,9 +1647,10 @@ checked(Ty) -> not bs_types:is_subtype(bs_types:term(), Ty).
 
 validator_forms({Roots, Jsons, Table}) ->
     Ordered = lists:sort(fun({_, A}, {_, B}) -> A =< B end, maps:to_list(Table)),
-    lists:append([validator_form(Ty, Name, Table) || {Ty, Name} <- Ordered])
+    Conv = converting(Table),
+    lists:append([validator_form(Ty, Name, Table, Conv) || {Ty, Name} <- Ordered])
     ++ [root_form(maps:get(Ty, Table)) || Ty <- Roots]
-    ++ [json_form(maps:get(Ty, Table)) || Ty <- Jsons]
+    ++ [json_form(Ty, maps:get(Ty, Table), Conv) || Ty <- Jsons]
     ++ [F || lists:any(fun({Ty, _}) -> dom_walk(bs_types:unfold(Ty)) =/= none end,
                        Ordered),
              F <- key_forms()].
@@ -1667,18 +1670,33 @@ root_form(Name) ->
 
 %% Validate before JSON encoding, including exact field sets and UTF-8. Invalid
 %% values crash with `ValidationError` before reaching the wire.
-json_form(Name) ->
+%% `ToJson` converts nothing: where the validator can fill an absent option
+%% key, only a value it hands back unchanged is encoded, and one it had to
+%% fill crashes as an absent key did before F61.
+%% Rationale: compiler/features/F61-absent-option-key.md.
+json_form(Ty, Name, Conv) ->
     XV = {var, ?A, 'Bs@x'},
     EV = {var, ?A, 'Bs@er'},
     Encode = {call, ?A, {atom, ?A, iolist_to_binary},
               [{call, ?A, {remote, ?A, {atom, ?A, json}, {atom, ?A, encode}}, [XV]}]},
-    Crash = {call, ?A, {remote, ?A, {atom, ?A, erlang}, {atom, ?A, error}},
-             [{tuple, ?A, [{atom, ?A, to_json}, EV]}]},
+    Crash = fun(E) -> {call, ?A, {remote, ?A, {atom, ?A, erlang}, {atom, ?A, error}},
+                       [{tuple, ?A, [{atom, ?A, to_json}, E]}]}
+            end,
+    Filled = case lists:member(Ty, Conv) of
+                 false -> [];
+                 true  -> [{clause, ?A, [{tuple, ?A, [{atom, ?A, ok}, {var, ?A, '_'}]}], [],
+                            [Crash(error_map(Ty, {nil, ?A}))]}]
+             end,
+    Same = case Filled of
+               [] -> {var, ?A, '_'};
+               _  -> XV
+           end,
     {function, ?A, json_name(Name), 1,
      [{clause, ?A, [XV], [],
        [{'case', ?A, {call, ?A, {atom, ?A, Name}, [XV, {nil, ?A}]},
-         [{clause, ?A, [{tuple, ?A, [{atom, ?A, ok}, {var, ?A, '_'}]}], [], [Encode]},
-          {clause, ?A, [{tuple, ?A, [{atom, ?A, error}, EV]}], [], [Crash]}]}]}]}.
+         [{clause, ?A, [{tuple, ?A, [{atom, ?A, ok}, Same]}], [], [Encode]}]
+         ++ Filled
+         ++ [{clause, ?A, [{tuple, ?A, [{atom, ?A, error}, EV]}], [], [Crash(EV)]}]}]}]}.
 
 %%% --- Reserved qualifier operations ---
 %%%
@@ -1794,30 +1812,129 @@ walker_name(Name) -> list_to_atom(atom_to_list(Name) ++ "@e").
 
 %% Errors name the binder; traversal uses its unfolding. Recursive positions
 %% retain the same `mu` node registered in `Table`, enabling calls back here.
-validator_form(Ty, Name, Table) ->
+validator_form(Ty, Name, Table, Conv) ->
     Err = error_expr(Ty),
     Body = bs_types:unfold(Ty),
-    Clauses = ty_clauses(Body, Name, Table, Err)
+    Fills = fillable_members(Body),
+    Clauses = ty_clauses(Body, Name, Table, Conv, Err)
+              ++ [fill_clause(Name) || Fills =/= []]
               ++ [{clause, ?A, [{var, ?A, '_'}], [], [Err]}],
     Fn = {function, ?A, Name, 2,
           [{clause, ?A, [?VV, ?VP], [], [{'case', ?A, ?VV, Clauses}]}]},
-    [Fn | walker_form(Body, Name, Table, Err) ++ dom_walker_form(Body, Name, Table, Err)].
+    [Fn | walker_form(Body, Name, Table, Conv, Err)
+          ++ dom_walker_form(Body, Name, Table, Conv, Err)
+          ++ fill_forms(Fills, Name, Err)].
 
 %% Reverse the path once per failure. Keys and tag must match the
 %% `ValidationError` record in `stratum_two/0`; clause heads test that tag.
 error_expr(Ty) ->
-    {tuple, ?A,
-     [{atom, ?A, error},
-      {map, ?A,
-       [{map_field_assoc, ?A, {atom, ?A, 'Kind'}, {atom, ?A, 'ValidationError'}},
-        {map_field_assoc, ?A, {atom, ?A, 'Path'},
-         {call, ?A, {remote, ?A, {atom, ?A, lists}, {atom, ?A, reverse}}, [?VP]}},
-        {map_field_assoc, ?A, {atom, ?A, 'Expected'},
-         bin_str(bs_types:to_string(Ty))}]}]}.
+    {tuple, ?A, [{atom, ?A, error},
+                 error_map(Ty, {call, ?A, {remote, ?A, {atom, ?A, lists}, {atom, ?A, reverse}},
+                                [?VP]})]}.
+
+error_map(Ty, Path) ->
+    {map, ?A,
+     [{map_field_assoc, ?A, {atom, ?A, 'Kind'}, {atom, ?A, 'ValidationError'}},
+      {map_field_assoc, ?A, {atom, ?A, 'Path'}, Path},
+      {map_field_assoc, ?A, {atom, ?A, 'Expected'}, bin_str(bs_types:to_string(Ty))}]}.
 
 ok_expr() -> {tuple, ?A, [{atom, ?A, ok}, ?VV]}.
 
-ty_clauses(Ty, Name, Table, Err) ->
+%%% --- Absent option keys ---
+%%%
+%%% 26 §4: an absent key at an `option<T>` field validates as `:nothing`, the
+%%% one conversion `ValidateAs` makes. A validator whose type has members with
+%%% such fields ends in one attempt per member, each merging `:nothing` under
+%%% that member's option keys and validating the merged map again. A member's
+%%% attempt runs only where its other keys are present and one of its option
+%%% keys is absent, so the merged value is larger each time and the attempts
+%%% terminate. Validators over types that can reach a fill return their
+%%% children's values, rebuilt; every other validator is emitted as before.
+%%% Rationale: compiler/features/F61-absent-option-key.md.
+
+%% Only a written `:nothing` counts: in `atom` or `term` it is absorbed, and
+%% ticket 15 makes `option<atom>` that collapse, so no `option` was written.
+optional(Ty) ->
+    case bs_types:unfold(Ty) of
+        #{atoms := {finite, As}} -> lists:member(nothing, As);
+        _                        -> false
+    end.
+
+fill_keys(Fs) ->
+    lists:sort([K || {K, T} <- maps:to_list(Fs), K =/= 'Kind', optional(T)]).
+
+%% Closed members first, as `map_cases/1` orders them.
+fillable_members(#{maps := top}) -> [];
+fillable_members(#{maps := Ms}) ->
+    [M || Kind <- [closed, open], M = {K, Fs} <- Ms, K =:= Kind, fill_keys(Fs) =/= []].
+
+%% The types whose validators may return a value other than the one handed
+%% in: those with a fillable member, and those with a child among them.
+converting(Table) ->
+    Tys = maps:keys(Table),
+    grow(Tys, [Ty || Ty <- Tys, fillable_members(bs_types:unfold(Ty)) =/= []]).
+
+grow(Tys, Conv) ->
+    case [Ty || Ty <- Tys, not lists:member(Ty, Conv),
+                lists:any(fun(C) -> lists:member(C, Conv) end, children(Ty))] of
+        []  -> Conv;
+        New -> grow(Tys, Conv ++ New)
+    end.
+
+fill_name(Name, I) -> list_to_atom(atom_to_list(Name) ++ "@o" ++ integer_to_list(I)).
+
+fill_clause(Name) ->
+    {clause, ?A, [{var, ?A, '_'}], [[guard_call(is_map, [?VV])]],
+     [{call, ?A, {atom, ?A, fill_name(Name, 1)}, [?VV, ?VP, {atom, ?A, none}]}]}.
+
+%% Attempt I carries the first failure it has seen; once every attempt has
+%% declined or failed, that failure is the answer, or this node's if none ran.
+fill_forms([], _Name, _Err) -> [];
+fill_forms(Members, Name, Err) ->
+    N = length(Members),
+    FV = {var, ?A, 'Bs@first'},
+    Last = {function, ?A, fill_name(Name, N + 1), 3,
+            [{clause, ?A, [{var, ?A, '_'}, ?VP, {atom, ?A, none}], [], [Err]},
+             {clause, ?A, [{var, ?A, '_'}, {var, ?A, '_'}, FV], [],
+              [{tuple, ?A, [{atom, ?A, error}, FV]}]}]},
+    [fill_form(M, I, Name) || {I, M} <- indexed(Members)] ++ [Last].
+
+fill_form({Kind, Fs}, I, Name) ->
+    Opt = fill_keys(Fs),
+    Req = lists:sort(maps:keys(Fs)) -- Opt,
+    MV = {var, ?A, 'Bs@m'},
+    FV = {var, ?A, 'Bs@first'},
+    EV = {var, ?A, 'Bs@fe'},
+    RV = {var, ?A, 'Bs@fr'},
+    Next = fun(First) -> {call, ?A, {atom, ?A, fill_name(Name, I + 1)}, [?VV, ?VP, First]} end,
+    Defaults = {map, ?A, [{map_field_assoc, ?A, key_lit(K, ?A), {atom, ?A, nothing}}
+                          || K <- Opt]},
+    Merged = {call, ?A, {remote, ?A, {atom, ?A, maps}, {atom, ?A, merge}}, [Defaults, ?VV]},
+    Present = [guard_call(is_map_key, [key_lit(K, ?A), ?VV]) || K <- Req],
+    Tags = [{op, ?A, '=:=', guard_call(map_get, [key_lit(K, ?A), ?VV]), {atom, ?A, A}}
+            || K <- Req, {tag, A} <- [tag_of(maps:get(K, Fs))]],
+    Absent = lists:foldr(fun(K, Acc) ->
+                                 Not = {op, ?A, 'not', guard_call(is_map_key, [key_lit(K, ?A), ?VV])},
+                                 case Acc of
+                                     none -> Not;
+                                     _    -> {op, ?A, 'orelse', Not, Acc}
+                                 end
+                         end, none, Opt),
+    Exact = [{op, ?A, '=:=', guard_call(map_size, [MV]), {integer, ?A, maps:size(Fs)}}
+             || Kind =:= closed],
+    Retry = {'case', ?A, {call, ?A, {atom, ?A, Name}, [MV, ?VP]},
+             [{clause, ?A, [{tuple, ?A, [{atom, ?A, ok}, RV]}], [],
+               [{tuple, ?A, [{atom, ?A, ok}, RV]}]},
+              {clause, ?A, [{tuple, ?A, [{atom, ?A, error}, EV]}], [],
+               [Next({'case', ?A, FV, [{clause, ?A, [{atom, ?A, none}], [], [EV]},
+                                        {clause, ?A, [{var, ?A, '_'}], [], [FV]}]})]}]},
+    {function, ?A, fill_name(Name, I), 3,
+     [{clause, ?A, [?VV, ?VP, FV], [],
+       [{'case', ?A, Merged,
+         [{clause, ?A, [MV], [Present ++ Tags ++ [Absent] ++ Exact], [Retry]},
+          {clause, ?A, [{var, ?A, '_'}], [], [Next(FV)]}]}]}]}.
+
+ty_clauses(Ty, Name, Table, Conv, Err) ->
     #{atoms := As, ints := Is, floats := Fl, tuples := Ts, maps := Ms,
       bins := Bs, opaques := Os, funs := Fs} = Ty,
     %% The checker rejects arrows: function types cannot be recovered at
@@ -1829,9 +1946,9 @@ ty_clauses(Ty, Name, Table, Err) ->
     ++ bin_clauses(lists:sort(Bs), Err)
     ++ [{clause, ?A, [{var, ?A, '_'}], [[guard_call(opaque_bif(O), [?VV])]], [ok_expr()]}
         || O <- Os]
-    ++ tuple_clauses(Ts, Table, Err)
-    ++ list_clauses(Ty, Name)
-    ++ map_clauses(Ms, Name, Table, Err).
+    ++ tuple_clauses(Ts, Table, Conv, Err)
+    ++ list_clauses(Ty, Name, Conv)
+    ++ map_clauses(Ms, Name, Table, Conv, Err).
 
 atom_clauses({finite, Atoms}) ->
     [{clause, ?A, [{atom, ?A, A}], [], [ok_expr()]} || A <- Atoms];
@@ -1878,57 +1995,74 @@ utf8_case(Valid, Invalid) ->
      [{clause, ?A, [UV], [[guard_call(is_list, [UV])]], [Valid]},
       {clause, ?A, [{var, ?A, '_'}], [], [Invalid]}]}.
 
-tuple_clauses(top, _Table, _Err) ->
+tuple_clauses(top, _Table, _Conv, _Err) ->
     [{clause, ?A, [{var, ?A, '_'}], [[guard_call(is_tuple, [?VV])]], [ok_expr()]}];
-tuple_clauses(Products, Table, Err) ->
-    [tuple_case(C, Table, Err) || C <- tuple_cases(Products)].
+tuple_clauses(Products, Table, Conv, Err) ->
+    [tuple_case(C, Table, Conv, Err) || C <- tuple_cases(Products)].
 
 %% Literal discriminants keep single-candidate clauses disjoint.
-tuple_case({one, Fixed, P}, Table, _Err) ->
+tuple_case({one, Fixed, P}, Table, Conv, _Err) ->
     Slots = [slot(I, Fixed, C, "Bs@c") || {I, C} <- indexed(P)],
-    Steps = [{C, V, bin_str("(" ++ integer_to_list(I) ++ ")")}
+    Steps = [{C, V, bin_str("(" ++ integer_to_list(I) ++ ")"), I}
              || {{I, C}, V} <- lists:zip(indexed(P), Slots),
                 I =/= Fixed, checked(C)],
-    {clause, ?A, [{tuple, ?A, Slots}], [], [chain(Steps, Table, 1)]};
+    Rebuild = fun(Outs) ->
+                      lists:foldl(fun({I, O}, Acc) ->
+                                          {call, ?A, {atom, ?A, setelement},
+                                           [{integer, ?A, I}, Acc, O]}
+                                  end, ?VV, Outs)
+              end,
+    {clause, ?A, [{tuple, ?A, Slots}], [], [chain(Steps, Table, Conv, Rebuild)]};
 %% Ambiguous candidates keep blame at this node with the whole type expected.
-tuple_case({alts, Ps}, Table, Err) ->
+tuple_case({alts, Ps}, Table, Conv, Err) ->
     Wilds = [{var, ?A, '_'} || _ <- hd(Ps)],
     {clause, ?A, [{tuple, ?A, Wilds}], [],
-     [alternatives([bs_types:tuple(P) || P <- Ps], Table, Err)]}.
+     [alternatives([bs_types:tuple(P) || P <- Ps], Table, Conv, Err)]}.
 
 slot(Slot, Slot, Ty, _Prefix) ->
     {tag, A} = tag_of(Ty),
     {atom, ?A, A};
 slot(Slot, _Fixed, Ty, Prefix) -> component_var(Prefix, Slot, Ty).
 
-list_clauses(Ty, Name) ->
+list_clauses(Ty, Name, Conv) ->
+    Rebuilt = lists:member(bs_types:list_elem(Ty), Conv),
     case {bs_types:has_nil(Ty), bs_types:has_cons(Ty)} of
         {false, false} -> [];
         {true, false}  -> [nil_clause()];
-        {Nil, true}    -> [nil_clause() || Nil] ++ [cons_clause(Name)]
+        {Nil, true}    -> [nil_clause() || Nil] ++ [cons_clause(Name, Rebuilt)]
     end.
 
 nil_clause() -> {clause, ?A, [{nil, ?A}], [], [ok_expr()]}.
 
 %% Cons patterns accept improper lists; the walker checks properness and blames
-%% the list at an improper tail.
-cons_clause(Name) ->
+%% the list at an improper tail. A walker over elements that may be filled
+%% collects them and returns the list it built.
+cons_clause(Name, Rebuilt) ->
     EV = {var, ?A, 'Bs@le'},
+    LV = {var, ?A, 'Bs@lo'},
+    {Args, Done} = case Rebuilt of
+                       false -> {[?VV, {integer, ?A, 0}, ?VP],
+                                 {clause, ?A, [{atom, ?A, ok}], [], [ok_expr()]}};
+                       true  -> {[?VV, {integer, ?A, 0}, ?VP, {nil, ?A}],
+                                 {clause, ?A, [{tuple, ?A, [{atom, ?A, ok}, LV]}], [],
+                                  [{tuple, ?A, [{atom, ?A, ok}, LV]}]}}
+                   end,
     {clause, ?A, [{cons, ?A, {var, ?A, '_'}, {var, ?A, '_'}}], [],
      [{'case', ?A,
-       {call, ?A, {atom, ?A, walker_name(Name)}, [?VV, {integer, ?A, 0}, ?VP]},
-       [{clause, ?A, [{atom, ?A, ok}], [], [ok_expr()]},
+       {call, ?A, {atom, ?A, walker_name(Name)}, Args},
+       [Done,
         {clause, ?A, [{tuple, ?A, [{atom, ?A, error}, EV]}], [],
          [{tuple, ?A, [{atom, ?A, error}, EV]}]}]}]}.
 
-walker_form(Ty, Name, Table, Err) ->
+walker_form(Ty, Name, Table, Conv, Err) ->
     Elem = bs_types:list_elem(Ty),
     case bs_types:is_none(Elem) of
         true  -> [];
         false ->
-            case checked(Elem) of
-                true  -> [walker(Name, maps:get(Elem, Table), Err)];
-                false -> [walker(Name, none, Err)]
+            case {checked(Elem), lists:member(Elem, Conv)} of
+                {true, true}  -> [collecting_walker(Name, maps:get(Elem, Table), Err)];
+                {true, false} -> [walker(Name, maps:get(Elem, Table), Err)];
+                {false, _}    -> [walker(Name, none, Err)]
             end
     end.
 
@@ -1960,6 +2094,31 @@ walker(Name, Sub, Err) ->
       %% An improper tail blames the list, not an element.
       {clause, ?A, [{var, ?A, '_'}, {var, ?A, '_'}, ?VP], [], [Err]}]}.
 
+%% `walker/3` with the validated elements collected, reversed, in a fourth
+%% argument.
+collecting_walker(Name, VName, Err) ->
+    W  = walker_name(Name),
+    IV = {var, ?A, 'Bs@i'},
+    TV = {var, ?A, 'Bs@t'},
+    HV = {var, ?A, 'Bs@h'},
+    AV = {var, ?A, 'Bs@acc'},
+    OV = {var, ?A, 'Bs@ho'},
+    EV = {var, ?A, 'Bs@we'},
+    Step = {'case', ?A,
+            {call, ?A, {atom, ?A, VName}, [HV, {cons, ?A, index_segment(IV), ?VP}]},
+            [{clause, ?A, [{tuple, ?A, [{atom, ?A, ok}, OV]}], [],
+              [{call, ?A, {atom, ?A, W},
+                [TV, {op, ?A, '+', IV, {integer, ?A, 1}}, ?VP, {cons, ?A, OV, AV}]}]},
+             {clause, ?A, [{tuple, ?A, [{atom, ?A, error}, EV]}], [],
+              [{tuple, ?A, [{atom, ?A, error}, EV]}]}]},
+    {function, ?A, W, 4,
+     [{clause, ?A, [{nil, ?A}, {var, ?A, '_'}, {var, ?A, '_'}, AV], [],
+       [{tuple, ?A, [{atom, ?A, ok},
+                     {call, ?A, {remote, ?A, {atom, ?A, lists}, {atom, ?A, reverse}}, [AV]}]}]},
+      {clause, ?A, [{cons, ?A, HV, TV}, IV, ?VP, AV], [], [Step]},
+      %% An improper tail blames the list, not an element.
+      {clause, ?A, [{var, ?A, '_'}, {var, ?A, '_'}, ?VP, {var, ?A, '_'}], [], [Err]}]}.
+
 index_segment(IV) ->
     {call, ?A, {remote, ?A, {atom, ?A, erlang}, {atom, ?A, iolist_to_binary}},
      [{cons, ?A, {integer, ?A, $[},
@@ -1990,55 +2149,88 @@ dom_walk(#{maps := Ms}) ->
         [] -> none
     end.
 
-dom_walk_call(Name) ->
+%% A walk over entries that may be filled collects them into the map it
+%% returns; any other walk answers `ok` and the map is handed back as it was.
+dom_walk_call(Name, Rebuilt) ->
     EV = {var, ?A, 'Bs@de'},
+    MV = {var, ?A, 'Bs@dm'},
     Iter = {call, ?A, {remote, ?A, {atom, ?A, maps}, {atom, ?A, iterator}},
             [?VV, {atom, ?A, ordered}]},
-    {'case', ?A, {call, ?A, {atom, ?A, dom_name(Name)}, [Iter, ?VP]},
-     [{clause, ?A, [{atom, ?A, ok}], [], [ok_expr()]},
+    {Args, Done} = case Rebuilt of
+                       false -> {[Iter, ?VP], {clause, ?A, [{atom, ?A, ok}], [], [ok_expr()]}};
+                       true  -> {[Iter, ?VP, {map, ?A, []}],
+                                 {clause, ?A, [{tuple, ?A, [{atom, ?A, ok}, MV]}], [],
+                                  [{tuple, ?A, [{atom, ?A, ok}, MV]}]}}
+                   end,
+    {'case', ?A, {call, ?A, {atom, ?A, dom_name(Name)}, Args},
+     [Done,
       {clause, ?A, [{tuple, ?A, [{atom, ?A, error}, EV]}], [],
        [{tuple, ?A, [{atom, ?A, error}, EV]}]}]}.
 
-dom_walker_form(Body, Name, Table, Err) ->
+dom_rebuilt({K, V}, Conv) -> lists:member(K, Conv) orelse lists:member(V, Conv).
+
+dom_walker_form(Body, Name, Table, Conv, Err) ->
     case dom_walk(Body) of
         none   -> [];
-        {K, V} -> [dom_walker(Name, K, V, Table, Err)]
+        {K, V} -> [dom_walker(Name, K, V, Table, dom_rebuilt({K, V}, Conv), Err)]
     end.
 
-dom_walker(Name, K, V, Table, Err) ->
+dom_walker(Name, K, V, Table, Rebuilt, Err) ->
     W  = dom_name(Name),
     IT = {var, ?A, 'Bs@it'},
     KV = {var, ?A, 'Bs@k'},
     EV = {var, ?A, 'Bs@v'},
     NV = {var, ?A, 'Bs@n'},
     SV = {var, ?A, 'Bs@s'},
+    AV = {var, ?A, 'Bs@acc'},
+    KO = {var, ?A, 'Bs@ko'},
+    VO = {var, ?A, 'Bs@vo'},
     Path = {cons, ?A, SV, ?VP},
-    Next = {call, ?A, {atom, ?A, W}, [NV, ?VP]},
+    %% Only a rebuilt walk binds a validated key or value; the other reads the
+    %% entry as it was.
+    Out = fun(Ty, Var, In) ->
+                  case Rebuilt andalso checked(Ty) of
+                      true  -> {Var, Var};
+                      false -> {{var, ?A, '_'}, In}
+                  end
+          end,
+    {KPat, KNew} = Out(K, KO, KV),
+    {VPat, VNew} = Out(V, VO, EV),
+    Next = case Rebuilt of
+               false -> {call, ?A, {atom, ?A, W}, [NV, ?VP]};
+               true  -> {call, ?A, {atom, ?A, W},
+                         [NV, ?VP, {call, ?A, {remote, ?A, {atom, ?A, maps}, {atom, ?A, put}},
+                                    [KNew, VNew, AV]}]}
+           end,
     VStep = case checked(V) of
-                true  -> dom_step(maps:get(V, Table), EV, Path, SV, Next, Err, 2);
+                true  -> dom_step(maps:get(V, Table), EV, VPat, Path, SV, Next, Err, 2);
                 false -> Next
             end,
     KStep = case checked(K) of
-                true  -> dom_step(maps:get(K, Table), KV, Path, SV, VStep, Err, 1);
+                true  -> dom_step(maps:get(K, Table), KV, KPat, Path, SV, VStep, Err, 1);
                 false -> VStep
             end,
-    ValPat = case checked(V) of
+    ValPat = case checked(V) orelse Rebuilt of
                  true  -> EV;
                  false -> {var, ?A, '_'}
              end,
-    {function, ?A, W, 2,
-     [{clause, ?A, [IT, ?VP], [],
+    {Params, Done} = case Rebuilt of
+                         false -> {[IT, ?VP], {atom, ?A, ok}};
+                         true  -> {[IT, ?VP, AV], {tuple, ?A, [{atom, ?A, ok}, AV]}}
+                     end,
+    {function, ?A, W, length(Params),
+     [{clause, ?A, Params, [],
        [{'case', ?A, {call, ?A, {remote, ?A, {atom, ?A, maps}, {atom, ?A, next}}, [IT]},
-         [{clause, ?A, [{atom, ?A, none}], [], [{atom, ?A, ok}]},
+         [{clause, ?A, [{atom, ?A, none}], [], [Done]},
           {clause, ?A, [{tuple, ?A, [KV, ValPat, NV]}], [],
            [{match, ?A, SV, {call, ?A, {atom, ?A, key_name()}, [KV]}},
             KStep]}]}]}]}.
 
 %% A failed entry with an unspellable key blames the map, not its child.
-dom_step(Validator, Value, Path, SV, Continue, Err, N) ->
+dom_step(Validator, Value, OkPat, Path, SV, Continue, Err, N) ->
     EV = {var, ?A, list_to_atom("Bs@e" ++ integer_to_list(N))},
     {'case', ?A, {call, ?A, {atom, ?A, Validator}, [Value, Path]},
-     [{clause, ?A, [{tuple, ?A, [{atom, ?A, ok}, {var, ?A, '_'}]}], [], [Continue]},
+     [{clause, ?A, [{tuple, ?A, [{atom, ?A, ok}, OkPat]}], [], [Continue]},
       {clause, ?A, [{tuple, ?A, [{atom, ?A, error}, {var, ?A, '_'}]}],
        [[{op, ?A, '=:=', SV, {atom, ?A, none}}]], [Err]},
       {clause, ?A, [{tuple, ?A, [{atom, ?A, error}, EV]}], [],
@@ -2091,39 +2283,43 @@ key_forms() ->
         [{call, ?A, {atom, ?A, bare_rest_name()}, [R]}]},
        {clause, ?A, [{var, ?A, '_'}], [], [{atom, ?A, false}]}]}].
 
-map_clauses(top, _Name, _Table, _Err) ->
+map_clauses(top, _Name, _Table, _Conv, _Err) ->
     [{clause, ?A, [{var, ?A, '_'}], [[guard_call(is_map, [?VV])]], [ok_expr()]}];
-map_clauses(Members, Name, Table, Err) ->
-    [map_case(C, Name, Table, Err) || C <- map_cases(Members)].
+map_clauses(Members, Name, Table, Conv, Err) ->
+    [map_case(C, Name, Table, Conv, Err) || C <- map_cases(Members)].
 
 %% Domain maps exclude `Kind`; only non-`term` keys or values need a walk.
-map_case({one, none, {dom, K, V}}, Name, _Table, _Err) ->
+map_case({one, none, {dom, K, V}}, Name, _Table, Conv, _Err) ->
     Guard = [[guard_call(is_map, [?VV]),
               {op, ?A, 'not', guard_call(is_map_key, [{atom, ?A, 'Kind'}, ?VV])}]],
     Body = case checked(K) orelse checked(V) of
                false -> ok_expr();
-               true  -> dom_walk_call(Name)
+               true  -> dom_walk_call(Name, dom_rebuilt({K, V}, Conv))
            end,
     {clause, ?A, [{var, ?A, '_'}], Guard, [Body]};
-map_case({any, Ms}, _Name, Table, Err) ->
+map_case({any, Ms}, _Name, Table, Conv, Err) ->
     {clause, ?A, [{var, ?A, '_'}], [[guard_call(is_map, [?VV])]],
-     [alternatives([member_ty(M) || M <- Ms], Table, Err)]};
-map_case({one, Fixed, {Kind, Fs}}, _Name, Table, _Err) ->
+     [alternatives([member_ty(M) || M <- Ms], Table, Conv, Err)]};
+map_case({one, Fixed, {Kind, Fs}}, _Name, Table, Conv, _Err) ->
     Pairs = [{K, maps:get(K, Fs)} || K <- lists:sort(maps:keys(Fs))],
     Slots = [map_slot(K, Fixed, T, I) || {I, {K, T}} <- indexed(Pairs)],
     Pat   = {map, ?A, [{map_field_exact, ?A, key_lit(K, ?A), V}
                        || {{K, _}, V} <- lists:zip(Pairs, Slots)]},
-    Steps = [{T, V, bin_str(field_seg(K))}
+    Steps = [{T, V, bin_str(field_seg(K)), K}
              || {{K, T}, V} <- lists:zip(Pairs, Slots),
                 K =/= Fixed, checked(T)],
+    Rebuild = fun(Outs) ->
+                      {map, ?A, ?VV, [{map_field_exact, ?A, key_lit(K, ?A), O}
+                                      || {K, O} <- Outs]}
+              end,
     {clause, ?A, [Pat], closed_guard(Kind, length(Pairs)),
-     [chain(Steps, Table, 1)]};
-map_case({alts, Ms = [{Kind, Fs} | _]}, _Name, Table, Err) ->
+     [chain(Steps, Table, Conv, Rebuild)]};
+map_case({alts, Ms = [{Kind, Fs} | _]}, _Name, Table, Conv, Err) ->
     Keys = lists:sort(maps:keys(Fs)),
     Pat  = {map, ?A, [{map_field_exact, ?A, key_lit(K, ?A), {var, ?A, '_'}}
                       || K <- Keys]},
     {clause, ?A, [Pat], closed_guard(Kind, length(Keys)),
-     [alternatives([member_ty(M) || M <- Ms], Table, Err)]}.
+     [alternatives([member_ty(M) || M <- Ms], Table, Conv, Err)]}.
 
 map_slot(Key, Key, Ty, _I) ->
     {tag, A} = tag_of(Ty),
@@ -2137,25 +2333,44 @@ closed_guard(open, _N) ->
     [].
 
 %% Return the first child failure unchanged to preserve its deeper blame.
-chain([], _Table, _N) -> ok_expr();
-chain([{SubTy, Value, Segment} | Rest], Table, N) ->
+%% A child that may be filled binds what it returns, and `Rebuild` puts those
+%% back in place of what was handed in; with none, the term is returned as is.
+chain(Steps, Table, Conv, Rebuild) -> chain(Steps, Table, Conv, Rebuild, 1, []).
+
+chain([], _Table, _Conv, _Rebuild, _N, []) -> ok_expr();
+chain([], _Table, _Conv, Rebuild, _N, Outs) ->
+    {tuple, ?A, [{atom, ?A, ok}, Rebuild(lists:reverse(Outs))]};
+chain([{SubTy, Value, Segment, Slot} | Rest], Table, Conv, Rebuild, N, Outs) ->
     EV = {var, ?A, list_to_atom("Bs@e" ++ integer_to_list(N))},
+    {OkPat, Outs1} = case lists:member(SubTy, Conv) of
+                         true  -> OV = {var, ?A, list_to_atom("Bs@o" ++ integer_to_list(N))},
+                                  {OV, [{Slot, OV} | Outs]};
+                         false -> {{var, ?A, '_'}, Outs}
+                     end,
     {'case', ?A,
      {call, ?A, {atom, ?A, maps:get(SubTy, Table)},
       [Value, {cons, ?A, Segment, ?VP}]},
-     [{clause, ?A, [{tuple, ?A, [{atom, ?A, ok}, {var, ?A, '_'}]}], [],
-       [chain(Rest, Table, N + 1)]},
+     [{clause, ?A, [{tuple, ?A, [{atom, ?A, ok}, OkPat]}], [],
+       [chain(Rest, Table, Conv, Rebuild, N + 1, Outs1)]},
       {clause, ?A, [{tuple, ?A, [{atom, ?A, error}, EV]}], [],
        [{tuple, ?A, [{atom, ?A, error}, EV]}]}]}.
 
 %% Discard failed alternatives' paths: they describe shapes the value was never
-%% required to have. Blame this node if every alternative fails.
-alternatives([], _Table, Err) -> Err;
-alternatives([Ty | Rest], Table, Err) ->
+%% required to have. Blame this node if every alternative fails. An
+%% alternative that may be filled answers with the value it returned.
+alternatives([], _Table, _Conv, Err) -> Err;
+alternatives([Ty | Rest], Table, Conv, Err) ->
+    OV = {var, ?A, 'Bs@ao'},
+    Ok = case lists:member(Ty, Conv) of
+             true  -> {clause, ?A, [{tuple, ?A, [{atom, ?A, ok}, OV]}], [],
+                       [{tuple, ?A, [{atom, ?A, ok}, OV]}]};
+             false -> {clause, ?A, [{tuple, ?A, [{atom, ?A, ok}, {var, ?A, '_'}]}], [],
+                       [ok_expr()]}
+         end,
     {'case', ?A, {call, ?A, {atom, ?A, maps:get(Ty, Table)}, [?VV, ?VP]},
-     [{clause, ?A, [{tuple, ?A, [{atom, ?A, ok}, {var, ?A, '_'}]}], [], [ok_expr()]},
+     [Ok,
       {clause, ?A, [{tuple, ?A, [{atom, ?A, error}, {var, ?A, '_'}]}], [],
-       [alternatives(Rest, Table, Err)]}]}.
+       [alternatives(Rest, Table, Conv, Err)]}]}.
 
 %% Unchecked components use `_` to avoid unused-variable warnings.
 component_var(Prefix, I, Ty) ->
