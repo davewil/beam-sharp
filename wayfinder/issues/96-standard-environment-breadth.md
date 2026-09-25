@@ -83,6 +83,48 @@ emits the remote call through `inlined_bif/1`'s path. `check-reserved-qualifiers
 to allow OTP's modules and refuse B# ones. Each new qualifier (`String`, `Int`, `Process`,
 `GenServer`, `Supervisor`, `Logger`) is a reserved name, which ticket 65 (ENG-255) governs.
 
+**Q2. Are the operations named as Elixir names them, PascalCased, and not as LINQ does?**
+
+```csharp
+public list<string> TopCustomers(list<Order> os)
+TopCustomers(os) -> os |> List.SortBy(o => o.Total) |> List.Take(3) |> List.Map(o => o.Customer)
+```
+
+Under yes this is the spelling: `SortBy`, `Take`, `FlatMap`, `GroupBy`, `Uniq`, `Any`, `All`,
+matching F46's `Map`, `Filter` and `Fold`, which already chose Elixir's words over LINQ's `Select`,
+`Where` and `Aggregate`. Under no, the table uses LINQ's (`OrderBy`, `SelectMany`, `Distinct`) and
+F46's three are renamed. The borrow heuristic surveys C# first; F46 is where it was met.
+
+**Q3. Does ticket 48 Q8's rule, two operations with the assertive one preferred, reach every
+operation that can find nothing: `List.First`, `Last`, `At`, `Max`, `Min`, `Find`, as well as
+`Map.Get`?**
+
+```csharp
+public Order Latest(list<Order> os)
+Latest(os) -> List.MaxBy(os, o => o.PlacedAt)          // an empty list crashes, via `raise`
+
+public option<Order> Newest(list<Order> os)
+Newest(os) -> List.TryMaxBy(os, o => o.PlacedAt)       // an empty list is :nothing
+```
+
+Under yes every such operation has both forms, one naming convention for the pair (the one ENG-324
+owes for `Map.Get`, decided once for all of them), and the assertive form is the plain name. Under
+no, each returns `option<T>` only and a caller who knows the list is non-empty matches `:nothing`
+anyway. The `Try` prefix above is a placeholder: the spelling is ENG-324's.
+
+**Q4. Is there no `Enum`: an operation over a map lives under `Map` and one over a list under
+`List`, and neither takes the other's argument?**
+
+```csharp
+public int Stock(map<string, int> counts)
+Stock(cs) -> Map.Fold(cs, 0, (k, n, acc) => acc + n)
+```
+
+Under yes this is the spelling, and `List.Fold(cs, …)` over a map is refused by the argument check
+it already has. Elixir's `Enum` exists because the `Enumerable` protocol dispatches at run time,
+and ticket 16 gave B# no protocols. Under no, an `Enum` qualifier takes a `list<T> | map<K, V>` and
+dispatches on the argument's shape.
+
 ## What a yes makes cheap — the roster, for a later round
 
 This is not a round of questions. It is what the table would hold. It is drawn from the imports
