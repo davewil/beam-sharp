@@ -128,7 +128,8 @@ HandleAnswer(:triage, answer, s) -> (:noreply, s with { Last = answer })
 ```
 
 Under yes, `Triage`'s `HandleAnswer` is checked with `S` as `Triage.State`, so returning the wrong
-state is refused, as a GenServer's `State` is checked today through F10's contract. Under no, the
+state is refused, as ENG-437 will check a GenServer's callbacks against OTP's contract (F10 checks
+names and presence only). Under no, the
 library writes `term` for the user's state and the check stops at the tuple's shape. The type
 variable is ground at the `behaviour` line, as ticket 27 §8 requires of any obligation.
 
