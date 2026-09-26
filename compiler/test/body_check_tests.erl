@@ -357,11 +357,14 @@ joined() -> "{ Kind: :invoice | :receipt, Id: int }".
 
 split() -> "{ Kind: :invoice, Id: int } | { Kind: :receipt, Id: int }".
 
-%% From the file name on: each fixture lives in its own directory.
+%% The CLI output with each line's fixture directory removed, since every
+%% fixture lives in its own directory.
 reissue_output(Src) ->
     with_src("reissue.bs", Src,
              fun(Path, Out) ->
-                     string:find(run_cli("-o " ++ Out ++ " " ++ Path), "reissue.bs:")
+                     re:replace(run_cli("-o " ++ Out ++ " " ++ Path),
+                                "^.*reissue\\.bs:", "reissue.bs:",
+                                [global, multiline, {return, list}])
              end).
 
 with_cannot_move_a_value_to_another_member_test() ->
@@ -373,12 +376,26 @@ with_cannot_move_a_value_to_another_member_test() ->
     %% Both spellings of `Doc` are one type, so they get one answer.
     ?assertEqual(Got, reissue_output(reissue(split(), "Kind = :receipt"))).
 
-%% A hand-written `:receipt` is a tag, not a record's name.
+%% A hand-written `:receipt` is a tag, not a record's name: the key is still
+%% undeclared, and the member is named by its shape.
 an_undeclared_key_over_tagged_members_names_no_record_test() ->
     Got = reissue_output(reissue(joined(), "Foo = 1")),
+    ?assert(string:find(Got, "not declared by { Kind: :invoice }") =/= nomatch),
+    ?assert(string:find(Got, "not declared by { Kind: :receipt }") =/= nomatch),
+    ?assertEqual(nomatch, string:find(Got, "by invoice")),
     ?assert(string:find(Got, "rc:1") =/= nomatch),
-    ?assertEqual(nomatch, string:find(Got, "an receipt")),
-    ?assertEqual(nomatch, string:find(Got, "by invoice")).
+    ?assertEqual(Got, reissue_output(reissue(split(), "Foo = 1"))).
+
+%% A record keeps its name beside a hand-written tagged member.
+an_undeclared_key_over_a_mixed_union_names_the_record_test() ->
+    Src = "module Mixed\n"
+          "record Invoice { Id: int }\n"
+          "type Doc = Invoice | { Kind: :draft, Id: int }\n"
+          "public Doc Settle(Doc d)\n"
+          "Settle(d) -> d with { Foo = 1 }\n",
+    ?assertMatch([{error, _, 'Settle', {field_set_mismatch, 'Invoice', update, [], ['Foo']}},
+                  {error, _, 'Settle', {field_set_mismatch, _, update, [], ['Foo']}}],
+                 lists:sort(errors(Src))).
 
 %% Records already refused the cross-member `with`; the name stays the record's.
 with_cannot_turn_one_record_into_another_test() ->

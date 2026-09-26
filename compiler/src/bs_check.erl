@@ -1273,7 +1273,8 @@ stratum_one() ->
                      {t_tuple, [{t_atom, exit},  {t_builtin, term}]}]}}.
 
 %% `ValidationError` is the validator's record payload: path and expected type.
-%% `record_of/3` and `bs_emit:record_tag/2` read its tag from this map layout.
+%% `record_of/3`, `known_record_tags/0` and `bs_emit:record_tag/2` read its tag
+%% from this map layout.
 %% Its bare tag cannot collide with user record tags, which contain a dot.
 %% `compiler_known_redeclared/1` prevents shadowing; merge order does not.
 %% Rationale: compiler/features/F49-validation-error-record.md.
@@ -3013,8 +3014,9 @@ update(L, T, Fields, D1, S, C) ->
     {Tys, D2} = type_of_all([E || {_, E} <- Fields], S, C),
     Keys = [K || {K, _} <- Fields],
     {Ty, D3} =
-        case {declared_fields(T), record_name(T)} of
-            {Declared, Name} when Declared =/= unknown, Name =/= unknown ->
+        case {declared_fields(T), tag_of(T)} of
+            {Declared, Tag} when Declared =/= unknown, Tag =/= unknown ->
+                Name = member_label(T),
                 case lists:sort(Keys -- Declared) of
                     [] ->
                         {T, field_value_diags(Keys, Tys, T, Name, L, C)};
@@ -3730,7 +3732,7 @@ all_named_records(#{mu := _} = T) ->
     all_named_records(bs_types:unfold(T));
 all_named_records(#{maps := Members} = T) when is_list(Members), Members =/= [] ->
     bs_types:is_none(bs_types:subtract(T, bs_types:map_open(#{})))
-        andalso lists:all(fun(M) -> record_name(M) =/= unknown end,
+        andalso lists:all(fun(M) -> tag_of(M) =/= unknown end,
                           member_types(Members));
 all_named_records(_) ->
     false.
@@ -3741,7 +3743,7 @@ invented_diags(_T, [], _L, _C) ->
     [];
 invented_diags(T, Ks, L, C) ->
     [{error, L, C#ctx.fname,
-      {field_set_mismatch, record_name(M), update, [], lists:sort(Ks)}}
+      {field_set_mismatch, member_label(M), update, [], lists:sort(Ks)}}
      || M <- member_types(members_of(T))].
 
 %% Shared by projection and update: the residual may lack `Field`.
@@ -3804,13 +3806,23 @@ minted_tag(Name, Env) ->
         _:_ -> undefined
     end.
 
+%% A member's single tag, or `unknown`. `with` classifies members by this;
+%% `record_name/1` only decides what a diagnostic calls one.
+tag_of(Ty) ->
+    case field_type(Ty, 'Kind') of
+        #{atoms := {finite, [Tag]}} -> Tag;
+        _                           -> unknown
+    end.
+
 %% Minted tags end in the record's declared name after the last dot. `with`
 %% needs this name for diagnostics because it has only the base type. Multiple
 %% tags have no single record name. A bare tag names a record only when the
-%% compiler declares it: a hand-written `:invoice` is a tag (ticket 109).
+%% compiler declares it: a hand-written `:invoice` is a tag (ticket 109), and
+%% its member is printed by its shape instead.
 record_name(Ty) ->
-    case field_type(Ty, 'Kind') of
-        #{atoms := {finite, [Tag]}} ->
+    case tag_of(Ty) of
+        unknown -> unknown;
+        Tag ->
             case split_qualified(Tag) of
                 {_Mod, Name} -> Name;
                 bare ->
@@ -3818,9 +3830,7 @@ record_name(Ty) ->
                         true  -> Tag;
                         false -> unknown
                     end
-            end;
-        _ ->
-            unknown
+            end
     end.
 
 known_record_tags() ->

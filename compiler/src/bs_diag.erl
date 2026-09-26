@@ -1020,10 +1020,10 @@ message(#{tag := arg_not_accepted, file := P, line := L, column := C, function :
 %% form; `field_list/2` renders an empty `Missing` as nothing.
 message(#{tag := field_set_mismatch, file := P, line := L, column := C, function := Fn,
           record := Record, form := Form, missing := Missing, extra := Extra}) ->
-    {"~s:~p:~p: error: ~s ~s an ~s with the wrong fields~n~s~s",
-     [P, L, C, Fn, field_set_verb(Form), Record,
+    {"~s:~p:~p: error: ~s ~s ~s with the wrong fields~n~s~s",
+     [P, L, C, Fn, field_set_verb(Form), field_set_subject(Record),
       field_list("  missing, and must be supplied", Missing),
-      field_list("  not declared by " ++ atom_to_list(Record), Extra)]};
+      field_list("  not declared by " ++ field_set_label(Record), Extra)]};
 %% Shaped on `return_not_declared`'s message: both say a synthesised value is
 %% not contained in a declared type, differing only in which declaration.
 message(#{tag := field_value_not_accepted, file := P, line := L, column := C, function := Fn,
@@ -1991,6 +1991,14 @@ caller_head_prose(_Fn, Heads) ->
 %% carries a `Missing` list.
 field_set_verb(construction) -> "builds";
 field_set_verb(update)       -> "updates".
+
+%% A record is named; a hand-written tagged member arrives as its printed shape
+%% (ticket 109), which reads as "the member { Kind: :invoice }".
+field_set_subject(Record) when is_atom(Record) -> "an " ++ atom_to_list(Record);
+field_set_subject(Shape)                        -> "the member " ++ Shape.
+
+field_set_label(Record) when is_atom(Record) -> atom_to_list(Record);
+field_set_label(Shape)                        -> Shape.
 
 %% A foreign return refused for a `string`. The type is named as written, and
 %% the edit is offered only where one guard reaches the `string`; under a list
