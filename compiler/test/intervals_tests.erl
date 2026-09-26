@@ -179,6 +179,44 @@ a_catch_all_over_a_kind_with_a_binary_part_is_legal_test() ->
           "Pick(_)                   -> :other\n",
     ?assertMatch({ok, _, _}, check_only(Src)).
 
+%% ENG-491, ticket 109: a `Kind` of several atoms is shorthand for the union of
+%% one tagged member per atom, so both spellings of `Doc` refuse `_` alike.
+docs(Name, DocType) ->
+    "module " ++ Name ++ "\n"
+    "type Doc = " ++ DocType ++ "\n"
+    "public atom Which(Doc d)\n"
+    "Which({ Id: 0 }) -> :zero\n"
+    "Which(_)         -> :other\n".
+
+a_kind_of_several_atoms_refuses_a_catch_all_as_its_union_does_test() ->
+    Joined = docs("Joined", "{ Kind: :invoice | :receipt, Id: int }"),
+    Split  = docs("Split", "{ Kind: :invoice, Id: int } | { Kind: :receipt, Id: int }"),
+    Heads = fun(Name, Src) ->
+                    with_src(string:lowercase(Name) ++ ".bs", Src,
+                             fun(Path, Out) ->
+                                     Got = run_cli("-o " ++ Out ++ " " ++ Path),
+                                     ?assert(string:find(Got, "rc:1") =/= nomatch),
+                                     [L || L <- string:split(Got, "\n", all),
+                                           string:find(L, "Which(") =/= nomatch]
+                             end)
+            end,
+    ?assertEqual(["    Which({ Kind: :invoice }) -> ...",
+                  "    Which({ Kind: :receipt }) -> ..."],
+                 Heads("Joined", Joined)),
+    ?assertEqual(Heads("Joined", Joined), Heads("Split", Split)).
+
+a_kind_of_several_atoms_is_covered_by_one_clause_per_atom_test() ->
+    Src = "module Covered\n"
+          "type Doc = { Kind: :invoice | :receipt, Id: int }\n"
+          "public atom Which(Doc d)\n"
+          "Which({ Kind: :invoice, Id: i }) -> :inv\n"
+          "Which({ Kind: :receipt, Id: i }) -> :rec\n",
+    ?assertMatch({ok, _, _}, check_only(Src)).
+
+%% `atom` names no set of tags: the open universe keeps `_` legal.
+a_kind_of_any_atom_stays_open_test() ->
+    ?assertMatch({ok, _, _}, check_only(docs("Any", "{ Kind: atom, Id: int }"))).
+
 %% A tuple does not close on its first element: `(:ok, int)` stays open.
 a_catch_all_over_a_tuple_with_an_int_part_is_legal_test() ->
     Src = "module Reading\n"

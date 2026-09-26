@@ -446,6 +446,25 @@ Handle(_)              -> :other
 — *the `_` would take an `OrderCancelled` silently; the compiler names it instead:
 `Handle(OrderCancelled o) -> ...`.*
 
+A `Kind` of several atoms is shorthand for the union of one tagged member per atom:
+`{ Kind: :invoice | :receipt, Id: int }` **is** `{ Kind: :invoice, Id: int } | { Kind: :receipt,
+Id: int }`, so it closes the same way. **shipped**
+<!-- decided by ticket 109; built by ENG-491 -->
+
+<!-- diagnoses: catch_all_over_closed -->
+```csharp
+module Docs
+
+type Doc = { Kind: :invoice | :receipt, Id: int }
+
+public atom Which(Doc d)
+Which({ Id: 0 }) -> :zero
+Which(_)         -> :other
+```
+
+— *both tags are cases the compiler can name: `Which({ Kind: :invoice }) -> ...` and
+`Which({ Kind: :receipt }) -> ...`.*
+
 ---
 
 ## 4. Types

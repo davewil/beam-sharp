@@ -346,7 +346,15 @@ map_open(Fields) -> map_member(open, Fields).
 map_member(Kind, Fields) when is_map(Fields) ->
     case lists:any(fun is_none/1, maps:values(Fields)) of
         true  -> none();          % a field with an empty type admits no map
-        false -> (none())#{maps => [{Kind, Fields}]}
+        false ->
+            case kind_tags(Fields) of
+                %% Several tags are shorthand for one member per tag (ticket
+                %% 109), so every reader sees the split form.
+                [_, _ | _] = Tags ->
+                    union([(none())#{maps => [{Kind, Fields#{'Kind' => atom_lit(T)}}]}
+                           || T <- Tags]);
+                _ -> (none())#{maps => [{Kind, Fields}]}
+            end
     end.
 
 %% The empty map inhabits every domain rule, even with empty K or V. Unlike
@@ -923,10 +931,17 @@ m_absorb(Ms0) ->
 discriminator({dom, _, _}) ->
     none;
 discriminator({_Kind, Fields}) ->
+    case kind_tags(Fields) of
+        [Tag] -> Tag;
+        _     -> none
+    end.
+
+%% A `Kind` names tags only when atoms are all it holds.
+kind_tags(Fields) ->
     case maps:find('Kind', Fields) of
-        {ok, #{atoms := {finite, [Tag]}, ints := [], floats := {finite, []},
+        {ok, #{atoms := {finite, Tags}, ints := [], floats := {finite, []},
                tuples := [], lists := [], maps := [], bins := [], opaques := [],
-               funs := []}} -> Tag;
+               funs := []}} -> Tags;
         _ -> none
     end.
 
