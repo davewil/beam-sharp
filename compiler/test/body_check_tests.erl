@@ -380,6 +380,8 @@ with_cannot_move_a_value_to_another_member_test() ->
 %% undeclared, and the member is named by its shape.
 an_undeclared_key_over_tagged_members_names_no_record_test() ->
     Got = reissue_output(reissue(joined(), "Foo = 1")),
+    ?assert(string:find(Got, "updates the member { Kind: :invoice } with the wrong fields")
+            =/= nomatch),
     ?assert(string:find(Got, "not declared by { Kind: :invoice }") =/= nomatch),
     ?assert(string:find(Got, "not declared by { Kind: :receipt }") =/= nomatch),
     ?assertEqual(nomatch, string:find(Got, "by invoice")),
@@ -393,9 +395,13 @@ an_undeclared_key_over_a_mixed_union_names_the_record_test() ->
           "type Doc = Invoice | { Kind: :draft, Id: int }\n"
           "public Doc Settle(Doc d)\n"
           "Settle(d) -> d with { Foo = 1 }\n",
-    ?assertMatch([{error, _, 'Settle', {field_set_mismatch, 'Invoice', update, [], ['Foo']}},
-                  {error, _, 'Settle', {field_set_mismatch, _, update, [], ['Foo']}}],
-                 lists:sort(errors(Src))).
+    with_src("mixed.bs", Src,
+             fun(Path, Out) ->
+                     Got = run_cli("-o " ++ Out ++ " " ++ Path),
+                     ?assert(string:find(Got, "not declared by Invoice:") =/= nomatch),
+                     ?assert(string:find(Got, "not declared by { Kind: :draft }:") =/= nomatch),
+                     ?assert(string:find(Got, "rc:1") =/= nomatch)
+             end).
 
 %% Records already refused the cross-member `with`; the name stays the record's.
 with_cannot_turn_one_record_into_another_test() ->

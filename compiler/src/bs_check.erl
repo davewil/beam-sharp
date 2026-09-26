@@ -3767,7 +3767,8 @@ members_of(#{maps := Members}) when is_list(Members) -> Members.
 member_types(Members) ->
     [(bs_types:none())#{maps => [{Openness, Fs}]} || {Openness, Fs} <- Members].
 
-%% Untagged members use their printed shape so value errors remain reportable.
+%% Untagged members use their printed shape so value errors remain reportable,
+%% and so does a member whose tag names no record, `{ Kind: :invoice }`.
 member_label(MTy) ->
     case record_name(MTy) of
         unknown -> lists:flatten(bs_types:to_pattern(MTy));
@@ -3817,8 +3818,7 @@ tag_of(Ty) ->
 %% Minted tags end in the record's declared name after the last dot. `with`
 %% needs this name for diagnostics because it has only the base type. Multiple
 %% tags have no single record name. A bare tag names a record only when the
-%% compiler declares it: a hand-written `:invoice` is a tag (ticket 109), and
-%% its member is printed by its shape instead.
+%% compiler declares it: a hand-written `:invoice` is a tag (ticket 109).
 record_name(Ty) ->
     case tag_of(Ty) of
         unknown -> unknown;
