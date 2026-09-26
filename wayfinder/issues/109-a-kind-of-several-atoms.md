@@ -1,9 +1,9 @@
 # 109 — A `Kind` of several atoms: shorthand for a union of tagged members, or refused?
 
 Type: grilling
-Status: resolved 2026-09-26 — [ENG-492](https://linear.app/davewil/issue/ENG-492). Raised and
-answered 2026-09-26 out of [ENG-491](https://linear.app/davewil/issue/ENG-491); one question, one
-round
+Status: open — [ENG-492](https://linear.app/davewil/issue/ENG-492). Raised 2026-09-26 out of
+[ENG-491](https://linear.app/davewil/issue/ENG-491). Q1 answered the same day; round 2 (Q2) reopened
+it, when the build's review found Q1's framing false for `with`
 Blocked by: —
 
 ## Why this is raised
@@ -59,6 +59,41 @@ So `{ Kind: :invoice | :receipt, Id: int }` means `{ Kind: :invoice, Id: int } |
 :receipt, Id: int }`, everywhere a type is read: openness, subtraction, the residual's printed
 heads, and the emitted spec. Each case is still named by one atom, which was the aim of the
 reserved-tag direction, and the key stays the ordinary key 73 Q1 made it.
+
+## Round 2, Q2: may `with` move a value from one member of its type to another?
+
+Asked 2026-09-26. Q1's framing said *"every program that compiles today still compiles"*, and that
+is false. The cold review of the ENG-491 build (`22f7952`) found this program:
+
+```csharp
+module Reissue
+
+type Doc = { Kind: :invoice | :receipt, Id: int }
+
+public Doc Settle(Doc d)
+Settle(d) -> d with { Kind = :receipt }
+```
+
+It compiles at `2c6783c`, before the build. After it, the program is refused:
+
+```
+Reissue/Reissue.bs:6:16: error: Settle assigns Kind a value invoice does not accept
+  not covered by the declared type of Kind:
+    :receipt
+```
+
+[36](36-field-value-obligations.md) checks a `with` against the type the declaration wrote down.
+Written joined, that type is `Kind: :invoice | :receipt`, and it accepts `:receipt`. Expanded, `with`
+checks each member on its own, and the `invoice` member refuses `:receipt`. The split spelling,
+`{ Kind: :invoice, Id: int } | { Kind: :receipt, Id: int }`, was already refused at `2c6783c`. So
+Q1's answer made the joined spelling behave as the split one did, and no ticket has decided what
+`with` does across the members of a union.
+
+Under one answer, `Settle` compiles in both spellings. The split spelling, refused today, becomes
+legal. The compiler delta: `e_with` checks the updated value against the whole declared type,
+rather than against each member it started in. Under the other answer, `Settle` is refused in both
+spellings, as the build has it. A program that compiled at `2c6783c` stops compiling, and the
+message must stop printing the tag `invoice` where a record's name goes.
 
 ## The compiler delta
 
