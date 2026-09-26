@@ -1,9 +1,9 @@
 # 109 — A `Kind` of several atoms: shorthand for a union of tagged members, or refused?
 
 Type: grilling
-Status: open — [ENG-492](https://linear.app/davewil/issue/ENG-492). Raised 2026-09-26 out of
-[ENG-491](https://linear.app/davewil/issue/ENG-491). Q1 answered the same day; round 2 (Q2) reopened
-it, when the build's review found Q1's framing false for `with`
+Status: resolved 2026-09-26 — [ENG-492](https://linear.app/davewil/issue/ENG-492). Raised and
+answered 2026-09-26 out of [ENG-491](https://linear.app/davewil/issue/ENG-491); two rounds, the
+second raised when the build's review found Q1's framing false for `with`
 Blocked by: —
 
 ## Why this is raised
@@ -95,6 +95,21 @@ rather than against each member it started in. Under the other answer, `Settle` 
 spellings, as the build has it. A program that compiled at `2c6783c` stops compiling, and the
 message must stop printing the tag `invoice` where a record's name goes.
 
+The question was put to David as a domain-modelling question. Records already refuse the
+cross-member `with`: `d with { Kind = :'Morph.Receipt' }` over `Invoice | Receipt` is refused
+at `2c6783c` (*"assigns Kind a value Invoice does not accept"*). So a *yes* would reach records
+too, and settling an invoice could be written as a field edit instead of as the construction
+`Settle(Invoice { Id: id, Amount: a }, at) -> Receipt { Id = id, Amount = a, PaidAt = at }`. A
+state that is an attribute of one thing (`record Order { Id: int, Status: :draft | :sent }`,
+`o with { Status = :sent }`) compiles under either answer.
+
+**A2 (David, 2026-09-26):** *"no"*: in a language enforcing DDD's ubiquitous language, bounded
+contexts and anti-corruption layers, `with` may not move a value from one member of its type to
+another. `Kind` says what a value *is*. Changing it is a named function that constructs the other
+member, and across bounded contexts that function is the anti-corruption layer. `Settle` is refused
+in both spellings. The refusal names a member with no record name by its shape, `{ Kind: :invoice
+}`, not by its bare tag.
+
 ## The compiler delta
 
 - `bs_types:map_member/2`, the constructor behind `map_closed/1` and `map_open/1`, expands a `Kind`
@@ -121,7 +136,11 @@ message must stop printing the tag `invoice` where a record's name goes.
   2026-09-26 in one round, out of [ENG-491](https://linear.app/davewil/issue/ENG-491). After
   [101](issues/101-what-closes-a-residual.md) was built, the joined spelling stayed open while the
   split spelling of the same type closed, so `_` was legal over one and refused over the other.
-  The key stays ordinary, as [73](issues/73-a-record-name-crosses-using.md) Q1 has it: nothing a
-  program may write is taken away. A `Kind` with any non-atom part is not a set of tags and is
-  unchanged. Not decided: renaming the key to a reserved `__Kind__`. Unbuilt — ENG-491.
+  The key stays ordinary, as [73](issues/73-a-record-name-crosses-using.md) Q1 has it. A `Kind`
+  with any non-atom part is not a set of tags and is unchanged. **Round 2: `with` may not move a
+  value from one member to another**, as records already refused. `Kind` says what a value is,
+  changing it is a named function that constructs the other member, and across bounded contexts
+  that function is the anti-corruption layer. The one program this stops compiling, `d with
+  { Kind = :receipt }` over the joined spelling, is refused exactly as its split spelling already
+  was. Not decided: renaming the key to a reserved `__Kind__`. Built — ENG-491.
 ```

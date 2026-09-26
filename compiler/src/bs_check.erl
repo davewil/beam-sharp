@@ -3766,11 +3766,19 @@ member_types(Members) ->
     [(bs_types:none())#{maps => [{Openness, Fs}]} || {Openness, Fs} <- Members].
 
 %% Untagged members use their printed shape so value errors remain reportable.
+%% Only a qualified tag is minted by `record`; `:invoice` names no record, so its
+%% member is shown by its shape too (ticket 109 Q2).
 member_label(MTy) ->
-    case record_name(MTy) of
-        unknown -> lists:flatten(bs_types:to_pattern(MTy));
-        Name    -> Name
+    case {record_name(MTy), field_type(MTy, 'Kind')} of
+        {unknown, _} -> shape_label(MTy);
+        {Name, #{atoms := {finite, [Tag]}}} ->
+            case string:find(atom_to_list(Tag), ".") of
+                nomatch -> shape_label(MTy);
+                _       -> Name
+            end
     end.
+
+shape_label(MTy) -> lists:flatten(bs_types:to_pattern(MTy)).
 
 %% Head hints use only names resolvable in this environment, keyed by tag.
 %% Deriving a name from a tag could suggest a type outside the file's scope.

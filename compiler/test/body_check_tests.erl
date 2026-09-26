@@ -345,6 +345,33 @@ with_checks_the_value_assigned_to_a_field_test() ->
                    {field_value_not_accepted, 'Order', 'Total', _}}],
                  errors(Src)).
 
+%% Ticket 109 Q2: `with` keeps each member in itself, so it cannot move a
+%% value to another member; a member with no record name is shown by its shape.
+with_cannot_move_a_value_to_another_member_test() ->
+    Src = "module Reissue\n"
+          "type Doc = { Kind: :invoice | :receipt, Id: int }\n"
+          "public Doc Settle(Doc d)\n"
+          "Settle(d) -> d with { Kind = :receipt }\n",
+    with_src("reissue.bs", Src,
+             fun(Path, Out) ->
+                     Got = run_cli("-o " ++ Out ++ " " ++ Path),
+                     ?assert(string:find(Got, "Settle assigns Kind a value") =/= nomatch),
+                     ?assertEqual(nomatch, string:find(Got, "a value invoice does not")),
+                     ?assert(string:find(Got, "Kind: :invoice") =/= nomatch),
+                     ?assert(string:find(Got, "rc:1") =/= nomatch)
+             end).
+
+with_cannot_turn_one_record_into_another_test() ->
+    Src = "module Morph\n"
+          "record Invoice { Id: int }\n"
+          "record Receipt { Id: int }\n"
+          "type Document = Invoice | Receipt\n"
+          "public Document Settle(Document d)\n"
+          "Settle(d) -> d with { Kind = :'Morph.Receipt' }\n",
+    ?assertMatch([{error, _, 'Settle',
+                   {field_value_not_accepted, 'Invoice', 'Kind', _}}],
+                 errors(Src)).
+
 %% F21.3 — the residual is the rejected value, not the record.
 the_rejected_value_is_handed_back_test() ->
     Src = "module Shop\n"
