@@ -347,20 +347,40 @@ with_checks_the_value_assigned_to_a_field_test() ->
 
 %% Ticket 109 Q2: `with` keeps each member in itself, so it cannot move a
 %% value to another member; a member with no record name is shown by its shape.
-with_cannot_move_a_value_to_another_member_test() ->
-    Src = "module Reissue\n"
-          "type Doc = { Kind: :invoice | :receipt, Id: int }\n"
-          "public Doc Settle(Doc d)\n"
-          "Settle(d) -> d with { Kind = :receipt }\n",
+reissue(DocType, Update) ->
+    "module Reissue\n"
+    "type Doc = " ++ DocType ++ "\n"
+    "public Doc Settle(Doc d)\n"
+    "Settle(d) -> d with { " ++ Update ++ " }\n".
+
+joined() -> "{ Kind: :invoice | :receipt, Id: int }".
+
+split() -> "{ Kind: :invoice, Id: int } | { Kind: :receipt, Id: int }".
+
+%% From the file name on: each fixture lives in its own directory.
+reissue_output(Src) ->
     with_src("reissue.bs", Src,
              fun(Path, Out) ->
-                     Got = run_cli("-o " ++ Out ++ " " ++ Path),
-                     ?assert(string:find(Got, "Settle assigns Kind a value") =/= nomatch),
-                     ?assertEqual(nomatch, string:find(Got, "a value invoice does not")),
-                     ?assert(string:find(Got, "Kind: :invoice") =/= nomatch),
-                     ?assert(string:find(Got, "rc:1") =/= nomatch)
+                     string:find(run_cli("-o " ++ Out ++ " " ++ Path), "reissue.bs:")
              end).
 
+with_cannot_move_a_value_to_another_member_test() ->
+    Got = reissue_output(reissue(joined(), "Kind = :receipt")),
+    ?assert(string:find(Got, "Settle assigns Kind a value") =/= nomatch),
+    ?assertEqual(nomatch, string:find(Got, "a value invoice does not")),
+    ?assert(string:find(Got, "Kind: :invoice") =/= nomatch),
+    ?assert(string:find(Got, "rc:1") =/= nomatch),
+    %% Both spellings of `Doc` are one type, so they get one answer.
+    ?assertEqual(Got, reissue_output(reissue(split(), "Kind = :receipt"))).
+
+%% A hand-written `:receipt` is a tag, not a record's name.
+an_undeclared_key_over_tagged_members_names_no_record_test() ->
+    Got = reissue_output(reissue(joined(), "Foo = 1")),
+    ?assert(string:find(Got, "rc:1") =/= nomatch),
+    ?assertEqual(nomatch, string:find(Got, "an receipt")),
+    ?assertEqual(nomatch, string:find(Got, "by invoice")).
+
+%% Records already refused the cross-member `with`; the name stays the record's.
 with_cannot_turn_one_record_into_another_test() ->
     Src = "module Morph\n"
           "record Invoice { Id: int }\n"

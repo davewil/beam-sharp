@@ -117,6 +117,11 @@ in both spellings. The refusal names a member with no record name by its shape, 
   per atom. Every reader then sees the `Split` form, and none has to learn the shorthand.
 - A `Kind` with any other part (`:a | binary`, `atom`, `string`) is not a set of tags and is left
   as written. Its openness is read from its parts as before, and a cofinite `atom` stays open.
+- Round 2 needed no change to `with`, which already checks each member on its own. It did need
+  `bs_check:record_name/1` to stop treating a hand-written bare tag as a record's name. A tag names
+  a record when it is qualified, as `record` mints it, or when it is a compiler-known record's tag
+  (`ValidationError`). Otherwise the diagnostics show the member by its shape, `{ Kind: :invoice }`,
+  and never write *"an receipt"*.
 
 ## Not decided here
 

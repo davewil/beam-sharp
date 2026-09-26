@@ -3766,19 +3766,11 @@ member_types(Members) ->
     [(bs_types:none())#{maps => [{Openness, Fs}]} || {Openness, Fs} <- Members].
 
 %% Untagged members use their printed shape so value errors remain reportable.
-%% Only a qualified tag is minted by `record`; `:invoice` names no record, so its
-%% member is shown by its shape too (ticket 109 Q2).
 member_label(MTy) ->
-    case {record_name(MTy), field_type(MTy, 'Kind')} of
-        {unknown, _} -> shape_label(MTy);
-        {Name, #{atoms := {finite, [Tag]}}} ->
-            case string:find(atom_to_list(Tag), ".") of
-                nomatch -> shape_label(MTy);
-                _       -> Name
-            end
+    case record_name(MTy) of
+        unknown -> lists:flatten(bs_types:to_pattern(MTy));
+        Name    -> Name
     end.
-
-shape_label(MTy) -> lists:flatten(bs_types:to_pattern(MTy)).
 
 %% Head hints use only names resolvable in this environment, keyed by tag.
 %% Deriving a name from a tag could suggest a type outside the file's scope.
@@ -3814,14 +3806,26 @@ minted_tag(Name, Env) ->
 
 %% Minted tags end in the record's declared name after the last dot. `with`
 %% needs this name for diagnostics because it has only the base type. Multiple
-%% tags have no single record name.
+%% tags have no single record name. A bare tag names a record only when the
+%% compiler declares it: a hand-written `:invoice` is a tag (ticket 109).
 record_name(Ty) ->
     case field_type(Ty, 'Kind') of
         #{atoms := {finite, [Tag]}} ->
-            list_to_atom(lists:last(string:split(atom_to_list(Tag), ".", all)));
+            case split_qualified(Tag) of
+                {_Mod, Name} -> Name;
+                bare ->
+                    case lists:member(Tag, known_record_tags()) of
+                        true  -> Tag;
+                        false -> unknown
+                    end
+            end;
         _ ->
             unknown
     end.
+
+known_record_tags() ->
+    [Tag || {t_map, Fs} <- maps:values(stratum_two()),
+            {field, 'Kind', {t_atom, Tag}} <- Fs].
 
 %% Pair domain-map parameters with patterns by position: destructuring a record
 %% in another position must not trigger this refusal.
