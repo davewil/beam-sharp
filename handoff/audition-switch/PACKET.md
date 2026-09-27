@@ -101,6 +101,60 @@ Five clauses in, five native Erlang clause heads out. **shipped**
 input type — a language that infers the function type from its own clauses can never ask it,
 because the answer is always yes. **shipped**
 
+**The clauses may instead sit in a block** after the signature, each without the name, separated
+by commas as `switch` arms are. It is the same function: the same clauses in the same order, the
+same exhaustiveness, the same BEAM and the same public API. The named form stays the default. The
+block pays for itself when the name would otherwise be written many times over one dispatch.
+**shipped**
+
+<!-- check:
+record Hello { Id: int }
+record Demand { Id: int }
+record Events { Id: int }
+record ToolCall { Id: int }
+record Task { Id: int }
+record Ack { Id: int }
+record Stop { Id: int }
+record ToolResult { Id: int }
+type Message = Hello | Demand | Events | ToolCall | Task | Ack | Stop | ToolResult
+-->
+```csharp
+public atom Direction(Message message) {
+    (Hello h)      -> :hands,
+    (Demand d)     -> :hands,
+    (Events e)     -> :hands,
+    (ToolCall c)   -> :hands,
+    (Task t)       -> :brain,
+    (Ack a)        -> :brain,
+    (Stop s)       -> :brain,
+    (ToolResult r) -> :brain
+}
+```
+
+The comma is not decoration. A body has no terminator, and a bound name followed by `(` is a call
+of the function it holds (§9, *A function as a value*), so `(0) -> n` directly above `(1) -> 2` would read as `n(1)`. Leave
+out a case and the diagnostic prints the arm to paste before the `}`, `(Stop s) -> ...`, rather than
+a named head.
+
+**A block is the whole of its function.** A named clause for a function written as a block is
+refused, because the braces exist to tie the clauses to their signature. Another arity is another
+function, and is free to take either form. **shipped**
+
+<!-- check:
+record Hello { Id: int }
+record Task { Id: int }
+record Stop { Id: int }
+type Message = Hello | Task | Stop
+-->
+```csharp
+public atom Direction(Message message) {
+    (Hello h) -> :hands,
+    (Task t)  -> :brain
+}
+
+Direction(Stop s) -> :brain
+```
+
 **Guards** use `when`, with `and` and `or`. A guard the checker can read as a type operation
 refines the clause; one it cannot read credits nothing. **shipped**
 

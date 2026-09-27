@@ -1,6 +1,11 @@
 # F63 — The clause block: a function's clauses in braces after its signature
 
-**Status**      **in progress**
+**Status**      **in progress** — 12 tests in `clause_block_tests`, seen red first (the
+                three routed-diagnostic tests shown to discriminate by narrowing
+                the routing); `check-language.sh` gained a must-compile block and
+                a `diagnoses: clause_outside_block` block in §2, both seen red
+                first; the tree-sitter grammar takes the block; one new example,
+                `examples/Signalbox/signalbox.bs`, and its roster and tour rows
 **Implements**  [ticket 110](../../wayfinder/issues/110-an-optional-clause-block.md), resolved
                 2026-09-28. Decides nothing
 **Closes**      [ENG-550](https://linear.app/davewil/issue/ENG-550)
@@ -44,8 +49,9 @@ forms with every position annotation set to zero: the block form moves a clause'
 construction, so the annotated forms cannot be byte-identical.
 
 **A block is the whole of its function.** A named clause with a block function's name and arity is
-refused as `clause_outside_block`, naming the clause. A second block for the same function is
-refused the same way.
+refused as `clause_outside_block`, at the clause. A second block for the same function carries a
+second signature of the same arity, so it is refused by the rule that already refuses one,
+`F/1 is declared more than once`, and needs nothing of its own.
 
 **Diagnostics speak the form written.** Where a diagnostic prints a clause to paste, a block
 function gets an arm: `(Stop s) -> ...`, for pasting before the closing `}` after a comma.
@@ -61,3 +67,18 @@ function gets an arm: `(Stop s) -> ...`, for pasting before the closing `}` afte
 | F63.5 | a block function with a named clause of the same name and arity after it | refused as `clause_outside_block`, naming the clause |
 | F63.6 | a block and a named function of the same name at a different arity in one file | compiles: arity makes them two functions |
 | F63.7 | the printed arm from F63.4 pasted before the `}` after a comma | the program compiles |
+
+## Measured
+
+- **yecc**: 5 → 6 shift/reduce, 0 reduce/reduce. The one added is `'{'` after a signature,
+  resolved by shift into the block; the conflict list otherwise equals the base's by symbol.
+  `binary_tests`' named-conflict count moves with it.
+- **Without a separator** (a scratch grammar, never shipped): `(0) -> n` above `(1) -> 2` is
+  `syntax error before: '->'` on the second arm. The base conflict at `'('` after a lowercase name
+  is what swallows it, so the count showed nothing — only parsing the program did.
+- **tree-sitter**: the same ambiguity is reported at generate time and settled with `prec.right`
+  on `signature`, matching yecc's shift. A scratch file with a guarded arm, a lambda-bodied last
+  arm, a field-set-returning signature after a block and a two-parameter block parses with no
+  `ERROR` node.
+- **Order of printed arms** is the residual's, not the declaration's: a block missing `Task` and
+  `Stop` prints `(Stop s)` first. The test does not pin it.

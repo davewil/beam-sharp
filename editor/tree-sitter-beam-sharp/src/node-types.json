@@ -762,6 +762,36 @@
     }
   },
   {
+    "type": "block_clause",
+    "named": true,
+    "fields": {
+      "body": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "body",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "guard",
+          "named": true
+        },
+        {
+          "type": "pattern",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "body",
     "named": true,
     "fields": {},
@@ -1053,6 +1083,21 @@
         },
         {
           "type": "pattern",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "clause_block",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "block_clause",
           "named": true
         }
       ]
@@ -3009,6 +3054,16 @@
     "type": "signature",
     "named": true,
     "fields": {
+      "clauses": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "clause_block",
+            "named": true
+          }
+        ]
+      },
       "name": {
         "multiple": false,
         "required": true,

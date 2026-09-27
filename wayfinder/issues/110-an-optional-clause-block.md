@@ -140,8 +140,12 @@ declaration with its cases inside reads as what it is, one method.
 - `bs_check`: refuses a named clause of a block function (a new diagnostic). It carries the form
   into the diagnostics that print clause heads, and they print arms for a block function.
 - The tree-sitter grammar gains the block. The three regex grammars already colour `(…) ->`.
-- `check-residual-pasteable.sh` pastes an arm into a block the way it already pastes a switch arm,
-  before the closing `}` with a comma on the arm before it.
+- Pasting an arm into a block is proven at the boundary. F63's test reads the arms the compiler
+  prints, pastes them before the `}` with a comma on the arm above (the splice
+  `check-residual-pasteable.sh` makes for a switch arm), and recompiles. The gate itself is not
+  extended. A block arm comes from the same head printer as a named head, with the name left out, so
+  the gate's roster of residual shapes already covers what the arm can spell. The only new thing is
+  where the arm goes, and that is what the test pastes.
 
 ## Not decided here
 

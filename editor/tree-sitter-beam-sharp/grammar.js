@@ -257,12 +257,28 @@ module.exports = grammar({
     // parametric alias already binds, so the two spellings of a bracket after a PascalCase name — a generic
     // type applied, a signature's declaration list — are told apart by
     // position alone, as in `bs_parser.yrl`.
-    signature: $ => seq(
+    // `prec.right` shifts a `{` after the parameters into the clause block,
+    // as yecc does. The other reading, a signature with no clauses before a
+    // field-set return type, is refused by the compiler anyway.
+    signature: $ => prec.right(seq(
       optional(field('visibility', $.visibility)),
       field('return', $.type_expression),
       field('name', $.function_name),
       optional(seq('<', commaSep1($.type_parameter), '>')),
       '(', optional(commaSep1($.parameter)), ')',
+      optional(field('clauses', $.clause_block)),
+    )),
+
+    // F63 / ticket 110 — the clauses may sit in braces after the signature,
+    // without the name, comma-separated as switch arms are, as in
+    // `bs_parser.yrl`'s `block_clauses`.
+    clause_block: $ => seq('{', commaSep1($.block_clause), '}'),
+
+    block_clause: $ => seq(
+      '(', optional(commaSep1($.pattern)), ')',
+      optional($.guard),
+      '->',
+      field('body', $.body),
     ),
 
     visibility: $ => choice('public', 'private'),

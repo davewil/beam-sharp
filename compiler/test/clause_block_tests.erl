@@ -152,15 +152,30 @@ a_missing_case_prints_as_an_arm_test() ->
                      ?assert(string:find(Got, "rc:1") =/= nomatch)
              end).
 
-%% F63.7 — the printed arm pastes back in before the `}`.
+%% F63.7 — the arms the compiler prints are read back out of its output and
+%% pasted before the `}`, after a comma on the arm above, as a switch arm is
+%% pasted by check-residual-pasteable.sh. The pasted program compiles.
 the_printed_arm_pastes_into_the_block_test() ->
-    Src = directions() ++
-          "public atom Direction(Message m) {\n"
-          "    (Hello h) -> :hands,\n"
-          "    (Task t)  -> :brain,\n"
-          "    (Stop s) -> :brain\n"
-          "}\n",
-    ?assertMatch({ok, _, _}, check_only(Src)).
+    Arms = "public atom Direction(Message m) {\n"
+           "    (Hello h) -> :hands",
+    Src = directions() ++ Arms ++ "\n}\n",
+    with_src("signal.bs", Src,
+             fun(Path, Out) ->
+                     Got = run_cli("-o " ++ Out ++ " " ++ Path),
+                     Printed = [string:trim(string:replace(L, "-> ...", "-> :pasted"))
+                                || L <- string:split(Got, "\n", all),
+                                   lists:suffix("-> ...", L)],
+                     %% The residual's order, not the declaration's.
+                     ?assertEqual(["(Stop s) -> :pasted", "(Task t) -> :pasted"],
+                                  lists:sort([lists:flatten(P) || P <- Printed])),
+                     Pasted = directions() ++ Arms
+                              ++ lists:append([",\n    " ++ lists:flatten(P)
+                                               || P <- Printed])
+                              ++ "\n}\n",
+                     ok = file:write_file(Path, Pasted),
+                     Again = run_cli("-o " ++ Out ++ " " ++ Path),
+                     ?assert(string:find(Again, "rc:0") =/= nomatch)
+             end).
 
 %% F63.5 — a block is the whole of its function.
 a_named_clause_beside_a_block_is_refused_test() ->

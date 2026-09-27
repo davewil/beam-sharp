@@ -134,7 +134,29 @@ The one thing worth staring at is what is *not* there: no `else`, no fallthrough
 default clause. The fourth clause is not a catch-all — it names `(:error, e)` exactly.
 Chapter 2 is why it has to.
 
-<!-- ticket 01, ticket 08, ticket 12 §2, F1, F12 -->
+Repeating the name is the default, and it costs little over four clauses. Over eight it is the
+name eight times, carrying nothing after the first, so the clauses may instead sit in braces after
+the signature, from `examples/Signalbox/signalbox.bs`:
+
+```
+public atom Direction(Message message) {
+    (Hello h)      -> :hands,
+    (Demand d)     -> :hands,
+    (Events e)     -> :hands,
+    (ToolCall c)   -> :hands,
+    (Task t)       -> :brain,
+    (Ack a)        -> :brain,
+    (Stop s)       -> :brain,
+    (ToolResult r) -> :brain
+}
+```
+
+It is the same function, with the same clauses in the same order, and it compiles to the same BEAM.
+The commas are required, as between `switch` arms. A body has no terminator, so without one a body
+ending in a name, `ceiling`, would read the next arm's `(attempt, ceiling)` as a call. A function
+written this way is written only this way: a named clause beside the block is refused.
+
+<!-- ticket 01, ticket 08, ticket 12 §2, ticket 110, F1, F12, F63 -->
 
 ---
 
@@ -1726,8 +1748,8 @@ The language's **name** is also open. `beam-sharp` is a working title.
 
 ## Appendix: the construct index
 
-**The corpus gate names 64 capabilities and fails by name when one has no example to look
-at.** All 64 are below, in the gate's own wording, so the two lists can be diffed by machine
+**The corpus gate names 65 capabilities and fails by name when one has no example to look
+at.** All 65 are below, in the gate's own wording, so the two lists can be diffed by machine
 — `compiler/bin/check-tour.sh` does exactly that, and this table is red the day the compiler
 grows a capability the tour has not met.
 
@@ -1738,6 +1760,7 @@ grows a capability the tour has not met.
 | a union in a type | `examples/Readings/readings.bs` | 1 |
 | an atom literal | `examples/Readings/readings.bs` | 1 |
 | a public function | `examples/Readings/readings.bs` | 1 |
+| a clause block | `examples/Signalbox/signalbox.bs` | 1 |
 | a private function | `examples/Fib/fib.bs` | 5 |
 | a guard | `examples/Math/math.bs` | 3 |
 | a conjunction in a guard | `examples/Math/math.bs` | 3 |

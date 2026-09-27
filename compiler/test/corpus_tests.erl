@@ -18,6 +18,8 @@ demonstrated_surface() ->
      {"a width-preserving update",               " with \\{"},
      {"a field projection",                      "\\.[A-Z]"},
      {"a tag or property pattern",               "\\{ [A-Z][A-Za-z]*:"},
+     %% F63: a signature line that opens a clause block ends in `) {`.
+     {"a clause block",                          "\\) \\{$"},
      {"a guard",                                 " when "},
      %% With comments stripped, the keyword and trailing space select a crash.
      {"a deliberate crash",                      "raise "},

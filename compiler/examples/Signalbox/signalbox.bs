@@ -1,0 +1,44 @@
+// F63 / ticket 110 — the clause block. A function's clauses may sit in braces
+// after its signature, without the name and separated by commas, as switch
+// arms are. It is the same function as the named form: same clauses, same
+// order, same exhaustiveness, same BEAM. It earns its place where one dispatch
+// would otherwise write the name nine times, as `Direction` does here.
+//
+//   bsc examples/Signalbox/signalbox.bs Direction '#{'Kind' => 'Signalbox.Task', 'Id' => 1}'
+//
+module Signalbox
+
+record Hello      { Id: int }
+record Demand     { Id: int }
+record Events     { Id: int }
+record ToolCall   { Id: int }
+record Task       { Id: int }
+record Ack        { Id: int }
+record Stop       { Id: int }
+record ToolResult { Id: int }
+
+type Message = Hello | Demand | Events | ToolCall | Task | Ack | Stop | ToolResult
+
+public atom Direction(Message message) {
+    (Hello h)      -> :hands,
+    (Demand d)     -> :hands,
+    (Events e)     -> :hands,
+    (ToolCall c)   -> :hands,
+    (Task t)       -> :brain,
+    (Ack a)        -> :brain,
+    (Stop s)       -> :brain,
+    (ToolResult r) -> :brain
+}
+
+// Guards and several parameters read as they do in the named form. The comma
+// is required: without it the second arm's body `ceiling`, followed by the
+// third arm's `(attempt, ceiling)`, would read as the call `ceiling(attempt, ceiling)`.
+public int Backoff(int attempt, int ceiling) {
+    (0, ceiling)                           -> 0,
+    (attempt, ceiling) when attempt > 10   -> ceiling,
+    (attempt, ceiling)                     -> attempt * 100
+}
+
+// Another arity is another function, and takes either form: this one is named.
+public int Backoff(int attempt)
+Backoff(attempt) -> Backoff(attempt, 1000)
