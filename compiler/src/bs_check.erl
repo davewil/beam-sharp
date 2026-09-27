@@ -32,7 +32,10 @@
 
 %% Keep record field positions stable: `bs_emit` reads them with `element/2`
 %% (`element(5, F)` is `params`). Append fields after `tvars`.
--record(fn, {name, line, ret, params, clauses = [], vis = private, tvars = []}).
+%% `block` is `none`, or the positions of the arms of the clause block the
+%% function was written as (ticket 110).
+-record(fn, {name, line, ret, params, clauses = [], vis = private, tvars = [],
+             block = none}).
 
 %% `resolve/2` reads only `types`; the emitter passes that map directly.
 %% `params` holds every `{Name, ResolvedType}` so diagnostics can suggest
@@ -136,13 +139,26 @@ check_dir1(Sources, World, Expect) ->
 %% Raised function errors retain their source file. Pathless `check/2` callers
 %% receive bare tuples.
 check_file(undefined, Fns, Ctx) ->
-    [{undefined, D} || F <- Fns, {_, Ds} <- [check_fn(F, Ctx)], D <- Ds];
+    [{undefined, in_form(F, D)} || F <- Fns, {_, Ds} <- [check_fn(F, Ctx)], D <- Ds];
 check_file(Path, Fns, Ctx) ->
-    try [{Path, D} || F <- Fns, {_, Ds} <- [check_fn(F, Ctx)], D <- Ds]
+    try [{Path, in_form(F, D)} || F <- Fns, {_, Ds} <- [check_fn(F, Ctx)], D <- Ds]
     catch
         error:Reason when is_tuple(Reason), element(1, Reason) =/= in_file ->
             erlang:error({in_file, Path, Reason})
     end.
+
+%% Ticket 110: a diagnostic that prints a clause to paste prints an arm for a
+%% function written as a block. `bs_diag` renders `in_block` with the head name
+%% left out; every other diagnostic, and every internal note, passes through.
+in_form(#fn{block = none}, D) ->
+    D;
+in_form(_F, {Sev, L, Fn, P}) when element(1, P) =:= inexhaustive;
+                                  element(1, P) =:= catch_all_over_closed;
+                                  element(1, P) =:= arg_not_accepted;
+                                  element(1, P) =:= numeric_union_operand ->
+    {Sev, L, Fn, {in_block, P}};
+in_form(_F, D) ->
+    D.
 
 %%% Directory declarations
 
@@ -535,8 +551,10 @@ strip_prefix(Prefix, Child) ->
 %%% Signatures and clauses
 
 collect(Decls) ->
+    Blocks = maps:from_list([{{N, A}, Arms} || {clause_block, _, N, A, Arms} <- Decls]),
     %% Exclude foreign signatures: they have no clauses to check.
-    Sigs = [#fn{name = N, line = L, ret = R, params = P, vis = V, tvars = TV}
+    Sigs = [#fn{name = N, line = L, ret = R, params = P, vis = V, tvars = TV,
+                block = maps:get({N, length(P)}, Blocks, none)}
             || {signature, L, N, R, P, V, TV} <- Decls],
     [F#fn{clauses = [C || C = {clause, _, Name, Ps, _, _} <- Decls,
                           Name =:= F#fn.name,
@@ -1660,8 +1678,17 @@ check_fn(F = #fn{name = Name, line = Line, params = Params, ret = Ret}, Ctx0) ->
                                        {inexhaustive, Residual,
                                         record_names(Env)}}]
                 end,
-            {F, Final}
+            {F, outside_block(F) ++ Final}
     end.
+
+%% Ticket 110: a block is the whole of its function, so a named clause beside
+%% one is refused. It stays among the clauses, so the refusal is all that is
+%% reported rather than a cascade of coverage errors behind it.
+outside_block(#fn{block = none}) ->
+    [];
+outside_block(#fn{name = Name, block = Arms, clauses = Clauses}) ->
+    [{error, CL, Name, {clause_outside_block, CL}}
+     || {clause, CL, _, _, _, _} <- Clauses, not lists:member(CL, Arms)].
 
 %%% Corrected signatures
 %%% Union all clauses' return residuals before attaching one correction

@@ -4,6 +4,8 @@
 %%% `behaviour`, a signature, or a clause. A function is a signature followed
 %%% by clauses that repeat its name, and each clause head carries patterns in
 %%% the parameter position, so N clauses stand where C# allows one (ticket 01).
+%%% The clauses may instead sit in a braced block after the signature
+%%% (ticket 110), which the parser expands into the same declarations.
 
 Nonterminals
   program decls decl
@@ -18,6 +20,7 @@ Nonterminals
   body binding
   expr expr_low expr_list elist_items assign_fields assign_field
   switch_arms switch_arm modpath using_decl visibility call
+  block_clauses block_clause
   .
 
 Terminals
@@ -65,7 +68,9 @@ Nonassoc 600 'with'.
 %% worth having.
 Nonassoc 700 'switch'.
 
-program -> decls : '$1'.
+%% A clause block is the one declaration that stands for several, so it arrives
+%% as a list and is spliced in here.
+program -> decls : lists:append([if is_list(D) -> D; true -> [D] end || D <- '$1']).
 
 decls -> decl       : ['$1'].
 decls -> decl decls : ['$1' | '$2'].
@@ -74,6 +79,21 @@ decl -> module_decl : '$1'.
 decl -> type_decl   : '$1'.
 decl -> signature   : '$1'.
 decl -> clause      : '$1'.
+%% Ticket 110. The block is sugar: it expands into the signature and one named
+%% clause per arm, in order, so nothing downstream can tell the forms apart.
+%% A `clause_block` marker records the arms' positions, which is how the
+%% checker refuses a named clause beside a block and prints arms for one.
+%% Commas separate the arms because a body has no terminator: without one,
+%% `(0) -> n` above `(1) -> 2` reads as the call `n(1)` (F46), measured.
+%% The only new conflict is `'{'` after a signature, shifted into the block;
+%% its rival reading, a signature with no clauses, is already refused.
+decl -> signature '{' block_clauses '}' : clause_block('$1', '$3').
+
+block_clauses -> block_clause                   : ['$1'].
+block_clauses -> block_clause ',' block_clauses : ['$1' | '$3'].
+
+block_clause -> '(' patterns ')' guard '->' body :
+    {line('$1'), '$2', '$4', '$6'}.
 decl -> foreign_decl : '$1'.
 decl -> behaviour_decl : '$1'.
 decl -> record_decl : '$1'.
@@ -756,6 +776,13 @@ expr_list -> expr ',' expr_list : ['$1' | '$3'].
 Erlang code.
 
 line(T) -> element(2, T).
+
+%% Ticket 110: a block's arms become the clauses the named form would have
+%% written, carrying the signature's name, then a marker naming the block.
+clause_block({signature, L, Name, _, Params, _, _} = Sig, Arms) ->
+    Clauses = [{clause, AL, Name, Ps, G, B} || {AL, Ps, G, B} <- Arms],
+    [Sig | Clauses]
+        ++ [{clause_block, L, Name, length(Params), [AL || {AL, _, _, _} <- Arms]}].
 value(T) -> element(3, T).
 
 %% A string key is a binary; a name key stays an atom (F58).

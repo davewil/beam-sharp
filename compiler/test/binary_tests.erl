@@ -207,11 +207,13 @@ a_nested_generic_and_a_binary_pattern_coexist_test() ->
     ?assertMatch({ok, _, _}, check_only(Src)).
 
 %% yecc can emit a parser despite conflicts; assert the expected warning count.
+%% The sixth is F63's `'{'` after a signature, shifted into a clause block; its
+%% rival reading, a signature with no clauses, is refused (bs_parser.yrl).
 the_grammar_has_exactly_its_named_conflicts_test() ->
     Yrl = filename:join(bs_test_support:project_root(), "src/bs_parser.yrl"),
     Out = filename:join(bs_test_support:run_root(), "conflict_check"),
     ok = filelib:ensure_dir(Out ++ "/x"),
-    ?assertMatch({ok, _, [{_, [{_, yecc, {conflicts, 5, 0}}]}]},
+    ?assertMatch({ok, _, [{_, [{_, yecc, {conflicts, 6, 0}}]}]},
                  yecc:file(Yrl, [{parserfile, Out ++ ".erl"}, {return, true}])).
 
 %%% F13.12–F13.13 — malformed segments receive specific diagnostics.

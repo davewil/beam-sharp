@@ -161,6 +161,10 @@ place(#{line := {Line, Column}} = Desc) ->
 place(Desc) ->
     Desc.
 
+%% Ticket 110: a block function's heads are its arms, `(Stop s) -> ...`, so the
+%% same printers run with no name in front and the message keeps the name.
+built(Path, {Sev, Line, Fn, {in_block, Payload}}) ->
+    (built(Path, {Sev, Line, '', Payload}))#{function := Fn};
 built(Path, {Sev, Line, Fn, {inexhaustive, Residual, Names}}) ->
     (at(Sev, Path, Line, Fn))#{tag => inexhaustive,
                                residual => residual(Residual),
@@ -183,6 +187,8 @@ built(Path, {Sev, Line, Fn, relational_in_bind}) ->
     (at(Sev, Path, Line, Fn))#{tag => relational_in_bind};
 built(Path, {Sev, Line, Fn, no_clauses}) ->
     (at(Sev, Path, Line, Fn))#{tag => no_clauses};
+built(Path, {Sev, Line, Fn, {clause_outside_block, _At}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => clause_outside_block};
 %% A bare type-variable parameter admits only one binder clause.
 built(Path, {Sev, Line, Fn, {pattern_on_type_variable, Var, Pos}}) ->
     (at(Sev, Path, Line, Fn))#{tag => pattern_on_type_variable,
@@ -828,6 +834,15 @@ message(#{tag := relational_in_bind, file := P, line := L, column := C, function
      [P, L, C, Fn]};
 message(#{tag := no_clauses, file := P, line := L, column := C, function := Fn}) ->
     {"~s:~p:~p: error: ~s has a signature but no clauses~n", [P, L, C, Fn]};
+%% Ticket 110: the braces tie a block's clauses to its signature, so the remedy
+%% is to move the clause in, as an arm, rather than to rename anything.
+message(#{tag := clause_outside_block, file := P, line := L, column := C,
+          function := Fn}) ->
+    {"~s:~p:~p: error: ~s is written as a clause block, so this clause is outside it~n"
+     "  a block is the whole of its function. Move the clause inside the braces~n"
+     "  as an arm, without the name and after a comma, or write every clause~n"
+     "  in the named form.~n",
+     [P, L, C, Fn]};
 %% The wording fits a pattern the same way it fits a guard: both test a shape a
 %% type variable has none. The two ways out are the same.
 message(#{tag := pattern_on_type_variable, file := P, line := L, column := C,
