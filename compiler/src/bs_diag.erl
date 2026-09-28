@@ -33,7 +33,9 @@ channel() ->
 %% Tags whose message offers a clause to paste. For a function written as a
 %% clause block the checker hands these over as `in_block`, and they print arms
 %% (ticket 110). A new diagnostic that prints a head belongs here, or a block
-%% function would be offered a named head its own refusal rejects.
+%% function would be offered a named head its own refusal rejects. It differs
+%% from `contractual/0` on purpose: that roster freezes payload shapes and
+%% includes the switch tags, whose `=>` arms never carry a function name.
 prints_a_head(Tag) ->
     lists:member(Tag, [inexhaustive, catch_all_over_closed, arg_not_accepted,
                        numeric_union_operand]).

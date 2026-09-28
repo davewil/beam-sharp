@@ -51,8 +51,11 @@ public atom Direction(Message message) {
 A body has no terminator: it ends where the next token cannot continue it. Today the next clause
 opens with a name, which never continues an expression. In a block the next clause opens with `(`,
 and [75](75-a-function-as-a-value.md)'s call of a function held in a variable,
-`call -> lident '(' expr_list ')'`, continues any body that ends in a bare name. Built into a
-scratch copy of `bs_parser.yrl` at `7b1ef96`, without separators:
+`call -> lident '(' expr_list ')'`, continues any body that ends in a bare name. First measured on
+a scratch copy of `bs_parser.yrl` at `7b1ef96`, without separators, with a one-parameter program,
+`(0) -> n` above `(1) -> 2`. It failed as predicted, but its `n` was unbound (a signature's parameter
+names bind nothing), so it could not have compiled even with commas. The corrected program, measured
+through the shipped compiler by F63's test:
 
 ```csharp
 public int Pick(int k, int n) {
@@ -63,14 +66,13 @@ public int Pick(int k, int n) {
 ```
 
 fails with `syntax error before: '->'` on line 4. One token of lookahead reads `n (1, n)` as the
-call `n(1, n)`, and the `->` after it cannot continue an expression. The scratch measurement used a
-one-parameter `Pick` whose `n` was unbound. A signature's parameter names bind nothing, so that
-program could not have compiled even with commas. F63's test measures the corrected program above
-through the real compiler: without commas it fails on line 4, and with them it runs, `Pick(0, 42)`
-returning 42. `Direction` parses, because every body
-there is an atom, so whether a clause parses would depend on how the clause *before* it ends. A
-body that ends in a bound name (`(Full f) -> f`) is the commonest body there is. yecc reports no new
-conflict for this: base already resolves `'('` after a lowercase name as a shift.
+call `n(1, n)`, and the `->` after it cannot continue an expression. With commas the program runs,
+`Pick(0, 42)` returning 42.
+
+`Direction` parses without commas, because every body there is an atom. So whether a clause parses
+would depend on how the clause *before* it ends. A body that ends in a bound name (`(Full f) -> f`)
+is the commonest body there is. yecc reports no new conflict for this: base already resolves `'('`
+after a lowercase name as a shift.
 
 With a comma between clauses both programs parse, and the only conflict the block adds is `'{'`
 after a signature (base 5 shift/reduce, block 6). That one is benign. Its rival reading is a

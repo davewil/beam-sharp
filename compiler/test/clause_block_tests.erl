@@ -3,7 +3,7 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
--import(bs_test_support, [run_cli/1, with_src/3, errors/1, check_only/1]).
+-import(bs_test_support, [run_cli/1, with_src/3]).
 
 %%% F63 — a function's clauses in braces after its signature (ticket 110).
 
@@ -99,6 +99,10 @@ the_block_form_runs_the_same_test() ->
                   code:purge('Twin'),
                   code:delete('Twin')
           end).
+
+%% Compile through the CLI and hand back what it printed, with its exit code.
+cli(Name, Src) ->
+    with_src(Name, Src, fun(Path, Out) -> run_cli("-o " ++ Out ++ " " ++ Path) end).
 
 %% F63.2 — the public API cannot tell them apart.
 api(Src) ->
@@ -219,8 +223,8 @@ another_arity_beside_a_block_compiles_test() ->
                      ?assert(string:find(Two, ":spare\nrc:0") =/= nomatch)
              end).
 
-%% The brief's "identical exhaustiveness": an inexhaustive function is refused
-%% alike in both forms, naming the same missing case, as a head or as an arm.
+%% F63.8 — an inexhaustive function is refused alike in both forms, naming the
+%% same missing case, as a head or as an arm.
 an_inexhaustive_function_is_refused_alike_in_both_forms_test() ->
     Named = cli("signal.bs", directions() ++
                     "public atom Direction(Message m)\n"
@@ -240,8 +244,6 @@ an_inexhaustive_function_is_refused_alike_in_both_forms_test() ->
     [?assert(string:find(G, "Direction is not exhaustive") =/= nomatch) || G <- [Named, Block]].
 
 %% F63.4 — the other diagnostics that print a clause to paste print arms too.
-cli(Name, Src) ->
-    with_src(Name, Src, fun(Path, Out) -> run_cli("-o " ++ Out ++ " " ++ Path) end).
 
 a_catch_all_in_a_block_names_the_arms_it_hides_test() ->
     Got = cli("signal.bs", directions() ++

@@ -67,14 +67,17 @@ function gets an arm: `(Stop s) -> ...`, for pasting before the closing `}` afte
 | F63.5 | a block function with a named clause of the same name and arity after it | refused as `clause_outside_block` at the clause's own line, the only error |
 | F63.6 | a block and a named function of the same name at a different arity in one file | compiles: arity makes them two functions |
 | F63.7 | the printed arm from F63.4 pasted before the `}` after a comma | the program compiles |
+| F63.8 | one inexhaustive function written in both forms | both are refused as not exhaustive, naming the same missing case: `Direction(Stop s) -> ...` for the named form and `(Stop s) -> ...` for the block |
 
 ## Measured
 
 - **yecc**: 5 → 6 shift/reduce, 0 reduce/reduce. The one added is `'{'` after a signature,
   resolved by shift into the block; the conflict list otherwise equals the base's by symbol.
   `binary_tests`' named-conflict count moves with it.
-- **Without a separator** (a scratch grammar, never shipped): `(0, n) -> n` above `(1, n) -> 2` is
-  `syntax error before: '->'` on the second arm. The base conflict at `'('` after a lowercase name
+- **Without a separator**: a scratch grammar, never shipped, first showed `(0) -> n` above
+  `(1) -> 2` as `syntax error before: '->'` on the second arm. That `n` is unbound, so F63.3
+  measures the corrected `(0, n) -> n` above `(1, n) -> 2` through the shipped compiler instead,
+  with the same error on line 4, and with commas `Pick(0, 42)` returning 42. The base conflict at `'('` after a lowercase name
   is what swallows it, so the count showed nothing — only parsing the program did.
 - **tree-sitter**: the same ambiguity is reported at generate time and settled with `prec.right`
   on `signature`, matching yecc's shift. A scratch file with a guarded arm, a lambda-bodied last
