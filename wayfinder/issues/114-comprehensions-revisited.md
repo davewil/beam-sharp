@@ -123,6 +123,71 @@ keyword, one grammar rule, a binding pass the checker already has for clause hea
 form. Under no, collecting one member of a union, or one field of it, from a list stays a fold with
 a `switch` and a `List.Reverse`.
 
+**A1 (David, 2026-09-29):** *"Yes."*
+
+## Round 2
+
+A1 makes `Settled` the program, so the three questions below are what it is made of. None depends
+on another. A filter after the generator, several generators, and `map` and `binary` comprehensions
+wait for Q3's spelling.
+
+**Q2. A generator skips an element its pattern refuses, and there is no form that crashes on one.
+A pattern that no element can match is reported as a vacuous `switch` arm is.**
+
+`Settled` depends on skipping, since a declined charge is not a `Receipt`. OTP 28.5 also has a
+strict generator, `<:-`, which crashes with `{badmatch, E}` on an element the pattern refuses
+(measured above). In B# the checker already knows whether a pattern covers the generator's element
+type. Where it does, the two forms behave alike. Where it does not, a narrower pattern is written to
+filter. That leaves the strict form asserting only what the types already prove, except over
+`term`, and there `ValidateAs<T>` is the boundary. A pattern outside the element type is dead:
+
+```csharp
+record Refund { OrderId: int, Pence: int }
+Refunds(cs) -> [r for Refund r in cs]      // Refund is not a Charge: always []
+```
+
+A `switch` arm in the same position gets a warning today (measured): *"arm 1 of this switch in Count
+matches no value … this arm's pattern is not a member of it"*, and the program compiles and runs.
+
+Recommended: yes to both. The delta is the vacuity check pointed at the generator, reusing
+`redundancy/4`'s membership test.
+
+**Q3. It is spelled `[r for Receipt r in cs]`.**
+
+The result comes first, then the pattern and the list, inside the brackets that already build a
+list, as `[a, ..b]` does. Two borrowings fail on facts:
+
+- C#'s LINQ, `from Receipt r in cs select r`. In C#, an explicitly typed range variable means
+  `cs.Cast<Receipt>()` (ECMA-334's query translation), which throws on the first element that is not
+  a `Receipt`. That is the opposite of Q2.
+- Elixir's `for r <- cs, do: r`. Here `<-` lexes today as `<` then `-`, so `x <- 1` is `x < -1`.
+
+Measured for the recommended form: adding `'in'` as a terminal and
+`expr_low -> '[' expr 'for' pattern 'in' expr ']'` to `bs_parser.yrl` leaves yecc at 6
+shift/reduce and 0 reduce/reduce, before and after. `for` is already a keyword (F64). `in` is not,
+and no example (73 `.bs` files) and no code block in LANGUAGE.md or TOUR.md uses it as a name.
+
+Recommended: yes.
+
+**Q4. A generator's pattern is anything a clause-head parameter accepts, and narrows as a parameter
+does.**
+
+A generator matches the whole element, as a parameter matches the whole argument, so the part
+prefix, which is refused nested (`type_prefix_nested`), is legal at a generator's top:
+
+```csharp
+public list<float> Fractional(list<int | float> amounts)
+Fractional(amounts) -> [f for float f in amounts]
+
+public list<string> Paid(list<Order> os)
+Paid(os) -> [o.Customer for Order { Status: :paid } o in os]
+```
+
+The delta is checking the generator's pattern as a top, the way a switch subject is checked, so
+`child_type/3` sees its children and not the pattern itself.
+
+Recommended: yes.
+
 Under **yes**, these follow, each asked after it rather than beside it: whether a generator skips
 or crashes on an element its pattern refuses, which Erlang offers both ways; the spelling, where
 `for … in` is Python's order and Elixir writes `for r <- cs, do: r`, while LINQ's
