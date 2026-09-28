@@ -106,7 +106,22 @@ Erlang has two generators, and on OTP 28.5 they differ on the element the patter
 **Q1. Does B# get a comprehension back, one that keeps a generator pattern's narrowing, as
 `Settled` above does?**
 
-Under **no**, `Settled` stays the fold, and 17 stands.
+Under **no**, `Settled` stays the fold, and 17 stands. C#'s own answer to `Settled` is
+`charges.OfType<Receipt>()`, which could become a `List` row and would narrow by a type. It stops
+there, though. A generator's pattern also destructures, which no type filter can do:
+
+```csharp
+public list<string> Declines(list<Charge> cs)
+Declines(cs) -> [reason for (:error, reason) in cs]
+```
+
+`OfType<(:error, string)>` would return the tuples, not the reasons.
+
+**Recommended: yes.** A pattern is B#'s defining construct, and a generator is one more position for
+it, narrowed by the same algebra and lowered to the BEAM's own comprehension. The cost is one
+keyword, one grammar rule, a binding pass the checker already has for clause heads, and an `lc`
+form. Under no, collecting one member of a union, or one field of it, from a list stays a fold with
+a `switch` and a `List.Reverse`.
 
 Under **yes**, these follow, each asked after it rather than beside it: whether a generator skips
 or crashes on an element its pattern refuses, which Erlang offers both ways; the spelling, where
