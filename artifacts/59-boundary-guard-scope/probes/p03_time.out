@@ -2,39 +2,39 @@ OTP 25 erts 13.2.2.5 emu_flavor=jit schedulers_online=4
 rounds=25, iterations per timed call=2000000 (single-call variants: 2000000 calls per rep)
 
 variant         median       min       p25       p75   (ns per call or per loop iteration)
-s_tag_u         34.331    33.059    33.438    36.065
-s_tag_g         35.831    35.209    35.494    36.877
-s_tag_u2        35.920    34.708    34.870    37.102
-s_int_u         28.821    27.816    28.053    29.221
-s_int_g         28.520    27.920    28.351    29.319
-s_int_u2        28.218    27.583    27.927    29.172
-i_priv_u         2.441     2.179     2.264     2.571
-i_priv_g         2.465     2.219     2.365     2.528
-i_priv_gU        2.716     2.522     2.639     2.786
-i_priv_uU        2.601     2.503     2.547     2.735
-i_ex_u           2.728     2.244     2.445     3.410
-i_ex_g           3.208     2.920     3.128     3.258
-i_ex_u2          2.381     2.189     2.314     2.587
-r_priv_u        12.033    11.634    11.870    12.351
-r_priv_g        19.619    19.032    19.321    20.729
-r_priv_u2       12.059    11.707    11.903    12.355
-u_priv_u        24.502    23.160    23.678    25.212
-u_priv_g        33.739    31.720    32.459    34.946
+s_tag_u         33.813    33.069    33.200    34.913
+s_tag_g         36.313    34.999    35.531    37.873
+s_tag_u2        33.776    33.042    33.178    34.791
+s_int_u         28.417    27.654    27.950    29.709
+s_int_g         28.552    27.884    27.963    29.044
+s_int_u2        28.372    27.670    27.997    29.378
+i_priv_u         2.340     2.142     2.216     2.741
+i_priv_g         2.377     2.122     2.267     3.038
+i_priv_gU        2.684     2.523     2.596     2.857
+i_priv_uU        2.582     2.454     2.525     2.640
+i_ex_u           2.563     2.175     2.313     2.965
+i_ex_g           3.205     2.940     3.014     3.422
+i_ex_u2          2.418     2.167     2.307     2.918
+r_priv_u        12.226    11.798    12.024    12.628
+r_priv_g        20.291    19.152    19.448    22.317
+r_priv_u2       12.298    11.982    12.146    12.755
+u_priv_u        23.998    23.020    23.328    27.285
+u_priv_g        31.701    30.595    30.835    34.877
 
 NOISE FLOOR (identical twins), guarded-vs-unguarded deltas below should be read against these:
-  s_tag  twin: median +1.589  min +1.649
-  s_int  twin: median -0.603  min -0.233
-  i_ex   twin: median -0.348  min -0.054
-  r_priv twin: median +0.026  min +0.073
+  s_tag  twin: median -0.037  min -0.027
+  s_int  twin: median -0.045  min +0.016
+  i_ex   twin: median -0.144  min -0.009
+  r_priv twin: median +0.072  min +0.184
 
 DELTAS (guarded - unguarded), ns per call/iteration:
-  single exported, tag test        : median +1.500  min +2.151
-  single exported, is_integer      : median -0.301  min +0.105
-  private loop, int, caller proves : median +0.024  min +0.040
-  private loop, int, caller unknown: median +0.115  min +0.019
-  exported loop, int               : median +0.480  min +0.676
-  private loop, record read-only   : median +7.586  min +7.398
-  private loop, record rebuilt     : median +9.237  min +8.559
+  single exported, tag test        : median +2.500  min +1.930
+  single exported, is_integer      : median +0.134  min +0.230
+  private loop, int, caller proves : median +0.037  min -0.020
+  private loop, int, caller unknown: median +0.103  min +0.070
+  exported loop, int               : median +0.643  min +0.764
+  private loop, record read-only   : median +8.065  min +7.354
+  private loop, record rebuilt     : median +7.702  min +7.574
 
 --- asm of loop in i_priv_g (line/func_info/var_info annotations dropped) ---
 {function, loop, 2, 4}.

@@ -67,7 +67,6 @@ for m in v_base v_bs v_base_nt v_bs_nt v_exp v_exp_is v_exp_rng v_exp_spec v_pri
 done > tr_summary.out
 
 # --- 2. instruction streams: are spin/4 and wrap/1 identical across variants after erasing {tr,R,_} -> R ?
-erl -noshell -pa $B -run identity main > instr_identity.out 2>&1
 
 # --- 3. size / instruction counts / Type chunk ---
 for m in v_base v_bs v_base_nt v_exp v_exp_is v_exp_rng v_exp_spec v_priv_rng v_abstr; do
@@ -87,7 +86,10 @@ io:format("elixir forms recovered from debug_info: ~p forms~n",[length(Forms)]),
 halt().' > elixir_recover.out 2>&1
 erl -noshell -pa $B -run types main $B/Elixir.BenchEx.beam > elixir_sizes.out 2>&1 || true
 { echo "=== Elixir.BenchEx (asm recovered via debug_info -> compile:forms to_asm; NOT elixirc's own flags): {tr,..} operands in spin/wrap ==="
-  awk '/^\{function, (spin|wrap),/{on=1} /^\{function, (hit|sign|size_|clicks|part_two|module_info|__info__),/{on=0} on && /\{tr,/' build/ex_asm.S 2>/dev/null; echo "  total {tr,..} in module: $(grep -o '{tr,' build/ex_asm.S 2>/dev/null | wc -l)"; } > elixir_tr.out 2>&1
+  awk '/^\{function, (spin|wrap),/{on=1} /^\{function, (hit|sign|size_|clicks|part_two|module_info|__info__),/{on=0} on && /\{tr,/' build/ex_asm.S; echo "  total {tr,..} in module: $(grep -o '{tr,' build/ex_asm.S 2>/dev/null | wc -l)"; } > elixir_tr.out 2>&1
+
+# --- 4b. instruction-stream identity (needs ex_asm.S from step 4) ---
+erl -noshell -pa $B -run identity main > instr_identity.out 2>&1
 
 # --- 5. timing (interleaved) ---
 { echo "rounds=$ROUNDS ; times in ms per part_two() call over 4732 rotations / 673364 clicks"

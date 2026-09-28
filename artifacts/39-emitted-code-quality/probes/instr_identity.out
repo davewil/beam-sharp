@@ -11,7 +11,68 @@
    v_bs_rng    present=true  instrs=21   identical_to_v_base=false
    v_abstr     present=true  instrs=19   identical_to_v_base=false
    v_abstr_rng present=true  instrs=22   identical_to_v_base=false
-{"init terminating in do_boot",{{badmatch,{error,enoent}},[{identity,fn,2,[{file,"identity.erl"},{line,29}]},{identity,'-main/0-lc$^0/1-0-',3,[{file,"identity.erl"},{line,16}]},{identity,'-main/0-lc$^1/1-1-',5,[{file,"identity.erl"},{line,16}]},{lists,foreach_1,2,[{file,"lists.erl"},{line,1442}]},{identity,main,0,[{file,"identity.erl"},{line,11}]},{init,start_em,1,[]},{init,do_boot,3,[]}]}}
-init terminating in do_boot ({{badmatch,{error,enoent}},[{identity,fn,2,[{_},{_}]},{identity,-main/0-lc$^0/1-0-,3,[{_},{_}]},{identity,-main/0-lc$^1/1-1-,5,[{_},{_}]},{lists,foreach_1,2,[{_},{_}]},{identity,main,0,[{_},{_}]},{init,start_em,1,[]},{init,do_boot,3,[]}]})
+   ex_asm      present=true  instrs=19   identical_to_v_base=false
+   v_remote    present=true  instrs=19   identical_to_v_base=true
+   v_remote_nt present=true  instrs=19   identical_to_v_base=false
+{wrap,1}: v_base has 4 instrs (labels/line stripped, {tr,R,_}->R)
+   v_base      present=true  instrs=4    identical_to_v_base=true
+   v_bs        present=true  instrs=4    identical_to_v_base=true
+   v_base_nt   present=true  instrs=4    identical_to_v_base=true
+   v_bs_nt     present=true  instrs=4    identical_to_v_base=true
+   v_exp       present=true  instrs=4    identical_to_v_base=true
+   v_exp_is    present=true  instrs=5    identical_to_v_base=false
+   v_exp_rng   present=true  instrs=7    identical_to_v_base=false
+   v_exp_spec  present=true  instrs=4    identical_to_v_base=true
+   v_priv_rng  present=true  instrs=6    identical_to_v_base=false
+   v_bs_rng    present=true  instrs=6    identical_to_v_base=false
+   v_abstr     present=true  instrs=4    identical_to_v_base=true
+   v_abstr_rng present=true  instrs=7    identical_to_v_base=false
+   ex_asm      present=true  instrs=4    identical_to_v_base=true
+   v_remote    present=true  instrs=4    identical_to_v_base=true
+   v_remote_nt present=true  instrs=4    identical_to_v_base=true
 
-Crash dump is being written to: erl_crash.dump...done
+diff {spin,4} v_base vs v_base_nt (lines only in first / only in second):
+   - {gc_bif,'+',{f,0},2,[{x,0},{x,1}],{x,0}}
+   + {gc_bif,'+',{f,0},4,[{x,0},{x,1}],{x,0}}
+
+diff {spin,4} v_base vs v_exp (lines only in first / only in second):
+   - {gc_bif,'+',{f,0},2,[{x,0},{x,1}],{x,0}}
+   + {gc_bif,'+',{f,0},4,[{x,0},{x,1}],{x,0}}
+
+diff {spin,4} v_exp vs v_exp_spec (lines only in first / only in second):
+
+diff {spin,4} v_exp vs v_exp_is (lines only in first / only in second):
+   + {test,is_integer,{f,6},[{x,0}]}
+   + {test,is_integer,{f,6},[{x,0}]}
+
+diff {spin,4} v_exp vs v_exp_rng (lines only in first / only in second):
+   + {test,is_integer,{f,6},[{x,0}]}
+   + {test,is_ge,{f,6},[{x,0},{integer,0}]}
+   + {test,is_ge,{f,6},[{integer,99},{x,0}]}
+   + {test,is_integer,{f,6},[{x,0}]}
+   + {test,is_ge,{f,6},[{x,0},{integer,0}]}
+   + {test,is_ge,{f,6},[{integer,99},{x,0}]}
+
+diff {spin,4} v_base vs v_priv_rng (lines only in first / only in second):
+   + {test,is_ge,{f,6},[{x,0},{integer,0}]}
+   + {test,is_ge,{f,6},[{x,0},{integer,0}]}
+
+diff {spin,4} v_base vs v_abstr (lines only in first / only in second):
+   - {test,is_eq_exact,{f,8},[{x,2},{integer,0}]}
+   - {call,1,{f,2}}
+   - {call_last,4,{f,7},4}
+   + {test,is_eq_exact,{f,10},[{x,2},{integer,0}]}
+   + {call,1,{f,6}}
+   + {call_last,4,{f,9},4}
+
+diff {spin,4} v_base vs ex_asm (lines only in first / only in second):
+   - {test,is_eq_exact,{f,8},[{x,2},{integer,0}]}
+   - {call,1,{f,2}}
+   - {call,1,{f,4}}
+   - {call_last,4,{f,7},4}
+   + {test,is_eq_exact,{f,27},[{x,2},{integer,0}]}
+   + {call,1,{f,29}}
+   + {call,1,{f,14}}
+   + {call_last,4,{f,26},4}
+
+diff {wrap,1} v_base vs ex_asm (lines only in first / only in second):
