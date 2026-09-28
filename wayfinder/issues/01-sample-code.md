@@ -66,6 +66,11 @@ for the block form — that signature and clauses can drift apart, and that repe
 read as C# overloads — are **not** sufficient to override the preference; they become problems
 for ticket 08 to mitigate within Variant A, not reasons to abandon it.
 
+> **Amended 2026-09-28 by [ticket 110](110-an-optional-clause-block.md):** Variant A stays the
+> default, and a clause block may now stand beside it as an option, with comma-separated arms and
+> no name. 08's drift mitigation had assumed one function per file, and the corpus holds eleven in
+> one. Read 110 for the form and for what it does not change.
+
 **The design is smaller than expected, and this is the prototype's most useful finding.** C#
 already supplies every pattern form required: `{ Balance: 0 }` is a property pattern, `(:ok, n)`
 a positional pattern, `when` the guard keyword, `=>` the expression-bodied member, `with` the

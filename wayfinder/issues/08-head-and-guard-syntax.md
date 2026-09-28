@@ -44,6 +44,9 @@ little weight. It buys visibility, which is a **read** cost, and those carry ful
   reads as a C# lambda. `->` removed it: `(0) -> 0;` cannot be a lambda where lambdas take `=>`.
 - **Signature-to-clause drift.** Impossible under directory-as-module with one function per file —
   the signature and its clauses are the only things in the file.
+  *Amended 2026-09-28 by [ticket 110](110-an-optional-clause-block.md): one function per file is a
+  convention, not a rule (`Pipeline/pipeline.bs` holds eleven), so an optional clause block now
+  ties clauses to their signature where that matters.*
 - **Nested directories.** Fine when they are a *distinct module* (`order/` and `order/server/` are
   two modules). Forbidden for *grouping within* one module (`server/api/`, `server/callbacks/`),
   which is what would reintroduce the OTP facade problem. Clears a fog item.

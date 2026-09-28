@@ -1,6 +1,6 @@
 # F63 — The clause block: a function's clauses in braces after its signature
 
-**Status**      **in progress** — 12 tests in `clause_block_tests`, seen red first (the
+**Status**      **in progress** — 13 tests in `clause_block_tests`, seen red first (the
                 three routed-diagnostic tests shown to discriminate by narrowing
                 the routing); `check-language.sh` gained a must-compile block and
                 a `diagnoses: clause_outside_block` block in §2, both seen red
@@ -80,8 +80,12 @@ function gets an arm: `(Stop s) -> ...`, for pasting before the closing `}` afte
   with the same error on line 4, and with commas `Pick(0, 42)` returning 42. The base conflict at `'('` after a lowercase name
   is what swallows it, so the count showed nothing — only parsing the program did.
 - **tree-sitter**: the same ambiguity is reported at generate time and settled with `prec.right`
-  on `signature`, matching yecc's shift. A scratch file with a guarded arm, a lambda-bodied last
+  on `signature`, matching yecc's shift. `signature` is in none of the grammar's declared
+  `conflicts`, so the rule-wide `prec` settles only this ambiguity. A scratch file with a guarded arm, a lambda-bodied last
   arm, a field-set-returning signature after a block and a two-parameter block parses with no
   `ERROR` node.
 - **Order of printed arms** is the residual's, not the declaration's: a block missing `Task` and
   `Stop` prints `(Stop s)` first. The test does not pin it.
+- **`--api` answers for a module refused only by `clause_outside_block`**, as it does for one
+  refused by `no_clauses`: both are function-body refusals, and `--api` stops only on a
+  declaration refusal. The two are in the same class.
