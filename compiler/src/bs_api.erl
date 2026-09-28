@@ -60,9 +60,11 @@ module(Dir, Root) ->
     %% What the module's `using` lines reach, read and never built.
     World = bsc:type_world(Dir, Root),
     Exports = resolved(Sources, World, Expect),
-    publish(bs_diag:channel(), Dir, Module,
-            [B || {behaviour, _, B} <- Decls],
-            operations(Sources, Exports, Module)).
+    Ops = operations(Sources, Exports, Module),
+    publish(bs_diag:channel(), Dir, Module, [B || {behaviour, _, B} <- Decls], Ops),
+    %% F64: a module whose records implement a protocol is reached through
+    %% the protocol, so exporting nothing is not a mistake to correct.
+    nothing_public(Module, Ops, [{P, For} || {implements, _, P, _, For, _} <- Decls]).
 
 %%% ---------------------------------------------------------------------------
 %%% Reading the module
@@ -206,14 +208,14 @@ publish(prose, _Dir, Module, Behaviours, Ops) ->
                [Result, Name, variables(Op),
                 lists:join(", ", [T || #{type := T} <- Ps])])
      || #{name := Name, params := Ps, result := Result} = Op <- Ops],
-    nothing_public(Module, Ops);
+    ok;
 publish(term, Dir, Module, Behaviours, Ops) ->
     %% One map per line under `~0p`, so a consumer splits on newlines rather
     %% than matching brackets.
     io:format("~0p~n", [#{tag => module, module => Module, path => Dir,
                           behaviours => Behaviours, operations => length(Ops)}]),
     [io:format("~0p~n", [Op]) || Op <- Ops],
-    nothing_public(Module, Ops);
+    ok;
 publish(json, Dir, Module, Behaviours, Ops) ->
     %% The same maps, one object per line, in the wire form `bs_diag`
     %% owns: the encoding and the framing are the channel's, not this
@@ -221,7 +223,7 @@ publish(json, Dir, Module, Behaviours, Ops) ->
     [bs_diag:put_json(M)
      || M <- [#{tag => module, module => Module, path => Dir,
                 behaviours => Behaviours, operations => length(Ops)} | Ops]],
-    nothing_public(Module, Ops).
+    ok.
 
 %% `<T, E>` after the name, as the author wrote it; nothing for a ground
 %% signature.
@@ -231,8 +233,14 @@ variables(_) -> "".
 
 %% Zero operations is an answer: exit 0, with the explanation on stderr so
 %% stdout stays parseable.
-nothing_public(_Module, [_ | _]) -> ok;
-nothing_public(Module, []) ->
+nothing_public(_Module, [_ | _], _Impls) -> ok;
+nothing_public(Module, [], [_ | _] = Impls) ->
+    io:format(standard_error,
+              "bsc: ~s exports no operation; its records implement a protocol~n"
+              "~s"
+              "  and are reached through the protocol's name.~n",
+              [Module, [io_lib:format("    ~s for ~s~n", [P, For]) || {P, For} <- Impls]]);
+nothing_public(Module, [], []) ->
     io:format(standard_error,
               "bsc: ~s exports nothing, so it offers no operations~n"
               "  a signature with no `public` in front of it is private, and a~n"

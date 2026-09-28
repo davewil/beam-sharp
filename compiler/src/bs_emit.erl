@@ -489,9 +489,10 @@ int_test(Var, Line) ->
     {e_foreign_call, Line, erlang, is_integer, [{e_var, Line, Var}]}.
 
 %% A record parameter is a single closed map member carrying a singleton
-%% `Kind`; a union, a bare `term` or an untagged map is not one.
+%% `Kind`; a union, a bare `term` or an untagged map is not one. A recursive
+%% record resolves to its binder, and its tag is one unfolding in (F64.13).
 record_tag(TypeExpr, #{env := Env}) ->
-    try unfolded(bs_check:resolve(TypeExpr, Env)) of
+    try bs_types:unfold(bs_check:resolve(TypeExpr, Env)) of
         #{maps := [{closed, Fields}], atoms := {finite, []}, ints := [],
           floats := {finite, []}, tuples := [], lists := [], bins := [],
           opaques := [], funs := []} ->
@@ -504,10 +505,6 @@ record_tag(TypeExpr, #{env := Env}) ->
         _ -> none
     catch _:_ -> none
     end.
-
-%% A recursive record resolves to its binder; its tag is one unfolding in (F64.13).
-unfolded(#{mu := _} = T) -> bs_types:unfold(T);
-unfolded(T)              -> T.
 
 %% A pattern constrains the tag when it matches `Kind`, through an alias too:
 %% a bound record pattern already tested the tag, and a second test would be

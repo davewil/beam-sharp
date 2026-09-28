@@ -20,7 +20,7 @@ Nonterminals
   body binding
   expr expr_low expr_list elist_items assign_fields assign_field
   switch_arms switch_arm modpath using_decl visibility call
-  block_clauses block_clause implements_decl impl_clauses
+  block_clauses block_clause implements_decl impl_clauses impl_for
   .
 
 Terminals
@@ -104,14 +104,18 @@ decl -> implements_decl : '$1'.
 %% signature, so the checker reads the operation's name from each clause. It
 %% stays its own node rather than a signature, which keeps it out of `--api`'s
 %% operations and lets `declared/4` refuse it by kind.
-implements_decl -> 'implements' uident 'for' uident '{' '}' :
-    {implements, line('$1'), value('$2'), [], value('$4'), []}.
-implements_decl -> 'implements' uident 'for' uident '{' impl_clauses '}' :
-    {implements, line('$1'), value('$2'), [], value('$4'), '$6'}.
-implements_decl -> 'implements' uident '<' type_list '>' 'for' uident '{' '}' :
-    {implements, line('$1'), value('$2'), '$4', value('$7'), []}.
-implements_decl -> 'implements' uident '<' type_list '>' 'for' uident '{' impl_clauses '}' :
-    {implements, line('$1'), value('$2'), '$4', value('$7'), '$9'}.
+implements_decl -> 'implements' uident 'for' impl_for '{' '}' :
+    {implements, line('$1'), value('$2'), [], '$4', []}.
+implements_decl -> 'implements' uident 'for' impl_for '{' impl_clauses '}' :
+    {implements, line('$1'), value('$2'), [], '$4', '$6'}.
+implements_decl -> 'implements' uident '<' type_list '>' 'for' impl_for '{' '}' :
+    {implements, line('$1'), value('$2'), '$4', '$7', []}.
+implements_decl -> 'implements' uident '<' type_list '>' 'for' impl_for '{' impl_clauses '}' :
+    {implements, line('$1'), value('$2'), '$4', '$7', '$9'}.
+
+%% Ticket 99 Q4 writes the refused case qualified, `for Shop.Tree.Node`, so
+%% it parses and reaches the refusal rather than stopping at the `.`.
+impl_for -> modpath : modatom('$1').
 
 impl_clauses -> clause              : ['$1'].
 impl_clauses -> clause impl_clauses : ['$1' | '$2'].

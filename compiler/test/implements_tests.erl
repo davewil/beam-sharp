@@ -239,6 +239,171 @@ a_recursive_record_parameter_is_guarded_test() ->
                 "Go(n) -> :ok\n"}], "Go '#{value => 1, kids => []}'"),
     has(Got, "crashed: error:function_clause").
 
+%%% From the review of the first cut.
+
+leaf_mod(Extra) ->
+    {"Q.bs",
+     "module Q\n"
+     "record Leaf { Value: int }\n"
+     "implements Enumerable<int> for Leaf {\n"
+     "    Reduce(Leaf l, acc, f) -> f(acc, l.Value)\n"
+     "}\n" ++ Extra}.
+
+%% F64.15 — a value wearing an implementing record's tag without its fields is
+%% not that record, so it is not dispatched on.
+a_tag_alone_is_not_the_record_test() ->
+    Fake = compile_set([leaf_mod("type Fake = { Kind: :'Q.Leaf', Name: string }\n"
+                                 "public int Sum(Fake s)\n"
+                                 "Sum(s) -> Enumerable.Reduce(s, 0, (a, v) => a + v)\n")]),
+    bad_rc(Fake),
+    has(Fake, "which is no record that implements Enumerable"),
+    Open = compile_set([leaf_mod("type Wide = { Kind: :'Q.Leaf', Value: int, .. }\n"
+                                 "public int Sum(Wide s)\n"
+                                 "Sum(s) -> Enumerable.Reduce(s, 0, (a, v) => a + v)\n")]),
+    bad_rc(Open),
+    has(Open, "which is no record that implements Enumerable").
+
+%% F64.16 — a diagnostic about the implementation, or a call to it, names the
+%% operation, never the export.
+no_diagnostic_prints_the_export_test() ->
+    Swapped = compile_set([{"Tree.bs",
+                            "module Tree\n"
+                            "record Node { Value: int, Kids: list<Node> }\n"
+                            "implements Enumerable<int> for Node {\n"
+                            "    Reduce(Node n, acc, f) -> List.Fold(n.Kids, f(acc, n.Value), (a, k) => Reduce(a, k, f))\n"
+                            "}\n"}]),
+    bad_rc(Swapped),
+    has(Swapped, "Reduce"),
+    lacks(Swapped, "bs@"),
+    Guard = compile_set([{"G.bs",
+                          "module G\n"
+                          "record Leaf { Value: int }\n"
+                          "implements Enumerable<int> for Leaf {\n"
+                          "    Reduce(Leaf l, acc, f) when Reduce(l, acc, f) > 0 -> acc\n"
+                          "    Reduce(Leaf l, acc, f) -> f(acc, l.Value)\n"
+                          "}\n"}]),
+    bad_rc(Guard),
+    lacks(Guard, "bs@").
+
+%% F64.17 — the remaining declaration refusals.
+a_second_block_for_one_record_is_refused_test() ->
+    Got = compile_set([leaf_mod("implements Enumerable<int> for Leaf {\n"
+                                "    Reduce(Leaf l, acc, f) -> acc\n"
+                                "}\n")]),
+    bad_rc(Got),
+    has(Got, "implements Enumerable for Leaf a second time").
+
+an_operation_of_the_wrong_arity_is_refused_test() ->
+    Got = compile_set([{"Leaf.bs",
+                        "module Leaf\n"
+                        "record Leaf { Value: int }\n"
+                        "implements Enumerable<int> for Leaf {\n"
+                        "    Reduce(Leaf l, acc) -> acc\n"
+                        "}\n"}]),
+    bad_rc(Got),
+    has(Got, "Enumerable.Reduce takes 3 parameters, and this clause has 2").
+
+a_value_that_is_no_record_is_refused_at_the_call_test() ->
+    Got = compile_set([{"T.bs",
+                        "module T\n"
+                        "public int Sum(term t)\n"
+                        "Sum(t) -> Enumerable.Reduce(t, 0, (a, v) => a + v)\n"}]),
+    bad_rc(Got),
+    has(Got, "on term, which is no record that implements Enumerable"),
+    lacks(Got, "lambda").
+
+%% F64.18 — ticket 99 Q4 writes the refused case qualified; it parses and is refused.
+a_qualified_record_elsewhere_is_refused_test() ->
+    Got = compile_set([{"Report.bs",
+                        "module Shop.Report\n"
+                        "using Shop.Leaf\n"
+                        "implements Enumerable<int> for Shop.Leaf.Leaf {\n"
+                        "    Reduce(Leaf l, acc, f) -> f(acc, l.Value)\n"
+                        "}\n"},
+                       {"Leaf.bs", "module Shop.Leaf\nrecord Leaf { Value: int }\n"}]),
+    bad_rc(Got),
+    has(Got, "implements Enumerable for Shop.Leaf.Leaf, which is not a record this module declares").
+
+%% F64.19 — a protocol's name qualifies its operations, so no module may take it.
+a_module_named_for_a_protocol_is_refused_test() ->
+    Got = compile_set([{"Enumerable.bs",
+                        "module Enumerable\n"
+                        "public int One()\n"
+                        "One() -> 1\n"}]),
+    bad_rc(Got),
+    has(Got, "Enumerable").
+
+%% F64.20 — `--api` refuses what a compile refuses, and does not advise marking
+%% functions `public` in a module reached through a protocol.
+the_query_mode_agrees_with_a_compile_test() ->
+    Nope = api([{"Leaf.bs",
+                 "module Leaf\n"
+                 "record Leaf { Value: int }\n"
+                 "implements Enumerable<Nope> for Leaf {\n"
+                 "    Reduce(Leaf l, acc, f) -> acc\n"
+                 "}\n"}]),
+    bad_rc(Nope),
+    has(Nope, "Nope"),
+    Tree = api([tree()]),
+    ok_rc(Tree),
+    has(Tree, "Enumerable for Node"),
+    lacks(Tree, "Mark the ones").
+
+%% F64.21 — the new diagnostics print the same term in one VM or many (ENG-349).
+the_term_channel_is_the_same_in_a_batch_test_() ->
+    {timeout, 120, fun the_term_channel_is_the_same_in_a_batch/0}.
+
+the_term_channel_is_the_same_in_a_batch() ->
+    Root = bs_test_support:fixture_root(),
+    Arity = bs_test_support:place(Root, "a.bs",
+                                  "module Ar\nrecord Leaf { Value: int }\n"
+                                  "implements Enumerable<int> for Leaf {\n"
+                                  "    Reduce(Leaf l, acc) -> acc\n}\n"),
+    Unknown = bs_test_support:place(Root, "u.bs",
+                                    "module Un\nrecord Leaf { Value: int }\n"
+                                    "implements Enumerable<int> for Leaf {\n"
+                                    "    Reduce(Leaf l, acc, f) -> f(acc, l.Value)\n"
+                                    "    Count(Leaf l) -> 1\n}\n"),
+    Call = bs_test_support:place(Root, "c.bs",
+                                 "module Ca\nrecord Leaf { Value: int }\n"
+                                 "implements Enumerable<int> for Leaf {\n"
+                                 "    Reduce(Leaf l, acc, f) -> f(acc, l.Value)\n}\n"
+                                 "public int N(Leaf l)\nN(l) -> Enumerable.Count(l)\n"),
+    Entries = [{Id, ["--diagnostics", "term", "--src-root", Root, "-o",
+                     filename:join(Root, "o" ++ Id), P]}
+               || {Id, P} <- [{"arity", Arity}, {"unknown", Unknown}, {"call", Call}]],
+    Manifest = filename:join(Root, "batch.manifest"),
+    ok = file:write_file(Manifest,
+                         [["entry ", Id, "\n", [["arg ", A, "\n"] || A <- Args], "end\n\n"]
+                          || {Id, Args} <- Entries]),
+    Results = filename:join(Root, "results"),
+    {0, ""} = bs_test_support:run_cli_result("--batch " ++ Manifest ++ " " ++ Results),
+    [begin
+         {_, Out, _} = bs_test_support:run_cli_split_result(
+                         lists:flatten(lists:join(" ", ["'" ++ A ++ "'" || A <- Args]))),
+         {ok, Batch} = file:read_file(filename:join(Results, Id ++ ".stdout")),
+         ?assertNotEqual(nomatch, string:find(Out, "tag =>")),
+         ?assertEqual({Id, Out}, {Id, binary_to_list(Batch)})
+     end || {Id, Args} <- Entries].
+
+%% F64.22 — the operation's name passed as a value is the implementation too,
+%% and a return mismatch withholds a signature, since the protocol declares it.
+the_operation_as_a_value_is_the_implementation_test() ->
+    Got = compile_set([{"Val.bs",
+                        "module Val\n"
+                        "record Node { Value: int, Kids: list<Node> }\n"
+                        "implements Enumerable<int> for Node {\n"
+                        "    Reduce(Node n, acc, f) -> List.Fold(n.Kids, f(acc, n.Value),"
+                        " (a, k) => Step(Reduce, k, a, f))\n"
+                        "}\n"
+                        "private int Step(fn(Node, int, fn(int, int) -> int) -> int r, Node k,"
+                        " int a, fn(int, int) -> int f)\n"
+                        "Step(r, k, a, f) -> r(k, a, f)\n"}]),
+    bad_rc(Got),
+    has(Got, "no signature is offered: the protocol declares this operation's"),
+    lacks(Got, "nothing declares"),
+    lacks(Got, "bs@").
+
 flatten(Forms) -> lists:flatten([walk(F) || F <- Forms]).
 
 walk(T) when is_tuple(T) -> [T | walk(tuple_to_list(T))];

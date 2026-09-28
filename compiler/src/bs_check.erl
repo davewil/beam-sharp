@@ -87,7 +87,7 @@ check_dir1(Sources0, World, Expect) ->
     {Imports, Env} = declared(Sources0, World, Expect, strict),
     %% F64: an `implements` block becomes the function it defines, after
     %% `declared/4` has refused it by kind.
-    Sources = [{P, implementations(D)} || {P, D} <- Sources0],
+    Sources = [{P, desugar_implements(D)} || {P, D} <- Sources0],
     Decls = lists:append([D || {_, D} <- Sources]),
     Module = module_name(Decls),
     PerFile = [{P, collect(D)} || {P, D} <- Sources],
@@ -103,7 +103,7 @@ check_dir1(Sources0, World, Expect) ->
     %% Internal notes travel through the diagnostic channel; remove them before
     %% printing diagnostics.
     {Notes, Tagged} = lists:partition(
-                        fun({_, D}) -> lists:member(element(1, D), [prune, fname, fdiv, vproj, pcall]) end,
+                        fun({_, D}) -> is_note(D) end,
                         Tagged0),
     Prunes = maps:from_list([{B, Dead} || {_, {prune, B, Dead}} <- Notes]),
     %% Token positions uniquely key bare names' resolved arities; the emitter
@@ -154,9 +154,11 @@ check_dir1(Sources0, World, Expect) ->
 %% Raised function errors retain their source file. Pathless `check/2` callers
 %% receive bare tuples.
 check_file(undefined, Fns, Ctx) ->
-    [{undefined, as_block_arms(F, D)} || F <- Fns, {_, Ds} <- [check_fn(F, Ctx)], D <- Ds];
+    [{undefined, shown_names(as_block_arms(F, D))}
+     || F <- Fns, {_, Ds} <- [check_fn(F, Ctx)], D <- Ds];
 check_file(Path, Fns, Ctx) ->
-    try [{Path, as_block_arms(F, D)} || F <- Fns, {_, Ds} <- [check_fn(F, Ctx)], D <- Ds]
+    try [{Path, shown_names(as_block_arms(F, D))}
+         || F <- Fns, {_, Ds} <- [check_fn(F, Ctx)], D <- Ds]
     catch
         error:Reason when is_tuple(Reason), element(1, Reason) =/= in_file ->
             erlang:error({in_file, Path, Reason})
@@ -195,7 +197,7 @@ no_function_in_index(Path, Decls) when is_list(Path) ->
         "index.bs" ->
             %% F64: an `implements` block holds an operation's clauses, so it
             %% is refused here as a function is, under the operation's name.
-            Impls = [{implemented_name(P), L} || {implements, L, P, _, _, _} <- Decls],
+            Impls = [{index_refusal_name(P), L} || {implements, L, P, _, _, _} <- Decls],
             case Impls ++ [{N, L} || {signature, L, N, _, _, _, _} <- Decls] of
                 %% `resolve_error/2` unwraps this file attribution and
                 %% re-dispatches.
@@ -222,7 +224,9 @@ module_matches_path(Module, Sources, Expect) ->
 %% Only whole module names are reserved; a path segment such as `List` in
 %% `Shop.Collections.List` is legal.
 reserved_module_name(Module, Sources) ->
-    case lists:member(Module, reserved_qualifiers()) of
+    %% A protocol's name qualifies its operations as a reserved qualifier does
+    %% (F64), so a module of that name would never be reached.
+    case lists:member(Module, reserved_qualifiers() ++ maps:keys(protocol_table())) of
         false -> ok;
         true  ->
             %% The fallback must include both line and column for `bs_diag`.
@@ -310,6 +314,10 @@ declared(Sources, World, Expect, Mode) ->
     foreign_rets_decidable(Decls, Env),
     %% Scan bodies for `ToJson<T>` refusals: `--api` does not type bodies.
     to_json_refused(Decls ++ implementation_clauses(Decls), Env),
+    %% F64: a block's type arguments resolve here, so `--api` refuses
+    %% `Enumerable<Nope>` as a compile does.
+    [at_loc(L, fun() -> resolve(T, Env) end)
+     || {implements, L, _, TArgs, _, _} <- Decls, T <- TArgs],
     %% Reserved-name checks precede path checks so the reserved-name diagnostic
     %% is independent of the directory.
     reserved_module_name(Self, Sources),
@@ -575,7 +583,7 @@ collect(Decls) ->
     %% Exclude foreign signatures: they have no clauses to check.
     Sigs = [#fn{name = N, line = L, ret = R, params = P, vis = V, tvars = TV,
                 block = maps:get({N, length(P)}, Blocks, none),
-                shown = implemented_op(N)}
+                shown = impl_op_of(N)}
             || {signature, L, N, R, P, V, TV} <- Decls],
     [F#fn{clauses = [C || C = {clause, _, Name, Ps, _, _} <- Decls,
                           Name =:= F#fn.name,
@@ -1370,7 +1378,7 @@ built_obligations() -> ['ValidateAs', 'ParseAtom', 'ToExistingAtom', 'ToJson'].
 %%% parameters, so the block is checked as the function it defines.
 %%% Rationale: compiler/features/F64-implements.md.
 
-protocols() ->
+protocol_table() ->
     #{'Enumerable' =>
           {['T'],
            [{'Reduce', ['TAcc'],
@@ -1382,22 +1390,26 @@ protocols() ->
 %% One export per implementing record: a module may implement a protocol for
 %% two records at different element types, and one merged function could be
 %% checked against neither.
-implementation_name(P, Op, For) ->
+impl_export(P, Op, For) ->
     list_to_atom(lists:concat(["bs@", P, "@", Op, "@", For])).
 
 %% The operation a diagnostic names for an implementation, else `undefined`.
-implemented_op(N) ->
-    case string:split(atom_to_list(N), "@", all) of
-        ["bs", _P, Op, _For] -> list_to_atom(Op);
-        _                    -> undefined
+impl_op_of(N) ->
+    case atom_to_list(N) of
+        "bs@" ++ _ = S ->
+            case string:split(S, "@", all) of
+                ["bs", _P, Op, _For] -> list_to_atom(Op);
+                _                    -> undefined
+            end;
+        _ -> undefined
     end.
 
 shown(#fn{shown = undefined, name = N}) -> N;
 shown(#fn{shown = Op})                  -> Op.
 
 %% `index.bs` refuses a block under its protocol's first operation.
-implemented_name(P) ->
-    case maps:find(P, protocols()) of
+index_refusal_name(P) ->
+    case maps:find(P, protocol_table()) of
         {ok, {_, [{Op, _, _, _} | _]}} -> list_to_atom(lists:concat([P, ".", Op]));
         error                          -> P
     end.
@@ -1416,9 +1428,9 @@ implements_refused(Decls) ->
     end.
 
 implements_ok({implements, L, P, TArgs, For, Clauses}, Records) ->
-    case maps:find(P, protocols()) of
+    case maps:find(P, protocol_table()) of
         error ->
-            erlang:error({unknown_protocol, P, lists:sort(maps:keys(protocols())), L});
+            erlang:error({unknown_protocol, P, lists:sort(maps:keys(protocol_table())), L});
         {ok, {TVars, Ops}} ->
             length(TArgs) =:= length(TVars) orelse
                 erlang:error({protocol_type_args, P, length(TVars), length(TArgs), L}),
@@ -1450,30 +1462,35 @@ implementation_clauses(Decls) ->
 %% Each block becomes one public function per operation, its signature the
 %% protocol's with `Self` and the type parameters substituted, and its clauses
 %% the block's, renamed. `declared/4` has refused every malformed block.
-implementations(Decls) ->
-    lists:append([implementation(D) || D <- Decls]).
+desugar_implements(Decls) ->
+    lists:append([desugar_implement(D) || D <- Decls]).
 
-implementation({implements, L, P, TArgs, For, Clauses}) ->
-    {TVars, Ops} = maps:get(P, protocols()),
+desugar_implement({implements, L, P, TArgs, For, Clauses}) ->
+    {TVars, Ops} = maps:get(P, protocol_table()),
     Sub = maps:from_list([{'Self', {t_ref, For}} | lists:zip(TVars, TArgs)]),
-    Renames = maps:from_list([{{Op, length(Ps)}, implementation_name(P, Op, For)}
-                              || {Op, _, Ps, _} <- Ops]),
-    [{signature, L, implementation_name(P, Op, For), subst(Ret, Sub),
+    Renames = maps:from_list([{{Op, length(Ps)}, impl_export(P, Op, For)}
+                              || {Op, _, Ps, _} <- Ops]
+                             ++ [{Op, impl_export(P, Op, For)} || {Op, _, _, _} <- Ops]),
+    [{signature, L, impl_export(P, Op, For), subst(Ret, Sub),
       [{param, subst(T, Sub), N} || {param, T, N} <- Ps], public, OpTVars}
      || {Op, OpTVars, Ps, Ret} <- Ops]
     ++ [renamed(C, Renames) || C <- Clauses];
-implementation(D) ->
+desugar_implement(D) ->
     [D].
 
 %% Inside a block an operation's own name is its implementation, so ticket
-%% 99's `Reduce(k, a, f)` recurses. Only call nodes are rewritten, so a walk
-%% over every term reaches them without naming the other node kinds.
+%% 99's `Reduce(k, a, f)` recurses and `Reduce` in value position is it too.
+%% Only call and name nodes are rewritten, so a walk over every term reaches
+%% them without naming the other node kinds. `R` holds `{Op, Arity}` keys for
+%% calls and bare `Op` keys for names, whose arity may not be written.
 renamed({clause, L, N, Ps, G, B}, R) ->
     {clause, L, maps:get({N, length(Ps)}, R, N), Ps, renamed_calls(G, R),
      renamed_calls(B, R)}.
 
 renamed_calls({e_call, L, N, As}, R) ->
     {e_call, L, maps:get({N, length(As)}, R, N), renamed_calls(As, R)};
+renamed_calls({e_fname, L, N, A}, R) ->
+    {e_fname, L, maps:get(N, R, N), A};
 renamed_calls(T, R) when is_tuple(T) ->
     list_to_tuple(renamed_calls(tuple_to_list(T), R));
 renamed_calls(Xs, R) when is_list(Xs) ->
@@ -1481,12 +1498,14 @@ renamed_calls(Xs, R) when is_list(Xs) ->
 renamed_calls(X, _R) ->
     X.
 
-%% `{Protocol, Tag} => {Module, Record, Elem}`, the element type resolved in the
-%% implementing module.
+%% `{Protocol, Tag} => {Module, Record, Elem, RecordType}`, each type resolved in
+%% the implementing module. A call checks its subject against `RecordType`, so a
+%% value wearing the tag without the record's fields is not dispatched on.
 local_impls(Decls, Module, Env) ->
-    maps:from_list([{{P, qualified(Module, For)}, {Module, For, impl_elem(TArgs, Env)}}
+    maps:from_list([{{P, qualified(Module, For)},
+                     {Module, For, impl_elem(TArgs, Env), resolve({t_ref, For}, Env)}}
                     || {implements, _, P, TArgs, For, _} <- Decls,
-                       maps:is_key(P, protocols())]).
+                       maps:is_key(P, protocol_table())]).
 
 impl_elem([T], Env) -> resolve(T, Env);
 impl_elem(_, _Env)  -> bs_types:term().
@@ -1504,7 +1523,7 @@ implements_of(Decls, Self, World) ->
 %% the subject's implementations declare. The emitter learns each call's
 %% targets from a `pcall` note, since it sees no types.
 protocol_call(L, P, Op, Args, S, C) ->
-    {_TVars, Ops} = maps:get(P, protocols()),
+    {_TVars, Ops} = maps:get(P, protocol_table()),
     case [O || O = {N, _, Ps, _} <- Ops, N =:= Op, length(Ps) =:= length(Args)] of
         [] ->
             {_ATys, D} = type_of_all(Args, S, C),
@@ -1521,7 +1540,7 @@ protocol_call(L, P, Op, Args, S, C) ->
                     case implementers(P, STy, C) of
                         {ok, Targets, Elem} ->
                             {Ret, D1} = protocol_op(P, Op, STy, Elem, Args, L, S, C),
-                            Note = {pcall, L, [{Tag, M, implementation_name(P, Op, For)}
+                            Note = {pcall, L, [{Tag, M, impl_export(P, Op, For)}
                                                || {Tag, M, For} <- Targets]},
                             {Ret, [Note | D0 ++ D1]};
                         %% The other arguments are not typed: with no
@@ -1544,12 +1563,12 @@ protocol_op('Enumerable', 'Reduce', STy, Elem, [_, Seed, F] = Args, L, S, C) ->
                                  [STy, SeedTy, FTy], Ps, 1, C)}.
 
 %% Every member of the subject must be a record whose module implements the
-%% protocol. `Advice` is the `implements` line a lacking record needs, or
-%% `none` for a value no record is.
+%% protocol, and a subtype of that record: a tag alone is not the record.
+%% `Advice` is the `implements` line a lacking record needs, or `none` for a
+%% value that is no such record.
 implementers(P, Ty0, C) ->
-    Ty = case Ty0 of #{mu := _} -> bs_types:unfold(Ty0); _ -> Ty0 end,
-    Maps = case Ty of #{maps := Ms} when is_list(Ms) -> Ms; _ -> [] end,
-    Rest = bs_types:subtract(Ty, (bs_types:none())#{maps => Maps}),
+    Ty = bs_types:unfold(Ty0),
+    {Maps, Rest} = map_parts(Ty),
     Members = member_types(Maps),
     Plain = not bs_types:is_none(Rest) orelse Maps =:= []
                 orelse length(Members) =/= length(Maps),
@@ -1557,22 +1576,62 @@ implementers(P, Ty0, C) ->
         true ->
             {missing, lists:flatten(bs_types:to_pattern(Ty)), none};
         false ->
-            Found = [{M, maps:find({P, tag_of(M)}, C#ctx.impls)} || M <- Members],
+            Found = [{M, implementation_of(P, M, C)} || M <- Members],
             case [M || {M, error} <- Found] of
                 [] ->
-                    Targets = [{tag_of(M), Mod, For} || {M, {ok, {Mod, For, _}}} <- Found],
-                    Elem = bs_types:union([E || {_, {ok, {_, _, E}}} <- Found]),
+                    Targets = [{tag_of(M), Mod, For} || {M, {ok, {Mod, For, _, _}}} <- Found],
+                    Elem = bs_types:union([E || {_, {ok, {_, _, E, _}}} <- Found]),
                     {ok, Targets, Elem};
                 [M | _] ->
-                    case record_name(M) of
-                        unknown -> {missing, member_label(M), none};
-                        Name    -> {missing, atom_to_list(Name), implements_advice(P, Name)}
+                    case {record_name(M), maps:find({P, tag_of(M)}, C#ctx.impls)} of
+                        {unknown, _}     -> {missing, member_label(M), none};
+                        {_, {ok, _}}     -> {missing, member_label(M), none};
+                        {Name, error}    -> {missing, atom_to_list(Name),
+                                             implements_advice(P, Name)}
                     end
             end
     end.
 
+implementation_of(P, M, C) ->
+    case maps:find({P, tag_of(M)}, C#ctx.impls) of
+        {ok, {_, _, _, RecTy} = Impl} ->
+            case bs_types:is_subtype(M, RecTy) of
+                true  -> {ok, Impl};
+                false -> error
+            end;
+        error -> error
+    end.
+
+%% A type's map members, and whatever else it holds.
+map_parts(T) ->
+    Maps = case T of
+               #{maps := Ms} when is_list(Ms) -> Ms;
+               _                              -> []
+           end,
+    {Maps, bs_types:subtract(T, (bs_types:none())#{maps => Maps})}.
+
+%% Checker notes travel through the diagnostic channel to the emitter.
+is_note(D) -> lists:member(element(1, D), [prune, fname, fdiv, vproj, pcall]).
+
+%% F64: a diagnostic names an implementation by its operation, never by its
+%% export. Notes keep the export, which the emitter calls.
+shown_names(D) ->
+    case is_note(D) of
+        true  -> D;
+        false -> shown_term(D)
+    end.
+
+shown_term(A) when is_atom(A) ->
+    case impl_op_of(A) of
+        undefined -> A;
+        Op        -> Op
+    end;
+shown_term(T) when is_tuple(T) -> list_to_tuple([shown_term(X) || X <- tuple_to_list(T)]);
+shown_term(L) when is_list(L)  -> [shown_term(X) || X <- L];
+shown_term(X)                  -> X.
+
 implements_advice(P, Name) ->
-    {TVars, Ops} = maps:get(P, protocols()),
+    {TVars, Ops} = maps:get(P, protocol_table()),
     Args = case TVars of [] -> ""; _ -> "<" ++ lists:join(", ", [atom_to_list(T) || T <- TVars]) ++ ">" end,
     Heads = [lists:concat([Op, "(", Name, " ",
                            lists:join(", ", [atom_to_list(N) || {param, _, N} <- Ps]),
@@ -1688,11 +1747,7 @@ record_fields({t_map, Fields}) -> [N || {field, N, _} <- Fields, N =/= 'Kind'].
 record_of(Name, Line, Env) ->
     %% A recursive record resolves to its binder, so unfold it once to reach
     %% the member that carries the tag (F64.13).
-    Ty = case resolve({t_ref, Name}, Env) of
-             #{mu := _} = R -> bs_types:unfold(R);
-             R              -> R
-         end,
-    case Ty of
+    case bs_types:unfold(resolve({t_ref, Name}, Env)) of
         #{maps := [{closed, Fs}], atoms := {finite, []}, ints := [],
           floats := {finite, []}, tuples := [], lists := [], bins := [],
           opaques := [], funs := []} ->
@@ -1915,11 +1970,7 @@ check_fn(F = #fn{line = Line, params = Params, ret = Ret}, Ctx0) ->
                     [_ | _] = Ds -> {bs_types:none(), Ds};
                     []           -> walk(Clauses, Declared, Declared, Ctx, [], 1)
                 end,
-            %% An implementation has no signature of its own to correct.
-            Diags = case F#fn.shown of
-                        undefined -> with_corrected_signature(F, Ctx#ctx.ret, Env, Diags0);
-                        _         -> Diags0
-                    end,
+            Diags = with_corrected_signature(F, Ctx#ctx.ret, Env, Diags0),
             Final =
                 case bs_types:is_none(Residual) of
                     true  -> Diags;
@@ -1950,6 +2001,11 @@ outside_block(#fn{name = Name, block = Arms, clauses = Clauses}) ->
 with_corrected_signature(F, Declared, Env, Diags) ->
     case [R || {error, _, _, {return_not_declared, R}} <- Diags] of
         []  -> Diags;
+        %% F64: the protocol declares an implementation's signature, so there
+        %% is no line of the author's to correct.
+        _ when F#fn.shown =/= undefined ->
+            C = {declared_text(F#fn.ret, Declared), {withhold, protocol_operation}},
+            [attach_correction(D, C) || D <- Diags];
         Rs  -> C = corrected_signature(F, Declared, bs_types:union(Rs), Env),
                [attach_correction(D, C) || D <- Diags]
     end.
@@ -2981,7 +3037,7 @@ type_of({e_qcall, L, Mod0, Fun, Args}, S, C) ->
     %% Handle reserved qualifiers before import resolution: they have no
     %% entries in the import tables. A protocol's name qualifies its
     %% operations the same way (F64).
-    case {maps:is_key(Mod0, protocols()),
+    case {maps:is_key(Mod0, protocol_table()),
           lists:member(Mod0, reserved_qualifiers())} of
         {true, _} -> protocol_call(L, Mod0, Fun, Args, S, C);
         {_, true} -> reserved_call(L, Mod0, Fun, Args, S, C);
@@ -3306,11 +3362,7 @@ record_fields_checked(L, Name, Fields, Tys, Ty, D, C) ->
 construct_members(#{mu := _} = T) ->
     construct_members(bs_types:unfold(T));
 construct_members(T) ->
-    Maps = case T of
-               #{maps := Ms} when is_list(Ms) -> Ms;
-               _                              -> []
-           end,
-    Rest = bs_types:subtract(T, (bs_types:none())#{maps => Maps}),
+    {Maps, Rest} = map_parts(T),
     Entries = [construct_member((bs_types:none())#{maps => [M]}, M) || M <- Maps]
               ++ [{part, P, none} || not bs_types:is_none(Rest),
                                      P <- bs_types:pattern_parts(Rest)],

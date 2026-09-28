@@ -293,7 +293,11 @@ types_world(Ordered, Subjects) ->
                       try World#{M => #{exports => #{}, private => #{},
                                         behaviours => [],
                                         types => bs_check:types_of(Decls, M, World),
-                                        implements => bs_check:implements_of(Decls, M, World)}}
+                                        %% A module whose implementations do not
+                                        %% resolve still lends its types.
+                                        implements => try bs_check:implements_of(Decls, M, World)
+                                                      catch error:_ -> #{}
+                                                      end}}
                       catch
                           error:_ -> World
                       end
