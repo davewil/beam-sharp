@@ -2,7 +2,7 @@
 {e_neg,..,{e_int,..}} (today)      flat_size= 14 words  external_size= 35 bytes
 {e_op,'-',{e_int,0},{e_int,5}} (pr flat_size= 23 words  external_size= 56 bytes
 whole predicate `value >= -100 and value <= 100`: unfolded 62 words, folded 55 words
-fold(pred) [probe-local]: 4.901 us/call (loop overhead 0.171 us)
-fold_pred(pred) targeted [probe-local]: 1.258 us/call
-bs_check:resolve/2 of the folded refinement (real module, includes alternatives/1 + refine_all): 4.627 us/call
-bs_check:resolve/2 of `value >= 0` for scale: 2.321 us/call
+fold(pred) [probe-local]: 4.188 us/call (loop overhead 0.165 us)
+fold_pred(pred) targeted [probe-local]: 0.989 us/call
+bs_check:resolve/2 of the folded refinement (real module, includes alternatives/1 + refine_all): 3.580 us/call
+bs_check:resolve/2 of `value >= 0` for scale: 1.666 us/call

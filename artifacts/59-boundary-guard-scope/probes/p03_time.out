@@ -1,2 +1,111 @@
 OTP 25 erts 13.2.2.5 emu_flavor=jit schedulers_online=4
 rounds=25, iterations per timed call=2000000 (single-call variants: 2000000 calls per rep)
+
+variant         median       min       p25       p75   (ns per call or per loop iteration)
+s_tag_u         34.331    33.059    33.438    36.065
+s_tag_g         35.831    35.209    35.494    36.877
+s_tag_u2        35.920    34.708    34.870    37.102
+s_int_u         28.821    27.816    28.053    29.221
+s_int_g         28.520    27.920    28.351    29.319
+s_int_u2        28.218    27.583    27.927    29.172
+i_priv_u         2.441     2.179     2.264     2.571
+i_priv_g         2.465     2.219     2.365     2.528
+i_priv_gU        2.716     2.522     2.639     2.786
+i_priv_uU        2.601     2.503     2.547     2.735
+i_ex_u           2.728     2.244     2.445     3.410
+i_ex_g           3.208     2.920     3.128     3.258
+i_ex_u2          2.381     2.189     2.314     2.587
+r_priv_u        12.033    11.634    11.870    12.351
+r_priv_g        19.619    19.032    19.321    20.729
+r_priv_u2       12.059    11.707    11.903    12.355
+u_priv_u        24.502    23.160    23.678    25.212
+u_priv_g        33.739    31.720    32.459    34.946
+
+NOISE FLOOR (identical twins), guarded-vs-unguarded deltas below should be read against these:
+  s_tag  twin: median +1.589  min +1.649
+  s_int  twin: median -0.603  min -0.233
+  i_ex   twin: median -0.348  min -0.054
+  r_priv twin: median +0.026  min +0.073
+
+DELTAS (guarded - unguarded), ns per call/iteration:
+  single exported, tag test        : median +1.500  min +2.151
+  single exported, is_integer      : median -0.301  min +0.105
+  private loop, int, caller proves : median +0.024  min +0.040
+  private loop, int, caller unknown: median +0.115  min +0.019
+  exported loop, int               : median +0.480  min +0.676
+  private loop, record read-only   : median +7.586  min +7.398
+  private loop, record rebuilt     : median +9.237  min +8.559
+
+--- asm of loop in i_priv_g (line/func_info/var_info annotations dropped) ---
+{function, loop, 2, 4}.
+  {label,3}.
+  {label,4}.
+    {test,is_eq_exact,{f,5},[{tr,{x,0},{t_integer,any}},{integer,0}]}.
+    {move,{x,1},{x,0}}.
+    return.
+  {label,5}.
+    {gc_bif,'-',{f,0},2,[{tr,{x,0},{t_integer,any}},{integer,1}],{x,2}}.
+    {gc_bif,'+',
+            {f,0},
+            3,
+            [{tr,{x,1},{t_integer,any}},{tr,{x,0},{t_integer,any}}],
+            {x,1}}.
+    {move,{x,2},{x,0}}.
+    {call_only,2,{f,4}}. % loop/2
+
+--- asm of loop in i_priv_gU (line/func_info/var_info annotations dropped) ---
+{function, loop, 2, 4}.
+  {label,3}.
+  {label,4}.
+    {test,is_eq_exact,{f,5},[{x,0},{integer,0}]}.
+    {test,is_integer,{f,3},[{x,1}]}.
+    {move,{x,1},{x,0}}.
+    return.
+  {label,5}.
+    {test,is_integer,{f,3},[{x,0}]}.
+    {test,is_integer,{f,3},[{x,1}]}.
+    {gc_bif,'-',{f,0},2,[{tr,{x,0},{t_integer,any}},{integer,1}],{x,2}}.
+    {gc_bif,'+',
+            {f,0},
+            3,
+            [{tr,{x,1},{t_integer,any}},{tr,{x,0},{t_integer,any}}],
+            {x,1}}.
+    {move,{x,2},{x,0}}.
+    {call_only,2,{f,4}}. % loop/2
+
+--- asm of loop in i_ex_g (line/func_info/var_info annotations dropped) ---
+{function, loop, 2, 2}.
+  {label,1}.
+  {label,2}.
+    {test,is_eq_exact,{f,3},[{x,0},{integer,0}]}.
+    {test,is_integer,{f,1},[{x,1}]}.
+    {move,{x,1},{x,0}}.
+    return.
+  {label,3}.
+    {test,is_integer,{f,1},[{x,0}]}.
+    {test,is_integer,{f,1},[{x,1}]}.
+    {gc_bif,'-',{f,0},2,[{tr,{x,0},{t_integer,any}},{integer,1}],{x,2}}.
+    {gc_bif,'+',
+            {f,0},
+            3,
+            [{tr,{x,1},{t_integer,any}},{tr,{x,0},{t_integer,any}}],
+            {x,1}}.
+    {move,{x,2},{x,0}}.
+    {call_only,2,{f,2}}. % loop/2
+
+--- asm of loop in r_priv_g (line/func_info/var_info annotations dropped) ---
+{function, loop, 3, 4}.
+  {label,3}.
+  {label,4}.
+    {test,is_eq_exact,{f,5},[{x,0},{integer,0}]}.
+    {bif,map_get,{f,5},[{atom,'Kind'},{tr,{x,1},{t_map,any,any}}],{x,3}}.
+    {test,is_eq_exact,{f,5},[{x,3},{atom,'Order'}]}.
+    {move,{x,2},{x,0}}.
+    return.
+  {label,5}.
+    {bif,map_get,{f,3},[{atom,'Kind'},{tr,{x,1},{t_map,any,any}}],{x,3}}.
+    {test,is_eq_exact,{f,3},[{x,3},{atom,'Order'}]}.
+    {gc_bif,'-',{f,0},3,[{x,0},{integer,1}],{x,0}}.
+    {bif,map_get,{f,0},[{atom,total},{tr,{x,1},{t_map,any,any}}],{x,3}}.
+    {gc_bif,'+',{f,0},4,[{tr,{x,2},number},{x,3}],{x,2}}.
+    {call_only,3,{f,4}}. % loop/3

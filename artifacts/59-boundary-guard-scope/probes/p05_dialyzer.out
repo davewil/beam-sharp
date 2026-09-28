@@ -1,6 +1,6 @@
 == building a minimal PLT (erts, kernel, stdlib) from the apt-installed OTP; no network ==
 plt exit: 0
- done in 0m25.52s
+ done in 0m25.07s
 done (passed successfully)
 
 == D1/D3-nested/esc: d1 alone ==
@@ -26,7 +26,7 @@ done (passed successfully)
            (#{'Kind' := 'Order', 'status' := atom(), 'total' := integer()}) -> 
             integer() and the contract is 
             (order()) -> integer()
-   done in 0m0.15s
+   done in 0m0.19s
   done (warnings were emitted)
 
 == D4: d3 alone (exported vs local vs escaped local; every visible caller passes an atom) ==
@@ -34,5 +34,5 @@ done (passed successfully)
     Proceeding with analysis...
   d3.erl:8:19: Guard test is_integer
            (X :: 'foo') can never succeed
-   done in 0m0.14s
+   done in 0m0.20s
   done (warnings were emitted)

@@ -9,7 +9,8 @@
 %%  P5 `value >= -5.0` shape is {e_float,..,-5.0}: the parser already folds negated FLOAT literal.
 %%  P6 pattern `Sign(<= -1) -> :neg` parses to p_rel with -1 and checks fine.
 %%  P10 a bare `=` match against `(-5, _)` is refused at parse time today (to_match has no e_neg clause, bs_parser.yrl:845-880),
-%%      (control `(5,_) = p` NOT run: lex_mini has no layout tokens, so a full statement body cannot be lexed.) (Relevant: a parser-level fold of -N into e_int would newly admit it.)
+%%      CONTROL ADDED AFTER THE VERIFIER'S FINDING (verification.md): my earlier claim that lex_mini lacks layout tokens was wrong (the real lexer emits none either;
+%%      a bare `=` just needs a body after it). PREDICTION for the control: `(5, _) = p` + body parses, `(-5, _) = p` + body gives the to_match error. (Relevant: a parser-level fold of -N into e_int would newly admit it.)
 %%  P9 subtract(-10..10,0) prints "-10..-1 | 1..10" (ticket claim) and int-0..255 prints a negative part.
 %%  P7 guard `F(n) when n >= -5 -> ...` parses; guard is unread (no coverage credit), so
 %%     `F(n) when n >= -5 -> :a` alone over int is NOT exhaustive (or is accepted only with catch-all).
@@ -67,7 +68,7 @@ p9() ->
     io:format("P9b int minus 0..255 prints as ~s~n", [lists:flatten(bs_types:to_pattern(R2))]).
 p10() ->
     lists:foreach(fun({N, Body}) ->
-        Src = "module M\nint F((int, int) p)\nF(p) -> " ++ Body ++ "\n",
+        Src = "module M\nint F((int, int) p)\nF(p) ->\n    " ++ Body ++ "\n    1\n",
         R = bs_parser:parse(lex_mini:tokens(Src)),
         io:format("P10 ~s: ~s~n", [N, case R of {ok, _} -> "parses"; {error, {_, _, Msg}} -> "parse error " ++ lists:flatten(Msg) end])
-    end, [{"(-5, _) = p", "(-5, _) = p"}]).
+    end, [{"(5, _) = p (control)", "(5, _) = p"}, {"(-5, _) = p", "(-5, _) = p"}]).

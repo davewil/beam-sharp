@@ -19,7 +19,7 @@ doctrine (a residual like `-10..-1 | 1..10` must be writable)?
 2. **The same defect hits guards, silently.** `F(n) when n >= -5` / `F(n) when n < -5` parses and is accepted as a
    guard, but `alternatives/1` returns `unknown`, so it credits no coverage and the two-clause function is reported
    inexhaustive with residual `(int)`: the *whole* type. The same shape with `0` is exhaustive. MEASURED
-   `bsc_pieces.out` P7a vs P7b. SOURCE `bs_check.erl:4593-4599` ("An unread guard ... credits no coverage"). There is no diagnostic naming `-5`.
+   `bsc_pieces.out` P7a vs P7b. SOURCE `bs_check.erl:4593-4599` ("An unread guard ... credits no coverage"). No diagnostic naming `-5` was found by grep of `bs_diag.erl`; the inexhaustive advice text was not read.
 3. **A negative literal in an expression is typed `int`, not a singleton.** `type Neg = int where value <= 0;
    Neg F(int n) / F(n) -> -1` is refused (`return_not_declared`), `-> 0` is accepted. MEASURED
    `fold_prototype.out` F3/F3b. SOURCE `bs_check.erl:2803` (`e_int` types as `range(N,N)`) vs `:2807-2811` (`e_neg` types as `int`).
@@ -46,18 +46,18 @@ doctrine (a residual like `-10..-1 | 1..10` must be writable)?
 | 8 | The emitter has a *second* reader mirroring `comparison/1`, matching `{e_int,_,_}` literally, so it "can never credit less than the checker did" | SOURCE | `bs_emit.erl:666-679` (rationale), `:685-691` (`kind_expr`) |
 | 9 | The emitter already synthesises negative `e_int` nodes (`<= -1` pattern becomes `{e_int,L,-1}`) | SOURCE | `bs_emit.erl:650` |
 | 10 | `e_neg` is consumed in exactly four places: `expr_vars`, `type_of`, emitter `used_vars`, emitter `expr` | SOURCE | `probes/call_sites.out` section 2 |
-| 11 | Bare `=` and lambda params narrow via `to_match/1`/`to_param/1`, which have `e_int` but no `e_neg` clause, so `(-5, _) = p` is a parse error today | MEASURED | `bsc_pieces.out` P10 (control case not run, see below); SOURCE `bs_parser.yrl:845,893` |
+| 11 | Bare `=` and lambda params narrow via `to_match/1`/`to_param/1`, which have `e_int` but no `e_neg` clause, so `(-5, _) = p` is a parse error today | MEASURED | `bsc_pieces.out` P10, with control `(5, _) = p` + body parsing (control added after the verifier's finding); SOURCE `bs_parser.yrl:845,893` |
 | 12 | No named-constant form exists (no `const` token in lexer or grammar) | SOURCE | `grep` of `bs_lexer.xrl`, `bs_parser.yrl` (no hit) |
 | 13 | Fed a pre-folded AST, the **unmodified** checker accepts `-5..5`, `<=-1 \| >=1`, the residual spelled out, and makes the two guards exhaustive | MEASURED | `fold_prototype.out` F1a,F1b,F5,F2 (probe-local fold, models the option, is not bsc) |
 | 14 | A fold limited to predicates/guards does **not** fix `Neg F() -> -1`; a program-wide fold does | MEASURED | `fold_prototype.out` F3 (`neg_pred` refused, `neg_all` accepted) |
 | 15 | `value >= 2 + 3` needs an arithmetic fold on top; sign fold alone refuses it | MEASURED | `fold_prototype.out` F4 |
 | 16 | **Erlang** parser keeps `-5` as `{op,_,'-',{integer,_,5}}` in *both* guard and pattern position; `erl_parse` does not fold | MEASURED | `probes/erlang_stages.out` E1; SOURCE `erl_parse.yrl:240` (expr), `:270` (pat_expr) |
-| 17 | Erlang folds at **different stages by position**: pattern in `v3_core:pattern/2` via `erl_eval:partial_eval` (general: `2+3` folds); guard in `sys_core_fold` (after v3_core the guard is still `call erlang:'-'(5)`) | MEASURED | `erlang_stages.out` E2 (`to_core0` vs `to_core`); SOURCE `v3_core.erl:2056-2059`, `compile.erl:814,832,842`, `erl_eval.erl:1608` |
+| 17 | Erlang folds at **different stages by position**: pattern in `v3_core:pattern/2` via `erl_eval:partial_eval` (general: `2+3` folds); guard in `sys_core_fold` (after v3_core the guard is still `call erlang:'-'(5)`; by `to_core` it is a literal. The fold occurs between `to_core0` and `to_core`, inferred from that diff, with `sys_core_fold` the enabled pass in the span; it was not observed doing it) | MEASURED | `erlang_stages.out` E2 (`to_core0` vs `to_core`); SOURCE `v3_core.erl:2056-2059`, `compile.erl:814,832,842`, `erl_eval.erl:1608` |
 | 18 | Erlang's own lint asks the same question B# asks: `is_pattern_expr(-5)` and `(2+3)` true, `(X+1)` false | MEASURED | `erlang_stages.out` E2; SOURCE `erl_lint.erl:1880-1892` |
 | 19 | Folded and unfolded abstract forms compile to a **byte-identical beam** (guard and pattern) | MEASURED | `erlang_stages.out` E3 (560 B each; whole binary equal) |
 | 20 | **Elixir 1.14** parser emits `-5` as an op node `{:-,_,[5]}` everywhere (`x >= -5` too, and `2 + 3`); it does not fold at parse | MEASURED | `probes/elixir_forms.out` X1 |
 | 21 | Elixir's compiled Erlang abstract code: pattern `-5` is `{:integer,_,-5}`, guard `-5` stays `{:op,_,:-,{:integer,_,5}}`: the same split as Erlang. Code chunks equal to a spliced `-5` | MEASURED | `elixir_forms.out` X3, X4. Elixir parser *source* is not installed (beams only), so the fold's location in Elixir is UNVERIFIED |
-| 22 | Term size: literal 7 words / 19 B; `e_neg` 14 words / 35 B; pre-F51 `e_op` 23 words / 56 B. Whole `value >= -100 and value <= 100`: 62 words unfolded, 55 folded | MEASURED | `probes/sizes_cost.out` (the pre-F51 shape is built by hand from RECORDED ticket text) |
+| 22 | Term size: literal 7 words / 19 B; `e_neg` 14 words / 35 B; pre-F51 `e_op` 23 words / 56 B. Whole `value >= -100 and value <= 100`: 62 words unfolded, 55 folded | MEASURED (literal, `e_neg`, predicate); RECORDED-derived (pre-F51 `e_op` size, built by hand from ticket text) | `probes/sizes_cost.out` |
 | 23 | Fold cost: about 1 us targeted, 4-6 us generic tree walk, per refinement; `bs_check:resolve/2` of it is 3.6-5.4 us; run-to-run noise about 40% | MEASURED | `sizes_cost.out` (two runs differ; treat as order of magnitude). My prediction of "<5 us" was met only by the targeted fold, and an escript-interpreted first run gave 60 us (artefact, see header of `sizes_cost.escript`) |
 | 24 | Elm 0.19.1: `elm repl` cannot run here (package registry fetch, proxy 403). No Elm claim beyond the version | MEASURED | `probes/elm_probe.out` |
 | 25 | Gleam | not probed | |
@@ -102,7 +102,7 @@ type Five  = int where value >= 2 + 3                   // still refused (F4): n
 Compiler delta: `bs_parser.yrl:907-908` one clause. Nothing in `bs_check.erl` (`comparison/1`, `type_of`, `to_match`, `to_param` already take `e_int`), nothing in `bs_emit.erl` (mirror at `:687-690` already matches `e_int`; `:650` already emits negative `e_int`). The `e_neg` consumers (evidence 10) keep serving `-x`. Error text of `opaque_refinement` is unchanged and its advice becomes true.
 
 - Evidence for: 1 line; both readers (checker, emitter mirror) change with zero edits (evidence 8, 9); guard, refinement, return typing and `to_match` fixed together (13, 14); precedent in this parser for exactly this fold (3); Erlang and Elixir both produce the same *result* by folding literals wherever position demands it (16, 17, 21), and the beam is identical either way (19). Cost is `-5` becoming 7 words instead of 14 (22).
-- **Strongest counterargument:** it is a semantic change wider than the ticket, and the ticket says "should not guess". `-1` in *every* body now types as a singleton and `(-5, _) = p` newly parses, so any test that pins today's `int` typing or the `to_match` error is a candidate to move. **UNVERIFIED** here: the 1000+ test suite cannot run. It also folds inside `- (5)` and `- -5` (P4c/d shapes), harmlessly (`- -5` folds to `5`) but not by anyone's decision. And the parser gains a fold while the ticket's design intent says the *checker* owns meaning: Erlang and Elixir both keep the parser dumb and fold later (16, 20), which is the same trade the other way.
+- **Strongest counterargument:** it is a semantic change wider than the ticket, and the ticket says "should not guess". `-1` in *every* body now types as a singleton and `(-5, _) = p` newly parses, so any test that pins today's `int` typing or the `to_match` error is a candidate to move. **UNVERIFIED** here: the 1000+ test suite cannot run. It also folds inside `- (5)` and `- -5` (P4c/d shapes), harmlessly (`- -5` would fold to `5` by bottom-up yecc reduction; this is reasoning, not measured, and the fold prototype is top-down and does not model it) but not by anyone's decision. And the parser gains a fold while the ticket's design intent says the *checker* owns meaning: Erlang and Elixir both keep the parser dumb and fold later (16, 20), which is the same trade the other way.
 
 ## Option C: checker-level fold, scoped to `alternatives/1`
 
@@ -135,6 +135,9 @@ Compiler delta: `bs_check.erl:4624-4625` (two clauses) + a `const_int/1`; **and*
 | (c) pattern and refinement share a reader | yes (`int_lit`) | yes, both are `e_int`/`p_int` of the same value; they still have two grammars | no (pattern is `int_lit`, refinement is `const_int`) but the same value |
 | (d) residuals writable | yes (F5 shape) | yes (F5) | yes (F5) |
 
+Supporting fact (from the verifier, sites re-checked): `e_int` is consumed at only a handful of sites in check/emit,
+all sign-agnostic: `bs_check.erl:2803` (`type_of`), `:4624-4625` (`comparison`), `bs_emit.erl:687,689` (`kind_expr`), `:888` (`expr`).
+
 ## Recommendation
 
 **Option B**, with (b) fixed at "`-N` only; no arithmetic, and no constant form". Reasons, each from the evidence:
@@ -154,9 +157,8 @@ UNVERIFIED point above and should be the first thing run once `bsc` builds.
 - **`bsc` was never run.** OTP 25's leex lacks `TokenLoc`; the project needs OTP 28. I did not patch the lexer. Instead
   `run.sh` (1) generates `bs_parser.erl` with `yecc` from the unmodified `compiler/src/bs_parser.yrl`, (2) `erlc`-compiles
   the unmodified `bs_types`, `bs_check`, `bs_diag`, `bs_emit`, `bs_lower`, `bs_otp` (sha256 in `probes/versions.out`), and (3) supplies
-  two probe-local stand-ins: `probes/lex_mini.erl` (a toy tokenizer with no layout tokens; not `bsc`'s lexer) and
-  `probes/shim/bs_lexer.erl` (only used by `bs_check:pasted_signature/1`, `bs_check.erl:2298`, to re-lex a corrected
-  signature). Verdicts are therefore "real parser + real checker on hand-lexed tokens", not `bsc` output. Nothing after
+  two probe-local stand-ins: `probes/lex_mini.erl` (a toy tokenizer; not `bsc`'s lexer, though it emits the same token shapes for the probed programs) and
+  `probes/shim/bs_lexer.erl` (used by `bs_check:pasted_signature/1`, `bs_check.erl:2298`, and `declarations_pasted/3`, `:2248`, to re-lex suggested signatures and declarations, so any advice text in a diagnostic may come from `lex_mini`; verdicts and residuals do not depend on it). Verdicts are therefore "real parser + real checker on hand-lexed tokens", not `bsc` output. Nothing after
   the checker (emission of the full module) was run; every emitter statement is SOURCE only.
 - `fold_prototype.escript` models options by rewriting the AST before the real checker; it shows the checker is
   *ready* for a literal, not that the option's actual code is right.
@@ -167,4 +169,3 @@ UNVERIFIED point above and should be the first thing run once `bsc` builds.
 - Elm: registry unreachable (403), no claim. Gleam: not probed (not installed; installing was denied).
 - The pre-F51 `e_op` shape sizes in evidence 22 come from the ticket's text, not from any run of the old compiler.
 - Yecc conflict count for Option A's grammar: not measured.
-- `probes/bsc_pieces.out` P10: the control `(5, _) = p` was not run (the toy lexer has no layout tokens).
