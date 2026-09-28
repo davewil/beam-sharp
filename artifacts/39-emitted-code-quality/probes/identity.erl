@@ -7,7 +7,7 @@
 -module(identity).
 -export([main/0]).
 main() ->
-    Ms = [v_base, v_bs, v_base_nt, v_bs_nt, v_exp, v_exp_is, v_exp_rng, v_exp_spec, v_priv_rng, v_bs_rng],
+    Ms = [v_base, v_bs, v_base_nt, v_bs_nt, v_exp, v_exp_is, v_exp_rng, v_exp_spec, v_priv_rng, v_bs_rng, v_abstr, v_abstr_rng],
     lists:foreach(fun(F) ->
         Ref = fn(v_base, F),
         true = Ref =/= none andalso length(Ref) >= 4,   %% guard against a vacuous all-empty comparison
@@ -22,7 +22,7 @@ main() ->
         [io:format("   - ~p~n", [I]) || I <- XA -- XB],
         [io:format("   + ~p~n", [I]) || I <- XB -- XA]
     end, [{v_base, v_base_nt, {spin,4}}, {v_base, v_exp, {spin,4}}, {v_exp, v_exp_spec, {spin,4}},
-          {v_exp, v_exp_is, {spin,4}}, {v_exp, v_exp_rng, {spin,4}}, {v_base, v_priv_rng, {spin,4}}]),
+          {v_exp, v_exp_is, {spin,4}}, {v_exp, v_exp_rng, {spin,4}}, {v_base, v_priv_rng, {spin,4}}, {v_base, v_abstr, {spin,4}}, {v_base, v_abstr, {wrap,1}}]),
     halt().
 len(none) -> 0; len(L) -> length(L).
 fn(M, {N, A}) ->

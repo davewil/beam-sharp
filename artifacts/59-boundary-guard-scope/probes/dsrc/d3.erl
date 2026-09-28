@@ -1,13 +1,19 @@
 -module(d3).
--export([exported_plus/1, run/0]).
-%% Dialyzer's closed-world rule for LOCAL functions vs open-world for EXPORTED ones.
-%% Same body, same only-caller, one exported and one local; and a third local that escapes as a fun.
-exported_plus(X) -> X + 1.
-local_plus(X) -> X + 1.
-escaped_plus(X) -> X + 1.
+-export([exported_two/1, run/0]).
+%% Dialyzer's treatment of a function whose every visible caller passes an atom, where the function has an
+%% integer clause. Same body three times: exported, local, and local-with-its-address-taken.
+exported_two(X) when is_integer(X) -> int;
+exported_two(X) when is_atom(X)    -> atom.
+
+local_two(X) when is_integer(X) -> int;
+local_two(X) when is_atom(X)    -> atom.
+
+escaped_two(X) when is_integer(X) -> int;
+escaped_two(X) when is_atom(X)    -> atom.
+
 run() ->
-    A = exported_plus(foo),    %% exported fn called with an atom by its own module
-    B = local_plus(foo),       %% local fn called only with an atom
-    F = fun escaped_plus/1,    %% local fn whose address escapes...
-    C = escaped_plus(foo),     %% ...and is also called with an atom locally
+    A = exported_two(foo),
+    B = local_two(foo),
+    C = escaped_two(foo),
+    F = fun escaped_two/1,     %% the address escapes: any caller anywhere may now apply it
     {A, B, C, F}.

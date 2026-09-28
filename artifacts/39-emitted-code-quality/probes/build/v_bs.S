@@ -9,7 +9,7 @@
 
 {function, wrap, 1, 2}.
   {label,1}.
-    {line,[{location,"build/src/v_bs.erl",30}]}.
+    {line,[{location,"build/src/v_bs.erl",47}]}.
     {func_info,{atom,v_bs},{atom,wrap},1}.
   {label,2}.
     {'%',{var_info,{x,0},[{type,{t_integer,any}}]}}.
@@ -25,7 +25,7 @@
 
 {function, hit, 1, 4}.
   {label,3}.
-    {line,[{location,"build/src/v_bs.erl",34}]}.
+    {line,[{location,"build/src/v_bs.erl",51}]}.
     {func_info,{atom,v_bs},{atom,hit},1}.
   {label,4}.
     {'%',{var_info,{x,0},[{type,{t_integer,{-99,99}}}]}}.
@@ -39,7 +39,7 @@
 
 {function, spin, 4, 7}.
   {label,6}.
-    {line,[{location,"build/src/v_bs.erl",49}]}.
+    {line,[{location,"build/src/v_bs.erl",66}]}.
     {func_info,{atom,v_bs},{atom,spin},4}.
   {label,7}.
     {'%',{var_info,{x,0},[{type,{t_integer,{-99,99}}}]}}.
@@ -55,7 +55,7 @@
     {move,{x,3},{y,1}}.
     {move,{x,2},{y,2}}.
     {move,{x,1},{y,3}}.
-    {line,[{location,"build/src/v_bs.erl",51}]}.
+    {line,[{location,"build/src/v_bs.erl",68}]}.
     {gc_bif,'+',
             {f,0},
             2,
@@ -63,7 +63,7 @@
             {x,0}}.
     {call,1,{f,2}}. % wrap/1
     {'%',{var_info,{x,0},[{type,{t_integer,{-99,99}}}]}}.
-    {line,[{location,"build/src/v_bs.erl",52}]}.
+    {line,[{location,"build/src/v_bs.erl",69}]}.
     {gc_bif,'-',{f,0},1,[{y,2},{integer,1}],{y,2}}.
     {move,{x,0},{y,0}}.
     {call,1,{f,4}}. % hit/1
@@ -81,7 +81,7 @@
 
 {function, sign, 1, 10}.
   {label,9}.
-    {line,[{location,"build/src/v_bs.erl",57}]}.
+    {line,[{location,"build/src/v_bs.erl",74}]}.
     {func_info,{atom,v_bs},{atom,sign},1}.
   {label,10}.
     {test,is_lt,{f,11},[{x,0},{integer,0}]}.
@@ -94,7 +94,7 @@
 
 {function, size_, 1, 13}.
   {label,12}.
-    {line,[{location,"build/src/v_bs.erl",59}]}.
+    {line,[{location,"build/src/v_bs.erl",76}]}.
     {func_info,{atom,v_bs},{atom,size_},1}.
   {label,13}.
     {test,is_lt,{f,14},[{x,0},{integer,0}]}.
@@ -106,7 +106,7 @@
 
 {function, clicks, 3, 16}.
   {label,15}.
-    {line,[{location,"build/src/v_bs.erl",69}]}.
+    {line,[{location,"build/src/v_bs.erl",86}]}.
     {func_info,{atom,v_bs},{atom,clicks},3}.
   {label,16}.
     {'%',{var_info,{x,1},[{type,{t_integer,{-99,99}}}]}}.
@@ -117,7 +117,7 @@
     {move,{x,1},{y,3}}.
     {get_list,{x,0},{y,1},{y,0}}.
     {move,{y,1},{x,0}}.
-    {line,[{location,"build/src/v_bs.erl",71}]}.
+    {line,[{location,"build/src/v_bs.erl",88}]}.
     {call,1,{f,10}}. % sign/1
     {'%',{var_info,{x,0},[{type,{t_integer,{-1,1}}}]}}.
     {swap,{y,1},{x,0}}.
@@ -145,7 +145,7 @@
 
 {function, part_two, 1, 19}.
   {label,18}.
-    {line,[{location,"build/src/v_bs.erl",74}]}.
+    {line,[{location,"build/src/v_bs.erl",91}]}.
     {func_info,{atom,v_bs},{atom,part_two},1}.
   {label,19}.
     {move,{integer,0},{x,2}}.

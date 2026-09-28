@@ -47,11 +47,15 @@ v v_exp_rng   -DEXPORTALL -DGUARD_RNG
 v v_exp_spec  -DEXPORTALL -DSPEC
 v v_priv_rng  -DGUARD_RNG
 v v_bs_rng    -DBSSHAPE -DGUARD_RNG
+# the bsc build path: forms -> ~p .abstr with line 0 -> compile:file(from_abstr, debug_info)  (bsc.erl:843)
+erlc -o $B mkabstr.erl
+erl -noshell -pa $B -run mkabstr main loop.erl v_abstr $B BSSHAPE SPEC_WIDE BSATOMS
+erl -noshell -pa $B -run mkabstr main loop.erl v_abstr_rng $B BSSHAPE SPEC_WIDE BSATOMS GUARD_RNG
 erlc -o $B ../../../aoc/bench/bench_erl.erl
 erlc -o $B timing.erl types.erl identity.erl
 
 # --- 1. type annotations of the hot functions (from +to_asm) ---
-for m in v_base v_bs v_base_nt v_bs_nt v_exp v_exp_is v_exp_rng v_exp_spec v_priv_rng v_bs_rng; do
+for m in v_base v_bs v_base_nt v_bs_nt v_exp v_exp_is v_exp_rng v_exp_spec v_priv_rng v_bs_rng v_abstr v_abstr_rng; do
   echo "=== $m: {tr,..} operands inside spin/4 and wrap/1 (+to_asm) ==="
   awk '/^\{function, (spin|wrap),/{on=1} /^\{function, (hit|sign|size_|clicks|part_two|module_info),/{on=0} on && /\{tr,/' $B/$m.S
   echo "  total {tr,..} operands in module: $(grep -c '{tr,' $B/$m.S)"
@@ -61,7 +65,7 @@ done > tr_summary.out
 erl -noshell -pa $B -run identity main > instr_identity.out 2>&1
 
 # --- 3. size / instruction counts / Type chunk ---
-for m in v_base v_bs v_base_nt v_exp v_exp_is v_exp_rng v_exp_spec v_priv_rng; do
+for m in v_base v_bs v_base_nt v_exp v_exp_is v_exp_rng v_exp_spec v_priv_rng v_abstr; do
   erl -noshell -pa $B -run types main $B/$m.beam
 done > sizes.out 2>&1
 erl -noshell -pa $B -run types main $B/bench_erl.beam >> sizes.out 2>&1
@@ -82,7 +86,7 @@ erl -noshell -pa $B -run types main $B/Elixir.BenchEx.beam > elixir_sizes.out 2>
 
 # --- 5. timing (interleaved) ---
 { echo "rounds=$ROUNDS ; times in ms per part_two() call over 4732 rotations / 673364 clicks"
-  taskset -c 2 erl -noshell +S 1:1 -pa $B -run timing main $INPUT $ROUNDS bench_erl v_base v_bs v_base_nt v_bs_nt v_exp v_exp_is v_exp_rng v_exp_spec v_priv_rng v_bs_rng 'Elixir.BenchEx'
+  taskset -c 2 erl -noshell +S 1:1 -pa $B -run timing main $INPUT $ROUNDS bench_erl v_base v_bs v_base_nt v_bs_nt v_exp v_exp_is v_exp_rng v_exp_spec v_priv_rng v_bs_rng v_abstr v_abstr_rng 'Elixir.BenchEx'
 } > timing.out 2>&1
 # second, independent process + core to check run-to-run (process-level) variance on the key pairs
 for core in 1 3; do

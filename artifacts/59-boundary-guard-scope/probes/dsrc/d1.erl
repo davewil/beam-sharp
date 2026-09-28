@@ -1,5 +1,5 @@
 -module(d1).
--export([e/1, esc/0, w/1]).
+-export([e/1, esc/0, w/1, forge_local/0]).
 -export_type([order/0]).
 -type order() :: #{'Kind' := 'Order', total := integer(), status := atom()}.
 -type wrapper() :: #{'Kind' := 'Wrapper', order := order()}.

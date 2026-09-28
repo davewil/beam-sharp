@@ -54,6 +54,13 @@ v_priv_rng.beam type_chunk_bytes=116 file_bytes=1424
   sign/1 instrs(excl label/line)=6
   size_/1 instrs(excl label/line)=3
   clicks/3 instrs(excl label/line)=23
+v_abstr.beam type_chunk_bytes=116 file_bytes=1908
+  wrap/1 instrs(excl label/line)=4
+  hit/1 instrs(excl label/line)=4
+  spin/4 instrs(excl label/line)=19
+  sign/1 instrs(excl label/line)=4
+  size_/1 instrs(excl label/line)=3
+  clicks/3 instrs(excl label/line)=24
 bench_erl.beam type_chunk_bytes=116 file_bytes=1336
   wrap/1 instrs(excl label/line)=4
   hit/1 instrs(excl label/line)=4

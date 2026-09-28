@@ -68,3 +68,21 @@
             [{tr,{x,0},{t_integer,{-99,99}}},{tr,{x,1},{t_integer,{-1,1}}}],
             [{tr,{y,1},{t_integer,any}},{tr,{x,0},{t_integer,{0,1}}}],
   total {tr,..} operands in module: 10
+=== v_abstr: {tr,..} operands inside spin/4 and wrap/1 (+to_asm) ===
+    {gc_bif,'rem',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,100}],{x,0}}.
+    {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,{-99,99}}},{integer,100}],{x,0}}.
+            [{tr,{x,0},{t_integer,{1,199}}},{integer,100}],
+            [{tr,{x,0},{t_integer,{-99,99}}},{tr,{x,1},{t_integer,{-1,1}}}],
+            [{tr,{y,1},{t_integer,any}},{tr,{x,0},{t_integer,{0,1}}}],
+  total {tr,..} operands in module: 6
+=== v_abstr_rng: {tr,..} operands inside spin/4 and wrap/1 (+to_asm) ===
+    {test,is_ge,{f,5},[{tr,{x,0},{t_integer,any}},{integer,-99}]}.
+    {test,is_ge,{f,5},[{integer,199},{tr,{x,0},{t_integer,any}}]}.
+    {gc_bif,'rem',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,100}],{x,0}}.
+    {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,{-99,99}}},{integer,100}],{x,0}}.
+            [{tr,{x,0},{t_integer,{1,199}}},{integer,100}],
+    {test,is_ge,{f,12},[{tr,{x,0},{t_integer,{-99,99}}},{integer,0}]}.
+    {test,is_ge,{f,12},[{tr,{x,0},{t_integer,{-99,99}}},{integer,0}]}.
+            [{tr,{x,0},{t_integer,{-99,99}}},{tr,{x,1},{t_integer,{-1,1}}}],
+            [{tr,{y,1},{t_integer,any}},{tr,{x,0},{t_integer,{0,1}}}],
+  total {tr,..} operands in module: 10

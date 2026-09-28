@@ -91,3 +91,4 @@ P7b same guards, non-negative literal 0
   {ast_omitted,accepted}
 P9 subtract(-10..10, 0) prints as -10..-1 | 1..10
 P9b int minus 0..255 prints as int <= -1 | int >= 256
+P10 (-5, _) = p: parse error the left of a bare `=` must be a literal pattern. To introduce a name, write `var <pattern> = ...`

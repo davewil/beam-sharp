@@ -9,11 +9,28 @@
 %%%              beam_ssa_type.erl:119-121,438-441). Removes call-site inference, changes no instruction.
 %%%   GUARD_IS   EXPORTALL + is_integer(P) on the hot params only.
 %%%   GUARD_RNG  EXPORTALL + is_integer(P), P>=0, P=<99 on Pos/N (a "range-narrowing guard").
+%%%   SPEC_WIDE  what bs_emit does for every function (ticket 13): -spec with integer() everywhere (no range).
+%%%   BSATOMS    adds the exported 'bs@type_atoms'/0 that bs_emit adds to every module (bs_emit.erl:72-75).
 %%%   SPEC       EXPORTALL + tight -spec ranges (spin(0..99, -1..1, ...), wrap(integer())->0..99)
 -module(?MOD).
 -export([part_two/1]).
 -ifdef(EXPORTALL).
 -compile([export_all, nowarn_export_all]).
+-endif.
+
+-ifdef(BSATOMS).
+-export(['bs@type_atoms'/0]).
+'bs@type_atoms'() -> #{}.
+-endif.
+
+-ifdef(SPEC_WIDE).
+-spec wrap(integer()) -> integer().
+-spec hit(integer()) -> integer().
+-spec spin(integer(), integer(), integer(), integer()) -> {integer(), integer()}.
+-spec sign(integer()) -> integer().
+-spec size_(integer()) -> integer().
+-spec clicks([integer()], integer(), integer()) -> integer().
+-spec part_two([integer()]) -> integer().
 -endif.
 
 -ifdef(SPEC).

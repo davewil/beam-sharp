@@ -9,7 +9,7 @@
 
 {function, wrap, 1, 2}.
   {label,1}.
-    {line,[{location,"build/src/v_bs_nt.erl",30}]}.
+    {line,[{location,"build/src/v_bs_nt.erl",47}]}.
     {func_info,{atom,v_bs_nt},{atom,wrap},1}.
   {label,2}.
     {gc_bif,'rem',{f,0},1,[{x,0},{integer,100}],{x,0}}.
@@ -20,7 +20,7 @@
 
 {function, hit, 1, 4}.
   {label,3}.
-    {line,[{location,"build/src/v_bs_nt.erl",34}]}.
+    {line,[{location,"build/src/v_bs_nt.erl",51}]}.
     {func_info,{atom,v_bs_nt},{atom,hit},1}.
   {label,4}.
     {test,is_eq_exact,{f,5},[{x,0},{integer,0}]}.
@@ -33,7 +33,7 @@
 
 {function, spin, 4, 7}.
   {label,6}.
-    {line,[{location,"build/src/v_bs_nt.erl",49}]}.
+    {line,[{location,"build/src/v_bs_nt.erl",66}]}.
     {func_info,{atom,v_bs_nt},{atom,spin},4}.
   {label,7}.
     {test,is_eq_exact,{f,8},[{x,2},{integer,0}]}.
@@ -41,7 +41,7 @@
     {put_tuple2,{x,0},{list,[{x,0},{x,3}]}}.
     return.
   {label,8}.
-    {line,[{location,"build/src/v_bs_nt.erl",51}]}.
+    {line,[{location,"build/src/v_bs_nt.erl",68}]}.
     {gc_bif,'+',{f,0},4,[{x,0},{x,1}],{x,0}}.
     {allocate,4,4}.
     {init_yregs,{list,[{y,0}]}}.
@@ -49,7 +49,7 @@
     {move,{x,2},{y,2}}.
     {move,{x,1},{y,3}}.
     {call,1,{f,2}}. % wrap/1
-    {line,[{location,"build/src/v_bs_nt.erl",52}]}.
+    {line,[{location,"build/src/v_bs_nt.erl",69}]}.
     {gc_bif,'-',{f,0},1,[{y,2},{integer,1}],{y,2}}.
     {move,{x,0},{y,0}}.
     {call,1,{f,4}}. % hit/1
@@ -62,7 +62,7 @@
 
 {function, sign, 1, 10}.
   {label,9}.
-    {line,[{location,"build/src/v_bs_nt.erl",57}]}.
+    {line,[{location,"build/src/v_bs_nt.erl",74}]}.
     {func_info,{atom,v_bs_nt},{atom,sign},1}.
   {label,10}.
     {test,is_lt,{f,11},[{x,0},{integer,0}]}.
@@ -75,7 +75,7 @@
 
 {function, size_, 1, 13}.
   {label,12}.
-    {line,[{location,"build/src/v_bs_nt.erl",59}]}.
+    {line,[{location,"build/src/v_bs_nt.erl",76}]}.
     {func_info,{atom,v_bs_nt},{atom,size_},1}.
   {label,13}.
     {test,is_lt,{f,14},[{x,0},{integer,0}]}.
@@ -87,7 +87,7 @@
 
 {function, clicks, 3, 16}.
   {label,15}.
-    {line,[{location,"build/src/v_bs_nt.erl",69}]}.
+    {line,[{location,"build/src/v_bs_nt.erl",86}]}.
     {func_info,{atom,v_bs_nt},{atom,clicks},3}.
   {label,16}.
     {test,is_nonempty_list,{f,17},[{x,0}]}.
@@ -96,7 +96,7 @@
     {move,{x,1},{y,3}}.
     {get_list,{x,0},{y,1},{y,0}}.
     {move,{y,1},{x,0}}.
-    {line,[{location,"build/src/v_bs_nt.erl",71}]}.
+    {line,[{location,"build/src/v_bs_nt.erl",88}]}.
     {call,1,{f,10}}. % sign/1
     {swap,{y,1},{x,0}}.
     {call,1,{f,13}}. % size_/1
@@ -123,7 +123,7 @@
 
 {function, part_two, 1, 20}.
   {label,19}.
-    {line,[{location,"build/src/v_bs_nt.erl",74}]}.
+    {line,[{location,"build/src/v_bs_nt.erl",91}]}.
     {func_info,{atom,v_bs_nt},{atom,part_two},1}.
   {label,20}.
     {move,{integer,0},{x,2}}.

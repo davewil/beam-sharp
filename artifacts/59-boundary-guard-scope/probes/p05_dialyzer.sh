@@ -7,9 +7,15 @@
 #   D2. d2:go/0 (forged literal into exported d1:e/1) is reported only when d1 and d2 are analysed together.
 #   D3. d2:go_untyped/1 (value from binary_to_term) is NOT reported: Dialyzer is blind to untyped channels.
 #       Nothing in d1 is reported for the nested (w/1) or escaped (esc/0) paths either.
-#   D4. d3: local_plus(foo) is reported ("will never return") because a local function's callers are all known
-#       (closed world); exported_plus(foo) is NOT reported (open world: some other module could call it right).
-#       escaped_plus(foo): expected NOT reported, because taking the address of a local function reopens the world.
+#   D4. d3: for local_two (every caller visible, all pass an atom) Dialyzer narrows the domain to the callers'
+#       and reports the integer clause as dead ("guard test is_integer(X) can never succeed"); for exported_two
+#       it does NOT (open world: an unseen caller may pass an integer); for escaped_two (local, address taken)
+#       it does NOT (taking the address reopens the world). i.e. Dialyzer's own scope rule is
+#       "local AND non-escaping", not "local".
+#   NOTE (disclosed): my first d1.erl left forge_local/0 unused and unexported, so Dialyzer never analysed it; the
+#       first run therefore said nothing about it. I exported it (an honest test fix, not a result-driven one) and
+#       replaced d3's first draft (a '+' body) which was the wrong shape to show the difference. Both drafts' outputs
+#       are not kept.
 cd "$(dirname "$0")" || exit 1
 mkdir -p work/dial && cd work/dial || exit 1
 PLT=$PWD/min.plt
@@ -24,5 +30,5 @@ echo
 echo "== D2/D3: d1 + d2 together =="
 dialyzer --plt "$PLT" d1.beam d2.beam 2>&1 | sed 's/^/  /'
 echo
-echo "== D4: d3 alone (exported vs local vs escaped local, all called with an atom) =="
+echo "== D4: d3 alone (exported vs local vs escaped local; every visible caller passes an atom) =="
 dialyzer --plt "$PLT" d3.beam 2>&1 | sed 's/^/  /'
