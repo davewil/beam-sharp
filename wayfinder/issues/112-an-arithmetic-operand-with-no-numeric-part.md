@@ -1,7 +1,7 @@
 # 112 — How does B# build a string? Template strings, and what `+` takes
 
 Type: grilling
-Status: claimed — [ENG-555](https://linear.app/davewil/issue/ENG-555). Raised 2026-09-28 out of
+Status: claimed — [ENG-555](https://linear.app/davewil/issue/ENG-555). Q2 answered 2026-09-28; round 3 open. Raised 2026-09-28 out of
 [ENG-551](https://linear.app/davewil/issue/ENG-551)
 Blocked by: —
 
@@ -173,21 +173,84 @@ without inventing anything. B# reserved the `$` for it. On the BEAM it costs one
 construction, the same code Elixir and Gleam emit. It is also the one place a string gets built
 where a reader sees the result's shape, which `List.Join` does not show.
 
-## Round 3, after Q2 (not asked yet)
+**A2 (David, 2026-09-28):** *"yes"*. B# builds a string with `$"…{expr}…"`, which lowers to one
+binary construction. `{{` and `}}` write a literal brace. Until Q3 is answered, a hole takes a
+`string` only.
 
-These questions hang off Q2's answer and are recorded so their numbers do not collide:
+## Round 3
 
-- **Q3. What does a hole take?** The survey shows four positions: `string` only (Gleam's plan),
-  a conversion written per hole (`io_lib`'s `~s` or `~p`, EEP 62), an implicit protocol that a type
-  may lack (Elixir: a warning, then a crash), or an implicit conversion every value has (C#,
-  JS). Ticket 97 spelled every conversion `String.FromX`, and 16 refused implicit ad-hoc
-  conversion.
-- **Q4. Round 1's Q1, asked again.** Is an operand of `+ - * / %` with no numeric part refused? If Q2 is
-  *yes*, then `+` does not need to join strings: C# emits the same `String.Concat` for `a + "/" + b`
-  and for `$"{a}/{b}"` (research 112, *Whether `+` concatenates*).
-- **Fog.** Whether a template may be a pattern (`$"order-{rest}"`, the BEAM's literal-prefix match),
-  format specifiers (`{x:F2}`), and an iodata builder (25e's `Iodata`). None of these is sharp
-  until Q2 and Q3 are answered.
+Asked 2026-09-28. Q3 and Q4 are independent, so they are asked together. The fog below them waits
+on Q3.
+
+**Q3. Does a hole take an `int` as it stands, with no conversion written?**
+
+A receipt line, from a program that stores money as pence:
+
+```csharp
+record Order { Id: int, Customer: string, Total: int, Status: :placed | :paid }
+
+public string Line(Order o)
+Line(o) -> $"Order {o.Id} for {o.Customer}: {o.Total} pence, {o.Status}"
+```
+
+Under **yes**, this compiles and returns `"Order 42 for Ada: 1250 pence, placed"`. Each hole's
+conversion is chosen at compile time from its type, one per part, and each is total, so a hole
+never fails at run time (measured on OTP 28):
+
+| hole's type | lowered to | e.g. |
+|---|---|---|
+| `string` | `(E)/binary` | as written |
+| `int` | `(integer_to_binary(E))/binary` | `-5` → `"-5"` |
+| `float` | `(float_to_binary(E, [short]))/binary` | `0.1` → `"0.1"`, `2.0` → `"2.0"` |
+| an atom type | `(atom_to_binary(E))/binary` | `:placed` → `"placed"` |
+
+A hole of any other type is refused at compile time: a record, a tuple, a list, a map, `term`, or a
+union spanning two of the parts above. This is C#'s position, where any value converts, narrowed to
+the parts that print one obvious way. It is a fixed table read from the hole's static type, as
+`op_result/5` reads its operands. It is not a protocol, so ticket 16 is not reopened.
+
+Under **no**, only a `string` fills a hole, which is Gleam's 2022 plan. The line becomes:
+
+```csharp
+Line(o) -> $"Order {String.FromInt(o.Id)} for {o.Customer}: {String.FromInt(o.Total)} pence, {String.FromAtom(o.Status)}"
+```
+
+That waits on ticket 97's rows (ENG-462, unbuilt), and until they land every numeric hole goes
+through the FFI. Written as it stands, `{o.Id}` is refused, naming `String.FromInt`.
+
+**The compiler delta under *yes*.** `type_of(e_interp)` classifies each hole's type as one of the
+four parts, or refuses it with a new `interp_hole` diagnostic naming the type and the parts a hole
+takes. The emitter picks the lowering from the table above. The tests cover each part, a refused
+record, and a refused `int | float` hole. Under *no*, the same diagnostic fires for anything but
+`string`, and its advice names ticket 97's conversion for the type.
+
+➡️ **Recommended: yes.** C# is the first source the borrow heuristic surveys, and C# converts.
+Every part in the table prints one obvious way through a total BEAM BIF, so the author loses
+nothing by not writing the conversion. The line under *no* repeats `String.From…` in every hole
+and waits on an unbuilt row.
+
+**Q4. Is an operand of `+ - * / %` with no `int` or `float` part refused?**
+
+This is Round 1's Q1, asked again now that Q2 has given B# a way to build a string. It is the
+program, delta and recommendation above. The one change is the refusal's advice for a string
+operand, which can now name the repair:
+
+```
+Evidence/Evidence.bs:6:23: error: ModelKey applies + to a string
+  + takes an int or a float on each side; this operand has neither part:
+    string
+  build a string with a template: $"{id.Lab}/{id.Model}"
+```
+
+Under *no*, `id.Lab + "/" + id.Model` keeps compiling into the `badarith` crash and the
+`string | int` advice. With Q2 answered, `+` does not need to join strings: in C#, `a + "/" + b`
+and `$"{a}/{b}"` emit the same `String.Concat` (research 112).
+
+➡️ **Recommended: yes**, for Round 1's reasons, and now the refusal can name the repair.
+
+**Fog, after Q3.** Whether a template may be a pattern (`$"order-{rest}"`, the BEAM's
+literal-prefix match), format specifiers (`{o.Total:F2}`, C#'s alignment and format), and an
+iodata builder (25e's `Iodata`).
 
 ## Not decided here
 
