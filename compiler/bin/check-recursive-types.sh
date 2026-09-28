@@ -226,7 +226,10 @@ record Node { Value: int, Kids: list<Node> }
 public :ok Go(Node n)
 Go(n) -> :ok
 '
-  shot R3 R3 Go '#{value => 1, kids => []}'
+  # A real `Node`, tagged. Until F64.13 a public function over a recursive
+  # record had no boundary guard, so an untagged `#{value => 1, kids => []}`
+  # ran here too; that was the missing guard, not the feature.
+  shot R3 R3 Go "#{'Kind' => 'R3.Node', 'Value' => 1, 'Kids' => []}"
 
   # R4 -- mutual. Neither name alone is a cycle; the pair is.
   mk R4 'module R4

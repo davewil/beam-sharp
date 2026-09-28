@@ -367,6 +367,15 @@ built(Path, {Sev, Line, Fn, {construct_union, Name, Members}}) ->
                                members => [Text || {_, Text} <- Members],
                                records => [Text || {record, Text} <- Members],
                                shapes => [Text || {shape, Text} <- Members]};
+%% F64: a protocol call names an operation the protocol has, over a record
+%% whose module implements it. `advice` is the missing `implements` line, or
+%% `none` when the subject is no record.
+built(Path, {Sev, Line, Fn, {protocol_op_unknown, P, Op, Ops}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => protocol_op_unknown, protocol => P,
+                               operation => Op, operations => Ops};
+built(Path, {Sev, Line, Fn, {protocol_not_implemented, P, Shown, Advice}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => protocol_not_implemented, protocol => P,
+                               type => Shown, advice => Advice};
 built(Path, {Sev, Line, Fn, {view_constructed, Name}}) ->
     (at(Sev, Path, Line, Fn))#{tag => view_constructed, view => Name};
 built(Path, {Sev, Line, Fn, {unknown_record, Name}}) ->
@@ -530,6 +539,28 @@ built(Path, {cyclic_type, N}) ->
 %% Recursion under changing type arguments cannot use a finite binder.
 built(Path, {non_regular_recursion, N}) ->
     #{tag => non_regular_recursion, severity => error, file => Path, type => N};
+%% F64: an `implements` block, refused by kind in `declared/4`.
+built(Path, {unknown_protocol, P, Known, Line}) ->
+    #{tag => unknown_protocol, severity => error, file => Path, line => Line,
+      protocol => P, protocols => Known};
+built(Path, {protocol_type_args, P, Want, Got, Line}) ->
+    #{tag => protocol_type_args, severity => error, file => Path, line => Line,
+      protocol => P, expected_count => Want, count => Got};
+built(Path, {implements_foreign_type, P, For, Line}) ->
+    #{tag => implements_foreign_type, severity => error, file => Path, line => Line,
+      protocol => P, record => For};
+built(Path, {implements_op_unknown, P, Op, Ops, Line}) ->
+    #{tag => implements_op_unknown, severity => error, file => Path, line => Line,
+      protocol => P, operation => Op, operations => Ops};
+built(Path, {implements_op_arity, P, Op, Want, Got, Line}) ->
+    #{tag => implements_op_arity, severity => error, file => Path, line => Line,
+      protocol => P, operation => Op, expected_count => Want, count => Got};
+built(Path, {implements_op_missing, P, For, Missing, Line}) ->
+    #{tag => implements_op_missing, severity => error, file => Path, line => Line,
+      protocol => P, record => For, operations => Missing};
+built(Path, {implements_duplicate, P, For, Line}) ->
+    #{tag => implements_duplicate, severity => error, file => Path, line => Line,
+      protocol => P, record => For};
 %% Compiler-known types cannot be redeclared or shadowed.
 built(Path, {compiler_known_type, Name, Line}) ->
     #{tag => compiler_known_type, severity => error, file => Path, line => Line,
@@ -1507,6 +1538,56 @@ message(#{tag := not_an_obligation, file := P, line := L, column := C, function 
      "  Everywhere else `<` is a comparison.~n",
      [P, L, C, Fn, Name, Name,
       lists:join(", ", [atom_to_list(N) || N <- Names])]};
+message(#{tag := unknown_protocol, file := P, line := L, column := C, protocol := Pr,
+          protocols := Known}) ->
+    {"~s:~p:~p: error: implements ~s, which is not a protocol the compiler knows~n"
+     "  the protocols it knows: ~s~n",
+     [P, L, C, Pr, lists:join(", ", [atom_to_list(K) || K <- Known])]};
+message(#{tag := protocol_type_args, file := P, line := L, column := C, protocol := Pr,
+          expected_count := Want, count := Got}) ->
+    {"~s:~p:~p: error: ~s takes ~p type argument~s, and this block gives ~p~n"
+     "  write it as ~s<T>, naming the type of the elements it ranges over.~n",
+     [P, L, C, Pr, Want, plural(Want), Got, Pr]};
+message(#{tag := implements_foreign_type, file := P, line := L, column := C,
+          protocol := Pr, record := For}) ->
+    {"~s:~p:~p: error: implements ~s for ~s, which is not a record this module declares~n"
+     "  an implementation lives in the module that declares the record.~n",
+     [P, L, C, Pr, For]};
+message(#{tag := implements_op_unknown, file := P, line := L, column := C,
+          protocol := Pr, operation := Op, operations := Ops}) ->
+    {"~s:~p:~p: error: ~s is not an operation of ~s~n"
+     "  its operations: ~s~n",
+     [P, L, C, Op, Pr, lists:join(", ", [atom_to_list(O) || O <- Ops])]};
+message(#{tag := implements_op_arity, file := P, line := L, column := C,
+          protocol := Pr, operation := Op, expected_count := Want, count := Got}) ->
+    {"~s:~p:~p: error: ~s.~s takes ~p parameter~s, and this clause has ~p~n",
+     [P, L, C, Pr, Op, Want, plural(Want), Got]};
+message(#{tag := implements_op_missing, file := P, line := L, column := C,
+          protocol := Pr, record := For, operations := Missing}) ->
+    {"~s:~p:~p: error: implements ~s for ~s without ~s~n"
+     "  a protocol's operations are all implemented; none is optional.~n",
+     [P, L, C, Pr, For, lists:join(", ", [atom_to_list(O) || O <- Missing])]};
+message(#{tag := implements_duplicate, file := P, line := L, column := C,
+          protocol := Pr, record := For}) ->
+    {"~s:~p:~p: error: implements ~s for ~s a second time~n"
+     "  one block implements a protocol for a record; merge the two.~n",
+     [P, L, C, Pr, For]};
+message(#{tag := protocol_op_unknown, file := P, line := L, column := C, function := Fn,
+          protocol := Pr, operation := Op, operations := Ops}) ->
+    {"~s:~p:~p: error: ~s calls ~s.~s, and ~s is not an operation of ~s~n"
+     "  its operations: ~s~n",
+     [P, L, C, Fn, Pr, Op, Op, Pr, lists:join(", ", [atom_to_list(O) || O <- Ops])]};
+message(#{tag := protocol_not_implemented, file := P, line := L, column := C,
+          function := Fn, protocol := Pr, type := Shown, advice := none}) ->
+    {"~s:~p:~p: error: ~s calls ~s on a value that is not a record: ~s does not implement ~s~n"
+     "  only a record implements a protocol, in the module that declares it.~n",
+     [P, L, C, Fn, Pr, Shown, Pr]};
+message(#{tag := protocol_not_implemented, file := P, line := L, column := C,
+          function := Fn, protocol := Pr, type := Shown, advice := Advice}) ->
+    {"~s:~p:~p: error: ~s calls ~s, and ~s does not implement ~s~n"
+     "  a record implements a protocol in the module that declares it:~n"
+     "    ~s~n",
+     [P, L, C, Fn, Pr, Shown, Pr, Advice]};
 message(#{tag := compiler_known_type, file := P, line := L, column := C, type := Name}) ->
     {"~s:~p:~p: error: ~s is a compiler-known type and cannot be redeclared~n"
      "  the standard environment has two kinds of entry: declared entries,~n"

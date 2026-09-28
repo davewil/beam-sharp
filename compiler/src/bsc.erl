@@ -243,7 +243,12 @@ build([{Dir, Sources, Mod} | Rest], Opts, World, Acc) ->
                                      %% name in type position.
                                      %% Rationale:
                                      %% compiler/features/F44-type-names-cross-using.md.
-                                     types => bs_check:types_of(Decls, Mod, World)}},
+                                     types => bs_check:types_of(Decls, Mod, World),
+                                     %% Which of its records implement a
+                                     %% protocol, for a dependent's call.
+                                     %% Rationale:
+                                     %% compiler/features/F64-implements.md.
+                                     implements => bs_check:implements_of(Decls, Mod, World)}},
             build(Rest, Opts, World1, [{Dir, Beam} | Acc]);
         Error ->
             Error
@@ -287,7 +292,8 @@ types_world(Ordered, Subjects) ->
                       Decls = decls(Sources),
                       try World#{M => #{exports => #{}, private => #{},
                                         behaviours => [],
-                                        types => bs_check:types_of(Decls, M, World)}}
+                                        types => bs_check:types_of(Decls, M, World),
+                                        implements => bs_check:implements_of(Decls, M, World)}}
                       catch
                           error:_ -> World
                       end

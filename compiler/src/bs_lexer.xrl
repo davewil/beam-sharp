@@ -31,6 +31,10 @@ using                   : {token, {'using', TokenLoc}}.
 %% the BEAM's own `behaviour`.
 behaviour               : {token, {'behaviour', TokenLoc}}.
 behavior                : {token, {'behaviour', TokenLoc}}.
+%% `implements Enumerable<int> for Node { … }`: a record's own module implements
+%% a protocol (tickets 99 and 91 Q2).
+implements              : {token, {'implements', TokenLoc}}.
+for                     : {token, {'for', TokenLoc}}.
 %% Visibility is written on the signature, in C#'s words: `public` exports a
 %% function and there is no separate export list (F12, ticket 40 §3).
 public                  : {token, {'public',  TokenLoc}}.

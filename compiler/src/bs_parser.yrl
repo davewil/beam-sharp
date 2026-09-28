@@ -20,12 +20,12 @@ Nonterminals
   body binding
   expr expr_low expr_list elist_items assign_fields assign_field
   switch_arms switch_arm modpath using_decl visibility call
-  block_clauses block_clause
+  block_clauses block_clause implements_decl impl_clauses
   .
 
 Terminals
   'module' 'type' 'when' 'using' 'behaviour' 'record' 'with' 'switch' 'var'
-  'and' 'or' 'where' 'public' 'private' 'raise' 'fn'
+  'and' 'or' 'where' 'public' 'private' 'raise' 'fn' 'implements' 'for'
   uident lident atom_lit integer float string_lit '_'
   '->' '=>' '==' '!=' '<=' '>=' '<<' '<' '>' '+' '-' '*' '/' '%'
   '=' '|' '|>' '|?>' ',' '(' ')' '[' ']' '{' '}' '..' '.' ':' '?'
@@ -98,6 +98,23 @@ decl -> foreign_decl : '$1'.
 decl -> behaviour_decl : '$1'.
 decl -> record_decl : '$1'.
 decl -> using_decl  : '$1'.
+decl -> implements_decl : '$1'.
+
+%% Tickets 99 and 91 Q2. The block holds clauses only: the protocol supplies the
+%% signature, so the checker reads the operation's name from each clause. It
+%% stays its own node rather than a signature, which keeps it out of `--api`'s
+%% operations and lets `declared/4` refuse it by kind.
+implements_decl -> 'implements' uident 'for' uident '{' '}' :
+    {implements, line('$1'), value('$2'), [], value('$4'), []}.
+implements_decl -> 'implements' uident 'for' uident '{' impl_clauses '}' :
+    {implements, line('$1'), value('$2'), [], value('$4'), '$6'}.
+implements_decl -> 'implements' uident '<' type_list '>' 'for' uident '{' '}' :
+    {implements, line('$1'), value('$2'), '$4', value('$7'), []}.
+implements_decl -> 'implements' uident '<' type_list '>' 'for' uident '{' impl_clauses '}' :
+    {implements, line('$1'), value('$2'), '$4', value('$7'), '$9'}.
+
+impl_clauses -> clause              : ['$1'].
+impl_clauses -> clause impl_clauses : ['$1' | '$2'].
 
 %% --- records ----------------------------------------------------------------
 %% A record erases to a map carrying a tag minted from its qualified type

@@ -58,7 +58,9 @@ forms(Module = #{module := Mod, functions := Fns, env := Env}) ->
             %% this module never sees, and lowered here to the BEAM's `/`.
             fdivs => maps:get(fdivs, Module, #{}),
             %% F60: projections onto a view's tuple position.
-            vprojs => maps:get(vprojs, Module, #{})},
+            vprojs => maps:get(vprojs, Module, #{}),
+            %% F64: each protocol call's implementations, by the call's position.
+            pcalls => maps:get(pcalls, Module, #{})},
     %% A crash names the `.bs` file the function was written in. A module is a
     %% directory, so one `.beam` holds functions from several files, and a
     %% repeated `{attribute, _, file, {Name, Line}}` re-points every form
@@ -489,7 +491,7 @@ int_test(Var, Line) ->
 %% A record parameter is a single closed map member carrying a singleton
 %% `Kind`; a union, a bare `term` or an untagged map is not one.
 record_tag(TypeExpr, #{env := Env}) ->
-    try bs_check:resolve(TypeExpr, Env) of
+    try unfolded(bs_check:resolve(TypeExpr, Env)) of
         #{maps := [{closed, Fields}], atoms := {finite, []}, ints := [],
           floats := {finite, []}, tuples := [], lists := [], bins := [],
           opaques := [], funs := []} ->
@@ -502,6 +504,10 @@ record_tag(TypeExpr, #{env := Env}) ->
         _ -> none
     catch _:_ -> none
     end.
+
+%% A recursive record resolves to its binder; its tag is one unfolding in (F64.13).
+unfolded(#{mu := _} = T) -> bs_types:unfold(T);
+unfolded(T)              -> T.
 
 %% A pattern constrains the tag when it matches `Kind`, through an alias too:
 %% a bound record pattern already tested the tag, and a second test would be
@@ -976,6 +982,28 @@ expr({e_inst, L, 'ToJson', [TypeExpr], [Arg]}, C) ->
 %% this module where the row has none, so no `List.beam` ships.
 %% `bs_check:reserved_call/6` has already refused a shadowing collision.
 %% Rationale: compiler/features/F62-standard-signature-table.md.
+%% F64: a protocol call goes straight to the implementing record's export, or,
+%% over a union of implementing records, through a `case` on the tag. The
+%% subject is bound once; the other arguments are written in each branch and
+%% evaluated in the one taken.
+%% Rationale: compiler/features/F64-implements.md.
+expr({e_qcall, L, _Mod, _Fn, As}, C) when is_map_key(L, map_get(pcalls, C)) ->
+    [Subject | Rest] = As,
+    RestEs = [expr(A, C) || A <- Rest],
+    Call = fun(M, F, S) -> {call, L, {remote, L, {atom, L, M}, {atom, L, F}}, [S | RestEs]} end,
+    case maps:get(L, maps:get(pcalls, C)) of
+        [{_Tag, M, F}] ->
+            Call(M, F, expr(Subject, C));
+        Targets ->
+            V = {var, L, wrapper_var("bs@pc", next_foreign_wrapper())},
+            Tag = {call, L, {remote, L, {atom, L, erlang}, {atom, L, map_get}},
+                   [{atom, L, 'Kind'}, V]},
+            {'case', L, expr(Subject, C),
+             [{clause, L, [V], [],
+               [{'case', L, Tag,
+                 [{clause, L, [{atom, L, T}], [], [Call(M, F, V)]}
+                  || {T, M, F} <- Targets]}]}]}
+    end;
 expr({e_qcall, L, Mod, Fn, As}, C) ->
     case lists:member(Mod, bs_check:reserved_qualifiers()) of
         true ->

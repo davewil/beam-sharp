@@ -68,7 +68,7 @@ contexts:
     - match: '\b(fn)\b'
       scope: keyword.type.beam-sharp
 
-    - match: '\b(module|type|record|using|behaviour|behavior|with|var|where|public|private)\b'
+    - match: '\b(module|type|record|using|behaviour|behavior|implements|for|with|var|where|public|private)\b'
       scope: keyword.declaration.beam-sharp
 
     # The one conjunction, in every position -- guard, pattern combinator and

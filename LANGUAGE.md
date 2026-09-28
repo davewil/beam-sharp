@@ -1309,6 +1309,42 @@ another module cannot add `Triangle` without editing `Shape`. It can **name** `S
 whose clause set is closed at every call that reaches it.
 <!-- ticket 16, as amended 2026-09-11; measured by ENG-261 -->
 
+**A record's own module may implement a protocol.** The compiler knows the protocol `Enumerable<T>`,
+whose one operation folds a value: `TAcc Reduce<TAcc>(Self s, TAcc acc, fn(TAcc, T) -> TAcc f)`. An
+`implements` block holds that operation's clauses, and the protocol supplies the signature. It lives
+in the module that declares the record, and nowhere else. A call is written under the protocol's
+name, `Enumerable.Reduce(v, …)`. Over one record it is a direct call to that record's module, and
+over a union of implementing records it dispatches on the tag. **shipped**, F64.
+<!-- decided by ticket 99 Q1 and Q4, spelled by ticket 91 Q2; built by F64 -->
+
+```csharp
+record Leaf { Value: int }
+record Pair { A: int, B: int }
+type Shape = Leaf | Pair
+
+implements Enumerable<int> for Leaf {
+    Reduce(Leaf l, acc, f) -> f(acc, l.Value)
+}
+
+implements Enumerable<int> for Pair {
+    Reduce(Pair p, acc, f) -> f(f(acc, p.A), p.B)
+}
+
+public int Sum(Shape s)
+Sum(s) -> Enumerable.Reduce(s, 0, (a, v) => a + v)
+```
+
+A record whose module does not implement the protocol is refused at the call. The refusal names
+the declaration the record lacks:
+
+<!-- diagnoses: protocol_not_implemented -->
+```csharp
+record Leaf { Value: int }
+
+public int Sum(Leaf l)
+Sum(l) -> Enumerable.Reduce(l, 0, (a, v) => a + v)
+```
+
 
 
 Construction names the type; the dot projects; `with` updates. **There are no local
@@ -3187,7 +3223,7 @@ something else already covers it, not because it was disliked.
 | method-call syntax (`xs.Map(f)`) | needs type-directed resolution of an unqualified name |
 | LINQ query syntax | same reason — its translation emits unqualified names |
 | comprehensions | inlining recovers better emitted types |
-| type classes / protocols | dispatch cannot key on a name that is not in the term; records put it there instead |
+| type classes | a record's own module implements a protocol instead (§6), dispatched by the tag the term carries |
 | bounded type variables | both routes to discharging a bound are closed |
 | nominal types | structural throughout; records tag the *term*, not the type |
 | `dynamic` | outside values are `term`; the clause head is the decoder |
