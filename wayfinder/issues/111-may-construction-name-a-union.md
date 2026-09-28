@@ -182,6 +182,6 @@ print in full.
   already checked against the expected type. This sits beside
   [109](issues/109-a-kind-of-several-atoms.md) Q2, where a construction says which member a value
   is. Not decided here: construction over an untagged single-member alias, which is
-  [ENG-381](https://linear.app/davewil/issue/ENG-381). Unbuilt:
-  [ENG-493](https://linear.app/davewil/issue/ENG-493).
+  [ENG-381](https://linear.app/davewil/issue/ENG-381). Built 2026-09-28 at `804c50f`:
+  [ENG-493](https://linear.app/davewil/issue/ENG-493), Done.
 ```
