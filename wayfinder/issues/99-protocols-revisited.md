@@ -181,5 +181,9 @@ record in a template hole. A template hole was the program Q5 said `String.Chars
   an implementation is exported once per implementing record, `'bs@Enumerable@Reduce@Node'/3`, not
   once per protocol operation as Q1's `'bs@Enumerable@Reduce'/3` wrote; `for` is a keyword; and
   inside an `implements` block an operation's own name at its own arity is the implementation,
-  while outside the block the name is the module's own function.
+  while outside the block the name is the module's own function. A record implements a protocol
+  in one block: a second is refused (`implements_duplicate`), not merged, as are an operation of
+  the wrong arity and a missing type argument. Merging is deferred, not refused for good; it would
+  serve a many-operation protocol (ENG-459) split across a module's files, and would need 91 Q5's
+  completeness checked across the blocks rather than per block.
 ```

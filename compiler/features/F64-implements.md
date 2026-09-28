@@ -75,7 +75,8 @@ Total(t) -> Enumerable.Reduce(t, 0, (a, v) => a + v)
 What the build read that no ticket spelled. On 2026-09-28, reviewing ENG-458, David accepted `for`
 as a keyword, the block's naming (the first two bullets) and the per-record export name (the
 last), and they are recorded in [ticket 99](../../wayfinder/issues/99-protocols-revisited.md)'s
-Decisions entry. He asked to see the three refusals in the third bullet:
+Decisions entry. Shown the three refusals in the third bullet, he kept them, with merging a
+second block deferred there:
 
 - `for` is now a keyword, as it is in C#. No `.bs` file in the repository used it as a name.
 - Inside a block, an operation's own name is the implementation, so a module function of the same
