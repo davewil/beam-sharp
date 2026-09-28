@@ -188,6 +188,59 @@ The delta is checking the generator's pattern as a top, the way a switch subject
 
 Recommended: yes.
 
+**A2:** not answered in round 2; carried to round 3.
+**A3 (David, 2026-09-29):** *"yes"*: `[r for Receipt r in cs]`.
+**A4 (David, 2026-09-29):** *"yes"*: a generator's pattern is anything a clause-head parameter
+accepts.
+
+## Round 3
+
+Q2 is carried unchanged. A3's spelling opens the three questions below, and none depends on
+another. Measured for all three together: adding `'in'`, and a comprehension whose first generator
+may be followed by any mix of `for pattern in expr` and `when guard_expr`, leaves yecc at 6
+shift/reduce and 0 reduce/reduce, before and after.
+
+**Q5. A filter follows a generator as `when` and a guard, and takes what a clause guard takes.**
+
+```csharp
+public list<Receipt> Large(list<Charge> cs)
+Large(cs) -> [r for Receipt r in cs when r.Pence >= 10000]
+```
+
+`when` then means one thing everywhere it is written. So a filter cannot call your function, as a
+clause guard cannot today (measured): *"Size calls Large in a guard / a guard asks a question about
+the values a clause already matched; it cannot call a function. Move the call into the body and
+switch on its answer."* Erlang lets a comprehension filter be any boolean expression. B# would be
+narrower on purpose, so that a `when` reads the same in a head, an arm and a comprehension. A call
+belongs in a `List.Filter` stage.
+
+Recommended: yes.
+
+**Q6. A comprehension may have several generators; a later one sees an earlier one's bindings, and
+a `when` may follow any of them.**
+
+```csharp
+public list<(int, string)> Skus(list<Order> os)
+Skus(os) -> [(o.Id, l.Sku) for Order o in os for Line l in o.Lines when l.Qty > 0]
+```
+
+This lowers to one Erlang comprehension with two generators and a filter, the BEAM's own shape:
+`[{…} || O = #{…} <- Os, L = #{…} <- maps:get('Lines', O), …]`.
+
+Recommended: yes.
+
+**Q7. A comprehension draws from lists and builds a list. Map and binary comprehensions, and a
+generator over an `Enumerable<T>` record, are not this ticket's.**
+
+Each waits on something open. A binary comprehension waits on building a binary,
+[ticket 90](90-building-a-binary.md). A generator over a map needs a key-and-value pattern, which
+48 Q2 deferred ([ENG-323](https://linear.app/davewil/issue/ENG-323)). A generator over an
+implementing record needs `Enumerable<T>` as a parameter type
+([ENG-566](https://linear.app/davewil/issue/ENG-566)). All three go to the map's *Not yet
+specified*, to be ticketed when a program needs one.
+
+Recommended: yes.
+
 Under **yes**, these follow, each asked after it rather than beside it: whether a generator skips
 or crashes on an element its pattern refuses, which Erlang offers both ways; the spelling, where
 `for … in` is Python's order and Elixir writes `for r <- cs, do: r`, while LINQ's
