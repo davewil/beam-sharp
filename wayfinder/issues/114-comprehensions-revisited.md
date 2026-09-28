@@ -1,7 +1,7 @@
 # 114 — Comprehensions revisited: may B# write `[r for Receipt r in cs]`?
 
 Type: grilling
-Status: open — [ENG-570](https://linear.app/davewil/issue/ENG-570). Raised 2026-09-28 by David,
+Status: claimed — [ENG-570](https://linear.app/davewil/issue/ENG-570). Raised 2026-09-28 by David,
 reviewing [F64](../../compiler/features/F64-implements.md)'s `for` keyword
 Blocked by: —
 
