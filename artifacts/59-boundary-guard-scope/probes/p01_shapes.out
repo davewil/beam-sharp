@@ -1,0 +1,62 @@
+OTP 25 erts 13.2.2.5
+
+=== A. exported f/1, Code-chunk bytes (equal-length module names, deterministic) ===
+  a_nf_x   Code=73
+  a_nf_y   Code=73
+  a_tg_u   Code=73
+  a_tg_g   Code=85
+  a_in_u   Code=74
+  a_in_g   Code=79
+  a_fl_u   Code=98
+  a_fl_g   Code=101
+  a_rg_g   Code=92
+  a_rg_u   Code=74
+  noise floor (nf_y - nf_x)  : +0
+  tag test    (tg_g - tg_u)  : +12   [ticket 26a RECORDED on 28.5: +14]
+  is_integer  (in_g - in_u)  : +5   [ticket 18a RECORDED on 28.5: +3..+5]
+  is_float    (fl_g - fl_u)  : +3
+  int + range 0..255         : +18
+
+=== B. local p/1 behind exported c/1: is the guard on p kept? ===
+  columns: Code bytes of module with p guarded / p unguarded, delta, and whether the test survives in p's asm
+  int / caller unknown                         92 /   87  delta  +5  test in p's asm: KEPT
+  int / caller proved integer                  92 /   92  delta  +0  test in p's asm: ELIDED
+  int / caller passes literal                  88 /   88  delta  +0  test in p's asm: ELIDED
+  tag / caller unknown                         98 /   86  delta +12  test in p's asm: KEPT
+  tag / caller ran SAME tag test              110 /   98  delta +12  test in p's asm: KEPT
+  tag / caller built the literal              110 /   98  delta +12  test in p's asm: KEPT
+  tag / nested field of a tagged wrapper      116 /  104  delta +12  test in p's asm: KEPT
+
+  -- the same shapes when p is EXPORTED (control for P4; caller is c/1 as above) --
+  int / caller unknown                         92 /   87  delta  +5  test in p's asm: KEPT
+  int / caller proved integer                  95 /   90  delta  +5  test in p's asm: KEPT
+  int / caller passes literal                  96 /   91  delta  +5  test in p's asm: KEPT
+  tag / caller unknown                         98 /   86  delta +12  test in p's asm: KEPT
+  tag / caller ran SAME tag test              108 /   96  delta +12  test in p's asm: KEPT
+  tag / caller built the literal              108 /   96  delta +12  test in p's asm: KEPT
+  tag / nested field of a tagged wrapper      116 /  104  delta +12  test in p's asm: KEPT
+
+  -- asm of p in the tag/'caller ran SAME tag test' case, p local, guarded --
+{function, p, 1, 2}.
+  {label,1}.
+    {line,[{location,"b_g.erl",3}]}.
+    {func_info,{atom,b_g},{atom,p},1}.
+  {label,2}.
+    {'%',{var_info,{x,0},[{type,{t_map,any,any}}]}}.
+    {bif,map_get,{f,1},[{atom,'Kind'},{tr,{x,0},{t_map,any,any}}],{x,1}}.
+    {test,is_eq_exact,{f,1},[{x,1},{atom,'Order'}]}.
+    {bif,map_get,{f,0},[{atom,total},{tr,{x,0},{t_map,any,any}}],{x,0}}.
+    return.
+
+
+  -- asm of p in the int/'caller proved integer' case, p local, guarded --
+{function, p, 1, 2}.
+  {label,1}.
+    {line,[{location,"b_g.erl",3}]}.
+    {func_info,{atom,b_g},{atom,p},1}.
+  {label,2}.
+    {'%',{var_info,{x,0},[{type,{t_integer,any}}]}}.
+    {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,1}],{x,0}}.
+    return.
+
+

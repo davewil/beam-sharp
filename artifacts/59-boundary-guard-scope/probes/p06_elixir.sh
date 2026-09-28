@@ -11,7 +11,7 @@
 #   E3. `defp q(n) when is_integer(n)` behind a `def r(n) when is_integer(n)` loses the private test in the
 #       BEAM (same erlc passes), i.e. Elixir inherits the same elision as the Erlang probes.
 cd "$(dirname "$0")" || exit 1
-mkdir -p work/ex && cd work/ex || exit 1
+rm -rf work/ex && mkdir -p work/ex && cd work/ex || exit 1
 cat > order.ex <<'EX'
 defmodule Order do
   @enforce_keys [:total]
@@ -37,6 +37,13 @@ elixir -pa . -e '
   for {:function, _, n, _, _} = f <- forms, n in [:e, :p, :q, :r], do: IO.puts(:erl_pp.form(f))
 ' 2>&1 | grep -v "^$"
 echo
+echo "== BEAM code of q/1 (private, kind guard) after elixirc's own erlc pass: is the is_integer test still there? =="
+elixir -pa . -e '
+  {:beam_file, _, _, _, _, fns} = :beam_disasm.file(~c"Elixir.Order.beam")
+  for {:function, n, 1, _, code} <- fns, n in [:q, :r] do
+    IO.puts("-- #{n}/1: is_integer tests: #{Enum.count(code, &match?({:test, :is_integer, _, _}, &1))}")
+  end
+'
 echo "== running: forged terms against def e/1, defp p/1 (via nested, escaped fun) and the int pair =="
 elixir -pa . -e '
   forged = %{__struct__: Order, total: 99}

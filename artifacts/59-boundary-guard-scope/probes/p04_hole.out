@@ -1,0 +1,112 @@
+OTP 25 erts 13.2.2.5
+
+legend: `private guard off -> X | on -> Y`; ok:V is a value RETURNED with no error (the silent case).
+exported guard is always on (tag test / is_integer), as bs_emit emits it on an exported parameter.
+
+=== RECORD private p(Order o), body = proj ===
+  top     wrong_kind_same_fields   off -> error:function_clause@top/1                              | on -> error:function_clause@top/1
+  top     right_tag_no_fields      off -> error:badkey@p/1                                         | on -> error:badkey@p/1
+  top     non_map                  off -> error:function_clause@top/1                              | on -> error:function_clause@top/1
+  top     no_kind_key              off -> error:function_clause@top/1                              | on -> error:function_clause@top/1
+  top     GOOD record (control)    off -> ok:3                                                     | on -> ok:3
+  nested  wrong_kind_same_fields   off -> ok:7                                                     | on -> error:function_clause@p/1
+  nested  right_tag_no_fields      off -> error:badkey@p/1                                         | on -> error:badkey@p/1
+  nested  non_map                  off -> error:badmap@p/1                                         | on -> error:function_clause@p/1
+  nested  no_kind_key              off -> ok:7                                                     | on -> error:function_clause@p/1
+  nested  GOOD record (control)    off -> ok:3                                                     | on -> ok:3
+  escape  wrong_kind_same_fields   off -> ok:7                                                     | on -> error:function_clause@p/1
+  escape  right_tag_no_fields      off -> error:badkey@p/1                                         | on -> error:badkey@p/1
+  escape  non_map                  off -> error:badmap@p/1                                         | on -> error:function_clause@p/1
+  escape  no_kind_key              off -> ok:7                                                     | on -> error:function_clause@p/1
+  escape  GOOD record (control)    off -> ok:3                                                     | on -> ok:3
+  many    wrong_kind_same_fields   off -> ok:[3,7]                                                 | on -> error:function_clause@p/1
+  many    right_tag_no_fields      off -> error:badkey@p/1                                         | on -> error:badkey@p/1
+  many    non_map                  off -> error:badmap@p/1                                         | on -> error:function_clause@p/1
+  many    no_kind_key              off -> ok:[3,7]                                                 | on -> error:function_clause@p/1
+  many    GOOD record (control)    off -> ok:[3,3]                                                 | on -> ok:[3,3]
+
+=== RECORD private p(Order o), body = cmp ===
+  top     wrong_kind_same_fields   off -> error:function_clause@top/1                              | on -> error:function_clause@top/1
+  top     right_tag_no_fields      off -> error:badkey@p/1                                         | on -> error:badkey@p/1
+  top     non_map                  off -> error:function_clause@top/1                              | on -> error:function_clause@top/1
+  top     no_kind_key              off -> error:function_clause@top/1                              | on -> error:function_clause@top/1
+  top     GOOD record (control)    off -> ok:true                                                  | on -> ok:true
+  nested  wrong_kind_same_fields   off -> ok:true                                                  | on -> error:function_clause@p/1
+  nested  right_tag_no_fields      off -> error:badkey@p/1                                         | on -> error:badkey@p/1
+  nested  non_map                  off -> error:badmap@p/1                                         | on -> error:function_clause@p/1
+  nested  no_kind_key              off -> ok:true                                                  | on -> error:function_clause@p/1
+  nested  GOOD record (control)    off -> ok:true                                                  | on -> ok:true
+  escape  wrong_kind_same_fields   off -> ok:true                                                  | on -> error:function_clause@p/1
+  escape  right_tag_no_fields      off -> error:badkey@p/1                                         | on -> error:badkey@p/1
+  escape  non_map                  off -> error:badmap@p/1                                         | on -> error:function_clause@p/1
+  escape  no_kind_key              off -> ok:true                                                  | on -> error:function_clause@p/1
+  escape  GOOD record (control)    off -> ok:true                                                  | on -> ok:true
+  many    wrong_kind_same_fields   off -> ok:[true,true]                                           | on -> error:function_clause@p/1
+  many    right_tag_no_fields      off -> error:badkey@p/1                                         | on -> error:badkey@p/1
+  many    non_map                  off -> error:badmap@p/1                                         | on -> error:function_clause@p/1
+  many    no_kind_key              off -> ok:[true,true]                                           | on -> error:function_clause@p/1
+  many    GOOD record (control)    off -> ok:[true,true]                                           | on -> ok:[true,true]
+
+=== RECORD private p(Order o), body = keep ===
+  top     wrong_kind_same_fields   off -> error:function_clause@top/1                              | on -> error:function_clause@top/1
+  top     right_tag_no_fields      off -> ok:{kept,#{'Kind' => 'Order'}}                           | on -> ok:{kept,#{'Kind' => 'Order'}}
+  top     non_map                  off -> error:function_clause@top/1                              | on -> error:function_clause@top/1
+  top     no_kind_key              off -> error:function_clause@top/1                              | on -> error:function_clause@top/1
+  top     GOOD record (control)    off -> ok:{kept,#{'Kind' => 'Order',id => 1,status => draft,total => 3}} | on -> ok:{kept,#{'Kind' => 'Order',id => 1,status => draft,total => 3}}
+  nested  wrong_kind_same_fields   off -> ok:{kept,#{'Kind' => 'Invoice',id => 1,status => draft,total => 7}} | on -> error:function_clause@p/1
+  nested  right_tag_no_fields      off -> ok:{kept,#{'Kind' => 'Order'}}                           | on -> ok:{kept,#{'Kind' => 'Order'}}
+  nested  non_map                  off -> ok:{kept,42}                                             | on -> error:function_clause@p/1
+  nested  no_kind_key              off -> ok:{kept,#{id => 1,status => draft,total => 7}}          | on -> error:function_clause@p/1
+  nested  GOOD record (control)    off -> ok:{kept,#{'Kind' => 'Order',id => 1,status => draft,total => 3}} | on -> ok:{kept,#{'Kind' => 'Order',id => 1,status => draft,total => 3}}
+  escape  wrong_kind_same_fields   off -> ok:{kept,#{'Kind' => 'Invoice',id => 1,status => draft,total => 7}} | on -> error:function_clause@p/1
+  escape  right_tag_no_fields      off -> ok:{kept,#{'Kind' => 'Order'}}                           | on -> ok:{kept,#{'Kind' => 'Order'}}
+  escape  non_map                  off -> ok:{kept,42}                                             | on -> error:function_clause@p/1
+  escape  no_kind_key              off -> ok:{kept,#{id => 1,status => draft,total => 7}}          | on -> error:function_clause@p/1
+  escape  GOOD record (control)    off -> ok:{kept,#{'Kind' => 'Order',id => 1,status => draft,total => 3}} | on -> ok:{kept,#{'Kind' => 'Order',id => 1,status => draft,total => 3}}
+  many    wrong_kind_same_fields   off -> ok:[{kept,#{'Kind' => 'Order',id => 1,status => draft,total => 3}},{kept,#{'Kind' => 'Invoice',id => 1,status => draft,total => 7}}] | on -> error:function_clause@p/1
+  many    right_tag_no_fields      off -> ok:[{kept,#{'Kind' => 'Order',id => 1,status => draft,total => 3}},{kept,#{'Kind' => 'Order'}}] | on -> ok:[{kept,#{'Kind' => 'Order',id => 1,status => draft,total => 3}},{kept,#{'Kind' => 'Order'}}]
+  many    non_map                  off -> ok:[{kept,#{'Kind' => 'Order',id => 1,status => draft,total => 3}},{kept,42}] | on -> error:function_clause@p/1
+  many    no_kind_key              off -> ok:[{kept,#{'Kind' => 'Order',id => 1,status => draft,total => 3}},{kept,#{id => 1,status => draft,total => 7}}] | on -> error:function_clause@p/1
+  many    GOOD record (control)    off -> ok:[{kept,#{'Kind' => 'Order',id => 1,status => draft,total => 3}},{kept,#{'Kind' => 'Order',id => 1,status => draft,total => 3}}] | on -> ok:[{kept,#{'Kind' => 'Order',id => 1,status => draft,total => 3}},{kept,#{'Kind' => 'Order',id => 1,status => draft,total => 3}}]
+
+=== 'keep' body: the forged record is stored, and used later by consume/1 ===
+  wrong_kind_same_fields   guard off -> ok:7                                                     | on -> error:function_clause@p/1
+  right_tag_no_fields      guard off -> error:badkey@consume/1                                   | on -> error:badkey@consume/1
+  non_map                  guard off -> error:badmap@consume/1                                   | on -> error:function_clause@p/1
+  no_kind_key              guard off -> ok:7                                                     | on -> error:function_clause@p/1
+
+=== INT private q(int n), body = arith ===
+  top     float    off -> error:function_clause@top_i/1                            | on -> error:function_clause@top_i/1
+  top     atom     off -> error:function_clause@top_i/1                            | on -> error:function_clause@top_i/1
+  top     binary   off -> error:function_clause@top_i/1                            | on -> error:function_clause@top_i/1
+  top     GOOD 21  off -> ok:42                                                    | on -> ok:42
+  nested  float    off -> ok:3.0                                                   | on -> error:function_clause@q/1
+  nested  atom     off -> error:badarith@q/1                                       | on -> error:function_clause@q/1
+  nested  binary   off -> error:badarith@q/1                                       | on -> error:function_clause@q/1
+  nested  GOOD 21  off -> ok:42                                                    | on -> ok:42
+  escape  float    off -> ok:3.0                                                   | on -> error:function_clause@q/1
+  escape  atom     off -> error:badarith@q/1                                       | on -> error:function_clause@q/1
+  escape  binary   off -> error:badarith@q/1                                       | on -> error:function_clause@q/1
+  escape  GOOD 21  off -> ok:42                                                    | on -> ok:42
+  many    float    off -> ok:[42,3.0]                                              | on -> error:function_clause@q/1
+  many    atom     off -> error:badarith@q/1                                       | on -> error:function_clause@q/1
+  many    binary   off -> error:badarith@q/1                                       | on -> error:function_clause@q/1
+  many    GOOD 21  off -> ok:[42,42]                                               | on -> ok:[42,42]
+
+=== INT private q(int n), body = classify ===
+  top     float    off -> error:function_clause@top_i/1                            | on -> error:function_clause@top_i/1
+  top     atom     off -> error:function_clause@top_i/1                            | on -> error:function_clause@top_i/1
+  top     binary   off -> error:function_clause@top_i/1                            | on -> error:function_clause@top_i/1
+  top     GOOD 21  off -> ok:reserved                                              | on -> ok:reserved
+  nested  float    off -> ok:low                                                   | on -> error:function_clause@q/1
+  nested  atom     off -> ok:reserved                                              | on -> error:function_clause@q/1
+  nested  binary   off -> ok:reserved                                              | on -> error:function_clause@q/1
+  nested  GOOD 21  off -> ok:reserved                                              | on -> ok:reserved
+  escape  float    off -> ok:low                                                   | on -> error:function_clause@q/1
+  escape  atom     off -> ok:reserved                                              | on -> error:function_clause@q/1
+  escape  binary   off -> ok:reserved                                              | on -> error:function_clause@q/1
+  escape  GOOD 21  off -> ok:reserved                                              | on -> ok:reserved
+  many    float    off -> ok:[reserved,low]                                        | on -> error:function_clause@q/1
+  many    atom     off -> ok:[reserved,reserved]                                   | on -> error:function_clause@q/1
+  many    binary   off -> ok:[reserved,reserved]                                   | on -> error:function_clause@q/1
+  many    GOOD 21  off -> ok:[reserved,reserved]                                   | on -> ok:[reserved,reserved]

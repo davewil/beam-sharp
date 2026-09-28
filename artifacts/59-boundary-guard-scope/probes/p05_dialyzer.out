@@ -1,0 +1,32 @@
+== building a minimal PLT (erts, kernel, stdlib) from the apt-installed OTP; no network ==
+plt exit: 0
+ done in 0m35.42s
+done (passed successfully)
+
+== D1/D3-nested/esc: d1 alone ==
+    Checking whether the PLT /home/user/beam-sharp/artifacts/59-boundary-guard-scope/probes/work/dial/min.plt is up-to-date... yes
+    Proceeding with analysis...
+  d1.erl:16:1: Function forge_local/0 has no local return
+  d1.erl:16:20: The call d1:p
+           (#{'Kind' => 'Invoice', 'status' => 'draft', 'total' => 7}) breaks the contract 
+            (order()) -> integer()
+   done in 0m0.14s
+  done (warnings were emitted)
+
+== D2/D3: d1 + d2 together ==
+    Checking whether the PLT /home/user/beam-sharp/artifacts/59-boundary-guard-scope/probes/work/dial/min.plt is up-to-date... yes
+    Proceeding with analysis...
+  d1.erl:16:1: Function forge_local/0 has no local return
+  d1.erl:16:20: The call d1:p
+           (#{'Kind' => 'Invoice', 'status' => 'draft', 'total' => 7}) breaks the contract 
+            (order()) -> integer()
+  d2.erl:4:1: Function go/0 has no local return
+  d2.erl:4:14: The call d1:e
+           (#{'Kind' => 'Invoice', 'status' => 'draft', 'total' => 7}) will never return since the success typing is 
+           (#{'Kind' := 'Order', 'status' := atom(), 'total' := integer()}) -> 
+            integer() and the contract is 
+            (order()) -> integer()
+   done in 0m0.15s
+  done (warnings were emitted)
+
+== D4: d3 alone (exported vs local vs escaped local; every visible caller passes an atom) ==

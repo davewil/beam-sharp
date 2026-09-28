@@ -38,4 +38,4 @@ echo "-- generated proj.app"; cat _build/dev/lib/proj/ebin/proj.app
 echo "-- the requirement \"~> 1.2\" is in mix.exs only; does the .app contain it?"; grep -c '1\.2' _build/dev/lib/proj/ebin/proj.app || true
 echo "-- mix deps (requirement is checked by mix at deps.loadpaths against the dep's own version)"; mix deps 2>&1 | head -12
 echo "-- runtime_dependencies key in ssl.app (OTP's own versioned constraint list)"; sed -n '/runtime_dependencies/,/\]}/p' /usr/lib/erlang/lib/ssl-*/ebin/ssl.app
-echo "-- violate the requirement: dep_run 1.2.3 -> 0.9.0, recompile"; sed -i 's/1\.2\.3/0.9.0/' ../dep_run/mix.exs; mix compile 2>&1 | head -8
+echo "-- violate the requirement: dep_run 1.2.3 -> 0.9.0, recompile (rm -rf _build first: without it mix skips the dep re-check, seen in the first version of this probe)"; sed -i 's/1\.2\.3/0.9.0/' ../dep_run/mix.exs; touch ../dep_run/mix.exs; rm -rf _build ../dep_run/_build; mix compile 2>&1 | head -8

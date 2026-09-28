@@ -14,5 +14,5 @@ Unknown types:
   compile:option/0 (erl_lint.erl:51:47)
   compile:option/0 (qlc.erl:541:32)
   compile:option/0 (qlc_pt.erl:73:32)
- done in 0m32.66s
+ done in 0m35.42s
 done (passed successfully)

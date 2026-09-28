@@ -37,18 +37,18 @@
   shared: parse=app_a scan=[app_a,app_b]
   no_such_mod: parse=non_existing scan=[]
 -- Q5 cost, microseconds per call (mean of N runs, path length = 44)
-  code:which(lists) [hit, OTP]                     6.43 us/call (N=2000)
-  code:which(no_such_mod) [miss, full path sca  1069.06 us/call (N=2000)
-  code:lib_dir(stdlib) [hit]                       3.67 us/call (N=2000)
-  code:lib_dir(app_c) [hit, unversioned]           2.80 us/call (N=2000)
-  code:lib_dir(no_such_app) [miss]                 2.44 us/call (N=2000)
-  code:where_is_file("app_c.app")                178.58 us/call (N=2000)
-  mod_to_app_parse(a_mod)                        135.81 us/call (N=2000)
-  mod_to_app_scan(a_mod) [reads every .app on   8231.10 us/call (N=50)
-  mod_to_app_scan(no_such_mod) [full scan, mis  8050.58 us/call (N=50)
-  application:load(app_c) first (cold)           354.00 us/call (N=1)
-  application:load(app_c) again                    2.46 us/call (N=2000)
-  code:ensure_loaded(c_mod) first (loads the beam)           697 us (N=1)
+  code:which(lists) [hit, OTP]                     5.27 us/call (N=2000)
+  code:which(no_such_mod) [miss, full path sca  1014.58 us/call (N=2000)
+  code:lib_dir(stdlib) [hit]                       2.99 us/call (N=2000)
+  code:lib_dir(app_c) [hit, unversioned]           2.41 us/call (N=2000)
+  code:lib_dir(no_such_app) [miss]                 2.18 us/call (N=2000)
+  code:where_is_file("app_c.app")                174.00 us/call (N=2000)
+  mod_to_app_parse(a_mod)                        134.35 us/call (N=2000)
+  mod_to_app_scan(a_mod) [reads every .app on   8185.18 us/call (N=50)
+  mod_to_app_scan(no_such_mod) [full scan, mis 10968.20 us/call (N=50)
+  application:load(app_c) first (cold)           345.00 us/call (N=1)
+  application:load(app_c) again                    2.73 us/call (N=2000)
+  code:ensure_loaded(c_mod) first (loads the beam)           704 us (N=1)
 
 ######## ERL_LIBS=libB:libA:libC:libD:libE (order B,A) — only Q2/Q4 for shared matter
 == ERL_LIBS=[<<"libB">>,<<"libA">>,<<"libC">>,<<"libD">>,<<"libE">>]

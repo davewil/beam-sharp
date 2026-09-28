@@ -38,4 +38,12 @@ Generated proj app
     {runtime_dependencies, ["stdlib-4.1","public_key-1.11.3","kernel-8.4",
                             "erts-10.0","crypto-5.0", "inets-5.10.7",
                             "runtime_tools-1.15.1"]}]}.
--- violate the requirement: dep_run 1.2.3 -> 0.9.0, recompile
+-- violate the requirement: dep_run 1.2.3 -> 0.9.0, recompile (rm -rf _build first: without it mix skips the dep re-check, seen in the first version of this probe)
+==> dep_norun
+Compiling 1 file (.ex)
+Generated dep_norun app
+==> dep_run
+Compiling 1 file (.ex)
+Generated dep_run app
+==> proj
+Unchecked dependencies for environment dev:

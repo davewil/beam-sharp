@@ -11,6 +11,7 @@
    v_bs_rng    present=true  instrs=21   identical_to_v_base=false
    v_abstr     present=true  instrs=19   identical_to_v_base=false
    v_abstr_rng present=true  instrs=22   identical_to_v_base=false
+   ex_asm      present=true  instrs=19   identical_to_v_base=false
 {wrap,1}: v_base has 4 instrs (labels/line stripped, {tr,R,_}->R)
    v_base      present=true  instrs=4    identical_to_v_base=true
    v_bs        present=true  instrs=4    identical_to_v_base=true
@@ -24,6 +25,7 @@
    v_bs_rng    present=true  instrs=6    identical_to_v_base=false
    v_abstr     present=true  instrs=4    identical_to_v_base=true
    v_abstr_rng present=true  instrs=7    identical_to_v_base=false
+   ex_asm      present=true  instrs=4    identical_to_v_base=true
 
 diff {spin,4} v_base vs v_base_nt (lines only in first / only in second):
    - {gc_bif,'+',{f,0},2,[{x,0},{x,1}],{x,0}}
@@ -59,4 +61,14 @@ diff {spin,4} v_base vs v_abstr (lines only in first / only in second):
    + {call,1,{f,6}}
    + {call_last,4,{f,9},4}
 
-diff {wrap,1} v_base vs v_abstr (lines only in first / only in second):
+diff {spin,4} v_base vs ex_asm (lines only in first / only in second):
+   - {test,is_eq_exact,{f,8},[{x,2},{integer,0}]}
+   - {call,1,{f,2}}
+   - {call,1,{f,4}}
+   - {call_last,4,{f,7},4}
+   + {test,is_eq_exact,{f,27},[{x,2},{integer,0}]}
+   + {call,1,{f,29}}
+   + {call,1,{f,14}}
+   + {call_last,4,{f,26},4}
+
+diff {wrap,1} v_base vs ex_asm (lines only in first / only in second):

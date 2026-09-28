@@ -23,4 +23,5 @@ escript sizes_cost.escript > sizes_cost.out 2>&1
 ./call_sites.sh > call_sites.out 2>&1
 escript fold_prototype.escript > fold_prototype.out 2>&1
 [ -x elm_probe.sh ] && ./elm_probe.sh > elm_probe.out 2>&1
+rm -f m.S
 exit 0

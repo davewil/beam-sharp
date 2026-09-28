@@ -15,14 +15,14 @@
   which('Elixir.String')=non_existing
   which('Elixir.Req')=non_existing
 == wall time: erlc on a trivial module vs VM+check (VM start+halt is the floor for any Erlang tool; bsc is already a running VM)
-  erlc t.erl: 232 ms
+  erlc t.erl: 241 ms
+  erlc t.erl: 233 ms
   erlc t.erl: 267 ms
-  erlc t.erl: 230 ms
-  erl -noshell -eval halt: 180 ms
-  erl -noshell -eval halt: 165 ms
-  erl -noshell -eval halt: 140 ms
+  erl -noshell -eval halt: 147 ms
+  erl -noshell -eval halt: 194 ms
+  erl -noshell -eval halt: 148 ms
   in-VM cost of check for 9 apps (lib_dir x9, mean of 1000 runs), microseconds:
-  68.45 us per 9-app check
+  49.15 us per 9-app check
 == declaration sizes in bytes (one using block header)
    21  using :'Elixir.Req' {
    32  [app: req] using :'Elixir.Req' {

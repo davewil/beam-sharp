@@ -1,0 +1,16 @@
+--- independent VM on core 1, key pairs only ---
+answer 6770 (all 5 variants agree)
+variant                 n      min      p10   median      p90      max   stdev  med_rel
+v_base                300   13.234   13.336   13.635   18.079   22.377   2.019   1.000x
+v_base_nt             300   13.259   13.329   13.611   18.409   27.233   2.103   0.998x
+v_exp                 300   13.072   13.157   13.389   18.261   24.311   2.076   0.982x
+v_exp_rng             300   13.892   13.994   14.355   18.742   24.782   1.979   1.053x
+v_exp_spec            300   13.091   13.157   13.492   18.395   22.017   2.083   0.990x
+--- independent VM on core 3, key pairs only ---
+answer 6770 (all 5 variants agree)
+variant                 n      min      p10   median      p90      max   stdev  med_rel
+v_base                300   13.256   13.322   13.698   18.134   26.292   2.058   1.000x
+v_base_nt             300   13.249   13.313   13.666   18.807   24.993   2.374   0.998x
+v_exp                 300   13.077   13.142   13.536   18.647   25.848   2.517   0.988x
+v_exp_rng             300   13.885   13.975   14.454   19.336   29.929   2.399   1.055x
+v_exp_spec            300   13.077   13.139   13.548   18.500   25.725   2.349   0.989x
