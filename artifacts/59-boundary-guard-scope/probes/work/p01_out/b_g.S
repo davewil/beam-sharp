@@ -13,6 +13,8 @@
     {func_info,{atom,b_g},{atom,p},1}.
   {label,2}.
     {'%',{var_info,{x,0},[{type,{t_integer,any}}]}}.
+    {test,is_ge,{f,1},[{tr,{x,0},{t_integer,any}},{integer,0}]}.
+    {test,is_ge,{f,1},[{integer,255},{tr,{x,0},{t_integer,any}}]}.
     {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,1}],{x,0}}.
     return.
 
@@ -23,6 +25,8 @@
     {func_info,{atom,b_g},{atom,c},1}.
   {label,4}.
     {test,is_integer,{f,3},[{x,0}]}.
+    {test,is_ge,{f,3},[{tr,{x,0},{t_integer,any}},{integer,0}]}.
+    {test,is_ge,{f,3},[{integer,255},{tr,{x,0},{t_integer,any}}]}.
     {call_only,1,{f,2}}. % p/1
 
 

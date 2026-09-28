@@ -1,0 +1,4 @@
+160 .bs files, 42 distinct record names, 349 signatures matched
+           functions  >=1 record param  >=1 int param  >=1 float param
+public           161                32             36                2
+private          188                30             71                0

@@ -35,6 +35,7 @@ go() ->
     io:format("OTP ~s erts ~s~n", [erlang:system_info(otp_release), erlang:system_info(version)]),
     section_a(Dir),
     section_b(Dir),
+    section_c(Dir),
     ok.
 
 %% ---------------------------------------------------------------------------
@@ -119,7 +120,33 @@ section_b(Dir) ->
     io:format("  -- asm of p in the int/'caller proved integer' case, p local, guarded --~n"),
     SameI = "-export([c/1]).\np(O) when erlang:is_integer(O) -> O + 1.\nc(X) when erlang:is_integer(X) -> p(X).",
     _ = code_bytes(Dir, "b_g", SameI),
+    io:format("~s~n", [local_fun_asm(Dir, "b_g", p)]),
+    io:format("  -- asm of p in the range0..255/'caller ran SAME range test' case, p local, guarded "
+              "(the row above says ELIDED only for is_integer; are the two comparisons gone?) --~n"),
+    SameR = "-export([c/1]).\np(O) when erlang:is_integer(O) andalso O >= 0 andalso O =< 255 -> O + 1.\n"
+            "c(X) when erlang:is_integer(X) andalso X >= 0 andalso X =< 255 -> p(X).",
+    _ = code_bytes(Dir, "b_g", SameR),
     io:format("~s~n", [local_fun_asm(Dir, "b_g", p)]).
+
+%% ---------------------------------------------------------------------------
+%% C. escape-site wrapper (p04's `wrap` variant): what it costs in bytes relative to `fun p/1`.
+%% PREDICTION (before running): the wrapper fun costs about what the guard costs on p (tag ~+12, int ~+5),
+%% plus a little for the closure; it is paid once per ESCAPE SITE, not once per private function or per call.
+section_c(Dir) ->
+    io:format("~n=== C. escape-site wrapper vs plain `fun p/1`; exported esc/0 hands the fun out; p is private ===~n"),
+    Tag = fun(EscBody) -> "-export([esc/0]).\np(O) -> erlang:map_get(total, O).\nesc() -> " ++ EscBody ++ ".\n" end,
+    Int = fun(EscBody) -> "-export([esc/0]).\np(O) -> O + 1.\nesc() -> " ++ EscBody ++ ".\n" end,
+    Rows = [{"tag: plain fun p/1",                  Tag("fun p/1")},
+            {"tag: guarded wrapper",                Tag("fun(O) when " ?TAG " -> p(O) end")},
+            {"tag: p itself guarded, fun p/1",      "-export([esc/0]).\np(O) when " ?TAG " -> erlang:map_get(total, O).\nesc() -> fun p/1.\n"},
+            {"int: plain fun p/1",                  Int("fun p/1")},
+            {"int: guarded wrapper",                Int("fun(O) when erlang:is_integer(O) -> p(O) end")},
+            {"int: p itself guarded, fun p/1",      "-export([esc/0]).\np(O) when erlang:is_integer(O) -> O + 1.\nesc() -> fun p/1.\n"}],
+    Sizes = [{N, code_bytes(Dir, "c_x", B)} || {N, B} <- Rows],
+    [io:format("  ~-34s Code=~b~n", [N, S]) || {N, S} <- Sizes],
+    D = fun(A, B) -> sg(proplists:get_value(A, Sizes) - proplists:get_value(B, Sizes)) end,
+    io:format("  tag wrapper - plain: ~s   tag guard-on-p - plain: ~s~n", [D("tag: guarded wrapper", "tag: plain fun p/1"), D("tag: p itself guarded, fun p/1", "tag: plain fun p/1")]),
+    io:format("  int wrapper - plain: ~s   int guard-on-p - plain: ~s~n", [D("int: guarded wrapper", "int: plain fun p/1"), D("int: p itself guarded, fun p/1", "int: plain fun p/1")]).
 
 %% ---------------------------------------------------------------------------
 compile_mod(Dir, Mod, Body) ->

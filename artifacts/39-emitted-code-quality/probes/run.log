@@ -1,8 +1,0 @@
-build/src/v_remote.erl:43:19: syntax error before: 'rem'
-%   43| wrap(N) -> erlang:rem(erlang:rem(N, 100) + 100, 100).
-%     |                   ^
-
-build/src/v_remote.erl:73:12: function wrap/1 undefined
-%   73|     Next = wrap(Pos + Step),
-%     |            ^
-

@@ -40,7 +40,7 @@
 -endif.
 
 -ifdef(REMOTE).
-wrap(N) -> erlang:rem(erlang:rem(N, 100) + 100, 100).
+wrap(N) -> erlang:'rem'(erlang:'rem'(N, 100) + 100, 100).
 -else.
 -ifdef(GUARD_RNG).
 wrap(N) when is_integer(N), N >= -99, N =< 199 -> ((N rem 100) + 100) rem 100.

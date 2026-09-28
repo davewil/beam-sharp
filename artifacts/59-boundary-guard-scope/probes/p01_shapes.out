@@ -64,3 +64,26 @@ OTP 25 erts 13.2.2.5
     return.
 
 
+  -- asm of p in the range0..255/'caller ran SAME range test' case, p local, guarded (the row above says ELIDED only for is_integer; are the two comparisons gone?) --
+{function, p, 1, 2}.
+  {label,1}.
+    {line,[{location,"b_g.erl",3}]}.
+    {func_info,{atom,b_g},{atom,p},1}.
+  {label,2}.
+    {'%',{var_info,{x,0},[{type,{t_integer,any}}]}}.
+    {test,is_ge,{f,1},[{tr,{x,0},{t_integer,any}},{integer,0}]}.
+    {test,is_ge,{f,1},[{integer,255},{tr,{x,0},{t_integer,any}}]}.
+    {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,1}],{x,0}}.
+    return.
+
+
+
+=== C. escape-site wrapper vs plain `fun p/1`; exported esc/0 hands the fun out; p is private ===
+  tag: plain fun p/1                 Code=99
+  tag: guarded wrapper               Code=124
+  tag: p itself guarded, fun p/1     Code=111
+  int: plain fun p/1                 Code=100
+  int: guarded wrapper               Code=118
+  int: p itself guarded, fun p/1     Code=105
+  tag wrapper - plain: +25   tag guard-on-p - plain: +12
+  int wrapper - plain: +18   int guard-on-p - plain: +5
