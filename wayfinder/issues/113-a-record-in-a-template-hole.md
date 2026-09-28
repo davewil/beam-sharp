@@ -1,8 +1,8 @@
 # 113 — May a record print itself in a template hole?
 
 Type: grilling
-Status: claimed — [ENG-563](https://linear.app/davewil/issue/ENG-563). Raised 2026-09-28 by David,
-straight after [112](112-an-arithmetic-operand-with-no-numeric-part.md) resolved
+Status: resolved 2026-09-28 — [ENG-563](https://linear.app/davewil/issue/ENG-563). Raised by David
+straight after [112](112-an-arithmetic-operand-with-no-numeric-part.md) resolved, answered in two rounds the same day
 Blocked by: —
 
 ## Why this is raised
@@ -147,7 +147,46 @@ It is a protocol's operation, called by the protocol's name (99), as `Shape.Area
 ➡️ **Recommended: yes.** It is C#'s name, derived the way `Enumerable` was, and it leaves format
 specifiers somewhere to go.
 
+**A2 (David, 2026-09-28):** *"Yes."* The protocol is `Formattable`, with one operation:
+`string ToString(Self s)`.
+
+## The compiler delta, as decided
+
+- `Formattable { string ToString(Self s) }` joins `Enumerable` as a compiler-known protocol in
+  stratum two. An implementation is `implements Formattable for T { … }`, in `T`'s own module only
+  (99 Q4), through the machinery ENG-458 builds, and is exported `bs@Formattable@ToString/1`.
+- A template hole (ENG-562) accepts a type whose every member is in 112 Q3's table or is a record
+  whose module exports that implementation. One record type lowers to a direct remote call. A union
+  lowers to a call whose module is read from the tag, as 99 Q1 lowers `Enum.Sum`. `interp_hole`
+  names the missing `implements` for a record that lacks it.
+- `Formattable.ToString(v)` is callable anywhere, spelled as 99 spells a protocol's operation.
+- The tests go through the CLI: the `Line` program with `Money`, a union of two formattable
+  records, a record with no implementation (refused, the missing line named), a hand-written tagged
+  member (refused), and `Formattable.ToString(m)` called directly.
+- The build waits on ENG-562 (templates) and ENG-458 (`implements`).
+
 ## Not decided here
 
 - `Inspect`, a debugging representation of any value, which 99 Q5 also held back.
 - Format specifiers inside a hole (`{o.Total:F2}`), which are fog on the map since 112.
+
+## Decisions entry
+
+<!-- This ticket's entry. Read whole, here; the map (ENG-165) carries one line. -->
+
+```decisions-entry
+- [May a record print itself in a template hole?](issues/113-a-record-in-a-template-hole.md) —
+  **yes: a record fills a hole when its own module implements `Formattable`, a compiler-known
+  protocol with one operation, `string ToString(Self s)`. A union fills one when every member
+  implements it, and anything else is refused at compile time, naming the missing `implements`.**
+  Raised by David and resolved 2026-09-28 in two rounds, straight after
+  [112](issues/112-an-arithmetic-operand-with-no-numeric-part.md), whose hole table refused a
+  record. [99](issues/99-protocols-revisited.md) Q5 had held `String.Chars` back for *"a program
+  that wants them"*, and a template hole is that program. 99 Q4 (an implementation only in the
+  type's own module) is what lets B# check the hole at compile time, where Elixir raises at run
+  time. The name is .NET's `IFormattable` without the `I`, as `Enumerable` was derived. It is the
+  interface a C# hole consults, and it carries the format argument if format specifiers are ever
+  decided. The operation is called `Formattable.ToString(v)` anywhere (99's `Shape.Area(c)`).
+  Amends 99 Q5: the compiler ships `Enumerable` and `Formattable`. Unbuilt: the feature issue,
+  behind ENG-562 and ENG-458.
+```

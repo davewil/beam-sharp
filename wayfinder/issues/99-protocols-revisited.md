@@ -158,6 +158,10 @@ one declaration shape for a behaviour and a protocol.
 Area(Self s) }` in `index.bs`, satisfied by `implements Shape for Circle { … }` in the type's own
 module, and called as `Shape.Area(c)`, never `c.Area()`. The frontier is empty.
 
+**Amended 2026-09-28 by [113](113-a-record-in-a-template-hole.md):** Q5's *"`Enumerable` only"*
+no longer holds. The compiler also ships `Formattable { string ToString(Self s) }`, which prints a
+record in a template hole. A template hole was the program Q5 said `String.Chars` was waiting for.
+
 ## Decisions entry
 
 ```decisions-entry

@@ -188,9 +188,15 @@ _Avoid_: text, char list, String, utf8 binary
 
 **Template string**:
 A `string` built from literal text and holes, written `$"Order {o.Id} for {o.Customer}"`. A hole
-holds an expression of type `string`, `int`, `float` or an atom type, printed as it stands; a
-literal brace is written `{{` or `}}`.
+holds an expression of type `string`, `int`, `float` or an atom type, printed as it stands, or a
+record that is *Formattable*; a literal brace is written `{{` or `}}`.
 _Avoid_: interpolation, format string, string builder, concatenation
+
+**Formattable**:
+The compiler-known protocol a record's own module implements so that its values print: one
+operation, `string ToString(Self s)`, which a template hole calls. Written `implements Formattable
+for Money { … }`, and called directly as `Formattable.ToString(m)`.
+_Avoid_: `ToString` override, Display, Show, String.Chars, Printable
 
 **float**:
 The BEAM's float, an eighth part of the type lattice, beside `int` and not inside it: `0` and
