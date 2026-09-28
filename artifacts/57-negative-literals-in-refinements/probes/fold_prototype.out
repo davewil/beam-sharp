@@ -1,0 +1,40 @@
+F1a refinement -5..5
+    none        refused opaque_refinement
+    neg_pred    accepted
+    neg_all     accepted
+    arith_pred  accepted
+F1b refinement <=-1 | >=1
+    none        refused opaque_refinement
+    neg_pred    accepted
+    neg_all     accepted
+    arith_pred  accepted
+F5  residual spelled out
+    none        refused opaque_refinement
+    neg_pred    accepted
+    neg_all     accepted
+    arith_pred  accepted
+F4  refinement >= 2 + 3
+    none        refused opaque_refinement
+    neg_pred    refused opaque_refinement
+    neg_all     refused opaque_refinement
+    arith_pred  accepted
+F2  guards -5 halves
+    none        refused [{'F',inexhaustive,"(int)"}]
+    neg_pred    accepted
+    neg_all     accepted
+    arith_pred  accepted
+F3  return -1 into `value <= 0`
+    none        raised undef
+    neg_pred    raised undef
+    neg_all     accepted
+    arith_pred  raised undef
+F3b return 0 (control)
+    none        accepted
+    neg_pred    accepted
+    neg_all     accepted
+    arith_pred  accepted
+F3c return -1 into bare int (control)
+    none        accepted
+    neg_pred    accepted
+    neg_all     accepted
+    arith_pred  accepted

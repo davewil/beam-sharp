@@ -1,0 +1,93 @@
+P1 >= -5
+  src: type T = int where value >= -5
+  {parsed,{e_op,{1,26},
+                '>=',
+                {e_var,{1,20},value},
+                {e_neg,{1,29},{e_int,{1,30},5}}},
+          {refused_raised,{opaque_refinement,{1,1}}}}
+P2a >= 0 and <= 5
+  src: type T = int where value >= 0 and value <= 5
+  {parsed,{e_op,{1,31},
+                'and',
+                {e_op,{1,26},'>=',{e_var,{1,20},value},{e_int,{1,29},0}},
+                {e_op,{1,41},'<=',{e_var,{1,35},value},{e_int,{1,44},5}}},
+          accepted}
+P2b <=3 or >=10
+  src: type T = int where value <= 3 or value >= 10
+  {parsed,{e_op,{1,31},
+                'or',
+                {e_op,{1,26},'<=',{e_var,{1,20},value},{e_int,{1,29},3}},
+                {e_op,{1,40},'>=',{e_var,{1,34},value},{e_int,{1,43},10}}},
+          accepted}
+P2c != 0
+  src: type T = int where value != 0
+  {parsed,{e_op,{1,26},'!=',{e_var,{1,20},value},{e_int,{1,29},0}},accepted}
+P3a -5..5
+  src: type T = int where value >= -5 and value <= 5
+  {parsed,{e_op,{1,32},
+                'and',
+                {e_op,{1,26},
+                      '>=',
+                      {e_var,{1,20},value},
+                      {e_neg,{1,29},{e_int,{1,30},5}}},
+                {e_op,{1,42},'<=',{e_var,{1,36},value},{e_int,{1,45},5}}},
+          {refused_raised,{opaque_refinement,{1,1}}}}
+P3b >=1 or <=-1
+  src: type T = int where value >= 1 or value <= -1
+  {parsed,{e_op,{1,31},
+                'or',
+                {e_op,{1,26},'>=',{e_var,{1,20},value},{e_int,{1,29},1}},
+                {e_op,{1,40},
+                      '<=',
+                      {e_var,{1,34},value},
+                      {e_neg,{1,43},{e_int,{1,44},1}}}},
+          {refused_raised,{opaque_refinement,{1,1}}}}
+P4a 2 - 7
+  src: type T = int where value >= 2 - 7
+  {parsed,{e_op,{1,26},
+                '>=',
+                {e_var,{1,20},value},
+                {e_op,{1,31},'-',{e_int,{1,29},2},{e_int,{1,33},7}}},
+          {refused_raised,{opaque_refinement,{1,1}}}}
+P4b 2 + 3
+  src: type T = int where value >= 2 + 3
+  {parsed,{e_op,{1,26},
+                '>=',
+                {e_var,{1,20},value},
+                {e_op,{1,31},'+',{e_int,{1,29},2},{e_int,{1,33},3}}},
+          {refused_raised,{opaque_refinement,{1,1}}}}
+P4c - -5
+  src: type T = int where value >= - -5
+  {parsed,{e_op,{1,26},
+                '>=',
+                {e_var,{1,20},value},
+                {e_neg,{1,29},{e_neg,{1,31},{e_int,{1,32},5}}}},
+          {refused_raised,{opaque_refinement,{1,1}}}}
+P4d -(5)
+  src: type T = int where value >= -(5)
+  {parsed,{e_op,{1,26},
+                '>=',
+                {e_var,{1,20},value},
+                {e_neg,{1,29},{e_int,{1,31},5}}},
+          {refused_raised,{opaque_refinement,{1,1}}}}
+P5 -5.0 float lit
+  src: type T = int where value >= -5.0
+  {parsed,{e_op,{1,26},'>=',{e_var,{1,20},value},{e_float,{1,30},-5.0}},
+          {refused_raised,{opaque_refinement,{1,1}}}}
+P8 -5 on the left
+  src: type T = int where -5 <= value
+  {parsed,{e_op,{1,23},
+                '<=',
+                {e_neg,{1,20},{e_int,{1,21},5}},
+                {e_var,{1,26},value}},
+          {refused_raised,{opaque_refinement,{1,1}}}}
+P6 pattern
+  {ast_omitted,accepted}
+P6b same, no -1 clause
+  {ast_omitted,{refused,[{'Sign',inexhaustive,residual,"(int <= -1)"}]}}
+P7a guard -5 both halves (would be exhaustive if read)
+  {ast_omitted,{refused,[{'F',inexhaustive,residual,"(int)"}]}}
+P7b same guards, non-negative literal 0
+  {ast_omitted,accepted}
+P9 subtract(-10..10, 0) prints as -10..-1 | 1..10
+P9b int minus 0..255 prints as int <= -1 | int >= 256

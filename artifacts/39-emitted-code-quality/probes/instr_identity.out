@@ -1,0 +1,48 @@
+{spin,4}: v_base has 19 instrs (labels/line stripped, {tr,R,_}->R)
+   v_base      present=true  instrs=19   identical_to_v_base=true
+   v_bs        present=true  instrs=19   identical_to_v_base=true
+   v_base_nt   present=true  instrs=19   identical_to_v_base=false
+   v_bs_nt     present=true  instrs=19   identical_to_v_base=false
+   v_exp       present=true  instrs=19   identical_to_v_base=false
+   v_exp_is    present=true  instrs=21   identical_to_v_base=false
+   v_exp_rng   present=true  instrs=25   identical_to_v_base=false
+   v_exp_spec  present=true  instrs=19   identical_to_v_base=false
+   v_priv_rng  present=true  instrs=21   identical_to_v_base=false
+   v_bs_rng    present=true  instrs=21   identical_to_v_base=false
+{wrap,1}: v_base has 4 instrs (labels/line stripped, {tr,R,_}->R)
+   v_base      present=true  instrs=4    identical_to_v_base=true
+   v_bs        present=true  instrs=4    identical_to_v_base=true
+   v_base_nt   present=true  instrs=4    identical_to_v_base=true
+   v_bs_nt     present=true  instrs=4    identical_to_v_base=true
+   v_exp       present=true  instrs=4    identical_to_v_base=true
+   v_exp_is    present=true  instrs=5    identical_to_v_base=false
+   v_exp_rng   present=true  instrs=7    identical_to_v_base=false
+   v_exp_spec  present=true  instrs=4    identical_to_v_base=true
+   v_priv_rng  present=true  instrs=6    identical_to_v_base=false
+   v_bs_rng    present=true  instrs=6    identical_to_v_base=false
+
+diff {spin,4} v_base vs v_base_nt (lines only in first / only in second):
+   - {gc_bif,'+',{f,0},2,[{x,0},{x,1}],{x,0}}
+   + {gc_bif,'+',{f,0},4,[{x,0},{x,1}],{x,0}}
+
+diff {spin,4} v_base vs v_exp (lines only in first / only in second):
+   - {gc_bif,'+',{f,0},2,[{x,0},{x,1}],{x,0}}
+   + {gc_bif,'+',{f,0},4,[{x,0},{x,1}],{x,0}}
+
+diff {spin,4} v_exp vs v_exp_spec (lines only in first / only in second):
+
+diff {spin,4} v_exp vs v_exp_is (lines only in first / only in second):
+   + {test,is_integer,{f,6},[{x,0}]}
+   + {test,is_integer,{f,6},[{x,0}]}
+
+diff {spin,4} v_exp vs v_exp_rng (lines only in first / only in second):
+   + {test,is_integer,{f,6},[{x,0}]}
+   + {test,is_ge,{f,6},[{x,0},{integer,0}]}
+   + {test,is_ge,{f,6},[{integer,99},{x,0}]}
+   + {test,is_integer,{f,6},[{x,0}]}
+   + {test,is_ge,{f,6},[{x,0},{integer,0}]}
+   + {test,is_ge,{f,6},[{integer,99},{x,0}]}
+
+diff {spin,4} v_base vs v_priv_rng (lines only in first / only in second):
+   + {test,is_ge,{f,6},[{x,0},{integer,0}]}
+   + {test,is_ge,{f,6},[{x,0},{integer,0}]}

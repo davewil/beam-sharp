@@ -1,0 +1,14 @@
+== erl
+OTP 25 erts 13.2.2.5
+== elixir
+Elixir 1.14.0 (compiled with Erlang/OTP 24)
+== elm
+0.19.1
+== gleam
+not probed (not installed; install denied)
+== repo sources hashed
+d2c7043519b95b00c39372315e8801e4869ea66ccf60d76d7c7679046a30c5ff  bs_parser.yrl
+b7d74b50eefce955468d3dfed21965a59cc85cf51b3054b1d1777c9a5592f7fd  bs_check.erl
+f084fadf14fc976320e53c57ca387df594ef5b2ef61c1c85ed2c0ea0b248144e  bs_types.erl
+1e0f1b7c621e50b158746cef59ab8fc77dd60c3b3c26d26e2d0f65428beace63  bs_emit.erl
+f52859303d1df5578722eadbf2001d434e945cb4

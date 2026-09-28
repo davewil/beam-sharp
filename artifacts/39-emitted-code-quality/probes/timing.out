@@ -1,0 +1,2 @@
+rounds=300 ; times in ms per part_two() call over 4732 rotations / 673364 clicks
+answer 6770 (all 12 variants agree)

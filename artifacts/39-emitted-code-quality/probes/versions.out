@@ -1,0 +1,8 @@
+date: 2026-09-28
+Linux 6.18.44-fc-v37 x86_64
+model name	: Intel(R) Xeon(R) Processor @ 2.10GHz
+nproc: 4
+otp_release=25 erts=13.2.2.5 emu_flavor=jit
+compiler_app=8.2.6.3
+Elixir 1.14.0 (compiled with Erlang/OTP 24)
+gleam: not installed / not probed

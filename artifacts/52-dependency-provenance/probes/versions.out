@@ -1,0 +1,7 @@
+erlang OTP release: 25 13.2.2.5
+Elixir 1.14.0 (compiled with Erlang/OTP 24)
+elm: 0.19.1
+gleam: not installed (install denied by sandbox); not probed
+bsc: NOT runnable here (needs OTP 28 leex TokenLoc); no bsc probe exists
+mix: Mix 1.14.0 (compiled with Erlang/OTP 24)
+Linux 6.18.44-fc-v37

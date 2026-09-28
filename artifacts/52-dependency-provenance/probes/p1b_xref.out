@@ -1,0 +1,4 @@
+UM (unknown modules)={ok,['Elixir.Req']}
+XC={ok,[{{caller,go,0},{'Elixir.Req',new,1}}]}
+XU={ok,[{'Elixir.Req',new,1}]}
+undefined_function_calls={ok,[{{caller,go,0},{'Elixir.Req',new,1}}]}

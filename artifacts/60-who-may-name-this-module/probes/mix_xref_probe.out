@@ -1,0 +1,26 @@
+Compiling 2 files (.ex)
+Generated p app
+--- mix xref callers Shop.Orders
+lib/reports.ex (runtime)
+--- mix xref --help option names
+  * `--exclude` - path to exclude. Can be repeated to exclude multiple
+  * `--label` - only shows relationships with the given label. The labels
+  * `--group` - provide comma-separated paths to consider as a group.
+  * `--only-direct` - keeps only files with the direct relationship given
+  * `--only-nodes` - only shows the node names (no edges). Generally useful
+  * `--source` - displays all files that the given source file references
+  * `--sink` - displays all files that reference the given file (directly
+  * `--min-cycle-size` - controls the minimum cycle size on formats like
+  * `--format` - can be set to one of:
+    * `pretty` - prints the graph to the terminal using Unicode
+    * `plain` - the same as pretty except ASCII characters are used
+    * `stats` - prints general statistics about the graph;
+    * `cycles` - prints all cycles in the graph;
+    * `dot` - produces a DOT graph description in `xref_graph.dot` in the
+  * `--fail-above` - generates a failure if the relevant metric is above
+  * `--include-siblings` - includes dependencies that have `:in_umbrella`
+  * `--no-compile` - does not compile even if files require compilation
+  * `--no-deps-check` - does not check dependencies
+  * `--no-archives-check` - does not check archives
+  * `--no-elixir-version-check` - does not check the Elixir version from
+--- mix help xref: lines mentioning restrict/allow/visib

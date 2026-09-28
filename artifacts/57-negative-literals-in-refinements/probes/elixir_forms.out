@@ -1,0 +1,32 @@
+X1 Code.string_to_quoted:
+-5
+   => {:-, [line: 1], [5]}
+x >= -5
+   => {:>=, [line: 1], [{:x, [line: 1], nil}, {:-, [line: 1], [5]}]}
+2 + 3
+   => {:+, [line: 1], [2, 3]}
+- -5
+   => {:-, [line: 1], [{:-, [line: 1], [5]}]}
+-(5)
+   => {:-, [line: 1], [5]}
+-5.0
+   => {:-, [line: 1], [5.0]}
+- 5
+   => {:-, [line: 1], [5]}
+X1b quote do: -5 => {:-, [context: Elixir, imports: [{1, Kernel}, {2, Kernel}]], [5]}
+X1c quote do: x >= -5 => {:>=, [context: Elixir, imports: [{2, Kernel}]], [{:x, [], Elixir}, {:-, [context: Elixir, imports: [{1, Kernel}, {2, Kernel}]], [5]}]}
+X1d Macro.escape(-5) => -5
+X3 PA (literal -5 in source) elixir debug_info definitions, f/1 then g/1 clauses:
+[{[{:integer, 2, -5}], []}, {[{:var, 3, :_}], []}]
+[
+  {[{:var, 4, :_x@1}],
+   [[{:op, 4, :>=, {:var, 4, :_x@1}, {:op, 4, :-, {:integer, 4, 5}}}]]},
+  {[{:var, 5, :_}], []}
+]
+X3 PB (unquote(-5): parser sees a call, value spliced as integer -5):
+[{[{:integer, 2, -5}], []}, {[{:var, 3, :_}], []}]
+[
+  {[{:var, 4, :_x@1}], [[{:op, 4, :>=, {:var, 4, :_x@1}, {:integer, 4, -5}}]]},
+  {[{:var, 5, :_}], []}
+]
+X4 Code chunk equal between literal `-5` source and spliced integer -5: true

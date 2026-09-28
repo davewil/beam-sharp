@@ -1,0 +1,15 @@
+== erlc caller.erl (exit code follows)
+exit=0
+== run with ERL_LIBS unset
+error:undef
+stack=[{'Elixir.Req',new,[[{url,<<"x">>}]],[]},
+       {erl_eval,do_apply,7,[{file,"erl_eval.erl"},{line,744}]},
+       {erl_eval,try_clauses,10,[{file,"erl_eval.erl"},{line,987}]},
+       {erl_eval,exprs,6,[{file,"erl_eval.erl"},{line,136}]},
+       {init,start_it,1,[]},
+       {init,start_em,1,[]},
+       {init,do_boot,3,[]}]
+== erlc -Wall
+exit=0
+== xref (separate tool) on the beam
+undefined_function_calls=[]

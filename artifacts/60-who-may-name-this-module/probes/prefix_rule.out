@@ -1,0 +1,14 @@
+root = 'Shop.Reports'
+caller               naive    segment  dirpath 
+Shop.Reports         in       in       in      
+Shop.ReportsV2       in       OUT      OUT     
+Shop.Reports.Q.X     in       in       in      
+Shop.Billing         OUT      OUT      OUT     
+Shop                 OUT      OUT      OUT     
+Other.Reports        OUT      OUT      OUT     
+shop.reports         OUT      OUT      OUT     
+children('Shop.Reports') as bs_check does it: ['Shop.Reports.Q']
+children('Shop.Reports') naive (no dot):     ['Shop.Reports','Shop.ReportsV2',
+                                              'Shop.Reports.Q']
+root 'Shop' is a world key? false ; any module under it? true
+typo root 'Shp' matches any module? false  (a subtree rule naming a nonexistent namespace fails CLOSED: nobody admitted, so a rule naming a root with no modules should be its own error)

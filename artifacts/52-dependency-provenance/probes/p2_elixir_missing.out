@@ -1,0 +1,21 @@
+== elixirc call.ex
+warning: Req.new/1 is undefined (module Req is not available or is yet to be defined)
+  call.ex:2: Caller.go/0
+
+exit=0
+== elixirc strukt.ex
+
+== Compilation error in file strukt.ex ==
+** (CompileError) strukt.ex:2: Req.Request.__struct__/1 is undefined, cannot expand struct Req.Request. Make sure the struct name is correct. If the struct name exists and is correct but it still cannot be found, you likely have cyclic module usage in your code
+    expanding struct: Req.Request.__struct__/1
+    strukt.ex:2: Strukt.go/0
+exit=1
+== elixirc imp.ex
+
+== Compilation error in file imp.ex ==
+** (CompileError) imp.ex:2: module Req is not loaded and could not be found
+
+exit=1
+== run Caller.go/0 (beam produced by call.ex)
+function Req.new/1 is undefined (module Req is not available)
+[{Req, :new, ...}, {:erl_eval, ...}, {...}, ...]

@@ -1,0 +1,75 @@
+E1 guard  clause: {clause,1,
+                          [{var,1,'X'}],
+                          [[{op,1,'>=',{var,1,'X'},{op,1,'-',{integer,1,5}}}]],
+                          [{atom,1,ok}]}
+E1 pattern clause: {clause,1,[{op,1,'-',{integer,1,5}}],[],[{atom,1,ok}]}
+E1 normalise({op,-,5}) = -5
+E2 erl_eval:partial_eval(-5)  = {integer,1,-5}
+E2 erl_eval:partial_eval(2+3) = {integer,1,5}
+E2 erl_lint:is_pattern_expr(-5)=true (2+3)=true (X+1)=false
+E2 to_core0 (after v3_core only), f/1 g/1 h/1 k/1:
+'f'/1 =
+	      <X>
+			    call 'erlang':'-'
+			in  call 'erlang':'>='
+'g'/1 =
+	      <-5> when 'true' ->
+'h'/1 =
+	      <X>
+			    call 'erlang':'+'
+			in  call 'erlang':'>='
+'k'/1 =
+	      <5> when 'true' ->
+	      <X> when 'true' ->
+E2 to_core (after sys_core_fold), f/1 g/1 h/1 k/1:
+'f'/1 =
+	      <X>
+		  when call 'erlang':'>='
+			 -5) ->
+'g'/1 =
+	      <-5> when 'true' ->
+'h'/1 =
+	      <X>
+		  when call 'erlang':'>='
+			 5) ->
+'k'/1 =
+	      <5> when 'true' ->
+E2b optimised assembly f/1 (guard, -5):
+[{function,f,1,2,
+           [{label,1},
+            {func_info,{atom,m},{atom,f},1},
+            {label,2},
+            {test,is_ge,{f,3},[{x,0},{integer,-5}]},
+            {move,{atom,ok},{x,0}},
+            {label,3},
+            {move,{atom,no},{x,0}}]}]
+E2b optimised assembly h/1 (guard, 2+3):
+[{function,h,1,8,
+           [{label,7},
+            {func_info,{atom,m},{atom,h},1},
+            {label,8},
+            {test,is_ge,{f,9},[{x,0},{integer,5}]},
+            {move,{atom,ok},{x,0}},
+            {label,9},
+            {move,{atom,no},{x,0}}]}]
+E2b optimised assembly g/1 (pattern -5):
+[{function,g,1,5,
+           [{label,4},
+            {func_info,{atom,m},{atom,g},1},
+            {label,5},
+            {test,is_eq_exact,{f,6},[{x,0},{integer,-5}]},
+            {move,{atom,ok},{x,0}},
+            {label,6},
+            {move,{atom,no},{x,0}}]}]
+E2b optimised assembly k/1 (pattern 2+3):
+[{function,k,1,11,
+           [{label,10},
+            {func_info,{atom,m},{atom,k},1},
+            {label,11},
+            {test,is_eq_exact,{f,12},[{x,0},{integer,5}]},
+            {move,{atom,ok},{x,0}},
+            {label,12},
+            {move,{atom,no},{x,0}}]}]
+E3 folded form really differs at abstract level: true
+E3 Code chunk equal: true ; whole beam binary equal: true
+E3 size unfolded 560 bytes, folded 560 bytes

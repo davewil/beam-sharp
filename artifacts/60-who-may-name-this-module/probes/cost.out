@@ -1,0 +1,35 @@
+names are 'Shop.MNNNNNN.Leaf' style atoms; caller is a miss unless stated
+
+N = 10
+  map is_key (miss)                              0.0191 us/check  (200000 reps)
+  map is_key (hit)                               0.0138 us/check  (200000 reps)
+  sets:is_element (miss)                         0.0662 us/check  (200000 reps)
+  lists:member (miss, worst)                     0.0187 us/check  (200000 reps)
+  lists:member (hit=last)                        0.0192 us/check  (200000 reps)
+  subtree prefix test, one root (in)             0.1427 us/check  (200000 reps)
+  subtree prefix test, one root (out)            0.1145 us/check  (200000 reps)
+  subtree vs N roots (naive scan, miss)          1.3940 us/check  (2000 reps)
+  whole-world sweep: 10 edges, one map lookup + one prefix test each: 2 us total (0.200 us/edge)
+
+N = 1000
+  map is_key (miss)                              0.0252 us/check  (20000 reps)
+  map is_key (hit)                               0.0290 us/check  (20000 reps)
+  sets:is_element (miss)                         0.0664 us/check  (20000 reps)
+  lists:member (miss, worst)                     1.9172 us/check  (20000 reps)
+  lists:member (hit=last)                        1.9945 us/check  (20000 reps)
+  subtree prefix test, one root (in)             0.1505 us/check  (20000 reps)
+  subtree prefix test, one root (out)            0.1249 us/check  (20000 reps)
+  subtree vs N roots (naive scan, miss)        151.6650 us/check  (200 reps)
+  whole-world sweep: 1000 edges, one map lookup + one prefix test each: 233 us total (0.233 us/edge)
+
+N = 100000
+  map is_key (miss)                              0.0450 us/check  (200 reps)
+  map is_key (hit)                               0.0250 us/check  (200 reps)
+  sets:is_element (miss)                         0.0700 us/check  (200 reps)
+  lists:member (miss, worst)                   185.5700 us/check  (200 reps)
+  lists:member (hit=last)                      183.2900 us/check  (200 reps)
+  subtree prefix test, one root (in)             0.1900 us/check  (200 reps)
+  subtree prefix test, one root (out)            0.1350 us/check  (200 reps)
+  subtree vs N roots (naive scan, miss)      15394.0000 us/check  (2 reps)
+  whole-world sweep: 100000 edges, one map lookup + one prefix test each: 51209 us total (0.512 us/edge)
+reference: erlc compile:file of the 10-line shop_orders fixture: 3678 us

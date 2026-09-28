@@ -1,0 +1,41 @@
+######## real .app: ssl (OTP)
+3:    {vsn, "10.9.1.3"},
+4:    {modules, [
+5-	       %% TLS/SSL
+6-	       tls_connection,
+7-	       tls_connection_1_3,
+--
+85:    {applications, [crypto, public_key, kernel, stdlib]},
+86-    {env, []},
+87-    {mod, {ssl_app, []}},
+88-    {runtime_dependencies, ["stdlib-4.1","public_key-1.11.3","kernel-8.4",
+######## inets applications key
+inets vsn="8.3.1.2" applications=[kernel,stdlib] optional=undefined n_modules=63
+######## Elixir apps
+elixir vsn="1.14.0" applications=[kernel,stdlib,compiler] optional=undefined n_modules=253
+logger vsn="1.14.0" applications=[kernel,stdlib,elixir] optional=undefined n_modules=11
+######## mix inference, throwaway project (path deps, offline)
+Compiling 1 file (.ex)
+Generated dep_run app
+==> proj
+Compiling 1 file (.ex)
+Generated proj app
+-- generated proj.app
+{application,proj,
+             [{applications,[kernel,stdlib,elixir,ssl,dep_run]},
+              {description,"proj"},
+              {modules,['Elixir.Proj']},
+              {registered,[]},
+              {vsn,"0.1.0"}]}.
+-- the requirement "~> 1.2" is in mix.exs only; does the .app contain it?
+0
+-- mix deps (requirement is checked by mix at deps.loadpaths against the dep's own version)
+* dep_norun 1.0.0 (../dep_norun) (mix)
+  ok
+* dep_run 1.2.3 (../dep_run) (mix)
+  ok
+-- runtime_dependencies key in ssl.app (OTP's own versioned constraint list)
+    {runtime_dependencies, ["stdlib-4.1","public_key-1.11.3","kernel-8.4",
+                            "erts-10.0","crypto-5.0", "inets-5.10.7",
+                            "runtime_tools-1.15.1"]}]}.
+-- violate the requirement: dep_run 1.2.3 -> 0.9.0, recompile

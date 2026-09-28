@@ -1,0 +1,7 @@
+=== Elixir.BenchEx (asm recovered via debug_info -> compile:forms to_asm; NOT elixirc's own flags): {tr,..} operands in spin/wrap ===
+            [{tr,{x,0},{t_integer,{-99,99}}},{tr,{x,1},{t_integer,{-1,1}}}],
+            [{tr,{y,1},{t_integer,any}},{tr,{x,0},{t_integer,{0,1}}}],
+    {gc_bif,'rem',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,100}],{x,0}}.
+    {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,{-99,99}}},{integer,100}],{x,0}}.
+            [{tr,{x,0},{t_integer,{1,199}}},{integer,100}],
+  total {tr,..} in module: 8

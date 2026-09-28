@@ -1,0 +1,81 @@
+######## ERL_LIBS=libA:libB:libC:libD:libE (order A,B)
+== ERL_LIBS=[<<"libA">>,<<"libB">>,<<"libC">>,<<"libD">>,<<"libE">>]
+-- Q1 code:lib_dir(App) (no loading)
+  lib_dir(stdlib) = <<"/usr/lib/erlang/lib/stdlib-4.3.1.3">>
+  lib_dir(app_a) = <<"libA/app_a-1.0">>
+  lib_dir(app_b) = <<"libB/app_b-2.0">>
+  lib_dir(app_c) = <<"libC/app_c">>
+  lib_dir(app_d) = <<"libD/app_d-1.0">>
+  lib_dir(foo) = <<"libE/foo-1.0">>
+  lib_dir(bar) = {error,bad_name}
+  lib_dir(req) = {error,bad_name}
+  lib_dir(no_such_app) = {error,bad_name}
+-- Q2 code:which(Mod)
+  which(lists) = <<"/usr/lib/erlang/lib/stdlib-4.3.1.3/ebin/lists.beam">>
+  which(a_mod) = <<"libA/app_a-1.0/ebin/a_mod.beam">>
+  which(b_mod) = <<"libB/app_b-2.0/ebin/b_mod.beam">>
+  which(c_mod) = <<"libC/app_c/ebin/c_mod.beam">>
+  which(d_mod) = <<"libD/app_d-1.0/ebin/d_mod.beam">>
+  which(loose_mod) = <<"loose/loose_mod.beam">>
+  which(e_mod) = <<"libE/foo-1.0/ebin/e_mod.beam">>
+  which(shared) = <<"libA/app_a-1.0/ebin/shared.beam">>
+  which('Elixir.Req') = non_existing
+  which(no_such_mod) = non_existing
+-- Q3 application:load(App)  (needs .app; side effect: registers app in the app controller)
+  load(app_a) = ok
+  load(app_d) = {error,{"no such file or directory","app_d.app"}}
+  load(bar) = ok
+  load(foo) = {error,{"no such file or directory","foo.app"}}
+  load(no_such_app) = {error,{"no such file or directory","no_such_app.app"}}
+  get_key(app_b,applications) after load = {ok,[kernel,stdlib,app_a]}
+-- Q4 module->app via which+parse vs via scanning .app files
+  lists: parse=stdlib scan=[stdlib]
+  a_mod: parse=app_a scan=[app_a]
+  d_mod: parse=app_d scan=[]
+  loose_mod: parse={not_in_an_ebin,"loose"} scan=[]
+  e_mod: parse=foo scan=[bar]
+  shared: parse=app_a scan=[app_a,app_b]
+  no_such_mod: parse=non_existing scan=[]
+-- Q5 cost, microseconds per call (mean of N runs, path length = 44)
+  code:which(lists) [hit, OTP]                     6.43 us/call (N=2000)
+  code:which(no_such_mod) [miss, full path sca  1069.06 us/call (N=2000)
+  code:lib_dir(stdlib) [hit]                       3.67 us/call (N=2000)
+  code:lib_dir(app_c) [hit, unversioned]           2.80 us/call (N=2000)
+  code:lib_dir(no_such_app) [miss]                 2.44 us/call (N=2000)
+  code:where_is_file("app_c.app")                178.58 us/call (N=2000)
+  mod_to_app_parse(a_mod)                        135.81 us/call (N=2000)
+  mod_to_app_scan(a_mod) [reads every .app on   8231.10 us/call (N=50)
+  mod_to_app_scan(no_such_mod) [full scan, mis  8050.58 us/call (N=50)
+  application:load(app_c) first (cold)           354.00 us/call (N=1)
+  application:load(app_c) again                    2.46 us/call (N=2000)
+  code:ensure_loaded(c_mod) first (loads the beam)           697 us (N=1)
+
+######## ERL_LIBS=libB:libA:libC:libD:libE (order B,A) — only Q2/Q4 for shared matter
+== ERL_LIBS=[<<"libB">>,<<"libA">>,<<"libC">>,<<"libD">>,<<"libE">>]
+  which(shared) = <<"libB/app_b-2.0/ebin/shared.beam">>
+  shared: parse=app_b scan=[app_b,app_a]
+
+######## ERL_LIBS unset (control: what a machine with a different environment sees)
+== ERL_LIBS=[]
+-- Q1 code:lib_dir(App) (no loading)
+  lib_dir(stdlib) = <<"/usr/lib/erlang/lib/stdlib-4.3.1.3">>
+  lib_dir(app_a) = {error,bad_name}
+  lib_dir(app_b) = {error,bad_name}
+  lib_dir(app_c) = {error,bad_name}
+  lib_dir(app_d) = {error,bad_name}
+  lib_dir(foo) = {error,bad_name}
+  lib_dir(bar) = {error,bad_name}
+  lib_dir(req) = {error,bad_name}
+  lib_dir(no_such_app) = {error,bad_name}
+-- Q2 code:which(Mod)
+  which(lists) = <<"/usr/lib/erlang/lib/stdlib-4.3.1.3/ebin/lists.beam">>
+  which(a_mod) = non_existing
+  which(b_mod) = non_existing
+  which(c_mod) = non_existing
+  which(d_mod) = non_existing
+  which(loose_mod) = <<"loose/loose_mod.beam">>
+  which(e_mod) = non_existing
+  which(shared) = non_existing
+  which('Elixir.Req') = non_existing
+  which(no_such_mod) = non_existing
+-- Q3 application:load(App)  (needs .app; side effect: registers app in the app controller)

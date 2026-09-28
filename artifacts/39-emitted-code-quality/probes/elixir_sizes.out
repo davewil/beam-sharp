@@ -1,0 +1,7 @@
+Elixir.BenchEx.beam type_chunk_bytes=116 file_bytes=2652
+  clicks/3 instrs(excl label/line)=23
+  hit/1 instrs(excl label/line)=4
+  sign/1 instrs(excl label/line)=6
+  size_/1 instrs(excl label/line)=3
+  spin/4 instrs(excl label/line)=19
+  wrap/1 instrs(excl label/line)=4

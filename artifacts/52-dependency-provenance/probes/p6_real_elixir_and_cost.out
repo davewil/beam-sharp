@@ -1,0 +1,30 @@
+== ERL_LIBS=/usr/lib/elixir/lib
+  lib_dir(elixir)="/usr/lib/elixir/lib/elixir"
+  lib_dir(logger)="/usr/lib/elixir/lib/logger"
+  lib_dir(mix)="/usr/lib/elixir/lib/mix"
+  lib_dir(req)={error,bad_name}
+  which('Elixir.Logger')="/usr/lib/elixir/lib/logger/ebin/Elixir.Logger.beam"
+  which('Elixir.String')="/usr/lib/elixir/lib/elixir/ebin/Elixir.String.beam"
+  which('Elixir.Req')=non_existing
+== ERL_LIBS unset
+  lib_dir(elixir)={error,bad_name}
+  lib_dir(logger)={error,bad_name}
+  lib_dir(mix)={error,bad_name}
+  lib_dir(req)={error,bad_name}
+  which('Elixir.Logger')=non_existing
+  which('Elixir.String')=non_existing
+  which('Elixir.Req')=non_existing
+== wall time: erlc on a trivial module vs VM+check (VM start+halt is the floor for any Erlang tool; bsc is already a running VM)
+  erlc t.erl: 232 ms
+  erlc t.erl: 267 ms
+  erlc t.erl: 230 ms
+  erl -noshell -eval halt: 180 ms
+  erl -noshell -eval halt: 165 ms
+  erl -noshell -eval halt: 140 ms
+  in-VM cost of check for 9 apps (lib_dir x9, mean of 1000 runs), microseconds:
+  68.45 us per 9-app check
+== declaration sizes in bytes (one using block header)
+   21  using :'Elixir.Req' {
+   32  [app: req] using :'Elixir.Req' {
+   50  [external: elixir, app: req] using :'Elixir.Req' {
+   14  requires :req;
