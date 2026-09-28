@@ -1,8 +1,9 @@
 # 111 — May construction name a union?
 
 Type: grilling
-Status: claimed — [ENG-554](https://linear.app/davewil/issue/ENG-554). Raised 2026-09-28 out of
-[ENG-493](https://linear.app/davewil/issue/ENG-493), which says it needs a decision rather than a fix
+Status: resolved 2026-09-28 — [ENG-554](https://linear.app/davewil/issue/ENG-554). Raised and
+answered 2026-09-28 in one round, out of [ENG-493](https://linear.app/davewil/issue/ENG-493), which
+says it needs a decision rather than a fix
 Blocked by: —
 
 ## Why this is raised
@@ -125,9 +126,54 @@ and adding a member elsewhere can turn a compiling construction into a refused o
   which member it builds sits badly beside that ruling.
 - Both repairs compile today.
 
+**A1 (David, 2026-09-28):** *"No."*
+
+The name before `{` stands for exactly one member. `Doc { … }` over a union is refused at the
+construction, naming the members. A record member is constructed by its own name
+(`Invoice { … }`), and a hand-written member by the bare brace, `{ Kind = :placed, … }`, which is
+checked against the type its site expects.
+
+## The compiler delta
+
+- `bs_check:record_construction/5`: a name whose resolved type has more than one map member is
+  refused with `construct_union`, carrying the name and its members. The field checks are not
+  reached, because there is no single field set to check against.
+- `bs_diag`: the message names the members, a record by its name and a hand-written member by its
+  shape, as [109](109-a-kind-of-several-atoms.md) Q2 prints them (`bs_check:record_name/1`), and
+  gives the repair for each kind. The tag joins the `--diagnostics json` roster.
+- Tests go through the CLI and cover a union of records, a hand-written union in both
+  [109](109-a-kind-of-several-atoms.md) spellings, and a union mixing the two. Beside them, a green
+  control: `Placed { OrderId = id }` over a single tagged member still builds, with its tag read from
+  the type. `LANGUAGE.md` gains a `diagnoses: construct_union` block, seen red first.
+- `bs_emit` is untouched. The refused program never reaches `expr({e_record, …})`.
+
 ## Not decided here
 
 - [ENG-381](https://linear.app/davewil/issue/ENG-381): construction over an **untagged**
   single-member alias (`type Point = { X: int, Y: int }`, `Point { X = 1, Y = 2 }`) mints
   `Kind = :'M.Point'`, a key the type does not declare. That issue proposes refusing it as
   `not_a_record`. Q1 does not reach it, because `Point` names one member.
+
+## Decisions entry
+
+<!-- This ticket's entry. Read whole, here; the map (ENG-165) carries one line. -->
+
+```decisions-entry
+- [May construction name a union?](issues/111-may-construction-name-a-union.md) — **no: the name
+  before `{` stands for exactly one member, so `Doc { … }` over `Invoice | Receipt` is refused,
+  naming the members, and the program constructs the one it means.** Raised and resolved 2026-09-28
+  in one round, out of [ENG-493](https://linear.app/davewil/issue/ENG-493). Measured before asking:
+  `Doc { Id = id, Amount = amount }` compiled, checked no field, and returned a value tagged
+  `:'Billing.Doc'`, which is neither member, and the clause-return check passed it because
+  construction's type was read as the alias. The hand-written union's `Event { Kind = :placed,
+  Carrier = id }` compiled the same way. The *yes* reading would have chosen the member by field
+  set, which is the target-typing [26](issues/26-data-modelling.md) §2 refused on read cost. It
+  would also have needed a per-expression channel from the checker to the emitter, which
+  [80](issues/80-does-an-int-flow-where-a-float-is-expected.md) records the emitter as lacking.
+  Both repairs compile today: a record by its name, and a hand-written member by F57's brace,
+  already checked against the expected type. This sits beside
+  [109](issues/109-a-kind-of-several-atoms.md) Q2, where a construction says which member a value
+  is. Not decided here: construction over an untagged single-member alias, which is
+  [ENG-381](https://linear.app/davewil/issue/ENG-381). Unbuilt:
+  [ENG-493](https://linear.app/davewil/issue/ENG-493).
+```
