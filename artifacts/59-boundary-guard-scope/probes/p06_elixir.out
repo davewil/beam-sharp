@@ -1,0 +1,22 @@
+== forms of Elixir.Order:e/1, p/1, q/1 as the erlang abstract format (heads only) ==
+e(#{'__struct__' := 'Elixir.Order'} = _o@1) ->
+    p(_o@1).
+p(#{'__struct__' := 'Elixir.Order', total := _t@1}) ->
+    _t@1.
+q(_n@1) when is_integer(_n@1) ->
+    _n@1 * 2.
+r(_n@1) when is_integer(_n@1) ->
+    q(_n@1).
+
+== BEAM code of q/1 (private, kind guard) after elixirc's own erlc pass: is the is_integer test still there? ==
+-- q/1: is_integer tests: 0
+-- r/1: is_integer tests: 1
+== running: forged terms against def e/1, defp p/1 (via nested, escaped fun) and the int pair ==
+e(forged, has :total): 99
+w(nested forged Order): 99
+w(nested non-struct map): {:error, FunctionClauseError}
+esc().(non-struct map): {:error, FunctionClauseError}
+e(struct tag, no :total): {:error, FunctionClauseError}
+struct!(Order, []) [@enforce_keys at construction]: {:error, ArgumentError}
+r(4): 8
+r(1.5): {:error, FunctionClauseError}

@@ -9,7 +9,7 @@
 2b. shop_orders:nif_like() = not_a_nif (declared -nifs)
 2c. on_load ran: true
 2d. attributes = []
-3. xref add_directory 3056 us; query 8931 us
+3. xref add_directory 2850 us; query 5974 us
 3b. edges INTO shop_orders: [{{outsider,go,0},{shop_orders,recompute_total,1}},
                              {{shop_orders,total,1},
                               {shop_orders,recompute_total,1}},
@@ -22,7 +22,7 @@
                                    {{shop_reports,go,0},
                                     {shop_orders,recompute_total,1}}]
 Skipping /tmp/b60_big/m0.beam (no debug information)
-4. 301 modules: xref add_directory 51387 us; callers-of-m0 query 2397 us -> [{{m1,
+4. 301 modules: xref add_directory 33611 us; callers-of-m0 query 2935 us -> [{{m1,
                                                                                f,
                                                                                0},
                                                                               {m0,

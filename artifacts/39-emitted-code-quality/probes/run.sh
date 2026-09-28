@@ -47,6 +47,11 @@ v v_exp_rng   -DEXPORTALL -DGUARD_RNG
 v v_exp_spec  -DEXPORTALL -DSPEC
 v v_priv_rng  -DGUARD_RNG
 v v_bs_rng    -DBSSHAPE -DGUARD_RNG
+v v_remote    -DREMOTE
+v v_remote_nt -DREMOTE +no_type_opt
+# positive control (see ctl.erl)
+mkdir -p $B/src; for n in ctl ctl_nt; do cp ctl.erl $B/src/$n.erl; done
+erlc -DMOD=ctl -o $B $B/src/ctl.erl; erlc -DMOD=ctl_nt +no_type_opt -o $B $B/src/ctl_nt.erl
 # the bsc build path: forms -> ~p .abstr with line 0 -> compile:file(from_abstr, debug_info)  (bsc.erl:843)
 erlc -o $B mkabstr.erl
 erl -noshell -pa $B -run mkabstr main loop.erl v_abstr $B BSSHAPE SPEC_WIDE BSATOMS
@@ -55,7 +60,7 @@ erlc -o $B ../../../aoc/bench/bench_erl.erl
 erlc -o $B timing.erl types.erl identity.erl
 
 # --- 1. type annotations of the hot functions (from +to_asm) ---
-for m in v_base v_bs v_base_nt v_bs_nt v_exp v_exp_is v_exp_rng v_exp_spec v_priv_rng v_bs_rng v_abstr v_abstr_rng; do
+for m in v_base v_bs v_base_nt v_bs_nt v_exp v_exp_is v_exp_rng v_exp_spec v_priv_rng v_bs_rng v_abstr v_abstr_rng v_remote v_remote_nt; do
   echo "=== $m: {tr,..} operands inside spin/4 and wrap/1 (+to_asm) ==="
   awk '/^\{function, (spin|wrap),/{on=1} /^\{function, (hit|sign|size_|clicks|part_two|module_info),/{on=0} on && /\{tr,/' $B/$m.S
   echo "  total {tr,..} operands in module: $(grep -c '{tr,' $B/$m.S)"
@@ -86,7 +91,7 @@ erl -noshell -pa $B -run types main $B/Elixir.BenchEx.beam > elixir_sizes.out 2>
 
 # --- 5. timing (interleaved) ---
 { echo "rounds=$ROUNDS ; times in ms per part_two() call over 4732 rotations / 673364 clicks"
-  taskset -c 2 erl -noshell +S 1:1 -pa $B -run timing main $INPUT $ROUNDS bench_erl v_base v_bs v_base_nt v_bs_nt v_exp v_exp_is v_exp_rng v_exp_spec v_priv_rng v_bs_rng v_abstr v_abstr_rng 'Elixir.BenchEx'
+  taskset -c 2 erl -noshell +S 1:1 -pa $B -run timing main $INPUT $ROUNDS bench_erl v_base v_bs v_base_nt v_bs_nt v_exp v_exp_is v_exp_rng v_exp_spec v_priv_rng v_bs_rng v_abstr v_abstr_rng v_remote v_remote_nt 'Elixir.BenchEx'
 } > timing.out 2>&1
 # second, independent process + core to check run-to-run (process-level) variance on the key pairs
 for core in 1 3; do
@@ -94,4 +99,10 @@ for core in 1 3; do
    taskset -c $core erl -noshell +S 1:1 -pa $B -run timing main $INPUT $ROUNDS v_base v_base_nt v_exp v_exp_rng v_exp_spec
  } >> timing_repeat.out 2>&1
 done
+
+# --- 6. positive control ---
+{ echo "control (ctl.erl): tuple loop + binary-match loop, with vs without +no_type_opt; 100 rounds"
+  taskset -c 2 erl -noshell +S 1:1 -pa $B -run timing main $INPUT 100 ctl ctl_nt
+} > control.out 2>&1
+{ echo "Type-chunk bytes (control):"; for m in ctl ctl_nt; do erl -noshell -pa $B -eval "{ok,_,C}=beam_lib:all_chunks(\"$B/$m.beam\"),io:format(\"$m type_chunk=~p~n\",[byte_size(element(2,lists:keyfind(\"Type\",1,C)))]),halt()."; done; } >> control.out 2>&1
 echo done

@@ -47,3 +47,6 @@ Compiling 1 file (.ex)
 Generated dep_run app
 ==> proj
 Unchecked dependencies for environment dev:
+* dep_run (../dep_run)
+  the dependency does not match the requirement "~> 1.2", got "0.9.0"
+** (Mix) Can't continue due to errors on dependencies

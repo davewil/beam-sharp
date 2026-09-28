@@ -10,4 +10,5 @@ erlc -o work p01_shapes.erl && (cd work && erl -noshell -pa . -eval 'p01_shapes:
 [ -f p05_dialyzer.sh ] && sh p05_dialyzer.sh > p05_dialyzer.out 2>&1
 [ -f p06_elixir.sh ]  && sh p06_elixir.sh  > p06_elixir.out 2>&1
 [ -f p07_elm.sh ]     && sh p07_elm.sh     > p07_elm.out 2>&1
+[ -f p08_corpus_count.py ] && (cd ../../.. && python3 artifacts/59-boundary-guard-scope/probes/p08_corpus_count.py) > p08_corpus_count.out 2>&1
 echo "done"

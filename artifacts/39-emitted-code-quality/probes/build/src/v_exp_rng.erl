@@ -9,6 +9,7 @@
 %%%              beam_ssa_type.erl:119-121,438-441). Removes call-site inference, changes no instruction.
 %%%   GUARD_IS   EXPORTALL + is_integer(P) on the hot params only.
 %%%   GUARD_RNG  EXPORTALL + is_integer(P), P>=0, P=<99 on Pos/N (a "range-narrowing guard").
+%%%   REMOTE     wrap/1 written with the remote-call spelling erlang:rem/2 that B# FFI emits (`:erlang.rem`).
 %%%   SPEC_WIDE  what bs_emit does for every function (ticket 13): -spec with integer() everywhere (no range).
 %%%   BSATOMS    adds the exported 'bs@type_atoms'/0 that bs_emit adds to every module (bs_emit.erl:72-75).
 %%%   SPEC       EXPORTALL + tight -spec ranges (spin(0..99, -1..1, ...), wrap(integer())->0..99)
@@ -38,6 +39,9 @@
 -spec spin(0..99, -1..1, non_neg_integer(), non_neg_integer()) -> {0..99, non_neg_integer()}.
 -endif.
 
+-ifdef(REMOTE).
+wrap(N) -> erlang:rem(erlang:rem(N, 100) + 100, 100).
+-else.
 -ifdef(GUARD_RNG).
 wrap(N) when is_integer(N), N >= -99, N =< 199 -> ((N rem 100) + 100) rem 100.
 -else.
@@ -45,6 +49,7 @@ wrap(N) when is_integer(N), N >= -99, N =< 199 -> ((N rem 100) + 100) rem 100.
 wrap(N) when is_integer(N) -> ((N rem 100) + 100) rem 100.
 -else.
 wrap(N) -> ((N rem 100) + 100) rem 100.
+-endif.
 -endif.
 -endif.
 

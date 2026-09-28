@@ -17,7 +17,7 @@
 
 {function, wrap, 1, 2}.
   {label,1}.
-    {line,[{location,"build/src/v_exp_is.erl",45}]}.
+    {line,[{location,"build/src/v_exp_is.erl",49}]}.
     {func_info,{atom,v_exp_is},{atom,wrap},1}.
   {label,2}.
     {test,is_integer,{f,1},[{x,0}]}.
@@ -33,7 +33,7 @@
 
 {function, hit, 1, 4}.
   {label,3}.
-    {line,[{location,"build/src/v_exp_is.erl",51}]}.
+    {line,[{location,"build/src/v_exp_is.erl",56}]}.
     {func_info,{atom,v_exp_is},{atom,hit},1}.
   {label,4}.
     {test,is_eq_exact,{f,5},[{x,0},{integer,0}]}.
@@ -46,7 +46,7 @@
 
 {function, spin, 4, 7}.
   {label,6}.
-    {line,[{location,"build/src/v_exp_is.erl",61}]}.
+    {line,[{location,"build/src/v_exp_is.erl",66}]}.
     {func_info,{atom,v_exp_is},{atom,spin},4}.
   {label,7}.
     {test,is_eq_exact,{f,8},[{x,2},{integer,0}]}.
@@ -56,7 +56,7 @@
     return.
   {label,8}.
     {test,is_integer,{f,6},[{x,0}]}.
-    {line,[{location,"build/src/v_exp_is.erl",63}]}.
+    {line,[{location,"build/src/v_exp_is.erl",68}]}.
     {gc_bif,'+',{f,0},4,[{tr,{x,0},{t_integer,any}},{x,1}],{x,0}}.
     {allocate,4,4}.
     {init_yregs,{list,[{y,0}]}}.
@@ -65,7 +65,7 @@
     {move,{x,1},{y,3}}.
     {call,1,{f,2}}. % wrap/1
     {'%',{var_info,{x,0},[{type,{t_integer,{-99,99}}}]}}.
-    {line,[{location,"build/src/v_exp_is.erl",64}]}.
+    {line,[{location,"build/src/v_exp_is.erl",69}]}.
     {gc_bif,'-',{f,0},1,[{y,2},{integer,1}],{y,2}}.
     {move,{x,0},{y,0}}.
     {call,1,{f,4}}. % hit/1
@@ -79,7 +79,7 @@
 
 {function, sign, 1, 10}.
   {label,9}.
-    {line,[{location,"build/src/v_exp_is.erl",79}]}.
+    {line,[{location,"build/src/v_exp_is.erl",84}]}.
     {func_info,{atom,v_exp_is},{atom,sign},1}.
   {label,10}.
     {test,is_ne_exact,{f,11},[{x,0},{integer,0}]}.
@@ -95,20 +95,20 @@
 
 {function, size_, 1, 14}.
   {label,13}.
-    {line,[{location,"build/src/v_exp_is.erl",82}]}.
+    {line,[{location,"build/src/v_exp_is.erl",87}]}.
     {func_info,{atom,v_exp_is},{atom,size_},1}.
   {label,14}.
     {test,is_ge,{f,15},[{x,0},{integer,0}]}.
     return.
   {label,15}.
-    {line,[{location,"build/src/v_exp_is.erl",83}]}.
+    {line,[{location,"build/src/v_exp_is.erl",88}]}.
     {gc_bif,'-',{f,0},1,[{x,0}],{x,0}}.
     return.
 
 
 {function, clicks, 3, 17}.
   {label,16}.
-    {line,[{location,"build/src/v_exp_is.erl",86}]}.
+    {line,[{location,"build/src/v_exp_is.erl",91}]}.
     {func_info,{atom,v_exp_is},{atom,clicks},3}.
   {label,17}.
     {test,is_nonempty_list,{f,18},[{x,0}]}.
@@ -117,7 +117,7 @@
     {move,{x,1},{y,3}}.
     {get_list,{x,0},{y,1},{y,0}}.
     {move,{y,1},{x,0}}.
-    {line,[{location,"build/src/v_exp_is.erl",88}]}.
+    {line,[{location,"build/src/v_exp_is.erl",93}]}.
     {call,1,{f,10}}. % sign/1
     {'%',{var_info,{x,0},[{type,{t_integer,{-1,1}}}]}}.
     {swap,{y,1},{x,0}}.
@@ -142,7 +142,7 @@
 
 {function, part_two, 1, 20}.
   {label,19}.
-    {line,[{location,"build/src/v_exp_is.erl",91}]}.
+    {line,[{location,"build/src/v_exp_is.erl",96}]}.
     {func_info,{atom,v_exp_is},{atom,part_two},1}.
   {label,20}.
     {move,{integer,0},{x,2}}.

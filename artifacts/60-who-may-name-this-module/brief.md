@@ -18,9 +18,9 @@ write `using Shop.Orders` and call `Shop.Orders`'s public functions, when only `
 question to David is (e), alone, as a program (see Recommendation). The others then mostly fall out:
 
 - (b) is close to forced. A caller-side list duplicates `using`: every cross-module reference already needs a `using`
-  line, "those entries declare the file's dependencies" (SOURCE bs_check.erl:4037-4046), and the emitter/typing tables
-  are only reachable through it (SOURCE bs_check.erl:472-486). A caller listing what it may use restates what it uses.
-  Only a callee-side (or third-party architecture file) declaration can *refuse* a caller.
+  line, "those entries declare the file's dependencies" (SOURCE bs_check.erl:4034-4035, comment; the behaviour is `module_not_imported` at 4037-4046), and the typing tables
+  are only reachable through it (SOURCE bs_check.erl:472-486; the emitter side was not read). A caller listing what it may use restates what it uses.
+  Only a callee-side (or third-party architecture file) declaration can *refuse* a caller (author's inference, argued not measured; the third-party file is not developed here).
 - (c) is close to forced. F12 keeps the marker on the signature with two levels and lists "`protected`, `internal`,
   or any third level" out of scope (SOURCE F12 "Out of scope"). A per-function "who" marker would also promise per-function
   enforcement the BEAM cannot give (RECORDED 18 §5, 22): it must be a compile-time caller check. Module-level fits it.
@@ -33,33 +33,33 @@ question to David is (e), alone, as a program (see Recommendation). The others t
 | `-export` is all-or-nothing: an unrelated module called exported `shop_orders:recompute_total/1` (result 30) | MEASURED | probes/erl_caller_restriction.out line 1 |
 | `-nifs([f/0])` on a non-NIF, `-on_load`, `-compile({inline,..})` restrict no caller; `nif_like/0` still returned to anyone | MEASURED | erl_caller_restriction.out 2b-2d |
 | OTP xref reports callers after compile, including the unrelated `outsider`; enforces nothing | MEASURED | erl_caller_restriction.out 3c |
-| xref cost: 2.5 ms load+ 6.6 ms first query on 3 modules; 40.9 ms load + 2.7 ms query on 301 modules (whole beams, post-compile) | MEASURED | erl_caller_restriction.out 3, 4 |
+| xref cost, checked-in `.out`: 3.1 ms load + 8.9 ms first query on 3 modules; 51.4 ms load + 2.4 ms query on 301 modules. Timings vary run to run (the first query varied about 2x on a verifier re-run). In the 301-module set `m0` was skipped by xref ("no debug information") yet the query still found m1 -> m0 | MEASURED | erl_caller_restriction.out 3, 4 |
 | Elixir `@doc false` fn is callable from an unrelated module (30); `@moduledoc false` module has no docs but is callable | MEASURED | probes/ex_probe.out 1, 1b |
 | Elixir `defp` from another module: compile succeeds with a *warning* "undefined or private", then `UndefinedFunctionError` at run | MEASURED | ex_probe.out 2a, 2b |
 | Elixir nested `defmodule Shop.Orders.Internal` is callable by any module (no nesting privacy) | MEASURED | ex_probe.out 4 |
 | Elixir 1.14: an unknown `@visible_to` attribute is accepted, warns "set but never used", enforces nothing, is not persisted | MEASURED | ex_probe.out 3, 3b, header lines |
 | Elixir `Module`/`Kernel` export no name containing friend/internal/restrict/visible/allowed/boundary | MEASURED | ex_probe.out 3d (a name grep, not proof of absence of every mechanism) |
 | `@compile {:no_warn_undefined, M}` only silences the undefined-function warning | MEASURED | ex_probe.out 3c (with vs control) |
-| `mix xref callers` reports callers at **file** granularity (Outsider, in reports.ex, appeared only as that file) | MEASURED | probes/mix_xref_probe.out |
+| `mix xref callers` printed `lib/reports.ex (runtime)`. The fixture puts `Shop.Reports` and `Outsider` in the same file, so it cannot tell them apart and the file-granularity reading is trivial; a separate-file fixture was not run | MEASURED | probes/mix_xref_probe.out |
 | `mix help xref` lists `--group`, `--fail-above`; not exercised | MEASURED (help text only) | mix_xref_probe.out (option list) |
 | Elixir installed as beams only; no `.ex` Kernel source on this box | MEASURED | `find / -name kernel.ex` empty; only `/usr/lib/elixir/lib/*/ebin` |
 | Elm: could not run; `package.elm-lang.org` returned proxy 403 | MEASURED | probes/elm_probe.out. No Elm claim is made |
 | Gleam (incl. `@internal`) | not probed | not installed; install denied |
-| C# `internal` is assembly-scoped; B# has no assembly | RECORDED | wayfinder/issues/22 lines 431-435; ticket 60 |
+| C# `internal` is assembly-scoped; B# has no assembly | RECORDED | ticket 60 line 32 (ticket 22 lines 431-435 only say "a different feature from C#'s `internal`") |
 | Elision is exported-vs-local, one entry label per function | RECORDED | wayfinder/issues/18 lines 439-440, 613; not re-run |
-| A module's `Self` is known at the check: `Self = module_name(Decls)` (defaults `'Main'` if no `module` line) | SOURCE | bs_check.erl:307, 253-257 |
+| A module's `Self` is known at the check: `Self = module_name(Decls)` (defaults `'Main'` if no `module` line) | SOURCE | bs_check.erl:308 (assignment), 253-257 |
 | `add_import` already receives `Self` and the `using` line `L`; `add_module_import` receives neither | SOURCE | bs_check.erl:484-502 (signature `add_module_import(M, World, Acc)`, arity **3**) |
 | `add_module_import` reads only `exports` and `types` of the callee's world entry | SOURCE | bs_check.erl:495-508 |
 | The world entry per built module is a map: `exports, polys, private, behaviours, types, ...`; a new key is one more line | SOURCE | bsc.erl:227-239 |
 | Directory identity: `bsc` computes `Expect` from the directory path and `module_matches_path` refuses a mismatch | SOURCE | bsc.erl:478, 814; bs_check.erl:214-224 |
 | Segment-aware prefix already exists: `children/2` matches `Prefix ++ "."` | SOURCE | bs_check.erl:573-575 |
-| A namespace (`Shop`) emits no atom, so no world key `'Shop'` | RECORDED (F15) + MEASURED for the key test | compiler/features/F15 "namespace"; prefix_rule.out last 2 lines |
+| A namespace (`Shop`) emits no atom, so no world key `'Shop'` | RECORDED (F15 lines 39, 102) | The probe's `is_key('Shop', World)` and typo-root "fails closed" lines use a hand-built World map that omits them by construction: they illustrate, they do not count as evidence |
 | The existing `private_function` diagnostic wording (the house style to extend) | SOURCE | bs_diag.erl:1233-1238 |
 | Under F12, an unmarked signature is private and a cross-module call to it is refused | RECORDED | compiler/features/F12 AMENDED + F12.4; not re-run (bsc unbuildable) |
 | Ticket 24 §2's "every function in an aggregate is exported today" predates F12 (24 resolved 08-13, F12 08-17) | RECORDED | wayfinder/issues/24 lines 218-220; F12 header |
-| Naive string prefix wrongly admits `Shop.ReportsV2` into subtree `Shop.Reports`; segment-aware and segment-list forms refuse it | MEASURED (probe of the *proposed rule*, not of bsc) | probes/prefix_rule.out |
-| Per-check cost (OTP 25 JIT, this box): map `is_key` 0.014-0.030 us flat from N=10 to 100k; one subtree prefix test 0.12-0.27 us flat; `lists:member` miss 0.036 / 1.9 / 203 us at N=10/1k/100k; naive "under any of N roots" 18 ms at N=100k; whole-world sweep 0.2-0.5 us/edge | MEASURED | probes/cost.out |
-| Reference: one `compile:file` of a 10-line module took 4.7 ms | MEASURED | cost.out last line (includes warm-up) |
+| A string prefix with no dot boundary admits `Shop.ReportsV2` into subtree `Shop.Reports`; a dot-boundary test refuses it. Definitional (`naive/2` has no boundary and the caller list was chosen to contain `ReportsV2`): it illustrates a trap, it does not test a proposed rule. The directory-path form was NOT exercised (`dirp/2` splits the same atom, no path involved), and the probe's `children/2` is a hand re-typing of bs_check.erl:573-575 | MEASURED (illustration only) | probes/prefix_rule.out |
+| Per-check cost (OTP 25 JIT, this box): map `is_key` 0.014-0.035 us flat from N=10 to 100k (loop and closure overhead dominate these nanoseconds; the flat shape is the finding); one subtree prefix test 0.12-0.26 us flat; `lists:member` miss 0.019 / 2.1 / 204 us at N=10/1k/100k; naive "under any of N roots" 27.5 ms at N=100k; whole-world sweep 0.2-0.6 us/edge (one edge per module, synthetic Erlang loop, not bsc). Figures move 5-15% between runs | MEASURED | probes/cost.out |
+| Reference: one `compile:file` of a 10-line module took 3.9 ms (varies; includes warm-up) | MEASURED | cost.out last line |
 
 ## Option 1: callee declares a subtree (`within`), in `index.bs`
 
@@ -108,13 +108,13 @@ Under the other answer (no rule) `Other.Audit` compiles, as it does today.
 4. `add_namespace_import` (bs_check.erl:510-517): `using Shop` expands to children; decide per child (skip silently vs
    refuse). Needs its own rule; see counterargument.
 5. Two new own-module checks: `Root` must be a prefix of the declaring module (else unsatisfiable), and `Root` must have at
-   least one module under it (a typo'd root fails *closed*, prefix_rule.out last line, so it needs its own error).
+   least one module under it (a typo'd root would match no caller and so fail closed (illustrated by a hand-built world in prefix_rule.out, not evidence), so it needs its own error).
 6. `bs_diag.erl`: `built/2` clause (near :338) and `message/1` clause. Both `qualified_module` and unqualified imports
-   route through `using`, so no per-call-site work (SOURCE bs_check.erl:4037-4046).
+   route through `using`, so no per-call-site work (SOURCE bs_check.erl:4037-4046, `module_not_imported`).
 7. Failing test and gate first (CLAUDE.md), with a `--self-test` that builds `Shop.ReportsV2` and requires the refusal.
 
-**Measured cost:** one prefix test per `using` line: 0.12-0.27 us (cost.out), 0.5 us/edge for a 100k-module world sweep,
-against 4.7 ms for one tiny compile. The checker cost is not a deciding axis.
+**Measured cost:** one prefix test per `using` line: 0.12-0.26 us (cost.out), up to 0.6 us/edge for a synthetic 100k-module sweep,
+against about 4 ms for one tiny `erlc` compile. These are Erlang loops, not bsc measurements; on that basis I judge checker cost not a deciding axis.
 
 **Strongest counterargument.** A subtree is adjacency by *name*, so the rule is only as stable as the tree. Moving
 `Shop/Reports` to `Analytics/Reports` silently changes what `Shop.Orders` will tolerate (it becomes a refusal at the `using`
@@ -148,12 +148,12 @@ declaration is large) instead of a prefix test; item 5 becomes "every named frie
 (`maps:is_key`, no namespace semantics, so no edge cases from `ReportsV2`). No prefix probe is needed, and the edge cases
 of prefix_rule.out do not arise.
 
-**Measured cost:** `is_key` 0.014-0.030 us flat in N. `lists:member` is 0.036 us at N=10, 203 us at N=100k, but a friend list
+**Measured cost:** `is_key` 0.014-0.035 us flat in N. `lists:member` is 0.019 us at N=10, 204 us at N=100k, but a friend list
 of 100k names is not a real program; a friend list is 1-10 names.
 
 **Strongest counterargument.** Adding a caller means editing the *callee's* `index.bs`, so a new consumer of `Shop.Orders`
-touches a file the consumer's author does not own. That is exactly the blast radius the one-function-per-file layout was
-built to avoid (RECORDED in ticket 18 §5: "whole-aggregate analysis would let an edit to one file silently move another file's emitted boundary"). It also has no zero-config case: a test module or a new sibling is refused
+touches a file the consumer's author does not own. By the author's analogy (not the ticket's claim), that is the blast radius the one-function-per-file layout was
+built to avoid (the ticket 18 §5 passage, "whole-aggregate analysis would let an edit to one file silently move another file's emitted boundary", is about guard-analysis locality, not naming rules; applying it here is my analogy). It also has no zero-config case: a test module or a new sibling is refused
 until listed, so it pushes an agent to edit the friends line reflexively, which turns it into a rubber stamp.
 
 ## Option 3: no new construct; F12's `private` already answers the consumer, revisit on a second occurrence
@@ -182,8 +182,7 @@ not a check).
 **Strongest counterargument.** It leaves a real hole: a function meant for *sibling modules* only must be `public`, which
 makes it callable by everyone (measured: Erlang and Elixir have the same hole, erl_caller_restriction.out 1, ex_probe.out 1),
 and the agent's test-drift risk returns for exactly those functions. Also it makes the 22/60 claim "the useful boundary is which
-modules may name this one" go unserved on an unexamined assumption that no exemplar needs it. I did not search the 32 `.bs`
-files for a public function called by exactly one directory; that search is the missing evidence (below).
+modules may name this one" go unserved on an unexamined assumption that no exemplar needs it. I did not search the `.bs` corpus (the verifier counted 73 under compiler/examples, 46 of them under exemplars/, 160 in the repo; I counted none) for a public function called by exactly one directory; that search is the missing evidence (below).
 
 ## Recommendation
 
@@ -195,8 +194,7 @@ files for a public function called by exactly one directory; that search is the 
    author one line rather than a list they must keep current, and (b) and (c) are forced above. Take Option 2 instead only if
    David judges subtree over-admission (siblings) to be the pain; that is a question of taste on real code, not on cost.
 3. **Do not** add a marker on the signature, and do not spell it `internal`: the word means assembly in C# (RECORDED 22),
-   and here it would mean subtree. Also not `friend` for Option 1 (it means an explicit list in C++; not probed here, so
-   treated as a taste point only).
+   and here it would mean subtree. Also not `friend` for Option 1 (C++ analogy is unlabelled outside knowledge, not probed; a taste point only).
 
 ## What I could not verify here
 

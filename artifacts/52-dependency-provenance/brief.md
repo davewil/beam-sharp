@@ -4,7 +4,7 @@ Status: research for David. Nothing resolved, no ticket or compiler file touched
 (probe run here, `probes/<file>` + captured `.out`), **SOURCE** (file:line of an installed/repo source),
 **RECORDED** (a ticket/README says so; NOT re-run), **UNVERIFIED**. Gleam: **not probed**.
 Environment: OTP 25.x, Elixir 1.14.0, Elm 0.19.1 (`probes/versions.out`). `bsc` cannot be built here
-(needs OTP 28), so **no claim below is about what `bsc` does when run**; compiler deltas are read from source.
+(needs OTP 28: RECORDED `compiler/rebar.config:6`, the lexer writes `TokenLoc`; UNVERIFIED here), so **no claim below is about what `bsc` does when run**; compiler deltas are read from source.
 
 ## Question
 
@@ -15,10 +15,10 @@ language record its dependencies, and where? Ticket 51 is closed (no tool) and i
 ## Two premises of the ticket that the repo contradicts
 
 1. **The spelling `[external: elixir, app: req] using …` is not the language.** The shipped grammar has
-   exactly `using atom_lit { foreign_sigs }` → `{foreign, Line, ModAtom, Sigs}` (SOURCE
-   `compiler/src/bs_parser.yrl:165-166`); there is no attribute syntax anywhere in the grammar
+   exactly one *foreign* `using` form, `using atom_lit { foreign_sigs }` → `{foreign, Line, ModAtom, Sigs}` (SOURCE
+   `compiler/src/bs_parser.yrl:165-166`; a second, native `using modpath` import form exists at `:180`); there is no attribute syntax anywhere in the grammar
    (SOURCE grep of `bs_parser.yrl`, no `[`-prefixed declaration production). 32's `[external: erlang, "ets"] module Ets`
-   was superseded by LANGUAGE.md §11's `using :ets { }` (SOURCE `LANGUAGE.md:2741-2770`; RECORDED ticket 106 header).
+   is not what shipped: LANGUAGE.md §11 shows `using :ets { }` (SOURCE `LANGUAGE.md:2741-2770`); that the shipped form replaced 32's is stated in ticket 106's header (RECORDED), not in LANGUAGE.md. The ticket said "something like", so read this as a spelling note, not an error in it.
 2. **"Sequence with 50" is stale.** Ticket 50 resolved 2026-08-26 with *no declaration change* (a foreign
    struct is a `map<atom, term>`; shape 1's `[external] record` stays unbuilt) (RECORDED
    `wayfinder/issues/50-naming-a-foreign-struct.md:290-318`). The FFI-declaration extension that *did* land
@@ -41,16 +41,16 @@ language record its dependencies, and where? Ticket 51 is closed (no tool) and i
 | E10 | Module→app by path parse can be **wrong against the .app**: `e_mod` parses to `foo`, `.app` scan says `bar` | MEASURED | `p3_lookup.out` |
 | E11 | `code:which` returns the *already-loaded* file first, and only otherwise walks the path | SOURCE | `kernel/src/code.erl:810-816` |
 | E12 | `ERL_LIBS` is read by the code server at boot, so `bsc`'s compile-time view of the path is the process environment | SOURCE | `kernel/src/code_server.erl:103` |
-| E13 | Cost, µs/call on a 44-entry path: `lib_dir` hit 2.5–3.0, miss 2.2; `which(lists)` (loaded) 5.3; `which` miss 708; `.app` scan of the whole path 8,500–9,000 (not worth it); `application:load` cold 417, warm 2.5; `ensure_loaded` of a beam 758. A 9-app `lib_dir` check: ~61 µs. `erlc` on a trivial module: 213–290 ms wall | MEASURED | `p3_lookup.out`, `p6_real_elixir_and_cost.out` (timings vary run to run) |
+| E13 | Cost, µs/call, ranges over the checked-in `.out` plus three re-runs here and the verifier's run (44-entry path in p3): `lib_dir` hit 2.4–4.6, miss 2.1–2.2; `which(lists)` (loaded) 4.3–6.5; `which` miss 863–1069; whole-path `.app` scan 6,620–11,343 (not worth it); `application:load` cold 316–623, warm 2.5–3.4; `ensure_loaded` of a beam 590–1062. A 9-app `lib_dir` check: 38–69 µs (p6 has no `ERL_LIBS`, and `lib_dir` is a name lookup, so path length is not the driver). `erlc` on a trivial module: 214–267 ms wall | MEASURED | `p3_lookup.out`, `p6_real_elixir_and_cost.out` (timings vary run to run; one column of the checked-in file is a single run) |
 | E14 | Real `.app` files carry `applications` as **names only**: `ssl` → `[crypto,public_key,kernel,stdlib]`, `inets` → `[kernel,stdlib]`, `elixir` → `[kernel,stdlib,compiler]`, `logger` → `[kernel,stdlib,elixir]`; `vsn` is the app's own | MEASURED | `p4_appfiles.out` |
 | E15 | OTP's `ssl.app` *also* has `runtime_dependencies, ["stdlib-4.1","public_key-1.11.3",…]` — versioned. Whether any OTP tool enforces it at run time: not probed | MEASURED (key exists) / UNVERIFIED (enforcement) | `p4_appfiles.out` |
 | E16 | mix (throwaway project, path deps, offline): the generated `proj.app` has `applications=[kernel,stdlib,elixir,ssl,dep_run]` — the dep and `extra_applications` are **inferred/added automatically**; `only: :test` and `runtime: false` deps are **absent** | MEASURED | `p4_appfiles.out` |
-| E17 | mix keeps the requirement `"~> 1.2"` in `mix.exs` only (0 matches in the `.app`); mix itself refuses the build when the dep is 0.9.0 (`the dependency does not match the requirement "~> 1.2", got "0.9.0"`) | MEASURED | `p4_appfiles.out` |
+| E17 | mix keeps the requirement `"~> 1.2"` in `mix.exs` only (0 matches in the `.app`); mix itself refuses the build when the dep is 0.9.0 (`the dependency does not match the requirement "~> 1.2", got "0.9.0"`). The first version of the probe did not trigger mix's re-check and captured nothing; it now removes `_build` before the compile | MEASURED | `p4_appfiles.out` |
 | E18 | Installed Elixir ships **no `.ex` source** (0 files), so `Mix.Tasks.Compile.App` cannot be cited by line. The installed beam defines `apps_from_runtime_prod_deps/2`, `runtime_app?/1`, `handle_extra_applications/2`, `language_apps/1` | MEASURED (function list only) | `p4b_mix_beam.out` |
 | E19 | Elm: `elm init` needs the package registry; here it fails (`ProxyConnectException … 403`). Stopped there, no workaround. Nothing about elm.json is claimed | MEASURED (failure) | `p5_elm.out` |
 | E20 | Gleam | not probed | — |
 | E21 | Ticket 51: `ERL_LIBS` alone reaches Req 0.7.3; both neighbours emit one dir per app with an `ebin`; rebar_mix vendors `elixir` but not `eex` | RECORDED | `51-a-build-and-dependency-tool.md:69-133` |
-| E22 | `bsc` today has no foreign-module presence check: the only `code:` uses in the compiler are `add_patha`/`ensure_loaded` of its own output and `bs_batch`'s path snapshot/cleanup | SOURCE | `compiler/src/bsc.erl:691-692`, `bs_run.erl:19-20`, `bs_batch.erl:170,202` |
+| E22 | `bsc` today has no foreign-module presence check: no `code:` use I found in the compiler is a presence check: they are `add_patha`/`ensure_loaded` of its own output and the path snapshot/purge/cleanup in `bs_batch`/`bs_repl` | SOURCE | `compiler/src/bsc.erl:691-692`, `bs_run.erl:19-20`, `bs_batch.erl:170,202,225-237`, `bs_repl.erl:65-68` |
 
 ## Sub-decisions (each gets its answer inside the options; the evidence is above)
 
@@ -61,8 +61,9 @@ language record its dependencies, and where? Ticket 51 is closed (no tool) and i
   `mix.exs` and enforces them itself (E17). The refusal of a version is therefore a **boundary** argument
   (resolution belongs to mix/rebar3), not a cost one; I did not find a measurement that forces it either way.
 - **(b) Per block or once per module.** Real modules will draw several `using` blocks on one app
-  (`'Elixir.Req'`, `'Elixir.Req.Request'` are both app `req`, and module→app is not derivable by name in
-  general, E10). Per block repeats it; once per module states each app once.
+  (`'Elixir.Req'`, `'Elixir.Req.Request'` are presumably both app `req`; that name-based derivation
+  is **unprobed**. E10 shows only that a path-parse fails on a hand-built layout where the dir name differs
+  from the `.app` name; I have not shown that mix or rebar3 produce such a layout). Per block repeats it; once per module states each app once.
 - **(c) What the compiler does.** `code:lib_dir(App)` → diagnostic instead of `undef` (E6, E13). Nothing
   else measured is needed. The tool comparison: erlc says nothing (E1), Elixir warns for a call and errors for
   a struct/import (E4, E5), xref can find it but needs a second tool and `debug_info` (E3). So a bsc check would
@@ -84,13 +85,13 @@ using :'Elixir.Req' {                       // unchanged from today
 
 Compiler delta: a pass after parse over `{foreign, _, Mod, _}` (the tuple `bs_check.erl:606` already
 walks) calling `code:which(Mod)`; on `non_existing` emit a diagnostic through `bs_diag` naming the module
-and `ERL_LIBS`. Zero grammar change, zero declaration bytes. Cost ~5 µs for a loaded module, **~708 µs for
-a miss** (E13), tiny against a 200+ ms compile (E13).
+and `ERL_LIBS`. Zero grammar change, zero declaration bytes. Cost 4.3–6.5 µs for a loaded module, **863–1069 µs for
+a miss** (E13), small against a 214–267 ms `erlc` run (an upper-bound comparison: bsc is already a running VM).
 Records nothing: the *app* is still not in the source, so the handoff still cannot say what to install
 (the diagnostic can only name a module).
 
 Strongest counterargument: it fixes the symptom, not the ticket's argument. A clean-room implementor is told
-"module `Elixir.Req` not found" and must guess the app (E10: module name → app is not mechanical, and
+"module `Elixir.Req` not found" and must guess the app (E10: a path-parse can disagree with the `.app` on a hand-built layout; name-based derivation is unprobed, and
 the parse trick works only when the module is *present*, i.e. when no diagnostic is needed). It also makes
 type-checking depend on the machine (LSP/`--check` on a box without deps would error; UNVERIFIED for
 the LSP, no editor probe was run).
@@ -163,7 +164,7 @@ which is what the neighbours do, and it moves nothing into the language.
   `bs_batch.erl`), not exercised. The parse-conflict count for a new attribute or header production is
   unmeasured; whether `bs_emit` can write a module attribute is unread.
 - **OTP 25, not 28.** Probes ran on OTP 25.x / Elixir 1.14.0 (built for OTP 24). `code:lib_dir`/`which` semantics
-  may differ in OTP 28; I have no evidence either way. Timings are one sandbox VM, single runs; the
+  may differ in OTP 28; I have no evidence either way. Timings are one sandbox VM; the
   order of magnitude, not the digits, is the finding.
 - **Gleam: not probed.** **Elm: only that `elm init` cannot fetch offline** (E19); its `elm.json` is unexamined.
 - **mix source not cited by line** (E18): the apt Elixir has no `.ex` files; E16/E17 are behaviour of a

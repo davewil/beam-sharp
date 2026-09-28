@@ -30,7 +30,7 @@ run(N) ->
     t("subtree prefix test, one root (out)", Reps, fun() -> under(Miss, Root) end),
     %% callee declares N roots, caller must be under one (naive scan, miss)
     t("subtree vs N roots (naive scan, miss)", max(Reps div 100, 2), fun() -> lists:any(fun(R) -> under(Miss, R) end, Names) end),
-    %% build-wide: verify every import edge of an N-module world, 3 imports each, map lookup + prefix
+    %% build-wide: verify every import edge of an N-module world, one edge per module, map lookup + prefix
     Edges = [{X, lists:nth(1 + (I * 7) rem N, Names)} || {I, X} <- lists:zip(lists:seq(1, N), Names)],
     {T, _} = timer:tc(fun() -> [maps:is_key(C, Map) andalso under(X, 'Shop') || {X, C} <- Edges] end),
     io:format("  whole-world sweep: ~p edges, one map lookup + one prefix test each: ~p us total (~.3f us/edge)~n", [N, T, T / N]).

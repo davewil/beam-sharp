@@ -10,5 +10,5 @@ warning: module attribute @visible_to was set but never used
 2a. compile of a caller of another module's defp: :compiled; stderr warning: "warning: Shop.Orders.recompute/1 is undefined or private. Did you mean:\n\n      * recompute_total/1\n\n  nofile:2: Outsider2.go/0\n\n"
 2b. run: UndefinedFunctionError: function Shop.Orders.recompute/1 is undefined or private
 3c. with no_warn_undefined stderr: ""
-3c. control (without) no_warn_undefined stderr: "warning: Nope.x/0 is undefined (module Nope is not available or is yet to be defined)\n  nofile:2: W100.go/0\n\n"
+3c. control (without) no_warn_undefined stderr: "warning: Nope.x/0 is undefined (module Nope is not available or is yet to be defined)\n  nofile:2: W36.go/0\n\n"
 3d. Module/Kernel exported names containing friend|internal|restrict|visible|allowed|boundary: []
