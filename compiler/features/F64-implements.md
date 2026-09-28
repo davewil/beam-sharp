@@ -1,6 +1,6 @@
 # F64 — `implements Enumerable<int> for Node { … }`: a record's own module implements a protocol
 
-**Status**      **in progress** — 27 tests in `implements_tests`; the first 13 seen red before the build, F64.13–14 red on the defect, F64.15–22 red on the first cut where the review measured it, and F64.19's wording and F64.23–24 red on the second cut where the second review did; a
+**Status**      **done 2026-09-28** · [ENG-458](https://linear.app/davewil/issue/ENG-458) — 27 tests in `implements_tests`, 1228 in the suite; the first 13 seen red before the build, F64.13–14 red on the defect, F64.15–22 red on the first cut where the review measured it, and F64.19's wording and F64.23–24 red on the second cut where the second review did; a
                 must-compile block and a `diagnoses: protocol_not_implemented` block in
                 LANGUAGE.md §6, both seen red first
 **Implements**  [ticket 99](../../wayfinder/issues/99-protocols-revisited.md) Q1 and Q4, with the
@@ -72,7 +72,10 @@ Total(t) -> Enumerable.Reduce(t, 0, (a, v) => a + v)
 - A protocol's name qualifies its operations as a reserved qualifier does, so a module may not take
   it (`reserved_module_name`).
 
-What the build read that no ticket spelled, for David to overrule:
+What the build read that no ticket spelled. On 2026-09-28, reviewing ENG-458, David accepted `for`
+as a keyword, the block's naming (the first two bullets) and the per-record export name (the
+last), and they are recorded in [ticket 99](../../wayfinder/issues/99-protocols-revisited.md)'s
+Decisions entry. He asked to see the three refusals in the third bullet:
 
 - `for` is now a keyword, as it is in C#. No `.bs` file in the repository used it as a name.
 - Inside a block, an operation's own name is the implementation, so a module function of the same

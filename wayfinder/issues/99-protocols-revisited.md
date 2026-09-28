@@ -177,4 +177,9 @@ record in a template hole. A template hole was the program Q5 said `String.Chars
   declare a protocol, `protocol Shape { float Area(Self s) }`, satisfied by `implements Shape for
   Circle { … }` and called `Shape.Area(c)`, never `c.Area()` (ticket 91 Q2 and Q3: the dot would
   suggest OOP semantics). The compiler ships `Enumerable` only.
+  **Amended 2026-09-28 by David, reviewing F64 ([ENG-458](https://linear.app/davewil/issue/ENG-458)):**
+  an implementation is exported once per implementing record, `'bs@Enumerable@Reduce@Node'/3`, not
+  once per protocol operation as Q1's `'bs@Enumerable@Reduce'/3` wrote; `for` is a keyword; and
+  inside an `implements` block an operation's own name at its own arity is the implementation,
+  while outside the block the name is the module's own function.
 ```

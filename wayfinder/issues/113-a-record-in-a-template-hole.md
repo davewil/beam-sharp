@@ -155,6 +155,8 @@ specifiers somewhere to go.
 - `Formattable { string ToString(Self s) }` joins `Enumerable` as a compiler-known protocol in
   stratum two. An implementation is `implements Formattable for T { … }`, in `T`'s own module only
   (99 Q4), through the machinery ENG-458 builds, and is exported `bs@Formattable@ToString/1`.
+  *Corrected 2026-09-28: exported per record, `bs@Formattable@ToString@Money/1`, as ticket 99's
+  Decisions entry was amended after F64.*
 - A template hole (ENG-562) accepts a type whose every member is in 112 Q3's table or is a record
   whose module exports that implementation. One record type lowers to a direct remote call. A union
   lowers to a call whose module is read from the tag, as 99 Q1 lowers `Enum.Sum`. `interp_hole`
