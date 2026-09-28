@@ -2,18 +2,18 @@ control (ctl.erl): with vs without +no_type_opt; 100 rounds each pair (a pair mu
 --- ctl ctl_nt ---
 answer {36000000,9000000} (all 2 variants agree)
 variant                 n      min      p10   median      p90      max   stdev  med_rel
-ctl                   100   13.622   14.090   14.513   15.560   25.410   1.478   1.000x
-ctl_nt                100   17.742   18.184   18.635   23.291   36.495   3.646   1.284x
+ctl                   100   13.856   14.096   14.694   23.644   25.915   3.490   1.000x
+ctl_nt                100   17.821   18.155   18.530   29.207   31.084   3.909   1.261x
 --- ctl_tup ctl_tup_nt ---
 answer 36000000 (all 2 variants agree)
 variant                 n      min      p10   median      p90      max   stdev  med_rel
-ctl_tup               100    6.662    7.092    7.442    8.514   10.838   0.833   1.000x
-ctl_tup_nt            100    9.884   10.033   10.398   13.882   22.413   2.354   1.397x
+ctl_tup               100    6.718    6.887    7.229    8.082   12.615   0.788   1.000x
+ctl_tup_nt            100    9.892   10.039   10.351   12.598   19.388   1.670   1.432x
 --- ctl_bin ctl_bin_nt ---
 answer 9000000 (all 2 variants agree)
 variant                 n      min      p10   median      p90      max   stdev  med_rel
-ctl_bin               100    6.429    6.533    6.955    9.372   36.421   3.231   1.000x
-ctl_bin_nt            100    6.541    6.686    6.980    8.684   13.338   1.559   1.004x
+ctl_bin               100    6.407    6.523    6.881   10.156   12.122   1.443   1.000x
+ctl_bin_nt            100    6.480    6.602    7.017   11.379   13.312   1.746   1.020x
 Type-chunk bytes (control):
 ctl type_chunk=62
 ctl_nt type_chunk=26
