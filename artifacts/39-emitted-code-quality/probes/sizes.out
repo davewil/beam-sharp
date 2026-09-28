@@ -68,3 +68,11 @@ bench_erl.beam type_chunk_bytes=116 file_bytes=1336
   sign/1 instrs(excl label/line)=6
   size_/1 instrs(excl label/line)=3
   clicks/3 instrs(excl label/line)=23
+ctl_tup.beam type_chunk_bytes=44 file_bytes=928
+  tup/3 instrs(excl label/line)=6
+ctl_tup_nt.beam type_chunk_bytes=26 file_bytes=1084
+  tup/3 instrs(excl label/line)=11
+ctl_bin.beam type_chunk_bytes=62 file_bytes=1024
+  cnt/2 instrs(excl label/line)=13
+ctl_bin_nt.beam type_chunk_bytes=26 file_bytes=1124
+  cnt/2 instrs(excl label/line)=13

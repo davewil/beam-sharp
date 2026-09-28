@@ -23,6 +23,9 @@
 %%%       range test loses the whole kind+range guard (the type lattice tracks integer ranges).
 %%%
 %%% Run: erl -noshell -pa . -eval 'p01_shapes:go(), halt().'   (run.sh does this)
+%%%
+%%% SCORE (added after the results): P5 CONTRADICTED (the two range comparisons stay, +13 B, asm shows is_ge x2).
+%%% P1 held approximately (tag +12 not +14, is_integer +5). P2, P3, P4 held. Section D's prediction held.
 -module(p01_shapes).
 -export([go/0]).
 
@@ -36,6 +39,7 @@ go() ->
     section_a(Dir),
     section_b(Dir),
     section_c(Dir),
+    section_d(Dir),
     ok.
 
 %% ---------------------------------------------------------------------------
@@ -86,9 +90,9 @@ section_b(Dir) ->
          {"range0..255 / caller unknown", rng, Rng, "c(X) -> p(X).",                                         "is_integer"},
          {"range0..255 / caller ran SAME range test", rng, Rng,
           "c(X) when erlang:is_integer(X) andalso X >= 0 andalso X =< 255 -> p(X).",                          "is_integer"},
-         {"tag / caller unknown",         tag, Tag, "c(X) -> p(X).",                                         "map_get"},
-         {"tag / caller ran SAME tag test", tag, Tag, "c(O) when " ?TAG " -> p(O).",                          "map_get"},
-         {"tag / caller built the literal", tag, Tag, "c(T) -> p(#{'Kind' => 'Order', total => T}).",         "map_get"},
+         {"tag / caller unknown",         tag, Tag, "c(X) -> p(X).",                                         "'Order'"},
+         {"tag / caller ran SAME tag test", tag, Tag, "c(O) when " ?TAG " -> p(O).",                          "'Order'"},
+         {"tag / caller built the literal", tag, Tag, "c(T) -> p(#{'Kind' => 'Order', total => T}).",         "'Order'"},
          {"tag / nested field of a tagged wrapper", tag, Tag,
           "c(W) when " ?TAGW " -> p(erlang:map_get(order, W)).",                                              "map_get"}],
     lists:foreach(
@@ -98,7 +102,7 @@ section_b(Dir) ->
               SG = code_bytes(Dir, MG, Body(true)),
               SU = code_bytes(Dir, MU, Body(false)),
               AsmG = local_fun_asm(Dir, MG, p),
-              Kept = count(Look, AsmG) > 0 orelse (Look =:= "map_get" andalso count("is_eq_exact", AsmG) > 0),
+              Kept = count(Look, AsmG) > 0,
               io:format("  ~-42s ~4b / ~4b  delta ~3s  test in p's asm: ~s~n",
                         [Name, SG, SU, sg(SG - SU), case Kept of true -> "KEPT"; false -> "ELIDED" end])
       end, Cases),
@@ -109,7 +113,7 @@ section_b(Dir) ->
               SG = code_bytes(Dir, "b_g", Body(true)),
               SU = code_bytes(Dir, "b_u", Body(false)),
               AsmG = local_fun_asm(Dir, "b_g", p),
-              Kept = count(Look, AsmG) > 0 orelse (Look =:= "map_get" andalso count("is_eq_exact", AsmG) > 0),
+              Kept = count(Look, AsmG) > 0,
               io:format("  ~-42s ~4b / ~4b  delta ~3s  test in p's asm: ~s~n",
                         [Name, SG, SU, sg(SG - SU), case Kept of true -> "KEPT"; false -> "ELIDED" end])
       end, Cases),
@@ -127,6 +131,27 @@ section_b(Dir) ->
             "c(X) when erlang:is_integer(X) andalso X >= 0 andalso X =< 255 -> p(X).",
     _ = code_bytes(Dir, "b_g", SameR),
     io:format("~s~n", [local_fun_asm(Dir, "b_g", p)]).
+
+%% ---------------------------------------------------------------------------
+%% D. (added after independent verification) the elision in B needs a SOLE, proven caller. What if the
+%% private function has a second caller, or its address is taken?
+%% PREDICTION (written before the first run of this section): with a second UNPROVEN exported caller, or with
+%% `fun p/1` handed out, p keeps its is_integer test; with a second PROVEN caller it is still elided.
+%% The tag-row flag in B was also reworded: it now looks for the tag atom 'Order', which only the guard supplies
+%% (the old flag grepped map_get, which p's own body supplies, so it was true whatever the guard did).
+section_d(Dir) ->
+    io:format("~n=== D. kind test on private p/1: sole proven caller vs a second caller vs address taken ===~n"),
+    P = "p(O) when erlang:is_integer(O) -> O + 1.\n",
+    Rows = [{"sole proven caller (control = B row 2)", "-export([c/1]).\n" ++ P ++ "c(X) when erlang:is_integer(X) -> p(X).\n"},
+            {"proven caller + 2nd PROVEN caller",       "-export([c/1, d/1]).\n" ++ P ++ "c(X) when erlang:is_integer(X) -> p(X).\nd(Y) when erlang:is_integer(Y) -> p(Y).\n"},
+            {"proven caller + 2nd UNPROVEN caller",     "-export([c/1, d/1]).\n" ++ P ++ "c(X) when erlang:is_integer(X) -> p(X).\nd(Y) -> p(Y).\n"},
+            {"proven caller + esc() -> fun p/1",        "-export([c/1, esc/0]).\n" ++ P ++ "c(X) when erlang:is_integer(X) -> p(X).\nesc() -> fun p/1.\n"}],
+    lists:foreach(
+      fun({Name, Body}) ->
+              _ = code_bytes(Dir, "d_x", Body),
+              Asm = local_fun_asm(Dir, "d_x", p),
+              io:format("  ~-42s is_integer test in p's asm: ~s~n", [Name, case count("is_integer", Asm) > 0 of true -> "KEPT"; false -> "ELIDED" end])
+      end, Rows).
 
 %% ---------------------------------------------------------------------------
 %% C. escape-site wrapper (p04's `wrap` variant): what it costs in bytes relative to `fun p/1`.

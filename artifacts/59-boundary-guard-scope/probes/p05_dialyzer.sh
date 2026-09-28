@@ -12,6 +12,10 @@
 #       it does NOT (open world: an unseen caller may pass an integer); for escaped_two (local, address taken)
 #       it does NOT (taking the address reopens the world). i.e. Dialyzer's own scope rule is
 #       "local AND non-escaping", not "local".
+#   D5. (added after verification; earlier d1/d2 had NO caller that pushed a forged value through w/1 or esc(), so
+#       the earlier 'silent for nested/escaped' was vacuous, not evidence.) Now d2 has go_nested, go_nested_untyped,
+#       go_esc, go_esc_untyped. Prediction: the LITERAL forgeries (go_nested, go_esc) are reported, because the
+#       literal is visible to Dialyzer and violates the spec; the UNTYPED ones (binary_to_term) are silent.
 #   NOTE (disclosed): my first d1.erl left forge_local/0 unused and unexported, so Dialyzer never analysed it; the
 #       first run therefore said nothing about it. I exported it (an honest test fix, not a result-driven one) and
 #       replaced d3's first draft (a '+' body) which was the wrong shape to show the difference. Both drafts' outputs

@@ -87,3 +87,9 @@ OTP 25 erts 13.2.2.5
   int: p itself guarded, fun p/1     Code=105
   tag wrapper - plain: +25   tag guard-on-p - plain: +12
   int wrapper - plain: +18   int guard-on-p - plain: +5
+
+=== D. kind test on private p/1: sole proven caller vs a second caller vs address taken ===
+  sole proven caller (control = B row 2)     is_integer test in p's asm: ELIDED
+  proven caller + 2nd PROVEN caller          is_integer test in p's asm: ELIDED
+  proven caller + 2nd UNPROVEN caller        is_integer test in p's asm: KEPT
+  proven caller + esc() -> fun p/1           is_integer test in p's asm: KEPT

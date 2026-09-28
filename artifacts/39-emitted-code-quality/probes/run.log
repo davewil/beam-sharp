@@ -22,4 +22,3 @@ build/src/ctl_bin_nt.erl:18:1: Warning: function tup/3 is unused
 %   18| tup(_, 0, Acc) -> Acc;
 %     | ^
 
-done

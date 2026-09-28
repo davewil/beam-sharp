@@ -13,5 +13,5 @@ main([F]) ->
               || {function, N, A, _, Code} <- Fs],
     io:format("~s type_chunk_bytes=~p file_bytes=~p~n", [filename:basename(F), TypeSz, filelib:file_size(F)]),
     [io:format("  ~p/~p instrs(excl label/line)=~p~n", [N, A, C])
-     || {N, A, C} <- Counts, lists:member(N, [spin, wrap, sign, size_, hit, clicks, 'Spin', 'Wrap'])],
+     || {N, A, C} <- Counts, lists:member(N, [spin, wrap, sign, size_, hit, clicks, tup, cnt])],
     halt().

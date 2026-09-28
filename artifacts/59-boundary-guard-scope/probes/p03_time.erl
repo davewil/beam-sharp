@@ -16,6 +16,11 @@
 %%%       is paid per iteration -> small positive delta.
 %%%   T5. Private recursive RECORD loop: tag test is NOT elided (p01 P3), so it is paid per iteration
 %%%       per clause -> small positive delta, present even though the caller ran the same test.
+%%%
+%%% SCORE (added after the results, prediction text above left as written): T1 CONTRADICTED (tag single call measured
+%%% +1.5 to +3.1 ns, not 0..1). T5 CONTRADICTED IN SIZE (record loop measured +7.3 to +8.4 ns, ~65% of the loop; I wrote
+%%% only 'small positive'). T2, T3, T4 held. is_integer single call is inside noise (medians -0.03 to +0.90 ns across
+%%% seven runs incl. the verifier's; twin medians up to 0.7 ns).
 -module(p03_time).
 -export([go/0, drive/3, calls/3]).
 

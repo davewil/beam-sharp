@@ -14,6 +14,7 @@
    ex_asm      present=true  instrs=19   identical_to_v_base=false
    v_remote    present=true  instrs=19   identical_to_v_base=true
    v_remote_nt present=true  instrs=19   identical_to_v_base=false
+   v_wrap      present=true  instrs=4    identical_to_v_base=false
 {wrap,1}: v_base has 4 instrs (labels/line stripped, {tr,R,_}->R)
    v_base      present=true  instrs=4    identical_to_v_base=true
    v_bs        present=true  instrs=4    identical_to_v_base=true
@@ -30,6 +31,7 @@
    ex_asm      present=true  instrs=4    identical_to_v_base=true
    v_remote    present=true  instrs=4    identical_to_v_base=true
    v_remote_nt present=true  instrs=4    identical_to_v_base=true
+   v_wrap      present=true  instrs=4    identical_to_v_base=true
 
 diff {spin,4} v_base vs v_base_nt (lines only in first / only in second):
    - {gc_bif,'+',{f,0},2,[{x,0},{x,1}],{x,0}}

@@ -9,7 +9,7 @@
 
 {function, wrap, 1, 2}.
   {label,1}.
-    {line,[{location,"build/src/v_priv_rng.erl",46}]}.
+    {line,[{location,"build/src/v_priv_rng.erl",51}]}.
     {func_info,{atom,v_priv_rng},{atom,wrap},1}.
   {label,2}.
     {'%',{var_info,{x,0},[{type,{t_integer,any}}]}}.
@@ -27,7 +27,7 @@
 
 {function, hit, 1, 4}.
   {label,3}.
-    {line,[{location,"build/src/v_priv_rng.erl",56}]}.
+    {line,[{location,"build/src/v_priv_rng.erl",61}]}.
     {func_info,{atom,v_priv_rng},{atom,hit},1}.
   {label,4}.
     {'%',{var_info,{x,0},[{type,{t_integer,{-99,99}}}]}}.
@@ -41,7 +41,7 @@
 
 {function, spin, 4, 7}.
   {label,6}.
-    {line,[{location,"build/src/v_priv_rng.erl",60}]}.
+    {line,[{location,"build/src/v_priv_rng.erl",72}]}.
     {func_info,{atom,v_priv_rng},{atom,spin},4}.
   {label,7}.
     {'%',{var_info,{x,0},[{type,{t_integer,{-99,99}}}]}}.
@@ -59,7 +59,7 @@
     {move,{x,3},{y,1}}.
     {move,{x,2},{y,2}}.
     {move,{x,1},{y,3}}.
-    {line,[{location,"build/src/v_priv_rng.erl",62}]}.
+    {line,[{location,"build/src/v_priv_rng.erl",74}]}.
     {gc_bif,'+',
             {f,0},
             2,
@@ -67,7 +67,7 @@
             {x,0}}.
     {call,1,{f,2}}. % wrap/1
     {'%',{var_info,{x,0},[{type,{t_integer,{-99,99}}}]}}.
-    {line,[{location,"build/src/v_priv_rng.erl",63}]}.
+    {line,[{location,"build/src/v_priv_rng.erl",75}]}.
     {gc_bif,'-',{f,0},1,[{y,2},{integer,1}],{y,2}}.
     {move,{x,0},{y,0}}.
     {call,1,{f,4}}. % hit/1
@@ -85,7 +85,7 @@
 
 {function, sign, 1, 10}.
   {label,9}.
-    {line,[{location,"build/src/v_priv_rng.erl",84}]}.
+    {line,[{location,"build/src/v_priv_rng.erl",97}]}.
     {func_info,{atom,v_priv_rng},{atom,sign},1}.
   {label,10}.
     {test,is_ne_exact,{f,11},[{x,0},{integer,0}]}.
@@ -101,20 +101,20 @@
 
 {function, size_, 1, 14}.
   {label,13}.
-    {line,[{location,"build/src/v_priv_rng.erl",87}]}.
+    {line,[{location,"build/src/v_priv_rng.erl",100}]}.
     {func_info,{atom,v_priv_rng},{atom,size_},1}.
   {label,14}.
     {test,is_ge,{f,15},[{x,0},{integer,0}]}.
     return.
   {label,15}.
-    {line,[{location,"build/src/v_priv_rng.erl",88}]}.
+    {line,[{location,"build/src/v_priv_rng.erl",101}]}.
     {gc_bif,'-',{f,0},1,[{x,0}],{x,0}}.
     return.
 
 
 {function, clicks, 3, 17}.
   {label,16}.
-    {line,[{location,"build/src/v_priv_rng.erl",91}]}.
+    {line,[{location,"build/src/v_priv_rng.erl",104}]}.
     {func_info,{atom,v_priv_rng},{atom,clicks},3}.
   {label,17}.
     {'%',{var_info,{x,1},[{type,{t_integer,{-99,99}}}]}}.
@@ -125,7 +125,7 @@
     {move,{x,1},{y,3}}.
     {get_list,{x,0},{y,1},{y,0}}.
     {move,{y,1},{x,0}}.
-    {line,[{location,"build/src/v_priv_rng.erl",93}]}.
+    {line,[{location,"build/src/v_priv_rng.erl",106}]}.
     {call,1,{f,10}}. % sign/1
     {'%',{var_info,{x,0},[{type,{t_integer,{-1,1}}}]}}.
     {swap,{y,1},{x,0}}.
@@ -153,7 +153,7 @@
 
 {function, part_two, 1, 20}.
   {label,19}.
-    {line,[{location,"build/src/v_priv_rng.erl",96}]}.
+    {line,[{location,"build/src/v_priv_rng.erl",109}]}.
     {func_info,{atom,v_priv_rng},{atom,part_two},1}.
   {label,20}.
     {move,{integer,0},{x,2}}.

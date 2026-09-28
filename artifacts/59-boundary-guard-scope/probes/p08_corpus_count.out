@@ -1,4 +1,16 @@
-160 .bs files, 42 distinct record names, 349 signatures matched
+160 .bs files, 42 distinct record names
            functions  >=1 record param  >=1 int param  >=1 float param
-public           161                32             36                2
-private          188                30             71                0
+public           233                42             76                2
+private          109                20             30                0
+
+sample of classified signature lines (for hand-checking):
+  public   aoc/2019/Day01/day01.bs                | public int Sum(list<int> masses)
+  private  aoc/2019/Day01/day01.bs                | private int TotalAll(list<int> masses, int acc)
+  private  aoc/2025/Day01/day01.bs                | private int Wrap(int n)
+  private  aoc/2025/Day01/day01.bs                | private int Ends(list<int> rotations, int pos, int zeros)
+  private  aoc/2025/Day01/day01.bs                | private int Clicks(list<int> rotations, int pos, int zeros)
+  public   sidual-switch/SwitchArms/SwitchArms.bs | public atom Which(Doc d)
+  public   ler/bin/fixtures/residual/Atom/Atom.bs | public atom Name(Colour c)
+  private  bin/fixtures/residual/BinTag/BinTag.bs | private atom Classify(Octet t)
+  public   fixtures/residual/Interval/Interval.bs | public atom Big(Octet n)
+  public   ompiler/bin/fixtures/wire/Bare/Bare.bs | public int Double(int n, int k)
