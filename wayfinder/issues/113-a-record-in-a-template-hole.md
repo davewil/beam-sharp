@@ -39,7 +39,7 @@ record Money { Pence: int }
 record Order { Id: int, Customer: string, Total: Money }
 
 implements Printable for Money {
-    string ToString(Money m) -> $"£{m.Pence / 100}.{Pad(m.Pence % 100)}"
+    ToString(Money m) -> $"£{m.Pence / 100}.{Pad(m.Pence % 100)}"
 }
 
 private string Pad(int p)
@@ -63,7 +63,7 @@ record and the declaration it lacks:
 ```
 Billing/Billing.bs:17:43: error: Line puts a Money in a template hole, and Money cannot print
   a hole takes string, int, float, an atom, or a record whose module implements Printable:
-    implements Printable for Money { string ToString(Money m) -> ... }
+    implements Printable for Money { ToString(Money m) -> ... }
 ```
 
 (That wording is proposed; nothing prints it yet.) A hand-written tagged member, `{ Kind: :placed,
@@ -117,7 +117,7 @@ name. That leaves only the name.
 
 ```csharp
 implements Formattable for Money {
-    string ToString(Money m) -> $"£{m.Pence / 100}.{Pad(m.Pence % 100)}"
+    ToString(Money m) -> $"£{m.Pence / 100}.{Pad(m.Pence % 100)}"
 }
 
 // in a template, the hole calls it:     $"Total: {o.Total}"
@@ -169,6 +169,12 @@ specifiers somewhere to go.
 
 - `Inspect`, a debugging representation of any value, which 99 Q5 also held back.
 - Format specifiers inside a hole (`{o.Total:F2}`), which are fog on the map since 112.
+
+**Corrected 2026-09-28, the same day:** this ticket's examples first wrote the implementation as
+`string ToString(Money m) -> …`, a signature and a clause on one line. [91](91-a-user-declared-behaviour.md)
+Q2 fixed the spelling: an `implements` block holds clauses only, and the protocol's declaration
+supplies the signature, `string ToString(Self s)`. The examples now read `ToString(Money m) -> …`.
+The decision is unchanged.
 
 ## Decisions entry
 
