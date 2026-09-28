@@ -359,13 +359,14 @@ built(Path, {Sev, Line, Fn,
                                got => Got, declared => Have};
 built(Path, {Sev, Line, Fn, {duplicate_field, Key}}) ->
     (at(Sev, Path, Line, Fn))#{tag => duplicate_field, field => Key};
-%% Ticket 111: `members` is every member in the type's order, as text;
-%% `records` is the subset constructible by its own name.
+%% Ticket 111: `members` is every member as text, map members first; `records`
+%% are built by their own name, `shapes` by a bare brace.
 built(Path, {Sev, Line, Fn, {construct_union, Name, Members}}) ->
     (at(Sev, Path, Line, Fn))#{tag => construct_union,
                                type => Name,
                                members => [Text || {_, Text} <- Members],
-                               records => [Text || {record, Text} <- Members]};
+                               records => [Text || {record, Text} <- Members],
+                               shapes => [Text || {shape, Text} <- Members]};
 built(Path, {Sev, Line, Fn, {view_constructed, Name}}) ->
     (at(Sev, Path, Line, Fn))#{tag => view_constructed, view => Name};
 built(Path, {Sev, Line, Fn, {unknown_record, Name}}) ->
@@ -1270,25 +1271,25 @@ message(#{tag := duplicate_field, file := P, line := L, column := C, function :=
      [P, L, C, Fn, Key]};
 %% Ticket 111: the name before `{` stands for one member. The repair differs by
 %% member: a record is built by its own name, a map member with no record name
-%% by a bare brace (its printed shape starts `{`); a non-map part needs neither.
+%% by a bare brace; any other part needs neither, so it gets no line.
 message(#{tag := construct_union, file := P, line := L, column := C, function := Fn,
-          type := Name, members := Members, records := Records}) ->
-    Named = case Records of
-                [R | _] ->
-                    io_lib:format("  construct the member you mean by its own name, "
-                                  "e.g. `~s { ... }`.~n", [R]);
-                [] -> ""
-            end,
-    Braced = case [M || M <- Members, not lists:member(M, Records),
-                        hd(M) =:= ${] of
-                 [] -> "";
-                 _  -> "  build a member with no record name with a bare brace, "
-                       "`{ ... }`,~n  which is checked against the type the site expects.~n"
-             end,
+          type := Name, members := Members, records := Records, shapes := Shapes}) ->
+    {NamedFmt, NamedArgs} =
+        case Records of
+            [R | _] -> {"  construct the member you mean by its own name, "
+                        "e.g. `~s { ... }`.~n", [R]};
+            []      -> {"", []}
+        end,
+    BracedFmt =
+        case Shapes of
+            [] -> "";
+            _  -> "  build a member with no record name with a bare brace, `{ ... }`,~n"
+                  "  which is checked against the type the site expects.~n"
+        end,
     {"~s:~p:~p: error: ~s constructs ~s, which names more than one member~n"
-     "  ~s is one of:~n~s~s" ++ Braced,
-     [P, L, C, Fn, Name, Name, [io_lib:format("    ~s~n", [M]) || M <- Members],
-      Named]};
+     "  ~s is one of:~n" ++ lists:append(["    ~s~n" || _ <- Members])
+     ++ NamedFmt ++ BracedFmt,
+     [P, L, C, Fn, Name, Name] ++ Members ++ NamedArgs};
 %% F60: a view names a message OTP sends; a program matches it and never builds one.
 message(#{tag := view_constructed, file := P, line := L, column := C, function := Fn,
           view := Name}) ->

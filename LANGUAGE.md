@@ -1390,7 +1390,11 @@ Bump(n) -> n with { Total = 1 }
   is the one place the surface makes an erasure detail load-bearing. It is the escape hatch, not the
   idiom, and nothing the language ships is written in it.
 - **A construction names one member.** `Order { … }` is checked against the fields `Order`
-  declares, and a name that stands for a union is refused, as shown above.
+  declares, and a name that stands for a union is refused, as shown above. Two single-member
+  names are not checked yet: an open field set (`type O = { Kind: :o, Id: string, .. }`) and a
+  name that is not a map at all (`type N = int`) both build a map from whatever fields are written.
+  <!-- measured 2026-09-28 by the ENG-493 review; open on ENG-381 -->
+
 
 **A brace with no type name in front builds a field set.** `{ Status = 200, Body = :ok }` is the
 map `#{'Status' => 200, 'Body' => ok}`, with no `Kind`, so it is never a record, even one with the

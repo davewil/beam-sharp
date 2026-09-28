@@ -147,6 +147,14 @@ checked against the type its site expects.
   the type. `LANGUAGE.md` gains a `diagnoses: construct_union` block, seen red first.
 - `bs_emit` is untouched. The refused program never reaches `expr({e_record, …})`.
 
+**As built (ENG-493, 2026-09-28).** A1 says a name stands for exactly one member, and the build
+counts every member: map members, a `map<K, V>` member, and each non-map part. So
+`type MaybeDoc = Invoice | :none` and `type N = int | :none` are refused too. That goes past the
+delta's *"more than one map member"*, and the review of the build measured the narrower reading
+building a wrong value in each of these cases (`option<Invoice>` built
+`{Kind = :'Opt.MaybeDoc', …}`). Two members that share a tag would print alike by tag, so they
+print in full.
+
 ## Not decided here
 
 - [ENG-381](https://linear.app/davewil/issue/ENG-381): construction over an **untagged**

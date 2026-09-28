@@ -3028,8 +3028,7 @@ record_construction(L, Name, Fields, S, C) ->
             end
     end.
 
-%% The name before `{` stands for exactly one member (ticket 111); a union has
-%% no one field set and no one tag, so its construction is refused above.
+%% A construction's fields against the one member its name stands for.
 record_fields_checked(L, Name, Fields, Tys, Ty, D, C) ->
     case declared_fields(Ty) of
         unknown -> {Ty, D};
@@ -3047,9 +3046,10 @@ record_fields_checked(L, Name, Fields, Tys, Ty, D, C) ->
             end
     end.
 
-%% The members a construction's name stands for, as `{record, Name}` or
-%% `{shape, Text}`: a map member by its record name, else by its shape, as
-%% `with` names them (ticket 109), and any non-map part as one printed shape.
+%% The members a construction's name stands for, as `{record, Name}`,
+%% `{shape, Text}` for a map member with no record name, or `{part, Text}` for
+%% anything else, map members first. A map member is named as `with` names one
+%% (ticket 109); two members that would print alike print in full instead.
 construct_members(#{mu := _} = T) ->
     construct_members(bs_types:unfold(T));
 construct_members(T) ->
@@ -3058,12 +3058,22 @@ construct_members(T) ->
                _                              -> []
            end,
     Rest = bs_types:subtract(T, (bs_types:none())#{maps => Maps}),
-    [case record_name(M) of
-         unknown -> {shape, lists:flatten(bs_types:to_pattern(M))};
-         RName   -> {record, atom_to_list(RName)}
-     end || M <- member_types(Maps)]
-    ++ [{shape, lists:flatten(bs_types:to_pattern(Rest))}
-        || not bs_types:is_none(Rest)].
+    Entries = [construct_member((bs_types:none())#{maps => [M]}, M) || M <- Maps]
+              ++ [{part, P, none} || not bs_types:is_none(Rest),
+                                     P <- bs_types:pattern_parts(Rest)],
+    Texts = [Text || {_, Text, _} <- Entries],
+    [case Kind =:= shape andalso length([X || X <- Texts, X =:= Text]) > 1 of
+         true  -> {shape, bs_types:to_string(MTy)};
+         false -> {Kind, Text}
+     end || {Kind, Text, MTy} <- Entries].
+
+construct_member(MTy, {dom, _, _}) ->
+    {part, lists:flatten(bs_types:to_pattern(MTy)), MTy};
+construct_member(MTy, _) ->
+    case record_name(MTy) of
+        unknown -> {shape, member_label(MTy), MTy};
+        Name    -> {record, atom_to_list(Name), MTy}
+    end.
 
 %% Updates preserve the base type and check values against declared fields.
 %% Every base member must carry each updated key; unions are checked per

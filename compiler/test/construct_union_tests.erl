@@ -108,6 +108,50 @@ a_union_with_an_atom_member_is_refused_test() ->
     has(Got, "    Invoice\n"),
     has(Got, "    :none\n").
 
+%% Every member counts, whatever its kind: a `map<K, V>` member is one, and so
+%% is each non-map part, so two of them are a union with no map in it.
+a_dictionary_member_counts_test() ->
+    Got = refused("dict.bs",
+                  "module Dict\n"
+                  "record Invoice { Id: string }\n"
+                  "type Doc = Invoice | map<string, int>\n"
+                  "public Doc Make(string id)\n"
+                  "Make(id) -> Doc { Id = id }\n"),
+    has(Got, "    Invoice\n"),
+    has(Got, "    map<string, int>\n").
+
+two_non_map_parts_are_two_members_test() ->
+    Got = refused("parts.bs",
+                  "module Parts\n"
+                  "type N = int | :none\n"
+                  "public N Make(int x)\n"
+                  "Make(x) -> N { X = x }\n"),
+    has(Got, "Make constructs N, which names more than one member"),
+    has(Got, "    :none\n"),
+    has(Got, "    int\n"),
+    ?assertEqual(nomatch, string:find(Got, "bare brace")).
+
+%% A recursive union is unfolded before its members are counted.
+a_recursive_union_is_refused_test() ->
+    Got = refused("tree.bs",
+                  "module Tree\n"
+                  "type Tree = { Kind: :leaf } | { Kind: :node, Left: Tree, Right: Tree }\n"
+                  "public Tree Make(int x)\n"
+                  "Make(x) -> Tree { Kind = :leaf }\n"),
+    has(Got, "Make constructs Tree, which names more than one member"),
+    has(Got, "    { Kind: :leaf }\n").
+
+%% Two members sharing a tag would print alike by tag, so they print in full.
+members_sharing_a_tag_print_in_full_test() ->
+    Got = refused("same.bs",
+                  "module Same\n"
+                  "type T = { Kind: :a, X: int } | { Kind: :a, X: string }\n"
+                  "public T Make(int x)\n"
+                  "Make(x) -> T { Kind = :a, X = x }\n"),
+    ?assertEqual(nomatch, string:find(Got, "    { Kind: :a }\n")),
+    has(Got, "X: int"),
+    has(Got, "X: string").
+
 %% A construction nested in a field value is checked where it stands.
 a_nested_construction_is_refused_test() ->
     Got = refused("nested.bs",
@@ -126,7 +170,20 @@ the_json_channel_carries_the_members_test() ->
     ?assertMatch(#{<<"tag">> := <<"construct_union">>,
                    <<"severity">> := <<"error">>,
                    <<"type">> := <<"Doc">>,
-                   <<"members">> := [<<"Invoice">>, <<"Receipt">>]}, Object).
+                   <<"members">> := [<<"Invoice">>, <<"Receipt">>],
+                   <<"records">> := [<<"Invoice">>, <<"Receipt">>],
+                   <<"shapes">> := []}, Object).
+
+%% A hand-written member is a shape: built by a bare brace, not by a name.
+the_json_channel_tells_records_from_shapes_test() ->
+    [Object] = objects("mixed.bs",
+                       "module Mixed\n"
+                       "record Invoice { Id: string }\n"
+                       "type Doc = Invoice | { Kind: :refund, Id: string }\n"
+                       "public Doc Make(string id)\n"
+                       "Make(id) -> Doc { Id = id }\n"),
+    ?assertMatch(#{<<"records">> := [<<"Invoice">>],
+                   <<"shapes">> := [<<"{ Kind: :refund }">>]}, Object).
 
 %%% Green controls: the repairs, and a name that stands for one member.
 
