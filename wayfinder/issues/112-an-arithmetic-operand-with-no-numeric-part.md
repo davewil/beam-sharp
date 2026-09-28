@@ -1,4 +1,4 @@
-# 112 — May an arithmetic operand have no numeric part?
+# 112 — How does B# build a string? Template strings, and what `+` takes
 
 Type: grilling
 Status: claimed — [ENG-555](https://linear.app/davewil/issue/ENG-555). Raised 2026-09-28 out of
@@ -50,9 +50,15 @@ the program compiles, then crashes: `crashed: error:badarith`. The rest compile 
 | `Both(list<int> a, list<int> b) -> a - b` | compiles |
 | `Big(s) when s + 1 > 3 -> :big` over `string s` | compiles; the guard is silently false |
 
-## Round 1
+## Round 1 (asked 2026-09-28, reframed before it was answered)
 
-**Q1. Is an operand of `+ - * / %` with no `int` or `float` part refused?**
+David, on reading it: *"I think the issue we're looking at here is how 'template' strings are
+implemented. Take a look at Erlang/Elixir/Gleam/C#/TS for inspiration."* The survey is
+[research 112](../research/112-template-strings.md). Round 1's question is kept below as asked. It
+comes back as Round 3's Q4, because its only contested case, `string`, turns on whether
+B# has another way to join strings.
+
+**Q1 (not answered). Is an operand of `+ - * / %` with no `int` or `float` part refused?**
 
 Under **yes**, `ModelKey` is refused at the operator, naming the operand and its type. The wording
 is proposed; nothing prints it yet:
@@ -97,15 +103,95 @@ whose operands have no numeric part.
   exists to prevent. And today the compiler's own advice leads an author into that crash.
 - Nothing that runs today stops compiling.
 
-## Next, depending on Q1
+## Round 2
 
-- **Does `+` join two strings, as C#'s does?** This asks for `string` to be the one non-numeric
-  operand `+` accepts. It only arises once Q1 has said whether a non-numeric operand is refused at
-  all. Today the only planned way to join strings is ticket 96's `List.Join` row (ENG-454, unbuilt).
+The survey's finding ([research 112](../research/112-template-strings.md), *Comparison*): all five
+languages build a template string by flat concatenation, and on the BEAM Elixir's `"#{x}"` and
+Gleam's `<>` both lower to one binary construction. Erlang has no interpolation (EEP 62's pull
+request stalled on 2023-09-13), and neither has Gleam (issue 1473 closed, to "see how far we get
+with `<>`"). C# has `$"…{x}…"`, whose braces are also C#'s block and initialiser braces, as B#'s
+are. A literal brace is written `{{`. B# set `$` aside for exactly this form when the match token
+was chosen ([45](45-match-token.md)). Today `$` is not a token at all, and a `{` inside a string
+literal is an ordinary character, so the form is additive. Nothing that builds a string is built:
+`String.FromInt` ([97](97-conversions.md), ENG-462) and `List.Join` ([96](96-standard-environment-breadth.md),
+ENG-454) are both unbuilt, and binary construction ([90](90-building-a-binary.md)) is open.
+
+**Q2. Does B# build a string with C#'s `$"…{expr}…"`?**
+
+The Signalbox model key, written with one:
+
+```csharp
+module Evidence
+
+record ModelIdentity { Lab: string, Model: string, Harness: string }
+
+public string ModelKey(ModelIdentity id)
+ModelKey(id) -> $"{id.Lab}/{id.Model}/{id.Harness}"
+```
+
+Under **yes**, this compiles and `ModelKey` returns `"-/glm-5.2/opencode"`. It lowers to one
+binary construction, the form Elixir and Gleam emit (measured with `erlc`):
+
+```erlang
+'ModelKey'(Id) ->
+    <<(maps:get('Lab', Id))/binary, "/", (maps:get('Model', Id))/binary,
+      "/", (maps:get('Harness', Id))/binary>>.
+```
+
+Every hole in this program is a `string`. Joining valid UTF-8 gives valid UTF-8, so the result is
+a `string` with no run-time check. A hole that is not a binary makes that construction crash with
+`badarg` (measured), so the checker proves each hole's type before emitting it. Which types a hole
+takes is Round 3's Q3. Until then this answer gives `string` holes only, the position Gleam's 2022
+plan took.
+
+Under **no**, `$` stays unused and this line is a syntax error. The key is written
+`List.Join([id.Lab, id.Model, id.Harness], "/")` once ENG-454 builds that row. Nothing compiles
+today.
+
+**The compiler delta under *yes*.**
+
+- **Lexer.** `$"` opens an interpolated string. Its text is scanned into literal segments and
+  holes: `{{` and `}}` are literal braces, `\` escapes are as in a plain string, and each hole's
+  source is lexed as tokens. A hole has to balance its braces and skip any string literal inside
+  it, which one `leex` regex cannot do, so the rule's action hands the text to a small scanner in
+  `bs_lexer.xrl`'s code section. The token is `{interp, Line, Parts}`.
+- **Parser.** `expr -> interp`. Each hole's tokens are parsed as an expression, which gives
+  `{e_interp, L, [{text, Bin} | {hole, Expr}]}`. The `yecc` conflict count is measured before and
+  after.
+- **Checker.** `type_of(e_interp)` checks each hole against `string` and answers `string`. The
+  pieces `with` and construction already use cover it: a hole is an obligation like a call
+  argument, and its residual prints the same way.
+- **Emitter.** One `{bin, L, …}`, with a text segment as a `/binary` literal and a hole as
+  `(Expr)/binary`.
+- **Editor.** tree-sitter needs an external scanner for the holes, as its JavaScript grammar has
+  for template literals. Also highlighting in the three editors.
+- **Docs and tests.** A `LANGUAGE.md` §4 block and CLI tests: the Signalbox key, a literal brace, a
+  refused `int` hole, and a hole in a guard, if Round 3 admits one.
+
+➡️ **Recommended: yes.** It is C#'s own form, so it passes the borrow heuristic's first step
+without inventing anything. B# reserved the `$` for it. On the BEAM it costs one binary
+construction, the same code Elixir and Gleam emit. It is also the one place a string gets built
+where a reader sees the result's shape, which `List.Join` does not show.
+
+## Round 3, after Q2 (not asked yet)
+
+These questions hang off Q2's answer and are recorded so their numbers do not collide:
+
+- **Q3. What does a hole take?** The survey shows four positions: `string` only (Gleam's plan),
+  a conversion written per hole (`io_lib`'s `~s` or `~p`, EEP 62), an implicit protocol that a type
+  may lack (Elixir: a warning, then a crash), or an implicit conversion every value has (C#,
+  JS). Ticket 97 spelled every conversion `String.FromX`, and 16 refused implicit ad-hoc
+  conversion.
+- **Q4. Round 1's Q1, asked again.** Is an operand of `+ - * / %` with no numeric part refused? If Q2 is
+  *yes*, then `+` does not need to join strings: C# emits the same `String.Concat` for `a + "/" + b`
+  and for `$"{a}/{b}"` (research 112, *Whether `+` concatenates*).
+- **Fog.** Whether a template may be a pattern (`$"order-{rest}"`, the BEAM's literal-prefix match),
+  format specifiers (`{x:F2}`), and an iodata builder (25e's `Iodata`). None of these is sharp
+  until Q2 and Q3 are answered.
 
 ## Not decided here
 
 - **An operand with a numeric part and another part**, `int | :none` or `term`. It compiles today,
-  and [83](83-a-union-operand-at-an-operator.md) scoped it out. Q1 is about an operand with *no*
+  and [83](83-a-union-operand-at-an-operator.md) scoped it out. Q1 and Q4 are about an operand with *no*
   numeric part.
 - **Comparison operators.** `<` over two strings is the BEAM's term order and does not crash.
