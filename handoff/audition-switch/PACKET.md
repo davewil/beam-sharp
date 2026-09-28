@@ -132,7 +132,7 @@ public atom Direction(Message message) {
 ```
 
 The comma is not decoration. A body has no terminator, and a bound name followed by `(` is a call
-of the function it holds (§9, *A function as a value*), so `(0) -> n` directly above `(1) -> 2` would read as `n(1)`. Leave
+of the function it holds (§9, *A function as a value*), so `(0, n) -> n` directly above `(1, n) -> 2` would read as `n(1, n)`. Leave
 out a case and the diagnostic prints the arm to paste before the `}`, `(Stop s) -> ...`, rather than
 a named head.
 

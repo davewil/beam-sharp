@@ -84,7 +84,7 @@ decl -> clause      : '$1'.
 %% A `clause_block` marker records the arms' positions, which is how the
 %% checker refuses a named clause beside a block and prints arms for one.
 %% Commas separate the arms because a body has no terminator: without one,
-%% `(0) -> n` above `(1) -> 2` reads as the call `n(1)` (F46), measured.
+%% `(0, n) -> n` above `(1, n) -> 2` reads as the call `n(1, n)` (F46), measured.
 %% The only new conflict is `'{'` after a signature, shifted into the block;
 %% its rival reading, a signature with no clauses, is already refused.
 decl -> signature '{' block_clauses '}' : clause_block('$1', '$3').

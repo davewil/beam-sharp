@@ -114,20 +114,27 @@ the_block_form_has_the_named_forms_api_test() ->
     ?assertEqual(Named, api(block())).
 
 %% F63.3 — without a comma, a body ending in a bound name calls the next head.
-a_block_needs_a_comma_between_clauses_test() ->
-    Src = "module Pick\n"
-          "public int Pick(int n) {\n"
-          "    (0) -> n\n"
-          "    (1) -> 2\n"
-          "}\n",
-    ?assertMatch({error, {{4, _}, bs_parser, _}}, parse(Src)),
-    %% The same clauses with the comma parse, so the comma is the difference.
-    Commas = string:replace(Src, "(0) -> n\n", "(0) -> n,\n"),
-    ?assertMatch({ok, _}, parse(lists:flatten(Commas))).
+%% Each arm binds its own names: a signature's parameter names bind nothing.
+pick(Sep) ->
+    "module Pick\n"
+    "public int Pick(int k, int n) {\n"
+    "    (0, n) -> n" ++ Sep ++ "\n"
+    "    (1, n) -> 2" ++ Sep ++ "\n"
+    "    (k, n) -> k\n"
+    "}\n".
 
-parse(Src) ->
-    {ok, Toks, _} = bs_lexer:string(Src),
-    bs_parser:parse(Toks).
+a_block_needs_a_comma_between_clauses_test() ->
+    Without = cli("pick.bs", pick("")),
+    ?assert(string:find(Without, "pick.bs:4:") =/= nomatch),
+    ?assert(string:find(Without, "syntax error before: '->'") =/= nomatch),
+    ?assert(string:find(Without, "rc:1") =/= nomatch),
+    %% The same clauses with the comma compile and run: the comma is the
+    %% difference, and `n` stays a value rather than a call.
+    With = with_src("pick.bs", pick(","),
+                    fun(Path, Out) ->
+                            run_cli("-o " ++ Out ++ " " ++ Path ++ " Pick 0 42")
+                    end),
+    ?assert(string:find(With, "42\nrc:0") =/= nomatch).
 
 %% F63.4 — a missing case prints as the arm to paste, with no name.
 directions() ->
@@ -177,17 +184,22 @@ the_printed_arm_pastes_into_the_block_test() ->
                      ?assert(string:find(Again, "rc:0") =/= nomatch)
              end).
 
-%% F63.5 — a block is the whole of its function.
+%% F63.5 — a block is the whole of its function. The refusal points at the
+%% stray clause's own line, and it is the only thing reported.
 a_named_clause_beside_a_block_is_refused_test() ->
-    Src = directions() ++
-          "public atom Direction(Message m) {\n"
-          "    (Hello h) -> :hands,\n"
-          "    (Task t)  -> :brain\n"
-          "}\n"
-          "Direction(Stop s) -> :brain\n",
-    ?assertMatch([{error, _, 'Direction', {clause_outside_block, _}}], errors(Src)).
+    Got = cli("signal.bs", directions() ++
+                  "public atom Direction(Message m) {\n"
+                  "    (Hello h) -> :hands,\n"
+                  "    (Task t)  -> :brain\n"
+                  "}\n"
+                  "Direction(Stop s) -> :brain\n"),
+    ?assert(string:find(Got, "signal.bs:10:1: error: Direction is written as a clause block, "
+                             "so this clause is outside it") =/= nomatch),
+    ?assert(string:find(Got, "Move the clause inside the braces") =/= nomatch),
+    ?assertEqual(1, length(string:split(Got, "error:", all)) - 1),
+    ?assert(string:find(Got, "rc:1") =/= nomatch).
 
-%% F63.6 — another arity is another function.
+%% F63.6 — another arity is another function, and each keeps its own form.
 another_arity_beside_a_block_compiles_test() ->
     Src = directions() ++
           "public atom Direction(Message m) {\n"
@@ -197,7 +209,35 @@ another_arity_beside_a_block_compiles_test() ->
           "}\n"
           "public atom Direction(Message m, atom fallback)\n"
           "Direction(m, fallback) -> fallback\n",
-    ?assertMatch({ok, _, _}, check_only(Src)).
+    with_src("signal.bs", Src,
+             fun(Path, Out) ->
+                     One = run_cli("-o " ++ Out ++ " " ++ Path ++ " Direction "
+                                   "\"#{'Kind' => 'Signal.Stop', 'Id' => 1}\""),
+                     ?assert(string:find(One, ":brain\nrc:0") =/= nomatch),
+                     Two = run_cli("-o " ++ Out ++ " " ++ Path ++ " Direction "
+                                   "\"#{'Kind' => 'Signal.Stop', 'Id' => 1}\" :spare"),
+                     ?assert(string:find(Two, ":spare\nrc:0") =/= nomatch)
+             end).
+
+%% The brief's "identical exhaustiveness": an inexhaustive function is refused
+%% alike in both forms, naming the same missing case, as a head or as an arm.
+an_inexhaustive_function_is_refused_alike_in_both_forms_test() ->
+    Named = cli("signal.bs", directions() ++
+                    "public atom Direction(Message m)\n"
+                    "Direction(Hello h) -> :hands\n"
+                    "Direction(Task t)  -> :brain\n"),
+    Block = cli("signal.bs", directions() ++
+                    "public atom Direction(Message m) {\n"
+                    "    (Hello h) -> :hands,\n"
+                    "    (Task t)  -> :brain\n"
+                    "}\n"),
+    Missing = fun(Got) ->
+                      [string:trim(L) || L <- string:split(Got, "\n", all),
+                                         lists:suffix("-> ...", L)]
+              end,
+    ?assertEqual(["Direction(Stop s) -> ..."], Missing(Named)),
+    ?assertEqual(["(Stop s) -> ..."], Missing(Block)),
+    [?assert(string:find(G, "Direction is not exhaustive") =/= nomatch) || G <- [Named, Block]].
 
 %% F63.4 — the other diagnostics that print a clause to paste print arms too.
 cli(Name, Src) ->
@@ -243,12 +283,17 @@ a_numeric_union_in_a_block_advises_arms_test() ->
 %% far right as it can, and a switch carries commas of its own.
 a_comma_closes_a_lambda_or_a_switch_body_test() ->
     Src = "module Bodies\n"
+          "private int Apply(fn(int) -> int f, int v)\n"
+          "Apply(f, v) -> f(v)\n"
           "public int Go(int n) {\n"
-          "    (0) -> Apply((x) => x + 1, n),\n"
-          "    (1) -> n switch { 1 => 10, _ => 20 },\n"
-          "    (m) -> m\n"
+          "    (0)            -> Apply((x) => x + 1, 0),\n"
+          "    (k) when k < 5 -> k switch { 1 => 10, _ => 20 },\n"
+          "    (m)            -> m\n"
           "}\n",
-    {ok, Decls} = parse(Src),
-    ?assertEqual([{0}, {1}, {m}],
-                 [list_to_tuple([element(3, P) || P <- Ps])
-                  || {clause, _, 'Go', Ps, _, _} <- Decls]).
+    %% Each arm answers for itself, so none swallowed the next.
+    with_src("bodies.bs", Src,
+             fun(Path, Out) ->
+                     [?assert(string:find(run_cli("-o " ++ Out ++ " " ++ Path ++ " Go " ++ N),
+                                          Want ++ "\nrc:0") =/= nomatch)
+                      || {N, Want} <- [{"0", "1"}, {"1", "10"}, {"3", "20"}, {"7", "7"}]]
+             end).

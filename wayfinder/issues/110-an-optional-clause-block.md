@@ -55,15 +55,19 @@ and [75](75-a-function-as-a-value.md)'s call of a function held in a variable,
 scratch copy of `bs_parser.yrl` at `7b1ef96`, without separators:
 
 ```csharp
-public int Pick(int n) {
-    (0) -> n
-    (1) -> 2
-    (m) -> m
+public int Pick(int k, int n) {
+    (0, n) -> n
+    (1, n) -> 2
+    (k, n) -> k
 }
 ```
 
-fails with `syntax error before: '->'` on line 4. One token of lookahead reads `n (1)` as the call
-`n(1)`, and the `->` after it cannot continue an expression. `Direction` parses, because every body
+fails with `syntax error before: '->'` on line 4. One token of lookahead reads `n (1, n)` as the
+call `n(1, n)`, and the `->` after it cannot continue an expression. The scratch measurement used a
+one-parameter `Pick` whose `n` was unbound. A signature's parameter names bind nothing, so that
+program could not have compiled even with commas. F63's test measures the corrected program above
+through the real compiler: without commas it fails on line 4, and with them it runs, `Pick(0, 42)`
+returning 42. `Direction` parses, because every body
 there is an atom, so whether a clause parses would depend on how the clause *before* it ends. A
 body that ends in a bound name (`(Full f) -> f`) is the commonest body there is. yecc reports no new
 conflict for this: base already resolves `'('` after a lowercase name as a shift.
@@ -120,7 +124,7 @@ unchanged.
 - **A block is the whole of its function.** A function written as a block has no named clauses
   anywhere else in the file. The braces exist to tie the clauses to the signature, and a named
   clause for the same function outside them would undo that. Mixing the two forms for one
-  function is refused, naming the stray clause.
+  function is refused at the stray clause's own line.
 - **Diagnostics speak the form the author wrote.** A missing case in a block function prints as the
   arm to paste inside the block, `(Stop s) -> ...`, not as a named head that would then be refused
   as a stray clause. The arrow stays `->`, which is what separates a clause from a switch arm's `=>`.
@@ -165,7 +169,7 @@ declaration with its cases inside reads as what it is, one method.
   2026-09-28 from David's brief, amending [01](issues/01-sample-code.md) and
   [08](issues/08-head-and-guard-syntax.md): 08's drift mitigation assumed one function per file,
   and the corpus has eleven in one. The proposal had no separator, and that was measured to fail:
-  `(0) -> n` followed by `(1) -> 2` parses as the call `n(1)`
+  `(0, n) -> n` followed by `(1, n) -> 2` parses as the call `n(1, n)`
   ([75](issues/75-a-function-as-a-value.md)), so the comma `switch` already uses is required. A
   block is the whole of its function, so a named clause beside it is refused. Its diagnostics print
   arms, `(Stop s) -> ...`. It is sugar, so BEAM, exhaustiveness and the public API are unchanged. Not

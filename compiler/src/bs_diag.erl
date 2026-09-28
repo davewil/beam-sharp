@@ -8,7 +8,7 @@
 -module(bs_diag).
 
 -export([descriptor/2, format/1, message/1, emit/2, json/1, put_json/1]).
--export([channel/0, set_channel/1, contractual/0]).
+-export([channel/0, set_channel/1, contractual/0, prints_a_head/1]).
 
 %% Up to ?RESIDUAL_CASES cases print in full.
 -define(RESIDUAL_CASES, 3).
@@ -29,6 +29,14 @@ channel() ->
         undefined -> prose;
         Chan      -> Chan
     end.
+
+%% Tags whose message offers a clause to paste. For a function written as a
+%% clause block the checker hands these over as `in_block`, and they print arms
+%% (ticket 110). A new diagnostic that prints a head belongs here, or a block
+%% function would be offered a named head its own refusal rejects.
+prints_a_head(Tag) ->
+    lists:member(Tag, [inexhaustive, catch_all_over_closed, arg_not_accepted,
+                       numeric_union_operand]).
 
 %% Tags offering source to write have frozen payload shapes.
 contractual() ->
@@ -162,7 +170,10 @@ place(Desc) ->
     Desc.
 
 %% Ticket 110: a block function's heads are its arms, `(Stop s) -> ...`, so the
-%% same printers run with no name in front and the message keeps the name.
+%% same printers run with no name in front and the message keeps the name. The
+%% empty name is the whole mechanism: every head printer a `prints_a_head/1`
+%% tag reaches (`pasteable/3`, `caller_head/3`, `union_heads/2`) writes the
+%% name with `~s` straight before its `(`, so `''` leaves the arm.
 built(Path, {Sev, Line, Fn, {in_block, Payload}}) ->
     (built(Path, {Sev, Line, '', Payload}))#{function := Fn};
 built(Path, {Sev, Line, Fn, {inexhaustive, Residual, Names}}) ->

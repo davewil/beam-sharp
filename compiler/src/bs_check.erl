@@ -139,25 +139,26 @@ check_dir1(Sources, World, Expect) ->
 %% Raised function errors retain their source file. Pathless `check/2` callers
 %% receive bare tuples.
 check_file(undefined, Fns, Ctx) ->
-    [{undefined, in_form(F, D)} || F <- Fns, {_, Ds} <- [check_fn(F, Ctx)], D <- Ds];
+    [{undefined, as_block_arms(F, D)} || F <- Fns, {_, Ds} <- [check_fn(F, Ctx)], D <- Ds];
 check_file(Path, Fns, Ctx) ->
-    try [{Path, in_form(F, D)} || F <- Fns, {_, Ds} <- [check_fn(F, Ctx)], D <- Ds]
+    try [{Path, as_block_arms(F, D)} || F <- Fns, {_, Ds} <- [check_fn(F, Ctx)], D <- Ds]
     catch
         error:Reason when is_tuple(Reason), element(1, Reason) =/= in_file ->
             erlang:error({in_file, Path, Reason})
     end.
 
 %% Ticket 110: a diagnostic that prints a clause to paste prints an arm for a
-%% function written as a block. `bs_diag` renders `in_block` with the head name
-%% left out; every other diagnostic, and every internal note, passes through.
-in_form(#fn{block = none}, D) ->
+%% function written as a block. Which diagnostics print one is `bs_diag`'s to
+%% say; it renders `in_block` with the head name left out. Every other
+%% diagnostic, and every internal note, passes through.
+as_block_arms(#fn{block = none}, D) ->
     D;
-in_form(_F, {Sev, L, Fn, P}) when element(1, P) =:= inexhaustive;
-                                  element(1, P) =:= catch_all_over_closed;
-                                  element(1, P) =:= arg_not_accepted;
-                                  element(1, P) =:= numeric_union_operand ->
-    {Sev, L, Fn, {in_block, P}};
-in_form(_F, D) ->
+as_block_arms(_F, {Sev, L, Fn, P} = D) when is_tuple(P) ->
+    case bs_diag:prints_a_head(element(1, P)) of
+        true  -> {Sev, L, Fn, {in_block, P}};
+        false -> D
+    end;
+as_block_arms(_F, D) ->
     D.
 
 %%% Directory declarations
@@ -1682,8 +1683,9 @@ check_fn(F = #fn{name = Name, line = Line, params = Params, ret = Ret}, Ctx0) ->
     end.
 
 %% Ticket 110: a block is the whole of its function, so a named clause beside
-%% one is refused. It stays among the clauses, so the refusal is all that is
-%% reported rather than a cascade of coverage errors behind it.
+%% one is refused. It stays among the clauses, so coverage is judged as written
+%% and no inexhaustive error cascades from the refusal; a stray clause that
+%% could never match still draws its own `unreachable` warning, which is true.
 outside_block(#fn{block = none}) ->
     [];
 outside_block(#fn{name = Name, block = Arms, clauses = Clauses}) ->
