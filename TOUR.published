@@ -24,7 +24,17 @@
 # evidence here that is not self-reported.
 
 url       https://claude.ai/code/artifact/40f71cf4-d5d3-4b71-882c-ad73f630a03c
-sha256    99c4a7c0d52f08282d90a74affe303d7edd69a538dbb827e3074fdd6ee511d79
+sha256    4620a644bd477ab11deef504bc232ed0ee232de279166d6cd9bc7efbb740dcf6
+verified  2026-09-28 (for F63, the clause block, ENG-550) — chapter 1 gained a passage after
+          "Chapter 2 is why it has to." quoting `examples/Signalbox/signalbox.bs`'s eight-clause
+          `Direction` written as a braced block, with why the commas are required and that a
+          named clause beside a block is refused. The appendix gained `a clause block`, the row
+          `corpus_tests` added, and its own count moved from 64 to 65. Parts 1 to 3 were green and
+          part 4 red against the old stamp before the republish, and the live page (version 29)
+          was read back first: chapter 1 still ran from "Chapter 2 is why it has to." straight to
+          chapter 2 with no block in it, so it was confirmed stale rather than assumed, and the
+          read showed a plain render of TOUR.md with nothing saved into it independently.
+          Published as version 30 on the first attempt.
 verified  2026-09-21 (for F55, every type-position atom in the chunk, ENG-397) — chapter 15's
           closing paragraph said `ToExistingAtom` could not yet see an atom that appears only in a
           type, and the "Decided but not built" table carried the atom-chunk row F54 added that
