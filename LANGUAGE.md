@@ -1338,6 +1338,38 @@ A field assignment is also checked against the type the record declaration wrote
 holds at **both** spellings — `Order{ Total = :oops }` and `o with { Total = :oops }` are the same
 error, because they meet the same declaration.
 
+The name in front of the brace stands for **exactly one member**. A union has no single field set
+to check against, and its members' tags differ, so constructing one by the union's name is refused
+and the error lists the members:
+<!-- decided by ticket 111; built by ENG-493 -->
+
+<!-- diagnoses: construct_union -->
+```csharp
+record Invoice { Id: string, Amount: int }
+record Receipt { Id: string, Amount: int, PaidAt: int }
+type Doc = Invoice | Receipt
+
+public Doc Raise(string id, int amount)
+Raise(id, amount) -> Doc { Id = id, Amount = amount }
+```
+
+Construct the member you mean. A record is built by its own name, and a member with no record name
+by a bare brace (below), which is checked against the type the site expects:
+
+```csharp
+record Invoice { Id: string, Amount: int }
+record Receipt { Id: string, Amount: int, PaidAt: int }
+type Doc = Invoice | Receipt
+
+public Doc Raise(string id, int amount)
+Raise(id, amount) -> Invoice { Id = id, Amount = amount }
+
+type Event = { Kind: :placed, OrderId: string } | { Kind: :shipped, OrderId: string, Carrier: string }
+
+public Event Placed(string id)
+Placed(id) -> { Kind = :placed, OrderId = id }
+```
+
 The **subject** is checked before the fields are. `with` updates a record, so a value that may not
 carry the field — an `int`, a bare `term`, a union with one member short of it — is refused, and
 what is handed back is the member that lacks the field, the same residual the dot hands back when
@@ -1357,10 +1389,8 @@ Bump(n) -> n with { Total = 1 }
   but it hand-writes a **compiler-minted, fully-qualified tag atom** to say "this is a Circle", which
   is the one place the surface makes an erasure detail load-bearing. It is the escape hatch, not the
   idiom, and nothing the language ships is written in it.
-- **A construction site is not checked.** A record's field set is exact in the type algebra and
-  unpoliced where it is built, so a body can produce a map wearing an `Order` tag without
-  `Order`'s fields. The compiler checks five sites in a body, and a construction is not one of
-  them.
+- **A construction names one member.** `Order { … }` is checked against the fields `Order`
+  declares, and a name that stands for a union is refused, as shown above.
 
 **A brace with no type name in front builds a field set.** `{ Status = 200, Body = :ok }` is the
 map `#{'Status' => 200, 'Body' => ok}`, with no `Kind`, so it is never a record, even one with the

@@ -3019,22 +3019,51 @@ record_construction(L, Name, Fields, S, C) ->
         undefined ->
             {reported(), [{error, L, C#ctx.fname, {unknown_record, Name}} | D]};
         Ty ->
-            case declared_fields(Ty) of
-                unknown -> {Ty, D};
-                Declared ->
-                    Keys = [K || {K, _} <- Fields],
-                    case field_delta(Keys, Declared) of
-                        %% Check names first: undeclared keys have no type
-                        %% against which to check their values.
-                        {[], []} ->
-                            {Ty, field_value_diags(Keys, Tys, Ty, Name, L, C) ++ D};
-                        {Missing, Extra} ->
-                            {Ty, [{error, L, C#ctx.fname,
-                                   {field_set_mismatch, Name, construction,
-                                    Missing, Extra}} | D]}
-                    end
+            case construct_members(Ty) of
+                [_, _ | _] = Members ->
+                    {reported(), [{error, L, C#ctx.fname,
+                                   {construct_union, Name, Members}} | D]};
+                _ ->
+                    record_fields_checked(L, Name, Fields, Tys, Ty, D, C)
             end
     end.
+
+%% The name before `{` stands for exactly one member (ticket 111); a union has
+%% no one field set and no one tag, so its construction is refused above.
+record_fields_checked(L, Name, Fields, Tys, Ty, D, C) ->
+    case declared_fields(Ty) of
+        unknown -> {Ty, D};
+        Declared ->
+            Keys = [K || {K, _} <- Fields],
+            case field_delta(Keys, Declared) of
+                %% Check names first: undeclared keys have no type
+                %% against which to check their values.
+                {[], []} ->
+                    {Ty, field_value_diags(Keys, Tys, Ty, Name, L, C) ++ D};
+                {Missing, Extra} ->
+                    {Ty, [{error, L, C#ctx.fname,
+                           {field_set_mismatch, Name, construction,
+                            Missing, Extra}} | D]}
+            end
+    end.
+
+%% The members a construction's name stands for, as `{record, Name}` or
+%% `{shape, Text}`: a map member by its record name, else by its shape, as
+%% `with` names them (ticket 109), and any non-map part as one printed shape.
+construct_members(#{mu := _} = T) ->
+    construct_members(bs_types:unfold(T));
+construct_members(T) ->
+    Maps = case T of
+               #{maps := Ms} when is_list(Ms) -> Ms;
+               _                              -> []
+           end,
+    Rest = bs_types:subtract(T, (bs_types:none())#{maps => Maps}),
+    [case record_name(M) of
+         unknown -> {shape, lists:flatten(bs_types:to_pattern(M))};
+         RName   -> {record, atom_to_list(RName)}
+     end || M <- member_types(Maps)]
+    ++ [{shape, lists:flatten(bs_types:to_pattern(Rest))}
+        || not bs_types:is_none(Rest)].
 
 %% Updates preserve the base type and check values against declared fields.
 %% Every base member must carry each updated key; unions are checked per
