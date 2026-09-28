@@ -13,8 +13,9 @@
 -export([exports_of/1, exports_of/2, exports_of/3, private_of/1, types_of/3, hinted/2]).
 %% The emitter publishes polymorphic signatures under the erased environment.
 -export([polys_of/2, erased_env/2, type_source/1]).
-%% F64: which records implement a protocol, for a dependent's World entry.
--export([implements_of/3]).
+%% F64: which records implement a protocol, for a dependent's World entry, and
+%% whether a name is a protocol's, for `bs_diag`'s reserved-name wording.
+-export([implements_of/3, is_protocol/1]).
 %% The emitter shares type resolution and qualified record tags here.
 -export([resolve/2, qualified/2, record_fields/1, view_pattern/3]).
 %% The emitter subtracts clause-head guarantees from the declared refinement so
@@ -51,8 +52,9 @@
               %% Own type variables prevent codegen obligations over unresolved
               %% types.
               tvars = [],
-              %% F64: `{Protocol, Tag} => {Module, Elem}` for every record that
-              %% implements a protocol, here or in an imported module.
+              %% F64: `{Protocol, Tag} => {Module, Record, Elem, RecordType}`
+              %% for every record that implements a protocol, here or in an
+              %% imported module (`local_impls/3`).
               impls = #{}}).
 
 %%% Entry point
@@ -1093,6 +1095,12 @@ collapse_decl({type_refined, L, N, Base, _}, Env) ->
 collapse_decl({record_decl, L, N, Fields}, Env) ->
     lists:foreach(fun({field, F, T}) -> collapse_ty(T, Env, L, seg(root(N), F))
                   end, Fields);
+%% F64: a block's type arguments are declared types too; each path names the
+%% protocol parameter it binds. `implements_refused/1` has run, so `P` is known.
+collapse_decl({implements, L, P, TArgs, _For, _}, Env) ->
+    {TVars, _} = maps:get(P, protocol_table()),
+    lists:foreach(fun({TV, T}) -> collapse_ty(T, Env, L, lists:concat([P, "<", TV, ">"]))
+                  end, lists:zip(TVars, TArgs));
 collapse_decl(_, _Env) -> ok.
 
 %% `bs_diag` renders these dotted paths unchanged; tuple ordinals are 1-based.
@@ -1387,6 +1395,8 @@ protocol_table() ->
               {param, {t_fun, [{t_ref, 'TAcc'}, {t_ref, 'T'}], {t_ref, 'TAcc'}}, f}],
              {t_ref, 'TAcc'}}]}}.
 
+is_protocol(Name) -> maps:is_key(Name, protocol_table()).
+
 %% One export per implementing record: a module may implement a protocol for
 %% two records at different element types, and one merged function could be
 %% checked against neither.
@@ -1482,15 +1492,18 @@ desugar_implement(D) ->
 %% 99's `Reduce(k, a, f)` recurses and `Reduce` in value position is it too.
 %% Only call and name nodes are rewritten, so a walk over every term reaches
 %% them without naming the other node kinds. `R` holds `{Op, Arity}` keys for
-%% calls and bare `Op` keys for names, whose arity may not be written.
+%% calls and for names written with an arity, and bare `Op` keys for names
+%% written without one, so `Reduce/2` stays the module's own function.
 renamed({clause, L, N, Ps, G, B}, R) ->
     {clause, L, maps:get({N, length(Ps)}, R, N), Ps, renamed_calls(G, R),
      renamed_calls(B, R)}.
 
 renamed_calls({e_call, L, N, As}, R) ->
     {e_call, L, maps:get({N, length(As)}, R, N), renamed_calls(As, R)};
+renamed_calls({e_fname, L, N, unknown}, R) ->
+    {e_fname, L, maps:get(N, R, N), unknown};
 renamed_calls({e_fname, L, N, A}, R) ->
-    {e_fname, L, maps:get(N, R, N), A};
+    {e_fname, L, maps:get({N, A}, R, N), A};
 renamed_calls(T, R) when is_tuple(T) ->
     list_to_tuple(renamed_calls(tuple_to_list(T), R));
 renamed_calls(Xs, R) when is_list(Xs) ->

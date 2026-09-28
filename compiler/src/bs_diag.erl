@@ -1259,13 +1259,26 @@ message(#{tag := arity_not_declared, file := P, line := L, column := C, function
 %% Names the spellings still legal, because only the whole module name is taken
 %% and an author just refused needs to know `Shop.Collections.List` remains
 %% open.
+%% F64: a protocol's operations are not inlined; each call goes to the module
+%% of the record it is given, so the reason differs and the rule does not.
 message(#{tag := reserved_module_name, file := P, line := L, column := C, module := Mod}) ->
-    {"~s:~p:~p: error: `~s` is a reserved qualifier, so no module may be called it~n"
-     "  `~s.` names operations the compiler knows and inlines at the site;~n"
-     "  no beam ships for it and no `using` is ever written. The name is~n"
-     "  taken only as a WHOLE module name — `Shop.~s` is still legal, and~n"
-     "  so is any other path with `~s` as a segment.~n",
-     [P, L, C, Mod, Mod, Mod, Mod]};
+    case bs_check:is_protocol(Mod) of
+        true ->
+            {"~s:~p:~p: error: `~s` is a protocol, so no module may be called it~n"
+             "  `~s.` names the protocol's operations, and each call goes to the~n"
+             "  module of the record it is given, so a module of this name would~n"
+             "  never be reached. The name is taken only as a WHOLE module name —~n"
+             "  `Shop.~s` is still legal, and so is any other path with `~s`~n"
+             "  as a segment.~n",
+             [P, L, C, Mod, Mod, Mod, Mod]};
+        false ->
+            {"~s:~p:~p: error: `~s` is a reserved qualifier, so no module may be called it~n"
+             "  `~s.` names operations the compiler knows and inlines at the site;~n"
+             "  no beam ships for it and no `using` is ever written. The name is~n"
+             "  taken only as a WHOLE module name — `Shop.~s` is still legal, and~n"
+             "  so is any other path with `~s` as a segment.~n",
+             [P, L, C, Mod, Mod, Mod, Mod]}
+    end;
 %% `ambiguous_module`'s shape with a compiler-known claimant: both meanings
 %% named, the full path handed over as the fix.
 message(#{tag := reserved_qualifier_shadowed, file := P, line := L, column := C,

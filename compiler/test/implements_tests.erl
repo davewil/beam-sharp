@@ -331,7 +331,8 @@ a_module_named_for_a_protocol_is_refused_test() ->
                         "public int One()\n"
                         "One() -> 1\n"}]),
     bad_rc(Got),
-    has(Got, "Enumerable").
+    has(Got, "`Enumerable` is a protocol, so no module may be called it"),
+    lacks(Got, "inlines at the site").
 
 %% F64.20 — `--api` refuses what a compile refuses, and does not advise marking
 %% functions `public` in a module reached through a protocol.
@@ -403,6 +404,42 @@ the_operation_as_a_value_is_the_implementation_test() ->
     has(Got, "no signature is offered: the protocol declares this operation's"),
     lacks(Got, "nothing declares"),
     lacks(Got, "bs@").
+
+%% F64.23 — a block's type argument is a declared type, so the union checks a
+%% signature gets reach it, in a compile and in `--api` alike.
+an_absorbed_member_in_a_type_argument_is_refused_test() ->
+    Src = {"Ab.bs",
+           "module Ab\n"
+           "record Leaf { Value: atom }\n"
+           "implements Enumerable<atom | :ok> for Leaf {\n"
+           "    Reduce(Leaf l, acc, f) -> f(acc, l.Value)\n"
+           "}\n"
+           "public int Sum(Leaf l)\n"
+           "Sum(l) -> Enumerable.Reduce(l, 0, (a, v) => a + 1)\n"},
+    [begin
+         bad_rc(Got),
+         has(Got, "`:ok` is absorbed by `atom`"),
+         has(Got, "in Enumerable<T>")
+     end || Got <- [compile_set([Src]), api([Src])]].
+
+%% F64.24 — inside a block the operation's name is the implementation only at
+%% the operation's arity: `Reduce/2` is still the module's own function.
+a_written_arity_names_the_module_function_test() ->
+    Got = run([{"Fv.bs",
+                "module Fv\n"
+                "record Leaf { Value: int }\n"
+                "implements Enumerable<int> for Leaf {\n"
+                "    Reduce(Leaf l, acc, f) -> f(acc, Ap(Reduce/2, l.Value))\n"
+                "}\n"
+                "private int Reduce(int a, int b)\n"
+                "Reduce(a, b) -> a + b\n"
+                "private int Ap(fn(int, int) -> int g, int x)\n"
+                "Ap(g, x) -> g(x, x)\n"
+                "public int Demo()\n"
+                "Demo() -> Enumerable.Reduce(Leaf { Value = 5 }, 0, (a, v) => a + v)\n"}],
+              "Demo"),
+    ok_rc(Got),
+    has(Got, "10").
 
 flatten(Forms) -> lists:flatten([walk(F) || F <- Forms]).
 

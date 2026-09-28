@@ -1,6 +1,6 @@
 # F64 — `implements Enumerable<int> for Node { … }`: a record's own module implements a protocol
 
-**Status**      **in progress** — 25 tests in `implements_tests`; the first 13 seen red before the build, F64.13–14 red on the defect, and F64.15–22 red on the first cut where the review measured it; a
+**Status**      **in progress** — 27 tests in `implements_tests`; the first 13 seen red before the build, F64.13–14 red on the defect, F64.15–22 red on the first cut where the review measured it, and F64.19's wording and F64.23–24 red on the second cut where the second review did; a
                 must-compile block and a `diagnoses: protocol_not_implemented` block in
                 LANGUAGE.md §6, both seen red first
 **Implements**  [ticket 99](../../wayfinder/issues/99-protocols-revisited.md) Q1 and Q4, with the
@@ -23,7 +23,10 @@
                 [ENG-565](https://linear.app/davewil/issue/ENG-565), behind ENG-562; the
                 tree-sitter grammar for the block; `--api` listing a module's
                 implementations (its stdout contract is F17's), where today only
-                the empty-module message on stderr names them
+                the empty-module message on stderr names them; and advice written for
+                `Enumerable` alone — `protocol_type_args` and `protocol_not_implemented`
+                say *"where T is the type of the elements it folds"*, which a protocol
+                with no type parameter, such as `Formattable`, makes false
 
 ## The program
 
@@ -73,9 +76,19 @@ What the build read that no ticket spelled, for David to overrule:
 
 - `for` is now a keyword, as it is in C#. No `.bs` file in the repository used it as a name.
 - Inside a block, an operation's own name is the implementation, so a module function of the same
-  name and arity is not reachable from inside the block under that name.
+  name and arity is not reachable from inside the block under that name. A different written
+  arity still reaches the module's function (`Reduce/2`, F64.24). Outside the block the name is
+  the module's function, and nothing refuses a module function sharing the operation's name.
 - `implements_duplicate`, `implements_op_arity` and `protocol_type_args` refuse the malformed
   blocks the tickets did not list.
+- **The export is named per record: `'bs@Enumerable@Reduce@Node'/3`.** ENG-458 wrote
+  `'bs@Enumerable@Reduce'/3`, and ticket 113's delta, which ENG-565 builds from, writes
+  `bs@Formattable@ToString/1`; both predate this scheme. No B# program compiles or is refused
+  differently under either name, since `--api` and every diagnostic hide it; it is visible to
+  Erlang callers and stack traces, the outbound ABI that ticket 62 holds open. The one-name
+  alternative is buildable: check each block against its own signature, then emit the blocks'
+  clauses as one function, which a same-module union would reach by one remote call instead of
+  a `case`.
 
 ## Scenarios
 
@@ -99,7 +112,9 @@ What the build read that no ticket spelled, for David to overrule:
 | F64.16 | a recursive call with its arguments swapped, and a guard calling `Reduce` | refused, and neither diagnostic prints `bs@` |
 | F64.17 | a second block for one record; an operation of the wrong arity; `Enumerable.Reduce` over `term` | `a second time`; `takes 3 parameters, and this clause has 2`; `on term, which is no record that implements Enumerable` |
 | F64.18 | `implements Enumerable<int> for Shop.Leaf.Leaf`, ticket 99 Q4's own spelling | parses, and is refused as not a record this module declares |
-| F64.19 | `module Enumerable` | refused as a reserved module name |
+| F64.19 | `module Enumerable` | refused as a reserved module name, saying it is a protocol; the first cut gave a reserved qualifier's reason, *inlines at the site*, which a protocol call is not |
 | F64.20 | `bsc --api` over `implements Enumerable<Nope>`, and over the tree module | the first refused as a compile refuses it; the second names `Enumerable for Node` and does not advise marking functions `public` |
 | F64.21 | three of the new diagnostics on the term channel, in `--batch` and standalone | byte-identical (ENG-349's hazard; the keys are atoms no other module names) |
 | F64.22 | `Reduce` passed as a value inside the block, with a return that does not fit | the name is the implementation; the return refusal withholds a signature because the protocol declares it |
+| F64.23 | `implements Enumerable<atom \| :ok> for Leaf`, in a compile and in `--api` | refused: `` `:ok` is absorbed by `atom` `` in `Enumerable<T>`; the first cut compiled it and ran |
+| F64.24 | `Ap(Reduce/2, l.Value)` inside the block, beside a module function `Reduce/2` | compiles and returns `10`: a written arity other than the operation's names the module function; the first cut renamed it to the implementation and refused the call |
