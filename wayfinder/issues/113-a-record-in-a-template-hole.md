@@ -101,13 +101,51 @@ So the build waits on ENG-562 (templates) and ENG-458 (`implements`).
 C#'s `ToString` convenience without Elixir's run-time failure. It also keeps a value's printing in the value's
 own module, beside its declaration, which is where DDD keeps it.
 
-## Round 2, after Q1 (not asked yet)
+**A1 (David, 2026-09-28):** *"Yes."* A record fills a template hole when its own module implements
+the compiler-known printing protocol. A union is accepted when every member does. Anything else is
+refused at compile time, naming the missing `implements`. 99 Q5's *"`Enumerable` only"* is
+amended: the compiler ships two protocols.
 
-- **Q2. The protocol's name and its operation.** `Printable` / `ToString` is a placeholder. C#'s is
-  `object.ToString()`, and Elixir's is `String.Chars.to_string/1`. `String` is a reserved qualifier
-  (96), so `String.Chars` would need that looked at.
-- **Q3. Is `Printable.ToString(m)` callable directly**, as `Shape.Area(c)` is (91 Q2), so that a
-  value prints outside a template too?
+## Round 2
+
+Asked 2026-09-28. Round 1 held back a second question, whether the operation can be called
+directly, outside a template. That is already decided. 99's decisions entry calls a protocol's
+operation `Shape.Area(c)`, never `c.Area()`, so this one is called `Name.ToString(m)` whatever the
+name. That leaves only the name.
+
+**Q2. Is the protocol `Formattable`, with one operation, `ToString`?**
+
+```csharp
+implements Formattable for Money {
+    string ToString(Money m) -> $"£{m.Pence / 100}.{Pad(m.Pence % 100)}"
+}
+
+// in a template, the hole calls it:     $"Total: {o.Total}"
+// anywhere else, called as 99 spells it: Formattable.ToString(o.Total)
+```
+
+The name follows the route `Enumerable` took: .NET's `IEnumerable` without the `I`. In C#,
+`IFormattable` is the interface an interpolated hole consults. It carries `ToString(format,
+provider)`, the path a `{o.Total:F2}` format specifier takes ([research 112](../research/112-template-strings.md),
+C# §2). If format specifiers are ever decided (fog since 112), the name already fits them.
+`ToString` is C#'s own operation name.
+
+Under **no**, the protocol takes another name. The ones on record:
+
+- `Printable`, this ticket's placeholder;
+- `String.Chars`, Elixir's, which puts a protocol under `String`, a qualifier [96](96-standard-environment-breadth.md) reserved;
+- `Display`, Rust's;
+- `Show`, Haskell's.
+
+The compiler delta is the same under both answers. Only the protocol's name changes.
+
+One thing to check against: [97](97-conversions.md) spells a conversion `Target.FromSource`
+(`String.FromInt`). This operation is not one of 97's rows, a conversion between two named types.
+It is a protocol's operation, called by the protocol's name (99), as `Shape.Area` is. So
+`Formattable.ToString(m)` sits beside `String.FromInt(n)` without contradicting it.
+
+➡️ **Recommended: yes.** It is C#'s name, derived the way `Enumerable` was, and it leaves format
+specifiers somewhere to go.
 
 ## Not decided here
 
