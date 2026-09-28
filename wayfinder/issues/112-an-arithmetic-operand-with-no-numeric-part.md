@@ -260,7 +260,7 @@ Two builds. The refusal's advice names the template, so the refusal lands after 
 with it, never before. A refusal whose recommended form does not compile repeats the defect it
 exists to prevent.
 
-1. **The template** (Q2, Q3). A `$"` rule in the lexer, with a scanner for holes (braces balanced,
+1. **The template** (Q2, Q3), [ENG-562](https://linear.app/davewil/issue/ENG-562). A `$"` rule in the lexer, with a scanner for holes (braces balanced,
    string literals inside a hole skipped, `{{` and `}}` literal). `{e_interp, L, Parts}` in the
    parser, with the `yecc` conflict count measured before and after. `type_of` classifies each
    hole's type as one of the four parts in Q3's table, refuses any other with a new
@@ -311,6 +311,6 @@ iodata builder (25e's `Iodata`).
   [33](issues/33-body-check-site.md) §2's *"no sixth site"* no longer describe the operator, which
   [80](issues/80-does-an-int-flow-where-a-float-is-expected.md) and
   [83](issues/83-a-union-operand-at-an-operator.md) had already started checking. Not decided:
-  a template in a pattern, format specifiers, an iodata builder. Unbuilt: the template, then
-  [ENG-551](https://linear.app/davewil/issue/ENG-551).
+  a template in a pattern, format specifiers, an iodata builder. Unbuilt:
+  [ENG-562](https://linear.app/davewil/issue/ENG-562), then [ENG-551](https://linear.app/davewil/issue/ENG-551).
 ```
