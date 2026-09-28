@@ -1,7 +1,8 @@
 # 112 — How does B# build a string? Template strings, and what `+` takes
 
 Type: grilling
-Status: claimed — [ENG-555](https://linear.app/davewil/issue/ENG-555). Q2 answered 2026-09-28; round 3 open. Raised 2026-09-28 out of
+Status: resolved 2026-09-28 — [ENG-555](https://linear.app/davewil/issue/ENG-555). Three rounds in one
+day; round 1 was reframed by David before it was answered Raised 2026-09-28 out of
 [ENG-551](https://linear.app/davewil/issue/ENG-551)
 Blocked by: —
 
@@ -248,7 +249,36 @@ and `$"{a}/{b}"` emit the same `String.Concat` (research 112).
 
 ➡️ **Recommended: yes**, for Round 1's reasons, and now the refusal can name the repair.
 
-**Fog, after Q3.** Whether a template may be a pattern (`$"order-{rest}"`, the BEAM's
+**A3 and A4 (David, 2026-09-28):** *"yes"*, one word for the round, with yes recommended on both
+questions. A hole takes a `string`, an `int`, a `float` or an atom type as it stands, each lowered
+by the table under Q3, and any other type is refused. An operand of `+ - * / %` with no `int` or
+`float` part is refused, and for a string operand the refusal names a template.
+
+## The compiler delta, as decided
+
+Two builds. The refusal's advice names the template, so the refusal lands after the template or
+with it, never before. A refusal whose recommended form does not compile repeats the defect it
+exists to prevent.
+
+1. **The template** (Q2, Q3). A `$"` rule in the lexer, with a scanner for holes (braces balanced,
+   string literals inside a hole skipped, `{{` and `}}` literal). `{e_interp, L, Parts}` in the
+   parser, with the `yecc` conflict count measured before and after. `type_of` classifies each
+   hole's type as one of the four parts in Q3's table, refuses any other with a new
+   `interp_hole`, and answers `string`. The emitter builds one `{bin, …}` with each hole's
+   lowering. tree-sitter needs an external scanner, and the three editors need highlighting.
+   `LANGUAGE.md` §4 gets a must-compile block and a `diagnoses: interp_hole` block, and
+   CONTEXT.md's `string` entry and a new *template string* entry are updated.
+   **A consequence, not a decision:** a template whose holes are all `string` is a legal guard,
+   because binary construction is a guard expression. `integer_to_binary`, `float_to_binary` and
+   `atom_to_binary` are not guard BIFs (erlc: *"illegal guard expression"*, measured). So a
+   template with any other hole is refused in a guard, by the same rule that refuses any call
+   the BEAM will not run there.
+2. **The refusal** (Q4), [ENG-551](https://linear.app/davewil/issue/ENG-551). `non_numeric_operand`
+   in `op_result/5`, asked at both guard sites (`walk/6`, `arms/10`), with the round 1 delta
+   above. A string operand's advice names the template. [25](25-exemplar-programs.md) finding 5
+   and F5's *Out of scope* line are amended to point here.
+
+**Not decided here, after Q3.** Whether a template may be a pattern (`$"order-{rest}"`, the BEAM's
 literal-prefix match), format specifiers (`{o.Total:F2}`, C#'s alignment and format), and an
 iodata builder (25e's `Iodata`).
 
@@ -258,3 +288,29 @@ iodata builder (25e's `Iodata`).
   and [83](83-a-union-operand-at-an-operator.md) scoped it out. Q1 and Q4 are about an operand with *no*
   numeric part.
 - **Comparison operators.** `<` over two strings is the BEAM's term order and does not crash.
+
+## Decisions entry
+
+<!-- This ticket's entry. Read whole, here; the map (ENG-165) carries one line. -->
+
+```decisions-entry
+- [How does B# build a string?](issues/112-an-arithmetic-operand-with-no-numeric-part.md) —
+  **with C#'s template, `$"…{expr}…"`, lowered to one binary construction. A hole takes a `string`,
+  `int`, `float` or atom type as it stands, each printed by a total BIF chosen from its static
+  type, and refuses anything else. `+ - * / %` refuse an operand with no numeric part.** Raised
+  and resolved 2026-09-28 in three rounds, out of
+  [ENG-551](https://linear.app/davewil/issue/ENG-551). The Signalbox model key
+  `id.Lab + "/" + id.Model` compiled, was refused as *"returns int"*, and was offered a
+  `string | int` signature that compiled into a `badarith` crash. Round 1 asked about the refusal
+  alone. David reframed it as how template strings are built, and
+  [research 112](research/112-template-strings.md) found that all five surveyed languages build by
+  flat concatenation, with Elixir and Gleam emitting one binary construction on the BEAM. `$` had
+  been kept free for this since [45](issues/45-match-token.md). The hole table is fixed and read
+  from the type, like the operator table, so [16](issues/16-ad-hoc-polymorphism.md) is not
+  reopened. [25](issues/25-exemplar-programs.md) finding 5 (*"decided, not broken"*) and
+  [33](issues/33-body-check-site.md) §2's *"no sixth site"* no longer describe the operator, which
+  [80](issues/80-does-an-int-flow-where-a-float-is-expected.md) and
+  [83](issues/83-a-union-operand-at-an-operator.md) had already started checking. Not decided:
+  a template in a pattern, format specifiers, an iodata builder. Unbuilt: the template, then
+  [ENG-551](https://linear.app/davewil/issue/ENG-551).
+```

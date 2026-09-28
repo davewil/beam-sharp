@@ -181,9 +181,16 @@ _Avoid_: symbol, enum member, constant, tag
 
 **string**:
 `binary` refined by valid UTF-8, and the language's only opaque refinement. A literal is a `string`
-by construction, checked at compile time; a binary built or received at runtime becomes one only
-through the generated entry check. Distinct from a bare `binary`, which is bytes.
+by construction, checked at compile time, and so is a template string, whose pieces are strings or
+printed values. Any other binary built or received at runtime becomes one only through the
+generated entry check. Distinct from a bare `binary`, which is bytes.
 _Avoid_: text, char list, String, utf8 binary
+
+**Template string**:
+A `string` built from literal text and holes, written `$"Order {o.Id} for {o.Customer}"`. A hole
+holds an expression of type `string`, `int`, `float` or an atom type, printed as it stands; a
+literal brace is written `{{` or `}}`.
+_Avoid_: interpolation, format string, string builder, concatenation
 
 **float**:
 The BEAM's float, an eighth part of the type lattice, beside `int` and not inside it: `0` and
