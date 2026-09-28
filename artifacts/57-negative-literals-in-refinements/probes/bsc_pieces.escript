@@ -14,8 +14,6 @@
 main(_) ->
     B = filename:dirname(escript:script_name()) ++ "/build",
     true = code:add_patha(B), true = code:add_patha(filename:dirname(escript:script_name())),
-    {ok,_} = compile:file(filename:dirname(escript:script_name()) ++ "/lex_mini.erl",
-                          [{outdir, B}]), 
     Cases = [
      {"P1 >= -5", "type T = int where value >= -5"},
      {"P2a >= 0 and <= 5", "type T = int where value >= 0 and value <= 5"},

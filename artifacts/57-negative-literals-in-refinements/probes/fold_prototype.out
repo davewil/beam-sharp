@@ -24,10 +24,10 @@ F2  guards -5 halves
     neg_all     accepted
     arith_pred  accepted
 F3  return -1 into `value <= 0`
-    none        raised undef
-    neg_pred    raised undef
+    none        refused [{'F',return_not_declared}]
+    neg_pred    refused [{'F',return_not_declared}]
     neg_all     accepted
-    arith_pred  raised undef
+    arith_pred  refused [{'F',return_not_declared}]
 F3b return 0 (control)
     none        accepted
     neg_pred    accepted

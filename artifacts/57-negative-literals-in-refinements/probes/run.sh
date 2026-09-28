@@ -15,6 +15,7 @@ b=$here/build; rm -rf "$b"; mkdir -p "$b"; cd "$here"
 erl -noshell -eval 'io:format("~p~n",[yecc:file("'$repo'/compiler/src/bs_parser.yrl",[{parserfile,"'$b'/bs_parser.erl"},{report,false},{verbose,false}])]),halt().' > build.out 2>&1
 for f in bs_types bs_check bs_diag bs_emit bs_lower bs_otp; do erlc -o "$b" +debug_info "$repo/compiler/src/$f.erl" >> build.out 2>&1; done
 erlc -o "$b" "$b/bs_parser.erl" >> build.out 2>&1
+erlc -o "$b" "$here/lex_mini.erl" "$here/shim/bs_lexer.erl" "$here/foldmod.erl" >> build.out 2>&1
 for p in bsc_pieces; do escript $p.escript > $p.out 2>&1; done
 escript erlang_stages.escript > erlang_stages.out 2>&1
 elixir elixir_forms.exs > elixir_forms.out 2>&1

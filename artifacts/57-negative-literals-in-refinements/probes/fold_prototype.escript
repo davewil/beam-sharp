@@ -18,7 +18,7 @@
 main(_) ->
     D = filename:dirname(escript:script_name()),
     true = code:add_patha(D ++ "/build"),
-    {ok,_} = compile:file(D ++ "/lex_mini.erl", [{outdir, D ++ "/build"}]),
+
     Progs = [
       {"F1a refinement -5..5",  "type T = int where value >= -5 and value <= 5\n"},
       {"F1b refinement <=-1 | >=1", "type T = int where value >= 1 or value <= -1\n"},
